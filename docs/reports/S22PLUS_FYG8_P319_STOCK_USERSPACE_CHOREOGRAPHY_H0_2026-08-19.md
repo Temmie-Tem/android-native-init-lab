@@ -1,6 +1,7 @@
 # S22+ FYG8 P3.19 — the stock USB choreography, read from the firmware
 
-Status: `IMPLEMENTED_REVIEW_PENDING` for the whole report;
+Status: `IMPLEMENTED_REVIEW_PENDING` for the whole report and the corpus-semantic
+binding V3 successor;
 `PASS_GO_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V2_H0_CAPABILITY` for the exact
 candidate-PDIC probe-boundary V2 closure only.
 
@@ -3424,6 +3425,56 @@ another unit. The direction the evidence supports is to bind the manifest's
 opcode census — rather than its serialized bytes, because those are exactly the
 quantities that survived the drift while the bytes did not.
 
+## Semantic manifest binding: duplicate paths no longer rewrite authority
+
+The bounded V3 successor implements that choice without weakening the corpus
+gate. Both audits still stable-read the current generated manifest, require its
+strict schema, and re-enumerate every 2,097,136-byte file under
+`workspace/private`. The live file count, duplicate count, complete path lists
+and the set of distinct capture hashes must agree with that current manifest.
+A stale manifest or a new distinct capture therefore still fails closed.
+
+What is no longer made permanent authority is the manifest's particular JSON
+serialization. The two raw population fields `matching_files` and
+`duplicate_files_collapsed`, plus each `captures[].paths` list, are removed from
+a canonical semantic projection. Nothing else is removed. The projection still
+contains all 121 distinct capture SHA-256 identities, every per-capture
+classification, the ABL and boot-segment census, `SetPath`, BC/CONTROL1 and
+opcode counts, and the kernel-side marker/daemon/IRQ/notifier census. Its exact
+identity is 47,799 bytes/SHA-256
+`c1c75743fcdb06a3b3180e6a1d091a620969922ac2209d9169d21922a6d7b6a3`.
+Both the old 293-file manifest and the current 306-file manifest produce those
+same bytes.
+
+The positive regression adds a coherent duplicate path and increments both
+volatile counts; both V3 receipts remain byte-identical. The negative
+regressions change `abl_stages` or opcode `0x06`; each changes the projection
+and is rejected. Thus the repair permits exactly the drift that already proved
+semantically inert, rather than accepting arbitrary corpus growth.
+
+The IRQ/DT V3 successor is `20260820-06`, 16,818 bytes/SHA-256
+`48c389e4e9afe369238359c48baba3057680bd1d06bebe76fdd7f254591ef3c6`.
+Its source is 61,791 bytes/SHA-256 `34aa1778...`, and its focused suite is now
+16 tests. The PDIC probe-boundary V3 successor is `20260820-05`, 15,563
+bytes/SHA-256
+`7744d9e7c5d76148ad4038f59531dd686d6e8b3a1327e78206ae5c6ad4390025`.
+Its bound source is 55,113 bytes/SHA-256 `74b7ce5d...`, and its focused suite is
+now 17 tests. Both receipts are mode `0400`, link count one. The reviewed V2
+receipts `5c84bfc5...` and `cd3969eb...` remain preserved rather than
+overwritten.
+
+The two auditor suites plus this report and taxonomy pass 181/181. The complete
+P3.19 discovery passes 387/388: both manifest-coupling failures are gone, and
+the sole remaining failure is the pre-existing raw-first whole-tree inventory
+receipt at 1726 sources against the current 1724. Common Process-v2 passes
+122/122. That unrelated dynamic inventory failure is reported, not waived.
+
+This repair is `IMPLEMENTED_REVIEW_PENDING`. It changes only the H0 auditor
+authority projection, performs no device action, and grants no D0, D1, F1,
+recovery, replay or live authority. The Envelope-v5/Carrier unit remains next;
+this repair only removes an unrelated generated-manifest tripwire from its
+test path.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -3504,9 +3555,9 @@ AP/CP polarity, COM_USB value, water-guard polarity, additional water writer,
 common-MUIC default/formula and source-writer mutations.  This evidence is H0
 only and creates no device or live authority.
 
-The DT/nested-IRQ audit is
+The reviewed V2 DT/nested-IRQ predecessor is
 `workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py`,
-59974 bytes/SHA-256 `25ed0fa7...`. Twelve exact source/module/manifest inputs
+formerly 59974 bytes/SHA-256 `25ed0fa7...`. Twelve exact source/module/manifest inputs
 are snapshotted mode `0400`, link count one under the private mode-`0700` input
 directory; the 8 MiB stock DTBO and all current size-matching files under
 `workspace/private` are stable-read, deduplicated, and compared to the complete
@@ -3533,6 +3584,7 @@ Four predecessors remain preserved rather than overwritten. `20260820-01` is
 `0400`, link count one, and `20260820-04` is 15697 bytes/SHA-256 `fef955a4...`
 with the same metadata. The second added direct FDT phandle resolution. The
 third corrected the pre-write dump boundary. The fourth removed absolute IRQ,
-single-capture and ordered-token assumptions. The fifth additionally proves
-the manifest still equals the live private corpus and is the only current
-deterministic regeneration.
+single-capture and ordered-token assumptions. The fifth additionally proved
+the then-current manifest equalled the live private corpus. It remains reviewed
+historical evidence; the V3 semantic successor above is the current
+deterministic regeneration and awaits its own independent review.

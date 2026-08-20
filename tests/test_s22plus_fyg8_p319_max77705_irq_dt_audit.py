@@ -10,6 +10,7 @@ import stat
 import struct
 import sys
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 
@@ -48,14 +49,14 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         cls.module = load_module()
         cls.inputs = cls.module.load_inputs(materialize=False)
         cls.manifest = cls.module.parse_corpus_manifest(
-            cls.inputs["abl_capture_manifest"]
+            cls.module.load_corpus_manifest()
         )
         cls.corpus = cls.module.load_corpus(cls.manifest)
 
-    def build(self, inputs=None, corpus=None, *, enforce_identity=True):
+    def build(self, inputs=None, manifest=None, corpus=None, *, enforce_identity=True):
         return self.module.build_result(
             self.inputs if inputs is None else inputs,
-            self.manifest,
+            self.manifest if manifest is None else manifest,
             self.corpus if corpus is None else corpus,
             enforce_identity=enforce_identity,
         )
@@ -96,6 +97,34 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
                 "candidate_reached_pdic_probe_completion_and_unmask_proven"
             ]
         )
+
+    def test_duplicate_path_population_drift_does_not_change_authority(self):
+        changed = deepcopy(self.manifest)
+        changed["matching_files"] += 1
+        changed["duplicate_files_collapsed"] += 1
+        changed["captures"][0]["paths"].append(
+            "workspace/private/outputs/synthetic-duplicate/capture.bin"
+        )
+        reparsed = self.module.parse_corpus_manifest(
+            (json.dumps(changed, sort_keys=True) + "\n").encode()
+        )
+        self.assertEqual(
+            self.module.corpus_semantic_projection(reparsed),
+            self.module.corpus_semantic_projection(self.manifest),
+        )
+        self.assertEqual(
+            self.module.encode(self.build(manifest=reparsed)),
+            self.module.encode(self.build()),
+        )
+        self.assertNotIn("abl_capture_manifest", self.inputs)
+
+    def test_semantic_manifest_drift_is_rejected(self):
+        changed = deepcopy(self.manifest)
+        changed["counts"]["abl_stages"] += 1
+        with self.assertRaisesRegex(
+            self.module.AuditError, "semantic projection differs"
+        ):
+            self.build(manifest=changed)
 
     def test_selected_dt_gpio_cell_drift_is_rejected(self):
         original_image = self.inputs["stock_dtbo"]
@@ -272,10 +301,10 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         expected = self.module.encode(self.build())
         actual = self.module.OUTPUT.read_bytes()
         self.assertEqual(actual, expected)
-        self.assertEqual(len(actual), 15_697)
+        self.assertEqual(len(actual), 16_818)
         self.assertEqual(
             hashlib.sha256(actual).hexdigest(),
-            "5c84bfc5fe9307a856f4bf74dba2751be3f3bf575936bb33b6b3a242cbb12a3a",
+            "48c389e4e9afe369238359c48baba3057680bd1d06bebe76fdd7f254591ef3c6",
         )
         info = self.module.OUTPUT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -285,6 +314,10 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(self.module.SNAPSHOT_ROOT.stat().st_mode), 0o700)
         parsed = json.loads(actual)
         self.assertEqual(parsed["verdict"], self.module.VERDICT)
+        self.assertEqual(
+            parsed["corpus_manifest_semantics"]["semantic_projection"],
+            self.module.CORPUS_SEMANTIC_IDENTITY,
+        )
         self.assertEqual(hashlib.sha256(actual).hexdigest(), hashlib.sha256(expected).hexdigest())
         preserved = (
             (
@@ -306,6 +339,11 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
                 self.module.OUTPUT_V4,
                 15_697,
                 "fef955a4c744960183389f0d52fdf786e50d2a51d11ae0de1fc3ef3ffd4045a2",
+            ),
+            (
+                self.module.OUTPUT_V5,
+                15_697,
+                "5c84bfc5fe9307a856f4bf74dba2751be3f3bf575936bb33b6b3a242cbb12a3a",
             ),
         )
         for path, size, digest in preserved:

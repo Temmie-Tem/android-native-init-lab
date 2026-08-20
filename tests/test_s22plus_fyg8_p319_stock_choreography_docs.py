@@ -61,6 +61,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "An accounting correction: a review row is not a resolution",
         "Parser grammar input: the witness lines have four format strings, not two",
         "Review of the witness parser, and a coupling that will keep breaking audits",
+        "Semantic manifest binding: duplicate paths no longer rewrite authority",
         "What remains open",
         "Evidence",
     )
@@ -289,6 +290,43 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_records_the_semantic_manifest_successor(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "A stale manifest or a new distinct capture therefore still fails closed",
+            "`matching_files` and `duplicate_files_collapsed`",
+            "`captures[].paths`",
+            "47,799 bytes/SHA-256",
+            "Both the old 293-file manifest and the current 306-file manifest produce those same bytes",
+            "The positive regression adds a coherent duplicate path",
+            "16,818 bytes/SHA-256",
+            "15,563 bytes/SHA-256",
+            "The reviewed V2 receipts `5c84bfc5...` and `cd3969eb...` remain preserved",
+            "181/181",
+            "387/388",
+            "1726 sources against the current 1724",
+            "122/122",
+            "The Envelope-v5/Carrier unit remains next",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_ledger_opens_only_the_semantic_binding_review(self):
+        rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if " h0-corpus-manifest-semantic-binding-11 " in line
+        ]
+        self.assertEqual(len(rows), 1)
+        self.assertIn(
+            "P319_CORPUS_MANIFEST_SEMANTIC_BINDING_V3_IMPLEMENTED_REVIEW_PENDING",
+            rows[0],
+        )
+        self.assertIn("47,799-byte semantic projection", rows[0])
+        self.assertIn("48c389e4", rows[0])
+        self.assertIn("7744d9e7", rows[0])
+        self.assertIn("no D0/D1/F1", rows[0])
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (

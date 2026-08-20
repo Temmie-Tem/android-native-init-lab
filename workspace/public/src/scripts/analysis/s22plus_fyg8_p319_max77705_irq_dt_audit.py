@@ -41,12 +41,16 @@ OUTPUT_V4 = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
     "max77705-irq-dt-audit-20260820-04/result.json"
 )
-OUTPUT_ROOT = PRIVATE / "outputs/s22plus_fyg8_p319/max77705-irq-dt-audit-20260820-05"
+OUTPUT_V5 = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/"
+    "max77705-irq-dt-audit-20260820-05/result.json"
+)
+OUTPUT_ROOT = PRIVATE / "outputs/s22plus_fyg8_p319/max77705-irq-dt-audit-20260820-06"
 OUTPUT = OUTPUT_ROOT / "result.json"
-SNAPSHOT_ROOT = OUTPUT_ROOT / "inputs"
+SNAPSHOT_ROOT = OUTPUT_V5.parent / "inputs"
 
-SCHEMA = "s22plus-fyg8-p319-max77705-irq-dt-audit-v2"
-VERDICT = "PASS_P319_MAX77705_IRQ_DT_CORPUS_CHAIN_H0"
+SCHEMA = "s22plus-fyg8-p319-max77705-irq-dt-audit-v3"
+VERDICT = "PASS_P319_MAX77705_IRQ_DT_CORPUS_CHAIN_V3_H0"
 
 KERNEL = (
     PRIVATE
@@ -153,13 +157,11 @@ INPUTS: dict[str, InputSpec] = {
         KERNEL / "include/linux/sched.h",
         "sched.h",
     ),
-    "abl_capture_manifest": InputSpec(
-        107_997,
-        "aa2d19ea09d3317dcff9961ee51eec579d7e912f4b98115fa5bf7994fff16f90",
-        CORPUS_MANIFEST,
-        "abl-capture-manifest.json",
-        128 * 1024,
-    ),
+}
+
+CORPUS_SEMANTIC_IDENTITY = {
+    "size": 47_799,
+    "sha256": "c1c75743fcdb06a3b3180e6a1d091a620969922ac2209d9169d21922a6d7b6a3",
 }
 
 
@@ -270,6 +272,17 @@ def load_inputs(*, materialize: bool = True) -> dict[str, bytes]:
             raise AuditError(f"P3.19 exact input identity differs: {name}")
         loaded[name] = data
     return loaded
+
+
+def load_corpus_manifest() -> bytes:
+    data = _stable_read(
+        CORPUS_MANIFEST,
+        "P3.19 regenerable corpus manifest",
+        256 * 1024,
+    )
+    if CORPUS_MANIFEST.stat().st_nlink != 1:
+        raise AuditError("P3.19 corpus manifest link count differs")
+    return data
 
 
 MANIFEST_KEYS = {
@@ -399,6 +412,50 @@ def parse_corpus_manifest(data: bytes) -> dict[str, Any]:
             raise AuditError(f"capture manifest notifier tags differ: {index}")
         seen_hashes.add(digest)
     return manifest
+
+
+def corpus_semantic_projection(manifest: dict[str, Any]) -> bytes:
+    projection = {
+        key: manifest[key]
+        for key in sorted(MANIFEST_KEYS - {"matching_files", "duplicate_files_collapsed", "captures"})
+    }
+    projection["captures"] = [
+        {
+            key: capture[key]
+            for key in sorted(CAPTURE_KEYS - {"paths"})
+        }
+        for capture in sorted(manifest["captures"], key=lambda item: item["sha256"])
+    ]
+    return (
+        json.dumps(
+            projection,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def audit_corpus_manifest_semantics(manifest: dict[str, Any]) -> dict[str, Any]:
+    semantic = corpus_semantic_projection(manifest)
+    if receipt(semantic) != CORPUS_SEMANTIC_IDENTITY:
+        raise AuditError("P3.19 corpus semantic projection differs")
+    return {
+        "schema": manifest["schema"],
+        "semantic_projection": receipt(semantic),
+        "distinct_captures": manifest["distinct_captures"],
+        "counts": manifest["counts"],
+        "kernel_side": manifest["kernel_side"],
+        "muic_opcode_counts": manifest["muic_opcode_counts"],
+        "setpath_values_observed": manifest["setpath_values_observed"],
+        "regenerable_manifest_bytes_are_not_authority": True,
+        "volatile_population_fields_excluded": [
+            "matching_files",
+            "duplicate_files_collapsed",
+            "captures[].paths",
+        ],
+    }
 
 
 def load_corpus(manifest: dict[str, Any]) -> dict[str, bytes]:
@@ -1434,8 +1491,7 @@ def build_result(
 ) -> dict[str, Any]:
     if set(inputs) != set(INPUTS):
         raise AuditError("P3.19 input key set differs")
-    if manifest != parse_corpus_manifest(inputs["abl_capture_manifest"]):
-        raise AuditError("P3.19 parsed corpus manifest differs")
+    manifest_semantics = audit_corpus_manifest_semantics(manifest)
     identities = {}
     for name, data in sorted(inputs.items()):
         identities[name] = receipt(data)
@@ -1474,6 +1530,7 @@ def build_result(
             "live_authorized": False,
         },
         "inputs": identities,
+        "corpus_manifest_semantics": manifest_semantics,
         "dtbo": dt,
         "source_semantics": sources,
         "binary_semantics": {
@@ -1524,7 +1581,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--audit-only", action="store_true")
     args = parser.parse_args(argv)
     inputs = load_inputs(materialize=not args.audit_only)
-    manifest = parse_corpus_manifest(inputs["abl_capture_manifest"])
+    manifest = parse_corpus_manifest(load_corpus_manifest())
     corpus = load_corpus(manifest)
     data = encode(build_result(inputs, manifest, corpus))
     if args.audit_only:

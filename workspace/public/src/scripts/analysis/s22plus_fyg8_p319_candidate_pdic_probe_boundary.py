@@ -35,15 +35,19 @@ PRIVATE = ROOT / "workspace/private"
 IRQ_AUDIT_INPUTS = PRIVATE / (
     "outputs/s22plus_fyg8_p319/max77705-irq-dt-audit-20260820-05/inputs"
 )
-OUTPUT_ROOT = PRIVATE / (
+OUTPUT_V4_ROOT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/candidate-pdic-probe-boundary-20260820-04"
 )
+OUTPUT_V4 = OUTPUT_V4_ROOT / "result.json"
+OUTPUT_ROOT = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/candidate-pdic-probe-boundary-20260820-05"
+)
 OUTPUT = OUTPUT_ROOT / "result.json"
-INPUT_ROOT = OUTPUT_ROOT / "inputs"
+INPUT_ROOT = OUTPUT_V4_ROOT / "inputs"
 HISTORICAL_SOURCE = INPUT_ROOT / "s22plus_init_m34_runtime_gadget_split.c"
 
-SCHEMA = "s22plus-fyg8-p319-candidate-pdic-probe-boundary-v2"
-VERDICT = "PASS_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V2_H0"
+SCHEMA = "s22plus-fyg8-p319-candidate-pdic-probe-boundary-v3"
+VERDICT = "PASS_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V3_H0"
 HISTORICAL_COMMIT = "4df34885de6425b72789830d0d42d9d17f3ca1e2"
 HISTORICAL_SOURCE_PATH = (
     "workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c"
@@ -56,7 +60,7 @@ S7A2_GATE = ROOT / (
     "workspace/public/src/scripts/revalidation/"
     "s22plus_m34_s7a2_geni_i2c_live_gate.py"
 )
-CORPUS_MANIFEST = IRQ_AUDIT_INPUTS / "abl-capture-manifest.json"
+CORPUS_MANIFEST = PRIVATE / "outputs/s22plus_fyg8_p319/abl-capture-manifest.json"
 PDIC_MODULE = IRQ_AUDIT_INPUTS / "pdic_max77705.ko"
 MUIC_SOURCE = IRQ_AUDIT_INPUTS / "max77705-muic.c"
 USBC_SOURCE = IRQ_AUDIT_INPUTS / "max77705_usbc.c"
@@ -128,13 +132,6 @@ INPUTS: dict[str, InputSpec] = {
         192 * 1024,
         0o400,
     ),
-    "corpus_manifest": InputSpec(
-        107_997,
-        "aa2d19ea09d3317dcff9961ee51eec579d7e912f4b98115fa5bf7994fff16f90",
-        CORPUS_MANIFEST,
-        128 * 1024,
-        0o400,
-    ),
     "magiskboot": InputSpec(
         943_848,
         "a18ecbd7981179494b7d281453d6c4e25b5c719e7d2ef7f6eba3c6be3043c58e",
@@ -179,6 +176,11 @@ INPUTS: dict[str, InputSpec] = {
         REPORTS["m18"],
         16 * 1024,
     ),
+}
+
+CORPUS_SEMANTIC_IDENTITY = {
+    "size": 47_799,
+    "sha256": "c1c75743fcdb06a3b3180e6a1d091a620969922ac2209d9169d21922a6d7b6a3",
 }
 
 HISTORICAL_SOURCE_IDENTITY = {
@@ -377,6 +379,15 @@ def load_inputs(materialize: bool) -> dict[str, bytes]:
     return result
 
 
+def load_corpus_manifest() -> bytes:
+    return stable_bytes(
+        CORPUS_MANIFEST,
+        label="P3.19 regenerable corpus manifest",
+        maximum=256 * 1024,
+        required_nlink=1,
+    )
+
+
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     value: dict[str, Any] = {}
     for key, item in pairs:
@@ -480,6 +491,52 @@ def parse_corpus_manifest(payload: bytes) -> dict[str, Any]:
             raise AuditError(f"capture manifest identity differs: {index}")
         seen.add(digest)
     return value
+
+
+def corpus_semantic_projection(manifest: dict[str, Any]) -> bytes:
+    top_level = set(manifest) - {
+        "matching_files",
+        "duplicate_files_collapsed",
+        "captures",
+    }
+    projection = {key: manifest[key] for key in sorted(top_level)}
+    projection["captures"] = [
+        {
+            key: capture[key]
+            for key in sorted(CAPTURE_KEYS - {"paths"})
+        }
+        for capture in sorted(manifest["captures"], key=lambda item: item["sha256"])
+    ]
+    return (
+        json.dumps(
+            projection,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode()
+
+
+def audit_corpus_manifest_semantics(manifest: dict[str, Any]) -> dict[str, Any]:
+    semantic = corpus_semantic_projection(manifest)
+    if identity(semantic) != CORPUS_SEMANTIC_IDENTITY:
+        raise AuditError("P3.19 corpus semantic projection differs")
+    return {
+        "schema": manifest["schema"],
+        "semantic_projection": identity(semantic),
+        "distinct_captures": manifest["distinct_captures"],
+        "counts": manifest["counts"],
+        "kernel_side": manifest["kernel_side"],
+        "muic_opcode_counts": manifest["muic_opcode_counts"],
+        "setpath_values_observed": manifest["setpath_values_observed"],
+        "regenerable_manifest_bytes_are_not_authority": True,
+        "volatile_population_fields_excluded": [
+            "matching_files",
+            "duplicate_files_collapsed",
+            "captures[].paths",
+        ],
+    }
 
 
 def load_corpus(manifest: dict[str, Any]) -> dict[str, bytes]:
@@ -1311,7 +1368,11 @@ def audit_gate(gate: bytes) -> dict[str, Any]:
     }
 
 
-def build_result(inputs: dict[str, bytes], corpus: dict[str, bytes]) -> dict[str, Any]:
+def build_result(
+    inputs: dict[str, bytes],
+    manifest: dict[str, Any],
+    corpus: dict[str, bytes],
+) -> dict[str, Any]:
     if type(_BOUND_AUDITOR_SOURCE) is not bytes:
         raise AuditError("P3.19 probe build must execute from bound source")
     result = {
@@ -1336,6 +1397,7 @@ def build_result(inputs: dict[str, bytes], corpus: dict[str, bytes]) -> dict[str
             "live_authority_created": False,
         },
         "inputs": {name: identity(payload) for name, payload in sorted(inputs.items())},
+        "corpus_manifest_semantics": audit_corpus_manifest_semantics(manifest),
         "implementation": {"auditor": identity(_BOUND_AUDITOR_SOURCE)},
         "s7a2_gate": audit_gate(inputs["s7a2_gate"]),
         "s7a2_candidate_ap": audit_s7a2_ap(
@@ -1380,9 +1442,9 @@ def encode(value: dict[str, Any]) -> bytes:
 
 def run(materialize: bool) -> tuple[dict[str, Any], bytes]:
     inputs = load_inputs(materialize)
-    manifest = parse_corpus_manifest(inputs["corpus_manifest"])
+    manifest = parse_corpus_manifest(load_corpus_manifest())
     corpus = load_corpus(manifest)
-    value = build_result(inputs, corpus)
+    value = build_result(inputs, manifest, corpus)
     return value, encode(value)
 
 

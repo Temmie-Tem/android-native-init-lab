@@ -4,6 +4,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 
@@ -31,9 +32,11 @@ class P319CandidatePdicProbeBoundaryTest(unittest.TestCase):
         cls.bootstrap = load_module()
         cls.module = cls.bootstrap.load_bound_auditor()
         cls.inputs = cls.module.load_inputs(materialize=False)
-        cls.manifest = cls.module.parse_corpus_manifest(cls.inputs["corpus_manifest"])
+        cls.manifest = cls.module.parse_corpus_manifest(
+            cls.module.load_corpus_manifest()
+        )
         cls.corpus = cls.module.load_corpus(cls.manifest)
-        cls.result = cls.module.build_result(cls.inputs, cls.corpus)
+        cls.result = cls.module.build_result(cls.inputs, cls.manifest, cls.corpus)
         cls.payload = cls.module.encode(cls.result)
 
     def test_exact_s7a2_ap_contains_the_ordered_module_plan(self):
@@ -140,6 +143,36 @@ class P319CandidatePdicProbeBoundaryTest(unittest.TestCase):
             {"modprobe"},
         )
 
+    def test_duplicate_path_population_drift_does_not_change_authority(self):
+        changed = deepcopy(self.manifest)
+        changed["matching_files"] += 1
+        changed["duplicate_files_collapsed"] += 1
+        changed["captures"][0]["paths"].append(
+            "workspace/private/outputs/synthetic-duplicate/capture.bin"
+        )
+        reparsed = self.module.parse_corpus_manifest(
+            (json.dumps(changed, sort_keys=True) + "\n").encode()
+        )
+        self.assertEqual(
+            self.module.corpus_semantic_projection(reparsed),
+            self.module.corpus_semantic_projection(self.manifest),
+        )
+        self.assertEqual(
+            self.module.encode(
+                self.module.build_result(self.inputs, reparsed, self.corpus)
+            ),
+            self.payload,
+        )
+        self.assertNotIn("corpus_manifest", self.inputs)
+
+    def test_semantic_manifest_drift_is_rejected(self):
+        changed = deepcopy(self.manifest)
+        changed["muic_opcode_counts"]["0x06"] += 1
+        with self.assertRaisesRegex(
+            self.module.AuditError, "semantic projection differs"
+        ):
+            self.module.build_result(self.inputs, changed, self.corpus)
+
     def test_initial_status_mutation_is_rejected(self):
         corpus = dict(self.corpus)
         digest = next(
@@ -184,11 +217,16 @@ class P319CandidatePdicProbeBoundaryTest(unittest.TestCase):
 
     def test_unbound_import_cannot_build_an_authoritative_result(self):
         with self.assertRaises(self.bootstrap.AuditError):
-            self.bootstrap.build_result(self.inputs, self.corpus)
+            self.bootstrap.build_result(self.inputs, self.manifest, self.corpus)
 
     def test_receipt_is_exact_and_private(self):
         output = self.module.OUTPUT
         self.assertEqual(output.read_bytes(), self.payload)
+        self.assertEqual(len(self.payload), 15_563)
+        self.assertEqual(
+            self.module.sha256(self.payload),
+            "7744d9e7c5d76148ad4038f59531dd686d6e8b3a1327e78206ae5c6ad4390025",
+        )
         state = output.stat()
         self.assertTrue(stat.S_ISREG(state.st_mode))
         self.assertEqual(stat.S_IMODE(state.st_mode), 0o400)
@@ -196,11 +234,24 @@ class P319CandidatePdicProbeBoundaryTest(unittest.TestCase):
         parsed = json.loads(self.payload)
         self.assertEqual(
             parsed["schema"],
-            "s22plus-fyg8-p319-candidate-pdic-probe-boundary-v2",
+            "s22plus-fyg8-p319-candidate-pdic-probe-boundary-v3",
         )
         self.assertEqual(parsed["verdict"], self.module.VERDICT)
         self.assertFalse(parsed["scope"]["device_contact"])
         self.assertFalse(parsed["scope"]["live_authority_created"])
+        self.assertEqual(
+            parsed["corpus_manifest_semantics"]["semantic_projection"],
+            self.module.CORPUS_SEMANTIC_IDENTITY,
+        )
+        preserved = self.module.OUTPUT_V4.read_bytes()
+        preserved_state = self.module.OUTPUT_V4.stat()
+        self.assertEqual(len(preserved), 14_440)
+        self.assertEqual(
+            self.module.sha256(preserved),
+            "cd3969eb9de6da8342c2843895bf71c631997672d64e370d33dda2fe5b5ae7e3",
+        )
+        self.assertEqual(stat.S_IMODE(preserved_state.st_mode), 0o400)
+        self.assertEqual(preserved_state.st_nlink, 1)
         ledger = (ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md").read_text(
             encoding="utf-8"
         )
