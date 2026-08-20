@@ -2805,6 +2805,88 @@ Witness 1 is already emitted by the S7A2 loader but has never been observed to
 survive, because no candidate boot has ever been retained — so it must be
 treated as unvalidated retention rather than as a working channel.
 
+## Successor transport correction: stock retention is not candidate retention
+
+The corpus measurement above is correct about stock boots and wrong as a
+candidate transport argument. The distinction is not subtle once the exact
+candidate closure is read: **an emitter existing in the stock driver does not
+connect it to the candidate's retained Carrier.**
+
+### The current candidate has two different rings, not one path
+
+The exact P3.18 static closure says `sec_log_buf_absent=true`. Its 70-entry
+effective early plan contains the custom DWC3 latch and ends at
+`i2c-msm-geni.ko`; it contains neither `sec_log_buf.ko` nor the stock
+`mfd_max77705.ko` and `pdic_max77705.ko`. Consequently the current candidate
+cannot reach the stock PDIC emitters, and ordinary `pr_info` or PID 1 writes to
+`/dev/kmsg` have no Samsung retained-log writer behind them.
+
+The Carrier is a separate direct writer. The fixed kernel patch maps the
+2,097,152-byte reserved region, seeds from its 16-byte header's `idx`, places
+the 192-byte Carrier record directly in the 2,097,136-byte payload, and requires
+`head->idx == seed_idx` before every later update. It deliberately does not
+advance `idx`.
+
+Loading `sec_log_buf` after that seed is not a harmless way to acquire the
+missing stock lines. Its probe first copies the current printk early buffer by
+calling `__log_buf_write`, and every positive write increments `idx` by the
+exact byte count. Its live console writer does the same for every accepted
+message. Any such write violates the Carrier's fixed-`idx` gate and makes later
+Carrier publication fail closed. Adding that module therefore requires a
+Carrier redesign and is forbidden for this successor.
+
+This corrects the design implication in append-only row
+`h0-successor-witness-design-1`: witnesses 2, 3, 4a and 4b already have **stock
+emitters**, but none is yet a candidate-retained witness. The stock 2 MiB FIFO
+byte budget describes the stock logger, not the current direct Carrier.
+
+### The usable transport already exists elsewhere in the runtime
+
+P3.18 inherited the P3.03 live `/dev/kmsg` observer. Before the module loop it
+creates and opens `/dev/kmsg` read-only/nonblocking and seeks to the live tail.
+It drains after the complete module loop and again during the later execution
+window. `EPIPE` is an explicit ring-loss terminal, and a non-consecutive kmsg
+sequence is a separate fail-closed contradiction. This is the path that can
+observe the stock emitters without changing the reserved-ring `idx`.
+
+It still needs a bounded successor delta. Today it drains only after the full
+module loop, retains no raw lines, and does not count cumulative record bytes.
+The successor must:
+
+1. drain after each relevant module rather than waiting for the whole loop;
+2. count the exact bytes returned by `/dev/kmsg`, reject counter overflow, and
+   preserve first/last sequence plus the existing `EPIPE`/gap result;
+3. parse only the exact bind/probe, IRQ five-tuple, status and classification
+   grammars against an external positive corpus; and
+4. publish their structured summary through the direct Carrier, never claim
+   the transient raw printk text as retained authority.
+
+Witness 1 should be published from the known `finit_module` return directly,
+not recovered from PID 1's own log line. The exact bind symlink is stronger
+than `probing Complete` and should remain the bind identity. The live-kmsg
+parser supplies VBUSDET, the existing three printed status bytes and the
+classification. A separately qualified producer still supplies status bytes
+3/4 and the final register-`0x23` readback.
+
+### Retained audit
+
+The host-only auditor is
+`workspace/public/src/scripts/analysis/s22plus_fyg8_p319_candidate_witness_transport.py`.
+It binds the exact P3.18 static closure, plan, runtime wrapper/include and
+candidate patch plus the Samsung retained logger source/header. Its current
+private receipt is 4111 bytes/SHA-256 `ef917cd3...`, mode `0400`, link count
+one; eight preserved inputs are also mode `0400`, link count one under mode
+`0700` directories. The auditor is 24025 bytes/SHA-256 `13f22634...`; the
+7386-byte focused test source is `0b3edc5e...`, and 13 real-input and mutation
+tests pass. The `20260820-01-failed-before-result` directory is preserved: its
+inputs were complete, but an incorrect expected direct-store multiplicity
+stopped before result publication. `20260820-02` is the only current receipt.
+
+This result is `IMPLEMENTED_REVIEW_PENDING`. It changes no candidate byte and
+creates no device or live authority. The next H0 unit is an external-corpus
+qualification of the bounded P3.19 live-kmsg parser, not a candidate build and
+not an F1 execution.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

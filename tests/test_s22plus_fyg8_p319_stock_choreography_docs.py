@@ -52,6 +52,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Initial classification precedes unmask; the historical live-load claim did not survive",
         "The platform probe has two silent failure points, not one",
         "Successor H0 design: four of the five witnesses need no new code",
+        "Successor transport correction: stock retention is not candidate retention",
         "What remains open",
         "Evidence",
     )
@@ -152,6 +153,26 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_separates_stock_retention_from_the_candidate_transport(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "The exact P3.18 static closure says `sec_log_buf_absent=true`",
+            "it contains neither `sec_log_buf.ko` nor the stock `mfd_max77705.ko` and `pdic_max77705.ko`",
+            "requires `head->idx == seed_idx` before every later update",
+            "Adding that module therefore requires a Carrier redesign and is forbidden for this successor",
+            "P3.18 inherited the P3.03 live `/dev/kmsg` observer",
+            "`EPIPE` is an explicit ring-loss terminal",
+            "drain after each relevant module rather than waiting for the whole loop",
+            "publish their structured summary through the direct Carrier",
+            "4111 bytes/SHA-256 `ef917cd3...`",
+            "24025 bytes/SHA-256 `13f22634...`",
+            "7386-byte focused test source is `0b3edc5e...`",
+            "`20260820-01-failed-before-result` directory is preserved",
+            "external-corpus qualification of the bounded P3.19 live-kmsg parser",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, flat)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
@@ -1157,6 +1178,23 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "resolves only the matching candidate-pdic-probe-boundary topic",
             review_rows[0],
         )
+
+    def test_ledger_appends_the_candidate_transport_review_obligation(self):
+        rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if "h0-candidate-witness-transport-7" in line
+        ]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertIn(
+            "P319_CANDIDATE_WITNESS_TRANSPORT_IMPLEMENTED_REVIEW_PENDING", row
+        )
+        self.assertIn("stock retained-log survival does not transfer", row)
+        self.assertIn("4111-byte ef917cd3", row)
+        self.assertIn("13 focused tests pass", row)
+        self.assertIn("Independent review remains mandatory", row)
+        self.assertIn("no device", row)
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
