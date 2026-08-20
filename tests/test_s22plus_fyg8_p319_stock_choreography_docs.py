@@ -130,8 +130,9 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         flat = re.sub(r"\s+", " ", self.report)
         for token in (
             "the call at `:3835` is\nbare — no assignment, no test",
-            "crosses **two** silent failure points before it prints",
-            "**would still reach the\nclassification and the mux write**",
+            "the branch at\n`.text+0xd4e8` is followed by `mov x0,x19`",
+            "failure in that **pre-MUIC USBC IRQ\nfamily** does not block",
+            "does not prove\nthat every nested MUIC IRQ-registration failure is non-blocking",
             "two further call sites, at `:2888` and `:2921`",
         ):
             with self.subTest(token=token):
@@ -1074,13 +1075,51 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "Their\nplans included it; their live `finit_module` results, platform binds, initial\nclassifications and unmask write results are unknown.",
             "durable per-module `finit_module` results",
             "a readback of parent INTSRC mask register `0x23` with bit 3 clear",
-            "12719 bytes/SHA-256 `d4d40565...`",
+            "reviewed V1 private receipt is 12719 bytes/SHA-256 `d4d40565...`",
             "Fifteen focused real-input and mutation tests pass.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
         self.assertNotIn("did load `pdic_max77705` and failed", self.report)
         self.assertNotIn("candidates that did load\n  `pdic_max77705`", self.report)
+
+    def test_report_separates_usbc_and_nested_muic_irq_failures(self):
+        for token in (
+            "## The platform probe has two silent failure points, not one",
+            "APC, SYSMSG, VDM0 through VDM6, and VIR0 interrupt\nfamilies",
+            "This does not prove\nthat every nested MUIC IRQ-registration failure is non-blocking.",
+            "UIADC, CHGT, DCD, VBADC and\nVBUSDET in that order",
+            "a CHGT\nregistration failure can be hidden by a later successful request",
+            "takes\n`fail_init_irq` before `max77705_muic_init_detect()`",
+            "absence of a delivered CHGT\ninterrupt does not explain an absent **initial** mux transition",
+            "counts all three source call sites but semantically reads only the\nprobe-path",
+            "current V2 receipt is 14440 bytes/SHA-256 `cd3969eb...`",
+            "The 14091-byte `3a4765ad...` intermediate is preserved",
+            "Only V2 is the successor under the original open\n`candidate-pdic-probe-boundary` review obligation.",
+            "complete P3.19 suite passes 298/298 and common Process-v2 passes\n122/122",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn(
+            "a candidate that fails to register the MUIC interrupt handlers",
+            self.report,
+        )
+        self.assertNotIn(
+            "removes one otherwise attractive explanation for the five candidates",
+            self.report,
+        )
+
+    def test_ledger_appends_the_v2_scope_correction(self):
+        rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if "h0-candidate-pdic-probe-boundary-v2-6" in line
+        ]
+        self.assertEqual(len(rows), 1)
+        self.assertIn("nonfinal failure such as CHGT can therefore be masked", rows[0])
+        self.assertIn("final VBUSDET failure", rows[0])
+        self.assertIn("original unresolved candidate-pdic-probe-boundary", rows[0])
+        self.assertIn("creates no second obligation or PASS_GO", rows[0])
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [

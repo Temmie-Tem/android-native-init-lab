@@ -2585,13 +2585,14 @@ H0 only and performs no device action.
 
 The retained auditor is
 `workspace/public/src/scripts/analysis/s22plus_fyg8_p319_candidate_pdic_probe_boundary.py`.
-Its current private receipt is 12719 bytes/SHA-256 `d4d40565...`, mode `0400`,
-link count one. It re-extracts the AP using exact tool snapshots, binds five
+Its reviewed V1 private receipt is 12719 bytes/SHA-256 `d4d40565...`, mode
+`0400`, link count one. It re-extracts the AP using exact tool snapshots, binds five
 historical live reports, exact source functions and exact PDIC machine-code
 instructions, and re-enumerates the complete current corpus before deriving
 the eight/two split. Fifteen focused real-input and mutation tests pass. The
 first 12719-byte `d2101f69...` receipt is preserved under `20260820-01`; it was
-generated before the focused mutation suite and is not current authority.
+generated before the focused mutation suite and is not current authority. V1
+is superseded by the narrower V2 registration split recorded next.
 
 ## The platform probe has two silent failure points, not one
 
@@ -2624,27 +2625,53 @@ silently on a read failure, and does not check the write result, so
 `msg_maxim("probing Complete..")` at `:250` of the function body prints whether
 or not the unmask succeeded.
 
-### The addition: the IRQ handler's return is discarded too
+### The addition is real, but it is the USBC IRQ family
 
 The report already records that `max77705_muic_probe`'s return is discarded, so
 a failed MUIC probe does not fail the platform probe. The same is true one line
 earlier and was not recorded: `max77705_init_irq_handler` is declared
 `int max77705_init_irq_handler(...)` at `:3319`, and the call at `:3835` is
-bare — no assignment, no test.
+bare — no assignment, no test. The exact module agrees: the branch at
+`.text+0xd4e8` is followed by `mov x0,x19` at `.text+0xd4ec`, before the
+separate MUIC-probe branch at `.text+0xd4f0`.
 
-So the platform probe crosses **two** silent failure points before it prints
-`probing Complete`, not one. That matters for the candidate question in a
-specific way: a candidate that fails to register the MUIC interrupt handlers
-would produce no error return, would not stop, and **would still reach the
-classification and the mux write**. Interrupt-registration failure is therefore
-neither fatal to the mux switch nor visible in the probe's own result — which
-removes one otherwise attractive explanation for the five candidates that loaded
-`pdic_max77705` and failed.
+The function name alone is too broad a description of what failed. This first
+handler registers the APC, SYSMSG, VDM0 through VDM6, and VIR0 interrupt
+families. Its result is discarded, so failure in that **pre-MUIC USBC IRQ
+family** does not block the subsequent initial-detect call. This does not prove
+that every nested MUIC IRQ-registration failure is non-blocking.
+
+### The nested MUIC registrations have a last-result gate
+
+`max77705_muic_irq_init()` separately requests UIADC, CHGT, DCD, VBADC and
+VBUSDET in that order. `REQUEST_IRQ` assigns each request result to the same
+`ret`; on a negative result it clears that IRQ field but does not return. A
+later success therefore overwrites an earlier failure. In particular, a CHGT
+registration failure can be hidden by a later successful request and does not
+by itself prevent the IRQ-free initial classification.
+
+The final request is different only because it is last. A negative VBUSDET
+result is the value returned to `max77705_muic_init_regs()`, which frees the
+MUIC IRQs and returns the error. `max77705_muic_probe()` then takes
+`fail_init_irq` before `max77705_muic_init_detect()`. The outer USBC probe still
+discards that MUIC-probe return and may print `probing Complete`, but the
+five-byte initial classification and AP mux write did not run.
+
+The useful elimination is therefore precise: absence of a delivered CHGT
+interrupt does not explain an absent **initial** mux transition, and neither
+does a pre-MUIC APC/SYSMSG/VDM/VIR registration error. A final nested IRQ
+failure can still stop initial detect while remaining invisible in the outer
+probe result. The broad statement in the append-only
+`h0-probe-has-two-silent-failure-points-1` row that any MUIC interrupt-handler
+failure remains non-blocking is superseded by this split. Its separate claim
+that five historical candidates loaded `pdic_max77705` is also superseded by
+the already established plan-inclusion/live-result distinction.
 
 ### A scope note on the unmask evidence
 
-The audit reads the probe-path `max77705_usbc_umask_irq` call. The same source
-has two further call sites, at `:2888` and `:2921`, both in reset or RAM-test
+The V2 audit counts all three source call sites but semantically reads only the
+probe-path `max77705_usbc_umask_irq` call. The same source has two further call
+sites, at `:2888` and `:2921`, both in reset or RAM-test
 recovery paths preceded by `usbc_data->is_first_booting = 1;` and
 `max77705_init_opcode(usbc_data, 1);`. They were not examined. Nothing here
 suggests a candidate reaches them, but "the unmask helper is called once" is not
@@ -2656,8 +2683,23 @@ A summary of this work stated that classification runs "before IRQ/unmask".
 Registration is **before** classification, at `:3835`; only the unmask is after.
 The report's own section title says "precedes unmask" and is correct. The two
 facts have different mechanisms — ordering puts classification ahead of the
-unmask, while a *discarded return* is what makes registration failure
-non-blocking — and collapsing them would hide the second.
+unmask, while a *discarded return* is what makes the pre-MUIC USBC registration
+failure non-blocking — and collapsing them would hide the second.
+
+### V2 retained evidence
+
+The current V2 receipt is 14440 bytes/SHA-256 `cd3969eb...`, mode `0400`, link
+count one under `candidate-pdic-probe-boundary-20260820-04`. The bound auditor
+is 53129 bytes/SHA-256 `937301a7...`; the 10927-byte focused test source is
+`e73bb60b...`, and its fifteen tests cover both discarded call results, both
+discard instructions, the shared-ret/final-VBUSDET distinction and the 3/1/2
+unmask call-site scope. The 14091-byte `3a4765ad...` intermediate is preserved
+under `20260820-03`; it bound the new source seams but preceded the explicit
+conclusion fields. The two 12719-byte V1 receipts under `20260820-01` and `-02`
+remain historical evidence. Only V2 is the successor under the original open
+`candidate-pdic-probe-boundary` review obligation. On the current shared-tree
+snapshot, the complete P3.19 suite passes 298/298 and common Process-v2 passes
+122/122.
 
 ## What remains open
 

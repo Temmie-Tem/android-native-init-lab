@@ -74,33 +74,58 @@ class P319CandidatePdicProbeBoundaryTest(unittest.TestCase):
         source = self.result["probe_source"]
         self.assertTrue(source["initial_detect_precedes_parent_usbc_unmask"])
         self.assertTrue(source["initial_detect_sets_ready_then_reads_and_classifies_status"])
+        self.assertTrue(source["pre_muic_usbc_irq_handler_return_discarded"])
+        self.assertEqual(
+            source["pre_muic_usbc_irq_handler_families"],
+            ["APC", "SYSMSG", "VDM0-VDM6", "VIR0"],
+        )
+        self.assertTrue(source["nonfinal_muic_irq_failure_can_be_masked_by_later_success"])
+        self.assertTrue(source["final_vbusdet_irq_failure_blocks_initial_detect"])
         self.assertTrue(source["muic_probe_error_is_not_propagated_by_usbc_probe"])
         self.assertTrue(source["probing_complete_is_not_an_unmask_write_success_receipt"])
+        self.assertEqual(source["unmask_source_call_sites_total"], 3)
+        self.assertEqual(source["unmask_probe_call_sites_audited"], 1)
+        self.assertEqual(source["unmask_recovery_call_sites_out_of_scope"], 2)
+        conclusion = self.result["conclusion"]
+        self.assertFalse(conclusion["pre_muic_usbc_irq_registration_failure_blocks_initial_mux"])
+        self.assertTrue(conclusion["nonfinal_muic_irq_failure_can_be_masked_by_later_success"])
+        self.assertTrue(conclusion["final_vbusdet_irq_failure_can_block_initial_detect"])
+        self.assertFalse(conclusion["all_muic_irq_registration_failure_is_nonblocking"])
+        self.assertFalse(
+            conclusion["absence_of_chgtyp_interrupt_delivery_explains_initial_mux_silence"]
+        )
 
     def test_probe_call_consumption_mutation_is_rejected(self):
-        mutated = self.inputs["usbc_source"].replace(
-            b"\tmax77705_muic_probe(usbc_data);",
-            b"\tret = max77705_muic_probe(usbc_data);",
-            1,
-        )
-        with self.assertRaises(self.module.AuditError):
-            self.module.audit_probe_sources(self.inputs["muic_source"], mutated)
+        for call in (b"max77705_init_irq_handler", b"max77705_muic_probe"):
+            with self.subTest(call=call):
+                original = b"\t" + call + b"(usbc_data);"
+                replacement = b"\tret = " + call + b"(usbc_data);"
+                mutated = self.inputs["usbc_source"].replace(
+                    original,
+                    replacement,
+                    1,
+                )
+                with self.assertRaises(self.module.AuditError):
+                    self.module.audit_probe_sources(self.inputs["muic_source"], mutated)
 
     def test_pdic_machine_code_proves_the_ignored_return_and_unmask_gap(self):
         binary = self.result["pdic_binary"]
+        self.assertTrue(binary["usbc_irq_handler_return_value_discarded"])
         self.assertTrue(binary["muic_probe_return_value_discarded"])
         self.assertTrue(binary["parent_mask_read_failure_skips_bit_clear"])
         self.assertTrue(binary["parent_mask_write_return_value_discarded"])
         self.assertTrue(binary["platform_probe_still_returns_zero_after_unmask_read_failure"])
 
     def test_pdic_discard_instruction_mutation_is_rejected(self):
-        payload = bytearray(self.inputs["pdic_module"])
-        elf = self.module.Elf64(bytes(payload), "fixture")
-        text = elf.section(".text")
-        offset = text.offset + 0xD4F4 - text.address
-        payload[offset : offset + 4] = b"\x1f\x20\x03\xd5"
-        with self.assertRaises(self.module.AuditError):
-            self.module.audit_pdic_binary(bytes(payload))
+        for address in (0xD4EC, 0xD4F4):
+            with self.subTest(address=hex(address)):
+                payload = bytearray(self.inputs["pdic_module"])
+                elf = self.module.Elf64(bytes(payload), "fixture")
+                text = elf.section(".text")
+                offset = text.offset + address - text.address
+                payload[offset : offset + 4] = b"\x1f\x20\x03\xd5"
+                with self.assertRaises(self.module.AuditError):
+                    self.module.audit_pdic_binary(bytes(payload))
 
     def test_irq_free_initial_probe_is_the_no_chgtyp_ap_capture_set(self):
         stock = self.result["stock_initial_probe"]
@@ -169,6 +194,10 @@ class P319CandidatePdicProbeBoundaryTest(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(state.st_mode), 0o400)
         self.assertEqual(state.st_nlink, 1)
         parsed = json.loads(self.payload)
+        self.assertEqual(
+            parsed["schema"],
+            "s22plus-fyg8-p319-candidate-pdic-probe-boundary-v2",
+        )
         self.assertEqual(parsed["verdict"], self.module.VERDICT)
         self.assertFalse(parsed["scope"]["device_contact"])
         self.assertFalse(parsed["scope"]["live_authority_created"])
@@ -187,6 +216,18 @@ class P319CandidatePdicProbeBoundaryTest(unittest.TestCase):
         )
         self.assertIn("| H0 |", rows[0])
         self.assertIn("| 0/0 |", rows[0])
+        successor = [
+            line
+            for line in ledger.splitlines()
+            if "h0-candidate-pdic-probe-boundary-v2-6" in line
+        ]
+        self.assertEqual(len(successor), 1)
+        self.assertIn(
+            "P319_IRQ_REGISTRATION_FAILURE_SCOPE_CORRECTED_UNDER_EXISTING_REVIEW_OBLIGATION",
+            successor[0],
+        )
+        self.assertIn("14440 bytes/SHA-256 cd3969eb", successor[0])
+        self.assertIn("creates no second obligation or PASS_GO", successor[0])
 
     def test_publication_rejects_widened_existing_mode(self):
         with tempfile.TemporaryDirectory() as directory:

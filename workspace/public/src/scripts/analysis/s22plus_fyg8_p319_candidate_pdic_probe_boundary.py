@@ -36,14 +36,14 @@ IRQ_AUDIT_INPUTS = PRIVATE / (
     "outputs/s22plus_fyg8_p319/max77705-irq-dt-audit-20260820-05/inputs"
 )
 OUTPUT_ROOT = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/candidate-pdic-probe-boundary-20260820-02"
+    "outputs/s22plus_fyg8_p319/candidate-pdic-probe-boundary-20260820-04"
 )
 OUTPUT = OUTPUT_ROOT / "result.json"
 INPUT_ROOT = OUTPUT_ROOT / "inputs"
 HISTORICAL_SOURCE = INPUT_ROOT / "s22plus_init_m34_runtime_gadget_split.c"
 
-SCHEMA = "s22plus-fyg8-p319-candidate-pdic-probe-boundary-v1"
-VERDICT = "PASS_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_H0"
+SCHEMA = "s22plus-fyg8-p319-candidate-pdic-probe-boundary-v2"
+VERDICT = "PASS_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V2_H0"
 HISTORICAL_COMMIT = "4df34885de6425b72789830d0d42d9d17f3ca1e2"
 HISTORICAL_SOURCE_PATH = (
     "workspace/public/src/native-init/s22plus_init_m34_runtime_gadget_split.c"
@@ -792,6 +792,11 @@ class Elf64:
 def audit_pdic_binary(data: bytes) -> dict[str, Any]:
     elf = Elf64(data, "pdic_max77705.ko")
     expected_symbols = {
+        "max77705_init_irq_handler": (
+            0xC1F4,
+            712,
+            "9d5dddeb11820a194347f8a1a1667c333ae5068007d0661a8cd1ba9576c86e0d",
+        ),
         "max77705_usbc_probe": (
             0xCF0C,
             2_676,
@@ -816,6 +821,7 @@ def audit_pdic_binary(data: bytes) -> dict[str, Any]:
             raise AuditError(f"PDIC binary symbol identity differs: {name}")
         symbols[name] = {"address": address, **identity(body)}
     for offset, symbol, addend in (
+        (0xD4E8, "max77705_init_irq_handler", 0),
         (0xD4F0, "max77705_muic_probe", 0),
         (0xD890, "max77705_read_reg", 0),
         (0xD8AC, "max77705_write_reg", 0),
@@ -825,6 +831,7 @@ def audit_pdic_binary(data: bytes) -> dict[str, Any]:
         ):
             raise AuditError(f"PDIC binary relocation differs: {symbol}")
     for address, word, label in (
+        (0xD4EC, 0xAA1303E0, "USBC IRQ-handler return value discarded"),
         (0xD4F4, 0xAA1303E0, "MUIC return value discarded before CC init"),
         (0xD878, 0x52800028, "cc_booting_complete value"),
         (0xD87C, 0x39054B28, "cc_booting_complete store"),
@@ -836,6 +843,7 @@ def audit_pdic_binary(data: bytes) -> dict[str, Any]:
             raise AuditError(f"{label} differs")
     return {
         "symbols": symbols,
+        "usbc_irq_handler_return_value_discarded": True,
         "muic_probe_return_value_discarded": True,
         "cc_booting_complete_published_after_muic_probe_call": True,
         "parent_mask_read_failure_skips_bit_clear": True,
@@ -850,6 +858,8 @@ def audit_probe_sources(muic: bytes, usbc: bytes) -> dict[str, Any]:
         _exact_functions(
             muic,
             {
+                "max77705_muic_irq_init": (1_126, "058cfa6a924135af3395b3673c0a9d9f5b9a03ea5bbccbc4c8d621f3c92149c0"),
+                "max77705_muic_init_regs": (332, "ca288c14706998f8819bdd3f542bedf354b9c03c1cff384176d82a2453d47b47"),
                 "max77705_muic_init_detect": (318, "45ae40c173a21764e1531bfeaa1be1db8465195c89624f6c4c4d6cf3319234fc"),
                 "max77705_muic_probe": (5_669, "628307f37a472cb34bc1389745bbdee6bb6ab636eaeeccabe8ec609c42ab904e"),
                 "max77705_muic_detect_dev": (5_863, "4b14abdd8cbd65d9d88aa01b912323e4a2321311cb9a88e5b9201dedd2e42ade"),
@@ -861,6 +871,7 @@ def audit_probe_sources(muic: bytes, usbc: bytes) -> dict[str, Any]:
         _exact_functions(
             usbc,
             {
+                "max77705_init_irq_handler": (3_485, "fb0ba4ccd17703bf0230f6f152dbdfed7b059ae296fca82b940dca46469af42e"),
                 "max77705_usbc_umask_irq": (392, "03d71661e3024aadc532049053d1885800dc8e85f40a29307cd073f481566bd6"),
                 "max77705_usbc_probe": (8_802, "f5f6f0778da341b17d2381ae7bf0f2b9cac2c2f31c992383ab01671844648425"),
             },
@@ -868,10 +879,56 @@ def audit_probe_sources(muic: bytes, usbc: bytes) -> dict[str, Any]:
         )
     )
     init_detect = _c_function_body(muic, "max77705_muic_init_detect")
+    muic_irq_init = _c_function_body(muic, "max77705_muic_irq_init")
+    muic_init_regs = _c_function_body(muic, "max77705_muic_init_regs")
     muic_probe = _c_function_body(muic, "max77705_muic_probe")
     detect = _c_function_body(muic, "max77705_muic_detect_dev")
+    usbc_irq_init = _c_function_body(usbc, "max77705_init_irq_handler")
     usbc_probe = _c_function_body(usbc, "max77705_usbc_probe")
     unmask = _c_function_body(usbc, "max77705_usbc_umask_irq")
+    macro_start = muic.find(b"#define REQUEST_IRQ")
+    macro_end = muic.find(b"static int max77705_muic_irq_init", macro_start)
+    if macro_start < 0 or macro_end < 0:
+        raise AuditError("MUIC REQUEST_IRQ macro span is absent")
+    request_macro = muic[macro_start:macro_end].rstrip() + b"\n"
+    if identity(request_macro) != {
+        "size": 307,
+        "sha256": "98eabe8ff1233a303b3d6f778871037601d9e82b3c129d74ee9b240d8768e7c7",
+    }:
+        raise AuditError("MUIC REQUEST_IRQ macro differs")
+    _ordered_once(
+        request_macro,
+        (
+            b"ret = request_threaded_irq(_irq, NULL, max77705_muic_irq,",
+            b"if (ret < 0)",
+            b"_irq = 0;",
+        ),
+        "MUIC REQUEST_IRQ macro",
+    )
+    if b"return" in request_macro:
+        raise AuditError("MUIC REQUEST_IRQ unexpectedly returns on failure")
+    _ordered_once(
+        muic_irq_init,
+        (
+            b'REQUEST_IRQ(muic_data->irq_uiadc, muic_data, "muic-uiadc");',
+            b'REQUEST_IRQ(muic_data->irq_chgtyp, muic_data, "muic-chgtyp");',
+            b'REQUEST_IRQ(muic_data->irq_dcdtmo, muic_data, "muic-dcdtmo");',
+            b'REQUEST_IRQ(muic_data->irq_vbadc, muic_data, "muic-vbadc");',
+            b'REQUEST_IRQ(muic_data->irq_vbusdet, muic_data, "muic-vbusdet");',
+            b"return ret;",
+        ),
+        "MUIC nested IRQ registration",
+    )
+    _ordered_once(
+        muic_init_regs,
+        (
+            b"ret = max77705_muic_irq_init(muic_data);",
+            b"if (ret < 0)",
+            b"max77705_muic_free_irqs(muic_data);",
+            b"return ret;",
+        ),
+        "MUIC register initialization",
+    )
     _ordered_once(
         init_detect,
         (
@@ -883,7 +940,9 @@ def audit_probe_sources(muic: bytes, usbc: bytes) -> dict[str, Any]:
     _ordered_once(
         muic_probe,
         (
-            b"max77705_muic_init_regs(muic_data)",
+            b"ret = max77705_muic_init_regs(muic_data);",
+            b'pr_err("%s Failed to initialize MUIC irq:%d\\n",',
+            b"goto fail_init_irq;",
             b"max77705_muic_init_detect(muic_data);",
             b"return 0;",
         ),
@@ -913,6 +972,16 @@ def audit_probe_sources(muic: bytes, usbc: bytes) -> dict[str, Any]:
     )
     if b"ret = max77705_muic_probe" in usbc_probe:
         raise AuditError("MUIC probe return is unexpectedly consumed")
+    if b"ret = max77705_init_irq_handler" in usbc_probe:
+        raise AuditError("USBC IRQ-handler return is unexpectedly consumed")
+    if usbc.count(b"max77705_usbc_umask_irq(usbc_data);") != 3:
+        raise AuditError("USBC unmask source call-site count differs")
+    if usbc_probe.count(b"max77705_usbc_umask_irq(usbc_data);") != 1:
+        raise AuditError("USBC probe unmask call-site count differs")
+    if b"int max77705_init_irq_handler(" not in usbc or usbc_irq_init.count(
+        b"request_threaded_irq("
+    ) != 10:
+        raise AuditError("USBC IRQ-handler registration family differs")
     _ordered_once(
         unmask,
         (
@@ -929,10 +998,31 @@ def audit_probe_sources(muic: bytes, usbc: bytes) -> dict[str, Any]:
         "initial_detect_sets_ready_then_reads_and_classifies_status": True,
         "initial_detect_precedes_cc_booting_complete": True,
         "initial_detect_precedes_parent_usbc_unmask": True,
+        "pre_muic_usbc_irq_handler_return_discarded": True,
+        "pre_muic_usbc_irq_handler_families": [
+            "APC",
+            "SYSMSG",
+            "VDM0-VDM6",
+            "VIR0",
+        ],
+        "pre_muic_usbc_irq_failure_does_not_block_initial_detect_call": True,
+        "muic_nested_irq_order": [
+            "UIDADC",
+            "CHGT",
+            "DCD",
+            "VBADC",
+            "VBUSDET",
+        ],
+        "muic_nested_irq_shared_ret_is_overwritten_per_request": True,
+        "nonfinal_muic_irq_failure_can_be_masked_by_later_success": True,
+        "final_vbusdet_irq_failure_blocks_initial_detect": True,
         "muic_probe_error_is_not_propagated_by_usbc_probe": True,
         "unmask_read_failure_is_not_propagated_by_usbc_probe": True,
         "unmask_write_result_is_not_checked": True,
         "probing_complete_is_not_an_unmask_write_success_receipt": True,
+        "unmask_source_call_sites_total": 3,
+        "unmask_probe_call_sites_audited": 1,
+        "unmask_recovery_call_sites_out_of_scope": 2,
     }
 
 
@@ -1259,6 +1349,11 @@ def build_result(inputs: dict[str, bytes], corpus: dict[str, bytes]) -> dict[str
         "conclusion": {
             "stock_initial_attach_occurs_inside_probe_without_chgtyp_irq": True,
             "parent_usbc_unmask_is_not_a_precondition_for_initial_classification": True,
+            "pre_muic_usbc_irq_registration_failure_blocks_initial_mux": False,
+            "nonfinal_muic_irq_failure_can_be_masked_by_later_success": True,
+            "final_vbusdet_irq_failure_can_block_initial_detect": True,
+            "all_muic_irq_registration_failure_is_nonblocking": False,
+            "absence_of_chgtyp_interrupt_delivery_explains_initial_mux_silence": False,
             "successful_platform_probe_or_complete_log_does_not_prove_muic_init_success": True,
             "successful_platform_probe_or_complete_log_does_not_prove_unmask_write_success": True,
             "s7a2_ap_contains_the_required_module_plan": True,
