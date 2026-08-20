@@ -3124,6 +3124,67 @@ authority. Those materialization steps precede the live-kmsg parser
 qualification; an external-corpus parser alone still cannot make an unreachable
 emitter into candidate evidence.
 
+## Review of the V2 plan unit, and a correction to this report's DWC3 framing
+
+The successor-plan V2 unit answers the capacity item this report left open, and
+in answering it refutes the framing of the section above. Verified here against
+the bound plan.
+
+### Confirmed: the increment is three, not fourteen
+
+Intersecting the fourteen-module closure with the bound 70-row plan gives
+**eleven already present** — `if_cb_manager`, `redriver`, `switch_class`,
+`usb_notify_layer`, `vbus_notifier`, `common_muic`, `pdic_notifier_module`,
+`qc_usb_audio`, `usb_typec_manager`, `usb_f_ss_mon_gadget` and `dwc3-msm` — and
+**three missing**: `spu_verify.ko`, `mfd_max77705.ko`, `pdic_max77705.ko`.
+70 + 3 = **73**. The receipt reproduces here at 14833 bytes /
+`d8c12396e241e387...`.
+
+This closes the stage-capacity question this report raised and could not answer.
+The estimate offered there — "at most 84 minus whatever is already present" —
+was a bound rather than a number, and the number is 73.
+
+### The correction: there was never a DWC3 conflict to collapse
+
+The section above analysed the `dwc3-msm` tie because the candidate "carries a
+custom DWC3 latch", and framed the result as collapsing a custom-module
+replacement into a single symbol. **That framing is withdrawn.** The plan
+contains both:
+
+```
+row  0: s22plus_dwc3_event_latch.ko    (the campaign's custom module)
+row 59: dwc3-msm.ko                    (the stock module)
+```
+
+They are not alternatives. The custom module is an *event latch* that coexists
+with the stock DWC3 module, which the plan has been loading all along. So
+`dwc3_restart_usb_host_mode` is already provided, the dependency was already
+satisfied before this analysis started, and no replacement was ever pending.
+
+The underlying facts in that section survive unchanged and were independently
+correct: exactly one symbol ties `pdic_max77705` to `dwc3-msm`, it has exactly
+one relocation at `.text+0x12318`, and the enclosing function is
+`max77705_vdm_dp_select_pin` on the DisplayPort alternate-mode path. What was
+wrong was the problem those facts were said to solve. Their actual bearing is
+narrower: they say what would break if `dwc3-msm` were ever *removed* from the
+plan, not what must be added to it.
+
+This is the second time in this report a conclusion was drawn about a plan
+without reading the plan — the first being the transport parser specified for
+emitters the plan does not carry. Reading the 70 rows costs one command.
+
+### The residual is provider identity, and it is correctly stated
+
+The V2 unit's remaining caveat is the right one. Row 59 names `dwc3-msm.ko`, but
+which **bytes** that row resolves to — the stock `vendor_dlkm` module or a
+campaign-built variant — is not qualified, and that is what actually determines
+whether the symbol is exported at load time. A named row is not a provider
+identity. The same applies to the three new rows: naming them is not the same as
+binding their bytes, which the unit lists as its next step.
+
+The EUD index correction is likewise a real one: an index derived from the tuple
+is 38, and the literal 37 that sat beside it was stale.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

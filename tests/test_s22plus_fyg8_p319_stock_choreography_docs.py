@@ -56,6 +56,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Review of the transport binding: the emitters are not in the plan",
         "V2 plan input: the load order, and the DWC3 tie is one symbol on the DP path",
         "V2 plan capacity and EUD identity: 73 rows fit, and 37 is stale",
+        "Review of the V2 plan unit, and a correction to this report's DWC3 framing",
         "What remains open",
         "Evidence",
     )
@@ -224,6 +225,19 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, flat)
+
+    def test_report_withdraws_the_dwc3_conflict_framing(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**eleven already present**",
+            "70 + 3 = **73**",
+            "**That framing is withdrawn.**",
+            "They are not alternatives.",
+            "the dependency was already\nsatisfied before this analysis started",
+            "A named row is not a provider\nidentity.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
