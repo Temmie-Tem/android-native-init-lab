@@ -482,8 +482,16 @@ identity:
   `51474c2d323971c07ca1425be613ea48cdd6c13f870606b166fba76835e6a9b2`.
   One canonical private H28 manifest was then host-validated at SHA-256
   `e708e45e9cd925229682c76ad3b6359426f2e636eb26eb111ea54e9843e8d1c2`;
-  its runtime candidate/rollback/review rehash passed. No journal, guard,
-  connected D0, approval, ordinal, or F1 was created.
+  its runtime candidate/rollback/review rehash passed. At that checkpoint no
+  journal, guard, connected D0, approval, ordinal, or F1 existed. One directly
+  requested connected D0 then re-proved exact healthy V2321, recovery
+  availability, the H28 enable/latch paths absent, and the other Samsung
+  endpoint untouched. It published only canonical `00-prepared.json` at
+  SHA-256
+  `68b97cac14118ee4f3533a4b9760af10011efcc897332bad25fec585a5a0e7f3`,
+  acquired the exact active and H28 candidate guards, and derived one fresh
+  attended approval token. Candidate intent, transfer, reboot, ADB, rollback,
+  and F1 effects remain zero pending the operator's exact token repetition.
 
 ## What Leaves or Moves Out
 
