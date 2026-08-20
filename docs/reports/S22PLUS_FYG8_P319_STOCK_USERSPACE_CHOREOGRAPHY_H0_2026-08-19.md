@@ -3617,6 +3617,131 @@ ever loaded on a candidate is still unproven** — that is precisely what W1, th
 per-module `finit_module` return, exists to answer, and it is the cheapest
 witness in the set.
 
+## A withdrawn vermagic claim, and a config that belongs to a different build
+
+### First, the withdrawal
+
+The preceding section argued that a rebuilt `pdic_max77705.ko` "must reproduce
+that vermagic exactly", and rested part of that on the campaign's own
+`s22plus_dwc3_event_latch.ko` carrying the release **without `-gki-`**.
+
+**That argument is withdrawn.** The loader this campaign runs does not compare
+the release token when the module carries CRCs:
+
+```c
+/* First part is kernel version, which we ignore if module has crcs. */
+static inline int same_magic(const char *amagic, const char *bmagic,
+			     bool has_crcs)
+{
+	if (has_crcs) {
+		amagic += strcspn(amagic, " ");
+		bmagic += strcspn(bmagic, " ");
+	}
+	return strcmp(amagic, bmagic) == 0;
+}
+```
+
+`common/kernel/module.c:1395-1404`, in this campaign's own materialized tree.
+`has_crcs` is `info->index.vers`, the module's `__versions` section, which every
+`modversions` module has. `-gki-` versus no `-gki-` lives entirely inside the
+skipped token. The observation was real; the conclusion drawn from it was not.
+
+What survives the withdrawal is the half that was always the expensive half: the
+suffix must still match exactly, and **CRC provider closure remains mandatory**.
+A rebuild still owes the provider-compatibility gate. The sequencing
+recommendation is unchanged, and this unit acted on it — it reached the same
+witnesses through stock emitters and rebuilt nothing.
+
+### Second, what the audit certifies is not what it audits
+
+The auditor pins the flashed Image
+`71f573eb...` and takes its section authority, symbol CRCs and module
+configuration from `s22plus_fyg8_p310/immutable-a-v6/`. Those are two different
+kernel binaries.
+
+That directory also contains an `Image`,
+`9c2115bb8cd396d0396490c737b39713abdeac311d2ba49679a1bacd9a41e609`. Against the
+flashed Image it differs in **565 of 633 64 KiB blocks, 8,153,294 bytes, 19.65%
+of the file**. Measured against the audited `vmlinux`, the export value fields
+resolve the question outright:
+
+| Image | `__ksymtab` value diffs | `__ksymtab_gpl` value diffs |
+| --- | --- | --- |
+| `immutable-a-v6/Image` | **0** | **0** |
+| `fixed-p310-ready-1/Image` (flashed) | 31 | 28 |
+
+The audited `vmlinux` is the sibling Image's, exactly. The report's "only the
+expected 31/28 value-field differences" is not a vmlinux-versus-Image format
+quirk. It is the signature of a different link, and the 59 symbols are all data
+objects displaced by exactly 128 or 160 bytes — `param_ops_*`, `_ctype`,
+`kmalloc_caches`, `clk_divider_ops`, `crypto_ft_tab`. `System.map` agrees with
+`vmlinux`, not with the flashed Image.
+
+The cause is recoverable, because the flashed Image carries its own
+configuration: it has one `IKCFG_ST` block. Decompressed it is 185,508 bytes,
+the same length as the pinned `.config`, and differs from it in **exactly two
+non-comment lines**:
+
+```
+flashed Image  CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="b9cc424d0d184f5accbce94a844e817d"
+pinned .config CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="a06fa64d1ce9442ab427e01999f08c0c"
+```
+
+plus the matching `E1_UNSAT_TAG_HEX`. Two compiled-in string constants of
+different content, and the address churn follows from them.
+
+This is an identity error, not a physics error. The auditor's own
+`RUN_ID = b9cc424d0d184f5accbce94a844e817d` is the **flashed** Image's run
+identity, while `CONFIG_IDENTITY` pins a config file whose own recorded run
+identity is `a06fa64d...` — a different candidate run. A campaign with a
+no-replay rule and per-run identity should not certify one run's module lane
+from another run's config, however similar the two builds are.
+
+### Third, every conclusion survives, by a route the auditor did not take
+
+Re-derived from the flashed Image alone:
+
+- its vermagic is
+  `5.10.226-android12-9-30958166-abS906NKSS7FYG8 SMP preempt mod_unload modversions aarch64`,
+  so the suffix equals `STOCK_SUFFIX` exactly;
+- its embedded config carries `CONFIG_MODVERSIONS=y`, `CONFIG_MODULE_SIG` unset,
+  `CONFIG_MODULE_FORCE_LOAD` unset, `CONFIG_MODULE_REL_CRCS` absent;
+- it contains no module-signature diagnostic string at all;
+- `__kcrctab`, `__kcrctab_gpl` and `__ksymtab_strings` are byte-identical to the
+  audited vmlinux, so the CRC values the closure consumes are untouched by the
+  address churn. The `3,566 = 3,238 + 328` closure stands.
+
+So the unit's headline result is correct. It is correct because CRCs are
+type-derived and layout-independent, not because the audit established the
+Image's provenance — and the audit's one address-sensitive check is the one it
+absorbed into a pass constant.
+
+### The fix is one function, and it points the right way
+
+`STOCK_SUFFIX` and the module lane can both be **derived from the pinned Image**
+instead of asserted beside it: read `IKCFG_ST`, decompress, read the config;
+read the `vermagic` string. The Image is already hash-pinned, so nothing is
+weakened. Two things change: `31/28` becomes `0/0` once the correct vmlinux is
+bound, and the auditor stops holding a constant that only happens to be true.
+
+That is the same direction as the manifest-coupling repair reviewed earlier in
+this report — replace a coincidence with a derivation — and the same failure
+shape as the `irq:350` constant this report has already had to withdraw once.
+
+### Two objections raised and dropped
+
+Recorded because they were checked, not because they bit.
+
+- **GPL export split.** `_image_provider_map` merges `__ksymtab` and
+  `__ksymtab_gpl` into one namespace, so a non-GPL module importing a GPL-only
+  symbol would pass the audit and fail `resolve_symbol` with `-ENOENT`. All 73
+  modules in the snapshot declare `license=GPL`. Inert today.
+- **Symbol namespaces.** `verify_namespace_is_imported` is unmodelled. The whole
+  export set carries only two non-empty namespaces,
+  `VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver` (116 symbols) and
+  `CRYPTO_INTERNAL` (3). No vendor module in this plan is a filesystem or a
+  crypto internal consumer. Inert today, cheap to add.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

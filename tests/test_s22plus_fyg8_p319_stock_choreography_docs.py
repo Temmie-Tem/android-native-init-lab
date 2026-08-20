@@ -64,9 +64,77 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Semantic manifest binding: duplicate paths no longer rewrite authority",
         "The manifest coupling is fixed, and the fix is invariant in the right direction",
         "The Carrier's two new emitters convert a load into a rebuild",
+        "A withdrawn vermagic claim, and a config that belongs to a different build",
         "What remains open",
         "Evidence",
     )
+
+    def test_report_withdraws_the_exact_vermagic_requirement(self):
+        # The withdrawn claim was that a rebuilt vendor module must reproduce
+        # the shipped release token.  The loader skips that token whenever the
+        # module carries CRCs, which every modversions module does.  What the
+        # withdrawal must NOT take with it is the half that still binds: the
+        # suffix and the CRC provider closure.
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**That argument is withdrawn.**",
+            "which we ignore if module has crcs",
+            "amagic += strcspn(amagic, \" \")",
+            "common/kernel/module.c:1395-1404",
+            "lives entirely inside the\nskipped token",
+            "**CRC provider closure remains mandatory**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_records_the_two_build_identity_split(self):
+        # The audited vmlinux/.config belong to immutable-a-v6, not to the
+        # flashed Image.  Each number here is a measurement, not a threshold:
+        # if the inputs are ever rebound the section has to be re-derived
+        # rather than re-blessed.
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "9c2115bb8cd396d0396490c737b39713abdeac311d2ba49679a1bacd9a41e609",
+            "565 of 633 64 KiB blocks, 8,153,294 bytes, 19.65%",
+            "The audited `vmlinux` is the sibling Image's, exactly.",
+            "It is the signature of a different link",
+            "128 or 160 bytes",
+            "one `IKCFG_ST` block",
+            "differs from it in **exactly two\nnon-comment lines**",
+            'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="b9cc424d0d184f5accbce94a844e817d"',
+            'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="a06fa64d1ce9442ab427e01999f08c0c"',
+            "This is an identity error, not a physics error.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_keeps_the_stock_closure_result_standing(self):
+        # A review that finds a provenance defect must still say plainly that
+        # the unit's result holds.  This report has previously let a correction
+        # read as a refutation.
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "So the unit's headline result is correct.",
+            "because CRCs are\ntype-derived and layout-independent",
+            "The `3,566 = 3,238 + 328` closure stands.",
+            "it reached the same\nwitnesses through stock emitters and rebuilt nothing",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_records_the_objections_that_did_not_bite(self):
+        # Checked-and-dropped objections are recorded so a later unit does not
+        # spend the same hours, and so the audit gap is visible even while it
+        # is inert.
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "Two objections raised and dropped",
+            "All 73\nmodules in the snapshot declare `license=GPL`. Inert today.",
+            "VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver` (116 symbols)",
+            "`CRYPTO_INTERNAL` (3)",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
 
     def test_report_reads_in_order_rather_than_in_discovery_order(self):
         # This report was first written by appending each unit's findings, which
