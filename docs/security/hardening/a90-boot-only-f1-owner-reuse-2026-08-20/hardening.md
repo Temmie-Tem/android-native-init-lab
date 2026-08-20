@@ -1,5 +1,11 @@
 # Security Hardening Review: A90 reusable boot-only F1 owner
 
+> **SUPERSEDED 2026-08-20.** The selected sealed-package implementation was
+> retired before activation because its host-runtime closure was
+> disproportionate. See
+> `docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md`. This portfolio
+> remains historical evidence and grants no authority.
+
 ## Evidence Basis
 
 We reviewed the A90 F1 policy, current owner/contract/observer, runtime

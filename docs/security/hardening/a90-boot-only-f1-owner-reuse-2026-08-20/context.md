@@ -1,5 +1,9 @@
 # A90 boot-only F1 owner reuse hardening context
 
+> **HISTORICAL 2026-08-20.** This evidence describes the retired sealed-package
+> owner. The active H0 replacement is
+> `docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md`.
+
 Analysis date: 2026-08-20
 Target revision: `2a5ec435dc3203fd78a55b3ab33440bedd785590`
 Scope: A90 public host-only owner, contract, observation, helper, and policy

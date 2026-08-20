@@ -1,5 +1,10 @@
 # A90 boot-only F1 owner v1 — structural design
 
+> **SUPERSEDED 2026-08-20.** This over-bound implementation path is historical
+> evidence only. The active H0 replacement is
+> `docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md`. Nothing in
+> this document grants execution or device authority.
+
 Date: 2026-08-17
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier of this document: H0 structural design

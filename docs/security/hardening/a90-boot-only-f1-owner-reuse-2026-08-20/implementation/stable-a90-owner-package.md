@@ -1,5 +1,9 @@
 # Implementation Plan: Stable A90 owner package
 
+> **SUPERSEDED 2026-08-20.** Work packages 1-3 were retired before activation.
+> The active H0 path is the smaller
+> `docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md` transaction.
+
 ## Selected Design And Constraints
 
 The selected design is `stable-a90-owner-package` from the A90 owner reuse

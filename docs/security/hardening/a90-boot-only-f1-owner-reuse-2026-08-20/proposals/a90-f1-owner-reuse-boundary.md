@@ -1,5 +1,9 @@
 # Security Hardening Proposal: Stable A90 boot-only F1 owner boundary
 
+> **SUPERSEDED 2026-08-20.** Option 2's sealed-package implementation was
+> retired before activation. The active H0 replacement is
+> `docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md`.
+
 ## Decision
 
 We need to decide what must remain invariant across repeated A90 kernel builds

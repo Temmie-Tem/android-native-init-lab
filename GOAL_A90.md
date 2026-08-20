@@ -332,43 +332,22 @@ identity:
   research-only until all ten dependency gates and its containment/switch
   conditions close. The exact next unit is H0 WP2-5b.3b: strict raw canonical
   writer/parser, selected storage-reservation backend, and crash-prefix fixture.
-- The reusable boot-only F1 owner now has an H0 implementation core at
-  `workspace/public/src/scripts/server-distro/a90_boot_only_f1_owner_v1.py`
-  with its strict contract/journal module and hostile tests. It removes the
-  per-candidate runner self-reference: manifests are data, candidate and
-  rollback are separately one-shot, and the success terminal remains
-  candidate-neutral. Live `execute` is unconditionally disabled. Python/ADB
-  runtime qualification is now generated and current-host reverified. The
-  pure observation contract now binds the exact resident version/build,
-  selftest, pstore, kernel boot ID, target endpoint, and recovery
-  qualification. The owner-controlled bridge lifecycle core now refuses a
-  pre-existing listener, executes only the sealed generated package in fixed
-  bridge mode through the reviewed FD loader, binds its exact
-  PID/cmdline/start tick/listener/TTY
-  ownership, and performs one bounded reap plus absence proof on every prefix.
-  It never relaunches and treats teardown uncertainty as terminal. The H0
-  stable-package Work Package 2 now replaces that persistent ten-file source
-  tree with one deterministic generated package. The owner binds the loader
-  and package from exact public bytes, copies each to a write/grow/shrink/seal-
-  sealed memfd, and children execute only the sealed package FD in one of the
-  fixed `bridge`, `observe`, or `flash` modes. There is no staging action,
-  source-tree receipt, sibling path open, or runtime-source repair state. One
-  fresh isolated observation worker loads only embedded exact members and
-  issues only `version`, `selftest`, `status`, and the kernel boot-ID read in
-  fixed order; timeout, malformed/missing/reordered output, surviving
-  descendants, or duplication yields no observation receipt, and the bridge
-  always closes. Stable-owner
-  Work Package 1 now excludes tests/reviews from execution identity, gives
-  resident/recovery/hazard `v2` evidence an owner-independent lifetime while
-  rejecting old `v1` bytes and while the manifest and approval still bind
-  their digests, and removes ADB from Native
-  preflight. ADB remains only in the existing TWRP recovery flash path. Exact
-  recovery arrival/serial binding, crash-prefix resume, and independent full
-  execution-closure review remain open.
-  Therefore no H27 manifest, approval, ordinal,
-  D0, D1, or F1 authority exists. The next owner unit is H0 recovery binding
-  plus the crash reconciler, followed by one fresh full review of the frozen
-  closure.
+- The sealed-package boot-only F1 owner was retired before activation. Its
+  7,313-file host-Python qualification and multi-module runtime made the simple
+  A90 transaction harder to review without improving target, artifact,
+  one-shot, rollback, or final-health proof. It remains historical evidence.
+- The active replacement is the host-only minimal state machine at
+  `workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py`
+  and its concise design
+  `docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md`. It fixes one
+  A90, one `boot` candidate, one `boot` rollback, intent-before-effect,
+  no-candidate-replay, and fresh final health in two allowlisted journal paths.
+  It deliberately has no production backend and hard-disables live execution.
+  ADB remains recovery-scoped; ordinary resident observation is Native serial.
+- Therefore no H27 manifest, approval, ordinal, D0, D1, or F1 authority
+  exists. The exact next owner unit is the small H0 adapter for the existing
+  Native serial and `native_init_flash.py` mechanisms, followed by one fresh
+  full review of that reduced execution closure.
 
 ## What Leaves or Moves Out
 
