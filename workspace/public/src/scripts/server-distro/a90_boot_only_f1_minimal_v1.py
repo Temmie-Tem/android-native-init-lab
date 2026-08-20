@@ -471,7 +471,10 @@ def _hash_fd(descriptor: int, size: int) -> str:
 def _verify_input(value: dict[str, Any], label: str) -> bytes:
     item = _input(value, label)
     path = Path(item["path"])
-    path_metadata = path.lstat()
+    try:
+        path_metadata = path.lstat()
+    except OSError as exc:
+        raise ContractError(f"{label} cannot be inspected") from exc
     if (
         not stat.S_ISREG(path_metadata.st_mode)
         or path_metadata.st_nlink != 1
@@ -752,6 +755,51 @@ def _publish_candidate_guard(manifest: dict[str, Any]) -> None:
     _fsync_directory(RUN_ROOT)
 
 
+def _active_guard(manifest: dict[str, Any]) -> tuple[Path, bytes]:
+    return RUN_ROOT / "active-run.guard", canonical_json({
+        "schema": "a90-boot-only-f1-active-run-v1",
+        "candidateSha256": manifest["candidate"]["sha256"],
+        "manifestSha256": sha256_bytes(canonical_json(manifest)),
+        "runId": manifest["runId"],
+    })
+
+
+def _publish_active_guard(manifest: dict[str, Any]) -> None:
+    path, raw = _active_guard(manifest)
+    try:
+        descriptor = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+            0o600,
+        )
+    except FileExistsError as exc:
+        raise ContractError("another A90 F1 transaction is active") from exc
+    try:
+        if os.write(descriptor, raw) != len(raw):
+            raise ContractError("active guard short write")
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    _fsync_directory(RUN_ROOT)
+
+
+def _require_active_guard(manifest: dict[str, Any]) -> None:
+    path, expected = _active_guard(manifest)
+    actual = _verify_input(
+        {"path": str(path), "size": len(expected), "sha256": sha256_bytes(expected)},
+        "active run guard",
+    )
+    if actual != expected:
+        raise ContractError("active run guard identity mismatch")
+
+
+def _release_active_guard(manifest: dict[str, Any]) -> None:
+    _require_active_guard(manifest)
+    path, _expected = _active_guard(manifest)
+    os.unlink(path)
+    _fsync_directory(RUN_ROOT)
+
+
 def _require_candidate_guard(manifest: dict[str, Any]) -> None:
     path, expected = _candidate_guard(manifest)
     actual = _verify_input(
@@ -860,6 +908,7 @@ def prepare(
         snapshot = backend.preflight(manifest)
         _require_start(snapshot, manifest)
         _publish_candidate_guard(manifest)
+        _publish_active_guard(manifest)
         manifest_sha256 = sha256_bytes(manifest_raw)
         payload = {
             "schema": PREPARED_SCHEMA,
@@ -928,8 +977,9 @@ def _terminal(
     terminal: str,
     snapshot: Snapshot | None,
     reason: str,
-    qualification: dict[str, Any],
+    manifest: dict[str, Any],
 ) -> dict[str, Any]:
+    qualification = manifest["qualification"]
     payload = {
         "schema": RESULT_SCHEMA,
         "terminal": terminal,
@@ -947,6 +997,7 @@ def _terminal(
         "40-terminal.json",
         _record("TERMINAL", manifest_sha256, payload),
     )
+    _release_active_guard(manifest)
     return payload
 
 
@@ -961,6 +1012,7 @@ def execute(
     _verify_qualification_inputs(manifest)
     _require_run_path(run_directory, manifest["runId"])
     _require_candidate_guard(manifest)
+    _require_active_guard(manifest)
     records = read_records(run_directory)
     if set(records) != {"00-prepared.json"}:
         raise ContractError("execute requires one fresh prepared run")
@@ -1027,7 +1079,7 @@ def execute(
                 "RECOVERY_REQUIRED",
                 None,
                 "CANDIDATE_HELPER_NOT_QUIESCENT",
-                manifest["qualification"],
+                manifest,
             )
         try:
             observed = backend.observe(
@@ -1056,7 +1108,7 @@ def execute(
                 "PASS_A90_RESIDENT_INSTALLED",
                 observed,
                 "CANDIDATE_HEALTHY",
-                manifest["qualification"],
+                manifest,
             )
 
         publish_record(
@@ -1089,7 +1141,7 @@ def execute(
                 "RECOVERY_REQUIRED",
                 None,
                 "ROLLBACK_HELPER_NOT_QUIESCENT",
-                manifest["qualification"],
+                manifest,
             )
         try:
             recovered = backend.observe(
@@ -1117,7 +1169,7 @@ def execute(
                 "NO_PROOF_ROLLED_BACK",
                 recovered,
                 "ROLLBACK_HEALTHY",
-                manifest["qualification"],
+                manifest,
             )
         return _terminal(
             run_directory,
@@ -1125,7 +1177,7 @@ def execute(
             "RECOVERY_REQUIRED",
             recovered,
             "ROLLBACK_HEALTH_UNPROVED",
-            manifest["qualification"],
+            manifest,
         )
     finally:
         candidate.close()

@@ -291,6 +291,7 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(prepared["snapshot"]["bootId"], "boot-one")
         self.assertTrue(token.startswith(M.APPROVAL_PREFIX))
         self.assertEqual(M.recovery_decision(run), "PRE_EFFECT_NO_DEVICE_EFFECT")
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
 
     def test_journal_growth_between_lstat_and_open_is_rejected(self):
         run, _token = self._prepare()
@@ -328,6 +329,14 @@ class MinimalF1Test(unittest.TestCase):
                 FakeBackend(self.start),
             )
 
+    def test_different_candidate_cannot_overlap_active_run(self):
+        self._prepare()
+        other = json.loads(json.dumps(self.manifest))
+        other["candidate"]["sha256"] = HEX_A
+        other["qualification"]["candidateSha256"] = HEX_A
+        with self.assertRaisesRegex(M.ContractError, "transaction is active"):
+            M._publish_active_guard(other)
+
     def test_manifest_bytes_cannot_authorize_a_different_object(self):
         changed = json.loads(json.dumps(self.manifest))
         changed["candidate"]["version"] = "substituted"
@@ -356,6 +365,7 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(len(backend.flash_calls), 1)
         self.assertFalse(backend.flash_calls[0][1])
         self.assertEqual(M.recovery_decision(run), "TERMINAL_COMPLETE")
+        self.assertFalse((M.RUN_ROOT / "active-run.guard").exists())
 
     def test_wrong_approval_causes_no_effect(self):
         run, _token = self._prepare()
@@ -552,7 +562,7 @@ class MinimalF1Test(unittest.TestCase):
 class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1200)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1300)
         self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 600)
         self.assertLessEqual(len(design.read_text().splitlines()), 180)
 

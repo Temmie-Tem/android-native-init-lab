@@ -73,7 +73,10 @@ It contains no production device backend and its CLI hard-disables execution.
 - All runs live under one fixed mode-0700 private A90 run root. After successful
   preflight, PREPARED first creates and fsyncs one permanent
   `candidate-<sha256>.guard` with `O_EXCL`; changing run ID or directory cannot
-  prepare the same candidate again. Approval also binds the run ID explicitly.
+  prepare the same candidate again. A separate capability-wide
+  `active-run.guard` serializes different candidate hashes and is released only
+  after an exact terminal is durably published; a crash leaves it blocking.
+  Approval also binds the run ID explicitly.
 - Every record uses create-exclusive publication, file fsync, and directory
   fsync in a new mode-0700 run directory. Manifest and journal readers reject
   special/oversized paths before open, then bind one nonblocking descriptor,

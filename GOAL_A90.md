@@ -392,6 +392,9 @@ identity:
   A thirteenth review found dangling allowlisted symlinks were treated absent.
   Journal presence now comes from directory-entry names and every present name
   must pass the bounded direct-regular reader.
+  A fourteenth review found different candidates could overlap. One durable
+  capability-wide active-run guard now serializes all A90 F1 candidates and is
+  removed only after an exact terminal; crashes keep it blocking.
 
 ## What Leaves or Moves Out
 
