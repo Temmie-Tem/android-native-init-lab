@@ -2722,6 +2722,89 @@ the count itself moves with that concurrent inventory rather than with this
 S22+ closure. Common Process-v2 passes 122/122. These time-stamped shared-tree
 aggregates do not alter the exact 15/15 V2 closure.
 
+## Successor H0 design: four of the five witnesses need no new code
+
+The witness order is fixed. This section is the H0 design input for a successor
+that preserves it, and it starts from a measurement rather than from a plan:
+**which of the five are already emitted, and do they already survive the ring.**
+
+### What the stock driver already emits
+
+| # | witness | existing emitter | captures carrying it |
+|---|---|---|---|
+| 1 | per-module `finit_module` rc | S7A2 `emit_module_result(name, rc)` → `/dev/kmsg` | — (no candidate boot in corpus) |
+| 2 | bind / probe entry | `msg_maxim("probing Complete..")` | 8 |
+| 3 | VBUSDET registration result | `max77705_muic_irq_init uiadc(..), …, vbusdet(N)` | 8 |
+| 4a | initial status bytes | `USBC1:0x.., USBC2:0x.., BC:0x..` | **121 of 121**, 1163 lines |
+| 4b | classification result | `vps table match found at i(N), <name>` | 17 |
+| 5 | parent `0x23` bit 3 readback | **none** | 0 |
+
+Witness 3 is the one worth dwelling on, because it converts an inference into a
+reading. `REQUEST_IRQ` sets `_irq = 0` when a request fails, and the `pr_info`
+that prints all five IRQ numbers runs **unconditionally** after the last request
+and before `return ret`. So `vbusdet(0)` is a *positive* witness that
+registration failed, and a nonzero value is a positive witness that it
+succeeded. Nothing has to be added to the driver, and the "absence of an error
+line" reasoning this report has had to bound repeatedly is not needed here.
+
+The same line is a better source than the one the IRQ audit currently uses. The
+audit reads nested numbers from `max77705_muic_irq irq:<n> (muic-<name>)`
+dispatch lines, which exist in only 2 captures. The `irq_init` five-tuple exists
+in 8, and it additionally carries `uiadc` and `dcdtmo`, which no dispatch line
+in the corpus ever showed. A sample reads
+`uiadc(355), chgtyp(354), dcdtmo(352), vbadc(351), vbusdet(350)` — base 328,
+and the base-free differences hold: `354 − 350 = 4`, `351 − 350 = 1`.
+
+### The two real gaps
+
+**Witness 5 has no emitter at all.** A readback of parent `0x23` with bit 3
+clear is not printed anywhere in the driver, and nothing in the corpus carries
+it. This is the only witness that requires new capability, and it is the one the
+fixed order puts last — correctly, since it does not gate the mux write.
+
+**Witness 4 is three bytes, not five.** `max77705_muic_detect_dev` reads
+`u8 status[5]` and prints only `status[0..2]` as `USBC1`, `USBC2`, `BC`.
+`status[3]` and `status[4]` are read into the buffer and never logged. Calling
+this witness "the initial five-byte classification" overstates what the existing
+emitter provides by two bytes.
+
+### The constraint that actually decides the design
+
+All five witnesses occur before roughly `t = 5 s`. The retained ring is FIFO and
+2,097,136 bytes. Measuring every capture in the corpus:
+
+| | value |
+|---|---|
+| ring span, seconds | min 24, **median 540**, max 984 |
+| earliest timestamp still in the ring | min 1, **median 9029**, max 236195 |
+| captures whose ring still reaches `t < 10 s` | **14 of 121** |
+
+So on a stock boot the ring holds roughly nine minutes of kernel log, and **the
+boot window has already been overwritten in 107 of 121 retained captures.** The
+witnesses are not lost because nothing wrote them; they are lost because
+everything written afterwards pushed them out.
+
+That reframes the requirement. It is not a time budget and should not be written
+as one. It is a **byte budget**: the total kernel log emitted between the
+witness lines and the moment the ring is captured must stay below 2,097,136
+bytes. On stock that budget is consumed in about nine minutes because stock
+Android userspace is loud — `vaultkeeperd` alone accounts for 606,320 lines
+across the corpus. A candidate runs none of that userspace, so its budget should
+last far longer, but **that rate is unmeasured**, because no candidate boot
+exists in this corpus to measure it from. The successor should therefore treat
+the byte budget as the design constraint and instrument its own consumption
+rather than assume the stock figure transfers.
+
+### What this means for the successor
+
+It does not need to add instrumentation for witnesses 2, 3 and 4b, and it needs
+only two bytes more for 4a. Its real work is threefold: guarantee the candidate
+*reaches* those lines, keep the post-witness log volume inside the byte budget
+until the ring is captured, and add the single missing emitter for witness 5.
+Witness 1 is already emitted by the S7A2 loader but has never been observed to
+survive, because no candidate boot has ever been retained — so it must be
+treated as unvalidated retention rather than as a working channel.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

@@ -51,6 +51,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The IRQ numbers are not stock properties; the offsets are",
         "Initial classification precedes unmask; the historical live-load claim did not survive",
         "The platform probe has two silent failure points, not one",
+        "Successor H0 design: four of the five witnesses need no new code",
         "What remains open",
         "Evidence",
     )
@@ -134,6 +135,20 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "failure in that **pre-MUIC USBC IRQ\nfamily** does not block",
             "does not prove\nthat every nested MUIC IRQ-registration failure is non-blocking",
             "two further call sites, at `:2888` and `:2921`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_carries_the_successor_witness_design(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**121 of 121**, 1163 lines",
+            "`vbusdet(0)` is a *positive* witness that\nregistration failed",
+            "`status[3]` and `status[4]` are read into the buffer and never logged",
+            "**14 of 121**",
+            "**the\nboot window has already been overwritten in 107 of 121 retained captures.**",
+            "It is a **byte budget**",
+            "that rate is unmeasured",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)
