@@ -375,6 +375,9 @@ identity:
   preflight now hashes complete `lsusb` output, requires exactly one Samsung
   endpoint (`04e8:6861`), and separately binds the fixed A90 Native serial;
   ADB remains recovery-only.
+  An eighth review found rollback was still manifest-selected. The A90 owner
+  now hardcodes the sole V2321 rollback path, size, SHA-256, version, and build;
+  only the candidate varies by manifest.
 
 ## What Leaves or Moves Out
 

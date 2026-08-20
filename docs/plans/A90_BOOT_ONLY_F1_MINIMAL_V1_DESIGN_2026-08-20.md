@@ -26,8 +26,10 @@ It contains no production device backend and its CLI hard-disables execution.
 ## What remains load-bearing
 
 - A90 only, `boot` only, attended F1 only.
-- One exact manifest selects one expected resident, candidate, rollback, and
-  bounded timeout pair. It cannot express a command or another partition.
+- One exact manifest selects one expected resident, candidate, and bounded
+  timeout pair. The owner itself fixes the sole rollback to V2321 by absolute
+  path, size, SHA-256, version, and build; a manifest cannot replace it. It
+  cannot express a command or another partition.
 - Candidate and rollback are opened with `O_NOFOLLOW`, must be direct regular
   single-link files owned by the current user and not group/world writable,
   and are checked by size and SHA-256 before use and after the helper returns.

@@ -63,6 +63,18 @@ class MinimalF1Test(unittest.TestCase):
         self.rollback.write_bytes(b"rollback")
         os.chmod(self.candidate, 0o600)
         os.chmod(self.rollback, 0o600)
+        self.production_rollback = (
+            M.V2321_ROLLBACK_PATH,
+            M.V2321_ROLLBACK_SIZE,
+            M.V2321_ROLLBACK_SHA256,
+            M.V2321_ROLLBACK_VERSION,
+            M.V2321_ROLLBACK_BUILD,
+        )
+        M.V2321_ROLLBACK_PATH = str(self.rollback)
+        M.V2321_ROLLBACK_SIZE = len(b"rollback")
+        M.V2321_ROLLBACK_SHA256 = M.sha256_bytes(b"rollback")
+        M.V2321_ROLLBACK_VERSION = "old"
+        M.V2321_ROLLBACK_BUILD = "old-build"
         recovery = {
             "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1",
             "method": "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
@@ -124,6 +136,13 @@ class MinimalF1Test(unittest.TestCase):
         self.start = self._snapshot("old", "old-build", receipt=HEX_A)
 
     def tearDown(self):
+        (
+            M.V2321_ROLLBACK_PATH,
+            M.V2321_ROLLBACK_SIZE,
+            M.V2321_ROLLBACK_SHA256,
+            M.V2321_ROLLBACK_VERSION,
+            M.V2321_ROLLBACK_BUILD,
+        ) = self.production_rollback
         self.temp.cleanup()
 
     def _artifact(self, path: Path, version: str, build: str):
@@ -179,6 +198,10 @@ class MinimalF1Test(unittest.TestCase):
             bad[field] = value
             with self.assertRaises(M.ContractError):
                 M.validate_manifest(bad)
+        bad = json.loads(json.dumps(self.manifest))
+        bad["rollback"]["version"] = "other"
+        with self.assertRaisesRegex(M.ContractError, "exact V2321"):
+            M.validate_manifest(bad)
 
     def test_manifest_rejects_bool_integer_and_extra_field(self):
         bad = json.loads(json.dumps(self.manifest))
@@ -458,7 +481,7 @@ class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1100)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 500)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 525)
         self.assertLessEqual(len(design.read_text().splitlines()), 180)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):

@@ -29,6 +29,14 @@ PREPARED_SCHEMA = "a90-boot-only-f1-minimal-prepared-v1"
 RECORD_SCHEMA = "a90-boot-only-f1-minimal-record-v1"
 RESULT_SCHEMA = "a90-boot-only-f1-minimal-result-v1"
 TARGET_PROFILE = "SAMSUNG_A90_5G"
+V2321_ROLLBACK_PATH = (
+    "/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/"
+    "boot_linux_v2321_usb_clean_identity_rodata.img"
+)
+V2321_ROLLBACK_SIZE = 60_882_944
+V2321_ROLLBACK_SHA256 = "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+V2321_ROLLBACK_VERSION = "0.9.285"
+V2321_ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
 REPO_ROOT = Path(__file__).resolve().parents[5]
 EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
@@ -221,6 +229,14 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     _text(expected["build"], "expectedStart.build")
     candidate = _artifact(manifest["candidate"], "candidate")
     rollback = _artifact(manifest["rollback"], "rollback")
+    if rollback != {
+        "path": V2321_ROLLBACK_PATH,
+        "size": V2321_ROLLBACK_SIZE,
+        "sha256": V2321_ROLLBACK_SHA256,
+        "version": V2321_ROLLBACK_VERSION,
+        "build": V2321_ROLLBACK_BUILD,
+    }:
+        raise ContractError("rollback is not the exact V2321 artifact")
     if candidate["sha256"] == rollback["sha256"] or candidate["path"] == rollback["path"]:
         raise ContractError("candidate and rollback are not distinct")
     qualification = _object(
