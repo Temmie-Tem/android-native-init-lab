@@ -345,9 +345,11 @@ identity:
   It deliberately has no production backend and hard-disables live execution.
   ADB remains recovery-scoped; ordinary resident observation is Native serial.
 - Therefore no H27 manifest, approval, ordinal, D0, D1, or F1 authority
-  exists. The exact next owner unit is the small H0 adapter for the existing
-  Native serial and `native_init_flash.py` mechanisms, followed by one fresh
-  full review of that reduced execution closure.
+  exists. The small H0 adapter for the existing Native serial and
+  `native_init_flash.py` mechanisms is now present and hard-disabled. Its
+  recovery mode requires an empty pre-effect ADB baseline and one recovery
+  arrival, without a caller-selected serial. The exact next unit is one fresh
+  independent full review of this reduced execution closure.
 
 ## What Leaves or Moves Out
 

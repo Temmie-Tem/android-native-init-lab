@@ -142,12 +142,19 @@ def adb_state(adb: str, serial: str) -> str | None:
 def wait_for_adb_state(adb: str,
                        serial: str | None,
                        wanted_states: set[str],
-                       timeout_sec: float) -> tuple[str, str]:
+                       timeout_sec: float,
+                       *,
+                       require_unique: bool = False) -> tuple[str, str]:
     deadline = time.monotonic() + timeout_sec
     last_devices: list[tuple[str, str]] = []
 
     while time.monotonic() < deadline:
         last_devices = adb_devices(adb)
+        if require_unique and len(last_devices) > 1:
+            rendered = ", ".join(
+                f"{device_serial}:{state}" for device_serial, state in last_devices
+            )
+            raise RuntimeError(f"ADB arrival is ambiguous: {rendered}")
         for device_serial, state in last_devices:
             if serial and device_serial != serial:
                 continue
@@ -970,6 +977,11 @@ def parse_args() -> argparse.Namespace:
         help="first ask the currently running native init shell to reboot to recovery",
     )
     parser.add_argument(
+        "--require-empty-adb-baseline",
+        action="store_true",
+        help="before a from-native request require zero ADB endpoints, then accept only one recovery arrival",
+    )
+    parser.add_argument(
         "--verify-only",
         action="store_true",
         help="only verify the selected --post-flash-target without flashing",
@@ -1071,6 +1083,10 @@ def main() -> int:
         args.expect_readback_sha256,
         label="--expect-readback-sha256",
     )
+    if args.require_empty_adb_baseline and (not args.from_native or args.serial):
+        raise SystemExit(
+            "--require-empty-adb-baseline requires --from-native and forbids a caller-selected serial"
+        )
 
     with phase_timer("total"):
         if args.verify_only:
@@ -1093,11 +1109,25 @@ def main() -> int:
                 return run_experimental_self_write(args, image_path, local_hash, image_size)
 
         if args.from_native:
+            if args.require_empty_adb_baseline:
+                baseline = adb_devices(args.adb)
+                if baseline:
+                    rendered = ", ".join(
+                        f"{device_serial}:{state}"
+                        for device_serial, state in baseline
+                    )
+                    raise RuntimeError(f"ADB baseline is not empty: {rendered}")
             with phase_timer("native_to_recovery"):
                 reboot_native_to_recovery(args)
 
         with phase_timer("wait_recovery_adb"):
-            serial, state = wait_for_adb_state(args.adb, args.serial, {"recovery"}, args.recovery_timeout)
+            serial, state = wait_for_adb_state(
+                args.adb,
+                args.serial,
+                {"recovery"},
+                args.recovery_timeout,
+                require_unique=args.require_empty_adb_baseline,
+            )
         if state != "recovery":
             raise RuntimeError(f"expected recovery state, got {state}")
 

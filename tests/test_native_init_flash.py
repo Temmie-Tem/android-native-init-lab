@@ -35,6 +35,37 @@ recovery-serial recovery
             ],
         )
 
+    def test_unique_recovery_arrival_rejects_multiple_adb_endpoints(self) -> None:
+        with mock.patch.object(
+            flash,
+            "adb_devices",
+            return_value=[("A90", "recovery"), ("OTHER", "device")],
+        ):
+            with self.assertRaisesRegex(RuntimeError, "ADB arrival is ambiguous"):
+                flash.wait_for_adb_state(
+                    "adb",
+                    None,
+                    {"recovery"},
+                    1.0,
+                    require_unique=True,
+                )
+
+    def test_empty_baseline_option_is_from_native_and_nonselected_only(self) -> None:
+        for argv in (
+            ["native_init_flash.py", "boot.img", "--require-empty-adb-baseline"],
+            [
+                "native_init_flash.py",
+                "boot.img",
+                "--from-native",
+                "--serial",
+                "SERIAL",
+                "--require-empty-adb-baseline",
+            ],
+        ):
+            with self.subTest(argv=argv), mock.patch("sys.argv", argv):
+                with self.assertRaisesRegex(SystemExit, "requires --from-native"):
+                    flash.main()
+
     def test_normalize_sha256_accepts_none_and_lowercases_valid_hex(self) -> None:
         self.assertIsNone(flash.normalize_sha256(None, label="hash"))
         self.assertEqual(flash.normalize_sha256("A" * 64, label="hash"), "a" * 64)

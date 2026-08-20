@@ -79,7 +79,9 @@ loss after launch is handled only by the table above.
 
 ## Backend boundary
 
-The next small H0 unit is an adapter for the existing A90 mechanisms:
+The small H0 adapter is
+`workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py`.
+It uses only the existing A90 mechanisms:
 
 - target and resident observation use the existing Native serial protocol;
 - candidate and rollback transfer use the existing reviewed
@@ -89,6 +91,11 @@ The next small H0 unit is an adapter for the existing A90 mechanisms:
   count, or arbitrary path;
 - the adapter returns exact target, effect, and final-health receipts to the
   state machine.
+
+For the recovery transition, the adapter always selects the helper's new
+fail-closed mode: ADB inventory must be empty before the Native reboot request,
+and exactly one recovery endpoint may arrive. It never accepts a caller serial.
+The default helper behavior for historical callers is unchanged.
 
 The adapter and the state machine together require one fresh independent full
 execution-closure review before activation. Tests are review evidence, not
@@ -116,13 +123,12 @@ evidence. They grant no authority and are not execution dependencies.
 
 ## Open gates
 
-1. Implement the small fixed A90 backend without enabling live execution.
-2. Prove its exact Native serial and recovery transfer inputs, helper
+1. Prove the adapter's exact Native serial and recovery transfer inputs, helper
    quiescence, and result receipts.
-3. Add candidate-specific manifest and hazard qualification as data, not owner
+2. Add candidate-specific manifest and hazard qualification as data, not owner
    source.
-4. Freeze and independently review the resulting small execution closure.
-5. Only afterward follow the A90 target contract for attended F1 approval and
+3. Freeze and independently review the resulting small execution closure.
+4. Only afterward follow the A90 target contract for attended F1 approval and
    execution.
 
-Until all five close, `LIVE_EXECUTION_ENABLED=False` remains binding.
+Until all four close, both live-enable constants remain false.

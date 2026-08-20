@@ -318,6 +318,8 @@ class MinimalSurfaceTest(unittest.TestCase):
             "a90_boot_only_f1_observer_v1.py",
             "a90_boot_only_f1_source_package_v1.py",
             "a90_boot_only_f1_runtime_qualification_v1.json",
+            "a90_boot_only_f1_command_bootstrap.py",
+            "a90_boot_only_f1_helper_bootstrap.py",
         )
         active_files = (
             SOURCE,
