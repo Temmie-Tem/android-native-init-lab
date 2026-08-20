@@ -87,6 +87,22 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertEqual(len(items), 9)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
+    def test_report_warrants_the_host_end_separately(self):
+        # The captures are bootloader-local; nothing in them shows a host.
+        for token in (
+            "**The host end of that sentence needs a separate warrant, and a review was right\nto ask for one.**",
+            "**no per-capture receipt binds any of the 62 download\nhashes to a particular host session**",
+            "That is recorded in the campaign ledger, not in these\ncaptures",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("enumerates to a host on this exact hardware every time the campaign flashes.\n\nThat changes", self.report)
+
+    def test_report_qualifies_the_xblramdump_vtable_finding(self):
+        # One path using its own callbacks is not a proof about every path.
+        self.assertIn("**on this path**, `XblRamdump` does not call the", self.report)
+        self.assertIn("does not establish that no path in the image ever reaches the DXE drivers", re.sub(r"\s+", " ", self.report))
+
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
             "IMPLEMENTED_REVIEW_PENDING",

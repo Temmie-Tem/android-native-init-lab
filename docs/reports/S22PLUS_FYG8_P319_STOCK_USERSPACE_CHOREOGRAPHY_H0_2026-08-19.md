@@ -1596,8 +1596,21 @@ UsbCoreIfc->AdvanceSSCmplPattern
 with errors including `Cannot Get Connection Mode for Core %d` and
 `Cannot simulate host and device at the same time`. **The bootloader selects
 peripheral mode by calling `InitDevice` on the core directly.** There is no role
-switch, no UCSI, no extcon and no PDIC anywhere in that path — and Odin
-enumerates to a host on this exact hardware every time the campaign flashes.
+switch, no UCSI, no extcon and no PDIC anywhere in that path.
+
+**The host end of that sentence needs a separate warrant, and a review was right
+to ask for one.** An earlier version ended "— and Odin enumerates to a host on
+this exact hardware every time the campaign flashes", offered as if the captures
+showed it. They do not. Every enumeration string in these logs, including
+`Samsung USB Driver enumeration start!`, is written by the bootloader about its
+own progress; no capture carries a host endpoint, a udev event, a descriptor, or
+an Odin receipt, and **no per-capture receipt binds any of the 62 download
+hashes to a particular host session**. What does warrant the claim is
+operational rather than log-borne: this campaign's own Odin transfers to this
+unit have completed, and a completed transfer requires the host to have
+enumerated the device. That is recorded in the campaign ledger, not in these
+captures, and it is a statement about the campaign's flashes in aggregate rather
+than about any one of the 62.
 
 That changes the weight of this unit's UCSI finding rather than contradicting it.
 UCSI over GLINK is how the **stock kernel** chooses to initiate the role; it is
@@ -1824,8 +1837,11 @@ and `Ccic.efi` has not been opened at all. Until those are read, what
 ## Resolving the vtable slots to register writes
 
 The thunks named slots. This resolves them, and the resolution has to start by
-correcting an assumption: `XblRamdump` does not call the `Muic`/`Ccic` DXE
-drivers. `muic_init` publishes an interface it carries itself, at
+correcting an assumption: **on this path**, `XblRamdump` does not call the
+`Muic`/`Ccic` DXE drivers. An earlier version dropped the qualifier and said it
+flatly; what the disassembly shows is one path using its own callbacks, which
+does not establish that no path in the image ever reaches the DXE drivers.
+`muic_init` publishes an interface it carries itself, at
 `0xa7e9cf60`, and `ccic_init` publishes one at `0xa7ea3fe0`. Both are four
 pointers followed by a null, and every pointer lands back inside `XblRamdump`'s
 own code segment:
