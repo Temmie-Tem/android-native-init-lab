@@ -61,10 +61,11 @@ ramdisk, init, or early-userspace cause is inferred here.
 Before another A90 F1:
 
 1. keep the failed H27 candidate guard consumed;
-2. add a reviewed terminal-only recovery receipt that binds the exact healthy
-   V2321 return and releases only the retained active-run guard;
-3. repair the owner so an already-present bound recovery endpoint can continue
-   the same untransferred rollback attempt without an out-of-owner deviation;
+2. close the retained active-run guard only through the reviewed terminal-only
+   recovery receipt after a fresh exact V2321 health observation;
+3. retain the repaired owner path that lets an already-present bound recovery
+   endpoint continue the same untransferred rollback attempt without another
+   Native recovery request;
 4. analyze any separately retrieved complete H27 boot evidence at H0; and
 5. use a byte-distinct, independently qualified future candidate only after the
    failure cause or observation gap is bounded.
@@ -86,5 +87,25 @@ as `PASS_GO`, HIGH/MEDIUM/LOW `0/0/0`. The review found and forced repair of
 guard-publication races, strict recovery error handling, hook symlink drift,
 and unobserved fresh-state claims before passing. No guard, journal, device,
 approval, candidate, or live authority was changed by this H0 repair or review.
-The exact next action is a separately authorized connected read-only H27
-closure; H28 still requires its own qualification, manifest, D0, and approval.
+
+## Connected terminal closure
+
+One separately authorized connected read-only D0 ran the fixed postrollback
+reconciler exactly once. It re-proved Native V2321 `0.9.285` with build
+`v2321-usb-clean-identity-rodata`, healthy state, and recovery availability,
+then appended canonical journal record 41 at SHA-256
+`4d1da970b34d2a3cc9c6cce20858b0d8971a13a6ec057b5615fb1646a0b18930`.
+The resulting terminal decision is
+`V2321_HEALTHY_EXTERNAL_ROLLBACK_OUTCOME_UNPROVED`: candidate and rollback
+replay are false, the external rollback outcome remains unproved, and no fresh
+candidate-state absence is inferred.
+
+The reconciler released only the active H27 guard. The exact consumed H27
+candidate guard remains present. The other Samsung endpoint was inventoried
+but received no command. This D0 used the existing Native ACM bridge and sent
+no ADB command, reboot, payload, partition transfer, or F1 action.
+
+The H27 recovery gap is now terminally closed without relabeling rollback
+provenance or the still-unproved H27 boot-loop cause. H28 remains H0-only and
+requires its own qualification, minimal manifest, connected D0, and fresh
+attended approval before any F1.

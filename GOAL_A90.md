@@ -457,10 +457,17 @@ identity:
   after fresh V2321 health while preserving the manual rollback outcome as
   unproved and retaining the consumed candidate guard; the future rollback
   helper can reuse one already-present manifest-bound recovery ADB endpoint
-  without issuing another Native recovery command. The active H27 guard and
-  journal remain unchanged until a separately authorized connected read-only
-  closure. The PASS qualifies capability bytes only; it grants no D0,
-  approval, ordinal, or F1 authority.
+  without issuing another Native recovery command. One separately authorized
+  connected read-only D0 then ran that reconciler exactly once. Fresh Native
+  V2321 `0.9.285 / v2321-usb-clean-identity-rodata` health passed; canonical
+  journal record 41 was published at SHA-256
+  `4d1da970b34d2a3cc9c6cce20858b0d8971a13a6ec057b5615fb1646a0b18930`;
+  the active H27 guard was released while the consumed candidate guard stayed
+  exact. Candidate and rollback replay remained false, the external rollback
+  outcome remained unproved, and no ADB, reboot, payload, partition transfer,
+  or F1 action occurred. The other Samsung endpoint received no command. H28
+  still requires its own qualification, manifest, connected D0, and fresh
+  attended approval; this terminal closure grants none of them.
 
 ## What Leaves or Moves Out
 
