@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -269,6 +270,19 @@ class MinimalF1Test(unittest.TestCase):
             ):
                 M.BoundArtifact.open(value, role)
 
+    def test_checkpoint_rejects_size_drift_before_hash(self):
+        bound = M.BoundArtifact.open(self.manifest["candidate"], "candidate")
+        try:
+            with self.candidate.open("ab") as stream:
+                stream.write(b"extended")
+            with mock.patch.object(
+                M, "_hash_fd", side_effect=AssertionError("must not hash")
+            ):
+                with self.assertRaisesRegex(M.ContractError, "size changed"):
+                    bound.checkpoint()
+        finally:
+            bound.close()
+
     def test_prepare_binds_target_artifacts_and_approval(self):
         run, token = self._prepare()
         records = M.read_records(run)
@@ -515,7 +529,7 @@ class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1200)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 550)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 575)
         self.assertLessEqual(len(design.read_text().splitlines()), 180)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):

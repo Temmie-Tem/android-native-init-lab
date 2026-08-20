@@ -34,7 +34,8 @@ It contains no production device backend and its CLI hard-disables execution.
   single-link files owned by the current user and not group/world writable,
   and are checked by size and SHA-256 before use and after the helper returns.
   A pre-open `lstat` rejects FIFO/device/symlink inputs; the subsequent open is
-  nonblocking and must resolve to the same inode before any hash read.
+  nonblocking and must resolve to the same inode before any hash read. Every
+  later checkpoint rejects size drift and the 128 MiB cap before rehashing.
 - Fresh preflight must prove the expected healthy resident, physical recovery,
   the same boot and target identity prepared for approval, and that other
   targets were untouched. The adapter hashes a bounded complete `lsusb`

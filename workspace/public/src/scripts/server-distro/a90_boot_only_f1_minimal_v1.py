@@ -383,6 +383,11 @@ class BoundArtifact:
     def checkpoint(self) -> dict[str, Any]:
         metadata = os.fstat(self.fd)
         path_metadata = self.path.lstat()
+        if (
+            metadata.st_size != self.receipt["size"]
+            or metadata.st_size > 128 * 1024 * 1024
+        ):
+            raise ContractError(f"{self.receipt['role']} size changed after binding")
         current = {
             "role": self.receipt["role"],
             "path": str(self.path),

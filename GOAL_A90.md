@@ -384,6 +384,8 @@ identity:
   A tenth review found artifact special files were opened before type checks.
   Candidate and V2321 rollback now pass pre-open `lstat`, nonblocking open, and
   same-inode revalidation before any read.
+  An eleventh review found post-bind size growth was hashed before rejection.
+  Checkpoints now reject declared-size drift and the 128 MiB cap before hash.
 
 ## What Leaves or Moves Out
 
