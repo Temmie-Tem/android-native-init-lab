@@ -56,8 +56,12 @@ retried without overwriting either log.
 - Fresh preflight must prove the expected healthy resident, physical recovery,
   the same boot and target identity prepared for approval, and that other
   targets were untouched. The adapter hashes a bounded complete `lsusb`
-  inventory and requires exactly one Samsung endpoint, the Native A90
-  `04e8:6861`; the fixed A90 serial symlink/realpath is checked separately.
+  inventory and requires exactly one Native A90 `04e8:6861`; other Samsung
+  endpoints may remain present but are never selected. The fixed A90 serial
+  symlink/realpath is checked separately. Recovery ADB binds the complete
+  pre-existing non-recovery endpoint set, requires it to remain unchanged,
+  and selects only one newly arrived recovery endpoint caused by the exact
+  A90 Native recovery command.
   This adds no standing ADB owner: ADB remains confined to recovery transfer.
 - Approval is derived from the canonical manifest digest, target evidence, and
   current boot ID. It is not reusable for another manifest, device, or boot.

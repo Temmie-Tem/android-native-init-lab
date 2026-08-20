@@ -24,7 +24,7 @@ BOOT_ID = "01234567-89ab-cdef-0123-456789abcdef"
 QUALIFICATION = {
     "recovery": {
         "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1",
-        "method": "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+        "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
         "demonstrated": True,
     },
     "review": {"path": "/tmp/review.json", "size": 1, "sha256": "a" * 64},
@@ -88,11 +88,13 @@ def bridge(*, ambiguous=False):
     }
 
 
-def usb_inventory(*, duplicate=False):
+def usb_inventory(*, duplicate=False, other_samsung=False):
     lines = [b"Bus 001 Device 002: ID 1d6b:0002 Linux Foundation 2.0 root hub",
              b"Bus 001 Device 003: ID 04e8:6861 Samsung Electronics Co., Ltd"]
     if duplicate:
         lines.append(b"Bus 001 Device 004: ID 04e8:6861 Samsung Electronics Co., Ltd")
+    if other_samsung:
+        lines.append(b"Bus 001 Device 005: ID 04e8:6860 Samsung Electronics Co., Ltd")
     return result(b"\n".join(lines) + b"\n")
 
 
@@ -213,6 +215,17 @@ class FixedAdapterTest(unittest.TestCase):
                 {"expectedStart": self.expected, "qualification": QUALIFICATION}
             )
 
+    def test_other_samsung_endpoint_is_allowed_but_never_selected(self):
+        results = healthy_results()
+        results[0] = usb_inventory(other_samsung=True)
+        snapshot = A.FixedA90Adapter(
+            FakeRunner(results), qualification=QUALIFICATION
+        ).preflight(
+            {"expectedStart": self.expected, "qualification": QUALIFICATION}
+        )
+        snapshot.validate()
+        self.assertTrue(snapshot.other_targets_untouched)
+
     def test_observation_budget_is_total_not_per_command(self):
         adapter = A.FixedA90Adapter(FakeRunner([]), qualification=QUALIFICATION)
         with mock.patch.object(A.time, "monotonic", side_effect=[0.0, 31.0]):
@@ -244,7 +257,8 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(label, "flash-candidate")
         self.assertEqual(argv[:2], (str(A.PYTHON), str(A.FLASH)))
         self.assertIn("--from-native", argv)
-        self.assertIn("--require-empty-adb-baseline", argv)
+        self.assertIn("--require-stable-adb-baseline", argv)
+        self.assertNotIn("--require-empty-adb-baseline", argv)
         self.assertNotIn("--serial", argv)
         self.assertEqual(argv.count(self.artifact["sha256"]), 2)
         self.assertEqual(timeout, 90)

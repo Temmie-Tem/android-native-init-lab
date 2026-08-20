@@ -311,7 +311,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     if (
         recovery["profile"] != "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
         or recovery["method"]
-        != "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
+        != "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
         or type(recovery["demonstrated"]) is not bool
         or recovery["demonstrated"] is not True
     ):

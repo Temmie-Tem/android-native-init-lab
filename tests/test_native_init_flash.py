@@ -53,6 +53,7 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
             bridge_port=2222,
             bridge_timeout=30,
             require_empty_adb_baseline=True,
+            require_stable_adb_baseline=False,
             adb="adb",
         )
         with mock.patch.object(
@@ -141,6 +142,63 @@ recovery-serial recovery
                     require_unique=True,
                 )
 
+    def test_stable_foreign_adb_baseline_binds_one_new_recovery(self) -> None:
+        baseline = [("OTHER", "device")]
+        inventories = [
+            baseline,
+            [("OTHER", "device"), ("A90", "recovery")],
+        ]
+        with mock.patch.object(
+            flash, "adb_devices", side_effect=inventories
+        ), mock.patch.object(flash.time, "sleep"):
+            self.assertEqual(
+                flash.wait_for_new_recovery_adb("adb", baseline, 5.0),
+                ("A90", "recovery"),
+            )
+
+    def test_stable_foreign_adb_baseline_rejects_drift_or_ambiguity(self) -> None:
+        baseline = [("OTHER", "device")]
+        for inventory, message in (
+            ([("OTHER", "offline"), ("A90", "recovery")], "changed"),
+            (
+                [
+                    ("OTHER", "device"),
+                    ("A90", "recovery"),
+                    ("FOREIGN", "device"),
+                ],
+                "ambiguous",
+            ),
+        ):
+            with self.subTest(inventory=inventory), mock.patch.object(
+                flash, "adb_devices", return_value=inventory
+            ):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    flash.wait_for_new_recovery_adb("adb", baseline, 1.0)
+
+    def test_stable_foreign_adb_baseline_requires_exact_restoration(self) -> None:
+        baseline = [("OTHER", "device")]
+        with mock.patch.object(
+            flash,
+            "adb_devices",
+            side_effect=[
+                [("OTHER", "device"), ("A90", "recovery")],
+                baseline,
+            ],
+        ), mock.patch.object(flash.time, "sleep"):
+            self.assertTrue(
+                flash.wait_for_adb_baseline_restored(
+                    "adb", "A90", baseline, 5.0
+                )
+            )
+
+        with mock.patch.object(
+            flash, "adb_devices", return_value=[("OTHER", "offline")]
+        ):
+            with self.assertRaisesRegex(RuntimeError, "changed"):
+                flash.wait_for_adb_baseline_restored(
+                    "adb", "A90", baseline, 1.0
+                )
+
     def test_empty_baseline_option_is_from_native_and_nonselected_only(self) -> None:
         for argv in (
             ["native_init_flash.py", "boot.img", "--require-empty-adb-baseline"],
@@ -155,6 +213,28 @@ recovery-serial recovery
         ):
             with self.subTest(argv=argv), mock.patch("sys.argv", argv):
                 with self.assertRaisesRegex(SystemExit, "requires --from-native"):
+                    flash.main()
+
+        for argv in (
+            ["native_init_flash.py", "boot.img", "--require-stable-adb-baseline"],
+            [
+                "native_init_flash.py",
+                "boot.img",
+                "--from-native",
+                "--serial",
+                "SERIAL",
+                "--require-stable-adb-baseline",
+            ],
+            [
+                "native_init_flash.py",
+                "boot.img",
+                "--from-native",
+                "--require-empty-adb-baseline",
+                "--require-stable-adb-baseline",
+            ],
+        ):
+            with self.subTest(argv=argv), mock.patch("sys.argv", argv):
+                with self.assertRaises(SystemExit):
                     flash.main()
 
     def test_normalize_sha256_accepts_none_and_lowercases_valid_hex(self) -> None:

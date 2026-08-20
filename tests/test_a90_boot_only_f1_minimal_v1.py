@@ -82,7 +82,7 @@ class MinimalF1Test(unittest.TestCase):
         M.V2321_ROLLBACK_BUILD = "old-build"
         recovery = {
             "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1",
-            "method": "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+            "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
             "demonstrated": True,
         }
         hazard = {

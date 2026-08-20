@@ -245,14 +245,14 @@ def _validate_usb_inventory(result: CommandResult) -> dict[str, Any]:
         match for match in matches
         if match is not None and match.group("vendor") == b"04e8"
     ]
-    if (
-        len(samsung) != 1
-        or samsung[0].group("product") != b"6861"
-    ):
+    a90 = [match for match in samsung if match.group("product") == b"6861"]
+    if len(a90) != 1:
         raise ContractError("USB inventory does not contain one exact A90 endpoint")
     return {
         "allEndpointCount": len(lines),
         "samsungEndpointCount": len(samsung),
+        "a90EndpointCount": 1,
+        "otherSamsungEndpointCount": len(samsung) - 1,
         "a90Product": "04e8:6861",
         "inventorySha256": sha256_bytes(result.stdout),
     }
@@ -316,7 +316,7 @@ class FixedA90Adapter:
             or set(recovery) != {"profile", "method", "demonstrated"}
             or recovery.get("profile") != "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
             or recovery.get("method")
-            != "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
+            != "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
             or recovery.get("demonstrated") is not True
             or type(review) is not dict
             or set(review) != {"path", "size", "sha256"}
@@ -485,7 +485,7 @@ class FixedA90Adapter:
             recovery_available=True,
             recovery_evidence_sha256=self.recovery_evidence_sha256,
             fresh_state_absent=state_absent,
-            other_targets_untouched=usb_inventory["samsungEndpointCount"] == 1,
+            other_targets_untouched=usb_inventory["a90EndpointCount"] == 1,
             receipt_sha256=sha256_bytes(
                 canonical_json({"evidence": evidence, "healthy": healthy})
             ),
@@ -501,7 +501,7 @@ class FixedA90Adapter:
             "--adb",
             str(ADB),
             "--from-native",
-            "--require-empty-adb-baseline",
+            "--require-stable-adb-baseline",
             "--expect-version",
             artifact["version"],
             "--expect-sha256",
