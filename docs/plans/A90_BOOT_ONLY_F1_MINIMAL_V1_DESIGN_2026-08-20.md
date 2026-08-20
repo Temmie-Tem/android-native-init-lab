@@ -45,7 +45,9 @@ It contains no production device backend and its CLI hard-disables execution.
   matching recovery/hazard objects, no material findings, and zero contacts.
   The parser consumes the same bytes it hashes, and execute repeats validation
   after fresh Native preflight immediately before approval and candidate
-  intent publication.
+  intent publication. It rejects non-regular/symlink/shared-writable review
+  paths by `lstat` before opening; only then does it open nonblocking,
+  revalidate the same inode, and perform the bounded read.
 - Physical recovery is never a caller boolean. The adapter accepts only the
   validated `A90_ATTENDED_PHYSICAL_RECOVERY_V1` receipt for the fixed Native to
   empty-ADB/single-recovery-arrival/readback method, and its digest is present

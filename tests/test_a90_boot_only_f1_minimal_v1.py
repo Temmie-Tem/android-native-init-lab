@@ -300,6 +300,21 @@ class MinimalF1Test(unittest.TestCase):
                         FakeBackend(self.start),
                     )
 
+    def test_fifo_review_is_rejected_before_open_or_read(self):
+        fifo = self.root / "review.fifo"
+        os.mkfifo(fifo, 0o600)
+        changed = json.loads(json.dumps(self.manifest))
+        changed["qualification"]["review"] = {
+            "path": str(fifo), "size": 1, "sha256": HEX_A,
+        }
+        with self.assertRaisesRegex(M.ContractError, "path identity"):
+            M.prepare(
+                M.canonical_json(changed),
+                changed,
+                self.root / "run-fifo",
+                FakeBackend(self.start),
+            )
+
     def test_unhealthy_candidate_rolls_back_once(self):
         run, token = self._prepare()
         backend = FakeBackend(

@@ -398,10 +398,33 @@ def _hash_fd(descriptor: int, size: int) -> str:
 def _verify_input(value: dict[str, Any], label: str) -> bytes:
     item = _input(value, label)
     path = Path(item["path"])
-    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    path_metadata = path.lstat()
+    if (
+        not stat.S_ISREG(path_metadata.st_mode)
+        or path_metadata.st_nlink != 1
+        or path_metadata.st_uid != os.getuid()
+        or path_metadata.st_gid != os.getgid()
+        or path_metadata.st_mode & 0o022
+        or path_metadata.st_size != item["size"]
+    ):
+        raise ContractError(f"{label} path identity mismatch")
+    descriptor = os.open(
+        path,
+        os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK,
+    )
     try:
         metadata = os.fstat(descriptor)
-        path_metadata = path.lstat()
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or (metadata.st_dev, metadata.st_ino)
+            != (path_metadata.st_dev, path_metadata.st_ino)
+            or metadata.st_uid != os.getuid()
+            or metadata.st_gid != os.getgid()
+            or metadata.st_mode & 0o022
+            or metadata.st_size != item["size"]
+        ):
+            raise ContractError(f"{label} input identity mismatch")
         raw = bytearray()
         while len(raw) < metadata.st_size:
             chunk = os.pread(
@@ -413,19 +436,10 @@ def _verify_input(value: dict[str, Any], label: str) -> bytes:
                 raise ContractError(f"{label} ended during read")
             raw.extend(chunk)
         if (
-            not stat.S_ISREG(metadata.st_mode)
-            or not stat.S_ISREG(path_metadata.st_mode)
-            or metadata.st_nlink != 1
-            or (metadata.st_dev, metadata.st_ino)
-            != (path_metadata.st_dev, path_metadata.st_ino)
-            or metadata.st_uid != os.getuid()
-            or metadata.st_gid != os.getgid()
-            or metadata.st_mode & 0o022
-            or metadata.st_size != item["size"]
-            or os.pread(descriptor, 1, metadata.st_size)
+            os.pread(descriptor, 1, metadata.st_size)
             or hashlib.sha256(raw).hexdigest() != item["sha256"]
         ):
-            raise ContractError(f"{label} input identity mismatch")
+            raise ContractError(f"{label} bytes mismatch")
         return bytes(raw)
     finally:
         os.close(descriptor)

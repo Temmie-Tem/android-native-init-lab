@@ -362,6 +362,9 @@ identity:
   A third review found that execute did not repeat that validation after fresh
   Native preflight. The owner now hashes and parses the same single read and
   repeats it immediately before approval and candidate intent.
+  A fourth review found that special review paths were opened before the
+  regular-file check. The owner now rejects them by `lstat` first, then opens
+  nonblocking and rechecks the same inode before any bounded read.
 
 ## What Leaves or Moves Out
 
