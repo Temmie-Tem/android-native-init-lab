@@ -736,3 +736,18 @@ H0 only. A mechanical status rotation records
 recovery validator, root action, connected command, campaign, or session was
 created. The separate live coordinator and its full current-guard/canonical
 journal/cut recovery remain the next bounded unit.
+
+Luna MAX implemented the first separate coordinator unit as a dormant H0
+journal/state-machine candidate. It closes the fixed private guard and
+canonical opening/session chain, exact empty Download baseline before entry,
+allowlisted Download topology, two-scope monotonic counters and reserved
+return, fresh non-reused post-effect boot health, and the zero-F1 readiness
+terminal. The candidate is explicitly not mechanically activatable: it has no
+ADB/USB/Odin observer or command backend, no public-health evidence owner,
+no child-session rollover, and no complete reporting-cut finalizer. Independent
+review reproduced and closed fixed-root/guard ownership, expiry, and cached-time
+blockers, then returned `PASS_GO` for the exact dormant H0 model. The mechanical
+status rotation records `H0_AUTONOMOUS_RESEARCH_COORDINATOR_PASS_GO_NOT_ACTIVE`
+with all activation/live-integration flags still false. Live action integration,
+another independent review, target status rotation, fresh attended campaign
+opening, and activation remain future gates.

@@ -368,6 +368,20 @@ mechanical transition of this section and that coordinator. Until then, the
 existing attended D0/D1/F1/R1 rules remain unchanged and no autonomous
 connected action exists.
 
+The first separate coordinator unit now exists only as the dormant H0
+journal/state-machine candidate
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_research_coordinator_h0.py`.
+It models the fixed guard, canonical opening/session chain, exact empty
+Download baseline, entry/arrival/payload-free-return ordering, two-scope
+counters, return reservation, fresh post-effect health, and pre-F1 terminal.
+It has no observer, command backend, live action integration, or mechanical
+activation path and therefore grants no connected authority. Independent
+exact-byte review returned `PASS_GO` for this dormant H0 journal model and its
+status was mechanically rotated to `PASS_GO_NOT_ACTIVE`; all activation and
+live-integration flags remain false. Exact D0/read evidence, reboot/return
+execution, child-session lifecycle, reporting-cut recovery, a new independent
+live-integration review, and a later binding rotation remain required.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
