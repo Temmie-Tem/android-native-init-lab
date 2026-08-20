@@ -513,6 +513,17 @@ identity:
   TWRP return remains unproved. The implementation and 21-case focused corpus
   are H0-only pending an independent full review; no physical action, D0, D1,
   F1, recovery, or guard-removal authority is active.
+  The capability subsequently received independent `PASS_GO`, was committed at
+  `96a187b2b1`, and one fresh exact approval durably armed the physical return.
+  The operator selected TWRP `Reboot -> System` once and exact V2321 Native
+  became visible. The finalizer consumed its one observation, proved the A90
+  USB/bridge and complete exact V2321 version receipt, but the next read-only
+  `selftest` command was truncated to `cmdv1 selft` before any A90P1 frame.
+  It closed `NO_PROOF_OBSERVER` without retry: no recovery record was written
+  and both guards remain. See
+  `docs/reports/A90_H28_PHYSICAL_RETURN_SELFTEST_TRANSPORT_NO_PROOF_2026-08-21.md`.
+  The next unit is a separately reviewed terminal-only slow-input observer
+  repair; it grants no image, reboot, physical-action, or current live authority.
 
 ## What Leaves or Moves Out
 
