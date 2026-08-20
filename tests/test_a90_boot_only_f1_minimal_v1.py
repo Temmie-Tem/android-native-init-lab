@@ -256,6 +256,19 @@ class MinimalF1Test(unittest.TestCase):
         with self.assertRaises(M.ContractError):
             M.BoundArtifact.open(value, "candidate")
 
+    def test_artifact_binding_rejects_fifo_before_open(self):
+        fifo = self.root / "artifact.fifo"
+        os.mkfifo(fifo, 0o600)
+        value = {
+            "path": str(fifo), "size": 1, "sha256": HEX_A,
+            "version": "x", "build": "y",
+        }
+        for role in ("candidate", "rollback"):
+            with self.subTest(role=role), self.assertRaisesRegex(
+                M.ContractError, "path identity"
+            ):
+                M.BoundArtifact.open(value, role)
+
     def test_prepare_binds_target_artifacts_and_approval(self):
         run, token = self._prepare()
         records = M.read_records(run)

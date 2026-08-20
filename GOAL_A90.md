@@ -381,6 +381,9 @@ identity:
   A ninth review found per-run journals permitted a second run ID to replay the
   same candidate. One fixed private run root now holds a permanent O_EXCL
   candidate-SHA guard, and approval also binds the run ID.
+  A tenth review found artifact special files were opened before type checks.
+  Candidate and V2321 rollback now pass pre-open `lstat`, nonblocking open, and
+  same-inode revalidation before any read.
 
 ## What Leaves or Moves Out
 

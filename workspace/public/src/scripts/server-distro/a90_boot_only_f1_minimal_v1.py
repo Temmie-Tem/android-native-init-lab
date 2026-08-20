@@ -326,12 +326,27 @@ class BoundArtifact:
     def open(cls, value: dict[str, Any], role: str) -> "BoundArtifact":
         path = Path(value["path"])
         try:
-            descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+            path_metadata = path.lstat()
+        except OSError as exc:
+            raise ContractError(f"{role} cannot be inspected") from exc
+        if (
+            not stat.S_ISREG(path_metadata.st_mode)
+            or path_metadata.st_nlink != 1
+            or path_metadata.st_uid != os.getuid()
+            or path_metadata.st_gid != os.getgid()
+            or path_metadata.st_mode & 0o022
+            or path_metadata.st_size != value["size"]
+        ):
+            raise ContractError(f"{role} path identity mismatch")
+        try:
+            descriptor = os.open(
+                path,
+                os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK,
+            )
         except OSError as exc:
             raise ContractError(f"{role} cannot be opened") from exc
         try:
             metadata = os.fstat(descriptor)
-            path_metadata = path.lstat()
             if (
                 not stat.S_ISREG(metadata.st_mode)
                 or not stat.S_ISREG(path_metadata.st_mode)

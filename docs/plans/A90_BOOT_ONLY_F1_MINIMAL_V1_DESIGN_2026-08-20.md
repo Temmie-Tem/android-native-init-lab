@@ -33,6 +33,8 @@ It contains no production device backend and its CLI hard-disables execution.
 - Candidate and rollback are opened with `O_NOFOLLOW`, must be direct regular
   single-link files owned by the current user and not group/world writable,
   and are checked by size and SHA-256 before use and after the helper returns.
+  A pre-open `lstat` rejects FIFO/device/symlink inputs; the subsequent open is
+  nonblocking and must resolve to the same inode before any hash read.
 - Fresh preflight must prove the expected healthy resident, physical recovery,
   the same boot and target identity prepared for approval, and that other
   targets were untouched. The adapter hashes a bounded complete `lsusb`
