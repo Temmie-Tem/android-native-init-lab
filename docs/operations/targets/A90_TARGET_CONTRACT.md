@@ -1353,6 +1353,55 @@ manifest, guard, review, target, V2321 identity, recovery evidence, or health
 parks without removal. This exception expires after its exact record is
 published and grants no candidate retry or device effect.
 
+The fixed H28 TWRP System-return uncertainty incident dated 2026-08-21 may be
+closed only through
+`a90_h28_physical_system_return_reconcile_v1.py`. This exception is limited to
+run `a90-h28-f1-20260821-01`, its immutable manifest, exact nine-record
+`RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED` journal, exact active guard, and
+still-consumed H28 candidate guard. The program accepts no caller-selected
+path, run, target, serial, command, image, or outcome and may dispatch no ADB,
+TWRP, reboot, candidate, rollback, partition, or other host device command.
+Its sole launch is fixed to `/usr/bin/python3.14 -B -s -E`, the absolute direct
+non-symlink reconciler path, repository-root cwd, and its closed mode grammar;
+another interpreter, bytecode-enabled process, environment/user-site
+processing, relative path, ambient local-module alias, or unknown argument
+stops before a local owner import, host write, or physical instruction. A
+stdlib-only pre-import guard must establish the fixed interpreter, flags, cwd,
+argv0, source and owner path identities, and `sys.path` before importing the
+owner; a second guard then validates the exact loaded owner identity. The
+trusted operator account and system Python installation are
+the same host trust boundary as the qualified minimal F1 owner. Concurrent
+same-UID hostile host code is outside this capability and is an immediate
+campaign stop because it can directly forge the review, journal, guards, or
+terminal regardless of a sealed script package.
+
+After one current independent `PASS_GO` review binds its complete execution
+closure, `prepare` may derive one exact incident approval without device
+contact or durable state. One fresh attended repetition of that approval may
+run `authorize`, which first durably publishes the sole fixed physical
+System-return intent and only then instructs the operator to select the exact
+A90 handset already showing TWRP and press `Reboot -> System` once. The intent
+consumes that physical continuation: it is never replaced, reissued, or used
+to instruct another press after output loss or an uncertain physical result.
+
+`finalize` requires the exact intent plus explicit attendance and physical-
+action confirmation. It may then perform only one bounded read-only Native/ACM
+observation. Immediately before creating that observer it must durably publish
+one no-replace observation intent bound to the physical intent, manifest,
+terminal, current review, and execution closure. That intent consumes the sole
+observation on success, error, timeout, or host loss; if it is already present
+without recovery closure, every later invocation parks without observing.
+Exact healthy V2321 permits one `41-recovery-closed.json` that
+keeps candidate and rollback replay false, preserves the original TWRP return
+as unproved, records zero host recovery commands and zero boot writes, and
+binds both intents, current review, execution closure, and canonical V2321
+snapshot. Only after exact durable readback of that record may it remove the
+active guard; the H28 candidate guard remains consumed. Observation failure,
+wrong resident, other-target drift, missing or changed input, publication
+uncertainty, or a record present with the active guard retained parks without
+another action. A PASS qualifies only these capability bytes; it does not
+itself authorize the physical continuation or any D0/D1/F1 action.
+
 For future ordinary F1 rollback only, the fixed helper may use
 `--reuse-bound-recovery-or-from-native`. One strict ADB inventory either binds
 exactly one already-present recovery endpoint whose serial SHA-256 is the

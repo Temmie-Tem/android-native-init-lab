@@ -502,6 +502,17 @@ identity:
   `400a6fe75ea54a738777092f828dede4d7b801bd3fbd8db29baddf26878c4f01`.
   Both guards remain, candidate/rollback replay is forbidden, and the next
   unit is a separately reviewed no-replay recovery continuation—not F1.
+  That H28-only continuation is now specified in
+  `docs/plans/A90_H28_PHYSICAL_SYSTEM_RETURN_RECOVERY_DESIGN_2026-08-21.md`
+  and implemented by
+  `a90_h28_physical_system_return_reconcile_v1.py`. It adds no host ADB,
+  TWRP, reboot, flash, or partition path: one reviewed approval may durably
+  arm one operator physical `Reboot -> System` press, after which only fresh
+  read-only Native/ACM V2321 health can publish recovery closure and release
+  the active guard. The candidate guard remains consumed and the original
+  TWRP return remains unproved. The implementation and 21-case focused corpus
+  are H0-only pending an independent full review; no physical action, D0, D1,
+  F1, recovery, or guard-removal authority is active.
 
 ## What Leaves or Moves Out
 
