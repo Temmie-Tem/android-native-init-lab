@@ -11,16 +11,15 @@ session twice shipped a field that nothing enforced.
 from __future__ import annotations
 
 import ast
+import fcntl
 import hashlib
 import importlib.util
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-from unittest import mock
 from pathlib import Path
 
 
@@ -34,9 +33,9 @@ DESIGN = REPO / "docs/plans/A90_BOOT_ONLY_F1_OWNER_V1_DESIGN_2026-08-17.md"
 SERVER = REPO / "workspace/public/src/scripts/server-distro"
 FLASH = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 REVALIDATION = FLASH.parent
-BOOTSTRAP = REVALIDATION / "a90_boot_only_f1_helper_bootstrap.py"
-COMMAND_BOOTSTRAP = REVALIDATION / "a90_boot_only_f1_command_bootstrap.py"
 FD_EXEC = REVALIDATION / "a90_boot_only_f1_fd_exec.py"
+SOURCE_PACKAGE = REVALIDATION / "a90_boot_only_f1_source_package_v1.py"
+PACKAGE_GENERATOR = REVALIDATION / "build_a90_boot_only_f1_source_package_v1.py"
 PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
 ADB_EXECUTABLE = Path("/usr/lib/android-sdk/platform-tools/adb")
 ORCHESTRATOR = SERVER / "a90_v3403_f1_orchestrator.py"
@@ -45,50 +44,22 @@ PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
-RUNTIME_CLOSURE_SHA = "23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757"
-RUNTIME_CLOSURE = {
-    "_workspace_bootstrap.py": (
-        1_255,
-        "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe",
-    ),
-    "a90_boot_only_f1_fd_exec.py": (
-        3_493,
-        "b55959a4362d459df0058a7b6bca7630a27978e0b1246868cb993ef1380abf57",
-    ),
-    "a90_observation_pipeline.py": (
-        24_478,
-        "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
-    ),
-    "a90_boot_only_f1_helper_bootstrap.py": (
-        4_767,
-        "26b98c3714ea5f8865cb552abb191fbbb6cb5eb3472ddfbb6a03bc308d8e9233",
-    ),
-    "a90_serial_lock.py": (
-        2_860,
-        "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7",
-    ),
-    "a90_transition_contract_v2.py": (
-        13_734,
-        "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e",
-    ),
-    "a90ctl.py": (
-        16_380,
-        "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
-    ),
-    "native_init_flash.py": (43_118, FLASH_SHA),
-}
-BRIDGE_SPEC = (
-    17_944,
-    "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
-)
-COMMAND_BOOTSTRAP_SPEC = (
-    6_283,
-    "8234a2589c75cf466a359fbd9738d5b1c27c8ccdf700a8ed1822904dba45c590",
-)
+RUNTIME_CLOSURE_SHA = "ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a"
 HELD_RUNTIME_CLOSURE = {
-    **RUNTIME_CLOSURE,
-    "a90_boot_only_f1_command_bootstrap.py": COMMAND_BOOTSTRAP_SPEC,
-    "serial_tcp_bridge.py": BRIDGE_SPEC,
+    "a90_boot_only_f1_fd_exec.py": (
+        3_689,
+        "e35e667e4bdf6a87999d9ec7ac496d699cd8251974dfac17e71ddad6a0d66069",
+    ),
+    "a90_boot_only_f1_source_package_v1.py": (186_162, RUNTIME_CLOSURE_SHA),
+}
+EMBEDDED_MEMBERS = {
+    "_workspace_bootstrap.py",
+    "a90_transition_contract_v2.py",
+    "a90_observation_pipeline.py",
+    "a90_serial_lock.py",
+    "a90ctl.py",
+    "native_init_flash.py",
+    "serial_tcp_bridge.py",
 }
 RETIRED = (
     "a90_h15_ufs_f1_runner_v1.py",
@@ -452,7 +423,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE ARE PRESENT",
             head,
         )
-        self.assertIn("four held-source command producer core are also present", head)
+        self.assertIn("four fixed-command producer core are also present", head)
         self.assertIn("live execution is hard-disabled", head)
         self.assertIn("Device or live effect of this document: none", head)
 
@@ -500,20 +471,19 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertIn("teardown uncertainty is terminal", self.design)
         self.assertIn("SubprocessBackend` and CLI `execute` remain hard-disabled", self.design)
 
-    def test_bridge_source_permissions_remain_a_fail_closed_open_gate(self) -> None:
+    def test_source_package_replaces_the_private_runtime_tree(self) -> None:
         self.assertIn("repository source hierarchy is mode `0775`", self.design)
-        self.assertIn("/home/temmie/.a90-boot-only-f1-owner-v1/runtime-sources-v1-23f861", self.design)
-        self.assertIn("direct owner `0700` directory", self.design)
-        self.assertIn("never repairs, replaces, merges, or deletes", self.design)
-        self.assertIn("does not bind the owner closure", self.design)
-        self.assertIn("owner-only change may reuse", self.design)
-        self.assertIn("no-clobber stager", GOAL.read_text(encoding="utf-8"))
+        self.assertIn("persistent ten-file private copy", self.design)
+        self.assertIn("one generated Python source package", self.design)
+        self.assertIn("F_SEAL_SEAL|F_SEAL_SHRINK|F_SEAL_GROW|F_SEAL_WRITE", self.design)
+        self.assertIn("children inherit and execute only the sealed package FD", self.design)
+        self.assertIn("old helper and command bootstrap files", self.design)
 
     def test_four_commands_are_fixed_and_isolated(self) -> None:
         for token in (
             "`version`, `selftest`, `status`, and `cat /proc/sys/kernel/random/boot_id`",
             "inherits exactly that FD",
-            "without adding it to `sys.path`",
+            "without adding a directory to `sys.path`",
             "permits no caller- or manifest-selected command",
             "duplicate command is terminal",
             "always tears down the bridge before returning health",
@@ -567,7 +537,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "uses\nonly that sealed image for transfer",
             "before the owner interprets helper success",
             "After an owner crash, no vanished FD is reconstructed as proof",
-            "requires the complete\ndurable `artifact-identity-v1` tuple",
+            "complete durable `artifact-identity-v1` tuple",
         ):
             self.assertIn(token, self.raw, token)
 
@@ -598,7 +568,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         for token in (
             "mismatch after `CANDIDATE_INTENT` consumes the candidate attempt",
             "never\npermits candidate replay",
-            "complete helper closure still\npass fresh exact checks",
+            "complete sealed package still\npasses fresh exact checks",
             "parks as\n`RECOVERY_REQUIRED` without launching changed bytes",
             "mismatch after rollback\nrelease likewise never permits another rollback",
         ):
@@ -623,9 +593,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "never uses its bare\n`adb` default",
             "Python `-I` deliberately removes the script directory from `sys.path`",
             "does not execute `native_init_flash.py` directly",
-            "does not ask Python to reopen the bootstrap pathname",
-            "exact\n`pass_fds=(bootstrap_fd,)`",
-            "installs only their fixed module names in `sys.modules`",
+            "does not ask Python to reopen the package pathname",
+            "exact\n`pass_fds=(package_fd,)`",
+            "package rejects a preloaded local name",
         ):
             self.assertIn(token, self.raw, token)
 
@@ -668,29 +638,40 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "Neither path may come from the manifest, an approval, a CLI argument",
             "`PATH`, `PYTHONPATH`, `shutil.which`, `/usr/bin/env`, a shell",
             "A bare or relative executable name is `NO_GO`",
-            "[PYTHON_EXECUTABLE, -I, -c, FD_EXEC_PROGRAM, BOOTSTRAP_FD,\nHELPER_BOOTSTRAP, BOOTSTRAP_SIZE, BOOTSTRAP_SHA256, fixed owner arguments,\n--adb, ADB_EXECUTABLE]",
+            "[PYTHON_EXECUTABLE, -I, -c, FD_EXEC_PROGRAM, PACKAGE_FD,\nSOURCE_PACKAGE, PACKAGE_SIZE, PACKAGE_SHA256, fixed mode and owner arguments,\n--adb, ADB_EXECUTABLE]",
             "no caller-supplied\nexecutable or FD field",
             "exact one-FD\n`pass_fds` tuple",
             "same absolute ADB path to every\ncandidate, rollback, observation, and recovery helper invocation",
         ):
             self.assertIn(token, self.raw, token)
 
-    def test_real_isolated_bootstrap_launch_reaches_helper_cli(self) -> None:
+    def test_real_isolated_package_launch_reaches_helper_cli(self) -> None:
         spec = importlib.util.spec_from_file_location("a90_f1_fd_exec_test", FD_EXEC)
         self.assertIsNotNone(spec)
         self.assertIsNotNone(spec.loader)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        descriptor = os.open(BOOTSTRAP, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        raw = SOURCE_PACKAGE.read_bytes()
+        descriptor = os.memfd_create(
+            "a90-package-test", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
+        )
+        os.write(descriptor, raw)
+        seals = (
+            fcntl.F_SEAL_SEAL
+            | fcntl.F_SEAL_SHRINK
+            | fcntl.F_SEAL_GROW
+            | fcntl.F_SEAL_WRITE
+        )
+        fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, seals)
         try:
             completed = subprocess.run(
                 module.bootstrap_command(
                     Path(sys.executable),
                     descriptor,
-                    BOOTSTRAP,
-                    RUNTIME_CLOSURE[BOOTSTRAP.name][0],
-                    RUNTIME_CLOSURE[BOOTSTRAP.name][1],
-                    ("--help",),
+                    SOURCE_PACKAGE,
+                    len(raw),
+                    hashlib.sha256(raw).hexdigest(),
+                    ("flash", "--help"),
                 ),
                 cwd=REPO,
                 check=False,
@@ -705,9 +686,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("Flash a native init boot image", completed.stdout)
 
-    def test_direct_isolated_bootstrap_path_launch_is_rejected(self) -> None:
+    def test_direct_isolated_package_path_launch_is_rejected(self) -> None:
         completed = subprocess.run(
-            [sys.executable, "-I", str(BOOTSTRAP), "--help"],
+            [sys.executable, "-I", str(SOURCE_PACKAGE), "flash", "--help"],
             cwd=REPO,
             check=False,
             text=True,
@@ -729,9 +710,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn("No module named 'a90ctl'", completed.stderr)
 
-    def test_bootstrap_rejects_launch_without_isolated_mode(self) -> None:
+    def test_package_rejects_launch_without_isolated_mode(self) -> None:
         completed = subprocess.run(
-            [sys.executable, str(BOOTSTRAP), "--help"],
+            [sys.executable, str(SOURCE_PACKAGE), "flash", "--help"],
             cwd=REPO,
             check=False,
             text=True,
@@ -739,114 +720,45 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         self.assertNotEqual(completed.returncode, 0)
-        self.assertIn("requires Python isolated safe-path mode", completed.stderr)
+        self.assertIn("requires isolated safe-path mode", completed.stderr)
 
-    def test_bootstrap_path_swap_cannot_select_executed_bytes(self) -> None:
-        spec = importlib.util.spec_from_file_location("a90_f1_fd_swap_test", FD_EXEC)
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            for name in RUNTIME_CLOSURE:
-                if name != FD_EXEC.name:
-                    shutil.copy2(REVALIDATION / name, root / name)
-            selected = root / BOOTSTRAP.name
-            held_name = root / f"{BOOTSTRAP.name}.opened"
-            descriptor = os.open(
-                selected,
-                os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
-            )
-            selected.rename(held_name)
-            selected.write_text(
-                'print("SUBSTITUTED_BOOTSTRAP_EXECUTED")\n',
-                encoding="utf-8",
-            )
-            try:
-                completed = subprocess.run(
-                    module.bootstrap_command(
-                        Path(sys.executable),
-                        descriptor,
-                        selected,
-                        RUNTIME_CLOSURE[BOOTSTRAP.name][0],
-                        RUNTIME_CLOSURE[BOOTSTRAP.name][1],
-                        ("--help",),
-                    ),
-                    cwd=REPO,
-                    check=False,
-                    close_fds=True,
-                    pass_fds=module.bootstrap_pass_fds(descriptor),
-                    text=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-            finally:
-                os.close(descriptor)
-                selected.unlink()
-                held_name.rename(selected)
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertNotIn("SUBSTITUTED_BOOTSTRAP_EXECUTED", completed.stdout)
-            self.assertIn("Flash a native init boot image", completed.stdout)
-
-    def test_bootstrap_is_exact_and_never_opens_sys_path(self) -> None:
-        source = BOOTSTRAP.read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(BOOTSTRAP))
+    def test_generated_package_is_exact_and_never_opens_sibling_source(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, str(PACKAGE_GENERATOR), "--check"],
+            cwd=REPO,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0)
+        source = SOURCE_PACKAGE.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(SOURCE_PACKAGE))
         assigned = next(
             node.value
             for node in tree.body
             if isinstance(node, ast.Assign)
             and any(
-                isinstance(target, ast.Name) and target.id == "LOCAL_MODULE_ORDER"
+                isinstance(target, ast.Name) and target.id == "MEMBERS"
                 for target in node.targets
             )
         )
-        specs = ast.literal_eval(assigned)
-        order = tuple(name for name, _path, _size, _sha256 in specs)
-        expected = tuple(
-            Path(name).stem
-            for name in sorted(generated_runtime_closure(FLASH) - {FLASH.name})
+        members = ast.literal_eval(assigned)
+        self.assertEqual(
+            set(members),
+            {
+                "_workspace_bootstrap.py",
+                "a90_transition_contract_v2.py",
+                "a90_observation_pipeline.py",
+                "a90_serial_lock.py",
+                "a90ctl.py",
+                "native_init_flash.py",
+                "serial_tcp_bridge.py",
+            },
         )
-        self.assertEqual(set(order), set(expected))
         self.assertNotIn("sys.path.insert", source)
         self.assertNotIn("sys.path.append", source)
-        self.assertNotIn("read_bytes", source)
-        self.assertIn("os.O_NOFOLLOW", source)
-        self.assertIn("os.fstat(descriptor)", source)
-        self.assertIn("hashlib.sha256(source).hexdigest()", source)
         self.assertIn("tuple(sys.path) != original_path", source)
-
-    def test_bootstrap_reads_same_fd_across_path_swap(self) -> None:
-        spec = importlib.util.spec_from_file_location("a90_f1_bootstrap_test", BOOTSTRAP)
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            selected = root / "selected.py"
-            held_name = root / "selected.opened.py"
-            substituted = root / "substituted.py"
-            selected.write_bytes(b"APPROVED")
-            substituted.write_bytes(b"SUBSTITUTED")
-            real_open = module.os.open
-
-            def open_then_swap(path: Path, flags: int) -> int:
-                descriptor = real_open(path, flags)
-                selected.rename(held_name)
-                selected.symlink_to(substituted)
-                return descriptor
-
-            with mock.patch.object(module.os, "open", side_effect=open_then_swap):
-                _path, source = module._exact_source(
-                    root,
-                    selected.name,
-                    len(b"APPROVED"),
-                    hashlib.sha256(b"APPROVED").hexdigest(),
-                )
-            self.assertEqual(source, b"APPROVED")
-            self.assertTrue(selected.is_symlink())
+        self.assertIn('mode == "bridge"', source)
+        self.assertIn('mode == "command"', source)
+        self.assertIn('mode == "flash"', source)
 
     def test_the_hazard_is_bound_at_three_points(self) -> None:
         """A field nothing enforces is decoration; this session shipped two."""
@@ -1070,17 +982,23 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertTrue(ORCHESTRATOR.is_file(), str(ORCHESTRATOR))
 
     def test_the_pinned_flash_helper_digest_is_real(self) -> None:
-        self.assertIn(FLASH_SHA, self.raw)
         self.assertTrue(FLASH.is_file(), str(FLASH))
         self.assertEqual(hashlib.sha256(FLASH.read_bytes()).hexdigest(), FLASH_SHA)
+        tree = ast.parse(SOURCE_PACKAGE.read_text(encoding="utf-8"))
+        assigned = next(
+            node.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "MEMBERS" for target in node.targets)
+        )
+        members = ast.literal_eval(assigned)
+        self.assertEqual(members["native_init_flash.py"][1], FLASH_SHA)
 
     def test_flash_helper_runtime_closure_is_generated_and_exact(self) -> None:
-        derived = generated_runtime_closure(FLASH) | {BOOTSTRAP.name, FD_EXEC.name}
-        self.assertEqual(derived, set(RUNTIME_CLOSURE))
-        self.assertEqual(
-            runtime_closure_digest(set(HELD_RUNTIME_CLOSURE)), RUNTIME_CLOSURE_SHA
-        )
-        self.assertIn("generated exact non-stdlib import closure", self.design)
+        derived = generated_runtime_closure(FLASH) | {"serial_tcp_bridge.py"}
+        self.assertEqual(derived, EMBEDDED_MEMBERS)
+        self.assertEqual(hashlib.sha256(SOURCE_PACKAGE.read_bytes()).hexdigest(), RUNTIME_CLOSURE_SHA)
+        self.assertIn("one generated source package", self.design)
         self.assertIn("dynamic import is `NO_GO`", self.design)
 
     def test_every_runtime_closure_member_is_pinned_by_size_and_hash(self) -> None:
@@ -1132,8 +1050,8 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "bare or relative Python/ADB executable",
             "fake ADB earlier in `PATH`",
             "direct `python -I native_init_flash.py`",
-            "bootstrap source directory added to `sys.path`",
-            "source pathname swapped between validation and read",
+            "package pathname execution",
+            "package pathname swapped between validation and read",
             "same Python/ADB version string with different executable bytes",
             "pre-existing bridge listener",
             "wrong bridge PID/start tick/cmdline/source FD",
@@ -1142,9 +1060,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "TERM timeout requiring one KILL",
             "teardown-proof failure",
             "duplicate bridge\n  start/close",
-            "group/world-writable runtime-source ancestor",
-            "partial runtime-source tree",
-            "extra runtime-source node",
+            "package source/checkpoint mismatch",
+            "stale generated package",
+            "unsealed inherited package FD",
             "unknown or duplicate observation command",
             "observation command timeout",
             "surviving\n  observation process group",

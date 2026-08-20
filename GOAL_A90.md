@@ -342,16 +342,18 @@ identity:
   pure observation contract now binds the exact resident version/build,
   selftest, pstore, kernel boot ID, target endpoint, and recovery
   qualification. The owner-controlled bridge lifecycle core now refuses a
-  pre-existing listener, executes only the held bridge source through the
-  reviewed FD loader, binds its exact PID/cmdline/start tick/listener/TTY
+  pre-existing listener, executes only the sealed generated package in fixed
+  bridge mode through the reviewed FD loader, binds its exact
+  PID/cmdline/start tick/listener/TTY
   ownership, and performs one bounded reap plus absence proof on every prefix.
   It never relaunches and treats teardown uncertainty as terminal. The H0
-  no-clobber stager now copies only exact held public source bytes into the
-  helper-digest-qualified `/home/temmie/.a90-boot-only-f1-owner-v1/` source
-  tree under a pre-existing owner-`0700` parent, publishes the source receipt
-  last, and
-  rejects every partial, extra, loose, indirect, or changed tree. Four fresh
-  isolated command subprocesses then load only that held closure and can issue
+  stable-package Work Package 2 now replaces that persistent ten-file source
+  tree with one deterministic generated package. The owner binds the loader
+  and package from exact public bytes, copies each to a write/grow/shrink/seal-
+  sealed memfd, and children execute only the sealed package FD in one of the
+  fixed `bridge`, `command`, or `flash` modes. There is no staging action,
+  source-tree receipt, sibling path open, or runtime-source repair state. Four
+  fresh isolated command subprocesses load only embedded exact members and can issue
   only `version`, `selftest`, `status`, and the kernel boot-ID read in fixed
   order; timeout, malformed output, surviving descendants, or duplication
   yields no observation receipt, and the bridge always closes. Stable-owner
@@ -363,9 +365,9 @@ identity:
   recovery arrival/serial binding, crash-prefix resume, and independent full
   execution-closure review remain open.
   Therefore no H27 manifest, approval, ordinal,
-  D0, D1, or F1 authority exists. The next owner unit is the H0 stable package
-  consolidation, followed by observation consolidation, the crash reconciler,
-  and one fresh full review of the frozen closure.
+  D0, D1, or F1 authority exists. The next owner unit is H0 observation
+  consolidation, followed by recovery binding plus the crash reconciler and
+  one fresh full review of the frozen closure.
 
 ## What Leaves or Moves Out
 

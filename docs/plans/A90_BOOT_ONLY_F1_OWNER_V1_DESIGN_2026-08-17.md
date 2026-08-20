@@ -6,12 +6,13 @@ Tier of this document: H0 structural design
 Device or live effect of this document: none
 Status: **H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE
 DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE
-ARE PRESENT — live execution is hard-disabled. The fixed private runtime-source
-stager and four held-source command producer core are also present. The exact
+ARE PRESENT — live execution is hard-disabled. The single sealed runtime source
+package and four fixed-command producer core are also present. The exact
 recovery endpoint binding, crash-prefix resume, and the required independent
 full review remain absent. Work Package 1 has removed tests from execution
 identity, decoupled independent evidence from owner code, and removed ADB from
-Native preflight. This qualifies nothing and grants no authority.**
+Native preflight; Work Package 2 has removed the persistent ten-file runtime
+tree. This qualifies nothing and grants no authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -74,6 +75,9 @@ contract/journal module, and focused hostile tests:
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_contract_v1.py`;
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_runtime_v1.py`;
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_observer_v1.py`;
+- `workspace/public/src/scripts/revalidation/a90_boot_only_f1_fd_exec.py`;
+- `workspace/public/src/scripts/revalidation/a90_boot_only_f1_source_package_v1.py`;
+- `workspace/public/src/scripts/revalidation/build_a90_boot_only_f1_source_package_v1.py`;
 - `workspace/public/src/device-action/a90_boot_only_f1_runtime_qualification_v1.json`;
 - `tests/test_a90_boot_only_f1_owner_v1.py`.
 
@@ -149,9 +153,9 @@ not permit cross-run substitution.
 
 ### File lifetime and post-helper revalidation
 
-An immediate pre-use hash is not a lease. For the candidate, rollback, flash
-helper, and every generated non-stdlib helper-closure member, the owner opens
-the ordinary absolute path with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW` before approval.
+An immediate pre-use hash is not a lease. For the candidate, rollback, and
+manifest-bound qualification artifacts, the owner opens the ordinary absolute
+path with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW` before approval.
 It rejects a missing, symlinked, non-regular, group/world-writable, or hardlinked
 object, or an object not owned by the invoking host identity, and records one
 `artifact-identity-v1` tuple:
@@ -163,9 +167,8 @@ Every path ancestor below the configured artifact root and the containing
 directory must be a real, non-symlink directory with a fixed `st_dev:st_ino`, be
 owned by the invoking host identity, and not be group/world writable. Any
 concurrent writer with that identity is outside this lane and is an immediate
-stop. This explicit precondition closes the interval in which Python must open
-the helper and its imports by ordinary path; the owner never turns an FD or
-temporary alias into a transfer-tool pathname.
+stop. The source package uses the separate sealed-FD rule below and never
+becomes a transfer-tool pathname.
 
 The owner keeps each opened FD until the corresponding helper has exited and
 been reaped. A signal, timeout, or lost return first requires the exact helper
@@ -193,45 +196,46 @@ terminal. Their exact tuples and pass/fail result are bound into the helper
 result record. A mismatch before a device session is a host rejection. A
 mismatch after `CANDIDATE_INTENT` consumes the candidate attempt and never
 permits candidate replay. Candidate-source drift may enter the already bound
-rollback path only when the rollback plus the complete helper closure still
-pass fresh exact checks; rollback or helper-closure drift parks as
+rollback path only when the rollback plus the complete sealed package still
+passes fresh exact checks; rollback or package drift parks as
 `RECOVERY_REQUIRED` without launching changed bytes. A mismatch after rollback
 release likewise never permits another rollback.
 
 After an owner crash, no vanished FD is reconstructed as proof. Recovery
-reopens every still-needed path with the same flags and requires the complete
-durable `artifact-identity-v1` tuple, directory identities, size, and SHA256
+reopens every still-needed artifact path with the same flags and requires the
+complete durable `artifact-identity-v1` tuple, directory identities, size, and
+SHA256. It separately rebinds and reseals the exact reviewed source package
 before observation or the already-authorized rollback path. A mismatch keeps
 the candidate consumed and parks without candidate or rollback replay.
 
-### Fixed private runtime-source tree
+### Single sealed runtime source package
 
-The repository source hierarchy is mode `0775`, so it is never used as a
-path-open execution root. The H0 `stage-runtime-sources` action instead reads
-each reviewed public source through one `O_NOFOLLOW` held FD, proves its direct
-regular-file identity and pinned size/SHA256, and copies only those bytes into
-the helper-digest-qualified
-`/home/temmie/.a90-boot-only-f1-owner-v1/runtime-sources-v1-23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757`
-tree.
-The fixed parent must already be a direct owner `0700` directory. The action
-creates the child directory once as `0700`, each member once as `0600`, fsyncs
-every member, publishes `runtime-source-receipt-v1.json` last with no-clobber
-semantics, then fsyncs and rebinds the complete tree. It never repairs,
-replaces, merges, or deletes a present tree. A crash leaves a non-authoritative
-partial tree that all later staging and execution refuse.
+The repository source hierarchy is mode `0775`, so it is not a path-open
+execution root. It also no longer needs a persistent ten-file private copy.
+`build_a90_boot_only_f1_source_package_v1.py` deterministically embeds the
+seven required helper sources, their exact sizes, and their SHA256 values into
+one generated Python source package. `--check` requires exact regeneration;
+the generator is review evidence and is not runtime authority.
 
-The receipt binds the helper-runtime closure and the exact lexically sorted
-name/size/SHA256 member set. It deliberately does not bind the owner closure:
-owner code already binds the helper digest, and coupling it here would recreate
-the review self-reference this design removes. A helper-byte change selects a
-new digest-qualified no-clobber root, while an owner-only change may reuse the
-same exact source tree. Execution rejects a missing,
-extra, indirect, hardlinked, loose-mode, wrong-owner, changed, or receipt-
-mismatched node and keeps every source FD held. This source-specific staging
-rule does not relax artifact or path-executed helper ancestry: untrusted
-repository bytes are never executed while being copied, and all subsequent
-Python entrypoints execute the staged bootstrap through the inherited-FD
-loader.
+At binding time the owner opens only `a90_boot_only_f1_fd_exec.py` and
+`a90_boot_only_f1_source_package_v1.py` with `O_NOFOLLOW`, verifies the direct
+regular source file, invoking UID/GID, link count, size, and SHA256, copies the
+exact bytes into separate `memfd_create(MFD_ALLOW_SEALING)` objects, and applies
+exactly `F_SEAL_SEAL|F_SEAL_SHRINK|F_SEAL_GROW|F_SEAL_WRITE`. The original
+source FDs remain held for pre/post checkpoints, but children inherit and
+execute only the sealed package FD. Repository ancestor permissions therefore
+cannot select executed bytes, and an in-place source change after binding
+cannot change the sealed capability.
+
+The package exposes only three fixed modes: `bridge`, `command`, and `flash`.
+It decodes and rehashes each requested embedded member, installs only the fixed
+local module names in one fixed order, never adds a source directory to
+`sys.path`, and never opens a sibling source pathname. `command` retains the
+four fixed read-only commands; `flash` retains the reviewed
+`native_init_flash.py` recovery adapter; `bridge` retains the exact serial
+bridge. The old helper and command bootstrap files, the persistent runtime
+tree, the staging command, and the runtime-source receipt are unreachable and
+outside the execution closure.
 
 ### Interpreter and transport executable identity
 
@@ -243,7 +247,7 @@ path. Neither path may come from the manifest, an approval, a CLI argument,
 runtime lookup. A bare or relative executable name is `NO_GO`.
 
 Before approval, the owner opens both executable **canonical realpaths**, the fixed
-`a90_boot_only_f1_helper_bootstrap.py`, and every helper source with
+FD loader, and the single generated source package with
 `O_RDONLY|O_CLOEXEC|O_NOFOLLOW`. Candidate, rollback, and repository source
 objects retain the invoking-host-identity ownership rule. System executables
 instead require one direct root-owned (`uid=gid=0`) regular file, link count
@@ -278,37 +282,27 @@ runtime.
 
 Python `-I` deliberately removes the script directory from `sys.path`, so the
 owner does not execute `native_init_flash.py` directly and does not re-add its
-directory. It also does not ask Python to reopen the bootstrap pathname. The
-owner passes its already validated bootstrap FD as the sole inherited FD to a
+directory. It also does not ask Python to reopen the package pathname. The
+owner passes its sealed package FD as the sole inherited FD to a
 capability-bound `-c` loader, with `close_fds=True` and exact
-`pass_fds=(bootstrap_fd,)`. That loader `fstat`s, rewinds, reads, size-checks,
-and SHA256-checks the same inherited FD, closes it, and compiles only those
-bytes. The bootstrap pathname is diagnostic metadata and the lexical anchor
-for the downstream fixed source set; it is never opened by the loader. A
-pathname swap and restoration therefore cannot select executed bootstrap
-bytes, and direct pathname execution is rejected.
-
-The fixed bootstrap runs under isolated safe-path mode and opens each exact
-owner-bound downstream source once with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW`. It
-requires `fstat` regular-file type, link count one, exact size, and the
-capability-bound SHA256; reads and compiles only the bytes from that same FD;
-and installs only their fixed module names in `sys.modules`, in one fixed
-dependency order. A pathname is never reopened after validation. It rejects a
-preloaded local name, non-canonical bootstrap path, identity or digest mismatch,
-source-directory `sys.path` entry, or any `sys.path` change. The generated
-import inventory and source digests must equal that fixed table; a new
-dependency or source byte requires a new owner capability review.
+`pass_fds=(package_fd,)`. That loader requires a link-count-zero regular memfd
+with the exact four seals, rewinds, reads, size-checks, and SHA256-checks the
+same inherited FD, closes it, and compiles only those bytes. The pathname is
+diagnostic metadata only. A pathname swap, restoration, or in-place change
+therefore cannot select executed package bytes, and direct pathname execution
+is rejected. The package rejects a preloaded local name, member identity or
+digest mismatch, unknown mode or command, and any `sys.path` change.
 
 The sole helper launch vector is structurally fixed as
-`[PYTHON_EXECUTABLE, -I, -c, FD_EXEC_PROGRAM, BOOTSTRAP_FD,
-HELPER_BOOTSTRAP, BOOTSTRAP_SIZE, BOOTSTRAP_SHA256, fixed owner arguments,
+`[PYTHON_EXECUTABLE, -I, -c, FD_EXEC_PROGRAM, PACKAGE_FD,
+SOURCE_PACKAGE, PACKAGE_SIZE, PACKAGE_SHA256, fixed mode and owner arguments,
 --adb, ADB_EXECUTABLE]`, with `shell=False`, `close_fds=True`, the exact one-FD
 `pass_fds` tuple, a fixed minimal environment, and no caller-supplied
 executable or FD field. `FD_EXEC_PROGRAM` and its command builder are pinned in
 `a90_boot_only_f1_fd_exec.py`; that file is part of the owner capability
 closure, not a manifest input. Thus `native_init_flash.py` never uses its bare
 `adb` default in this owner lane. A fake executable earlier in `PATH`, a
-substituted bootstrap pathname, or an unreviewed Python file beside the helper
+substituted package pathname, or an unreviewed Python file beside the helper
 cannot affect the launch. The owner passes the same absolute ADB path to every
 candidate, rollback, observation, and recovery helper invocation.
 
@@ -325,19 +319,13 @@ Deliberately small:
 
 - `a90_boot_only_f1_owner_v1.py`;
 - a small shared module for canonical JSON and the append-only journal;
-- the generated exact non-stdlib import closure rooted at
-  `workspace/public/src/scripts/revalidation/native_init_flash.py`;
-- the separately fixed read-only bridge source
-  `workspace/public/src/scripts/revalidation/serial_tcp_bridge.py`;
+- one generated source package containing the exact bridge, observation, and
+  recovery-helper import closure;
 - `a90_boot_only_f1_fd_exec.py`, containing the fixed inherited-FD loader and
   command builder used by the owner;
-- `a90_boot_only_f1_helper_bootstrap.py`, whose fixed module order must equal
-  that generated import closure;
-- `a90_boot_only_f1_command_bootstrap.py`, whose command vocabulary is exactly
-  `version`, `selftest`, `status`, and `cat /proc/sys/kernel/random/boot_id`;
 - the generated `python-runtime-closure-v1` and `adb-runtime-closure-v1`;
 - the manifest schema;
-- the hostile state-machine tests.
+- no tests, reports, review receipts, or package generator.
 
 The helper is not treated as a closed executable merely because its own bytes
 are pinned. Its source imports `a90ctl`, which imports the observation parser
@@ -348,27 +336,19 @@ stdlib set or resolves to an exact file in this generated closure. An unresolved
 non-stdlib import, a local package, or a dynamic import is `NO_GO`; it is never
 silently omitted.
 
-The current generated closure is exactly:
+The current executable helper closure is exactly:
 
 | file under `workspace/public/src/scripts/revalidation/` | size | sha256 |
 |---|---:|---|
-| `a90_boot_only_f1_fd_exec.py` | 3,493 | `b55959a4362d459df0058a7b6bca7630a27978e0b1246868cb993ef1380abf57` |
-| `a90_boot_only_f1_helper_bootstrap.py` | 4,767 | `26b98c3714ea5f8865cb552abb191fbbb6cb5eb3472ddfbb6a03bc308d8e9233` |
-| `a90_boot_only_f1_command_bootstrap.py` | 6,283 | `8234a2589c75cf466a359fbd9738d5b1c27c8ccdf700a8ed1822904dba45c590` |
-| `_workspace_bootstrap.py` | 1,255 | `7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe` |
-| `a90_observation_pipeline.py` | 24,478 | `6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb` |
-| `a90_serial_lock.py` | 2,860 | `663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7` |
-| `a90_transition_contract_v2.py` | 13,734 | `64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e` |
-| `a90ctl.py` | 16,380 | `4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c` |
-| `native_init_flash.py` | 43,118 | `366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53` |
-| `serial_tcp_bridge.py` | 17,944 | `deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98` |
+| `a90_boot_only_f1_fd_exec.py` | 3,689 | `e35e667e4bdf6a87999d9ec7ac496d699cd8251974dfac17e71ddad6a0d66069` |
+| `a90_boot_only_f1_source_package_v1.py` | 186,162 | `ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a` |
 
-The canonical aggregate is SHA256 over the lexically sorted records
-`relative-name NUL decimal-size NUL lowercase-sha256 LF`. Its current value is
-`23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757`.
-The capability review signs this generated aggregate, not a hand-maintained
-subset. Any member-byte change, added or removed local dependency, unresolved
-external dependency, or import-graph change expires the capability binding.
+The helper-runtime digest is the generated package SHA256 itself:
+`ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a`.
+The package generator pins the complete embedded member table, and its
+`--check` comparison rejects any source, member-set, encoding, or runtime
+template drift. Any active loader or package-byte change expires the owner
+capability binding; candidate-only data does not.
 
 **The owner must not import `a90_v3403_f1_orchestrator.py`.** That would pull
 ~7,900 lines back into the closure. The per-candidate runners are stdlib-only
@@ -437,8 +417,8 @@ physical-recovery qualification are all mandatory.
 The module includes read-only endpoint, process, listener, and FD probes. A
 pathname and `/proc/<pid>/cmdline` do not prove which Python source bytes a
 pre-existing bridge executed, so the owner never adopts one. The implemented
-H0 lifecycle instead proves the listener absent, opens the fixed bridge source
-once, starts Python's reviewed inherited-FD loader with only that source FD,
+H0 lifecycle instead proves the listener absent, starts Python's reviewed
+inherited-FD loader with only the sealed package FD in fixed `bridge` mode,
 and accepts readiness only when one exact child PID, full NUL-framed command,
 start tick, loopback listener inode, and TTY FD are mutually bound. It keeps
 the source FD held and rehashed, captures exclusive mode-`0600` stdout/stderr,
@@ -447,11 +427,11 @@ proves the PID, listener, socket holder, and TTY holder absent. Readiness never
 relaunches the bridge, teardown uncertainty is terminal, and duplicate start
 or close is rejected.
 
-The bridge and command cores are still not live-capability producers. The
-implemented H0 stager supplies the fixed private tree described above. For
-each of the four commands, the owner starts a fresh isolated Python through
-the held command-bootstrap FD, inherits exactly that FD, loads the pinned
-`a90ctl` dependency set from the private tree without adding it to `sys.path`,
+The bridge and command cores are still not live-capability producers. For each
+of the four commands, the owner starts a fresh isolated Python through the
+same held sealed package FD in fixed `command` mode, inherits exactly that FD,
+loads the embedded pinned `a90ctl` dependency set without adding a directory
+to `sys.path`,
 and permits no caller- or manifest-selected command. Each subprocess has a
 bounded timeout and output size, a new process group, exclusive `0600` logs,
 exact canonical output parsing, post-return source checkpoints, and no repeat
@@ -664,8 +644,8 @@ The owner is only as good as what it refuses. At minimum:
 - hardlinked, group/world-writable, or wrong-owner artifact or containing
   directory;
 - pathname `st_dev:st_ino` different from the held FD before release;
-- candidate, rollback, helper, or helper-import size/SHA256 drift while the
-  helper runs or after it returns;
+- candidate, rollback, loader, package, or embedded-member size/SHA256 drift
+  while the helper runs or after it returns;
 - candidate artifact restored after a transient different-byte substitution —
   the helper's independently verified sealed copy must still match the bound
   size and SHA256;
@@ -682,25 +662,25 @@ The owner is only as good as what it refuses. At minimum:
 - bare or relative Python/ADB executable, either canonical path replaced by a
   symlink, caller-selected `--adb`, PATH lookup,
   fake ADB earlier in `PATH`, direct `python -I native_init_flash.py`, direct
-  bootstrap pathname execution, or a launch omitting the fixed inherited-FD
+  package pathname execution, or a launch omitting the fixed inherited-FD
   loader, its one-FD `pass_fds` binding, or isolated Python mode;
-- bootstrap pathname swap before Python startup, swap-execute-restore, wrong
-  inherited descriptor/type/link-count/size/digest, extra inherited FD, loader
+- package pathname swap before Python startup, swap-execute-restore, wrong
+  inherited descriptor/type/seal-set/size/digest, extra inherited FD, loader
   argument supplied by a caller/manifest, or
 - pre-existing bridge listener, wrong bridge PID/start tick/cmdline/source FD,
   foreign listener-socket or TTY holder, readiness timeout, early bridge exit,
   TERM timeout requiring one KILL, teardown-proof failure, duplicate bridge
-  start/close, or a group/world-writable runtime-source ancestor;
-- partial runtime-source tree, extra runtime-source node, missing receipt,
-  changed member, loose mode, indirect node, or second staging attempt;
+  start/close, or a package source/checkpoint mismatch;
+- stale generated package, changed/extra/missing embedded member, invalid
+  member encoding, unknown package mode, or unsealed inherited package FD;
 - unknown or duplicate observation command, command/result mismatch,
   observation command timeout, oversized/malformed output, or surviving
   observation process group;
-- bootstrap source directory added to `sys.path`, preloaded local module,
-  reordered/missing/extra local dependency, or source outside the exact held
-  helper closure;
-- source pathname swapped between validation and read, initial symlink,
-  wrong-size/digest source, short read, or trailing source bytes;
+- source directory added to `sys.path`, preloaded local module,
+  reordered/missing/extra embedded dependency, or member outside the exact
+  generated package;
+- package pathname swapped between validation and read, initial symlink,
+  wrong-size/digest package, short read, or trailing package bytes;
 - same Python/ADB version string with different executable bytes, inode,
   dependency, stdlib/extension module, or runtime-closure digest;
 - reused or expired approval;
@@ -732,8 +712,8 @@ The owner is only as good as what it refuses. At minimum:
 ## What this design does not do
 
 - It does not provide a live-capable owner. The H0 contract/state-machine core,
-  current-host runtime qualification, pure observation contract, fixed private
-  source stager, and owner-controlled bridge plus four-command producer cores
+  current-host runtime qualification, pure observation contract, single sealed
+  source package, and owner-controlled bridge plus four-command producer cores
   exist. Exact recovery arrival/serial binding and crash-prefix resume remain
   deliberately absent; the live CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard
@@ -755,6 +735,8 @@ The owner is only as good as what it refuses. At minimum:
 - `docs/plans/A90_SELF_BUILT_KERNEL_F1_DESIGN_2026-08-16.md`
 - `docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md`
 - `workspace/public/src/scripts/revalidation/native_init_flash.py`
+- `workspace/public/src/scripts/revalidation/a90_boot_only_f1_fd_exec.py`
+- `workspace/public/src/scripts/revalidation/a90_boot_only_f1_source_package_v1.py`
 
 ## Boundary
 

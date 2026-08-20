@@ -134,8 +134,8 @@ def manifest() -> dict[str, Any]:
         },
         "flashHelper": {
             "path": str(owner.HELPER_PATH),
-            "size": owner.HELPER_SPECS["native_init_flash.py"][0],
-            "sha256": owner.HELPER_SPECS["native_init_flash.py"][1],
+            "size": owner.SOURCE_PACKAGE_SPEC[0],
+            "sha256": owner.SOURCE_PACKAGE_SPEC[1],
         },
         "timeouts": {"recoverySec": 180, "bridgeSec": 60, "healthSec": 240},
         "observation": {"acceptanceRuleSha256": "4" * 64},
@@ -507,6 +507,14 @@ class ContractTests(unittest.TestCase):
         self.assertNotIn("tests/test_a90_boot_only_f1_owner_v1.py", members)
         self.assertTrue(all(not path.startswith("docs/") for path in members))
         self.assertTrue(all("review" not in path for path in members))
+        self.assertIn(
+            "workspace/public/src/scripts/revalidation/"
+            "a90_boot_only_f1_source_package_v1.py",
+            members,
+        )
+        self.assertTrue(all("build_a90_boot_only" not in path for path in members))
+        self.assertTrue(all("helper_bootstrap" not in path for path in members))
+        self.assertTrue(all("command_bootstrap" not in path for path in members))
 
     def test_runtime_generator_reverifies_the_current_host_closure(self) -> None:
         closure = owner.owner_closure_sha256()
@@ -689,19 +697,32 @@ class ContractTests(unittest.TestCase):
                 proc_root=proc,
             )
 
-    def test_bridge_source_is_inside_the_held_helper_closure(self) -> None:
-        size, digest = owner.HELPER_SPECS["serial_tcp_bridge.py"]
-        raw = observer_v1.BRIDGE_SCRIPT.read_bytes()
-        self.assertEqual(observer_v1.BRIDGE_SCRIPT, owner.REVALIDATION / "serial_tcp_bridge.py")
-        self.assertEqual((len(raw), sha(raw)), (size, digest))
+    def test_bridge_source_is_inside_the_generated_source_package(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(
+                    owner.REVALIDATION
+                    / "build_a90_boot_only_f1_source_package_v1.py"
+                ),
+                "--check",
+            ],
+            cwd=REPO,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0)
+        raw = owner.SOURCE_PACKAGE_PATH.read_bytes()
+        self.assertEqual(
+            (len(raw), sha(raw)),
+            owner.SOURCE_PACKAGE_SPEC,
+        )
         self.assertEqual(owner.helper_runtime_digest(), owner.HELPER_RUNTIME_CLOSURE_SHA256)
 
     def test_owned_bridge_uses_held_source_and_proves_bounded_teardown(self) -> None:
-        _size, digest = owner.HELPER_SPECS["serial_tcp_bridge.py"]
         artifact = FakeHeldSource(
-            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+            owner.SOURCE_PACKAGE_PATH, "helper-package"
         )
-        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        bindings = owner.ExecutionBindings({"helper-package": artifact})
         process = FakeBridgeProcess()
         launch: dict[str, Any] = {}
         teardown: dict[str, Any] = {}
@@ -737,7 +758,7 @@ class ContractTests(unittest.TestCase):
                 command = launch["command"]
                 self.assertEqual(command[0:4], (str(owner.PYTHON_EXECUTABLE), "-I", "-c", FakeFdExec.PROGRAM))
                 self.assertEqual(command[4], str(artifact.fd))
-                self.assertIn(digest, command)
+                self.assertIn(owner.SOURCE_PACKAGE_SPEC[1], command)
                 self.assertEqual(launch["kwargs"]["pass_fds"], (artifact.fd,))
                 self.assertIs(launch["kwargs"]["close_fds"], True)
                 self.assertEqual(receipt["bridgeProcessPid"], process.pid)
@@ -759,11 +780,10 @@ class ContractTests(unittest.TestCase):
             bindings.close()
 
     def test_owned_bridge_readiness_failure_reaps_and_never_retries_launch(self) -> None:
-        _size, digest = owner.HELPER_SPECS["serial_tcp_bridge.py"]
         artifact = FakeHeldSource(
-            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+            owner.SOURCE_PACKAGE_PATH, "helper-package"
         )
-        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        bindings = owner.ExecutionBindings({"helper-package": artifact})
         process = FakeBridgeProcess()
         launches = 0
         absence_checks = 0
@@ -804,9 +824,9 @@ class ContractTests(unittest.TestCase):
 
     def test_owned_bridge_forces_reap_but_never_claims_graceful_close(self) -> None:
         artifact = FakeHeldSource(
-            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+            owner.SOURCE_PACKAGE_PATH, "helper-package"
         )
-        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        bindings = owner.ExecutionBindings({"helper-package": artifact})
         process = FakeBridgeProcess(wait_timeout_once=True)
         try:
             with tempfile.TemporaryDirectory() as raw_root:
@@ -831,9 +851,9 @@ class ContractTests(unittest.TestCase):
 
     def test_owned_bridge_teardown_uncertainty_is_terminal_and_closes_logs(self) -> None:
         artifact = FakeHeldSource(
-            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+            owner.SOURCE_PACKAGE_PATH, "helper-package"
         )
-        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        bindings = owner.ExecutionBindings({"helper-package": artifact})
         process = FakeBridgeProcess()
         try:
             with tempfile.TemporaryDirectory() as raw_root:
@@ -862,9 +882,9 @@ class ContractTests(unittest.TestCase):
 
     def test_owned_bridge_unreaped_after_kill_is_terminal_and_closes_logs(self) -> None:
         artifact = FakeHeldSource(
-            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+            owner.SOURCE_PACKAGE_PATH, "helper-package"
         )
-        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        bindings = owner.ExecutionBindings({"helper-package": artifact})
         process = FakeBridgeProcess(wait_timeout_always=True)
         try:
             with tempfile.TemporaryDirectory() as raw_root:
@@ -895,9 +915,9 @@ class ContractTests(unittest.TestCase):
 
     def test_owned_bridge_rejects_duplicate_start_and_duplicate_close(self) -> None:
         artifact = FakeHeldSource(
-            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+            owner.SOURCE_PACKAGE_PATH, "helper-package"
         )
-        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        bindings = owner.ExecutionBindings({"helper-package": artifact})
         process = FakeBridgeProcess()
         try:
             with tempfile.TemporaryDirectory() as raw_root:
@@ -920,70 +940,54 @@ class ContractTests(unittest.TestCase):
         finally:
             bindings.close()
 
-    def test_runtime_source_staging_is_no_clobber_complete_and_private(self) -> None:
-        self.assertEqual(
-            owner.RUNTIME_SOURCE_ROOT.name,
-            f"runtime-sources-v1-{owner.HELPER_RUNTIME_CLOSURE_SHA256}",
-        )
-        with tempfile.TemporaryDirectory() as raw_root:
-            parent = Path(raw_root) / "private"
-            parent.mkdir(mode=0o700)
-            os.chmod(parent, 0o700)
-            destination = parent / "runtime-sources-v1"
-            receipt = owner.stage_runtime_sources(destination=destination)
-            self.assertEqual(receipt, owner.runtime_source_receipt())
-            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o700)
+    def test_source_package_binds_two_held_files_without_staging(self) -> None:
+        artifacts = owner.bind_source_package()
+        try:
+            self.assertEqual(set(artifacts), {"helper-fd-exec", "helper-package"})
             self.assertEqual(
-                {entry.name for entry in destination.iterdir()},
-                set(owner.HELPER_SPECS) | {owner.RUNTIME_SOURCE_RECEIPT},
+                artifacts["helper-package"].identity["sha256"],
+                owner.SOURCE_PACKAGE_SPEC[1],
             )
-            for name in owner.HELPER_SPECS:
-                self.assertEqual(
-                    stat.S_IMODE((destination / name).stat().st_mode), 0o600
-                )
-            artifacts, verified = owner.bind_runtime_sources(destination)
-            try:
-                self.assertEqual(verified, receipt)
-                self.assertEqual(
-                    set(artifacts),
-                    {f"helper:{name}" for name in owner.HELPER_SPECS}
-                    | {"runtime-source-receipt"},
-                )
-            finally:
-                for artifact in artifacts.values():
-                    artifact.close()
-            with self.assertRaisesRegex(contract.ContractError, "already exists"):
-                owner.stage_runtime_sources(destination=destination)
+            self.assertEqual(
+                artifacts["helper-fd-exec"].identity["sha256"],
+                owner.FD_EXEC_SPEC[1],
+            )
+        finally:
+            for artifact in artifacts.values():
+                artifact.close()
+        self.assertFalse(hasattr(owner, "stage_runtime_sources"))
+        self.assertFalse(hasattr(owner, "bind_runtime_sources"))
 
-    def test_runtime_source_tree_rejects_extra_tampered_and_loose_nodes(self) -> None:
-        mutations = ("extra", "tamper", "mode", "parent")
-        for mutation in mutations:
+    def test_held_source_rejects_tamper_and_symlink_then_seals_bytes(self) -> None:
+        raw = owner.SOURCE_PACKAGE_PATH.read_bytes()
+        digest = sha(raw)
+        for mutation in ("tamper", "symlink"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as raw_root:
-                parent = Path(raw_root) / "private"
-                parent.mkdir(mode=0o700)
-                os.chmod(parent, 0o700)
-                destination = parent / "runtime-sources-v1"
-                owner.stage_runtime_sources(destination=destination)
-                if mutation == "extra":
-                    (destination / "extra.py").write_bytes(b"pass\n")
-                elif mutation == "tamper":
-                    target = destination / "a90ctl.py"
-                    target.write_bytes(target.read_bytes()[:-1] + b"X")
-                else:
-                    if mutation == "mode":
-                        os.chmod(destination / "a90ctl.py", 0o660)
-                    else:
-                        os.chmod(parent, 0o755)
+                root = Path(raw_root)
+                path = root / "package.py"
+                path.write_bytes(raw)
+                os.chmod(path, 0o600)
+                if mutation == "tamper":
+                    path.write_bytes(raw[:-1] + b"X")
+                elif mutation == "symlink":
+                    target = root / "target.py"
+                    path.rename(target)
+                    path.symlink_to(target)
                 with self.assertRaises(contract.ContractError):
-                    owner.bind_runtime_sources(destination)
+                    owner.HeldSourceArtifact.open(
+                        role="test-package",
+                        path=path,
+                        expected_size=len(raw),
+                        expected_sha256=digest,
+                    )
 
     def test_owned_command_producer_executes_only_fixed_fd_bound_commands(self) -> None:
         artifact = FakeHeldSource(
-            owner.REVALIDATION / "a90_boot_only_f1_command_bootstrap.py",
-            "helper:a90_boot_only_f1_command_bootstrap.py",
+            owner.SOURCE_PACKAGE_PATH,
+            "helper-package",
         )
         bindings = owner.ExecutionBindings(
-            {"helper:a90_boot_only_f1_command_bootstrap.py": artifact}
+            {"helper-package": artifact}
         )
         launches: list[tuple[tuple[str, ...], dict[str, Any]]] = []
 
@@ -1028,10 +1032,10 @@ class ContractTests(unittest.TestCase):
         finally:
             bindings.close()
 
-    def test_command_bootstrap_requires_fd_execution_and_rejects_unknown_command(self) -> None:
-        bootstrap = owner.REVALIDATION / "a90_boot_only_f1_command_bootstrap.py"
+    def test_source_package_requires_fd_execution_and_rejects_unknown_mode(self) -> None:
+        bootstrap = owner.SOURCE_PACKAGE_PATH
         direct = subprocess.run(
-            [str(owner.PYTHON_EXECUTABLE), "-I", str(bootstrap), "unknown", "5"],
+            [str(owner.PYTHON_EXECUTABLE), "-I", str(bootstrap), "unknown"],
             cwd="/",
             text=True,
             stdout=subprocess.PIPE,
@@ -1041,14 +1045,19 @@ class ContractTests(unittest.TestCase):
         self.assertNotEqual(direct.returncode, 0)
         self.assertIn("inherited-FD execution", direct.stderr)
 
-        artifact = FakeHeldSource(
-            bootstrap, "helper:a90_boot_only_f1_command_bootstrap.py"
+        artifact = owner.HeldSourceArtifact.open(
+            role="helper-package",
+            path=bootstrap,
+            expected_size=owner.SOURCE_PACKAGE_SPEC[0],
+            expected_sha256=owner.SOURCE_PACKAGE_SPEC[1],
         )
         try:
             # Use the real reviewed loader for this integration check.
-            fd_artifact = FakeHeldSource(
-                owner.REVALIDATION / "a90_boot_only_f1_fd_exec.py",
-                "helper:a90_boot_only_f1_fd_exec.py",
+            fd_artifact = owner.HeldSourceArtifact.open(
+                role="helper-fd-exec",
+                path=owner.FD_EXEC_PATH,
+                expected_size=owner.FD_EXEC_SPEC[0],
+                expected_sha256=owner.FD_EXEC_SPEC[1],
             )
             try:
                 fd_exec = owner._load_exact_python_module(fd_artifact, "fd_exec_test")
@@ -1058,7 +1067,7 @@ class ContractTests(unittest.TestCase):
                     bootstrap,
                     artifact.identity["size"],
                     artifact.identity["sha256"],
-                    ("unknown", "5"),
+                    ("unknown",),
                 )
                 completed = subprocess.run(
                     command,
@@ -1073,19 +1082,93 @@ class ContractTests(unittest.TestCase):
             finally:
                 fd_artifact.close()
             self.assertNotEqual(completed.returncode, 0)
-            self.assertIn("unknown command", completed.stderr)
+            self.assertIn("mode is unknown", completed.stderr)
         finally:
             artifact.close()
+
+    def test_source_package_exposes_only_fixed_bridge_command_and_flash_modes(self) -> None:
+        artifacts = owner.bind_source_package()
+        package = artifacts["helper-package"]
+        try:
+            fd_exec = owner._load_exact_python_module(
+                artifacts["helper-fd-exec"], "fd_exec_package_modes_test"
+            )
+            cases = (
+                (("bridge", "--help"), 0, "serial_tcp_bridge.py"),
+                (("command", "unknown", "5"), 1, "unknown command"),
+                (("flash", "--help"), 0, "native_init_flash.py"),
+            )
+            for arguments, expected_rc, expected_text in cases:
+                with self.subTest(arguments=arguments):
+                    command = fd_exec.bootstrap_command(
+                        owner.PYTHON_EXECUTABLE,
+                        package.fd,
+                        package.path,
+                        package.identity["size"],
+                        package.identity["sha256"],
+                        arguments,
+                    )
+                    completed = subprocess.run(
+                        command,
+                        cwd="/",
+                        env={"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"},
+                        pass_fds=(package.fd,),
+                        text=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=False,
+                    )
+                    self.assertEqual(completed.returncode, expected_rc)
+                    self.assertIn(expected_text, completed.stdout + completed.stderr)
+        finally:
+            for artifact in artifacts.values():
+                artifact.close()
+
+    def test_fd_loader_rejects_an_unsealed_regular_package_fd(self) -> None:
+        package = FakeHeldSource(owner.SOURCE_PACKAGE_PATH, "helper-package")
+        fd_exec_artifact = owner.HeldSourceArtifact.open(
+            role="helper-fd-exec",
+            path=owner.FD_EXEC_PATH,
+            expected_size=owner.FD_EXEC_SPEC[0],
+            expected_sha256=owner.FD_EXEC_SPEC[1],
+        )
+        try:
+            fd_exec = owner._load_exact_python_module(
+                fd_exec_artifact, "fd_exec_unsealed_test"
+            )
+            command = fd_exec.bootstrap_command(
+                owner.PYTHON_EXECUTABLE,
+                package.fd,
+                package.path,
+                package.identity["size"],
+                package.identity["sha256"],
+                ("flash", "--help"),
+            )
+            completed = subprocess.run(
+                command,
+                cwd="/",
+                env={"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"},
+                pass_fds=(package.fd,),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("sealed source capability", completed.stderr)
+        finally:
+            package.close()
+            fd_exec_artifact.close()
 
     def test_owned_command_producer_rejects_mismatched_or_timed_out_result(self) -> None:
         for scenario in ("mismatch", "timeout"):
             with self.subTest(scenario=scenario):
                 artifact = FakeHeldSource(
-                    owner.REVALIDATION / "a90_boot_only_f1_command_bootstrap.py",
-                    "helper:a90_boot_only_f1_command_bootstrap.py",
+                    owner.SOURCE_PACKAGE_PATH,
+                    "helper-package",
                 )
                 bindings = owner.ExecutionBindings(
-                    {"helper:a90_boot_only_f1_command_bootstrap.py": artifact}
+                    {"helper-package": artifact}
                 )
                 killed: list[tuple[int, int]] = []
 
@@ -1582,7 +1665,10 @@ class OwnerStateMachineTests(unittest.TestCase):
         source = OWNER_PATH.read_text(encoding="utf-8")
         self.assertNotIn("a90_v3403_f1_orchestrator", source)
         self.assertFalse(owner.LIVE_EXECUTION_ENABLED)
-        self.assertIn("PRIVATE_SOURCE_BRIDGE_COMMAND_CORE_PRESENT", owner.IMPLEMENTATION_STATUS)
+        self.assertIn(
+            "STABLE_SOURCE_PACKAGE_BRIDGE_COMMAND_CORE_PRESENT",
+            owner.IMPLEMENTATION_STATUS,
+        )
         self.assertIn("RECOVERY_BINDING_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
         with tempfile.TemporaryDirectory() as raw_root:
             with self.assertRaisesRegex(contract.ContractError, "H0-disabled"):

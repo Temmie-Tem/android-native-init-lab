@@ -10,6 +10,7 @@ are implemented and independently reviewed.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -57,7 +58,7 @@ import a90_boot_only_f1_observer_v1 as observer_v1
 
 
 IMPLEMENTATION_STATUS = (
-    "H0_RUNTIME_QUALIFIED_PRIVATE_SOURCE_BRIDGE_COMMAND_CORE_PRESENT_"
+    "H0_RUNTIME_QUALIFIED_STABLE_SOURCE_PACKAGE_BRIDGE_COMMAND_CORE_PRESENT_"
     "RECOVERY_BINDING_AND_RESUME_ABSENT"
 )
 LIVE_EXECUTION_ENABLED = False
@@ -65,67 +66,22 @@ PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
 ADB_EXECUTABLE = Path("/usr/lib/android-sdk/platform-tools/adb")
 REPO_ROOT = Path(__file__).resolve().parents[5]
 REVALIDATION = REPO_ROOT / "workspace/public/src/scripts/revalidation"
-RUNTIME_SOURCE_PARENT = Path("/home/temmie/.a90-boot-only-f1-owner-v1")
-RUNTIME_SOURCE_ROOT = RUNTIME_SOURCE_PARENT / (
-    "runtime-sources-v1-"
-    "23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757"
-)
-RUNTIME_SOURCE_RECEIPT = "runtime-source-receipt-v1.json"
-FD_EXEC_PATH = RUNTIME_SOURCE_ROOT / "a90_boot_only_f1_fd_exec.py"
-BOOTSTRAP_PATH = RUNTIME_SOURCE_ROOT / "a90_boot_only_f1_helper_bootstrap.py"
-COMMAND_BOOTSTRAP_PATH = (
-    RUNTIME_SOURCE_ROOT / "a90_boot_only_f1_command_bootstrap.py"
-)
-HELPER_PATH = RUNTIME_SOURCE_ROOT / "native_init_flash.py"
+FD_EXEC_PATH = REVALIDATION / "a90_boot_only_f1_fd_exec.py"
+SOURCE_PACKAGE_PATH = REVALIDATION / "a90_boot_only_f1_source_package_v1.py"
+HELPER_PATH = SOURCE_PACKAGE_PATH
 RUNTIME_QUALIFICATION_PATH = (
     REPO_ROOT
     / "workspace/public/src/device-action/a90_boot_only_f1_runtime_qualification_v1.json"
 )
-HELPER_RUNTIME_CLOSURE_SHA256 = (
-    "23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757"
+FD_EXEC_SPEC = (
+    3_689,
+    "e35e667e4bdf6a87999d9ec7ac496d699cd8251974dfac17e71ddad6a0d66069",
 )
-HELPER_SPECS = {
-    "_workspace_bootstrap.py": (
-        1_255,
-        "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe",
-    ),
-    "a90_boot_only_f1_fd_exec.py": (
-        3_493,
-        "b55959a4362d459df0058a7b6bca7630a27978e0b1246868cb993ef1380abf57",
-    ),
-    "a90_boot_only_f1_helper_bootstrap.py": (
-        4_767,
-        "26b98c3714ea5f8865cb552abb191fbbb6cb5eb3472ddfbb6a03bc308d8e9233",
-    ),
-    "a90_boot_only_f1_command_bootstrap.py": (
-        6_283,
-        "8234a2589c75cf466a359fbd9738d5b1c27c8ccdf700a8ed1822904dba45c590",
-    ),
-    "a90_observation_pipeline.py": (
-        24_478,
-        "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
-    ),
-    "a90_serial_lock.py": (
-        2_860,
-        "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7",
-    ),
-    "a90_transition_contract_v2.py": (
-        13_734,
-        "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e",
-    ),
-    "a90ctl.py": (
-        16_380,
-        "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
-    ),
-    "native_init_flash.py": (
-        43_118,
-        "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53",
-    ),
-    "serial_tcp_bridge.py": (
-        17_944,
-        "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
-    ),
-}
+SOURCE_PACKAGE_SPEC = (
+    186_162,
+    "ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a",
+)
+HELPER_RUNTIME_CLOSURE_SHA256 = SOURCE_PACKAGE_SPEC[1]
 MAX_LOG_BYTES = 16 * 1024 * 1024
 
 
@@ -199,7 +155,7 @@ class Backend(Protocol):
 class ExecutionBindings:
     def __init__(
         self,
-        artifacts: dict[str, BoundArtifact],
+        artifacts: dict[str, Any],
         qualifications: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         self.artifacts = artifacts
@@ -222,192 +178,164 @@ class ExecutionBindings:
         self.close()
 
 
-def _require_private_directory(path: Path, label: str) -> None:
-    if not path.is_absolute():
-        raise ContractError(f"{label} is not absolute")
-    try:
-        metadata = path.lstat()
-    except OSError as exc:
-        raise ContractError(f"{label} is absent") from exc
-    if (
-        not stat.S_ISDIR(metadata.st_mode)
-        or path.is_symlink()
-        or stat.S_IMODE(metadata.st_mode) != 0o700
-        or metadata.st_uid != os.getuid()
-        or metadata.st_gid != os.getgid()
-    ):
-        raise ContractError(f"{label} is not one private owner directory")
+@dataclass
+class HeldSourceArtifact:
+    """One exact source capability executed only from its already-open FD.
 
-
-def _open_pinned_source(
-    source_root: Path,
-    name: str,
-    expected_size: int,
-    expected_sha256: str,
-) -> int:
-    """Open unexecuted repository bytes by exact final-file identity.
-
-    Repository ancestors are not an execution boundary here.  Only bytes read
-    from this held FD are copied into the private runtime tree; no source path
-    or sibling import is executed during staging.
+    Repository ancestors are deliberately not treated as an execution
+    boundary: neither the loader nor the package reopens this pathname.
     """
 
-    path = source_root / name
-    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
-    try:
-        metadata = os.fstat(descriptor)
-        path_metadata = path.lstat()
+    role: str
+    path: Path
+    source_fd: int
+    fd: int
+    identity: dict[str, Any]
+
+    @classmethod
+    def open(
+        cls,
+        *,
+        role: str,
+        path: Path,
+        expected_size: int,
+        expected_sha256: str,
+    ) -> "HeldSourceArtifact":
+        if not path.is_absolute():
+            raise ContractError("held source path is not absolute")
+        try:
+            descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        except OSError as exc:
+            raise ContractError(f"held source cannot be opened: {role}") from exc
+        sealed_fd = -1
+        try:
+            metadata = os.fstat(descriptor)
+            path_metadata = path.lstat()
+            digest = BoundArtifact._hash_fd(descriptor, expected_size)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or not stat.S_ISREG(path_metadata.st_mode)
+                or metadata.st_nlink != 1
+                or path_metadata.st_nlink != 1
+                or metadata.st_uid != os.getuid()
+                or metadata.st_gid != os.getgid()
+                or path_metadata.st_uid != os.getuid()
+                or path_metadata.st_gid != os.getgid()
+                or (metadata.st_dev, metadata.st_ino)
+                != (path_metadata.st_dev, path_metadata.st_ino)
+                or metadata.st_size != expected_size
+                or digest != expected_sha256
+            ):
+                raise ContractError(f"held source input mismatch: {role}")
+            raw = os.pread(descriptor, expected_size, 0)
+            if (
+                len(raw) != expected_size
+                or os.pread(descriptor, 1, expected_size)
+                or sha256_bytes(raw) != expected_sha256
+            ):
+                raise ContractError(f"held source exact read mismatch: {role}")
+            sealed_fd = os.memfd_create(
+                f"a90-{role}", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
+            )
+            offset = 0
+            while offset < len(raw):
+                written = os.write(sealed_fd, raw[offset:])
+                if written <= 0:
+                    raise ContractError(f"held source sealed copy failed: {role}")
+                offset += written
+            required_seals = (
+                fcntl.F_SEAL_SEAL
+                | fcntl.F_SEAL_SHRINK
+                | fcntl.F_SEAL_GROW
+                | fcntl.F_SEAL_WRITE
+            )
+            fcntl.fcntl(sealed_fd, fcntl.F_ADD_SEALS, required_seals)
+            if fcntl.fcntl(sealed_fd, fcntl.F_GET_SEALS) != required_seals:
+                raise ContractError(f"held source sealing failed: {role}")
+            sealed_digest = BoundArtifact._hash_fd(sealed_fd, expected_size)
+            if sealed_digest != expected_sha256:
+                raise ContractError(f"held source sealed digest mismatch: {role}")
+            return cls(
+                role,
+                path,
+                descriptor,
+                sealed_fd,
+                {
+                    "role": role,
+                    "path": str(path),
+                    "dev": metadata.st_dev,
+                    "ino": metadata.st_ino,
+                    "mode": metadata.st_mode,
+                    "uid": metadata.st_uid,
+                    "gid": metadata.st_gid,
+                    "nlink": metadata.st_nlink,
+                    "size": metadata.st_size,
+                    "sha256": digest,
+                    "sealedSize": expected_size,
+                    "sealedSha256": sealed_digest,
+                    "sealedFlags": required_seals,
+                },
+            )
+        except BaseException:
+            os.close(descriptor)
+            if sealed_fd >= 0:
+                os.close(sealed_fd)
+            raise
+
+    def checkpoint(self) -> dict[str, Any]:
+        metadata = os.fstat(self.source_fd)
+        path_metadata = self.path.lstat()
+        sealed_metadata = os.fstat(self.fd)
+        current = {
+            "role": self.role,
+            "path": str(self.path),
+            "dev": metadata.st_dev,
+            "ino": metadata.st_ino,
+            "mode": metadata.st_mode,
+            "uid": metadata.st_uid,
+            "gid": metadata.st_gid,
+            "nlink": metadata.st_nlink,
+            "size": metadata.st_size,
+            "sha256": BoundArtifact._hash_fd(self.source_fd, metadata.st_size),
+            "sealedSize": sealed_metadata.st_size,
+            "sealedSha256": BoundArtifact._hash_fd(self.fd, sealed_metadata.st_size),
+            "sealedFlags": fcntl.fcntl(self.fd, fcntl.F_GET_SEALS),
+        }
         if (
             not stat.S_ISREG(metadata.st_mode)
             or not stat.S_ISREG(path_metadata.st_mode)
-            or metadata.st_nlink != 1
-            or path_metadata.st_nlink != 1
-            or metadata.st_uid != os.getuid()
-            or metadata.st_gid != os.getgid()
             or (metadata.st_dev, metadata.st_ino)
             != (path_metadata.st_dev, path_metadata.st_ino)
-            or metadata.st_size != expected_size
-            or BoundArtifact._hash_fd(descriptor, expected_size) != expected_sha256
+            or current != self.identity
         ):
-            raise ContractError(f"runtime source input mismatch: {name}")
-        return descriptor
-    except BaseException:
-        os.close(descriptor)
-        raise
+            raise ContractError("held source identity or bytes drifted")
+        return current
+
+    def close(self) -> None:
+        if self.fd >= 0:
+            os.close(self.fd)
+            self.fd = -1
+        if self.source_fd >= 0:
+            os.close(self.source_fd)
+            self.source_fd = -1
 
 
-def _copy_pinned_source(source_fd: int, destination: Path, size: int) -> None:
-    destination_fd = os.open(
-        destination,
-        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-        0o600,
-    )
+def bind_source_package() -> dict[str, HeldSourceArtifact]:
+    artifacts: dict[str, HeldSourceArtifact] = {}
     try:
-        os.fchmod(destination_fd, 0o600)
-        offset = 0
-        while offset < size:
-            chunk = os.pread(source_fd, min(1 << 20, size - offset), offset)
-            if not chunk:
-                raise ContractError("runtime source input ended during copy")
-            written_offset = 0
-            while written_offset < len(chunk):
-                written = os.write(destination_fd, chunk[written_offset:])
-                if written <= 0:
-                    raise ContractError("runtime source destination short write")
-                written_offset += written
-            offset += len(chunk)
-        if os.pread(source_fd, 1, size):
-            raise ContractError("runtime source input grew during copy")
-        os.fsync(destination_fd)
-    finally:
-        os.close(destination_fd)
-
-
-def runtime_source_receipt() -> dict[str, Any]:
-    return {
-        "schema": "a90-boot-only-f1-runtime-source-receipt-v1",
-        "helperRuntimeClosureSha256": helper_runtime_digest(),
-        "members": [
-            {"name": name, "size": size, "sha256": digest}
-            for name, (size, digest) in sorted(HELPER_SPECS.items())
-        ],
-    }
-
-
-def stage_runtime_sources(
-    *,
-    destination: Path = RUNTIME_SOURCE_ROOT,
-    source_root: Path = REVALIDATION,
-) -> dict[str, Any]:
-    """Create one no-clobber private source tree; never repair or replace it."""
-
-    _require_private_directory(destination.parent, "runtime source parent")
-    try:
-        os.mkdir(destination, 0o700)
-    except FileExistsError as exc:
-        raise ContractError("runtime source destination already exists") from exc
-    parent_fd = os.open(
-        destination.parent, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
-    )
-    try:
-        os.fsync(parent_fd)
-    finally:
-        os.close(parent_fd)
-    _require_private_directory(destination, "runtime source destination")
-    for name, (size, digest) in sorted(HELPER_SPECS.items()):
-        source_fd = _open_pinned_source(source_root, name, size, digest)
-        try:
-            _copy_pinned_source(source_fd, destination / name, size)
-        finally:
-            os.close(source_fd)
-    receipt = runtime_source_receipt()
-    publish_exclusive(destination / RUNTIME_SOURCE_RECEIPT, receipt)
-    directory_fd = os.open(destination, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY)
-    try:
-        os.fsync(directory_fd)
-    finally:
-        os.close(directory_fd)
-    parent_fd = os.open(
-        destination.parent, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
-    )
-    try:
-        os.fsync(parent_fd)
-    finally:
-        os.close(parent_fd)
-    artifacts, verified = bind_runtime_sources(destination)
-    try:
-        if verified != receipt:
-            raise ContractError("runtime source receipt changed after publication")
-    finally:
-        for artifact in artifacts.values():
-            artifact.close()
-    return receipt
-
-
-def bind_runtime_sources(
-    root: Path = RUNTIME_SOURCE_ROOT,
-) -> tuple[dict[str, BoundArtifact], dict[str, Any]]:
-    """Bind the exact complete private source tree and reject every extra node."""
-
-    _require_private_directory(root.parent, "runtime source parent")
-    _require_private_directory(root, "runtime source root")
-    expected_names = set(HELPER_SPECS) | {RUNTIME_SOURCE_RECEIPT}
-    try:
-        actual_names = {entry.name for entry in root.iterdir()}
-    except OSError as exc:
-        raise ContractError("runtime source tree cannot be enumerated") from exc
-    if actual_names != expected_names:
-        raise ContractError("runtime source tree child set mismatch")
-    raw, receipt = load_canonical(
-        root / RUNTIME_SOURCE_RECEIPT, "runtime source receipt"
-    )
-    if receipt != runtime_source_receipt():
-        raise ContractError("runtime source receipt mismatch")
-    artifacts: dict[str, BoundArtifact] = {}
-    try:
-        artifacts["runtime-source-receipt"] = BoundArtifact.open(
-            role="runtime-source-receipt",
-            path=root / RUNTIME_SOURCE_RECEIPT,
-            expected_size=len(raw),
-            expected_sha256=sha256_bytes(raw),
-            anchor=root,
-            expected_uid=os.getuid(),
-            expected_gid=os.getgid(),
+        artifacts["helper-fd-exec"] = HeldSourceArtifact.open(
+            role="helper-fd-exec",
+            path=FD_EXEC_PATH,
+            expected_size=FD_EXEC_SPEC[0],
+            expected_sha256=FD_EXEC_SPEC[1],
         )
-        for name, (size, digest) in sorted(HELPER_SPECS.items()):
-            artifact = BoundArtifact.open(
-                role=f"helper:{name}",
-                path=root / name,
-                expected_size=size,
-                expected_sha256=digest,
-                anchor=root,
-                expected_uid=os.getuid(),
-                expected_gid=os.getgid(),
-            )
-            if stat.S_IMODE(artifact.identity["mode"]) != 0o600:
-                raise ContractError("runtime source member mode is not 0600")
-            artifacts[f"helper:{name}"] = artifact
-        return artifacts, receipt
+        artifacts["helper-package"] = HeldSourceArtifact.open(
+            role="helper-package",
+            path=SOURCE_PACKAGE_PATH,
+            expected_size=SOURCE_PACKAGE_SPEC[0],
+            expected_sha256=SOURCE_PACKAGE_SPEC[1],
+        )
+        return artifacts
     except BaseException:
         for artifact in artifacts.values():
             artifact.close()
@@ -506,8 +434,9 @@ class OwnedBridgeLifecycle:
         self.bindings.checkpoint()
         self.listener_absence_probe()
         self.endpoint = self.endpoint_probe()
-        bridge = self.bindings.artifacts["helper:serial_tcp_bridge.py"]
+        bridge = self.bindings.artifacts["helper-package"]
         arguments = (
+            "bridge",
             "--host",
             "127.0.0.1",
             "--port",
@@ -636,16 +565,14 @@ class OwnedCommandProducer:
         if type(timeout_sec) is not int or not 1 <= timeout_sec <= 300:
             raise ContractError("observation command timeout is invalid")
         self.bindings.checkpoint()
-        bootstrap = self.bindings.artifacts[
-            "helper:a90_boot_only_f1_command_bootstrap.py"
-        ]
+        bootstrap = self.bindings.artifacts["helper-package"]
         argv = self.fd_exec.bootstrap_command(
             PYTHON_EXECUTABLE,
             bootstrap.fd,
             bootstrap.path,
             bootstrap.identity["size"],
             bootstrap.identity["sha256"],
-            (label, str(timeout_sec)),
+            ("command", label, str(timeout_sec)),
         )
         stdout_path = self.run_directory / f"observe-{len(self.completed)}-{label}.stdout"
         stderr_path = self.run_directory / f"observe-{len(self.completed)}-{label}.stderr"
@@ -795,11 +722,7 @@ def _read_bound_canonical(bound: BoundArtifact, label: str) -> tuple[bytes, Any]
 
 
 def helper_runtime_digest() -> str:
-    digest = hashlib.sha256()
-    for name in sorted(HELPER_SPECS):
-        size, sha256 = HELPER_SPECS[name]
-        digest.update(f"{name}\0{size}\0{sha256}\n".encode("ascii"))
-    return digest.hexdigest()
+    return SOURCE_PACKAGE_SPEC[1]
 
 
 def owner_source_closure() -> dict[str, dict[str, Any]]:
@@ -816,8 +739,11 @@ def owner_source_closure() -> dict[str, dict[str, Any]]:
             "size": len(raw),
             "sha256": sha256_bytes(raw),
         }
-    for name, (size, sha256) in sorted(HELPER_SPECS.items()):
-        result[f"workspace/public/src/scripts/revalidation/{name}"] = {
+    for path, (size, sha256) in (
+        (FD_EXEC_PATH, FD_EXEC_SPEC),
+        (SOURCE_PACKAGE_PATH, SOURCE_PACKAGE_SPEC),
+    ):
+        result[str(path.relative_to(REPO_ROOT))] = {
             "size": size,
             "sha256": sha256,
         }
@@ -836,11 +762,10 @@ def owner_closure_sha256() -> str:
 def validate_local_manifest_bindings(manifest: dict[str, Any]) -> None:
     if manifest["ownerClosureSha256"] != owner_closure_sha256():
         raise ContractError("manifest selected another owner closure")
-    helper_size, helper_sha256 = HELPER_SPECS["native_init_flash.py"]
     if manifest["flashHelper"] != {
         "path": str(HELPER_PATH),
-        "size": helper_size,
-        "sha256": helper_sha256,
+        "size": SOURCE_PACKAGE_SPEC[0],
+        "sha256": SOURCE_PACKAGE_SPEC[1],
     }:
         raise ContractError("manifest selected another flash helper")
 
@@ -951,9 +876,7 @@ def _bound_artifacts(
         helper = manifest["flashHelper"]
         if Path(helper["path"]) != HELPER_PATH:
             raise ContractError("manifest selected another flash helper")
-        runtime_sources, source_receipt = bind_runtime_sources()
-        artifacts.update(runtime_sources)
-        qualifications["runtime-sources"] = source_receipt
+        artifacts.update(bind_source_package())
         for role, path, qualified in (
             ("python-interpreter", PYTHON_EXECUTABLE, runtime["python"]),
             ("adb-transport", ADB_EXECUTABLE, runtime["adb"]),
@@ -1352,7 +1275,7 @@ class SubprocessBackend:
         self.bindings = bindings
         self.run_directory = run_directory
         self.fd_exec = _load_exact_python_module(
-            bindings.artifacts["helper:a90_boot_only_f1_fd_exec.py"],
+            bindings.artifacts["helper-fd-exec"],
             "a90_boot_only_f1_fd_exec_bound",
         )
         self.bridge = OwnedBridgeLifecycle(
@@ -1419,7 +1342,7 @@ class SubprocessBackend:
     ) -> EffectResult:
         role = "rollback" if rollback else "candidate"
         bindings.checkpoint()
-        bootstrap = bindings.artifacts["helper:a90_boot_only_f1_helper_bootstrap.py"]
+        bootstrap = bindings.artifacts["helper-package"]
         stdout_path = self.run_directory / f"{role}.stdout"
         stderr_path = self.run_directory / f"{role}.stderr"
         output_flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
@@ -1427,6 +1350,7 @@ class SubprocessBackend:
         stderr_fd = os.open(stderr_path, output_flags, 0o600)
         gate_read, gate_write = os.pipe2(os.O_CLOEXEC)
         arguments = (
+            "flash",
             image["path"],
             "--adb",
             str(ADB_EXECUTABLE),
@@ -1447,7 +1371,7 @@ class SubprocessBackend:
         command = self.fd_exec.bootstrap_command(
             PYTHON_EXECUTABLE,
             bootstrap.fd,
-            BOOTSTRAP_PATH,
+            SOURCE_PACKAGE_PATH,
             bootstrap.identity["size"],
             bootstrap.identity["sha256"],
             arguments,
@@ -1650,7 +1574,6 @@ def parser() -> argparse.ArgumentParser:
     audit_parser = subparsers.add_parser("audit")
     audit_parser.add_argument("manifest", type=Path)
     audit_parser.add_argument("run_directory", type=Path)
-    subparsers.add_parser("stage-runtime-sources")
     execute = subparsers.add_parser("execute")
     execute.add_argument("manifest", type=Path)
     execute.add_argument("--operator-attended", action="store_true")
@@ -1677,20 +1600,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.action == "audit":
         print(json.dumps(audit(args.manifest, args.run_directory), sort_keys=True))
-        return 0
-    if args.action == "stage-runtime-sources":
-        receipt = stage_runtime_sources()
-        print(
-            json.dumps(
-                {
-                    "status": "STAGED_H0_RUNTIME_SOURCES",
-                    "path": str(RUNTIME_SOURCE_ROOT),
-                    "receiptSha256": sha256_bytes(canonical_json(receipt)),
-                    "liveExecutionEnabled": LIVE_EXECUTION_ENABLED,
-                },
-                sort_keys=True,
-            )
-        )
         return 0
     if args.action == "execute":
         if args.operator_attended is not True:

@@ -15,9 +15,10 @@ from typing import Sequence
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 # Python executes this capability-bound string under ``-I -c``.  It never
-# opens the bootstrap pathname.  The pathname is diagnostic metadata and the
-# lexical anchor used by the bootstrap for its separately pinned source set.
+# opens the source-package pathname.  The pathname is diagnostic metadata;
+# every executable helper byte comes from the sealed inherited FD.
 FD_EXEC_PROGRAM = r'''import hashlib
+import fcntl
 import os
 import stat
 import sys
@@ -28,8 +29,18 @@ expected_size = int(sys.argv[3], 10)
 expected_sha256 = sys.argv[4]
 helper_argv = sys.argv[5:]
 metadata = os.fstat(fd)
-if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-    raise RuntimeError("bootstrap inherited FD is not one direct regular file")
+required_seals = (
+    fcntl.F_SEAL_SEAL
+    | fcntl.F_SEAL_SHRINK
+    | fcntl.F_SEAL_GROW
+    | fcntl.F_SEAL_WRITE
+)
+if (
+    not stat.S_ISREG(metadata.st_mode)
+    or metadata.st_nlink != 0
+    or fcntl.fcntl(fd, fcntl.F_GET_SEALS) != required_seals
+):
+    raise RuntimeError("bootstrap inherited FD is not one sealed source capability")
 if metadata.st_size != expected_size:
     raise RuntimeError("bootstrap inherited FD size mismatch")
 os.lseek(fd, 0, os.SEEK_SET)

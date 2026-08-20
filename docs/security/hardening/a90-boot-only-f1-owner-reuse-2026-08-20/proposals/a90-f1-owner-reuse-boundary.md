@@ -293,9 +293,9 @@ We can migrate without touching a device. First freeze the current owner as a
 reference and keep it disabled. Next produce the package closure and translate
 current manifest/qualification fixtures. Then run the existing hostile corpus
 against both implementations, adding equivalence assertions for every journal
-boundary. The old source stager remains available only as rollback evidence;
-it must never share a live journal or approval namespace with the selected
-package owner.
+boundary. The old source stager remains only in Git history as rollback
+evidence; it is not an alternate runtime path and can never share a live
+journal or approval namespace with the selected package owner.
 
 Rollback is simple before activation: revert the package changes and retain the
 disabled current owner. After capability review but before any F1, invalidate
