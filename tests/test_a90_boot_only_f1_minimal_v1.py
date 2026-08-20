@@ -292,6 +292,24 @@ class MinimalF1Test(unittest.TestCase):
         self.assertTrue(token.startswith(M.APPROVAL_PREFIX))
         self.assertEqual(M.recovery_decision(run), "PRE_EFFECT_NO_DEVICE_EFFECT")
 
+    def test_journal_growth_between_lstat_and_open_is_rejected(self):
+        run, _token = self._prepare()
+        record = run / "00-prepared.json"
+        original_open = M.os.open
+        changed = False
+
+        def grow_before_open(path, flags, *args):
+            nonlocal changed
+            if Path(path) == record and not changed:
+                changed = True
+                with record.open("ab") as stream:
+                    stream.write(b"x")
+            return original_open(path, flags, *args)
+
+        with mock.patch.object(M.os, "open", side_effect=grow_before_open):
+            with self.assertRaisesRegex(M.ContractError, "changed before read"):
+                M.read_records(run)
+
     def test_same_candidate_cannot_be_prepared_in_second_run(self):
         self._prepare()
         changed = json.loads(json.dumps(self.manifest))

@@ -386,6 +386,9 @@ identity:
   same-inode revalidation before any read.
   An eleventh review found post-bind size growth was hashed before rejection.
   Checkpoints now reject declared-size drift and the 128 MiB cap before hash.
+  A twelfth review found journal lstat/read reopen growth. Manifest and journal
+  reads now use one bounded direct-regular descriptor with same-inode/size and
+  trailing-growth rejection.
 
 ## What Leaves or Moves Out
 

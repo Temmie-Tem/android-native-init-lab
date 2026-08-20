@@ -199,6 +199,44 @@ def _input(value: Any, label: str) -> dict[str, Any]:
     return item
 
 
+def _read_bounded_regular(path: Path, label: str, maximum: int) -> bytes:
+    try:
+        before = path.lstat()
+    except OSError as exc:
+        raise ContractError(f"{label} cannot be inspected") from exc
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_nlink != 1
+        or before.st_uid != os.getuid()
+        or before.st_gid != os.getgid()
+        or before.st_mode & 0o022
+        or not 1 <= before.st_size <= maximum
+    ):
+        raise ContractError(f"{label} path identity mismatch")
+    descriptor = os.open(
+        path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK
+    )
+    try:
+        current = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(current.st_mode)
+            or (current.st_dev, current.st_ino) != (before.st_dev, before.st_ino)
+            or current.st_size != before.st_size
+        ):
+            raise ContractError(f"{label} changed before read")
+        raw = bytearray()
+        while len(raw) < current.st_size:
+            chunk = os.pread(descriptor, current.st_size - len(raw), len(raw))
+            if not chunk:
+                raise ContractError(f"{label} ended during read")
+            raw.extend(chunk)
+        if os.pread(descriptor, 1, current.st_size):
+            raise ContractError(f"{label} grew during read")
+        return bytes(raw)
+    finally:
+        os.close(descriptor)
+
+
 def validate_manifest(value: Any) -> dict[str, Any]:
     manifest = _object(
         value,
@@ -305,7 +343,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
 def load_manifest(path: Path) -> tuple[bytes, dict[str, Any]]:
     if not path.is_absolute():
         raise ContractError("manifest path is not absolute")
-    raw = path.read_bytes()
+    raw = _read_bounded_regular(path, "manifest", MAX_JSON_BYTES)
     return raw, validate_manifest(parse_canonical(raw, "manifest"))
 
 
@@ -742,17 +780,9 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
         path = run_directory / name
         if not path.exists():
             continue
-        metadata = path.lstat()
-        if (
-            not stat.S_ISREG(metadata.st_mode)
-            or metadata.st_nlink != 1
-            or metadata.st_uid != os.getuid()
-            or metadata.st_gid != os.getgid()
-            or metadata.st_mode & 0o022
-            or metadata.st_size > MAX_JSON_BYTES
-        ):
-            raise ContractError("journal record identity mismatch")
-        value = parse_canonical(path.read_bytes(), name)
+        value = parse_canonical(
+            _read_bounded_regular(path, name, MAX_JSON_BYTES), name
+        )
         item = _object(
             value,
             {"schema", "kind", "manifestSha256", "payload"},

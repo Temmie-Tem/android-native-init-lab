@@ -75,7 +75,9 @@ It contains no production device backend and its CLI hard-disables execution.
   `candidate-<sha256>.guard` with `O_EXCL`; changing run ID or directory cannot
   prepare the same candidate again. Approval also binds the run ID explicitly.
 - Every record uses create-exclusive publication, file fsync, and directory
-  fsync in a new mode-0700 run directory.
+  fsync in a new mode-0700 run directory. Manifest and journal readers reject
+  special/oversized paths before open, then bind one nonblocking descriptor,
+  exact inode/size, bounded bytes, and absence of trailing growth.
 - PASS requires candidate helper completion and quiescence plus fresh exact
   candidate health. Transfer success alone is not PASS.
 - A rollback terminal is `NO_PROOF_ROLLED_BACK`, not experiment proof.
