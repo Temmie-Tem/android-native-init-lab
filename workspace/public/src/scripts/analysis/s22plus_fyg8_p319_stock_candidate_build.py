@@ -455,7 +455,11 @@ def _derive_exact_module_rows(
         for key in ("index", "file", "runtime_name"):
             if actual[key] != wanted[key]:
                 raise AuditError(f"module plan identity differs at {wanted['index']}: {key}")
-    overlay = tuple(["s22plus_dwc3_event_latch.ko"] + [item["filename"] for item in added])
+    # The three successor stock modules already exist byte-identically in the
+    # vendor_boot layer.  Only the reviewed latch is a genuine generic
+    # overlay; duplicating the stock modules would violate effective-rootfs
+    # no-duplicate semantics.
+    overlay = ("s22plus_dwc3_event_latch.ko",)
     return expected, overlay
 
 
@@ -1140,10 +1144,8 @@ static int s22plus_max77705_p319_stock_module_exact(
 }
 
 static void p319_stock_bypass_to_pair(void) {
-    if (g_checkpoint.terminal || g_checkpoint.generation > 105U)
+    if (g_checkpoint.terminal || g_checkpoint.generation != 105U)
         p290_fail_next(P313_DETAIL_CHECKPOINT_POSITION_CONTRADICTION);
-    while (g_checkpoint.generation < 105U)
-        p290_progress_position((uint8_t)g_checkpoint.generation, 0U);
 }
 
 static int s22plus_max77705_p319_stock_encode(
@@ -1697,7 +1699,7 @@ def _package_candidate(
             target.parent.chmod(0o700)
             _write_exclusive(target, source.read_bytes())
         _fsync_directory(output / "odin4"); _fsync_directory(output); _fsync_directory(output.parent)
-        return {"boot_img": identity(candidate), "boot_img_lz4": identity((output / "boot.img.lz4").read_bytes()), "ap_tar_md5": identity((output / "odin4/AP.tar.md5").read_bytes()), "diagnostic_absent": True, "fixed_image": True, "exact_four_member_overlay": True, "overlay_members": expected_module_entries, "inherited_modules_not_copied": True, "package": package}
+        return {"boot_img": identity(candidate), "boot_img_lz4": identity((output / "boot.img.lz4").read_bytes()), "ap_tar_md5": identity((output / "odin4/AP.tar.md5").read_bytes()), "diagnostic_absent": True, "fixed_image": True, "exact_one_member_generic_overlay": len(overlay_names) == 1 and overlay_names == ("s22plus_dwc3_event_latch.ko",), "vendor_layer_stock_modules": 72, "overlay_members": expected_module_entries, "inherited_modules_not_copied": True, "package": package}
 
 
 def _verify_packaged_candidate(
@@ -1807,7 +1809,9 @@ def _verify_packaged_candidate(
     return {
         "boot_img": identity(boot), "boot_img_lz4": identity(frame),
         "ap_tar_md5": identity(ap), "diagnostic_absent": True,
-        "fixed_image": True, "exact_four_member_overlay": True,
+        "fixed_image": True,
+        "exact_one_member_generic_overlay": len(overlay_names) == 1 and overlay_names == ("s22plus_dwc3_event_latch.ko",),
+        "vendor_layer_stock_modules": 72,
         "overlay_members": sorted(f"lib/modules/{name}" for name in overlay_names),
         "inherited_modules_not_copied": True, "package": package,
     }
@@ -1881,11 +1885,16 @@ def _assemble_result(
             "chain": list(STOCK_CHAIN_STAGES),
             "parent_unavailable": True, "w5_unavailable": True,
             "enhanced_witness_claimable": False,
-            "enhanced_markers_rejected": False,
             "unsupported_parent_w5_markers_rejected": True,
+            "parent_w5_and_five_byte_claim_rejected": True,
             "auxiliary_form2_deferred_accepted": True,
             "late_diagnostic_reachable": False,
             "i2c_transactions_added": 0,
+            "causal_result_allowed": False,
+            "candidate_success": False,
+            "mux_result_claimable": False,
+            "host_silent_claimable": False,
+            "acm_required_for_acceptance": False,
         },
         "reviewed_predecessors": {
             "carrier_v5_auditor": identity(v5_auditor),
@@ -1921,8 +1930,8 @@ def _assemble_result(
                 "three_byte_initial_status": True,
                 "status_padding_fabricated": False,
                 "four_stage_chain": list(STOCK_CHAIN_STAGES),
-                "enhanced_markers_rejected": False,
                 "unsupported_parent_w5_markers_rejected": True,
+                "parent_w5_and_five_byte_claim_rejected": True,
                 "auxiliary_form2_deferred_accepted": True,
                 "p318_gadget_role_udc_direct_prefix_preserved": True,
                 "p316_p317_provider_and_late_diagnostic_tail_reachable": False,
@@ -2223,7 +2232,8 @@ def build_result(
             "candidate": {"a": candidate_a, "b": candidate_b,
                            "byte_identical": True,
                            "base": P311_BASE_BOOT_IDENTITY,
-                           "exact_four_member_overlay": True,
+                           "exact_one_member_generic_overlay": len(overlay_names) == 1 and overlay_names == ("s22plus_dwc3_event_latch.ko",),
+                           "vendor_layer_stock_modules": 72,
                            "overlay_members": list(sorted(
                                f"lib/modules/{name}" for name in overlay_names
                            )),

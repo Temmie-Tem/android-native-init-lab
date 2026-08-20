@@ -384,7 +384,11 @@ class P319WitnessParserV2Test(unittest.TestCase):
         goal = GOAL.read_text(encoding="utf-8")
         self.assertIn("S22PLUS_FYG8_P319_CANDIDATE_WITNESS_PARSER_PREDECESSOR_H0_2026-08-20.md", goal)
         self.assertIn("S22PLUS_FYG8_P319_CANDIDATE_WITNESS_CARRIER_V5_H0_2026-08-20.md", goal)
-        self.assertIn("stock-witness runtime/build closure is independently reviewed `PASS_GO`, H0-only", goal)
+        self.assertIn("reviewed stock-witness runtime/build closure", goal)
+        self.assertIn("`-32`/`-33` Image-only predecessor", goal)
+        self.assertIn("current P3.19 `-46`/`-47`/`-07` is independently reviewed H0-only `PASS_GO`", goal)
+        self.assertIn("no ready/run manifest", goal)
+        self.assertIn("no ready/run manifest or live authority", goal)
         self.assertLessEqual(len(goal.splitlines()), 900)
 
 

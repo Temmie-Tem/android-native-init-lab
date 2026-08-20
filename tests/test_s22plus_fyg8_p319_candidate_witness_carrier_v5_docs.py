@@ -33,14 +33,19 @@ class P319CandidateWitnessCarrierV5DocsTest(unittest.TestCase):
         self.assertIn("V5 has magic `MXD5`", report)
         self.assertIn("positions 105 and 106", report)
 
-    def test_goal_points_to_current_receipt_and_no_build(self):
+    def test_goal_preserves_v5_authority_and_current_qualification_boundary(self):
         goal = GOAL.read_text(encoding="utf-8")
         self.assertIn("current authority exclusively `-32`/`-33`", goal)
-        self.assertIn("stock-witness runtime/build closure is independently reviewed `PASS_GO`, H0-only", goal)
         self.assertIn(
             "S22PLUS_FYG8_P319_CANDIDATE_WITNESS_CARRIER_V5_H0_2026-08-20.md",
             goal,
         )
+        self.assertIn(
+            "current P3.19 `-46`/`-47`/`-07` is independently reviewed H0-only `PASS_GO`",
+            goal,
+        )
+        self.assertIn("no ready/run manifest", goal)
+        self.assertIn("no ready/run manifest or live authority", goal)
 
     def test_goal_and_target_contract_line_limits_hold(self):
         self.assertLessEqual(len(GOAL.read_text(encoding="utf-8").splitlines()), 900)

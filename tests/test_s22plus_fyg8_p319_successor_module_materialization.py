@@ -274,11 +274,13 @@ class P319SuccessorModuleMaterializationTest(unittest.TestCase):
         self.assertIn("creates no second pending topic", row)
         self.assertIn("no device", row)
 
-    def test_goal_keeps_build_and_live_authority_closed(self):
+    def test_goal_preserves_materialization_and_current_qualification_boundary(self):
         goal = GOAL.read_text(encoding="utf-8")
-        self.assertIn("73-row plan", goal)
+        self.assertIn("the reviewed module materialization is", goal)
         self.assertIn("S22PLUS_FYG8_P319_SUCCESSOR_MODULE_MATERIALIZATION_H0_2026-08-20.md", goal)
-        self.assertIn("stock-witness runtime/build closure is independently reviewed `PASS_GO`, H0-only", goal)
+        self.assertIn("current P3.19 `-46`/`-47`/`-07` is independently reviewed H0-only `PASS_GO`", goal)
+        self.assertIn("no ready/run manifest", goal)
+        self.assertIn("no ready/run manifest or live authority", goal)
         self.assertLessEqual(len(goal.splitlines()), 900)
 
 

@@ -19,11 +19,11 @@ SCRIPT = ROOT / (
 )
 OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "stock-witness-runtime-v1-20260821-32"
+    "stock-witness-runtime-v1-20260821-42"
 )
 PHASE2_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "stock-witness-runtime-v1-20260821-33"
+    "stock-witness-runtime-v1-20260821-43"
 )
 
 
@@ -55,10 +55,10 @@ class P319StockWitnessRuntimeTest(unittest.TestCase):
         state = result.stat()
         self.assertEqual(stat.S_IMODE(state.st_mode), 0o400)
         self.assertEqual(state.st_nlink, 1)
-        self.assertEqual(len(result.read_bytes()), 382_059)
+        self.assertEqual(len(result.read_bytes()), 382_264)
         self.assertEqual(
             self.module.sha256(result.read_bytes()),
-            "a6e1734bdd527eb598446269e860a171fb4ad3785c792db0837f4850b8dbd177",
+            "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886",
         )
         self.assertEqual(
             self.bound.build_result(OUTPUT, audit_only=True), self.result
@@ -75,14 +75,12 @@ class P319StockWitnessRuntimeTest(unittest.TestCase):
         self.assertEqual(phase2_result["scope"]["ap_builds"], 2)
         self.assertFalse(phase2_result["scope"]["device_contact"])
         self.assertTrue(phase2_result["phase2"]["candidate"]["byte_identical"])
-        self.assertTrue(phase2_result["phase2"]["candidate"]["exact_four_member_overlay"])
+        self.assertTrue(phase2_result["phase2"]["candidate"]["exact_one_member_generic_overlay"])
+        self.assertEqual(phase2_result["phase2"]["candidate"]["vendor_layer_stock_modules"], 72)
         self.assertEqual(
             phase2_result["phase2"]["candidate"]["overlay_members"],
             [
-                "lib/modules/mfd_max77705.ko",
-                "lib/modules/pdic_max77705.ko",
                 "lib/modules/s22plus_dwc3_event_latch.ko",
-                "lib/modules/spu_verify.ko",
             ],
         )
         self.assertTrue(phase2_result["phase2"]["candidate"]["inherited_modules_not_copied"])
@@ -102,7 +100,7 @@ class P319StockWitnessRuntimeTest(unittest.TestCase):
         self.assertTrue(profile["parent_unavailable"])
         self.assertTrue(profile["w5_unavailable"])
         self.assertFalse(profile["enhanced_witness_claimable"])
-        self.assertFalse(profile["enhanced_markers_rejected"])
+        self.assertTrue(profile["parent_w5_and_five_byte_claim_rejected"])
         self.assertTrue(profile["unsupported_parent_w5_markers_rejected"])
         self.assertTrue(profile["auxiliary_form2_deferred_accepted"])
         self.assertFalse(profile["late_diagnostic_reachable"])
@@ -275,8 +273,8 @@ int main(void) {
 #define P319_WITNESS_MASK_DEFERRED (1U << 5U)
 #define P319_WITNESS_MASK_PARENT (1U << 6U)
 #define P319_KMSG_MAX_MODULES 73U
-#define S22PLUS_MAX77705_A_DETAIL 0x6720U
-#define P313_DETAIL_CHECKPOINT_POSITION_CONTRADICTION 0x6001L
+#define S22PLUS_MAX77705_A_DETAIL 0x0da3U
+#define P313_DETAIL_CHECKPOINT_POSITION_CONTRADICTION 0x6720L
 static size_t cstr_len(const char *s) { return strlen(s); }
 static int p260_bytes_equal(const char *a, const char *b, size_t n) { return memcmp(a, b, n) == 0; }
 static uint32_t s22plus_max77705_envelope_crc_update(uint32_t c, const uint8_t *d, size_t n) { for (size_t i=0;i<n;++i) { c ^= d[i]; for (unsigned b=0;b<8;++b) c = (c>>1) ^ (0xedb88320U & (0U-(c&1U))); } return c; }
@@ -295,17 +293,19 @@ struct p319_witness_summary_state_v2 {
 };
 static struct p319_witness_summary_state_v2 fixture;
 static struct { int progress; int terminal; unsigned int generation; } g_checkpoint;
+static int expect_contradiction;
 static int p319_witness_summary_state_v2_copy(struct p319_witness_summary_state_v2 *out) { *out=fixture; return 0; }
-static void p290_fail_next(long value) { (void)value; exit(10); }
-static void p290_progress_position(uint8_t position, uint32_t value) { (void)value; if (position != g_checkpoint.generation) exit(15); ++g_checkpoint.generation; }
+static void p290_fail_next(long value) { if (value != P313_DETAIL_CHECKPOINT_POSITION_CONTRADICTION || g_checkpoint.progress || !expect_contradiction) exit(20); exit(0); }
 static long s22_max77705_checkpoint_payload_progress_position(void *checkpoint, unsigned int position, unsigned int detail, uint8_t *payload) { (void)payload; if (checkpoint != &g_checkpoint || position != 105U || detail != S22PLUS_MAX77705_A_DETAIL) exit(11); g_checkpoint.progress=1; return 0; }
 static long s22_max77705_checkpoint_payload_terminal_position(void *checkpoint, unsigned int position, unsigned int detail, uint8_t *payload) { (void)payload; if (checkpoint != &g_checkpoint || position != 106U || detail != 0x6724U) exit(12); g_checkpoint.terminal=1; return 0; }
 static __attribute__((noreturn)) void p292_park_after_checkpoint_error(long value) { (void)value; exit(13); }
-static __attribute__((noreturn)) void p290_park_after_confirmed_publication(void) { exit(g_checkpoint.progress && g_checkpoint.terminal ? 0 : 14); }
+static __attribute__((noreturn)) void p290_park_after_confirmed_publication(void) { if (expect_contradiction) exit(21); exit(g_checkpoint.progress && g_checkpoint.terminal ? 0 : 14); }
 '''
-        main = b'''int main(void) {
+        main = b'''int main(int argc, char **argv) {
  fixture.abi_version=2; fixture.module_loads=73; fixture.module_drains=73; fixture.witness_mask=0x0f; fixture.probe_count=1; fixture.irq_count=1; fixture.initial_status_count=1; fixture.classification_form1_count=1; fixture.initial_chain_stage=4; fixture.initial_chain_complete=1; fixture.initial_chain_module_index=72; fixture.initial_status[0]=0x27; fixture.initial_status[1]=5; fixture.initial_status[2]=0x82;
  const char *names[3]={"i2c-msm-geni.ko","mfd_max77705.ko","pdic_max77705.ko"}; for (unsigned i=0;i<3;++i) { fixture.target_modules[i].valid=1; fixture.target_modules[i].index=i==0?69:(i==1?71:72); fixture.target_modules[i].name_length=(uint8_t)strlen(names[i]); memcpy(fixture.target_modules[i].name,names[i],strlen(names[i])); }
+ if (argc > 1) { expect_contradiction=1; if (strcmp(argv[1], "generation-104") == 0) g_checkpoint.generation=104U; else if (strcmp(argv[1], "generation-106") == 0) g_checkpoint.generation=106U; else if (strcmp(argv[1], "terminal") == 0) { g_checkpoint.generation=105U; g_checkpoint.terminal=1; } else return 19; p319_stock_publish(0); return 15; }
+ g_checkpoint.generation=105U;
  p319_stock_publish(0); return 15;
 }
 '''
@@ -316,6 +316,10 @@ static __attribute__((noreturn)) void p290_park_after_confirmed_publication(void
             self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
             run_result = subprocess.run([binary], capture_output=True, text=True, check=False)
             self.assertEqual(run_result.returncode, 0, run_result.stderr)
+            bypass_result = subprocess.run([binary, "generation-106"], capture_output=True, text=True, check=False)
+            self.assertEqual(bypass_result.returncode, 0, bypass_result.stderr)
+            self.assertEqual(subprocess.run([binary, "generation-104"], capture_output=True, text=True, check=False).returncode, 0)
+            self.assertEqual(subprocess.run([binary, "terminal"], capture_output=True, text=True, check=False).returncode, 0)
 
     def test_crc_resolution_and_image_table_binding(self):
         closure = self.result["module_crc_closure"]
