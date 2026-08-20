@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -614,12 +615,34 @@ class MinimalF1Test(unittest.TestCase):
             if old_adapter is not None:
                 sys.modules[adapter_name] = old_adapter
 
+    def test_live_backend_rejects_foreign_module_aliases(self):
+        adapter_name = "a90_boot_only_f1_adapter_v1"
+        old_adapter = sys.modules.get(adapter_name)
+        sys.modules[adapter_name] = types.SimpleNamespace(__file__="/tmp/foreign.py")
+        try:
+            with self.assertRaisesRegex(M.ContractError, "adapter identity"):
+                M._live_backend(self.manifest, "execute")
+        finally:
+            if old_adapter is None:
+                sys.modules.pop(adapter_name, None)
+            else:
+                sys.modules[adapter_name] = old_adapter
+
+        canonical = "a90_boot_only_f1_minimal_v1"
+        old_minimal = sys.modules[canonical]
+        sys.modules[canonical] = types.SimpleNamespace(__file__="/tmp/stale.py")
+        try:
+            with self.assertRaisesRegex(M.ContractError, "module identity"):
+                M._live_backend(self.manifest, "execute")
+        finally:
+            sys.modules[canonical] = old_minimal
+
 
 class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1350)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 650)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 700)
         self.assertLessEqual(len(design.read_text().splitlines()), 225)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):

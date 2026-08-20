@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from a90_boot_only_f1_minimal_v1 import (
+    _MODULE_SENTINEL as MINIMAL_MODULE_SENTINEL,
     ContractError,
     EffectResult,
     Snapshot,

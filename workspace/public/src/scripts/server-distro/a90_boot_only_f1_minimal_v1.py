@@ -55,6 +55,7 @@ EXECUTION_SOURCE_RELS = (
 )
 APPROVAL_PREFIX = "A90-F1-MINIMAL-V1-APPROVE:"
 LIVE_EXECUTION_ENABLED = True
+_MODULE_SENTINEL = object()
 MAX_JSON_BYTES = 1 << 20
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,95}$")
@@ -1225,11 +1226,20 @@ def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
     if LIVE_EXECUTION_ENABLED is not True:
         raise ContractError("minimal F1 execution is disabled")
     canonical_name = "a90_boot_only_f1_minimal_v1"
-    sys.modules.setdefault(canonical_name, sys.modules[__name__])
+    current_module = sys.modules.get(__name__)
+    if (
+        current_module is None
+        or current_module.__dict__.get("_MODULE_SENTINEL") is not _MODULE_SENTINEL
+    ):
+        raise ContractError("running minimal F1 module identity is not canonical")
+    canonical_module = sys.modules.get(canonical_name)
+    if canonical_module is not None and canonical_module is not current_module:
+        raise ContractError("another minimal F1 module identity is already loaded")
+    sys.modules[canonical_name] = current_module
     adapter_name = "a90_boot_only_f1_adapter_v1"
+    adapter_path = Path(__file__).resolve().with_name(f"{adapter_name}.py")
     adapter = sys.modules.get(adapter_name)
     if adapter is None:
-        adapter_path = Path(__file__).resolve().with_name(f"{adapter_name}.py")
         specification = importlib.util.spec_from_file_location(adapter_name, adapter_path)
         if specification is None or specification.loader is None:
             raise ContractError("minimal F1 adapter import specification failed")
@@ -1240,6 +1250,14 @@ def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
         except BaseException:
             sys.modules.pop(adapter_name, None)
             raise
+    if (
+        Path(getattr(adapter, "__file__", "")).resolve() != adapter_path
+        or getattr(adapter, "MINIMAL_MODULE_SENTINEL", None) is not _MODULE_SENTINEL
+        or adapter.ContractError is not ContractError
+        or adapter.Snapshot is not Snapshot
+        or adapter.EffectResult is not EffectResult
+    ):
+        raise ContractError("loaded minimal F1 adapter identity is not exact")
     if adapter.LIVE_ADAPTER_ENABLED is not True:
         raise ContractError("minimal F1 adapter is disabled")
     prefix = f"{manifest['runId']}-{phase}-"

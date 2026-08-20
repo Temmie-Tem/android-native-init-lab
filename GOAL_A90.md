@@ -419,6 +419,9 @@ identity:
   The second activated review found ambient-`sys.path` import dependence and a
   log `exists`/`mkdir` race. Adapter loading now uses the exact sibling path and
   log reservation is atomic with collision normalization/retry.
+  The third activated review found stale/foreign `sys.modules` aliases could
+  still be reused. A per-load sentinel and exact path/class identity now reject
+  mixed module instances.
 
 ## What Leaves or Moves Out
 

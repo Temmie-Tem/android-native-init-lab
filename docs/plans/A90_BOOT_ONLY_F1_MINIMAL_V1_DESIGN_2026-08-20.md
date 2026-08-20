@@ -32,8 +32,10 @@ process preserves prior logs but does not make a correct later invocation
 collide with them.
 The adapter is loaded from the exact sibling source path through `importlib`
 after aliasing the already-running minimal module; activation does not depend
-on ambient `sys.path`. Log-directory reservation is one atomic `mkdir`, and an
-ordinal collision is normalized and retried without overwriting either log.
+on ambient `sys.path`. A per-load sentinel plus exact module path and class
+identity reject stale or foreign `sys.modules` aliases. Log-directory
+reservation is one atomic `mkdir`, and an ordinal collision is normalized and
+retried without overwriting either log.
 
 ## What remains load-bearing
 
