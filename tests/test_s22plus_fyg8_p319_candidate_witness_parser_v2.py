@@ -382,9 +382,9 @@ class P319WitnessParserV2Test(unittest.TestCase):
 
     def test_goal_keeps_encoding_build_and_live_authority_closed(self):
         goal = GOAL.read_text(encoding="utf-8")
-        self.assertIn("parser predecessor receipt `14ca869c` has scoped independent H0 review", goal)
-        self.assertIn("no canonical Carrier encoding exists", goal)
-        self.assertIn("No successor candidate build exists yet.", goal)
+        self.assertIn("S22PLUS_FYG8_P319_CANDIDATE_WITNESS_PARSER_PREDECESSOR_H0_2026-08-20.md", goal)
+        self.assertIn("S22PLUS_FYG8_P319_CANDIDATE_WITNESS_CARRIER_V5_H0_2026-08-20.md", goal)
+        self.assertIn("stock-witness runtime/build closure is independently reviewed `PASS_GO`, H0-only", goal)
         self.assertLessEqual(len(goal.splitlines()), 900)
 
 

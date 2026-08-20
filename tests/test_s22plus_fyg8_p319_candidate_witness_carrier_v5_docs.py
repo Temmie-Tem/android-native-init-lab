@@ -35,9 +35,8 @@ class P319CandidateWitnessCarrierV5DocsTest(unittest.TestCase):
 
     def test_goal_points_to_current_receipt_and_no_build(self):
         goal = GOAL.read_text(encoding="utf-8")
-        self.assertIn("no-clobber `05ee3385`", goal)
-        self.assertIn("independently reviewed plain-CLI current receipt", goal)
-        self.assertIn("No successor candidate build exists yet", goal)
+        self.assertIn("Current reviewed H0 bookkeeping authority is exclusively `-24`/`-25`", goal)
+        self.assertIn("stock-witness runtime/build closure is independently reviewed `PASS_GO`, H0-only", goal)
         self.assertIn(
             "S22PLUS_FYG8_P319_CANDIDATE_WITNESS_CARRIER_V5_H0_2026-08-20.md",
             goal,

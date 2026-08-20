@@ -652,11 +652,11 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         all_lines = self.ledger_data.split(marker, 1)[1].splitlines(keepends=True)
         all_rows, _, _ = self.auditor.parse_log_rows(all_lines)
         current = self.auditor.audit_review_obligations(all_rows)
-        # The single absolute pin on live obligation state.  A new pending row
-        # moves this triple and the three relative expectations below by one.
+        # The single absolute pin on live obligation state.  The stock-witness
+        # review row resolves its same-topic pending obligation.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (40, 26, 14),
+            (41, 27, 14),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -697,7 +697,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            current["resolved"][-1],
+            current["resolved"][-2],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "candidate-witness-transport",
@@ -712,6 +712,23 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "resolution_action": (
                     "PASS_GO_P319_CANDIDATE_WITNESS_CARRIER_V5_"
                     "H0_CAPABILITY_V1"
+                ),
+            },
+        )
+        self.assertEqual(
+            current["resolved"][-1],
+            {
+                "campaign": "s22plus-fyg8-p319",
+                "review_topic": "stock-witness-runtime",
+                "pending_ordinal": "h0-stock-witness-runtime-16",
+                "pending_action": (
+                    "P319_STOCK_WITNESS_RUNTIME_"
+                    "IMPLEMENTED_REVIEW_PENDING"
+                ),
+                "resolution_ordinal": "h0-stock-witness-runtime-review-16",
+                "resolution_action": (
+                    "PASS_GO_P319_STOCK_WITNESS_RUNTIME_BUILD_"
+                    "INDEPENDENT_REVIEW_H0_CAPABILITY_V1"
                 ),
             },
         )

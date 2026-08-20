@@ -276,9 +276,9 @@ class P319SuccessorModuleMaterializationTest(unittest.TestCase):
 
     def test_goal_keeps_build_and_live_authority_closed(self):
         goal = GOAL.read_text(encoding="utf-8")
-        self.assertIn("exact 73-row source bundle is now materialized", goal)
-        self.assertIn("current receipt is `8b8c1f5a`, review pending", goal)
-        self.assertIn("No successor candidate build exists yet.", goal)
+        self.assertIn("73-row plan", goal)
+        self.assertIn("S22PLUS_FYG8_P319_SUCCESSOR_MODULE_MATERIALIZATION_H0_2026-08-20.md", goal)
+        self.assertIn("stock-witness runtime/build closure is independently reviewed `PASS_GO`, H0-only", goal)
         self.assertLessEqual(len(goal.splitlines()), 900)
 
 
