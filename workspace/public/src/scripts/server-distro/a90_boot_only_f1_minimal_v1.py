@@ -1229,10 +1229,26 @@ def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
     )
     if LIVE_ADAPTER_ENABLED is not True:
         raise ContractError("minimal F1 adapter is disabled")
-    log_directory = RUN_ROOT / f"{manifest['runId']}-{phase}-logs"
-    return FixedA90Adapter(
-        HostRunner(log_directory), qualification=manifest["qualification"]
-    )
+    prefix = f"{manifest['runId']}-{phase}-"
+    pattern = re.compile(re.escape(prefix) + r"([1-9][0-9]*)-logs")
+    ordinals = [
+        int(match.group(1))
+        for entry in RUN_ROOT.iterdir()
+        if (match := pattern.fullmatch(entry.name)) is not None
+    ]
+    ordinal = max(ordinals, default=0) + 1
+    for _attempt in range(8):
+        log_directory = RUN_ROOT / f"{prefix}{ordinal}-logs"
+        try:
+            runner = HostRunner(log_directory)
+            return FixedA90Adapter(
+                runner, qualification=manifest["qualification"]
+            )
+        except ContractError as exc:
+            if "already exists" not in str(exc):
+                raise
+            ordinal += 1
+    raise ContractError("could not reserve a unique adapter log ordinal")
 
 
 def parser() -> argparse.ArgumentParser:

@@ -413,6 +413,9 @@ identity:
   A nineteenth review found TWRP disconnect still used the legacy parser. The
   same strict inventory now governs disconnect; inventory failure is
   uncertainty, never proof that recovery ADB disappeared.
+  The first activated-closure review found fixed execute logs stranded a
+  PREPARED candidate after wrong approval or pre-effect loss. Logs now use a
+  derived monotonic per-run/per-phase ordinal and are never overwritten.
 
 ## What Leaves or Moves Out
 

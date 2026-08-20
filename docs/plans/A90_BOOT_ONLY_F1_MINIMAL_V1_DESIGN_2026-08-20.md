@@ -26,6 +26,10 @@ Its CLI derives the fixed run/log paths from one canonical manifest, exposes
 only `prepare`, approved `execute`, and read-only `audit`, and constructs the
 small fixed adapter below. Activation itself still requires a fresh closure
 review plus the candidate review/manifest and attended approval.
+Each prepare/execute invocation reserves a new immutable
+`<runId>-<phase>-<ordinal>-logs` directory. Pre-effect failure or a lost host
+process preserves prior logs but does not make a correct later invocation
+collide with them.
 
 ## What remains load-bearing
 
