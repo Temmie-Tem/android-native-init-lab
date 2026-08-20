@@ -356,6 +356,14 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertTrue(effect.completed)
         label, argv, timeout = runner.calls[0]
         self.assertEqual(label, "flash-candidate")
+        self.assertEqual(
+            argv,
+            A.fixed_flash_argv(
+                self.artifact,
+                recovery_serial_sha256="c" * 64,
+                timeout_sec=90,
+            ),
+        )
         self.assertEqual(argv[:2], (str(A.PYTHON), str(A.FLASH)))
         self.assertIn("--from-native", argv)
         self.assertIn("--require-stable-adb-baseline", argv)

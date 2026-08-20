@@ -575,29 +575,10 @@ class FixedA90Adapter:
 
     def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int) -> EffectResult:
         role = "rollback" if rollback else "candidate"
-        helper_phase_timeout = max(1, (timeout_sec - 30) // 2)
-        argv = (
-            str(PYTHON),
-            str(FLASH),
-            artifact["path"],
-            "--adb",
-            str(ADB),
-            "--from-native",
-            "--require-stable-adb-baseline",
-            "--expect-recovery-serial-sha256",
-            self.recovery_serial_sha256,
-            "--expect-version",
-            artifact["version"],
-            "--expect-sha256",
-            artifact["sha256"],
-            "--expect-readback-sha256",
-            artifact["sha256"],
-            "--verify-protocol",
-            "selftest",
-            "--recovery-timeout",
-            str(helper_phase_timeout),
-            "--bridge-timeout",
-            str(helper_phase_timeout),
+        argv = fixed_flash_argv(
+            artifact,
+            recovery_serial_sha256=self.recovery_serial_sha256,
+            timeout_sec=timeout_sec,
         )
         started = time.monotonic()
         result = self.runner.run(f"flash-{role}", argv, timeout_sec)
@@ -615,3 +596,23 @@ class FixedA90Adapter:
             quiescent=result.quiescent,
             receipt_sha256=sha256_bytes(canonical_json(receipt)),
         )
+
+
+def fixed_flash_argv(
+    artifact: dict[str, Any], *, recovery_serial_sha256: str, timeout_sec: int
+) -> tuple[str, ...]:
+    """Return the sole reviewed helper command for receipt reconstruction."""
+    helper_phase_timeout = max(1, (timeout_sec - 30) // 2)
+    return (
+        str(PYTHON), str(FLASH), artifact["path"],
+        "--adb", str(ADB),
+        "--from-native",
+        "--require-stable-adb-baseline",
+        "--expect-recovery-serial-sha256", recovery_serial_sha256,
+        "--expect-version", artifact["version"],
+        "--expect-sha256", artifact["sha256"],
+        "--expect-readback-sha256", artifact["sha256"],
+        "--verify-protocol", "selftest",
+        "--recovery-timeout", str(helper_phase_timeout),
+        "--bridge-timeout", str(helper_phase_timeout),
+    )

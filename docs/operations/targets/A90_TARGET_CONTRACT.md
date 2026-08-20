@@ -1303,6 +1303,28 @@ first use of this terminal requires its schema update, focused tests, review,
 connected preflight, and compatibility binding; this document alone creates no
 active campaign.
 
+The one fixed H27 `EFBIG` incident dated 2026-08-21 may retire its retained
+host guards only through
+`a90_h27_pretransfer_abort_reconcile_v1.py`. This exception is limited to run
+`a90-h27-f1-20260820-01` and its immutable manifest/journal/helper receipts.
+The reconciler accepts no caller-selected input. It must cryptographically bind
+the complete candidate and rollback stdout/stderr bytes back to each journaled
+effect-receipt SHA-256 by exhaustively resolving the sole bounded integer
+duration, prove both helpers stopped before sealed-copy completion, `adb push`,
+boot write, and boot readback, and obtain a fresh exact healthy H24 observation.
+It then durably publishes `PRETRANSFER_ABORTED_NO_BOOT_WRITE` before removing
+only that run's exact active and candidate guards. A crash after publication may
+only finish those same exact guard removals. Any missing, duplicate, malformed,
+unbound, advanced-stage, unhealthy, or changed byte parks without removal.
+
+That exact durable receipt proves that the H27 candidate was not transferred
+and permits one later fresh run and approval to select the same candidate bytes;
+it does not relabel the failed terminal, authorize a device effect, or create a
+general retry rule. The exception expires after its exact reconciliation record
+is published and cannot apply to another run, candidate, helper failure, or
+future incident. Future reusable pre-transfer recovery requires a separately
+reviewed structured helper stage receipt rather than parsing prose logs.
+
 ## Attended F1 Pre-Handoff
 
 The existing reviewed attended pre-handoff exception remains narrow. It may

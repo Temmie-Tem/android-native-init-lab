@@ -50,3 +50,11 @@ This repair is H0 only until the changed execution closure receives a fresh
 independent `PASS_GO`. The consumed run and approval are never reused. Any
 future device attempt requires a new run ID, fresh healthy preflight, fresh
 approval, and the normal one-shot F1 sequence.
+
+The retained host guards are not manually deleted. The fixed one-shot
+`a90_h27_pretransfer_abort_reconcile_v1.py` must bind both complete helper logs
+to their journaled receipt hashes, reject every transfer/write/readback marker,
+record a fresh healthy H24 observation, and publish its durable reconciliation
+before releasing only the exact incident guards. This permits the same
+untransferred candidate bytes to enter one genuinely fresh run; it does not
+permit replay after a transfer start or uncertainty.

@@ -51,6 +51,7 @@ EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/revalidation/native_init_flash.py",
     "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_h27_pretransfer_abort_reconcile_v1.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
 )
 APPROVAL_PREFIX = "A90-F1-MINIMAL-V1-APPROVE:"
@@ -70,6 +71,7 @@ RECORDS = (
     "31-rollback-launched.json",
     "32-rollback-result.json",
     "40-terminal.json",
+    "41-pretransfer-abort.json",
 )
 
 RECORD_KINDS = {
@@ -82,6 +84,7 @@ RECORD_KINDS = {
     "31-rollback-launched.json": "ROLLBACK_LAUNCHED",
     "32-rollback-result.json": "ROLLBACK_RESULT",
     "40-terminal.json": "TERMINAL",
+    "41-pretransfer-abort.json": "PRETRANSFER_ABORT_RECONCILED",
 }
 
 SUCCESS_PATH = (
@@ -104,6 +107,8 @@ ROLLBACK_PATH = (
     "32-rollback-result.json",
     "40-terminal.json",
 )
+
+PRETRANSFER_ABORT_PATH = ROLLBACK_PATH + ("41-pretransfer-abort.json",)
 
 
 class ContractError(RuntimeError):
@@ -829,7 +834,7 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
     ordered_names = tuple(name for name in RECORDS if name in names)
     if not ordered_names or not any(
         ordered_names == path[: len(ordered_names)]
-        for path in (SUCCESS_PATH, ROLLBACK_PATH)
+        for path in (SUCCESS_PATH, ROLLBACK_PATH, PRETRANSFER_ABORT_PATH)
     ):
         raise ContractError("journal is not an allowlisted transaction prefix")
     result: dict[str, dict[str, Any]] = {}
@@ -1209,6 +1214,8 @@ def execute(
 def recovery_decision(run_directory: Path) -> str:
     records = read_records(run_directory)
     names = set(records)
+    if "41-pretransfer-abort.json" in names:
+        return "PRETRANSFER_ABORT_RECONCILED_RETRY_ALLOWED"
     if "40-terminal.json" in names:
         return "TERMINAL_COMPLETE"
     if "31-rollback-launched.json" in names:
