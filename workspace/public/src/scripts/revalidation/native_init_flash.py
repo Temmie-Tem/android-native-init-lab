@@ -900,12 +900,17 @@ def reboot_twrp_to_system(
     minimal_single_shot = (
         args.require_empty_adb_baseline or args.require_stable_adb_baseline
     )
+    reboot_command = (
+        TWRP_SYSTEM_REBOOT_COMMAND
+        if args.require_stable_adb_baseline
+        else "twrp reboot"
+    )
     attempts = 1 if minimal_single_shot else 3
     for attempt in range(1, attempts + 1):
         log(f"requesting system boot through TWRP no-argument reboot attempt={attempt}")
         result = run_command(
             adb_base(args.adb, serial)
-            + ["shell", TWRP_SYSTEM_REBOOT_COMMAND],
+            + ["shell", reboot_command],
             check=False,
             capture=True,
         )

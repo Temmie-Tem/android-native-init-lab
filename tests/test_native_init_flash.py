@@ -74,10 +74,52 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
                 flash.reboot_twrp_to_system(args, "A90")
         self.assertEqual(run.call_count, 1)
         twrp_argv = run.call_args.args[0]
-        self.assertEqual(twrp_argv[-1], flash.TWRP_SYSTEM_REBOOT_COMMAND)
-        self.assertIn(flash.TWRP_SYSTEM_SCRIPT_SHA256, twrp_argv[-1])
-        self.assertIn("exec twrp reboot", twrp_argv[-1])
-        self.assertNotIn("dd if=", twrp_argv[-1])
+        self.assertEqual(twrp_argv[-1], "twrp reboot")
+        self.assertNotIn(flash.TWRP_SYSTEM_SCRIPT_SHA256, twrp_argv[-1])
+
+        stable_args = types.SimpleNamespace(
+            require_empty_adb_baseline=False,
+            require_stable_adb_baseline=True,
+            adb="adb",
+        )
+        with mock.patch.object(flash.time, "sleep"), mock.patch.object(
+            flash, "run_command", return_value=result
+        ) as stable_run, mock.patch.object(
+            flash, "wait_for_adb_baseline_restored", return_value=False
+        ):
+            with self.assertRaisesRegex(RuntimeError, "does not resend"):
+                flash.reboot_twrp_to_system(
+                    stable_args,
+                    "A90",
+                    adb_baseline=[("OTHER", "device")],
+                )
+        self.assertEqual(stable_run.call_count, 1)
+        stable_argv = stable_run.call_args.args[0]
+        self.assertEqual(stable_argv[-1], flash.TWRP_SYSTEM_REBOOT_COMMAND)
+        self.assertIn(flash.TWRP_SYSTEM_SCRIPT_SHA256, stable_argv[-1])
+        self.assertIn("exec twrp reboot", stable_argv[-1])
+        self.assertNotIn("dd if=", stable_argv[-1])
+
+    def test_legacy_twrp_path_never_receives_a90_hook(self) -> None:
+        args = types.SimpleNamespace(
+            require_empty_adb_baseline=False,
+            require_stable_adb_baseline=False,
+            adb="adb",
+        )
+        result = types.SimpleNamespace(stdout="", stderr="")
+        with mock.patch.object(flash.time, "sleep"), mock.patch.object(
+            flash, "run_command", return_value=result
+        ) as run, mock.patch.object(
+            flash, "wait_for_adb_disconnect", return_value=False
+        ):
+            with self.assertRaisesRegex(RuntimeError, "did not leave"):
+                flash.reboot_twrp_to_system(args, "LEGACY")
+        self.assertEqual(run.call_count, 3)
+        self.assertTrue(all(call.args[0][-1] == "twrp reboot" for call in run.call_args_list))
+        self.assertTrue(all(
+            flash.TWRP_SYSTEM_SCRIPT_SHA256 not in call.args[0][-1]
+            for call in run.call_args_list
+        ))
 
     def test_parse_adb_devices_filters_header_blank_lines_and_keeps_states(self) -> None:
         output = """
