@@ -2958,7 +2958,14 @@ genuine improvement over what this report proposed.
 
 The successor plan is now in scope as a separate H0 predecessor unit, and V2 has
 to close the exact load order and the custom MUX diagnostic module replacement
-alongside the existing closure. Both are decidable on this host, and this
+alongside the existing closure. This section is input to that existing closure
+obligation and opens no new one.
+
+A note on how it is recorded: the ledger row for this input first quoted the
+existing closure row's identifier inline, which collided with a uniqueness check
+that matches that identifier surrounded by spaces and made two rows look like
+closure-plan rows. The row was reworded rather than the check relaxed — the
+check guards a real invariant, and the defect was in the new row. Both are decidable on this host, and this
 section decides them.
 
 ### The closure and its exact load order
