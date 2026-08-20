@@ -52,6 +52,7 @@ EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/revalidation/native_init_flash.py",
     "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_h27_postrollback_reconcile_v1.py",
     "workspace/public/src/scripts/server-distro/a90_h27_pretransfer_abort_reconcile_v1.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
 )
@@ -73,6 +74,7 @@ RECORDS = (
     "32-rollback-result.json",
     "40-terminal.json",
     "41-pretransfer-abort.json",
+    "41-recovery-closed.json",
 )
 
 RECORD_KINDS = {
@@ -86,6 +88,7 @@ RECORD_KINDS = {
     "32-rollback-result.json": "ROLLBACK_RESULT",
     "40-terminal.json": "TERMINAL",
     "41-pretransfer-abort.json": "PRETRANSFER_ABORT_RECONCILED",
+    "41-recovery-closed.json": "POSTROLLBACK_RECOVERY_RECONCILED",
 }
 
 SUCCESS_PATH = (
@@ -110,6 +113,7 @@ ROLLBACK_PATH = (
 )
 
 PRETRANSFER_ABORT_PATH = ROLLBACK_PATH + ("41-pretransfer-abort.json",)
+POSTROLLBACK_RECOVERY_PATH = ROLLBACK_PATH + ("41-recovery-closed.json",)
 
 
 class ContractError(RuntimeError):
@@ -612,6 +616,7 @@ class Snapshot:
     healthy: bool
     recovery_available: bool
     recovery_evidence_sha256: str
+    fresh_state_observed: bool
     fresh_state_absent: bool
     other_targets_untouched: bool
     receipt_sha256: str
@@ -626,6 +631,7 @@ class Snapshot:
         for value, label in (
             (self.healthy, "healthy"),
             (self.recovery_available, "recovery available"),
+            (self.fresh_state_observed, "fresh state observed"),
             (self.fresh_state_absent, "fresh state absent"),
             (self.other_targets_untouched, "other targets untouched"),
         ):
@@ -641,6 +647,7 @@ class Snapshot:
             "healthy": self.healthy,
             "recoveryAvailable": self.recovery_available,
             "recoveryEvidenceSha256": self.recovery_evidence_sha256,
+            "freshStateObserved": self.fresh_state_observed,
             "freshStateAbsent": self.fresh_state_absent,
             "otherTargetsUntouched": self.other_targets_untouched,
             "receiptSha256": self.receipt_sha256,
@@ -656,6 +663,7 @@ class Snapshot:
             "healthy": self.healthy,
             "recoveryAvailable": self.recovery_available,
             "recoveryEvidenceSha256": self.recovery_evidence_sha256,
+            "freshStateObserved": self.fresh_state_observed,
             "freshStateAbsent": self.fresh_state_absent,
             "otherTargetsUntouched": self.other_targets_untouched,
         }
@@ -835,7 +843,12 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
     ordered_names = tuple(name for name in RECORDS if name in names)
     if not ordered_names or not any(
         ordered_names == path[: len(ordered_names)]
-        for path in (SUCCESS_PATH, ROLLBACK_PATH, PRETRANSFER_ABORT_PATH)
+        for path in (
+            SUCCESS_PATH,
+            ROLLBACK_PATH,
+            PRETRANSFER_ABORT_PATH,
+            POSTROLLBACK_RECOVERY_PATH,
+        )
     ):
         raise ContractError("journal is not an allowlisted transaction prefix")
     result: dict[str, dict[str, Any]] = {}
@@ -895,6 +908,7 @@ def _require_start(snapshot: Snapshot, manifest: dict[str, Any]) -> None:
     if (
         not snapshot.healthy
         or not snapshot.recovery_available
+        or not snapshot.fresh_state_observed
         or not snapshot.fresh_state_absent
         or not snapshot.other_targets_untouched
         or snapshot.recovery_evidence_sha256
@@ -988,6 +1002,7 @@ def _prepared_snapshot_binding(payload: dict[str, Any]) -> dict[str, Any]:
             "healthy",
             "recoveryAvailable",
             "recoveryEvidenceSha256",
+            "freshStateObserved",
             "freshStateAbsent",
             "otherTargetsUntouched",
             "receiptSha256",
@@ -1019,12 +1034,15 @@ def _terminal(
             "hazardAccepted": qualification["hazard"]["accepted"],
         },
     }
+    _require_active_guard(manifest)
+    _require_candidate_guard(manifest)
     publish_record(
         run_directory,
         "40-terminal.json",
         _record("TERMINAL", manifest_sha256, payload),
     )
     if terminal in {"PASS_A90_RESIDENT_INSTALLED", "NO_PROOF_ROLLED_BACK"}:
+        _require_candidate_guard(manifest)
         _release_active_guard(manifest)
     return payload
 
@@ -1073,6 +1091,8 @@ def execute(
                 {"approvalSha256": sha256_bytes(supplied_approval.encode("ascii"))},
             ),
         )
+        _require_active_guard(manifest)
+        _require_candidate_guard(manifest)
         publish_record(
             run_directory,
             "20-candidate-intent.json",
@@ -1083,11 +1103,15 @@ def execute(
             ),
         )
         candidate.checkpoint()
+        _require_active_guard(manifest)
+        _require_candidate_guard(manifest)
         publish_record(
             run_directory,
             "21-candidate-launched.json",
             _record("CANDIDATE_LAUNCHED", manifest_sha256, {"attempt": 1}),
         )
+        _require_active_guard(manifest)
+        _require_candidate_guard(manifest)
         candidate_result = backend.flash(
             manifest["candidate"],
             rollback=False,
@@ -1125,6 +1149,7 @@ def execute(
             and candidate_result.returncode == 0
             and observed.healthy
             and observed.recovery_available
+            and observed.fresh_state_observed
             and observed.fresh_state_absent
             and observed.other_targets_untouched
             and (observed.version, observed.build)
@@ -1139,6 +1164,8 @@ def execute(
                 manifest,
             )
 
+        _require_active_guard(manifest)
+        _require_candidate_guard(manifest)
         publish_record(
             run_directory,
             "30-rollback-intent.json",
@@ -1150,6 +1177,8 @@ def execute(
             "31-rollback-launched.json",
             _record("ROLLBACK_LAUNCHED", manifest_sha256, {"attempt": 1}),
         )
+        _require_active_guard(manifest)
+        _require_candidate_guard(manifest)
         rollback_result = backend.flash(
             manifest["rollback"],
             rollback=True,
@@ -1215,6 +1244,8 @@ def execute(
 def recovery_decision(run_directory: Path) -> str:
     records = read_records(run_directory)
     names = set(records)
+    if "41-recovery-closed.json" in names:
+        return "POSTROLLBACK_RECOVERY_RECONCILED_NO_REPLAY"
     if "41-pretransfer-abort.json" in names:
         return "PRETRANSFER_ABORT_RECONCILED_RETRY_ALLOWED"
     if "40-terminal.json" in names:

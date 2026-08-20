@@ -238,6 +238,21 @@ class FixedAdapterTest(unittest.TestCase):
         )
         self.assertFalse(snapshot.healthy)
 
+    def test_rollback_observation_marks_fresh_state_unobserved(self):
+        runner = FakeRunner(healthy_results()[:6])
+        snapshot = A.FixedA90Adapter(
+            runner, qualification=QUALIFICATION
+        ).observe(
+            self.expected,
+            QUALIFICATION["freshState"],
+            require_fresh_state=False,
+            timeout_sec=30,
+        )
+        self.assertTrue(snapshot.healthy)
+        self.assertFalse(snapshot.fresh_state_observed)
+        self.assertFalse(snapshot.fresh_state_absent)
+        self.assertNotIn("fresh-enable-path", [call[0] for call in runner.calls])
+
     def test_stable_target_binding_ignores_variable_selftest_duration(self):
         first = healthy_results()
         second = healthy_results()
@@ -387,6 +402,10 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(effect.returncode, 1)
         self.assertEqual(len(runner.calls), 1)
         self.assertEqual(runner.calls[0][0], "flash-rollback")
+        rollback_argv = runner.calls[0][1]
+        self.assertIn("--reuse-bound-recovery-or-from-native", rollback_argv)
+        self.assertNotIn("--from-native", rollback_argv)
+        self.assertNotIn("--require-stable-adb-baseline", rollback_argv)
 
     def test_live_host_runner_creates_one_private_log_directory(self):
         self.assertTrue(A.LIVE_ADAPTER_ENABLED)
@@ -438,7 +457,7 @@ class FixedAdapterTest(unittest.TestCase):
                 )
 
     def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 620)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 640)
 
 
 if __name__ == "__main__":

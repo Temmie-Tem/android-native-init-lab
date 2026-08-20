@@ -31,6 +31,7 @@ TWRP_SYSTEM_SCRIPT_SHA256 = (
 )
 TWRP_SYSTEM_REBOOT_COMMAND = (
     f"test \"$(twrp --version)\" = '{TWRP_SYSTEM_VERSION}' && "
+    f"test ! -L {TWRP_SYSTEM_SCRIPT} && "
     f"test \"$(stat -c '%F|%a|%u|%g|%s|%h' {TWRP_SYSTEM_SCRIPT})\" = "
     f"'regular file|755|0|0|{TWRP_SYSTEM_SCRIPT_SIZE}|1' && "
     f"test \"$(sha256sum {TWRP_SYSTEM_SCRIPT} | cut -d' ' -f1)\" = "
@@ -257,6 +258,34 @@ def wait_for_new_recovery_adb(
         f"{device_serial}:{state}" for device_serial, state in last_devices
     ) or "<none>"
     raise RuntimeError(f"ADB recovery arrival timeout; last={rendered}")
+
+
+def bind_present_recovery_or_native_baseline(
+    adb: str,
+    *,
+    expected_serial_sha256: str,
+) -> tuple[list[tuple[str, str]], tuple[str, str] | None]:
+    """Bind an existing A90 recovery endpoint or a clean Native baseline.
+
+    The returned baseline never contains the bound recovery endpoint.  A
+    caller may therefore either use the returned recovery endpoint directly,
+    or send the one Native recovery command and wait for one new arrival over
+    the unchanged baseline.  A foreign/ambiguous recovery endpoint is a stop,
+    never a reason to select by caller-provided serial.
+    """
+    devices = adb_devices(adb, strict=True)
+    recovery = [item for item in devices if item[1] == "recovery"]
+    if len(recovery) > 1:
+        raise RuntimeError("ADB recovery baseline is ambiguous")
+    if not recovery:
+        return devices, None
+    serial, state = recovery[0]
+    observed = hashlib.sha256(serial.encode("utf-8")).hexdigest()
+    if observed != expected_serial_sha256:
+        raise RuntimeError("present recovery endpoint is not the bound A90")
+    baseline = [item for item in devices if item != recovery[0]]
+    log(f"ADB ready: {serial} {state} (already present and bound)")
+    return baseline, recovery[0]
 
 
 def wait_for_adb_baseline_restored(
@@ -815,7 +844,11 @@ def bridge_command(host: str,
 
 def reboot_native_to_recovery(args: argparse.Namespace) -> None:
     log("requesting recovery from native init bridge")
-    if args.require_empty_adb_baseline or args.require_stable_adb_baseline:
+    if (
+        args.require_empty_adb_baseline
+        or args.require_stable_adb_baseline
+        or getattr(args, "reuse_bound_recovery_or_from_native", False)
+    ):
         output = bridge_command(
             args.bridge_host,
             args.bridge_port,
@@ -825,9 +858,9 @@ def reboot_native_to_recovery(args: argparse.Namespace) -> None:
             retry_transport=False,
         )
         print(output, end="")
-        if "[busy]" in output:
+        if "[busy]" in output or "[err]" in output:
             raise RuntimeError(
-                "native recovery command was busy; minimal one-shot mode does not resend"
+                "native recovery command failed; minimal one-shot mode does not resend"
             )
         return
     for attempt in range(1, 4):
@@ -898,11 +931,16 @@ def reboot_twrp_to_system(
     time.sleep(1.0)
 
     minimal_single_shot = (
-        args.require_empty_adb_baseline or args.require_stable_adb_baseline
+        args.require_empty_adb_baseline
+        or args.require_stable_adb_baseline
+        or getattr(args, "reuse_bound_recovery_or_from_native", False)
     )
     reboot_command = (
         TWRP_SYSTEM_REBOOT_COMMAND
-        if args.require_stable_adb_baseline
+        if (
+            args.require_stable_adb_baseline
+            or getattr(args, "reuse_bound_recovery_or_from_native", False)
+        )
         else "twrp reboot"
     )
     attempts = 1 if minimal_single_shot else 3
@@ -919,7 +957,10 @@ def reboot_twrp_to_system(
             for line in output.splitlines():
                 log(f"twrp reboot: {line}")
 
-        if args.require_stable_adb_baseline:
+        if (
+            args.require_stable_adb_baseline
+            or getattr(args, "reuse_bound_recovery_or_from_native", False)
+        ):
             if adb_baseline is None:
                 raise RuntimeError("stable ADB baseline is missing at recovery exit")
             disconnected = wait_for_adb_baseline_restored(
@@ -1144,6 +1185,15 @@ def parse_args() -> argparse.Namespace:
         help="bind all pre-existing non-recovery ADB endpoints unchanged and accept only one new recovery arrival",
     )
     parser.add_argument(
+        "--reuse-bound-recovery-or-from-native",
+        action="store_true",
+        help=(
+            "rollback-only minimal mode: use one already-present recovery "
+            "endpoint only when its serial hash matches, otherwise bind the "
+            "non-recovery baseline and send Native recovery once"
+        ),
+    )
+    parser.add_argument(
         "--expect-recovery-serial-sha256",
         help="SHA256 of the sole A90 recovery ADB serial; raw serial stays outside tracked inputs",
     )
@@ -1253,7 +1303,15 @@ def main() -> int:
         args.expect_recovery_serial_sha256,
         label="--expect-recovery-serial-sha256",
     )
-    if args.require_empty_adb_baseline and args.require_stable_adb_baseline:
+    strict_modes = sum(
+        bool(value)
+        for value in (
+            args.require_empty_adb_baseline,
+            args.require_stable_adb_baseline,
+            args.reuse_bound_recovery_or_from_native,
+        )
+    )
+    if strict_modes > 1:
         raise SystemExit("ADB baseline modes are mutually exclusive")
     if (
         args.require_empty_adb_baseline or args.require_stable_adb_baseline
@@ -1266,9 +1324,19 @@ def main() -> int:
             "--require-stable-adb-baseline requires --expect-recovery-serial-sha256"
         )
     if args.expect_recovery_serial_sha256 and not args.require_stable_adb_baseline:
-        raise SystemExit(
-            "--expect-recovery-serial-sha256 requires --require-stable-adb-baseline"
-        )
+        if not args.reuse_bound_recovery_or_from_native:
+            raise SystemExit(
+                "--expect-recovery-serial-sha256 requires one bound recovery mode"
+            )
+    if args.reuse_bound_recovery_or_from_native:
+        if args.from_native or args.serial:
+            raise SystemExit(
+                "--reuse-bound-recovery-or-from-native selects its own fixed recovery path"
+            )
+        if not args.expect_recovery_serial_sha256:
+            raise SystemExit(
+                "--reuse-bound-recovery-or-from-native requires --expect-recovery-serial-sha256"
+            )
 
     with phase_timer("total"):
         if args.verify_only:
@@ -1291,6 +1359,12 @@ def main() -> int:
                 return run_experimental_self_write(args, image_path, local_hash, image_size)
 
         adb_baseline: list[tuple[str, str]] | None = None
+        bound_recovery: tuple[str, str] | None = None
+        if args.reuse_bound_recovery_or_from_native:
+            adb_baseline, bound_recovery = bind_present_recovery_or_native_baseline(
+                args.adb,
+                expected_serial_sha256=args.expect_recovery_serial_sha256,
+            )
         if args.from_native:
             if args.require_empty_adb_baseline:
                 adb_baseline = adb_devices(args.adb, strict=True)
@@ -1306,9 +1380,17 @@ def main() -> int:
                     raise RuntimeError("ADB baseline already contains a recovery endpoint")
             with phase_timer("native_to_recovery"):
                 reboot_native_to_recovery(args)
+        elif args.reuse_bound_recovery_or_from_native and bound_recovery is None:
+            with phase_timer("native_to_recovery"):
+                reboot_native_to_recovery(args)
 
         with phase_timer("wait_recovery_adb"):
-            if args.require_stable_adb_baseline:
+            if bound_recovery is not None:
+                serial, state = bound_recovery
+            elif (
+                args.require_stable_adb_baseline
+                or args.reuse_bound_recovery_or_from_native
+            ):
                 if adb_baseline is None:
                     raise RuntimeError("stable ADB baseline was not captured")
                 serial, state = wait_for_new_recovery_adb(

@@ -449,6 +449,18 @@ identity:
   `aea34a96464affd2f7e6c30d237e2175940eef511e69c1452c9deab4833a521b`; see
   `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H28_H0_2026-08-21.md`.
   H28 remains H0-only: no D0, approval, ordinal, F1, or live authority exists.
+  The two H27 follow-up gaps are now implemented and independently reviewed:
+  the 13-file execution closure
+  `e58746ea93270c43a28db5df20695a61a687eec942a5a665f562f4fe5173f077`
+  received `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. One exact
+  terminal-only postrollback reconciler can close the fixed 2026-08-21 run
+  after fresh V2321 health while preserving the manual rollback outcome as
+  unproved and retaining the consumed candidate guard; the future rollback
+  helper can reuse one already-present manifest-bound recovery ADB endpoint
+  without issuing another Native recovery command. The active H27 guard and
+  journal remain unchanged until a separately authorized connected read-only
+  closure. The PASS qualifies capability bytes only; it grants no D0,
+  approval, ordinal, or F1 authority.
 
 ## What Leaves or Moves Out
 

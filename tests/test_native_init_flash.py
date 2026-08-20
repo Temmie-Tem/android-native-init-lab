@@ -8,6 +8,7 @@ import json
 import tempfile
 import types
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from unittest import mock
 
@@ -64,6 +65,23 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
                 flash.reboot_native_to_recovery(args)
         self.assertEqual(bridge.call_count, 1)
 
+        for strict_mode in ("stable", "reuse"):
+            error_args = types.SimpleNamespace(
+                bridge_host="127.0.0.1",
+                bridge_port=2222,
+                bridge_timeout=30,
+                require_empty_adb_baseline=False,
+                require_stable_adb_baseline=strict_mode == "stable",
+                reuse_bound_recovery_or_from_native=strict_mode == "reuse",
+            )
+            with self.subTest(strict_mode=strict_mode), mock.patch.object(
+                flash, "bridge_command", return_value="[err] recovery refused"
+            ) as failed_bridge, self.assertRaisesRegex(
+                RuntimeError, "failed; minimal one-shot mode does not resend"
+            ):
+                flash.reboot_native_to_recovery(error_args)
+            self.assertEqual(failed_bridge.call_count, 1)
+
         result = types.SimpleNamespace(stdout="", stderr="")
         with mock.patch.object(flash.time, "sleep"), mock.patch.object(
             flash, "run_command", return_value=result
@@ -97,6 +115,13 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
         stable_argv = stable_run.call_args.args[0]
         self.assertEqual(stable_argv[-1], flash.TWRP_SYSTEM_REBOOT_COMMAND)
         self.assertIn(flash.TWRP_SYSTEM_SCRIPT_SHA256, stable_argv[-1])
+        self.assertIn(
+            f"test ! -L {flash.TWRP_SYSTEM_SCRIPT} &&", stable_argv[-1]
+        )
+        self.assertLess(
+            stable_argv[-1].index(f"test ! -L {flash.TWRP_SYSTEM_SCRIPT}"),
+            stable_argv[-1].index("stat -c"),
+        )
         self.assertIn("exec twrp reboot", stable_argv[-1])
         self.assertNotIn("dd if=", stable_argv[-1])
 
@@ -271,6 +296,152 @@ recovery-serial recovery
                 flash.wait_for_adb_baseline_restored(
                     "adb", "A90", baseline, 1.0
                 )
+
+    def test_present_recovery_is_bound_by_hash_and_removed_from_baseline(self) -> None:
+        expected = hashlib.sha256(b"A90").hexdigest()
+        with mock.patch.object(
+            flash,
+            "adb_devices",
+            return_value=[("OTHER", "device"), ("A90", "recovery")],
+        ):
+            baseline, recovery = flash.bind_present_recovery_or_native_baseline(
+                "adb", expected_serial_sha256=expected
+            )
+        self.assertEqual(baseline, [("OTHER", "device")])
+        self.assertEqual(recovery, ("A90", "recovery"))
+
+        for devices, pattern in (
+            ([("WRONG", "recovery")], "not the bound A90"),
+            (
+                [("A90", "recovery"), ("SECOND", "recovery")],
+                "ambiguous",
+            ),
+        ):
+            with self.subTest(devices=devices), mock.patch.object(
+                flash, "adb_devices", return_value=devices
+            ), self.assertRaisesRegex(RuntimeError, pattern):
+                flash.bind_present_recovery_or_native_baseline(
+                    "adb", expected_serial_sha256=expected
+                )
+
+    def test_rollback_mode_uses_present_bound_recovery_without_native_reboot(self) -> None:
+        digest = "a" * 64
+        serial_digest = hashlib.sha256(b"A90").hexdigest()
+        argv = [
+            "native_init_flash.py",
+            "/tmp/rollback.img",
+            "--expect-sha256",
+            digest,
+            "--expect-readback-sha256",
+            digest,
+            "--expect-version",
+            "0.9.285",
+            "--reuse-bound-recovery-or-from-native",
+            "--expect-recovery-serial-sha256",
+            serial_digest,
+        ]
+        with mock.patch("sys.argv", argv), mock.patch.object(
+            flash,
+            "inspect_local_image",
+            return_value=(Path("/tmp/rollback.img"), digest, 4096),
+        ), mock.patch.object(
+            flash,
+            "bind_present_recovery_or_native_baseline",
+            return_value=([("OTHER", "device")], ("A90", "recovery")),
+        ), mock.patch.object(
+            flash, "reboot_native_to_recovery"
+        ) as native_reboot, mock.patch.object(
+            flash, "wait_for_new_recovery_adb"
+        ) as wait_new, mock.patch.object(
+            flash,
+            "sealed_local_image_copy",
+            return_value=nullcontext(Path("/tmp/sealed.img")),
+        ), mock.patch.object(
+            flash, "flash_boot_image"
+        ) as write_boot, mock.patch.object(
+            flash, "reboot_twrp_to_system"
+        ) as system_reboot, mock.patch.object(
+            flash, "verify_post_flash_target"
+        ):
+            self.assertEqual(flash.main(), 0)
+        native_reboot.assert_not_called()
+        wait_new.assert_not_called()
+        self.assertEqual(write_boot.call_args.args[1], "A90")
+        self.assertEqual(system_reboot.call_args.args[1], "A90")
+        self.assertEqual(
+            system_reboot.call_args.kwargs["adb_baseline"],
+            [("OTHER", "device")],
+        )
+
+    def test_rollback_mode_without_recovery_sends_native_once_then_waits(self) -> None:
+        digest = "a" * 64
+        argv = [
+            "native_init_flash.py",
+            "/tmp/rollback.img",
+            "--expect-sha256",
+            digest,
+            "--expect-readback-sha256",
+            digest,
+            "--expect-version",
+            "0.9.285",
+            "--reuse-bound-recovery-or-from-native",
+            "--expect-recovery-serial-sha256",
+            "c" * 64,
+        ]
+        with mock.patch("sys.argv", argv), mock.patch.object(
+            flash,
+            "inspect_local_image",
+            return_value=(Path("/tmp/rollback.img"), digest, 4096),
+        ), mock.patch.object(
+            flash,
+            "bind_present_recovery_or_native_baseline",
+            return_value=([("OTHER", "device")], None),
+        ), mock.patch.object(
+            flash, "reboot_native_to_recovery"
+        ) as native_reboot, mock.patch.object(
+            flash,
+            "wait_for_new_recovery_adb",
+            return_value=("A90", "recovery"),
+        ) as wait_new, mock.patch.object(
+            flash,
+            "sealed_local_image_copy",
+            return_value=nullcontext(Path("/tmp/sealed.img")),
+        ), mock.patch.object(
+            flash, "flash_boot_image"
+        ), mock.patch.object(
+            flash, "reboot_twrp_to_system"
+        ), mock.patch.object(
+            flash, "verify_post_flash_target"
+        ):
+            self.assertEqual(flash.main(), 0)
+        native_reboot.assert_called_once()
+        wait_new.assert_called_once_with(
+            "adb",
+            [("OTHER", "device")],
+            180.0,
+            expected_serial_sha256="c" * 64,
+        )
+
+    def test_rollback_mode_rejects_caller_serial_or_missing_identity(self) -> None:
+        for argv in (
+            [
+                "native_init_flash.py",
+                "boot.img",
+                "--reuse-bound-recovery-or-from-native",
+            ],
+            [
+                "native_init_flash.py",
+                "boot.img",
+                "--reuse-bound-recovery-or-from-native",
+                "--expect-recovery-serial-sha256",
+                "c" * 64,
+                "--serial",
+                "A90",
+            ],
+        ):
+            with self.subTest(argv=argv), mock.patch("sys.argv", argv):
+                with self.assertRaises(SystemExit):
+                    flash.main()
 
     def test_empty_baseline_option_is_from_native_and_nonselected_only(self) -> None:
         for argv in (

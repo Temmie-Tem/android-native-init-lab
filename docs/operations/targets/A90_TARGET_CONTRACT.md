@@ -1329,6 +1329,43 @@ is published and cannot apply to another run, candidate, helper failure, or
 future incident. Future reusable pre-transfer recovery requires a separately
 reviewed structured helper stage receipt rather than parsing prose logs.
 
+The separate fixed H27 boot-loop incident dated 2026-08-21 may retire only its
+capability-wide active-run guard through
+`a90_h27_postrollback_reconcile_v1.py`. This exception is limited to run
+`a90-h27-f1-20260821-01`, its immutable manifest, the exact nine-record
+`RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED` journal, and the still-consumed
+H27 candidate guard. The reconciler accepts no caller-selected input and may
+dispatch no candidate, rollback, reboot, recovery transition, ADB command, or
+other device effect. After a current independent `PASS_GO` review whose
+execution closure contains the reconciler and repaired recovery helper, it may
+perform one fresh read-only Native observation of exact healthy V2321,
+durably publish `41-recovery-closed.json`, and then remove only the exact
+active-run guard. The candidate guard remains present. The record preserves
+one canonical SHA-256 of its recovered-snapshot object and every later read
+must recompute it before accepting completion. It preserves
+the out-of-owner rollback result as `UNPROVED_EXTERNAL_CONTINUATION`; it proves
+current V2321 health, not the provenance or success of the earlier manual
+transfer. Publication and active-guard removal occur under one review lease.
+A crash after publication but before removal parks permanently rather than
+trusting a mutable dynamic snapshot or resuming cleanup; a later invocation may
+only report completion when the active guard is already absent. Missing or changed journal,
+manifest, guard, review, target, V2321 identity, recovery evidence, or health
+parks without removal. This exception expires after its exact record is
+published and grants no candidate retry or device effect.
+
+For future ordinary F1 rollback only, the fixed helper may use
+`--reuse-bound-recovery-or-from-native`. One strict ADB inventory either binds
+exactly one already-present recovery endpoint whose serial SHA-256 is the
+manifest-qualified A90, or proves there is no recovery endpoint and binds the
+complete non-recovery baseline before sending the Native recovery command
+once. A foreign or ambiguous recovery endpoint stops before transfer. The
+already-present branch sends no Native recovery command. Both branches retain
+the unchanged foreign endpoint set, use the same exact boot-only rollback,
+perform at most one boot write/readback and one TWRP System return request, and
+never select a caller serial or resend an uncertain action. This repairs the
+existing one rollback attempt; it is not a second rollback attempt or general
+ADB authority.
+
 ## Attended F1 Pre-Handoff
 
 The existing reviewed attended pre-handoff exception remains narrow. It may

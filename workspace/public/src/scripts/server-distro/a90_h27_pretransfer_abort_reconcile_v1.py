@@ -444,6 +444,7 @@ def _validate_reconciliation_payload(
             "healthy",
             "recoveryAvailable",
             "recoveryEvidenceSha256",
+            "freshStateObserved",
             "freshStateAbsent",
             "otherTargetsUntouched",
             "receiptSha256",
@@ -458,6 +459,7 @@ def _validate_reconciliation_payload(
         healthy=snapshot["healthy"],
         recovery_available=snapshot["recoveryAvailable"],
         recovery_evidence_sha256=snapshot["recoveryEvidenceSha256"],
+        fresh_state_observed=snapshot["freshStateObserved"],
         fresh_state_absent=snapshot["freshStateAbsent"],
         other_targets_untouched=snapshot["otherTargetsUntouched"],
         receipt_sha256=snapshot["receiptSha256"],
@@ -469,6 +471,7 @@ def _validate_reconciliation_payload(
         or recovered.healthy is not True
         or recovered.recovery_available is not True
         or recovered.recovery_evidence_sha256 != current_review_sha256
+        or recovered.fresh_state_observed is not True
         or recovered.fresh_state_absent is not True
         or recovered.other_targets_untouched is not True
         or recovered.version != "0.11.192"
@@ -494,19 +497,15 @@ def _release_guard_if_present(path: Path, expected: bytes, label: str) -> None:
 
 
 def _cleanup_guards_with_review_lease(
-    manifest: dict[str, Any], payload: dict[str, Any]
+    manifest: dict[str, Any], lease: CurrentReviewLease
 ) -> None:
-    lease = CurrentReviewLease(manifest, payload["currentReviewSha256"])
-    try:
-        active_path, active_expected = owner._active_guard(manifest)
-        candidate_path, candidate_expected = owner._candidate_guard(manifest)
-        lease.check()
-        _release_guard_if_present(active_path, active_expected, "active run guard")
-        lease.check()
-        _release_guard_if_present(candidate_path, candidate_expected, "candidate guard")
-        lease.check()
-    finally:
-        lease.close()
+    active_path, active_expected = owner._active_guard(manifest)
+    candidate_path, candidate_expected = owner._candidate_guard(manifest)
+    lease.check()
+    _release_guard_if_present(active_path, active_expected, "active run guard")
+    lease.check()
+    _release_guard_if_present(candidate_path, candidate_expected, "candidate guard")
+    lease.check()
 
 
 def reconcile() -> dict[str, Any]:
@@ -519,81 +518,91 @@ def reconcile() -> dict[str, Any]:
     records = owner.read_records(run_directory)
     _require_incident_records(records, manifest, owner.sha256_bytes(raw))
 
-    if "41-pretransfer-abort.json" not in records:
-        owner._require_active_guard(manifest)
-        owner._require_candidate_guard(manifest)
-        candidate_stdout = _read_log(CANDIDATE_STDOUT, "candidate stdout")
-        candidate_stderr = _read_log(CANDIDATE_STDERR, "candidate stderr")
-        rollback_stdout = _read_log(ROLLBACK_STDOUT, "rollback stdout")
-        rollback_stderr = _read_log(ROLLBACK_STDERR, "rollback stderr")
-        serial_sha = manifest["qualification"]["recoveryIdentity"]["adbSerialSha256"]
-        candidate_duration = bind_effect_receipt(
-            expected_sha256=CANDIDATE_RECEIPT_SHA256,
-            argv=adapter.fixed_flash_argv(
-                manifest["candidate"],
-                recovery_serial_sha256=serial_sha,
-                timeout_sec=manifest["timeouts"]["flashSec"],
-            ),
-            returncode=1,
-            quiescent=True,
-            stdout=candidate_stdout,
-            stderr=candidate_stderr,
-            maximum_duration_ms=MAX_DURATION_MS,
-        )
-        rollback_duration = bind_effect_receipt(
-            expected_sha256=ROLLBACK_RECEIPT_SHA256,
-            argv=adapter.fixed_flash_argv(
-                manifest["rollback"],
-                recovery_serial_sha256=serial_sha,
-                timeout_sec=manifest["timeouts"]["flashSec"],
-            ),
-            returncode=1,
-            quiescent=True,
-            stdout=rollback_stdout,
-            stderr=rollback_stderr,
-            maximum_duration_ms=MAX_DURATION_MS,
-        )
-        validate_pretransfer_logs(
-            candidate_stderr=candidate_stderr,
-            rollback_stderr=rollback_stderr,
-            manifest=manifest,
-        )
-        backend = owner._live_backend(
-            current_manifest, "reconcile-pretransfer-abort"
-        )
-        recovered = backend.preflight(current_manifest)
-        owner._require_start(recovered, current_manifest)
-        payload = {
-            "schema": SCHEMA,
-            "decision": DECISION,
-            "candidateRetryPermitted": True,
-            "currentReviewSha256": current_review_sha256,
-            "candidate": {
-                "receiptSha256": CANDIDATE_RECEIPT_SHA256,
-                "durationMs": candidate_duration,
-                "transferStarted": False,
-                "bootWriteStarted": False,
-            },
-            "rollback": {
-                "receiptSha256": ROLLBACK_RECEIPT_SHA256,
-                "durationMs": rollback_duration,
-                "transferStarted": False,
-                "bootWriteStarted": False,
-            },
-            "recoveredSnapshot": recovered.payload(),
-        }
-        _validate_reconciliation_payload(payload, current_review_sha256)
-        owner.publish_record(
-            run_directory,
-            "41-pretransfer-abort.json",
-            owner._record("PRETRANSFER_ABORT_RECONCILED", owner.sha256_bytes(raw), payload),
-        )
-    else:
-        payload = records["41-pretransfer-abort.json"]["payload"]
-        _validate_reconciliation_payload(payload, current_review_sha256)
+    lease = CurrentReviewLease(current_manifest, current_review_sha256)
+    try:
+        if "41-pretransfer-abort.json" not in records:
+            lease.check()
+            owner._require_active_guard(manifest)
+            owner._require_candidate_guard(manifest)
+            candidate_stdout = _read_log(CANDIDATE_STDOUT, "candidate stdout")
+            candidate_stderr = _read_log(CANDIDATE_STDERR, "candidate stderr")
+            rollback_stdout = _read_log(ROLLBACK_STDOUT, "rollback stdout")
+            rollback_stderr = _read_log(ROLLBACK_STDERR, "rollback stderr")
+            serial_sha = manifest["qualification"]["recoveryIdentity"]["adbSerialSha256"]
+            candidate_duration = bind_effect_receipt(
+                expected_sha256=CANDIDATE_RECEIPT_SHA256,
+                argv=adapter.fixed_flash_argv(
+                    manifest["candidate"],
+                    recovery_serial_sha256=serial_sha,
+                    timeout_sec=manifest["timeouts"]["flashSec"],
+                ),
+                returncode=1,
+                quiescent=True,
+                stdout=candidate_stdout,
+                stderr=candidate_stderr,
+                maximum_duration_ms=MAX_DURATION_MS,
+            )
+            rollback_duration = bind_effect_receipt(
+                expected_sha256=ROLLBACK_RECEIPT_SHA256,
+                argv=adapter.fixed_flash_argv(
+                    manifest["rollback"],
+                    recovery_serial_sha256=serial_sha,
+                    timeout_sec=manifest["timeouts"]["flashSec"],
+                ),
+                returncode=1,
+                quiescent=True,
+                stdout=rollback_stdout,
+                stderr=rollback_stderr,
+                maximum_duration_ms=MAX_DURATION_MS,
+            )
+            validate_pretransfer_logs(
+                candidate_stderr=candidate_stderr,
+                rollback_stderr=rollback_stderr,
+                manifest=manifest,
+            )
+            backend = owner._live_backend(
+                current_manifest, "reconcile-pretransfer-abort"
+            )
+            recovered = backend.preflight(current_manifest)
+            owner._require_start(recovered, current_manifest)
+            payload = {
+                "schema": SCHEMA,
+                "decision": DECISION,
+                "candidateRetryPermitted": True,
+                "currentReviewSha256": current_review_sha256,
+                "candidate": {
+                    "receiptSha256": CANDIDATE_RECEIPT_SHA256,
+                    "durationMs": candidate_duration,
+                    "transferStarted": False,
+                    "bootWriteStarted": False,
+                },
+                "rollback": {
+                    "receiptSha256": ROLLBACK_RECEIPT_SHA256,
+                    "durationMs": rollback_duration,
+                    "transferStarted": False,
+                    "bootWriteStarted": False,
+                },
+                "recoveredSnapshot": recovered.payload(),
+            }
+            _validate_reconciliation_payload(payload, current_review_sha256)
+            lease.check()
+            owner._require_active_guard(manifest)
+            owner._require_candidate_guard(manifest)
+            owner.publish_record(
+                run_directory,
+                "41-pretransfer-abort.json",
+                owner._record(
+                    "PRETRANSFER_ABORT_RECONCILED", owner.sha256_bytes(raw), payload
+                ),
+            )
+        else:
+            payload = records["41-pretransfer-abort.json"]["payload"]
+            _validate_reconciliation_payload(payload, current_review_sha256)
 
-    _cleanup_guards_with_review_lease(manifest, payload)
-    return payload
+        _cleanup_guards_with_review_lease(manifest, lease)
+        return payload
+    finally:
+        lease.close()
 
 
 def main() -> int:

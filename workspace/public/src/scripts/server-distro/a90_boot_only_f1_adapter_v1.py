@@ -513,8 +513,10 @@ class FixedA90Adapter:
         boot_text = _validate_command(
             receipts["bootId"], ["cat", "/proc/sys/kernel/random/boot_id"], "boot ID"
         )
-        state_absent = True
+        state_observed = require_fresh_state
+        state_absent = False
         if require_fresh_state:
+            state_absent = True
             fresh_labels = {
                 "enablePath": "fresh-enable-path",
                 "latchPath": "fresh-latch-path",
@@ -550,6 +552,7 @@ class FixedA90Adapter:
             "version": version.group("version"),
             "build": version.group("build"),
             "recoveryEvidenceSha256": self.recovery_evidence_sha256,
+            "freshStateObserved": state_observed,
             "freshStateAbsent": state_absent,
         }
         evidence = {
@@ -566,6 +569,7 @@ class FixedA90Adapter:
             healthy=healthy,
             recovery_available=True,
             recovery_evidence_sha256=self.recovery_evidence_sha256,
+            fresh_state_observed=state_observed,
             fresh_state_absent=state_absent,
             other_targets_untouched=usb_inventory["a90EndpointCount"] == 1,
             receipt_sha256=sha256_bytes(
@@ -579,6 +583,7 @@ class FixedA90Adapter:
             artifact,
             recovery_serial_sha256=self.recovery_serial_sha256,
             timeout_sec=timeout_sec,
+            rollback=rollback,
         )
         started = time.monotonic()
         result = self.runner.run(f"flash-{role}", argv, timeout_sec)
@@ -599,15 +604,24 @@ class FixedA90Adapter:
 
 
 def fixed_flash_argv(
-    artifact: dict[str, Any], *, recovery_serial_sha256: str, timeout_sec: int
+    artifact: dict[str, Any],
+    *,
+    recovery_serial_sha256: str,
+    timeout_sec: int,
+    rollback: bool = False,
 ) -> tuple[str, ...]:
     """Return the sole reviewed helper command for receipt reconstruction."""
+    if type(rollback) is not bool:
+        raise ContractError("flash role is not boolean")
     helper_phase_timeout = max(1, (timeout_sec - 30) // 2)
     return (
         str(PYTHON), str(FLASH), artifact["path"],
         "--adb", str(ADB),
-        "--from-native",
-        "--require-stable-adb-baseline",
+        *(
+            ("--reuse-bound-recovery-or-from-native",)
+            if rollback
+            else ("--from-native", "--require-stable-adb-baseline")
+        ),
         "--expect-recovery-serial-sha256", recovery_serial_sha256,
         "--expect-version", artifact["version"],
         "--expect-sha256", artifact["sha256"],

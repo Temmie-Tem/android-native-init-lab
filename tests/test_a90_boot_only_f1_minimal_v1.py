@@ -175,6 +175,7 @@ class MinimalF1Test(unittest.TestCase):
         boot: str = "boot-one",
         receipt: str = HEX_B,
         healthy: bool = True,
+        fresh_state_observed: bool = True,
     ):
         return M.Snapshot(
             target_evidence_sha256=HEX_C,
@@ -184,7 +185,8 @@ class MinimalF1Test(unittest.TestCase):
             healthy=healthy,
             recovery_available=True,
             recovery_evidence_sha256=self.manifest["qualification"]["review"]["sha256"],
-            fresh_state_absent=True,
+            fresh_state_observed=fresh_state_observed,
+            fresh_state_absent=fresh_state_observed,
             other_targets_untouched=True,
             receipt_sha256=receipt,
         )
@@ -450,6 +452,169 @@ class MinimalF1Test(unittest.TestCase):
             M.execute(self.raw, self.manifest, run, token, backend)
         self.assertEqual(backend.flash_calls, [])
 
+    def test_candidate_guard_lost_during_preflight_stops_before_intent(self):
+        run, token = self._prepare()
+        guard, _ = M._candidate_guard(self.manifest)
+
+        class MutatingBackend(FakeBackend):
+            def preflight(inner_self, manifest):
+                guard.unlink()
+                return super().preflight(manifest)
+
+        backend = MutatingBackend(self.start)
+        with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(backend.flash_calls, [])
+        self.assertNotIn("20-candidate-intent.json", M.read_records(run))
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
+
+    def test_candidate_guard_lost_after_launch_record_stops_before_flash(self):
+        run, token = self._prepare()
+        guard, _ = M._candidate_guard(self.manifest)
+        backend = FakeBackend(self.start)
+        publish = M.publish_record
+
+        def mutate_after_launch(directory, name, value):
+            publish(directory, name, value)
+            if name == "21-candidate-launched.json":
+                guard.unlink()
+
+        with mock.patch.object(M, "publish_record", side_effect=mutate_after_launch):
+            with self.assertRaises(M.ContractError):
+                M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(backend.flash_calls, [])
+        self.assertIn("21-candidate-launched.json", M.read_records(run))
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
+
+    def test_candidate_guard_lost_during_health_blocks_active_release(self):
+        run, token = self._prepare()
+        guard, _ = M._candidate_guard(self.manifest)
+
+        class MutatingBackend(FakeBackend):
+            def observe(inner_self, *args, **kwargs):
+                guard.unlink()
+                return super().observe(*args, **kwargs)
+
+        backend = MutatingBackend(
+            self.start,
+            flashes=[self._effect()],
+            observations=[self._snapshot("new", "new-build")],
+        )
+        with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(len(backend.flash_calls), 1)
+        self.assertNotIn("40-terminal.json", M.read_records(run))
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
+
+    def test_active_guard_lost_during_candidate_health_stops_before_rollback(self):
+        run, token = self._prepare()
+        active, _ = M._active_guard(self.manifest)
+
+        class MutatingBackend(FakeBackend):
+            def observe(inner_self, *args, **kwargs):
+                active.unlink()
+                return super().observe(*args, **kwargs)
+
+        backend = MutatingBackend(
+            self.start,
+            flashes=[self._effect(rc=1, completed=False)],
+            observations=[self._snapshot("old", "old-build", healthy=False)],
+        )
+        with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(len(backend.flash_calls), 1)
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_active_guard_lost_after_rollback_launch_stops_before_dispatch(self):
+        run, token = self._prepare()
+        active, _ = M._active_guard(self.manifest)
+        backend = FakeBackend(
+            self.start,
+            flashes=[
+                self._effect(rc=1, completed=False),
+                self._effect(),
+            ],
+            observations=[self._snapshot("old", "old-build", healthy=False)],
+        )
+        publish = M.publish_record
+
+        def mutate_after_rollback_launch(directory, name, value):
+            publish(directory, name, value)
+            if name == "31-rollback-launched.json":
+                active.unlink()
+
+        with mock.patch.object(
+            M, "publish_record", side_effect=mutate_after_rollback_launch
+        ):
+            with self.assertRaises(M.ContractError):
+                M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(len(backend.flash_calls), 1)
+        self.assertIn("31-rollback-launched.json", M.read_records(run))
+
+    def test_active_guard_lost_during_candidate_effect_blocks_recovery_terminal(self):
+        run, token = self._prepare()
+        active, _ = M._active_guard(self.manifest)
+
+        class MutatingBackend(FakeBackend):
+            def flash(inner_self, *args, **kwargs):
+                result = super().flash(*args, **kwargs)
+                active.unlink()
+                return result
+
+        backend = MutatingBackend(
+            self.start, flashes=[self._effect(quiescent=False)]
+        )
+        with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertNotIn("40-terminal.json", M.read_records(run))
+
+    def test_active_guard_lost_during_rollback_effect_blocks_recovery_terminal(self):
+        run, token = self._prepare()
+        active, _ = M._active_guard(self.manifest)
+
+        class MutatingBackend(FakeBackend):
+            def flash(inner_self, *args, **kwargs):
+                result = super().flash(*args, **kwargs)
+                if len(inner_self.flash_calls) == 2:
+                    active.unlink()
+                return result
+
+        backend = MutatingBackend(
+            self.start,
+            flashes=[
+                self._effect(rc=1, completed=False),
+                self._effect(quiescent=False),
+            ],
+            observations=[self._snapshot("old", "old-build", healthy=False)],
+        )
+        with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(len(backend.flash_calls), 2)
+        self.assertNotIn("40-terminal.json", M.read_records(run))
+
+    def test_active_guard_lost_during_final_health_blocks_healthy_terminal(self):
+        run, token = self._prepare()
+        active, _ = M._active_guard(self.manifest)
+
+        class MutatingBackend(FakeBackend):
+            def observe(inner_self, *args, **kwargs):
+                result = super().observe(*args, **kwargs)
+                if not inner_self.observations:
+                    active.unlink()
+                return result
+
+        backend = MutatingBackend(
+            self.start,
+            flashes=[self._effect(rc=1, completed=False), self._effect()],
+            observations=[
+                self._snapshot("old", "old-build", healthy=False),
+                self._snapshot("old", "old-build", fresh_state_observed=False),
+            ],
+        )
+        with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertNotIn("40-terminal.json", M.read_records(run))
+
     def test_fabricated_or_no_go_review_is_rejected_before_prepared(self):
         for value in ({"verdict": "PASS_GO"}, {
             **M.parse_canonical(self.review.read_bytes(), "review"),
@@ -505,7 +670,7 @@ class MinimalF1Test(unittest.TestCase):
             flashes=[self._effect(rc=1, completed=False), self._effect()],
             observations=[
                 self._snapshot("old", "old-build", healthy=False),
-                self._snapshot("old", "old-build"),
+                self._snapshot("old", "old-build", fresh_state_observed=False),
             ],
         )
         result = M.execute(self.raw, self.manifest, run, token, backend)
@@ -518,7 +683,10 @@ class MinimalF1Test(unittest.TestCase):
         backend = FakeBackend(
             self.start,
             flashes=[self._effect(), self._effect()],
-            observations=[RuntimeError("observer lost"), self._snapshot("old", "old-build")],
+            observations=[
+                RuntimeError("observer lost"),
+                self._snapshot("old", "old-build", fresh_state_observed=False),
+            ],
         )
         result = M.execute(self.raw, self.manifest, run, token, backend)
         self.assertEqual(result["terminal"], "NO_PROOF_ROLLED_BACK")
@@ -531,7 +699,9 @@ class MinimalF1Test(unittest.TestCase):
             flashes=[self._effect(rc=1, completed=False), self._effect(rc=1, completed=False)],
             observations=[
                 self._snapshot("old", "old-build", healthy=False),
-                self._snapshot("old", "old-build", healthy=False),
+                self._snapshot(
+                    "old", "old-build", healthy=False, fresh_state_observed=False
+                ),
             ],
         )
         result = M.execute(self.raw, self.manifest, run, token, backend)
@@ -673,8 +843,8 @@ class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1400)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 700)
-        self.assertLessEqual(len(design.read_text().splitlines()), 225)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 950)
+        self.assertLessEqual(len(design.read_text().splitlines()), 250)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):
         retired = (

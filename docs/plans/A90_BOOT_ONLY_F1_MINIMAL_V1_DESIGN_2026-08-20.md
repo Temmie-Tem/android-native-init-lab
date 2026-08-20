@@ -76,7 +76,7 @@ retried without overwriting either log.
   explicit recovery and hazard decisions, and the fresh enable/latch paths.
   The owner opens and rehashes that review before PREPARED and immediately
   before approval/effect. It also parses an exact schema requiring `PASS_GO`,
-  the current ten-file execution closure, A90/candidate/rollback identities,
+  the current thirteen-file execution closure, A90/candidate/rollback identities,
   matching recovery/hazard objects, no material findings, and zero contacts.
   The parser consumes the same bytes it hashes, and execute repeats validation
   after fresh Native preflight immediately before approval and candidate
@@ -90,7 +90,10 @@ retried without overwriting either log.
   digest is present in every snapshot and terminal.
 - Fresh preflight and candidate health both use fixed read-only `stat` commands
   to prove the manifest-bound enable/latch paths absent. Rollback health does
-  not misclassify a recovered V2321 solely because a candidate marker exists.
+  not read those candidate-generation paths and does not misclassify a
+  recovered V2321 solely because a marker exists; its snapshot records
+  `freshStateObserved=false` and `freshStateAbsent=false`, never an inferred
+  absence. Candidate admission requires both booleans true.
   Every Native response is paired in the adapter receipt with the exact command
   argument vector sent by that subprocess, so a generic or wrong-path ENOENT
   cannot prove either marker absent. The manifest and review both require one
@@ -167,11 +170,17 @@ It uses only the existing A90 mechanisms:
 - the adapter returns exact target, effect, and final-health receipts to the
   state machine.
 
-For the recovery transition, the adapter always selects the helper's new
-fail-closed mode: every pre-existing non-recovery ADB endpoint is bound by
-exact serial/state before the Native reboot request and must remain unchanged;
+For candidate recovery entry, the adapter selects the helper's fail-closed
+Native mode: every pre-existing non-recovery ADB endpoint is bound by exact
+serial/state before the Native reboot request and must remain unchanged;
 exactly one new recovery endpoint may arrive, and its serial SHA-256 must match
-the private A90 qualification. It never accepts a caller-selected serial.
+the private A90 qualification. For rollback, the fixed
+`--reuse-bound-recovery-or-from-native` mode first performs the same strict
+inventory. If the bound A90 recovery endpoint is already present it is used
+without another Native recovery request; if none is present, the exact
+non-recovery baseline is bound and Native recovery is sent once. A foreign or
+ambiguous recovery endpoint stops. Neither mode accepts a caller-selected
+serial.
 In that mode the Native `recovery` command and TWRP `reboot` command are each
 sent at most once: post-send transport loss, busy state, or missing disconnect
 is uncertainty and never an internal resend. Historical helper callers retain
@@ -182,6 +191,22 @@ Malformed output is never a stable baseline, a unique arrival, or proof that
 TWRP disconnected after its one reboot request. Completion requires the exact
 pre-existing ADB baseline to be restored.
 The default helper behavior for historical callers is unchanged.
+
+The exact H27 boot-loop recovery deviation has one terminal-only reconciler,
+`a90_h27_postrollback_reconcile_v1.py`. It binds the fixed 2026-08-21 manifest,
+nine journal records, retained active guard, and consumed candidate guard. It
+does not parse the unavailable manual rollback transcript and does not relabel
+that transfer as proved. After a current reviewed-closure lease and fresh exact
+read-only V2321 health, it publishes one `41-recovery-closed.json` with
+`UNPROVED_EXTERNAL_CONTINUATION` and the canonical SHA-256 of the exact
+recovered-snapshot object, then removes only the active guard. Every later read
+recomputes that digest before accepting the record. The H27
+candidate guard remains consumed. Before publication, a missing active guard
+is a stop. Publication and active removal remain in one review lease. A crash
+between them parks with the active guard retained; it does not trust a mutable
+dynamic snapshot or resume cleanup. A later invocation reports completion only
+when the active guard is already absent and cannot repeat observation or any
+device effect.
 
 The adapter and the state machine together require one fresh independent full
 execution-closure review before activation. Tests are review evidence, not

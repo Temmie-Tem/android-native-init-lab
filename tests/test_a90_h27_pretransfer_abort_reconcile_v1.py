@@ -207,6 +207,7 @@ class PretransferAbortReconcileTest(unittest.TestCase):
             "healthy": True,
             "recoveryAvailable": True,
             "recoveryEvidenceSha256": "d" * 64,
+            "freshStateObserved": True,
             "freshStateAbsent": True,
             "otherTargetsUntouched": True,
             "version": "0.11.192",
@@ -240,6 +241,7 @@ class PretransferAbortReconcileTest(unittest.TestCase):
         partial["currentReviewSha256"] = "d" * 64
         partial["recoveredSnapshot"] = {
             "healthy": True,
+            "freshStateObserved": True,
             "freshStateAbsent": True,
             "otherTargetsUntouched": True,
             "version": "0.11.192",
@@ -262,7 +264,6 @@ class PretransferAbortReconcileTest(unittest.TestCase):
 
         lease = DriftingLease()
         with (
-            mock.patch.object(R, "CurrentReviewLease", return_value=lease),
             mock.patch.object(M, "_active_guard", return_value=(Path("/active"), b"a")),
             mock.patch.object(M, "_candidate_guard", return_value=(Path("/candidate"), b"c")),
             mock.patch.object(R, "_release_guard_if_present") as release,
@@ -270,7 +271,7 @@ class PretransferAbortReconcileTest(unittest.TestCase):
         ):
             R._cleanup_guards_with_review_lease(
                 {"candidate": {}, "qualification": {}},
-                {"currentReviewSha256": "d" * 64},
+                lease,
             )
         release.assert_called_once_with(Path("/active"), b"a", "active run guard")
 
@@ -300,6 +301,91 @@ class PretransferAbortReconcileTest(unittest.TestCase):
             records["00-prepared.json"]["payload"] = {}
             with self.assertRaisesRegex(M.ContractError, "00-prepared"):
                 R._require_fixed_record_hashes(records)
+
+    def test_guard_loss_during_preflight_prevents_retry_publication(self):
+        manifest = {
+            "runId": R.RUN_ID,
+            "candidate": {
+                "path": "/candidate.img",
+                "sha256": "a" * 64,
+                "version": "candidate",
+            },
+            "rollback": {
+                "path": "/rollback.img",
+                "sha256": "b" * 64,
+                "version": "rollback",
+            },
+            "qualification": {
+                "recoveryIdentity": {"adbSerialSha256": "c" * 64},
+            },
+            "timeouts": {"flashSec": 60},
+        }
+        recovered = M.Snapshot(
+            target_evidence_sha256="a" * 64,
+            boot_id="01234567-89ab-cdef-0123-456789abcdef",
+            version="0.11.192",
+            build="phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev",
+            healthy=True,
+            recovery_available=True,
+            recovery_evidence_sha256="d" * 64,
+            fresh_state_observed=True,
+            fresh_state_absent=True,
+            other_targets_untouched=True,
+            receipt_sha256="e" * 64,
+        )
+
+        class Lease:
+            def check(self):
+                return None
+
+            def close(self):
+                return None
+
+        backend = mock.Mock()
+        backend.preflight.return_value = recovered
+        for lost in ("active", "candidate"):
+            active = [None, None]
+            candidate = [None, None]
+            (active if lost == "active" else candidate)[1] = M.ContractError(
+                f"{lost} guard lost"
+            )
+            with self.subTest(lost=lost), mock.patch.object(
+                R, "_load_incident_manifest", return_value=(b"{}", manifest)
+            ), mock.patch.object(
+                R, "_verify_review_lineage", return_value=(manifest, "d" * 64)
+            ), mock.patch.object(
+                R, "CurrentReviewLease", return_value=Lease()
+            ), mock.patch.object(
+                M, "ensure_run_root"
+            ), mock.patch.object(
+                M, "_require_run_path"
+            ), mock.patch.object(
+                R, "_require_direct_private_directory"
+            ), mock.patch.object(
+                M, "read_records", return_value={"40-terminal.json": {}}
+            ), mock.patch.object(
+                R, "_require_incident_records"
+            ), mock.patch.object(
+                M, "_require_active_guard", side_effect=active
+            ), mock.patch.object(
+                M, "_require_candidate_guard", side_effect=candidate
+            ), mock.patch.object(
+                R, "_read_log", return_value=b""
+            ), mock.patch.object(
+                R, "bind_effect_receipt", return_value=1
+            ), mock.patch.object(
+                R, "validate_pretransfer_logs"
+            ), mock.patch.object(
+                M, "_live_backend", return_value=backend
+            ), mock.patch.object(
+                M, "_require_start"
+            ), mock.patch.object(
+                R, "_validate_reconciliation_payload"
+            ), mock.patch.object(
+                M, "publish_record"
+            ) as publish, self.assertRaisesRegex(M.ContractError, "guard lost"):
+                R.reconcile()
+            publish.assert_not_called()
 
 
 if __name__ == "__main__":

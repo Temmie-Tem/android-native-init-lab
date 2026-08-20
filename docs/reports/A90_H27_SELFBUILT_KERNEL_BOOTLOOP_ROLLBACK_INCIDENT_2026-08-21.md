@@ -68,3 +68,23 @@ Before another A90 F1:
 4. analyze any separately retrieved complete H27 boot evidence at H0; and
 5. use a byte-distinct, independently qualified future candidate only after the
    failure cause or observation gap is bounded.
+
+## Host-only repair status
+
+The two missing mechanisms are implemented at H0 but are not active. The fixed
+postrollback reconciler accepts no input, preserves the external rollback
+outcome as unproved, requires fresh exact V2321 health, publishes an
+append-only recovery closure, removes only the active-run guard, and leaves the
+H27 candidate guard consumed. The ordinary rollback adapter now selects one
+strict mode that reuses an already-present bound A90 recovery ADB endpoint or,
+only when no recovery endpoint exists, sends the Native recovery request once.
+
+Focused host tests pass. An independent Luna MAX full review closed the final
+13-file execution closure
+`e58746ea93270c43a28db5df20695a61a687eec942a5a665f562f4fe5173f077`
+as `PASS_GO`, HIGH/MEDIUM/LOW `0/0/0`. The review found and forced repair of
+guard-publication races, strict recovery error handling, hook symlink drift,
+and unobserved fresh-state claims before passing. No guard, journal, device,
+approval, candidate, or live authority was changed by this H0 repair or review.
+The exact next action is a separately authorized connected read-only H27
+closure; H28 still requires its own qualification, manifest, D0, and approval.
