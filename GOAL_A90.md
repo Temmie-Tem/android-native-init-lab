@@ -365,6 +365,9 @@ identity:
   A fourth review found that special review paths were opened before the
   regular-file check. The owner now rejects them by `lstat` first, then opens
   nonblocking and rechecks the same inode before any bounded read.
+  A fifth review found that generic `stat -ENOENT` was not tied to the marker
+  argument. Adapter evidence now pairs every response with the exact request
+  vector and requires `stat` plus the exact manifest path.
 
 ## What Leaves or Moves Out
 

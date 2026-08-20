@@ -55,6 +55,9 @@ It contains no production device backend and its CLI hard-disables execution.
 - Fresh preflight and candidate health both use fixed read-only `stat` commands
   to prove the manifest-bound enable/latch paths absent. Rollback health does
   not misclassify a recovered V2321 solely because a candidate marker exists.
+  Every Native response is paired in the adapter receipt with the exact command
+  argument vector sent by that subprocess, so a generic or wrong-path ENOENT
+  cannot prove either marker absent.
 - Candidate intent precedes its only launch. Rollback intent precedes its only
   launch. A candidate is never replayed after intent.
 - Every record uses create-exclusive publication, file fsync, and directory

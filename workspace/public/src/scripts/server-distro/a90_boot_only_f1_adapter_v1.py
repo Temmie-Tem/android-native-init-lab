@@ -217,7 +217,20 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _bound_response(
+    value: dict[str, Any], command: list[str], label: str
+) -> dict[str, Any]:
+    if (
+        set(value) != {"request", "response"}
+        or value.get("request") != command
+        or type(value.get("response")) is not dict
+    ):
+        raise ContractError(f"{label} request binding is invalid")
+    return value["response"]
+
+
 def _validate_command(value: dict[str, Any], command: list[str], label: str) -> str:
+    value = _bound_response(value, command, label)
     if (
         set(value) != {"begin", "end", "rc", "status", "trust", "text"}
         or value.get("rc") != 0
@@ -234,6 +247,7 @@ def _validate_command(value: dict[str, Any], command: list[str], label: str) -> 
 
 
 def _validate_absent_stat(value: dict[str, Any], path: str) -> bool:
+    value = _bound_response(value, ["stat", path], "fresh state stat")
     end = value.get("end")
     if (
         set(value) != {"begin", "end", "rc", "status", "trust", "text"}
@@ -246,7 +260,6 @@ def _validate_absent_stat(value: dict[str, Any], path: str) -> bool:
         or end.get("rc") != "-2"
         or end.get("status") != "unknown"
         or end.get("errno") != "2"
-        or type(path) is not str
     ):
         raise ContractError("fresh state absence receipt is invalid")
     return True
@@ -302,7 +315,10 @@ class FixedA90Adapter:
             str(timeout_sec),
         )
         argv = (*prefix, *(("--allow-error",) if allow_error else ()), "--", *command)
-        return self._json_command(label, argv, timeout_sec)
+        return {
+            "request": list(command),
+            "response": self._json_command(label, argv, timeout_sec),
+        }
 
     @staticmethod
     def _remaining(deadline: float, *, cap: int) -> int:

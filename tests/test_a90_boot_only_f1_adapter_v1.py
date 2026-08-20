@@ -180,6 +180,16 @@ class FixedAdapterTest(unittest.TestCase):
                 {"expectedStart": self.expected, "qualification": QUALIFICATION}
             )
 
+    def test_absent_stat_receipt_is_bound_to_exact_requested_path(self):
+        wrong = {
+            "request": ["stat", "/cache/wrong.done"],
+            "response": absent_stat(),
+        }
+        with self.assertRaisesRegex(A.ContractError, "request binding"):
+            A._validate_absent_stat(
+                wrong, QUALIFICATION["freshState"]["latchPath"]
+            )
+
     def test_recovery_qualification_is_required(self):
         with self.assertRaisesRegex(A.ContractError, "physical recovery"):
             A.FixedA90Adapter(FakeRunner([]), qualification={})
