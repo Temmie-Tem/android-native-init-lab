@@ -402,6 +402,16 @@ def _verify_input(value: dict[str, Any], label: str) -> bytes:
     try:
         metadata = os.fstat(descriptor)
         path_metadata = path.lstat()
+        raw = bytearray()
+        while len(raw) < metadata.st_size:
+            chunk = os.pread(
+                descriptor,
+                min(1 << 20, metadata.st_size - len(raw)),
+                len(raw),
+            )
+            if not chunk:
+                raise ContractError(f"{label} ended during read")
+            raw.extend(chunk)
         if (
             not stat.S_ISREG(metadata.st_mode)
             or not stat.S_ISREG(path_metadata.st_mode)
@@ -412,10 +422,11 @@ def _verify_input(value: dict[str, Any], label: str) -> bytes:
             or metadata.st_gid != os.getgid()
             or metadata.st_mode & 0o022
             or metadata.st_size != item["size"]
-            or _hash_fd(descriptor, metadata.st_size) != item["sha256"]
+            or os.pread(descriptor, 1, metadata.st_size)
+            or hashlib.sha256(raw).hexdigest() != item["sha256"]
         ):
             raise ContractError(f"{label} input identity mismatch")
-        return os.pread(descriptor, metadata.st_size, 0)
+        return bytes(raw)
     finally:
         os.close(descriptor)
 
@@ -825,6 +836,7 @@ def execute(
             or rollback.checkpoint() != prepared["rollback"]
         ):
             raise ContractError("prepared artifact changed")
+        _verify_qualification_inputs(manifest)
         expected_approval = approval_token(manifest_sha256, snapshot)
         if supplied_approval != expected_approval:
             raise ContractError("approval does not bind this target, boot, and manifest")

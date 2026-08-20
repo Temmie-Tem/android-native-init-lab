@@ -269,6 +269,20 @@ class MinimalF1Test(unittest.TestCase):
         with self.assertRaisesRegex(M.ContractError, "qualification review"):
             M.execute(self.raw, self.manifest, run, token, FakeBackend(self.start))
 
+    def test_review_changed_during_preflight_is_rejected_before_effect(self):
+        run, token = self._prepare()
+        review = self.review
+
+        class MutatingBackend(FakeBackend):
+            def preflight(inner_self, manifest):
+                review.write_bytes(b'{"verdict":"substituted"}')
+                return super().preflight(manifest)
+
+        backend = MutatingBackend(self.start)
+        with self.assertRaisesRegex(M.ContractError, "qualification review"):
+            M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(backend.flash_calls, [])
+
     def test_fabricated_or_no_go_review_is_rejected_before_prepared(self):
         for value in ({"verdict": "PASS_GO"}, {
             **M.parse_canonical(self.review.read_bytes(), "review"),

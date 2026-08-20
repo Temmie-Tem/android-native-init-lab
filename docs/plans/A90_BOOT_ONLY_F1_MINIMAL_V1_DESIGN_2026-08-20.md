@@ -43,6 +43,9 @@ It contains no production device backend and its CLI hard-disables execution.
   before approval/effect. It also parses an exact schema requiring `PASS_GO`,
   the current ten-file execution closure, A90/candidate/rollback identities,
   matching recovery/hazard objects, no material findings, and zero contacts.
+  The parser consumes the same bytes it hashes, and execute repeats validation
+  after fresh Native preflight immediately before approval and candidate
+  intent publication.
 - Physical recovery is never a caller boolean. The adapter accepts only the
   validated `A90_ATTENDED_PHYSICAL_RECOVERY_V1` receipt for the fixed Native to
   empty-ADB/single-recovery-arrival/readback method, and its digest is present

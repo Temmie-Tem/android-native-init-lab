@@ -359,6 +359,9 @@ identity:
   parses one canonical independent-review JSON and requires its `PASS_GO`,
   current ten-file closure, exact A90/candidate/rollback/recovery/hazard
   bindings, empty findings, and zero-contact disposition before PREPARED.
+  A third review found that execute did not repeat that validation after fresh
+  Native preflight. The owner now hashes and parses the same single read and
+  repeats it immediately before approval and candidate intent.
 
 ## What Leaves or Moves Out
 
