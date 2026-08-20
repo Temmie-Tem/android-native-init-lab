@@ -390,6 +390,45 @@ class FixedAdapterTest(unittest.TestCase):
             with self.assertRaisesRegex(A.ContractError, "already exists"):
                 A.HostRunner(path)
 
+    def test_live_host_runner_separates_boot_scratch_and_log_bounds(self):
+        self.assertEqual(A.MAX_CHILD_FILE_BYTES, 64 << 20)
+        self.assertEqual(A.MAX_OUTPUT_BYTES, 1 << 20)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            scratch = root / "sealed-boot.img"
+            runner = A.HostRunner(root / "logs")
+            result = runner.run(
+                "bounded-boot-scratch",
+                (
+                    sys.executable,
+                    "-c",
+                    (
+                        "from pathlib import Path; "
+                        f"p=Path({str(scratch)!r}); "
+                        f"p.write_bytes(b'\\0' * {58_368_000})"
+                    ),
+                ),
+                10,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(scratch.stat().st_size, 58_368_000)
+            self.assertEqual(result.stdout, b"")
+            self.assertEqual(result.stderr, b"")
+
+    def test_live_host_runner_still_rejects_oversized_stdout(self):
+        with tempfile.TemporaryDirectory() as temp:
+            runner = A.HostRunner(Path(temp) / "logs")
+            with self.assertRaisesRegex(A.ContractError, "output exceeds"):
+                runner.run(
+                    "oversized-stdout",
+                    (
+                        sys.executable,
+                        "-c",
+                        f"import os; os.write(1, b'x' * {A.MAX_OUTPUT_BYTES + 1})",
+                    ),
+                    10,
+                )
+
     def test_adapter_surface_stays_small(self):
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 620)
 

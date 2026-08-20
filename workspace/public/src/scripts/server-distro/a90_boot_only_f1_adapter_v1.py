@@ -43,6 +43,7 @@ FLASH = REPO_ROOT / "workspace/public/src/scripts/revalidation/native_init_flash
 SERIAL_BRIDGE = REPO_ROOT / "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
 FIXED_SERIAL = "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"
 MAX_OUTPUT_BYTES = 1 << 20
+MAX_CHILD_FILE_BYTES = 64 << 20
 VERSION_RE = re.compile(r"^version: (?P<version>\S+) build=(?P<build>\S+)$")
 SELFTEST_RE = re.compile(
     r"^selftest: pass=[0-9]+ warn=[0-9]+ fail=0 duration=[0-9]+ms entries=[1-9][0-9]*$"
@@ -134,7 +135,13 @@ class HostRunner:
 
 def _limit_child() -> None:
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_OUTPUT_BYTES, MAX_OUTPUT_BYTES))
+    # The fixed flash helper creates one verified boot-sized sealed copy before
+    # transfer.  Keep that scratch file bounded independently from the much
+    # smaller stdout/stderr acceptance envelope enforced by _read_bound_log().
+    resource.setrlimit(
+        resource.RLIMIT_FSIZE,
+        (MAX_CHILD_FILE_BYTES, MAX_CHILD_FILE_BYTES),
+    )
 
 
 def _fsync_directory(path: Path) -> None:
