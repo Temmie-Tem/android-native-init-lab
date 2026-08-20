@@ -475,8 +475,15 @@ identity:
   `0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f`.
   The public H28 review input and independent-review handoff bind the exact
   candidate, V2321 start/rollback, H28 state paths, and narrowed new-build-
-  certificate hazard. Independent `PASS_GO`, the private manifest, connected
-  D0, approval, ordinal, and F1 remain absent.
+  certificate hazard. At that preparation checkpoint, independent `PASS_GO`
+  and the private manifest were absent. Luna MAX then issued
+  `PASS_GO`, HIGH/MEDIUM/LOW `0/0/0`, for that exact closure and H28 input.
+  The canonical public review is 1,189 bytes at SHA-256
+  `51474c2d323971c07ca1425be613ea48cdd6c13f870606b166fba76835e6a9b2`.
+  One canonical private H28 manifest was then host-validated at SHA-256
+  `e708e45e9cd925229682c76ad3b6359426f2e636eb26eb111ea54e9843e8d1c2`;
+  its runtime candidate/rollback/review rehash passed. No journal, guard,
+  connected D0, approval, ordinal, or F1 was created.
 
 ## What Leaves or Moves Out
 

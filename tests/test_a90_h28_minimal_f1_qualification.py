@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py"
 INPUT = ROOT / "docs/reports/A90_H28_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-21.json"
 HANDOFF = ROOT / "docs/plans/A90_H28_MINIMAL_F1_QUALIFICATION_HANDOFF_2026-08-21.md"
+REVIEW = ROOT / "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H28_INDEPENDENT_REVIEW_2026-08-21.json"
 BUILD_REPORT = ROOT / "docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H28_H0_2026-08-21.md"
 FLAT_MANIFEST = ROOT / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h28/manifest.toml"
 
@@ -42,6 +43,31 @@ class H28MinimalF1QualificationTest(unittest.TestCase):
         self.assertEqual(
             self.value["executionClosureSha256"], M.execution_closure_sha256()
         )
+
+    def test_independent_review_is_canonical_and_accepted(self):
+        raw = REVIEW.read_bytes()
+        self.assertFalse(raw.endswith(b"\n"))
+        self.assertEqual(
+            hashlib.sha256(raw).hexdigest(),
+            "51474c2d323971c07ca1425be613ea48cdd6c13f870606b166fba76835e6a9b2",
+        )
+        review = M.parse_canonical(raw, "H28 independent review")
+        manifest = {
+            "candidate": {"sha256": self.value["candidate"]["sha256"]},
+            "rollback": {"sha256": self.value["rollback"]["sha256"]},
+            "qualification": {
+                "recovery": self.value["recovery"],
+                "hazard": {
+                    key: self.value["hazard"][key]
+                    for key in ("id", "statementSha256", "accepted")
+                },
+                "freshState": self.value["freshState"],
+            },
+        }
+        M._validate_qualification_review(review, manifest)
+        self.assertEqual(review["verdict"], "PASS_GO")
+        self.assertFalse(review["liveAuthority"])
+        self.assertTrue(all(value == 0 for value in review["contacts"].values()))
 
     def test_h28_and_v2321_identities_are_exact(self):
         candidate = self.value["candidate"]
