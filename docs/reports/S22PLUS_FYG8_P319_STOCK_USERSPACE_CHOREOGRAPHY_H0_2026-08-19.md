@@ -2578,6 +2578,13 @@ nested-dispatch, unmask, CHGT, AP/`06 09` multiplicity, injected I2C-failure
 and source bulk-write/unmask mutations. A fresh `--audit-only` encoding is
 byte-identical. This result is H0 only and creates no device or live authority.
 
+Independent review regenerated the current receipt byte-for-byte and matched
+every derived count and per-capture distribution. It also verified the direct
+base source, both base-free differences, live manifest re-enumeration, and the
+absence of the old absolute-number acceptance literals. Its scoped verdict is
+`PASS_GO_P319_MAX77705_IRQ_DT_CORPUS_AUDIT_V2_H0_CAPABILITY`; this qualifies
+only the H0 audit and creates no device or live authority.
+
 Four predecessors remain preserved rather than overwritten. `20260820-01` is
 8187 bytes/SHA-256 `25be452a...`; `20260820-02` is 8370 bytes/SHA-256
 `6c3d25a7...`; `20260820-03` is 8545 bytes/SHA-256 `bc193d7e...`; all are mode

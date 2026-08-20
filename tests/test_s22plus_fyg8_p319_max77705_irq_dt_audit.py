@@ -343,6 +343,16 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         self.assertEqual(len(repaired), 1)
         self.assertIn("5c84bfc5", repaired[0])
         self.assertIn("14 focused", repaired[0])
+        reviewed = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if " h0-max77705-irq-corpus-review-4 " in line
+        ]
+        self.assertEqual(len(reviewed), 1)
+        self.assertIn(
+            "PASS_GO_P319_MAX77705_IRQ_DT_CORPUS_AUDIT_V2_H0_CAPABILITY",
+            reviewed[0],
+        )
 
 
 if __name__ == "__main__":

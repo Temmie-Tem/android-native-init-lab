@@ -656,7 +656,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # moves this triple and the three relative expectations below by one.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (37, 21, 16),
+            (37, 22, 15),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -668,7 +668,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "guard-fixture-invalidation",
                 "last-kmsg-retention",
                 "log-harvest-runner",
-                "max77705-irq-corpus",
                 "module-closure-plan",
                 "mux-module-chain",
                 "raw-first-observer",
@@ -689,7 +688,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-guard-fixture-invalidation-1",
                 "h0-last-kmsg-retention-1",
                 "h0-log-harvest-runner-1",
-                "h0-max77705-irq-corpus-4",
                 "h0-module-closure-plan-1",
                 "h0-mux-module-chain-1",
                 "h0-raw-first-observer-2",
@@ -704,15 +702,16 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p319",
-                "review_topic": "raw-first-observer",
-                "pending_ordinal": "h0-raw-first-observer-1",
+                "review_topic": "max77705-irq-corpus",
+                "pending_ordinal": "h0-max77705-irq-corpus-4",
                 "pending_action": (
-                    "P319_RAW_FIRST_OBSERVER_BOUNDARY_"
+                    "P319_MAX77705_IRQ_DT_CORPUS_AUDIT_V2_"
                     "IMPLEMENTED_REVIEW_PENDING"
                 ),
-                "resolution_ordinal": "h0-raw-first-observer-review-1",
+                "resolution_ordinal": "h0-max77705-irq-corpus-review-4",
                 "resolution_action": (
-                    "PASS_GO_P319_RAW_FIRST_OBSERVER_BOUNDARY_H0_CAPABILITY_V1"
+                    "PASS_GO_P319_MAX77705_IRQ_DT_CORPUS_"
+                    "AUDIT_V2_H0_CAPABILITY"
                 ),
             },
         )
