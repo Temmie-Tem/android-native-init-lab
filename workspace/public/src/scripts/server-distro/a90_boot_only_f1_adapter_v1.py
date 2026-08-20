@@ -200,20 +200,29 @@ def _one_line(text: str, pattern: re.Pattern[str], label: str) -> re.Match[str]:
 def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     candidates = value.get("serial_candidates")
     pids = value.get("port_pids")
+    metadata, selected_realpath = value.get("metadata"), value.get("selected_realpath")
+    candidates_valid = type(candidates) is list and all(
+        type(candidate) is dict for candidate in candidates
+    )
+    bound_candidates = [
+        candidate for candidate in candidates if candidate.get("path") == FIXED_SERIAL
+    ] if candidates_valid else []
     if (
         value.get("wrapper_contract") != 1
         or value.get("bridge_process") != "running"
         or value.get("port_listening") is not True
-        or value.get("ambiguous") is not False
+        or type(value.get("ambiguous")) is not bool
         or type(candidates) is not list
-        or len(candidates) != 1
-        or type(candidates[0]) is not dict
-        or candidates[0].get("path") != FIXED_SERIAL
-        or candidates[0].get("exists") is not True
-        or candidates[0].get("realpath") != value.get("selected_realpath")
+        or len(bound_candidates) != 1
+        or bound_candidates[0].get("exists") is not True
+        or bound_candidates[0].get("realpath") != selected_realpath
         or value.get("selected_device") != FIXED_SERIAL
-        or type(value.get("selected_realpath")) is not str
-        or TTY_RE.fullmatch(value["selected_realpath"]) is None
+        or type(selected_realpath) is not str
+        or TTY_RE.fullmatch(selected_realpath) is None
+        or type(metadata) is not dict
+        or metadata.get("device") != FIXED_SERIAL
+        or metadata.get("effective_expect_realpath") != selected_realpath
+        or metadata.get("pin_selected_realpath") is not True
         or type(pids) is not list
         or len(pids) != 1
         or type(pids[0]) is not int
@@ -223,7 +232,7 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
         raise ContractError("A90 bridge preflight is not exact")
     return {
         "selectedDevice": FIXED_SERIAL,
-        "selectedRealpath": value["selected_realpath"],
+        "selectedRealpath": selected_realpath,
         "bridgePid": pids[0],
     }
 

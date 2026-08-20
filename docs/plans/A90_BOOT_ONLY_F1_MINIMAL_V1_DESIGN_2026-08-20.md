@@ -57,8 +57,7 @@ retried without overwriting either log.
   the same boot and target identity prepared for approval, and that other
   targets were untouched. The adapter hashes a bounded complete `lsusb`
   inventory and requires exactly one Native A90 `04e8:6861`; other Samsung
-  endpoints may remain present but are never selected. The fixed A90 serial
-  symlink/realpath is checked separately. Recovery ADB binds the complete
+  endpoints may remain present but are never selected. The managed bridge must use the fixed A90 by-id device and pinned realpath; other by-id candidates do not make that explicit selection ambiguous. Recovery ADB binds the complete
   pre-existing non-recovery endpoint set, requires it to remain unchanged,
   and selects only one newly arrived recovery endpoint caused by the exact
   A90 Native recovery command. The private qualification additionally binds

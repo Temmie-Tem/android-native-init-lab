@@ -85,6 +85,11 @@ def bridge(*, ambiguous=False):
         ],
         "selected_device": A.FIXED_SERIAL,
         "selected_realpath": "/dev/ttyACM0",
+        "metadata": {
+            "device": A.FIXED_SERIAL,
+            "effective_expect_realpath": "/dev/ttyACM0",
+            "pin_selected_realpath": True,
+        },
         "port_pids": [1234],
     }
 
@@ -137,8 +142,23 @@ class FixedAdapterTest(unittest.TestCase):
             "fresh-enablePath", "fresh-latchPath",
         ])
 
-    def test_bridge_ambiguity_is_rejected(self):
-        runner = FakeRunner([usb_inventory(), result(bridge(ambiguous=True))])
+    def test_other_serial_candidate_is_allowed_but_fixed_a90_stays_selected(self):
+        value = bridge(ambiguous=True)
+        value["serial_candidates"].append(
+            {"path": "/dev/serial/by-id/other", "realpath": "/dev/ttyACM1", "exists": True}
+        )
+        snapshot = A.FixedA90Adapter(
+            FakeRunner([usb_inventory(), result(value), *healthy_results()[2:]]),
+            qualification=QUALIFICATION,
+        ).preflight(
+            {"expectedStart": self.expected, "qualification": QUALIFICATION}
+        )
+        snapshot.validate()
+
+    def test_bridge_rejects_wrong_selected_device(self):
+        value = bridge(ambiguous=True)
+        value["selected_device"] = "/dev/serial/by-id/other"
+        runner = FakeRunner([usb_inventory(), result(value)])
         with self.assertRaisesRegex(A.ContractError, "bridge preflight"):
             A.FixedA90Adapter(runner, qualification=QUALIFICATION).preflight(
                 {"expectedStart": self.expected, "qualification": QUALIFICATION}
@@ -291,7 +311,7 @@ class FixedAdapterTest(unittest.TestCase):
                 A.HostRunner(path)
 
     def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 550)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 560)
 
 
 if __name__ == "__main__":
