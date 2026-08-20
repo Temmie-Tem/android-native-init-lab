@@ -72,9 +72,10 @@ class HostRunner:
             raise ContractError("A90 minimal live adapter is disabled")
         if not log_directory.is_absolute():
             raise ContractError("adapter log directory is not absolute")
-        if log_directory.exists():
-            raise ContractError("adapter log directory already exists")
-        log_directory.mkdir(mode=0o700, parents=False)
+        try:
+            log_directory.mkdir(mode=0o700, parents=False)
+        except FileExistsError as exc:
+            raise ContractError("adapter log directory already exists") from exc
         _fsync_directory(log_directory.parent)
         self.log_directory = log_directory
         self.sequence = 0

@@ -416,6 +416,9 @@ identity:
   The first activated-closure review found fixed execute logs stranded a
   PREPARED candidate after wrong approval or pre-effect loss. Logs now use a
   derived monotonic per-run/per-phase ordinal and are never overwritten.
+  The second activated review found ambient-`sys.path` import dependence and a
+  log `exists`/`mkdir` race. Adapter loading now uses the exact sibling path and
+  log reservation is atomic with collision normalization/retry.
 
 ## What Leaves or Moves Out
 

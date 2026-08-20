@@ -596,6 +596,24 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(first.runner.log_directory.name, "a90-minimal-001-execute-1-logs")
         self.assertEqual(second.runner.log_directory.name, "a90-minimal-001-execute-2-logs")
 
+    def test_live_backend_adapter_import_does_not_depend_on_sys_path(self):
+        adapter_name = "a90_boot_only_f1_adapter_v1"
+        old_adapter = sys.modules.pop(adapter_name, None)
+        module_dir = str(SOURCE.parent)
+        old_path = list(sys.path)
+        sys.path[:] = [entry for entry in sys.path if entry != module_dir]
+        try:
+            backend = M._live_backend(self.manifest, "prepare")
+            self.assertEqual(
+                backend.runner.log_directory.name,
+                "a90-minimal-001-prepare-1-logs",
+            )
+        finally:
+            sys.path[:] = old_path
+            sys.modules.pop(adapter_name, None)
+            if old_adapter is not None:
+                sys.modules[adapter_name] = old_adapter
+
 
 class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):

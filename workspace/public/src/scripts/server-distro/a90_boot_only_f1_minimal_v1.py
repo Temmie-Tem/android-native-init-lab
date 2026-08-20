@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
 import stat
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -1222,12 +1224,23 @@ def ensure_run_root() -> None:
 def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
     if LIVE_EXECUTION_ENABLED is not True:
         raise ContractError("minimal F1 execution is disabled")
-    from a90_boot_only_f1_adapter_v1 import (
-        FixedA90Adapter,
-        HostRunner,
-        LIVE_ADAPTER_ENABLED,
-    )
-    if LIVE_ADAPTER_ENABLED is not True:
+    canonical_name = "a90_boot_only_f1_minimal_v1"
+    sys.modules.setdefault(canonical_name, sys.modules[__name__])
+    adapter_name = "a90_boot_only_f1_adapter_v1"
+    adapter = sys.modules.get(adapter_name)
+    if adapter is None:
+        adapter_path = Path(__file__).resolve().with_name(f"{adapter_name}.py")
+        specification = importlib.util.spec_from_file_location(adapter_name, adapter_path)
+        if specification is None or specification.loader is None:
+            raise ContractError("minimal F1 adapter import specification failed")
+        adapter = importlib.util.module_from_spec(specification)
+        sys.modules[adapter_name] = adapter
+        try:
+            specification.loader.exec_module(adapter)
+        except BaseException:
+            sys.modules.pop(adapter_name, None)
+            raise
+    if adapter.LIVE_ADAPTER_ENABLED is not True:
         raise ContractError("minimal F1 adapter is disabled")
     prefix = f"{manifest['runId']}-{phase}-"
     pattern = re.compile(re.escape(prefix) + r"([1-9][0-9]*)-logs")
@@ -1240,8 +1253,8 @@ def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
     for _attempt in range(8):
         log_directory = RUN_ROOT / f"{prefix}{ordinal}-logs"
         try:
-            runner = HostRunner(log_directory)
-            return FixedA90Adapter(
+            runner = adapter.HostRunner(log_directory)
+            return adapter.FixedA90Adapter(
                 runner, qualification=manifest["qualification"]
             )
         except ContractError as exc:
