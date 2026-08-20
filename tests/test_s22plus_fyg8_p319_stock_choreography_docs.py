@@ -53,6 +53,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The platform probe has two silent failure points, not one",
         "Successor H0 design: four of the five witnesses need no new code",
         "Successor transport correction: stock retention is not candidate retention",
+        "Review of the transport binding: the emitters are not in the plan",
         "What remains open",
         "Evidence",
     )
@@ -173,6 +174,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, flat)
+
+    def test_report_records_the_transport_review_gap(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**Every one\nof those lines is emitted by `pdic_max77705` or `mfd_max77705`**",
+            "on the\ncurrent plan the parser has nothing to parse",
+            "That requirement is load-bearing and unstated",
+            "it fails closed on\nexactly the plan shape the successor needs",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (

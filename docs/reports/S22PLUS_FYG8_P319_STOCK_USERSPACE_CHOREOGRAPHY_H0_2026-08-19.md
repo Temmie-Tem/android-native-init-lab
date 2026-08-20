@@ -2887,6 +2887,73 @@ creates no device or live authority. The next H0 unit is an external-corpus
 qualification of the bounded P3.19 live-kmsg parser, not a candidate build and
 not an F1 execution.
 
+## Review of the transport binding: the emitters are not in the plan
+
+The witness-transport unit is `IMPLEMENTED_REVIEW_PENDING`. This is that review.
+Its two load-bearing claims hold, its receipt reproduces, and it leaves one gap
+that has to be stated before the next unit starts.
+
+### Confirmed
+
+The `sec_log_buf` prohibition is sound and is the kind of claim that deserved
+checking, because it removes an option. The Carrier maps the 2,097,152-byte
+reserved region, seeds from the header's `idx`, and gates every later update on
+`head->idx == seed_idx` without advancing it. `sec_log_buf`'s probe copies the
+early printk buffer through `__log_buf_write`, which advances `idx` by the byte
+count, and its console writer does the same per message. So loading it after the
+seed does break the gate, and the module is correctly excluded.
+
+The correction to the design row `h0-successor-witness-design-1` is accepted.
+That row measured the **stock** 2 MiB FIFO and derived a byte budget from it.
+The candidate does not use that FIFO; it uses a fixed-`idx` direct Carrier
+record. The byte-budget framing describes the stock logger and does not transfer,
+and the row's design implication was wrong on that point.
+
+The receipt reproduces here at 4111 bytes / `ef917cd32f743386...`, and the
+auditor's plan check is a real mechanical parse of the bound header rather than
+an assertion: 70 rows, last row `i2c-msm-geni.ko`, `mfd_max77705.ko` and
+`pdic_max77705.ko` both absent.
+
+### The gap: the parser targets lines this plan cannot produce
+
+The successor delta specifies a `/dev/kmsg` parser for the bind/probe identity,
+the IRQ five-tuple, the printed status bytes and the classification. **Every one
+of those lines is emitted by `pdic_max77705` or `mfd_max77705`**, and the same
+unit proves those two modules are not in the bound 70-entry plan. So on the
+current plan the parser has nothing to parse — not because the transport is
+weak, but because the emitters never run.
+
+Nothing in the delivered design states that the successor's plan must carry
+them. That requirement is load-bearing and unstated, and it is not an inference
+the next unit should have to make: witnesses 2, 3, 4a and 4b are unreachable
+without it, no matter how good the drain is.
+
+The campaign has carried such a plan before. This report records that the
+`S7A2`, `M7`, `M11`, `M12` and `M18` **plans** included `pdic_max77705` — a
+planned load, not a proven one, as an earlier correction established. So
+restoring the modules is a return to a shape the campaign has already built,
+not new ground.
+
+### A forward-compatibility note on the auditor
+
+`audit_effective_plan()` raises `AuditError("P3.18 unexpectedly carries stock
+MAX77705 modules")` when either module name appears. As an identity assertion on
+the bound P3.18 artifact that is correct and should stay. But it fails closed on
+exactly the plan shape the successor needs, so if a successor plan is ever passed
+through this path the check has to move from "these modules are absent" to
+"these modules match the plan under audit". Recording it now is cheaper than
+rediscovering it when the successor plan first runs.
+
+### What this does not change
+
+The transport choice itself is right. Draining per module rather than after the
+loop, counting returned bytes with overflow rejection, preserving first/last
+sequence alongside the existing `EPIPE` and gap terminals, and publishing only a
+structured summary through the Carrier while never treating transient printk
+text as retained authority — all of that stands, and the ordering of witness 1
+from the `finit_module` return rather than from PID 1's own log line is a
+genuine improvement over what this report proposed.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
