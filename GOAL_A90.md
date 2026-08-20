@@ -395,6 +395,9 @@ identity:
   A fourteenth review found different candidates could overlap. One durable
   capability-wide active-run guard now serializes all A90 F1 candidates and is
   removed only after an exact terminal; crashes keep it blocking.
+  A fifteenth review found recovery-required terminals also removed that guard.
+  Release is now limited to exact healthy candidate or healthy V2321 rollback;
+  uncertainty remains globally blocking.
 
 ## What Leaves or Moves Out
 

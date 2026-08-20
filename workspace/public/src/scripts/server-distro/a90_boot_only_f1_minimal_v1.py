@@ -997,7 +997,8 @@ def _terminal(
         "40-terminal.json",
         _record("TERMINAL", manifest_sha256, payload),
     )
-    _release_active_guard(manifest)
+    if terminal in {"PASS_A90_RESIDENT_INSTALLED", "NO_PROOF_ROLLED_BACK"}:
+        _release_active_guard(manifest)
     return payload
 
 

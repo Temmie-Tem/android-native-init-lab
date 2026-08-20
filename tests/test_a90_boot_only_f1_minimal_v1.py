@@ -469,6 +469,7 @@ class MinimalF1Test(unittest.TestCase):
         result = M.execute(self.raw, self.manifest, run, token, backend)
         self.assertEqual(result["terminal"], "NO_PROOF_ROLLED_BACK")
         self.assertEqual([call[1] for call in backend.flash_calls], [False, True])
+        self.assertFalse((M.RUN_ROOT / "active-run.guard").exists())
 
     def test_observer_failure_rolls_back_instead_of_claiming_success(self):
         run, token = self._prepare()
@@ -493,6 +494,7 @@ class MinimalF1Test(unittest.TestCase):
         )
         result = M.execute(self.raw, self.manifest, run, token, backend)
         self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
 
     def test_nonquiescent_candidate_does_not_overlap_rollback(self):
         run, token = self._prepare()
@@ -500,6 +502,7 @@ class MinimalF1Test(unittest.TestCase):
         result = M.execute(self.raw, self.manifest, run, token, backend)
         self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
         self.assertEqual(len(backend.flash_calls), 1)
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
 
     def test_second_execute_cannot_replay_candidate(self):
         run, token = self._prepare()
