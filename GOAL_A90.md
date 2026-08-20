@@ -524,6 +524,12 @@ identity:
   `docs/reports/A90_H28_PHYSICAL_RETURN_SELFTEST_TRANSPORT_NO_PROOF_2026-08-21.md`.
   The next unit is a separately reviewed terminal-only slow-input observer
   repair; it grants no image, reboot, physical-action, or current live authority.
+  That unit is now specified by
+  `docs/plans/A90_H28_SLOW_HEALTH_RECONCILIATION_DESIGN_2026-08-21.md`.
+  It permits one fixed `a90ctl --input-mode slow` read-only health session only
+  after a new review and exact approval, then may remove only the active guard
+  after durable exact V2321 health. No implementation, review, approval,
+  observation, or guard authority exists at this design checkpoint.
 
 ## What Leaves or Moves Out
 

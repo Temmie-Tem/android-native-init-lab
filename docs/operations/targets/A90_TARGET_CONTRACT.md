@@ -1402,6 +1402,26 @@ uncertainty, or a record present with the active guard retained parks without
 another action. A PASS qualifies only these capability bytes; it does not
 itself authorize the physical continuation or any D0/D1/F1 action.
 
+The fixed follow-up selftest-transport incident may be reconciled only through
+`a90_h28_slow_health_reconcile_v1.py`. It applies after the exact H28 physical
+intent and first Native-observation intent are both consumed, exact V2321
+`version` returned, normal input truncated `selftest` before any A90P1 frame,
+`41-recovery-closed.json` remains absent, and both guards remain exact. It may
+send no ADB, TWRP, reboot, flash, candidate, rollback, partition, physical,
+service-control, or caller-selected command.
+
+After one current independent `PASS_GO` review, `prepare` may derive one exact
+approval without device contact or state write. One fresh approval may run one
+bounded read-only Native/ACM session. Before creating its observer it must
+durably consume that session with a no-replace slow-health intent. Its command
+set is exactly `version`, `selftest`, `status`, and boot ID through fixed
+`a90ctl --input-mode slow`; only `a90ctl`'s safe read-only retry may occur
+inside that one session. Intent-only or failed health parks without another
+observer. Exact V2321 `fail=0` health permits one durable recovery record and,
+after exact readback under the current review lease, removal of only the active
+guard. The H28 candidate guard remains consumed. A PASS grants no session or
+other live authority.
+
 For future ordinary F1 rollback only, the fixed helper may use
 `--reuse-bound-recovery-or-from-native`. One strict ADB inventory either binds
 exactly one already-present recovery endpoint whose serial SHA-256 is the
