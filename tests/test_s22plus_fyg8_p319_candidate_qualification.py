@@ -16,9 +16,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 QUALIFICATION = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_candidate_qualification.py"
 ADAPTER = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_stock_process_v2_adapter.py"
-PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-46"
-PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-47"
-RUN = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-07"
+PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-48"
+PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-49"
+RUN = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-08"
 REPORT = ROOT / "docs/reports/S22PLUS_FYG8_P319_STOCK_CANDIDATE_QUALIFICATION_H0_2026-08-21.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
@@ -42,6 +42,7 @@ class P319CandidateQualificationTest(unittest.TestCase):
         cls.phase1 = json.loads((PHASE1 / "result.json").read_bytes())
         cls.phase2 = json.loads((PHASE2 / "result.json").read_bytes())
         cls.qualification_result = json.loads((RUN / "qualification.json").read_bytes())
+        cls.static = json.loads((RUN / "static-reconstruction.json").read_bytes())
 
     def test_final_private_outputs_are_durable_and_role_bound(self):
         for path in (PHASE1 / "result.json", PHASE2 / "result.json", RUN / "intent.json"):
@@ -70,6 +71,25 @@ class P319CandidateQualificationTest(unittest.TestCase):
         self.assertEqual(intent["module_plan"]["eud_index"], 38)
         self.assertEqual(intent["runtime"]["status_width"], 3)
         self.assertFalse(intent["scope"]["device_contact"])
+
+    def test_qualify_consumes_declared_module_plan_authority(self):
+        intent = json.loads((RUN / "intent.json").read_bytes())
+        for field, bad_value in (
+            ("count", 72),
+            ("eud_index", 37),
+            ("overlay_delta", ["foreign.ko"]),
+        ):
+            mutated = json.loads(json.dumps(intent))
+            mutated["module_plan"][field] = bad_value
+            with self.assertRaises(self.qualification.QualificationError):
+                self.qualification.qualify(
+                    mutated,
+                    self.phase1,
+                    self.phase2,
+                    self.static,
+                    PHASE1,
+                    PHASE2,
+                )
 
     def test_stock_adapter_has_three_truthful_terminal_states(self):
         for state, classification, accepted in (
@@ -119,6 +139,7 @@ class P319CandidateQualificationTest(unittest.TestCase):
 
     def test_verify_intent_reopens_exact_disk_bytes_after_in_memory_load(self):
         original = json.loads((RUN / "intent.json").read_bytes())
+        original["source_keys"] = self.qualification._source_keys()
         with tempfile.TemporaryDirectory(prefix="p319-qualification-intent-") as directory:
             path = Path(directory) / "intent.json"
             path.write_bytes(self.qualification._canonical(original) + b"\n")
@@ -184,11 +205,11 @@ class P319CandidateQualificationTest(unittest.TestCase):
         report = REPORT.read_text()
         ledger = LEDGER.read_text()
         goal = GOAL.read_text()
-        self.assertIn("PASS_GO_P319_STOCK_CANDIDATE_QUALIFICATION_H0_CAPABILITY_V1", report)
+        self.assertIn("PASS_GO_P319_STOCK_CANDIDATE_QUALIFICATION_PLAN_BINDING_H0_CAPABILITY_V1", report)
         self.assertIn("No ready/run manifest", report)
-        self.assertIn("h0-stock-candidate-qualification-review-24", ledger)
-        self.assertIn("PASS_GO_P319_STOCK_CANDIDATE_QUALIFICATION_H0_CAPABILITY_V1", ledger)
-        self.assertIn("current P3.19 `-46`/`-47`/`-07` is independently reviewed H0-only `PASS_GO`", goal)
+        self.assertIn("h0-stock-candidate-qualification-plan-binding-review-26", ledger)
+        self.assertIn("PASS_GO_P319_STOCK_CANDIDATE_QUALIFICATION_PLAN_BINDING_H0_CAPABILITY_V1", ledger)
+        self.assertIn("current P3.19 `-48`/`-49`/`-08` is independently reviewed H0-only `PASS_GO`", goal)
         self.assertIn("Stage B has since run and read the mxim debug register dump 0x00-0x10", goal)
         self.assertIn("that dump does not contain CONTROL1", goal)
         self.assertIn("must not be cited as two candidate boots because the candidate observer was rejected", goal)

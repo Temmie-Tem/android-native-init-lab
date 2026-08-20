@@ -29,9 +29,9 @@ STOCK_SOURCE = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_s
 ADAPTER_SOURCE = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_stock_process_v2_adapter.py"
 PREDECESSOR_PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-32"
 PREDECESSOR_PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-33"
-DEFAULT_PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-46"
-DEFAULT_PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-47"
-DEFAULT_RUN_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-07"
+DEFAULT_PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-48"
+DEFAULT_PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-49"
+DEFAULT_RUN_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-08"
 IMAGE = ROOT / "workspace/private/outputs/s22plus_fyg8_p311/fixed-p310-ready-1/Image"
 P311_BASE_BOOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p311/candidate-a/boot.img"
 ROLLBACK_AP = ROOT / "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5"
@@ -627,13 +627,37 @@ def static_reconstruct(stock: types.ModuleType, result: dict[str, Any], phase1: 
 
 
 def qualify(intent: dict[str, Any], result1: dict[str, Any], result2: dict[str, Any], static: dict[str, Any], phase1: Path, phase2: Path) -> dict[str, Any]:
+    declared_plan = intent.get("module_plan")
+    if not isinstance(declared_plan, dict) or set(declared_plan) != {"count", "eud_index", "overlay_delta"}:
+        raise QualificationError("P319 intent module_plan schema differs")
+    declared_count = declared_plan.get("count")
+    declared_eud_index = declared_plan.get("eud_index")
+    declared_overlay = declared_plan.get("overlay_delta")
+    if (
+        type(declared_count) is not int or declared_count <= 0
+        or type(declared_eud_index) is not int or not 0 <= declared_eud_index < declared_count
+        or not isinstance(declared_overlay, list)
+        or not declared_overlay
+        or any(type(name) is not str or not name.endswith(".ko") for name in declared_overlay)
+        or len(set(declared_overlay)) != len(declared_overlay)
+    ):
+        raise QualificationError("P319 intent module_plan values differ")
+    result_plan = result1.get("plan", {})
+    if (
+        result1.get("target") != TARGET
+        or result_plan.get("module_count") != declared_count
+        or result_plan.get("eud_index") != declared_eud_index
+    ):
+        raise QualificationError("P319 target/declared plan identity differs")
+    result_overlay = result2.get("phase2", {}).get("candidate", {}).get("overlay_members")
+    expected_overlay = [f"lib/modules/{name}" for name in declared_overlay]
+    if result_overlay != expected_overlay:
+        raise QualificationError("P319 declared overlay differs from result")
     stock, _ = _load_stock()
     adapter, adapter_source = _load_adapter()
     adapter_audit = adapter.audit()
     if adapter_audit.get("verified") is not True or adapter_audit.get("full_record_required") is not True:
         raise QualificationError("P319 standalone adapter audit did not verify")
-    if result1["target"] != TARGET or result1["plan"]["module_count"] != 73 or result1["plan"]["eud_index"] != 38:
-        raise QualificationError("P319 target/plan identity differs")
     if result2["phase2"].get("built") is not True or result2["phase2"].get("userspace_compiles") != 3 or result2["phase2"].get("boot_builds") != 2 or result2["phase2"].get("ap_builds") != 2:
         raise QualificationError("P319 Phase2 build counts differ")
     if result2["scope"].get("device_contact") is not False or result2["scope"].get("live_authority_created") is not False:
@@ -655,9 +679,9 @@ def qualify(intent: dict[str, Any], result1: dict[str, Any], result2: dict[str, 
         "fixed_image": IMAGE_ID,
         "p311_clean_base": BASE_ID,
         "rollback_input": {"ap": ROLLBACK_AP_ID, "reopened": True, "process_v2_run_binding": False},
-        "derived_eud_index": 38,
-        "overlay": list(OVERLAY),
-        "exact_one_member_generic_overlay": len(OVERLAY) == 1 and OVERLAY == ("s22plus_dwc3_event_latch.ko",),
+        "derived_eud_index": declared_eud_index,
+        "overlay": list(declared_overlay),
+        "exact_one_member_generic_overlay": len(declared_overlay) == 1,
         "vendor_layer_stock_modules": 72,
         "diagnostic_absent": True,
         "child_replacement": True,
@@ -709,6 +733,7 @@ def _report_value(
         {"run": "candidate-qualification-v1-20260821-04", "phase1": "stock-witness-runtime-v1-20260821-40", "phase2": "stock-witness-runtime-v1-20260821-41", "reason": "pre-final strict JSON and closure binding"},
         {"run": "candidate-qualification-v1-20260821-05", "phase1": "stock-witness-runtime-v1-20260821-42", "phase2": "stock-witness-runtime-v1-20260821-43", "reason": "superseded by final source-only alignment", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
         {"run": "candidate-qualification-v1-20260821-06", "phase1": "stock-witness-runtime-v1-20260821-44", "phase2": "stock-witness-runtime-v1-20260821-45", "reason": "superseded by strict on-disk intent TOCTOU verification", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
+        {"run": "candidate-qualification-v1-20260821-07", "phase1": "stock-witness-runtime-v1-20260821-46", "phase2": "stock-witness-runtime-v1-20260821-47", "reason": "superseded by typed intent module-plan authority binding", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
     ):
         run_path = ROOT / "workspace/private/outputs/s22plus_fyg8_p319" / entry["run"]
         phase_root = ROOT / "workspace/private/outputs/s22plus_fyg8_p319"

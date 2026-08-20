@@ -41,7 +41,7 @@ class P319CandidateWitnessCarrierV5DocsTest(unittest.TestCase):
             goal,
         )
         self.assertIn(
-            "current P3.19 `-46`/`-47`/`-07` is independently reviewed H0-only `PASS_GO`",
+            "current P3.19 `-48`/`-49`/`-08` is independently reviewed H0-only `PASS_GO`",
             goal,
         )
         self.assertIn("no ready/run manifest", goal)
