@@ -520,15 +520,24 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         ):
             self.assertIn(token, self.design, token)
 
-    def test_adb_inventory_cannot_adopt_or_autostart_a_shared_server(self) -> None:
+    def test_adb_is_recovery_scoped_not_a_native_preflight_dependency(self) -> None:
         for token in (
-            "plain `adb devices -l` is not admissible",
-            "reuse a foreign server or auto-start a daemon",
-            "one private loopback server endpoint",
-            "`nodaemon` mode",
-            "without killing or trusting a pre-existing shared server",
+            "Native preflight performs no ADB operation",
+            "TWRP recovery window",
+            "Exact\nrecovery arrival/serial binding",
         ):
-            self.assertIn(token, self.design, token)
+            self.assertIn(token, self.raw, token)
+
+    def test_independent_evidence_does_not_recreate_owner_self_reference(self) -> None:
+        for token in (
+            "Tests, reports, reviews, and historical qualification bytes",
+            "excluded from\n`owner_source_closure()`",
+            "explicit `v2` schemas",
+            "Existing `v1` qualification objects are rejected",
+            "do not carry an\nowner-code hash",
+            "live approval separately binds those\ndigests together with the current owner closure",
+        ):
+            self.assertIn(token, self.raw, token)
 
     def test_runtime_rehash_replaces_delegated_verification(self) -> None:
         self.assertIn("at execution time", self.design)

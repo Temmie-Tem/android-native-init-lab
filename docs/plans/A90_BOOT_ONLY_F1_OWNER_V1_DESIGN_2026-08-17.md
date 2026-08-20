@@ -8,9 +8,10 @@ Status: **H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE
 DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE
 ARE PRESENT — live execution is hard-disabled. The fixed private runtime-source
 stager and four held-source command producer core are also present. The exact
-owner-controlled ADB-server inventory producer, crash-prefix resume, and the
-required independent full review remain absent. This qualifies nothing and
-grants no authority.**
+recovery endpoint binding, crash-prefix resume, and the required independent
+full review remain absent. Work Package 1 has removed tests from execution
+identity, decoupled independent evidence from owner code, and removed ADB from
+Native preflight. This qualifies nothing and grants no authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -86,8 +87,8 @@ unconditionally returns `NO_GO` even with `--operator-attended`.
 This is deliberately not a half-enabled F1 runner. The host-specific Python/ADB
 qualification is now generated from and rechecked against the current isolated
 Python `sys.path` trees and resolved ELF dependency files. It has not received
-a `PASS_GO` capability review. No live path exists until the exact owned ADB
-server/inventory producer and crash-prefix reconciler are implemented and the
+a `PASS_GO` capability review. No live path exists until exact recovery
+arrival/serial binding and the crash-prefix reconciler are implemented and the
 resulting execution-critical closure receives a fresh independent full review.
 
 ## The owner
@@ -135,6 +136,16 @@ binding a durable zero-skip receipt and the test source into the closure. Both
 disappear when the executing owner does the hashing. No reviewer reads private
 bytes, and no receipt needs binding, because the check happens where and when
 it matters.
+
+Tests, reports, reviews, and historical qualification bytes are validation
+evidence rather than executed source and are excluded from
+`owner_source_closure()`. Resident, recovery, and hazard qualifications have
+their own content lifetimes under explicit `v2` schemas and do not carry an
+owner-code hash. Existing `v1` qualification objects are rejected rather than
+silently reinterpreted. Their exact
+digests remain manifest inputs, and the live approval separately binds those
+digests together with the current owner closure, so decoupling evidence does
+not permit cross-run substitution.
 
 ### File lifetime and post-helper revalidation
 
@@ -417,7 +428,8 @@ a device during H0. It accepts exactly one A90 by-id endpoint resolving to one
 `/dev/ttyACM<N>` character device under USB `04e8:6861`, one loopback listener
 on `127.0.0.1:54321`, one bridge process with exact Python/script/host/port/
 device/realpath argv, no other serial or Samsung USB endpoint, and no ADB
-target. It then binds four strict cmdv1 receipts: `version`, `selftest`,
+dependency in Native or Debian. It then binds four strict cmdv1 receipts:
+`version`, `selftest`,
 `status`, and `cat /proc/sys/kernel/random/boot_id`. Exact version/build,
 `fail=0`, `pstore ... entries=0`, one canonical kernel boot UUID, and a bound
 physical-recovery qualification are all mandatory.
@@ -448,14 +460,11 @@ surviving group, malformed output, command mismatch, nonzero rc/status, or
 duplicate command is terminal. The observation session runs the fixed order
 once and always tears down the bridge before returning health.
 
-The exact ADB inventory producer that supplies the pre-bridge empty ADB fact,
-crash-prefix resume, and a fresh independent full-closure review remain
-absent. A plain `adb devices -l` is not admissible: it may reuse a foreign
-server or auto-start a daemon outside the subprocess lifetime. The future
-producer must bind one private loopback server endpoint, start ADB in
-`nodaemon` mode, inventory through only that server, and reap/prove the server
-absent without killing or trusting a pre-existing shared server.
-`SubprocessBackend` and CLI `execute` remain hard-disabled.
+Native preflight performs no ADB operation. The existing absolute ADB transport
+remains part of `native_init_flash.py` only for the TWRP recovery window. Exact
+recovery arrival/serial binding, crash-prefix resume, and a fresh independent
+full-closure review remain absent. `SubprocessBackend` and CLI `execute` remain
+hard-disabled.
 
 ## Approval is exact live authority
 
@@ -725,8 +734,7 @@ The owner is only as good as what it refuses. At minimum:
 - It does not provide a live-capable owner. The H0 contract/state-machine core,
   current-host runtime qualification, pure observation contract, fixed private
   source stager, and owner-controlled bridge plus four-command producer cores
-  exist. The exact owner-controlled ADB-server inventory producer and
-  crash-prefix resume remain
+  exist. Exact recovery arrival/serial binding and crash-prefix resume remain
   deliberately absent; the live CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard
   qualification.

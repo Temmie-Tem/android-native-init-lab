@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import datetime as dt
 import hashlib
+import inspect
 import os
 import signal
 import stat
@@ -501,6 +502,12 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(contract.ContractError):
                 contract.validate_review(hostile, closure, runtime_sha)
 
+    def test_execution_closure_excludes_tests_reports_and_reviews(self) -> None:
+        members = owner.owner_source_closure()
+        self.assertNotIn("tests/test_a90_boot_only_f1_owner_v1.py", members)
+        self.assertTrue(all(not path.startswith("docs/") for path in members))
+        self.assertTrue(all("review" not in path for path in members))
+
     def test_runtime_generator_reverifies_the_current_host_closure(self) -> None:
         closure = owner.owner_closure_sha256()
         generated = runtime_v1.build_runtime_qualification(closure)
@@ -584,21 +591,11 @@ class ContractTests(unittest.TestCase):
             )
 
     def test_bridge_probe_parsers_are_exact_and_fail_closed(self) -> None:
-        self.assertEqual(
-            observer_v1._adb_target_count("List of devices attached\n\n"), 0
+        self.assertNotIn(
+            "adb_devices_output",
+            inspect.signature(observer_v1.probe_endpoint_identity).parameters,
         )
-        self.assertEqual(
-            observer_v1._adb_target_count(
-                "List of devices attached\nserial\tdevice product:x\n"
-            ),
-            1,
-        )
-        for hostile in ("", "wrong header\n", "List of devices attached\nmalformed\n"):
-            with self.subTest(hostile=hostile), self.assertRaises(
-                contract.ContractError
-            ):
-                observer_v1._adb_target_count(hostile)
-
+        self.assertFalse(hasattr(observer_v1, "_adb_target_count"))
         with tempfile.TemporaryDirectory() as raw_root:
             tcp = Path(raw_root) / "tcp"
             tcp.write_text(
@@ -731,14 +728,12 @@ class ContractTests(unittest.TestCase):
                     Path(raw_root),
                     FakeFdExec,
                     popen_factory=popen,
-                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    endpoint_probe=lambda: bridge_endpoint(),
                     listener_absence_probe=lambda: None,
                     process_probe=process_probe,
                     teardown_probe=teardown_probe,
                 )
-                receipt = lifecycle.start(
-                    "List of devices attached\n\n", readiness_timeout_sec=1
-                )
+                receipt = lifecycle.start(readiness_timeout_sec=1)
                 command = launch["command"]
                 self.assertEqual(command[0:4], (str(owner.PYTHON_EXECUTABLE), "-I", "-c", FakeFdExec.PROGRAM))
                 self.assertEqual(command[4], str(artifact.fd))
@@ -790,7 +785,7 @@ class ContractTests(unittest.TestCase):
                     Path(raw_root),
                     FakeFdExec,
                     popen_factory=popen,
-                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    endpoint_probe=lambda: bridge_endpoint(),
                     listener_absence_probe=no_listener,
                     process_probe=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                         contract.ContractError("not ready")
@@ -799,9 +794,7 @@ class ContractTests(unittest.TestCase):
                     sleep=lambda _seconds: None,
                 )
                 with self.assertRaisesRegex(contract.ContractError, "timed out"):
-                    lifecycle.start(
-                        "List of devices attached\n\n", readiness_timeout_sec=1
-                    )
+                    lifecycle.start(readiness_timeout_sec=1)
                 self.assertEqual(launches, 1)
                 self.assertEqual(process.terminated, 1)
                 self.assertTrue(lifecycle.closed)
@@ -822,14 +815,12 @@ class ContractTests(unittest.TestCase):
                     Path(raw_root),
                     FakeFdExec,
                     popen_factory=lambda *_args, **_kwargs: process,
-                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    endpoint_probe=lambda: bridge_endpoint(),
                     listener_absence_probe=lambda: None,
                     process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
                     teardown_probe=lambda **_kwargs: None,
                 )
-                lifecycle.start(
-                    "List of devices attached\n\n", readiness_timeout_sec=1
-                )
+                lifecycle.start(readiness_timeout_sec=1)
                 closed = lifecycle.close(timeout_sec=0.1)
                 self.assertIs(closed["forced"], True)
                 self.assertEqual(process.terminated, 1)
@@ -851,16 +842,14 @@ class ContractTests(unittest.TestCase):
                     Path(raw_root),
                     FakeFdExec,
                     popen_factory=lambda *_args, **_kwargs: process,
-                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    endpoint_probe=lambda: bridge_endpoint(),
                     listener_absence_probe=lambda: None,
                     process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
                     teardown_probe=lambda **_kwargs: (_ for _ in ()).throw(
                         contract.ContractError("bridge teardown is unproved")
                     ),
                 )
-                lifecycle.start(
-                    "List of devices attached\n\n", readiness_timeout_sec=1
-                )
+                lifecycle.start(readiness_timeout_sec=1)
                 with self.assertRaisesRegex(contract.ContractError, "unproved"):
                     lifecycle.close()
                 self.assertTrue(lifecycle.closed)
@@ -884,16 +873,14 @@ class ContractTests(unittest.TestCase):
                     Path(raw_root),
                     FakeFdExec,
                     popen_factory=lambda *_args, **_kwargs: process,
-                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    endpoint_probe=lambda: bridge_endpoint(),
                     listener_absence_probe=lambda: None,
                     process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
                     teardown_probe=lambda **_kwargs: self.fail(
                         "unreaped process must not enter absence proof"
                     ),
                 )
-                lifecycle.start(
-                    "List of devices attached\n\n", readiness_timeout_sec=1
-                )
+                lifecycle.start(readiness_timeout_sec=1)
                 with self.assertRaises(subprocess.TimeoutExpired):
                     lifecycle.close(timeout_sec=0.1)
                 self.assertTrue(lifecycle.closed)
@@ -919,18 +906,14 @@ class ContractTests(unittest.TestCase):
                     Path(raw_root),
                     FakeFdExec,
                     popen_factory=lambda *_args, **_kwargs: process,
-                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    endpoint_probe=lambda: bridge_endpoint(),
                     listener_absence_probe=lambda: None,
                     process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
                     teardown_probe=lambda **_kwargs: None,
                 )
-                lifecycle.start(
-                    "List of devices attached\n\n", readiness_timeout_sec=1
-                )
+                lifecycle.start(readiness_timeout_sec=1)
                 with self.assertRaisesRegex(contract.ContractError, "not fresh"):
-                    lifecycle.start(
-                        "List of devices attached\n\n", readiness_timeout_sec=1
-                    )
+                    lifecycle.start(readiness_timeout_sec=1)
                 lifecycle.close()
                 with self.assertRaisesRegex(contract.ContractError, "cannot be closed"):
                     lifecycle.close()
@@ -1142,7 +1125,7 @@ class ContractTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.closed = 0
 
-            def start(self, _adb: str, *, readiness_timeout_sec: int) -> dict[str, Any]:
+            def start(self, *, readiness_timeout_sec: int) -> dict[str, Any]:
                 self.readiness_timeout_sec = readiness_timeout_sec
                 return source["bridge"]
 
@@ -1168,7 +1151,6 @@ class ContractTests(unittest.TestCase):
         session = owner.OwnedObservationSession(bridge, commands)
         health = session.observe(
             manifest()["expectedStart"],
-            adb_devices_output="List of devices attached\n\n",
             recovery_available=True,
             bridge_timeout_sec=7,
             command_timeout_sec=8,
@@ -1188,7 +1170,6 @@ class ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(contract.ContractError, "command failed"):
             failing.observe(
                 manifest()["expectedStart"],
-                adb_devices_output="List of devices attached\n\n",
                 recovery_available=True,
                 bridge_timeout_sec=7,
                 command_timeout_sec=8,
@@ -1196,11 +1177,11 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(failing_bridge.closed, 1)
 
     def test_resident_qualification_is_external_and_exact(self) -> None:
+        self.assertTrue(contract.RESIDENT_QUALIFICATION_SCHEMA.endswith("-v2"))
         expected = manifest()["expectedStart"]
         qualification = {
             "schema": contract.RESIDENT_QUALIFICATION_SCHEMA,
             "capability": contract.CAPABILITY,
-            "ownerClosureSha256": owner.owner_closure_sha256(),
             "version": expected["version"],
             "build": expected["build"],
             "installTerminalSha256": "d" * 64,
@@ -1208,30 +1189,29 @@ class ContractTests(unittest.TestCase):
             "disposition": "QUALIFIED_INSTALLED_RESIDENT",
         }
         self.assertEqual(
-            contract.validate_resident_qualification(
-                qualification, expected, owner.owner_closure_sha256()
-            ),
+            contract.validate_resident_qualification(qualification, expected),
             qualification,
         )
+        with self.assertRaises(contract.ContractError):
+            contract.validate_resident_qualification(
+                {**qualification, "ownerClosureSha256": "f" * 64}, expected
+            )
         for field, value in (
             ("version", "0.11.191"),
-            ("ownerClosureSha256", "f" * 64),
             ("installTerminalSha256", False),
             ("deviceSafetyState", "HEALTH_PENDING"),
         ):
             hostile = copy.deepcopy(qualification)
             hostile[field] = value
             with self.assertRaises(contract.ContractError):
-                contract.validate_resident_qualification(
-                    hostile, expected, owner.owner_closure_sha256()
-                )
+                contract.validate_resident_qualification(hostile, expected)
 
     def test_recovery_qualification_is_external_and_exact(self) -> None:
+        self.assertTrue(contract.RECOVERY_QUALIFICATION_SCHEMA.endswith("-v2"))
         item = manifest()
         qualification = {
             "schema": contract.RECOVERY_QUALIFICATION_SCHEMA,
             "capability": contract.CAPABILITY,
-            "ownerClosureSha256": item["ownerClosureSha256"],
             "plan": item["recovery"]["plan"],
             "rollbackSha256": item["rollback"]["sha256"],
             "physicalRecoveryDemonstrated": True,
@@ -1241,8 +1221,11 @@ class ContractTests(unittest.TestCase):
             contract.validate_recovery_qualification(qualification, item),
             qualification,
         )
+        with self.assertRaises(contract.ContractError):
+            contract.validate_recovery_qualification(
+                {**qualification, "ownerClosureSha256": "f" * 64}, item
+            )
         for field, value in (
-            ("ownerClosureSha256", "f" * 64),
             ("plan", "OTHER"),
             ("rollbackSha256", "f" * 64),
             ("physicalRecoveryDemonstrated", 1),
@@ -1252,6 +1235,36 @@ class ContractTests(unittest.TestCase):
             hostile[field] = value
             with self.subTest(field=field), self.assertRaises(contract.ContractError):
                 contract.validate_recovery_qualification(hostile, item)
+
+    def test_hazard_qualification_is_owner_independent_but_exact(self) -> None:
+        self.assertTrue(contract.QUALIFICATION_SCHEMA.endswith("-v2"))
+        qualification = {
+            "schema": contract.QUALIFICATION_SCHEMA,
+            "capability": contract.CAPABILITY,
+            "hazardId": "RKP_CFP_DISABLED_RESIDENT",
+            "disposition": "ACCEPTED_FOR_ATTENDED_F1",
+        }
+        self.assertEqual(
+            contract.validate_hazard_qualification(
+                qualification, "RKP_CFP_DISABLED_RESIDENT"
+            ),
+            qualification,
+        )
+        with self.assertRaises(contract.ContractError):
+            contract.validate_hazard_qualification(
+                {**qualification, "ownerClosureSha256": "f" * 64},
+                "RKP_CFP_DISABLED_RESIDENT",
+            )
+        for field, value in (
+            ("hazardId", "OTHER"),
+            ("disposition", "PENDING"),
+        ):
+            hostile = copy.deepcopy(qualification)
+            hostile[field] = value
+            with self.assertRaises(contract.ContractError):
+                contract.validate_hazard_qualification(
+                    hostile, "RKP_CFP_DISABLED_RESIDENT"
+                )
 
     def test_bound_artifact_rejects_indirection_links_mode_and_swap(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
@@ -1570,7 +1583,7 @@ class OwnerStateMachineTests(unittest.TestCase):
         self.assertNotIn("a90_v3403_f1_orchestrator", source)
         self.assertFalse(owner.LIVE_EXECUTION_ENABLED)
         self.assertIn("PRIVATE_SOURCE_BRIDGE_COMMAND_CORE_PRESENT", owner.IMPLEMENTATION_STATUS)
-        self.assertIn("ADB_SERVER_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
+        self.assertIn("RECOVERY_BINDING_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
         with tempfile.TemporaryDirectory() as raw_root:
             with self.assertRaisesRegex(contract.ContractError, "H0-disabled"):
                 owner.SubprocessBackend(fake_bindings(), Path(raw_root))

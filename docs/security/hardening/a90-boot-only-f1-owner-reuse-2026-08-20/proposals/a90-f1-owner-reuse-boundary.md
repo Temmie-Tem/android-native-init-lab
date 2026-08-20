@@ -7,6 +7,9 @@ without turning every host package update, test edit, or evidence refresh into a
 new F1 capability. This proposal is design-only. It grants no device authority
 and does not claim that any option has been implemented.
 
+The operator selected Option 2 on 2026-08-20. Implementation remains phased H0
+work under [the stable-package implementation plan](../implementation/stable-a90-owner-package.md).
+
 ## Executive Recommendation
 
 The complete option set is:

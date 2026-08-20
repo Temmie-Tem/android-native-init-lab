@@ -22,9 +22,9 @@ CAPABILITY = "A90_BOOT_ONLY_F1_OWNER_V1"
 MANIFEST_SCHEMA = "a90-boot-only-f1-manifest-v1"
 REVIEW_SCHEMA = "a90-boot-only-f1-capability-review-v1"
 RUNTIME_QUALIFICATION_SCHEMA = "a90-boot-only-f1-runtime-qualification-v1"
-RESIDENT_QUALIFICATION_SCHEMA = "a90-boot-only-f1-resident-qualification-v1"
-RECOVERY_QUALIFICATION_SCHEMA = "a90-boot-only-f1-recovery-qualification-v1"
-QUALIFICATION_SCHEMA = "a90-boot-only-f1-hazard-qualification-v1"
+RESIDENT_QUALIFICATION_SCHEMA = "a90-boot-only-f1-resident-qualification-v2"
+RECOVERY_QUALIFICATION_SCHEMA = "a90-boot-only-f1-recovery-qualification-v2"
+QUALIFICATION_SCHEMA = "a90-boot-only-f1-hazard-qualification-v2"
 APPROVAL_BINDING_SCHEMA = "a90-boot-only-f1-approval-binding-v1"
 APPROVAL_SCHEMA = "a90-boot-only-f1-approval-v1"
 JOURNAL_SCHEMA = "a90-boot-only-f1-journal-record-v1"
@@ -349,7 +349,6 @@ def validate_manifest(value: Any) -> dict[str, Any]:
 def validate_resident_qualification(
     value: Any,
     expected: dict[str, Any],
-    owner_closure_sha256: str,
 ) -> dict[str, Any]:
     qualification = require_object(
         value,
@@ -357,7 +356,6 @@ def validate_resident_qualification(
             {
                 "schema",
                 "capability",
-                "ownerClosureSha256",
                 "version",
                 "build",
                 "installTerminalSha256",
@@ -370,7 +368,6 @@ def validate_resident_qualification(
     if (
         qualification["schema"] != RESIDENT_QUALIFICATION_SCHEMA
         or qualification["capability"] != CAPABILITY
-        or qualification["ownerClosureSha256"] != owner_closure_sha256
         or qualification["version"] != expected["version"]
         or qualification["build"] != expected["build"]
         or qualification["deviceSafetyState"] != "RESIDENT_HEALTHY"
@@ -394,7 +391,6 @@ def validate_recovery_qualification(
             {
                 "schema",
                 "capability",
-                "ownerClosureSha256",
                 "plan",
                 "rollbackSha256",
                 "physicalRecoveryDemonstrated",
@@ -406,7 +402,6 @@ def validate_recovery_qualification(
     if (
         qualification["schema"] != RECOVERY_QUALIFICATION_SCHEMA
         or qualification["capability"] != CAPABILITY
-        or qualification["ownerClosureSha256"] != manifest["ownerClosureSha256"]
         or qualification["plan"] != manifest["recovery"]["plan"]
         or qualification["rollbackSha256"] != manifest["rollback"]["sha256"]
         or qualification["physicalRecoveryDemonstrated"] is not True
@@ -568,17 +563,15 @@ def validate_review(
 def validate_hazard_qualification(
     value: Any,
     hazard_id: str,
-    owner_closure_sha256: str,
 ) -> dict[str, Any]:
     keys = frozenset(
-        {"schema", "capability", "hazardId", "ownerClosureSha256", "disposition"}
+        {"schema", "capability", "hazardId", "disposition"}
     )
     qualification = require_object(value, keys, "hazard qualification")
     if (
         qualification["schema"] != QUALIFICATION_SCHEMA
         or qualification["capability"] != CAPABILITY
         or qualification["hazardId"] != hazard_id
-        or qualification["ownerClosureSha256"] != owner_closure_sha256
         or qualification["disposition"] != "ACCEPTED_FOR_ATTENDED_F1"
     ):
         raise ContractError("hazard qualification mismatch")

@@ -191,7 +191,13 @@
         }
       ],
       "recommendedOptionId": "stable-a90-owner-package",
-      "recommendation": "Use one stable A90-specific owner package under the current trusted-host and repeated-kernel-experiment constraints; retain the corrected strong closure only if exact host runtime reproducibility is prioritized, and defer a static rewrite until campaign duration justifies it."
+      "recommendation": "Use one stable A90-specific owner package under the current trusted-host and repeated-kernel-experiment constraints; retain the corrected strong closure only if exact host runtime reproducibility is prioritized, and defer a static rewrite until campaign duration justifies it.",
+      "selection": {
+        "selectedOptionId": "stable-a90-owner-package",
+        "selectedAt": "2026-08-20",
+        "implementationPlanPath": "implementation/stable-a90-owner-package.md",
+        "authorityGranted": false
+      }
     }
   ],
   "openQuestions": [

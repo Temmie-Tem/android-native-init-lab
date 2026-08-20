@@ -38,6 +38,9 @@ and broad host runtime trees outside the execution digest. One package, one
 owned serial bridge, one four-command observation worker, the existing
 recovery-only ADB helper, and a small journal resume table are enough.
 
+The operator selected this option on 2026-08-20. The ordered H0 migration is
+recorded in the [implementation plan](implementation/stable-a90-owner-package.md).
+
 The current stronger closure remains a fair choice for a locked workstation
 where exact host reproducibility outweighs experiment speed. A static binary is
 the cleaner long-term boundary but is not proportionate before we know the
@@ -45,9 +48,9 @@ remaining A90 campaign length.
 
 ## Next Decisions
 
-1. Select the stable-package recommendation or retain the current strong
-   closure.
+1. Complete the remaining stable-package work packages without enabling live
+   execution.
 2. Decide whether recovery ADB serial is stable or must be bound by exact-one
    USB arrival/topology.
-3. After selection, produce an implementation plan; do not modify the live
-   owner or enable F1 from this proposal alone.
+3. Freeze and independently review the final execution closure before any
+   candidate preparation or F1 authority.

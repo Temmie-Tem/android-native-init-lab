@@ -202,18 +202,7 @@ def prove_listener_absent(proc_root: Path = Path("/proc")) -> None:
         raise ContractError("A90 bridge listener already exists")
 
 
-def _adb_target_count(adb_devices_output: str) -> int:
-    lines = [line.strip() for line in adb_devices_output.replace("\r", "").splitlines()]
-    if not lines or lines[0] != "List of devices attached":
-        raise ContractError("ADB inventory framing mismatch")
-    entries = [line for line in lines[1:] if line]
-    if any("\t" not in line for line in entries):
-        raise ContractError("ADB inventory entry is malformed")
-    return len(entries)
-
-
 def probe_endpoint_identity(
-    adb_devices_output: str,
     *,
     serial_root: Path = Path("/dev/serial/by-id"),
     sys_class_tty: Path = Path("/sys/class/tty"),
@@ -250,7 +239,7 @@ def probe_endpoint_identity(
         if (entry / "idVendor").is_file() and _read_ascii(entry / "idVendor").lower() == "04e8":
             samsung_parents.add(entry.resolve(strict=True))
     other_usb = sum(parent != usb_parent for parent in samsung_parents)
-    other_targets = other_serial + other_usb + _adb_target_count(adb_devices_output)
+    other_targets = other_serial + other_usb
     if other_targets != 0:
         raise ContractError("observer endpoint inventory is ambiguous")
     return {

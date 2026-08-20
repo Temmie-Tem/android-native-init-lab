@@ -354,14 +354,18 @@ identity:
   isolated command subprocesses then load only that held closure and can issue
   only `version`, `selftest`, `status`, and the kernel boot-ID read in fixed
   order; timeout, malformed output, surviving descendants, or duplication
-  yields no observation receipt, and the bridge always closes. A plain
-  `adb devices -l` is rejected because it may reuse or auto-start an unowned
-  server; an exact private-loopback `nodaemon` ADB-server lifecycle, crash-
-  prefix resume, and independent full execution-closure review remain open.
+  yields no observation receipt, and the bridge always closes. Stable-owner
+  Work Package 1 now excludes tests/reviews from execution identity, gives
+  resident/recovery/hazard `v2` evidence an owner-independent lifetime while
+  rejecting old `v1` bytes and while the manifest and approval still bind
+  their digests, and removes ADB from Native
+  preflight. ADB remains only in the existing TWRP recovery flash path. Exact
+  recovery arrival/serial binding, crash-prefix resume, and independent full
+  execution-closure review remain open.
   Therefore no H27 manifest, approval, ordinal,
-  D0, D1, or F1 authority exists. The next owner unit is the H0 exact ADB
-  inventory producer plus crash reconciler, followed by one fresh full review
-  of the frozen closure.
+  D0, D1, or F1 authority exists. The next owner unit is the H0 stable package
+  consolidation, followed by observation consolidation, the crash reconciler,
+  and one fresh full review of the frozen closure.
 
 ## What Leaves or Moves Out
 

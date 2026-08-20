@@ -58,7 +58,7 @@ import a90_boot_only_f1_observer_v1 as observer_v1
 
 IMPLEMENTATION_STATUS = (
     "H0_RUNTIME_QUALIFIED_PRIVATE_SOURCE_BRIDGE_COMMAND_CORE_PRESENT_"
-    "ADB_SERVER_AND_RESUME_ABSENT"
+    "RECOVERY_BINDING_AND_RESUME_ABSENT"
 )
 LIVE_EXECUTION_ENABLED = False
 PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
@@ -494,7 +494,6 @@ class OwnedBridgeLifecycle:
 
     def start(
         self,
-        adb_devices_output: str,
         *,
         readiness_timeout_sec: float,
     ) -> dict[str, Any]:
@@ -506,7 +505,7 @@ class OwnedBridgeLifecycle:
             raise ContractError("owned bridge readiness timeout is invalid")
         self.bindings.checkpoint()
         self.listener_absence_probe()
-        self.endpoint = self.endpoint_probe(adb_devices_output)
+        self.endpoint = self.endpoint_probe()
         bridge = self.bindings.artifacts["helper:serial_tcp_bridge.py"]
         arguments = (
             "--host",
@@ -743,13 +742,11 @@ class OwnedObservationSession:
         self,
         expected: dict[str, Any],
         *,
-        adb_devices_output: str,
         recovery_available: bool,
         bridge_timeout_sec: int,
         command_timeout_sec: int,
     ) -> observer_v1.ObservedHealth:
         bridge_receipt = self.bridge.start(
-            adb_devices_output,
             readiness_timeout_sec=bridge_timeout_sec,
         )
         try:
@@ -811,7 +808,6 @@ def owner_source_closure() -> dict[str, dict[str, Any]]:
         Path(__file__).with_name("a90_boot_only_f1_contract_v1.py").resolve(),
         Path(__file__).with_name("a90_boot_only_f1_runtime_v1.py").resolve(),
         Path(__file__).with_name("a90_boot_only_f1_observer_v1.py").resolve(),
-        REPO_ROOT / "tests/test_a90_boot_only_f1_owner_v1.py",
     }
     result: dict[str, dict[str, Any]] = {}
     for path in sorted(members):
@@ -914,7 +910,7 @@ def _bound_artifacts(
             artifacts["resident-qualification"], "resident qualification"
         )
         validate_resident_qualification(
-            resident_value, expected, manifest["ownerClosureSha256"]
+            resident_value, expected
         )
         qualifications["resident"] = resident_value
         recovery = manifest["recovery"]
@@ -949,7 +945,7 @@ def _bound_artifacts(
                 artifacts[role], f"hazard qualification {index}"
             )
             validate_hazard_qualification(
-                hazard_value, hazard["id"], manifest["ownerClosureSha256"]
+                hazard_value, hazard["id"]
             )
             qualifications[role] = hazard_value
         helper = manifest["flashHelper"]
@@ -1700,7 +1696,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.operator_attended is not True:
             raise ContractError("A90 F1 is attended-only")
         raise ContractError(
-            "live execution remains blocked: owned ADB server and crash-prefix resume absent"
+            "live execution remains blocked: recovery binding and crash-prefix resume absent"
         )
     raise ContractError("unknown owner action")
 
