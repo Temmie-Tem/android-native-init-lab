@@ -257,6 +257,18 @@ class PretransferAbortReconcileTest(unittest.TestCase):
             )
         release.assert_called_once_with(Path("/active"), b"a", "active run guard")
 
+    def test_internally_consistent_foreign_manifest_journal_is_rejected(self):
+        records = {
+            name: {"manifestSha256": "e" * 64, "payload": {}}
+            for name in M.ROLLBACK_PATH
+        }
+        with self.assertRaisesRegex(M.ContractError, "fixed manifest"):
+            R._require_incident_records(
+                records,
+                {"candidate": {"sha256": "a" * 64}, "rollback": {"sha256": "b" * 64}},
+                "d" * 64,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

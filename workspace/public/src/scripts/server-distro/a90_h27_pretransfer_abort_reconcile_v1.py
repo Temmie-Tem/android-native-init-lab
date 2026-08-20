@@ -331,10 +331,17 @@ def validate_pretransfer_logs(
 
 
 def _require_incident_records(
-    records: dict[str, dict[str, Any]], manifest: dict[str, Any]
+    records: dict[str, dict[str, Any]],
+    manifest: dict[str, Any],
+    manifest_sha256: str,
 ) -> None:
     if tuple(records) not in (owner.ROLLBACK_PATH, owner.PRETRANSFER_ABORT_PATH):
         raise owner.ContractError("incident journal is not the exact rollback terminal")
+    if any(
+        record.get("manifestSha256") != manifest_sha256
+        for record in records.values()
+    ):
+        raise owner.ContractError("incident journal does not bind the fixed manifest")
     terminal = records["40-terminal.json"]["payload"]
     if (
         terminal.get("schema") != owner.RESULT_SCHEMA
@@ -453,7 +460,7 @@ def reconcile() -> dict[str, Any]:
     owner._require_run_path(run_directory, RUN_ID)
     _require_direct_private_directory(EXECUTE_LOG_DIRECTORY, "fixed execute log directory")
     records = owner.read_records(run_directory)
-    _require_incident_records(records, manifest)
+    _require_incident_records(records, manifest, owner.sha256_bytes(raw))
 
     if "41-pretransfer-abort.json" not in records:
         owner._require_active_guard(manifest)
