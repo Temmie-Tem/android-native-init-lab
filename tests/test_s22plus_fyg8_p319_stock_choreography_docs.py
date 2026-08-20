@@ -63,6 +63,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Review of the witness parser, and a coupling that will keep breaking audits",
         "Semantic manifest binding: duplicate paths no longer rewrite authority",
         "The manifest coupling is fixed, and the fix is invariant in the right direction",
+        "The Carrier's two new emitters convert a load into a rebuild",
         "What remains open",
         "Evidence",
     )
@@ -336,6 +337,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "| +1 genuinely new distinct capture | **changed** |",
             "**The\nsecond row is the one that makes the fix worth having**",
             "recognises it as the success signal rather\nthan as breakage",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_costs_the_vendor_module_rebuild(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**zero extra I2C\ntransactions**",
+            "`sys_finit_module(fd, \"\", 0)` — **flags\nzero**",
+            "**22,131 consumer-side symbol/CRC rows\nacross 4,060 unique symbols**",
+            "the same release **without `-gki-`**",
+            "costing them as \"compile\nthe source\" understates them by that entire gate",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)

@@ -3530,6 +3530,93 @@ writing down now so that whoever sees those two audits go red on the day a
 candidate finally retains evidence recognises it as the success signal rather
 than as breakage.
 
+## The Carrier's two new emitters convert a load into a rebuild
+
+The Envelope-v5 Carrier is implemented and its receipt reproduces at 11,647
+bytes / `05ee3385c8c80010...`. This section reviews the one consequence its own
+limits statement points at but does not cost.
+
+### What the unit did, and it is not what this report expected
+
+This report concluded that W5, the parent `0x23` bit-3 readback, had no read
+path: no log emitter, no sysfs, no debugfs, no regmap surface. That was correct
+about the **stock** driver and it stopped there. The unit's answer is to patch
+the driver source, which is a route this report did not consider:
+
+- `max77705_muic_detect_dev` is patched to print all five status bytes it
+  already holds, closing the "three bytes, not five" gap at **zero extra I2C
+  transactions**. That part is elegant.
+- `max77705_usbc_umask_irq` is patched to check the existing `0x23` write, add
+  one readback, and emit `P319_INTSRC_MASK:0x%02x`.
+
+The unit is explicit that this is source only: "No new `pdic_max77705.ko`, boot
+image, AP archive, manifest, or candidate build exists", and "a future candidate
+build must compile and bind the materialized driver source before any
+qualification can claim that the new emitters execute." That statement is
+correct and was made before this review.
+
+### What it costs, which the statement does not say
+
+Compiling that source produces a **rebuilt vendor module**, and the campaign has
+never shipped one. Today it *loads Samsung's own* `pdic_max77705.ko`, bound to
+the exact `vendor_dlkm` bytes. Replacing it changes the problem class.
+
+The shipped module declares
+
+```
+vermagic=5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8
+         SMP preempt mod_unload modversions aarch64
+```
+
+and the loader used by the candidate is `sys_finit_module(fd, "", 0)` — **flags
+zero**, so vermagic and `modversions` CRCs are both enforced. A rebuilt module
+must reproduce that vermagic exactly and satisfy the CRCs for every symbol it
+imports; the campaign's own map records **22,131 consumer-side symbol/CRC rows
+across 4,060 unique symbols** for the 441 shipped modules.
+
+The campaign's kernel-rebuild audit already records the gate this sits behind:
+"These CRCs prove only what shipped modules **require**. Provider compatibility
+is unproved until the completed Full-LTO `vmlinux.symvers` and rebuilt module
+set are compared against them" — alongside `stock_equivalent_claim=false`.
+
+And there is direct evidence the current build environment does not yet
+reproduce the vendor vermagic. The campaign's own module,
+`s22plus_dwc3_event_latch.ko`, carries
+
+```
+vermagic=5.10.226-android12-9-30958166-abS906NKSS7FYG8 ...
+```
+
+— the same release **without `-gki-`** — built from a tree whose
+`CONFIG_LOCALVERSION` is empty. Two different vermagic strings are in play, the
+loader compares them exactly, and nothing on this host shows the campaign
+producing the `-gki-` form.
+
+### What that means for sequencing
+
+The two new emitters are not a two-line patch in cost. They move
+`pdic_max77705` from *the vendor's byte, loaded* to *our byte, rebuilt*, which
+pulls in the Full-LTO provider-compatibility gate the campaign has explicitly
+not passed and which its own posture excludes ("no kernel rebuild").
+
+This does not argue against the patches. It argues about **when**. W4's missing
+two bytes and W5 both ride on that rebuild; W1 through W4a-as-three-bytes and
+W4b do not — they parse lines the shipped module already emits.
+
+So the split this report recommended earlier survives the Carrier unit and gets
+sharper. A first candidate carrying only the emitters that already exist needs
+no rebuilt vendor module at all. The patched-source witnesses belong to a second
+candidate, behind the provider-compatibility gate, and costing them as "compile
+the source" understates them by that entire gate.
+
+### One thing this makes newly urgent
+
+If a rebuilt vendor module is ever required, the vermagic question stops being
+academic. It is also worth noting that **whether any shipped vendor module has
+ever loaded on a candidate is still unproven** — that is precisely what W1, the
+per-module `finit_module` return, exists to answer, and it is the cheapest
+witness in the set.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
