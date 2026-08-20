@@ -47,6 +47,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The register accounting closes, and it closes on a bit the census hid",
         "The corpus holds kernel-side MUIC evidence, and all of it is stock",
         "The shipped MUIC attach guards do not block the AP path",
+        "The stock DT and nested IRQ chain close through the nonnegative I2C write path",
         "What remains open",
         "Evidence",
     )

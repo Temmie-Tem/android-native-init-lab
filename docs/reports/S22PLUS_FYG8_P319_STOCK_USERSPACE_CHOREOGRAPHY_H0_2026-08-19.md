@@ -2281,6 +2281,89 @@ USB/CDP, did the exact IRQ/DT wiring exist, and did the queued opcode reach the
 I2C worker?  Those are the next candidate-side checks.  No device action is
 needed to answer their structural half.
 
+## The stock DT and nested IRQ chain close through the nonnegative I2C write path
+
+The structural half is now answered, and the answer is another useful
+negative: the shipped DT, MFD demultiplexer and PDIC nested-IRQ wiring are
+internally consistent and the same path is visible end to end in a retained
+stock positive control. This does **not** say that a candidate loaded or bound
+the modules. It says that a defect in the stock DT or shipped IRQ demultiplexer
+is not an explanation for the candidate silence.
+
+The audit reads the 8388608-byte stock `dtbo.img`, SHA-256 `97a4864f...`, with a
+bounded FDT parser rather than `strings`. It contains 11 FDT blobs. The sole
+`Samsung G0Q PROJECT (board-id,12)` overlay is blob 10 at `0x6bdce4`, size
+708337, and targets `qupv3_se5_i2c`. Its enabled `max77705@66` node has:
+
+- compatible `maxim,max77705`, address `0x66`;
+- enabled child `max77705_pdic`;
+- interrupt tuple `<0x11 5 1>`, whose phandle node in the FDT itself resolves
+  as **pm8350c GPIO5**, active low; and
+- pinctrl state `if_pmic_irq`, also on GPIO5.
+
+The direct-ELF half uses the exact shipped 125840-byte `mfd_max77705.ko`,
+SHA-256 `26f23873...`, and the same 423456-byte `pdic_max77705.ko` used in the
+guard audit. The MFD module consumes `max77705,irq-gpio`, allocates 42 nested
+descriptors, converts the GPIO to the parent Linux IRQ, and registers a
+low-triggered one-shot threaded handler named `max77705-irq`. It publishes
+three MFD children, including `max77705-usbc`; that is exactly the PDIC platform
+driver name. Its parent handler reads the USBC interrupt group and calls
+`handle_nested_irq(irq_base + i)`.
+
+The PDIC probe registers five MUIC children at offsets 22, 23, 24, 26 and 27.
+CHGT is offset 26. Probe completion sets `cc_booting_complete = 1` and then
+clears parent INTSRC mask bit 3. Both order and polarity are bound in source
+and in the shipped machine code. Before that completion the handler may exist
+but the USBC group is not an enabled diagnostic path; after it, the parent can
+dispatch the nested MUIC sources.
+
+### The retained stock path agrees at every boundary
+
+The positive control is the exact 2097136-byte
+`postrollback_o3r1_last_kmsg.bin`, SHA-256 `8069cece...`. Its parent line
+occurs 174 times and always reports the same tuple: Linux IRQ `367`, nested IRQ
+base `324`, Linux GPIO `282`, IRQ source `0x08`, PMIC revision `0x05`. The
+kernel thread name `irq/367-max7770` is not a different action name: the kernel
+constructs `irq/367-max77705-irq` and `TASK_COMM_LEN=16` truncates it to the 15
+visible characters.
+
+The nested inventory is exact: VBUS is IRQ 346, VBADC is 347, and CHGT is 350.
+For CHGT, **`324 + 26 = 350`**, directly joining the live base to the PDIC
+offset. Six stock CDP attach sequences each preserve the same order:
+
+```text
+max77705_muic_irq irq:350 (muic-chgtyp)
+CDP classification
+max77705_muic_attach_usb_path usb_path=0
+com_to_usb_ap
+opcode_write: 00000000: 06 09
+muic_notifier_attach_attached_dev: (2)
+```
+
+That closes more than static compatibility. On stock, the enabled DT route
+produces the expected parent IRQ, the MFD demultiplexer produces the arithmetic
+expected nested IRQ, and the PDIC handler reaches the AP attach path.
+
+One wording needs an exact boundary. `opcode_write: 06 09` is emitted just
+*before* `max77705_bulk_write()`, so it is a pre-write buffer dump, not a
+physical-wire capture. The exact source calls the bulk write immediately after
+the dump; its caller logs `i2c write fail. dequeue opcode` on every negative
+return, and that failure line occurs zero times in this raw. The stock control
+therefore proves a **`06 09` I2C bulk-write attempt with a nonnegative return**,
+not an electrical acknowledgement independently observed on the bus.
+
+### Consequence and retained boundary
+
+The hypothesis that a stock DT, GPIO, MFD child-name, nested-offset or shipped
+demultiplexer defect explains the candidate silence is refuted. The result
+does not upgrade any rejected candidate observation and does not infer a
+candidate event from this stock log. The remaining direct boundary is
+**candidate-side module load, platform bind, `cc_booting_complete` publication,
+parent-USBC unmask, and initial status classification**. A successor should
+observe those gates rather than change another connector-side attach guard.
+The work is H0 only; it contacted no device and grants no D0, D1, F1, recovery,
+replay or live authority.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -2326,14 +2409,13 @@ which is the reason this section is restated rather than appended to.
   something outside these 268 segments — a download session or the kernel — and
   this unit did not identify which. Its effect on the analog path is also
   unread; the name is from the MUIC header, the semantics are not.
-- **The remaining candidate-side wiring and linkage.** The shipped
-  `pdic_max77705.ko` attach guards are now disassembled and the no-parameter
-  AP route is closed above. The device-tree and interrupt wiring remain
-  unexamined, and no `__ksymtab` closure has been run against the candidate
-  kernel. That is where the open question now lives: five candidates loaded
-  `pdic_max77705` and still failed, and the guards prove that the missing thing
-  was not an intrinsic no-parameter or no-userspace veto on `COM_USB`. All of
-  the remaining structural work is host-only.
+- **The remaining candidate-side load and bind boundary.** The shipped DT,
+  parent GPIO, MFD child publication, PDIC nested offsets, parent unmask and
+  stock queue-to-I2C path are closed above. What remains unproved is whether a
+  candidate loaded the required controller/MFD/PDIC chain, bound
+  `max77705-usbc`, completed probe, published `cc_booting_complete`, unmasked
+  the parent USBC source and classified the initial host state. The stock
+  positive control cannot supply those candidate-side facts.
 
 ## Evidence
 
@@ -2360,3 +2442,25 @@ the real private inputs, preserve that predecessor and reject CDP dispatch,
 AP/CP polarity, COM_USB value, water-guard polarity, additional water writer,
 common-MUIC default/formula and source-writer mutations.  This evidence is H0
 only and creates no device or live authority.
+
+The DT/nested-IRQ audit is
+`workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py`,
+44326 bytes/SHA-256 `eb044382...`. Eleven exact source/module inputs are
+snapshotted mode `0400`, link count one under the private mode-`0700` input
+directory; the 8 MiB stock DTBO and 2 MiB retained raw are read stably in place
+rather than duplicated. Its canonical `20260820-03` result is 8545 bytes/SHA-256
+`bc193d7e5a736ed59c4cd7c6fe289ec4dca83f8ba8f5abf431d76219e7217c66`,
+mode `0400`, link count one, under a mode-`0700` output root. Twelve focused
+tests execute the exact inputs and reject selected-DT GPIO, parent IRQ action,
+nested-dispatch bound, unmask polarity, CHGT offset, parent tuple, nested IRQ,
+pre-write command, injected I2C-failure and source bulk-write/unmask mutations.
+A fresh `--audit-only` encoding is byte-identical. This result is also H0 only
+and creates no device or live authority.
+
+Two predecessors remain preserved rather than overwritten. `20260820-01` is
+8187 bytes/SHA-256 `25be452a...`; `20260820-02` is 8370 bytes/SHA-256
+`6c3d25a7...`; both are mode `0400`, link count one. The second added direct
+FDT resolution of phandles `0x11` and `0x7b`. The third additionally corrects
+the `opcode_write` line from a wire observation to the exact pre-write buffer
+plus nonnegative-return conclusion. Only `20260820-03` is the current
+deterministic regeneration.
