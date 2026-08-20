@@ -1,5 +1,12 @@
 # A90 self-built kernel: first host build, four blockers, and one authorized deviation
 
+> **Superseded compiler conclusion (2026-08-21):** the statement below that
+> the required CFP compiler was not published is false. Exact Snapdragon LLVM
+> 10.0.7 was located and builds the unchanged RKP CFP/JOPP/ROPP configuration.
+> Preserve this report as the historical prior; use
+> `A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H28_H0_2026-08-21.md` for the
+> correction and current H0 result.
+
 Date: 2026-08-16
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0 host-only build on the operator's LAN build host

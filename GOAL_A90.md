@@ -346,8 +346,8 @@ identity:
   execute CLI; the activated closure itself is awaiting fresh review and still
   grants no run authority.
   ADB remains recovery-scoped; ordinary resident observation is Native serial.
-- Therefore no H27 manifest, approval, ordinal, D0, D1, or F1 authority
-  exists. The small H0 adapter for the existing Native serial and
+- At that checkpoint no H27 manifest, approval, ordinal, D0, D1, or F1
+  authority existed. The small H0 adapter for the existing Native serial and
   `native_init_flash.py` mechanisms is now present. Its
   recovery mode binds the stable pre-effect non-recovery ADB baseline and one
   newly arrived recovery endpoint whose serial SHA-256 matches the private A90
@@ -435,6 +435,20 @@ identity:
   No candidate/active guard or intent exists. The observed empty journal-dir
   residue prompted one final host repair: prepare now creates that directory
   only after target preflight and removes it on pre-effect guard contention.
+  That historical preflight was followed by one separately approved attended
+  H27 attempt. H27 was written once, boot-looped, and was never replayed; exact
+  V2321 was then written once and returned healthy, while the owner retained a
+  blocking `RECOVERY_REQUIRED` active guard because the rollback continuation
+  occurred outside its missing resume surface. Before another F1, an exact
+  terminal-only V2321 recovery receipt must close that run and the owner must
+  be reviewed with an already-present bound recovery-ADB continuation.
+  Host-only follow-up then located exact published Snapdragon LLVM 10.0.7,
+  rebuilt the unchanged RKP CFP/JOPP/ROPP configuration, and materialized
+  deterministic H28 `0.11.195 / phase3-minimal-h28-stock-rebuild-1007-cfp`
+  A/B boot artifacts at SHA-256
+  `aea34a96464affd2f7e6c30d237e2175940eef511e69c1452c9deab4833a521b`; see
+  `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H28_H0_2026-08-21.md`.
+  H28 remains H0-only: no D0, approval, ordinal, F1, or live authority exists.
 
 ## What Leaves or Moves Out
 
