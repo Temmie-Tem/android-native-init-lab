@@ -352,12 +352,12 @@ def _validate_absent_stat(value: dict[str, Any], path: str) -> bool:
         set(value) != {"begin", "end", "rc", "status", "trust", "text"}
         or type(value.get("rc")) is not int
         or value["rc"] != -2
-        or value.get("status") != "unknown"
+        or value.get("status") != "error"
         or value.get("trust") != "A90P1_V1_STRUCTURAL_ONLY"
         or type(end) is not dict
         or end.get("cmd") not in {None, "stat"}
         or end.get("rc") != "-2"
-        or end.get("status") != "unknown"
+        or end.get("status") != "error"
         or end.get("errno") != "2"
     ):
         raise ContractError("fresh state absence receipt is invalid")

@@ -68,9 +68,9 @@ def command(text, name):
 def absent_stat():
     return {
         "begin": {"cmd": "stat"},
-        "end": {"cmd": "stat", "rc": "-2", "status": "unknown", "errno": "2"},
+        "end": {"cmd": "stat", "rc": "-2", "status": "error", "errno": "2"},
         "rc": -2,
-        "status": "unknown",
+        "status": "error",
         "trust": "A90P1_V1_STRUCTURAL_ONLY",
         "text": "not found",
     }
@@ -288,6 +288,19 @@ class FixedAdapterTest(unittest.TestCase):
         with self.assertRaisesRegex(A.ContractError, "request binding"):
             A._validate_absent_stat(
                 wrong, QUALIFICATION["freshState"]["latchPath"]
+            )
+
+    def test_absent_stat_rejects_nonprotocol_unknown_status(self):
+        stale = absent_stat()
+        stale["status"] = "unknown"
+        stale["end"]["status"] = "unknown"
+        with self.assertRaisesRegex(A.ContractError, "fresh state absence"):
+            A._validate_absent_stat(
+                {
+                    "request": ["stat", QUALIFICATION["freshState"]["latchPath"]],
+                    "response": stale,
+                },
+                QUALIFICATION["freshState"]["latchPath"],
             )
 
     def test_recovery_qualification_is_required(self):
