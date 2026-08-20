@@ -62,6 +62,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Parser grammar input: the witness lines have four format strings, not two",
         "Review of the witness parser, and a coupling that will keep breaking audits",
         "Semantic manifest binding: duplicate paths no longer rewrite authority",
+        "The manifest coupling is fixed, and the fix is invariant in the right direction",
         "What remains open",
         "Evidence",
     )
@@ -327,6 +328,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIn("48c389e4", rows[0])
         self.assertIn("7744d9e7", rows[0])
         self.assertIn("no D0/D1/F1", rows[0])
+
+    def test_report_records_the_projection_invariance(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "| +40 pure duplicate paths, counts bumped | **unchanged** |",
+            "| +1 genuinely new distinct capture | **changed** |",
+            "**The\nsecond row is the one that makes the fix worth having**",
+            "recognises it as the success signal rather\nthan as breakage",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (

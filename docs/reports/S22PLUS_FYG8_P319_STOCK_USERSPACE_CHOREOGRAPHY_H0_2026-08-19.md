@@ -3475,6 +3475,61 @@ recovery, replay or live authority. The Envelope-v5/Carrier unit remains next;
 this repair only removes an unrelated generated-manifest tripwire from its
 test path.
 
+## The manifest coupling is fixed, and the fix is invariant in the right direction
+
+The semantic-binding unit replaces the byte pin this report objected to. Verified
+here, including the property that matters most: that the fix did not over-correct
+into insensitivity.
+
+### The projection drops exactly the drifting parts
+
+`corpus_semantic_projection()` rebuilds the manifest without
+`matching_files`, `duplicate_files_collapsed` and per-capture `paths`, sorts the
+captures by `sha256`, and serializes with sorted keys. Everything the report
+reasons from survives — the per-capture `bc_ctrl1_reads`, `boot_segments`,
+`muic_opcodes`, `setpath_occurrences`, the opcode census and the counts block.
+At 47,799 bytes across 121 captures it is around 395 bytes per capture, which is
+consistent with keeping the whole per-capture record minus its paths.
+
+### Tested against the failure mode, and against over-correction
+
+Driving the projection directly with mutated manifests:
+
+| mutation | projection |
+|---|---|
+| +40 pure duplicate paths, counts bumped | **unchanged** |
+| +1 genuinely new distinct capture | **changed** |
+| per-capture path order reversed | unchanged |
+| capture list order reversed | unchanged |
+
+The first row is the failure that broke both audits and it is closed. **The
+second row is the one that makes the fix worth having**: a binding that stopped
+noticing everything would have been worse than the byte pin. It still detects a
+real corpus change.
+
+The identity reproduces at 47,799 bytes / `c1c75743fcdb06a3...`, and both audits
+reproduce: IRQ at 16,818 bytes / `48c389e4e9afe369...` and PDIC at 15,563 bytes
+/ `7744d9e7c5d76148...`. P3.19 is back to a single failure, the known raw-first
+receipt population identity from parallel uncommitted S20+ files.
+
+The projection also fails closed on schema drift rather than silently projecting
+a subset: `set(manifest) != MANIFEST_KEYS` and `set(capture) != CAPTURE_KEYS`
+both raise, so adding or removing a census field aborts instead of quietly
+changing what is bound.
+
+### One thing to anticipate rather than a defect
+
+The projection is still a pinned identity, and by design it changes when a
+genuinely new distinct capture enters the corpus. The next legitimate growth of
+this corpus is **a candidate boot capture** — which is the campaign's goal. When
+that lands, the projection will change and both audit identities will need
+re-pinning.
+
+That is the intended semantics working, not a regression, and it is worth
+writing down now so that whoever sees those two audits go red on the day a
+candidate finally retains evidence recognises it as the success signal rather
+than as breakage.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
