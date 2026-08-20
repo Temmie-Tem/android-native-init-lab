@@ -405,6 +405,9 @@ identity:
   `recovery` and TWRP `reboot`. Minimal empty-baseline mode now sends each
   state-changing command once; response loss, busy, or no disconnect is
   uncertainty and never a resend.
+  An eighteenth review found failed or malformed `adb devices` output could
+  look empty. Minimal mode now requires successful strict inventory with exact
+  header, empty stderr, and no malformed/duplicate endpoint row.
 
 ## What Leaves or Moves Out
 

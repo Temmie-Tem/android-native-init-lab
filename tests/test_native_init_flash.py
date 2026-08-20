@@ -90,6 +90,33 @@ recovery-serial recovery
             ],
         )
 
+    def test_strict_adb_inventory_rejects_failure_and_malformed_lines(self) -> None:
+        self.assertEqual(
+            flash.parse_adb_devices_strict("List of devices attached\n\n"), []
+        )
+        for output in (
+            "",
+            "OTHER HEADER\n",
+            "List of devices attached\nOTHER\n",
+            "List of devices attached\nA recovery\nA device\n",
+        ):
+            with self.subTest(output=output), self.assertRaises(RuntimeError):
+                flash.parse_adb_devices_strict(output)
+
+        for result in (
+            types.SimpleNamespace(returncode=1, stdout="", stderr=""),
+            types.SimpleNamespace(
+                returncode=0,
+                stdout="List of devices attached\n\n",
+                stderr="daemon warning",
+            ),
+        ):
+            with self.subTest(result=result), mock.patch.object(
+                flash.subprocess, "run", return_value=result
+            ):
+                with self.assertRaisesRegex(RuntimeError, "inventory command"):
+                    flash.adb_devices("adb", strict=True)
+
     def test_unique_recovery_arrival_rejects_multiple_adb_endpoints(self) -> None:
         with mock.patch.object(
             flash,

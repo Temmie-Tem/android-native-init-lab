@@ -121,7 +121,25 @@ def parse_adb_devices(output: str) -> list[tuple[str, str]]:
     return devices
 
 
-def adb_devices(adb: str) -> list[tuple[str, str]]:
+def parse_adb_devices_strict(output: str) -> list[tuple[str, str]]:
+    lines = output.splitlines()
+    if not lines or lines[0].strip() != "List of devices attached":
+        raise RuntimeError("ADB inventory header is missing or malformed")
+    devices: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for raw_line in lines[1:]:
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) < 2 or parts[0] in seen:
+            raise RuntimeError("ADB inventory contains a malformed or duplicate endpoint")
+        seen.add(parts[0])
+        devices.append((parts[0], parts[1]))
+    return devices
+
+
+def adb_devices(adb: str, *, strict: bool = False) -> list[tuple[str, str]]:
     result = subprocess.run(
         [adb, "devices"],
         check=False,
@@ -129,6 +147,10 @@ def adb_devices(adb: str) -> list[tuple[str, str]]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+    if strict:
+        if result.returncode != 0 or result.stderr:
+            raise RuntimeError("ADB inventory command failed or wrote stderr")
+        return parse_adb_devices_strict(result.stdout)
     return parse_adb_devices(result.stdout)
 
 
@@ -144,12 +166,13 @@ def wait_for_adb_state(adb: str,
                        wanted_states: set[str],
                        timeout_sec: float,
                        *,
-                       require_unique: bool = False) -> tuple[str, str]:
+                       require_unique: bool = False,
+                       strict_inventory: bool = False) -> tuple[str, str]:
     deadline = time.monotonic() + timeout_sec
     last_devices: list[tuple[str, str]] = []
 
     while time.monotonic() < deadline:
-        last_devices = adb_devices(adb)
+        last_devices = adb_devices(adb, strict=strict_inventory)
         if require_unique and len(last_devices) > 1:
             rendered = ", ".join(
                 f"{device_serial}:{state}" for device_serial, state in last_devices
@@ -1137,7 +1160,7 @@ def main() -> int:
 
         if args.from_native:
             if args.require_empty_adb_baseline:
-                baseline = adb_devices(args.adb)
+                baseline = adb_devices(args.adb, strict=True)
                 if baseline:
                     rendered = ", ".join(
                         f"{device_serial}:{state}"
@@ -1154,6 +1177,7 @@ def main() -> int:
                 {"recovery"},
                 args.recovery_timeout,
                 require_unique=args.require_empty_adb_baseline,
+                strict_inventory=args.require_empty_adb_baseline,
             )
         if state != "recovery":
             raise RuntimeError(f"expected recovery state, got {state}")
