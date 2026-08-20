@@ -1,0 +1,45 @@
+{
+  "authority": {
+    "candidate": false,
+    "d0": false,
+    "f1": false,
+    "live": false
+  },
+  "candidate": {
+    "build": "phase3-minimal-h28-stock-rebuild-1007-cfp",
+    "sha256": "aea34a96464affd2f7e6c30d237e2175940eef511e69c1452c9deab4833a521b",
+    "size": 58372096,
+    "version": "0.11.195"
+  },
+  "capability": "A90_BOOT_ONLY_F1_MINIMAL_V1",
+  "executionClosureSha256": "0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f",
+  "expectedStart": {
+    "build": "v2321-usb-clean-identity-rodata",
+    "version": "0.9.285"
+  },
+  "freshState": {
+    "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h28.enable",
+    "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h28.done"
+  },
+  "hazard": {
+    "accepted": true,
+    "id": "A90_SELF_BUILT_KERNEL_BOOT_ACCEPTANCE_WITH_NEW_BUILD_CERT",
+    "statement": "Exact H28 is an A908N OSRC kernel rebuild produced with Snapdragon LLVM 10.0.7, preserves CONFIG_UH_RKP, CONFIG_RKP_CFP, CONFIG_RKP_CFP_JOPP, and CONFIG_RKP_CFP_ROPP, but carries a non-stock build certificate. Qualification is limited to one attended boot-only Native health experiment with exact V2321 rollback; Android/vendor external-module compatibility, stock byte equivalence, full build reproducibility, and the H27 boot-loop cause remain unproved.",
+    "statementEncoding": "UTF8_NO_TRAILING_NEWLINE",
+    "statementSha256": "52b19ec4c1e6fbfe2c41ca1d93fcd7d096e621a3063b76099e5b4086527b8a41"
+  },
+  "recovery": {
+    "demonstrated": true,
+    "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+    "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
+  },
+  "rollback": {
+    "build": "v2321-usb-clean-identity-rodata",
+    "sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb",
+    "size": 60882944,
+    "version": "0.9.285"
+  },
+  "schema": "a90-boot-only-f1-minimal-review-input-v1",
+  "scope": "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_CANDIDATE_HAZARD",
+  "targetProfile": "SAMSUNG_A90_5G"
+}

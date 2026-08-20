@@ -71,7 +71,9 @@ retried without overwriting either log.
   path, offset, length, payload, or retry.
 - Approval is derived from the canonical manifest digest, target evidence, and
   current boot ID. It is not reusable for another manifest, device, or boot.
-- The manifest embeds one candidate-specific qualification. It binds the exact
+- The manifest embeds one candidate-specific qualification under one
+  candidate-neutral review scope. The retired H27-named scope remains readable
+  only for the exact H27 candidate, hazard, and fresh-state tuple. It binds the exact
   candidate/rollback pair, one direct regular independent-review JSON,
   explicit recovery and hazard decisions, and the fresh enable/latch paths.
   The owner opens and rehashes that review before PREPARED and immediately
@@ -234,16 +236,12 @@ evidence. They grant no authority and are not execution dependencies.
 
 ## Open gates
 
-1. Prove the adapter's exact Native serial and recovery transfer inputs, helper
-   quiescence, and result receipts.
-2. Produce the H27 candidate-specific canonical manifest and its exact
-   recovery/hazard qualification inputs; the schema and runtime binding are
-   present, but no H27 run data or approval exists yet.
-3. Freeze and independently review the resulting small execution closure.
-4. Only afterward follow the A90 target contract for attended F1 approval and
-   execution.
+1. Freeze and independently review the candidate-neutral scope repair and the
+   exact H28 candidate/hazard input against the unchanged transfer boundary.
+2. After `PASS_GO`, publish the canonical H28 review JSON and private manifest.
+3. Perform fresh connected D0 against healthy V2321 and absent H28 state.
+4. Only then obtain one fresh attended approval for one H28 F1 attempt.
 
-The two live-enable constants are now true so the exact activated bytes can be
-reviewed. That code state alone grants no run: the candidate review/manifest,
-fresh preflight-derived approval, attendance, and all contract gates remain
-mandatory.
+The live-enable constants remain true, but changed owner bytes revoke the old
+closure review. No H28 run exists until the new review, manifest, D0, approval,
+attendance, and all contract gates are complete.

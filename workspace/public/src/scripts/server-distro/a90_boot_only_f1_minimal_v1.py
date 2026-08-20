@@ -27,6 +27,24 @@ CAPABILITY = "A90_BOOT_ONLY_F1_MINIMAL_V1"
 MANIFEST_SCHEMA = "a90-boot-only-f1-minimal-manifest-v1"
 QUALIFICATION_SCHEMA = "a90-boot-only-f1-minimal-qualification-v1"
 QUALIFICATION_REVIEW_SCHEMA = "a90-boot-only-f1-minimal-independent-review-v1"
+QUALIFICATION_REVIEW_SCOPE = (
+    "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_CANDIDATE_HAZARD"
+)
+LEGACY_H27_REVIEW_SCOPE = "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_H27_HAZARD"
+LEGACY_H27_CANDIDATE_SHA256 = (
+    "fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500"
+)
+LEGACY_H27_HAZARD = {
+    "id": "A90_H27_RKP_CFP_DISABLED_RESIDENT",
+    "statementSha256": (
+        "d1eb8d0c3f893ccf7440c09d243db17fff94b486b079a46e156e6402c4396c19"
+    ),
+    "accepted": True,
+}
+LEGACY_H27_FRESH_STATE = {
+    "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
+    "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h27.done",
+}
 PREPARED_SCHEMA = "a90-boot-only-f1-minimal-prepared-v1"
 RECORD_SCHEMA = "a90-boot-only-f1-minimal-record-v1"
 RESULT_SCHEMA = "a90-boot-only-f1-minimal-result-v1"
@@ -554,6 +572,17 @@ def execution_closure_sha256() -> str:
     return digest.hexdigest()
 
 
+def _review_scope_is_allowed(review: dict[str, Any], manifest: dict[str, Any]) -> bool:
+    if review["scope"] == QUALIFICATION_REVIEW_SCOPE:
+        return True
+    return (
+        review["scope"] == LEGACY_H27_REVIEW_SCOPE
+        and manifest["candidate"]["sha256"] == LEGACY_H27_CANDIDATE_SHA256
+        and manifest["qualification"]["hazard"] == LEGACY_H27_HAZARD
+        and manifest["qualification"]["freshState"] == LEGACY_H27_FRESH_STATE
+    )
+
+
 def _validate_qualification_review(value: Any, manifest: dict[str, Any]) -> None:
     review = _object(
         value,
@@ -569,7 +598,7 @@ def _validate_qualification_review(value: Any, manifest: dict[str, Any]) -> None
         review["schema"] != QUALIFICATION_REVIEW_SCHEMA
         or review["capability"] != CAPABILITY
         or review["verdict"] != "PASS_GO"
-        or review["scope"] != "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_H27_HAZARD"
+        or not _review_scope_is_allowed(review, manifest)
         or review["targetProfile"] != TARGET_PROFILE
         or review["executionClosureSha256"] != execution_closure_sha256()
         or review["candidateSha256"] != manifest["candidate"]["sha256"]

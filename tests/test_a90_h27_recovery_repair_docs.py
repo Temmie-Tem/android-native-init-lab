@@ -14,6 +14,7 @@ DESIGN = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
 HANDOFF = ROOT / "docs/plans/A90_H27_POSTROLLBACK_AND_PRESENT_RECOVERY_REVIEW_HANDOFF_2026-08-21.md"
 INCIDENT = ROOT / "docs/reports/A90_H27_SELFBUILT_KERNEL_BOOTLOOP_ROLLBACK_INCIDENT_2026-08-21.md"
 REVIEW = ROOT / "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_POSTROLLBACK_INDEPENDENT_REVIEW_2026-08-21.json"
+H28_INPUT = ROOT / "docs/reports/A90_H28_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-21.json"
 MODULE_DIR = ROOT / "workspace/public/src/scripts/server-distro"
 sys.path.insert(0, str(MODULE_DIR))
 
@@ -70,7 +71,7 @@ class RecoveryRepairDocsTest(unittest.TestCase):
         self.assertEqual(len(M.EXECUTION_SOURCE_RELS), 13)
         self.assertEqual(
             M.execution_closure_sha256(),
-            "e58746ea93270c43a28db5df20695a61a687eec942a5a665f562f4fe5173f077",
+            "0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f",
         )
         self.assertEqual(
             M.POSTROLLBACK_RECOVERY_PATH[-1], "41-recovery-closed.json"
@@ -108,10 +109,16 @@ class RecoveryRepairDocsTest(unittest.TestCase):
         self.assertNotIn("_release_candidate", source)
         self.assertEqual(R.DECISION, "V2321_HEALTHY_EXTERNAL_ROLLBACK_OUTCOME_UNPROVED")
 
-    def test_independent_review_binds_current_closure_without_authority(self):
+    def test_h27_review_is_historical_after_candidate_neutral_scope_repair(self):
         review = json.loads(REVIEW.read_text())
+        h28_input = json.loads(H28_INPUT.read_text())
         self.assertEqual(review["verdict"], "PASS_GO")
-        self.assertEqual(review["executionClosureSha256"], M.execution_closure_sha256())
+        self.assertEqual(
+            review["executionClosureSha256"],
+            "e58746ea93270c43a28db5df20695a61a687eec942a5a665f562f4fe5173f077",
+        )
+        self.assertNotEqual(review["executionClosureSha256"], M.execution_closure_sha256())
+        self.assertEqual(h28_input["executionClosureSha256"], M.execution_closure_sha256())
         self.assertEqual(review["candidateSha256"], "fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500")
         self.assertFalse(review["liveAuthority"])
         self.assertTrue(all(value == 0 for value in review["contacts"].values()))

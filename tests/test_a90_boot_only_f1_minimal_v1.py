@@ -96,7 +96,7 @@ class MinimalF1Test(unittest.TestCase):
             "schema": M.QUALIFICATION_REVIEW_SCHEMA,
             "capability": M.CAPABILITY,
             "verdict": "PASS_GO",
-            "scope": "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_H27_HAZARD",
+            "scope": M.QUALIFICATION_REVIEW_SCOPE,
             "targetProfile": M.TARGET_PROFILE,
             "executionClosureSha256": M.execution_closure_sha256(),
             "candidateSha256": M.sha256_bytes(b"candidate"),
@@ -632,6 +632,36 @@ class MinimalF1Test(unittest.TestCase):
                         FakeBackend(self.start),
                     )
 
+    def test_review_scope_is_candidate_neutral_and_legacy_h27_is_exact_only(self):
+        self.assertTrue(M._review_scope_is_allowed(
+            {"scope": M.QUALIFICATION_REVIEW_SCOPE}, self.manifest
+        ))
+        self.assertFalse(M._review_scope_is_allowed(
+            {"scope": M.LEGACY_H27_REVIEW_SCOPE}, self.manifest
+        ))
+
+        legacy = json.loads(json.dumps(self.manifest))
+        legacy["candidate"]["sha256"] = M.LEGACY_H27_CANDIDATE_SHA256
+        legacy["qualification"]["hazard"] = dict(M.LEGACY_H27_HAZARD)
+        legacy["qualification"]["freshState"] = dict(M.LEGACY_H27_FRESH_STATE)
+        self.assertTrue(M._review_scope_is_allowed(
+            {"scope": M.LEGACY_H27_REVIEW_SCOPE}, legacy
+        ))
+        for mutation in ("candidate", "hazard", "fresh-state"):
+            changed = json.loads(json.dumps(legacy))
+            if mutation == "candidate":
+                changed["candidate"]["sha256"] = HEX_A
+            elif mutation == "hazard":
+                changed["qualification"]["hazard"]["id"] = "substituted"
+            else:
+                changed["qualification"]["freshState"]["enablePath"] = (
+                    "/cache/a90-auto-handoff-phase3-minimal-h28.enable"
+                )
+            with self.subTest(mutation=mutation):
+                self.assertFalse(M._review_scope_is_allowed(
+                    {"scope": M.LEGACY_H27_REVIEW_SCOPE}, changed
+                ))
+
     def test_review_cannot_substitute_fresh_state_generation(self):
         value = M.parse_canonical(self.review.read_bytes(), "review")
         value["freshState"]["latchPath"] = (
@@ -842,7 +872,7 @@ class MinimalSurfaceTest(unittest.TestCase):
 
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1400)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1450)
         self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 950)
         self.assertLessEqual(len(design.read_text().splitlines()), 250)
 

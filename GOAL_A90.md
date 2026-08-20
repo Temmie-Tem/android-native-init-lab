@@ -468,6 +468,15 @@ identity:
   or F1 action occurred. The other Samsung endpoint received no command. H28
   still requires its own qualification, manifest, connected D0, and fresh
   attended approval; this terminal closure grants none of them.
+  H28 qualification preparation now uses the candidate-neutral review scope
+  `A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_CANDIDATE_HAZARD`; the retired
+  H27-named scope is accepted only for the exact H27 candidate, hazard, and
+  marker tuple. The resulting 13-file execution closure is
+  `0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f`.
+  The public H28 review input and independent-review handoff bind the exact
+  candidate, V2321 start/rollback, H28 state paths, and narrowed new-build-
+  certificate hazard. Independent `PASS_GO`, the private manifest, connected
+  D0, approval, ordinal, and F1 remain absent.
 
 ## What Leaves or Moves Out
 
