@@ -55,6 +55,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Successor transport correction: stock retention is not candidate retention",
         "Review of the transport binding: the emitters are not in the plan",
         "V2 plan input: the load order, and the DWC3 tie is one symbol on the DP path",
+        "V2 plan capacity and EUD identity: 73 rows fit, and 37 is stale",
         "What remains open",
         "Evidence",
     )
@@ -199,6 +200,30 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_closes_v2_capacity_and_eud_derivation(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "eleven are already in the exact 70-row P3.18 plan",
+            "dependency-safe 73-row plan",
+            "`s22plus_dwc3_event_latch.ko` at index 0",
+            "stock `dwc3-msm.ko` at index 59",
+            "indices 0 through 58 unique stages",
+            "last folded failure detail | `0x748`",
+            "256 entries end at item `0xff` and detail `0x7ff`",
+            "zero-based index **38**",
+            "`P307_EUD_MODULE_INDEX 37U`",
+            "same plan materialization",
+            "both the direct and folded loops",
+            "14833 bytes/SHA-256 `d8c12396...`",
+            "24387-byte auditor is `d2d61d6e...`",
+            "10907-byte focused test source is `0330f28a...`",
+            "`-01` receipt remains preserved at 14682 bytes",
+            "provider identity remains a materialization input",
+            "does not materialize the 73-row header",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, flat)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (

@@ -3034,6 +3034,96 @@ and its staging tolerate that is not answered here.
 
 **EUD identity trigger.** Untouched by this analysis.
 
+## V2 plan capacity and EUD identity: 73 rows fit, and 37 is stale
+
+The remaining two V2 questions are also decidable without a candidate build.
+The host-only auditor is
+`workspace/public/src/scripts/analysis/s22plus_fyg8_p319_successor_module_plan_v2.py`.
+It reopens the exact P3.18 plan and both runtime sources, the retained FYG8
+`modules.dep`, and the preceding transport auditor rather than weakening that
+auditor's P3.18-specific absence assertion.
+
+### The fourteen-module closure adds only three rows
+
+The closure has fourteen members, but eleven are already in the exact 70-row
+P3.18 plan. The missing set is exactly:
+
+1. `spu_verify.ko` / `spu_verify`;
+2. `mfd_max77705.ko` / `mfd_max77705`; and
+3. `pdic_max77705.ko` / `pdic_max77705`.
+
+Appending those three in that order produces a dependency-safe 73-row plan:
+indices 70, 71 and 72. Every dependency of all fourteen members precedes its
+consumer.
+
+This also removes an unnecessary choice from the prior framing. The exact base
+plan already carries **both** `s22plus_dwc3_event_latch.ko` at index 0 and the
+stock `dwc3-msm.ko` at index 59. The latch does not replace `dwc3-msm`; the
+stock provider has no new plan row to add. The one-symbol/one-DP-call-site
+result in the preceding section remains true, but this plan arithmetic does not
+freeze the successor's exact provider binary or qualify its export. No stub is
+authorised, and provider identity remains a materialization input.
+
+### The folded stage representation fits 73 rows
+
+The apparent 60-stage interval is not a 60-module array limit. The exact
+runtime defines module stages `0x40..0x7b` before gate stage `0x7c`. It gives
+indices 0 through 58 unique stages and folds every later load into index 59 /
+stage `0x7b`, while preserving the actual failing index as
+`0x700 + index`. The arrays themselves are sized from
+`S22PLUS_O2_MODULE_PLAN_COUNT`, and two static assertions cap the byte-sized
+index at 256 entries.
+
+For the exact 73-row successor the arithmetic is:
+
+| field | value |
+|---|---:|
+| direct entries | 59 |
+| folded entries | 14 |
+| last module index/item | 72 / `0x48` |
+| last folded failure detail | `0x748` |
+| folded stage / next gate | `0x7b` / `0x7c` |
+
+At the representation boundary, 256 entries end at item `0xff` and detail
+`0x7ff`; 257 is rejected. Seventy-three therefore fits without moving the gate
+or widening a retained field.
+
+### The EUD trigger must come from the same plan
+
+The exact EUD identity is the full tuple `("eud.ko", "eud", "")`, present once
+at zero-based index **38**. The inherited runtime independently defines
+`P307_EUD_MODULE_INDEX 37U`; that is the P3.18 off-by-one which the latch
+insertion exposed. Appending the three successor rows leaves the derived index
+at 38, but merely changing the literal to 38 would preserve the original
+hazard.
+
+The V2 contract is stronger: derive the EUD index from that sole exact tuple in
+the same plan materialization, permit no independent runtime literal, and call
+one shared post-load trigger after successful loads in both the direct and
+folded loops. A synthetic insertion before EUD moves the derived value from 38
+to 39; a duplicate or a filename/runtime/params mismatch is rejected. The
+current runtime has not yet implemented that consumer, so this result does not
+claim a successor binary exists.
+
+### Retained result and boundary
+
+The current `-02` private receipt is 14833 bytes/SHA-256 `d8c12396...`, mode `0400`,
+link count one. Five inputs are preserved mode `0400`, link count one under
+mode `0700` directories. The 24387-byte auditor is `d2d61d6e...`; the
+10907-byte focused test source is `0330f28a...`, and 15 real-input, boundary and
+mutation tests pass. The `-01` receipt remains preserved at 14682 bytes /
+`2ab6146d...`; it preceded the explicit source-bound `0x7ff` detail ceiling,
+direct-loop placement mutation, and provider-identity qualification boundary,
+so it is superseded and is not current authority.
+
+This is a V2 implementation under the existing `module-closure-plan` review
+obligation, not a second obligation. It is `IMPLEMENTED_REVIEW_PENDING` and
+does not materialize the 73-row header, implement the shared runtime hook,
+freeze the three added module binaries, qualify a build, or grant device/live
+authority. Those materialization steps precede the live-kmsg parser
+qualification; an external-corpus parser alone still cannot make an unreachable
+emitter into candidate evidence.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
