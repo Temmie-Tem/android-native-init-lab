@@ -47,9 +47,21 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
         cls.inputs = cls.module.load_inputs(materialize=False)
+        cls.manifest = cls.module.parse_corpus_manifest(
+            cls.inputs["abl_capture_manifest"]
+        )
+        cls.corpus = cls.module.load_corpus(cls.manifest)
+
+    def build(self, inputs=None, corpus=None, *, enforce_identity=True):
+        return self.module.build_result(
+            self.inputs if inputs is None else inputs,
+            self.manifest,
+            self.corpus if corpus is None else corpus,
+            enforce_identity=enforce_identity,
+        )
 
     def test_exact_static_chain_matches_the_stock_positive_control(self):
-        result = self.module.build_result(self.inputs)
+        result = self.build()
         self.assertEqual(result["dtbo"]["i2c_address"], 0x66)
         self.assertEqual(result["dtbo"]["parent_gpio_pin"], 5)
         self.assertTrue(result["dtbo"]["parent_gpio_active_low"])
@@ -57,17 +69,26 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
             result["binary_semantics"]["pdic_max77705"]["nested_irqs"]["chgtyp"],
             26,
         )
-        self.assertEqual(result["stock_observation"]["nested_irq_base"], 324)
-        self.assertEqual(result["conclusion"]["observed_chgtyp_nested_irq"], 350)
-        self.assertTrue(
-            result["stock_observation"][
-                "each_attach_has_nested_chgtyp_to_i2c_0609_to_notifier_order"
-            ]
+        observed = result["stock_observation"]
+        self.assertGreater(observed["parent_irq"]["distinct_number_count"], 1)
+        self.assertFalse(observed["parent_irq"]["absolute_number_is_stock_invariant"])
+        self.assertEqual(
+            observed["nested_irq"]["derived_offsets"],
+            {"vbusdet": 22, "vbadc": 23, "chgtyp": 26},
         )
-        self.assertEqual(result["stock_observation"]["i2c_write_failure_logs"], 0)
+        ap = observed["ap_path"]
+        self.assertEqual(ap["com_to_usb_ap"], ap["opcode_0609"])
+        self.assertEqual(ap["com_to_usb_ap"], ap["notifier_attach_all_values"])
+        self.assertEqual(
+            ap["dump_before_attach"] + ap["attach_before_dump"],
+            ap["com_to_usb_ap"],
+        )
+        self.assertGreater(ap["irq_context_ap"], 0)
+        self.assertGreater(ap["non_irq_context_ap"], 0)
+        self.assertEqual(ap["i2c_write_failure_logs"], 0)
         self.assertTrue(
             result["conclusion"][
-                "observed_stock_cdp_attach_attempts_i2c_06_09_without_negative_return"
+                "observed_stock_ap_paths_attempt_i2c_06_09_without_negative_return"
             ]
         )
         self.assertFalse(
@@ -87,7 +108,7 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         changed = dict(self.inputs)
         changed["stock_dtbo"] = bytes(image)
         with self.assertRaisesRegex(self.module.AuditError, "DT property differs"):
-            self.module.build_result(changed, enforce_identity=False)
+            self.build(changed, enforce_identity=False)
 
         image = bytearray(original_image)
         compatible = b"qcom,pm8350c-gpio\0"
@@ -96,7 +117,7 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         image[selected.offset + relative + len(compatible) - 2] = ord("z")
         changed["stock_dtbo"] = bytes(image)
         with self.assertRaisesRegex(self.module.AuditError, "GPIO controller differs"):
-            self.module.build_result(changed, enforce_identity=False)
+            self.build(changed, enforce_identity=False)
 
     def test_parent_irq_action_name_drift_is_rejected(self):
         data = self.inputs["mfd_max77705_module"]
@@ -128,42 +149,104 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.AuditError, "binary symbol identity"):
             self.module.audit_pdic_binary(changed)
 
-    def test_stock_parent_tuple_drift_is_rejected(self):
-        raw = self.inputs["stock_live_raw"]
+    def test_direct_base_and_base_free_differences_both_hold(self):
+        evidence = self.build()["stock_observation"]["nested_irq"]["evidence"]
+        self.assertGreaterEqual(len(evidence), 2)
+        for item in evidence.values():
+            self.assertEqual(
+                item["nested_irq_base_source"],
+                "direct parent max77705_irq_thread log field",
+            )
+            self.assertEqual(
+                item["base_free_pairwise_differences"],
+                {"vbadc_minus_vbusdet": 1, "chgtyp_minus_vbusdet": 4},
+            )
+
+        synthetic = b"\n".join(
+            (
+                b"max77705_irq_thread: irq[900] 900/500/282 irq_src=0x08 pmic_rev=0x05",
+                b"max77705_muic_irq irq:522 (muic-vbusdet)",
+                b"max77705_muic_irq irq:523 (muic-vbadc)",
+                b"max77705_muic_irq irq:526 (muic-chgtyp)",
+            )
+        )
+        derived = self.module.audit_nested_offsets(synthetic)
+        self.assertEqual(derived["nested_irq_base"], 500)
+        self.assertEqual(derived["derived_offsets"], {"vbusdet": 22, "vbadc": 23, "chgtyp": 26})
+        shifted = synthetic.replace(b"irq:526", b"irq:527")
+        with self.assertRaisesRegex(self.module.AuditError, "nested IRQ offset"):
+            self.module.audit_nested_offsets(shifted)
+
+    def test_corpus_totals_are_recomputed_not_acceptance_constants(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        for forbidden in (
+            "total_ap != 17",
+            "total_dump != 17",
+            "dump_before_attach != 16",
+            "thread_capture_count != 111",
+        ):
+            self.assertNotIn(forbidden, source)
+        for invariant in (
+            "total_ap != total_dump",
+            "total_ap != total_attach",
+            "dump_before_attach + attach_before_dump != total_ap",
+        ):
+            self.assertIn(invariant, source)
+
+    def test_stock_parent_base_drift_is_rejected_without_freezing_its_value(self):
+        digest = "8069cece37209ce7ded62dc8ffc5d4405b9fb8cbe9020608a762e30baadd21ee"
+        raw = self.corpus[digest]
         match = self.module.PARENT_RE.search(raw)
         self.assertIsNotNone(match)
         original = match.group(0)
         replacement = original.replace(b"324", b"325", 1)
         self.assertNotEqual(replacement, original)
         changed = raw[: match.start()] + replacement + raw[match.end() :]
-        with self.assertRaisesRegex(self.module.AuditError, "parent IRQ tuple"):
-            self.module.audit_stock_raw(changed)
+        corpus = dict(self.corpus)
+        corpus[digest] = changed
+        with self.assertRaisesRegex(self.module.AuditError, "multiple bases|offset differs"):
+            self.module.audit_stock_corpus(
+                self.manifest, corpus, enforce_identity=False
+            )
 
-    def test_stock_nested_irq_number_drift_is_rejected(self):
-        raw = self.inputs["stock_live_raw"]
+    def test_stock_nested_irq_offset_drift_is_rejected(self):
+        digest = "8069cece37209ce7ded62dc8ffc5d4405b9fb8cbe9020608a762e30baadd21ee"
+        raw = self.corpus[digest]
         changed = raw.replace(
             b"max77705_muic_irq irq:350 (muic-chgtyp)",
             b"max77705_muic_irq irq:351 (muic-chgtyp)",
             1,
         )
         self.assertNotEqual(changed, raw)
-        with self.assertRaisesRegex(self.module.AuditError, "nested IRQ inventory"):
-            self.module.audit_stock_raw(changed)
+        corpus = dict(self.corpus)
+        corpus[digest] = changed
+        with self.assertRaisesRegex(self.module.AuditError, "nested IRQ offset"):
+            self.module.audit_stock_corpus(
+                self.manifest, corpus, enforce_identity=False
+            )
 
-    def test_stock_i2c_command_drift_breaks_the_ordered_positive_control(self):
-        raw = self.inputs["stock_live_raw"]
+    def test_stock_i2c_command_and_failure_drift_break_corpus_consistency(self):
+        digest = "1ad451372ad5bf72fab681656249f07b4451df3255bd3a642759c4cbf5297df1"
+        raw = self.corpus[digest]
         changed = raw.replace(
             b"opcode_write: 00000000: 06 09",
             b"opcode_write: 00000000: 06 08",
             1,
         )
         self.assertNotEqual(changed, raw)
-        with self.assertRaisesRegex(self.module.AuditError, "source order seam"):
-            self.module.audit_stock_raw(changed)
+        corpus = dict(self.corpus)
+        corpus[digest] = changed
+        with self.assertRaisesRegex(self.module.AuditError, "multiplicity differs"):
+            self.module.audit_stock_corpus(
+                self.manifest, corpus, enforce_identity=False
+            )
 
         injected = raw + b"\nmax77705: i2c write fail. dequeue opcode\n"
-        with self.assertRaisesRegex(self.module.AuditError, "write failure log"):
-            self.module.audit_stock_raw(injected)
+        corpus[digest] = injected
+        with self.assertRaisesRegex(self.module.AuditError, "corpus invariant"):
+            self.module.audit_stock_corpus(
+                self.manifest, corpus, enforce_identity=False
+            )
 
     def test_source_unmask_bit_drift_is_rejected(self):
         changed = dict(self.inputs)
@@ -171,7 +254,7 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
             "max77705_usbc_source"
         ].replace(b"i2c_data &= ~((1 << 3));", b"i2c_data &= ~((1 << 2));", 1)
         with self.assertRaisesRegex(self.module.AuditError, "semantic seam differs"):
-            self.module.build_result(changed, enforce_identity=False)
+            self.build(changed, enforce_identity=False)
 
         changed = dict(self.inputs)
         changed["max77705_usbc_source"] = changed[
@@ -182,13 +265,18 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
             1,
         )
         with self.assertRaisesRegex(self.module.AuditError, "semantic seam differs"):
-            self.module.build_result(changed, enforce_identity=False)
+            self.build(changed, enforce_identity=False)
 
     def test_private_receipt_is_exact_regeneration(self):
         self.assertTrue(self.module.OUTPUT.exists(), "run the audited producer first")
-        expected = self.module.encode(self.module.build_result(self.inputs))
+        expected = self.module.encode(self.build())
         actual = self.module.OUTPUT.read_bytes()
         self.assertEqual(actual, expected)
+        self.assertEqual(len(actual), 15_697)
+        self.assertEqual(
+            hashlib.sha256(actual).hexdigest(),
+            "5c84bfc5fe9307a856f4bf74dba2751be3f3bf575936bb33b6b3a242cbb12a3a",
+        )
         info = self.module.OUTPUT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
@@ -198,24 +286,36 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         parsed = json.loads(actual)
         self.assertEqual(parsed["verdict"], self.module.VERDICT)
         self.assertEqual(hashlib.sha256(actual).hexdigest(), hashlib.sha256(expected).hexdigest())
-        predecessor = self.module.PREDECESSOR_OUTPUT.read_bytes()
-        predecessor_info = self.module.PREDECESSOR_OUTPUT.stat()
-        self.assertEqual(len(predecessor), 8_370)
-        self.assertEqual(
-            hashlib.sha256(predecessor).hexdigest(),
-            "6c3d25a778837462365bd463cc6789342174f2467ee4901245c23c81c3171db9",
+        preserved = (
+            (
+                self.module.OUTPUT_V1,
+                8_187,
+                "25be452a9b54ddabe3c1ad0d6e13257614483ef295ea3a3647be8886a77a0902",
+            ),
+            (
+                self.module.OUTPUT_V2,
+                8_370,
+                "6c3d25a778837462365bd463cc6789342174f2467ee4901245c23c81c3171db9",
+            ),
+            (
+                self.module.OUTPUT_V3,
+                8_545,
+                "bc193d7e5a736ed59c4cd7c6fe289ec4dca83f8ba8f5abf431d76219e7217c66",
+            ),
+            (
+                self.module.OUTPUT_V4,
+                15_697,
+                "fef955a4c744960183389f0d52fdf786e50d2a51d11ae0de1fc3ef3ffd4045a2",
+            ),
         )
-        self.assertEqual(stat.S_IMODE(predecessor_info.st_mode), 0o400)
-        self.assertEqual(predecessor_info.st_nlink, 1)
-        initial = self.module.INITIAL_OUTPUT.read_bytes()
-        initial_info = self.module.INITIAL_OUTPUT.stat()
-        self.assertEqual(len(initial), 8_187)
-        self.assertEqual(
-            hashlib.sha256(initial).hexdigest(),
-            "25be452a9b54ddabe3c1ad0d6e13257614483ef295ea3a3647be8886a77a0902",
-        )
-        self.assertEqual(stat.S_IMODE(initial_info.st_mode), 0o400)
-        self.assertEqual(initial_info.st_nlink, 1)
+        for path, size, digest in preserved:
+            with self.subTest(path=path):
+                body = path.read_bytes()
+                info = path.stat()
+                self.assertEqual(len(body), size)
+                self.assertEqual(hashlib.sha256(body).hexdigest(), digest)
+                self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+                self.assertEqual(info.st_nlink, 1)
 
     def test_report_and_ledger_record_the_scoped_result(self):
         report = " ".join(REPORT.read_text(encoding="utf-8").split())
@@ -235,6 +335,14 @@ class P319Max77705IrqDtAuditTest(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertIn("| H0 |", rows[0])
         self.assertIn("| 0/0 |", rows[0])
+        repaired = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if " h0-max77705-irq-corpus-4 " in line
+        ]
+        self.assertEqual(len(repaired), 1)
+        self.assertIn("5c84bfc5", repaired[0])
+        self.assertIn("14 focused", repaired[0])
 
 
 if __name__ == "__main__":

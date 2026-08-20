@@ -2317,9 +2317,9 @@ and in the shipped machine code. Before that completion the handler may exist
 but the USBC group is not an enabled diagnostic path; after it, the parent can
 dispatch the nested MUIC sources.
 
-### The retained stock path agrees at every boundary
+### One retained stock exemplar agrees at every boundary
 
-The positive control is the exact 2097136-byte
+The first positive-control exemplar is the exact 2097136-byte
 `postrollback_o3r1_last_kmsg.bin`, SHA-256 `8069cece...`. Its parent line
 occurs 174 times and always reports the same tuple: Linux IRQ `367`, nested IRQ
 base `324`, Linux GPIO `282`, IRQ source `0x08`, PMIC revision `0x05`. The
@@ -2327,9 +2327,11 @@ kernel thread name `irq/367-max7770` is not a different action name: the kernel
 constructs `irq/367-max77705-irq` and `TASK_COMM_LEN=16` truncates it to the 15
 visible characters.
 
-The nested inventory is exact: VBUS is IRQ 346, VBADC is 347, and CHGT is 350.
-For CHGT, **`324 + 26 = 350`**, directly joining the live base to the PDIC
-offset. Six stock CDP attach sequences each preserve the same order:
+Within this capture the nested inventory is exact: VBUS is IRQ 346, VBADC is
+347, and CHGT is 350. For CHGT, **`324 + 26 = 350`**, directly joining the
+logged base to the PDIC offset. A second capture uses base 330 and absolute
+IRQs 352, 353 and 356 while preserving the same offsets. Six CDP attach
+sequences in the first exemplar each preserve the same order:
 
 ```text
 max77705_muic_irq irq:350 (muic-chgtyp)
@@ -2340,9 +2342,10 @@ opcode_write: 00000000: 06 09
 muic_notifier_attach_attached_dev: (2)
 ```
 
-That closes more than static compatibility. On stock, the enabled DT route
-produces the expected parent IRQ, the MFD demultiplexer produces the arithmetic
-expected nested IRQ, and the PDIC handler reaches the AP attach path.
+That closes more than static compatibility. In the retained stock corpus, the
+enabled DT route produces dynamically allocated parent and nested IRQ numbers
+whose relative offsets match the shipped PDIC demultiplexer, and the handler
+reaches the AP attach path.
 
 One wording needs an exact boundary. `opcode_write: 06 09` is emitted just
 *before* `max77705_bulk_write()`, so it is a pre-write buffer dump, not a
@@ -2375,7 +2378,7 @@ constants and will fail closed against any other capture in the corpus.
 ### What generalises: the offsets
 
 Both captures in the corpus that log nested interrupt numbers agree on the
-offsets, and they are the same offsets the device tree gives:
+offsets, and they are the same offsets the shipped PDIC binary and source give:
 
 | line | capture A | capture B | offset |
 |---|---|---|---|
@@ -2384,9 +2387,12 @@ offsets, and they are the same offsets the device tree gives:
 | `muic-chgtyp` | **350** | **356** | **26** |
 | implied nested base | 324 | 330 | — |
 
-346 − 324 = 352 − 330 = 22, and likewise for 23 and 26. **The offsets are the
-invariant.** The audit's derivation of them from the DTBO and the driver source
-is sound and is what should be carried forward.
+The base is not inferred from one nested IRQ. It is the `irq_base` field printed
+directly by `max77705_irq_thread`. Against that independent field,
+346 − 324 = 352 − 330 = 22, and likewise for 23 and 26. The base-free checks
+also agree: 347 − 346 = 353 − 352 = 1 and 350 − 346 = 356 − 352 = 4.
+**The offsets are the invariant.** The DTBO closes the parent GPIO route; the
+PDIC binary/source and these two retained captures close the nested offsets.
 
 ### What does not: the absolute numbers
 
@@ -2422,11 +2428,11 @@ total, with the two counts equal in every capture. That is a much stronger
 statement than six occurrences in one blob, and it does not depend on the
 interrupt.
 
-**Narrower:** the chain's *first* token, `max77705_muic_irq irq:<n> (muic-chgtyp)`,
-appears in only **one** capture. In the other nine the same
-`attach_usb_path` → `com_to_usb_ap` → `06 09` sequence runs with **no logged
-chgtyp interrupt at all**, from a `modprobe` or `kworker` context rather than
-the IRQ thread. So an interrupt is one route to the mux write, not the route.
+**Narrower:** the chain's *first* token, `max77705_muic_irq irq:<n>
+(muic-chgtyp)`, appears in **two of ten** captures. Across the 17 AP events,
+eight run in an IRQ-thread context and nine in `modprobe` or `kworker` context.
+The other **eight captures** have no logged chgtyp interrupt at all. So an
+interrupt is one route to the mux write, not the route.
 
 ### The ordering is not invariant
 
@@ -2448,12 +2454,13 @@ over it is too strong.
 
 ### Two smaller corrections
 
-One capture shows three `com_to_usb_ap` against two notifier attaches. That is
-**not** a case of the mux write happening without an attach: the third
-occurrence's notifier falls outside the retained window, which ends shortly
-after. It is truncation, and it should not be read as a counterexample.
+The apparent three-to-two asymmetry was produced by counting CDP `(2)` rather
+than all attach values. The capture has three `com_to_usb_ap`, three `06 09`
+dumps and three notifier attaches: two `(2)` and one `(64)`. The `(64)` event is
+the same capture's DCD Timeout `i(8)` path. There is no retained-window
+truncation to invoke and no attach-less AP write in these 17 events.
 
-The audit hardcodes `CDP` as the matched device. The corpus also contains
+The original audit hardcodes `CDP` as the matched device. The corpus also contains
 `vps table match found at i(7), USB`, `at i(8), DCD Timeout`, and notifier values
 `(1)` and `(64)` besides `(2)`. The CDP path is one of several the same code
 serves.
@@ -2465,6 +2472,16 @@ result read off one sample and stated about the medium. It is worth noting that
 the correction did not weaken the finding. The device-tree derivation survives
 intact, the `com_to_usb_ap` → `06 09` coupling came out stronger than claimed,
 and what was lost was three constants that were never going to hold.
+
+The repaired audit does not replace those constants with new corpus-size
+constants. It independently re-enumerates the current private tree, hashes and
+deduplicates every size-matching file, requires that live population to equal
+the exact manifest, and then requires per-capture `com_to_usb_ap`, `06 09` and
+attach multiplicities to agree. It derives the current 17 and 16/1 ordering
+split as result data; neither is an acceptance literal. Likewise, it reports
+the current 24 parent values without accepting only that set. The only nested
+arithmetic gate uses the directly logged base plus all three offsets and the
+two base-free pairwise differences.
 
 ## What remains open
 
@@ -2547,22 +2564,26 @@ only and creates no device or live authority.
 
 The DT/nested-IRQ audit is
 `workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py`,
-44326 bytes/SHA-256 `eb044382...`. Eleven exact source/module inputs are
-snapshotted mode `0400`, link count one under the private mode-`0700` input
-directory; the 8 MiB stock DTBO and 2 MiB retained raw are read stably in place
-rather than duplicated. Its canonical `20260820-03` result is 8545 bytes/SHA-256
-`bc193d7e5a736ed59c4cd7c6fe289ec4dca83f8ba8f5abf431d76219e7217c66`,
-mode `0400`, link count one, under a mode-`0700` output root. Twelve focused
-tests execute the exact inputs and reject selected-DT GPIO, parent IRQ action,
-nested-dispatch bound, unmask polarity, CHGT offset, parent tuple, nested IRQ,
-pre-write command, injected I2C-failure and source bulk-write/unmask mutations.
-A fresh `--audit-only` encoding is byte-identical. This result is also H0 only
-and creates no device or live authority.
+59974 bytes/SHA-256 `25ed0fa7...`. Twelve exact source/module/manifest inputs
+are snapshotted mode `0400`, link count one under the private mode-`0700` input
+directory; the 8 MiB stock DTBO and all current size-matching files under
+`workspace/private` are stable-read, deduplicated, and compared to the complete
+manifest path/hash inventory. Its canonical `20260820-05`
+result is 15697 bytes/SHA-256
+`5c84bfc5fe9307a856f4bf74dba2751be3f3bf575936bb33b6b3a242cbb12a3a`,
+mode `0400`, link count one, under a mode-`0700` output root. Fourteen focused
+tests execute the exact population, accept a synthetic coherent change of
+absolute base, and reject relative-offset, selected-DT GPIO, parent action,
+nested-dispatch, unmask, CHGT, AP/`06 09` multiplicity, injected I2C-failure
+and source bulk-write/unmask mutations. A fresh `--audit-only` encoding is
+byte-identical. This result is H0 only and creates no device or live authority.
 
-Two predecessors remain preserved rather than overwritten. `20260820-01` is
+Four predecessors remain preserved rather than overwritten. `20260820-01` is
 8187 bytes/SHA-256 `25be452a...`; `20260820-02` is 8370 bytes/SHA-256
-`6c3d25a7...`; both are mode `0400`, link count one. The second added direct
-FDT resolution of phandles `0x11` and `0x7b`. The third additionally corrects
-the `opcode_write` line from a wire observation to the exact pre-write buffer
-plus nonnegative-return conclusion. Only `20260820-03` is the current
+`6c3d25a7...`; `20260820-03` is 8545 bytes/SHA-256 `bc193d7e...`; all are mode
+`0400`, link count one, and `20260820-04` is 15697 bytes/SHA-256 `fef955a4...`
+with the same metadata. The second added direct FDT phandle resolution. The
+third corrected the pre-write dump boundary. The fourth removed absolute IRQ,
+single-capture and ordered-token assumptions. The fifth additionally proves
+the manifest still equals the live private corpus and is the only current
 deterministic regeneration.

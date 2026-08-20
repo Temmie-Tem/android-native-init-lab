@@ -2,9 +2,9 @@
 """Bind the FYG8 MAX77705 DT, parent IRQ, nested MUIC IRQ, and live attach.
 
 This is a host-only P3.19 analysis.  It reads the exact stock DTBO and shipped
-MFD/PDIC modules, their exact source counterparts, and one retained stock
-positive-control log.  It never contacts a device and grants no D0/D1/F1 or
-live authority.
+MFD/PDIC modules, their exact source counterparts, and the closed
+manifest-defined retained stock corpus.  It never contacts a device and grants
+no D0/D1/F1 or live authority.
 """
 
 from __future__ import annotations
@@ -25,20 +25,28 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parents[5]
 PRIVATE = REPO / "workspace/private"
-INITIAL_OUTPUT = PRIVATE / (
+OUTPUT_V1 = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
     "max77705-irq-dt-audit-20260820-01/result.json"
 )
-PREDECESSOR_OUTPUT = PRIVATE / (
+OUTPUT_V2 = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
     "max77705-irq-dt-audit-20260820-02/result.json"
 )
-OUTPUT_ROOT = PRIVATE / "outputs/s22plus_fyg8_p319/max77705-irq-dt-audit-20260820-03"
+OUTPUT_V3 = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/"
+    "max77705-irq-dt-audit-20260820-03/result.json"
+)
+OUTPUT_V4 = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/"
+    "max77705-irq-dt-audit-20260820-04/result.json"
+)
+OUTPUT_ROOT = PRIVATE / "outputs/s22plus_fyg8_p319/max77705-irq-dt-audit-20260820-05"
 OUTPUT = OUTPUT_ROOT / "result.json"
 SNAPSHOT_ROOT = OUTPUT_ROOT / "inputs"
 
-SCHEMA = "s22plus-fyg8-p319-max77705-irq-dt-audit-v1"
-VERDICT = "PASS_P319_MAX77705_IRQ_DT_STOCK_CHAIN_H0"
+SCHEMA = "s22plus-fyg8-p319-max77705-irq-dt-audit-v2"
+VERDICT = "PASS_P319_MAX77705_IRQ_DT_CORPUS_CHAIN_H0"
 
 KERNEL = (
     PRIVATE
@@ -53,10 +61,8 @@ DTBO = (
     PRIVATE
     / "inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/raw/dtbo.img"
 )
-STOCK_RAW = (
-    PRIVATE
-    / "runs/s22plus_o3r1_native_retained_sysrq_live_gate_20260709T221905Z/"
-    "android_pstore/postrollback_o3r1_last_kmsg.bin"
+CORPUS_MANIFEST = (
+    PRIVATE / "outputs/s22plus_fyg8_p319/abl-capture-manifest.json"
 )
 
 
@@ -147,12 +153,12 @@ INPUTS: dict[str, InputSpec] = {
         KERNEL / "include/linux/sched.h",
         "sched.h",
     ),
-    "stock_live_raw": InputSpec(
-        2_097_136,
-        "8069cece37209ce7ded62dc8ffc5d4405b9fb8cbe9020608a762e30baadd21ee",
-        STOCK_RAW,
-        None,
-        3 * 1024 * 1024,
+    "abl_capture_manifest": InputSpec(
+        107_997,
+        "aa2d19ea09d3317dcff9961ee51eec579d7e912f4b98115fa5bf7994fff16f90",
+        CORPUS_MANIFEST,
+        "abl-capture-manifest.json",
+        128 * 1024,
     ),
 }
 
@@ -264,6 +270,164 @@ def load_inputs(*, materialize: bool = True) -> dict[str, bytes]:
             raise AuditError(f"P3.19 exact input identity differs: {name}")
         loaded[name] = data
     return loaded
+
+
+MANIFEST_KEYS = {
+    "bc_ctrl1_value_counts",
+    "bc_ctrl1_value_counts_download",
+    "bc_ctrl1_value_counts_normal",
+    "captures",
+    "counts",
+    "distinct_captures",
+    "duplicate_files_collapsed",
+    "inclusion_criterion",
+    "kernel_side",
+    "matching_files",
+    "muic_opcode_counts",
+    "schema",
+    "setpath_values_observed",
+    "unreadable_or_short_files",
+}
+CAPTURE_KEYS = {
+    "bc_ctrl1_reads",
+    "boot_segments",
+    "candidate_markers",
+    "download_mode",
+    "has_abl_stage",
+    "has_max7770x_irq_thread",
+    "mission_mode",
+    "muic_notifier_tags",
+    "muic_opcodes",
+    "paths",
+    "setpath_occurrences",
+    "setpath_values",
+    "sha256",
+    "stock_daemons",
+}
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise AuditError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def parse_corpus_manifest(data: bytes) -> dict[str, Any]:
+    try:
+        manifest = json.loads(
+            data,
+            object_pairs_hook=_unique_object,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                AuditError(f"non-finite JSON number: {value}")
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise AuditError("capture manifest JSON is malformed") from exc
+    if not isinstance(manifest, dict) or set(manifest) != MANIFEST_KEYS:
+        raise AuditError("capture manifest key set differs")
+    if manifest.get("schema") != "s22plus-fyg8-p319-abl-capture-manifest-v3":
+        raise AuditError("capture manifest schema differs")
+    for key in (
+        "matching_files",
+        "unreadable_or_short_files",
+        "distinct_captures",
+        "duplicate_files_collapsed",
+    ):
+        if type(manifest.get(key)) is not int or manifest[key] < 0:
+            raise AuditError(f"capture manifest scalar differs: {key}")
+    if (
+        manifest["unreadable_or_short_files"] != 0
+        or manifest["matching_files"] < manifest["distinct_captures"]
+        or manifest["duplicate_files_collapsed"]
+        != manifest["matching_files"] - manifest["distinct_captures"]
+    ):
+        raise AuditError("capture manifest population arithmetic differs")
+    if manifest.get("inclusion_criterion") != {
+        "root": "workspace/private",
+        "exact_size_bytes": 2_097_136,
+        "selected_by_name_or_run": False,
+    }:
+        raise AuditError("capture manifest inclusion criterion differs")
+    kernel_side = manifest.get("kernel_side")
+    if (
+        not isinstance(kernel_side, dict)
+        or set(kernel_side)
+        != {
+            "captures_with_notifier_lines",
+            "captures_with_irq_thread",
+            "captures_with_any_candidate_marker",
+            "captures_with_all_stock_daemons",
+        }
+        or any(type(value) is not int or value < 0 for value in kernel_side.values())
+    ):
+        raise AuditError("capture manifest kernel-side census differs")
+    captures = manifest.get("captures")
+    if (
+        not isinstance(captures, list)
+        or len(captures) != manifest["distinct_captures"]
+        or not captures
+    ):
+        raise AuditError("capture manifest population differs")
+    seen_hashes: set[str] = set()
+    for index, capture in enumerate(captures):
+        if not isinstance(capture, dict) or set(capture) != CAPTURE_KEYS:
+            raise AuditError(f"capture manifest entry keys differ: {index}")
+        digest = capture.get("sha256")
+        paths = capture.get("paths")
+        tags = capture.get("muic_notifier_tags")
+        if (
+            not isinstance(digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+            or digest in seen_hashes
+        ):
+            raise AuditError(f"capture manifest digest differs: {index}")
+        if (
+            not isinstance(paths, list)
+            or not paths
+            or any(not isinstance(path, str) or not path for path in paths)
+        ):
+            raise AuditError(f"capture manifest paths differ: {index}")
+        if type(capture.get("has_max7770x_irq_thread")) is not bool:
+            raise AuditError(f"capture manifest IRQ boolean differs: {index}")
+        if not isinstance(tags, dict) or any(
+            not isinstance(key, str) or type(value) is not int or value < 0
+            for key, value in tags.items()
+        ):
+            raise AuditError(f"capture manifest notifier tags differ: {index}")
+        seen_hashes.add(digest)
+    return manifest
+
+
+def load_corpus(manifest: dict[str, Any]) -> dict[str, bytes]:
+    expected = {capture["sha256"]: capture for capture in manifest["captures"]}
+    corpus: dict[str, bytes] = {}
+    observed_paths: dict[str, list[str]] = collections.defaultdict(list)
+    matching_files = 0
+    for path in sorted(PRIVATE.rglob("*")):
+        try:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size != 2_097_136:
+                continue
+        except OSError as exc:
+            raise AuditError(f"capture population stat failed: {path}") from exc
+        body = _stable_read(path, "P3.19 current corpus capture", 3 * 1024 * 1024)
+        digest = hashlib.sha256(body).hexdigest()
+        relative = str(path.relative_to(REPO))
+        matching_files += 1
+        observed_paths[digest].append(relative)
+        corpus.setdefault(digest, body)
+    if (
+        matching_files != manifest["matching_files"]
+        or set(corpus) != set(expected)
+        or len(corpus) != manifest["distinct_captures"]
+    ):
+        raise AuditError("current capture population differs from manifest")
+    for digest, capture in expected.items():
+        if observed_paths[digest] != capture["paths"]:
+            raise AuditError(f"capture duplicate-path inventory differs: {digest}")
+    return corpus
 
 
 @dataclass(frozen=True)
@@ -983,91 +1147,295 @@ PARENT_RE = re.compile(
     rb"irq_src=0x([0-9a-fA-F]+) pmic_rev=0x([0-9a-fA-F]+)"
 )
 NESTED_RE = re.compile(rb"max77705_muic_irq irq:(\d+) \(([^)]+)\)")
+THREAD_RE = re.compile(rb"irq/(\d+)-max7770(?![A-Za-z0-9_])")
+NOTIFIER_RE = re.compile(rb"\[MUIC\] (muic_notifier_[a-z_]+)")
+ATTACH_RE = re.compile(rb"muic_notifier_attach_attached_dev: \((\d+)\)")
+DETACH_RE = re.compile(rb"muic_notifier_detach_attached_dev: \((\d+)\)")
+VPS_RE = re.compile(rb"vps table match found at i\((\d+)\), ([^\r\n]+)")
+AP_RE = re.compile(rb"pdic_max77705: com_to_usb_ap")
+DUMP_0609_RE = re.compile(rb"opcode_write: 00000000: 06 09")
+
+NESTED_OFFSETS = {
+    b"muic-vbusdet": 22,
+    b"muic-vbadc": 23,
+    b"muic-chgtyp": 26,
+}
 
 
-def audit_stock_raw(data: bytes) -> dict[str, Any]:
+def derive_thread_comm(parent_irq: int) -> str:
+    if not 0 <= parent_irq <= 999_999:
+        raise AuditError("parent IRQ value is out of derivation range")
+    return f"irq/{parent_irq}-max77705-irq"[:15]
+
+
+def audit_nested_offsets(data: bytes) -> dict[str, Any]:
     parents = PARENT_RE.findall(data)
-    expected_parent = (b"367", b"367", b"324", b"282", b"08", b"05")
-    if len(parents) != 174 or set(parents) != {expected_parent}:
-        raise AuditError(f"stock parent IRQ tuple differs: {len(parents)} {set(parents)}")
-    nested = collections.Counter(NESTED_RE.findall(data))
-    expected_nested = collections.Counter(
-        {
-            (b"347", b"muic-vbadc"): 16,
-            (b"350", b"muic-chgtyp"): 12,
-            (b"346", b"muic-vbusdet"): 12,
-        }
-    )
-    if nested != expected_nested:
-        raise AuditError(f"stock nested IRQ inventory differs: {nested}")
-    if data.count(b"irq/367-max7770") != 3_230:
-        raise AuditError("stock parent IRQ thread-name count differs")
-    lines = data.splitlines()
-    attach_indices = [
-        index
-        for index, line in enumerate(lines)
-        if b"muic_notifier_attach_attached_dev: (2)" in line
-    ]
-    detach_count = sum(
-        b"muic_notifier_detach_attached_dev: (2)" in line for line in lines
-    )
-    if len(attach_indices) != 6 or detach_count != 6:
-        raise AuditError("stock CDP attach/detach count differs")
-    i2c_failure_logs = data.count(b"i2c write fail. dequeue opcode")
-    if i2c_failure_logs != 0:
-        raise AuditError("stock opcode I2C write failure log is present")
-    chain_tokens = (
-        b"max77705_muic_irq irq:350 (muic-chgtyp)",
-        b"max77705_muic_check_new_dev vps table match found at i(9), CDP",
-        b"max77705_muic_attach_usb_path usb_path=0",
-        b"com_to_usb_ap",
-        b"opcode_write: 00000000: 06 09",
-        b"muic_notifier_attach_attached_dev: (2)",
-    )
-    for index in attach_indices:
-        window = b"\n".join(lines[max(0, index - 45) : index + 1])
-        _ordered(window, *chain_tokens)
-    parent_irq = 367
-    irq_base = 324
-    gpio = 282
-    nested_offsets = {"vbusdet": 22, "vbadc": 23, "chgtyp": 26}
-    if {
-        name: irq_base + offset for name, offset in nested_offsets.items()
-    } != {"vbusdet": 346, "vbadc": 347, "chgtyp": 350}:
-        raise AuditError("nested IRQ arithmetic differs")
-    full_thread_name = f"irq/{parent_irq}-max77705-irq"
-    task_comm = full_thread_name[:15]
-    if task_comm != "irq/367-max7770":
-        raise AuditError("parent IRQ task-name derivation differs")
+    nested = NESTED_RE.findall(data)
+    if not parents or not nested:
+        raise AuditError("nested-offset evidence is incomplete")
+    bases = {int(item[2]) for item in parents}
+    if len(bases) != 1:
+        raise AuditError(f"nested-offset capture has multiple bases: {bases}")
+    base = next(iter(bases))
+    counts: collections.Counter[tuple[int, str]] = collections.Counter()
+    absolute: dict[str, set[int]] = {
+        name.removeprefix(b"muic-").decode(): set() for name in NESTED_OFFSETS
+    }
+    for raw_irq, raw_name in nested:
+        if raw_name not in NESTED_OFFSETS:
+            raise AuditError(f"unexpected nested MUIC IRQ name: {raw_name!r}")
+        irq = int(raw_irq)
+        if irq - base != NESTED_OFFSETS[raw_name]:
+            raise AuditError(
+                f"nested IRQ offset differs: {raw_name!r} {irq}-{base}"
+            )
+        name = raw_name.removeprefix(b"muic-").decode()
+        counts[(irq, name)] += 1
+        absolute[name].add(irq)
+    if any(len(values) != 1 for values in absolute.values()):
+        raise AuditError(f"nested IRQ absolute inventory differs: {absolute}")
     return {
-        "raw": receipt(data),
-        "parent_irq_records": len(parents),
-        "parent_linux_irq": parent_irq,
-        "parent_irq_argument": parent_irq,
-        "nested_irq_base": irq_base,
-        "linux_gpio": gpio,
-        "irq_source": 0x08,
-        "pmic_revision": 0x05,
-        "parent_action_name": "max77705-irq",
-        "parent_thread_name": task_comm,
-        "parent_thread_name_occurrences": 3_230,
-        "nested_irq_counts": {
-            "muic-vbusdet@346": 12,
-            "muic-vbadc@347": 16,
-            "muic-chgtyp@350": 12,
+        "nested_irq_base": base,
+        "nested_irq_base_source": "direct parent max77705_irq_thread log field",
+        "absolute_irqs": {
+            name: next(iter(values)) for name, values in sorted(absolute.items())
         },
-        "cdp_attach_chains": len(attach_indices),
-        "cdp_detaches": detach_count,
-        "each_attach_has_nested_chgtyp_to_i2c_0609_to_notifier_order": True,
-        "i2c_write_failure_logs": i2c_failure_logs,
-        "opcode_0609_dump_precedes_bulk_write_in_source": True,
-        "bulk_write_negative_return_would_log_failure": True,
+        "derived_offsets": {
+            name.removeprefix(b"muic-").decode(): offset
+            for name, offset in NESTED_OFFSETS.items()
+        },
+        "base_free_pairwise_differences": {
+            "vbadc_minus_vbusdet": next(iter(absolute["vbadc"]))
+            - next(iter(absolute["vbusdet"])),
+            "chgtyp_minus_vbusdet": next(iter(absolute["chgtyp"]))
+            - next(iter(absolute["vbusdet"])),
+        },
+        "counts": {
+            f"{name}@{irq}": count
+            for (irq, name), count in sorted(counts.items())
+        },
     }
 
 
-def build_result(inputs: dict[str, bytes], *, enforce_identity: bool = True) -> dict[str, Any]:
+def _line_at(data: bytes, offset: int) -> bytes:
+    start = data.rfind(b"\n", 0, offset) + 1
+    end = data.find(b"\n", offset)
+    return data[start : len(data) if end < 0 else end]
+
+
+def audit_stock_corpus(
+    manifest: dict[str, Any],
+    corpus: dict[str, bytes],
+    *,
+    enforce_identity: bool = True,
+) -> dict[str, Any]:
+    captures = manifest["captures"]
+    expected_hashes = {capture["sha256"] for capture in captures}
+    if set(corpus) != expected_hashes:
+        raise AuditError("loaded corpus identity set differs")
+
+    parent_numbers: set[int] = set()
+    thread_capture_count = 0
+    parent_367_capture_count = 0
+    notifier_hashes: list[str] = []
+    nested_evidence: dict[str, dict[str, Any]] = {}
+    notifier_summaries: dict[str, dict[str, Any]] = {}
+    dump_before_attach = 0
+    attach_before_dump = 0
+    irq_context_ap = 0
+    non_irq_context_ap = 0
+    attach_values: collections.Counter[int] = collections.Counter()
+    detach_values: collections.Counter[int] = collections.Counter()
+    vps_matches: collections.Counter[str] = collections.Counter()
+    total_ap = 0
+    total_dump = 0
+    total_attach = 0
+    total_i2c_failures = 0
+
+    for capture in captures:
+        digest = capture["sha256"]
+        data = corpus[digest]
+        if enforce_identity and receipt(data) != {
+            "size": 2_097_136,
+            "sha256": digest,
+        }:
+            raise AuditError(f"corpus capture identity differs: {digest}")
+        actual_tags = collections.Counter(
+            match.group(1).decode() for match in NOTIFIER_RE.finditer(data)
+        )
+        if dict(sorted(actual_tags.items())) != capture["muic_notifier_tags"]:
+            raise AuditError(f"manifest notifier classification differs: {digest}")
+
+        thread_matches = list(THREAD_RE.finditer(data))
+        has_thread = bool(thread_matches)
+        if has_thread is not capture["has_max7770x_irq_thread"]:
+            raise AuditError(f"manifest IRQ-thread classification differs: {digest}")
+        capture_parent_numbers = {int(match.group(1)) for match in thread_matches}
+        for match in thread_matches:
+            irq = int(match.group(1))
+            if match.group(0).decode() != derive_thread_comm(irq):
+                raise AuditError(f"parent IRQ thread-name derivation differs: {digest}")
+        if has_thread:
+            thread_capture_count += 1
+            parent_numbers.update(capture_parent_numbers)
+            if 367 in capture_parent_numbers:
+                parent_367_capture_count += 1
+
+        parents = PARENT_RE.findall(data)
+        for irq_arg, linux_irq, _base, gpio, _source, pmic_revision in parents:
+            if irq_arg != linux_irq or gpio != b"282" or pmic_revision != b"05":
+                raise AuditError(f"parent IRQ semantic tuple differs: {digest}")
+
+        nested = NESTED_RE.findall(data)
+        if nested:
+            nested_evidence[digest] = audit_nested_offsets(data)
+
+        if actual_tags:
+            notifier_hashes.append(digest)
+            ap = list(AP_RE.finditer(data))
+            dumps = list(DUMP_0609_RE.finditer(data))
+            attaches = list(ATTACH_RE.finditer(data))
+            failures = data.count(b"i2c write fail. dequeue opcode")
+            if not ap or len(ap) != len(dumps) or len(ap) != len(attaches):
+                raise AuditError(f"AP/dump/attach multiplicity differs: {digest}")
+            before = 0
+            after = 0
+            irq_events = 0
+            non_irq_events = 0
+            for index, ap_match in enumerate(ap):
+                end = ap[index + 1].start() if index + 1 < len(ap) else len(data)
+                segment_dumps = [item for item in dumps if ap_match.end() <= item.start() < end]
+                segment_attaches = [
+                    item for item in attaches if ap_match.end() <= item.start() < end
+                ]
+                if len(segment_dumps) != 1 or len(segment_attaches) != 1:
+                    raise AuditError(f"AP event association differs: {digest}:{index}")
+                if segment_dumps[0].start() < segment_attaches[0].start():
+                    before += 1
+                else:
+                    after += 1
+                if b"irq/" in _line_at(data, ap_match.start()):
+                    irq_events += 1
+                else:
+                    non_irq_events += 1
+            dump_before_attach += before
+            attach_before_dump += after
+            irq_context_ap += irq_events
+            non_irq_context_ap += non_irq_events
+            total_ap += len(ap)
+            total_dump += len(dumps)
+            total_attach += len(attaches)
+            total_i2c_failures += failures
+            attach_values.update(int(item.group(1)) for item in attaches)
+            detach_values.update(int(item.group(1)) for item in DETACH_RE.finditer(data))
+            vps_matches.update(
+                f"i({item.group(1).decode()}) {item.group(2).decode()}"
+                for item in VPS_RE.finditer(data)
+            )
+            notifier_summaries[digest] = {
+                "com_to_usb_ap": len(ap),
+                "opcode_0609": len(dumps),
+                "notifier_attach": len(attaches),
+                "dump_before_attach": before,
+                "attach_before_dump": after,
+                "irq_context_ap": irq_events,
+                "non_irq_context_ap": non_irq_events,
+                "i2c_write_failure_logs": failures,
+            }
+
+    if (
+        thread_capture_count != manifest["kernel_side"]["captures_with_irq_thread"]
+        or len(parent_numbers) < 2
+    ):
+        raise AuditError("dynamic parent IRQ census differs")
+    if not nested_evidence:
+        raise AuditError("corpus lacks nested-offset evidence")
+    for digest, actual in nested_evidence.items():
+        if actual["base_free_pairwise_differences"] != {
+            "vbadc_minus_vbusdet": 1,
+            "chgtyp_minus_vbusdet": 4,
+        }:
+            raise AuditError(f"base-free nested IRQ differences differ: {digest}")
+
+    if (
+        len(notifier_hashes)
+        != manifest["kernel_side"]["captures_with_notifier_lines"]
+        or not notifier_hashes
+        or total_ap == 0
+        or total_ap != total_dump
+        or total_ap != total_attach
+        or dump_before_attach + attach_before_dump != total_ap
+        or irq_context_ap + non_irq_context_ap != total_ap
+        or total_i2c_failures != 0
+    ):
+        raise AuditError("stock AP/notifier corpus invariant differs")
+
+    return {
+        "corpus": {
+            "distinct_captures": len(corpus),
+            "identity_set_sha256": hashlib.sha256(
+                ("\n".join(sorted(corpus)) + "\n").encode()
+            ).hexdigest(),
+            "notifier_capture_count": len(notifier_hashes),
+            "notifier_capture_sha256": sorted(notifier_hashes),
+        },
+        "parent_irq": {
+            "dynamic_linux_irq_numbers": sorted(parent_numbers),
+            "distinct_number_count": len(parent_numbers),
+            "captures_with_thread": thread_capture_count,
+            "captures_with_parent_367": parent_367_capture_count,
+            "absolute_number_is_stock_invariant": False,
+            "thread_name_example": {
+                "full": "irq/367-max77705-irq",
+                "task_comm": derive_thread_comm(367),
+            },
+            "linux_gpio_values_in_parent_records": [282],
+        },
+        "nested_irq": {
+            "captures_with_absolute_nested_numbers": len(nested_evidence),
+            "bases_observed": sorted(
+                item["nested_irq_base"] for item in nested_evidence.values()
+            ),
+            "derived_offsets": {
+                name.removeprefix(b"muic-").decode(): offset
+                for name, offset in NESTED_OFFSETS.items()
+            },
+            "absolute_numbers_are_stock_invariants": False,
+            "evidence": dict(sorted(nested_evidence.items())),
+        },
+        "ap_path": {
+            "notifier_captures": len(notifier_hashes),
+            "com_to_usb_ap": total_ap,
+            "opcode_0609": total_dump,
+            "notifier_attach_all_values": total_attach,
+            "dump_before_attach": dump_before_attach,
+            "attach_before_dump": attach_before_dump,
+            "irq_context_ap": irq_context_ap,
+            "non_irq_context_ap": non_irq_context_ap,
+            "captures_with_any_chgtyp_irq": len(nested_evidence),
+            "captures_without_chgtyp_irq": len(notifier_hashes) - len(nested_evidence),
+            "attach_values": {str(key): value for key, value in sorted(attach_values.items())},
+            "detach_values": {str(key): value for key, value in sorted(detach_values.items())},
+            "vps_match_counts": dict(sorted(vps_matches.items())),
+            "i2c_write_failure_logs": total_i2c_failures,
+            "opcode_0609_dump_precedes_bulk_write_in_source": True,
+            "bulk_write_negative_return_would_log_failure": True,
+            "per_capture": dict(sorted(notifier_summaries.items())),
+        },
+    }
+
+
+def build_result(
+    inputs: dict[str, bytes],
+    manifest: dict[str, Any],
+    corpus: dict[str, bytes],
+    *,
+    enforce_identity: bool = True,
+) -> dict[str, Any]:
     if set(inputs) != set(INPUTS):
         raise AuditError("P3.19 input key set differs")
+    if manifest != parse_corpus_manifest(inputs["abl_capture_manifest"]):
+        raise AuditError("P3.19 parsed corpus manifest differs")
     identities = {}
     for name, data in sorted(inputs.items()):
         identities[name] = receipt(data)
@@ -1081,9 +1449,11 @@ def build_result(inputs: dict[str, bytes], *, enforce_identity: bool = True) -> 
     sources = audit_sources(inputs)
     mfd = audit_mfd_binary(inputs["mfd_max77705_module"])
     pdic = audit_pdic_binary(inputs["pdic_max77705_module"])
-    observed = audit_stock_raw(inputs["stock_live_raw"])
-    if observed["nested_irq_base"] + pdic["nested_irqs"]["chgtyp"] != 350:
-        raise AuditError("static/observed CHGT nested IRQ mismatch")
+    observed = audit_stock_corpus(manifest, corpus, enforce_identity=enforce_identity)
+    if observed["nested_irq"]["derived_offsets"] != {
+        name: pdic["nested_irqs"][name] for name in ("vbusdet", "vbadc", "chgtyp")
+    }:
+        raise AuditError("static/observed nested IRQ offsets differ")
     implementation = receipt(Path(__file__).read_bytes())
     return {
         "schema": SCHEMA,
@@ -1120,9 +1490,19 @@ def build_result(inputs: dict[str, bytes], *, enforce_identity: bool = True) -> 
             "pdic_probe_registers_five_muic_nested_irqs": True,
             "pdic_probe_completion_unmasks_parent_usbc_source": True,
             "observed_parent_irq_gpio_matches_static_route": True,
-            "observed_parent_irq_dispatches_chgtyp_nested_irq": True,
-            "observed_chgtyp_nested_irq": 350,
-            "observed_stock_cdp_attach_attempts_i2c_06_09_without_negative_return": True,
+            "observed_nested_irq_offsets_match_static_dispatch": True,
+            "absolute_parent_and_nested_irq_numbers_are_dynamic": (
+                observed["parent_irq"]["distinct_number_count"] > 1
+            ),
+            "observed_stock_ap_paths_attempt_i2c_06_09_without_negative_return": True,
+            "interrupt_is_one_ap_route_not_the_only_route": (
+                observed["ap_path"]["irq_context_ap"] > 0
+                and observed["ap_path"]["non_irq_context_ap"] > 0
+            ),
+            "notifier_captures": observed["ap_path"]["notifier_captures"],
+            "ap_path_events": observed["ap_path"]["com_to_usb_ap"],
+            "dump_before_attach_events": observed["ap_path"]["dump_before_attach"],
+            "attach_before_dump_events": observed["ap_path"]["attach_before_dump"],
             "stock_irq_dt_or_shipped_demux_defect_explains_candidate_silence": False,
             "candidate_reached_pdic_probe_completion_and_unmask": False,
             "candidate_reached_pdic_probe_completion_and_unmask_proven": False,
@@ -1144,7 +1524,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--audit-only", action="store_true")
     args = parser.parse_args(argv)
     inputs = load_inputs(materialize=not args.audit_only)
-    data = encode(build_result(inputs))
+    manifest = parse_corpus_manifest(inputs["abl_capture_manifest"])
+    corpus = load_corpus(manifest)
+    data = encode(build_result(inputs, manifest, corpus))
     if args.audit_only:
         sys.stdout.buffer.write(data)
         return 0

@@ -115,9 +115,14 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "**324 in one capture and 330 in another**",
             "**10 of 10** captures, 17 occurrences",
             "That holds **16 times out of 17**",
+            "appears in **two of ten** captures",
+            "eight run in an IRQ-thread context and nine in `modprobe` or `kworker` context",
+            "three `com_to_usb_ap`, three `06 09` dumps and three notifier attaches",
+            "There is no retained-window truncation to invoke",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)
+        self.assertNotIn("appears in only **one** capture", self.report)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
