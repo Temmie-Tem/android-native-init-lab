@@ -656,7 +656,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # moves this triple and the three relative expectations below by one.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (38, 22, 16),
+            (38, 23, 15),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -664,7 +664,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "acm-control-requalification",
                 "auditor-stale-bytecode",
                 "boundary-failclosed",
-                "candidate-pdic-probe-boundary",
                 "evidence-crosscheck",
                 "guard-fixture-invalidation",
                 "last-kmsg-retention",
@@ -685,7 +684,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-acm-control-requalification-1",
                 "h0-auditor-stale-bytecode-1",
                 "h0-boundary-failclosed-1",
-                "h0-candidate-pdic-probe-boundary-5",
                 "h0-evidence-crosscheck-1",
                 "h0-guard-fixture-invalidation-1",
                 "h0-last-kmsg-retention-1",
@@ -704,16 +702,16 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p319",
-                "review_topic": "max77705-irq-corpus",
-                "pending_ordinal": "h0-max77705-irq-corpus-4",
+                "review_topic": "candidate-pdic-probe-boundary",
+                "pending_ordinal": "h0-candidate-pdic-probe-boundary-5",
                 "pending_action": (
-                    "P319_MAX77705_IRQ_DT_CORPUS_AUDIT_V2_"
+                    "P319_CANDIDATE_PDIC_PROBE_BOUNDARY_"
                     "IMPLEMENTED_REVIEW_PENDING"
                 ),
-                "resolution_ordinal": "h0-max77705-irq-corpus-review-4",
+                "resolution_ordinal": "h0-candidate-pdic-probe-boundary-review-5",
                 "resolution_action": (
-                    "PASS_GO_P319_MAX77705_IRQ_DT_CORPUS_"
-                    "AUDIT_V2_H0_CAPABILITY"
+                    "PASS_GO_P319_CANDIDATE_PDIC_PROBE_"
+                    "BOUNDARY_V2_H0_CAPABILITY"
                 ),
             },
         )

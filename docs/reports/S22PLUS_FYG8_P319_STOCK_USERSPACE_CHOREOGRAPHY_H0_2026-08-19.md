@@ -1,6 +1,8 @@
 # S22+ FYG8 P3.19 — the stock USB choreography, read from the firmware
 
-Status: `IMPLEMENTED_REVIEW_PENDING`
+Status: `IMPLEMENTED_REVIEW_PENDING` for the whole report;
+`PASS_GO_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V2_H0_CAPABILITY` for the exact
+candidate-PDIC probe-boundary V2 closure only.
 
 **NO DEVICE OR LIVE AUTHORITY.** This unit is host-only. It reads files that
 were already on this host and creates no D0, D1, F1, recovery, replay, device,
@@ -2487,10 +2489,10 @@ two base-free pairwise differences.
 
 ## Initial classification precedes unmask; the historical live-load claim did not survive
 
-The candidate-side boundary was split into four observables rather than being
+The candidate-side boundary was split into five observables rather than being
 treated as one `pdic_max77705` event: module insertion, `max77705-usbc` platform
-bind, initial MUIC classification, and parent-USBC unmask. That split changes
-the priority of the next witness.
+bind, the final VBUSDET registration result, initial MUIC classification, and
+parent-USBC unmask. That split changes the priority of the next witness.
 
 ### The stock initial attach is an IRQ-free probe action
 
@@ -2545,8 +2547,10 @@ of these alone proves the preceding boundary:
   five-byte classification succeeded; and
 - either one does not prove register `0x23` was written with bit 3 clear.
 
-The four results need four witnesses. In particular, unmask is important for
-later interrupts but is downstream of the boot-time attach that matters here.
+The layers need distinct witnesses. In particular, the final VBUSDET result is
+the hidden gate between bind and initial classification, while unmask is
+important for later interrupts but is downstream of the boot-time attach that
+matters here.
 
 ### The surviving S7A2 artifact proves a plan, not a live load
 
@@ -2575,13 +2579,17 @@ on its proof-critical path. Its retained ring witness should close, in order:
 
 1. durable per-module `finit_module` results for `i2c-msm-geni`,
    `mfd_max77705` and `pdic_max77705`;
-2. the exact `max77705-usbc` platform bind identity;
-3. the initial five-byte MUIC status and the classified device/path; and
-4. a readback of parent INTSRC mask register `0x23` with bit 3 clear.
+2. the exact `max77705-usbc` platform bind and probe-entry identity;
+3. the final VBUSDET `request_threaded_irq` result that controls whether
+   `max77705_muic_irq_init()` returns success;
+4. the initial five-byte MUIC status and the classified device/path; and
+5. a readback of parent INTSRC mask register `0x23` with bit 3 clear.
 
-The first three decide whether the IRQ-free probe path opened the mux. The
-fourth separately decides whether later interrupts were enabled. This unit is
-H0 only and performs no device action.
+The bind, VBUSDET and initial-status witnesses must be retained together: if
+the five-byte classification is absent, they distinguish no bind from the
+silent final-IRQ gate. The first four decide whether the IRQ-free probe path
+opened the mux. The fifth separately decides whether later interrupts were
+enabled. This unit is H0 only and performs no device action.
 
 The retained auditor is
 `workspace/public/src/scripts/analysis/s22plus_fyg8_p319_candidate_pdic_probe_boundary.py`.
@@ -2696,10 +2704,23 @@ discard instructions, the shared-ret/final-VBUSDET distinction and the 3/1/2
 unmask call-site scope. The 14091-byte `3a4765ad...` intermediate is preserved
 under `20260820-03`; it bound the new source seams but preceded the explicit
 conclusion fields. The two 12719-byte V1 receipts under `20260820-01` and `-02`
-remain historical evidence. Only V2 is the successor under the original open
-`candidate-pdic-probe-boundary` review obligation. On the current shared-tree
-snapshot, the complete P3.19 suite passes 298/298 and common Process-v2 passes
-122/122.
+remain historical evidence. Only V2 is the successor under the original
+`candidate-pdic-probe-boundary` review obligation.
+
+Independent source review reproduced the exact 14440-byte `cd3969eb...`
+receipt and confirmed both corrections: `max77705_init_irq_handler` owns the
+USBC APC/SYSMSG/VDM/VIR family rather than the nested MUIC family, and only the
+last shared-`ret` MUIC request controls the return from
+`max77705_muic_irq_init()`. The scoped verdict is
+`PASS_GO_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V2_H0_CAPABILITY`; it resolves that
+one review obligation and grants no device or live authority. The implementation
+snapshot literally ran all 298 P3.19 tests successfully. The reviewer later
+measured 297/298, with only the known unrelated raw-first 1726/1729 identity
+drift caused by concurrent S20+ files. A later bookkeeping run again measured
+297/298 but regenerated 1724 against the same preserved 1726, confirming that
+the count itself moves with that concurrent inventory rather than with this
+S22+ closure. Common Process-v2 passes 122/122. These time-stamped shared-tree
+aggregates do not alter the exact 15/15 V2 closure.
 
 ## What remains open
 
@@ -2741,7 +2762,7 @@ which is the reason this section is restated rather than appended to.
 - Whether the water branch ever fired on candidates whose plans included
   `pdic_max77705`. Those runs preserved neither a successful module result nor
   the MUIC sequence, so the test cannot be run retrospectively and only a new
-  run with the four witnesses above can answer it.
+  run with the five witnesses above can answer it.
 - **What sets `BC_CTRL1_NoAutoIBUS` and what it does.** The bit is retained
   across a reboot and no boot in the corpus writes `BCCTRL1`, so it is set by
   something outside these 268 segments — a download session or the kernel — and

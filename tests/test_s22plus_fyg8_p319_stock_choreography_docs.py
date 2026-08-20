@@ -141,6 +141,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
             "IMPLEMENTED_REVIEW_PENDING",
+            "PASS_GO_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V2_H0_CAPABILITY",
             "NO DEVICE OR LIVE AUTHORITY",
             "creates no D0, D1, F1, recovery, replay, device,\nor live authority",
         ):
@@ -1074,6 +1075,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "`mfd_max77705` 82,\n`spu_verify` 83 and `pdic_max77705` 84",
             "Their\nplans included it; their live `finit_module` results, platform binds, initial\nclassifications and unmask write results are unknown.",
             "durable per-module `finit_module` results",
+            "the final VBUSDET `request_threaded_irq` result",
+            "The bind, VBUSDET and initial-status witnesses must be retained together",
             "a readback of parent INTSRC mask register `0x23` with bit 3 clear",
             "reviewed V1 private receipt is 12719 bytes/SHA-256 `d4d40565...`",
             "Fifteen focused real-input and mutation tests pass.",
@@ -1095,8 +1098,12 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "counts all three source call sites but semantically reads only the\nprobe-path",
             "current V2 receipt is 14440 bytes/SHA-256 `cd3969eb...`",
             "The 14091-byte `3a4765ad...` intermediate is preserved",
-            "Only V2 is the successor under the original open\n`candidate-pdic-probe-boundary` review obligation.",
-            "complete P3.19 suite passes 298/298 and common Process-v2 passes\n122/122",
+            "Only V2 is the successor under the original\n`candidate-pdic-probe-boundary` review obligation.",
+            "Independent source review reproduced the exact 14440-byte `cd3969eb...`\nreceipt",
+            "The implementation\nsnapshot literally ran all 298 P3.19 tests successfully.",
+            "measured 297/298, with only the known unrelated raw-first 1726/1729 identity\ndrift",
+            "again measured\n297/298 but regenerated 1724 against the same preserved 1726",
+            "Common Process-v2 passes 122/122.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -1120,6 +1127,21 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIn("final VBUSDET failure", rows[0])
         self.assertIn("original unresolved candidate-pdic-probe-boundary", rows[0])
         self.assertIn("creates no second obligation or PASS_GO", rows[0])
+        review_rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if "h0-candidate-pdic-probe-boundary-review-5" in line
+        ]
+        self.assertEqual(len(review_rows), 1)
+        self.assertIn(
+            "PASS_GO_P319_CANDIDATE_PDIC_PROBE_BOUNDARY_V2_H0_CAPABILITY",
+            review_rows[0],
+        )
+        self.assertIn("final VBUSDET registration result", review_rows[0])
+        self.assertIn(
+            "resolves only the matching candidate-pdic-probe-boundary topic",
+            review_rows[0],
+        )
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
