@@ -260,7 +260,14 @@ class FixedA90Adapter:
             "--",
             *command,
         )
-        return self._json_command(label, argv, timeout_sec + 5)
+        return self._json_command(label, argv, timeout_sec)
+
+    @staticmethod
+    def _remaining(deadline: float, *, cap: int) -> int:
+        remaining = int(deadline - time.monotonic())
+        if remaining < 1:
+            raise ContractError("A90 observation exhausted its total timeout")
+        return min(cap, remaining)
 
     def preflight(self, manifest: dict[str, Any]) -> Snapshot:
         return self._snapshot(manifest["expectedStart"])
@@ -269,19 +276,28 @@ class FixedA90Adapter:
         return self._snapshot(expected, timeout_sec=timeout_sec)
 
     def _snapshot(self, expected: dict[str, Any], *, timeout_sec: int = 30) -> Snapshot:
+        deadline = time.monotonic() + timeout_sec
         bridge = _validate_bridge(
             self._json_command(
                 "bridge-preflight",
                 (str(PYTHON), str(BRIDGE), "preflight", "--json"),
-                10,
+                self._remaining(deadline, cap=10),
             )
         )
         receipts = {
-            "version": self._a90ctl("version", ["version"], timeout_sec),
-            "selftest": self._a90ctl("selftest", ["selftest"], timeout_sec),
-            "status": self._a90ctl("status", ["status"], timeout_sec),
+            "version": self._a90ctl(
+                "version", ["version"], self._remaining(deadline, cap=15)
+            ),
+            "selftest": self._a90ctl(
+                "selftest", ["selftest"], self._remaining(deadline, cap=15)
+            ),
+            "status": self._a90ctl(
+                "status", ["status"], self._remaining(deadline, cap=15)
+            ),
             "bootId": self._a90ctl(
-                "boot-id", ["cat", "/proc/sys/kernel/random/boot_id"], timeout_sec
+                "boot-id",
+                ["cat", "/proc/sys/kernel/random/boot_id"],
+                self._remaining(deadline, cap=15),
             ),
         }
         version_text = _validate_command(receipts["version"], ["version"], "version")
@@ -331,6 +347,7 @@ class FixedA90Adapter:
 
     def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int) -> EffectResult:
         role = "rollback" if rollback else "candidate"
+        helper_phase_timeout = max(1, (timeout_sec - 30) // 2)
         argv = (
             str(PYTHON),
             str(FLASH),
@@ -348,12 +365,12 @@ class FixedA90Adapter:
             "--verify-protocol",
             "selftest",
             "--recovery-timeout",
-            str(timeout_sec),
+            str(helper_phase_timeout),
             "--bridge-timeout",
-            str(timeout_sec),
+            str(helper_phase_timeout),
         )
         started = time.monotonic()
-        result = self.runner.run(f"flash-{role}", argv, min(1900, timeout_sec * 2 + 60))
+        result = self.runner.run(f"flash-{role}", argv, timeout_sec)
         receipt = {
             "argv": list(argv),
             "returncode": result.returncode,

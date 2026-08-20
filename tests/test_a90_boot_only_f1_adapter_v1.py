@@ -5,6 +5,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -145,6 +146,12 @@ class FixedAdapterTest(unittest.TestCase):
         with self.assertRaisesRegex(A.ContractError, "physical recovery"):
             A.FixedA90Adapter(FakeRunner([]), recovery_qualified=False)
 
+    def test_observation_budget_is_total_not_per_command(self):
+        adapter = A.FixedA90Adapter(FakeRunner([]), recovery_qualified=True)
+        with mock.patch.object(A.time, "monotonic", side_effect=[0.0, 31.0]):
+            with self.assertRaisesRegex(A.ContractError, "total timeout"):
+                adapter.observe(self.expected, timeout_sec=30)
+
     def test_bridge_realpath_mismatch_is_rejected(self):
         bad = bridge()
         bad["serial_candidates"][0]["realpath"] = "/dev/ttyACM1"
@@ -166,7 +173,9 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertIn("--require-empty-adb-baseline", argv)
         self.assertNotIn("--serial", argv)
         self.assertEqual(argv.count(self.artifact["sha256"]), 2)
-        self.assertEqual(timeout, 240)
+        self.assertEqual(timeout, 90)
+        self.assertEqual(argv[argv.index("--recovery-timeout") + 1], "30")
+        self.assertEqual(argv[argv.index("--bridge-timeout") + 1], "30")
 
     def test_flash_failure_is_a_result_and_never_a_retry(self):
         runner = FakeRunner([result(b"failed", rc=1)])
