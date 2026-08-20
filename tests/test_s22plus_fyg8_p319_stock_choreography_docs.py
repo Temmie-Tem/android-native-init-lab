@@ -48,6 +48,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The corpus holds kernel-side MUIC evidence, and all of it is stock",
         "The shipped MUIC attach guards do not block the AP path",
         "The stock DT and nested IRQ chain close through the nonnegative I2C write path",
+        "The IRQ numbers are not stock properties; the offsets are",
         "What remains open",
         "Evidence",
     )
@@ -104,6 +105,19 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         # One path using its own callbacks is not a proof about every path.
         self.assertIn("**on this path**, `XblRamdump` does not call the", self.report)
         self.assertIn("does not establish that no path in the image ever reaches the DXE drivers", re.sub(r"\s+", " ", self.report))
+
+    def test_report_separates_the_irq_offsets_from_the_irq_numbers(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**The offsets are the invariant.**",
+            "**at least 24 distinct parent IRQ numbers**",
+            "`367` occurs in 6 of the 111 captures that carry the thread",
+            "**324 in one capture and 330 in another**",
+            "**10 of 10** captures, 17 occurrences",
+            "That holds **16 times out of 17**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (

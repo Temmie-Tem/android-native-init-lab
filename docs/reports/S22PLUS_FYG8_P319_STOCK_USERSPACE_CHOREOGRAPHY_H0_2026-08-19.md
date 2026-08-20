@@ -2364,6 +2364,108 @@ observe those gates rather than change another connector-side attach guard.
 The work is H0 only; it contacted no device and grants no D0, D1, F1, recovery,
 replay or live authority.
 
+## The IRQ numbers are not stock properties; the offsets are
+
+The MAX77705 IRQ and device-tree audit landed in `281b8e0f17` and established
+the stock attach chain from one retained capture. Its device-tree result stands
+and is the useful half. Its three absolute interrupt numbers do not, and this
+section separates them, because the audit freezes those numbers as identity
+constants and will fail closed against any other capture in the corpus.
+
+### What generalises: the offsets
+
+Both captures in the corpus that log nested interrupt numbers agree on the
+offsets, and they are the same offsets the device tree gives:
+
+| line | capture A | capture B | offset |
+|---|---|---|---|
+| `muic-vbusdet` | 346 | 352 | **22** |
+| `muic-vbadc` | 347 | 353 | **23** |
+| `muic-chgtyp` | **350** | **356** | **26** |
+| implied nested base | 324 | 330 | — |
+
+346 − 324 = 352 − 330 = 22, and likewise for 23 and 26. **The offsets are the
+invariant.** The audit's derivation of them from the DTBO and the driver source
+is sound and is what should be carried forward.
+
+### What does not: the absolute numbers
+
+The audit states "parent IRQ 367 → nested base 324 → CHGT offset 26 → IRQ 350"
+as one chain, which reads as four properties of the stock system. Only the third
+is. Scanning the parent thread name across the corpus returns **at least 24
+distinct parent IRQ numbers**:
+
+```
+344 348 350 355 356 358 362 363 364 366 367 368 369 370 371 372
+373 374 375 376 377 378 379 380
+```
+
+`367` occurs in 6 of the 111 captures that carry the thread. The nested base is
+**324 in one capture and 330 in another** — the only two that print it. These
+are dynamically allocated Linux IRQ numbers and they shift from boot to boot;
+freezing them as identity constants binds the audit to a single blob.
+
+The audit's own thread-name derivation is correct and worth keeping:
+`irq/367-max77705-irq` truncated to `TASK_COMM_LEN` gives `irq/367-max7770`,
+which is exactly the comm this report found earlier. The derivation generalises;
+the `367` in it does not.
+
+### The chain is broader than claimed in one respect and narrower in another
+
+The audit checks its six-token chain in a 45-line window before each of six
+attaches, in one capture. Checking the same tokens across all ten
+notifier-bearing captures gives a sharper result.
+
+**Broader:** `com_to_usb_ap` is followed by exactly one
+`opcode_write: 00000000: 06 09` in **10 of 10** captures, 17 occurrences in
+total, with the two counts equal in every capture. That is a much stronger
+statement than six occurrences in one blob, and it does not depend on the
+interrupt.
+
+**Narrower:** the chain's *first* token, `max77705_muic_irq irq:<n> (muic-chgtyp)`,
+appears in only **one** capture. In the other nine the same
+`attach_usb_path` → `com_to_usb_ap` → `06 09` sequence runs with **no logged
+chgtyp interrupt at all**, from a `modprobe` or `kworker` context rather than
+the IRQ thread. So an interrupt is one route to the mux write, not the route.
+
+### The ordering is not invariant
+
+The audit asserts the `06 09` dump precedes the notifier attach. That holds
+**16 times out of 17**. The one exception is in the capture the audit did not
+read:
+
+```
+37267.635277  com_to_usb_ap
+37267.635343  muic_notifier_attach_attached_dev: (2)
+37267.659355  opcode_write: 00000000: 06 09      ← 24 ms later
+```
+
+The notifier fires before the write is dumped. That is consistent with the
+opcode being queued rather than issued inline — the failure log the audit counts
+is `i2c write fail. dequeue opcode`, and a dequeue implies a work queue — but it
+means the order is a tendency, not a guarantee, and an ordered-token assertion
+over it is too strong.
+
+### Two smaller corrections
+
+One capture shows three `com_to_usb_ap` against two notifier attaches. That is
+**not** a case of the mux write happening without an attach: the third
+occurrence's notifier falls outside the retained window, which ends shortly
+after. It is truncation, and it should not be read as a counterexample.
+
+The audit hardcodes `CDP` as the matched device. The corpus also contains
+`vps table match found at i(7), USB`, `at i(8), DCD Timeout`, and notifier values
+`(1)` and `(64)` besides `(2)`. The CDP path is one of several the same code
+serves.
+
+### Why this is worth stating plainly
+
+This is the seventh instance of the shape this report keeps returning to: a
+result read off one sample and stated about the medium. It is worth noting that
+the correction did not weaken the finding. The device-tree derivation survives
+intact, the `com_to_usb_ap` → `06 09` coupling came out stronger than claimed,
+and what was lost was three constants that were never going to hold.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
