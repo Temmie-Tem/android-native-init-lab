@@ -59,6 +59,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Review of the V2 plan unit, and a correction to this report's DWC3 framing",
         "Review of the 73-row materialization: the closure is inflated by unused paths",
         "An accounting correction: a review row is not a resolution",
+        "Parser grammar input: the witness lines have four format strings, not two",
         "What remains open",
         "Evidence",
     )
@@ -260,6 +261,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "`^h0-<topic>-review-<N>$`",
             "`PASS_GO_P319_MODULE_CLOSURE_PLAN_INDEPENDENT_REVIEW_V1`",
             "is not the same as satisfying the accounting the campaign\nruns on",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_carries_the_parser_grammars(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**The classification line has a second form.**",
+            "the function\nprefix has to be part of the grammar rather than skipped as noise",
+            "`max77705_muic_print_reg_log(struct work_struct *work)` — a\n**deferred work item**",
+            "it must not be accepted as\nthe witness for initial classification",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)

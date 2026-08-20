@@ -3284,6 +3284,64 @@ runs on, and the accounting is the part that decides whether the next stage may
 start. The check costs one command and should be run whenever a review row is
 appended.
 
+## Parser grammar input: the witness lines have four format strings, not two
+
+Input for the parser/witness implementation that sits under the existing
+candidate-witness-transport obligation. This resolves nothing and approves no
+capability; it is the grammar the parser should be built from, taken from the
+driver's own format strings rather than from examples in the corpus.
+
+### The exact strings
+
+```
+probe entry        max77705_usbc.c:3912
+                   msg_maxim("probing Complete..")
+
+IRQ five-tuple     max77705-muic.c:2267   in max77705_muic_irq_init
+                   "%s uiadc(%d), chgtyp(%d), dcdtmo(%d), vbadc(%d), vbusdet(%d)\n"
+
+initial status     max77705-muic.c:1739   in max77705_muic_detect_dev
+                   "%s USBC1:0x%02x, USBC2:0x%02x, BC:0x%02x\n"
+
+classification     max77705-muic.c:1699   in max77705_muic_check_new_dev
+                   "%s vps table match found at i(%lu), %s\n"
+```
+
+### Two traps a hand-written grammar would fall into
+
+**The classification line has a second form.** `muic_lookup_vps_table` at
+`max77705-muic.c:302` prints
+`"%s (%d) vps table match found at i(%d), %s\n"` — an extra parenthesised
+argument before the phrase, and `%d` where the other site uses `%lu`. Both forms
+occur in the corpus:
+
+```
+muic_lookup_vps_table (1) vps table match found at i(7), USB
+max77705_muic_check_new_dev vps table match found at i(9), CDP
+```
+
+A parser anchored on either one alone silently drops the other, and the two are
+not interchangeable — they come from different call contexts, so the function
+prefix has to be part of the grammar rather than skipped as noise.
+
+**There is a richer status line, and it is not the initial-detect witness.**
+`max77705-muic.c:2202` prints seven registers plus the classified device:
+
+```
+"%s USBC1:0x%02x, USBC2:0x%02x, BC:0x%02x, CC0:0x%x, CC1:0x%x, PD0:0x%x, PD1:0x%x attached_dev:%d\n"
+```
+
+That covers everything the five-byte witness wants and more. But its enclosing
+function is `max77705_muic_print_reg_log(struct work_struct *work)` — a
+**deferred work item**, not the initial-detect path. It is a valuable secondary
+source if it lands inside the retained window, and it must not be accepted as
+the witness for initial classification, because it does not run synchronously
+with it and carries no guarantee of ordering against the mux write.
+
+This also bounds the earlier note that "witness 4 is three bytes, not five".
+That remains true of the initial-detect emitter at `:1739`. The two missing
+bytes are printed elsewhere, asynchronously, by a different function.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
