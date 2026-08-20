@@ -42,6 +42,19 @@ the separately registered S20+ goal and every future target row.
 - V2321 remains the exact bound rollback for a future, freshly qualified
   successor. No successor candidate, approval, transfer, reboot, or D1 effect
   is authorized by this goal.
+- H28 was written once but never received a boot opportunity: an uncertain
+  TWRP System return caused the F1 owner to restore exact V2321 before the
+  attended physical System return. H28 boot acceptance is therefore unproved,
+  not failed. Candidate and rollback replay are forbidden.
+- The first physical-return observer proved exact V2321 `version` and then
+  failed by serial input truncation. Its separately reviewed slow-input
+  reconciliation was consumed once on 2026-08-21. That session proved exact
+  V2321, `selftest fail=0`, native status health, and pstore entries zero, but
+  the final boot-ID producer returned `EBUSY` because the automatic menu was
+  active. The terminal remains `NO_PROOF_OBSERVER / RECOVERY_PARKED`; no
+  `41-recovery-closed.json` exists and both the active-run and consumed H28
+  candidate guards remain present. See
+  `docs/reports/A90_H28_SLOW_HEALTH_BOOT_ID_BUSY_NO_PROOF_2026-08-21.md`.
 - S22+ and S20+ command counts for the H24 transaction are zero. Their profiles,
   approvals, evidence, and authority do not transfer to A90.
 
