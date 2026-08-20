@@ -288,6 +288,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
             "candidateSha256",
             "rollbackSha256",
             "recovery",
+            "recoveryIdentity",
             "hazard",
             "freshState",
             "review",
@@ -316,6 +317,12 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         or recovery["demonstrated"] is not True
     ):
         raise ContractError("physical recovery qualification is not exact")
+    recovery_identity = _object(
+        qualification["recoveryIdentity"],
+        {"adbSerialSha256"},
+        "qualification.recoveryIdentity",
+    )
+    _sha(recovery_identity["adbSerialSha256"], "A90 recovery serial identity")
     hazard = _object(
         qualification["hazard"],
         {"id", "statementSha256", "accepted"},

@@ -85,6 +85,7 @@ class MinimalF1Test(unittest.TestCase):
             "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
             "demonstrated": True,
         }
+        recovery_identity = {"adbSerialSha256": HEX_C}
         hazard = {
             "id": "A90_H27_RKP_CFP_DISABLED_RESIDENT",
             "statementSha256": HEX_B,
@@ -128,6 +129,7 @@ class MinimalF1Test(unittest.TestCase):
                 "candidateSha256": M.sha256_bytes(b"candidate"),
                 "rollbackSha256": M.sha256_bytes(b"rollback"),
                 "recovery": recovery,
+                "recoveryIdentity": recovery_identity,
                 "hazard": hazard,
                 "freshState": {
                     "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
@@ -223,6 +225,10 @@ class MinimalF1Test(unittest.TestCase):
         bad = json.loads(json.dumps(self.manifest))
         bad["qualification"]["hazard"]["accepted"] = False
         with self.assertRaisesRegex(M.ContractError, "hazard"):
+            M.validate_manifest(bad)
+        bad = json.loads(json.dumps(self.manifest))
+        bad["qualification"]["recoveryIdentity"]["adbSerialSha256"] = "bad"
+        with self.assertRaisesRegex(M.ContractError, "recovery serial"):
             M.validate_manifest(bad)
         for enable, latch in (
             (
@@ -652,6 +658,18 @@ class MinimalF1Test(unittest.TestCase):
 
 
 class MinimalSurfaceTest(unittest.TestCase):
+    def test_exact_a90_twrp_bcb_exception_is_narrow_and_bound(self):
+        digest = "3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07"
+        common = (ROOT / "AGENTS.md").read_text()
+        target = (ROOT / "docs/operations/targets/A90_TARGET_CONTRACT.md").read_text()
+        design = (ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md").read_text()
+        self.assertIn("first 256 bytes of `misc` BCB", common)
+        self.assertIn("accepts no caller path, offset, count, command", common)
+        for text in (target, design):
+            self.assertIn("/system/bin/rebootsystem.sh", text)
+            self.assertIn(digest, text)
+            self.assertIn("3.7.0_12-0", text)
+
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1400)

@@ -1259,6 +1259,21 @@ exact boot candidate or its exact V2321 rollback. TWRP/Download is a
 preflight-proven recovery environment, not permission to write the recovery
 partition or any non-boot partition.
 
+The common contract delegates one exact A90-only boot-control exception needed
+to leave this TWRP. Only after the selected `boot` image has been written once
+and its exact prefix SHA-256 read back, `native_init_flash.py` may invoke TWRP
+System reboot once. Immediately before that invocation it must revalidate TWRP
+`3.7.0_12-0` and the direct regular root-owned executable
+`/system/bin/rebootsystem.sh`, mode `0755`, size `89`, SHA-256
+`3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07`.
+Those exact bytes contain only the fixed zero-source write of `bs=256 count=1
+conv=notrunc` to `/dev/block/by-name/misc`; TWRP then reboots. The runner never
+executes that `dd` directly, cannot select another path/offset/count, and does
+not retry TWRP System reboot after a send or response uncertainty. Any helper,
+TWRP, script, recovery-identity, ordering, or readback drift stops before this
+exception. It grants no general raw-block, `misc`, recovery-partition, or other
+target authority.
+
 Before any F1 effect, prove the exact healthy A90 starting state, exact candidate
 and rollback regular files and SHA256 values, boot-only membership, exact
 rootfs input and work-copy disposition when applicable, an empty durable

@@ -349,8 +349,9 @@ identity:
 - Therefore no H27 manifest, approval, ordinal, D0, D1, or F1 authority
   exists. The small H0 adapter for the existing Native serial and
   `native_init_flash.py` mechanisms is now present. Its
-  recovery mode requires an empty pre-effect ADB baseline and one recovery
-  arrival, without a caller-selected serial. A first Luna MAX full review
+  recovery mode binds the stable pre-effect non-recovery ADB baseline and one
+  newly arrived recovery endpoint whose serial SHA-256 matches the private A90
+  qualification, without a caller-selected serial. A first Luna MAX full review
   returned NO_GO because physical recovery was only a caller boolean. That
   boolean is now removed: the canonical candidate qualification binds and the
   owner rehashes exact recovery evidence/review bytes, its digest flows through
@@ -374,9 +375,10 @@ identity:
   manifest and independent review now require one shared generation stem and
   the exact `.enable`/`.done` suffix for their named roles.
   A seventh review rejected the constant other-target assertion. Live
-  preflight now hashes complete `lsusb` output, requires exactly one Samsung
+  preflight now hashes complete `lsusb` output, requires exactly one Native A90
   endpoint (`04e8:6861`), and separately binds the fixed A90 Native serial;
-  ADB remains recovery-only.
+  other Samsung endpoints may remain present but are never selected, and ADB
+  remains recovery-only.
   An eighth review found rollback was still manifest-selected. The A90 owner
   now hardcodes the sole V2321 rollback path, size, SHA-256, version, and build;
   only the candidate varies by manifest.
@@ -404,7 +406,7 @@ identity:
   PREPARED now acquires active first and only consumes candidate after; ordinary
   pre-effect candidate-guard rejection releases the new active reservation.
   A seventeenth review found the flash helper internally retried Native
-  `recovery` and TWRP `reboot`. Minimal empty-baseline mode now sends each
+  `recovery` and TWRP `reboot`. Minimal stable-baseline mode now sends each
   state-changing command once; response loss, busy, or no disconnect is
   uncertainty and never a resend.
   An eighteenth review found failed or malformed `adb devices` output could

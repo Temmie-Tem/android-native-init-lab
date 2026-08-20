@@ -27,6 +27,7 @@ QUALIFICATION = {
         "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
         "demonstrated": True,
     },
+    "recoveryIdentity": {"adbSerialSha256": "c" * 64},
     "review": {"path": "/tmp/review.json", "size": 1, "sha256": "a" * 64},
     "freshState": {
         "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
@@ -259,6 +260,10 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertIn("--from-native", argv)
         self.assertIn("--require-stable-adb-baseline", argv)
         self.assertNotIn("--require-empty-adb-baseline", argv)
+        self.assertEqual(
+            argv[argv.index("--expect-recovery-serial-sha256") + 1],
+            "c" * 64,
+        )
         self.assertNotIn("--serial", argv)
         self.assertEqual(argv.count(self.artifact["sha256"]), 2)
         self.assertEqual(timeout, 90)

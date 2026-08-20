@@ -63,6 +63,14 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
 3. Never use raw host `dd`, fastboot, partition-table actions, qdl/Sahara/
    Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format operations,
    or an unreviewed panic/RDX path.
+   One narrow A90 boot-control exception may be activated by the A90 target
+   contract: after an exact reviewed `boot` write and readback, the fixed TWRP
+   System-reboot hook may clear exactly the first 256 bytes of `misc` BCB and
+   nothing else before reboot. The hook path, complete bytes, size, SHA-256,
+   TWRP version, recovery identity, ordering, and one-shot behavior must be
+   fixed by reviewed code. It accepts no caller path, offset, count, command,
+   or payload; drift or a second invocation stops. This exception grants no
+   other `misc` access and never transfers to another target or process.
 4. Never flash unless the exact rollback artifact is present, readable,
    hash-verified, and usable through a demonstrated recovery path.
 5. Never flash a new experiment over an unhealthy or unverified device.

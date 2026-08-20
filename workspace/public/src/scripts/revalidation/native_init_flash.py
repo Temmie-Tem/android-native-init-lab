@@ -23,6 +23,20 @@ from a90ctl import ProtocolResult, run_cmdv1_command
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_REMOTE_IMAGE = "/tmp/native_init_boot.img"
+TWRP_SYSTEM_VERSION = "3.7.0_12-0"
+TWRP_SYSTEM_SCRIPT = "/system/bin/rebootsystem.sh"
+TWRP_SYSTEM_SCRIPT_SIZE = 89
+TWRP_SYSTEM_SCRIPT_SHA256 = (
+    "3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07"
+)
+TWRP_SYSTEM_REBOOT_COMMAND = (
+    f"test \"$(twrp --version)\" = '{TWRP_SYSTEM_VERSION}' && "
+    f"test \"$(stat -c '%F|%a|%u|%g|%s|%h' {TWRP_SYSTEM_SCRIPT})\" = "
+    f"'regular file|755|0|0|{TWRP_SYSTEM_SCRIPT_SIZE}|1' && "
+    f"test \"$(sha256sum {TWRP_SYSTEM_SCRIPT} | cut -d' ' -f1)\" = "
+    f"'{TWRP_SYSTEM_SCRIPT_SHA256}' && "
+    "exec twrp reboot"
+)
 BOOT_READBACK_BLOCK_SIZE = 4096
 ANDROID_BOOT_MAGIC = b"ANDROID!"
 INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
@@ -211,6 +225,8 @@ def wait_for_new_recovery_adb(
     adb: str,
     baseline: list[tuple[str, str]],
     timeout_sec: float,
+    *,
+    expected_serial_sha256: str,
 ) -> tuple[str, str]:
     """Bind one recovery arrival while every pre-existing endpoint stays exact."""
     baseline_set = set(baseline)
@@ -231,6 +247,9 @@ def wait_for_new_recovery_adb(
         if len(arrivals) == 1:
             serial, state = next(iter(arrivals))
             if state == "recovery":
+                observed = hashlib.sha256(serial.encode("utf-8")).hexdigest()
+                if observed != expected_serial_sha256:
+                    raise RuntimeError("new recovery endpoint is not the bound A90")
                 log(f"ADB ready: {serial} {state}")
                 return serial, state
         time.sleep(1.0)
@@ -885,7 +904,8 @@ def reboot_twrp_to_system(
     for attempt in range(1, attempts + 1):
         log(f"requesting system boot through TWRP no-argument reboot attempt={attempt}")
         result = run_command(
-            adb_base(args.adb, serial) + ["shell", "twrp reboot"],
+            adb_base(args.adb, serial)
+            + ["shell", TWRP_SYSTEM_REBOOT_COMMAND],
             check=False,
             capture=True,
         )
@@ -1119,6 +1139,10 @@ def parse_args() -> argparse.Namespace:
         help="bind all pre-existing non-recovery ADB endpoints unchanged and accept only one new recovery arrival",
     )
     parser.add_argument(
+        "--expect-recovery-serial-sha256",
+        help="SHA256 of the sole A90 recovery ADB serial; raw serial stays outside tracked inputs",
+    )
+    parser.add_argument(
         "--verify-only",
         action="store_true",
         help="only verify the selected --post-flash-target without flashing",
@@ -1220,6 +1244,10 @@ def main() -> int:
         args.expect_readback_sha256,
         label="--expect-readback-sha256",
     )
+    args.expect_recovery_serial_sha256 = normalize_sha256(
+        args.expect_recovery_serial_sha256,
+        label="--expect-recovery-serial-sha256",
+    )
     if args.require_empty_adb_baseline and args.require_stable_adb_baseline:
         raise SystemExit("ADB baseline modes are mutually exclusive")
     if (
@@ -1227,6 +1255,14 @@ def main() -> int:
     ) and (not args.from_native or args.serial):
         raise SystemExit(
             "strict ADB baseline mode requires --from-native and forbids a caller-selected serial"
+        )
+    if args.require_stable_adb_baseline and not args.expect_recovery_serial_sha256:
+        raise SystemExit(
+            "--require-stable-adb-baseline requires --expect-recovery-serial-sha256"
+        )
+    if args.expect_recovery_serial_sha256 and not args.require_stable_adb_baseline:
+        raise SystemExit(
+            "--expect-recovery-serial-sha256 requires --require-stable-adb-baseline"
         )
 
     with phase_timer("total"):
@@ -1271,7 +1307,10 @@ def main() -> int:
                 if adb_baseline is None:
                     raise RuntimeError("stable ADB baseline was not captured")
                 serial, state = wait_for_new_recovery_adb(
-                    args.adb, adb_baseline, args.recovery_timeout
+                    args.adb,
+                    adb_baseline,
+                    args.recovery_timeout,
+                    expected_serial_sha256=args.expect_recovery_serial_sha256,
                 )
             else:
                 serial, state = wait_for_adb_state(

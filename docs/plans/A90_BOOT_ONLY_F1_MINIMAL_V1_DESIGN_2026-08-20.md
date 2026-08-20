@@ -61,8 +61,15 @@ retried without overwriting either log.
   symlink/realpath is checked separately. Recovery ADB binds the complete
   pre-existing non-recovery endpoint set, requires it to remain unchanged,
   and selects only one newly arrived recovery endpoint caused by the exact
-  A90 Native recovery command.
+  A90 Native recovery command. The private qualification additionally binds
+  the SHA-256 of that A90 recovery serial; the raw serial is never tracked.
   This adds no standing ADB owner: ADB remains confined to recovery transfer.
+- After the exact boot-prefix readback and immediately before the sole TWRP System-reboot request, the helper revalidates TWRP `3.7.0_12-0` and the fixed
+  root-owned mode-`0755` `/system/bin/rebootsystem.sh` at size `89`, SHA-256
+  `3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07`.
+  The reviewed A90-only common-contract exception covers only that hook's
+  exact 256-byte `misc` BCB clear. There is no caller-selected raw command,
+  path, offset, length, payload, or retry.
 - Approval is derived from the canonical manifest digest, target evidence, and
   current boot ID. It is not reusable for another manifest, device, or boot.
 - The manifest embeds one candidate-specific qualification. It binds the exact
@@ -79,8 +86,9 @@ retried without overwriting either log.
   revalidate the same inode, and perform the bounded read.
 - Physical recovery is never a caller boolean. The adapter accepts only the
   validated `A90_ATTENDED_PHYSICAL_RECOVERY_V1` receipt for the fixed Native to
-  empty-ADB/single-recovery-arrival/readback method, and its digest is present
-  in every snapshot and terminal.
+  stable-ADB-baseline/single-new-recovery-arrival/readback method. The private
+  manifest binds the A90 recovery serial SHA-256, and the recovery-evidence
+  digest is present in every snapshot and terminal.
 - Fresh preflight and candidate health both use fixed read-only `stat` commands
   to prove the manifest-bound enable/latch paths absent. Rollback health does
   not misclassify a recovered V2321 solely because a candidate marker exists.
@@ -161,16 +169,19 @@ It uses only the existing A90 mechanisms:
   state machine.
 
 For the recovery transition, the adapter always selects the helper's new
-fail-closed mode: ADB inventory must be empty before the Native reboot request,
-and exactly one recovery endpoint may arrive. It never accepts a caller serial.
+fail-closed mode: every pre-existing non-recovery ADB endpoint is bound by
+exact serial/state before the Native reboot request and must remain unchanged;
+exactly one new recovery endpoint may arrive, and its serial SHA-256 must match
+the private A90 qualification. It never accepts a caller-selected serial.
 In that mode the Native `recovery` command and TWRP `reboot` command are each
 sent at most once: post-send transport loss, busy state, or missing disconnect
 is uncertainty and never an internal resend. Historical helper callers retain
 their prior retry behavior.
 The same minimal mode uses strict ADB inventory: command success, empty stderr,
 the exact header, and every nonblank endpoint row must parse without duplicates.
-Malformed output is never an empty baseline, a unique arrival, or proof that
-TWRP disconnected after its one reboot request.
+Malformed output is never a stable baseline, a unique arrival, or proof that
+TWRP disconnected after its one reboot request. Completion requires the exact
+pre-existing ADB baseline to be restored.
 The default helper behavior for historical callers is unchanged.
 
 The adapter and the state machine together require one fresh independent full

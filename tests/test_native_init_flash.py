@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import tempfile
 import types
@@ -72,6 +73,11 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "does not resend"):
                 flash.reboot_twrp_to_system(args, "A90")
         self.assertEqual(run.call_count, 1)
+        twrp_argv = run.call_args.args[0]
+        self.assertEqual(twrp_argv[-1], flash.TWRP_SYSTEM_REBOOT_COMMAND)
+        self.assertIn(flash.TWRP_SYSTEM_SCRIPT_SHA256, twrp_argv[-1])
+        self.assertIn("exec twrp reboot", twrp_argv[-1])
+        self.assertNotIn("dd if=", twrp_argv[-1])
 
     def test_parse_adb_devices_filters_header_blank_lines_and_keeps_states(self) -> None:
         output = """
@@ -152,9 +158,29 @@ recovery-serial recovery
             flash, "adb_devices", side_effect=inventories
         ), mock.patch.object(flash.time, "sleep"):
             self.assertEqual(
-                flash.wait_for_new_recovery_adb("adb", baseline, 5.0),
+                flash.wait_for_new_recovery_adb(
+                    "adb",
+                    baseline,
+                    5.0,
+                    expected_serial_sha256=hashlib.sha256(b"A90").hexdigest(),
+                ),
                 ("A90", "recovery"),
             )
+
+    def test_stable_baseline_rejects_wrong_recovery_serial(self) -> None:
+        baseline = [("OTHER", "device")]
+        with mock.patch.object(
+            flash,
+            "adb_devices",
+            return_value=[("OTHER", "device"), ("WRONG", "recovery")],
+        ):
+            with self.assertRaisesRegex(RuntimeError, "not the bound A90"):
+                flash.wait_for_new_recovery_adb(
+                    "adb",
+                    baseline,
+                    1.0,
+                    expected_serial_sha256=hashlib.sha256(b"A90").hexdigest(),
+                )
 
     def test_stable_foreign_adb_baseline_rejects_drift_or_ambiguity(self) -> None:
         baseline = [("OTHER", "device")]
@@ -173,7 +199,12 @@ recovery-serial recovery
                 flash, "adb_devices", return_value=inventory
             ):
                 with self.assertRaisesRegex(RuntimeError, message):
-                    flash.wait_for_new_recovery_adb("adb", baseline, 1.0)
+                    flash.wait_for_new_recovery_adb(
+                        "adb",
+                        baseline,
+                        1.0,
+                        expected_serial_sha256=hashlib.sha256(b"A90").hexdigest(),
+                    )
 
     def test_stable_foreign_adb_baseline_requires_exact_restoration(self) -> None:
         baseline = [("OTHER", "device")]

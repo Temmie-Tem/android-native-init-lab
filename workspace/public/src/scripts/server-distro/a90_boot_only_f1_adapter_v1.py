@@ -309,6 +309,7 @@ def _validate_absent_stat(value: dict[str, Any], path: str) -> bool:
 class FixedA90Adapter:
     def __init__(self, runner: CommandRunner, *, qualification: dict[str, Any]) -> None:
         recovery = qualification.get("recovery")
+        recovery_identity = qualification.get("recoveryIdentity")
         fresh_state = qualification.get("freshState")
         review = qualification.get("review")
         if (
@@ -318,6 +319,12 @@ class FixedA90Adapter:
             or recovery.get("method")
             != "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
             or recovery.get("demonstrated") is not True
+            or type(recovery_identity) is not dict
+            or set(recovery_identity) != {"adbSerialSha256"}
+            or type(recovery_identity.get("adbSerialSha256")) is not str
+            or re.fullmatch(
+                r"[0-9a-f]{64}", recovery_identity["adbSerialSha256"]
+            ) is None
             or type(review) is not dict
             or set(review) != {"path", "size", "sha256"}
             or type(review.get("sha256")) is not str
@@ -328,6 +335,7 @@ class FixedA90Adapter:
             raise ContractError("A90 physical recovery qualification is not exact")
         self.runner = runner
         self.recovery_evidence_sha256 = review["sha256"]
+        self.recovery_serial_sha256 = recovery_identity["adbSerialSha256"]
 
     def _json_command(self, label: str, argv: tuple[str, ...], timeout_sec: int) -> dict[str, Any]:
         result = self.runner.run(label, argv, timeout_sec)
@@ -502,6 +510,8 @@ class FixedA90Adapter:
             str(ADB),
             "--from-native",
             "--require-stable-adb-baseline",
+            "--expect-recovery-serial-sha256",
+            self.recovery_serial_sha256,
             "--expect-version",
             artifact["version"],
             "--expect-sha256",
