@@ -49,8 +49,10 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
 ## Permanent Device Safety Boundaries
 
 1. Work only on an explicitly identified operator-owned device. Device effects
-   require attendance except the exact A90 resident D1 lane delegated below;
-   F1 is never unattended, and authority never transfers between targets.
+   require attendance except the exact A90 resident D1 lane and an exact S20+
+   bounded autonomous-research lane separately activated by their binding
+   target contracts. F1 is never unattended, and authority never transfers
+   between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
    Never send a partition image, raw block write, or flashing operation to
    recovery, vendor_boot, DTBO, vbmeta, vbmeta_system, BL, CP, CSC, super,
@@ -126,6 +128,37 @@ Classify every action using
 
 Do not split a higher-risk action into lower-tier commands. A device-connected
 action is not H0 merely because it sends no partition payload.
+
+## S20+ Bounded Autonomous Research Delegation
+The S20+ target contract may activate one independently reviewed autonomous
+research session without per-invocation attendance. It grants no authority
+until the target section, exact runner, hostile tests, and execution-critical
+identities receive independent `PASS_GO` and are mechanically activated.
+The lane is exact `SM-G986N/y2q/y2qksx/G986NKSS8IYC2` only. Each session starts
+with bounded public ADB inventory, requires one healthy match, binds hashed
+serial/topology/current boot, and expires on disconnect, unowned reboot,
+identity/build/source drift, unhealthy Android, foreign guard, or endpoint
+ambiguity. Other rows receive zero commands.
+Only reviewed named actions are selectable: bounded public D0 collection;
+fixed no-input root-read-only profiles with complete commands, paths, node
+types, bounds, and parsers; `reboot-system`; and a separately reviewed atomic
+`download-roundtrip` choreography with its own guard/finalizer.
+Callers supply no path, shell, property, service, executable, mount, credential,
+or destination.
+Root profiles may report only fixed bounded metadata, digests, and explicitly
+parsed proc/sys text into `workspace/private/`; they extract no file bytes.
+The lane forbids Odin payload/archive/partition transfer, F1 dispatch, root or Magisk/configuration
+mutation, packages, shared-storage writes, mounts, deletion, permission,
+property/service/security changes, and generic `su`.
+Intent precedes each effect; uncertainty never replays. Entry/return intent is
+one atomic no-replace node containing both child/campaign counter snapshots;
+debit-only or partial-scope state grants nothing. Recovery requires a canonical
+campaign/session/ordinal/source/endpoint/predecessor chain. Only the fixed
+`/usr/bin/odin4 --reboot -d <bound-endpoint>` payload-free return may leave
+Download. One attended opening creates a finite monotonic campaign. A reserved
+return survives expiry only for bound arrival/return/final health and grants no
+new baseline, entry, transaction, or capacity. Pre-F1 readiness stops before
+F1 intent/entry/approval/transfer; F1/R1 remain freshly attended.
 
 ## Common R1 Invariants
 

@@ -403,7 +403,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.assertIn(clause, compact)
         self.assertEqual(a90_target_contract_issues(self.a90_target), ())
         self.assertIn(
-            "Device effects require attendance except the exact A90 resident D1 lane delegated below; F1 is never unattended",
+            "Device effects require attendance except the exact A90 resident D1 lane and an exact S20+ bounded autonomous-research lane separately activated by their binding target contracts. F1 is never unattended",
             normalized(self.agents),
         )
         self.assertIn(

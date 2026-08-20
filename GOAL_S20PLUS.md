@@ -669,3 +669,70 @@ terminal preserves the original UNKNOWN source verdict and
 `exit_dispatch_proven=false`, proves exact healthy S20+ Android, and records
 the single prior effect as non-replayable. The shared guard is released. No
 Odin, reboot, transfer, or payload command was sent by finalization.
+
+The next bounded unit proposes an S20+-only autonomous research session in
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_RESEARCH_SESSION_H0_2026-08-21.md`
+and models it at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_research_h0.py`.
+The common policy candidate initially delegates only exact-target public reads,
+normal reboot, and a new atomic payload-free Download roundtrip. Root profiles
+remain deferred until their complete launcher/parser closure exists. The lane
+stops in healthy normal Android at
+`READY_FOR_ATTENDED_F1` and grants no F1 intent, approval consumption, Odin
+payload, partition access, root write, or generic shell. The owner is dormant:
+`RESEARCH_ACTIVE=false`, its CLI is only `--render-plan`, and its device/root/
+effect/transfer lists are empty. Exact session budgets, expiry conditions,
+private-output rules, hostile tests, independent policy review, live
+coordinator implementation, and a later mechanical activation remain required
+before any autonomous connected action exists.
+
+The first independent review returned `NO_GO`: the draft contradicted its own
+Odin exception, could not reuse the attended disconnect/reconnect exit,
+contained a caller-backend hook, mixed root node types without exact parsers,
+and allowed session budgets to reset. The rotated H0 model uses a separate
+empty-baseline/entry/arrival/payload-free-return choreography, permanently
+removes live dispatch from the policy owner, defers root actions, excludes
+file-byte extraction, and requires a fresh attended opening for one
+nonrenewable 24-hour campaign whose child-session counters are monotonic. It
+remains review-pending and inactive.
+
+The second independent review returned `NO_GO` because the two-effect Download
+roundtrip was charged as one effect, Magisk metadata survey input/time/parser
+closure remained incomplete, and the report still described a removed backend
+hook. The current rotation separates transaction and component-effect counters
+and removes every root profile from the action surface, records the exact
+closure required by a later root unit, and corrects the report. The permanently
+render-only owner remains review-pending and inactive.
+
+The third independent review reproduced a budget-edge strand: a Download entry
+at `effect_max-1` left no return slot, and the unresolved entry still admitted
+a normal reboot. The rotated model reserves the return effect before entry,
+converts that reservation at return without new capacity, and rejects every
+other control while the roundtrip is unresolved. Both child-session and
+campaign maximum-edge cuts are now hostile fixtures. A valid reservation
+survives time expiry only for bound arrival, payload-free return, and final
+health; it opens no new baseline, entry, or transaction. It remains inactive.
+
+The fourth review found that relationally forged counters could reset history
+and expiry recovery was undefined. Exact counter equations now reject forged
+or orphan state, while the policy reserves expiry authority only for the bound
+arrival/return/final-health sequence.
+
+The fifth review returned `NO_GO` because expiry recovery trusted an unbound
+phase string and counter debit was not atomic with both scope snapshots and the
+intent. The future live coordinator must bind every recovery node to its fixed
+current guard, campaign/session/ordinal/source/endpoint/policy, actual
+predecessor bytes, and both counter scopes in one atomic no-replace node.
+
+The sixth review then proved the policy owner's recovery validator was still
+caller-self-certified. It has been removed completely. The permanently
+render-only owner now grants no recovery action and records only the fixed-path
+canonical/current-guard/full-chain requirements that a separate live
+coordinator must implement and independently review.
+
+Fresh exact-byte independent review returned `PASS_GO` for this dormant policy
+H0 only. A mechanical status rotation records
+`H0_AUTONOMOUS_RESEARCH_POLICY_PASS_GO_NOT_ACTIVE`; no dispatch, backend,
+recovery validator, root action, connected command, campaign, or session was
+created. The separate live coordinator and its full current-guard/canonical
+journal/cut recovery remain the next bounded unit.

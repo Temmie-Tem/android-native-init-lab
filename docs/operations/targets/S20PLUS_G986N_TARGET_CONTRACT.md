@@ -301,6 +301,73 @@ later exact contract amendment, recovery design, appropriate artifacts,
 proportional validation, independent safety review, and fresh authority.
 Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
 
+## Bounded autonomous research session
+
+Status: **H0 POLICY PASS_GO - NOT ACTIVE**
+
+The common S20+ autonomous-research delegation is modeled by
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_research_h0.py`.
+It is target-specific and does not inherit A90 unattended authority. The current
+runner exposes only `--render-plan`; `RESEARCH_ACTIVE=false`, live authority is
+false, and its command and device-effect lists are empty.
+
+The proposed active session may later reuse only the exact reviewed routine D0,
+routine-control, and payload-free Download-return primitives pinned by its
+binding. The initial action surface contains only public health reads,
+`reboot-system`, and one separately reviewed atomic `download-roundtrip`. Root
+profiles remain deferred below. The roundtrip begins in healthy Android, records an empty
+Download baseline, durably intents one `adb reboot download`, binds the sole
+exact arrival, durably intents one exact payload-free
+`/usr/bin/odin4 --reboot -d <bound-endpoint>`, and proves healthy returned
+Android. It does not reuse or bypass the attended disconnect/arm/reconnect
+helper. It must remain in healthy normal Android before publishing
+`READY_FOR_ATTENDED_F1` and stop
+before any F1 intent, F1 Download entry, approval consumption, Odin payload, or
+partition transfer.
+
+One fresh attended campaign opening creates one durable 24-hour allocation:
+at most 256 read operations, 128 MiB of private evidence, and 64 control
+transactions, split into at most 32 normal reboots and 32 Download roundtrips,
+plus an exact 96-component-effect ceiling. Each normal reboot debits one
+transaction/effect before intent; each roundtrip debits one transaction and
+its entry effect plus a mandatory return reservation before the entry intent.
+The return intent converts that reservation to consumed without requiring new
+capacity. The allocation cannot renew or reset itself. Each child session is at
+most four hours, 64 reads, 32 MiB, 16 transactions, and 24 component effects,
+and debits the campaign counters monotonically.
+Entry and return each publish one strict canonical atomic no-replace node that
+contains both post-debit child/campaign counter snapshots and that effect's
+intent. A debit-only, single-scope, malformed, or partially published state
+grants no effect or recovery authority. Arrival/return recovery additionally
+binds campaign, session, roundtrip ordinal, source identity, endpoint, policy
+binding, and exact predecessor node.
+A valid unmatched entry and reserved return survive child/campaign time expiry
+only as recovery authority to observe the bound arrival, issue the exact
+payload-free return, and prove final health. They grant no new baseline, entry,
+transaction, or capacity. Endpoint ambiguity retains the guard and requires
+attended recovery.
+A fresh exact target/boot binding starts every child session. Any unexpected
+boot, unhealthy return, unresolved guard, ambiguous endpoint, source drift,
+budget exhaustion, or incomplete mode transition parks the session. No control
+effect repeats after its durable intent.
+
+Root profiles are deferred and are not actions in this H0 activation surface.
+Their paths/node types are recorded only as design inputs. A later unit must
+bind the exact root launcher/transport, timeout, per-input size ceilings,
+stable no-follow before/after receipts, directory entry count/name grammar,
+exact parser source identities, and hostile replacement/cut tests before adding
+any root action. No file-byte extraction, root write, package operation, module
+marker, mount, property/service mutation, or security/configuration change is
+authorized by this unit.
+
+This H0 policy owner is permanently render-only and is not mechanically
+activatable. Activation requires a separate exact live coordinator with no
+caller callback, its tests/report identities, hostile cut coverage, independent
+safety review of this permanent common boundary change, and a separate
+mechanical transition of this section and that coordinator. Until then, the
+existing attended D0/D1/F1/R1 rules remain unchanged and no autonomous
+connected action exists.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
