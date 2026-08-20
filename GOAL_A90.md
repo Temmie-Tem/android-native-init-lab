@@ -351,12 +351,13 @@ identity:
   tree with one deterministic generated package. The owner binds the loader
   and package from exact public bytes, copies each to a write/grow/shrink/seal-
   sealed memfd, and children execute only the sealed package FD in one of the
-  fixed `bridge`, `command`, or `flash` modes. There is no staging action,
-  source-tree receipt, sibling path open, or runtime-source repair state. Four
-  fresh isolated command subprocesses load only embedded exact members and can issue
-  only `version`, `selftest`, `status`, and the kernel boot-ID read in fixed
-  order; timeout, malformed output, surviving descendants, or duplication
-  yields no observation receipt, and the bridge always closes. Stable-owner
+  fixed `bridge`, `observe`, or `flash` modes. There is no staging action,
+  source-tree receipt, sibling path open, or runtime-source repair state. One
+  fresh isolated observation worker loads only embedded exact members and
+  issues only `version`, `selftest`, `status`, and the kernel boot-ID read in
+  fixed order; timeout, malformed/missing/reordered output, surviving
+  descendants, or duplication yields no observation receipt, and the bridge
+  always closes. Stable-owner
   Work Package 1 now excludes tests/reviews from execution identity, gives
   resident/recovery/hazard `v2` evidence an owner-independent lifetime while
   rejecting old `v1` bytes and while the manifest and approval still bind
@@ -365,9 +366,9 @@ identity:
   recovery arrival/serial binding, crash-prefix resume, and independent full
   execution-closure review remain open.
   Therefore no H27 manifest, approval, ordinal,
-  D0, D1, or F1 authority exists. The next owner unit is H0 observation
-  consolidation, followed by recovery binding plus the crash reconciler and
-  one fresh full review of the frozen closure.
+  D0, D1, or F1 authority exists. The next owner unit is H0 recovery binding
+  plus the crash reconciler, followed by one fresh full review of the frozen
+  closure.
 
 ## What Leaves or Moves Out
 

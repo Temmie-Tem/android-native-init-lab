@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import copy
 import datetime as dt
 import hashlib
@@ -716,6 +717,17 @@ class ContractTests(unittest.TestCase):
             (len(raw), sha(raw)),
             owner.SOURCE_PACKAGE_SPEC,
         )
+        tree = ast.parse(raw, filename=str(owner.SOURCE_PACKAGE_PATH))
+        commands = next(
+            node.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "COMMANDS"
+                for target in node.targets
+            )
+        )
+        self.assertEqual(ast.literal_eval(commands), owner.OBSERVATION_COMMANDS)
         self.assertEqual(owner.helper_runtime_digest(), owner.HELPER_RUNTIME_CLOSURE_SHA256)
 
     def test_owned_bridge_uses_held_source_and_proves_bounded_teardown(self) -> None:
@@ -981,7 +993,7 @@ class ContractTests(unittest.TestCase):
                         expected_sha256=digest,
                     )
 
-    def test_owned_command_producer_executes_only_fixed_fd_bound_commands(self) -> None:
+    def test_owned_observation_worker_executes_one_fixed_fd_bound_sequence(self) -> None:
         artifact = FakeHeldSource(
             owner.SOURCE_PACKAGE_PATH,
             "helper-package",
@@ -992,43 +1004,48 @@ class ContractTests(unittest.TestCase):
         launches: list[tuple[tuple[str, ...], dict[str, Any]]] = []
 
         def popen(command: tuple[str, ...], **kwargs: Any) -> FakeCommandProcess:
-            label = command[-2]
-            expected = dict(owner.OBSERVATION_COMMANDS)[label]
             launches.append((command, kwargs))
             return FakeCommandProcess(
                 kwargs["stdout"],
                 {
-                    "command": list(expected),
-                    "rc": 0,
-                    "status": "ok",
-                    "text": "bounded-result\n",
+                    "schema": "a90-boot-only-f1-observation-worker-v1",
+                    "results": [
+                        {
+                            "label": label,
+                            "command": list(expected),
+                            "rc": 0,
+                            "status": "ok",
+                            "text": "bounded-result\n",
+                        }
+                        for label, expected in owner.OBSERVATION_COMMANDS
+                    ],
                 },
             )
 
         try:
             with tempfile.TemporaryDirectory() as raw_root:
-                producer = owner.OwnedCommandProducer(
+                worker = owner.OwnedObservationWorker(
                     bindings,
                     Path(raw_root),
                     FakeFdExec,
                     popen_factory=popen,
                     process_group_exists=lambda _pid: False,
                 )
+                receipts = worker.run(timeout_sec=5)
                 for label, expected in owner.OBSERVATION_COMMANDS:
-                    receipt = producer.run(label, timeout_sec=5)
+                    receipt = receipts[label]
                     self.assertEqual(receipt["command"], list(expected))
                     self.assertEqual(receipt["rc"], 0)
-                self.assertEqual(len(launches), 4)
+                self.assertEqual(len(launches), 1)
                 for command, kwargs in launches:
                     self.assertEqual(command[0:4], (
                         str(owner.PYTHON_EXECUTABLE), "-I", "-c", FakeFdExec.PROGRAM
                     ))
                     self.assertEqual(kwargs["pass_fds"], (artifact.fd,))
                     self.assertIs(kwargs["close_fds"], True)
+                    self.assertEqual(command[-2:], ("observe", "5"))
                 with self.assertRaisesRegex(contract.ContractError, "consumed"):
-                    producer.run("version", timeout_sec=5)
-                with self.assertRaisesRegex(contract.ContractError, "unknown"):
-                    producer.run("arbitrary", timeout_sec=5)
+                    worker.run(timeout_sec=5)
         finally:
             bindings.close()
 
@@ -1086,7 +1103,7 @@ class ContractTests(unittest.TestCase):
         finally:
             artifact.close()
 
-    def test_source_package_exposes_only_fixed_bridge_command_and_flash_modes(self) -> None:
+    def test_source_package_exposes_only_fixed_bridge_observe_and_flash_modes(self) -> None:
         artifacts = owner.bind_source_package()
         package = artifacts["helper-package"]
         try:
@@ -1095,7 +1112,7 @@ class ContractTests(unittest.TestCase):
             )
             cases = (
                 (("bridge", "--help"), 0, "serial_tcp_bridge.py"),
-                (("command", "unknown", "5"), 1, "unknown command"),
+                (("observe", "unexpected", "5"), 1, "arguments are invalid"),
                 (("flash", "--help"), 0, "native_init_flash.py"),
             )
             for arguments, expected_rc, expected_text in cases:
@@ -1160,8 +1177,8 @@ class ContractTests(unittest.TestCase):
             package.close()
             fd_exec_artifact.close()
 
-    def test_owned_command_producer_rejects_mismatched_or_timed_out_result(self) -> None:
-        for scenario in ("mismatch", "timeout"):
+    def test_owned_observation_worker_rejects_mismatched_or_timed_out_result(self) -> None:
+        for scenario in ("missing", "reordered", "nonzero", "timeout"):
             with self.subTest(scenario=scenario):
                 artifact = FakeHeldSource(
                     owner.SOURCE_PACKAGE_PATH,
@@ -1173,20 +1190,35 @@ class ContractTests(unittest.TestCase):
                 killed: list[tuple[int, int]] = []
 
                 def popen(_command: tuple[str, ...], **kwargs: Any) -> FakeCommandProcess:
+                    results = [
+                        {
+                            "label": label,
+                            "command": list(command),
+                            "rc": 0,
+                            "status": "ok",
+                            "text": "bounded-result\n",
+                        }
+                        for label, command in owner.OBSERVATION_COMMANDS
+                    ]
+                    if scenario == "missing":
+                        results.pop()
+                    elif scenario == "reordered":
+                        results.reverse()
+                    elif scenario == "nonzero":
+                        results[1]["rc"] = 1
+                        results[1]["status"] = "error"
                     return FakeCommandProcess(
                         kwargs["stdout"],
                         {
-                            "command": ["status"],
-                            "rc": 0,
-                            "status": "ok",
-                            "text": "wrong\n",
+                            "schema": "a90-boot-only-f1-observation-worker-v1",
+                            "results": results,
                         },
                         timeout=scenario == "timeout",
                     )
 
                 try:
                     with tempfile.TemporaryDirectory() as raw_root:
-                        producer = owner.OwnedCommandProducer(
+                        worker = owner.OwnedObservationWorker(
                             bindings,
                             Path(raw_root),
                             FakeFdExec,
@@ -1195,7 +1227,7 @@ class ContractTests(unittest.TestCase):
                             kill_group=lambda pid, sig: killed.append((pid, sig)),
                         )
                         with self.assertRaises(contract.ContractError):
-                            producer.run("version", timeout_sec=5)
+                            worker.run(timeout_sec=5)
                         if scenario == "timeout":
                             self.assertEqual(killed, [(5252, signal.SIGKILL)])
                 finally:
@@ -1217,21 +1249,24 @@ class ContractTests(unittest.TestCase):
                 self.close_timeout_sec = timeout_sec
                 return {}
 
-        class Commands:
-            def __init__(self, *, fail_on: str | None = None) -> None:
-                self.labels: list[str] = []
-                self.fail_on = fail_on
+        class Worker:
+            def __init__(self, *, fail: bool = False) -> None:
+                self.calls = 0
+                self.fail = fail
 
-            def run(self, label: str, *, timeout_sec: int) -> dict[str, Any]:
-                self.labels.append(label)
-                if label == self.fail_on:
-                    raise contract.ContractError("command failed")
-                key = "bootId" if label == "boot-id" else label
-                return source[key]
+            def run(self, *, timeout_sec: int) -> dict[str, dict[str, Any]]:
+                self.calls += 1
+                self.timeout_sec = timeout_sec
+                if self.fail:
+                    raise contract.ContractError("worker failed")
+                return {
+                    label: source["bootId" if label == "boot-id" else label]
+                    for label, _command in owner.OBSERVATION_COMMANDS
+                }
 
         bridge = Bridge()
-        commands = Commands()
-        session = owner.OwnedObservationSession(bridge, commands)
+        worker = Worker()
+        session = owner.OwnedObservationSession(bridge, worker)
         health = session.observe(
             manifest()["expectedStart"],
             recovery_available=True,
@@ -1240,17 +1275,18 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(health.version, "0.11.192")
         self.assertEqual(
-            commands.labels, [label for label, _command in owner.OBSERVATION_COMMANDS]
+            worker.calls, 1
         )
+        self.assertEqual(worker.timeout_sec, 8)
         self.assertEqual(bridge.closed, 1)
         self.assertEqual(bridge.readiness_timeout_sec, 7)
         self.assertEqual(bridge.close_timeout_sec, 5.0)
 
         failing_bridge = Bridge()
         failing = owner.OwnedObservationSession(
-            failing_bridge, Commands(fail_on="status")
+            failing_bridge, Worker(fail=True)
         )
-        with self.assertRaisesRegex(contract.ContractError, "command failed"):
+        with self.assertRaisesRegex(contract.ContractError, "worker failed"):
             failing.observe(
                 manifest()["expectedStart"],
                 recovery_available=True,
@@ -1666,7 +1702,7 @@ class OwnerStateMachineTests(unittest.TestCase):
         self.assertNotIn("a90_v3403_f1_orchestrator", source)
         self.assertFalse(owner.LIVE_EXECUTION_ENABLED)
         self.assertIn(
-            "STABLE_SOURCE_PACKAGE_BRIDGE_COMMAND_CORE_PRESENT",
+            "STABLE_SOURCE_PACKAGE_BRIDGE_OBSERVATION_WORKER_CORE_PRESENT",
             owner.IMPLEMENTATION_STATUS,
         )
         self.assertIn("RECOVERY_BINDING_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)

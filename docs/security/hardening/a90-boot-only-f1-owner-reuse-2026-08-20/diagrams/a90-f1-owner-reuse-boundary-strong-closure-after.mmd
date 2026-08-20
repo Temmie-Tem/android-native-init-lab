@@ -3,7 +3,7 @@ flowchart LR
   X["Executed source and complete host runtime"] --> C["Execution closure"]
   C --> O
   O --> B["Owned serial bridge"]
-  O --> P["Four fixed command subprocesses"]
+  O --> P["One fixed-order observation worker"]
   P --> B --> N["A90 native serial"]
   O --> F["Existing recovery flash helper"]
   F --> A["Recovery-only ADB"] --> W["boot write and readback"] --> N

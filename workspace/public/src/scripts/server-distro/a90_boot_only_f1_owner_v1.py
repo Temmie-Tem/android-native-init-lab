@@ -58,7 +58,8 @@ import a90_boot_only_f1_observer_v1 as observer_v1
 
 
 IMPLEMENTATION_STATUS = (
-    "H0_RUNTIME_QUALIFIED_STABLE_SOURCE_PACKAGE_BRIDGE_COMMAND_CORE_PRESENT_"
+    "H0_RUNTIME_QUALIFIED_STABLE_SOURCE_PACKAGE_BRIDGE_OBSERVATION_WORKER_"
+    "CORE_PRESENT_"
     "RECOVERY_BINDING_AND_RESUME_ABSENT"
 )
 LIVE_EXECUTION_ENABLED = False
@@ -78,8 +79,8 @@ FD_EXEC_SPEC = (
     "e35e667e4bdf6a87999d9ec7ac496d699cd8251974dfac17e71ddad6a0d66069",
 )
 SOURCE_PACKAGE_SPEC = (
-    186_162,
-    "ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a",
+    186_547,
+    "68332b68f353c38456f81fa544f99b4c99b890feff416772d4630c174b5b4ae1",
 )
 HELPER_RUNTIME_CLOSURE_SHA256 = SOURCE_PACKAGE_SPEC[1]
 MAX_LOG_BYTES = 16 * 1024 * 1024
@@ -535,8 +536,8 @@ OBSERVATION_COMMANDS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
-class OwnedCommandProducer:
-    """Run each fixed read-only command once through the held FD bootstrap."""
+class OwnedObservationWorker:
+    """Run the complete fixed observation sequence in one isolated child."""
 
     def __init__(
         self,
@@ -556,14 +557,14 @@ class OwnedCommandProducer:
         self.popen_factory = popen_factory
         self.process_group_exists = process_group_exists
         self.kill_group = kill_group
-        self.completed: set[str] = set()
+        self.consumed = False
 
-    def run(self, label: str, *, timeout_sec: int) -> dict[str, Any]:
-        command_map = dict(OBSERVATION_COMMANDS)
-        if label not in command_map or label in self.completed:
-            raise ContractError("observation command is unknown or already consumed")
+    def run(self, *, timeout_sec: int) -> dict[str, dict[str, Any]]:
+        if self.consumed:
+            raise ContractError("observation worker is already consumed")
         if type(timeout_sec) is not int or not 1 <= timeout_sec <= 300:
-            raise ContractError("observation command timeout is invalid")
+            raise ContractError("observation worker timeout is invalid")
+        self.consumed = True
         self.bindings.checkpoint()
         bootstrap = self.bindings.artifacts["helper-package"]
         argv = self.fd_exec.bootstrap_command(
@@ -572,10 +573,10 @@ class OwnedCommandProducer:
             bootstrap.path,
             bootstrap.identity["size"],
             bootstrap.identity["sha256"],
-            ("command", label, str(timeout_sec)),
+            ("observe", str(timeout_sec)),
         )
-        stdout_path = self.run_directory / f"observe-{len(self.completed)}-{label}.stdout"
-        stderr_path = self.run_directory / f"observe-{len(self.completed)}-{label}.stderr"
+        stdout_path = self.run_directory / "observation-worker.stdout"
+        stderr_path = self.run_directory / "observation-worker.stderr"
         flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
         stdout_fd = os.open(stdout_path, flags, 0o600)
         try:
@@ -603,67 +604,88 @@ class OwnedCommandProducer:
                 start_new_session=True,
             )
             try:
-                returncode = process.wait(timeout=float(timeout_sec + 2))
+                returncode = process.wait(
+                    timeout=float(len(OBSERVATION_COMMANDS) * timeout_sec + 2)
+                )
             except subprocess.TimeoutExpired as exc:
                 try:
                     self.kill_group(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
                 process.wait(timeout=2.0)
-                raise ContractError("observation command exceeded its bound") from exc
+                raise ContractError("observation worker exceeded its bound") from exc
             if self.process_group_exists(process.pid):
                 try:
                     self.kill_group(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                raise ContractError("observation command left a surviving process group")
+                raise ContractError("observation worker left a surviving process group")
             self.bindings.checkpoint()
             stdout_sha256 = _finalize_log(stdout_fd, stdout_path)
             _stderr_sha256 = _finalize_log(stderr_fd, stderr_path)
             stdout_metadata = os.fstat(stdout_fd)
             raw = os.pread(stdout_fd, stdout_metadata.st_size, 0)
             if sha256_bytes(raw) != stdout_sha256:
-                raise ContractError("observation command stdout changed after fsync")
-            value = parse_canonical_bytes(raw, f"observation command {label}")
-            result = require_object(
+                raise ContractError("observation worker stdout changed after fsync")
+            value = parse_canonical_bytes(raw, "observation worker")
+            worker = require_object(
                 value,
-                frozenset({"command", "rc", "status", "text"}),
-                f"observation command {label}",
+                frozenset({"schema", "results"}),
+                "observation worker",
             )
-            expected_command = list(command_map[label])
+            results = worker["results"]
             if (
-                result["command"] != expected_command
-                or type(result["rc"]) is not int
-                or result["rc"] != returncode
+                worker["schema"] != "a90-boot-only-f1-observation-worker-v1"
+                or type(results) is not list
+                or len(results) != len(OBSERVATION_COMMANDS)
                 or returncode != 0
-                or result["status"] != "ok"
-                or type(result["text"]) is not str
-                or not result["text"]
             ):
-                raise ContractError("observation command result mismatch")
-            self.completed.add(label)
-            outcome = CommandOutcome(
-                command=expected_command,
-                rc=result["rc"],
-                status=result["status"],
-                text=result["text"],
-            )
-            return observer_v1.command_receipt(expected_command, outcome)
+                raise ContractError("observation worker envelope mismatch")
+            receipts: dict[str, dict[str, Any]] = {}
+            for index, (expected_label, command_tuple) in enumerate(
+                OBSERVATION_COMMANDS
+            ):
+                result = require_object(
+                    results[index],
+                    frozenset({"label", "command", "rc", "status", "text"}),
+                    f"observation worker result {index}",
+                )
+                expected_command = list(command_tuple)
+                if (
+                    result["label"] != expected_label
+                    or result["command"] != expected_command
+                    or type(result["rc"]) is not int
+                    or result["rc"] != 0
+                    or result["status"] != "ok"
+                    or type(result["text"]) is not str
+                    or not result["text"]
+                ):
+                    raise ContractError("observation worker result mismatch")
+                outcome = CommandOutcome(
+                    command=expected_command,
+                    rc=result["rc"],
+                    status=result["status"],
+                    text=result["text"],
+                )
+                receipts[expected_label] = observer_v1.command_receipt(
+                    expected_command, outcome
+                )
+            return receipts
         finally:
             os.close(stdout_fd)
             os.close(stderr_fd)
 
 
 class OwnedObservationSession:
-    """One bridge plus exactly four fixed commands and mandatory teardown."""
+    """One bridge plus one fixed-order observation worker and teardown."""
 
     def __init__(
         self,
         bridge: OwnedBridgeLifecycle,
-        commands: OwnedCommandProducer,
+        worker: OwnedObservationWorker,
     ) -> None:
         self.bridge = bridge
-        self.commands = commands
+        self.worker = worker
 
     def observe(
         self,
@@ -677,10 +699,7 @@ class OwnedObservationSession:
             readiness_timeout_sec=bridge_timeout_sec,
         )
         try:
-            receipts = {
-                label: self.commands.run(label, timeout_sec=command_timeout_sec)
-                for label, _command in OBSERVATION_COMMANDS
-            }
+            receipts = self.worker.run(timeout_sec=command_timeout_sec)
             value = {
                 "schema": observer_v1.OBSERVER_SCHEMA,
                 "bridge": bridge_receipt,
@@ -1283,14 +1302,14 @@ class SubprocessBackend:
             run_directory,
             self.fd_exec,
         )
-        self.commands = OwnedCommandProducer(
+        self.worker = OwnedObservationWorker(
             bindings,
             run_directory,
             self.fd_exec,
         )
         self.observation_session = OwnedObservationSession(
             self.bridge,
-            self.commands,
+            self.worker,
         )
 
     def preflight(self, manifest: dict[str, Any]) -> LiveSnapshot:

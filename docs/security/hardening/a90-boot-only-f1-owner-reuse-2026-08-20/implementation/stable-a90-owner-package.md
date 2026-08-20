@@ -37,7 +37,8 @@ hardening portfolio. No relevant source drift was found.
    and one generated package, seals both into memfds, and has no source-staging
    action or runtime-source receipt.
 3. **Observation consolidation.** Replace four Python command processes with
-   one fixed-order observation worker and one receipt.
+   one fixed-order observation worker and one receipt. **Completed in H0:** one
+   `observe` package process emits the exact four-result canonical envelope.
 4. **Recovery binding and resume.** Bind exact-one recovery ADB arrival/serial
    and implement the minimal no-replay journal state table.
 5. **Qualification.** Freeze the resulting execution closure, run one full
@@ -77,10 +78,12 @@ Work Package 1 ended with 79 focused tests and six execution-closure members.
 Work Package 2 keeps six execution-closure members but reduces active helper
 filesystem objects from ten sources plus one receipt to one loader plus one
 package. The generated package is 186,162 bytes and contains seven exact source
-members; preparation/staging commands fall from one to zero. The four command
-subprocesses remain and peak RSS is unmeasured, so neither is claimed improved
-until Work Package 3. The resulting Work Package 2 execution closure is
-`1735077b64670482271f2dc2cd406d1434991c20223db83e918914a8ce7891d4`.
+members; preparation/staging commands fall from one to zero. Work Package 3
+reduces observation children from four to one and observation stdout/stderr
+pairs from four to one. Peak RSS remains unmeasured, so no memory improvement
+is claimed. The current execution-closure digest is recorded after generated
+qualification as
+`ba09b7d5d446e0aa4c9e03f470a38d1d348e1a7c4ec4a552a327088299122788`.
 
 ## Rollout And Rollback
 
@@ -96,7 +99,10 @@ may continue.
 - Native preflight performs no ADB operation.
 - Recovery ADB support remains present in the existing flash adapter.
 - The package generator `--check` matches, direct package execution fails, and
-  sealed-FD `bridge`, `command`, and `flash` mode entry tests pass.
+  sealed-FD `bridge`, `observe`, and `flash` mode entry tests pass.
+- The observation worker rejects missing, extra, duplicate, reordered,
+  malformed, nonzero, timed-out, or descendant-leaking results and cannot be
+  invoked twice.
 - Focused tests, `py_compile`, generated-receipt check, JSON parsing, and scoped
   diff checks pass.
 - No live authority is enabled.

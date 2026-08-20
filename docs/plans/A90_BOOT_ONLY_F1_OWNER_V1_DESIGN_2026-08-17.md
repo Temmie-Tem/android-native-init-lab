@@ -7,12 +7,13 @@ Device or live effect of this document: none
 Status: **H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE
 DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE
 ARE PRESENT — live execution is hard-disabled. The single sealed runtime source
-package and four fixed-command producer core are also present. The exact
+package and one fixed-order observation worker core are also present. The exact
 recovery endpoint binding, crash-prefix resume, and the required independent
 full review remain absent. Work Package 1 has removed tests from execution
 identity, decoupled independent evidence from owner code, and removed ADB from
 Native preflight; Work Package 2 has removed the persistent ten-file runtime
-tree. This qualifies nothing and grants no authority.**
+tree, and Work Package 3 has consolidated four command children into one
+fixed-order worker. This qualifies nothing and grants no authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -227,11 +228,11 @@ execute only the sealed package FD. Repository ancestor permissions therefore
 cannot select executed bytes, and an in-place source change after binding
 cannot change the sealed capability.
 
-The package exposes only three fixed modes: `bridge`, `command`, and `flash`.
+The package exposes only three fixed modes: `bridge`, `observe`, and `flash`.
 It decodes and rehashes each requested embedded member, installs only the fixed
 local module names in one fixed order, never adds a source directory to
-`sys.path`, and never opens a sibling source pathname. `command` retains the
-four fixed read-only commands; `flash` retains the reviewed
+`sys.path`, and never opens a sibling source pathname. `observe` runs the four
+fixed read-only commands once in their exact order; `flash` retains the reviewed
 `native_init_flash.py` recovery adapter; `bridge` retains the exact serial
 bridge. The old helper and command bootstrap files, the persistent runtime
 tree, the staging command, and the runtime-source receipt are unreachable and
@@ -291,7 +292,8 @@ same inherited FD, closes it, and compiles only those bytes. The pathname is
 diagnostic metadata only. A pathname swap, restoration, or in-place change
 therefore cannot select executed package bytes, and direct pathname execution
 is rejected. The package rejects a preloaded local name, member identity or
-digest mismatch, unknown mode or command, and any `sys.path` change.
+digest mismatch, unknown mode, invalid observation arguments, and any
+`sys.path` change.
 
 The sole helper launch vector is structurally fixed as
 `[PYTHON_EXECUTABLE, -I, -c, FD_EXEC_PROGRAM, PACKAGE_FD,
@@ -341,10 +343,10 @@ The current executable helper closure is exactly:
 | file under `workspace/public/src/scripts/revalidation/` | size | sha256 |
 |---|---:|---|
 | `a90_boot_only_f1_fd_exec.py` | 3,689 | `e35e667e4bdf6a87999d9ec7ac496d699cd8251974dfac17e71ddad6a0d66069` |
-| `a90_boot_only_f1_source_package_v1.py` | 186,162 | `ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a` |
+| `a90_boot_only_f1_source_package_v1.py` | 186,547 | `68332b68f353c38456f81fa544f99b4c99b890feff416772d4630c174b5b4ae1` |
 
 The helper-runtime digest is the generated package SHA256 itself:
-`ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a`.
+`68332b68f353c38456f81fa544f99b4c99b890feff416772d4630c174b5b4ae1`.
 The package generator pins the complete embedded member table, and its
 `--check` comparison rejects any source, member-set, encoding, or runtime
 template drift. Any active loader or package-byte change expires the owner
@@ -427,18 +429,19 @@ proves the PID, listener, socket holder, and TTY holder absent. Readiness never
 relaunches the bridge, teardown uncertainty is terminal, and duplicate start
 or close is rejected.
 
-The bridge and command cores are still not live-capability producers. For each
-of the four commands, the owner starts a fresh isolated Python through the
-same held sealed package FD in fixed `command` mode, inherits exactly that FD,
-loads the embedded pinned `a90ctl` dependency set without adding a directory
-to `sys.path`,
-and permits no caller- or manifest-selected command. Each subprocess has a
-bounded timeout and output size, a new process group, exclusive `0600` logs,
-exact canonical output parsing, post-return source checkpoints, and no repeat
-after success. A timeout kills the group and cannot yield a receipt; a
-surviving group, malformed output, command mismatch, nonzero rc/status, or
-duplicate command is terminal. The observation session runs the fixed order
-once and always tears down the bridge before returning health.
+The bridge and observation cores are still not live-capability producers. The
+owner starts one isolated Python through the held sealed package FD in fixed
+`observe` mode, inherits exactly that FD, loads the embedded pinned `a90ctl`
+dependency set without adding a directory to `sys.path`, and permits no caller-
+or manifest-selected command. The worker runs exactly `version`, `selftest`,
+`status`, and `cat /proc/sys/kernel/random/boot_id` in that order and emits one
+canonical `a90-boot-only-f1-observation-worker-v1` result. It has a bounded
+per-command and total timeout, bounded output, one new process group, exclusive
+`0600` logs, post-return source checkpoints, and no repeat after launch. A
+timeout kills the group and cannot yield a receipt; a missing, extra, duplicate,
+or reordered result, surviving group, malformed output, command mismatch, or
+nonzero rc/status is terminal. The observation session always tears down the
+bridge before returning health.
 
 Native preflight performs no ADB operation. The existing absolute ADB transport
 remains part of `native_init_flash.py` only for the TWRP recovery window. Exact
@@ -673,9 +676,9 @@ The owner is only as good as what it refuses. At minimum:
   start/close, or a package source/checkpoint mismatch;
 - stale generated package, changed/extra/missing embedded member, invalid
   member encoding, unknown package mode, or unsealed inherited package FD;
-- unknown or duplicate observation command, command/result mismatch,
-  observation command timeout, oversized/malformed output, or surviving
-  observation process group;
+- caller-selected observation command, missing/extra/duplicate/reordered worker
+  result, command/result mismatch, observation timeout, oversized/malformed
+  output, or surviving observation process group;
 - source directory added to `sys.path`, preloaded local module,
   reordered/missing/extra embedded dependency, or member outside the exact
   generated package;
@@ -713,7 +716,7 @@ The owner is only as good as what it refuses. At minimum:
 
 - It does not provide a live-capable owner. The H0 contract/state-machine core,
   current-host runtime qualification, pure observation contract, single sealed
-  source package, and owner-controlled bridge plus four-command producer cores
+  source package, and owner-controlled bridge plus one observation-worker core
   exist. Exact recovery arrival/serial binding and crash-prefix resume remain
   deliberately absent; the live CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard

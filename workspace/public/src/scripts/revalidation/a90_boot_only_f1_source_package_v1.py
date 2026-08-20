@@ -1875,12 +1875,12 @@ MODULE_ORDER = (
     ("a90_serial_lock", "a90_serial_lock.py"),
     ("a90ctl", "a90ctl.py"),
 )
-COMMANDS = {
-    "version": ("version",),
-    "selftest": ("selftest",),
-    "status": ("status",),
-    "boot-id": ("cat", "/proc/sys/kernel/random/boot_id"),
-}
+COMMANDS = (
+    ("version", ("version",)),
+    ("selftest", ("selftest",)),
+    ("status", ("status",)),
+    ("boot-id", ("cat", "/proc/sys/kernel/random/boot_id")),
+)
 MAX_OUTPUT_BYTES = 1 << 20
 
 
@@ -1950,11 +1950,11 @@ def _exec_main(file_name: str, arguments: list[str]) -> None:
     )
 
 
-def _command(arguments: list[str]) -> int:
-    if len(arguments) != 2 or arguments[0] not in COMMANDS:
-        raise RuntimeError("A90 source package received an unknown command")
+def _observe(arguments: list[str]) -> int:
+    if len(arguments) != 1:
+        raise RuntimeError("A90 source package observation arguments are invalid")
     try:
-        timeout_sec = int(arguments[1], 10)
+        timeout_sec = int(arguments[0], 10)
     except ValueError as exc:
         raise RuntimeError("A90 source package timeout is not an integer") from exc
     if not 1 <= timeout_sec <= 300:
@@ -1962,23 +1962,36 @@ def _command(arguments: list[str]) -> int:
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_OUTPUT_BYTES, MAX_OUTPUT_BYTES))
     loaded = _dependencies()
-    command = list(COMMANDS[arguments[0]])
-    result = loaded["a90ctl"].run_cmdv1_command(
-        "127.0.0.1",
-        54321,
-        float(timeout_sec),
-        command,
-        retry_unsafe=False,
-        input_mode="normal",
-        require_prompt_after_end=True,
-    )
-    print(
-        json.dumps(
+    results = []
+    all_ok = True
+    for label, command_tuple in COMMANDS:
+        command = list(command_tuple)
+        result = loaded["a90ctl"].run_cmdv1_command(
+            "127.0.0.1",
+            54321,
+            float(timeout_sec),
+            command,
+            retry_unsafe=False,
+            input_mode="normal",
+            require_prompt_after_end=True,
+        )
+        results.append(
             {
+                "label": label,
                 "command": command,
                 "rc": result.rc,
                 "status": result.status,
                 "text": result.text,
+            }
+        )
+        if result.rc != 0 or result.status != "ok":
+            all_ok = False
+            break
+    print(
+        json.dumps(
+            {
+                "schema": "a90-boot-only-f1-observation-worker-v1",
+                "results": results,
             },
             ensure_ascii=True,
             allow_nan=False,
@@ -1987,7 +2000,7 @@ def _command(arguments: list[str]) -> int:
         ),
         flush=True,
     )
-    return 0 if result.rc == 0 and result.status == "ok" else 1
+    return 0 if all_ok and len(results) == len(COMMANDS) else 1
 
 
 def main() -> int:
@@ -2002,8 +2015,8 @@ def main() -> int:
     if mode == "bridge":
         _exec_main("serial_tcp_bridge.py", arguments)
         return 0
-    if mode == "command":
-        return _command(arguments)
+    if mode == "observe":
+        return _observe(arguments)
     if mode == "flash":
         _dependencies()
         _exec_main("native_init_flash.py", arguments)

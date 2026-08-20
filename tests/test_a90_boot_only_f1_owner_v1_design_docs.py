@@ -44,13 +44,13 @@ PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
-RUNTIME_CLOSURE_SHA = "ba74d5acda1378f58fd5b99d1a8cbd41b5de42611bc7d63d5561475164f4424a"
+RUNTIME_CLOSURE_SHA = "68332b68f353c38456f81fa544f99b4c99b890feff416772d4630c174b5b4ae1"
 HELD_RUNTIME_CLOSURE = {
     "a90_boot_only_f1_fd_exec.py": (
         3_689,
         "e35e667e4bdf6a87999d9ec7ac496d699cd8251974dfac17e71ddad6a0d66069",
     ),
-    "a90_boot_only_f1_source_package_v1.py": (186_162, RUNTIME_CLOSURE_SHA),
+    "a90_boot_only_f1_source_package_v1.py": (186_547, RUNTIME_CLOSURE_SHA),
 }
 EMBEDDED_MEMBERS = {
     "_workspace_bootstrap.py",
@@ -423,7 +423,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE ARE PRESENT",
             head,
         )
-        self.assertIn("four fixed-command producer core are also present", head)
+        self.assertIn("one fixed-order observation worker core", head)
         self.assertIn("live execution is hard-disabled", head)
         self.assertIn("Device or live effect of this document: none", head)
 
@@ -479,13 +479,13 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertIn("children inherit and execute only the sealed package FD", self.design)
         self.assertIn("old helper and command bootstrap files", self.design)
 
-    def test_four_commands_are_fixed_and_isolated(self) -> None:
+    def test_one_worker_runs_four_fixed_commands_in_order(self) -> None:
         for token in (
             "`version`, `selftest`, `status`, and `cat /proc/sys/kernel/random/boot_id`",
-            "inherits exactly that FD",
+            "one isolated Python",
             "without adding a directory to `sys.path`",
             "permits no caller- or manifest-selected command",
-            "duplicate command is terminal",
+            "missing, extra, duplicate, or reordered result",
             "always tears down the bridge before returning health",
         ):
             self.assertIn(token, self.design, token)
@@ -757,7 +757,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertNotIn("sys.path.append", source)
         self.assertIn("tuple(sys.path) != original_path", source)
         self.assertIn('mode == "bridge"', source)
-        self.assertIn('mode == "command"', source)
+        self.assertIn('mode == "observe"', source)
         self.assertIn('mode == "flash"', source)
 
     def test_the_hazard_is_bound_at_three_points(self) -> None:
@@ -1063,9 +1063,10 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "package source/checkpoint mismatch",
             "stale generated package",
             "unsealed inherited package FD",
-            "unknown or duplicate observation command",
-            "observation command timeout",
-            "surviving\n  observation process group",
+            "caller-selected observation command",
+            "missing/extra/duplicate/reordered worker",
+            "observation timeout",
+            "surviving observation process group",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
             "post-candidate artifact drift followed by candidate retry",
