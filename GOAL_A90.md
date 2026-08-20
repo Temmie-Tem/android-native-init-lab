@@ -422,6 +422,12 @@ identity:
   The third activated review found stale/foreign `sys.modules` aliases could
   still be reused. A per-load sentinel and exact path/class identity now reject
   mixed module instances.
+  Luna MAX then issued `PASS_GO` for the activated ten-file closure
+  `1a21cf7369d400ba01259e9d20cd73fe915b0597315b7bbd5843fa775a4c664b`.
+  The H27 private manifest is canonical and host-validated at SHA-256
+  `d97b8f45a8a43ce292fe9602b0154608ec2344a59f2ffbfcd4dbe5815e1c9b44`;
+  it grants no effect until fresh preflight produces and the operator repeats
+  its exact attended approval token.
 
 ## What Leaves or Moves Out
 
