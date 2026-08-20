@@ -270,15 +270,13 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     fresh_state = _object(
         qualification["freshState"], {"enablePath", "latchPath"}, "fresh state"
     )
-    marker_re = re.compile(
-        r"^/cache/a90-auto-handoff-phase3-minimal-[a-z0-9-]{1,48}"
-        r"\.(?:enable|done)$"
-    )
-    for key in ("enablePath", "latchPath"):
-        if type(fresh_state[key]) is not str or marker_re.fullmatch(fresh_state[key]) is None:
-            raise ContractError(f"freshState.{key} is invalid")
-    if fresh_state["enablePath"] == fresh_state["latchPath"]:
-        raise ContractError("fresh state paths alias")
+    if any(type(fresh_state[key]) is not str for key in fresh_state):
+        raise ContractError("fresh state paths are not strings")
+    marker_base = r"/cache/a90-auto-handoff-(phase3-minimal-[a-z0-9-]{1,48})"
+    enable = re.fullmatch(marker_base + r"\.enable", fresh_state["enablePath"])
+    latch = re.fullmatch(marker_base + r"\.done", fresh_state["latchPath"])
+    if enable is None or latch is None or enable.group(1) != latch.group(1):
+        raise ContractError("fresh state paths do not bind one enable/latch generation")
     _input(qualification["review"], "qualification review")
     timeouts = _object(manifest["timeouts"], {"flashSec", "healthSec"}, "timeouts")
     for key in ("flashSec", "healthSec"):
@@ -464,7 +462,7 @@ def _validate_qualification_review(value: Any, manifest: dict[str, Any]) -> None
         {
             "schema", "capability", "verdict", "scope", "targetProfile",
             "executionClosureSha256", "candidateSha256", "rollbackSha256",
-            "recovery", "hazard", "findings", "contacts", "reviewer",
+            "recovery", "hazard", "freshState", "findings", "contacts", "reviewer",
             "reviewDate", "liveAuthority",
         },
         "qualification review",
@@ -489,6 +487,11 @@ def _validate_qualification_review(value: Any, manifest: dict[str, Any]) -> None
     hazard = _object(review["hazard"], {"id", "statementSha256", "accepted"}, "review hazard")
     if recovery != manifest["qualification"]["recovery"] or hazard != manifest["qualification"]["hazard"]:
         raise ContractError("qualification review does not bind recovery and hazard")
+    fresh_state = _object(
+        review["freshState"], {"enablePath", "latchPath"}, "review fresh state"
+    )
+    if fresh_state != manifest["qualification"]["freshState"]:
+        raise ContractError("qualification review does not bind fresh state")
     findings = _object(review["findings"], {"high", "medium", "low"}, "review findings")
     if any(type(findings[key]) is not list or findings[key] for key in findings):
         raise ContractError("qualification review contains a material finding")

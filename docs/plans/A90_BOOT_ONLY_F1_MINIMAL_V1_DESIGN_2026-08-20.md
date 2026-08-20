@@ -57,7 +57,9 @@ It contains no production device backend and its CLI hard-disables execution.
   not misclassify a recovered V2321 solely because a candidate marker exists.
   Every Native response is paired in the adapter receipt with the exact command
   argument vector sent by that subprocess, so a generic or wrong-path ENOENT
-  cannot prove either marker absent.
+  cannot prove either marker absent. The manifest and review both require one
+  common generation stem, `enablePath` ending exactly in `.enable`, and
+  `latchPath` ending exactly in `.done`.
 - Candidate intent precedes its only launch. Rollback intent precedes its only
   launch. A candidate is never replayed after intent.
 - Every record uses create-exclusive publication, file fsync, and directory

@@ -368,6 +368,9 @@ identity:
   A fifth review found that generic `stat -ENOENT` was not tied to the marker
   argument. Adapter evidence now pairs every response with the exact request
   vector and requires `stat` plus the exact manifest path.
+  A sixth review found enable/done roles and generations could be swapped. The
+  manifest and independent review now require one shared generation stem and
+  the exact `.enable`/`.done` suffix for their named roles.
 
 ## What Leaves or Moves Out
 

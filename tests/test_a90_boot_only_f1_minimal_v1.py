@@ -85,6 +85,10 @@ class MinimalF1Test(unittest.TestCase):
             "rollbackSha256": M.sha256_bytes(b"rollback"),
             "recovery": recovery,
             "hazard": hazard,
+            "freshState": {
+                "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
+                "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h27.done",
+            },
             "findings": {"high": [], "medium": [], "low": []},
             "contacts": {"device": 0, "dev": 0, "usb": 0, "network": 0,
                          "workspacePrivate": 0, "otherTargets": 0, "writes": 0},
@@ -191,6 +195,22 @@ class MinimalF1Test(unittest.TestCase):
         bad["qualification"]["hazard"]["accepted"] = False
         with self.assertRaisesRegex(M.ContractError, "hazard"):
             M.validate_manifest(bad)
+        for enable, latch in (
+            (
+                "/cache/a90-auto-handoff-phase3-minimal-h27.done",
+                "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
+            ),
+            (
+                "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
+                "/cache/a90-auto-handoff-phase3-minimal-h28.done",
+            ),
+        ):
+            bad = json.loads(json.dumps(self.manifest))
+            bad["qualification"]["freshState"] = {
+                "enablePath": enable, "latchPath": latch,
+            }
+            with self.assertRaisesRegex(M.ContractError, "enable/latch generation"):
+                M.validate_manifest(bad)
         bad = dict(self.manifest, command="flash")
         with self.assertRaises(M.ContractError):
             M.validate_manifest(bad)
@@ -299,6 +319,22 @@ class MinimalF1Test(unittest.TestCase):
                         self.root / f"run-{len(value)}-{value['verdict']}",
                         FakeBackend(self.start),
                     )
+
+    def test_review_cannot_substitute_fresh_state_generation(self):
+        value = M.parse_canonical(self.review.read_bytes(), "review")
+        value["freshState"]["latchPath"] = (
+            "/cache/a90-auto-handoff-phase3-minimal-h28.done"
+        )
+        self.review.write_bytes(M.canonical_json(value))
+        changed = json.loads(json.dumps(self.manifest))
+        changed["qualification"]["review"] = self._input(self.review)
+        with self.assertRaisesRegex(M.ContractError, "bind fresh state"):
+            M.prepare(
+                M.canonical_json(changed),
+                changed,
+                self.root / "run-wrong-fresh-state",
+                FakeBackend(self.start),
+            )
 
     def test_fifo_review_is_rejected_before_open_or_read(self):
         fifo = self.root / "review.fifo"
@@ -422,7 +458,7 @@ class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1100)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 450)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 500)
         self.assertLessEqual(len(design.read_text().splitlines()), 180)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):
