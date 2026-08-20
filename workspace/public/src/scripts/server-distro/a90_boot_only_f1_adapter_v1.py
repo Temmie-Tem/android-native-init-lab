@@ -204,6 +204,7 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     pids = value.get("port_pids")
     metadata, selected_realpath = value.get("metadata"), value.get("selected_realpath")
     processes = value.get("processes")
+    socket_inodes, sockets = value.get("port_socket_inodes"), value.get("port_sockets")
     candidates_valid = type(candidates) is list and all(
         type(candidate) is dict for candidate in candidates
     )
@@ -212,6 +213,7 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     ] if candidates_valid else []
     command = metadata.get("command") if type(metadata) is dict else None
     process = processes[0] if type(processes) is list and len(processes) == 1 else None
+    listener = sockets[0] if type(sockets) is list and len(sockets) == 1 else None
     process_argv = (
         shlex.split(process.get("cmdline"))
         if type(process) is dict and type(process.get("cmdline")) is str
@@ -251,6 +253,15 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
         or len(pids) != 1
         or type(pids[0]) is not int
         or pids[0] <= 0
+        or value.get("port_pid_source") != "fd"
+        or type(socket_inodes) is not list
+        or len(socket_inodes) != 1
+        or type(socket_inodes[0]) is not str
+        or not socket_inodes[0].isdigit()
+        or type(listener) is not dict
+        or listener.get("address") != "127.0.0.1"
+        or listener.get("port") != 54321
+        or listener.get("inode") != socket_inodes[0]
         or type(process) is not dict
         or process.get("pid") != pids[0]
         or process.get("pid") != metadata.get("pid")

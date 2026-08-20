@@ -104,6 +104,14 @@ def bridge(*, ambiguous=False):
         "listen_host": "127.0.0.1",
         "listen_port": 54321,
         "port_pids": [1234],
+        "port_pid_source": "fd",
+        "port_socket_inodes": ["98765"],
+        "port_sockets": [{
+            "address": "127.0.0.1",
+            "inode": "98765",
+            "port": 54321,
+            "uid": 1000,
+        }],
         "processes": [{
             "cmdline": " ".join(command),
             "managed": True,
@@ -203,6 +211,19 @@ class FixedAdapterTest(unittest.TestCase):
                 ).preflight(
                     {"expectedStart": self.expected, "qualification": QUALIFICATION}
                 )
+
+    def test_bridge_rejects_cmdline_fallback_listener_ownership(self):
+        value = bridge()
+        value["port_pid_source"] = "cmdline-fallback"
+        value["port_socket_inodes"] = []
+        value["port_sockets"] = []
+        with self.assertRaisesRegex(A.ContractError, "bridge preflight"):
+            A.FixedA90Adapter(
+                FakeRunner([usb_inventory(), result(value)]),
+                qualification=QUALIFICATION,
+            ).preflight(
+                {"expectedStart": self.expected, "qualification": QUALIFICATION}
+            )
 
     def test_wrong_version_is_unhealthy_not_pass(self):
         runner = FakeRunner(healthy_results(version="other"))
@@ -351,7 +372,7 @@ class FixedAdapterTest(unittest.TestCase):
                 A.HostRunner(path)
 
     def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 600)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 620)
 
 
 if __name__ == "__main__":
