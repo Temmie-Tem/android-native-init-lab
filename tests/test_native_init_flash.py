@@ -17,6 +17,61 @@ flash = load_revalidation("native_init_flash")
 
 
 class NativeInitFlashSafetyHelpers(unittest.TestCase):
+    def test_minimal_bridge_command_never_resends_after_post_send_error(self) -> None:
+        sends = []
+
+        class Socket:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def settimeout(self, _value):
+                pass
+
+            def sendall(self, value):
+                sends.append(value)
+
+            def recv(self, _size):
+                raise OSError("response lost after send")
+
+        with mock.patch.object(
+            flash.socket, "create_connection", return_value=Socket()
+        ) as connect:
+            with self.assertRaisesRegex(RuntimeError, "one send"):
+                flash.bridge_command(
+                    "127.0.0.1", 2222, "recovery", 30,
+                    retry_transport=False,
+                )
+        self.assertEqual(len(sends), 1)
+        self.assertEqual(connect.call_count, 1)
+
+    def test_minimal_busy_recovery_and_twrp_uncertainty_never_retry(self) -> None:
+        args = types.SimpleNamespace(
+            bridge_host="127.0.0.1",
+            bridge_port=2222,
+            bridge_timeout=30,
+            require_empty_adb_baseline=True,
+            adb="adb",
+        )
+        with mock.patch.object(
+            flash, "bridge_command", return_value="[busy]"
+        ) as bridge:
+            with self.assertRaisesRegex(RuntimeError, "does not resend"):
+                flash.reboot_native_to_recovery(args)
+        self.assertEqual(bridge.call_count, 1)
+
+        result = types.SimpleNamespace(stdout="", stderr="")
+        with mock.patch.object(flash.time, "sleep"), mock.patch.object(
+            flash, "run_command", return_value=result
+        ) as run, mock.patch.object(
+            flash, "wait_for_adb_disconnect", return_value=False
+        ):
+            with self.assertRaisesRegex(RuntimeError, "does not resend"):
+                flash.reboot_twrp_to_system(args, "A90")
+        self.assertEqual(run.call_count, 1)
+
     def test_parse_adb_devices_filters_header_blank_lines_and_keeps_states(self) -> None:
         output = """
 List of devices attached

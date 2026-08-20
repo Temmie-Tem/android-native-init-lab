@@ -656,7 +656,8 @@ def bridge_command(host: str,
                    port: int,
                    command: str,
                    timeout_sec: float,
-                   markers: tuple[bytes, ...] = (b"[done]", b"[err]")) -> str:
+                   markers: tuple[bytes, ...] = (b"[done]", b"[err]"),
+                   retry_transport: bool = True) -> str:
     deadline = time.monotonic() + timeout_sec
     last_error: Exception | None = None
 
@@ -698,6 +699,12 @@ def bridge_command(host: str,
         except OSError as exc:
             last_error = exc
 
+        if not retry_transport:
+            raise RuntimeError(
+                f"bridge command outcome uncertain after one send for {command!r}: "
+                f"{last_error}"
+            )
+
         time.sleep(1.0)
 
     raise RuntimeError(f"bridge command timeout for {command!r}: {last_error}")
@@ -705,6 +712,21 @@ def bridge_command(host: str,
 
 def reboot_native_to_recovery(args: argparse.Namespace) -> None:
     log("requesting recovery from native init bridge")
+    if args.require_empty_adb_baseline:
+        output = bridge_command(
+            args.bridge_host,
+            args.bridge_port,
+            "recovery",
+            args.bridge_timeout,
+            markers=(b"recovery:", b"[err]", b"[busy]"),
+            retry_transport=False,
+        )
+        print(output, end="")
+        if "[busy]" in output:
+            raise RuntimeError(
+                "native recovery command was busy; minimal one-shot mode does not resend"
+            )
+        return
     for attempt in range(1, 4):
         output = bridge_command(
             args.bridge_host,
@@ -767,7 +789,8 @@ def flash_boot_image(args: argparse.Namespace,
 def reboot_twrp_to_system(args: argparse.Namespace, serial: str) -> None:
     time.sleep(1.0)
 
-    for attempt in range(1, 4):
+    attempts = 1 if args.require_empty_adb_baseline else 3
+    for attempt in range(1, attempts + 1):
         log(f"requesting system boot through TWRP no-argument reboot attempt={attempt}")
         result = run_command(
             adb_base(args.adb, serial) + ["shell", "twrp reboot"],
@@ -782,6 +805,10 @@ def reboot_twrp_to_system(args: argparse.Namespace, serial: str) -> None:
         if wait_for_adb_disconnect(args.adb, serial, 8.0):
             return
 
+        if args.require_empty_adb_baseline:
+            raise RuntimeError(
+                "TWRP reboot outcome uncertain; minimal one-shot mode does not resend"
+            )
         log("TWRP recovery ADB is still present after reboot request; retrying")
         time.sleep(2.0)
 

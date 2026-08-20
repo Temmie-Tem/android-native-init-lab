@@ -401,6 +401,10 @@ identity:
   A sixteenth review found another active run could burn a new candidate guard.
   PREPARED now acquires active first and only consumes candidate after; ordinary
   pre-effect candidate-guard rejection releases the new active reservation.
+  A seventeenth review found the flash helper internally retried Native
+  `recovery` and TWRP `reboot`. Minimal empty-baseline mode now sends each
+  state-changing command once; response loss, busy, or no disconnect is
+  uncertainty and never a resend.
 
 ## What Leaves or Moves Out
 

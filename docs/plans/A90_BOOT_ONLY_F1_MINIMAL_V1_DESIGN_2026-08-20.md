@@ -142,6 +142,10 @@ It uses only the existing A90 mechanisms:
 For the recovery transition, the adapter always selects the helper's new
 fail-closed mode: ADB inventory must be empty before the Native reboot request,
 and exactly one recovery endpoint may arrive. It never accepts a caller serial.
+In that mode the Native `recovery` command and TWRP `reboot` command are each
+sent at most once: post-send transport loss, busy state, or missing disconnect
+is uncertainty and never an internal resend. Historical helper callers retain
+their prior retry behavior.
 The default helper behavior for historical callers is unchanged.
 
 The adapter and the state machine together require one fresh independent full
