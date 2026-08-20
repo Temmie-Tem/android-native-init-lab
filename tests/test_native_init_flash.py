@@ -117,6 +117,15 @@ recovery-serial recovery
                 with self.assertRaisesRegex(RuntimeError, "inventory command"):
                     flash.adb_devices("adb", strict=True)
 
+    def test_strict_disconnect_does_not_turn_inventory_failure_into_absence(self) -> None:
+        failure = types.SimpleNamespace(returncode=1, stdout="", stderr="")
+        with mock.patch.object(
+            flash.subprocess, "run", return_value=failure
+        ), self.assertRaisesRegex(RuntimeError, "inventory command"):
+            flash.wait_for_adb_disconnect(
+                "adb", "A90", 1.0, strict_inventory=True
+            )
+
     def test_unique_recovery_arrival_rejects_multiple_adb_endpoints(self) -> None:
         with mock.patch.object(
             flash,

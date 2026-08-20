@@ -408,6 +408,9 @@ identity:
   An eighteenth review found failed or malformed `adb devices` output could
   look empty. Minimal mode now requires successful strict inventory with exact
   header, empty stderr, and no malformed/duplicate endpoint row.
+  A nineteenth review found TWRP disconnect still used the legacy parser. The
+  same strict inventory now governs disconnect; inventory failure is
+  uncertainty, never proof that recovery ADB disappeared.
 
 ## What Leaves or Moves Out
 

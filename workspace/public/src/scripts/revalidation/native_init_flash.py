@@ -154,8 +154,8 @@ def adb_devices(adb: str, *, strict: bool = False) -> list[tuple[str, str]]:
     return parse_adb_devices(result.stdout)
 
 
-def adb_state(adb: str, serial: str) -> str | None:
-    for device_serial, state in adb_devices(adb):
+def adb_state(adb: str, serial: str, *, strict: bool = False) -> str | None:
+    for device_serial, state in adb_devices(adb, strict=strict):
         if device_serial == serial:
             return state
     return None
@@ -190,11 +190,17 @@ def wait_for_adb_state(adb: str,
     raise RuntimeError(f"ADB state timeout; wanted={sorted(wanted_states)} last={rendered}")
 
 
-def wait_for_adb_disconnect(adb: str, serial: str, timeout_sec: float) -> bool:
+def wait_for_adb_disconnect(
+    adb: str,
+    serial: str,
+    timeout_sec: float,
+    *,
+    strict_inventory: bool = False,
+) -> bool:
     deadline = time.monotonic() + timeout_sec
 
     while time.monotonic() < deadline:
-        if adb_state(adb, serial) is None:
+        if adb_state(adb, serial, strict=strict_inventory) is None:
             return True
         time.sleep(0.5)
 
@@ -825,7 +831,12 @@ def reboot_twrp_to_system(args: argparse.Namespace, serial: str) -> None:
             for line in output.splitlines():
                 log(f"twrp reboot: {line}")
 
-        if wait_for_adb_disconnect(args.adb, serial, 8.0):
+        if wait_for_adb_disconnect(
+            args.adb,
+            serial,
+            8.0,
+            strict_inventory=args.require_empty_adb_baseline,
+        ):
             return
 
         if args.require_empty_adb_baseline:

@@ -148,7 +148,8 @@ is uncertainty and never an internal resend. Historical helper callers retain
 their prior retry behavior.
 The same minimal mode uses strict ADB inventory: command success, empty stderr,
 the exact header, and every nonblank endpoint row must parse without duplicates.
-Malformed output is never an empty baseline or a unique arrival.
+Malformed output is never an empty baseline, a unique arrival, or proof that
+TWRP disconnected after its one reboot request.
 The default helper behavior for historical callers is unchanged.
 
 The adapter and the state machine together require one fresh independent full
