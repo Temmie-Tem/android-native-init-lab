@@ -2191,6 +2191,96 @@ boot-time initial state instead delivered in the `modprobe` probe context, and
 any candidate-side reading of `pdic_max77705.ko` or of the interrupt wiring has
 to be compared against, and it did not exist before this unit.
 
+## The shipped MUIC attach guards do not block the AP path
+
+The next candidate-side question was deliberately narrower than "does the
+driver exist": whether the exact shipped `pdic_max77705.ko` contains a guard
+that prevents the stock CDP attach from reaching `com_to_usb_ap`.  It does not.
+This section is direct-ELF analysis of the 423456-byte module, SHA-256
+`27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db`,
+BuildID `a59ccb842e0d521ec636b01ed54a65b6c0121d07`.  The ramdisk and
+`vendor_dlkm` copies were already proved byte-identical; the latter was used.
+
+This needed machine code rather than symbol-name inference.  The relevant
+static helpers are inlined into the 4024-byte `max77705_muic_detect_dev`
+function at `.text+0x177c4`, so their absence from the function symbol table
+means nothing.  The audit reads ELF sections, symbols, relocations,
+instructions and the dispatch table directly; `objdump` was used for human
+inspection, not as the authority parser.  Its exact source counterparts are
+also snapshotted and hashed so that field and enum names are not guessed from
+offsets.
+
+### CDP reaches the USB-path block
+
+The attach switch uses `new_dev - 1` to index the halfword table at
+`.rodata+0x5de`.  Values `1`, `2`, `23` and `24` — USB, CDP, JIG USB off and
+JIG USB on — all resolve to `.text+0x18198`.  In particular, **CDP value `2`
+enters the USB-path block**.  That is the same value the retained stock
+notifier emitted, so this is a binary-to-observation comparison rather than a
+new interpretation of the log.
+
+A fresh probe stores `ATTACHED_DEV_NONE_MUIC` at `0x16650`, then calls the
+initial detector with IRQ `-1` at `0x16c94`.  A first CDP result is therefore
+not rejected by the duplicated-device branch.  The stock `modprobe` attach at
+4.14 seconds is the observed positive control for exactly this probe-time
+path.
+
+### `usb_path` selects AP in both parameter cases
+
+The inlined block loads `pdata->usb_path` from offset 12 at `0x181b8`.  The
+three-way branch is exact: **`usb_path == 0` branches to AP** at `0x17c64`,
+`usb_path == 1` branches to CP at `0x18428`, and every other value logs
+`invalid usb_path` and performs no CONTROL1 write.
+
+The producer closes the candidate-specific half.  In `common_muic.ko`,
+`muic_param_pmic_info` is the four-byte value `-1` when no argument is passed,
+`get_switch_sel` masks it with `0xfff`, and `muic_init_gpio_cb` writes
+`usb_path = (switch_sel & 1) ^ 1`.  Therefore:
+
+| load shape | `switch_sel` | `usb_path` |
+|---|---:|---:|
+| candidate-style, no module argument | `0xfff` | `0` = AP |
+| stock `muic_param_pmic_info=3` | `3` | `0` = AP |
+
+The missing stock parameter changes neither route.  This independently
+confirms and machine-binds the source reading earlier in this report.
+
+### `com_to_usb_ap` has one later suppression, and it starts clear
+
+The AP block begins at `0x17c64`.  There is no conditional branch between its
+`com_to_usb_ap` log and construction of `COM_USB=0x09`; the POGO return is not
+compiled in this binary.  It places opcode `0x06`, data byte `0x09` and read
+length zero in the command and calls `max77705_usbc_opcode_write` at
+`0x17d18`.
+
+**`fac_water_enable` is the only surviving post-AP suppression.**  At
+`0x17cb8` the module loads the word at `usbc_data+1108`; the `CBNZ` at
+`0x17cbc` skips the opcode call when it is nonzero.  That does not create a
+candidate-only default:
+
+- `usbc_data` is allocated with `kzalloc`, so the field starts at zero;
+- the entire `.text` contains exactly two stores to offset 1108, at `0x9d70`
+  and `0x9da0`, setting it to one for control-option command 3 and clearing it
+  for command 4;
+- `max77705_control_option_command` has exactly one call site, `0xebec`, inside
+  `max77705_sysfs_set_prop`, and it is not a kernel export.
+
+Thus a no-parameter load with no PDIC control-option sysfs write takes the AP
+branch and enqueues `06 09`.  The exact stock log — `usb_path=0`,
+`com_to_usb_ap`, `switch_path value(0x9)`, wire dump `06 09` — agrees at every
+step.
+
+### Consequence
+
+These guards **do not explain the earlier candidate silence**.  That is useful
+negative evidence: adding or changing another attach-path bypass would target
+a mechanism the shipped binary does not contain.  It does not prove that an
+earlier candidate reached this block.  The remaining boundary is now smaller:
+did the module probe and bind, did initial status classify the attached host as
+USB/CDP, did the exact IRQ/DT wiring exist, and did the queued opcode reach the
+I2C worker?  Those are the next candidate-side checks.  No device action is
+needed to answer their structural half.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -2236,18 +2326,37 @@ which is the reason this section is restated rather than appended to.
   something outside these 268 segments — a download session or the kernel — and
   this unit did not identify which. Its effect on the analog path is also
   unread; the name is from the MUIC header, the semantics are not.
-- **The candidate side of every technique used here.** This unit disassembled
-  the bootloader thoroughly and the candidate not at all. The shipped
-  `pdic_max77705.ko` has been counted and hashed but never disassembled, the
-  guards on `max77705_muic_attach_usb_path` and `com_to_usb_ap` never read from
-  the binary, the device-tree and interrupt wiring never examined, and no
-  `__ksymtab` closure run against the candidate kernel. That is the half where
-  the open question lives: five candidates loaded `pdic_max77705` and still
-  failed, so the missing thing is not the presence of the code that writes
-  `COM_USB`. All of it is host-only.
+- **The remaining candidate-side wiring and linkage.** The shipped
+  `pdic_max77705.ko` attach guards are now disassembled and the no-parameter
+  AP route is closed above. The device-tree and interrupt wiring remain
+  unexamined, and no `__ksymtab` closure has been run against the candidate
+  kernel. That is where the open question now lives: five candidates loaded
+  `pdic_max77705` and still failed, and the guards prove that the missing thing
+  was not an intrinsic no-parameter or no-userspace veto on `COM_USB`. All of
+  the remaining structural work is host-only.
 
 ## Evidence
 
 Staged surfaces are under `workspace/private/p319_stock_userspace/`, which is
 gitignored and holds firmware-derived material that must not be committed.
 Mount points are read-only loop mounts under `/mnt/android-lab-logical/`.
+
+The direct-ELF guard audit is
+`workspace/public/src/scripts/analysis/s22plus_fyg8_p319_pdic_muic_guard_audit.py`.
+Its nine exact module/source inputs are preserved mode `0400`, link count one
+under the `20260820-02/inputs/` private output.  The canonical result is 5160
+bytes, SHA-256
+`1ae6edcd80a919cb513c230d3d1a0bc9a7131880e5e5461e42d0e55f6e6d9d3c`,
+mode `0400`, link count one; both the output root and input directory are mode
+`0700`, and a fresh `--audit-only` encoding is byte-identical.
+
+The initial `20260820-01` result, 5160 bytes/SHA-256
+`fc8b107ad974f2006cef5c1171f5183de9415001fa4c8fcfedb84129bd245dbc`,
+is preserved mode `0400`, link count one rather than overwritten.  Its file
+evidence was sound, but the intermediate output directory inherited ambient
+umask and was created mode `0775`; the successor makes exact `0700` directory
+publication part of the producer and tests it.  Twelve focused tests execute
+the real private inputs, preserve that predecessor and reject CDP dispatch,
+AP/CP polarity, COM_USB value, water-guard polarity, additional water writer,
+common-MUIC default/formula and source-writer mutations.  This evidence is H0
+only and creates no device or live authority.

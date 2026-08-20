@@ -46,6 +46,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The download branch does not repeat the RDX sequence; it adds one call",
         "The register accounting closes, and it closes on a bit the census hid",
         "The corpus holds kernel-side MUIC evidence, and all of it is stock",
+        "The shipped MUIC attach guards do not block the AP path",
         "What remains open",
         "Evidence",
     )
