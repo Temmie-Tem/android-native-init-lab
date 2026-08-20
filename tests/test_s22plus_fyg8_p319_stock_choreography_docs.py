@@ -44,6 +44,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The RDX bring-up is five calls, and only half of them can fail loudly",
         "Resolving the vtable slots to register writes",
         "The download branch does not repeat the RDX sequence; it adds one call",
+        "The register accounting closes, and it closes on a bit the census hid",
         "What remains open",
         "Evidence",
     )
@@ -62,9 +63,13 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
 
     def test_no_section_points_forward(self):
         # A backward reference survives reordering; a forward one does not.
+        # Checked against the whitespace-flattened text: a forward reference
+        # that happened to straddle a markdown line break slipped past the raw
+        # check, and one did.
         for phrase in ("section below", "Closed below", "the trace below", "see below"):
             with self.subTest(phrase=phrase):
                 self.assertNotIn(phrase, self.report)
+                self.assertNotIn(phrase, re.sub(r"\s+", " ", self.report))
 
     def test_open_list_carries_no_struck_through_backlog(self):
         section = re.search(
@@ -75,10 +80,11 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIsNotNone(section)
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
-        # Five: the bootloader OP 0x06 entry was closed and removed, and two
-        # narrower ones (InitDevice's register writes, the unopened images)
-        # replaced it.  The count is pinned so the list cannot drift silently.
-        self.assertEqual(len(items), 6)
+        # Six became nine when the register-accounting unit landed: what sets
+        # NoAutoIBUS, the kernel-side MUIC notifier lines, and the candidate
+        # side of every technique used here.  The count is pinned so the list
+        # cannot drift silently.
+        self.assertEqual(len(items), 9)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
@@ -566,8 +572,10 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "and w8, w0, #0xffffcfff  ; clear PRTCAPDIR, bits [13:12]",
             "orr w1, w8, #0x2000      ; PRTCAPDIR = 0b10 = device",
-            "**the image\ncontains no `orr` of `#0x1000` or `#0x3000` at all**",
-            "not a role decision",
+            "`mov wN, #0xc110` occurs at exactly **two** sites",
+            "and  w1, w0, #0xffffff3f             ; clear bits [7:6], GCTL_RAMCLKSEL",
+            "bfxil w1, w0, #0, #19",
+            "*The branch claim was false as written.*",
             "not\ndownward from a slot literally named `InitDevice`",
         ):
             with self.subTest(token=token):
@@ -580,7 +588,9 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "| `[ ABL ] SetPath` | **62 / 62** | **0 / 41** |",
             "what the download branch adds is `muic_set_path(1)` **alone**",
             "**Setting the sink is therefore not a precondition for enumeration**",
-            "**The instruction to a candidate reduces to one action: write `COM_USB` to\n`CONTROL1`.**",
+            "**On the bootloader side, the difference between a boot that enumerates and one\nthat does not reduces to one action: write `COM_USB` to `CONTROL1`.**",
+            "must not be read as an\ninstruction that would make a candidate work",
+            "`S7A2`, `M7`, `M11`, `M12`, `M18` — did load",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -624,7 +634,9 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "**This row previously said it clears `RCPS` and leaves `COMN1SW`/`COMP2SW`\nuntouched. That was wrong and is withdrawn.**",
             "read-modify-write\nof **`BCCTRL1` bit 6**",
-            "nothing on this host licenses a\nname for it",
+            "**The bit has a name, and an earlier version of this paragraph wrongly said it\nhad none.**",
+            "BC_CTRL1_UIDEN_SHIFT       6",
+            "therefore **`BC_CTRL1_UIDEN`**, bit 6",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -914,7 +926,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "| 4 | `0xad` | **`COM_UART_CP`** |",
             "All five arithmetic checks match exactly",
             "**So the bootloader's initialisation path writes `0x3f`, COM_OPEN.**",
-            "A candidate inherits\n**COM_OPEN**",
+            "**That closes one half of a question this campaign has carried for months, and\nonly one half.**",
+            "**It is\nwithdrawn again, and this time the reason is mechanical rather than\nevidentiary.**",
             "### The captured boots executed that path, opcode for opcode",
             "`\"muic_init: Error locating the CCIC protocol\"`",
             "including what is **missing** from\nit",
@@ -938,9 +951,9 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "| **Download** | ABL → Odin |",
             "| **Normal** | ABL → LinuxLoader | no `SetPath` evidenced |",
-            "a candidate reads `0x3f` because its boot is a normal boot",
+            "**That is withdrawn**, for the third and\nlast time in this report.",
             "**why Download mode enumerates to a host while a candidate never has.**",
-            "candidate inherits an open mux",
+            "What the captures license is a statement\nabout *stock normal boots*",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -950,7 +963,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "### Checked against every capture, not three",
             "the same shape as\nfive other errors in this unit",
             "| → Odin (download mode) | **62** |",
-            "| → normal handoff to Linux | **41** | **none at all, in all 41** |",
+            "| → normal handoff to Linux | **41** | **41** | **none at all, in all 41** |",
             "`SetPath: 0` never appears",
             "from *not evidenced* to **evidenced absent**",
             "**corrects a claim\nthis report briefly carried**",

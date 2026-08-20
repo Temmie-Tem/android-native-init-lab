@@ -843,11 +843,30 @@ at `0x21a4`, passes `wzr`:
 **So the bootloader's initialisation path writes `0x3f`, COM_OPEN.** The mux is
 left open, not in the USB position.
 
-That closes a question this campaign has carried for months, and it closes from
-two independent directions: the bootloader's own code writes `0x3f`, and P3.17's
-diagnostic read CONTROL1 as `0x3f` before writing anything. A candidate inherits
-**COM_OPEN**, and the premise that it might inherit a USB-position mux is
-refuted rather than merely unsupported.
+**That closes one half of a question this campaign has carried for months, and
+only one half.** An earlier draft of this paragraph said it closed "from two
+independent directions", the second being that P3.17's diagnostic read CONTROL1
+as `0x3f` before writing anything, and concluded that a candidate inherits
+**COM_OPEN**. That second direction was withdrawn earlier in this same report
+(see the paragraph beginning "The candidate half was first written as"), and the
+reassertion here was a stale survival of the pre-withdrawal text. **It is
+withdrawn again, and this time the reason is mechanical rather than
+evidentiary.**
+
+The sixth review caught the contradiction; the opcode census then supplied the
+reason it can never be repaired from these captures. Across all 103 ABL captures
+the MUIC opcode order inside `muic_init` is `0x01` → `0x06` → `0x05`, in that
+order, **268 times out of 268, with no exception**. `0x01` is `OPCODE_BCCTRL1_R`;
+the first `CONTROL1` access of every boot is `0x06`, a **write**. The bootloader
+therefore never reads `CONTROL1` before overwriting it, so **no retained log on
+this host can show what the mux held at the moment the boot began** — not for a
+stock boot and not for a candidate. What a candidate inherits is not merely
+unproven here; it is outside what this evidence class can express, and only a
+fresh boot carrying an accepted observer that reads `CONTROL1` before anything
+writes it would establish it.
+
+What survives is the bootloader half, and it survives intact: the code writes
+`0x3f`, and the captures show it executing.
 
 ### The captured boots executed that path, opcode for opcode
 
@@ -1379,15 +1398,22 @@ The two stages do different things and always have:
 | **Download** | ABL → Odin | `MuicSetPath(1)` → `0x09` **COM_USB**, then enumeration |
 | **Normal** | ABL → LinuxLoader | no `SetPath` evidenced |
 
-So a candidate reads `0x3f` because its boot is a normal boot: XBL leaves
-COM_OPEN and nothing evidenced touches CONTROL1 before the kernel. P3.17's
-pre-read of `0x3f` and the bootloader's own code agree after all.
+An earlier version of this paragraph continued: "So a candidate reads `0x3f`
+because its boot is a normal boot … P3.17's pre-read of `0x3f` and the
+bootloader's own code agree after all." **That is withdrawn**, for the third and
+last time in this report. It is the same claim the candidate-half paragraph
+above already withdrew, restated as if the withdrawal had not happened, and the
+sixth review found one of the three survivals while a sweep of this report for
+the same shape found the other two. What the captures license is a statement
+about *stock normal boots*: in all 41 of them XBL writes `COM_OPEN` and nothing
+in the corpus writes `CONTROL1` again before the kernel starts.
 
-And it answers a question this campaign has carried from the beginning —
-**why Download mode enumerates to a host while a candidate never has.** Download
-mode does not merely happen to work: Odin explicitly routes the analog path to
-USB before bringing up its USB stack. The normal boot path does not, and a
-candidate inherits an open mux.
+What it does bear on is a question this campaign has carried from the beginning
+— **why Download mode enumerates to a host while a candidate never has.** On the
+stock side that now has an answer: download mode does not merely happen to work,
+Odin explicitly routes the analog path to USB before bringing up its USB stack,
+and the normal boot path never does. Carrying that across to the candidate is a
+separate step this report does not take.
 
 ### Checked against every capture, not three
 
@@ -1413,14 +1439,22 @@ those files are byte-identical copies of another**, because the retained tree
 copies the same `baseline-observer.bin` into many run directories. Counting
 files would have inflated the corpus by more than a factor of two.
 
-| ABL path | distinct captures | `SetPath` |
-|---|---|---|
-| → Odin (download mode) | **62** | `SetPath: 1` in **62 of 62**, none without |
-| → normal handoff to Linux | **41** | **none at all, in all 41** |
-| any | 103 | `SetPath: 0` never appears; the only value ever observed is `1` |
+| ABL path | distinct files | boot segments | `SetPath` |
+|---|---|---|---|
+| → Odin (download mode) | **62** | **227** | `SetPath: 1` in **62 of 62** files, **110** occurrences |
+| → normal handoff to Linux | **41** | **41** | **none at all, in all 41** |
+| any | 103 | 268 | `SetPath: 0` never appears; the only value ever observed is `1` |
 
-Eighteen further distinct captures carry no ABL stage and are excluded from the
+Eighteen further distinct files carry no ABL stage and are excluded from the
 table but not from the manifest.
+
+**The "boot segments" column was added after the sixth review**, which pointed
+out that SHA-256 identity is file identity and not boot identity. A retained
+buffer can hold several boot rings, and the download files hold up to seven. The
+per-file counts in the middle column are still correct as file counts; they were
+wrong wherever the earlier text called them boots. The section
+"The register accounting closes, and it closes on a bit the census hid" derives
+the segment count and states what it changes.
 
 All **41** normal-handoff captures carry `Booting Into Mission Mode`. That
 matters because the earlier reading rested on three captures, two of them
@@ -1489,11 +1523,33 @@ with `mov w0,#0x1 ; bl 0x27cc` and stored back at `0x2320` with `mov w0,#0x2` �
 used only by the constant-writing branches. So path id 6 is a read-modify-write
 of **`BCCTRL1` bit 6**, and `CONTROL1` is left exactly as it was.
 
-What that bit means is not established here. `max77705.h` names the opcodes
-`OPCODE_BCCTRL1_R = 0x01` and `OPCODE_BCCTRL1_W`, but no `BCCTRL1` bitfield
-appears in the header or the Maxim driver, so nothing on this host licenses a
-name for it. Naming it `RCPS` was carrying a `CONTROL1` field across to a
-different register because the bit index matched.
+**The bit has a name, and an earlier version of this paragraph wrongly said it
+had none.** That version read: "no `BCCTRL1` bitfield appears in the header or
+the Maxim driver, so nothing on this host licenses a name for it." That is
+**withdrawn**. It was an absence claim made after searching one header
+(`max77705.h`, the PDIC header) and not the MUIC header. The lab's A90 source
+tree, present on this host, defines the field set:
+
+```
+include/linux/muic/max77705-muic.h:233   /* MAX77705 BC_CTRL1 */
+:234  BC_CTRL1_DCDCpl_SHIFT      7
+:235  BC_CTRL1_UIDEN_SHIFT       6
+:236  BC_CTRL1_NoAutoIBUS_SHIFT  5
+:237  BC_CTRL1_3ADCPDet_SHIFT    4
+:238  BC_CTRL1_CHGDetMan_SHIFT   1
+:239  BC_CTRL1_CHGDetEn_SHIFT    0
+```
+
+The MAX77705 is the same part on both units, so the field names transfer even
+though the tree is the A90's. The bit that path id 5 sets with
+`orr w8, w19, #0x40` and path id 6 clears with `and w8, w19, #0xffffffbf` is
+therefore **`BC_CTRL1_UIDEN`**, bit 6 — the MUIC's UID (accessory-ID) detection
+enable, not a switch field at all.
+
+Withdrawing `RCPS` was still correct, and for the reason given: `RCPS` is a
+`CONTROL1` field and this branch never touches `CONTROL1`. The error was
+carrying the name across on a matching bit index. The correction is not that the
+bit is unnameable but that it had to be named from the register's own header.
 
 So **no call site in LinuxLoader passes 0**; it never writes `COM_OPEN`, which
 leaves XBL's `muic_init` as the only writer of that value. Both real path
@@ -1576,15 +1632,57 @@ orr w1, w8, #0x2000      ; PRTCAPDIR = 0b10 = device
 bl 0xc050                ; MmioWrite32(base + 0xC110)
 ```
 
-Two things make this decisive rather than suggestive. First, **the image
-contains no `orr` of `#0x1000` or `#0x3000` at all** — no site anywhere selects
-host or OTG, so the driver has exactly one role and writes it. Second, the write
-sits on the straight-line success path of the function entered at `0x37b4`,
-which is reached from the driver's own entry point (`DriverEntryPoint.c` at
-`0x114c` through `0x1454`) and again from `UsbfnExitBootService` at `0x1be0`.
-The only branches before it are `tbnz w0, #31` tests, which are `EFI_ERROR`
-checks on the preceding calls, not a role decision. The instruction immediately
-before clears GCTL bit 16.
+**Two claims made here were too strong, and the sixth review was right to say
+so.** They are restated below in a form the disassembly actually supports — and
+completing the search makes the conclusion stronger, not weaker.
+
+*The write is one of three, not one.* An earlier version showed the four
+instructions above as the GCTL access. In fact `0x3b80` loads the GCTL address
+once and performs **three** consecutive read-modify-writes through it:
+
+```
+3b90:  and   w1, w0, #0xfffeffff            ; clear bit 16, GCTL_U2RSTECN
+3ba4:  and   w8, w0, #0xffffcfff            ; clear PRTCAPDIR [13:12]
+3bac:  orr   w1, w8, #0x2000                ;   → PRTCAPDIR = 0b10 = device
+3bbc:  mov   w1, #0x100000                  ; PWRDNSCALE field
+3bc0:  bfxil w1, w0, #0, #19                ;   preserving bits [18:0] verbatim
+```
+
+The third matters for the conclusion: `bfxil w1, w0, #0, #19` copies the live
+bits `[18:0]` — which **contain PRTCAPDIR at [13:12]** — into the new value, so
+the last write of the sequence *preserves* the device selection rather than
+disturbing it. The earlier text described the middle write alone and said "the
+instruction immediately before clears GCTL bit 16", which was true but presented
+a three-write sequence as one.
+
+*The absence claim rested on an immediate-operand search.* It read: "the image
+contains no `orr` of `#0x1000` or `#0x3000` at all". That search cannot see a
+register-operand `orr`, a `bfi`/`bfxil`, or a value loaded from a table, so on
+its own it does not license "no site anywhere selects host or OTG". **That
+wording is withdrawn and replaced by an enumeration**, which is the check that
+should have been run: `mov wN, #0xc110` occurs at exactly **two** sites in
+`UsbfnDwc3Dxe.efi`, `0x3b80` above and `0x5184`. The second is
+
+```
+5184:  mov  w10, #0xc110
+5194:  bl   0xc018                          ; MmioRead32(base + 0xC110)
+5198:  and  w1, w0, #0xffffff3f             ; clear bits [7:6], GCTL_RAMCLKSEL
+51a0:  bl   0xc050                          ; MmioWrite32
+```
+
+Its mask `0xffffff3f` clears only bits 7 and 6 and **preserves [13:12]**. So
+every writer of GCTL in this image is now accounted for, and exactly one of them
+touches `PRTCAPDIR`: the one that selects device. That is a closed enumeration
+over the register rather than an absence of one instruction encoding.
+
+*The branch claim was false as written.* It said "the only branches before it
+are `tbnz w0, #31` tests". The function entered at `0x37b4` contains earlier
+`b.ne`, `cbz`, and loop branches, including at `0x3a20`, `0x3a6c`, `0x3ac8`, and
+`0x3b50`. **Withdrawn.** What survives is the narrower and still useful fact
+that none of them writes `GCTL`, which the two-site enumeration above
+establishes directly; the reachability of `0x3b80` from the driver entry point
+(`0x114c` through `0x1454`) and from `UsbfnExitBootService` at `0x1be0` is
+unaffected, but it is reachability, not a proof of unconditional execution.
 
 So the bootloader does not negotiate a role, read an ID pin, or consult a
 connector state to become a peripheral. It writes `PRTCAPDIR = device` into
@@ -1853,9 +1951,143 @@ The sink clear is not a decision the bootloader takes about a particular boot;
 it is unconditional, and it happens identically on the boots that go on to
 enumerate.
 
-**The instruction to a candidate reduces to one action: write `COM_USB` to
-`CONTROL1`.** Everything else in the five-call sequence has already been done by
-XBL before Linux starts, on every boot, in both classes.
+**On the bootloader side, the difference between a boot that enumerates and one
+that does not reduces to one action: write `COM_USB` to `CONTROL1`.** Everything
+else in the five-call sequence has already been done by XBL before Linux starts,
+on every boot, in both classes.
+
+**That is a statement about the bootloader, and it must not be read as an
+instruction that would make a candidate work.** Two facts on this host bound it,
+and both point the same way.
+
+First, nothing here establishes the candidate side. The opcode accounting in
+this report shows that the bootloader never reads `CONTROL1` before writing it,
+so no capture in this corpus — stock or candidate — can show what a candidate starts
+from or what it would need to change.
+
+Second, the campaign already has counter-evidence against "one action is
+enough". Five candidates — `S7A2`, `M7`, `M11`, `M12`, `M18` — did load
+`pdic_max77705`, the driver that owns exactly this write, and **still failed**.
+Whatever those five were missing was not the presence of the code that writes
+`COM_USB`. So the honest form of the sentence is: this unit has closed the
+bootloader half and identified the one register action that distinguishes the
+two stock classes; it has **not** shown that performing that action is
+sufficient on a candidate, and the five-candidate result is direct evidence that
+something further is required.
+
+## The register accounting closes, and it closes on a bit the census hid
+
+The sixth review made two objections to the capture census that are correct and
+that this section acts on: SHA-256 identity is not boot identity, and
+normalising the log lines before comparing them hid a register-value difference.
+Following both produced the strongest single result in this unit.
+
+### One file is not one boot
+
+The census called its 121 deduplicated files "distinct boots". **That is
+withdrawn.** A file is a retained buffer, and a retained buffer can hold several
+boot rings. Counting the bootloader's own per-boot MUIC banner
+(`MUIC Device : Max77705! count: 0`) inside each file gives the real population:
+
+| | files | boot segments |
+|---|---|---|
+| normal handoff | 41 | **41** (1 per file, no exception) |
+| download | 62 | **227** (2 in 15 files, 4 in 42, 5 in 3, 7 in 2) |
+| **total ABL** | **103** | **268** |
+
+So the corpus is **268 boot segments in 103 files**, not 103 boots. Every number
+in this report that was stated per-file is now also available per-segment, and
+where the two differ the per-segment number is the one that means anything about
+boots. The normal-handoff side is unaffected — 41 files hold exactly 41
+segments — which is why the earlier conclusions about normal boots survive the
+correction, and the download side is where the count was wrong by a factor
+approaching four.
+
+### The hidden bit is `NoAutoIBUS`, and it survives a reboot
+
+Normalising digits collapsed `BC_CTRL1_READ : 0x00C5` and
+`BC_CTRL1_READ : 0x00E5` into the same apparent line. They are not the same
+line. Across the 268 segments the split is exact:
+
+| | `0x00C5` | `0x00E5` |
+|---|---|---|
+| normal segments (41) | **41** | 0 |
+| download segments (227) | **62** | **165** |
+
+and in every one of the 62 download files the single `0x00C5` is the **first**
+segment in file order, with every later segment reading `0x00E5`. There are four
+distinct sequences across 62 files and all four have that shape:
+`C5,E5` ×15, `C5,E5,E5,E5` ×42, `C5,E5,E5,E5,E5` ×3, `C5,E5,E5,E5,E5,E5,E5` ×2.
+
+`0xC5` is `1100_0101` and `0xE5` is `1110_0101`. The difference is **bit 5**,
+which the MUIC header names `BC_CTRL1_NoAutoIBUS`. Both values carry
+`BC_CTRL1_UIDEN` (bit 6) set — the same bit the path-id 5 and 6 branches would
+have toggled.
+
+The read is `OPCODE_BCCTRL1_R`, and it is the **first** MUIC access of the boot.
+So the value is not something the boot produced; it is what the MUIC was already
+holding when the boot began. **`NoAutoIBUS` is chip state that survives a
+reboot**, set during a download session and still set on the next start, and the
+retained log records it because the bootloader happens to read that register
+before writing anything.
+
+### No boot in the corpus writes `BCCTRL1` at all
+
+The opcode census over all 103 captures returns exactly three opcodes:
+
+```
+OP 0x01  (OPCODE_BCCTRL1_R)   268     one per boot segment
+OP 0x06  (OPCODE_CTRL1_W)     378
+OP 0x05  (OPCODE_CTRL1_R)     378
+OP 0x02  (OPCODE_BCCTRL1_W)     0     in 0 of 103 captures
+```
+
+`0x02` never occurs. Path ids 5 and 6 are the only branches that issue it, so
+**neither was executed in any of the 268 segments** — and the earlier argument
+that pinned the executed path by predicting a missing `0x02` from a bit of the
+`0x00C5` value can be discarded in favour of counting the opcode directly. It
+also settles the previous section's question about `0xE5`: the boot that reads
+it did not write it.
+
+### Every `CONTROL1` access in the corpus is attributed
+
+378 `CONTROL1` write/read-back pairs, 268 boot segments, and `SetPath: 1`
+appears **110** times. 268 + 110 = **378**, exactly. Two sites — XBL's
+`muic_init` once per segment, and ABL's `SetPath: 1` — account for every logged
+`CONTROL1` access in the corpus with **zero residual**. The 110 are all in
+download files; normal segments contribute none.
+
+That is the load-bearing chain stated as an accounting identity rather than as
+an inference from one disassembled branch: 41 normal boot segments perform 41
+`CONTROL1` writes, all of them `muic_init`'s, and `muic_init` writes `0x3f`,
+`COM_OPEN`. **No normal boot in the corpus writes `COM_USB`.**
+
+The limit of the method is worth stating precisely, because the review pressed
+on it correctly: this closes the accounting over *logged* accesses. Every
+`muic_command_polling` line is attributed and none is left over, but an I²C write
+issued without going through that helper would produce no line to count and is
+not excluded by it.
+
+### Why the inheritance question cannot be answered from any of these captures
+
+The ordering inside `muic_init` is `0x01` → `0x06` → `0x05`, **268 times out of
+268**. The first `CONTROL1` access of every boot is a write. The bootloader
+therefore never reads `CONTROL1` before overwriting it, and **no retained log on
+this host can show what the mux held at the moment a boot began.** That is a
+property of the code, not of this sample, so collecting more captures of this
+kind cannot answer it. Only a boot carrying an accepted observer that reads
+`CONTROL1` before anything writes it would.
+
+### A kernel-side signal the census walked past
+
+The same scan shows `[MUIC]` tags that XBL does not emit:
+`muic_notifier_register` 25, `muic_notifier_notify` 50,
+`muic_notifier_attach_attached_dev` 16, `muic_notifier_detach_attached_dev` 9,
+`muic_notifier_init` 3. Those are Linux MUIC notifier lines, present in a
+minority of the retained buffers. This unit did not analyse them; they are
+recorded here because they are the only kernel-side MUIC evidence found so far
+in this corpus, and the open question this campaign now carries is a kernel-side
+one.
 
 ## What remains open
 
@@ -1892,6 +2124,25 @@ which is the reason this section is restated rather than appended to.
 - Whether the water branch ever fired on the candidates that did load
   `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
   cannot be run retrospectively and only a new run can answer it.
+- **What sets `BC_CTRL1_NoAutoIBUS` and what it does.** The bit is retained
+  across a reboot and no boot in the corpus writes `BCCTRL1`, so it is set by
+  something outside these 268 segments — a download session or the kernel — and
+  this unit did not identify which. Its effect on the analog path is also
+  unread; the name is from the MUIC header, the semantics are not.
+- **The kernel-side MUIC notifier lines in the corpus.** `muic_notifier_register`
+  25, `muic_notifier_notify` 50, `muic_notifier_attach_attached_dev` 16,
+  `muic_notifier_detach_attached_dev` 9, `muic_notifier_init` 3. These are the
+  only Linux-side MUIC evidence found so far in the retained buffers and none of
+  it has been analysed.
+- **The candidate side of every technique used here.** This unit disassembled
+  the bootloader thoroughly and the candidate not at all. The shipped
+  `pdic_max77705.ko` has been counted and hashed but never disassembled, the
+  guards on `max77705_muic_attach_usb_path` and `com_to_usb_ap` never read from
+  the binary, the device-tree and interrupt wiring never examined, and no
+  `__ksymtab` closure run against the candidate kernel. That is the half where
+  the open question lives: five candidates loaded `pdic_max77705` and still
+  failed, so the missing thing is not the presence of the code that writes
+  `COM_USB`. All of it is host-only.
 
 ## Evidence
 
