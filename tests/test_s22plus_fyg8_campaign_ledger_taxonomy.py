@@ -656,7 +656,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # moves this triple and the three relative expectations below by one.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (39, 23, 16),
+            (39, 24, 15),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -669,7 +669,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "guard-fixture-invalidation",
                 "last-kmsg-retention",
                 "log-harvest-runner",
-                "module-closure-plan",
                 "mux-module-chain",
                 "raw-first-observer",
                 "stage-b-rederivation",
@@ -690,7 +689,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-guard-fixture-invalidation-1",
                 "h0-last-kmsg-retention-1",
                 "h0-log-harvest-runner-1",
-                "h0-module-closure-plan-1",
                 "h0-mux-module-chain-1",
                 "h0-raw-first-observer-2",
                 "h0-stage-b-rederivation-1",
@@ -704,16 +702,16 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p319",
-                "review_topic": "candidate-pdic-probe-boundary",
-                "pending_ordinal": "h0-candidate-pdic-probe-boundary-5",
+                "review_topic": "module-closure-plan",
+                "pending_ordinal": "h0-module-closure-plan-1",
                 "pending_action": (
-                    "P319_CANDIDATE_PDIC_PROBE_BOUNDARY_"
+                    "P319_CANDIDATE_MODULE_LOAD_PLAN_"
                     "IMPLEMENTED_REVIEW_PENDING"
                 ),
-                "resolution_ordinal": "h0-candidate-pdic-probe-boundary-review-5",
+                "resolution_ordinal": "h0-module-closure-plan-review-1",
                 "resolution_action": (
-                    "PASS_GO_P319_CANDIDATE_PDIC_PROBE_"
-                    "BOUNDARY_V2_H0_CAPABILITY"
+                    "PASS_GO_P319_MODULE_CLOSURE_PLAN_"
+                    "INDEPENDENT_REVIEW_V1"
                 ),
             },
         )
