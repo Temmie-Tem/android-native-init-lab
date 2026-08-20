@@ -50,6 +50,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The stock DT and nested IRQ chain close through the nonnegative I2C write path",
         "The IRQ numbers are not stock properties; the offsets are",
         "Initial classification precedes unmask; the historical live-load claim did not survive",
+        "The platform probe has two silent failure points, not one",
         "What remains open",
         "Evidence",
     )
@@ -124,6 +125,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)
         self.assertNotIn("appears in only **one** capture", self.report)
+
+    def test_report_records_both_silent_failure_points(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "the call at `:3835` is\nbare — no assignment, no test",
+            "crosses **two** silent failure points before it prints",
+            "**would still reach the\nclassification and the mux write**",
+            "two further call sites, at `:2888` and `:2921`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
