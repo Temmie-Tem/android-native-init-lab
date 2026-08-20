@@ -342,11 +342,13 @@ identity:
   `docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md`. It fixes one
   A90, one `boot` candidate, one `boot` rollback, intent-before-effect,
   no-candidate-replay, and fresh final health in two allowlisted journal paths.
-  It deliberately has no production backend and hard-disables live execution.
+  It now has the small fixed production adapter and derived prepare/approved-
+  execute CLI; the activated closure itself is awaiting fresh review and still
+  grants no run authority.
   ADB remains recovery-scoped; ordinary resident observation is Native serial.
 - Therefore no H27 manifest, approval, ordinal, D0, D1, or F1 authority
   exists. The small H0 adapter for the existing Native serial and
-  `native_init_flash.py` mechanisms is now present and hard-disabled. Its
+  `native_init_flash.py` mechanisms is now present. Its
   recovery mode requires an empty pre-effect ADB baseline and one recovery
   arrival, without a caller-selected serial. A first Luna MAX full review
   returned NO_GO because physical recovery was only a caller boolean. That

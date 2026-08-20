@@ -578,10 +578,16 @@ class MinimalF1Test(unittest.TestCase):
             with self.assertRaises(M.ContractError, msg=mutation):
                 M.read_records(run)
 
-    def test_live_cli_is_hard_disabled(self):
-        self.assertFalse(M.LIVE_EXECUTION_ENABLED)
-        with self.assertRaisesRegex(M.ContractError, "live execution is disabled"):
-            M.main(["execute", str(self.root / "manifest.json"), str(self.root / "run")])
+    def test_live_cli_has_only_derived_prepare_and_approved_execute(self):
+        self.assertTrue(M.LIVE_EXECUTION_ENABLED)
+        prepared = M.parser().parse_args(["prepare", "/tmp/manifest.json"])
+        self.assertEqual(prepared.action, "prepare")
+        with self.assertRaises(SystemExit):
+            M.parser().parse_args(["execute", "/tmp/manifest.json"])
+        executed = M.parser().parse_args(
+            ["execute", "/tmp/manifest.json", "--approval", "exact"]
+        )
+        self.assertEqual(executed.approval, "exact")
 
 
 class MinimalSurfaceTest(unittest.TestCase):

@@ -52,7 +52,7 @@ EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
 )
 APPROVAL_PREFIX = "A90-F1-MINIMAL-V1-APPROVE:"
-LIVE_EXECUTION_ENABLED = False
+LIVE_EXECUTION_ENABLED = True
 MAX_JSON_BYTES = 1 << 20
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,95}$")
@@ -1205,17 +1205,48 @@ def recovery_decision(run_directory: Path) -> str:
     raise ContractError("journal prefix is not recoverable")
 
 
+def ensure_run_root() -> None:
+    if not RUN_ROOT.exists():
+        RUN_ROOT.mkdir(mode=0o700, parents=False)
+        _fsync_directory(RUN_ROOT.parent)
+    metadata = RUN_ROOT.lstat()
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or metadata.st_uid != os.getuid()
+        or metadata.st_gid != os.getgid()
+        or metadata.st_mode & 0o077
+    ):
+        raise ContractError("fixed A90 run root is not private and direct")
+
+
+def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
+    if LIVE_EXECUTION_ENABLED is not True:
+        raise ContractError("minimal F1 execution is disabled")
+    from a90_boot_only_f1_adapter_v1 import (
+        FixedA90Adapter,
+        HostRunner,
+        LIVE_ADAPTER_ENABLED,
+    )
+    if LIVE_ADAPTER_ENABLED is not True:
+        raise ContractError("minimal F1 adapter is disabled")
+    log_directory = RUN_ROOT / f"{manifest['runId']}-{phase}-logs"
+    return FixedA90Adapter(
+        HostRunner(log_directory), qualification=manifest["qualification"]
+    )
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
     subparsers = result.add_subparsers(dest="action", required=True)
     validate = subparsers.add_parser("validate-manifest")
     validate.add_argument("manifest", type=Path)
     audit = subparsers.add_parser("audit")
-    audit.add_argument("run_directory", type=Path)
+    audit.add_argument("run_id")
+    prepare_parser = subparsers.add_parser("prepare")
+    prepare_parser.add_argument("manifest", type=Path)
     execute_parser = subparsers.add_parser("execute")
     execute_parser.add_argument("manifest", type=Path)
-    execute_parser.add_argument("run_directory", type=Path)
-    execute_parser.add_argument("--approval")
+    execute_parser.add_argument("--approval", required=True)
     return result
 
 
@@ -1236,10 +1267,25 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.action == "audit":
-        print(json.dumps({"decision": recovery_decision(args.run_directory)}, sort_keys=True))
+        if ID_RE.fullmatch(args.run_id) is None:
+            raise ContractError("audit run ID is invalid")
+        ensure_run_root()
+        print(json.dumps({"decision": recovery_decision(RUN_ROOT / args.run_id)}, sort_keys=True))
         return 0
-    if args.action == "execute":
-        raise ContractError("live execution is disabled pending the small A90 adapter review")
+    if args.action in {"prepare", "execute"}:
+        raw, manifest = load_manifest(args.manifest)
+        ensure_run_root()
+        run_directory = RUN_ROOT / manifest["runId"]
+        backend = _live_backend(manifest, args.action)
+        if args.action == "prepare":
+            token = prepare(raw, manifest, run_directory, backend)
+            print(json.dumps({"approval": token, "runId": manifest["runId"]}, sort_keys=True))
+            return 0
+        result = execute(
+            raw, manifest, run_directory, args.approval, backend
+        )
+        print(json.dumps(result, sort_keys=True))
+        return 0
     raise ContractError("unknown action")
 
 

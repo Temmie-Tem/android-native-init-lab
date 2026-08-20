@@ -3,7 +3,8 @@
 Date: 2026-08-20
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0 design and host implementation
-Live state: disabled; no D0, D1, F1, candidate, or approval authority
+Live state: activation code present, pending fresh review and run inputs; no
+D0, D1, F1, candidate, or approval authority
 
 ## Outcome
 
@@ -19,9 +20,12 @@ operator's actual transaction:
    the rollback once;
 6. record the final target health.
 
-The H0 state machine is
+The state machine is
 `workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py`.
-It contains no production device backend and its CLI hard-disables execution.
+Its CLI derives the fixed run/log paths from one canonical manifest, exposes
+only `prepare`, approved `execute`, and read-only `audit`, and constructs the
+small fixed adapter below. Activation itself still requires a fresh closure
+review plus the candidate review/manifest and attended approval.
 
 ## What remains load-bearing
 
@@ -187,4 +191,7 @@ evidence. They grant no authority and are not execution dependencies.
 4. Only afterward follow the A90 target contract for attended F1 approval and
    execution.
 
-Until all four close, both live-enable constants remain false.
+The two live-enable constants are now true so the exact activated bytes can be
+reviewed. That code state alone grants no run: the candidate review/manifest,
+fresh preflight-derived approval, attendance, and all contract gates remain
+mandatory.

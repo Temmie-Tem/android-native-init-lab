@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -260,10 +261,15 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(len(runner.calls), 1)
         self.assertEqual(runner.calls[0][0], "flash-rollback")
 
-    def test_live_host_runner_is_hard_disabled(self):
-        self.assertFalse(A.LIVE_ADAPTER_ENABLED)
-        with self.assertRaisesRegex(A.ContractError, "live adapter is disabled"):
-            A.HostRunner(Path("/tmp/not-used"))
+    def test_live_host_runner_creates_one_private_log_directory(self):
+        self.assertTrue(A.LIVE_ADAPTER_ENABLED)
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "logs"
+            A.HostRunner(path)
+            self.assertTrue(path.is_dir())
+            self.assertEqual(path.stat().st_mode & 0o777, 0o700)
+            with self.assertRaisesRegex(A.ContractError, "already exists"):
+                A.HostRunner(path)
 
     def test_adapter_surface_stays_small(self):
         self.assertLessEqual(len(SOURCE.read_text().splitlines()), 550)

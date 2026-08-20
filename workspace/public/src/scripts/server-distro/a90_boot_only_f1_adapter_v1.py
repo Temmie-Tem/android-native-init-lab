@@ -30,7 +30,7 @@ from a90_boot_only_f1_minimal_v1 import (
 )
 
 
-LIVE_ADAPTER_ENABLED = False
+LIVE_ADAPTER_ENABLED = True
 REPO_ROOT = Path(__file__).resolve().parents[5]
 PYTHON = Path("/usr/bin/python3.14")
 ADB = Path("/usr/bin/adb")
@@ -65,13 +65,17 @@ class CommandRunner(Protocol):
 
 
 class HostRunner:
-    """Future production runner; construction is currently impossible."""
+    """Bounded production subprocess owner for the reviewed minimal lane."""
 
     def __init__(self, log_directory: Path) -> None:
         if LIVE_ADAPTER_ENABLED is not True:
             raise ContractError("A90 minimal live adapter is disabled")
         if not log_directory.is_absolute():
             raise ContractError("adapter log directory is not absolute")
+        if log_directory.exists():
+            raise ContractError("adapter log directory already exists")
+        log_directory.mkdir(mode=0o700, parents=False)
+        _fsync_directory(log_directory.parent)
         self.log_directory = log_directory
         self.sequence = 0
 
