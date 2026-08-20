@@ -23,17 +23,17 @@ contract still defines no N3-U0 F1 authority.
 
 | Input | Size | SHA-256 |
 |---|---:|---|
-| `workspace/public/src/scripts/revalidation/s20plus_n3u0_attended_f1_evidence_h0.py` | 23,153 | `57b1929f1769a4b53da7d69fb085e13253d2e19864d3fc5bc395c0e46f74d205` |
-| `tests/test_s20plus_n3u0_attended_f1_evidence_h0.py` | 15,039 | `6f0112188d66fbf37bd23f532d42701ca90185c98dac1bbf810807b04786cd39` |
+| `workspace/public/src/scripts/revalidation/s20plus_n3u0_attended_f1_evidence_h0.py` | 23,833 | `730e5e78368894ef30e22d9e1f7d8356f6dfc00a536fc36b322ac0424cb84f09` |
+| `tests/test_s20plus_n3u0_attended_f1_evidence_h0.py` | 15,605 | `384b1130a866893677c38ccc4c1678681471e8163b1ab649f199ca6e03595e94` |
 
 The normalized owner SHA-256 is
-`2123482599650eaa54f75d9637a59c15df05199f5b7f7b6e2d343b29f154af71`.
+`459c579cbefcb7916ccce7a00c595a772f3c0b23f679016a98be49ec85af9dbb`.
 The deterministic binding is
-`dce408d5631aa23158f6213939149102f893ec561afe1a16cefeb50500c168c5`.
+`c59992f48361429812475b6535c4ad927ee63cad81f61a1d4e2ac59567402f47`.
 It pins journal binding
 `4695acca5c8d618eee7e16aaf665cbf66235a5a76aadc0a4322f490113cc2945`,
 concrete-backend binding
-`d476cdc93b56296178def170fd80e8fe88d3eaf6b96693e577064ba77b02e15f`,
+`5561aabc35f20752702b8ef12ec6f8d4669bbef8b022ff5557c7925c34b9704b`,
 and consumer-integration binding
 `2a037eb3cab5f068b0d534d034fcadce51b26c3ee9f5874ec583b90905a6d6a6`.
 
@@ -95,22 +95,26 @@ The 2026-08-20 raw-first transport rotation changed the exact backend binding,
 so this owner now pins that reviewed candidate. Independent dependency-only
 review returned `PASS_GO`; it remains inactive and non-integrated.
 
+The later execution-integration rotation raises the exact raw bound to 8 MiB,
+adds one gated complete-operation raw read API, and pins the rotated backend.
+Atomic publication, namespace, ownership, and no-replay rules are unchanged,
+so these execution-critical bytes entered `REVIEW_PENDING_NOT_ACTIVE`.
+Fresh exact-byte review returned `PASS_GO`; the owner remains inactive.
+
 ## Deliberate non-claims and next gates
 
-`raw_evidence_durable=true` means only that this reviewed owner can durably publish and
-strictly re-read a supplied command return while its H0 activation gate is
-opened by tests. It does **not** mean the concrete backend currently calls it.
-`integrated_live_consumer=false` is explicit. A host crash after a device
+`raw_evidence_durable=true` means only that this owner can durably publish and
+strictly re-read a supplied command return while its H0 gate is opened by
+tests. The separate review-pending execution join now calls it in host
+fixtures, but `integrated_live_consumer=false` remains explicit. A host crash after a device
 command but before the first raw publication remains represented only by the
 pre-existing effect intent and must never cause replay.
 
-A later unit must connect a fixed command-return hook to this owner, derive a
-missing journal result from exact complete evidence without repeating the
-command, preserve recovery reachability for absent/partial evidence, implement
-the separately reviewed physical-entry bridge, run end-to-end cut fixtures,
-obtain independent executable review, amend the binding target contract, and
-perform a separate mechanical activation. Only after those gates may a fresh
-connected prepare and approval be created.
+The current review-pending unit connects the fixed command-return hook, derives
+missing journal results without command replay, and covers absent/partial cuts.
+It still requires independent executable review, a separately reviewed
+physical-entry bridge, target-contract amendment, and mechanical activation.
+Only after those gates may a fresh connected prepare and approval be created.
 
 No device, USB endpoint, ADB, `su`, Odin, network, private live run, reboot, or
 partition transfer was contacted by this H0 unit.

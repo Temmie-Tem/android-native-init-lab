@@ -1437,11 +1437,21 @@ The population is now closed by
 `scripts/analysis/s22plus_fyg8_p319_abl_log_census.py`, which states one mechanical
 criterion — every regular file under `workspace/private` of exactly 2097136
 bytes, the `last_kmsg` region size this campaign measured — and selects nothing
-by name or by run. It finds **293 matching files**, and then does the step the
-earlier census omitted: it deduplicates by SHA-256 before counting. **172 of
+by name or by run. It finds **306 matching files**, and then does the step the
+earlier census omitted: it deduplicates by SHA-256 before counting. **185 of
 those files are byte-identical copies of another**, because the retained tree
 copies the same `baseline-observer.bin` into many run directories. Counting
 files would have inflated the corpus by more than a factor of two.
+
+**Those two numbers drift and the conclusions do not.** They were 293 and 172
+when this section was written. Every unit that materializes a capture copy into
+its own run directory adds files that satisfy the criterion — the witness-parser
+predecessor added thirteen — so the raw file count only grows. Rebuilding after
+that growth leaves `distinct_captures` at **121**, ABL stages at **103**, boot
+segments at **268**, `SetPath` occurrences at **110** and the opcode census at
+`0x01` 268 / `0x05` 378 / `0x06` 378, all unchanged. The drifting pair is the
+population size; the invariant set is everything the report reasons from. Read
+the two file counts as a dated snapshot and the rest as results.
 
 | ABL path | distinct files | boot segments | `SetPath` |
 |---|---|---|---|
@@ -3341,6 +3351,78 @@ with it and carries no guarantee of ordering against the mux write.
 This also bounds the earlier note that "witness 4 is three bytes, not five".
 That remains true of the initial-detect emitter at `:1739`. The two missing
 bytes are printed elsewhere, asynchronously, by a different function.
+
+## Review of the witness parser, and a coupling that will keep breaking audits
+
+The parser predecessor carries a scoped `PASS_GO` and reports separately. This
+is the review of it against this report's own grammar input.
+
+### Confirmed
+
+The receipt reproduces at 15478 bytes / `14ca869c411a5940...`, and the parser's
+own suite is 25/25.
+
+Both traps this report raised are handled, and handled properly rather than
+labelled. Both classification grammars are bound with the function prefix as
+part of the match, and the corpus qualification refuses to pass unless **both
+forms** are present — a stricter gate than merely accepting either. The deferred
+seven-register line is bound as `deferred_status`, marked
+`deferred_status_is_auxiliary_only`, and is genuinely excluded from the ordered
+witness staging: the stage map is `{irq: 1, initial_status: 2, classification:
+3, probe: 4}` and `deferred_status` does not appear in it. The stored initial
+status is `uint32_t initial_status[3]`, matching the three-byte emitter rather
+than the seven-value one.
+
+### Two places where a name claims more than the code computes
+
+Neither is a correctness defect. Both are the kind of line that later gets
+quoted as if it were a proof.
+
+`required = {"probe", "irq", "initial_status", "classification",
+"deferred_status"}` is **dead**. The gate on the next line tests a four-element
+literal that omits `classification`, and `required` is never read again.
+Classification is in fact required, and more strictly, by the following check
+that both form counts are non-zero — so the coverage is right and the variable
+stating it is not the thing enforcing it.
+
+`deferred_is_not_initial` is computed as `initial_status_count > 0`. That is a
+presence count, not the structural exclusion the name asserts. The exclusion is
+real and lives in the stage map; this field does not test it. It does fail
+closed in the case that matters — a log carrying only the deferred line yields
+`False` — so the behaviour is sound and only the naming overstates.
+
+### The coupling: two audits pin a drifting artifact by its bytes
+
+This is the finding that matters, and it is not the parser unit's fault.
+
+The parser unit materialized thirteen copies of a corpus capture into its own
+run directories. Each is exactly 2,097,136 bytes, so each satisfies this
+report's census criterion, which is deliberately mechanical and selects nothing
+by name. The population went from 293 files to 306.
+
+Rebuilding shows every conclusion is untouched: `distinct_captures` 121, ABL
+stages 103, boot segments 268, `SetPath` 110, opcodes `0x01` 268 / `0x05` 378 /
+`0x06` 378. The thirteen are pure duplicates. Only the raw file count and the
+duplicate count moved, and this report now labels those two a dated snapshot and
+pins the invariants instead.
+
+But the MAX77705 IRQ/DT audit and the candidate PDIC probe-boundary audit both
+bind `abl-capture-manifest.json` **by exact SHA-256**. The IRQ audit expects
+`aa2d19ea09d3317d...`; the current manifest is `f234dd23547d4a31...`. Both
+audits therefore fail in `setUpClass` with "source/snapshot bytes differ", and
+they failed before this reviewer regenerated anything — regenerating changed
+which mismatch, not whether there was one.
+
+The manifest is a *generated, regenerable* artifact whose byte content moves
+whenever any unit materializes a capture copy. Pinning it by bytes makes those
+audits break as a side effect of unrelated normal work, and it will keep
+happening: every future unit that stages a capture does the same thing again.
+
+The fix is a design choice and is not made here, since both audits belong to
+another unit. The direction the evidence supports is to bind the manifest's
+**invariants** — distinct captures, ABL stages, boot segments, `SetPath` count,
+opcode census — rather than its serialized bytes, because those are exactly the
+quantities that survived the drift while the bytes did not.
 
 ## What remains open
 

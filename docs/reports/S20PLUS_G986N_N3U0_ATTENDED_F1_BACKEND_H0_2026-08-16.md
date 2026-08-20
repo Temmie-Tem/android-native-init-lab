@@ -24,13 +24,13 @@ root, physical action, or activation authority.
 
 | Input | Size | SHA-256 |
 |---|---:|---|
-| `workspace/public/src/scripts/revalidation/s20plus_n3u0_attended_f1_backend_h0.py` | 25,924 | `972afb5ed80da659d1b47026d789900e6a81fe789adaeb6a45ff3207344a05c5` |
-| `tests/test_s20plus_n3u0_attended_f1_backend_h0.py` | 17,281 | `d4e6609558c3faef26d80d3c5e2ae495d780926f2741f6448504ef6a35783bc4` |
+| `workspace/public/src/scripts/revalidation/s20plus_n3u0_attended_f1_backend_h0.py` | 30,896 | `0d8a752e94ea34f5130a53fe2747c7e949561db54ba661d55c4af2db0a19e27b` |
+| `tests/test_s20plus_n3u0_attended_f1_backend_h0.py` | 19,885 | `6514f1040d9d911e248d8a1f6a3b12a6e578aa680a60e94db84d4bf118eb30d2` |
 
 The normalized runner SHA-256 is
-`19b5dbbff6496d74ec730653699b6dbf131122a6a263088c44cc58c9114a6591`.
+`8ac9dcac66196ec7a1585ae6e1e4ba9c2c3ed75f7d573aca0d90049bbb0bc8c6`.
 The deterministic backend binding is
-`d476cdc93b56296178def170fd80e8fe88d3eaf6b96693e577064ba77b02e15f`.
+`5561aabc35f20752702b8ef12ec6f8d4669bbef8b022ff5557c7925c34b9704b`.
 It pins consumer integration binding
 `2a037eb3cab5f068b0d534d034fcadce51b26c3ee9f5874ec583b90905a6d6a6`
 and the exact source identities listed by that closure, plus the reviewed owner
@@ -106,28 +106,35 @@ is a dependency-only H0 rotation. Fresh independent review confirmed that all
 N3-consumed transport definitions are AST-identical across the rotation and
 returned `PASS_GO`; no activation surface changed.
 
+The later evidence-execution integration rotation adds a gated actual-command
+return collector and a bounded Android-return observation after the exact ACM
+banner. This changed execution-critical bytes, so the current candidate is
+again `REVIEW_PENDING_NOT_ACTIVE`; earlier `PASS_GO` applies only to the prior
+frozen source. No activation surface changed.
+
+A second review found that the first Odin capture wrapper recursively routed
+`streaming_command -> _captured_command -> bounded_command -> streaming_command`.
+The current wrapper closes over and directly invokes the exact original
+streaming implementation, then records its returned bytes. The fake bootstrap
+now models the real mutable streaming delegation and rejects recursion.
+Fresh exact-byte review returned `PASS_GO` for this inactive rotation.
+
 ## Deliberate non-claims and remaining gates
 
-This is not the integrated executable closure. `raw_evidence_durable` and
-`physical_entry_bridge` are explicitly false. Full Odin/health receipts exist
-only in memory for H0 inspection and are not yet authority evidence. The
-candidate observer topology/baseline is also process memory, not a resumable
-durable receipt.
+The separate dormant execution join can now pass this backend's command
+returns to the evidence owner during H0 tests, but this backend itself still
+renders `raw_evidence_durable=false` and `physical_entry_bridge=false`. It is
+not a connected executable closure, and candidate observer topology/baseline
+remains process memory rather than a restartable effect authority.
 
 A later unit must:
 
-1. add a strict atomic evidence owner linked to the state run and persist full
-   command, raw stdout/stderr, endpoint, observer, artifact, and classifier
-   receipts before publishing state results;
-2. make every write/fsync/close and command-return cut resumable without
-   repeating reboot, transfer, or observation effects;
-3. add the attended physical-entry intent/arrival bridge without caller paths
+1. complete independent review of the evidence-execution integration;
+2. add the attended physical-entry intent/arrival bridge without caller paths
    or generic confirmation input;
-4. join this backend to the inactive integration harness and run end-to-end
-   fake command-count/cut tests;
-5. obtain independent review, amend the binding target contract, and perform a
+3. amend the binding target contract and perform a
    separately reviewed mechanical activation; and
-6. only then create a fresh connected prepare/approval.
+4. only then create a fresh connected prepare/approval.
 
 No device, USB endpoint, ADB, `su`, Odin, network, private run, reboot, or
 partition transfer was contacted by this H0 unit.

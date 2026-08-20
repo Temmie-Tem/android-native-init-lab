@@ -169,6 +169,17 @@ uncertainty retains the shared action guard and forbids replay. The helper
 performs bounded exact-target ADB inventory, topology, public-health, and
 SELinux checks after return. Only a durable healthy result releases the guard;
 `--finalize` performs that read-only health closure and never sends Odin.
+The incident-reviewed recovery-only finalizer may also consume the exact
+one-shot result `returncode=0`, `post_state=changed`, and
+`RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_UNKNOWN`. It revalidates the
+original no-payload intent and raw output hashes, sends no Odin command, and
+releases the guard only after fresh exact-target normal Android health whose
+ADB devpath hash exactly equals the already durable, allowlisted Download
+endpoint topology hash. Its
+terminal receipt preserves the source verdict and records
+`exit_dispatch_proven=false`; it never relabels the uncertain dispatch itself
+as proved. Nonzero, absent raw evidence, malformed types, other endpoint states,
+or failed health retain the guard.
 This activation grants one fresh attended `exit-download` D1 request at a
 time. It grants no root, boot-image, recovery, partition, or F1 authority.
 

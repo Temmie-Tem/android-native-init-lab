@@ -60,6 +60,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Review of the 73-row materialization: the closure is inflated by unused paths",
         "An accounting correction: a review row is not a resolution",
         "Parser grammar input: the witness lines have four format strings, not two",
+        "Review of the witness parser, and a coupling that will keep breaking audits",
         "What remains open",
         "Evidence",
     )
@@ -272,6 +273,19 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "the function\nprefix has to be part of the grammar rather than skipped as noise",
             "`max77705_muic_print_reg_log(struct work_struct *work)` — a\n**deferred work item**",
             "it must not be accepted as\nthe witness for initial classification",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_records_the_manifest_byte_pinning_coupling(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "`deferred_status` does not appear in it",
+            "is **dead**",
+            "That is a\npresence count, not the structural exclusion the name asserts",
+            "bind `abl-capture-manifest.json` **by exact SHA-256**",
+            "they failed before this reviewer regenerated anything",
+            "bind the manifest's\n**invariants**",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)

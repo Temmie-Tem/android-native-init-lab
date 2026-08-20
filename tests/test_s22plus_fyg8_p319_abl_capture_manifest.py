@@ -235,9 +235,10 @@ class AblCaptureManifestTest(unittest.TestCase):
     def test_report_states_the_numbers_that_were_computed(self):
         m = self._manifest()
         c = m["counts"]
+        # The two raw file counts drift as later units materialize capture
+        # copies, so they are not pinned here; the report labels them a dated
+        # snapshot and the invariants below are what it reasons from.
         for token in (
-            f"**{m['matching_files']} matching files**",
-            f"**{m['duplicate_files_collapsed']} of those files are byte-identical copies of another**",
             f"| → Odin (download mode) | **{c['download_mode']}** | **{c['download_boot_segments']}** | `SetPath: 1` in **{c['download_mode']} of {c['download_mode']}** files, **{c['setpath_occurrences_total']}** occurrences |",
             f"| → normal handoff to Linux | **{c['normal_handoff']}** | **{c['normal_boot_segments']}** | **none at all, in all {c['normal_handoff']}** |",
             f"| any | {c['abl_stages']} | {c['abl_boot_segments']} |",
@@ -251,6 +252,20 @@ class AblCaptureManifestTest(unittest.TestCase):
         self.assertIn("**The numbers below replace an earlier `80 / 77 / 3` table.**", self.report)
         self.assertIn("it undercounted the corpus and it counted files rather than captures", self.flat)
         self.assertNotIn("across all 80\nABL stages", self.report)
+
+    def test_report_separates_drifting_counts_from_invariants(self):
+        m = self._manifest()
+        c = m["counts"]
+        self.assertIn("**Those two numbers drift and the conclusions do not.**", self.flat)
+        # The invariant set must match the freshly computed manifest.
+        for token in (
+            f"`distinct_captures` at **{m['distinct_captures']}**",
+            f"ABL stages at **{c['abl_stages']}**",
+            f"boot segments at **{c['abl_boot_segments']}**",
+            f"`SetPath` occurrences at **{c['setpath_occurrences_total']}**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), self.flat)
 
     def test_report_withdraws_the_distinct_boots_framing(self):
         self.assertIn('The census called its 121 deduplicated files "distinct boots"', self.flat)

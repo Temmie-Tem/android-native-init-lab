@@ -42,6 +42,19 @@ class S20PlusDownloadExitTests(unittest.TestCase):
     def odin_receipt(self):
         return {"path": str(MODULE.ODIN), "size": MODULE.ODIN_SIZE, "sha256": MODULE.ODIN_SHA256}
 
+    def seed_changed_finalize(self, name="run-strict-changed"):
+        _temporary, _root, run_root, guard = self.paths()
+        run = run_root / name
+        run.mkdir(parents=True)
+        with mock.patch.object(MODULE, "tool_receipt", return_value=self.odin_receipt()):
+            MODULE.arm(run, lambda argv, timeout, maximum: (0, b"", b""))
+        binding_sha = MODULE.read_json(run / "arm-intent.json", "arm")["binding_sha256"]
+        MODULE.durable_create(run / "exit-intent.json", {"schema": "s20plus_g986n_download_exit_intent_v1", "version": MODULE.VERSION, "binding_sha256": binding_sha, "action": "exit-download", "endpoint": self.endpoint, "command_shape": ["odin4", "--reboot", "-d", "USBFS"], "attempt": 1, "no_payload": True, "no_replay": True, "at": MODULE.now()})
+        MODULE.durable_bytes(run / "exit.stdout", b"OK")
+        MODULE.durable_bytes(run / "exit.stderr", b"")
+        MODULE.durable_create(run / "result.json", {"schema": "s20plus_g986n_download_exit_result_v1", "version": MODULE.VERSION, "binding_sha256": binding_sha, "verdict": "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_UNKNOWN", "returncode": 0, "post_state": "changed", "effect_command_count": 1, "stdout_sha256": MODULE.hashlib.sha256(b"OK").hexdigest(), "stderr_sha256": MODULE.hashlib.sha256(b"").hexdigest(), "no_replay": True, "replay_permitted": False, "at": MODULE.now()})
+        return run, guard
+
     def test_arm_requires_empty_baseline_and_records_no_replay_binding(self):
         _temporary, _root, run_root, guard = self.paths()
         run = run_root / "run-arm"
@@ -115,7 +128,140 @@ class S20PlusDownloadExitTests(unittest.TestCase):
         with mock.patch.object(MODULE, "android_health", return_value={"model": MODULE.EXPECTED_MODEL, "device": MODULE.EXPECTED_DEVICE, "product": MODULE.EXPECTED_PRODUCT, "incremental": MODULE.EXPECTED_INCREMENTAL, "serial_sha256": "a" * 64, "topology_sha256": MODULE.EXPECTED_ANDROID_TOPOLOGY_SHA256, "boot_id_sha256": "b" * 64}):
             result = MODULE.finalize(run, lambda *_: (_ for _ in ()).throw(AssertionError("device command unexpectedly called")))
         self.assertEqual(result["verdict"], "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY")
+        self.assertTrue(result["exit_dispatch_proven"])
         self.assertFalse(guard.exists())
+
+    def test_finalize_changed_endpoint_uses_health_only_and_keeps_dispatch_unproved(self):
+        _temporary, _root, run_root, guard = self.paths()
+        run = run_root / "run-changed-finalize"
+        run.mkdir(parents=True)
+        with mock.patch.object(MODULE, "tool_receipt", return_value=self.odin_receipt()):
+            MODULE.arm(run, lambda argv, timeout, maximum: (0, b"", b""))
+        binding_sha = MODULE.read_json(run / "arm-intent.json", "arm")["binding_sha256"]
+        MODULE.durable_create(run / "exit-intent.json", {"schema": "s20plus_g986n_download_exit_intent_v1", "version": MODULE.VERSION, "binding_sha256": binding_sha, "action": "exit-download", "endpoint": self.endpoint, "command_shape": ["odin4", "--reboot", "-d", "USBFS"], "attempt": 1, "no_payload": True, "no_replay": True, "at": MODULE.now()})
+        MODULE.durable_bytes(run / "exit.stdout", b"OK")
+        MODULE.durable_bytes(run / "exit.stderr", b"")
+        MODULE.durable_create(run / "result.json", {"schema": "s20plus_g986n_download_exit_result_v1", "version": MODULE.VERSION, "binding_sha256": binding_sha, "verdict": "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_UNKNOWN", "returncode": 0, "post_state": "changed", "effect_command_count": 1, "stdout_sha256": MODULE.hashlib.sha256(b"OK").hexdigest(), "stderr_sha256": MODULE.hashlib.sha256(b"").hexdigest(), "no_replay": True, "replay_permitted": False, "at": MODULE.now()})
+        health = {"model": MODULE.EXPECTED_MODEL, "device": MODULE.EXPECTED_DEVICE, "product": MODULE.EXPECTED_PRODUCT, "incremental": MODULE.EXPECTED_INCREMENTAL, "serial_sha256": "a" * 64, "topology_sha256": MODULE.EXPECTED_ANDROID_TOPOLOGY_SHA256, "boot_id_sha256": "b" * 64}
+        with mock.patch.object(MODULE, "android_health", return_value=health) as health_read:
+            result = MODULE.finalize(run, lambda *_: (_ for _ in ()).throw(AssertionError("Odin must not be called")))
+        self.assertEqual(result["source_verdict"], "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_UNKNOWN")
+        self.assertEqual(result["verdict"], "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY_AFTER_UNCERTAIN_DISPATCH")
+        self.assertFalse(result["exit_dispatch_proven"])
+        self.assertEqual(result["android"], health)
+        self.assertEqual(
+            health_read.call_args.kwargs["expected_topology_sha256"],
+            self.endpoint["topology_sha256"],
+        )
+        self.assertFalse(guard.exists())
+
+    def test_finalize_changed_endpoint_rejects_nonzero_and_keeps_guard(self):
+        _temporary, _root, run_root, guard = self.paths()
+        run = run_root / "run-changed-nonzero"
+        run.mkdir(parents=True)
+        with mock.patch.object(MODULE, "tool_receipt", return_value=self.odin_receipt()):
+            MODULE.arm(run, lambda argv, timeout, maximum: (0, b"", b""))
+        binding_sha = MODULE.read_json(run / "arm-intent.json", "arm")["binding_sha256"]
+        MODULE.durable_create(run / "exit-intent.json", {"schema": "s20plus_g986n_download_exit_intent_v1", "version": MODULE.VERSION, "binding_sha256": binding_sha, "action": "exit-download", "endpoint": self.endpoint, "command_shape": ["odin4", "--reboot", "-d", "USBFS"], "attempt": 1, "no_payload": True, "no_replay": True, "at": MODULE.now()})
+        MODULE.durable_bytes(run / "exit.stdout", b"")
+        MODULE.durable_bytes(run / "exit.stderr", b"")
+        MODULE.durable_create(run / "result.json", {"schema": "s20plus_g986n_download_exit_result_v1", "version": MODULE.VERSION, "binding_sha256": binding_sha, "verdict": "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_UNKNOWN", "returncode": 1, "post_state": "changed", "effect_command_count": 1, "stdout_sha256": MODULE.hashlib.sha256(b"").hexdigest(), "stderr_sha256": MODULE.hashlib.sha256(b"").hexdigest(), "no_replay": True, "replay_permitted": False, "at": MODULE.now()})
+        with mock.patch.object(MODULE, "android_health", side_effect=AssertionError("health must not run")):
+            with self.assertRaises(MODULE.ExitError):
+                MODULE.finalize(run)
+        self.assertTrue(guard.exists())
+
+    def test_finalize_rejects_forged_arm_intent_result_before_health(self):
+        run, guard = self.seed_changed_finalize("run-forged-source")
+        arm_path = run / "arm-intent.json"
+        arm = MODULE.read_json(arm_path, "arm")
+        arm["binding"] = {"forged": True}
+        arm["unexpected"] = True
+        arm_path.unlink()
+        MODULE.durable_create(arm_path, arm)
+        intent_path = run / "exit-intent.json"
+        intent = MODULE.read_json(intent_path, "intent")
+        intent["version"] = "WRONG"
+        intent["action"] = "WRONG"
+        intent["unexpected"] = True
+        intent_path.unlink()
+        MODULE.durable_create(intent_path, intent)
+        result_path = run / "result.json"
+        result = MODULE.read_json(result_path, "result")
+        result["unexpected"] = True
+        result_path.unlink()
+        MODULE.durable_create(result_path, result)
+        with mock.patch.object(MODULE, "android_health", side_effect=AssertionError("health must not run")):
+            with self.assertRaises(MODULE.ExitError):
+                MODULE.finalize(run)
+        self.assertFalse((run / "final-result.json").exists())
+        self.assertTrue(guard.exists())
+
+    def test_finalize_rejects_duplicate_or_noncanonical_json_before_health(self):
+        run, guard = self.seed_changed_finalize("run-duplicate-json")
+        path = run / "result.json"
+        value = MODULE.read_json(path, "result")
+        payload = MODULE.json.dumps(value, sort_keys=True, separators=(",", ":"))
+        payload = payload.replace('"returncode":0', '"returncode":0,"returncode":0')
+        path.unlink()
+        path.write_text(payload)
+        path.chmod(0o400)
+        with mock.patch.object(MODULE, "android_health", side_effect=AssertionError("health must not run")):
+            with self.assertRaises(MODULE.ExitError):
+                MODULE.finalize(run)
+        self.assertTrue(guard.exists())
+
+    def test_finalize_changed_endpoint_health_failure_keeps_guard(self):
+        run, guard = self.seed_changed_finalize("run-health-failure")
+        with mock.patch.object(MODULE, "android_health", side_effect=MODULE.ExitError("not healthy")):
+            with self.assertRaises(MODULE.ExitError):
+                MODULE.finalize(run)
+        self.assertFalse((run / "final-result.json").exists())
+        self.assertTrue(guard.exists())
+
+    def test_android_health_rejects_unbound_topology_before_adb(self):
+        with self.assertRaises(MODULE.ExitError):
+            MODULE.android_health(
+                lambda *_: (_ for _ in ()).throw(
+                    AssertionError("ADB must not run for an unbound topology")
+                ),
+                expected_topology_sha256="f" * 64,
+            )
+
+    def test_finalize_rejects_duplicate_foreign_guard_before_health(self):
+        run, guard = self.seed_changed_finalize("run-duplicate-guard")
+        payload = (
+            '{"run_dir":"/foreign/run","run_dir":'
+            + MODULE.json.dumps(str(run))
+            + ',"schema":"s20plus_g986n_download_exit_guard_v1",'
+            + '"unresolved":true,"version":'
+            + MODULE.json.dumps(MODULE.VERSION)
+            + '}'
+        )
+        guard.unlink()
+        guard.write_text(payload)
+        guard.chmod(0o400)
+        with mock.patch.object(MODULE, "android_health", side_effect=AssertionError("health must not run")):
+            with self.assertRaises(MODULE.ExitError):
+                MODULE.finalize(run)
+        self.assertFalse((run / "final-result.json").exists())
+        self.assertTrue(guard.exists())
+
+    def test_finalize_rejects_indirect_guard_parent_before_health(self):
+        run, guard = self.seed_changed_finalize("run-indirect-guard-parent")
+        original_parent = guard.parent
+        moved_parent = original_parent.with_name("routine-moved")
+        original_parent.rename(moved_parent)
+        original_parent.symlink_to(moved_parent, target_is_directory=True)
+        with mock.patch.object(
+            MODULE,
+            "android_health",
+            side_effect=AssertionError("health must not run"),
+        ):
+            with self.assertRaises(MODULE.ExitError):
+                MODULE.finalize(run)
+        self.assertFalse((run / "final-result.json").exists())
+        self.assertTrue((moved_parent / guard.name).exists())
 
     def test_confirm_without_matching_guard_stops_before_endpoint_or_odin(self):
         _temporary, _root, run_root, guard = self.paths()
@@ -158,12 +304,13 @@ class S20PlusDownloadExitTests(unittest.TestCase):
 
     def test_contract_and_report_bind_exact_exit_runner(self):
         contract = (ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md").read_text(encoding="utf-8")
-        report = (ROOT / "docs/reports/S20PLUS_G986N_DOWNLOAD_EXIT_D1_H0_2026-08-13.md").read_text(encoding="utf-8")
+        report = (ROOT / "docs/reports/S20PLUS_G986N_DOWNLOAD_EXIT_CHANGED_ENDPOINT_FINALIZER_INCIDENT_2026-08-20.md").read_text(encoding="utf-8")
         digest = MODULE.sha256_file(SCRIPT)
         self.assertIn("Status: **BINDING - ATTENDED PAYLOAD-FREE DOWNLOAD RETURN ACTIVE**", contract)
         self.assertIn("| `exit-download` |", contract)
         self.assertIn(digest, report)
         self.assertIn("--reboot -d", contract)
+        self.assertIn("exit_dispatch_proven=false", contract)
 
 
 if __name__ == "__main__":

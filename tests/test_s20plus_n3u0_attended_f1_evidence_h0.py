@@ -163,6 +163,20 @@ class S20PlusN3U0EvidenceH0Test(unittest.TestCase):
         for child in evidence_run.iterdir():
             self.assertEqual(stat.S_IMODE(child.stat().st_mode), 0o400)
 
+    def test_complete_read_api_returns_exact_raw_and_supports_odin_bound(self):
+        with self.active:
+            self.publish(
+                output_limit=8 * 1024 * 1024,
+                stdout=b"ODIN_OK",
+                stderr=b"",
+            )
+            complete = self.module.read_complete_operation(
+                self.run_dir, "initial-download-reboot", 1
+            )
+        self.assertEqual(complete["inspection"]["state"], "complete")
+        self.assertEqual(complete["stdout"], b"ODIN_OK")
+        self.assertEqual(complete["stderr"], b"")
+
     def test_existing_evidence_forbids_command_republication(self):
         with self.active:
             self.publish()

@@ -71,6 +71,7 @@ class FakeBootstrap:
         self.listing_sha256 = "9" * 64
         self.repeat_listing_sha256 = self.listing_sha256
         self.odin_calls = []
+        self.streaming_command = self._streaming_command
 
     @staticmethod
     def hash_text(value):
@@ -79,11 +80,16 @@ class FakeBootstrap:
         return hashlib.sha256(value.encode()).hexdigest()
 
     def bounded_command(self, argv, timeout, maximum):
+        return self.streaming_command(argv, timeout, maximum)
+
+    def _streaming_command(self, argv, timeout, maximum):
         self.calls.append((tuple(argv), timeout, maximum))
         if argv[-1] == "get-devpath":
             return 0, b"usb:1-2\n", b""
         if argv[-2:] == ["reboot", "download"]:
             return 0, b"", b""
+        if argv[0] == "odin4":
+            return 0, b"ODIN_OK", b""
         raise AssertionError(f"unexpected command: {argv}")
 
     def android_health_once(self, command, adb):
@@ -118,7 +124,12 @@ class FakeBootstrap:
 
     def execute_odin_exact(self, path, size, sha256, kind, endpoint):
         self.odin_calls.append((path, size, sha256, kind, endpoint))
-        return {"returncode": 0}, b"ODIN_OK", b""
+        rc, stdout, stderr = self.streaming_command(
+            ["odin4", "--reboot", "-a", "AP.tar.md5", "-d", "USBFS"],
+            300,
+            8 * 1024 * 1024,
+        )
+        return {"returncode": rc}, stdout, stderr
 
     @staticmethod
     def persisted_transfer_classification(_receipt, _stdout, _stderr):
@@ -335,6 +346,43 @@ class S20PlusN3U0AttendedF1BackendH0Test(unittest.TestCase):
             )
         )
 
+    def test_operation_capture_binds_actual_command_return_and_full_receipt(self):
+        with self.active:
+            self.backend.begin_operation_capture("initial-download-reboot")
+            semantic = self.backend.reboot_download("initial", self.bootstrap.identity)
+            captured = self.backend.consume_operation_capture(
+                "initial-download-reboot"
+            )
+        self.assertEqual(len(captured["commands"]), 1)
+        self.assertEqual(
+            captured["commands"][0]["argv"][-2:], ["reboot", "download"]
+        )
+        self.assertEqual(captured["commands"][0]["returncode"], 0)
+        self.assertEqual(captured["full_receipt"]["outcome"], semantic["outcome"])
+        self.assertIsNone(self.backend._capture_operation)
+        self.assertEqual(self.backend._command_returns, [])
+
+    def test_capture_helpers_are_dormant_before_command(self):
+        before = list(self.bootstrap.calls)
+        with self.assertRaisesRegex(self.module.BackendError, "not active"):
+            self.backend.begin_operation_capture("initial-download-reboot")
+        with self.assertRaisesRegex(self.module.BackendError, "not active"):
+            self.backend._captured_command(["x"], 1, 1)
+        self.assertEqual(self.bootstrap.calls, before)
+
+    def test_real_shape_bounded_to_streaming_odin_capture_is_not_recursive(self):
+        self.backend.expected_usb_node = "1-2"
+        with self.active:
+            self.backend.begin_operation_capture("candidate-transfer")
+            self.backend.transfer_boot("candidate", self.public_endpoint())
+            captured = self.backend.consume_operation_capture("candidate-transfer")
+        self.assertEqual(len(captured["commands"]), 1)
+        self.assertEqual(captured["commands"][0]["argv"][0], "odin4")
+        self.assertEqual(captured["commands"][0]["stdout"], b"ODIN_OK")
+        self.assertEqual(
+            captured["full_receipt"]["classification"], "odin_transfer_completed"
+        )
+
     def test_download_observation_requires_stable_listing_and_endpoint(self):
         with self.active:
             receipt = self.backend.observe_download("candidate")
@@ -413,8 +461,13 @@ class S20PlusN3U0AttendedF1BackendH0Test(unittest.TestCase):
         ):
             with self.active:
                 result = self.backend.observe_candidate()
-        self.assertEqual(result, {"banner_accepted": True, "android_identity": None})
-        self.assertEqual(self.backend.last_full_receipt, exact)
+        self.assertTrue(result["banner_accepted"])
+        self.assertEqual(result["android_identity"]["boot_id_sha256"], "5" * 64)
+        self.assertEqual(self.backend.last_full_receipt["usb_receipt"], exact)
+        self.assertEqual(
+            self.backend.last_full_receipt["android_identity"],
+            result["android_identity"],
+        )
 
     def test_final_health_requires_exact_root_and_returns_fixed_schema(self):
         with self.active:

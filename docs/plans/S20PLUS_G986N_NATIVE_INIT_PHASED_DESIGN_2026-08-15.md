@@ -592,6 +592,18 @@ amendment, and activation remain separate gates.
 It now pins the rotated backend; the same exact dependency-only closure received
 independent `PASS_GO`.
 
+The following dormant H0 execution join is recorded in
+`../reports/S20PLUS_G986N_N3U0_EVIDENCE_EXECUTION_INTEGRATION_H0_2026-08-20.md`.
+It keeps every activation flag false, exact-loads the journal/backend/evidence
+closure, constructs the fixed backend internally, captures command returns
+after each same-invocation durable intent, and derives state results only from
+complete re-read evidence. Intent-only or partial evidence never recreates the
+effect eligibility marker. The host suite also binds a bounded Android-return
+identity after the ACM banner so automatic rollback has an exact source boot.
+After two blocker-first remediation rounds, fresh independent review returned
+`PASS_GO`; the candidate is `PASS_GO_NOT_ACTIVE`. Physical entry, contract
+amendment, activation, and fresh connected preparation remain separate gates.
+
 ## N4 - prerequisites for a global-PID1 canary
 
 No direct `/init` candidate should be built until H0/D0 evidence closes all of
