@@ -57,6 +57,9 @@ class MinimalF1Test(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
+        self.production_run_root = M.RUN_ROOT
+        M.RUN_ROOT = self.root / "runs"
+        M.RUN_ROOT.mkdir(mode=0o700)
         self.candidate = self.root / "candidate.img"
         self.rollback = self.root / "rollback.img"
         self.candidate.write_bytes(b"candidate")
@@ -143,6 +146,7 @@ class MinimalF1Test(unittest.TestCase):
             M.V2321_ROLLBACK_VERSION,
             M.V2321_ROLLBACK_BUILD,
         ) = self.production_rollback
+        M.RUN_ROOT = self.production_run_root
         self.temp.cleanup()
 
     def _artifact(self, path: Path, version: str, build: str):
@@ -183,7 +187,7 @@ class MinimalF1Test(unittest.TestCase):
 
     def _prepare(self, backend=None):
         backend = backend or FakeBackend(self.start)
-        run = self.root / "run"
+        run = M.RUN_ROOT / self.manifest["runId"]
         token = M.prepare(self.raw, self.manifest, run, backend)
         return run, token
 
@@ -261,11 +265,28 @@ class MinimalF1Test(unittest.TestCase):
         self.assertTrue(token.startswith(M.APPROVAL_PREFIX))
         self.assertEqual(M.recovery_decision(run), "PRE_EFFECT_NO_DEVICE_EFFECT")
 
+    def test_same_candidate_cannot_be_prepared_in_second_run(self):
+        self._prepare()
+        changed = json.loads(json.dumps(self.manifest))
+        changed["runId"] = "a90-minimal-002"
+        with self.assertRaisesRegex(M.ContractError, "already reserved or consumed"):
+            M.prepare(
+                M.canonical_json(changed),
+                changed,
+                M.RUN_ROOT / changed["runId"],
+                FakeBackend(self.start),
+            )
+
     def test_manifest_bytes_cannot_authorize_a_different_object(self):
         changed = json.loads(json.dumps(self.manifest))
         changed["candidate"]["version"] = "substituted"
         with self.assertRaisesRegex(M.ContractError, "execution object differ"):
-            M.prepare(self.raw, changed, self.root / "run", FakeBackend(self.start))
+            M.prepare(
+                self.raw,
+                changed,
+                M.RUN_ROOT / changed["runId"],
+                FakeBackend(self.start),
+            )
 
     def test_success_flashes_candidate_once_and_accepts_fresh_receipt(self):
         run, token = self._prepare()
@@ -339,7 +360,7 @@ class MinimalF1Test(unittest.TestCase):
                     M.prepare(
                         M.canonical_json(changed),
                         changed,
-                        self.root / f"run-{len(value)}-{value['verdict']}",
+                        M.RUN_ROOT / changed["runId"],
                         FakeBackend(self.start),
                     )
 
@@ -355,7 +376,7 @@ class MinimalF1Test(unittest.TestCase):
             M.prepare(
                 M.canonical_json(changed),
                 changed,
-                self.root / "run-wrong-fresh-state",
+                M.RUN_ROOT / changed["runId"],
                 FakeBackend(self.start),
             )
 
@@ -370,7 +391,7 @@ class MinimalF1Test(unittest.TestCase):
             M.prepare(
                 M.canonical_json(changed),
                 changed,
-                self.root / "run-fifo",
+                M.RUN_ROOT / changed["runId"],
                 FakeBackend(self.start),
             )
 
@@ -480,8 +501,8 @@ class MinimalF1Test(unittest.TestCase):
 class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1100)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 525)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1200)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 550)
         self.assertLessEqual(len(design.read_text().splitlines()), 180)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):

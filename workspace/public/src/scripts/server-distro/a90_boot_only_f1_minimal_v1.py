@@ -38,6 +38,7 @@ V2321_ROLLBACK_SHA256 = "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26
 V2321_ROLLBACK_VERSION = "0.9.285"
 V2321_ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
 REPO_ROOT = Path(__file__).resolve().parents[5]
+RUN_ROOT = REPO_ROOT / "workspace/private/runs/a90-boot-only-f1-minimal-v1"
 EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
     "workspace/public/src/scripts/revalidation/a90_bridge.py",
@@ -650,6 +651,59 @@ def publish_record(run_directory: Path, name: str, value: dict[str, Any]) -> Non
     _fsync_directory(run_directory)
 
 
+def _require_run_path(run_directory: Path, run_id: str) -> None:
+    root = RUN_ROOT
+    metadata = root.lstat()
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or metadata.st_uid != os.getuid()
+        or metadata.st_gid != os.getgid()
+        or metadata.st_mode & 0o077
+        or run_directory != root / run_id
+    ):
+        raise ContractError("run path is not the fixed private A90 namespace")
+
+
+def _candidate_guard(manifest: dict[str, Any]) -> tuple[Path, bytes]:
+    path = RUN_ROOT / f"candidate-{manifest['candidate']['sha256']}.guard"
+    raw = canonical_json({
+        "schema": "a90-boot-only-f1-candidate-guard-v1",
+        "candidateSha256": manifest["candidate"]["sha256"],
+        "manifestSha256": sha256_bytes(canonical_json(manifest)),
+        "runId": manifest["runId"],
+    })
+    return path, raw
+
+
+def _publish_candidate_guard(manifest: dict[str, Any]) -> None:
+    path, raw = _candidate_guard(manifest)
+    try:
+        descriptor = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+            0o600,
+        )
+    except FileExistsError as exc:
+        raise ContractError("candidate was already reserved or consumed") from exc
+    try:
+        if os.write(descriptor, raw) != len(raw):
+            raise ContractError("candidate guard short write")
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    _fsync_directory(RUN_ROOT)
+
+
+def _require_candidate_guard(manifest: dict[str, Any]) -> None:
+    path, expected = _candidate_guard(manifest)
+    actual = _verify_input(
+        {"path": str(path), "size": len(expected), "sha256": sha256_bytes(expected)},
+        "candidate guard",
+    )
+    if actual != expected:
+        raise ContractError("candidate guard identity mismatch")
+
+
 def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
     if not run_directory.is_dir() or run_directory.is_symlink():
         raise ContractError("run directory is not direct")
@@ -708,13 +762,14 @@ def _record(kind: str, manifest_sha256: str, payload: dict[str, Any]) -> dict[st
     }
 
 
-def approval_token(manifest_sha256: str, snapshot: Snapshot) -> str:
+def approval_token(manifest_sha256: str, snapshot: Snapshot, run_id: str) -> str:
     binding = canonical_json(
         {
             "capability": CAPABILITY,
             "manifestSha256": manifest_sha256,
             "targetEvidenceSha256": snapshot.target_evidence_sha256,
             "bootId": snapshot.boot_id,
+            "runId": run_id,
         }
     )
     return APPROVAL_PREFIX + sha256_bytes(binding)
@@ -744,6 +799,7 @@ def prepare(
 ) -> str:
     manifest = _require_manifest_pair(manifest_raw, manifest)
     _verify_qualification_inputs(manifest)
+    _require_run_path(run_directory, manifest["runId"])
     if run_directory.exists():
         raise ContractError("run directory already exists")
     run_directory.mkdir(mode=0o700, parents=False)
@@ -753,6 +809,7 @@ def prepare(
     try:
         snapshot = backend.preflight(manifest)
         _require_start(snapshot, manifest)
+        _publish_candidate_guard(manifest)
         manifest_sha256 = sha256_bytes(manifest_raw)
         payload = {
             "schema": PREPARED_SCHEMA,
@@ -766,7 +823,7 @@ def prepare(
             "00-prepared.json",
             _record("PREPARED", manifest_sha256, payload),
         )
-        return approval_token(manifest_sha256, snapshot)
+        return approval_token(manifest_sha256, snapshot, manifest["runId"])
     finally:
         candidate.close()
         rollback.close()
@@ -852,6 +909,8 @@ def execute(
 ) -> dict[str, Any]:
     manifest = _require_manifest_pair(manifest_raw, manifest)
     _verify_qualification_inputs(manifest)
+    _require_run_path(run_directory, manifest["runId"])
+    _require_candidate_guard(manifest)
     records = read_records(run_directory)
     if set(records) != {"00-prepared.json"}:
         raise ContractError("execute requires one fresh prepared run")
@@ -870,7 +929,9 @@ def execute(
         ):
             raise ContractError("prepared artifact changed")
         _verify_qualification_inputs(manifest)
-        expected_approval = approval_token(manifest_sha256, snapshot)
+        expected_approval = approval_token(
+            manifest_sha256, snapshot, manifest["runId"]
+        )
         if supplied_approval != expected_approval:
             raise ContractError("approval does not bind this target, boot, and manifest")
         publish_record(

@@ -378,6 +378,9 @@ identity:
   An eighth review found rollback was still manifest-selected. The A90 owner
   now hardcodes the sole V2321 rollback path, size, SHA-256, version, and build;
   only the candidate varies by manifest.
+  A ninth review found per-run journals permitted a second run ID to replay the
+  same candidate. One fixed private run root now holds a permanent O_EXCL
+  candidate-SHA guard, and approval also binds the run ID.
 
 ## What Leaves or Moves Out
 
