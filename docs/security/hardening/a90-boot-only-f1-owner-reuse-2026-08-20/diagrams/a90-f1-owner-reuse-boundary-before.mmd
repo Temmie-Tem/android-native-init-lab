@@ -1,0 +1,15 @@
+flowchart LR
+  M["Candidate manifest"] --> O["Python owner"]
+  T["Tests and host runtime tree"] --> C["Owner closure"]
+  R["Review and qualification sidecars"] --> C
+  C --> O
+  S["10-file private source staging"] --> O
+  O --> B["Owned serial bridge"]
+  O --> P1["Four command subprocesses"]
+  B --> N["A90 native serial"]
+  P1 --> B
+  O --> F["native_init_flash.py"]
+  F --> A["Recovery ADB"]
+  A --> W["boot write and readback"]
+  W --> N
+  J["Durable journal"] <--> O

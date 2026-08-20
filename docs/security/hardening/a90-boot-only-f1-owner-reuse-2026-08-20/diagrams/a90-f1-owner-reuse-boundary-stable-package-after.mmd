@@ -1,0 +1,10 @@
+flowchart LR
+  M["Candidate manifest and hazard acceptance"] --> O["Stable A90 F1 owner"]
+  K["One reviewed owner package digest"] --> O
+  O --> B["One owned serial bridge"]
+  O --> P["One observation worker: 4 reads"]
+  P --> B --> N["A90 native serial"]
+  O --> F["Existing native_init_flash adapter"]
+  F --> A["Exact-one recovery ADB endpoint"] --> W["boot write and readback"] --> N
+  J["Five-boundary no-replay journal"] <--> O
+  Q["Tests, reviews, resident evidence"] -.-> O

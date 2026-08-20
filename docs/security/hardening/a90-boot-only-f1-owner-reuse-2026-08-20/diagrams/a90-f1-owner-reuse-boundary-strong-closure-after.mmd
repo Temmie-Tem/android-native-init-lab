@@ -1,0 +1,11 @@
+flowchart LR
+  M["Candidate manifest"] --> O["Current Python owner"]
+  X["Executed source and complete host runtime"] --> C["Execution closure"]
+  C --> O
+  O --> B["Owned serial bridge"]
+  O --> P["Four fixed command subprocesses"]
+  P --> B --> N["A90 native serial"]
+  O --> F["Existing recovery flash helper"]
+  F --> A["Recovery-only ADB"] --> W["boot write and readback"] --> N
+  J["Durable journal and small resume table"] <--> O
+  E["Tests and reviews outside closure"] -.-> C

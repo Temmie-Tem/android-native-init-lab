@@ -1,0 +1,203 @@
+{
+  "documentType": "codex-security.hardening-analysis",
+  "schemaVersion": "1.0",
+  "analysisId": "a90_boot_only_f1_owner_reuse_20260820",
+  "sourceEvidence": {
+    "kind": "document_source_collection",
+    "label": "A90 boot-only F1 owner policy, source, tests, and runtime qualification",
+    "collectionSha256": "4e0f73012dbb9b92fefca94780ab4c7f1660a0ad9ff0cb54d42e8e483f57692c",
+    "artifactCount": 12,
+    "targetRevision": "2a5ec435dc3203fd78a55b3ab33440bedd785590",
+    "sourceDrift": "none"
+  },
+  "assessment": {
+    "outcome": "opportunities_identified",
+    "summary": "The A90 owner can preserve one-shot F1 safety while removing host-runtime, test, and historical-evidence couplings that slow repeated kernel experiments."
+  },
+  "constraints": {
+    "profile": "balanced_repeated_a90_experiments",
+    "changeHorizons": ["incremental", "medium_term"],
+    "nonNegotiables": [
+      "A90 boot partition only",
+      "one candidate release and one rollback release",
+      "durable intent before effect",
+      "candidate no-replay",
+      "fresh serial identity and final health",
+      "attended F1"
+    ],
+    "assumptions": [
+      "Root and malicious concurrent processes under the invoking UID are outside the lane.",
+      "Existing A90 Native serial and TWRP recovery interfaces remain available.",
+      "No measured performance or memory budget was supplied."
+    ]
+  },
+  "opportunities": [
+    {
+      "opportunityId": "a90-f1-owner-reuse-boundary",
+      "title": "Align owner identity with A90 effect authority",
+      "summary": "Keep controls that select or repeat a boot write in the owner closure and move tests, reviews, historical evidence, and broad host runtime state to their correct lifetimes.",
+      "diagnosis": "The current execution identity includes non-executed tests and host runtime inventories and couples independent qualifications to owner code, so harmless drift triggers capability churn before the required crash reconciler exists.",
+      "evidence": [
+        {
+          "claimType": "observed",
+          "sourceKind": "document",
+          "evidenceId": "E01",
+          "path": "AGENTS.md",
+          "claim": "The binding F1 invariants require exact artifacts, durable journal state, no candidate replay, rollback, and final health."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E05",
+          "path": "workspace/public/src/scripts/server-distro/a90_boot_only_f1_owner_v1.py",
+          "claim": "The owner closure includes its focused test and the owner implements ten-file staging plus four command subprocesses."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E06",
+          "path": "workspace/public/src/scripts/server-distro/a90_boot_only_f1_contract_v1.py",
+          "claim": "Resident, recovery, runtime, and hazard qualifications bind the owner closure."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "experiment",
+          "evidenceId": "E13",
+          "path": "tests/test_a90_boot_only_f1_owner_v1.py",
+          "claim": "The focused suite produced 75/76 because host Python runtime inventory drifted while the owner source closure still matched."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E12",
+          "path": "workspace/public/src/scripts/revalidation/native_init_flash.py",
+          "claim": "The existing helper already owns native serial recovery request, recovery ADB flash/readback, reboot, and serial verification."
+        },
+        {
+          "claimType": "inferred",
+          "sourceKind": "source",
+          "evidenceId": "E05-E12",
+          "path": "workspace/public/src/scripts/server-distro/a90_boot_only_f1_owner_v1.py",
+          "claim": "Control identity is broader than the components that can select or repeat the A90 boot-write effect."
+        }
+      ],
+      "desiredInvariants": [
+        "Candidate-only changes alter manifest data without reopening owner capability review.",
+        "Tests and review artifacts validate but never participate in the live execution digest.",
+        "Only A90 boot may be written, with one candidate and one rollback release.",
+        "Recovery ADB is bound only during the recovery transport window.",
+        "Every crash prefix resumes from durable journal state without repeating a device effect."
+      ],
+      "proposalPath": "proposals/a90-f1-owner-reuse-boundary.md",
+      "options": [
+        {
+          "optionId": "strong-closure-corrected",
+          "title": "Correct the current strong closure",
+          "kind": "baseline",
+          "summary": "Retain broad host runtime and staged-source binding while removing tests, owner-bound independent evidence, and pre-bridge ADB ownership.",
+          "diagramPaths": {
+            "before": "diagrams/a90-f1-owner-reuse-boundary-before.mmd",
+            "after": "diagrams/a90-f1-owner-reuse-boundary-strong-closure-after.mmd"
+          },
+          "evidenceCoverage": [
+            {"evidenceId": "E01", "effect": "addresses", "tacticalFixRequired": true, "rationale": "The resume table and existing one-shot controls implement the F1 invariants."},
+            {"evidenceId": "E05", "effect": "mitigates", "tacticalFixRequired": true, "rationale": "Tests leave the closure, but staged source and four command workers remain."},
+            {"evidenceId": "E06", "effect": "addresses", "tacticalFixRequired": true, "rationale": "Independent evidence is decoupled from owner code."},
+            {"evidenceId": "E13", "effect": "unaffected", "tacticalFixRequired": false, "rationale": "Broad host runtime drift remains capability-significant."},
+            {"evidenceId": "E12", "effect": "addresses", "tacticalFixRequired": false, "rationale": "The mature helper remains the recovery adapter."}
+          ],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Removes false couplings while retaining broad trusted-host byte coverage.", "validationPlan": "Recompute closure membership and run the existing hostile corpus."},
+            {"dimension": "performance", "direction": "neutral", "confidence": "medium", "basis": "source-derived", "assessment": "Four workers and repeated module loading remain.", "validationPlan": "Measure preparation wall time and process count."},
+            {"dimension": "memory", "direction": "neutral", "confidence": "medium", "basis": "source-derived", "assessment": "Transient Python process and module use remains unchanged.", "validationPlan": "Record peak host RSS during observation."},
+            {"dimension": "reliability", "direction": "improves", "confidence": "medium", "basis": "source-derived", "assessment": "The resume table closes effect replay, but staging and runtime drift still create host stops.", "validationPlan": "Run crash cuts and benign host-drift fixtures."},
+            {"dimension": "operability", "direction": "regresses", "confidence": "high", "basis": "measured", "assessment": "The current focused test already stops on host runtime-tree drift.", "validationPlan": "Count qualification refreshes over two host package update cycles."},
+            {"dimension": "migration", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "This option changes the least current code.", "validationPlan": "Verify existing manifests migrate with only schema-field changes."}
+          ],
+          "residualRisks": ["Benign Python runtime drift still expires the capability.", "Ten staged sources and four workers retain partial-state surface."],
+          "implementationReadiness": {
+            "affectedComponents": ["owner closure", "qualification schemas", "ADB scope", "journal resume"],
+            "workPackages": ["Remove false closure members.", "Decouple qualifications.", "Implement the resume table."],
+            "acceptanceCriteria": ["Tests and reports do not alter owner digest.", "Crash cuts never replay candidate or rollback."],
+            "migrationNotes": ["Keep live execution disabled during migration."],
+            "rollback": "Revert the focused binding changes before capability activation."
+          }
+        },
+        {
+          "optionId": "stable-a90-owner-package",
+          "title": "Stable A90 owner package",
+          "kind": "structural",
+          "summary": "Review one A90-specific package, one observation worker, the existing recovery adapter, and a small no-replay journal table.",
+          "diagramPaths": {
+            "before": "diagrams/a90-f1-owner-reuse-boundary-before.mmd",
+            "after": "diagrams/a90-f1-owner-reuse-boundary-stable-package-after.mmd"
+          },
+          "evidenceCoverage": [
+            {"evidenceId": "E01", "effect": "addresses", "tacticalFixRequired": true, "rationale": "The package owner preserves all device-effect invariants."},
+            {"evidenceId": "E05", "effect": "addresses", "tacticalFixRequired": true, "rationale": "One package and worker replace staged-source and process proliferation."},
+            {"evidenceId": "E06", "effect": "addresses", "tacticalFixRequired": true, "rationale": "Independent evidence gains an owner-independent lifetime."},
+            {"evidenceId": "E13", "effect": "addresses", "tacticalFixRequired": false, "rationale": "Broad host runtime trees no longer define capability identity."},
+            {"evidenceId": "E12", "effect": "addresses", "tacticalFixRequired": false, "rationale": "The existing helper remains the exact recovery adapter."}
+          ],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Authority is separated by lifetime while device one-shot controls remain exact.", "validationPlan": "Map every old hostile fixture to the package owner and replay the crash corpus."},
+            {"dimension": "performance", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "One observation worker removes repeated interpreter startup.", "validationPlan": "Compare wall time and process count against the current owner."},
+            {"dimension": "memory", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "Fewer simultaneous Python processes should reduce transient RSS.", "validationPlan": "Measure peak RSS for identical synthetic observations."},
+            {"dimension": "reliability", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Fewer staged names and processes reduce partial-state combinations, while the journal table closes replay.", "validationPlan": "Inject package, worker, bridge, recovery, and publication failures."},
+            {"dimension": "operability", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Candidate data and tests can change without rebuilding capability identity.", "validationPlan": "Simulate candidate-only and test-only changes and assert owner digest stability."},
+            {"dimension": "migration", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Package generation, schema translation, and worker consolidation require focused changes.", "validationPlan": "Run old and new H0 validators over the same fixtures before retiring the old owner."}
+          ],
+          "residualRisks": ["Trusted host package drift below pinned executables is accepted.", "TWRP recovery ADB remains an external compatibility dependency."],
+          "implementationReadiness": {
+            "affectedComponents": ["owner package", "observation worker", "qualification schemas", "recovery endpoint binding", "journal resume"],
+            "workPackages": ["Correct closure membership.", "Generate one owner package.", "Collapse observation workers.", "Bind recovery serial.", "Implement resume table."],
+            "acceptanceCriteria": ["Candidate-only and test-only changes preserve owner capability identity.", "Every crash prefix is no-replay.", "Exact-one recovery endpoint is required before boot write."],
+            "migrationNotes": ["Retain current hostile checks until equivalent package coverage passes."],
+            "rollback": "Before activation, restore the disabled current owner; after intent, use only the run's boot rollback."
+          }
+        },
+        {
+          "optionId": "static-a90-owner-binary",
+          "title": "Static A90 owner binary",
+          "kind": "foundational",
+          "summary": "Replace Python staging, import, bridge, and journal ownership with one compiled A90 binary and narrow recovery adapter.",
+          "diagramPaths": {
+            "before": "diagrams/a90-f1-owner-reuse-boundary-before.mmd",
+            "after": "diagrams/a90-f1-owner-reuse-boundary-static-binary-after.mmd"
+          },
+          "evidenceCoverage": [
+            {"evidenceId": "E01", "effect": "addresses", "tacticalFixRequired": true, "rationale": "A typed binary can encode the one-shot state machine."},
+            {"evidenceId": "E05", "effect": "addresses", "tacticalFixRequired": false, "rationale": "Python staging and command subprocesses disappear."},
+            {"evidenceId": "E06", "effect": "addresses", "tacticalFixRequired": true, "rationale": "Evidence is external to the binary digest."},
+            {"evidenceId": "E13", "effect": "addresses", "tacticalFixRequired": false, "rationale": "Python runtime drift is eliminated."},
+            {"evidenceId": "E12", "effect": "mitigates", "tacticalFixRequired": true, "rationale": "Recovery behavior must be retained or reimplemented and revalidated."}
+          ],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "The executable closure shrinks, but new serial and recovery code can introduce fresh defects.", "validationPlan": "Differentially test all protocol and journal fixtures against the Python reference."},
+            {"dimension": "performance", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "Interpreter and subprocess startup disappear.", "validationPlan": "Benchmark end-to-end H0 preparation and observation."},
+            {"dimension": "memory", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "One binary should use fewer runtime objects and processes.", "validationPlan": "Measure peak RSS and process count."},
+            {"dimension": "reliability", "direction": "unknown", "confidence": "low", "basis": "hypothetical", "assessment": "A smaller runtime competes with rewrite risk in mature recovery behavior.", "validationPlan": "Run prolonged fault-injection and compatibility tests before selection."},
+            {"dimension": "operability", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "One binary digest is easy to deploy, but a new toolchain must be qualified.", "validationPlan": "Build reproducibly on two clean hosts and compare bytes."},
+            {"dimension": "migration", "direction": "regresses", "confidence": "high", "basis": "source-derived", "assessment": "Serial parsing, recovery sequencing, and journals require a full rewrite and review.", "validationPlan": "Maintain a staged side-by-side H0 rollout with isolated namespaces."}
+          ],
+          "residualRisks": ["New implementation defects can affect recovery.", "ADB and TWRP remain external dependencies."],
+          "implementationReadiness": {
+            "affectedComponents": ["all owner runtime components", "serial client", "recovery adapter", "journal"],
+            "workPackages": ["Choose toolchain.", "Port contracts.", "Port serial and recovery adapters.", "Differentially validate."],
+            "acceptanceCriteria": ["Reproducible binary.", "Complete behavioral equivalence corpus.", "Independent full review."],
+            "migrationNotes": ["Do not permit both owners to share approval or journal namespaces."],
+            "rollback": "Retain the disabled Python owner until the binary capability is independently qualified."
+          }
+        }
+      ],
+      "recommendedOptionId": "stable-a90-owner-package",
+      "recommendation": "Use one stable A90-specific owner package under the current trusted-host and repeated-kernel-experiment constraints; retain the corrected strong closure only if exact host runtime reproducibility is prioritized, and defer a static rewrite until campaign duration justifies it."
+    }
+  ],
+  "openQuestions": [
+    "Is the exact TWRP ADB serial stable, or must topology plus exact-one arrival bind recovery?",
+    "Can the current helper run from one package without changing file-relative behavior?",
+    "How many further A90 kernel candidates are expected?",
+    "Which host package drift classes should expire capability review?"
+  ]
+}

@@ -1,0 +1,7 @@
+flowchart LR
+  M["Candidate manifest and hazard acceptance"] --> O["Static A90 owner binary"]
+  H["One binary SHA256"] --> O
+  O --> U["Direct ACM serial client"] --> N["A90 native serial"]
+  O --> A["Recovery ADB client adapter"] --> W["boot write and readback"] --> N
+  J["Typed durable journal"] <--> O
+  Q["Tests and reviews outside binary"] -.-> H
