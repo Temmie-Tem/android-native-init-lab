@@ -87,8 +87,17 @@ def bridge(*, ambiguous=False):
     }
 
 
+def usb_inventory(*, duplicate=False):
+    lines = [b"Bus 001 Device 002: ID 1d6b:0002 Linux Foundation 2.0 root hub",
+             b"Bus 001 Device 003: ID 04e8:6861 Samsung Electronics Co., Ltd"]
+    if duplicate:
+        lines.append(b"Bus 001 Device 004: ID 04e8:6861 Samsung Electronics Co., Ltd")
+    return result(b"\n".join(lines) + b"\n")
+
+
 def healthy_results(version="0.11.194", build="phase3-minimal-h27"):
     return [
+        usb_inventory(),
         result(bridge()),
         result(command(f"version: {version} build={build}\n", "version")),
         result(command("selftest: pass=9 warn=0 fail=0 duration=12ms entries=9\n", "selftest")),
@@ -120,12 +129,12 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(snapshot.boot_id, BOOT_ID)
         self.assertEqual((snapshot.version, snapshot.build), tuple(self.expected.values()))
         self.assertEqual([call[0] for call in runner.calls], [
-            "bridge-preflight", "version", "selftest", "status", "boot-id",
+            "usb-inventory", "bridge-preflight", "version", "selftest", "status", "boot-id",
             "fresh-enablePath", "fresh-latchPath",
         ])
 
     def test_bridge_ambiguity_is_rejected(self):
-        runner = FakeRunner([result(bridge(ambiguous=True))])
+        runner = FakeRunner([usb_inventory(), result(bridge(ambiguous=True))])
         with self.assertRaisesRegex(A.ContractError, "bridge preflight"):
             A.FixedA90Adapter(runner, qualification=QUALIFICATION).preflight(
                 {"expectedStart": self.expected, "qualification": QUALIFICATION}
@@ -141,7 +150,7 @@ class FixedAdapterTest(unittest.TestCase):
     def test_stable_target_binding_ignores_variable_selftest_duration(self):
         first = healthy_results()
         second = healthy_results()
-        second[2] = result(command(
+        second[3] = result(command(
             "selftest: pass=9 warn=0 fail=0 duration=99ms entries=9\n", "selftest"
         ))
         one = A.FixedA90Adapter(FakeRunner(first), qualification=QUALIFICATION).preflight(
@@ -155,7 +164,7 @@ class FixedAdapterTest(unittest.TestCase):
 
     def test_selftest_or_pstore_drift_is_rejected_or_unhealthy(self):
         bad_selftest = healthy_results()
-        bad_selftest[2] = result(command(
+        bad_selftest[3] = result(command(
             "selftest: pass=8 warn=0 fail=1 duration=12ms entries=9\n", "selftest"
         ))
         with self.assertRaisesRegex(A.ContractError, "selftest"):
@@ -164,7 +173,7 @@ class FixedAdapterTest(unittest.TestCase):
             )
 
         bad_pstore = healthy_results()
-        bad_pstore[3] = result(command("pstore=dirty entries=0 entries=1\n", "status"))
+        bad_pstore[4] = result(command("pstore=dirty entries=0 entries=1\n", "status"))
         snapshot = A.FixedA90Adapter(
             FakeRunner(bad_pstore), qualification=QUALIFICATION
         ).preflight({"expectedStart": self.expected, "qualification": QUALIFICATION})
@@ -172,7 +181,7 @@ class FixedAdapterTest(unittest.TestCase):
 
     def test_present_fresh_state_is_rejected(self):
         present = healthy_results()
-        present[5] = result(command("mode=100600 size=0\n", "stat"))
+        present[6] = result(command("mode=100600 size=0\n", "stat"))
         with self.assertRaisesRegex(A.ContractError, "fresh state absence"):
             A.FixedA90Adapter(
                 FakeRunner(present), qualification=QUALIFICATION
@@ -194,6 +203,15 @@ class FixedAdapterTest(unittest.TestCase):
         with self.assertRaisesRegex(A.ContractError, "physical recovery"):
             A.FixedA90Adapter(FakeRunner([]), qualification={})
 
+    def test_duplicate_samsung_usb_endpoint_is_rejected(self):
+        with self.assertRaisesRegex(A.ContractError, "one exact A90 endpoint"):
+            A.FixedA90Adapter(
+                FakeRunner([usb_inventory(duplicate=True)]),
+                qualification=QUALIFICATION,
+            ).preflight(
+                {"expectedStart": self.expected, "qualification": QUALIFICATION}
+            )
+
     def test_observation_budget_is_total_not_per_command(self):
         adapter = A.FixedA90Adapter(FakeRunner([]), qualification=QUALIFICATION)
         with mock.patch.object(A.time, "monotonic", side_effect=[0.0, 31.0]):
@@ -210,7 +228,7 @@ class FixedAdapterTest(unittest.TestCase):
         bad["serial_candidates"][0]["realpath"] = "/dev/ttyACM1"
         with self.assertRaisesRegex(A.ContractError, "bridge preflight"):
             A.FixedA90Adapter(
-                FakeRunner([result(bad)]), qualification=QUALIFICATION
+                FakeRunner([usb_inventory(), result(bad)]), qualification=QUALIFICATION
             ).preflight(
                 {"expectedStart": self.expected, "qualification": QUALIFICATION}
             )
@@ -248,7 +266,7 @@ class FixedAdapterTest(unittest.TestCase):
             A.HostRunner(Path("/tmp/not-used"))
 
     def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 500)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 550)
 
 
 if __name__ == "__main__":

@@ -371,6 +371,10 @@ identity:
   A sixth review found enable/done roles and generations could be swapped. The
   manifest and independent review now require one shared generation stem and
   the exact `.enable`/`.done` suffix for their named roles.
+  A seventh review rejected the constant other-target assertion. Live
+  preflight now hashes complete `lsusb` output, requires exactly one Samsung
+  endpoint (`04e8:6861`), and separately binds the fixed A90 Native serial;
+  ADB remains recovery-only.
 
 ## What Leaves or Moves Out
 

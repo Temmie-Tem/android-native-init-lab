@@ -34,6 +34,7 @@ LIVE_ADAPTER_ENABLED = False
 REPO_ROOT = Path(__file__).resolve().parents[5]
 PYTHON = Path("/usr/bin/python3.14")
 ADB = Path("/usr/bin/adb")
+LSUSB = Path("/usr/bin/lsusb")
 BRIDGE = REPO_ROOT / "workspace/public/src/scripts/revalidation/a90_bridge.py"
 A90CTL = REPO_ROOT / "workspace/public/src/scripts/revalidation/a90ctl.py"
 FLASH = REPO_ROOT / "workspace/public/src/scripts/revalidation/native_init_flash.py"
@@ -45,6 +46,10 @@ SELFTEST_RE = re.compile(
 )
 BOOT_ID_RE = re.compile(r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
 TTY_RE = re.compile(r"^/dev/ttyACM[0-9]+$")
+LSUSB_RE = re.compile(
+    rb"^Bus [0-9]{3} Device [0-9]{3}: ID "
+    rb"(?P<vendor>[0-9a-f]{4}):(?P<product>[0-9a-f]{4}) .+$"
+)
 
 
 @dataclass(frozen=True)
@@ -217,6 +222,36 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validate_usb_inventory(result: CommandResult) -> dict[str, Any]:
+    if (
+        type(result.returncode) is not int
+        or result.returncode != 0
+        or result.quiescent is not True
+        or result.stderr
+        or not result.stdout
+    ):
+        raise ContractError("USB inventory producer failed")
+    lines = result.stdout.rstrip(b"\n").split(b"\n")
+    matches = [LSUSB_RE.fullmatch(line) for line in lines]
+    if any(match is None for match in matches):
+        raise ContractError("USB inventory output is malformed")
+    samsung = [
+        match for match in matches
+        if match is not None and match.group("vendor") == b"04e8"
+    ]
+    if (
+        len(samsung) != 1
+        or samsung[0].group("product") != b"6861"
+    ):
+        raise ContractError("USB inventory does not contain one exact A90 endpoint")
+    return {
+        "allEndpointCount": len(lines),
+        "samsungEndpointCount": len(samsung),
+        "a90Product": "04e8:6861",
+        "inventorySha256": sha256_bytes(result.stdout),
+    }
+
+
 def _bound_response(
     value: dict[str, Any], command: list[str], label: str
 ) -> dict[str, Any]:
@@ -358,6 +393,13 @@ class FixedA90Adapter:
         timeout_sec: int = 30,
     ) -> Snapshot:
         deadline = time.monotonic() + timeout_sec
+        usb_inventory = _validate_usb_inventory(
+            self.runner.run(
+                "usb-inventory",
+                (str(LSUSB),),
+                self._remaining(deadline, cap=10),
+            )
+        )
         bridge = _validate_bridge(
             self._json_command(
                 "bridge-preflight",
@@ -414,6 +456,7 @@ class FixedA90Adapter:
             and (state_absent or not require_fresh_state)
         )
         stable_identity = {
+            "usbInventory": usb_inventory,
             "bridge": bridge,
             "bootId": boot_id,
             "version": version.group("version"),
@@ -436,7 +479,7 @@ class FixedA90Adapter:
             recovery_available=True,
             recovery_evidence_sha256=self.recovery_evidence_sha256,
             fresh_state_absent=state_absent,
-            other_targets_untouched=True,
+            other_targets_untouched=usb_inventory["samsungEndpointCount"] == 1,
             receipt_sha256=sha256_bytes(
                 canonical_json({"evidence": evidence, "healthy": healthy})
             ),

@@ -33,7 +33,10 @@ It contains no production device backend and its CLI hard-disables execution.
   and are checked by size and SHA-256 before use and after the helper returns.
 - Fresh preflight must prove the expected healthy resident, physical recovery,
   the same boot and target identity prepared for approval, and that other
-  targets were untouched.
+  targets were untouched. The adapter hashes a bounded complete `lsusb`
+  inventory and requires exactly one Samsung endpoint, the Native A90
+  `04e8:6861`; the fixed A90 serial symlink/realpath is checked separately.
+  This adds no standing ADB owner: ADB remains confined to recovery transfer.
 - Approval is derived from the canonical manifest digest, target evidence, and
   current boot ID. It is not reusable for another manifest, device, or boot.
 - The manifest embeds one candidate-specific qualification. It binds the exact
