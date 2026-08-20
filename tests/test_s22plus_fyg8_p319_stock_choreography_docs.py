@@ -65,6 +65,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The manifest coupling is fixed, and the fix is invariant in the right direction",
         "The Carrier's two new emitters convert a load into a rebuild",
         "A withdrawn vermagic claim, and a config that belongs to a different build",
+        "The provenance repair holds, and its strongest fact is the one it does not claim",
         "What remains open",
         "Evidence",
     )
@@ -132,6 +133,59 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "All 73\nmodules in the snapshot declare `license=GPL`. Inert today.",
             "VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver` (116 symbols)",
             "`CRYPTO_INTERNAL` (3)",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_reproduces_the_repair_independently(self):
+        # A review that only re-reads the auditor's own numbers proves nothing.
+        # These four were decoded from the raw Image without the auditor in the
+        # loop, which is why the table is allowed to state them as agreement.
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "2,851 + 4,371 = **7,222**",
+            "module `__versions` entries over 73 modules | **3,566**",
+            "entries with no Image provider | **328**",
+            "equals the Image provider's | **3,238**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_shows_the_closure_self_validates_the_decode(self):
+        # Removing vmlinux.symvers removed the only external check on the
+        # decode.  The replacement has to be demonstrated, not assumed, so the
+        # rotation experiment and both of its numbers are pinned.
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "CRC table rotated by **one entry**",
+            "CRC agreement, correct decode : 3238",
+            "CRC agreement, 1-entry shift  :    0",
+            "The closure is self-validating.",
+            "Samsung's\nshipped modules and this campaign's own kernel",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_records_the_inherited_section_literals(self):
+        # The repair removed the wrong-run authority but kept the numbers that
+        # authority produced.  Recorded with the measurement that makes them
+        # derivable rather than as a bare objection.
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "`35,693,760`\nis `0x221A4C0 - 0x10000`",
+            "**exactly contiguous**",
+            "all four inter-section gaps are\n  zero",
+            "the 12 bytes before `__ksymtab` do not decode as an\n  entry",
+            "Neither point blocks the unit.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_credits_the_refusal_to_claim_a_repaired_zero(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "`external_build_provenance` is recorded as `not_bound`",
+            "was **not** claimable, and it\nwas not claimed",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)

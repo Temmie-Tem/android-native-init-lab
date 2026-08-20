@@ -3742,6 +3742,80 @@ Recorded because they were checked, not because they bit.
   `CRYPTO_INTERNAL` (3). No vendor module in this plan is a filesystem or a
   crypto internal consumer. Inert today, cheap to add.
 
+## The provenance repair holds, and its strongest fact is the one it does not claim
+
+The repair removes the different-run `vmlinux`, `vmlinux.symvers` and `.config`
+from ABI authority, derives the module lane from the flashed Image's own
+`IKCFG_ST` block, binds the `b9cc424d...` run identity the auditor already
+asserted, and replaces the `STOCK_SUFFIX` constant with a suffix read out of the
+Image. `external_build_provenance` is recorded as `not_bound`, with no exact
+vmlinux for this Image available. That is the correct answer to the finding: the
+`0/0` this reviewer named as the repaired end state was **not** claimable, and it
+was not claimed.
+
+### Reproduced without the auditor
+
+The Image was decoded again from scratch — locating the string blob from a known
+export name and growing it, then walking PREL32 triples — with none of the
+auditor's constants in the loop:
+
+| quantity | this reviewer, from the raw Image | auditor |
+| --- | --- | --- |
+| exported providers | 2,851 + 4,371 = **7,222** | 7,222 |
+| module `__versions` entries over 73 modules | **3,566** | 3,566 |
+| entries with no Image provider | **328** | 328 |
+| entries whose CRC equals the Image provider's | **3,238** | 3,238 |
+
+The five section SHA-256 values agree with independent computation.
+
+### The removed cross-check was replaced by a stronger one, and the report is silent about it
+
+Before the repair, `image_provider_map == symvers_map` was the only thing that
+validated the decode. Removing `symvers` removes that, and nothing in the unit
+argues what took its place. Tested directly: rebuild the provider map with the
+CRC table rotated by **one entry** and re-run the closure.
+
+```
+CRC agreement, correct decode : 3238
+CRC agreement, 1-entry shift  :    0
+```
+
+The closure is self-validating. No misalignment of the name table against the
+parallel CRC table survives it, because names and CRCs are joined by index and
+3,238 independent CRC agreements have to hold simultaneously. It is also a
+*better* check than the one it replaced: `symvers` came from the same build as
+the map it certified, whereas these 3,238 agreements are between **Samsung's
+shipped modules and this campaign's own kernel** — two unrelated producers.
+
+The report gives `3,566` as a result. It is also the proof that the raw decode is
+correct, and saying so retires the "authority removed, nothing put back"
+objection permanently rather than leaving it open for the next reviewer.
+
+### The one thing still inherited from the removed authority
+
+`IMAGE_SECTION_LAYOUT` is five bare offset literals. They are the removed
+vmlinux's section offsets minus the `0x10000` file displacement — `35,693,760`
+is `0x221A4C0 - 0x10000`. The repair removed the authority and kept its output.
+The per-section SHA-256 adds nothing here, because the Image is already
+hash-pinned, so any section byte change fails earlier.
+
+They are correct, and they are also derivable, which is the point. Measured:
+
+- the five sections are **exactly contiguous** — all four inter-section gaps are
+  zero, spanning `35,693,760` to `35,979,344`;
+- both export tables have exactly as many entries as their CRC tables,
+  2,851 and 4,371;
+- the left edge is sharp: the 12 bytes before `__ksymtab` do not decode as an
+  entry, and every one of the 2,851 entries inside does;
+- the right edge is sharp: the 12 bytes after `__ksymtab_gpl` do not decode.
+
+Asserting contiguity is one line and turns five independent literals into one
+start offset plus four sizes, each of which the closure then checks. That is the
+same direction as this repair itself: replace an asserted constant with a
+derived one.
+
+Neither point blocks the unit. The provenance defect recorded earlier is closed.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
