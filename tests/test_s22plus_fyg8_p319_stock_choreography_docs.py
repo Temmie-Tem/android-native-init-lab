@@ -58,6 +58,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "V2 plan capacity and EUD identity: 73 rows fit, and 37 is stale",
         "Review of the V2 plan unit, and a correction to this report's DWC3 framing",
         "Review of the 73-row materialization: the closure is inflated by unused paths",
+        "An accounting correction: a review row is not a resolution",
         "What remains open",
         "Evidence",
     )
@@ -248,6 +249,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "**`max77705_firmware_update_sysfs`**",
             "a path this\ncampaign's contract places out of bounds and has never taken",
             "Loading it initiates nothing by itself.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_records_the_accounting_correction(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "read as independent reviews but\ndischarged nothing",
+            "`^h0-<topic>-review-<N>$`",
+            "`PASS_GO_P319_MODULE_CLOSURE_PLAN_INDEPENDENT_REVIEW_V1`",
+            "is not the same as satisfying the accounting the campaign\nruns on",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)

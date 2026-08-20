@@ -3245,6 +3245,45 @@ the plan and their bytes are not re-bound by this unit, so "the plan names them"
 is still not the same as "these bytes will load" for those ten. Nothing observed
 suggests a mismatch; it is simply outside what this receipt covers.
 
+## An accounting correction: a review row is not a resolution
+
+The two review rows this reviewer appended for the module-closure work —
+`h0-v2-plan-review-dwc3-framing-withdrawn-1` and
+`h0-materialization-review-spu-verify-tie-1` — read as independent reviews but
+discharged nothing, and one of them opened an obligation instead of closing one.
+
+The taxonomy's rule is mechanical and neither row met it. A resolving row's
+ordinal must match `^h0-<topic>-review-<N>$` and its action must begin
+`PASS_GO_`. Both of those rows carried plain `P319_…` actions, and their
+ordinals put `review` inside the topic segment rather than in the fixed
+position. So they parsed as ordinary rows.
+
+The obligation they were meant to discharge is a single one:
+`h0-module-closure-plan-1`, action
+`P319_CANDIDATE_MODULE_LOAD_PLAN_IMPLEMENTED_REVIEW_PENDING`. The V2 row
+`h0-module-closure-plan-v2-8` is explicitly recorded as sitting *under* that
+obligation rather than opening a second, so the plan, its V2 stage and EUD
+derivation, and the 73-row materialization are one topic with one review.
+
+It is now discharged by `h0-module-closure-plan-review-1` with action
+`PASS_GO_P319_MODULE_CLOSURE_PLAN_INDEPENDENT_REVIEW_V1`. The two earlier rows
+stand unmodified as evidence; the ledger is append-only and their content was
+never the problem.
+
+The collision guard bit twice. Both the first review row and this resolution row
+quoted the base ordinal inline, and a uniqueness check that matches that
+identifier surrounded by spaces counted them as extra closure-plan rows. The
+first occurrence was recorded a section earlier with the note that the check
+guards a real invariant; the same mistake was then repeated in the very row
+written to correct the accounting. Both times the row was reworded and the check
+left alone.
+
+The lesson generalises past this instance. Writing a thorough review and
+recording it in prose is not the same as satisfying the accounting the campaign
+runs on, and the accounting is the part that decides whether the next stage may
+start. The check costs one command and should be run whenever a review row is
+appended.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
