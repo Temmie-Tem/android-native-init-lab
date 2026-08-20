@@ -389,6 +389,9 @@ identity:
   A twelfth review found journal lstat/read reopen growth. Manifest and journal
   reads now use one bounded direct-regular descriptor with same-inode/size and
   trailing-growth rejection.
+  A thirteenth review found dangling allowlisted symlinks were treated absent.
+  Journal presence now comes from directory-entry names and every present name
+  must pass the bounded direct-regular reader.
 
 ## What Leaves or Moves Out
 

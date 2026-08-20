@@ -77,7 +77,9 @@ It contains no production device backend and its CLI hard-disables execution.
 - Every record uses create-exclusive publication, file fsync, and directory
   fsync in a new mode-0700 run directory. Manifest and journal readers reject
   special/oversized paths before open, then bind one nonblocking descriptor,
-  exact inode/size, bounded bytes, and absence of trailing growth.
+  exact inode/size, bounded bytes, and absence of trailing growth. Journal
+  presence comes from directory-entry names, not dereferencing `exists()`, so
+  dangling allowlisted symlinks are malformed rather than silently absent.
 - PASS requires candidate helper completion and quiescence plus fresh exact
   candidate health. Transfer success alone is not PASS.
 - A rollback terminal is `NO_PROOF_ROLLED_BACK`, not experiment proof.

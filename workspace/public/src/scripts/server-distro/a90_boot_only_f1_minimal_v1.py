@@ -778,7 +778,7 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
     manifest_sha256: str | None = None
     for name in RECORDS:
         path = run_directory / name
-        if not path.exists():
+        if name not in names:
             continue
         value = parse_canonical(
             _read_bounded_regular(path, name, MAX_JSON_BYTES), name
