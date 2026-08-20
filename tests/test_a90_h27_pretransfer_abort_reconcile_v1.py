@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -161,6 +162,74 @@ class PretransferAbortReconcileTest(unittest.TestCase):
                 M.recovery_decision(run),
                 "PRETRANSFER_ABORT_RECONCILED_RETRY_ALLOWED",
             )
+
+    def test_review_lineage_rebinds_current_review_without_losing_history(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            historical = root / "historical.json"
+            current = root / "current.json"
+            historical.write_bytes(b"{}")
+            current.write_bytes(b'{"verdict":"PASS_GO"}')
+            historical.chmod(0o600)
+            current.chmod(0o600)
+            manifest = {
+                "qualification": {
+                    "review": {
+                        "path": "/retired/path.json",
+                        "size": 2,
+                        "sha256": M.sha256_bytes(b"{}"),
+                    }
+                }
+            }
+            with (
+                mock.patch.object(R, "HISTORICAL_REVIEW_PATH", historical),
+                mock.patch.object(R, "HISTORICAL_REVIEW_SIZE", 2),
+                mock.patch.object(
+                    R, "HISTORICAL_REVIEW_SHA256", M.sha256_bytes(b"{}")
+                ),
+                mock.patch.object(R, "CURRENT_REVIEW_PATH", current),
+                mock.patch.object(
+                    M, "_verify_qualification_inputs"
+                ) as verify_current,
+            ):
+                rebound, digest = R._verify_review_lineage(manifest)
+            self.assertEqual(digest, M.sha256_bytes(current.read_bytes()))
+            self.assertEqual(rebound["qualification"]["review"]["path"], str(current))
+            self.assertEqual(
+                rebound["qualification"]["review"]["sha256"], digest
+            )
+            verify_current.assert_called_once_with(rebound)
+
+    def test_post_record_cleanup_rejects_current_review_drift(self):
+        snapshot = {
+            "healthy": True,
+            "freshStateAbsent": True,
+            "otherTargetsUntouched": True,
+            "version": "0.11.192",
+            "build": "phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev",
+        }
+        payload = {
+            "schema": R.SCHEMA,
+            "decision": R.DECISION,
+            "candidateRetryPermitted": True,
+            "currentReviewSha256": "d" * 64,
+            "candidate": {
+                "receiptSha256": R.CANDIDATE_RECEIPT_SHA256,
+                "durationMs": 1,
+                "transferStarted": False,
+                "bootWriteStarted": False,
+            },
+            "rollback": {
+                "receiptSha256": R.ROLLBACK_RECEIPT_SHA256,
+                "durationMs": 1,
+                "transferStarted": False,
+                "bootWriteStarted": False,
+            },
+            "recoveredSnapshot": snapshot,
+        }
+        R._validate_reconciliation_payload(payload, "d" * 64)
+        with self.assertRaisesRegex(M.ContractError, "decision is invalid"):
+            R._validate_reconciliation_payload(payload, "e" * 64)
 
 
 if __name__ == "__main__":

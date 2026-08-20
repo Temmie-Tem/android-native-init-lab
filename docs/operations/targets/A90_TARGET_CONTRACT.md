@@ -1307,7 +1307,11 @@ The one fixed H27 `EFBIG` incident dated 2026-08-21 may retire its retained
 host guards only through
 `a90_h27_pretransfer_abort_reconcile_v1.py`. This exception is limited to run
 `a90-h27-f1-20260820-01` and its immutable manifest/journal/helper receipts.
-The reconciler accepts no caller-selected input. It must cryptographically bind
+The reconciler accepts no caller-selected input. It must verify both the exact
+archived review bytes named by the historical manifest and a current
+`PASS_GO` review whose closure contains the reconciler; the latter review SHA
+is part of the durable reconciliation and must remain exact during any
+post-publication guard cleanup. It must then cryptographically bind
 the complete candidate and rollback stdout/stderr bytes back to each journaled
 effect-receipt SHA-256 by exhaustively resolving the sole bounded integer
 duration, prove both helpers stopped before sealed-copy completion, `adb push`,

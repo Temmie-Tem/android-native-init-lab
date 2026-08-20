@@ -28,6 +28,18 @@ MANIFEST_PATH = (
     owner.REPO_ROOT / "workspace/private/manifests/a90-h27-f1-20260820-01.json"
 )
 MANIFEST_SHA256 = "572fda0e714c9eb12dbf092fc85f6b199eb574a69e2e62e5822e2a8b9ff332c7"
+HISTORICAL_REVIEW_PATH = (
+    owner.REPO_ROOT
+    / "docs/archive/reviews/A90_BOOT_ONLY_F1_MINIMAL_REVIEW_02a627cf_2026-08-20.json"
+)
+HISTORICAL_REVIEW_SHA256 = (
+    "02a627cf1f361a8fec69d77f1fee17493ee5968567b740bca0f195e4b8bd145a"
+)
+HISTORICAL_REVIEW_SIZE = 1_159
+CURRENT_REVIEW_PATH = (
+    owner.REPO_ROOT
+    / "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_ACTIVATED_INDEPENDENT_REVIEW_2026-08-20.json"
+)
 CANDIDATE_RECEIPT_SHA256 = (
     "976bed166d41ff9efd801ee45e4ee46609737c4d5c2995d399f46628d32b8dba"
 )
@@ -66,6 +78,42 @@ def _load_incident_manifest() -> tuple[bytes, dict[str, Any]]:
     if manifest["runId"] != RUN_ID:
         raise owner.ContractError("fixed incident manifest run ID changed")
     return raw, manifest
+
+
+def _verify_review_lineage(
+    manifest: dict[str, Any]
+) -> tuple[dict[str, Any], str]:
+    historical = owner._read_bounded_regular(
+        HISTORICAL_REVIEW_PATH,
+        "historical qualification review",
+        owner.MAX_JSON_BYTES,
+    )
+    historical_binding = manifest["qualification"]["review"]
+    if (
+        len(historical) != HISTORICAL_REVIEW_SIZE
+        or owner.sha256_bytes(historical) != HISTORICAL_REVIEW_SHA256
+        or historical_binding["size"] != HISTORICAL_REVIEW_SIZE
+        or historical_binding["sha256"] != HISTORICAL_REVIEW_SHA256
+    ):
+        raise owner.ContractError("historical qualification review is not exact")
+    owner.parse_canonical(historical, "historical qualification review")
+
+    current = owner._read_bounded_regular(
+        CURRENT_REVIEW_PATH,
+        "current qualification review",
+        owner.MAX_JSON_BYTES,
+    )
+    current_sha256 = owner.sha256_bytes(current)
+    rebound = dict(manifest)
+    qualification = dict(manifest["qualification"])
+    qualification["review"] = {
+        "path": str(CURRENT_REVIEW_PATH),
+        "size": len(current),
+        "sha256": current_sha256,
+    }
+    rebound["qualification"] = qualification
+    owner._verify_qualification_inputs(rebound)
+    return rebound, current_sha256
 
 
 def _read_log(path: Path, label: str) -> bytes:
@@ -251,11 +299,14 @@ def _require_incident_records(
         raise owner.ContractError("incident intent artifacts changed")
 
 
-def _validate_reconciliation_payload(payload: dict[str, Any]) -> None:
+def _validate_reconciliation_payload(
+    payload: dict[str, Any], current_review_sha256: str
+) -> None:
     required = {
         "schema",
         "decision",
         "candidateRetryPermitted",
+        "currentReviewSha256",
         "candidate",
         "rollback",
         "recoveredSnapshot",
@@ -266,6 +317,7 @@ def _validate_reconciliation_payload(payload: dict[str, Any]) -> None:
         payload["schema"] != SCHEMA
         or payload["decision"] != DECISION
         or payload["candidateRetryPermitted"] is not True
+        or payload["currentReviewSha256"] != current_review_sha256
     ):
         raise owner.ContractError("pre-transfer reconciliation decision is invalid")
     for role, receipt in (
@@ -315,6 +367,7 @@ def _release_guard_if_present(path: Path, expected: bytes, label: str) -> None:
 
 def reconcile() -> dict[str, Any]:
     raw, manifest = _load_incident_manifest()
+    current_manifest, current_review_sha256 = _verify_review_lineage(manifest)
     owner.ensure_run_root()
     run_directory = owner.RUN_ROOT / RUN_ID
     owner._require_run_path(run_directory, RUN_ID)
@@ -361,13 +414,16 @@ def reconcile() -> dict[str, Any]:
             rollback_stderr=rollback_stderr,
             manifest=manifest,
         )
-        backend = owner._live_backend(manifest, "reconcile-pretransfer-abort")
-        recovered = backend.preflight(manifest)
-        owner._require_start(recovered, manifest)
+        backend = owner._live_backend(
+            current_manifest, "reconcile-pretransfer-abort"
+        )
+        recovered = backend.preflight(current_manifest)
+        owner._require_start(recovered, current_manifest)
         payload = {
             "schema": SCHEMA,
             "decision": DECISION,
             "candidateRetryPermitted": True,
+            "currentReviewSha256": current_review_sha256,
             "candidate": {
                 "receiptSha256": CANDIDATE_RECEIPT_SHA256,
                 "durationMs": candidate_duration,
@@ -382,7 +438,7 @@ def reconcile() -> dict[str, Any]:
             },
             "recoveredSnapshot": recovered.payload(),
         }
-        _validate_reconciliation_payload(payload)
+        _validate_reconciliation_payload(payload, current_review_sha256)
         owner.publish_record(
             run_directory,
             "41-pretransfer-abort.json",
@@ -390,7 +446,7 @@ def reconcile() -> dict[str, Any]:
         )
     else:
         payload = records["41-pretransfer-abort.json"]["payload"]
-        _validate_reconciliation_payload(payload)
+        _validate_reconciliation_payload(payload, current_review_sha256)
 
     active_path, active_expected = owner._active_guard(manifest)
     candidate_path, candidate_expected = owner._candidate_guard(manifest)

@@ -42,6 +42,7 @@ V2321_ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
 REPO_ROOT = Path(__file__).resolve().parents[5]
 RUN_ROOT = REPO_ROOT / "workspace/private/runs/a90-boot-only-f1-minimal-v1"
 EXECUTION_SOURCE_RELS = (
+    "docs/archive/reviews/A90_BOOT_ONLY_F1_MINIMAL_REVIEW_02a627cf_2026-08-20.json",
     "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
     "workspace/public/src/scripts/revalidation/a90_bridge.py",
     "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py",
