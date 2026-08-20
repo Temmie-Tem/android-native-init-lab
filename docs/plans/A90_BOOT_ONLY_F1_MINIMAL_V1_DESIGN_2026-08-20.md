@@ -30,6 +30,9 @@ Each prepare/execute invocation reserves a new immutable
 `<runId>-<phase>-<ordinal>-logs` directory. Pre-effect failure or a lost host
 process preserves prior logs but does not make a correct later invocation
 collide with them.
+Prepare does not create its journal directory until candidate/rollback and
+fresh target preflight pass. Active-guard contention or ordinary pre-effect
+candidate-guard rejection removes only that still-empty directory; logs remain.
 The adapter is loaded from the exact sibling source path through `importlib`
 after aliasing the already-running minimal module; activation does not depend
 on ambient `sys.path`. A per-load sentinel plus exact module path and class

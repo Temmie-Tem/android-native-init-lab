@@ -903,18 +903,25 @@ def prepare(
     _require_run_path(run_directory, manifest["runId"])
     if run_directory.exists():
         raise ContractError("run directory already exists")
-    run_directory.mkdir(mode=0o700, parents=False)
-    _fsync_directory(run_directory.parent)
     candidate = BoundArtifact.open(manifest["candidate"], "candidate")
     rollback = BoundArtifact.open(manifest["rollback"], "rollback")
     try:
         snapshot = backend.preflight(manifest)
         _require_start(snapshot, manifest)
-        _publish_active_guard(manifest)
+        run_directory.mkdir(mode=0o700, parents=False)
+        _fsync_directory(run_directory.parent)
+        try:
+            _publish_active_guard(manifest)
+        except BaseException:
+            run_directory.rmdir()
+            _fsync_directory(run_directory.parent)
+            raise
         try:
             _publish_candidate_guard(manifest)
         except BaseException:
             _release_active_guard(manifest)
+            run_directory.rmdir()
+            _fsync_directory(run_directory.parent)
             raise
         manifest_sha256 = sha256_bytes(manifest_raw)
         payload = {

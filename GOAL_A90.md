@@ -428,6 +428,11 @@ identity:
   `d97b8f45a8a43ce292fe9602b0154608ec2344a59f2ffbfcd4dbe5815e1c9b44`;
   it grants no effect until fresh preflight produces and the operator repeats
   its exact attended approval token.
+  The first real prepare stopped before serial access because two Samsung
+  `04e8:6860` endpoints were present instead of one Native A90 `04e8:6861`.
+  No candidate/active guard or intent exists. The observed empty journal-dir
+  residue prompted one final host repair: prepare now creates that directory
+  only after target preflight and removes it on pre-effect guard contention.
 
 ## What Leaves or Moves Out
 

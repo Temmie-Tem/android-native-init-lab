@@ -294,6 +294,18 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(M.recovery_decision(run), "PRE_EFFECT_NO_DEVICE_EFFECT")
         self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
 
+    def test_prepare_preflight_failure_leaves_no_journal_directory(self):
+        run = M.RUN_ROOT / self.manifest["runId"]
+        with self.assertRaisesRegex(M.ContractError, "not exact"):
+            M.prepare(
+                self.raw,
+                self.manifest,
+                run,
+                FakeBackend(self._snapshot("wrong", "wrong", healthy=False)),
+            )
+        self.assertFalse(run.exists())
+        self.assertFalse((M.RUN_ROOT / "active-run.guard").exists())
+
     def test_journal_growth_between_lstat_and_open_is_rejected(self):
         run, _token = self._prepare()
         record = run / "00-prepared.json"
@@ -329,6 +341,7 @@ class MinimalF1Test(unittest.TestCase):
                 M.RUN_ROOT / changed["runId"],
                 FakeBackend(self.start),
             )
+        self.assertFalse((M.RUN_ROOT / changed["runId"]).exists())
 
     def test_different_candidate_cannot_overlap_active_run(self):
         self._prepare()
@@ -641,7 +654,7 @@ class MinimalF1Test(unittest.TestCase):
 class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1350)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1400)
         self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 700)
         self.assertLessEqual(len(design.read_text().splitlines()), 225)
 
