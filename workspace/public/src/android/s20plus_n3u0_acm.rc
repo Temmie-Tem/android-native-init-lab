@@ -1,0 +1,12 @@
+# Temporary S20+ N3-U0 ACM witness.  The binary owns its bounded gadget,
+# restores the stock gadget, and exits; init never restarts it.
+on property:sys.boot_completed=1
+    start s20plus_n3u0_acm
+
+service s20plus_n3u0_acm ${MAGISKTMP}/s20plus_n3u0_acm
+    class late_start
+    user root
+    group root system shell
+    disabled
+    oneshot
+    seclabel u:r:magisk:s0

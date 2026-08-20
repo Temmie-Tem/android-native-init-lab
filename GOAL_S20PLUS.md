@@ -479,3 +479,152 @@ A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded
 final `.config` removes the configuration-evidence gap but does not itself
 prove stock-kernel byte identity.
+
+## Native USB substrate decision
+
+The S20+-only USB H0/source audit and bounded D0 observation are recorded in
+`docs/reports/S20PLUS_G986N_NATIVE_USB_SUBSTRATE_H0_D0_2026-08-16.md`.
+They bind the exact stock controller and live UDC to `a600000.dwc3`, confirm
+configfs support/mounting, and show that DWC3 MSM dual-role, configfs ACM,
+MAX77705 Type-C/PD, extcon, and Samsung USB-notifier components are built into
+the exact final stock kernel. The automatic physical attach path is still the
+Samsung notifier chain rather than a direct A90 transplant, but it avoids the
+S22+ module-loading closure.
+
+The next USB-specific bounded unit is H0 construction and hostile validation
+of N3-U0: one temporary resident-Magisk boot overlay, one rc file, one static
+AArch64 ACM witness, one owned configfs gadget, and one finite versioned serial
+banner. It must close stock gadget ordering, exact cleanup, host observation,
+and boot-only rollback before independent review. No candidate, USB-mode
+write, reboot, boot transfer, or live authority was created by the H0/D0
+decision, and A90/S22+ identities, artifacts, and commands remain separate.
+
+That host construction is now complete and recorded in
+`docs/reports/S20PLUS_G986N_N3U0_ACM_HOST_BUILD_H0_2026-08-16.md`. The witness
+derives its owned `/dev/ttyGS<n>` from the exact ACM `port_num` instead of
+assuming stock left port zero free, never writes `mode=peripheral`, and restores
+the stock `g1` UDC after every returned effect path. Two full artifact builds
+were byte-identical and the hostile host suite passes 11/11. The exact closure
+is still `REVIEW_PENDING`: no connected observer, fresh boot-only candidate
+binding, independent review, run, approval, or live authority exists.
+
+The bounded host observer is now implemented separately and recorded in
+`docs/reports/S20PLUS_G986N_N3U0_USB_OBSERVER_H0_2026-08-16.md`. Its 14/14
+fake-sysfs/PTY suite proves dynamic `ttyACM<n>` discovery, exact product and
+banner selection, empty baseline, physical-topology binding, conflict
+rejection, and post-read endpoint identity without touching a live USB device.
+At that point `OBSERVER_ACTIVE` remained false and N3-U0 had no independently
+reviewed combined closure, attended boot owner, fresh run/approval, transfer,
+rollback journal, or live authority.
+
+The exact combined closure was subsequently reviewed independently in
+`docs/reports/S20PLUS_G986N_N3U0_COMBINED_H0_REVIEW_2026-08-16.md`. The first
+pass correctly returned `NO_GO` because an unbind write followed by a failed
+readback could skip stock-gadget restoration and because observer target
+metadata reversed Android `device` and `product`. The rotated witness now
+acquires restoration ownership before the unbind boundary and its selftest
+models effect-before-failure; the observer and test now pin `device=y2q` and
+`product=y2qksx`. Fresh review returned `PASS_GO`, with focused 25/25 and exact
+S20+ aggregate 315/315. This is host-closure qualification only:
+`OBSERVER_ACTIVE` is still false and no attended owner, run, approval, boot
+transfer, rollback, or final-health authority was created.
+
+The following H0 design unit is recorded in
+`docs/reports/S20PLUS_G986N_N3U0_ATTENDED_OWNER_H0_DESIGN_2026-08-16.md`. Its
+dormant plan binds candidate AP
+`3aad497979cfa0f247aef68f50ea792f40127afa037c134eeb0d2e96798ca7af`
+and known-good resident Magisk rollback AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`,
+the exact reviewed observer and transport closure, one attempt per boot
+transfer, mandatory rollback after candidate intent, no replay, and final
+resident rooted Android on a newly observed boot ID that reuses no prepared or
+intermediate durable boot ID. The host suite passes 13/13, including hardlink,
+invalid-MD5, metadata, member size/hash, and boot-ID-reuse hostile cases. This is not an executable
+F1 runner: it has no prepare/approval/ADB/Odin/USB-open path, its active flag is
+false, and the target contract grants it no live authority. After two
+blocker-first remediation rounds, independent final review returned `PASS_GO`
+for the exact dormant H0 closure only; executable journal and contract gates
+remain unstarted.
+
+The next H0 unit implements that first journal gate in
+`docs/reports/S20PLUS_G986N_N3U0_ATTENDED_F1_JOURNAL_H0_2026-08-16.md`.
+`s20plus_n3u0_attended_f1.py` remains inactive and exposes only a host plan,
+but its internal state core now provides atomic no-replace strict-typed
+receipts, one shared guard, intent-before-effect nodes for initial Download,
+candidate, rollback mode or physical recovery, and resident rollback, a fresh
+arrival-bound per-run approval, no replay after each intent, fresh non-reused
+resident final boot/root proof, and terminal-before-guard-release resume. The
+focused hostile suite passes 23/23. The first independent review returned
+`NO_GO` because pre-terminal writers did not require the owning guard and the
+journal binding omitted its own runner bytes. The rotated candidate requires
+the exact guard at every mutation and binds its normalized source identity. A
+second review then rejected stale prepared-orphan reactivation after a newer
+run. The current allocation guard is therefore published first with the full
+prepared value; only its current guard may reconstruct a missing prepared
+receipt, while older guardless prepared runs remain inert. A third review found
+that the generic allocation publisher could
+still recreate a guard for an older prepared run. The latest candidate limits
+that publisher to a direct empty run directory; existing prepared runs can
+only validate a current guard and can never publish a replacement. Fresh
+independent review then returned `PASS_GO` for the exact dormant H0 journal
+core. Actual
+ADB/Download/Odin/USB/root consumers,
+end-to-end command-count fixtures, integrated independent review, contract amendment, and
+activation remain future gates; this unit grants no live authority.
+
+The completed dormant consumer-integration H0 unit is recorded in
+`docs/reports/S20PLUS_G986N_N3U0_ATTENDED_F1_CONSUMER_H0_2026-08-16.md`.
+It pins the reviewed journal, Android/Download/Odin/root helper, N3-U0 USB
+observer, and Odin classifier, then drives the journal through one closed fake
+backend protocol. Its 16/16 suite proves intent-before-effect and exact command
+counts for complete automatic and physical rollback paths, plus no replay,
+guard-first rejection, foreign endpoint rejection, uncertain rollback, and
+zero-backend terminal resume. The first independent review returned `NO_GO`
+because the internal rollback helper lacked its own dormant gate and accepted
+a caller endpoint separate from the durable intent. The rotated candidate
+gates that helper and derives the backend endpoint only from
+`begin_rollback()`'s returned intent. Fresh review returned `PASS_GO` for the
+exact frozen dormant harness, and a mechanical status/identity rotation records
+that verdict. `INTEGRATION_ACTIVE` remains false, the CLI is only
+`--render-plan`, no concrete live backend is exposed, and the target contract
+still grants no N3-U0 F1 authority. Concrete helper wiring, raw
+evidence publication/cut resume, integrated executable review, contract amendment, and
+activation remain future gates.
+
+The next H0 unit implements the fixed concrete backend primitives in
+`docs/reports/S20PLUS_G986N_N3U0_ATTENDED_F1_BACKEND_H0_2026-08-16.md`.
+It has no live CLI and keeps `BACKEND_ACTIVE=false`, but its no-input
+`FixedBackend` now binds the reviewed Android/Download/Odin/root helper, N3-U0
+observer, exact candidate/resident AP definitions, and classifier. The 17/17
+host suite proves exact source boot revalidation, fixed ADB reboot shape,
+stable Download endpoint, candidate-versus-rollback artifact isolation,
+intent endpoint equality, local-parse grammar conversion, exact banner/root
+receipts, dormant method/helper command count zero, and rejection of ambient import
+substitution across the bootstrap's transitive helper closure. Independent
+review rejected those two gaps before fresh exact-byte review returned
+`PASS_GO`. A later shared-transport raw-first change added one exact capture
+dependency; the backend now pins it. Independent dependency-only review
+confirmed every N3-consumed API definition remained AST-identical and returned
+`PASS_GO`. Durable raw evidence and the attended physical-entry
+bridge are explicitly false; this remains H0-only and inactive and
+grants no N3-U0 F1 authority. Evidence ownership/cut resume, integrated review,
+contract amendment, and activation remain future gates.
+
+The next bounded H0 unit adds the dormant atomic private evidence owner in
+`docs/reports/S20PLUS_G986N_N3U0_ATTENDED_F1_EVIDENCE_H0_2026-08-16.md`.
+It pins the exact journal, concrete backend, and integration bindings and
+publishes command stdout, stderr, and a strict typed result through
+file-fsynced atomic no-replace names plus directory fsync. Its 18/18 hostile
+suite classifies intent-only and raw-publication cuts as consumed with replay
+forbidden and rejects impossible order, raw drift, indirect nodes, duplicate
+keys, bool/integer substitution, foreign paths, and source drift at both
+publication and certification boundaries. Results bind distinct evidence-owner
+and journal identities, and every direct file helper repeats the dormant gate
+and fixed-root/run-id/name checks, including root-to-run-to-file UID/GID
+continuity. Three blocker-first review rounds closed source binding at the
+actual boundary, direct-helper path/gate isolation, and complete ownership
+continuity; fresh review returned `PASS_GO`. This owner remains H0-only and
+inactive. It now pins the rotated backend, whose exact dependency closure also
+received `PASS_GO`; the backend still does not yet call it, so
+integrated command-return capture, journal-result derivation, physical entry,
+contract amendment, and activation remain future gates.

@@ -457,6 +457,141 @@ the current resident boot and end in exact healthy rooted Android. Resident
 promotion, an earlier trigger, a second service, a policy delta, or an N2
 supervisor payload is a separate candidate.
 
+### N3-U0 native USB fast track
+
+The S20+-specific H0/source review and one bounded D0 observation are recorded
+in
+`../reports/S20PLUS_G986N_NATIVE_USB_SUBSTRATE_H0_D0_2026-08-16.md`.
+They establish that the exact stock boot names `a600000.dwc3`, the live stock
+Android endpoint uses that sole visible UDC, and configfs is supported and
+mounted. The exact final stock configuration builds DWC3 MSM dual-role,
+configfs ACM, MAX77705 Type-C/PD, extcon, and Samsung USB-notifier components
+into the kernel.
+
+This does not make S20+ an A90 clone: its physical attach path still crosses
+the Samsung MAX77705/Type-C notification chain before `dwc3-msm`. It does make
+the first proof smaller than the S22+ module-driven investigation because no
+USB module-load ladder is required by the exact final S20+ configuration.
+
+The selected first USB candidate is therefore a host-built, temporary N3 boot
+overlay, not a direct PID1 replacement. It preserves the resident Magisk
+ramdisk and adds exactly one overlay rc plus one static AArch64 binary. The
+binary may own one configfs gadget and one `acm.usb0` function on fixed
+controller `a600000.dwc3`. Because an existing stock ACM function may already
+hold port zero, it must read the owned function's read-only `port_num`, accept
+only one digit in `0..3`, and write its finite versioned banner only to the
+corresponding owned `/dev/ttyGS<n>`. It must unbind and remove only that owned
+gadget before restoring the stock gadget.
+
+Before a live candidate, H0 must close the stock-`g1` ordering/race,
+deterministic ramdisk delta, bounded host observation, cleanup at every cut,
+and exact resident/rollback boot binding. A bounded `mode=peripheral` write is
+only a separately reviewed fallback if automatic role notification is
+insufficient. N3-U0 adds no NCM, storage, network, DTB change, module, PID1
+replacement, or resident promotion and receives no authority from this
+design.
+
+The first host implementation is recorded in
+`../reports/S20PLUS_G986N_N3U0_ACM_HOST_BUILD_H0_2026-08-16.md`. It implements
+the two-entry Magisk overlay, dynamic owned-port binding, bounded banner loop,
+error/signal cleanup, and stock-gadget restoration without a
+`mode=peripheral` write. Its exact artifact closure remains `REVIEW_PENDING`;
+the build creates no connected run or live boot authority.
+
+The matching dormant host observer is recorded in
+`../reports/S20PLUS_G986N_N3U0_USB_OBSERVER_H0_2026-08-16.md`. Its fake-sysfs
+and pseudoterminal hostile suite binds `04e8:6861`, exact product
+`S20Plus-N3U0`, absent serial descriptor, one dynamic `ttyACM<n>`, one exact
+versioned banner, prepared physical topology, and post-read endpoint identity.
+It intentionally has no live CLI, device command, durable boot journal, or
+rollback owner. `REVIEW_PENDING_NOT_ACTIVE` therefore remains the complete
+machine state for N3-U0.
+
+The combined overlay/observer closure then received independent H0 review,
+recorded in
+`../reports/S20PLUS_G986N_N3U0_COMBINED_H0_REVIEW_2026-08-16.md`. The initial
+review found and blocked an uncertain stock-unbind restoration cut and swapped
+Android device/product metadata. After both fixes and complete hash rotation,
+the fresh review returned `PASS_GO`; focused tests pass 25/25 and the exact
+eleven-module S20+ aggregate passes 315/315. This qualifies only the frozen
+host closure. The observer remains dormant, and no attended boot owner, run,
+approval, transfer, or rollback journal exists.
+
+The next H0 unit now has a non-executable binding model at
+`../reports/S20PLUS_G986N_N3U0_ATTENDED_OWNER_H0_DESIGN_2026-08-16.md`. It pins
+the reviewed N3-U0 AP as the sole candidate and the current known-good resident
+Magisk AP as mandatory rollback, audits both as canonical one-member boot-only
+archives, binds the reviewed observer/transport closure, and fixes candidate
+and rollback attempts at one with no replay. It additionally binds the fresh
+prepared boot and requires the post-rollback terminal boot ID to differ from
+every prepared/intermediate durable boot ID. The model exposes only a dormant
+plan; strict durable journal implementation, Download/observer integration,
+physical recovery, final rooted health, independent executable review, and a
+binding target-contract amendment remain future gates.
+Independent H0 review returned `PASS_GO` after the model added mechanical
+mandatory prepared/final boot-ID validation and complete stated AP-parser
+hostile coverage. The verdict qualifies only this inactive host model.
+
+The following dormant journal-core unit is recorded in
+`../reports/S20PLUS_G986N_N3U0_ATTENDED_F1_JOURNAL_H0_2026-08-16.md`. It
+implements atomic no-replace strict receipts, one owning guard, the initial
+Download/arrival-bound approval, candidate and mandatory resident rollback
+one-shot intents, mutually exclusive automated/physical recovery, exact final
+resident boot/root evidence, and terminal/guard cut resume. It deliberately
+contains no connected backend and has H0 `PASS_GO` only; consumer binding,
+end-to-end effect-count tests, contract amendment, and activation are separate
+future units.
+Its first independent review found missing/foreign guard bypass at internal
+state writers and omission of the runner's own bytes from the binding. The
+rotated H0 candidate closes both with an all-mutation owning-guard gate, one
+normalized self identity, and hostile tests. A second review found stale
+prepared-orphan reactivation after a newer terminal run; the current design
+publishes an allocation guard containing the complete prepared value first and
+allows only that current guard to reconstruct a missing prepared receipt.
+A third review found that the generic allocation publisher could still accept
+an old prepared value. The latest candidate restricts that publisher to a
+direct empty run directory and rejects every already-published prepared run.
+Fresh independent review returned `PASS_GO` for the exact dormant journal
+core. It remains inactive and grants no connected or device authority.
+
+The following consumer-integration H0 harness is recorded in
+`../reports/S20PLUS_G986N_N3U0_ATTENDED_F1_CONSUMER_H0_2026-08-16.md`. It pins
+the journal and exact current Android/Download/Odin/root, N3-U0 observer, and
+classifier sources, then proves intent-before-effect and one-shot counts with a
+closed fake backend. Independent review returned `PASS_GO`; it remains inactive, exposes only
+`--render-plan`, and contains no concrete live backend. Concrete helper wiring,
+strict raw evidence and every reporting-cut continuation, contract amendment,
+and activation remain separate gates.
+
+The following concrete-backend H0 primitive unit is recorded in
+`../reports/S20PLUS_G986N_N3U0_ATTENDED_F1_BACKEND_H0_2026-08-16.md`. It binds
+the fixed Android/Download/Odin/root helper, N3-U0 observer, owner artifacts,
+and classifier and implements no-input primitive methods behind
+`BACKEND_ACTIVE=false`. Its host tests cover exact command, endpoint, artifact,
+banner, and root receipt conversion, plus controlled exact loading of the
+bootstrap's transitive inventory/routine/transport/boot-verifier/classifier
+closure against ambient import substitution. Fresh independent exact-byte
+review returned `PASS_GO`; it remains H0-only and inactive and does not
+yet provide durable raw evidence or the attended physical-entry bridge; those
+must be added before executable integration, contract amendment, or activation.
+The 2026-08-20 shared-transport raw-first rotation added one exact capture
+dependency; the backend now pins it and entered review-pending for that
+dependency rotation without changing its inactive surface. Independent review subsequently
+confirmed the N3-consumed API ASTs were unchanged and returned `PASS_GO`; the
+current state is H0-only/inactive PASS.
+
+The next dormant H0 unit is the atomic evidence owner recorded in
+`../reports/S20PLUS_G986N_N3U0_ATTENDED_F1_EVIDENCE_H0_2026-08-16.md`. It binds
+the exact journal/backend/integration identities and can publish one private
+command stdout, stderr, and strict typed result through complete file-fsynced
+no-replace names plus directory fsync. It treats missing or partial evidence
+after a durable effect intent as consumed and non-replayable. It is not yet
+called by the concrete backend, exposes no live consumer, and remains
+H0-only/inactive after fresh independent `PASS_GO`; integration, result derivation, physical entry, contract
+amendment, and activation remain separate gates.
+It now pins the rotated backend; the same exact dependency-only closure received
+independent `PASS_GO`.
+
 ## N4 - prerequisites for a global-PID1 canary
 
 No direct `/init` candidate should be built until H0/D0 evidence closes all of
