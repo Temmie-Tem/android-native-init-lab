@@ -46,6 +46,23 @@ SETPATH_RE = re.compile(rb"SetPath: (\d+)")
 SEGMENT_RE = re.compile(rb"MUIC Device : Max77705! count: 0")
 BC_CTRL1_RE = re.compile(rb"BC_CTRL1_READ\s*:\s*(0x[0-9A-Fa-f]+)")
 OPCODE_RE = re.compile(rb"muic_command_polling: OP (0x[0-9A-Fa-f]{2})")
+NOTIFIER_RE = re.compile(rb"\[MUIC\] (muic_notifier_[a-z_]+)")
+IRQ_THREAD_RE = re.compile(rb"irq/\d+-max7770\w*")
+# Two independent axes for "is this a candidate boot".  One marker set is not
+# enough to conclude an absence; this report has made that error before.
+CANDIDATE_MARKS = (
+    rb"s22_checkpoint",
+    rb"native[_-]init",
+    rb"S22PLUS[_A-Z0-9]*RUN",
+)
+# Stock Samsung Android daemons.  A candidate boots the campaign's own PID 1 and
+# runs none of these.
+STOCK_DAEMONS = (
+    b"vaultkeeperd",
+    b"qseecomd",
+    b"UsbHostNotifica",
+    b"wifi@1.0-servic",
+)
 
 REPO = Path(__file__).resolve().parents[5]
 PRIVATE = REPO / "workspace" / "private"
@@ -58,6 +75,10 @@ def classify(blob: bytes) -> dict:
     for m in OPCODE_RE.finditer(blob):
         key = m.group(1).decode()
         opcodes[key] = opcodes.get(key, 0) + 1
+    notifier: dict[str, int] = {}
+    for m in NOTIFIER_RE.finditer(blob):
+        key = m.group(1).decode()
+        notifier[key] = notifier.get(key, 0) + 1
     return {
         "has_abl_stage": ABL_MARK in blob,
         "download_mode": ODIN_MARK in blob,
@@ -70,6 +91,10 @@ def classify(blob: bytes) -> dict:
         # digits away is what hid it.
         "bc_ctrl1_reads": [m.group(1).decode() for m in BC_CTRL1_RE.finditer(blob)],
         "muic_opcodes": dict(sorted(opcodes.items())),
+        "muic_notifier_tags": dict(sorted(notifier.items())),
+        "has_max7770x_irq_thread": bool(IRQ_THREAD_RE.search(blob)),
+        "candidate_markers": sum(1 for pat in CANDIDATE_MARKS if re.search(pat, blob)),
+        "stock_daemons": sum(1 for name in STOCK_DAEMONS if name in blob),
     }
 
 
@@ -126,7 +151,7 @@ def build(private: Path = PRIVATE) -> dict:
     download = [c for c in abl if c["download_mode"]]
     normal = [c for c in abl if not c["download_mode"]]
     return {
-        "schema": "s22plus-fyg8-p319-abl-capture-manifest-v2",
+        "schema": "s22plus-fyg8-p319-abl-capture-manifest-v3",
         "inclusion_criterion": {
             "root": "workspace/private",
             "exact_size_bytes": LAST_KMSG_SIZE,
@@ -155,6 +180,14 @@ def build(private: Path = PRIVATE) -> dict:
         "bc_ctrl1_value_counts_download": _tally(download, "bc_ctrl1_reads"),
         "bc_ctrl1_value_counts_normal": _tally(normal, "bc_ctrl1_reads"),
         "muic_opcode_counts": _opcode_tally(abl),
+        "kernel_side": {
+            "captures_with_notifier_lines": sum(1 for c in captures if c["muic_notifier_tags"]),
+            "captures_with_irq_thread": sum(1 for c in captures if c["has_max7770x_irq_thread"]),
+            "captures_with_any_candidate_marker": sum(1 for c in captures if c["candidate_markers"]),
+            "captures_with_all_stock_daemons": sum(
+                1 for c in captures if c["stock_daemons"] == len(STOCK_DAEMONS)
+            ),
+        },
         "setpath_values_observed": sorted({v for c in captures for v in c["setpath_values"]}),
         "captures": captures,
     }

@@ -2105,10 +2105,101 @@ recorded here because they are the only kernel-side MUIC evidence found so far
 in this corpus, and the open question this campaign now carries is a kernel-side
 one.
 
+## The corpus holds kernel-side MUIC evidence, and all of it is stock
+
+The register-accounting scan turned up `[MUIC]` tags that XBL does not emit —
+`muic_notifier_register`, `muic_notifier_notify`, `muic_notifier_attach_attached_dev`
+and its detach counterpart. Those are Linux MUIC notifier lines, so the retained
+buffers carry kernel-side MUIC evidence, which this campaign had not previously
+found anywhere. This section reads them, and the result is a negative that
+matters more than the positive it was hoped to be.
+
+### What the stock attach path looks like
+
+Ten of the 121 distinct captures carry notifier lines. Two shapes appear.
+
+In `postrollback_o3r1_last_kmsg.bin` the events run from `t = 577 s` to
+`t = 681 s` in six attach/detach pairs, and every one of them is emitted by
+
+```
+[  581.897103] [3:irq/367-max7770:  869] [MUIC] muic_notifier_attach_attached_dev: (2)
+[  581.897121] [3:irq/367-max7770:  869] [MUIC] muic_notifier_notify: CMD=1, DATA=2
+[  581.897470] [3:irq/367-max7770:  869] [MUIC] muic_notifier_notify: notify done(0x0)
+```
+
+— **the MAX77705's own kernel IRQ thread**, `irq/367-max7770`, PID 869. That is
+a cable being plugged and unplugged during a live session, and the interrupt is
+what drives it.
+
+The other shape is at boot. In `candidate-last_kmsg.bin` the same attach appears
+at `t = 4.14 s`, but the emitting context is `modprobe`, PID 660, immediately
+after four `muic_notifier_register` calls from PIDs 482, 553 and 660:
+
+```
+[    4.121229] [5:       modprobe:  660] [MUIC] muic_notifier_register: listener=9 register
+[    4.141570] [2:       modprobe:  660] [MUIC] muic_notifier_attach_attached_dev: (2)
+```
+
+So the boot-time attach is the probe reading the part's current state as the
+listeners register, not an interrupt arriving. `(2)` resolves against
+`include/linux/muic/muic.h:141-145` — `ATTACHED_DEV_NONE_MUIC = 0`, then
+`ATTACHED_DEV_USB_MUIC`, then `ATTACHED_DEV_CDP_MUIC` — so the attached device
+is **`ATTACHED_DEV_CDP_MUIC`**, a charging downstream port.
+
+The IRQ thread itself is not rare: **111 of the 121 captures contain a
+`irq/<n>-max7770x` thread**. The 10 that do not are all `baseline-observer.bin`
+and `rollback-observer-1.bin` files, and those carry no kernel MUIC line of any
+kind — zero registers, zero attaches.
+
+### The negative: no candidate boot is in this corpus
+
+The reason this cannot answer the question it was opened for is that **none of
+the 121 captures contains a candidate boot.** Two independent checks agree, and
+the second was run precisely because concluding an absence from one check is the
+error this report has made repeatedly.
+
+The first looked for candidate-side markers — the checkpoint device
+`/proc/s22_checkpoint`, a native-init string, a campaign run ID. **Zero captures
+carry any of them.**
+
+The second looked at who is running. Extracting the process field from every
+`sec_log_buf` line gives 587 distinct process names, and the ones present in
+**121 of 121** captures are `vaultkeeperd`, `qseecomd`, `UsbHostNotifica`,
+`android.hardwar`, `wifi@1.0-servic`, `cass`, `iod`, `kauditd` and `init`. That
+is a complete stock Samsung Android userspace, in every capture without
+exception. A candidate boots the campaign's own PID 1 and runs none of it.
+
+The file named `candidate-last_kmsg.bin` is not a counterexample; it is an
+illustration. A retained buffer holds what ran *before* the capture, and this
+one holds stock Android, `modprobe` and all, together with a download-mode
+segment. Naming a capture for the run that collected it does not make its
+contents a candidate boot.
+
+### What this closes and what it hands forward
+
+**Closed:** the hope that the retained corpus could show whether a candidate
+ever received a MUIC attach. It cannot, because it contains no candidate boot,
+and no amount of further reading of these files will change that. This is the
+same shape as the `CONTROL1` inheritance result: a property of the evidence
+class, not of the sample size.
+
+**Handed forward**, and it is worth having: the stock attach path is now pinned
+concretely rather than read from source. A working MUIC attach on this hardware
+is `irq/<n>-max7770x` driving `muic_notifier_attach_attached_dev`, with the
+boot-time initial state instead delivered in the `modprobe` probe context, and
+`ATTACHED_DEV_CDP_MUIC` as the value a host port produces. That is the baseline
+any candidate-side reading of `pdic_max77705.ko` or of the interrupt wiring has
+to be compared against, and it did not exist before this unit.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
 and the ledger carries the order they were closed in. What is still open:
+
+One further entry has been removed since: *the kernel-side MUIC notifier lines
+in the corpus*. It was closed by the section immediately above rather than
+struck through, because a closed entry left in this list understates the result
+and the list is meant to be read as live.
 
 This list was rewritten after the bootloader work landed. Its first entry used
 to be *what the bootloader's `OP 0x06` writes to CONTROL1*, on the ground that
@@ -2145,11 +2236,6 @@ which is the reason this section is restated rather than appended to.
   something outside these 268 segments — a download session or the kernel — and
   this unit did not identify which. Its effect on the analog path is also
   unread; the name is from the MUIC header, the semantics are not.
-- **The kernel-side MUIC notifier lines in the corpus.** `muic_notifier_register`
-  25, `muic_notifier_notify` 50, `muic_notifier_attach_attached_dev` 16,
-  `muic_notifier_detach_attached_dev` 9, `muic_notifier_init` 3. These are the
-  only Linux-side MUIC evidence found so far in the retained buffers and none of
-  it has been analysed.
 - **The candidate side of every technique used here.** This unit disassembled
   the bootloader thoroughly and the candidate not at all. The shipped
   `pdic_max77705.ko` has been counted and hashed but never disassembled, the

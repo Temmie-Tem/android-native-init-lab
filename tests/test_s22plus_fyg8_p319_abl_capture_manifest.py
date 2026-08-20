@@ -34,6 +34,9 @@ SEGMENT_RE = re.compile(rb"MUIC Device : Max77705! count: 0")
 BC_CTRL1_RE = re.compile(rb"BC_CTRL1_READ\s*:\s*(0x[0-9A-Fa-f]+)")
 OPCODE_RE = re.compile(rb"muic_command_polling: OP (0x[0-9A-Fa-f]{2})")
 SETPATH_RE = re.compile(rb"SetPath: (\d+)")
+IRQ_THREAD_RE = re.compile(rb"irq/\d+-max7770\w*")
+CANDIDATE_MARKS = (rb"s22_checkpoint", rb"native[_-]init", rb"S22PLUS[_A-Z0-9]*RUN")
+STOCK_DAEMONS = (b"vaultkeeperd", b"qseecomd", b"UsbHostNotifica", b"wifi@1.0-servic")
 
 
 def _load_generator():
@@ -171,6 +174,63 @@ class AblCaptureManifestTest(unittest.TestCase):
         # Every CONTROL1 access is muic_init's or a SetPath, with no residual.
         self.assertEqual(ops["0x05"], ops["0x06"])
         self.assertEqual(ops["0x06"], c["abl_boot_segments"] + c["setpath_occurrences_total"])
+
+    def test_no_candidate_boot_is_in_the_corpus(self):
+        # The load-bearing negative, recomputed over every capture from bytes
+        # and on two independent axes.  Concluding an absence from one check is
+        # the error this report has repeatedly made.
+        m = self._manifest()
+        ks = m["kernel_side"]
+        n = m["distinct_captures"]
+        self.assertEqual(ks["captures_with_any_candidate_marker"], 0)
+        self.assertEqual(ks["captures_with_all_stock_daemons"], n)
+        marker_hits = 0
+        stock_hits = 0
+        for cap in m["captures"]:
+            blob = (REPO / cap["paths"][0]).read_bytes()
+            with self.subTest(sha=cap["sha256"][:12]):
+                self.assertEqual(
+                    sum(1 for pat in CANDIDATE_MARKS if re.search(pat, blob)),
+                    cap["candidate_markers"],
+                )
+                self.assertEqual(
+                    sum(1 for name in STOCK_DAEMONS if name in blob), cap["stock_daemons"]
+                )
+                self.assertEqual(bool(IRQ_THREAD_RE.search(blob)), cap["has_max7770x_irq_thread"])
+            marker_hits += cap["candidate_markers"]
+            stock_hits += 1 if cap["stock_daemons"] == len(STOCK_DAEMONS) else 0
+        self.assertEqual(marker_hits, 0, "a candidate marker appeared; the negative is stale")
+        self.assertEqual(stock_hits, n)
+
+    def test_the_kernel_side_evidence_is_recorded(self):
+        m = self._manifest()
+        ks = m["kernel_side"]
+        self.assertEqual(
+            ks["captures_with_notifier_lines"],
+            sum(1 for c in m["captures"] if c["muic_notifier_tags"]),
+        )
+        self.assertEqual(
+            ks["captures_with_irq_thread"],
+            sum(1 for c in m["captures"] if c["has_max7770x_irq_thread"]),
+        )
+        # The captures without an IRQ thread carry no kernel MUIC line at all.
+        for cap in m["captures"]:
+            if not cap["has_max7770x_irq_thread"]:
+                with self.subTest(sha=cap["sha256"][:12]):
+                    self.assertEqual(cap["muic_notifier_tags"], {})
+
+    def test_report_states_the_kernel_side_numbers(self):
+        m = self._manifest()
+        ks = m["kernel_side"]
+        n = m["distinct_captures"]
+        for token in (
+            f"**{ks['captures_with_irq_thread']} of the {n} captures contain a\n`irq/<n>-max7770x` thread**",
+            f"**none of\nthe {n} captures contains a candidate boot.**",
+            f"**{n} of {n}** captures are `vaultkeeperd`",
+            "**Zero captures\ncarry any of them.**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), self.flat)
 
     def test_report_states_the_numbers_that_were_computed(self):
         m = self._manifest()

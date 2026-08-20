@@ -45,6 +45,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Resolving the vtable slots to register writes",
         "The download branch does not repeat the RDX sequence; it adds one call",
         "The register accounting closes, and it closes on a bit the census hid",
+        "The corpus holds kernel-side MUIC evidence, and all of it is stock",
         "What remains open",
         "Evidence",
     )
@@ -80,11 +81,10 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIsNotNone(section)
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
-        # Six became nine when the register-accounting unit landed: what sets
-        # NoAutoIBUS, the kernel-side MUIC notifier lines, and the candidate
-        # side of every technique used here.  The count is pinned so the list
-        # cannot drift silently.
-        self.assertEqual(len(items), 9)
+        # Six became nine when the register-accounting unit landed, then eight
+        # when the notifier entry was closed and removed rather than struck
+        # through.  The count is pinned so the list cannot drift silently.
+        self.assertEqual(len(items), 8)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_warrants_the_host_end_separately(self):
