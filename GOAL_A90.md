@@ -355,6 +355,10 @@ identity:
   preflight and terminal receipts, hazard acceptance is manifest-bound, and
   fresh enable/latch absence is observed directly. The exact next unit is one
   fresh independent full review of this repaired reduced execution closure.
+  A second Luna MAX review rejected raw-hash-only review inputs; the owner now
+  parses one canonical independent-review JSON and requires its `PASS_GO`,
+  current ten-file closure, exact A90/candidate/rollback/recovery/hazard
+  bindings, empty findings, and zero-contact disposition before PREPARED.
 
 ## What Leaves or Moves Out
 

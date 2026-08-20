@@ -24,10 +24,9 @@ QUALIFICATION = {
     "recovery": {
         "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1",
         "method": "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
-        "evidence": {"path": "/tmp/recovery.json", "size": 1, "sha256": "a" * 64},
-        "review": {"path": "/tmp/recovery-review.json", "size": 1, "sha256": "b" * 64},
         "demonstrated": True,
     },
+    "review": {"path": "/tmp/review.json", "size": 1, "sha256": "a" * 64},
     "freshState": {
         "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
         "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h27.done",

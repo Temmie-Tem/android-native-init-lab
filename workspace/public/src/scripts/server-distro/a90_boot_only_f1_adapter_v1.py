@@ -256,26 +256,24 @@ class FixedA90Adapter:
     def __init__(self, runner: CommandRunner, *, qualification: dict[str, Any]) -> None:
         recovery = qualification.get("recovery")
         fresh_state = qualification.get("freshState")
+        review = qualification.get("review")
         if (
             type(recovery) is not dict
-            or set(recovery)
-            != {"profile", "method", "evidence", "review", "demonstrated"}
+            or set(recovery) != {"profile", "method", "demonstrated"}
             or recovery.get("profile") != "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
             or recovery.get("method")
             != "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
             or recovery.get("demonstrated") is not True
-            or type(recovery.get("evidence")) is not dict
-            or set(recovery["evidence"]) != {"path", "size", "sha256"}
-            or type(recovery["evidence"].get("sha256")) is not str
-            or re.fullmatch(r"[0-9a-f]{64}", recovery["evidence"]["sha256"]) is None
-            or type(recovery.get("review")) is not dict
-            or set(recovery["review"]) != {"path", "size", "sha256"}
+            or type(review) is not dict
+            or set(review) != {"path", "size", "sha256"}
+            or type(review.get("sha256")) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", review["sha256"]) is None
             or type(fresh_state) is not dict
             or set(fresh_state) != {"enablePath", "latchPath"}
         ):
             raise ContractError("A90 physical recovery qualification is not exact")
         self.runner = runner
-        self.recovery_evidence_sha256 = recovery["evidence"]["sha256"]
+        self.recovery_evidence_sha256 = review["sha256"]
 
     def _json_command(self, label: str, argv: tuple[str, ...], timeout_sec: int) -> dict[str, Any]:
         result = self.runner.run(label, argv, timeout_sec)

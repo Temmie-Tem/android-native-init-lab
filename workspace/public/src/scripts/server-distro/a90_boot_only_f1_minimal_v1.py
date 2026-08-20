@@ -24,10 +24,24 @@ from typing import Any, Protocol
 CAPABILITY = "A90_BOOT_ONLY_F1_MINIMAL_V1"
 MANIFEST_SCHEMA = "a90-boot-only-f1-minimal-manifest-v1"
 QUALIFICATION_SCHEMA = "a90-boot-only-f1-minimal-qualification-v1"
+QUALIFICATION_REVIEW_SCHEMA = "a90-boot-only-f1-minimal-independent-review-v1"
 PREPARED_SCHEMA = "a90-boot-only-f1-minimal-prepared-v1"
 RECORD_SCHEMA = "a90-boot-only-f1-minimal-record-v1"
 RESULT_SCHEMA = "a90-boot-only-f1-minimal-result-v1"
 TARGET_PROFILE = "SAMSUNG_A90_5G"
+REPO_ROOT = Path(__file__).resolve().parents[5]
+EXECUTION_SOURCE_RELS = (
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
+    "workspace/public/src/scripts/revalidation/a90_bridge.py",
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py",
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py",
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py",
+    "workspace/public/src/scripts/revalidation/a90ctl.py",
+    "workspace/public/src/scripts/revalidation/native_init_flash.py",
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+    "workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
+)
 APPROVAL_PREFIX = "A90-F1-MINIMAL-V1-APPROVE:"
 LIVE_EXECUTION_ENABLED = False
 MAX_JSON_BYTES = 1 << 20
@@ -218,6 +232,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
             "recovery",
             "hazard",
             "freshState",
+            "review",
         },
         "qualification",
     )
@@ -232,7 +247,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         raise ContractError("qualification does not bind the selected artifacts")
     recovery = _object(
         qualification["recovery"],
-        {"profile", "method", "evidence", "review", "demonstrated"},
+        {"profile", "method", "demonstrated"},
         "qualification.recovery",
     )
     if (
@@ -243,16 +258,13 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         or recovery["demonstrated"] is not True
     ):
         raise ContractError("physical recovery qualification is not exact")
-    _input(recovery["evidence"], "recovery evidence")
-    _input(recovery["review"], "recovery review")
     hazard = _object(
         qualification["hazard"],
-        {"id", "statementSha256", "review", "accepted"},
+        {"id", "statementSha256", "accepted"},
         "qualification.hazard",
     )
     _text(hazard["id"], "hazard ID")
     _sha(hazard["statementSha256"], "hazard statement")
-    _input(hazard["review"], "hazard review")
     if type(hazard["accepted"]) is not bool or hazard["accepted"] is not True:
         raise ContractError("candidate hazard was not accepted")
     fresh_state = _object(
@@ -267,6 +279,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
             raise ContractError(f"freshState.{key} is invalid")
     if fresh_state["enablePath"] == fresh_state["latchPath"]:
         raise ContractError("fresh state paths alias")
+    _input(qualification["review"], "qualification review")
     timeouts = _object(manifest["timeouts"], {"flashSec", "healthSec"}, "timeouts")
     for key in ("flashSec", "healthSec"):
         if type(timeouts[key]) is not int or not 1 <= timeouts[key] <= 900:
@@ -382,7 +395,7 @@ def _hash_fd(descriptor: int, size: int) -> str:
     return digest.hexdigest()
 
 
-def _verify_input(value: dict[str, Any], label: str) -> None:
+def _verify_input(value: dict[str, Any], label: str) -> bytes:
     item = _input(value, label)
     path = Path(item["path"])
     descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
@@ -402,14 +415,70 @@ def _verify_input(value: dict[str, Any], label: str) -> None:
             or _hash_fd(descriptor, metadata.st_size) != item["sha256"]
         ):
             raise ContractError(f"{label} input identity mismatch")
+        return os.pread(descriptor, metadata.st_size, 0)
     finally:
         os.close(descriptor)
 
 
-def _verify_qualification_inputs(qualification: dict[str, Any]) -> None:
-    _verify_input(qualification["recovery"]["evidence"], "recovery evidence")
-    _verify_input(qualification["recovery"]["review"], "recovery review")
-    _verify_input(qualification["hazard"]["review"], "hazard review")
+def execution_closure_sha256() -> str:
+    digest = hashlib.sha256()
+    for relative in sorted(EXECUTION_SOURCE_RELS):
+        raw = (REPO_ROOT / relative).read_bytes()
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(len(raw)).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(raw).hexdigest().encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _validate_qualification_review(value: Any, manifest: dict[str, Any]) -> None:
+    review = _object(
+        value,
+        {
+            "schema", "capability", "verdict", "scope", "targetProfile",
+            "executionClosureSha256", "candidateSha256", "rollbackSha256",
+            "recovery", "hazard", "findings", "contacts", "reviewer",
+            "reviewDate", "liveAuthority",
+        },
+        "qualification review",
+    )
+    if (
+        review["schema"] != QUALIFICATION_REVIEW_SCHEMA
+        or review["capability"] != CAPABILITY
+        or review["verdict"] != "PASS_GO"
+        or review["scope"] != "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_H27_HAZARD"
+        or review["targetProfile"] != TARGET_PROFILE
+        or review["executionClosureSha256"] != execution_closure_sha256()
+        or review["candidateSha256"] != manifest["candidate"]["sha256"]
+        or review["rollbackSha256"] != manifest["rollback"]["sha256"]
+        or review["liveAuthority"] is not False
+        or type(review["reviewer"]) is not str
+        or not review["reviewer"]
+        or type(review["reviewDate"]) is not str
+        or re.fullmatch(r"20[0-9]{2}-[0-9]{2}-[0-9]{2}", review["reviewDate"]) is None
+    ):
+        raise ContractError("qualification review identity or verdict is invalid")
+    recovery = _object(review["recovery"], {"profile", "method", "demonstrated"}, "review recovery")
+    hazard = _object(review["hazard"], {"id", "statementSha256", "accepted"}, "review hazard")
+    if recovery != manifest["qualification"]["recovery"] or hazard != manifest["qualification"]["hazard"]:
+        raise ContractError("qualification review does not bind recovery and hazard")
+    findings = _object(review["findings"], {"high", "medium", "low"}, "review findings")
+    if any(type(findings[key]) is not list or findings[key] for key in findings):
+        raise ContractError("qualification review contains a material finding")
+    contacts = _object(
+        review["contacts"],
+        {"device", "dev", "usb", "network", "workspacePrivate", "otherTargets", "writes"},
+        "review contacts",
+    )
+    if any(type(value) is not int or value != 0 for value in contacts.values()):
+        raise ContractError("qualification review contact boundary is invalid")
+
+
+def _verify_qualification_inputs(manifest: dict[str, Any]) -> None:
+    raw = _verify_input(manifest["qualification"]["review"], "qualification review")
+    _validate_qualification_review(parse_canonical(raw, "qualification review"), manifest)
 
 
 @dataclass(frozen=True)
@@ -616,7 +685,7 @@ def _require_start(snapshot: Snapshot, manifest: dict[str, Any]) -> None:
         or not snapshot.fresh_state_absent
         or not snapshot.other_targets_untouched
         or snapshot.recovery_evidence_sha256
-        != manifest["qualification"]["recovery"]["evidence"]["sha256"]
+        != manifest["qualification"]["review"]["sha256"]
         or (snapshot.version, snapshot.build)
         != (expected["version"], expected["build"])
     ):
@@ -630,7 +699,7 @@ def prepare(
     backend: Backend,
 ) -> str:
     manifest = _require_manifest_pair(manifest_raw, manifest)
-    _verify_qualification_inputs(manifest["qualification"])
+    _verify_qualification_inputs(manifest)
     if run_directory.exists():
         raise ContractError("run directory already exists")
     run_directory.mkdir(mode=0o700, parents=False)
@@ -717,7 +786,7 @@ def _terminal(
         "snapshot": None if snapshot is None else snapshot.payload(),
         "candidateReplay": False,
         "qualification": {
-            "recoveryEvidenceSha256": qualification["recovery"]["evidence"]["sha256"],
+            "recoveryEvidenceSha256": qualification["review"]["sha256"],
             "hazardId": qualification["hazard"]["id"],
             "hazardAccepted": qualification["hazard"]["accepted"],
         },
@@ -738,7 +807,7 @@ def execute(
     backend: Backend,
 ) -> dict[str, Any]:
     manifest = _require_manifest_pair(manifest_raw, manifest)
-    _verify_qualification_inputs(manifest["qualification"])
+    _verify_qualification_inputs(manifest)
     records = read_records(run_directory)
     if set(records) != {"00-prepared.json"}:
         raise ContractError("execute requires one fresh prepared run")

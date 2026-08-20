@@ -37,10 +37,12 @@ It contains no production device backend and its CLI hard-disables execution.
 - Approval is derived from the canonical manifest digest, target evidence, and
   current boot ID. It is not reusable for another manifest, device, or boot.
 - The manifest embeds one candidate-specific qualification. It binds the exact
-  candidate/rollback pair, three direct regular reviewed inputs (physical-
-  recovery evidence, its review, and the hazard review), explicit hazard
-  acceptance, and the fresh enable/latch paths. The owner opens and rehashes
-  those inputs both before PREPARED and immediately before approval/effect.
+  candidate/rollback pair, one direct regular independent-review JSON,
+  explicit recovery and hazard decisions, and the fresh enable/latch paths.
+  The owner opens and rehashes that review before PREPARED and immediately
+  before approval/effect. It also parses an exact schema requiring `PASS_GO`,
+  the current ten-file execution closure, A90/candidate/rollback identities,
+  matching recovery/hazard objects, no material findings, and zero contacts.
 - Physical recovery is never a caller boolean. The adapter accepts only the
   validated `A90_ATTENDED_PHYSICAL_RECOVERY_V1` receipt for the fixed Native to
   empty-ADB/single-recovery-arrival/readback method, and its digest is present

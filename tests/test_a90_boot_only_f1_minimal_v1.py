@@ -61,16 +61,38 @@ class MinimalF1Test(unittest.TestCase):
         self.rollback = self.root / "rollback.img"
         self.candidate.write_bytes(b"candidate")
         self.rollback.write_bytes(b"rollback")
-        self.recovery_evidence = self.root / "recovery-evidence.json"
-        self.recovery_review = self.root / "recovery-review.json"
-        self.hazard_review = self.root / "hazard-review.json"
-        self.recovery_evidence.write_bytes(b'{"result":"demonstrated"}')
-        self.recovery_review.write_bytes(b'{"verdict":"PASS_GO"}')
-        self.hazard_review.write_bytes(b'{"verdict":"PASS_GO"}')
         os.chmod(self.candidate, 0o600)
         os.chmod(self.rollback, 0o600)
-        for path in (self.recovery_evidence, self.recovery_review, self.hazard_review):
-            os.chmod(path, 0o600)
+        recovery = {
+            "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1",
+            "method": "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+            "demonstrated": True,
+        }
+        hazard = {
+            "id": "A90_H27_RKP_CFP_DISABLED_RESIDENT",
+            "statementSha256": HEX_B,
+            "accepted": True,
+        }
+        self.review = self.root / "qualification-review.json"
+        self.review.write_bytes(M.canonical_json({
+            "schema": M.QUALIFICATION_REVIEW_SCHEMA,
+            "capability": M.CAPABILITY,
+            "verdict": "PASS_GO",
+            "scope": "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_H27_HAZARD",
+            "targetProfile": M.TARGET_PROFILE,
+            "executionClosureSha256": M.execution_closure_sha256(),
+            "candidateSha256": M.sha256_bytes(b"candidate"),
+            "rollbackSha256": M.sha256_bytes(b"rollback"),
+            "recovery": recovery,
+            "hazard": hazard,
+            "findings": {"high": [], "medium": [], "low": []},
+            "contacts": {"device": 0, "dev": 0, "usb": 0, "network": 0,
+                         "workspacePrivate": 0, "otherTargets": 0, "writes": 0},
+            "reviewer": "independent-luna-max",
+            "reviewDate": "2026-08-20",
+            "liveAuthority": False,
+        }))
+        os.chmod(self.review, 0o600)
         self.manifest = {
             "schema": M.MANIFEST_SCHEMA,
             "capability": M.CAPABILITY,
@@ -84,23 +106,13 @@ class MinimalF1Test(unittest.TestCase):
                 "schema": M.QUALIFICATION_SCHEMA,
                 "candidateSha256": M.sha256_bytes(b"candidate"),
                 "rollbackSha256": M.sha256_bytes(b"rollback"),
-                "recovery": {
-                    "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1",
-                    "method": "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
-                    "evidence": self._input(self.recovery_evidence),
-                    "review": self._input(self.recovery_review),
-                    "demonstrated": True,
-                },
-                "hazard": {
-                    "id": "A90_H27_RKP_CFP_DISABLED_RESIDENT",
-                    "statementSha256": HEX_B,
-                    "review": self._input(self.hazard_review),
-                    "accepted": True,
-                },
+                "recovery": recovery,
+                "hazard": hazard,
                 "freshState": {
                     "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
                     "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h27.done",
                 },
+                "review": self._input(self.review),
             },
             "timeouts": {"flashSec": 60, "healthSec": 90},
         }
@@ -140,7 +152,7 @@ class MinimalF1Test(unittest.TestCase):
             build=build,
             healthy=healthy,
             recovery_available=True,
-            recovery_evidence_sha256=self.manifest["qualification"]["recovery"]["evidence"]["sha256"],
+            recovery_evidence_sha256=self.manifest["qualification"]["review"]["sha256"],
             fresh_state_absent=True,
             other_targets_untouched=True,
             receipt_sha256=receipt,
@@ -224,7 +236,7 @@ class MinimalF1Test(unittest.TestCase):
         self.assertTrue(result["qualification"]["hazardAccepted"])
         self.assertEqual(
             result["qualification"]["recoveryEvidenceSha256"],
-            self.manifest["qualification"]["recovery"]["evidence"]["sha256"],
+            self.manifest["qualification"]["review"]["sha256"],
         )
         self.assertEqual(len(backend.flash_calls), 1)
         self.assertFalse(backend.flash_calls[0][1])
@@ -253,9 +265,26 @@ class MinimalF1Test(unittest.TestCase):
 
     def test_changed_qualification_input_causes_no_effect(self):
         run, token = self._prepare()
-        self.recovery_evidence.write_bytes(b'{"result":"substituted"}')
-        with self.assertRaisesRegex(M.ContractError, "recovery evidence"):
+        self.review.write_bytes(b'{"verdict":"PASS_GO"}')
+        with self.assertRaisesRegex(M.ContractError, "qualification review"):
             M.execute(self.raw, self.manifest, run, token, FakeBackend(self.start))
+
+    def test_fabricated_or_no_go_review_is_rejected_before_prepared(self):
+        for value in ({"verdict": "PASS_GO"}, {
+            **M.parse_canonical(self.review.read_bytes(), "review"),
+            "verdict": "NO_GO",
+        }):
+            with self.subTest(value=value):
+                self.review.write_bytes(M.canonical_json(value))
+                changed = json.loads(json.dumps(self.manifest))
+                changed["qualification"]["review"] = self._input(self.review)
+                with self.assertRaises(M.ContractError):
+                    M.prepare(
+                        M.canonical_json(changed),
+                        changed,
+                        self.root / f"run-{len(value)}-{value['verdict']}",
+                        FakeBackend(self.start),
+                    )
 
     def test_unhealthy_candidate_rolls_back_once(self):
         run, token = self._prepare()
@@ -363,8 +392,8 @@ class MinimalF1Test(unittest.TestCase):
 class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1000)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 400)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1100)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 450)
         self.assertLessEqual(len(design.read_text().splitlines()), 180)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):
