@@ -491,7 +491,17 @@ identity:
   `68b97cac14118ee4f3533a4b9760af10011efcc897332bad25fec585a5a0e7f3`,
   acquired the exact active and H28 candidate guards, and derived one fresh
   attended approval token. Candidate intent, transfer, reboot, ADB, rollback,
-  and F1 effects remain zero pending the operator's exact token repetition.
+  and F1 effects remained zero pending the operator's exact token repetition.
+  The operator then repeated that exact token and the attended H28 F1 consumed
+  one candidate and one rollback attempt. Both boot writes and prefix readbacks
+  matched their exact images, but each sole TWRP System-return request ended
+  uncertain and was not resent. No H28 Native observation occurred, so kernel
+  acceptance is unproved rather than refuted. The last proved boot bytes are
+  exact V2321, but V2321 health is unproved; terminal record 40 is
+  `RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED` at SHA-256
+  `400a6fe75ea54a738777092f828dede4d7b801bd3fbd8db29baddf26878c4f01`.
+  Both guards remain, candidate/rollback replay is forbidden, and the next
+  unit is a separately reviewed no-replay recovery continuation—not F1.
 
 ## What Leaves or Moves Out
 
