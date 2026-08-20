@@ -3185,6 +3185,66 @@ binding their bytes, which the unit lists as its next step.
 The EUD index correction is likewise a real one: an index derived from the tuple
 is 38, and the literal 37 that sat beside it was stale.
 
+## Review of the 73-row materialization: the closure is inflated by unused paths
+
+The materialization unit is `IMPLEMENTED_REVIEW_PENDING` and reports separately.
+This is the review of its changed closure, verified here.
+
+### Confirmed, including the cross-check this report asked for
+
+The receipt reproduces at 10658 bytes / `8b8c1f5afd8c0269...`. The three added
+entries are appended at indices 70, 71, 72 as `spu_verify.ko`,
+`mfd_max77705.ko`, `pdic_max77705.ko`, which respects the dependency topology:
+`spu_verify` has no dependencies, `mfd_max77705` needs only `usb_notify_layer`,
+`pdic_max77705` needs all thirteen, and every one of them now precedes it.
+`i2c-msm-geni` at row 69 still precedes the MFD, which it must.
+
+The provider-identity residual raised in the previous review is **closed for
+these four modules**. The receipt binds `spu_verify.ko`, `mfd_max77705.ko`,
+`pdic_max77705.ko` and `dwc3-msm.ko` to the exact `vendor_dlkm` bytes —
+`d670a944…`, `26f23873…`, `27e98878…`, `8913b050…` — which are the same bytes
+this report's symbol analysis was performed on. That analysis therefore
+transfers to the bound artifacts rather than to a same-named file.
+
+### What the closure actually consists of
+
+Both modules that entered this closure for non-obvious reasons turn out to be
+link-only ties to paths the goal never takes, and the symmetry is worth naming.
+
+`dwc3-msm` is tied by one symbol, `dwc3_restart_usb_host_mode`, whose single
+relocation sits in `max77705_vdm_dp_select_pin` — DisplayPort alternate mode.
+
+`spu_verify` is the same shape and had not been examined. Intersecting
+`pdic_max77705.ko`'s undefined symbols with `spu_verify.ko`'s exports returns
+exactly one name, `spu_firmware_signature_verify`, with exactly one relocation,
+at `.text+0x102e8`. Its enclosing defined symbol is
+**`max77705_firmware_update_sysfs`**.
+
+So `spu_verify` enters the candidate solely to satisfy a symbol whose only
+consumer is the MAX77705 **firmware-update sysfs handler** — a path this
+campaign's contract places out of bounds and has never taken.
+
+### Why that is worth recording rather than waving through
+
+It changes nothing about whether the module should be added: the loader needs
+the symbol resolved, and omitting `spu_verify` would fail the `pdic_max77705`
+load outright. Loading it initiates nothing by itself.
+
+What it changes is the description of the candidate. After this materialization
+the candidate carries the link closure for a firmware-update path that is
+contractually forbidden, and that fact should be visible to whoever reviews the
+candidate's surface before a build — not discovered from the module list later.
+Two of the fourteen closure members are present only for paths the goal does not
+use, which also means the closure is not evidence that those subsystems are
+needed at runtime.
+
+### What remains unqualified here
+
+The receipt binds four modules. The other ten closure members were already in
+the plan and their bytes are not re-bound by this unit, so "the plan names them"
+is still not the same as "these bytes will load" for those ten. Nothing observed
+suggests a mismatch; it is simply outside what this receipt covers.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

@@ -57,6 +57,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "V2 plan input: the load order, and the DWC3 tie is one symbol on the DP path",
         "V2 plan capacity and EUD identity: 73 rows fit, and 37 is stale",
         "Review of the V2 plan unit, and a correction to this report's DWC3 framing",
+        "Review of the 73-row materialization: the closure is inflated by unused paths",
         "What remains open",
         "Evidence",
     )
@@ -235,6 +236,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "They are not alternatives.",
             "the dependency was already\nsatisfied before this analysis started",
             "A named row is not a provider\nidentity.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_records_the_spu_verify_tie(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**closed for\nthese four modules**",
+            "`spu_firmware_signature_verify`, with exactly one relocation,\nat `.text+0x102e8`",
+            "**`max77705_firmware_update_sysfs`**",
+            "a path this\ncampaign's contract places out of bounds and has never taken",
+            "Loading it initiates nothing by itself.",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)
