@@ -46,6 +46,17 @@ CANDIDATE_RECEIPT_SHA256 = (
 ROLLBACK_RECEIPT_SHA256 = (
     "6eb6ea2690fbff31823a8ba92760141899db89cf374e9cc343a71508e6e89b6e"
 )
+INCIDENT_RECORD_SHA256 = {
+    "00-prepared.json": "9d1f7279be202b1a67112f68a862f6ac1907e1e5bb2fbfd8597f6e8d0ccf8a29",
+    "10-approved.json": "40a4b8f17f1fbd9b28053a2bb2627e362a6086c30e6db29cee4320f67ebec71a",
+    "20-candidate-intent.json": "5ef1bc4a85ed7af0611c231faf7b54d95cc9b95a1f439fdeb707aeee3ac1016f",
+    "21-candidate-launched.json": "2c020e1261ac1164d289c0ece5653a968f70f224c7640226ae7f2ab5b343d251",
+    "22-candidate-result.json": "09394b631df6d58c2c908794075200c6246106c5730cf0bfe847e415411204a8",
+    "30-rollback-intent.json": "673054926c6db676439d58a1bf633f50c9afe6ee35eff47fe52eabf500c0e99c",
+    "31-rollback-launched.json": "dd7e63fc673296e30b9aad3348f25e52b54abfb1324c3f0776e4bb9076003a2f",
+    "32-rollback-result.json": "5cd2c2bb656949ba52ce75e9474909c16cd6f51726c101ae412089dd42e9d4d0",
+    "40-terminal.json": "1fc94fbfcb25a6640c3d9db7bcfb2d04dde3355f915c151c93f5200a208fe31a",
+}
 EXECUTE_LOG_DIRECTORY = owner.RUN_ROOT / f"{RUN_ID}-execute-1-logs"
 CANDIDATE_STDOUT = EXECUTE_LOG_DIRECTORY / "009-flash-candidate.stdout"
 CANDIDATE_STDERR = EXECUTE_LOG_DIRECTORY / "009-flash-candidate.stderr"
@@ -342,6 +353,7 @@ def _require_incident_records(
         for record in records.values()
     ):
         raise owner.ContractError("incident journal does not bind the fixed manifest")
+    _require_fixed_record_hashes(records)
     terminal = records["40-terminal.json"]["payload"]
     if (
         terminal.get("schema") != owner.RESULT_SCHEMA
@@ -368,6 +380,18 @@ def _require_incident_records(
         "sha256": manifest["rollback"]["sha256"]
     }:
         raise owner.ContractError("incident intent artifacts changed")
+
+
+def _require_fixed_record_hashes(records: dict[str, dict[str, Any]]) -> None:
+    if set(INCIDENT_RECORD_SHA256) != set(owner.ROLLBACK_PATH):
+        raise owner.ContractError("fixed incident record inventory is invalid")
+    for name, expected in INCIDENT_RECORD_SHA256.items():
+        record = records.get(name)
+        if (
+            type(record) is not dict
+            or owner.sha256_bytes(owner.canonical_json(record)) != expected
+        ):
+            raise owner.ContractError(f"fixed incident record changed: {name}")
 
 
 def _validate_reconciliation_payload(

@@ -286,6 +286,21 @@ class PretransferAbortReconcileTest(unittest.TestCase):
                 "d" * 64,
             )
 
+    def test_any_historical_record_payload_mutation_is_rejected(self):
+        records = {
+            name: {"schema": "record", "name": name, "payload": {"exact": True}}
+            for name in M.ROLLBACK_PATH
+        }
+        expected = {
+            name: M.sha256_bytes(M.canonical_json(value))
+            for name, value in records.items()
+        }
+        with mock.patch.object(R, "INCIDENT_RECORD_SHA256", expected):
+            R._require_fixed_record_hashes(records)
+            records["00-prepared.json"]["payload"] = {}
+            with self.assertRaisesRegex(M.ContractError, "00-prepared"):
+                R._require_fixed_record_hashes(records)
+
 
 if __name__ == "__main__":
     unittest.main()
