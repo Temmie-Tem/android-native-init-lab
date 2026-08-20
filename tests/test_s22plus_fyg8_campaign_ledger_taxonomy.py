@@ -656,7 +656,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # review row resolves its same-topic pending obligation.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (41, 27, 14),
+            (42, 28, 14),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -697,7 +697,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            current["resolved"][-2],
+            current["resolved"][-3],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "candidate-witness-transport",
@@ -716,7 +716,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-1],
+            current["resolved"][-2],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-witness-runtime",
@@ -729,6 +729,23 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "resolution_action": (
                     "PASS_GO_P319_STOCK_WITNESS_RUNTIME_BUILD_"
                     "INDEPENDENT_REVIEW_H0_CAPABILITY_V1"
+                ),
+            },
+        )
+        self.assertEqual(
+            current["resolved"][-1],
+            {
+                "campaign": "s22plus-fyg8-p319",
+                "review_topic": "stock-image-provenance-repair",
+                "pending_ordinal": "h0-stock-image-provenance-repair-22",
+                "pending_action": (
+                    "P319_STOCK_IMAGE_PROVENANCE_REPAIR_"
+                    "IMPLEMENTED_REVIEW_PENDING"
+                ),
+                "resolution_ordinal": "h0-stock-image-provenance-repair-review-22",
+                "resolution_action": (
+                    "PASS_GO_P319_STOCK_IMAGE_PROVENANCE_REPAIR_"
+                    "H0_CAPABILITY_V1"
                 ),
             },
         )

@@ -19,11 +19,11 @@ SCRIPT = ROOT / (
 )
 OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "stock-witness-runtime-v1-20260821-24"
+    "stock-witness-runtime-v1-20260821-32"
 )
 PHASE2_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "stock-witness-runtime-v1-20260821-25"
+    "stock-witness-runtime-v1-20260821-33"
 )
 
 
@@ -55,10 +55,10 @@ class P319StockWitnessRuntimeTest(unittest.TestCase):
         state = result.stat()
         self.assertEqual(stat.S_IMODE(state.st_mode), 0o400)
         self.assertEqual(state.st_nlink, 1)
-        self.assertEqual(len(result.read_bytes()), 380_738)
+        self.assertEqual(len(result.read_bytes()), 382_059)
         self.assertEqual(
             self.module.sha256(result.read_bytes()),
-            "621623bbf3e481619a22041c99f476f423b3e65d9435f0e44f15e9a618cd1af3",
+            "a6e1734bdd527eb598446269e860a171fb4ad3785c792db0837f4850b8dbd177",
         )
         self.assertEqual(
             self.bound.build_result(OUTPUT, audit_only=True), self.result
@@ -333,12 +333,28 @@ static __attribute__((noreturn)) void p290_park_after_confirmed_publication(void
         self.assertEqual(closure["ambiguous_provider_count"], 0)
         self.assertEqual(closure["missing_provider_count"], 0)
         self.assertTrue(closure["ordered_crc_closed"])
+        self.assertEqual(closure["image_derived_vermagic_suffix"],
+                         self.result["fixed_image_abi"]["image_vermagic"]["suffix"])
         sections = self.result["fixed_image_abi"]["sections"]
-        self.assertTrue(sections["__ksymtab_strings"]["name_namespace_fields_identical"])
-        self.assertEqual(sections["__ksymtab_strings"]["sha256_vmlinux"],
-                         sections["__ksymtab_strings"]["sha256_image"])
-        self.assertEqual(sections["__ksymtab"]["value_field_differences"], 31)
-        self.assertEqual(sections["__ksymtab_gpl"]["value_field_differences"], 28)
+        self.assertEqual(self.result["fixed_image_abi"]["image_provider_count"], 7222)
+        self.assertTrue(sections["__ksymtab_strings"]["raw_bounds_checked"])
+        self.assertNotIn("sha256_vmlinux", sections["__ksymtab_strings"])
+        self.assertNotIn("value_field_differences", sections["__ksymtab"])
+        self.assertNotIn("value_field_differences", sections["__ksymtab_gpl"])
+        self.assertEqual(
+            self.result["fixed_image_abi"]["image_ikconfig"]["run_id_hex"],
+            "b9cc424d0d184f5accbce94a844e817d",
+        )
+        self.assertEqual(
+            self.result["fixed_image_abi"]["image_ikconfig"]["unsat_tag_hex"],
+            "ecbfff41d2c5ed22383db45dedfb622d",
+        )
+        self.assertEqual(
+            self.result["fixed_image_abi"]["image_ikconfig"]["decompressed"]["size"],
+            185508,
+        )
+        self.assertNotIn("vmlinux", self.result["fixed_image_abi"])
+        self.assertNotIn("symvers", self.result["fixed_image_abi"])
         self.assertFalse(
             self.result["fixed_image_abi"]["same_magic"][
                 "full_release_token_equality_required"
@@ -591,6 +607,100 @@ static int p288_tuple_allowed(size_t ordinal, uint8_t outcome, uint16_t detail) 
             finally:
                 self.bound.IMAGE, self.bound.IMAGE_IDENTITY = old_image, old_identity
 
+    def test_wrong_run_external_provenance_cannot_bless_or_change_result(self):
+        baseline = self.bound.audit_same_magic_and_image()
+        with tempfile.TemporaryDirectory(prefix="p319-wrong-run-provenance-") as directory:
+            root = Path(directory)
+            wrong = {
+                "VMLINUX": root / "vmlinux",
+                "SYMVERS": root / "vmlinux.symvers",
+                "CONFIG": root / ".config",
+            }
+            for path in wrong.values():
+                path.write_bytes(b"wrong run\n")
+                path.chmod(0o400)
+            old = {name: getattr(self.bound, name, None) for name in wrong}
+            try:
+                for name, path in wrong.items():
+                    setattr(self.bound, name, path)
+                self.assertEqual(self.bound.audit_same_magic_and_image(), baseline)
+            finally:
+                for name, value in old.items():
+                    if value is None:
+                        delattr(self.bound, name)
+                    else:
+                        setattr(self.bound, name, value)
+        fixed = baseline
+        self.assertNotIn("vmlinux", fixed)
+        self.assertNotIn("symvers", fixed)
+        self.assertEqual(
+            set(self.result["inputs"]),
+            {
+                "child_source", "image", "p311_base_boot", "p318_candidate_patch",
+                "p318_static_check_result", "p319_module_materialization_receipt",
+                "parser_receipt", "v5_receipt",
+            },
+        )
+
+    def test_image_ikconfig_duplicate_corrupt_and_trailing_markers_fail_closed(self):
+        image_path = OUTPUT / "inputs" / "fixed-Image"
+        original_image = image_path.read_bytes()
+        marker_start = original_image.find(self.bound.IKCONFIG_ST)
+        payload_start = marker_start + len(self.bound.IKCONFIG_ST)
+        marker_end = original_image.find(self.bound.IKCONFIG_ED, payload_start)
+        self.assertGreater(marker_start, 0)
+        self.assertGreater(marker_end, payload_start)
+        mutations = []
+        corrupt = bytearray(original_image)
+        corrupt[payload_start + 32] ^= 1
+        mutations.append(bytes(corrupt))
+        mutations.append(original_image + self.bound.IKCONFIG_ST)
+        trailing = bytearray(original_image)
+        trailing[marker_end - 1] ^= 1
+        mutations.append(bytes(trailing))
+        for index, mutated in enumerate(mutations):
+            with self.subTest(index=index), tempfile.TemporaryDirectory(prefix="p319-ikconfig-hostile-") as directory:
+                image = Path(directory) / "Image"
+                image.write_bytes(mutated)
+                image.chmod(0o400)
+                old_image, old_identity = self.bound.IMAGE, self.bound.IMAGE_IDENTITY
+                try:
+                    self.bound.IMAGE = image
+                    self.bound.IMAGE_IDENTITY = self.bound.identity(mutated)
+                    with self.assertRaises(self.bound.AuditError):
+                        self.bound.audit_same_magic_and_image()
+                finally:
+                    self.bound.IMAGE, self.bound.IMAGE_IDENTITY = old_image, old_identity
+
+    def test_image_vermagic_and_layout_mutations_fail_closed(self):
+        original = (OUTPUT / "inputs" / "fixed-Image").read_bytes()
+        marker = b" SMP preempt mod_unload modversions aarch64"
+        marker_offset = original.find(marker)
+        self.assertGreater(marker_offset, 0)
+        mutated = bytearray(original)
+        mutated[marker_offset + 5] ^= 1
+        with tempfile.TemporaryDirectory(prefix="p319-vermagic-hostile-") as directory:
+            image = Path(directory) / "Image"
+            image.write_bytes(mutated)
+            image.chmod(0o400)
+            old_image, old_identity = self.bound.IMAGE, self.bound.IMAGE_IDENTITY
+            try:
+                self.bound.IMAGE = image
+                self.bound.IMAGE_IDENTITY = self.bound.identity(bytes(mutated))
+                with self.assertRaises(self.bound.AuditError):
+                    self.bound.audit_same_magic_and_image()
+            finally:
+                self.bound.IMAGE, self.bound.IMAGE_IDENTITY = old_image, old_identity
+        old_layout = self.bound.IMAGE_SECTION_LAYOUT
+        try:
+            altered = {name: dict(spec) for name, spec in old_layout.items()}
+            altered["__kcrctab"]["image_offset"] += 4
+            self.bound.IMAGE_SECTION_LAYOUT = altered
+            with self.assertRaises(self.bound.AuditError):
+                self.bound.audit_same_magic_and_image()
+        finally:
+            self.bound.IMAGE_SECTION_LAYOUT = old_layout
+
     def test_module_snapshot_is_logical_not_absolute_path_bound(self):
         for row in self.result["module_crc_closure"]["modules"]:
             for path in row["source_paths"]:
@@ -600,6 +710,7 @@ static int p288_tuple_allowed(size_t ordinal, uint8_t outcome, uint16_t detail) 
 
     def test_report_ledger_and_goal_record_the_new_boundary(self):
         report = (ROOT / "docs/reports/S22PLUS_FYG8_P319_STOCK_WITNESS_RUNTIME_FOLLOWUP_H0_2026-08-21.md").read_text()
+        provenance_report = (ROOT / "docs/reports/S22PLUS_FYG8_P319_STOCK_IMAGE_PROVENANCE_REPAIR_H0_2026-08-21.md").read_text()
         ledger = (ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md").read_text()
         goal = (ROOT / "GOAL.md").read_text()
         self.assertIn("Status: **PASS_GO; H0 ONLY; NO LIVE AUTHORITY**", report)
@@ -615,7 +726,26 @@ static int p288_tuple_allowed(size_t ordinal, uint8_t outcome, uint16_t detail) 
         self.assertIn("stock-witness runtime/build closure", goal)
         self.assertIn("bd94a638`/`231316f0", goal)
         self.assertIn("superseded intermediate receipts", goal)
-        self.assertIn("Current reviewed H0 bookkeeping authority is exclusively `-24`/`-25`", goal)
+        self.assertIn("current authority exclusively `-32`/`-33`", goal)
+        self.assertIn("Status: **PASS_GO; H0 ONLY; NO LIVE AUTHORITY**", provenance_report)
+        self.assertIn("PASS_GO_P319_STOCK_IMAGE_PROVENANCE_REPAIR_H0_CAPABILITY_V1", provenance_report)
+        self.assertIn("e721bf2a24", provenance_report)
+        self.assertIn("a6e1734bdd527eb5", provenance_report)
+        self.assertIn("e491c79722c3ae08", provenance_report)
+        self.assertIn("h0-stock-image-provenance-repair-followup-23", ledger)
+        self.assertIn("113532", provenance_report)
+        self.assertIn("574132854258ac2affd038bc98f9629663c9f1c6aa95cfc8585101c1abe0d29e", provenance_report)
+        self.assertIn("f811e202", provenance_report)
+        self.assertIn("P319_STOCK_IMAGE_PROVENANCE_REPAIR_BOOKKEEPING_CORRECTION_NO_NEW_OBLIGATION", ledger)
+        self.assertIn("focused stock-runtime tests 24/24", ledger)
+        self.assertIn("h0-stock-image-provenance-repair-22", ledger)
+        self.assertIn("P319_STOCK_IMAGE_PROVENANCE_REPAIR_IMPLEMENTED_REVIEW_PENDING", ledger)
+        self.assertIn("a6e1734bdd527eb5", ledger)
+        self.assertIn("e491c79722c3ae08", ledger)
+        self.assertIn("Image-only IKCONFIG", goal)
+        self.assertIn("a6e1734b", goal)
+        self.assertIn("current authority exclusively `-32`/`-33`", goal)
+        self.assertIn("Image-only IKCONFIG", goal)
         self.assertLessEqual(len(goal.splitlines()), 900)
 
 

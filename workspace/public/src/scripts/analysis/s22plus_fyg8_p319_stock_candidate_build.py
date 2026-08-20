@@ -33,6 +33,7 @@ import tempfile
 import tarfile
 import types
 from typing import Any
+import zlib
 
 
 ROOT = Path(__file__).resolve().parents[5]
@@ -63,10 +64,6 @@ V5_AUDITOR = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_can
 PARSER_AUDITOR = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_candidate_witness_parser_v2.py"
 IMAGE = ROOT / "workspace/private/outputs/s22plus_fyg8_p311/fixed-p310-ready-1/Image"
 P311_BASE_BOOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p311/candidate-a/boot.img"
-P310_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p310/immutable-a-v6"
-SYMVERS = P310_ROOT / "vmlinux.symvers"
-VMLINUX = P310_ROOT / "vmlinux"
-CONFIG = P310_ROOT / ".config"
 KERNEL_MODULE_SOURCE = ROOT / (
     "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
     "kernel_platform/common/kernel/module.c"
@@ -77,7 +74,7 @@ PINNED_MODULE_SNAPSHOT = ROOT / (
 )
 DEFAULT_OUTPUT_ROOT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "stock-witness-runtime-v1-20260821-24"
+    "stock-witness-runtime-v1-20260821-28"
 )
 
 SCHEMA = "s22plus-fyg8-p319-stock-witness-runtime-v1"
@@ -127,9 +124,6 @@ COMPILE_FLAGS = (
     "-Wall", "-Wextra", "-Werror", "-Wl,--build-id=none",
     "-Wl,--gc-sections", "-Wl,-e,_start", "-Wl,-z,noexecstack",
 )
-SYMVERS_IDENTITY = {"size": 439_646, "sha256": "fd75413401617a427ddf6c264d0ae4f5452b46cde02b4575b9af09f19601ca19"}
-VMLINUX_IDENTITY = {"size": 478_770_016, "sha256": "86b04c9fda7cede762cb55c9d7ab70aa881df55ffc63e1c39f0e56dba1531972"}
-CONFIG_IDENTITY = {"size": 185_508, "sha256": "6adf58c7204695e6f5a8deaf0f5995bca91a79ce4cc5f7b74e7b247128e0673b"}
 MODULE_SOURCE_IDENTITY = {"size": 129_236, "sha256": "c5f3fccfe692101e37d102567584526210e17c94d6372a998685771cea5effef"}
 SAME_MAGIC_BODY_IDENTITY = {"size": 292, "sha256": "217445c73317d49486485b785f64377cc475e02539da52b90277079ceeccccf3"}
 SAME_MAGIC_FUNCTION_IDENTITY = {"size": 220, "sha256": "e6bf1e5989a21294656716c6e3bd2df3112693407eea302ae90fdfbbc2f0171f"}
@@ -139,7 +133,32 @@ V5_AUDITOR_IDENTITY = {"size": 87_577, "sha256": "a6c0c410f5c5157da4e9b2044dfc9e
 PARSER_AUDITOR_IDENTITY = {"size": 101_509, "sha256": "7078ef471ffb5a1291d40274201b1f71db93f0465348bb9f1135215d65e659e5"}
 PARSER_RECEIPT_IDENTITY = {"size": 15_478, "sha256": "14ca869c411a5940ecffbc24cd2231bc1d10e0bc410ad379d6914809b0debaf0"}
 CHILD_SOURCE_IDENTITY = {"size": 1_112, "sha256": "2af86dda0f6c93ee90996d89c9803bd84bab16b909d25b732b69144fe8760e14"}
-STOCK_SUFFIX = "SMP preempt mod_unload modversions aarch64"
+IKCONFIG_ST = b"IKCFG_ST"
+IKCONFIG_ED = b"IKCFG_ED"
+IMAGE_EXPECTED_RUN_ID_HEX = RUN_ID.hex()
+IMAGE_EXPECTED_UNSAT_TAG_HEX = "ecbfff41d2c5ed22383db45dedfb622d"
+IMAGE_SECTION_LAYOUT = {
+    "__ksymtab": {
+        "image_offset": 35_693_760, "size": 34_212, "entry_size": 12,
+        "sha256": "a5ff1f5fb15683862f0dbf8d4132ba43a78250ecc5d51a0d718be2298878be3a",
+    },
+    "__ksymtab_gpl": {
+        "image_offset": 35_727_972, "size": 52_452, "entry_size": 12,
+        "sha256": "11de1b664019175d2b43b32211e62f007aab7dad201daefe58a3224021ac8b7d",
+    },
+    "__kcrctab": {
+        "image_offset": 35_780_424, "size": 11_404, "entry_size": 4,
+        "sha256": "551a646cdcc3d066b43e01187e448b83c6d712d3067a2e87354cc79cb3688543",
+    },
+    "__kcrctab_gpl": {
+        "image_offset": 35_791_828, "size": 17_484, "entry_size": 4,
+        "sha256": "018b0f33ceeee6e438a6c3c6054844c14124833f79acdeabb066e1a7664b1bcb",
+    },
+    "__ksymtab_strings": {
+        "image_offset": 35_809_312, "size": 170_032, "entry_size": 1,
+        "sha256": "4c0d4ae1f1a69aaef35b5adcb17e15aace1c68847b7a5a17069f157dbe81e854",
+    },
+}
 STOCK_DOMAIN = b"S22PLUS-FYG8-MAX77705-STOCK-V1\0"
 STOCK_ENCODING = 4
 STOCK_PAYLOAD_ABI = 3
@@ -609,18 +628,6 @@ def _exports(path: Path) -> dict[str, str]:
     return values
 
 
-def _symvers(payload: bytes) -> dict[str, str]:
-    values: dict[str, str] = {}
-    for raw in payload.decode("ascii").splitlines():
-        fields = raw.split("\t")
-        if len(fields) < 2 or fields[1] in values:
-            raise AuditError("vmlinux.symvers malformed or duplicated")
-        values[fields[1]] = _norm_crc(fields[0])
-    if not values:
-        raise AuditError("vmlinux.symvers is empty")
-    return values
-
-
 def _image_provider_map(
     image: bytes, sections: dict[str, dict[str, Any]],
 ) -> dict[str, str]:
@@ -634,17 +641,31 @@ def _image_provider_map(
     strings_start = int(strings["image_offset"])
     strings_end = strings_start + int(strings["size"])
     providers: dict[str, str] = {}
+    if len(image) != IMAGE_IDENTITY["size"]:
+        raise AuditError("fixed Image size differs during provider decode")
+    if strings.get("entry_size") != 1:
+        raise AuditError("Image ksymtab strings entry size differs")
     for table_name, crc_name in (
         ("__ksymtab", "__kcrctab"),
         ("__ksymtab_gpl", "__kcrctab_gpl"),
     ):
         table = sections[table_name]
         crc_table = sections[crc_name]
+        if table.get("entry_size") != 12 or crc_table.get("entry_size") != 4:
+            raise AuditError(f"Image PREL32 table entry size differs: {table_name}")
+        table_start = int(table["image_offset"])
+        table_end = table_start + int(table["size"])
+        crc_start = int(crc_table["image_offset"])
+        crc_end = crc_start + int(crc_table["size"])
+        if not (0 <= table_start < table_end <= len(image)) or not (
+            0 <= crc_start < crc_end <= len(image)
+        ):
+            raise AuditError(f"Image export/CRC table escapes Image: {table_name}")
         count = int(table["size"]) // int(table["entry_size"])
         if count != int(crc_table["size"]) // int(crc_table["entry_size"]):
             raise AuditError(f"Image export/CRC table count differs: {table_name}")
         for index in range(count):
-            entry = int(table["image_offset"]) + index * int(table["entry_size"])
+            entry = table_start + index * int(table["entry_size"])
             name_delta = struct.unpack_from("<i", image, entry + 4)[0]
             name_offset = entry + 4 + name_delta
             if not strings_start <= name_offset < strings_end:
@@ -658,12 +679,155 @@ def _image_provider_map(
                 raise AuditError(f"Image symbol string is non-ASCII: {table_name}") from exc
             if not name or name in providers:
                 raise AuditError(f"Image provider name is empty/duplicated: {name}")
-            crc_offset = int(crc_table["image_offset"]) + index * int(crc_table["entry_size"])
+            namespace_delta = struct.unpack_from("<i", image, entry + 8)[0]
+            if namespace_delta:
+                namespace_offset = entry + 8 + namespace_delta
+                if not strings_start <= namespace_offset < strings_end:
+                    raise AuditError(
+                        f"Image PREL32 namespace escapes strings: {table_name}"
+                    )
+                namespace_end = image.find(b"\0", namespace_offset, strings_end)
+                if namespace_end < 0:
+                    raise AuditError(
+                        f"Image namespace string is unterminated: {table_name}"
+                    )
+                try:
+                    image[namespace_offset:namespace_end].decode("ascii")
+                except UnicodeDecodeError as exc:
+                    raise AuditError(
+                        f"Image namespace string is non-ASCII: {table_name}"
+                    ) from exc
+            crc_offset = crc_start + index * int(crc_table["entry_size"])
             crc = _norm_crc(f"{struct.unpack_from('<I', image, crc_offset)[0]:08x}")
             providers[name] = crc
     if len(providers) != 7222:
         raise AuditError("fixed Image provider count differs")
     return providers
+
+
+def _extract_image_ikconfig(image: bytes) -> dict[str, Any]:
+    starts: list[int] = []
+    ends: list[int] = []
+    cursor = 0
+    while True:
+        offset = image.find(IKCONFIG_ST, cursor)
+        if offset < 0:
+            break
+        starts.append(offset)
+        cursor = offset + 1
+    cursor = 0
+    while True:
+        offset = image.find(IKCONFIG_ED, cursor)
+        if offset < 0:
+            break
+        ends.append(offset)
+        cursor = offset + 1
+    if len(starts) != 1 or len(ends) != 1 or ends[0] <= starts[0]:
+        raise AuditError("Image IKCONFIG markers are not unique")
+    compressed_start = starts[0] + len(IKCONFIG_ST)
+    compressed = image[compressed_start:ends[0]]
+    if not compressed or len(compressed) > 2 * 1024 * 1024:
+        raise AuditError("Image IKCONFIG compressed payload is out of bounds")
+    if not compressed.startswith(b"\x1f\x8b"):
+        raise AuditError("Image IKCONFIG compression is not strict gzip")
+    decompressor = zlib.decompressobj(16 + 15)
+    try:
+        config_bytes = decompressor.decompress(compressed, 2 * 1024 * 1024 + 1)
+        config_bytes += decompressor.flush()
+    except zlib.error as exc:
+        raise AuditError("Image IKCONFIG gzip payload is corrupt") from exc
+    if (
+        not decompressor.eof
+        or decompressor.unused_data
+        or decompressor.unconsumed_tail
+        or len(config_bytes) > 2 * 1024 * 1024
+        or not config_bytes.endswith(b"\n")
+    ):
+        raise AuditError("Image IKCONFIG payload has trailing or truncated data")
+    try:
+        config_text = config_bytes.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise AuditError("Image IKCONFIG text is not strict ASCII") from exc
+    values: dict[str, str] = {}
+    config_line = re.compile(r"^(CONFIG_[A-Za-z0-9_]+)=(.*)$")
+    unset_line = re.compile(r"^# (CONFIG_[A-Za-z0-9_]+) is not set$")
+    for line in config_text.splitlines():
+        if not line or line.startswith("#") and not unset_line.fullmatch(line):
+            continue
+        match = config_line.fullmatch(line)
+        unset = unset_line.fullmatch(line)
+        if match is None and unset is None:
+            raise AuditError("Image IKCONFIG line schema differs")
+        key = match.group(1) if match is not None else unset.group(1)
+        if key in values:
+            raise AuditError(f"Image IKCONFIG key is duplicated: {key}")
+        values[key] = match.group(2) if match is not None else "unset"
+    required = (
+        "CONFIG_MODVERSIONS", "CONFIG_MODULE_SIG", "CONFIG_MODULE_FORCE_LOAD",
+        "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE",
+        "CONFIG_S22PLUS_FYG8_E1_PROFILE", "CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX",
+        "CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX",
+    )
+    if any(key not in values for key in required):
+        raise AuditError("Image IKCONFIG required key is absent")
+    if (
+        values["CONFIG_MODVERSIONS"] != "y"
+        or values["CONFIG_MODULE_SIG"] != "unset"
+        or values["CONFIG_MODULE_FORCE_LOAD"] != "unset"
+        or values.get("CONFIG_MODULE_REL_CRCS", "unset") != "unset"
+        or values["CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE"] != "y"
+        or values["CONFIG_S22PLUS_FYG8_E1_PROFILE"] != "3"
+    ):
+        raise AuditError("Image IKCONFIG module lane differs")
+    run_match = re.fullmatch(
+        r'"([0-9a-f]{32})"', values["CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX"]
+    )
+    unsat_match = re.fullmatch(
+        r'"([0-9a-f]{32})"', values["CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX"]
+    )
+    if run_match is None or unsat_match is None:
+        raise AuditError("Image IKCONFIG run/UNSAT tags are malformed")
+    if run_match.group(1) != IMAGE_EXPECTED_RUN_ID_HEX:
+        raise AuditError("Image IKCONFIG run id differs")
+    if unsat_match.group(1) != IMAGE_EXPECTED_UNSAT_TAG_HEX:
+        raise AuditError("Image IKCONFIG UNSAT tag differs")
+    return {
+        "start_offset": starts[0], "end_offset": ends[0],
+        "compressed": identity(compressed), "decompressed": identity(config_bytes),
+        "compression": "gzip", "marker_counts": {"IKCFG_ST": 1, "IKCFG_ED": 1},
+        "config_values": {
+            key: values.get(key, "unset") for key in (
+                *required, "CONFIG_MODULE_REL_CRCS",
+            )
+        },
+        "config_key_presence": {
+            key: key in values for key in (
+                *required, "CONFIG_MODULE_REL_CRCS",
+            )
+        },
+        "run_id_hex": run_match.group(1), "unsat_tag_hex": unsat_match.group(1),
+        "config_bytes": config_bytes,
+    }
+
+
+def _derive_image_vermagic(image: bytes) -> dict[str, Any]:
+    marker = b" SMP preempt mod_unload modversions aarch64\0"
+    release_pattern = rb"(?<![0-9A-Za-z._+-])([0-9][0-9A-Za-z._+-]+)"
+    matches = list(re.finditer(release_pattern + re.escape(marker), image))
+    if len(matches) != 1:
+        raise AuditError("fixed Image kernel vermagic is not unique")
+    match = matches[0]
+    release = match.group(1)
+    payload = image[match.start(1):match.end() - 1]
+    try:
+        vermagic = payload.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise AuditError("fixed Image kernel vermagic is not ASCII") from exc
+    suffix = vermagic.split(" ", 1)[1]
+    return {
+        "offset": match.start(1), "identity": identity(payload),
+        "release_token": release.decode("ascii"), "suffix": suffix,
+    }
 
 
 def _c_function_bytes(source: bytes, signature: bytes, label: str) -> bytes:
@@ -685,25 +849,42 @@ def _c_function_bytes(source: bytes, signature: bytes, label: str) -> bytes:
 
 
 def audit_same_magic_and_image() -> dict[str, Any]:
-    image = stable_bytes(IMAGE, "fixed P3.10 Image", 64 * 1024 * 1024, IMAGE_IDENTITY)
-    vmlinux = stable_bytes(VMLINUX, "P310 vmlinux", 600 * 1024 * 1024, VMLINUX_IDENTITY)
-    symvers_payload = stable_bytes(SYMVERS, "P310 vmlinux.symvers", 2 * 1024 * 1024, SYMVERS_IDENTITY)
-    config = stable_bytes(CONFIG, "P310 .config", 2 * 1024 * 1024, CONFIG_IDENTITY).decode("ascii")
-    module_source = stable_bytes(KERNEL_MODULE_SOURCE, "common/kernel/module.c", 2 * 1024 * 1024, MODULE_SOURCE_IDENTITY)
+    """Bind loader semantics and ABI facts to the exact fixed Image only.
+
+    The previous implementation treated a different-run vmlinux, symvers, and
+    .config as if they were provenance for this Image. That lane is retired:
+    section bytes, IKCONFIG, vermagic, and the provider map all come from the
+    pinned Image itself. A separately reconstructed build provenance is not
+    implied when no exact Image build bundle is present.
+    """
+    image = stable_bytes(
+        IMAGE, "fixed P3.10 Image", 64 * 1024 * 1024, IMAGE_IDENTITY,
+    )
+    image_ikconfig = _extract_image_ikconfig(image)
+    image_vermagic = _derive_image_vermagic(image)
+    module_source = stable_bytes(
+        KERNEL_MODULE_SOURCE, "common/kernel/module.c",
+        2 * 1024 * 1024, MODULE_SOURCE_IDENTITY,
+    )
     start = module_source.find(b"/* First part is kernel version")
     end = module_source.find(b"\n#else", start)
+    if start < 0 or end < 0 or end <= start:
+        raise AuditError("same_magic source boundary is absent")
     body = module_source[start:end]
-    if identity(body) != SAME_MAGIC_BODY_IDENTITY or b"amagic += strcspn(amagic, \" \")" not in body:
+    if identity(body) != SAME_MAGIC_BODY_IDENTITY or (
+        b"amagic += strcspn(amagic, \" \")" not in body
+    ):
         raise AuditError("same_magic source semantics differ")
     same_magic = _c_function_bytes(
-        module_source, b"static inline int same_magic(", "same_magic")
+        module_source, b"static inline int same_magic(", "same_magic",
+    )
     check_modinfo = _c_function_bytes(
         module_source,
         b"static int check_modinfo(struct module *mod, struct load_info *info, int flags)",
         "check_modinfo",
     )
     finit_module = _c_function_bytes(
-        module_source, b"SYSCALL_DEFINE3(finit_module", "finit_module"
+        module_source, b"SYSCALL_DEFINE3(finit_module", "finit_module",
     )
     if identity(same_magic) != SAME_MAGIC_FUNCTION_IDENTITY or not all(
         token in same_magic for token in (
@@ -721,80 +902,65 @@ def audit_same_magic_and_image() -> dict[str, Any]:
         raise AuditError("check_modinfo loader function differs")
     if b"load_module(&info, uargs, flags)" not in finit_module:
         raise AuditError("finit_module loader flags path differs")
-    config_values = {}
-    for key in ("CONFIG_MODVERSIONS", "CONFIG_MODULE_SIG", "CONFIG_MODULE_FORCE_LOAD", "CONFIG_MODULE_REL_CRCS"):
-        match = re.search(rf"^(?:{re.escape(key)}=(.*)|# {re.escape(key)} is not set)$", config, re.MULTILINE)
-        config_values[key] = match.group(1) if match and match.group(1) is not None else "unset"
-    if config_values["CONFIG_MODVERSIONS"] != "y" or config_values["CONFIG_MODULE_SIG"] != "unset" or config_values["CONFIG_MODULE_FORCE_LOAD"] != "unset":
-        raise AuditError("fixed Image module config is not the reviewed modversions lane")
-    # The fixed Image is a raw ARM64 Image, while vmlinux gives the section
-    # authority.  The 0x10000 displacement is the known Image/vmlinux offset.
-    sections = {
-        "__ksymtab": (0x221A4C0, 0x221A4C0 - 0x10000, 34_212, 12),
-        "__ksymtab_gpl": (0x2222A64, 0x2222A64 - 0x10000, 52_452, 12),
-        "__kcrctab": (0x222F748, 0x222F748 - 0x10000, 11_404, 4),
-        "__kcrctab_gpl": (0x22323D4, 0x22323D4 - 0x10000, 17_484, 4),
-        "__ksymtab_strings": (0x2236820, 0x2236820 - 0x10000, 170_032, 1),
-    }
-    section_result = {}
-    for name, (vmlinux_offset, image_offset, size, entry_size) in sections.items():
-        source = vmlinux[vmlinux_offset:vmlinux_offset + size]
+
+    section_result: dict[str, dict[str, Any]] = {}
+    for name, spec in IMAGE_SECTION_LAYOUT.items():
+        image_offset = int(spec["image_offset"])
+        size = int(spec["size"])
+        entry_size = int(spec["entry_size"])
+        if (
+            image_offset < 0 or size <= 0 or entry_size <= 0
+            or size % entry_size != 0 or image_offset + size > len(image)
+        ):
+            raise AuditError(f"fixed Image section layout differs: {name}")
         target = image[image_offset:image_offset + size]
-        if len(source) != size or len(target) != size:
-            raise AuditError(f"fixed Image ABI section truncated: {name}")
-        if name == "__ksymtab_strings" and (source != target or image.count(target) != 1):
-            raise AuditError("fixed Image ksymtab strings differ")
-        if name.startswith("__kcrctab") and source != target:
-            raise AuditError(f"fixed Image CRC section differs: {name}")
-        value_differences = 0
-        if name.startswith("__ksymtab") and name != "__ksymtab_strings":
-            if any(source[index * entry_size + 4:index * entry_size + 12] != target[index * entry_size + 4:index * entry_size + 12] for index in range(size // entry_size)):
-                raise AuditError(f"fixed Image symbol name/namespace fields differ: {name}")
-            value_differences = sum(
-                source[index * entry_size:index * entry_size + 4]
-                != target[index * entry_size:index * entry_size + 4]
-                for index in range(size // entry_size)
-            )
-            expected_differences = {"__ksymtab": 31, "__ksymtab_gpl": 28}[name]
-            if value_differences != expected_differences:
-                raise AuditError(f"fixed Image {name} value-field difference count differs")
+        if identity(target) != {"size": size, "sha256": spec["sha256"]}:
+            raise AuditError(f"fixed Image section bytes differ: {name}")
         section_result[name] = {
-            "vmlinux_offset": vmlinux_offset, "image_offset": image_offset,
-            "size": size, "entry_size": entry_size,
-            "sha256_vmlinux": sha256(source), "sha256_image": sha256(target),
-            "name_namespace_fields_identical": name == "__ksymtab_strings" or
-                name.startswith("__kcrctab") or all(
-                    source[index * entry_size + 4:index * entry_size + 12] ==
-                    target[index * entry_size + 4:index * entry_size + 12]
-                    for index in range(size // entry_size)
-                ),
-            "value_field_differences": value_differences,
+            "image_offset": image_offset, "size": size,
+            "entry_size": entry_size, "sha256_image": sha256(target),
+            "raw_bounds_checked": True,
         }
-    symvers_map = _symvers(symvers_payload)
     image_provider_map = _image_provider_map(image, section_result)
-    if image_provider_map != symvers_map:
-        raise AuditError("decoded Image provider map differs from P310 symvers")
     return {
-        "image": identity(image), "vmlinux": identity(vmlinux),
-        "symvers": identity(symvers_payload),
+        "image": identity(image),
+        "image_ikconfig": {
+            key: value for key, value in image_ikconfig.items()
+            if key != "config_bytes"
+        },
+        "image_vermagic": image_vermagic,
         "same_magic": {
             "source": identity(module_source), "body": identity(body),
             "function": identity(same_magic),
             "has_crcs_ignores_release_prefix": True,
-            "required_common_suffix": STOCK_SUFFIX,
+            "derived_image_vermagic_suffix": image_vermagic["suffix"],
             "full_release_token_equality_required": False,
         },
-        "check_modinfo": {"function": identity(check_modinfo),
-            "finit_module": identity(finit_module), "flags_zero_path": True},
-        "config": config_values, "sections": section_result,
+        "check_modinfo": {
+            "function": identity(check_modinfo),
+            "finit_module": identity(finit_module), "flags_zero_path": True,
+        },
+        "config": image_ikconfig["config_values"],
+        "sections": section_result,
         "image_provider_count": len(image_provider_map),
         "image_provider_map": image_provider_map,
-        "symvers_map": symvers_map,
+        "provider_authority": (
+            "fixed Image raw section offsets, PREL32 names, and parallel CRC "
+            "tables; external vmlinux.symvers is not provider authority"
+        ),
+        "external_build_provenance": {
+            "status": "not_bound",
+            "reason": (
+                "no exact fixed-Image vmlinux/symvers/config bundle was "
+                "available; wrong-run inputs are rejected as authority"
+            ),
+        },
     }
 
 
 def audit_modules(
     rows: list[dict[str, Any]], image_provider_map: dict[str, str],
+    image_vermagic_suffix: str,
     module_root: Path | None = None,
 ) -> dict[str, Any]:
     if module_root is None:
@@ -815,8 +981,8 @@ def audit_modules(
         if match is None:
             raise AuditError(f"module vermagic absent: {row['file']}")
         vermagic = match.group(1).decode("ascii")
-        if vermagic.split(" ", 1)[-1] != STOCK_SUFFIX:
-            raise AuditError(f"module vermagic suffix differs: {row['file']}")
+        if vermagic.split(" ", 1)[-1] != image_vermagic_suffix:
+            raise AuditError(f"module vermagic suffix differs from Image: {row['file']}")
         module_path = Path(paths[0])
         imports = _imports(module_path)
         exports = _exports(module_path)
@@ -864,6 +1030,7 @@ def audit_modules(
         "ambiguous_provider_count": ambiguous_providers,
         "missing_provider_count": missing_providers,
         "ordered_crc_closed": True,
+        "image_derived_vermagic_suffix": image_vermagic_suffix,
         "source_payloads": source_payloads,
     }
 
@@ -1741,7 +1908,7 @@ def _assemble_result(
         "plan": {"identity": identity(plan), "rows": rows,
             "eud_index": 38, "module_count": 73},
         "fixed_image_abi": {key: value for key, value in abi.items()
-            if key not in ("symvers_map", "image_bytes")},
+            if key != "image_bytes"},
         "module_crc_closure": {
             key: value for key, value in module_audit.items() if key != "source_payloads"
         },
@@ -1814,8 +1981,6 @@ def _publish_input_bundle(output_root: Path, inputs: dict[str, bytes]) -> None:
 def _audit_input_bundle(input_root: Path) -> dict[str, bytes]:
     expected = {
         "fixed-Image": (IMAGE, IMAGE_IDENTITY, 64 * 1024 * 1024),
-        "vmlinux.symvers": (SYMVERS, SYMVERS_IDENTITY, 2 * 1024 * 1024),
-        ".config": (CONFIG, CONFIG_IDENTITY, 2 * 1024 * 1024),
         "module.c": (KERNEL_MODULE_SOURCE, MODULE_SOURCE_IDENTITY, 2 * 1024 * 1024),
         "carrier-v5-result.json": (V5_RECEIPT, V5_RECEIPT_IDENTITY, 64 * 1024),
         "carrier-v5-auditor.py": (V5_AUDITOR, V5_AUDITOR_IDENTITY, 256 * 1024),
@@ -1907,7 +2072,9 @@ def _audit_existing(output_root: Path) -> dict[str, Any]:
             8 * 1024 * 1024, identity(expected_payload),
             required_mode=0o400, required_nlink=1,
         )
-    module_audit = audit_modules(rows, abi["image_provider_map"], module_root)
+    module_audit = audit_modules(
+        rows, abi["image_provider_map"], abi["image_vermagic"]["suffix"], module_root,
+    )
     with tempfile.TemporaryDirectory(prefix="p319-stock-source-audit-") as name:
         regenerated = materialize_stock_sources(Path(name) / "stock-sources")
         source_payloads: dict[str, bytes] = {}
@@ -1972,11 +2139,11 @@ def build_result(
     source_dir = output_root / "stock-sources"
     sources = materialize_stock_sources(source_dir)
     module_root = _publish_module_snapshot(output_root, reviewed_payloads)
-    module_audit = audit_modules(rows, abi["image_provider_map"], module_root)
+    module_audit = audit_modules(
+        rows, abi["image_provider_map"], abi["image_vermagic"]["suffix"], module_root,
+    )
     _publish_input_bundle(output_root, {
         "fixed-Image": stable_bytes(IMAGE, "fixed Image", 64 * 1024 * 1024, IMAGE_IDENTITY),
-        "vmlinux.symvers": stable_bytes(SYMVERS, "P310 symvers", 2 * 1024 * 1024, SYMVERS_IDENTITY),
-        ".config": stable_bytes(CONFIG, "P310 config", 2 * 1024 * 1024, CONFIG_IDENTITY),
         "module.c": stable_bytes(KERNEL_MODULE_SOURCE, "loader module.c", 2 * 1024 * 1024, MODULE_SOURCE_IDENTITY),
         "carrier-v5-result.json": v5_receipt,
         "carrier-v5-auditor.py": v5_auditor,
