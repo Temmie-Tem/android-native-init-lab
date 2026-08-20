@@ -508,9 +508,13 @@ class FixedA90Adapter:
         )
         state_absent = True
         if require_fresh_state:
+            fresh_labels = {
+                "enablePath": "fresh-enable-path",
+                "latchPath": "fresh-latch-path",
+            }
             for name, path in sorted(fresh_state.items()):
                 receipt = self._a90ctl(
-                    f"fresh-{name}",
+                    fresh_labels[name],
                     ["stat", path],
                     self._remaining(deadline, cap=15),
                     allow_error=True,

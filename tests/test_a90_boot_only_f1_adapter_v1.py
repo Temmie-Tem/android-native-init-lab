@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -42,6 +43,8 @@ class FakeRunner:
         self.calls = []
 
     def run(self, label, argv, timeout_sec):
+        if re.fullmatch(r"[a-z0-9-]{1,40}", label) is None:
+            raise A.ContractError("adapter log label is invalid")
         self.calls.append((label, argv, timeout_sec))
         return self.results.pop(0)
 
@@ -166,7 +169,7 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual((snapshot.version, snapshot.build), tuple(self.expected.values()))
         self.assertEqual([call[0] for call in runner.calls], [
             "usb-inventory", "bridge-preflight", "version", "selftest", "status", "boot-id",
-            "fresh-enablePath", "fresh-latchPath",
+            "fresh-enable-path", "fresh-latch-path",
         ])
         bridge_argv = runner.calls[1][1]
         self.assertEqual(bridge_argv.count(A.FIXED_SERIAL), 2)
