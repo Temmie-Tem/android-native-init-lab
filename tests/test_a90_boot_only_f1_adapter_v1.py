@@ -168,6 +168,9 @@ class FixedAdapterTest(unittest.TestCase):
             "usb-inventory", "bridge-preflight", "version", "selftest", "status", "boot-id",
             "fresh-enablePath", "fresh-latchPath",
         ])
+        bridge_argv = runner.calls[1][1]
+        self.assertEqual(bridge_argv.count(A.FIXED_SERIAL), 2)
+        self.assertIn("--pin-selected-realpath", bridge_argv)
 
     def test_other_serial_candidate_is_allowed_but_fixed_a90_stays_selected(self):
         value = bridge(ambiguous=True)

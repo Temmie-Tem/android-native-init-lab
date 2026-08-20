@@ -475,7 +475,12 @@ class FixedA90Adapter:
         bridge = _validate_bridge(
             self._json_command(
                 "bridge-preflight",
-                (str(PYTHON), str(BRIDGE), "preflight", "--json"),
+                (
+                    str(PYTHON), str(BRIDGE), "preflight",
+                    "--device", FIXED_SERIAL,
+                    "--device-glob", FIXED_SERIAL,
+                    "--pin-selected-realpath", "--json",
+                ),
                 self._remaining(deadline, cap=10),
             )
         )
