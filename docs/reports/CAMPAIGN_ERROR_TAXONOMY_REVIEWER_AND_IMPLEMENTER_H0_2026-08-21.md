@@ -17,7 +17,7 @@ separation is worth the space.
 
 Mined, not recalled. Sources: the reviewer's own running tally
 (`feedback-claim-calibration`, 40 KB, maintained since 2026-08 across eight review
-sessions), the 51 review sections pinned in
+sessions), the 51 report sections pinned in
 `tests/test_s22plus_fyg8_p319_stock_choreography_docs.py::SECTION_ORDER`,
 `docs/operations/CAMPAIGN_LEDGER_S22PLUS.md` (331 dated rows), and the 54
 incident/postmortem reports under `docs/reports/`.
@@ -206,17 +206,27 @@ Found by Luna MAX inside the implementer's own Envelope-v5 work: a **MUX
 fail-open**, plus a string-parity defect and a default receipt-path defect. An
 audit that is fail-closed everywhere except one branch is fail-open.
 
-## I5. Shared mutable state under strict audits
+## I5. Shared mutable state under strict audits — *the same incident as R9*
 
 `_strict_directory()` requires an exact child set over a **fixed** private output
 root. Correct as a check; fatal under concurrency, and a Codex loop runs in
 parallel in this repository. The check is right; the shared directory is wrong.
 
+**This is not independent evidence.** Its single instance is the reviewer's own
+concurrent-suite run recorded at R9, entered on both sides of the ledger as
+though it were two patterns. One incident with two contributing causes is a fair
+blameless reading; presenting it as an implementer pattern with n=1 is not.
+Counted once, I5 is a design observation, not a demonstrated error class.
+
 ## I6. Schema drift in the ledger
 
-Of 331 dated rows, **326** carry the 9-field schema, **4** carry 8, and one is a
-dated prose line. Small, but it is the ledger, and the ledger is the accounting
-authority.
+Of the dated rows in the `## Log` section, **4** carry 8 fields where the schema
+is 9; every other row conforms. Small, but it is the ledger, and the ledger is
+the accounting authority.
+
+An earlier version of this line also reported "one dated prose line" as a
+malformed row. That was **a defect in this document's own guard**, not in the
+ledger — see Part 4, M-4.
 
 ---
 
@@ -238,9 +248,13 @@ Sorting the reviewer's tally by outcome produces a sharp split:
   The wrong-run authority, the manifest coupling, the emitters missing from the
   plan, the inflated closure, the review-row-is-not-a-resolution, the rebuild
   cost, `37` vs derived `38`.
-- **Findings about *mechanism* are usually rejected.**
+- **Findings about *mechanism* were rejected across the P3.19 arc.**
   The DWC3 module-collapse framing, the exact-vermagic requirement, most of the
   P3.13 mechanism details, all four post-compaction A90 claims.
+
+> **Weakened 2026-08-21 after independent rebuttal.** The second bullet
+> originally read "*Findings about mechanism are usually rejected*", and the
+> reviewer's own record refutes that as a general law. See Part 4, M-1.
 
 This is not a coincidence and it is not about relative competence. The implementer
 reads the mechanism more carefully than the reviewer does, because it has to make
@@ -249,9 +263,11 @@ it meant, or whether the sentence in the report is the sentence the code proved 
 because it is the same party doing both.
 
 **Therefore: the reviewer should attack the binding and the proposition, and
-should not attack the mechanism without opening the artifact first.** That is one
-sentence and it would have prevented R2, and it predicts where the next accepted
-finding will come from.
+should not attack the mechanism without opening the artifact first.** The second
+half survives the rebuttal in Part 4 and is the operative rule; the first half is
+a description of one arc, not a prediction. The original text claimed it
+"predicts where the next accepted finding will come from" — **that claim is
+withdrawn.**
 
 ## What each side should build next
 
@@ -270,3 +286,110 @@ avoid.
 
 See `docs/operations/CAMPAIGN_METHODOLOGY_H0_2026-08-21.md` for the method
 inventory and the external practices these two checks come from.
+
+---
+
+# Part 4 — What this taxonomy missed, found by rebutting it
+
+Parts 1 through 3 were written by the reviewer, including the part that
+classifies the implementer. That is the same self-review shape the document
+criticises, so the documents were handed to a third model — GPT-5.6 Sol, served
+as Daybreak Blue — with the instruction to rebut rather than judge, read-only,
+with repository access.
+
+It is a party to the dispute, not an arbiter: it is the same model family that
+produces the implementer's work. Its factual recomputations were checked here at
+source and are reported as verified; its opinions about its own error categories
+are recorded as what they are.
+
+## M-1. The central claim was overstated, and the reviewer's own record refutes it
+
+The tally underneath Part 3 has **seven rows covering eight review sessions: 70
+claims issued, 35 accepted, 3 accepted with correction, 30 rejected or
+self-dropped, 2 open**. Recomputed and confirmed. It has **no
+binding / proposition / mechanism column at all** — that classification was
+applied afterwards, by the same party the tally is about, outside the artifact.
+
+And the record carries direct counterexamples. On 2026-08-10, the findings that
+**survived** were:
+
+- `dwc3_resume_common` discards `dwc3_gadget_resume`'s return, so a gadget-resume
+  failure is invisible to userspace;
+- the plan dropped the parent-suspended wait the existing cycle already performs;
+- no record budget against `P282_RECORD_CAPACITY 64`, where overflow is
+  fail-closed `-EOVERFLOW`.
+
+All three are **mechanism** findings. All three were accepted.
+
+So "mechanism findings are usually rejected" was a generalisation from the P3.19
+arc to the whole record — **the narrow-sample-to-whole-medium shape catalogued as
+R1, committed inside the document that catalogues it.** Fifth instance in one
+session.
+
+What survives is narrower and still useful: *in this arc, the reviewer's
+mechanism claims were wrong when the reviewer had not opened the artifact.* That
+is R2 restated. It is not a law about claim types, and it predicts nothing.
+
+## M-2. A third error class exists that neither Part 1 nor Part 2 has
+
+**Unrecorded exogenous-state drift**: operator, host, or physical state that
+neither the reviewer nor the implementer controls, and that no artifact records.
+
+The instance is P3.17. The candidate enumerated high-speed at `3-1.3` under
+`0000:00:14.0` and bound `cdc_acm`
+(`docs/reports/S22PLUS_FYG8_P317_HISTORICAL_ENDPOINT_REPLAY_RECOVERY_INCIDENT_2026-08-14.md:197`)
+— a different controller from the one the observer was pinned to. The observer
+was correctly pinned. The implementer's code was correct. The reviewer had
+nothing to catch. **The world moved and nothing in the tree recorded that it
+had.**
+
+This class is invisible from inside a two-party setup because both parties are
+looking at artifacts, and the defining property of this class is that no artifact
+exists. It is the strongest argument in the document for X1: a provenance record
+is the cheapest way to make an unrecorded input *become* an artifact.
+
+## M-3. "This repository has no hooks" was wrong
+
+Stated by the reviewer while proposing an enforcement split. The repository sets
+`core.hooksPath = .githooks` and `.githooks/pre-push` exists and is executable.
+It blocks on identifier-boundary failure — a device serial reaching a remote —
+and it says in its own header that it cannot determine whether review happened.
+
+The reviewer checked `.claude/settings.json`, found no hooks there, and concluded
+about hooks in general. **R1 again, sixth instance in one session**, and this one
+was found by a party that simply ran `git config --get core.hooksPath`.
+
+The corrected position: one hook exists, it would have prevented none of R1–R9,
+and of the nine only **R6** is directly preventable by a commit gate reading a
+real test exit status. R9 is preventable by a lock, because two processes sharing
+a directory is observable state. R1, R2, R7 and R8 are semantic and outside any
+hook's reach.
+
+## M-4. Two guard defects in this document's own tests
+
+- The ledger guard scanned every date-prefixed line in the whole file, so a
+  narrative sentence beginning with a timestamp was counted as a malformed row.
+  The "one dated prose line" figure was a guard artifact, not a ledger defect.
+  Fixed: the guard now scans only the `## Log` section.
+- The method section described `SECTION_ORDER` as "51 review sections". It is 51
+  **report** sections, of which 5 are titled "Review of…". Corrected.
+
+## What the rebuttal got wrong
+
+Recorded so the rebuttal is not treated as more authoritative than it is.
+
+- It called **17 of 24 methods form-without-substance**, grouping M4, M5 and M6
+  under one incident. M5, exact-byte identity, is the mechanism that *detected*
+  the provenance defect. The charge is too broad for its evidence.
+- On **I2** it argued `IMAGE_SECTION_LAYOUT` is not an error because the review
+  called it correct and non-blocking. The review said the value is correct and
+  **not derived**; those are different claims.
+- It classified **R9** as a semantic error outside hook reach. Two processes
+  writing one directory is exactly the kind of state a lock observes.
+
+## What this changes
+
+The implementer's two mechanical checks in Part 3 stand unchanged; the rebuttal
+did not touch them. What changes is the reviewer's side: one law becomes one
+habit, one error class is added that belongs to neither party, and the count of
+R1 instances in a single session goes from five to six.

@@ -55,8 +55,8 @@ Obligations open with an ordinal `h0-<topic>-<N>` and an action ending
 action starts `PASS_GO_`. The grammar is machine-checked, so the accounting cannot
 be talked into balancing.
 
-Of 331 dated S22+ rows, 326 carry the 9-field schema, 4 carry 8, and one is a
-dated prose line.
+Of the dated rows in the S22+ `## Log` section, 4 carry 8 fields where the
+schema is 9; every other row conforms.
 
 ### M5. Exact-byte identity on every input
 
