@@ -45,8 +45,8 @@ class FakeBackend:
             raise result
         return result
 
-    def observe(self, _expected, *, timeout_sec):
-        del timeout_sec
+    def observe(self, _expected, _fresh_state, *, require_fresh_state, timeout_sec):
+        del require_fresh_state, timeout_sec
         result = self.observations.pop(0)
         if isinstance(result, BaseException):
             raise result
@@ -61,8 +61,16 @@ class MinimalF1Test(unittest.TestCase):
         self.rollback = self.root / "rollback.img"
         self.candidate.write_bytes(b"candidate")
         self.rollback.write_bytes(b"rollback")
+        self.recovery_evidence = self.root / "recovery-evidence.json"
+        self.recovery_review = self.root / "recovery-review.json"
+        self.hazard_review = self.root / "hazard-review.json"
+        self.recovery_evidence.write_bytes(b'{"result":"demonstrated"}')
+        self.recovery_review.write_bytes(b'{"verdict":"PASS_GO"}')
+        self.hazard_review.write_bytes(b'{"verdict":"PASS_GO"}')
         os.chmod(self.candidate, 0o600)
         os.chmod(self.rollback, 0o600)
+        for path in (self.recovery_evidence, self.recovery_review, self.hazard_review):
+            os.chmod(path, 0o600)
         self.manifest = {
             "schema": M.MANIFEST_SCHEMA,
             "capability": M.CAPABILITY,
@@ -72,6 +80,28 @@ class MinimalF1Test(unittest.TestCase):
             "expectedStart": {"version": "old", "build": "old-build"},
             "candidate": self._artifact(self.candidate, "new", "new-build"),
             "rollback": self._artifact(self.rollback, "old", "old-build"),
+            "qualification": {
+                "schema": M.QUALIFICATION_SCHEMA,
+                "candidateSha256": M.sha256_bytes(b"candidate"),
+                "rollbackSha256": M.sha256_bytes(b"rollback"),
+                "recovery": {
+                    "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1",
+                    "method": "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+                    "evidence": self._input(self.recovery_evidence),
+                    "review": self._input(self.recovery_review),
+                    "demonstrated": True,
+                },
+                "hazard": {
+                    "id": "A90_H27_RKP_CFP_DISABLED_RESIDENT",
+                    "statementSha256": HEX_B,
+                    "review": self._input(self.hazard_review),
+                    "accepted": True,
+                },
+                "freshState": {
+                    "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
+                    "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h27.done",
+                },
+            },
             "timeouts": {"flashSec": 60, "healthSec": 90},
         }
         self.raw = M.canonical_json(self.manifest)
@@ -90,6 +120,10 @@ class MinimalF1Test(unittest.TestCase):
             "build": build,
         }
 
+    def _input(self, path: Path):
+        raw = path.read_bytes()
+        return {"path": str(path), "size": len(raw), "sha256": M.sha256_bytes(raw)}
+
     def _snapshot(
         self,
         version: str,
@@ -106,6 +140,8 @@ class MinimalF1Test(unittest.TestCase):
             build=build,
             healthy=healthy,
             recovery_available=True,
+            recovery_evidence_sha256=self.manifest["qualification"]["recovery"]["evidence"]["sha256"],
+            fresh_state_absent=True,
             other_targets_untouched=True,
             receipt_sha256=receipt,
         )
@@ -132,6 +168,16 @@ class MinimalF1Test(unittest.TestCase):
         bad = json.loads(json.dumps(self.manifest))
         bad["candidate"]["size"] = True
         with self.assertRaises(M.ContractError):
+            M.validate_manifest(bad)
+
+    def test_manifest_rejects_unbound_recovery_or_unaccepted_hazard(self):
+        bad = json.loads(json.dumps(self.manifest))
+        bad["qualification"]["rollbackSha256"] = HEX_A
+        with self.assertRaisesRegex(M.ContractError, "selected artifacts"):
+            M.validate_manifest(bad)
+        bad = json.loads(json.dumps(self.manifest))
+        bad["qualification"]["hazard"]["accepted"] = False
+        with self.assertRaisesRegex(M.ContractError, "hazard"):
             M.validate_manifest(bad)
         bad = dict(self.manifest, command="flash")
         with self.assertRaises(M.ContractError):
@@ -175,6 +221,11 @@ class MinimalF1Test(unittest.TestCase):
         )
         result = M.execute(self.raw, self.manifest, run, token, backend)
         self.assertEqual(result["terminal"], "PASS_A90_RESIDENT_INSTALLED")
+        self.assertTrue(result["qualification"]["hazardAccepted"])
+        self.assertEqual(
+            result["qualification"]["recoveryEvidenceSha256"],
+            self.manifest["qualification"]["recovery"]["evidence"]["sha256"],
+        )
         self.assertEqual(len(backend.flash_calls), 1)
         self.assertFalse(backend.flash_calls[0][1])
         self.assertEqual(M.recovery_decision(run), "TERMINAL_COMPLETE")
@@ -198,6 +249,12 @@ class MinimalF1Test(unittest.TestCase):
         run, token = self._prepare()
         self.candidate.write_bytes(b"substitute")
         with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, FakeBackend(self.start))
+
+    def test_changed_qualification_input_causes_no_effect(self):
+        run, token = self._prepare()
+        self.recovery_evidence.write_bytes(b'{"result":"substituted"}')
+        with self.assertRaisesRegex(M.ContractError, "recovery evidence"):
             M.execute(self.raw, self.manifest, run, token, FakeBackend(self.start))
 
     def test_unhealthy_candidate_rolls_back_once(self):
@@ -306,7 +363,7 @@ class MinimalF1Test(unittest.TestCase):
 class MinimalSurfaceTest(unittest.TestCase):
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 900)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1000)
         self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 400)
         self.assertLessEqual(len(design.read_text().splitlines()), 180)
 

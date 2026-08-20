@@ -348,8 +348,13 @@ identity:
   exists. The small H0 adapter for the existing Native serial and
   `native_init_flash.py` mechanisms is now present and hard-disabled. Its
   recovery mode requires an empty pre-effect ADB baseline and one recovery
-  arrival, without a caller-selected serial. The exact next unit is one fresh
-  independent full review of this reduced execution closure.
+  arrival, without a caller-selected serial. A first Luna MAX full review
+  returned NO_GO because physical recovery was only a caller boolean. That
+  boolean is now removed: the canonical candidate qualification binds and the
+  owner rehashes exact recovery evidence/review bytes, its digest flows through
+  preflight and terminal receipts, hazard acceptance is manifest-bound, and
+  fresh enable/latch absence is observed directly. The exact next unit is one
+  fresh independent full review of this repaired reduced execution closure.
 
 ## What Leaves or Moves Out
 

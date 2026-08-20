@@ -233,11 +233,49 @@ def _validate_command(value: dict[str, Any], command: list[str], label: str) -> 
     return value["text"]
 
 
+def _validate_absent_stat(value: dict[str, Any], path: str) -> bool:
+    end = value.get("end")
+    if (
+        set(value) != {"begin", "end", "rc", "status", "trust", "text"}
+        or type(value.get("rc")) is not int
+        or value["rc"] != -2
+        or value.get("status") != "unknown"
+        or value.get("trust") != "A90P1_V1_STRUCTURAL_ONLY"
+        or type(end) is not dict
+        or end.get("cmd") not in {None, "stat"}
+        or end.get("rc") != "-2"
+        or end.get("status") != "unknown"
+        or end.get("errno") != "2"
+        or type(path) is not str
+    ):
+        raise ContractError("fresh state absence receipt is invalid")
+    return True
+
+
 class FixedA90Adapter:
-    def __init__(self, runner: CommandRunner, *, recovery_qualified: bool) -> None:
-        if recovery_qualified is not True:
-            raise ContractError("A90 physical recovery is not qualified")
+    def __init__(self, runner: CommandRunner, *, qualification: dict[str, Any]) -> None:
+        recovery = qualification.get("recovery")
+        fresh_state = qualification.get("freshState")
+        if (
+            type(recovery) is not dict
+            or set(recovery)
+            != {"profile", "method", "evidence", "review", "demonstrated"}
+            or recovery.get("profile") != "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
+            or recovery.get("method")
+            != "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
+            or recovery.get("demonstrated") is not True
+            or type(recovery.get("evidence")) is not dict
+            or set(recovery["evidence"]) != {"path", "size", "sha256"}
+            or type(recovery["evidence"].get("sha256")) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", recovery["evidence"]["sha256"]) is None
+            or type(recovery.get("review")) is not dict
+            or set(recovery["review"]) != {"path", "size", "sha256"}
+            or type(fresh_state) is not dict
+            or set(fresh_state) != {"enablePath", "latchPath"}
+        ):
+            raise ContractError("A90 physical recovery qualification is not exact")
         self.runner = runner
+        self.recovery_evidence_sha256 = recovery["evidence"]["sha256"]
 
     def _json_command(self, label: str, argv: tuple[str, ...], timeout_sec: int) -> dict[str, Any]:
         result = self.runner.run(label, argv, timeout_sec)
@@ -250,16 +288,22 @@ class FixedA90Adapter:
             raise ContractError(f"{label} producer failed or survived")
         return _json(result.stdout, label)
 
-    def _a90ctl(self, label: str, command: list[str], timeout_sec: int = 15) -> dict[str, Any]:
-        argv = (
+    def _a90ctl(
+        self,
+        label: str,
+        command: list[str],
+        timeout_sec: int = 15,
+        *,
+        allow_error: bool = False,
+    ) -> dict[str, Any]:
+        prefix = (
             str(PYTHON),
             str(A90CTL),
             "--json",
             "--timeout",
             str(timeout_sec),
-            "--",
-            *command,
         )
+        argv = (*prefix, *(("--allow-error",) if allow_error else ()), "--", *command)
         return self._json_command(label, argv, timeout_sec)
 
     @staticmethod
@@ -270,12 +314,35 @@ class FixedA90Adapter:
         return min(cap, remaining)
 
     def preflight(self, manifest: dict[str, Any]) -> Snapshot:
-        return self._snapshot(manifest["expectedStart"])
+        return self._snapshot(
+            manifest["expectedStart"],
+            manifest["qualification"]["freshState"],
+            require_fresh_state=True,
+        )
 
-    def observe(self, expected: dict[str, Any], *, timeout_sec: int) -> Snapshot:
-        return self._snapshot(expected, timeout_sec=timeout_sec)
+    def observe(
+        self,
+        expected: dict[str, Any],
+        fresh_state: dict[str, Any],
+        *,
+        require_fresh_state: bool,
+        timeout_sec: int,
+    ) -> Snapshot:
+        return self._snapshot(
+            expected,
+            fresh_state,
+            require_fresh_state=require_fresh_state,
+            timeout_sec=timeout_sec,
+        )
 
-    def _snapshot(self, expected: dict[str, Any], *, timeout_sec: int = 30) -> Snapshot:
+    def _snapshot(
+        self,
+        expected: dict[str, Any],
+        fresh_state: dict[str, Any],
+        *,
+        require_fresh_state: bool,
+        timeout_sec: int = 30,
+    ) -> Snapshot:
         deadline = time.monotonic() + timeout_sec
         bridge = _validate_bridge(
             self._json_command(
@@ -306,6 +373,17 @@ class FixedA90Adapter:
         boot_text = _validate_command(
             receipts["bootId"], ["cat", "/proc/sys/kernel/random/boot_id"], "boot ID"
         )
+        state_absent = True
+        if require_fresh_state:
+            for name, path in sorted(fresh_state.items()):
+                receipt = self._a90ctl(
+                    f"fresh-{name}",
+                    ["stat", path],
+                    self._remaining(deadline, cap=15),
+                    allow_error=True,
+                )
+                receipts[f"fresh-{name}"] = receipt
+                state_absent = state_absent and _validate_absent_stat(receipt, path)
         version = _one_line(version_text, VERSION_RE, "resident version")
         _one_line(selftest_text, SELFTEST_RE, "resident selftest")
         boot_id = _one_line(boot_text, BOOT_ID_RE, "resident boot ID").group(0)
@@ -319,12 +397,15 @@ class FixedA90Adapter:
             )
             and (version.group("version"), version.group("build"))
             == (expected["version"], expected["build"])
+            and (state_absent or not require_fresh_state)
         )
         stable_identity = {
             "bridge": bridge,
             "bootId": boot_id,
             "version": version.group("version"),
             "build": version.group("build"),
+            "recoveryEvidenceSha256": self.recovery_evidence_sha256,
+            "freshStateAbsent": state_absent,
         }
         evidence = {
             "stableIdentity": stable_identity,
@@ -339,6 +420,8 @@ class FixedA90Adapter:
             build=version.group("build"),
             healthy=healthy,
             recovery_available=True,
+            recovery_evidence_sha256=self.recovery_evidence_sha256,
+            fresh_state_absent=state_absent,
             other_targets_untouched=True,
             receipt_sha256=sha256_bytes(
                 canonical_json({"evidence": evidence, "healthy": healthy})

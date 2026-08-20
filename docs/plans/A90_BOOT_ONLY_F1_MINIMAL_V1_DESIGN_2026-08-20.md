@@ -36,6 +36,18 @@ It contains no production device backend and its CLI hard-disables execution.
   targets were untouched.
 - Approval is derived from the canonical manifest digest, target evidence, and
   current boot ID. It is not reusable for another manifest, device, or boot.
+- The manifest embeds one candidate-specific qualification. It binds the exact
+  candidate/rollback pair, three direct regular reviewed inputs (physical-
+  recovery evidence, its review, and the hazard review), explicit hazard
+  acceptance, and the fresh enable/latch paths. The owner opens and rehashes
+  those inputs both before PREPARED and immediately before approval/effect.
+- Physical recovery is never a caller boolean. The adapter accepts only the
+  validated `A90_ATTENDED_PHYSICAL_RECOVERY_V1` receipt for the fixed Native to
+  empty-ADB/single-recovery-arrival/readback method, and its digest is present
+  in every snapshot and terminal.
+- Fresh preflight and candidate health both use fixed read-only `stat` commands
+  to prove the manifest-bound enable/latch paths absent. Rollback health does
+  not misclassify a recovered V2321 solely because a candidate marker exists.
 - Candidate intent precedes its only launch. Rollback intent precedes its only
   launch. A candidate is never replayed after intent.
 - Every record uses create-exclusive publication, file fsync, and directory
@@ -125,8 +137,9 @@ evidence. They grant no authority and are not execution dependencies.
 
 1. Prove the adapter's exact Native serial and recovery transfer inputs, helper
    quiescence, and result receipts.
-2. Add candidate-specific manifest and hazard qualification as data, not owner
-   source.
+2. Produce the H27 candidate-specific canonical manifest and its exact
+   recovery/hazard qualification inputs; the schema and runtime binding are
+   present, but no H27 run data or approval exists yet.
 3. Freeze and independently review the resulting small execution closure.
 4. Only afterward follow the A90 target contract for attended F1 approval and
    execution.

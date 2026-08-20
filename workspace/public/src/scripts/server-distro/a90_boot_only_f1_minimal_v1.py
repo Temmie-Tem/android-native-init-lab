@@ -23,6 +23,7 @@ from typing import Any, Protocol
 
 CAPABILITY = "A90_BOOT_ONLY_F1_MINIMAL_V1"
 MANIFEST_SCHEMA = "a90-boot-only-f1-minimal-manifest-v1"
+QUALIFICATION_SCHEMA = "a90-boot-only-f1-minimal-qualification-v1"
 PREPARED_SCHEMA = "a90-boot-only-f1-minimal-prepared-v1"
 RECORD_SCHEMA = "a90-boot-only-f1-minimal-record-v1"
 RESULT_SCHEMA = "a90-boot-only-f1-minimal-result-v1"
@@ -164,6 +165,17 @@ def _artifact(value: Any, label: str) -> dict[str, Any]:
     return item
 
 
+def _input(value: Any, label: str) -> dict[str, Any]:
+    item = _object(value, {"path", "size", "sha256"}, label)
+    path = Path(_text(item["path"], f"{label}.path"))
+    if not path.is_absolute() or "/../" in f"{path}/":
+        raise ContractError(f"{label}.path is not stable absolute")
+    if type(item["size"]) is not int or not 1 <= item["size"] <= MAX_JSON_BYTES:
+        raise ContractError(f"{label}.size is invalid")
+    _sha(item["sha256"], f"{label}.sha256")
+    return item
+
+
 def validate_manifest(value: Any) -> dict[str, Any]:
     manifest = _object(
         value,
@@ -176,6 +188,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
             "expectedStart",
             "candidate",
             "rollback",
+            "qualification",
             "timeouts",
         },
         "manifest",
@@ -196,6 +209,64 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     rollback = _artifact(manifest["rollback"], "rollback")
     if candidate["sha256"] == rollback["sha256"] or candidate["path"] == rollback["path"]:
         raise ContractError("candidate and rollback are not distinct")
+    qualification = _object(
+        manifest["qualification"],
+        {
+            "schema",
+            "candidateSha256",
+            "rollbackSha256",
+            "recovery",
+            "hazard",
+            "freshState",
+        },
+        "qualification",
+    )
+    if qualification["schema"] != QUALIFICATION_SCHEMA:
+        raise ContractError("qualification schema is invalid")
+    if (
+        _sha(qualification["candidateSha256"], "qualified candidate")
+        != candidate["sha256"]
+        or _sha(qualification["rollbackSha256"], "qualified rollback")
+        != rollback["sha256"]
+    ):
+        raise ContractError("qualification does not bind the selected artifacts")
+    recovery = _object(
+        qualification["recovery"],
+        {"profile", "method", "evidence", "review", "demonstrated"},
+        "qualification.recovery",
+    )
+    if (
+        recovery["profile"] != "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
+        or recovery["method"]
+        != "NATIVE_TO_EMPTY_ADB_SINGLE_RECOVERY_ARRIVAL_BOOT_READBACK_V1"
+        or type(recovery["demonstrated"]) is not bool
+        or recovery["demonstrated"] is not True
+    ):
+        raise ContractError("physical recovery qualification is not exact")
+    _input(recovery["evidence"], "recovery evidence")
+    _input(recovery["review"], "recovery review")
+    hazard = _object(
+        qualification["hazard"],
+        {"id", "statementSha256", "review", "accepted"},
+        "qualification.hazard",
+    )
+    _text(hazard["id"], "hazard ID")
+    _sha(hazard["statementSha256"], "hazard statement")
+    _input(hazard["review"], "hazard review")
+    if type(hazard["accepted"]) is not bool or hazard["accepted"] is not True:
+        raise ContractError("candidate hazard was not accepted")
+    fresh_state = _object(
+        qualification["freshState"], {"enablePath", "latchPath"}, "fresh state"
+    )
+    marker_re = re.compile(
+        r"^/cache/a90-auto-handoff-phase3-minimal-[a-z0-9-]{1,48}"
+        r"\.(?:enable|done)$"
+    )
+    for key in ("enablePath", "latchPath"):
+        if type(fresh_state[key]) is not str or marker_re.fullmatch(fresh_state[key]) is None:
+            raise ContractError(f"freshState.{key} is invalid")
+    if fresh_state["enablePath"] == fresh_state["latchPath"]:
+        raise ContractError("fresh state paths alias")
     timeouts = _object(manifest["timeouts"], {"flashSec", "healthSec"}, "timeouts")
     for key in ("flashSec", "healthSec"):
         if type(timeouts[key]) is not int or not 1 <= timeouts[key] <= 900:
@@ -311,6 +382,36 @@ def _hash_fd(descriptor: int, size: int) -> str:
     return digest.hexdigest()
 
 
+def _verify_input(value: dict[str, Any], label: str) -> None:
+    item = _input(value, label)
+    path = Path(item["path"])
+    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        metadata = os.fstat(descriptor)
+        path_metadata = path.lstat()
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or not stat.S_ISREG(path_metadata.st_mode)
+            or metadata.st_nlink != 1
+            or (metadata.st_dev, metadata.st_ino)
+            != (path_metadata.st_dev, path_metadata.st_ino)
+            or metadata.st_uid != os.getuid()
+            or metadata.st_gid != os.getgid()
+            or metadata.st_mode & 0o022
+            or metadata.st_size != item["size"]
+            or _hash_fd(descriptor, metadata.st_size) != item["sha256"]
+        ):
+            raise ContractError(f"{label} input identity mismatch")
+    finally:
+        os.close(descriptor)
+
+
+def _verify_qualification_inputs(qualification: dict[str, Any]) -> None:
+    _verify_input(qualification["recovery"]["evidence"], "recovery evidence")
+    _verify_input(qualification["recovery"]["review"], "recovery review")
+    _verify_input(qualification["hazard"]["review"], "hazard review")
+
+
 @dataclass(frozen=True)
 class Snapshot:
     target_evidence_sha256: str
@@ -319,18 +420,22 @@ class Snapshot:
     build: str
     healthy: bool
     recovery_available: bool
+    recovery_evidence_sha256: str
+    fresh_state_absent: bool
     other_targets_untouched: bool
     receipt_sha256: str
 
     def validate(self) -> None:
         _sha(self.target_evidence_sha256, "target evidence")
         _sha(self.receipt_sha256, "snapshot receipt")
+        _sha(self.recovery_evidence_sha256, "snapshot recovery evidence")
         _text(self.boot_id, "boot ID")
         _text(self.version, "snapshot version")
         _text(self.build, "snapshot build")
         for value, label in (
             (self.healthy, "healthy"),
             (self.recovery_available, "recovery available"),
+            (self.fresh_state_absent, "fresh state absent"),
             (self.other_targets_untouched, "other targets untouched"),
         ):
             if type(value) is not bool:
@@ -344,6 +449,8 @@ class Snapshot:
             "build": self.build,
             "healthy": self.healthy,
             "recoveryAvailable": self.recovery_available,
+            "recoveryEvidenceSha256": self.recovery_evidence_sha256,
+            "freshStateAbsent": self.fresh_state_absent,
             "otherTargetsUntouched": self.other_targets_untouched,
             "receiptSha256": self.receipt_sha256,
         }
@@ -357,6 +464,8 @@ class Snapshot:
             "build": self.build,
             "healthy": self.healthy,
             "recoveryAvailable": self.recovery_available,
+            "recoveryEvidenceSha256": self.recovery_evidence_sha256,
+            "freshStateAbsent": self.fresh_state_absent,
             "otherTargetsUntouched": self.other_targets_untouched,
         }
 
@@ -387,7 +496,14 @@ class EffectResult:
 class Backend(Protocol):
     def preflight(self, manifest: dict[str, Any]) -> Snapshot: ...
     def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int) -> EffectResult: ...
-    def observe(self, expected: dict[str, Any], *, timeout_sec: int) -> Snapshot: ...
+    def observe(
+        self,
+        expected: dict[str, Any],
+        fresh_state: dict[str, Any],
+        *,
+        require_fresh_state: bool,
+        timeout_sec: int,
+    ) -> Snapshot: ...
 
 
 def _fsync_directory(path: Path) -> None:
@@ -497,7 +613,10 @@ def _require_start(snapshot: Snapshot, manifest: dict[str, Any]) -> None:
     if (
         not snapshot.healthy
         or not snapshot.recovery_available
+        or not snapshot.fresh_state_absent
         or not snapshot.other_targets_untouched
+        or snapshot.recovery_evidence_sha256
+        != manifest["qualification"]["recovery"]["evidence"]["sha256"]
         or (snapshot.version, snapshot.build)
         != (expected["version"], expected["build"])
     ):
@@ -511,6 +630,7 @@ def prepare(
     backend: Backend,
 ) -> str:
     manifest = _require_manifest_pair(manifest_raw, manifest)
+    _verify_qualification_inputs(manifest["qualification"])
     if run_directory.exists():
         raise ContractError("run directory already exists")
     run_directory.mkdir(mode=0o700, parents=False)
@@ -571,6 +691,8 @@ def _prepared_snapshot_binding(payload: dict[str, Any]) -> dict[str, Any]:
             "build",
             "healthy",
             "recoveryAvailable",
+            "recoveryEvidenceSha256",
+            "freshStateAbsent",
             "otherTargetsUntouched",
             "receiptSha256",
         },
@@ -586,6 +708,7 @@ def _terminal(
     terminal: str,
     snapshot: Snapshot | None,
     reason: str,
+    qualification: dict[str, Any],
 ) -> dict[str, Any]:
     payload = {
         "schema": RESULT_SCHEMA,
@@ -593,6 +716,11 @@ def _terminal(
         "reason": reason,
         "snapshot": None if snapshot is None else snapshot.payload(),
         "candidateReplay": False,
+        "qualification": {
+            "recoveryEvidenceSha256": qualification["recovery"]["evidence"]["sha256"],
+            "hazardId": qualification["hazard"]["id"],
+            "hazardAccepted": qualification["hazard"]["accepted"],
+        },
     }
     publish_record(
         run_directory,
@@ -610,6 +738,7 @@ def execute(
     backend: Backend,
 ) -> dict[str, Any]:
     manifest = _require_manifest_pair(manifest_raw, manifest)
+    _verify_qualification_inputs(manifest["qualification"])
     records = read_records(run_directory)
     if set(records) != {"00-prepared.json"}:
         raise ContractError("execute requires one fresh prepared run")
@@ -673,10 +802,14 @@ def execute(
                 "RECOVERY_REQUIRED",
                 None,
                 "CANDIDATE_HELPER_NOT_QUIESCENT",
+                manifest["qualification"],
             )
         try:
             observed = backend.observe(
-                manifest["candidate"], timeout_sec=manifest["timeouts"]["healthSec"]
+                manifest["candidate"],
+                manifest["qualification"]["freshState"],
+                require_fresh_state=True,
+                timeout_sec=manifest["timeouts"]["healthSec"],
             )
             observed.validate()
         except Exception:
@@ -687,6 +820,7 @@ def execute(
             and candidate_result.returncode == 0
             and observed.healthy
             and observed.recovery_available
+            and observed.fresh_state_absent
             and observed.other_targets_untouched
             and (observed.version, observed.build)
             == (manifest["candidate"]["version"], manifest["candidate"]["build"])
@@ -697,6 +831,7 @@ def execute(
                 "PASS_A90_RESIDENT_INSTALLED",
                 observed,
                 "CANDIDATE_HEALTHY",
+                manifest["qualification"],
             )
 
         publish_record(
@@ -723,10 +858,20 @@ def execute(
             _record("ROLLBACK_RESULT", manifest_sha256, rollback_result.payload()),
         )
         if not rollback_result.quiescent:
-            return _terminal(run_directory, manifest_sha256, "RECOVERY_REQUIRED", None, "ROLLBACK_HELPER_NOT_QUIESCENT")
+            return _terminal(
+                run_directory,
+                manifest_sha256,
+                "RECOVERY_REQUIRED",
+                None,
+                "ROLLBACK_HELPER_NOT_QUIESCENT",
+                manifest["qualification"],
+            )
         try:
             recovered = backend.observe(
-                manifest["rollback"], timeout_sec=manifest["timeouts"]["healthSec"]
+                manifest["rollback"],
+                manifest["qualification"]["freshState"],
+                require_fresh_state=False,
+                timeout_sec=manifest["timeouts"]["healthSec"],
             )
             recovered.validate()
         except Exception:
@@ -747,6 +892,7 @@ def execute(
                 "NO_PROOF_ROLLED_BACK",
                 recovered,
                 "ROLLBACK_HEALTHY",
+                manifest["qualification"],
             )
         return _terminal(
             run_directory,
@@ -754,6 +900,7 @@ def execute(
             "RECOVERY_REQUIRED",
             recovered,
             "ROLLBACK_HEALTH_UNPROVED",
+            manifest["qualification"],
         )
     finally:
         candidate.close()
