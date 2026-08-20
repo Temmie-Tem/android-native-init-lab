@@ -656,7 +656,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # moves this triple and the three relative expectations below by one.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (40, 24, 16),
+            (40, 26, 14),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -664,8 +664,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "acm-control-requalification",
                 "auditor-stale-bytecode",
                 "boundary-failclosed",
-                "candidate-witness-transport",
-                "corpus-manifest-semantic-binding",
                 "evidence-crosscheck",
                 "guard-fixture-invalidation",
                 "last-kmsg-retention",
@@ -685,8 +683,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-acm-control-requalification-1",
                 "h0-auditor-stale-bytecode-1",
                 "h0-boundary-failclosed-1",
-                "h0-candidate-witness-transport-7",
-                "h0-corpus-manifest-semantic-binding-11",
                 "h0-evidence-crosscheck-1",
                 "h0-guard-fixture-invalidation-1",
                 "h0-last-kmsg-retention-1",
@@ -704,16 +700,18 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p319",
-                "review_topic": "module-closure-plan",
-                "pending_ordinal": "h0-module-closure-plan-1",
+                "review_topic": "candidate-witness-transport",
+                "pending_ordinal": "h0-candidate-witness-transport-7",
                 "pending_action": (
-                    "P319_CANDIDATE_MODULE_LOAD_PLAN_"
+                    "P319_CANDIDATE_WITNESS_TRANSPORT_"
                     "IMPLEMENTED_REVIEW_PENDING"
                 ),
-                "resolution_ordinal": "h0-module-closure-plan-review-1",
+                "resolution_ordinal": (
+                    "h0-candidate-witness-transport-review-7"
+                ),
                 "resolution_action": (
-                    "PASS_GO_P319_MODULE_CLOSURE_PLAN_"
-                    "INDEPENDENT_REVIEW_V1"
+                    "PASS_GO_P319_CANDIDATE_WITNESS_CARRIER_V5_"
+                    "H0_CAPABILITY_V1"
                 ),
             },
         )
