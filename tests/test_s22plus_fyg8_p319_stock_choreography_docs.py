@@ -54,6 +54,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Successor H0 design: four of the five witnesses need no new code",
         "Successor transport correction: stock retention is not candidate retention",
         "Review of the transport binding: the emitters are not in the plan",
+        "V2 plan input: the load order, and the DWC3 tie is one symbol on the DP path",
         "What remains open",
         "Evidence",
     )
@@ -182,6 +183,19 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "on the\ncurrent plan the parser has nothing to parse",
             "That requirement is load-bearing and unstated",
             "it fails closed on\nexactly the plan shape the successor needs",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(re.sub(r"\s+", " ", token), flat)
+
+    def test_report_carries_the_v2_plan_input(self):
+        flat = re.sub(r"\s+", " ", self.report)
+        for token in (
+            "**13 direct\ndependencies**",
+            "The transitive closure is **14\nmodules**",
+            "returns exactly **one** name",
+            "`R_AARCH64_CALL26` at\n`.text+0x12318`",
+            "**`max77705_vdm_dp_select_pin`**",
+            "nothing here authorises a stub",
         ):
             with self.subTest(token=token):
                 self.assertIn(re.sub(r"\s+", " ", token), flat)

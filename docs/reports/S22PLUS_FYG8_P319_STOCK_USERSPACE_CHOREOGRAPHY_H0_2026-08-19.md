@@ -2954,6 +2954,79 @@ text as retained authority — all of that stands, and the ordering of witness 1
 from the `finit_module` return rather than from PID 1's own log line is a
 genuine improvement over what this report proposed.
 
+## V2 plan input: the load order, and the DWC3 tie is one symbol on the DP path
+
+The successor plan is now in scope as a separate H0 predecessor unit, and V2 has
+to close the exact load order and the custom MUX diagnostic module replacement
+alongside the existing closure. Both are decidable on this host, and this
+section decides them.
+
+### The closure and its exact load order
+
+`modules.dep` on the mounted `vendor_dlkm` gives `pdic_max77705.ko` **13 direct
+dependencies** and `mfd_max77705.ko` one. The transitive closure is **14
+modules**, which independently reproduces the count the existing
+`h0-module-closure-plan-1` already carries. Ordering them by dependency depth
+gives the load order, with any order permissible inside a level:
+
+| depth | modules |
+|---|---|
+| 0 | `if_cb_manager`, `redriver`, `spu_verify`, `switch_class`, `usb_notify_layer`, `vbus_notifier` |
+| 1 | `common_muic`, `mfd_max77705`, `pdic_notifier_module`, `qc_usb_audio` |
+| 2 | `usb_typec_manager` |
+| 3 | `usb_f_ss_mon_gadget` |
+| 4 | `dwc3-msm` |
+| 5 | `pdic_max77705` |
+
+`mfd_max77705` at depth 1 requires only `usb_notify_layer`, so the MFD half is
+cheap. Everything expensive is below `pdic_max77705`.
+
+### The DWC3 entry is one symbol, and it is on the DisplayPort path
+
+`dwc3-msm` at depth 4 looked like the hard part, because the current candidate
+carries a **custom DWC3 latch** and the user's V2 list names the custom MUX
+diagnostic module replacement as an open item. It is smaller than it looks.
+
+Intersecting `pdic_max77705.ko`'s undefined symbols with `dwc3-msm.ko`'s
+`__ksymtab` exports returns exactly **one** name:
+
+```
+dwc3_restart_usb_host_mode
+```
+
+The module has exactly one relocation against it, `R_AARCH64_CALL26` at
+`.text+0x12318`, and the enclosing defined symbol is
+**`max77705_vdm_dp_select_pin`** — DisplayPort VDM pin assignment. The A90 tree
+on this host shows the same family symbol called only from
+`max77705_alternate.c` and `ccic_alternate.c`, both alternate-mode handlers,
+which agrees, though the binding evidence here is the S22+ module itself rather
+than the A90 source.
+
+So the tie between `pdic_max77705` and the DWC3 module is a **link-time
+requirement for one function on the DisplayPort alternate-mode path**. The
+device-mode enumeration path this campaign cares about never reaches
+`max77705_vdm_dp_select_pin`.
+
+### What that decides, and what it does not
+
+It collapses "replace the custom DWC3 latch with the stock module" into "satisfy
+one symbol". That is a materially different and much smaller problem, and V2
+should not carry the larger framing by default.
+
+It does not decide **how** to satisfy it. Providing the symbol some other way
+changes module identity and integrity, which this campaign's contract governs
+and which needs its own review; nothing here authorises a stub. What is settled
+is the size and location of the dependency: one symbol, one call site, on a path
+the goal does not use.
+
+### The two V2 items this does not touch
+
+**Stage capacity.** The bound plan is 70 rows. Adding a 14-module closure takes
+it to at most 84 minus whatever is already present, and whether the plan array
+and its staging tolerate that is not answered here.
+
+**EUD identity trigger.** Untouched by this analysis.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
