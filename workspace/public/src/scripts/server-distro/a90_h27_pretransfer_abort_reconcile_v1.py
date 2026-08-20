@@ -116,6 +116,70 @@ def _verify_review_lineage(
     return rebound, current_sha256
 
 
+class CurrentReviewLease:
+    """Hold the exact current PASS_GO bytes across both guard removals."""
+
+    def __init__(self, manifest: dict[str, Any], expected_sha256: str) -> None:
+        self.path = CURRENT_REVIEW_PATH
+        self.before = self.path.lstat()
+        if (
+            not stat.S_ISREG(self.before.st_mode)
+            or self.before.st_nlink != 1
+            or self.before.st_uid != os.getuid()
+            or self.before.st_gid != os.getgid()
+            or self.before.st_mode & 0o022
+            or not 1 <= self.before.st_size <= owner.MAX_JSON_BYTES
+        ):
+            raise owner.ContractError("current review lease path is invalid")
+        self.descriptor = os.open(
+            self.path,
+            os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK,
+        )
+        try:
+            current = os.fstat(self.descriptor)
+            if (
+                not stat.S_ISREG(current.st_mode)
+                or (current.st_dev, current.st_ino)
+                != (self.before.st_dev, self.before.st_ino)
+                or current.st_size != self.before.st_size
+            ):
+                raise owner.ContractError("current review lease identity changed")
+            self.raw = os.pread(self.descriptor, current.st_size, 0)
+            self.sha256 = owner.sha256_bytes(self.raw)
+            if len(self.raw) != current.st_size or self.sha256 != expected_sha256:
+                raise owner.ContractError("current review lease bytes changed")
+            rebound = dict(manifest)
+            qualification = dict(manifest["qualification"])
+            qualification["review"] = {
+                "path": str(self.path),
+                "size": len(self.raw),
+                "sha256": self.sha256,
+            }
+            rebound["qualification"] = qualification
+            owner._validate_qualification_review(
+                owner.parse_canonical(self.raw, "current review lease"), rebound
+            )
+        except BaseException:
+            os.close(self.descriptor)
+            raise
+
+    def check(self) -> None:
+        current = os.fstat(self.descriptor)
+        pathname = self.path.lstat()
+        if (
+            (current.st_dev, current.st_ino, current.st_size)
+            != (self.before.st_dev, self.before.st_ino, self.before.st_size)
+            or (pathname.st_dev, pathname.st_ino, pathname.st_size)
+            != (self.before.st_dev, self.before.st_ino, self.before.st_size)
+            or owner.sha256_bytes(os.pread(self.descriptor, current.st_size, 0))
+            != self.sha256
+        ):
+            raise owner.ContractError("current review lease drifted during cleanup")
+
+    def close(self) -> None:
+        os.close(self.descriptor)
+
+
 def _read_log(path: Path, label: str) -> bytes:
     try:
         before = path.lstat()
@@ -365,6 +429,22 @@ def _release_guard_if_present(path: Path, expected: bytes, label: str) -> None:
     owner._fsync_directory(owner.RUN_ROOT)
 
 
+def _cleanup_guards_with_review_lease(
+    manifest: dict[str, Any], payload: dict[str, Any]
+) -> None:
+    lease = CurrentReviewLease(manifest, payload["currentReviewSha256"])
+    try:
+        active_path, active_expected = owner._active_guard(manifest)
+        candidate_path, candidate_expected = owner._candidate_guard(manifest)
+        lease.check()
+        _release_guard_if_present(active_path, active_expected, "active run guard")
+        lease.check()
+        _release_guard_if_present(candidate_path, candidate_expected, "candidate guard")
+        lease.check()
+    finally:
+        lease.close()
+
+
 def reconcile() -> dict[str, Any]:
     raw, manifest = _load_incident_manifest()
     current_manifest, current_review_sha256 = _verify_review_lineage(manifest)
@@ -448,10 +528,7 @@ def reconcile() -> dict[str, Any]:
         payload = records["41-pretransfer-abort.json"]["payload"]
         _validate_reconciliation_payload(payload, current_review_sha256)
 
-    active_path, active_expected = owner._active_guard(manifest)
-    candidate_path, candidate_expected = owner._candidate_guard(manifest)
-    _release_guard_if_present(active_path, active_expected, "active run guard")
-    _release_guard_if_present(candidate_path, candidate_expected, "candidate guard")
+    _cleanup_guards_with_review_lease(manifest, payload)
     return payload
 
 

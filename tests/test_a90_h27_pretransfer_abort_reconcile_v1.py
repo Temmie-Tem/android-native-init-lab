@@ -231,6 +231,32 @@ class PretransferAbortReconcileTest(unittest.TestCase):
         with self.assertRaisesRegex(M.ContractError, "decision is invalid"):
             R._validate_reconciliation_payload(payload, "e" * 64)
 
+    def test_review_drift_between_guard_removals_keeps_candidate_guard(self):
+        class DriftingLease:
+            checks = 0
+
+            def check(self):
+                self.checks += 1
+                if self.checks == 2:
+                    raise M.ContractError("current review lease drifted during cleanup")
+
+            def close(self):
+                return None
+
+        lease = DriftingLease()
+        with (
+            mock.patch.object(R, "CurrentReviewLease", return_value=lease),
+            mock.patch.object(M, "_active_guard", return_value=(Path("/active"), b"a")),
+            mock.patch.object(M, "_candidate_guard", return_value=(Path("/candidate"), b"c")),
+            mock.patch.object(R, "_release_guard_if_present") as release,
+            self.assertRaisesRegex(M.ContractError, "drifted during cleanup"),
+        ):
+            R._cleanup_guards_with_review_lease(
+                {"candidate": {}, "qualification": {}},
+                {"currentReviewSha256": "d" * 64},
+            )
+        release.assert_called_once_with(Path("/active"), b"a", "active run guard")
+
 
 if __name__ == "__main__":
     unittest.main()
