@@ -202,11 +202,16 @@ class PretransferAbortReconcileTest(unittest.TestCase):
 
     def test_post_record_cleanup_rejects_current_review_drift(self):
         snapshot = {
+            "targetEvidenceSha256": "a" * 64,
+            "bootId": "01234567-89ab-cdef-0123-456789abcdef",
             "healthy": True,
+            "recoveryAvailable": True,
+            "recoveryEvidenceSha256": "d" * 64,
             "freshStateAbsent": True,
             "otherTargetsUntouched": True,
             "version": "0.11.192",
             "build": "phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev",
+            "receiptSha256": "b" * 64,
         }
         payload = {
             "schema": R.SCHEMA,
@@ -230,6 +235,18 @@ class PretransferAbortReconcileTest(unittest.TestCase):
         R._validate_reconciliation_payload(payload, "d" * 64)
         with self.assertRaisesRegex(M.ContractError, "decision is invalid"):
             R._validate_reconciliation_payload(payload, "e" * 64)
+
+        partial = dict(payload)
+        partial["currentReviewSha256"] = "d" * 64
+        partial["recoveredSnapshot"] = {
+            "healthy": True,
+            "freshStateAbsent": True,
+            "otherTargetsUntouched": True,
+            "version": "0.11.192",
+            "build": "phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev",
+        }
+        with self.assertRaisesRegex(M.ContractError, "fields mismatch"):
+            R._validate_reconciliation_payload(partial, "d" * 64)
 
     def test_review_drift_between_guard_removals_keeps_candidate_guard(self):
         class DriftingLease:

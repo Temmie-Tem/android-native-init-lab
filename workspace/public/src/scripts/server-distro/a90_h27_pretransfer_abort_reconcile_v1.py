@@ -411,11 +411,44 @@ def _validate_reconciliation_payload(
     snapshot = payload["recoveredSnapshot"]
     if (
         type(snapshot) is not dict
-        or snapshot.get("healthy") is not True
-        or snapshot.get("freshStateAbsent") is not True
-        or snapshot.get("otherTargetsUntouched") is not True
-        or snapshot.get("version") != "0.11.192"
-        or snapshot.get("build")
+        or set(snapshot)
+        != {
+            "targetEvidenceSha256",
+            "bootId",
+            "version",
+            "build",
+            "healthy",
+            "recoveryAvailable",
+            "recoveryEvidenceSha256",
+            "freshStateAbsent",
+            "otherTargetsUntouched",
+            "receiptSha256",
+        }
+    ):
+        raise owner.ContractError("recovered H24 snapshot fields mismatch")
+    recovered = owner.Snapshot(
+        target_evidence_sha256=snapshot["targetEvidenceSha256"],
+        boot_id=snapshot["bootId"],
+        version=snapshot["version"],
+        build=snapshot["build"],
+        healthy=snapshot["healthy"],
+        recovery_available=snapshot["recoveryAvailable"],
+        recovery_evidence_sha256=snapshot["recoveryEvidenceSha256"],
+        fresh_state_absent=snapshot["freshStateAbsent"],
+        other_targets_untouched=snapshot["otherTargetsUntouched"],
+        receipt_sha256=snapshot["receiptSha256"],
+    )
+    recovered.validate()
+    if (
+        re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", recovered.boot_id)
+        is None
+        or recovered.healthy is not True
+        or recovered.recovery_available is not True
+        or recovered.recovery_evidence_sha256 != current_review_sha256
+        or recovered.fresh_state_absent is not True
+        or recovered.other_targets_untouched is not True
+        or recovered.version != "0.11.192"
+        or recovered.build
         != "phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev"
     ):
         raise owner.ContractError("recovered H24 snapshot is not exact")
