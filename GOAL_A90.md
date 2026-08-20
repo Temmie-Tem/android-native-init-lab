@@ -398,6 +398,9 @@ identity:
   A fifteenth review found recovery-required terminals also removed that guard.
   Release is now limited to exact healthy candidate or healthy V2321 rollback;
   uncertainty remains globally blocking.
+  A sixteenth review found another active run could burn a new candidate guard.
+  PREPARED now acquires active first and only consumes candidate after; ordinary
+  pre-effect candidate-guard rejection releases the new active reservation.
 
 ## What Leaves or Moves Out
 

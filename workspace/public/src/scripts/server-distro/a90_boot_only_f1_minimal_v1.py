@@ -907,8 +907,12 @@ def prepare(
     try:
         snapshot = backend.preflight(manifest)
         _require_start(snapshot, manifest)
-        _publish_candidate_guard(manifest)
         _publish_active_guard(manifest)
+        try:
+            _publish_candidate_guard(manifest)
+        except BaseException:
+            _release_active_guard(manifest)
+            raise
         manifest_sha256 = sha256_bytes(manifest_raw)
         payload = {
             "schema": PREPARED_SCHEMA,

@@ -78,6 +78,9 @@ It contains no production device backend and its CLI hard-disables execution.
   after an exact healthy terminal (`PASS_A90_RESIDENT_INSTALLED` or healthy
   V2321 rollback) is durably published. `RECOVERY_REQUIRED`, uncertainty, and
   crashes leave it blocking. Approval also binds the run ID explicitly.
+  PREPARED acquires the active guard before consuming the candidate guard; an
+  ordinary pre-effect candidate-guard rejection releases only that newly
+  acquired active reservation, so another active run cannot burn this candidate.
 - Every record uses create-exclusive publication, file fsync, and directory
   fsync in a new mode-0700 run directory. Manifest and journal readers reject
   special/oversized paths before open, then bind one nonblocking descriptor,
