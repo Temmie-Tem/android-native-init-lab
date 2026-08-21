@@ -152,9 +152,9 @@ class OwnerEffectState:
             return "PRE_WRITE_FAILURE"
         if not self.boot_written_readback_exact:
             return "WRITE_OR_READBACK_UNCLASSIFIED"
-        if not self.system_return_attempted or not self.system_return_command_ok:
+        if not self.system_return_attempted:
             return "WRITE_OR_READBACK_UNCLASSIFIED"
-        if self.system_return_confirmed:
+        if self.system_return_command_ok and self.system_return_confirmed:
             return "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED"
         return "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN"
 

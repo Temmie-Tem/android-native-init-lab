@@ -272,7 +272,6 @@ def _parse_owner_effect_receipt(raw: bytes) -> str:
         not value["writeStarted"]
         or not value["bootWrittenReadbackExact"]
         or not value["systemReturnAttempted"]
-        or not value["systemReturnCommandOk"]
         or value["systemReturnConfirmed"]
     ):
         return "UNCLASSIFIED"
@@ -577,6 +576,11 @@ class FixedA90Adapter:
             )
         )
         receipts = {
+            "bootIdStart": self._a90ctl(
+                "boot-id-start",
+                ["cat", "/proc/sys/kernel/random/boot_id"],
+                self._remaining(deadline, cap=15),
+            ),
             "version": self._a90ctl(
                 "version", ["version"], self._remaining(deadline, cap=15)
             ),
@@ -586,17 +590,24 @@ class FixedA90Adapter:
             "status": self._a90ctl(
                 "status", ["status"], self._remaining(deadline, cap=15)
             ),
-            "bootId": self._a90ctl(
-                "boot-id",
+            "bootIdFinal": self._a90ctl(
+                "boot-id-final",
                 ["cat", "/proc/sys/kernel/random/boot_id"],
                 self._remaining(deadline, cap=15),
             ),
         }
+        boot_start_text = _validate_command(
+            receipts["bootIdStart"],
+            ["cat", "/proc/sys/kernel/random/boot_id"],
+            "initial boot ID",
+        )
         version_text = _validate_command(receipts["version"], ["version"], "version")
         selftest_text = _validate_command(receipts["selftest"], ["selftest"], "selftest")
         status_text = _validate_command(receipts["status"], ["status"], "status")
-        boot_text = _validate_command(
-            receipts["bootId"], ["cat", "/proc/sys/kernel/random/boot_id"], "boot ID"
+        boot_final_text = _validate_command(
+            receipts["bootIdFinal"],
+            ["cat", "/proc/sys/kernel/random/boot_id"],
+            "final boot ID",
         )
         state_observed = require_fresh_state
         state_absent = False
@@ -617,7 +628,12 @@ class FixedA90Adapter:
                 state_absent = state_absent and _validate_absent_stat(receipt, path)
         version = _one_line(version_text, VERSION_RE, "resident version")
         _one_line(selftest_text, SELFTEST_RE, "resident selftest")
-        boot_id = _one_line(boot_text, BOOT_ID_RE, "resident boot ID").group(0)
+        boot_id = _one_line(
+            boot_start_text, BOOT_ID_RE, "initial resident boot ID"
+        ).group(0)
+        final_boot_id = _one_line(
+            boot_final_text, BOOT_ID_RE, "final resident boot ID"
+        ).group(0)
         pstore = [line.strip() for line in status_text.replace("\r", "").splitlines() if line.strip().startswith("pstore=")]
         healthy = (
             len(pstore) == 1
@@ -628,12 +644,14 @@ class FixedA90Adapter:
             )
             and (version.group("version"), version.group("build"))
             == (expected["version"], expected["build"])
+            and boot_id == final_boot_id
             and (state_absent or not require_fresh_state)
         )
         stable_identity = {
             "usbInventory": usb_inventory,
             "bridge": bridge,
             "bootId": boot_id,
+            "finalBootId": final_boot_id,
             "version": version.group("version"),
             "build": version.group("build"),
             "recoveryEvidenceSha256": self.recovery_evidence_sha256,

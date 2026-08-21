@@ -19,6 +19,20 @@ flash = load_revalidation("native_init_flash")
 
 
 class NativeInitFlashSafetyHelpers(unittest.TestCase):
+    def test_owner_state_classifies_nonzero_system_return_after_exact_write_readback(self) -> None:
+        state = flash.OwnerEffectState(
+            write_started=True,
+            boot_written_readback_exact=True,
+            system_return_attempted=True,
+            system_return_command_ok=False,
+        )
+        self.assertEqual(
+            state.outcome(),
+            "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+        )
+        state.system_return_attempted = False
+        self.assertEqual(state.outcome(), "WRITE_OR_READBACK_UNCLASSIFIED")
+
     def test_minimal_bridge_command_never_resends_after_post_send_error(self) -> None:
         sends = []
 

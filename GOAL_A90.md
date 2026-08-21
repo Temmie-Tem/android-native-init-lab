@@ -595,6 +595,24 @@ identity:
   public scope and must come from the operator-private manifest; no guessed
   digest is accepted.
   This input is not an owner manifest, approval, token, D0, or F1 authority.
+  One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
+  once, but its sole TWRP System-return request was uncertain. The old owner
+  then wrote and prefix-read back exact V2321 once with the same uncertain
+  return; both attempts are consumed and neither may be replayed. No H29 Native
+  observation occurred, so H29 remains unproved rather than refuted. After the
+  operator manually selected System, a candidate-neutral terminal finalizer
+  re-observed exact healthy V2321 over ACM only. It stopped before publication
+  for a noncanonical bridge launch and then a second Samsung endpoint. Once the
+  other Samsung was disconnected, the no-effect finalizer published canonical
+  `41-recovery-closed.json` at SHA-256
+  `d6f012df46645cb2b27a6d3a549c6b971eef0018e14a4d11e02b55bfb6667845`.
+  The active guard is released, the H29 candidate guard remains consumed, and
+  the rollback outcome remains `UNPROVED_EXTERNAL_CONTINUATION`. No image,
+  reboot, ADB, recovery transition, or partition command was issued by the
+  finalizer. See
+  `docs/reports/A90_H29_UNCERTAIN_SYSTEM_RETURN_POSTROLLBACK_RECOVERY_2026-08-21.md`.
+  This recovery closure grants no new candidate, D0, D1, F1, manifest, or
+  approval authority.
   Separately, the ordinary F1 owner now has a host-only machine receipt for
   the exact `boot write + prefix readback + uncertain TWRP System return`
   case. It durably parks that case as `CANDIDATE_RETURN_PENDING` before any

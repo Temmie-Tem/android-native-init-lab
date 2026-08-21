@@ -83,7 +83,6 @@ class OwnerReceiptTest(unittest.TestCase):
             {"bootWrittenReadbackExact": False},
             {"writeStarted": False},
             {"systemReturnAttempted": False},
-            {"systemReturnCommandOk": False},
         ):
             with self.subTest(changed=changed):
                 self.assertEqual(
@@ -105,12 +104,11 @@ class OwnerReceiptTest(unittest.TestCase):
         state.boot_written_readback_exact = True
         self.assertEqual(state.outcome(), "WRITE_OR_READBACK_UNCLASSIFIED")
         state.system_return_attempted = True
-        self.assertEqual(state.outcome(), "WRITE_OR_READBACK_UNCLASSIFIED")
-        state.system_return_command_ok = True
         self.assertEqual(
             state.outcome(),
             "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
         )
+        state.system_return_command_ok = True
         state.system_return_confirmed = True
         self.assertEqual(
             state.outcome(),
@@ -160,7 +158,10 @@ class OwnerReceiptTest(unittest.TestCase):
             FLASH.OWNER_EFFECT_STATE = old_state
         self.assertTrue(state.system_return_attempted)
         self.assertFalse(state.system_return_command_ok)
-        self.assertEqual(state.outcome(), "WRITE_OR_READBACK_UNCLASSIFIED")
+        self.assertEqual(
+            state.outcome(),
+            "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+        )
 
     def test_legacy_mode_preserves_disappearance_result_assumption(self):
         args = types.SimpleNamespace(

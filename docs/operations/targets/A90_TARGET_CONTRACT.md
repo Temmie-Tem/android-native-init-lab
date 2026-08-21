@@ -1470,6 +1470,22 @@ is published and cannot apply to another run, candidate, helper failure, or
 future incident. Future reusable pre-transfer recovery requires a separately
 reviewed structured helper stage receipt rather than parsing prose logs.
 
+The candidate-neutral `A90_F1_POSTROLLBACK_RECOVERY_V1` finalizer may close an
+ordinary minimal-owner run only after the candidate and rollback attempts are
+both durably consumed and the exact journal already ends in
+`RECOVERY_REQUIRED`. It accepts the unchanged manifest and current reviewed
+finalizer only; it has no image-transfer, reboot, ADB, recovery-transition, or
+partition-write primitive. It performs one bounded Native/ACM observation in
+the order boot ID, V2321 version, self-test, status, and final boot ID. Exact
+healthy V2321 with matching boot IDs may publish one canonical
+`41-recovery-closed.json`, then remove only that run's exact active guard while
+retaining the candidate guard. The receipt records the earlier rollback result
+as `UNPROVED_EXTERNAL_CONTINUATION`: it proves current recovery health, not the
+provenance or success of the consumed rollback. A durable exact 41 permits only
+completion of that same active-guard cleanup after a host cut. This capability
+is reusable across candidate manifests while its reviewed execution closure is
+unchanged; it never permits candidate or rollback replay and grants no next F1.
+
 The separate fixed H27 boot-loop incident dated 2026-08-21 may retire only its
 capability-wide active-run guard through
 `a90_h27_postrollback_reconcile_v1.py`. This exception is limited to run

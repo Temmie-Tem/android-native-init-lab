@@ -138,6 +138,7 @@ def healthy_results(version="0.11.194", build="phase3-minimal-h27"):
     return [
         usb_inventory(),
         result(bridge()),
+        result(command(BOOT_ID + "\n", "cat")),
         result(command(f"version: {version} build={build}\n", "version")),
         result(command("selftest: pass=9 warn=0 fail=0 duration=12ms entries=9\n", "selftest")),
         result(command("pstore=clean entries=0\n", "status")),
@@ -168,7 +169,7 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(snapshot.boot_id, BOOT_ID)
         self.assertEqual((snapshot.version, snapshot.build), tuple(self.expected.values()))
         self.assertEqual([call[0] for call in runner.calls], [
-            "usb-inventory", "bridge-preflight", "version", "selftest", "status", "boot-id",
+            "usb-inventory", "bridge-preflight", "boot-id-start", "version", "selftest", "status", "boot-id-final",
             "fresh-enable-path", "fresh-latch-path",
         ])
         bridge_argv = runner.calls[1][1]
@@ -239,7 +240,7 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertFalse(snapshot.healthy)
 
     def test_rollback_observation_marks_fresh_state_unobserved(self):
-        runner = FakeRunner(healthy_results()[:6])
+        runner = FakeRunner(healthy_results()[:7])
         snapshot = A.FixedA90Adapter(
             runner, qualification=QUALIFICATION
         ).observe(
@@ -253,10 +254,22 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertFalse(snapshot.fresh_state_absent)
         self.assertNotIn("fresh-enable-path", [call[0] for call in runner.calls])
 
+    def test_observation_rejects_boot_epoch_change(self):
+        values = healthy_results()
+        values[6] = result(command(
+            "fedcba98-7654-3210-fedc-ba9876543210\n", "cat"
+        ))
+        snapshot = A.FixedA90Adapter(
+            FakeRunner(values), qualification=QUALIFICATION
+        ).preflight(
+            {"expectedStart": self.expected, "qualification": QUALIFICATION}
+        )
+        self.assertFalse(snapshot.healthy)
+
     def test_stable_target_binding_ignores_variable_selftest_duration(self):
         first = healthy_results()
         second = healthy_results()
-        second[3] = result(command(
+        second[4] = result(command(
             "selftest: pass=9 warn=0 fail=0 duration=99ms entries=9\n", "selftest"
         ))
         one = A.FixedA90Adapter(FakeRunner(first), qualification=QUALIFICATION).preflight(
@@ -270,7 +283,7 @@ class FixedAdapterTest(unittest.TestCase):
 
     def test_selftest_or_pstore_drift_is_rejected_or_unhealthy(self):
         bad_selftest = healthy_results()
-        bad_selftest[3] = result(command(
+        bad_selftest[4] = result(command(
             "selftest: pass=8 warn=0 fail=1 duration=12ms entries=9\n", "selftest"
         ))
         with self.assertRaisesRegex(A.ContractError, "selftest"):
@@ -279,7 +292,7 @@ class FixedAdapterTest(unittest.TestCase):
             )
 
         bad_pstore = healthy_results()
-        bad_pstore[4] = result(command("pstore=dirty entries=0 entries=1\n", "status"))
+        bad_pstore[5] = result(command("pstore=dirty entries=0 entries=1\n", "status"))
         snapshot = A.FixedA90Adapter(
             FakeRunner(bad_pstore), qualification=QUALIFICATION
         ).preflight({"expectedStart": self.expected, "qualification": QUALIFICATION})
@@ -287,7 +300,7 @@ class FixedAdapterTest(unittest.TestCase):
 
     def test_present_fresh_state_is_rejected(self):
         present = healthy_results()
-        present[6] = result(command("mode=100600 size=0\n", "stat"))
+        present[7] = result(command("mode=100600 size=0\n", "stat"))
         with self.assertRaisesRegex(A.ContractError, "fresh state absence"):
             A.FixedA90Adapter(
                 FakeRunner(present), qualification=QUALIFICATION
@@ -407,6 +420,27 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertNotIn("--from-native", rollback_argv)
         self.assertNotIn("--require-stable-adb-baseline", rollback_argv)
 
+    def test_nonzero_system_return_after_exact_write_readback_is_pending_shape(self):
+        receipt = A.canonical_json({
+            "schema": A.OWNER_RECEIPT_SCHEMA,
+            "mode": A.OWNER_RECEIPT_MODE,
+            "outcome": "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+            "writeStarted": True,
+            "bootWrittenReadbackExact": True,
+            "systemReturnAttempted": True,
+            "systemReturnCommandOk": False,
+            "systemReturnConfirmed": False,
+        })
+        effect = A.FixedA90Adapter(
+            FakeRunner([result(receipt, rc=1)]), qualification=QUALIFICATION
+        ).flash(self.artifact, rollback=False, timeout_sec=60)
+        self.assertEqual(
+            effect.outcome,
+            "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+        )
+        self.assertEqual(effect.returncode, 1)
+        self.assertFalse(effect.completed)
+
     def test_owner_usb_inventory_binding_is_rollback_only_and_fixed(self):
         digest = "d" * 64
         argv = A.fixed_flash_argv(
@@ -493,7 +527,7 @@ class FixedAdapterTest(unittest.TestCase):
                 )
 
     def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 720)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 750)
 
 
 if __name__ == "__main__":
