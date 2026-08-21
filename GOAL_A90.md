@@ -51,10 +51,19 @@ the separately registered S20+ goal and every future target row.
   reconciliation was consumed once on 2026-08-21. That session proved exact
   V2321, `selftest fail=0`, native status health, and pstore entries zero, but
   the final boot-ID producer returned `EBUSY` because the automatic menu was
-  active. The terminal remains `NO_PROOF_OBSERVER / RECOVERY_PARKED`; no
-  `41-recovery-closed.json` exists and both the active-run and consumed H28
-  candidate guards remain present. See
+  active. That consumed checkpoint was `NO_PROOF_OBSERVER / RECOVERY_PARKED`;
+  see
   `docs/reports/A90_H28_SLOW_HEALTH_BOOT_ID_BUSY_NO_PROOF_2026-08-21.md`.
+- A fresh independently reviewed menu-hide reconciliation then durably armed
+  one exact session, sent `hide` once, waited the fixed settle, and proved two
+  equal boot-ID receipts around exact V2321 `version`, `selftest fail=0`,
+  healthy `status`, and zero pstore entries. It published
+  `41-recovery-closed.json` at SHA-256
+  `4ae580129004e3237889e886b4640dccc9efb8f194b74845357f70971c4795d7`,
+  removed the active-run guard after exact readback, and retained the consumed
+  H28 candidate guard. Candidate/rollback replay remains false and H28 boot
+  acceptance remains unproved. See
+  `docs/reports/A90_H28_MENU_HIDE_HEALTH_RECONCILIATION_PASS_2026-08-21.md`.
 - S22+ and S20+ command counts for the H24 transaction are zero. Their profiles,
   approvals, evidence, and authority do not transfer to A90.
 
