@@ -584,6 +584,17 @@ identity:
   H29 is H0-only and distinct from H28; it cannot be qualified or executed
   until the outstanding H28 recovery/guard state is reconciled, then receives
   its own fresh qualification, review, D0, and attended F1 approval.
+  The public H29 qualification input and review handoff are now prepared at
+  `docs/reports/A90_H29_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-21.json` and
+  `docs/plans/A90_H29_MINIMAL_F1_QUALIFICATION_HANDOFF_2026-08-21.md`.
+  They bind the current owner closure `c2da655e…`, the current single-Samsung
+  continuation PASS_GO at closure `9b17904d…`, the H29 build/flat-manifest
+  digests, and the new-build-certificate hazard while keeping every authority
+  false. The demonstrated recovery profile/method is declared,
+  but the exact recovery ADB serial SHA remains intentionally unbound in
+  public scope and must come from the operator-private manifest; no guessed
+  digest is accepted.
+  This input is not an owner manifest, approval, token, D0, or F1 authority.
   Separately, the ordinary F1 owner now has a host-only machine receipt for
   the exact `boot write + prefix readback + uncertain TWRP System return`
   case. It durably parks that case as `CANDIDATE_RETURN_PENDING` before any
@@ -681,6 +692,11 @@ drift stops with zero effect. Legacy helper invocations remain unbound.
   manifest, and owner-closure binding.
   TWRP identity is exact-key/exact-type validated before comparison, including
   rejection of bool, float, and string substitutions in numeric fields.
+  Qualification review recovery/hazard joins now use recursive strict JSON
+  equality, including scalar types and exact nested key sets; review `true`,
+  `1`, and `1.0` cannot be treated as equivalent. This owner repair changed
+  the dependent continuation closure and invalidated the prior continuation
+  PASS_GO until a fresh review is issued.
   Rollback rechecks both guards after durable `31` and before flash; guard
   loss parks the consumed prefix without recreating or replaying it.
   Terminal `40` is now reopened and strictly read back before active-guard

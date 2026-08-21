@@ -1337,6 +1337,10 @@ The continuation and manifest-bound qualification reviews are separately leased
 by direct file identity and SHA-256; the continuation lease also binds the
 computed source closure. Pre/post contact and terminal callback checks reject
 drift or same-byte replacement before any later effect or active-guard release.
+The owner joins review recovery/hazard objects to the manifest with recursive
+strict JSON equality: scalar types, ordered lists, and exact string-key sets
+are all authoritative. In particular, `true`, `1`, and `1.0` are distinct;
+extra or missing nested fields stop qualification before any effect.
 Its SHA is an explicit approval/intent input, but the private qualification
 path and bytes are excluded from the continuation execution closure.
 

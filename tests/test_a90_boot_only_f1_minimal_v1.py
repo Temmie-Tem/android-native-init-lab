@@ -299,6 +299,21 @@ class MinimalF1Test(unittest.TestCase):
         with self.assertRaises(M.ContractError):
             M.validate_manifest(bad)
 
+    def test_review_rejects_loose_recovery_hazard_types_and_nested_shape(self):
+        review = M.parse_canonical(self.review.read_bytes(), "qualification review")
+        cases = (
+            ("recovery", "demonstrated", 1), ("recovery", "demonstrated", 1.0),
+            ("hazard", "accepted", 1), ("hazard", "accepted", 1.0),
+            ("recovery", "extra", True), ("hazard", "extra", True),
+            ("recovery", "demonstrated", None), ("hazard", "accepted", None),
+        )
+        for section, key, replacement in cases:
+            bad = json.loads(json.dumps(review))
+            if replacement is None: del bad[section][key]
+            else: bad[section][key] = replacement
+            with self.subTest(section=section, key=key, replacement=replacement), self.assertRaises(M.ContractError):
+                M._validate_qualification_review(bad, self.manifest)
+
     def test_canonical_parser_rejects_duplicate_and_trailing_newline(self):
         with self.assertRaises(M.ContractError):
             M.parse_canonical(b'{"a":1,"a":1}', "duplicate")

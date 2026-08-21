@@ -215,6 +215,11 @@ def _object(value: Any, keys: set[str], label: str) -> dict[str, Any]:
     if type(value) is not dict or set(value) != keys:
         raise ContractError(f"{label} fields mismatch")
     return value
+def _strict_json_equal(left: Any, right: Any) -> bool:
+    if type(left) is not type(right): return False
+    if type(left) is dict: return (set(left) == set(right) and all(type(key) is str for key in left) and all(_strict_json_equal(left[key], right[key]) for key in left))
+    if type(left) is list: return len(left) == len(right) and all(_strict_json_equal(a, b) for a, b in zip(left, right))
+    return left == right
 
 
 def _text(value: Any, label: str) -> str:
@@ -643,7 +648,7 @@ def _validate_qualification_review(value: Any, manifest: dict[str, Any]) -> None
         raise ContractError("qualification review identity or verdict is invalid")
     recovery = _object(review["recovery"], {"profile", "method", "demonstrated"}, "review recovery")
     hazard = _object(review["hazard"], {"id", "statementSha256", "accepted"}, "review hazard")
-    if recovery != manifest["qualification"]["recovery"] or hazard != manifest["qualification"]["hazard"]:
+    if not _strict_json_equal(recovery, manifest["qualification"]["recovery"]) or not _strict_json_equal(hazard, manifest["qualification"]["hazard"]):
         raise ContractError("qualification review does not bind recovery and hazard")
     fresh_state = _object(
         review["freshState"], {"enablePath", "latchPath"}, "review fresh state"

@@ -1,0 +1,74 @@
+{
+  "schema": "a90-boot-only-f1-minimal-review-input-v1",
+  "capability": "A90_BOOT_ONLY_F1_MINIMAL_V1",
+  "scope": "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_CANDIDATE_HAZARD",
+  "targetProfile": "SAMSUNG_A90_5G",
+  "authority": {
+    "candidate": false,
+    "candidateAuthority": false,
+    "d0": false,
+    "f1": false,
+    "live": false,
+    "liveAuthority": false
+  },
+  "executionClosureSha256": "c2da655e18e54d06be9a054ee4fad8de19a4e6901fd60e4104be8b2c817ec68d",
+  "candidate": {
+    "version": "0.11.196",
+    "build": "phase3-minimal-h29-stock-rebuild-1007-cfp",
+    "size": 58372096,
+    "sha256": "c3d1b84eab65f387ce807cf9c355dc04dcc966cef15bf64e4fda901242907324"
+  },
+  "expectedStart": {
+    "version": "0.9.285",
+    "build": "v2321-usb-clean-identity-rodata"
+  },
+  "rollback": {
+    "version": "0.9.285",
+    "build": "v2321-usb-clean-identity-rodata",
+    "size": 60882944,
+    "sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+  },
+  "freshState": {
+    "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h29.enable",
+    "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h29.done"
+  },
+  "recovery": {
+    "demonstrated": true,
+    "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+    "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
+  },
+  "recoveryIdentity": {
+    "adbSerialSha256": null,
+    "binding": "PRIVATE_MANIFEST_BOUND_AT_D0",
+    "rawSerialTracked": false,
+    "status": "UNBOUND_PRIVATE_MANIFEST_REQUIRED"
+  },
+  "continuationReview": {
+    "capability": "A90_F1_CANDIDATE_RETURN_CONTINUATION_V1",
+    "schema": "a90-f1-candidate-return-continuation-independent-review-v1",
+    "scope": "A90_F1_CANDIDATE_RETURN_CONTINUATION_AND_NO_REPLAY",
+    "path": "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_INDEPENDENT_REVIEW_2026-08-21.json",
+    "size": 574,
+    "sha256": "5fc90b7491a26acd9b37ca9f997f8a1e7edc62606196434e6f84ece6cecc12a0",
+    "executionClosureSha256": "9b17904db2374664d91af10e98b8c8f9d4e1cdee5e8ac9514018838d4dfafeb5",
+    "verdict": "PASS_GO",
+    "liveAuthority": false
+  },
+  "hazard": {
+    "accepted": true,
+    "id": "A90_SELF_BUILT_KERNEL_BOOT_ACCEPTANCE_WITH_NEW_BUILD_CERT",
+    "statement": "Exact H29 is an A908N OSRC kernel rebuild produced with Snapdragon LLVM 10.0.7, preserves CONFIG_UH_RKP, CONFIG_RKP_CFP, CONFIG_RKP_CFP_JOPP, and CONFIG_RKP_CFP_ROPP, but carries a non-stock build certificate. Qualification is limited to one attended boot-only Native health experiment with exact V2321 rollback; Android/vendor external-module compatibility, stock byte equivalence, full build reproducibility, and the H29 boot result remain unproved.",
+    "statementEncoding": "UTF8_NO_TRAILING_NEWLINE",
+    "statementSha256": "5f9431703b709a4f9b9575aba9a1b68797fe47943f02f010fec32953269b5be5"
+  },
+  "build": {
+    "reportPath": "docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H29_H0_2026-08-21.md",
+    "reportSha256": "6901e17b4399b65b4ef41db3df7e6926a6c8fe9cd4e155ebcb204e74b204309d",
+    "flatManifestPath": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h29/manifest.toml",
+    "flatManifestSha256": "faab594e46ca9cfaaa477b70ef55f4674b8aab9e95847a1db8e1871a62c6988a",
+    "effectiveManifestSha256": "ecefcf16abcd603c69c16900cc21f2c7f422ad3beda5c032c7bcea5245d77347",
+    "abBootSha256": "c3d1b84eab65f387ce807cf9c355dc04dcc966cef15bf64e4fda901242907324",
+    "abBootSize": 58372096,
+    "candidateAuthority": false
+  }
+}

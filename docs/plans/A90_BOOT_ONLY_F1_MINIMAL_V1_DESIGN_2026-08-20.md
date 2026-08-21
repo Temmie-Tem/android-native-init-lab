@@ -83,8 +83,7 @@ retried without overwriting either log.
   The parser consumes the same bytes it hashes, and execute repeats validation
   after fresh Native preflight immediately before approval and candidate
   intent publication. It rejects non-regular/symlink/shared-writable review
-  paths by `lstat` before opening; only then does it open nonblocking,
-  revalidate the same inode, and perform the bounded read.
+  paths by `lstat` before opening; only then does it open nonblocking and revalidate the same inode; strict recursive JSON equality joins recovery/hazard objects, keeping scalar/list/key types distinct (`true`, `1`, and `1.0`).
 - Physical recovery is never a caller boolean. The adapter accepts only the
   validated `A90_ATTENDED_PHYSICAL_RECOVERY_V1` receipt for the fixed Native to
   stable-ADB-baseline/single-new-recovery-arrival/readback method. The private
