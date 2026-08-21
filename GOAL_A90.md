@@ -576,25 +576,17 @@ identity:
   A settle interruption parks without a boot-ID request. It has no
   candidate, rollback, reboot, image, partition, or physical-action path and
   currently has no review, approval, observation, or guard-removal authority.
-  H29 `0.11.196` was the first identity-only exact-toolchain candidate, with
-  boot SHA `c3d1b84e…`; its materialization and qualification remain historical
-  at their named reports. After its consumed uncertain run was recovered,
-  host-only H30 was materialized from the same functional configuration as `0.11.197 /
-  phase3-minimal-h30-stock-rebuild-1007-cfp`; A/B are byte-identical at SHA-256
-  `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
-  the exact kernel remains `59f79b8f…`, and only identity/state paths changed.
-  See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H30_H0_2026-08-21.md`.
-  H30 is H0-only. Luna MAX independently passed current owner `9668df83…`,
-  continuation `768c5bda…`, and postrollback recovery `5c692920…` closures;
-  current review SHAs are `41101a00…` and `660c7e85…`. The earlier H30
-  qualification still binds stale closures and is superseded by
-  `A90_H30_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`; no current
-  qualification, manifest, approval, token, F1, or live authority exists.
-  The private manifest/D0 passed, but both writes stopped when Native `adb devices` emitted rejected stderr.
-  Both receipts are quiescent `PRE_WRITE_FAILURE` with `writeStarted=false`.
-  After operator System return, the reviewed ACM-only finalizer published 41 at `b4d01a63…`;
-  V2321 is healthy; active guard is released and H30 remains consumed/unproved with no replay.
-  See `docs/reports/A90_H30_NATIVE_ADB_INVENTORY_PREWRITE_FAILURE_2026-08-21.md`.
+  H29 and H30 are consumed/unproved with no replay; H30 wrote neither candidate
+  nor rollback and its reviewed ACM-only finalizer released the active guard.
+  Their exact history remains in the named H29/H30 incident reports. Current
+  host-only H31 is `0.11.198 / phase3-minimal-h31-stock-rebuild-1007-cfp`;
+  A/B are byte-identical, 58,372,096 bytes, SHA-256 `5ad0fe043e394821…`.
+  Its exact kernel is unchanged at `59f79b8f…`; only version/build and fresh
+  enable/latch identities differ from H30. `candidate_authority=false` remains.
+  See `A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H31_H0_2026-08-22.md`.
+  Current owner `9668df83…`, continuation `768c5bda…`, and recovery `5c692920…`
+  capabilities are reviewed. H31 has no qualification, manifest, D0, approval,
+  token, F1, or live authority yet.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner
   then wrote and prefix-read back exact V2321 once with the same uncertain
