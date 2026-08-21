@@ -17,9 +17,12 @@ BUILD_REPORT = ROOT / "docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD
 FLAT_MANIFEST = ROOT / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h30/manifest.toml"
 CONTINUATION_REVIEW = ROOT / "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json"
 QUALIFICATION_REVIEW = ROOT / "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H30_INDEPENDENT_REVIEW_2026-08-21.json"
+SUPERSESSION = ROOT / "docs/reports/A90_H30_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md"
 OWNER_SOURCE = ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py"
 CONTINUATION_SOURCE = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py"
 H29_CANDIDATE = "c3d1b84eab65f387ce807cf9c355dc04dcc966cef15bf64e4fda901242907324"
+OLD_OWNER_CLOSURE = "e0a1fa5d05ce15322b7e2966901b443917e54836fd1d04f5550fc9f05467c5ed"
+OLD_CONTINUATION_CLOSURE = "a396a7440ba936e90dbf8956c1c2404cc0dc1271fda1b304192b35f13eb28d6c"
 
 
 def sha256(path: Path) -> str:
@@ -59,9 +62,13 @@ class A90H30QualificationInputTest(unittest.TestCase):
         self.assertTrue(all(type(value) is bool for value in self.value["authority"].values()))
         self.assertFalse(self.value["build"]["candidateAuthority"])
 
-    def test_current_owner_and_candidate_are_exact(self):
+    def test_historical_input_is_explicitly_superseded(self):
         owner = load("a90_h30_qualification_owner", OWNER_SOURCE)
-        self.assertEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
+        self.assertEqual(self.value["executionClosureSha256"], OLD_OWNER_CLOSURE)
+        self.assertNotEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
+        supersession = SUPERSESSION.read_text(encoding="utf-8")
+        self.assertIn("SUPERSEDED_STALE_CLOSURE", supersession)
+        self.assertIn(OLD_OWNER_CLOSURE, supersession)
         self.assertEqual(self.value["candidate"], {
             "version": "0.11.197",
             "build": "phase3-minimal-h30-stock-rebuild-1007-cfp",
@@ -76,18 +83,19 @@ class A90H30QualificationInputTest(unittest.TestCase):
             "sha256": owner.V2321_ROLLBACK_SHA256,
         })
 
-    def test_current_continuation_review_is_exact(self):
+    def test_historical_continuation_review_is_explicitly_superseded(self):
         continuation = load("a90_h30_qualification_continuation", CONTINUATION_SOURCE)
-        review = strict_json(CONTINUATION_REVIEW)
         declared = self.value["continuationReview"]
+        # The qualification input points at the stable lease path, which is
+        # deliberately replaceable after a closure change.  A superseded
+        # input must not read that current path and mistake a newer review for
+        # the old qualification bytes.
         self.assertEqual(declared["path"], str(CONTINUATION_REVIEW.relative_to(ROOT)))
-        self.assertEqual(declared["sha256"], sha256(CONTINUATION_REVIEW))
-        self.assertEqual(declared["size"], CONTINUATION_REVIEW.stat().st_size)
-        self.assertEqual(declared["executionClosureSha256"], continuation.execution_closure_sha256())
-        self.assertEqual(review["executionClosureSha256"], continuation.execution_closure_sha256())
-        self.assertEqual(review["verdict"], "PASS_GO")
-        self.assertFalse(review["liveAuthority"])
-        self.assertTrue(all(value == 0 for value in review["contacts"].values()))
+        self.assertEqual(declared["sha256"], "d1537f029a922b5e6fdcbe3c27e97a3b6f94d240d4e53e0fd87cdc9fb0b8910b")
+        self.assertEqual(declared["size"], 547)
+        self.assertEqual(declared["executionClosureSha256"], OLD_CONTINUATION_CLOSURE)
+        self.assertNotEqual(declared["executionClosureSha256"], continuation.execution_closure_sha256())
+        self.assertIn(OLD_CONTINUATION_CLOSURE, SUPERSESSION.read_text(encoding="utf-8"))
 
     def test_build_and_fresh_state_bindings_are_exact(self):
         build = self.value["build"]
@@ -123,7 +131,7 @@ class A90H30QualificationInputTest(unittest.TestCase):
         self.assertFalse(identity["rawSerialTracked"])
         self.assertEqual(identity["status"], "UNBOUND_PRIVATE_MANIFEST_REQUIRED")
 
-    def test_independent_review_binds_exact_h30_input(self):
+    def test_historical_review_is_not_current_authority(self):
         review = strict_json(QUALIFICATION_REVIEW)
         self.assertEqual(review["verdict"], "PASS_GO")
         self.assertEqual(review["executionClosureSha256"], self.value["executionClosureSha256"])
@@ -143,6 +151,9 @@ class A90H30QualificationInputTest(unittest.TestCase):
             sha256(QUALIFICATION_REVIEW),
             "f23766ea52ec3c1d35b46013b21587fbbed243179a5e4afe1e008c9b61ed06d6",
         )
+        supersession = SUPERSESSION.read_text(encoding="utf-8")
+        self.assertIn("no current qualification", supersession)
+        self.assertIn("prior PASS_GO cannot", supersession)
 
 
 if __name__ == "__main__":

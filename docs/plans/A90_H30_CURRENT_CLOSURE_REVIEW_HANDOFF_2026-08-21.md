@@ -18,6 +18,8 @@ not current authority until independently reviewed.
   `9668df832d9a0ff64ee1ef24c69faf81f10be7047c92c7f4f3c59380685ae267`;
 - candidate-return continuation closure:
   `768c5bda3313f83b5ebc037a383bde245a598b26c9fdf5aa116f89e174ac4464`;
+- reusable postrollback-recovery closure:
+  `5c692920db869d1ac69b87cf05dbe12ead0307f4fc6da747c1adbd0127dcc3cf`;
 - H30 candidate: `0.11.197 / phase3-minimal-h30-stock-rebuild-1007-cfp`,
   58,372,096 bytes, SHA-256
   `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
@@ -37,6 +39,9 @@ The runtime consumes only the stable lease path
 `docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json`.
 It must be absent until the independent reviewer publishes a canonical PASS;
 dated historical reviews remain immutable and are never overwritten.
+The postrollback finalizer likewise consumes
+`docs/reports/A90_F1_POSTROLLBACK_RECOVERY_CURRENT_REVIEW.json`; its dated H29
+review remains immutable historical evidence.
 
 ## Required decisions
 
@@ -53,10 +58,17 @@ dated historical reviews remain immutable and are never overwritten.
    attribution, guard, crash-prefix and terminal semantics.
 5. Confirm the H29 postrollback finalizer and recovery record create no H30
    authority and the consumed H29 candidate cannot be reused.
+6. Re-review `A90_F1_POSTROLLBACK_RECOVERY_V1` against its current closure.
+   For H30 it may validate the consumed rollback journal, obtain one fresh
+   bounded Native/ACM V2321 observation, publish the canonical 41 record,
+   release only the active guard, and retain the H30 candidate guard. It must
+   preserve the earlier helper outcomes as unproved and permit no candidate,
+   rollback, ADB, recovery transition, reboot, or partition effect.
 
 ## Output boundary
 
-A PASS may publish current public review JSON for the two exact closures. It
+A PASS may publish the current continuation review and reusable
+postrollback-recovery review for the exact closures above. It
 qualifies reusable capability only; it does not create an H30 qualification
 review, private manifest, connected D0, token, ordinal, F1 or live authority.
 After that PASS, generate the H30 qualification input/review and private

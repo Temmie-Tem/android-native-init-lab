@@ -74,6 +74,16 @@ remains unclosed at the durable-guard level until an
 independent review binds the repaired reconciliation and its exact H30
 receipt. That is intentional under the user-requested no-authority boundary.
 
+Guard closure does not require another H30-specific owner. The existing
+candidate-neutral `A90_F1_POSTROLLBACK_RECOVERY_V1` already accepts the exact
+consumed rollback prefix, performs one fresh bounded Native/ACM V2321 health
+observation, publishes canonical `41-recovery-closed.json`, removes only the
+active guard, and retains the candidate guard. Its execution closure changed
+with the owner repair, so its prior review is stale and it must receive a fresh
+independent review at the replaceable `A90_F1_POSTROLLBACK_RECOVERY_CURRENT_REVIEW.json`
+lease before use. The dated H29 review stays immutable. H30 candidate reuse
+remains forbidden.
+
 ## 3. Failed-boot evidence path on TWRP
 
 The native-init pstore reader is not a failed-boot reader. It only counts

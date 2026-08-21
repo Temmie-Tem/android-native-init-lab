@@ -216,6 +216,14 @@ class PostrollbackRecoveryTest(unittest.TestCase):
                     R._require_prefix(records, self.manifest, manifest_sha)
 
     def test_review_is_outside_its_own_closure(self) -> None:
+        self.assertEqual(
+            R.REVIEW_PATH,
+            ROOT / "docs/reports/A90_F1_POSTROLLBACK_RECOVERY_CURRENT_REVIEW.json",
+        )
+        self.assertNotEqual(
+            R.REVIEW_PATH.name,
+            "A90_F1_POSTROLLBACK_RECOVERY_V1_INDEPENDENT_REVIEW_2026-08-21.json",
+        )
         self.assertNotIn(str(R.REVIEW_PATH.relative_to(ROOT)), O.EXECUTION_SOURCE_RELS)
         self.assertRegex(R.execution_closure_sha256(), r"^[0-9a-f]{64}$")
 

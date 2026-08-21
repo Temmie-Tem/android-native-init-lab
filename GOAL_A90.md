@@ -579,22 +579,19 @@ identity:
   H29 `0.11.196` was the first identity-only exact-toolchain candidate, with
   boot SHA `c3d1b84e…`; its materialization and qualification remain historical
   at their named reports. After its consumed uncertain run was recovered,
-  host-only H30 was materialized from the same functional configuration as
-  `0.11.197 / phase3-minimal-h30-stock-rebuild-1007-cfp`. A/B are byte-identical
-  at SHA-256 `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
+  host-only H30 was materialized from the same functional configuration as `0.11.197 /
+  phase3-minimal-h30-stock-rebuild-1007-cfp`; A/B are byte-identical at SHA-256
+  `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
   the exact kernel remains `59f79b8f…`, and only identity/state paths changed.
   See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H30_H0_2026-08-21.md`.
-  H30 is H0-only. The Native-boundary and pstore-health repairs supersede the
-  pending review subjects: current owner closure is
-  `9668df832d9a0ff64ee1ef24c69faf81f10be7047c92c7f4f3c59380685ae267` and
-  current candidate-return continuation closure is
-  `768c5bda3313f83b5ebc037a383bde245a598b26c9fdf5aa116f89e174ac4464`.
-  The prior PASS_GO/review bytes bind the old closures and therefore do not
-  qualify these repaired bytes. No replacement review, H30 qualification,
-  manifest, approval, token, or live authority is created here.
-  The private manifest and D0 passed, but the attended run stopped before both
-  candidate and rollback writes: Native `adb devices` started its absent host
-  server and wrote a banner to stderr, which the strict inventory rejected.
+  H30 is H0-only. Luna MAX independently passed current owner `9668df83…`,
+  continuation `768c5bda…`, and postrollback recovery `5c692920…` closures;
+  current review SHAs are `41101a00…` and `660c7e85…`. The earlier H30
+  qualification still binds stale closures and is superseded by
+  `A90_H30_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`; no current
+  qualification, manifest, approval, token, F1, or live authority exists.
+  The private manifest and D0 passed, but the attended run stopped before both writes when
+  Native `adb devices` started its absent host server and emitted rejected stderr.
   Both receipts are quiescent `PRE_WRITE_FAILURE` with `writeStarted=false`;
   H30 remains unproved, exact V2321 remains healthy, and both guards remain.
   See `docs/reports/A90_H30_NATIVE_ADB_INVENTORY_PREWRITE_FAILURE_2026-08-21.md`.
