@@ -583,10 +583,11 @@ identity:
   the exact kernel remains `59f79b8f…`, and only identity/state paths changed.
   See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H30_H0_2026-08-21.md`.
   H30 is H0-only. Current owner closure is `e0a1fa5d…` and current
-  candidate-return continuation closure is `a396a744…`; the old `9b17904d…`
-  dated continuation review is stale after the receipt/observer repair. Fresh
-  independent review must bind both current closures before H30 qualification,
-  private manifest, D0, approval, or F1 can exist.
+  candidate-return continuation closure is `a396a744…`. Current reusable
+  capability review and H30 candidate qualification both received independent
+  `PASS_GO`, H/M/L `0/0/0`; the H30 review is 1,181 bytes at SHA-256
+  `f23766ea52ec3c1d35b46013b21587fbbed243179a5e4afe1e008c9b61ed06d6`.
+  No private manifest, D0, approval, ordinal or F1 exists yet.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner
   then wrote and prefix-read back exact V2321 once with the same uncertain
