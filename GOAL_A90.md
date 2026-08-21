@@ -542,7 +542,29 @@ identity:
   It permits one fixed `a90ctl --input-mode slow` read-only health session only
   after a new review and exact approval, then may remove only the active guard
   after durable exact V2321 health. No implementation, review, approval,
-  observation, or guard authority exists at this design checkpoint.
+  observation, or guard authority exists at this design checkpoint. That slow
+  session then ran once and reached the exact V2321 resident: `version`,
+  `selftest fail=0`, and `status pstore entries=0` were observed, but the
+  first boot-ID request returned `EBUSY` because the native automatic menu was
+  still active. The slow-health intent is consumed and the run remains parked;
+  no recovery record was written and both guards remain. This is observer
+  no-proof, not an H28 kernel failure. See
+  `docs/reports/A90_H28_SLOW_HEALTH_BOOT_ID_BUSY_NO_PROOF_2026-08-21.md`.
+  The next H0 unit is the separately reviewed menu-hide observer repair,
+  specified in
+  `docs/plans/A90_H28_MENU_HIDE_HEALTH_RECONCILIATION_DESIGN_2026-08-21.md`
+  and implemented by
+  `workspace/public/src/scripts/server-distro/a90_h28_menu_hide_health_reconcile_v1.py`.
+  It binds the consumed slow-health intent
+  `63c26238f332a7bc1bad37a3950d5dc05f383c50a4a09ecfe57e2a119a390ac4`, sends
+  one raw `hide` line only after its new durable intent, requires the explicit
+  `hide requested` receipt, waits the fixed 3.0-second asynchronous-menu
+  settle, then reads boot ID first followed by exact V2321/version, selftest,
+  status, and a final boot-ID receipt. Exactly two boot-ID reads are required;
+  `sameBoot` derives from equality, and a changed or failed final read parks.
+  A settle interruption parks without a boot-ID request. It has no
+  candidate, rollback, reboot, image, partition, or physical-action path and
+  currently has no review, approval, observation, or guard-removal authority.
 
 ## What Leaves or Moves Out
 

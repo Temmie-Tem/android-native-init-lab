@@ -1422,6 +1422,53 @@ after exact readback under the current review lease, removal of only the active
 guard. The H28 candidate guard remains consumed. A PASS grants no session or
 other live authority.
 
+The subsequent fixed menu-state observer repair may be reconciled only through
+`a90_h28_menu_hide_health_reconcile_v1.py`. This is a new capability and a new
+sidecar namespace after the consumed slow-health capability; it must never
+reuse that capability's approval, intent, observer, or log directory. It is
+limited to the exact H28 run, manifest, nine-record terminal, active guard,
+and consumed candidate guard, and binds the physical-return intent
+`19377bc18714c7b2b698665a8c9ff96573d3c1fdfb028efba5b86f6b2def9f66`, the
+first Native-observation intent
+`8f401590bca71575258a2e3d45e1bee6c55fd4e8eeff4c22012fc25f559d05be`, and the
+consumed slow-health intent
+`63c26238f332a7bc1bad37a3950d5dc05f383c50a4a09ecfe57e2a119a390ac4`.
+Its source declares and execution verifies the exact twelve-file receipt set
+from that consumed slow-health session. The program accepts only `prepare`
+and `execute --approval TOKEN`; preparation is host-only and write-free, and
+execution requires a fresh independent `PASS_GO` review and exact fresh token.
+
+After the new intent is durably published with `O_EXCL`, one attended
+read-only Native session may bind the exact A90 USB endpoint, the managed
+bridge, and the unchanged foreign Samsung inventory, send one unframed raw
+bridge line `hide` exactly once without retry. Its receipt must explicitly
+contain `hide requested`; a prompt-only or `[done]`-only receipt is not
+success. The source must then await the existing fixed 3.0-second asynchronous
+menu settle from `native_init_flash.py` before issuing any Native read. A
+settle interruption or sleep failure consumes the intent and parks without a
+boot-ID request. After the full settle it may issue only slow-input
+`cat /proc/sys/kernel/random/boot_id`, `version`, `selftest`, and `status` in
+that order, followed by one final fixed slow-input boot-ID read named
+`boot-id-final`. Exactly two boot-ID reads and one hide send are allowed. The
+final boot-ID receipt must be present and valid and equal the initial boot ID;
+`sameBoot` is derived from that equality, not a constant. A changed, missing,
+invalid, or failed final read consumes the intent and parks without a recovery
+record or active-guard removal. The boot-ID request is first; success requires
+exact V2321, `selftest fail=0`, one `pstore` line with `entries=0`, the explicit
+hide receipt, equal initial/final boot IDs, and unchanged A90/foreign USB
+inventory. No ADB, TWRP, reboot, flash, image, partition, candidate,
+rollback, physical, service-control, or caller-selected command is available.
+
+Any hide error or busy receipt, command/transport failure, wrong resident,
+boot/USB drift, review or closure drift, malformed input, publication
+uncertainty, or host loss consumes the new intent and parks permanently while
+retaining both guards; no second hide or observer is permitted. On exact
+success the reconciler publishes and reads back the original
+`41-recovery-closed.json`, recording zero device effects and both replay flags
+false, then removes only the active guard. The H28 candidate guard remains
+consumed. This capability's PASS qualifies only its bytes and creates no live
+authority; after its exact terminal is published it expires.
+
 For future ordinary F1 rollback only, the fixed helper may use
 `--reuse-bound-recovery-or-from-native`. One strict ADB inventory either binds
 exactly one already-present recovery endpoint whose serial SHA-256 is the
