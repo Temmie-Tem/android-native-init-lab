@@ -587,7 +587,11 @@ identity:
   capability review and H30 candidate qualification both received independent
   `PASS_GO`, H/M/L `0/0/0`; the H30 review is 1,181 bytes at SHA-256
   `f23766ea52ec3c1d35b46013b21587fbbed243179a5e4afe1e008c9b61ed06d6`.
-  No private manifest, D0, approval, ordinal or F1 exists yet.
+  The canonical private H30 manifest is host-valid at SHA-256 `2a14c8be…`.
+  One connected D0 then proved exact healthy V2321, one Samsung endpoint,
+  absent H30 state, and published only `00-prepared.json` at SHA-256
+  `2ced1331…`; candidate intent, transfer, reboot and F1 remain zero pending
+  exact attended approval repetition.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner
   then wrote and prefix-read back exact V2321 once with the same uncertain
