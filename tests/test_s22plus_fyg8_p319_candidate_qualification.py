@@ -12,6 +12,15 @@ import sys
 import tempfile
 import unittest
 
+try:
+    from tests._s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+except ModuleNotFoundError:
+    from _s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+
 
 ROOT = Path(__file__).resolve().parents[1]
 QUALIFICATION = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_candidate_qualification.py"
@@ -209,7 +218,7 @@ class P319CandidateQualificationTest(unittest.TestCase):
         self.assertIn("No ready/run manifest", report)
         self.assertIn("h0-stock-candidate-qualification-plan-binding-review-26", ledger)
         self.assertIn("PASS_GO_P319_STOCK_CANDIDATE_QUALIFICATION_PLAN_BINDING_H0_CAPABILITY_V1", ledger)
-        self.assertIn("current P3.19 `-48`/`-49`/`-08` is independently reviewed H0-only `PASS_GO`", goal)
+        assert_current_p319_qualification_boundary(self, goal)
         self.assertIn("Stage B has since run and read the mxim debug register dump 0x00-0x10", goal)
         self.assertIn("that dump does not contain CONTROL1", goal)
         self.assertIn("must not be cited as two candidate boots because the candidate observer was rejected", goal)

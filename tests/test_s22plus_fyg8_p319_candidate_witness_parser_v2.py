@@ -10,6 +10,15 @@ import sys
 import tempfile
 import unittest
 
+try:
+    from tests._s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+except ModuleNotFoundError:
+    from _s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / (
@@ -386,7 +395,7 @@ class P319WitnessParserV2Test(unittest.TestCase):
         self.assertIn("S22PLUS_FYG8_P319_CANDIDATE_WITNESS_CARRIER_V5_H0_2026-08-20.md", goal)
         self.assertIn("reviewed stock-witness runtime/build closure", goal)
         self.assertIn("`-32`/`-33` Image-only predecessor", goal)
-        self.assertIn("current P3.19 `-48`/`-49`/`-08` is independently reviewed H0-only `PASS_GO`", goal)
+        assert_current_p319_qualification_boundary(self, goal)
         self.assertIn("no ready/run manifest", goal)
         self.assertIn("no ready/run manifest or live authority", goal)
         self.assertLessEqual(len(goal.splitlines()), 900)

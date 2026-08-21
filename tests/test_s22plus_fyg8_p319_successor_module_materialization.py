@@ -7,6 +7,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+try:
+    from tests._s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+except ModuleNotFoundError:
+    from _s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / (
@@ -278,7 +287,7 @@ class P319SuccessorModuleMaterializationTest(unittest.TestCase):
         goal = GOAL.read_text(encoding="utf-8")
         self.assertIn("the reviewed module materialization is", goal)
         self.assertIn("S22PLUS_FYG8_P319_SUCCESSOR_MODULE_MATERIALIZATION_H0_2026-08-20.md", goal)
-        self.assertIn("current P3.19 `-48`/`-49`/`-08` is independently reviewed H0-only `PASS_GO`", goal)
+        assert_current_p319_qualification_boundary(self, goal)
         self.assertIn("no ready/run manifest", goal)
         self.assertIn("no ready/run manifest or live authority", goal)
         self.assertLessEqual(len(goal.splitlines()), 900)

@@ -46,6 +46,14 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         ):
             with self.subTest(blocker=blocker):
                 self.assertIn(blocker, self.report)
+        self.assertIn("first independent full P3.19", self.report)
+        self.assertIn("532 tests: 527 passed", self.report)
+        self.assertIn("four failed on the four stale", self.report)
+        self.assertIn("fresh full selection again ran", self.report)
+        self.assertIn("532 tests: 531 passed, zero failed", self.report)
+        self.assertIn("same unavailable mount-path", self.report)
+        self.assertIn("531/531 is a post-correction result", self.report)
+        self.assertIn("not a true description of the original", self.report)
 
     def test_report_keeps_no_proof_buckets_and_runtime_gate_distinct(self):
         self.assertIn("`NONCAUSAL_SUCCESS_PATH`", self.report)
@@ -124,18 +132,38 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         )
 
     def test_append_only_row_opens_only_the_review_29_obligation(self):
-        rows = [
+        original_rows = [
             line
             for line in self.ledger.splitlines()
-            if "h0-process-v2-integration-prerequisites-29" in line
+            if "| h0-process-v2-integration-prerequisites-29 |" in line
         ]
-        self.assertEqual(len(rows), 1)
+        correction_rows = [
+            line
+            for line in self.ledger.splitlines()
+            if "| h0-process-v2-integration-prerequisites-followup-29 |" in line
+        ]
+        self.assertEqual(len(original_rows), 1)
+        self.assertEqual(len(correction_rows), 1)
+        rows = original_rows
         self.assertIn(
             "P319_PROCESS_V2_INTEGRATION_PREREQUISITES_IMPLEMENTED_REVIEW_PENDING",
             rows[0],
         )
         self.assertIn("Independent review is required", rows[0])
         self.assertNotIn("PASS_GO_", rows[0])
+        correction = correction_rows[0]
+        self.assertIn(
+            "P319_PROCESS_V2_INTEGRATION_VALIDATION_COUNT_CORRECTION_NO_NEW_OBLIGATION",
+            correction,
+        )
+        self.assertIn("original h0-process-v2-integration-prerequisites-29", correction)
+        self.assertIn("527 passed, 4 failed", correction)
+        self.assertIn("1 separate materialization error", correction)
+        self.assertIn("531 passed, zero failed", correction)
+        self.assertIn("post-correction result only", correction)
+        self.assertIn("opens no new obligation", correction)
+        self.assertNotIn("PASS_GO_", correction)
+        self.assertNotIn("_REVIEW_PENDING", correction)
 
     def test_goal_propagates_the_blocked_integration_without_live_authority(self):
         self.assertIn("changed adapter closure now requires requalification", self.goal)

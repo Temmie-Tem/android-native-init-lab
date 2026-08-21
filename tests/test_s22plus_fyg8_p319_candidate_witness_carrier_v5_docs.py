@@ -3,6 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
+try:
+    from tests._s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+except ModuleNotFoundError:
+    from _s22plus_goal_guards import (
+        assert_current_p319_qualification_boundary,
+    )
+
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT = ROOT / (
@@ -40,10 +49,24 @@ class P319CandidateWitnessCarrierV5DocsTest(unittest.TestCase):
             "S22PLUS_FYG8_P319_CANDIDATE_WITNESS_CARRIER_V5_H0_2026-08-20.md",
             goal,
         )
-        self.assertIn(
-            "current P3.19 `-48`/`-49`/`-08` is independently reviewed H0-only `PASS_GO`",
-            goal,
+        assert_current_p319_qualification_boundary(self, goal)
+        frontier = next(
+            line
+            for line in goal.splitlines()
+            if "The forward frontier has moved off" in line
         )
+        fake_authority = (
+            "Unrelated audit note: `-48`/`-49`/`-08` is independently reviewed "
+            "H0-only `PASS_GO`; the changed adapter closure now requires "
+            "requalification; no ready/run manifest or live authority."
+        )
+        bypass_attempt = goal.replace(
+            frontier,
+            frontier.replace("`-48`/`-49`/`-08`", "the typed tuple", 1),
+            1,
+        ) + fake_authority + "\n"
+        with self.assertRaises(AssertionError):
+            assert_current_p319_qualification_boundary(self, bypass_attempt)
         self.assertIn("no ready/run manifest", goal)
         self.assertIn("no ready/run manifest or live authority", goal)
 

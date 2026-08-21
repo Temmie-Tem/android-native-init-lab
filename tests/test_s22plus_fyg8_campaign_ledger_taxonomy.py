@@ -867,6 +867,57 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "s22plus-fyg8-p318",
             ],
         )
+        self._assert_topic_29_correction_is_non_obligating()
+
+    def _assert_topic_29_correction_is_non_obligating(self):
+        marker = self.auditor.MARKER
+        all_lines = self.ledger_data.split(marker, 1)[1].splitlines(keepends=True)
+        all_rows, _, _ = self.auditor.parse_log_rows(all_lines)
+        followups = [
+            row
+            for row in all_rows
+            if row["ordinal"] == "h0-process-v2-integration-prerequisites-followup-29"
+        ]
+        self.assertEqual(len(all_rows), 343)
+        self.assertEqual(len(followups), 1)
+        followup = followups[0]
+        self.assertEqual(
+            self.auditor.pending_review_topic(followup),
+            "process-v2-integration-prerequisites",
+        )
+        self.assertEqual(
+            self.auditor.capability_review_state(
+                followup["tier"], followup["action"]
+            ),
+            "NOT_APPLICABLE",
+        )
+        obligations = self.auditor.audit_review_obligations(all_rows)
+        self.assertEqual(
+            (
+                obligations["total"],
+                obligations["resolved_count"],
+                obligations["unresolved_count"],
+            ),
+            (47, 32, 15),
+        )
+        self.assertEqual(
+            [
+                item
+                for item in obligations["unresolved"]
+                if item["review_topic"] == "process-v2-integration-prerequisites"
+            ],
+            [
+                {
+                    "campaign": "s22plus-fyg8-p319",
+                    "review_topic": "process-v2-integration-prerequisites",
+                    "pending_ordinal": "h0-process-v2-integration-prerequisites-29",
+                    "pending_action": (
+                        "P319_PROCESS_V2_INTEGRATION_PREREQUISITES_"
+                        "IMPLEMENTED_REVIEW_PENDING"
+                    ),
+                }
+            ],
+        )
 
     def test_one_topic_cannot_open_two_review_obligations(self):
         appended = self.ledger_data + (

@@ -154,14 +154,20 @@ the pinned-intent digest under the integration auditor's canonical encoding is
 
 The focused arming, executability, prerequisite, and integration suite passes
 43 tests. Relevant docs and taxonomy pass 86/86, and the common Process-v2
-selector passes 122/122 (`22 + 28 + 47 + 25`). The P3.19 selection passes
-531/531 after excluding the one materialization regeneration whose configured
-`/mnt/android-lab-logical/vendor_dlkm/lib/modules` source is absent on this
-host. That exact test passes separately when rebound to the already
-identity-bound `stock-witness-runtime-v1-20260821-32/module-bytes` copies; no
-test logic or expected hash is changed. The integration receipt contains no
-ready, run, approval, causal, candidate-success, D0, D1, F1, recovery, replay,
-or live authority.
+selector passes 122/122 (`22 + 28 + 47 + 25`). The first independent full P3.19
+selection actually ran 532 tests: 527 passed, four failed on the four stale
+GOAL prose guards, and one errored while regenerating the materialization
+because its configured `/mnt/android-lab-logical/vendor_dlkm/lib/modules`
+source is absent on this host. After replacing those four duplicated prose
+literals with one shared semantic assertion, a fresh full selection again ran
+532 tests: 531 passed, zero failed, and only the same unavailable mount-path
+regeneration errored. The materialization test passes separately when rebound
+to the already identity-bound
+`stock-witness-runtime-v1-20260821-32/module-bytes` copies; no test logic or
+expected hash is changed. Thus 531/531 is a post-correction result after one
+explicit unavailable-input exclusion, not a true description of the original
+commit-time run. The integration receipt contains no ready, run, approval,
+causal, candidate-success, D0, D1, F1, recovery, replay, or live authority.
 
 ## Required next order
 
