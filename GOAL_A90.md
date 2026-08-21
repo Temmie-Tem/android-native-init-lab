@@ -574,27 +574,19 @@ identity:
   A settle interruption parks without a boot-ID request. It has no
   candidate, rollback, reboot, image, partition, or physical-action path and
   currently has no review, approval, observation, or guard-removal authority.
-  Host-only H29 was then materialized from the same H28 functional bytes with
-  identity-only changes: `0.11.196 / phase3-minimal-h29-stock-rebuild-1007-cfp`,
-  cycle `H0-PHASE3H29`, fresh H29 enable/latch paths, and no candidate
-  authority. Its A/B boot SHA is
-  `c3d1b84eab65f387ce807cf9c355dc04dcc966cef15bf64e4fda901242907324` and
-  its exact kernel blob remains `59f79b8f0e8f8f3551d04488ec32073faa8ef9ba7439bd65e95d0585ab82ccac`.
-  See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H29_H0_2026-08-21.md`.
-  H29 is H0-only and distinct from H28; it cannot be qualified or executed
-  until the outstanding H28 recovery/guard state is reconciled, then receives
-  its own fresh qualification, review, D0, and attended F1 approval.
-  The public H29 qualification input and review handoff are now prepared at
-  `docs/reports/A90_H29_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-21.json` and
-  `docs/plans/A90_H29_MINIMAL_F1_QUALIFICATION_HANDOFF_2026-08-21.md`.
-  They bind the current owner closure `c2da655e…`, the current single-Samsung
-  continuation PASS_GO at closure `9b17904d…`, the H29 build/flat-manifest
-  digests, and the new-build-certificate hazard while keeping every authority
-  false. The demonstrated recovery profile/method is declared,
-  but the exact recovery ADB serial SHA remains intentionally unbound in
-  public scope and must come from the operator-private manifest; no guessed
-  digest is accepted.
-  This input is not an owner manifest, approval, token, D0, or F1 authority.
+  H29 `0.11.196` was the first identity-only exact-toolchain candidate, with
+  boot SHA `c3d1b84e…`; its materialization and qualification remain historical
+  at their named reports. After its consumed uncertain run was recovered,
+  host-only H30 was materialized from the same functional configuration as
+  `0.11.197 / phase3-minimal-h30-stock-rebuild-1007-cfp`. A/B are byte-identical
+  at SHA-256 `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
+  the exact kernel remains `59f79b8f…`, and only identity/state paths changed.
+  See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H30_H0_2026-08-21.md`.
+  H30 is H0-only. Current owner closure is `77675e05…` and current
+  candidate-return continuation closure is `7810fa34…`; the old `9b17904d…`
+  continuation review is stale after the receipt/observer repair. Fresh
+  independent review must bind both current closures before H30 qualification,
+  private manifest, D0, approval, or F1 can exist.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner
   then wrote and prefix-read back exact V2321 once with the same uncertain
