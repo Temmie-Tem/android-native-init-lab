@@ -574,6 +574,23 @@ identity:
   A settle interruption parks without a boot-ID request. It has no
   candidate, rollback, reboot, image, partition, or physical-action path and
   currently has no review, approval, observation, or guard-removal authority.
+  Separately, the ordinary F1 owner now has a host-only machine receipt for
+  the exact `boot write + prefix readback + uncertain TWRP System return`
+  case. It durably parks that case as `CANDIDATE_RETURN_PENDING` before any
+  rollback; generic rc/prose/missing receipts never enter the park. The
+  candidate-neutral physical/observation continuation remains a separate H0
+  design with no live authority:
+  `docs/plans/A90_F1_CANDIDATE_RETURN_CONTINUATION_DESIGN_2026-08-21.md`.
+  The receipt/park implementation is recorded in
+  `docs/reports/A90_F1_CANDIDATE_RETURN_MACHINE_RECEIPT_H0_2026-08-21.md`;
+  its execution-closure change requires fresh independent review before F1.
+  New candidate or rollback success also requires the exact confirmed-return
+  receipt; a healthy snapshot with an unclassified, missing, or legacy effect
+  result is not a new success terminal. A crash between exact uncertain
+  `22-candidate-result.json` and `23-candidate-return-pending.json` now parks
+  as `CANDIDATE_RETURN_PENDING_RECORD_MISSING_NO_ROLLBACK`; historical H28
+  records without the new outcome are not reclassified. The `23` receipt
+  digest must equal the durable `22` receipt digest exactly.
 
 ## What Leaves or Moves Out
 

@@ -198,6 +198,92 @@ def _json(raw: bytes, label: str) -> dict[str, Any]:
     return value
 
 
+OWNER_RECEIPT_SCHEMA = "a90-f1-owner-effect-receipt-v1"
+OWNER_RECEIPT_MODE = "A90_F1_OWNER_EFFECT_RECEIPT_V1"
+OWNER_RECEIPT_OUTCOMES = {
+    "PRE_WRITE_FAILURE",
+    "WRITE_OR_READBACK_UNCLASSIFIED",
+    "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED",
+    "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+}
+
+
+def _parse_owner_effect_receipt(raw: bytes) -> str:
+    """Return a stage only for the exact fixed helper receipt.
+
+    Missing, prose, duplicate, or malformed stdout is deliberately mapped to
+    ``UNCLASSIFIED``.  It can never manufacture candidate-return pending.
+    """
+    if not raw:
+        return "UNCLASSIFIED"
+    try:
+        value = _json(raw, "owner effect receipt")
+    except ContractError:
+        return "UNCLASSIFIED"
+    if canonical_json(value) != raw:
+        return "UNCLASSIFIED"
+    if set(value) != {
+        "schema",
+        "mode",
+        "outcome",
+        "writeStarted",
+        "bootWrittenReadbackExact",
+        "systemReturnAttempted",
+        "systemReturnCommandOk",
+        "systemReturnConfirmed",
+    }:
+        return "UNCLASSIFIED"
+    if (
+        value["schema"] != OWNER_RECEIPT_SCHEMA
+        or value["mode"] != OWNER_RECEIPT_MODE
+        or type(value["outcome"]) is not str
+        or value["outcome"] not in OWNER_RECEIPT_OUTCOMES
+        or any(
+            type(value[key]) is not bool
+            for key in (
+                "writeStarted",
+                "bootWrittenReadbackExact",
+                "systemReturnAttempted",
+                "systemReturnCommandOk",
+                "systemReturnConfirmed",
+            )
+        )
+    ):
+        return "UNCLASSIFIED"
+    if value["outcome"] == "PRE_WRITE_FAILURE" and any(
+        value[key]
+        for key in (
+            "writeStarted",
+            "bootWrittenReadbackExact",
+            "systemReturnAttempted",
+            "systemReturnCommandOk",
+            "systemReturnConfirmed",
+        )
+    ):
+        return "UNCLASSIFIED"
+    if value["outcome"] == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED" and (
+        not value["writeStarted"]
+        or not value["bootWrittenReadbackExact"]
+        or not value["systemReturnAttempted"]
+        or not value["systemReturnCommandOk"]
+        or not value["systemReturnConfirmed"]
+    ):
+        return "UNCLASSIFIED"
+    if value["outcome"] == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN" and (
+        not value["writeStarted"]
+        or not value["bootWrittenReadbackExact"]
+        or not value["systemReturnAttempted"]
+        or not value["systemReturnCommandOk"]
+        or value["systemReturnConfirmed"]
+    ):
+        return "UNCLASSIFIED"
+    if value["outcome"] == "WRITE_OR_READBACK_UNCLASSIFIED" and (
+        not value["writeStarted"] or value["bootWrittenReadbackExact"]
+    ):
+        return "UNCLASSIFIED"
+    return value["outcome"]
+
+
 def _one_line(text: str, pattern: re.Pattern[str], label: str) -> re.Match[str]:
     matches = [pattern.fullmatch(line.strip()) for line in text.replace("\r", "").splitlines()]
     exact = [match for match in matches if match is not None]
@@ -600,6 +686,7 @@ class FixedA90Adapter:
             completed=result.returncode == 0,
             quiescent=result.quiescent,
             receipt_sha256=sha256_bytes(canonical_json(receipt)),
+            outcome=_parse_owner_effect_receipt(result.stdout),
         )
 
 
@@ -627,6 +714,7 @@ def fixed_flash_argv(
         "--expect-sha256", artifact["sha256"],
         "--expect-readback-sha256", artifact["sha256"],
         "--verify-protocol", "selftest",
+        "--owner-receipt-mode", OWNER_RECEIPT_MODE,
         "--recovery-timeout", str(helper_phase_timeout),
         "--bridge-timeout", str(helper_phase_timeout),
     )

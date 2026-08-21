@@ -695,6 +695,9 @@ The owner is only as good as what it refuses. At minimum:
 - non-empty journal at start;
 - crash after `CANDIDATE_INTENT` and before result — must resume without
   candidate replay;
+- exact boot write/readback followed by uncertain TWRP System return — park
+  as `CANDIDATE_RETURN_PENDING` before rollback; the bounded continuation is
+  specified separately in `A90_F1_CANDIDATE_RETURN_CONTINUATION_DESIGN_2026-08-21.md`;
 - candidate retry attempted after a failure;
 - post-candidate artifact drift followed by candidate retry;
 - rollback or helper-closure drift followed by rollback launch;
@@ -743,6 +746,7 @@ The owner is only as good as what it refuses. At minimum:
 - `docs/plans/A90_SELF_BUILT_KERNEL_F1_DESIGN_2026-08-16.md`
 - `docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md`
 - `workspace/public/src/scripts/revalidation/native_init_flash.py`
+- `docs/plans/A90_F1_CANDIDATE_RETURN_CONTINUATION_DESIGN_2026-08-21.md`
 - `workspace/public/src/scripts/revalidation/a90_boot_only_f1_fd_exec.py`
 - `workspace/public/src/scripts/revalidation/a90_boot_only_f1_source_package_v1.py`
 

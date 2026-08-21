@@ -457,7 +457,7 @@ class FixedAdapterTest(unittest.TestCase):
                 )
 
     def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 640)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 720)
 
 
 if __name__ == "__main__":

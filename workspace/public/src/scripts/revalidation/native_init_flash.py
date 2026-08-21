@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 from a90ctl import ProtocolResult, run_cmdv1_command
@@ -37,6 +38,14 @@ TWRP_SYSTEM_REBOOT_COMMAND = (
     f"test \"$(sha256sum {TWRP_SYSTEM_SCRIPT} | cut -d' ' -f1)\" = "
     f"'{TWRP_SYSTEM_SCRIPT_SHA256}' && "
     "exec twrp reboot"
+)
+OWNER_RECEIPT_SCHEMA = "a90-f1-owner-effect-receipt-v1"
+OWNER_RECEIPT_MODE = "A90_F1_OWNER_EFFECT_RECEIPT_V1"
+OWNER_OUTCOMES = (
+    "PRE_WRITE_FAILURE",
+    "WRITE_OR_READBACK_UNCLASSIFIED",
+    "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED",
+    "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
 )
 BOOT_READBACK_BLOCK_SIZE = 4096
 ANDROID_BOOT_MAGIC = b"ANDROID!"
@@ -75,6 +84,62 @@ SELF_WRITE_MODES = {
 }
 
 
+@dataclass
+class OwnerEffectState:
+    """In-process stage facts used only by the fixed owner receipt mode."""
+
+    write_started: bool = False
+    boot_written_readback_exact: bool = False
+    system_return_attempted: bool = False
+    system_return_command_ok: bool = False
+    system_return_confirmed: bool = False
+
+    def outcome(self) -> str:
+        if not self.write_started:
+            return "PRE_WRITE_FAILURE"
+        if not self.boot_written_readback_exact:
+            return "WRITE_OR_READBACK_UNCLASSIFIED"
+        if not self.system_return_attempted or not self.system_return_command_ok:
+            return "WRITE_OR_READBACK_UNCLASSIFIED"
+        if self.system_return_confirmed:
+            return "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED"
+        return "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN"
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "schema": OWNER_RECEIPT_SCHEMA,
+            "mode": OWNER_RECEIPT_MODE,
+            "outcome": self.outcome(),
+            "writeStarted": self.write_started,
+            "bootWrittenReadbackExact": self.boot_written_readback_exact,
+            "systemReturnAttempted": self.system_return_attempted,
+            "systemReturnCommandOk": self.system_return_command_ok,
+            "systemReturnConfirmed": self.system_return_confirmed,
+        }
+
+
+OWNER_EFFECT_STATE: OwnerEffectState | None = None
+
+
+def _emit_owner_receipt(state: OwnerEffectState) -> None:
+    """Emit exactly one canonical JSON object and no prose on stdout."""
+    raw = json.dumps(
+        state.payload(),
+        ensure_ascii=True,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sys.stdout.write(raw)
+    sys.stdout.flush()
+
+
+def owner_stdout(*args: object, **kwargs: object) -> None:
+    """Keep the fixed owner stdout channel reserved for its receipt."""
+    if OWNER_EFFECT_STATE is None:
+        print(*args, **kwargs)
+
+
 def log(message: str) -> None:
     timestamp = time.strftime("%H:%M:%S")
     print(f"[native-init-flash {timestamp}] {message}", file=sys.stderr, flush=True)
@@ -105,7 +170,12 @@ def run_command(args: list[str],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-    return subprocess.run(args, check=check)
+    kwargs: dict[str, object] = {}
+    if OWNER_EFFECT_STATE is not None:
+        # The owner receipt is the sole stdout producer.  Child command prose
+        # must not be mixed into its strict machine envelope.
+        kwargs["stdout"] = subprocess.DEVNULL
+    return subprocess.run(args, check=check, **kwargs)
 
 
 def adb_base(adb: str, serial: str | None) -> list[str]:
@@ -857,7 +927,7 @@ def reboot_native_to_recovery(args: argparse.Namespace) -> None:
             markers=(b"recovery:", b"[err]", b"[busy]"),
             retry_transport=False,
         )
-        print(output, end="")
+        owner_stdout(output, end="")
         if "[busy]" in output or "[err]" in output:
             raise RuntimeError(
                 "native recovery command failed; minimal one-shot mode does not resend"
@@ -871,7 +941,7 @@ def reboot_native_to_recovery(args: argparse.Namespace) -> None:
             args.bridge_timeout,
             markers=(b"recovery:", b"[err]", b"[busy]"),
         )
-        print(output, end="")
+        owner_stdout(output, end="")
 
         if "[busy]" not in output:
             return
@@ -884,7 +954,7 @@ def reboot_native_to_recovery(args: argparse.Namespace) -> None:
             args.bridge_timeout,
             markers=(b"[busy]", b"[done]", b"[err]"),
         )
-        print(hide_output, end="")
+        owner_stdout(hide_output, end="")
         time.sleep(3.0)
 
     raise RuntimeError("native init recovery command stayed busy after hide retries")
@@ -912,6 +982,8 @@ def flash_boot_image(args: argparse.Namespace,
         f"dd if={remote} of={block} "
         "bs=4M conv=fsync && sync"
     )
+    if OWNER_EFFECT_STATE is not None:
+        OWNER_EFFECT_STATE.write_started = True
     with phase_timer("boot_dd_write"):
         run_command(adb_base(args.adb, serial) + ["shell", flash_cmd])
 
@@ -920,6 +992,8 @@ def flash_boot_image(args: argparse.Namespace,
     log(f"boot block prefix sha256: {boot_prefix_hash}")
     if boot_prefix_hash != expected_readback_hash:
         raise RuntimeError("boot block prefix sha256 mismatch after flash")
+    if OWNER_EFFECT_STATE is not None:
+        OWNER_EFFECT_STATE.boot_written_readback_exact = True
 
 
 def reboot_twrp_to_system(
@@ -945,6 +1019,8 @@ def reboot_twrp_to_system(
     )
     attempts = 1 if minimal_single_shot else 3
     for attempt in range(1, attempts + 1):
+        if OWNER_EFFECT_STATE is not None:
+            OWNER_EFFECT_STATE.system_return_attempted = True
         log(f"requesting system boot through TWRP no-argument reboot attempt={attempt}")
         result = run_command(
             adb_base(args.adb, serial)
@@ -956,6 +1032,13 @@ def reboot_twrp_to_system(
         if output:
             for line in output.splitlines():
                 log(f"twrp reboot: {line}")
+
+        if OWNER_EFFECT_STATE is not None:
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"TWRP System-return command failed with rc={result.returncode}"
+                )
+            OWNER_EFFECT_STATE.system_return_command_ok = True
 
         if (
             args.require_stable_adb_baseline
@@ -974,6 +1057,8 @@ def reboot_twrp_to_system(
                 strict_inventory=args.require_empty_adb_baseline,
             )
         if disconnected:
+            if OWNER_EFFECT_STATE is not None:
+                OWNER_EFFECT_STATE.system_return_confirmed = True
             return
 
         if minimal_single_shot:
@@ -1010,7 +1095,7 @@ def verify_native_init_selftest(args: argparse.Namespace) -> str:
         args.bridge_timeout,
         ["selftest"],
     )
-    print(result.text, end="" if result.text.endswith("\n") else "\n")
+    owner_stdout(result.text, end="" if result.text.endswith("\n") else "\n")
     verify_cmdv1_result(result, "selftest")
     if "fail=0" not in result.text:
         raise RuntimeError("native selftest did not report fail=0")
@@ -1022,7 +1107,7 @@ def verify_native_init_selftest(args: argparse.Namespace) -> str:
             args.bridge_timeout,
             ["version"],
         )
-        print(version_result.text, end="" if version_result.text.endswith("\n") else "\n")
+        owner_stdout(version_result.text, end="" if version_result.text.endswith("\n") else "\n")
         verify_cmdv1_result(version_result, "version")
         if args.expect_version not in version_result.text:
             raise RuntimeError(f"expected version marker not found: {args.expect_version}")
@@ -1039,7 +1124,7 @@ def verify_native_init_raw(args: argparse.Namespace) -> str:
         args.bridge_timeout,
         markers=(b"[done] version", b"[err] version"),
     )
-    print(output, end="")
+    owner_stdout(output, end="")
     if args.expect_version and args.expect_version not in output:
         raise RuntimeError(f"expected version marker not found: {args.expect_version}")
     return output
@@ -1060,7 +1145,7 @@ def verify_native_init_cmdv1(args: argparse.Namespace) -> str:
         args.bridge_timeout,
         ["version"],
     )
-    print(version_result.text, end="" if version_result.text.endswith("\n") else "\n")
+    owner_stdout(version_result.text, end="" if version_result.text.endswith("\n") else "\n")
     verify_cmdv1_result(version_result, "version")
     if args.expect_version and args.expect_version not in version_result.text:
         raise RuntimeError(f"expected version marker not found: {args.expect_version}")
@@ -1071,7 +1156,7 @@ def verify_native_init_cmdv1(args: argparse.Namespace) -> str:
         args.bridge_timeout,
         ["status"],
     )
-    print(status_result.text, end="" if status_result.text.endswith("\n") else "\n")
+    owner_stdout(status_result.text, end="" if status_result.text.endswith("\n") else "\n")
     verify_cmdv1_result(status_result, "status")
 
     log("cmdv1 verify passed: version/status rc=0 status=ok")
@@ -1127,7 +1212,7 @@ def verify_android_adb(args: argparse.Namespace) -> str:
     summary = f"android_adb serial={serial} {last_props}"
     if root_text:
         summary += f" root={root_text}"
-    print(summary)
+    owner_stdout(summary)
     return summary
 
 
@@ -1191,6 +1276,14 @@ def parse_args() -> argparse.Namespace:
             "rollback-only minimal mode: use one already-present recovery "
             "endpoint only when its serial hash matches, otherwise bind the "
             "non-recovery baseline and send Native recovery once"
+        ),
+    )
+    parser.add_argument(
+        "--owner-receipt-mode",
+        choices=(OWNER_RECEIPT_MODE,),
+        help=(
+            "fixed A90 owner mode: emit one strict effect-stage receipt; "
+            "the owner, not prose or a generic return code, classifies return uncertainty"
         ),
     )
     parser.add_argument(
@@ -1293,7 +1386,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    global OWNER_EFFECT_STATE
     args = parse_args()
+    OWNER_EFFECT_STATE = (
+        OwnerEffectState() if args.owner_receipt_mode == OWNER_RECEIPT_MODE else None
+    )
+    if OWNER_EFFECT_STATE is not None and args.verify_only:
+        raise SystemExit("owner receipt mode requires one boot transfer, not --verify-only")
     args.expect_sha256 = normalize_sha256(args.expect_sha256, label="--expect-sha256")
     args.expect_readback_sha256 = normalize_sha256(
         args.expect_readback_sha256,
@@ -1342,6 +1441,8 @@ def main() -> int:
         if args.verify_only:
             with phase_timer(f"verify_{args.post_flash_target.replace('-', '_')}"):
                 verify_post_flash_target(args)
+            if OWNER_EFFECT_STATE is not None:
+                _emit_owner_receipt(OWNER_EFFECT_STATE)
             return 0
 
         if not args.boot_image:
@@ -1418,6 +1519,8 @@ def main() -> int:
             reboot_twrp_to_system(args, serial, adb_baseline=adb_baseline)
         with phase_timer(f"verify_{args.post_flash_target.replace('-', '_')}"):
             verify_post_flash_target(args)
+        if OWNER_EFFECT_STATE is not None:
+            _emit_owner_receipt(OWNER_EFFECT_STATE)
         return 0
 
 
@@ -1426,7 +1529,11 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except KeyboardInterrupt:
         log("interrupted")
+        if OWNER_EFFECT_STATE is not None:
+            _emit_owner_receipt(OWNER_EFFECT_STATE)
         raise SystemExit(130)
     except Exception as exc:
         log(f"error: {exc}")
+        if OWNER_EFFECT_STATE is not None:
+            _emit_owner_receipt(OWNER_EFFECT_STATE)
         raise SystemExit(1)

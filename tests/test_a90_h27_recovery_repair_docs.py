@@ -71,7 +71,7 @@ class RecoveryRepairDocsTest(unittest.TestCase):
         self.assertEqual(len(M.EXECUTION_SOURCE_RELS), 13)
         self.assertEqual(
             M.execution_closure_sha256(),
-            "0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f",
+            "2ad09a1dedf4c84e481f9440e18645b94cf4222541339a73d6b5129ae7a99012",
         )
         self.assertEqual(
             M.POSTROLLBACK_RECOVERY_PATH[-1], "41-recovery-closed.json"
@@ -118,7 +118,7 @@ class RecoveryRepairDocsTest(unittest.TestCase):
             "e58746ea93270c43a28db5df20695a61a687eec942a5a665f562f4fe5173f077",
         )
         self.assertNotEqual(review["executionClosureSha256"], M.execution_closure_sha256())
-        self.assertEqual(h28_input["executionClosureSha256"], M.execution_closure_sha256())
+        self.assertNotEqual(h28_input["executionClosureSha256"], M.execution_closure_sha256())
         self.assertEqual(review["candidateSha256"], "fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500")
         self.assertFalse(review["liveAuthority"])
         self.assertTrue(all(value == 0 for value in review["contacts"].values()))

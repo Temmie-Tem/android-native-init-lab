@@ -1282,23 +1282,39 @@ journal, checked flash/bridge closures, and physical recovery availability.
 Trial policy needs no per-candidate approval, but the existing v1 runner still
 requires one fresh `A90_F1_RESIDENT_INSTALL_V1` binding for one candidate plus
 its exact rollback. Candidate replay is forbidden: the runner must never retry
-the candidate. Once candidate execution begins, rollback never waits.
+the candidate. A proven boot write/readback followed by uncertain TWRP System
+return is parked as `CANDIDATE_RETURN_PENDING` before rollback; only the
+separately reviewed, attended physical/observation continuation may resolve
+that park. After attributable candidate failure, rollback never waits. See
+`docs/plans/A90_F1_CANDIDATE_RETURN_CONTINUATION_DESIGN_2026-08-21.md`; that
+design is not executable authority.
 
 After the candidate transfer:
 
 - candidate transfer ambiguity, wrong identity, explicit initial-health
   failure, inability to establish initial control, or lost recovery requires
-  exact rollback;
+  exact rollback, except for the separately classified exact
+  `CANDIDATE_RETURN_PENDING` receipt path;
+- a crash after an exact uncertain `22-candidate-result.json` and before its
+  `23-candidate-return-pending.json` must return
+  `CANDIDATE_RETURN_PENDING_RECORD_MISSING_NO_ROLLBACK`; malformed,
+  substituted, legacy, or missing-outcome results remain the historical
+  rollback-only classification and are never upgraded. A present `23` is
+  valid only when its `effectReceiptSha256` equals the durable `22` result
+  receipt digest; mismatch is a named no-rollback park; and
 - initial resident health requires exact candidate version/build, the bound
-  native self-test/health predicates, a working bounded control response, and
-  preserved physical recovery; and
+  native self-test/health predicates, a working bounded control response, a
+  preserved physical recovery, and the exact owner receipt
+  `BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED`; and
 - once `RESIDENT_HEALTHY` is durably recorded, a later Debian experiment
   refutation or observer-only no-proof does not retroactively fail installation
   and does not require rollback.
 
-A successful install terminal is `PASS_A90_RESIDENT_INSTALLED`. A failed or
+A successful install terminal is `PASS_A90_RESIDENT_INSTALLED` only with that
+exact confirmed-return receipt. A failed or
 ambiguous install uses one exact rollback and closes only after V2321 health is
-verified. A rollback failure is `RECOVERY_REQUIRED`. The existing v1 runner's
+verified with the same exact confirmed-return receipt for the rollback helper.
+A rollback failure or unclassified/missing receipt is `RECOVERY_REQUIRED`. The existing v1 runner's
 first use of this terminal requires its schema update, focused tests, review,
 connected preflight, and compatibility binding; this document alone creates no
 active campaign.

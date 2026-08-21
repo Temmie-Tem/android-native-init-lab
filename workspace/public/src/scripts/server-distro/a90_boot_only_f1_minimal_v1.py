@@ -87,6 +87,7 @@ RECORDS = (
     "20-candidate-intent.json",
     "21-candidate-launched.json",
     "22-candidate-result.json",
+    "23-candidate-return-pending.json",
     "30-rollback-intent.json",
     "31-rollback-launched.json",
     "32-rollback-result.json",
@@ -101,6 +102,7 @@ RECORD_KINDS = {
     "20-candidate-intent.json": "CANDIDATE_INTENT",
     "21-candidate-launched.json": "CANDIDATE_LAUNCHED",
     "22-candidate-result.json": "CANDIDATE_RESULT",
+    "23-candidate-return-pending.json": "CANDIDATE_RETURN_PENDING",
     "30-rollback-intent.json": "ROLLBACK_INTENT",
     "31-rollback-launched.json": "ROLLBACK_LAUNCHED",
     "32-rollback-result.json": "ROLLBACK_RESULT",
@@ -132,6 +134,15 @@ ROLLBACK_PATH = (
 
 PRETRANSFER_ABORT_PATH = ROLLBACK_PATH + ("41-pretransfer-abort.json",)
 POSTROLLBACK_RECOVERY_PATH = ROLLBACK_PATH + ("41-recovery-closed.json",)
+CANDIDATE_RETURN_PENDING_PATH = SUCCESS_PATH[:-1] + (
+    "23-candidate-return-pending.json",
+)
+CANDIDATE_RETURN_OUTCOMES = {
+    "PRE_WRITE_FAILURE",
+    "WRITE_OR_READBACK_UNCLASSIFIED",
+    "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED",
+    "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+}
 
 
 class ContractError(RuntimeError):
@@ -704,6 +715,7 @@ class EffectResult:
     completed: bool
     quiescent: bool
     receipt_sha256: str
+    outcome: str = "UNCLASSIFIED"
 
     def validate(self) -> None:
         if type(self.returncode) is not int:
@@ -711,6 +723,11 @@ class EffectResult:
         if type(self.completed) is not bool or type(self.quiescent) is not bool:
             raise ContractError("effect flags are invalid")
         _sha(self.receipt_sha256, "effect receipt")
+        if type(self.outcome) is not str or self.outcome not in (
+            *CANDIDATE_RETURN_OUTCOMES,
+            "UNCLASSIFIED",
+        ):
+            raise ContractError("effect outcome is invalid")
 
     def payload(self) -> dict[str, Any]:
         return {
@@ -718,6 +735,7 @@ class EffectResult:
             "completed": self.completed,
             "quiescent": self.quiescent,
             "receiptSha256": self.receipt_sha256,
+            "outcome": self.outcome,
         }
 
 
@@ -877,6 +895,7 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
             ROLLBACK_PATH,
             PRETRANSFER_ABORT_PATH,
             POSTROLLBACK_RECOVERY_PATH,
+            CANDIDATE_RETURN_PENDING_PATH,
         )
     ):
         raise ContractError("journal is not an allowlisted transaction prefix")
@@ -1153,6 +1172,37 @@ def execute(
             "22-candidate-result.json",
             _record("CANDIDATE_RESULT", manifest_sha256, candidate_result.payload()),
         )
+        if (
+            candidate_result.outcome
+            == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN"
+        ):
+            # The boot bytes and their prefix readback are proven, but the
+            # single TWRP System-return request has no attributable outcome.
+            # Park before rollback.  A generic rc/prose/missing receipt never
+            # reaches this branch.
+            candidate_result_payload = candidate_result.payload()
+            pending_payload = {
+                "schema": "a90-f1-candidate-return-pending-v1",
+                "terminal": "RECOVERY_REQUIRED",
+                "reason": "CANDIDATE_RETURN_PENDING",
+                "candidateReplay": False,
+                "rollbackIntentPublished": False,
+                "effectOutcome": candidate_result.outcome,
+                "effectReceiptSha256": candidate_result_payload["receiptSha256"],
+                "helperQuiescent": candidate_result.quiescent,
+            }
+            _require_active_guard(manifest)
+            _require_candidate_guard(manifest)
+            publish_record(
+                run_directory,
+                "23-candidate-return-pending.json",
+                _record(
+                    "CANDIDATE_RETURN_PENDING",
+                    manifest_sha256,
+                    pending_payload,
+                ),
+            )
+            return pending_payload
         if not candidate_result.quiescent:
             return _terminal(
                 run_directory,
@@ -1176,6 +1226,8 @@ def execute(
             observed is not None
             and candidate_result.completed
             and candidate_result.returncode == 0
+            and candidate_result.outcome
+            == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED"
             and observed.healthy
             and observed.recovery_available
             and observed.fresh_state_observed
@@ -1243,6 +1295,8 @@ def execute(
             recovered is not None
             and rollback_result.completed
             and rollback_result.returncode == 0
+            and rollback_result.outcome
+            == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED"
             and recovered.healthy
             and recovered.recovery_available
             and recovered.other_targets_untouched
@@ -1270,6 +1324,58 @@ def execute(
         rollback.close()
 
 
+def _exact_uncertain_candidate_result(record: dict[str, Any] | None) -> bool:
+    if type(record) is not dict or type(record.get("payload")) is not dict:
+        return False
+    payload = record["payload"]
+    if set(payload) != {
+        "returncode", "completed", "quiescent", "receiptSha256", "outcome"
+    }:
+        return False
+    try:
+        _sha(payload["receiptSha256"], "candidate effect receipt")
+    except ContractError:
+        return False
+    return (
+        type(payload["returncode"]) is int
+        and payload["returncode"] != 0
+        and payload["completed"] is False
+        and type(payload["quiescent"]) is bool
+        and payload["outcome"]
+        == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN"
+    )
+
+
+def _valid_candidate_return_pending(
+    record: dict[str, Any] | None, expected_receipt_sha256: str | None
+) -> bool:
+    if type(record) is not dict or type(record.get("payload")) is not dict:
+        return False
+    payload = record["payload"]
+    if set(payload) != {
+        "schema", "terminal", "reason", "candidateReplay",
+        "rollbackIntentPublished", "effectOutcome", "effectReceiptSha256",
+        "helperQuiescent",
+    }:
+        return False
+    try:
+        expected = _sha(expected_receipt_sha256, "candidate result effect receipt")
+        pending = _sha(payload["effectReceiptSha256"], "pending effect receipt")
+    except ContractError:
+        return False
+    return (
+        payload["schema"] == "a90-f1-candidate-return-pending-v1"
+        and payload["terminal"] == "RECOVERY_REQUIRED"
+        and payload["reason"] == "CANDIDATE_RETURN_PENDING"
+        and payload["candidateReplay"] is False
+        and payload["rollbackIntentPublished"] is False
+        and payload["effectOutcome"]
+        == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN"
+        and type(payload["helperQuiescent"]) is bool
+        and pending == expected
+    )
+
+
 def recovery_decision(run_directory: Path) -> str:
     records = read_records(run_directory)
     names = set(records)
@@ -1283,6 +1389,24 @@ def recovery_decision(run_directory: Path) -> str:
         return "PARK_ROLLBACK_NO_REPLAY"
     if "30-rollback-intent.json" in names:
         return "SAME_ROLLBACK_MAY_LAUNCH_ONCE"
+    if "23-candidate-return-pending.json" in names:
+        candidate_result = records.get("22-candidate-result.json")
+        expected_receipt = (
+            candidate_result.get("payload", {}).get("receiptSha256")
+            if type(candidate_result) is dict
+            else None
+        )
+        if _exact_uncertain_candidate_result(candidate_result) and _valid_candidate_return_pending(
+            records["23-candidate-return-pending.json"], expected_receipt
+        ):
+            return "CANDIDATE_RETURN_PENDING"
+        return "CANDIDATE_RETURN_PENDING_RECORD_INVALID_NO_ROLLBACK"
+    if (
+        "22-candidate-result.json" in names
+        and "23-candidate-return-pending.json" not in names
+        and _exact_uncertain_candidate_result(records["22-candidate-result.json"])
+    ):
+        return "CANDIDATE_RETURN_PENDING_RECORD_MISSING_NO_ROLLBACK"
     if "20-candidate-intent.json" in names:
         return "CANDIDATE_CONSUMED_ROLLBACK_ONLY"
     if names.issubset({"00-prepared.json", "10-approved.json"}):

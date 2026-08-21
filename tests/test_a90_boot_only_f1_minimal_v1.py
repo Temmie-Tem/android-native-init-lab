@@ -197,9 +197,56 @@ class MinimalF1Test(unittest.TestCase):
         token = M.prepare(self.raw, self.manifest, run, backend)
         return run, token
 
+    def _uncertain_prefix(self, *, result_receipt=HEX_A, pending_receipt=HEX_A):
+        run, _token = self._prepare()
+        digest = M.sha256_bytes(self.raw)
+        for name in (
+            "10-approved.json",
+            "20-candidate-intent.json",
+            "21-candidate-launched.json",
+        ):
+            M.publish_record(run, name, M._record(M.RECORD_KINDS[name], digest, {}))
+        effect = self._effect(
+            rc=1,
+            completed=False,
+            receipt=result_receipt,
+            outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+        )
+        M.publish_record(
+            run,
+            "22-candidate-result.json",
+            M._record("CANDIDATE_RESULT", digest, effect.payload()),
+        )
+        M.publish_record(
+            run,
+            "23-candidate-return-pending.json",
+            M._record(
+                "CANDIDATE_RETURN_PENDING",
+                digest,
+                {
+                    "schema": "a90-f1-candidate-return-pending-v1",
+                    "terminal": "RECOVERY_REQUIRED",
+                    "reason": "CANDIDATE_RETURN_PENDING",
+                    "candidateReplay": False,
+                    "rollbackIntentPublished": False,
+                    "effectOutcome": effect.outcome,
+                    "effectReceiptSha256": pending_receipt,
+                    "helperQuiescent": effect.quiescent,
+                },
+            ),
+        )
+        return run
+
     @staticmethod
-    def _effect(*, completed=True, quiescent=True, rc=0, receipt=HEX_A):
-        return M.EffectResult(rc, completed, quiescent, receipt)
+    def _effect(
+        *,
+        completed=True,
+        quiescent=True,
+        rc=0,
+        receipt=HEX_A,
+        outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED",
+    ):
+        return M.EffectResult(rc, completed, quiescent, receipt, outcome)
 
     def test_manifest_accepts_only_exact_boot_contract(self):
         self.assertEqual(M.validate_manifest(self.manifest), self.manifest)
@@ -410,6 +457,65 @@ class MinimalF1Test(unittest.TestCase):
         self.assertFalse(backend.flash_calls[0][1])
         self.assertEqual(M.recovery_decision(run), "TERMINAL_COMPLETE")
         self.assertFalse((M.RUN_ROOT / "active-run.guard").exists())
+
+    def test_exact_system_return_uncertainty_parks_before_rollback(self):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[
+                self._effect(
+                    rc=1,
+                    completed=False,
+                    outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+                )
+            ],
+        )
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["reason"], "CANDIDATE_RETURN_PENDING")
+        self.assertEqual(len(backend.flash_calls), 1)
+        self.assertFalse(backend.flash_calls[0][1])
+        self.assertEqual(
+            M.recovery_decision(run), "CANDIDATE_RETURN_PENDING"
+        )
+        self.assertIn("23-candidate-return-pending.json", M.read_records(run))
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
+
+    def test_healthy_candidate_without_confirmed_effect_receipt_never_passes(self):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[
+                self._effect(outcome="UNCLASSIFIED"),
+                self._effect(
+                    outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED"
+                ),
+            ],
+            observations=[
+                self._snapshot("new", "new-build"),
+                self._snapshot("old", "old-build"),
+            ],
+        )
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["terminal"], "NO_PROOF_ROLLED_BACK")
+        self.assertEqual([call[1] for call in backend.flash_calls], [False, True])
+
+    def test_healthy_rollback_without_confirmed_effect_receipt_stays_recovery_required(self):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[
+                self._effect(rc=1, completed=False, outcome="UNCLASSIFIED"),
+                self._effect(outcome="UNCLASSIFIED"),
+            ],
+            observations=[
+                self._snapshot("old", "old-build", healthy=False),
+                self._snapshot("old", "old-build"),
+            ],
+        )
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
+        self.assertEqual([call[1] for call in backend.flash_calls], [False, True])
 
     def test_wrong_approval_causes_no_effect(self):
         run, _token = self._prepare()
@@ -783,6 +889,131 @@ class MinimalF1Test(unittest.TestCase):
         )
         self.assertEqual(M.recovery_decision(run), "PARK_ROLLBACK_NO_REPLAY")
 
+    def test_crash_after_exact_uncertain_result_before_pending_record_never_allows_rollback(self):
+        run, _token = self._prepare()
+        digest = M.sha256_bytes(self.raw)
+        for name in (
+            "10-approved.json",
+            "20-candidate-intent.json",
+            "21-candidate-launched.json",
+        ):
+            M.publish_record(run, name, M._record(M.RECORD_KINDS[name], digest, {}))
+        effect = self._effect(
+            rc=1,
+            completed=False,
+            outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+        )
+        M.publish_record(
+            run,
+            "22-candidate-result.json",
+            M._record("CANDIDATE_RESULT", digest, effect.payload()),
+        )
+        self.assertEqual(
+            M.recovery_decision(run),
+            "CANDIDATE_RETURN_PENDING_RECORD_MISSING_NO_ROLLBACK",
+        )
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_substituted_or_malformed_result_is_not_upgraded_to_pending(self):
+        for mutation in ("outcome", "missing"):
+            with self.subTest(mutation=mutation):
+                run = M.RUN_ROOT / self.manifest["runId"]
+                try:
+                    run, _token = self._prepare()
+                    digest = M.sha256_bytes(self.raw)
+                    for name in (
+                        "10-approved.json",
+                        "20-candidate-intent.json",
+                        "21-candidate-launched.json",
+                    ):
+                        M.publish_record(
+                            run, name, M._record(M.RECORD_KINDS[name], digest, {})
+                        )
+                    payload = self._effect(
+                        rc=1,
+                        completed=False,
+                        outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+                    ).payload()
+                    if mutation == "outcome":
+                        payload["outcome"] = "UNCLASSIFIED"
+                    else:
+                        del payload["receiptSha256"]
+                    M.publish_record(
+                        run,
+                        "22-candidate-result.json",
+                        M._record("CANDIDATE_RESULT", digest, payload),
+                    )
+                    self.assertEqual(
+                        M.recovery_decision(run), "CANDIDATE_CONSUMED_ROLLBACK_ONLY"
+                    )
+                finally:
+                    active, _ = M._active_guard(self.manifest)
+                    candidate, _ = M._candidate_guard(self.manifest)
+                    if active.exists():
+                        M._release_active_guard(self.manifest)
+                    if candidate.exists():
+                        candidate.unlink()
+                    if run.exists():
+                        for entry in run.iterdir():
+                            entry.unlink()
+                        run.rmdir()
+
+    def test_exact_result_with_malformed_pending_record_stays_no_rollback(self):
+        run, _token = self._prepare()
+        digest = M.sha256_bytes(self.raw)
+        for name in (
+            "10-approved.json",
+            "20-candidate-intent.json",
+            "21-candidate-launched.json",
+        ):
+            M.publish_record(run, name, M._record(M.RECORD_KINDS[name], digest, {}))
+        effect = self._effect(
+            rc=1,
+            completed=False,
+            outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+        )
+        M.publish_record(
+            run,
+            "22-candidate-result.json",
+            M._record("CANDIDATE_RESULT", digest, effect.payload()),
+        )
+        M.publish_record(
+            run,
+            "23-candidate-return-pending.json",
+            M._record(
+                "CANDIDATE_RETURN_PENDING",
+                digest,
+                {"reason": "malformed"},
+            ),
+        )
+        self.assertEqual(
+            M.recovery_decision(run),
+            "CANDIDATE_RETURN_PENDING_RECORD_INVALID_NO_ROLLBACK",
+        )
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_pending_receipt_mismatch_with_candidate_result_is_invalid_no_rollback(self):
+        run = self._uncertain_prefix(result_receipt=HEX_A, pending_receipt=HEX_B)
+        self.assertEqual(
+            M.recovery_decision(run),
+            "CANDIDATE_RETURN_PENDING_RECORD_INVALID_NO_ROLLBACK",
+        )
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_candidate_result_receipt_mutation_after_pending_is_invalid_no_rollback(self):
+        run = self._uncertain_prefix(result_receipt=HEX_A, pending_receipt=HEX_A)
+        self.assertEqual(M.recovery_decision(run), "CANDIDATE_RETURN_PENDING")
+        result_path = run / "22-candidate-result.json"
+        result = M.parse_canonical(result_path.read_bytes(), "candidate result")
+        result["payload"]["receiptSha256"] = HEX_B
+        result_path.unlink()
+        M.publish_record(run, "22-candidate-result.json", result)
+        self.assertEqual(
+            M.recovery_decision(run),
+            "CANDIDATE_RETURN_PENDING_RECORD_INVALID_NO_ROLLBACK",
+        )
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
     def test_journal_rejects_gap_wrong_kind_and_mixed_manifest(self):
         digest = M.sha256_bytes(self.raw)
         for mutation in ("gap", "kind", "manifest"):
@@ -872,8 +1103,8 @@ class MinimalSurfaceTest(unittest.TestCase):
 
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1450)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 950)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1560)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 1150)
         self.assertLessEqual(len(design.read_text().splitlines()), 250)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):
