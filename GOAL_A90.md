@@ -574,6 +574,16 @@ identity:
   A settle interruption parks without a boot-ID request. It has no
   candidate, rollback, reboot, image, partition, or physical-action path and
   currently has no review, approval, observation, or guard-removal authority.
+  Host-only H29 was then materialized from the same H28 functional bytes with
+  identity-only changes: `0.11.196 / phase3-minimal-h29-stock-rebuild-1007-cfp`,
+  cycle `H0-PHASE3H29`, fresh H29 enable/latch paths, and no candidate
+  authority. Its A/B boot SHA is
+  `c3d1b84eab65f387ce807cf9c355dc04dcc966cef15bf64e4fda901242907324` and
+  its exact kernel blob remains `59f79b8f0e8f8f3551d04488ec32073faa8ef9ba7439bd65e95d0585ab82ccac`.
+  See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H29_H0_2026-08-21.md`.
+  H29 is H0-only and distinct from H28; it cannot be qualified or executed
+  until the outstanding H28 recovery/guard state is reconciled, then receives
+  its own fresh qualification, review, D0, and attended F1 approval.
   Separately, the ordinary F1 owner now has a host-only machine receipt for
   the exact `boot write + prefix readback + uncertain TWRP System return`
   case. It durably parks that case as `CANDIDATE_RETURN_PENDING` before any
