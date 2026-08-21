@@ -23,50 +23,24 @@ the separately registered S20+ goal and every future target row.
 
 ## Exact Current State
 
-- H24 `0.11.192`, build
-  `phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev`,
-  is the exact installed resident. Its attended F1 wrote and read back one
-  deterministic boot-only candidate and closed
-  `PASS_A90_H24_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY`. Candidate replay
-  is false, rollback transfer count is zero, and the host guard was released.
-- The separately approved H24 D1 run consumed exactly one arm, reboot, and
-  handoff. It verified and mounted the read-only UFS root and four writable
-  tmpfs paths, then stopped at `persistent-hud rc=-22 errno=22` before evidence
-  bind, Wi-Fi handoff bind, `switch_root`, or Debian PID 1.
-- Same-intent cleanup proved the UFS root unmounted, userdata unchanged, zero
-  userdata writes, and no recovery requirement. The device returned to exact
-  native `RESIDENT_HEALTHY` with `binding=1 enable=1 latch=1`. The terminal is
-  `REFUTED_H24_POST_ROOT_FAILURE_ATTRIBUTED_NATIVE_FALLBACK_HEALTHY`.
-- The H24 D1 effect is consumed and is never replayed. Its live evidence proves
-  only the outer HUD-stage `EINVAL`; the inner syscall remains unproved.
-- V2321 remains the exact bound rollback for a future, freshly qualified
-  successor. No successor candidate, approval, transfer, reboot, or D1 effect
-  is authorized by this goal.
-- H28 was written once but never received a boot opportunity: an uncertain
-  TWRP System return caused the F1 owner to restore exact V2321 before the
-  attended physical System return. H28 boot acceptance is therefore unproved,
-  not failed. Candidate and rollback replay are forbidden.
-- The first physical-return observer proved exact V2321 `version` and then
-  failed by serial input truncation. Its separately reviewed slow-input
-  reconciliation was consumed once on 2026-08-21. That session proved exact
-  V2321, `selftest fail=0`, and native status-command health; the pstore
-  entry count was retained only as diagnostic text, but
-  the final boot-ID producer returned `EBUSY` because the automatic menu was
-  active. That consumed checkpoint was `NO_PROOF_OBSERVER / RECOVERY_PARKED`;
-  see
-  `docs/reports/A90_H28_SLOW_HEALTH_BOOT_ID_BUSY_NO_PROOF_2026-08-21.md`.
-- A fresh independently reviewed menu-hide reconciliation then durably armed
-  one exact session, sent `hide` once, waited the fixed settle, and proved two
-  equal boot-ID receipts around exact V2321 `version`, `selftest fail=0`,
-  healthy `status`; the pstore entry count was diagnostic only. It published
-  `41-recovery-closed.json` at SHA-256
-  `4ae580129004e3237889e886b4640dccc9efb8f194b74845357f70971c4795d7`,
-  removed the active-run guard after exact readback, and retained the consumed
-  H28 candidate guard. Candidate/rollback replay remains false and H28 boot
-  acceptance remains unproved. See
-  `docs/reports/A90_H28_MENU_HIDE_HEALTH_RECONCILIATION_PASS_2026-08-21.md`.
-- S22+ and S20+ command counts for the H24 transaction are zero. Their profiles,
-  approvals, evidence, and authority do not transfer to A90.
+- Exact current resident is healthy native V2321
+  `0.9.285 / v2321-usb-clean-identity-rodata`. H24 was the last proved experimental
+  resident; its H24 D1 effect remains consumed and its outer HUD-stage
+  `EINVAL` refutation is historical evidence only.
+- H28-H31 are consumed and never replayed. H31 transferred zero candidate and
+  rollback bytes; its reviewed pre-transfer reconciler proved exact healthy
+  V2321, released only the active guard, and retained the H31 candidate guard.
+- Current host-only successor H32 is
+  `0.11.199 / phase3-minimal-h32-stock-rebuild-1007-cfp`, 58,372,096 bytes, SHA-256
+  `e56cb1201d63e26f275de10d6a4eb6a1686f6021b6613aa4dde1374930dd299d`.
+  It retains the exact H31 kernel bytes and changes only version/build and fresh
+  H32 enable/latch identities.
+- The H32 public qualification and independent Luna MAX review are `PASS_GO`
+  against owner closure `0a6122d2…` and continuation closure `585869c5…`, with
+  HIGH/MEDIUM/LOW `0/0/0`. This qualifies bytes only: private manifest, connected
+  D0, fresh attended approval, and one F1 execution remain separate.
+- S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
+  authority do not transfer to A90.
 
 ## Proven Product Mechanics
 
