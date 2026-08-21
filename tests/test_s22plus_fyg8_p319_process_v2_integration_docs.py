@@ -35,9 +35,11 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.prerequisite = json.loads(cls.prerequisite_bytes)
         cls.integration = json.loads(cls.integration_bytes)
 
-    def test_report_is_review_pending_and_names_all_current_blockers(self):
-        self.assertIn("Status: `IMPLEMENTED_REVIEW_PENDING`", self.report)
-        self.assertNotIn("PASS_GO_P319_PROCESS_V2_INTEGRATION", self.report)
+    def test_report_is_scoped_reviewed_and_names_all_current_blockers(self):
+        self.assertIn(
+            "Status: `PASS_GO_P319_PROCESS_V2_INTEGRATION_PREREQUISITES_H0_CAPABILITY_V1`",
+            self.report,
+        )
         for blocker in (
             "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY",
             "CONSUMED_CANDIDATE_REGISTRY_MISSING",
@@ -54,6 +56,9 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("same unavailable mount-path", self.report)
         self.assertIn("531/531 is a post-correction result", self.report)
         self.assertIn("not a true description of the original", self.report)
+        self.assertIn("After this row, full-tail accounting is 47 total / 33 resolved /", self.report)
+        self.assertIn("14 unresolved", self.report)
+        self.assertIn("Independent scoped review", self.report)
 
     def test_report_keeps_no_proof_buckets_and_runtime_gate_distinct(self):
         self.assertIn("`NONCAUSAL_SUCCESS_PATH`", self.report)
@@ -131,7 +136,7 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
             ],
         )
 
-    def test_append_only_row_opens_only_the_review_29_obligation(self):
+    def test_append_only_rows_preserve_and_resolve_only_topic_29(self):
         original_rows = [
             line
             for line in self.ledger.splitlines()
@@ -142,8 +147,14 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
             for line in self.ledger.splitlines()
             if "| h0-process-v2-integration-prerequisites-followup-29 |" in line
         ]
+        review_rows = [
+            line
+            for line in self.ledger.splitlines()
+            if "| h0-process-v2-integration-prerequisites-review-29 |" in line
+        ]
         self.assertEqual(len(original_rows), 1)
         self.assertEqual(len(correction_rows), 1)
+        self.assertEqual(len(review_rows), 1)
         rows = original_rows
         self.assertIn(
             "P319_PROCESS_V2_INTEGRATION_PREREQUISITES_IMPLEMENTED_REVIEW_PENDING",
@@ -164,12 +175,24 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("opens no new obligation", correction)
         self.assertNotIn("PASS_GO_", correction)
         self.assertNotIn("_REVIEW_PENDING", correction)
+        review = review_rows[0]
+        self.assertIn(
+            "PASS_GO_P319_PROCESS_V2_INTEGRATION_PREREQUISITES_H0_CAPABILITY_V1",
+            review,
+        )
+        self.assertIn("Independent scoped review resolves only", review)
+        self.assertIn("532 = 531 passed + 0 failed + 1 unavailable", review)
+        self.assertIn("47 total / 32 resolved / 15 unresolved", review)
+        self.assertIn("no ready/run manifest", review)
+        self.assertNotIn("_REVIEW_PENDING", review)
 
     def test_goal_propagates_the_blocked_integration_without_live_authority(self):
         self.assertIn("changed adapter closure now requires requalification", self.goal)
         self.assertIn("runner-consumed global candidate registry", self.goal)
         self.assertIn("`BLOCKED_P319_PROCESS_V2_INTEGRATION_H0`", self.goal)
         self.assertIn("no ready/run manifest", self.goal)
+        self.assertIn("scoped independent H0 `PASS_GO`", self.goal)
+        self.assertIn("independently reviewed H0-only prerequisite integration", self.goal)
 
 
 if __name__ == "__main__":

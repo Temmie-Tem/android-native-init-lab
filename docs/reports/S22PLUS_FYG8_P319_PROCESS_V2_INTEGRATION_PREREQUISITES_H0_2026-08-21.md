@@ -1,10 +1,31 @@
 # S22+ FYG8 P3.19 Process-v2 Integration Prerequisites H0
 
-Status: `IMPLEMENTED_REVIEW_PENDING`
+Status: `PASS_GO_P319_PROCESS_V2_INTEGRATION_PREREQUISITES_H0_CAPABILITY_V1` (scoped H0 review; integration remains blocked)
 
 This unit is host-only. It creates no ready or run manifest, approval, fresh
 baseline, device authority, recovery authority, or live authority. It does not
 contact ADB, USB, Odin, the S22+, the A90, or the S20+.
+
+## Independent scoped review
+
+The independent review resolves only the existing topic-29 implementation
+obligation. Before this resolution the full-tail accounting was 47 total / 32
+resolved / 15 unresolved. The reviewer confirmed the corrected P3.19 selection
+as 532 = 531 passed + 0 failed + 1 unavailable mount-path materialization
+error. The materialization test independently passes when rebound to the
+already identity-bound `stock-witness-runtime-v1-20260821-32/module-bytes`
+copies. The shared semantic GOAL guard binds both tuple-bearing authority
+paragraphs locally and requires the reviewed H0-only PASS_GO evidence, adapter
+requalification, and absence of ready/live authority.
+
+The review also confirmed the result-contract arming precondition, experiment
+executability closure, three distinct proof classes, rollback-path provenance,
+raw-first semantic projection and the explicit runner-consumed global-registry
+blocker. This PASS_GO is host-only capability evidence: global consumed-
+candidate registry, fresh baseline and adapter requalification remain blocked;
+no ready/run manifest, D0, D1, F1, recovery, replay, device or live authority
+is created. After this row, full-tail accounting is 47 total / 33 resolved /
+14 unresolved.
 
 The integration result is deliberately
 `BLOCKED_P319_PROCESS_V2_INTEGRATION_H0`. Static experiment executability

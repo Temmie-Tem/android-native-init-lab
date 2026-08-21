@@ -652,12 +652,12 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         all_lines = self.ledger_data.split(marker, 1)[1].splitlines(keepends=True)
         all_rows, _, _ = self.auditor.parse_log_rows(all_lines)
         current = self.auditor.audit_review_obligations(all_rows)
-        # The single absolute pin on live obligation state.  The population
-        # diagnostic review row resolves its same-topic pending obligation;
-        # the Process-v2 integration prerequisite row opens topic 29.
+        # The single absolute pin on live obligation state. The diagnostic
+        # and Process-v2 review rows resolve their same-topic
+        # pending obligations; followup-29 is bookkeeping only.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (47, 32, 15),
+            (47, 33, 14),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -670,7 +670,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "last-kmsg-retention",
                 "log-harvest-runner",
                 "mux-module-chain",
-                "process-v2-integration-prerequisites",
                 "raw-first-observer",
                 "stage-b-rederivation",
                 "stage-b-reg-runner",
@@ -690,7 +689,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-last-kmsg-retention-1",
                 "h0-log-harvest-runner-1",
                 "h0-mux-module-chain-1",
-                "h0-process-v2-integration-prerequisites-29",
                 "h0-raw-first-observer-2",
                 "h0-stage-b-rederivation-1",
                 "h0-stage-b-reg-runner-1",
@@ -700,8 +698,8 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             ],
         )
         self.assertEqual(current["total"], 47)
-        self.assertEqual(current["resolved_count"], 32)
-        self.assertEqual(current["unresolved_count"], 15)
+        self.assertEqual(current["resolved_count"], 33)
+        self.assertEqual(current["unresolved_count"], 14)
         self.assertEqual(
             [item["review_topic"] for item in current["unresolved"]].count(
                 "stock-candidate-qualification"
@@ -709,7 +707,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             0,
         )
         self.assertEqual(
-            current["resolved"][-7],
+            current["resolved"][-8],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "candidate-witness-transport",
@@ -728,7 +726,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-6],
+            current["resolved"][-7],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-witness-runtime",
@@ -745,7 +743,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-5],
+            current["resolved"][-6],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-image-provenance-repair",
@@ -762,7 +760,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-4],
+            current["resolved"][-5],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification",
@@ -779,7 +777,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-3],
+            current["resolved"][-4],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification-plan-binding",
@@ -796,7 +794,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-2],
+            current["resolved"][-3],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "raw-first-cross-target-membership",
@@ -815,7 +813,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-1],
+            current["resolved"][-2],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "raw-first-population-diagnostic",
@@ -827,6 +825,25 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "resolution_ordinal": "h0-raw-first-population-diagnostic-review-28",
                 "resolution_action": (
                     "PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_"
+                    "H0_CAPABILITY_V1"
+                ),
+            },
+        )
+        self.assertEqual(
+            current["resolved"][-1],
+            {
+                "campaign": "s22plus-fyg8-p319",
+                "review_topic": "process-v2-integration-prerequisites",
+                "pending_ordinal": "h0-process-v2-integration-prerequisites-29",
+                "pending_action": (
+                    "P319_PROCESS_V2_INTEGRATION_PREREQUISITES_"
+                    "IMPLEMENTED_REVIEW_PENDING"
+                ),
+                "resolution_ordinal": (
+                    "h0-process-v2-integration-prerequisites-review-29"
+                ),
+                "resolution_action": (
+                    "PASS_GO_P319_PROCESS_V2_INTEGRATION_PREREQUISITES_"
                     "H0_CAPABILITY_V1"
                 ),
             },
@@ -867,9 +884,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "s22plus-fyg8-p318",
             ],
         )
-        self._assert_topic_29_correction_is_non_obligating()
+        self._assert_topic_29_resolution_is_scoped()
 
-    def _assert_topic_29_correction_is_non_obligating(self):
+    def _assert_topic_29_resolution_is_scoped(self):
         marker = self.auditor.MARKER
         all_lines = self.ledger_data.split(marker, 1)[1].splitlines(keepends=True)
         all_rows, _, _ = self.auditor.parse_log_rows(all_lines)
@@ -878,8 +895,14 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-followup-29"
         ]
-        self.assertEqual(len(all_rows), 343)
+        reviews = [
+            row
+            for row in all_rows
+            if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
+        ]
+        self.assertEqual(len(all_rows), 344)
         self.assertEqual(len(followups), 1)
+        self.assertEqual(len(reviews), 1)
         followup = followups[0]
         self.assertEqual(
             self.auditor.pending_review_topic(followup),
@@ -891,6 +914,17 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             ),
             "NOT_APPLICABLE",
         )
+        review = reviews[0]
+        self.assertEqual(
+            self.auditor.resolution_review_topic(review),
+            "process-v2-integration-prerequisites",
+        )
+        self.assertEqual(
+            self.auditor.capability_review_state(
+                review["tier"], review["action"]
+            ),
+            "PASS_GO",
+        )
         obligations = self.auditor.audit_review_obligations(all_rows)
         self.assertEqual(
             (
@@ -898,7 +932,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 obligations["resolved_count"],
                 obligations["unresolved_count"],
             ),
-            (47, 32, 15),
+            (47, 33, 14),
         )
         self.assertEqual(
             [
@@ -906,17 +940,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 for item in obligations["unresolved"]
                 if item["review_topic"] == "process-v2-integration-prerequisites"
             ],
-            [
-                {
-                    "campaign": "s22plus-fyg8-p319",
-                    "review_topic": "process-v2-integration-prerequisites",
-                    "pending_ordinal": "h0-process-v2-integration-prerequisites-29",
-                    "pending_action": (
-                        "P319_PROCESS_V2_INTEGRATION_PREREQUISITES_"
-                        "IMPLEMENTED_REVIEW_PENDING"
-                    ),
-                }
-            ],
+            [],
         )
 
     def test_one_topic_cannot_open_two_review_obligations(self):
