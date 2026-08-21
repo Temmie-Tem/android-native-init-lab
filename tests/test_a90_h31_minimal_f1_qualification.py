@@ -16,6 +16,7 @@ REPORT = ROOT / "docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H31_H
 MANIFEST = ROOT / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h31/manifest.toml"
 CONTINUATION_REVIEW = ROOT / "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json"
 REVIEW = ROOT / "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H31_INDEPENDENT_REVIEW_2026-08-22.json"
+SUPERSESSION = ROOT / "docs/reports/A90_H31_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md"
 OWNER = ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py"
 CONTINUATION = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py"
 
@@ -38,9 +39,10 @@ class A90H31MinimalQualificationTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.value = json.loads(INPUT.read_text(encoding="utf-8"))
 
-    def test_candidate_owner_and_rollback_are_exact(self) -> None:
+    def test_historical_candidate_owner_and_rollback_are_exact(self) -> None:
         owner = _load("a90_h31_owner", OWNER)
-        self.assertEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
+        self.assertEqual(self.value["executionClosureSha256"], "9668df832d9a0ff64ee1ef24c69faf81f10be7047c92c7f4f3c59380685ae267")
+        self.assertNotEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
         self.assertEqual(self.value["candidate"], {
             "version": "0.11.198",
             "build": "phase3-minimal-h31-stock-rebuild-1007-cfp",
@@ -64,15 +66,16 @@ class A90H31MinimalQualificationTest(unittest.TestCase):
         self.assertIn("H31 boot result remain unproved", hazard["statement"])
         self.assertIn("H29 and H30 are consumed", hazard["statement"])
 
-    def test_current_continuation_lease_is_exact(self) -> None:
+    def test_historical_continuation_lease_is_explicitly_superseded(self) -> None:
         continuation = _load("a90_h31_continuation", CONTINUATION)
         declared = self.value["continuationReview"]
-        self.assertEqual(declared["sha256"], _sha(CONTINUATION_REVIEW))
-        self.assertEqual(declared["size"], CONTINUATION_REVIEW.stat().st_size)
-        self.assertEqual(declared["executionClosureSha256"], continuation.execution_closure_sha256())
-        review = json.loads(CONTINUATION_REVIEW.read_text(encoding="utf-8"))
-        self.assertEqual(review["verdict"], "PASS_GO")
-        self.assertFalse(review["liveAuthority"])
+        self.assertEqual(declared["sha256"], "41101a004075127d89d1cbd198701ab68a0eb3e5fb542ffa98239704cfe48dbe")
+        self.assertEqual(declared["size"], 547)
+        self.assertEqual(declared["executionClosureSha256"], "768c5bda3313f83b5ebc037a383bde245a598b26c9fdf5aa116f89e174ac4464")
+        self.assertNotEqual(declared["executionClosureSha256"], continuation.execution_closure_sha256())
+        text = SUPERSESSION.read_text(encoding="utf-8")
+        self.assertIn("SUPERSEDED_CONSUMED_CANDIDATE_AND_STALE_CLOSURE", text)
+        self.assertIn("cannot replay", text)
 
     def test_recovery_identity_remains_private_and_unbound(self) -> None:
         identity = self.value["recoveryIdentity"]

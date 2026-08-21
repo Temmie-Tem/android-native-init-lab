@@ -1476,6 +1476,27 @@ is published and cannot apply to another run, candidate, helper failure, or
 future incident. Future reusable pre-transfer recovery requires a separately
 reviewed structured helper stage receipt rather than parsing prose logs.
 
+The fixed H31 pre-write incident dated 2026-08-22 may close only through
+`a90_h31_pretransfer_abort_reconcile_v1.py`. It accepts no caller-selected
+input and binds run `a90-h31-f1-20260822-01`, its exact manifest, journal
+prefix through rollback launch, complete execute-log inventory, structured
+candidate `PRE_WRITE_FAILURE`, and absence of any rollback-helper dispatch.
+After a current independent `PASS_GO` review and one fresh exact healthy V2321
+ACM observation, it may publish only `41-pretransfer-abort.json` and remove
+only the active guard. The H31 candidate guard remains consumed; neither H31
+candidate nor rollback may replay, and the receipt grants no later authority.
+A cut after 41 may only validate the same receipt and finish active-guard
+cleanup. The reconciler has no ADB, reboot, recovery-transition, image,
+candidate, rollback, or partition primitive.
+
+For ordinary rollback pre-effect inventory, a successful well-formed
+zero-Samsung snapshot immediately following a Native/Recovery transition is a
+bounded re-enumeration wait state, never authority. It may wait at most five
+seconds for exactly one A90 Native or Recovery endpoint. Candidate pre-effect
+still requires immediate exact Native. A wrong product, malformed producer,
+timeout, additional Samsung, or more than one Samsung remains an immediate
+stop before helper dispatch.
+
 The candidate-neutral `A90_F1_POSTROLLBACK_RECOVERY_V1` finalizer may close an
 ordinary minimal-owner run only after the candidate and rollback attempts are
 both durably consumed and the exact journal already ends in

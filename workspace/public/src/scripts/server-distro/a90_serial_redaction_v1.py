@@ -37,6 +37,8 @@ ADB_STDERR_DIGEST_PREFIX = "<A90-ADB-INVENTORY-STDERR-SHA256:"
 # nonempty stream and is still rejected by the strict parser.
 ADB_STARTUP_BANNERS = frozenset(
     {
+        b"* daemon not running; starting now at tcp:5037\n"
+        b"* daemon started successfully\n",
         (
             b"* daemon not running; starting now at tcp:localhost:5037\n"
             b"* daemon started successfully\n"

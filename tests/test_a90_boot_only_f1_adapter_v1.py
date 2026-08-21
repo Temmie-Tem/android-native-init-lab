@@ -134,6 +134,19 @@ def usb_inventory(*, duplicate=False, other_samsung=False):
     return result(b"\n".join(lines) + b"\n")
 
 
+def usb_zero_samsung():
+    return result(
+        b"Bus 001 Device 002: ID 1d6b:0002 Linux Foundation 2.0 root hub\n"
+    )
+
+
+def usb_recovery_inventory():
+    return result(
+        b"Bus 001 Device 002: ID 1d6b:0002 Linux Foundation 2.0 root hub\n"
+        b"Bus 001 Device 003: ID 04e8:6860 Samsung Electronics Co., Ltd\n"
+    )
+
+
 def healthy_results(version="0.11.194", build="phase3-minimal-h27"):
     return [
         usb_inventory(),
@@ -429,6 +442,98 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertIn("--reuse-bound-recovery-or-from-native", rollback_argv)
         self.assertNotIn("--from-native", rollback_argv)
         self.assertNotIn("--require-stable-adb-baseline", rollback_argv)
+
+    def test_candidate_zero_samsung_is_immediate_and_has_no_helper_effect(self):
+        runner = FakeRunner([usb_zero_samsung()])
+        with self.assertRaisesRegex(A.ContractError, "candidate pre-effect"):
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
+                self.artifact, rollback=False, timeout_sec=60
+            )
+        self.assertEqual([call[0] for call in runner.calls], ["effect-usb-inventory"])
+
+    def test_rollback_zero_then_exact_recovery_is_bounded_and_dispatches_once(self):
+        runner = FakeRunner(
+            [usb_zero_samsung(), usb_recovery_inventory(), result(b"adb"), result(b"ok")]
+        )
+        with (
+            mock.patch.object(A, "_validate_effect_adb_inventory", return_value="d" * 64),
+            mock.patch.object(A.time, "sleep"),
+        ):
+            effect = A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
+                self.artifact, rollback=True, timeout_sec=60
+            )
+        self.assertTrue(effect.completed)
+        self.assertEqual(
+            [call[0] for call in runner.calls],
+            [
+                "effect-usb-inventory",
+                "rollback-effect-usb-inventory",
+                "adb-inventory",
+                "flash-rollback",
+            ],
+        )
+
+    def test_rollback_zero_timeout_stops_before_helper(self):
+        runner = FakeRunner([usb_zero_samsung(), usb_zero_samsung()])
+        with (
+            mock.patch.object(A.time, "monotonic", side_effect=[0.0, 0.0, 6.0]),
+            mock.patch.object(A.time, "sleep"),
+            self.assertRaisesRegex(A.ContractError, "re-enumeration timed out"),
+        ):
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
+                self.artifact, rollback=True, timeout_sec=60
+            )
+        self.assertEqual(
+            [call[0] for call in runner.calls],
+            ["effect-usb-inventory", "rollback-effect-usb-inventory"],
+        )
+
+    def test_rollback_exact_arrival_after_deadline_stops_before_helper(self):
+        runner = FakeRunner([usb_zero_samsung(), usb_recovery_inventory()])
+        with (
+            mock.patch.object(A.time, "monotonic", side_effect=[0.0, 0.0, 6.0]),
+            mock.patch.object(A.time, "sleep"),
+            self.assertRaisesRegex(A.ContractError, "re-enumeration timed out"),
+        ):
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
+                self.artifact, rollback=True, timeout_sec=60
+            )
+        self.assertEqual(
+            [call[0] for call in runner.calls],
+            ["effect-usb-inventory", "rollback-effect-usb-inventory"],
+        )
+
+    def test_rollback_zero_then_extra_samsung_stops_before_helper(self):
+        runner = FakeRunner([usb_zero_samsung(), usb_inventory(duplicate=True)])
+        with (
+            mock.patch.object(A.time, "sleep"),
+            self.assertRaisesRegex(A.ContractError, "single-Samsung"),
+        ):
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
+                self.artifact, rollback=True, timeout_sec=60
+            )
+        self.assertEqual(
+            [call[0] for call in runner.calls],
+            ["effect-usb-inventory", "rollback-effect-usb-inventory"],
+        )
+
+    def test_rollback_zero_then_wrong_samsung_stops_before_helper(self):
+        wrong = result(
+            b"Bus 001 Device 002: ID 1d6b:0002 Linux Foundation 2.0 root hub\n"
+            b"Bus 001 Device 003: ID 04e8:1234 Samsung Electronics Co., Ltd\n"
+        )
+        runner = FakeRunner([usb_zero_samsung(), wrong])
+        with (
+            mock.patch.object(A.time, "sleep"),
+            self.assertRaisesRegex(A.ContractError, "not exact A90"),
+        ):
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
+                self.artifact, rollback=True, timeout_sec=60
+            )
+        self.assertEqual(
+            [call[0] for call in runner.calls],
+            ["effect-usb-inventory", "rollback-effect-usb-inventory"],
+        )
 
     def test_nonzero_system_return_after_exact_write_readback_is_pending_shape(self):
         receipt = A.canonical_json({

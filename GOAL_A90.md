@@ -584,9 +584,13 @@ identity:
   Its exact kernel is unchanged at `59f79b8f…`; only version/build and fresh
   enable/latch identities differ from H30. `candidate_authority=false` remains.
   See `A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H31_H0_2026-08-22.md`.
-  Current owner `9668df83…`, continuation `768c5bda…`, and recovery `5c692920…`
-  capabilities are reviewed. H31 has no qualification, manifest, D0, approval,
-  token, F1, or live authority yet.
+  H31 qualification/D0/approval were consumed, but candidate and rollback both
+  wrote zero bytes. Recovery ADB rejected the real `tcp:5037` startup banner;
+  rollback then saw the same A90's Native-to-Recovery re-enumeration gap as
+  zero endpoints. H31 remains unproved/no-replay with both guards retained.
+  The exact H31 fixed reconciler and phase-aware repairs are now reviewed at
+  owner `0a6122d2…`, continuation `585869c5…`, recovery `a506f677…`, and
+  reconciler `ca96bd19…`; they grant only H31 guard closure, not a new F1.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner
   then wrote and prefix-read back exact V2321 once with the same uncertain

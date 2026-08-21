@@ -65,6 +65,8 @@ LSUSB_RE = re.compile(
 ADB_STATES = {"device", "recovery", "offline", "unauthorized", "no permissions"}
 ADB_ROLE_NATIVE = "NATIVE_NO_RECOVERY"
 ADB_ROLE_RECOVERY = "BOUND_RECOVERY_PRESENT"
+ROLLBACK_REENUMERATION_TIMEOUT_SEC = 5.0
+ROLLBACK_REENUMERATION_POLL_SEC = 0.25
 
 
 @dataclass(frozen=True)
@@ -410,7 +412,7 @@ def _validate_usb_inventory(result: CommandResult) -> dict[str, Any]:
     }
 
 
-def _validate_effect_inventory(result: CommandResult) -> tuple[str, str]:
+def _parse_effect_inventory(result: CommandResult) -> tuple[str, str]:
     """Return the exact pre-effect USB role without opening ADB on Native."""
     if (
         type(result.returncode) is not int
@@ -436,6 +438,30 @@ def _validate_effect_inventory(result: CommandResult) -> tuple[str, str]:
     if product == b"6860":
         return ADB_ROLE_RECOVERY, sha256_bytes(result.stdout)
     raise ContractError("pre-effect USB product is not exact A90 Native or Recovery")
+
+
+def _is_empty_effect_inventory(result: CommandResult) -> bool:
+    """Accept only a well-formed, successful zero-Samsung re-enumeration."""
+    if (
+        type(result.returncode) is not int
+        or result.returncode != 0
+        or result.quiescent is not True
+        or result.stderr
+        or not result.stdout
+    ):
+        return False
+    lines = result.stdout.rstrip(b"\n").split(b"\n")
+    matches = [LSUSB_RE.fullmatch(line) for line in lines]
+    if not lines or any(match is None for match in matches):
+        return False
+    return not any(
+        match is not None and match.group("vendor") == b"04e8"
+        for match in matches
+    )
+
+
+def _validate_effect_inventory(result: CommandResult) -> tuple[str, str]:
+    return _parse_effect_inventory(result)
 
 
 def _validate_effect_adb_inventory(
@@ -598,11 +624,33 @@ class FixedA90Adapter:
             raise ContractError("A90 observation exhausted its total timeout")
         return min(cap, remaining)
 
-    def _effect_inventory(self) -> tuple[str, str, str | None]:
+    def _effect_inventory(self, *, rollback: bool) -> tuple[str, str, str | None]:
         """Bind USB/ACM Native or Recovery before invoking the flash helper."""
-        role, usb_digest = _validate_effect_inventory(
-            self.runner.run("effect-usb-inventory", (str(LSUSB),), 10)
-        )
+        first = self.runner.run("effect-usb-inventory", (str(LSUSB),), 10)
+        if _is_empty_effect_inventory(first):
+            if not rollback:
+                raise ContractError("candidate pre-effect USB inventory has no A90 endpoint")
+            deadline = time.monotonic() + ROLLBACK_REENUMERATION_TIMEOUT_SEC
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ContractError("rollback pre-effect A90 re-enumeration timed out")
+                time.sleep(min(ROLLBACK_REENUMERATION_POLL_SEC, remaining))
+                retry = self.runner.run(
+                    "rollback-effect-usb-inventory",
+                    (str(LSUSB),),
+                    max(1, min(10, int(remaining + 0.999))),
+                )
+                if time.monotonic() > deadline:
+                    raise ContractError(
+                        "rollback pre-effect A90 re-enumeration timed out"
+                    )
+                if _is_empty_effect_inventory(retry):
+                    continue
+                role, usb_digest = _validate_effect_inventory(retry)
+                break
+        else:
+            role, usb_digest = _validate_effect_inventory(first)
         if role == ADB_ROLE_NATIVE:
             # No ADB process is created while Native is the selected role.
             return role, usb_digest, None
@@ -762,7 +810,7 @@ class FixedA90Adapter:
     def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> EffectResult:
         if owner_usb_inventory_sha256 is None:
             owner_adb_role, owner_usb_inventory_sha256, owner_adb_inventory_sha256 = (
-                self._effect_inventory()
+                self._effect_inventory(rollback=rollback)
             )
             if not rollback and owner_adb_role != ADB_ROLE_NATIVE:
                 raise ContractError("candidate effect requires the exact Native role")

@@ -73,6 +73,7 @@ EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py",
     "workspace/public/src/scripts/server-distro/a90_h27_postrollback_reconcile_v1.py",
     "workspace/public/src/scripts/server-distro/a90_h27_pretransfer_abort_reconcile_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_h31_pretransfer_abort_reconcile_v1.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
 )
 APPROVAL_PREFIX = "A90-F1-MINIMAL-V1-APPROVE:"
@@ -140,6 +141,9 @@ ROLLBACK_PATH = (
 )
 
 PRETRANSFER_ABORT_PATH = ROLLBACK_PATH + ("41-pretransfer-abort.json",)
+H31_PRETRANSFER_ABORT_PATH = ROLLBACK_PATH[:7] + (
+    "41-pretransfer-abort.json",
+)
 POSTROLLBACK_RECOVERY_PATH = ROLLBACK_PATH + ("41-recovery-closed.json",)
 CANDIDATE_RETURN_PENDING_PATH = SUCCESS_PATH[:-1] + (
     "23-candidate-return-pending.json",
@@ -942,6 +946,7 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
             SUCCESS_PATH,
             ROLLBACK_PATH,
             PRETRANSFER_ABORT_PATH,
+            H31_PRETRANSFER_ABORT_PATH,
             POSTROLLBACK_RECOVERY_PATH,
             CANDIDATE_RETURN_PENDING_PATH,
             CANDIDATE_RETURN_INTENT_PATH,
@@ -1442,6 +1447,8 @@ def _valid_candidate_return_pending(
 def recovery_decision(run_directory: Path) -> str:
     records = read_records(run_directory)
     names = set(records)
+    if tuple(records) == H31_PRETRANSFER_ABORT_PATH:
+        return "PRETRANSFER_ABORT_RECONCILED_NO_REPLAY"
     if "41-recovery-closed.json" in names:
         return "POSTROLLBACK_RECOVERY_RECONCILED_NO_REPLAY"
     if "41-pretransfer-abort.json" in names:

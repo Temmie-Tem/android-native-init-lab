@@ -465,25 +465,30 @@ recovery-serial recovery
                     flash.adb_devices("adb", strict=True)
 
     def test_recovery_scoped_strict_inventory_accepts_only_exact_start_banner(self) -> None:
-        banner = (
-            "* daemon not running; starting now at tcp:localhost:5037\n"
-            "* daemon started successfully\n"
-        )
-        result = types.SimpleNamespace(
-            returncode=0,
-            stdout="List of devices attached\n",
-            stderr=banner,
-        )
-        with mock.patch.object(flash.subprocess, "run", return_value=result):
-            self.assertEqual(
-                flash.adb_devices(
-                    "adb", strict=True, allow_startup_banner=True
-                ),
-                [],
+        for address in ("tcp:5037", "tcp:localhost:5037"):
+            banner = (
+                f"* daemon not running; starting now at {address}\n"
+                "* daemon started successfully\n"
             )
-        with mock.patch.object(flash.subprocess, "run", return_value=result):
-            with self.assertRaisesRegex(RuntimeError, "inventory command"):
-                flash.adb_devices("adb", strict=True)
+            result = types.SimpleNamespace(
+                returncode=0,
+                stdout="List of devices attached\n",
+                stderr=banner,
+            )
+            with self.subTest(address=address), mock.patch.object(
+                flash.subprocess, "run", return_value=result
+            ):
+                self.assertEqual(
+                    flash.adb_devices(
+                        "adb", strict=True, allow_startup_banner=True
+                    ),
+                    [],
+                )
+            with self.subTest(strict_without_exception=address), mock.patch.object(
+                flash.subprocess, "run", return_value=result
+            ):
+                with self.assertRaisesRegex(RuntimeError, "inventory command"):
+                    flash.adb_devices("adb", strict=True)
 
     def test_strict_disconnect_does_not_turn_inventory_failure_into_absence(self) -> None:
         failure = types.SimpleNamespace(returncode=1, stdout="", stderr="")

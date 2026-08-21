@@ -46,6 +46,8 @@ OWNER_ADB_ATTRIBUTE_RE = re.compile(
 )
 ADB_STARTUP_BANNERS = frozenset(
     {
+        "* daemon not running; starting now at tcp:5037\n"
+        "* daemon started successfully\n",
         "* daemon not running; starting now at tcp:localhost:5037\n"
         "* daemon started successfully\n",
         "* daemon started successfully\n",

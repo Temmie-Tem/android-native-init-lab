@@ -61,16 +61,17 @@ class SerialRedactionTest(unittest.TestCase):
 
     def test_only_exact_daemon_start_banner_is_suppressed(self):
         stdout = b"List of devices attached\n"
-        banner = (
-            b"* daemon not running; starting now at tcp:localhost:5037\n"
-            b"* daemon started successfully\n"
-        )
-        redactor = SerialRedactor()
-        safe_stdout, safe_stderr = redactor.prepare_adb_inventory(
-            stdout, banner, returncode=0, timed_out=False
-        )
-        self.assertTrue(safe_stdout.startswith(b"<A90-ADB-INVENTORY-STDOUT-SHA256:"))
-        self.assertEqual(safe_stderr, b"")
+        for address in (b"tcp:5037", b"tcp:localhost:5037"):
+            banner = (
+                b"* daemon not running; starting now at " + address + b"\n"
+                b"* daemon started successfully\n"
+            )
+            redactor = SerialRedactor()
+            safe_stdout, safe_stderr = redactor.prepare_adb_inventory(
+                stdout, banner, returncode=0, timed_out=False
+            )
+            self.assertTrue(safe_stdout.startswith(b"<A90-ADB-INVENTORY-STDOUT-SHA256:"))
+            self.assertEqual(safe_stderr, b"")
 
         safe_stdout, safe_stderr = redactor.prepare_adb_inventory(
             stdout, b"* daemon warning\n", returncode=0, timed_out=False
