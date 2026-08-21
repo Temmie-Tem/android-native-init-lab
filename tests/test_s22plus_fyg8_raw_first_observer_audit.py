@@ -399,6 +399,7 @@ def read_control1(adb, serial):
         for name in (
             "a90_repl_resident_session.py",
             "s20plus_g986n_d0_inventory.py",
+            "s20plus_g986n_autonomous_research_coordinator_h0.py",
         ):
             with self.subTest(name=name):
                 self.assertIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
@@ -407,6 +408,68 @@ def read_control1(adb, serial):
                     {name: self.source(name) + "\n# harmless edit\n"},
                 )
                 self.assertEqual(value["verdict"], self.module.VERDICT)
+
+    def test_other_target_source_bytes_copied_under_new_name_are_rejected(self):
+        source = self.source(
+            "s20plus_g986n_autonomous_research_coordinator_h0.py"
+        )
+        for name in (
+            "copied_coordinator.py",
+            "s22plus_fyg8_copied_coordinator.py",
+        ):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(
+                    self.module.RawFirstAuditError,
+                    "device-acquiring source bypasses the raw-first boundary",
+                ):
+                    self.module.audit_sources(REVALIDATION, {name: source})
+
+    def test_registered_host_only_source_is_typed_and_byte_frozen(self):
+        name = "s22plus_fyg8_p319_candidate_qualification.py"
+        self.assertNotIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+        spec = self.module.S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS[name]
+        source = self.source(name)
+        value = self.module._audit_host_only_non_acquiring_source(name, source)
+        self.assertEqual(value["owner"], "s22plus-fyg8-p319")
+        self.assertEqual(value["classification"], "host-only-non-acquiring")
+        self.assertEqual(value["profile"], "H0-candidate-qualification")
+        self.assertEqual(value["size"], 46610)
+        self.assertEqual(value["sha256"], spec["sha256"])
+        self.assertEqual(value["exec_lines"], [238, 252])
+        self.assertEqual(value["getattr_line"], 152)
+
+        mutations = (
+            source + "\n# changed host-only source\n",
+            source.replace(
+                'exec(compile(source, str(STOCK_SOURCE), "exec"), module.__dict__)',
+                "exec(SRC)",
+                1,
+            ),
+            source.replace(
+                "os.fsync(fd)", 'os.system("adb shell id")', 1
+            ),
+            source.replace("import struct", "import ctypes", 1),
+            source.replace(
+                'getattr(os, "O_DIRECTORY", 0)',
+                'getattr(os, "system")',
+                1,
+            ),
+            source.replace('"device_contact": False', '"device_contact": True', 1),
+        )
+        for mutation in mutations:
+            with self.subTest(sha256=hashlib.sha256(mutation.encode()).hexdigest()):
+                with self.assertRaisesRegex(
+                    self.module.RawFirstAuditError,
+                    "host-only source",
+                ):
+                    self.module._audit_host_only_non_acquiring_source(name, mutation)
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError,
+            "host-only source is not registered",
+        ):
+            self.module._audit_host_only_non_acquiring_source(
+                "s22plus_fyg8_p319_candidate_qualification_copy.py", source
+            )
 
     def test_device_transport_detection_ignores_incidental_substrings(self):
         self.assertFalse(
@@ -450,6 +513,11 @@ def read_control1(adb, serial):
             value["pre_boundary_device_source_inventory_sha256"],
             self.module.PRE_BOUNDARY_DEVICE_SOURCE_SHA256,
         )
+        self.assertEqual(value["pre_boundary_device_source_count"], 127)
+        self.assertEqual(
+            value["pre_boundary_device_source_inventory_sha256"],
+            "c7029746710d2f83d710a3abbecbba5a6bbc3367c7a5f20a559b63a92f1677db",
+        )
         # These two fields used to be hardcoded True in the receipt and were
         # published as evidence; an adversarial review refuted the second with
         # ten working bypasses. The receipt now names the rule instead of
@@ -461,6 +529,17 @@ def read_control1(adb, serial):
             "device_acquisition_detected_by_behavior_not_filename", value
         )
         self.assertEqual(value["acquisition_rule"], "process_spawn_capability_v2")
+        self.assertEqual(value["host_only_non_acquiring_source_count"], 1)
+        self.assertEqual(
+            value["host_only_non_acquiring_source_inventory_sha256"],
+            "a85944d3066909bbb54fd5e00fdf265900708f0ca9a4af2245e46fff25de9933",
+        )
+        self.assertTrue(value["host_only_non_acquiring_sources_are_byte_frozen"])
+        self.assertEqual(
+            value["host_only_non_acquiring_sources"][0]["name"],
+            "s22plus_fyg8_p319_candidate_qualification.py",
+        )
+        self.assertEqual(value["pre_boundary_cross_target_membership_count"], 51)
 
 
 if __name__ == "__main__":

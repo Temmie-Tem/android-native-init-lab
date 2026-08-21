@@ -3,7 +3,7 @@
 Date: 2026-08-17 KST
 Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q`) only
 Tier: H0 host-only
-Status: **PASS_GO_P319_RAW_FIRST_OBSERVER_BOUNDARY_H0_CAPABILITY_V1; H0 ONLY; NO D0/D1/F1/LIVE AUTHORITY**
+Status: **PASS_GO_P319_RAW_FIRST_CROSS_TARGET_MEMBERSHIP_H0_CAPABILITY_V1; H0 ONLY; NO D0/D1/F1/LIVE AUTHORITY**
 
 ## Result
 
@@ -125,6 +125,52 @@ This H0 unit contacted no device, ADB server, USB endpoint, Odin session, or
 other target. It did not retry P3.19 Stage A and did not infer the discarded
 attribute list. `regmap` presence and the Stage B target remain unproved.
 
-The required independent changed-closure review is complete. Only a fresh direct operator request may authorize the exact same directory-only Stage A
-D0 once in a new no-clobber directory. Stage B remains a separate future D0
-decision and receives no authority from this report or its H0 `PASS_GO`.
+## Current cross-target membership successor
+
+The earlier `PASS_GO` above is historical evidence for the prior raw-first
+boundary. Its historical status was
+`PASS_GO_P319_RAW_FIRST_OBSERVER_BOUNDARY_H0_CAPABILITY_V1; H0 ONLY`; the
+current default no-clobber receipt is
+`workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260821-04-cross-target-membership-default.json`:
+11,012 bytes, SHA-256
+`d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da`, mode
+`0400`, link count one. It regenerates byte-identically from the bound auditor
+whose source is 57,919 bytes, SHA-256
+`6d218854492b5ac1191fac171efb12324acf743020406daba2ab75e2edbc7183`, with
+normalized self-binding `89ecc662487c94e2211dfb413a9ec74d870e60e695bbe51aa4f85d38a349b7ca`.
+
+The false positive was a scope mistake, not an acquisition path: the committed
+S22+ P3.19 candidate qualifier is a host-only H0 builder/auditor. Its exact
+46,610-byte identity is `e74c299a1446cc379bd2bb065309ce2dc7b4f1cb189a03fb58877c6805fdfca9`,
+and the typed registry records owner `s22plus-fyg8-p319`, classification
+`host-only-non-acquiring`, profile `H0-candidate-qualification`, two allowed
+`compile(..., "exec")` sites only in bound `_load_stock`/`_load_adapter`, and
+the sole `getattr(os, "O_DIRECTORY", 0)` site. Forbidden subprocess/pty/asyncio/
+multiprocessing/ctypes imports, system/popen/fork/execv/posix_spawn/
+bounded-command calls, unapproved `exec`/`getattr`, and non-H0/no-live process
+fields fail closed; exact source identity and invariant sites are required.
+
+The receipt now records one host-only non-acquiring source with canonical
+inventory SHA-256
+`a85944d3066909bbb54fd5e00fdf265900708f0ca9a4af2245e46fff25de9933`, while
+the S22 pre-boundary device inventory remains exactly 127 at
+`c7029746710d2f83d710a3abbecbba5a6bbc3367c7a5f20a559b63a92f1677db`. The
+pre-boundary S22+ inventory is still 127. The set has 51 target-external membership entries, including the S20+
+autonomous coordinator; that membership is not an active S22 source and its
+ordinary edit remains isolated. Copied or renamed bytes, comments, byte edits,
+device-scope changes, and altered allowed execution sites are rejected. The
+previous current `-03` receipt
+`workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260821-03-cross-target-membership.json`
+is preserved unchanged at 11,012 bytes,
+SHA-256 `2016f6cb812daa3ee633c65677b7418d80624cd0dd20a6635f9d8c57b2e0108d`;
+the earlier current 10,296-byte receipt `e5689fee2322b22cba04c5ecfc21d00e59de0fe44e1f0834389ee783eee53f7f`
+is also preserved unchanged as superseded evidence.
+
+This successor is now **PASS_GO_P319_RAW_FIRST_CROSS_TARGET_MEMBERSHIP_H0_CAPABILITY_V1**.
+No D0/D1/F1/LIVE authority exists. It is H0-only and creates no
+D0, D1, F1, device, ADB, USB, Odin, recovery, replay, or live authority. The
+Stage A/Stage B historical boundaries above remain unchanged; no device action
+was retried.
+
+The required independent changed-closure review is complete; full-tail taxonomy is 45 total / 31 resolved / 14 unresolved, with only the -27 topic resolved by this review. Only a fresh direct operator request may authorize any future directory-only Stage A D0, and this
+receipt grants no such authority.

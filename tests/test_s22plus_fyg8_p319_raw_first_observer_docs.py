@@ -18,6 +18,16 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260821-04-cross-target-membership-default.json"
+)
+# The previous current receipt is preserved as superseded evidence.  It must
+# not be rewritten when the default-output correction gets its own cut.
+PREVIOUS_CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260821-03-cross-target-membership.json"
+)
+EARLIER_CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260819-02-review-corrections.json"
 )
 # Superseded when the runner docstring was corrected after independent review.
@@ -62,6 +72,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         cls.goal = GOAL.read_text(encoding="utf-8")
 
     def test_private_receipt_is_exact_deterministic_regeneration(self):
+        self.assertEqual(
+            self.auditor.DEFAULT_OUTPUT.as_posix(),
+            "workspace/private/outputs/s22plus_fyg8_p319/"
+            "raw-first-observer-audit-20260821-04-cross-target-membership-default.json",
+        )
         expected = self.auditor.encode_receipt(
             self.auditor.audit_sources(REVALIDATION)
         )
@@ -70,11 +85,37 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(expected), 10296)
+        self.assertEqual(len(expected), 11012)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
+            "d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da",
+        )
+
+    def test_previous_current_receipt_is_preserved_unmodified(self):
+        info = PREVIOUS_CURRENT_RECEIPT.stat()
+        self.assertTrue(stat.S_ISREG(info.st_mode))
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(info.st_nlink, 1)
+        payload = PREVIOUS_CURRENT_RECEIPT.read_bytes()
+        self.assertEqual(len(payload), 11012)
+        self.assertEqual(
+            hashlib.sha256(payload).hexdigest(),
+            "2016f6cb812daa3ee633c65677b7418d80624cd0dd20a6635f9d8c57b2e0108d",
+        )
+        self.assertNotEqual(payload, RECEIPT.read_bytes())
+
+    def test_earlier_current_receipt_is_preserved_unmodified(self):
+        info = EARLIER_CURRENT_RECEIPT.stat()
+        self.assertTrue(stat.S_ISREG(info.st_mode))
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(info.st_nlink, 1)
+        payload = EARLIER_CURRENT_RECEIPT.read_bytes()
+        self.assertEqual(len(payload), 10296)
+        self.assertEqual(
+            hashlib.sha256(payload).hexdigest(),
             "e5689fee2322b22cba04c5ecfc21d00e59de0fe44e1f0834389ee783eee53f7f",
         )
+        self.assertNotEqual(payload, PREVIOUS_CURRENT_RECEIPT.read_bytes())
 
     def test_superseded_role_state_receipt_is_preserved_unmodified(self):
         info = USB_ROLE_STATE_RECEIPT.stat()
@@ -127,6 +168,12 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
     def test_report_has_scoped_pass_and_does_not_grant_live_authority(self):
         for token in (
             "PASS_GO_P319_RAW_FIRST_OBSERVER_BOUNDARY_H0_CAPABILITY_V1; H0 ONLY",
+            "PASS_GO_P319_RAW_FIRST_CROSS_TARGET_MEMBERSHIP_H0_CAPABILITY_V1",
+            "host-only non-acquiring source",
+            "pre-boundary S22+ inventory is still 127",
+            "51 target-external membership entries",
+            "S20+\nautonomous coordinator; that membership is not an active S22 source",
+            "No D0/D1/F1/LIVE authority",
             "NO D0/D1/F1/LIVE AUTHORITY",
             "WRITE_AFTER_PARSE_DEVICE_EVIDENCE_LOSS",
             "294/294",
@@ -136,6 +183,8 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "initial AST subprocess-import checks",
             "fresh direct operator request",
             "Stage B target remain unproved",
+            "The required independent changed-closure review is complete",
+            "full-tail taxonomy is 45 total / 31 resolved / 14 unresolved",
         ):
             self.assertIn(token, self.report)
         self.assertIn("Its scoped `PASS_GO` applies only", self.report)
@@ -146,6 +195,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertIn("9,779-byte `60009597`", self.report)
         self.assertIn("9,982-byte `d42eecc0`", self.report)
         self.assertIn("closed inventory freezes `(name,size,sha256)` for 121", self.report)
+        self.assertIn("2016f6cb812daa3ee633c65677b7418d80624cd0dd20a6635f9d8c57b2e0108d", self.report)
+        self.assertIn("d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da", self.report)
+        self.assertIn("e5689fee2322b22cba04c5ecfc21d00e59de0fe44e1f0834389ee783eee53f7f", self.report)
+        self.assertIn("raw-first-observer-audit-20260821-04-cross-target-membership-default.json", self.report)
+        self.assertIn("raw-first-observer-audit-20260821-03-cross-target-membership.json", self.report)
 
     def test_permanent_target_boundary_has_review_triggers(self):
         for token in (
@@ -222,6 +276,23 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         )
         self.assertIn("10,040-byte receipt 7f9e6f6c", review_row)
         self.assertIn("creates no D0, D1, F1", review_row)
+
+    def test_cross_target_membership_review_row_resolves_only_current_topic(self):
+        pending = "h0-raw-first-cross-target-membership-27"
+        followup = "h0-raw-first-cross-target-membership-followup-27"
+        review = "h0-raw-first-cross-target-membership-review-27"
+        rows = self.ledger.splitlines()
+        self.assertEqual(sum(f" | {pending} | " in line for line in rows), 1)
+        self.assertEqual(sum(f" | {followup} | " in line for line in rows), 1)
+        self.assertEqual(sum(f" | {review} | " in line for line in rows), 1)
+        row = next(line for line in self.ledger.splitlines() if review in line)
+        self.assertIn(
+            "PASS_GO_P319_RAW_FIRST_CROSS_TARGET_MEMBERSHIP_H0_CAPABILITY_V1",
+            row,
+        )
+        self.assertIn("6d218854492b5ac1191fac171efb12324acf743020406daba2ab75e2edbc7183", row)
+        self.assertIn("d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da", row)
+        self.assertIn("no device, ADB, USB, Odin", row)
 
 
 if __name__ == "__main__":

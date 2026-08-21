@@ -18,12 +18,12 @@ from typing import Any, Mapping
 SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
-AUDITOR_NORMALIZED_SHA256 = "ec5664f4e22a7c1fde393cb0256f4d277e707cc69d393d12de61a3a2f9f498ed"
+AUDITOR_NORMALIZED_SHA256 = "89ecc662487c94e2211dfb413a9ec74d870e60e695bbe51aa4f85d38a349b7ca"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260817-01.json"
+    "raw-first-observer-audit-20260821-04-cross-target-membership-default.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
@@ -123,6 +123,7 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "native_audio_v2798_readiness_replay_live_handoff_v2801.py",
         "native_init_flash.py",
         "s20plus_g986n_boot_only_odin_prep.py",
+        "s20plus_g986n_autonomous_research_coordinator_h0.py",
         "s20plus_g986n_d0_inventory.py",
         "s20plus_g986n_download_exit_d1.py",
         "s20plus_g986n_magisk_bootstrap_f1.py",
@@ -240,6 +241,17 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s22plus_v3443_high_panic_compare_live_gate.py",
     }
 )
+S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
+    "s22plus_fyg8_p319_candidate_qualification.py": {
+        "owner": "s22plus-fyg8-p319",
+        "classification": "host-only-non-acquiring",
+        "profile": "H0-candidate-qualification",
+        "size": 46610,
+        "sha256": "e74c299a1446cc379bd2bb065309ce2dc7b4f1cb189a03fb58877c6805fdfca9",
+        "exec_lines": (238, 252),
+        "getattr_line": 152,
+    },
+}
 OBSERVER_FILE_RE = re.compile(
     r"(?:s22plus|device_action)[A-Za-z0-9_]*"
     r"(?:d0|f1|live|observer|probe|capture|transition|recovery|readonly)"
@@ -804,6 +816,138 @@ def _touches_device_transport(text: str) -> bool:
     )
 
 
+def _audit_host_only_non_acquiring_source(name: str, text: str) -> dict[str, Any]:
+    spec = S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS.get(name)
+    if spec is None:
+        raise RawFirstAuditError(f"host-only source is not registered: {name}")
+    payload = text.encode("utf-8")
+    if len(payload) != spec["size"] or hashlib.sha256(payload).hexdigest() != spec["sha256"]:
+        raise RawFirstAuditError(f"host-only source identity differs: {name}")
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as exc:
+        raise RawFirstAuditError(f"host-only source is not valid Python: {name}") from exc
+    forbidden_imports = {"subprocess", "pty", "asyncio", "multiprocessing", "ctypes"}
+    forbidden_attributes = {
+        "system", "popen", "fork", "forkpty", "execv", "execve", "execvp",
+        "execvpe", "execl", "execle", "execlp", "posix_spawn", "posix_spawnp",
+        "bounded_command",
+    }
+    exec_sites: list[tuple[int, str]] = []
+    getattr_sites: list[int] = []
+    forbidden_call: str | None = None
+
+    class Visitor(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.function = "<module>"
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            old = self.function
+            self.function = node.name
+            self.generic_visit(node)
+            self.function = old
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+
+        def visit_Import(self, node: ast.Import) -> None:
+            nonlocal forbidden_call
+            if any((alias.name or "").split(".")[0] in forbidden_imports for alias in node.names):
+                forbidden_call = f"forbidden import at line {node.lineno}"
+            self.generic_visit(node)
+
+        def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+            nonlocal forbidden_call
+            if (node.module or "").split(".")[0] in forbidden_imports:
+                forbidden_call = f"forbidden import at line {node.lineno}"
+            self.generic_visit(node)
+
+        def visit_Call(self, node: ast.Call) -> None:
+            nonlocal forbidden_call
+            if isinstance(node.func, ast.Name) and node.func.id == "exec":
+                valid = (
+                    node.lineno in spec["exec_lines"]
+                    and self.function in {"_load_stock", "_load_adapter"}
+                    and len(node.args) == 2
+                    and isinstance(node.args[0], ast.Call)
+                    and isinstance(node.args[0].func, ast.Name)
+                    and node.args[0].func.id == "compile"
+                    and len(node.args[0].args) == 3
+                    and isinstance(node.args[0].args[2], ast.Constant)
+                    and node.args[0].args[2].value == "exec"
+                    and isinstance(node.args[1], ast.Attribute)
+                    and node.args[1].attr == "__dict__"
+                )
+                if not valid:
+                    forbidden_call = f"unapproved exec at line {node.lineno}"
+                else:
+                    exec_sites.append((node.lineno, self.function))
+            elif isinstance(node.func, ast.Name) and node.func.id in {"eval", "__import__"}:
+                forbidden_call = f"forbidden call at line {node.lineno}"
+            elif isinstance(node.func, ast.Name) and node.func.id == "getattr":
+                valid = (
+                    node.lineno == spec["getattr_line"]
+                    and len(node.args) == 3
+                    and isinstance(node.args[0], ast.Name)
+                    and node.args[0].id == "os"
+                    and isinstance(node.args[1], ast.Constant)
+                    and node.args[1].value == "O_DIRECTORY"
+                    and isinstance(node.args[2], ast.Constant)
+                    and node.args[2].value == 0
+                )
+                if not valid:
+                    forbidden_call = f"unapproved getattr at line {node.lineno}"
+                else:
+                    getattr_sites.append(node.lineno)
+            elif isinstance(node.func, ast.Attribute) and node.func.attr in forbidden_attributes:
+                forbidden_call = f"forbidden call at line {node.lineno}"
+            self.generic_visit(node)
+
+    Visitor().visit(tree)
+    if forbidden_call is not None:
+        raise RawFirstAuditError(f"host-only source semantic boundary differs: {name}: {forbidden_call}")
+    if sorted(exec_sites) != [(line, function) for line, function in ((238, "_load_stock"), (252, "_load_adapter"))]:
+        raise RawFirstAuditError(f"host-only source exec sites differ: {name}")
+    if getattr_sites != [spec["getattr_line"]]:
+        raise RawFirstAuditError(f"host-only source getattr site differs: {name}")
+    required_fields = (
+        '"tier": "H0"',
+        '"host_only": True',
+        '"device_contact": False',
+        '"live_authorized": False',
+        '"approval_created": False',
+        '"process_v2_integration_created": False',
+        '"process_v2_ready_created": False',
+        '"process_v2_run_binding": False',
+    )
+    if any(field not in text for field in required_fields):
+        raise RawFirstAuditError(f"host-only source process boundary differs: {name}")
+    return {
+        "name": name,
+        "owner": spec["owner"],
+        "classification": spec["classification"],
+        "profile": spec["profile"],
+        "size": spec["size"],
+        "sha256": spec["sha256"],
+        "exec_lines": list(spec["exec_lines"]),
+        "getattr_line": spec["getattr_line"],
+    }
+
+
+def _host_only_non_acquiring_sources(
+    root: Path, overrides: Mapping[str, str]
+) -> tuple[list[dict[str, Any]], str]:
+    paths = {path.name: path for path in root.glob("*.py")}
+    for name in overrides:
+        paths.setdefault(name, root / name)
+    values = []
+    for name in sorted(S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS):
+        if name not in paths:
+            raise RawFirstAuditError(f"host-only source is absent: {name}")
+        values.append(_audit_host_only_non_acquiring_source(name, _source(paths[name], overrides)))
+    encoded = json.dumps(values, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+    return values, hashlib.sha256(encoded).hexdigest()
+
+
 def _device_acquisition_sources(
     root: Path, overrides: Mapping[str, str]
 ) -> tuple[list[dict[str, Any]], str]:
@@ -825,6 +969,9 @@ def _device_acquisition_sources(
         paths.setdefault(name, root / name)
     frozen: list[dict[str, Any]] = []
     for name, path in sorted(paths.items()):
+        if name in S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS:
+            _audit_host_only_non_acquiring_source(name, _source(path, overrides))
+            continue
         text = _source(path, overrides)
         # Cheap transport substring first: the AST parse is the expensive half
         # and only device-facing sources can ever reach the boundary rule.
@@ -978,6 +1125,9 @@ def audit_sources(
     legacy_observers, legacy_sha256 = _legacy_unmigrated_observers(
         root, overrides
     )
+    host_only_sources, host_only_sha256 = _host_only_non_acquiring_sources(
+        root, overrides
+    )
     device_sources, device_sources_sha256 = _device_acquisition_sources(
         root, overrides
     )
@@ -1086,6 +1236,14 @@ def audit_sources(
         "closed_observer_sources_are_byte_frozen": True,
         "pre_boundary_device_source_count": len(device_sources),
         "pre_boundary_device_source_inventory_sha256": device_sources_sha256,
+        "host_only_non_acquiring_source_count": len(host_only_sources),
+        "host_only_non_acquiring_source_inventory_sha256": host_only_sha256,
+        "host_only_non_acquiring_sources_are_byte_frozen": True,
+        "host_only_non_acquiring_sources": host_only_sources,
+        "pre_boundary_cross_target_membership_count": sum(
+            1 for name in PRE_BOUNDARY_DEVICE_SOURCES
+            if S22_SCOPED_SOURCE_RE.fullmatch(name) is None
+        ),
         # Two hardcoded True literals stood here and were published as evidence.
         # An adversarial review refuted the second with ten working bypasses, so
         # both are removed rather than restated. What the rule actually does is
@@ -1246,8 +1404,7 @@ def main() -> int:
     try:
         value = audit_sources()
         payload = encode_receipt(value)
-        if args.output is not None:
-            write_receipt(args.output, payload)
+        write_receipt(args.output or DEFAULT_OUTPUT, payload)
     except (OSError, RawFirstAuditError) as exc:
         print(f"S22+ raw-first observer audit error: {exc}")
         return 2

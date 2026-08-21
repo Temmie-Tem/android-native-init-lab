@@ -47,14 +47,18 @@ Populations under the current tree:
 
 | Set | Count |
 |---|---:|
-| revalidation `*.py` scanned | 1,718 |
-| acquiring **and** device-facing | 177 + 15 active |
+| revalidation `*.py` scanned | 1,729 |
+| acquiring **and** device-facing | 178 + 15 active |
 | S22+-scoped, byte-frozen | 127 |
-| other-target, membership-only | 50 |
+| other-target, membership-only | 51 |
+
+The exact-byte host-only non-acquiring registry contains one P3.19 qualifier;
+it is excluded from the acquiring/device-facing population and is audited as a
+separate H0 source class.
 
 Ordering matters for cost as well as meaning: the substring test runs before the
 AST parse, which keeps a full audit at about 7 seconds instead of parsing all
-1,718 files.
+1,729 files.
 
 ## Target isolation
 
