@@ -86,9 +86,9 @@ class A90H30FailureAnalysisDesignTest(unittest.TestCase):
         self.assertEqual(result["candidateWriteCount"], 0)
         self.assertEqual(result["rollbackWriteCount"], 0)
         self.assertFalse(result["deviceContact"])
-        self.assertFalse(result["durableJournalPublication"])
-        self.assertEqual(result["guards"], "retained")
-        self.assertTrue(result["reviewRequiredBeforeClosure"])
+        self.assertEqual(result["guards"], "candidate-retained-active-released")
+        self.assertTrue(result["durableJournalPublication"])
+        self.assertFalse(result["reviewRequiredBeforeClosure"])
 
 
 if __name__ == "__main__":

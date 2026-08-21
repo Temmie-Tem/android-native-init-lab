@@ -590,10 +590,10 @@ identity:
   qualification still binds stale closures and is superseded by
   `A90_H30_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`; no current
   qualification, manifest, approval, token, F1, or live authority exists.
-  The private manifest and D0 passed, but the attended run stopped before both writes when
-  Native `adb devices` started its absent host server and emitted rejected stderr.
-  Both receipts are quiescent `PRE_WRITE_FAILURE` with `writeStarted=false`;
-  H30 remains unproved, exact V2321 remains healthy, and both guards remain.
+  The private manifest/D0 passed, but both writes stopped when Native `adb devices` emitted rejected stderr.
+  Both receipts are quiescent `PRE_WRITE_FAILURE` with `writeStarted=false`.
+  After operator System return, the reviewed ACM-only finalizer published 41 at `b4d01a63…`;
+  V2321 is healthy; active guard is released and H30 remains consumed/unproved with no replay.
   See `docs/reports/A90_H30_NATIVE_ADB_INVENTORY_PREWRITE_FAILURE_2026-08-21.md`.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner

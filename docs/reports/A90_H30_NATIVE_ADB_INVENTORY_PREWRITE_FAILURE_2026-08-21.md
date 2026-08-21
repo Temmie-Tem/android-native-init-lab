@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Target: operator-owned Samsung Galaxy A90 5G
-Disposition: `RECOVERY_REQUIRED_PREWRITE_ONLY_H30_UNPROVED`
+Disposition: `RECOVERY_CLOSED_PREWRITE_ONLY_H30_UNPROVED`
 
 ## Result
 
@@ -34,9 +34,26 @@ even though ordinary Native observation is ACM-scoped. When no host ADB server
 already exists, that check has the side effect of starting one and its stderr
 banner becomes a deterministic pre-write rejection.
 
-Candidate and active guards remain. No candidate or rollback replay is allowed
-from this journal. Before another F1, a host-only reviewed repair must remove
-the ambient Native ADB-server dependency or otherwise provide an explicitly
-owned, policy-compatible inventory boundary, and a reviewed reconciliation
-must close this exact pre-write run. This incident grants no D0, F1, retry, or
-new candidate authority.
+At the incident stop, candidate and active guards remained. No candidate or
+rollback replay was allowed from this journal. Before another F1, a host-only
+reviewed repair had to remove the ambient Native ADB-server dependency and a
+reviewed reconciliation had to close this exact pre-write run. This incident
+granted no D0, F1, retry, or new candidate authority.
+
+## Resolution on 2026-08-22
+
+The repaired owner identifies Native using the exact USB/ACM boundary and opens
+ADB only after Recovery is present. Luna MAX independently passed the repaired
+owner, candidate-return, and reusable postrollback-recovery closures with no
+findings and no device/private contact.
+
+The fixed H30 validator then re-established candidate writes 0, rollback
+writes 0, and both replay flags false. The first finalizer invocation observed
+the A90 still in Recovery through passive USB inventory and stopped before ACM,
+journal publication, or guard mutation. After the operator selected TWRP
+System, the same reviewed finalizer observed exact healthy V2321 over ACM,
+published canonical `41-recovery-closed.json` at SHA-256
+`b4d01a63c316b3f767dc8e76fab9a38dd4e6afbf14b52b8ad44579942d0070a4`,
+and removed only the active guard. The H30 candidate guard remains consumed;
+H30 remains unproved and cannot be replayed. The finalizer issued no ADB,
+reboot, recovery-transition, candidate, rollback, or partition command.

@@ -41,6 +41,10 @@ EFFECT_LOG_HASHES = {
     "020-flash-rollback.stdout": "73f57be33e1a5bf1fc3c33082831a671813f71839273e3f61a1097b114229b24",
     "020-flash-rollback.stderr": "0658003a67cad391ba0396494ce8f0dc9a0a7a3f9778fa3b53b959eee17ce78b",
 }
+RECOVERY_RECORD_HASH = "b4d01a63c316b3f767dc8e76fab9a38dd4e6afbf14b52b8ad44579942d0070a4"
+CURRENT_RECOVERY_REVIEW_SHA256 = (
+    "660c7e8522343029449a739da233e8c516e20c876a9d4caa3d7a41371685f369"
+)
 FORBIDDEN_STAGES = (
     "sealed local image copy:",
     "phase.native_init_flash.adb_push.",
@@ -94,13 +98,14 @@ def _sha(raw: bytes) -> str:
     return owner.sha256_bytes(raw)
 
 
-def _require_records() -> dict[str, dict[str, Any]]:
+def _require_records() -> tuple[dict[str, dict[str, Any]], bool]:
     try:
         records = owner.read_records(RUN_DIRECTORY)
     except owner.ContractError as exc:
         raise ContractError(str(exc)) from exc
-    if tuple(records) != owner.ROLLBACK_PATH:
-        raise ContractError("H30 journal is not the fixed rollback prefix")
+    closed = tuple(records) == owner.POSTROLLBACK_RECOVERY_PATH
+    if tuple(records) not in (owner.ROLLBACK_PATH, owner.POSTROLLBACK_RECOVERY_PATH):
+        raise ContractError("H30 journal is not the fixed rollback or recovery prefix")
     for name, expected in RECORD_HASHES.items():
         record = records.get(name)
         if (
@@ -137,7 +142,32 @@ def _require_records() -> dict[str, dict[str, Any]]:
         or terminal.get("candidateReplay") is not False
     ):
         raise ContractError("H30 terminal changed")
-    return records
+    if closed:
+        recovery = records["41-recovery-closed.json"]
+        if _sha(owner.canonical_json(recovery)) != RECOVERY_RECORD_HASH:
+            raise ContractError("H30 recovery closure changed")
+        payload = recovery["payload"]
+        snapshot = payload.get("recoveredSnapshot")
+        if (
+            payload.get("schema") != "a90-f1-postrollback-recovery-v1"
+            or payload.get("decision")
+            != "V2321_HEALTHY_EXTERNAL_ROLLBACK_OUTCOME_UNPROVED"
+            or payload.get("candidateReplay") is not False
+            or payload.get("rollbackReplay") is not False
+            or payload.get("rollbackOutcome") != "UNPROVED_EXTERNAL_CONTINUATION"
+            or payload.get("currentReviewSha256") != CURRENT_RECOVERY_REVIEW_SHA256
+            or type(snapshot) is not dict
+            or snapshot.get("version") != owner.V2321_ROLLBACK_VERSION
+            or snapshot.get("build") != owner.V2321_ROLLBACK_BUILD
+            or snapshot.get("healthy") is not True
+            or snapshot.get("otherTargetsUntouched") is not True
+            or snapshot.get("freshStateObserved") is not False
+            or snapshot.get("freshStateAbsent") is not False
+            or payload.get("recoveredSnapshotSha256")
+            != _sha(owner.canonical_json(snapshot))
+        ):
+            raise ContractError("H30 recovery closure is not exact")
+    return records, closed
 
 
 def _require_effect_logs() -> None:
@@ -167,7 +197,7 @@ def _require_effect_logs() -> None:
 
 
 def reconcile() -> dict[str, Any]:
-    _require_records()
+    _records, closed = _require_records()
     _require_effect_logs()
     return {
         "schema": SCHEMA,
@@ -178,10 +208,12 @@ def reconcile() -> dict[str, Any]:
         "rollbackReplay": False,
         "candidateWriteCount": 0,
         "rollbackWriteCount": 0,
-        "guards": "retained",
+        "guards": (
+            "candidate-retained-active-released" if closed else "retained"
+        ),
         "deviceContact": False,
-        "durableJournalPublication": False,
-        "reviewRequiredBeforeClosure": True,
+        "durableJournalPublication": closed,
+        "reviewRequiredBeforeClosure": not closed,
     }
 
 
