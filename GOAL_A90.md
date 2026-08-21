@@ -49,7 +49,8 @@ the separately registered S20+ goal and every future target row.
 - The first physical-return observer proved exact V2321 `version` and then
   failed by serial input truncation. Its separately reviewed slow-input
   reconciliation was consumed once on 2026-08-21. That session proved exact
-  V2321, `selftest fail=0`, native status health, and pstore entries zero, but
+  V2321, `selftest fail=0`, and native status-command health; the pstore
+  entry count was retained only as diagnostic text, but
   the final boot-ID producer returned `EBUSY` because the automatic menu was
   active. That consumed checkpoint was `NO_PROOF_OBSERVER / RECOVERY_PARKED`;
   see
@@ -57,7 +58,7 @@ the separately registered S20+ goal and every future target row.
 - A fresh independently reviewed menu-hide reconciliation then durably armed
   one exact session, sent `hide` once, waited the fixed settle, and proved two
   equal boot-ID receipts around exact V2321 `version`, `selftest fail=0`,
-  healthy `status`, and zero pstore entries. It published
+  healthy `status`; the pstore entry count was diagnostic only. It published
   `41-recovery-closed.json` at SHA-256
   `4ae580129004e3237889e886b4640dccc9efb8f194b74845357f70971c4795d7`,
   removed the active-run guard after exact readback, and retained the consumed
@@ -553,7 +554,8 @@ identity:
   after durable exact V2321 health. No implementation, review, approval,
   observation, or guard authority exists at this design checkpoint. That slow
   session then ran once and reached the exact V2321 resident: `version`,
-  `selftest fail=0`, and `status pstore entries=0` were observed, but the
+  `selftest fail=0`, and the status command completed; its pstore entry count
+  was diagnostic only. The
   first boot-ID request returned `EBUSY` because the native automatic menu was
   still active. The slow-health intent is consumed and the run remains parked;
   no recovery record was written and both guards remain. This is observer
@@ -582,11 +584,14 @@ identity:
   at SHA-256 `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
   the exact kernel remains `59f79b8f…`, and only identity/state paths changed.
   See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H30_H0_2026-08-21.md`.
-  H30 is H0-only. Current owner closure is `e0a1fa5d…` and current
-  candidate-return continuation closure is `a396a744…`. Current reusable
-  capability review and H30 candidate qualification both received independent
-  `PASS_GO`, H/M/L `0/0/0`; the H30 review is 1,181 bytes at SHA-256
-  `f23766ea52ec3c1d35b46013b21587fbbed243179a5e4afe1e008c9b61ed06d6`.
+  H30 is H0-only. The Native-boundary and pstore-health repairs supersede the
+  pending review subjects: current owner closure is
+  `9668df832d9a0ff64ee1ef24c69faf81f10be7047c92c7f4f3c59380685ae267` and
+  current candidate-return continuation closure is
+  `768c5bda3313f83b5ebc037a383bde245a598b26c9fdf5aa116f89e174ac4464`.
+  The prior PASS_GO/review bytes bind the old closures and therefore do not
+  qualify these repaired bytes. No replacement review, H30 qualification,
+  manifest, approval, token, or live authority is created here.
   The private manifest and D0 passed, but the attended run stopped before both
   candidate and rollback writes: Native `adb devices` started its absent host
   server and wrote a banner to stderr, which the strict inventory rejected.

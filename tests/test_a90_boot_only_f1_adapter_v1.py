@@ -281,7 +281,7 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(one.target_evidence_sha256, two.target_evidence_sha256)
         self.assertNotEqual(one.receipt_sha256, two.receipt_sha256)
 
-    def test_selftest_or_pstore_drift_is_rejected_or_unhealthy(self):
+    def test_selftest_drift_is_rejected_but_pstore_count_is_diagnostic_only(self):
         bad_selftest = healthy_results()
         bad_selftest[4] = result(command(
             "selftest: pass=8 warn=0 fail=1 duration=12ms entries=9\n", "selftest"
@@ -296,7 +296,7 @@ class FixedAdapterTest(unittest.TestCase):
         snapshot = A.FixedA90Adapter(
             FakeRunner(bad_pstore), qualification=QUALIFICATION
         ).preflight({"expectedStart": self.expected, "qualification": QUALIFICATION})
-        self.assertFalse(snapshot.healthy)
+        self.assertTrue(snapshot.healthy)
 
     def test_present_fresh_state_is_rejected(self):
         present = healthy_results()
@@ -377,12 +377,13 @@ class FixedAdapterTest(unittest.TestCase):
             )
 
     def test_flash_uses_only_fixed_helper_arguments(self):
-        runner = FakeRunner([result(b"ok")])
+        runner = FakeRunner([usb_inventory(), result(b"ok")])
         adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
         effect = adapter.flash(self.artifact, rollback=False, timeout_sec=90)
         effect.validate()
         self.assertTrue(effect.completed)
-        label, argv, timeout = runner.calls[0]
+        self.assertNotIn("adb-inventory", [call[0] for call in runner.calls])
+        label, argv, timeout = runner.calls[1]
         self.assertEqual(label, "flash-candidate")
         self.assertEqual(
             argv,
@@ -390,12 +391,21 @@ class FixedAdapterTest(unittest.TestCase):
                 self.artifact,
                 recovery_serial_sha256="c" * 64,
                 timeout_sec=90,
+                owner_usb_inventory_sha256=A.sha256_bytes(
+                    usb_inventory().stdout
+                ),
+                owner_adb_role="NATIVE_NO_RECOVERY",
             ),
         )
         self.assertEqual(argv[:2], (str(A.PYTHON), str(A.FLASH)))
         self.assertIn("--from-native", argv)
         self.assertIn("--require-stable-adb-baseline", argv)
-        self.assertNotIn("--require-empty-adb-baseline", argv)
+        self.assertIn("--owner-expect-adb-role", argv)
+        self.assertEqual(
+            argv[argv.index("--owner-expect-adb-role") + 1],
+            "NATIVE_NO_RECOVERY",
+        )
+        self.assertNotIn("--owner-expect-adb-inventory-sha256", argv)
         self.assertEqual(
             argv[argv.index("--expect-recovery-serial-sha256") + 1],
             "c" * 64,
@@ -407,15 +417,15 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(argv[argv.index("--bridge-timeout") + 1], "30")
 
     def test_flash_failure_is_a_result_and_never_a_retry(self):
-        runner = FakeRunner([result(b"failed", rc=1)])
+        runner = FakeRunner([usb_inventory(), result(b"failed", rc=1)])
         effect = A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
             self.artifact, rollback=True, timeout_sec=60
         )
         self.assertFalse(effect.completed)
         self.assertEqual(effect.returncode, 1)
-        self.assertEqual(len(runner.calls), 1)
-        self.assertEqual(runner.calls[0][0], "flash-rollback")
-        rollback_argv = runner.calls[0][1]
+        self.assertEqual(len(runner.calls), 2)
+        self.assertEqual(runner.calls[1][0], "flash-rollback")
+        rollback_argv = runner.calls[1][1]
         self.assertIn("--reuse-bound-recovery-or-from-native", rollback_argv)
         self.assertNotIn("--from-native", rollback_argv)
         self.assertNotIn("--require-stable-adb-baseline", rollback_argv)
@@ -432,7 +442,7 @@ class FixedAdapterTest(unittest.TestCase):
             "systemReturnConfirmed": False,
         })
         effect = A.FixedA90Adapter(
-            FakeRunner([result(receipt, rc=1)]), qualification=QUALIFICATION
+            FakeRunner([usb_inventory(), result(receipt, rc=1)]), qualification=QUALIFICATION
         ).flash(self.artifact, rollback=False, timeout_sec=60)
         self.assertEqual(
             effect.outcome,
@@ -441,7 +451,7 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertEqual(effect.returncode, 1)
         self.assertFalse(effect.completed)
 
-    def test_owner_usb_inventory_binding_is_rollback_only_and_fixed(self):
+    def test_owner_usb_inventory_binding_is_role_scoped_and_fixed(self):
         digest = "d" * 64
         argv = A.fixed_flash_argv(
             self.artifact,
@@ -449,7 +459,6 @@ class FixedAdapterTest(unittest.TestCase):
             timeout_sec=60,
             rollback=True,
             owner_usb_inventory_sha256=digest,
-            owner_adb_inventory_sha256="e" * 64,
             owner_adb_role="NATIVE_NO_RECOVERY",
         )
         self.assertIn("--owner-fixed-bridge-preflight", argv)
@@ -457,25 +466,22 @@ class FixedAdapterTest(unittest.TestCase):
             argv[argv.index("--owner-expect-usb-inventory-sha256") + 1], digest
         )
         self.assertEqual(
-            argv[argv.index("--owner-expect-adb-inventory-sha256") + 1], "e" * 64
-        )
-        self.assertEqual(
             argv[argv.index("--owner-expect-adb-role") + 1], "NATIVE_NO_RECOVERY"
         )
+        self.assertNotIn("--owner-expect-adb-inventory-sha256", argv)
         self.assertNotIn("--owner-expect-foreign-usb-sha256", argv)
         self.assertNotIn("--owner-expect-foreign-adb-sha256", argv)
         self.assertNotIn("--owner-expect-recovery-usb-product", argv)
         self.assertNotIn("--owner-expect-recovery-usb-count", argv)
-        with self.assertRaises(A.ContractError):
-            A.fixed_flash_argv(
-                self.artifact,
-                recovery_serial_sha256="c" * 64,
-                timeout_sec=60,
-                rollback=False,
-                owner_usb_inventory_sha256=digest,
-                owner_adb_inventory_sha256="e" * 64,
-                owner_adb_role="NATIVE_NO_RECOVERY",
-            )
+        candidate_argv = A.fixed_flash_argv(
+            self.artifact,
+            recovery_serial_sha256="c" * 64,
+            timeout_sec=60,
+            rollback=False,
+            owner_usb_inventory_sha256=digest,
+            owner_adb_role="NATIVE_NO_RECOVERY",
+        )
+        self.assertIn("--from-native", candidate_argv)
 
     def test_live_host_runner_creates_one_private_log_directory(self):
         self.assertTrue(A.LIVE_ADAPTER_ENABLED)
@@ -526,8 +532,8 @@ class FixedAdapterTest(unittest.TestCase):
                     10,
                 )
 
-    def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 750)
+    def test_adapter_surface_stays_bounded(self):
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 900)
 
 
 if __name__ == "__main__":

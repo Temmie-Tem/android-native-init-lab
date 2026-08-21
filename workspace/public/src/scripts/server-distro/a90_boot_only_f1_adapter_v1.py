@@ -62,6 +62,9 @@ LSUSB_RE = re.compile(
     rb"^Bus [0-9]{3} Device [0-9]{3}: ID "
     rb"(?P<vendor>[0-9a-f]{4}):(?P<product>[0-9a-f]{4}) .+$"
 )
+ADB_STATES = {"device", "recovery", "offline", "unauthorized", "no permissions"}
+ADB_ROLE_NATIVE = "NATIVE_NO_RECOVERY"
+ADB_ROLE_RECOVERY = "BOUND_RECOVERY_PRESENT"
 
 
 @dataclass(frozen=True)
@@ -407,6 +410,76 @@ def _validate_usb_inventory(result: CommandResult) -> dict[str, Any]:
     }
 
 
+def _validate_effect_inventory(result: CommandResult) -> tuple[str, str]:
+    """Return the exact pre-effect USB role without opening ADB on Native."""
+    if (
+        type(result.returncode) is not int
+        or result.returncode != 0
+        or result.quiescent is not True
+        or result.stderr
+        or not result.stdout
+    ):
+        raise ContractError("pre-effect USB inventory producer failed")
+    lines = result.stdout.rstrip(b"\n").split(b"\n")
+    matches = [LSUSB_RE.fullmatch(line) for line in lines]
+    if any(match is None for match in matches):
+        raise ContractError("pre-effect USB inventory output is malformed")
+    samsung = [
+        match for match in matches
+        if match is not None and match.group("vendor") == b"04e8"
+    ]
+    if len(samsung) != 1 or samsung[0] is None:
+        raise ContractError("pre-effect USB inventory is not single-Samsung")
+    product = samsung[0].group("product")
+    if product == b"6861":
+        return ADB_ROLE_NATIVE, sha256_bytes(result.stdout)
+    if product == b"6860":
+        return ADB_ROLE_RECOVERY, sha256_bytes(result.stdout)
+    raise ContractError("pre-effect USB product is not exact A90 Native or Recovery")
+
+
+def _validate_effect_adb_inventory(
+    result: CommandResult, *, expected_serial_sha256: str
+) -> str:
+    """Validate the recovery-only ADB role and return its raw-stream digest."""
+    if (
+        type(result.returncode) is not int
+        or result.returncode != 0
+        or result.quiescent is not True
+        or result.stderr
+        or not result.stdout
+    ):
+        raise ContractError("recovery ADB inventory producer failed")
+    try:
+        lines = result.stdout.decode("ascii").replace("\r", "").splitlines()
+    except UnicodeDecodeError as exc:
+        raise ContractError("recovery ADB inventory is not ASCII") from exc
+    if not lines or lines[0] != "List of devices attached":
+        raise ContractError("recovery ADB inventory header is not exact")
+    rows: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for line in lines[1:]:
+        if not line:
+            continue
+        fields = line.split(None, 2)
+        if len(fields) < 2 or not re.fullmatch(r"[!-~]{1,256}", fields[0]):
+            raise ContractError("recovery ADB inventory row is malformed")
+        serial, state = fields[0], fields[1]
+        if state == "no" and len(fields) == 3 and fields[2].startswith("permissions"):
+            state = "no permissions"
+        if serial in seen or state not in ADB_STATES:
+            raise ContractError("recovery ADB inventory role is ambiguous")
+        seen.add(serial)
+        rows.append((serial, state))
+    if (
+        len(rows) != 1
+        or rows[0][1] != "recovery"
+        or sha256_bytes(rows[0][0].encode("utf-8")) != expected_serial_sha256
+    ):
+        raise ContractError("recovery ADB inventory is not the bound A90")
+    return sha256_bytes(result.stdout)
+
+
 def _bound_response(
     value: dict[str, Any], command: list[str], label: str
 ) -> dict[str, Any]:
@@ -525,6 +598,20 @@ class FixedA90Adapter:
             raise ContractError("A90 observation exhausted its total timeout")
         return min(cap, remaining)
 
+    def _effect_inventory(self) -> tuple[str, str, str | None]:
+        """Bind USB/ACM Native or Recovery before invoking the flash helper."""
+        role, usb_digest = _validate_effect_inventory(
+            self.runner.run("effect-usb-inventory", (str(LSUSB),), 10)
+        )
+        if role == ADB_ROLE_NATIVE:
+            # No ADB process is created while Native is the selected role.
+            return role, usb_digest, None
+        adb_digest = _validate_effect_adb_inventory(
+            self.runner.run("adb-inventory", (str(ADB), "devices", "-l"), 10),
+            expected_serial_sha256=self.recovery_serial_sha256,
+        )
+        return role, usb_digest, adb_digest
+
     def preflight(self, manifest: dict[str, Any]) -> Snapshot:
         return self._snapshot(
             manifest["expectedStart"],
@@ -634,15 +721,8 @@ class FixedA90Adapter:
         final_boot_id = _one_line(
             boot_final_text, BOOT_ID_RE, "final resident boot ID"
         ).group(0)
-        pstore = [line.strip() for line in status_text.replace("\r", "").splitlines() if line.strip().startswith("pstore=")]
         healthy = (
-            len(pstore) == 1
-            and pstore[0].split().count("entries=0") == 1
-            and not any(
-                token.startswith("entries=") and token != "entries=0"
-                for token in pstore[0].split()
-            )
-            and (version.group("version"), version.group("build"))
+            (version.group("version"), version.group("build"))
             == (expected["version"], expected["build"])
             and boot_id == final_boot_id
             and (state_absent or not require_fresh_state)
@@ -680,6 +760,12 @@ class FixedA90Adapter:
             ),
         )
     def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> EffectResult:
+        if owner_usb_inventory_sha256 is None:
+            owner_adb_role, owner_usb_inventory_sha256, owner_adb_inventory_sha256 = (
+                self._effect_inventory()
+            )
+            if not rollback and owner_adb_role != ADB_ROLE_NATIVE:
+                raise ContractError("candidate effect requires the exact Native role")
         role = "rollback" if rollback else "candidate"
         argv = fixed_flash_argv(
             artifact,
@@ -709,14 +795,18 @@ def fixed_flash_argv(artifact: dict[str, Any], *, recovery_serial_sha256: str, t
     """Return the sole reviewed helper command for receipt reconstruction."""
     if type(rollback) is not bool:
         raise ContractError("flash role is not boolean")
-    if owner_usb_inventory_sha256 is not None and (type(owner_usb_inventory_sha256) is not str or not rollback or re.fullmatch(r"[0-9a-f]{64}", owner_usb_inventory_sha256) is None):
+    if owner_usb_inventory_sha256 is not None and (type(owner_usb_inventory_sha256) is not str or re.fullmatch(r"[0-9a-f]{64}", owner_usb_inventory_sha256) is None):
         raise ContractError("owner USB inventory binding is not exact")
-    if owner_adb_inventory_sha256 is not None and (type(owner_adb_inventory_sha256) is not str or not rollback or re.fullmatch(r"[0-9a-f]{64}", owner_adb_inventory_sha256) is None or owner_adb_role not in {"NATIVE_NO_RECOVERY", "BOUND_RECOVERY_PRESENT"} or owner_usb_inventory_sha256 is None):
+    if owner_adb_role is not None and owner_adb_role not in {ADB_ROLE_NATIVE, ADB_ROLE_RECOVERY}:
+        raise ContractError("owner endpoint role binding is not exact")
+    if owner_usb_inventory_sha256 is not None and owner_adb_role is None:
+        raise ContractError("owner endpoint role binding is missing")
+    if owner_adb_inventory_sha256 is not None and (type(owner_adb_inventory_sha256) is not str or re.fullmatch(r"[0-9a-f]{64}", owner_adb_inventory_sha256) is None or owner_adb_role != ADB_ROLE_RECOVERY or owner_usb_inventory_sha256 is None):
         raise ContractError("owner ADB inventory binding is not exact")
-    if owner_adb_role is not None and owner_adb_inventory_sha256 is None:
-        raise ContractError("owner ADB role binding is missing")
-    if owner_usb_inventory_sha256 is not None and owner_adb_inventory_sha256 is None:
-        raise ContractError("owner ADB inventory binding is missing")
+    if owner_adb_role == ADB_ROLE_RECOVERY and owner_adb_inventory_sha256 is None:
+        raise ContractError("recovery ADB inventory binding is missing")
+    if owner_adb_role == ADB_ROLE_NATIVE and owner_adb_inventory_sha256 is not None:
+        raise ContractError("Native owner binding must not carry an ADB digest")
     helper_phase_timeout = max(1, (timeout_sec - 30) // 2)
     return (
         str(PYTHON), str(FLASH), artifact["path"],
@@ -726,7 +816,25 @@ def fixed_flash_argv(artifact: dict[str, Any], *, recovery_serial_sha256: str, t
             if rollback
             else ("--from-native", "--require-stable-adb-baseline")
         ),
-        *(("--owner-fixed-bridge-preflight", "--owner-expect-usb-inventory-sha256", owner_usb_inventory_sha256, "--owner-expect-adb-inventory-sha256", owner_adb_inventory_sha256, "--owner-expect-adb-role", owner_adb_role) if rollback and owner_usb_inventory_sha256 is not None else ()),
+        *(
+            (
+                "--owner-fixed-bridge-preflight",
+                "--owner-expect-usb-inventory-sha256",
+                owner_usb_inventory_sha256,
+                *(
+                    (
+                        "--owner-expect-adb-inventory-sha256",
+                        owner_adb_inventory_sha256,
+                    )
+                    if owner_adb_inventory_sha256 is not None
+                    else ()
+                ),
+                "--owner-expect-adb-role",
+                owner_adb_role,
+            )
+            if owner_usb_inventory_sha256 is not None
+            else ()
+        ),
         "--expect-recovery-serial-sha256", recovery_serial_sha256,
         "--expect-version", artifact["version"],
         "--expect-sha256", artifact["sha256"],

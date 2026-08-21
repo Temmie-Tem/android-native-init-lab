@@ -59,6 +59,24 @@ class SerialRedactionTest(unittest.TestCase):
             marker_for_hash(hashlib.sha256(foreign.encode()).hexdigest()), safe
         )
 
+    def test_only_exact_daemon_start_banner_is_suppressed(self):
+        stdout = b"List of devices attached\n"
+        banner = (
+            b"* daemon not running; starting now at tcp:localhost:5037\n"
+            b"* daemon started successfully\n"
+        )
+        redactor = SerialRedactor()
+        safe_stdout, safe_stderr = redactor.prepare_adb_inventory(
+            stdout, banner, returncode=0, timed_out=False
+        )
+        self.assertTrue(safe_stdout.startswith(b"<A90-ADB-INVENTORY-STDOUT-SHA256:"))
+        self.assertEqual(safe_stderr, b"")
+
+        safe_stdout, safe_stderr = redactor.prepare_adb_inventory(
+            stdout, b"* daemon warning\n", returncode=0, timed_out=False
+        )
+        self.assertTrue(safe_stderr.startswith(b"<A90-ADB-INVENTORY-STDERR-SHA256:"))
+
     def test_owner_host_runner_persists_only_redacted_recovery_push_failure_and_timeout(self):
         with tempfile.TemporaryDirectory() as temporary:
             redactor = SerialRedactor(hashes=(self.digest,))

@@ -398,7 +398,7 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
             owner_expect_adb_role=flash.OWNER_ADB_ROLE_NATIVE,
             owner_expect_usb_inventory_sha256="b" * 64,
             expect_recovery_serial_sha256="c" * 64,
-            owner_expect_adb_inventory_sha256="d" * 64,
+            owner_expect_adb_inventory_sha256=None,
         )
         with mock.patch.object(
             flash, "_owner_usb_inventory_sha256", return_value="x" * 64
@@ -413,10 +413,10 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
         with mock.patch.object(
             flash, "_owner_usb_inventory_sha256", return_value="b" * 64
         ), mock.patch.object(
-            flash, "_owner_adb_inventory_sha256", return_value="x" * 64
-        ), mock.patch.object(flash, "bridge_command") as bridge:
-            with self.assertRaisesRegex(RuntimeError, "ADB inventory changed"):
-                flash._owner_pre_native_recovery_gate(args)
+            flash, "_owner_adb_inventory_sha256"
+        ) as adb, mock.patch.object(flash, "bridge_command") as bridge:
+            flash._owner_pre_native_recovery_gate(args)
+        adb.assert_not_called()
         bridge.assert_not_called()
 
     def test_parse_adb_devices_filters_header_blank_lines_and_keeps_states(self) -> None:
@@ -463,6 +463,27 @@ recovery-serial recovery
             ):
                 with self.assertRaisesRegex(RuntimeError, "inventory command"):
                     flash.adb_devices("adb", strict=True)
+
+    def test_recovery_scoped_strict_inventory_accepts_only_exact_start_banner(self) -> None:
+        banner = (
+            "* daemon not running; starting now at tcp:localhost:5037\n"
+            "* daemon started successfully\n"
+        )
+        result = types.SimpleNamespace(
+            returncode=0,
+            stdout="List of devices attached\n",
+            stderr=banner,
+        )
+        with mock.patch.object(flash.subprocess, "run", return_value=result):
+            self.assertEqual(
+                flash.adb_devices(
+                    "adb", strict=True, allow_startup_banner=True
+                ),
+                [],
+            )
+        with mock.patch.object(flash.subprocess, "run", return_value=result):
+            with self.assertRaisesRegex(RuntimeError, "inventory command"):
+                flash.adb_devices("adb", strict=True)
 
     def test_strict_disconnect_does_not_turn_inventory_failure_into_absence(self) -> None:
         failure = types.SimpleNamespace(returncode=1, stdout="", stderr="")

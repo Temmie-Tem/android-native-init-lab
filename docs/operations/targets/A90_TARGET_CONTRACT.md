@@ -1364,7 +1364,9 @@ speed and safety: non-Samsung host USB devices may remain, but every other
 Samsung device must be disconnected before the attended run. It is not a
 permanent common boundary; multi-device coexistence is out of scope for this
 unit and requires a new design and independent review. Native is exactly one
-`04e8:6861` endpoint with the fixed ACM/managed bridge and zero ADB rows.
+`04e8:6861` endpoint with the fixed ACM/managed bridge. Native role
+attribution uses the owner-controlled USB/ACM boundary and does not invoke
+ADB; "no recovery ADB row" is not a Native producer receipt.
 Recovery is exactly one `04e8:6860` endpoint and exactly one total ADB row in
 `recovery` whose serial hash equals the manifest binding. Extra Samsung/ADB
 rows, wrong product/state, or ambiguity park before per-serial contact. Owner
@@ -1410,18 +1412,22 @@ boot write. Producer failure, malformed/missing/surviving output, digest
 mismatch, single-Samsung/A90-role drift, or recovery ambiguity stops with zero
 effect. This binding is owner-only; legacy helper invocations do not receive
 or interpret it.
-The same owner-only binding carries the complete raw `/usr/bin/adb devices -l`
-SHA-256 and exact parsed role (`NATIVE_NO_RECOVERY` or
-`BOUND_RECOVERY_PRESENT`). `native_init_flash` re-runs the fixed inventory and
-requires both before any Native bridge recovery, per-serial ADB shell/push, or
-boot write. Recovery state changes, duplicate/multiple recovery endpoints,
-extra ADB endpoints, or initial raw-digest drift stop with zero effect; legacy
-helper invocations do not receive these flags.
-On the Native branch, the owner repeats the bound initial raw USB/ADB
-digests and strict `NATIVE_NO_RECOVERY`/`04e8:6861` role immediately before the
-fixed bridge preflight and sole recovery frame.
-This pre-frame gate is separate from the later Recovery/product/serial gate;
-an owner inventory binding without the fixed bridge-preflight flag is rejected.
+The owner-only binding carries the complete raw `/usr/bin/adb devices -l`
+SHA-256 only for an already-present Recovery branch, together with the exact
+parsed role `BOUND_RECOVERY_PRESENT`. For a Native branch it carries the exact
+USB digest and role `NATIVE_NO_RECOVERY` but no ADB digest. The owner re-runs
+the fixed USB boundary before any Native bridge recovery, and opens ADB only
+after Native has transitioned to Recovery. Recovery state changes,
+duplicate/multiple recovery endpoints, extra ADB endpoints, or initial raw
+digest drift stop with zero effect; legacy helper invocations do not receive
+these flags.
+On the Native branch, the owner repeats the bound USB digest and strict
+`NATIVE_NO_RECOVERY`/`04e8:6861` role immediately before the fixed bridge
+preflight and sole recovery frame. This pre-frame gate is separate from the
+later Recovery/product/serial gate; an owner USB binding without the fixed
+bridge-preflight flag is rejected. The first recovery-scoped ADB inventory may
+suppress only the exact normal daemon-start banner; unexpected or malformed
+stderr remains a strict producer failure.
 After Native legitimately becomes Recovery, the helper instead requires
 exactly one Samsung `04e8:6860` endpoint and exactly one bound recovery ADB
 row. Product, state, duplicate, addition, removal, or bound-serial drift is a
@@ -1611,9 +1617,11 @@ final boot-ID receipt must be present and valid and equal the initial boot ID;
 `sameBoot` is derived from that equality, not a constant. A changed, missing,
 invalid, or failed final read consumes the intent and parks without a recovery
 record or active-guard removal. The boot-ID request is first; success requires
-exact V2321, `selftest fail=0`, one `pstore` line with `entries=0`, the explicit
+exact V2321, `selftest fail=0`, successful status-command health, the explicit
 hide receipt, equal initial/final boot IDs, and unchanged single-Samsung USB
-inventory. No ADB, TWRP, reboot, flash, image, partition, candidate,
+inventory. The pstore line is retained as diagnostic evidence only; its
+unmounted-directory `entries=0` value is not a proof element. No ADB, TWRP,
+reboot, flash, image, partition, candidate,
 rollback, physical, service-control, or caller-selected command is available.
 
 Any hide error or busy receipt, command/transport failure, wrong resident,

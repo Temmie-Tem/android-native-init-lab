@@ -57,12 +57,7 @@ retried without overwriting either log.
   the same boot and target identity prepared for approval, and that other
   targets were untouched. The adapter hashes a bounded complete `lsusb`
   inventory and requires exactly one Native A90 `04e8:6861`; other Samsung
-  endpoints may remain present but are never selected. The managed bridge must use the fixed A90 by-id device and pinned realpath; other by-id candidates do not make that explicit selection ambiguous. Recovery ADB binds the complete
-  pre-existing non-recovery endpoint set, requires it to remain unchanged,
-  and selects only one newly arrived recovery endpoint caused by the exact
-  A90 Native recovery command. The private qualification additionally binds
-  the SHA-256 of that A90 recovery serial; the raw serial is never tracked.
-  This adds no standing ADB owner: ADB remains confined to recovery transfer.
+  endpoints may remain present but are never selected. The managed bridge must use the fixed A90 by-id device and pinned realpath; other by-id candidates do not make that explicit selection ambiguous. Recovery ADB binds the complete pre-existing non-recovery endpoint set, requires it to remain unchanged, and selects only one newly arrived recovery endpoint caused by the exact A90 Native recovery command. The private qualification additionally binds the SHA-256 of that A90 recovery serial; the raw serial is never tracked. This adds no standing ADB owner: ADB remains confined to recovery transfer.
 - After the exact boot-prefix readback and immediately before the sole TWRP System-reboot request, the helper revalidates TWRP `3.7.0_12-0` and the fixed
   root-owned mode-`0755` `/system/bin/rebootsystem.sh` at size `89`, SHA-256
   `3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07`.
@@ -189,11 +184,16 @@ In that mode the Native `recovery` command and TWRP `reboot` command are each
 sent at most once: post-send transport loss, busy state, or missing disconnect
 is uncertainty and never an internal resend. Historical helper callers retain
 their prior retry behavior.
-The same minimal mode uses strict ADB inventory: command success, empty stderr,
-the exact header, and every nonblank endpoint row must parse without duplicates.
-Malformed output is never a stable baseline, a unique arrival, or proof that
-TWRP disconnected after its one reboot request. Completion requires the exact
-pre-existing ADB baseline to be restored.
+The minimal mode does not invoke ADB for the Native pre-effect role check.
+Native is bound by the exact USB product and managed ACM bridge; the first ADB
+inventory is recovery-scoped after the Native recovery transition. Recovery
+inventory remains strict: command success, the exact header, and every
+nonblank endpoint row must parse without duplicates. Only the exact normal
+daemon-start banner on that first recovery-scoped inventory is suppressed by
+the producer wrapper; any other stderr remains a failure. Malformed output is
+never a stable baseline, a unique arrival, or proof that TWRP disconnected
+after its one reboot request. Completion requires the exact pre-existing ADB
+baseline to be restored when a baseline was intentionally bound.
 The default helper behavior for historical callers is unchanged.
 
 The exact H27 boot-loop recovery deviation has one terminal-only reconciler,

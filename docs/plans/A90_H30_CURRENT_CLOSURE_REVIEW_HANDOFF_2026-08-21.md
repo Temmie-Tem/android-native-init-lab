@@ -8,15 +8,16 @@ Authority: none
 
 Before H30 qualification, independently review the receipt/observer repair
 against the complete current minimal-owner and candidate-return continuation
-closures. The prior continuation review remains valid historical evidence for
-closure `9b17904d…`, but it is not current authority.
+closures. The prior continuation review remains historical evidence only; the
+Native-boundary and pstore-health repairs below supersede its subject and are
+not current authority until independently reviewed.
 
 ## Exact current subject
 
 - owner execution closure:
-  `e0a1fa5d05ce15322b7e2966901b443917e54836fd1d04f5550fc9f05467c5ed`;
+  `9668df832d9a0ff64ee1ef24c69faf81f10be7047c92c7f4f3c59380685ae267`;
 - candidate-return continuation closure:
-  `a396a7440ba936e90dbf8956c1c2404cc0dc1271fda1b304192b35f13eb28d6c`;
+  `768c5bda3313f83b5ebc037a383bde245a598b26c9fdf5aa116f89e174ac4464`;
 - H30 candidate: `0.11.197 / phase3-minimal-h30-stock-rebuild-1007-cfp`,
   58,372,096 bytes, SHA-256
   `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
@@ -43,8 +44,8 @@ dated historical reviews remain immutable and are never overwritten.
    as `BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN`, never confirmed
    and never an immediate rollback trigger.
 2. Confirm confirmed success still requires command success plus confirmed
-   return, stable initial/final boot ID, exact version/build, self-test and
-   pstore health.
+   return, stable initial/final boot ID, exact version/build, self-test, and
+   status-command health; pstore entry count is diagnostic only.
 3. Confirm malformed, missing, contradictory, or legacy receipts remain
    unclassified and cannot enter the pending continuation.
 4. Recheck the current continuation's intent-before-contact, exact one-Samsung

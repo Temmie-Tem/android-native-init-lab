@@ -51,6 +51,7 @@ ADB_STATES = {"device", "recovery", "offline", "unauthorized", "no permissions"}
 ADB_ROLE_NATIVE = "NATIVE_NO_RECOVERY"
 ADB_ROLE_RECOVERY = "BOUND_RECOVERY_PRESENT"
 ADB_ROLE_AMBIGUOUS = "AMBIGUOUS"
+NATIVE_ACM_BOUNDARY = "A90_NATIVE_ACM_USB_BOUNDARY_V1"
 
 STATE_NATIVE_VISIBLE = "NATIVE_CANDIDATE_VISIBLE"
 STATE_TWRP_PRESENT = "TWRP_BOUND_PRESENT"
@@ -233,7 +234,7 @@ class Inventory:
     a90_recovery_count: int
     single_samsung_inventory_sha256: str
     usb_inventory_sha256: str
-    adb_inventory_sha256: str
+    adb_inventory_sha256: str | None
     adb_role: str
 
 
@@ -329,14 +330,21 @@ def _parse_adb(raw: bytes) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
     return tuple(rows)
 
 
-def _single_inventory_digest(usb_raw: bytes, adb_raw: bytes, role: str) -> str:
-    return _digest(
-        {
-            "usbSha256": owner.sha256_bytes(usb_raw),
-            "adbSha256": owner.sha256_bytes(adb_raw),
-            "role": role,
-        }
-    )
+def _single_inventory_digest(
+    usb_raw: bytes, adb_raw: bytes | None, role: str
+) -> str:
+    payload: dict[str, Any] = {
+        "usbSha256": owner.sha256_bytes(usb_raw),
+        "role": role,
+    }
+    if role == ADB_ROLE_NATIVE:
+        # Native is an ACM-owned observation role.  It deliberately has no
+        # ADB stream, so the binding names the reviewed boundary instead of
+        # hashing a synthetic or ambient ADB response.
+        payload["nativeBoundary"] = NATIVE_ACM_BOUNDARY
+    elif adb_raw is not None:
+        payload["adbSha256"] = owner.sha256_bytes(adb_raw)
+    return _digest(payload)
 
 
 def _strict_result(result: Any, label: str) -> bytes:
@@ -433,16 +441,40 @@ class CandidateReturnBackend:
             self._run(manifest, "usb-inventory", (str(LSUSB),), 10),
             "USB inventory",
         )
-        adb_raw = _strict_result(
-            self._run(manifest, "adb-inventory", (str(ADB), "devices", "-l"), 10),
-            "ADB inventory",
-        )
         usb_rows = _parse_usb(usb_raw)
         samsung_rows = tuple(row for row in usb_rows if row[0] == A90_VENDOR)
-        adb_rows = _parse_adb(adb_raw)
-        self._register_runner_serials(manifest, adb_rows)
         a90_native_count = sum(row[1] == A90_NATIVE_PRODUCT for row in samsung_rows)
         a90_recovery_count_usb = sum(row[1] == A90_RECOVERY_PRODUCT for row in samsung_rows)
+
+        # Native observation is ACM-scoped.  Do not invoke ADB merely to
+        # prove that the recovery endpoint is absent: doing so can start an
+        # ambient host daemon and make its banner look like a failed role
+        # producer.  The fixed USB boundary is sufficient to distinguish the
+        # exact Native product; the managed ACM bridge is separately bound by
+        # the observation/effect path before any Native command.
+        if (
+            len(samsung_rows) == 1
+            and a90_native_count == 1
+            and a90_recovery_count_usb == 0
+        ):
+            adb_raw = None
+            adb_rows: list[tuple[str, str, tuple[str, ...]]] = []
+        elif len(samsung_rows) == 1 and a90_recovery_count_usb == 1:
+            adb_raw = _strict_result(
+                self._run(
+                    manifest, "adb-inventory", (str(ADB), "devices", "-l"), 10
+                ),
+                "ADB inventory",
+            )
+            adb_rows = list(_parse_adb(adb_raw))
+            self._register_runner_serials(manifest, tuple(adb_rows))
+        else:
+            # No exact role can be established from this USB set.  Keep the
+            # result ambiguous without opening ADB against an already
+            # ambiguous endpoint set.
+            adb_raw = None
+            adb_rows = []
+
         matching_recovery = [
             serial
             for serial, state, _attrs in adb_rows
@@ -486,7 +518,9 @@ class CandidateReturnBackend:
             a90_recovery_count=a90_recovery_count,
             single_samsung_inventory_sha256=single_samsung_inventory_sha256,
             usb_inventory_sha256=owner.sha256_bytes(usb_raw),
-            adb_inventory_sha256=owner.sha256_bytes(adb_raw),
+            adb_inventory_sha256=(
+                None if adb_raw is None else owner.sha256_bytes(adb_raw)
+            ),
             adb_role=adb_role,
         )
 
@@ -842,9 +876,10 @@ class CandidateReturnBackend:
                     raise BackendError("Native bridge changed before rollback helper")
                 self._publish_bridge_binding(manifest, bridge_binding, current_bridge)
                 rollback_file.checkpoint()
-            # This is the final exact-one-Samsung inventory. Its complete raw
-            # USB/ADB digests are passed to the owner helper, which captures
-            # and checks the same streams again before any effect.
+            # This is the final exact-one-Samsung inventory. Its fixed USB
+            # boundary and, only for Recovery, the complete raw ADB digest
+            # are passed to the owner helper, which captures and checks the
+            # same streams again before any effect.
             current = self._inventory(manifest)
             expected_role = "native" if exact_native else "recovery"
             if (
@@ -868,7 +903,11 @@ class CandidateReturnBackend:
                 timeout_sec=timeout_sec,
                 owner_usb_inventory_sha256=current.usb_inventory_sha256,
                 owner_adb_inventory_sha256=current.adb_inventory_sha256,
-                owner_adb_role=current.adb_role,
+                owner_adb_role=(
+                    current.adb_role
+                    if current.adb_role in {ADB_ROLE_NATIVE, ADB_ROLE_RECOVERY}
+                    else None
+                ),
             )
             self._check(manifest, self._operation)
             rollback_file.checkpoint()

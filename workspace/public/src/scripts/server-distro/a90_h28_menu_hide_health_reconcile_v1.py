@@ -617,9 +617,14 @@ class MenuHideObserver(adapter.FixedA90Adapter):
         final_boot_id = adapter._one_line(boot_final_text, adapter.BOOT_ID_RE, "final boot ID").group(0)
         version = adapter._one_line(version_text, adapter.VERSION_RE, "resident version")
         adapter._one_line(selftest_text, adapter.SELFTEST_RE, "resident selftest")
-        pstore = [line.strip() for line in status_text.replace("\r", "").splitlines() if line.strip().startswith("pstore=")]
         same_boot = boot_id == final_boot_id
-        healthy = len(pstore) == 1 and pstore[0].split().count("entries=0") == 1 and not any(token.startswith("entries=") and token != "entries=0" for token in pstore[0].split()) and (version.group("version"), version.group("build")) == (expected["version"], expected["build"]) and same_boot
+        # Native's pstore summary is a diagnostic receipt only.  In the
+        # observed A90 state it reports an unmounted directory, so entries=0
+        # is tautological and cannot be a health predicate.
+        healthy = (version.group("version"), version.group("build")) == (
+            expected["version"],
+            expected["build"],
+        ) and same_boot
         stable = {"usbBefore": usb_before, "usbAfter": usb_after, "bridge": bridge, "bootId": boot_id, "finalBootId": final_boot_id, "version": version.group("version"), "build": version.group("build"), "recoveryEvidenceSha256": self.recovery_evidence_sha256}
         evidence = {"stableIdentity": stable, "commandOrder": order, "commands": {key: _json_sha(receipts[key]) for key in sorted(receipts)}, "menuHideReceiptSha256": hide_receipt_sha}
         snapshot = owner.Snapshot(target_evidence_sha256=_sha(owner.canonical_json(stable)), boot_id=boot_id, version=version.group("version"), build=version.group("build"), healthy=healthy, recovery_available=True, recovery_evidence_sha256=self.recovery_evidence_sha256, fresh_state_observed=False, fresh_state_absent=False, other_targets_untouched=usb_before == usb_after and usb_before["a90EndpointCount"] == 1, receipt_sha256=_sha(owner.canonical_json({"evidence": evidence, "healthy": healthy})))

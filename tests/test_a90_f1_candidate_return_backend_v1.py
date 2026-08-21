@@ -155,11 +155,14 @@ class BackendTest(unittest.TestCase):
         self.assertEqual(runner.calls, [])
 
     def test_native_is_exactly_one_samsung_and_zero_adb(self):
-        backend = self._backend(FakeRunner(self.native_usb, self.empty_adb))
+        runner = FakeRunner(self.native_usb, self.empty_adb)
+        backend = self._backend(runner)
         inventory = backend._inventory(self.manifest)
         self.assertEqual(inventory.a90_native_count, 1)
         self.assertEqual(inventory.a90_recovery_count, 0)
         self.assertEqual(inventory.adb_role, BACKEND.ADB_ROLE_NATIVE)
+        self.assertIsNone(inventory.adb_inventory_sha256)
+        self.assertNotIn("adb-inventory", [label for label, *_ in runner.calls])
         self.assertRegex(inventory.single_samsung_inventory_sha256, r"^[0-9a-f]{64}$")
 
     def test_recovery_is_exactly_one_samsung_and_one_bound_adb(self):

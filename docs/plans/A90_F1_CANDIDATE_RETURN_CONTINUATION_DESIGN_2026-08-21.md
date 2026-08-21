@@ -103,7 +103,8 @@ adds fresh, candidate-neutral namespaces and requires a new independent review.
 This unit contains the journal state machine and selects only the exact fixed
 backend module
 `workspace/public/src/scripts/server-distro/a90_f1_candidate_return_backend_v1.py`.
-That backend implements bounded USB/ADB inventory, fixed Native/TWRP
+That backend implements a bounded USB/ACM Native boundary, recovery-scoped ADB
+inventory, and fixed Native/TWRP
 observations, and owner-adapter rollback delegation. It accepts no caller
 command, serial, endpoint, target, outcome, or reboot string. Its availability
 is still H0: independent review, fresh qualification/manifest binding, and an
@@ -113,7 +114,8 @@ Non-Samsung host USB devices may remain, but every other Samsung device must
 be disconnected before the attended run. This is intentionally an A90
 speed/safety boundary, not a permanent common boundary; multi-device support
 is out of scope and requires a new design/review. Native is exactly one
-`04e8:6861` endpoint with zero ADB rows. Recovery is exactly one `04e8:6860`
+`04e8:6861` endpoint with the fixed ACM/managed bridge; its role check does
+not invoke ADB or depend on an empty ADB response. Recovery is exactly one `04e8:6860`
 endpoint with exactly one total ADB row in `recovery` whose serial hash equals
 the manifest binding. Extra Samsung/ADB rows, wrong product/state, or
 ambiguity park before per-serial contact.
@@ -149,7 +151,7 @@ identity. A generation/realpath/PID change parks before the helper. The owner
 helper repeats the same fixed preflight immediately before its sole Native
 `recovery` frame; a bound recovery endpoint skips bridge recovery entirely.
 Immediately before delegating either rollback branch to the owner helper, the
-backend performs one final strict USB/ADB inventory and binds the SHA-256 of
+backend performs one final strict USB boundary and binds the SHA-256 of
 the complete raw `/usr/bin/lsusb` byte stream (including non-Samsung rows and
 ordering) into the fixed owner argv. In explicit owner receipt mode,
 `native_init_flash.py` runs the same fixed producer itself and compares the
@@ -158,25 +160,23 @@ other device command. A producer error, malformed or missing output, surviving
 process, digest mismatch, single-Samsung/A90-role drift, or recovery ambiguity parks
 with zero effect; legacy helper invocations do not receive or interpret this
 owner-only binding.
-For the Native branch, a separate pre-frame gate repeats the initial raw USB
-and ADB digests and strict `NATIVE_NO_RECOVERY`/`04e8:6861` role immediately before the fixed bridge preflight and sole
-`recovery` frame. A mutation after the earlier baseline gate therefore stops
-before the bridge; an owner inventory binding is invalid unless it also carries
-the fixed bridge-preflight flag. The later Recovery gate is a distinct
-post-transition check.
-The same owner-only join binds the complete raw `/usr/bin/adb devices -l`
-byte stream and one parsed role: `NATIVE_NO_RECOVERY` or
-`BOUND_RECOVERY_PRESENT`. The helper re-runs that fixed inventory and requires
-both the exact raw digest and exact role before any bridge recovery, per-serial
-ADB shell/push, or boot write. A recovery-to-device/offline/unauthorized
-transition, duplicate or multiple recovery serial, or extra ADB endpoint
-therefore stops before effect; legacy helper invocations carry no ADB binding
-flags. After Native legitimately becomes Recovery, the post-transition gate
-requires exactly one Samsung `04e8:6860` endpoint and one bound recovery ADB
-row. Product, role, state, addition, removal, or duplicate drift stops, while
-the changed post-transition raw USB/ADB bytes are evidence only and are not
-compared to the pre-recovery digest. An already-Recovery branch still requires
-the same-epoch raw digest before effect; multi-device coexistence is out of scope.
+For the Native branch, a separate pre-frame gate repeats only the initial raw
+USB digest and strict `NATIVE_NO_RECOVERY`/`04e8:6861` role immediately before
+the fixed bridge preflight and sole `recovery` frame. A mutation after the
+earlier boundary gate therefore stops before the bridge; an owner USB binding
+is invalid unless it also carries the fixed bridge-preflight flag. The first
+ADB inventory is recovery-scoped, after Native has transitioned to Recovery.
+The same owner-only join carries a complete raw `/usr/bin/adb devices -l`
+digest only for an already-present Recovery branch. A recovery-to-device,
+offline, unauthorized, duplicate, or foreign endpoint stops before effect.
+The first recovery-scoped ADB inventory may suppress only the exact normal
+daemon-start banner; all other stderr remains a strict producer failure.
+After Native legitimately becomes Recovery, the post-transition gate requires
+exactly one Samsung `04e8:6860` endpoint and one bound recovery ADB row.
+Product, role, state, addition, removal, or duplicate drift stops; changed
+post-transition raw bytes are evidence only and are not compared to the
+pre-recovery USB digest. An already-Recovery branch still requires its
+same-epoch raw USB/ADB binding; multi-device coexistence is out of scope.
 Each invocation leases both the continuation review and the manifest-bound
 qualification review by direct identity, size, and SHA-256, and captures the
 computed source closure. The leases are revalidated before and after each
@@ -215,10 +215,12 @@ execution closure, so the lease does not self-reference.
 
 The continuation unit must not import the retired large orchestrator, accept
 arbitrary command selection, or make old journals satisfy new fields. The
-fixed backend executes only its bounded USB/ADB inventory and fixed TWRP
+fixed backend executes only its bounded USB/ACM Native or recovery-scoped ADB
+inventory and fixed TWRP
 identity command; it never uses ADB on Native, never contacts another Samsung
 endpoint, and never sends a host reboot command. The durable observed record
-carries the exact single-Samsung USB/ADB inventory binding; no multi-device
+carries the exact single-Samsung USB/ACM binding and, when Recovery is
+selected, the recovery ADB binding; no multi-device
 coexistence baseline is modeled by this unit.
 
 The CLI has only `prepare`, `resume`, and `finalize`. `prepare` is host-only.

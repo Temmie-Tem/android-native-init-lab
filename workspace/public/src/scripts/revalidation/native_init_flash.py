@@ -44,6 +44,13 @@ OWNER_RECOVERY_PRODUCT = "6860"
 OWNER_ADB_ATTRIBUTE_RE = re.compile(
     r"^(?:usb|product|model|device|transport_id):[!-~]+$"
 )
+ADB_STARTUP_BANNERS = frozenset(
+    {
+        "* daemon not running; starting now at tcp:localhost:5037\n"
+        "* daemon started successfully\n",
+        "* daemon started successfully\n",
+    }
+)
 OWNER_SERIAL_BRIDGE_SCRIPT = (
     Path(__file__).resolve().parents[5]
     / "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
@@ -564,19 +571,16 @@ def _owner_adb_inventory_sha256(
 
 def _owner_pre_native_recovery_gate(args: argparse.Namespace) -> None:
     """Rebind the initial Native/foreign epoch immediately before bridge use."""
-    if args.owner_expect_adb_role != OWNER_ADB_ROLE_NATIVE:
+    if (
+        args.owner_expect_adb_role != OWNER_ADB_ROLE_NATIVE
+        or args.owner_expect_usb_inventory_sha256 is None
+    ):
         raise RuntimeError("pre-recovery owner role is not Native")
     usb_digest = _owner_usb_inventory_sha256(
         OWNER_ADB_ROLE_NATIVE,
     )
     if usb_digest != args.owner_expect_usb_inventory_sha256:
         raise RuntimeError("owner USB inventory changed before Native recovery")
-    adb_digest = _owner_adb_inventory_sha256(
-        args.expect_recovery_serial_sha256,
-        OWNER_ADB_ROLE_NATIVE,
-    )
-    if adb_digest != args.owner_expect_adb_inventory_sha256:
-        raise RuntimeError("owner ADB inventory changed before Native recovery")
 
 
 @contextmanager
@@ -661,7 +665,12 @@ def parse_adb_devices_strict(output: str) -> list[tuple[str, str]]:
     return devices
 
 
-def adb_devices(adb: str, *, strict: bool = False) -> list[tuple[str, str]]:
+def adb_devices(
+    adb: str,
+    *,
+    strict: bool = False,
+    allow_startup_banner: bool = False,
+) -> list[tuple[str, str]]:
     result = subprocess.run(
         [adb, "devices"],
         check=False,
@@ -670,7 +679,11 @@ def adb_devices(adb: str, *, strict: bool = False) -> list[tuple[str, str]]:
         stderr=subprocess.PIPE,
     )
     if strict:
-        if result.returncode != 0 or result.stderr:
+        startup_banner = (
+            allow_startup_banner
+            and result.stderr in ADB_STARTUP_BANNERS
+        )
+        if result.returncode != 0 or (result.stderr and not startup_banner):
             raise RuntimeError("ADB inventory command failed or wrote stderr")
         return parse_adb_devices_strict(result.stdout)
     return parse_adb_devices(result.stdout)
@@ -735,6 +748,7 @@ def wait_for_new_recovery_adb(
     timeout_sec: float,
     *,
     expected_serial_sha256: str,
+    allow_startup_banner: bool = False,
 ) -> tuple[str, str]:
     """Bind one recovery arrival while every pre-existing endpoint stays exact."""
     baseline_set = set(baseline)
@@ -744,8 +758,14 @@ def wait_for_new_recovery_adb(
         raise RuntimeError("ADB baseline is not a valid foreign-endpoint baseline")
     deadline = time.monotonic() + timeout_sec
     last_devices = baseline
+    first_inventory = True
     while time.monotonic() < deadline:
-        last_devices = adb_devices(adb, strict=True)
+        last_devices = adb_devices(
+            adb,
+            strict=True,
+            allow_startup_banner=allow_startup_banner and first_inventory,
+        )
+        first_inventory = False
         current_set = set(last_devices)
         if not baseline_set.issubset(current_set):
             raise RuntimeError("pre-existing ADB endpoint changed during A90 recovery arrival")
@@ -1923,37 +1943,44 @@ def main() -> int:
             )
     if args.owner_fixed_bridge_preflight and (
         args.owner_receipt_mode != OWNER_RECEIPT_MODE
-        or not args.reuse_bound_recovery_or_from_native
-    ):
-        raise SystemExit(
-            "--owner-fixed-bridge-preflight requires owner receipt rollback mode"
+        or not (
+            args.from_native or args.reuse_bound_recovery_or_from_native
         )
+    ):
+        raise SystemExit("--owner-fixed-bridge-preflight requires owner receipt mode")
     if args.owner_expect_usb_inventory_sha256 is not None and (
         args.owner_receipt_mode != OWNER_RECEIPT_MODE
-        or not args.reuse_bound_recovery_or_from_native
-    ):
-        raise SystemExit(
-            "--owner-expect-usb-inventory-sha256 requires owner receipt rollback mode"
+        or not (
+            args.from_native or args.reuse_bound_recovery_or_from_native
         )
-    if (
-        (args.owner_expect_adb_inventory_sha256 is None)
-        != (args.owner_expect_adb_role is None)
     ):
-        raise SystemExit("owner ADB inventory digest and role must be supplied together")
+        raise SystemExit("--owner-expect-usb-inventory-sha256 requires owner receipt mode")
+    if args.owner_expect_adb_role is not None and (
+        args.owner_expect_usb_inventory_sha256 is None
+        or args.owner_expect_adb_role
+        not in {OWNER_ADB_ROLE_NATIVE, OWNER_ADB_ROLE_RECOVERY}
+    ):
+        raise SystemExit("owner endpoint role requires the USB binding")
+    if args.owner_expect_adb_inventory_sha256 is not None and (
+        args.owner_expect_adb_role is None
+        or args.owner_expect_adb_role != OWNER_ADB_ROLE_RECOVERY
+    ):
+        raise SystemExit("Native owner binding must not carry an ADB digest")
     if args.owner_expect_adb_inventory_sha256 is not None and (
         args.owner_receipt_mode != OWNER_RECEIPT_MODE
-        or not args.reuse_bound_recovery_or_from_native
         or args.adb != OWNER_ADB
         or args.owner_expect_usb_inventory_sha256 is None
     ):
-        raise SystemExit(
-            "--owner-expect-adb-inventory-sha256 requires the fixed owner rollback mode"
-        )
-    if args.owner_expect_usb_inventory_sha256 is not None and (
-        args.owner_expect_adb_inventory_sha256 is None
-        or args.owner_expect_adb_role is None
+        raise SystemExit("--owner-expect-adb-inventory-sha256 requires fixed owner mode")
+    if (
+        args.owner_expect_adb_role == OWNER_ADB_ROLE_RECOVERY
+        and args.owner_expect_adb_inventory_sha256 is None
     ):
-        raise SystemExit("owner USB inventory binding requires the ADB role binding")
+        raise SystemExit("Recovery owner binding requires the ADB inventory digest")
+    if args.owner_expect_usb_inventory_sha256 is not None and (
+        args.owner_expect_adb_role is None
+    ):
+        raise SystemExit("owner USB inventory binding requires the endpoint role binding")
     if args.owner_fixed_bridge_preflight and args.owner_expect_usb_inventory_sha256 is None:
         raise SystemExit(
             "--owner-fixed-bridge-preflight requires the owner USB inventory binding"
@@ -1961,10 +1988,6 @@ def main() -> int:
     if args.owner_expect_usb_inventory_sha256 is not None and not args.owner_fixed_bridge_preflight:
         raise SystemExit(
             "owner USB inventory binding requires --owner-fixed-bridge-preflight"
-        )
-    if args.owner_fixed_bridge_preflight and args.owner_expect_adb_inventory_sha256 is None:
-        raise SystemExit(
-            "--owner-fixed-bridge-preflight requires the owner ADB inventory binding"
         )
 
     with phase_timer("total"):
@@ -2001,27 +2024,39 @@ def main() -> int:
             )
             if observed_usb_inventory_sha256 != args.owner_expect_usb_inventory_sha256:
                 raise RuntimeError("owner USB inventory digest mismatch")
-            observed_adb_inventory_sha256 = _owner_adb_inventory_sha256(
-                args.expect_recovery_serial_sha256,
-                args.owner_expect_adb_role,
-            )
-            if observed_adb_inventory_sha256 != args.owner_expect_adb_inventory_sha256:
-                raise RuntimeError("owner ADB inventory digest mismatch")
+            if args.owner_expect_adb_inventory_sha256 is not None:
+                observed_adb_inventory_sha256 = _owner_adb_inventory_sha256(
+                    args.expect_recovery_serial_sha256,
+                    args.owner_expect_adb_role,
+                )
+                if observed_adb_inventory_sha256 != args.owner_expect_adb_inventory_sha256:
+                    raise RuntimeError("owner ADB inventory digest mismatch")
 
         adb_baseline: list[tuple[str, str]] | None = None
         bound_recovery: tuple[str, str] | None = None
         if args.reuse_bound_recovery_or_from_native:
-            adb_baseline, bound_recovery = bind_present_recovery_or_native_baseline(
-                args.adb,
-                expected_serial_sha256=args.expect_recovery_serial_sha256,
-            )
-            if args.owner_expect_adb_inventory_sha256 is not None:
-                baseline_adb_inventory_sha256 = _owner_adb_inventory_sha256(
-                    args.expect_recovery_serial_sha256,
-                    args.owner_expect_adb_role,
+            if (
+                args.owner_expect_adb_role == OWNER_ADB_ROLE_NATIVE
+                and args.owner_expect_usb_inventory_sha256 is not None
+                and args.owner_expect_adb_inventory_sha256 is None
+            ):
+                # The owner USB/ACM boundary already proved the fixed Native
+                # role.  Do not ask ambient ADB to establish a Native baseline;
+                # the first ADB inventory is recovery-scoped after the one
+                # Native recovery frame.
+                adb_baseline, bound_recovery = None, None
+            else:
+                adb_baseline, bound_recovery = bind_present_recovery_or_native_baseline(
+                    args.adb,
+                    expected_serial_sha256=args.expect_recovery_serial_sha256,
                 )
-                if baseline_adb_inventory_sha256 != args.owner_expect_adb_inventory_sha256:
-                    raise RuntimeError("owner ADB inventory digest changed before effect")
+                if args.owner_expect_adb_inventory_sha256 is not None:
+                    baseline_adb_inventory_sha256 = _owner_adb_inventory_sha256(
+                        args.expect_recovery_serial_sha256,
+                        args.owner_expect_adb_role,
+                    )
+                    if baseline_adb_inventory_sha256 != args.owner_expect_adb_inventory_sha256:
+                        raise RuntimeError("owner ADB inventory changed before effect")
         if args.from_native:
             if args.require_empty_adb_baseline:
                 adb_baseline = adb_devices(args.adb, strict=True)
@@ -2031,7 +2066,9 @@ def main() -> int:
                         for device_serial, state in adb_baseline
                     )
                     raise RuntimeError(f"ADB baseline is not empty: {rendered}")
-            elif args.require_stable_adb_baseline:
+            elif args.require_stable_adb_baseline and (
+                args.owner_expect_adb_role != OWNER_ADB_ROLE_NATIVE
+            ):
                 adb_baseline = adb_devices(args.adb, strict=True)
                 if any(state == "recovery" for _serial, state in adb_baseline):
                     raise RuntimeError("ADB baseline already contains a recovery endpoint")
@@ -2053,12 +2090,17 @@ def main() -> int:
                 or args.reuse_bound_recovery_or_from_native
             ):
                 if adb_baseline is None:
-                    raise RuntimeError("stable ADB baseline was not captured")
+                    adb_baseline = []
+                wait_kwargs = {
+                    "expected_serial_sha256": args.expect_recovery_serial_sha256,
+                }
+                if args.owner_expect_adb_role == OWNER_ADB_ROLE_NATIVE:
+                    wait_kwargs["allow_startup_banner"] = True
                 serial, state = wait_for_new_recovery_adb(
                     args.adb,
                     adb_baseline,
                     args.recovery_timeout,
-                    expected_serial_sha256=args.expect_recovery_serial_sha256,
+                    **wait_kwargs,
                 )
             else:
                 serial, state = wait_for_adb_state(
@@ -2072,7 +2114,7 @@ def main() -> int:
         if state != "recovery":
             raise RuntimeError(f"expected recovery state, got {state}")
 
-        if args.owner_expect_adb_inventory_sha256 is not None:
+        if args.owner_expect_usb_inventory_sha256 is not None:
             # Native-to-recovery legitimately changes the raw USB bytes.  The
             # post-transition producer is therefore a fresh exact-role gate;
             # only an already-present Recovery branch must retain its
@@ -2090,14 +2132,15 @@ def main() -> int:
                     "owner post-transition USB inventory receipt="
                     f"{post_usb_inventory_sha256}"
                 )
-            post_role_digest = _owner_adb_inventory_sha256(
-                args.expect_recovery_serial_sha256,
-                OWNER_ADB_ROLE_RECOVERY,
-            )
-            if bound_recovery is not None and (
-                post_role_digest != args.owner_expect_adb_inventory_sha256
-            ):
-                raise RuntimeError("owner ADB inventory changed before flash")
+            if args.owner_expect_adb_inventory_sha256 is not None:
+                post_role_digest = _owner_adb_inventory_sha256(
+                    args.expect_recovery_serial_sha256,
+                    OWNER_ADB_ROLE_RECOVERY,
+                )
+                if bound_recovery is not None and (
+                    post_role_digest != args.owner_expect_adb_inventory_sha256
+                ):
+                    raise RuntimeError("owner ADB inventory changed before flash")
 
         with sealed_local_image_copy(image_path, local_hash, image_size) as sealed_image_path:
             with phase_timer("flash_boot_image"):

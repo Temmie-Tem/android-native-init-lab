@@ -29,6 +29,22 @@ ADB_STATE_RE = re.compile(r"^(?:device|recovery|offline|unauthorized|no permissi
 ADB_STDOUT_DIGEST_PREFIX = "<A90-ADB-INVENTORY-STDOUT-SHA256:"
 ADB_STDERR_DIGEST_PREFIX = "<A90-ADB-INVENTORY-STDERR-SHA256:"
 
+# ``adb devices`` may start the host daemon on its first recovery-scoped
+# invocation.  That normal, bounded banner is not inventory data and must not
+# turn an otherwise valid recovery inventory into a producer failure.  Keep
+# this exception exact and local to the ADB-inventory redaction path: all
+# other stderr, including an unexpected ADB diagnostic, remains a digest-only
+# nonempty stream and is still rejected by the strict parser.
+ADB_STARTUP_BANNERS = frozenset(
+    {
+        (
+            b"* daemon not running; starting now at tcp:localhost:5037\n"
+            b"* daemon started successfully\n"
+        ),
+        b"* daemon started successfully\n",
+    }
+)
+
 
 def _marker(digest: str) -> str:
     return f"<A90-ADB-SERIAL-SHA256:{digest}>"
@@ -134,6 +150,7 @@ class SerialRedactor:
         safe_stderr = (
             b""
             if not stderr
+            or stderr.replace(b"\r\n", b"\n") in ADB_STARTUP_BANNERS
             else self._inventory_digest_marker(
                 ADB_STDERR_DIGEST_PREFIX, stderr, "nonempty"
             )
