@@ -587,7 +587,8 @@ identity:
   H31 qualification/D0/approval were consumed, but candidate and rollback both
   wrote zero bytes. Recovery ADB rejected the real `tcp:5037` startup banner;
   rollback then saw the same A90's Native-to-Recovery re-enumeration gap as
-  zero endpoints. H31 remains unproved/no-replay with both guards retained.
+  zero endpoints. H31 remains unproved/no-replay; reviewed 41 `fb8df1da…`
+  released the active guard while retaining the consumed H31 candidate guard.
   The exact H31 fixed reconciler and phase-aware repairs are now reviewed at
   owner `0a6122d2…`, continuation `585869c5…`, recovery `a506f677…`, and
   reconciler `ca96bd19…`; they grant only H31 guard closure, not a new F1.

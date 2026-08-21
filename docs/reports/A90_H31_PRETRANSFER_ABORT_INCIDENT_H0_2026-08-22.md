@@ -1,6 +1,6 @@
 # A90 H31 pre-transfer abort incident — H0 handoff
 
-Status: independently reviewed `PASS_GO`, not yet executed. The current
+Status: `PRETRANSFER_ABORT_RECONCILED_NO_REPLAY`. The current
 reconciler closure is `ca96bd19e75cd754ffd572d26441b1d80ebca4c0c5106f78a283b47475fc2cbf`
 and review SHA-256 is `f2cd754d8ff4f80dcc79bfd787bb4809b254c2d9933e289d2cbdd25d3d2fb151`.
 This report grants
@@ -33,3 +33,15 @@ never treated as authority.
 The H31 candidate remains unproved. Any later experiment requires a new
 manifest/run, current health and identity binding, fresh attendance and
 approval, and the normal one-shot owner process.
+
+## Executed closure
+
+After the operator returned the exact A90 to Native, the reviewed reconciler
+revalidated the fixed journal and complete log inventory, bound the candidate
+`PRE_WRITE_FAILURE`, proved no rollback helper dispatch, and observed exact
+healthy V2321 over ACM. It published `41-pretransfer-abort.json` at SHA-256
+`fb8df1dadf76cc293b187edf2a151d57748d915bca7f1f55558bcc0113e10a14`,
+removed the active guard, and retained the H31 candidate guard. Candidate and
+rollback transfer/write counts remain zero; H31 retry and replay remain false.
+The reconciler issued no ADB, reboot, recovery-transition, image, rollback, or
+partition command.
