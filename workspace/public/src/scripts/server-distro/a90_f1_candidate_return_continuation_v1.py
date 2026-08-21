@@ -43,8 +43,7 @@ BACKEND_PATH = REPO_ROOT / (
     "a90_f1_candidate_return_backend_v1.py"
 )
 CONTINUATION_REVIEW_PATH = REPO_ROOT / (
-    "docs/reports/"
-    "A90_F1_CANDIDATE_RETURN_CONTINUATION_INDEPENDENT_REVIEW_2026-08-21.json"
+    "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json"
 )
 CONTINUATION_CLOSURE_RELS = (
     "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py",

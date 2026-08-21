@@ -582,9 +582,9 @@ identity:
   at SHA-256 `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
   the exact kernel remains `59f79b8f…`, and only identity/state paths changed.
   See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H30_H0_2026-08-21.md`.
-  H30 is H0-only. Current owner closure is `77675e05…` and current
-  candidate-return continuation closure is `7810fa34…`; the old `9b17904d…`
-  continuation review is stale after the receipt/observer repair. Fresh
+  H30 is H0-only. Current owner closure is `e0a1fa5d…` and current
+  candidate-return continuation closure is `a396a744…`; the old `9b17904d…`
+  dated continuation review is stale after the receipt/observer repair. Fresh
   independent review must bind both current closures before H30 qualification,
   private manifest, D0, approval, or F1 can exist.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate

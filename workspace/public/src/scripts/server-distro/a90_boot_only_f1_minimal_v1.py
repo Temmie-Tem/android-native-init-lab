@@ -1403,7 +1403,7 @@ def _exact_uncertain_candidate_result(record: dict[str, Any] | None) -> bool:
         type(payload["returncode"]) is int
         and payload["returncode"] != 0
         and payload["completed"] is False
-        and type(payload["quiescent"]) is bool
+        and payload["quiescent"] is True
         and payload["outcome"]
         == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN"
     )
@@ -1434,7 +1434,7 @@ def _valid_candidate_return_pending(
         and payload["rollbackIntentPublished"] is False
         and payload["effectOutcome"]
         == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN"
-        and type(payload["helperQuiescent"]) is bool
+        and payload["helperQuiescent"] is True
         and pending == expected
     )
 

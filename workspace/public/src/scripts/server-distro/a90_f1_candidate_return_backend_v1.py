@@ -676,6 +676,12 @@ class CandidateReturnBackend:
         if before.a90_native_count == 1 and before.a90_recovery_serial is not None:
             return self._unresolved(before.single_samsung_inventory_sha256)
         if before.a90_native_count == 1:
+            if not self._exact_endpoint_role(before, "native"):
+                return self._observation(
+                    STATE_AMBIGUOUS,
+                    single_samsung_inventory_sha256=before.single_samsung_inventory_sha256,
+                    untouched=False,
+                )
             try:
                 snapshot = self._candidate_snapshot(manifest)
             except ActivationError:
@@ -688,31 +694,39 @@ class CandidateReturnBackend:
                     else None
                 )
             after = self._inventory(manifest)
-            if not self._same_inventory(before, after):
+            if (
+                not self._same_inventory(before, after)
+                or not self._exact_endpoint_role(after, "native")
+            ):
                 return self._observation(
                     "FOREIGN_ENDPOINT",
                     single_samsung_inventory_sha256=before.single_samsung_inventory_sha256,
                     untouched=False,
                 )
-            snapshot = replace(snapshot, other_targets_untouched=True)
+            untouched = (
+                self._exact_endpoint_role(before, "native")
+                and self._exact_endpoint_role(after, "native")
+                and snapshot.other_targets_untouched is True
+            )
+            snapshot = replace(snapshot, other_targets_untouched=untouched)
             if snapshot.version != manifest["candidate"]["version"] or snapshot.build != manifest["candidate"]["build"]:
                 return self._observation(
                     "ATTRIBUTABLE_FAILURE",
                     single_samsung_inventory_sha256=before.single_samsung_inventory_sha256,
-                    untouched=True,
+                    untouched=untouched,
                     attribution="WRONG_CANDIDATE_RESIDENT",
                 )
             if snapshot.healthy is not True:
                 return self._observation(
                     "ATTRIBUTABLE_FAILURE",
                     single_samsung_inventory_sha256=before.single_samsung_inventory_sha256,
-                    untouched=True,
+                    untouched=untouched,
                     attribution="EXPLICIT_CANDIDATE_HEALTH_CONTRADICTION",
                 )
             return self._observation(
                 STATE_NATIVE_VISIBLE,
                 single_samsung_inventory_sha256=before.single_samsung_inventory_sha256,
-                untouched=True,
+                untouched=untouched,
                 snapshot=snapshot,
             )
         if before.a90_recovery_serial is not None:

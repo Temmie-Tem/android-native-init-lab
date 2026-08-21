@@ -14,9 +14,9 @@ closure `9b17904d…`, but it is not current authority.
 ## Exact current subject
 
 - owner execution closure:
-  `77675e05ffbe659808ff07e1e12359471a48058480880f66f1ad2e1713debaaf`;
+  `e0a1fa5d05ce15322b7e2966901b443917e54836fd1d04f5550fc9f05467c5ed`;
 - candidate-return continuation closure:
-  `7810fa341eb6b9f9f1fc0227fb3f688d0a31259f932d48e4fa80ec88d85bd2bf`;
+  `a396a7440ba936e90dbf8956c1c2404cc0dc1271fda1b304192b35f13eb28d6c`;
 - H30 candidate: `0.11.197 / phase3-minimal-h30-stock-rebuild-1007-cfp`,
   58,372,096 bytes, SHA-256
   `d28bd41434d252619dd95ecb352f55140d93889fd599784c0a7dbf491959c5fe`;
@@ -31,6 +31,11 @@ The materialization report is
 Do not open `workspace/private`; public declarations and current source are the
 review subject. Candidate bytes are independently rehashed by operator-side
 tests when staged.
+
+The runtime consumes only the stable lease path
+`docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json`.
+It must be absent until the independent reviewer publishes a canonical PASS;
+dated historical reviews remain immutable and are never overwritten.
 
 ## Required decisions
 

@@ -103,6 +103,13 @@ class CandidateReturnContinuationTest(MinimalF1Test):
         C.CONTINUATION_REVIEW_PATH = self._old_review_path
         super().tearDown()
 
+    def test_production_review_path_is_stable_and_not_dated(self):
+        self.assertEqual(
+            self._old_review_path,
+            ROOT
+            / "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json",
+        )
+
     def _snapshot_payload(self, version="new", build="new-build"):
         return self._snapshot(version, build).payload()
 
@@ -341,6 +348,41 @@ class CandidateReturnContinuationTest(MinimalF1Test):
         )
         self.assertEqual(result["terminal"], "CANDIDATE_NATIVE_VISIBLE_FINALIZE_REQUIRED")
         self.assertEqual(backend.calls, ["inspect"])
+
+    def test_nonquiescent_uncertain_result_cannot_enter_continuation(self):
+        run, token = self._prepare_continuation(remove_pending=True)
+        path = run / "22-candidate-result.json"
+        result = M.parse_canonical(path.read_bytes(), path.name)
+        result["payload"]["quiescent"] = False
+        path.unlink()
+        M.publish_record(run, path.name, result)
+        self.assertFalse(M._exact_uncertain_candidate_result(result))
+        backend = ReturnBackend(inspect=self._native_visible(self._snapshot_payload()))
+        with self.assertRaises(C.ContractError):
+            C.resume(self.manifest_path, token, backend, operator_attended=True)
+        self.assertEqual(backend.calls, [])
+        self.assertNotIn("24-candidate-return-intent.json", M.read_records(run))
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_nonquiescent_pending_helper_cannot_enter_continuation(self):
+        run, token = self._prepare_continuation()
+        path = run / "23-candidate-return-pending.json"
+        pending = M.parse_canonical(path.read_bytes(), path.name)
+        pending["payload"]["helperQuiescent"] = False
+        path.unlink()
+        M.publish_record(run, path.name, pending)
+        result = M.read_records(run)["22-candidate-result.json"]
+        self.assertFalse(
+            M._valid_candidate_return_pending(
+                pending, result["payload"]["receiptSha256"]
+            )
+        )
+        backend = ReturnBackend(inspect=self._native_visible(self._snapshot_payload()))
+        with self.assertRaises(C.ContractError):
+            C.resume(self.manifest_path, token, backend, operator_attended=True)
+        self.assertEqual(backend.calls, [])
+        self.assertNotIn("24-candidate-return-intent.json", M.read_records(run))
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
 
     def test_intent_precedes_contact_and_native_finalize_consumes_candidate_guard(self):
         run, token = self._prepare_continuation()

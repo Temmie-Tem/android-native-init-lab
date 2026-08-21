@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -193,6 +194,19 @@ class BackendTest(unittest.TestCase):
                 self.assertEqual(result["state"], BACKEND.STATE_AMBIGUOUS)
                 self.assertNotIn("twrp-identity", [label for label, *_ in runner.calls])
 
+    def test_ambiguous_native_role_cannot_promote_a_valid_snapshot(self):
+        ambiguous_usb = self.native_usb + b"Bus 001 Device 003: ID 04e8:6860 Other Samsung\n"
+        backend = self._backend(FakeRunner(ambiguous_usb, self.empty_adb))
+        inventory = backend._inventory(self.manifest)
+        with mock.patch.object(
+            backend, "_candidate_snapshot", return_value=self._snapshot()
+        ) as observe:
+            result = backend._classify(self.manifest, inventory, after_physical=False)
+        self.assertEqual(result["state"], BACKEND.STATE_AMBIGUOUS)
+        self.assertFalse(result["otherTargetsUntouched"])
+        self.assertIsNone(result["candidateSnapshot"])
+        observe.assert_not_called()
+
     def test_wrong_product_or_adb_state_is_ambiguous(self):
         wrong_usb = b"Bus 001 Device 002: ID 04e8:1234 Wrong Samsung\n"
         wrong_adb = (
@@ -228,10 +242,25 @@ class BackendTest(unittest.TestCase):
         runner = FakeRunner(self.native_usb, self.empty_adb)
         backend = self._backend(runner)
         inventory = backend._inventory(self.manifest)
-        with mock.patch.object(backend, "_candidate_snapshot", return_value=self._snapshot()):
+        with mock.patch.object(
+            backend,
+            "_candidate_snapshot",
+            return_value=replace(self._snapshot(), other_targets_untouched=True),
+        ):
             result = backend._classify(self.manifest, inventory, after_physical=False)
         self.assertEqual(result["state"], BACKEND.STATE_NATIVE_VISIBLE)
         self.assertTrue(result["otherTargetsUntouched"])
+
+    def test_native_snapshot_false_is_never_promoted(self):
+        runner = FakeRunner(self.native_usb, self.empty_adb)
+        backend = self._backend(runner)
+        inventory = backend._inventory(self.manifest)
+        snapshot = replace(self._snapshot(), other_targets_untouched=False)
+        with mock.patch.object(backend, "_candidate_snapshot", return_value=snapshot):
+            result = backend._classify(self.manifest, inventory, after_physical=False)
+        self.assertEqual(result["state"], BACKEND.STATE_NATIVE_VISIBLE)
+        self.assertFalse(result["otherTargetsUntouched"])
+        self.assertFalse(result["candidateSnapshot"]["otherTargetsUntouched"])
 
     def test_twrp_probe_targets_only_the_bound_serial(self):
         runner = FakeRunner(self.recovery_usb, self.recovery_adb)
