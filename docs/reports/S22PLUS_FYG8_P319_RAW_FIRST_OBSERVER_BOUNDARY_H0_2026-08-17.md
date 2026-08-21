@@ -221,3 +221,21 @@ before the review row, and the independent changed-closure review is complete.
 This scoped PASS_GO resolves only the typed diagnostic classification and
 creates no enforcement upgrade or D0, D1, F1, LIVE, device, ADB, USB, Odin,
 recovery, replay, A90, or S20+ authority.
+
+## P3.19 Process-v2 integration successor note
+
+The `-05` receipt remains byte-for-byte preserved as the exact 1,729/411
+population diagnostic cut; it is not rewritten after later host-only sources
+join `revalidation/`. The P3.19 Process-v2 integration unit measured the
+current population at 1,733 Python files and 412 subprocess-import modules.
+An actual copied-tree add/delete experiment shows that those two fields are
+census-only drift for a neutral Python source and a neutral host-only
+subprocess source. Excluding exactly
+`all_revalidation_python_files_scanned` and `subprocess_modules_scanned`, the
+stored and current receipts project identically to SHA-256
+`15beb53b5ca52676c95b24c2bea34f74a2cbf2bf0b8f234004d98560c9351a95`.
+Every observer inventory, source identity, function hash, behavioral field,
+and authority denial remains in the projection. A bound S22+ acquiring-source
+mutation still fails closed. This successor note changes the integration pin
+granularity; it does not rewrite or invalidate the independently reviewed
+population-diagnostic capability.

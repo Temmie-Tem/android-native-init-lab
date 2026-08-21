@@ -22,6 +22,22 @@ from typing import Any
 
 import s22plus_fyg8_p308_telemetry_spec as spec
 import s22plus_fyg8_p310_carrier_model as carrier
+try:
+    import s22plus_fyg8_p319_result_contract_arming as c_arming
+except ModuleNotFoundError as exc:
+    if exc.name != "s22plus_fyg8_p319_result_contract_arming":
+        raise
+    import importlib.util
+
+    _arming_spec = importlib.util.spec_from_file_location(
+        "s22plus_fyg8_p319_result_contract_arming", Path(__file__).with_name(
+            "s22plus_fyg8_p319_result_contract_arming.py"
+        )
+    )
+    if _arming_spec is None or _arming_spec.loader is None:
+        raise
+    c_arming = importlib.util.module_from_spec(_arming_spec)
+    _arming_spec.loader.exec_module(c_arming)
 
 
 SCHEMA = "s22plus_fyg8_p319_stock_process_v2_adapter_v1"
@@ -50,6 +66,13 @@ PAYLOAD_ABI = 3
 STATUS_WIDTH = 3
 CHAIN = ("irq", "initial_status", "classification", "probe")
 DETAILS = {0x6724: "COMPLETE", 0x6725: "INCOMPLETE", 0x6726: "AMBIGUOUS"}
+PROOF_CLASS_BY_STATE = {
+    "COMPLETE": "NONCAUSAL_SUCCESS_PATH",
+    "INCOMPLETE": "NO_PROOF_EXPERIMENT_PRECONDITION",
+    "AMBIGUOUS": "NO_PROOF_OBSERVER",
+}
+ARMING_SCHEMA = "s22plus_fyg8_p319_result_contract_arming_v1"
+ARMING_VERDICT = "PASS_P319_RESULT_CONTRACT_ARMING_H0"
 FIRST_GENERATION = 106
 TERMINAL_GENERATION = 107
 FIRST_POSITION = 105
@@ -109,6 +132,14 @@ def _json_safe(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_json_safe(v) for v in value]
     return value
+
+
+def _is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(char in "0123456789abcdef" for char in value)
+    )
 
 
 def _crc(envelope: bytes) -> int:
@@ -178,6 +209,7 @@ def _decode_stock_envelope(envelope: bytes, *, detail: int) -> dict[str, Any]:
         raise DecodeError("P3.19 probe stage count is absent")
     if payload[12] == 0 and any(payload[14:17]):
         raise DecodeError("P3.19 absent status carries bytes")
+    required_module_validity = (1 << 3) | (1 << 4) | (1 << 5)
     module_results = [struct.unpack_from("<h", payload, 4 + i * 2)[0] for i in range(3)]
     irqs = [struct.unpack_from("<h", payload, 17 + i * 2)[0] for i in range(5)]
     if any(value < 0 for value in irqs):
@@ -212,6 +244,10 @@ def _decode_stock_envelope(envelope: bytes, *, detail: int) -> dict[str, Any]:
         "chain_ambiguous": ambiguous,
         "state": state,
         "terminal_detail": detail,
+        "validity_mask": payload[2],
+        "required_module_results_present": (
+            payload[2] & required_module_validity
+        ) == required_module_validity,
         "module_results": module_results,
         "module_results_all_zero": not any(module_results),
         "probe_count": payload[10],
@@ -263,6 +299,13 @@ def _fixture_envelope(state: str = "COMPLETE") -> bytes:
 def encode_fixture(*, state: str = "COMPLETE") -> bytes:
     """Build a deterministic full Carrier fixture for Process-v2 tests."""
     envelope = _fixture_envelope(state)
+    detail = next(code for code, name in DETAILS.items() if name == state)
+    return _encode_carrier_envelope(envelope, detail=detail)
+
+
+def _encode_carrier_envelope(envelope: bytes, *, detail: int) -> bytes:
+    if not isinstance(envelope, bytes) or len(envelope) != ENVELOPE_SIZE:
+        raise DecodeError("P3.19 Carrier envelope size differs")
     header = carrier._header(PROFILE, STOCK_RUN_ID)  # noqa: SLF001
     first_position = spec.POSITIONS[FIRST_POSITION]
     terminal_position = spec.POSITIONS[TERMINAL_POSITION]
@@ -273,9 +316,8 @@ def encode_fixture(*, state: str = "COMPLETE") -> bytes:
     )
     terminal = carrier.Slot(
         1, TERMINAL_GENERATION, terminal_position.stage, carrier.OUTCOME_FAILURE,
-        terminal_position.item_index, DETAILS and next(
-            code for code, name in DETAILS.items() if name == state
-        ), carrier.PAYLOAD_RAW_EXCERPT, envelope[64:],
+        terminal_position.item_index, detail, carrier.PAYLOAD_RAW_EXCERPT,
+        envelope[64:],
     )
     return header + carrier._encode_slot(header, first) + carrier._encode_slot(header, terminal)  # noqa: SLF001
 
@@ -447,6 +489,101 @@ def _base_classification(
     return base
 
 
+def _record_accounting_gap_free(stock: dict[str, Any]) -> bool:
+    fields = tuple(
+        stock.get(name)
+        for name in ("record_count", "record_bytes", "first_sequence", "last_sequence")
+    )
+    if any(isinstance(item, bool) or not isinstance(item, int) for item in fields):
+        return False
+    record_count, record_bytes, first_sequence, last_sequence = fields
+    if record_count <= 0 or record_count > 4096 or record_bytes < 0 or record_bytes > 1_048_576:
+        return False
+    return (
+        record_bytes >= record_count
+        and last_sequence >= first_sequence
+        and last_sequence - first_sequence + 1 == record_count
+    )
+
+
+def _exact_required_module_results(stock: dict[str, Any]) -> tuple[bool, bool]:
+    results = stock.get("module_results")
+    if (
+        stock.get("required_module_results_present") is not True
+        or not isinstance(results, list)
+        or len(results) != 3
+        or any(isinstance(item, bool) or not isinstance(item, int) for item in results)
+    ):
+        return False, False
+    all_zero = all(item == 0 for item in results)
+    if stock.get("module_results_all_zero") is not all_zero:
+        return False, False
+    return True, all_zero
+
+
+def _proof_class_for_value(value: dict[str, Any]) -> str:
+    """Derive a truthful result class from the retained decoded predicates."""
+    if not isinstance(value, dict):
+        return "NO_PROOF_OBSERVER"
+    if (
+        value.get("long_record_count") != 1
+        or value.get("exact_record_count") != 1
+        or value.get("unsat_count") != 0
+        or value.get("foreign_count") != 0
+        or value.get("minimum_candidate_boots") != 1
+        or value.get("integrity_issue") is True
+    ):
+        return "NO_PROOF_OBSERVER"
+    records = value.get("records")
+    if not isinstance(records, list) or len(records) != 1:
+        return "NO_PROOF_OBSERVER"
+    if not isinstance(records[0], dict):
+        return "NO_PROOF_OBSERVER"
+    stock_container = records[0].get("p319_stock")
+    if not isinstance(stock_container, dict):
+        return "NO_PROOF_OBSERVER"
+    stock = stock_container.get("stock", {})
+    if not isinstance(stock, dict):
+        return "NO_PROOF_OBSERVER"
+    state = stock.get("state")
+    modules_exact, modules_all_zero = _exact_required_module_results(stock)
+    accounting_gap_free = _record_accounting_gap_free(stock)
+    if state == "COMPLETE":
+        if (
+            value.get("accepted") is True
+            and stock.get("chain_complete") is True
+            and stock.get("chain_ambiguous") is False
+            and modules_exact
+            and modules_all_zero
+        ):
+            # The stock witness is internally complete, but the adapter's
+            # causal_result_allowed contract remains permanently false.
+            return "NONCAUSAL_SUCCESS_PATH"
+        return "NO_PROOF_OBSERVER"
+    if state == "INCOMPLETE":
+        # This bucket admits either an exact required-module failure or a
+        # clean, exact, unambiguous retained witness whose chain is
+        # mechanically short of completion with gap-free accounting.
+        if (
+            value.get("accepted") is False
+            and stock.get("chain_complete") is False
+            and stock.get("chain_ambiguous") is False
+            and isinstance(stock.get("chain_stage"), int)
+            and 0 <= stock["chain_stage"] < 4
+            and modules_exact
+            and (
+                not modules_all_zero
+                or (modules_all_zero and accounting_gap_free)
+            )
+            and accounting_gap_free
+        ):
+            return "NO_PROOF_EXPERIMENT_PRECONDITION"
+        return "NO_PROOF_OBSERVER"
+    if state == "AMBIGUOUS":
+        return "NO_PROOF_OBSERVER"
+    return "NO_PROOF_OBSERVER"
+
+
 def classify_observation(
     payload: bytes, *, expected_profile: str = PROFILE,
     expected_run_id: bytes = bytes.fromhex("b9cc424d0d184f5accbce94a844e817d"),
@@ -468,7 +605,251 @@ def classify_observation(
         "mux_result_claimable": False,
         "host_silent_claimable": False,
     })
+    value["proof_class"] = _proof_class_for_value(value)
     return _json_safe(value)
+
+
+def _full_fixture(*, state: str) -> bytes:
+    """Put the Python-only deterministic fixture in one exact retained raw."""
+    record = encode_fixture(state=state)
+    if len(record) != carrier.LONG_RECORD_SIZE:
+        raise DecodeError("P3.19 encoded Carrier record has the wrong size")
+    return bytes(RAW_SIZE - len(record)) + record
+
+
+def _full_c_fixture(envelope: bytes, *, detail: int) -> bytes:
+    """Put an exact envelope emitted by the bound C encoder into Carrier."""
+    record = _encode_carrier_envelope(envelope, detail=detail)
+    if len(record) != carrier.LONG_RECORD_SIZE:
+        raise DecodeError("P3.19 C-encoded Carrier record has the wrong size")
+    return bytes(RAW_SIZE - len(record)) + record
+
+
+def _decoded_stock_state(value: dict[str, Any]) -> str:
+    records = value.get("records")
+    if not isinstance(records, list) or len(records) != 1:
+        raise DecodeError("P3.19 arming terminal does not contain one Carrier record")
+    if not isinstance(records[0], dict):
+        raise DecodeError("P3.19 arming terminal record is not an object")
+    stock_container = records[0].get("p319_stock")
+    if not isinstance(stock_container, dict):
+        raise DecodeError("P3.19 arming terminal stock record is not an object")
+    stock = stock_container.get("stock", {})
+    if not isinstance(stock, dict):
+        raise DecodeError("P3.19 arming terminal stock payload is not an object")
+    state = stock.get("state")
+    if state not in PROOF_CLASS_BY_STATE:
+        raise DecodeError("P3.19 arming terminal state is not supported")
+    return state
+
+
+def proof_class(value: dict[str, Any], *, expected: str | None = None) -> str:
+    """Derive, and optionally require, the result-contract proof class."""
+    state = _decoded_stock_state(value)
+    result = _proof_class_for_value(value)
+    if result != PROOF_CLASS_BY_STATE[state]:
+        raise DecodeError("P3.19 decoded state predicates do not admit a proof class")
+    if "proof_class" in value and value["proof_class"] != result:
+        raise DecodeError("P3.19 proof class field differs from decoded predicates")
+    if expected is not None and result != expected:
+        raise DecodeError("P3.19 proof class does not match decoded terminal state")
+    return result
+
+
+def _mutate_terminal_detail(raw: bytes, detail: int) -> bytes:
+    offset = len(raw) - carrier.LONG_RECORD_SIZE
+    record = bytearray(raw[offset:])
+    body_size = carrier.SLOT_SIZE - 4
+    slot_offset = carrier.LONG_HEADER_SIZE + carrier.SLOT_SIZE
+    body = list(carrier.SLOT_BODY_STRUCT.unpack(record[slot_offset:slot_offset + body_size]))
+    body[7] = detail
+    encoded = carrier.SLOT_BODY_STRUCT.pack(*body)
+    record[slot_offset:slot_offset + body_size] = encoded
+    struct.pack_into(
+        "<I", record, slot_offset + body_size,
+        carrier._slot_crc(bytes(record[:carrier.LONG_HEADER_SIZE]), 1, encoded),
+    )
+    return raw[:offset] + bytes(record) + raw[offset + carrier.LONG_RECORD_SIZE:]
+
+
+def _mutate_envelope_state(raw: bytes, state: str) -> bytes:
+    if state not in {"COMPLETE", "INCOMPLETE", "AMBIGUOUS"}:
+        raise DecodeError("P3.19 mutation state is not supported")
+    offset = len(raw) - carrier.LONG_RECORD_SIZE
+    record = bytearray(raw[offset:])
+    body_size = carrier.SLOT_SIZE - 4
+    pieces: list[bytearray] = []
+    for slot_id in (0, 1):
+        slot_offset = carrier.LONG_HEADER_SIZE + slot_id * carrier.SLOT_SIZE
+        body = carrier.SLOT_BODY_STRUCT.unpack(record[slot_offset:slot_offset + body_size])
+        pieces.append(bytearray(body[-1][:64]))
+    envelope = bytearray(pieces[0] + pieces[1])
+    magic_version = bytes(envelope[:5])
+    envelope[PAYLOAD_OFFSET + 3] = {
+        "COMPLETE": 0x2C, "INCOMPLETE": 0x20, "AMBIGUOUS": 0x34
+    }[state]
+    if bytes(envelope[:5]) != magic_version or magic_version != b"MXD5\x05":
+        raise DecodeError("P3.19 state mutation changed envelope magic/version")
+    struct.pack_into("<I", envelope, CRC_OFFSET, _crc(bytes(envelope)))
+    for slot_id in (0, 1):
+        slot_offset = carrier.LONG_HEADER_SIZE + slot_id * carrier.SLOT_SIZE
+        body = list(carrier.SLOT_BODY_STRUCT.unpack(record[slot_offset:slot_offset + body_size]))
+        body[-1] = bytes(envelope[slot_id * 64:(slot_id + 1) * 64])
+        encoded = carrier.SLOT_BODY_STRUCT.pack(*body)
+        record[slot_offset:slot_offset + body_size] = encoded
+        struct.pack_into(
+            "<I", record, slot_offset + body_size,
+            carrier._slot_crc(bytes(record[:carrier.LONG_HEADER_SIZE]), slot_id, encoded),
+        )
+    return raw[:offset] + bytes(record) + raw[offset + carrier.LONG_RECORD_SIZE:]
+
+
+def _rejected(raw: bytes, *, expected: str | None = None) -> bool:
+    try:
+        value = classify_observation(raw)
+        if value.get("accepted") is True:
+            if expected is None:
+                return False
+            proof_class(value, expected=expected)
+            return False
+        return True
+    except (DecodeError, KeyError, TypeError, ValueError):
+        return True
+
+
+def audit_result_contract_arming() -> dict[str, Any]:
+    """Qualify every terminal emitted by the bound P3.19 C publisher path."""
+    actual = c_arming.execute_actual_stock_encoder()
+    if (
+        not isinstance(actual, dict)
+        or actual.get("executed") is not True
+        or actual.get("publisher_selector_verified") is not True
+        or actual.get("publisher_reachability_verified") is not True
+        or actual.get("encoder_rejected_checked_mismatches") is not True
+        or actual.get("publisher_selector_proves_unreachable") is not True
+    ):
+        raise DecodeError("P3.19 actual C encoder did not execute")
+    compiler_identity = actual.get("compiler_identity")
+    if (
+        not isinstance(compiler_identity, dict)
+        or compiler_identity.get("realpath") != c_arming.PINNED_COMPILER_REALPATH
+        or compiler_identity.get("size") != c_arming.PINNED_COMPILER_SIZE
+        or compiler_identity.get("sha256") != c_arming.PINNED_COMPILER_SHA256
+        or not isinstance(compiler_identity.get("version"), str)
+        or not compiler_identity["version"].strip()
+        or compiler_identity.get("version_sha256")
+        != c_arming.PINNED_COMPILER_VERSION_SHA256
+    ):
+        raise DecodeError("P3.19 C compiler identity differs from pinned qualification tool")
+    unreachable = actual.get("publisher_unreachable_direct_combinations")
+    if (
+        not isinstance(unreachable, dict)
+        or set(unreachable) != {"INCOMPLETE_PLUS_AMBIGUOUS", "COMPLETE_PLUS_AMBIGUOUS"}
+        or any(
+            not isinstance(item, dict)
+            or item.get("publisher_selected_state") != 2
+            or item.get("publisher_unreachable") is not True
+            for item in unreachable.values()
+        )
+    ):
+        raise DecodeError("P3.19 ambiguous direct-state reachability proof is incomplete")
+    encoded_states = actual.get("states")
+    if not isinstance(encoded_states, list) or not encoded_states:
+        raise DecodeError("P3.19 actual C encoder emitted no publisher states")
+    admitted: list[dict[str, Any]] = []
+    raw_by_state: dict[str, bytes] = {}
+    seen_states: set[str] = set()
+    for encoded in encoded_states:
+        if not isinstance(encoded, dict):
+            raise DecodeError("P3.19 actual C encoder state row is not an object")
+        detail = encoded.get("terminal_detail")
+        envelope = encoded.get("envelope")
+        if not isinstance(detail, int) or not isinstance(envelope, bytes):
+            raise DecodeError("P3.19 actual C encoder row is not typed")
+        state = DETAILS.get(detail)
+        if state is None or state in seen_states:
+            raise DecodeError("P3.19 actual C encoder emitted unsupported/duplicate detail")
+        if PROOF_CLASS_BY_STATE.get(state) is None:
+            raise DecodeError("P3.19 terminal detail has no proof-class mapping")
+        raw = _full_c_fixture(envelope, detail=detail)
+        decoded = classify_observation(raw)
+        actual_state = _decoded_stock_state(decoded)
+        if actual_state != state:
+            raise DecodeError("P3.19 C-encoded terminal decoded to a different state")
+        if decoded.get("proof_class") != PROOF_CLASS_BY_STATE[state]:
+            raise DecodeError("P3.19 C-encoded terminal proof class differs")
+        seen_states.add(state)
+        raw_by_state[state] = raw
+        admitted.append({
+            "terminal_detail": detail,
+            "state": actual_state,
+            "publisher_terminal_state": encoded.get("publisher_terminal_state"),
+            "proof_class": proof_class(decoded),
+            "adapter_classification": decoded["classification"],
+            "accepted": decoded["accepted"],
+            "envelope_sha256": hashlib.sha256(envelope).hexdigest(),
+            "decoder": decoded["decoder"],
+            "policy_id": decoded["policy_id"],
+        })
+    required = {
+        "NONCAUSAL_SUCCESS_PATH",
+        "NO_PROOF_OBSERVER",
+        "NO_PROOF_EXPERIMENT_PRECONDITION",
+    }
+    if {item["proof_class"] for item in admitted} != required:
+        raise DecodeError("P3.19 result contract does not contain three distinct proof classes")
+    if seen_states != set(DETAILS.values()):
+        raise DecodeError("P3.19 actual C encoder did not cover all terminal states")
+    if len(admitted) != len(DETAILS) or len({item["terminal_detail"] for item in admitted}) != len(admitted):
+        raise DecodeError("P3.19 admitted terminal enumeration is not one-to-one")
+
+    incomplete_detail = next(code for code, name in DETAILS.items() if name == "INCOMPLETE")
+    hostile = {
+        "detail_state_swap_rejected": _rejected(
+            _mutate_terminal_detail(raw_by_state["COMPLETE"], incomplete_detail)
+        ),
+        "carrier_state_swap_rejected": _rejected(
+            _mutate_envelope_state(raw_by_state["COMPLETE"], "INCOMPLETE")
+        ),
+    }
+    try:
+        proof_class(classify_observation(raw_by_state["COMPLETE"]), expected="NO_PROOF_OBSERVER")
+    except DecodeError:
+        hostile["proof_class_swap_rejected"] = True
+    else:
+        hostile["proof_class_swap_rejected"] = False
+    if not all(hostile.values()):
+        raise DecodeError("P3.19 result-contract hostile mutation was accepted")
+    return {
+        "schema": ARMING_SCHEMA,
+        "verdict": ARMING_VERDICT,
+        "profile": PROFILE,
+        "decoder": DECODER_ID,
+        "policy_id": POLICY_ID,
+        "enumeration_source": "bound P3.19 C publisher selector -> exact C stock encoder -> 128-byte envelope -> real Carrier -> classify_observation",
+        "encoder": actual.get("encoder"),
+        "carrier_representation": "full retained Carrier record at exact RAW_SIZE",
+        "admitted_terminals": admitted,
+        "admitted_terminal_count": len(admitted),
+        "unsynthesizable_or_undecodable_excluded": True,
+        "publisher_reachable_states_only": True,
+        "publisher_reachability_verified": actual.get(
+            "publisher_reachability_verified"
+        ) is True,
+        "encoder_rejected_checked_mismatches": actual.get(
+            "encoder_rejected_checked_mismatches"
+        ) is True,
+        "publisher_selector_proves_unreachable": actual.get(
+            "publisher_selector_proves_unreachable"
+        ) is True,
+        "publisher_unreachable_direct_combinations": unreachable,
+        "compiler_identity": compiler_identity,
+        "hostile_tests": hostile,
+        "c_encoder_fixture_path": actual.get("source_identity"),
+        "causal_result_allowed": False,
+        "candidate_success": False,
+        "device_contact": False,
+    }
 
 
 def classify_clean_baseline(
@@ -614,11 +995,13 @@ def audit() -> dict[str, Any]:
             continue
         if value["accepted"] is True or value.get("integrity_issue") is not True:
             raise DecodeError("P3.19 truncated/edge raw was accepted")
+    arming = audit_result_contract_arming()
     return {
         "schema": SCHEMA, "decoder": DECODER_ID, "policy_id": POLICY_ID,
         "overlay_contract_id": OVERLAY_CONTRACT_ID,
         "carrier_authority": PARENT_SOURCE_CONTRACT_ID, "profile": PROFILE,
         "positions": [FIRST_POSITION, TERMINAL_POSITION], "full_record_required": True,
+        "result_contract_arming": arming,
         "acm_supplemental": True, "verified": True,
     }
 

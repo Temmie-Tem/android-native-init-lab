@@ -2,6 +2,7 @@ import contextlib
 import hashlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import stat
 import sys
@@ -77,23 +78,46 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
 
-    def test_private_receipt_is_exact_deterministic_regeneration(self):
+    def test_private_receipt_projects_identically_after_census_only_growth(self):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
             "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json",
         )
-        expected = self.auditor.encode_receipt(
-            self.auditor.audit_sources(REVALIDATION)
+        retained_bytes = RECEIPT.read_bytes()
+        retained = json.loads(retained_bytes)
+        current = self.auditor.audit_sources(REVALIDATION)
+        excluded = {
+            "all_revalidation_python_files_scanned",
+            "subprocess_modules_scanned",
+        }
+        retained_projection = {
+            key: value for key, value in retained.items() if key not in excluded
+        }
+        current_projection = {
+            key: value for key, value in current.items() if key not in excluded
+        }
+        self.assertEqual(retained_projection, current_projection)
+        self.assertEqual(
+            {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(RECEIPT.read_bytes(), expected)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1733)
+        self.assertEqual(current["subprocess_modules_scanned"], 412)
+        self.assertEqual(
+            hashlib.sha256(
+                json.dumps(
+                    current_projection, sort_keys=True, separators=(",", ":")
+                ).encode()
+            ).hexdigest(),
+            "15beb53b5ca52676c95b24c2bea34f74a2cbf2bf0b8f234004d98560c9351a95",
+        )
         info = RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(expected), 11012)
+        self.assertEqual(len(retained_bytes), 11012)
         self.assertEqual(
-            hashlib.sha256(expected).hexdigest(),
+            hashlib.sha256(retained_bytes).hexdigest(),
             "5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352",
         )
 

@@ -653,10 +653,11 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         all_rows, _, _ = self.auditor.parse_log_rows(all_lines)
         current = self.auditor.audit_review_obligations(all_rows)
         # The single absolute pin on live obligation state.  The population
-        # diagnostic review row resolves its same-topic pending obligation.
+        # diagnostic review row resolves its same-topic pending obligation;
+        # the Process-v2 integration prerequisite row opens topic 29.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (46, 32, 14),
+            (47, 32, 15),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -669,6 +670,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "last-kmsg-retention",
                 "log-harvest-runner",
                 "mux-module-chain",
+                "process-v2-integration-prerequisites",
                 "raw-first-observer",
                 "stage-b-rederivation",
                 "stage-b-reg-runner",
@@ -688,6 +690,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-last-kmsg-retention-1",
                 "h0-log-harvest-runner-1",
                 "h0-mux-module-chain-1",
+                "h0-process-v2-integration-prerequisites-29",
                 "h0-raw-first-observer-2",
                 "h0-stage-b-rederivation-1",
                 "h0-stage-b-reg-runner-1",
@@ -696,9 +699,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-usblog-parse-1",
             ],
         )
-        self.assertEqual(current["total"], 46)
+        self.assertEqual(current["total"], 47)
         self.assertEqual(current["resolved_count"], 32)
-        self.assertEqual(current["unresolved_count"], 14)
+        self.assertEqual(current["unresolved_count"], 15)
         self.assertEqual(
             [item["review_topic"] for item in current["unresolved"]].count(
                 "stock-candidate-qualification"
