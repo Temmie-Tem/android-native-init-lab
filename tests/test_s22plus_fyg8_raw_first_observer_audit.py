@@ -1,5 +1,7 @@
+import contextlib
 import importlib.util
 import hashlib
+import io
 import os
 from pathlib import Path
 import sys
@@ -502,6 +504,117 @@ def read_control1(adb, serial):
                         self.module.audit_sources(
                             REVALIDATION, overrides={name: source}
                         )
+
+    def test_transport_detection_2x2_preserves_detection_and_types_parse_failure(self):
+        cases = {
+            "plain_valid": (
+                'import subprocess\n'
+                'T = "adb"\n'
+                'def collect():\n'
+                '    return subprocess.run([T], capture_output=True)\n',
+                True,
+            ),
+            "split_valid": (
+                'import subprocess\n'
+                'T = "a" "d" "b"\n'
+                'def collect():\n'
+                '    return subprocess.run([T], capture_output=True)\n',
+                True,
+            ),
+            "plain_invalid": (
+                'import subprocess\n'
+                'T = "adb"\n'
+                'def collect(:\n'
+                '    return subprocess.run([T], capture_output=True)\n',
+                False,
+            ),
+            "split_invalid": (
+                'import subprocess\n'
+                'T = "a" "d" "b"\n'
+                'def collect(:\n'
+                '    return subprocess.run([T], capture_output=True)\n',
+                False,
+            ),
+        }
+        for label, (source, parses) in cases.items():
+            name = f"s22plus_fyg8_{label}.py"
+            with self.subTest(case=label):
+                if parses:
+                    self.assertTrue(
+                        self.module._touches_device_transport(source, name)
+                    )
+                    with self.assertRaisesRegex(
+                        self.module.RawFirstAuditError,
+                        "device-acquiring source bypasses the raw-first boundary",
+                    ) as caught:
+                        self.module.audit_sources(REVALIDATION, {name: source})
+                    self.assertNotIsInstance(
+                        caught.exception,
+                        self.module.RawFirstPopulationUnparseableError,
+                    )
+                else:
+                    if label == "plain_invalid":
+                        # The raw text gate still reports a literal transport;
+                        # the full-tree pre-parse below supplies the typed
+                        # fail-closed result before any filter can continue.
+                        self.assertTrue(
+                            self.module._touches_device_transport(source, name)
+                        )
+                    else:
+                        with self.assertRaises(
+                            self.module.RawFirstPopulationUnparseableError
+                        ) as caught:
+                            self.module._touches_device_transport(source, name)
+                        self.assertEqual(
+                            caught.exception.code,
+                            "UNPARSEABLE_POPULATION_SOURCE",
+                        )
+                        self.assertEqual(caught.exception.source_name, name)
+                        self.assertEqual(caught.exception.lineno, 3)
+                    with self.assertRaises(
+                        self.module.RawFirstPopulationUnparseableError
+                    ) as audited:
+                        self.module.audit_sources(REVALIDATION, {name: source})
+                    self.assertEqual(
+                        audited.exception.code,
+                        "UNPARSEABLE_POPULATION_SOURCE",
+                    )
+                    self.assertEqual(audited.exception.source_name, name)
+                    self.assertEqual(audited.exception.lineno, 3)
+
+    def test_cli_distinguishes_population_parse_failure_from_boundary_violation(self):
+        bound = self.module.load_bound_auditor()
+        original = bound.audit_sources
+        original_argv = sys.argv
+
+        def run_with(error):
+            def raise_error():
+                raise error
+
+            bound.audit_sources = raise_error
+            sys.argv = [str(SCRIPT), "--audit"]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                code = bound.main()
+            return code, output.getvalue()
+
+        try:
+            population_error = bound.RawFirstPopulationUnparseableError(
+                "split_invalid.py", message="invalid syntax", lineno=3, offset=12
+            )
+            population_code, population_output = run_with(population_error)
+            self.assertEqual(population_code, 3)
+            self.assertIn("UNPARSEABLE_POPULATION_SOURCE", population_output)
+            self.assertIn("split_invalid.py:3:12", population_output)
+
+            boundary_code, boundary_output = run_with(
+                bound.RawFirstAuditError("device-acquiring source bypasses boundary")
+            )
+            self.assertEqual(boundary_code, 2)
+            self.assertIn("raw-first observer audit error", boundary_output)
+        finally:
+            bound.audit_sources = original
+            sys.argv = original_argv
 
     def test_receipt_records_the_behavioral_device_boundary(self):
         value = self.module.audit_sources(REVALIDATION)

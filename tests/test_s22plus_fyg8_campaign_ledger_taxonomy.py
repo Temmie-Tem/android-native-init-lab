@@ -652,11 +652,11 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         all_lines = self.ledger_data.split(marker, 1)[1].splitlines(keepends=True)
         all_rows, _, _ = self.auditor.parse_log_rows(all_lines)
         current = self.auditor.audit_review_obligations(all_rows)
-        # The single absolute pin on live obligation state.  The stock-witness
-        # review row resolves its same-topic pending obligation.
+        # The single absolute pin on live obligation state.  The population
+        # diagnostic review row resolves its same-topic pending obligation.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (45, 31, 14),
+            (46, 32, 14),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -696,8 +696,8 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-usblog-parse-1",
             ],
         )
-        self.assertEqual(current["total"], 45)
-        self.assertEqual(current["resolved_count"], 31)
+        self.assertEqual(current["total"], 46)
+        self.assertEqual(current["resolved_count"], 32)
         self.assertEqual(current["unresolved_count"], 14)
         self.assertEqual(
             [item["review_topic"] for item in current["unresolved"]].count(
@@ -706,7 +706,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             0,
         )
         self.assertEqual(
-            current["resolved"][-6],
+            current["resolved"][-7],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "candidate-witness-transport",
@@ -725,7 +725,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-5],
+            current["resolved"][-6],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-witness-runtime",
@@ -742,7 +742,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-4],
+            current["resolved"][-5],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-image-provenance-repair",
@@ -759,7 +759,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-3],
+            current["resolved"][-4],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification",
@@ -776,7 +776,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-2],
+            current["resolved"][-3],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification-plan-binding",
@@ -793,7 +793,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-1],
+            current["resolved"][-2],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "raw-first-cross-target-membership",
@@ -807,6 +807,23 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 ),
                 "resolution_action": (
                     "PASS_GO_P319_RAW_FIRST_CROSS_TARGET_MEMBERSHIP_"
+                    "H0_CAPABILITY_V1"
+                ),
+            },
+        )
+        self.assertEqual(
+            current["resolved"][-1],
+            {
+                "campaign": "s22plus-fyg8-p319",
+                "review_topic": "raw-first-population-diagnostic",
+                "pending_ordinal": "h0-raw-first-population-diagnostic-28",
+                "pending_action": (
+                    "P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_"
+                    "IMPLEMENTED_REVIEW_PENDING"
+                ),
+                "resolution_ordinal": "h0-raw-first-population-diagnostic-review-28",
+                "resolution_action": (
+                    "PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_"
                     "H0_CAPABILITY_V1"
                 ),
             },

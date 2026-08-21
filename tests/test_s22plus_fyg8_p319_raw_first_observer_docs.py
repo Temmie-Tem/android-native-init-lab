@@ -1,5 +1,7 @@
+import contextlib
 import hashlib
 import importlib.util
+import io
 from pathlib import Path
 import stat
 import sys
@@ -18,15 +20,19 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260821-04-cross-target-membership-default.json"
+    "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
 )
 # The previous current receipt is preserved as superseded evidence.  It must
-# not be rewritten when the default-output correction gets its own cut.
+# not be rewritten when the population-diagnostic cut gets its own receipt.
 PREVIOUS_CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260821-04-cross-target-membership-default.json"
+)
+EARLIER_CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260821-03-cross-target-membership.json"
 )
-EARLIER_CURRENT_RECEIPT = ROOT / (
+CROSS_TARGET_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260819-02-review-corrections.json"
 )
@@ -75,7 +81,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260821-04-cross-target-membership-default.json",
+            "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json",
         )
         expected = self.auditor.encode_receipt(
             self.auditor.audit_sources(REVALIDATION)
@@ -88,7 +94,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(expected), 11012)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
-            "d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da",
+            "5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352",
         )
 
     def test_previous_current_receipt_is_preserved_unmodified(self):
@@ -100,7 +106,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(payload), 11012)
         self.assertEqual(
             hashlib.sha256(payload).hexdigest(),
-            "2016f6cb812daa3ee633c65677b7418d80624cd0dd20a6635f9d8c57b2e0108d",
+            "d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da",
         )
         self.assertNotEqual(payload, RECEIPT.read_bytes())
 
@@ -110,12 +116,25 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
         payload = EARLIER_CURRENT_RECEIPT.read_bytes()
+        self.assertEqual(len(payload), 11012)
+        self.assertEqual(
+            hashlib.sha256(payload).hexdigest(),
+            "2016f6cb812daa3ee633c65677b7418d80624cd0dd20a6635f9d8c57b2e0108d",
+        )
+        self.assertNotEqual(payload, PREVIOUS_CURRENT_RECEIPT.read_bytes())
+
+    def test_cross_target_predecessor_receipt_is_preserved_unmodified(self):
+        info = CROSS_TARGET_PREDECESSOR_RECEIPT.stat()
+        self.assertTrue(stat.S_ISREG(info.st_mode))
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(info.st_nlink, 1)
+        payload = CROSS_TARGET_PREDECESSOR_RECEIPT.read_bytes()
         self.assertEqual(len(payload), 10296)
         self.assertEqual(
             hashlib.sha256(payload).hexdigest(),
             "e5689fee2322b22cba04c5ecfc21d00e59de0fe44e1f0834389ee783eee53f7f",
         )
-        self.assertNotEqual(payload, PREVIOUS_CURRENT_RECEIPT.read_bytes())
+        self.assertNotEqual(payload, EARLIER_CURRENT_RECEIPT.read_bytes())
 
     def test_superseded_role_state_receipt_is_preserved_unmodified(self):
         info = USB_ROLE_STATE_RECEIPT.stat()
@@ -200,6 +219,73 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertIn("e5689fee2322b22cba04c5ecfc21d00e59de0fe44e1f0834389ee783eee53f7f", self.report)
         self.assertIn("raw-first-observer-audit-20260821-04-cross-target-membership-default.json", self.report)
         self.assertIn("raw-first-observer-audit-20260821-03-cross-target-membership.json", self.report)
+
+    def test_population_diagnostic_successor_is_scoped_pass_and_exit_codes_are_distinct(self):
+        for token in (
+            "Current population-parse diagnostic successor",
+            "Status: **PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_H0_CAPABILITY_V1; H0 ONLY; DIAGNOSTIC CLASSIFICATION ONLY; NO D0/D1/F1/LIVE AUTHORITY**",
+            "PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_H0_CAPABILITY_V1",
+            "diagnostic classification only, not an enforcement upgrade",
+            "already fail-closed later in the unfiltered `_imports_subprocess()`",
+            "diagnostic inconsistency, not a working bypass",
+            "UNPARSEABLE_POPULATION_SOURCE",
+            "file/line/column",
+            "CLI exit `3`",
+            "ordinary boundary violation remains exit `2`",
+            "1,729 Python files",
+            "411 subprocess-import modules",
+            "Raw auditor tests pass 20/20",
+            "docs tests",
+            "taxonomy 39/39",
+            "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json",
+            "raw-first-observer-audit-20260821-04-cross-target-membership-default.json",
+            "raw-first-observer-audit-20260821-03-cross-target-membership.json",
+            "raw-first-observer-audit-20260819-02-review-corrections.json",
+            "5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352",
+            "879705ede830fc43a27063621e402991e5fb0c6f37c1ae2f8a84a570cdc102a8",
+            "independent changed-closure review is complete",
+            "46 total / 32 resolved / 14",
+            "No D0/D1/F1/LIVE authority",
+        ):
+            self.assertIn(token, self.report)
+        self.assertNotIn("fail-open repair", self.report.lower())
+
+        bound = self.auditor.load_bound_auditor()
+        original_audit = bound.audit_sources
+        original_argv = sys.argv
+
+        def run_with(error):
+            def raise_error():
+                raise error
+
+            bound.audit_sources = raise_error
+            sys.argv = [str(AUDITOR), "--audit"]
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                code = bound.main()
+            return code, output.getvalue()
+
+        try:
+            population_code, population_output = run_with(
+                bound.RawFirstPopulationUnparseableError(
+                    "split_invalid.py",
+                    message="invalid syntax",
+                    lineno=3,
+                    offset=12,
+                )
+            )
+            self.assertEqual(population_code, 3)
+            self.assertIn("UNPARSEABLE_POPULATION_SOURCE", population_output)
+            self.assertIn("split_invalid.py:3:12", population_output)
+
+            boundary_code, boundary_output = run_with(
+                bound.RawFirstAuditError("boundary violation")
+            )
+            self.assertEqual(boundary_code, 2)
+            self.assertIn("raw-first observer audit error", boundary_output)
+        finally:
+            bound.audit_sources = original_audit
+            sys.argv = original_argv
 
     def test_permanent_target_boundary_has_review_triggers(self):
         for token in (
@@ -293,6 +379,53 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertIn("6d218854492b5ac1191fac171efb12324acf743020406daba2ab75e2edbc7183", row)
         self.assertIn("d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da", row)
         self.assertIn("no device, ADB, USB, Odin", row)
+
+    def test_population_diagnostic_pending_and_review_rows_are_append_only(self):
+        topic = "h0-raw-first-population-diagnostic-28"
+        rows = self.ledger.splitlines()
+        self.assertEqual(sum(f" | {topic} | " in line for line in rows), 1)
+        row_index = next(index for index, line in enumerate(rows) if topic in line)
+        pending_row = rows[row_index]
+        review_topic = "h0-raw-first-population-diagnostic-review-28"
+        self.assertEqual(sum(f" | {review_topic} | " in line for line in rows), 1)
+        review_index = next(index for index, line in enumerate(rows) if review_topic in line)
+        prior_index = next(
+            index
+            for index, line in enumerate(rows)
+            if " | h0-raw-first-cross-target-membership-review-27 | " in line
+        )
+        self.assertGreater(row_index, prior_index)
+        self.assertGreater(review_index, row_index)
+        self.assertTrue(pending_row.startswith("2026-08-21T16:00:00Z | "))
+        self.assertIn(
+            "P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_IMPLEMENTED_REVIEW_PENDING",
+            pending_row,
+        )
+        self.assertIn(" | H0 | ", pending_row)
+        self.assertIn(" | HEALTHY | PROVED | 0/0 | ", pending_row)
+        self.assertIn("Review-pending, not PASS_GO", pending_row)
+        self.assertNotIn("PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC", pending_row)
+
+        row = rows[review_index]
+        self.assertTrue(row.startswith("2026-08-21T16:30:00Z | "))
+        self.assertIn(
+            "PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_H0_CAPABILITY_V1",
+            row,
+        )
+        self.assertIn(" | H0 | ", row)
+        self.assertIn(" | HEALTHY | PROVED | 0/0 | ", row)
+        self.assertIn("UNPARSEABLE_POPULATION_SOURCE", row)
+        self.assertIn("5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352", row)
+        self.assertIn("879705ede830fc43a27063621e402991e5fb0c6f37c1ae2f8a84a570cdc102a8", row)
+        self.assertIn("6a055530d9e258dbd3d4c69ff8d546bf92efcb29c7b8e53ba3bffc2ee7fdcb0f", row)
+        self.assertIn("raw auditor tests are 28579 bytes/SHA-256", row)
+        self.assertIn("pass 20/20", row)
+        self.assertIn("exit 3", row)
+        self.assertIn("exit 2", row)
+        self.assertIn("46 total / 32 resolved / 14", row)
+        self.assertIn("Independent scoped H0 review", row)
+        self.assertIn("not an enforcement upgrade", row)
+        self.assertIn("no D0, D1, F1, LIVE, device, ADB, USB, Odin", row)
 
 
 if __name__ == "__main__":

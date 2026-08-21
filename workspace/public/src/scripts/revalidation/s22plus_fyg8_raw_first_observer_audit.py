@@ -18,12 +18,13 @@ from typing import Any, Mapping
 SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
-AUDITOR_NORMALIZED_SHA256 = "89ecc662487c94e2211dfb413a9ec74d870e60e695bbe51aa4f85d38a349b7ca"
+UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
+AUDITOR_NORMALIZED_SHA256 = "879705ede830fc43a27063621e402991e5fb0c6f37c1ae2f8a84a570cdc102a8"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260821-04-cross-target-membership-default.json"
+    "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
@@ -534,6 +535,54 @@ class RawFirstAuditError(RuntimeError):
     pass
 
 
+class RawFirstPopulationUnparseableError(RawFirstAuditError):
+    """A revalidation population member could not be parsed as Python.
+
+    This is deliberately distinct from a raw-first boundary violation.  A
+    source that cannot be parsed is not evidence of a boundary violation, but
+    it must never disappear from the population merely because transport
+    detection itself needs the AST.
+    """
+
+    code = UNPARSEABLE_POPULATION_SOURCE
+    CODE = code
+
+    def __init__(
+        self,
+        source_name: str,
+        syntax_error: SyntaxError | None = None,
+        *,
+        message: str | None = None,
+        lineno: int | None = None,
+        offset: int | None = None,
+        end_lineno: int | None = None,
+        end_offset: int | None = None,
+    ) -> None:
+        if syntax_error is not None:
+            message = syntax_error.msg
+            lineno = syntax_error.lineno
+            offset = syntax_error.offset
+            end_lineno = getattr(syntax_error, "end_lineno", None)
+            end_offset = getattr(syntax_error, "end_offset", None)
+        self.source_name = source_name
+        self.name = source_name
+        self.filename = source_name
+        self.lineno = lineno
+        self.line = lineno
+        self.offset = offset
+        self.column = offset
+        self.end_lineno = end_lineno
+        self.end_offset = end_offset
+        self.syntax_message = message or "invalid syntax"
+        self.location = (source_name, lineno, offset)
+        location = source_name
+        if lineno is not None:
+            location += f":{lineno}"
+            if offset is not None:
+                location += f":{offset}"
+        super().__init__(f"{self.code}: {location}: {self.syntax_message}")
+
+
 def _auditor_normalized_sha256(text: str) -> str:
     pattern = r'AUDITOR_NORMALIZED_SHA256 = "[0-9a-f]{64}"'
     matches = re.findall(pattern, text)
@@ -624,6 +673,14 @@ def load_bound_auditor() -> Any:
     return module
 
 
+def _parse_population_source(source_name: str, text: str) -> ast.AST:
+    """Parse one full-tree member and classify syntax failure separately."""
+    try:
+        return ast.parse(text, filename=source_name)
+    except SyntaxError as exc:
+        raise RawFirstPopulationUnparseableError(source_name, exc) from exc
+
+
 def _function_sources(text: str) -> dict[str, str]:
     try:
         tree = ast.parse(text)
@@ -646,11 +703,12 @@ def _function_sources(text: str) -> dict[str, str]:
     return values
 
 
-def _imports_subprocess(text: str) -> bool:
-    try:
-        tree = ast.parse(text)
-    except SyntaxError as exc:
-        raise RawFirstAuditError("revalidation source is not valid Python") from exc
+def _imports_subprocess(text: str, tree: ast.AST | None = None) -> bool:
+    if tree is None:
+        try:
+            tree = ast.parse(text)
+        except SyntaxError as exc:
+            raise RawFirstAuditError("revalidation source is not valid Python") from exc
     return any(
         (
             isinstance(node, ast.Import)
@@ -686,12 +744,13 @@ SPAWN_NAMES = frozenset({
 })
 
 
-def _uses_legacy_acquisition(text: str) -> bool:
-    try:
-        tree = ast.parse(text)
-    except SyntaxError as exc:
-        raise RawFirstAuditError("revalidation source is not valid Python") from exc
-    if _imports_subprocess(text):
+def _uses_legacy_acquisition(text: str, tree: ast.AST | None = None) -> bool:
+    if tree is None:
+        try:
+            tree = ast.parse(text)
+        except SyntaxError as exc:
+            raise RawFirstAuditError("revalidation source is not valid Python") from exc
+    if _imports_subprocess(text, tree):
         return True
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -753,7 +812,9 @@ def _audit_function_contracts(
 
 
 def _candidate_d0_sources(
-    root: Path, overrides: Mapping[str, str]
+    root: Path,
+    overrides: Mapping[str, str],
+    parsed_sources: Mapping[str, ast.AST] | None = None,
 ) -> list[str]:
     values: list[str] = []
     paths = {path.name: path for path in root.glob("*.py")}
@@ -763,7 +824,12 @@ def _candidate_d0_sources(
         if re.fullmatch(r"(?:device_action|s22plus)[A-Za-z0-9_]*d0[A-Za-z0-9_]*\.py", name) is None:
             continue
         text = _source(path, overrides)
-        if not _uses_legacy_acquisition(text):
+        tree = (
+            parsed_sources[name]
+            if parsed_sources is not None and name in parsed_sources
+            else None
+        )
+        if not _uses_legacy_acquisition(text, tree):
             continue
         values.append(name)
         if name not in ACTIVE_FILES:
@@ -777,9 +843,9 @@ def _candidate_d0_sources(
     return values
 
 
-# Text markers that a source can start a process at all.  Only these files are
-# worth the AST pass below, which keeps a full audit bounded instead of parsing
-# every file in the tree.
+# Text markers that a source can start a process at all.  The full population
+# is syntax-validated before this marker filter; these markers bound the extra
+# folded-literal walk to sources that can start a process.
 SPAWN_TEXT_MARKERS = (
     "subprocess", "os.system", "os.exec", "os.spawn", "posix_spawn",
     "pty.", "ctypes", "asyncio", "import_module", "__import__",
@@ -787,12 +853,13 @@ SPAWN_TEXT_MARKERS = (
 )
 
 
-def _folded_string_constants(text: str) -> list[str]:
+def _folded_string_constants(
+    text: str,
+    source_name: str = "<text>",
+    tree: ast.AST | None = None,
+) -> list[str]:
     """String literals as the parser folds them, not as they are typed."""
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return []
+    tree = tree or _parse_population_source(source_name, text)
     return [
         node.value
         for node in ast.walk(tree)
@@ -800,7 +867,11 @@ def _folded_string_constants(text: str) -> list[str]:
     ]
 
 
-def _touches_device_transport(text: str) -> bool:
+def _touches_device_transport(
+    text: str,
+    source_name: str = "<text>",
+    tree: ast.AST | None = None,
+) -> bool:
     if any(pattern.search(text) for pattern in DEVICE_TRANSPORT_PATTERNS):
         return True
     # A regex over source text cannot see `"a" "d" "b"`, which the parser folds
@@ -809,9 +880,10 @@ def _touches_device_transport(text: str) -> bool:
     # against their folded literals.
     if not any(marker in text for marker in SPAWN_TEXT_MARKERS):
         return False
+    tree = tree or _parse_population_source(source_name, text)
     return any(
         pattern.search(value)
-        for value in _folded_string_constants(text)
+        for value in _folded_string_constants(text, source_name, tree)
         for pattern in DEVICE_TRANSPORT_PATTERNS
     )
 
@@ -948,8 +1020,23 @@ def _host_only_non_acquiring_sources(
     return values, hashlib.sha256(encoded).hexdigest()
 
 
-def _device_acquisition_sources(
+def _validate_population_sources(
     root: Path, overrides: Mapping[str, str]
+) -> dict[str, ast.AST]:
+    """Syntax-validate every full-tree member before any population filter."""
+    paths = {path.name: path for path in root.glob("*.py")}
+    for name in overrides:
+        paths.setdefault(name, root / name)
+    parsed: dict[str, ast.AST] = {}
+    for name, path in sorted(paths.items()):
+        parsed[name] = _parse_population_source(name, _source(path, overrides))
+    return parsed
+
+
+def _device_acquisition_sources(
+    root: Path,
+    overrides: Mapping[str, str],
+    parsed_sources: Mapping[str, ast.AST] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
     """Require the raw-first boundary from every target-acquiring source.
 
@@ -969,15 +1056,20 @@ def _device_acquisition_sources(
         paths.setdefault(name, root / name)
     frozen: list[dict[str, Any]] = []
     for name, path in sorted(paths.items()):
-        if name in S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS:
-            _audit_host_only_non_acquiring_source(name, _source(path, overrides))
-            continue
         text = _source(path, overrides)
-        # Cheap transport substring first: the AST parse is the expensive half
-        # and only device-facing sources can ever reach the boundary rule.
-        if not _touches_device_transport(text):
+        tree = (
+            parsed_sources[name]
+            if parsed_sources is not None and name in parsed_sources
+            else _parse_population_source(name, text)
+        )
+        if name in S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS:
+            _audit_host_only_non_acquiring_source(name, text)
             continue
-        if not _uses_legacy_acquisition(text):
+        # The complete population was parsed before this filter; reuse that
+        # tree so transport detection cannot make an invalid member disappear.
+        if not _touches_device_transport(text, name, tree):
+            continue
+        if not _uses_legacy_acquisition(text, tree):
             continue
         if name in ACTIVE_FILES:
             if RAW_MODULE not in text:
@@ -1013,7 +1105,9 @@ def _device_acquisition_sources(
 
 
 def _legacy_unmigrated_observers(
-    root: Path, overrides: Mapping[str, str]
+    root: Path,
+    overrides: Mapping[str, str],
+    parsed_sources: Mapping[str, ast.AST] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
     """Freeze pre-boundary inactive observers while scanning the whole tree."""
 
@@ -1025,7 +1119,12 @@ def _legacy_unmigrated_observers(
         if name in ACTIVE_FILES or OBSERVER_FILE_RE.fullmatch(name) is None:
             continue
         text = _source(path, overrides)
-        if not _uses_legacy_acquisition(text):
+        tree = (
+            parsed_sources[name]
+            if parsed_sources is not None and name in parsed_sources
+            else None
+        )
+        if not _uses_legacy_acquisition(text, tree):
             continue
         payload = text.encode("utf-8")
         values.append(
@@ -1099,6 +1198,15 @@ def audit_sources(
         bound = load_bound_auditor()
         try:
             return bound.audit_sources(root, overrides)
+        except bound.RawFirstPopulationUnparseableError as exc:
+            raise RawFirstPopulationUnparseableError(
+                exc.source_name,
+                message=exc.syntax_message,
+                lineno=exc.lineno,
+                offset=exc.offset,
+                end_lineno=exc.end_lineno,
+                end_offset=exc.end_offset,
+            ) from exc
         except bound.RawFirstAuditError as exc:
             raise RawFirstAuditError(str(exc)) from exc
     if (
@@ -1120,16 +1228,21 @@ def audit_sources(
         != AUDITOR_NORMALIZED_SHA256
     ):
         raise RawFirstAuditError("loaded auditor differs from its stable source")
+    # This must precede every transport/acquisition filter.  In particular, a
+    # split transport literal is invisible to the text regex, so a SyntaxError
+    # there must not be deferred to a later generic parser failure; classify
+    # the exact population member before any filter can continue.
+    parsed_population = _validate_population_sources(root, overrides)
     function_sha256 = _audit_function_contracts(root, overrides)
-    d0_candidates = _candidate_d0_sources(root, overrides)
+    d0_candidates = _candidate_d0_sources(root, overrides, parsed_population)
     legacy_observers, legacy_sha256 = _legacy_unmigrated_observers(
-        root, overrides
+        root, overrides, parsed_population
     )
     host_only_sources, host_only_sha256 = _host_only_non_acquiring_sources(
         root, overrides
     )
     device_sources, device_sources_sha256 = _device_acquisition_sources(
-        root, overrides
+        root, overrides, parsed_population
     )
     closed_sources, closed_sources_sha256 = _closed_observer_sources(
         root, overrides
@@ -1173,14 +1286,16 @@ def audit_sources(
 
     all_sources = dict(overrides)
     subprocess_modules = sorted(
-        name for name, text in all_sources.items() if _imports_subprocess(text)
+        name
+        for name, text in all_sources.items()
+        if _imports_subprocess(text, parsed_population.get(name))
     )
     observer_named_modules = sorted(
         name
         for name, text in all_sources.items()
         if (
             ("observer" in name or "_d0" in name)
-            and _imports_subprocess(text)
+            and _imports_subprocess(text, parsed_population.get(name))
             and (name.startswith("device_action") or name.startswith("s22plus"))
             and name != Path(__file__).name
         )
@@ -1405,6 +1520,9 @@ def main() -> int:
         value = audit_sources()
         payload = encode_receipt(value)
         write_receipt(args.output or DEFAULT_OUTPUT, payload)
+    except RawFirstPopulationUnparseableError as exc:
+        print(f"S22+ raw-first observer audit {exc.code}: {exc}")
+        return 3
     except (OSError, RawFirstAuditError) as exc:
         print(f"S22+ raw-first observer audit error: {exc}")
         return 2

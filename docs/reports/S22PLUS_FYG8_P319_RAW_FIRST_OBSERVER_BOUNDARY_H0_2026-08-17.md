@@ -3,7 +3,7 @@
 Date: 2026-08-17 KST
 Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q`) only
 Tier: H0 host-only
-Status: **PASS_GO_P319_RAW_FIRST_CROSS_TARGET_MEMBERSHIP_H0_CAPABILITY_V1; H0 ONLY; NO D0/D1/F1/LIVE AUTHORITY**
+Status: **PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_H0_CAPABILITY_V1; H0 ONLY; DIAGNOSTIC CLASSIFICATION ONLY; NO D0/D1/F1/LIVE AUTHORITY**
 
 ## Result
 
@@ -174,3 +174,50 @@ was retried.
 
 The required independent changed-closure review is complete; full-tail taxonomy is 45 total / 31 resolved / 14 unresolved, with only the -27 topic resolved by this review. Only a fresh direct operator request may authorize any future directory-only Stage A D0, and this
 receipt grants no such authority.
+
+## Current population-parse diagnostic successor
+
+The preceding implementation-pending state and its ledger row remain
+historical evidence. Independent scoped review completed this successor as
+`PASS_GO_P319_RAW_FIRST_POPULATION_PARSE_DIAGNOSTIC_H0_CAPABILITY_V1`:
+diagnostic classification only, not an enforcement upgrade, H0-only, and no
+new device authority.
+
+The original system was already fail-closed later in the unfiltered `_imports_subprocess()` full-population pass. The local
+`_folded_string_constants` SyntaxError degradation was a diagnostic inconsistency, not a working bypass. This unit moves syntax validation before
+transport and acquisition filters and classifies an unparseable population
+member as `UNPARSEABLE_POPULATION_SOURCE`, retaining the exact file/line/column.
+Plain and split valid transport literals retain their detection
+semantics; plain and split invalid override members now receive that typed
+classification before later generic parsing. CLI exit `3` identifies this
+population diagnostic, while an ordinary boundary violation remains exit `2`.
+
+The current bound auditor is 62,595 bytes, SHA-256
+`584276070d1247b995188a86eea6ca228fa0e2555f5ea98a0b8385f17621e299`, with
+normalized self-binding
+`879705ede830fc43a27063621e402991e5fb0c6f37c1ae2f8a84a570cdc102a8`. Plain
+`--audit` from the bound source published and reopened the new no-clobber
+receipt
+`workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260821-05-population-parse-diagnostic.json`:
+11,012 bytes, SHA-256
+`5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352`, mode
+`0400`, link count one, byte-identical to stdout. The `-04` receipt
+`d3e5013134c74837b2c36a14f5dfd8ac2ab874707dd5f30a5090002bc2a380da`, `-03`
+receipt
+`2016f6cb812daa3ee633c65677b7418d80624cd0dd20a6635f9d8c57b2e0108d`, `-02`
+receipt `workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260819-02-review-corrections.json`
+`e5689fee2322b22cba04c5ecfc21d00e59de0fe44e1f0834389ee783eee53f7f`, and all
+older receipts remain byte-for-byte preserved.
+
+The receipt scans 1,729 Python files, 411 subprocess-import modules, four
+observer-named subprocess modules, 47 legacy inactive observers, 127
+pre-boundary device sources, 126 closed observer sources, one host-only
+non-acquiring source, and 51 target-external membership entries. Raw auditor tests pass 20/20, raw docs tests pass 15/15, and taxonomy 39/39 remain
+green; the full-tail obligation count is now 46 total / 32 resolved / 14
+unresolved. The raw auditor test source is 28,579 bytes, SHA-256
+`6a055530d9e258dbd3d4c69ff8d546bf92efcb29c7b8e53ba3bffc2ee7fdcb0f`, and
+passes 20/20. The pending implementation row remains preserved immediately
+before the review row, and the independent changed-closure review is complete.
+This scoped PASS_GO resolves only the typed diagnostic classification and
+creates no enforcement upgrade or D0, D1, F1, LIVE, device, ADB, USB, Odin,
+recovery, replay, A90, or S20+ authority.
