@@ -592,10 +592,71 @@ identity:
   records without the new outcome are not reclassified. The `23` receipt
   digest must equal the durable `22` receipt digest exactly.
   The separate candidate-neutral continuation state machine is implemented at
-  `workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py`;
-  only `prepare` is host-only usable now. `resume`/`finalize` and any physical
-  continuation remain H0-disabled pending an independent review of their
-  closure, fixed inventory grammar, intent ordering, and rollback attribution.
+  `workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py`,
+  with the exact fixed backend at
+  `workspace/public/src/scripts/server-distro/a90_f1_candidate_return_backend_v1.py`.
+  `prepare` remains host-only. `resume`/`finalize` and any physical
+  continuation remain H0/non-authoritative until a fresh independent review
+  binds the current closure, qualification and manifest are current, and an
+  attended token activates the exact run. The backend's fixed single-Samsung
+  inventory, TWRP identity, intent ordering, and rollback attribution are part
+  of that review.
+  No static live-enable value remains. `review_gate_present()` reports only
+  direct-regular canonical current `PASS_GO` availability; absent, symlink,
+  malformed, wrong, or stale-closure review stops before backend creation.
+  PASS alone grants no token, attendance, intent, or device authority.
+  The backend factory requires a continuation-issued activation lease created
+  only after the phase intent and both guards are durable; it binds the exact
+  manifest/run/pending receipt/approval/phase and review/closure callbacks.
+  Every subprocess is bracketed by lease revalidation, and stale or restored
+  inputs fail before the next call. This is a fail-closed workflow API, not a
+  same-UID Python isolation boundary. Each activation intent check rereads the
+  strict current journal prefix, binds every envelope to the current manifest,
+  and re-joins 22/23 to the activation-bound pending receipt before contact.
+  The operational F1 precondition is intentionally simple: exactly one
+  Samsung USB endpoint (`04e8`) may be connected. Non-Samsung host USB
+  devices may remain, but every other Samsung device must be disconnected
+  before the attended run. This is an A90 speed/safety precondition, not a
+  permanent common boundary; multi-device coexistence is out of scope for
+  this unit and would require a new design and review. Native is exactly one
+  `04e8:6861` endpoint with the fixed ACM/managed bridge and zero ADB rows.
+  Recovery is exactly one `04e8:6860` endpoint with exactly one total ADB row
+  in `recovery` whose serial hash equals the manifest binding. Extra Samsung
+  or ADB rows, a wrong product/state, or ambiguity parks before per-device
+  contact. Owner mode persists only digest/status inventory markers and
+  redacts bound serials as `<A90-ADB-SERIAL-SHA256:...>`.
+  Its only effect entry is rollback: exact boolean `rollback: true` and the
+  strict five-field manifest rollback artifact are required. Candidate,
+  alternate-path, equal-SHA, schema/type, and symlink variants are rejected
+  before any runner call, with direct regular-file identity/hash checkpoints
+immediately before and after the existing helper.
+For a Native rollback branch, the fixed backend binds two matching managed
+bridge preflights (ACM realpath/PID/listener inode/process argv) and the owner
+helper repeats the same preflight immediately before its one Native recovery
+frame. An already-bound recovery endpoint skips the Native bridge command;
+stale listener, foreign ACM, or generation drift performs no recovery/effect.
+Before either rollback helper launch, the backend binds the complete raw
+`/usr/bin/lsusb` byte-stream SHA-256 (including non-Samsung rows and ordering)
+into owner-only argv. `native_init_flash` repeats the fixed producer and
+requires an exact match before ADB binding, bridge recovery, push, or boot
+write; producer failure, malformed/missing/surviving output, digest/role/
+foreign drift, or recovery ambiguity stops with zero effect. Legacy helper
+invocations do not receive or interpret this binding.
+Before a Native recovery frame, the owner repeats the bound initial raw
+  USB/ADB digests and the strict Native role immediately before bridge
+  preflight; an owner inventory binding without the fixed bridge-preflight flag
+  is rejected, and the later Recovery gate is separate. After Native becomes
+  Recovery, the post-transition gate requires exactly one Samsung `04e8:6860`
+  endpoint and exactly one bound recovery ADB row. Native-to-Recovery may
+  legitimately change product, bus/device numbers, and raw bytes, so the
+  post-transition raw digest is evidence only; the simplified role gate is
+  authoritative. Already-Recovery branches still require the same-epoch raw
+  digest before effect. Multi-device coexistence is deliberately not attempted.
+The owner also binds the complete raw `/usr/bin/adb devices -l` SHA-256 and
+the exact parsed role `NATIVE_NO_RECOVERY` or `BOUND_RECOVERY_PRESENT`.
+`native_init_flash` verifies both before bridge recovery or any per-serial ADB,
+push, or boot-write operation; ADB state/duplicate/extra-endpoint/initial raw-digest
+drift stops with zero effect. Legacy helper invocations remain unbound.
   A continuation PASS releases only the active-run guard; the candidate-SHA
   guard remains consumed so the same candidate can never be prepared again.
   Candidate and rollback health snapshots must carry the exact manifest-bound
@@ -790,3 +851,6 @@ is not durably terminal; if a candidate would reuse a retired identity; if a
 forbidden partition or native devtmpfs exposure appears; if evidence would need
 to combine different runs; or if another target's profile, command, approval,
 or evidence enters the A90 scope.
+The owner first-inventory path is fail-closed two-pass: endpoint tokens are
+registered before persistence, and every valid/malformed/nonzero/timeout stdout
+and stderr stream persists only digest/length/status markers.

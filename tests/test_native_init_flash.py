@@ -146,6 +146,265 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
             for call in run.call_args_list
         ))
 
+    def test_owner_usb_inventory_binds_exact_raw_lsusb_bytes(self) -> None:
+        raw = (
+            b"Bus 001 Device 001: ID 04e8:6861 A90 Native\n"
+            b"Bus 001 Device 002: ID 1234:5678 Host device\n"
+        )
+
+        class Process:
+            pid = 4242
+            returncode = 0
+
+            def communicate(self, timeout):
+                self.timeout = timeout
+                return raw, b""
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self):
+                return self.returncode
+
+        with mock.patch.object(
+            flash.subprocess, "Popen", return_value=Process()
+        ) as popen, mock.patch.object(
+            flash.os, "killpg", side_effect=ProcessLookupError
+        ):
+            self.assertEqual(
+                flash._owner_usb_inventory_sha256(flash.OWNER_ADB_ROLE_NATIVE),
+                hashlib.sha256(raw).hexdigest(),
+            )
+        self.assertEqual(popen.call_args.args[0], [flash.OWNER_LSUSB])
+
+    def test_owner_usb_inventory_rejects_producer_failure_and_malformed_output(self) -> None:
+        class Process:
+            pid = 4242
+
+            def __init__(self, returncode, stdout, stderr=b""):
+                self.returncode = returncode
+                self.stdout = stdout
+                self.stderr = stderr
+
+            def communicate(self, timeout):
+                return self.stdout, self.stderr
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self):
+                return self.returncode
+
+        cases = (
+            Process(1, b"", b"lsusb failed"),
+            Process(0, b"not lsusb\n"),
+        )
+        for process in cases:
+            with self.subTest(process=process), mock.patch.object(
+                flash.subprocess, "Popen", return_value=process
+            ), mock.patch.object(flash.os, "killpg", side_effect=ProcessLookupError):
+                with self.assertRaisesRegex(RuntimeError, "fixed lsusb inventory"):
+                    flash._owner_usb_inventory_sha256(flash.OWNER_ADB_ROLE_NATIVE)
+
+    def test_owner_adb_inventory_binds_raw_bytes_and_exact_recovery_role(self) -> None:
+        raw = b"List of devices attached\nA90\trecovery usb:1-1 product:a90\n"
+        expected = hashlib.sha256(b"A90").hexdigest()
+
+        class Process:
+            pid = 4343
+            returncode = 0
+
+            def communicate(self, timeout):
+                return raw, b""
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self):
+                return self.returncode
+
+        with mock.patch.object(
+            flash.subprocess, "Popen", return_value=Process()
+        ) as popen, mock.patch.object(
+            flash.os, "killpg", side_effect=ProcessLookupError
+        ):
+            self.assertEqual(
+                flash._owner_adb_inventory_sha256(
+                    expected, flash.OWNER_ADB_ROLE_RECOVERY
+                ),
+                hashlib.sha256(raw).hexdigest(),
+            )
+        self.assertEqual(popen.call_args.args[0], [flash.OWNER_ADB, "devices", "-l"])
+
+    def test_owner_adb_inventory_rejects_role_drift_duplicates_and_foreign_reorder(self) -> None:
+        expected = hashlib.sha256(b"A90").hexdigest()
+        cases = (
+            b"List of devices attached\nA90\tdevice usb:1-1 product:a90\n",
+            b"List of devices attached\nA90\toffline usb:1-1 product:a90\n",
+            b"List of devices attached\nA90\tunauthorized usb:1-1 product:a90\n",
+            b"List of devices attached\nA90\trecovery usb:1-1 product:a90\nFOREIGN\trecovery usb:1-2 product:x\n",
+            b"List of devices attached\nA90\trecovery usb:1-1 product:a90\nA90\trecovery usb:1-2 product:a90\n",
+        )
+
+        for raw in cases:
+            class Process:
+                pid = 4343
+                returncode = 0
+
+                def communicate(self, timeout, value=raw):
+                    return value, b""
+
+                def poll(self):
+                    return self.returncode
+
+                def wait(self):
+                    return self.returncode
+
+            with self.subTest(raw=raw), mock.patch.object(
+                flash.subprocess, "Popen", return_value=Process()
+            ), mock.patch.object(flash.os, "killpg", side_effect=ProcessLookupError):
+                with self.assertRaisesRegex(RuntimeError, "fixed ADB inventory"):
+                    flash._owner_adb_inventory_sha256(
+                        expected, flash.OWNER_ADB_ROLE_RECOVERY
+                    )
+
+    def test_owner_usb_digest_mismatch_stops_before_adb_or_flash(self) -> None:
+        digest = "a" * 64
+        serial_digest = hashlib.sha256(b"A90").hexdigest()
+        argv = [
+            "native_init_flash.py", "/tmp/rollback.img",
+            "--expect-sha256", digest,
+            "--expect-readback-sha256", digest,
+            "--expect-version", "0.9.285",
+            "--adb", flash.OWNER_ADB,
+            "--reuse-bound-recovery-or-from-native",
+            "--expect-recovery-serial-sha256", serial_digest,
+            "--owner-receipt-mode", flash.OWNER_RECEIPT_MODE,
+            "--owner-fixed-bridge-preflight",
+            "--owner-expect-usb-inventory-sha256", "b" * 64,
+            "--owner-expect-adb-inventory-sha256", "d" * 64,
+            "--owner-expect-adb-role", flash.OWNER_ADB_ROLE_RECOVERY,
+        ]
+        with mock.patch("sys.argv", argv), mock.patch.object(
+            flash, "inspect_local_image",
+            return_value=(Path("/tmp/rollback.img"), digest, 4096),
+        ), mock.patch.object(
+            flash, "_owner_usb_inventory_sha256", return_value="c" * 64
+        ) as usb, mock.patch.object(
+            flash, "bind_present_recovery_or_native_baseline"
+        ) as bind, mock.patch("sys.stdout", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "USB inventory digest mismatch"):
+                flash.main()
+        usb.assert_called_once()
+        bind.assert_not_called()
+
+    def test_owner_inventory_binding_requires_fixed_bridge_preflight(self) -> None:
+        digest = "a" * 64
+        argv = [
+            "native_init_flash.py", "/tmp/rollback.img",
+            "--expect-sha256", digest,
+            "--adb", flash.OWNER_ADB,
+            "--reuse-bound-recovery-or-from-native",
+            "--expect-recovery-serial-sha256", hashlib.sha256(b"A90").hexdigest(),
+            "--owner-receipt-mode", flash.OWNER_RECEIPT_MODE,
+            "--owner-expect-usb-inventory-sha256", "b" * 64,
+            "--owner-expect-adb-inventory-sha256", "d" * 64,
+            "--owner-expect-adb-role", flash.OWNER_ADB_ROLE_NATIVE,
+        ]
+        with mock.patch("sys.argv", argv), mock.patch.object(
+            flash, "_owner_usb_inventory_sha256"
+        ) as usb:
+            with self.assertRaises(SystemExit):
+                flash.main()
+        usb.assert_not_called()
+
+    def test_owner_usb_digest_success_precedes_adb_binding_and_legacy_skips_it(self) -> None:
+        digest = "a" * 64
+        serial_digest = hashlib.sha256(b"A90").hexdigest()
+        argv = [
+            "native_init_flash.py", "/tmp/rollback.img",
+            "--expect-sha256", digest,
+            "--expect-readback-sha256", digest,
+            "--expect-version", "0.9.285",
+            "--adb", flash.OWNER_ADB,
+            "--reuse-bound-recovery-or-from-native",
+            "--expect-recovery-serial-sha256", serial_digest,
+            "--owner-receipt-mode", flash.OWNER_RECEIPT_MODE,
+            "--owner-fixed-bridge-preflight",
+            "--owner-expect-usb-inventory-sha256", "b" * 64,
+            "--owner-expect-adb-inventory-sha256", "d" * 64,
+            "--owner-expect-adb-role", flash.OWNER_ADB_ROLE_RECOVERY,
+        ]
+        events = []
+        with mock.patch("sys.argv", argv), mock.patch.object(
+            flash, "inspect_local_image",
+            return_value=(Path("/tmp/rollback.img"), digest, 4096),
+        ), mock.patch.object(
+            flash, "_owner_usb_inventory_sha256",
+            side_effect=lambda *args: events.append("usb") or "b" * 64,
+        ), mock.patch.object(
+            flash, "_owner_adb_inventory_sha256",
+            side_effect=lambda *args: events.append("adb-inventory") or "d" * 64,
+        ), mock.patch.object(
+            flash, "bind_present_recovery_or_native_baseline",
+            side_effect=lambda *args, **kwargs: (events.append("adb-bind") or (["OTHER"], ("A90", "recovery"))),
+        ), mock.patch.object(
+            flash, "sealed_local_image_copy",
+            return_value=nullcontext(Path("/tmp/sealed.img")),
+        ), mock.patch.object(flash, "flash_boot_image"), mock.patch.object(
+            flash, "reboot_twrp_to_system"
+        ), mock.patch.object(flash, "verify_post_flash_target"), mock.patch(
+            "sys.stdout", io.StringIO()
+        ):
+            self.assertEqual(flash.main(), 0)
+        self.assertEqual(
+            events,
+            ["usb", "adb-inventory", "adb-bind", "adb-inventory", "usb", "adb-inventory"],
+        )
+
+    def test_owner_flash_revalidates_twrp_identity_before_push(self) -> None:
+        digest = "a" * 64
+        args = types.SimpleNamespace(
+            owner_expect_usb_inventory_sha256=digest,
+            expect_readback_sha256=digest,
+            remote_image="/tmp/native.img",
+            boot_block="/dev/block/by-name/boot",
+            adb=flash.OWNER_ADB,
+        )
+        result = types.SimpleNamespace(returncode=0, stdout="", stderr="")
+        with mock.patch.object(flash, "run_command", return_value=result) as run, mock.patch.object(
+            flash, "remote_sha256", return_value=digest
+        ), mock.patch.object(flash, "remote_boot_prefix_sha256", return_value=digest):
+            flash.flash_boot_image(args, "A90", Path("/tmp/native.img"), digest, 4096)
+        self.assertEqual(run.call_args_list[0].args[0][-1], flash.TWRP_IDENTITY_CHECK_COMMAND)
+        self.assertIn("push", run.call_args_list[1].args[0])
+
+    def test_owner_pre_native_gate_rejects_usb_or_adb_drift_before_bridge(self) -> None:
+        args = types.SimpleNamespace(
+            owner_expect_adb_role=flash.OWNER_ADB_ROLE_NATIVE,
+            owner_expect_usb_inventory_sha256="b" * 64,
+            expect_recovery_serial_sha256="c" * 64,
+            owner_expect_adb_inventory_sha256="d" * 64,
+        )
+        with mock.patch.object(
+            flash, "_owner_usb_inventory_sha256", return_value="x" * 64
+        ), mock.patch.object(
+            flash, "_owner_adb_inventory_sha256"
+        ) as adb, mock.patch.object(flash, "bridge_command") as bridge:
+            with self.assertRaisesRegex(RuntimeError, "USB inventory changed"):
+                flash._owner_pre_native_recovery_gate(args)
+        adb.assert_not_called()
+        bridge.assert_not_called()
+
+        with mock.patch.object(
+            flash, "_owner_usb_inventory_sha256", return_value="b" * 64
+        ), mock.patch.object(
+            flash, "_owner_adb_inventory_sha256", return_value="x" * 64
+        ), mock.patch.object(flash, "bridge_command") as bridge:
+            with self.assertRaisesRegex(RuntimeError, "ADB inventory changed"):
+                flash._owner_pre_native_recovery_gate(args)
+        bridge.assert_not_called()
+
     def test_parse_adb_devices_filters_header_blank_lines_and_keeps_states(self) -> None:
         output = """
 List of devices attached

@@ -68,6 +68,7 @@ EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py",
     "workspace/public/src/scripts/revalidation/a90ctl.py",
     "workspace/public/src/scripts/revalidation/native_init_flash.py",
+    "workspace/public/src/scripts/server-distro/a90_serial_redaction_v1.py",
     "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py",
     "workspace/public/src/scripts/server-distro/a90_h27_postrollback_reconcile_v1.py",

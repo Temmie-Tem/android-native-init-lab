@@ -145,11 +145,162 @@ class CandidateReturnContinuationTest(MinimalF1Test):
         token = C.prepare(self.manifest_path)
         return M.RUN_ROOT / self.manifest["runId"], token
 
+    def _activated_backend_with_resume_intent(self):
+        run, token = self._prepare_continuation()
+        ctx = C._load_context(self.manifest_path)
+        C._publish_checked(
+            ctx,
+            "24-candidate-return-intent.json",
+            "CANDIDATE_RETURN_INTENT",
+            {
+                "schema": C.INTENT_SCHEMA,
+                "capability": C.CAPABILITY,
+                "approvalSha256": M.sha256_bytes(token.encode("ascii")),
+                "pendingReceiptSha256": ctx.pending_receipt_sha256,
+                "candidateReplay": False,
+                "physicalSystemReturnAllowed": True,
+                "qualificationReviewSha256": ctx.qualification_review_sha256,
+            },
+        )
+        ctx = C._load_context(self.manifest_path)
+        activation = C._make_backend_activation(
+            ctx, token, phase="resume", single_samsung_inventory_sha256=None
+        )
+        runner = mock.Mock()
+        backend = C.backend_module.CandidateReturnBackend(
+            activation=activation, runner=runner
+        )
+        backend.bind_manifest(ctx.manifest)
+        return run, ctx, backend, runner
+
+    def test_review_gate_rejects_absent_symlink_malformed_wrong_and_stale_reviews(self):
+        self.assertTrue(C.review_gate_present())
+        self.review_path.unlink()
+        self.assertFalse(C.review_gate_present())
+
+        target = self.review_path.with_name("review-target.json")
+        target.write_bytes(
+            M.canonical_json(
+                {
+                    "schema": C.REVIEW_SCHEMA,
+                    "capability": C.CAPABILITY,
+                    "verdict": "PASS_GO",
+                    "scope": C.REVIEW_SCOPE,
+                    "targetProfile": M.TARGET_PROFILE,
+                    "executionClosureSha256": C.execution_closure_sha256(),
+                    "findings": {"high": [], "medium": [], "low": []},
+                    "contacts": {key: 0 for key in C.CONTINUATION_REVIEW_CONTACT_KEYS},
+                    "reviewer": "independent-luna-max",
+                    "reviewDate": "2026-08-21",
+                    "liveAuthority": False,
+                }
+            )
+        )
+        self.review_path.symlink_to(target)
+        self.assertFalse(C.review_gate_present())
+        self.review_path.unlink()
+        self.review_path.write_bytes(b"not-json")
+        self.assertFalse(C.review_gate_present())
+        self.review_path.write_bytes(M.canonical_json({"verdict": "NO_GO"}))
+        self.assertFalse(C.review_gate_present())
+        self.review_path.write_bytes(
+            M.canonical_json(
+                {
+                    "schema": C.REVIEW_SCHEMA,
+                    "capability": C.CAPABILITY,
+                    "verdict": "PASS_GO",
+                    "scope": C.REVIEW_SCOPE,
+                    "targetProfile": M.TARGET_PROFILE,
+                    "executionClosureSha256": "f" * 64,
+                    "findings": {"high": [], "medium": [], "low": []},
+                    "contacts": {key: 0 for key in C.CONTINUATION_REVIEW_CONTACT_KEYS},
+                    "reviewer": "independent-luna-max",
+                    "reviewDate": "2026-08-21",
+                    "liveAuthority": False,
+                }
+            )
+        )
+        self.assertFalse(C.review_gate_present())
+
+    def test_missing_review_blocks_backend_creation_without_contact(self):
+        self._uncertain_run()
+        ctx = C._load_context(self.manifest_path)
+        self.review_path.unlink()
+        with mock.patch.object(C.backend_module, "create") as create:
+            with self.assertRaises(C.ContractError):
+                C._live_backend("resume", ctx, "A90-F1-CANDIDATE-RETURN-V1-APPROVE:" + "a" * 64)
+        create.assert_not_called()
+
+    def test_activation_rejects_current_22_receipt_substitution_before_runner(self):
+        run, ctx, backend, runner = self._activated_backend_with_resume_intent()
+        path = run / "22-candidate-result.json"
+        record = M.parse_canonical(path.read_bytes(), path.name)
+        record["payload"]["receiptSha256"] = "f" * 64
+        path.write_bytes(M.canonical_json(record))
+        with self.assertRaises(C.ContractError):
+            backend.inspect_pending(ctx.manifest)
+        runner.run.assert_not_called()
+
+    def test_activation_rejects_current_23_receipt_substitution_before_runner(self):
+        run, ctx, backend, runner = self._activated_backend_with_resume_intent()
+        path = run / "23-candidate-return-pending.json"
+        record = M.parse_canonical(path.read_bytes(), path.name)
+        record["payload"]["effectReceiptSha256"] = "f" * 64
+        path.write_bytes(M.canonical_json(record))
+        with self.assertRaises(C.ContractError):
+            backend.inspect_pending(ctx.manifest)
+        runner.run.assert_not_called()
+
+    def test_activation_rejects_joined_new_22_23_receipt_before_runner(self):
+        run, ctx, backend, runner = self._activated_backend_with_resume_intent()
+        result_path = run / "22-candidate-result.json"
+        result = M.parse_canonical(result_path.read_bytes(), result_path.name)
+        pending_path = run / "23-candidate-return-pending.json"
+        pending = M.parse_canonical(pending_path.read_bytes(), pending_path.name)
+        replacement = "f" * 64
+        result["payload"]["receiptSha256"] = replacement
+        pending["payload"]["effectReceiptSha256"] = replacement
+        result_path.write_bytes(M.canonical_json(result))
+        pending_path.write_bytes(M.canonical_json(pending))
+        with self.assertRaises(C.ReviewLeaseDrift):
+            backend.inspect_pending(ctx.manifest)
+        runner.run.assert_not_called()
+
+    def test_activation_rejects_manifest_envelope_drift_and_cross_manifest_prefix(self):
+        run, ctx, backend, runner = self._activated_backend_with_resume_intent()
+        originals = {
+            path.name: path.read_bytes()
+            for path in run.iterdir()
+            if path.is_file() and path.name.endswith(".json")
+        }
+        for name, raw in originals.items():
+            path = run / name
+            record = M.parse_canonical(raw, name)
+            record["manifestSha256"] = "f" * 64
+            path.write_bytes(M.canonical_json(record))
+            with self.subTest(name=name), self.assertRaises(C.ContractError):
+                backend.inspect_pending(ctx.manifest)
+            path.write_bytes(raw)
+
+        for name, raw in originals.items():
+            path = run / name
+            record = M.parse_canonical(raw, name)
+            record["manifestSha256"] = "f" * 64
+            path.write_bytes(M.canonical_json(record))
+        try:
+            with self.assertRaises(C.ReviewLeaseDrift):
+                backend.inspect_pending(ctx.manifest)
+        finally:
+            for name, raw in originals.items():
+                (run / name).write_bytes(raw)
+        runner.run.assert_not_called()
+
     @staticmethod
     def _native_visible(snapshot):
         return {
             "state": C.STATE_NATIVE_VISIBLE,
             "otherTargetsUntouched": True,
+            "singleSamsungInventorySha256": "a" * 64,
             "candidateSnapshot": snapshot,
             "twrpIdentity": None,
             "attribution": None,
@@ -160,6 +311,7 @@ class CandidateReturnContinuationTest(MinimalF1Test):
         return {
             "state": C.STATE_TWRP_PRESENT,
             "otherTargetsUntouched": True,
+            "singleSamsungInventorySha256": "a" * 64,
             "candidateSnapshot": None,
             "twrpIdentity": dict(C.TWRP_IDENTITY),
             "attribution": None,
@@ -170,6 +322,7 @@ class CandidateReturnContinuationTest(MinimalF1Test):
         return {
             "state": C.STATE_ATTRIBUTABLE_FAILURE,
             "otherTargetsUntouched": True,
+            "singleSamsungInventorySha256": "a" * 64,
             "candidateSnapshot": None,
             "twrpIdentity": None,
             "attribution": code,
@@ -477,6 +630,7 @@ class CandidateReturnContinuationTest(MinimalF1Test):
         ambiguous = {
             "state": C.STATE_AMBIGUOUS,
             "otherTargetsUntouched": False,
+            "singleSamsungInventorySha256": None,
             "candidateSnapshot": None,
             "twrpIdentity": None,
             "attribution": None,

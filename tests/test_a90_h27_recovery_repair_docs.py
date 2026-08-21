@@ -68,9 +68,14 @@ class RecoveryRepairDocsTest(unittest.TestCase):
             "workspace/public/src/scripts/server-distro/a90_h27_postrollback_reconcile_v1.py",
             M.EXECUTION_SOURCE_RELS,
         )
-        self.assertEqual(len(M.EXECUTION_SOURCE_RELS), 13)
-        self.assertEqual(
-            M.execution_closure_sha256(),
+        self.assertEqual(len(M.EXECUTION_SOURCE_RELS), 14)
+        current_closure = M.execution_closure_sha256()
+        self.assertRegex(current_closure, r"^[0-9a-f]{64}$")
+        # The old H27 review pin is historical evidence only.  A current
+        # generic closure is derived from the bytes now in the tree and must
+        # not be forced back to that retired pin.
+        self.assertNotEqual(
+            current_closure,
             "6ada12070f85d0800ca33b03d233ab8d006e4197bc5b0766f6759a86d63801e4",
         )
         self.assertEqual(

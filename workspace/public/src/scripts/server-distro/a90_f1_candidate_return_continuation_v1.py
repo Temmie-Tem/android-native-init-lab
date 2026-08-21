@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Candidate-neutral H0 state machine for an uncertain A90 F1 return.
 
-The script owns only the journal transitions.  A production backend is not
-included in this H0 unit; activation requires a separate independent PASS_GO.
+The script owns the journal transitions and imports one fixed production
+backend. Activation still requires a fresh independent PASS_GO, qualification,
+manifest, and attended token.
 The backend protocol deliberately exposes no caller-selected command,
 endpoint, serial, reboot, or outcome.  Tests use a fake backend and therefore
 never contact a device.
@@ -37,6 +38,10 @@ ADAPTER_PATH = REPO_ROOT / (
     "workspace/public/src/scripts/server-distro/"
     "a90_boot_only_f1_adapter_v1.py"
 )
+BACKEND_PATH = REPO_ROOT / (
+    "workspace/public/src/scripts/server-distro/"
+    "a90_f1_candidate_return_backend_v1.py"
+)
 CONTINUATION_REVIEW_PATH = REPO_ROOT / (
     "docs/reports/"
     "A90_F1_CANDIDATE_RETURN_CONTINUATION_INDEPENDENT_REVIEW_2026-08-21.json"
@@ -45,6 +50,8 @@ CONTINUATION_CLOSURE_RELS = (
     "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
     "workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_backend_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_serial_redaction_v1.py",
     "workspace/public/src/scripts/revalidation/native_init_flash.py",
     "workspace/public/src/scripts/revalidation/a90_bridge.py",
     "workspace/public/src/scripts/revalidation/a90ctl.py",
@@ -109,11 +116,6 @@ CONTINUATION_REVIEW_CONTACT_KEYS = (
     "writes",
 )
 
-# This remains H0 until a separate review and activation change.  A review
-# file alone is not live authority.
-LIVE_EXECUTION_ENABLED = False
-
-
 def _load_exact(name: str, path: Path):
     existing = sys.modules.get(name)
     if existing is not None:
@@ -138,6 +140,7 @@ def _load_exact(name: str, path: Path):
 
 owner = _load_exact("a90_boot_only_f1_minimal_v1", OWNER_PATH)
 adapter = _load_exact("a90_boot_only_f1_adapter_v1", ADAPTER_PATH)
+backend_module = _load_exact("a90_f1_candidate_return_backend_v1", BACKEND_PATH)
 
 
 class ContractError(RuntimeError):
@@ -170,6 +173,8 @@ class CandidateReturnBackend(Protocol):
         timeout_sec: int,
     ) -> owner.Snapshot: ...
 
+    def bind_manifest(self, manifest: dict[str, Any]) -> None: ...
+
 
 TWRP_IDENTITY_COMMAND = (
     "test \"$(twrp --version)\" = '3.7.0_12-0' && "
@@ -179,9 +184,10 @@ TWRP_IDENTITY_COMMAND = (
     "test \"$(sha256sum /system/bin/rebootsystem.sh | cut -d' ' -f1)\" = "
     "'3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07'"
 )
-# This fixed read-only identity command is a review input for a future live
-# adapter.  The H0 state-machine module deliberately does not execute it (or
-# any other device command); tests provide the reviewed backend protocol.
+# This fixed read-only identity command is shared with the exact production
+# backend.  The state-machine tests inject a fake backend; the CLI selects the
+# checked backend only after its normal review, qualification, token, and
+# attendance gates.
 
 
 @dataclass(frozen=True)
@@ -382,6 +388,20 @@ def _load_review() -> ReviewLease:
         sha256=owner.sha256_bytes(raw),
         closure_sha256=closure_before,
     )
+
+
+def review_gate_present() -> bool:
+    """Report whether the exact current PASS_GO review is present.
+
+    This is an availability predicate only.  It grants no token, attendance,
+    journal, backend, or device authority; callers still load and lease the
+    review again before creating the fixed backend.
+    """
+    try:
+        _load_review()
+    except (OSError, ContractError, ValueError):
+        return False
+    return True
 
 
 def _validate_record_path(records: dict[str, dict[str, Any]]) -> None:
@@ -675,8 +695,8 @@ def _strict_twrp_identity(value: Any) -> bool:
 
 def _validate_observation(value: Any, manifest: dict[str, Any], *, after_physical: bool) -> dict[str, Any]:
     if type(value) is not dict or set(value) != {
-        "state", "otherTargetsUntouched", "candidateSnapshot", "twrpIdentity",
-        "attribution",
+        "state", "otherTargetsUntouched", "singleSamsungInventorySha256",
+        "candidateSnapshot", "twrpIdentity", "attribution",
     }:
         raise ContractError("continuation observation fields are not exact")
     state = value["state"]
@@ -684,6 +704,11 @@ def _validate_observation(value: Any, manifest: dict[str, Any], *, after_physica
         raise ContractError("continuation observation state is invalid")
     if type(value["otherTargetsUntouched"]) is not bool:
         raise ContractError("continuation target inventory is invalid")
+    baseline = value["singleSamsungInventorySha256"]
+    if baseline is not None:
+        _sha(baseline, "single-Samsung inventory")
+    elif state not in {STATE_AMBIGUOUS, STATE_OBSERVER_FAILURE}:
+        raise ContractError("continuation single-Samsung inventory is missing")
     snapshot = value["candidateSnapshot"]
     twrp = value["twrpIdentity"]
     attribution = value["attribution"]
@@ -693,6 +718,7 @@ def _validate_observation(value: Any, manifest: dict[str, Any], *, after_physica
         _snapshot_from_payload(snapshot, manifest)
         if (
             value["otherTargetsUntouched"] is not True
+            or baseline is None
             or twrp is not None
             or attribution is not None
         ):
@@ -700,6 +726,7 @@ def _validate_observation(value: Any, manifest: dict[str, Any], *, after_physica
     elif state == STATE_TWRP_PRESENT:
         if (
             value["otherTargetsUntouched"] is not True
+            or baseline is None
             or not _strict_twrp_identity(twrp)
             or snapshot is not None
             or attribution is not None
@@ -708,6 +735,7 @@ def _validate_observation(value: Any, manifest: dict[str, Any], *, after_physica
     elif state in {STATE_ATTRIBUTABLE_FAILURE, STATE_TWRP_AFTER_PHYSICAL}:
         if (
             value["otherTargetsUntouched"] is not True
+            or baseline is None
             or snapshot is not None
             or twrp is not None
             or attribution not in FAILURE_CODES
@@ -730,6 +758,7 @@ def _observed_payload(observation: dict[str, Any]) -> dict[str, Any]:
         "schema": OBSERVED_SCHEMA,
         "state": observation["state"],
         "otherTargetsUntouched": observation["otherTargetsUntouched"],
+        "singleSamsungInventorySha256": observation["singleSamsungInventorySha256"],
         "candidateSnapshot": observation["candidateSnapshot"],
         "twrpIdentity": observation["twrpIdentity"],
         "attribution": observation["attribution"],
@@ -741,8 +770,9 @@ def _observed_payload(observation: dict[str, Any]) -> dict[str, Any]:
 def _validate_observed_record(record: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
     payload = record.get("payload")
     if type(payload) is not dict or set(payload) != {
-        "schema", "state", "otherTargetsUntouched", "candidateSnapshot",
-        "twrpIdentity", "attribution", "physicalActionRequired", "candidateReplay",
+        "schema", "state", "otherTargetsUntouched", "singleSamsungInventorySha256",
+        "candidateSnapshot", "twrpIdentity", "attribution",
+        "physicalActionRequired", "candidateReplay",
     }:
         raise ContractError("candidate-return observed record is not exact")
     if (
@@ -755,8 +785,8 @@ def _validate_observed_record(record: dict[str, Any], manifest: dict[str, Any]) 
         raise ContractError("candidate-return observed record is invalid")
     return _validate_observation(
         {key: payload[key] for key in (
-            "state", "otherTargetsUntouched", "candidateSnapshot",
-            "twrpIdentity", "attribution"
+            "state", "otherTargetsUntouched", "singleSamsungInventorySha256",
+            "candidateSnapshot", "twrpIdentity", "attribution"
         )},
         manifest,
         after_physical=False,
@@ -802,6 +832,7 @@ def _pass(ctx: Context, snapshot: owner.Snapshot, reason: str) -> dict[str, Any]
 
 def _rollback_once(ctx: Context, backend: CandidateReturnBackend) -> dict[str, Any]:
     _revalidate_review_lease(ctx)
+    _bind_backend_manifest(backend, ctx.manifest)
     records = _read_records_checked(ctx)
     if "30-rollback-intent.json" in records:
         raise ContractError("continuation rollback was already consumed")
@@ -914,10 +945,149 @@ def prepare(manifest_path: Path) -> str:
     return token
 
 
+def _bind_backend_manifest(backend: CandidateReturnBackend, manifest: dict[str, Any]) -> None:
+    binder = getattr(backend, "bind_manifest", None)
+    if binder is not None:
+        if not callable(binder):
+            raise ContractError("backend manifest binder is not callable")
+        binder(manifest)
+
+
+def _activation_manifest_check(ctx: Context, manifest: dict[str, Any]) -> None:
+    if (
+        type(manifest) is not dict
+        or manifest.get("runId") != ctx.manifest["runId"]
+        or owner.sha256_bytes(_canonical(manifest)) != ctx.manifest_sha256
+    ):
+        raise ReviewLeaseDrift("backend manifest lease drift")
+
+
+def _activation_guard_check(ctx: Context) -> None:
+    owner._require_active_guard(ctx.manifest)
+    owner._require_candidate_guard(ctx.manifest)
+
+
+def _activation_journal_check(ctx: Context) -> dict[str, dict[str, Any]]:
+    """Rebind the live journal prefix to this activation before contact.
+
+    ``owner.read_records`` proves canonical envelopes, allowlisted prefix
+    ordering, and one shared manifest identity.  The activation must still
+    compare that identity to its own manifest and compare the current 22/23
+    receipt join to the pending receipt captured when the lease was issued;
+    otherwise a complete prefix for another manifest or a substituted
+    candidate receipt could pass the owner reader and reach the runner.
+    """
+    try:
+        records = owner.read_records(ctx.run)
+    except Exception as exc:
+        raise ReviewLeaseDrift("activation journal envelope is not exact") from exc
+    if any(
+        type(record) is not dict
+        or record.get("manifestSha256") != ctx.manifest_sha256
+        for record in records.values()
+    ):
+        raise ReviewLeaseDrift("activation journal manifest binding drift")
+    try:
+        current_pending = _pending_receipt(records)
+    except Exception as exc:
+        raise ReviewLeaseDrift("activation candidate receipt join is not exact") from exc
+    if current_pending != ctx.pending_receipt_sha256:
+        raise ReviewLeaseDrift("activation pending receipt binding drift")
+    return records
+
+
+def _activation_intent_check(
+    ctx: Context, approval: str, phase: str
+) -> None:
+    records = _activation_journal_check(ctx)
+    intent = records.get("24-candidate-return-intent.json")
+    if intent is None:
+        raise ContractError("backend continuation intent is absent")
+    _validate_return_intent(intent, ctx, approval)
+    if phase == "finalize":
+        observed = records.get("24-candidate-return-observed.json")
+        observation_intent = records.get("25-candidate-observation-intent.json")
+        if observed is None or observation_intent is None:
+            raise ContractError("backend observation intent is absent")
+        _validate_observed_record(observed, ctx.manifest)
+        _validate_observation_intent(
+            observation_intent,
+            ctx,
+            approval,
+            physical=_validate_observed_record(observed, ctx.manifest)["state"]
+            == STATE_TWRP_PRESENT,
+        )
+
+
+def _activation_inventory_check(
+    ctx: Context, expected: str | None, value: str
+) -> None:
+    records = owner.read_records(ctx.run)
+    observed = records.get("24-candidate-return-observed.json")
+    if observed is None:
+        raise ContractError("backend single-Samsung inventory has no observation record")
+    observed_value = _validate_observed_record(observed, ctx.manifest).get(
+        "singleSamsungInventorySha256"
+    )
+    if observed_value != value or (
+        expected is not None and observed_value != expected
+    ):
+        raise ReviewLeaseDrift("backend single-Samsung inventory lease drift")
+
+
+def _make_backend_activation(
+    ctx: Context,
+    approval: str,
+    *,
+    phase: str,
+    single_samsung_inventory_sha256: str | None,
+):
+    return backend_module._issue_activation(
+        sentinel=backend_module._ACTIVATION_SENTINEL,
+        phase=phase,
+        manifest_sha256=ctx.manifest_sha256,
+        run_id=ctx.manifest["runId"],
+        pending_receipt_sha256=ctx.pending_receipt_sha256,
+        approval_sha256=owner.sha256_bytes(approval.encode("ascii")),
+        single_samsung_inventory_sha256=single_samsung_inventory_sha256,
+        lease_check=lambda: _revalidate_review_lease(ctx),
+        guard_check=lambda: _activation_guard_check(ctx),
+        intent_check=lambda: _activation_intent_check(ctx, approval, phase),
+        manifest_check=lambda manifest: _activation_manifest_check(ctx, manifest),
+        inventory_check=lambda value: _activation_inventory_check(
+            ctx, single_samsung_inventory_sha256, value
+        ),
+    )
+
+
+def _live_backend(
+    phase: str,
+    ctx: Context,
+    approval: str,
+    single_samsung_inventory_sha256: str | None = None,
+) -> CandidateReturnBackend:
+    if not review_gate_present():
+        raise ContractError("candidate-return continuation review gate is absent or invalid")
+    current_review = _load_review()
+    if (
+        current_review.sha256 != ctx.review_sha256
+        or current_review.identity != ctx.review_identity
+        or current_review.closure_sha256 != ctx.review_closure_sha256
+    ):
+        raise ReviewLeaseDrift("continuation review changed before backend creation")
+    activation = _make_backend_activation(
+        ctx,
+        approval,
+        phase=phase,
+        single_samsung_inventory_sha256=single_samsung_inventory_sha256,
+    )
+    return backend_module.create(activation=activation)
+
+
 def resume(
     manifest_path: Path,
     approval: str,
-    backend: CandidateReturnBackend,
+    backend: CandidateReturnBackend | None,
     *,
     operator_attended: bool,
 ) -> dict[str, Any]:
@@ -945,6 +1115,9 @@ def resume(
     )
     owner._require_active_guard(ctx.manifest)
     owner._require_candidate_guard(ctx.manifest)
+    if backend is None:
+        backend = _live_backend("resume", ctx, approval)
+    _bind_backend_manifest(backend, ctx.manifest)
     try:
         _revalidate_review_lease(ctx)
         raw_observation = backend.inspect_pending(ctx.manifest)
@@ -958,6 +1131,7 @@ def resume(
         observation = {
             "state": STATE_OBSERVER_FAILURE,
             "otherTargetsUntouched": False,
+            "singleSamsungInventorySha256": None,
             "candidateSnapshot": None,
             "twrpIdentity": None,
             "attribution": None,
@@ -989,7 +1163,7 @@ def resume(
 def finalize(
     manifest_path: Path,
     approval: str,
-    backend: CandidateReturnBackend,
+    backend: CandidateReturnBackend | None,
     *,
     operator_attended: bool,
     physical_action_confirmed: bool,
@@ -1033,6 +1207,14 @@ def finalize(
     )
     owner._require_active_guard(ctx.manifest)
     owner._require_candidate_guard(ctx.manifest)
+    if backend is None:
+        backend = _live_backend(
+            "finalize",
+            ctx,
+            approval,
+            single_samsung_inventory_sha256=observed["singleSamsungInventorySha256"],
+        )
+    _bind_backend_manifest(backend, ctx.manifest)
     try:
         _revalidate_review_lease(ctx)
         raw_after = backend.observe_after_continuation(
@@ -1067,16 +1249,14 @@ def _assert_launch() -> None:
         raise ContractError("owner module path is not canonical")
     if Path(adapter.__file__).resolve() != ADAPTER_PATH:
         raise ContractError("adapter module path is not canonical")
+    if Path(backend_module.__file__).resolve() != BACKEND_PATH:
+        raise ContractError("backend module path is not canonical")
     if sys.modules.get("a90_boot_only_f1_minimal_v1") is not owner:
         raise ContractError("owner module alias is not canonical")
     if sys.modules.get("a90_boot_only_f1_adapter_v1") is not adapter:
         raise ContractError("adapter module alias is not canonical")
-
-
-def _live_backend() -> CandidateReturnBackend:
-    if LIVE_EXECUTION_ENABLED is not True:
-        raise ContractError("candidate-return continuation live backend is H0-disabled")
-    raise ContractError("candidate-return continuation backend is not activated")
+    if sys.modules.get("a90_f1_candidate_return_backend_v1") is not backend_module:
+        raise ContractError("backend module alias is not canonical")
 
 
 def parser() -> argparse.ArgumentParser:
@@ -1103,23 +1283,23 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"approval": prepare(args.manifest)}, sort_keys=True))
         return 0
     if args.action == "resume":
-        if not LIVE_EXECUTION_ENABLED:
-            raise ContractError("resume is H0-disabled pending independent review")
+        if not review_gate_present():
+            raise ContractError("resume requires the exact current PASS_GO review")
         result = resume(
             args.manifest,
             args.approval,
-            _live_backend(),
+            None,
             operator_attended=args.operator_attended,
         )
         print(json.dumps(result, sort_keys=True))
         return 0
     if args.action == "finalize":
-        if not LIVE_EXECUTION_ENABLED:
-            raise ContractError("finalize is H0-disabled pending independent review")
+        if not review_gate_present():
+            raise ContractError("finalize requires the exact current PASS_GO review")
         result = finalize(
             args.manifest,
             args.approval,
-            _live_backend(),
+            None,
             operator_attended=args.operator_attended,
             physical_action_confirmed=args.physical_action_confirmed,
         )

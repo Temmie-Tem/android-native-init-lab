@@ -407,6 +407,42 @@ class FixedAdapterTest(unittest.TestCase):
         self.assertNotIn("--from-native", rollback_argv)
         self.assertNotIn("--require-stable-adb-baseline", rollback_argv)
 
+    def test_owner_usb_inventory_binding_is_rollback_only_and_fixed(self):
+        digest = "d" * 64
+        argv = A.fixed_flash_argv(
+            self.artifact,
+            recovery_serial_sha256="c" * 64,
+            timeout_sec=60,
+            rollback=True,
+            owner_usb_inventory_sha256=digest,
+            owner_adb_inventory_sha256="e" * 64,
+            owner_adb_role="NATIVE_NO_RECOVERY",
+        )
+        self.assertIn("--owner-fixed-bridge-preflight", argv)
+        self.assertEqual(
+            argv[argv.index("--owner-expect-usb-inventory-sha256") + 1], digest
+        )
+        self.assertEqual(
+            argv[argv.index("--owner-expect-adb-inventory-sha256") + 1], "e" * 64
+        )
+        self.assertEqual(
+            argv[argv.index("--owner-expect-adb-role") + 1], "NATIVE_NO_RECOVERY"
+        )
+        self.assertNotIn("--owner-expect-foreign-usb-sha256", argv)
+        self.assertNotIn("--owner-expect-foreign-adb-sha256", argv)
+        self.assertNotIn("--owner-expect-recovery-usb-product", argv)
+        self.assertNotIn("--owner-expect-recovery-usb-count", argv)
+        with self.assertRaises(A.ContractError):
+            A.fixed_flash_argv(
+                self.artifact,
+                recovery_serial_sha256="c" * 64,
+                timeout_sec=60,
+                rollback=False,
+                owner_usb_inventory_sha256=digest,
+                owner_adb_inventory_sha256="e" * 64,
+                owner_adb_role="NATIVE_NO_RECOVERY",
+            )
+
     def test_live_host_runner_creates_one_private_log_directory(self):
         self.assertTrue(A.LIVE_ADAPTER_ENABLED)
         with tempfile.TemporaryDirectory() as temp:

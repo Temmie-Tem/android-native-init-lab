@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import posixpath
@@ -23,6 +24,30 @@ from a90ctl import ProtocolResult, run_cmdv1_command
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
+OWNER_NATIVE_SERIAL = "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"
+OWNER_BRIDGE_PYTHON = "/usr/bin/python3.14"
+OWNER_BRIDGE_SCRIPT = (
+    Path(__file__).resolve().parents[5]
+    / "workspace/public/src/scripts/revalidation/a90_bridge.py"
+)
+OWNER_SERIAL_REDACTION_PATH = (
+    Path(__file__).resolve().parents[5]
+    / "workspace/public/src/scripts/server-distro/a90_serial_redaction_v1.py"
+)
+OWNER_LSUSB = "/usr/bin/lsusb"
+OWNER_ADB = "/usr/bin/adb"
+OWNER_ADB_ROLE_NATIVE = "NATIVE_NO_RECOVERY"
+OWNER_ADB_ROLE_RECOVERY = "BOUND_RECOVERY_PRESENT"
+OWNER_USB_VENDOR = "04e8"
+OWNER_NATIVE_PRODUCT = "6861"
+OWNER_RECOVERY_PRODUCT = "6860"
+OWNER_ADB_ATTRIBUTE_RE = re.compile(
+    r"^(?:usb|product|model|device|transport_id):[!-~]+$"
+)
+OWNER_SERIAL_BRIDGE_SCRIPT = (
+    Path(__file__).resolve().parents[5]
+    / "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
+)
 DEFAULT_REMOTE_IMAGE = "/tmp/native_init_boot.img"
 TWRP_SYSTEM_VERSION = "3.7.0_12-0"
 TWRP_SYSTEM_SCRIPT = "/system/bin/rebootsystem.sh"
@@ -39,6 +64,9 @@ TWRP_SYSTEM_REBOOT_COMMAND = (
     f"'{TWRP_SYSTEM_SCRIPT_SHA256}' && "
     "exec twrp reboot"
 )
+TWRP_IDENTITY_CHECK_COMMAND = TWRP_SYSTEM_REBOOT_COMMAND.removesuffix(
+    "exec twrp reboot"
+).rstrip(" &&")
 OWNER_RECEIPT_SCHEMA = "a90-f1-owner-effect-receipt-v1"
 OWNER_RECEIPT_MODE = "A90_F1_OWNER_EFFECT_RECEIPT_V1"
 OWNER_OUTCOMES = (
@@ -62,6 +90,31 @@ SELF_WRITE_POLICY_BLOCK = (
     "selects the bounded v2321 F4-live mode; production/default fast-flash remains "
     "gated by AGENTS.md and design section 12.1"
 )
+
+
+def _load_exact_serial_redaction():
+    name = "a90_serial_redaction_v1"
+    existing = sys.modules.get(name)
+    if existing is not None:
+        if Path(getattr(existing, "__file__", "")).resolve() != OWNER_SERIAL_REDACTION_PATH:
+            raise RuntimeError("serial redaction module path is not exact")
+        return existing
+    spec = importlib.util.spec_from_file_location(name, OWNER_SERIAL_REDACTION_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("serial redaction module import failed")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    if Path(module.__file__).resolve() != OWNER_SERIAL_REDACTION_PATH:
+        raise RuntimeError("serial redaction module path changed")
+    return module
+
+
+serial_redaction = _load_exact_serial_redaction()
 
 # design section 12.1 F4-live amendment (2026-07-02): the only authorized live self-write
 # candidate is the v2321 rollback image driven with boot-flash-f3 self-rollback semantics, so
@@ -119,6 +172,38 @@ class OwnerEffectState:
 
 
 OWNER_EFFECT_STATE: OwnerEffectState | None = None
+OWNER_SERIAL_REDACTOR = None
+
+
+def _owner_redactor():
+    global OWNER_SERIAL_REDACTOR
+    if OWNER_EFFECT_STATE is None:
+        return None
+    if OWNER_SERIAL_REDACTOR is None:
+        OWNER_SERIAL_REDACTOR = serial_redaction.SerialRedactor()
+    return OWNER_SERIAL_REDACTOR
+
+
+def _owner_register_serial_hash(digest: str | None) -> None:
+    redactor = _owner_redactor()
+    if redactor is not None and digest is not None:
+        redactor.register_hash(digest)
+
+
+def _owner_register_serial(value: str) -> None:
+    redactor = _owner_redactor()
+    if redactor is not None:
+        redactor.register_secret(value)
+
+
+def _owner_redact_text(value: object) -> str:
+    redactor = _owner_redactor()
+    return str(value) if redactor is None else redactor.text(value)
+
+
+def _owner_redact_bytes(value: bytes) -> bytes:
+    redactor = _owner_redactor()
+    return value if redactor is None else redactor.bytes(value)
 
 
 def _emit_owner_receipt(state: OwnerEffectState) -> None:
@@ -142,7 +227,356 @@ def owner_stdout(*args: object, **kwargs: object) -> None:
 
 def log(message: str) -> None:
     timestamp = time.strftime("%H:%M:%S")
-    print(f"[native-init-flash {timestamp}] {message}", file=sys.stderr, flush=True)
+    print(
+        f"[native-init-flash {timestamp}] {_owner_redact_text(message)}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+def _owner_json_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for key, item in pairs:
+        if key in value:
+            raise RuntimeError("owner bridge preflight JSON has duplicate keys")
+        value[key] = item
+    return value
+
+
+def _owner_bridge_preflight(args: argparse.Namespace) -> dict[str, object]:
+    """Revalidate the fixed managed bridge immediately before Native recovery."""
+    if args.bridge_host != DEFAULT_HOST or args.bridge_port != DEFAULT_PORT:
+        raise RuntimeError("owner bridge preflight requires the fixed bridge endpoint")
+    result = subprocess.run(
+        [
+            OWNER_BRIDGE_PYTHON,
+            str(OWNER_BRIDGE_SCRIPT),
+            "preflight",
+            "--device", OWNER_NATIVE_SERIAL,
+            "--device-glob", OWNER_NATIVE_SERIAL,
+            "--pin-selected-realpath",
+            "--json",
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+    )
+    if result.returncode != 0 or result.stderr:
+        raise RuntimeError("fixed owner bridge preflight command failed")
+    try:
+        value = json.loads(
+            result.stdout.decode("utf-8"),
+            object_pairs_hook=_owner_json_pairs,
+            parse_constant=lambda token: (_ for _ in ()).throw(
+                RuntimeError(f"non-finite bridge preflight value: {token}")
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, RuntimeError) as exc:
+        raise RuntimeError("fixed owner bridge preflight JSON is invalid") from exc
+    if type(value) is not dict:
+        raise RuntimeError("fixed owner bridge preflight is not an object")
+    candidates = value.get("serial_candidates")
+    selected_realpath = value.get("selected_realpath")
+    pids = value.get("port_pids")
+    sockets = value.get("port_sockets")
+    socket_inodes = value.get("port_socket_inodes")
+    processes = value.get("processes")
+    metadata = value.get("metadata")
+    command = metadata.get("command") if type(metadata) is dict else None
+    process_cmdline = (
+        shlex.split(processes[0].get("cmdline"))
+        if type(processes) is list
+        and len(processes) == 1
+        and type(processes[0]) is dict
+        and type(processes[0].get("cmdline")) is str
+        else None
+    )
+    command_options = (
+        dict(zip(command[2::2], command[3::2]))
+        if type(command) is list
+        and len(command) == 14
+        and all(type(item) is str for item in command)
+        and all(item.startswith("--") for item in command[2::2])
+        and len(set(command[2::2])) == 6
+        else None
+    )
+    if (
+        value.get("wrapper_contract") != 1
+        or value.get("bridge_process") != "running"
+        or value.get("port_listening") is not True
+        or value.get("ambiguous") is not False
+        or value.get("selected_device") != OWNER_NATIVE_SERIAL
+        or type(selected_realpath) is not str
+        or re.fullmatch(r"/dev/ttyACM[0-9]+", selected_realpath) is None
+        or type(candidates) is not list
+        or len(candidates) != 1
+        or type(candidates[0]) is not dict
+        or candidates[0].get("path") != OWNER_NATIVE_SERIAL
+        or candidates[0].get("realpath") != selected_realpath
+        or candidates[0].get("exists") is not True
+        or value.get("listen_host") != DEFAULT_HOST
+        or value.get("listen_port") != DEFAULT_PORT
+        or type(pids) is not list
+        or len(pids) != 1
+        or type(pids[0]) is not int
+        or pids[0] <= 0
+        or type(socket_inodes) is not list
+        or len(socket_inodes) != 1
+        or type(socket_inodes[0]) is not str
+        or not socket_inodes[0].isdigit()
+        or type(sockets) is not list
+        or len(sockets) != 1
+        or type(sockets[0]) is not dict
+        or sockets[0].get("address") != DEFAULT_HOST
+        or sockets[0].get("port") != DEFAULT_PORT
+        or sockets[0].get("inode") != socket_inodes[0]
+        or type(processes) is not list
+        or len(processes) != 1
+        or type(processes[0]) is not dict
+        or processes[0].get("pid") != pids[0]
+        or processes[0].get("managed") is not True
+        or processes[0].get("port_match") is not True
+        or type(metadata) is not dict
+        or metadata.get("pid") != pids[0]
+        or metadata.get("device") != OWNER_NATIVE_SERIAL
+        or metadata.get("device_glob") != OWNER_NATIVE_SERIAL
+        or metadata.get("pin_selected_realpath") is not True
+        or metadata.get("effective_expect_realpath") != selected_realpath
+        or type(metadata.get("started_at")) is not str
+        or not metadata.get("started_at")
+        or process_cmdline != command
+        or command_options is None
+        or command[:2] != ["/usr/bin/python3", str(OWNER_SERIAL_BRIDGE_SCRIPT)]
+        or command_options.get("--host") != DEFAULT_HOST
+        or command_options.get("--port") != str(DEFAULT_PORT)
+        or command_options.get("--device") != OWNER_NATIVE_SERIAL
+        or command_options.get("--device-glob") != OWNER_NATIVE_SERIAL
+        or command_options.get("--expect-realpath") != selected_realpath
+        or type(command_options.get("--capture")) is not str
+        or value.get("bridge_probe") not in {"connected-no-immediate-error", "data"}
+    ):
+        raise RuntimeError("fixed owner bridge preflight identity is not exact")
+    receipt_sha256 = hashlib.sha256(
+        json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    generation_sha256 = hashlib.sha256(
+        json.dumps(
+            {
+                "bridgePid": pids[0],
+                "selectedRealpath": selected_realpath,
+                "socketInodes": socket_inodes,
+                "command": command,
+                "startedAt": metadata.get("started_at"),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    log(f"owner bridge preflight receipt={receipt_sha256} generation={generation_sha256}")
+    return {"receiptSha256": receipt_sha256, "generationSha256": generation_sha256}
+
+
+OWNER_LSUSB_LINE_RE = re.compile(
+    rb"^Bus [0-9]{3} Device [0-9]{3}: ID [0-9a-f]{4}:[0-9a-f]{4} .+$"
+)
+
+
+def _owner_digest(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _owner_parse_usb_rows(raw: bytes) -> list[tuple[str, str, str]]:
+    lines = raw.splitlines()
+    if not lines or any(OWNER_LSUSB_LINE_RE.fullmatch(line) is None for line in lines):
+        raise RuntimeError("fixed lsusb inventory is malformed")
+    rows = []
+    for line in lines:
+        match = OWNER_LSUSB_LINE_RE.fullmatch(line)
+        assert match is not None
+        prefix = line.split(b" ID ", 1)[1]
+        vendor_product, description = prefix.split(b" ", 1)
+        vendor, product = vendor_product.split(b":", 1)
+        rows.append((vendor.decode("ascii"), product.decode("ascii"), description.decode("utf-8")))
+    return rows
+
+
+def _owner_usb_inventory_sha256(
+    expected_role: str,
+) -> str:
+    """Capture one strict, complete fixed lsusb output without device effects."""
+    process = subprocess.Popen(
+        [OWNER_LSUSB],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        start_new_session=True,
+    )
+    try:
+        try:
+            stdout, stderr = process.communicate(timeout=10)
+        except subprocess.TimeoutExpired as exc:
+            try:
+                os.killpg(process.pid, 9)
+            except ProcessLookupError:
+                pass
+            process.wait()
+            raise RuntimeError("fixed lsusb inventory timed out") from exc
+        if process.returncode != 0 or stderr or not stdout:
+            raise RuntimeError("fixed lsusb inventory producer failed")
+        try:
+            os.killpg(process.pid, 0)
+        except ProcessLookupError:
+            pass
+        except PermissionError as exc:
+            raise RuntimeError("fixed lsusb inventory producer survived") from exc
+        else:
+            raise RuntimeError("fixed lsusb inventory producer survived")
+    finally:
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, 9)
+            except ProcessLookupError:
+                pass
+    if len(stdout) > 1 << 20:
+        raise RuntimeError("fixed lsusb inventory is oversized")
+    rows = _owner_parse_usb_rows(stdout)
+    samsung = [row for row in rows if row[0] == OWNER_USB_VENDOR]
+    if len(samsung) != 1:
+        raise RuntimeError("fixed USB inventory requires exactly one Samsung endpoint")
+    expected_product = (
+        OWNER_NATIVE_PRODUCT
+        if expected_role == OWNER_ADB_ROLE_NATIVE
+        else OWNER_RECOVERY_PRODUCT
+        if expected_role == OWNER_ADB_ROLE_RECOVERY
+        else None
+    )
+    if expected_product is None or samsung[0][1] != expected_product:
+        raise RuntimeError("fixed USB role is not exact")
+    digest = hashlib.sha256(stdout).hexdigest()
+    log(f"owner USB inventory receipt={digest}")
+    return digest
+
+
+def _owner_parse_adb_rows(raw: bytes) -> list[tuple[str, str, tuple[str, ...]]]:
+    try:
+        lines = raw.decode("ascii").replace("\r", "").splitlines()
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("fixed ADB inventory is malformed") from exc
+    if not lines or lines[0] != "List of devices attached":
+        raise RuntimeError("fixed ADB inventory header is malformed")
+    rows = []
+    seen = set()
+    for line in lines[1:]:
+        if not line:
+            continue
+        fields = line.split(None, 2)
+        if len(fields) < 2 or not re.fullmatch(r"[!-~]{1,256}", fields[0]) or fields[0] in seen:
+            raise RuntimeError("fixed ADB inventory endpoint is malformed")
+        serial, state = fields[0], fields[1]
+        rest = fields[2] if len(fields) == 3 else ""
+        if state == "no" and rest.startswith("permissions"):
+            state, rest = "no permissions", rest[len("permissions"):].lstrip()
+        if state not in {"device", "recovery", "offline", "unauthorized", "no permissions"}:
+            raise RuntimeError("fixed ADB inventory state is malformed")
+        attrs = tuple(sorted(rest.split())) if rest else ()
+        if any(OWNER_ADB_ATTRIBUTE_RE.fullmatch(item) is None for item in attrs):
+            raise RuntimeError("fixed ADB inventory attribute is malformed")
+        _owner_register_serial(serial)
+        seen.add(serial)
+        rows.append((serial, state, attrs))
+    return rows
+
+
+def _owner_adb_inventory_sha256(
+    expected_serial_sha256: str,
+    expected_role: str,
+) -> str:
+    """Capture and attribute one fixed raw ``adb devices -l`` inventory."""
+    if (
+        type(expected_serial_sha256) is not str
+        or re.fullmatch(r"[0-9a-f]{64}", expected_serial_sha256) is None
+        or expected_role not in {OWNER_ADB_ROLE_NATIVE, OWNER_ADB_ROLE_RECOVERY}
+    ):
+        raise RuntimeError("fixed owner ADB inventory binding is not exact")
+    process = subprocess.Popen(
+        [OWNER_ADB, "devices", "-l"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        start_new_session=True,
+    )
+    try:
+        try:
+            stdout, stderr = process.communicate(timeout=10)
+        except subprocess.TimeoutExpired as exc:
+            try:
+                os.killpg(process.pid, 9)
+            except ProcessLookupError:
+                pass
+            process.wait()
+            raise RuntimeError("fixed ADB inventory timed out") from exc
+        if process.returncode != 0 or stderr or not stdout or not stdout.endswith(b"\n"):
+            raise RuntimeError("fixed ADB inventory producer failed")
+        try:
+            os.killpg(process.pid, 0)
+        except ProcessLookupError:
+            pass
+        except PermissionError as exc:
+            raise RuntimeError("fixed ADB inventory producer survived") from exc
+        else:
+            raise RuntimeError("fixed ADB inventory producer survived")
+    finally:
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, 9)
+            except ProcessLookupError:
+                pass
+    if len(stdout) > 1 << 20:
+        raise RuntimeError("fixed ADB inventory is oversized")
+    rows = _owner_parse_adb_rows(stdout)
+    recovery_rows = [item for item in rows if item[1] == "recovery"]
+    matching_rows = [
+        item for item in rows
+        if hashlib.sha256(item[0].encode("utf-8")).hexdigest()
+        == expected_serial_sha256
+    ]
+    if expected_role == OWNER_ADB_ROLE_NATIVE:
+        exact = len(rows) == 0
+    else:
+        exact = (
+            len(rows) == 1
+            and len(recovery_rows) == 1
+            and len(matching_rows) == 1
+            and recovery_rows[0][:2] == matching_rows[0][:2]
+        )
+    if not exact:
+        raise RuntimeError("fixed ADB inventory role is not exact")
+    digest = hashlib.sha256(stdout).hexdigest()
+    log(f"owner ADB inventory receipt={digest} role={expected_role}")
+    return digest
+
+
+def _owner_pre_native_recovery_gate(args: argparse.Namespace) -> None:
+    """Rebind the initial Native/foreign epoch immediately before bridge use."""
+    if args.owner_expect_adb_role != OWNER_ADB_ROLE_NATIVE:
+        raise RuntimeError("pre-recovery owner role is not Native")
+    usb_digest = _owner_usb_inventory_sha256(
+        OWNER_ADB_ROLE_NATIVE,
+    )
+    if usb_digest != args.owner_expect_usb_inventory_sha256:
+        raise RuntimeError("owner USB inventory changed before Native recovery")
+    adb_digest = _owner_adb_inventory_sha256(
+        args.expect_recovery_serial_sha256,
+        OWNER_ADB_ROLE_NATIVE,
+    )
+    if adb_digest != args.owner_expect_adb_inventory_sha256:
+        raise RuntimeError("owner ADB inventory changed before Native recovery")
 
 
 @contextmanager
@@ -202,7 +636,8 @@ def parse_adb_devices(output: str) -> list[tuple[str, str]]:
         parts = line.split()
         if len(parts) >= 2:
             devices.append((parts[0], parts[1]))
-
+    for device_serial, _state in devices:
+        _owner_register_serial(device_serial)
     return devices
 
 
@@ -221,6 +656,8 @@ def parse_adb_devices_strict(output: str) -> list[tuple[str, str]]:
             raise RuntimeError("ADB inventory contains a malformed or duplicate endpoint")
         seen.add(parts[0])
         devices.append((parts[0], parts[1]))
+    for device_serial, _state in devices:
+        _owner_register_serial(device_serial)
     return devices
 
 
@@ -571,7 +1008,7 @@ def selfwrite_cmdv1(args: argparse.Namespace,
         timeout_sec if timeout_sec is not None else args.bridge_timeout,
         command,
     )
-    print(result.text, end="" if result.text.endswith("\n") else "\n")
+    owner_stdout(result.text, end="" if result.text.endswith("\n") else "\n")
     return result
 
 
@@ -583,7 +1020,7 @@ def selfwrite_hide_settle(args: argparse.Namespace, settle_sec: float) -> None:
         args.bridge_timeout,
         markers=(b"[busy]", b"[done]", b"[err]"),
     )
-    print(output, end="")
+    owner_stdout(output, end="")
     time.sleep(settle_sec)
 
 
@@ -616,7 +1053,7 @@ def wait_for_native_version(args: argparse.Namespace,
             if result.rc == 0 and result.status == "ok":
                 observed = parse_native_version_field(result.text)
                 if observed == expect_version:
-                    print(result.text, end="" if result.text.endswith("\n") else "\n")
+                    owner_stdout(result.text, end="" if result.text.endswith("\n") else "\n")
                     return result.text
                 last = f"observed version field={observed!r}"
             else:
@@ -743,7 +1180,7 @@ def run_self_write_live(args: argparse.Namespace,
             30.0,
             markers=(b"[busy]", b"[err]", b"reboot"),
         )
-        print(reboot_out, end="")
+        owner_stdout(reboot_out, end="")
     except RuntimeError as exc:
         # CMD_NO_DONE: the device drops the link instead of returning a marker.
         log(f"reboot returned no clean marker (expected for CMD_NO_DONE): {exc}")
@@ -755,7 +1192,7 @@ def run_self_write_live(args: argparse.Namespace,
     final_selftest = run_cmdv1_command(
         args.bridge_host, args.bridge_port, args.bridge_timeout, ["selftest"]
     )
-    print(final_selftest.text, end="" if final_selftest.text.endswith("\n") else "\n")
+    owner_stdout(final_selftest.text, end="" if final_selftest.text.endswith("\n") else "\n")
     verify_cmdv1_result(final_selftest, "selftest")
     if "fail=0" not in final_selftest.text:
         raise RuntimeError("post-reboot v2321 selftest did not report fail=0")
@@ -763,7 +1200,7 @@ def run_self_write_live(args: argparse.Namespace,
     emit("rollback_boot_ready")
 
     result["status"] = "ok"
-    print(json.dumps(result, indent=2, sort_keys=True))
+    owner_stdout(json.dumps(result, indent=2, sort_keys=True))
 
     runs_dir = Path("workspace/private/runs/self-dd")
     try:
@@ -781,7 +1218,7 @@ def run_experimental_self_write(args: argparse.Namespace,
                                 local_hash: str,
                                 image_size: int) -> int:
     plan = build_experimental_self_write_plan(args, image_path, local_hash, image_size)
-    print(json.dumps(plan, indent=2, sort_keys=True))
+    owner_stdout(json.dumps(plan, indent=2, sort_keys=True))
     if args.self_write_plan_only:
         return 0
     if not getattr(args, "self_write_live_authorized", False):
@@ -828,7 +1265,10 @@ def remote_sha256(adb: str, serial: str | None, remote_path: str) -> str:
     result = run_command(command, capture=True)
     first_field = result.stdout.strip().split()[0]
     if len(first_field) != 64:
-        raise RuntimeError(f"unexpected remote sha256 output: {result.stdout!r}")
+        raise RuntimeError(
+            "unexpected remote sha256 output: "
+            + _owner_redact_text(repr(result.stdout))
+        )
     return first_field
 
 
@@ -850,7 +1290,10 @@ def remote_boot_prefix_sha256(adb: str,
     result = run_command(command, capture=True)
     first_field = result.stdout.strip().split()[0]
     if len(first_field) != 64:
-        raise RuntimeError(f"unexpected boot prefix sha256 output: {result.stdout!r}")
+        raise RuntimeError(
+            "unexpected boot prefix sha256 output: "
+            + _owner_redact_text(repr(result.stdout))
+        )
     return first_field
 
 
@@ -919,6 +1362,8 @@ def reboot_native_to_recovery(args: argparse.Namespace) -> None:
         or args.require_stable_adb_baseline
         or getattr(args, "reuse_bound_recovery_or_from_native", False)
     ):
+        if getattr(args, "owner_fixed_bridge_preflight", False):
+            _owner_bridge_preflight(args)
         output = bridge_command(
             args.bridge_host,
             args.bridge_port,
@@ -968,6 +1413,15 @@ def flash_boot_image(args: argparse.Namespace,
     expected_readback_hash = args.expect_readback_sha256 or local_hash
     remote = quote_remote_path(args.remote_image, label="remote image")
     block = quote_remote_path(args.boot_block, label="boot block")
+
+    if getattr(args, "owner_expect_usb_inventory_sha256", None) is not None:
+        identity = run_command(
+            adb_base(args.adb, serial) + ["shell", TWRP_IDENTITY_CHECK_COMMAND],
+            check=False,
+            capture=True,
+        )
+        if identity.returncode != 0 or identity.stdout or identity.stderr:
+            raise RuntimeError("fixed TWRP identity changed before boot push")
 
     with phase_timer("adb_push"):
         run_command(adb_base(args.adb, serial) + ["push", str(image_path), args.remote_image])
@@ -1206,12 +1660,15 @@ def verify_android_adb(args: argparse.Namespace) -> str:
     if args.android_root_check:
         root_text = adb_shell_text(args.adb, serial, "su -c id", check=False)
         if "uid=0" not in root_text:
-            raise RuntimeError(f"Android root check failed: {root_text!r}")
+            raise RuntimeError(
+                "Android root check failed: " + _owner_redact_text(repr(root_text))
+            )
         log("Android root check passed: su -c id contains uid=0")
 
-    summary = f"android_adb serial={serial} {last_props}"
+    _owner_register_serial(serial)
+    summary = f"android_adb serial={_owner_redact_text(serial)} {last_props}"
     if root_text:
-        summary += f" root={root_text}"
+        summary += f" root={_owner_redact_text(root_text)}"
     owner_stdout(summary)
     return summary
 
@@ -1285,6 +1742,24 @@ def parse_args() -> argparse.Namespace:
             "fixed A90 owner mode: emit one strict effect-stage receipt; "
             "the owner, not prose or a generic return code, classifies return uncertainty"
         ),
+    )
+    parser.add_argument(
+        "--owner-fixed-bridge-preflight",
+        action="store_true",
+        help="owner-only rollback mode: revalidate the exact Native bridge before recovery",
+    )
+    parser.add_argument(
+        "--owner-expect-usb-inventory-sha256",
+        help="owner-only rollback binding: exact raw lsusb inventory digest",
+    )
+    parser.add_argument(
+        "--owner-expect-adb-inventory-sha256",
+        help="owner-only rollback binding: exact raw adb devices -l digest",
+    )
+    parser.add_argument(
+        "--owner-expect-adb-role",
+        choices=(OWNER_ADB_ROLE_NATIVE, OWNER_ADB_ROLE_RECOVERY),
+        help="owner-only rollback binding: exact A90 ADB endpoint role",
     )
     parser.add_argument(
         "--expect-recovery-serial-sha256",
@@ -1386,11 +1861,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    global OWNER_EFFECT_STATE
+    global OWNER_EFFECT_STATE, OWNER_SERIAL_REDACTOR
     args = parse_args()
     OWNER_EFFECT_STATE = (
         OwnerEffectState() if args.owner_receipt_mode == OWNER_RECEIPT_MODE else None
     )
+    OWNER_SERIAL_REDACTOR = None
     if OWNER_EFFECT_STATE is not None and args.verify_only:
         raise SystemExit("owner receipt mode requires one boot transfer, not --verify-only")
     args.expect_sha256 = normalize_sha256(args.expect_sha256, label="--expect-sha256")
@@ -1401,6 +1877,15 @@ def main() -> int:
     args.expect_recovery_serial_sha256 = normalize_sha256(
         args.expect_recovery_serial_sha256,
         label="--expect-recovery-serial-sha256",
+    )
+    _owner_register_serial_hash(args.expect_recovery_serial_sha256)
+    args.owner_expect_usb_inventory_sha256 = normalize_sha256(
+        args.owner_expect_usb_inventory_sha256,
+        label="--owner-expect-usb-inventory-sha256",
+    )
+    args.owner_expect_adb_inventory_sha256 = normalize_sha256(
+        args.owner_expect_adb_inventory_sha256,
+        label="--owner-expect-adb-inventory-sha256",
     )
     strict_modes = sum(
         bool(value)
@@ -1436,6 +1921,51 @@ def main() -> int:
             raise SystemExit(
                 "--reuse-bound-recovery-or-from-native requires --expect-recovery-serial-sha256"
             )
+    if args.owner_fixed_bridge_preflight and (
+        args.owner_receipt_mode != OWNER_RECEIPT_MODE
+        or not args.reuse_bound_recovery_or_from_native
+    ):
+        raise SystemExit(
+            "--owner-fixed-bridge-preflight requires owner receipt rollback mode"
+        )
+    if args.owner_expect_usb_inventory_sha256 is not None and (
+        args.owner_receipt_mode != OWNER_RECEIPT_MODE
+        or not args.reuse_bound_recovery_or_from_native
+    ):
+        raise SystemExit(
+            "--owner-expect-usb-inventory-sha256 requires owner receipt rollback mode"
+        )
+    if (
+        (args.owner_expect_adb_inventory_sha256 is None)
+        != (args.owner_expect_adb_role is None)
+    ):
+        raise SystemExit("owner ADB inventory digest and role must be supplied together")
+    if args.owner_expect_adb_inventory_sha256 is not None and (
+        args.owner_receipt_mode != OWNER_RECEIPT_MODE
+        or not args.reuse_bound_recovery_or_from_native
+        or args.adb != OWNER_ADB
+        or args.owner_expect_usb_inventory_sha256 is None
+    ):
+        raise SystemExit(
+            "--owner-expect-adb-inventory-sha256 requires the fixed owner rollback mode"
+        )
+    if args.owner_expect_usb_inventory_sha256 is not None and (
+        args.owner_expect_adb_inventory_sha256 is None
+        or args.owner_expect_adb_role is None
+    ):
+        raise SystemExit("owner USB inventory binding requires the ADB role binding")
+    if args.owner_fixed_bridge_preflight and args.owner_expect_usb_inventory_sha256 is None:
+        raise SystemExit(
+            "--owner-fixed-bridge-preflight requires the owner USB inventory binding"
+        )
+    if args.owner_expect_usb_inventory_sha256 is not None and not args.owner_fixed_bridge_preflight:
+        raise SystemExit(
+            "owner USB inventory binding requires --owner-fixed-bridge-preflight"
+        )
+    if args.owner_fixed_bridge_preflight and args.owner_expect_adb_inventory_sha256 is None:
+        raise SystemExit(
+            "--owner-fixed-bridge-preflight requires the owner ADB inventory binding"
+        )
 
     with phase_timer("total"):
         if args.verify_only:
@@ -1459,6 +1989,25 @@ def main() -> int:
             with phase_timer("experimental_self_write"):
                 return run_experimental_self_write(args, image_path, local_hash, image_size)
 
+        # In the explicit owner receipt mode, bind the complete raw USB
+        # inventory before even opening ADB inventory or dispatching the
+        # Native bridge.  The backend's digest is only a pre-effect join;
+        # this second fixed capture closes the gap between backend inventory
+        # and the first possible device command.  Legacy mode deliberately
+        # does not run this producer or accept its argv.
+        if args.owner_expect_usb_inventory_sha256 is not None:
+            observed_usb_inventory_sha256 = _owner_usb_inventory_sha256(
+                args.owner_expect_adb_role,
+            )
+            if observed_usb_inventory_sha256 != args.owner_expect_usb_inventory_sha256:
+                raise RuntimeError("owner USB inventory digest mismatch")
+            observed_adb_inventory_sha256 = _owner_adb_inventory_sha256(
+                args.expect_recovery_serial_sha256,
+                args.owner_expect_adb_role,
+            )
+            if observed_adb_inventory_sha256 != args.owner_expect_adb_inventory_sha256:
+                raise RuntimeError("owner ADB inventory digest mismatch")
+
         adb_baseline: list[tuple[str, str]] | None = None
         bound_recovery: tuple[str, str] | None = None
         if args.reuse_bound_recovery_or_from_native:
@@ -1466,6 +2015,13 @@ def main() -> int:
                 args.adb,
                 expected_serial_sha256=args.expect_recovery_serial_sha256,
             )
+            if args.owner_expect_adb_inventory_sha256 is not None:
+                baseline_adb_inventory_sha256 = _owner_adb_inventory_sha256(
+                    args.expect_recovery_serial_sha256,
+                    args.owner_expect_adb_role,
+                )
+                if baseline_adb_inventory_sha256 != args.owner_expect_adb_inventory_sha256:
+                    raise RuntimeError("owner ADB inventory digest changed before effect")
         if args.from_native:
             if args.require_empty_adb_baseline:
                 adb_baseline = adb_devices(args.adb, strict=True)
@@ -1479,9 +2035,13 @@ def main() -> int:
                 adb_baseline = adb_devices(args.adb, strict=True)
                 if any(state == "recovery" for _serial, state in adb_baseline):
                     raise RuntimeError("ADB baseline already contains a recovery endpoint")
+            if args.owner_expect_usb_inventory_sha256 is not None:
+                _owner_pre_native_recovery_gate(args)
             with phase_timer("native_to_recovery"):
                 reboot_native_to_recovery(args)
         elif args.reuse_bound_recovery_or_from_native and bound_recovery is None:
+            if args.owner_expect_usb_inventory_sha256 is not None:
+                _owner_pre_native_recovery_gate(args)
             with phase_timer("native_to_recovery"):
                 reboot_native_to_recovery(args)
 
@@ -1511,6 +2071,33 @@ def main() -> int:
                 )
         if state != "recovery":
             raise RuntimeError(f"expected recovery state, got {state}")
+
+        if args.owner_expect_adb_inventory_sha256 is not None:
+            # Native-to-recovery legitimately changes the raw USB bytes.  The
+            # post-transition producer is therefore a fresh exact-role gate;
+            # only an already-present Recovery branch must retain its
+            # same-epoch USB digest before effect.
+            post_usb_inventory_sha256 = _owner_usb_inventory_sha256(
+                OWNER_ADB_ROLE_RECOVERY,
+            )
+            if bound_recovery is not None and (
+                post_usb_inventory_sha256
+                != args.owner_expect_usb_inventory_sha256
+            ):
+                raise RuntimeError("owner USB inventory changed before flash")
+            if bound_recovery is None:
+                log(
+                    "owner post-transition USB inventory receipt="
+                    f"{post_usb_inventory_sha256}"
+                )
+            post_role_digest = _owner_adb_inventory_sha256(
+                args.expect_recovery_serial_sha256,
+                OWNER_ADB_ROLE_RECOVERY,
+            )
+            if bound_recovery is not None and (
+                post_role_digest != args.owner_expect_adb_inventory_sha256
+            ):
+                raise RuntimeError("owner ADB inventory changed before flash")
 
         with sealed_local_image_copy(image_path, local_hash, image_size) as sealed_image_path:
             with phase_timer("flash_boot_image"):

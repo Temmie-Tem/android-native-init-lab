@@ -10,6 +10,7 @@ Live subprocess construction remains disabled pending independent review.
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import re
 import resource
@@ -17,11 +18,11 @@ import shlex
 import signal
 import stat
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
-
 from a90_boot_only_f1_minimal_v1 import (
     _MODULE_SENTINEL as MINIMAL_MODULE_SENTINEL,
     ContractError,
@@ -30,8 +31,15 @@ from a90_boot_only_f1_minimal_v1 import (
     canonical_json,
     sha256_bytes,
 )
-
-
+_SERIAL_REDACTION_PATH = Path(__file__).resolve().with_name("a90_serial_redaction_v1.py")
+_serial_redaction = sys.modules.get("a90_serial_redaction_v1")
+if _serial_redaction is None:
+    _spec = importlib.util.spec_from_file_location("a90_serial_redaction_v1", _SERIAL_REDACTION_PATH)
+    if _spec is None or _spec.loader is None: raise RuntimeError("serial redaction module import specification failed")
+    _serial_redaction = importlib.util.module_from_spec(_spec); sys.modules["a90_serial_redaction_v1"] = _serial_redaction
+    _spec.loader.exec_module(_serial_redaction)
+if Path(getattr(_serial_redaction, "__file__", "")).resolve() != _SERIAL_REDACTION_PATH: raise RuntimeError("serial redaction module identity is not exact")
+SerialRedactor = _serial_redaction.SerialRedactor; run_owner_process = _serial_redaction.run_owner_process
 LIVE_ADAPTER_ENABLED = True
 REPO_ROOT = Path(__file__).resolve().parents[5]
 PYTHON = Path("/usr/bin/python3.14")
@@ -67,11 +75,10 @@ class CommandResult:
 class CommandRunner(Protocol):
     def run(self, label: str, argv: tuple[str, ...], timeout_sec: int) -> CommandResult: ...
 
-
 class HostRunner:
     """Bounded production subprocess owner for the reviewed minimal lane."""
 
-    def __init__(self, log_directory: Path) -> None:
+    def __init__(self, log_directory: Path, *, redactor: SerialRedactor | None = None) -> None:
         if LIVE_ADAPTER_ENABLED is not True:
             raise ContractError("A90 minimal live adapter is disabled")
         if not log_directory.is_absolute():
@@ -83,7 +90,7 @@ class HostRunner:
         _fsync_directory(log_directory.parent)
         self.log_directory = log_directory
         self.sequence = 0
-
+        self.redactor = redactor
     def run(self, label: str, argv: tuple[str, ...], timeout_sec: int) -> CommandResult:
         if re.fullmatch(r"[a-z0-9-]{1,40}", label) is None:
             raise ContractError("adapter log label is invalid")
@@ -91,6 +98,12 @@ class HostRunner:
         prefix = f"{self.sequence:03d}-{label}"
         stdout_path = self.log_directory / f"{prefix}.stdout"
         stderr_path = self.log_directory / f"{prefix}.stderr"
+        if self.redactor is not None:
+            try:
+                returncode, stdout, stderr, quiescent = run_owner_process(argv, timeout_sec, cwd=REPO_ROOT, log_directory=self.log_directory, stdout_path=stdout_path, stderr_path=stderr_path, redactor=self.redactor, max_output_bytes=MAX_OUTPUT_BYTES, adb_inventory=label == "adb-inventory", preexec_fn=_limit_child, process_group_exists=_process_group_exists)
+            except RuntimeError as exc:
+                raise ContractError(str(exc)) from exc
+            return CommandResult(returncode, stdout, stderr, quiescent)
         flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW
         stdout_fd = os.open(stdout_path, flags, 0o600)
         stderr_fd = os.open(stderr_path, flags, 0o600)
@@ -131,8 +144,6 @@ class HostRunner:
         finally:
             os.close(stdout_fd)
             os.close(stderr_fd)
-
-
 def _limit_child() -> None:
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     # The fixed flash helper creates one verified boot-sized sealed copy before
@@ -142,16 +153,12 @@ def _limit_child() -> None:
         resource.RLIMIT_FSIZE,
         (MAX_CHILD_FILE_BYTES, MAX_CHILD_FILE_BYTES),
     )
-
-
 def _fsync_directory(path: Path) -> None:
     descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY)
     try:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
-
-
 def _read_bound_log(descriptor: int) -> bytes:
     metadata = os.fstat(descriptor)
     if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_OUTPUT_BYTES:
@@ -167,8 +174,6 @@ def _process_group_exists(process_group: int) -> bool:
     except PermissionError:
         return True
     return True
-
-
 def _pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     value: dict[str, Any] = {}
     for key, item in pairs:
@@ -176,12 +181,8 @@ def _pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             raise ContractError("adapter JSON has a duplicate key")
         value[key] = item
     return value
-
-
 def _reject_constant(value: str) -> None:
     raise ContractError(f"adapter JSON contains non-finite number {value}")
-
-
 def _json(raw: bytes, label: str) -> dict[str, Any]:
     if not raw or len(raw) > MAX_OUTPUT_BYTES:
         raise ContractError(f"{label} output envelope is invalid")
@@ -196,8 +197,6 @@ def _json(raw: bytes, label: str) -> dict[str, Any]:
     if type(value) is not dict:
         raise ContractError(f"{label} output is not an object")
     return value
-
-
 OWNER_RECEIPT_SCHEMA = "a90-f1-owner-effect-receipt-v1"
 OWNER_RECEIPT_MODE = "A90_F1_OWNER_EFFECT_RECEIPT_V1"
 OWNER_RECEIPT_OUTCOMES = {
@@ -662,14 +661,14 @@ class FixedA90Adapter:
                 canonical_json({"evidence": evidence, "healthy": healthy})
             ),
         )
-
-    def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int) -> EffectResult:
+    def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> EffectResult:
         role = "rollback" if rollback else "candidate"
         argv = fixed_flash_argv(
             artifact,
             recovery_serial_sha256=self.recovery_serial_sha256,
             timeout_sec=timeout_sec,
-            rollback=rollback,
+            rollback=rollback, owner_usb_inventory_sha256=owner_usb_inventory_sha256,
+            owner_adb_inventory_sha256=owner_adb_inventory_sha256, owner_adb_role=owner_adb_role,
         )
         started = time.monotonic()
         result = self.runner.run(f"flash-{role}", argv, timeout_sec)
@@ -688,18 +687,18 @@ class FixedA90Adapter:
             receipt_sha256=sha256_bytes(canonical_json(receipt)),
             outcome=_parse_owner_effect_receipt(result.stdout),
         )
-
-
-def fixed_flash_argv(
-    artifact: dict[str, Any],
-    *,
-    recovery_serial_sha256: str,
-    timeout_sec: int,
-    rollback: bool = False,
-) -> tuple[str, ...]:
+def fixed_flash_argv(artifact: dict[str, Any], *, recovery_serial_sha256: str, timeout_sec: int, rollback: bool = False, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> tuple[str, ...]:
     """Return the sole reviewed helper command for receipt reconstruction."""
     if type(rollback) is not bool:
         raise ContractError("flash role is not boolean")
+    if owner_usb_inventory_sha256 is not None and (type(owner_usb_inventory_sha256) is not str or not rollback or re.fullmatch(r"[0-9a-f]{64}", owner_usb_inventory_sha256) is None):
+        raise ContractError("owner USB inventory binding is not exact")
+    if owner_adb_inventory_sha256 is not None and (type(owner_adb_inventory_sha256) is not str or not rollback or re.fullmatch(r"[0-9a-f]{64}", owner_adb_inventory_sha256) is None or owner_adb_role not in {"NATIVE_NO_RECOVERY", "BOUND_RECOVERY_PRESENT"} or owner_usb_inventory_sha256 is None):
+        raise ContractError("owner ADB inventory binding is not exact")
+    if owner_adb_role is not None and owner_adb_inventory_sha256 is None:
+        raise ContractError("owner ADB role binding is missing")
+    if owner_usb_inventory_sha256 is not None and owner_adb_inventory_sha256 is None:
+        raise ContractError("owner ADB inventory binding is missing")
     helper_phase_timeout = max(1, (timeout_sec - 30) // 2)
     return (
         str(PYTHON), str(FLASH), artifact["path"],
@@ -709,6 +708,7 @@ def fixed_flash_argv(
             if rollback
             else ("--from-native", "--require-stable-adb-baseline")
         ),
+        *(("--owner-fixed-bridge-preflight", "--owner-expect-usb-inventory-sha256", owner_usb_inventory_sha256, "--owner-expect-adb-inventory-sha256", owner_adb_inventory_sha256, "--owner-expect-adb-role", owner_adb_role) if rollback and owner_usb_inventory_sha256 is not None else ()),
         "--expect-recovery-serial-sha256", recovery_serial_sha256,
         "--expect-version", artifact["version"],
         "--expect-sha256", artifact["sha256"],

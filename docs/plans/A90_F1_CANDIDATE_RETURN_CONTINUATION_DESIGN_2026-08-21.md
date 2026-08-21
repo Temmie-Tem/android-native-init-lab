@@ -1,8 +1,9 @@
 # A90 candidate System-return continuation — H0 design
 
-Status: H0 implementation complete; live backend disabled pending independent
-review. This document grants no D0, D1, F1, device, USB, ADB, TWRP,
-physical, or live authority.
+Status: H0 implementation complete; the fixed backend is wired but remains
+non-authoritative pending fresh independent review, qualification, and a
+current attended token. This document grants no D0, D1, F1, device, USB,
+ADB, TWRP, physical, or live authority.
 
 ## Problem
 
@@ -14,9 +15,17 @@ case, because the candidate may already be booting; it must also never replay
 the candidate or resend the TWRP request.
 
 The machine receipt and durable owner park are implemented in the checked
-owner. The separate candidate-neutral continuation state machine is now also
-implemented, but its production backend remains disabled until its own
-independent review.
+owner. The separate candidate-neutral continuation state machine and its
+fixed production backend are now implemented. Backend availability is not
+authority: a fresh independent review must bind the current closure, current
+qualification and manifest must pass, and one attended token must be current
+before any contact or physical instruction.
+There is no static live-enable boolean. `review_gate_present()` is only an
+availability predicate: it is true only when the direct regular review path
+contains a canonical, current `PASS_GO` review with the exact schema, scope,
+zero findings/contacts, and current closure. Absent, symlink, malformed,
+wrong-verdict, or stale-closure review makes the CLI reject before backend
+creation; a PASS review alone still cannot create a token or authorize contact.
 
 ## Fixed helper receipt
 
@@ -91,9 +100,83 @@ is `CANDIDATE_RETURN_PENDING_RECORD_INVALID_NO_ROLLBACK` and can never become
 
 `workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py`
 adds fresh, candidate-neutral namespaces and requires a new independent review.
-This unit contains the journal state machine and a narrow backend protocol; it
-does not contain or select a device backend. A separately reviewed adapter must
-implement the fixed inventory/identity observations before live activation:
+This unit contains the journal state machine and selects only the exact fixed
+backend module
+`workspace/public/src/scripts/server-distro/a90_f1_candidate_return_backend_v1.py`.
+That backend implements bounded USB/ADB inventory, fixed Native/TWRP
+observations, and owner-adapter rollback delegation. It accepts no caller
+command, serial, endpoint, target, outcome, or reboot string. Its availability
+is still H0: independent review, fresh qualification/manifest binding, and an
+attended token remain required before any live effect or observation.
+The operational precondition is exactly one Samsung USB endpoint (`04e8`).
+Non-Samsung host USB devices may remain, but every other Samsung device must
+be disconnected before the attended run. This is intentionally an A90
+speed/safety boundary, not a permanent common boundary; multi-device support
+is out of scope and requires a new design/review. Native is exactly one
+`04e8:6861` endpoint with zero ADB rows. Recovery is exactly one `04e8:6860`
+endpoint with exactly one total ADB row in `recovery` whose serial hash equals
+the manifest binding. Extra Samsung/ADB rows, wrong product/state, or
+ambiguity park before per-serial contact.
+The owner helper registers the qualification serial hash before its first
+inventory. The owner `HostRunner` captures every ADB inventory through pipes,
+registers recoverable endpoint tokens, and persists stdout and stderr only as
+fixed SHA-256/length/status markers. Registered serials in later
+command/exception/child output become `<A90-ADB-SERIAL-SHA256:...>`; raw bytes
+exist only transiently for the in-process parser. Legacy mode keeps its
+historical logging path and does not enable this owner redactor.
+The backend factory requires an opaque continuation-issued activation lease
+whose exact module sentinel binds the current manifest, run, pending receipt,
+approval, phase, review/closure lease, and guard/intent callbacks. `prepare`
+cannot create it. Every backend method and every subprocess call revalidates
+that lease before and after contact; stale phase, intent, guard, manifest, or
+single-Samsung inventory state fails before the next runner call. This is a fail-closed
+workflow API, not a claim that same-UID Python code is an isolation boundary.
+The intent callback rereads the strict current journal prefix before contact:
+every envelope must bind the activation manifest, and the live 22/23 receipt
+join must equal the activation's pending-receipt binding. A complete prefix for
+another manifest or a substituted receipt therefore fails before the runner.
+Its effect entry is rollback-only: `rollback` must be the exact boolean
+`true`, and the artifact must be the strict five-field manifest rollback
+binding. Candidate, alternate-path, equal-SHA, schema/type, and symlink
+variants fail before contact. A direct regular-file identity/hash checkpoint
+is taken immediately before and after the existing helper, with lease and
+guard checks around both checkpoints.
+For rollback from an exact Native endpoint, the backend performs the fixed
+`a90_bridge.py preflight` twice: once to bind the managed listener generation
+and again immediately before the helper. The strict receipt binds the fixed
+ACM realpath, managed PID, listener inode, process argv, and selected-device
+identity. A generation/realpath/PID change parks before the helper. The owner
+helper repeats the same fixed preflight immediately before its sole Native
+`recovery` frame; a bound recovery endpoint skips bridge recovery entirely.
+Immediately before delegating either rollback branch to the owner helper, the
+backend performs one final strict USB/ADB inventory and binds the SHA-256 of
+the complete raw `/usr/bin/lsusb` byte stream (including non-Samsung rows and
+ordering) into the fixed owner argv. In explicit owner receipt mode,
+`native_init_flash.py` runs the same fixed producer itself and compares the
+raw digest before any ADB inventory, Native bridge frame, push, boot write, or
+other device command. A producer error, malformed or missing output, surviving
+process, digest mismatch, single-Samsung/A90-role drift, or recovery ambiguity parks
+with zero effect; legacy helper invocations do not receive or interpret this
+owner-only binding.
+For the Native branch, a separate pre-frame gate repeats the initial raw USB
+and ADB digests and strict `NATIVE_NO_RECOVERY`/`04e8:6861` role immediately before the fixed bridge preflight and sole
+`recovery` frame. A mutation after the earlier baseline gate therefore stops
+before the bridge; an owner inventory binding is invalid unless it also carries
+the fixed bridge-preflight flag. The later Recovery gate is a distinct
+post-transition check.
+The same owner-only join binds the complete raw `/usr/bin/adb devices -l`
+byte stream and one parsed role: `NATIVE_NO_RECOVERY` or
+`BOUND_RECOVERY_PRESENT`. The helper re-runs that fixed inventory and requires
+both the exact raw digest and exact role before any bridge recovery, per-serial
+ADB shell/push, or boot write. A recovery-to-device/offline/unauthorized
+transition, duplicate or multiple recovery serial, or extra ADB endpoint
+therefore stops before effect; legacy helper invocations carry no ADB binding
+flags. After Native legitimately becomes Recovery, the post-transition gate
+requires exactly one Samsung `04e8:6860` endpoint and one bound recovery ADB
+row. Product, role, state, addition, removal, or duplicate drift stops, while
+the changed post-transition raw USB/ADB bytes are evidence only and are not
+compared to the pre-recovery digest. An already-Recovery branch still requires
+the same-epoch raw digest before effect; multi-device coexistence is out of scope.
 Each invocation leases both the continuation review and the manifest-bound
 qualification review by direct identity, size, and SHA-256, and captures the
 computed source closure. The leases are revalidated before and after each
@@ -115,7 +198,7 @@ execution closure, so the lease does not self-reference.
 3. After the operator confirms that physical action, one separate `finalize`
    publishes an observation intent before one read. It may produce candidate
    PASS, or the already-bound one-shot rollback on attributable failure or
-   exact return to bound TWRP. Observer loss, ambiguity, foreign endpoint, or
+   exact return to bound TWRP. Observer loss, ambiguity, extra endpoint, or
    missing attribution parks without rollback. Candidate and rollback health
    snapshots must carry the exact current qualification-review digest as their
    recovery evidence; a valid but mismatched digest parks and cannot close.
@@ -130,13 +213,21 @@ execution closure, so the lease does not self-reference.
    A candidate PASS releases only the active-run guard; the candidate-SHA
    guard remains permanently consumed and rejects reuse of that candidate.
 
-The continuation unit must not import the retired large orchestrator, execute
-ADB/TWRP/USB commands, add arbitrary command selection, or make old journals
-satisfy new fields. The fixed TWRP identity command is retained only as a
-review input for that future adapter.
+The continuation unit must not import the retired large orchestrator, accept
+arbitrary command selection, or make old journals satisfy new fields. The
+fixed backend executes only its bounded USB/ADB inventory and fixed TWRP
+identity command; it never uses ADB on Native, never contacts another Samsung
+endpoint, and never sends a host reboot command. The durable observed record
+carries the exact single-Samsung USB/ADB inventory binding; no multi-device
+coexistence baseline is modeled by this unit.
 
-The CLI has only `prepare`, `resume`, and `finalize`. `prepare` is host-only;
-`resume` and `finalize` are fail-closed while `LIVE_EXECUTION_ENABLED` is
-false. The core functions accept only the reviewed backend protocol used by
-host-only tests. No backend is selected by a manifest or caller, and no
+The CLI has only `prepare`, `resume`, and `finalize`. `prepare` is host-only.
+The fixed backend is selected by the checked module closure, never by a
+manifest or caller; review/qualification/manifest/token/attendance gates
+remain mandatory before `resume` or `finalize` can contact a device. No
 command, serial, target, outcome, or reboot string is accepted as input.
+For the first owner ADB inventory, the runner performs a bounded two-pass
+capture: it registers every recoverable endpoint first-column token, then
+persists both stdout and stderr only as fixed SHA-256/length/status markers.
+Valid, malformed, nonzero, and timed-out output all use digest-only persistence;
+raw streams remain transient parser input.

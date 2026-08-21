@@ -1350,10 +1350,82 @@ intents before contact, and accept only fixed USB/bridge/ADB inventory and
 exact Native/TWRP receipts. TWRP presence yields an operator instruction to
 press `Reboot -> System`; the host sends no reboot command. Candidate replay
 is forbidden. Attributable failure alone may use the existing one-shot
-rollback; ambiguity, foreign endpoints, observer loss, and transport/protocol
-failure park without rollback. The production backend is currently
-H0-disabled and this capability has no live authority until an independent
-PASS_GO binds its own closure and review.
+rollback; ambiguity, extra Samsung/ADB endpoints, observer loss, and transport/protocol
+failure park without rollback. The fixed backend is implemented and wired,
+and before any bound-serial TWRP identity command it requires zero A90 Native
+USB rows, exactly one `04e8:6860` recovery row, exactly one bound recovery
+serial in `recovery`, and exactly one Samsung USB endpoint total. This
+single-Samsung condition is an intentional A90 operational precondition for
+speed and safety: non-Samsung host USB devices may remain, but every other
+Samsung device must be disconnected before the attended run. It is not a
+permanent common boundary; multi-device coexistence is out of scope for this
+unit and requires a new design and independent review. Native is exactly one
+`04e8:6861` endpoint with the fixed ACM/managed bridge and zero ADB rows.
+Recovery is exactly one `04e8:6860` endpoint and exactly one total ADB row in
+`recovery` whose serial hash equals the manifest binding. Extra Samsung/ADB
+rows, wrong product/state, or ambiguity park before per-serial contact. Owner
+mode persists only fixed USB/ADB digest, length, and status markers; registered
+serials are redacted as `<A90-ADB-SERIAL-SHA256:...>` and raw serials never
+enter evidence.
+but this capability remains H0/non-authoritative until a fresh independent
+PASS_GO binds the current closure and review, current qualification and
+manifest are present, and one attended token activates the exact run.
+The continuation has no static live-enable boolean. Its review-gate predicate
+is availability-only and accepts only a direct regular canonical current
+`PASS_GO` review with exact schema/scope/closure and zero findings/contacts;
+missing, symlink, malformed, wrong, or stale review stops before backend
+creation. PASS alone grants no token, attendance, intent, or device authority.
+The backend factory additionally requires a continuation-issued exact
+activation lease. The lease is created only after the phase intent and both
+guards are durable, binds the manifest/run/pending receipt/approval/phase and
+the exact single-Samsung inventory binding, and is revalidated before and after every runner
+call. Direct construction or stale intent/guard/review state cannot contact a
+device; this is a fail-closed workflow API rather than a same-UID isolation
+claim. Each activation intent check rereads the strict current journal prefix,
+requires every envelope's manifest SHA to equal the activation manifest, and
+requires the current 22/23 receipt join to equal the activation-bound pending
+receipt; cross-manifest or substituted prefixes stop before contact.
+The continuation backend exposes no candidate-flash capability: its effect
+entry requires exact boolean `rollback: true` and the strict manifest-bound
+five-field rollback artifact. It rechecks the direct regular-file path,
+metadata, size, and SHA256 immediately before and after the existing rollback
+helper; alternate paths, equal-SHA substitutions, schema/type drift, and
+symlinks stop before contact.
+If rollback begins from exact Native rather than an already-bound recovery
+endpoint, the backend must bind and immediately revalidate the fixed managed
+bridge preflight (ACM realpath, managed PID, listener inode, process argv, and
+selected-device identity) before helper launch. Owner-mode `native_init_flash`
+repeats that same fixed preflight immediately before its sole Native recovery
+frame. A stale listener, foreign ACM, realpath/PID/process drift, or recovery
+ambiguity stops with zero recovery/effect commands.
+Before either rollback helper launch, the backend also binds the SHA-256 of the
+complete strict raw `/usr/bin/lsusb` output, including non-Samsung rows and
+ordering. Owner-mode `native_init_flash` runs that fixed producer itself and
+requires the exact digest before ADB binding, any Native bridge frame, push, or
+boot write. Producer failure, malformed/missing/surviving output, digest
+mismatch, single-Samsung/A90-role drift, or recovery ambiguity stops with zero
+effect. This binding is owner-only; legacy helper invocations do not receive
+or interpret it.
+The same owner-only binding carries the complete raw `/usr/bin/adb devices -l`
+SHA-256 and exact parsed role (`NATIVE_NO_RECOVERY` or
+`BOUND_RECOVERY_PRESENT`). `native_init_flash` re-runs the fixed inventory and
+requires both before any Native bridge recovery, per-serial ADB shell/push, or
+boot write. Recovery state changes, duplicate/multiple recovery endpoints,
+extra ADB endpoints, or initial raw-digest drift stop with zero effect; legacy
+helper invocations do not receive these flags.
+On the Native branch, the owner repeats the bound initial raw USB/ADB
+digests and strict `NATIVE_NO_RECOVERY`/`04e8:6861` role immediately before the
+fixed bridge preflight and sole recovery frame.
+This pre-frame gate is separate from the later Recovery/product/serial gate;
+an owner inventory binding without the fixed bridge-preflight flag is rejected.
+After Native legitimately becomes Recovery, the helper instead requires
+exactly one Samsung `04e8:6860` endpoint and exactly one bound recovery ADB
+row. Product, state, duplicate, addition, removal, or bound-serial drift is a
+stop. Native-to-Recovery may change product, bus/device numbers, and raw
+bytes, so the post-transition raw digest is evidence only and is not compared
+with the pre-recovery digest. An already-Recovery branch still requires its
+same-epoch digest before effect; multi-device coexistence is out of scope for
+this A90 unit.
 After a candidate PASS, only the active-run guard is released; the
 candidate-SHA guard remains as the durable consumed no-replay marker and may
 not be reused.
@@ -1505,7 +1577,7 @@ execution requires a fresh independent `PASS_GO` review and exact fresh token.
 
 After the new intent is durably published with `O_EXCL`, one attended
 read-only Native session may bind the exact A90 USB endpoint, the managed
-bridge, and the unchanged foreign Samsung inventory, send one unframed raw
+bridge, and the unchanged single-Samsung inventory, send one unframed raw
 bridge line `hide` exactly once without retry. Its receipt must explicitly
 contain `hide requested`; a prompt-only or `[done]`-only receipt is not
 success. The source must then await the existing fixed 3.0-second asynchronous
@@ -1520,7 +1592,7 @@ final boot-ID receipt must be present and valid and equal the initial boot ID;
 invalid, or failed final read consumes the intent and parks without a recovery
 record or active-guard removal. The boot-ID request is first; success requires
 exact V2321, `selftest fail=0`, one `pstore` line with `entries=0`, the explicit
-hide receipt, equal initial/final boot IDs, and unchanged A90/foreign USB
+hide receipt, equal initial/final boot IDs, and unchanged single-Samsung USB
 inventory. No ADB, TWRP, reboot, flash, image, partition, candidate,
 rollback, physical, service-control, or caller-selected command is available.
 
@@ -1539,9 +1611,9 @@ For future ordinary F1 rollback only, the fixed helper may use
 exactly one already-present recovery endpoint whose serial SHA-256 is the
 manifest-qualified A90, or proves there is no recovery endpoint and binds the
 complete non-recovery baseline before sending the Native recovery command
-once. A foreign or ambiguous recovery endpoint stops before transfer. The
+once. A non-A90 or ambiguous recovery endpoint stops before transfer. The
 already-present branch sends no Native recovery command. Both branches retain
-the unchanged foreign endpoint set, use the same exact boot-only rollback,
+the exact one-Samsung endpoint set, use the same exact boot-only rollback,
 perform at most one boot write/readback and one TWRP System return request, and
 never select a caller serial or resend an uncertain action. This repairs the
 existing one rollback attempt; it is not a second rollback attempt or general
@@ -1586,3 +1658,8 @@ resident session.
   re-review only after a critical hash change or new hazard/incident.
 - Keep current candidate hashes, consumed approvals, run IDs, and experimental
   frontier in `GOAL_A90.md` or private evidence, not in this stable contract.
+The first owner ADB inventory is captured in memory for one bounded pass to
+register endpoint tokens, then persists both stdout and stderr only as
+digest/length/status markers. Valid, malformed, nonzero, and timeout output
+all remain digest-only; raw streams are transient parser input and never become
+runner evidence.
