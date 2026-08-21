@@ -24,8 +24,8 @@ The state machine is
 `workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py`.
 Its CLI derives the fixed run/log paths from one canonical manifest, exposes
 only `prepare`, approved `execute`, and read-only `audit`, and constructs the
-small fixed adapter below. Activation itself still requires a fresh closure
-review plus the candidate review/manifest and attended approval.
+small fixed adapter below. New execution requires a fresh closure review,
+candidate review/manifest, and attended approval; consumed H28 bytes remain historical and never authorize H29.
 Each prepare/execute invocation reserves a new immutable
 `<runId>-<phase>-<ordinal>-logs` directory. Pre-effect failure or a lost host
 process preserves prior logs but does not make a correct later invocation
@@ -120,6 +120,9 @@ retried without overwriting either log.
   exact inode/size, bounded bytes, and absence of trailing growth. Journal
   presence comes from directory-entry names, not dereferencing `exists()`, so
   dangling allowlisted symlinks are malformed rather than silently absent.
+- Before active release, the owner exact-readbacks canonical `40-terminal.json`
+  through the bounded direct-regular reader, rechecks current review/closure
+  and both guards, and raises on any drift without republishing or replaying.
 - PASS requires candidate helper completion and quiescence plus fresh exact
   candidate health. Transfer success alone is not PASS.
 - A rollback terminal is `NO_PROOF_ROLLED_BACK`, not experiment proof.

@@ -457,6 +457,110 @@ class MinimalF1Test(unittest.TestCase):
         self.assertFalse(backend.flash_calls[0][1])
         self.assertEqual(M.recovery_decision(run), "TERMINAL_COMPLETE")
         self.assertFalse((M.RUN_ROOT / "active-run.guard").exists())
+        after_output_loss = FakeBackend(self.start)
+        with self.assertRaises(M.ContractError):
+            M.execute(self.raw, self.manifest, run, token, after_output_loss)
+        self.assertEqual(after_output_loss.flash_calls, [])
+
+    def _assert_terminal_readback_failure(self, mutate):
+        run, token = self._prepare()
+        active, _ = M._active_guard(self.manifest)
+        candidate, _ = M._candidate_guard(self.manifest)
+        backend = FakeBackend(
+            self.start,
+            flashes=[self._effect()],
+            observations=[self._snapshot("new", "new-build")],
+        )
+        publish = M.publish_record
+        terminal_publications = []
+
+        def mutate_after_terminal(directory, name, value):
+            publish(directory, name, value)
+            if name == "40-terminal.json":
+                terminal_publications.append(name)
+                mutate(directory / name)
+
+        with mock.patch.object(
+            M, "publish_record", side_effect=mutate_after_terminal
+        ):
+            with self.assertRaises(M.ContractError):
+                M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(terminal_publications, ["40-terminal.json"])
+        self.assertEqual(len(backend.flash_calls), 1)
+        self.assertTrue(active.exists())
+        self.assertTrue(candidate.exists())
+        return run
+
+    def test_terminal_readback_rejects_mutated_bytes_before_active_release(self):
+        self._assert_terminal_readback_failure(
+            lambda path: path.write_bytes(path.read_bytes() + b"x")
+        )
+
+    def test_terminal_readback_rejects_deletion_before_active_release(self):
+        self._assert_terminal_readback_failure(lambda path: path.unlink())
+
+    def test_terminal_readback_rejects_symlink_before_active_release(self):
+        def replace_with_symlink(path):
+            path.unlink()
+            replacement = path.parent / "terminal-replacement"
+            replacement.write_bytes(b"not-the-terminal")
+            os.symlink(replacement, path)
+
+        self._assert_terminal_readback_failure(replace_with_symlink)
+
+    def test_terminal_readback_rejects_short_extra_and_duplicate_bytes(self):
+        mutations = {
+            "short": lambda path: path.write_bytes(b"{}"),
+            "extra": lambda path: path.write_bytes(path.read_bytes() + b"\n"),
+            "duplicate": lambda path: path.write_bytes(
+                b'{"kind":"TERMINAL","kind":"TERMINAL"}'
+            ),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                try:
+                    self._assert_terminal_readback_failure(mutate)
+                finally:
+                    active, _ = M._active_guard(self.manifest)
+                    candidate, _ = M._candidate_guard(self.manifest)
+                    if active.exists():
+                        active.unlink()
+                    if candidate.exists():
+                        candidate.unlink()
+                    run = M.RUN_ROOT / self.manifest["runId"]
+                    if run.exists():
+                        for entry in run.iterdir():
+                            entry.unlink()
+                        run.rmdir()
+
+    def test_terminal_readback_failure_is_raised_without_retry_or_republish(self):
+        run, token = self._prepare()
+        active, _ = M._active_guard(self.manifest)
+        backend = FakeBackend(
+            self.start,
+            flashes=[self._effect()],
+            observations=[self._snapshot("new", "new-build")],
+        )
+        publish = M.publish_record
+        readback_calls = []
+
+        def fail_terminal_readback(path, label, maximum):
+            if Path(path).name == "40-terminal.json":
+                readback_calls.append(label)
+                raise M.ContractError("simulated terminal read failure")
+            return original_readback(path, label, maximum)
+
+        original_readback = M._read_bounded_regular
+        with mock.patch.object(M, "_read_bounded_regular", side_effect=fail_terminal_readback):
+            with self.assertRaisesRegex(M.ContractError, "terminal read failure"):
+                M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(readback_calls, ["40-terminal.json"])
+        self.assertEqual(len(backend.flash_calls), 1)
+        self.assertTrue(active.exists())
+        self.assertEqual(
+            len([entry for entry in M.read_records(run) if entry == "40-terminal.json"]),
+            1,
+        )
 
     def test_exact_system_return_uncertainty_parks_before_rollback(self):
         run, token = self._prepare()
@@ -1103,8 +1207,8 @@ class MinimalSurfaceTest(unittest.TestCase):
 
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1560)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 1150)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1620)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 1250)
         self.assertLessEqual(len(design.read_text().splitlines()), 250)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):

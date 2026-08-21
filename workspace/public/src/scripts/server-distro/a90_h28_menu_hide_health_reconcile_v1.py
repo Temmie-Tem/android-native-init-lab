@@ -227,8 +227,8 @@ def _load_manifest() -> tuple[bytes, dict[str, Any]]:
         raise ContractError("fixed H28 manifest changed")
     try:
         manifest = owner.validate_manifest(value)
-        owner._verify_qualification_inputs(manifest)
-    except owner.ContractError as exc:
+        prior._verify_historical_qualification_binding(manifest)
+    except (owner.ContractError, prior.ContractError) as exc:
         raise ContractError(str(exc)) from exc
     if manifest["runId"] != RUN_ID or manifest["rollback"]["sha256"] != owner.V2321_ROLLBACK_SHA256:
         raise ContractError("fixed H28 manifest identity changed")
@@ -255,6 +255,12 @@ def _load_records(manifest: dict[str, Any]) -> tuple[Path, dict[str, dict[str, A
         raise ContractError("fixed H28 terminal changed")
     if records["20-candidate-intent.json"]["payload"] != {"sha256": manifest["candidate"]["sha256"]} or records["30-rollback-intent.json"]["payload"] != {"sha256": manifest["rollback"]["sha256"]}:
         raise ContractError("fixed transfer intent changed")
+    if (
+        MANIFEST_SHA256 == prior.HISTORICAL_H28_MANIFEST_SHA256
+        and manifest["candidate"]["sha256"] == prior.HISTORICAL_H28_CANDIDATE_SHA256
+        and RECOVERY_NAME in records
+    ):
+        prior._historical_recovery_payload(records[RECOVERY_NAME])
     return run_directory, records
 
 
@@ -466,8 +472,23 @@ def _state(*, active: bool) -> State:
     run_directory, records = _load_records(manifest)
     _require_guards(manifest, active=active)
     _verify_physical_sidecar(); _verify_prior_slow_intent(); _verify_prior_slow_logs()
-    _, review_sha, closure = _current_review()
     intent = _sidecar()
+    if (
+        MANIFEST_SHA256 == prior.HISTORICAL_H28_MANIFEST_SHA256
+        and manifest["candidate"]["sha256"] == prior.HISTORICAL_H28_CANDIDATE_SHA256
+        and RECOVERY_NAME in records
+    ):
+        prior._historical_recovery_payload(records[RECOVERY_NAME])
+        return State(
+            manifest_raw,
+            manifest,
+            run_directory,
+            records,
+            prior.HISTORICAL_MENU_REVIEW_SHA256,
+            prior.HISTORICAL_MENU_CLOSURE_SHA256,
+            intent,
+        )
+    _, review_sha, closure = _current_review()
     if intent is not None and (intent[1]["currentReviewSha256"] != review_sha or intent[1]["executionClosureSha256"] != closure or intent[1]["approvalSha256"] != _sha(_approval_token(review_sha, closure).encode("ascii"))):
         raise ContractError("menu-hide intent is not bound to current review and closure")
     return State(manifest_raw, manifest, run_directory, records, review_sha, closure, intent)
@@ -673,6 +694,12 @@ def execute(approval: str) -> dict[str, Any]:
     if type(approval) is not str:
         raise ContractError("approval token is invalid")
     state = _state(active=False)
+    if (
+        MANIFEST_SHA256 == prior.HISTORICAL_H28_MANIFEST_SHA256
+        and state.manifest["candidate"]["sha256"] == prior.HISTORICAL_H28_CANDIDATE_SHA256
+        and RECOVERY_NAME in state.records
+    ):
+        return prior._historical_recovery_payload(state.records[RECOVERY_NAME])
     if RECOVERY_NAME in state.records:
         lease = ReviewLease(state.review_sha, state.closure)
         try:

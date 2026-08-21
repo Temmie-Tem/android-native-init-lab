@@ -20,7 +20,7 @@ import stat
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 
 CAPABILITY = "A90_BOOT_ONLY_F1_MINIMAL_V1"
@@ -88,6 +88,9 @@ RECORDS = (
     "21-candidate-launched.json",
     "22-candidate-result.json",
     "23-candidate-return-pending.json",
+    "24-candidate-return-intent.json",
+    "24-candidate-return-observed.json",
+    "25-candidate-observation-intent.json",
     "30-rollback-intent.json",
     "31-rollback-launched.json",
     "32-rollback-result.json",
@@ -103,6 +106,9 @@ RECORD_KINDS = {
     "21-candidate-launched.json": "CANDIDATE_LAUNCHED",
     "22-candidate-result.json": "CANDIDATE_RESULT",
     "23-candidate-return-pending.json": "CANDIDATE_RETURN_PENDING",
+    "24-candidate-return-intent.json": "CANDIDATE_RETURN_INTENT",
+    "24-candidate-return-observed.json": "CANDIDATE_RETURN_OBSERVED",
+    "25-candidate-observation-intent.json": "CANDIDATE_OBSERVATION_INTENT",
     "30-rollback-intent.json": "ROLLBACK_INTENT",
     "31-rollback-launched.json": "ROLLBACK_LAUNCHED",
     "32-rollback-result.json": "ROLLBACK_RESULT",
@@ -137,6 +143,19 @@ POSTROLLBACK_RECOVERY_PATH = ROLLBACK_PATH + ("41-recovery-closed.json",)
 CANDIDATE_RETURN_PENDING_PATH = SUCCESS_PATH[:-1] + (
     "23-candidate-return-pending.json",
 )
+CANDIDATE_RETURN_INTENT_PATH = CANDIDATE_RETURN_PENDING_PATH + (
+    "24-candidate-return-intent.json",
+)
+CANDIDATE_RETURN_RESUME_PATH = CANDIDATE_RETURN_INTENT_PATH + (
+    "24-candidate-return-observed.json",
+)
+CANDIDATE_RETURN_OBSERVATION_PATH = CANDIDATE_RETURN_RESUME_PATH + (
+    "25-candidate-observation-intent.json",
+)
+CANDIDATE_RETURN_PARK_PATH = CANDIDATE_RETURN_RESUME_PATH + ("40-terminal.json",)
+CANDIDATE_RETURN_PASS_PATH = CANDIDATE_RETURN_OBSERVATION_PATH + ("40-terminal.json",)
+CANDIDATE_RETURN_RESUME_ROLLBACK_PATH = CANDIDATE_RETURN_RESUME_PATH + ROLLBACK_PATH[5:]
+CANDIDATE_RETURN_ROLLBACK_PATH = CANDIDATE_RETURN_OBSERVATION_PATH + ROLLBACK_PATH[5:]
 CANDIDATE_RETURN_OUTCOMES = {
     "PRE_WRITE_FAILURE",
     "WRITE_OR_READBACK_UNCLASSIFIED",
@@ -783,6 +802,29 @@ def publish_record(run_directory: Path, name: str, value: dict[str, Any]) -> Non
     _fsync_directory(run_directory)
 
 
+def _readback_published_record(
+    run_directory: Path,
+    name: str,
+    expected_raw: bytes,
+    manifest_sha256: str,
+) -> dict[str, Any]:
+    """Prove the exact durable bytes before any terminal guard release."""
+    raw = _read_bounded_regular(run_directory / name, name, MAX_JSON_BYTES)
+    value = parse_canonical(raw, name)
+    if raw != expected_raw:
+        raise ContractError(f"{name} durable bytes differ from publication")
+    item = _object(value, {"schema", "kind", "manifestSha256", "payload"}, name)
+    if (
+        item["schema"] != RECORD_SCHEMA
+        or item["kind"] != RECORD_KINDS[name]
+        or item["manifestSha256"] != manifest_sha256
+        or type(item["payload"]) is not dict
+        or canonical_json(item) != expected_raw
+    ):
+        raise ContractError(f"{name} durable record binding is invalid")
+    return item
+
+
 def _require_run_path(run_directory: Path, run_id: str) -> None:
     root = RUN_ROOT
     metadata = root.lstat()
@@ -896,6 +938,13 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
             PRETRANSFER_ABORT_PATH,
             POSTROLLBACK_RECOVERY_PATH,
             CANDIDATE_RETURN_PENDING_PATH,
+            CANDIDATE_RETURN_INTENT_PATH,
+            CANDIDATE_RETURN_RESUME_PATH,
+            CANDIDATE_RETURN_OBSERVATION_PATH,
+            CANDIDATE_RETURN_PARK_PATH,
+            CANDIDATE_RETURN_PASS_PATH,
+            CANDIDATE_RETURN_RESUME_ROLLBACK_PATH,
+            CANDIDATE_RETURN_ROLLBACK_PATH,
         )
     ):
         raise ContractError("journal is not an allowlisted transaction prefix")
@@ -1068,6 +1117,7 @@ def _terminal(
     snapshot: Snapshot | None,
     reason: str,
     manifest: dict[str, Any],
+    continuation_lease_check: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     qualification = manifest["qualification"]
     payload = {
@@ -1084,13 +1134,20 @@ def _terminal(
     }
     _require_active_guard(manifest)
     _require_candidate_guard(manifest)
-    publish_record(
-        run_directory,
-        "40-terminal.json",
-        _record("TERMINAL", manifest_sha256, payload),
+    terminal_record = _record("TERMINAL", manifest_sha256, payload)
+    terminal_raw = canonical_json(terminal_record)
+    publish_record(run_directory, "40-terminal.json", terminal_record)
+    if continuation_lease_check is not None:
+        continuation_lease_check()
+    _readback_published_record(
+        run_directory, "40-terminal.json", terminal_raw, manifest_sha256
     )
+    _verify_qualification_inputs(manifest)
+    _require_active_guard(manifest)
+    _require_candidate_guard(manifest)
+    if continuation_lease_check is not None:
+        continuation_lease_check()
     if terminal in {"PASS_A90_RESIDENT_INSTALLED", "NO_PROOF_ROLLED_BACK"}:
-        _require_candidate_guard(manifest)
         _release_active_guard(manifest)
     return payload
 
@@ -1389,6 +1446,12 @@ def recovery_decision(run_directory: Path) -> str:
         return "PARK_ROLLBACK_NO_REPLAY"
     if "30-rollback-intent.json" in names:
         return "SAME_ROLLBACK_MAY_LAUNCH_ONCE"
+    if "25-candidate-observation-intent.json" in names:
+        return "CANDIDATE_RETURN_OBSERVATION_CONSUMED"
+    if "24-candidate-return-observed.json" in names:
+        return "CANDIDATE_RETURN_OBSERVED_CONTINUATION_PENDING"
+    if "24-candidate-return-intent.json" in names:
+        return "CANDIDATE_RETURN_CONTACT_CONSUMED"
     if "23-candidate-return-pending.json" in names:
         candidate_result = records.get("22-candidate-result.json")
         expected_receipt = (

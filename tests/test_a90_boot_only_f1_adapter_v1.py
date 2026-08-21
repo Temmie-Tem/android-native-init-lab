@@ -331,7 +331,7 @@ class FixedAdapterTest(unittest.TestCase):
                 {"expectedStart": self.expected, "qualification": QUALIFICATION}
             )
 
-    def test_other_samsung_endpoint_is_allowed_but_never_selected(self):
+    def test_other_samsung_endpoint_is_not_untouched(self):
         results = healthy_results()
         results[0] = usb_inventory(other_samsung=True)
         snapshot = A.FixedA90Adapter(
@@ -340,7 +340,7 @@ class FixedAdapterTest(unittest.TestCase):
             {"expectedStart": self.expected, "qualification": QUALIFICATION}
         )
         snapshot.validate()
-        self.assertTrue(snapshot.other_targets_untouched)
+        self.assertFalse(snapshot.other_targets_untouched)
 
     def test_observation_budget_is_total_not_per_command(self):
         adapter = A.FixedA90Adapter(FakeRunner([]), qualification=QUALIFICATION)

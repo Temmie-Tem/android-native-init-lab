@@ -331,6 +331,103 @@ class H28PhysicalReturnTest(unittest.TestCase):
         active.chmod(0o600)
         candidate.chmod(0o600)
 
+    def _historical_closed_fixture(self):
+        manifest = {
+            "runId": R.RUN_ID,
+            "capability": OWNER.CAPABILITY,
+            "targetProfile": OWNER.TARGET_PROFILE,
+            "candidate": {"sha256": R.HISTORICAL_H28_CANDIDATE_SHA256},
+            "rollback": {
+                "sha256": OWNER.V2321_ROLLBACK_SHA256,
+                "version": OWNER.V2321_ROLLBACK_VERSION,
+                "build": OWNER.V2321_ROLLBACK_BUILD,
+            },
+            "qualification": self.manifest["qualification"],
+        }
+        payload = {
+            "decision": "V2321_HEALTHY_AFTER_MENU_HIDE_OBSERVER_REPAIR",
+            "currentReviewSha256": R.HISTORICAL_MENU_REVIEW_SHA256,
+            "executionClosureSha256": R.HISTORICAL_MENU_CLOSURE_SHA256,
+            "candidateReplay": False,
+            "rollbackReplay": False,
+        }
+        record = OWNER._record(
+            OWNER.RECORD_KINDS[R.RECOVERY_NAME],
+            R.HISTORICAL_H28_MANIFEST_SHA256,
+            payload,
+        )
+        return manifest, record
+
+    def test_exact_historical_closed_41_short_circuits_current_review(self):
+        manifest, record = self._historical_closed_fixture()
+        with (
+            mock.patch.object(R, "MANIFEST_SHA256", R.HISTORICAL_H28_MANIFEST_SHA256),
+            mock.patch.object(
+                R,
+                "HISTORICAL_H28_RECOVERY_SHA256",
+                R._json_sha(record),
+            ),
+            mock.patch.object(R, "_load_manifest", return_value=(b"manifest", manifest)),
+            mock.patch.object(
+                R,
+                "_load_records",
+                return_value=(self.run_directory, {R.RECOVERY_NAME: record}),
+            ),
+            mock.patch.object(R, "_require_guards"),
+            mock.patch.object(R, "_sidecar_state", return_value=(None, None)),
+            mock.patch.object(
+                R,
+                "_load_current_review",
+                side_effect=AssertionError("closed historical audit loaded current review"),
+            ),
+        ):
+            state = R._state(require_active=False)
+        self.assertEqual(state.review_sha256, R.HISTORICAL_MENU_REVIEW_SHA256)
+        self.assertEqual(state.closure_sha256, R.HISTORICAL_MENU_CLOSURE_SHA256)
+
+    def test_changed_historical_41_never_bypasses_current_review(self):
+        manifest, record = self._historical_closed_fixture()
+        changed = json.loads(json.dumps(record))
+        changed["payload"]["rollbackReplay"] = True
+        current_review = mock.Mock(return_value=(b"review", b"review", "r" * 64, "c" * 64))
+        with (
+            mock.patch.object(R, "MANIFEST_SHA256", R.HISTORICAL_H28_MANIFEST_SHA256),
+            mock.patch.object(
+                R,
+                "HISTORICAL_H28_RECOVERY_SHA256",
+                R._json_sha(record),
+            ),
+            mock.patch.object(R, "_load_manifest", return_value=(b"manifest", manifest)),
+            mock.patch.object(
+                R,
+                "_load_records",
+                return_value=(self.run_directory, {R.RECOVERY_NAME: changed}),
+            ),
+            mock.patch.object(R, "_require_guards"),
+            mock.patch.object(R, "_sidecar_state", return_value=(None, None)),
+            mock.patch.object(R, "_load_current_review", current_review),
+        ):
+            with self.assertRaises(R.ContractError):
+                R._state(require_active=False)
+        current_review.assert_not_called()
+
+    def test_open_h28_prefix_still_requires_current_review(self):
+        current_review = mock.Mock(return_value=(b"review", b"review", "r" * 64, "c" * 64))
+        with (
+            mock.patch.object(R, "_load_manifest", return_value=(self.manifest_raw, self.manifest)),
+            mock.patch.object(
+                R,
+                "_load_records",
+                return_value=(self.run_directory, self.records),
+            ),
+            mock.patch.object(R, "_require_guards"),
+            mock.patch.object(R, "_sidecar_state", return_value=(None, None)),
+            mock.patch.object(R, "_load_current_review", current_review),
+        ):
+            state = R._state(require_active=False)
+        current_review.assert_called_once_with()
+        self.assertEqual(state.review_sha256, "r" * 64)
+
     def test_finalize_requires_intent_and_both_flags(self):
         with self.assertRaises(R.ContractError):
             with self.fixed(ObserveOnlyBackend(self.snapshot)):

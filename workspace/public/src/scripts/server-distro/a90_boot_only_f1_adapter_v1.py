@@ -657,7 +657,7 @@ class FixedA90Adapter:
             recovery_evidence_sha256=self.recovery_evidence_sha256,
             fresh_state_observed=state_observed,
             fresh_state_absent=state_absent,
-            other_targets_untouched=usb_inventory["a90EndpointCount"] == 1,
+            other_targets_untouched=usb_inventory["a90EndpointCount"] == 1 and usb_inventory["otherSamsungEndpointCount"] == 0,
             receipt_sha256=sha256_bytes(
                 canonical_json({"evidence": evidence, "healthy": healthy})
             ),

@@ -1,7 +1,8 @@
 # A90 candidate System-return continuation — H0 design
 
-Status: H0 design only. This document grants no D0, D1, F1, device, USB,
-ADB, TWRP, physical, or live authority.
+Status: H0 implementation complete; live backend disabled pending independent
+review. This document grants no D0, D1, F1, device, USB, ADB, TWRP,
+physical, or live authority.
 
 ## Problem
 
@@ -12,9 +13,10 @@ distinguish that state. The owner must not immediately rollback in that one
 case, because the candidate may already be booting; it must also never replay
 the candidate or resend the TWRP request.
 
-The first implementation unit therefore adds only the machine receipt and the
-durable owner park. The continuation modes below are the next separately
-reviewed unit; no placeholder mode is executable.
+The machine receipt and durable owner park are implemented in the checked
+owner. The separate candidate-neutral continuation state machine is now also
+implemented, but its production backend remains disabled until its own
+independent review.
 
 ## Fixed helper receipt
 
@@ -59,6 +61,10 @@ Its payload contains the effect receipt digest, `candidateReplay: false`, and
 `rollbackIntentPublished: false`. It is published before any rollback record.
 The active and candidate guards remain present. Existing H24/H27/H28 journals
 without this record remain historical and are not upgraded or reinterpreted.
+The consumed H28 qualification review likewise remains pinned to its original
+closure and is readable only by the fixed closed-run historical readers; the
+current owner rejects it for new execution. H29 and later continuation runs
+must bind a fresh qualification, review, manifest, and owner closure.
 
 The current execution result is `RECOVERY_REQUIRED` with reason
 `CANDIDATE_RETURN_PENDING`; it is a park, not a terminal installation result.
@@ -81,10 +87,22 @@ The pending record is joined to the result, not merely to the manifest:
 is `CANDIDATE_RETURN_PENDING_RECORD_INVALID_NO_ROLLBACK` and can never become
 `CANDIDATE_RETURN_PENDING` or authorize rollback.
 
-## Next continuation unit (not executable here)
+## Continuation implementation
 
-The follow-up must add fresh, candidate-neutral namespaces and receive a new
-independent review:
+`workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py`
+adds fresh, candidate-neutral namespaces and requires a new independent review.
+This unit contains the journal state machine and a narrow backend protocol; it
+does not contain or select a device backend. A separately reviewed adapter must
+implement the fixed inventory/identity observations before live activation:
+Each invocation leases both the continuation review and the manifest-bound
+qualification review by direct identity, size, and SHA-256, and captures the
+computed source closure. The leases are revalidated before and after each
+contact and journal publication, before physical instruction or rollback, and
+through the owner terminal callback before active-guard release; swaps or
+closure drift park/raise without accepting a restored file.
+The qualification-review SHA is carried in the approval and fresh intents as
+an input binding only; its private path/bytes are not added to the continuation
+execution closure, so the lease does not self-reference.
 
 1. `prepare` performs host-only current-review/closure binding and derives a
    token from the manifest, run, candidate, pending effect receipt, and owner
@@ -98,10 +116,27 @@ independent review:
    publishes an observation intent before one read. It may produce candidate
    PASS, or the already-bound one-shot rollback on attributable failure or
    exact return to bound TWRP. Observer loss, ambiguity, foreign endpoint, or
-   missing attribution parks without rollback.
+   missing attribution parks without rollback. Candidate and rollback health
+   snapshots must carry the exact current qualification-review digest as their
+   recovery evidence; a valid but mismatched digest parks and cannot close.
+   TWRP identity is an exact-key, exact-type object: numeric stat fields reject
+   bool, float, and string substitutions before value comparison.
+   Rollback revalidates the active and permanent candidate guards immediately
+   after durable `31` and before the backend effect; a missing guard parks the
+   consumed `31` prefix without recreating or replaying it.
 4. Every continuation and observation intent is consumed on success, error,
    timeout, or host loss. A present intent blocks replay. Rollback remains one
    intent/launch/result sequence and is never used to replay the candidate.
+   A candidate PASS releases only the active-run guard; the candidate-SHA
+   guard remains permanently consumed and rejects reuse of that candidate.
 
-The continuation unit must not import the retired large orchestrator, add ADB
-or arbitrary command selection, or make old journals satisfy new fields.
+The continuation unit must not import the retired large orchestrator, execute
+ADB/TWRP/USB commands, add arbitrary command selection, or make old journals
+satisfy new fields. The fixed TWRP identity command is retained only as a
+review input for that future adapter.
+
+The CLI has only `prepare`, `resume`, and `finalize`. `prepare` is host-only;
+`resume` and `finalize` are fail-closed while `LIVE_EXECUTION_ENABLED` is
+false. The core functions accept only the reviewed backend protocol used by
+host-only tests. No backend is selected by a manifest or caller, and no
+command, serial, target, outcome, or reboot string is accepted as input.

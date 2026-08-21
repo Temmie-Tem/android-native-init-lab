@@ -1318,6 +1318,55 @@ A rollback failure or unclassified/missing receipt is `RECOVERY_REQUIRED`. The e
 first use of this terminal requires its schema update, focused tests, review,
 connected preflight, and compatibility binding; this document alone creates no
 active campaign.
+The owner reopens and strictly reads the durable `40-terminal.json` before
+releasing the active guard. It must be direct regular, bounded, canonical,
+duplicate-free, exact to the published envelope, and bound to the current
+qualification review/closure; mutation, deletion, symlink, short/extra bytes,
+or read failure retains the guards and raises without republishing or retrying
+the effect.
+The H28 qualification review, manifest, and consumed journal are frozen
+historical evidence: their original closure
+`0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f` is retained
+and is not rewritten to follow this owner. The current owner rejects that
+review for every new execution. H28 terminal-only readers may accept it only
+through their fixed manifest/review/journal byte pins for closed-run audit; that
+historical path creates no current qualification or live authority. H29 and
+later candidates require a fresh qualification, independent review, manifest,
+and current owner closure.
+The continuation and manifest-bound qualification reviews are separately leased
+by direct file identity and SHA-256; the continuation lease also binds the
+computed source closure. Pre/post contact and terminal callback checks reject
+drift or same-byte replacement before any later effect or active-guard release.
+Its SHA is an explicit approval/intent input, but the private qualification
+path and bytes are excluded from the continuation execution closure.
+
+The candidate-return continuation is a separate capability,
+`A90_F1_CANDIDATE_RETURN_CONTINUATION_V1`, implemented in
+`workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py`.
+Its `prepare` mode only derives a token from the exact manifest, pending
+receipt join, current continuation review, and source closure. Its `resume`
+and `finalize` modes require attended confirmation, publish fresh no-replace
+intents before contact, and accept only fixed USB/bridge/ADB inventory and
+exact Native/TWRP receipts. TWRP presence yields an operator instruction to
+press `Reboot -> System`; the host sends no reboot command. Candidate replay
+is forbidden. Attributable failure alone may use the existing one-shot
+rollback; ambiguity, foreign endpoints, observer loss, and transport/protocol
+failure park without rollback. The production backend is currently
+H0-disabled and this capability has no live authority until an independent
+PASS_GO binds its own closure and review.
+After a candidate PASS, only the active-run guard is released; the
+candidate-SHA guard remains as the durable consumed no-replay marker and may
+not be reused.
+Candidate and rollback health snapshots must join exactly to the manifest's
+qualification-review digest in `recoveryEvidenceSha256`; a different valid
+SHA is an observer/provenance failure and cannot produce PASS or
+`NO_PROOF_ROLLED_BACK`.
+TWRP identity is also exact-key and exact-type validated before equality;
+numeric stat fields reject bool, float, and string substitutions, and any
+identity mismatch parks without a physical instruction.
+After durable rollback launch record `31`, the active and candidate guards are
+revalidated immediately before the backend effect; a missing guard leaves a
+consumed no-replay rollback prefix and performs no flash.
 
 The one fixed H27 `EFBIG` incident dated 2026-08-21 may retire its retained
 host guards only through

@@ -71,7 +71,7 @@ class RecoveryRepairDocsTest(unittest.TestCase):
         self.assertEqual(len(M.EXECUTION_SOURCE_RELS), 13)
         self.assertEqual(
             M.execution_closure_sha256(),
-            "2ad09a1dedf4c84e481f9440e18645b94cf4222541339a73d6b5129ae7a99012",
+            "6ada12070f85d0800ca33b03d233ab8d006e4197bc5b0766f6759a86d63801e4",
         )
         self.assertEqual(
             M.POSTROLLBACK_RECOVERY_PATH[-1], "41-recovery-closed.json"

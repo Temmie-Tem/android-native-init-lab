@@ -591,6 +591,35 @@ identity:
   as `CANDIDATE_RETURN_PENDING_RECORD_MISSING_NO_ROLLBACK`; historical H28
   records without the new outcome are not reclassified. The `23` receipt
   digest must equal the durable `22` receipt digest exactly.
+  The separate candidate-neutral continuation state machine is implemented at
+  `workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py`;
+  only `prepare` is host-only usable now. `resume`/`finalize` and any physical
+  continuation remain H0-disabled pending an independent review of their
+  closure, fixed inventory grammar, intent ordering, and rollback attribution.
+  A continuation PASS releases only the active-run guard; the candidate-SHA
+  guard remains consumed so the same candidate can never be prepared again.
+  Candidate and rollback health snapshots must carry the exact manifest-bound
+  qualification-review digest as recovery evidence; a mismatched valid digest
+  parks rather than producing a new terminal success.
+  The H28 qualification review/manifest/journal bytes remain frozen historical
+  evidence at their original closure
+  `0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f`; the current owner
+  intentionally rejects that stale review for new execution. Closed-H28
+  reconciliation readers pin those historical bytes instead of promoting them
+  to current authority. H29 must receive a fresh qualification, review,
+  manifest, and owner-closure binding.
+  TWRP identity is exact-key/exact-type validated before comparison, including
+  rejection of bool, float, and string substitutions in numeric fields.
+  Rollback rechecks both guards after durable `31` and before flash; guard
+  loss parks the consumed prefix without recreating or replaying it.
+  Terminal `40` is now reopened and strictly read back before active-guard
+  release; byte, schema, review, closure, or readback drift retains guards
+  and raises without republishing or retrying the effect.
+  The continuation and manifest qualification reviews now have identity/SHA
+  leases (with continuation closure) checked around contacts, journal writes,
+  rollback, and terminal release; same-byte swaps are rejected.
+  Qualification-review SHA is explicit in approval/intents without adding its
+  private path or bytes to the continuation closure.
 
 ## What Leaves or Moves Out
 

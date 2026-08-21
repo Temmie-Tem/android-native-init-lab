@@ -79,6 +79,10 @@ INTENT_SCHEMA = "a90-h28-physical-system-return-intent-v1"
 RUN_ID = "a90-h28-f1-20260821-01"
 MANIFEST_PATH = owner.REPO_ROOT / "workspace/private/manifests/a90-h28-f1-20260821-01.json"
 MANIFEST_SHA256 = "e708e45e9cd925229682c76ad3b6359426f2e636eb26eb111ea54e9843e8d1c2"
+HISTORICAL_H28_MANIFEST_SHA256 = MANIFEST_SHA256
+HISTORICAL_H28_CANDIDATE_SHA256 = (
+    "aea34a96464affd2f7e6c30d237e2175940eef511e69c1452c9deab4833a521b"
+)
 TERMINAL_SHA256 = "400a6fe75ea54a738777092f828dede4d7b801bd3fbd8db29baddf26878c4f01"
 CURRENT_REVIEW_PATH = owner.REPO_ROOT / (
     "docs/reports/A90_H28_PHYSICAL_SYSTEM_RETURN_RECOVERY_INDEPENDENT_REVIEW_2026-08-21.json"
@@ -116,6 +120,25 @@ REVIEW_SCHEMA = "a90-h28-physical-system-return-independent-review-v1"
 REVIEW_KEYS = {"schema", "capability", "verdict", "runId", "manifestSha256", "terminalSha256", "executionClosureSha256", "findings", "contacts", "liveAuthority"}
 FINDING_KEYS = {"high", "medium", "low"}
 CONTACT_KEYS = {"device", "dev", "usb", "network", "workspacePrivate", "otherTargets", "writes"}
+HISTORICAL_QUALIFICATION_REVIEW_PATH = owner.REPO_ROOT / (
+    "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H28_INDEPENDENT_REVIEW_2026-08-21.json"
+)
+HISTORICAL_QUALIFICATION_REVIEW_SIZE = 1189
+HISTORICAL_QUALIFICATION_REVIEW_SHA256 = (
+    "51474c2d323971c07ca1425be613ea48cdd6c13f870606b166fba76835e6a9b2"
+)
+HISTORICAL_QUALIFICATION_CLOSURE_SHA256 = (
+    "0dca4f3ddc98eb4625411c93ad7c1748f3c016aab0075a570652ca946fc4eb1f"
+)
+HISTORICAL_MENU_REVIEW_SHA256 = (
+    "bf402c91fbfe156211c64f6a3ad472f50c3889e6ef6edad7a3c8fc4bcd16eca2"
+)
+HISTORICAL_MENU_CLOSURE_SHA256 = (
+    "6400c2854e15a0b2ae8ac59015a36aa19ae15bdfdb027018254c79e68e70bf5b"
+)
+HISTORICAL_H28_RECOVERY_SHA256 = (
+    "4ae580129004e3237889e886b4640dccc9efb8f194b74845357f70971c4795d7"
+)
 INTENT_KEYS = {"schema", "capability", "runId", "manifestSha256", "terminalSha256", "currentReviewSha256", "executionClosureSha256", "approvalSha256"}
 OBSERVATION_SCHEMA = "a90-h28-native-observation-intent-v1"
 OBSERVATION_KEYS = {"schema", "capability", "runId", "manifestSha256", "terminalSha256", "physicalSystemReturnIntentSha256", "currentReviewSha256", "executionClosureSha256", "operatorAttended", "physicalSystemReturnConfirmed"}
@@ -142,6 +165,98 @@ def _read_json(path: Path, label: str) -> tuple[bytes, Any]:
         return raw, owner.parse_canonical(raw, label)
     except owner.ContractError as exc:
         raise ContractError(str(exc)) from exc
+
+
+def _verify_historical_qualification_binding(manifest: dict[str, Any]) -> None:
+    """Validate only the consumed H28 qualification, never current authority.
+
+    The ordinary owner intentionally rejects this review after its source
+    closure changes.  This reader is limited to the fixed, already-consumed
+    H28 manifest and pins the historical review bytes/closure for audit.
+    """
+    if (
+        manifest.get("runId") != RUN_ID
+        or manifest.get("capability") != owner.CAPABILITY
+        or manifest.get("targetProfile") != owner.TARGET_PROFILE
+        or manifest.get("candidate", {}).get("sha256")
+        != HISTORICAL_H28_CANDIDATE_SHA256
+        or manifest.get("rollback", {}).get("sha256") != owner.V2321_ROLLBACK_SHA256
+    ):
+        raise ContractError("historical H28 qualification run identity is not exact")
+    binding = manifest["qualification"]["review"]
+    expected_binding = {
+        "path": str(HISTORICAL_QUALIFICATION_REVIEW_PATH),
+        "size": HISTORICAL_QUALIFICATION_REVIEW_SIZE,
+        "sha256": HISTORICAL_QUALIFICATION_REVIEW_SHA256,
+    }
+    if binding != expected_binding:
+        raise ContractError("historical H28 qualification binding is not exact")
+    raw, value = _read_json(
+        HISTORICAL_QUALIFICATION_REVIEW_PATH,
+        "historical H28 qualification review",
+    )
+    if len(raw) != HISTORICAL_QUALIFICATION_REVIEW_SIZE or _sha(raw) != HISTORICAL_QUALIFICATION_REVIEW_SHA256:
+        raise ContractError("historical H28 qualification review bytes changed")
+    if (
+        type(value) is not dict
+        or set(value)
+        != {
+            "schema", "capability", "verdict", "scope", "targetProfile",
+            "executionClosureSha256", "candidateSha256", "rollbackSha256",
+            "recovery", "hazard", "freshState", "findings", "contacts",
+            "reviewer", "reviewDate", "liveAuthority",
+        }
+        or value["schema"] != owner.QUALIFICATION_REVIEW_SCHEMA
+        or value["capability"] != owner.CAPABILITY
+        or value["verdict"] != "PASS_GO"
+        or value["scope"] != owner.QUALIFICATION_REVIEW_SCOPE
+        or value["targetProfile"] != owner.TARGET_PROFILE
+        or value["executionClosureSha256"] != HISTORICAL_QUALIFICATION_CLOSURE_SHA256
+        or value["candidateSha256"] != manifest["candidate"]["sha256"]
+        or value["rollbackSha256"] != manifest["rollback"]["sha256"]
+        or value["recovery"] != manifest["qualification"]["recovery"]
+        or value["hazard"] != manifest["qualification"]["hazard"]
+        or value["freshState"] != manifest["qualification"]["freshState"]
+        or value["liveAuthority"] is not False
+    ):
+        raise ContractError("historical H28 qualification review is not exact")
+    findings = value["findings"]
+    contacts = value["contacts"]
+    if (
+        type(findings) is not dict
+        or set(findings) != {"high", "medium", "low"}
+        or any(type(findings[key]) is not list or findings[key] for key in findings)
+        or type(contacts) is not dict
+        or set(contacts) != {
+            "device", "dev", "usb", "network", "workspacePrivate",
+            "otherTargets", "writes",
+        }
+        or any(type(item) is not int or item != 0 for item in contacts.values())
+    ):
+        raise ContractError("historical H28 qualification review disposition is not exact")
+
+
+def _historical_recovery_payload(record: dict[str, Any]) -> dict[str, Any]:
+    """Read the closed H28 record without promoting its old review closure."""
+    if (
+        type(record) is not dict
+        or _json_sha(record) != HISTORICAL_H28_RECOVERY_SHA256
+        or record.get("schema") != owner.RECORD_SCHEMA
+        or record.get("kind") != owner.RECORD_KINDS[RECOVERY_NAME]
+        or record.get("manifestSha256") != HISTORICAL_H28_MANIFEST_SHA256
+    ):
+        raise ContractError("historical H28 recovery record is not exact")
+    payload = record.get("payload")
+    if (
+        type(payload) is not dict
+        or payload.get("currentReviewSha256") != HISTORICAL_MENU_REVIEW_SHA256
+        or payload.get("executionClosureSha256") != HISTORICAL_MENU_CLOSURE_SHA256
+        or payload.get("decision") != "V2321_HEALTHY_AFTER_MENU_HIDE_OBSERVER_REPAIR"
+        or payload.get("candidateReplay") is not False
+        or payload.get("rollbackReplay") is not False
+    ):
+        raise ContractError("historical H28 recovery payload is not exact")
+    return payload
 
 
 def _private_dir(path: Path, label: str) -> None:
@@ -176,7 +291,7 @@ def _load_manifest() -> tuple[bytes, dict[str, Any]]:
         raise ContractError("fixed H28 manifest bytes changed")
     try:
         manifest = owner.validate_manifest(value)
-        owner._verify_qualification_inputs(manifest)
+        _verify_historical_qualification_binding(manifest)
     except owner.ContractError as exc:
         raise ContractError(str(exc)) from exc
     if manifest["runId"] != RUN_ID or manifest["candidate"]["sha256"] != "aea34a96464affd2f7e6c30d237e2175940eef511e69c1452c9deab4833a521b" or manifest["rollback"]["sha256"] != owner.V2321_ROLLBACK_SHA256:
@@ -202,6 +317,12 @@ def _load_records(manifest: dict[str, Any]) -> tuple[Path, dict[str, dict[str, A
         raise ContractError("fixed H28 incident terminal changed")
     if records["20-candidate-intent.json"]["payload"] != {"sha256": manifest["candidate"]["sha256"]} or records["30-rollback-intent.json"]["payload"] != {"sha256": manifest["rollback"]["sha256"]}:
         raise ContractError("fixed H28 transfer intents changed")
+    if (
+        MANIFEST_SHA256 == HISTORICAL_H28_MANIFEST_SHA256
+        and manifest["candidate"]["sha256"] == HISTORICAL_H28_CANDIDATE_SHA256
+        and RECOVERY_NAME in records
+    ):
+        _historical_recovery_payload(records[RECOVERY_NAME])
     return run_directory, records
 
 
@@ -416,10 +537,26 @@ def _state(*, require_active: bool, reject_intent: bool = False) -> State:
     manifest_raw, manifest = _load_manifest()
     run_directory, records = _load_records(manifest)
     _require_guards(manifest, active=require_active)
-    _, _, review_sha, closure = _load_current_review()
     sidecar = _sidecar_state()
     intent = None if sidecar is None else sidecar[0]
     observation = None if sidecar is None else sidecar[1]
+    if (
+        MANIFEST_SHA256 == HISTORICAL_H28_MANIFEST_SHA256
+        and manifest["candidate"]["sha256"] == HISTORICAL_H28_CANDIDATE_SHA256
+        and RECOVERY_NAME in records
+    ):
+        _historical_recovery_payload(records[RECOVERY_NAME])
+        return State(
+            manifest_raw,
+            manifest,
+            run_directory,
+            records,
+            HISTORICAL_MENU_REVIEW_SHA256,
+            HISTORICAL_MENU_CLOSURE_SHA256,
+            intent,
+            observation,
+        )
+    _, _, review_sha, closure = _load_current_review()
     _require_intent_binding(intent, review_sha, closure)
     _require_observation_binding(observation, None if intent is None else intent[2], review_sha, closure)
     if reject_intent and intent is not None:
@@ -541,6 +678,8 @@ def finalize(*, operator_attended: bool, physical_system_return_confirmed: bool)
     if operator_attended is not True or physical_system_return_confirmed is not True:
         raise ContractError("both physical-return operator flags are required")
     state = _state(require_active=False)
+    if MANIFEST_SHA256 == HISTORICAL_H28_MANIFEST_SHA256 and RECOVERY_NAME in state.records:
+        return _historical_recovery_payload(state.records[RECOVERY_NAME])
     if state.intent is None:
         raise ContractError("physical-return intent is not present")
     if state.observation is not None and RECOVERY_NAME not in state.records:

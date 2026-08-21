@@ -24,11 +24,12 @@ def load(name: str, path: Path):
     return module
 
 
-OWNER = load(
-    "a90_boot_only_f1_minimal_v1_receipt_test",
-    ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
-)
-sys.modules["a90_boot_only_f1_minimal_v1"] = OWNER
+OWNER = sys.modules.get("a90_boot_only_f1_minimal_v1")
+if OWNER is None:
+    OWNER = load(
+        "a90_boot_only_f1_minimal_v1",
+        ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py",
+    )
 ADAPTER = load(
     "a90_boot_only_f1_adapter_v1_receipt_test",
     ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_adapter_v1.py",
