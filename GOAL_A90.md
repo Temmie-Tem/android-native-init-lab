@@ -40,19 +40,17 @@ the separately registered S20+ goal and every future target row.
   and that old replaceable continuation lease is superseded. The H32-only
   continuation closed `PRETRANSFER_ABORTED_NO_BOOT_WRITE`, released the active
   guard, retained the consumed H32 candidate guard, and permits no replay.
-- H33 is a fresh H0 host-only materialization,
-  `0.11.200 / phase3-minimal-h33-stock-rebuild-1007-cfp`, 58,372,096 bytes,
-  SHA-256 `bdbcfc5fb82150c2d508df1e4d7ae7b71f0659b7d6b02ddab506f263f6063e12`.
-  Its A/B bytes are identical and its kernel blob matches H32, but its full
-  boot identity is new. The attended H33 F1 then stopped both candidate and
-  rollback branches at `PRE_WRITE_FAILURE` before any write because the helper
-  compared a bare TWRP version against the full bound banner; the candidate is
-  consumed, and candidate-neutral postrollback later proved exact healthy V2321
-  and released only the active guard. The narrow banner repair changed owner
-  closure `48cb09e3…` to `1c31fb97…`; the continuation also changed from
-  `a62318c7…` to `d053e137…`. The H33 `PASS_GO` and private manifest are
-  historical/stale for execution and require fresh review. See
-  `docs/reports/A90_H33_F1_TWRP_VERSION_BANNER_INCIDENT_H0_2026-08-22.md`.
+- H29–H33 are consumed and cannot be replayed. H34 is the fresh H0 host-only
+  materialization, `0.11.201 / phase3-minimal-h34-stock-rebuild-1007-cfp`,
+  58,372,096 bytes, SHA-256
+  `233bfdcac20d5fdc1184a907e8e8b5cd4d2c1286dc08a8f6028cfcf5c90ad4ee`.
+  A/B are identical and the kernel blob matches H33. Current owner,
+  continuation, and postrollback capability leases are bound at
+  `1c31fb97…`, `d053e137…`, and review `22c0e6a6…`/`429c84e5…` respectively.
+  The input was frozen pending review; current H34 review is `PASS_GO` at
+  `9741aa0a…`, and the private manifest binds that review. D0, approval, F1,
+  and live authority still do not exist.
+  See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H34_H0_2026-08-22.md`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 

@@ -1,0 +1,90 @@
+{
+  "schema": "a90-boot-only-f1-minimal-review-input-v1",
+  "capability": "A90_BOOT_ONLY_F1_MINIMAL_V1",
+  "scope": "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_CANDIDATE_HAZARD",
+  "targetProfile": "SAMSUNG_A90_5G",
+  "authority": {
+    "candidate": false,
+    "candidateAuthority": false,
+    "d0": false,
+    "f1": false,
+    "live": false,
+    "liveAuthority": false
+  },
+  "executionClosureSha256": "1c31fb97e8f181e63bd71949b020f647aa8dab45c63d13bd089f6be2659da8a8",
+  "candidate": {
+    "version": "0.11.201",
+    "build": "phase3-minimal-h34-stock-rebuild-1007-cfp",
+    "size": 58372096,
+    "sha256": "233bfdcac20d5fdc1184a907e8e8b5cd4d2c1286dc08a8f6028cfcf5c90ad4ee"
+  },
+  "expectedStart": {
+    "version": "0.9.285",
+    "build": "v2321-usb-clean-identity-rodata"
+  },
+  "rollback": {
+    "version": "0.9.285",
+    "build": "v2321-usb-clean-identity-rodata",
+    "size": 60882944,
+    "sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+  },
+  "freshState": {
+    "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h34.enable",
+    "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h34.done"
+  },
+  "recovery": {
+    "demonstrated": true,
+    "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+    "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
+  },
+  "recoveryIdentity": {
+    "adbSerialSha256": null,
+    "binding": "PRIVATE_MANIFEST_BOUND_AT_D0",
+    "rawSerialTracked": false,
+    "status": "UNBOUND_PRIVATE_MANIFEST_REQUIRED"
+  },
+  "continuationReview": {
+    "capability": "A90_F1_CANDIDATE_RETURN_CONTINUATION_V1",
+    "schema": "a90-f1-candidate-return-continuation-independent-review-v1",
+    "scope": "A90_F1_CANDIDATE_RETURN_CONTINUATION_AND_NO_REPLAY",
+    "path": "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json",
+    "size": 547,
+    "sha256": "22c0e6a60eb94dd5407d995c8e4b7e283bb149057e0ecbf8164dae5e613b49e9",
+    "executionClosureSha256": "d053e137ca6d984709e53a1200d1e980f6d766ab4dd30cbb012cef2ddd3ee9e1",
+    "verdict": "PASS_GO",
+    "liveAuthority": false
+  },
+  "postrollbackReview": {
+    "capability": "A90_F1_POSTROLLBACK_RECOVERY_V1",
+    "schema": "a90-f1-postrollback-recovery-independent-review-v1",
+    "path": "docs/reports/A90_F1_POSTROLLBACK_RECOVERY_CURRENT_REVIEW.json",
+    "size": 437,
+    "sha256": "429c84e57b873619fd840df7afa009d52a99560de6a4c461cf84da3c73aa5429",
+    "executionClosureSha256": "a0cc1b26a3c7f1c0f36801e8de990a4f5502cbaa11b60daa6b9853def305284d",
+    "verdict": "PASS_GO",
+    "liveAuthority": false
+  },
+  "independentReview": {
+    "path": "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H34_INDEPENDENT_REVIEW_2026-08-22.json",
+    "status": "PENDING_INDEPENDENT_REVIEW",
+    "verdict": null,
+    "liveAuthority": false
+  },
+  "hazard": {
+    "accepted": true,
+    "id": "A90_SELF_BUILT_KERNEL_BOOT_ACCEPTANCE_WITH_NEW_BUILD_CERT",
+    "statement": "Exact H34 is an A908N OSRC kernel rebuild produced with Snapdragon LLVM 10.0.7, preserves CONFIG_UH_RKP, CONFIG_RKP_CFP, CONFIG_RKP_CFP_JOPP, and CONFIG_RKP_CFP_ROPP, but carries a non-stock build certificate. Qualification is limited to one attended boot-only Native health experiment with exact V2321 rollback; Android/vendor external-module compatibility, stock byte equivalence, full build reproducibility, and the H34 boot result remain unproved. H29, H30, H31, H32, and H33 are consumed and cannot be replayed or used as H34 evidence.",
+    "statementEncoding": "UTF8_NO_TRAILING_NEWLINE",
+    "statementSha256": "778623dde77b39b1c694b03003fede05860a2ccecd04886f3657faa760882508"
+  },
+  "build": {
+    "reportPath": "docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H34_H0_2026-08-22.md",
+    "reportSha256": "d4dc538fce7c80504bd3ce8c804d7a95a70d31f84d7cc35249fcd411fd72d08d",
+    "flatManifestPath": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h34/manifest.toml",
+    "flatManifestSha256": "d2f27becfe42491519dd82defafaa82bb974e125dfc937b38f44b62370c5014d",
+    "effectiveManifestSha256": "77de213ddbb02a2e4c5abec91e1f0b454717c1c62dd0cbf2504f4c225336cd19",
+    "abBootSha256": "233bfdcac20d5fdc1184a907e8e8b5cd4d2c1286dc08a8f6028cfcf5c90ad4ee",
+    "abBootSize": 58372096,
+    "candidateAuthority": false
+  }
+}
