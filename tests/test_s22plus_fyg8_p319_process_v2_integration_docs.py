@@ -99,11 +99,14 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         ]
         self.assertEqual(len(executability), P319_EXECUTABILITY_CLASS_COUNT)
         self.assertEqual(len(set(executability)), P319_EXECUTABILITY_CLASS_COUNT)
-        self.assertIn("Status: `IMPLEMENTED_REVIEW_PENDING`", self.repin_report)
-        self.assertIn("49 total / 34 resolved / 15 unresolved", self.repin_report)
+        self.assertIn(
+            "Status: `PASS_GO_P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_H0_CAPABILITY_V1`",
+            self.repin_report,
+        )
+        self.assertIn("49 total / 35 resolved / 14 unresolved", self.repin_report)
         self.assertIn("h0-process-v2-contract-repin-31", self.repin_report)
         self.assertIn(
-            "P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_IMPLEMENTED_REVIEW_PENDING",
+            "PASS_GO_P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_H0_CAPABILITY_V1",
             self.repin_report,
         )
         self.assertIn("Ran 532 tests in 166.955s", self.repin_report)

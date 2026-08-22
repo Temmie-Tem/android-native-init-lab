@@ -1,6 +1,6 @@
 # S22+ FYG8 P3.19 Process-v2 Contract Repin and Suite Cardinality H0
 
-Status: `IMPLEMENTED_REVIEW_PENDING`.
+Status: `PASS_GO_P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_H0_CAPABILITY_V1` (scoped H0 review; integration remains blocked).
 
 This is a host-only procedural record. It contacts no device and creates no
 ready, run, approval, D0, D1, F1, recovery, replay, causal, candidate-success,
@@ -28,10 +28,11 @@ not catch or suppress that class's `setUpClass` errors: the pre-repin run's
 519 started methods remains recorded as `532 - 13`, with 517 passes and two
 errors.
 
-This changed auditor/cardinality closure is itself
-`IMPLEMENTED_REVIEW_PENDING`; independent changed-closure review is required.
-It does not reopen or alter the already reviewed permanent common-contract
-decision.
+Two independent changed-closure reviewers returned PASS at commit
+`1adfd9683d` with no actionable findings. The review resolves only topic 31;
+it does not reopen or alter the already reviewed permanent common-contract
+decision. A minor traceability ambiguity about the new auditor/cardinality
+closure is resolved by the explicit topic-31 ledger pair below.
 
 ## Current qualification state
 
@@ -64,10 +65,14 @@ No ready/live authority is created. The expected unavailable mount input
 `/mnt/android-lab-logical/vendor_dlkm/lib/modules/spu_verify.ko` remains a
 separate host qualification limitation and is not relabelled as a pass.
 
-The append-only ledger row is
-`h0-process-v2-contract-repin-31` with action
-`P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_IMPLEMENTED_REVIEW_PENDING`.
-It advances full-tail accounting to `49 total / 34 resolved / 15 unresolved`
-and opens only this topic-31 review obligation; the exact unresolved topic and
-ordinal are `process-v2-contract-repin` and
-`h0-process-v2-contract-repin-31`.
+The append-only ledger pair is `h0-process-v2-contract-repin-31` followed by
+`h0-process-v2-contract-repin-review-31` with action
+`PASS_GO_P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_H0_CAPABILITY_V1`.
+It advances full-tail accounting to `49 total / 35 resolved / 14 unresolved`
+and resolves only topic 31. The exact executability receipt is `96194B`,
+SHA-256 `6d5e14b7…`, mode 0400/nlink 1; the integration receipt is `59678B`,
+SHA-256 `7f8f2b20…`, mode 0400/nlink 1. Focused counts are executability
+13/13, common Process-v2 126/126, integration qualification 10/10,
+integration docs 7/7, and taxonomy 39/39. Fresh broad selection is
+532 = 531 pass + 0 fail + 1 known mount-path error. Integration remains
+blocked on the three named blockers and grants no ready/live authority.
