@@ -237,6 +237,12 @@ build. Only after those two byte closures exist should the project decide which
 single boot-only canary has the higher information value. Neither preparation
 creates F1 authority.
 
+Follow-up: `A90_PUBLIC_MPGEN27_SELF_CONSISTENT_RTIC_REBUILD_H0_2026-08-22.md`
+completed the structural MPGen control and tested the closest public 4.14.190
+source snapshots. RTIC byte consistency now passes, but the public test catalog
+differs from the stock production MP and exact public-ROM source remains
+unproved; no candidate or live authority was created.
+
 ## Boundary
 
 This unit contacted public web servers only. It did not enumerate or contact
