@@ -50,10 +50,10 @@ the separately registered S20+ goal and every future target row.
   missing `rtic_mp` plus a stale stock RTIC DTB. The historical public MPGen
   producer now emits offsets `88/1704/1728/2144`; two fresh trees produce exact
   Image `1ddae56f8df97030794a590192e4a4162876736029b1a54fd26173c9287002b7`
-  and structural RTIC `PASS`. Only the known static defects close; proprietary
-  acceptance remains unproved and no successor/live authority exists. Next is
-  independent H0 review of the exact residual canary hazard bundle; see
-  `docs/reports/A90_RTIC_LOCATOR_REPAIRED_DETERMINISTIC_REBUILD_H0_2026-08-23.md`.
+  and structural RTIC `PASS`. Review `PASS_GO_H0_CANARY_HAZARD` accepts H1–H6
+  only for one future attended canary; no successor/live authority exists. Next
+  H0 is fresh successor allocation plus exact carrier/identity-only ramdisk
+  packaging; see `docs/reports/A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_INDEPENDENT_REVIEW_2026-08-23.json`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 

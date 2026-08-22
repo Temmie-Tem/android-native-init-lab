@@ -1,0 +1,91 @@
+{
+  "acceptedClaim": "One future attended boot-only canary may test whether the exact reviewed public-MPGen kernel reaches bounded Native health before any Debian handoff.",
+  "artifact": {
+    "expectedCarrierSha256": "15b49a71aeb2342a5b5a7e24de27f78a4124bf877f6d8d8f28aaab928fa6bd71",
+    "expectedCarrierSize": 49827613,
+    "imageSha256": "1ddae56f8df97030794a590192e4a4162876736029b1a54fd26173c9287002b7",
+    "imageSize": 48830480,
+    "mpSha256": "d95fd9710dd019c5f2e0a273669bcb9b96f81dfdf994afd940b9abb4ff04ec69",
+    "rticDtbSha256": "68e6ab5bb2ccdde5e3d87086110257176c0fe55726d1d4f5db6eba3a4b6aca04"
+  },
+  "candidateAllocated": false,
+  "contacts": {
+    "adb": 0,
+    "dev": 0,
+    "device": 0,
+    "network": 0,
+    "otherTargets": 0,
+    "usb": 0,
+    "workspacePrivate": 0,
+    "writes": 0
+  },
+  "failureAttribution": {
+    "evidenceAbsence": "NO_PROOF_OBSERVER",
+    "permitsCandidateReplay": false,
+    "rticSpecificAttributionFromBootFailure": false
+  },
+  "findings": {
+    "high": [],
+    "low": [],
+    "medium": []
+  },
+  "futurePrerequisites": [
+    "FRESH_SUCCESSOR_IDENTITY",
+    "EXACT_CARRIER_AND_IDENTITY_ONLY_RAMDISK_PACKAGE",
+    "CANDIDATE_SPECIFIC_QUALIFICATION_AND_MANIFEST",
+    "CURRENT_OWNER_CONTINUATION_OBSERVER_ROLLBACK_POSTROLLBACK_BINDINGS",
+    "FRESH_EXACT_V2321_HEALTH_AND_PHYSICAL_RECOVERY_D0",
+    "FRESH_ATTENDED_EXACT_CANDIDATE_ROLLBACK_APPROVAL",
+    "ONE_SHOT_F1_WITH_NO_CANDIDATE_REPLAY",
+    "FIRST_OPPORTUNITY_EVIDENCE_THEN_JOURNAL_BOUND_ROLLBACK_RECOVERY"
+  ],
+  "handoff": {
+    "path": "docs/plans/A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_REVIEW_HANDOFF_2026-08-23.md",
+    "sha256": "63550ea351a26fec2802c80c54e3490f062a7fff16e550c23af35290a8b4b163"
+  },
+  "hazardBundle": [
+    {
+      "accepted": true,
+      "id": "H1_NON_STOCK_MPGEN_CONTENT_VERSION",
+      "scope": "ONE_FUTURE_ATTENDED_CANARY_ONLY"
+    },
+    {
+      "accepted": true,
+      "id": "H2_CANDIDATE_DERIVED_MEASURED_EXTENT",
+      "scope": "ONE_FUTURE_ATTENDED_CANARY_ONLY"
+    },
+    {
+      "accepted": true,
+      "id": "H3_PUBLIC_CATALOG_AND_PRODUCER_PROVENANCE",
+      "scope": "ONE_FUTURE_ATTENDED_CANARY_ONLY"
+    },
+    {
+      "accepted": true,
+      "id": "H4_PROPRIETARY_RTIC_QHEE_RESPONSE",
+      "scope": "ONE_FUTURE_ATTENDED_CANARY_ONLY"
+    },
+    {
+      "accepted": true,
+      "id": "H5_POSSIBLE_PROPRIETARY_WHOLE_IMAGE_MEASUREMENT",
+      "scope": "ONE_FUTURE_ATTENDED_CANARY_ONLY"
+    },
+    {
+      "accepted": true,
+      "id": "H6_STANDALONE_PRODUCT_SECONDARY_INPUT_GAPS",
+      "scope": "ONE_FUTURE_ATTENDED_CANARY_ONLY"
+    }
+  ],
+  "liveAuthority": false,
+  "publicFocusedTests": 50,
+  "reviewDate": "2026-08-23",
+  "reviewer": "Independent A90 safety reviewer",
+  "schema": "a90-rtic-public-mpgen-canary-hazard-independent-review-v1",
+  "sourceCommit": "1639f7c6a3e0c4d73ad036952fcbd4924c968816",
+  "sourceReport": {
+    "path": "docs/reports/A90_RTIC_LOCATOR_REPAIRED_DETERMINISTIC_REBUILD_H0_2026-08-23.md",
+    "sha256": "fcd1a282ad072cbc22a93b0596c2858797db5599e2d3fae3cd9d71de1ac32e2f"
+  },
+  "targetProfile": "SAMSUNG_A90_5G",
+  "tier": "H0",
+  "verdict": "PASS_GO_H0_CANARY_HAZARD"
+}
