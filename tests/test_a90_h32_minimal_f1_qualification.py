@@ -15,8 +15,8 @@ INPUT = ROOT / "docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-22.j
 HANDOFF = ROOT / "docs/plans/A90_H32_MINIMAL_F1_QUALIFICATION_HANDOFF_2026-08-22.md"
 REPORT = ROOT / "docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H32_H0_2026-08-22.md"
 MANIFEST = ROOT / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h32/manifest.toml"
-CONTINUATION_REVIEW = ROOT / "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json"
 REVIEW = ROOT / "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H32_INDEPENDENT_REVIEW_2026-08-22.json"
+SUPERSESSION = ROOT / "docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md"
 OWNER = ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py"
 CONTINUATION = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py"
 
@@ -51,13 +51,13 @@ class A90H32MinimalQualificationTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.value = _strict_json(INPUT)
 
-    def test_current_candidate_owner_and_rollback_are_exact(self) -> None:
+    def test_historical_candidate_owner_and_rollback_are_exact(self) -> None:
         owner = _load("a90_h32_owner", OWNER)
         self.assertEqual(
             self.value["executionClosureSha256"],
             "0a6122d2902d9f72b8e4d1e1f9d23cbcc3767d48be50a01e052ba81a1c41745e",
         )
-        self.assertEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
+        self.assertNotEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
         self.assertEqual(self.value["candidate"], {
             "version": "0.11.199",
             "build": "phase3-minimal-h32-stock-rebuild-1007-cfp",
@@ -89,19 +89,17 @@ class A90H32MinimalQualificationTest(unittest.TestCase):
         self.assertIn("H32 boot result remain unproved", hazard["statement"])
         self.assertIn("H29, H30, and H31 are consumed", hazard["statement"])
 
-    def test_current_continuation_lease_is_exact(self) -> None:
+    def test_historical_continuation_lease_is_explicitly_superseded(self) -> None:
         continuation = _load("a90_h32_continuation", CONTINUATION)
         declared = self.value["continuationReview"]
-        self.assertEqual(declared["sha256"], _sha(CONTINUATION_REVIEW))
         self.assertEqual(declared["sha256"], "7688558ec7a0b592053e04408d4a3863ae8a8ecc389c542d17ca906137c5d606")
-        self.assertEqual(declared["size"], CONTINUATION_REVIEW.stat().st_size)
         self.assertEqual(declared["size"], 547)
-        self.assertEqual(declared["executionClosureSha256"], continuation.execution_closure_sha256())
         self.assertEqual(declared["executionClosureSha256"], "585869c5c4eb843b165afea4ba1e5d10f228cda84dd1b924936e0ea0c369921f")
-        review = _strict_json(CONTINUATION_REVIEW)
-        self.assertEqual(review["executionClosureSha256"], declared["executionClosureSha256"])
-        self.assertEqual(review["verdict"], "PASS_GO")
-        self.assertFalse(review["liveAuthority"])
+        self.assertNotEqual(declared["executionClosureSha256"], continuation.execution_closure_sha256())
+        text = SUPERSESSION.read_text(encoding="utf-8")
+        self.assertIn("SUPERSEDED_CONSUMED_CANDIDATE_AND_STALE_CLOSURE", text)
+        self.assertIn("H33", text)
+        self.assertIn("No H32 effect may replay", text)
 
     def test_recovery_identity_remains_private_and_unbound(self) -> None:
         identity = self.value["recoveryIdentity"]
@@ -123,6 +121,8 @@ class A90H32MinimalQualificationTest(unittest.TestCase):
             self.assertIn(expected, text)
 
     def test_independent_review_binds_exact_input(self) -> None:
+        self.assertEqual(_sha(INPUT), "9da1d3c29fbc36616e68b9c983e6fdc3386fd57a0345e764c8e6aabc6cf470d6")
+        self.assertEqual(_sha(REVIEW), "c7454db67c768a68b661bec230d3206a2817558d7dc55634d9e062d0854dc49f")
         review = _strict_json(REVIEW)
         self.assertEqual(review["verdict"], "PASS_GO")
         self.assertEqual(review["executionClosureSha256"], self.value["executionClosureSha256"])

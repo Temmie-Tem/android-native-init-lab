@@ -9,8 +9,6 @@ import types
 import unittest
 from pathlib import Path
 from unittest import mock
-
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (
     ROOT
@@ -21,12 +19,9 @@ assert SPEC and SPEC.loader
 M = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = M
 SPEC.loader.exec_module(M)
-
-
 HEX_A = "a" * 64
 HEX_B = "b" * 64
 HEX_C = "c" * 64
-
 
 class FakeBackend:
     def __init__(self, start: M.Snapshot, flashes=None, observations=None):
@@ -53,8 +48,6 @@ class FakeBackend:
         if isinstance(result, BaseException):
             raise result
         return result
-
-
 class MinimalF1Test(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -152,7 +145,6 @@ class MinimalF1Test(unittest.TestCase):
         ) = self.production_rollback
         M.RUN_ROOT = self.production_run_root
         self.temp.cleanup()
-
     def _artifact(self, path: Path, version: str, build: str):
         raw = path.read_bytes()
         return {
@@ -166,7 +158,6 @@ class MinimalF1Test(unittest.TestCase):
     def _input(self, path: Path):
         raw = path.read_bytes()
         return {"path": str(path), "size": len(raw), "sha256": M.sha256_bytes(raw)}
-
     def _snapshot(
         self,
         version: str,
@@ -1166,6 +1157,16 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(first.runner.log_directory.name, "a90-minimal-001-execute-1-logs")
         self.assertEqual(second.runner.log_directory.name, "a90-minimal-001-execute-2-logs")
 
+    def test_live_backend_binds_recovery_redactor_and_persists_digest_only_inventory(self):
+        backend = M._live_backend(self.manifest, "redacted")
+        self.assertIn(HEX_C, backend.runner.redactor._hashes)
+        inventory = f"List of devices attached\n{HEX_C}\trecovery usb:1-2 product:a90\n"
+        result = backend.runner.run("adb-inventory", (sys.executable, "-c", f"import sys;sys.stdout.write({inventory!r})"), 5)
+        self.assertIn(HEX_C.encode(), result.stdout)
+        persisted = b"".join(path.read_bytes() for path in backend.runner.log_directory.iterdir() if path.is_file())
+        self.assertNotIn(HEX_C.encode(), persisted)
+        self.assertIn(b"A90-ADB-INVENTORY-STDOUT-SHA256:", persisted)
+
     def test_live_backend_adapter_import_does_not_depend_on_sys_path(self):
         adapter_name = "a90_boot_only_f1_adapter_v1"
         old_adapter = sys.modules.pop(adapter_name, None)
@@ -1205,8 +1206,6 @@ class MinimalF1Test(unittest.TestCase):
                 M._live_backend(self.manifest, "execute")
         finally:
             sys.modules[canonical] = old_minimal
-
-
 class MinimalSurfaceTest(unittest.TestCase):
     def test_exact_a90_twrp_bcb_exception_is_narrow_and_bound(self):
         digest = "3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07"
@@ -1244,7 +1243,6 @@ class MinimalSurfaceTest(unittest.TestCase):
         active_text = "\n".join(path.read_text() for path in active_files)
         for name in retired:
             self.assertNotIn(name, active_text)
-
 
 if __name__ == "__main__":
     unittest.main()

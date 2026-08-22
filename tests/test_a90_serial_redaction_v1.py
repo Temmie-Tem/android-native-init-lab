@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import io
+import os
 import sys
 import tempfile
 import unittest
@@ -99,10 +100,19 @@ class SerialRedactionTest(unittest.TestCase):
                 "adb-inventory", (sys.executable, "-c", inventory_code), 5
             )
             self.assertIn(self.RAW.encode(), result.stdout)
-            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir())
+            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir() if path.is_file())
             self.assertNotIn(self.RAW.encode(), persisted)
             self.assertIn(b"A90-ADB-INVENTORY-STDOUT-SHA256:", persisted)
             self.assertIn(b"A90-ADB-INVENTORY-STDERR-SHA256:", persisted)
+            private_key = runner.adb_android / "adbkey"
+            private_key.write_bytes(self.RAW.encode())
+            private_key.chmod(0o600)
+            persisted = b"".join(
+                path.read_bytes()
+                for path in runner.log_directory.iterdir()
+                if path.is_file()
+            )
+            self.assertNotIn(self.RAW.encode(), persisted)
 
             malformed_code = (
                 "import sys; sys.stdout.write('unknown line "
@@ -110,7 +120,7 @@ class SerialRedactionTest(unittest.TestCase):
                 + "\\n')"
             )
             runner.run("adb-inventory", (sys.executable, "-c", malformed_code), 5)
-            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir())
+            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir() if path.is_file())
             self.assertNotIn(self.RAW.encode(), persisted)
             self.assertIn(b"A90-ADB-INVENTORY-STDOUT-SHA256:", persisted)
 
@@ -123,7 +133,7 @@ class SerialRedactionTest(unittest.TestCase):
                 + "\\n'); sys.exit(3)"
             )
             runner.run("adb-inventory", (sys.executable, "-c", nonzero_code), 5)
-            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir())
+            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir() if path.is_file())
             self.assertNotIn(self.RAW.encode(), persisted)
             self.assertIn(b"A90-ADB-INVENTORY-STDERR-SHA256:", persisted)
 
@@ -137,7 +147,7 @@ class SerialRedactionTest(unittest.TestCase):
                 (sys.executable, "-c", inventory_timeout_code),
                 1,
             )
-            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir())
+            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir() if path.is_file())
             self.assertNotIn(self.RAW.encode(), persisted)
 
             failure_code = (
@@ -149,7 +159,7 @@ class SerialRedactionTest(unittest.TestCase):
                 "flash-rollback", (sys.executable, "-c", failure_code), 5
             )
             self.assertEqual(failed.returncode, 7)
-            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir())
+            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir() if path.is_file())
             self.assertNotIn(self.RAW.encode(), persisted)
 
             timeout_code = (
@@ -161,7 +171,7 @@ class SerialRedactionTest(unittest.TestCase):
                 "flash-rollback", (sys.executable, "-c", timeout_code), 1
             )
             self.assertEqual(timed.returncode, 124)
-            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir())
+            persisted = b"".join(path.read_bytes() for path in runner.log_directory.iterdir() if path.is_file())
             self.assertNotIn(self.RAW.encode(), persisted)
 
     def test_owner_native_log_argv_recovery_present_and_new_arrival_are_redacted(self):
@@ -170,44 +180,51 @@ class SerialRedactionTest(unittest.TestCase):
         NATIVE.OWNER_EFFECT_STATE = NATIVE.OwnerEffectState()
         NATIVE.OWNER_SERIAL_REDACTOR = SerialRedactor(hashes=(self.digest,))
         try:
-            output = io.StringIO()
-            with contextlib.redirect_stderr(output):
-                NATIVE.log(f"owner serial={self.RAW}")
-                with mock.patch.object(
-                    NATIVE.subprocess,
-                    "run",
-                    return_value=NATIVE.subprocess.CompletedProcess([], 0, b"", b""),
-                ):
-                    NATIVE.run_command(
-                        [NATIVE.OWNER_ADB, "-s", self.RAW, "shell", "true"],
-                        check=False,
-                    )
-                with mock.patch.object(
-                    NATIVE,
-                    "adb_devices",
-                    return_value=[(self.RAW, "recovery")],
-                ), mock.patch.object(NATIVE.time, "sleep"):
-                    NATIVE.bind_present_recovery_or_native_baseline(
-                        NATIVE.OWNER_ADB,
-                        expected_serial_sha256=self.digest,
-                    )
-                with mock.patch.object(
-                    NATIVE,
-                    "adb_devices",
-                    return_value=[("FOREIGN", "device"), (self.RAW, "recovery")],
-                ), mock.patch.object(NATIVE.time, "sleep"):
-                    NATIVE.wait_for_new_recovery_adb(
-                        NATIVE.OWNER_ADB,
-                        [("FOREIGN", "device")],
-                        1,
-                        expected_serial_sha256=self.digest,
-                    )
-            rendered = output.getvalue()
-            self.assertNotIn(self.RAW, rendered)
-            self.assertIn(self.marker, rendered)
+            with tempfile.TemporaryDirectory() as temporary:
+                owner_runner = adapter.HostRunner(Path(temporary) / "logs")
+                owner_environment = owner_runner.environment
+                with mock.patch.dict(os.environ, owner_environment, clear=False):
+                    self._run_owner_native_redaction_checks()
         finally:
             NATIVE.OWNER_EFFECT_STATE = previous_state
             NATIVE.OWNER_SERIAL_REDACTOR = previous_redactor
+
+    def _run_owner_native_redaction_checks(self) -> None:
+        output = io.StringIO()
+        with contextlib.redirect_stderr(output):
+            NATIVE.log(f"owner serial={self.RAW}")
+            with mock.patch.object(
+                NATIVE.subprocess,
+                "run",
+                return_value=NATIVE.subprocess.CompletedProcess([], 0, b"", b""),
+            ):
+                NATIVE.run_command(
+                    [NATIVE.OWNER_ADB, "-s", self.RAW, "shell", "true"],
+                    check=False,
+                )
+            with mock.patch.object(
+                NATIVE,
+                "adb_devices",
+                return_value=[(self.RAW, "recovery")],
+            ), mock.patch.object(NATIVE.time, "sleep"):
+                NATIVE.bind_present_recovery_or_native_baseline(
+                    NATIVE.OWNER_ADB,
+                    expected_serial_sha256=self.digest,
+                )
+            with mock.patch.object(
+                NATIVE,
+                "adb_devices",
+                return_value=[("FOREIGN", "device"), (self.RAW, "recovery")],
+            ), mock.patch.object(NATIVE.time, "sleep"):
+                NATIVE.wait_for_new_recovery_adb(
+                    NATIVE.OWNER_ADB,
+                    [("FOREIGN", "device")],
+                    1,
+                    expected_serial_sha256=self.digest,
+                )
+        rendered = output.getvalue()
+        self.assertNotIn(self.RAW, rendered)
+        self.assertIn(self.marker, rendered)
 
 
 if __name__ == "__main__":

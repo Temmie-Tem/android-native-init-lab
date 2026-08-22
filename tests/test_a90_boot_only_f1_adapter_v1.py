@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
+import resource
 import sys
 import tempfile
 import unittest
@@ -476,7 +478,7 @@ class FixedAdapterTest(unittest.TestCase):
     def test_rollback_zero_timeout_stops_before_helper(self):
         runner = FakeRunner([usb_zero_samsung(), usb_zero_samsung()])
         with (
-            mock.patch.object(A.time, "monotonic", side_effect=[0.0, 0.0, 6.0]),
+            mock.patch.object(A.time, "monotonic", side_effect=[0.0, 0.0, 31.0]),
             mock.patch.object(A.time, "sleep"),
             self.assertRaisesRegex(A.ContractError, "re-enumeration timed out"),
         ):
@@ -491,7 +493,7 @@ class FixedAdapterTest(unittest.TestCase):
     def test_rollback_exact_arrival_after_deadline_stops_before_helper(self):
         runner = FakeRunner([usb_zero_samsung(), usb_recovery_inventory()])
         with (
-            mock.patch.object(A.time, "monotonic", side_effect=[0.0, 0.0, 6.0]),
+            mock.patch.object(A.time, "monotonic", side_effect=[0.0, 0.0, 31.0]),
             mock.patch.object(A.time, "sleep"),
             self.assertRaisesRegex(A.ContractError, "re-enumeration timed out"),
         ):
@@ -597,6 +599,111 @@ class FixedAdapterTest(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o700)
             with self.assertRaisesRegex(A.ContractError, "already exists"):
                 A.HostRunner(path)
+
+    def test_live_host_runner_binds_private_adb_home_and_no_ambient_home(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            runner = A.HostRunner(root / "logs")
+            self.assertEqual(runner.environment["HOME"], str(runner.adb_home))
+            self.assertNotIn("ADB_SERVER_SOCKET", runner.environment)
+            result = runner.run(
+                "environment-check",
+                (
+                    sys.executable,
+                    "-c",
+                    (
+                        "import os; assert os.environ['HOME'].endswith('/.adb-home'); "
+                        "assert os.environ['A90_F1_OWNER_ADB_HOME']==os.environ['HOME']; "
+                        "assert 'USER' not in os.environ; print('ok')"
+                    ),
+                ),
+                10,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, b"ok\n")
+            self.assertEqual(runner.adb_home.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(runner.adb_android.stat().st_mode & 0o777, 0o700)
+
+    def test_live_host_runner_rejects_adb_home_drift(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            runner = A.HostRunner(root / "logs")
+            (runner.adb_home / "unexpected").write_bytes(b"x")
+            with self.assertRaisesRegex(A.ContractError, "unexpected entries"):
+                runner.run("drift-check", (sys.executable, "-c", "pass"), 10)
+            (runner.adb_home / "unexpected").unlink()
+            runner.adb_home.chmod(0o755)
+            with self.assertRaisesRegex(A.ContractError, "mode 0700"):
+                runner.run("mode-check", (sys.executable, "-c", "pass"), 10)
+
+    def test_live_host_runner_rejects_adb_android_symlink(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            runner = A.HostRunner(root / "logs")
+            android = runner.adb_android
+            android.rmdir()
+            android.symlink_to(root / "outside", target_is_directory=True)
+            (root / "outside").mkdir(mode=0o700)
+            with self.assertRaisesRegex(A.ContractError, r"ADB \.android directory identity"):
+                runner.run("symlink-check", (sys.executable, "-c", "pass"), 10)
+
+    def test_live_host_runner_accepts_only_default_adb_state_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            runner = A.HostRunner(Path(temp) / "logs")
+            state = runner.adb_android / "adb.5037"
+            state.write_bytes(b"state")
+            state.chmod(0o600)
+            self.assertEqual(
+                runner.run("state-file", (sys.executable, "-c", "pass"), 10).returncode,
+                0,
+            )
+            bad = runner.adb_android / "adb.5038"
+            bad.write_bytes(b"state")
+            bad.chmod(0o600)
+            with self.assertRaisesRegex(A.ContractError, "unexpected entries"):
+                runner.run("wrong-port", (sys.executable, "-c", "pass"), 10)
+
+    def test_live_host_runner_rejects_non_private_adb_state_modes(self):
+        for mode in (0o644, 0o664):
+            with self.subTest(mode=oct(mode)), tempfile.TemporaryDirectory() as temp:
+                runner = A.HostRunner(Path(temp) / "logs")
+                state = runner.adb_android / "adb.5037"
+                state.write_bytes(b"state")
+                state.chmod(mode)
+                with self.assertRaisesRegex(A.ContractError, "key entry identity"):
+                    runner.run("state-mode", (sys.executable, "-c", "pass"), 10)
+
+    def test_owner_child_preexec_sets_private_umask(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / "umask-probe"
+            runner = A.HostRunner(root / "logs")
+            before = {
+                resource.RLIMIT_CORE: resource.getrlimit(resource.RLIMIT_CORE),
+                resource.RLIMIT_FSIZE: resource.getrlimit(resource.RLIMIT_FSIZE),
+            }
+            result = runner.run(
+                "umask-probe",
+                (
+                    sys.executable,
+                    "-c",
+                    f"from pathlib import Path; Path({str(target)!r}).write_bytes(b'x')",
+                ),
+                10,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(
+                before[resource.RLIMIT_CORE],
+                resource.getrlimit(resource.RLIMIT_CORE),
+            )
+            self.assertEqual(
+                before[resource.RLIMIT_FSIZE],
+                resource.getrlimit(resource.RLIMIT_FSIZE),
+            )
+
+    def test_rollback_reenumeration_bound_is_thirty_seconds(self):
+        self.assertEqual(A.ROLLBACK_REENUMERATION_TIMEOUT_SEC, 30.0)
 
     def test_live_host_runner_separates_boot_scratch_and_log_bounds(self):
         self.assertEqual(A.MAX_CHILD_FILE_BYTES, 64 << 20)

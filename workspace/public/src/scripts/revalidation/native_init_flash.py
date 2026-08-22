@@ -124,6 +124,10 @@ def _load_exact_serial_redaction():
 
 
 serial_redaction = _load_exact_serial_redaction()
+OWNER_ADB_HOME_ENV = serial_redaction.OWNER_ADB_HOME_ENV
+OWNER_ADB_HOME_NAME = serial_redaction.OWNER_ADB_HOME_NAME
+OWNER_ADB_ANDROID_DIR = serial_redaction.OWNER_ADB_ANDROID_DIR
+OWNER_ADB_ALLOWED_ANDROID_FILES = serial_redaction.OWNER_ADB_ALLOWED_ANDROID_FILES
 
 # design section 12.1 F4-live amendment (2026-07-02): the only authorized live self-write
 # candidate is the v2321 rollback image driven with boot-flash-f3 self-rollback semantics, so
@@ -182,6 +186,38 @@ class OwnerEffectState:
 
 OWNER_EFFECT_STATE: OwnerEffectState | None = None
 OWNER_SERIAL_REDACTOR = None
+
+
+def _owner_adb_context() -> Path | None:
+    """Return the fixed per-run ADB home, rejecting ambient state."""
+    if OWNER_EFFECT_STATE is None:
+        return None
+    raw_home = os.environ.get(OWNER_ADB_HOME_ENV)
+    if not raw_home:
+        raise RuntimeError("owner ADB home binding is missing")
+    home = Path(raw_home)
+    if not home.is_absolute() or home.name != OWNER_ADB_HOME_NAME or home.parent.name.rsplit("-", 1)[-1] != "logs":
+        raise RuntimeError("owner ADB home path is not canonical")
+    android = home / OWNER_ADB_ANDROID_DIR
+    try:
+        serial_redaction.validate_owner_adb_home(home, android)
+    except (OSError, RuntimeError) as exc:
+        raise RuntimeError("owner ADB home identity is not exact") from exc
+    return home
+
+
+def _owner_child_env() -> dict[str, str]:
+    environment = {
+        "HOME": "/nonexistent",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin:/bin",
+    }
+    context = _owner_adb_context()
+    if context is not None:
+        environment["HOME"] = str(context)
+        environment[OWNER_ADB_HOME_ENV] = str(context)
+    return environment
 
 
 def _owner_redactor():
@@ -269,7 +305,7 @@ def _owner_bridge_preflight(args: argparse.Namespace) -> dict[str, object]:
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        env=_owner_child_env(),
     )
     if result.returncode != 0 or result.stderr:
         raise RuntimeError("fixed owner bridge preflight command failed")
@@ -422,7 +458,7 @@ def _owner_usb_inventory_sha256(
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        env=_owner_child_env(),
         start_new_session=True,
     )
     try:
@@ -517,7 +553,7 @@ def _owner_adb_inventory_sha256(
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        env=_owner_child_env(),
         start_new_session=True,
     )
     try:
@@ -609,13 +645,14 @@ def run_command(args: list[str],
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=_owner_child_env(),
         )
     kwargs: dict[str, object] = {}
     if OWNER_EFFECT_STATE is not None:
         # The owner receipt is the sole stdout producer.  Child command prose
         # must not be mixed into its strict machine envelope.
         kwargs["stdout"] = subprocess.DEVNULL
-    return subprocess.run(args, check=check, **kwargs)
+    return subprocess.run(args, check=check, env=_owner_child_env(), **kwargs)
 
 
 def adb_base(adb: str, serial: str | None) -> list[str]:
@@ -679,6 +716,7 @@ def adb_devices(
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=_owner_child_env(),
     )
     if strict:
         startup_banner = (

@@ -1489,13 +1489,28 @@ A cut after 41 may only validate the same receipt and finish active-guard
 cleanup. The reconciler has no ADB, reboot, recovery-transition, image,
 candidate, rollback, or partition primitive.
 
+The fixed H32 pre-write incident dated 2026-08-22 may close only through
+`a90_h32_pretransfer_abort_reconcile_v1.py`, after this clause receives its
+own independent review. It is limited to run `a90-h32-f1-20260822-01`, the
+exact manifest and journal prefix through `31-rollback-launched.json`, the
+structured candidate `PRE_WRITE_FAILURE` with `writeStarted=false`, and the
+complete execute-log inventory proving that no rollback helper was dispatched
+and no rollback-helper log exists. Only one fresh exact healthy V2321 ACM
+observation may then feed publication of `41-pretransfer-abort.json`; the
+reconciler may remove only that run's active guard and must retain the H32
+candidate guard. This exception has no ADB, reboot, recovery-transition,
+image, partition, candidate, or rollback primitive, never replays an effect,
+and grants no authority itself. A cut after 41 may only complete the same
+active-guard cleanup.
+
 For ordinary rollback pre-effect inventory, a successful well-formed
 zero-Samsung snapshot immediately following a Native/Recovery transition is a
-bounded re-enumeration wait state, never authority. It may wait at most five
-seconds for exactly one A90 Native or Recovery endpoint. Candidate pre-effect
+bounded re-enumeration wait state, never authority. It may wait at most 30
+seconds for exactly one A90 Native or Recovery endpoint. This is a passive
+wait only; it grants no authority. Candidate pre-effect
 still requires immediate exact Native. A wrong product, malformed producer,
-timeout, additional Samsung, or more than one Samsung remains an immediate
-stop before helper dispatch.
+timeout, late-after-deadline arrival, additional Samsung, or more than one
+Samsung remains an immediate stop before helper dispatch.
 
 The candidate-neutral `A90_F1_POSTROLLBACK_RECOVERY_V1` finalizer may close an
 ordinary minimal-owner run only after the candidate and rollback attempts are

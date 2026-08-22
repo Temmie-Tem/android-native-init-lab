@@ -65,9 +65,8 @@ LSUSB_RE = re.compile(
 ADB_STATES = {"device", "recovery", "offline", "unauthorized", "no permissions"}
 ADB_ROLE_NATIVE = "NATIVE_NO_RECOVERY"
 ADB_ROLE_RECOVERY = "BOUND_RECOVERY_PRESENT"
-ROLLBACK_REENUMERATION_TIMEOUT_SEC = 5.0
+ROLLBACK_REENUMERATION_TIMEOUT_SEC = 30.0
 ROLLBACK_REENUMERATION_POLL_SEC = 0.25
-
 
 @dataclass(frozen=True)
 class CommandResult:
@@ -75,14 +74,11 @@ class CommandResult:
     stdout: bytes
     stderr: bytes
     quiescent: bool = True
-
-
 class CommandRunner(Protocol):
     def run(self, label: str, argv: tuple[str, ...], timeout_sec: int) -> CommandResult: ...
 
 class HostRunner:
     """Bounded production subprocess owner for the reviewed minimal lane."""
-
     def __init__(self, log_directory: Path, *, redactor: SerialRedactor | None = None) -> None:
         if LIVE_ADAPTER_ENABLED is not True:
             raise ContractError("A90 minimal live adapter is disabled")
@@ -94,20 +90,41 @@ class HostRunner:
             raise ContractError("adapter log directory already exists") from exc
         _fsync_directory(log_directory.parent)
         self.log_directory = log_directory
+        try:
+            self.adb_home, self.adb_android = _serial_redaction.prepare_owner_adb_home(
+                log_directory
+            )
+        except (OSError, RuntimeError) as exc:
+            raise ContractError("owner ADB home creation failed") from exc
+        _fsync_directory(self.adb_home)
+        _fsync_directory(self.log_directory)
+        self._check_adb_home()
+        self.environment = {
+            "HOME": str(self.adb_home),
+            **_serial_redaction.owner_adb_environment(self.adb_home),
+        }
         self.sequence = 0
         self.redactor = redactor
+
+    def _check_adb_home(self) -> None:
+        try:
+            _serial_redaction.validate_owner_adb_home(self.adb_home, self.adb_android)
+        except (OSError, RuntimeError) as exc:
+            raise ContractError(str(exc)) from exc
     def run(self, label: str, argv: tuple[str, ...], timeout_sec: int) -> CommandResult:
         if re.fullmatch(r"[a-z0-9-]{1,40}", label) is None:
             raise ContractError("adapter log label is invalid")
+        self._check_adb_home()
         self.sequence += 1
         prefix = f"{self.sequence:03d}-{label}"
         stdout_path = self.log_directory / f"{prefix}.stdout"
         stderr_path = self.log_directory / f"{prefix}.stderr"
         if self.redactor is not None:
             try:
-                returncode, stdout, stderr, quiescent = run_owner_process(argv, timeout_sec, cwd=REPO_ROOT, log_directory=self.log_directory, stdout_path=stdout_path, stderr_path=stderr_path, redactor=self.redactor, max_output_bytes=MAX_OUTPUT_BYTES, adb_inventory=label == "adb-inventory", preexec_fn=_limit_child, process_group_exists=_process_group_exists)
+                returncode, stdout, stderr, quiescent = run_owner_process(argv, timeout_sec, cwd=REPO_ROOT, log_directory=self.log_directory, stdout_path=stdout_path, stderr_path=stderr_path, redactor=self.redactor, max_output_bytes=MAX_OUTPUT_BYTES, adb_inventory=label == "adb-inventory", environment=self.environment, preexec_fn=_limit_child, process_group_exists=_process_group_exists)
             except RuntimeError as exc:
                 raise ContractError(str(exc)) from exc
+            self._check_adb_home()
             return CommandResult(returncode, stdout, stderr, quiescent)
         flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW
         stdout_fd = os.open(stdout_path, flags, 0o600)
@@ -121,7 +138,7 @@ class HostRunner:
                 stdout=stdout_fd,
                 stderr=stderr_fd,
                 cwd=REPO_ROOT,
-                env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+                env=self.environment,
                 start_new_session=True,
                 preexec_fn=_limit_child,
             )
@@ -139,6 +156,7 @@ class HostRunner:
             stdout = _read_bound_log(stdout_fd)
             stderr = _read_bound_log(stderr_fd)
             _fsync_directory(self.log_directory)
+            self._check_adb_home()
             quiescent = not _process_group_exists(process.pid)
             return CommandResult(
                 returncode=124 if timed_out else process.returncode,
@@ -150,6 +168,7 @@ class HostRunner:
             os.close(stdout_fd)
             os.close(stderr_fd)
 def _limit_child() -> None:
+    os.umask(0o077)
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     # The fixed flash helper creates one verified boot-sized sealed copy before
     # transfer.  Keep that scratch file bounded independently from the much
@@ -169,8 +188,6 @@ def _read_bound_log(descriptor: int) -> bytes:
     if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_OUTPUT_BYTES:
         raise ContractError("adapter output exceeds its fixed bound")
     return os.pread(descriptor, metadata.st_size, 0)
-
-
 def _process_group_exists(process_group: int) -> bool:
     try:
         os.killpg(process_group, 0)
@@ -210,8 +227,6 @@ OWNER_RECEIPT_OUTCOMES = {
     "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED",
     "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
 }
-
-
 def _parse_owner_effect_receipt(raw: bytes) -> str:
     """Return a stage only for the exact fixed helper receipt.
 
@@ -285,16 +300,12 @@ def _parse_owner_effect_receipt(raw: bytes) -> str:
     ):
         return "UNCLASSIFIED"
     return value["outcome"]
-
-
 def _one_line(text: str, pattern: re.Pattern[str], label: str) -> re.Match[str]:
     matches = [pattern.fullmatch(line.strip()) for line in text.replace("\r", "").splitlines()]
     exact = [match for match in matches if match is not None]
     if len(exact) != 1:
         raise ContractError(f"{label} is not unique")
     return exact[0]
-
-
 def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     candidates = value.get("serial_candidates")
     pids = value.get("port_pids")
@@ -380,8 +391,6 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
         "selectedRealpath": selected_realpath,
         "bridgePid": pids[0],
     }
-
-
 def _validate_usb_inventory(result: CommandResult) -> dict[str, Any]:
     if (
         type(result.returncode) is not int
@@ -410,8 +419,6 @@ def _validate_usb_inventory(result: CommandResult) -> dict[str, Any]:
         "a90Product": "04e8:6861",
         "inventorySha256": sha256_bytes(result.stdout),
     }
-
-
 def _parse_effect_inventory(result: CommandResult) -> tuple[str, str]:
     """Return the exact pre-effect USB role without opening ADB on Native."""
     if (
@@ -438,8 +445,6 @@ def _parse_effect_inventory(result: CommandResult) -> tuple[str, str]:
     if product == b"6860":
         return ADB_ROLE_RECOVERY, sha256_bytes(result.stdout)
     raise ContractError("pre-effect USB product is not exact A90 Native or Recovery")
-
-
 def _is_empty_effect_inventory(result: CommandResult) -> bool:
     """Accept only a well-formed, successful zero-Samsung re-enumeration."""
     if (

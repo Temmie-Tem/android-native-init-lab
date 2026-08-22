@@ -19,6 +19,24 @@ flash = load_revalidation("native_init_flash")
 
 
 class NativeInitFlashSafetyHelpers(unittest.TestCase):
+    def setUp(self) -> None:
+        # main() is a one-shot process entrypoint; tests invoke it repeatedly in
+        # one interpreter, so do not carry its owner receipt state across cases.
+        flash.OWNER_EFFECT_STATE = None
+        flash.OWNER_SERIAL_REDACTOR = None
+
+    def test_owner_adb_home_contract_is_consumed_from_serial_redaction(self) -> None:
+        redaction = flash.serial_redaction
+        self.assertEqual(flash.OWNER_ADB_HOME_ENV, redaction.OWNER_ADB_HOME_ENV)
+        self.assertEqual(flash.OWNER_ADB_HOME_NAME, redaction.OWNER_ADB_HOME_NAME)
+        self.assertEqual(flash.OWNER_ADB_ANDROID_DIR, redaction.OWNER_ADB_ANDROID_DIR)
+        self.assertIs(
+            flash.OWNER_ADB_ALLOWED_ANDROID_FILES,
+            redaction.OWNER_ADB_ALLOWED_ANDROID_FILES,
+        )
+        source = Path(flash.__file__).read_text()
+        self.assertNotIn("OWNER_ADB_ALLOWED_ANDROID_FILES = frozenset", source)
+
     def test_owner_state_classifies_nonzero_system_return_after_exact_write_readback(self) -> None:
         state = flash.OwnerEffectState(
             write_started=True,

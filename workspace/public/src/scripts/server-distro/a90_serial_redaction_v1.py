@@ -15,6 +15,7 @@ import hashlib
 import os
 import re
 import signal
+import stat
 import subprocess
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -46,6 +47,61 @@ ADB_STARTUP_BANNERS = frozenset(
         b"* daemon started successfully\n",
     }
 )
+OWNER_ADB_HOME_ENV = "A90_F1_OWNER_ADB_HOME"
+OWNER_ADB_HOME_NAME = ".adb-home"
+OWNER_ADB_ANDROID_DIR = ".android"
+OWNER_ADB_ALLOWED_ANDROID_FILES = frozenset(
+    {"adbkey", "adbkey.pub", "adb_known_hosts", "adb_known_hosts.pb", "adb.5037"}
+)
+
+
+def validate_owner_adb_home(home: Path, android: Path) -> None:
+    if android.parent != home:
+        raise RuntimeError("ADB home paths are not fixed descendants")
+    for path, label in ((home, "ADB home"), (android, "ADB .android directory")):
+        metadata = path.lstat()
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or metadata.st_uid != os.getuid()
+            or metadata.st_gid != os.getgid()
+            or stat.S_IMODE(metadata.st_mode) != 0o700
+        ):
+            raise RuntimeError(f"{label} identity is not direct owner-private mode 0700")
+    if {entry.name for entry in home.iterdir()} != {OWNER_ADB_ANDROID_DIR}:
+        raise RuntimeError("ADB home contains unexpected entries")
+    if {
+        entry.name for entry in android.iterdir()
+    } - OWNER_ADB_ALLOWED_ANDROID_FILES:
+        raise RuntimeError("ADB .android directory contains unexpected entries")
+    for entry in android.iterdir():
+        metadata = entry.lstat()
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_uid != os.getuid()
+            or metadata.st_gid != os.getgid()
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+            or metadata.st_nlink != 1
+        ):
+            raise RuntimeError("ADB key entry identity is not exact")
+
+
+def prepare_owner_adb_home(log_directory: Path) -> tuple[Path, Path]:
+    home = log_directory / OWNER_ADB_HOME_NAME
+    android = home / OWNER_ADB_ANDROID_DIR
+    home.mkdir(mode=0o700)
+    android.mkdir(mode=0o700)
+    validate_owner_adb_home(home, android)
+    return home, android
+
+
+def owner_adb_environment(home: Path) -> dict[str, str]:
+    return {
+        "HOME": str(home),
+        OWNER_ADB_HOME_ENV: str(home),
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin:/bin",
+    }
 
 
 def _marker(digest: str) -> str:
@@ -185,6 +241,7 @@ def run_owner_process(
     redactor: SerialRedactor,
     max_output_bytes: int,
     adb_inventory: bool,
+    environment: dict[str, str],
     preexec_fn: Callable[[], None],
     process_group_exists: Callable[[int], bool],
 ) -> tuple[int, bytes, bytes, bool]:
@@ -201,7 +258,7 @@ def run_owner_process(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=cwd,
-            env={"HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            env=environment,
             start_new_session=True,
             preexec_fn=preexec_fn,
         )

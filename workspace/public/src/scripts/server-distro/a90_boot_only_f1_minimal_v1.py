@@ -21,8 +21,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Protocol
-
-
 CAPABILITY = "A90_BOOT_ONLY_F1_MINIMAL_V1"
 MANIFEST_SCHEMA = "a90-boot-only-f1-minimal-manifest-v1"
 QUALIFICATION_SCHEMA = "a90-boot-only-f1-minimal-qualification-v1"
@@ -82,7 +80,6 @@ _MODULE_SENTINEL = object()
 MAX_JSON_BYTES = 1 << 20
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,95}$")
-
 RECORDS = (
     "00-prepared.json",
     "10-approved.json",
@@ -171,8 +168,6 @@ CANDIDATE_RETURN_OUTCOMES = {
 
 class ContractError(RuntimeError):
     """Raised before an effect or on an unprovable transition."""
-
-
 def _reject_constant(_value: str) -> None:
     raise ContractError("non-finite JSON number")
 
@@ -197,8 +192,6 @@ def canonical_json(value: Any) -> bytes:
         ).encode("ascii")
     except (TypeError, ValueError) as exc:
         raise ContractError("value is not canonical JSON") from exc
-
-
 def parse_canonical(raw: bytes, label: str) -> Any:
     if not raw or len(raw) > MAX_JSON_BYTES or raw.endswith(b"\n"):
         raise ContractError(f"{label} byte envelope is invalid")
@@ -224,8 +217,6 @@ def _strict_json_equal(left: Any, right: Any) -> bool:
     if type(left) is dict: return (set(left) == set(right) and all(type(key) is str for key in left) and all(_strict_json_equal(left[key], right[key]) for key in left))
     if type(left) is list: return len(left) == len(right) and all(_strict_json_equal(a, b) for a, b in zip(left, right))
     return left == right
-
-
 def _text(value: Any, label: str) -> str:
     if type(value) is not str or not value or len(value) > 256:
         raise ContractError(f"{label} is invalid")
@@ -842,7 +833,7 @@ def _require_run_path(run_directory: Path, run_id: str) -> None:
         not stat.S_ISDIR(metadata.st_mode)
         or metadata.st_uid != os.getuid()
         or metadata.st_gid != os.getgid()
-        or metadata.st_mode & 0o077
+        or stat.S_IMODE(metadata.st_mode) != 0o700
         or run_directory != root / run_id
     ):
         raise ContractError("run path is not the fixed private A90 namespace")
@@ -1499,11 +1490,9 @@ def ensure_run_root() -> None:
         not stat.S_ISDIR(metadata.st_mode)
         or metadata.st_uid != os.getuid()
         or metadata.st_gid != os.getgid()
-        or metadata.st_mode & 0o077
+        or stat.S_IMODE(metadata.st_mode) != 0o700
     ):
         raise ContractError("fixed A90 run root is not private and direct")
-
-
 def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
     if LIVE_EXECUTION_ENABLED is not True:
         raise ContractError("minimal F1 execution is disabled")
@@ -1553,7 +1542,11 @@ def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
     for _attempt in range(8):
         log_directory = RUN_ROOT / f"{prefix}{ordinal}-logs"
         try:
-            runner = adapter.HostRunner(log_directory)
+            recovery_serial_sha256 = manifest["qualification"]["recoveryIdentity"][
+                "adbSerialSha256"
+            ]
+            redactor = adapter.SerialRedactor(hashes=(recovery_serial_sha256,))
+            runner = adapter.HostRunner(log_directory, redactor=redactor)
             return adapter.FixedA90Adapter(
                 runner, qualification=manifest["qualification"]
             )

@@ -23,22 +23,23 @@ the separately registered S20+ goal and every future target row.
 
 ## Exact Current State
 
-- Exact current resident is healthy native V2321
-  `0.9.285 / v2321-usb-clean-identity-rodata`. H24 was the last proved experimental
-  resident; its H24 D1 effect remains consumed and its outer HUD-stage
-  `EINVAL` refutation is historical evidence only.
+- The last proved resident is native V2321
+  `0.9.285 / v2321-usb-clean-identity-rodata`. The device is currently parked
+  in Recovery after the H32 observer failure; fresh V2321 health remains
+  unproved until one reviewed ACM observation after physical System return.
 - H28-H31 are consumed and never replayed. H31 transferred zero candidate and
   rollback bytes; its reviewed pre-transfer reconciler proved exact healthy
   V2321, released only the active guard, and retained the H31 candidate guard.
-- Current host-only successor H32 is
+- H32 is the consumed current frontier,
   `0.11.199 / phase3-minimal-h32-stock-rebuild-1007-cfp`, 58,372,096 bytes, SHA-256
   `e56cb1201d63e26f275de10d6a4eb6a1686f6021b6613aa4dde1374930dd299d`.
-  It retains the exact H31 kernel bytes and changes only version/build and fresh
-  H32 enable/latch identities.
-- The H32 public qualification and independent Luna MAX review are `PASS_GO`
-  against owner closure `0a6122d2…` and continuation closure `585869c5…`, with
-  HIGH/MEDIUM/LOW `0/0/0`. This qualifies bytes only: private manifest, connected
-  D0, fresh attended approval, and one F1 execution remain separate.
+  Its candidate and rollback writes are both zero, but its approval/ordinal is
+  consumed and never replayed. The old H32 review at owner `0a6122d2…` and
+  continuation `585869c5…` is stale after the observer repair. The historical
+  qualification is frozen in
+  `docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`,
+  and the replaceable continuation lease is absent. The repair requires a new
+  review; no H33 identity, qualification, D0, approval, or F1 exists.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 
@@ -566,6 +567,16 @@ identity:
   The exact H31 fixed reconciler and phase-aware repairs are now reviewed at
   owner `0a6122d2…`, continuation `585869c5…`, recovery `a506f677…`, and
   reconciler `ca96bd19…`; they grant only H31 guard closure, not a new F1.
+  H32 (`0.11.199 / phase3-minimal-h32-stock-rebuild-1007-cfp`) then parked
+  before any write: candidate and rollback writes are zero, with the exact
+  journal ending at rollback launch and the candidate receipt classified
+  `PRE_WRITE_FAILURE/writeStarted=false`. Operator-private evidence proves
+  the observer daemon fatal `/nonexistent/.android` HOME failure; the complete
+  unexpected raw ADB stderr remains unproved. The current recovery state is
+  unproved until a later exact V2321 ACM health observation. The H0 repair and
+  fixed H32 no-write reconciler are recorded in
+  `docs/reports/A90_H32_F1_PREWRITE_ADB_HOME_INCIDENT_2026-08-22.md`; neither
+  has review, approval, D0, F1, candidate, rollback, or guard-release authority.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner
   then wrote and prefix-read back exact V2321 once with the same uncertain
