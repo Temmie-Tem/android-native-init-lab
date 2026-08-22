@@ -29,7 +29,7 @@ the separately registered S20+ goal and every future target row.
 - H28-H31 are consumed and never replayed. H31 transferred zero candidate and
   rollback bytes; its reviewed pre-transfer reconciler proved exact healthy
   V2321, released only the active guard, and retained the H31 candidate guard.
-- H32 is the consumed current frontier,
+- H32 is the consumed prior frontier,
   `0.11.199 / phase3-minimal-h32-stock-rebuild-1007-cfp`, 58,372,096 bytes, SHA-256
   `e56cb1201d63e26f275de10d6a4eb6a1686f6021b6613aa4dde1374930dd299d`.
   Its candidate and rollback writes are both zero, but its approval/ordinal is
@@ -39,8 +39,17 @@ the separately registered S20+ goal and every future target row.
   `docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`,
   and that old replaceable continuation lease is superseded. The H32-only
   continuation closed `PRETRANSFER_ABORTED_NO_BOOT_WRITE`, released the active
-  guard, retained the consumed H32 candidate guard, and permits no replay. No
-  H33 identity, qualification, D0, approval, or F1 exists.
+  guard, retained the consumed H32 candidate guard, and permits no replay.
+- H33 is a fresh H0 host-only materialization,
+  `0.11.200 / phase3-minimal-h33-stock-rebuild-1007-cfp`, 58,372,096 bytes,
+  SHA-256 `bdbcfc5fb82150c2d508df1e4d7ae7b71f0659b7d6b02ddab506f263f6063e12`.
+  Its A/B bytes are identical and its kernel blob matches H32, but its full
+  boot identity is new. The public qualification input was frozen with review
+  status pending; its current independent review is now `PASS_GO` at
+  `251235439de66b408397768201016c390bbf4d3d94bd73877117501b21294f77`.
+  The private manifest binds that exact review in the runnable schema, but no
+  H33 D0, approval, F1, or live authority exists. See
+  `docs/reports/A90_H33_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-22.json`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 
