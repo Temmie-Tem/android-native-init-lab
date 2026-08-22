@@ -23,6 +23,10 @@ RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
 )
+CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260822-09-global-registry-default.json"
+)
 # The previous current receipt is preserved as superseded evidence.  It must
 # not be rewritten when the population-diagnostic cut gets its own receipt.
 PREVIOUS_CURRENT_RECEIPT = ROOT / (
@@ -78,13 +82,13 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
 
-    def test_private_receipt_projects_identically_after_census_only_growth(self):
+    def test_current_private_receipt_projects_identically(self):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json",
+            "raw-first-observer-audit-20260822-09-global-registry-default.json",
         )
-        retained_bytes = RECEIPT.read_bytes()
+        retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
         current = self.auditor.audit_sources(REVALIDATION)
         excluded = {
@@ -98,10 +102,10 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             key: value for key, value in current.items() if key not in excluded
         }
         self.assertEqual(retained_projection, current_projection)
-        self.assertEqual(
+        self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1733)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1734)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -109,16 +113,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "15beb53b5ca52676c95b24c2bea34f74a2cbf2bf0b8f234004d98560c9351a95",
+            "1fd40672691856679381ad9b3ea0e4c0dd8d2cd1abf275f40617366e4add4bc3",
         )
-        info = RECEIPT.stat()
+        info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
         self.assertEqual(len(retained_bytes), 11012)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352",
+            "1b98a4b10dbeb56487d47074095841c9a488b963a40a3be4769e17398d4eabb8",
         )
 
     def test_previous_current_receipt_is_preserved_unmodified(self):

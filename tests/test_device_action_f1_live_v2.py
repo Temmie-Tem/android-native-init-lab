@@ -5,6 +5,8 @@ import importlib.util
 import io
 import json
 import sys
+import struct
+import tarfile
 import tempfile
 import types
 import unittest
@@ -508,8 +510,35 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
     def prepared(self, *, e3=False):
         temporary = tempfile.TemporaryDirectory()
         root = Path(temporary.name)
+        private = root / "workspace/private"
+        private.mkdir(parents=True)
+        self.module.consumed_registry.initialize(root)
         run_dir = root / "run"
         run_dir.mkdir()
+        def make_ap(path: Path, payload: bytes) -> dict[str, object]:
+            frame = (
+                b"\x04\x22\x4d\x18"
+                + bytes([0x60, 0x40, 0])
+                + struct.pack("<I", 0x80000000 | len(payload))
+                + payload
+                + bytes(4)
+            )
+            data = io.BytesIO()
+            with tarfile.open(fileobj=data, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+                info = tarfile.TarInfo("boot.img.lz4")
+                info.size = len(frame)
+                info.uid = 0
+                info.gid = 0
+                info.mtime = 0
+                info.mode = 0o644
+                archive.addfile(info, io.BytesIO(frame))
+            prefix = data.getvalue()
+            raw = prefix + hashlib.md5(prefix).hexdigest().encode("ascii") + b"  AP.tar\n"
+            path.write_bytes(raw)
+            path.chmod(0o400)
+            return {"path": str(path.resolve()), "size": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "member": {"name": "boot.img.lz4", "size": len(frame), "sha256": hashlib.sha256(frame).hexdigest()}}
+        candidate_receipt = make_ap(root / "fixture-candidate.tar.md5", b"candidate-boot")
+        rollback_receipt = make_ap(root / "fixture-rollback.tar.md5", b"rollback-boot")
         health = {
             "android_boot_completed": True,
             "boot_animation_stopped": True,
@@ -550,17 +579,11 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         }
         manifest = {
             "manifest_id": "fixture-manifest",
+            "run_id": "fixture-run",
             "status": "ready-for-f1-approval",
-            "candidate_ap": {
-                "path": "fixture-candidate.tar.md5",
-                "size": 1,
-                "sha256": "9" * 64,
-            },
-            "rollback_ap": {
-                "path": "fixture-rollback.tar.md5",
-                "size": 1,
-                "sha256": "7" * 64,
-            },
+            "allowed_member": "boot.img.lz4",
+            "candidate_ap": {key: value for key, value in candidate_receipt.items() if key != "member"},
+            "rollback_ap": {key: value for key, value in rollback_receipt.items() if key != "member"},
             "observation": {
                 "timeout_sec": 1,
                 "acceptance": {
@@ -583,7 +606,12 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
                     b"S22PLUS-FYG8-E3:" + b"1" * 32 + b"\n"
                 ).hex(),
             }
-        bundle = self.module.core.Bundle(profile, manifest, {}, "e" * 64)
+        bundle = self.module.core.Bundle(
+            profile,
+            manifest,
+            {"candidate_ap": candidate_receipt, "rollback_ap": rollback_receipt},
+            "e" * 64,
+        )
         prepared_dict = {"approval_binding_sha256": "f" * 64}
         prepared = self.module.PreparedRun(
             root,
@@ -1160,7 +1188,7 @@ else:
             ),
             (
                 {"request_error": True},
-                "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
+                "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
             ),
             (
                 {"candidate": "odin_local_parse_failure"},
@@ -1171,11 +1199,13 @@ else:
             with self.subTest(verdict=verdict):
                 temporary, prepared = self.prepared(e3=True)
                 self.addCleanup(temporary.cleanup)
-                result = self.module.execute_prepared(
-                    prepared,
-                    prepared.approval_token,
-                    FakeBackend(self.module, **backend_args),
-                )
+                backend = FakeBackend(self.module, **backend_args)
+                if backend_args.get("request_error"):
+                    with self.assertRaisesRegex(self.module.F1LiveError, verdict):
+                        self.module.execute_prepared(prepared, prepared.approval_token, backend)
+                    self.assertFalse(any(call.startswith("transfer-") for call in backend.calls))
+                    continue
+                result = self.module.execute_prepared(prepared, prepared.approval_token, backend)
                 self.assertEqual(result["verdict"], verdict)
                 self.assertEqual(result["current_state"], "ABORTED")
 
@@ -1210,7 +1240,49 @@ else:
         with self.assertRaises(self.module.F1LiveError):
             self.module.execute_prepared(prepared, "wrong", backend)
         self.assertEqual(backend.calls, [])
+
+    def test_target_session_busy_is_immediate_runner_failure_with_zero_backend_calls(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module)
+        with self.module.consumed_registry.target_session_lease(prepared.root):
+            with self.assertRaisesRegex(self.module.F1LiveError, "target-session lease unavailable"):
+                self.module.execute_prepared(prepared, prepared.approval_token, backend)
+        self.assertEqual(backend.calls, [])
         self.assertFalse((prepared.run_dir / "transaction").exists())
+
+    def test_global_duplicate_stops_before_recheck_download_and_transaction(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        identity = self.module._candidate_registry_identity(prepared)
+        self.module.consumed_registry.claim(prepared.root, identity)
+        backend = FakeBackend(self.module)
+        with self.assertRaisesRegex(self.module.F1LiveError, "replay is forbidden"):
+            self.module.execute_prepared(
+                prepared, prepared.approval_token, backend
+            )
+        self.assertEqual(backend.calls, [])
+        self.assertFalse((prepared.run_dir / "transaction").exists())
+
+    def test_foreign_active_claim_blocks_recovery_without_backend(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        identity = self.module._candidate_registry_identity(prepared)
+        foreign = {
+            **identity,
+            "manifest_id": "foreign-manifest",
+            "run_id": "foreign-run",
+            "approval_binding_sha256": "1" * 64,
+        }
+        self.module.consumed_registry.claim(prepared.root, foreign)
+        journal = self.module.core.Journal.create(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        journal.transition("APPROVED", "test", {})
+        backend = FakeBackend(self.module)
+        with self.assertRaisesRegex(self.module.F1LiveError, "foreign global"):
+            self.module.recover_prepared(prepared, backend)
+        self.assertEqual(backend.calls, [])
 
     def test_local_parse_failure_aborts_without_rollback(self):
         temporary, prepared = self.prepared()
@@ -1224,6 +1296,16 @@ else:
             result["verdict"], "FAIL_F1_V2_ODIN_LOCAL_PARSE_NO_DEVICE_SESSION"
         )
         self.assertNotIn("transfer-rollback", backend.calls)
+        identity = self.module._candidate_registry_identity(prepared)
+        self.assertIsNone(
+            self.module.consumed_registry.active_claim(
+                prepared.root, identity["candidate_key"]
+            )
+        )
+        self.assertEqual(
+            [item["event"] for item in self.module.consumed_registry.history(prepared.root)],
+            ["claim", "release"],
+        )
 
     def test_unknown_candidate_session_still_rolls_back_as_no_proof(self):
         temporary, prepared = self.prepared()
@@ -1485,11 +1567,8 @@ else:
                     prepared, prepared.approval_token, backend
                 )
         recovery = FakeBackend(self.module)
-        result = self.module.recover_prepared(prepared, recovery)
-        self.assertEqual(result["current_state"], "ABORTED")
-        self.assertEqual(
-            result["outcome_class"], "interrupted_before_candidate_attempt"
-        )
+        with self.assertRaisesRegex(self.module.F1LiveError, "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY"):
+            self.module.recover_prepared(prepared, recovery)
         self.assertNotIn("transfer-candidate", recovery.calls)
         self.assertNotIn("transfer-rollback", recovery.calls)
 
@@ -1514,12 +1593,10 @@ else:
                     prepared, prepared.approval_token, backend
                 )
         recovery = FakeBackend(self.module)
-        result = self.module.recover_prepared(prepared, recovery)
-        self.assertEqual(
-            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
-        )
+        with self.assertRaisesRegex(self.module.F1LiveError, "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY"):
+            self.module.recover_prepared(prepared, recovery)
         self.assertNotIn("transfer-candidate", recovery.calls)
-        self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
+        self.assertEqual(recovery.calls.count("transfer-rollback"), 0)
 
     def test_interruption_after_candidate_start_recovers_rollback_only(self):
         temporary, prepared = self.prepared()
@@ -1529,6 +1606,12 @@ else:
             self.module.execute_prepared(
                 prepared, prepared.approval_token, crashing
             )
+        identity = self.module._candidate_registry_identity(prepared)
+        self.assertIsNotNone(
+            self.module.consumed_registry.active_claim(
+                prepared.root, identity["candidate_key"]
+            )
+        )
         recovery = FakeBackend(
             self.module, candidate="odin_device_session_failure_or_unknown"
         )
@@ -1538,6 +1621,35 @@ else:
         )
         self.assertNotIn("transfer-candidate", recovery.calls)
         self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
+
+    def test_claim_intent_only_cut_never_calls_candidate_backend_or_claims(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module)
+        with mock.patch.object(
+            self.module.consumed_registry,
+            "claim",
+            side_effect=KeyboardInterrupt("after claim intent before claim"),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(
+                    prepared, prepared.approval_token, backend
+                )
+        self.assertNotIn("transfer-candidate", backend.calls)
+        self.assertEqual(
+            self.module.consumed_registry.validate(prepared.root)["record_count"],
+            0,
+        )
+        self.assertTrue(
+            (prepared.run_dir / "candidate-global-claim-intent.json").is_file()
+        )
+        recovery = FakeBackend(self.module)
+        with self.assertRaisesRegex(
+            self.module.F1LiveError, "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY"
+        ):
+            self.module.recover_prepared(prepared, recovery)
+        self.assertNotIn("transfer-candidate", recovery.calls)
+        self.assertNotIn("transfer-rollback", recovery.calls)
 
     def test_final_health_retry_does_not_reflash_rollback(self):
         temporary, prepared = self.prepared()
@@ -1680,11 +1792,8 @@ else:
         temporary, prepared = self.prepared()
         self.addCleanup(temporary.cleanup)
         backend = FakeBackend(self.module, request_error=True)
-        result = self.module.execute_prepared(
-            prepared, prepared.approval_token, backend
-        )
-        self.assertEqual(result["current_state"], "ABORTED")
-        self.assertEqual(result["verdict"], "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD")
+        with self.assertRaisesRegex(self.module.F1LiveError, "Download request outcome is uncertain"):
+            self.module.execute_prepared(prepared, prepared.approval_token, backend)
         self.assertFalse(any(call.startswith("transfer-") for call in backend.calls))
 
     def test_pre_journal_preflight_interruption_resumes_append_only(self):

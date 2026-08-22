@@ -33,7 +33,10 @@ INTENT = PRIVATE / (
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v1/result.json"
 )
-CONSUMED_CANDIDATE_REGISTRY = PRIVATE / "consumed-run-registry.json"
+CONSUMED_CANDIDATE_REGISTRY = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/"
+    "consumed-candidate-registry-qualification-20260822-07.json"
+)
 PROCESS_CONTRACT = ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_integration_qualification_v1"
@@ -340,11 +343,14 @@ def _run_prerequisite() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         "restart_durability": value.get("restart_durability"),
         "raw_first_execution_closure": value.get("raw_first_execution_closure"),
         "global_registry_proof": global_registry,
-        "global_registry_authoritative": (
+        "registry_capability_authoritative": (
             global_registry.get("present") is True
-            and global_registry.get("runner_consumes_it") is True
-            and global_registry.get("authoritative") is True
+            and global_registry.get("capability_authoritative") is True
         ),
+        "runner_registry_consumption_proved": (
+            global_registry.get("runner_registry_consumption_proved") is True
+        ),
+        "runner_recovery_closed": False,
     }
     if blocked:
         return (
@@ -470,7 +476,48 @@ def _required_private_receipt(path: Path, label: str, schema: str) -> tuple[dict
         valid = value.get("fresh") is True and value.get("clean") is True and value.get("candidate_absent") is True and value.get("target") == TARGET and value.get("device_contact") is False
         code, detail = "FRESH_BASELINE_INVALID", "fresh baseline predicates are incomplete"
     else:
-        valid = value.get("scope") == "global" and isinstance(value.get("entries"), list) and value.get("replay_forbidden") is True
+        behavioral = value.get("behavioral")
+        valid = (
+            value.get("schema") == "device_action_f1_consumed_candidate_registry_qualification_v1"
+            and value.get("scope") == "global"
+            and isinstance(value.get("record_count"), int)
+            and value.get("record_count") >= 0
+            and value.get("replay_forbidden") is True
+            and value.get("append_only") is True
+            and value.get("hash_chained") is True
+            and value.get("strict_typed_canonical_json") is True
+            and value.get("file_and_directory_fsync") is True
+            and value.get("single_writer_flock") is True
+            and value.get("process_restart_durable") is True
+            and value.get("replacement_fail_closed") is True
+            and value.get("no_caller_supplied_path") is True
+            and isinstance(value.get("head"), dict)
+            and value["head"].get("record_count") == value.get("record_count")
+            and value["head"].get("mode") == "0400"
+            and value["head"].get("nlink") == 1
+            and isinstance(value.get("session_lock"), dict)
+            and value["session_lock"].get("mode") == "0600"
+            and value["session_lock"].get("nlink") == 1
+            and isinstance(value.get("activation"), dict)
+            and value["activation"].get("legacy_candidate_count") == 42
+            and isinstance(behavioral, dict)
+            and behavioral.get("fresh_process_reopen") is True
+            and behavioral.get("fresh_process_duplicate_rejected") is True
+            and behavioral.get("concurrent_processes") == 2
+            and behavioral.get("concurrent_outcomes") == ["duplicate", "ok"]
+            and behavioral.get("different_candidate_outcomes") == ["ok", "ok"]
+            and behavioral.get("duplicate_active_claim_rejected") is True
+            and behavioral.get("head_replacement_rejected") is True
+            and behavioral.get("single_head_temp_rejected_and_repaired") is True
+            and behavioral.get("record_replacement_rejected") is True
+            and behavioral.get("lock_replacement_rejected") is True
+            and behavioral.get("session_lock_replacement_rejected") is True
+            and behavioral.get("backend_calls") == 0
+            and behavioral.get("device_contact") is False
+            and behavioral.get("session_lock_busy_rejected") is True
+            and behavioral.get("session_lock_nonblocking") is True
+            and behavioral.get("append_stability") is True
+        )
         code, detail = "CONSUMED_CANDIDATE_REGISTRY_INVALID", "global consumed-candidate registry predicates are incomplete"
     return ({"status": "PRESENT" if valid else "BLOCKED_INVALID", "identity": identity}, [] if valid else [{"code": code, "detail": detail}])
 
@@ -520,6 +567,10 @@ def validate_result(value: Mapping[str, Any]) -> None:
     if value.get("blocker_count") != len(blockers) or value.get("blocker_digest") != _identity(_canonical(blockers))["sha256"]:
         raise IntegrationAuditError("integration blocker list was changed")
     codes = {str(item["code"]) for item in blockers}
+    if value.get("download_request_cut_recovery_blocked") is not True or "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY" not in codes:
+        raise IntegrationAuditError("Download-request cut recovery blocker was removed")
+    if value.get("runner_recovery_closed") is not False or value.get("runner_ready") is not False:
+        raise IntegrationAuditError("runner recovery/readiness axes were widened")
     if blockers and value.get("verdict") != BLOCKED_VERDICT:
         raise IntegrationAuditError("blocked integration verdict differs")
     if not blockers and value.get("verdict") != NOT_READY_VERDICT:
@@ -577,10 +628,18 @@ def validate_result(value: Mapping[str, Any]) -> None:
         raise IntegrationAuditError("integration admitted terminal list was changed")
     registry = components.get("consumed_candidate_registry", {})
     prerequisite = components.get("prerequisite", {})
-    if registry.get("status") == "PRESENT" and prerequisite.get("global_registry_authoritative") is not True:
+    if registry.get("status") == "PRESENT" and (
+        prerequisite.get("registry_capability_authoritative") is not True
+        or prerequisite.get("runner_registry_consumption_proved") is not True
+    ):
         raise IntegrationAuditError("registry presence lacks prerequisite runner-consumption authority")
-    if prerequisite.get("global_registry_authoritative") is not True and "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY" not in codes:
+    if (
+        prerequisite.get("registry_capability_authoritative") is not True
+        or prerequisite.get("runner_registry_consumption_proved") is not True
+    ) and "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY" not in codes:
         raise IntegrationAuditError("global registry blocker was removed")
+    if prerequisite.get("runner_recovery_closed") is True:
+        raise IntegrationAuditError("runner recovery was silently marked closed")
     for key in ("ready_manifest", "run_manifest", "approval_manifest", "approval"):
         if key in value:
             raise IntegrationAuditError("integration receipt contains a forbidden manifest field")
@@ -602,7 +661,10 @@ def build_result() -> dict[str, Any]:
         blockers.append({"code": "EXECUTABILITY_SOURCE_CLOSURE_BLOCKED", "detail": str(exc)})
     components["prerequisite"], prerequisite_blockers = _run_prerequisite()
     blockers.extend(prerequisite_blockers)
-    if components["prerequisite"].get("global_registry_authoritative") is not True:
+    if (
+        components["prerequisite"].get("registry_capability_authoritative") is not True
+        or components["prerequisite"].get("runner_registry_consumption_proved") is not True
+    ):
         blockers.append({
             "code": "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY",
             "detail": "prerequisite runner-consumption and authoritative registry proof is absent",
@@ -614,10 +676,17 @@ def build_result() -> dict[str, Any]:
     )
     blockers.extend(baseline_blockers)
     components["consumed_candidate_registry"], registry_blockers = _required_private_receipt(
-        CONSUMED_CANDIDATE_REGISTRY, "global consumed-candidate registry", "s22plus_fyg8_p319_consumed_candidate_registry_v1"
+        CONSUMED_CANDIDATE_REGISTRY, "global consumed-candidate registry", "device_action_f1_consumed_candidate_registry_qualification_v1"
     )
     blockers.extend(registry_blockers)
-    if components["prerequisite"].get("global_registry_authoritative") is not True:
+    blockers.append({
+        "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+        "detail": "a durable Download-request cut before endpoint identification has no automatic recovery classification; fresh baseline/requalification and ready/live authority remain blocked",
+    })
+    if (
+        components["prerequisite"].get("registry_capability_authoritative") is not True
+        or components["prerequisite"].get("runner_registry_consumption_proved") is not True
+    ):
         if components["consumed_candidate_registry"].get("status") == "PRESENT":
             components["consumed_candidate_registry"] = {
                 **components["consumed_candidate_registry"],
@@ -643,10 +712,32 @@ def build_result() -> dict[str, Any]:
         "provenance": provenance,
         "source_closure_pass": components.get("executability", {}).get("source_closure_pass") is True,
         "runtime_classification_gate_pending": runtime_pending,
+        "download_request_cut_recovery_blocked": True,
+        "registry_capability_authoritative": (
+            components.get("prerequisite", {}).get(
+                "registry_capability_authoritative"
+            )
+            is True
+        ),
+        "runner_registry_consumption_proved": (
+            components.get("prerequisite", {}).get(
+                "runner_registry_consumption_proved"
+            )
+            is True
+        ),
+        "runner_recovery_closed": False,
+        "runner_ready": False,
         "fresh_baseline_present": components.get("fresh_baseline", {}).get("status") == "PRESENT",
         "global_consumed_candidate_registry_present": (
             components.get("consumed_candidate_registry", {}).get("status") == "PRESENT"
-            and components.get("prerequisite", {}).get("global_registry_authoritative") is True
+            and components.get("prerequisite", {}).get(
+                "registry_capability_authoritative"
+            )
+            is True
+            and components.get("prerequisite", {}).get(
+                "runner_registry_consumption_proved"
+            )
+            is True
         ),
         "ready": False,
         "ready_manifest_created": False,

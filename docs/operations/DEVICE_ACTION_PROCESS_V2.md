@@ -559,6 +559,47 @@ without a reviewed final manifest and fresh exact approval.
 
 ## Recovery
 
+### Global Consumed-Candidate Registry
+
+The reusable live runner has one permanent cross-run no-replay boundary:
+`workspace/private/consumed-candidate-registry-v1/`. Before it rechecks the
+target or requests Download it acquires a fixed nonblocking target-session
+flock; this physical-session lease is not an append-only candidate record and
+is held through the execute/recover transaction, including final health, then
+released on normal return or exception (and by process teardown if cut).
+Before candidate backend transfer it appends a `CONSUMED_UNCERTAIN` claim. The claim
+key is derived from the stable physical target identity, complete candidate
+AP size/SHA256, and the exact `boot.img.lz4` member name/size/SHA256; the full
+profile digest remains bound as claim metadata, while a run ID or path alone
+is never an identity. Records are canonical typed JSON, immutable
+no-clobber files in a bounded hash chain with an fsynced validated head, and a
+fixed flock/single-writer lease. Head, record, activation, lock, namespace,
+or chain corruption fails closed before a candidate backend call. A one-time
+activation boundary blocks AP digests already transferred by legacy runs before
+this registry existed.
+
+An active `CONSUMED_UNCERTAIN` claim survives process restart and an
+interrupted local checkpoint. A claim-intent-only cut is not a consumed
+candidate and never synthesizes a transfer attempt; an unavailable registry
+after the candidate boundary is treated conservatively as consumed-uncertain.
+Recovery may synthesize only local recovery evidence and proceeds through the
+preapproved rollback; it never replays the candidate or waits for registry
+repair. A cut after the durable Download-request intent but before endpoint
+identification is an explicit `BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY` state;
+it must not be relabeled as a pre-candidate failure. The sole release
+exception is an exact durable `odin_local_parse_failure` whose raw result
+proves no device session and no partition transfer. That release is itself
+append-only and resumable; every other uncertainty remains consumed. A
+registry source change, schema/record-bound change, target-session lease
+change, activation-deny-list change, or newly discovered replacement/race
+hazard triggers an independent review and fresh qualification. This is a
+permanent boundary for the cross-run candidate-replay hazard.
+
+Registry capability and runner readiness are separate axes. Until the
+Download-request cut has a reviewed durable recovery state, registry
+qualification may be authoritative H0 evidence but the runner remains
+mechanically blocked, not ready, and grants no F1 or live authority.
+
 Rollback is a normal state-machine transition, not a new experiment. Before the
 candidate flash, prove the rollback AP is readable, hash-correct, single-member,
 and usable through the demonstrated Download path.

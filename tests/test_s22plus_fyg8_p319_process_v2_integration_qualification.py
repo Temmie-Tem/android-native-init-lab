@@ -76,9 +76,14 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             "global_registry_proof": {
                 "present": True,
                 "runner_consumes_it": True,
-                "authoritative": True,
+                "capability_authoritative": True,
+                "runner_registry_consumption_proved": True,
+                "runner_recovery_closed": False,
+                "runner_ready": False,
             },
-            "global_registry_authoritative": True,
+            "registry_capability_authoritative": True,
+            "runner_registry_consumption_proved": True,
+            "runner_recovery_closed": False,
         }, []
 
     def adapter_pin_fixture(self):
@@ -147,6 +152,14 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             "RUNTIME_WITNESS_PENDING",
             {item["code"] for item in result["blockers"]},
         )
+        self.assertIn(
+            "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+            {item["code"] for item in result["blockers"]},
+        )
+        self.assertTrue(result["registry_capability_authoritative"])
+        self.assertTrue(result["runner_registry_consumption_proved"])
+        self.assertFalse(result["runner_recovery_closed"])
+        self.assertFalse(result["runner_ready"])
         self.assertFalse(result["ready"])
         self.assertFalse(result["approval_created"])
 
@@ -193,7 +206,10 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
                 "global_consumed_run_registry": {
                     "present": False,
                     "runner_consumes_it": False,
-                    "authoritative": False,
+                    "capability_authoritative": False,
+                    "runner_registry_consumption_proved": False,
+                    "runner_recovery_closed": False,
+                    "runner_ready": False,
                 },
             },
             "restart_durability": {"third_attempt_rejected": True},
@@ -216,8 +232,8 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
                 component, blockers = self.module._run_prerequisite()
         self.assertEqual(component["api"], "build_receipt")
         self.assertFalse(blockers == [])
-        self.assertEqual(
-            component["global_registry_proof"]["authoritative"], False
+        self.assertFalse(
+            component["global_registry_proof"]["capability_authoritative"]
         )
         self.assertIn(
             "raw_first_execution_closure.semantic_projection_omits_only",
@@ -234,11 +250,16 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
                 {
                     "name": "prerequisite_audit",
                     "status": "PASS",
-                    "global_registry_authoritative": False,
+                    "registry_capability_authoritative": False,
+                    "runner_registry_consumption_proved": False,
+                    "runner_recovery_closed": False,
                     "global_registry_proof": {
                         "present": True,
                         "runner_consumes_it": False,
-                        "authoritative": False,
+                        "capability_authoritative": False,
+                        "runner_registry_consumption_proved": False,
+                        "runner_recovery_closed": False,
+                        "runner_ready": False,
                     },
                 },
                 [],

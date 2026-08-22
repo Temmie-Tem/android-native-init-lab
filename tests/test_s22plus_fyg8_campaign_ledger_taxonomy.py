@@ -657,7 +657,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # pending obligations; followup-29 is bookkeeping only.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (47, 33, 14),
+            (48, 33, 15),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -666,6 +666,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "auditor-stale-bytecode",
                 "boundary-failclosed",
                 "evidence-crosscheck",
+                "global-consumed-candidate-registry",
                 "guard-fixture-invalidation",
                 "last-kmsg-retention",
                 "log-harvest-runner",
@@ -685,6 +686,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-auditor-stale-bytecode-1",
                 "h0-boundary-failclosed-1",
                 "h0-evidence-crosscheck-1",
+                "h0-global-consumed-candidate-registry-30",
                 "h0-guard-fixture-invalidation-1",
                 "h0-last-kmsg-retention-1",
                 "h0-log-harvest-runner-1",
@@ -697,9 +699,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-usblog-parse-1",
             ],
         )
-        self.assertEqual(current["total"], 47)
+        self.assertEqual(current["total"], 48)
         self.assertEqual(current["resolved_count"], 33)
-        self.assertEqual(current["unresolved_count"], 14)
+        self.assertEqual(current["unresolved_count"], 15)
         self.assertEqual(
             [item["review_topic"] for item in current["unresolved"]].count(
                 "stock-candidate-qualification"
@@ -900,7 +902,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 344)
+        self.assertEqual(len(all_rows), 345)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -932,7 +934,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 obligations["resolved_count"],
                 obligations["unresolved_count"],
             ),
-            (47, 33, 14),
+            (48, 33, 15),
         )
         self.assertEqual(
             [

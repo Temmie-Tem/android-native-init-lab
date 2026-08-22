@@ -22,6 +22,7 @@ import device_action_d0_v2 as d0
 import device_action_raw_capture_v1 as raw_capture
 import device_action_cdc_acm_observer_v1 as cdc_acm_observer
 import device_action_f1_evidence_v2 as typed_evidence
+import consumed_candidate_registry_v1 as consumed_registry
 import device_action_f1_v2 as core
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
@@ -33,7 +34,7 @@ import s22plus_odin_transition_core as odin_core
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
-ADAPTER_VERSION = "device-action-f1-live-v2-6"
+ADAPTER_VERSION = "device-action-f1-live-v2-7"
 PREPARED_SCHEMA = "device_action_f1_prepared_v2"
 PRIVATE_TARGET_SCHEMA = "device_action_f1_private_target_v2"
 LIVE_STATE_SCHEMA = "device_action_f1_live_state_v2"
@@ -196,6 +197,8 @@ def _closure(root: Path) -> dict[str, Any]:
         "odin_transition_core": scripts / "s22plus_odin_transition_core.py",
         "usbfs_identity": scripts / "s22plus_odin_usbfs_identity.py",
         "p313_guard_lifetime": scripts / "s22plus_fyg8_p313_guard_lifetime.py",
+        "consumed_candidate_registry": Path(consumed_registry.__file__).resolve(),
+        "legacy_consumed_candidate_authority": Path(consumed_registry.LEGACY_AUTHORITY_PATH).resolve(),
     }
     values = {
         name: _receipt(path.resolve(), f"execution source {name}")
@@ -1351,6 +1354,157 @@ def _begin_transfer_attempt(
         {"attempt": attempt, "start": start},
     )
     return attempt, prefix, start
+
+
+def _candidate_registry_identity(prepared: PreparedRun) -> dict[str, Any]:
+    """Reopen the verified candidate AP and derive its global identity."""
+
+    item = prepared.bundle.manifest["candidate_ap"]
+    expected = prepared.bundle.receipt.get("candidate_ap")
+    if not isinstance(expected, dict):
+        raise F1LiveError("candidate AP verification receipt is absent")
+    path = core._artifact_path(prepared.root, item, "candidate_ap")
+    try:
+        with core.pin_boot_only_ap(
+            path,
+            label="candidate_ap at global registry boundary",
+            expected_size=item["size"],
+            expected_sha256=item["sha256"],
+            require_deterministic_metadata=True,
+        ) as pinned:
+            frame = core.read_boot_only_member(pinned, label="candidate_ap")
+            receipt = {
+                **pinned.receipt(),
+                "member": {
+                    "name": core.BOOT_MEMBER,
+                    "size": len(frame),
+                    "sha256": hashlib.sha256(frame).hexdigest(),
+                },
+            }
+    except (core.F1V2Error, transport.F1TransportError, OSError) as exc:
+        raise F1LiveError("candidate AP cannot be reverified at registry boundary") from exc
+    if receipt != expected:
+        raise F1LiveError("candidate AP verification receipt changed")
+    try:
+        return consumed_registry.derive_candidate_identity(
+            prepared.bundle.profile,
+            prepared.bundle.manifest,
+            item["sha256"],
+            approval_binding_sha256=prepared.binding_sha256,
+            candidate_receipt=receipt,
+        )
+    except consumed_registry.RegistryError as exc:
+        raise F1LiveError("candidate global identity is not verified") from exc
+
+
+def _registry_path_receipt(path: Path, label: str) -> dict[str, Any]:
+    value = _read_json(path, label)
+    receipt = _receipt(path, label)
+    return {"value": value, "receipt": receipt}
+
+
+def _candidate_registry_intent_path(prepared: PreparedRun, kind: str) -> Path:
+    if kind not in {"claim", "release"}:
+        raise F1LiveError("unknown candidate registry evidence kind")
+    return prepared.run_dir / f"candidate-global-{kind}-intent.json"
+
+
+def _candidate_registry_receipt_path(prepared: PreparedRun, kind: str) -> Path:
+    if kind not in {"claim", "release"}:
+        raise F1LiveError("unknown candidate registry receipt kind")
+    return prepared.run_dir / f"candidate-global-{kind}.json"
+
+
+def _write_registry_intent(prepared: PreparedRun, kind: str, identity: Mapping[str, Any]) -> dict[str, Any]:
+    value = {
+        "schema": "device_action_f1_global_registry_intent_v1",
+        "kind": kind,
+        "candidate_key": identity["candidate_key"],
+        "target_profile_sha256": identity["target_profile_sha256"],
+        "target_key": identity["target_key"],
+        "candidate_ap_sha256": identity["candidate_ap_sha256"],
+        "candidate_ap_size": identity["candidate_ap_size"],
+        "boot_member_name": identity["boot_member_name"],
+        "boot_member_size": identity["boot_member_size"],
+        "boot_member_sha256": identity["boot_member_sha256"],
+        "manifest_id": identity["manifest_id"],
+        "run_id": identity["run_id"],
+        "approval_binding_sha256": identity["approval_binding_sha256"],
+    }
+    path = _candidate_registry_intent_path(prepared, kind)
+    if path.exists() or path.is_symlink():
+        existing = _read_json(path, f"candidate global {kind} intent")
+        if existing != value:
+            raise F1LiveError(f"candidate global {kind} intent differs")
+        return _receipt(path, f"candidate global {kind} intent")
+    _write_exclusive(path, value)
+    return _receipt(path, f"candidate global {kind} intent")
+
+
+def _persist_registry_event(prepared: PreparedRun, kind: str, event: Mapping[str, Any]) -> dict[str, Any]:
+    path = _candidate_registry_receipt_path(prepared, kind)
+    value = dict(event)
+    value["schema"] = "device_action_f1_global_registry_receipt_v1"
+    if path.exists() or path.is_symlink():
+        current = _read_json(path, f"candidate global {kind} receipt")
+        if current != value:
+            raise F1LiveError(f"candidate global {kind} receipt differs")
+        return _receipt(path, f"candidate global {kind} receipt")
+    _write_exclusive(path, value)
+    return _receipt(path, f"candidate global {kind} receipt")
+
+
+def _preflight_candidate_global(prepared: PreparedRun, identity: Mapping[str, Any]) -> None:
+    """Check the immutable activation deny-list and active claims before Download."""
+
+    try:
+        consumed_registry.preflight_candidate(prepared.root, identity)
+    except consumed_registry.DuplicateCandidateClaim as exc:
+        raise F1LiveError("candidate was already consumed; replay is forbidden") from exc
+    except consumed_registry.RegistryError as exc:
+        raise F1LiveError("global candidate preflight failed closed") from exc
+
+
+def _claim_candidate_global(prepared: PreparedRun, identity: Mapping[str, Any]) -> dict[str, Any]:
+    _write_registry_intent(prepared, "claim", identity)
+    try:
+        event = consumed_registry.claim(prepared.root, identity)
+    except consumed_registry.DuplicateCandidateClaim as exc:
+        raise F1LiveError("candidate global claim is already active or consumed") from exc
+    except consumed_registry.RegistryError as exc:
+        raise F1LiveError("global candidate claim failed closed") from exc
+    receipt = _persist_registry_event(prepared, "claim", event)
+    return {"event": event, "receipt": receipt}
+
+
+def _release_candidate_global(prepared: PreparedRun) -> dict[str, Any]:
+    claim_path = _candidate_registry_receipt_path(prepared, "claim")
+    if not claim_path.exists() or claim_path.is_symlink():
+        raise F1LiveError("candidate global claim receipt is absent")
+    claim_value = _read_json(claim_path, "candidate global claim receipt")
+    expected_identity = _candidate_registry_identity(prepared)
+    claim_record = claim_value.get("record") if isinstance(claim_value, dict) else None
+    identity_fields = (
+        "candidate_key", "target_profile_sha256", "target_key",
+        "candidate_ap_sha256", "candidate_ap_size", "boot_member_name",
+        "boot_member_size", "boot_member_sha256", "manifest_id", "run_id",
+        "approval_binding_sha256",
+    )
+    if not isinstance(claim_record, dict) or any(
+        claim_record.get(field) != expected_identity.get(field)
+        for field in identity_fields
+    ):
+        raise F1LiveError("candidate global claim owner differs from prepared identity")
+    # A release is permitted only after the durable local parser has reopened
+    # the exact raw result and classified it as the pre-session exception.
+    state = _state(prepared)
+    if state.get("candidate_classification") != "odin_local_parse_failure" or state.get("candidate_possible_device_session") is not False:
+        raise F1LiveError("candidate global release lacks exact pre-session proof")
+    try:
+        event = consumed_registry.release(prepared.root, claim_value)
+    except consumed_registry.RegistryError as exc:
+        raise F1LiveError("candidate global release is pending and remains consumed") from exc
+    return _persist_registry_event(prepared, "release", event)
 
 
 def _next_execute_preflight(run_dir: Path) -> Path:
@@ -2755,6 +2909,51 @@ def _p300_recovery_process_cleanup(
     return owner_receipt, cleanup
 
 
+def _global_registry_recovery_state(
+    prepared: PreparedRun,
+    *,
+    journal_state: str | None = None,
+) -> tuple[str, dict[str, Any] | None]:
+    """Read global evidence without making registry repair a rollback gate."""
+
+    claim_path = _candidate_registry_receipt_path(prepared, "claim")
+    claim_intent = _candidate_registry_intent_path(prepared, "claim")
+    local_claim = None
+    if claim_path.exists() and not claim_path.is_symlink():
+        local_claim = _read_json(claim_path, "candidate global claim receipt")
+    local_claim_evidence = local_claim is not None
+    local_claim_intent = claim_intent.exists() and not claim_intent.is_symlink()
+    identity_fields = (
+        "candidate_key", "target_profile_sha256", "target_key",
+        "candidate_ap_sha256", "candidate_ap_size", "boot_member_name",
+        "boot_member_size", "boot_member_sha256", "manifest_id", "run_id",
+        "approval_binding_sha256",
+    )
+    try:
+        identity = _candidate_registry_identity(prepared)
+        active = consumed_registry.active_claim(prepared.root, identity["candidate_key"])
+    except (F1LiveError, consumed_registry.RegistryError):
+        if local_claim_evidence or local_claim_intent:
+            return "claimed-uncertain", local_claim
+        if journal_state in {"CANDIDATE_FLASHED", "OBSERVED", "RECOVERY_DOWNLOAD", "ROLLBACK_FLASHED", "HEALTH_VERIFIED"}:
+            return "claimed-uncertain", None
+        return "registry-unavailable-preclaim", None
+    if active is not None:
+        if any(active.get(field) != identity.get(field) for field in identity_fields):
+            return "foreign-claim", active
+        return "claimed", active
+    if local_claim is not None:
+        record = local_claim.get("record") if isinstance(local_claim, dict) else None
+        if not isinstance(record, dict) or any(
+            record.get(field) != identity.get(field) for field in identity_fields
+        ):
+            return "foreign-claim", record
+        return "claimed-uncertain", local_claim
+    if local_claim_intent:
+        return "claim-intent-only", None
+    return "none", None
+
+
 def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
     p300_lifecycle = None
     if _p300_bundle(prepared.bundle):
@@ -2780,9 +2979,106 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 owner_receipt,
                 _p300_cleanup_failure(binding, exc),
             )
+    global_state, global_receipt = _global_registry_recovery_state(
+        prepared, journal_state=journal.state()
+    )
+    if global_state == "foreign-claim":
+        raise F1LiveError("foreign global candidate claim owner; recovery is blocked")
+    request_intent_path = prepared.run_dir / "candidate-download-request-intent.json"
+    if (
+        global_state in {"none", "claim-intent-only", "registry-unavailable-preclaim"}
+        and
+        request_intent_path.exists()
+        and not request_intent_path.is_symlink()
+        and journal.state() in {"APPROVED", "DOWNLOAD_IDENTIFIED"}
+    ):
+        # The request may have reached the device, but no candidate claim is
+        # admissible until a Download endpoint was actually identified.  This
+        # is an explicit target-session recovery blocker, not a candidate
+        # consumption claim invented from an ADB request cut.
+        raise F1LiveError(
+            "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY: target-session Download request is uncertain"
+        )
+    current_before = _state(prepared)
+    candidate_result_path = prepared.run_dir / "candidate-attempt-01.result.json"
+    if candidate_result_path.exists() and not candidate_result_path.is_symlink():
+        try:
+            durable_candidate = _validate_transfer_result(prepared, "candidate", 1)
+        except F1LiveError:
+            durable_candidate = None
+        if isinstance(durable_candidate, dict) and durable_candidate.get("classification") == "odin_local_parse_failure":
+            current_before.update(
+                {
+                    "candidate_classification": "odin_local_parse_failure",
+                    "candidate_completed": False,
+                    "candidate_possible_device_session": False,
+                }
+            )
+            _save_state(prepared, current_before)
+    if current_before.get("candidate_classification") == "odin_local_parse_failure":
+        # This is the only release path.  If the registry is unavailable,
+        # retain the claim and continue rollback-only; never replay or wait.
+        try:
+            _validate_transfer_result(prepared, "candidate", 1)
+            if current_before.get("candidate_possible_device_session") is False:
+                _release_candidate_global(prepared)
+                if journal.state() != "ABORTED":
+                    journal.transition(
+                        "ABORTED",
+                        "odin_local_parse_failure",
+                        {"device_session_started": False, "partition_transfer": False},
+                    )
+                return False
+        except (F1LiveError, consumed_registry.RegistryError):
+            global_state = "claimed-uncertain"
+    if global_state in {"claimed", "claimed-uncertain"}:
+        if not _reconcile_transfer_attempts(
+            prepared, journal, "candidate", repair_orphan_start=True
+        ):
+            attempt, _prefix, _start = _begin_transfer_attempt(
+                prepared, journal, "candidate"
+            )
+            current = _state(prepared)
+            current.update(
+                {
+                    "candidate_classification": "odin_device_session_failure_or_unknown",
+                    "candidate_completed": False,
+                    "candidate_global_claim_recovered": True,
+                }
+            )
+            _save_state(prepared, current)
+            if journal.state() == "DOWNLOAD_IDENTIFIED":
+                journal.event(
+                    "candidate_flash_start",
+                    {"attempt": attempt, "recovery_only": True},
+                )
+                journal.transition(
+                    "CANDIDATE_FLASHED",
+                    "global_candidate_claim_recovered_without_local_attempt",
+                    {"recovery_only": True, "proof": False},
+                )
+                journal.event("candidate_flash_done", {"proof": False, "recovery_only": True})
+                journal.transition(
+                    "OBSERVED",
+                    "global_candidate_claim_recovery_observation_skipped",
+                    {"proof": False, "recovery_only": True},
+                )
+                journal.event("candidate_boot_ready", {"proof": False, "recovery_only": True})
+            return True
     attempt_count = _reconcile_transfer_attempts(
         prepared, journal, "candidate", repair_orphan_start=True
     )
+    if global_state == "claim-intent-only":
+        # A claim intent is not a claim.  Never synthesize a consumed attempt
+        # from an intent-only cut; the next recovery remains pre-candidate.
+        return False
+    if attempt_count and global_state not in {"claimed", "claimed-uncertain"}:
+        claim_path = _candidate_registry_receipt_path(prepared, "claim")
+        claim_intent = _candidate_registry_intent_path(prepared, "claim")
+        if not (claim_path.exists() or claim_intent.exists()):
+            # The local attempt was durable, but the global consumed boundary
+            # was never reached; no backend call may be inferred or replayed.
+            return False
     if _p300_bundle(prepared.bundle):
         assert p300_lifecycle is not None
         owner_receipt, cleanup = p300_lifecycle
@@ -2938,6 +3234,36 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
             "candidate_boot_ready", {"proof": proof, "resumed": True}
         )
     return True
+
+
+def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
+    """Recompute a CLOSED terminal without reopening any backend."""
+
+    current = _state(prepared)
+    marker = current.get("marker_accepted") is True
+    candidate = current.get("candidate_completed") is True
+    observer_required = (
+        prepared.bundle.manifest["observation"].get("candidate_observer")
+        is not None
+    )
+    acm = current.get("candidate_observer_accepted") is True
+    departed = current.get("download_endpoint_absent") is True
+    guard_released = current.get("candidate_observer_guard_released") is True
+    guard_status = current.get("candidate_observer_guard_release_status")
+    guard_supports_result = _observer_guard_supports_result(
+        accepted=acm,
+        status=guard_status,
+        released=guard_released,
+    )
+    if observer_required and not guard_supports_result:
+        return "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", _guard_release_failure_outcome(guard_status)
+    if marker and candidate and (not observer_required or (departed and acm)):
+        return "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK", "candidate_proven_rollback_verified"
+    if observer_required and candidate and departed and marker and not acm:
+        return "DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK", "retained_only_rollback_verified"
+    if observer_required and candidate and departed and acm and not marker:
+        return "DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK", "acm_only_rollback_verified"
+    return "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", "candidate_not_proven_rollback_verified"
 
 
 def _finish_rollback(
@@ -3138,25 +3464,12 @@ def _finish_rollback(
         current = _state(prepared)
         marker = current.get("marker_accepted") is True
         candidate = current.get("candidate_completed") is True
-        observer_required = (
-            prepared.bundle.manifest["observation"].get(
-                "candidate_observer"
-            )
-            is not None
-        )
+        observer_required = prepared.bundle.manifest["observation"].get("candidate_observer") is not None
         acm = current.get("candidate_observer_accepted") is True
         departed = current.get("download_endpoint_absent") is True
-        guard_released = (
-            current.get("candidate_observer_guard_released") is True
-        )
-        guard_status = current.get(
-            "candidate_observer_guard_release_status"
-        )
-        guard_supports_result = _observer_guard_supports_result(
-            accepted=acm,
-            status=guard_status,
-            released=guard_released,
-        )
+        guard_released = current.get("candidate_observer_guard_released") is True
+        guard_status = current.get("candidate_observer_guard_release_status")
+        guard_supports_result = _observer_guard_supports_result(accepted=acm, status=guard_status, released=guard_released)
         if observer_required and acm and (not candidate or not departed):
             raise F1LiveError(
                 "candidate observer acceptance lacks transfer continuity"
@@ -3179,49 +3492,8 @@ def _finish_rollback(
                 ),
             },
         )
-        if observer_required and not guard_supports_result:
-            return _result(
-                prepared,
-                journal,
-                "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
-                _guard_release_failure_outcome(
-                    guard_status
-                ),
-                False,
-            )
-        if marker and candidate and (
-            not observer_required or (departed and acm)
-        ):
-            return _result(
-                prepared,
-                journal,
-                "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK",
-                "candidate_proven_rollback_verified",
-                False,
-            )
-        if observer_required and candidate and departed and marker and not acm:
-            return _result(
-                prepared,
-                journal,
-                "DIAGNOSTIC_F1_V2_RETAINED_ONLY_ROLLED_BACK",
-                "retained_only_rollback_verified",
-                False,
-            )
-        if observer_required and candidate and departed and acm and not marker:
-            return _result(
-                prepared,
-                journal,
-                "DIAGNOSTIC_F1_V2_ACM_ONLY_ROLLED_BACK",
-                "acm_only_rollback_verified",
-                False,
-            )
-        return _result(
-            prepared,
-            journal,
-            "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
-            "candidate_not_proven_rollback_verified",
-            False,
-        )
+        verdict, outcome = _closed_terminal_classification(prepared)
+        return _result(prepared, journal, verdict, outcome, False)
     raise F1LiveError(f"unsupported rollback resume state: {state}")
 
 
@@ -3706,6 +3978,8 @@ def _execute_prepared_locked(
     transaction = prepared.run_dir / "transaction"
     if transaction.exists() or transaction.is_symlink():
         raise F1LiveError("prepared run already has a transaction; use recovery")
+    candidate_identity = _candidate_registry_identity(prepared)
+    _preflight_candidate_global(prepared, candidate_identity)
     recheck = backend.recheck_android(
         prepared, _next_execute_preflight(prepared.run_dir)
     )
@@ -3751,45 +4025,28 @@ def _execute_prepared_locked(
             trace_session.start()
             observer_stack.callback(trace_session.close)
             try:
+                request_intent = {
+                    "schema": "device_action_f1_download_request_intent_v1",
+                    "candidate_key": candidate_identity["candidate_key"],
+                    "target_profile_sha256": candidate_identity["target_profile_sha256"],
+                    "run_id": candidate_identity["run_id"],
+                    "approval_binding_sha256": candidate_identity["approval_binding_sha256"],
+                }
+                request_intent_path = prepared.run_dir / "candidate-download-request-intent.json"
+                if request_intent_path.exists() or request_intent_path.is_symlink():
+                    if _read_json(request_intent_path, "candidate Download request intent") != request_intent:
+                        raise F1LiveError("candidate Download request intent differs")
+                else:
+                    _write_exclusive(request_intent_path, request_intent)
                 backend.request_download(prepared)
             except Exception as exc:
-                journal.transition(
-                    "ABORTED",
-                    "download_request_failed_before_candidate",
-                    {
-                        "error_type": type(exc).__name__,
-                        "candidate_attempted": False,
-                    },
-                )
-                trace_session.close()
-                return _result(
-                    prepared,
-                    journal,
-                    "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
-                    "download_request_failed_before_candidate",
-                    False,
-                )
+                raise F1LiveError("BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY: Download request outcome is uncertain; recovery is required") from exc
             try:
                 endpoint = backend.wait_download(
                     prepared, endpoint_dir, lease, DOWNLOAD_WAIT_SEC
                 )
             except Exception as exc:
-                journal.transition(
-                    "ABORTED",
-                    "download_endpoint_unavailable_before_candidate",
-                    {
-                        "error_type": type(exc).__name__,
-                        "candidate_attempted": False,
-                    },
-                )
-                trace_session.close()
-                return _result(
-                    prepared,
-                    journal,
-                    "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
-                    "download_endpoint_unavailable_before_candidate",
-                    False,
-                )
+                raise F1LiveError("BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY: Download endpoint outcome is uncertain; recovery is required") from exc
             journal.transition(
                 "DOWNLOAD_IDENTIFIED",
                 "candidate_endpoint_identified",
@@ -3798,6 +4055,10 @@ def _execute_prepared_locked(
             attempt, prefix, _start = _begin_transfer_attempt(
                 prepared, journal, "candidate"
             )
+            # The claim is the durable consumed/uncertain boundary.  The
+            # local start/checkpoint is first; a cut before this claim is a
+            # pre-candidate host stop, never an invented consumed attempt.
+            _claim_candidate_global(prepared, candidate_identity)
             journal.event("candidate_flash_start", {"attempt": attempt})
             candidate = backend.transfer(
                 prepared,
@@ -3812,12 +4073,18 @@ def _execute_prepared_locked(
                 {
                     "candidate_classification": candidate.classification,
                     "candidate_completed": candidate.completed,
+                    "candidate_possible_device_session": candidate.possible_device_session,
                     "rollback_completed": False,
                     "final_verified": False,
                 }
             )
             _save_state(prepared, current)
             if candidate.classification == "odin_local_parse_failure":
+                # Reopen/validate the durable raw receipt before allowing the
+                # sole release exception.  Any failure leaves the global claim
+                # active and therefore forces recovery-only handling.
+                _validate_transfer_result(prepared, "candidate", attempt)
+                _release_candidate_global(prepared)
                 journal.transition(
                     "ABORTED",
                     "odin_local_parse_failure",
@@ -3826,7 +4093,6 @@ def _execute_prepared_locked(
                         "partition_transfer": False,
                     },
                 )
-                trace_session.close()
                 return _result(
                     prepared,
                     journal,
@@ -3962,8 +4228,14 @@ def execute_prepared(
     approval: str,
     backend: LiveBackend,
 ) -> dict[str, Any]:
-    with odin_core.transaction_session(prepared.run_dir / "f1-session"):
-        return _execute_prepared_locked(prepared, approval, backend)
+    if approval != prepared.approval_token:
+        raise F1LiveError("fresh F1 approval token mismatch")
+    try:
+        with consumed_registry.target_session_lease(prepared.root):
+            with odin_core.transaction_session(prepared.run_dir / "f1-session"):
+                return _execute_prepared_locked(prepared, approval, backend)
+    except consumed_registry.RegistryError as exc:
+        raise F1LiveError("global target-session lease unavailable or replaced") from exc
 
 
 def _recover_prepared_locked(
@@ -3974,14 +4246,43 @@ def _recover_prepared_locked(
     if not transaction.is_dir() or transaction.is_symlink():
         raise F1LiveError("recovery has no approved transaction")
     journal = core.Journal.reopen(transaction, prepared.binding_sha256)
-    if journal.state() in {"CLOSED", "ABORTED"}:
-        raise F1LiveError("transaction is not recoverable")
-    if not _normalize_recovery(prepared, journal):
-        journal.transition(
-            "ABORTED",
-            "interrupted_before_candidate_attempt",
-            {"candidate_attempted": False, "partition_transfer": False},
+    if journal.state() == "CLOSED":
+        # Terminal-only host finalization may re-emit a result after a
+        # publication cut.  The target-session flock is the only durable
+        # physical-target serialization; it is never represented as a
+        # candidate-consumption record.
+        result_path = prepared.run_dir / "live-result.json"
+        if result_path.exists() and not result_path.is_symlink():
+            value = _read_json(result_path, "closed F1 live result")
+            return _result(
+                prepared,
+                journal,
+                value["verdict"],
+                value["outcome_class"],
+                value["recovery_required"],
+            )
+        verdict, outcome = _closed_terminal_classification(prepared)
+        return _result(prepared, journal, verdict, outcome, False)
+    if journal.state() == "ABORTED":
+        current = _state(prepared)
+        if current.get("candidate_classification") != "odin_local_parse_failure" or current.get("candidate_possible_device_session") is not False:
+            raise F1LiveError("transaction is not recoverable")
+        _validate_transfer_result(prepared, "candidate", 1)
+        _release_candidate_global(prepared)
+        return _result(
+            prepared,
+            journal,
+            "FAIL_F1_V2_ODIN_LOCAL_PARSE_NO_DEVICE_SESSION",
+            "odin_local_parse_failure",
+            False,
         )
+    if not _normalize_recovery(prepared, journal):
+        if journal.state() != "ABORTED":
+            journal.transition(
+                "ABORTED",
+                "interrupted_before_candidate_attempt",
+                {"candidate_attempted": False, "partition_transfer": False},
+            )
         return _result(
             prepared,
             journal,
@@ -3998,8 +4299,12 @@ def recover_prepared(
     prepared: PreparedRun,
     backend: LiveBackend,
 ) -> dict[str, Any]:
-    with odin_core.transaction_session(prepared.run_dir / "f1-session"):
-        return _recover_prepared_locked(prepared, backend)
+    try:
+        with consumed_registry.target_session_lease(prepared.root):
+            with odin_core.transaction_session(prepared.run_dir / "f1-session"):
+                return _recover_prepared_locked(prepared, backend)
+    except consumed_registry.RegistryError as exc:
+        raise F1LiveError("global target-session lease unavailable or replaced") from exc
 
 
 def render_plan(root: Path, bundle: core.Bundle) -> dict[str, Any]:

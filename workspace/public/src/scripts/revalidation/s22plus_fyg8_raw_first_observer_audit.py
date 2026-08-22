@@ -19,12 +19,12 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "879705ede830fc43a27063621e402991e5fb0c6f37c1ae2f8a84a570cdc102a8"
+AUDITOR_NORMALIZED_SHA256 = "84e435bcea3e1a5ca21d0fa69451b6209366f2d859601415bea01a75438f38a5"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
+    "raw-first-observer-audit-20260822-09-global-registry-default.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
@@ -290,7 +290,7 @@ ACTIVE_FILES = {
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
     "device_action_d0_v2.py": "e71894396ca0c9ba0657a1c83d45883b99f53887c1fb87076ea0a38bbee5c37a",
-    "device_action_f1_live_v2.py": "1acb93802479ed6061cb7dd0f97859b7dfbc232cc25f28c210d6a0482d6823f1",
+    "device_action_f1_live_v2.py": "e27623b4c1a5b90a8ae2000750952e4561056e2bee3b4141bd33486aeb5adc73",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",

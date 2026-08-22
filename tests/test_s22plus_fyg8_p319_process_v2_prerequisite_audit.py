@@ -34,11 +34,9 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         cls.module = load_module()
         cls.receipt = cls.module.build_receipt()
 
-    def test_result_is_deterministically_blocked_without_global_registry(self):
+    def test_registry_capability_and_runner_consumption_are_separate_from_readiness(self):
         self.assertEqual(self.receipt["verdict"], self.module.VERDICT)
-        self.assertEqual(
-            self.receipt["status"], "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY"
-        )
+        self.assertEqual(self.receipt["status"], self.module.VERDICT)
         admission = self.receipt["no_replay"]
         self.assertTrue(admission["new_live_run_id_absent"])
         self.assertTrue(admission["candidate_pair_absent"])
@@ -52,11 +50,12 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         )
         self.assertEqual(admission["candidate_ap"]["sha256"], self.module.CANDIDATE_AP_SHA256)
         self.assertEqual(admission["candidate_ap"]["single_member"], "boot.img.lz4")
-        self.assertFalse(admission["global_consumed_run_registry"]["authoritative"])
-        self.assertEqual(
-            self.receipt["global_registry_blocker"],
-            "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY",
-        )
+        registry = admission["global_consumed_run_registry"]
+        self.assertTrue(registry["capability_authoritative"])
+        self.assertTrue(registry["runner_registry_consumption_proved"])
+        self.assertFalse(registry["runner_recovery_closed"])
+        self.assertFalse(registry["runner_ready"])
+        self.assertIsNone(self.receipt["global_registry_blocker"])
 
     def test_recovery_provenance_is_distinct_from_reopening_ap(self):
         recovery = self.receipt["recovery_usability_provenance"]
@@ -97,14 +96,14 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
 
     def test_raw_first_projection_is_disk_population_probe(self):
         raw = self.receipt["raw_first_execution_closure"]
-        self.assertEqual(raw["auditor"]["size"], 62595)
+        self.assertEqual(raw["auditor"]["size"], 62591)
         self.assertEqual(
             raw["auditor"]["sha256"],
-            "584276070d1247b995188a86eea6ca228fa0e2555f5ea98a0b8385f17621e299",
+            "d13be6fbeaa80915ce4b76fa45e810c9c8e982044b6f6b75814d5d65c694e799",
         )
         self.assertEqual(
             raw["receipt"]["sha256"],
-            "5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352",
+            "1b98a4b10dbeb56487d47074095841c9a488b963a40a3be4769e17398d4eabb8",
         )
         self.assertEqual(raw["receipt"]["mode"], "0400")
         self.assertEqual(raw["receipt"]["nlink"], 1)

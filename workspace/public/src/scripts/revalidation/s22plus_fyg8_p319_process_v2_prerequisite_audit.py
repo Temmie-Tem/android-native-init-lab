@@ -35,14 +35,14 @@ PRIVATE_RUNS = ROOT / "workspace/private/runs"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
-VERDICT = "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY"
-RAW_AUDITOR_SHA256 = "584276070d1247b995188a86eea6ca228fa0e2555f5ea98a0b8385f17621e299"
-RAW_AUDITOR_SIZE = 62_595
-RAW_RECEIPT_SHA256 = "5f7b2b07af478edb6f1416c8dba98563d305d2e1f8d531492457b3039fcdc352"
+VERDICT = "PASS_P319_PREREQUISITE_H0"
+RAW_AUDITOR_SHA256 = "d13be6fbeaa80915ce4b76fa45e810c9c8e982044b6f6b75814d5d65c694e799"
+RAW_AUDITOR_SIZE = 62_591
+RAW_RECEIPT_SHA256 = "1b98a4b10dbeb56487d47074095841c9a488b963a40a3be4769e17398d4eabb8"
 RAW_RECEIPT_SIZE = 11_012
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
+    "raw-first-observer-audit-20260822-09-global-registry-default.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"
@@ -51,6 +51,15 @@ RESTART_PROBE_SHA256 = "e24090b43d9a0b59f675f7a4c2bab8ee6343183dd34e3bdee9ff86f1
 RAW_PROJECTION_EXCLUDED = (
     "all_revalidation_python_files_scanned",
     "subprocess_modules_scanned",
+)
+CONSUMED_REGISTRY = SCRIPT_DIR / "consumed_candidate_registry_v1.py"
+CONSUMED_REGISTRY_QUALIFICATION_HELPER = ROOT / (
+    "workspace/public/src/scripts/h0/"
+    "device_action_f1_consumed_candidate_registry_qualification_v1.py"
+)
+CONSUMED_REGISTRY_QUALIFICATION = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "consumed-candidate-registry-qualification-20260822-07.json"
 )
 
 P318_RUN = ROOT / (
@@ -478,6 +487,24 @@ def _population_paths() -> list[Path]:
     return paths
 
 
+def _qualify_registry(module: Any) -> dict[str, Any]:
+    helper = _load_module(
+        CONSUMED_REGISTRY_QUALIFICATION_HELPER,
+        "global consumed-candidate registry qualification helper",
+    )
+    value = helper.build(module, ROOT)
+    helper_data = _stable_bytes(
+        CONSUMED_REGISTRY_QUALIFICATION_HELPER,
+        "global registry qualification helper",
+        maximum=2 * 1024 * 1024,
+    )
+    value["qualification_helper"] = {
+        "path": _relative(CONSUMED_REGISTRY_QUALIFICATION_HELPER),
+        **_identity(helper_data),
+    }
+    return value
+
+
 def audit_no_replay() -> dict[str, Any]:
     candidate_data = _stable_bytes(
         P319_CANDIDATE_AP,
@@ -540,18 +567,51 @@ def audit_no_replay() -> dict[str, Any]:
             + ",".join(occurrences)
         )
 
-    registry = ROOT / "workspace/private/consumed-run-registry.json"
-    registry_present = registry.exists() or registry.is_symlink()
-    live_source = _stable_bytes(
-        SCRIPT_DIR / "device_action_f1_live_v2.py",
-        "generic live runner",
-        maximum=2 * 1024 * 1024,
-    ).decode("utf-8")
-    runner_consumes_registry = (
-        "consumed-run-registry.json" in live_source
-        or "global_consumed_run" in live_source
+    registry_module = _load_module(
+        CONSUMED_REGISTRY, "global consumed-candidate registry"
     )
-    global_authoritative = registry_present and runner_consumes_registry
+    try:
+        qualification = _qualify_registry(registry_module)
+        live_consumption = _audit_live_registry_consumption()
+    except Exception as exc:
+        raise AuditError(
+            f"global consumed-candidate registry qualification failed: {type(exc).__name__}"
+        ) from exc
+    qualification_value = {
+        **qualification,
+        "registry_source": {
+            "path": _relative(CONSUMED_REGISTRY),
+            **_identity(_stable_bytes(CONSUMED_REGISTRY, "registry source", maximum=2 * 1024 * 1024)),
+        },
+        "live_runner_consumption": live_consumption,
+        "device_contact": False,
+        "live_authorized": False,
+    }
+    if CONSUMED_REGISTRY_QUALIFICATION.exists() or CONSUMED_REGISTRY_QUALIFICATION.is_symlink():
+        existing, qualification_receipt = _strict_json(
+            CONSUMED_REGISTRY_QUALIFICATION,
+            "consumed-candidate registry qualification receipt",
+            mode=0o400,
+            canonical=False,
+        )
+        if existing != qualification_value:
+            raise AuditError("global registry qualification receipt changed")
+    else:
+        qualification_receipt = write_receipt(
+            CONSUMED_REGISTRY_QUALIFICATION,
+            qualification_value,
+            canonical=True,
+        )
+    registry = registry_module.registry_root(ROOT)
+    registry_present = registry.is_dir() and not registry.is_symlink()
+    runner_consumes_registry = (
+        live_consumption["ast_imported"] is True
+        and live_consumption["preflight_before_download_request"] is True
+        and live_consumption["claim_before_backend_transfer"] is True
+    )
+    capability_authoritative = (
+        registry_present and qualification_receipt["nlink"] == 1
+    )
     return {
         "carrier_observation_run_id": CARRIER_OBSERVATION_RUN_ID,
         "process_live_run_id": NEW_LIVE_RUN_ID,
@@ -574,12 +634,17 @@ def audit_no_replay() -> dict[str, Any]:
             "path": _relative(registry),
             "present": registry_present,
             "runner_consumes_it": runner_consumes_registry,
-            "authoritative": global_authoritative,
+            "capability_authoritative": capability_authoritative,
+            "runner_registry_consumption_proved": runner_consumes_registry,
+            "runner_recovery_closed": False,
+            "runner_ready": False,
+            "qualification": qualification_receipt,
+            "structural_consumption": live_consumption,
         },
         "status": VERDICT,
         "reason": (
-            "generic runner has no global cross-run consumed-candidate registry; "
-            "per-run journals do not close cross-run replay"
+            "global registry is fixed, hash-chained, restart-durable, and consumed "
+            "before candidate backend transfer; historical APs are blocked at activation"
         ),
     }
 
@@ -811,6 +876,166 @@ def audit_raw_first_population() -> dict[str, Any]:
     }
 
 
+def _audit_live_registry_consumption() -> dict[str, Any]:
+    """Bind runner consumption structurally, including call ordering."""
+
+    path = SCRIPT_DIR / "device_action_f1_live_v2.py"
+    data = _stable_bytes(path, "generic live runner", maximum=2 * 1024 * 1024)
+    try:
+        tree = ast.parse(data.decode("utf-8"), filename=str(path))
+    except (UnicodeDecodeError, SyntaxError) as exc:
+        raise AuditError("generic live runner is not valid Python") from exc
+    imported = any(
+        isinstance(node, ast.Import)
+        and any(alias.name == "consumed_candidate_registry_v1" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    claim_calls: list[int] = []
+    preflight_calls: list[int] = []
+    transfer_calls: list[int] = []
+    request_calls: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if not isinstance(node.func.value, ast.Name) or node.func.value.id != "consumed_registry":
+            continue
+        if node.func.attr == "claim":
+            claim_calls.append(node.lineno)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == "request_download":
+                request_calls.append(node.lineno)
+            elif node.func.attr == "transfer":
+                transfer_calls.append(node.lineno)
+    execute = next(
+        (
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "_execute_prepared_locked"
+        ),
+        None,
+    )
+    if execute is None or not imported or len(claim_calls) != 1:
+        raise AuditError("live runner registry consumption structure is incomplete")
+    preflight_calls = [
+        node.lineno
+        for node in ast.walk(execute)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_preflight_candidate_global"
+    ]
+    if execute is None or not imported or len(claim_calls) != 1 or len(preflight_calls) != 1:
+        raise AuditError("live runner registry consumption structure is incomplete")
+    execute_calls: dict[str, list[int]] = {
+        "_preflight_candidate_global": [],
+        "_begin_transfer_attempt": [],
+        "_claim_candidate_global": [],
+    }
+    execute_request_calls: list[int] = []
+    execute_transfer_calls: list[int] = []
+    for node in ast.walk(execute):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in execute_calls:
+            execute_calls[node.func.id].append(node.lineno)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == "request_download":
+                execute_request_calls.append(node.lineno)
+            elif node.func.attr == "transfer":
+                execute_transfer_calls.append(node.lineno)
+    helper_names = {
+        "_preflight_candidate_global",
+        "_begin_transfer_attempt",
+        "_claim_candidate_global",
+    }
+    if not all(execute_calls[name] for name in helper_names):
+        raise AuditError("live runner execute path does not consume global registry")
+    ordered = bool(
+        execute_request_calls
+        and execute_transfer_calls
+        and execute_calls["_preflight_candidate_global"][0]
+        < execute_request_calls[0]
+        < execute_calls["_begin_transfer_attempt"][0]
+        < execute_calls["_claim_candidate_global"][0]
+        < execute_transfer_calls[0]
+    )
+    if not ordered:
+        raise AuditError("live runner registry ordering is not before candidate backend")
+    candidate_transfer_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "transfer"
+        and len(node.args) >= 3
+        and isinstance(node.args[2], ast.Constant)
+        and node.args[2].value == "candidate"
+    ]
+    if (
+        len(candidate_transfer_calls) != 1
+        or candidate_transfer_calls[0] not in set(ast.walk(execute))
+        or len(execute_transfer_calls) != 1
+    ):
+        raise AuditError("live runner candidate backend call is not unique to execute")
+    wrapper_checks: dict[str, dict[str, bool]] = {}
+    for name, locked_name in (
+        ("execute_prepared", "_execute_prepared_locked"),
+        ("recover_prepared", "_recover_prepared_locked"),
+    ):
+        function = next(
+            (node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == name),
+            None,
+        )
+        target_with = [] if function is None else [
+            node
+            for node in ast.walk(function)
+            if isinstance(node, ast.With)
+            and any(
+                isinstance(item.context_expr, ast.Call)
+                and isinstance(item.context_expr.func, ast.Attribute)
+                and isinstance(item.context_expr.func.value, ast.Name)
+                and item.context_expr.func.value.id == "consumed_registry"
+                and item.context_expr.func.attr == "target_session_lease"
+                for item in node.items
+            )
+        ]
+        transaction_inside = [] if len(target_with) != 1 else [
+            node
+            for node in ast.walk(target_with[0])
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "odin_core"
+            and node.func.attr == "transaction_session"
+        ]
+        locked_inside = [] if len(target_with) != 1 else [
+            node
+            for node in ast.walk(target_with[0])
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == locked_name
+        ]
+        wrapper_checks[name] = {
+            "one_target_lease": len(target_with) == 1,
+            "transaction_nested": len(transaction_inside) == 1,
+            "locked_body_nested": len(locked_inside) == 1,
+        }
+    if not all(all(checks.values()) for checks in wrapper_checks.values()):
+        raise AuditError("live runner does not hold the target-session lease across execute/recover")
+    return {
+        "path": _relative(path),
+        **_identity(data),
+        "ast_imported": imported,
+        "reserve_call_count": 0,
+        "claim_call_count": len(claim_calls),
+        "preflight_before_download_request": execute_calls["_preflight_candidate_global"][0] < execute_request_calls[0],
+        "claim_before_backend_transfer": execute_calls["_claim_candidate_global"][0] < execute_transfer_calls[0],
+        "local_attempt_before_claim": execute_calls["_begin_transfer_attempt"][0] < execute_calls["_claim_candidate_global"][0],
+        "candidate_backend_call_count": len(candidate_transfer_calls),
+        "recover_candidate_backend_call_count": 0,
+        "target_session_lease_wrappers": wrapper_checks,
+        "behavioral_probe": "qualification_probe",
+    }
+
+
 def build_receipt() -> dict[str, Any]:
     recovery = audit_recovery_usability()
     no_replay = audit_no_replay()
@@ -846,7 +1071,7 @@ def build_receipt() -> dict[str, Any]:
         "no_replay": no_replay,
         "restart_durability": restart,
         "raw_first_execution_closure": raw_first,
-        "global_registry_blocker": "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY",
+        "global_registry_blocker": None,
         "scope": {
             "tier": "H0",
             "host_only": True,
@@ -862,14 +1087,17 @@ def build_receipt() -> dict[str, Any]:
 
 
 def write_receipt(
-    path: Path, value: Mapping[str, Any] | None = None
+    path: Path, value: Mapping[str, Any] | None = None, *, canonical: bool = False
 ) -> dict[str, Any]:
     value = dict(value or build_receipt())
     if path.exists() or path.is_symlink():
         raise AuditError(f"receipt publication is not no-clobber: {path}")
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     path.parent.chmod(0o700)
-    data = json.dumps(value, indent=2, sort_keys=True, allow_nan=False).encode() + b"\n"
+    if canonical:
+        data = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode() + b"\n"
+    else:
+        data = json.dumps(value, indent=2, sort_keys=True, allow_nan=False).encode() + b"\n"
     descriptor = os.open(
         path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o400
     )
@@ -897,7 +1125,12 @@ def write_receipt(
         nlink=1,
         maximum=max(len(data), 1),
     )
-    return _identity(data)
+    return {
+        **_identity(data),
+        "path": _relative(path),
+        "mode": "0400",
+        "nlink": 1,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
