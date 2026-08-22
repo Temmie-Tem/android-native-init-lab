@@ -13,7 +13,10 @@ from __future__ import annotations
 
 import importlib.util
 import hashlib
+import json
 import os
+import re
+import stat
 import sys
 from pathlib import Path
 
@@ -36,6 +39,18 @@ if Path(getattr(_engine, "__file__", "")).resolve() != _ENGINE_PATH:
 
 _owner = _engine.owner
 _adapter = _engine.adapter
+_H28_NAME = "_a90_h32_h28_menu_hide_engine_v1"
+_H28_PATH = MODULE_DIR / "a90_h28_menu_hide_health_reconcile_v1.py"
+_h28 = sys.modules.get(_H28_NAME)
+if _h28 is None:
+    specification = importlib.util.spec_from_file_location(_H28_NAME, _H28_PATH)
+    if specification is None or specification.loader is None:
+        raise RuntimeError("H28 menu-hide engine import failed")
+    _h28 = importlib.util.module_from_spec(specification)
+    sys.modules[_H28_NAME] = _h28
+    specification.loader.exec_module(_h28)
+if Path(getattr(_h28, "__file__", "")).resolve() != _H28_PATH:
+    raise RuntimeError("H28 menu-hide engine identity is not exact")
 
 SCHEMA = "a90-h32-pretransfer-abort-reconciliation-v1"
 DECISION = "PRETRANSFER_ABORTED_NO_BOOT_WRITE"
@@ -105,6 +120,26 @@ for ordinal in range(13, 33):
     LOG_HASHES[f"{ordinal:03d}-effect-usb-inventory.stdout" if ordinal == 13 else f"{ordinal:03d}-rollback-effect-usb-inventory.stdout"] = ZERO_SAMSUNG_USB_SHA256
     LOG_HASHES[f"{ordinal:03d}-effect-usb-inventory.stderr" if ordinal == 13 else f"{ordinal:03d}-rollback-effect-usb-inventory.stderr"] = EMPTY_SHA256
 
+BUSY_OBSERVATION_LOG_DIRECTORY = _owner.RUN_ROOT / f"{RUN_ID}-reconcile-h31-pretransfer-abort-1-logs"
+BUSY_OBSERVATION_LOG_HASHES = {
+    "001-usb-inventory.stdout": "63a69b17f850700c4af709e4e3c7c7a40b1159517d489d8825572066d09496ce",
+    "001-usb-inventory.stderr": EMPTY_SHA256,
+    "002-bridge-preflight.stdout": "984daa475a488aaa2f06c33b308259767a7109496a43a92f0d224b9c65ee30bc",
+    "002-bridge-preflight.stderr": EMPTY_SHA256,
+    "003-boot-id-start.stdout": "481752d50ece0bd385422b7ae39716f336dca904e7d140dddb9cc351bb9132d3",
+    "003-boot-id-start.stderr": EMPTY_SHA256,
+}
+BUSY_OBSERVATION_LOG_SET_SHA256 = hashlib.sha256(
+    _owner.canonical_json(BUSY_OBSERVATION_LOG_HASHES)
+).hexdigest()
+MENU_HIDE_SIDE_ROOT = _owner.REPO_ROOT / "workspace/private/runs/a90-h32-menu-hide-pretransfer-v1"
+MENU_HIDE_INTENT_NAME = "10-menu-hide-intent.json"
+MENU_HIDE_RECEIPT_NAME = "11-menu-hide-receipt.json"
+MENU_HIDE_LOG_DIRECTORY = _owner.RUN_ROOT / f"{RUN_ID}-menu-hide-1-logs"
+MENU_HIDE_INTENT_SCHEMA = "a90-h32-menu-hide-pretransfer-intent-v1"
+MENU_HIDE_RECEIPT_SCHEMA = "a90-h32-menu-hide-pretransfer-receipt-v1"
+MENU_HIDE_WIRE_SHA256 = hashlib.sha256(b"hide\n").hexdigest()
+
 
 def _configure_engine() -> None:
     for name, value in {
@@ -136,7 +171,14 @@ def _configure_engine() -> None:
 def _h32_execution_closure_sha256() -> str:
     digest = hashlib.sha256()
     digest.update(_owner.execution_closure_sha256().encode("ascii"))
-    for relative in (_ENGINE_PATH.relative_to(_owner.REPO_ROOT), SELF_REL, TARGET_CONTRACT_REL):
+    digest.update(b"A90-H32-H28-TRANSITIVE-CLOSURE-V1\0")
+    digest.update(_h28.execution_closure_sha256().encode("ascii"))
+    digest.update(b"\0")
+    for relative in (
+        _ENGINE_PATH.relative_to(_owner.REPO_ROOT),
+        SELF_REL,
+        TARGET_CONTRACT_REL,
+    ):
         raw = (_owner.REPO_ROOT / relative).read_bytes()
         digest.update(str(relative).encode("utf-8"))
         digest.update(b"\0")
@@ -147,8 +189,181 @@ def _h32_execution_closure_sha256() -> str:
     return digest.hexdigest()
 
 
+def _validate_busy_boot_receipt(raw: bytes) -> None:
+    try:
+        value = _h28.adapter._json(raw, "H32 busy boot-id receipt")
+    except Exception as exc:
+        raise ContractError("H32 busy boot-id receipt is not canonical") from exc
+    response = value
+    if (
+        type(response) is not dict
+        or set(response) != {"begin", "end", "rc", "status", "trust", "text"}
+        or response["begin"] != {"seq": "1", "cmd": "cat", "argc": "2", "flags": "0x0"}
+        or response["rc"] != -16
+        or response["status"] != "busy"
+        or response["trust"] != "A90P1_V1_STRUCTURAL_ONLY"
+        or type(response["text"]) is not str
+        or "[busy] auto menu active; send hide/q before command" not in response["text"]
+    ):
+        raise ContractError("H32 busy boot-id response is not the fixed EBUSY receipt")
+    end = response["end"]
+    if (
+        type(end) is not dict
+        or set(end) != {"seq", "cmd", "rc", "errno", "duration_ms", "flags", "status"}
+        or end["seq"] != "1"
+        or end["cmd"] != "cat"
+        or end["rc"] != "-16"
+        or end["errno"] != "16"
+        or re.fullmatch(r"[0-9]+", end["duration_ms"]) is None
+        or end["flags"] != "0x0"
+        or end["status"] != "busy"
+    ):
+        raise ContractError("H32 busy boot-id end frame is not exact")
+
+
+def _require_busy_observation_logs() -> bytes:
+    try:
+        metadata = BUSY_OBSERVATION_LOG_DIRECTORY.lstat()
+    except OSError as exc:
+        raise ContractError("fixed H32 busy observation logs cannot be inspected") from exc
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or metadata.st_uid != os.getuid()
+        or metadata.st_gid != os.getgid()
+        or stat.S_IMODE(metadata.st_mode) != 0o700
+    ):
+        raise ContractError("fixed H32 busy observation log directory is not exact")
+    expected_names = set(BUSY_OBSERVATION_LOG_HASHES) | {".adb-home"}
+    try:
+        names = {entry.name for entry in BUSY_OBSERVATION_LOG_DIRECTORY.iterdir()}
+    except OSError as exc:
+        raise ContractError("fixed H32 busy observation log inventory cannot be read") from exc
+    if names != expected_names:
+        raise ContractError("fixed H32 busy observation log inventory changed")
+    adb_home = BUSY_OBSERVATION_LOG_DIRECTORY / ".adb-home"
+    adb_android = adb_home / ".android"
+    for path, label in ((adb_home, "H32 busy ADB home"), (adb_android, "H32 busy ADB android")):
+        try:
+            item = path.lstat()
+        except OSError as exc:
+            raise ContractError(f"{label} cannot be inspected") from exc
+        if (
+            not stat.S_ISDIR(item.st_mode)
+            or item.st_uid != os.getuid()
+            or item.st_gid != os.getgid()
+            or stat.S_IMODE(item.st_mode) != 0o700
+        ):
+            raise ContractError(f"{label} identity is not exact")
+    if set(adb_home.iterdir()) != {adb_android} or set(adb_android.iterdir()):
+        raise ContractError("H32 busy ADB home contains unexpected state")
+    values: dict[str, bytes] = {}
+    for name, expected in BUSY_OBSERVATION_LOG_HASHES.items():
+        raw = _engine._read_log(BUSY_OBSERVATION_LOG_DIRECTORY / name, name)
+        if hashlib.sha256(raw).hexdigest() != expected:
+            raise ContractError(f"fixed H32 busy observation log changed: {name}")
+        values[name] = raw
+    raw = values["003-boot-id-start.stdout"]
+    _validate_busy_boot_receipt(raw)
+    return raw
+
+
+def _write_sidecar(path: Path, value: dict[str, object], label: str) -> str:
+    raw = _owner.canonical_json(value)
+    try:
+        descriptor = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+            0o600,
+        )
+        try:
+            if os.write(descriptor, raw) != len(raw):
+                raise ContractError(f"{label} short write")
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        raise ContractError(f"{label} publication failed") from exc
+    _owner._fsync_directory(path.parent)
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _publish_menu_hide_intent() -> str:
+    try:
+        _h28._private_dir(MENU_HIDE_SIDE_ROOT.parent, "H32 menu-hide sidecar parent")
+    except Exception as exc:
+        raise ContractError("H32 menu-hide sidecar parent identity is not exact") from exc
+    try:
+        metadata = MENU_HIDE_SIDE_ROOT.lstat()
+    except FileNotFoundError:
+        metadata = None
+    except OSError as exc:
+        raise ContractError("H32 menu-hide sidecar cannot be inspected") from exc
+    if metadata is not None:
+        raise ContractError("H32 menu-hide intent is consumed; hide must not replay")
+    try:
+        MENU_HIDE_SIDE_ROOT.mkdir(mode=0o700, parents=False)
+    except OSError as exc:
+        raise ContractError("H32 menu-hide sidecar creation failed") from exc
+    _owner._fsync_directory(MENU_HIDE_SIDE_ROOT.parent)
+    intent = {
+        "schema": MENU_HIDE_INTENT_SCHEMA,
+        "capability": CAPABILITY,
+        "runId": RUN_ID,
+        "manifestSha256": MANIFEST_SHA256,
+        "busyObservationLogSetSha256": BUSY_OBSERVATION_LOG_SET_SHA256,
+        "command": "hide",
+        "wireSha256": MENU_HIDE_WIRE_SHA256,
+        "sendCount": 1,
+        "candidateReplay": False,
+        "rollbackReplay": False,
+        "executionClosureSha256": execution_closure_sha256(),
+    }
+    return _write_sidecar(MENU_HIDE_SIDE_ROOT / MENU_HIDE_INTENT_NAME, intent, "H32 menu-hide intent")
+
+
+def _publish_menu_hide_receipt(intent_sha256: str, receipt_sha256: str) -> None:
+    receipt = {
+        "schema": MENU_HIDE_RECEIPT_SCHEMA,
+        "capability": CAPABILITY,
+        "runId": RUN_ID,
+        "intentSha256": intent_sha256,
+        "menuHideReceiptSha256": receipt_sha256,
+        "wireSha256": MENU_HIDE_WIRE_SHA256,
+        "sendCount": 1,
+        "candidateReplay": False,
+        "rollbackReplay": False,
+    }
+    _write_sidecar(MENU_HIDE_SIDE_ROOT / MENU_HIDE_RECEIPT_NAME, receipt, "H32 menu-hide receipt")
+
+
+def _h32_fresh_v2321_observation(manifest: dict[str, object]):
+    _require_busy_observation_logs()
+    intent_sha256 = _publish_menu_hide_intent()
+    serial_sha256 = manifest["qualification"]["recoveryIdentity"]["adbSerialSha256"]
+    if type(serial_sha256) is not str or _owner.SHA256_RE.fullmatch(serial_sha256) is None:
+        raise ContractError("H32 recovery serial binding is not exact")
+    redactor = _h28.adapter.SerialRedactor(hashes=(serial_sha256,))
+    runner = _h28.adapter.HostRunner(MENU_HIDE_LOG_DIRECTORY, redactor=redactor)
+    observer = _h28.MenuHideObserver(runner, qualification=manifest["qualification"])
+    try:
+        observation = observer.observe(
+            manifest["rollback"],
+            timeout_sec=manifest["timeouts"]["healthSec"],
+        )
+        _h28._validate_observation(
+            observation,
+            manifest["rollback"],
+            manifest["qualification"]["review"]["sha256"],
+        )
+    except Exception as exc:
+        raise ContractError("H32 menu-hide V2321 observation failed") from exc
+    _publish_menu_hide_receipt(intent_sha256, observation.hide_receipt_sha256)
+    return observation.snapshot
+
+
 _configure_engine()
 _engine.execution_closure_sha256 = _h32_execution_closure_sha256
+_engine._fresh_v2321_observation = _h32_fresh_v2321_observation
 
 
 ContractError = _engine.ContractError
@@ -163,7 +378,7 @@ def reconcile():
 
 
 def main() -> int:
-    print(__import__("json").dumps(reconcile(), sort_keys=True))
+    print(json.dumps(reconcile(), sort_keys=True))
     return 0
 
 

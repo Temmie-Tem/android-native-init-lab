@@ -1503,6 +1503,23 @@ image, partition, candidate, or rollback primitive, never replays an effect,
 and grants no authority itself. A cut after 41 may only complete the same
 active-guard cleanup.
 
+The exact H32 continuation after the one failed read-only observation may use
+`a90_h32_pretransfer_abort_reconcile_v1.py` only after its own independent
+review. It is bound to the same H32 run and the fixed observer directory
+`a90-h32-f1-20260822-01-reconcile-h31-pretransfer-abort-1-logs`, whose six
+stdout/stderr hashes have set digest
+`d5a0f200c928d88630eb2056f57e9f7964a8706ae3da70819cf8b16a6f3b7d81` and whose
+only command failure is the exact `cat /proc/sys/kernel/random/boot_id`
+`rc=-16`, `status=busy` receipt naming the active automatic menu. It may
+publish one durable sidecar intent, send exactly one raw `hide\n` through the
+already-reviewed H28 menu-hide mechanism, honor its fixed three-second settle,
+and perform the existing read-only V2321 ACM/Native observation. A successful
+continuation may publish only the H32 `41-pretransfer-abort.json` and remove
+only the active guard; it must retain the H32 candidate guard. A sidecar intent
+without a successful receipt is consumed and never retried. This continuation
+has no candidate/rollback/image/partition write, reboot, recovery transition,
+ADB, or caller-selected command path and grants no authority itself.
+
 For ordinary rollback pre-effect inventory, a successful well-formed
 zero-Samsung snapshot immediately following a Native/Recovery transition is a
 bounded re-enumeration wait state, never authority. It may wait at most 30

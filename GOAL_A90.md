@@ -23,10 +23,9 @@ the separately registered S20+ goal and every future target row.
 
 ## Exact Current State
 
-- The last proved resident is native V2321
-  `0.9.285 / v2321-usb-clean-identity-rodata`. The device is currently parked
-  in Recovery after the H32 observer failure; fresh V2321 health remains
-  unproved until one reviewed ACM observation after physical System return.
+- The current proved resident is native V2321
+  `0.9.285 / v2321-usb-clean-identity-rodata`. A reviewed H32-only continuation
+  sent one menu `hide`, then re-observed exact healthy V2321 over ACM.
 - H28-H31 are consumed and never replayed. H31 transferred zero candidate and
   rollback bytes; its reviewed pre-transfer reconciler proved exact healthy
   V2321, released only the active guard, and retained the H31 candidate guard.
@@ -38,8 +37,10 @@ the separately registered S20+ goal and every future target row.
   continuation `585869c5…` is stale after the observer repair. The historical
   qualification is frozen in
   `docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`,
-  and the replaceable continuation lease is absent. The repair requires a new
-  review; no H33 identity, qualification, D0, approval, or F1 exists.
+  and that old replaceable continuation lease is superseded. The H32-only
+  continuation closed `PRETRANSFER_ABORTED_NO_BOOT_WRITE`, released the active
+  guard, retained the consumed H32 candidate guard, and permits no replay. No
+  H33 identity, qualification, D0, approval, or F1 exists.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 
@@ -572,11 +573,15 @@ identity:
   journal ending at rollback launch and the candidate receipt classified
   `PRE_WRITE_FAILURE/writeStarted=false`. Operator-private evidence proves
   the observer daemon fatal `/nonexistent/.android` HOME failure; the complete
-  unexpected raw ADB stderr remains unproved. The current recovery state is
-  unproved until a later exact V2321 ACM health observation. The H0 repair and
+  unexpected raw ADB stderr remains unproved. The H0 repair and
   fixed H32 no-write reconciler are recorded in
-  `docs/reports/A90_H32_F1_PREWRITE_ADB_HOME_INCIDENT_2026-08-22.md`; neither
-  has review, approval, D0, F1, candidate, rollback, or guard-release authority.
+  `docs/reports/A90_H32_F1_PREWRITE_ADB_HOME_INCIDENT_2026-08-22.md`.
+  Its later exact Native read-only observer attempt stopped on the automatic
+  menu's `rc=-16/status=busy` boot-ID response; no `41` was published. The
+  H32-only one-hide continuation is recorded in
+  `docs/reports/A90_H32_PRETRANSFER_BUSY_OBSERVER_CONTINUATION_H0_2026-08-22.md`
+  and then closed the run with exact healthy V2321, candidate and rollback
+  writes still zero, active guard absent, and candidate guard retained.
   One later attended H29 F1 wrote and prefix-read back the exact H29 candidate
   once, but its sole TWRP System-return request was uncertain. The old owner
   then wrote and prefix-read back exact V2321 once with the same uncertain
