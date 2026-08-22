@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +65,154 @@ class PostrollbackRecoveryTest(unittest.TestCase):
             other_targets_untouched=True,
             receipt_sha256="e" * 64,
         )
+        self.manifest["candidate"].update(
+            {"version": "0.11.test", "build": "candidate-test"}
+        )
+
+    def _continuation_records(
+        self, state: str, *, physical: bool | None
+    ) -> dict[str, dict]:
+        continuation = R._load_continuation()
+        receipt = "3" * 64
+        approval = "8" * 64
+        records = {
+            "22-candidate-result.json": {
+                "manifestSha256": "f" * 64,
+                "payload": {
+                    "returncode": 1,
+                    "completed": False,
+                    "quiescent": True,
+                    "receiptSha256": receipt,
+                    "outcome": "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+                },
+            },
+            "23-candidate-return-pending.json": {
+                "manifestSha256": "f" * 64,
+                "payload": {
+                    "schema": "a90-f1-candidate-return-pending-v1",
+                    "terminal": "RECOVERY_REQUIRED",
+                    "reason": "CANDIDATE_RETURN_PENDING",
+                    "candidateReplay": False,
+                    "rollbackIntentPublished": False,
+                    "effectOutcome": "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
+                    "effectReceiptSha256": receipt,
+                    "helperQuiescent": True,
+                },
+            },
+            "24-candidate-return-intent.json": {
+                "manifestSha256": "f" * 64,
+                "payload": {
+                    "schema": continuation.INTENT_SCHEMA,
+                    "capability": continuation.CAPABILITY,
+                    "approvalSha256": approval,
+                    "pendingReceiptSha256": receipt,
+                    "candidateReplay": False,
+                    "physicalSystemReturnAllowed": True,
+                    "qualificationReviewSha256": self.qualification_review,
+                },
+            },
+        }
+        if state == continuation.STATE_TWRP_PRESENT:
+            observation = {
+                "state": state,
+                "otherTargetsUntouched": True,
+                "singleSamsungInventorySha256": "7" * 64,
+                "candidateSnapshot": None,
+                "twrpIdentity": continuation.TWRP_IDENTITY,
+                "attribution": None,
+            }
+        elif state == continuation.STATE_NATIVE_VISIBLE:
+            candidate = replace(
+                self.snapshot,
+                version=self.manifest["candidate"]["version"],
+                build=self.manifest["candidate"]["build"],
+                fresh_state_observed=True,
+                fresh_state_absent=True,
+            )
+            observation = {
+                "state": state,
+                "otherTargetsUntouched": True,
+                "singleSamsungInventorySha256": "7" * 64,
+                "candidateSnapshot": candidate.payload(),
+                "twrpIdentity": None,
+                "attribution": None,
+            }
+        else:
+            observation = {
+                "state": state,
+                "otherTargetsUntouched": True,
+                "singleSamsungInventorySha256": "7" * 64,
+                "candidateSnapshot": None,
+                "twrpIdentity": None,
+                "attribution": "WRONG_CANDIDATE_RESIDENT",
+            }
+        records["24-candidate-return-observed.json"] = {
+            "manifestSha256": "f" * 64,
+            "payload": continuation._observed_payload(observation),
+        }
+        if physical is not None:
+            records["25-candidate-observation-intent.json"] = {
+                "manifestSha256": "f" * 64,
+                "payload": {
+                    "schema": continuation.OBSERVATION_INTENT_SCHEMA,
+                    "capability": continuation.CAPABILITY,
+                    "approvalSha256": approval,
+                    "physicalActionConfirmed": physical,
+                    "candidateReplay": False,
+                    "qualificationReviewSha256": self.qualification_review,
+                    "uncertainEvidenceIntent": (
+                        continuation._uncertain_evidence_intent_binding()
+                        if physical
+                        else None
+                    ),
+                },
+            }
+        return records
+
+    def _write_uncertain_sidecar(
+        self, root: Path, records: dict[str, dict], *, quiescent: bool = True
+    ) -> Path:
+        continuation = R._load_continuation()
+        observation_intent = records["25-candidate-observation-intent.json"]
+        trigger = {
+            "state": continuation.STATE_TWRP_AFTER_PHYSICAL,
+            "otherTargetsUntouched": True,
+            "singleSamsungInventorySha256": "7" * 64,
+            "candidateSnapshot": None,
+            "twrpIdentity": None,
+            "attribution": "BOUND_TWRP_RETURNED_AFTER_PHYSICAL",
+        }
+        evidence = O.FailedBootEvidenceResult.no_proof(
+            "OBSERVER_EXCEPTION"
+            if quiescent
+            else "COMMAND_NONQUIESCENT",
+            quiescent=quiescent,
+        )
+        payload = {
+            "schema": continuation.UNCERTAIN_EVIDENCE_RESULT_SCHEMA,
+            "capability": continuation.CAPABILITY,
+            "runId": self.manifest["runId"],
+            "manifestSha256": "f" * 64,
+            "pendingReceiptSha256": "3" * 64,
+            "observationIntentSha256": O.sha256_bytes(
+                O.canonical_json(observation_intent)
+            ),
+            "attribution": continuation.UNCERTAIN_EVIDENCE_ATTRIBUTION,
+            "proofUse": continuation.UNCERTAIN_EVIDENCE_PROOF_USE,
+            "deviceContradictionEligible": False,
+            "candidateReplay": False,
+            "rollbackReplay": False,
+            "triggerObservation": trigger,
+            "triggerObservationSha256": O.sha256_bytes(O.canonical_json(trigger)),
+            "evidence": evidence.payload(),
+        }
+        path = root / (
+            f"{self.manifest['runId']}-"
+            f"{continuation.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+        )
+        path.write_bytes(O.canonical_json(payload))
+        path.chmod(0o600)
+        return path
 
     def test_exact_recovery_payload_preserves_unproved_rollback(self) -> None:
         payload = R._payload(self.snapshot, self.current_review)
@@ -108,6 +257,121 @@ class PostrollbackRecoveryTest(unittest.TestCase):
                 self.qualification_review,
                 self.current_review,
             )
+
+    def test_continuation_resume_and_nonphysical_finalize_prefixes_are_exact(self) -> None:
+        continuation = R._load_continuation()
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(O, "RUN_ROOT", Path(temporary)),
+            mock.patch.object(continuation.owner, "RUN_ROOT", Path(temporary)),
+        ):
+            resume = self._continuation_records(
+                continuation.STATE_ATTRIBUTABLE_FAILURE, physical=None
+            )
+            R._validate_continuation_records(
+                resume,
+                self.manifest,
+                "f" * 64,
+                O.CANDIDATE_RETURN_RESUME_ROLLBACK_PATH,
+            )
+            nonphysical = self._continuation_records(
+                continuation.STATE_NATIVE_VISIBLE, physical=False
+            )
+            R._validate_continuation_records(
+                nonphysical,
+                self.manifest,
+                "f" * 64,
+                O.CANDIDATE_RETURN_ROLLBACK_PATH,
+            )
+            stray = Path(temporary) / (
+                f"{self.manifest['runId']}-"
+                f"{continuation.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+            )
+            stray.write_bytes(b"foreign")
+            stray.chmod(0o600)
+            with self.assertRaisesRegex(O.ContractError, "carries evidence sidecar"):
+                R._validate_continuation_records(
+                    nonphysical,
+                    self.manifest,
+                    "f" * 64,
+                    O.CANDIDATE_RETURN_ROLLBACK_PATH,
+                )
+
+    def test_physical_continuation_accepts_attributable_or_exact_sidecar_branch(self) -> None:
+        continuation = R._load_continuation()
+        records = self._continuation_records(
+            continuation.STATE_TWRP_PRESENT, physical=True
+        )
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(O, "RUN_ROOT", Path(temporary)),
+            mock.patch.object(continuation.owner, "RUN_ROOT", Path(temporary)),
+        ):
+            R._validate_continuation_records(
+                records,
+                self.manifest,
+                "f" * 64,
+                O.CANDIDATE_RETURN_ROLLBACK_PATH,
+            )
+            sidecar = self._write_uncertain_sidecar(Path(temporary), records)
+            R._validate_continuation_records(
+                records,
+                self.manifest,
+                "f" * 64,
+                O.CANDIDATE_RETURN_ROLLBACK_PATH,
+            )
+            sidecar.chmod(0o644)
+            with self.assertRaisesRegex(O.ContractError, "sidecar binding"):
+                R._validate_continuation_records(
+                    records,
+                    self.manifest,
+                    "f" * 64,
+                    O.CANDIDATE_RETURN_ROLLBACK_PATH,
+                )
+            sidecar.unlink()
+            self._write_uncertain_sidecar(
+                Path(temporary), records, quiescent=False
+            )
+            with self.assertRaisesRegex(O.ContractError, "not quiescent"):
+                R._validate_continuation_records(
+                    records,
+                    self.manifest,
+                    "f" * 64,
+                    O.CANDIDATE_RETURN_ROLLBACK_PATH,
+                )
+
+    def test_continuation_receipt_binding_rejects_23_24_and_25_drift(self) -> None:
+        continuation = R._load_continuation()
+        base = self._continuation_records(
+            continuation.STATE_TWRP_PRESENT, physical=True
+        )
+        mutations = (
+            lambda value: value["23-candidate-return-pending.json"]["payload"].__setitem__(
+                "effectReceiptSha256", "9" * 64
+            ),
+            lambda value: value["24-candidate-return-intent.json"]["payload"].__setitem__(
+                "qualificationReviewSha256", "9" * 64
+            ),
+            lambda value: value["25-candidate-observation-intent.json"]["payload"].__setitem__(
+                "approvalSha256", "9" * 64
+            ),
+            lambda value: value["25-candidate-observation-intent.json"]["payload"].__setitem__(
+                "physicalActionConfirmed", False
+            ),
+        )
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            O, "RUN_ROOT", Path(temporary)
+        ):
+            for mutate in mutations:
+                records = copy.deepcopy(base)
+                mutate(records)
+                with self.subTest(mutate=mutate), self.assertRaises(O.ContractError):
+                    R._validate_continuation_records(
+                        records,
+                        self.manifest,
+                        "f" * 64,
+                        O.CANDIDATE_RETURN_ROLLBACK_PATH,
+                    )
 
     def test_only_consumed_rollback_terminal_is_admitted(self) -> None:
         manifest_sha = "f" * 64

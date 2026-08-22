@@ -80,7 +80,7 @@ class UncertainReturnFailedBootEvidenceContinuationDocsTests(
             self.raw,
         )
 
-    def test_canonical_review_is_explicitly_stale(self) -> None:
+    def test_implementation_report_preserves_its_pre_review_stale_snapshot(self) -> None:
         self.assertIn(
             "d8a50ee0ca7527d4a4a6b80e63ae1e2071b88c9917947ed8107a4aeedcaa955b",
             self.raw,

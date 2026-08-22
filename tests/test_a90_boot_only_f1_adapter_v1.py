@@ -80,11 +80,12 @@ def absent_stat():
 
 
 def bridge(*, ambiguous=False):
+    capture_path = A.REPO_ROOT / "workspace/private/test-bridge.raw"
     command = [
         "/usr/bin/python3", str(A.SERIAL_BRIDGE),
         "--host", "127.0.0.1", "--port", "54321",
         "--device", A.FIXED_SERIAL, "--device-glob", A.FIXED_SERIAL,
-        "--capture", "/tmp/a90.raw", "--expect-realpath", "/dev/ttyACM0",
+        "--capture", str(capture_path), "--expect-realpath", "/dev/ttyACM0",
     ]
     return {
         "wrapper_contract": 1,
@@ -106,6 +107,7 @@ def bridge(*, ambiguous=False):
             "pid": 1234,
             "pin_selected_realpath": True,
             "port": 54321,
+            "capture_path": "workspace/private/test-bridge.raw",
         },
         "listen_host": "127.0.0.1",
         "listen_port": 54321,
@@ -166,6 +168,17 @@ def healthy_results(version="0.11.194", build="phase3-minimal-h27"):
 
 class FixedAdapterTest(unittest.TestCase):
     def setUp(self):
+        self._managed_root = tempfile.TemporaryDirectory()
+        managed_root = Path(self._managed_root.name)
+        capture_dir = managed_root / "workspace/private"
+        capture_dir.mkdir(parents=True, mode=0o700)
+        capture_path = capture_dir / "test-bridge.raw"
+        capture_path.write_bytes(b"")
+        capture_path.chmod(0o600)
+        self._repo_root_patch = mock.patch.object(A, "REPO_ROOT", managed_root)
+        self._repo_root_patch.start()
+        self.addCleanup(self._repo_root_patch.stop)
+        self.addCleanup(self._managed_root.cleanup)
         self.expected = {"version": "0.11.194", "build": "phase3-minimal-h27"}
         self.artifact = {
             "path": "/tmp/candidate.img",
@@ -318,6 +331,21 @@ class FixedAdapterTest(unittest.TestCase):
             self.assertEqual(logged, expected)
             self.assertNotIn(serial.encode(), logged)
 
+    def test_recovery_adb_inventory_accepts_only_authoritative_startup_banner(self):
+        serial = "A90-RECOVERY"
+        raw = b"List of devices attached\n" + serial.encode() + b" recovery\n"
+        expected = A.sha256_bytes(serial.encode())
+        banner = next(iter(A._serial_redaction.ADB_STARTUP_BANNERS))
+        accepted = A._parse_recovery_adb_inventory(
+            result(raw, stderr=banner), expected_serial_sha256=expected
+        )
+        self.assertEqual(accepted, (A.sha256_bytes(raw), serial))
+        with self.assertRaises(A.ContractError):
+            A._parse_recovery_adb_inventory(
+                result(raw, stderr=banner + b"near-miss\n"),
+                expected_serial_sha256=expected,
+            )
+
     def test_other_serial_candidate_is_allowed_but_fixed_a90_stays_selected(self):
         value = bridge(ambiguous=True)
         value["serial_candidates"].append(
@@ -347,6 +375,28 @@ class FixedAdapterTest(unittest.TestCase):
             lambda value: value["metadata"]["command"].__setitem__(
                 value["metadata"]["command"].index(A.FIXED_SERIAL),
                 "/dev/serial/by-id/other",
+            ),
+        ):
+            value = bridge()
+            mutate(value)
+            with self.subTest(value=value), self.assertRaisesRegex(
+                A.ContractError, "bridge preflight"
+            ):
+                A.FixedA90Adapter(
+                    FakeRunner([usb_inventory(), result(value)]),
+                    qualification=QUALIFICATION,
+                ).preflight(
+                    {"expectedStart": self.expected, "qualification": QUALIFICATION}
+                )
+
+    def test_bridge_capture_is_bound_to_private_metadata_and_regular_identity(self):
+        for mutate in (
+            lambda value: value["metadata"].__setitem__("capture_path", "/tmp/raw"),
+            lambda value: value["metadata"].__setitem__(
+                "capture_path", "workspace/private/other.raw"
+            ),
+            lambda value: value["metadata"]["command"].__setitem__(
+                value["metadata"]["command"].index("--capture") + 1, "/tmp/raw"
             ),
         ):
             value = bridge()

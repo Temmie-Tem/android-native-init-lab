@@ -316,6 +316,37 @@ def _one_line(text: str, pattern: re.Pattern[str], label: str) -> re.Match[str]:
     if len(exact) != 1:
         raise ContractError(f"{label} is not unique")
     return exact[0]
+
+def _validate_managed_capture_path(value: Any, label: str = "bridge capture") -> str:
+    if type(value) is not str or not value:
+        raise ContractError(f"{label} path is not a string")
+    path = Path(value)
+    path = path if path.is_absolute() else REPO_ROOT / path
+    if any(part in {".", ".."} for part in path.parts):
+        raise ContractError(f"{label} path contains traversal")
+    private_root = REPO_ROOT / "workspace/private"
+    try:
+        relative = path.relative_to(private_root)
+        if not relative.parts:
+            raise ValueError("capture path names the private root")
+        parents, current = [private_root], private_root
+        for component in relative.parts[:-1]:
+            current /= component
+            parents.append(current)
+        if any(not stat.S_ISDIR(parent.lstat().st_mode) for parent in parents):
+            raise ValueError("capture parent is not direct")
+        metadata = path.lstat()
+    except (OSError, ValueError) as exc:
+        raise ContractError(f"{label} path is outside or unavailable") from exc
+    actual = (
+        stat.S_ISREG(metadata.st_mode), metadata.st_uid, metadata.st_gid,
+        metadata.st_nlink, stat.S_IMODE(metadata.st_mode),
+    )
+    if actual != (True, os.getuid(), os.getgid(), 1, 0o600):
+        raise ContractError(f"{label} file identity is not exact")
+    return str(path)
+
+
 def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     candidates = value.get("serial_candidates")
     pids = value.get("port_pids")
@@ -345,6 +376,16 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
         and len(set(command[2::2])) == 6
         else None
     )
+    try:
+        capture_command_path = _validate_managed_capture_path(
+            command_options.get("--capture") if command_options else None
+        )
+        metadata_capture_path = _validate_managed_capture_path(
+            metadata.get("capture_path") if type(metadata) is dict else None
+        )
+    except ContractError:
+        capture_command_path = None
+        metadata_capture_path = None
     if (
         value.get("wrapper_contract") != 1
         or value.get("bridge_process") != "running"
@@ -393,6 +434,9 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
         or command_options.get("--device-glob") != FIXED_SERIAL
         or command_options.get("--expect-realpath") != selected_realpath
         or type(command_options.get("--capture")) is not str
+        or capture_command_path is None
+        or metadata_capture_path is None
+        or capture_command_path != metadata_capture_path
         or value.get("bridge_probe") not in {"connected-no-immediate-error", "data"}
     ):
         raise ContractError("A90 bridge preflight is not exact")
@@ -400,6 +444,7 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
         "selectedDevice": FIXED_SERIAL,
         "selectedRealpath": selected_realpath,
         "bridgePid": pids[0],
+        "capturePath": capture_command_path,
     }
 def _validate_usb_inventory(result: CommandResult) -> dict[str, Any]:
     if (
@@ -473,11 +518,14 @@ def _is_empty_effect_inventory(result: CommandResult) -> bool:
         match is not None and match.group("vendor") == b"04e8"
         for match in matches
     )
-
-
 def _validate_effect_inventory(result: CommandResult) -> tuple[str, str]:
     return _parse_effect_inventory(result)
 
+def _allowed_adb_startup_banner(stderr: bytes) -> bool:
+    return (
+        type(stderr) is bytes
+        and stderr in _serial_redaction.ADB_STARTUP_BANNERS
+    )
 
 def _parse_recovery_adb_inventory(
     result: CommandResult, *, expected_serial_sha256: str
@@ -487,7 +535,7 @@ def _parse_recovery_adb_inventory(
         type(result.returncode) is not int
         or result.returncode != 0
         or result.quiescent is not True
-        or result.stderr
+        or (result.stderr and not _allowed_adb_startup_banner(result.stderr))
         or not result.stdout
     ):
         raise ContractError("recovery ADB inventory producer failed")
@@ -520,7 +568,6 @@ def _parse_recovery_adb_inventory(
         raise ContractError("recovery ADB inventory is not the bound A90")
     return sha256_bytes(result.stdout), rows[0][0]
 
-
 def _validate_effect_adb_inventory(
     result: CommandResult, *, expected_serial_sha256: str
 ) -> str:
@@ -530,9 +577,8 @@ def _validate_effect_adb_inventory(
     )
     return digest
 
-
 def _adb_recovery_settle_transient(result: CommandResult, expected_serial_sha256: str) -> bool:
-    if type(result.returncode) is not int or result.returncode != 0 or result.quiescent is not True or type(result.stdout) is not bytes or type(result.stderr) is not bytes or result.stderr:
+    if type(result.returncode) is not int or result.returncode != 0 or result.quiescent is not True or type(result.stdout) is not bytes or type(result.stderr) is not bytes or (result.stderr and not _allowed_adb_startup_banner(result.stderr)):
         return False
     try:
         lines = result.stdout.decode("ascii").replace("\r", "").splitlines()
@@ -552,7 +598,6 @@ def _adb_recovery_settle_transient(result: CommandResult, expected_serial_sha256
             state = "no permissions"
         rows.append((fields[0], state))
     return not rows or (len(rows) == 1 and rows[0][1] == "offline" and sha256_bytes(rows[0][0].encode("utf-8")) == expected_serial_sha256)
-
 
 def _bound_response(
     value: dict[str, Any], command: list[str], label: str

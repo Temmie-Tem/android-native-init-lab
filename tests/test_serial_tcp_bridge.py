@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import errno
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -156,6 +158,47 @@ class DeviceSelectionAndPinning(unittest.TestCase):
         with mock.patch.object(serial_bridge.os.path, "realpath", return_value="/real/new"):
             self.assertTrue(bridge.serial_realpath_allowed("/dev/tty"))
         self.assertEqual(bridge.pinned_serial_realpath, "/real/new")
+
+
+class ManagedCapture(unittest.TestCase):
+    def test_capture_is_private_direct_regular_owner_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            private = root / "workspace/private"
+            private.mkdir(parents=True, mode=0o700)
+            with mock.patch.object(serial_bridge, "REPO_ROOT", root), mock.patch.object(
+                serial_bridge, "PRIVATE_ROOT", private
+            ):
+                path, stream = serial_bridge._open_managed_capture(
+                    str(private / "logs" / "capture.raw")
+                )
+                stream.write(b"raw")
+                stream.close()
+                self.assertEqual(path.read_bytes(), b"raw")
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                for bad in (Path("/tmp/a90.raw"), Path("/dev/null")):
+                    with self.subTest(bad=bad), self.assertRaises(RuntimeError):
+                        serial_bridge._open_managed_capture(str(bad))
+
+                symlink_parent = private / "symlink-parent"
+                outside = root / "outside"
+                outside.mkdir(mode=0o700)
+                symlink_parent.symlink_to(outside, target_is_directory=True)
+                with self.assertRaises(RuntimeError):
+                    serial_bridge._open_managed_capture(
+                        str(symlink_parent / "capture.raw")
+                    )
+                insecure_parent = private / "insecure-parent"
+                insecure_parent.mkdir(mode=0o700)
+                insecure_parent.chmod(0o777)
+                with self.assertRaises(RuntimeError):
+                    serial_bridge._open_managed_capture(
+                        str(insecure_parent / "capture.raw")
+                    )
+                direct_link = private / "direct-link"
+                direct_link.symlink_to(path)
+                with self.assertRaises(RuntimeError):
+                    serial_bridge._open_managed_capture(str(direct_link))
 
 
 class ClientHandling(unittest.TestCase):

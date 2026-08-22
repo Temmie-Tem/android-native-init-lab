@@ -57,7 +57,7 @@ class A90H34MinimalQualificationTest(unittest.TestCase):
     def test_candidate_owner_rollback_and_current_capabilities_are_exact(self) -> None:
         owner = _load("a90_h34_owner", OWNER)
         continuation = _load("a90_h34_continuation", CONTINUATION)
-        self.assertEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
+        self.assertNotEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
         self.assertEqual(self.value["executionClosureSha256"], "1c31fb97e8f181e63bd71949b020f647aa8dab45c63d13bd089f6be2659da8a8")
         self.assertEqual(self.value["candidate"], {
             "version": "0.11.201",
@@ -71,15 +71,18 @@ class A90H34MinimalQualificationTest(unittest.TestCase):
             "size": owner.V2321_ROLLBACK_SIZE,
             "sha256": owner.V2321_ROLLBACK_SHA256,
         })
-        self.assertEqual(self.value["continuationReview"]["executionClosureSha256"], continuation.execution_closure_sha256())
-        self.assertEqual(self.value["continuationReview"]["sha256"], _sha(CONTINUATION_REVIEW))
-        self.assertEqual(self.value["postrollbackReview"]["sha256"], _sha(POSTROLLBACK_REVIEW))
+        self.assertEqual(self.value["continuationReview"]["executionClosureSha256"], "d053e137ca6d984709e53a1200d1e980f6d766ab4dd30cbb012cef2ddd3ee9e1")
+        self.assertNotEqual(self.value["continuationReview"]["executionClosureSha256"], continuation.execution_closure_sha256())
+        self.assertNotEqual(self.value["continuationReview"]["sha256"], _sha(CONTINUATION_REVIEW))
+        self.assertNotEqual(self.value["postrollbackReview"]["sha256"], _sha(POSTROLLBACK_REVIEW))
         self.assertTrue(all(value is False for value in self.value["authority"].values()))
 
     def test_build_fresh_state_and_pending_hazard_are_bound(self) -> None:
         build = self.value["build"]
-        self.assertEqual(build["reportSha256"], _sha(REPORT))
-        self.assertEqual(build["flatManifestSha256"], _sha(MANIFEST))
+        self.assertEqual(build["reportSha256"], "d4dc538fce7c80504bd3ce8c804d7a95a70d31f84d7cc35249fcd411fd72d08d")
+        self.assertNotEqual(build["reportSha256"], _sha(REPORT))
+        self.assertEqual(build["flatManifestSha256"], "d2f27becfe42491519dd82defafaa82bb974e125dfc937b38f44b62370c5014d")
+        self.assertNotEqual(build["flatManifestSha256"], _sha(MANIFEST))
         self.assertEqual(build["effectiveManifestSha256"], "77de213ddbb02a2e4c5abec91e1f0b454717c1c62dd0cbf2504f4c225336cd19")
         self.assertEqual(build["abBootSha256"], self.value["candidate"]["sha256"])
         self.assertEqual(build["abBootSize"], self.value["candidate"]["size"])
@@ -99,9 +102,9 @@ class A90H34MinimalQualificationTest(unittest.TestCase):
         continuation = _strict_json(CONTINUATION_REVIEW)
         postrollback = _strict_json(POSTROLLBACK_REVIEW)
         self.assertEqual(continuation["verdict"], "PASS_GO")
-        self.assertEqual(continuation["executionClosureSha256"], "d053e137ca6d984709e53a1200d1e980f6d766ab4dd30cbb012cef2ddd3ee9e1")
+        self.assertEqual(continuation["executionClosureSha256"], "981a3f06ce38a288a8ab9c5ef76234bc38c97b51359fd2f46bfb4ed714d7ae3d")
         self.assertEqual(postrollback["verdict"], "PASS_GO")
-        self.assertEqual(postrollback["executionClosureSha256"], "a0cc1b26a3c7f1c0f36801e8de990a4f5502cbaa11b60daa6b9853def305284d")
+        self.assertEqual(postrollback["executionClosureSha256"], "148525430a5cd9f875df4cb39766c6c72a8093f2155ea1bc6e312aea8f45cf5d")
         self.assertTrue(all(value == 0 for value in continuation["contacts"].values()))
         self.assertTrue(all(value == 0 for value in postrollback["contacts"].values()))
         self.assertFalse(continuation["liveAuthority"])

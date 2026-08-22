@@ -44,15 +44,6 @@ OWNER_RECOVERY_PRODUCT = "6860"
 OWNER_ADB_ATTRIBUTE_RE = re.compile(
     r"^(?:usb|product|model|device|transport_id):[!-~]+$"
 )
-ADB_STARTUP_BANNERS = frozenset(
-    {
-        "* daemon not running; starting now at tcp:5037\n"
-        "* daemon started successfully\n",
-        "* daemon not running; starting now at tcp:localhost:5037\n"
-        "* daemon started successfully\n",
-        "* daemon started successfully\n",
-    }
-)
 OWNER_SERIAL_BRIDGE_SCRIPT = (
     Path(__file__).resolve().parents[5]
     / "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
@@ -126,6 +117,7 @@ def _load_exact_serial_redaction():
 
 
 serial_redaction = _load_exact_serial_redaction()
+ADB_STARTUP_BANNERS = serial_redaction.ADB_STARTUP_BANNERS
 OWNER_ADB_HOME_ENV = serial_redaction.OWNER_ADB_HOME_ENV
 OWNER_ADB_HOME_NAME = serial_redaction.OWNER_ADB_HOME_NAME
 OWNER_ADB_ANDROID_DIR = serial_redaction.OWNER_ADB_ANDROID_DIR
@@ -568,7 +560,13 @@ def _owner_adb_inventory_sha256(
                 pass
             process.wait()
             raise RuntimeError("fixed ADB inventory timed out") from exc
-        if process.returncode != 0 or stderr or not stdout or not stdout.endswith(b"\n"):
+        startup_banner = (
+            expected_role == OWNER_ADB_ROLE_RECOVERY
+            and
+            type(stderr) is bytes
+            and stderr in ADB_STARTUP_BANNERS
+        )
+        if process.returncode != 0 or (stderr and not startup_banner) or not stdout or not stdout.endswith(b"\n"):
             raise RuntimeError("fixed ADB inventory producer failed")
         try:
             os.killpg(process.pid, 0)
@@ -723,7 +721,8 @@ def adb_devices(
     if strict:
         startup_banner = (
             allow_startup_banner
-            and result.stderr in ADB_STARTUP_BANNERS
+            and type(result.stderr) is str
+            and result.stderr.encode("utf-8") in ADB_STARTUP_BANNERS
         )
         if result.returncode != 0 or (result.stderr and not startup_banner):
             raise RuntimeError("ADB inventory command failed or wrote stderr")

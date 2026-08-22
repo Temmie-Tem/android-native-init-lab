@@ -349,13 +349,18 @@ def _single_inventory_digest(
 
 
 def _strict_result(result: Any, label: str) -> bytes:
+    allowed_startup_banner = (
+        label == "ADB inventory"
+        and type(getattr(result, "stderr", None)) is bytes
+        and adapter._allowed_adb_startup_banner(result.stderr)
+    )
     if (
         not isinstance(result, adapter.CommandResult)
         or type(result.returncode) is not int
         or type(result.quiescent) is not bool
         or result.returncode != 0
         or result.quiescent is not True
-        or result.stderr
+        or (result.stderr and not allowed_startup_banner)
     ):
         raise BackendError(f"{label} producer failed")
     return result.stdout

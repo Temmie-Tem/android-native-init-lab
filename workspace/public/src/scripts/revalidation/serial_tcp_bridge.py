@@ -8,6 +8,7 @@ import os
 import selectors
 import signal
 import socket
+import stat
 import struct
 import sys
 import termios
@@ -24,6 +25,8 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 54321
 DEFAULT_BAUD = 115200
 BRIDGE_BUSY_TEXT = b"[bridge] busy: another client is active; retry later\r\n"
+REPO_ROOT = Path(__file__).resolve().parents[5]
+PRIVATE_ROOT = REPO_ROOT / "workspace/private"
 
 BAUD_MAP = {
     9600: termios.B9600,
@@ -39,12 +42,90 @@ BAUD_MAP = {
 CRTSCTS = getattr(termios, "CRTSCTS", 0)
 
 
+def _capture_path_components(path: Path) -> tuple[Path, tuple[str, ...]]:
+    """Return a lexical, non-symlink path inside the managed private root."""
+    if not path.is_absolute():
+        raise RuntimeError("bridge capture path must be absolute")
+    if any(part in {".", ".."} for part in path.parts):
+        raise RuntimeError("bridge capture path contains traversal")
+    try:
+        relative = path.relative_to(PRIVATE_ROOT)
+    except ValueError as exc:
+        raise RuntimeError("bridge capture path is outside workspace/private") from exc
+    if not relative.parts:
+        raise RuntimeError("bridge capture path must name a file")
+
+    current = PRIVATE_ROOT
+    try:
+        root_stat = current.lstat()
+    except OSError as exc:
+        raise RuntimeError("workspace/private is unavailable") from exc
+    expected_owner = (os.getuid(), os.getgid())
+    if (
+        not stat.S_ISDIR(root_stat.st_mode)
+        or (root_stat.st_uid, root_stat.st_gid) != expected_owner
+        or root_stat.st_mode & 0o022
+    ):
+        raise RuntimeError("workspace/private is not an owner-private directory")
+    for component in relative.parts[:-1]:
+        current /= component
+        try:
+            component_stat = current.lstat()
+        except FileNotFoundError:
+            try:
+                current.mkdir(mode=0o700)
+            except OSError as exc:
+                raise RuntimeError("bridge capture parent cannot be created") from exc
+            component_stat = current.lstat()
+        except OSError as exc:
+            raise RuntimeError("bridge capture parent cannot be inspected") from exc
+        if (
+            not stat.S_ISDIR(component_stat.st_mode)
+            or (component_stat.st_uid, component_stat.st_gid) != expected_owner
+            or component_stat.st_mode & 0o022
+        ):
+            raise RuntimeError("bridge capture parent is not owner-private")
+    return path, relative.parts
+
+
+def _validate_capture_fd(fd: int, path: Path) -> None:
+    metadata = os.fstat(fd)
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or stat.S_ISLNK(metadata.st_mode)
+        or metadata.st_uid != os.getuid()
+        or metadata.st_gid != os.getgid()
+        or metadata.st_nlink != 1
+        or stat.S_IMODE(metadata.st_mode) != 0o600
+    ):
+        raise RuntimeError(f"bridge capture identity is not owner-private: {path}")
+
+
+def _open_managed_capture(value: str) -> tuple[Path, object]:
+    path, _relative = _capture_path_components(Path(value))
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_APPEND
+        | os.O_CLOEXEC
+        | os.O_NOFOLLOW
+    )
+    try:
+        fd = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise RuntimeError("bridge capture cannot be opened") from exc
+    try:
+        _validate_capture_fd(fd, path)
+        return path, os.fdopen(fd, "ab", buffering=0)
+    except BaseException:
+        os.close(fd)
+        raise
+
+
 class Bridge:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.selector = selectors.DefaultSelector()
-        self.server = self._open_server()
-        self.selector.register(self.server, selectors.EVENT_READ, "server")
         self.serial_fd = None
         self.serial_device = None
         self.serial_stat = None
@@ -56,15 +137,24 @@ class Bridge:
         self.client = None
         self.client_addr = None
         self.capture_fp = None
+        self.capture_path: Path | None = None
         self.stop_requested = False
         self.next_serial_retry = 0.0
         self.next_serial_identity_check = 0.0
         self.serial_tx_buffer = bytearray()
 
-        if self.args.capture:
-            capture_path = Path(self.args.capture)
-            capture_path.parent.mkdir(parents=True, exist_ok=True)
-            self.capture_fp = capture_path.open("ab", buffering=0)
+        try:
+            if self.args.capture:
+                self.capture_path, self.capture_fp = _open_managed_capture(
+                    self.args.capture
+                )
+            self.server = self._open_server()
+        except BaseException:
+            if self.capture_fp is not None:
+                self.capture_fp.close()
+                self.capture_fp = None
+            raise
+        self.selector.register(self.server, selectors.EVENT_READ, "server")
 
     def _open_server(self) -> socket.socket:
         attempts = max(1, self.args.bind_retries + 1)

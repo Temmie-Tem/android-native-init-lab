@@ -450,13 +450,19 @@ def _load_uncertain_evidence_result(
     identity_before, digest_before = _capture_file_lease(
         path, "uncertain-return evidence result"
     )
+    if stat.S_IMODE(identity_before[2]) != 0o600:
+        raise ReviewLeaseDrift("uncertain evidence result mode is not exact")
     raw = owner._read_bounded_regular(
         path, "uncertain-return evidence result", owner.MAX_JSON_BYTES
     )
     identity_after, digest_after = _capture_file_lease(
         path, "uncertain-return evidence result", digest_before
     )
-    if identity_before != identity_after or digest_before != digest_after:
+    if (
+        identity_before != identity_after
+        or digest_before != digest_after
+        or stat.S_IMODE(identity_after[2]) != 0o600
+    ):
         raise ReviewLeaseDrift("uncertain evidence result lease drift")
     value = owner.parse_canonical(raw, "uncertain-return evidence result")
     return _validate_uncertain_evidence_result(

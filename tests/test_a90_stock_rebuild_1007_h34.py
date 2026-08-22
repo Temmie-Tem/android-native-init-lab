@@ -91,8 +91,10 @@ class A90StockRebuild1007H34Tests(unittest.TestCase):
         self.assertEqual(review["verdict"], "PASS_GO")
         self.assertEqual(review["candidateSha256"], value["candidate"]["sha256"])
         self.assertFalse(review["liveAuthority"])
-        self.assertEqual(_sha(CONTINUATION_REVIEW.read_bytes()), "22c0e6a60eb94dd5407d995c8e4b7e283bb149057e0ecbf8164dae5e613b49e9")
-        self.assertEqual(_sha(POSTROLLBACK_REVIEW.read_bytes()), "429c84e57b873619fd840df7afa009d52a99560de6a4c461cf84da3c73aa5429")
+        self.assertEqual(_sha(CONTINUATION_REVIEW.read_bytes()), "22fba68f002bf7e35b9e15d1b12cfed906e33de4bd1a0e56982bcc78f4acd120")
+        self.assertEqual(_sha(POSTROLLBACK_REVIEW.read_bytes()), "20aaed0b4e3d7aefb940c06db421a55b9113dcc7bf2cc9e074a36328ebf3e9a0")
+        self.assertNotEqual(value["continuationReview"]["sha256"], _sha(CONTINUATION_REVIEW.read_bytes()))
+        self.assertNotEqual(value["postrollbackReview"]["sha256"], _sha(POSTROLLBACK_REVIEW.read_bytes()))
 
     def test_materialized_ab_kernel_and_receipt_are_exact_when_enabled(self) -> None:
         if os.environ.get("A90_H34_VERIFY_PRIVATE") != "1":

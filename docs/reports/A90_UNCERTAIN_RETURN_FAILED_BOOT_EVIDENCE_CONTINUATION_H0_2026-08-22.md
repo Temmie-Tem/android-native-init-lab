@@ -7,6 +7,11 @@ Device contact: none
 Authority: none — no candidate, D0, D1, F1, approval, transfer, reboot,
 rollback, replay, or live authority is created
 
+Follow-up: `A90_CONTINUATION_POSTROLLBACK_REVIEW_BLOCKER_REPAIR_H0_2026-08-22.md`
+records the full-review NO_GO findings, their bounded repairs, and the final
+current continuation/postrollback `PASS_GO` artifacts. It does not revise this
+report's implementation-time evidence or grant live authority.
+
 ## Result
 
 The candidate-return continuation now preserves one bounded failed-boot

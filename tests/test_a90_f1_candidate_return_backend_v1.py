@@ -204,6 +204,19 @@ class BackendTest(unittest.TestCase):
         result = backend._classify(self.manifest, inventory, after_physical=False)
         self.assertEqual(result["state"], BACKEND.STATE_TWRP_PRESENT)
 
+    def test_backend_recovery_inventory_accepts_only_authoritative_startup_banner(self):
+        banner = next(iter(ADAPTER._serial_redaction.ADB_STARTUP_BANNERS))
+        accepted = BACKEND._strict_result(
+            ADAPTER.CommandResult(0, self.recovery_adb, banner, True),
+            "ADB inventory",
+        )
+        self.assertEqual(accepted, self.recovery_adb)
+        with self.assertRaises(BACKEND.BackendError):
+            BACKEND._strict_result(
+                ADAPTER.CommandResult(0, self.recovery_adb, banner + b"near\n", True),
+                "ADB inventory",
+            )
+
     def test_extra_samsung_or_adb_endpoint_is_ambiguous_before_twrp_probe(self):
         cases = (
             (

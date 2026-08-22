@@ -15,6 +15,7 @@ from typing import Any, Protocol
 
 ROOT = Path(__file__).resolve().parents[5]
 OWNER_PATH = ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py"
+CONTINUATION_PATH = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py"
 SCHEMA = "a90-f1-postrollback-recovery-v1"
 DECISION = "V2321_HEALTHY_EXTERNAL_ROLLBACK_OUTCOME_UNPROVED"
 OUTCOME = "UNPROVED_EXTERNAL_CONTINUATION"
@@ -46,8 +47,30 @@ def _load_owner():
 owner = _load_owner()
 
 
+def _load_continuation():
+    name = "a90_f1_candidate_return_continuation_v1"
+    existing = sys.modules.get(name)
+    if existing is not None:
+        if Path(getattr(existing, "__file__", "")).resolve() != CONTINUATION_PATH:
+            raise RuntimeError("candidate-return continuation module identity is not exact")
+        return existing
+    spec = importlib.util.spec_from_file_location(name, CONTINUATION_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("candidate-return continuation import failed")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    if Path(module.__file__).resolve() != CONTINUATION_PATH:
+        raise RuntimeError("candidate-return continuation path changed")
+    return module
+
+
 def execution_closure_sha256() -> str:
-    """Bind the reviewed owner closure plus this recovery-only entrypoint."""
+    """Bind owner, continuation validators, and this recovery-only entrypoint."""
     digest = hashlib.sha256()
     digest.update(owner.execution_closure_sha256().encode("ascii"))
     digest.update(b"\0")
@@ -59,6 +82,9 @@ def execution_closure_sha256() -> str:
         digest.update(b"\0")
         digest.update(hashlib.sha256(raw).hexdigest().encode("ascii"))
         digest.update(b"\0")
+    digest.update(b"continuation-closure\0")
+    digest.update(_load_continuation().execution_closure_sha256().encode("ascii"))
+    digest.update(b"\0")
     return digest.hexdigest()
 
 
@@ -211,12 +237,200 @@ def _validate_payload(
     return payload
 
 
+def _continuation_paths() -> tuple[tuple[str, ...], ...]:
+    return (
+        owner.CANDIDATE_RETURN_RESUME_ROLLBACK_PATH,
+        owner.CANDIDATE_RETURN_RESUME_ROLLBACK_PATH + (RECORD_NAME,),
+        owner.CANDIDATE_RETURN_ROLLBACK_PATH,
+        owner.CANDIDATE_RETURN_ROLLBACK_PATH + (RECORD_NAME,),
+    )
+
+
+def _continuation_context(
+    records: dict[str, dict[str, Any]],
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    pending_receipt_sha256: str,
+):
+    continuation = _load_continuation()
+    return continuation, continuation.Context(
+        raw=b"",
+        manifest=manifest,
+        run=owner.RUN_ROOT / manifest["runId"],
+        manifest_sha256=manifest_sha,
+        review_sha256="0" * 64,
+        review_identity=(0, 0, 0, 0, 0, 0, 0),
+        review_closure_sha256="0" * 64,
+        qualification_review_sha256=manifest["qualification"]["review"]["sha256"],
+        qualification_review_identity=(0, 0, 0, 0, 0, 0, 0),
+        pending_receipt_sha256=pending_receipt_sha256,
+        records=records,
+    )
+
+
+def _validate_continuation_records(
+    records: dict[str, dict[str, Any]],
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    present_path: tuple[str, ...],
+) -> None:
+    """Validate 23/24/25 and the physical-branch sidecar before rollback use."""
+    if not owner._exact_uncertain_candidate_result(
+        records.get("22-candidate-result.json")
+    ):
+        raise owner.ContractError("continuation candidate result is not exact uncertain")
+    candidate_payload = records["22-candidate-result.json"]["payload"]
+    expected_receipt = candidate_payload["receiptSha256"]
+    pending = records.get("23-candidate-return-pending.json")
+    if pending is None or not owner._valid_candidate_return_pending(
+        pending, expected_receipt
+    ):
+        raise owner.ContractError("continuation pending receipt join is invalid")
+    continuation = _load_continuation()
+    intent = owner._object(
+        records["24-candidate-return-intent.json"]["payload"],
+        {
+            "schema", "capability", "approvalSha256", "pendingReceiptSha256",
+            "candidateReplay", "physicalSystemReturnAllowed",
+            "qualificationReviewSha256",
+        },
+        "candidate-return intent",
+    )
+    qualification_sha = manifest["qualification"]["review"]["sha256"]
+    approval_sha = owner._sha(
+        intent["approvalSha256"], "candidate-return approval digest"
+    )
+    if (
+        intent["schema"] != continuation.INTENT_SCHEMA
+        or intent["capability"] != continuation.CAPABILITY
+        or intent["pendingReceiptSha256"] != expected_receipt
+        or intent["candidateReplay"] is not False
+        or intent["physicalSystemReturnAllowed"] is not True
+        or intent["qualificationReviewSha256"] != qualification_sha
+    ):
+        raise owner.ContractError("candidate-return intent binding changed")
+    continuation, context = _continuation_context(
+        records, manifest, manifest_sha, expected_receipt
+    )
+    observed_record = records.get("24-candidate-return-observed.json")
+    if observed_record is None:
+        raise owner.ContractError("candidate-return observed record is missing")
+    observed_payload = observed_record.get("payload")
+    if type(observed_payload) is not dict or set(observed_payload) != {
+        "schema", "state", "otherTargetsUntouched", "singleSamsungInventorySha256",
+        "candidateSnapshot", "twrpIdentity", "attribution",
+        "physicalActionRequired", "candidateReplay",
+    }:
+        raise owner.ContractError("candidate-return observed record is not exact")
+    state = observed_payload.get("state")
+    if observed_payload["schema"] != continuation.OBSERVED_SCHEMA:
+        raise owner.ContractError("candidate-return observed schema changed")
+    continuation._validate_observation(
+        {key: observed_payload[key] for key in (
+            "state", "otherTargetsUntouched", "singleSamsungInventorySha256",
+            "candidateSnapshot", "twrpIdentity", "attribution",
+        )},
+        manifest,
+        after_physical=False,
+    )
+    if (
+        observed_payload["candidateReplay"] is not False
+        or type(observed_payload["physicalActionRequired"]) is not bool
+        or observed_payload["physicalActionRequired"]
+        != (state == continuation.STATE_TWRP_PRESENT)
+    ):
+        raise owner.ContractError("candidate-return observed binding changed")
+    observation_intent = records.get("25-candidate-observation-intent.json")
+    has_observation_intent = "25-candidate-observation-intent.json" in present_path
+    if not has_observation_intent:
+        if observation_intent is not None or state != continuation.STATE_ATTRIBUTABLE_FAILURE:
+            raise owner.ContractError("resume rollback branch is not exact")
+        sidecar_path = owner.RUN_ROOT / (
+            f"{manifest['runId']}-{continuation.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+        )
+        try:
+            sidecar_path.lstat()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            raise owner.ContractError("uncertain evidence sidecar presence is unknown") from exc
+        else:
+            raise owner.ContractError("nonphysical continuation carries evidence sidecar")
+        return
+    payload = owner._object(
+        observation_intent["payload"] if observation_intent else None,
+        {
+            "schema", "capability", "approvalSha256", "physicalActionConfirmed",
+            "candidateReplay", "qualificationReviewSha256",
+            "uncertainEvidenceIntent",
+        },
+        "candidate observation intent",
+    )
+    if (
+        payload["schema"] != continuation.OBSERVATION_INTENT_SCHEMA
+        or payload["capability"] != continuation.CAPABILITY
+        or payload["approvalSha256"] != approval_sha
+        or type(payload["physicalActionConfirmed"]) is not bool
+        or payload["candidateReplay"] is not False
+        or payload["qualificationReviewSha256"] != qualification_sha
+    ):
+        raise owner.ContractError("candidate observation intent binding changed")
+    physical = state == continuation.STATE_TWRP_PRESENT
+    if payload["physicalActionConfirmed"] is not physical:
+        raise owner.ContractError("candidate observation physical branch changed")
+    sidecar_path = owner.RUN_ROOT / (
+        f"{manifest['runId']}-{continuation.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+    )
+    if not physical:
+        if state != continuation.STATE_NATIVE_VISIBLE:
+            raise owner.ContractError("nonphysical finalize rollback branch is not exact")
+        if payload["uncertainEvidenceIntent"] is not None:
+            raise owner.ContractError("nonphysical continuation carries evidence intent")
+        try:
+            sidecar_path.lstat()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise owner.ContractError(
+                "uncertain evidence sidecar presence is unknown"
+            ) from exc
+        raise owner.ContractError("nonphysical continuation carries evidence sidecar")
+
+    continuation._validate_uncertain_evidence_intent_binding(
+        payload["uncertainEvidenceIntent"]
+    )
+    try:
+        sidecar_path.lstat()
+    except FileNotFoundError:
+        # The post-physical observation may itself have been an attributable
+        # failure.  That branch launches the same one-shot rollback without
+        # attempting failed-boot capture.  A present sidecar, however, names
+        # the TWRP-returned branch and must validate completely below.
+        return
+    except OSError as exc:
+        raise owner.ContractError(
+            "uncertain evidence sidecar presence is unknown"
+        ) from exc
+    observation_sha = owner.sha256_bytes(owner.canonical_json(observation_intent))
+    try:
+        evidence = continuation._load_uncertain_evidence_result(
+            context, observation_sha
+        )
+    except Exception as exc:
+        raise owner.ContractError(
+            "uncertain evidence sidecar binding is invalid"
+        ) from exc
+    if evidence.quiescent is not True:
+        raise owner.ContractError("uncertain evidence sidecar is not quiescent")
+
+
 def _require_prefix(records: dict[str, dict[str, Any]], manifest: dict[str, Any], manifest_sha: str) -> None:
     allowed_paths = (
         owner.ROLLBACK_PATH,
         owner.POSTROLLBACK_RECOVERY_PATH,
         owner.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
         owner.POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+        *_continuation_paths(),
     )
     present_path = tuple(records)
     if present_path not in allowed_paths:
@@ -225,6 +439,7 @@ def _require_prefix(records: dict[str, dict[str, Any]], manifest: dict[str, Any]
         owner.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
         owner.POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
     )
+    continuation_path = present_path in _continuation_paths()
     for name in present_path:
         record = records[name]
         if record["manifestSha256"] != manifest_sha:
@@ -236,6 +451,8 @@ def _require_prefix(records: dict[str, dict[str, Any]], manifest: dict[str, Any]
         owner.validate_failed_boot_evidence_payload(
             records["27-failed-boot-evidence-result.json"]["payload"]
         )
+    if continuation_path:
+        _validate_continuation_records(records, manifest, manifest_sha, present_path)
     prepared = owner._load_prepared(records, manifest_sha, manifest["runId"])
     for role in ("candidate", "rollback"):
         checkpoint = owner._object(

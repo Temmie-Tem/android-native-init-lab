@@ -268,6 +268,46 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
             )
         self.assertEqual(popen.call_args.args[0], [flash.OWNER_ADB, "devices", "-l"])
 
+    def test_owner_adb_inventory_accepts_exact_startup_banner_only(self) -> None:
+        raw = b"List of devices attached\nA90\trecovery\n"
+        expected = hashlib.sha256(b"A90").hexdigest()
+        banner = next(iter(flash.serial_redaction.ADB_STARTUP_BANNERS))
+
+        class Process:
+            pid = 4343
+            returncode = 0
+
+            def communicate(self, timeout):
+                return raw, banner
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self):
+                return self.returncode
+
+        with mock.patch.object(
+            flash.subprocess, "Popen", return_value=Process()
+        ), mock.patch.object(flash.os, "killpg", side_effect=ProcessLookupError):
+            self.assertEqual(
+                flash._owner_adb_inventory_sha256(
+                    expected, flash.OWNER_ADB_ROLE_RECOVERY
+                ),
+                hashlib.sha256(raw).hexdigest(),
+            )
+
+        class NearMiss(Process):
+            def communicate(self, timeout):
+                return raw, banner + b"near-miss\n"
+
+        with mock.patch.object(
+            flash.subprocess, "Popen", return_value=NearMiss()
+        ), mock.patch.object(flash.os, "killpg", side_effect=ProcessLookupError):
+            with self.assertRaisesRegex(RuntimeError, "fixed ADB inventory"):
+                flash._owner_adb_inventory_sha256(
+                    expected, flash.OWNER_ADB_ROLE_RECOVERY
+                )
+
     def test_owner_adb_inventory_rejects_role_drift_duplicates_and_foreign_reorder(self) -> None:
         expected = hashlib.sha256(b"A90").hexdigest()
         cases = (
