@@ -29,9 +29,13 @@ SPEC.loader.exec_module(C)
 
 
 class ReturnBackend:
-    def __init__(self, *, inspect=None, after=None, flashes=None, observations=None):
+    def __init__(
+        self, *, inspect=None, after=None, evidence=None, flashes=None,
+        observations=None
+    ):
         self.inspect_value = inspect
         self.after_value = after
+        self.evidence_value = evidence
         self.flashes = list(flashes or [])
         self.observations = list(observations or [])
         self.calls = []
@@ -47,6 +51,16 @@ class ReturnBackend:
         if isinstance(self.after_value, BaseException):
             raise self.after_value
         return self.after_value
+
+    def capture_uncertain_return_evidence(self, *, lease_check):
+        self.calls.append("capture-evidence")
+        lease_check()
+        value = self.evidence_value
+        if value is None:
+            value = M.FailedBootEvidenceResult.no_proof()
+        if isinstance(value, BaseException):
+            raise value
+        return value
 
     def flash(self, artifact, *, rollback, timeout_sec):
         self.calls.append(("flash", artifact["sha256"], rollback, timeout_sec))
@@ -335,6 +349,34 @@ class CandidateReturnContinuationTest(MinimalF1Test):
             "attribution": code,
         }
 
+    @staticmethod
+    def _twrp_after_physical():
+        return {
+            "state": C.STATE_TWRP_AFTER_PHYSICAL,
+            "otherTargetsUntouched": True,
+            "singleSamsungInventorySha256": "a" * 64,
+            "candidateSnapshot": None,
+            "twrpIdentity": None,
+            "attribution": "BOUND_TWRP_RETURNED_AFTER_PHYSICAL",
+        }
+
+    @staticmethod
+    def _captured_evidence():
+        cmdline = b"console=ttyMSM0\n"
+        last_kmsg = b"candidate boot retained log\n"
+        return M.FailedBootEvidenceResult(
+            "CAPTURED",
+            "BOTH_READS_DURABLE",
+            len(cmdline),
+            M.sha256_bytes(cmdline),
+            len(last_kmsg),
+            M.sha256_bytes(last_kmsg),
+            "c" * 64,
+            "d" * 64,
+            True,
+            True,
+        )
+
     def test_prepare_is_host_only_and_missing_23_is_reconstructible(self):
         run, token = self._prepare_continuation(remove_pending=True)
         self.assertTrue(token.startswith(C.APPROVAL_PREFIX))
@@ -508,7 +550,318 @@ class CandidateReturnContinuationTest(MinimalF1Test):
         source = SOURCE.read_text()
         self.assertNotIn("adb reboot", source)
         self.assertNotIn("twrp reboot", source)
-        self.assertIn("24-candidate-return-observed.json", M.read_records(run))
+        records = M.read_records(run)
+        self.assertIn("24-candidate-return-observed.json", records)
+        self.assertEqual(
+            records["25-candidate-observation-intent.json"]["payload"]
+            ["uncertainEvidenceIntent"]["eligibleState"],
+            C.STATE_TWRP_AFTER_PHYSICAL,
+        )
+        self.assertFalse(
+            (
+                run.parent
+                / f"{run.name}-{C.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+            ).exists()
+        )
+
+    def test_twrp_return_captures_uncertain_evidence_before_rollback(self):
+        run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        backend = ReturnBackend(
+            after=self._twrp_after_physical(),
+            evidence=self._captured_evidence(),
+            flashes=[self._effect()],
+            observations=[self._snapshot("old", "old-build")],
+        )
+        result = C.finalize(
+            self.manifest_path,
+            token,
+            backend,
+            operator_attended=True,
+            physical_action_confirmed=True,
+        )
+        self.assertEqual(result["terminal"], "NO_PROOF_ROLLED_BACK")
+        self.assertEqual(
+            [call if isinstance(call, str) else call[0] for call in backend.calls],
+            ["observe-after", "capture-evidence", "flash", "observe"],
+        )
+        result_path = run.parent / (
+            f"{run.name}-{C.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+        )
+        records = M.read_records(run)
+        observation_intent = records["25-candidate-observation-intent.json"]
+        intent = observation_intent["payload"]["uncertainEvidenceIntent"]
+        receipt = M.parse_canonical(result_path.read_bytes(), "uncertain result")
+        self.assertEqual(intent["eligibleState"], C.STATE_TWRP_AFTER_PHYSICAL)
+        self.assertEqual(intent["attribution"], "UNCERTAIN")
+        self.assertIs(intent["deviceContradictionEligible"], False)
+        self.assertEqual(
+            receipt["triggerObservation"]["state"],
+            C.STATE_TWRP_AFTER_PHYSICAL,
+        )
+        self.assertEqual(
+            receipt["triggerObservationSha256"],
+            M.sha256_bytes(M.canonical_json(receipt["triggerObservation"])),
+        )
+        self.assertEqual(receipt["proofUse"], "EVIDENCE_ONLY_NO_DEVICE_REFUTATION")
+        self.assertIs(receipt["deviceContradictionEligible"], False)
+        self.assertEqual(receipt["evidence"]["outcome"], "CAPTURED")
+        self.assertEqual(
+            receipt["observationIntentSha256"],
+            M.sha256_bytes(M.canonical_json(observation_intent)),
+        )
+        self.assertNotIn("26-failed-boot-evidence-intent.json", records)
+        self.assertNotIn("27-failed-boot-evidence-result.json", records)
+
+    def test_quiescent_no_proof_evidence_still_rolls_back(self):
+        _run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        backend = ReturnBackend(
+            after=self._twrp_after_physical(),
+            evidence=M.FailedBootEvidenceResult.no_proof("EMPTY_LAST_KMSG", cmdline=b"x", usb_inventory_sha256="c" * 64, adb_inventory_sha256="d" * 64),
+            flashes=[self._effect()],
+            observations=[self._snapshot("old", "old-build")],
+        )
+        result = C.finalize(
+            self.manifest_path,
+            token,
+            backend,
+            operator_attended=True,
+            physical_action_confirmed=True,
+        )
+        self.assertEqual(result["terminal"], "NO_PROOF_ROLLED_BACK")
+        self.assertIn("flash", [call[0] for call in backend.calls if isinstance(call, tuple)])
+
+    def test_nonquiescent_uncertain_evidence_parks_without_rollback(self):
+        run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        backend = ReturnBackend(
+            after=self._twrp_after_physical(),
+            evidence=M.FailedBootEvidenceResult.no_proof(
+                "COMMAND_NONQUIESCENT", quiescent=False
+            ),
+            flashes=[self._effect()],
+        )
+        result = C.finalize(
+            self.manifest_path,
+            token,
+            backend,
+            operator_attended=True,
+            physical_action_confirmed=True,
+        )
+        self.assertEqual(result["reason"], "UNCERTAIN_RETURN_EVIDENCE_NOT_QUIESCENT")
+        self.assertNotIn("flash", [call[0] for call in backend.calls if isinstance(call, tuple)])
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+        receipt = M.parse_canonical(
+            (
+                run.parent
+                / f"{run.name}-{C.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+            ).read_bytes(),
+            "uncertain result",
+        )
+        self.assertIs(receipt["evidence"]["quiescent"], False)
+
+    def test_uncertain_evidence_backend_exception_is_conservative_park(self):
+        run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        backend = ReturnBackend(
+            after=self._twrp_after_physical(),
+            evidence=RuntimeError("observer ownership unknown"),
+            flashes=[self._effect()],
+        )
+        result = C.finalize(
+            self.manifest_path,
+            token,
+            backend,
+            operator_attended=True,
+            physical_action_confirmed=True,
+        )
+        self.assertEqual(result["reason"], "UNCERTAIN_RETURN_EVIDENCE_NOT_QUIESCENT")
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_preexisting_uncertain_evidence_result_blocks_before_contact(self):
+        run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        result_path = run.parent / (
+            f"{run.name}-{C.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+        )
+        result_path.write_bytes(b"foreign")
+        backend = ReturnBackend(after=self._twrp_after_physical())
+        with self.assertRaises(C.ContractError):
+            C.finalize(
+                self.manifest_path,
+                token,
+                backend,
+                operator_attended=True,
+                physical_action_confirmed=True,
+            )
+        self.assertEqual(backend.calls, [])
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_uncertain_evidence_result_cut_is_consumed_without_replay(self):
+        run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        backend = ReturnBackend(
+            after=self._twrp_after_physical(),
+            evidence=KeyboardInterrupt(),
+            flashes=[self._effect()],
+        )
+        with self.assertRaises(KeyboardInterrupt):
+            C.finalize(
+                self.manifest_path,
+                token,
+                backend,
+                operator_attended=True,
+                physical_action_confirmed=True,
+            )
+        result_path = run.parent / (
+            f"{run.name}-{C.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+        )
+        observation_intent = M.read_records(run)[
+            "25-candidate-observation-intent.json"
+        ]["payload"]["uncertainEvidenceIntent"]
+        self.assertEqual(observation_intent["attribution"], "UNCERTAIN")
+        self.assertFalse(result_path.exists())
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+        with self.assertRaises(C.ContractError):
+            C.finalize(
+                self.manifest_path,
+                token,
+                ReturnBackend(after=self._twrp_after_physical()),
+                operator_attended=True,
+                physical_action_confirmed=True,
+            )
+
+    def test_durable_evidence_result_resumes_only_rollback(self):
+        run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        first = ReturnBackend(
+            after=self._twrp_after_physical(),
+            evidence=self._captured_evidence(),
+        )
+        with mock.patch.object(C, "_rollback_once", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                C.finalize(
+                    self.manifest_path,
+                    token,
+                    first,
+                    operator_attended=True,
+                    physical_action_confirmed=True,
+                )
+        result_path = run.parent / (
+            f"{run.name}-{C.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+        )
+        self.assertTrue(result_path.is_file())
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+        second = ReturnBackend(
+            flashes=[self._effect()],
+            observations=[self._snapshot("old", "old-build")],
+        )
+        result = C.finalize(
+            self.manifest_path,
+            token,
+            second,
+            operator_attended=True,
+            physical_action_confirmed=True,
+        )
+        self.assertEqual(result["terminal"], "NO_PROOF_ROLLED_BACK")
+        self.assertEqual(
+            [call[0] for call in second.calls if isinstance(call, tuple)],
+            ["flash", "observe"],
+        )
+        self.assertNotIn("observe-after", second.calls)
+        self.assertNotIn("capture-evidence", second.calls)
+
+    def test_uncertain_evidence_receipts_reject_proof_promotion(self):
+        run, token = self._prepare_continuation()
+        C.resume(
+            self.manifest_path,
+            token,
+            ReturnBackend(inspect=self._twrp_present()),
+            operator_attended=True,
+        )
+        ctx = C._load_context(self.manifest_path)
+        backend = ReturnBackend(
+            after=self._twrp_after_physical(),
+            evidence=self._captured_evidence(),
+            flashes=[self._effect()],
+            observations=[self._snapshot("old", "old-build")],
+        )
+        C.finalize(
+            self.manifest_path,
+            token,
+            backend,
+            operator_attended=True,
+            physical_action_confirmed=True,
+        )
+        result_path = run.parent / (
+            f"{run.name}-{C.UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+        )
+        observation_record = M.read_records(run)[
+            "25-candidate-observation-intent.json"
+        ]
+        intent = observation_record["payload"]["uncertainEvidenceIntent"]
+        observation_intent_sha = M.sha256_bytes(
+            M.canonical_json(observation_record)
+        )
+        receipt = M.parse_canonical(result_path.read_bytes(), "uncertain result")
+        intent_mutations = (
+            dict(intent, eligibleState=C.STATE_NATIVE_VISIBLE),
+            dict(intent, attribution="PROVED"),
+            dict(intent, deviceContradictionEligible=True),
+            dict(intent, proofUse="DEVICE_REFUTATION"),
+            dict(intent, extra=True),
+        )
+        for bad in intent_mutations:
+            with self.subTest(intent_mutation=bad):
+                with self.assertRaises((C.ContractError, M.ContractError)):
+                    C._validate_uncertain_evidence_intent_binding(bad)
+        result_mutations = (
+            dict(receipt, attribution="REFUTED"),
+            dict(receipt, deviceContradictionEligible=1),
+            dict(receipt, proofUse="DEVICE_REFUTATION"),
+        )
+        for bad in result_mutations:
+            with self.subTest(result_mutation=bad):
+                with self.assertRaises((C.ContractError, M.ContractError)):
+                    C._validate_uncertain_evidence_result(
+                        bad, ctx, observation_intent_sha
+                    )
 
     def test_finalize_rejects_tampered_return_intent_before_observation(self):
         run, token = self._prepare_continuation()
@@ -633,6 +986,7 @@ class CandidateReturnContinuationTest(MinimalF1Test):
                     "physicalActionConfirmed": False,
                     "candidateReplay": False,
                     "qualificationReviewSha256": self.manifest["qualification"]["review"]["sha256"],
+                    "uncertainEvidenceIntent": None,
                 },
             ),
         )

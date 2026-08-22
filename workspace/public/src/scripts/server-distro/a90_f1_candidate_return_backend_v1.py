@@ -175,6 +175,7 @@ class Activation:
         allowed_phases = {
             "inspect": {"resume"},
             "continuation-observe": {"finalize"},
+            "failed-boot-evidence": {"finalize"},
             "effect": {"resume", "finalize"},
             "rollback-observe": {"resume", "finalize"},
         }
@@ -836,6 +837,35 @@ class CandidateReturnBackend:
             manifest, current, after_physical=physical_action_confirmed
         )
         self._check(manifest, self._operation)
+        return result
+
+    def capture_uncertain_return_evidence(
+        self, *, lease_check: Callable[[], None]
+    ) -> owner.FailedBootEvidenceResult:
+        """Run only the fixed TWRP evidence observer for a finalize lease."""
+        manifest = getattr(self, "_manifest", None)
+        if not isinstance(manifest, dict) or not callable(lease_check):
+            raise BackendError("uncertain evidence requires a bound lease")
+        self._operation = "failed-boot-evidence"
+
+        def combined_lease_check() -> None:
+            self._check(manifest, self._operation)
+            if lease_check() is not None:
+                raise ActivationError("uncertain evidence lease returned a value")
+
+        combined_lease_check()
+        fixed = adapter.FixedA90Adapter(
+            self._contact_runner(manifest, self._operation),
+            qualification=manifest["qualification"],
+        )
+        result = fixed._capture_failed_boot_evidence(
+            timeout_sec=owner.FAILED_BOOT_EVIDENCE_TIMEOUT_SEC,
+            lease_check=combined_lease_check,
+        )
+        combined_lease_check()
+        if type(result) is not owner.FailedBootEvidenceResult:
+            raise BackendError("uncertain evidence backend result type is invalid")
+        result.validate()
         return result
 
     def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int):

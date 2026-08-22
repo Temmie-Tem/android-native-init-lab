@@ -166,6 +166,11 @@ The previously planned repository unit remains the uncertain-return failed-boot
 evidence extension. That is a separate continuation-closure change and does
 not gain live authority from this report.
 
+That follow-up is recorded in
+`A90_UNCERTAIN_RETURN_FAILED_BOOT_EVIDENCE_CONTINUATION_H0_2026-08-22.md`.
+It preserves uncertain attribution and creates no kernel qualification or live
+authority.
+
 ## Boundary
 
 This unit used public web/source hosts and existing private host build inputs.

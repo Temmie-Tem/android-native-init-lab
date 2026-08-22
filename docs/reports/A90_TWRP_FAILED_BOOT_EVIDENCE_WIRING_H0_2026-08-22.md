@@ -7,6 +7,11 @@ Device contact: none
 Authority: none — no D0, D1, F1, candidate, approval, manifest, token, reboot,
 rollback, or replay authority is created
 
+Follow-up: `A90_UNCERTAIN_RETURN_FAILED_BOOT_EVIDENCE_CONTINUATION_H0_2026-08-22.md`
+extends the same fixed observer to the evidence-only, explicitly uncertain
+TWRP-after-physical-return continuation branch. It does not revise this
+report's original eligibility or proof claims.
+
 ## Result
 
 The existing A90 minimal F1 owner now has a first-opportunity failed-boot

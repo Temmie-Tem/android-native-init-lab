@@ -20,7 +20,7 @@ import stat
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 
 sys.dont_write_bytecode = True
@@ -69,6 +69,14 @@ INTENT_SCHEMA = "a90-f1-candidate-return-intent-v1"
 OBSERVED_SCHEMA = "a90-f1-candidate-return-observed-v1"
 OBSERVATION_INTENT_SCHEMA = "a90-f1-candidate-observation-intent-v1"
 RETURN_RESULT_SCHEMA = "a90-f1-candidate-return-result-v1"
+UNCERTAIN_EVIDENCE_RESULT_SCHEMA = (
+    "a90-f1-uncertain-return-failed-boot-evidence-result-v1"
+)
+UNCERTAIN_EVIDENCE_ATTRIBUTION = "UNCERTAIN"
+UNCERTAIN_EVIDENCE_PROOF_USE = "EVIDENCE_ONLY_NO_DEVICE_REFUTATION"
+UNCERTAIN_EVIDENCE_RESULT_SUFFIX = (
+    "candidate-return-uncertain-evidence-result.json"
+)
 TWRP_VERSION = "3.7.0_12-0"
 TWRP_SCRIPT_SHA256 = (
     "3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07"
@@ -171,6 +179,10 @@ class CandidateReturnBackend(Protocol):
         require_fresh_state: bool,
         timeout_sec: int,
     ) -> owner.Snapshot: ...
+
+    def capture_uncertain_return_evidence(
+        self, *, lease_check: Callable[[], None]
+    ) -> owner.FailedBootEvidenceResult: ...
 
     def bind_manifest(self, manifest: dict[str, Any]) -> None: ...
 
@@ -311,6 +323,215 @@ def _capture_file_lease(
     if expected_sha256 is not None and sha256 != expected_sha256:
         raise ReviewLeaseDrift(f"{label} digest drifted")
     return identity_before, sha256
+
+
+def _failed_boot_evidence_intent() -> dict[str, Any]:
+    payload = {
+        "attempt": 1,
+        "candidateReplay": False,
+        "source": owner.FAILED_BOOT_EVIDENCE_SOURCE,
+        "cmdlineSource": owner.FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE,
+        "sourceMode": "0444",
+        "mount": "none",
+        "decoder": owner.FAILED_BOOT_EVIDENCE_DECODER,
+        "policyId": owner.FAILED_BOOT_EVIDENCE_POLICY_ID,
+        "sourceContractId": owner.FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID,
+        "commandIdentity": owner.FAILED_BOOT_COMMAND_IDENTITY,
+    }
+    owner.validate_failed_boot_evidence_intent_payload(payload)
+    return payload
+
+
+def _uncertain_evidence_intent_binding() -> dict[str, Any]:
+    return {
+        "eligibleState": STATE_TWRP_AFTER_PHYSICAL,
+        "attribution": UNCERTAIN_EVIDENCE_ATTRIBUTION,
+        "proofUse": UNCERTAIN_EVIDENCE_PROOF_USE,
+        "deviceContradictionEligible": False,
+        "evidenceIntent": _failed_boot_evidence_intent(),
+    }
+
+
+def _validate_uncertain_evidence_intent_binding(value: Any) -> None:
+    payload = owner._object(
+        value,
+        {
+            "eligibleState", "attribution", "proofUse",
+            "deviceContradictionEligible", "evidenceIntent",
+        },
+        "uncertain-return evidence intent",
+    )
+    if (
+        payload["eligibleState"] != STATE_TWRP_AFTER_PHYSICAL
+        or payload["attribution"] != UNCERTAIN_EVIDENCE_ATTRIBUTION
+        or payload["proofUse"] != UNCERTAIN_EVIDENCE_PROOF_USE
+        or payload["deviceContradictionEligible"] is not False
+    ):
+        raise ContractError("uncertain-return evidence intent is invalid")
+    owner.validate_failed_boot_evidence_intent_payload(payload["evidenceIntent"])
+
+
+def _uncertain_evidence_result_path(ctx: Context) -> Path:
+    path = owner.RUN_ROOT / (
+        f"{ctx.manifest['runId']}-{UNCERTAIN_EVIDENCE_RESULT_SUFFIX}"
+    )
+    if path.parent != owner.RUN_ROOT:
+        raise ContractError("uncertain evidence path escaped the run root")
+    return path
+
+
+def _require_uncertain_evidence_result_absent(ctx: Context) -> None:
+    try:
+        _uncertain_evidence_result_path(ctx).lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise ContractError("uncertain evidence result presence is unknown") from exc
+    raise ContractError("uncertain evidence result already exists")
+
+
+def _uncertain_observation_intent_sha256(ctx: Context) -> str:
+    _revalidate_review_lease(ctx)
+    owner._require_active_guard(ctx.manifest)
+    owner._require_candidate_guard(ctx.manifest)
+    records = _read_records_checked(ctx)
+    if tuple(records) != owner.CANDIDATE_RETURN_OBSERVATION_PATH:
+        raise ReviewLeaseDrift("uncertain evidence main-journal prefix drift")
+    record = records["25-candidate-observation-intent.json"]
+    payload = record["payload"]
+    _validate_uncertain_evidence_intent_binding(
+        payload.get("uncertainEvidenceIntent")
+    )
+    return owner.sha256_bytes(_canonical(record))
+
+
+def _validate_uncertain_evidence_result(
+    value: Any, ctx: Context, observation_intent_sha256: str
+) -> owner.FailedBootEvidenceResult:
+    payload = owner._object(
+        value,
+        {
+            "schema", "capability", "runId", "manifestSha256",
+            "pendingReceiptSha256", "observationIntentSha256",
+            "attribution", "proofUse", "deviceContradictionEligible",
+            "candidateReplay", "rollbackReplay", "triggerObservation",
+            "triggerObservationSha256", "evidence",
+        },
+        "uncertain-return evidence result",
+    )
+    trigger = _validate_observation(
+        payload["triggerObservation"], ctx.manifest, after_physical=True
+    )
+    if (
+        payload["schema"] != UNCERTAIN_EVIDENCE_RESULT_SCHEMA
+        or payload["capability"] != CAPABILITY
+        or payload["runId"] != ctx.manifest["runId"]
+        or payload["manifestSha256"] != ctx.manifest_sha256
+        or payload["pendingReceiptSha256"] != ctx.pending_receipt_sha256
+        or payload["observationIntentSha256"] != observation_intent_sha256
+        or payload["attribution"] != UNCERTAIN_EVIDENCE_ATTRIBUTION
+        or payload["proofUse"] != UNCERTAIN_EVIDENCE_PROOF_USE
+        or payload["deviceContradictionEligible"] is not False
+        or payload["candidateReplay"] is not False
+        or payload["rollbackReplay"] is not False
+        or trigger["state"] != STATE_TWRP_AFTER_PHYSICAL
+        or trigger["attribution"] != "BOUND_TWRP_RETURNED_AFTER_PHYSICAL"
+        or payload["triggerObservationSha256"]
+        != owner.sha256_bytes(_canonical(trigger))
+    ):
+        raise ContractError("uncertain-return evidence result binding is invalid")
+    return owner.validate_failed_boot_evidence_payload(payload["evidence"])
+
+
+def _load_uncertain_evidence_result(
+    ctx: Context, observation_intent_sha256: str
+) -> owner.FailedBootEvidenceResult:
+    path = _uncertain_evidence_result_path(ctx)
+    identity_before, digest_before = _capture_file_lease(
+        path, "uncertain-return evidence result"
+    )
+    raw = owner._read_bounded_regular(
+        path, "uncertain-return evidence result", owner.MAX_JSON_BYTES
+    )
+    identity_after, digest_after = _capture_file_lease(
+        path, "uncertain-return evidence result", digest_before
+    )
+    if identity_before != identity_after or digest_before != digest_after:
+        raise ReviewLeaseDrift("uncertain evidence result lease drift")
+    value = owner.parse_canonical(raw, "uncertain-return evidence result")
+    return _validate_uncertain_evidence_result(
+        value, ctx, observation_intent_sha256
+    )
+
+
+def _publish_uncertain_evidence_result(
+    ctx: Context,
+    observation_intent_sha256: str,
+    trigger_observation: dict[str, Any],
+    evidence: owner.FailedBootEvidenceResult,
+) -> owner.FailedBootEvidenceResult:
+    if type(evidence) is not owner.FailedBootEvidenceResult:
+        raise ContractError("uncertain evidence result type is invalid")
+    evidence.validate()
+    if _uncertain_observation_intent_sha256(ctx) != observation_intent_sha256:
+        raise ReviewLeaseDrift("uncertain evidence observation intent drift")
+    trigger = _validate_observation(
+        trigger_observation, ctx.manifest, after_physical=True
+    )
+    payload = {
+        "schema": UNCERTAIN_EVIDENCE_RESULT_SCHEMA,
+        "capability": CAPABILITY,
+        "runId": ctx.manifest["runId"],
+        "manifestSha256": ctx.manifest_sha256,
+        "pendingReceiptSha256": ctx.pending_receipt_sha256,
+        "observationIntentSha256": observation_intent_sha256,
+        "attribution": UNCERTAIN_EVIDENCE_ATTRIBUTION,
+        "proofUse": UNCERTAIN_EVIDENCE_PROOF_USE,
+        "deviceContradictionEligible": False,
+        "candidateReplay": False,
+        "rollbackReplay": False,
+        "triggerObservation": trigger,
+        "triggerObservationSha256": owner.sha256_bytes(_canonical(trigger)),
+        "evidence": evidence.payload(),
+    }
+    _validate_uncertain_evidence_result(
+        payload, ctx, observation_intent_sha256
+    )
+    path = _uncertain_evidence_result_path(ctx)
+    raw = _canonical(payload)
+    descriptor = os.open(
+        path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+        0o600,
+    )
+    try:
+        offset = 0
+        while offset < len(raw):
+            written = os.write(descriptor, raw[offset:])
+            if written <= 0:
+                raise ContractError("uncertain evidence result short write")
+            offset += written
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+            or metadata.st_uid != os.getuid()
+            or metadata.st_gid != os.getgid()
+            or metadata.st_nlink != 1
+            or metadata.st_size != len(raw)
+        ):
+            raise ContractError("uncertain evidence result identity changed")
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    owner._fsync_directory(owner.RUN_ROOT)
+    if owner._read_bounded_regular(
+        path, "uncertain-return evidence result", owner.MAX_JSON_BYTES
+    ) != raw:
+        raise ContractError("uncertain evidence result readback changed")
+    if _uncertain_observation_intent_sha256(ctx) != observation_intent_sha256:
+        raise ReviewLeaseDrift("uncertain evidence observation intent drift")
+    return _load_uncertain_evidence_result(ctx, observation_intent_sha256)
 
 
 def _publish_checked(
@@ -589,6 +810,7 @@ def _validate_observation_intent(
     if type(payload) is not dict or set(payload) != {
         "schema", "capability", "approvalSha256", "physicalActionConfirmed",
         "candidateReplay", "qualificationReviewSha256",
+        "uncertainEvidenceIntent",
     }:
         raise ContractError("candidate observation intent is not exact")
     if (
@@ -600,6 +822,12 @@ def _validate_observation_intent(
         or payload["qualificationReviewSha256"] != ctx.qualification_review_sha256
     ):
         raise ContractError("candidate observation intent binding is invalid")
+    if physical:
+        _validate_uncertain_evidence_intent_binding(
+            payload["uncertainEvidenceIntent"]
+        )
+    elif payload["uncertainEvidenceIntent"] is not None:
+        raise ContractError("nonphysical observation carries evidence intent")
 
 
 def _publish_pending_from_result(ctx: Context) -> Context:
@@ -826,6 +1054,38 @@ def _pass(ctx: Context, snapshot: owner.Snapshot, reason: str) -> dict[str, Any]
         reason,
         ctx.manifest,
         continuation_lease_check=lambda: _revalidate_review_lease(ctx),
+    )
+
+
+def _capture_uncertain_return_evidence(
+    ctx: Context,
+    backend: CandidateReturnBackend,
+    trigger_observation: dict[str, Any],
+) -> owner.FailedBootEvidenceResult:
+    _require_uncertain_evidence_result_absent(ctx)
+    observation_intent_sha256 = _uncertain_observation_intent_sha256(ctx)
+
+    def lease_check() -> None:
+        if _uncertain_observation_intent_sha256(ctx) != observation_intent_sha256:
+            raise ReviewLeaseDrift("uncertain evidence observation intent drift")
+
+    try:
+        evidence = backend.capture_uncertain_return_evidence(
+            lease_check=lease_check
+        )
+        if type(evidence) is not owner.FailedBootEvidenceResult:
+            raise ContractError("uncertain evidence result type is invalid")
+        evidence.validate()
+    except ReviewLeaseDrift:
+        raise
+    except Exception:
+        # An unexpected backend failure cannot prove that every observer child
+        # exited.  Persist it, then park without overlapping rollback.
+        evidence = owner.FailedBootEvidenceResult.no_proof(
+            "COMMAND_NONQUIESCENT", quiescent=False
+        )
+    return _publish_uncertain_evidence_result(
+        ctx, observation_intent_sha256, trigger_observation, evidence
     )
 
 
@@ -1173,7 +1433,11 @@ def finalize(
         raise ContractError("physical confirmation type is invalid")
     ctx = _load_context(manifest_path)
     _require_approval(ctx, approval)
-    if set(ctx.records) != set(owner.CANDIDATE_RETURN_RESUME_PATH):
+    record_names = set(ctx.records)
+    if record_names not in (
+        set(owner.CANDIDATE_RETURN_RESUME_PATH),
+        set(owner.CANDIDATE_RETURN_OBSERVATION_PATH),
+    ):
         raise ContractError("finalize requires one consumed return observation")
     _validate_return_intent(
         ctx.records["24-candidate-return-intent.json"], ctx, approval
@@ -1184,6 +1448,32 @@ def finalize(
     physical_required = observed["state"] == STATE_TWRP_PRESENT
     if physical_action_confirmed != physical_required:
         raise ContractError("physical confirmation does not match the observed branch")
+    if record_names == set(owner.CANDIDATE_RETURN_OBSERVATION_PATH):
+        _validate_observation_intent(
+            ctx.records["25-candidate-observation-intent.json"],
+            ctx,
+            approval,
+            physical=physical_action_confirmed,
+        )
+        if not physical_action_confirmed:
+            raise ContractError("consumed nonphysical observation cannot be replayed")
+        observation_intent_sha256 = _uncertain_observation_intent_sha256(ctx)
+        evidence = _load_uncertain_evidence_result(
+            ctx, observation_intent_sha256
+        )
+        if backend is None:
+            backend = _live_backend(
+                "finalize",
+                ctx,
+                approval,
+                single_samsung_inventory_sha256=observed[
+                    "singleSamsungInventorySha256"
+                ],
+            )
+        _bind_backend_manifest(backend, ctx.manifest)
+        if evidence.quiescent is not True:
+            return _park(ctx, "UNCERTAIN_RETURN_EVIDENCE_NOT_QUIESCENT")
+        return _rollback_once(ctx, backend)
     _publish_checked(
         ctx,
         "25-candidate-observation-intent.json",
@@ -1195,6 +1485,11 @@ def finalize(
             "physicalActionConfirmed": physical_action_confirmed,
             "candidateReplay": False,
             "qualificationReviewSha256": ctx.qualification_review_sha256,
+            "uncertainEvidenceIntent": (
+                _uncertain_evidence_intent_binding()
+                if physical_action_confirmed
+                else None
+            ),
         },
     )
     records = _read_records_checked(ctx)
@@ -1204,6 +1499,8 @@ def finalize(
         approval,
         physical=physical_action_confirmed,
     )
+    if physical_action_confirmed:
+        _require_uncertain_evidence_result_absent(ctx)
     owner._require_active_guard(ctx.manifest)
     owner._require_candidate_guard(ctx.manifest)
     if backend is None:
@@ -1234,7 +1531,12 @@ def finalize(
             _snapshot_from_payload(after["candidateSnapshot"], ctx.manifest),
             "CANDIDATE_HEALTHY_AFTER_RETURN_CONTINUATION",
         )
-    if after["state"] in {STATE_ATTRIBUTABLE_FAILURE, STATE_TWRP_AFTER_PHYSICAL}:
+    if after["state"] == STATE_TWRP_AFTER_PHYSICAL:
+        evidence = _capture_uncertain_return_evidence(ctx, backend, after)
+        if evidence.quiescent is not True:
+            return _park(ctx, "UNCERTAIN_RETURN_EVIDENCE_NOT_QUIESCENT")
+        return _rollback_once(ctx, backend)
+    if after["state"] == STATE_ATTRIBUTABLE_FAILURE:
         return _rollback_once(ctx, backend)
     return _park(ctx, "CANDIDATE_RETURN_UNATTRIBUTED_OR_FOREIGN")
 

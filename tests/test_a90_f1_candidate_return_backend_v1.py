@@ -154,6 +154,37 @@ class BackendTest(unittest.TestCase):
             )
         self.assertEqual(runner.calls, [])
 
+    def test_uncertain_evidence_is_fixed_and_finalize_only(self):
+        evidence = OWNER.FailedBootEvidenceResult.no_proof("EMPTY_LAST_KMSG", cmdline=b"x", usb_inventory_sha256="c" * 64, adb_inventory_sha256="d" * 64)
+        lease_check = mock.Mock(return_value=None)
+        fixed = mock.Mock()
+        fixed._capture_failed_boot_evidence.return_value = evidence
+        backend = self._backend(
+            FakeRunner(self.recovery_usb, self.recovery_adb), phase="finalize"
+        )
+        with mock.patch.object(ADAPTER, "FixedA90Adapter", return_value=fixed):
+            result = backend.capture_uncertain_return_evidence(
+                lease_check=lease_check
+            )
+        self.assertEqual(result, evidence)
+        fixed._capture_failed_boot_evidence.assert_called_once()
+        kwargs = fixed._capture_failed_boot_evidence.call_args.kwargs
+        self.assertEqual(
+            kwargs["timeout_sec"], OWNER.FAILED_BOOT_EVIDENCE_TIMEOUT_SEC
+        )
+        self.assertTrue(callable(kwargs["lease_check"]))
+        self.assertGreaterEqual(lease_check.call_count, 2)
+
+        resume_backend = self._backend(
+            FakeRunner(self.recovery_usb, self.recovery_adb), phase="resume"
+        )
+        with mock.patch.object(ADAPTER, "FixedA90Adapter") as factory:
+            with self.assertRaises(BACKEND.ActivationError):
+                resume_backend.capture_uncertain_return_evidence(
+                    lease_check=lambda: None
+                )
+        factory.assert_not_called()
+
     def test_native_is_exactly_one_samsung_and_zero_adb(self):
         runner = FakeRunner(self.native_usb, self.empty_adb)
         backend = self._backend(runner)
