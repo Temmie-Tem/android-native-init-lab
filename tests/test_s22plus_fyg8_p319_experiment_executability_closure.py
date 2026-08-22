@@ -42,6 +42,31 @@ class P319ExperimentExecutabilityClosureTest(unittest.TestCase):
         self.assertFalse(result["causal_result_allowed"])
         self.assertFalse(result["candidate_success"])
         self.assertFalse(result["runtime_gate_satisfied"])
+        repin = result["authority"]["contracts"]["process_v2_repin"]
+        self.assertEqual(repin["old"]["size"], 33498)
+        self.assertEqual(repin["old"]["sha256"], "72f1eb6115872683af6a374b37267193c9c730a51698e5adf30b328b75b68d9b")
+        self.assertEqual(repin["new"]["size"], 36163)
+        self.assertEqual(repin["new"]["sha256"], "26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1")
+        self.assertEqual(repin["delta"], {"added_lines": 41, "removed_lines": 0, "added_bytes": 2665})
+        self.assertFalse(repin["authority_expanded"])
+        process = self.module.stable_bytes(self.module.PROCESS_CONTRACT, "Process-v2 test contract", maximum=2 * 1024 * 1024)
+        self.module.validate_process_contract_repin(process)
+        mutated = copy.deepcopy(repin)
+        mutated["old"]["sha256"] = "0" * 64
+        with self.assertRaises(self.module.AuditError):
+            self.module.validate_process_contract_repin(process, mutated)
+        outside_mutation = process.replace(b"## Recovery", b"## Recovery-mutated", 1)
+        with self.assertRaisesRegex(
+            self.module.AuditError, "predecessor reconstruction differs"
+        ):
+            self.module.validate_process_contract_repin(outside_mutation)
+        section_mutation = process.replace(
+            b"never replays the candidate", b"may replay the candidate", 1
+        )
+        with self.assertRaisesRegex(
+            self.module.AuditError, "reviewed successor"
+        ):
+            self.module.validate_process_contract_repin(section_mutation)
         self.assertEqual(
             set(result["runtime_evaluability_witnesses"]),
             {

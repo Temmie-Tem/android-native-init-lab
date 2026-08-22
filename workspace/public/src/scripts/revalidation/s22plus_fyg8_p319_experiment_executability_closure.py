@@ -110,8 +110,35 @@ EXPECTED_IDS = {
     "p319_intent": {"size": 107147, "sha256": "2e0d67cfecd752f4ebe76ab3176969dc83eec7117e59cae1b5a7c3f18e0c9226"},
     "p319_qualification": {"size": 109705, "sha256": "0b49969f730c4af374a20cac6c3eef4b0a0dcbf136d9ce30eefc4ac7546d5738"},
     "p317_source": {"size": 42902, "sha256": "cdc99e05884b2bd127a36536e349b005322c049e36e9f8582f0f53a3530088f8"},
-    "process_contract": {"size": 33498, "sha256": "72f1eb6115872683af6a374b37267193c9c730a51698e5adf30b328b75b68d9b"},
+    "process_contract": {"size": 36163, "sha256": "26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1"},
     "target_contract": {"size": 14926, "sha256": "e429c80c86f8b122443e56a8d8d3b01605aabb320d2d5ef5e3eb9fcc666a55e0"},
+}
+
+# The registry is a restrictive additive change to the binding common
+# Process-v2 contract.  Keep the predecessor identity here as provenance: a
+# bare replacement of the current hash would make the contract repin
+# indistinguishable from an unreviewed drift.
+PROCESS_CONTRACT_REPIN = {
+    "schema": "s22plus_fyg8_p319_process_v2_contract_repin_v1",
+    "change": "restrictive_additive_common_contract",
+    "old": {
+        "source_commit": "53af56674a7d818086d6ca2297eb903c69ef8f66",
+        "size": 33498,
+        "sha256": "72f1eb6115872683af6a374b37267193c9c730a51698e5adf30b328b75b68d9b",
+    },
+    "new": {
+        "source_commit": "10cf4c25e0c7d97422b683ef925f9e18b15ace6c",
+        "size": 36163,
+        "sha256": "26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1",
+    },
+    "delta": {"added_lines": 41, "removed_lines": 0, "added_bytes": 2665},
+    "independent_review": {
+        "status": "INDEPENDENTLY_REVIEWED_H0",
+        "review_commit": "eaff1d48d32550674d12d2fa6b456444a60d20ee",
+        "scope": "global consumed-candidate registry and common Process-v2 contract addition",
+    },
+    "authority_expanded": False,
+    "ready_or_live_authority_granted": False,
 }
 
 MODULE_SPECS = {
@@ -170,6 +197,78 @@ def sha256(data: bytes) -> str:
 
 def identity(data: bytes) -> dict[str, Any]:
     return {"size": len(data), "sha256": sha256(data)}
+
+
+def validate_process_contract_repin(
+    process: bytes,
+    repin: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Bind the current contract to its reviewed restrictive additive delta."""
+    value = PROCESS_CONTRACT_REPIN if repin is None else repin
+    expected_old = {
+        "source_commit": "53af56674a7d818086d6ca2297eb903c69ef8f66",
+        "size": 33498,
+        "sha256": "72f1eb6115872683af6a374b37267193c9c730a51698e5adf30b328b75b68d9b",
+    }
+    expected_new = {
+        "source_commit": "10cf4c25e0c7d97422b683ef925f9e18b15ace6c",
+        "size": 36163,
+        "sha256": "26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1",
+    }
+    if not isinstance(value, Mapping) or value.get("schema") != PROCESS_CONTRACT_REPIN["schema"]:
+        raise AuditError("Process-v2 contract repin schema differs")
+    if value.get("change") != "restrictive_additive_common_contract":
+        raise AuditError("Process-v2 contract repin is not restrictive/additive")
+    if value.get("old") != expected_old or value.get("new") != expected_new:
+        raise AuditError("Process-v2 contract repin old/new provenance differs")
+    review = value.get("independent_review")
+    if not isinstance(review, Mapping) or review.get("status") != "INDEPENDENTLY_REVIEWED_H0" or review.get("review_commit") != "eaff1d48d32550674d12d2fa6b456444a60d20ee":
+        raise AuditError("Process-v2 contract repin review provenance differs")
+    if value.get("authority_expanded") is not False or value.get("ready_or_live_authority_granted") is not False:
+        raise AuditError("Process-v2 contract repin expands authority")
+    try:
+        text = process.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise AuditError("Process-v2 contract is not UTF-8") from exc
+    start_marker = b"### Global Consumed-Candidate Registry"
+    end_marker = b"Rollback is a normal state-machine transition, not a new experiment."
+    if process.count(start_marker) != 1 or process.count(end_marker) != 1:
+        raise AuditError("Process-v2 registry section markers are ambiguous")
+    start = process.find(start_marker)
+    end = process.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0 or start == 0 or end <= start:
+        raise AuditError("Process-v2 registry section is missing")
+    if process[start - 1:start] != b"\n" or process[end - 1:end] != b"\n":
+        raise AuditError("Process-v2 registry section is not line-delimited")
+    section_bytes = process[start:end]
+    if not section_bytes.endswith(b"\n\n"):
+        raise AuditError("Process-v2 registry section boundary differs")
+    section = section_bytes.decode("utf-8").splitlines()
+    if len(section) != 41:
+        raise AuditError("Process-v2 registry section line count differs")
+    reconstructed_predecessor = process[:start] + process[end:]
+    predecessor_identity = identity(reconstructed_predecessor)
+    if predecessor_identity != {key: expected_old[key] for key in ("size", "sha256")}:
+        raise AuditError("Process-v2 predecessor reconstruction differs")
+    if identity(process) != {key: expected_new[key] for key in ("size", "sha256")}:
+        raise AuditError("Process-v2 contract identity differs from reviewed successor")
+    derived_delta = {
+        "added_lines": len(section),
+        "removed_lines": 0,
+        "added_bytes": len(section_bytes),
+    }
+    if value.get("delta") != derived_delta:
+        raise AuditError("Process-v2 contract repin delta differs")
+    for token in (
+        "CONSUMED_UNCERTAIN",
+        "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+        "never replays the candidate",
+        "not ready, and grants no F1 or live authority",
+        "independent review and fresh qualification",
+    ):
+        if token not in section_bytes.decode("utf-8"):
+            raise AuditError(f"Process-v2 registry section lacks required guard: {token}")
+    return dict(value)
 
 
 def _stat_identity(value: os.stat_result) -> tuple[int, ...]:
@@ -294,12 +393,17 @@ def load_exact_authority() -> dict[str, Any]:
     source = stable_bytes(AUDITOR.parent / "s22plus_fyg8_p317_executability_fixed_point.py", "P317 extractor source", expected=EXPECTED_IDS["p317_source"], maximum=128 * 1024)
     process = stable_bytes(PROCESS_CONTRACT, "Process-v2 contract", maximum=2 * 1024 * 1024)
     target = stable_bytes(TARGET_CONTRACT, "S22+ target contract", maximum=128 * 1024)
-    if sha256(process) != EXPECTED_IDS["process_contract"]["sha256"] or sha256(target) != EXPECTED_IDS["target_contract"]["sha256"]:
-        raise AuditError("binding contract identity differs")
+    process_repin = validate_process_contract_repin(process)
+    if identity(target) != EXPECTED_IDS["target_contract"]:
+        raise AuditError("S22+ target contract identity differs")
     _require_tokens(process.decode("utf-8"), ("EXPERIMENT_EXECUTABILITY_CLOSURE", "S[n+1]", *FAMILIES, "NO_PROOF_OBSERVER", "NO_PROOF_EXPERIMENT_PRECONDITION"), "Process-v2")
     data["_raw"] = raw
     data["_source_receipt"] = identity(source)
-    data["_contract_receipts"] = {"process_v2": identity(process), "target": identity(target)}
+    data["_contract_receipts"] = {
+        "process_v2": identity(process),
+        "process_v2_repin": process_repin,
+        "target": identity(target),
+    }
     return data
 
 
@@ -689,7 +793,7 @@ def build_result(authority: Mapping[str, Any] | None = None) -> dict[str, Any]:
             {"id": "P319_CONSUMER_MAX77705_PDIC_CHILD", "device_identity": P319_PDIC, "expected_driver": "max77705-usbc", "module": {"name": "pdic_max77705.ko", **{key: MODULE_SPECS["pdic_max77705.ko"][key] for key in ("size", "sha256")}}, "source_authority": "P319 IRQ/DT V3 max77705_devs -> max77705-usbc -> max77705_usbc_probe"},
         ],
         "must_bind_root_qualification": {
-            "process_contract_section": "DEVICE_ACTION_PROCESS_V2.md:417-438",
+            "process_contract_section": "DEVICE_ACTION_PROCESS_V2.md:417-438; global registry repin:562-602",
             "roots_are_design_consumers_not_runtime_success": True,
             "roots": [
                 {"identity": P317_WRAPPER, "kind": "unchanged_p317_must_bind_root", "reason": "The exact GENI wrapper is required by the i2c-msm-geni driver-consumed qcom,wrapper-core relation."},

@@ -12,6 +12,10 @@ REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_PROCESS_V2_INTEGRATION_PREREQUISITES_H0_2026-08-21.md"
 )
+REPIN_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_H0_2026-08-22.md"
+)
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 PREREQUISITE = ROOT / (
@@ -22,18 +26,47 @@ INTEGRATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "process-v2-integration-qualification-v1-20260821-02/result.json"
 )
+CURRENT_INTEGRATION = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-integration-qualification-v1-20260822-06/result.json"
+)
+P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
+P319_SELECTED_TEST_COUNT = 532
+P319_EXECUTABILITY_CLASS = (
+    "test_s22plus_fyg8_p319_experiment_executability_closure."
+    "P319ExperimentExecutabilityClosureTest."
+)
+P319_EXECUTABILITY_CLASS_COUNT = 13
+
+
+def _flatten_tests(suite):
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from _flatten_tests(item)
+        else:
+            yield item
+
+
+def _p319_selected_test_ids():
+    suite = unittest.TestLoader().discover(
+        str(ROOT / "tests"), pattern=P319_TEST_PATTERN
+    )
+    return [test.id() for test in _flatten_tests(suite)]
 
 
 class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.report = REPORT.read_text(encoding="utf-8")
+        cls.repin_report = REPIN_REPORT.read_text(encoding="utf-8")
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
         cls.prerequisite_bytes = PREREQUISITE.read_bytes()
         cls.integration_bytes = INTEGRATION.read_bytes()
         cls.prerequisite = json.loads(cls.prerequisite_bytes)
         cls.integration = json.loads(cls.integration_bytes)
+        cls.current_integration_bytes = CURRENT_INTEGRATION.read_bytes()
+        cls.current_integration = json.loads(cls.current_integration_bytes)
 
     def test_report_is_scoped_reviewed_and_names_all_current_blockers(self):
         self.assertIn(
@@ -59,6 +92,32 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("After this row, full-tail accounting is 47 total / 33 resolved /", self.report)
         self.assertIn("14 unresolved", self.report)
         self.assertIn("Independent scoped review", self.report)
+        selected = _p319_selected_test_ids()
+        self.assertEqual(len(selected), P319_SELECTED_TEST_COUNT)
+        executability = [
+            test_id for test_id in selected if P319_EXECUTABILITY_CLASS in test_id
+        ]
+        self.assertEqual(len(executability), P319_EXECUTABILITY_CLASS_COUNT)
+        self.assertEqual(len(set(executability)), P319_EXECUTABILITY_CLASS_COUNT)
+        self.assertIn("Status: `IMPLEMENTED_REVIEW_PENDING`", self.repin_report)
+        self.assertIn("49 total / 34 resolved / 15 unresolved", self.repin_report)
+        self.assertIn("h0-process-v2-contract-repin-31", self.repin_report)
+        self.assertIn(
+            "P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_IMPLEMENTED_REVIEW_PENDING",
+            self.repin_report,
+        )
+        self.assertIn("Ran 532 tests in 166.955s", self.repin_report)
+        self.assertIn("531 pass, 0 fail, 1 error", self.repin_report)
+        self.assertIn(
+            "test_independent_tmp_regeneration_is_byte_identical",
+            self.repin_report,
+        )
+        self.assertIn(
+            "/mnt/android-lab-logical/vendor_dlkm/lib/modules/spu_verify.ko",
+            self.repin_report,
+        )
+        self.assertIn("has exactly three\nblockers", self.repin_report)
+        self.assertIn("No ready/live authority", self.repin_report)
 
     def test_report_keeps_no_proof_buckets_and_runtime_gate_distinct(self):
         self.assertIn("`NONCAUSAL_SUCCESS_PATH`", self.report)
@@ -80,6 +139,12 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
                 self.integration_bytes,
                 57123,
                 "d0380d7d9dab635fb20aa365b8251023bf286b6ea5c3347b27e1d38330085307",
+            ),
+            (
+                CURRENT_INTEGRATION,
+                self.current_integration_bytes,
+                59678,
+                "7f8f2b20babd78cc0d2529567884afa7033b697413838edde776ad8695b8cac9",
             ),
         )
         for path, data, size, digest in expected:
@@ -119,6 +184,20 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         ):
             with self.subTest(key=key):
                 self.assertFalse(self.integration[key])
+        self.assertTrue(self.current_integration["source_closure_pass"])
+        self.assertEqual(
+            {item["code"] for item in self.current_integration["blockers"]},
+            {
+                "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+                "FRESH_BASELINE_MISSING",
+                "REQUALIFICATION_REQUIRED",
+            },
+        )
+        self.assertNotIn(
+            "EXECUTABILITY_SOURCE_CLOSURE_BLOCKED",
+            {item["code"] for item in self.current_integration["blockers"]},
+        )
+        self.assertFalse(self.current_integration["runner_ready"])
 
     def test_source_key_and_raw_first_boundaries_are_documented_exactly(self):
         comparison = self.integration["components"]["adapter_pin"]["source_keys"]

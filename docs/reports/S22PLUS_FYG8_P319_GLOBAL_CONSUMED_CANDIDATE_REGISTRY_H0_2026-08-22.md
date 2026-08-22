@@ -51,12 +51,33 @@ passes 9/9. Raw-first hostile tests pass 20/20, raw-first docs pass 15/15,
 taxonomy passes 39/39, and the four common Process-v2 modules pass 126/126.
 No device or backend effect is used by the qualification.
 
-The broad `test_s22plus_fyg8_p319*.py` selection is not quoted as green: it
-ran 519 tests with 517 passes, zero failures, and two errors. One error is the
-deliberate fail-closed Process-v2 binding-contract drift represented by
-`EXECUTABILITY_SOURCE_CLOSURE_BLOCKED`; the other is the pre-existing absent
-`/mnt/android-lab-logical/vendor_dlkm/lib/modules/spu_verify.ko` materialization
-input. Neither is relabelled as a pass.
+The 41-line Global Consumed-Candidate Registry addition to the binding common
+Process-v2 contract is an explicit restrictive contract-repin, not an
+incidental expected-hash update. The predecessor is 33,498 bytes,
+SHA-256 `72f1eb6115872683af6a374b37267193c9c730a51698e5adf30b328b75b68d9b`
+at `53af56674a7d818086d6ca2297eb903c69ef8f66`; the reviewed successor is
+36,163 bytes, SHA-256
+`26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1` at
+`10cf4c25e0c7d97422b683ef925f9e18b15ace6c`. The machine-bound delta is
+`+41/-0` lines and `+2,665` bytes. Existing independent review commit
+`eaff1d48d32550674d12d2fa6b456444a60d20ee` records the registry and common
+contract addition as independently reviewed H0 evidence. The repin is
+restrictive/additive only: it adds no ready, run, recovery, F1, or live
+authority and preserves the Download-request-cut blocker.
+
+The pre-repin broad `test_s22plus_fyg8_p319*.py` selection had 532 selected
+methods, but only 519 started: the 13 methods in
+`P319ExperimentExecutabilityClosureTest` were suppressed by its failing
+`setUpClass`, yielding 517 passes, zero failures, and two errors. The
+fail-closed selector guard now mechanically proves 532 selected methods and
+exactly 13 members of that class without masking its setup errors. After the
+repin, the exact class runs 13/13; the new integration receipt reports source
+closure PASS and remains H0-blocked only on Download-request recovery, fresh
+baseline, and requalification. Fresh post-repin full selection: Ran 532 tests in 166.955s: 531 pass, 0 fail, 1 error. The sole error was
+`test_independent_tmp_regeneration_is_byte_identical`, whose materialization
+input `/mnt/android-lab-logical/vendor_dlkm/lib/modules/spu_verify.ko` is
+unavailable. This is a fresh post-repin result, not a relabelled pass; the
+pre-repin 532-selected/519-started distinction above remains historical.
 
 The final host-only identities for this review closure are:
 
@@ -76,15 +97,22 @@ The final host-only identities for this review closure are:
 - prerequisite `-05`: 12,535 bytes, SHA-256
   `407c726764e36de4144a451aa0c48b4d188176a7d54b721b76eb67f66ef712ce`,
   mode 0400, nlink 1;
-- integration `-05`: 58,553 bytes, SHA-256
-  `9dd913e657e561f2ee309967a00d554880911b458d210f445c4388183d0118f4`,
+- experiment-executability closure `20260822-01`: 96,194 bytes, SHA-256
+  `6d5e14b7ed8f786b6aa99ff9d1f95e6ed99c7408b91a80c636b475fdb16bd63d`,
+  mode 0400, nlink 1;
+- integration `20260822-06`: 59,678 bytes, SHA-256
+  `7f8f2b20babd78cc0d2529567884afa7033b697413838edde776ad8695b8cac9`,
   mode 0400, nlink 1.
+- prior integration `-05`: 58,553 bytes, SHA-256
+  `9dd913e657e561f2ee309967a00d554880911b458d210f445c4388183d0118f4`,
+  preserved as historical evidence.
 
 The integration result remains `BLOCKED_P319_PROCESS_V2_INTEGRATION_H0`
-with four explicit blockers: `BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY`,
-`EXECUTABILITY_SOURCE_CLOSURE_BLOCKED`, `FRESH_BASELINE_MISSING`, and
-`REQUALIFICATION_REQUIRED` (four changed SOURCE_KEY entries). The global
-registry blocker is absent; that does not make the runner ready.
+with three explicit blockers: `BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY`,
+`FRESH_BASELINE_MISSING`, and `REQUALIFICATION_REQUIRED` (four changed
+SOURCE_KEY entries). `source_closure_pass=true`; the global registry blocker
+and `EXECUTABILITY_SOURCE_CLOSURE_BLOCKED` are absent. This does not make the
+runner ready.
 
 The raw-first default path now names `-09`; `-05` through `-08` remain
 preserved historical or superseded receipts and were not overwritten.
