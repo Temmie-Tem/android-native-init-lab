@@ -1,7 +1,7 @@
 # S22+ FYG8 P3.19 Global Consumed-Candidate Registry H0
 
-Status: `IMPLEMENTED_REVIEW_PENDING`; host-only, no device contact, no live
-authority.
+Status: `PASS_GO_P319_GLOBAL_CONSUMED_CANDIDATE_REGISTRY_H0_CAPABILITY_V1`;
+host-only, no device contact, no live authority.
 
 This bounded unit adds the fixed
 `workspace/private/consumed-candidate-registry-v1/` authority and consumes it
@@ -88,6 +88,18 @@ registry blocker is absent; that does not make the runner ready.
 
 The raw-first default path now names `-09`; `-05` through `-08` remain
 preserved historical or superseded receipts and were not overwritten.
+
+## Independent review
+
+Independent changed-closure review of implementation commit `10cf4c25e0`
+returned PASS with no actionable findings. It rechecked the lock-open TOCTOU,
+head-tail cut recovery, profile/firmware key drift, strict release ownership,
+foreign-claim recovery, claim-intent-only handling, legacy containment,
+fresh-process/concurrent qualification, exact private receipts, and the
+mechanical no-authority axes. The review resolves only topic 30. It does not
+close Download-request recovery, executability, baseline, or requalification
+blockers and grants no runner-ready, D0, D1, F1, recovery, replay, or live
+authority.
 
 Fresh baseline, adapter SOURCE_KEYS requalification, and the Download-request
 cut recovery design remain separate blockers. This H0 unit creates no D0, D1,
