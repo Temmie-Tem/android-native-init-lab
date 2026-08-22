@@ -58,14 +58,16 @@ OWNER_SERIAL_BRIDGE_SCRIPT = (
     / "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
 )
 DEFAULT_REMOTE_IMAGE = "/tmp/native_init_boot.img"
-TWRP_SYSTEM_VERSION = "3.7.0_12-0"
+TWRP_SYSTEM_VERSION_BANNER = (
+    "TWRP openrecoveryscript command line tool, TWRP version 3.7.0_12-0"
+)
 TWRP_SYSTEM_SCRIPT = "/system/bin/rebootsystem.sh"
 TWRP_SYSTEM_SCRIPT_SIZE = 89
 TWRP_SYSTEM_SCRIPT_SHA256 = (
     "3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07"
 )
 TWRP_SYSTEM_REBOOT_COMMAND = (
-    f"test \"$(twrp --version)\" = '{TWRP_SYSTEM_VERSION}' && "
+    f"test \"$(twrp --version)\" = '{TWRP_SYSTEM_VERSION_BANNER}' && "
     f"test ! -L {TWRP_SYSTEM_SCRIPT} && "
     f"test \"$(stat -c '%F|%a|%u|%g|%s|%h' {TWRP_SYSTEM_SCRIPT})\" = "
     f"'regular file|755|0|0|{TWRP_SYSTEM_SCRIPT_SIZE}|1' && "

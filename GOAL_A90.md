@@ -44,12 +44,15 @@ the separately registered S20+ goal and every future target row.
   `0.11.200 / phase3-minimal-h33-stock-rebuild-1007-cfp`, 58,372,096 bytes,
   SHA-256 `bdbcfc5fb82150c2d508df1e4d7ae7b71f0659b7d6b02ddab506f263f6063e12`.
   Its A/B bytes are identical and its kernel blob matches H32, but its full
-  boot identity is new. The public qualification input was frozen with review
-  status pending; its current independent review is now `PASS_GO` at
-  `251235439de66b408397768201016c390bbf4d3d94bd73877117501b21294f77`.
-  The private manifest binds that exact review in the runnable schema, but no
-  H33 D0, approval, F1, or live authority exists. See
-  `docs/reports/A90_H33_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-22.json`.
+  boot identity is new. The attended H33 F1 then stopped both candidate and
+  rollback branches at `PRE_WRITE_FAILURE` before any write because the helper
+  compared a bare TWRP version against the full bound banner; the candidate is
+  consumed, and candidate-neutral postrollback later proved exact healthy V2321
+  and released only the active guard. The narrow banner repair changed owner
+  closure `48cb09e3…` to `1c31fb97…`; the continuation also changed from
+  `a62318c7…` to `d053e137…`. The H33 `PASS_GO` and private manifest are
+  historical/stale for execution and require fresh review. See
+  `docs/reports/A90_H33_F1_TWRP_VERSION_BANNER_INCIDENT_H0_2026-08-22.md`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 

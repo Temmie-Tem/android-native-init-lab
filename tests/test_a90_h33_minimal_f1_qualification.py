@@ -56,7 +56,11 @@ class A90H33MinimalQualificationTest(unittest.TestCase):
     def test_candidate_owner_and_rollback_are_fresh_and_exact(self) -> None:
         owner = _load("a90_h33_owner", OWNER)
         continuation = _load("a90_h33_continuation", CONTINUATION)
-        self.assertEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
+        self.assertEqual(
+            self.value["executionClosureSha256"],
+            "48cb09e35b25f02e15fde091c93f2755b366fcb561210df49ffbafea3d333854",
+        )
+        self.assertNotEqual(self.value["executionClosureSha256"], owner.execution_closure_sha256())
         self.assertEqual(self.value["candidate"], {
             "version": "0.11.200",
             "build": "phase3-minimal-h33-stock-rebuild-1007-cfp",
@@ -71,13 +75,18 @@ class A90H33MinimalQualificationTest(unittest.TestCase):
         })
         self.assertEqual(
             self.value["continuationReview"]["executionClosureSha256"],
+            "a62318c74c334509560f7c84fead011eb0a0c7fa6d8a80a45b4d72539a97a4df",
+        )
+        self.assertNotEqual(
+            self.value["continuationReview"]["executionClosureSha256"],
             continuation.execution_closure_sha256(),
         )
         self.assertTrue(all(value is False for value in self.value["authority"].values()))
 
     def test_build_fresh_state_and_pending_hazard_are_bound(self) -> None:
         build = self.value["build"]
-        self.assertEqual(build["reportSha256"], _sha(REPORT))
+        self.assertEqual(build["reportSha256"], "9f404ea0a0c599b54face948407fb82627a92bbdd1ad8859a4c6e7bda1b0d63d")
+        self.assertNotEqual(build["reportSha256"], _sha(REPORT))
         self.assertEqual(build["flatManifestSha256"], _sha(MANIFEST))
         self.assertEqual(build["effectiveManifestSha256"], "591967b80e3b67ce01e1592819912e164cba3e58f6bbbcc10ca35e5a900a45a2")
         self.assertEqual(build["abBootSha256"], self.value["candidate"]["sha256"])
@@ -95,8 +104,13 @@ class A90H33MinimalQualificationTest(unittest.TestCase):
     def test_current_continuation_review_is_the_only_review_lease(self) -> None:
         declared = self.value["continuationReview"]
         self.assertEqual(declared["size"], 547)
-        self.assertEqual(declared["sha256"], _sha(CURRENT_CONTINUATION_REVIEW))
-        self.assertEqual(declared["verdict"], "PASS_GO")
+        self.assertEqual(declared["sha256"], "6bf984a2c5ff7ce3b7487b1af63073a88664c130f0137a9e2ab40104db47aac8")
+        self.assertNotEqual(declared["sha256"], _sha(CURRENT_CONTINUATION_REVIEW))
+        self.assertEqual(declared["executionClosureSha256"], "a62318c74c334509560f7c84fead011eb0a0c7fa6d8a80a45b4d72539a97a4df")
+        current = _strict_json(CURRENT_CONTINUATION_REVIEW)
+        self.assertEqual(_sha(CURRENT_CONTINUATION_REVIEW), "22c0e6a60eb94dd5407d995c8e4b7e283bb149057e0ecbf8164dae5e613b49e9")
+        self.assertEqual(current["executionClosureSha256"], "d053e137ca6d984709e53a1200d1e980f6d766ab4dd30cbb012cef2ddd3ee9e1")
+        self.assertEqual(current["verdict"], "PASS_GO")
         self.assertFalse(declared["liveAuthority"])
         self.assertTrue(REVIEW.is_file())
         self.assertEqual(_sha(REVIEW), "251235439de66b408397768201016c390bbf4d3d94bd73877117501b21294f77")
@@ -105,8 +119,10 @@ class A90H33MinimalQualificationTest(unittest.TestCase):
 
     def test_current_h33_review_binds_exact_frozen_input(self) -> None:
         review = _strict_json(REVIEW)
+        owner = _load("a90_h33_repaired_owner", OWNER)
         self.assertEqual(review["verdict"], "PASS_GO")
         self.assertEqual(review["executionClosureSha256"], self.value["executionClosureSha256"])
+        self.assertNotEqual(review["executionClosureSha256"], owner.execution_closure_sha256())
         self.assertEqual(review["candidateSha256"], self.value["candidate"]["sha256"])
         self.assertEqual(review["rollbackSha256"], self.value["rollback"]["sha256"])
         self.assertEqual(review["freshState"], self.value["freshState"])
@@ -141,7 +157,7 @@ class A90H33MinimalQualificationTest(unittest.TestCase):
         self.assertNotIn("PASS_GO qualifies H33", text)
         self.assertNotIn("liveAuthority=true", text)
 
-    def test_private_manifest_binds_review_but_is_not_authorized_when_enabled(self) -> None:
+    def test_private_manifest_binds_historical_review_but_is_not_current_authority_when_enabled(self) -> None:
         if os.environ.get("A90_H33_VERIFY_PRIVATE") != "1":
             self.skipTest("set A90_H33_VERIFY_PRIVATE=1 for private H33 manifest verification")
         value = _strict_json(PRIVATE_MANIFEST)
@@ -151,6 +167,10 @@ class A90H33MinimalQualificationTest(unittest.TestCase):
         self.assertEqual(set(value["qualification"]["review"]), {"path", "size", "sha256"})
         self.assertEqual(value["qualification"]["review"]["size"], 1181)
         self.assertEqual(value["qualification"]["review"]["sha256"], "251235439de66b408397768201016c390bbf4d3d94bd73877117501b21294f77")
+        owner = _load("a90_h33_private_repaired_owner", OWNER)
+        self.assertNotEqual(
+            self.value["executionClosureSha256"], owner.execution_closure_sha256()
+        )
         self.assertTrue(value["qualification"]["hazard"]["accepted"])
 
 

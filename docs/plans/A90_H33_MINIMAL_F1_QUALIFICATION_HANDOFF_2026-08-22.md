@@ -6,20 +6,27 @@ Authority: none; no D0, approval, F1, transfer, reboot, or live effect
 ## Review subject
 
 Review `docs/reports/A90_H33_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-22.json`
-against the current owner closure
+against the frozen owner closure
 `48cb09e35b25f02e15fde091c93f2755b366fcb561210df49ffbafea3d333854`, the
-current candidate-return continuation closure
+frozen candidate-return continuation closure
 `a62318c74c334509560f7c84fead011eb0a0c7fa6d8a80a45b4d72539a97a4df`, and the
-current continuation review digest
+frozen continuation review digest
 `6bf984a2c5ff7ce3b7487b1af63073a88664c130f0137a9e2ab40104db47aac8`.
 
-This is a fresh H33 preparation. The public input was frozen while its
+This is a historical H33 preparation. The public input was frozen while its
 `independentReview` field was `PENDING_INDEPENDENT_REVIEW at input freeze`;
 the current independent review is now `PASS_GO`, 1,181 bytes at SHA-256
 `251235439de66b408397768201016c390bbf4d3d94bd73877117501b21294f77`.
 It binds the candidate, rollback, owner closure, fresh state, hazard, and zero
-contacts. That review qualifies the capability only; it does not create D0,
-approval, F1, or live authority.
+contacts at the pre-repair closure. The later narrow TWRP-banner repair changed
+the owner closure from
+`48cb09e35b25f02e15fde091c93f2755b366fcb561210df49ffbafea3d333854` to
+`1c31fb97e8f181e63bd71949b020f647aa8dab45c63d13bd089f6be2659da8a8`.
+The current continuation closure is also
+`d053e137ca6d984709e53a1200d1e980f6d766ab4dd30cbb012cef2ddd3ee9e1`, not the
+frozen `a62318c7…`. The PASS and private manifest are therefore
+historical/stale for execution; a fresh independent review is required. No
+D0, approval, F1, or live authority is created by this repair.
 
 ## Candidate and artifacts
 
@@ -64,10 +71,13 @@ and must be bound only by the reviewed D0/F1 process.
 
 The public report is
 `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H33_H0_2026-08-22.md`
-at SHA-256
+with frozen input digest
 `9f404ea0a0c599b54face948407fb82627a92bbdd1ad8859a4c6e7bda1b0d63d`.
+The current workspace copy is `9a5bd7d853c07f41b793f264388ec38c57978357a6558c95f0c4a726e6db5630`;
+the frozen input is not silently rebound to that later host-only edit.
 The private manifest is
-`workspace/private/manifests/a90-h33-f1-20260822-01.json`; it now binds the
-exact current review path, size, and SHA-256 using the H32 runnable schema.
-Owner validation and exact candidate/rollback/review bytes passed. It remains
-preparation data only: it is not a D0/F1 approval, intent, or live authority.
+`workspace/private/manifests/a90-h33-f1-20260822-01.json`; it binds the
+historical review path, size, and SHA-256 using the H32 runnable schema.
+Owner validation and exact candidate/rollback/review bytes passed before the
+banner repair. It is now retained as stale historical preparation data, not a
+D0/F1 approval, intent, or live authority.
