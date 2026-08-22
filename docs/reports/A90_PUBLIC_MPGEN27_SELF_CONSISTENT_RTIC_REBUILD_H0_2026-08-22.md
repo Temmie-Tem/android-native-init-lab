@@ -8,6 +8,12 @@ Authority: no candidate, D0, D1, F1, rollback, reboot, or live authority
 Disposition: RTIC byte consistency reproduced; stock production-catalog
 equivalence and device acceptance remain unproved
 
+Follow-up: the later
+`A90_STOCK_SHAPED_MPGEN_CATALOG_AND_DETERMINISTIC_REBUILD_H0_2026-08-22.md`
+finds an exact stock-shaped 3/1/2/0 catalog in older public history and closes
+stock-time determinism, while retaining the exact production-tool,
+kernel-size, and task-offset emission gaps as unproved.
+
 ## Result
 
 The missing H34 build input is now reproduced far enough to separate two
