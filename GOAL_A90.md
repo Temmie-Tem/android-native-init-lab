@@ -46,13 +46,14 @@ the separately registered S20+ goal and every future target row.
   Native health before recovery. Exact V2321 rollback bytes were then written
   and read back; its sole System-return request was uncertain. Terminal state
   is `RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED`; current V2321 health is
-  unproved and neither image may replay. Host-only follow-up proved H34 omitted
-  `rtic_mp` while reusing the stock RTIC DTB and its now-stale address/size/hash.
-  Available Linux code does not support direct bootloader attribution to H34's
-  new key. Public full-ROM r3q controls omit RTIC/RKP/CFP but also replace
-  system/vendor/dtbo/vbmeta and disable AVB verification. They strongly
-  contradict a universal rebuilt-kernel ban, but do not qualify a boot-only
-  control; see `docs/reports/A90_PUBLIC_R3Q_REBUILT_KERNEL_ARTIFACT_COMPARISON_H0_2026-08-22.md`.
+  unproved and neither image may replay. Host-only follow-up localized H34 to
+  missing `rtic_mp` plus a stale stock RTIC DTB. The historical public MPGen
+  producer now emits offsets `88/1704/1728/2144`; two fresh trees produce exact
+  Image `1ddae56f8df97030794a590192e4a4162876736029b1a54fd26173c9287002b7`
+  and structural RTIC `PASS`. Only the known static defects close; proprietary
+  acceptance remains unproved and no successor/live authority exists. Next is
+  independent H0 review of the exact residual canary hazard bundle; see
+  `docs/reports/A90_RTIC_LOCATOR_REPAIRED_DETERMINISTIC_REBUILD_H0_2026-08-23.md`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 

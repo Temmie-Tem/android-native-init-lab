@@ -7,6 +7,11 @@ Device contact: none
 Authority: none — no candidate, D0, D1, F1, approval, manifest, transfer,
 reboot, rollback, replay, or live authority is created
 
+Follow-up: `A90_RTIC_LOCATOR_REPAIRED_DETERMINISTIC_REBUILD_H0_2026-08-23.md`
+records that the producer/path repair generated exact task offsets and two
+byte-identical complete output sets. It leaves the proprietary-acceptance
+hazard and every candidate/live prerequisite unproved and separate.
+
 ## Verdict
 
 Literal byte equality with the stock 1,624-byte RTIC MP is **not** the correct
