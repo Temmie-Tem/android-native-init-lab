@@ -9,6 +9,12 @@ Disposition: the stock 3/1/2/0 catalog shape and stock MP creation time are
 reproduced deterministically; exact stock MPGen and stock MP equivalence remain
 unproved
 
+Follow-up: `A90_RTIC_STOCK_EQUIVALENCE_REQUIREMENT_RECALIBRATION_H0_2026-08-22.md`
+separates the known task-offset locator defect from candidate-specific kernel
+extent and the remaining non-stock content-version acceptance risk. It does
+not rewrite this report's measured byte differences or grant candidate
+authority.
+
 ## Result
 
 The bounded question from the preceding public-MPGen control is answered in
