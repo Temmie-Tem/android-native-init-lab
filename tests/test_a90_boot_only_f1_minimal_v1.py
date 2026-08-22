@@ -29,6 +29,8 @@ class FakeBackend:
         self.flashes = list(flashes or [])
         self.observations = list(observations or [])
         self.flash_calls = []
+        self.evidence_results = []
+        self.evidence_calls = []
 
     def preflight(self, _manifest):
         if len(self.preflights) > 1:
@@ -45,6 +47,14 @@ class FakeBackend:
     def observe(self, _expected, _fresh_state, *, require_fresh_state, timeout_sec):
         del require_fresh_state, timeout_sec
         result = self.observations.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        return result
+
+    def _capture_failed_boot_evidence(self, *, timeout_sec, lease_check):
+        self.evidence_calls.append(timeout_sec)
+        lease_check()
+        result = self.evidence_results.pop(0) if self.evidence_results else M.FailedBootEvidenceResult.no_proof()
         if isinstance(result, BaseException):
             raise result
         return result
@@ -187,6 +197,15 @@ class MinimalF1Test(unittest.TestCase):
         run = M.RUN_ROOT / self.manifest["runId"]
         token = M.prepare(self.raw, self.manifest, run, backend)
         return run, token
+
+    @staticmethod
+    def _drop_test_only_stale_adapter_alias():
+        adapter = sys.modules.get("a90_boot_only_f1_adapter_v1")
+        if (
+            adapter is not None
+            and getattr(adapter, "ContractError", None) is not M.ContractError
+        ):
+            sys.modules.pop("a90_boot_only_f1_adapter_v1", None)
 
     def _uncertain_prefix(self, *, result_receipt=HEX_A, pending_receipt=HEX_A):
         run, _token = self._prepare()
@@ -589,7 +608,22 @@ class MinimalF1Test(unittest.TestCase):
         )
         self.assertIn("23-candidate-return-pending.json", M.read_records(run))
         self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+        self.assertNotIn("26-failed-boot-evidence-intent.json", M.read_records(run))
+        self.assertEqual(backend.evidence_calls, [])
         self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
+
+    def test_uncertain_return_capture_callback_sees_no_evidence_or_rollback_record(self):
+        run, token = self._prepare()
+        backend = FakeBackend(self.start, flashes=[self._effect(rc=1, completed=False, outcome="BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN")])
+        def forbidden_capture(*, timeout_sec):
+            self.assertIn("20-candidate-intent.json", M.read_records(run))
+            self.assertNotIn("26-failed-boot-evidence-intent.json", M.read_records(run))
+            self.assertNotIn("27-failed-boot-evidence-result.json", M.read_records(run))
+            self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+            raise AssertionError("uncertain return must not capture")
+        backend._capture_failed_boot_evidence = forbidden_capture
+        M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(backend.evidence_calls, [])
 
     def test_healthy_candidate_without_confirmed_effect_receipt_never_passes(self):
         run, token = self._prepare()
@@ -821,7 +855,7 @@ class MinimalF1Test(unittest.TestCase):
 
         backend = MutatingBackend(
             self.start,
-            flashes=[self._effect(rc=1, completed=False), self._effect()],
+            flashes=[self._effect(), self._effect()],
             observations=[
                 self._snapshot("old", "old-build", healthy=False),
                 self._snapshot("old", "old-build", fresh_state_observed=False),
@@ -913,7 +947,7 @@ class MinimalF1Test(unittest.TestCase):
         run, token = self._prepare()
         backend = FakeBackend(
             self.start,
-            flashes=[self._effect(rc=1, completed=False), self._effect()],
+            flashes=[self._effect(), self._effect()],
             observations=[
                 self._snapshot("old", "old-build", healthy=False),
                 self._snapshot("old", "old-build", fresh_state_observed=False),
@@ -938,6 +972,134 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(result["terminal"], "NO_PROOF_ROLLED_BACK")
         self.assertEqual([call[1] for call in backend.flash_calls], [False, True])
 
+    def test_failed_boot_evidence_is_intent_result_before_rollback(self):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[self._effect(), self._effect()],
+            observations=[self._snapshot("old", "old-build", healthy=False), self._snapshot("old", "old-build")],
+        )
+        backend.evidence_results = [M.FailedBootEvidenceResult.no_proof("EMPTY_LAST_KMSG", cmdline=b"sec_log=1\n", usb_inventory_sha256=HEX_A, adb_inventory_sha256=HEX_B)]
+        capture_seen = []
+        def capture(*, timeout_sec, lease_check):
+            lease_check()
+            records = M.read_records(run)
+            backend.evidence_calls.append(timeout_sec)
+            capture_seen.append(timeout_sec)
+            self.assertIn("26-failed-boot-evidence-intent.json", records)
+            self.assertNotIn("27-failed-boot-evidence-result.json", records)
+            self.assertNotIn("30-rollback-intent.json", records)
+            return backend.evidence_results.pop(0)
+        backend._capture_failed_boot_evidence = capture
+        M.execute(self.raw, self.manifest, run, token, backend)
+        names = M.read_records(run)
+        self.assertLess(tuple(names).index("26-failed-boot-evidence-intent.json"), tuple(names).index("27-failed-boot-evidence-result.json"))
+        self.assertLess(tuple(names).index("27-failed-boot-evidence-result.json"), tuple(names).index("30-rollback-intent.json"))
+        self.assertEqual(backend.evidence_calls, [M.FAILED_BOOT_EVIDENCE_TIMEOUT_SEC])
+        self.assertEqual(capture_seen, [M.FAILED_BOOT_EVIDENCE_TIMEOUT_SEC])
+        self.assertEqual(M.validate_failed_boot_evidence_payload(names["27-failed-boot-evidence-result.json"]["payload"]).outcome, "NO_PROOF_OBSERVER")
+
+    def test_failed_boot_evidence_exception_becomes_nonquiescent_park(self):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[self._effect(), self._effect()],
+            observations=[self._snapshot("old", "old-build", healthy=False), self._snapshot("old", "old-build")],
+        )
+        backend.evidence_results = [RuntimeError("TWRP unavailable")]
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
+        self.assertEqual(backend.evidence_calls, [M.FAILED_BOOT_EVIDENCE_TIMEOUT_SEC])
+        self.assertEqual(M.read_records(run)["27-failed-boot-evidence-result.json"]["payload"]["outcome"], "NO_PROOF_OBSERVER")
+
+    def _assert_no_failed_boot_evidence_for_outcome(self, outcome):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[self._effect(rc=1, completed=False, outcome=outcome), self._effect()],
+            observations=[self._snapshot("old", "old-build"), self._snapshot("old", "old-build")],
+        )
+        M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertNotIn("26-failed-boot-evidence-intent.json", M.read_records(run))
+        self.assertEqual(backend.evidence_calls, [])
+
+    def test_failed_boot_evidence_rejects_pre_write_failure(self):
+        self._assert_no_failed_boot_evidence_for_outcome("PRE_WRITE_FAILURE")
+
+    def test_failed_boot_evidence_rejects_unclassified_write(self):
+        self._assert_no_failed_boot_evidence_for_outcome("WRITE_OR_READBACK_UNCLASSIFIED")
+
+    def test_failed_boot_evidence_rejects_other_effect_outcome(self):
+        self._assert_no_failed_boot_evidence_for_outcome("UNCLASSIFIED")
+
+    def test_nonquiescent_failed_boot_evidence_parks_without_rollback(self):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[self._effect()],
+            observations=[self._snapshot("old", "old-build")],
+        )
+        backend.evidence_results = [M.FailedBootEvidenceResult.no_proof("COMMAND_NONQUIESCENT", quiescent=False)]
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["reason"], "FAILED_BOOT_EVIDENCE_NOT_QUIESCENT")
+        self.assertEqual(len(backend.flash_calls), 1)
+        self.assertIn("40-terminal.json", M.read_records(run))
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+        self.assertEqual(M.recovery_decision(run), "FAILED_BOOT_EVIDENCE_NONQUIESCENT_NO_ROLLBACK")
+
+    def test_unknown_backend_evidence_object_parks_as_nonquiescent(self):
+        run, token = self._prepare()
+        backend = FakeBackend(self.start, flashes=[self._effect()], observations=[self._snapshot("old", "old-build")])
+        backend._capture_failed_boot_evidence = lambda **_kwargs: object()
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["reason"], "FAILED_BOOT_EVIDENCE_NOT_QUIESCENT")
+        self.assertNotIn("30-rollback-intent.json", M.read_records(run))
+
+    def test_failed_boot_evidence_recovery_prefixes_are_nonreplayable(self):
+        run, _token = self._prepare()
+        digest = M.sha256_bytes(self.raw)
+        for name in ("10-approved.json", "20-candidate-intent.json", "21-candidate-launched.json", "22-candidate-result.json"):
+            M.publish_record(run, name, M._record(M.RECORD_KINDS[name], digest, {}))
+        intent = {"attempt": 1, "candidateReplay": False, "source": M.FAILED_BOOT_EVIDENCE_SOURCE, "cmdlineSource": M.FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE, "sourceMode": "0444", "mount": "none", "decoder": M.FAILED_BOOT_EVIDENCE_DECODER, "policyId": M.FAILED_BOOT_EVIDENCE_POLICY_ID, "sourceContractId": M.FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID, "commandIdentity": M.FAILED_BOOT_COMMAND_IDENTITY}
+        M.publish_record(run, "26-failed-boot-evidence-intent.json", M._record("FAILED_BOOT_EVIDENCE_INTENT", digest, intent))
+        self.assertEqual(M.recovery_decision(run), "FAILED_BOOT_EVIDENCE_INTENT_CONSUMED_NO_RESULT_NO_ROLLBACK")
+        M.publish_record(run, "27-failed-boot-evidence-result.json", M._record("FAILED_BOOT_EVIDENCE_RESULT", digest, M.FailedBootEvidenceResult.no_proof().payload()))
+        self.assertEqual(M.recovery_decision(run), "CANDIDATE_CONSUMED_ROLLBACK_ONLY")
+
+    def test_recovery_decision_rejects_bad_evidence_before_tampered_rollback(self):
+        run, _token = self._prepare()
+        digest = M.sha256_bytes(self.raw)
+        records = M.read_records(run)
+        records["27-failed-boot-evidence-result.json"] = M._record(
+            "FAILED_BOOT_EVIDENCE_RESULT", digest,
+            M.FailedBootEvidenceResult.no_proof("COMMAND_NONQUIESCENT", quiescent=False).payload(),
+        )
+        records["30-rollback-intent.json"] = M._record("ROLLBACK_INTENT", digest, {})
+        records["31-rollback-launched.json"] = M._record("ROLLBACK_LAUNCHED", digest, {})
+        with mock.patch.object(M, "read_records", return_value=records):
+            self.assertEqual(M.recovery_decision(run), "FAILED_BOOT_EVIDENCE_NONQUIESCENT_NO_ROLLBACK")
+        records["27-failed-boot-evidence-result.json"]["payload"] = {}
+        with mock.patch.object(M, "read_records", return_value=records):
+            self.assertEqual(M.recovery_decision(run), "FAILED_BOOT_EVIDENCE_RESULT_INVALID_NO_ROLLBACK")
+
+    def test_failed_boot_evidence_result_rejects_contradictory_and_typed_mutations(self):
+        base = M.FailedBootEvidenceResult.no_proof().payload()
+        for mutate in (
+            lambda value: value["cmdline"].update(byteCount=True),
+            lambda value: value.update(rawDurable=True),
+            lambda value: value.update(reason="BOTH_READS_DURABLE"),
+            lambda value: value.update(reason="COMMAND_NONQUIESCENT", quiescent=True),
+            lambda value: value["lastKmsg"].update(sha256=HEX_A),
+            lambda value: value.update(commandIdentity={**value["commandIdentity"], "totalCommandBudgetSec": True}),
+        ):
+            bad = json.loads(json.dumps(base))
+            mutate(bad)
+            with self.assertRaises(M.ContractError):
+                M.validate_failed_boot_evidence_payload(bad)
+        captured = M.FailedBootEvidenceResult("CAPTURED", "BOTH_READS_DURABLE", 1, HEX_A, 1, HEX_B, HEX_A, HEX_B, True, True).payload()
+        with self.assertRaises(M.ContractError):
+            M.validate_failed_boot_evidence_payload(dict(captured, usbInventorySha256=M.UNAVAILABLE_SHA256))
+
     def test_unproved_rollback_requires_recovery(self):
         run, token = self._prepare()
         backend = FakeBackend(
@@ -961,6 +1123,12 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
         self.assertEqual(len(backend.flash_calls), 1)
         self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
+
+    def test_failed_boot_evidence_is_not_attempted_on_pass_or_uncertain_return(self):
+        run, token = self._prepare()
+        backend = FakeBackend(self.start, flashes=[self._effect()], observations=[self._snapshot("new", "new-build")])
+        M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(backend.evidence_calls, [])
 
     def test_second_execute_cannot_replay_candidate(self):
         run, token = self._prepare()
@@ -998,6 +1166,21 @@ class MinimalF1Test(unittest.TestCase):
             M._record("ROLLBACK_LAUNCHED", digest, {}),
         )
         self.assertEqual(M.recovery_decision(run), "PARK_ROLLBACK_NO_REPLAY")
+
+    def test_legacy_rollback_prefix_and_new_evidence_recovery_prefix_are_parseable(self):
+        run, _token = self._prepare()
+        digest = M.sha256_bytes(self.raw)
+        for name in M.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH:
+            if name == "00-prepared.json":
+                continue
+            payload = {}
+            if name == "26-failed-boot-evidence-intent.json":
+                payload = {"attempt": 1, "candidateReplay": False, "source": M.FAILED_BOOT_EVIDENCE_SOURCE, "cmdlineSource": M.FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE, "sourceMode": "0444", "mount": "none", "decoder": M.FAILED_BOOT_EVIDENCE_DECODER, "policyId": M.FAILED_BOOT_EVIDENCE_POLICY_ID, "sourceContractId": M.FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID, "commandIdentity": M.FAILED_BOOT_COMMAND_IDENTITY}
+            elif name == "27-failed-boot-evidence-result.json":
+                payload = M.FailedBootEvidenceResult.no_proof().payload()
+            M.publish_record(run, name, M._record(M.RECORD_KINDS[name], digest, payload))
+        M.publish_record(run, "41-recovery-closed.json", M._record("POSTROLLBACK_RECOVERY_RECONCILED", digest, {}))
+        self.assertEqual(M.recovery_decision(run), "POSTROLLBACK_RECOVERY_RECONCILED_NO_REPLAY")
 
     def test_crash_after_exact_uncertain_result_before_pending_record_never_allows_rollback(self):
         run, _token = self._prepare()
@@ -1151,6 +1334,7 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(executed.approval, "exact")
 
     def test_live_backend_preserves_old_logs_and_uses_next_ordinal(self):
+        self._drop_test_only_stale_adapter_alias()
         first = M._live_backend(self.manifest, "execute")
         second = M._live_backend(self.manifest, "execute")
         self.assertNotEqual(first.runner.log_directory, second.runner.log_directory)
@@ -1158,6 +1342,7 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(second.runner.log_directory.name, "a90-minimal-001-execute-2-logs")
 
     def test_live_backend_binds_recovery_redactor_and_persists_digest_only_inventory(self):
+        self._drop_test_only_stale_adapter_alias()
         backend = M._live_backend(self.manifest, "redacted")
         self.assertIn(HEX_C, backend.runner.redactor._hashes)
         inventory = f"List of devices attached\n{HEX_C}\trecovery usb:1-2 product:a90\n"
@@ -1221,8 +1406,8 @@ class MinimalSurfaceTest(unittest.TestCase):
 
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1620)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 1250)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1900)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 1450)
         self.assertLessEqual(len(design.read_text().splitlines()), 250)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):

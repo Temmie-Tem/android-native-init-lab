@@ -46,6 +46,20 @@ LEGACY_H27_FRESH_STATE = {
 PREPARED_SCHEMA = "a90-boot-only-f1-minimal-prepared-v1"
 RECORD_SCHEMA = "a90-boot-only-f1-minimal-record-v1"
 RESULT_SCHEMA = "a90-boot-only-f1-minimal-result-v1"
+FAILED_BOOT_EVIDENCE_SCHEMA = "a90-f1-failed-boot-evidence-result-v1"
+FAILED_BOOT_EVIDENCE_POLICY_ID = "A90_TWRP_FAILED_BOOT_LAST_KMSG_READONLY_V1"
+FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID = "A90_PROC_LAST_KMSG_0444_NO_MOUNT_V1"
+FAILED_BOOT_EVIDENCE_DECODER = "a90-proc-last-kmsg-raw-v1"
+FAILED_BOOT_EVIDENCE_SOURCE = "/proc/last_kmsg"
+FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE = "/proc/cmdline"
+FAILED_BOOT_EVIDENCE_TIMEOUT_SEC = 60  # one total device-command budget, including Recovery settle
+FAILED_BOOT_RECOVERY_SETTLE_ATTEMPTS = 8
+FAILED_BOOT_CMDLINE_MAX_BYTES = 64 * 1024
+FAILED_BOOT_LAST_KMSG_MAX_BYTES = 8 * 1024 * 1024
+FAILED_BOOT_COMMAND_IDENTITY = {"tool": "/usr/bin/adb", "mode": "exec-out", "order": ["cmdline", "last-kmsg"], "cmdline": "cat /proc/cmdline", "lastKmsg": "cat /proc/last_kmsg", "totalCommandBudgetSec": FAILED_BOOT_EVIDENCE_TIMEOUT_SEC}
+FAILED_BOOT_EVIDENCE_OUTCOMES = {"CAPTURED", "NO_PROOF_OBSERVER"}
+FAILED_BOOT_EVIDENCE_REASONS = {"BOTH_READS_DURABLE", "NO_RECOVERY_ENDPOINT", "USB_INVENTORY_FAILED", "ADB_INVENTORY_FAILED", "COMMAND_FAILED", "COMMAND_TIMEOUT", "COMMAND_STDERR", "COMMAND_NONZERO", "COMMAND_NONQUIESCENT", "COMMAND_OUTPUT_INVALID", "EMPTY_LAST_KMSG", "RAW_PUBLICATION_FAILED", "OBSERVER_EXCEPTION"}
+UNAVAILABLE_SHA256 = "0" * 64
 TARGET_PROFILE = "SAMSUNG_A90_5G"
 V2321_ROLLBACK_PATH = (
     "/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/"
@@ -90,6 +104,8 @@ RECORDS = (
     "24-candidate-return-intent.json",
     "24-candidate-return-observed.json",
     "25-candidate-observation-intent.json",
+    "26-failed-boot-evidence-intent.json",
+    "27-failed-boot-evidence-result.json",
     "30-rollback-intent.json",
     "31-rollback-launched.json",
     "32-rollback-result.json",
@@ -108,6 +124,8 @@ RECORD_KINDS = {
     "24-candidate-return-intent.json": "CANDIDATE_RETURN_INTENT",
     "24-candidate-return-observed.json": "CANDIDATE_RETURN_OBSERVED",
     "25-candidate-observation-intent.json": "CANDIDATE_OBSERVATION_INTENT",
+    "26-failed-boot-evidence-intent.json": "FAILED_BOOT_EVIDENCE_INTENT",
+    "27-failed-boot-evidence-result.json": "FAILED_BOOT_EVIDENCE_RESULT",
     "30-rollback-intent.json": "ROLLBACK_INTENT",
     "31-rollback-launched.json": "ROLLBACK_LAUNCHED",
     "32-rollback-result.json": "ROLLBACK_RESULT",
@@ -138,6 +156,12 @@ ROLLBACK_PATH = (
 )
 
 PRETRANSFER_ABORT_PATH = ROLLBACK_PATH + ("41-pretransfer-abort.json",)
+ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH = ROLLBACK_PATH[:5] + (
+    "26-failed-boot-evidence-intent.json",
+    "27-failed-boot-evidence-result.json",
+) + ROLLBACK_PATH[5:]
+POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH = ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH + ("41-recovery-closed.json",)
+FAILED_BOOT_EVIDENCE_PARK_PATH = ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH[:7] + ("40-terminal.json",)
 H31_PRETRANSFER_ABORT_PATH = ROLLBACK_PATH[:7] + (
     "41-pretransfer-abort.json",
 )
@@ -759,6 +783,119 @@ class EffectResult:
         }
 
 
+@dataclass(frozen=True)
+class FailedBootEvidenceResult:
+    outcome: str
+    reason: str
+    cmdline_bytes: int
+    cmdline_sha256: str
+    last_kmsg_bytes: int
+    last_kmsg_sha256: str
+    usb_inventory_sha256: str
+    adb_inventory_sha256: str
+    quiescent: bool
+    raw_durable: bool
+
+    def validate(self) -> None:
+        if type(self.outcome) is not str or self.outcome not in FAILED_BOOT_EVIDENCE_OUTCOMES or type(self.reason) is not str or self.reason not in FAILED_BOOT_EVIDENCE_REASONS:
+            raise ContractError("failed-boot evidence status is invalid")
+        for value, maximum in ((self.cmdline_bytes, FAILED_BOOT_CMDLINE_MAX_BYTES), (self.last_kmsg_bytes, FAILED_BOOT_LAST_KMSG_MAX_BYTES)):
+            if type(value) is not int or value < 0 or value > maximum:
+                raise ContractError("failed-boot evidence byte count is invalid")
+        for value in (self.cmdline_sha256, self.last_kmsg_sha256, self.usb_inventory_sha256, self.adb_inventory_sha256):
+            if type(value) is not str or SHA256_RE.fullmatch(value) is None:
+                raise ContractError("failed-boot evidence digest is invalid")
+        empty_sha256 = sha256_bytes(b"")
+        if (self.cmdline_bytes == 0 and self.cmdline_sha256 != empty_sha256) or (self.last_kmsg_bytes == 0 and self.last_kmsg_sha256 != empty_sha256):
+            raise ContractError("zero-byte evidence digest is invalid")
+        if type(self.quiescent) is not bool or type(self.raw_durable) is not bool:
+            raise ContractError("failed-boot evidence flags are invalid")
+        if self.outcome == "CAPTURED":
+            if (self.reason != "BOTH_READS_DURABLE" or not self.cmdline_bytes or not self.last_kmsg_bytes or not self.quiescent or not self.raw_durable or self.usb_inventory_sha256 == UNAVAILABLE_SHA256 or self.adb_inventory_sha256 == UNAVAILABLE_SHA256):
+                raise ContractError("captured failed-boot evidence is incomplete")
+        elif self.reason == "BOTH_READS_DURABLE" or self.raw_durable:
+            raise ContractError("no-proof failed-boot evidence is contradictory")
+        elif self.reason == "NO_RECOVERY_ENDPOINT" and (self.cmdline_bytes or self.last_kmsg_bytes or self.adb_inventory_sha256 != UNAVAILABLE_SHA256):
+            raise ContractError("no-recovery evidence contains source data")
+        elif self.reason in {"USB_INVENTORY_FAILED", "ADB_INVENTORY_FAILED"} and (self.cmdline_bytes or self.last_kmsg_bytes):
+            raise ContractError("inventory failure contains source data")
+        elif self.reason == "EMPTY_LAST_KMSG" and (self.cmdline_bytes <= 0 or self.last_kmsg_bytes != 0 or self.usb_inventory_sha256 == UNAVAILABLE_SHA256 or self.adb_inventory_sha256 == UNAVAILABLE_SHA256 or self.quiescent is not True):
+            raise ContractError("empty last_kmsg evidence is inconsistent")
+        elif self.reason == "OBSERVER_EXCEPTION" and self.raw_durable:
+            raise ContractError("observer exception claims raw durability")
+        if self.reason == "COMMAND_NONQUIESCENT" and self.quiescent is not False:
+            raise ContractError("nonquiescent reason requires false quiescence")
+        if self.quiescent is False and self.reason != "COMMAND_NONQUIESCENT":
+            raise ContractError("false quiescence requires nonquiescent reason")
+
+    @classmethod
+    def no_proof(
+        cls,
+        reason: str = "OBSERVER_EXCEPTION",
+        *,
+        cmdline: bytes = b"",
+        last_kmsg: bytes = b"",
+        usb_inventory_sha256: str = UNAVAILABLE_SHA256,
+        adb_inventory_sha256: str = UNAVAILABLE_SHA256,
+        quiescent: bool = True,
+        raw_durable: bool = False,
+    ) -> "FailedBootEvidenceResult":
+        result = cls("NO_PROOF_OBSERVER", reason, len(cmdline), sha256_bytes(cmdline), len(last_kmsg), sha256_bytes(last_kmsg), usb_inventory_sha256, adb_inventory_sha256, quiescent, raw_durable)
+        result.validate()
+        return result
+
+    def payload(self) -> dict[str, Any]:
+        self.validate()
+        return {
+            "schema": FAILED_BOOT_EVIDENCE_SCHEMA,
+            "outcome": self.outcome,
+            "reason": self.reason,
+            "source": FAILED_BOOT_EVIDENCE_SOURCE,
+            "sourceMode": "0444",
+            "mount": "none",
+            "decoder": FAILED_BOOT_EVIDENCE_DECODER,
+            "policyId": FAILED_BOOT_EVIDENCE_POLICY_ID,
+            "sourceContractId": FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID,
+            "cmdline": {
+                "source": FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE,
+                "byteCount": self.cmdline_bytes,
+                "sha256": self.cmdline_sha256,
+            },
+            "lastKmsg": {
+                "byteCount": self.last_kmsg_bytes,
+                "sha256": self.last_kmsg_sha256,
+            },
+            "commandIdentity": FAILED_BOOT_COMMAND_IDENTITY,
+            "usbInventorySha256": self.usb_inventory_sha256,
+            "adbInventorySha256": self.adb_inventory_sha256,
+            "quiescent": self.quiescent,
+            "rawDurable": self.raw_durable,
+        }
+
+
+def validate_failed_boot_evidence_payload(value: Any) -> FailedBootEvidenceResult:
+    payload = _object(
+        value,
+        {"schema", "outcome", "reason", "source", "sourceMode", "mount", "decoder", "policyId", "sourceContractId", "cmdline", "lastKmsg", "commandIdentity", "usbInventorySha256", "adbInventorySha256", "quiescent", "rawDurable"},
+        "failed-boot evidence result",
+    )
+    if any((payload["schema"] != FAILED_BOOT_EVIDENCE_SCHEMA, payload["source"] != FAILED_BOOT_EVIDENCE_SOURCE, payload["sourceMode"] != "0444", payload["mount"] != "none", payload["decoder"] != FAILED_BOOT_EVIDENCE_DECODER, payload["policyId"] != FAILED_BOOT_EVIDENCE_POLICY_ID, payload["sourceContractId"] != FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID, not _strict_json_equal(payload["commandIdentity"], FAILED_BOOT_COMMAND_IDENTITY))):
+        raise ContractError("failed-boot evidence source binding is invalid")
+    cmdline = _object(payload["cmdline"], {"source", "byteCount", "sha256"}, "cmdline evidence")
+    last_kmsg = _object(payload["lastKmsg"], {"byteCount", "sha256"}, "last_kmsg evidence")
+    if cmdline["source"] != FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE:
+        raise ContractError("cmdline evidence source is invalid")
+    result = FailedBootEvidenceResult(payload["outcome"], payload["reason"], cmdline["byteCount"], cmdline["sha256"], last_kmsg["byteCount"], last_kmsg["sha256"], payload["usbInventorySha256"], payload["adbInventorySha256"], payload["quiescent"], payload["rawDurable"])
+    result.validate()
+    return result
+
+
+def validate_failed_boot_evidence_intent_payload(value: Any) -> None:
+    payload = _object(value, {"attempt", "candidateReplay", "source", "cmdlineSource", "sourceMode", "mount", "decoder", "policyId", "sourceContractId", "commandIdentity"}, "failed-boot evidence intent")
+    if type(payload["attempt"]) is not int or payload["attempt"] != 1 or payload["candidateReplay"] is not False or payload["source"] != FAILED_BOOT_EVIDENCE_SOURCE or payload["cmdlineSource"] != FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE or payload["sourceMode"] != "0444" or payload["mount"] != "none" or payload["decoder"] != FAILED_BOOT_EVIDENCE_DECODER or payload["policyId"] != FAILED_BOOT_EVIDENCE_POLICY_ID or payload["sourceContractId"] != FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID or not _strict_json_equal(payload["commandIdentity"], FAILED_BOOT_COMMAND_IDENTITY):
+        raise ContractError("failed-boot evidence intent binding is invalid")
+
+
 class Backend(Protocol):
     def preflight(self, manifest: dict[str, Any]) -> Snapshot: ...
     def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int) -> EffectResult: ...
@@ -770,6 +907,9 @@ class Backend(Protocol):
         require_fresh_state: bool,
         timeout_sec: int,
     ) -> Snapshot: ...
+    def _capture_failed_boot_evidence(
+        self, *, timeout_sec: int, lease_check: Callable[[], None]
+    ) -> FailedBootEvidenceResult: ...
 
 
 def _fsync_directory(path: Path) -> None:
@@ -936,6 +1076,9 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
         for path in (
             SUCCESS_PATH,
             ROLLBACK_PATH,
+            ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
+            POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+            FAILED_BOOT_EVIDENCE_PARK_PATH,
             PRETRANSFER_ABORT_PATH,
             H31_PRETRANSFER_ABORT_PATH,
             POSTROLLBACK_RECOVERY_PATH,
@@ -970,6 +1113,10 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
             or type(item["payload"]) is not dict
         ):
             raise ContractError("journal record envelope mismatch")
+        if name == "26-failed-boot-evidence-intent.json":
+            validate_failed_boot_evidence_intent_payload(item["payload"])
+        elif name == "27-failed-boot-evidence-result.json":
+            validate_failed_boot_evidence_payload(item["payload"])
         current_manifest = _sha(item["manifestSha256"], "journal manifest")
         if manifest_sha256 is None:
             manifest_sha256 = current_manifest
@@ -1154,6 +1301,24 @@ def _terminal(
     return payload
 
 
+def _failed_boot_lease_check(
+    run_directory: Path, manifest: dict[str, Any], manifest_sha256: str
+) -> None:
+    _verify_qualification_inputs(manifest)
+    _require_active_guard(manifest)
+    _require_candidate_guard(manifest)
+    records = read_records(run_directory)
+    expected = ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH[:6]
+    if tuple(records) != expected:
+        raise ContractError("failed-boot evidence lease journal prefix changed")
+    for name in expected:
+        if records[name]["manifestSha256"] != manifest_sha256:
+            raise ContractError("failed-boot evidence lease manifest changed")
+    validate_failed_boot_evidence_intent_payload(
+        records["26-failed-boot-evidence-intent.json"]["payload"]
+    )
+
+
 def execute(
     manifest_raw: bytes,
     manifest: dict[str, Any],
@@ -1304,6 +1469,76 @@ def execute(
                 manifest,
             )
 
+        eligible_for_evidence = (
+            candidate_result.completed is True
+            and candidate_result.returncode == 0
+            and candidate_result.quiescent is True
+            and candidate_result.outcome
+            == "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED"
+        )
+        if eligible_for_evidence:
+            # The evidence intent is the first durable byte before either fixed
+            # TWRP source can be opened.  Capture is one bounded observer attempt;
+            # every observer failure is converted to a strict NO_PROOF result and
+            # rollback follows immediately, without a user wait or retry.
+            _require_active_guard(manifest)
+            _require_candidate_guard(manifest)
+            publish_record(
+                run_directory,
+                "26-failed-boot-evidence-intent.json",
+                _record(
+                    "FAILED_BOOT_EVIDENCE_INTENT",
+                    manifest_sha256,
+                    {
+                        "attempt": 1,
+                        "candidateReplay": False,
+                        "source": FAILED_BOOT_EVIDENCE_SOURCE,
+                        "cmdlineSource": FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE,
+                        "sourceMode": "0444",
+                        "mount": "none",
+                        "decoder": FAILED_BOOT_EVIDENCE_DECODER,
+                        "policyId": FAILED_BOOT_EVIDENCE_POLICY_ID,
+                        "sourceContractId": FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID,
+                        "commandIdentity": FAILED_BOOT_COMMAND_IDENTITY,
+                    },
+                ),
+            )
+            def lease_check() -> None:
+                _failed_boot_lease_check(run_directory, manifest, manifest_sha256)
+            try:
+                evidence = backend._capture_failed_boot_evidence(
+                    timeout_sec=FAILED_BOOT_EVIDENCE_TIMEOUT_SEC,
+                    lease_check=lease_check,
+                )
+                if type(evidence) is not FailedBootEvidenceResult:
+                    raise ContractError("failed-boot evidence result type is invalid")
+                evidence.validate()
+            except Exception:
+                evidence = FailedBootEvidenceResult.no_proof("COMMAND_NONQUIESCENT", quiescent=False)
+            _failed_boot_lease_check(run_directory, manifest, manifest_sha256)
+            _verify_qualification_inputs(manifest)
+            evidence_record = _record(
+                "FAILED_BOOT_EVIDENCE_RESULT",
+                manifest_sha256,
+                evidence.payload(),
+            )
+            _require_active_guard(manifest)
+            _require_candidate_guard(manifest)
+            publish_record(
+                run_directory,
+                "27-failed-boot-evidence-result.json",
+                evidence_record,
+            )
+            if evidence.quiescent is not True:
+                return _terminal(
+                    run_directory,
+                    manifest_sha256,
+                    "RECOVERY_REQUIRED",
+                    None,
+                    "FAILED_BOOT_EVIDENCE_NOT_QUIESCENT",
+                    manifest,
+                )
+
         _require_active_guard(manifest)
         _require_candidate_guard(manifest)
         publish_record(
@@ -1444,6 +1679,18 @@ def recovery_decision(run_directory: Path) -> str:
         return "POSTROLLBACK_RECOVERY_RECONCILED_NO_REPLAY"
     if "41-pretransfer-abort.json" in names:
         return "PRETRANSFER_ABORT_RECONCILED_RETRY_ALLOWED"
+    if "26-failed-boot-evidence-intent.json" in names and "27-failed-boot-evidence-result.json" not in names:
+        return "FAILED_BOOT_EVIDENCE_INTENT_CONSUMED_NO_RESULT_NO_ROLLBACK"
+    evidence = None
+    if "27-failed-boot-evidence-result.json" in names:
+        try:
+            evidence = validate_failed_boot_evidence_payload(records["27-failed-boot-evidence-result.json"]["payload"])
+        except ContractError:
+            return "FAILED_BOOT_EVIDENCE_RESULT_INVALID_NO_ROLLBACK"
+        if evidence.quiescent is not True:
+            return "FAILED_BOOT_EVIDENCE_NONQUIESCENT_NO_ROLLBACK"
+        if "30-rollback-intent.json" not in names:
+            return "CANDIDATE_CONSUMED_ROLLBACK_ONLY"
     if "40-terminal.json" in names:
         return "TERMINAL_COMPLETE"
     if "31-rollback-launched.json" in names:
@@ -1527,6 +1774,7 @@ def _live_backend(manifest: dict[str, Any], phase: str) -> Backend:
         or adapter.ContractError is not ContractError
         or adapter.Snapshot is not Snapshot
         or adapter.EffectResult is not EffectResult
+        or adapter.FailedBootEvidenceResult is not FailedBootEvidenceResult
     ):
         raise ContractError("loaded minimal F1 adapter identity is not exact")
     if adapter.LIVE_ADAPTER_ENABLED is not True:

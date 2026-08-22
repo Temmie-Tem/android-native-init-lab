@@ -22,12 +22,19 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from a90_boot_only_f1_minimal_v1 import (
     _MODULE_SENTINEL as MINIMAL_MODULE_SENTINEL,
     ContractError,
     EffectResult,
+    FailedBootEvidenceResult,
     Snapshot,
+    FAILED_BOOT_CMDLINE_MAX_BYTES,
+    FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE,
+    FAILED_BOOT_EVIDENCE_SOURCE,
+    FAILED_BOOT_RECOVERY_SETTLE_ATTEMPTS,
+    FAILED_BOOT_EVIDENCE_TIMEOUT_SEC,
+    FAILED_BOOT_LAST_KMSG_MAX_BYTES,
     canonical_json,
     sha256_bytes,
 )
@@ -67,6 +74,8 @@ ADB_ROLE_NATIVE = "NATIVE_NO_RECOVERY"
 ADB_ROLE_RECOVERY = "BOUND_RECOVERY_PRESENT"
 ROLLBACK_REENUMERATION_TIMEOUT_SEC = 30.0
 ROLLBACK_REENUMERATION_POLL_SEC = 0.25
+FAILED_BOOT_CMDLINE_RAW_NAME = "failed-boot-001-cmdline.raw"
+FAILED_BOOT_LAST_KMSG_RAW_NAME = "failed-boot-002-last-kmsg.raw"
 
 @dataclass(frozen=True)
 class CommandResult:
@@ -115,13 +124,14 @@ class HostRunner:
         if re.fullmatch(r"[a-z0-9-]{1,40}", label) is None:
             raise ContractError("adapter log label is invalid")
         self._check_adb_home()
+        output_limit = {"failed-boot-cmdline": FAILED_BOOT_CMDLINE_MAX_BYTES, "failed-boot-last-kmsg": FAILED_BOOT_LAST_KMSG_MAX_BYTES}.get(label, MAX_OUTPUT_BYTES)
         self.sequence += 1
         prefix = f"{self.sequence:03d}-{label}"
         stdout_path = self.log_directory / f"{prefix}.stdout"
         stderr_path = self.log_directory / f"{prefix}.stderr"
         if self.redactor is not None:
             try:
-                returncode, stdout, stderr, quiescent = run_owner_process(argv, timeout_sec, cwd=REPO_ROOT, log_directory=self.log_directory, stdout_path=stdout_path, stderr_path=stderr_path, redactor=self.redactor, max_output_bytes=MAX_OUTPUT_BYTES, adb_inventory=label == "adb-inventory", environment=self.environment, preexec_fn=_limit_child, process_group_exists=_process_group_exists)
+                returncode, stdout, stderr, quiescent = run_owner_process(argv, timeout_sec, cwd=REPO_ROOT, log_directory=self.log_directory, stdout_path=stdout_path, stderr_path=stderr_path, redactor=self.redactor, max_output_bytes=output_limit, adb_inventory=label in {"adb-inventory", "failed-boot-adb-inventory"}, environment=self.environment, preexec_fn=_limit_child, process_group_exists=_process_group_exists)
             except RuntimeError as exc:
                 raise ContractError(str(exc)) from exc
             self._check_adb_home()
@@ -153,8 +163,8 @@ class HostRunner:
                 process.wait()
             os.fsync(stdout_fd)
             os.fsync(stderr_fd)
-            stdout = _read_bound_log(stdout_fd)
-            stderr = _read_bound_log(stderr_fd)
+            stdout = _read_bound_log(stdout_fd, output_limit)
+            stderr = _read_bound_log(stderr_fd, output_limit)
             _fsync_directory(self.log_directory)
             self._check_adb_home()
             quiescent = not _process_group_exists(process.pid)
@@ -183,9 +193,9 @@ def _fsync_directory(path: Path) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
-def _read_bound_log(descriptor: int) -> bytes:
+def _read_bound_log(descriptor: int, maximum: int = MAX_OUTPUT_BYTES) -> bytes:
     metadata = os.fstat(descriptor)
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_OUTPUT_BYTES:
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum:
         raise ContractError("adapter output exceeds its fixed bound")
     return os.pread(descriptor, metadata.st_size, 0)
 def _process_group_exists(process_group: int) -> bool:
@@ -469,10 +479,10 @@ def _validate_effect_inventory(result: CommandResult) -> tuple[str, str]:
     return _parse_effect_inventory(result)
 
 
-def _validate_effect_adb_inventory(
+def _parse_recovery_adb_inventory(
     result: CommandResult, *, expected_serial_sha256: str
-) -> str:
-    """Validate the recovery-only ADB role and return its raw-stream digest."""
+) -> tuple[str, str]:
+    """Validate one recovery ADB row and return digest plus bound serial."""
     if (
         type(result.returncode) is not int
         or result.returncode != 0
@@ -508,7 +518,40 @@ def _validate_effect_adb_inventory(
         or sha256_bytes(rows[0][0].encode("utf-8")) != expected_serial_sha256
     ):
         raise ContractError("recovery ADB inventory is not the bound A90")
-    return sha256_bytes(result.stdout)
+    return sha256_bytes(result.stdout), rows[0][0]
+
+
+def _validate_effect_adb_inventory(
+    result: CommandResult, *, expected_serial_sha256: str
+) -> str:
+    """Validate the recovery-only ADB role and return its raw-stream digest."""
+    digest, _serial = _parse_recovery_adb_inventory(
+        result, expected_serial_sha256=expected_serial_sha256
+    )
+    return digest
+
+
+def _adb_recovery_settle_transient(result: CommandResult, expected_serial_sha256: str) -> bool:
+    if type(result.returncode) is not int or result.returncode != 0 or result.quiescent is not True or type(result.stdout) is not bytes or type(result.stderr) is not bytes or result.stderr:
+        return False
+    try:
+        lines = result.stdout.decode("ascii").replace("\r", "").splitlines()
+    except UnicodeDecodeError:
+        return False
+    if not lines or lines[0] != "List of devices attached":
+        return False
+    rows = []
+    for line in lines[1:]:
+        if not line:
+            continue
+        fields = line.split(None, 2)
+        if len(fields) < 2 or not re.fullmatch(r"[!-~]{1,256}", fields[0]):
+            return False
+        state = fields[1]
+        if state == "no" and len(fields) == 3 and fields[2].startswith("permissions"):
+            state = "no permissions"
+        rows.append((fields[0], state))
+    return not rows or (len(rows) == 1 and rows[0][1] == "offline" and sha256_bytes(rows[0][0].encode("utf-8")) == expected_serial_sha256)
 
 
 def _bound_response(
@@ -664,6 +707,168 @@ class FixedA90Adapter:
             expected_serial_sha256=self.recovery_serial_sha256,
         )
         return role, usb_digest, adb_digest
+
+    def _failed_boot_log_directory(self) -> Path:
+        directory = getattr(self.runner, "log_directory", None)
+        if not isinstance(directory, Path) or not directory.is_absolute():
+            raise ContractError("failed-boot owner log directory is unavailable")
+        metadata = directory.lstat()
+        if not (stat.S_ISDIR(metadata.st_mode) and metadata.st_uid == os.getuid() and metadata.st_gid == os.getgid() and stat.S_IMODE(metadata.st_mode) == 0o700):
+            raise ContractError("failed-boot owner log directory is not private")
+        return directory
+
+    def _write_failed_boot_raw(self, name: str, raw: bytes, lease_check: Callable[[], None]) -> None:
+        lease_check()
+        directory = self._failed_boot_log_directory()
+        descriptor = os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600)
+        try:
+            offset = 0
+            while offset < len(raw):
+                written = os.write(descriptor, raw[offset:])
+                if written <= 0:
+                    raise ContractError("failed-boot raw evidence short write")
+                offset += written
+            metadata = os.fstat(descriptor)
+            if not (stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1 and metadata.st_size == len(raw) and stat.S_IMODE(metadata.st_mode) == 0o600 and metadata.st_uid == os.getuid() and metadata.st_gid == os.getgid()):
+                raise ContractError("failed-boot raw evidence file identity changed")
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        _fsync_directory(directory)
+
+    @staticmethod
+    def _failed_boot_command_result(
+        result: CommandResult | None,
+        *,
+        source: str,
+        maximum: int,
+    ) -> tuple[bytes, str | None, bool]:
+        if result is None:
+            return b"", "COMMAND_NONQUIESCENT", False
+        if type(result.returncode) is not int or type(result.quiescent) is not bool or type(result.stdout) is not bytes or type(result.stderr) is not bytes:
+            return b"", "COMMAND_NONQUIESCENT", False
+        if result.quiescent is not True:
+            return b"", "COMMAND_NONQUIESCENT", False
+        if result.returncode == 124:
+            return b"", "COMMAND_TIMEOUT", True
+        if result.stderr:
+            return b"", "COMMAND_STDERR", True
+        if result.returncode != 0:
+            return b"", "COMMAND_NONZERO", True
+        if type(result.stdout) is not bytes or len(result.stdout) > maximum:
+            return b"", "COMMAND_OUTPUT_INVALID", True
+        if source == FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE:
+            if not result.stdout:
+                return b"", "COMMAND_OUTPUT_INVALID", True
+            try:
+                result.stdout.decode("ascii")
+            except UnicodeDecodeError:
+                return b"", "COMMAND_OUTPUT_INVALID", True
+        elif not result.stdout:
+            return b"", "EMPTY_LAST_KMSG", True
+        return result.stdout, None, True
+
+    def _capture_failed_boot_evidence(
+        self, *, timeout_sec: int, lease_check: Callable[[], None]
+    ) -> FailedBootEvidenceResult:
+        try:
+            if type(timeout_sec) is not int or timeout_sec < 1 or timeout_sec > FAILED_BOOT_EVIDENCE_TIMEOUT_SEC:
+                return FailedBootEvidenceResult.no_proof("COMMAND_TIMEOUT")
+            deadline = time.monotonic() + timeout_sec
+            def remaining() -> int | None:
+                budget = deadline - time.monotonic()
+                return None if budget < 1 else max(1, min(FAILED_BOOT_EVIDENCE_TIMEOUT_SEC, int(budget)))
+            def run(label: str, argv: tuple[str, ...]) -> tuple[CommandResult | None, str | None]:
+                budget = remaining()
+                if budget is None:
+                    return None, "COMMAND_TIMEOUT"
+                try:
+                    result = self.runner.run(label, argv, budget)
+                    if time.monotonic() > deadline:
+                        return result, "COMMAND_TIMEOUT"
+                    return result, None
+                except Exception:
+                    return None, "COMMAND_NONQUIESCENT"
+            settle_deadline = min(deadline, time.monotonic() + 30)
+            def await_final_recovery() -> tuple[CommandResult | None, str | None, str | None, str | None, str | None]:
+                for ordinal in range(FAILED_BOOT_RECOVERY_SETTLE_ATTEMPTS * 4):
+                    if time.monotonic() >= settle_deadline:
+                        return None, "NO_RECOVERY_ENDPOINT", None, None, None
+                    label = "failed-boot-usb-inventory" if ordinal == 0 else "failed-boot-usb-settle"
+                    result, error = run(label, (str(LSUSB),))
+                    if error is not None or result is None:
+                        return result, error or "COMMAND_FAILED", None, None, None
+                    if type(result.returncode) is not int or type(result.quiescent) is not bool or type(result.stdout) is not bytes or type(result.stderr) is not bytes:
+                        return result, "COMMAND_NONQUIESCENT", None, None, None
+                    if result.quiescent is not True:
+                        return result, "COMMAND_NONQUIESCENT", None, None, None
+                    if _is_empty_effect_inventory(result):
+                        time.sleep(min(1.0, max(0.0, settle_deadline - time.monotonic())))
+                        continue
+                    try:
+                        role, usb_digest = _validate_effect_inventory(result)
+                    except ContractError:
+                        return result, "USB_INVENTORY_FAILED", None, None, None
+                    if role == ADB_ROLE_NATIVE:
+                        time.sleep(min(1.0, max(0.0, settle_deadline - time.monotonic())))
+                        continue
+                    adb_result, adb_error = run("failed-boot-adb-inventory", (str(ADB), "devices", "-l"))
+                    if adb_error is not None or adb_result is None:
+                        return adb_result, adb_error or "COMMAND_FAILED", usb_digest, None, None
+                    if type(adb_result.returncode) is not int or type(adb_result.quiescent) is not bool or type(adb_result.stdout) is not bytes or type(adb_result.stderr) is not bytes:
+                        return adb_result, "COMMAND_NONQUIESCENT", usb_digest, None, None
+                    if adb_result.quiescent is not True:
+                        return adb_result, "COMMAND_NONQUIESCENT", usb_digest, None, None
+                    try:
+                        adb_digest, serial = _parse_recovery_adb_inventory(adb_result, expected_serial_sha256=self.recovery_serial_sha256)
+                    except ContractError:
+                        if _adb_recovery_settle_transient(adb_result, self.recovery_serial_sha256):
+                            time.sleep(min(1.0, max(0.0, settle_deadline - time.monotonic())))
+                            continue
+                        return adb_result, "ADB_INVENTORY_FAILED", usb_digest, None, None
+                    return result, None, usb_digest, adb_digest, serial
+                return None, "NO_RECOVERY_ENDPOINT", None, None, None
+            directory = self._failed_boot_log_directory()
+            for name in (FAILED_BOOT_CMDLINE_RAW_NAME, FAILED_BOOT_LAST_KMSG_RAW_NAME):
+                if (directory / name).exists() or (directory / name).is_symlink():
+                    return FailedBootEvidenceResult.no_proof("RAW_PUBLICATION_FAILED")
+            lease_check()
+            usb_result, usb_error, usb_digest, adb_digest, serial = await_final_recovery()
+            if usb_error is not None or usb_result is None or usb_digest is None or adb_digest is None or serial is None:
+                return FailedBootEvidenceResult.no_proof(usb_error or "COMMAND_FAILED", usb_inventory_sha256=usb_digest or "0" * 64, adb_inventory_sha256=adb_digest or "0" * 64, quiescent=usb_error != "COMMAND_NONQUIESCENT" and (usb_result is None or usb_result.quiescent is True))
+            cmdline_argv = (str(ADB), "-s", serial, "exec-out", "cat", FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE)
+            last_kmsg_argv = (str(ADB), "-s", serial, "exec-out", "cat", FAILED_BOOT_EVIDENCE_SOURCE)
+            lease_check()
+            cmdline_result, cmdline_error = run("failed-boot-cmdline", cmdline_argv)
+            cmdline, cmdline_reason, cmdline_quiescent = self._failed_boot_command_result(cmdline_result, source=FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE, maximum=FAILED_BOOT_CMDLINE_MAX_BYTES)
+            if cmdline_error is not None or cmdline_result is None or cmdline_result.quiescent is not True or cmdline_result.returncode == 124 or cmdline_reason == "COMMAND_NONQUIESCENT":
+                return FailedBootEvidenceResult.no_proof(cmdline_error or cmdline_reason or "COMMAND_FAILED", cmdline=cmdline, usb_inventory_sha256=usb_digest, adb_inventory_sha256=adb_digest, quiescent=cmdline_quiescent)
+            if remaining() is None:
+                return FailedBootEvidenceResult.no_proof("COMMAND_TIMEOUT", cmdline=cmdline, usb_inventory_sha256=usb_digest, adb_inventory_sha256=adb_digest, quiescent=cmdline_quiescent)
+            lease_check()
+            last_kmsg_result, last_kmsg_error = run("failed-boot-last-kmsg", last_kmsg_argv)
+            last_kmsg, last_kmsg_reason, last_kmsg_quiescent = self._failed_boot_command_result(last_kmsg_result, source=FAILED_BOOT_EVIDENCE_SOURCE, maximum=FAILED_BOOT_LAST_KMSG_MAX_BYTES)
+            if last_kmsg_error is not None and last_kmsg_result is None:
+                last_kmsg_reason = last_kmsg_error
+            raw_durable = False
+            raw_reason: str | None = None
+            if cmdline_reason is None:
+                try:
+                    self._write_failed_boot_raw(FAILED_BOOT_CMDLINE_RAW_NAME, cmdline, lease_check)
+                except Exception:
+                    raw_reason = "RAW_PUBLICATION_FAILED"
+            if last_kmsg_reason is None and raw_reason is None:
+                try:
+                    self._write_failed_boot_raw(FAILED_BOOT_LAST_KMSG_RAW_NAME, last_kmsg, lease_check)
+                except Exception:
+                    raw_reason = "RAW_PUBLICATION_FAILED"
+            if cmdline_reason is None and last_kmsg_reason is None and raw_reason is None:
+                raw_durable = True
+                return FailedBootEvidenceResult("CAPTURED", "BOTH_READS_DURABLE", len(cmdline), sha256_bytes(cmdline), len(last_kmsg), sha256_bytes(last_kmsg), usb_digest, adb_digest, cmdline_quiescent and last_kmsg_quiescent, raw_durable)
+            reason = raw_reason or cmdline_reason or last_kmsg_reason or "OBSERVER_EXCEPTION"
+            return FailedBootEvidenceResult.no_proof(reason, cmdline=cmdline, last_kmsg=last_kmsg, usb_inventory_sha256=usb_digest, adb_inventory_sha256=adb_digest, quiescent=cmdline_quiescent and last_kmsg_quiescent, raw_durable=raw_durable)
+        except Exception:
+            return FailedBootEvidenceResult.no_proof("OBSERVER_EXCEPTION")
 
     def preflight(self, manifest: dict[str, Any]) -> Snapshot:
         return self._snapshot(

@@ -159,6 +159,13 @@ The adapter and menu-hide observer now retain status output as diagnostic
 evidence but no longer make entries=0 a health predicate. GOAL_A90.md uses
 the same wording: pstore entry count is diagnostic only.
 
+## Implementation follow-up
+
+`docs/reports/A90_TWRP_FAILED_BOOT_EVIDENCE_WIRING_H0_2026-08-22.md` records
+the host-only owner, adapter, journal, raw-evidence, crash-cut, and
+postrollback-consumer implementation. It remains review-lease inactive and
+grants no device or replay authority.
+
 ## Validation boundary
 
 Focused tests cover: no ADB call in the Native backend role check; Native

@@ -180,6 +180,49 @@ class PostrollbackRecoveryTest(unittest.TestCase):
             },
         }
         R._require_prefix(records, self.manifest, manifest_sha)
+        evidence_payloads = {
+            "26-failed-boot-evidence-intent.json": {
+                "attempt": 1, "candidateReplay": False,
+                "source": O.FAILED_BOOT_EVIDENCE_SOURCE,
+                "cmdlineSource": O.FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE,
+                "sourceMode": "0444", "mount": "none",
+                "decoder": O.FAILED_BOOT_EVIDENCE_DECODER,
+                "policyId": O.FAILED_BOOT_EVIDENCE_POLICY_ID,
+                "sourceContractId": O.FAILED_BOOT_EVIDENCE_SOURCE_CONTRACT_ID,
+                "commandIdentity": O.FAILED_BOOT_COMMAND_IDENTITY,
+            },
+            "27-failed-boot-evidence-result.json": O.FailedBootEvidenceResult.no_proof().payload(),
+        }
+        evidence_records = {}
+        for name in O.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH:
+            if name in records:
+                evidence_records[name] = copy.deepcopy(records[name])
+            else:
+                evidence_records[name] = {
+                    "manifestSha256": manifest_sha,
+                    "payload": evidence_payloads[name],
+                }
+        evidence_records["22-candidate-result.json"]["payload"] = {
+            "returncode": 0,
+            "completed": True,
+            "quiescent": True,
+            "receiptSha256": "3" * 64,
+            "outcome": "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED",
+        }
+        R._require_prefix(evidence_records, self.manifest, manifest_sha)
+        bad_candidate = copy.deepcopy(evidence_records)
+        bad_candidate["22-candidate-result.json"]["payload"]["completed"] = False
+        with self.assertRaises(O.ContractError):
+            R._require_prefix(bad_candidate, self.manifest, manifest_sha)
+        for name in evidence_payloads:
+            with self.subTest(evidence_record=name):
+                for bad in (
+                    {key: value for key, value in evidence_records.items() if key != name},
+                    dict(evidence_records, **{name: {"manifestSha256": manifest_sha, "payload": {}}}),
+                    dict(evidence_records, **{name: {"manifestSha256": "0" * 64, "payload": evidence_payloads[name]}}),
+                ):
+                    with self.assertRaises(O.ContractError):
+                        R._require_prefix(bad, self.manifest, manifest_sha)
         for name in (
             "00-prepared.json", "10-approved.json",
             "21-candidate-launched.json", "22-candidate-result.json",

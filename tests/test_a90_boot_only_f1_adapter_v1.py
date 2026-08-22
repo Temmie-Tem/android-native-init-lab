@@ -40,9 +40,10 @@ QUALIFICATION = {
 
 
 class FakeRunner:
-    def __init__(self, results):
+    def __init__(self, results, log_directory=None):
         self.results = list(results)
         self.calls = []
+        self.log_directory = log_directory
 
     def run(self, label, argv, timeout_sec):
         if re.fullmatch(r"[a-z0-9-]{1,40}", label) is None:
@@ -51,9 +52,9 @@ class FakeRunner:
         return self.results.pop(0)
 
 
-def result(value, *, rc=0, quiescent=True):
+def result(value, *, rc=0, quiescent=True, stderr=b""):
     raw = value if isinstance(value, bytes) else json.dumps(value).encode()
-    return A.CommandResult(rc, raw, b"", quiescent)
+    return A.CommandResult(rc, raw, stderr, quiescent)
 
 
 def command(text, name):
@@ -190,6 +191,132 @@ class FixedAdapterTest(unittest.TestCase):
         bridge_argv = runner.calls[1][1]
         self.assertEqual(bridge_argv.count(A.FIXED_SERIAL), 2)
         self.assertIn("--pin-selected-realpath", bridge_argv)
+
+    def test_failed_boot_capture_requires_recovery_and_reads_fixed_pair_once(self):
+        with tempfile.TemporaryDirectory() as temp:
+            log_directory = Path(temp)
+            serial = "A90-RECOVERY"
+            adb = b"List of devices attached\n" + serial.encode() + b" recovery product:r3q\n"
+            runner = FakeRunner([
+                usb_recovery_inventory(),
+                result(adb),
+                result(b"sec_log=1\n"),
+                result(b"Kernel panic\n"),
+            ], log_directory)
+            adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
+            adapter.recovery_serial_sha256 = A.sha256_bytes(serial.encode())
+            evidence = adapter._capture_failed_boot_evidence(timeout_sec=20, lease_check=lambda: None)
+            self.assertEqual(evidence.outcome, "CAPTURED")
+            self.assertEqual([call[0] for call in runner.calls], [
+                "failed-boot-usb-inventory", "failed-boot-adb-inventory",
+                "failed-boot-cmdline", "failed-boot-last-kmsg",
+            ])
+            self.assertEqual(runner.calls[2][1], (
+                str(A.ADB), "-s", serial, "exec-out", "cat", "/proc/cmdline"
+            ))
+            self.assertEqual(runner.calls[3][1], (
+                str(A.ADB), "-s", serial, "exec-out", "cat", "/proc/last_kmsg"
+            ))
+            for name, expected in ((A.FAILED_BOOT_CMDLINE_RAW_NAME, b"sec_log=1\n"), (A.FAILED_BOOT_LAST_KMSG_RAW_NAME, b"Kernel panic\n")):
+                path = log_directory / name
+                self.assertEqual(path.read_bytes(), expected)
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            receipt = evidence.payload()
+            self.assertNotIn(serial, json.dumps(receipt))
+            self.assertEqual(receipt["lastKmsg"]["byteCount"], len(b"Kernel panic\n"))
+
+    def test_failed_boot_capture_tolerates_bounded_zero_native_recovery_churn(self):
+        with tempfile.TemporaryDirectory() as temp:
+            serial = "A90-RECOVERY"
+            adb = b"List of devices attached\n" + serial.encode() + b" recovery\n"
+            runner = FakeRunner([
+                usb_zero_samsung(), usb_inventory(), usb_zero_samsung(), usb_recovery_inventory(),
+                result(b"List of devices attached\n" + serial.encode() + b" offline\n"),
+                usb_recovery_inventory(), result(adb), result(b"sec_log=1\n"), result(b"kmsg"),
+            ], Path(temp))
+            adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
+            adapter.recovery_serial_sha256 = A.sha256_bytes(serial.encode())
+            with mock.patch.object(A.time, "sleep", return_value=None):
+                evidence = adapter._capture_failed_boot_evidence(
+                    timeout_sec=60, lease_check=lambda: None
+                )
+            self.assertEqual(evidence.outcome, "CAPTURED")
+            self.assertEqual([call[0] for call in runner.calls[:4]], [
+                "failed-boot-usb-inventory", "failed-boot-usb-settle", "failed-boot-usb-settle", "failed-boot-usb-settle"
+            ])
+
+    def test_failed_boot_capture_never_reads_cat_without_one_recovery_role(self):
+        with tempfile.TemporaryDirectory() as temp:
+            runner = FakeRunner([usb_inventory()], Path(temp))
+            adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
+            with mock.patch.object(A.time, "sleep", return_value=None):
+                evidence = adapter._capture_failed_boot_evidence(
+                    timeout_sec=20, lease_check=lambda: None
+                )
+            self.assertEqual(evidence.outcome, "NO_PROOF_OBSERVER")
+            self.assertLessEqual(len(runner.calls), A.FAILED_BOOT_RECOVERY_SETTLE_ATTEMPTS)
+            self.assertFalse(any("cat" in call[0] for call in runner.calls))
+
+    def test_failed_boot_capture_rejects_foreign_or_multiple_samsung_immediately(self):
+        foreign = result(b"Bus 001 Device 003: ID 04e8:1234 Samsung Electronics Co., Ltd\n")
+        multiple = result(
+            b"Bus 001 Device 003: ID 04e8:6860 Samsung Electronics Co., Ltd\n"
+            b"Bus 001 Device 004: ID 04e8:6860 Samsung Electronics Co., Ltd\n"
+        )
+        for inventory in (foreign, multiple):
+            with self.subTest(inventory=inventory.stdout), tempfile.TemporaryDirectory() as temp:
+                runner = FakeRunner([inventory], Path(temp))
+                adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
+                evidence = adapter._capture_failed_boot_evidence(timeout_sec=60, lease_check=lambda: None)
+                self.assertEqual(evidence.outcome, "NO_PROOF_OBSERVER")
+                self.assertEqual(len(runner.calls), 1)
+
+    def test_failed_boot_capture_empty_last_kmsg_is_no_proof_without_retry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            serial = "A90-RECOVERY"
+            adb = b"List of devices attached\n" + serial.encode() + b" recovery\n"
+            runner = FakeRunner([
+                usb_recovery_inventory(), result(adb), result(b"sec_log=1\n"), result(b"")
+            ], Path(temp))
+            adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
+            adapter.recovery_serial_sha256 = A.sha256_bytes(serial.encode())
+            evidence = adapter._capture_failed_boot_evidence(timeout_sec=20, lease_check=lambda: None)
+            self.assertEqual(evidence.outcome, "NO_PROOF_OBSERVER")
+            self.assertEqual(evidence.reason, "EMPTY_LAST_KMSG")
+            self.assertEqual(len(runner.calls), 4)
+
+    def test_failed_boot_capture_failures_are_no_proof_without_retry(self):
+        serial = "A90-RECOVERY"
+        adb = b"List of devices attached\n" + serial.encode() + b" recovery\n"
+        cases = (
+            ("oversize", b"x" * (A.FAILED_BOOT_CMDLINE_MAX_BYTES + 1), {}, 4),
+            ("nonzero", b"failed", {"rc": 1}, 4),
+            ("stderr", b"bad", {"stderr": b"error"}, 4),
+            ("nonquiescent", b"partial", {"quiescent": False}, 3),
+            ("malformed-returncode", A.CommandResult(True, b"bad", b"", True), None, 3),
+        )
+        for label, cmdline, kwargs, expected_calls in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temp:
+                cmdline_result = cmdline if isinstance(cmdline, A.CommandResult) else result(cmdline, **(kwargs or {}))
+                runner = FakeRunner([usb_recovery_inventory(), result(adb), cmdline_result, result(b"kmsg")], Path(temp))
+                adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
+                adapter.recovery_serial_sha256 = A.sha256_bytes(serial.encode())
+                evidence = adapter._capture_failed_boot_evidence(timeout_sec=20, lease_check=lambda: None)
+                self.assertEqual(evidence.outcome, "NO_PROOF_OBSERVER")
+                self.assertEqual(len(runner.calls), expected_calls)
+
+    def test_failed_boot_adb_inventory_stream_is_redacted(self):
+        serial = "A90-RECOVERY"
+        with tempfile.TemporaryDirectory() as temp:
+            log_directory = Path(temp) / "logs"
+            redactor = A.SerialRedactor(hashes=(A.sha256_bytes(serial.encode()),))
+            runner = A.HostRunner(log_directory, redactor=redactor)
+            runner.run("failed-boot-adb-inventory", (sys.executable, "-c", f"print('List of devices attached\\n{serial} recovery')"), 10)
+            logged = (log_directory / "001-failed-boot-adb-inventory.stdout").read_bytes()
+            raw = f"List of devices attached\n{serial} recovery\n".encode()
+            expected = f"{A._serial_redaction.ADB_STDOUT_DIGEST_PREFIX}{A.sha256_bytes(raw)}> len={len(raw)} status=valid\n".encode()
+            self.assertEqual(logged, expected)
+            self.assertNotIn(serial.encode(), logged)
 
     def test_other_serial_candidate_is_allowed_but_fixed_a90_stays_selected(self):
         value = bridge(ambiguous=True)
@@ -745,7 +872,7 @@ class FixedAdapterTest(unittest.TestCase):
                 )
 
     def test_adapter_surface_stays_bounded(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 900)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1150)
 
 
 if __name__ == "__main__":

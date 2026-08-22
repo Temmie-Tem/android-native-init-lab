@@ -212,12 +212,30 @@ def _validate_payload(
 
 
 def _require_prefix(records: dict[str, dict[str, Any]], manifest: dict[str, Any], manifest_sha: str) -> None:
-    if tuple(records) not in (owner.ROLLBACK_PATH, owner.POSTROLLBACK_RECOVERY_PATH):
+    allowed_paths = (
+        owner.ROLLBACK_PATH,
+        owner.POSTROLLBACK_RECOVERY_PATH,
+        owner.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
+        owner.POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+    )
+    present_path = tuple(records)
+    if present_path not in allowed_paths:
         raise owner.ContractError("journal is not a consumed rollback prefix")
-    for name in owner.ROLLBACK_PATH:
+    evidence_path = present_path in (
+        owner.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
+        owner.POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+    )
+    for name in present_path:
         record = records[name]
         if record["manifestSha256"] != manifest_sha:
             raise owner.ContractError("rollback journal manifest binding changed")
+    if evidence_path:
+        owner.validate_failed_boot_evidence_intent_payload(
+            records["26-failed-boot-evidence-intent.json"]["payload"]
+        )
+        owner.validate_failed_boot_evidence_payload(
+            records["27-failed-boot-evidence-result.json"]["payload"]
+        )
     prepared = owner._load_prepared(records, manifest_sha, manifest["runId"])
     for role in ("candidate", "rollback"):
         checkpoint = owner._object(
@@ -296,6 +314,19 @@ def _require_prefix(records: dict[str, dict[str, Any]], manifest: dict[str, Any]
     candidate_effect.validate()
     if candidate_effect.quiescent is not True:
         raise owner.ContractError("candidate helper is not quiescent")
+    if evidence_path and (
+        candidate_effect.completed is not True
+        or candidate_effect.returncode != 0
+        or candidate_effect.outcome
+        != "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED"
+    ):
+        raise owner.ContractError("evidence rollback requires confirmed candidate effect")
+    if evidence_path:
+        evidence = owner.validate_failed_boot_evidence_payload(
+            records["27-failed-boot-evidence-result.json"]["payload"]
+        )
+        if evidence.quiescent is not True:
+            raise owner.ContractError("evidence rollback result is not quiescent")
     if records["30-rollback-intent.json"]["payload"] != {"sha256": manifest["rollback"]["sha256"]}:
         raise owner.ContractError("rollback intent binding changed")
     rollback_launch = owner._object(
