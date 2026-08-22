@@ -1,5 +1,10 @@
 # DTB parity — native boot image vs stock/Android modem config (2026-06-02)
 
+> **Correction (2026-08-22):** the 173-byte third blob is a valid RTIC DTB,
+> not a stray magic match. It binds stock `rtic_mp` address/size/hash and is
+> unrelated to the first two hardware DTBs used for the modem parity result.
+> See `A90_H34_RTIC_MP_STALE_DTB_HOST_CAUSAL_ANALYSIS_H0_2026-08-22.md`.
+
 **Host-only. No device command, no write.** Closes the "is the modem/PCIe/PMIC
 devicetree config native's kernel sees different from Android's?" question.
 Verdict: **non-differential (parity).** This is the third and final static/config

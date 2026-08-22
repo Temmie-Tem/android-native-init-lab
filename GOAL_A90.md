@@ -40,17 +40,17 @@ the separately registered S20+ goal and every future target row.
   and that old replaceable continuation lease is superseded. The H32-only
   continuation closed `PRETRANSFER_ABORTED_NO_BOOT_WRITE`, released the active
   guard, retained the consumed H32 candidate guard, and permits no replay.
-- H29–H33 are consumed and cannot be replayed. H34 is the fresh H0 host-only
-  materialization, `0.11.201 / phase3-minimal-h34-stock-rebuild-1007-cfp`,
-  58,372,096 bytes, SHA-256
-  `233bfdcac20d5fdc1184a907e8e8b5cd4d2c1286dc08a8f6028cfcf5c90ad4ee`.
-  A/B are identical and the kernel blob matches H33. Current owner,
-  continuation, and postrollback capability leases are bound at
-  `1c31fb97…`, `d053e137…`, and review `22c0e6a6…`/`429c84e5…` respectively.
-  The input was frozen pending review; current H34 review is `PASS_GO` at
-  `9741aa0a…`, and the private manifest binds that review. D0, approval, F1,
-  and live authority still do not exist.
-  See `docs/reports/A90_EXACT_SNAPDRAGON_LLVM_1007_STOCK_REBUILD_H34_H0_2026-08-22.md`.
+- H29–H34 are consumed and cannot be replayed. One attended H34 F1 wrote and
+  read back exact `0.11.201 / phase3-minimal-h34-stock-rebuild-1007-cfp`
+  boot bytes and confirmed its sole System-return request, but proved no H34
+  Native health before recovery. Exact V2321 rollback bytes were then written
+  and read back; its sole System-return request was uncertain. Terminal state
+  is `RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED`; current V2321 health is
+  unproved and neither image may replay. Host-only follow-up proved H34 omitted
+  `rtic_mp` while reusing the stock RTIC DTB and its now-stale address/size/hash.
+  Exact boot-loop causality remains unproved, but another MPGen-free candidate
+  is blocked. See
+  `docs/reports/A90_H34_RTIC_MP_STALE_DTB_HOST_CAUSAL_ANALYSIS_H0_2026-08-22.md`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 
