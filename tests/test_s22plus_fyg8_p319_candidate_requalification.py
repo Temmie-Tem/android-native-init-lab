@@ -204,25 +204,36 @@ class P319CandidateRequalificationTest(unittest.TestCase):
         goal = GOAL.read_text(encoding="utf-8")
         ledger = LEDGER.read_text(encoding="utf-8")
         self.assertIn(
-            "Status: `P319_CANDIDATE_REQUALIFICATION_IMPLEMENTED_REVIEW_PENDING`",
+            "Status: `PASS_GO_P319_CANDIDATE_REQUALIFICATION_H0_CAPABILITY_V1`",
             report,
         )
         self.assertIn("exactly one machine\nblocker: `FRESH_BASELINE_MISSING`", report)
         self.assertIn("Topic 33", report)
         self.assertIn("topic 34", report)
         self.assertIn("`-52`/`-53`/`-10`", goal)
-        rows = [
+        implementation_rows = [
             line
             for line in ledger.splitlines()
             if "| h0-candidate-requalification-34 |" in line
         ]
-        self.assertEqual(len(rows), 1)
+        review_rows = [
+            line
+            for line in ledger.splitlines()
+            if "| h0-candidate-requalification-review-34 |" in line
+        ]
+        self.assertEqual(len(implementation_rows), 1)
+        self.assertEqual(len(review_rows), 1)
         self.assertIn(
             "P319_CANDIDATE_REQUALIFICATION_IMPLEMENTED_REVIEW_PENDING",
-            rows[0],
+            implementation_rows[0],
         )
-        self.assertNotIn("PASS_GO_", rows[0])
-        self.assertIn("52/36/16", rows[0])
+        self.assertNotIn("PASS_GO_", implementation_rows[0])
+        self.assertIn("52/36/16", implementation_rows[0])
+        self.assertIn(
+            "PASS_GO_P319_CANDIDATE_REQUALIFICATION_H0_CAPABILITY_V1",
+            review_rows[0],
+        )
+        self.assertIn("56/37/19", review_rows[0])
 
 
 if __name__ == "__main__":

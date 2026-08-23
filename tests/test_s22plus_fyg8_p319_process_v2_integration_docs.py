@@ -328,7 +328,7 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("seventeen bound fixtures", self.download_recovery_report)
         self.assertIn("is not review authority", self.download_recovery_report)
         self.assertIn("binds all 437 current source keys", self.goal)
-        self.assertIn("`IMPLEMENTED_REVIEW_PENDING` under topic 34", self.goal)
+        self.assertIn("independently reviewed H0-only `PASS_GO` under topic 34", self.goal)
         self.assertIn("runner-consumed global candidate registry", self.goal)
         self.assertIn("topic 32 now independently closes", self.goal)
         self.assertIn("`BLOCKED_P319_PROCESS_V2_INTEGRATION_H0`", self.goal)

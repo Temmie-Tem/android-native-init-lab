@@ -1,11 +1,12 @@
 # S22+ FYG8 P3.19 candidate requalification H0
 
-Status: `P319_CANDIDATE_REQUALIFICATION_IMPLEMENTED_REVIEW_PENDING`.
+Status: `PASS_GO_P319_CANDIDATE_REQUALIFICATION_H0_CAPABILITY_V1`.
 
 This is a host-only requalification of the already-built exact 73-row P3.19
 stock-witness candidate. It creates no ready manifest, run manifest, approval,
 fresh baseline, device action, recovery invocation, replay, causal result, or
-live authority. Independent changed-closure review remains required.
+live authority. Independent changed-closure review is complete; this remains
+H0 capability evidence only.
 
 ## Reason for requalification
 
@@ -125,9 +126,28 @@ causal result, candidate success, device contact, and live authority are all
 false.
 
 Topic 33's independent FYD9/FYG8 source-delta review remains separate and
-unresolved. This unit opens topic 34 only. It does not authorize the fresh
-baseline; that remains a separate attended exact-target action after this
-changed closure receives independent review.
+unresolved. The independent review resolves topic 34 only. It does not
+authorize the fresh baseline; that remains a separate attended exact-target
+action.
+
+## Independent changed-closure review
+
+An independent Luna review returned
+`PASS_GO_P319_CANDIDATE_REQUALIFICATION_H0_CAPABILITY_V1` with no load-bearing
+finding. It directly checked the 73-row/EUD38/latch-only intent, all 437 source
+keys, the exact `-52`/`-53`/`-10` receipts, unchanged candidate bytes, the
+47,599-byte raw-first registration, current Process-v2 source match, and the
+single `FRESH_BASELINE_MISSING` machine blocker.
+
+The older 65-module MUX diagnostic described later in `GOAL.md` is a distinct
+historical diagnostic alternative. It is not referenced by the active 73-row
+intent, qualifier, executability closure, or integration receipt and cannot
+substitute for them.
+
+The scoped review changes full-tail accounting from 56 total / 36 resolved /
+20 unresolved to 56 / 37 / 19. It creates no ready/run/approval manifest and
+grants no D0, D1, F1, recovery, replay, causal, candidate-success, device, or
+live authority.
 
 ## Validation
 

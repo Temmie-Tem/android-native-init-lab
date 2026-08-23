@@ -188,21 +188,32 @@ class P319SsusbUdcPlanClosureTest(unittest.TestCase):
         report = REPORT.read_text(encoding="utf-8")
         for token in (
             "PASS_P319_SSUSB_UDC_PLAN_CLOSURE_H0",
+            "PASS_GO_P319_SSUSB_UDC_PLAN_CLOSURE_H0_CAPABILITY_V1",
             "yes for static membership, order, and ABI closure",
             "unproved for runtime bind and probe success",
             "does not silently repin",
             "topic 37",
         ):
             self.assertIn(token, report)
-        rows = [
+        implementation_rows = [
             line
             for line in LEDGER.read_text(encoding="utf-8").splitlines()
             if " h0-ssusb-udc-plan-closure-37 " in line
         ]
-        self.assertEqual(len(rows), 1)
+        review_rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if " h0-ssusb-udc-plan-closure-review-37 " in line
+        ]
+        self.assertEqual(len(implementation_rows), 1)
+        self.assertEqual(len(review_rows), 1)
         self.assertIn(
             "P319_SSUSB_UDC_PLAN_CLOSURE_IMPLEMENTED_REVIEW_PENDING",
-            rows[0],
+            implementation_rows[0],
+        )
+        self.assertIn(
+            "PASS_GO_P319_SSUSB_UDC_PLAN_CLOSURE_H0_CAPABILITY_V1",
+            review_rows[0],
         )
 
     def test_auditor_has_no_device_or_transfer_primitive(self):

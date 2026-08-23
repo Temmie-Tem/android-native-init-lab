@@ -29,11 +29,16 @@ def assert_current_p319_qualification_boundary(testcase, goal: str) -> None:
 
     testcase.assertIn("reviewed stock-witness runtime/build closure", frontier)
     testcase.assertIn("binds all 437 current source keys", frontier)
-    testcase.assertIn("`IMPLEMENTED_REVIEW_PENDING` under topic 34", frontier)
+    testcase.assertIn(
+        "independently reviewed H0-only `PASS_GO` under topic 34", frontier
+    )
+    testcase.assertIn("topic-34 review is closed", frontier)
     testcase.assertIn("only on `FRESH_BASELINE_MISSING`", frontier)
     testcase.assertIn("runner-consumed global candidate registry", frontier)
     testcase.assertIn("typed module-plan binding", stage_a)
-    testcase.assertIn("`IMPLEMENTED_REVIEW_PENDING`", stage_a)
-    testcase.assertIn("is not PASS_GO", stage_a)
+    testcase.assertIn(
+        "independently reviewed H0-only `PASS_GO` under topic 34", stage_a
+    )
+    testcase.assertIn("without creating live authority", stage_a)
     testcase.assertIn("P3.19", stage_a)
     testcase.assertIn("`BLOCKED_P319_PROCESS_V2_INTEGRATION_H0`", stage_a)
