@@ -120,12 +120,16 @@ class A90RticPublicMpgenCanaryHazardReviewTest(unittest.TestCase):
         ):
             self.assertIn(token, self.handoff_flat)
 
-    def test_goal_records_review_and_next_h0_without_exceeding_limit(self) -> None:
+    def test_goal_records_review_and_h35_without_exceeding_limit(self) -> None:
         goal = GOAL.read_text(encoding="utf-8")
         self.assertLessEqual(len(goal.splitlines()), 900)
         self.assertIn("`PASS_GO_H0_CANARY_HAZARD`", goal)
         self.assertIn(REVIEW.name, goal)
-        self.assertIn("no successor/live authority exists", " ".join(goal.split()))
+        flat = " ".join(goal.split())
+        self.assertIn("H35 is the fresh host-only successor", flat)
+        self.assertIn("0.11.202", flat)
+        self.assertIn("Package review remains pending", flat)
+        self.assertIn("no qualification, manifest, D0, D1, F1, or live authority exists", flat)
 
 
 if __name__ == "__main__":

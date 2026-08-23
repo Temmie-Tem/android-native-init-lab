@@ -29,31 +29,31 @@ the separately registered S20+ goal and every future target row.
 - H28-H31 are consumed and never replayed. H31 transferred zero candidate and
   rollback bytes; its reviewed pre-transfer reconciler proved exact healthy
   V2321, released only the active guard, and retained the H31 candidate guard.
-- H32 is the consumed prior frontier,
-  `0.11.199 / phase3-minimal-h32-stock-rebuild-1007-cfp`, 58,372,096 bytes, SHA-256
-  `e56cb1201d63e26f275de10d6a4eb6a1686f6021b6613aa4dde1374930dd299d`.
-  Its candidate and rollback writes are both zero, but its approval/ordinal is
-  consumed and never replayed. The old H32 review at owner `0a6122d2…` and
-  continuation `585869c5…` is stale after the observer repair. The historical
-  qualification is frozen in
-  `docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`,
-  and that old replaceable continuation lease is superseded. The H32-only
-  continuation closed `PRETRANSFER_ABORTED_NO_BOOT_WRITE`, released the active
-  guard, retained the consumed H32 candidate guard, and permits no replay.
+- H32 is consumed: `0.11.199 / phase3-minimal-h32-stock-rebuild-1007-cfp`,
+  58,372,096 bytes, SHA-256 `e56cb1201d63e26f275de10d6a4eb6a1686f6021b6613aa4dde1374930dd299d`.
+  Candidate and rollback writes were zero, but its approval/ordinal cannot
+  replay. Its stale qualification is frozen in
+  `docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`;
+  the H32-only continuation released the active guard, retained the consumed
+  candidate guard, and closed `PRETRANSFER_ABORTED_NO_BOOT_WRITE`.
 - H29–H34 are consumed and cannot be replayed. One attended H34 F1 wrote and
   read back exact `0.11.201 / phase3-minimal-h34-stock-rebuild-1007-cfp`
   boot bytes and confirmed its sole System-return request, but proved no H34
   Native health before recovery. Exact V2321 rollback bytes were then written
   and read back; its sole System-return request was uncertain. Terminal state
   is `RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED`; current V2321 health is
-  unproved and neither image may replay. Host-only follow-up localized H34 to
-  missing `rtic_mp` plus a stale stock RTIC DTB. The historical public MPGen
-  producer now emits offsets `88/1704/1728/2144`; two fresh trees produce exact
-  Image `1ddae56f8df97030794a590192e4a4162876736029b1a54fd26173c9287002b7`
-  and structural RTIC `PASS`. Review `PASS_GO_H0_CANARY_HAZARD` accepts H1–H6
-  only for one future attended canary; no successor/live authority exists. Next
-  H0 is fresh successor allocation plus exact carrier/identity-only ramdisk
-  packaging; see `docs/reports/A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_INDEPENDENT_REVIEW_2026-08-23.json`.
+  unproved and neither image may replay. Host analysis localized H34 to missing
+  `rtic_mp` plus a stale RTIC DTB; the repaired public producer now emits exact
+  offsets `88/1704/1728/2144` and structural RTIC `PASS`.
+- H35 is the fresh host-only successor: `0.11.202 /
+  phase3-minimal-h35-public-mpgen-rtic-canary`, 58,372,096 bytes, SHA-256
+  `5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759`.
+  A/B are byte-identical and contain exact reviewed carrier `15b49a71…`; the
+  ramdisk preserves H34 semantics except fresh identity/state paths. Verdict
+  `PASS_GO_H0_CANARY_HAZARD` in `A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_INDEPENDENT_REVIEW_2026-08-23.json`
+  accepts H1–H6 for one future attended canary only. Package review remains
+  pending; no qualification, manifest, D0, D1, F1, or live authority exists,
+  and current V2321 health remains unproved. See `docs/reports/A90_H35_PUBLIC_MPGEN_RTIC_CANARY_PACKAGE_H0_2026-08-23.md`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 
