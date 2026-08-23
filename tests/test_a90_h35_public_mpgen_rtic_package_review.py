@@ -155,9 +155,10 @@ class A90H35PublicMpgenRticPackageReviewTest(unittest.TestCase):
         flat = " ".join(goal.split())
         self.assertLessEqual(len(goal.splitlines()), 900)
         self.assertIn("`PASS_H0_PACKAGE_GATE`", goal)
-        self.assertIn(REVIEW.name, goal)
-        self.assertIn("Next H0 is candidate-specific qualification", flat)
-        self.assertIn("No qualification, manifest, D0, D1, F1, or live authority exists", flat)
+        self.assertIn("candidate-specific `PASS_GO`", flat)
+        self.assertIn("private H35 manifest passes owner validation", flat)
+        self.assertIn("No D0, D1, approval, F1, or live authority exists", flat)
+        self.assertNotIn("No qualification, manifest", flat)
 
 
 if __name__ == "__main__":

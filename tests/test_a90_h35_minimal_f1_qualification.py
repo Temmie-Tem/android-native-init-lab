@@ -6,6 +6,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 import unittest
@@ -20,6 +21,8 @@ CONTINUATION_REVIEW = ROOT / "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_
 POSTROLLBACK_REVIEW = ROOT / "docs/reports/A90_F1_POSTROLLBACK_RECOVERY_CURRENT_REVIEW.json"
 HAZARD_REVIEW = ROOT / "docs/reports/A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_INDEPENDENT_REVIEW_2026-08-23.json"
 PACKAGE_REVIEW = ROOT / "docs/reports/A90_H35_PUBLIC_MPGEN_RTIC_CANARY_PACKAGE_INDEPENDENT_REVIEW_2026-08-23.json"
+INDEPENDENT_REVIEW = ROOT / "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H35_INDEPENDENT_REVIEW_2026-08-23.json"
+PRIVATE_MANIFEST = ROOT / "workspace/private/manifests/a90-h35-f1-20260823-01.json"
 OWNER = ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py"
 CONTINUATION = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py"
 POSTROLLBACK = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_postrollback_recovery_v1.py"
@@ -42,6 +45,12 @@ EXPECTED_CANDIDATE_SHA256 = (
 )
 EXPECTED_ROLLBACK_SHA256 = (
     "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+)
+EXPECTED_REVIEW_SHA256 = (
+    "fa02661d1fbe1ef6e02c3692c1329f1db75b9855bc1365d08b694a49bac15fe1"
+)
+EXPECTED_PRIVATE_MANIFEST_SHA256 = (
+    "d9cfa60c2b8cc306f96f506ca0fdb52d315b495531a55198c8d9afedc1b7ebaf"
 )
 EXPECTED_HAZARD_STATEMENT = (
     "Exact H35 0.11.202 / phase3-minimal-h35-public-mpgen-rtic-canary is the "
@@ -339,12 +348,59 @@ class A90H35MinimalQualificationTest(unittest.TestCase):
             "NO_PROOF_OBSERVER",
             "candidate replay",
             "zero contacts/findings",
+            "6,608 bytes",
         ):
             self.assertIn(expected, flat)
         self.assertIn("Authority: none", text)
         self.assertIn("no D0, approval, F1", text)
         self.assertNotIn("liveAuthority=true", text)
         self.assertNotIn("candidateAuthority=true", text)
+
+    def test_independent_review_is_canonical_and_owner_compatible(self) -> None:
+        owner = _load("a90_h35_review_owner", OWNER)
+        raw = INDEPENDENT_REVIEW.read_bytes()
+        review = _strict_json(INDEPENDENT_REVIEW)
+        self.assertEqual(len(raw), 1_192)
+        self.assertEqual(_sha(INDEPENDENT_REVIEW), EXPECTED_REVIEW_SHA256)
+        self.assertFalse(raw.endswith(b"\n"))
+        self.assertEqual(owner.canonical_json(review), raw)
+        self.assertEqual(review["verdict"], "PASS_GO")
+        self.assertEqual(review["executionClosureSha256"], EXPECTED_OWNER_CLOSURE)
+        self.assertEqual(review["candidateSha256"], EXPECTED_CANDIDATE_SHA256)
+        self.assertEqual(review["rollbackSha256"], EXPECTED_ROLLBACK_SHA256)
+        self.assertEqual(review["findings"], {"high": [], "low": [], "medium": []})
+        _assert_zero_contacts(review["contacts"])
+        self.assertIs(review["liveAuthority"], False)
+        synthetic_manifest = {
+            "candidate": {"sha256": EXPECTED_CANDIDATE_SHA256},
+            "rollback": {"sha256": EXPECTED_ROLLBACK_SHA256},
+            "qualification": {
+                "recovery": self.value["recovery"],
+                "hazard": {
+                    key: self.value["hazard"][key]
+                    for key in ("id", "statementSha256", "accepted")
+                },
+                "freshState": self.value["freshState"],
+            },
+        }
+        owner._validate_qualification_review(review, synthetic_manifest)
+
+    def test_private_manifest_binds_h35_review_when_explicitly_enabled(self) -> None:
+        if os.environ.get("A90_H35_VERIFY_PRIVATE") != "1":
+            self.skipTest("set A90_H35_VERIFY_PRIVATE=1 for private H35 manifest verification")
+        owner = _load("a90_h35_private_owner", OWNER)
+        raw, value = owner.load_manifest(PRIVATE_MANIFEST.resolve())
+        owner._verify_qualification_inputs(value)
+        self.assertEqual(value["runId"], "a90-h35-f1-20260823-01")
+        self.assertEqual(value["candidate"]["sha256"], EXPECTED_CANDIDATE_SHA256)
+        self.assertEqual(value["rollback"]["sha256"], EXPECTED_ROLLBACK_SHA256)
+        self.assertEqual(value["qualification"]["review"]["size"], 1_192)
+        self.assertEqual(
+            value["qualification"]["review"]["sha256"], EXPECTED_REVIEW_SHA256
+        )
+        self.assertEqual(len(raw), 1_955)
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), EXPECTED_PRIVATE_MANIFEST_SHA256)
+        self.assertTrue(value["qualification"]["hazard"]["accepted"] is True)
 
     def test_hostile_stale_closure_evidence_sha_statement_and_bool_aliases_reject(self) -> None:
         stale = copy.deepcopy(self.value)

@@ -8,7 +8,7 @@ Authority: none; no D0, approval, F1, transfer, reboot, rollback, or live effect
 
 Request one independent public review of
 `docs/reports/A90_H35_MINIMAL_F1_QUALIFICATION_INPUT_2026-08-23.json`.
-The frozen input is 6,607 bytes at SHA-256
+The frozen input is 6,608 bytes at SHA-256
 `1f70b880b482db50b3347102ad60f911bf9f28d07434db5adc06abf061dfff7a` and
 binds the current minimal-F1 owner closure
 `455c486c3e4da2ec07b4ccf674c69625a4eb9661ae30c89924ab5f2c3363c0c8`, H35
