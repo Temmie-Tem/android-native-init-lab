@@ -71,10 +71,10 @@ P319_MATERIALIZATION = PRIVATE / (
     "successor-module-materialization-v1-20260820-04/result.json"
 )
 P319_QUALIFICATION_INTENT = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-08/intent.json"
+    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/intent.json"
 )
 P319_QUALIFICATION = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-08/qualification.json"
+    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/qualification.json"
 )
 PROCESS_CONTRACT = ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET_CONTRACT = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
@@ -107,8 +107,8 @@ EXPECTED_IDS = {
     "p319_pdic": {"size": 15563, "sha256": "7744d9e7c5d76148ad4038f59531dd686d6e8b3a1327e78206ae5c6ad4390025"},
     "p319_plan": {"size": 14833, "sha256": "d8c12396e241e387fe342803eca4537b6728dcda7fb901aa8dc7e591d4745cb2"},
     "p319_materialization": {"size": 10658, "sha256": "8b8c1f5afd8c02693901d3552c221bcc73bafa2543c77dfff4954bdba188f6b5"},
-    "p319_intent": {"size": 107147, "sha256": "2e0d67cfecd752f4ebe76ab3176969dc83eec7117e59cae1b5a7c3f18e0c9226"},
-    "p319_qualification": {"size": 109705, "sha256": "0b49969f730c4af374a20cac6c3eef4b0a0dcbf136d9ce30eefc4ac7546d5738"},
+    "p319_intent": {"size": 107403, "sha256": "5a6a24195d89743b7b71e3dbd8db2d8d263c129b774d4a1d6155704507cb3bb2"},
+    "p319_qualification": {"size": 113386, "sha256": "72b39572318945a180dff396998c8f2d72babc89a0f8655557a0dfc000cc852d"},
     "p317_source": {"size": 42902, "sha256": "cdc99e05884b2bd127a36536e349b005322c049e36e9f8582f0f53a3530088f8"},
     "process_contract": {"size": 36163, "sha256": "26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1"},
     "target_contract": {"size": 14926, "sha256": "e429c80c86f8b122443e56a8d8d3b01605aabb320d2d5ef5e3eb9fcc666a55e0"},

@@ -36,13 +36,13 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
 VERDICT = "PASS_P319_PREREQUISITE_H0"
-RAW_AUDITOR_SHA256 = "b0c0a8169c07b9afc532a62a45e3ca8a408ff0de091832653a25f7a3c523ac96"
-RAW_AUDITOR_SIZE = 62_633
-RAW_RECEIPT_SHA256 = "d84487138f45f8dadba2be1b8470d77e91331ff0fa810fbde2137089c6d67880"
+RAW_AUDITOR_SHA256 = "e67513b28c563f83d0b34b3df0c52d84a91a93102340150ed261938f337acbfd"
+RAW_AUDITOR_SIZE = 62_642
+RAW_RECEIPT_SHA256 = "ac3876c078062098ce240ae78c102ae19d2fe1b47eba257d374131cbaffc193e"
 RAW_RECEIPT_SIZE = 11_012
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260823-02-request-recovery.json"
+    "raw-first-observer-audit-20260823-04-candidate-requalification.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"

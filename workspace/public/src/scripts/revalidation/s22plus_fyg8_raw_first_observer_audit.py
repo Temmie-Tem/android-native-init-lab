@@ -19,12 +19,12 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "edb4131c4799e05a5f712d24b935777cd7eb0c96cbd40d48aaad5a4b0aca057b"
+AUDITOR_NORMALIZED_SHA256 = "7df9c62de4bc3f1949d6214bed0fc85b80364daa7009b0671676e45405e4feb9"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260823-02-request-recovery.json"
+    "raw-first-observer-audit-20260823-04-candidate-requalification.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
@@ -248,8 +248,8 @@ S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
         "owner": "s22plus-fyg8-p319",
         "classification": "host-only-non-acquiring",
         "profile": "H0-candidate-qualification",
-        "size": 46610,
-        "sha256": "e74c299a1446cc379bd2bb065309ce2dc7b4f1cb189a03fb58877c6805fdfca9",
+        "size": 47599,
+        "sha256": "2618c9c9ad0723ce456fcf718af0f456e02e020acc52c27864b501a0fd42ace4",
         "exec_lines": (238, 252),
         "getattr_line": 152,
     },

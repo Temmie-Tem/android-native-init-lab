@@ -436,7 +436,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["owner"], "s22plus-fyg8-p319")
         self.assertEqual(value["classification"], "host-only-non-acquiring")
         self.assertEqual(value["profile"], "H0-candidate-qualification")
-        self.assertEqual(value["size"], 46610)
+        self.assertEqual(value["size"], 47599)
         self.assertEqual(value["sha256"], spec["sha256"])
         self.assertEqual(value["exec_lines"], [238, 252])
         self.assertEqual(value["getattr_line"], 152)
@@ -646,7 +646,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["host_only_non_acquiring_source_count"], 1)
         self.assertEqual(
             value["host_only_non_acquiring_source_inventory_sha256"],
-            "a85944d3066909bbb54fd5e00fdf265900708f0ca9a4af2245e46fff25de9933",
+            "341e71f4d5757778ec2cf8cd25eb949ddd357d3052905ab383ed1e0b738e6f17",
         )
         self.assertTrue(value["host_only_non_acquiring_sources_are_byte_frozen"])
         self.assertEqual(

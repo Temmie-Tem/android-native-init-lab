@@ -30,7 +30,7 @@ EXECUTABILITY = SCRIPT_DIR / "s22plus_fyg8_p319_experiment_executability_closure
 PREREQUISITE = SCRIPT_DIR / "s22plus_fyg8_p319_process_v2_prerequisite_audit.py"
 CANDIDATE_QUALIFICATION = SCRIPT_DIR / "s22plus_fyg8_p319_candidate_qualification.py"
 INTENT = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-08/intent.json"
+    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/intent.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v1/result.json"

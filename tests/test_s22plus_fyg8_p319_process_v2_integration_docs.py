@@ -32,14 +32,22 @@ INTEGRATION = ROOT / (
 )
 CURRENT_INTEGRATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v1-20260823-02/result.json"
+    "process-v2-integration-qualification-v1-20260823-04/result.json"
 )
 CURRENT_PREREQUISITE = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260823-03.json"
+)
+REQUEST_RECOVERY_INTEGRATION = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-integration-qualification-v1-20260823-02/result.json"
+)
+REQUEST_RECOVERY_PREREQUISITE = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 545
+P319_SELECTED_TEST_COUNT = 554
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
@@ -79,6 +87,11 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.current_integration_bytes = CURRENT_INTEGRATION.read_bytes()
         cls.current_integration = json.loads(cls.current_integration_bytes)
         cls.current_prerequisite_bytes = CURRENT_PREREQUISITE.read_bytes()
+        cls.request_recovery_integration_bytes = REQUEST_RECOVERY_INTEGRATION.read_bytes()
+        cls.request_recovery_integration = json.loads(
+            cls.request_recovery_integration_bytes
+        )
+        cls.request_recovery_prerequisite_bytes = REQUEST_RECOVERY_PREREQUISITE.read_bytes()
 
     def test_report_is_scoped_reviewed_and_names_all_current_blockers(self):
         self.assertIn(
@@ -156,16 +169,28 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
                 "d0380d7d9dab635fb20aa365b8251023bf286b6ea5c3347b27e1d38330085307",
             ),
             (
-                CURRENT_PREREQUISITE,
-                self.current_prerequisite_bytes,
+                REQUEST_RECOVERY_PREREQUISITE,
+                self.request_recovery_prerequisite_bytes,
                 12528,
                 "4785343654809f5f01c8c055e280102eb2dd834bd6ce2cc1378ce24dee3bec5c",
             ),
             (
-                CURRENT_INTEGRATION,
-                self.current_integration_bytes,
+                REQUEST_RECOVERY_INTEGRATION,
+                self.request_recovery_integration_bytes,
                 61592,
                 "b376a2c5523335c203df042e30ad8b4eaf08b21e5c8036eecbc67f8ae2712258",
+            ),
+            (
+                CURRENT_PREREQUISITE,
+                self.current_prerequisite_bytes,
+                12537,
+                "ee6a1e79dfcd155f5bcdec95fbea61eea0c0645a8cd3ea2c7d30a04b59d7837c",
+            ),
+            (
+                CURRENT_INTEGRATION,
+                self.current_integration_bytes,
+                61388,
+                "745814926e44763214ed15d3eeb10d2a4c4e8bb591d3b92d96685aa4cf4aff88",
             ),
         )
         for path, data, size, digest in expected:
@@ -208,11 +233,12 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertTrue(self.current_integration["source_closure_pass"])
         self.assertEqual(
             {item["code"] for item in self.current_integration["blockers"]},
-            {
-                "FRESH_BASELINE_MISSING",
-                "REQUALIFICATION_REQUIRED",
-            },
+            {"FRESH_BASELINE_MISSING"},
         )
+        comparison = self.current_integration["components"]["adapter_pin"]["source_keys"]
+        self.assertEqual(comparison["mismatch_count"], 0)
+        self.assertEqual(comparison["mismatch_keys"], [])
+        self.assertTrue(comparison["exact_match"])
         self.assertNotIn(
             "EXECUTABILITY_SOURCE_CLOSURE_BLOCKED",
             {item["code"] for item in self.current_integration["blockers"]},
@@ -222,6 +248,10 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         )
         self.assertTrue(self.current_integration["runner_recovery_closed"])
         self.assertFalse(self.current_integration["runner_ready"])
+        self.assertEqual(
+            {item["code"] for item in self.request_recovery_integration["blockers"]},
+            {"FRESH_BASELINE_MISSING", "REQUALIFICATION_REQUIRED"},
+        )
 
     def test_source_key_and_raw_first_boundaries_are_documented_exactly(self):
         comparison = self.integration["components"]["adapter_pin"]["source_keys"]
@@ -297,11 +327,12 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("50/36/14", self.download_recovery_report)
         self.assertIn("seventeen bound fixtures", self.download_recovery_report)
         self.assertIn("is not review authority", self.download_recovery_report)
-        self.assertIn("changed adapter closure now requires requalification", self.goal)
+        self.assertIn("binds all 437 current source keys", self.goal)
+        self.assertIn("`IMPLEMENTED_REVIEW_PENDING` under topic 34", self.goal)
         self.assertIn("runner-consumed global candidate registry", self.goal)
         self.assertIn("topic 32 now independently closes", self.goal)
         self.assertIn("`BLOCKED_P319_PROCESS_V2_INTEGRATION_H0`", self.goal)
-        self.assertIn("only on a fresh baseline and four-key adapter requalification", self.goal)
+        self.assertIn("only on `FRESH_BASELINE_MISSING`", self.goal)
         self.assertIn("no ready/run manifest", self.goal)
         self.assertIn("scoped independent H0 `PASS_GO`", self.goal)
         self.assertIn("independently reviewed H0-only prerequisite integration", self.goal)

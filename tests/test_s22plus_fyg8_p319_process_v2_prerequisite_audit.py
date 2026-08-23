@@ -96,14 +96,14 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
 
     def test_raw_first_projection_is_disk_population_probe(self):
         raw = self.receipt["raw_first_execution_closure"]
-        self.assertEqual(raw["auditor"]["size"], 62633)
+        self.assertEqual(raw["auditor"]["size"], 62642)
         self.assertEqual(
             raw["auditor"]["sha256"],
-            "b0c0a8169c07b9afc532a62a45e3ca8a408ff0de091832653a25f7a3c523ac96",
+            "e67513b28c563f83d0b34b3df0c52d84a91a93102340150ed261938f337acbfd",
         )
         self.assertEqual(
             raw["receipt"]["sha256"],
-            "d84487138f45f8dadba2be1b8470d77e91331ff0fa810fbde2137089c6d67880",
+            "ac3876c078062098ce240ae78c102ae19d2fe1b47eba257d374131cbaffc193e",
         )
         self.assertEqual(raw["receipt"]["mode"], "0400")
         self.assertEqual(raw["receipt"]["nlink"], 1)

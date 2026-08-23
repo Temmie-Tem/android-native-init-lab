@@ -29,9 +29,9 @@ STOCK_SOURCE = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_s
 ADAPTER_SOURCE = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_stock_process_v2_adapter.py"
 PREDECESSOR_PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-32"
 PREDECESSOR_PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-33"
-DEFAULT_PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-48"
-DEFAULT_PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-49"
-DEFAULT_RUN_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-08"
+DEFAULT_PHASE1 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-50"
+DEFAULT_PHASE2 = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-51"
+DEFAULT_RUN_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-09"
 IMAGE = ROOT / "workspace/private/outputs/s22plus_fyg8_p311/fixed-p310-ready-1/Image"
 P311_BASE_BOOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p311/candidate-a/boot.img"
 ROLLBACK_AP = ROOT / "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5"
@@ -734,6 +734,8 @@ def _report_value(
         {"run": "candidate-qualification-v1-20260821-05", "phase1": "stock-witness-runtime-v1-20260821-42", "phase2": "stock-witness-runtime-v1-20260821-43", "reason": "superseded by final source-only alignment", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
         {"run": "candidate-qualification-v1-20260821-06", "phase1": "stock-witness-runtime-v1-20260821-44", "phase2": "stock-witness-runtime-v1-20260821-45", "reason": "superseded by strict on-disk intent TOCTOU verification", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
         {"run": "candidate-qualification-v1-20260821-07", "phase1": "stock-witness-runtime-v1-20260821-46", "phase2": "stock-witness-runtime-v1-20260821-47", "reason": "superseded by typed intent module-plan authority binding", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
+        {"run": "candidate-qualification-v1-20260821-08", "phase1": "stock-witness-runtime-v1-20260821-48", "phase2": "stock-witness-runtime-v1-20260821-49", "reason": "superseded by current adapter, arming, and Process-v2 contract requalification", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
+        {"run": "candidate-qualification-v1-20260821-09", "phase1": "stock-witness-runtime-v1-20260821-50", "phase2": "stock-witness-runtime-v1-20260821-51", "reason": "superseded after the raw-first host-only qualifier identity gate correctly rejected the changed qualifier", "phase1_identity": {"size": 382264, "sha256": "982f903f7685f63e5b2fbadebc5a3bbef5d98f009207ac352bda80777b09e886"}, "phase2_identity": {"size": 392886, "sha256": "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"}},
     ):
         run_path = ROOT / "workspace/private/outputs/s22plus_fyg8_p319" / entry["run"]
         phase_root = ROOT / "workspace/private/outputs/s22plus_fyg8_p319"

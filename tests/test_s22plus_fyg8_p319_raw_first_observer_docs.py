@@ -25,6 +25,14 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260823-04-candidate-requalification.json"
+)
+CANDIDATE_REQUALIFICATION_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260823-03-candidate-requalification.json"
+)
+REQUEST_RECOVERY_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260823-02-request-recovery.json"
 )
 # The previous current receipt is preserved as superseded evidence.  It must
@@ -86,7 +94,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260823-02-request-recovery.json",
+            "raw-first-observer-audit-20260823-04-candidate-requalification.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -113,7 +121,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "aef0fe75591f98c5c451b5ee8a69c56d082d840c3653729225fa9973841b2659",
+            "2621fe9edf3b079378ac5af869f50124befd29b34bbd18645207cf72dea86937",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -122,8 +130,30 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(retained_bytes), 11012)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "d84487138f45f8dadba2be1b8470d77e91331ff0fa810fbde2137089c6d67880",
+            "ac3876c078062098ce240ae78c102ae19d2fe1b47eba257d374131cbaffc193e",
         )
+
+    def test_candidate_requalification_predecessors_are_preserved(self):
+        expected = (
+            (
+                CANDIDATE_REQUALIFICATION_PREDECESSOR_RECEIPT,
+                "ab698ffba7f7766ba0afb80ae021338a81896192d89349005c9f9dbd1b5f18bc",
+            ),
+            (
+                REQUEST_RECOVERY_RECEIPT,
+                "d84487138f45f8dadba2be1b8470d77e91331ff0fa810fbde2137089c6d67880",
+            ),
+        )
+        current = CURRENT_RECEIPT.read_bytes()
+        for path, digest in expected:
+            with self.subTest(path=path.name):
+                info = path.stat()
+                payload = path.read_bytes()
+                self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+                self.assertEqual(info.st_nlink, 1)
+                self.assertEqual(len(payload), 11012)
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), digest)
+                self.assertNotEqual(payload, current)
 
     def test_previous_current_receipt_is_preserved_unmodified(self):
         info = PREVIOUS_CURRENT_RECEIPT.stat()
