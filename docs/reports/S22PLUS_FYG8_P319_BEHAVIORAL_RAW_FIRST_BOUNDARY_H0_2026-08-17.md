@@ -50,11 +50,16 @@ Populations under the current tree:
 | revalidation `*.py` scanned | 1,729 |
 | acquiring **and** device-facing | 178 + 15 active |
 | S22+-scoped, byte-frozen | 127 |
-| other-target, membership-only | 51 |
+| other-target, membership-only | 52 |
 
 The exact-byte host-only non-acquiring registry contains one P3.19 qualifier;
 it is excluded from the acquiring/device-facing population and is audited as a
 separate H0 source class.
+
+Later request-cut qualification registered the dormant S20+ health source as
+one additional target-external membership-only name. The earlier table value
+51 is superseded by the current auditor-derived 52; no S20+ byte is frozen by
+this S22+ boundary.
 
 Ordering matters for cost as well as meaning: the substring test runs before the
 AST parse, which keeps a full audit at about 7 seconds instead of parsing all

@@ -39,7 +39,7 @@ CURRENT_PREREQUISITE = ROOT / (
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 533
+P319_SELECTED_TEST_COUNT = 545
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
