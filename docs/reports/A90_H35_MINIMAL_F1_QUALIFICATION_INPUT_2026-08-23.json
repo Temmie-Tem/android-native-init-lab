@@ -1,0 +1,125 @@
+{
+  "schema": "a90-boot-only-f1-minimal-review-input-v1",
+  "capability": "A90_BOOT_ONLY_F1_MINIMAL_V1",
+  "scope": "A90_MINIMAL_BOOT_ONLY_F1_EXECUTION_AND_CANDIDATE_HAZARD",
+  "targetProfile": "SAMSUNG_A90_5G",
+  "authority": {
+    "candidate": false,
+    "candidateAuthority": false,
+    "d0": false,
+    "f1": false,
+    "live": false,
+    "liveAuthority": false
+  },
+  "executionClosureSha256": "455c486c3e4da2ec07b4ccf674c69625a4eb9661ae30c89924ab5f2c3363c0c8",
+  "candidate": {
+    "version": "0.11.202",
+    "build": "phase3-minimal-h35-public-mpgen-rtic-canary",
+    "size": 58372096,
+    "sha256": "5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759"
+  },
+  "expectedStart": {
+    "version": "0.9.285",
+    "build": "v2321-usb-clean-identity-rodata"
+  },
+  "rollback": {
+    "version": "0.9.285",
+    "build": "v2321-usb-clean-identity-rodata",
+    "size": 60882944,
+    "sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+  },
+  "freshState": {
+    "enablePath": "/cache/a90-auto-handoff-phase3-minimal-h35.enable",
+    "latchPath": "/cache/a90-auto-handoff-phase3-minimal-h35.done"
+  },
+  "recovery": {
+    "demonstrated": true,
+    "method": "NATIVE_TO_STABLE_ADB_BASELINE_SINGLE_NEW_RECOVERY_ARRIVAL_BOOT_READBACK_V1",
+    "profile": "A90_ATTENDED_PHYSICAL_RECOVERY_V1"
+  },
+  "recoveryIdentity": {
+    "adbSerialSha256": null,
+    "binding": "PRIVATE_MANIFEST_BOUND_AT_D0",
+    "rawSerialTracked": false,
+    "status": "UNBOUND_PRIVATE_MANIFEST_REQUIRED"
+  },
+  "continuationReview": {
+    "capability": "A90_F1_CANDIDATE_RETURN_CONTINUATION_V1",
+    "schema": "a90-f1-candidate-return-continuation-independent-review-v1",
+    "scope": "A90_F1_CANDIDATE_RETURN_CONTINUATION_AND_NO_REPLAY",
+    "path": "docs/reports/A90_F1_CANDIDATE_RETURN_CONTINUATION_CURRENT_REVIEW.json",
+    "size": 577,
+    "sha256": "22fba68f002bf7e35b9e15d1b12cfed906e33de4bd1a0e56982bcc78f4acd120",
+    "executionClosureSha256": "981a3f06ce38a288a8ab9c5ef76234bc38c97b51359fd2f46bfb4ed714d7ae3d",
+    "verdict": "PASS_GO",
+    "liveAuthority": false
+  },
+  "postrollbackReview": {
+    "capability": "A90_F1_POSTROLLBACK_RECOVERY_V1",
+    "schema": "a90-f1-postrollback-recovery-independent-review-v1",
+    "path": "docs/reports/A90_F1_POSTROLLBACK_RECOVERY_CURRENT_REVIEW.json",
+    "size": 467,
+    "sha256": "20aaed0b4e3d7aefb940c06db421a55b9113dcc7bf2cc9e074a36328ebf3e9a0",
+    "executionClosureSha256": "148525430a5cd9f875df4cb39766c6c72a8093f2155ea1bc6e312aea8f45cf5d",
+    "verdict": "PASS_GO",
+    "liveAuthority": false
+  },
+  "evidenceReviews": {
+    "hazard": {
+      "path": "docs/reports/A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_INDEPENDENT_REVIEW_2026-08-23.json",
+      "size": 3139,
+      "sha256": "d180b3637bb36eefce7c28251a8c17ddb73393068135b4dff16972e5f86a8c94",
+      "schema": "a90-rtic-public-mpgen-canary-hazard-independent-review-v1",
+      "verdict": "PASS_GO_H0_CANARY_HAZARD",
+      "liveAuthority": false
+    },
+    "package": {
+      "path": "docs/reports/A90_H35_PUBLIC_MPGEN_RTIC_CANARY_PACKAGE_INDEPENDENT_REVIEW_2026-08-23.json",
+      "size": 5195,
+      "sha256": "843524b45415ef09d1c311ecf88bdb3243b32c65f01a781bb167cbd8a56ec397",
+      "schema": "a90-h35-public-mpgen-rtic-package-independent-review-v1",
+      "verdict": "PASS_H0_PACKAGE_GATE",
+      "liveAuthority": false
+    }
+  },
+  "independentReview": {
+    "path": "docs/reports/A90_BOOT_ONLY_F1_MINIMAL_H35_INDEPENDENT_REVIEW_2026-08-23.json",
+    "status": "PENDING_INDEPENDENT_REVIEW",
+    "verdict": null,
+    "liveAuthority": false
+  },
+  "hazard": {
+    "accepted": true,
+    "id": "A90_H35_PUBLIC_MPGEN_RTIC_CANARY_H1_H6",
+    "statement": "Exact H35 0.11.202 / phase3-minimal-h35-public-mpgen-rtic-canary is the byte-identical A/B boot at SHA-256 5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759 and contains exact carrier 15b49a71aeb2342a5b5a7e24de27f78a4124bf877f6d8d8f28aaab928fa6bd71 from reviewed Image 1ddae56f8df97030794a590192e4a4162876736029b1a54fd26173c9287002b7 and RTIC DTB 68e6ab5bb2ccdde5e3d87086110257176c0fe55726d1d4f5db6eba3a4b6aca04. Structural RTIC and packaging are proved, while H1-H6 remain: non-stock MPGen content version, candidate-derived measured extent, public producer provenance, proprietary RTIC/QHEE response, possible proprietary whole-Image measurement, and standalone-product secondary-input gaps. Hazard review d180b3637bb36eefce7c28251a8c17ddb73393068135b4dff16972e5f86a8c94 and package review 843524b45415ef09d1c311ecf88bdb3243b32c65f01a781bb167cbd8a56ec397 accept only one future attended boot-only Native-health canary with exact V2321 rollback. H29-H34 are consumed and current V2321 health is unproved. Success proves only exact H35 Native health; a failure without device-attributable evidence is NO_PROOF_OBSERVER and cannot be attributed specifically to RTIC. Candidate replay is forbidden; first-opportunity failed-boot evidence precedes journal-bound rollback/recovery. No Debian, Wi-Fi, external-module, Android, stock-equivalence, or production-stability claim is included.",
+    "statementEncoding": "UTF8_NO_TRAILING_NEWLINE",
+    "statementSha256": "460afc03331024a79d051cb3a55ba878ae65f83610c1405d4a03671e4e3dd6c8"
+  },
+  "failedBootEvidence": {
+    "ownerClosureBound": true,
+    "policyId": "A90_TWRP_FAILED_BOOT_LAST_KMSG_READONLY_V1",
+    "sourceContractId": "A90_PROC_LAST_KMSG_0444_NO_MOUNT_V1",
+    "decoder": "a90-proc-last-kmsg-raw-v1",
+    "source": "/proc/last_kmsg",
+    "cmdlineSource": "/proc/cmdline",
+    "sourceMode": "0444",
+    "mount": "none",
+    "timeoutSec": 60,
+    "lastKmsgMaxBytes": 8388608,
+    "candidateReplay": false,
+    "proofUse": "FIRST_OPPORTUNITY_EVIDENCE_BEFORE_ROLLBACK_NO_RTIC_ATTRIBUTION"
+  },
+  "build": {
+    "reportPath": "docs/reports/A90_H35_PUBLIC_MPGEN_RTIC_CANARY_PACKAGE_H0_2026-08-23.md",
+    "reportSha256": "c5541efd3624bf2e147ededac0fe7d73756bb6d21ad119888a66d993d8665801",
+    "flatManifestPath": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h35/manifest.toml",
+    "flatManifestSha256": "0b8ed49e5cb4ddc57fb73a1f43948d2c0c93829d7fb71a751f9badf75b52d89a",
+    "effectiveManifestSha256": "9fa94d1ad72c4891da036638a7ac43127a008cd45869df3b54f1fb0b8cf252b9",
+    "abBootSha256": "5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759",
+    "abBootSize": 58372096,
+    "carrierSize": 49827613,
+    "carrierSha256": "15b49a71aeb2342a5b5a7e24de27f78a4124bf877f6d8d8f28aaab928fa6bd71",
+    "abReceiptSha256": "5c21ec82cee9cc9497867518d710c8374b54240bf115f3e2b9c3d0ed5b4216f9",
+    "candidateAuthority": false
+  }
+}
