@@ -16,7 +16,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ContextManager, Protocol
+from typing import Any, ContextManager, Mapping, Protocol
 
 import device_action_d0_v2 as d0
 import device_action_raw_capture_v1 as raw_capture
@@ -34,7 +34,7 @@ import s22plus_odin_transition_core as odin_core
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
-ADAPTER_VERSION = "device-action-f1-live-v2-7"
+ADAPTER_VERSION = "device-action-f1-live-v2-8"
 PREPARED_SCHEMA = "device_action_f1_prepared_v2"
 PRIVATE_TARGET_SCHEMA = "device_action_f1_private_target_v2"
 LIVE_STATE_SCHEMA = "device_action_f1_live_state_v2"
@@ -60,6 +60,11 @@ NON_TAINTING_GUARD_WARNINGS = {
 P300_PROCESS_OWNER_SCHEMA = "s22plus_fyg8_p300_usb_trace_process_owner_v1"
 P300_PROCESS_CLEANUP_SCHEMA = "s22plus_fyg8_p300_usb_trace_process_cleanup_v1"
 P300_PROCESS_WAIT_SEC = 10.0
+DOWNLOAD_REQUEST_INTENT_SCHEMA = "device_action_f1_download_request_intent_v2"
+DOWNLOAD_REQUEST_RECOVERY_ACTIONS = {
+    "download_request_cut_recovery_exact",
+    "download_request_cut_recovery_parked",
+}
 
 
 class F1LiveError(RuntimeError):
@@ -1397,6 +1402,25 @@ def _candidate_registry_identity(prepared: PreparedRun) -> dict[str, Any]:
         raise F1LiveError("candidate global identity is not verified") from exc
 
 
+def _bound_candidate_registry_identity(prepared: PreparedRun) -> dict[str, Any]:
+    """Re-derive identity from the already-bound manifest and AP receipt."""
+
+    candidate = prepared.bundle.manifest.get("candidate_ap")
+    receipt = prepared.bundle.receipt.get("candidate_ap")
+    if not isinstance(candidate, Mapping) or not isinstance(receipt, Mapping):
+        raise F1LiveError("bound candidate identity is unavailable")
+    try:
+        return consumed_registry.derive_candidate_identity(
+            prepared.bundle.profile,
+            prepared.bundle.manifest,
+            str(candidate.get("sha256")),
+            approval_binding_sha256=prepared.binding_sha256,
+            candidate_receipt=receipt,
+        )
+    except consumed_registry.RegistryError as exc:
+        raise F1LiveError("bound candidate identity is invalid") from exc
+
+
 def _registry_path_receipt(path: Path, label: str) -> dict[str, Any]:
     value = _read_json(path, label)
     receipt = _receipt(path, label)
@@ -1415,8 +1439,10 @@ def _candidate_registry_receipt_path(prepared: PreparedRun, kind: str) -> Path:
     return prepared.run_dir / f"candidate-global-{kind}.json"
 
 
-def _write_registry_intent(prepared: PreparedRun, kind: str, identity: Mapping[str, Any]) -> dict[str, Any]:
-    value = {
+def _registry_intent_value(kind: str, identity: Mapping[str, Any]) -> dict[str, Any]:
+    if kind not in {"claim", "release"}:
+        raise F1LiveError("unknown candidate registry evidence kind")
+    return {
         "schema": "device_action_f1_global_registry_intent_v1",
         "kind": kind,
         "candidate_key": identity["candidate_key"],
@@ -1431,6 +1457,10 @@ def _write_registry_intent(prepared: PreparedRun, kind: str, identity: Mapping[s
         "run_id": identity["run_id"],
         "approval_binding_sha256": identity["approval_binding_sha256"],
     }
+
+
+def _write_registry_intent(prepared: PreparedRun, kind: str, identity: Mapping[str, Any]) -> dict[str, Any]:
+    value = _registry_intent_value(kind, identity)
     path = _candidate_registry_intent_path(prepared, kind)
     if path.exists() or path.is_symlink():
         existing = _read_json(path, f"candidate global {kind} intent")
@@ -2765,6 +2795,18 @@ def validate_live_result(
         _validate_final_observer(prepared, state)
     verdict = result["verdict"]
     names = [event["name"] for event in result["timeline"]["events"]]
+    request_cut = _request_cut_transition(journal)
+    if request_cut is not None:
+        request_cut_exact = (
+            request_cut["outcome"] == "download_request_cut_recovery_exact"
+        )
+        _validate_stored_request_cut_details(
+            request_cut["details"], exact=request_cut_exact
+        )
+        if _request_cut_has_candidate_evidence(prepared, journal):
+            raise F1LiveError("Download request recovery invented candidate evidence")
+        if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
+            raise F1LiveError("parked Download request recovery reached a terminal")
     observer_required = (
         prepared.bundle.manifest["observation"].get("candidate_observer")
         is not None
@@ -2833,12 +2875,20 @@ def validate_live_result(
         ):
             raise F1LiveError("F1 ACM-only diagnostic semantics are incomplete")
     elif verdict == "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK":
+        recovery_timeline = names == list(core.RECOVERY_TIMELINE)
         if (
             journal.state() != "CLOSED"
-            or names != list(core.TIMELINE)
+            or names not in (list(core.TIMELINE), list(core.RECOVERY_TIMELINE))
             or state.get("rollback_completed") is not True
             or state.get("final_verified") is not True
             or result["recovery_required"] is not False
+            or (
+                recovery_timeline
+                and (
+                    candidate_classification != "not-attempted"
+                    or state.get("candidate_completed") is not False
+                )
+            )
             or (
                 observer_required
                 and guard_supports_result is True
@@ -2913,6 +2963,7 @@ def _global_registry_recovery_state(
     prepared: PreparedRun,
     *,
     journal_state: str | None = None,
+    request_identity: Mapping[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any] | None]:
     """Read global evidence without making registry repair a rollback gate."""
 
@@ -2930,7 +2981,11 @@ def _global_registry_recovery_state(
         "approval_binding_sha256",
     )
     try:
-        identity = _candidate_registry_identity(prepared)
+        identity = (
+            dict(request_identity)
+            if request_identity is not None
+            else _candidate_registry_identity(prepared)
+        )
         active = consumed_registry.active_claim(prepared.root, identity["candidate_key"])
     except (F1LiveError, consumed_registry.RegistryError):
         if local_claim_evidence or local_claim_intent:
@@ -2952,6 +3007,470 @@ def _global_registry_recovery_state(
     if local_claim_intent:
         return "claim-intent-only", None
     return "none", None
+
+
+def _download_request_intent(
+    prepared: PreparedRun,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    path = prepared.run_dir / "candidate-download-request-intent.json"
+    if path.is_symlink():
+        raise F1LiveError("candidate Download request intent is indirect")
+    if not path.exists():
+        return None
+    expected_identity = _bound_candidate_registry_identity(prepared)
+    value = _read_json(path, "candidate Download request intent")
+    expected = {
+        "schema": DOWNLOAD_REQUEST_INTENT_SCHEMA,
+        "candidate_identity": expected_identity,
+    }
+    if value != expected:
+        raise F1LiveError("candidate Download request intent differs from its binding")
+    return expected_identity, _receipt(path, "candidate Download request intent")
+
+
+def _validate_request_claim_intent(
+    prepared: PreparedRun, identity: Mapping[str, Any]
+) -> bool:
+    path = _candidate_registry_intent_path(prepared, "claim")
+    if path.is_symlink():
+        raise F1LiveError("candidate global claim intent is indirect")
+    if not path.exists():
+        return False
+    if _read_json(path, "candidate global claim intent") != _registry_intent_value(
+        "claim", identity
+    ):
+        raise F1LiveError("candidate global claim intent differs")
+    return True
+
+
+def _request_cut_has_candidate_evidence(
+    prepared: PreparedRun, journal: core.Journal
+) -> bool:
+    if any(prepared.run_dir.glob("candidate-attempt-*")):
+        return True
+    return any(
+        record["action"] in {"candidate_transfer_attempt", "candidate_flash_start"}
+        for record in journal.records()
+        if record["kind"] in {"checkpoint", "event"}
+    )
+
+
+def _request_cut_transition(journal: core.Journal) -> dict[str, Any] | None:
+    matches = [
+        record
+        for record in journal.records()
+        if record["kind"] == "transition"
+        and record["state"] == "RECOVERY_DOWNLOAD"
+        and record["outcome"] in DOWNLOAD_REQUEST_RECOVERY_ACTIONS
+    ]
+    if len(matches) > 1:
+        raise F1LiveError("Download request recovery transition is duplicated")
+    return matches[0] if matches else None
+
+
+def _request_cut_revalidation_park(journal: core.Journal) -> dict[str, Any] | None:
+    matches = [
+        record
+        for record in journal.records()
+        if record["kind"] == "checkpoint"
+        and record["action"] == "download_request_revalidation"
+    ]
+    if len(matches) > 1:
+        raise F1LiveError("Download request revalidation park is duplicated")
+    return matches[0] if matches else None
+
+
+def _request_cut_error(reason: str, exc: Exception) -> dict[str, Any]:
+    error_type = type(exc).__name__
+    encoded = f"{error_type}:{exc}".encode("utf-8", "replace")
+    return {
+        "reason": reason,
+        "error_type": error_type,
+        "error_sha256": hashlib.sha256(encoded).hexdigest(),
+    }
+
+
+def _request_intent_reason(exc: Exception) -> str:
+    message = str(exc).lower()
+    if "indirect" in message or "symlink" in message:
+        return "request_intent_indirect"
+    if "differs" in message or "binding" in message:
+        return "request_intent_foreign"
+    return "request_intent_malformed"
+
+
+def _registry_reason(exc: Exception) -> str:
+    message = str(exc).lower()
+    if "indirect" in message or "symlink" in message:
+        return "registry_evidence_indirect"
+    if "differs" in message or "foreign" in message:
+        return "registry_evidence_foreign"
+    if "unavailable" in message:
+        return "registry_unavailable"
+    return "registry_evidence_malformed"
+
+
+def _endpoint_reason(exc: Exception) -> str:
+    message = str(exc).lower()
+    if "ambiguous" in message:
+        return "endpoint_ambiguous"
+    if any(token in message for token in ("partial", "truncated", "incomplete")):
+        return "endpoint_partial"
+    if any(token in message for token in ("malformed", "invalid")):
+        return "endpoint_malformed"
+    if any(token in message for token in ("expired", "timed out", "timeout")):
+        return "endpoint_absent"
+    if any(token in message for token in ("foreign", "does not match", "canonical")):
+        return "endpoint_foreign"
+    if any(token in message for token in ("stale", "changed", "revalidation")):
+        return "endpoint_stale"
+    return "endpoint_observation_failed"
+
+
+def _request_recovery_endpoint(endpoint: Endpoint) -> dict[str, Any]:
+    if not isinstance(endpoint, Endpoint):
+        raise F1LiveError("Download recovery endpoint is malformed")
+    if transport.ODIN_DEVICE_RE.fullmatch(endpoint.device) is None:
+        raise F1LiveError("Download recovery endpoint path is not canonical")
+    if type(endpoint.sequence) is not int or endpoint.sequence < 1:
+        raise F1LiveError("Download recovery endpoint sequence is invalid")
+    if re.fullmatch(r"[0-9a-f]{64}", endpoint.identity_sha256) is None:
+        raise F1LiveError("Download recovery endpoint identity is invalid")
+    return {
+        "device": endpoint.device,
+        "sequence": endpoint.sequence,
+        "identity_sha256": endpoint.identity_sha256,
+    }
+
+
+def _request_cut_details(
+    *,
+    request_receipt: Mapping[str, Any],
+    identity: Mapping[str, Any] | None,
+    global_state: str,
+    endpoint: Mapping[str, Any] | None,
+    failure: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    exact = endpoint is not None
+    if exact is (failure is not None):
+        raise F1LiveError("Download request recovery observation is incomplete")
+    return {
+        "recovery_only": True,
+        "request_intent": dict(request_receipt),
+        "candidate_identity_sha256": (
+            core.json_sha256(dict(identity)) if identity is not None else None
+        ),
+        "global_state": global_state,
+        "endpoint_authorized": exact,
+        "endpoint": dict(endpoint) if endpoint is not None else None,
+        "failure": dict(failure) if failure is not None else None,
+        "candidate_claim_created_by_recovery": False,
+        "candidate_attempt_synthesized_by_recovery": False,
+    }
+
+
+def _validate_stored_request_cut_details(
+    details: Mapping[str, Any], *, exact: bool
+) -> None:
+    if set(details) != {
+        "recovery_only",
+        "request_intent",
+        "candidate_identity_sha256",
+        "global_state",
+        "endpoint_authorized",
+        "endpoint",
+        "failure",
+        "candidate_claim_created_by_recovery",
+        "candidate_attempt_synthesized_by_recovery",
+    }:
+        raise F1LiveError("Download request recovery details are malformed")
+    digest = details.get("candidate_identity_sha256")
+    if (
+        details.get("recovery_only") is not True
+        or not isinstance(details.get("request_intent"), dict)
+        or not isinstance(details.get("global_state"), str)
+        or not details["global_state"]
+        or details.get("endpoint_authorized") is not exact
+        or details.get("candidate_claim_created_by_recovery") is not False
+        or details.get("candidate_attempt_synthesized_by_recovery") is not False
+        or (
+            digest is not None
+            and re.fullmatch(r"[0-9a-f]{64}", str(digest)) is None
+        )
+    ):
+        raise F1LiveError("Download request recovery details differ")
+    endpoint = details.get("endpoint")
+    failure = details.get("failure")
+    if exact:
+        if digest is None or not isinstance(endpoint, dict) or failure is not None:
+            raise F1LiveError("exact Download request recovery details differ")
+        try:
+            _request_recovery_endpoint(Endpoint(**endpoint))
+        except (TypeError, F1LiveError) as exc:
+            raise F1LiveError("exact Download request endpoint differs") from exc
+        return
+    if endpoint is not None or not isinstance(failure, dict) or set(failure) != {
+        "reason",
+        "error_type",
+        "error_sha256",
+    }:
+        raise F1LiveError("parked Download request recovery details differ")
+    if (
+        not isinstance(failure.get("reason"), str)
+        or not failure["reason"]
+        or not isinstance(failure.get("error_type"), str)
+        or not failure["error_type"]
+        or re.fullmatch(r"[0-9a-f]{64}", str(failure.get("error_sha256"))) is None
+    ):
+        raise F1LiveError("parked Download request recovery failure differs")
+
+
+def _validate_request_cut_details(
+    details: Mapping[str, Any],
+    *,
+    exact: bool,
+    request_receipt: Mapping[str, Any],
+    identity: Mapping[str, Any],
+) -> None:
+    _validate_stored_request_cut_details(details, exact=exact)
+    if (
+        details.get("request_intent") != dict(request_receipt)
+        or details.get("candidate_identity_sha256")
+        != core.json_sha256(dict(identity))
+    ):
+        raise F1LiveError("Download request recovery binding differs")
+
+
+def _park_download_request_cut(
+    prepared: PreparedRun,
+    journal: core.Journal,
+    *,
+    details: Mapping[str, Any],
+) -> dict[str, Any]:
+    journal.transition(
+        "RECOVERY_DOWNLOAD",
+        "download_request_cut_recovery_parked",
+        dict(details),
+    )
+    return _result(
+        prepared,
+        journal,
+        "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+        "download_request_cut_recovery_parked",
+        True,
+    )
+
+
+def _recover_download_request_cut(
+    prepared: PreparedRun,
+    backend: LiveBackend,
+    journal: core.Journal,
+) -> dict[str, Any] | None:
+    state = journal.state()
+    if state not in {
+        "APPROVED",
+        "DOWNLOAD_IDENTIFIED",
+        "RECOVERY_DOWNLOAD",
+        "ROLLBACK_FLASHED",
+        "HEALTH_VERIFIED",
+    }:
+        return None
+    transition = _request_cut_transition(journal)
+    has_candidate_evidence = _request_cut_has_candidate_evidence(
+        prepared, journal
+    )
+    if transition is not None and has_candidate_evidence:
+        raise F1LiveError(
+            "durable Download request recovery has candidate evidence"
+        )
+    if has_candidate_evidence:
+        return None
+    if state == "RECOVERY_DOWNLOAD" and transition is None:
+        return None
+    if (
+        transition is not None
+        and transition["outcome"] == "download_request_cut_recovery_parked"
+    ):
+        _validate_stored_request_cut_details(transition["details"], exact=False)
+        return _result(
+            prepared,
+            journal,
+            "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+            "download_request_cut_recovery_parked",
+            True,
+        )
+    revalidation_park = _request_cut_revalidation_park(journal)
+    if revalidation_park is not None:
+        if (
+            transition is None
+            or transition["outcome"]
+            != "download_request_cut_recovery_exact"
+        ):
+            raise F1LiveError(
+                "Download request revalidation park lacks an exact transition"
+            )
+        _validate_stored_request_cut_details(transition["details"], exact=True)
+        return _result(
+            prepared,
+            journal,
+            "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+            "download_request_cut_endpoint_revalidation_parked",
+            True,
+        )
+    if (
+        transition is not None
+        and transition["outcome"] == "download_request_cut_recovery_exact"
+        and (
+            state in {"ROLLBACK_FLASHED", "HEALTH_VERIFIED"}
+            or "rollback_flash_start" in _events(journal)
+        )
+    ):
+        _validate_stored_request_cut_details(transition["details"], exact=True)
+        endpoint_dir = prepared.run_dir / "odin-endpoints"
+        with backend.endpoint_session(endpoint_dir) as lease:
+            return _finish_rollback(
+                prepared, backend, journal, endpoint_dir, lease
+            )
+
+    request_path = prepared.run_dir / "candidate-download-request-intent.json"
+    if not request_path.exists() and not request_path.is_symlink():
+        if transition is not None:
+            raise F1LiveError(
+                "durable Download request recovery lost its request intent"
+            )
+        return None
+
+    try:
+        request = _download_request_intent(prepared)
+        if request is None:
+            return None
+        identity, request_receipt = request
+    except Exception as exc:
+        if state == "RECOVERY_DOWNLOAD":
+            raise F1LiveError(
+                "durable Download request recovery lost its request binding"
+            ) from exc
+        witness = {
+            "schema": "device_action_f1_download_request_intent_observation_v1",
+            "path": str(request_path),
+            **_request_cut_error(_request_intent_reason(exc), exc),
+        }
+        return _park_download_request_cut(
+            prepared,
+            journal,
+            details=_request_cut_details(
+                request_receipt=witness,
+                identity=None,
+                global_state="request-intent-invalid",
+                endpoint=None,
+                failure=_request_cut_error(_request_intent_reason(exc), exc),
+            ),
+        )
+
+    try:
+        claim_receipt = _candidate_registry_receipt_path(prepared, "claim")
+        if claim_receipt.is_symlink():
+            raise F1LiveError("candidate global claim receipt is indirect")
+        _validate_request_claim_intent(prepared, identity)
+        global_state, _global_receipt = _global_registry_recovery_state(
+            prepared,
+            journal_state=state,
+            request_identity=identity,
+        )
+        if global_state == "foreign-claim":
+            raise F1LiveError("foreign global candidate claim owner")
+        if global_state == "registry-unavailable-preclaim":
+            raise F1LiveError("global candidate registry is unavailable")
+    except Exception as exc:
+        if state == "RECOVERY_DOWNLOAD":
+            raise F1LiveError(
+                "durable Download request recovery lost its registry binding"
+            ) from exc
+        return _park_download_request_cut(
+            prepared,
+            journal,
+            details=_request_cut_details(
+                request_receipt=request_receipt,
+                identity=identity,
+                global_state="registry-evidence-invalid",
+                endpoint=None,
+                failure=_request_cut_error(_registry_reason(exc), exc),
+            ),
+        )
+
+    if transition is not None:
+        exact = transition["outcome"] == "download_request_cut_recovery_exact"
+        _validate_request_cut_details(
+            transition["details"],
+            exact=exact,
+            request_receipt=request_receipt,
+            identity=identity,
+        )
+        if not exact:
+            return _result(
+                prepared,
+                journal,
+                "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+                "download_request_cut_recovery_parked",
+                True,
+            )
+
+    endpoint_dir = prepared.run_dir / "odin-endpoints"
+    with backend.endpoint_session(endpoint_dir) as lease:
+        if transition is not None and "rollback_flash_start" in _events(journal):
+            return _finish_rollback(
+                prepared, backend, journal, endpoint_dir, lease
+            )
+        try:
+            endpoint = backend.wait_download(
+                prepared, endpoint_dir, lease, ROLLBACK_WAIT_SEC
+            )
+            endpoint_value = _request_recovery_endpoint(endpoint)
+        except Exception as exc:
+            failure = _request_cut_error(_endpoint_reason(exc), exc)
+            if transition is not None:
+                journal.checkpoint(
+                    "download_request_revalidation", "parked", failure
+                )
+                return _result(
+                    prepared,
+                    journal,
+                    "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+                    "download_request_cut_endpoint_revalidation_parked",
+                    True,
+                )
+            return _park_download_request_cut(
+                prepared,
+                journal,
+                details=_request_cut_details(
+                    request_receipt=request_receipt,
+                    identity=identity,
+                    global_state=global_state,
+                    endpoint=None,
+                    failure=failure,
+                ),
+            )
+        if transition is None:
+            details = _request_cut_details(
+                request_receipt=request_receipt,
+                identity=identity,
+                global_state=global_state,
+                endpoint=endpoint_value,
+                failure=None,
+            )
+            journal.transition(
+                "RECOVERY_DOWNLOAD",
+                "download_request_cut_recovery_exact",
+                details,
+            )
+        return _finish_rollback(
+            prepared,
+            backend,
+            journal,
+            endpoint_dir,
+            lease,
+            initial_endpoint=endpoint,
+        )
 
 
 def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
@@ -2984,21 +3503,6 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
     )
     if global_state == "foreign-claim":
         raise F1LiveError("foreign global candidate claim owner; recovery is blocked")
-    request_intent_path = prepared.run_dir / "candidate-download-request-intent.json"
-    if (
-        global_state in {"none", "claim-intent-only", "registry-unavailable-preclaim"}
-        and
-        request_intent_path.exists()
-        and not request_intent_path.is_symlink()
-        and journal.state() in {"APPROVED", "DOWNLOAD_IDENTIFIED"}
-    ):
-        # The request may have reached the device, but no candidate claim is
-        # admissible until a Download endpoint was actually identified.  This
-        # is an explicit target-session recovery blocker, not a candidate
-        # consumption claim invented from an ADB request cut.
-        raise F1LiveError(
-            "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY: target-session Download request is uncertain"
-        )
     current_before = _state(prepared)
     candidate_result_path = prepared.run_dir / "candidate-attempt-01.result.json"
     if candidate_result_path.exists() and not candidate_result_path.is_symlink():
@@ -3272,9 +3776,11 @@ def _finish_rollback(
     journal: core.Journal,
     endpoint_dir: Path,
     lease: Any,
+    *,
+    initial_endpoint: Endpoint | None = None,
 ) -> dict[str, Any]:
     state = journal.state()
-    rollback_endpoint: Endpoint | None = None
+    rollback_endpoint: Endpoint | None = initial_endpoint
     if state == "OBSERVED":
         print(
             "Candidate observation is closed. Enter physical Download mode for "
@@ -4026,11 +4532,8 @@ def _execute_prepared_locked(
             observer_stack.callback(trace_session.close)
             try:
                 request_intent = {
-                    "schema": "device_action_f1_download_request_intent_v1",
-                    "candidate_key": candidate_identity["candidate_key"],
-                    "target_profile_sha256": candidate_identity["target_profile_sha256"],
-                    "run_id": candidate_identity["run_id"],
-                    "approval_binding_sha256": candidate_identity["approval_binding_sha256"],
+                    "schema": DOWNLOAD_REQUEST_INTENT_SCHEMA,
+                    "candidate_identity": candidate_identity,
                 }
                 request_intent_path = prepared.run_dir / "candidate-download-request-intent.json"
                 if request_intent_path.exists() or request_intent_path.is_symlink():
@@ -4052,13 +4555,13 @@ def _execute_prepared_locked(
                 "candidate_endpoint_identified",
                 {"endpoint_identity_sha256": endpoint.identity_sha256},
             )
+            # Claim before allocating a local transfer attempt.  A cut after
+            # the durable claim intent but before the registry claim therefore
+            # remains claim-intent-only and cannot invent an attempt.
+            _claim_candidate_global(prepared, candidate_identity)
             attempt, prefix, _start = _begin_transfer_attempt(
                 prepared, journal, "candidate"
             )
-            # The claim is the durable consumed/uncertain boundary.  The
-            # local start/checkpoint is first; a cut before this claim is a
-            # pre-candidate host stop, never an invented consumed attempt.
-            _claim_candidate_global(prepared, candidate_identity)
             journal.event("candidate_flash_start", {"attempt": attempt})
             candidate = backend.transfer(
                 prepared,
@@ -4276,6 +4779,11 @@ def _recover_prepared_locked(
             "odin_local_parse_failure",
             False,
         )
+    request_cut_result = _recover_download_request_cut(
+        prepared, backend, journal
+    )
+    if request_cut_result is not None:
+        return request_cut_result
     if not _normalize_recovery(prepared, journal):
         if journal.state() != "ABORTED":
             journal.transition(

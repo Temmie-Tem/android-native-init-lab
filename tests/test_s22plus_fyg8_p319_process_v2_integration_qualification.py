@@ -110,6 +110,36 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             "source_keys": source_keys,
         }, []
 
+    def recovery_fixture(self):
+        sources = {
+            name: {
+                "path": self.module._relative(path),
+                "size": index + 1,
+                "sha256": f"{index + 1:064x}",
+            }
+            for index, (name, path) in enumerate(
+                self.module.DOWNLOAD_REQUEST_RECOVERY_SOURCES.items()
+            )
+        }
+        return {
+            "name": "download_request_recovery",
+            "status": "PASS_HOST_ONLY_RUNNER_FIXTURES",
+            "sources": sources,
+            "source_closure_sha256": self.module._identity(
+                self.module._canonical(sources)
+            )["sha256"],
+            "tests": list(self.module.DOWNLOAD_REQUEST_RECOVERY_TESTS),
+            "run_count": len(self.module.DOWNLOAD_REQUEST_RECOVERY_TESTS),
+            "failures": 0,
+            "errors": 0,
+            "device_contact": False,
+            "request_download_replayed": False,
+            "candidate_backend_called": False,
+            "candidate_claim_created_by_recovery": False,
+            "candidate_attempt_synthesized_by_recovery": False,
+            "rollback_and_final_health_path_exercised": True,
+        }, []
+
     def pass_environment(self, *, pending: bool = True):
         closure, closure_blockers = self.closure(pending=pending)
         baseline = {"status": "PRESENT", "identity": {"size": 1, "sha256": "a" * 64}}
@@ -129,6 +159,9 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             _run_arming=mock.Mock(return_value=self.arming),
             _run_executability=mock.Mock(return_value=(closure, closure_blockers)),
             _run_prerequisite=mock.Mock(return_value=self.prerequisite()),
+            _run_download_request_recovery=mock.Mock(
+                return_value=self.recovery_fixture()
+            ),
             _adapter_pin=mock.Mock(return_value=self.adapter_pin_fixture()),
             _required_private_receipt=mock.Mock(side_effect=[(baseline, []), (registry, [])]),
             _contract_provenance=mock.Mock(return_value=(provenance, [])),
@@ -143,6 +176,18 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         )
         self.assertEqual(self.arming["admitted_digest"], self.module._identity(self.module._canonical(admitted))["sha256"])
 
+    def test_real_download_request_recovery_runs_bound_runner_closure(self):
+        component, blockers = self.module._run_download_request_recovery()
+        self.assertEqual(blockers, [])
+        self.assertEqual(component["status"], "PASS_HOST_ONLY_RUNNER_FIXTURES")
+        self.assertEqual(
+            set(component["sources"]), set(self.module.DOWNLOAD_REQUEST_RECOVERY_SOURCES)
+        )
+        self.assertEqual(
+            component["run_count"], len(self.module.DOWNLOAD_REQUEST_RECOVERY_TESTS)
+        )
+        self.assertTrue(component["rollback_and_final_health_path_exercised"])
+
     def test_runtime_pending_is_separate_from_source_closure_pass(self):
         with self.pass_environment(pending=True):
             result = self.module.build_result()
@@ -152,13 +197,14 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             "RUNTIME_WITNESS_PENDING",
             {item["code"] for item in result["blockers"]},
         )
-        self.assertIn(
+        self.assertNotIn(
             "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
             {item["code"] for item in result["blockers"]},
         )
         self.assertTrue(result["registry_capability_authoritative"])
         self.assertTrue(result["runner_registry_consumption_proved"])
-        self.assertFalse(result["runner_recovery_closed"])
+        self.assertTrue(result["runner_recovery_closed"])
+        self.assertFalse(result["download_request_cut_recovery_blocked"])
         self.assertFalse(result["runner_ready"])
         self.assertFalse(result["ready"])
         self.assertFalse(result["approval_created"])

@@ -11,12 +11,14 @@ missing global consumed-candidate registry remain explicit H0 blockers.
 from __future__ import annotations
 
 import hashlib
+import io
 import importlib.util
 import json
 import os
 from pathlib import Path
 import stat
 import sys
+import unittest
 from typing import Any, Mapping
 
 
@@ -35,9 +37,34 @@ FRESH_BASELINE = PRIVATE / (
 )
 CONSUMED_CANDIDATE_REGISTRY = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "consumed-candidate-registry-qualification-20260822-07.json"
+    "consumed-candidate-registry-qualification-20260823-02.json"
 )
 PROCESS_CONTRACT = ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
+DOWNLOAD_REQUEST_RECOVERY_TEST = ROOT / "tests/test_device_action_f1_live_v2.py"
+DOWNLOAD_REQUEST_RECOVERY_SOURCES = {
+    "fixture": DOWNLOAD_REQUEST_RECOVERY_TEST,
+    "live_runner": SCRIPT_DIR / "device_action_f1_live_v2.py",
+    "journal_core": SCRIPT_DIR / "device_action_f1_v2.py",
+}
+DOWNLOAD_REQUEST_RECOVERY_TESTS = (
+    "test_request_cut_exact_endpoint_rolls_back_and_verifies_health",
+    "test_request_cut_recovery_reopens_in_fresh_module_process_state",
+    "test_request_cut_exact_transition_revalidation_failure_parks_once",
+    "test_request_cut_transition_rejects_any_candidate_attempt_artifact",
+    "test_request_cut_rollback_resume_does_not_need_request_intent",
+    "test_request_cut_active_rollback_resume_does_not_need_request_intent",
+    "test_request_cut_health_resume_does_not_need_request_intent",
+    "test_request_intent_is_durable_before_request_and_recovery_never_replays_it",
+    "test_claim_intent_only_cut_never_calls_candidate_backend_or_claims",
+    "test_interruption_before_candidate_start_recovers_rollback_only",
+    "test_request_cut_endpoint_uncertainty_is_durable_parked_recovery",
+    "test_request_cut_parked_result_survives_lost_request_intent",
+    "test_request_cut_malformed_endpoint_object_cannot_authorize_rollback",
+    "test_request_intent_malformed_or_indirect_parks_without_endpoint_observation",
+    "test_claim_intent_malformed_parks_without_candidate_or_endpoint",
+    "test_claim_intent_metadata_drift_parks_without_candidate_or_endpoint",
+    "test_request_cut_recovery_honors_target_session_lease",
+)
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_integration_qualification_v1"
 BLOCKED_VERDICT = "BLOCKED_P319_PROCESS_V2_INTEGRATION_H0"
@@ -287,6 +314,123 @@ def _run_executability() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         "causal_result_allowed": False,
         "candidate_success": False,
     }, blockers
+
+
+def _run_download_request_recovery() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Run the bounded fake-backend recovery closure used by this gate."""
+    if not DOWNLOAD_REQUEST_RECOVERY_TEST.is_file() or DOWNLOAD_REQUEST_RECOVERY_TEST.is_symlink():
+        return {
+            "name": "download_request_recovery",
+            "status": "BLOCKED_MISSING_SOURCE",
+        }, [{
+            "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+            "detail": "host-only request-cut recovery fixtures are unavailable",
+        }]
+    try:
+        source_payloads = {
+            name: _stable_bytes(
+                path,
+                f"request-cut recovery {name} source",
+                maximum=2 * 1024 * 1024,
+            )
+            for name, path in DOWNLOAD_REQUEST_RECOVERY_SOURCES.items()
+        }
+    except IntegrationAuditError as exc:
+        return {
+            "name": "download_request_recovery",
+            "status": "BLOCKED_SOURCE_READ",
+        }, [{
+            "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+            "detail": str(exc),
+        }]
+    old_path = list(sys.path)
+    sys.path.insert(0, str(ROOT))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "p319_download_request_recovery_fixtures",
+            DOWNLOAD_REQUEST_RECOVERY_TEST,
+        )
+        if spec is None or spec.loader is None:
+            raise IntegrationAuditError("request-cut recovery fixtures cannot be loaded")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fixture_class = module.DeviceActionF1LiveV2Test
+        fixture_class.setUpClass()
+        suite = unittest.TestSuite(
+            fixture_class(name) for name in DOWNLOAD_REQUEST_RECOVERY_TESTS
+        )
+        stream = io.StringIO()
+        outcome = unittest.TextTestRunner(
+            stream=stream, verbosity=0
+        ).run(suite)
+    except Exception as exc:
+        return {
+            "name": "download_request_recovery",
+            "status": "BLOCKED_EXECUTION",
+            "error_type": type(exc).__name__,
+        }, [{
+            "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+            "detail": f"host-only recovery fixture execution raised {type(exc).__name__}",
+        }]
+    finally:
+        sys.path[:] = old_path
+    if not outcome.wasSuccessful():
+        return {
+            "name": "download_request_recovery",
+            "status": "BLOCKED_FIXTURE_FAILURE",
+            "tests": list(DOWNLOAD_REQUEST_RECOVERY_TESTS),
+            "run_count": outcome.testsRun,
+            "failures": len(outcome.failures),
+            "errors": len(outcome.errors),
+        }, [{
+            "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+            "detail": "host-only request-cut recovery fixture did not pass",
+        }]
+    try:
+        current_payloads = {
+            name: _stable_bytes(
+                path,
+                f"request-cut recovery {name} source after fixtures",
+                maximum=2 * 1024 * 1024,
+            )
+            for name, path in DOWNLOAD_REQUEST_RECOVERY_SOURCES.items()
+        }
+    except IntegrationAuditError as exc:
+        return {
+            "name": "download_request_recovery",
+            "status": "BLOCKED_SOURCE_READ",
+        }, [{
+            "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+            "detail": str(exc),
+        }]
+    if current_payloads != source_payloads:
+        return {
+            "name": "download_request_recovery",
+            "status": "BLOCKED_SOURCE_CHANGED",
+        }, [{
+            "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
+            "detail": "request-cut recovery source changed during fixture execution",
+        }]
+    sources = {
+        name: {"path": _relative(path), **_identity(source_payloads[name])}
+        for name, path in DOWNLOAD_REQUEST_RECOVERY_SOURCES.items()
+    }
+    return {
+        "name": "download_request_recovery",
+        "status": "PASS_HOST_ONLY_RUNNER_FIXTURES",
+        "sources": sources,
+        "source_closure_sha256": _identity(_canonical(sources))["sha256"],
+        "tests": list(DOWNLOAD_REQUEST_RECOVERY_TESTS),
+        "run_count": outcome.testsRun,
+        "failures": len(outcome.failures),
+        "errors": len(outcome.errors),
+        "device_contact": False,
+        "request_download_replayed": False,
+        "candidate_backend_called": False,
+        "candidate_claim_created_by_recovery": False,
+        "candidate_attempt_synthesized_by_recovery": False,
+        "rollback_and_final_health_path_exercised": True,
+    }, []
 
 
 def _run_prerequisite() -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -567,17 +711,53 @@ def validate_result(value: Mapping[str, Any]) -> None:
     if value.get("blocker_count") != len(blockers) or value.get("blocker_digest") != _identity(_canonical(blockers))["sha256"]:
         raise IntegrationAuditError("integration blocker list was changed")
     codes = {str(item["code"]) for item in blockers}
-    if value.get("download_request_cut_recovery_blocked") is not True or "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY" not in codes:
+    components = value.get("components", {})
+    if not isinstance(components, dict):
+        raise IntegrationAuditError("integration components are malformed")
+    recovery_component = components.get("download_request_recovery", {})
+    if not isinstance(recovery_component, dict):
+        raise IntegrationAuditError("request-cut recovery component is malformed")
+    recovery_closed = (
+        recovery_component.get("status") == "PASS_HOST_ONLY_RUNNER_FIXTURES"
+    )
+    if recovery_closed:
+        recovery_sources = recovery_component.get("sources")
+        if (
+            not isinstance(recovery_sources, dict)
+            or set(recovery_sources) != set(DOWNLOAD_REQUEST_RECOVERY_SOURCES)
+            or recovery_component.get("source_closure_sha256")
+            != _identity(_canonical(recovery_sources))["sha256"]
+            or recovery_component.get("tests")
+            != list(DOWNLOAD_REQUEST_RECOVERY_TESTS)
+            or recovery_component.get("run_count")
+            != len(DOWNLOAD_REQUEST_RECOVERY_TESTS)
+            or recovery_component.get("failures") != 0
+            or recovery_component.get("errors") != 0
+            or recovery_component.get("device_contact") is not False
+            or recovery_component.get("request_download_replayed") is not False
+            or recovery_component.get("candidate_backend_called") is not False
+            or recovery_component.get("candidate_claim_created_by_recovery")
+            is not False
+            or recovery_component.get("candidate_attempt_synthesized_by_recovery")
+            is not False
+            or recovery_component.get("rollback_and_final_health_path_exercised")
+            is not True
+        ):
+            raise IntegrationAuditError(
+                "Download-request recovery fixture closure is incomplete"
+            )
+    if value.get("download_request_cut_recovery_blocked") is not (not recovery_closed):
+        raise IntegrationAuditError("Download-request cut recovery state differs from its fixture receipt")
+    if recovery_closed and "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY" in codes:
+        raise IntegrationAuditError("Download-request cut recovery blocker was retained")
+    if not recovery_closed and "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY" not in codes:
         raise IntegrationAuditError("Download-request cut recovery blocker was removed")
-    if value.get("runner_recovery_closed") is not False or value.get("runner_ready") is not False:
+    if value.get("runner_recovery_closed") is not recovery_closed or value.get("runner_ready") is not False:
         raise IntegrationAuditError("runner recovery/readiness axes were widened")
     if blockers and value.get("verdict") != BLOCKED_VERDICT:
         raise IntegrationAuditError("blocked integration verdict differs")
     if not blockers and value.get("verdict") != NOT_READY_VERDICT:
         raise IntegrationAuditError("unblocked integration verdict differs")
-    components = value.get("components", {})
-    if not isinstance(components, dict):
-        raise IntegrationAuditError("integration components are malformed")
     if components.get("executability", {}).get("source_closure_pass") is not True and "EXECUTABILITY_SOURCE_CLOSURE_BLOCKED" not in codes:
         raise IntegrationAuditError("executability blocker was removed")
     if components.get("fresh_baseline", {}).get("status") != "PRESENT" and not ({"FRESH_BASELINE_MISSING", "FRESH_BASELINE_INVALID"} & codes):
@@ -679,10 +859,10 @@ def build_result() -> dict[str, Any]:
         CONSUMED_CANDIDATE_REGISTRY, "global consumed-candidate registry", "device_action_f1_consumed_candidate_registry_qualification_v1"
     )
     blockers.extend(registry_blockers)
-    blockers.append({
-        "code": "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
-        "detail": "a durable Download-request cut before endpoint identification has no automatic recovery classification; fresh baseline/requalification and ready/live authority remain blocked",
-    })
+    components["download_request_recovery"], recovery_blockers = (
+        _run_download_request_recovery()
+    )
+    blockers.extend(recovery_blockers)
     if (
         components["prerequisite"].get("registry_capability_authoritative") is not True
         or components["prerequisite"].get("runner_registry_consumption_proved") is not True
@@ -699,6 +879,10 @@ def build_result() -> dict[str, Any]:
         by_code.setdefault(str(item.get("code", "")), dict(item))
     unique_blockers = [by_code[key] for key in sorted(by_code)]
     runtime_pending = components.get("executability", {}).get("runtime_classification_gate_pending") is True
+    recovery_closed = (
+        components.get("download_request_recovery", {}).get("status")
+        == "PASS_HOST_ONLY_RUNNER_FIXTURES"
+    )
     result: dict[str, Any] = {
         "schema": SCHEMA,
         "verdict": BLOCKED_VERDICT if unique_blockers else NOT_READY_VERDICT,
@@ -712,7 +896,7 @@ def build_result() -> dict[str, Any]:
         "provenance": provenance,
         "source_closure_pass": components.get("executability", {}).get("source_closure_pass") is True,
         "runtime_classification_gate_pending": runtime_pending,
-        "download_request_cut_recovery_blocked": True,
+        "download_request_cut_recovery_blocked": not recovery_closed,
         "registry_capability_authoritative": (
             components.get("prerequisite", {}).get(
                 "registry_capability_authoritative"
@@ -725,7 +909,7 @@ def build_result() -> dict[str, Any]:
             )
             is True
         ),
-        "runner_recovery_closed": False,
+        "runner_recovery_closed": recovery_closed,
         "runner_ready": False,
         "fresh_baseline_present": components.get("fresh_baseline", {}).get("status") == "PRESENT",
         "global_consumed_candidate_registry_present": (

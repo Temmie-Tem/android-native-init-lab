@@ -25,7 +25,7 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260822-09-global-registry-default.json"
+    "raw-first-observer-audit-20260823-02-request-recovery.json"
 )
 # The previous current receipt is preserved as superseded evidence.  It must
 # not be rewritten when the population-diagnostic cut gets its own receipt.
@@ -86,7 +86,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260822-09-global-registry-default.json",
+            "raw-first-observer-audit-20260823-02-request-recovery.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -105,7 +105,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1734)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1736)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -113,7 +113,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "1fd40672691856679381ad9b3ea0e4c0dd8d2cd1abf275f40617366e4add4bc3",
+            "aef0fe75591f98c5c451b5ee8a69c56d082d840c3653729225fa9973841b2659",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -122,7 +122,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(retained_bytes), 11012)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "1b98a4b10dbeb56487d47074095841c9a488b963a40a3be4769e17398d4eabb8",
+            "d84487138f45f8dadba2be1b8470d77e91331ff0fa810fbde2137089c6d67880",
         )
 
     def test_previous_current_receipt_is_preserved_unmodified(self):

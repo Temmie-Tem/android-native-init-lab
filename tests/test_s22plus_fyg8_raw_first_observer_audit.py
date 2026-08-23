@@ -401,6 +401,7 @@ def read_control1(adb, serial):
         for name in (
             "a90_repl_resident_session.py",
             "s20plus_g986n_d0_inventory.py",
+            "s20plus_g986n_autonomous_health_h0.py",
             "s20plus_g986n_autonomous_research_coordinator_h0.py",
         ):
             with self.subTest(name=name):
@@ -629,7 +630,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["pre_boundary_device_source_count"], 127)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "c7029746710d2f83d710a3abbecbba5a6bbc3367c7a5f20a559b63a92f1677db",
+            "ce35f2b832b611a237ddcb91e8a4945ac8481766346d6cc3cad89ee38a9af7b2",
         )
         # These two fields used to be hardcoded True in the receipt and were
         # published as evidence; an adversarial review refuted the second with
@@ -652,7 +653,7 @@ def read_control1(adb, serial):
             value["host_only_non_acquiring_sources"][0]["name"],
             "s22plus_fyg8_p319_candidate_qualification.py",
         )
-        self.assertEqual(value["pre_boundary_cross_target_membership_count"], 51)
+        self.assertEqual(value["pre_boundary_cross_target_membership_count"], 52)
 
 
 if __name__ == "__main__":

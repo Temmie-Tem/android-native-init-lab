@@ -36,13 +36,13 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
 VERDICT = "PASS_P319_PREREQUISITE_H0"
-RAW_AUDITOR_SHA256 = "d13be6fbeaa80915ce4b76fa45e810c9c8e982044b6f6b75814d5d65c694e799"
-RAW_AUDITOR_SIZE = 62_591
-RAW_RECEIPT_SHA256 = "1b98a4b10dbeb56487d47074095841c9a488b963a40a3be4769e17398d4eabb8"
+RAW_AUDITOR_SHA256 = "b0c0a8169c07b9afc532a62a45e3ca8a408ff0de091832653a25f7a3c523ac96"
+RAW_AUDITOR_SIZE = 62_633
+RAW_RECEIPT_SHA256 = "d84487138f45f8dadba2be1b8470d77e91331ff0fa810fbde2137089c6d67880"
 RAW_RECEIPT_SIZE = 11_012
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260822-09-global-registry-default.json"
+    "raw-first-observer-audit-20260823-02-request-recovery.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"
@@ -59,7 +59,7 @@ CONSUMED_REGISTRY_QUALIFICATION_HELPER = ROOT / (
 )
 CONSUMED_REGISTRY_QUALIFICATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "consumed-candidate-registry-qualification-20260822-07.json"
+    "consumed-candidate-registry-qualification-20260823-02.json"
 )
 
 P318_RUN = ROOT / (
@@ -953,8 +953,8 @@ def _audit_live_registry_consumption() -> dict[str, Any]:
         and execute_transfer_calls
         and execute_calls["_preflight_candidate_global"][0]
         < execute_request_calls[0]
-        < execute_calls["_begin_transfer_attempt"][0]
         < execute_calls["_claim_candidate_global"][0]
+        < execute_calls["_begin_transfer_attempt"][0]
         < execute_transfer_calls[0]
     )
     if not ordered:
@@ -1028,7 +1028,7 @@ def _audit_live_registry_consumption() -> dict[str, Any]:
         "claim_call_count": len(claim_calls),
         "preflight_before_download_request": execute_calls["_preflight_candidate_global"][0] < execute_request_calls[0],
         "claim_before_backend_transfer": execute_calls["_claim_candidate_global"][0] < execute_transfer_calls[0],
-        "local_attempt_before_claim": execute_calls["_begin_transfer_attempt"][0] < execute_calls["_claim_candidate_global"][0],
+        "claim_before_local_attempt": execute_calls["_claim_candidate_global"][0] < execute_calls["_begin_transfer_attempt"][0],
         "candidate_backend_call_count": len(candidate_transfer_calls),
         "recover_candidate_backend_call_count": 0,
         "target_session_lease_wrappers": wrapper_checks,

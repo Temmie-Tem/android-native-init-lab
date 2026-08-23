@@ -16,6 +16,10 @@ REPIN_REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_PROCESS_V2_CONTRACT_REPIN_AND_SUITE_CARDINALITY_H0_2026-08-22.md"
 )
+DOWNLOAD_RECOVERY_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_DOWNLOAD_REQUEST_RECOVERY_H0_2026-08-23.md"
+)
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 PREREQUISITE = ROOT / (
@@ -28,10 +32,14 @@ INTEGRATION = ROOT / (
 )
 CURRENT_INTEGRATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v1-20260822-06/result.json"
+    "process-v2-integration-qualification-v1-20260823-02/result.json"
+)
+CURRENT_PREREQUISITE = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 532
+P319_SELECTED_TEST_COUNT = 533
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
@@ -59,6 +67,9 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
     def setUpClass(cls):
         cls.report = REPORT.read_text(encoding="utf-8")
         cls.repin_report = REPIN_REPORT.read_text(encoding="utf-8")
+        cls.download_recovery_report = DOWNLOAD_RECOVERY_REPORT.read_text(
+            encoding="utf-8"
+        )
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
         cls.prerequisite_bytes = PREREQUISITE.read_bytes()
@@ -67,6 +78,7 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.integration = json.loads(cls.integration_bytes)
         cls.current_integration_bytes = CURRENT_INTEGRATION.read_bytes()
         cls.current_integration = json.loads(cls.current_integration_bytes)
+        cls.current_prerequisite_bytes = CURRENT_PREREQUISITE.read_bytes()
 
     def test_report_is_scoped_reviewed_and_names_all_current_blockers(self):
         self.assertIn(
@@ -144,10 +156,16 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
                 "d0380d7d9dab635fb20aa365b8251023bf286b6ea5c3347b27e1d38330085307",
             ),
             (
+                CURRENT_PREREQUISITE,
+                self.current_prerequisite_bytes,
+                12528,
+                "4785343654809f5f01c8c055e280102eb2dd834bd6ce2cc1378ce24dee3bec5c",
+            ),
+            (
                 CURRENT_INTEGRATION,
                 self.current_integration_bytes,
-                59678,
-                "7f8f2b20babd78cc0d2529567884afa7033b697413838edde776ad8695b8cac9",
+                61592,
+                "b376a2c5523335c203df042e30ad8b4eaf08b21e5c8036eecbc67f8ae2712258",
             ),
         )
         for path, data, size, digest in expected:
@@ -191,7 +209,6 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertEqual(
             {item["code"] for item in self.current_integration["blockers"]},
             {
-                "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY",
                 "FRESH_BASELINE_MISSING",
                 "REQUALIFICATION_REQUIRED",
             },
@@ -200,6 +217,10 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
             "EXECUTABILITY_SOURCE_CLOSURE_BLOCKED",
             {item["code"] for item in self.current_integration["blockers"]},
         )
+        self.assertFalse(
+            self.current_integration["download_request_cut_recovery_blocked"]
+        )
+        self.assertTrue(self.current_integration["runner_recovery_closed"])
         self.assertFalse(self.current_integration["runner_ready"])
 
     def test_source_key_and_raw_first_boundaries_are_documented_exactly(self):
@@ -269,9 +290,18 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertNotIn("_REVIEW_PENDING", review)
 
     def test_goal_propagates_the_blocked_integration_without_live_authority(self):
+        self.assertIn(
+            "Status: `PASS_GO_P319_DOWNLOAD_REQUEST_CUT_RECOVERY_H0_CAPABILITY_V1`",
+            self.download_recovery_report,
+        )
+        self.assertIn("50/36/14", self.download_recovery_report)
+        self.assertIn("seventeen bound fixtures", self.download_recovery_report)
+        self.assertIn("is not review authority", self.download_recovery_report)
         self.assertIn("changed adapter closure now requires requalification", self.goal)
         self.assertIn("runner-consumed global candidate registry", self.goal)
+        self.assertIn("topic 32 now independently closes", self.goal)
         self.assertIn("`BLOCKED_P319_PROCESS_V2_INTEGRATION_H0`", self.goal)
+        self.assertIn("only on a fresh baseline and four-key adapter requalification", self.goal)
         self.assertIn("no ready/run manifest", self.goal)
         self.assertIn("scoped independent H0 `PASS_GO`", self.goal)
         self.assertIn("independently reviewed H0-only prerequisite integration", self.goal)

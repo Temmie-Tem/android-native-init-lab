@@ -176,6 +176,8 @@ class FakeBackend:
         acm=None,
         observer_arm_error=False,
         observer_release="released",
+        wait_download_errors=None,
+        download_endpoint=None,
     ):
         self.module = module
         self.candidate = candidate
@@ -189,6 +191,8 @@ class FakeBackend:
         self.acm = acm
         self.observer_arm_error = observer_arm_error
         self.observer_release = observer_release
+        self.wait_download_errors = list(wait_download_errors or [])
+        self.download_endpoint = download_endpoint
         self.calls = []
 
     def recheck_android(self, _prepared, destination):
@@ -271,7 +275,14 @@ class FakeBackend:
 
     def wait_download(self, _prepared, _run_dir, _lease, _timeout):
         self.calls.append("wait-download")
-        return self.module.Endpoint("/dev/bus/usb/001/002", 1, "2" * 64)
+        if self.wait_download_errors:
+            error = self.wait_download_errors.pop(0)
+            if isinstance(error, BaseException):
+                raise error
+            raise RuntimeError(str(error))
+        return self.download_endpoint or self.module.Endpoint(
+            "/dev/bus/usb/001/002", 1, "2" * 64
+        )
 
     def _write_transfer(self, prepared, kind, classification, attempt, prefix):
         if classification == "odin_transfer_completed":
@@ -1553,7 +1564,7 @@ else:
             self.module.recover_prepared(prepared, recovery)
         self.assertNotIn("transfer-rollback", recovery.calls)
 
-    def test_interruption_before_candidate_start_closes_without_rollback(self):
+    def test_interruption_before_candidate_start_recovers_rollback_only(self):
         temporary, prepared = self.prepared()
         self.addCleanup(temporary.cleanup)
         backend = FakeBackend(self.module)
@@ -1567,10 +1578,13 @@ else:
                     prepared, prepared.approval_token, backend
                 )
         recovery = FakeBackend(self.module)
-        with self.assertRaisesRegex(self.module.F1LiveError, "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY"):
-            self.module.recover_prepared(prepared, recovery)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
         self.assertNotIn("transfer-candidate", recovery.calls)
-        self.assertNotIn("transfer-rollback", recovery.calls)
+        self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
 
     def test_orphan_candidate_start_is_consumed_before_rollback(self):
         temporary, prepared = self.prepared()
@@ -1593,10 +1607,13 @@ else:
                     prepared, prepared.approval_token, backend
                 )
         recovery = FakeBackend(self.module)
-        with self.assertRaisesRegex(self.module.F1LiveError, "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY"):
-            self.module.recover_prepared(prepared, recovery)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
         self.assertNotIn("transfer-candidate", recovery.calls)
-        self.assertEqual(recovery.calls.count("transfer-rollback"), 0)
+        self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
 
     def test_interruption_after_candidate_start_recovers_rollback_only(self):
         temporary, prepared = self.prepared()
@@ -1644,12 +1661,33 @@ else:
             (prepared.run_dir / "candidate-global-claim-intent.json").is_file()
         )
         recovery = FakeBackend(self.module)
-        with self.assertRaisesRegex(
-            self.module.F1LiveError, "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY"
-        ):
-            self.module.recover_prepared(prepared, recovery)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
         self.assertNotIn("transfer-candidate", recovery.calls)
-        self.assertNotIn("transfer-rollback", recovery.calls)
+        self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
+        self.assertEqual(
+            self.module.consumed_registry.validate(prepared.root)["record_count"],
+            0,
+        )
+        self.assertEqual(list(prepared.run_dir.glob("candidate-attempt-*.start.json")), [])
+        journal = self.module.core.Journal.reopen(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        recovery_transition = next(
+            record
+            for record in journal.records()
+            if record["kind"] == "transition"
+            and record["state"] == "RECOVERY_DOWNLOAD"
+        )
+        self.assertFalse(
+            recovery_transition["details"]["candidate_claim_created_by_recovery"]
+        )
+        self.assertFalse(
+            recovery_transition["details"]["candidate_attempt_synthesized_by_recovery"]
+        )
 
     def test_final_health_retry_does_not_reflash_rollback(self):
         temporary, prepared = self.prepared()
@@ -1788,13 +1826,498 @@ else:
                 self.assertEqual(result["current_state"], "CLOSED")
                 self.assertEqual(backend.calls.count("transfer-rollback"), 1)
 
-    def test_pre_candidate_download_failure_aborts_without_transfer(self):
+    def test_request_cut_exact_endpoint_rolls_back_and_verifies_health(self):
         temporary, prepared = self.prepared()
         self.addCleanup(temporary.cleanup)
         backend = FakeBackend(self.module, request_error=True)
         with self.assertRaisesRegex(self.module.F1LiveError, "Download request outcome is uncertain"):
             self.module.execute_prepared(prepared, prepared.approval_token, backend)
         self.assertFalse(any(call.startswith("transfer-") for call in backend.calls))
+        recovery = FakeBackend(self.module)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
+        self.assertNotIn("request-download", recovery.calls)
+        self.assertNotIn("transfer-candidate", recovery.calls)
+        self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
+        self.assertIn("verify-final", recovery.calls)
+        self.assertEqual(
+            [event["name"] for event in result["timeline"]["events"]],
+            list(self.module.core.RECOVERY_TIMELINE),
+        )
+        self.assertEqual(list(prepared.run_dir.glob("candidate-attempt-*.start.json")), [])
+
+    def test_request_cut_recovery_reopens_in_fresh_module_process_state(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        restarted = load_module()
+        reopened = restarted.PreparedRun(
+            prepared.root,
+            prepared.run_dir,
+            prepared.bundle,
+            prepared.prepared,
+            prepared.private_target,
+        )
+        recovery = FakeBackend(restarted)
+        result = restarted.recover_prepared(reopened, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertEqual(
+            result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+        )
+        self.assertNotIn("request-download", recovery.calls)
+        self.assertNotIn("transfer-candidate", recovery.calls)
+        self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
+
+    def test_request_cut_exact_transition_revalidation_failure_parks_once(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        with mock.patch.object(
+            self.module,
+            "_finish_rollback",
+            side_effect=KeyboardInterrupt("after exact recovery transition"),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.recover_prepared(prepared, FakeBackend(self.module))
+        failed_revalidation = FakeBackend(
+            self.module,
+            wait_download_errors=[RuntimeError("bounded wait expired")],
+        )
+        result = self.module.recover_prepared(prepared, failed_revalidation)
+        self.assertEqual(result["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertEqual(failed_revalidation.calls, ["wait-download"])
+        journal = self.module.core.Journal.reopen(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        self.assertEqual(
+            [
+                record["action"]
+                for record in journal.records()
+                if record["kind"] == "checkpoint"
+            ],
+            ["download_request_revalidation"],
+        )
+        no_retry = FakeBackend(self.module)
+        repeated = self.module.recover_prepared(prepared, no_retry)
+        self.assertEqual(repeated["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertEqual(no_retry.calls, [])
+        (prepared.run_dir / "candidate-download-request-intent.json").unlink()
+        after_intent_loss = FakeBackend(self.module)
+        retained = self.module.recover_prepared(prepared, after_intent_loss)
+        self.assertEqual(retained["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertEqual(
+            retained["outcome_class"],
+            "download_request_cut_endpoint_revalidation_parked",
+        )
+        self.assertEqual(after_intent_loss.calls, [])
+
+    def test_request_cut_transition_rejects_any_candidate_attempt_artifact(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        with mock.patch.object(
+            self.module,
+            "_finish_rollback",
+            side_effect=KeyboardInterrupt("after exact recovery transition"),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.recover_prepared(prepared, FakeBackend(self.module))
+        (prepared.run_dir / "candidate-attempt-01.result.json").write_bytes(b"{}")
+        recovery = FakeBackend(self.module)
+        with self.assertRaisesRegex(
+            self.module.F1LiveError, "has candidate evidence"
+        ):
+            self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(recovery.calls, [])
+
+    def test_request_cut_rollback_resume_does_not_need_request_intent(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        interrupted = FakeBackend(self.module, final_failures=1)
+        with self.assertRaises(RuntimeError):
+            self.module.recover_prepared(prepared, interrupted)
+        self.assertEqual(interrupted.calls.count("transfer-rollback"), 1)
+        journal = self.module.core.Journal.reopen(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        self.assertEqual(journal.state(), "ROLLBACK_FLASHED")
+        (prepared.run_dir / "candidate-download-request-intent.json").unlink()
+        recovery = FakeBackend(self.module)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertNotIn("wait-download", recovery.calls)
+        self.assertNotIn("transfer-rollback", recovery.calls)
+        self.assertIn("verify-final", recovery.calls)
+
+    def test_request_cut_active_rollback_resume_does_not_need_request_intent(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        interrupted = FakeBackend(self.module, crash_rollback_attempt=1)
+        with self.assertRaises(KeyboardInterrupt):
+            self.module.recover_prepared(prepared, interrupted)
+        journal = self.module.core.Journal.reopen(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        self.assertEqual(journal.state(), "RECOVERY_DOWNLOAD")
+        self.assertIn("rollback_flash_start", self.module._events(journal))
+        (prepared.run_dir / "candidate-download-request-intent.json").unlink()
+        recovery = FakeBackend(self.module)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertNotIn("request-download", recovery.calls)
+        self.assertNotIn("transfer-candidate", recovery.calls)
+        self.assertEqual(recovery.calls.count("transfer-rollback"), 1)
+
+    def test_request_cut_health_resume_does_not_need_request_intent(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        original = self.module.core.Journal.event
+        interrupted = False
+
+        def interrupt_health_event(journal, name, details=None):
+            nonlocal interrupted
+            if name == "rollback_boot_ready" and not interrupted:
+                interrupted = True
+                raise KeyboardInterrupt("after final health transition")
+            return original(journal, name, details)
+
+        with mock.patch.object(
+            self.module.core.Journal, "event", new=interrupt_health_event
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.recover_prepared(prepared, FakeBackend(self.module))
+        journal = self.module.core.Journal.reopen(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        self.assertEqual(journal.state(), "HEALTH_VERIFIED")
+        (prepared.run_dir / "candidate-download-request-intent.json").unlink()
+        recovery = FakeBackend(self.module)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "CLOSED")
+        self.assertEqual(recovery.calls, [])
+
+    def test_request_intent_is_durable_before_request_and_recovery_never_replays_it(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module, request_error=True)
+        original_request = backend.request_download
+
+        def checked_request(target):
+            intent = target.run_dir / "candidate-download-request-intent.json"
+            self.assertTrue(intent.is_file())
+            self.assertFalse(intent.is_symlink())
+            self.assertEqual(intent.stat().st_mode & 0o777, 0o400)
+            return original_request(target)
+
+        backend.request_download = checked_request
+        with self.assertRaisesRegex(
+            self.module.F1LiveError, "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY"
+        ):
+            self.module.execute_prepared(prepared, prepared.approval_token, backend)
+        recovery = FakeBackend(
+            self.module,
+            wait_download_errors=[RuntimeError("bounded wait for Download endpoint expired")],
+        )
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertEqual(
+            result["verdict"], "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED"
+        )
+        self.assertNotIn("request-download", recovery.calls)
+        self.assertNotIn("transfer-candidate", recovery.calls)
+        self.assertNotIn("transfer-rollback", recovery.calls)
+        self.assertEqual(recovery.calls.count("wait-download"), 1)
+
+    def test_request_cut_endpoint_uncertainty_is_durable_parked_recovery(self):
+        cases = (
+            ("absent", "bounded wait for Download endpoint expired", "endpoint_absent"),
+            ("ambiguous", "ambiguous live Odin endpoints", "endpoint_ambiguous"),
+            (
+                "foreign",
+                "Download endpoint does not match the prepared target",
+                "endpoint_foreign",
+            ),
+            (
+                "stale",
+                "Download endpoint changed during revalidation",
+                "endpoint_stale",
+            ),
+            ("malformed", "Download recovery endpoint is malformed", "endpoint_malformed"),
+            ("partial", "Download endpoint evidence is partial", "endpoint_partial"),
+        )
+        for name, message, reason in cases:
+            with self.subTest(case=name):
+                temporary, prepared = self.prepared()
+                self.addCleanup(temporary.cleanup)
+                request_backend = FakeBackend(self.module, request_error=True)
+                with self.assertRaises(self.module.F1LiveError):
+                    self.module.execute_prepared(
+                        prepared, prepared.approval_token, request_backend
+                    )
+                recovery = FakeBackend(
+                    self.module, wait_download_errors=[RuntimeError(message)]
+                )
+                result = self.module.recover_prepared(prepared, recovery)
+                self.assertEqual(result["current_state"], "RECOVERY_DOWNLOAD")
+                self.assertEqual(
+                    result["verdict"],
+                    "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+                )
+                self.assertEqual(recovery.calls, ["wait-download"])
+                journal = self.module.core.Journal.reopen(
+                    prepared.run_dir / "transaction", prepared.binding_sha256
+                )
+                recovery_transition = next(
+                    record
+                    for record in journal.records()
+                    if record["kind"] == "transition"
+                    and record["state"] == "RECOVERY_DOWNLOAD"
+                )
+                self.assertEqual(
+                    recovery_transition["outcome"],
+                    "download_request_cut_recovery_parked",
+                )
+                self.assertEqual(
+                    recovery_transition["details"]["failure"]["reason"], reason
+                )
+                self.assertFalse(
+                    recovery_transition["details"][
+                        "candidate_claim_created_by_recovery"
+                    ]
+                )
+                self.assertFalse(
+                    recovery_transition["details"][
+                        "candidate_attempt_synthesized_by_recovery"
+                    ]
+                )
+                reopened = FakeBackend(self.module)
+                second = self.module.recover_prepared(prepared, reopened)
+                self.assertEqual(second["current_state"], "RECOVERY_DOWNLOAD")
+                self.assertEqual(reopened.calls, [])
+
+    def test_request_cut_parked_result_survives_lost_request_intent(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        first = FakeBackend(
+            self.module,
+            wait_download_errors=[RuntimeError("bounded wait expired")],
+        )
+        parked = self.module.recover_prepared(prepared, first)
+        self.assertEqual(parked["current_state"], "RECOVERY_DOWNLOAD")
+        (prepared.run_dir / "candidate-download-request-intent.json").unlink()
+        resumed = FakeBackend(self.module)
+        repeated = self.module.recover_prepared(prepared, resumed)
+        self.assertEqual(repeated["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertEqual(
+            repeated["outcome_class"], "download_request_cut_recovery_parked"
+        )
+        self.assertEqual(resumed.calls, [])
+
+    def test_request_cut_malformed_endpoint_object_cannot_authorize_rollback(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, request_error=True),
+            )
+        recovery = FakeBackend(
+            self.module,
+            download_endpoint=self.module.Endpoint(
+                "/dev/bus/usb/001/002", 0, "not-a-sha256"
+            ),
+        )
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertNotIn("transfer-rollback", recovery.calls)
+        journal = self.module.core.Journal.reopen(
+            prepared.run_dir / "transaction", prepared.binding_sha256
+        )
+        transition = next(
+            record
+            for record in journal.records()
+            if record["kind"] == "transition"
+            and record["state"] == "RECOVERY_DOWNLOAD"
+        )
+        self.assertEqual(
+            transition["details"]["failure"]["reason"], "endpoint_malformed"
+        )
+
+    def test_request_intent_malformed_or_indirect_parks_without_endpoint_observation(self):
+        for case in ("malformed", "foreign", "indirect"):
+            with self.subTest(case=case):
+                temporary, prepared = self.prepared()
+                self.addCleanup(temporary.cleanup)
+                request_backend = FakeBackend(self.module, request_error=True)
+                with self.assertRaises(self.module.F1LiveError):
+                    self.module.execute_prepared(
+                        prepared, prepared.approval_token, request_backend
+                    )
+                intent = prepared.run_dir / "candidate-download-request-intent.json"
+                if case == "malformed":
+                    intent.chmod(0o600)
+                    intent.write_text("{}", encoding="utf-8")
+                    intent.chmod(0o400)
+                elif case == "foreign":
+                    value = json.loads(intent.read_text())
+                    value["candidate_identity"]["candidate_key"] = "0" * 64
+                    intent.chmod(0o600)
+                    intent.write_text(
+                        json.dumps(value, sort_keys=True, separators=(",", ":")),
+                        encoding="utf-8",
+                    )
+                    intent.chmod(0o400)
+                else:
+                    target = prepared.run_dir / "request-intent-target.json"
+                    target.write_text("not the request intent", encoding="utf-8")
+                    intent.unlink()
+                    intent.symlink_to(target)
+                recovery = FakeBackend(self.module)
+                result = self.module.recover_prepared(prepared, recovery)
+                self.assertEqual(result["current_state"], "RECOVERY_DOWNLOAD")
+                self.assertEqual(
+                    result["verdict"],
+                    "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+                )
+                self.assertEqual(recovery.calls, [])
+                journal = self.module.core.Journal.reopen(
+                    prepared.run_dir / "transaction", prepared.binding_sha256
+                )
+                recovery_transition = next(
+                    record
+                    for record in journal.records()
+                    if record["kind"] == "transition"
+                    and record["state"] == "RECOVERY_DOWNLOAD"
+                )
+                self.assertEqual(
+                    recovery_transition["outcome"],
+                    "download_request_cut_recovery_parked",
+                )
+                self.assertIsNone(
+                    recovery_transition["details"]["candidate_identity_sha256"]
+                )
+                self.assertFalse(
+                    recovery_transition["details"][
+                        "candidate_claim_created_by_recovery"
+                    ]
+                )
+                self.assertFalse(
+                    recovery_transition["details"][
+                        "candidate_attempt_synthesized_by_recovery"
+                    ]
+                )
+
+    def test_claim_intent_malformed_parks_without_candidate_or_endpoint(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module)
+        with mock.patch.object(
+            self.module.consumed_registry,
+            "claim",
+            side_effect=KeyboardInterrupt("after claim intent before claim"),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(
+                    prepared, prepared.approval_token, backend
+                )
+        claim_intent = prepared.run_dir / "candidate-global-claim-intent.json"
+        claim_intent.chmod(0o600)
+        claim_intent.write_text("{}", encoding="utf-8")
+        claim_intent.chmod(0o400)
+        recovery = FakeBackend(self.module)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertEqual(
+            result["verdict"], "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED"
+        )
+        self.assertEqual(recovery.calls, [])
+        self.assertNotIn("transfer-candidate", recovery.calls)
+        self.assertNotIn("transfer-rollback", recovery.calls)
+        self.assertEqual(list(prepared.run_dir.glob("candidate-attempt-*.start.json")), [])
+
+    def test_claim_intent_metadata_drift_parks_without_candidate_or_endpoint(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        with mock.patch.object(
+            self.module.consumed_registry,
+            "claim",
+            side_effect=KeyboardInterrupt("after claim intent before claim"),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(
+                    prepared, prepared.approval_token, FakeBackend(self.module)
+                )
+        claim_intent = prepared.run_dir / "candidate-global-claim-intent.json"
+        value = json.loads(claim_intent.read_text())
+        value["candidate_ap_size"] += 1
+        claim_intent.chmod(0o600)
+        claim_intent.write_text(
+            json.dumps(value, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        claim_intent.chmod(0o400)
+        recovery = FakeBackend(self.module)
+        result = self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(result["current_state"], "RECOVERY_DOWNLOAD")
+        self.assertEqual(recovery.calls, [])
+        self.assertEqual(list(prepared.run_dir.glob("candidate-attempt-*.start.json")), [])
+
+    def test_request_cut_recovery_honors_target_session_lease(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module, request_error=True)
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.execute_prepared(prepared, prepared.approval_token, backend)
+        recovery = FakeBackend(self.module)
+        with self.module.consumed_registry.target_session_lease(prepared.root):
+            with self.assertRaisesRegex(
+                self.module.F1LiveError, "target-session lease unavailable"
+            ):
+                self.module.recover_prepared(prepared, recovery)
+        self.assertEqual(recovery.calls, [])
 
     def test_pre_journal_preflight_interruption_resumes_append_only(self):
         temporary, prepared = self.prepared()

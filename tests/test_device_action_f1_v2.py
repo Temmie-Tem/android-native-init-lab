@@ -489,6 +489,50 @@ class DeviceActionF1V2Test(unittest.TestCase):
                     },
                 )
 
+    def test_request_cut_journal_uses_distinct_rollback_only_timeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            journal = self.module.Journal.create(
+                Path(temporary) / "run", "c" * 64
+            )
+            journal.event("live_session_start")
+            journal.transition("APPROVED", "approved", {})
+            journal.transition("RECOVERY_DOWNLOAD", "request-cut", {})
+            with self.assertRaises(self.module.F1V2Error):
+                journal.event("candidate_flash_start")
+            journal.event("rollback_flash_start")
+            journal.transition("ROLLBACK_FLASHED", "rollback-complete", {})
+            journal.event("rollback_flash_done")
+            journal.transition("HEALTH_VERIFIED", "healthy", {})
+            journal.event("rollback_boot_ready")
+            journal.event("live_session_end")
+            journal.transition("CLOSED", "closed", {})
+            self.assertEqual(
+                [event["name"] for event in self.module.timeline(journal.records())["events"]],
+                list(self.module.RECOVERY_TIMELINE),
+            )
+
+    def test_request_cut_revalidation_park_is_append_only_and_single(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary) / "run"
+            journal = self.module.Journal.create(run_dir, "d" * 64)
+            journal.event("live_session_start")
+            journal.transition("APPROVED", "approved", {})
+            journal.transition("RECOVERY_DOWNLOAD", "request-cut", {})
+            failure = {
+                "reason": "endpoint_absent",
+                "error_type": "TimeoutError",
+                "error_sha256": "1" * 64,
+            }
+            journal.checkpoint(
+                "download_request_revalidation", "parked", failure
+            )
+            reopened = self.module.Journal.reopen(run_dir, "d" * 64)
+            self.assertEqual(reopened.records()[-1]["details"], failure)
+            with self.assertRaises(self.module.F1V2Error):
+                reopened.checkpoint(
+                    "download_request_revalidation", "parked", failure
+                )
+
     def test_journal_head_detects_tail_deletion(self):
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary) / "run"

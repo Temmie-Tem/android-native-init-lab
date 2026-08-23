@@ -66,8 +66,12 @@ STATES = (
 NEXT_STATES: dict[str | None, set[str]] = {
     None: {"PREFLIGHT"},
     "PREFLIGHT": {"APPROVED", "ABORTED"},
-    "APPROVED": {"DOWNLOAD_IDENTIFIED", "ABORTED"},
-    "DOWNLOAD_IDENTIFIED": {"CANDIDATE_FLASHED", "ABORTED"},
+    # A durable Download-request cut may enter recovery without first
+    # fabricating a candidate endpoint/claim/attempt.  The live adapter uses
+    # this direct recovery edge only for its passive recovery-only branch;
+    # ordinary candidate execution still follows the existing path below.
+    "APPROVED": {"DOWNLOAD_IDENTIFIED", "RECOVERY_DOWNLOAD", "ABORTED"},
+    "DOWNLOAD_IDENTIFIED": {"CANDIDATE_FLASHED", "RECOVERY_DOWNLOAD", "ABORTED"},
     "CANDIDATE_FLASHED": {"OBSERVED", "ABORTED"},
     "OBSERVED": {"RECOVERY_DOWNLOAD", "ABORTED"},
     "RECOVERY_DOWNLOAD": {"ROLLBACK_FLASHED", "ABORTED"},
@@ -98,6 +102,22 @@ TIMELINE = (
     "rollback_boot_ready",
     "live_session_end",
 )
+# A request-cut recovery has no candidate event to report.  It still retains
+# the session-start event from the approved journal, then follows a separate
+# rollback-only suffix.  Keeping the prefix explicit lets the journal reopen
+# without fabricating a candidate event or transfer attempt.
+RECOVERY_TIMELINE = (
+    "live_session_start",
+    "rollback_flash_start",
+    "rollback_flash_done",
+    "rollback_boot_ready",
+    "live_session_end",
+)
+RECOVERY_EVENT_STATES = {
+    "RECOVERY_DOWNLOAD",
+    "ROLLBACK_FLASHED",
+    "HEALTH_VERIFIED",
+}
 EVENT_STATE = {
     "live_session_start": "PREFLIGHT",
     "candidate_flash_start": "DOWNLOAD_IDENTIFIED",
@@ -111,6 +131,7 @@ EVENT_STATE = {
 CHECKPOINT_STATE = {
     "candidate_transfer_attempt": "DOWNLOAD_IDENTIFIED",
     "rollback_transfer_attempt": "RECOVERY_DOWNLOAD",
+    "download_request_revalidation": "RECOVERY_DOWNLOAD",
 }
 MAX_TRANSFER_ATTEMPTS = 2
 
@@ -1505,6 +1526,25 @@ def _validate_checkpoint(
     details: dict[str, Any],
     attempts: dict[str, int],
 ) -> None:
+    if action == "download_request_revalidation":
+        item = _exact(
+            details,
+            {"reason", "error_type", "error_sha256"},
+            "Download request revalidation checkpoint details",
+        )
+        if (
+            outcome != "parked"
+            or attempts.get(action, 0) != 0
+            or not isinstance(item["reason"], str)
+            or not item["reason"]
+            or not isinstance(item["error_type"], str)
+            or not item["error_type"]
+            or not isinstance(item["error_sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", item["error_sha256"]) is None
+        ):
+            raise F1V2Error("Download request revalidation checkpoint is invalid")
+        attempts[action] = 1
+        return
     if outcome != "attempt_started":
         raise F1V2Error("journal checkpoint outcome is invalid")
     item = _exact(details, {"attempt", "start"}, "journal checkpoint details")
@@ -1623,7 +1663,13 @@ class Journal:
             elif value["kind"] == "event":
                 if value["state"] != state or EVENT_STATE.get(value["action"]) != state:
                     raise F1V2Error(f"journal event {sequence} is invalid")
-                if len(events) >= len(TIMELINE) or TIMELINE[len(events)] != value["action"]:
+                order = (
+                    RECOVERY_TIMELINE
+                    if state in RECOVERY_EVENT_STATES
+                    and "candidate_flash_start" not in events
+                    else TIMELINE
+                )
+                if len(events) >= len(order) or order[len(events)] != value["action"]:
                     raise F1V2Error(f"journal timeline {sequence} is out of order")
                 events.append(value["action"])
             elif value["kind"] == "checkpoint":
@@ -1656,16 +1702,26 @@ class Journal:
         checkpoint_attempts: dict[str, int] = {}
         for record in records:
             if record["kind"] == "checkpoint":
-                checkpoint_attempts[record["action"]] = record["details"]["attempt"]
+                checkpoint_attempts[record["action"]] = (
+                    1
+                    if record["action"] == "download_request_revalidation"
+                    else record["details"]["attempt"]
+                )
         if kind == "transition":
             if state not in NEXT_STATES[current] or action != STATE_ACTION[state]:
                 raise F1V2Error(f"invalid transition: {current} -> {state}")
         elif kind == "event":
+            order = (
+                RECOVERY_TIMELINE
+                if current in RECOVERY_EVENT_STATES
+                and "candidate_flash_start" not in events
+                else TIMELINE
+            )
             if (
-                len(events) >= len(TIMELINE)
+                len(events) >= len(order)
                 or state != current
                 or EVENT_STATE.get(action) != state
-                or TIMELINE[len(events)] != action
+                or order[len(events)] != action
             ):
                 raise F1V2Error(f"invalid timeline event: {action}")
         elif kind == "checkpoint":
