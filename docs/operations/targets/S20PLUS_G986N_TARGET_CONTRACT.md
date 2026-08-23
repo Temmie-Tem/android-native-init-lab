@@ -382,6 +382,15 @@ live-integration flags remain false. Exact D0/read evidence, reboot/return
 execution, child-session lifecycle, reporting-cut recovery, a new independent
 live-integration review, and a later binding rotation remain required.
 
+The first exact public-health consumer closure is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_health_h0.py`.
+Independent review returned `PASS_GO` and its status is
+`H0_AUTONOMOUS_PUBLIC_HEALTH_PASS_GO_NOT_ACTIVE`. It binds the six-command
+inventory transcript, exact target/build, hashed serial/topology/boot,
+stable Android, enforcing SELinux, shell identity, and zero other-target
+commands. It remains render-only: durable evidence, campaign accounting,
+coordinator consumption, control actions, and activation are not implemented.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
