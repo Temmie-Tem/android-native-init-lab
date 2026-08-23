@@ -1,0 +1,148 @@
+{
+  "schema": "a90-h35-public-mpgen-rtic-package-independent-review-v1",
+  "verdict": "PASS_H0_PACKAGE_GATE",
+  "reviewDate": "2026-08-23",
+  "reviewer": "Independent public-scope A90 H0 reviewer",
+  "sourceCommit": "d7245ab4b2106cba1ccb97825fff1053ab9252d7",
+  "packageCommit": "d7862a8cee0c3efe61d6a12c35bfb8d01fd4f25f",
+  "targetProfile": "SAMSUNG_A90_5G",
+  "tier": "H0",
+  "candidateAuthority": false,
+  "liveAuthority": false,
+  "workspacePrivate": 0,
+  "contacts": {
+    "device": 0,
+    "dev": 0,
+    "usb": 0,
+    "adb": 0,
+    "network": 0,
+    "otherTargets": 0,
+    "writes": 0,
+    "workspacePrivate": 0
+  },
+  "scope": {
+    "publicOnly": true,
+    "goalLinesReviewed": "23-58",
+    "historyProbes": [
+      "git log -S'phase3-minimal-h35' ... d7245ab4b2106cba1ccb97825fff1053ab9252d7^",
+      "git log -S'0.11.202' ... d7245ab4b2106cba1ccb97825fff1053ab9252d7^"
+    ],
+    "historyProbeResult": "Only d7862a8cee a90: package H35 RTIC canary artifact was returned for each exact probe; no earlier H35 or 0.11.202 match was found in the reviewed paths.",
+    "excluded": [
+      "workspace/private",
+      "device",
+      "/dev",
+      "USB",
+      "ADB",
+      "network",
+      "other targets"
+    ]
+  },
+  "reviewedFiles": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "b50cec896c97766e84bb15f33ce4207dce14d61b4bdb484b41cd6ac9d32e2ec1"
+    },
+    {
+      "path": "docs/operations/targets/A90_TARGET_CONTRACT.md",
+      "sha256": "95d68602ea4a56ca50f14e9ca3e6278dd8bdcab0e02af6d1d9c0b22c7d866f28"
+    },
+    {
+      "path": "GOAL_A90.md",
+      "sha256": "c8e9d7e293b6c4689fc9c69da6814af191f96e39c82a7561488c699b6247b945",
+      "lineCount": 900
+    },
+    {
+      "path": "docs/reports/A90_H35_PUBLIC_MPGEN_RTIC_CANARY_PACKAGE_H0_2026-08-23.md",
+      "sha256": "c5541efd3624bf2e147ededac0fe7d73756bb6d21ad119888a66d993d8665801"
+    },
+    {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h35/manifest.toml",
+      "sha256": "0b8ed49e5cb4ddc57fb73a1f43948d2c0c93829d7fb71a751f9badf75b52d89a"
+    },
+    {
+      "path": "tests/test_a90_public_mpgen_rtic_h35.py",
+      "sha256": "bcce56c7544da036ed3d413445412d26a3d9c619e51bca88f52c1bd1492896d8"
+    },
+    {
+      "path": "docs/reports/A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_INDEPENDENT_REVIEW_2026-08-23.json",
+      "sha256": "d180b3637bb36eefce7c28251a8c17ddb73393068135b4dff16972e5f86a8c94"
+    }
+  ],
+  "artifacts": {
+    "carrier": {
+      "size": 49827613,
+      "sha256": "15b49a71aeb2342a5b5a7e24de27f78a4124bf877f6d8d8f28aaab928fa6bd71",
+      "verification": "declared_in_public_report_owner_host_bytes_not_directly_read"
+    },
+    "base": {
+      "size": 66379776,
+      "sha256": "5d681bbddf527fdacf1e433cdf30a0ca0b11d455c1b6e879c809418fd0d75484",
+      "verification": "declared_in_public_report_owner_host_bytes_not_directly_read"
+    },
+    "boot": {
+      "size": 58372096,
+      "sha256": "5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759",
+      "verification": "declared_in_public_report_owner_host_bytes_not_directly_read"
+    }
+  },
+  "reviewChecks": {
+    "freshH35IdentityAndHistory": "PASS_PUBLIC",
+    "exactH34RamdiskSemanticDelta": "PASS_PUBLIC_MANIFEST_COMPARE_PRIVATE_BYTES_DELEGATED",
+    "exactBaseCarrierHazardBinding": "PASS_DECLARED_BINDING_PRIVATE_BYTES_DELEGATED",
+    "publicReportPrivateByteBoundary": "PASS_NO_OVERCLAIM",
+    "candidateAndLiveAuthority": "PASS_FALSE",
+    "qualificationOwnerD0D1F1Separation": "PASS_SEPARATE"
+  },
+  "publicTests": {
+    "privateEnvironmentUnset": true,
+    "privateVerificationSkipped": true,
+    "total": 16,
+    "passed": 15,
+    "skipped": 1,
+    "failed": 0,
+    "modules": [
+      {
+        "path": "tests/test_a90_public_mpgen_rtic_h35.py",
+        "total": 8,
+        "passed": 7,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "path": "tests/test_a90_rtic_public_mpgen_canary_hazard_review.py",
+        "total": 8,
+        "passed": 8,
+        "skipped": 0,
+        "failed": 0
+      }
+    ]
+  },
+  "publicTestCount": 16,
+  "privateVerification": {
+    "directPrivateByteVerification": false,
+    "workspacePrivateReads": 0,
+    "delegatedOwnerHostTest": {
+      "path": "tests/test_a90_public_mpgen_rtic_h35.py",
+      "test": "A90PublicMpgenRticH35Tests.test_private_h35_materialization_is_exact_when_enabled",
+      "environment": "A90_H35_VERIFY_PRIVATE=1",
+      "status": "NOT_RUN_IN_PUBLIC_REVIEW"
+    },
+    "boundary": "This review does not claim direct private-byte verification; the env-gated owner-host test remains required."
+  },
+  "findings": {
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "remainingPrerequisites": [
+    "RECORD_THIS_REVIEW_IN_THE_CURRENT_GOAL_FRONTIER_BEFORE_QUALIFICATION",
+    "OWNER_HOST_ENV_GATED_PRIVATE_H35_MATERIALIZATION_AND_EXACT_BYTE_CHECKS",
+    "CANDIDATE_SPECIFIC_QUALIFICATION_AND_MANIFEST",
+    "CURRENT_OWNER_CONTINUATION_OBSERVER_ROLLBACK_POSTROLLBACK_BINDINGS",
+    "FRESH_EXACT_V2321_HEALTH_AND_PHYSICAL_RECOVERY_D0",
+    "FRESH_ATTENDED_EXACT_CANDIDATE_ROLLBACK_APPROVAL",
+    "ONE_SHOT_F1_WITH_NO_CANDIDATE_REPLAY",
+    "FIRST_OPPORTUNITY_EVIDENCE_THEN_JOURNAL_BOUND_ROLLBACK_RECOVERY"
+  ]
+}

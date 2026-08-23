@@ -128,8 +128,9 @@ class A90RticPublicMpgenCanaryHazardReviewTest(unittest.TestCase):
         flat = " ".join(goal.split())
         self.assertIn("H35 is the fresh host-only successor", flat)
         self.assertIn("0.11.202", flat)
-        self.assertIn("Package review remains pending", flat)
-        self.assertIn("no qualification, manifest, D0, D1, F1, or live authority exists", flat)
+        self.assertIn("Package review `PASS_H0_PACKAGE_GATE`", flat)
+        self.assertIn("owner-host private verification are complete", flat)
+        self.assertIn("No qualification, manifest, D0, D1, F1, or live authority exists", flat)
 
 
 if __name__ == "__main__":

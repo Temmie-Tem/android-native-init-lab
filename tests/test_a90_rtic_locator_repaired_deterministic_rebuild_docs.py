@@ -101,9 +101,12 @@ class A90RticLocatorRepairedDeterministicRebuildDocsTest(unittest.TestCase):
             "candidate-derived extent `0x039d3000`, not stock `0x03973000`",
             "proprietary RTIC/QHEE",
             "next unit is one independent H0 review",
-            "no successor/live authority exists",
         ):
             self.assertIn(token, self.flat + " " + GOAL.read_text(encoding="utf-8"))
+        self.assertIn("no candidate identity, boot image, manifest, D0, D1, F1", self.flat)
+        goal = " ".join(GOAL.read_text(encoding="utf-8").split())
+        self.assertIn("H35 is the fresh host-only successor", goal)
+        self.assertIn("No qualification, manifest, D0, D1, F1, or live authority exists", goal)
 
     def test_predecessor_links_without_rewriting_the_design_decision(self) -> None:
         predecessor = " ".join(PREDECESSOR.read_text(encoding="utf-8").split())

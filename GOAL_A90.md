@@ -45,15 +45,15 @@ the separately registered S20+ goal and every future target row.
   unproved and neither image may replay. Host analysis localized H34 to missing
   `rtic_mp` plus a stale RTIC DTB; the repaired public producer now emits exact
   offsets `88/1704/1728/2144` and structural RTIC `PASS`.
-- H35 is the fresh host-only successor: `0.11.202 /
-  phase3-minimal-h35-public-mpgen-rtic-canary`, 58,372,096 bytes, SHA-256
-  `5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759`.
+- H35 is the fresh host-only successor: `0.11.202 / phase3-minimal-h35-public-mpgen-rtic-canary`,
+  58,372,096 bytes, SHA-256 `5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759`.
   A/B are byte-identical and contain exact reviewed carrier `15b49a71…`; the
   ramdisk preserves H34 semantics except fresh identity/state paths. Verdict
   `PASS_GO_H0_CANARY_HAZARD` in `A90_RTIC_PUBLIC_MPGEN_CANARY_HAZARD_INDEPENDENT_REVIEW_2026-08-23.json`
-  accepts H1–H6 for one future attended canary only. Package review remains
-  pending; no qualification, manifest, D0, D1, F1, or live authority exists,
-  and current V2321 health remains unproved. See `docs/reports/A90_H35_PUBLIC_MPGEN_RTIC_CANARY_PACKAGE_H0_2026-08-23.md`.
+  accepts H1–H6 for one future attended canary only. Package review `PASS_H0_PACKAGE_GATE` and owner-host private verification are complete.
+  No qualification, manifest, D0, D1, F1, or live authority exists; current
+  V2321 health remains unproved. Next H0 is candidate-specific qualification
+  and current execution-closure binding; see `A90_H35_PUBLIC_MPGEN_RTIC_CANARY_PACKAGE_INDEPENDENT_REVIEW_2026-08-23.json`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 
