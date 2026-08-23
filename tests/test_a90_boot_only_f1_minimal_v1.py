@@ -24,21 +24,34 @@ HEX_B = "b" * 64
 HEX_C = "c" * 64
 
 class FakeBackend:
-    def __init__(self, start: M.Snapshot, flashes=None, observations=None):
+    def __init__(self, start: M.Snapshot, flashes=None, observations=None, recovery_results=None):
         self.preflights = [start]
         self.flashes = list(flashes or [])
         self.observations = list(observations or [])
         self.flash_calls = []
         self.evidence_results = []
         self.evidence_calls = []
+        self.recovery_calls = []
+        self.recovery_results = list(recovery_results or [M.RecoveryBinding("d" * 64, "e" * 64, HEX_C)])
+        self.recovery_bindings = []
 
     def preflight(self, _manifest):
         if len(self.preflights) > 1:
             return self.preflights.pop(0)
         return self.preflights[0]
 
-    def flash(self, artifact, *, rollback, timeout_sec):
+    def prepare_candidate_recovery(self, *, timeout_sec):
+        self.recovery_calls.append(timeout_sec)
+        result = self.recovery_results.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        return result
+
+    def flash(self, artifact, *, rollback, timeout_sec, recovery_binding=None):
         self.flash_calls.append((artifact["sha256"], rollback, timeout_sec))
+        self.recovery_bindings.append(recovery_binding)
+        if not rollback and type(recovery_binding) is not M.RecoveryBinding:
+            raise M.ContractError("test candidate recovery binding missing")
         result = self.flashes.pop(0)
         if isinstance(result, BaseException):
             raise result
@@ -374,6 +387,85 @@ class MinimalF1Test(unittest.TestCase):
         self.assertEqual(M.recovery_decision(run), "PRE_EFFECT_NO_DEVICE_EFFECT")
         self.assertTrue((M.RUN_ROOT / "active-run.guard").is_file())
 
+    def test_recovery_transition_failure_parks_before_candidate_ordinal(self):
+        run, token = self._prepare(
+            FakeBackend(self.start, recovery_results=[RuntimeError("no Recovery")])
+        )
+        backend = FakeBackend(self.start, recovery_results=[RuntimeError("no Recovery")])
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["reason"], "RECOVERY_NOT_PROVED")
+        records = M.read_records(run)
+        self.assertIn("11-recovery-transition-intent.json", records)
+        self.assertIn("13-recovery-transition-parked.json", records)
+        self.assertNotIn("12-recovery-ready.json", records)
+        self.assertNotIn("20-candidate-intent.json", records)
+        self.assertFalse(M._candidate_guard(self.manifest)[0].exists())
+        self.assertEqual(backend.flash_calls, [])
+        self.assertEqual(
+            M.recovery_decision(run),
+            "PRE_CANDIDATE_RECOVERY_PARKED_NO_CANDIDATE",
+        )
+
+    def test_recovery_binding_drift_parks_without_candidate_write(self):
+        run, token = self._prepare()
+        bad = M.RecoveryBinding("d" * 64, "e" * 64, HEX_A)
+        backend = FakeBackend(self.start, recovery_results=[bad])
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["reason"], "RECOVERY_NOT_PROVED")
+        self.assertNotIn("20-candidate-intent.json", M.read_records(run))
+        self.assertEqual(backend.flash_calls, [])
+
+    def test_pre_candidate_crash_prefixes_are_explicitly_nonreplayable(self):
+        run, _token = self._prepare()
+        digest = M.sha256_bytes(self.raw)
+        intent = {
+            "attempt": 1,
+            "candidateReplay": False,
+            "nativeRole": "NATIVE_NO_RECOVERY",
+            "recoveryUsbProduct": "04e8:6860",
+            "recoveryAdbState": "recovery",
+            "expectedRecoverySerialSha256": HEX_C,
+        }
+        M.publish_record(
+            run,
+            "10-approved.json",
+            M._record("APPROVED", digest, {"approvalSha256": HEX_A}),
+        )
+        M.publish_record(
+            run,
+            "11-recovery-transition-intent.json",
+            M._record("RECOVERY_TRANSITION_INTENT", digest, intent),
+        )
+        self.assertEqual(
+            M.recovery_decision(run),
+            "PRE_CANDIDATE_RECOVERY_TRANSITION_CONSUMED_NO_RESULT_NO_CANDIDATE",
+        )
+        binding = M.RecoveryBinding("d" * 64, "e" * 64, HEX_C)
+        M.publish_record(
+            run,
+            "12-recovery-ready.json",
+            M._record("RECOVERY_READY", digest, binding.payload()),
+        )
+        self.assertEqual(
+            M.recovery_decision(run),
+            "RECOVERY_READY_BEFORE_CANDIDATE_INTENT_ACTIVE_PARKED",
+        )
+
+    def test_candidate_flash_receives_only_ready_recovery_binding(self):
+        run, token = self._prepare()
+        backend = FakeBackend(
+            self.start,
+            flashes=[self._effect()],
+            observations=[self._snapshot("new", "new-build")],
+        )
+        result = M.execute(self.raw, self.manifest, run, token, backend)
+        self.assertEqual(result["terminal"], "PASS_A90_RESIDENT_INSTALLED")
+        self.assertEqual(len(backend.recovery_bindings), 1)
+        binding = backend.recovery_bindings[0]
+        self.assertIsInstance(binding, M.RecoveryBinding)
+        self.assertIn("12-recovery-ready.json", M.read_records(run))
+        self.assertTrue(M._candidate_guard(self.manifest)[0].exists())
+
     def test_prepare_preflight_failure_leaves_no_journal_directory(self):
         run = M.RUN_ROOT / self.manifest["runId"]
         with self.assertRaisesRegex(M.ContractError, "not exact"):
@@ -440,18 +532,15 @@ class MinimalF1Test(unittest.TestCase):
             M, "_publish_candidate_guard", side_effect=lambda _manifest: order.append("candidate")
         ):
             M.prepare(self.raw, self.manifest, run, FakeBackend(self.start))
-        self.assertEqual(order, ["active", "candidate"])
+        self.assertEqual(order, ["active"])
+        self.assertFalse(M._candidate_guard(self.manifest)[0].exists())
 
-    def test_pre_effect_candidate_guard_failure_releases_new_active_guard(self):
+    def test_pre_candidate_recovery_failure_parks_without_consuming_candidate(self):
         run = M.RUN_ROOT / self.manifest["runId"]
-        with mock.patch.object(
-            M,
-            "_publish_candidate_guard",
-            side_effect=M.ContractError("candidate guard rejected"),
-        ):
-            with self.assertRaisesRegex(M.ContractError, "candidate guard rejected"):
-                M.prepare(self.raw, self.manifest, run, FakeBackend(self.start))
-        self.assertFalse((M.RUN_ROOT / "active-run.guard").exists())
+        backend = FakeBackend(self.start)
+        M.prepare(self.raw, self.manifest, run, backend)
+        self.assertFalse(M._candidate_guard(self.manifest)[0].exists())
+        self.assertTrue((M.RUN_ROOT / "active-run.guard").exists())
 
     def test_manifest_bytes_cannot_authorize_a_different_object(self):
         changed = json.loads(json.dumps(self.manifest))
@@ -702,13 +791,13 @@ class MinimalF1Test(unittest.TestCase):
             M.execute(self.raw, self.manifest, run, token, backend)
         self.assertEqual(backend.flash_calls, [])
 
-    def test_candidate_guard_lost_during_preflight_stops_before_intent(self):
+    def test_foreign_candidate_guard_during_preflight_stops_before_intent(self):
         run, token = self._prepare()
-        guard, _ = M._candidate_guard(self.manifest)
 
         class MutatingBackend(FakeBackend):
             def preflight(inner_self, manifest):
-                guard.unlink()
+                guard, _ = M._candidate_guard(manifest)
+                guard.write_bytes(b"foreign")
                 return super().preflight(manifest)
 
         backend = MutatingBackend(self.start)
@@ -1170,7 +1259,7 @@ class MinimalF1Test(unittest.TestCase):
     def test_legacy_rollback_prefix_and_new_evidence_recovery_prefix_are_parseable(self):
         run, _token = self._prepare()
         digest = M.sha256_bytes(self.raw)
-        for name in M.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH:
+        for name in M.LEGACY_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH:
             if name == "00-prepared.json":
                 continue
             payload = {}
@@ -1406,8 +1495,8 @@ class MinimalSurfaceTest(unittest.TestCase):
 
     def test_minimal_source_and_test_surface_stays_bounded(self):
         design = ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md"
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1900)
-        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 1450)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 2250)
+        self.assertLessEqual(len(Path(__file__).read_text().splitlines()), 1600)
         self.assertLessEqual(len(design.read_text().splitlines()), 250)
 
     def test_retired_owner_runtime_is_not_an_active_dependency(self):

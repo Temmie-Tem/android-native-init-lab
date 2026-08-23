@@ -105,8 +105,9 @@ class A90RticLocatorRepairedDeterministicRebuildDocsTest(unittest.TestCase):
             self.assertIn(token, self.flat + " " + GOAL.read_text(encoding="utf-8"))
         self.assertIn("no candidate identity, boot image, manifest, D0, D1, F1", self.flat)
         goal = " ".join(GOAL.read_text(encoding="utf-8").split())
-        self.assertIn("H35 is the fresh host-only successor", goal)
-        self.assertIn("No qualification, manifest, D0, D1, F1, or live authority exists", goal)
+        self.assertIn("H35 is consumed and never replayed", goal)
+        self.assertIn("H35 never booted and remains unproved", goal)
+        self.assertIn("No H36 identity or authority exists", goal)
 
     def test_predecessor_links_without_rewriting_the_design_decision(self) -> None:
         predecessor = " ".join(PREDECESSOR.read_text(encoding="utf-8").split())

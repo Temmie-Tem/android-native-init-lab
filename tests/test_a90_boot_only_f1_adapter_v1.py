@@ -152,6 +152,26 @@ def usb_recovery_inventory():
     )
 
 
+def recovery_binding_receipt(*, request_outcome="CONFIRMED"):
+    return result(
+        json.dumps(
+            {
+                "schema": A.RECOVERY_BINDING_RECEIPT_SCHEMA,
+                "mode": A.RECOVERY_BINDING_RECEIPT_MODE,
+                "role": A.ADB_ROLE_RECOVERY,
+                "usbProduct": "04e8:6860",
+                "adbState": "recovery",
+                "usbInventorySha256": A.sha256_bytes(usb_recovery_inventory().stdout),
+                "adbInventorySha256": "e" * 64,
+                "adbSerialSha256": "c" * 64,
+                "requestOutcome": request_outcome,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    )
+
+
 def healthy_results(version="0.11.194", build="phase3-minimal-h27"):
     return [
         usb_inventory(),
@@ -186,6 +206,11 @@ class FixedAdapterTest(unittest.TestCase):
             "version": "0.11.194",
             "build": "phase3-minimal-h27",
         }
+        self.recovery_binding = A.RecoveryBinding(
+            A.sha256_bytes(usb_recovery_inventory().stdout),
+            "e" * 64,
+            "c" * 64,
+        )
 
     def test_preflight_produces_exact_healthy_snapshot(self):
         runner = FakeRunner(healthy_results())
@@ -237,6 +262,33 @@ class FixedAdapterTest(unittest.TestCase):
             receipt = evidence.payload()
             self.assertNotIn(serial, json.dumps(receipt))
             self.assertEqual(receipt["lastKmsg"]["byteCount"], len(b"Kernel panic\n"))
+
+    def test_pre_candidate_transition_accepts_missing_native_response_after_exact_recovery(self):
+        runner = FakeRunner([usb_inventory(), recovery_binding_receipt(request_outcome="UNCERTAIN_RESPONSE")])
+        adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
+        binding = adapter.prepare_candidate_recovery(timeout_sec=90)
+        self.assertEqual(binding.adb_serial_sha256, "c" * 64)
+        self.assertEqual(binding.request_outcome, "UNCERTAIN_RESPONSE")
+        self.assertEqual([call[0] for call in runner.calls], ["effect-usb-inventory", "native-to-recovery"])
+        transition_argv = runner.calls[1][1]
+        self.assertIn("--recovery-only", transition_argv)
+        self.assertIn("--from-native", transition_argv)
+        self.assertNotIn("--require-empty-adb-baseline", transition_argv)
+
+    def test_pre_candidate_transition_rejects_recovery_receipt_drift(self):
+        drift = recovery_binding_receipt()
+        value = json.loads(drift.stdout.decode())
+        value["adbSerialSha256"] = "f" * 64
+        drift = result(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
+        runner = FakeRunner([usb_inventory(), drift])
+        with self.assertRaisesRegex(A.ContractError, "Recovery serial"):
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).prepare_candidate_recovery(timeout_sec=90)
+
+    def test_pre_candidate_transition_rejects_nonzero_valid_receipt(self):
+        valid = recovery_binding_receipt()
+        runner = FakeRunner([usb_inventory(), result(valid.stdout, rc=1)])
+        with self.assertRaisesRegex(A.ContractError, "failed or survived"):
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).prepare_candidate_recovery(timeout_sec=90)
 
     def test_failed_boot_capture_tolerates_bounded_zero_native_recovery_churn(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -569,13 +621,16 @@ class FixedAdapterTest(unittest.TestCase):
             )
 
     def test_flash_uses_only_fixed_helper_arguments(self):
-        runner = FakeRunner([usb_inventory(), result(b"ok")])
+        runner = FakeRunner([result(b"ok")])
         adapter = A.FixedA90Adapter(runner, qualification=QUALIFICATION)
-        effect = adapter.flash(self.artifact, rollback=False, timeout_sec=90)
+        effect = adapter.flash(
+            self.artifact, rollback=False, timeout_sec=90,
+            recovery_binding=self.recovery_binding,
+        )
         effect.validate()
         self.assertTrue(effect.completed)
         self.assertNotIn("adb-inventory", [call[0] for call in runner.calls])
-        label, argv, timeout = runner.calls[1]
+        label, argv, timeout = runner.calls[0]
         self.assertEqual(label, "flash-candidate")
         self.assertEqual(
             argv,
@@ -583,21 +638,21 @@ class FixedAdapterTest(unittest.TestCase):
                 self.artifact,
                 recovery_serial_sha256="c" * 64,
                 timeout_sec=90,
-                owner_usb_inventory_sha256=A.sha256_bytes(
-                    usb_inventory().stdout
-                ),
-                owner_adb_role="NATIVE_NO_RECOVERY",
+                recovery_binding=self.recovery_binding,
+                owner_usb_inventory_sha256=self.recovery_binding.usb_inventory_sha256,
+                owner_adb_inventory_sha256=self.recovery_binding.adb_inventory_sha256,
+                owner_adb_role="BOUND_RECOVERY_PRESENT",
             ),
         )
         self.assertEqual(argv[:2], (str(A.PYTHON), str(A.FLASH)))
-        self.assertIn("--from-native", argv)
-        self.assertIn("--require-stable-adb-baseline", argv)
+        self.assertIn("--reuse-bound-recovery-only", argv)
+        self.assertNotIn("--from-native", argv)
         self.assertIn("--owner-expect-adb-role", argv)
         self.assertEqual(
             argv[argv.index("--owner-expect-adb-role") + 1],
-            "NATIVE_NO_RECOVERY",
+            "BOUND_RECOVERY_PRESENT",
         )
-        self.assertNotIn("--owner-expect-adb-inventory-sha256", argv)
+        self.assertIn("--owner-expect-adb-inventory-sha256", argv)
         self.assertEqual(
             argv[argv.index("--expect-recovery-serial-sha256") + 1],
             "c" * 64,
@@ -625,8 +680,8 @@ class FixedAdapterTest(unittest.TestCase):
     def test_candidate_zero_samsung_is_immediate_and_has_no_helper_effect(self):
         runner = FakeRunner([usb_zero_samsung()])
         with self.assertRaisesRegex(A.ContractError, "candidate pre-effect"):
-            A.FixedA90Adapter(runner, qualification=QUALIFICATION).flash(
-                self.artifact, rollback=False, timeout_sec=60
+            A.FixedA90Adapter(runner, qualification=QUALIFICATION).prepare_candidate_recovery(
+                timeout_sec=60
             )
         self.assertEqual([call[0] for call in runner.calls], ["effect-usb-inventory"])
 
@@ -726,8 +781,8 @@ class FixedAdapterTest(unittest.TestCase):
             "systemReturnConfirmed": False,
         })
         effect = A.FixedA90Adapter(
-            FakeRunner([usb_inventory(), result(receipt, rc=1)]), qualification=QUALIFICATION
-        ).flash(self.artifact, rollback=False, timeout_sec=60)
+            FakeRunner([result(receipt, rc=1)]), qualification=QUALIFICATION
+        ).flash(self.artifact, rollback=False, timeout_sec=60, recovery_binding=self.recovery_binding)
         self.assertEqual(
             effect.outcome,
             "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
@@ -762,10 +817,13 @@ class FixedAdapterTest(unittest.TestCase):
             recovery_serial_sha256="c" * 64,
             timeout_sec=60,
             rollback=False,
-            owner_usb_inventory_sha256=digest,
-            owner_adb_role="NATIVE_NO_RECOVERY",
+            recovery_binding=self.recovery_binding,
+            owner_usb_inventory_sha256=self.recovery_binding.usb_inventory_sha256,
+            owner_adb_inventory_sha256=self.recovery_binding.adb_inventory_sha256,
+            owner_adb_role="BOUND_RECOVERY_PRESENT",
         )
-        self.assertIn("--from-native", candidate_argv)
+        self.assertIn("--reuse-bound-recovery-only", candidate_argv)
+        self.assertNotIn("--from-native", candidate_argv)
 
     def test_live_host_runner_creates_one_private_log_directory(self):
         self.assertTrue(A.LIVE_ADAPTER_ENABLED)
@@ -922,7 +980,7 @@ class FixedAdapterTest(unittest.TestCase):
                 )
 
     def test_adapter_surface_stays_bounded(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1150)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 1300)
 
 
 if __name__ == "__main__":

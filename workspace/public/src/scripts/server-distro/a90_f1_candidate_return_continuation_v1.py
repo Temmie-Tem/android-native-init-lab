@@ -395,7 +395,10 @@ def _uncertain_observation_intent_sha256(ctx: Context) -> str:
     owner._require_active_guard(ctx.manifest)
     owner._require_candidate_guard(ctx.manifest)
     records = _read_records_checked(ctx)
-    if tuple(records) != owner.CANDIDATE_RETURN_OBSERVATION_PATH:
+    if tuple(records) not in (
+        owner.CANDIDATE_RETURN_OBSERVATION_PATH,
+        owner.CURRENT_CANDIDATE_RETURN_OBSERVATION_PATH,
+    ):
         raise ReviewLeaseDrift("uncertain evidence main-journal prefix drift")
     record = records["25-candidate-observation-intent.json"]
     payload = record["payload"]
@@ -631,10 +634,10 @@ def review_gate_present() -> bool:
 
 
 def _validate_record_path(records: dict[str, dict[str, Any]]) -> None:
-    base = set(owner.SUCCESS_PATH[:-1])
     names = set(records)
     allowed = {
-        frozenset(base),
+        frozenset(owner.SUCCESS_PATH[:-1]),
+        frozenset(owner.CURRENT_SUCCESS_PATH[:-1]),
         frozenset(owner.CANDIDATE_RETURN_PENDING_PATH),
         frozenset(owner.CANDIDATE_RETURN_INTENT_PATH),
         frozenset(owner.CANDIDATE_RETURN_RESUME_PATH),
@@ -643,6 +646,14 @@ def _validate_record_path(records: dict[str, dict[str, Any]]) -> None:
         frozenset(owner.CANDIDATE_RETURN_PASS_PATH),
         frozenset(owner.CANDIDATE_RETURN_RESUME_ROLLBACK_PATH),
         frozenset(owner.CANDIDATE_RETURN_ROLLBACK_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_PENDING_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_INTENT_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_RESUME_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_OBSERVATION_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_PARK_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_PASS_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH),
+        frozenset(owner.CURRENT_CANDIDATE_RETURN_ROLLBACK_PATH),
     }
     if frozenset(names) not in allowed:
         raise ContractError("continuation journal prefix is not exact")
@@ -650,7 +661,10 @@ def _validate_record_path(records: dict[str, dict[str, Any]]) -> None:
 
 def _require_base_records(records: dict[str, dict[str, Any]]) -> None:
     _validate_record_path(records)
-    if not set(owner.SUCCESS_PATH[:-1]).issubset(records):
+    if not any(
+        set(path[:-1]).issubset(records)
+        for path in (owner.SUCCESS_PATH, owner.CURRENT_SUCCESS_PATH)
+    ):
         raise ContractError("continuation journal is missing the candidate result")
     if "40-terminal.json" in records or "30-rollback-intent.json" in records:
         raise ContractError("continuation journal is already terminal or rolling back")
@@ -1440,10 +1454,15 @@ def finalize(
     ctx = _load_context(manifest_path)
     _require_approval(ctx, approval)
     record_names = set(ctx.records)
-    if record_names not in (
+    resume_paths = (
         set(owner.CANDIDATE_RETURN_RESUME_PATH),
+        set(owner.CURRENT_CANDIDATE_RETURN_RESUME_PATH),
+    )
+    observation_paths = (
         set(owner.CANDIDATE_RETURN_OBSERVATION_PATH),
-    ):
+        set(owner.CURRENT_CANDIDATE_RETURN_OBSERVATION_PATH),
+    )
+    if record_names not in (*resume_paths, *observation_paths):
         raise ContractError("finalize requires one consumed return observation")
     _validate_return_intent(
         ctx.records["24-candidate-return-intent.json"], ctx, approval
@@ -1454,7 +1473,7 @@ def finalize(
     physical_required = observed["state"] == STATE_TWRP_PRESENT
     if physical_action_confirmed != physical_required:
         raise ContractError("physical confirmation does not match the observed branch")
-    if record_names == set(owner.CANDIDATE_RETURN_OBSERVATION_PATH):
+    if record_names in observation_paths:
         _validate_observation_intent(
             ctx.records["25-candidate-observation-intent.json"],
             ctx,

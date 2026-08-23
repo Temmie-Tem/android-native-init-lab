@@ -52,8 +52,8 @@ the separately registered S20+ goal and every future target row.
   H35 never booted and remains unproved. Exact V2321 rollback was written and
   read back; the current postrollback finalizer then proved healthy V2321,
   released the active guard, and retained the consumed H35 candidate guard.
-  See `A90_H35_NATIVE_RECOVERY_COMMAND_PREWRITE_FAILURE_2026-08-23.md`. No H36
-  identity or authority exists; next H0 repairs the two exact host observer defects.
+  See `A90_H35_NATIVE_RECOVERY_COMMAND_PREWRITE_FAILURE_2026-08-23.md`. The H0 host repairs are independently `PASS_GO`-reviewed;
+  this qualifies only the reusable capability. No H36 identity or authority exists.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 

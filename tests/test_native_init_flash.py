@@ -24,6 +24,7 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
         # one interpreter, so do not carry its owner receipt state across cases.
         flash.OWNER_EFFECT_STATE = None
         flash.OWNER_SERIAL_REDACTOR = None
+        flash.RECOVERY_BINDING_RECEIPT_ENABLED = False
 
     def test_owner_adb_home_contract_is_consumed_from_serial_redaction(self) -> None:
         redaction = flash.serial_redaction
@@ -156,6 +157,77 @@ class NativeInitFlashSafetyHelpers(unittest.TestCase):
         )
         self.assertIn("exec twrp reboot", stable_argv[-1])
         self.assertNotIn("dd if=", stable_argv[-1])
+
+    def test_recovery_only_accepts_missing_native_response_after_exact_arrival(self) -> None:
+        args = types.SimpleNamespace(
+            adb="adb",
+            expect_recovery_serial_sha256="c" * 64,
+            recovery_timeout=30.0,
+            owner_expect_adb_role=flash.OWNER_ADB_ROLE_NATIVE,
+            owner_expect_usb_inventory_sha256="b" * 64,
+        )
+        with mock.patch.object(
+            flash, "_owner_pre_native_recovery_gate"
+        ) as native_gate, mock.patch.object(
+            flash, "reboot_native_to_recovery",
+            side_effect=RuntimeError("bridge command outcome uncertain after one send"),
+        ), mock.patch.object(
+            flash, "_owner_wait_recovery_ready",
+            return_value={
+                "usbInventorySha256": "d" * 64,
+                "adbInventorySha256": "e" * 64,
+                "adbSerialSha256": "c" * 64,
+            },
+        ), mock.patch("sys.stdout", new_callable=io.StringIO) as output:
+            self.assertEqual(flash.run_recovery_only(args), 0)
+        receipt = json.loads(output.getvalue())
+        native_gate.assert_called_once_with(args)
+        self.assertEqual(receipt["requestOutcome"], "UNCERTAIN_RESPONSE")
+        self.assertEqual(receipt["usbProduct"], "04e8:6860")
+
+    def test_recovery_readiness_opens_adb_only_after_recovery_usb(self) -> None:
+        args = types.SimpleNamespace(adb="adb", expect_recovery_serial_sha256="c" * 64)
+        calls = []
+        with mock.patch.object(
+            flash, "_owner_usb_inventory_sha256",
+            side_effect=lambda role: calls.append(("usb", role)) or "d" * 64,
+        ), mock.patch.object(
+            flash, "_owner_adb_inventory_sha256",
+            side_effect=lambda serial, role: calls.append(("adb", role)) or "e" * 64,
+        ), mock.patch.object(flash, "adb_devices") as adb:
+            binding = flash._owner_wait_recovery_ready(args, timeout_sec=1)
+        self.assertEqual(calls, [
+            ("usb", flash.OWNER_ADB_ROLE_RECOVERY),
+            ("adb", flash.OWNER_ADB_ROLE_RECOVERY),
+        ])
+        adb.assert_not_called()
+        self.assertEqual(binding["adbSerialSha256"], "c" * 64)
+
+    def test_recovery_readiness_tolerates_native_gap_and_bound_adb_settle(self) -> None:
+        args = types.SimpleNamespace(adb="adb", expect_recovery_serial_sha256="c" * 64)
+        with mock.patch.object(
+            flash,
+            "_owner_usb_inventory_sha256",
+            side_effect=[
+                RuntimeError("fixed USB role is not exact product=6861"),
+                "d" * 64,
+                "d" * 64,
+            ],
+        ) as usb, mock.patch.object(
+            flash,
+            "_owner_adb_inventory_sha256",
+            side_effect=[
+                RuntimeError(
+                    "fixed ADB inventory role is not exact "
+                    "rows=1 recovery=0 matching=1"
+                ),
+                "e" * 64,
+            ],
+        ) as adb, mock.patch.object(flash.time, "sleep"):
+            binding = flash._owner_wait_recovery_ready(args, timeout_sec=1)
+        self.assertEqual(usb.call_count, 3)
+        self.assertEqual(adb.call_count, 2)
+        self.assertEqual(binding["adbInventorySha256"], "e" * 64)
 
     def test_legacy_twrp_path_never_receives_a90_hook(self) -> None:
         args = types.SimpleNamespace(

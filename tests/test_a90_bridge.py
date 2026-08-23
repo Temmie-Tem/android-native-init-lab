@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import stat
 import tempfile
 import unittest
@@ -227,6 +228,76 @@ class StatusAndSelectionHelpers(unittest.TestCase):
 
 
 class CommandRenderingAndFilesystemHelpers(unittest.TestCase):
+    def test_repair_dirs_narrows_world_writable_tree_to_owner_private(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for relative in bridge.PRIVATE_REPAIR_RELS:
+                path = root / relative
+                path.mkdir(parents=True, exist_ok=True)
+                path.chmod(0o775)
+            args = SimpleNamespace(user=None, json=True)
+            with mock.patch("builtins.print") as printer:
+                self.assertEqual(bridge.command_repair_dirs(args, root), 0)
+            payload = json.loads(printer.call_args.args[0])
+            self.assertTrue(payload["ok"])
+            for relative in bridge.PRIVATE_REPAIR_RELS:
+                path = root / relative
+                self.assertEqual(path.stat().st_mode & 0o777, 0o700)
+                self.assertEqual(path.stat().st_uid, os.getuid())
+                self.assertEqual(path.stat().st_gid, os.getgid())
+
+    def test_repair_dirs_does_not_rewrite_private_descendants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private = root / "workspace" / "private"
+            nested = private / "inputs" / "preserved.bin"
+            nested.parent.mkdir(parents=True)
+            nested.write_bytes(b"preserved")
+            nested.chmod(0o640)
+            for relative in bridge.PRIVATE_REPAIR_RELS:
+                path = root / relative
+                path.mkdir(parents=True, exist_ok=True)
+                path.chmod(0o775)
+            args = SimpleNamespace(user=None, json=True)
+            with mock.patch("builtins.print"):
+                self.assertEqual(bridge.command_repair_dirs(args, root), 0)
+            self.assertEqual(nested.read_bytes(), b"preserved")
+            self.assertEqual(nested.stat().st_mode & 0o777, 0o640)
+
+    def test_repair_dirs_wrong_owner_cannot_report_ok_without_privilege(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for relative in bridge.PRIVATE_REPAIR_RELS:
+                path = root / relative
+                path.mkdir(parents=True, exist_ok=True)
+                path.chmod(0o775)
+            args = SimpleNamespace(user=None, json=True)
+            with mock.patch.object(
+                bridge,
+                "repair_directory_identity",
+                side_effect=PermissionError("not permitted"),
+            ), mock.patch("builtins.print") as printer:
+                rc = bridge.command_repair_dirs(args, root)
+            payload = json.loads(printer.call_args.args[0])
+            self.assertNotEqual(rc, 0)
+            self.assertFalse(payload["ok"])
+            self.assertTrue(payload["needs_sudo"])
+
+    def test_repair_dirs_rejects_symlink_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private = root / "workspace" / "private"
+            private.mkdir(parents=True)
+            outside = root / "outside"
+            outside.mkdir()
+            (private / "logs").symlink_to(outside, target_is_directory=True)
+            args = SimpleNamespace(user=None, json=True)
+            with mock.patch("builtins.print") as printer:
+                rc = bridge.command_repair_dirs(args, root)
+            payload = json.loads(printer.call_args.args[0])
+            self.assertNotEqual(rc, 0)
+            self.assertFalse(payload["ok"])
+
     def test_stop_discovered_ignores_reused_stale_metadata_pid(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

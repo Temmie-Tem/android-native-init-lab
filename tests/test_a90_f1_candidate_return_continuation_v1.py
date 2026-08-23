@@ -78,6 +78,14 @@ class ReturnBackend:
 
 
 class CandidateReturnContinuationTest(MinimalF1Test):
+    def test_current_recovery_prefixed_continuation_shape_is_accepted(self):
+        records = {
+            name: {}
+            for name in M.CURRENT_CANDIDATE_RETURN_PENDING_PATH
+        }
+        C._validate_record_path(records)
+        C._require_base_records(records)
+
     def setUp(self):
         super().setUp()
         self.manifest_path = self.root / "manifest.json"

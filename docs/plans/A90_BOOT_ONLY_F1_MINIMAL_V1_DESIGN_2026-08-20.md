@@ -3,8 +3,7 @@
 Date: 2026-08-20
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0 design and host implementation
-Live state: activation code present, pending fresh review and run inputs; no
-D0, D1, F1, candidate, or approval authority
+Live state: H35 repair independently PASS_GO-reviewed at H0; no H36 or live authority
 
 ## Outcome
 
@@ -12,12 +11,10 @@ The reusable A90 kernel-experiment path is deliberately reduced to the
 operator's actual transaction:
 
 1. prove that the one attached target is the expected healthy A90;
-2. prove the candidate and rollback `boot` images are the exact declared
-   regular files;
-3. durably record candidate intent and send the candidate once;
-4. observe the bounded result;
-5. if candidate health is not proved, durably record rollback intent and send
-   the rollback once;
+2. prove candidate and rollback `boot` images are exact regular files;
+3. request Recovery once after approval and prove exact USB/ADB arrival;
+4. then consume candidate intent and send the candidate once;
+5. observe it; if health is not proved, send one intent-bound rollback;
 6. record the final target health.
 
 The state machine is
@@ -95,19 +92,18 @@ retried without overwriting either log.
   cannot prove either marker absent. The manifest and review both require one
   common generation stem, `enablePath` ending exactly in `.enable`, and
   `latchPath` ending exactly in `.done`.
-- Candidate intent precedes its only launch. Rollback intent precedes its only
-  launch. A candidate is never replayed after intent.
-- All runs live under one fixed mode-0700 private A90 run root. After successful
-  preflight, PREPARED first creates and fsyncs one permanent
-  `candidate-<sha256>.guard` with `O_EXCL`; changing run ID or directory cannot
-  prepare the same candidate again. A separate capability-wide
-  `active-run.guard` serializes different candidate hashes and is released only
-  after an exact healthy terminal (`PASS_A90_RESIDENT_INSTALLED` or healthy
-  V2321 rollback) is durably published. `RECOVERY_REQUIRED`, uncertainty, and
-  crashes leave it blocking. Approval also binds the run ID explicitly.
-  PREPARED acquires the active guard before consuming the candidate guard; an
-  ordinary pre-effect candidate-guard rejection releases only that newly
-  acquired active reservation, so another active run cannot burn this candidate.
+- Recovery intent precedes one Native request. Its response is diagnostic;
+  exact single `04e8:6860` plus the bound Recovery ADB row is authoritative.
+  Native and zero-endpoint epochs never open ADB. Only then does the owner
+  create the permanent candidate-SHA guard, record candidate intent, and call
+  the bound-Recovery-only candidate helper. That helper sends no second Native
+  request. Candidate and rollback intent each precede their sole launch.
+- The fixed mode-0700 run root holds one capability-wide `active-run.guard`.
+  PREPARED acquires only it and proves the candidate guard absent. Recovery
+  failure retains active but creates no candidate guard/intent and invokes no
+  candidate or rollback helper. Exact readiness permits one O_EXCL candidate
+  guard; after that point the candidate never replays. A crash before intent is
+  parked and later eligibility requires checking the guard, not inference.
 - Every record uses create-exclusive publication, file fsync, and directory
   fsync in a new mode-0700 run directory. Manifest and journal readers reject
   special/oversized paths before open, then bind one nonblocking descriptor,
@@ -121,17 +117,22 @@ retried without overwriting either log.
   candidate health. Transfer success alone is not PASS.
 - A rollback terminal is `NO_PROOF_ROLLED_BACK`, not experiment proof.
 
-## The two journal paths
+## Journal paths
 
 Only these paths and their prefixes are valid:
 
 ```text
-PREPARED -> APPROVED -> CANDIDATE_INTENT -> CANDIDATE_LAUNCHED
+PREPARED -> APPROVED -> RECOVERY_TRANSITION_INTENT -> RECOVERY_READY
+ -> CANDIDATE_INTENT -> CANDIDATE_LAUNCHED
  -> CANDIDATE_RESULT -> TERMINAL
 
-PREPARED -> APPROVED -> CANDIDATE_INTENT -> CANDIDATE_LAUNCHED
+PREPARED -> APPROVED -> RECOVERY_TRANSITION_INTENT -> RECOVERY_READY
+ -> CANDIDATE_INTENT -> CANDIDATE_LAUNCHED
  -> CANDIDATE_RESULT -> ROLLBACK_INTENT -> ROLLBACK_LAUNCHED
  -> ROLLBACK_RESULT -> TERMINAL
+
+PREPARED -> APPROVED -> RECOVERY_TRANSITION_INTENT
+ -> RECOVERY_TRANSITION_PARKED
 ```
 
 An unknown file, missing middle record, wrong event kind, mixed manifest
@@ -145,6 +146,8 @@ engine:
 | durable prefix | only allowed interpretation |
 | --- | --- |
 | `PREPARED` only | no device effect occurred |
+| Recovery intent without ready | transition may be consumed; candidate is not consumed |
+| Recovery ready before candidate intent | active park; inspect candidate guard before any eligibility claim |
 | candidate intent or launch without terminal | candidate is consumed; never resend it; rollback-only assessment |
 | rollback intent without rollback launch | the same exact rollback may be launched once by a separately reviewed adapter |
 | rollback launch without result | park; do not replay rollback |
@@ -169,11 +172,13 @@ It uses only the existing A90 mechanisms:
 - the adapter returns exact target, effect, and final-health receipts to the
   state machine.
 
-For candidate recovery entry, the adapter selects the helper's fail-closed
-Native mode: every pre-existing non-recovery ADB endpoint is bound by exact
-serial/state before the Native reboot request and must remain unchanged;
-exactly one new recovery endpoint may arrive, and its serial SHA-256 must match
-the private A90 qualification. For rollback, the fixed
+For candidate recovery entry, the adapter binds exact Native USB and the
+managed ACM bridge without ADB, then its effect-free helper sends `recovery`
+once. Missing, busy, or error response text never proves failure or success;
+the helper polls USB through the normal disconnect/re-enumeration interval and
+opens ADB only after exact Recovery USB appears. Exact bound Recovery becomes
+the durable input to a separate candidate helper that cannot request Recovery.
+For rollback, the fixed
 `--reuse-bound-recovery-or-from-native` mode first performs the same strict
 inventory. If the bound A90 recovery endpoint is already present it is used
 without another Native recovery request; if none is present, the exact
@@ -238,12 +243,8 @@ evidence. They grant no authority and are not execution dependencies.
 
 ## Open gates
 
-1. Freeze and independently review the candidate-neutral scope repair and the
-   exact H28 candidate/hazard input against the unchanged transfer boundary.
-2. After `PASS_GO`, publish the canonical H28 review JSON and private manifest.
-3. Perform fresh connected D0 against healthy V2321 and absent H28 state.
-4. Only then obtain one fresh attended approval for one H28 F1 attempt.
+1. The repair has independent `PASS_GO`; prior execution reviews remain stale.
+2. Allocate and qualify a fresh successor identity as a separate H0 unit.
+3. Fresh manifest, connected D0, attendance, and exact approval remain required.
 
-The live-enable constants remain true, but changed owner bytes revoke the old
-closure review. No H28 run exists until the new review, manifest, D0, approval,
-attendance, and all contract gates are complete.
+H35 is closed and never replays. No H36 identity or live authority exists.

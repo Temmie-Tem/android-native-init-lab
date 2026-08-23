@@ -40,7 +40,12 @@ BRIDGE_SCRIPT_REL = "workspace/public/src/scripts/revalidation/serial_tcp_bridge
 PRIVATE_RUN_REL = "workspace/private/run"
 PRIVATE_LOG_REL = "workspace/private/logs/bridge"
 PRIVATE_REPAIR_ROOT_REL = "workspace/private"
-PRIVATE_REPAIR_RELS = (PRIVATE_LOG_REL, PRIVATE_RUN_REL)
+PRIVATE_REPAIR_RELS = (
+    PRIVATE_REPAIR_ROOT_REL,
+    "workspace/private/logs",
+    PRIVATE_LOG_REL,
+    PRIVATE_RUN_REL,
+)
 MANAGED_NAME = "a90_bridge"
 
 
@@ -104,7 +109,7 @@ def validate_private_repair_path(root: Path, path: Path) -> None:
 
 def ensure_private_repair_dir(root: Path, path: Path) -> None:
     validate_private_repair_path(root, path)
-    path.mkdir(parents=True, exist_ok=True)
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
     validate_private_repair_path(root, path)
     mode = path.lstat().st_mode
     if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
@@ -507,7 +512,22 @@ def private_dir_repair_hint(root: Path) -> str:
 
 
 def private_dir_needs_repair(root: Path) -> bool:
-    return any(not path_writable(root / item) for item in PRIVATE_REPAIR_RELS)
+    uid, gid, _username, _group = target_identity(None)
+    for item in PRIVATE_REPAIR_RELS:
+        path = root / item
+        try:
+            metadata = path.lstat()
+        except OSError:
+            return True
+        if (
+            stat.S_ISLNK(metadata.st_mode)
+            or not stat.S_ISDIR(metadata.st_mode)
+            or metadata.st_uid != uid
+            or metadata.st_gid != gid
+            or stat.S_IMODE(metadata.st_mode) != 0o700
+        ):
+            return True
+    return False
 
 
 def target_identity(user: str | None) -> tuple[int, int, str, str]:
@@ -555,28 +575,18 @@ def ensure_user_write_bits(path: Path) -> None:
         os.chmod(path, stat.S_IMODE(desired))
 
 
-def chown_tree(path: Path, uid: int, gid: int) -> int:
+def repair_directory_identity(path: Path, uid: int, gid: int) -> int:
+    """Repair only one required directory, never its private descendants."""
+    item = path.lstat()
+    if stat.S_ISLNK(item.st_mode) or not stat.S_ISDIR(item.st_mode):
+        raise RuntimeError(f"refusing non-directory repair target: {path}")
     changed = 0
-    try:
-        root_item = path.lstat()
-    except OSError:
-        return changed
-    if stat.S_ISLNK(root_item.st_mode) or not stat.S_ISDIR(root_item.st_mode):
-        raise RuntimeError(f"refusing non-directory repair root: {path}")
-    targets = [path]
-    for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
-        current = Path(dirpath)
-        targets.extend(current / item for item in dirnames)
-        targets.extend(current / item for item in filenames)
-    for target in targets:
-        try:
-            item = target.lstat()
-            if item.st_uid != uid or item.st_gid != gid:
-                os.chown(target, uid, gid, follow_symlinks=False)
-                changed += 1
-            ensure_user_write_bits(target)
-        except OSError:
-            continue
+    if item.st_uid != uid or item.st_gid != gid:
+        os.chown(path, uid, gid, follow_symlinks=False)
+        changed += 1
+    if stat.S_IMODE(item.st_mode) != 0o700:
+        os.chmod(path, 0o700)
+        changed += 1
     return changed
 
 
@@ -609,27 +619,30 @@ def command_repair_dirs(args: argparse.Namespace, root: Path) -> int:
         except OSError as exc:
             error = str(exc)
             needs_sudo = os.geteuid() != 0
-        if not error and not path_writable(path):
-            if os.geteuid() != 0:
-                needs_sudo = True
-            else:
-                try:
-                    changed += chown_tree(path, uid, gid)
-                    repaired = True
-                except RuntimeError as exc:
-                    error = str(exc)
-        elif not error and os.geteuid() == 0:
+        if not error:
             try:
-                changed += chown_tree(path, uid, gid)
+                changed += repair_directory_identity(path, uid, gid)
                 repaired = True
-            except RuntimeError as exc:
-                error = str(exc)
-        if not error and path.exists():
-            try:
-                ensure_user_write_bits(path)
-            except OSError as exc:
+            except (RuntimeError, OSError) as exc:
                 error = str(exc)
         after = stat_info(path)
+        exact = False
+        if not error:
+            try:
+                metadata = path.lstat()
+                exact = (
+                    stat.S_ISDIR(metadata.st_mode)
+                    and not stat.S_ISLNK(metadata.st_mode)
+                    and metadata.st_uid == uid
+                    and metadata.st_gid == gid
+                    and stat.S_IMODE(metadata.st_mode) == 0o700
+                )
+            except OSError as exc:
+                error = str(exc)
+        if not exact and not error:
+            error = "required directory is not owner-private mode 0700"
+        if error and os.geteuid() != 0:
+            needs_sudo = True
         results.append({
             "path": rel(path, root),
             "created": created,
@@ -637,10 +650,11 @@ def command_repair_dirs(args: argparse.Namespace, root: Path) -> int:
             "before": before,
             "after": after,
             "writable": path_writable(path),
+            "ownerPrivate0700": exact,
             "error": error,
         })
 
-    ok = all(item["writable"] and not item["error"] for item in results)
+    ok = all(item["ownerPrivate0700"] and not item["error"] for item in results)
     payload = {
         "ok": ok,
         "needs_sudo": needs_sudo and not ok,
@@ -661,6 +675,7 @@ def command_repair_dirs(args: argparse.Namespace, root: Path) -> int:
         for item in results:
             print(
                 f"dir={item['path']} writable={int(item['writable'])} "
+                f"owner_private_0700={int(item['ownerPrivate0700'])} "
                 f"created={int(item['created'])} repaired={int(item['repaired'])} "
                 f"owner={item['after'].get('user')}:{item['after'].get('group')} "
                 f"mode={item['after'].get('mode')} error={item['error'] or '-'}"

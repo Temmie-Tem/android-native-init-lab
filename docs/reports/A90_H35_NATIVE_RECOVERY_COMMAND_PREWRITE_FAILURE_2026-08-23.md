@@ -57,8 +57,13 @@ Before another candidate identity, H0 must diagnose and repair that exact
 response path without loosening the one-send rule. The same preflight also
 found that `a90_bridge.py repair-dirs` accepted owner-writable mode `0775`
 while `serial_tcp_bridge.py` correctly requires an owner-private parent. The
-host directories were narrowed to `0700`; the helper mismatch remains a
-separate H0 repair. Any execution-closure change requires current independent
+host directories were narrowed to `0700`; the helper mismatch was the second
+H0 repair requirement. Any execution-closure change requires current independent
 review, and a future candidate requires a fresh identity, qualification,
 manifest, connected D0, and attended approval. This incident grants none of
 those authorities.
+
+The host-only implementation follow-up is
+`A90_PRE_CANDIDATE_RECOVERY_READY_OWNER_H0_2026-08-23.md`. It moves exact
+Recovery readiness ahead of candidate-guard consumption and fixes the
+directory helper, but remains non-authoritative pending independent review.

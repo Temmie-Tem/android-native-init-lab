@@ -28,6 +28,7 @@ from a90_boot_only_f1_minimal_v1 import (
     ContractError,
     EffectResult,
     FailedBootEvidenceResult,
+    RecoveryBinding,
     Snapshot,
     FAILED_BOOT_CMDLINE_MAX_BYTES,
     FAILED_BOOT_EVIDENCE_CMDLINE_SOURCE,
@@ -237,6 +238,8 @@ OWNER_RECEIPT_OUTCOMES = {
     "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_CONFIRMED",
     "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
 }
+RECOVERY_BINDING_RECEIPT_SCHEMA = "a90-f1-recovery-binding-receipt-v1"
+RECOVERY_BINDING_RECEIPT_MODE = "A90_F1_RECOVERY_BINDING_RECEIPT_V1"
 def _parse_owner_effect_receipt(raw: bytes) -> str:
     """Return a stage only for the exact fixed helper receipt.
 
@@ -310,6 +313,37 @@ def _parse_owner_effect_receipt(raw: bytes) -> str:
     ):
         return "UNCLASSIFIED"
     return value["outcome"]
+
+
+def _parse_recovery_binding_receipt(raw: bytes, *, expected_serial_sha256: str) -> RecoveryBinding:
+    if not raw:
+        raise ContractError("Recovery binding receipt is missing")
+    value = _json(raw, "Recovery binding receipt")
+    if canonical_json(value) != raw or set(value) != {
+        "schema", "mode", "role", "usbProduct", "adbState",
+        "usbInventorySha256", "adbInventorySha256", "adbSerialSha256",
+        "requestOutcome",
+    }:
+        raise ContractError("Recovery binding receipt shape is invalid")
+    if (
+        value["schema"] != RECOVERY_BINDING_RECEIPT_SCHEMA
+        or value["mode"] != RECOVERY_BINDING_RECEIPT_MODE
+        or value["role"] != ADB_ROLE_RECOVERY
+        or value["usbProduct"] != "04e8:6860"
+        or value["adbState"] != "recovery"
+        or value["requestOutcome"] not in {
+            "CONFIRMED", "UNCERTAIN_RESPONSE", "ERROR_RESPONSE", "BUSY_RESPONSE"
+        }
+    ):
+        raise ContractError("Recovery binding receipt identity is invalid")
+    binding = RecoveryBinding(
+        value["usbInventorySha256"],
+        value["adbInventorySha256"],
+        value["adbSerialSha256"],
+        value["requestOutcome"],
+    )
+    binding.validate(expected_serial_sha256)
+    return binding
 def _one_line(text: str, pattern: re.Pattern[str], label: str) -> re.Match[str]:
     matches = [pattern.fullmatch(line.strip()) for line in text.replace("\r", "").splitlines()]
     exact = [match for match in matches if match is not None]
@@ -753,6 +787,34 @@ class FixedA90Adapter:
         )
         return role, usb_digest, adb_digest
 
+    def prepare_candidate_recovery(self, *, timeout_sec: int) -> RecoveryBinding:
+        """Perform the one pre-candidate Native->Recovery transition.
+
+        The helper owns the one Native request and proves the exact Recovery
+        USB/ADB pair before returning.  Candidate flashing receives only the
+        resulting binding and therefore cannot request Native recovery again.
+        """
+        role, usb_digest, adb_digest = self._effect_inventory(rollback=False)
+        if role != ADB_ROLE_NATIVE or adb_digest is not None:
+            raise ContractError("candidate Recovery transition requires exact Native")
+        argv = fixed_recovery_transition_argv(
+            recovery_serial_sha256=self.recovery_serial_sha256,
+            timeout_sec=timeout_sec,
+            owner_usb_inventory_sha256=usb_digest,
+        )
+        result = self.runner.run("native-to-recovery", argv, timeout_sec)
+        if (
+            type(result.returncode) is not int
+            or result.returncode != 0
+            or type(result.quiescent) is not bool
+            or result.quiescent is not True
+        ):
+            raise ContractError("Recovery transition helper failed or survived")
+        return _parse_recovery_binding_receipt(
+            result.stdout,
+            expected_serial_sha256=self.recovery_serial_sha256,
+        )
+
     def _failed_boot_log_directory(self) -> Path:
         directory = getattr(self.runner, "log_directory", None)
         if not isinstance(directory, Path) or not directory.is_absolute():
@@ -1062,13 +1124,18 @@ class FixedA90Adapter:
                 canonical_json({"evidence": evidence, "healthy": healthy})
             ),
         )
-    def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> EffectResult:
-        if owner_usb_inventory_sha256 is None:
+    def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int, recovery_binding: RecoveryBinding | None = None, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> EffectResult:
+        if not rollback and type(recovery_binding) is not RecoveryBinding:
+            raise ContractError("candidate effect requires a pre-bound Recovery endpoint")
+        if not rollback:
+            recovery_binding.validate(self.recovery_serial_sha256)
+            owner_usb_inventory_sha256 = recovery_binding.usb_inventory_sha256
+            owner_adb_inventory_sha256 = recovery_binding.adb_inventory_sha256
+            owner_adb_role = ADB_ROLE_RECOVERY
+        elif owner_usb_inventory_sha256 is None:
             owner_adb_role, owner_usb_inventory_sha256, owner_adb_inventory_sha256 = (
                 self._effect_inventory(rollback=rollback)
             )
-            if not rollback and owner_adb_role != ADB_ROLE_NATIVE:
-                raise ContractError("candidate effect requires the exact Native role")
         role = "rollback" if rollback else "candidate"
         argv = fixed_flash_argv(
             artifact,
@@ -1076,6 +1143,7 @@ class FixedA90Adapter:
             timeout_sec=timeout_sec,
             rollback=rollback, owner_usb_inventory_sha256=owner_usb_inventory_sha256,
             owner_adb_inventory_sha256=owner_adb_inventory_sha256, owner_adb_role=owner_adb_role,
+            recovery_binding=recovery_binding,
         )
         started = time.monotonic()
         result = self.runner.run(f"flash-{role}", argv, timeout_sec)
@@ -1094,8 +1162,33 @@ class FixedA90Adapter:
             receipt_sha256=sha256_bytes(canonical_json(receipt)),
             outcome=_parse_owner_effect_receipt(result.stdout),
         )
-def fixed_flash_argv(artifact: dict[str, Any], *, recovery_serial_sha256: str, timeout_sec: int, rollback: bool = False, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> tuple[str, ...]:
-    """Return the sole reviewed helper command for receipt reconstruction."""
+def fixed_recovery_transition_argv(*, recovery_serial_sha256: str, timeout_sec: int, owner_usb_inventory_sha256: str) -> tuple[str, ...]:
+    if re.fullmatch(r"[0-9a-f]{64}", recovery_serial_sha256) is None:
+        raise ContractError("Recovery serial binding is not exact")
+    if re.fullmatch(r"[0-9a-f]{64}", owner_usb_inventory_sha256) is None:
+        raise ContractError("Native USB binding is not exact")
+    helper_phase_timeout = max(1, (timeout_sec - 10) // 2)
+    return (
+        str(PYTHON), str(FLASH),
+        "--adb", str(ADB),
+        "--from-native", "--recovery-only",
+        "--owner-fixed-bridge-preflight",
+        "--owner-expect-usb-inventory-sha256", owner_usb_inventory_sha256,
+        "--owner-expect-adb-role", ADB_ROLE_NATIVE,
+        "--expect-recovery-serial-sha256", recovery_serial_sha256,
+        "--recovery-binding-receipt-mode", RECOVERY_BINDING_RECEIPT_MODE,
+        "--recovery-timeout", str(helper_phase_timeout),
+        "--bridge-timeout", str(helper_phase_timeout),
+    )
+
+
+def fixed_flash_argv(artifact: dict[str, Any], *, recovery_serial_sha256: str, timeout_sec: int, rollback: bool = False, recovery_binding: RecoveryBinding | None = None, owner_usb_inventory_sha256: str | None = None, owner_adb_inventory_sha256: str | None = None, owner_adb_role: str | None = None) -> tuple[str, ...]:
+    """Return the current helper argv or the unbound historical receipt argv.
+
+    Production candidate dispatch is gated by ``FixedA90Adapter.flash`` and
+    always supplies ``recovery_binding``.  The no-binding branch is retained
+    only so fixed incident readers can reconstruct pre-repair helper receipts.
+    """
     if type(rollback) is not bool:
         raise ContractError("flash role is not boolean")
     if owner_usb_inventory_sha256 is not None and (type(owner_usb_inventory_sha256) is not str or re.fullmatch(r"[0-9a-f]{64}", owner_usb_inventory_sha256) is None):
@@ -1110,6 +1203,25 @@ def fixed_flash_argv(artifact: dict[str, Any], *, recovery_serial_sha256: str, t
         raise ContractError("recovery ADB inventory binding is missing")
     if owner_adb_role == ADB_ROLE_NATIVE and owner_adb_inventory_sha256 is not None:
         raise ContractError("Native owner binding must not carry an ADB digest")
+    legacy_unbound_candidate = (
+        not rollback
+        and recovery_binding is None
+        and owner_usb_inventory_sha256 is None
+        and owner_adb_inventory_sha256 is None
+        and owner_adb_role is None
+    )
+    if not rollback and not legacy_unbound_candidate and type(recovery_binding) is not RecoveryBinding:
+        raise ContractError("candidate helper requires a bound Recovery endpoint")
+    if rollback and recovery_binding is not None:
+        raise ContractError("rollback helper must not consume candidate Recovery binding")
+    if recovery_binding is not None:
+        recovery_binding.validate(recovery_serial_sha256)
+        if (
+            owner_adb_role != ADB_ROLE_RECOVERY
+            or owner_usb_inventory_sha256 != recovery_binding.usb_inventory_sha256
+            or owner_adb_inventory_sha256 != recovery_binding.adb_inventory_sha256
+        ):
+            raise ContractError("candidate helper Recovery binding differs from owner binding")
     helper_phase_timeout = max(1, (timeout_sec - 30) // 2)
     return (
         str(PYTHON), str(FLASH), artifact["path"],
@@ -1117,7 +1229,11 @@ def fixed_flash_argv(artifact: dict[str, Any], *, recovery_serial_sha256: str, t
         *(
             ("--reuse-bound-recovery-or-from-native",)
             if rollback
-            else ("--from-native", "--require-stable-adb-baseline")
+            else (
+                ("--from-native", "--require-stable-adb-baseline")
+                if legacy_unbound_candidate
+                else ("--reuse-bound-recovery-only",)
+            )
         ),
         *(
             (

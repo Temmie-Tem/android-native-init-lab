@@ -444,6 +444,29 @@ class PostrollbackRecoveryTest(unittest.TestCase):
             },
         }
         R._require_prefix(records, self.manifest, manifest_sha)
+        current_records = {}
+        for name in O.CURRENT_ROLLBACK_PATH:
+            if name in records:
+                current_records[name] = copy.deepcopy(records[name])
+                continue
+            if name == "11-recovery-transition-intent.json":
+                payload = {
+                    "attempt": 1,
+                    "candidateReplay": False,
+                    "nativeRole": "NATIVE_NO_RECOVERY",
+                    "recoveryUsbProduct": "04e8:6860",
+                    "recoveryAdbState": "recovery",
+                    "expectedRecoverySerialSha256": "9" * 64,
+                }
+            elif name == "12-recovery-ready.json":
+                payload = O.RecoveryBinding(
+                    "7" * 64, "8" * 64, "9" * 64
+                ).payload()
+            current_records[name] = {
+                "manifestSha256": manifest_sha,
+                "payload": payload,
+            }
+        R._require_prefix(current_records, self.manifest, manifest_sha)
         evidence_payloads = {
             "26-failed-boot-evidence-intent.json": {
                 "attempt": 1, "candidateReplay": False,

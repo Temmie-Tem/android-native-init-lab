@@ -97,6 +97,9 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,95}$")
 RECORDS = (
     "00-prepared.json",
     "10-approved.json",
+    "11-recovery-transition-intent.json",
+    "12-recovery-ready.json",
+    "13-recovery-transition-parked.json",
     "20-candidate-intent.json",
     "21-candidate-launched.json",
     "22-candidate-result.json",
@@ -117,6 +120,9 @@ RECORDS = (
 RECORD_KINDS = {
     "00-prepared.json": "PREPARED",
     "10-approved.json": "APPROVED",
+    "11-recovery-transition-intent.json": "RECOVERY_TRANSITION_INTENT",
+    "12-recovery-ready.json": "RECOVERY_READY",
+    "13-recovery-transition-parked.json": "RECOVERY_TRANSITION_PARKED",
     "20-candidate-intent.json": "CANDIDATE_INTENT",
     "21-candidate-launched.json": "CANDIDATE_LAUNCHED",
     "22-candidate-result.json": "CANDIDATE_RESULT",
@@ -134,18 +140,85 @@ RECORD_KINDS = {
     "41-recovery-closed.json": "POSTROLLBACK_RECOVERY_RECONCILED",
 }
 
-SUCCESS_PATH = (
+LEGACY_SUCCESS_PATH = (
+    "00-prepared.json", "10-approved.json", "20-candidate-intent.json",
+    "21-candidate-launched.json", "22-candidate-result.json", "40-terminal.json",
+)
+LEGACY_ROLLBACK_PATH = (
+    "00-prepared.json", "10-approved.json", "20-candidate-intent.json",
+    "21-candidate-launched.json", "22-candidate-result.json",
+    "30-rollback-intent.json", "31-rollback-launched.json", "32-rollback-result.json",
+    "40-terminal.json",
+)
+LEGACY_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH = LEGACY_ROLLBACK_PATH[:5] + (
+    "26-failed-boot-evidence-intent.json",
+    "27-failed-boot-evidence-result.json",
+) + LEGACY_ROLLBACK_PATH[5:]
+LEGACY_POSTROLLBACK_RECOVERY_PATH = LEGACY_ROLLBACK_PATH + (
+    "41-recovery-closed.json",
+)
+LEGACY_POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH = (
+    LEGACY_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH + ("41-recovery-closed.json",)
+)
+LEGACY_FAILED_BOOT_EVIDENCE_PARK_PATH = LEGACY_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH[:7] + (
+    "40-terminal.json",
+)
+LEGACY_CANDIDATE_RETURN_PENDING_PATH = LEGACY_SUCCESS_PATH[:-1] + (
+    "23-candidate-return-pending.json",
+)
+LEGACY_CANDIDATE_RETURN_INTENT_PATH = LEGACY_CANDIDATE_RETURN_PENDING_PATH + (
+    "24-candidate-return-intent.json",
+)
+LEGACY_CANDIDATE_RETURN_RESUME_PATH = LEGACY_CANDIDATE_RETURN_INTENT_PATH + (
+    "24-candidate-return-observed.json",
+)
+LEGACY_CANDIDATE_RETURN_OBSERVATION_PATH = LEGACY_CANDIDATE_RETURN_RESUME_PATH + (
+    "25-candidate-observation-intent.json",
+)
+LEGACY_CANDIDATE_RETURN_PARK_PATH = LEGACY_CANDIDATE_RETURN_RESUME_PATH + (
+    "40-terminal.json",
+)
+LEGACY_CANDIDATE_RETURN_PASS_PATH = LEGACY_CANDIDATE_RETURN_OBSERVATION_PATH + (
+    "40-terminal.json",
+)
+LEGACY_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH = LEGACY_CANDIDATE_RETURN_RESUME_PATH + LEGACY_ROLLBACK_PATH[5:]
+LEGACY_CANDIDATE_RETURN_ROLLBACK_PATH = LEGACY_CANDIDATE_RETURN_OBSERVATION_PATH + LEGACY_ROLLBACK_PATH[5:]
+
+# Historical fixed incident readers import these original names.  Do not move
+# their byte grammar when the ordinary owner gains a new prefix.
+SUCCESS_PATH = LEGACY_SUCCESS_PATH
+ROLLBACK_PATH = LEGACY_ROLLBACK_PATH
+PRETRANSFER_ABORT_PATH = ROLLBACK_PATH + ("41-pretransfer-abort.json",)
+ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH = LEGACY_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH
+POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH = (
+    LEGACY_POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH
+)
+FAILED_BOOT_EVIDENCE_PARK_PATH = LEGACY_FAILED_BOOT_EVIDENCE_PARK_PATH
+POSTROLLBACK_RECOVERY_PATH = LEGACY_POSTROLLBACK_RECOVERY_PATH
+CANDIDATE_RETURN_PENDING_PATH = LEGACY_CANDIDATE_RETURN_PENDING_PATH
+CANDIDATE_RETURN_INTENT_PATH = LEGACY_CANDIDATE_RETURN_INTENT_PATH
+CANDIDATE_RETURN_RESUME_PATH = LEGACY_CANDIDATE_RETURN_RESUME_PATH
+CANDIDATE_RETURN_OBSERVATION_PATH = LEGACY_CANDIDATE_RETURN_OBSERVATION_PATH
+CANDIDATE_RETURN_PARK_PATH = LEGACY_CANDIDATE_RETURN_PARK_PATH
+CANDIDATE_RETURN_PASS_PATH = LEGACY_CANDIDATE_RETURN_PASS_PATH
+CANDIDATE_RETURN_RESUME_ROLLBACK_PATH = LEGACY_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH
+CANDIDATE_RETURN_ROLLBACK_PATH = LEGACY_CANDIDATE_RETURN_ROLLBACK_PATH
+
+CURRENT_SUCCESS_PATH = (
     "00-prepared.json",
     "10-approved.json",
+    "11-recovery-transition-intent.json",
+    "12-recovery-ready.json",
     "20-candidate-intent.json",
     "21-candidate-launched.json",
     "22-candidate-result.json",
     "40-terminal.json",
 )
-
-ROLLBACK_PATH = (
+CURRENT_ROLLBACK_PATH = (
     "00-prepared.json",
     "10-approved.json",
+    "11-recovery-transition-intent.json",
+    "12-recovery-ready.json",
     "20-candidate-intent.json",
     "21-candidate-launched.json",
     "22-candidate-result.json",
@@ -154,34 +227,65 @@ ROLLBACK_PATH = (
     "32-rollback-result.json",
     "40-terminal.json",
 )
-
-PRETRANSFER_ABORT_PATH = ROLLBACK_PATH + ("41-pretransfer-abort.json",)
-ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH = ROLLBACK_PATH[:5] + (
-    "26-failed-boot-evidence-intent.json",
-    "27-failed-boot-evidence-result.json",
-) + ROLLBACK_PATH[5:]
-POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH = ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH + ("41-recovery-closed.json",)
-FAILED_BOOT_EVIDENCE_PARK_PATH = ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH[:7] + ("40-terminal.json",)
-H31_PRETRANSFER_ABORT_PATH = ROLLBACK_PATH[:7] + (
+CURRENT_PRETRANSFER_ABORT_PATH = CURRENT_ROLLBACK_PATH + (
     "41-pretransfer-abort.json",
 )
-POSTROLLBACK_RECOVERY_PATH = ROLLBACK_PATH + ("41-recovery-closed.json",)
-CANDIDATE_RETURN_PENDING_PATH = SUCCESS_PATH[:-1] + (
+CURRENT_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH = CURRENT_ROLLBACK_PATH[:7] + (
+    "26-failed-boot-evidence-intent.json",
+    "27-failed-boot-evidence-result.json",
+) + CURRENT_ROLLBACK_PATH[7:]
+CURRENT_POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH = (
+    CURRENT_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH
+    + ("41-recovery-closed.json",)
+)
+CURRENT_FAILED_BOOT_EVIDENCE_PARK_PATH = (
+    CURRENT_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH[:9]
+    + ("40-terminal.json",)
+)
+CURRENT_POSTROLLBACK_RECOVERY_PATH = CURRENT_ROLLBACK_PATH + (
+    "41-recovery-closed.json",
+)
+CURRENT_CANDIDATE_RETURN_PENDING_PATH = CURRENT_SUCCESS_PATH[:-1] + (
     "23-candidate-return-pending.json",
 )
-CANDIDATE_RETURN_INTENT_PATH = CANDIDATE_RETURN_PENDING_PATH + (
+CURRENT_CANDIDATE_RETURN_INTENT_PATH = CURRENT_CANDIDATE_RETURN_PENDING_PATH + (
     "24-candidate-return-intent.json",
 )
-CANDIDATE_RETURN_RESUME_PATH = CANDIDATE_RETURN_INTENT_PATH + (
+CURRENT_CANDIDATE_RETURN_RESUME_PATH = CURRENT_CANDIDATE_RETURN_INTENT_PATH + (
     "24-candidate-return-observed.json",
 )
-CANDIDATE_RETURN_OBSERVATION_PATH = CANDIDATE_RETURN_RESUME_PATH + (
+CURRENT_CANDIDATE_RETURN_OBSERVATION_PATH = CURRENT_CANDIDATE_RETURN_RESUME_PATH + (
     "25-candidate-observation-intent.json",
 )
-CANDIDATE_RETURN_PARK_PATH = CANDIDATE_RETURN_RESUME_PATH + ("40-terminal.json",)
-CANDIDATE_RETURN_PASS_PATH = CANDIDATE_RETURN_OBSERVATION_PATH + ("40-terminal.json",)
-CANDIDATE_RETURN_RESUME_ROLLBACK_PATH = CANDIDATE_RETURN_RESUME_PATH + ROLLBACK_PATH[5:]
-CANDIDATE_RETURN_ROLLBACK_PATH = CANDIDATE_RETURN_OBSERVATION_PATH + ROLLBACK_PATH[5:]
+CURRENT_CANDIDATE_RETURN_PARK_PATH = CURRENT_CANDIDATE_RETURN_RESUME_PATH + (
+    "40-terminal.json",
+)
+CURRENT_CANDIDATE_RETURN_PASS_PATH = CURRENT_CANDIDATE_RETURN_OBSERVATION_PATH + (
+    "40-terminal.json",
+)
+CURRENT_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH = (
+    CURRENT_CANDIDATE_RETURN_RESUME_PATH + CURRENT_ROLLBACK_PATH[7:]
+)
+CURRENT_CANDIDATE_RETURN_ROLLBACK_PATH = (
+    CURRENT_CANDIDATE_RETURN_OBSERVATION_PATH + CURRENT_ROLLBACK_PATH[7:]
+)
+
+H31_PRETRANSFER_ABORT_PATH = (
+    "00-prepared.json",
+    "10-approved.json",
+    "20-candidate-intent.json",
+    "21-candidate-launched.json",
+    "22-candidate-result.json",
+    "41-pretransfer-abort.json",
+)
+PRE_CANDIDATE_RECOVERY_PATH = (
+    "00-prepared.json", "10-approved.json",
+    "11-recovery-transition-intent.json", "12-recovery-ready.json",
+)
+PRE_CANDIDATE_RECOVERY_PARK_PATH = (
+    "00-prepared.json", "10-approved.json",
+    "11-recovery-transition-intent.json", "13-recovery-transition-parked.json",
+)
 CANDIDATE_RETURN_OUTCOMES = {
     "PRE_WRITE_FAILURE",
     "WRITE_OR_READBACK_UNCLASSIFIED",
@@ -189,9 +293,121 @@ CANDIDATE_RETURN_OUTCOMES = {
     "BOOT_WRITTEN_READBACK_EXACT_SYSTEM_RETURN_UNCERTAIN",
 }
 
+RECOVERY_READY_SCHEMA = "a90-f1-recovery-ready-v1"
+RECOVERY_TRANSITION_PARK_SCHEMA = "a90-f1-recovery-transition-parked-v1"
+RECOVERY_USB_PRODUCT = "04e8:6860"
+RECOVERY_ADB_STATE = "recovery"
+RECOVERY_REQUEST_OUTCOMES = {
+    "CONFIRMED",
+    "UNCERTAIN_RESPONSE",
+    "ERROR_RESPONSE",
+    "BUSY_RESPONSE",
+}
+
 
 class ContractError(RuntimeError):
     """Raised before an effect or on an unprovable transition."""
+
+
+@dataclass(frozen=True)
+class RecoveryBinding:
+    """The exact Recovery endpoint handed from transition to candidate helper."""
+
+    usb_inventory_sha256: str
+    adb_inventory_sha256: str
+    adb_serial_sha256: str
+    request_outcome: str = "CONFIRMED"
+
+    def validate(self, expected_serial_sha256: str) -> None:
+        _sha(self.usb_inventory_sha256, "Recovery USB inventory")
+        _sha(self.adb_inventory_sha256, "Recovery ADB inventory")
+        _sha(self.adb_serial_sha256, "Recovery ADB serial")
+        _sha(expected_serial_sha256, "expected Recovery ADB serial")
+        if self.adb_serial_sha256 != expected_serial_sha256:
+            raise ContractError("Recovery serial binding differs from manifest")
+        if self.request_outcome not in RECOVERY_REQUEST_OUTCOMES:
+            raise ContractError("Recovery request diagnostic is invalid")
+
+    def payload(self) -> dict[str, Any]:
+        return {
+            "schema": RECOVERY_READY_SCHEMA,
+            "role": "BOUND_RECOVERY_PRESENT",
+            "usbProduct": RECOVERY_USB_PRODUCT,
+            "adbState": RECOVERY_ADB_STATE,
+            "usbInventorySha256": self.usb_inventory_sha256,
+            "adbInventorySha256": self.adb_inventory_sha256,
+            "adbSerialSha256": self.adb_serial_sha256,
+            "requestOutcome": self.request_outcome,
+        }
+
+
+def _recovery_binding(value: Any, expected_serial_sha256: str) -> RecoveryBinding:
+    payload = _object(
+        value,
+        {
+            "schema", "role", "usbProduct", "adbState",
+            "usbInventorySha256", "adbInventorySha256", "adbSerialSha256",
+            "requestOutcome",
+        },
+        "Recovery-ready binding",
+    )
+    binding = RecoveryBinding(
+        payload["usbInventorySha256"],
+        payload["adbInventorySha256"],
+        payload["adbSerialSha256"],
+        payload["requestOutcome"],
+    )
+    if (
+        payload["schema"] != RECOVERY_READY_SCHEMA
+        or payload["role"] != "BOUND_RECOVERY_PRESENT"
+        or payload["usbProduct"] != RECOVERY_USB_PRODUCT
+        or payload["adbState"] != RECOVERY_ADB_STATE
+    ):
+        raise ContractError("Recovery-ready role is not exact")
+    binding.validate(expected_serial_sha256)
+    return binding
+
+
+def _validate_recovery_transition_intent(value: Any) -> None:
+    payload = _object(
+        value,
+        {
+            "attempt", "candidateReplay", "nativeRole",
+            "recoveryUsbProduct", "recoveryAdbState", "expectedRecoverySerialSha256",
+        },
+        "Recovery transition intent",
+    )
+    if (
+        type(payload["attempt"]) is not int or payload["attempt"] != 1
+        or payload["candidateReplay"] is not False
+        or payload["nativeRole"] != "NATIVE_NO_RECOVERY"
+        or payload["recoveryUsbProduct"] != RECOVERY_USB_PRODUCT
+        or payload["recoveryAdbState"] != RECOVERY_ADB_STATE
+    ):
+        raise ContractError("Recovery transition intent is invalid")
+    _sha(payload["expectedRecoverySerialSha256"], "expected Recovery serial")
+
+
+def _validate_recovery_transition_park(value: Any) -> None:
+    payload = _object(
+        value,
+        {
+            "schema", "terminal", "reason", "candidateReplay",
+            "candidateGuardPublished", "candidateIntentPublished",
+            "candidateHelperLaunched",
+        },
+        "Recovery transition park",
+    )
+    if (
+        payload["schema"] != RECOVERY_TRANSITION_PARK_SCHEMA
+        or payload["terminal"] != "RECOVERY_REQUIRED"
+        or payload["reason"] != "RECOVERY_NOT_PROVED"
+        or payload["candidateReplay"] is not False
+        or payload["candidateGuardPublished"] is not False
+        or payload["candidateIntentPublished"] is not False
+        or payload["candidateHelperLaunched"] is not False
+    ):
+        raise ContractError("Recovery transition park is invalid")
 def _reject_constant(_value: str) -> None:
     raise ContractError("non-finite JSON number")
 
@@ -898,7 +1114,15 @@ def validate_failed_boot_evidence_intent_payload(value: Any) -> None:
 
 class Backend(Protocol):
     def preflight(self, manifest: dict[str, Any]) -> Snapshot: ...
-    def flash(self, artifact: dict[str, Any], *, rollback: bool, timeout_sec: int) -> EffectResult: ...
+    def prepare_candidate_recovery(self, *, timeout_sec: int) -> RecoveryBinding: ...
+    def flash(
+        self,
+        artifact: dict[str, Any],
+        *,
+        rollback: bool,
+        timeout_sec: int,
+        recovery_binding: RecoveryBinding | None = None,
+    ) -> EffectResult: ...
     def observe(
         self,
         expected: dict[str, Any],
@@ -1064,6 +1288,19 @@ def _require_candidate_guard(manifest: dict[str, Any]) -> None:
         raise ContractError("candidate guard identity mismatch")
 
 
+def _require_candidate_guard_absent(manifest: dict[str, Any]) -> None:
+    path, _expected = _candidate_guard(manifest)
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise ContractError("candidate guard cannot be inspected") from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise ContractError("candidate guard path is not a regular file")
+    raise ContractError("candidate was already reserved or consumed")
+
+
 def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
     if not run_directory.is_dir() or run_directory.is_symlink():
         raise ContractError("run directory is not direct")
@@ -1074,22 +1311,39 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
     if not ordered_names or not any(
         ordered_names == path[: len(ordered_names)]
         for path in (
-            SUCCESS_PATH,
-            ROLLBACK_PATH,
-            ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
-            POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
-            FAILED_BOOT_EVIDENCE_PARK_PATH,
+            LEGACY_SUCCESS_PATH,
+            LEGACY_ROLLBACK_PATH,
+            LEGACY_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
+            LEGACY_POSTROLLBACK_RECOVERY_PATH,
+            LEGACY_POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+            LEGACY_FAILED_BOOT_EVIDENCE_PARK_PATH,
+            LEGACY_CANDIDATE_RETURN_PENDING_PATH,
+            LEGACY_CANDIDATE_RETURN_INTENT_PATH,
+            LEGACY_CANDIDATE_RETURN_RESUME_PATH,
+            LEGACY_CANDIDATE_RETURN_OBSERVATION_PATH,
+            LEGACY_CANDIDATE_RETURN_PARK_PATH,
+            LEGACY_CANDIDATE_RETURN_PASS_PATH,
+            LEGACY_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH,
+            LEGACY_CANDIDATE_RETURN_ROLLBACK_PATH,
+            CURRENT_SUCCESS_PATH,
+            CURRENT_ROLLBACK_PATH,
+            CURRENT_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
+            CURRENT_POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+            CURRENT_FAILED_BOOT_EVIDENCE_PARK_PATH,
+            CURRENT_PRETRANSFER_ABORT_PATH,
             PRETRANSFER_ABORT_PATH,
             H31_PRETRANSFER_ABORT_PATH,
-            POSTROLLBACK_RECOVERY_PATH,
-            CANDIDATE_RETURN_PENDING_PATH,
-            CANDIDATE_RETURN_INTENT_PATH,
-            CANDIDATE_RETURN_RESUME_PATH,
-            CANDIDATE_RETURN_OBSERVATION_PATH,
-            CANDIDATE_RETURN_PARK_PATH,
-            CANDIDATE_RETURN_PASS_PATH,
-            CANDIDATE_RETURN_RESUME_ROLLBACK_PATH,
-            CANDIDATE_RETURN_ROLLBACK_PATH,
+            CURRENT_POSTROLLBACK_RECOVERY_PATH,
+            CURRENT_CANDIDATE_RETURN_PENDING_PATH,
+            CURRENT_CANDIDATE_RETURN_INTENT_PATH,
+            CURRENT_CANDIDATE_RETURN_RESUME_PATH,
+            CURRENT_CANDIDATE_RETURN_OBSERVATION_PATH,
+            CURRENT_CANDIDATE_RETURN_PARK_PATH,
+            CURRENT_CANDIDATE_RETURN_PASS_PATH,
+            CURRENT_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH,
+            CURRENT_CANDIDATE_RETURN_ROLLBACK_PATH,
+            PRE_CANDIDATE_RECOVERY_PATH,
+            PRE_CANDIDATE_RECOVERY_PARK_PATH,
         )
     ):
         raise ContractError("journal is not an allowlisted transaction prefix")
@@ -1117,12 +1371,27 @@ def read_records(run_directory: Path) -> dict[str, dict[str, Any]]:
             validate_failed_boot_evidence_intent_payload(item["payload"])
         elif name == "27-failed-boot-evidence-result.json":
             validate_failed_boot_evidence_payload(item["payload"])
+        elif name == "11-recovery-transition-intent.json":
+            _validate_recovery_transition_intent(item["payload"])
+        elif name == "12-recovery-ready.json":
+            _recovery_binding(
+                item["payload"],
+                item["payload"].get("adbSerialSha256", "0" * 64),
+            )
+        elif name == "13-recovery-transition-parked.json":
+            _validate_recovery_transition_park(item["payload"])
         current_manifest = _sha(item["manifestSha256"], "journal manifest")
         if manifest_sha256 is None:
             manifest_sha256 = current_manifest
         elif current_manifest != manifest_sha256:
             raise ContractError("journal mixes manifest identities")
         result[name] = value
+    if "12-recovery-ready.json" in result:
+        intent = result.get("11-recovery-transition-intent.json")
+        if intent is None or intent["payload"]["expectedRecoverySerialSha256"] != result[
+            "12-recovery-ready.json"
+        ]["payload"]["adbSerialSha256"]:
+            raise ContractError("Recovery-ready binding differs from transition intent")
     return result
 
 
@@ -1181,18 +1450,15 @@ def prepare(
     try:
         snapshot = backend.preflight(manifest)
         _require_start(snapshot, manifest)
+        # Preparation reserves only the capability-wide lease.  The
+        # candidate-SHA ordinal is not consumed until exact Recovery is bound
+        # after the one Native transition.
+        _require_candidate_guard_absent(manifest)
         run_directory.mkdir(mode=0o700, parents=False)
         _fsync_directory(run_directory.parent)
         try:
             _publish_active_guard(manifest)
         except BaseException:
-            run_directory.rmdir()
-            _fsync_directory(run_directory.parent)
-            raise
-        try:
-            _publish_candidate_guard(manifest)
-        except BaseException:
-            _release_active_guard(manifest)
             run_directory.rmdir()
             _fsync_directory(run_directory.parent)
             raise
@@ -1308,7 +1574,7 @@ def _failed_boot_lease_check(
     _require_active_guard(manifest)
     _require_candidate_guard(manifest)
     records = read_records(run_directory)
-    expected = ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH[:6]
+    expected = CURRENT_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH[:8]
     if tuple(records) != expected:
         raise ContractError("failed-boot evidence lease journal prefix changed")
     for name in expected:
@@ -1317,6 +1583,35 @@ def _failed_boot_lease_check(
     validate_failed_boot_evidence_intent_payload(
         records["26-failed-boot-evidence-intent.json"]["payload"]
     )
+
+
+def _pre_candidate_recovery_park(
+    run_directory: Path,
+    manifest_sha256: str,
+    manifest: dict[str, Any],
+) -> dict[str, Any]:
+    """Durably park an unproved transition without consuming the candidate."""
+    _require_active_guard(manifest)
+    _require_candidate_guard_absent(manifest)
+    record = _record(
+        "RECOVERY_TRANSITION_PARKED",
+        manifest_sha256,
+        {
+            "schema": RECOVERY_TRANSITION_PARK_SCHEMA,
+            "terminal": "RECOVERY_REQUIRED",
+            "reason": "RECOVERY_NOT_PROVED",
+            "candidateReplay": False,
+            "candidateGuardPublished": False,
+            "candidateIntentPublished": False,
+            "candidateHelperLaunched": False,
+        },
+    )
+    raw = canonical_json(record)
+    publish_record(run_directory, "13-recovery-transition-parked.json", record)
+    _readback_published_record(
+        run_directory, "13-recovery-transition-parked.json", raw, manifest_sha256
+    )
+    return record["payload"]
 
 
 def execute(
@@ -1329,7 +1624,7 @@ def execute(
     manifest = _require_manifest_pair(manifest_raw, manifest)
     _verify_qualification_inputs(manifest)
     _require_run_path(run_directory, manifest["runId"])
-    _require_candidate_guard(manifest)
+    _require_candidate_guard_absent(manifest)
     _require_active_guard(manifest)
     records = read_records(run_directory)
     if set(records) != {"00-prepared.json"}:
@@ -1364,6 +1659,61 @@ def execute(
             ),
         )
         _require_active_guard(manifest)
+        _require_candidate_guard_absent(manifest)
+        transition_intent = _record(
+            "RECOVERY_TRANSITION_INTENT",
+            manifest_sha256,
+            {
+                "attempt": 1,
+                "candidateReplay": False,
+                "nativeRole": "NATIVE_NO_RECOVERY",
+                "recoveryUsbProduct": RECOVERY_USB_PRODUCT,
+                "recoveryAdbState": RECOVERY_ADB_STATE,
+                "expectedRecoverySerialSha256": manifest["qualification"][
+                    "recoveryIdentity"
+                ]["adbSerialSha256"],
+            },
+        )
+        publish_record(
+            run_directory,
+            "11-recovery-transition-intent.json",
+            transition_intent,
+        )
+        _readback_published_record(
+            run_directory,
+            "11-recovery-transition-intent.json",
+            canonical_json(transition_intent),
+            manifest_sha256,
+        )
+        try:
+            recovery_binding = backend.prepare_candidate_recovery(
+                timeout_sec=manifest["timeouts"]["flashSec"]
+            )
+            if type(recovery_binding) is not RecoveryBinding:
+                raise ContractError("Recovery transition result type is invalid")
+            recovery_binding.validate(
+                manifest["qualification"]["recoveryIdentity"]["adbSerialSha256"]
+            )
+        except Exception:
+            # The transition may have been sent once and its response may be
+            # unknown.  Do not acquire the candidate ordinal or start a helper;
+            # retain the active guard for explicit recovery reconciliation.
+            return _pre_candidate_recovery_park(
+                run_directory, manifest_sha256, manifest
+            )
+        ready_record = _record(
+            "RECOVERY_READY", manifest_sha256, recovery_binding.payload()
+        )
+        publish_record(run_directory, "12-recovery-ready.json", ready_record)
+        _readback_published_record(
+            run_directory,
+            "12-recovery-ready.json",
+            canonical_json(ready_record),
+            manifest_sha256,
+        )
+        _require_active_guard(manifest)
+        _require_candidate_guard_absent(manifest)
+        _publish_candidate_guard(manifest)
         _require_candidate_guard(manifest)
         publish_record(
             run_directory,
@@ -1388,6 +1738,7 @@ def execute(
             manifest["candidate"],
             rollback=False,
             timeout_sec=manifest["timeouts"]["flashSec"],
+            recovery_binding=recovery_binding,
         )
         candidate_result.validate()
         candidate.checkpoint()
@@ -1673,6 +2024,18 @@ def _valid_candidate_return_pending(
 def recovery_decision(run_directory: Path) -> str:
     records = read_records(run_directory)
     names = set(records)
+    if "13-recovery-transition-parked.json" in names:
+        return "PRE_CANDIDATE_RECOVERY_PARKED_NO_CANDIDATE"
+    if (
+        "11-recovery-transition-intent.json" in names
+        and "12-recovery-ready.json" not in names
+    ):
+        return "PRE_CANDIDATE_RECOVERY_TRANSITION_CONSUMED_NO_RESULT_NO_CANDIDATE"
+    if (
+        "12-recovery-ready.json" in names
+        and "20-candidate-intent.json" not in names
+    ):
+        return "RECOVERY_READY_BEFORE_CANDIDATE_INTENT_ACTIVE_PARKED"
     if tuple(records) == H31_PRETRANSFER_ABORT_PATH:
         return "PRETRANSFER_ABORT_RECONCILED_NO_REPLAY"
     if "41-recovery-closed.json" in names:

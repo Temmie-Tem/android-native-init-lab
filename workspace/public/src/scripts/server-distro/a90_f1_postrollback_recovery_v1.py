@@ -243,6 +243,10 @@ def _continuation_paths() -> tuple[tuple[str, ...], ...]:
         owner.CANDIDATE_RETURN_RESUME_ROLLBACK_PATH + (RECORD_NAME,),
         owner.CANDIDATE_RETURN_ROLLBACK_PATH,
         owner.CANDIDATE_RETURN_ROLLBACK_PATH + (RECORD_NAME,),
+        owner.CURRENT_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH,
+        owner.CURRENT_CANDIDATE_RETURN_RESUME_ROLLBACK_PATH + (RECORD_NAME,),
+        owner.CURRENT_CANDIDATE_RETURN_ROLLBACK_PATH,
+        owner.CURRENT_CANDIDATE_RETURN_ROLLBACK_PATH + (RECORD_NAME,),
     )
 
 
@@ -430,6 +434,10 @@ def _require_prefix(records: dict[str, dict[str, Any]], manifest: dict[str, Any]
         owner.POSTROLLBACK_RECOVERY_PATH,
         owner.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
         owner.POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+        owner.CURRENT_ROLLBACK_PATH,
+        owner.CURRENT_POSTROLLBACK_RECOVERY_PATH,
+        owner.CURRENT_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
+        owner.CURRENT_POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
         *_continuation_paths(),
     )
     present_path = tuple(records)
@@ -438,6 +446,8 @@ def _require_prefix(records: dict[str, dict[str, Any]], manifest: dict[str, Any]
     evidence_path = present_path in (
         owner.ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
         owner.POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
+        owner.CURRENT_ROLLBACK_WITH_FAILED_BOOT_EVIDENCE_PATH,
+        owner.CURRENT_POSTROLLBACK_RECOVERY_WITH_FAILED_BOOT_EVIDENCE_PATH,
     )
     continuation_path = present_path in _continuation_paths()
     for name in present_path:

@@ -71,6 +71,8 @@ TWRP_IDENTITY_CHECK_COMMAND = TWRP_SYSTEM_REBOOT_COMMAND.removesuffix(
 ).rstrip(" &&")
 OWNER_RECEIPT_SCHEMA = "a90-f1-owner-effect-receipt-v1"
 OWNER_RECEIPT_MODE = "A90_F1_OWNER_EFFECT_RECEIPT_V1"
+RECOVERY_BINDING_RECEIPT_SCHEMA = "a90-f1-recovery-binding-receipt-v1"
+RECOVERY_BINDING_RECEIPT_MODE = "A90_F1_RECOVERY_BINDING_RECEIPT_V1"
 OWNER_OUTCOMES = (
     "PRE_WRITE_FAILURE",
     "WRITE_OR_READBACK_UNCLASSIFIED",
@@ -180,11 +182,12 @@ class OwnerEffectState:
 
 OWNER_EFFECT_STATE: OwnerEffectState | None = None
 OWNER_SERIAL_REDACTOR = None
+RECOVERY_BINDING_RECEIPT_ENABLED = False
 
 
 def _owner_adb_context() -> Path | None:
     """Return the fixed per-run ADB home, rejecting ambient state."""
-    if OWNER_EFFECT_STATE is None:
+    if OWNER_EFFECT_STATE is None and not RECOVERY_BINDING_RECEIPT_ENABLED:
         return None
     raw_home = os.environ.get(OWNER_ADB_HOME_ENV)
     if not raw_home:
@@ -260,7 +263,7 @@ def _emit_owner_receipt(state: OwnerEffectState) -> None:
 
 def owner_stdout(*args: object, **kwargs: object) -> None:
     """Keep the fixed owner stdout channel reserved for its receipt."""
-    if OWNER_EFFECT_STATE is None:
+    if OWNER_EFFECT_STATE is None and not RECOVERY_BINDING_RECEIPT_ENABLED:
         print(*args, **kwargs)
 
 
@@ -485,8 +488,10 @@ def _owner_usb_inventory_sha256(
         raise RuntimeError("fixed lsusb inventory is oversized")
     rows = _owner_parse_usb_rows(stdout)
     samsung = [row for row in rows if row[0] == OWNER_USB_VENDOR]
+    if not samsung:
+        raise RuntimeError("fixed USB inventory has zero Samsung endpoints")
     if len(samsung) != 1:
-        raise RuntimeError("fixed USB inventory requires exactly one Samsung endpoint")
+        raise RuntimeError("fixed USB inventory has ambiguous Samsung endpoints")
     expected_product = (
         OWNER_NATIVE_PRODUCT
         if expected_role == OWNER_ADB_ROLE_NATIVE
@@ -495,7 +500,7 @@ def _owner_usb_inventory_sha256(
         else None
     )
     if expected_product is None or samsung[0][1] != expected_product:
-        raise RuntimeError("fixed USB role is not exact")
+        raise RuntimeError(f"fixed USB role is not exact product={samsung[0][1]}")
     digest = hashlib.sha256(stdout).hexdigest()
     log(f"owner USB inventory receipt={digest}")
     return digest
@@ -601,7 +606,10 @@ def _owner_adb_inventory_sha256(
             and recovery_rows[0][:2] == matching_rows[0][:2]
         )
     if not exact:
-        raise RuntimeError("fixed ADB inventory role is not exact")
+        raise RuntimeError(
+            "fixed ADB inventory role is not exact "
+            f"rows={len(rows)} recovery={len(recovery_rows)} matching={len(matching_rows)}"
+        )
     digest = hashlib.sha256(stdout).hexdigest()
     log(f"owner ADB inventory receipt={digest} role={expected_role}")
     return digest
@@ -619,6 +627,80 @@ def _owner_pre_native_recovery_gate(args: argparse.Namespace) -> None:
     )
     if usb_digest != args.owner_expect_usb_inventory_sha256:
         raise RuntimeError("owner USB inventory changed before Native recovery")
+
+
+def _owner_wait_recovery_ready(
+    args: argparse.Namespace,
+    *,
+    timeout_sec: float,
+) -> dict[str, str]:
+    """Wait read-only for exactly one bound A90 Recovery USB/ADB pair."""
+    expected = args.expect_recovery_serial_sha256
+    if expected is None:
+        raise RuntimeError("Recovery serial binding is missing")
+    deadline = time.monotonic() + timeout_sec
+    last_error = "no Recovery endpoint"
+    while time.monotonic() < deadline:
+        try:
+            usb_digest = _owner_usb_inventory_sha256(OWNER_ADB_ROLE_RECOVERY)
+            adb_digest = _owner_adb_inventory_sha256(expected, OWNER_ADB_ROLE_RECOVERY)
+            return {
+                "usbInventorySha256": usb_digest,
+                "adbInventorySha256": adb_digest,
+                "adbSerialSha256": expected,
+            }
+        except (OSError, RuntimeError) as exc:
+            last_error = str(exc)
+            if "ambiguous Samsung" in last_error or (
+                "fixed USB role is not exact" in last_error
+                and f"product={OWNER_NATIVE_PRODUCT}" not in last_error
+            ):
+                raise
+            if "fixed ADB inventory role is not exact rows=" in last_error:
+                if not (
+                    "rows=0 " in last_error
+                    or "rows=1 recovery=0 matching=1" in last_error
+                ):
+                    raise
+            time.sleep(min(0.5, max(0.0, deadline - time.monotonic())))
+    raise RuntimeError(f"exact Recovery readiness timeout: {last_error}")
+
+
+def run_recovery_only(args: argparse.Namespace) -> int:
+    """Send Native recovery once, then emit an exact Recovery binding receipt."""
+    global RECOVERY_BINDING_RECEIPT_ENABLED
+    RECOVERY_BINDING_RECEIPT_ENABLED = True
+    request_outcome = "CONFIRMED"
+    _owner_pre_native_recovery_gate(args)
+    try:
+        response = reboot_native_to_recovery(args)
+        if "[err]" in response:
+            request_outcome = "ERROR_RESPONSE"
+        elif "[busy]" in response:
+            request_outcome = "BUSY_RESPONSE"
+    except RuntimeError as exc:
+        # A missing bridge response is diagnostic only.  The exact Recovery
+        # USB/ADB arrival below is the authority; explicit [busy]/[err] still
+        # remains diagnostic; exact Recovery below is authoritative.
+        if "outcome uncertain after one send" not in str(exc):
+            raise
+        request_outcome = "UNCERTAIN_RESPONSE"
+        log("Native recovery response unavailable; waiting for exact Recovery arrival")
+    binding = _owner_wait_recovery_ready(args, timeout_sec=args.recovery_timeout)
+    payload = {
+        "schema": RECOVERY_BINDING_RECEIPT_SCHEMA,
+        "mode": RECOVERY_BINDING_RECEIPT_MODE,
+        "role": OWNER_ADB_ROLE_RECOVERY,
+        "usbProduct": "04e8:6860",
+        "adbState": "recovery",
+        **binding,
+        "requestOutcome": request_outcome,
+    }
+    sys.stdout.write(
+        json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    )
+    sys.stdout.flush()
+    return 0
 
 
 @contextmanager
@@ -854,6 +936,23 @@ def bind_present_recovery_or_native_baseline(
     baseline = [item for item in devices if item != recovery[0]]
     log(f"ADB ready: {serial} {state} (already present and bound)")
     return baseline, recovery[0]
+
+
+def bind_present_recovery_only(
+    adb: str,
+    *,
+    expected_serial_sha256: str,
+) -> tuple[str, str]:
+    """Bind exactly one already-present Recovery row and nothing else."""
+    devices = adb_devices(adb, strict=True, allow_startup_banner=True)
+    if (
+        len(devices) != 1
+        or devices[0][1] != "recovery"
+        or hashlib.sha256(devices[0][0].encode("utf-8")).hexdigest()
+        != expected_serial_sha256
+    ):
+        raise RuntimeError("bound-Recovery-only inventory is not exact")
+    return devices[0]
 
 
 def wait_for_adb_baseline_restored(
@@ -1416,12 +1515,13 @@ def bridge_command(host: str,
     raise RuntimeError(f"bridge command timeout for {command!r}: {last_error}")
 
 
-def reboot_native_to_recovery(args: argparse.Namespace) -> None:
+def reboot_native_to_recovery(args: argparse.Namespace) -> str:
     log("requesting recovery from native init bridge")
     if (
         args.require_empty_adb_baseline
         or args.require_stable_adb_baseline
         or getattr(args, "reuse_bound_recovery_or_from_native", False)
+        or getattr(args, "recovery_only", False)
     ):
         if getattr(args, "owner_fixed_bridge_preflight", False):
             _owner_bridge_preflight(args)
@@ -1434,11 +1534,13 @@ def reboot_native_to_recovery(args: argparse.Namespace) -> None:
             retry_transport=False,
         )
         owner_stdout(output, end="")
+        if getattr(args, "recovery_only", False):
+            return output
         if "[busy]" in output or "[err]" in output:
             raise RuntimeError(
                 "native recovery command failed; minimal one-shot mode does not resend"
             )
-        return
+        return output
     for attempt in range(1, 4):
         output = bridge_command(
             args.bridge_host,
@@ -1450,7 +1552,7 @@ def reboot_native_to_recovery(args: argparse.Namespace) -> None:
         owner_stdout(output, end="")
 
         if "[busy]" not in output:
-            return
+            return output
 
         log(f"native init menu is active; requesting hide before recovery attempt={attempt}")
         hide_output = bridge_command(
@@ -1797,6 +1899,27 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--reuse-bound-recovery-only",
+        action="store_true",
+        help=(
+            "candidate-only mode: consume one already-bound exact Recovery endpoint; "
+            "never send a Native recovery request"
+        ),
+    )
+    parser.add_argument(
+        "--recovery-only",
+        action="store_true",
+        help=(
+            "bind the exact Recovery USB/ADB pair after one Native request and emit "
+            "a recovery-binding receipt without flashing"
+        ),
+    )
+    parser.add_argument(
+        "--recovery-binding-receipt-mode",
+        choices=(RECOVERY_BINDING_RECEIPT_MODE,),
+        help="emit the fixed Recovery binding receipt for --recovery-only",
+    )
+    parser.add_argument(
         "--owner-receipt-mode",
         choices=(OWNER_RECEIPT_MODE,),
         help=(
@@ -1807,7 +1930,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--owner-fixed-bridge-preflight",
         action="store_true",
-        help="owner-only rollback mode: revalidate the exact Native bridge before recovery",
+        help="owner-only mode: revalidate the exact managed Native bridge before a recovery request",
     )
     parser.add_argument(
         "--owner-expect-usb-inventory-sha256",
@@ -1922,8 +2045,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    global OWNER_EFFECT_STATE, OWNER_SERIAL_REDACTOR
+    global OWNER_EFFECT_STATE, OWNER_SERIAL_REDACTOR, RECOVERY_BINDING_RECEIPT_ENABLED
     args = parse_args()
+    RECOVERY_BINDING_RECEIPT_ENABLED = False
     OWNER_EFFECT_STATE = (
         OwnerEffectState() if args.owner_receipt_mode == OWNER_RECEIPT_MODE else None
     )
@@ -1954,6 +2078,7 @@ def main() -> int:
             args.require_empty_adb_baseline,
             args.require_stable_adb_baseline,
             args.reuse_bound_recovery_or_from_native,
+            args.reuse_bound_recovery_only,
         )
     )
     if strict_modes > 1:
@@ -1969,7 +2094,11 @@ def main() -> int:
             "--require-stable-adb-baseline requires --expect-recovery-serial-sha256"
         )
     if args.expect_recovery_serial_sha256 and not args.require_stable_adb_baseline:
-        if not args.reuse_bound_recovery_or_from_native:
+        if not (
+            args.reuse_bound_recovery_or_from_native
+            or args.reuse_bound_recovery_only
+            or args.recovery_only
+        ):
             raise SystemExit(
                 "--expect-recovery-serial-sha256 requires one bound recovery mode"
             )
@@ -1982,17 +2111,53 @@ def main() -> int:
             raise SystemExit(
                 "--reuse-bound-recovery-or-from-native requires --expect-recovery-serial-sha256"
             )
+    if args.reuse_bound_recovery_only:
+        if (
+            args.from_native
+            or args.serial
+            or not args.expect_recovery_serial_sha256
+            or args.owner_expect_adb_role != OWNER_ADB_ROLE_RECOVERY
+            or args.owner_expect_usb_inventory_sha256 is None
+            or args.owner_expect_adb_inventory_sha256 is None
+        ):
+            raise SystemExit(
+                "--reuse-bound-recovery-only selects an already-bound Recovery and forbids Native"
+            )
+    if args.recovery_only:
+        if (
+            not args.from_native
+            or args.require_empty_adb_baseline
+            or args.serial
+            or not args.expect_recovery_serial_sha256
+            or args.recovery_binding_receipt_mode != RECOVERY_BINDING_RECEIPT_MODE
+            or args.owner_expect_adb_role != OWNER_ADB_ROLE_NATIVE
+            or args.owner_expect_usb_inventory_sha256 is None
+            or args.owner_expect_adb_inventory_sha256 is not None
+        ):
+            raise SystemExit(
+                "--recovery-only requires Native owner binding and Recovery receipt mode; ADB is Recovery-scoped"
+            )
+    elif args.recovery_binding_receipt_mode is not None:
+        raise SystemExit("Recovery binding receipt mode requires --recovery-only")
     if args.owner_fixed_bridge_preflight and (
         args.owner_receipt_mode != OWNER_RECEIPT_MODE
+        and args.recovery_binding_receipt_mode != RECOVERY_BINDING_RECEIPT_MODE
         or not (
-            args.from_native or args.reuse_bound_recovery_or_from_native
+            args.from_native
+            or args.reuse_bound_recovery_or_from_native
+            or args.reuse_bound_recovery_only
+            or args.recovery_only
         )
     ):
         raise SystemExit("--owner-fixed-bridge-preflight requires owner receipt mode")
     if args.owner_expect_usb_inventory_sha256 is not None and (
         args.owner_receipt_mode != OWNER_RECEIPT_MODE
+        and args.recovery_binding_receipt_mode != RECOVERY_BINDING_RECEIPT_MODE
         or not (
-            args.from_native or args.reuse_bound_recovery_or_from_native
+            args.from_native
+            or args.reuse_bound_recovery_or_from_native
+            or args.reuse_bound_recovery_only
+            or args.recovery_only
         )
     ):
         raise SystemExit("--owner-expect-usb-inventory-sha256 requires owner receipt mode")
@@ -2038,6 +2203,10 @@ def main() -> int:
             if OWNER_EFFECT_STATE is not None:
                 _emit_owner_receipt(OWNER_EFFECT_STATE)
             return 0
+
+        if args.recovery_only:
+            with phase_timer("native_to_recovery_binding"):
+                return run_recovery_only(args)
 
         if not args.boot_image:
             raise SystemExit("boot_image is required unless --verify-only is used")
@@ -2098,6 +2267,11 @@ def main() -> int:
                     )
                     if baseline_adb_inventory_sha256 != args.owner_expect_adb_inventory_sha256:
                         raise RuntimeError("owner ADB inventory changed before effect")
+        elif args.reuse_bound_recovery_only:
+            bound_recovery = bind_present_recovery_only(
+                args.adb,
+                expected_serial_sha256=args.expect_recovery_serial_sha256,
+            )
         if args.from_native:
             if args.require_empty_adb_baseline:
                 adb_baseline = adb_devices(args.adb, strict=True)

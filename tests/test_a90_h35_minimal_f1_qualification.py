@@ -26,7 +26,6 @@ PRIVATE_MANIFEST = ROOT / "workspace/private/manifests/a90-h35-f1-20260823-01.js
 OWNER = ROOT / "workspace/public/src/scripts/server-distro/a90_boot_only_f1_minimal_v1.py"
 CONTINUATION = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_candidate_return_continuation_v1.py"
 POSTROLLBACK = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_postrollback_recovery_v1.py"
-POSTROLLBACK_OWNER = ROOT / "workspace/public/src/scripts/server-distro/a90_f1_postrollback_recovery_v1.py"
 
 EXPECTED_INPUT_SHA256 = (
     "1f70b880b482db50b3347102ad60f911bf9f28d07434db5adc06abf061dfff7a"
@@ -147,22 +146,20 @@ class A90H35MinimalQualificationTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.value = _strict_json(INPUT)
 
-    def test_strict_json_and_owner_continuation_closures_are_current(self) -> None:
+    def test_strict_json_and_historical_closures_are_frozen_but_stale(self) -> None:
         owner = _load("a90_h35_owner", OWNER)
         continuation = _load("a90_h35_continuation", CONTINUATION)
         postrollback = _load("a90_h35_postrollback", POSTROLLBACK)
-        postrollback = _load("a90_h35_postrollback", POSTROLLBACK_OWNER)
         self.assertEqual(_sha(INPUT), EXPECTED_INPUT_SHA256)
         self.assertEqual(self.value["executionClosureSha256"], EXPECTED_OWNER_CLOSURE)
-        self.assertEqual(owner.execution_closure_sha256(), EXPECTED_OWNER_CLOSURE)
+        self.assertNotEqual(owner.execution_closure_sha256(), EXPECTED_OWNER_CLOSURE)
         self.assertEqual(
             self.value["continuationReview"]["executionClosureSha256"],
             EXPECTED_CONTINUATION_CLOSURE,
         )
-        self.assertEqual(continuation.execution_closure_sha256(), EXPECTED_CONTINUATION_CLOSURE)
+        self.assertNotEqual(continuation.execution_closure_sha256(), EXPECTED_CONTINUATION_CLOSURE)
         self.assertEqual(self.value["postrollbackReview"]["executionClosureSha256"], EXPECTED_POSTROLLBACK_CLOSURE)
-        self.assertEqual(postrollback.execution_closure_sha256(), EXPECTED_POSTROLLBACK_CLOSURE)
-        self.assertEqual(postrollback.execution_closure_sha256(), EXPECTED_POSTROLLBACK_CLOSURE)
+        self.assertNotEqual(postrollback.execution_closure_sha256(), EXPECTED_POSTROLLBACK_CLOSURE)
         with self.assertRaises(AssertionError):
             json.loads('{"duplicate":1,"duplicate":2}', object_pairs_hook=lambda pairs: _strict_pairs(pairs))
 
@@ -204,7 +201,9 @@ class A90H35MinimalQualificationTest(unittest.TestCase):
             "status": "UNBOUND_PRIVATE_MANIFEST_REQUIRED",
         })
 
-    def test_current_continuation_and_postrollback_reviews_have_exact_leases(self) -> None:
+    def test_h35_continuation_and_postrollback_review_bytes_are_frozen_and_stale(self) -> None:
+        continuation = _load("a90_h35_stale_continuation", CONTINUATION)
+        postrollback = _load("a90_h35_stale_postrollback", POSTROLLBACK)
         for declared, path, expected in (
             (self.value["continuationReview"], CONTINUATION_REVIEW, {
                 "capability": "A90_F1_CANDIDATE_RETURN_CONTINUATION_V1",
@@ -231,6 +230,12 @@ class A90H35MinimalQualificationTest(unittest.TestCase):
                 self.assertEqual(declared[key], value, (path, key, "declared"))
             self.assertEqual(current["findings"], {"high": [], "low": [], "medium": []})
             _assert_zero_contacts(current["contacts"])
+        self.assertNotEqual(
+            continuation.execution_closure_sha256(), EXPECTED_CONTINUATION_CLOSURE
+        )
+        self.assertNotEqual(
+            postrollback.execution_closure_sha256(), EXPECTED_POSTROLLBACK_CLOSURE
+        )
 
     def test_evidence_reviews_are_exact_public_h0_gates(self) -> None:
         evidence = self.value["evidenceReviews"]
@@ -356,7 +361,7 @@ class A90H35MinimalQualificationTest(unittest.TestCase):
         self.assertNotIn("liveAuthority=true", text)
         self.assertNotIn("candidateAuthority=true", text)
 
-    def test_independent_review_is_canonical_and_owner_compatible(self) -> None:
+    def test_independent_review_is_canonical_historical_and_current_owner_rejects_it(self) -> None:
         owner = _load("a90_h35_review_owner", OWNER)
         raw = INDEPENDENT_REVIEW.read_bytes()
         review = _strict_json(INDEPENDENT_REVIEW)
@@ -383,14 +388,16 @@ class A90H35MinimalQualificationTest(unittest.TestCase):
                 "freshState": self.value["freshState"],
             },
         }
-        owner._validate_qualification_review(review, synthetic_manifest)
+        with self.assertRaises(owner.ContractError):
+            owner._validate_qualification_review(review, synthetic_manifest)
 
     def test_private_manifest_binds_h35_review_when_explicitly_enabled(self) -> None:
         if os.environ.get("A90_H35_VERIFY_PRIVATE") != "1":
             self.skipTest("set A90_H35_VERIFY_PRIVATE=1 for private H35 manifest verification")
         owner = _load("a90_h35_private_owner", OWNER)
         raw, value = owner.load_manifest(PRIVATE_MANIFEST.resolve())
-        owner._verify_qualification_inputs(value)
+        with self.assertRaises(owner.ContractError):
+            owner._verify_qualification_inputs(value)
         self.assertEqual(value["runId"], "a90-h35-f1-20260823-01")
         self.assertEqual(value["candidate"]["sha256"], EXPECTED_CANDIDATE_SHA256)
         self.assertEqual(value["rollback"]["sha256"], EXPECTED_ROLLBACK_SHA256)

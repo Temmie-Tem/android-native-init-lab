@@ -1289,6 +1289,24 @@ that park. After attributable candidate failure, rollback never waits. See
 `docs/plans/A90_F1_CANDIDATE_RETURN_CONTINUATION_DESIGN_2026-08-21.md`; that
 design is not executable authority.
 
+Before a future ordinary candidate intent, the minimal owner must separately
+establish Recovery readiness. `prepare` reserves only the capability-wide
+active guard and proves the permanent candidate-SHA guard absent. After the
+fresh approval is durable, one Recovery-transition intent precedes one fixed
+Native `recovery` send. Command-response text is diagnostic only: authority is
+the later exact single-Samsung `04e8:6860` USB role plus exactly one
+manifest-bound ADB row in `recovery`. Native and the zero-endpoint
+re-enumeration interval never open ADB. Only after that exact readiness record
+may the owner create the permanent candidate guard, publish candidate intent,
+and invoke a candidate helper that accepts only the already-bound Recovery and
+sends no Native recovery command. Missing or ambiguous readiness retains the
+active guard but creates no candidate guard or intent and invokes no candidate
+or rollback helper. The Recovery transition is never resent. A crash between
+readiness and candidate intent remains an explicit active-guard park; candidate
+eligibility is not inferred without separately checking its permanent guard.
+This machinery is H0 until its changed execution closures receive independent
+review and a later candidate receives fresh qualification, D0, and approval.
+
 After the candidate transfer:
 
 - candidate transfer ambiguity, wrong identity, explicit initial-health
