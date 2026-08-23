@@ -1,13 +1,29 @@
-# S22+ FYG8 P3.19 — USB external corpus and the unexamined recovery-path control H0
+# S22+ FYG8 P3.19 — USB external corpus and recovery-control provenance correction
 
-Status: `IMPLEMENTED_REVIEW_PENDING`. Operator host-only research unit.
+Status: `P319_USB_RECOVERY_CONTROL_REPORT_CORRECTION_IMPLEMENTED_REVIEW_PENDING`.
 
-**NO DEVICE OR LIVE AUTHORITY.** This unit is host-only. It contacted no
-device, ADB, USB endpoint, Odin, partition, A90, or S20+. It created no
-candidate, package, ready/run/approval manifest, connected authority, recovery
-authority, or replay authority. It modified no existing repository file and no
+**NO NEW DEVICE OR LIVE AUTHORITY.** The image, source, binary, and external
+corpus work in this unit was host-only. While the predecessor report was being
+written, however, the operator independently entered stock recovery and later
+approved one bounded `adb devices -l` listing. The former is a D1 boot-mode
+transition and the latter is D0, not H0. Neither action retained the required
+raw-first snapshot or a structured result, and no final Android-health receipt
+was retained after the recovery entry. They are therefore recorded
+retrospectively as `HEALTH_PENDING / NO_PROOF_OBSERVER` and
+`HOST_OBSERVER_FAILURE / NO_PROOF_OBSERVER`, not as a closed control.
+
+This correction contacts no device and performs no replay. It preserves the
+predecessor at commit `d38dd963a0f6`, 26,765 bytes, SHA-256
+`e59df701d4c6653001a1a3b3c1a1ac4d4e5815a87a125aad1f3c97bb26c69d10`.
+The private retrospective marker
+`workspace/private/outputs/s22plus_fyg8_p319/stock-recovery-control-retrospective-20260824-01.json`
+is 2,358 bytes, SHA-256
+`07b34c8326a9091ed15836e748e8f38ac6ce85ccbe0faac74661c39ed04dd6dc`,
+mode `0400`, link count one. It explicitly is neither raw evidence nor a device
+result. This unit creates no candidate, package, ready/run/approval manifest,
+connected authority, recovery authority, or replay authority and changes no
 candidate byte. Network access was read-only public web fetches; no repository
-content, private path, identifier, or device datum was transmitted.
+content, private identifier, or device datum was transmitted.
 
 ## Why this unit exists
 
@@ -21,11 +37,12 @@ It has three parts:
 
 - **Part A** cross-checks the parallel FYD9-to-FYG8 USB delta closure and adds
   one binary result that closure did not carry.
-- **Part B** reads both recovery images — stock and TWRP — and establishes
-  which of them can serve as a control for the FYG8 kernel path.
+- **Part B** reads both recovery images — stock and TWRP — and separates the
+  valid static control facts from an unretained operator observation.
 - **Part C** is the external corpus, with per-source provenance.
 
-Part A is a confirmation. Part B and Part C are new.
+Part A is a confirmation. Part B and Part C are new. The original Part B live
+closure claim is withdrawn by this correction.
 
 ## Part A — Independent cross-check of the FYD9-to-FYG8 USB delta
 
@@ -110,11 +127,11 @@ to an explanation of gadget silence.
 ## Part B — Both recovery images, read
 
 Both recovery images were unpacked host-side with the repository's own
-`third_party/mkbootimg/unpack_bootimg.py`. Nothing was flashed and no device
-was contacted. The stock image was already extracted at
-`inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/raw/recovery.img`;
+`workspace/public/src/third_party/mkbootimg/unpack_bootimg.py`. That unpacking
+flashed nothing and contacted no device. The stock image was already extracted
+at `workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/raw/recovery.img`;
 the TWRP image is the single member of the pinned
-`inputs/s22plus_twrp/g0q/twrp-3.7.0_12-1_afaneh92-g0q.tar`.
+`workspace/private/inputs/s22plus_twrp/g0q/twrp-3.7.0_12-1_afaneh92-g0q.tar`.
 
 ### The decisive difference is the kernel
 
@@ -125,21 +142,24 @@ the TWRP image is the single member of the pinned
 | Kernel payload | raw Image, 41,490,944 B | gzip, inflates to 41,488,896 B |
 | Kernel SHA-256 | `027d4ab6f39d4544f87d33b219bb7877ab9b662b40434bfb96464c1193aeb69d` | `6beb83aa231749d503e101e0…` |
 | Kernel banner | `5.10.226-android12-9-30958166-abS906NKSS7FYG8`, built 2025-08-01 | `5.10.81-afaneh92-g0418bf01a3e2 (afaneh@afaneh-linux)` |
-| Same Image as `boot.img`? | **yes, byte-identical** | no |
+| Same Image as stock FYG8 `boot.img`? | **yes, byte-identical** | no |
 
 The stock recovery kernel is the *same bytes* as the kernel in
-`boot.img`. The candidate path runs that Image. TWRP runs a different,
-independently built `5.10.81` kernel from December 2022.
+the stock FYG8 `boot.img`: `027d4ab6...`. It is **not** the current P3.19
+candidate's fixed 41,490,944-byte Image, which is
+`71f573eb77e67c82b9191bfe0926153f6c8dd5fefe3bba01f884c9beb0c4bae8`.
+TWRP runs a third, independently built `5.10.81` kernel from December 2022.
 
-**Consequence.** Stock recovery is a control for the FYG8 kernel path. TWRP is
-not: any USB result observed under TWRP would be evidence about a different
-kernel, and could not be carried across to the candidate. This is a measured
-reason, independent of the contract question, not to treat a TWRP install as
-the way to obtain this control.
+**Consequence.** Stock recovery is a control for the shipped FYG8 stock-kernel
+and recovery-userspace path, not an exact-Image control for the P3.19 candidate.
+TWRP is further removed: any USB result under it would concern its different
+kernel and could not be carried across to the candidate. This remains a
+measured reason, independent of the contract question, not to install TWRP for
+the P3.19 USB question.
 
-### The stock recovery USB recipe is six lines
+### The stock recovery QCOM role/UDC prerequisite fragment is six lines
 
-`init.recovery.qcom.rc` in the stock ramdisk contains the whole of it:
+`init.recovery.qcom.rc` in the stock ramdisk contains this role/UDC fragment:
 
 ```
 on init
@@ -155,10 +175,12 @@ on property:ro.boot.usbcontroller=*
 `ro.boot.usbcontroller` is supplied by the recovery kernel command line, which
 also carries `androidboot.selinux=permissive`.
 
-This is the same lever the July 2026-07-09 unit identified as the one S3
-omitted. What is new is that recovery reaches it **without any Type-C event**:
-there is no PDIC notification, no VBUS notifier wait, and no Type-C manager
-call between boot and the role write.
+These six lines are not the whole gadget recipe. The common recovery `init.rc`
+later creates the configfs gadget, links `ffs.adb`, selects product `0xD001`,
+and binds the UDC. The fragment above is the same role lever the 2026-07-09 S3
+unit omitted. Its userspace control flow has **no explicit wait** for a PDIC
+notification, VBUS notifier, or Type-C manager call before the role write; this
+static reading does not exclude asynchronous kernel Type-C events.
 
 ### Module authority, confirmed at the source image
 
@@ -201,16 +223,17 @@ names and adds 9. The USB-relevant differences are that stock carries
 two firmware generations — and that TWRP adds USB-Ethernet drivers
 (`asix.ko`, `ax88179_178a.ko`).
 
-### The control was observed
+### Operator-reported observation; formal control remains open
 
-While this unit was being written the operator independently placed the device
-in stock recovery and reported it as stock. The host's own USB stack was then
-read passively. **No command was sent to the device**: nothing was transmitted,
-no `adb`, `odin4`, or device command ran, and the enumeration had already
-happened because the operator connected and booted the device. This is a host
-read, not a device action.
+While the predecessor report was being written, the operator independently
+placed the device in stock recovery and reported it as stock. That boot-mode
+transition is D1 even though no repository runner dispatched it. The host USB
+stack was then read passively. No immutable host snapshot, D1 intent/result, or
+final Android-health receipt was preserved, so the transition is retained only
+as an operator-reported `HEALTH_PENDING / NO_PROOF_OBSERVER` event.
 
-The host shows one Samsung endpoint that is not the A90:
+The predecessor report records the following host fields. They are supportive
+observations, not machine-authoritative evidence:
 
 | Field | Value |
 |---|---|
@@ -224,7 +247,7 @@ The host shows one Samsung endpoint that is not the A90:
 
 Serial and usbfs path are deliberately not recorded.
 
-Every field matches the recipe read out of the image earlier in this Part:
+The reported fields are consistent with the static recipe read from the image:
 
 - `init.recovery.qcom.rc` sets `sys.usb.controller a600000.dwc3`,
   `sys.usb.configfs 1`, writes `mode peripheral`, and waits on
@@ -236,8 +259,8 @@ Every field matches the recipe read out of the image earlier in this Part:
 
 One function, one interface, `0xD001` — which is what the host reports.
 
-The operator also photographed the recovery screen. It is the ordinary AOSP
-recovery menu, headed:
+The operator also reported a photograph of the ordinary AOSP recovery menu,
+headed:
 
 ```
 Android Recovery
@@ -246,16 +269,15 @@ samsung/g0qksx/g0q
 user/release-keys
 ```
 
-`user/release-keys` and that build id identify it as the unmodified stock
-recovery for this exact firmware, and the ramdisk unpacked earlier in this Part
-carries `ro.build.display.id=SP1A.210812.016.S906NKSS7FYG8` — the same value.
-**The image analysed statically is the image that was running.** The static
-recipe and the live observation are therefore one chain, not two adjacent
-findings.
+`user/release-keys` and that build id are consistent with unmodified stock
+recovery for this firmware, and the statically unpacked ramdisk carries the
+same `ro.build.display.id`. The photograph was not retained as a referenced
+private artifact, however, so it does not machine-bind the running bytes to the
+image analysed here.
 
-The screen also settles the authorization question: the menu is the standard
-one and carries no "Allow USB debugging" prompt, so no path exists to authorize
-this host from recovery. A second screen shows Samsung's banner —
+The reported screen is consistent with the authorization limitation: the menu
+is the standard one and carries no "Allow USB debugging" prompt. A second
+reported screen shows Samsung's banner —
 `Reboot Recovery Cause is [init:1]`, `Reason is []`, `Supported API: 3`,
 `MANUAL MODE v1.0.0`, `No command specified.` — consistent with a manual
 key-combination entry and no pending OTA command.
@@ -264,9 +286,10 @@ Two incidental facts follow. `Apply update from ADB` would move
 `sys.usb.config` to `sideload`, which `init.rc:161-166` shows uses the same
 `0xD001` product id and the same single `ffs.adb` function, so it changes device
 state without changing the gadget and still offers no shell; it was not used.
-And because the running recovery is stock `user/release-keys`, the TWRP
-installed on 2026-07-06 is **no longer present**, while the repository records
-no unit that restored it — an evidence-chain gap between 2026-07-07 and now.
+If the reported stock screen is exact, the TWRP installed on 2026-07-06 is no
+longer the running recovery. That is not byte-level recovery-partition proof,
+and the repository records no unit that restored it — an evidence-chain gap
+between 2026-07-07 and now.
 
 With the operator's explicit approval a bounded D0 listing was then run. Target
 ambiguity was removed first, host-side: the only other Samsung endpoint on this
@@ -274,65 +297,72 @@ host is the A90, whose interfaces are `02/02/01`, `0a/00/00`, `02/0d/00`,
 `0a/00/01` — CDC ACM plus NCM, with **no** `ff/42/01` ADB interface, so the ADB
 server cannot attach to it. The S22+ is the sole ADB target.
 
-`adb devices -l` returned exactly one device, state **`unauthorized`**.
+The predecessor report says `adb devices -l` returned exactly one device in
+state **`unauthorized`**. Its stdout and stderr were not preserved raw-first,
+and no structured result was written. The D0 is therefore
+`HOST_OBSERVER_FAILURE / NO_PROOF_OBSERVER`, is not reusable, and cannot be
+replayed by this correction.
 
-That state is more informative than it looks. A device that merely enumerated
-would not appear in the ADB device list at all; `unauthorized` means the host
-and the device completed the ADB `CNXN`/`AUTH` exchange over the bulk endpoints
-and stopped only at key verification. **The bidirectional bulk data path is
-therefore proven working, not just the control endpoint.**
+If exact, `unauthorized` is consistent with the host and device reaching the
+ADB `CNXN`/`AUTH` exchange over the bulk endpoints and stopping at key
+verification. Because the transcript is absent, the bidirectional bulk path is
+not formally proved by this unit.
 
-The authorization itself cannot succeed here, and the recovery image explains
-why: `prop.default` and `default.prop` both set `ro.adb.secure=1`, the ramdisk
+The static recovery image explains the reported unauthorized state:
+`prop.default` and `default.prop` both set `ro.adb.secure=1`, the ramdisk
 carries no `adb_keys`, and `system/etc/init/hw/init.rc:81` starts
 `adbd --root_seclabel=u:r:su:s0 --device_banner=recovery`. With `ro.adb.secure`
-on and no key in the ramdisk, adbd must read `/data/misc/adb/adb_keys`, and this
-target's `/data` is hardware-wrapped and unavailable in recovery. Deeper reads
-through recovery ADB — `/proc/modules`, an `ssusb/mode` readback, module
-presence — are therefore closed on this path. No further device command was
-sent.
+on and no key in the ramdisk, adbd must use `/data/misc/adb/adb_keys`; the
+operator reported that this hardware-wrapped `/data` was unavailable in
+recovery. The predecessor therefore obtained no `/proc/modules`,
+`ssusb/mode`, or loaded-module evidence. No further device command was sent.
 
-**This closes the Part B control.** On this device, the FYG8 kernel Image that
-the candidate also runs, driven by the 446-module recovery set and a six-line
-init sequence with no Android framework and no Type-C event wait, produces an
-enumerated High-Speed USB gadget.
+**This does not formally close the Part B control.** Static evidence proves the
+stock FYG8 recovery Image, its 446-line module authority, the QCOM role/UDC
+fragment, and the generic configfs gadget recipe. The unretained observation is
+consistent with that path producing a High-Speed gadget, but it cannot prove
+the live result, the exact running bytes, or the current P3.19 candidate.
 
-Two further consequences follow directly:
+Two bounded interpretations remain:
 
-- **The mux reached `COM_USB` without Android.** A High-Speed device cannot
-  enumerate through an open D+/D- switch, so `CONTROL1` is in the USB position
-  right now. Stock recovery loads `mfd_max77705` and `pdic_max77705` and runs
-  no Android framework, so whatever performs that transition lives inside the
-  recovery module set.
-- **Part A's conclusion is confirmed live.** Recovery never writes
-  `usb_secure_lock`, so the FYG8 lockscreen restriction path is in exactly the
-  state the candidate would see, and a peripheral gadget enumerated anyway. The
-  delta is not an explanation of gadget silence.
+- **If the reported High-Speed enumeration is exact,** D+/D- was routed through
+  a USB-capable path without Android. Missing raw evidence prevents promoting
+  that implication to a formal `CONTROL1=COM_USB` result.
+- **Part A needs no live promotion.** The shipped `dwc3-msm.ko` binary already
+  proves the CLIENT veto is absent. The operator observation is merely
+  consistent with that static result.
 
 ### What this does and does not establish
 
 Established, host-only:
 
-- the stock recovery path runs the identical FYG8 kernel Image;
-- its complete USB bring-up is a direct `mode peripheral` write plus a UDC
-  wait, with no Type-C event in the path;
+- stock recovery and stock FYG8 `boot.img` contain the same `027d4ab6...`
+  Image, which differs from the current candidate's `71f573eb...` Image;
+- its QCOM userspace role fragment directly writes `mode peripheral` and waits
+  for the UDC without an explicit Type-C-event dependency;
+- common recovery `init.rc` separately constructs and binds the ADB gadget;
 - the 446-line list is authentic and its USB members all ship as files.
 
 Not established:
 
-- **which subset of the 446 modules is required.** The whole set was loaded.
-  Membership does not show necessity, and the campaign's reduced plan is not
-  validated by this observation.
+- **formal live enumeration, bulk exchange, running-image identity, or
+  `CONTROL1` state.** The host snapshot, ADB transcript, and photo binding were
+  not preserved through the raw-first boundary;
+- **final Android health after the operator recovery entry.** No durable D1
+  terminal exists;
+- **which subset of the 446 rows is required or successfully loaded.** The
+  ramdisk schedules the full list, but no live `/proc/modules` evidence was
+  retained. List membership does not show necessity.
 - **anything requiring a shell in recovery.** ADB is `unauthorized` and cannot
   be authorized while `/data` is unavailable, so the loaded-module list was not
   read.
-- **whether the Max77705/PDIC tree is required.** Recovery loads it *and*
-  forces the role by sysfs write, so this reading cannot separate the two.
-  It does show the stock design does not wait on a Type-C event to set the
-  role.
-- **whether the campaign's reduced module plan suffices.** Membership of the
-  446 set does not by itself prove the 65-module plan closes the same
-  dependency graph.
+- **whether the Max77705/PDIC tree is required.** The recovery list schedules
+  it while userspace separately forces the role by sysfs write, so static
+  reading cannot separate the two. It shows only that userspace has no explicit
+  Type-C-event wait before setting the role.
+- **whether either campaign plan suffices.** Membership of the 446-row stock
+  list does not prove closure for the current exact 73-row candidate or for the
+  separate preferred 65-module diagnostic alternative.
 
 The earlier framing of TWRP as an existence proof is withdrawn and replaced by
 the above.
@@ -373,14 +403,14 @@ The question was raised on the basis of future experiment convenience rather
 than the USB question. Assessed on its own terms the answer is **no, not now**,
 for four reasons that are independent of the contract prohibition.
 
-1. **It contributes nothing to the USB question.** TWRP runs `5.10.81`; the
-   control needed the candidate's own FYG8 Image, and stock recovery supplied
-   exactly that, through to a proven bulk data path.
-2. **It would destroy the instrument this unit just validated.** Stock recovery
-   is a minimal, non-Android userspace running the candidate's exact kernel,
-   reachable by key combination with **zero** partition writes. Installing TWRP
-   overwrites it, and restoring it is a second forbidden-partition write. The
-   trade is two prohibited writes for a strictly worse instrument.
+1. **It contributes nothing candidate-exact to the USB question.** TWRP runs
+   `5.10.81`; stock recovery supplies the much closer FYG8 stock-kernel and
+   recovery-userspace control surface, although it too is not byte-identical to
+   the current candidate Image.
+2. **It would destroy the stock control surface characterised here.** Stock
+   recovery is a minimal, non-Android FYG8 userspace reachable by key
+   combination with **zero** partition writes. Installing TWRP overwrites it,
+   and restoring it is a second forbidden-partition write.
 3. **Most of what TWRP is for is already forbidden.** Its distinguishing
    capability is partition-level read and write; `AGENTS.md` clause 2 permits
    only `boot` as a payload and the F1 process is boot-only by design.
@@ -415,16 +445,17 @@ set, but it settles whether the PDIC pair loads on a stock boot.
 Part B removed the item that previously ranked first: both recovery ramdisks
 have now been read. What remains is narrower.
 
-1. **Close the reduced-plan dependency question host-side.** The stock recovery
-   recipe needs only that `a600000.ssusb/mode` exists and accepts the write and
-   that the UDC then appears. Compute whether the campaign's 65-module plan
-   closes the same dependency graph as the 446-set does for those two
-   conditions. This is arithmetic on material already held and needs no device.
-2. **Decide whether a stock-recovery observation is still worth a D1.** The
-   recipe is known; only the outcome is not. If item 1 shows the reduced plan
-   already closes, the observation adds little. If it shows a gap, an attended
-   boot to stock recovery would test the exact recipe on the exact kernel with
-   no partition write. Tier and hazards are recorded under Boundaries.
+1. **Close the current-plan dependency question host-side.** Compute whether
+   the exact currently requalified 73-row plan closes the dependencies needed
+   for `a600000.ssusb/mode` and the UDC. The separate preferred 65-module
+   diagnostic shape in `GOAL.md` is an alternative design and must not be
+   substituted silently for the 73-row candidate. A 65-module comparison, if
+   desired, is a separately labelled branch.
+2. **Only then decide whether a fresh stock-recovery observation is worth a
+   reviewed D1+D0 unit.** The prior operator observation is no-proof because its
+   raw bytes and terminal health were not retained. A repeat would need a fresh
+   exact D1 entry approval, raw-first D0 acquisition, an immutable result, and
+   final-health evidence; none is authorized here.
 3. **Read the `sm-x800-linux` gadget failure analysis and `uniLoader` approach**
    — the only comparable independent port on this SoC and bootloader.
 4. **Re-examine `pmic_glink`/UCSI as a role producer** against the Part C
@@ -436,14 +467,18 @@ host-only units with their own receipts.
 
 ## Boundaries
 
-### If a stock-recovery observation is proposed
+### If a new stock-recovery observation is proposed
+
+The 2026-08-23 operator recovery entry has no durable D1 receipt or final-health
+receipt. The later D0 listing was explicitly approved but lacks raw-first
+evidence. This correction records both failures and performs no repeat.
 
 Booting the device to stock recovery writes no partition and sends no payload,
 but it is a reboot and a boot-mode transition. `DEVICE_ACTION_RISK_TIERS.md`
 places it at **D1**, not D0: D0 explicitly forbids reboot and boot-mode change,
 while D1 names "an attended reboot, request/exit Download mode" as its example.
-D1 requires one fresh explicit operator approval per bounded action. No such
-approval exists and this report requests none.
+D1 requires one fresh explicit operator approval per bounded action. No fresh
+D1 or D0 approval exists and this report requests none.
 
 One operational hazard must be fixed in advance if it is ever proposed: the
 Samsung stock recovery menu places "Wipe data/factory reset" adjacent to the
@@ -466,10 +501,12 @@ not the candidate's.
 
 ### Scope
 
-This unit changes no candidate byte and does not alter the remaining P3.19
+This correction changes no candidate byte and does not alter the remaining P3.19
 integration blocker. As of `eb4fd9908d` that blocker is `FRESH_BASELINE_MISSING`
 alone; `REQUALIFICATION_REQUIRED` was cleared by that commit and is no longer
-outstanding. It grants no D0, D1, F1, recovery, replay,
-causal-result, candidate-success, device, or live authority. Part A is a
-confirmation of a parallel unit that remains itself review-pending; Part B and
-Part C are review-pending operator research. Nothing here is `PASS_GO`.
+outstanding. It grants no new D0, D1, F1, recovery, replay, causal-result,
+candidate-success, device, or live authority. The append-only D1/D0 incident
+rows preserve the already occurred unreceipted actions; they authorize no
+continuation. Topic 35 covers only this correction and remains independently
+review-pending. Part A is a confirmation of a parallel unit that remains itself
+review-pending; Part B and Part C are not `PASS_GO`.
