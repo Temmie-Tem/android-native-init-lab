@@ -20,6 +20,10 @@ DOWNLOAD_RECOVERY_REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_DOWNLOAD_REQUEST_RECOVERY_H0_2026-08-23.md"
 )
+FRESH_BASELINE_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_FRESH_BASELINE_CAPABILITY_H0_2026-08-24.md"
+)
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 PREREQUISITE = ROOT / (
@@ -47,7 +51,7 @@ REQUEST_RECOVERY_PREREQUISITE = ROOT / (
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 581
+P319_SELECTED_TEST_COUNT = 603
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
@@ -78,6 +82,7 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.download_recovery_report = DOWNLOAD_RECOVERY_REPORT.read_text(
             encoding="utf-8"
         )
+        cls.fresh_baseline_report = FRESH_BASELINE_REPORT.read_text(encoding="utf-8")
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
         cls.prerequisite_bytes = PREREQUISITE.read_bytes()
@@ -153,6 +158,18 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("`NO_PROOF_OBSERVER`", self.report)
         self.assertIn("post-run causal-classification gate", self.report)
         self.assertIn("not an extra pre-approval blocker", self.report)
+
+    def test_fresh_baseline_reducer_review_is_non_authoritative(self):
+        report = self.fresh_baseline_report
+        self.assertIn(
+            "Status: `PASS_GO_P319_FRESH_BASELINE_REDUCER_H0_CAPABILITY_V1`",
+            report,
+        )
+        self.assertIn("producer_execution_closure_reviewed=false", report)
+        self.assertIn("producer_execution_closure_authoritative=false", report)
+        self.assertIn("cannot produce or validate a fresh baseline", report)
+        self.assertIn("does not clear\n`FRESH_BASELINE_MISSING`", report)
+        self.assertIn("h0-fresh-baseline-capability-review-39", self.ledger)
 
     def test_private_receipts_are_exact_single_link_mode0400(self):
         expected = (

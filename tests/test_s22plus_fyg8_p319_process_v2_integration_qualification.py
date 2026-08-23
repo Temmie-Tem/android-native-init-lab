@@ -25,6 +25,38 @@ def load_module():
     return module
 
 
+class _StrictFreshBaselineFixture:
+    """Minimal fixture validator; never accepts an arbitrary normalized object."""
+
+    @staticmethod
+    def validate_result(value):
+        if type(value) is not dict or set(value) != {"fixture"} or value["fixture"] is not True:
+            raise ValueError("fixture normalized result is malformed")
+        return dict(value)
+
+
+class _IdentityDriftCapability:
+    @staticmethod
+    def validate_published_result(_path):
+        return {
+            "authoritative": True,
+            "identity": {"path": "foreign", "size": 2, "sha256": "d" * 64},
+            "result": {"fixture": True},
+        }
+
+
+class _MatchingIdentityCapability:
+    identity = None
+
+    @classmethod
+    def validate_published_result(cls, _path):
+        return {
+            "authoritative": True,
+            "identity": cls.identity,
+            "result": {"fixture": True},
+        }
+
+
 class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -140,9 +172,14 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             "rollback_and_final_health_path_exercised": True,
         }, []
 
-    def pass_environment(self, *, pending: bool = True):
+    def pass_environment(self, *, pending: bool = True, normalized=None):
         closure, closure_blockers = self.closure(pending=pending)
-        baseline = {"status": "PRESENT", "identity": {"size": 1, "sha256": "a" * 64}}
+        baseline = {
+            "status": "PRESENT",
+            "identity": {"size": 1, "sha256": "a" * 64},
+            "authoritative": True,
+            "normalized": {"fixture": True} if normalized is None else normalized,
+        }
         registry = {"status": "PRESENT", "identity": {"size": 1, "sha256": "b" * 64}}
         provenance = {
             "path": "docs/operations/DEVICE_ACTION_PROCESS_V2.md",
@@ -165,6 +202,7 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             _adapter_pin=mock.Mock(return_value=self.adapter_pin_fixture()),
             _required_private_receipt=mock.Mock(side_effect=[(baseline, []), (registry, [])]),
             _contract_provenance=mock.Mock(return_value=(provenance, [])),
+            _load_local=mock.Mock(return_value=_StrictFreshBaselineFixture()),
         )
 
     def test_real_arming_output_is_consumed_and_has_three_proof_classes(self):
@@ -217,6 +255,43 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertIn("EXECUTABILITY_SOURCE_CLOSURE_BLOCKED", {item["code"] for item in result["blockers"]})
         self.assertFalse(result["ready"])
         self.assertFalse(result["run_manifest_created"])
+
+    def test_integration_fixture_validator_rejects_malformed_normalized_data(self):
+        with self.pass_environment(normalized={"fixture": False}):
+            with self.assertRaises(self.module.IntegrationAuditError):
+                self.module.build_result()
+
+    def test_fresh_baseline_identity_is_bound_across_validation(self):
+        value = {"schema": "s22plus_fyg8_fresh_baseline_v1"}
+        first_identity = {"path": "workspace/private/result.json", "size": 1, "sha256": "a" * 64}
+        with mock.patch.object(self.module, "_json_receipt", return_value=(value, first_identity)), mock.patch.object(
+            self.module, "_load_local", return_value=_IdentityDriftCapability()
+        ):
+            component, blockers = self.module._required_private_receipt(
+                self.module.FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_fresh_baseline_v1"
+            )
+        self.assertEqual(component["status"], "BLOCKED_INVALID")
+        self.assertEqual(blockers[0]["code"], "FRESH_BASELINE_INVALID")
+        self.assertEqual(component["error_type"], "ReceiptIdentityChanged")
+
+    def test_fresh_baseline_replace_after_validation_is_rejected(self):
+        value = {"schema": "s22plus_fyg8_fresh_baseline_v1"}
+        first_identity = {"path": "workspace/private/result.json", "size": 1, "sha256": "a" * 64}
+        final_identity = {"path": "workspace/private/result.json", "size": 2, "sha256": "b" * 64}
+        _MatchingIdentityCapability.identity = first_identity
+        with mock.patch.object(
+            self.module,
+            "_json_receipt",
+            side_effect=[(value, first_identity), (value, final_identity)],
+        ), mock.patch.object(
+            self.module, "_load_local", return_value=_MatchingIdentityCapability()
+        ):
+            component, blockers = self.module._required_private_receipt(
+                self.module.FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_fresh_baseline_v1"
+            )
+        self.assertEqual(component["status"], "BLOCKED_INVALID")
+        self.assertEqual(component["error_type"], "ReceiptChangedAfterValidation")
+        self.assertEqual(blockers[0]["code"], "FRESH_BASELINE_INVALID")
 
     def test_missing_prerequisite_and_baseline_registry_are_blockers(self):
         with tempfile.TemporaryDirectory(prefix="p319-prerequisite-missing-") as directory:

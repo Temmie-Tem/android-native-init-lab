@@ -29,6 +29,7 @@ ADAPTER = SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py"
 EXECUTABILITY = SCRIPT_DIR / "s22plus_fyg8_p319_experiment_executability_closure.py"
 PREREQUISITE = SCRIPT_DIR / "s22plus_fyg8_p319_process_v2_prerequisite_audit.py"
 CANDIDATE_QUALIFICATION = SCRIPT_DIR / "s22plus_fyg8_p319_candidate_qualification.py"
+FRESH_BASELINE_CAPABILITY = SCRIPT_DIR / "s22plus_fyg8_p319_fresh_baseline_capability.py"
 INTENT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/intent.json"
 )
@@ -617,8 +618,66 @@ def _required_private_receipt(path: Path, label: str, schema: str) -> tuple[dict
         code = "FRESH_BASELINE_INVALID" if path == FRESH_BASELINE else "CONSUMED_CANDIDATE_REGISTRY_INVALID"
         return {"status": "BLOCKED_SCHEMA", "identity": identity}, [{"code": code, "detail": f"{label} schema differs"}]
     if path == FRESH_BASELINE:
-        valid = value.get("fresh") is True and value.get("clean") is True and value.get("candidate_absent") is True and value.get("target") == TARGET and value.get("device_contact") is False
-        code, detail = "FRESH_BASELINE_INVALID", "fresh baseline predicates are incomplete"
+        try:
+            capability = _load_local(
+                FRESH_BASELINE_CAPABILITY,
+                "P3.19 fresh-baseline capability",
+            )
+            validated = capability.validate_published_result(path)
+        except Exception as exc:
+            return {
+                "status": "BLOCKED_INVALID",
+                "identity": identity,
+                "authoritative": False,
+                "error_type": type(exc).__name__,
+            }, [{
+                "code": "FRESH_BASELINE_INVALID",
+                "detail": f"fresh-baseline authoritative validation failed: {type(exc).__name__}",
+            }]
+        if validated.get("identity") != identity:
+            return {
+                "status": "BLOCKED_INVALID",
+                "identity": identity,
+                "authoritative": False,
+                "error_type": "ReceiptIdentityChanged",
+            }, [{
+                "code": "FRESH_BASELINE_INVALID",
+                "detail": "fresh-baseline receipt identity changed during validation",
+            }]
+        try:
+            final_value, final_identity = _json_receipt(
+                path, f"{label} final reopen"
+            )
+        except Exception as exc:
+            return {
+                "status": "BLOCKED_INVALID",
+                "identity": identity,
+                "authoritative": False,
+                "error_type": type(exc).__name__,
+            }, [{
+                "code": "FRESH_BASELINE_INVALID",
+                "detail": f"fresh-baseline final reopen failed: {type(exc).__name__}",
+            }]
+        if final_identity != identity or final_identity != validated.get("identity") or final_value != validated.get("result"):
+            return {
+                "status": "BLOCKED_INVALID",
+                "identity": identity,
+                "authoritative": False,
+                "error_type": "ReceiptChangedAfterValidation",
+            }, [{
+                "code": "FRESH_BASELINE_INVALID",
+                "detail": "fresh-baseline receipt changed after authoritative validation",
+            }]
+        return {
+            "status": "PRESENT" if validated.get("authoritative") is True else "BLOCKED_INVALID",
+            "identity": identity,
+            "authoritative": validated.get("authoritative") is True,
+            "capability": validated.get("capability"),
+            "normalized": validated.get("result"),
+        }, [] if validated.get("authoritative") is True else [{
+            "code": "FRESH_BASELINE_INVALID",
+            "detail": "fresh-baseline capability did not return authoritative validation",
+        }]
     else:
         behavioral = value.get("behavioral")
         valid = (
@@ -760,8 +819,20 @@ def validate_result(value: Mapping[str, Any]) -> None:
         raise IntegrationAuditError("unblocked integration verdict differs")
     if components.get("executability", {}).get("source_closure_pass") is not True and "EXECUTABILITY_SOURCE_CLOSURE_BLOCKED" not in codes:
         raise IntegrationAuditError("executability blocker was removed")
-    if components.get("fresh_baseline", {}).get("status") != "PRESENT" and not ({"FRESH_BASELINE_MISSING", "FRESH_BASELINE_INVALID"} & codes):
+    fresh_component = components.get("fresh_baseline", {})
+    if fresh_component.get("status") != "PRESENT" and not ({"FRESH_BASELINE_MISSING", "FRESH_BASELINE_INVALID"} & codes):
         raise IntegrationAuditError("fresh-baseline blocker was removed")
+    if fresh_component.get("status") == "PRESENT":
+        if fresh_component.get("authoritative") is not True or not isinstance(fresh_component.get("normalized"), dict):
+            raise IntegrationAuditError("fresh-baseline component lacks authoritative normalized evidence")
+        try:
+            capability = _load_local(
+                FRESH_BASELINE_CAPABILITY,
+                "P3.19 fresh-baseline capability validation",
+            )
+            capability.validate_result(fresh_component["normalized"])
+        except Exception as exc:
+            raise IntegrationAuditError("fresh-baseline normalized evidence is invalid") from exc
     adapter_pin = components.get("adapter_pin", {})
     if isinstance(adapter_pin.get("pinned"), dict) and isinstance(adapter_pin.get("current"), dict) and adapter_pin["pinned"] != adapter_pin["current"] and "REQUALIFICATION_REQUIRED" not in codes:
         raise IntegrationAuditError("adapter requalification blocker was removed")
