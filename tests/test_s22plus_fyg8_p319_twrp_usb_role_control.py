@@ -188,6 +188,7 @@ class P319TwrpUsbRoleControlTest(unittest.TestCase):
         report = REPORT.read_text(encoding="utf-8")
         for token in (
             "PASS_P319_TWRP_USB_ROLE_CONTROL_H0",
+            "PASS_GO_P319_TWRP_USB_ROLE_CONTROL_H0_CAPABILITY_V1",
             "6b08c15b18abcf027253087801412e2b447359c42ef45dbbc339e9223e6f8393",
             "identify which automatic producer won",
             "byte-identical between TWRP and P3.19",
@@ -195,15 +196,25 @@ class P319TwrpUsbRoleControlTest(unittest.TestCase):
             "topic 38",
         ):
             self.assertIn(token, report)
-        rows = [
+        implementation_rows = [
             line
             for line in LEDGER.read_text(encoding="utf-8").splitlines()
             if " h0-twrp-usb-role-control-38 " in line
         ]
-        self.assertEqual(len(rows), 1)
+        review_rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if " h0-twrp-usb-role-control-review-38 " in line
+        ]
+        self.assertEqual(len(implementation_rows), 1)
+        self.assertEqual(len(review_rows), 1)
         self.assertIn(
             "P319_TWRP_USB_ROLE_CONTROL_IMPLEMENTED_REVIEW_PENDING",
-            rows[0],
+            implementation_rows[0],
+        )
+        self.assertIn(
+            "PASS_GO_P319_TWRP_USB_ROLE_CONTROL_H0_CAPABILITY_V1",
+            review_rows[0],
         )
 
     def test_auditor_has_no_device_or_transfer_primitive(self):

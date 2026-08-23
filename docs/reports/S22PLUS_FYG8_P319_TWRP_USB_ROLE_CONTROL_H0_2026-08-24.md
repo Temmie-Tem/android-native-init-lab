@@ -2,7 +2,7 @@
 
 Date: 2026-08-24 KST
 
-Status: **`IMPLEMENTED_REVIEW_PENDING`**
+Status: **`PASS_GO_P319_TWRP_USB_ROLE_CONTROL_H0_CAPABILITY_V1`**
 
 This is a host-only reconstruction of the exact retained g0q TWRP recovery
 image. It performs no device contact, installation, transfer, reboot, USB
@@ -183,9 +183,29 @@ host enumeration, MUX continuity, causal success, recovery availability, or
 readiness. It changes no candidate byte and does not clear
 `FRESH_BASELINE_MISSING`.
 
-Topics 33 through 37 remain independently unresolved. This implementation
-opens topic 38 for independent changed-closure review. Full-tail accounting is
-56 total / 36 resolved / 20 unresolved.
+At implementation time topics 33 through 37 were independently unresolved and
+this unit opened topic 38. Subsequent topic-34 and topic-37 reviews changed the
+pre-review snapshot to 56 total / 38 resolved / 18 unresolved.
+
+## Independent changed-closure review
+
+An independent Luna review returned
+`PASS_GO_P319_TWRP_USB_ROLE_CONTROL_H0_CAPABILITY_V1` with no load-bearing
+finding. It regenerated the exact 22,967-byte receipt, rechecked the exact
+TWRP image/kernel/ramdisk/DT/module identities, and confirmed that the older
+TWRP kernel plus all eight byte-different shared modules remain architecturally
+informative but non-transferable to the current 73-row candidate.
+
+The review also confirmed that both automatic role-producer paths remain only
+static candidates, the historical ADB observation selects neither one, and no
+TWRP fact proves current candidate bind, probe, UDC creation, host enumeration,
+or readiness. The current direct `mode=peripheral` path and all topic-37
+candidate-side runtime gates therefore remain unchanged.
+
+This review resolves only topic 38 and changes full-tail accounting from
+56 / 38 / 18 to 56 / 39 / 17. It grants no baseline, ready/run/approval,
+D0, D1, F1, recovery, replay, causal-result, candidate-success, device, or live
+authority.
 
 ## Validation
 
