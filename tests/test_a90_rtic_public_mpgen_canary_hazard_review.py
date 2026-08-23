@@ -123,14 +123,11 @@ class A90RticPublicMpgenCanaryHazardReviewTest(unittest.TestCase):
     def test_goal_records_review_and_h35_without_exceeding_limit(self) -> None:
         goal = GOAL.read_text(encoding="utf-8")
         self.assertLessEqual(len(goal.splitlines()), 900)
-        self.assertIn("`PASS_GO_H0_CANARY_HAZARD`", goal)
         flat = " ".join(goal.split())
-        self.assertIn("H35 is the fresh host-only successor", flat)
+        self.assertIn("H35 is consumed and never replayed", flat)
         self.assertIn("0.11.202", flat)
-        self.assertIn("`PASS_H0_PACKAGE_GATE` reviews", flat)
-        self.assertIn("candidate-specific `PASS_GO`", flat)
-        self.assertIn("private H35 manifest passes owner validation", flat)
-        self.assertIn("No D0, D1, approval, F1, or live authority exists", flat)
+        self.assertIn("H35 never booted and remains unproved", flat)
+        self.assertIn("No H36 identity or authority exists", flat)
 
 
 if __name__ == "__main__":

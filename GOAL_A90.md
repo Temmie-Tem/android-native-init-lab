@@ -45,15 +45,15 @@ the separately registered S20+ goal and every future target row.
   unproved and neither image may replay. Host analysis localized H34 to missing
   `rtic_mp` plus a stale RTIC DTB; the repaired public producer now emits exact
   offsets `88/1704/1728/2144` and structural RTIC `PASS`.
-- H35 is the fresh host-only successor: `0.11.202 / phase3-minimal-h35-public-mpgen-rtic-canary`,
+- H35 is consumed and never replayed: `0.11.202 / phase3-minimal-h35-public-mpgen-rtic-canary`,
   58,372,096 bytes, SHA-256 `5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759`.
-  A/B are byte-identical and contain exact reviewed carrier `15b49a71…`; the
-  ramdisk preserves H34 semantics except fresh identity/state paths. H1–H6
-  `PASS_GO_H0_CANARY_HAZARD` and `PASS_H0_PACKAGE_GATE` reviews accept one
-  future attended canary only. Current execution closures and H35 hazard passed the
-  candidate-specific `PASS_GO`; its private H35 manifest passes owner validation.
-  Current V2321 health remains unproved. No D0, D1, approval, F1, or live
-  authority exists; next is a fresh connected D0 target/recovery/health bind.
+  Its helper verified exact bytes; the sole recovery request was uncertain. The receipt
+  is `PRE_WRITE_FAILURE` with write, readback, and System return all false, so
+  H35 never booted and remains unproved. Exact V2321 rollback was written and
+  read back; the current postrollback finalizer then proved healthy V2321,
+  released the active guard, and retained the consumed H35 candidate guard.
+  See `A90_H35_NATIVE_RECOVERY_COMMAND_PREWRITE_FAILURE_2026-08-23.md`. No H36
+  identity or authority exists; next H0 repairs the two exact host observer defects.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 

@@ -154,11 +154,10 @@ class A90H35PublicMpgenRticPackageReviewTest(unittest.TestCase):
         goal = GOAL.read_text(encoding="utf-8")
         flat = " ".join(goal.split())
         self.assertLessEqual(len(goal.splitlines()), 900)
-        self.assertIn("`PASS_H0_PACKAGE_GATE`", goal)
-        self.assertIn("candidate-specific `PASS_GO`", flat)
-        self.assertIn("private H35 manifest passes owner validation", flat)
-        self.assertIn("No D0, D1, approval, F1, or live authority exists", flat)
-        self.assertNotIn("No qualification, manifest", flat)
+        self.assertIn("H35 is consumed and never replayed", flat)
+        self.assertIn("`PRE_WRITE_FAILURE`", goal)
+        self.assertIn("H35 never booted and remains unproved", flat)
+        self.assertIn("retained the consumed H35 candidate guard", flat)
 
 
 if __name__ == "__main__":
