@@ -1,18 +1,23 @@
-# S22+ FYG8 P3.19 — USB external corpus and recovery-control provenance correction
+# S22+ FYG8 P3.19 — USB recovery-control correction and raw-first successor
 
-Status: `P319_USB_RECOVERY_CONTROL_REPORT_CORRECTION_IMPLEMENTED_REVIEW_PENDING`.
+Status: `P319_STOCK_RECOVERY_CONTROL_RESULT_IMPLEMENTED_REVIEW_PENDING`.
+The predecessor correction remains separately review-pending under topic 35;
+the fresh successor interpretation is topic 36.
 
-**NO NEW DEVICE OR LIVE AUTHORITY.** The image, source, binary, and external
-corpus work in this unit was host-only. While the predecessor report was being
-written, however, the operator independently entered stock recovery and later
-approved one bounded `adb devices -l` listing. The former is a D1 boot-mode
-transition and the latter is D0, not H0. Neither action retained the required
-raw-first snapshot or a structured result, and no final Android-health receipt
-was retained after the recovery entry. They are therefore recorded
-retrospectively as `HEALTH_PENDING / NO_PROOF_OBSERVER` and
-`HOST_OBSERVER_FAILURE / NO_PROOF_OBSERVER`, not as a closed control.
+**NO STANDING DEVICE OR LIVE AUTHORITY.** The image, source, binary, and
+external-corpus predecessor was host-only. Its independent operator recovery
+entry and later D0 listing lacked raw-first evidence and remain retrospectively
+`HEALTH_PENDING / NO_PROOF_OBSERVER` and
+`HOST_OBSERVER_FAILURE / NO_PROOF_OBSERVER`.
 
-This correction contacts no device and performs no replay. It preserves the
+A separate fresh attended request was later consumed by one physical stock-
+recovery entry, bounded D0 observation, one physical `Reboot system now`
+return, final health, and a post-return read-only Max77705 inventory. Those
+actions are closed; they create no reusable approval, recovery authority, or
+continuation.
+
+The predecessor correction contacted no device and performed no replay. It
+preserves the
 predecessor at commit `d38dd963a0f6`, 26,765 bytes, SHA-256
 `e59df701d4c6653001a1a3b3c1a1ac4d4e5815a87a125aad1f3c97bb26c69d10`.
 The private retrospective marker
@@ -20,10 +25,11 @@ The private retrospective marker
 is 2,358 bytes, SHA-256
 `07b34c8326a9091ed15836e748e8f38ac6ce85ccbe0faac74661c39ed04dd6dc`,
 mode `0400`, link count one. It explicitly is neither raw evidence nor a device
-result. This unit creates no candidate, package, ready/run/approval manifest,
-connected authority, recovery authority, or replay authority and changes no
-candidate byte. Network access was read-only public web fetches; no repository
-content, private identifier, or device datum was transmitted.
+result. Neither the correction nor the successor creates a candidate, package,
+ready/run/approval manifest, standing connected authority, recovery authority,
+or replay authority, and neither changes a candidate byte. The predecessor's
+network access was read-only public web fetches; no repository content, private
+identifier, or device datum was transmitted.
 
 ## Why this unit exists
 
@@ -223,7 +229,7 @@ names and adds 9. The USB-relevant differences are that stock carries
 two firmware generations — and that TWRP adds USB-Ethernet drivers
 (`asix.ko`, `ax88179_178a.ko`).
 
-### Operator-reported observation; formal control remains open
+### Predecessor operator-reported observation; formal control was open
 
 While the predecessor report was being written, the operator independently
 placed the device in stock recovery and reported it as stock. That boot-mode
@@ -317,11 +323,12 @@ operator reported that this hardware-wrapped `/data` was unavailable in
 recovery. The predecessor therefore obtained no `/proc/modules`,
 `ssusb/mode`, or loaded-module evidence. No further device command was sent.
 
-**This does not formally close the Part B control.** Static evidence proves the
-stock FYG8 recovery Image, its 446-line module authority, the QCOM role/UDC
-fragment, and the generic configfs gadget recipe. The unretained observation is
-consistent with that path producing a High-Speed gadget, but it cannot prove
-the live result, the exact running bytes, or the current P3.19 candidate.
+**The predecessor did not formally close the Part B control.** Static evidence
+proves the stock FYG8 recovery Image, its 446-line module authority, the QCOM
+role/UDC fragment, and the generic configfs gadget recipe. The unretained
+observation is consistent with that path producing a High-Speed gadget, but it
+cannot prove the live result, the exact running bytes, or the current P3.19
+candidate.
 
 Two bounded interpretations remain:
 
@@ -331,6 +338,91 @@ Two bounded interpretations remain:
 - **Part A needs no live promotion.** The shipped `dwc3-msm.ko` binary already
   proves the CLIENT veto is absent. The operator observation is merely
   consistent with that static result.
+
+### Raw-first successor control on 2026-08-24
+
+A fresh attended successor now separates the predecessor's missing evidence
+from a new run rather than retroactively upgrading it. The operator directly
+requested the stock-recovery control, physically entered stock recovery once,
+and later selected exactly `Reboot system now`. The host sent no reboot,
+payload, partition, Odin, candidate, or recovery-service command. It retained
+the pre-entry normal-Android inventory before the transition, every subsequent
+host stream before parsing, two operator photos, an ADB protocol trace, and the
+final normal-Android health reads.
+
+The authority result is private
+`workspace/private/runs/s22plus-fyg8-stock-recovery-observation/stock-recovery-observation-20260823T154609Z-0a61a74a/result-v2.json`,
+7,542 bytes at SHA-256 `a41cfe6043a0f904098c9273e4e23d8476b153a22aa17452676e9186833eabcc`,
+mode `0400`, link count 1. It supersedes the preserved 6,627-byte
+`70c88e9c...` V1 terminal only to add complete command accounting; observation,
+classification, and health are unchanged. The terminal is `CLOSED` with
+`PROVED_STOCK_RECOVERY_USB_ENUMERATION_AUTH_BLOCKED_RETURN_HEALTHY`.
+
+The visual evidence manifest is 1,397 bytes at SHA-256 `63e11611...`, mode
+`0400`, link count 1. Its two original JPEGs are retained privately at
+103,354 bytes/`b3af608f...` and 83,486 bytes/`8eea8a16...`. They show:
+
+- `Android Recovery`, `samsung/g0qksx/g0q`,
+  `12/SP1A.210812.016/S906NKSS7FYG8`, and `user/release-keys`, with
+  `Reboot system now` selected; and
+- `Reboot Recovery Cause is [init:1]`, empty `Reason`, `Supported API: 3`,
+  `MANUAL MODE v1.0.0`, and `No command specified.`
+
+Those photographs support the operator-visible stock FYG8 recovery identity
+and manual entry. They do not hash the executing Image or read back the
+recovery partition.
+
+The same serial hash moved from normal Android at `usb:2-1.3` to recovery at
+`usb:3-1.3`. Raw descriptor and sysfs evidence proves `18d1:d001`, manufacturer
+`samsung`, product `SM-S906N`, USB 2.10 High-Speed at 480 Mb/s, configuration
+`adb`, one `ff/42/01` interface, and 512-byte bulk OUT and IN endpoints. Udev
+tagged the device as MTP/media-player/gphoto, which explains the desktop file
+browser entry, but the descriptor contains no MTP interface.
+
+The private ADB trace evidence is 2,526 bytes at SHA-256 `2e2c2c4d...`, mode
+`0400`, link count 1. A bounded host-server restart captured the exact packet
+order:
+
+```
+HOST CNXN 234
+DEVICE AUTH_TOKEN 20
+HOST AUTH_SIGNATURE 256
+DEVICE AUTH_TOKEN 20
+HOST AUTH_RSAPUBLICKEY 723
+```
+
+No device `CNXN` followed. The server was restored and the same target remained
+`unauthorized`. This proves bidirectional bulk transport and localizes the stop
+at recovery ADB key authorization: the first signature was not accepted, and
+the public key could not be confirmed. The raw trace retains private token and
+serial bytes; tracked text records neither. Recovery received zero shell, file,
+or service commands.
+
+The V2 terminal accounts for 73 global ADB inventories, two bounded
+`wait-for-device` observations, three host ADB-server controls, six host USB
+observer commands, one direct host-sysfs snapshot, three targeted normal-
+Android shell reads, one normal-Android host-transport query, and zero targeted
+recovery service commands, device writes, host reboots, partition/candidate
+transfers, A90 commands, or S20+ commands. The large inventory count comes from
+the two bounded 45- and 180-second transition windows; it is observation, not
+effect replay.
+
+Return health is exact: FYG8 Android is boot-complete, boot animation is
+stopped, verified-boot state is `orange`, root is available, Download count is
+zero, and the partition identities match the bound profile: boot
+`2e541703...`, vendor_boot `096e433e...`, DTBO `97a4864f...`, recovery
+`93fac06c...`.
+
+A second existing raw-first D0 consumed the report's cheaper normal-Android
+question. Its result is private
+`workspace/private/runs/s22plus-fyg8-max77705-sysfs-d0/d0-20260823T160942Z-1787501382211543634/result.json`,
+16,825 bytes at SHA-256 `6bac2ea6...`, mode `0400`, link count 1. The 72,904-byte
+raw snapshot at `1854e227...` proves `/proc/modules` contains all six named
+runtime rows: `msm_geni_se`, `gpi`, `i2c_msm_geni`, `spu_verify`,
+`mfd_max77705`, and `pdic_max77705`. The stock `994000.i2c` path is bound to
+`i2c_geni`, and `57-0066` is compatible `maxim,max77705` and bound to driver
+`max77705`. This is normal-stock-Android evidence, not recovery or candidate
+module-load evidence.
 
 ### What this does and does not establish
 
@@ -342,17 +434,24 @@ Established, host-only:
   for the UDC without an explicit Type-C-event dependency;
 - common recovery `init.rc` separately constructs and binds the ADB gadget;
 - the 446-line list is authentic and its USB members all ship as files.
+- the fresh stock-recovery successor formally enumerated the exact target at
+  High-Speed with the expected single ADB interface and bulk IN/OUT endpoints;
+- the packet transcript proves `CNXN`/`AUTH` bidirectional transport and an
+  authorization stop after signature rejection and public-key presentation;
+- the same target returned to exact healthy FYG8 Android with no Download
+  endpoint and unchanged bound partition identities; and
+- normal stock Android actually loads `spu_verify`, `mfd_max77705`, and
+  `pdic_max77705`, and binds the Max77705 parent at `57-0066`.
 
 Not established:
 
-- **formal live enumeration, bulk exchange, running-image identity, or
-  `CONTROL1` state.** The host snapshot, ADB transcript, and photo binding were
-  not preserved through the raw-first boundary;
-- **final Android health after the operator recovery entry.** No durable D1
-  terminal exists;
+- **exact running recovery Image bytes or `CONTROL1` state.** The photos bind
+  an operator-visible FYG8 stock identity, not a partition readback or a
+  candidate-exact Image;
 - **which subset of the 446 rows is required or successfully loaded.** The
   ramdisk schedules the full list, but no live `/proc/modules` evidence was
-  retained. List membership does not show necessity.
+  available inside recovery. The post-return normal-Android list cannot be
+  substituted for it;
 - **anything requiring a shell in recovery.** ADB is `unauthorized` and cannot
   be authorized while `/data` is unavailable, so the loaded-module list was not
   read.
@@ -431,14 +530,13 @@ would justify a reviewed binding-contract change. That is a contract-owner
 judgement. It is not on the current P3.19 critical path and this report does not
 request it.
 
-### The cheaper route for the open question
+### The cheaper route has now been consumed
 
 The question left open by Part B — which modules actually load, and whether the
-Max77705 MFD/PDIC pair loads at all — does not need recovery at all. This target
-boots rooted Android, which the campaign's own health checks already exercise,
-so a bounded D0 read of `/proc/modules` under root answers it for the 356-name
-second-stage set with no partition write. That set is not the 446-name recovery
-set, but it settles whether the PDIC pair loads on a stock boot.
+Max77705 MFD/PDIC pair loads at all — did not need recovery. The fresh bounded
+normal-Android D0 above proves `spu_verify`, `mfd_max77705`, and
+`pdic_max77705` are loaded on the stock FYG8 boot. That set is not the 446-name
+recovery set and does not prove the recovery or candidate load path.
 
 ## Ranked next units
 
@@ -451,11 +549,10 @@ have now been read. What remains is narrower.
    diagnostic shape in `GOAL.md` is an alternative design and must not be
    substituted silently for the 73-row candidate. A 65-module comparison, if
    desired, is a separately labelled branch.
-2. **Only then decide whether a fresh stock-recovery observation is worth a
-   reviewed D1+D0 unit.** The prior operator observation is no-proof because its
-   raw bytes and terminal health were not retained. A repeat would need a fresh
-   exact D1 entry approval, raw-first D0 acquisition, an immutable result, and
-   final-health evidence; none is authorized here.
+2. **Reconcile the fresh stock-Android module result with the two candidate
+   shapes.** The current stock boot loads the MFD/PDIC/SPU trio, but that does
+   not decide whether the exact 73-row plan reaches the same bind/probe path or
+   whether the separate 65-module alternative is complete.
 3. **Read the `sm-x800-linux` gadget failure analysis and `uniLoader` approach**
    — the only comparable independent port on this SoC and bootloader.
 4. **Re-examine `pmic_glink`/UCSI as a role producer** against the Part C
@@ -467,24 +564,27 @@ host-only units with their own receipts.
 
 ## Boundaries
 
-### If a new stock-recovery observation is proposed
+### Successor stock-recovery observation
 
-The 2026-08-23 operator recovery entry has no durable D1 receipt or final-health
-receipt. The later D0 listing was explicitly approved but lacks raw-first
-evidence. This correction records both failures and performs no repeat.
+The first 2026-08-23 operator recovery entry remains unreceipted and no-proof.
+The separate 2026-08-24 successor does not rewrite it: it has a fresh direct
+operator request, raw-first acquisition, immutable terminal result, exact
+packet trace, operator photographs, and final Android-health evidence.
 
 Booting the device to stock recovery writes no partition and sends no payload,
 but it is a reboot and a boot-mode transition. `DEVICE_ACTION_RISK_TIERS.md`
 places it at **D1**, not D0: D0 explicitly forbids reboot and boot-mode change,
 while D1 names "an attended reboot, request/exit Download mode" as its example.
-D1 requires one fresh explicit operator approval per bounded action. No fresh
-D1 or D0 approval exists and this report requests none.
+D1 requires one fresh explicit operator request per bounded action. The
+successor consumed exactly the current attended request, and it creates no
+standing authority for another entry.
 
-One operational hazard must be fixed in advance if it is ever proposed: the
-Samsung stock recovery menu places "Wipe data/factory reset" adjacent to the
-other entries, and this target's `/data` is TEE-wrapped and carries campaign
-state. Menu path and abort conditions belong in a reviewed design before any
-such unit, not in the moment.
+For any later repeat, one operational hazard remains: the Samsung stock
+recovery menu places "Wipe data/factory reset" adjacent to the other entries,
+and this target's `/data` is TEE-wrapped and carries campaign state. The
+successor used the already highlighted `Reboot system now` item without moving
+the selection. A future unit must again predeclare that exact path and stop if
+the highlight or menu differs.
 
 ### Installing TWRP
 
@@ -501,12 +601,11 @@ not the candidate's.
 
 ### Scope
 
-This correction changes no candidate byte and does not alter the remaining P3.19
+This successor changes no candidate byte and does not alter the remaining P3.19
 integration blocker. As of `eb4fd9908d` that blocker is `FRESH_BASELINE_MISSING`
 alone; `REQUALIFICATION_REQUIRED` was cleared by that commit and is no longer
-outstanding. It grants no new D0, D1, F1, recovery, replay, causal-result,
-candidate-success, device, or live authority. The append-only D1/D0 incident
-rows preserve the already occurred unreceipted actions; they authorize no
-continuation. Topic 35 covers only this correction and remains independently
-review-pending. Part A is a confirmation of a parallel unit that remains itself
-review-pending; Part B and Part C are not `PASS_GO`.
+outstanding. The consumed D1/D0 actions are closed and grant no new D0, D1, F1,
+recovery, replay, causal-result, candidate-success, device, or live authority.
+Topic 35 still covers only the predecessor correction and remains independently
+review-pending. The fresh successor interpretation opens separate topic 36.
+Part A remains review-pending; Part C is host evidence; neither is `PASS_GO`.

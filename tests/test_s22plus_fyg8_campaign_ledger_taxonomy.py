@@ -17,6 +17,10 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 REPORT = ROOT / (
     "docs/reports/S22PLUS_FYG8_CAMPAIGN_LEDGER_TAXONOMY_H0_2026-08-15.md"
 )
+RECOVERY_CONTROL_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_USB_EXTERNAL_CORPUS_AND_RECOVERY_CONTROL_H0_2026-08-23.md"
+)
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/"
     "ledger-taxonomy-20260817-p318-correction-v3.json"
@@ -655,12 +659,12 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # The single absolute pin on live obligation state. The diagnostic
         # and Process-v2 review rows resolve their same-topic pending
         # obligations; followup-29 is bookkeeping only, and topics 30 through
-        # 32 are independently reviewed; topics 33 through 35 are the current
-        # pending source-delta, candidate-requalification, and recovery-control
-        # correction reviews.
+        # 32 are independently reviewed; topics 33 through 36 are the current
+        # pending source-delta, candidate-requalification, recovery-control
+        # correction, and fresh stock-recovery-result reviews.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (53, 36, 17),
+            (54, 36, 18),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -679,6 +683,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "stage-b-rederivation",
                 "stage-b-reg-runner",
                 "stock-choreography",
+                "stock-recovery-control-result",
                 "usb-recovery-control-correction",
                 "usb-role-state-runner",
                 "usblog-parse",
@@ -701,14 +706,47 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-stage-b-rederivation-1",
                 "h0-stage-b-reg-runner-1",
                 "h0-stock-choreography-1",
+                "h0-stock-recovery-control-result-36",
                 "h0-usb-recovery-control-correction-35",
                 "h0-usb-role-state-runner-1",
                 "h0-usblog-parse-1",
             ],
         )
-        self.assertEqual(current["total"], 53)
+        self.assertEqual(current["total"], 54)
         self.assertEqual(current["resolved_count"], 36)
-        self.assertEqual(current["unresolved_count"], 17)
+        self.assertEqual(current["unresolved_count"], 18)
+        self.assertEqual(
+            [
+                item
+                for item in current["unresolved"]
+                if item["review_topic"] == "stock-recovery-control-result"
+            ],
+            [
+                {
+                    "campaign": "s22plus-fyg8-p319",
+                    "review_topic": "stock-recovery-control-result",
+                    "pending_ordinal": "h0-stock-recovery-control-result-36",
+                    "pending_action": (
+                        "P319_STOCK_RECOVERY_CONTROL_RESULT_"
+                        "IMPLEMENTED_REVIEW_PENDING"
+                    ),
+                }
+            ],
+        )
+        recovery_report = RECOVERY_CONTROL_REPORT.read_text(encoding="utf-8")
+        for clause in (
+            "P319_STOCK_RECOVERY_CONTROL_RESULT_IMPLEMENTED_REVIEW_PENDING",
+            "a41cfe6043a0f904098c9273e4e23d8476b153a22aa17452676e9186833eabcc",
+            "HOST CNXN 234",
+            "HOST AUTH_RSAPUBLICKEY 723",
+            "73 global ADB inventories",
+            "`spu_verify`",
+            "`mfd_max77705`",
+            "`pdic_max77705`",
+            "exact running recovery Image bytes or `CONTROL1` state",
+            "separate topic 36",
+        ):
+            self.assertIn(clause, recovery_report)
         self.assertEqual(
             [item["review_topic"] for item in current["unresolved"]].count(
                 "stock-candidate-qualification"
@@ -964,7 +1002,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 355)
+        self.assertEqual(len(all_rows), 360)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -996,7 +1034,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 obligations["resolved_count"],
                 obligations["unresolved_count"],
             ),
-            (53, 36, 17),
+            (54, 36, 18),
         )
         self.assertEqual(
             [
