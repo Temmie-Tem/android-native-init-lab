@@ -659,12 +659,12 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # The single absolute pin on live obligation state. The diagnostic
         # and Process-v2 review rows resolve their same-topic pending
         # obligations; followup-29 is bookkeeping only, and topics 30 through
-        # 32, 34, 37 through 40 are independently reviewed. Current recent pending
-        # topics are 33, 35, and 36; the older pending topics remain
+        # 32, 34, and 37 through 41 are independently reviewed. Current recent
+        # pending topics are 33, 35, and 36; older pending topics remain
         # explicit below rather than being inferred from label counts.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (58, 41, 17),
+            (59, 42, 17),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -710,15 +710,15 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-usblog-parse-1",
             ],
         )
-        self.assertEqual(current["total"], 58)
-        self.assertEqual(current["resolved_count"], 41)
+        self.assertEqual(current["total"], 59)
+        self.assertEqual(current["resolved_count"], 42)
         self.assertEqual(current["unresolved_count"], 17)
         self.assertEqual(
             [item["review_topic"] for item in current["resolved"][-3:]],
             [
-                "twrp-usb-role-control",
                 "fresh-baseline-capability",
                 "d1-fresh-baseline-producer",
+                "d0-fresh-baseline-producer",
             ],
         )
         self.assertEqual(
@@ -760,7 +760,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             0,
         )
         self.assertEqual(
-            current["resolved"][-16],
+            current["resolved"][-17],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "candidate-witness-transport",
@@ -779,7 +779,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-15],
+            current["resolved"][-16],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-witness-runtime",
@@ -796,7 +796,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-14],
+            current["resolved"][-15],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-image-provenance-repair",
@@ -813,7 +813,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-13],
+            current["resolved"][-14],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification",
@@ -830,7 +830,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-12],
+            current["resolved"][-13],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification-plan-binding",
@@ -847,7 +847,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-11],
+            current["resolved"][-12],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "raw-first-cross-target-membership",
@@ -866,7 +866,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-10],
+            current["resolved"][-11],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "raw-first-population-diagnostic",
@@ -883,7 +883,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-9],
+            current["resolved"][-10],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "process-v2-integration-prerequisites",
@@ -902,7 +902,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-8],
+            current["resolved"][-9],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "global-consumed-candidate-registry",
@@ -921,7 +921,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-7],
+            current["resolved"][-8],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "process-v2-contract-repin",
@@ -938,7 +938,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-6],
+            current["resolved"][-7],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "download-request-cut-recovery",
@@ -1008,7 +1008,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 369)
+        self.assertEqual(len(all_rows), 371)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -1040,7 +1040,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 obligations["resolved_count"],
                 obligations["unresolved_count"],
             ),
-            (58, 41, 17),
+            (59, 42, 17),
         )
         self.assertEqual(
             [

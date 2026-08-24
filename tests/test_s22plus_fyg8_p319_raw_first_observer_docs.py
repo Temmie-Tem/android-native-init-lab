@@ -24,6 +24,10 @@ D1_PRODUCER_REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_D1_FRESH_BASELINE_PRODUCER_H0_2026-08-24.md"
 )
+D0_PRODUCER_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_D0_FRESH_BASELINE_PRODUCER_H0_2026-08-24.md"
+)
 TARGET = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
@@ -32,6 +36,10 @@ RECEIPT = ROOT / (
     "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
 )
 CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260824-03-p319-d0-fresh-baseline.json"
+)
+D0_REGISTRATION_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260824-02-p319-d1-import-pin.json"
 )
@@ -104,6 +112,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         cls.report = REPORT.read_text(encoding="utf-8")
         cls.behavioral_report = BEHAVIORAL_REPORT.read_text(encoding="utf-8")
         cls.d1_producer_report = D1_PRODUCER_REPORT.read_text(encoding="utf-8")
+        cls.d0_producer_report = D0_PRODUCER_REPORT.read_text(encoding="utf-8")
         cls.target = TARGET.read_text(encoding="utf-8")
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
@@ -112,7 +121,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260824-02-p319-d1-import-pin.json",
+            "raw-first-observer-audit-20260824-03-p319-d0-fresh-baseline.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -131,7 +140,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1738)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1739)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -139,19 +148,49 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "c059c42880c26ea08517698c9ef36ab75ece8a8ccc40cc1064a026b017eaa136",
+            "33caae06a836eef25264eb1ff5265485fb9f9cf6863e5a296dd6bab17deea0d9",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 11285)
+        self.assertEqual(len(retained_bytes), 11792)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "ff1cab6460e644aa2fcd2dcd38202d2ab66ab347e5c97e50194027a1a2cb9eba",
+            "9c5d892c032c972fef1106dd9c564664ae69049409d31b1008d11f42fe2ef1ea",
         )
 
-    def test_d1_registration_report_is_reviewed_and_non_authoritative(self):
+    def test_d0_registration_is_active_reviewed_and_not_a_current_run(self):
+        report = self.d0_producer_report
+        for token in (
+            "PASS_GO_P319_D0_FRESH_BASELINE_H0_CAPABILITY_V1",
+            "c1a7f82ff9a7e9ca555cf38a9f8addaf7d287f7a5560057b9be49899c631062f",
+            "migrated active raw-first source",
+            "9 handles / 27 children",
+            "producer_execution_closure_reviewed=true",
+            "producer_execution_closure_authoritative=true",
+            "FRESH_BASELINE_MISSING",
+            "not a current operator approval",
+            "no approval",
+            "normalized baseline or device contact",
+        ):
+            self.assertIn(token, report)
+        self.assertIn(
+            "s22plus_fyg8_p319_d0_fresh_baseline.py",
+            self.auditor.ACTIVE_FILES,
+        )
+        self.assertNotIn(
+            "s22plus_fyg8_p319_d0_fresh_baseline.py",
+            self.auditor.PRE_BOUNDARY_DEVICE_SOURCES,
+        )
+        self.assertEqual(
+            self.auditor.EXPECTED_ACTIVE_SOURCE_SHA256[
+                "s22plus_fyg8_p319_d0_fresh_baseline.py"
+            ],
+            "c1a7f82ff9a7e9ca555cf38a9f8addaf7d287f7a5560057b9be49899c631062f",
+        )
+
+    def test_d1_registration_report_preserves_review_and_no_current_run(self):
         report = self.d1_producer_report
         for token in (
             "PASS_GO_P319_D1_FRESH_BASELINE_H0_CAPABILITY_V1",
@@ -166,10 +205,10 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "process-v2-prerequisite-audit-20260824-02.json",
             "P3.18 wrapper is not imported by reopening its path",
             "20260823-04",
-            "producer_execution_closure_reviewed=false",
-            "producer_execution_closure_authoritative=false",
+            "producer_execution_closure_reviewed=true",
+            "producer_execution_closure_authoritative=true",
             "FRESH_BASELINE_MISSING",
-            "Independent changed-closure review has completed",
+            "topic-41 review closes the\njoint D0/reducer repin",
             "grant no current approval",
         ):
             self.assertIn(token, report)
@@ -179,10 +218,12 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "historical predecessor",
             "1,729",
             "178 = 127 S22 + 51 other-target",
-            "The topic-40 successor recomputes the current tree independently",
-            "1,738",
+            "The topic-41 successor recomputes the current tree independently",
+            "1,739",
             "180 = 128 S22 + 52 other-target",
-            "active raw-first sources | 15",
+            "active raw-first sources | 16",
+            "Topic 40's\n1,738/15 table is a preserved predecessor",
+            "16th active raw-first",
             "current-tree claim",
         ):
             self.assertIn(token, self.behavioral_report)
@@ -192,6 +233,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                D0_REGISTRATION_PREDECESSOR_RECEIPT,
+                11285,
+                "ff1cab6460e644aa2fcd2dcd38202d2ab66ab347e5c97e50194027a1a2cb9eba",
+            ),
             (
                 D1_IMPORT_PIN_PREDECESSOR_RECEIPT,
                 11285,

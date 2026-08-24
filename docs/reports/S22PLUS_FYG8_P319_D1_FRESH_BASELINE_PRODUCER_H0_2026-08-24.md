@@ -85,24 +85,46 @@ the 12,534-byte `20260824-01` receipt at
 `e7ff447886082aca3dc59e7da93d38ea511ad00a30e35eb065b500aeca4b9a1c`
 and the `20260823-03` predecessor remain unchanged.
 
+## Topic-41 joint changed-closure successor
+
+The preceding identities are the independently reviewed topic-40 predecessor.
+Topic 41 subsequently implemented the D0 producer and changed the reducer
+identity that the D1 binding pins. The D1 source itself remains byte-identical
+at 48,354 bytes / `e0fa9d40`; the current 4,128-byte D1 binding is
+`0a91beec8cad13622bb29c2f7865a08d37fd4531da984b9423024f6f7b9dd63b`.
+It preserves the exact topic-40 `pass-go` review tuple, and topic-41 independent
+review closes the joint D0/reducer changed closure. The earlier `cb36cce8` and
+`d92e7e46` bindings were never used for an operator approval, arm or run.
+
+The current raw successor is
+`raw-first-observer-audit-20260824-03-p319-d0-fresh-baseline.json`
+(`11792B/9c5d892c`), and the current prerequisite successor is
+`process-v2-prerequisite-audit-20260824-03.json` (`12534B/3e62512e`). The
+topic-40 `-02` receipts remain byte-preserved predecessors. This successor does
+not alter the topic-40 D1 source review and creates no current approval or live
+authority.
+
 ## Boundary and review
 
-The D0 producer is still an immediate-failure stub. The normalized reducer
-continues to set `producer_execution_closure_reviewed=false` and
-`producer_execution_closure_authoritative=false`; integration remains
+The topic-40 predecessor had an immediate-failure D0 stub. Topic 41 now has an
+independently reviewed D0 producer under exact binding `34203813`. The
+normalized reducer sets `producer_execution_closure_reviewed=true` and
+`producer_execution_closure_authoritative=true` only for deterministically
+reopened producer evidence; with no current result, integration remains
 `BLOCKED_P319_PROCESS_V2_INTEGRATION_H0` on `FRESH_BASELINE_MISSING`. No
 candidate byte, common Process-v2 contract, target contract, recovery path or
 A90/S20+ state changed.
 
-Validation on the final tree is: D1/fresh reducer `39/39`, integration
-qualification `14/14`, raw-first auditor `21/21`, raw-first docs `18/18`,
+Validation on the topic-41 final tree is: D1/fresh reducer `39/39`, integration
+qualification `14/14`, raw-first auditor `23/23`, raw-first docs `19/19`,
 prerequisite `9/9`, integration docs `8/8`, taxonomy `39/39`, and common
-Process-v2 `142/142`. The broad P3.19 selection is exactly 626 tests: 625
+Process-v2 `142/142`. The broad P3.19 selection is exactly 656 tests: 655
 passed, zero failed, and one error because
 `/mnt/android-lab-logical/vendor_dlkm/lib/modules/spu_verify.ko` is unavailable.
 That unavailable external input is not reported as a pass.
 
-Independent changed-closure review has completed and resolves only topic 40.
-This capability `PASS_GO` and its raw registration grant no current approval,
+Independent topic-40 review remains preserved, and topic-41 review closes the
+joint D0/reducer repin without rewriting it. These capability `PASS_GO` records
+and raw registration grant no current approval,
 D0, D1, F1, recovery, replay, causal result, candidate success, device or live
 authority.

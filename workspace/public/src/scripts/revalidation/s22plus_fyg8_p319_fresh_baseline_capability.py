@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
 import re
 import stat
 import sys
+import types
 from typing import Any, Mapping
 
 
@@ -59,6 +59,11 @@ D1_ADB_SNAPSHOT = PRIVATE / (
 )
 RAW_CAPTURE = SCRIPT_DIR / "device_action_raw_capture_v1.py"
 D0_RUNTIME = SCRIPT_DIR / "device_action_d0_v2.py"
+D0_SUCCESSOR = SCRIPT_DIR / "s22plus_fyg8_p319_d0_fresh_baseline.py"
+D0_EXECUTION_MANIFEST = ROOT / (
+    "workspace/public/src/device-action/bindings/"
+    "s22plus_fyg8_p319_d0_fresh_baseline_v1.json"
+)
 PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
 DEFAULT_OUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v1/result.json"
@@ -77,6 +82,14 @@ RUN_DIR = ROOT / (
 )
 RUN_ARM = Path(str(RUN_DIR) + ".arm.json")
 D0_RUN_DIR = RUN_DIR.parent / "d0-p319-fresh-baseline-1"
+D0_RUN_ARM = Path(str(D0_RUN_DIR) + ".arm.json")
+D0_RUN_STOP = Path(str(D0_RUN_DIR) + ".stop.json")
+D0_OBSERVER = D0_RUN_DIR / "baseline-observer.bin"
+D0_RAW_RECEIPT = D0_RUN_DIR / "baseline-observer.capture.json"
+D0_RAW_ADB_DIR = D0_RUN_DIR / "raw-adb"
+D0_ADB_SNAPSHOT = D0_RUN_DIR / (
+    "adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+)
 DEFAULT_D1 = RUN_DIR / "result.json"
 DEFAULT_D0 = D0_RUN_DIR / "result.json"
 BASELINE_DESIGN_SCHEMA = "s22plus_fyg8_p319_fresh_baseline_design_v1"
@@ -87,10 +100,53 @@ CURRENT_SOURCE_KEY_COUNT = 437
 CURRENT_SOURCE_KEY_DIGEST = "f41bfd2d1a4cf62aa62500a636a22e2035f3d56f9151e806e80da86f6c9cdded"
 P319_LATCH_MODULE = "s22plus_dwc3_event_latch.ko"
 D1_AUTHORITY_PREFIX = "DEVICE-ACTION-D1-P319-FRESH-BASELINE-V1-APPROVE:"
+D0_AUTHORITY_PREFIX = "DEVICE-ACTION-D0-P319-FRESH-BASELINE-V1-APPROVE:"
+D0_REVIEW_VERDICT = "PASS_GO_P319_D0_FRESH_BASELINE_H0_CAPABILITY_V1"
+D0_ADAPTER_MODULES = (
+    "s22plus_boot_verify",
+    "s22plus_fyg8_p232_e1_latest_stage_design",
+    "s22plus_fyg8_p233_e1_decoder",
+    "s22plus_fyg8_p233_e1_static_checker",
+    "s22plus_fyg8_p241_dtbo_role_contract",
+    "s22plus_fyg8_p241_e2_static_checker",
+    "s22plus_fyg8_p243_rpmh_dependency_audit",
+    "s22plus_fyg8_p244_e2_provider_sources",
+    "s22plus_fyg8_p248_contract_spec",
+    "s22plus_fyg8_p252_contract_spec",
+    "s22plus_fyg8_p257_contract_spec",
+    "s22plus_fyg8_p258_contract_spec",
+    "s22plus_fyg8_p260_contract_spec",
+    "s22plus_fyg8_p280_contract_spec",
+    "s22plus_fyg8_p282_contract_spec",
+    "s22plus_fyg8_p284_contract_spec",
+    "s22plus_fyg8_p286_contract_spec",
+    "s22plus_fyg8_p288_contract_spec",
+    "s22plus_fyg8_p288_latest_stage_model",
+    "s22plus_fyg8_p290_contract_spec",
+    "s22plus_fyg8_p290_latest_stage_model",
+    "s22plus_fyg8_p292_checkpoint_sot",
+    "s22plus_fyg8_p292_repair_spec",
+    "s22plus_fyg8_p294_telemetry_spec",
+    "s22plus_fyg8_p296_telemetry_spec",
+    "s22plus_fyg8_p298_telemetry_spec",
+    "s22plus_fyg8_p300_telemetry_spec",
+    "s22plus_fyg8_p301_telemetry_spec",
+    "s22plus_fyg8_p303_telemetry_spec",
+    "s22plus_fyg8_p307_telemetry_spec",
+    "s22plus_fyg8_p308_telemetry_spec",
+    "s22plus_fyg8_p310_carrier_model",
+    "s22plus_fyg8_p319_result_contract_arming",
+    "s22plus_fyg8_p319_stock_process_v2_adapter",
+    "s22plus_fyg8_r4w1b_candidate_static_checker",
+    "s22plus_fyg8_r4w1e_checkpoint_contract",
+    "s22plus_fyg8_r4w1e_e1_host_contract",
+    "s22plus_fyg8_retained_snapshot_model",
+    "s22plus_o2_module_plan",
+)
 
 
 class FreshBaselineError(ValueError):
-    """The fresh-baseline evidence is not authoritative."""
+    """The fresh-baseline evidence failed closed validation."""
 
 
 def _canonical(value: Any) -> bytes:
@@ -319,24 +375,6 @@ def _current_candidate_identity() -> dict[str, Any]:
     }
 
 
-def _load_adapter() -> Any:
-    if P319_ADAPTER.is_symlink():
-        raise FreshBaselineError("P3.19 adapter is indirect")
-    spec = importlib.util.spec_from_file_location("p319_fresh_bound_adapter", P319_ADAPTER)
-    if spec is None or spec.loader is None:
-        raise FreshBaselineError("P3.19 adapter cannot be loaded")
-    old = list(sys.path)
-    sys.path.insert(0, str(P319_ADAPTER.parent))
-    try:
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    except Exception as exc:
-        raise FreshBaselineError(f"P3.19 adapter failed to load: {type(exc).__name__}") from exc
-    finally:
-        sys.path[:] = old
-
-
 def collect_d0_live(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
     """Explicit non-executable placeholder for a future reviewed D0 producer."""
     raise FreshBaselineError(
@@ -346,9 +384,12 @@ def collect_d0_live(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
     )
 
 
-def _adapter_identity() -> dict[str, Any]:
-    payload = _stable(P319_ADAPTER, "P3.19 baseline adapter", maximum=512 * 1024)
-    module = _load_adapter()
+def _adapter_identity(module: Any, payload: bytes) -> dict[str, Any]:
+    if _stable(
+        P319_ADAPTER, "post-decode P3.19 baseline adapter",
+        maximum=512 * 1024,
+    ) != payload:
+        raise FreshBaselineError("P3.19 adapter changed after pinned load")
     try:
         decoder_id = module.DECODER_ID
         source_contract_id = module.OVERLAY_CONTRACT_ID
@@ -534,6 +575,23 @@ def _health(value: Any, label: str, profile: dict[str, Any]) -> dict[str, Any]:
     return dict(item)
 
 
+def _validated_usb_snapshot(value: Any, label: str) -> dict[str, Any]:
+    item = _exact(
+        value,
+        {"enumerated_devices", "download_endpoint_count", "snapshot_sha256"},
+        label,
+    )
+    if (
+        type(item["enumerated_devices"]) is not int
+        or item["enumerated_devices"] <= 0
+        or type(item["download_endpoint_count"]) is not int
+        or item["download_endpoint_count"] != 0
+    ):
+        raise FreshBaselineError(f"{label} value differs")
+    _sha(item["snapshot_sha256"], f"{label} digest")
+    return item
+
+
 def _validate_d1(value: Any, design: dict[str, Any], candidate: dict[str, Any], profile: dict[str, Any], result_path: Path) -> dict[str, Any]:
     item = _exact(value, {
         "schema", "version", "mode", "baseline_design_id", "target", "binding", "before", "after",
@@ -688,16 +746,10 @@ def _validate_d1(value: Any, design: dict[str, Any], candidate: dict[str, Any], 
     return {"result": item, "before": before, "after": after, "selection": selection}
 
 
-def _read_raw_handle(receipt: Path, observer: Path) -> bytes:
-    raw_module_spec = importlib.util.spec_from_file_location("p319_raw_capture_bound", RAW_CAPTURE)
-    if raw_module_spec is None or raw_module_spec.loader is None:
-        raise FreshBaselineError("raw capture module cannot be loaded")
-    module = importlib.util.module_from_spec(raw_module_spec)
-    sys.modules[raw_module_spec.name] = module
-    raw_module_spec.loader.exec_module(module)
+def _read_raw_handle(raw_module: Any, receipt: Path, observer: Path) -> bytes:
     try:
-        handle = module.load_handle(receipt)
-        module.require_success(handle)
+        handle = raw_module.load_handle(receipt)
+        raw_module.require_success(handle)
     except Exception as exc:
         raise FreshBaselineError(f"D0 raw capture receipt is invalid: {type(exc).__name__}") from exc
     if handle.stdout_path != observer or handle.stderr_path != observer.with_suffix(observer.suffix + ".stderr"):
@@ -710,29 +762,316 @@ def _read_raw_handle(receipt: Path, observer: Path) -> bytes:
     return payload
 
 
-def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candidate: dict[str, Any], profile: dict[str, Any]) -> tuple[dict[str, Any], bytes]:
+def _compile_d0_producer(payload: bytes) -> Any:
+    module = types.ModuleType("p319_fresh_bound_d0_producer")
+    module.__file__ = str(D0_SUCCESSOR)
+    module.__package__ = None
+    try:
+        initializer = types.FunctionType(
+            compile(payload, str(D0_SUCCESSOR), "exec", dont_inherit=True),
+            module.__dict__,
+        )
+        initializer()
+    except BaseException as exc:
+        raise FreshBaselineError(
+            f"pinned P3.19 D0 producer failed to load: {type(exc).__name__}"
+        ) from exc
+    if _stable(
+        D0_SUCCESSOR, "post-import P3.19 D0 producer",
+        maximum=1024 * 1024,
+    ) != payload:
+        raise FreshBaselineError("P3.19 D0 producer changed during import")
+    module.RUN_DIR = D0_RUN_DIR
+    module.RUN_ARM = D0_RUN_ARM
+    module.RUN_STOP = D0_RUN_STOP
+    module.RESULT_PATH = DEFAULT_D0
+    module.OBSERVER_PATH = D0_OBSERVER
+    module.RAW_RECEIPT = D0_RAW_RECEIPT
+    module.RAW_ADB_DIR = D0_RAW_ADB_DIR
+    module.ADB_SNAPSHOT = D0_ADB_SNAPSHOT
+    return module
+
+
+def _d0_execution_binding(
+    design: dict[str, Any], candidate: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], str, dict[str, Any]]:
+    payload = _stable(
+        D0_EXECUTION_MANIFEST, "P3.19 D0 execution binding",
+        maximum=256 * 1024, mode=None, nlink=1,
+    )
+    try:
+        value = json.loads(
+            payload.decode("utf-8"), object_pairs_hook=_unique,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                FreshBaselineError(
+                    f"P3.19 D0 execution binding contains non-finite JSON: {item}"
+                )
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise FreshBaselineError(
+            "P3.19 D0 execution binding is not strict JSON"
+        ) from exc
+    if not isinstance(value, dict) or payload != _canonical(value):
+        raise FreshBaselineError("P3.19 D0 execution binding is not canonical")
+    expected_keys = {
+        "schema", "binding_id", "action", "authority_prefix", "target",
+        "target_profile", "current_candidate", "baseline_design", "inputs",
+        "d1_dependency", "host_adb_execution_snapshot", "run_directory",
+        "run_approval_arm", "run_stop", "limits", "safety",
+        "independent_review", "failure_rule",
+    }
+    if (
+        set(value) != expected_keys
+        or value.get("schema")
+        != "s22plus_fyg8_p319_d0_fresh_baseline_execution_binding_v1"
+        or value.get("binding_id")
+        != "s22plus-fyg8-p319-d0-fresh-baseline-v1"
+        or value.get("action")
+        != "one exact connected read-only P3.19 fresh-baseline acquisition"
+        or value.get("authority_prefix") != D0_AUTHORITY_PREFIX
+        or value.get("target") != TARGET
+        or value.get("target_profile")
+        != _source_identity(PROFILE, "S22+ target profile", maximum=16 * 1024)
+        or value.get("current_candidate") != candidate
+        or value.get("baseline_design") != design
+        or value.get("independent_review")
+        != {"status": "pass-go", "verdict": D0_REVIEW_VERDICT}
+        or value.get("failure_rule")
+        != "consumed typed stop without retry or replay"
+    ):
+        raise FreshBaselineError("P3.19 D0 execution-binding semantics differ")
+    d0_source_payload = _stable(
+        D0_SUCCESSOR, "P3.19 D0 successor", maximum=1024 * 1024
+    )
+    reducer_payload = _stable(
+        SCRIPT, "P3.19 baseline reducer", maximum=1024 * 1024
+    )
+    d0_runtime_payload = _stable(
+        D0_RUNTIME, "current D0 runtime", maximum=256 * 1024
+    )
+    raw_payload = _stable(
+        RAW_CAPTURE, "raw capture helper", maximum=256 * 1024
+    )
+    adapter_payloads = {
+        name: _stable(
+            SCRIPT_DIR / f"{name}.py", f"P3.19 D0 adapter source {name}",
+            maximum=2 * 1024 * 1024,
+        )
+        for name in D0_ADAPTER_MODULES
+    }
+    d1_payload = _stable(
+        D1_SUCCESSOR, "P3.19 D1 successor", maximum=1024 * 1024
+    )
+    d1_binding_payload = _stable(
+        D1_EXECUTION_MANIFEST, "P3.19 D1 execution binding",
+        maximum=64 * 1024,
+    )
+    adb_payload = _stable(
+        HOST_ADB, "host ADB executable", maximum=1024 * 1024
+    )
+
+    def receipt_for(path: Path, source: bytes) -> dict[str, Any]:
+        return {"path": _relative(path), **_identity(source)}
+
+    expected_adapter_sources = {
+        name: receipt_for(SCRIPT_DIR / f"{name}.py", source)
+        for name, source in adapter_payloads.items()
+    }
+    expected_inputs = {
+        "d0_source": receipt_for(D0_SUCCESSOR, d0_source_payload),
+        "fresh_baseline_reducer": receipt_for(SCRIPT, reducer_payload),
+        "common_d0_runtime": receipt_for(D0_RUNTIME, d0_runtime_payload),
+        "raw_capture": receipt_for(RAW_CAPTURE, raw_payload),
+        "adapter_sources": expected_adapter_sources,
+        "d1_source": receipt_for(D1_SUCCESSOR, d1_payload),
+        "d1_execution_binding": receipt_for(
+            D1_EXECUTION_MANIFEST, d1_binding_payload
+        ),
+        "host_adb": receipt_for(HOST_ADB, adb_payload),
+    }
+    if value.get("inputs") != expected_inputs:
+        raise FreshBaselineError("P3.19 D0 execution-binding inputs differ")
+    expected_d1 = {
+        "result_path": _relative(DEFAULT_D1),
+        "arm_path": _relative(RUN_ARM),
+        "start_path": _relative(RUN_DIR / "start.json"),
+        "result_schema": D1_SCHEMA,
+        "binding_review": {
+            "status": "pass-go",
+            "verdict": "PASS_GO_P319_D1_FRESH_BASELINE_H0_CAPABILITY_V1",
+        },
+        "superseded_unconsumed_binding_sha256": (
+            "d92e7e463e26f1fae4f9a5515e00feb0c09fb2d83930839e89c391b58931fb4e"
+        ),
+    }
+    if value.get("d1_dependency") != expected_d1:
+        raise FreshBaselineError("P3.19 D0 D1-dependency binding differs")
+    if value.get("host_adb_execution_snapshot") != {
+        "path": _relative(D0_ADB_SNAPSHOT),
+        "size": 716_968,
+        "sha256": "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226",
+        "mode": "0500",
+        "publication": "file-fsync-link-no-replace-directory-fsync",
+    }:
+        raise FreshBaselineError("P3.19 D0 ADB-snapshot binding differs")
+    if value.get("run_directory") != {
+        "path": _relative(D0_RUN_DIR),
+        "publication": "directory-no-replace-after-consumed-arm",
+    } or value.get("run_approval_arm") != {
+        "path": _relative(D0_RUN_ARM),
+        "publication": "file-no-replace-fsync-then-directory-fsync",
+    } or value.get("run_stop") != {
+        "path": _relative(D0_RUN_STOP),
+        "publication": "file-no-replace-fsync-then-directory-fsync",
+    }:
+        raise FreshBaselineError("P3.19 D0 fixed namespace differs")
+    if value.get("limits") != {
+        "observer_source": "/proc/last_kmsg", "observer_bytes": RAW_SIZE,
+        "observer_read_count": 1, "observer_timeout_sec": 180,
+        "stderr_bytes": 0,
+    }:
+        raise FreshBaselineError("P3.19 D0 acquisition limits differ")
+    if value.get("safety") != {
+        "device_writes": False, "reboot": False,
+        "download_transition": False, "odin": False,
+        "partition_transfer": False, "module_action": False,
+        "property_or_service_action": False, "f1_authorized": False,
+        "replay_authorized": False,
+    }:
+        raise FreshBaselineError("P3.19 D0 safety binding differs")
+    receipt = {
+        "path": _relative(D0_EXECUTION_MANIFEST), **_identity(payload)
+    }
+    authority = D0_AUTHORITY_PREFIX + receipt["sha256"]
+    producer = _compile_d0_producer(d0_source_payload)
+    context = {
+        "producer": producer,
+        "d0_runtime_payload": d0_runtime_payload,
+        "raw_payload": raw_payload,
+        "adapter_payloads": adapter_payloads,
+    }
+    return (
+        value,
+        receipt,
+        hashlib.sha256(authority.encode("ascii")).hexdigest(),
+        context,
+    )
+
+
+def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candidate: dict[str, Any], profile: dict[str, Any]) -> tuple[dict[str, Any], bytes, Any, bytes]:
     item = _exact(value, {
-        "schema", "version", "mode", "baseline_design_id", "run_directory", "runtime", "target_evidence", "health", "observer", "usb", "host_tool", "verdict", "device_contact", "device_writes", "reboot_requested", "download_transition_requested", "odin_invoked", "partition_transfer", "f1_authorized", "live_authorized", "candidate_marker_family_absent", "marker_residual",
+        "schema", "version", "mode", "baseline_design_id", "run_directory", "runtime", "binding", "journal", "target_evidence", "initial_health", "health", "observer", "raw_adb", "usb", "host_tool", "verdict", "device_contact", "device_writes", "reboot_requested", "download_transition_requested", "odin_invoked", "partition_transfer", "f1_authorized", "live_authorized", "candidate_marker_family_absent", "marker_residual",
     }, "D0 result")
     if item["schema"] != D0_SCHEMA or item["version"] != "device-action-d0-p319-v1" or item["mode"] != "connected-read-only":
         raise FreshBaselineError("D0 result header differs")
     if item["baseline_design_id"] != design["design_id"]:
         raise FreshBaselineError("D0 result baseline-design differs")
-    if item["runtime"] != _d0_runtime_identity():
-        raise FreshBaselineError("D0 raw-first runtime identity differs")
     if item["verdict"] != "PASS_P319_D0_FRESH_BASELINE_RAW_V1":
         raise FreshBaselineError("D0 result verdict differs")
     _bool(item["device_contact"], "D0 device_contact", True)
     for key in ("device_writes", "reboot_requested", "download_transition_requested", "odin_invoked", "partition_transfer", "f1_authorized", "live_authorized", "marker_residual"):
         _bool(item[key], f"D0 result.{key}", False)
     _bool(item["candidate_marker_family_absent"], "D0 candidate marker family", True)
+    execution, execution_receipt, approval_sha256, context = _d0_execution_binding(
+        design, candidate
+    )
+    if item["runtime"] != {
+        **execution["inputs"]["common_d0_runtime"], "raw_first": True
+    }:
+        raise FreshBaselineError("D0 raw-first runtime identity differs")
+    journal = _exact(item["journal"], {"arm", "result"}, "D0 journal")
+    binding = _exact(item["binding"], {
+        "schema", "action", "adapter", "baseline_design", "candidate", "d1",
+        "execution_manifest", "approval_sha256", "run_directory",
+        "run_approval_arm", "journal", "device_writes", "reboot",
+        "download_transition", "odin", "partition_transfer", "f1_authorized",
+    }, "D0 binding")
+    if (
+        binding["schema"]
+        != "s22plus_fyg8_p319_d0_fresh_baseline_binding_v1"
+        or binding["action"] != execution["action"]
+        or binding["adapter"]
+        != execution["inputs"]["d0_source"]
+        or binding["baseline_design"] != design
+        or binding["candidate"] != candidate
+        or binding["d1"] != {
+            "receipt": d1["receipt"],
+            "returned_health": d1["after"],
+            "selection": d1["selection"],
+        }
+        or binding["execution_manifest"] != execution_receipt
+        or binding["approval_sha256"] != approval_sha256
+        or binding["run_directory"] != execution["run_directory"]
+        or binding["run_approval_arm"] != execution["run_approval_arm"]
+        or binding["journal"] != journal
+    ):
+        raise FreshBaselineError("D0 result execution binding differs")
+    for key in (
+        "device_writes", "reboot", "download_transition", "odin",
+        "partition_transfer", "f1_authorized",
+    ):
+        _bool(binding[key], f"D0 binding.{key}", False)
+    arm_receipt = _exact(
+        journal["arm"], {"path", "size", "sha256", "mode", "nlink"},
+        "D0 arm receipt",
+    )
+    if (
+        arm_receipt["path"] != _relative(D0_RUN_ARM)
+        or arm_receipt["mode"] != "0400"
+        or arm_receipt["nlink"] != 1
+        or type(arm_receipt["size"]) is not int
+        or arm_receipt["size"] <= 0
+    ):
+        raise FreshBaselineError("D0 arm receipt metadata differs")
+    _sha(arm_receipt["sha256"], "D0 arm receipt")
+    arm, arm_identity = _json(D0_RUN_ARM, "D0 consumed arm")
+    if arm_identity["size"] != arm_receipt["size"] or arm_identity["sha256"] != arm_receipt["sha256"]:
+        raise FreshBaselineError("D0 consumed arm identity differs")
+    if (
+        set(arm) != {
+            "schema", "execution_manifest", "approval_sha256",
+            "run_directory", "action", "attempt", "consumed",
+            "device_contact_before_arm",
+        }
+        or arm.get("schema")
+        != "s22plus_fyg8_p319_d0_fresh_baseline_arm_v1"
+        or arm.get("execution_manifest") != execution_receipt
+        or arm.get("approval_sha256") != approval_sha256
+        or arm.get("run_directory") != execution["run_directory"]
+        or arm.get("action") != execution["action"]
+        or arm.get("attempt") != 1
+        or arm.get("consumed") is not True
+        or arm.get("device_contact_before_arm") is not False
+    ):
+        raise FreshBaselineError("D0 consumed arm semantics differ")
+    result_ref = _exact(journal["result"], {"path"}, "D0 result reference")
+    if result_ref["path"] != _relative(DEFAULT_D0):
+        raise FreshBaselineError("D0 journal result path differs")
     host_tool = _exact(item["host_tool"], {"path", "size", "sha256", "version_output_sha256"}, "D0 host-tool receipt")
     if not isinstance(host_tool["path"], str) or not host_tool["path"] or type(host_tool["size"]) is not int or host_tool["size"] <= 0:
         raise FreshBaselineError("D0 host-tool receipt shape differs")
     _sha(host_tool["sha256"], "D0 host-tool binary")
     _sha(host_tool["version_output_sha256"], "D0 host-tool version")
+    if (
+        host_tool["path"] != str(D0_ADB_SNAPSHOT)
+        or host_tool["size"] != 716_968
+        or host_tool["sha256"]
+        != "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+    ):
+        raise FreshBaselineError("D0 host-tool execution snapshot differs")
+    adb_snapshot = _stable(
+        D0_ADB_SNAPSHOT, "P3.19 D0 host ADB snapshot", maximum=716_968,
+        mode=0o500, nlink=1,
+    )
+    if (
+        len(adb_snapshot) != 716_968
+        or hashlib.sha256(adb_snapshot).hexdigest()
+        != "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+    ):
+        raise FreshBaselineError("D0 host ADB snapshot identity differs")
     run_dir_value = item["run_directory"]
-    if not isinstance(run_dir_value, str) or Path(run_dir_value).resolve() != Path(run_dir_value) or Path(run_dir_value) != (RUN_DIR.parent / "d0-p319-fresh-baseline-1").absolute():
+    if not isinstance(run_dir_value, str) or Path(run_dir_value).resolve() != Path(run_dir_value) or Path(run_dir_value) != D0_RUN_DIR.absolute():
         raise FreshBaselineError("D0 run directory is not fixed")
     targets = item["target_evidence"]
     if not isinstance(targets, dict) or set(targets) != {"targets", "odin_endpoint_absent"} or targets["odin_endpoint_absent"] is not True:
@@ -741,7 +1080,10 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
     if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
         raise FreshBaselineError("D0 target cardinality differs")
     row = rows[0]
-    if row.get("model") != TARGET["model"] or row.get("device") != TARGET["codename"] or row.get("firmware_incremental") != TARGET["build"]:
+    if set(row) != {
+        "model", "device", "firmware_incremental", "android_transport",
+        "adb_serial_sha256", "usb_topology_sha256",
+    } or row.get("model") != TARGET["model"] or row.get("device") != TARGET["codename"] or row.get("firmware_incremental") != TARGET["build"] or row.get("android_transport") != "adb":
         raise FreshBaselineError("D0 target identity differs")
     _sha(row.get("adb_serial_sha256"), "D0 serial")
     _sha(row.get("usb_topology_sha256"), "D0 topology")
@@ -749,17 +1091,20 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
         raise FreshBaselineError("D1 selected serial is not the sole D0 target serial")
     if d1["selection"]["selected_topology_sha256"] != row["usb_topology_sha256"]:
         raise FreshBaselineError("D1 selected topology is not the sole D0 target topology")
-    health = _health(item["health"], "D0 health", profile)
-    if health["boot_id_sha256"] != d1["after"]["boot_id_sha256"]:
-        raise FreshBaselineError("D0 health is not from the D1 returned boot")
+    initial_health = _health(item["initial_health"], "D0 initial health", profile)
+    health = _health(item["health"], "D0 final health", profile)
+    if (
+        initial_health["boot_id_sha256"] != d1["after"]["boot_id_sha256"]
+        or health["boot_id_sha256"] != d1["after"]["boot_id_sha256"]
+    ):
+        raise FreshBaselineError(
+            "D0 initial/final health is not from the D1 returned boot"
+        )
     usb = item["usb"]
     if not isinstance(usb, dict) or set(usb) != {"initial", "final"}:
         raise FreshBaselineError("D0 USB evidence shape differs")
     for key in ("initial", "final"):
-        snap = usb[key]
-        if not isinstance(snap, dict) or snap.get("download_endpoint_count") != 0 or type(snap.get("enumerated_devices")) is not int or snap["enumerated_devices"] <= 0:
-            raise FreshBaselineError(f"D0 {key} USB evidence differs")
-        _sha(snap.get("snapshot_sha256"), f"D0 {key} USB snapshot")
+        _validated_usb_snapshot(usb[key], f"D0 {key} USB")
     observer = item["observer"]
     required = {"path", "raw_capture", "source", "bytes", "sha256", "read_to_eof", "stderr_bytes", "raw_first", "parser_started_after_raw_publish"}
     if not isinstance(observer, dict) or set(observer) != required or observer["source"] != "/proc/last_kmsg" or observer["bytes"] != RAW_SIZE or observer["read_to_eof"] is not True or observer["stderr_bytes"] != 0 or observer["raw_first"] is not True or observer["parser_started_after_raw_publish"] is not True:
@@ -769,15 +1114,44 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
     raw_receipt = _exact(observer["raw_capture"], {"path", "size", "sha256"}, "D0 raw capture")
     receipt = Path(raw_receipt["path"])
     expected_dir = Path(run_dir_value)
-    if not path.is_absolute() or path != expected_dir / "baseline-observer.bin" or not receipt.is_absolute() or receipt.parent != expected_dir:
+    if not path.is_absolute() or path != D0_OBSERVER or not receipt.is_absolute() or receipt != D0_RAW_RECEIPT or expected_dir != D0_RUN_DIR:
         raise FreshBaselineError("D0 observer paths are not fixed")
-    payload = _read_raw_handle(receipt, path)
+    producer = context["producer"]
+    try:
+        raw_module = producer._load_runtime(
+            context["d0_runtime_payload"], context["raw_payload"]
+        )[1]
+    except Exception as exc:
+        raise FreshBaselineError(
+            f"pinned D0 raw runtime rejected: {type(exc).__name__}"
+        ) from exc
+    payload = _read_raw_handle(raw_module, receipt, path)
     receipt_payload = _stable(receipt, "D0 raw capture receipt", maximum=64 * 1024, mode=0o400, nlink=1)
     if len(receipt_payload) != raw_receipt["size"] or hashlib.sha256(receipt_payload).hexdigest() != raw_receipt["sha256"]:
         raise FreshBaselineError("D0 raw capture receipt hash differs")
     if hashlib.sha256(payload).hexdigest() != observer["sha256"]:
         raise FreshBaselineError("D0 observer hash does not bind raw stdout")
-    return {"result": item, "health": health, "observer": observer}, payload
+    try:
+        raw_adb = producer._raw_adb_inventory(raw_module)
+        producer._require_success_raw_adb(raw_adb)
+    except Exception as exc:
+        raise FreshBaselineError(
+            f"D0 raw-adb inventory rejected: {type(exc).__name__}"
+        ) from exc
+    if item["raw_adb"] != raw_adb:
+        raise FreshBaselineError("D0 raw-adb inventory differs")
+    try:
+        adapter = producer._load_adapter(context["adapter_payloads"])
+    except Exception as exc:
+        raise FreshBaselineError(
+            f"pinned D0 adapter graph rejected: {type(exc).__name__}"
+        ) from exc
+    return {
+        "result": item, "initial_health": initial_health,
+        "health": health, "observer": observer, "raw_adb": raw_adb,
+    }, payload, adapter, context["adapter_payloads"][
+        "s22plus_fyg8_p319_stock_process_v2_adapter"
+    ]
 
 
 def _marker_absent(payload: bytes, candidate: dict[str, Any]) -> bool:
@@ -792,8 +1166,10 @@ def normalize(d1_path: Path, d0_path: Path) -> dict[str, Any]:
     d1_value, d1_identity = _json(d1_path, "P3.19 D1 result")
     d0_value, d0_identity = _json(d0_path, "P3.19 D0 result")
     d1 = _validate_d1(d1_value, design, candidate, profile, d1_path)
-    d0, payload = _validate_d0(d0_value, design, d1, candidate, profile)
-    adapter = _load_adapter()
+    d1["receipt"] = d1_identity
+    d0, payload, adapter, adapter_payload = _validate_d0(
+        d0_value, design, d1, candidate, profile
+    )
     try:
         decoded = adapter.classify_clean_baseline(
             payload, expected_profile=adapter.PROFILE,
@@ -805,7 +1181,7 @@ def normalize(d1_path: Path, d0_path: Path) -> dict[str, Any]:
         raise FreshBaselineError("P3.19 raw D0 is not a clean baseline")
     if not _marker_absent(payload, candidate):
         raise FreshBaselineError("candidate marker residual is present in raw baseline")
-    adapter_identity = _adapter_identity()
+    adapter_identity = _adapter_identity(adapter, adapter_payload)
     result = {
         "schema": SCHEMA,
         "verdict": VERDICT,
@@ -813,7 +1189,7 @@ def normalize(d1_path: Path, d0_path: Path) -> dict[str, Any]:
         "baseline_design": design,
         "candidate_identity": candidate,
         "d1": {"receipt": d1_identity, "returned_health": d1["after"], "selection": d1["selection"]},
-        "d0": {"receipt": d0_identity, "runtime": d0["result"]["runtime"], "target_evidence": d0["result"]["target_evidence"], "health": d0["health"], "observer": d0["observer"]},
+        "d0": {"receipt": d0_identity, "runtime": d0["result"]["runtime"], "target_evidence": d0["result"]["target_evidence"], "initial_health": d0["initial_health"], "health": d0["health"], "observer": d0["observer"], "raw_adb": d0["raw_adb"]},
         "raw": {"size": RAW_SIZE, "sha256": hashlib.sha256(payload).hexdigest(), "source": "/proc/last_kmsg", "raw_first": True},
         "decoder": {**adapter_identity, "classification": decoded},
         "fresh": True,
@@ -823,8 +1199,8 @@ def normalize(d1_path: Path, d0_path: Path) -> dict[str, Any]:
         "device_contact": False,
         "d1_device_contact": True,
         "d0_device_contact": True,
-        "producer_execution_closure_reviewed": False,
-        "producer_execution_closure_authoritative": False,
+        "producer_execution_closure_reviewed": True,
+        "producer_execution_closure_authoritative": True,
         "ready": False,
         "live_authorized": False,
         "d0_authorized": False,
@@ -850,7 +1226,7 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
     for key, expected in {
         "fresh": True, "clean": True, "candidate_marker_family_absent": True, "marker_residual": False,
         "device_contact": False, "d1_device_contact": True, "d0_device_contact": True,
-        "producer_execution_closure_reviewed": False, "producer_execution_closure_authoritative": False,
+        "producer_execution_closure_reviewed": True, "producer_execution_closure_authoritative": True,
         "ready": False, "live_authorized": False, "d0_authorized": False, "d1_authorized": False,
         "f1_authorized": False, "replay_authorized": False, "candidate_success": False,
         "causal_result_allowed": False,
@@ -874,6 +1250,17 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
         raise FreshBaselineError("normalized D0 runtime binding differs")
     if value["d0"].get("health", {}).get("boot_id_sha256") != value["d1"].get("returned_health", {}).get("boot_id_sha256"):
         raise FreshBaselineError("normalized D1/D0 boot binding differs")
+    if value["d0"].get("initial_health", {}).get("boot_id_sha256") != value["d1"].get("returned_health", {}).get("boot_id_sha256"):
+        raise FreshBaselineError("normalized D1/D0 initial-boot binding differs")
+    raw_adb = value["d0"].get("raw_adb")
+    if (
+        not isinstance(raw_adb, dict)
+        or raw_adb.get("complete") is not True
+        or len(raw_adb.get("handles", [])) != 9
+        or len(raw_adb.get("children", [])) != 27
+    ):
+        raise FreshBaselineError("normalized D0 raw-adb inventory differs")
+    _sha(raw_adb.get("aggregate_sha256"), "normalized D0 raw-adb")
     return dict(value)
 
 
@@ -887,7 +1274,7 @@ def validate_published_result(path: Path) -> dict[str, Any]:
     if value != expected:
         raise FreshBaselineError("published fresh baseline is not the deterministic reduction of its inputs")
     result = validate_result(expected)
-    return {"result": result, "identity": identity, "authoritative": False, "capability": _identity(_stable(SCRIPT, "fresh-baseline capability", maximum=512 * 1024))}
+    return {"result": result, "identity": identity, "authoritative": True, "capability": _identity(_stable(SCRIPT, "fresh-baseline capability", maximum=512 * 1024))}
 
 
 def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:

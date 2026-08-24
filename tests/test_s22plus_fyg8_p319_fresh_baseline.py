@@ -18,6 +18,10 @@ SCRIPT = ROOT / (
     "workspace/public/src/scripts/revalidation/"
     "s22plus_fyg8_p319_fresh_baseline_capability.py"
 )
+D0_SOURCE = ROOT / (
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_p319_d0_fresh_baseline.py"
+)
 
 
 def load_module():
@@ -26,6 +30,16 @@ def load_module():
         raise AssertionError("fresh-baseline capability cannot be loaded")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_module_from(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"fixture module cannot be loaded: {path.name}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -52,6 +66,50 @@ class P319FreshBaselineTest(unittest.TestCase):
         path.write_bytes(payload)
         path.chmod(0o400)
 
+    def d0_fixture_execution(self, root: Path):
+        d0_run = root / "d1" / "d0-p319-fresh-baseline-1"
+        arm = Path(str(d0_run) + ".arm.json")
+        execution = {
+            "action": "one exact connected read-only P3.19 fresh-baseline acquisition",
+            "inputs": {
+                "d0_source": self.m._source_identity(
+                    self.m.D0_SUCCESSOR, "fixture D0 successor",
+                    maximum=1024 * 1024,
+                ),
+                "common_d0_runtime": self.m._source_identity(
+                    self.m.D0_RUNTIME, "fixture D0 runtime",
+                    maximum=256 * 1024,
+                ),
+            },
+            "run_directory": {
+                "path": str(d0_run),
+                "publication": "directory-no-replace-after-consumed-arm",
+            },
+            "run_approval_arm": {
+                "path": str(arm),
+                "publication": "file-no-replace-fsync-then-directory-fsync",
+            },
+        }
+        receipt = {
+            "path": "fixture-d0-binding.json", "size": 1, "sha256": "3" * 64,
+        }
+        return execution, receipt, "4" * 64
+
+    def bound_d0_producer(self, root: Path):
+        producer = load_module_from(D0_SOURCE, "p319_fresh_fixture_d0")
+        run = root / "d1" / "d0-p319-fresh-baseline-1"
+        producer.RUN_DIR = run
+        producer.RUN_ARM = Path(str(run) + ".arm.json")
+        producer.RUN_STOP = Path(str(run) + ".stop.json")
+        producer.RESULT_PATH = run / "result.json"
+        producer.OBSERVER_PATH = run / "baseline-observer.bin"
+        producer.RAW_RECEIPT = run / "fixture.capture.json"
+        producer.RAW_ADB_DIR = run / "raw-adb"
+        producer.ADB_SNAPSHOT = run / (
+            "adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+        )
+        return producer
+
     def make_fixture(self):
         m = self.m
         root = Path(tempfile.mkdtemp(prefix="p319-fresh-baseline-"))
@@ -60,7 +118,7 @@ class P319FreshBaselineTest(unittest.TestCase):
         d0_run = d1_run.parent / "d0-p319-fresh-baseline-1"
         d0_run.mkdir(mode=0o700, parents=True)
         d1_path = d1_run / "result.json"
-        d0_path = root / "d0-result.json"
+        d0_path = d0_run / "result.json"
         output = root / "result.json"
         design = m._baseline_design_identity()
         candidate = m._current_candidate_identity()
@@ -157,6 +215,11 @@ class P319FreshBaselineTest(unittest.TestCase):
             "other_targets_commanded": False,
             "verdict": "PASS_P319_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH",
         }
+        d1_payload = m._canonical(d1)
+        d1_receipt = {
+            "path": str(d1_path), "size": len(d1_payload),
+            "sha256": hashlib.sha256(d1_payload).hexdigest(),
+        }
         # Build the raw-first capture using the repository's current capture
         # receipt format, not a parser-only stand-in.
         raw_spec = importlib.util.spec_from_file_location("raw_fixture", m.RAW_CAPTURE)
@@ -183,7 +246,75 @@ class P319FreshBaselineTest(unittest.TestCase):
             "timed_out": False,
         }
         raw._durable_create(receipt_path, raw._canonical(receipt_value))
+        raw_adb_dir = raw.prepare_capture_dir(d0_run, "raw-adb")
+        for index, label in enumerate((
+            "adb-version", "adb-devices", "adb-get-devpath",
+            "adb-read-only-shell-properties",
+            "adb-read-only-shell-root-health", "adb-devices",
+            "adb-get-devpath", "adb-read-only-shell-properties",
+            "adb-read-only-shell-root-health",
+        )):
+            raw.publish_captured_bytes(
+                raw_adb_dir, f"{index:04d}-{label}",
+                stdout=b"fixture\n", stderr=b"", argv0_name="adb",
+            )
+        producer = self.bound_d0_producer(root)
+        raw_adb = producer._raw_adb_inventory(raw)
+        producer._require_success_raw_adb(raw_adb)
+        d0_execution, d0_execution_receipt, d0_approval_sha256 = (
+            self.d0_fixture_execution(root)
+        )
+        d0_arm = Path(str(d0_run) + ".arm.json")
+        d0_arm_value = {
+            "schema": "s22plus_fyg8_p319_d0_fresh_baseline_arm_v1",
+            "execution_manifest": d0_execution_receipt,
+            "approval_sha256": d0_approval_sha256,
+            "run_directory": d0_execution["run_directory"],
+            "action": d0_execution["action"],
+            "attempt": 1,
+            "consumed": True,
+            "device_contact_before_arm": False,
+        }
+        self.write0400(d0_arm, m._canonical(d0_arm_value))
+        d0_journal = {
+            "arm": {
+                "path": str(d0_arm), "size": d0_arm.stat().st_size,
+                "sha256": hashlib.sha256(d0_arm.read_bytes()).hexdigest(),
+                "mode": "0400", "nlink": 1,
+            },
+            "result": {"path": str(d0_path)},
+        }
+        adb_snapshot = d0_run / (
+            "adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+        )
+        self.write0400(adb_snapshot, m.HOST_ADB.read_bytes())
+        adb_snapshot.chmod(0o500)
         d0_health = after
+        d0_binding = {
+            "schema": "s22plus_fyg8_p319_d0_fresh_baseline_binding_v1",
+            "action": d0_execution["action"],
+            "adapter": m._source_identity(
+                m.D0_SUCCESSOR, "fixture D0 successor", maximum=1024 * 1024
+            ),
+            "baseline_design": design,
+            "candidate": candidate,
+            "d1": {
+                "receipt": d1_receipt,
+                "returned_health": after,
+                "selection": d1["selection"],
+            },
+            "execution_manifest": d0_execution_receipt,
+            "approval_sha256": d0_approval_sha256,
+            "run_directory": d0_execution["run_directory"],
+            "run_approval_arm": d0_execution["run_approval_arm"],
+            "journal": d0_journal,
+            "device_writes": False,
+            "reboot": False,
+            "download_transition": False,
+            "odin": False,
+            "partition_transfer": False,
+            "f1_authorized": False,
+        }
         d0 = {
             "schema": m.D0_SCHEMA,
             "version": "device-action-d0-p319-v1",
@@ -191,11 +322,19 @@ class P319FreshBaselineTest(unittest.TestCase):
             "baseline_design_id": design["design_id"],
             "run_directory": str(d0_run),
             "runtime": m._d0_runtime_identity(),
-            "target_evidence": {"targets": [{"model": "SM-S906N", "device": "g0q", "firmware_incremental": "S906NKSS7FYG8", "adb_serial_sha256": "c" * 64, "usb_topology_sha256": "d" * 64}], "odin_endpoint_absent": True},
+            "binding": d0_binding,
+            "journal": d0_journal,
+            "target_evidence": {"targets": [{"model": "SM-S906N", "device": "g0q", "firmware_incremental": "S906NKSS7FYG8", "android_transport": "adb", "adb_serial_sha256": "c" * 64, "usb_topology_sha256": "d" * 64}], "odin_endpoint_absent": True},
+            "initial_health": d0_health,
             "health": d0_health,
             "observer": {"path": str(observer), "bytes": m.RAW_SIZE, "sha256": hashlib.sha256(payload).hexdigest(), "read_to_eof": True, "stderr_bytes": 0, "source": "/proc/last_kmsg", "raw_capture": {"path": str(receipt_path), "size": receipt_path.stat().st_size, "sha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest()}, "raw_first": True, "parser_started_after_raw_publish": True},
+            "raw_adb": raw_adb,
             "usb": {"initial": {"enumerated_devices": 2, "download_endpoint_count": 0, "snapshot_sha256": "e" * 64}, "final": {"enumerated_devices": 2, "download_endpoint_count": 0, "snapshot_sha256": "f" * 64}},
-            "host_tool": {"path": "fixture", "size": 1, "sha256": "0" * 64, "version_output_sha256": "1" * 64},
+            "host_tool": {
+                "path": str(adb_snapshot), "size": m.HOST_ADB.stat().st_size,
+                "sha256": hashlib.sha256(m.HOST_ADB.read_bytes()).hexdigest(),
+                "version_output_sha256": "1" * 64,
+            },
             "verdict": "PASS_P319_D0_FRESH_BASELINE_RAW_V1",
             "device_contact": True,
             "device_writes": False,
@@ -208,14 +347,15 @@ class P319FreshBaselineTest(unittest.TestCase):
             "candidate_marker_family_absent": True,
             "marker_residual": False,
         }
-        self.write0400(d1_path, m._canonical(d1))
+        self.write0400(d1_path, d1_payload)
         self.write0400(d0_path, m._canonical(d0))
         return root, d1_path, d0_path, output, d1, d0
 
     def fixture_patches(self, root, d1, d0, output):
         m = self.m
         d1_run = root / "d1" / "run"
-        d0_run = root / "d0" / "run"
+        d0_run = d1_run.parent / "d0-p319-fresh-baseline-1"
+        d0_execution, d0_receipt, d0_approval = self.d0_fixture_execution(root)
         execution = {
             "independent_review": {
                 "status": "pass-go",
@@ -223,16 +363,36 @@ class P319FreshBaselineTest(unittest.TestCase):
             }
         }
         receipt = {"path": "fixture-binding.json", "size": 1, "sha256": "a" * 64}
+        producer = self.bound_d0_producer(root)
+        d0_context = {
+            "producer": producer,
+            "d0_runtime_payload": m.D0_RUNTIME.read_bytes(),
+            "raw_payload": m.RAW_CAPTURE.read_bytes(),
+            "adapter_payloads": producer._adapter_payloads(),
+        }
         return mock.patch.multiple(
             m,
             RUN_DIR=d1_run,
             RUN_ARM=Path(str(d1_run) + ".arm.json"),
             D0_RUN_DIR=d0_run,
+            D0_RUN_ARM=Path(str(d0_run) + ".arm.json"),
+            D0_RUN_STOP=Path(str(d0_run) + ".stop.json"),
+            D0_OBSERVER=d0_run / "baseline-observer.bin",
+            D0_RAW_RECEIPT=d0_run / "fixture.capture.json",
+            D0_RAW_ADB_DIR=d0_run / "raw-adb",
+            D0_ADB_SNAPSHOT=d0_run / (
+                "adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+            ),
             DEFAULT_D1=d1,
             DEFAULT_D0=d0,
             DEFAULT_OUT=output,
             _d1_execution_binding=mock.Mock(
                 return_value=(execution, receipt, "2" * 64)
+            ),
+            _d0_execution_binding=mock.Mock(
+                return_value=(
+                    d0_execution, d0_receipt, d0_approval, d0_context
+                )
             ),
         )
 
@@ -335,9 +495,15 @@ class P319FreshBaselineTest(unittest.TestCase):
             self.assertFalse(result["device_contact"])
             self.m.publish_exclusive(output, result)
             validated = self.m.validate_published_result(output)
-            self.assertFalse(validated["authoritative"])
-            self.assertFalse(validated["result"]["producer_execution_closure_reviewed"])
-            self.assertFalse(validated["result"]["producer_execution_closure_authoritative"])
+            self.assertTrue(validated["authoritative"])
+            self.assertTrue(validated["result"]["producer_execution_closure_reviewed"])
+            self.assertTrue(validated["result"]["producer_execution_closure_authoritative"])
+            for key in (
+                "ready", "live_authorized", "d0_authorized", "d1_authorized",
+                "f1_authorized", "replay_authorized", "candidate_success",
+                "causal_result_allowed",
+            ):
+                self.assertFalse(validated["result"][key])
 
     def test_handwritten_boolean_receipt_is_rejected_by_deterministic_reduction(self):
         root, d1, d0, output, _d1, _d0 = self.make_fixture()

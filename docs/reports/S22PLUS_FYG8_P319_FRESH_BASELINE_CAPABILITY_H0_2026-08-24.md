@@ -28,9 +28,9 @@ is not a current operator approval or run authority.
 
 ## Producer and reducer contract
 
-The D0 acquisition contract is recorded as a future boundary only. No D0
-producer is present in this H0 unit. Before activation, a separately reviewed
-producer must use the current raw-first runtime, read exactly 2,097,136 bytes
+The following sentence records the topic-39 predecessor boundary: no D0
+producer was present in that H0 unit. Topic 41 now independently reviews the D0 producer.
+Any separately authorized invocation must use the current raw-first runtime, read exactly 2,097,136 bytes
 from `/proc/last_kmsg`, persist stdout and its capture receipt before invoking
 the P3.19 classifier, and require exact target, boot/partition health and zero
 Download endpoints at both edges. A non-clean result must publish a typed stop
@@ -55,11 +55,12 @@ hand-written JSON cannot clear `FRESH_BASELINE_MISSING`.
 The raw fact is named `candidate_marker_family_absent`; it is distinct from
 the global consumed-candidate registry. The reducer's top-level
 `device_contact=false` means the reducer itself is host-only, while nested D0
-evidence must prove `device_contact=true`. The normalized result explicitly
-sets `producer_execution_closure_reviewed=false` and
-`producer_execution_closure_authoritative=false`; `validate_published_result`
-therefore returns `authoritative=false`, and integration cannot clear the
-fresh-baseline blocker.
+evidence must prove `device_contact=true`. The normalized result now explicitly
+sets `producer_execution_closure_reviewed=true` and
+`producer_execution_closure_authoritative=true`; `validate_published_result`
+returns `authoritative=true` only after deterministic reopening of the exact
+reviewed producer evidence. No current normalized fresh-baseline result exists,
+so integration still cannot clear the fresh-baseline blocker.
 
 ## Hostile coverage
 
@@ -74,13 +75,15 @@ producer files were non-acquiring describes only the predecessor: the
 topic-40 D1 producer is now explicitly classified and byte-frozen by the
 global acquisition detector. No test invokes ADB, USB, Odin or a device.
 
-The D0 producer remains an immediate-failure stub. The topic-40 D1 successor
+The immediate-failure D0 stub is the topic-39/40 predecessor. Topic 41 now
+implements, independently reviews and registers the producer as an active
+raw-first source. The topic-40 D1 successor
 contains the self-binding manifest, durable pre-contact arm and typed stop
 owner that this predecessor required and has its own independent capability
 `PASS_GO`, but no current operator approval, arm or run exists. The existing
 candidate requalification and topic-39 PASS_GO did not qualify topic 40; its
-separate review did. D0 remains absent and the combined result remains
-non-authoritative.
+separate review did. Topic-41 review closes the joint D0/reducer closure, but
+no actual combined result exists.
 
 ## Independent review
 
@@ -92,10 +95,10 @@ premature public candidate manifest because it violated the existing no-replay
 audit; that manifest was deleted rather than exempted.
 
 The final independent verdict is
-`PASS_GO_P319_FRESH_BASELINE_REDUCER_H0_CAPABILITY_V1`. It qualifies only the
-non-authoritative H0 reducer and the integration fail-open repair. Topic 40
-implements only the D1 half; D0 is absent and both
-`producer_execution_closure_*` fields remain false. This PASS_GO therefore
-cannot produce or validate a fresh baseline and does not clear
-`FRESH_BASELINE_MISSING`. It grants no D0, D1, F1, recovery, replay, approval,
-candidate result, device or live authority.
+`PASS_GO_P319_FRESH_BASELINE_REDUCER_H0_CAPABILITY_V1`. Topic 41 later adds
+`PASS_GO_P319_D0_FRESH_BASELINE_H0_CAPABILITY_V1` for the exact producer and
+joint reducer closure, so both `producer_execution_closure_*` fields are true
+for a deterministically reconstructed hypothetical result. Capability review
+is not a current operator approval; with no published fresh result, integration
+still reports `FRESH_BASELINE_MISSING`. It grants no ready, D0, D1, F1,
+recovery, replay, candidate result, device or live authority.

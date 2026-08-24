@@ -40,6 +40,10 @@ CURRENT_INTEGRATION = ROOT / (
 )
 CURRENT_PREREQUISITE = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260824-03.json"
+)
+D0_REGISTRATION_PREREQUISITE_PREDECESSOR = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "process-v2-prerequisite-audit-20260824-02.json"
 )
 CURRENT_PREREQUISITE_PREDECESSOR = ROOT / (
@@ -59,7 +63,7 @@ REQUEST_RECOVERY_PREREQUISITE = ROOT / (
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 626
+P319_SELECTED_TEST_COUNT = 656
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
@@ -100,6 +104,9 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.current_integration_bytes = CURRENT_INTEGRATION.read_bytes()
         cls.current_integration = json.loads(cls.current_integration_bytes)
         cls.current_prerequisite_bytes = CURRENT_PREREQUISITE.read_bytes()
+        cls.d0_registration_prerequisite_predecessor_bytes = (
+            D0_REGISTRATION_PREREQUISITE_PREDECESSOR.read_bytes()
+        )
         cls.current_prerequisite_predecessor_bytes = (
             CURRENT_PREREQUISITE_PREDECESSOR.read_bytes()
         )
@@ -173,17 +180,22 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("post-run causal-classification gate", self.report)
         self.assertIn("not an extra pre-approval blocker", self.report)
 
-    def test_fresh_baseline_reducer_review_is_non_authoritative(self):
+    def test_fresh_baseline_producer_capability_is_reviewed_but_no_result_exists(self):
         report = self.fresh_baseline_report
         self.assertIn(
             "Status: `PASS_GO_P319_FRESH_BASELINE_REDUCER_H0_CAPABILITY_V1`",
             report,
         )
-        self.assertIn("producer_execution_closure_reviewed=false", report)
-        self.assertIn("producer_execution_closure_authoritative=false", report)
-        self.assertIn("cannot produce or validate a fresh baseline", report)
-        self.assertIn("does not clear\n`FRESH_BASELINE_MISSING`", report)
+        self.assertIn("producer_execution_closure_reviewed=true", report)
+        self.assertIn("producer_execution_closure_authoritative=true", report)
+        self.assertIn("No current normalized fresh-baseline result exists", report)
+        self.assertIn("still reports `FRESH_BASELINE_MISSING`", report)
         self.assertIn("h0-fresh-baseline-capability-review-39", self.ledger)
+        self.assertIn("h0-d0-fresh-baseline-producer-41", self.ledger)
+        self.assertIn("h0-d0-fresh-baseline-producer-review-41", self.ledger)
+        self.assertIn("Topic 41 now independently reviews the D0 producer", report)
+        self.assertIn("producer_execution_closure_authoritative=true", report)
+        self.assertIn("not a current operator approval", report)
 
     def test_private_receipts_are_exact_single_link_mode0400(self):
         expected = (
@@ -224,10 +236,16 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
                 "e7ff447886082aca3dc59e7da93d38ea511ad00a30e35eb065b500aeca4b9a1c",
             ),
             (
-                CURRENT_PREREQUISITE,
-                self.current_prerequisite_bytes,
+                D0_REGISTRATION_PREREQUISITE_PREDECESSOR,
+                self.d0_registration_prerequisite_predecessor_bytes,
                 12530,
                 "26c8eb9d0b17c00bf57841ce56c748704eaa2dadbeabb871576c3258946f40d2",
+            ),
+            (
+                CURRENT_PREREQUISITE,
+                self.current_prerequisite_bytes,
+                12534,
+                "3e62512e4533d3e7ab9a92302286a0f892e84a7f2602b213634c18289556e735",
             ),
             (
                 CURRENT_INTEGRATION,

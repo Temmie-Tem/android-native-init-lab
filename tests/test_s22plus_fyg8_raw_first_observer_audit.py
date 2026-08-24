@@ -112,6 +112,50 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         with self.assertRaises(self.module.RawFirstAuditError):
             self.module.audit_sources(REVALIDATION, {stage_name: stage_source})
 
+    def test_p319_d0_fresh_baseline_active_seams_are_ordered(self):
+        name = "s22plus_fyg8_p319_d0_fresh_baseline.py"
+        source = self.source(name)
+        self.assertIn(name, self.module.ACTIVE_FILES)
+        self.assertNotIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+        mutations = (
+            source.replace(
+                "        raw.require_success(handle)\n"
+                "        payload = raw.read_stdout(handle, maximum=RAW_SIZE)\n",
+                "        payload = raw.read_stdout(handle, maximum=RAW_SIZE)\n"
+                "        raw.require_success(handle)\n",
+                1,
+            ),
+            source.replace(
+                "            handle = raw.load_handle(RAW_ADB_DIR / receipt_name)\n",
+                "            handle = forbidden_unbound_handle(receipt_name)\n",
+                1,
+            ),
+            source.replace(
+                "        claimed.update(names)\n",
+                "        pass  # removed full-child ownership claim\n",
+                1,
+            ),
+        )
+        for mutation in mutations:
+            self.assertNotEqual(mutation, source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module.audit_sources(REVALIDATION, {name: mutation})
+
+    def test_p319_d0_fresh_baseline_active_bytes_are_frozen(self):
+        name = "s22plus_fyg8_p319_d0_fresh_baseline.py"
+        source = self.source(name)
+        self.assertEqual(
+            hashlib.sha256(source.encode()).hexdigest(),
+            self.module.EXPECTED_ACTIVE_SOURCE_SHA256[name],
+        )
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError,
+            "active raw-first source changed",
+        ):
+            self.module.audit_sources(
+                REVALIDATION, {name: source + "\n# active-byte-drift\n"}
+            )
+
     def test_f1_enumeration_and_cdc_preparse_mutations_reject(self):
         odin_name = "s22plus_odin_transition_core.py"
         odin_source = self.source(odin_name).replace(

@@ -44,8 +44,8 @@ than as the bare string. `(?<![A-Za-z0-9])adb(?![A-Za-z0-9])` matches `adb`,
 The earlier quoted-literal marker set missed the synthetic observer entirely.
 
 The original 2026-08-17 boundary recorded this historical predecessor
-population. These values describe that reviewed-era tree, not the current
-topic-40 successor:
+population. These values describe that reviewed-era tree, not the later
+topic-40/topic-41 successors:
 
 | Set | Count |
 |---|---:|
@@ -55,13 +55,14 @@ topic-40 successor:
 | S22+-scoped, byte-frozen | 127 |
 | other-target, membership-only | 51 |
 
-The topic-40 successor recomputes the current tree independently:
+The topic-41 successor recomputes the current tree independently. Topic 40's
+1,738/15 table is a preserved predecessor, not the current-tree census:
 
 | Set | Current count |
 |---|---:|
-| revalidation `*.py` scanned | 1,738 |
+| revalidation `*.py` scanned | 1,739 |
 | `PRE_BOUNDARY_DEVICE_SOURCES` | 180 = 128 S22 + 52 other-target |
-| active raw-first sources | 15 |
+| active raw-first sources | 16 |
 | S22+-scoped, byte-frozen | 128 |
 | other-target, membership-only | 52 |
 
@@ -72,6 +73,11 @@ separate H0 source class.
 The 128th S22 entry is the topic-40 P3.19 D1 fresh-baseline producer. It is a
 byte-frozen global acquisition-detector member, not a claim that the D1 source
 is a migrated D0/F1 observer; its independent review remains separate.
+
+The topic-41 P3.19 D0 fresh-baseline producer is the 16th active raw-first
+source, not a pre-boundary member. Its exact source bytes and acquire/publish/
+reopen/classify plus complete raw-ADB inventory seams are frozen while the
+pre-boundary 128/fcb3bb80 and target-external 52 populations remain unchanged.
 
 Later request-cut qualification registered the dormant S20+ health source as
 one additional target-external membership-only name. The earlier table value
