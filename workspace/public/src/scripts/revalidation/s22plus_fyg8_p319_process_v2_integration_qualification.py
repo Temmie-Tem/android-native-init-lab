@@ -29,12 +29,12 @@ ADAPTER = SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py"
 EXECUTABILITY = SCRIPT_DIR / "s22plus_fyg8_p319_experiment_executability_closure.py"
 PREREQUISITE = SCRIPT_DIR / "s22plus_fyg8_p319_process_v2_prerequisite_audit.py"
 CANDIDATE_QUALIFICATION = SCRIPT_DIR / "s22plus_fyg8_p319_candidate_qualification.py"
-FRESH_BASELINE_CAPABILITY = SCRIPT_DIR / "s22plus_fyg8_p319_fresh_baseline_capability.py"
+FRESH_BASELINE_CAPABILITY = SCRIPT_DIR / "s22plus_fyg8_p319_fresh_baseline_capability_v2.py"
 INTENT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/intent.json"
 )
 FRESH_BASELINE = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/fresh-baseline-v1/result.json"
+    "outputs/s22plus_fyg8_p319/fresh-baseline-v2/result.json"
 )
 CONSUMED_CANDIDATE_REGISTRY = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
@@ -923,7 +923,7 @@ def build_result() -> dict[str, Any]:
     components["adapter_pin"], adapter_blockers = _adapter_pin()
     blockers.extend(adapter_blockers)
     components["fresh_baseline"], baseline_blockers = _required_private_receipt(
-        FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_p319_fresh_baseline_v1"
+        FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_p319_fresh_baseline_v2"
     )
     blockers.extend(baseline_blockers)
     components["consumed_candidate_registry"], registry_blockers = _required_private_receipt(

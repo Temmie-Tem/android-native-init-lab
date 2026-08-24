@@ -77,6 +77,16 @@ The topic-42 V2 D1 successor recomputes the current tree independently:
 | S22+-scoped, byte-frozen | 128 |
 | other-target, membership-only | 52 |
 
+The topic-43 D0 V2 consumer/reducer repin recomputes the current tree:
+
+| Set | Current count |
+|---|---:|
+| revalidation `*.py` scanned | 1,742 |
+| `PRE_BOUNDARY_DEVICE_SOURCES` | 180 = 128 S22 + 52 other-target |
+| active raw-first sources | 18 |
+| S22+-scoped, byte-frozen | 128 |
+| other-target, membership-only | 52 |
+
 The exact-byte host-only non-acquiring registry contains one P3.19 qualifier;
 it is excluded from the acquiring/device-facing population and is audited as a
 separate H0 source class.
@@ -96,6 +106,12 @@ active only because its actual transport binds the common raw namespace before
 inventory and parsers consume reopened immutable handles. This registration
 does not relax the detector and is independently reviewed H0-only capability
 under topic 42; capability review is not an operator approval or live authority.
+
+The topic-43 D0 V2 producer is the 18th active raw-first source. It preserves
+the reviewed V1 producer as a separate byte-frozen active predecessor and is
+admitted only because the copied acquisition path retains the same publish,
+reopen, parse-order and complete raw-ADB ownership contracts. Topic 43 remains
+review-pending and creates no approval, D0 result or live authority.
 
 Later request-cut qualification registered the dormant S20+ health source as
 one additional target-external membership-only name. The earlier table value

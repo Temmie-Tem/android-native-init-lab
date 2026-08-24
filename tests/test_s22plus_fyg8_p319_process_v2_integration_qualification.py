@@ -262,20 +262,20 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
                 self.module.build_result()
 
     def test_fresh_baseline_identity_is_bound_across_validation(self):
-        value = {"schema": "s22plus_fyg8_fresh_baseline_v1"}
+        value = {"schema": "s22plus_fyg8_p319_fresh_baseline_v2"}
         first_identity = {"path": "workspace/private/result.json", "size": 1, "sha256": "a" * 64}
         with mock.patch.object(self.module, "_json_receipt", return_value=(value, first_identity)), mock.patch.object(
             self.module, "_load_local", return_value=_IdentityDriftCapability()
         ):
             component, blockers = self.module._required_private_receipt(
-                self.module.FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_fresh_baseline_v1"
+                self.module.FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_p319_fresh_baseline_v2"
             )
         self.assertEqual(component["status"], "BLOCKED_INVALID")
         self.assertEqual(blockers[0]["code"], "FRESH_BASELINE_INVALID")
         self.assertEqual(component["error_type"], "ReceiptIdentityChanged")
 
     def test_fresh_baseline_replace_after_validation_is_rejected(self):
-        value = {"schema": "s22plus_fyg8_fresh_baseline_v1"}
+        value = {"schema": "s22plus_fyg8_p319_fresh_baseline_v2"}
         first_identity = {"path": "workspace/private/result.json", "size": 1, "sha256": "a" * 64}
         final_identity = {"path": "workspace/private/result.json", "size": 2, "sha256": "b" * 64}
         _MatchingIdentityCapability.identity = first_identity
@@ -287,7 +287,7 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             self.module, "_load_local", return_value=_MatchingIdentityCapability()
         ):
             component, blockers = self.module._required_private_receipt(
-                self.module.FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_fresh_baseline_v1"
+                self.module.FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_p319_fresh_baseline_v2"
             )
         self.assertEqual(component["status"], "BLOCKED_INVALID")
         self.assertEqual(component["error_type"], "ReceiptChangedAfterValidation")

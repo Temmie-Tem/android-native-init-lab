@@ -28,6 +28,10 @@ D0_PRODUCER_REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_D0_FRESH_BASELINE_PRODUCER_H0_2026-08-24.md"
 )
+D0_V2_REPIN_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_D0_FRESH_BASELINE_V2_REPIN_H0_2026-08-24.md"
+)
 TARGET = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
@@ -36,6 +40,10 @@ RECEIPT = ROOT / (
     "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
 )
 CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260824-06-p319-d0-v2-repin.json"
+)
+D0_V2_REPIN_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260824-05-p319-d1-v2-no-replay.json"
 )
@@ -121,6 +129,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         cls.behavioral_report = BEHAVIORAL_REPORT.read_text(encoding="utf-8")
         cls.d1_producer_report = D1_PRODUCER_REPORT.read_text(encoding="utf-8")
         cls.d0_producer_report = D0_PRODUCER_REPORT.read_text(encoding="utf-8")
+        cls.d0_v2_repin_report = D0_V2_REPIN_REPORT.read_text(encoding="utf-8")
         cls.target = TARGET.read_text(encoding="utf-8")
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
@@ -129,7 +138,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260824-05-p319-d1-v2-no-replay.json",
+            "raw-first-observer-audit-20260824-06-p319-d0-v2-repin.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -148,7 +157,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1740)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1742)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -156,16 +165,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "dc55d74770f1a4cb094e8998737beed19917fb3460f95b3adc27e07cbdf3461a",
+            "aa89d682be2a37eed9df27384e0e734f6681bb1d66b3578abe067fe2f0f726e7",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 12394)
+        self.assertEqual(len(retained_bytes), 12916)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "2d5fc0428f6683ce9a7ac056c6da6b92c4decad45b7fd7430febf2edbd1325e9",
+            "66658f6739b8e0116209a13de3fbb2255b040fa68b0ee7bb34c7cb51876207ec",
         )
 
     def test_d0_registration_is_active_reviewed_and_not_a_current_run(self):
@@ -197,6 +206,29 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             ],
             "c1a7f82ff9a7e9ca555cf38a9f8addaf7d287f7a5560057b9be49899c631062f",
         )
+        self.assertIn(
+            "s22plus_fyg8_p319_d0_fresh_baseline_v2.py",
+            self.auditor.ACTIVE_FILES,
+        )
+        self.assertNotIn(
+            "s22plus_fyg8_p319_d0_fresh_baseline_v2.py",
+            self.auditor.PRE_BOUNDARY_DEVICE_SOURCES,
+        )
+        self.assertEqual(
+            self.auditor.EXPECTED_ACTIVE_SOURCE_SHA256[
+                "s22plus_fyg8_p319_d0_fresh_baseline_v2.py"
+            ],
+            "e1190b66a31ee674d9f0bf64726fbf8a5edb55d81e7910b07b6f4b0f46009d0d",
+        )
+        for token in (
+            "P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING",
+            "e1190b66a31ee674d9f0bf64726fbf8a5edb55d81e7910b07b6f4b0f46009d0d",
+            "18th active raw-first source",
+            "FRESH_BASELINE_MISSING",
+            "no approval",
+            "There is no `d1-fresh-baseline-2`",
+        ):
+            self.assertIn(token, self.d0_v2_repin_report)
 
     def test_d1_registration_report_preserves_review_and_no_current_run(self):
         report = self.d1_producer_report
@@ -236,6 +268,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "Topic 40's\n1,738/15 table and this topic-41 table are preserved predecessors",
             "16th active raw-first",
             "17th active raw-first",
+            "18th active raw-first",
             "current-tree claim",
         ):
             self.assertIn(token, self.behavioral_report)
@@ -245,6 +278,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                D0_V2_REPIN_PREDECESSOR_RECEIPT,
+                12394,
+                "2d5fc0428f6683ce9a7ac056c6da6b92c4decad45b7fd7430febf2edbd1325e9",
+            ),
             (
                 D1_V2_NO_REPLAY_PREDECESSOR_RECEIPT,
                 12268,

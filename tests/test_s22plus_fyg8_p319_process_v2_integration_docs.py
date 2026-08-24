@@ -24,6 +24,10 @@ FRESH_BASELINE_REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_FRESH_BASELINE_CAPABILITY_H0_2026-08-24.md"
 )
+FRESH_BASELINE_V2_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_D0_FRESH_BASELINE_V2_REPIN_H0_2026-08-24.md"
+)
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 PREREQUISITE = ROOT / (
@@ -36,9 +40,17 @@ INTEGRATION = ROOT / (
 )
 CURRENT_INTEGRATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-integration-qualification-v2-20260824-01/result.json"
+)
+V1_CURRENT_INTEGRATION_PREDECESSOR = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "process-v2-integration-qualification-v1-20260823-04/result.json"
 )
 CURRENT_PREREQUISITE = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260824-06.json"
+)
+D0_V2_REPIN_PREREQUISITE_PREDECESSOR = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "process-v2-prerequisite-audit-20260824-05.json"
 )
@@ -71,7 +83,7 @@ REQUEST_RECOVERY_PREREQUISITE = ROOT / (
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 688
+P319_SELECTED_TEST_COUNT = 728
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
@@ -103,6 +115,9 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
             encoding="utf-8"
         )
         cls.fresh_baseline_report = FRESH_BASELINE_REPORT.read_text(encoding="utf-8")
+        cls.fresh_baseline_v2_report = FRESH_BASELINE_V2_REPORT.read_text(
+            encoding="utf-8"
+        )
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
         cls.prerequisite_bytes = PREREQUISITE.read_bytes()
@@ -111,7 +126,13 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.integration = json.loads(cls.integration_bytes)
         cls.current_integration_bytes = CURRENT_INTEGRATION.read_bytes()
         cls.current_integration = json.loads(cls.current_integration_bytes)
+        cls.v1_current_integration_predecessor_bytes = (
+            V1_CURRENT_INTEGRATION_PREDECESSOR.read_bytes()
+        )
         cls.current_prerequisite_bytes = CURRENT_PREREQUISITE.read_bytes()
+        cls.d0_v2_repin_prerequisite_predecessor_bytes = (
+            D0_V2_REPIN_PREREQUISITE_PREDECESSOR.read_bytes()
+        )
         cls.d1_v2_no_replay_prerequisite_predecessor_bytes = (
             D1_V2_NO_REPLAY_PREREQUISITE_PREDECESSOR.read_bytes()
         )
@@ -210,6 +231,14 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("Topic 41 now independently reviews the D0 producer", report)
         self.assertIn("producer_execution_closure_authoritative=true", report)
         self.assertIn("not a current operator approval", report)
+        v2 = self.fresh_baseline_v2_report
+        self.assertIn(
+            "P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", v2
+        )
+        self.assertIn("Acceptance requires the fixed", v2)
+        self.assertIn("Integration consumes only the\nV2 reducer/path", v2)
+        self.assertIn("`FRESH_BASELINE_MISSING`", v2)
+        self.assertIn("The binding remains\nreview-pending", v2)
 
     def test_private_receipts_are_exact_single_link_mode0400(self):
         expected = (
@@ -268,16 +297,28 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
                 "953a44549b06f470a9b2fa59321c18ed961cfc099cfe95bc02b5d59b22c7f709",
             ),
             (
-                CURRENT_PREREQUISITE,
-                self.current_prerequisite_bytes,
+                D0_V2_REPIN_PREREQUISITE_PREDECESSOR,
+                self.d0_v2_repin_prerequisite_predecessor_bytes,
                 12532,
                 "5ea7fd30aabc99041ce64e1b1e9c50f6cea181dc7f73d251d5cbdc396624fb4a",
             ),
             (
-                CURRENT_INTEGRATION,
-                self.current_integration_bytes,
+                CURRENT_PREREQUISITE,
+                self.current_prerequisite_bytes,
+                12528,
+                "7a5a824893dc40d2f284d6e719bad0d7e56ff92c358ddc921711fa46ef6955d0",
+            ),
+            (
+                V1_CURRENT_INTEGRATION_PREDECESSOR,
+                self.v1_current_integration_predecessor_bytes,
                 61388,
                 "745814926e44763214ed15d3eeb10d2a4c4e8bb591d3b92d96685aa4cf4aff88",
+            ),
+            (
+                CURRENT_INTEGRATION,
+                self.current_integration_bytes,
+                61379,
+                "49745fc2af81a74b9604ebe8404e84ccb7cabb47f29eca556d0b1d515a12b6ae",
             ),
         )
         for path, data, size, digest in expected:

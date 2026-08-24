@@ -96,23 +96,23 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
 
     def test_raw_first_projection_is_disk_population_probe(self):
         raw = self.receipt["raw_first_execution_closure"]
-        self.assertEqual(raw["auditor"]["size"], 66941)
+        self.assertEqual(raw["auditor"]["size"], 68231)
         self.assertEqual(
             raw["auditor"]["sha256"],
-            "86a0fc328538c5a39470dca2272957a4ac7453a48a7f629feebfb7edbddfd3d2",
+            "0cfd391b2ca26ddd8f51cac9fe2b7fcb14daaeba5985d4541e8b08354e9c0487",
         )
         self.assertEqual(
             raw["receipt"]["sha256"],
-            "2d5fc0428f6683ce9a7ac056c6da6b92c4decad45b7fd7430febf2edbd1325e9",
+            "66658f6739b8e0116209a13de3fbb2255b040fa68b0ee7bb34c7cb51876207ec",
         )
         self.assertEqual(raw["receipt"]["mode"], "0400")
         self.assertEqual(raw["receipt"]["nlink"], 1)
         self.assertEqual(
             raw["baseline"],
             {
-                "all_revalidation_python_files_scanned": 1740,
+                "all_revalidation_python_files_scanned": 1742,
                 "subprocess_modules_scanned": 412,
-                "projection_sha256": "dc55d74770f1a4cb094e8998737beed19917fb3460f95b3adc27e07cbdf3461a",
+                "projection_sha256": "aa89d682be2a37eed9df27384e0e734f6681bb1d66b3578abe067fe2f0f726e7",
             },
         )
         self.assertEqual(
