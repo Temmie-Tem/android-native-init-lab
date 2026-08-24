@@ -1160,7 +1160,26 @@ def validate_published_result(path: Path) -> dict[str, Any]:
         raise FreshBaselineError(
             "published fresh-baseline path is outside the fixed namespace"
         )
-    value, identity = _json(path, "published fresh baseline")
+    payload = _direct_output_payload(path, "published fresh baseline")
+    try:
+        value = json.loads(
+            payload.decode("utf-8"),
+            object_pairs_hook=_unique,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                FreshBaselineError(
+                    f"published fresh baseline contains non-finite JSON: {item}"
+                )
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise FreshBaselineError(
+            "published fresh baseline is not strict JSON"
+        ) from exc
+    if not isinstance(value, dict) or payload != _canonical(value):
+        raise FreshBaselineError(
+            "published fresh baseline is not canonical JSON"
+        )
+    identity = {"path": _relative(path), **_identity(payload)}
     # Do not trust any nested summary from the published reducer.  Reopen the
     # fixed D1/D0 producer results, their journal/raw handles, the current
     # baseline design, candidate intent/qualification, and the live P3.19 classifier,
@@ -1172,29 +1191,181 @@ def validate_published_result(path: Path) -> dict[str, Any]:
     return {"result": result, "identity": identity, "authoritative": True, "capability": _identity(_stable(SCRIPT, "fresh-baseline capability", maximum=512 * 1024))}
 
 
+def _direct_output_parent(path: Path, *, create: bool) -> int:
+    """Return the fixed output parent fd without following any path component."""
+
+    if path != path.absolute() or path.name in {"", ".", ".."}:
+        raise FreshBaselineError("fresh-baseline output path is not absolute")
+    flags = (
+        os.O_RDONLY
+        | os.O_DIRECTORY
+        | os.O_NOFOLLOW
+        | os.O_CLOEXEC
+    )
+    try:
+        current = os.open("/", flags)
+    except OSError as exc:
+        raise FreshBaselineError("cannot open output namespace root") from exc
+    try:
+        for component in path.parent.parts[1:]:
+            if component in {"", ".", ".."} or "/" in component:
+                raise FreshBaselineError("output namespace component differs")
+            try:
+                child = os.open(component, flags, dir_fd=current)
+            except FileNotFoundError:
+                if not create:
+                    raise FreshBaselineError(
+                        "fresh-baseline output parent is unavailable"
+                    )
+                try:
+                    os.mkdir(component, mode=0o700, dir_fd=current)
+                    os.fsync(current)
+                except FileExistsError:
+                    pass
+                child = os.open(component, flags, dir_fd=current)
+            except OSError as exc:
+                raise FreshBaselineError(
+                    "fresh-baseline output parent is indirect"
+                ) from exc
+            os.close(current)
+            current = child
+        info = os.fstat(current)
+        if (
+            not stat.S_ISDIR(info.st_mode)
+            or stat.S_IMODE(info.st_mode) != 0o700
+            or info.st_uid != os.getuid()
+        ):
+            raise FreshBaselineError(
+                "fresh-baseline final output parent identity differs"
+            )
+        return current
+    except BaseException:
+        os.close(current)
+        raise
+
+
+def _output_entry_payload(
+    parent_fd: int, name: str, label: str, *, maximum: int = 4 * 1024 * 1024
+) -> bytes:
+    try:
+        descriptor = os.open(
+            name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=parent_fd,
+        )
+    except OSError as exc:
+        raise FreshBaselineError(f"{label} is unavailable") from exc
+    try:
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != 0o400
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 1
+            or before.st_size > maximum
+        ):
+            raise FreshBaselineError(f"{label} identity differs")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            try:
+                chunk = os.read(descriptor, min(1024 * 1024, maximum + 1 - total))
+            except InterruptedError:
+                continue
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > maximum:
+                raise FreshBaselineError(f"{label} exceeds the bounded read")
+        inside = os.fstat(descriptor)
+        current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    finally:
+        os.close(descriptor)
+    identity = lambda item: (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_nlink,
+        item.st_uid,
+        item.st_gid,
+        item.st_size,
+        item.st_mtime_ns,
+        item.st_ctime_ns,
+    )
+    payload = b"".join(chunks)
+    if (
+        identity(before) != identity(inside)
+        or identity(inside) != identity(current)
+        or len(payload) != before.st_size
+    ):
+        raise FreshBaselineError(f"{label} changed while reading")
+    return payload
+
+
+def _direct_output_payload(path: Path, label: str) -> bytes:
+    parent_fd = _direct_output_parent(path, create=False)
+    try:
+        return _output_entry_payload(parent_fd, path.name, label)
+    finally:
+        os.close(parent_fd)
+
+
 def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
     if path != path.absolute() or path != DEFAULT_OUT.absolute():
         raise FreshBaselineError(
             "fresh-baseline output path is outside the fixed namespace"
         )
-    if path.exists() or path.is_symlink():
-        raise FreshBaselineError("refusing to clobber fresh-baseline receipt")
     payload = _canonical(dict(value))
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o400)
+    parent_fd = _direct_output_parent(path, create=True)
     try:
-        os.write(fd, payload)
-        os.fchmod(fd, 0o400)
-        os.fsync(fd)
+        try:
+            descriptor = os.open(
+                path.name,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | os.O_NOFOLLOW
+                | os.O_CLOEXEC,
+                0o400,
+                dir_fd=parent_fd,
+            )
+        except FileExistsError as exc:
+            raise FreshBaselineError(
+                "refusing to clobber fresh-baseline receipt"
+            ) from exc
+        try:
+            os.fchmod(descriptor, 0o400)
+            offset = 0
+            while offset < len(payload):
+                try:
+                    written = os.write(descriptor, payload[offset:])
+                except InterruptedError:
+                    continue
+                if written <= 0:
+                    raise FreshBaselineError(
+                        "fresh-baseline output write did not progress"
+                    )
+                offset += written
+            os.fsync(descriptor)
+            info = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or stat.S_IMODE(info.st_mode) != 0o400
+                or info.st_uid != os.getuid()
+                or info.st_nlink != 1
+                or info.st_size != len(payload)
+            ):
+                raise FreshBaselineError(
+                    "published fresh-baseline identity differs"
+                )
+        finally:
+            os.close(descriptor)
+        os.fsync(parent_fd)
     finally:
-        os.close(fd)
-    dir_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
-    try:
-        os.fsync(dir_fd)
-    finally:
-        os.close(dir_fd)
-    _stable(path, "published fresh baseline", maximum=max(len(payload), 1), mode=0o400, nlink=1)
+        os.close(parent_fd)
+    if _direct_output_payload(path, "published fresh baseline") != payload:
+        raise FreshBaselineError("published fresh baseline changed after reopen")
     return _identity(payload)
 
 

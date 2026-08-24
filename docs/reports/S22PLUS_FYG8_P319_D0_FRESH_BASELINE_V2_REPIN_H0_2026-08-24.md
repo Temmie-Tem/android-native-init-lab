@@ -195,3 +195,32 @@ The repaired focused split is `29/29 + 14/14 + 14/14 = 57/57`; the current
 broad selector is 731 tests. Raw, prerequisite and integration receipts
 independently regenerate byte-identically and topic 43 remains open. Broad
 was not rerun; no predecessor broad result validates this repair.
+
+## Append-only direct-output-namespace correction — 2026-08-24 16:44:00Z
+
+A fourth independent review replaced the fixed output parent with a symlink.
+The predecessor's lexical path equality still held, while path-based
+`mkdir`/`chmod`/`open`/`fsync` followed the link and wrote or validated an
+external `result.json`.
+
+The final reducer traverses the output parent from `/` one component at a time
+using directory fds opened with `O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC`. Missing
+components are created only with `mkdirat` below a verified parent fd and then
+reopened nofollow. The final parent must be a direct current-uid `0700`
+directory. Publication uses exclusive nofollow `openat`, a complete write loop
+that retries `InterruptedError` and rejects zero progress, file fsync plus exact
+regular/mode/link/owner/size checks, parent-fd fsync, and a fresh direct-chain
+reopen whose bytes must equal the payload. Validation uses the same parent-fd
+and final-fd stable read before parsing JSON.
+
+Hostile tests prove a symlinked parent creates no external file, a preexisting
+external canonical file cannot validate, partial writes complete exactly, and
+zero-progress writes fail closed. The fixed direct parent remains the positive
+control. The fixed-path repair's reducer `56272B/0658ca30` and binding
+`14251B/b0cc446f` remain unreviewed predecessors. The final reducer is
+`62093B/12aa83bfae64fb9b0589ad0c3cba79e2f6ca2029cdb28f7e6446edee0bf7cf1c`;
+the canonical review-pending binding is
+`14251B/bc3b44bc603cad83e58662e8ae613a61348397b59b22f35d7c987e1838cd84cd`.
+Focused remains `57/57`; the broad selector remains 731 because the hostile
+cases extend the existing path-boundary test. Retained receipts independently
+regenerate byte-identically, topic 43 remains open, and broad was not rerun.

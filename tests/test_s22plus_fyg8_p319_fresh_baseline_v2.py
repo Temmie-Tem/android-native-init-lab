@@ -316,6 +316,62 @@ class P319FreshBaselineV2Test(unittest.TestCase):
                 ):
                     self.reducer.publish_exclusive(alternate_out, {})
 
+                real_write = os.write
+                partial_out = root / "partial-parent" / "result.json"
+                calls = {"count": 0}
+
+                def partial_write(descriptor, payload):
+                    calls["count"] += 1
+                    if calls["count"] == 1:
+                        raise InterruptedError
+                    if calls["count"] == 2:
+                        return real_write(descriptor, payload[:1])
+                    return real_write(descriptor, payload)
+
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", partial_out
+                ), mock.patch.object(
+                    self.reducer.os, "write", side_effect=partial_write
+                ):
+                    self.reducer.publish_exclusive(partial_out, {})
+                self.assertGreaterEqual(calls["count"], 3)
+                self.assertEqual(
+                    partial_out.read_bytes(), self.reducer._canonical({})
+                )
+
+                zero_out = root / "zero-parent" / "result.json"
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", zero_out
+                ), mock.patch.object(
+                    self.reducer.os, "write", return_value=0
+                ):
+                    with self.assertRaisesRegex(
+                        self.reducer.FreshBaselineError, "did not progress"
+                    ):
+                        self.reducer.publish_exclusive(zero_out, {})
+
+                outside = root / "outside"
+                outside.mkdir(mode=0o700)
+                indirect_parent = root / "indirect-parent"
+                indirect_parent.symlink_to(outside, target_is_directory=True)
+                indirect_out = indirect_parent / "result.json"
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", indirect_out
+                ):
+                    with self.assertRaises(self.reducer.FreshBaselineError):
+                        self.reducer.publish_exclusive(indirect_out, {})
+                    self.assertFalse((outside / "result.json").exists())
+                    (outside / "result.json").write_bytes(
+                        self.reducer._canonical({})
+                    )
+                    (outside / "result.json").chmod(0o400)
+                    with mock.patch.object(
+                        self.reducer, "normalize"
+                    ) as normalize:
+                        with self.assertRaises(self.reducer.FreshBaselineError):
+                            self.reducer.validate_published_result(indirect_out)
+                        normalize.assert_not_called()
+
                 cli_out = root / "cli-alternate.json"
                 with mock.patch.object(
                     self.reducer, "normalize", return_value={}
@@ -424,7 +480,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(result["live_authorized"])
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
-        self.assertIn("b0cc446f5cb9861d1f91a03b375e8eb917da3cd2fbf1c9d8800d1852abe9dfed", report)
+        self.assertIn("bc3b44bc603cad83e58662e8ae613a61348397b59b22f35d7c987e1838cd84cd", report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -469,6 +525,19 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             path_action,
         )
         self.assertNotIn("PASS_GO", path_action)
+        direct_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-direct-output-namespace-repair-43 | "
+            in line
+        ]
+        self.assertEqual(len(direct_rows), 1)
+        direct_action = direct_rows[0].split(" | ")[4]
+        self.assertIn(
+            "DIRECT_OUTPUT_NAMESPACE_REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION",
+            direct_action,
+        )
+        self.assertNotIn("PASS_GO", direct_action)
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)
