@@ -1160,7 +1160,7 @@ def validate_published_result(path: Path) -> dict[str, Any]:
         raise FreshBaselineError(
             "published fresh-baseline path is outside the fixed namespace"
         )
-    payload, initial_node = _direct_output_snapshot(
+    payload, initial_node, initial_parent = _direct_output_snapshot(
         path, "published fresh baseline"
     )
     try:
@@ -1190,10 +1190,14 @@ def validate_published_result(path: Path) -> dict[str, Any]:
     if value != expected:
         raise FreshBaselineError("published fresh baseline is not the deterministic reduction of its inputs")
     result = validate_result(expected)
-    final_payload, final_node = _direct_output_snapshot(
+    final_payload, final_node, final_parent = _direct_output_snapshot(
         path, "published fresh baseline final reopen"
     )
-    if final_payload != payload or final_node != initial_node:
+    if (
+        final_payload != payload
+        or final_node != initial_node
+        or final_parent != initial_parent
+    ):
         raise FreshBaselineError(
             "published fresh baseline changed during validation"
         )
@@ -1253,6 +1257,35 @@ def _direct_output_parent(path: Path, *, create: bool) -> int:
         raise
 
 
+def _node_identity(item: os.stat_result) -> tuple[int, ...]:
+    return (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_nlink,
+        item.st_uid,
+        item.st_gid,
+        item.st_size,
+        item.st_mtime_ns,
+        item.st_ctime_ns,
+    )
+
+
+def _node_core_identity(item: os.stat_result) -> tuple[int, ...]:
+    return (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_uid,
+        item.st_gid,
+        item.st_size,
+    )
+
+
+def _parent_identity(item: os.stat_result) -> tuple[int, int]:
+    return (item.st_dev, item.st_ino)
+
+
 def _output_entry_snapshot(
     parent_fd: int, name: str, label: str, *, maximum: int = 4 * 1024 * 1024
 ) -> tuple[bytes, tuple[int, ...]]:
@@ -1291,25 +1324,14 @@ def _output_entry_snapshot(
         current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
     finally:
         os.close(descriptor)
-    identity = lambda item: (
-        item.st_dev,
-        item.st_ino,
-        item.st_mode,
-        item.st_nlink,
-        item.st_uid,
-        item.st_gid,
-        item.st_size,
-        item.st_mtime_ns,
-        item.st_ctime_ns,
-    )
     payload = b"".join(chunks)
     if (
-        identity(before) != identity(inside)
-        or identity(inside) != identity(current)
+        _node_identity(before) != _node_identity(inside)
+        or _node_identity(inside) != _node_identity(current)
         or len(payload) != before.st_size
     ):
         raise FreshBaselineError(f"{label} changed while reading")
-    return payload, identity(before)
+    return payload, _node_identity(before)
 
 
 def _output_entry_payload(
@@ -1322,10 +1344,11 @@ def _output_entry_payload(
 
 def _direct_output_snapshot(
     path: Path, label: str
-) -> tuple[bytes, tuple[int, ...]]:
+) -> tuple[bytes, tuple[int, ...], tuple[int, int]]:
     parent_fd = _direct_output_parent(path, create=False)
     try:
-        return _output_entry_snapshot(parent_fd, path.name, label)
+        payload, node = _output_entry_snapshot(parent_fd, path.name, label)
+        return payload, node, _parent_identity(os.fstat(parent_fd))
     finally:
         os.close(parent_fd)
 
@@ -1376,6 +1399,9 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
         os.close(parent_fd)
         raise FreshBaselineError("fresh-baseline staging name is too long")
     stage_owner: tuple[int, int] | None = None
+    complete_stage_identity: tuple[int, ...] | None = None
+    expected_final_identity: tuple[int, ...] | None = None
+    publication_parent_identity = _parent_identity(os.fstat(parent_fd))
     linked = False
     try:
         _output_entry_absent(
@@ -1432,11 +1458,13 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
                 )
         finally:
             os.close(descriptor)
+        staged_payload, reopened_stage_identity = _output_entry_snapshot(
+            parent_fd, stage_name, "fresh-baseline complete staging"
+        )
+        complete_stage_identity = _node_identity(info)
         if (
-            _output_entry_payload(
-                parent_fd, stage_name, "fresh-baseline complete staging"
-            )
-            != payload
+            staged_payload != payload
+            or reopened_stage_identity != complete_stage_identity
         ):
             raise FreshBaselineError(
                 "fresh-baseline staging changed after reopen"
@@ -1458,6 +1486,10 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
         final = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
         if (
             (staged.st_dev, staged.st_ino) != (final.st_dev, final.st_ino)
+            or (staged.st_dev, staged.st_ino)
+            != (complete_stage_identity[0], complete_stage_identity[1])
+            or _node_core_identity(staged) != _node_core_identity(info)
+            or _node_core_identity(final) != _node_core_identity(info)
             or not stat.S_ISREG(final.st_mode)
             or stat.S_IMODE(final.st_mode) != 0o400
             or final.st_uid != os.getuid()
@@ -1474,6 +1506,17 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
         _output_entry_absent(
             parent_fd, stage_name, "fresh-baseline retired staging output"
         )
+        expected_final = os.stat(
+            path.name, dir_fd=parent_fd, follow_symlinks=False
+        )
+        if (
+            _node_core_identity(expected_final) != _node_core_identity(info)
+            or expected_final.st_nlink != 1
+        ):
+            raise FreshBaselineError(
+                "fresh-baseline retired publication identity differs"
+            )
+        expected_final_identity = _node_identity(expected_final)
     except BaseException:
         if stage_owner is not None and not linked:
             try:
@@ -1483,7 +1526,14 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
         raise
     finally:
         os.close(parent_fd)
-    if _direct_output_payload(path, "published fresh baseline") != payload:
+    final_payload, final_identity, final_parent_identity = (
+        _direct_output_snapshot(path, "published fresh baseline")
+    )
+    if (
+        final_payload != payload
+        or final_identity != expected_final_identity
+        or final_parent_identity != publication_parent_identity
+    ):
         raise FreshBaselineError("published fresh baseline changed after reopen")
     return _identity(payload)
 

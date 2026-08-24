@@ -260,3 +260,33 @@ the canonical review-pending binding is
 Focused remains `57/57`, the broad selector remains 731, retained receipts
 independently regenerate byte-identically, topic 43 stays open and broad was
 not rerun.
+
+## Append-only publication-inode-continuity correction — 2026-08-24 17:15:49Z
+
+A sixth independent review replaced the complete staging name with an
+identical-byte new inode immediately before link, and separately replaced the
+complete final with an identical-byte new inode immediately before the last
+reopen. The predecessor compared stage with final only after link and compared
+only bytes at the last reopen, so both races could report success.
+
+The final reducer retains the complete original staging descriptor identity.
+Its pre-link stable reopen must match that identity exactly. After hard link,
+stage and final must share the original device/inode and core metadata with
+link count two. After stage unlink, final must retain the original core with
+link count one; that full expected identity is captured. The last direct
+reopen must match exact payload, expected final identity, and the final-parent
+device/inode captured when publication began. Published-result validation also
+compares initial/final bytes, file identity and final-parent identity across
+normalization.
+
+Hostile tests replace stage before link, final before reopen, and the complete
+parent directory before reopen while preserving bytes. All fail closed; the
+normal atomic path still succeeds. The atomic-publication repair's reducer
+`66217B/cd4aa54e` and binding `14251B/e41d40fa` remain unreviewed predecessors.
+The final reducer is
+`68081B/60ab41da22c11775e4b98204165c6f16fbf78cb8432e3b5787371a12f4ec4a66`;
+the canonical review-pending binding is
+`14251B/42e7d146855dc573218ad69701d0582a39963406d2f263b981f04d43a0d65ad3`.
+Focused remains `57/57`, broad selector remains 731, retained receipts
+independently regenerate byte-identically, topic 43 stays open and broad was
+not rerun.

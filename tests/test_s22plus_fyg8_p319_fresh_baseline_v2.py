@@ -387,6 +387,78 @@ class P319FreshBaselineV2Test(unittest.TestCase):
                         self.reducer.validate_published_result(error_out)
                     normalize.assert_not_called()
 
+                stage_race_out = root / "stage-race-parent" / "result.json"
+                real_link = os.link
+
+                def replace_stage_before_link(source, destination, **kwargs):
+                    stage_path = stage_race_out.parent / source
+                    replacement = stage_race_out.parent / "replacement-stage"
+                    replacement.write_bytes(stage_path.read_bytes())
+                    replacement.chmod(0o400)
+                    os.replace(replacement, stage_path)
+                    return real_link(source, destination, **kwargs)
+
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", stage_race_out
+                ), mock.patch.object(
+                    self.reducer.os,
+                    "link",
+                    side_effect=replace_stage_before_link,
+                ):
+                    with self.assertRaisesRegex(
+                        self.reducer.FreshBaselineError,
+                        "linked publication identity differs",
+                    ):
+                        self.reducer.publish_exclusive(stage_race_out, {})
+                self.assertTrue(stage_race_out.exists())
+                self.assertEqual(stage_race_out.stat().st_nlink, 2)
+
+                final_race_out = root / "final-race-parent" / "result.json"
+                direct_snapshot = self.reducer._direct_output_snapshot
+
+                def replace_final_before_reopen(path, label):
+                    replacement = path.parent / "replacement-final"
+                    replacement.write_bytes(self.reducer._canonical({}))
+                    replacement.chmod(0o400)
+                    os.replace(replacement, path)
+                    return direct_snapshot(path, label)
+
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", final_race_out
+                ), mock.patch.object(
+                    self.reducer,
+                    "_direct_output_snapshot",
+                    side_effect=replace_final_before_reopen,
+                ):
+                    with self.assertRaisesRegex(
+                        self.reducer.FreshBaselineError,
+                        "changed after reopen",
+                    ):
+                        self.reducer.publish_exclusive(final_race_out, {})
+
+                parent_race_out = root / "parent-race" / "result.json"
+
+                def replace_parent_before_reopen(path, label):
+                    old_parent = root / "parent-race-old"
+                    path.parent.rename(old_parent)
+                    path.parent.mkdir(mode=0o700)
+                    path.write_bytes((old_parent / path.name).read_bytes())
+                    path.chmod(0o400)
+                    return direct_snapshot(path, label)
+
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", parent_race_out
+                ), mock.patch.object(
+                    self.reducer,
+                    "_direct_output_snapshot",
+                    side_effect=replace_parent_before_reopen,
+                ):
+                    with self.assertRaisesRegex(
+                        self.reducer.FreshBaselineError,
+                        "changed after reopen",
+                    ):
+                        self.reducer.publish_exclusive(parent_race_out, {})
+
                 replace_out = root / "replace-parent" / "result.json"
                 with mock.patch.object(
                     self.reducer, "DEFAULT_OUT", replace_out
@@ -545,7 +617,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(result["live_authorized"])
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
-        self.assertIn("e41d40fa730f3ecb459ca8e6ac06d495e03772a2158aab4399ff34a1fa40ce2b", report)
+        self.assertIn("42e7d146855dc573218ad69701d0582a39963406d2f263b981f04d43a0d65ad3", report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -616,6 +688,19 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             atomic_action,
         )
         self.assertNotIn("PASS_GO", atomic_action)
+        continuity_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-publication-inode-continuity-repair-43 | "
+            in line
+        ]
+        self.assertEqual(len(continuity_rows), 1)
+        continuity_action = continuity_rows[0].split(" | ")[4]
+        self.assertIn(
+            "PUBLICATION_INODE_CONTINUITY_REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION",
+            continuity_action,
+        )
+        self.assertNotIn("PASS_GO", continuity_action)
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)
