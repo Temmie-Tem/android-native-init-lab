@@ -168,3 +168,30 @@ current broad selector is 730 tests. Raw, prerequisite and integration
 receipts independently regenerate byte-identically; topic 43 remains open.
 Broad was not rerun, so neither predecessor broad result is claimed as
 validation of this cross-binding repair.
+
+## Append-only fixed-result-path correction — 2026-08-24 16:26:00Z
+
+A third independent review copied the complete canonical D0 result to another
+direct regular `0400`/single-link path. All nested journal paths still named
+the fixed producer namespace, but caller-selected `--d0` supplied the copied
+path and the reducer accepted it, recording that arbitrary copy as the
+normalized D0 receipt.
+
+The reducer now passes the actual D0 input path into `_validate_d0`, whose
+first gate requires an absolute path exactly equal to `DEFAULT_D0`. Canonical
+alternate copies, symlinks and relative aliases are rejected. A symmetry audit
+applies the same absolute-exact gate to D1 input, normalized publication
+validation and exclusive output publication. CLI `--d0` and `--out` remain
+parseable for compatibility but cannot escape those semantic gates; alternate
+output is rejected before a file is created. Tests retain a normal fixed D0
+fixture as the positive control.
+
+The cross-binding repair's reducer `55631B/13496eba` and binding
+`14251B/151c2f1a` remain unreviewed predecessors. The final reducer is
+`56272B/0658ca3094ccaa1929cbb1d85512d732adb82c66dd19cb8d2af2dbebd43e91ab`;
+the canonical review-pending binding is
+`14251B/b0cc446f5cb9861d1f91a03b375e8eb917da3cd2fbf1c9d8800d1852abe9dfed`.
+The repaired focused split is `29/29 + 14/14 + 14/14 = 57/57`; the current
+broad selector is 731 tests. Raw, prerequisite and integration receipts
+independently regenerate byte-identically and topic 43 remains open. Broad
+was not rerun; no predecessor broad result validates this repair.

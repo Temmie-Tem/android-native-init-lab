@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -269,6 +270,100 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         with self.assertRaises(self.reducer.FreshBaselineError):
             self.validate_fixture(helper, inputs, stop)
 
+    def test_d1_d0_and_published_receipt_paths_are_exact_and_cli_closed(self):
+        helper, _inputs, value = self.d1_fixture()
+        self.addCleanup(helper.doCleanups)
+        fixed_d1 = helper.module.RUN_DIR / "result.json"
+        alternate_d1 = helper.module.RUN_DIR.parent / "alternate-d1.json"
+        alternate_d1.write_bytes(fixed_d1.read_bytes())
+        alternate_d1.chmod(0o400)
+        relative_d1 = Path(os.path.relpath(fixed_d1, Path.cwd()))
+        with mock.patch.object(self.reducer, "DEFAULT_D1", fixed_d1):
+            for rejected in (alternate_d1, relative_d1):
+                with self.assertRaisesRegex(
+                    self.reducer.FreshBaselineError,
+                    "outside the fixed namespace",
+                ):
+                    self.reducer._validate_d1(
+                        value, {}, {}, {}, rejected
+                    )
+
+        with tempfile.TemporaryDirectory(prefix="p319-fixed-output-") as name:
+            root = Path(name).resolve()
+            fixed_out = root / "fresh-baseline.json"
+            alternate_out = root / "alternate-fresh-baseline.json"
+            with mock.patch.object(self.reducer, "DEFAULT_OUT", fixed_out):
+                self.reducer.publish_exclusive(fixed_out, {})
+                with mock.patch.object(
+                    self.reducer, "normalize", return_value={}
+                ), mock.patch.object(
+                    self.reducer, "validate_result", return_value={}
+                ):
+                    accepted = self.reducer.validate_published_result(fixed_out)
+                self.assertTrue(accepted["authoritative"])
+                alternate_out.write_bytes(fixed_out.read_bytes())
+                alternate_out.chmod(0o400)
+                with mock.patch.object(self.reducer, "normalize") as normalize:
+                    with self.assertRaisesRegex(
+                        self.reducer.FreshBaselineError,
+                        "outside the fixed namespace",
+                    ):
+                        self.reducer.validate_published_result(alternate_out)
+                    normalize.assert_not_called()
+                with self.assertRaisesRegex(
+                    self.reducer.FreshBaselineError,
+                    "outside the fixed namespace",
+                ):
+                    self.reducer.publish_exclusive(alternate_out, {})
+
+                cli_out = root / "cli-alternate.json"
+                with mock.patch.object(
+                    self.reducer, "normalize", return_value={}
+                ):
+                    self.assertEqual(
+                        self.reducer.main(
+                            [
+                                "--d1", str(fixed_d1),
+                                "--d0", str(self.reducer.DEFAULT_D0),
+                                "--out", str(cli_out),
+                            ]
+                        ),
+                        2,
+                    )
+                self.assertFalse(cli_out.exists())
+
+            fixed_d0 = root / "fixed-d0.json"
+            alternate_d0 = root / "alternate-d0.json"
+            with mock.patch.multiple(
+                self.reducer,
+                DEFAULT_D1=fixed_d1,
+                DEFAULT_D0=fixed_d0,
+                DEFAULT_OUT=fixed_out,
+            ), mock.patch.object(
+                self.reducer, "_profile", return_value={}
+            ), mock.patch.object(
+                self.reducer, "_baseline_design_identity", return_value={}
+            ), mock.patch.object(
+                self.reducer, "_current_candidate_identity", return_value={}
+            ), mock.patch.object(
+                self.reducer, "_json", side_effect=[({}, {}), ({}, {})]
+            ), mock.patch.object(
+                self.reducer, "_validate_d1", return_value={}
+            ), mock.patch.object(
+                self.reducer, "publish_exclusive"
+            ) as publish:
+                self.assertEqual(
+                    self.reducer.main(
+                        [
+                            "--d1", str(fixed_d1),
+                            "--d0", str(alternate_d0),
+                            "--out", str(fixed_out),
+                        ]
+                    ),
+                    2,
+                )
+                publish.assert_not_called()
+
     def test_d1_v2_namespace_extra_hardlink_and_symlink_reject(self):
         for mutation in ("extra", "hardlink", "symlink"):
             helper, inputs, value = self.d1_fixture()
@@ -329,7 +424,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(result["live_authorized"])
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
-        self.assertIn("151c2f1a9bb9752260e48b4b015e0265142358bc1801639e6d0cae5fb6843386", report)
+        self.assertIn("b0cc446f5cb9861d1f91a03b375e8eb917da3cd2fbf1c9d8800d1852abe9dfed", report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -361,6 +456,19 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             cross_action,
         )
         self.assertNotIn("PASS_GO", cross_action)
+        path_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-fixed-result-path-repair-43 | "
+            in line
+        ]
+        self.assertEqual(len(path_rows), 1)
+        path_action = path_rows[0].split(" | ")[4]
+        self.assertIn(
+            "FIXED_RESULT_PATH_REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION",
+            path_action,
+        )
+        self.assertNotIn("PASS_GO", path_action)
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)

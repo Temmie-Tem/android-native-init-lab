@@ -366,10 +366,33 @@ class P319D0FreshBaselineV2Test(unittest.TestCase):
             self.d0._prepare_snapshot(inputs["adb_payload"], paths["snapshot"])
         validated, payload, _adapter, _adapter_payload = self.reducer._validate_d0(
             result, inputs["baseline_design"], d1, inputs["candidate"],
-            self.reducer._profile(),
+            self.reducer._profile(), paths["result"],
         )
         self.assertEqual(len(payload), self.d0.RAW_SIZE)
         self.assertEqual(validated["result"], result)
+        alternate = _root / "alternate-result.json"
+        alternate.write_bytes(paths["result"].read_bytes())
+        alternate.chmod(0o400)
+        self.assertEqual(alternate.read_bytes(), paths["result"].read_bytes())
+        self.assertEqual(result["journal"]["result"]["path"], self.d0._relative(paths["result"]))
+        with self.assertRaisesRegex(
+            self.reducer.FreshBaselineError, "outside the fixed namespace"
+        ):
+            self.reducer._validate_d0(
+                result, inputs["baseline_design"], d1, inputs["candidate"],
+                self.reducer._profile(), alternate,
+            )
+        indirect = _root / "result-link.json"
+        indirect.symlink_to(paths["result"])
+        relative = Path(os.path.relpath(paths["result"], Path.cwd()))
+        for rejected in (indirect, relative):
+            with self.assertRaisesRegex(
+                self.reducer.FreshBaselineError, "outside the fixed namespace"
+            ):
+                self.reducer._validate_d0(
+                    result, inputs["baseline_design"], d1,
+                    inputs["candidate"], self.reducer._profile(), rejected,
+                )
 
     def test_producer_reducer_target_and_initial_health_parity(self):
         for mutation in (
@@ -377,7 +400,7 @@ class P319D0FreshBaselineV2Test(unittest.TestCase):
             "initial-boot", "usb-extra", "host-extra",
         ):
             with self.subTest(mutation=mutation):
-                _root, _paths, inputs, d1 = self.prepare(pass_go=True)
+                _root, paths, inputs, d1 = self.prepare(pass_go=True)
                 result, _client = self.execute(inputs, d1)
                 value = copy.deepcopy(result)
                 row = value["target_evidence"]["targets"][0]
@@ -402,10 +425,11 @@ class P319D0FreshBaselineV2Test(unittest.TestCase):
                     self.reducer._validate_d0(
                         value, inputs["baseline_design"], d1,
                         inputs["candidate"], self.reducer._profile(),
+                        paths["result"],
                     )
 
     def test_properties_root_then_usb_and_final_usb_is_last_live_observation(self):
-        _root, _paths, inputs, d1 = self.prepare(pass_go=True)
+        _root, paths, inputs, d1 = self.prepare(pass_go=True)
         client = FakeClient(
             None, None,
             {"health": d1["health"], "boot_id": d1["boot_id"]},
@@ -523,7 +547,7 @@ class P319D0FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(marker.exists())
 
     def test_reducer_rejects_binding_approval_and_journal_mutations(self):
-        _root, _paths, inputs, d1 = self.prepare(pass_go=True)
+        _root, paths, inputs, d1 = self.prepare(pass_go=True)
         result, _client = self.execute(inputs, d1)
         for mutation in ("manifest", "approval", "journal"):
             with self.subTest(mutation=mutation):
@@ -538,6 +562,7 @@ class P319D0FreshBaselineV2Test(unittest.TestCase):
                     self.reducer._validate_d0(
                         value, inputs["baseline_design"], d1,
                         inputs["candidate"], self.reducer._profile(),
+                        paths["result"],
                     )
 
     def test_other_target_is_never_commanded(self):
@@ -631,6 +656,7 @@ class P319D0FreshBaselineV2Test(unittest.TestCase):
                     self.reducer._validate_d0(
                         result, inputs["baseline_design"], d1,
                         inputs["candidate"], self.reducer._profile(),
+                        paths["result"],
                     )
 
     def test_initial_command_failure_stop_preserves_complete_raw_handle(self):

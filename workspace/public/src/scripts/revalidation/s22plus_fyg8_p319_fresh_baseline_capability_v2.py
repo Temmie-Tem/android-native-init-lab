@@ -537,7 +537,10 @@ def _validate_d1(
     result_path: Path,
 ) -> dict[str, Any]:
     del candidate
-    if result_path.absolute() != DEFAULT_D1.absolute():
+    if (
+        result_path != result_path.absolute()
+        or result_path != DEFAULT_D1.absolute()
+    ):
         raise FreshBaselineError("D1 V2 result path is outside the fixed namespace")
     if not isinstance(value, dict):
         raise FreshBaselineError("D1 V2 result is not an object")
@@ -842,7 +845,12 @@ def _d0_execution_binding(
     )
 
 
-def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candidate: dict[str, Any], profile: dict[str, Any]) -> tuple[dict[str, Any], bytes, Any, bytes]:
+def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candidate: dict[str, Any], profile: dict[str, Any], result_path: Path) -> tuple[dict[str, Any], bytes, Any, bytes]:
+    if (
+        result_path != result_path.absolute()
+        or result_path != DEFAULT_D0.absolute()
+    ):
+        raise FreshBaselineError("D0 result path is outside the fixed namespace")
     item = _exact(value, {
         "schema", "version", "mode", "baseline_design_id", "run_directory", "runtime", "binding", "journal", "target_evidence", "initial_health", "health", "observer", "raw_adb", "usb", "host_tool", "verdict", "device_contact", "device_writes", "reboot_requested", "download_transition_requested", "odin_invoked", "partition_transfer", "f1_authorized", "live_authorized", "candidate_marker_family_absent", "marker_residual",
     }, "D0 result")
@@ -1051,7 +1059,7 @@ def normalize(d1_path: Path, d0_path: Path) -> dict[str, Any]:
     d1 = _validate_d1(d1_value, design, candidate, profile, d1_path)
     d1["receipt"] = d1_identity
     d0, payload, adapter, adapter_payload = _validate_d0(
-        d0_value, design, d1, candidate, profile
+        d0_value, design, d1, candidate, profile, d0_path
     )
     try:
         decoded = adapter.classify_clean_baseline(
@@ -1148,6 +1156,10 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def validate_published_result(path: Path) -> dict[str, Any]:
+    if path != path.absolute() or path != DEFAULT_OUT.absolute():
+        raise FreshBaselineError(
+            "published fresh-baseline path is outside the fixed namespace"
+        )
     value, identity = _json(path, "published fresh baseline")
     # Do not trust any nested summary from the published reducer.  Reopen the
     # fixed D1/D0 producer results, their journal/raw handles, the current
@@ -1161,6 +1173,10 @@ def validate_published_result(path: Path) -> dict[str, Any]:
 
 
 def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
+    if path != path.absolute() or path != DEFAULT_OUT.absolute():
+        raise FreshBaselineError(
+            "fresh-baseline output path is outside the fixed namespace"
+        )
     if path.exists() or path.is_symlink():
         raise FreshBaselineError("refusing to clobber fresh-baseline receipt")
     payload = _canonical(dict(value))
