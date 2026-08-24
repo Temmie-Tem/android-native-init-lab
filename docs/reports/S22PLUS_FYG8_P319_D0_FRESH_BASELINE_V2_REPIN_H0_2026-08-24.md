@@ -106,3 +106,35 @@ V2 capability is not a current approval, and the absence of its result keeps
 D0 V2 unavailable. This unit creates no approval, arm, run, result, ready/run
 manifest, D0, D1, F1, recovery, replay, causal result, candidate success,
 device, ADB, USB, Odin or live authority and touches no A90 or S20+ state.
+
+## Append-only independent-review correction — 2026-08-24 15:40:13Z
+
+Independent review blocked the implementation tuple above. The reviewed D1
+V2 `_result_complete` predicate compared the result's direct arm/start
+receipts with the actual files, but did not apply `_arm_complete` or
+`_start_complete` to those files. A canonical `{"foreign":"arm"}` or
+`{"foreign":"start"}` replacement, accompanied by the matching updated
+result receipt, therefore passed that predicate and the predecessor reducer.
+
+The D1 V2 source and binding are unchanged. The repaired reducer now invokes
+the exact compiled D1 V2 `_journal_state` on the fixed arm and start paths,
+using `_arm_complete` and `_start_complete`, after `_result_complete` has read
+their direct receipts. Both states must be present, node-valid and
+bytes-complete, and each stable-reopened receipt must exactly equal the result.
+The hostile suite performs the actual foreign canonical replacements and
+updates the result receipts; both are rejected.
+
+The predecessor reducer `54126B/ea72adab` and binding `14251B/bda6b82d`
+remain unreviewed historical identities. The repaired reducer is
+`54939B/d6d4c766047b00475205a7ff945f254b5a2857409f13311352cfacf010028780`;
+the canonical review-pending binding is
+`14251B/4be15cba9afa7524fe90cf7f97d429e3a6e710d735fa557e7a287fe97386c667`.
+The D0 V2 producer remains byte-identical at `72288B/e1190b66`; therefore its
+active raw-first source identity and the `-06` receipt remain byte-identical.
+The prerequisite `-06` and deterministic blocked integration receipt also
+remain byte-identical after independent regeneration. Topic 43 remains the
+single open review obligation; the repair creates no PASS_GO or live authority.
+The repaired focused split is `29/29 + 12/12 + 14/14 = 55/55`; the added
+hostile regression makes the current broad selector 729 tests. The preceding
+728-test paragraph is the implementation predecessor result and is not
+retroactive validation of this repair.

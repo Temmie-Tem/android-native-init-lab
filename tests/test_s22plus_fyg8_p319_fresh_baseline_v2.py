@@ -192,6 +192,36 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             finally:
                 helper.doCleanups()
 
+    def test_foreign_canonical_arm_or_start_with_matching_result_receipt_rejects(self):
+        for journal_name in ("arm", "start"):
+            helper, inputs, value = self.d1_fixture()
+            try:
+                journal = (
+                    helper.module.RUN_ARM
+                    if journal_name == "arm"
+                    else helper.module.RUN_DIR / "start.json"
+                )
+                journal.chmod(0o600)
+                journal.write_bytes(helper.module.canonical({"foreign": journal_name}))
+                journal.chmod(0o400)
+                changed = copy.deepcopy(value)
+                changed[journal_name] = helper.module._direct_receipt(
+                    journal, f"foreign {journal_name}"
+                )
+                result_path = helper.module.RUN_DIR / "result.json"
+                result_path.chmod(0o600)
+                result_path.write_bytes(helper.module.canonical(changed))
+                result_path.chmod(0o400)
+
+                # The reviewed D1 result predicate binds the direct receipt but
+                # does not itself apply the arm/start semantic predicates.  The
+                # D0 reducer must apply those predicates to the reopened files.
+                self.assertTrue(helper.module._result_complete(changed, inputs))
+                with self.assertRaises(self.reducer.FreshBaselineError):
+                    self.validate_fixture(helper, inputs, changed)
+            finally:
+                helper.doCleanups()
+
     def test_v1_result_and_v2_stop_cannot_substitute_for_d1_v2_success(self):
         helper, inputs, value = self.d1_fixture()
         self.addCleanup(helper.doCleanups)
@@ -266,7 +296,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(result["live_authorized"])
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
-        self.assertIn("bda6b82d9689b8968edc9cd2b7b0190c75bef9629b3a3f24443e7096ebb7cd55", report)
+        self.assertIn("4be15cba9afa7524fe90cf7f97d429e3a6e710d735fa557e7a287fe97386c667", report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -276,6 +306,15 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertIn("_IMPLEMENTED_REVIEW_PENDING", rows[0])
         self.assertNotIn("PASS_GO", rows[0])
+        repair_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-repair-43 | " in line
+        ]
+        self.assertEqual(len(repair_rows), 1)
+        repair_action = repair_rows[0].split(" | ")[4]
+        self.assertIn("REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION", repair_action)
+        self.assertNotIn("PASS_GO", repair_action)
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)

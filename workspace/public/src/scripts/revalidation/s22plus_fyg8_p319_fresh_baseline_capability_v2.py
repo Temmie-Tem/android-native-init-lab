@@ -548,6 +548,18 @@ def _validate_d1(
         raise FreshBaselineError("D1 V2 result baseline design differs")
     try:
         complete = module._result_complete(value, inputs)
+        arm_state = module._journal_state(
+            module.RUN_ARM,
+            "D0-consumed D1 V2 arm",
+            inputs,
+            module._arm_complete,
+        )
+        start_state = module._journal_state(
+            module.RUN_DIR / "start.json",
+            "D0-consumed D1 V2 start",
+            inputs,
+            module._start_complete,
+        )
         raw_evidence = module._raw_inventory(inputs["raw"])
     except BaseException as exc:
         raise FreshBaselineError(
@@ -555,6 +567,20 @@ def _validate_d1(
         ) from exc
     if complete is not True or raw_evidence.get("complete") is not True:
         raise FreshBaselineError("D1 V2 result is incomplete")
+    if arm_state != {
+        "present": True,
+        "node_valid": True,
+        "bytes_complete": True,
+        "receipt": value.get("arm"),
+    }:
+        raise FreshBaselineError("D1 V2 arm journal is not complete")
+    if start_state != {
+        "present": True,
+        "node_valid": True,
+        "bytes_complete": True,
+        "receipt": value.get("start"),
+    }:
+        raise FreshBaselineError("D1 V2 start journal is not complete")
     if value.get("raw_evidence") != raw_evidence:
         raise FreshBaselineError("D1 V2 raw evidence differs from fixed namespace")
     before = _health(value.get("before"), "D1 V2 before", profile)
