@@ -261,6 +261,42 @@ Focused remains `57/57`, the broad selector remains 731, retained receipts
 independently regenerate byte-identically, topic 43 stays open and broad was
 not rerun.
 
+## Append-only nameless-atomic-publication correction — 2026-08-24 17:31:41Z
+
+A seventh independent review demonstrated that no sequence of checks makes a
+named staging path race-free: a foreign inode could replace it immediately
+before unlink, or a new `.partial` child could appear immediately after an
+absence check. The predecessor could delete foreign state or return success
+with an extra child.
+
+The final reducer has no staging pathname. Its exact 1271-byte helper at SHA-256 `0387869a286a925669ef0125ffec0619495acac01782fd60b38eef8e1c1bc886` is pinned transitively in the reducer and kept outside the revalidation acquisition population; the raw-first detector is not relaxed. It opens an unnamed same-filesystem
+inode below the verified parent fd with `O_TMPFILE|O_RDWR|O_CLOEXEC` and never
+combines `O_TMPFILE` with `O_EXCL`. Unsupported `O_TMPFILE` or `linkat` stops
+with final absent; there is no named fallback. The unnamed descriptor receives
+the complete interruption-safe write, `0400`/current-uid/nlink-zero/size/fsync
+checks, and exact seek/read verification on that same fd. Narrow libc
+`linkat(tmpfd, "", parentfd, final, AT_EMPTY_PATH)` atomically publishes that
+inode without replacement. Final device/inode/core must match the unnamed fd
+with link count one, parent fsync follows, the parent child set must be exactly
+the final name, and the last direct snapshot must match payload, final identity
+and parent identity.
+
+Tests assert `.result.json.partial` never exists and the successful parent has
+only final. Injected unsupported `O_TMPFILE`, linkat error and EEXIST all fail
+closed; zero/partial/error writes plus final/parent replacement and all prior
+regressions remain covered. The actual workspace filesystem passed a bounded
+host-only `O_TMPFILE + AT_EMPTY_PATH` probe; absence on another filesystem is a
+blocker, not permission to fall back.
+
+The inode-continuity repair's reducer `68081B/60ab41da` and binding
+`14251B/42e7d146` remain unreviewed predecessors. The final reducer is
+`68400B/241c216e85d5644899d54702a318b5bc3b6db9b39f12d9cc79f8d8796fc0a9cb`;
+the canonical review-pending binding is
+`14251B/f4ccb03ad38a44e0417f3150797ed9d4af9129dd67b2da33341d1589de4830cb`.
+Focused remains `57/57`, broad selector remains 731, retained receipts
+independently regenerate byte-identically, topic 43 stays open and broad was
+not rerun.
+
 ## Append-only publication-inode-continuity correction — 2026-08-24 17:15:49Z
 
 A sixth independent review replaced the complete staging name with an

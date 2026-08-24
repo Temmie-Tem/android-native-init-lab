@@ -16,6 +16,7 @@ Process-v2 manifest is created by this design-only unit.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -89,6 +90,14 @@ D0_RAW_RECEIPT = D0_RUN_DIR / "baseline-observer.capture.json"
 D0_RAW_ADB_DIR = D0_RUN_DIR / "raw-adb"
 D0_ADB_SNAPSHOT = D0_RUN_DIR / (
     "adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+)
+LINKAT_HELPER = ROOT / (
+    "workspace/public/src/scripts/h0/"
+    "s22plus_fyg8_p319_linkat_empty_path_v1.py"
+)
+LINKAT_HELPER_SIZE = 1_271
+LINKAT_HELPER_SHA256 = (
+    "0387869a286a925669ef0125ffec0619495acac01782fd60b38eef8e1c1bc886"
 )
 DEFAULT_D1 = RUN_DIR / "result.json"
 DEFAULT_D0 = D0_RUN_DIR / "result.json"
@@ -1347,6 +1356,10 @@ def _direct_output_snapshot(
 ) -> tuple[bytes, tuple[int, ...], tuple[int, int]]:
     parent_fd = _direct_output_parent(path, create=False)
     try:
+        if set(os.listdir(parent_fd)) != {path.name}:
+            raise FreshBaselineError(
+                "fresh-baseline output parent children differ"
+            )
         payload, node = _output_entry_snapshot(parent_fd, path.name, label)
         return payload, node, _parent_identity(os.fstat(parent_fd))
     finally:
@@ -1367,24 +1380,69 @@ def _output_entry_absent(parent_fd: int, name: str, label: str) -> None:
     raise FreshBaselineError(f"{label} already exists")
 
 
-def _cleanup_owned_stage(
-    parent_fd: int, name: str, owner_identity: tuple[int, int]
-) -> None:
-    """Remove only this invocation's unlinked regular staging inode."""
-
+def _open_unnamed_output(parent_fd: int) -> int:
     try:
-        current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-    except FileNotFoundError:
+        flag = os.O_TMPFILE
+    except AttributeError:
+        raise FreshBaselineError("O_TMPFILE is unavailable")
+    try:
+        return os.open(
+            ".",
+            flag | os.O_RDWR | os.O_CLOEXEC,
+            0o400,
+            dir_fd=parent_fd,
+        )
+    except OSError as exc:
+        raise FreshBaselineError("O_TMPFILE output staging is unavailable") from exc
+
+
+def _link_unnamed_output(
+    descriptor: int, parent_fd: int, final_name: str
+) -> None:
+    payload = _stable(
+        LINKAT_HELPER,
+        "P3.19 linkat helper",
+        maximum=16 * 1024,
+    )
+    if _identity(payload) != {
+        "size": LINKAT_HELPER_SIZE,
+        "sha256": LINKAT_HELPER_SHA256,
+    }:
+        raise FreshBaselineError("P3.19 linkat helper identity differs")
+    module = types.ModuleType("p319_bound_linkat_empty_path")
+    module.__file__ = str(LINKAT_HELPER)
+    module.__package__ = None
+    try:
+        initializer = types.FunctionType(
+            compile(
+                payload,
+                str(LINKAT_HELPER),
+                "exec",
+                dont_inherit=True,
+            ),
+            module.__dict__,
+        )
+        initializer()
+        result = module.link_fd_to_name(descriptor, parent_fd, final_name)
+    except BaseException as exc:
+        raise FreshBaselineError(
+            f"P3.19 linkat helper rejected: {type(exc).__name__}"
+        ) from exc
+    if _stable(
+        LINKAT_HELPER,
+        "post-call P3.19 linkat helper",
+        maximum=max(len(payload), 1),
+    ) != payload:
+        raise FreshBaselineError("P3.19 linkat helper changed during use")
+    if result == 0:
         return
-    if (
-        (current.st_dev, current.st_ino) != owner_identity
-        or not stat.S_ISREG(current.st_mode)
-        or current.st_uid != os.getuid()
-        or current.st_nlink != 1
-    ):
-        return
-    os.unlink(name, dir_fd=parent_fd)
-    os.fsync(parent_fd)
+    if type(result) is not int or result < 0:
+        raise FreshBaselineError("P3.19 linkat helper result differs")
+    if result == errno.EEXIST:
+        raise FreshBaselineError("refusing to clobber fresh-baseline receipt")
+    raise FreshBaselineError(
+        f"unnamed fresh-baseline publication failed with errno {result}"
+    )
 
 
 def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
@@ -1394,118 +1452,80 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
         )
     payload = _canonical(dict(value))
     parent_fd = _direct_output_parent(path, create=True)
-    stage_name = f".{path.name}.partial"
-    if len(os.fsencode(stage_name)) > 255:
-        os.close(parent_fd)
-        raise FreshBaselineError("fresh-baseline staging name is too long")
-    stage_owner: tuple[int, int] | None = None
-    complete_stage_identity: tuple[int, ...] | None = None
+    descriptor: int | None = None
     expected_final_identity: tuple[int, ...] | None = None
     publication_parent_identity = _parent_identity(os.fstat(parent_fd))
-    linked = False
     try:
+        if os.listdir(parent_fd):
+            raise FreshBaselineError(
+                "fresh-baseline output parent is not empty"
+            )
         _output_entry_absent(
             parent_fd, path.name, "fresh-baseline final output"
         )
-        _output_entry_absent(
-            parent_fd, stage_name, "fresh-baseline staging output"
-        )
-        try:
-            descriptor = os.open(
-                stage_name,
-                os.O_WRONLY
-                | os.O_CREAT
-                | os.O_EXCL
-                | os.O_NOFOLLOW
-                | os.O_CLOEXEC,
-                0o400,
-                dir_fd=parent_fd,
-            )
-        except FileExistsError as exc:
-            raise FreshBaselineError(
-                "refusing to clobber fresh-baseline staging receipt"
-            ) from exc
-        try:
-            os.fchmod(descriptor, 0o400)
-            initial = os.fstat(descriptor)
-            stage_owner = (initial.st_dev, initial.st_ino)
-            offset = 0
-            while offset < len(payload):
-                try:
-                    written = os.write(descriptor, payload[offset:])
-                except InterruptedError:
-                    continue
-                except OSError as exc:
-                    raise FreshBaselineError(
-                        "fresh-baseline staging write failed"
-                    ) from exc
-                if written <= 0:
-                    raise FreshBaselineError(
-                        "fresh-baseline staging write did not progress"
-                    )
-                offset += written
-            os.fsync(descriptor)
-            info = os.fstat(descriptor)
-            if (
-                not stat.S_ISREG(info.st_mode)
-                or stat.S_IMODE(info.st_mode) != 0o400
-                or info.st_uid != os.getuid()
-                or info.st_nlink != 1
-                or info.st_size != len(payload)
-            ):
+        descriptor = _open_unnamed_output(parent_fd)
+        os.fchmod(descriptor, 0o400)
+        offset = 0
+        while offset < len(payload):
+            try:
+                written = os.write(descriptor, payload[offset:])
+            except InterruptedError:
+                continue
+            except OSError as exc:
                 raise FreshBaselineError(
-                    "fresh-baseline staging identity differs"
+                    "fresh-baseline unnamed write failed"
+                ) from exc
+            if written <= 0:
+                raise FreshBaselineError(
+                    "fresh-baseline unnamed write did not progress"
                 )
-        finally:
-            os.close(descriptor)
-        staged_payload, reopened_stage_identity = _output_entry_snapshot(
-            parent_fd, stage_name, "fresh-baseline complete staging"
-        )
-        complete_stage_identity = _node_identity(info)
+            offset += written
+        os.fsync(descriptor)
+        info = os.fstat(descriptor)
         if (
-            staged_payload != payload
-            or reopened_stage_identity != complete_stage_identity
+            not stat.S_ISREG(info.st_mode)
+            or stat.S_IMODE(info.st_mode) != 0o400
+            or info.st_uid != os.getuid()
+            or info.st_nlink != 0
+            or info.st_size != len(payload)
         ):
             raise FreshBaselineError(
-                "fresh-baseline staging changed after reopen"
+                "fresh-baseline unnamed staging identity differs"
             )
-        try:
-            os.link(
-                stage_name,
-                path.name,
-                src_dir_fd=parent_fd,
-                dst_dir_fd=parent_fd,
-                follow_symlinks=False,
-            )
-        except FileExistsError as exc:
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        verified = bytearray()
+        while len(verified) < len(payload):
+            try:
+                chunk = os.read(descriptor, len(payload) - len(verified))
+            except InterruptedError:
+                continue
+            if not chunk:
+                break
+            verified.extend(chunk)
+        verified_info = os.fstat(descriptor)
+        if bytes(verified) != payload or _node_identity(verified_info) != _node_identity(info):
             raise FreshBaselineError(
-                "refusing to clobber fresh-baseline receipt"
-            ) from exc
-        linked = True
-        staged = os.stat(stage_name, dir_fd=parent_fd, follow_symlinks=False)
+                "fresh-baseline unnamed staging changed during verification"
+            )
+        _link_unnamed_output(descriptor, parent_fd, path.name)
         final = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
         if (
-            (staged.st_dev, staged.st_ino) != (final.st_dev, final.st_ino)
-            or (staged.st_dev, staged.st_ino)
-            != (complete_stage_identity[0], complete_stage_identity[1])
-            or _node_core_identity(staged) != _node_core_identity(info)
+            (final.st_dev, final.st_ino) != (info.st_dev, info.st_ino)
             or _node_core_identity(final) != _node_core_identity(info)
             or not stat.S_ISREG(final.st_mode)
             or stat.S_IMODE(final.st_mode) != 0o400
             or final.st_uid != os.getuid()
-            or staged.st_nlink != 2
-            or final.st_nlink != 2
+            or final.st_nlink != 1
             or final.st_size != len(payload)
         ):
             raise FreshBaselineError(
-                "fresh-baseline linked publication identity differs"
+                "fresh-baseline unnamed publication identity differs"
             )
         os.fsync(parent_fd)
-        os.unlink(stage_name, dir_fd=parent_fd)
-        os.fsync(parent_fd)
-        _output_entry_absent(
-            parent_fd, stage_name, "fresh-baseline retired staging output"
-        )
+        if set(os.listdir(parent_fd)) != {path.name}:
+            raise FreshBaselineError(
+                "fresh-baseline published parent children differ"
+            )
         expected_final = os.stat(
             path.name, dir_fd=parent_fd, follow_symlinks=False
         )
@@ -1517,14 +1537,9 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
                 "fresh-baseline retired publication identity differs"
             )
         expected_final_identity = _node_identity(expected_final)
-    except BaseException:
-        if stage_owner is not None and not linked:
-            try:
-                _cleanup_owned_stage(parent_fd, stage_name, stage_owner)
-            except OSError:
-                pass
-        raise
     finally:
+        if descriptor is not None:
+            os.close(descriptor)
         os.close(parent_fd)
     final_payload, final_identity, final_parent_identity = (
         _direct_output_snapshot(path, "published fresh baseline")

@@ -141,6 +141,13 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         )
         self.assertEqual(value["d1_dependency"]["result_schema"], self.reducer.D1_SCHEMA)
         self.assertEqual(value["d1_dependency"]["result_path"], self.d0._relative(self.d0.D1_RESULT))
+        helper = self.reducer.LINKAT_HELPER.read_bytes()
+        self.assertEqual(len(helper), self.reducer.LINKAT_HELPER_SIZE)
+        self.assertEqual(
+            hashlib.sha256(helper).hexdigest(),
+            self.reducer.LINKAT_HELPER_SHA256,
+        )
+        self.assertNotIn("/revalidation/", self.reducer.LINKAT_HELPER.as_posix())
 
     def test_current_missing_d1_v2_result_fails_closed_without_output(self):
         self.assertFalse(self.reducer.DEFAULT_D1.exists())
@@ -375,7 +382,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
                     self.reducer.os, "write", side_effect=one_byte_then_error
                 ):
                     with self.assertRaisesRegex(
-                        self.reducer.FreshBaselineError, "staging write failed"
+                        self.reducer.FreshBaselineError, "unnamed write failed"
                     ):
                         self.reducer.publish_exclusive(error_out, {})
                 self.assertEqual(error_calls["count"], 2)
@@ -387,31 +394,85 @@ class P319FreshBaselineV2Test(unittest.TestCase):
                         self.reducer.validate_published_result(error_out)
                     normalize.assert_not_called()
 
-                stage_race_out = root / "stage-race-parent" / "result.json"
-                real_link = os.link
-
-                def replace_stage_before_link(source, destination, **kwargs):
-                    stage_path = stage_race_out.parent / source
-                    replacement = stage_race_out.parent / "replacement-stage"
-                    replacement.write_bytes(stage_path.read_bytes())
-                    replacement.chmod(0o400)
-                    os.replace(replacement, stage_path)
-                    return real_link(source, destination, **kwargs)
-
+                nameless_out = root / "nameless-parent" / "result.json"
                 with mock.patch.object(
-                    self.reducer, "DEFAULT_OUT", stage_race_out
+                    self.reducer, "DEFAULT_OUT", nameless_out
                 ), mock.patch.object(
                     self.reducer.os,
                     "link",
-                    side_effect=replace_stage_before_link,
+                    side_effect=AssertionError("named link must not run"),
+                ), mock.patch.object(
+                    self.reducer.os,
+                    "unlink",
+                    side_effect=AssertionError("named unlink must not run"),
                 ):
-                    with self.assertRaisesRegex(
-                        self.reducer.FreshBaselineError,
-                        "linked publication identity differs",
-                    ):
-                        self.reducer.publish_exclusive(stage_race_out, {})
-                self.assertTrue(stage_race_out.exists())
-                self.assertEqual(stage_race_out.stat().st_nlink, 2)
+                    self.reducer.publish_exclusive(nameless_out, {})
+                self.assertEqual(
+                    {item.name for item in nameless_out.parent.iterdir()},
+                    {nameless_out.name},
+                )
+                self.assertFalse(
+                    (nameless_out.parent / f".{nameless_out.name}.partial").exists()
+                )
+
+                unsupported_out = root / "unsupported-parent" / "result.json"
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", unsupported_out
+                ), mock.patch.object(
+                    self.reducer,
+                    "_open_unnamed_output",
+                    side_effect=self.reducer.FreshBaselineError(
+                        "O_TMPFILE unavailable fixture"
+                    ),
+                ):
+                    with self.assertRaises(self.reducer.FreshBaselineError):
+                        self.reducer.publish_exclusive(unsupported_out, {})
+                self.assertFalse(unsupported_out.exists())
+
+                link_error_out = root / "link-error-parent" / "result.json"
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", link_error_out
+                ), mock.patch.object(
+                    self.reducer,
+                    "_link_unnamed_output",
+                    side_effect=self.reducer.FreshBaselineError(
+                        "linkat injected failure"
+                    ),
+                ):
+                    with self.assertRaises(self.reducer.FreshBaselineError):
+                        self.reducer.publish_exclusive(link_error_out, {})
+                self.assertFalse(link_error_out.exists())
+
+                link_race_out = root / "link-race-parent" / "result.json"
+                foreign = self.reducer._canonical({"foreign": True})
+
+                def inject_existing_final(_descriptor, parent_fd, final_name):
+                    injected = os.open(
+                        final_name,
+                        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                        0o400,
+                        dir_fd=parent_fd,
+                    )
+                    try:
+                        real_write(injected, foreign)
+                        os.fchmod(injected, 0o400)
+                        os.fsync(injected)
+                    finally:
+                        os.close(injected)
+                    raise self.reducer.FreshBaselineError(
+                        "linkat EEXIST fixture"
+                    )
+
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", link_race_out
+                ), mock.patch.object(
+                    self.reducer,
+                    "_link_unnamed_output",
+                    side_effect=inject_existing_final,
+                ):
+                    with self.assertRaises(self.reducer.FreshBaselineError):
+                        self.reducer.publish_exclusive(link_race_out, {})
+                self.assertEqual(link_race_out.read_bytes(), foreign)
 
                 final_race_out = root / "final-race-parent" / "result.json"
                 direct_snapshot = self.reducer._direct_output_snapshot
@@ -617,7 +678,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(result["live_authorized"])
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
-        self.assertIn("42e7d146855dc573218ad69701d0582a39963406d2f263b981f04d43a0d65ad3", report)
+        self.assertIn("f4ccb03ad38a44e0417f3150797ed9d4af9129dd67b2da33341d1589de4830cb", report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -701,6 +762,19 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             continuity_action,
         )
         self.assertNotIn("PASS_GO", continuity_action)
+        nameless_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-nameless-atomic-publication-repair-43 | "
+            in line
+        ]
+        self.assertEqual(len(nameless_rows), 1)
+        nameless_action = nameless_rows[0].split(" | ")[4]
+        self.assertIn(
+            "NAMELESS_ATOMIC_PUBLICATION_REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION",
+            nameless_action,
+        )
+        self.assertNotIn("PASS_GO", nameless_action)
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)
