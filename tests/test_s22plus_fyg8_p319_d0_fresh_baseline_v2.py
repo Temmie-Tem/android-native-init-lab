@@ -299,11 +299,11 @@ class P319D0FreshBaselineV2Test(unittest.TestCase):
         )
         return result, holder["client"]
 
-    def test_default_self_test_is_zero_device_and_review_pending(self):
+    def test_default_self_test_is_zero_device_and_pass_go_capability_only(self):
         value = self.d0.self_test()
         self.assertEqual(value["classification"], "ZERO_AMBIGUOUS")
         self.assertEqual(value["raw_bytes"], self.d0.RAW_SIZE)
-        self.assertEqual(value["review_status"], "review-pending")
+        self.assertEqual(value["review_status"], "pass-go")
         self.assertFalse(value["device_contact"])
         self.assertFalse(value["approval_created"])
 

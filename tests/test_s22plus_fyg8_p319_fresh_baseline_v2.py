@@ -27,6 +27,10 @@ INTEGRATION = SCRIPT_DIR / "s22plus_fyg8_p319_process_v2_integration_qualificati
 REPORT = ROOT / (
     "docs/reports/S22PLUS_FYG8_P319_D0_FRESH_BASELINE_V2_REPIN_H0_2026-08-24.md"
 )
+REVIEW_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_D0_FRESH_BASELINE_V2_INDEPENDENT_REVIEW_2026-08-25.md"
+)
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 V1_IDENTITIES = {
@@ -109,13 +113,36 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             payload = path.read_bytes()
             self.assertEqual((len(payload), hashlib.sha256(payload).hexdigest()), expected)
 
-    def test_binding_is_canonical_review_pending_and_binds_exact_d1_v2(self):
+    def test_binding_is_canonical_pass_go_and_preserves_pending_predecessor(self):
         payload = BINDING.read_bytes()
         value = json.loads(payload)
         self.assertEqual(payload, self.d0.canonical(value))
         self.assertEqual(
             value["independent_review"],
-            {"status": "review-pending", "verdict": None},
+            {
+                "status": "pass-go",
+                "verdict": self.d0.REVIEW_VERDICT,
+            },
+        )
+        self.assertEqual(
+            (len(payload), hashlib.sha256(payload).hexdigest()),
+            (
+                14292,
+                "440d96727c17729f4845ccec6fd31ee25966b2a4075a1f12ca50e7cd5db85a98",
+            ),
+        )
+        pending = copy.deepcopy(value)
+        pending["independent_review"] = {
+            "status": "review-pending",
+            "verdict": None,
+        }
+        pending_payload = self.d0.canonical(pending)
+        self.assertEqual(
+            (len(pending_payload), hashlib.sha256(pending_payload).hexdigest()),
+            (
+                14251,
+                "f4ccb03ad38a44e0417f3150797ed9d4af9129dd67b2da33341d1589de4830cb",
+            ),
         )
         self.assertEqual(value["schema"], self.d0.BINDING_SCHEMA)
         self.assertEqual(value["binding_id"], self.d0.BINDING_ID)
@@ -157,14 +184,17 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             self.reducer.normalize(self.reducer.DEFAULT_D1, self.reducer.DEFAULT_D0)
         self.assertFalse(self.reducer.DEFAULT_OUT.exists())
 
-    def test_review_pending_gate_blocks_before_execution_d1_or_arm(self):
+    def test_pass_go_capability_still_requires_fresh_operator_approval(self):
         static = self.d0._validated_static_inputs()
-        self.assertEqual(static["manifest"]["independent_review"]["status"], "review-pending")
+        self.assertEqual(static["manifest"]["independent_review"], {
+            "status": "pass-go",
+            "verdict": self.d0.REVIEW_VERDICT,
+        })
         with mock.patch.object(self.d0, "_validated_execution_inputs") as execution, mock.patch.object(
             self.d0, "_load_d1_evidence"
         ) as d1, mock.patch.object(self.d0, "_durable_create") as durable:
             with self.assertRaises(self.d0.D0FreshBaselineError):
-                self.d0.run_live(static["authority"])
+                self.d0.run_live("not-a-current-operator-approval")
             execution.assert_not_called()
             d1.assert_not_called()
             durable.assert_not_called()
@@ -679,6 +709,13 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
         self.assertIn("f4ccb03ad38a44e0417f3150797ed9d4af9129dd67b2da33341d1589de4830cb", report)
+        review_report = REVIEW_REPORT.read_text(encoding="utf-8")
+        self.assertIn(self.d0.REVIEW_VERDICT, review_report)
+        self.assertIn(
+            "440d96727c17729f4845ccec6fd31ee25966b2a4075a1f12ca50e7cd5db85a98",
+            review_report,
+        )
+        self.assertIn("proposal-label bookkeeping correction", review_report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -775,9 +812,19 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             nameless_action,
         )
         self.assertNotIn("PASS_GO", nameless_action)
+        resolver_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-review-43 | " in line
+        ]
+        self.assertEqual(len(resolver_rows), 1)
+        self.assertEqual(
+            resolver_rows[0].split(" | ")[4],
+            self.d0.REVIEW_VERDICT,
+        )
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
-        self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)
+        self.assertIn("Topic 43 independently reviews the final V2 D0 producer/reducer", goal)
 
 
 if __name__ == "__main__":
