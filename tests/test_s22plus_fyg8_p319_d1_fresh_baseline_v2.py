@@ -28,6 +28,11 @@ REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_D1_FRESH_BASELINE_RAW_FIRST_V2_H0_2026-08-24.md"
 )
+REVIEW_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_D1_FRESH_BASELINE_RAW_FIRST_V2_INDEPENDENT_REVIEW_"
+    "2026-08-24.md"
+)
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 
@@ -309,12 +314,11 @@ class P319D1FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(value["device_contact"])
 
     def test_default_self_test_has_no_process_or_device_acquisition(self):
-        self.sandbox()
         with mock.patch(
             "subprocess.Popen", side_effect=AssertionError("device/process call")
         ):
             value = self.module.self_test()
-        self.assertEqual(value["review_status"], "review-pending")
+        self.assertEqual(value["review_status"], "pass-go")
         self.assertFalse(value["device_contact"])
         self.assertFalse(value["live_authorized"])
 
@@ -873,32 +877,34 @@ class P319D1FreshBaselineV2Test(unittest.TestCase):
         with self.assertRaises(self.module.SuccessorError):
             self.module._validated_static_inputs()
 
-    def test_tracked_binding_is_canonical_review_pending_and_self_bound(self):
+    def test_tracked_binding_is_canonical_pass_go_and_self_bound(self):
         payload = BINDING.read_bytes()
         value = json.loads(payload)
         self.assertEqual(payload, self.module.canonical(value))
         self.assertEqual(
             value["independent_review"],
-            {"status": "review-pending", "verdict": None},
+            {"status": "pass-go", "verdict": self.module.REVIEW_VERDICT},
         )
         self.assertEqual(value["run"]["ordinal"], "d1-fresh-baseline-2")
         self.assertEqual(value["successor"]["size"], SOURCE.stat().st_size)
         self.assertEqual(
             value["successor"]["sha256"], hashlib.sha256(SOURCE.read_bytes()).hexdigest()
         )
-        self.assertEqual(len(payload), 5300)
+        self.assertEqual(len(payload), 5351)
         self.assertEqual(
             hashlib.sha256(payload).hexdigest(),
-            "917daa0257fda4b6bd784bf303ef9226b744ba0ce458e1bbfc4b7a48721cef8f",
+            "65e2953ecdcb55a0b5b21614e181c7ed8fe4daafaadda5e7319ae142ad9fbae9",
         )
 
-    def test_report_ledger_and_goal_preserve_v1_and_open_only_topic_42(self):
+    def test_report_ledger_and_goal_preserve_v1_and_resolve_only_topic_42(self):
         report = REPORT.read_text(encoding="utf-8")
         for token in (
-            "P319_D1_FRESH_BASELINE_RAW_FIRST_V2_IMPLEMENTED_REVIEW_PENDING",
+            "PASS_GO_P319_D1_FRESH_BASELINE_RAW_FIRST_V2_H0_CAPABILITY_V1",
             "does not rewrite the incident receipt",
             "d1-fresh-baseline-2",
-            "review-pending",
+            "5,300-byte",
+            "review-pending execution binding",
+            "5,351-byte canonical binding",
             "14-handle/42-child",
             "prior successful start/result/raw",
             "connected-but-not-ready",
@@ -907,6 +913,16 @@ class P319D1FreshBaselineV2Test(unittest.TestCase):
             "remains pinned to the V1",
         ):
             self.assertIn(token, report)
+        review = REVIEW_REPORT.read_text(encoding="utf-8")
+        for token in (
+            "694ad3ad53",
+            "917daa0257fda4b6bd784bf303ef9226b744ba0ce458e1bbfc4b7a48721cef8f",
+            "65e2953ecdcb55a0b5b21614e181c7ed8fe4daafaadda5e7319ae142ad9fbae9",
+            "capability data only",
+            "D0 consumer remains",
+            "FRESH_BASELINE_MISSING",
+        ):
+            self.assertIn(token, review)
         ledger = LEDGER.read_text(encoding="utf-8")
         ordinal = "h0-d1-fresh-baseline-raw-first-successor-42"
         rows = [line for line in ledger.splitlines() if f" | {ordinal} | " in line]
@@ -916,9 +932,17 @@ class P319D1FreshBaselineV2Test(unittest.TestCase):
             rows[0],
         )
         self.assertNotIn("PASS_GO", rows[0])
+        review_ordinal = "h0-d1-fresh-baseline-raw-first-successor-review-42"
+        review_rows = [
+            line for line in ledger.splitlines() if f" | {review_ordinal} | " in line
+        ]
+        self.assertEqual(len(review_rows), 1)
+        self.assertIn(self.module.REVIEW_VERDICT, review_rows[0])
+        self.assertIn("60/43/17", review_rows[0])
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
-        self.assertIn("review-pending V2 H0 successor", goal)
+        self.assertIn("independently reviewed V2 H0 capability", goal)
+        self.assertIn("5351B/65e2953e", goal)
         self.assertIn("12394B/2d5fc042", goal)
 
 

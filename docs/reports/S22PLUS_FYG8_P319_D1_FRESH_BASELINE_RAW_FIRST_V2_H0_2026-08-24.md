@@ -2,7 +2,7 @@
 
 Date: 2026-08-24 KST
 
-Status: `P319_D1_FRESH_BASELINE_RAW_FIRST_V2_IMPLEMENTED_REVIEW_PENDING`
+Status: `PASS_GO_P319_D1_FRESH_BASELINE_RAW_FIRST_V2_H0_CAPABILITY_V1`
 
 This is a host-only successor to the consumed `d1-fresh-baseline-1` action.
 It creates no approval, arm, run, device command or live authority. The V1
@@ -31,18 +31,22 @@ The corrected V2 source is 66,357 bytes at SHA-256
 `9443c81cd51e23a24f48a0f43573e1449cfa188b3cd1c69e6f6f11644d15d478`.
 It uses the new fixed ordinal `d1-fresh-baseline-2` under
 `workspace/private/runs/device-action-d1-p319-fresh-baseline-v2/`; neither the
-V1 run nor its approval form is accepted. The 5,300-byte canonical execution
-binding is SHA-256
+V1 run nor its approval form is accepted. The committed 5,300-byte
+review-pending execution binding at SHA-256
 `917daa0257fda4b6bd784bf303ef9226b744ba0ce458e1bbfc4b7a48721cef8f`
-and remains `review-pending`.
+is the preserved predecessor. Independent review promotes only its review
+tuple; the final 5,351-byte canonical binding is SHA-256
+`65e2953ecdcb55a0b5b21614e181c7ed8fe4daafaadda5e7319ae142ad9fbae9`
+with verdict
+`PASS_GO_P319_D1_FRESH_BASELINE_RAW_FIRST_V2_H0_CAPABILITY_V1`.
 
 The future authority form is the fixed prefix
-`DEVICE-ACTION-D1-P319-FRESH-BASELINE-V2-APPROVE:` followed by that complete
-binding digest. This records a format only: no token was issued or supplied,
-and the review-pending gate stops before arm creation or execution input load.
+`DEVICE-ACTION-D1-P319-FRESH-BASELINE-V2-APPROVE:` followed by the complete
+final binding digest. This records a format only: no token was issued or
+supplied. Capability review is not current operator approval.
 
-After a future exact approval and independent review, the fixed durable arm
-would precede the ADB snapshot, raw namespace and transport construction. The
+After a future exact operator approval, the fixed durable arm would precede
+the ADB snapshot, raw namespace and transport construction. The
 transport binds `raw-adb/` before inventory, rejects a pre-populated namespace,
 and routes inventory, topology, properties, root health, reboot command and
 poll output through the byte-pinned common raw writer. Each parser receives
@@ -121,11 +125,12 @@ and one known unavailable-input error because
 is not reported as a pass. The V2 source and tests compile, and
 `git diff --check` is clean.
 
-Independent changed-closure review is mandatory. The binding remains
-review-pending, no current operator approval exists, and the consumed V1 run
-cannot be retried. The reviewed D0 producer/reducer remains pinned to the V1
-result and binding; after V2 review it still requires a separate exact V2
-consumer repin before any D0 request. No D1 result or D0 baseline exists, so
+Independent changed-closure review passed for implementation commit
+`694ad3ad53` and the exact source closure; the separate review report records
+its scope. No current operator approval exists, and the consumed V1 run cannot
+be retried. The reviewed D0 producer/reducer remains pinned to the V1 result
+and binding and still requires a separate exact V2 consumer repin before any
+D0 request. No D1 result or D0 baseline exists, so
 integration remains blocked on `FRESH_BASELINE_MISSING`. This unit creates no ready/run/public
 candidate manifest, D0, D1, F1, recovery, replay, causal-result,
 candidate-success, device, ADB, USB, Odin or live authority.

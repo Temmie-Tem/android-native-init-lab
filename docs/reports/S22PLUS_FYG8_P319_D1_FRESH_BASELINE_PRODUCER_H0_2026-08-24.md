@@ -104,7 +104,7 @@ topic-40 `-02` receipts remain byte-preserved predecessors. This successor does
 not alter the topic-40 D1 source review and creates no current approval or live
 authority.
 
-The later review-pending V2 source/cause-preservation unit is recorded
+The later independently reviewed V2 source/cause-preservation capability is recorded
 separately in
 `S22PLUS_FYG8_P319_D1_FRESH_BASELINE_RAW_FIRST_V2_H0_2026-08-24.md`; it makes
 the topic-41 `-03` raw/prerequisite pair a predecessor without changing these

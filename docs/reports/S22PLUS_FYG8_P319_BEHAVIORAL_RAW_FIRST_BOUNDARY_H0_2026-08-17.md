@@ -94,7 +94,8 @@ The topic-42 P3.19 D1 fresh-baseline V2 successor is the 17th active raw-first
 source. V1 remains the byte-frozen pre-boundary D1 detector member; V2 is
 active only because its actual transport binds the common raw namespace before
 inventory and parsers consume reopened immutable handles. This registration
-does not relax the detector and remains review-pending.
+does not relax the detector and is independently reviewed H0-only capability
+under topic 42; capability review is not an operator approval or live authority.
 
 Later request-cut qualification registered the dormant S20+ health source as
 one additional target-external membership-only name. The earlier table value

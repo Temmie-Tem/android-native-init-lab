@@ -197,7 +197,7 @@ class P319D1FreshBaselineConsumedStopTest(unittest.TestCase):
                 accounting["resolved_count"],
                 accounting["unresolved_count"],
             ),
-            (60, 42, 18),
+            (60, 43, 17),
         )
 
 
