@@ -43,27 +43,46 @@ than as the bare string. `(?<![A-Za-z0-9])adb(?![A-Za-z0-9])` matches `adb`,
 `adb_path`, `ADB`, and `/platform-tools/adb`, and does not match `readback`.
 The earlier quoted-literal marker set missed the synthetic observer entirely.
 
-Populations under the current tree:
+The original 2026-08-17 boundary recorded this historical predecessor
+population. These values describe that reviewed-era tree, not the current
+topic-40 successor:
 
 | Set | Count |
 |---|---:|
 | revalidation `*.py` scanned | 1,729 |
-| acquiring **and** device-facing | 178 + 15 active |
+| `PRE_BOUNDARY_DEVICE_SOURCES` | 178 = 127 S22 + 51 other-target |
+| active raw-first sources | 15 |
 | S22+-scoped, byte-frozen | 127 |
+| other-target, membership-only | 51 |
+
+The topic-40 successor recomputes the current tree independently:
+
+| Set | Current count |
+|---|---:|
+| revalidation `*.py` scanned | 1,738 |
+| `PRE_BOUNDARY_DEVICE_SOURCES` | 180 = 128 S22 + 52 other-target |
+| active raw-first sources | 15 |
+| S22+-scoped, byte-frozen | 128 |
 | other-target, membership-only | 52 |
 
 The exact-byte host-only non-acquiring registry contains one P3.19 qualifier;
 it is excluded from the acquiring/device-facing population and is audited as a
 separate H0 source class.
 
+The 128th S22 entry is the topic-40 P3.19 D1 fresh-baseline producer. It is a
+byte-frozen global acquisition-detector member, not a claim that the D1 source
+is a migrated D0/F1 observer; its independent review remains separate.
+
 Later request-cut qualification registered the dormant S20+ health source as
 one additional target-external membership-only name. The earlier table value
 51 is superseded by the current auditor-derived 52; no S20+ byte is frozen by
 this S22+ boundary.
 
-Ordering matters for cost as well as meaning: the substring test runs before the
-AST parse, which keeps a full audit at about 7 seconds instead of parsing all
-1,729 files.
+At the historical predecessor, ordering mattered for cost as well as meaning:
+the substring test ran before the AST parse and kept that audit at about seven
+seconds. The later population-parse diagnostic deliberately changed the cost
+model by validating the complete population first; the old timing is not a
+current-tree claim.
 
 ## Target isolation
 

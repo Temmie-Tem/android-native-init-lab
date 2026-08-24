@@ -627,10 +627,20 @@ def read_control1(adb, serial):
             value["pre_boundary_device_source_inventory_sha256"],
             self.module.PRE_BOUNDARY_DEVICE_SOURCE_SHA256,
         )
-        self.assertEqual(value["pre_boundary_device_source_count"], 127)
+        self.assertEqual(value["pre_boundary_device_source_count"], 128)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "ce35f2b832b611a237ddcb91e8a4945ac8481766346d6cc3cad89ee38a9af7b2",
+            "fcb3bb805ccbadb7277ecf4922ebd0d9c603f44204a9a0889162fceafb68bf95",
+        )
+        self.assertEqual(
+            value["p319_d1_pre_boundary_classification"],
+            {
+                "source": "s22plus_fyg8_p319_d1_fresh_baseline.py",
+                "tier": "D1",
+                "classification": "byte-frozen-global-acquisition-detector-member",
+                "d0_f1_observer_migration": False,
+                "independent_review_required": True,
+            },
         )
         # These two fields used to be hardcoded True in the receipt and were
         # published as evidence; an adversarial review refuted the second with
@@ -654,6 +664,26 @@ def read_control1(adb, serial):
             "s22plus_fyg8_p319_candidate_qualification.py",
         )
         self.assertEqual(value["pre_boundary_cross_target_membership_count"], 52)
+
+    def test_p319_d1_registered_bytes_are_frozen(self):
+        name = "s22plus_fyg8_p319_d1_fresh_baseline.py"
+        source = self.source(name)
+        self.assertIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError,
+            "pre-boundary device source inventory differs",
+        ):
+            self.module.audit_sources(
+                REVALIDATION, {name: source + "\n# one-byte-class-drift\n"}
+            )
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError,
+            "bypasses the raw-first boundary",
+        ):
+            self.module.audit_sources(
+                REVALIDATION,
+                {"renamed_p319_d1_fresh_baseline.py": source},
+            )
 
 
 if __name__ == "__main__":

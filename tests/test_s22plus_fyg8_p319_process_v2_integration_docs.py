@@ -40,6 +40,14 @@ CURRENT_INTEGRATION = ROOT / (
 )
 CURRENT_PREREQUISITE = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260824-02.json"
+)
+CURRENT_PREREQUISITE_PREDECESSOR = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260824-01.json"
+)
+EARLIER_CURRENT_PREREQUISITE_PREDECESSOR = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "process-v2-prerequisite-audit-20260823-03.json"
 )
 REQUEST_RECOVERY_INTEGRATION = ROOT / (
@@ -51,7 +59,7 @@ REQUEST_RECOVERY_PREREQUISITE = ROOT / (
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 603
+P319_SELECTED_TEST_COUNT = 626
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
@@ -92,6 +100,12 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.current_integration_bytes = CURRENT_INTEGRATION.read_bytes()
         cls.current_integration = json.loads(cls.current_integration_bytes)
         cls.current_prerequisite_bytes = CURRENT_PREREQUISITE.read_bytes()
+        cls.current_prerequisite_predecessor_bytes = (
+            CURRENT_PREREQUISITE_PREDECESSOR.read_bytes()
+        )
+        cls.earlier_current_prerequisite_predecessor_bytes = (
+            EARLIER_CURRENT_PREREQUISITE_PREDECESSOR.read_bytes()
+        )
         cls.request_recovery_integration_bytes = REQUEST_RECOVERY_INTEGRATION.read_bytes()
         cls.request_recovery_integration = json.loads(
             cls.request_recovery_integration_bytes
@@ -198,10 +212,22 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
                 "b376a2c5523335c203df042e30ad8b4eaf08b21e5c8036eecbc67f8ae2712258",
             ),
             (
-                CURRENT_PREREQUISITE,
-                self.current_prerequisite_bytes,
+                EARLIER_CURRENT_PREREQUISITE_PREDECESSOR,
+                self.earlier_current_prerequisite_predecessor_bytes,
                 12537,
                 "ee6a1e79dfcd155f5bcdec95fbea61eea0c0645a8cd3ea2c7d30a04b59d7837c",
+            ),
+            (
+                CURRENT_PREREQUISITE_PREDECESSOR,
+                self.current_prerequisite_predecessor_bytes,
+                12534,
+                "e7ff447886082aca3dc59e7da93d38ea511ad00a30e35eb065b500aeca4b9a1c",
+            ),
+            (
+                CURRENT_PREREQUISITE,
+                self.current_prerequisite_bytes,
+                12530,
+                "26c8eb9d0b17c00bf57841ce56c748704eaa2dadbeabb871576c3258946f40d2",
             ),
             (
                 CURRENT_INTEGRATION,

@@ -79,18 +79,39 @@ class P319FreshBaselineTest(unittest.TestCase):
         }
         before = {**health_base, "boot_id_sha256": before_id}
         after = {**health_base, "boot_id_sha256": after_id}
-        arm = d1_run / "run.arm.json"
+        arm = Path(str(d1_run) + ".arm.json")
         start = d1_run / "start.json"
+        execution_receipt = {
+            "path": "fixture-binding.json", "size": 1, "sha256": "a" * 64,
+        }
+        approval_sha256 = "2" * 64
         self.write0400(arm, m._canonical({
             "schema": "s22plus_fyg8_p319_d1_fresh_baseline_arm_v1",
+            "execution_manifest": execution_receipt,
+            "approval_sha256": approval_sha256,
+            "run_directory": {
+                "path": str(d1_run),
+                "publication": "directory-no-replace-then-durable-start-no-replace",
+            },
+            "action": "one exact attended normal Android reboot",
             "attempt": 1,
             "consumed": True,
+            "device_contact_before_arm": False,
         }))
         self.write0400(start, m._canonical({
             "schema": "s22plus_fyg8_p319_d1_fresh_baseline_start_v1",
+            "execution_manifest": execution_receipt,
+            "approval_sha256": approval_sha256,
+            "selection": {"inventory_count": 2, "inventory_digest": "b" * 64, "selected_serial_sha256": "c" * 64, "selected_topology_sha256": "d" * 64, "other_targets_commanded": False},
             "reboot_count": 1,
             "reboot_requested": True,
             "before": before,
+            "device_writes": False,
+            "candidate_transfer": False,
+            "partition_transfer": False,
+            "odin_invoked": False,
+            "download_transition_requested": False,
+            "f1_authorized": False,
         }))
         journal = {
             "arm": {"path": str(arm), "size": arm.stat().st_size, "sha256": hashlib.sha256(arm.read_bytes()).hexdigest(), "mode": "0400", "nlink": 1},
@@ -103,8 +124,10 @@ class P319FreshBaselineTest(unittest.TestCase):
             "adapter": m._d1_identity(),
             "baseline_design": design,
             "candidate": candidate,
+            "execution_manifest": execution_receipt,
+            "approval_sha256": approval_sha256,
             "run_directory": {"path": str(d1_run), "publication": "directory-no-replace-then-durable-start-no-replace"},
-            "run_approval_arm": {"path": str(d1_run / "run.arm.json"), "publication": "file-no-replace-fsync-then-directory-fsync"},
+            "run_approval_arm": {"path": str(Path(str(d1_run) + ".arm.json")), "publication": "file-no-replace-fsync-then-directory-fsync"},
             "journal": journal,
             "candidate_transfer": False,
             "partition_payload": False,
@@ -193,14 +216,24 @@ class P319FreshBaselineTest(unittest.TestCase):
         m = self.m
         d1_run = root / "d1" / "run"
         d0_run = root / "d0" / "run"
+        execution = {
+            "independent_review": {
+                "status": "pass-go",
+                "verdict": "PASS_GO_P319_D1_FRESH_BASELINE_H0_CAPABILITY_V1",
+            }
+        }
+        receipt = {"path": "fixture-binding.json", "size": 1, "sha256": "a" * 64}
         return mock.patch.multiple(
             m,
             RUN_DIR=d1_run,
-            RUN_ARM=d1_run / "run.arm.json",
+            RUN_ARM=Path(str(d1_run) + ".arm.json"),
             D0_RUN_DIR=d0_run,
             DEFAULT_D1=d1,
             DEFAULT_D0=d0,
             DEFAULT_OUT=output,
+            _d1_execution_binding=mock.Mock(
+                return_value=(execution, receipt, "2" * 64)
+            ),
         )
 
     def test_baseline_design_is_internal_and_self_bound(self):
@@ -239,9 +272,9 @@ class P319FreshBaselineTest(unittest.TestCase):
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         with self.assertRaises(module.D1FreshBaselineError):
-            module.run_live(Path("/nonexistent/adb"), "wrong-approval", {})
+            module.run_live("wrong-approval")
 
-    def test_design_sources_have_no_device_acquisition_primitives(self):
+    def test_reducer_remains_non_acquiring_and_d1_is_review_blocked(self):
         d1_path = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_d1_fresh_baseline.py"
         d0_path = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_fresh_baseline_capability.py"
         audit_path = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_raw_first_observer_audit.py"
@@ -262,7 +295,7 @@ class P319FreshBaselineTest(unittest.TestCase):
             "create_subprocess_",
             "capture_adb_exec_out",
         )
-        for path in (d1_path, d0_path):
+        for path in (d0_path,):
             source = path.read_text(encoding="utf-8")
             for token in forbidden:
                 self.assertNotIn(token, source, f"{path.name} retains {token}")
@@ -277,6 +310,11 @@ class P319FreshBaselineTest(unittest.TestCase):
                 )
             )
 
+        d1_source = d1_path.read_text(encoding="utf-8")
+        self.assertIn("p318._load_base", d1_source)
+        self.assertNotIn("AdbReadOnlyClient(", d1_source)
+        self.assertNotIn("bounded_command(", d1_source)
+
         d1 = load_module()
         with self.assertRaises(d1.FreshBaselineError):
             d1.collect_d0_live("unused", "unused")
@@ -286,7 +324,7 @@ class P319FreshBaselineTest(unittest.TestCase):
         sys.modules[d1_source_spec.name] = d1_source_module
         d1_source_spec.loader.exec_module(d1_source_module)
         with self.assertRaises(d1_source_module.D1FreshBaselineError):
-            d1_source_module.run_live("unused", "unused", {})
+            d1_source_module.run_live("unused")
 
     def test_normalizer_reopens_raw_and_binds_d1_d0(self):
         root, d1, d0, output, _d1, _d0 = self.make_fixture()

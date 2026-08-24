@@ -39,6 +39,24 @@ QUALIFICATION = PRIVATE / (
 )
 P319_ADAPTER = SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py"
 D1_SUCCESSOR = SCRIPT_DIR / "s22plus_fyg8_p319_d1_fresh_baseline.py"
+D1_EXECUTION_MANIFEST = ROOT / (
+    "workspace/public/src/device-action/bindings/"
+    "s22plus_fyg8_p319_d1_fresh_baseline_v1.json"
+)
+P318_D1_WRAPPER = SCRIPT_DIR / "s22plus_fyg8_p318_baseline_rotation_d1.py"
+P296_D1_PRIMITIVE = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p296/d1-baseline-rotation/"
+    "s22plus_fyg8_p296_baseline_rotation_d1.py"
+)
+REFERENCE_D0 = ROOT / (
+    "workspace/private/runs/s22plus-fyg8-max77705-sysfs-d0/"
+    "d0-20260823T160942Z-1787501382211543634/result.json"
+)
+HOST_ADB = Path("/usr/lib/android-sdk/platform-tools/adb")
+D1_ADB_SNAPSHOT = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/d1-fresh-baseline-v1/adb-"
+    "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+)
 RAW_CAPTURE = SCRIPT_DIR / "device_action_raw_capture_v1.py"
 D0_RUNTIME = SCRIPT_DIR / "device_action_d0_v2.py"
 PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
@@ -68,6 +86,7 @@ HEX32 = re.compile(r"[0-9a-f]{32}\Z")
 CURRENT_SOURCE_KEY_COUNT = 437
 CURRENT_SOURCE_KEY_DIGEST = "f41bfd2d1a4cf62aa62500a636a22e2035f3d56f9151e806e80da86f6c9cdded"
 P319_LATCH_MODULE = "s22plus_dwc3_event_latch.ko"
+D1_AUTHORITY_PREFIX = "DEVICE-ACTION-D1-P319-FRESH-BASELINE-V1-APPROVE:"
 
 
 class FreshBaselineError(ValueError):
@@ -355,6 +374,145 @@ def _d1_identity() -> dict[str, Any]:
             "schema": "s22plus_fyg8_p319_d1_fresh_baseline_binding_v1"}
 
 
+def _d1_execution_binding(
+    design: dict[str, Any], candidate: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], str]:
+    payload = _stable(
+        D1_EXECUTION_MANIFEST, "P3.19 D1 execution binding", maximum=64 * 1024,
+        mode=None, nlink=1,
+    )
+    try:
+        value = json.loads(
+            payload.decode("utf-8"), object_pairs_hook=_unique,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                FreshBaselineError(
+                    f"P3.19 D1 execution binding contains non-finite JSON: {item}"
+                )
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise FreshBaselineError("P3.19 D1 execution binding is not strict JSON") from exc
+    if not isinstance(value, dict) or payload != _canonical(value):
+        raise FreshBaselineError("P3.19 D1 execution binding is not canonical")
+    expected_candidate = {
+        "target": candidate["target"],
+        "intent": candidate["intent"],
+        "qualification": candidate["qualification"],
+        "closure": candidate["closure"],
+    }
+    expected_keys = {
+        "schema", "binding_id", "action", "authority_prefix", "target",
+        "target_profile", "current_candidate", "inputs", "reference_d0",
+        "host_adb_execution_snapshot", "run_directory", "run_approval_arm",
+        "run_stop", "independent_review", "command_count",
+        "initiation_bound_sec", "return_bound_sec",
+        "live_exact_serial_identity_required",
+        "live_topology_continuity_required", "transport_id_drift_allowed",
+        "candidate_transfer", "partition_payload", "odin",
+        "download_transition", "f1_authorized", "failure_rule",
+    }
+    if (
+        set(value) != expected_keys
+        or value.get("schema")
+        != "s22plus_fyg8_p319_d1_fresh_baseline_execution_binding_v1"
+        or value.get("binding_id")
+        != "s22plus-fyg8-p319-d1-fresh-baseline-v1"
+        or value.get("action") != "one exact attended normal Android reboot"
+        or value.get("authority_prefix") != D1_AUTHORITY_PREFIX
+        or value.get("target") != TARGET
+        or value.get("target_profile")
+        != _source_identity(PROFILE, "S22+ target profile", maximum=16 * 1024)
+        or value.get("current_candidate") != expected_candidate
+        or value.get("run_directory")
+        != {
+            "path": _relative(RUN_DIR),
+            "publication": "directory-no-replace-then-durable-start-no-replace",
+        }
+        or value.get("run_approval_arm")
+        != {
+            "path": _relative(RUN_ARM),
+            "publication": "file-no-replace-fsync-then-directory-fsync",
+        }
+        or value.get("run_stop")
+        != {
+            "path": _relative(RUN_DIR / "stop.json"),
+            "publication": "file-no-replace-fsync-then-directory-fsync",
+        }
+        or value.get("reference_d0")
+        != {
+            "purpose": "exact-target serial and healthy-partition reference only",
+            "historical_topology_is_current_authority": False,
+        }
+        or value.get("host_adb_execution_snapshot")
+        != {
+            "path": _relative(
+                D1_ADB_SNAPSHOT
+            ),
+            "size": 716_968,
+            "sha256": "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226",
+            "mode": "0500",
+            "publication": "file-fsync-link-no-replace-directory-fsync",
+        }
+        or value.get("command_count") != 1
+        or value.get("initiation_bound_sec") != 60
+        or value.get("return_bound_sec") != 240
+        or value.get("live_exact_serial_identity_required") is not True
+        or value.get("live_topology_continuity_required") is not True
+        or value.get("transport_id_drift_allowed") is not True
+        or value.get("failure_rule")
+        != "consumed stop without replay or a second reboot command"
+    ):
+        raise FreshBaselineError("P3.19 D1 execution binding semantics differ")
+    for key in (
+        "candidate_transfer", "partition_payload", "odin",
+        "download_transition", "f1_authorized",
+    ):
+        _bool(value.get(key), f"P3.19 D1 execution binding.{key}", False)
+    inputs = value.get("inputs")
+    expected_inputs = {
+        "d1_source": _source_identity(
+            D1_SUCCESSOR, "P3.19 D1 successor", maximum=512 * 1024
+        ),
+        "fresh_baseline_reducer": _source_identity(
+            SCRIPT, "P3.19 baseline reducer", maximum=512 * 1024
+        ),
+        "p318_reviewed_wrapper": _source_identity(
+            P318_D1_WRAPPER, "reviewed P3.18 D1 wrapper", maximum=64 * 1024
+        ),
+        "p296_reboot_primitive": _source_identity(
+            P296_D1_PRIMITIVE, "reviewed P2.96 reboot primitive", maximum=64 * 1024
+        ),
+        "current_d0_runtime": _source_identity(
+            D0_RUNTIME, "current D0 runtime", maximum=128 * 1024
+        ),
+        "reference_d0_identity_health": _source_identity(
+            REFERENCE_D0, "reference healthy D0", maximum=64 * 1024
+        ),
+        "host_adb": _source_identity(
+            HOST_ADB, "host ADB executable", maximum=1024 * 1024
+        ),
+    }
+    if not isinstance(inputs, dict) or inputs != expected_inputs:
+        raise FreshBaselineError("P3.19 D1 execution-binding inputs differ")
+    adb_snapshot = _stable(
+        D1_ADB_SNAPSHOT, "P3.19 D1 host ADB snapshot",
+        maximum=716_968, mode=0o500, nlink=1,
+    )
+    if (
+        len(adb_snapshot) != 716_968
+        or hashlib.sha256(adb_snapshot).hexdigest()
+        != "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
+    ):
+        raise FreshBaselineError("P3.19 D1 host ADB snapshot identity differs")
+    d1_source = expected_inputs["d1_source"]
+    reducer_source = expected_inputs["fresh_baseline_reducer"]
+    if design.get("d1_source") != d1_source or design.get("reducer") != reducer_source:
+        raise FreshBaselineError("baseline design and D1 execution source differ")
+    receipt = {"path": _relative(D1_EXECUTION_MANIFEST), **_identity(payload)}
+    authority = D1_AUTHORITY_PREFIX + receipt["sha256"]
+    return value, receipt, hashlib.sha256(authority.encode("ascii")).hexdigest()
+
+
 def _health(value: Any, label: str, profile: dict[str, Any]) -> dict[str, Any]:
     expected = profile["start_health"]
     item = _exact(value, {
@@ -397,11 +555,20 @@ def _validate_d1(value: Any, design: dict[str, Any], candidate: dict[str, Any], 
     after = _health(item["after"], "D1 after", profile)
     if before["boot_id_sha256"] == after["boot_id_sha256"]:
         raise FreshBaselineError("D1 reboot did not produce a new boot identity")
+    execution, execution_receipt, approval_sha256 = _d1_execution_binding(
+        design, candidate
+    )
+    if execution.get("independent_review") != {
+        "status": "pass-go",
+        "verdict": "PASS_GO_P319_D1_FRESH_BASELINE_H0_CAPABILITY_V1",
+    }:
+        raise FreshBaselineError("P3.19 D1 execution binding is not independently reviewed")
     if item["binding"].get("baseline_design") != design or item["binding"].get("candidate") != candidate:
         raise FreshBaselineError("D1 binding does not bind current baseline-design/candidate")
     binding = item["binding"]
     required_binding = {
         "schema", "action", "adapter", "baseline_design", "candidate",
+        "execution_manifest", "approval_sha256",
         "run_directory", "run_approval_arm", "journal", "candidate_transfer",
         "partition_payload", "odin", "download_transition", "f1_authorized",
     }
@@ -411,6 +578,10 @@ def _validate_d1(value: Any, design: dict[str, Any], candidate: dict[str, Any], 
         raise FreshBaselineError("D1 binding action differs")
     if binding["adapter"] != _d1_identity():
         raise FreshBaselineError("D1 adapter identity differs")
+    if binding["execution_manifest"] != execution_receipt:
+        raise FreshBaselineError("D1 execution-manifest receipt differs")
+    if binding["approval_sha256"] != approval_sha256:
+        raise FreshBaselineError("D1 approval digest differs")
     for key in ("candidate_transfer", "partition_payload", "odin", "download_transition", "f1_authorized"):
         _bool(binding[key], f"D1 binding.{key}", False)
     if binding["run_directory"] != {"path": _relative(RUN_DIR), "publication": "directory-no-replace-then-durable-start-no-replace"}:
@@ -427,6 +598,18 @@ def _validate_d1(value: Any, design: dict[str, Any], candidate: dict[str, Any], 
     }
     if result_path.absolute() != expected_journal_paths["result"]:
         raise FreshBaselineError("D1 result path is outside the fixed run directory")
+    try:
+        run_meta = RUN_DIR.lstat()
+        children = {child.name for child in RUN_DIR.iterdir()}
+    except OSError as exc:
+        raise FreshBaselineError("D1 fixed run directory is unavailable") from exc
+    if (
+        not stat.S_ISDIR(run_meta.st_mode)
+        or stat.S_IMODE(run_meta.st_mode) != 0o700
+        or run_meta.st_uid != os.getuid()
+        or children != {"start.json", "result.json"}
+    ):
+        raise FreshBaselineError("D1 fixed run namespace differs")
     for name in ("arm", "start"):
         receipt = _exact(
             journal[name], {"path", "size", "sha256", "mode", "nlink"},
@@ -444,10 +627,48 @@ def _validate_d1(value: Any, design: dict[str, Any], candidate: dict[str, Any], 
         if actual["size"] != receipt["size"] or actual["sha256"] != receipt["sha256"]:
             raise FreshBaselineError(f"D1 journal {name} identity differs")
         if name == "arm":
-            if parsed.get("schema") != "s22plus_fyg8_p319_d1_fresh_baseline_arm_v1" or parsed.get("consumed") is not True or parsed.get("attempt") != 1:
+            if set(parsed) != {
+                "schema", "execution_manifest", "approval_sha256",
+                "run_directory", "action", "attempt", "consumed",
+                "device_contact_before_arm",
+            }:
+                raise FreshBaselineError("D1 arm journal shape differs")
+            if (
+                parsed.get("schema")
+                != "s22plus_fyg8_p319_d1_fresh_baseline_arm_v1"
+                or parsed.get("execution_manifest") != execution_receipt
+                or parsed.get("approval_sha256") != approval_sha256
+                or parsed.get("run_directory") != binding["run_directory"]
+                or parsed.get("action") != binding["action"]
+                or parsed.get("consumed") is not True
+                or parsed.get("attempt") != 1
+                or parsed.get("device_contact_before_arm") is not False
+            ):
                 raise FreshBaselineError("D1 arm journal is not consumed exactly once")
-        elif parsed.get("schema") != "s22plus_fyg8_p319_d1_fresh_baseline_start_v1" or parsed.get("reboot_count") != 1 or parsed.get("reboot_requested") is not True or parsed.get("before") != before:
-            raise FreshBaselineError("D1 start journal is not one-shot")
+        else:
+            if set(parsed) != {
+                "schema", "execution_manifest", "approval_sha256", "before",
+                "selection", "reboot_count", "reboot_requested", "device_writes",
+                "candidate_transfer", "partition_transfer", "odin_invoked",
+                "download_transition_requested", "f1_authorized",
+            }:
+                raise FreshBaselineError("D1 start journal shape differs")
+            if (
+                parsed.get("schema")
+                != "s22plus_fyg8_p319_d1_fresh_baseline_start_v1"
+                or parsed.get("execution_manifest") != execution_receipt
+                or parsed.get("approval_sha256") != approval_sha256
+                or parsed.get("reboot_count") != 1
+                or parsed.get("reboot_requested") is not True
+                or parsed.get("before") != before
+                or parsed.get("selection") != item["selection"]
+            ):
+                raise FreshBaselineError("D1 start journal is not one-shot")
+            for key in (
+                "device_writes", "candidate_transfer", "partition_transfer",
+                "odin_invoked", "download_transition_requested", "f1_authorized",
+            ):
+                _bool(parsed[key], f"D1 start.{key}", False)
     result_ref = _exact(journal["result"], {"path"}, "D1 result journal reference")
     result_ref_path = Path(result_ref["path"])
     if not result_ref_path.is_absolute():

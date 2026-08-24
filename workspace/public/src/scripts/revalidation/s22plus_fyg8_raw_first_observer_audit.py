@@ -19,12 +19,12 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "7df9c62de4bc3f1949d6214bed0fc85b80364daa7009b0671676e45405e4feb9"
+AUDITOR_NORMALIZED_SHA256 = "a965d866fc7cc2333a295b0e8c8949c0cf884445e0f47d9b5c319cbec3c34a03"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260823-04-candidate-requalification.json"
+    "raw-first-observer-audit-20260824-02-p319-d1-import-pin.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
@@ -56,9 +56,9 @@ S22_SCOPED_SOURCE_RE = re.compile(
     # acquisition to them passed. Byte-freeze those too.
     r"(?:build_)?(?:s22plus|s22_|device_action)[A-Za-z0-9_]*\.py"
 )
-PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 127
+PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "ce35f2b832b611a237ddcb91e8a4945ac8481766346d6cc3cad89ee38a9af7b2"
+    "fcb3bb805ccbadb7277ecf4922ebd0d9c603f44204a9a0889162fceafb68bf95"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -190,6 +190,10 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s22plus_fyg8_p318_historical_eud_index_sweep.py",
         "s22plus_fyg8_p318_postlive_eud_index_audit.py",
         "s22plus_fyg8_p318_selector_negative_control.py",
+        # This D1 producer is not a migrated D0/F1 observer. Its
+        # device-acquiring bytes are frozen only as an independently reviewed
+        # global acquisition-detector membership.
+        "s22plus_fyg8_p319_d1_fresh_baseline.py",
         "s22plus_fyg8_r3_static_checker.py",
         "s22plus_fyg8_r3c0_live_gate.py",
         "s22plus_fyg8_r3c1_live_gate.py",
@@ -243,6 +247,13 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s22plus_v3443_high_panic_compare_live_gate.py",
     }
 )
+P319_D1_PRE_BOUNDARY_CLASSIFICATION = {
+    "source": "s22plus_fyg8_p319_d1_fresh_baseline.py",
+    "tier": "D1",
+    "classification": "byte-frozen-global-acquisition-detector-member",
+    "d0_f1_observer_migration": False,
+    "independent_review_required": True,
+}
 S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
     "s22plus_fyg8_p319_candidate_qualification.py": {
         "owner": "s22plus-fyg8-p319",
@@ -1352,6 +1363,9 @@ def audit_sources(
         "closed_observer_sources_are_byte_frozen": True,
         "pre_boundary_device_source_count": len(device_sources),
         "pre_boundary_device_source_inventory_sha256": device_sources_sha256,
+        "p319_d1_pre_boundary_classification": dict(
+            P319_D1_PRE_BOUNDARY_CLASSIFICATION
+        ),
         "host_only_non_acquiring_source_count": len(host_only_sources),
         "host_only_non_acquiring_source_inventory_sha256": host_only_sha256,
         "host_only_non_acquiring_sources_are_byte_frozen": True,

@@ -18,10 +18,13 @@ current P3.19 stock Carrier adapter
 `s22plus_fyg8_p319_stock_process_v2_adapter.py` and its full-retained-raw
 classifier remain bound below.
 
-The D1 design records one fixed normal-reboot path and one fixed approval-arm
-path, but contains no arm writer or live implementation. Its explicit stub
-raises before any effect. The host rehearsal covers only schema-level one-
-reboot accounting; it does not create durable D1 state or prove a live arm.
+This paragraph records the topic-39 predecessor state. At that review point
+the D1 file was design-only and raised before any effect. Topic 40 has since
+implemented and independently reviewed a D1 producer with a self-binding
+execution manifest, fixed approval-arm/run/stop paths and the reviewed P2.96
+one-reboot state machine. That successor does not retroactively widen this
+topic-39 PASS_GO. Its binding now records topic-40 capability `PASS_GO`, which
+is not a current operator approval or run authority.
 
 ## Producer and reducer contract
 
@@ -66,19 +69,18 @@ wrong raw size/hash, candidate marker residual, D0 contact=false, fixed and
 cross-bound D1 journal paths/content, D1/D0 serial and topology continuity,
 the 437-source/73-module/EUD38/latch-only candidate closure, strict D0
 host-tool identity, integration receipt-identity continuity, symlink and
-hardlink raw evidence, no-clobber publication, and a source-level assertion
-that both design modules contain no device-acquisition primitive. No test
-invokes ADB, USB, Odin or a device.
+hardlink raw evidence and no-clobber publication. The old assertion that both
+producer files were non-acquiring describes only the predecessor: the
+topic-40 D1 producer is now explicitly classified and byte-frozen by the
+global acquisition detector. No test invokes ADB, USB, Odin or a device.
 
-The D1 and D0 live producers are intentionally hard-blocked in this H0 unit;
-they do not contact a device or create an arm/run/intent. A follow-up must
-first add a self-binding execution manifest, durable pre-contact intent and
-typed stop-result owner, then obtain independent changed-closure review.
-Independent review is required before changing the D1 review state or using
-the D0 producer. The existing candidate requalification PASS_GO does not
-qualify this new D1/reducer closure; any change to common Process-v2 evidence
-registration or execution-critical source closure requires fresh
-requalification and changed-closure review.
+The D0 producer remains an immediate-failure stub. The topic-40 D1 successor
+contains the self-binding manifest, durable pre-contact arm and typed stop
+owner that this predecessor required and has its own independent capability
+`PASS_GO`, but no current operator approval, arm or run exists. The existing
+candidate requalification and topic-39 PASS_GO did not qualify topic 40; its
+separate review did. D0 remains absent and the combined result remains
+non-authoritative.
 
 ## Independent review
 
@@ -91,8 +93,9 @@ audit; that manifest was deleted rather than exempted.
 
 The final independent verdict is
 `PASS_GO_P319_FRESH_BASELINE_REDUCER_H0_CAPABILITY_V1`. It qualifies only the
-non-authoritative H0 reducer and the integration fail-open repair. The producer
-execution closure remains mechanically unreviewed and non-authoritative, so
-this PASS_GO cannot produce or validate a fresh baseline and does not clear
+non-authoritative H0 reducer and the integration fail-open repair. Topic 40
+implements only the D1 half; D0 is absent and both
+`producer_execution_closure_*` fields remain false. This PASS_GO therefore
+cannot produce or validate a fresh baseline and does not clear
 `FRESH_BASELINE_MISSING`. It grants no D0, D1, F1, recovery, replay, approval,
 candidate result, device or live authority.

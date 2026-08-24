@@ -16,6 +16,14 @@ REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_RAW_FIRST_OBSERVER_BOUNDARY_H0_2026-08-17.md"
 )
+BEHAVIORAL_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_BEHAVIORAL_RAW_FIRST_BOUNDARY_H0_2026-08-17.md"
+)
+D1_PRODUCER_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P319_D1_FRESH_BASELINE_PRODUCER_H0_2026-08-24.md"
+)
 TARGET = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
@@ -24,6 +32,14 @@ RECEIPT = ROOT / (
     "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
 )
 CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260824-02-p319-d1-import-pin.json"
+)
+D1_IMPORT_PIN_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260824-01-p319-d1-fresh-baseline.json"
+)
+D1_REGISTRATION_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260823-04-candidate-requalification.json"
 )
@@ -86,6 +102,8 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
     def setUpClass(cls):
         cls.auditor = load_auditor()
         cls.report = REPORT.read_text(encoding="utf-8")
+        cls.behavioral_report = BEHAVIORAL_REPORT.read_text(encoding="utf-8")
+        cls.d1_producer_report = D1_PRODUCER_REPORT.read_text(encoding="utf-8")
         cls.target = TARGET.read_text(encoding="utf-8")
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
@@ -94,7 +112,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260823-04-candidate-requalification.json",
+            "raw-first-observer-audit-20260824-02-p319-d1-import-pin.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -121,37 +139,88 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "2621fe9edf3b079378ac5af869f50124befd29b34bbd18645207cf72dea86937",
+            "c059c42880c26ea08517698c9ef36ab75ece8a8ccc40cc1064a026b017eaa136",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 11012)
+        self.assertEqual(len(retained_bytes), 11285)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "ac3876c078062098ce240ae78c102ae19d2fe1b47eba257d374131cbaffc193e",
+            "ff1cab6460e644aa2fcd2dcd38202d2ab66ab347e5c97e50194027a1a2cb9eba",
+        )
+
+    def test_d1_registration_report_is_reviewed_and_non_authoritative(self):
+        report = self.d1_producer_report
+        for token in (
+            "PASS_GO_P319_D1_FRESH_BASELINE_H0_CAPABILITY_V1",
+            "d92e7e463e26f1fae4f9a5515e00feb0c09fb2d83930839e89c391b58931fb4e",
+            "not a current operator approval",
+            "byte-frozen-global-acquisition-detector-member",
+            "not claimed as a migrated D0/F1 observer",
+            "128 entries",
+            "target-external membership remains 52",
+            "raw-first-observer-audit-20260824-02-p319-d1-import-pin.json",
+            "20260824-01",
+            "process-v2-prerequisite-audit-20260824-02.json",
+            "P3.18 wrapper is not imported by reopening its path",
+            "20260823-04",
+            "producer_execution_closure_reviewed=false",
+            "producer_execution_closure_authoritative=false",
+            "FRESH_BASELINE_MISSING",
+            "Independent changed-closure review has completed",
+            "grant no current approval",
+        ):
+            self.assertIn(token, report)
+
+    def test_behavioral_report_separates_historical_and_current_populations(self):
+        for token in (
+            "historical predecessor",
+            "1,729",
+            "178 = 127 S22 + 51 other-target",
+            "The topic-40 successor recomputes the current tree independently",
+            "1,738",
+            "180 = 128 S22 + 52 other-target",
+            "active raw-first sources | 15",
+            "current-tree claim",
+        ):
+            self.assertIn(token, self.behavioral_report)
+        self.assertNotIn(
+            "Populations under the current tree:", self.behavioral_report
         )
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
             (
+                D1_IMPORT_PIN_PREDECESSOR_RECEIPT,
+                11285,
+                "b56ef0463fec122b72b522824ce2eda89e653e9ca39ee69810ab87398c9921aa",
+            ),
+            (
+                D1_REGISTRATION_PREDECESSOR_RECEIPT,
+                11012,
+                "ac3876c078062098ce240ae78c102ae19d2fe1b47eba257d374131cbaffc193e",
+            ),
+            (
                 CANDIDATE_REQUALIFICATION_PREDECESSOR_RECEIPT,
+                11012,
                 "ab698ffba7f7766ba0afb80ae021338a81896192d89349005c9f9dbd1b5f18bc",
             ),
             (
                 REQUEST_RECOVERY_RECEIPT,
+                11012,
                 "d84487138f45f8dadba2be1b8470d77e91331ff0fa810fbde2137089c6d67880",
             ),
         )
         current = CURRENT_RECEIPT.read_bytes()
-        for path, digest in expected:
+        for path, size, digest in expected:
             with self.subTest(path=path.name):
                 info = path.stat()
                 payload = path.read_bytes()
                 self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
                 self.assertEqual(info.st_nlink, 1)
-                self.assertEqual(len(payload), 11012)
+                self.assertEqual(len(payload), size)
                 self.assertEqual(hashlib.sha256(payload).hexdigest(), digest)
                 self.assertNotEqual(payload, current)
 
