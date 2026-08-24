@@ -1160,7 +1160,9 @@ def validate_published_result(path: Path) -> dict[str, Any]:
         raise FreshBaselineError(
             "published fresh-baseline path is outside the fixed namespace"
         )
-    payload = _direct_output_payload(path, "published fresh baseline")
+    payload, initial_node = _direct_output_snapshot(
+        path, "published fresh baseline"
+    )
     try:
         value = json.loads(
             payload.decode("utf-8"),
@@ -1188,6 +1190,13 @@ def validate_published_result(path: Path) -> dict[str, Any]:
     if value != expected:
         raise FreshBaselineError("published fresh baseline is not the deterministic reduction of its inputs")
     result = validate_result(expected)
+    final_payload, final_node = _direct_output_snapshot(
+        path, "published fresh baseline final reopen"
+    )
+    if final_payload != payload or final_node != initial_node:
+        raise FreshBaselineError(
+            "published fresh baseline changed during validation"
+        )
     return {"result": result, "identity": identity, "authoritative": True, "capability": _identity(_stable(SCRIPT, "fresh-baseline capability", maximum=512 * 1024))}
 
 
@@ -1244,9 +1253,9 @@ def _direct_output_parent(path: Path, *, create: bool) -> int:
         raise
 
 
-def _output_entry_payload(
+def _output_entry_snapshot(
     parent_fd: int, name: str, label: str, *, maximum: int = 4 * 1024 * 1024
-) -> bytes:
+) -> tuple[bytes, tuple[int, ...]]:
     try:
         descriptor = os.open(
             name,
@@ -1300,15 +1309,59 @@ def _output_entry_payload(
         or len(payload) != before.st_size
     ):
         raise FreshBaselineError(f"{label} changed while reading")
-    return payload
+    return payload, identity(before)
+
+
+def _output_entry_payload(
+    parent_fd: int, name: str, label: str, *, maximum: int = 4 * 1024 * 1024
+) -> bytes:
+    return _output_entry_snapshot(
+        parent_fd, name, label, maximum=maximum
+    )[0]
+
+
+def _direct_output_snapshot(
+    path: Path, label: str
+) -> tuple[bytes, tuple[int, ...]]:
+    parent_fd = _direct_output_parent(path, create=False)
+    try:
+        return _output_entry_snapshot(parent_fd, path.name, label)
+    finally:
+        os.close(parent_fd)
 
 
 def _direct_output_payload(path: Path, label: str) -> bytes:
-    parent_fd = _direct_output_parent(path, create=False)
+    return _direct_output_snapshot(path, label)[0]
+
+
+def _output_entry_absent(parent_fd: int, name: str, label: str) -> None:
     try:
-        return _output_entry_payload(parent_fd, path.name, label)
-    finally:
-        os.close(parent_fd)
+        os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise FreshBaselineError(f"cannot inspect {label}") from exc
+    raise FreshBaselineError(f"{label} already exists")
+
+
+def _cleanup_owned_stage(
+    parent_fd: int, name: str, owner_identity: tuple[int, int]
+) -> None:
+    """Remove only this invocation's unlinked regular staging inode."""
+
+    try:
+        current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    if (
+        (current.st_dev, current.st_ino) != owner_identity
+        or not stat.S_ISREG(current.st_mode)
+        or current.st_uid != os.getuid()
+        or current.st_nlink != 1
+    ):
+        return
+    os.unlink(name, dir_fd=parent_fd)
+    os.fsync(parent_fd)
 
 
 def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
@@ -1318,10 +1371,22 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
         )
     payload = _canonical(dict(value))
     parent_fd = _direct_output_parent(path, create=True)
+    stage_name = f".{path.name}.partial"
+    if len(os.fsencode(stage_name)) > 255:
+        os.close(parent_fd)
+        raise FreshBaselineError("fresh-baseline staging name is too long")
+    stage_owner: tuple[int, int] | None = None
+    linked = False
     try:
+        _output_entry_absent(
+            parent_fd, path.name, "fresh-baseline final output"
+        )
+        _output_entry_absent(
+            parent_fd, stage_name, "fresh-baseline staging output"
+        )
         try:
             descriptor = os.open(
-                path.name,
+                stage_name,
                 os.O_WRONLY
                 | os.O_CREAT
                 | os.O_EXCL
@@ -1332,19 +1397,25 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
             )
         except FileExistsError as exc:
             raise FreshBaselineError(
-                "refusing to clobber fresh-baseline receipt"
+                "refusing to clobber fresh-baseline staging receipt"
             ) from exc
         try:
             os.fchmod(descriptor, 0o400)
+            initial = os.fstat(descriptor)
+            stage_owner = (initial.st_dev, initial.st_ino)
             offset = 0
             while offset < len(payload):
                 try:
                     written = os.write(descriptor, payload[offset:])
                 except InterruptedError:
                     continue
+                except OSError as exc:
+                    raise FreshBaselineError(
+                        "fresh-baseline staging write failed"
+                    ) from exc
                 if written <= 0:
                     raise FreshBaselineError(
-                        "fresh-baseline output write did not progress"
+                        "fresh-baseline staging write did not progress"
                     )
                 offset += written
             os.fsync(descriptor)
@@ -1357,11 +1428,59 @@ def publish_exclusive(path: Path, value: Mapping[str, Any]) -> dict[str, Any]:
                 or info.st_size != len(payload)
             ):
                 raise FreshBaselineError(
-                    "published fresh-baseline identity differs"
+                    "fresh-baseline staging identity differs"
                 )
         finally:
             os.close(descriptor)
+        if (
+            _output_entry_payload(
+                parent_fd, stage_name, "fresh-baseline complete staging"
+            )
+            != payload
+        ):
+            raise FreshBaselineError(
+                "fresh-baseline staging changed after reopen"
+            )
+        try:
+            os.link(
+                stage_name,
+                path.name,
+                src_dir_fd=parent_fd,
+                dst_dir_fd=parent_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError as exc:
+            raise FreshBaselineError(
+                "refusing to clobber fresh-baseline receipt"
+            ) from exc
+        linked = True
+        staged = os.stat(stage_name, dir_fd=parent_fd, follow_symlinks=False)
+        final = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+        if (
+            (staged.st_dev, staged.st_ino) != (final.st_dev, final.st_ino)
+            or not stat.S_ISREG(final.st_mode)
+            or stat.S_IMODE(final.st_mode) != 0o400
+            or final.st_uid != os.getuid()
+            or staged.st_nlink != 2
+            or final.st_nlink != 2
+            or final.st_size != len(payload)
+        ):
+            raise FreshBaselineError(
+                "fresh-baseline linked publication identity differs"
+            )
         os.fsync(parent_fd)
+        os.unlink(stage_name, dir_fd=parent_fd)
+        os.fsync(parent_fd)
+        _output_entry_absent(
+            parent_fd, stage_name, "fresh-baseline retired staging output"
+        )
+    except BaseException:
+        if stage_owner is not None and not linked:
+            try:
+                _cleanup_owned_stage(parent_fd, stage_name, stage_owner)
+            except OSError:
+                pass
+        raise
     finally:
         os.close(parent_fd)
     if _direct_output_payload(path, "published fresh baseline") != payload:

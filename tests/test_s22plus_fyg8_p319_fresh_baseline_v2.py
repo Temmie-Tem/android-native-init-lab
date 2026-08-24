@@ -338,6 +338,9 @@ class P319FreshBaselineV2Test(unittest.TestCase):
                 self.assertEqual(
                     partial_out.read_bytes(), self.reducer._canonical({})
                 )
+                self.assertFalse(
+                    (partial_out.parent / f".{partial_out.name}.partial").exists()
+                )
 
                 zero_out = root / "zero-parent" / "result.json"
                 with mock.patch.object(
@@ -349,6 +352,68 @@ class P319FreshBaselineV2Test(unittest.TestCase):
                         self.reducer.FreshBaselineError, "did not progress"
                     ):
                         self.reducer.publish_exclusive(zero_out, {})
+                self.assertFalse(zero_out.exists())
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", zero_out
+                ), mock.patch.object(self.reducer, "normalize") as normalize:
+                    with self.assertRaises(self.reducer.FreshBaselineError):
+                        self.reducer.validate_published_result(zero_out)
+                    normalize.assert_not_called()
+
+                error_out = root / "error-parent" / "result.json"
+                error_calls = {"count": 0}
+
+                def one_byte_then_error(descriptor, payload):
+                    error_calls["count"] += 1
+                    if error_calls["count"] == 1:
+                        return real_write(descriptor, payload[:1])
+                    raise OSError("injected staging write failure")
+
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", error_out
+                ), mock.patch.object(
+                    self.reducer.os, "write", side_effect=one_byte_then_error
+                ):
+                    with self.assertRaisesRegex(
+                        self.reducer.FreshBaselineError, "staging write failed"
+                    ):
+                        self.reducer.publish_exclusive(error_out, {})
+                self.assertEqual(error_calls["count"], 2)
+                self.assertFalse(error_out.exists())
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", error_out
+                ), mock.patch.object(self.reducer, "normalize") as normalize:
+                    with self.assertRaises(self.reducer.FreshBaselineError):
+                        self.reducer.validate_published_result(error_out)
+                    normalize.assert_not_called()
+
+                replace_out = root / "replace-parent" / "result.json"
+                with mock.patch.object(
+                    self.reducer, "DEFAULT_OUT", replace_out
+                ):
+                    self.reducer.publish_exclusive(replace_out, {})
+                    initial_inode = replace_out.stat().st_ino
+
+                    def replace_after_initial_read(*_args):
+                        replacement = replace_out.parent / "replacement.json"
+                        replacement.write_bytes(replace_out.read_bytes())
+                        replacement.chmod(0o400)
+                        os.replace(replacement, replace_out)
+                        return {}
+
+                    with mock.patch.object(
+                        self.reducer,
+                        "normalize",
+                        side_effect=replace_after_initial_read,
+                    ), mock.patch.object(
+                        self.reducer, "validate_result", return_value={}
+                    ):
+                        with self.assertRaisesRegex(
+                            self.reducer.FreshBaselineError,
+                            "changed during validation",
+                        ):
+                            self.reducer.validate_published_result(replace_out)
+                    self.assertNotEqual(initial_inode, replace_out.stat().st_ino)
 
                 outside = root / "outside"
                 outside.mkdir(mode=0o700)
@@ -480,7 +545,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(result["live_authorized"])
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
-        self.assertIn("bc3b44bc603cad83e58662e8ae613a61348397b59b22f35d7c987e1838cd84cd", report)
+        self.assertIn("e41d40fa730f3ecb459ca8e6ac06d495e03772a2158aab4399ff34a1fa40ce2b", report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -538,6 +603,19 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             direct_action,
         )
         self.assertNotIn("PASS_GO", direct_action)
+        atomic_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-atomic-publication-repair-43 | "
+            in line
+        ]
+        self.assertEqual(len(atomic_rows), 1)
+        atomic_action = atomic_rows[0].split(" | ")[4]
+        self.assertIn(
+            "ATOMIC_PUBLICATION_REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION",
+            atomic_action,
+        )
+        self.assertNotIn("PASS_GO", atomic_action)
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)

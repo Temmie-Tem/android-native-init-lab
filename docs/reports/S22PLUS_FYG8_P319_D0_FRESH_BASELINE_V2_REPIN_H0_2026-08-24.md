@@ -224,3 +224,39 @@ the canonical review-pending binding is
 Focused remains `57/57`; the broad selector remains 731 because the hostile
 cases extend the existing path-boundary test. Retained receipts independently
 regenerate byte-identically, topic 43 remains open, and broad was not rerun.
+
+## Append-only atomic-publication correction — 2026-08-24 16:59:53Z
+
+A fifth independent review injected zero write progress and a one-byte write
+followed by `OSError`. Direct exclusive creation had already exposed the final
+name, leaving a zero- or one-byte final after failure. It also replaced the
+fixed final during `normalize`; validation had no final reopen and returned an
+authoritative result from the initial bytes.
+
+Publication now writes only the fixed same-parent `.result.json.partial`
+staging name. The stage is exclusive, nofollow, `0400`, fully written with the
+interruption-safe loop, file-fsynced, identity-checked and stable-reopened
+before final can exist. A hard link publishes the complete inode to final
+without replacement; parent fsync precedes staging unlink, a second parent
+fsync follows, staging must be absent, and a direct final reopen requires exact
+payload bytes and link count one. Before link, failure cleanup may unlink only
+the exact current-invocation regular staging inode and fsync its parent; final
+remains absent. After link, any stage/link uncertainty remains complete but
+fail-closed.
+
+Validation retains the initial direct payload and stable node identity. After
+normalization and semantic validation it direct-reopens final and requires
+both bytes and identity to match before returning authority. The hostile test
+atomically substitutes an identical-byte new inode during normalization and is
+rejected. Zero-progress and one-byte-plus-error paths leave no final and no
+authoritative receipt; completed partial writes leave exact final bytes and no
+stage.
+
+The direct-namespace repair's reducer `62093B/12aa83bf` and binding
+`14251B/bc3b44bc` remain unreviewed predecessors. The final reducer is
+`66217B/cd4aa54e943900d9269e549c6e7a6f78da8ceb060465a97ed107fefc95db39ed`;
+the canonical review-pending binding is
+`14251B/e41d40fa730f3ecb459ca8e6ac06d495e03772a2158aab4399ff34a1fa40ce2b`.
+Focused remains `57/57`, the broad selector remains 731, retained receipts
+independently regenerate byte-identically, topic 43 stays open and broad was
+not rerun.
