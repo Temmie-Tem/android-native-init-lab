@@ -554,12 +554,20 @@ def _validate_d1(
             inputs,
             module._arm_complete,
         )
-        start_state = module._journal_state(
-            module.RUN_DIR / "start.json",
+        start_path = module.RUN_DIR / "start.json"
+        start_payload = module._stable(
+            start_path,
             "D0-consumed D1 V2 start",
-            inputs,
-            module._start_complete,
+            maximum=512 * 1024,
+            mode=0o400,
         )
+        start_value = module._strict(start_payload, "D0-consumed D1 V2 start")
+        start_state = {
+            "present": True,
+            "node_valid": True,
+            "bytes_complete": bool(module._start_complete(start_value, inputs)),
+            "receipt": module._receipt(start_path, start_payload, mode="0400"),
+        }
         raw_evidence = module._raw_inventory(inputs["raw"])
     except BaseException as exc:
         raise FreshBaselineError(
@@ -581,6 +589,12 @@ def _validate_d1(
         "receipt": value.get("start"),
     }:
         raise FreshBaselineError("D1 V2 start journal is not complete")
+    if not module._typed_equal(start_value.get("before"), value.get("before")):
+        raise FreshBaselineError("D1 V2 start/result before health differs")
+    if not module._typed_equal(
+        start_value.get("selection"), value.get("selection")
+    ):
+        raise FreshBaselineError("D1 V2 start/result selection differs")
     if value.get("raw_evidence") != raw_evidence:
         raise FreshBaselineError("D1 V2 raw evidence differs from fixed namespace")
     before = _health(value.get("before"), "D1 V2 before", profile)

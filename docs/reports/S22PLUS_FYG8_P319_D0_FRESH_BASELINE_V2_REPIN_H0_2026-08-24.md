@@ -138,3 +138,33 @@ The repaired focused split is `29/29 + 12/12 + 14/14 = 55/55`; the added
 hostile regression makes the current broad selector 729 tests. The preceding
 728-test paragraph is the implementation predecessor result and is not
 retroactive validation of this repair.
+
+## Append-only cross-binding correction — 2026-08-24 16:02:57Z
+
+A second independent review retained a schema-valid start journal while
+changing only `before.boot_id_sha256` and
+`selection.selected_serial_sha256` to other valid digests. Both D1 V2
+`_start_complete` and `_result_complete` remained true after the result's
+start receipt was updated, and the first repaired reducer accepted it because
+it discarded the parsed start value after semantic and receipt validation.
+
+The final reducer stable-reads the fixed start exactly once. From that same
+payload it strict-parses the object, applies `_start_complete`, derives the
+direct receipt, and requires typed exact equality of parsed start `before` and
+`selection` with the D1 result. The regression performs the complete
+schema-valid replacement and verifies both D1 predicates remain true before
+the reducer rejects it. The arm/result overlap was also audited: manifest,
+approval, ordinal and run-directory identities are independently forced to
+the same execution inputs/constants, and arm has no free health or selection
+field requiring an additional result cross-binding.
+
+The first repair's reducer `54939B/d6d4c766` and binding
+`14251B/4be15cba` remain unreviewed predecessors. The final reducer is
+`55631B/13496ebaf0b7a9c83b1d73841b8ef3213f2a21b4b1ef4408dfae4ba13bbb23c0`;
+the canonical review-pending binding is
+`14251B/151c2f1a9bb9752260e48b4b015e0265142358bc1801639e6d0cae5fb6843386`.
+The repaired focused split is `29/29 + 13/13 + 14/14 = 56/56`, and the
+current broad selector is 730 tests. Raw, prerequisite and integration
+receipts independently regenerate byte-identically; topic 43 remains open.
+Broad was not rerun, so neither predecessor broad result is claimed as
+validation of this cross-binding repair.

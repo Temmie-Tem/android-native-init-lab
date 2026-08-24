@@ -222,6 +222,39 @@ class P319FreshBaselineV2Test(unittest.TestCase):
             finally:
                 helper.doCleanups()
 
+    def test_schema_valid_start_with_foreign_before_and_selection_rejects(self):
+        helper, inputs, value = self.d1_fixture()
+        self.addCleanup(helper.doCleanups)
+        start_path = helper.module.RUN_DIR / "start.json"
+        start_value = helper.module._strict(
+            helper.module._stable(
+                start_path,
+                "fixture D1 V2 start",
+                maximum=512 * 1024,
+                mode=0o400,
+            ),
+            "fixture D1 V2 start",
+        )
+        start_value["before"]["boot_id_sha256"] = "a" * 64
+        start_value["selection"]["selected_serial_sha256"] = "b" * 64
+        self.assertTrue(helper.module._start_complete(start_value, inputs))
+        start_path.chmod(0o600)
+        start_path.write_bytes(helper.module.canonical(start_value))
+        start_path.chmod(0o400)
+
+        changed = copy.deepcopy(value)
+        changed["start"] = helper.module._direct_receipt(
+            start_path, "schema-valid foreign start"
+        )
+        result_path = helper.module.RUN_DIR / "result.json"
+        result_path.chmod(0o600)
+        result_path.write_bytes(helper.module.canonical(changed))
+        result_path.chmod(0o400)
+
+        self.assertTrue(helper.module._result_complete(changed, inputs))
+        with self.assertRaises(self.reducer.FreshBaselineError):
+            self.validate_fixture(helper, inputs, changed)
+
     def test_v1_result_and_v2_stop_cannot_substitute_for_d1_v2_success(self):
         helper, inputs, value = self.d1_fixture()
         self.addCleanup(helper.doCleanups)
@@ -296,7 +329,7 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         self.assertFalse(result["live_authorized"])
         report = REPORT.read_text(encoding="utf-8")
         self.assertIn("P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING", report)
-        self.assertIn("4be15cba9afa7524fe90cf7f97d429e3a6e710d735fa557e7a287fe97386c667", report)
+        self.assertIn("151c2f1a9bb9752260e48b4b015e0265142358bc1801639e6d0cae5fb6843386", report)
         ledger = LEDGER.read_text(encoding="utf-8")
         rows = [
             line
@@ -315,6 +348,19 @@ class P319FreshBaselineV2Test(unittest.TestCase):
         repair_action = repair_rows[0].split(" | ")[4]
         self.assertIn("REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION", repair_action)
         self.assertNotIn("PASS_GO", repair_action)
+        cross_rows = [
+            line
+            for line in ledger.splitlines()
+            if " | h0-d0-fresh-baseline-v2-repin-cross-binding-repair-43 | "
+            in line
+        ]
+        self.assertEqual(len(cross_rows), 1)
+        cross_action = cross_rows[0].split(" | ")[4]
+        self.assertIn(
+            "CROSS_BINDING_REPAIR_UNDER_EXISTING_REVIEW_OBLIGATION",
+            cross_action,
+        )
+        self.assertNotIn("PASS_GO", cross_action)
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn("Topic 43 adds a review-pending V2 D0 producer/reducer", goal)
