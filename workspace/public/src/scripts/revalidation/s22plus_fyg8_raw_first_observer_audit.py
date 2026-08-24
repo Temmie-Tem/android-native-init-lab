@@ -19,12 +19,12 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "bfb094af111f5251a0e2d96e95eda93be0ae919efcacce887b5ffbae305c0751"
+AUDITOR_NORMALIZED_SHA256 = "139838505b937c8634c21db652d1d50adaf45bfaf65d2b8359743f2aaedcbe28"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260824-03-p319-d0-fresh-baseline.json"
+    "raw-first-observer-audit-20260824-05-p319-d1-v2-no-replay.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
@@ -287,6 +287,7 @@ ACTIVE_FILES = {
     "device_action_raw_capture_v1.py",
     "device_action_d0_v2.py",
     "s22plus_fyg8_p319_d0_fresh_baseline.py",
+    "s22plus_fyg8_p319_d1_fresh_baseline_v2.py",
     "s22plus_fyg8_p319_max77705_attribute_stage_a.py",
     "s22plus_fyg8_max77705_sysfs_d0.py",
     "s22plus_fyg8_p257_stock_pivot_d0.py",
@@ -314,6 +315,7 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p303_stock_log_d0.py": "7e963b5144705c2f27fa8f91f4e139e92608732efc401910049cd5ff88868a4d",
     "s22plus_fyg8_p319_max77705_attribute_stage_a.py": "c28097ef576f971ff427c97bdf62d839047c1c4ec1a861c8bf39592dc352fc38",
     "s22plus_fyg8_p319_d0_fresh_baseline.py": "c1a7f82ff9a7e9ca555cf38a9f8addaf7d287f7a5560057b9be49899c631062f",
+    "s22plus_fyg8_p319_d1_fresh_baseline_v2.py": "9443c81cd51e23a24f48a0f43573e1449cfa188b3cd1c69e6f6f11644d15d478",
     "s22plus_odin_transition_core.py": "a44e5ce43eebc3d254c1cc428b986484f244d47ae13a4125399c26c4b3e4014c",
     "s22plus_odin_usbfs_identity.py": "e337026d70f4c231468bfddab4a28e9ae65ab142f82859370c926332fb7bb9b5",
 }
@@ -372,6 +374,44 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 '"aggregate_sha256"',
             ),
             ("raw.read_stdout(", "raw.read_stderr(", "subprocess."),
+        ),
+    },
+    "s22plus_fyg8_p319_d1_fresh_baseline_v2.py": {
+        "_make_transport": (
+            (
+                "self.client.bind_raw_capture_dir(raw_root)",
+                "or any(capture_dir.iterdir())",
+                'self.client._run(["devices", "-l"]',
+                "raw.load_handle(handle.receipt_path)",
+                "raw.require_success(reopened)",
+                "raw.read_stdout(reopened, maximum=MAX_TEXT)",
+                "raw.read_stderr(",
+                "except (module.d0.D0Error, OSError):",
+                'return {"connected": True, "ready": False}',
+            ),
+            ("bounded_command(", "result.stdout", "result.stderr"),
+        ),
+        "_raw_inventory": (
+            (
+                "for child in sorted(",
+                "_stable(",
+                "raw.load_handle(",
+                "claimed.update(names)",
+                "unclaimed = sorted(",
+                '"aggregate_sha256"',
+            ),
+            ("raw.read_stdout(", "raw.read_stderr(", "subprocess."),
+        ),
+        "run_live": (
+            (
+                "_preflight_new_run_namespace()",
+                "arm_creation_attempted = False",
+                "p318._durable_arm(",
+                "arm_completed = True",
+                "_duplicate_arm_error(exc, p318)",
+                "_publish_stop(inputs, exc)",
+            ),
+            (),
         ),
     },
     "s22plus_fyg8_p319_max77705_attribute_stage_a.py": {
@@ -556,6 +596,31 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
 }
 
 ORDERED_FUNCTION_TOKENS = {
+    (
+        "s22plus_fyg8_p319_d1_fresh_baseline_v2.py",
+        "_make_transport",
+    ): (
+        "self.client.bind_raw_capture_dir(raw_root)",
+        "or any(capture_dir.iterdir())",
+        'self.client._run(["devices", "-l"]',
+        "raw.load_handle(handle.receipt_path)",
+        "raw.require_success(reopened)",
+        "raw.read_stdout(reopened, maximum=MAX_TEXT)",
+        "raw.read_stderr(",
+        "except (module.d0.D0Error, OSError):",
+        'return {"connected": True, "ready": False}',
+    ),
+    (
+        "s22plus_fyg8_p319_d1_fresh_baseline_v2.py",
+        "run_live",
+    ): (
+        "_preflight_new_run_namespace()",
+        "arm_creation_attempted = False",
+        "p318._durable_arm(",
+        "arm_completed = True",
+        "_duplicate_arm_error(exc, p318)",
+        "_publish_stop(inputs, exc)",
+    ),
     (
         "s22plus_fyg8_p319_d0_fresh_baseline.py",
         "_execute",

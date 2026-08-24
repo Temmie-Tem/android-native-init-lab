@@ -96,13 +96,19 @@ It preserves the exact topic-40 `pass-go` review tuple, and topic-41 independent
 review closes the joint D0/reducer changed closure. The earlier `cb36cce8` and
 `d92e7e46` bindings were never used for an operator approval, arm or run.
 
-The current raw successor is
+The topic-41 raw successor, now a preserved predecessor, is
 `raw-first-observer-audit-20260824-03-p319-d0-fresh-baseline.json`
-(`11792B/9c5d892c`), and the current prerequisite successor is
+(`11792B/9c5d892c`), and its prerequisite successor is
 `process-v2-prerequisite-audit-20260824-03.json` (`12534B/3e62512e`). The
 topic-40 `-02` receipts remain byte-preserved predecessors. This successor does
 not alter the topic-40 D1 source review and creates no current approval or live
 authority.
+
+The later review-pending V2 source/cause-preservation unit is recorded
+separately in
+`S22PLUS_FYG8_P319_D1_FRESH_BASELINE_RAW_FIRST_V2_H0_2026-08-24.md`; it makes
+the topic-41 `-03` raw/prerequisite pair a predecessor without changing these
+reviewed topic-40/topic-41 capability facts.
 
 ## Boundary and review
 

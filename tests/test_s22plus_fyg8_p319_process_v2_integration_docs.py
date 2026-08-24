@@ -40,6 +40,14 @@ CURRENT_INTEGRATION = ROOT / (
 )
 CURRENT_PREREQUISITE = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260824-05.json"
+)
+D1_V2_NO_REPLAY_PREREQUISITE_PREDECESSOR = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260824-04.json"
+)
+D1_V2_PREREQUISITE_PREDECESSOR = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "process-v2-prerequisite-audit-20260824-03.json"
 )
 D0_REGISTRATION_PREREQUISITE_PREDECESSOR = ROOT / (
@@ -63,7 +71,7 @@ REQUEST_RECOVERY_PREREQUISITE = ROOT / (
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 660
+P319_SELECTED_TEST_COUNT = 688
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
@@ -104,6 +112,12 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         cls.current_integration_bytes = CURRENT_INTEGRATION.read_bytes()
         cls.current_integration = json.loads(cls.current_integration_bytes)
         cls.current_prerequisite_bytes = CURRENT_PREREQUISITE.read_bytes()
+        cls.d1_v2_no_replay_prerequisite_predecessor_bytes = (
+            D1_V2_NO_REPLAY_PREREQUISITE_PREDECESSOR.read_bytes()
+        )
+        cls.d1_v2_prerequisite_predecessor_bytes = (
+            D1_V2_PREREQUISITE_PREDECESSOR.read_bytes()
+        )
         cls.d0_registration_prerequisite_predecessor_bytes = (
             D0_REGISTRATION_PREREQUISITE_PREDECESSOR.read_bytes()
         )
@@ -242,10 +256,22 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
                 "26c8eb9d0b17c00bf57841ce56c748704eaa2dadbeabb871576c3258946f40d2",
             ),
             (
-                CURRENT_PREREQUISITE,
-                self.current_prerequisite_bytes,
+                D1_V2_PREREQUISITE_PREDECESSOR,
+                self.d1_v2_prerequisite_predecessor_bytes,
                 12534,
                 "3e62512e4533d3e7ab9a92302286a0f892e84a7f2602b213634c18289556e735",
+            ),
+            (
+                D1_V2_NO_REPLAY_PREREQUISITE_PREDECESSOR,
+                self.d1_v2_no_replay_prerequisite_predecessor_bytes,
+                12537,
+                "953a44549b06f470a9b2fa59321c18ed961cfc099cfe95bc02b5d59b22c7f709",
+            ),
+            (
+                CURRENT_PREREQUISITE,
+                self.current_prerequisite_bytes,
+                12532,
+                "5ea7fd30aabc99041ce64e1b1e9c50f6cea181dc7f73d251d5cbdc396624fb4a",
             ),
             (
                 CURRENT_INTEGRATION,

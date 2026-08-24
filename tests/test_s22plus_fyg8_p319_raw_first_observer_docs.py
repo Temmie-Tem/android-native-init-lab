@@ -37,6 +37,14 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260824-05-p319-d1-v2-no-replay.json"
+)
+D1_V2_NO_REPLAY_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260824-04-p319-d1-fresh-baseline-v2.json"
+)
+D1_V2_REGISTRATION_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260824-03-p319-d0-fresh-baseline.json"
 )
 D0_REGISTRATION_PREDECESSOR_RECEIPT = ROOT / (
@@ -121,7 +129,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260824-03-p319-d0-fresh-baseline.json",
+            "raw-first-observer-audit-20260824-05-p319-d1-v2-no-replay.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -140,7 +148,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1739)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1740)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -148,16 +156,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "33caae06a836eef25264eb1ff5265485fb9f9cf6863e5a296dd6bab17deea0d9",
+            "dc55d74770f1a4cb094e8998737beed19917fb3460f95b3adc27e07cbdf3461a",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 11792)
+        self.assertEqual(len(retained_bytes), 12394)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "9c5d892c032c972fef1106dd9c564664ae69049409d31b1008d11f42fe2ef1ea",
+            "2d5fc0428f6683ce9a7ac056c6da6b92c4decad45b7fd7430febf2edbd1325e9",
         )
 
     def test_d0_registration_is_active_reviewed_and_not_a_current_run(self):
@@ -218,12 +226,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "historical predecessor",
             "1,729",
             "178 = 127 S22 + 51 other-target",
-            "The topic-41 successor recomputes the current tree independently",
+            "The topic-41 predecessor recomputed its tree independently",
             "1,739",
             "180 = 128 S22 + 52 other-target",
             "active raw-first sources | 16",
-            "Topic 40's\n1,738/15 table is a preserved predecessor",
+            "The topic-42 V2 D1 successor recomputes the current tree independently",
+            "1,740",
+            "active raw-first sources | 17",
+            "Topic 40's\n1,738/15 table and this topic-41 table are preserved predecessors",
             "16th active raw-first",
+            "17th active raw-first",
             "current-tree claim",
         ):
             self.assertIn(token, self.behavioral_report)
@@ -233,6 +245,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                D1_V2_NO_REPLAY_PREDECESSOR_RECEIPT,
+                12268,
+                "38ba4f9b382c1ffdd0865126973ec55b68dc87b0024114ffdbe219ddb85dcb70",
+            ),
+            (
+                D1_V2_REGISTRATION_PREDECESSOR_RECEIPT,
+                11792,
+                "9c5d892c032c972fef1106dd9c564664ae69049409d31b1008d11f42fe2ef1ea",
+            ),
             (
                 D0_REGISTRATION_PREDECESSOR_RECEIPT,
                 11285,

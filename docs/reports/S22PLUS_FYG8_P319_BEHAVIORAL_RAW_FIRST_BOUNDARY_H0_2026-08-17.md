@@ -55,14 +55,25 @@ topic-40/topic-41 successors:
 | S22+-scoped, byte-frozen | 127 |
 | other-target, membership-only | 51 |
 
-The topic-41 successor recomputes the current tree independently. Topic 40's
-1,738/15 table is a preserved predecessor, not the current-tree census:
+The topic-41 predecessor recomputed its tree independently. Topic 40's
+1,738/15 table and this topic-41 table are preserved predecessors, not the
+current-tree census:
 
 | Set | Current count |
 |---|---:|
 | revalidation `*.py` scanned | 1,739 |
 | `PRE_BOUNDARY_DEVICE_SOURCES` | 180 = 128 S22 + 52 other-target |
 | active raw-first sources | 16 |
+| S22+-scoped, byte-frozen | 128 |
+| other-target, membership-only | 52 |
+
+The topic-42 V2 D1 successor recomputes the current tree independently:
+
+| Set | Current count |
+|---|---:|
+| revalidation `*.py` scanned | 1,740 |
+| `PRE_BOUNDARY_DEVICE_SOURCES` | 180 = 128 S22 + 52 other-target |
+| active raw-first sources | 17 |
 | S22+-scoped, byte-frozen | 128 |
 | other-target, membership-only | 52 |
 
@@ -78,6 +89,12 @@ The topic-41 P3.19 D0 fresh-baseline producer is the 16th active raw-first
 source, not a pre-boundary member. Its exact source bytes and acquire/publish/
 reopen/classify plus complete raw-ADB inventory seams are frozen while the
 pre-boundary 128/fcb3bb80 and target-external 52 populations remain unchanged.
+
+The topic-42 P3.19 D1 fresh-baseline V2 successor is the 17th active raw-first
+source. V1 remains the byte-frozen pre-boundary D1 detector member; V2 is
+active only because its actual transport binds the common raw namespace before
+inventory and parsers consume reopened immutable handles. This registration
+does not relax the detector and remains review-pending.
 
 Later request-cut qualification registered the dormant S20+ health source as
 one additional target-external membership-only name. The earlier table value
