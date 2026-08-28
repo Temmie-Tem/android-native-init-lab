@@ -57,6 +57,16 @@ fields for privileged USB controls. Attendance is required at opening, not
 continuously; any park waits for operator return. No enterprise per-syscall race
 model was added.
 
+## Independent review
+
+Final independent review passed implementation `19b8a941ec`, ambiguity repair
+`f741709513`, and Recovery-scope repair `0f368ef302`. It confirmed the four
+closed action classes, aggregate campaign limits, no-replay accounting,
+descriptor closure, opening-only attendance, and the exclusion of Android
+Recovery as ordinary separately approved attended D1. This `PASS_GO` qualifies
+only the dormant policy definition; it does not activate a runner or authorize
+a device action.
+
 ## Boundary
 
 The policy remains `DEFINED_NOT_ACTIVE`. It creates no runner, coordinator,
@@ -79,5 +89,5 @@ semantics are preserved; the common attendance list, target reference, and risk
 tier gain only the delegation needed to name this lane. Policy/contract/taxonomy/S20+ interaction
 tests pass `85/85`; the unchanged common Process-v2 modules pass `142/142`.
 `AGENTS.md` and the S22+ target contract remain at 260 lines, `GOAL.md` remains
-at 900, and Process-v2 remains byte-unchanged. Independent review remains
-pending; full-tail review accounting is `62 total / 44 resolved / 18 open`.
+at 900, and Process-v2 remains byte-unchanged. Independent review passes;
+full-tail review accounting is `62 total / 45 resolved / 17 open`.
