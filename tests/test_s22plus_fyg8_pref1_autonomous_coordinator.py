@@ -79,10 +79,12 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
     def distinct_boot(index: int) -> str:
         return hashlib.sha256(f"boot-{index}".encode()).hexdigest()
 
-    def roundtrip(self, state, class_id, *, now=101, boot=None):
+    def roundtrip(self, state, class_id, *, now=101, boot=None, proof_mode=None):
+        selected_mode = proof_mode or self.module.DEFAULT_PROOF_MODES[class_id]
         intended, intent = self.module.model_effect_intent(
             state,
             class_id=class_id,
+            proof_mode=selected_mode,
             observed=self.observed(state),
             now=now,
         )
@@ -199,6 +201,7 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
             self.module.model_effect_intent(
                 state,
                 class_id="bounded_raw_first_read",
+                proof_mode="same_boot_observation",
                 observed=self.observed(state),
                 now=101,
             )
@@ -212,45 +215,63 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
         )
         for index in range(self.module.D1_EFFECT_MAX):
             class_id = classes[index % len(classes)]
-            boot = self.distinct_boot(index) if class_id in self.module.BOOT_CHANGING_ACTIONS else None
+            proof_mode = self.module.DEFAULT_PROOF_MODES[class_id]
+            boot = self.distinct_boot(index) if proof_mode in self.module.NEW_BOOT_PROOF_MODES else None
             state = self.roundtrip(state, class_id, boot=boot)
         self.assertEqual(state["d1_effects_used"], self.module.D1_EFFECT_MAX)
         with self.assertRaisesRegex(self.module.CoordinatorModelError, "D1 budget"):
             self.module.model_effect_intent(
                 state,
                 class_id="normal_android_reboot_health",
+                proof_mode="new_boot_health",
                 observed=self.observed(state),
                 now=101,
             )
 
     def test_boot_relation_is_bound_per_class(self):
-        for class_id in self.module.ACTION_TIERS:
-            with self.subTest(class_id=class_id):
-                state = self.state()
-                intended, intent = self.module.model_effect_intent(
-                    state,
-                    class_id=class_id,
-                    observed=self.observed(state),
-                    now=101,
-                )
-                wrong_boot = (
-                    state["boot_id_sha256"]
-                    if class_id in self.module.BOOT_CHANGING_ACTIONS
-                    else self.distinct_boot(99)
-                )
-                with self.assertRaises(self.module.CoordinatorModelError):
-                    self.module.model_healthy_return(
-                        intended,
-                        intent=intent,
-                        observed=self.observed(intended, boot=wrong_boot),
+        for class_id, proof_modes in self.module.PROOF_MODES.items():
+            for proof_mode in proof_modes:
+                with self.subTest(class_id=class_id, proof_mode=proof_mode):
+                    state = self.state()
+                    intended, intent = self.module.model_effect_intent(
+                        state,
+                        class_id=class_id,
+                        proof_mode=proof_mode,
+                        observed=self.observed(state),
                         now=101,
                     )
+                    wrong_boot = (
+                        state["boot_id_sha256"]
+                        if proof_mode in self.module.NEW_BOOT_PROOF_MODES
+                        else self.distinct_boot(99)
+                    )
+                    with self.assertRaises(self.module.CoordinatorModelError):
+                        self.module.model_healthy_return(
+                            intended,
+                            intent=intent,
+                            observed=self.observed(intended, boot=wrong_boot),
+                            now=101,
+                        )
+                    correct_boot = (
+                        self.distinct_boot(100)
+                        if proof_mode in self.module.NEW_BOOT_PROOF_MODES
+                        else state["boot_id_sha256"]
+                    )
+                    returned, result = self.module.model_healthy_return(
+                        intended,
+                        intent=intent,
+                        observed=self.observed(intended, boot=correct_boot),
+                        now=101,
+                    )
+                    self.assertEqual(result["proof_mode"], proof_mode)
+                    self.assertEqual(returned["phase"], "OPEN_HEALTHY")
 
     def test_uncertain_cut_consumes_and_parks_without_replay(self):
         state = self.state()
         intended, intent = self.module.model_effect_intent(
             state,
             class_id="normal_android_reboot_health",
+            proof_mode="new_boot_health",
             observed=self.observed(state),
             now=101,
         )
@@ -264,6 +285,7 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
             self.module.model_effect_intent(
                 parked,
                 class_id="bounded_raw_first_read",
+                proof_mode="same_boot_observation",
                 observed=self.observed(parked),
                 now=102,
             )
@@ -286,12 +308,25 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
                 self.module.model_effect_intent(
                     state,
                     class_id=class_id,
+                    proof_mode="same_boot_observation",
+                    observed=self.observed(state),
+                    now=101,
+                )
+        for proof_mode in ("unknown", "new_boot_health", True):
+            with self.subTest(proof_mode=proof_mode), self.assertRaises(
+                self.module.CoordinatorModelError
+            ):
+                self.module.model_effect_intent(
+                    state,
+                    class_id="fixed_privileged_usb_role_or_udc_transient",
+                    proof_mode=proof_mode,
                     observed=self.observed(state),
                     now=101,
                 )
         intended, intent = self.module.model_effect_intent(
             state,
             class_id="bounded_raw_first_read",
+            proof_mode="same_boot_observation",
             observed=self.observed(state),
             now=101,
         )
@@ -325,6 +360,7 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
             self.module.model_effect_intent(
                 state,
                 class_id="bounded_raw_first_read",
+                proof_mode="same_boot_observation",
                 observed=self.observed(state),
                 now=state["expires_at_epoch"],
             )
@@ -376,7 +412,8 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
             "no process-spawn facility",
             "F1 remains freshly attended",
             "14/14",
-            "1cdb721f9aeb424989704a1bb3c9a7bb1a7dd1c458cf4c705204ede8c1a5275b",
+            "reboot_restore_health",
+            "c0d56417c070c5958a356110f4b1996f9c903af993d118e0f812cccdd8aea65e",
         ):
             self.assertIn(clause, report)
 

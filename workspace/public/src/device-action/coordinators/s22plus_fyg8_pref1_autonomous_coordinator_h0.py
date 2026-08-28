@@ -47,10 +47,19 @@ ACTION_TIERS = {
     "payload_free_download_roundtrip": "D1",
     "fixed_privileged_usb_role_or_udc_transient": "D1",
 }
-BOOT_CHANGING_ACTIONS = frozenset(
-    {"normal_android_reboot_health", "payload_free_download_roundtrip"}
-)
-SAME_BOOT_ACTIONS = frozenset(ACTION_TIERS) - BOOT_CHANGING_ACTIONS
+PROOF_MODES = {
+    "bounded_raw_first_read": frozenset({"same_boot_observation"}),
+    "normal_android_reboot_health": frozenset({"new_boot_health"}),
+    "payload_free_download_roundtrip": frozenset({"new_boot_health"}),
+    "fixed_privileged_usb_role_or_udc_transient": frozenset(
+        {"same_boot_restore", "reboot_restore_health"}
+    ),
+}
+DEFAULT_PROOF_MODES = {
+    class_id: sorted(modes)[0] for class_id, modes in PROOF_MODES.items()
+}
+SAME_BOOT_PROOF_MODES = frozenset({"same_boot_observation", "same_boot_restore"})
+NEW_BOOT_PROOF_MODES = frozenset({"new_boot_health", "reboot_restore_health"})
 PARK_REASONS = frozenset(
     {"host_cut", "identity_ambiguous", "health_missing", "result_uncertain"}
 )
@@ -317,6 +326,7 @@ INTENT_KEYS = {
     "ordinal",
     "class_id",
     "tier",
+    "proof_mode",
     "source_boot_id_sha256",
     "effect_core_sha256",
     "d1_effects_used_after",
@@ -338,6 +348,8 @@ def _validate_intent(intent: Any, state: Mapping[str, Any]) -> dict[str, Any]:
     class_id = value["class_id"]
     if type(class_id) is not str or ACTION_TIERS.get(class_id) != value["tier"]:
         raise CoordinatorModelError("effect intent class differs")
+    if value["proof_mode"] not in PROOF_MODES[class_id]:
+        raise CoordinatorModelError("effect intent proof mode differs")
     if value["source_boot_id_sha256"] != state["boot_id_sha256"]:
         raise CoordinatorModelError("effect intent source boot differs")
     if value["effect_core_sha256"] != state["effect_core_sha256"]:
@@ -442,6 +454,7 @@ def model_effect_intent(
     state: Mapping[str, Any],
     *,
     class_id: str,
+    proof_mode: str,
     observed: Mapping[str, Any],
     now: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -453,6 +466,8 @@ def model_effect_intent(
         raise CoordinatorModelError("campaign is expired")
     if type(class_id) is not str or class_id not in ACTION_TIERS:
         raise CoordinatorModelError("action class is not in the catalog")
+    if type(proof_mode) is not str or proof_mode not in PROOF_MODES[class_id]:
+        raise CoordinatorModelError("proof mode is not allowed for the class")
     current = _validate_observed(observed, value)
     if current["boot_id_sha256"] != value["boot_id_sha256"]:
         raise CoordinatorModelError("pre-intent boot identity differs")
@@ -472,6 +487,7 @@ def model_effect_intent(
         "ordinal": value["next_ordinal"],
         "class_id": class_id,
         "tier": tier,
+        "proof_mode": proof_mode,
         "source_boot_id_sha256": value["boot_id_sha256"],
         "effect_core_sha256": value["effect_core_sha256"],
         "intent_at_epoch": now,
@@ -510,15 +526,17 @@ def model_healthy_return(
     current = _validate_observed(observed, value)
     class_id = intent.get("class_id")
     changed = current["boot_id_sha256"] != value["boot_id_sha256"]
-    if class_id in BOOT_CHANGING_ACTIONS and not changed:
-        raise CoordinatorModelError("boot-changing action reused its source boot")
-    if class_id in SAME_BOOT_ACTIONS and changed:
-        raise CoordinatorModelError("same-boot action changed boot identity")
+    proof_mode = intent["proof_mode"]
+    if proof_mode in NEW_BOOT_PROOF_MODES and not changed:
+        raise CoordinatorModelError("new-boot proof reused its source boot")
+    if proof_mode in SAME_BOOT_PROOF_MODES and changed:
+        raise CoordinatorModelError("same-boot proof changed boot identity")
     result = {
         "schema": RESULT_SCHEMA,
         "campaign_id": value["campaign_id"],
         "ordinal": intent["ordinal"],
         "class_id": class_id,
+        "proof_mode": proof_mode,
         "status": "HEALTHY_RETURN",
         "boot_id_sha256": current["boot_id_sha256"],
     }
@@ -546,6 +564,7 @@ def model_uncertain_cut(
         "campaign_id": value["campaign_id"],
         "ordinal": intent["ordinal"],
         "class_id": intent["class_id"],
+        "proof_mode": intent["proof_mode"],
         "status": "UNCERTAIN_CONSUMED_NO_REPLAY",
         "reason": reason,
     }

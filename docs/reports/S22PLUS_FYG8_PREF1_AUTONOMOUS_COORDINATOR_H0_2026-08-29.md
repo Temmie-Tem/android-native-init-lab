@@ -35,6 +35,22 @@ the observer-source directory. Adding a non-acquiring state model therefore
 does not change the raw-first observer population or its unrelated cardinality
 receipts.
 
+## Independent-review repair
+
+The first independent review passed every dormant, identity, accounting,
+no-replay, Recovery, population, and proportionality check but found one
+semantic mismatch. The policy permits the privileged USB-role/UDC transient to
+prove restoration either in the same boot or by reboot, while the predecessor
+`22,856B/1cdb721f` core accepted only same-boot completion.
+
+The repair binds a closed `proof_mode` into every intent. D0 accepts only
+`same_boot_observation`; normal reboot and the payload-free Download roundtrip
+accept only `new_boot_health`; the privileged USB transient accepts either
+`same_boot_restore` or `reboot_restore_health`. Healthy return enforces the
+selected boot relation, both USB paths have positive and negative tests, and
+unknown or cross-class modes fail closed. A future live integration must derive
+this mode from its immutable fixed descriptor rather than caller input.
+
 ## Boundary
 
 The core is deliberately not a live runner. `COORDINATOR_ACTIVE`,
@@ -54,10 +70,10 @@ ordinary Process-v2 is unchanged.
 
 ## Validation
 
-The coordinator is 22,856 bytes with SHA-256
-`1cdb721f9aeb424989704a1bb3c9a7bb1a7dd1c458cf4c705204ede8c1a5275b`.
+The repaired coordinator is 23,764 bytes with SHA-256
+`c0d56417c070c5958a356110f4b1996f9c903af993d118e0f812cccdd8aea65e`.
 Its deterministic render-plan output is SHA-256
-`34d964e8381c7e7f400047cbbc7b5068aebc52bd8b5bd0182150626b6fe95d53`.
+`1cb8dfeec01e00ff59b13869741d8b7f54b9399474c0ca856604e6b79552dac6`.
 Fourteen focused tests cover dormant rendering, exact policy/catalog binding,
 canonical activation rejection, aggregate D0 and D1 ceilings, pre-intent
 non-consumption, class-specific boot identity, uncertain park/no-replay,
