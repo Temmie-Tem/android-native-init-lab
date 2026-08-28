@@ -406,7 +406,7 @@ class S22PlusPreF1AutonomousCoordinatorTest(unittest.TestCase):
     def test_report_preserves_the_non_active_integration_boundary(self):
         report = REPORT.read_text(encoding="utf-8")
         for clause in (
-            "IMPLEMENTED / REVIEW PENDING / NOT ACTIVE",
+            "INDEPENDENT PASS / NOT ACTIVE",
             "one later integration unit",
             "not a live runner",
             "no process-spawn facility",

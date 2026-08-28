@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **IMPLEMENTED / REVIEW PENDING / NOT ACTIVE**
+Status: **INDEPENDENT PASS / NOT ACTIVE**
 
 ## Cause
 
@@ -68,6 +68,19 @@ bind fixed descriptors rather than caller-supplied commands, paths, or values.
 The policy remains `DEFINED_NOT_ACTIVE`; F1 remains freshly attended and
 ordinary Process-v2 is unchanged.
 
+## Final independent review
+
+Final re-review passed the repaired `23,764B/c0d56417` core. It confirmed that
+`proof_mode` is required in every intent, is closed per class, and enforces both
+policy-valid USB restoration paths with their correct boot relation. Unknown
+and cross-class modes fail closed. The reviewer also reconfirmed the dormant
+execution boundary, exact bindings, aggregate accounting, Recovery rejection,
+unchanged observer population, and proportional scope.
+
+This `PASS_GO` qualifies only the pure H0 coordinator core. It does not qualify
+the future durable journal, fixed descriptors, runner integration, activation
+manifest, or any device action.
+
 ## Validation
 
 The repaired coordinator is 23,764 bytes with SHA-256
@@ -82,7 +95,7 @@ surface, render-only CLI behavior, and the documented inactive boundary. They
 pass `14/14`; touched Python
 compiles and `git diff --check` passes.
 
-Independent review is required before the H0 core is qualified. Even after
-that review, the catalog cannot activate until the separate fixed-descriptor
-runner and durable journal integration are implemented, tested, reviewed, and
-bound by one fresh attended campaign activation.
+Independent review qualifies the H0 core. The catalog still cannot activate
+until the separate fixed-descriptor runner and durable journal integration are
+implemented, tested, reviewed, and bound by one fresh attended campaign
+activation.
