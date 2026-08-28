@@ -125,7 +125,7 @@ new effects; it never authorizes replay of the uncertain action.
   D1. Do not turn it into a retry loop or an F1 substitute.
 - Predeclare any attended hardware-restart contingency and its trigger. Do not
   invent a recovery action during the session.
-- Verify and report the expected healthy terminal state.
+- Verify and report the expected healthy terminal state. The sole S22+ attendance/ordinal exception is `docs/operations/targets/S22PLUS_FYG8_PREF1_AUTONOMOUS_RESEARCH_POLICY_V1.md`; it remains `DEFINED_NOT_ACTIVE` until its exact coordinator, tests, independent `PASS_GO`, activation manifest, and attended session approval are mechanically present, and it never grants persistent mutation, F1, or partition transfer.
 
 ## S22+ F1
 

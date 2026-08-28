@@ -86,6 +86,13 @@ defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
 - On ambiguity or the same failure twice, stop. Do not inflate D1 into a larger
   live policy while the underlying transport remains unresolved.
 
+A selected target contract may define a separately reviewed, mechanically
+activated pre-F1 catalog that replaces per-ordinal approval only for its exact
+finite transient descriptors. The S22+ definition is
+`docs/operations/targets/S22PLUS_FYG8_PREF1_AUTONOMOUS_RESEARCH_POLICY_V1.md`;
+it remains `DEFINED_NOT_ACTIVE` until its listed gates pass and never covers
+F1 or persistent mutation.
+
 ### F1 - Boot-Only Transfer
 
 Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.

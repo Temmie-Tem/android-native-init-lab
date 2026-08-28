@@ -660,11 +660,11 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # and Process-v2 review rows resolve their same-topic pending
         # obligations; followup-29 is bookkeeping only, and topics 30 through
         # 32, 34, and 37 through 43 are independently reviewed. Current recent
-        # pending topics are 33, 35 and 36; older pending topics remain
-        # explicit below rather than being inferred from label counts.
+        # pending topics are 33, 35, 36 and the inactive pre-F1 policy;
+        # older pending topics remain explicit rather than inferred from labels.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (61, 44, 17),
+            (62, 44, 18),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -678,6 +678,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "last-kmsg-retention",
                 "log-harvest-runner",
                 "mux-module-chain",
+                "pref1-autonomous-policy",
                 "raw-first-observer",
                 "stage-b-rederivation",
                 "stage-b-reg-runner",
@@ -700,6 +701,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-last-kmsg-retention-1",
                 "h0-log-harvest-runner-1",
                 "h0-mux-module-chain-1",
+                "h0-pref1-autonomous-policy-1",
                 "h0-raw-first-observer-2",
                 "h0-stage-b-rederivation-1",
                 "h0-stage-b-reg-runner-1",
@@ -710,9 +712,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-usblog-parse-1",
             ],
         )
-        self.assertEqual(current["total"], 61)
+        self.assertEqual(current["total"], 62)
         self.assertEqual(current["resolved_count"], 44)
-        self.assertEqual(current["unresolved_count"], 17)
+        self.assertEqual(current["unresolved_count"], 18)
         self.assertEqual(
             [item["review_topic"] for item in current["resolved"][-3:]],
             [
@@ -1008,7 +1010,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 383)
+        self.assertEqual(len(all_rows), 385)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -1040,7 +1042,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 obligations["resolved_count"],
                 obligations["unresolved_count"],
             ),
-            (61, 44, 17),
+            (62, 44, 18),
         )
         self.assertEqual(
             [

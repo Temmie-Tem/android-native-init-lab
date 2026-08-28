@@ -49,10 +49,10 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
 ## Permanent Device Safety Boundaries
 
 1. Work only on an explicitly identified operator-owned device. Device effects
-   require attendance except the exact A90 resident D1 lane and an exact S20+
-   bounded autonomous-research lane separately activated by their binding
-   target contracts. F1 is never unattended, and authority never transfers
-   between targets.
+   require attendance except the exact A90 resident D1 lane, an exact S20+
+   bounded autonomous-research lane, or the S22+ pre-F1 autonomous lane, each
+   separately activated by its binding target contract. F1 is never unattended,
+   and authority never transfers between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
    Never send a partition image, raw block write, or flashing operation to
    recovery, vendor_boot, DTBO, vbmeta, vbmeta_system, BL, CP, CSC, super,
@@ -116,8 +116,8 @@ Classify every action using
   no-clobber to shared user storage under
   `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`. It never authorizes launch,
   patch, permission grants, arbitrary files/packages, partition payloads, or
-  security/configuration changes. A selected target contract may also define
-  the existing separately reviewed exact storage-artifact cleanup capability.
+  security/configuration changes. A target contract may also define reviewed
+  cleanup or `docs/operations/targets/S22PLUS_FYG8_PREF1_AUTONOMOUS_RESEARCH_POLICY_V1.md` as `DEFINED_NOT_ACTIVE`; only that catalog may waive per-ordinal approval, never F1 or persistent mutation.
 - **R1:** an attended exact privileged root-data transaction activated by one
   target contract outside D1/F1. It uses fixed no-input root commands for one
   pinned data-only payload in a finite surface, durable one-shot journal, and
