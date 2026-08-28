@@ -120,8 +120,9 @@ class S22PlusPreF1CatalogTest(unittest.TestCase):
         self.assertEqual(usb["restore_or_reboot_proof"], "required")
         self.assertEqual(
             self.policy["catalog"]["android_recovery_entry"],
-            "eligible_only_after_automatic_return_proof",
+            "not_in_catalog_ordinary_attended_d1",
         )
+        self.assertIn("Android Recovery entry is not in this catalog", self.text)
         requirements = self.policy["catalog"]["activation_descriptor_requirements"]
         self.assertIn("unique_bound_post_entry_endpoint", requirements["payload_free_download_roundtrip"])
         self.assertIn("fixed_executor_identity", requirements["fixed_privileged_usb_role_or_udc_transient"])

@@ -95,7 +95,7 @@ false activation fields are intentional.
       "payload_free_download_roundtrip": ["fixed_entry_argv", "pre_entry_zero_download_endpoints", "unique_bound_post_entry_endpoint", "fixed_payload_free_return_argv"],
       "fixed_privileged_usb_role_or_udc_transient": ["fixed_executor_identity", "direct_node_type", "exact_node_path", "exact_before_value", "exact_write_value", "exact_after_value", "exact_restore_action", "exact_restored_value", "exclude_debug_or_security_nodes"]
     },
-    "android_recovery_entry": "eligible_only_after_automatic_return_proof"
+    "android_recovery_entry": "not_in_catalog_ordinary_attended_d1"
   },
   "effect_accounting": {
     "pre_intent_host_failure_consumes": false,
@@ -157,8 +157,9 @@ The four closed classes are:
    executor, direct node type/path, before/write/after values, and restore
    action/result. Debug/security nodes and caller-supplied path/value are rejected.
 
-Android Recovery entry is eligible only after automatic return proof; Download
-is the separate roundtrip above. Generic root/su,
+Android Recovery entry is not in this catalog and remains an ordinary,
+separately approved attended D1 action; Download is the separate roundtrip
+above. Generic root/su,
 arbitrary sysfs/configfs access, persistent property/service/security/config
 writes, packages/shared-storage/userdata mutation, module load/unload,
 runtime-code payload, panic/crash injection, F1, and every partition payload

@@ -50,10 +50,12 @@ The first independent review found four activation ambiguities without finding
 a current authority leak. The repaired declaration makes both budgets aggregate
 per campaign, adds one ordinary exclusive campaign guard and atomic no-replace
 intent, and debits each D0 group before its first command. It distinguishes
-Android Recovery from Download, requires fixed Download entry/baseline/unique
-endpoint/return fields, and requires fixed executor/node/value/restore fields
-for privileged USB controls. Attendance is required at opening, not continuously;
-any park waits for operator return. No enterprise per-syscall race model was added.
+Android Recovery from Download and leaves Android Recovery outside this
+four-class catalog as ordinary attended D1. It requires fixed Download
+entry/baseline/unique endpoint/return fields and fixed executor/node/value/restore
+fields for privileged USB controls. Attendance is required at opening, not
+continuously; any park waits for operator return. No enterprise per-syscall race
+model was added.
 
 ## Boundary
 
