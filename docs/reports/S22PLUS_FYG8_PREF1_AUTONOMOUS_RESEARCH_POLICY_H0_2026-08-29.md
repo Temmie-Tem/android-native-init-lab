@@ -41,7 +41,19 @@ pre-intent host failure consumes none; any post-intent cut is uncertain and
 never replayed. Exact healthy return precedes the next effect. Each ordinal has
 one machine receipt and the campaign one summary. Existing target-selection,
 raw-first, journal, and health helpers are reused by one future coordinator;
-no per-action runner, manifest, or review ladder is introduced.
+no per-action runner or review ladder is introduced, and one campaign
+activation manifest replaces per-action manifests.
+
+## Independent-review repair
+
+The first independent review found four activation ambiguities without finding
+a current authority leak. The repaired declaration makes both budgets aggregate
+per campaign, adds one ordinary exclusive campaign guard and atomic no-replace
+intent, and debits each D0 group before its first command. It distinguishes
+Android Recovery from Download, requires fixed Download entry/baseline/unique
+endpoint/return fields, and requires fixed executor/node/value/restore fields
+for privileged USB controls. Attendance is required at opening, not continuously;
+any park waits for operator return. No enterprise per-syscall race model was added.
 
 ## Boundary
 
@@ -61,8 +73,8 @@ This H0 unit uses no device, ADB, USB, Odin, network, root, or private live run.
 The policy declaration parses as one JSON block; focused tests cover exact
 target binding, inactive state, four-class closure, finite accounting, no
 replay, forbidden surfaces, and contract delegation. Existing contract
-semantics are preserved, with only the common attendance-list sentence extended
-to name this target-specific lane. Policy/contract/taxonomy/S20+ interaction
+semantics are preserved; the common attendance list, target reference, and risk
+tier gain only the delegation needed to name this lane. Policy/contract/taxonomy/S20+ interaction
 tests pass `85/85`; the unchanged common Process-v2 modules pass `142/142`.
 `AGENTS.md` and the S22+ target contract remain at 260 lines, `GOAL.md` remains
 at 900, and Process-v2 remains byte-unchanged. Independent review remains

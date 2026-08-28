@@ -52,6 +52,11 @@ class S22PlusPreF1CatalogTest(unittest.TestCase):
         self.assertEqual(activation["mode"], "one_fresh_attended_session")
         self.assertEqual(activation["catalog_hash"], "required_at_activation")
         self.assertEqual(activation["effect_core_hash"], "required_at_activation")
+        self.assertEqual(
+            activation["operator_attendance_after_activation"],
+            "not_required_until_park_or_close",
+        )
+        self.assertIs(activation["operator_return_required_on_park"], True)
         for key in (
             "mechanically_activated",
             "activation_manifest_present",
@@ -82,8 +87,12 @@ class S22PlusPreF1CatalogTest(unittest.TestCase):
         self.assertTrue(campaign["new_campaign_requires_fresh_activation"])
         self.assertTrue(campaign["f1_requires_campaign_closed"])
         self.assertEqual(campaign["d1_effect_max"], 8)
+        self.assertEqual(campaign["d1_effect_max_scope"], "aggregate_per_campaign")
         self.assertEqual(campaign["d0_command_group_max"], 256)
+        self.assertEqual(campaign["d0_command_group_max_scope"], "aggregate_per_campaign")
         self.assertEqual(campaign["duration_seconds"], 43_200)
+        self.assertEqual(campaign["exclusive_campaign_guard"], "required_single_coordinator")
+        self.assertEqual(campaign["intent_publication"], "atomic_no_replace")
         self.assertTrue(campaign["journal_root"].startswith("workspace/private/"))
         self.assertNotIn("..", Path(campaign["journal_root"]).parts)
 
@@ -110,9 +119,13 @@ class S22PlusPreF1CatalogTest(unittest.TestCase):
         self.assertEqual(usb["descriptor"], "fixed_literal_node_and_value_bound_at_activation")
         self.assertEqual(usb["restore_or_reboot_proof"], "required")
         self.assertEqual(
-            self.policy["catalog"]["recovery_entry"],
+            self.policy["catalog"]["android_recovery_entry"],
             "eligible_only_after_automatic_return_proof",
         )
+        requirements = self.policy["catalog"]["activation_descriptor_requirements"]
+        self.assertIn("unique_bound_post_entry_endpoint", requirements["payload_free_download_roundtrip"])
+        self.assertIn("fixed_executor_identity", requirements["fixed_privileged_usb_role_or_udc_transient"])
+        self.assertIn("exclude_debug_or_security_nodes", requirements["fixed_privileged_usb_role_or_udc_transient"])
 
     def test_accounting_and_repairs_preserve_no_replay(self) -> None:
         accounting = self.policy["effect_accounting"]
@@ -124,6 +137,7 @@ class S22PlusPreF1CatalogTest(unittest.TestCase):
             "uncertain_consumed_no_replay",
         )
         self.assertIs(accounting["fresh_target_health_recheck_before_intent"], True)
+        self.assertEqual(accounting["d0_group_debit"], "one_group_before_first_group_command")
         self.assertIs(accounting["uncertain_command_replay"], False)
         self.assertIs(accounting["next_effect_requires_exact_healthy_return"], True)
         self.assertEqual(
@@ -171,7 +185,7 @@ class S22PlusPreF1CatalogTest(unittest.TestCase):
         self.assertIn("pre-F1", self.risk)
 
     def test_policy_unit_has_no_runner_or_device_result(self) -> None:
-        self.assertLessEqual(len(self.text.splitlines()), 180)
+        self.assertLessEqual(len(self.text.splitlines()), 200)
         self.assertFalse(
             (ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_pref1_autonomous_research.py").exists()
         )
