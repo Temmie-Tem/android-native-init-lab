@@ -2,7 +2,7 @@
 
 Date: 2026-08-30 KST
 
-Status: `P319_PROCESS_V2_OFFLINE_READY_CENSUS_DECOUPLE_IMPLEMENTED_REVIEW_PENDING`
+Status: `PASS_GO_P319_PROCESS_V2_OFFLINE_READY_CENSUS_DECOUPLE_H0_CAPABILITY_V1`
 
 ## Scope
 
@@ -143,7 +143,10 @@ P3.18/P3.19 adapter/registration/arming predecessor selection passed 167/167.
 Independent read-only review of exact commit `0659738a49` reproduced raw `-23`,
 verified its predecessor identity chain, stable-source stale-bytecode control,
 current registry absence and matching-claim rejection, and returned `PASS_GO`.
-The census-decoupled successor requires a new focused review before promotion.
-It creates no approval, prepared live run, consumed-candidate claim, or D0, D1,
-F1, recovery, replay, or unattended authority. Runtime witnesses remain pending;
-the manifest may be presented only after review and a fresh attended F1 approval.
+Independent read-only review of exact commit `6d7bd57378` reproduced the
+cross-target census control, semantic projection, 0664 acceptance and 0666
+rejection, private 0400 chain, final identities, registry 0/0 and H0 boundaries,
+then returned `PASS_GO`. This creates no approval, prepared live run,
+consumed-candidate claim, or D0, D1, F1, recovery, replay, or unattended
+authority. Runtime witnesses remain pending; the manifest may be presented
+only for a fresh attended F1 approval.

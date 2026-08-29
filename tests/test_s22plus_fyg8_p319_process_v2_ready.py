@@ -321,14 +321,14 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
             "126,135 bytes / `1506e8988dfe2c9",
             "35,309 bytes / `d00f422e46c55c15",
             "2,432 bytes / `e6c758460f45e52b",
-            "P319_PROCESS_V2_OFFLINE_READY_CENSUS_DECOUPLE_IMPLEMENTED_REVIEW_PENDING",
+            "PASS_GO_P319_PROCESS_V2_OFFLINE_READY_CENSUS_DECOUPLE_H0_CAPABILITY_V1",
             "creates no approval",
         ):
             self.assertIn(token, report)
         self.assertIn("`ready-for-f1-approval`", goal)
         self.assertIn("h0-process-v2-offline-ready-51", ledger)
-        self.assertIn("h0-process-v2-offline-ready-census-decouple-52", ledger)
-        self.assertIn("75/57/18 across 424 rows", ledger)
+        self.assertIn("h0-process-v2-offline-ready-census-decouple-review-52", ledger)
+        self.assertIn("75/58/17 across 425 rows", ledger)
 
     def test_temporary_outputs_are_private_and_no_clobber(self):
         for path in self.promotion_root.iterdir():
