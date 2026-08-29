@@ -67,15 +67,18 @@ and [`docs/operations/DEVICE_ACTION_PROCESS_V2.md`](docs/operations/DEVICE_ACTIO
 
 Currently demonstrated on three maintainer-owned devices. The architecture and
 validation methodology are developed around device-independent boundaries where
-practical.
+practical. See the [device progress guide](docs/devices/README.md) for the
+evidence-bounded overview.
 
-- **Galaxy A90 5G (`SM-A908N`)** — established recovery-safe baseline: custom
-  native init, USB ACM/NCM, KMS/HUD, input, storage, network, and a minimal
-  userspace.
-- **Galaxy S22+ (`SM-S906N`, FYG8)** — active frontier: source-matched
-  vendor-kernel rebuild and retained PID 1 witness work.
-- **Galaxy S20+ 5G (`SM-G986N`)** — newly acquired: one-shot read-only D0
-  onboarding is consumed; no active D1/F1 process yet.
+- **Galaxy A90 5G (`SM-A908N`)** — custom native PID 1, ACM/NCM, native Wi-Fi
+  and audio, plus bounded Debian PID 1/SSH/display results; current frontier is
+  the self-built-kernel RTIC/MPGen closure and an isolated-Debian successor.
+- **Galaxy S22+ (`SM-S906N`, FYG8)** — source-matched rebuilt kernel and direct
+  native `/init` exec acceptance are proved; current USB runtime frontier is
+  SSUSB parent → DWC3 child → UDC → transport.
+- **Galaxy S20+ 5G (`SM-G986N`)** — exact onboarding, resident Magisk root, and
+  attended native-canary infrastructure are established; N3-U0 and autonomous
+  research infrastructure remain host-qualified but not active.
 
 Target-specific source, helpers, reports, rollback identities, and safety gates
 stay explicitly separated. A result on one target never authorizes a device
