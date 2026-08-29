@@ -45,6 +45,22 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-12-pref1-live-v3-result.json"
+)
+PREF1_LIVE_EXACT_INVENTORY_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-11-pref1-live-exact-inventory.json"
+)
+PREF1_LIVE_RAW_GRAMMAR_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-10-pref1-live-raw-grammar.json"
+)
+PREF1_LIVE_RAW_KEYSET_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-09-pref1-live-repair.json"
+)
+PREF1_LIVE_REPAIR_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260829-08-pref1-live-runner.json"
 )
 PREF1_LIVE_PREDECESSOR_RECEIPT = ROOT / (
@@ -151,7 +167,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260829-08-pref1-live-runner.json",
+            "raw-first-observer-audit-20260829-12-pref1-live-v3-result.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -178,16 +194,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "31cddedb2bc753e994b12af2f481cc2ea57f26d2336f1f3b5a3a226955ce7367",
+            "cd96116bc5f37df9f51e742b23cb6a17ab8e74d67d9c31602d814bef2ddaf232",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 14138)
+        self.assertEqual(len(retained_bytes), 14553)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "a27001b02da8a056c39c8a575bd03de25ac3f675ed77bc5b944825df04aae8fd",
+            "b076020eae1b115b7e71002ba0936fe7a05ec52830b89a41543e7250a2edd281",
         )
 
     def test_pref1_live_runner_is_registered_but_remains_review_pending(self):
@@ -195,12 +211,12 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertIn(name, self.auditor.ACTIVE_FILES)
         self.assertEqual(
             self.auditor.EXPECTED_ACTIVE_SOURCE_SHA256[name],
-            "3acaf93ca6021cce6277008c669cf5c5f7a426ac2695d9d5c8de9ab68cea0f83",
+            "e93ec6df89d2ae050876e67713bf8c80cd43301733ece98795d298e407504ed7",
         )
         for token in (
             "IMPLEMENTED / REVIEW PENDING / NOT ACTIVE",
-            "45,930 bytes / `3acaf93c`",
-            "14,138 bytes / `a27001b0`",
+            "46,505 bytes / `e93ec6df`",
+            "14,553 bytes / `b076020e`",
             "cut between healthy-return and close",
             "activation proposal, session approval, device command",
         ):
@@ -309,6 +325,26 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                PREF1_LIVE_EXACT_INVENTORY_PREDECESSOR_RECEIPT,
+                14280,
+                "1e847cfb789f50aa1300c1c083f9da6789bc3ddc7db41d1eefaa84c89d4e50d9",
+            ),
+            (
+                PREF1_LIVE_RAW_GRAMMAR_PREDECESSOR_RECEIPT,
+                14280,
+                "1da44a515920071bd260c2bfce50fb6d483c9947b204fe3a48ebc147b9323177",
+            ),
+            (
+                PREF1_LIVE_RAW_KEYSET_PREDECESSOR_RECEIPT,
+                14280,
+                "10a274a7e7103e10b157d54903577cd363429f4ad0a8c3eb332ed45b96239906",
+            ),
+            (
+                PREF1_LIVE_REPAIR_PREDECESSOR_RECEIPT,
+                14138,
+                "a27001b02da8a056c39c8a575bd03de25ac3f675ed77bc5b944825df04aae8fd",
+            ),
             (
                 PREF1_LIVE_PREDECESSOR_RECEIPT,
                 13518,

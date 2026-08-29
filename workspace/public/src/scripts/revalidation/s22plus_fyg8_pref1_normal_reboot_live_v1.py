@@ -834,7 +834,7 @@ def activate_session(
         if any(
             observation.get(key) != prior.get(key)
             for key in ("target", "topology_sha256", "boot_id_sha256", "healthy_android")
-        ):
+        ) or _selected_serial(observation) != _selected_serial(prior):
             raise LiveRunnerError("activation target, topology, boot, or health changed")
         envelope = _activation_value(
             static,
@@ -908,9 +908,24 @@ def _read_activation(
         != _sha(_approval(proposal_raw).encode("ascii"))
         or value["selected_serial_sha256"]
         != _selected_serial(proposal["observation"])
+        or activation.get("topology_sha256")
+        != proposal["observation"]["topology_sha256"]
+        or activation.get("boot_id_sha256")
+        != proposal["observation"]["boot_id_sha256"]
     ):
         raise LiveRunnerError("session activation binding differs")
     return value, raw
+
+
+def _preflight_executor(v3: types.ModuleType) -> None:
+    static = v3._validated_static_inputs()
+    v3._validated_execution_inputs(static)
+    v3._preflight_new_run_namespace()
+
+
+def _validated_v3_result(v3: types.ModuleType) -> dict[str, Any]:
+    inputs = v3._validated_execution_inputs(v3._validated_static_inputs())
+    return v3._post_validate(inputs)
 
 
 def _result_observed(
@@ -922,6 +937,7 @@ def _result_observed(
 ) -> dict[str, Any]:
     if (
         type(result) is not dict
+        or canonical(result) != canonical(_validated_v3_result(v3))
         or result.get("schema")
         != "s22plus_fyg8_p319_d1_fresh_baseline_v3_result"
         or result.get("verdict")
@@ -940,7 +956,6 @@ def _result_observed(
         or type(result.get("after", {}).get("boot_id_sha256")) is not str
         or HEX64.fullmatch(result["after"]["boot_id_sha256"]) is None
         or result["after"]["boot_id_sha256"] == state["boot_id_sha256"]
-        or result.get("raw_evidence", {}).get("complete") is not True
         or any(
             result.get(key) is not False
             for key in (
@@ -969,8 +984,7 @@ def _default_executor(v3: types.ModuleType) -> dict[str, Any]:
 
 
 def _default_result_loader(v3: types.ModuleType) -> dict[str, Any]:
-    inputs = v3._validated_execution_inputs(v3._validated_static_inputs())
-    return v3._post_validate(inputs)
+    return _validated_v3_result(v3)
 
 
 def _reconcile_intent(
@@ -1100,6 +1114,7 @@ def run_normal_reboot(
                 or current_activation_raw != activation_raw
             ):
                 raise LiveRunnerError("session activation changed during observation")
+            _preflight_executor(v3)
             store.record_intent(_coordinator_observed(observation), now=intent_now)
             intent_durable = True
             try:

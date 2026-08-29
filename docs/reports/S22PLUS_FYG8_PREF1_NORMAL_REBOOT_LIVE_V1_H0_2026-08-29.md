@@ -41,9 +41,9 @@ partition transfer, a renewable campaign or a background daemon.
 
 ## Binding and evidence
 
-The pending binding is 2,511 bytes / `ff526e38`. It binds:
+The final pending binding is 2,511 bytes / `fab1fdaa`. It binds:
 
-- live wrapper: 45,930 bytes / `3acaf93c`;
+- live wrapper: 46,505 bytes / `e93ec6df`;
 - reviewed policy: 9,587 bytes / `b0868105`;
 - reviewed coordinator: 23,764 bytes / `c0d56417`;
 - reviewed journal: 32,123 bytes / `0d13c621`;
@@ -65,7 +65,7 @@ All production observation flows through V3's bound
 not deleted or parsed as successes; they remain in a bounded numbered slot and
 the next no-effect retry gets a fresh slot. The permanent raw-first auditor now
 byte-freezes this live source and checks observation and effect ordering. Its
-new private receipt is 14,138 bytes / `a27001b0`, mode 0400, link count one.
+new private receipt is 14,553 bytes / `b076020e`, mode 0400, link count one.
 
 ## Cut and replay behavior
 
@@ -84,6 +84,24 @@ pending implementation repairs all seven:
 - selected-serial identity is retained and compared at activation, pre-intent
   and result acceptance.
 
+The first re-review then found two residual envelope gaps. A result could carry
+`raw_evidence={"complete":true,"forged":...}` because the wrapper checked only
+one Boolean, and a rewritten activation could change its boot/topology while
+remaining internally well-typed. The repair compares activation boot and
+topology directly with the approved proposal observation. It also requires the
+complete result to be canonical-equal to V3's fresh `_post_validate()` result,
+which reopens the fixed arm, start, result, raw inventory, manifest and
+namespace. Both forged fixtures now stop before a healthy close or any new
+device effect.
+
+A second hostile probe recomputed the raw aggregate around `children=[{}]` and
+`handles=[{}]`; the first local grammar still accepted it. Rather than copying
+V3's grammar into this wrapper, the final repair delegates to the exact bound
+V3 post-validator and compares the whole result. Immediately before outer
+intent it also runs V3's host-only fixed-namespace preflight, so a pre-existing
+arm/result cannot be reconciled as this campaign's result. Activation rechecks
+the selected serial before publication as well as at pre-intent and result.
+
 The outer intent is durable before the reviewed V3 invocation. Any exception
 while the V3 result is absent or invalid records
 `UNCERTAIN_CONSUMED_NO_REPLAY`. A later invocation sees that terminal park and
@@ -93,16 +111,17 @@ transition is close; the D1 debit itself is the replay guard.
 
 ## Host-only validation
 
-The live-wrapper suite passes 19/19. It covers pending-review blocking,
+The final live-wrapper suite passes 25/25. It covers pending-review blocking,
 short-lived proposal binding, wrong/expired approval, activation recheck and
 resume, session expiry, exact serial, pre-intent no-consumption, retained
-partial observation, happy return, malformed result, post-intent park,
+partial observation, fixed V3 namespace absence, happy return, malformed
+health or raw inventory, activation serial/envelope mutation, post-intent park,
 reporting-cut reconciliation and the healthy-return/close cut that previously
 allowed a second invocation.
 
 The permanent raw-first audit passes over 1,744 `revalidation/` Python files
-with this wrapper as an active byte-frozen source. The auditor is 74,073 bytes
-with normalized self-hash `df9c9c30`; its output preserves the existing
+with this wrapper as an active byte-frozen source. The auditor is 75,044 bytes
+with normalized self-hash `6cb6dae5`; its output preserves the existing
 128-member pre-boundary and 126-member closed-observer inventories.
 
 Independent changed-closure review is still required. Until the pending

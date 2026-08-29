@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -60,6 +61,16 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
         paths["BINDING_PATH"].write_bytes(
             self.module.canonical(self.module._expected_binding(payloads, review))
         )
+        result_validator = mock.patch.object(
+            self.module,
+            "_validated_v3_result",
+            side_effect=lambda _v3: self.result(),
+        )
+        result_validator.start()
+        self.addCleanup(result_validator.stop)
+        preflight = mock.patch.object(self.module, "_preflight_executor")
+        preflight.start()
+        self.addCleanup(preflight.stop)
         return root
 
     def observation(
@@ -123,6 +134,52 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
                 "verified_boot_state": "orange",
             }
 
+        def child(name, size, digest):
+            return {
+                "name": name,
+                "node_type": "regular",
+                "mode": "0400",
+                "nlink": 1,
+                "size": size,
+                "sha256": digest,
+            }
+
+        name = "0000-adb-inventory"
+        receipt = child(f"{name}.capture.json", 128, "b" * 64)
+        stdout = child(f"{name}.stdout.bin", 16, "c" * 64)
+        stderr = child(f"{name}.stderr.bin", 0, "d" * 64)
+        raw_evidence = {
+            "schema": "s22plus_fyg8_p319_d1_fresh_baseline_v3_raw_inventory",
+            "root": (
+                "workspace/private/runs/device-action-d1-p319-fresh-baseline-v3/"
+                "p319-fresh-baseline-3-raw"
+            ),
+            "directory": (
+                "workspace/private/runs/device-action-d1-p319-fresh-baseline-v3/"
+                "p319-fresh-baseline-3-raw/raw-adb"
+            ),
+            "root_present": True,
+            "directory_present": True,
+            "complete": True,
+            "children": [receipt, stderr, stdout],
+            "handles": [
+                {
+                    "name": name,
+                    "receipt": receipt,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "returncode": 0,
+                    "timed_out": False,
+                    "output_exceeded": False,
+                    "producer_error_type": None,
+                }
+            ],
+            "invalid_receipts": [],
+            "unclaimed_children": [],
+        }
+        raw_evidence["aggregate_sha256"] = hashlib.sha256(
+            self.module.canonical(raw_evidence)
+        ).hexdigest()
         return {
             "schema": "s22plus_fyg8_p319_d1_fresh_baseline_v3_result",
             "verdict": "PASS_P319_D1_FRESH_BASELINE_V3_EXACT_NORMAL_REBOOT_RETURN_HEALTH",
@@ -139,7 +196,7 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
                 "selected_topology_sha256": topology,
                 "other_targets_commanded": False,
             },
-            "raw_evidence": {"complete": True},
+            "raw_evidence": raw_evidence,
             "candidate_transfer": False,
             "partition_payload": False,
             "odin": False,
@@ -180,6 +237,24 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
         self.assertFalse(value["device_contact"])
         self.assertFalse(value["activation_created"])
         self.assertFalse(value["live_authority"])
+
+    def test_result_is_reopened_through_bound_v3_post_validation(self):
+        retained = self.result()
+
+        class FakeV3:
+            @staticmethod
+            def _validated_static_inputs():
+                return {"fixture": True}
+
+            @staticmethod
+            def _validated_execution_inputs(_static):
+                return {"raw": object()}
+
+            @staticmethod
+            def _post_validate(_inputs):
+                return retained
+
+        self.assertEqual(self.module._validated_v3_result(FakeV3), retained)
 
     def test_pending_review_blocks_before_observer_or_namespace(self):
         self.sandbox(pass_go=False)
@@ -250,6 +325,20 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
         self.assertFalse(self.module.ACTIVATION_PATH.exists())
         self.assertFalse(self.module.JOURNAL_ROOT.exists())
 
+    def test_activation_rechecks_same_selected_serial(self):
+        self.sandbox()
+        prepared = self.module.prepare_activation(
+            observer=self.observation(), now=100, campaign_id="3" * 32
+        )
+        with self.assertRaisesRegex(self.module.LiveRunnerError, "activation target"):
+            self.module.activate_session(
+                prepared["session_approval"],
+                observer=self.observation(serial="b" * 64),
+                now=101,
+            )
+        self.assertFalse(self.module.ACTIVATION_PATH.exists())
+        self.assertFalse(self.module.JOURNAL_ROOT.exists())
+
     def test_activation_publication_cut_resumes_without_second_observation(self):
         self.sandbox()
         prepared = self.module.prepare_activation(
@@ -279,6 +368,24 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
         self.assertEqual(recovered["status"], "ACTIVATED_NO_EFFECT")
         self.assertEqual(len(calls), 1)
         self.assertEqual(self.journal_kinds(), ["CAMPAIGN_OPEN"])
+
+    def test_activation_boot_or_topology_cannot_diverge_from_proposal(self):
+        self.sandbox()
+        prepared, _activated = self.prepare_and_activate()
+        value = json.loads(self.module.ACTIVATION_PATH.read_bytes())
+        value["activation"]["topology_sha256"] = "9" * 64
+        value["activation"]["boot_id_sha256"] = "8" * 64
+        self.module.ACTIVATION_PATH.chmod(0o600)
+        self.module.ACTIVATION_PATH.write_bytes(self.module.canonical(value))
+        self.module.ACTIVATION_PATH.chmod(0o400)
+        calls = []
+        with self.assertRaisesRegex(self.module.LiveRunnerError, "binding differs"):
+            self.module.activate_session(
+                prepared["session_approval"],
+                observer=self.observation(calls=calls),
+                now=102,
+            )
+        self.assertEqual(calls, [])
 
     def test_happy_path_consumes_one_d1_and_cannot_repeat(self):
         self.sandbox()
@@ -364,6 +471,22 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
         self.assertEqual(value["status"], "HEALTHY_RETURN_CLOSED")
         self.assertEqual(len(seen), 2)
         self.assertNotEqual(seen[0], seen[1]["raw_root"])
+
+    def test_existing_v3_namespace_blocks_before_outer_intent(self):
+        self.sandbox()
+        self.prepare_and_activate()
+        calls = []
+        self.module._preflight_executor.side_effect = self.module.LiveRunnerError(
+            "fixture V3 namespace is not fresh"
+        )
+        with self.assertRaisesRegex(self.module.LiveRunnerError, "not fresh"):
+            self.module.run_normal_reboot(
+                observer=self.observation(),
+                executor=lambda _v3: calls.append("effect"),
+                now=102,
+            )
+        self.assertEqual(calls, [])
+        self.assertEqual(self.journal_kinds(), ["CAMPAIGN_OPEN"])
 
     def test_close_cut_cannot_dispatch_second_reboot(self):
         self.sandbox()
@@ -460,6 +583,38 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
         self.prepare_and_activate()
         malformed = self.result()
         malformed["after"]["root_verified"] = False
+        with self.assertRaisesRegex(self.module.LiveRunnerError, "uncertain-consumed"):
+            self.module.run_normal_reboot(
+                observer=self.observation(),
+                executor=lambda _v3: malformed,
+                now=102,
+            )
+        self.assertEqual(self.journal_kinds()[-1], "EFFECT_UNCERTAIN_PARK")
+
+    def test_forged_or_incomplete_raw_inventory_cannot_close(self):
+        self.sandbox()
+        self.prepare_and_activate()
+        malformed = self.result()
+        malformed["raw_evidence"]["forged"] = "accepted"
+        with self.assertRaisesRegex(self.module.LiveRunnerError, "uncertain-consumed"):
+            self.module.run_normal_reboot(
+                observer=self.observation(),
+                executor=lambda _v3: malformed,
+                now=102,
+            )
+        self.assertEqual(self.journal_kinds()[-1], "EFFECT_UNCERTAIN_PARK")
+
+    def test_empty_raw_child_and_handle_schemas_cannot_close(self):
+        self.sandbox()
+        self.prepare_and_activate()
+        malformed = self.result()
+        raw = malformed["raw_evidence"]
+        raw["children"] = [{}]
+        raw["handles"] = [{}]
+        base = {key: value for key, value in raw.items() if key != "aggregate_sha256"}
+        raw["aggregate_sha256"] = hashlib.sha256(
+            self.module.canonical(base)
+        ).hexdigest()
         with self.assertRaisesRegex(self.module.LiveRunnerError, "uncertain-consumed"):
             self.module.run_normal_reboot(
                 observer=self.observation(),

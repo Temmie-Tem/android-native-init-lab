@@ -19,12 +19,12 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "df9c9c30a12f7c7589b68188dda9303cb9820e92e0f8b99a009f326a831966af"
+AUDITOR_NORMALIZED_SHA256 = "6cb6dae574b128744e6bb98de2fdc8e429e9b7aada724d19a2441be9fe023d8c"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-08-pref1-live-runner.json"
+    "raw-first-observer-audit-20260829-12-pref1-live-v3-result.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
@@ -321,7 +321,7 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p319_d0_fresh_baseline_v2.py": "e1190b66a31ee674d9f0bf64726fbf8a5edb55d81e7910b07b6f4b0f46009d0d",
     "s22plus_fyg8_p319_d1_fresh_baseline_v2.py": "9443c81cd51e23a24f48a0f43573e1449cfa188b3cd1c69e6f6f11644d15d478",
     "s22plus_fyg8_p319_d1_fresh_baseline_v3.py": "cb13236e1fb10bf25ac47f7706df050abe15b2ab5a7e423bbdc7b5b31c2c491d",
-    "s22plus_fyg8_pref1_normal_reboot_live_v1.py": "3acaf93ca6021cce6277008c669cf5c5f7a426ac2695d9d5c8de9ab68cea0f83",
+    "s22plus_fyg8_pref1_normal_reboot_live_v1.py": "e93ec6df89d2ae050876e67713bf8c80cd43301733ece98795d298e407504ed7",
     "s22plus_odin_transition_core.py": "a44e5ce43eebc3d254c1cc428b986484f244d47ae13a4125399c26c4b3e4014c",
     "s22plus_odin_usbfs_identity.py": "e337026d70f4c231468bfddab4a28e9ae65ab142f82859370c926332fb7bb9b5",
 }
@@ -504,6 +504,7 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "state, intent = store._tail()",
                 "require_current=True",
                 "selected = _observe_v3 if observer is None else observer",
+                "_preflight_executor(v3)",
                 "store.record_intent(",
                 "selected_executor = _default_executor if executor is None else executor",
                 "result = selected_executor(v3)",
@@ -525,6 +526,30 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "store.record_close(now=now)",
             ),
             ("_default_executor(", "run_live(", "subprocess."),
+        ),
+        "_preflight_executor": (
+            (
+                "v3._validated_static_inputs()",
+                "v3._validated_execution_inputs(static)",
+                "v3._preflight_new_run_namespace()",
+            ),
+            ("run_live(", "subprocess."),
+        ),
+        "_validated_v3_result": (
+            (
+                "v3._validated_execution_inputs(v3._validated_static_inputs())",
+                "v3._post_validate(inputs)",
+            ),
+            ("run_live(", "subprocess."),
+        ),
+        "_result_observed": (
+            (
+                "canonical(result) != canonical(_validated_v3_result(v3))",
+                "v3._health_complete(result.get(\"before\"))",
+                "v3._selection_complete(result.get(\"selection\"))",
+                'result["selection"]["selected_serial_sha256"]',
+            ),
+            ("subprocess.",),
         ),
     },
     "s22plus_fyg8_p319_max77705_attribute_stage_a.py": {
@@ -782,6 +807,7 @@ ORDERED_FUNCTION_TOKENS = {
         "state, intent = store._tail()",
         "require_current=True",
         "selected = _observe_v3 if observer is None else observer",
+        "_preflight_executor(v3)",
         "store.record_intent(",
         "selected_executor = _default_executor if executor is None else executor",
         "result = selected_executor(v3)",
