@@ -516,9 +516,11 @@ def _validate_nonconsuming_ready_manifest(
     """
     if not path.exists() and not path.is_symlink():
         return
-    value, _receipt = _strict_json(
-        path, "P319 non-consuming ready manifest", canonical=False, mode=0o644
+    value, receipt = _strict_json(
+        path, "P319 non-consuming ready manifest", canonical=False
     )
+    if int(receipt["mode"], 8) not in {0o644, 0o664}:
+        raise AuditError("P319 ready declaration public checkout mode differs")
     if set(value) != {
         "allowed_member",
         "candidate_ap",
@@ -1052,16 +1054,13 @@ def audit_raw_first_population() -> dict[str, Any]:
         "predecessor": RAW_FIRST_PREDECESSOR,
         "semantic_projection_omits_only": list(RAW_PROJECTION_EXCLUDED),
         "baseline": {
-            "all_revalidation_python_files_scanned": baseline[
-                "all_revalidation_python_files_scanned"
-            ],
-            "subprocess_modules_scanned": baseline["subprocess_modules_scanned"],
             "projection_sha256": _sha(
                 json.dumps(
                     base_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ),
         },
+        "census_values_retained_only_in_raw_receipt": True,
         "inert_addition": {
             "full_census_changed": True,
             "projection_unchanged": True,

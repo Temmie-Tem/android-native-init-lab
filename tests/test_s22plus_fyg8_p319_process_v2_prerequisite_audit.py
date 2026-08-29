@@ -73,6 +73,13 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
             )
             path.chmod(0o644)
             self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
+            path.chmod(0o664)
+            self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
+            path.chmod(0o666)
+            with self.assertRaisesRegex(
+                self.module.AuditError, "public checkout mode differs"
+            ):
+                self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
             value["status"] = "approved"
             path.write_text(
                 json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
@@ -218,11 +225,10 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         self.assertEqual(
             raw["baseline"],
             {
-                "all_revalidation_python_files_scanned": 1747,
-                "subprocess_modules_scanned": 412,
                 "projection_sha256": "5b1f42dda9e4f26c5fa74efbe07a019a28a4a64f99cc59036c60e4d426993dee",
             },
         )
+        self.assertTrue(raw["census_values_retained_only_in_raw_receipt"])
         self.assertEqual(
             raw["semantic_projection_omits_only"],
             [

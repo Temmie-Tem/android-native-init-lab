@@ -33,15 +33,15 @@ INTEGRATION_SOURCE = (
 ADAPTER_SOURCE = SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py"
 INTEGRATION_RESULT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260830-15/result.json"
+    "process-v2-integration-qualification-v2-20260830-16/result.json"
 )
 INTEGRATION_IDENTITY = {
-    "size": 126_085,
-    "sha256": "1542dfb9bf7f154324dfdcf159ad957ed6179f08d4b522d49f842d2781e623fb",
+    "size": 126_135,
+    "sha256": "1506e8988dfe2c9b5cbc47c0618939d6eb85c20704b6c792c70455caa3e6e76e",
 }
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-candidate-static-20260830-10.json"
+    "process-v2-candidate-static-20260830-11.json"
 )
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_candidate_static_v1"

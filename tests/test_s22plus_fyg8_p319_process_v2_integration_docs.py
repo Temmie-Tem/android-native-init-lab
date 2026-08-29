@@ -467,7 +467,7 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
             "The prerequisite gates retain scoped independent H0 `PASS_GO`",
             self.goal,
         )
-        self.assertIn("`ready-for-f1-approval` manifest", self.goal)
+        self.assertIn("`ready-for-f1-approval`", self.goal)
 
 
 if __name__ == "__main__":

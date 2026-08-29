@@ -93,13 +93,13 @@ EXPECTED_USERSPACE_ARTIFACTS = {
     },
 }
 PREVIOUS_RESULT = {
-    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260830-14/result.json",
-    "size": 126094,
-    "sha256": "7a4a4c8c4997e8b9a9cdcef10668bddc266ed12b3b179850ec0778844e708176",
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260830-15/result.json",
+    "size": 126085,
+    "sha256": "1542dfb9bf7f154324dfdcf159ad957ed6179f08d4b522d49f842d2781e623fb",
 }
 DEFAULT_OUTPUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260830-15/result.json"
+    "process-v2-integration-qualification-v2-20260830-16/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"

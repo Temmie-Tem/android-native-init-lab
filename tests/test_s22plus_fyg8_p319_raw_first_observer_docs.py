@@ -210,8 +210,9 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1747)
-        self.assertEqual(current["subprocess_modules_scanned"], 412)
+        for key in excluded:
+            self.assertIs(type(current[key]), int)
+            self.assertGreater(current[key], 0)
         self.assertEqual(
             hashlib.sha256(
                 json.dumps(

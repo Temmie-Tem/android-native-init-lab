@@ -299,15 +299,16 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
             self.assertEqual(loaded.LONG_FAMILY, b"F0RE1L2|")
 
     def test_published_ready_manifest_is_exact_regeneration(self):
+        info = ready.DEFAULT_OUTPUT.lstat()
+        observed_mode = stat.S_IMODE(info.st_mode)
+        self.assertIn(observed_mode, {0o644, 0o664})
         payload = ready.stable_bytes(
             ready.DEFAULT_OUTPUT,
             "published P3.19 ready manifest",
             1024 * 1024,
-            mode=0o644,
+            mode=observed_mode,
         )
         self.assertEqual(payload, self.manifest_payload)
-        info = ready.DEFAULT_OUTPUT.lstat()
-        self.assertEqual(stat.S_IMODE(info.st_mode), 0o644)
         self.assertEqual(info.st_nlink, 1)
 
     def test_report_goal_and_ledger_keep_ready_non_authoritative(self):
@@ -316,18 +317,18 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
         ledger = LEDGER.read_text(encoding="utf-8")
         for token in (
             "15,075 bytes / `608799f12b16aab5",
-            "13,228 bytes / `d0f3fb5b43a52d07",
-            "126,085 bytes / `1542dfb9bf7f1543",
-            "35,259 bytes / `2425fed6e791e2d7",
-            "2,432 bytes / `2721ede6bc5d45fd",
-            "PASS_GO_P319_PROCESS_V2_OFFLINE_READY_H0_CAPABILITY_V1",
+            "13,190 bytes / `4a18cf1148a7c8bd",
+            "126,135 bytes / `1506e8988dfe2c9",
+            "35,309 bytes / `d00f422e46c55c15",
+            "2,432 bytes / `e6c758460f45e52b",
+            "P319_PROCESS_V2_OFFLINE_READY_CENSUS_DECOUPLE_IMPLEMENTED_REVIEW_PENDING",
             "creates no approval",
         ):
             self.assertIn(token, report)
-        self.assertIn("`ready-for-f1-approval` manifest", goal)
+        self.assertIn("`ready-for-f1-approval`", goal)
         self.assertIn("h0-process-v2-offline-ready-51", ledger)
-        self.assertIn("h0-process-v2-offline-ready-review-51", ledger)
-        self.assertIn("74/57/17 across 423 rows", ledger)
+        self.assertIn("h0-process-v2-offline-ready-census-decouple-52", ledger)
+        self.assertIn("75/57/18 across 424 rows", ledger)
 
     def test_temporary_outputs_are_private_and_no_clobber(self):
         for path in self.promotion_root.iterdir():

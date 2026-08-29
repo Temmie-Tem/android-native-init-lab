@@ -45,10 +45,10 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
         self.assertFalse(self.output.is_symlink())
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(self.payload), 35_259)
+        self.assertEqual(len(self.payload), 35_309)
         self.assertEqual(
             hashlib.sha256(self.payload).hexdigest(),
-            "2425fed6e791e2d72150cabdf3704327df334b1484efd32c5e020036f8569a59",
+            "d00f422e46c55c15795c171ef893d8d6a01e441e00adebbaae2d7316af859fab",
         )
         self.assertEqual(self.module.canonical(self.value), self.payload)
         self.module.validate_result(self.value)
@@ -227,7 +227,7 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
             {
                 "path": (
                     "workspace/private/outputs/s22plus_fyg8_p319/"
-                    "process-v2-integration-qualification-v2-20260830-15/result.json"
+                    "process-v2-integration-qualification-v2-20260830-16/result.json"
                 ),
                 **self.module.INTEGRATION_IDENTITY,
             },

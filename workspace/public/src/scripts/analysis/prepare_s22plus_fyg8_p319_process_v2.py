@@ -34,7 +34,7 @@ DEFAULT_CANDIDATE_AP = ROOT / (
 )
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-promotion-20260830-10"
+    "process-v2-promotion-20260830-11"
 )
 
 

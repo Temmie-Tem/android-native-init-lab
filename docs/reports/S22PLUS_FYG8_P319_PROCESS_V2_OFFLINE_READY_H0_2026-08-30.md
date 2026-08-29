@@ -2,7 +2,7 @@
 
 Date: 2026-08-30 KST
 
-Status: `PASS_GO_P319_PROCESS_V2_OFFLINE_READY_H0_CAPABILITY_V1`
+Status: `P319_PROCESS_V2_OFFLINE_READY_CENSUS_DECOUPLE_IMPLEMENTED_REVIEW_PENDING`
 
 ## Scope
 
@@ -21,18 +21,19 @@ boot-only archives with the permitted `boot.img.lz4` member.
 - raw-first receipt `-23`: 15,075 bytes / `608799f12b16aab5…`, mode 0400,
   link count one. The independently preserved immediate predecessor is `-22`
   `15075B/d6ad008c…`.
-- prerequisite receipt `-11-p319-final`: 13,228 bytes / `d0f3fb5b43a52d07…`,
+- prerequisite receipt `-12-p319-census-decoupled`: 13,190 bytes / `4a18cf1148a7c8bd…`,
   mode 0400, link count one.
-- Integration V2 `-15`: 126,085 bytes / `1542dfb9bf7f1543…`, mode 0400,
+- Integration V2 `-16`: 126,135 bytes / `1506e8988dfe2c9…`, mode 0400,
   link count one, zero blockers, `SOURCE_CLOSURE_PASS_RUNTIME_CLASSIFICATION_PENDING`.
-- candidate-static `-10`: 35,259 bytes / `2425fed6e791e2d7…`, mode 0400,
+- candidate-static `-11`: 35,309 bytes / `d00f422e46c55c15…`, mode 0400,
   link count one.
-- promotion `-10`: `candidate-static.json` `35259B/2425fed6…`,
-  `run-manifest.json` `1043B/25c3bb09…`, and
-  `static-check-result.json` `1842B/83bc6508…`; all are direct
+- promotion `-11`: `candidate-static.json` `35309B/d00f422e…`,
+  `run-manifest.json` `1043B/172a873a…`, and
+  `static-check-result.json` `1842B/08a25d61…`; all are direct
   mode-0400, link-count-one files.
-- tracked ready manifest: 2,432 bytes / `2721ede6bc5d45fd…`, mode 0644,
-  link count one, schema `device_action_f1_candidate_v2`, status
+- tracked ready manifest: 2,432 bytes / `e6c758460f45e52b…`, direct regular
+  link-count-one mode 0644 or Git-umask-equivalent 0664, schema
+  `device_action_f1_candidate_v2`, status
   `ready-for-f1-approval`.
 
 The ready manifest contains no candidate observer because the P3.19 ACM path
@@ -107,9 +108,22 @@ replaces Integration's dynamic local loader with that stable path. A hostile
 test recreates the stale bytecode and proves the changed source bytes, not the
 cached module, execute.
 
-Intermediate private raw-first `-19` through `-22`, prerequisite `-04` through `-10`,
-Integration `-06` through `-14`, candidate-static `-02` through `-09`, and
-promotion `-01` through `-09` artifacts remain preserved as non-authoritative
+Post-review host validation exposed one cross-target coupling that the clean
+review worktree could not show. Five unrelated A90 revalidation files changed
+the diagnostic raw-first census from 1747/412 to 1752/415 while the approved
+semantic projection remained `5b1f42dd…`. The prerequisite had correctly used
+that projection for safety but then copied the two excluded census integers
+back into its exact receipt, making the candidate-static authority fail only
+because another target added files. The successor keeps the count-change
+positive controls but stores only the semantic projection digest in the
+prerequisite authority. It also accepts exactly 0644 or 0664 for the tracked
+public declaration because Git records only executable versus non-executable
+mode; 0666 and every other mode remain rejected. Private promotion artifacts
+remain exact mode 0400. No evidence field or device boundary is relaxed.
+
+Intermediate private raw-first `-19` through `-22`, prerequisite `-04` through `-11`,
+Integration `-06` through `-15`, candidate-static `-02` through `-10`, and
+promotion `-01` through `-10` artifacts remain preserved as non-authoritative
 predecessors. Integration `-11/-12` record the correct fail-closed reaction to
 an interim adapter identity drift. The unused host-only requalification
 `-12/-56/-57` independently reproduced the same candidate bytes but is not
@@ -117,17 +131,19 @@ referenced by the final chain. None grants authority.
 
 ## Validation and boundary
 
-The final manifest-present chain passes 69/69 focused tests, including exact
-regeneration of prerequisite, Integration V2, candidate-static, promotion,
-and manifest bytes; hostile nested-provenance, stale-bytecode, exact-type,
-proof-class, plan, AP, declaration-shape, and no-clobber checks; and real C
-encoder-to-Carrier-to-decoder terminal arming. Common Process-v2 plus the
-additional P3.18/P3.19 adapter/registration/arming regressions pass 167/167.
+The census-decoupled chain covers 69/69 distinct focused checks: prerequisite,
+ready/promotion and taxonomy paths, including exact manifest derivation, mode
+normalization, semantic-census exclusion, registry absence, hostile provenance,
+stale-bytecode, exact types and no-clobber behavior. A main-population validation
+with the five unrelated A90 files present returns
+`PASS_DEVICE_ACTION_F1_LIVE_V2_HOST_READY`; it proves the 1752/415 diagnostic
+census no longer changes the exact chain. The unchanged common Process-v2 plus
+P3.18/P3.19 adapter/registration/arming predecessor selection passed 167/167.
 
 Independent read-only review of exact commit `0659738a49` reproduced raw `-23`,
-verified the final identity chain, stable-source stale-bytecode control, current
-registry absence and matching-claim rejection, and returned `PASS_GO`. This
-qualifies only the H0 offline-ready capability and ready declaration.
-It creates no approval, prepared live run, consumed-candidate claim, or D0, D1, F1,
-recovery, replay, or unattended authority. Runtime witnesses remain pending;
-the manifest may be presented only for a fresh attended F1 approval.
+verified its predecessor identity chain, stable-source stale-bytecode control,
+current registry absence and matching-claim rejection, and returned `PASS_GO`.
+The census-decoupled successor requires a new focused review before promotion.
+It creates no approval, prepared live run, consumed-candidate claim, or D0, D1,
+F1, recovery, replay, or unattended authority. Runtime witnesses remain pending;
+the manifest may be presented only after review and a fresh attended F1 approval.
