@@ -1,6 +1,6 @@
 # S22+ FYG8 P3.19 Process-v2 Stock-Adapter Registration H0
 
-Status: `IMPLEMENTED_REVIEW_PENDING / NOT READY / NOT ACTIVE`.
+Status: `INDEPENDENT_PASS_GO / NOT READY / NOT ACTIVE`.
 
 This host-only unit registers the existing P3.19 stock-witness adapter in the
 shared Process-v2 evidence, source-binding, and live-result paths. It does not
@@ -93,9 +93,15 @@ ledger taxonomy pass 60/60; the selected current-tree, frozen-inventory, and
 receipt gates pass 4/4 after the exact repin. Touched Python compiles and
 `git diff --check` passes.
 
+Independent read-only changed-closure review first rejected ordinary Python
+equality at the durable-state seam, then found the same issue at final raw
+validation. Re-review of `1d8e2b2296` verifies both seams use the shared
+exact-type comparator, the real final-observer hostile test passes, COMPLETE
+cannot become generic F1 PASS, and no P318/P313 semantics entered P319. It
+records `PASS_GO_P319_PROCESS_V2_STOCK_ADAPTER_REGISTRATION_H0_CAPABILITY_V1`.
+
 The independently reviewed Integration V2 `-04` remains immutable evidence,
 but these execution-critical shared source changes intentionally make its old
-source projection a predecessor. After this registration receives independent
-review, a new versioned Integration V2 result must repin the reviewed shared
-identities before candidate-static promotion. No ready manifest may consume
-`-04` as current authority.
+source projection a predecessor. A new versioned Integration V2 result must
+now repin the reviewed shared identities before candidate-static promotion.
+No ready manifest may consume `-04` as current authority.

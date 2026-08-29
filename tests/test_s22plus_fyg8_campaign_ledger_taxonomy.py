@@ -663,12 +663,12 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # pending topics are 33, 35, and 36; the pre-F1 policy, coordinator,
         # journal, live integration, D0 V3 repin, and the Process-v2 integration
         # V2 successor, the current-authority repin, and the repaired
-        # candidate/baseline cross-binding are independently reviewed; the
-        # stock-adapter registration remains review-pending; older pending
-        # topics remain explicit rather than inferred from prose.
+        # candidate/baseline cross-binding and the repaired stock-adapter
+        # registration are independently reviewed; older pending topics remain
+        # explicit rather than inferred from prose.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (71, 53, 18),
+            (71, 54, 17),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
@@ -682,7 +682,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "last-kmsg-retention",
                 "log-harvest-runner",
                 "mux-module-chain",
-                "process-v2-stock-adapter-registration",
                 "raw-first-observer",
                 "stage-b-rederivation",
                 "stage-b-reg-runner",
@@ -705,7 +704,6 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-last-kmsg-retention-1",
                 "h0-log-harvest-runner-1",
                 "h0-mux-module-chain-1",
-                "h0-process-v2-stock-adapter-registration-48",
                 "h0-raw-first-observer-2",
                 "h0-stage-b-rederivation-1",
                 "h0-stage-b-reg-runner-1",
@@ -717,32 +715,32 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             ],
         )
         self.assertEqual(current["total"], 71)
-        self.assertEqual(current["resolved_count"], 53)
-        self.assertEqual(current["unresolved_count"], 18)
+        self.assertEqual(current["resolved_count"], 54)
+        self.assertEqual(current["unresolved_count"], 17)
         self.assertEqual(
             [item["review_topic"] for item in current["resolved"][-4:]],
             [
-                "d0-fresh-baseline-v3-repin",
                 "process-v2-integration-v2",
                 "process-v2-current-authority-repin",
                 "process-v2-candidate-baseline-crossbind",
+                "process-v2-stock-adapter-registration",
             ],
         )
         self.assertEqual(
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p319",
-                "review_topic": "process-v2-candidate-baseline-crossbind",
-                "pending_ordinal": "h0-process-v2-candidate-baseline-crossbind-47",
+                "review_topic": "process-v2-stock-adapter-registration",
+                "pending_ordinal": "h0-process-v2-stock-adapter-registration-48",
                 "pending_action": (
-                    "P319_PROCESS_V2_CANDIDATE_BASELINE_CROSSBIND_"
+                    "P319_PROCESS_V2_STOCK_ADAPTER_REGISTRATION_"
                     "IMPLEMENTED_REVIEW_PENDING"
                 ),
                 "resolution_ordinal": (
-                    "h0-process-v2-candidate-baseline-crossbind-review-47"
+                    "h0-process-v2-stock-adapter-registration-review-48"
                 ),
                 "resolution_action": (
-                    "PASS_GO_P319_PROCESS_V2_CANDIDATE_BASELINE_CROSSBIND_"
+                    "PASS_GO_P319_PROCESS_V2_STOCK_ADAPTER_REGISTRATION_"
                     "H0_CAPABILITY_V1"
                 ),
             },
@@ -786,7 +784,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             0,
         )
         self.assertEqual(
-            current["resolved"][-28],
+            current["resolved"][-29],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "candidate-witness-transport",
@@ -805,7 +803,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-27],
+            current["resolved"][-28],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-witness-runtime",
@@ -822,7 +820,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-26],
+            current["resolved"][-27],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-image-provenance-repair",
@@ -839,7 +837,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-25],
+            current["resolved"][-26],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification",
@@ -856,7 +854,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-24],
+            current["resolved"][-25],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "stock-candidate-qualification-plan-binding",
@@ -873,7 +871,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-23],
+            current["resolved"][-24],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "raw-first-cross-target-membership",
@@ -892,7 +890,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-22],
+            current["resolved"][-23],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "raw-first-population-diagnostic",
@@ -909,7 +907,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-21],
+            current["resolved"][-22],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "process-v2-integration-prerequisites",
@@ -928,7 +926,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-20],
+            current["resolved"][-21],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "global-consumed-candidate-registry",
@@ -947,7 +945,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-19],
+            current["resolved"][-20],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "process-v2-contract-repin",
@@ -964,7 +962,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            current["resolved"][-18],
+            current["resolved"][-19],
             {
                 "campaign": "s22plus-fyg8-p319",
                 "review_topic": "download-request-cut-recovery",
@@ -1034,7 +1032,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 414)
+        self.assertEqual(len(all_rows), 415)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -1066,7 +1064,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 obligations["resolved_count"],
                 obligations["unresolved_count"],
             ),
-            (71, 53, 18),
+            (71, 54, 17),
         )
         self.assertEqual(
             [
