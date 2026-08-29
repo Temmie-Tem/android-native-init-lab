@@ -1,6 +1,6 @@
 # S22+ FYG8 P3.19 Process-v2 Post-Registration Repin H0
 
-Status: `IMPLEMENTED_REVIEW_PENDING / NOT READY / NOT ACTIVE`.
+Status: `INDEPENDENT_PASS_GO / NOT READY / NOT ACTIVE`.
 
 This host-only unit repins the already-reviewed P3.19 prerequisite and
 Integration V2 paths after stock-adapter registration changed the shared live
@@ -71,5 +71,23 @@ main absolute path. This preserves the retained P3.18 absolute-path evidence
 without moving or reading the concurrently edited A90 sources into the S22+
 census. The namespace made no persistent mount or device change.
 
-Independent changed-closure review remains mandatory. Until it passes, `-05`
-is review-pending H0 evidence and cannot feed candidate-static promotion.
+## Independent review
+
+Independent read-only changed-closure review returned `PASS_GO`. In an
+ephemeral unprivileged mount namespace it reproduced prerequisite 9/9,
+Integration V2 25/25, and raw-first docs plus taxonomy 60/60. A fresh
+current-source `build_result()` encoded 125,814 bytes and matched retained
+`-05` byte-for-byte at `16c9901f`; fresh raw-auditor generation likewise
+matched retained `-18` at 15,075 bytes / `0ffd6306`.
+
+The review also reopened the 2,964-byte `5807c919` registry and 12,995-byte
+`e57f6dda` prerequisite receipts as mode 0400/link count one, verified that
+the registry binds live runner 200,471 bytes / `d6249eda` and places its claim
+before both the local attempt and candidate backend, and confirmed reviewed
+`-04` is the exact predecessor. No blocker remains in this repin closure.
+
+This review qualifies only the exact host-side prerequisite and Integration
+V2 identities. `-05` remains
+`NOT_READY_P319_RUNTIME_CLASSIFICATION_PENDING_H0`; it creates no candidate
+static artifact, ready/run manifest, approval, device action, or live/F1
+authority.
