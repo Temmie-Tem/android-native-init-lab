@@ -45,6 +45,10 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-13-p319-d0-v3-repin.json"
+)
+D0_V3_REPIN_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260829-12-pref1-live-v3-result.json"
 )
 PREF1_LIVE_EXACT_INVENTORY_PREDECESSOR_RECEIPT = ROOT / (
@@ -167,7 +171,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260829-12-pref1-live-v3-result.json",
+            "raw-first-observer-audit-20260829-13-p319-d0-v3-repin.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -186,7 +190,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1744)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1746)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -194,19 +198,19 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "cd96116bc5f37df9f51e742b23cb6a17ab8e74d67d9c31602d814bef2ddaf232",
+            "94de02daf3ceb3cab2556c78e93c75e4ace67f54cb5a1cc5114cbcff59d2c375",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 14553)
+        self.assertEqual(len(retained_bytes), 15075)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "b076020eae1b115b7e71002ba0936fe7a05ec52830b89a41543e7250a2edd281",
+            "b70ac022de4d4836cfff90121041eba4f15e308ede4f36aea433cfb96dba3d9b",
         )
 
-    def test_pref1_live_runner_is_registered_reviewed_and_not_activated(self):
+    def test_pref1_live_runner_is_registered_reviewed_and_session_is_closed(self):
         name = "s22plus_fyg8_pref1_normal_reboot_live_v1.py"
         self.assertIn(name, self.auditor.ACTIVE_FILES)
         self.assertEqual(
@@ -225,7 +229,13 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "normal-reboot live wrapper is independently reviewed H0-only `PASS_GO`",
             self.goal,
         )
-        self.assertIn("no activation proposal, session approval", self.goal)
+        for token in (
+            "d1-fresh-baseline-3",
+            "39594B/8dc828d3",
+            "outer journal is `CLOSED`",
+            "grants no remaining session authority",
+        ):
+            self.assertIn(token, self.goal)
 
     def test_d0_registration_is_active_reviewed_and_not_a_current_run(self):
         report = self.d0_producer_report
@@ -269,6 +279,32 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                 "s22plus_fyg8_p319_d0_fresh_baseline_v2.py"
             ],
             "e1190b66a31ee674d9f0bf64726fbf8a5edb55d81e7910b07b6f4b0f46009d0d",
+        )
+        self.assertIn(
+            "s22plus_fyg8_p319_d0_fresh_baseline_v3.py",
+            self.auditor.ACTIVE_FILES,
+        )
+        self.assertNotIn(
+            "s22plus_fyg8_p319_d0_fresh_baseline_v3.py",
+            self.auditor.PRE_BOUNDARY_DEVICE_SOURCES,
+        )
+        self.assertEqual(
+            self.auditor.EXPECTED_ACTIVE_SOURCE_SHA256[
+                "s22plus_fyg8_p319_d0_fresh_baseline_v3.py"
+            ],
+            "a8b902e1d6b8bb30cba6591d8f24523bdd61a5bc03249869b4d3ea76eebb4721",
+        )
+        self.assertIn(
+            "s22plus_fyg8_p319_d0_fresh_baseline_v3.py",
+            self.auditor.FUNCTION_CONTRACTS,
+        )
+        self.assertEqual(
+            self.auditor.ORDERED_FUNCTION_TOKENS[
+                ("s22plus_fyg8_p319_d0_fresh_baseline_v3.py", "_execute")
+            ],
+            self.auditor.ORDERED_FUNCTION_TOKENS[
+                ("s22plus_fyg8_p319_d0_fresh_baseline_v2.py", "_execute")
+            ],
         )
         for token in (
             "P319_D0_FRESH_BASELINE_V2_REPIN_IMPLEMENTED_REVIEW_PENDING",
@@ -328,6 +364,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                D0_V3_REPIN_PREDECESSOR_RECEIPT,
+                14553,
+                "b076020eae1b115b7e71002ba0936fe7a05ec52830b89a41543e7250a2edd281",
+            ),
             (
                 PREF1_LIVE_EXACT_INVENTORY_PREDECESSOR_RECEIPT,
                 14280,

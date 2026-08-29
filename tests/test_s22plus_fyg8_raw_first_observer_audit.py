@@ -116,6 +116,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         for name in (
             "s22plus_fyg8_p319_d0_fresh_baseline.py",
             "s22plus_fyg8_p319_d0_fresh_baseline_v2.py",
+            "s22plus_fyg8_p319_d0_fresh_baseline_v3.py",
         ):
             source = self.source(name)
             self.assertIn(name, self.module.ACTIVE_FILES)
@@ -148,6 +149,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         for name in (
             "s22plus_fyg8_p319_d0_fresh_baseline.py",
             "s22plus_fyg8_p319_d0_fresh_baseline_v2.py",
+            "s22plus_fyg8_p319_d0_fresh_baseline_v3.py",
         ):
             source = self.source(name)
             self.assertEqual(
