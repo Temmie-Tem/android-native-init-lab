@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **IMPLEMENTED / REVIEW PENDING / NOT ACTIVE**
+Status: **IMPLEMENTED / INDEPENDENT PASS_GO / NOT ACTIVE**
 
 ## Result
 
@@ -31,7 +31,7 @@ artifacts are:
 
 - D0 producer: 77,915 bytes / `adc3e979`;
 - normalized reducer: 75,232 bytes / `848e20d8`;
-- pending execution binding: 14,504 bytes / `cedf8b8b`.
+- reviewed execution binding: 14,545 bytes / `fd595a25`.
 
 The D0 namespace is separate from the D1 parent because D1 V3 permits only its
 fixed arm and run children. The D0 behavior itself is unchanged: one exact
@@ -70,6 +70,8 @@ The final repair requires exact integer types for candidate plan counts, arm
 link count and attempt, observer byte counts, raw-receipt size, and normalized
 raw cardinality. Its hostile test drives the real `_validate_d0()` path with
 float and bool substitutions rather than testing the equality helper alone.
+Final independent re-review found no remaining blocker and returned
+`PASS_GO_P319_D0_FRESH_BASELINE_V3_H0_CAPABILITY_V1` for these exact bytes.
 
 ## Raw-first boundary
 
@@ -93,8 +95,8 @@ deterministic documentation pass 22/22. The combined D0 V2/V3, D1 V3,
 taxonomy, and current-state guard passes 117/117; the unchanged common
 Process-v2 four-module selection passes 142/142.
 
-The binding remains `review-pending`. No D0 approval, arm, device read, result,
-or normalized baseline exists. Process-v2 integration remains
+The binding is independently reviewed, but no D0 approval, arm, device read,
+result, or normalized baseline exists. Process-v2 integration remains
 `FRESH_BASELINE_MISSING`; its V3 repin belongs after a reviewed D0 result, not
-inside this implementation unit. Independent changed-closure review is still
-required, and F1 remains separately attended.
+inside this implementation unit. Capability review is not run authority, and
+F1 remains separately attended.

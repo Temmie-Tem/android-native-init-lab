@@ -587,13 +587,13 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
                 with self.assertRaises(self.d0.D0FreshBaselineError):
                     self.d0._require_success_raw_adb(forged)
 
-    def test_default_self_test_is_host_only_and_review_pending(self):
+    def test_default_self_test_is_host_only_and_independently_reviewed(self):
         with mock.patch("subprocess.Popen", side_effect=AssertionError("device call")):
             value = self.d0.self_test()
         self.assertFalse(value["device_contact"])
         self.assertFalse(value["approval_created"])
         self.assertFalse(value["live_authorized"])
-        self.assertEqual(value["review_status"], "review-pending")
+        self.assertEqual(value["review_status"], "pass-go")
         self.assertEqual(value["raw_bytes"], self.d0.RAW_SIZE)
 
     def test_clean_read_only_execution_reads_one_exact_observer_and_publishes_raw_first(self):
