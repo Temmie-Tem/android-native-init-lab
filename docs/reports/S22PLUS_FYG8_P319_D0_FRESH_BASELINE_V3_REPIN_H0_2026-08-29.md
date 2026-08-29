@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **IMPLEMENTED / INDEPENDENT PASS_GO / NOT ACTIVE**
+Status: **IMPLEMENTED / INDEPENDENT PASS_GO / D0 COMPLETE / NOT F1 ACTIVE**
 
 ## Result
 
@@ -85,7 +85,8 @@ subprocess-module census remains 412. The `-13` 15,075-byte `b70ac022` receipt,
 
 ## Validation and boundary
 
-Focused V3 tests pass 17/17. They reopen the actual D1 V3 result, reject V2
+Focused V3 tests pass 18/18, including exact post-run D0 and normalized-result
+reopening. They reopen the actual D1 V3 result, reject V2
 paths and forged health/raw data, keep review and approval checks before
 acquisition, exercise one exact raw-first read, reject short/stderr/nonzero
 captures and target/topology/boot drift, reject stale namespaces and malformed
@@ -95,8 +96,24 @@ deterministic documentation pass 22/22. The combined D0 V2/V3, D1 V3,
 taxonomy, and current-state guard passes 117/117; the unchanged common
 Process-v2 four-module selection passes 142/142.
 
-The binding is independently reviewed, but no D0 approval, arm, device read,
-result, or normalized baseline exists. Process-v2 integration remains
-`FRESH_BASELINE_MISSING`; its V3 repin belongs after a reviewed D0 result, not
-inside this implementation unit. Capability review is not run authority, and
-F1 remains separately attended.
+## Executed D0 result
+
+The operator supplied the exact reviewed approval for binding `fd595a25`. The
+runner consumed it once and published an 874-byte `84383f92` arm, a
+57,888-byte `360a3849` result, and one 2,097,136-byte `ec4fe9fb` raw observer.
+The raw capture receipt is 571 bytes / `b1298b6f`. All nodes are mode 0400 with
+link count one, and no stop exists.
+
+The result is `PASS_P319_D0_FRESH_BASELINE_RAW_V3`: exactly one FYG8 target,
+stable D1-returned boot and topology, nine successful raw-ADB handles covering
+27 owned children, zero stderr, no candidate marker, and no write, reboot,
+Download, Odin, partition, F1, other-target command, or replay. The host-only
+reducer then published the canonical 56,204-byte `fba4dc9f` normalized V3
+baseline at mode 0400/link count one; it validates as fresh and clean while all
+ready, live, candidate-success, causal-result, D0/D1/F1-authority, and replay
+flags remain false.
+
+The approval is consumed and grants no remaining D0 authority. The existing
+Process-v2 integration code still names the V2 baseline and therefore remains
+unchanged until its separately reviewed V3 successor. F1 remains separately
+attended.

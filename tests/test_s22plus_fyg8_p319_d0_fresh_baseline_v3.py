@@ -316,6 +316,38 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
         self.assertEqual(len(d1["raw_evidence"]["handles"]), 30)
         self.assertEqual(static["manifest"]["independent_review"]["status"], "pass-go")
 
+    def test_consumed_live_d0_and_normalized_result_are_exact(self):
+        result_payload = self.d0.RESULT_PATH.read_bytes()
+        result_info = self.d0.RESULT_PATH.stat()
+        self.assertEqual(len(result_payload), 57_888)
+        self.assertEqual(
+            hashlib.sha256(result_payload).hexdigest(),
+            "360a3849d41469d263b66ad50f02485772bb13c68cfe629902a49d9aab40e9a1",
+        )
+        self.assertEqual(result_info.st_mode & 0o777, 0o400)
+        self.assertEqual(result_info.st_nlink, 1)
+        static = self.d0._validated_static_inputs()
+        inputs = self.d0._validated_execution_inputs(static)
+        d1 = self.d0._load_d1_evidence(inputs)
+        result = json.loads(result_payload)
+        validated = self.d0.validate_result(result, inputs, d1)
+        self.assertEqual(validated["verdict"], self.d0.VERDICT)
+        self.assertEqual(validated["observer"]["bytes"], self.d0.RAW_SIZE)
+        self.assertTrue(validated["raw_adb"]["complete"])
+        normalized = self.reducer.validate_published_result(
+            self.reducer.DEFAULT_OUT.absolute()
+        )
+        normalized_payload = self.reducer.DEFAULT_OUT.read_bytes()
+        normalized_info = self.reducer.DEFAULT_OUT.stat()
+        self.assertTrue(normalized["authoritative"])
+        self.assertEqual(len(normalized_payload), 56_204)
+        self.assertEqual(
+            hashlib.sha256(normalized_payload).hexdigest(),
+            "fba4dc9f17e3b209d582c0f47fd387163f25ac731fb86d02819d3ced4c1b77c2",
+        )
+        self.assertEqual(normalized_info.st_mode & 0o777, 0o400)
+        self.assertEqual(normalized_info.st_nlink, 1)
+
     def test_wrong_v2_path_and_predecessor_binding_are_rejected(self):
         _root, _static, inputs = self.static_execution(pass_go=True)
         value = json.loads(D1_RESULT.read_text(encoding="utf-8"))
