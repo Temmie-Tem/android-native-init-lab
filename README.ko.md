@@ -71,17 +71,19 @@ known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 �
 
 ## 활성 대상
 
-- **Galaxy A90 5G (`SM-A908N`, 공개 식별자 `DEVICE-A90-01`)**: custom native
-  init, USB ACM/NCM, KMS/HUD, 입력, 스토리지, 네트워크, 최소 userspace 작업이
-  복구 안전한 베이스라인을 확보한 상태입니다. 상세 버전 이력은
-  `docs/overview/PROJECT_STATUS.md`와 `CHANGELOG.md`에 있습니다.
-- **Galaxy S22+ (`SM-S906N`, FYG8, 공개 식별자 `DEVICE-S22P-01`)**:
-  source-matched vendor-kernel 재빌드와 retained PID 1 witness 작업이 현재
-  활성 프론티어입니다. 정확한 현재 상태, 다음 host-only unit, live
-  authorization 여부는 `GOAL.md` 최상단에서 관리합니다.
-- **Galaxy S20+ 5G (`SM-G986N`)**: 새로 확보한 대상입니다. 1회성 읽기 전용
-  D0 onboarding이 완료됐고, 아직 활성 D1/F1 프로세스는 없습니다. 현재 상태는
-  `GOAL_S20PLUS.md`에서 관리합니다.
+[기기별 진행 상황](docs/devices/README.ko.md)에서 세 기기의 성과, 현재
+프론티어, 미증명 경계를 같은 증거 taxonomy로 비교할 수 있습니다.
+
+- **Galaxy A90 5G (`SM-A908N`)**: custom native PID 1, ACM/NCM, native Wi-Fi와
+  audio, 그리고 bounded Debian PID 1/SSH/display 결과가 있습니다. 현재
+  프론티어는 self-built kernel RTIC/MPGen closure와 isolated-Debian
+  successor입니다.
+- **Galaxy S22+ (`SM-S906N`, FYG8)**: source-matched rebuilt kernel과 direct
+  native `/init` exec acceptance가 증명됐습니다. 현재 USB runtime
+  프론티어는 SSUSB parent → DWC3 child → UDC → transport입니다.
+- **Galaxy S20+ 5G (`SM-G986N`)**: exact onboarding, resident Magisk root,
+  attended native-canary infrastructure가 확립됐습니다. N3-U0와 autonomous
+  research infrastructure는 host-qualified 상태지만 활성화되지 않았습니다.
 
 공용 소스는 `workspace/public/src/` 아래에 둡니다. 대상 전용 소스, 헬퍼,
 리포트, rollback identity, 안전 게이트는 명시적으로 분리합니다. 한 대상의
@@ -134,12 +136,16 @@ vendor bootloader
 
 ## 단기 로드맵
 
-S22+ FYG8에서 custom PID 1과 최소 native userspace runtime은 이미 검증됐습니다.
-공용 F1 실행 구조인 Device Action Process v2도 완료돼 재사용 어댑터로 쓰입니다.
-A90은 확보한 native-init/runtime 기반 위에서 별도의 프론티어를 진행합니다.
+S22+ FYG8에서는 source-matched rebuilt kernel의 Android boot와 direct native
+`/init` exec acceptance까지 검증됐습니다. 첫 native userspace instruction과 USB
+runtime은 아직 증명되지 않았습니다. 공용 F1 실행 구조인 Device Action Process
+v2는 재사용 어댑터로 쓰입니다. A90은 확보한 native-init/runtime 기반 위에서
+별도의 프론티어를 진행합니다.
 
-**현재 프론티어, 다음 bounded unit, live authorization 여부는 이 문서에 적지
-않습니다.** 자주 바뀌는 값이라 README에 두면 낡습니다. 다음을 정본으로 봅니다.
+기기별 진행 상황의 읽기 쉬운 요약은
+[`docs/devices/README.ko.md`](docs/devices/README.ko.md)에 있습니다. 자주 바뀌는
+정확한 현재 프론티어, 다음 bounded unit, live authorization 여부는 다음 정본을
+기준으로 봅니다.
 
 - `GOAL.md` — S22+ 현재 상태와 다음 bounded unit
 - `GOAL_A90.md` — A90 현재 상태와 다음 bounded unit

@@ -1,5 +1,7 @@
 # Samsung Galaxy S22+ FYG8
 
+**English** · [한국어](S22PLUS.ko.md)
+
 ## Device / SoC / kernel
 
 - Device: Samsung Galaxy S22+ (`SM-S906N`, `g0q`), exact firmware

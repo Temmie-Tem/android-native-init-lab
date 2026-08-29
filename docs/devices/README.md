@@ -1,5 +1,7 @@
 # Device progress guide
 
+**English** · [한국어](README.ko.md)
+
 This directory is an external-reader map of the three devices in this
 repository. It does not replace the binding target contracts, current GOAL
 files, campaign ledgers, or run reports. Those records remain authoritative.

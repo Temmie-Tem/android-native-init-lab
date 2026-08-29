@@ -1,5 +1,7 @@
 # Samsung Galaxy S20+ 5G
 
+**English** · [한국어](S20PLUS.ko.md)
+
 ## Device / SoC / kernel
 
 - Device: Samsung Galaxy S20+ 5G (`SM-G986N`, `y2q`, `y2qksx`), exact build
