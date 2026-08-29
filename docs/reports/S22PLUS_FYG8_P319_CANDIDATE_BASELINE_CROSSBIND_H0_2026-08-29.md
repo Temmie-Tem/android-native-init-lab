@@ -2,7 +2,7 @@
 
 Status: `NOT_READY_P319_RUNTIME_CLASSIFICATION_PENDING_H0`.
 
-Review: **IMPLEMENTED / REVIEW_PENDING / NOT ACTIVE**.
+Review: **INDEPENDENT PASS_GO / NOT ACTIVE**.
 
 This host-only unit closes one provenance gap between two already reviewed
 P3.19 inputs. The fresh-baseline V3 receipt identified candidate qualification
@@ -95,5 +95,12 @@ regenerated before commit and must remain byte-identical.
 
 This unit changes no candidate bytes, candidate registry state, target
 contract, transfer/recovery machinery, A90 path, or S20+ path. It grants no
-device or live authority. Independent changed-closure review remains required
-before the cross-binding can be used by the later P3.19 ready-manifest unit.
+device or live authority.
+
+Independent read-only re-review returned
+`PASS_GO_P319_PROCESS_V2_CANDIDATE_BASELINE_CROSSBIND_H0_CAPABILITY_V1`.
+It ran the paired-forgery hostile case, independently reopened all 20 artifact
+files, and confirmed exact `-04` regeneration, predecessor preservation,
+`70/53/17` full-tail review accounting, and every authority/action/causal flag
+false. This qualifies only the exact H0 cross-binding; it does not qualify the
+future P3.19 Process-v2 registration or ready manifest.
