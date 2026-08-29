@@ -46,7 +46,8 @@ vendor bootloader
 
 ## Why it might matter beyond these devices
 
-The device-independent output is not the two ports — it is the **method**.
+The device-independent output is not the individual device ports — it is the
+**method**.
 
 Bring-up work on locked-down hardware is normally ad hoc, undocumented, and
 occasionally destructive. This repository is an attempt to make it auditable and
