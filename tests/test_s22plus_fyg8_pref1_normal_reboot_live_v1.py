@@ -230,10 +230,10 @@ class P319PreF1NormalRebootLiveV1Test(unittest.TestCase):
                 now=now,
             )
 
-    def test_default_binding_is_dormant_and_self_test_has_no_authority(self):
+    def test_default_binding_is_reviewed_but_self_test_has_no_authority(self):
         value = self.module.self_test()
-        self.assertEqual(value["review_status"], "review-pending")
-        self.assertTrue(value["connected_entries_blocked_until_review"])
+        self.assertEqual(value["review_status"], "pass-go")
+        self.assertFalse(value["connected_entries_blocked_until_review"])
         self.assertFalse(value["device_contact"])
         self.assertFalse(value["activation_created"])
         self.assertFalse(value["live_authority"])

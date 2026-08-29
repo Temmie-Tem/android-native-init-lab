@@ -206,7 +206,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "b076020eae1b115b7e71002ba0936fe7a05ec52830b89a41543e7250a2edd281",
         )
 
-    def test_pref1_live_runner_is_registered_but_remains_review_pending(self):
+    def test_pref1_live_runner_is_registered_reviewed_and_not_activated(self):
         name = "s22plus_fyg8_pref1_normal_reboot_live_v1.py"
         self.assertIn(name, self.auditor.ACTIVE_FILES)
         self.assertEqual(
@@ -214,15 +214,18 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             "e93ec6df89d2ae050876e67713bf8c80cd43301733ece98795d298e407504ed7",
         )
         for token in (
-            "IMPLEMENTED / REVIEW PENDING / NOT ACTIVE",
+            "INDEPENDENTLY REVIEWED / PASS_GO / NOT ACTIVATED",
             "46,505 bytes / `e93ec6df`",
             "14,553 bytes / `b076020e`",
             "cut between healthy-return and close",
             "activation proposal, session approval, device command",
         ):
             self.assertIn(token, self.pref1_live_report)
-        self.assertIn("implemented review-pending", self.goal)
-        self.assertIn("no activation manifest, session approval", self.goal)
+        self.assertIn(
+            "normal-reboot live wrapper is independently reviewed H0-only `PASS_GO`",
+            self.goal,
+        )
+        self.assertIn("no activation proposal, session approval", self.goal)
 
     def test_d0_registration_is_active_reviewed_and_not_a_current_run(self):
         report = self.d0_producer_report

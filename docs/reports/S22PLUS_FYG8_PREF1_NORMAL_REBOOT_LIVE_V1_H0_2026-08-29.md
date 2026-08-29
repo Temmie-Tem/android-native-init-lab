@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **IMPLEMENTED / REVIEW PENDING / NOT ACTIVE**
+Status: **INDEPENDENTLY REVIEWED / PASS_GO / NOT ACTIVATED**
 
 ## Result
 
@@ -13,11 +13,10 @@ and bounded final-health implementation. It reuses the reviewed pre-F1
 coordinator and append-only journal rather than introducing a second state
 model.
 
-The tracked binding remains `review-pending`. Every connected entry checks that
-state before creating a session namespace or loading a device transport. The
-default `--self-test` is host-only and reports `live_authority: false`. No
+The tracked binding now carries the exact independent `PASS_GO`. The default
+`--self-test` remains host-only and reports `live_authority: false`. No
 activation proposal, session approval, device command, reboot, D0, D1, F1,
-recovery or live authority was created by this unit.
+recovery or live authority was created by implementation or review.
 
 ## Deliberately small surface
 
@@ -41,7 +40,7 @@ partition transfer, a renewable campaign or a background daemon.
 
 ## Binding and evidence
 
-The final pending binding is 2,511 bytes / `fab1fdaa`. It binds:
+The reviewed binding is 2,550 bytes / `465ed3c5`. It binds:
 
 - live wrapper: 46,505 bytes / `e93ec6df`;
 - reviewed policy: 9,587 bytes / `b0868105`;
@@ -70,7 +69,7 @@ new private receipt is 14,553 bytes / `b076020e`, mode 0400, link count one.
 ## Cut and replay behavior
 
 Hostile review found seven meaningful omissions in the first draft. The final
-pending implementation repairs all seven:
+implementation repairs all seven:
 
 - a cut between healthy-return and close cannot dispatch a second reboot;
   `d1_effects_used == 1` permits only idempotent close finalization;
@@ -124,7 +123,9 @@ with this wrapper as an active byte-frozen source. The auditor is 75,044 bytes
 with normalized self-hash `6cb6dae5`; its output preserves the existing
 128-member pre-boundary and 126-member closed-observer inventories.
 
-Independent changed-closure review is still required. Until the pending
-binding is promoted to the exact named `PASS_GO`, `--prepare-activation` fails
-before observation and no live-session approval can be derived. F1 remains
-separately attended under Process-v2.
+Independent changed-closure review of implementation `912cc245dc` and repair
+`f6f25db973` found no remaining blocker and promoted only the review tuple. The
+2,511-byte `fab1fdaa` pending binding remains preserved in Git. The next step,
+`--prepare-activation`, is a separate connected read-only observation; no
+session exists until it runs and its newly derived exact approval is supplied.
+F1 remains separately attended under Process-v2.
