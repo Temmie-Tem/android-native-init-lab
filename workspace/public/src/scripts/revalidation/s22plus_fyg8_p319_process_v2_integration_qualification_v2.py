@@ -6,7 +6,9 @@ independent experiment-executability closure, and the prerequisite audit.  It
 does not create a ready/run/approval manifest and never contacts a device.
 Missing prerequisites, a stale candidate pin, an invalid or missing V3 fresh
 baseline, or a missing global consumed-candidate registry remain explicit H0
-blockers.  This repin leaves the reviewed V1 source and V2 `-01` result intact.
+blockers.  The current result also proves that the V3 baseline's `-10`
+candidate and the current `-11` candidate produced byte-identical phase
+receipts.  This repin leaves the reviewed V1 source and V2 `-02` result intact.
 """
 
 from __future__ import annotations
@@ -38,14 +40,40 @@ INTENT_IDENTITY = {
     "size": 107403,
     "sha256": "b4e1e5ba44eedc59ed7f7dea9827ef8361d2a9c7e845a277d2ab669dc1e79762",
 }
+CURRENT_QUALIFICATION = INTENT.parent / "qualification.json"
+CURRENT_QUALIFICATION_IDENTITY = {
+    "size": 113386,
+    "sha256": "584f5ffc973e54b1c3d93cbef53e85bbe2022ddab432ab5f42a826703d1a48d6",
+}
+BASELINE_QUALIFICATION_ROOT = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10"
+)
+BASELINE_INTENT = BASELINE_QUALIFICATION_ROOT / "intent.json"
+BASELINE_QUALIFICATION = BASELINE_QUALIFICATION_ROOT / "qualification.json"
+BASELINE_PHASES = {
+    "phase1": PRIVATE / (
+        "outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-52/result.json"
+    ),
+    "phase2": PRIVATE / (
+        "outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-53/result.json"
+    ),
+}
+CURRENT_PHASES = {
+    "phase1": PRIVATE / (
+        "outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-54/result.json"
+    ),
+    "phase2": PRIVATE / (
+        "outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-55/result.json"
+    ),
+}
 PREVIOUS_RESULT = {
-    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-01/result.json",
-    "size": 105854,
-    "sha256": "8ce5902bf235247e9eec662d1276f3841c41dcafb100221bba80586e16968a9b",
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-02/result.json",
+    "size": 118384,
+    "sha256": "d21bf634a4c5a07dd55bc10b62e40b57d67ce378a7d9a06a996cbdb38931205f",
 }
 DEFAULT_OUTPUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-02/result.json"
+    "process-v2-integration-qualification-v2-20260829-03/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"
@@ -90,6 +118,7 @@ PROOF_CLASSES = {
     "NO_PROOF_EXPERIMENT_PRECONDITION",
     "NO_PROOF_OBSERVER",
 }
+CANDIDATE_CROSS_BINDING_BLOCKER = "FRESH_BASELINE_CANDIDATE_IDENTITY_DRIFT"
 
 
 class IntegrationAuditError(ValueError):
@@ -623,6 +652,194 @@ def _adapter_pin() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         return {"status": "BLOCKED_PIN_UNAVAILABLE"}, [{"code": "ADAPTER_PIN_BLOCKED", "detail": str(exc)}]
 
 
+def _same_json(left: Any, right: Any) -> bool:
+    return _canonical(left) == _canonical(right)
+
+
+def _pinned_json(
+    path: Path, label: str, expected: Mapping[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    data = _stable_bytes(path, label, mode=0o400, nlink=1)
+    try:
+        value = json.loads(
+            data.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_pairs,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                IntegrationAuditError(f"{label} contains non-finite JSON")
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise IntegrationAuditError(f"{label} is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise IntegrationAuditError(f"{label} is not a JSON object")
+    receipt = {"path": _relative(path), **_identity(data)}
+    wanted = {
+        "path": _relative(path),
+        "size": expected.get("size"),
+        "sha256": expected.get("sha256"),
+    }
+    if receipt != wanted:
+        raise IntegrationAuditError(f"{label} identity differs")
+    return value, receipt
+
+
+def _phase2_artifacts(value: Mapping[str, Any]) -> dict[str, Any]:
+    phase2 = value.get("phase2")
+    if not isinstance(phase2, dict) or phase2.get("built") is not True:
+        raise IntegrationAuditError("phase-2 build receipt is incomplete")
+    candidate = phase2.get("candidate")
+    userspace = phase2.get("userspace")
+    if (
+        not isinstance(candidate, dict)
+        or not isinstance(userspace, dict)
+        or candidate.get("byte_identical") is not True
+        or userspace.get("byte_identical") is not True
+    ):
+        raise IntegrationAuditError("phase-2 A/B equality is absent")
+
+    def select(parent: Mapping[str, Any], side: str, names: tuple[str, ...]) -> dict[str, Any]:
+        row = parent.get(side)
+        if not isinstance(row, dict) or any(name not in row for name in names):
+            raise IntegrationAuditError(f"phase-2 {side} artifact receipt is incomplete")
+        return {name: row[name] for name in names}
+
+    candidate_a = select(candidate, "a", ("ap_tar_md5", "boot_img", "boot_img_lz4"))
+    candidate_b = select(candidate, "b", ("ap_tar_md5", "boot_img", "boot_img_lz4"))
+    userspace_a = select(userspace, "a", ("init", "child"))
+    userspace_b = select(userspace, "b", ("init", "child"))
+    if not _same_json(candidate_a, candidate_b) or not _same_json(userspace_a, userspace_b):
+        raise IntegrationAuditError("phase-2 candidate A/B artifacts differ")
+    return {"candidate": candidate_a, "userspace": userspace_a}
+
+
+def _candidate_baseline_cross_binding(
+    fresh: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    try:
+        normalized = fresh.get("normalized")
+        baseline = normalized.get("candidate_identity") if isinstance(normalized, dict) else None
+        if (
+            fresh.get("status") != "PRESENT"
+            or fresh.get("authoritative") is not True
+            or not isinstance(baseline, dict)
+        ):
+            raise IntegrationAuditError("authoritative baseline candidate identity is absent")
+        old_intent, old_intent_receipt = _pinned_json(
+            BASELINE_INTENT, "baseline candidate intent", baseline.get("intent", {})
+        )
+        old_qualification, old_qualification_receipt = _pinned_json(
+            BASELINE_QUALIFICATION,
+            "baseline candidate qualification",
+            baseline.get("qualification", {}),
+        )
+        current_intent, current_intent_receipt = _pinned_json(
+            INTENT, "current candidate intent", INTENT_IDENTITY
+        )
+        current_qualification, current_qualification_receipt = _pinned_json(
+            CURRENT_QUALIFICATION,
+            "current candidate qualification",
+            CURRENT_QUALIFICATION_IDENTITY,
+        )
+        old_intent_projection = {
+            "schema": old_intent.get("schema"),
+            "source_keys": old_intent.get("source_keys"),
+        }
+        current_intent_projection = {
+            "schema": current_intent.get("schema"),
+            "source_keys": current_intent.get("source_keys"),
+        }
+        if not _same_json(
+            old_qualification.get("intent"), old_intent_projection
+        ) or not _same_json(
+            current_qualification.get("intent"), current_intent_projection
+        ):
+            raise IntegrationAuditError("qualification intent projection differs")
+
+        shared = (
+            "target", "run_id", "fixed_image", "module_plan", "profile",
+            "candidate_window_sec", "guard_lifetime_sec",
+        )
+        for name in shared:
+            if not _same_json(old_intent.get(name), current_intent.get(name)):
+                raise IntegrationAuditError(f"baseline/current candidate {name} differs")
+            if name != "module_plan" and (
+                not _same_json(old_qualification.get(name), current_qualification.get(name))
+                or not _same_json(old_intent.get(name), old_qualification.get(name))
+            ):
+                raise IntegrationAuditError(f"candidate qualification {name} differs")
+        closure = baseline.get("closure")
+        if (
+            not _same_json(baseline.get("target"), old_intent.get("target"))
+            or baseline.get("run_id") != old_intent.get("run_id")
+            or not _same_json(baseline.get("fixed_image"), old_intent.get("fixed_image"))
+            or not isinstance(closure, dict)
+            or not _same_json(closure.get("module_plan"), old_intent.get("module_plan"))
+        ):
+            raise IntegrationAuditError("baseline candidate summary differs from -10")
+
+        old_keys = old_intent.get("source_keys")
+        current_keys = current_intent.get("source_keys")
+        if not isinstance(old_keys, dict) or not isinstance(current_keys, dict):
+            raise IntegrationAuditError("candidate SOURCE_KEYS are absent")
+        changed = sorted(
+            key for key in set(old_keys) | set(current_keys)
+            if not _same_json(old_keys.get(key), current_keys.get(key))
+        )
+        if changed != ["target_contract"]:
+            raise IntegrationAuditError("candidate SOURCE_KEYS differ outside target_contract")
+
+        phases: dict[str, Any] = {}
+        current_phase2: dict[str, Any] | None = None
+        for name in ("phase1", "phase2"):
+            old_ref = old_qualification.get(f"fresh_{name}")
+            current_ref = current_qualification.get(f"fresh_{name}")
+            if not isinstance(old_ref, dict) or not _same_json(old_ref, current_ref):
+                raise IntegrationAuditError(f"baseline/current {name} identity differs")
+            old_value, old_receipt = _pinned_json(
+                BASELINE_PHASES[name], f"baseline {name}", old_ref
+            )
+            current_value, current_receipt = _pinned_json(
+                CURRENT_PHASES[name], f"current {name}", current_ref
+            )
+            if not _same_json(old_value, current_value):
+                raise IntegrationAuditError(f"baseline/current {name} bytes differ")
+            phases[name] = {
+                "baseline": old_receipt,
+                "current": current_receipt,
+                "byte_identical": True,
+            }
+            if name == "phase2":
+                current_phase2 = current_value
+        artifacts = _phase2_artifacts(current_phase2 or {})
+        return {
+            "name": "candidate_baseline_cross_binding",
+            "status": "PASS_AUTHORITATIVE",
+            "authoritative": True,
+            "baseline": {
+                "intent": old_intent_receipt,
+                "qualification": old_qualification_receipt,
+            },
+            "current": {
+                "intent": current_intent_receipt,
+                "qualification": current_qualification_receipt,
+            },
+            "source_key_delta": {
+                "changed_keys": changed,
+                "baseline": old_keys["target_contract"],
+                "current": current_keys["target_contract"],
+            },
+            "phases": phases,
+            "artifacts": artifacts,
+        }, []
+    except (IntegrationAuditError, KeyError, TypeError, ValueError) as exc:
+        return {
+            "name": "candidate_baseline_cross_binding",
+            "status": "BLOCKED",
+            "authoritative": False,
+            "error": str(exc),
+        }, [{"code": CANDIDATE_CROSS_BINDING_BLOCKER, "detail": str(exc)}]
+
+
 def _required_private_receipt(path: Path, label: str, schema: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     try:
         value, identity = _json_receipt(path, label)
@@ -851,6 +1068,22 @@ def validate_result(value: Mapping[str, Any]) -> None:
             capability.validate_result(fresh_component["normalized"])
         except Exception as exc:
             raise IntegrationAuditError("fresh-baseline normalized evidence is invalid") from exc
+    cross_binding = components.get("candidate_baseline_cross_binding")
+    expected_cross_binding, expected_cross_blockers = (
+        _candidate_baseline_cross_binding(fresh_component)
+    )
+    if not isinstance(cross_binding, dict) or not _same_json(
+        cross_binding, expected_cross_binding
+    ):
+        raise IntegrationAuditError("candidate-baseline cross-binding differs")
+    cross_blocked = bool(expected_cross_blockers)
+    if (CANDIDATE_CROSS_BINDING_BLOCKER in codes) is not cross_blocked:
+        raise IntegrationAuditError("candidate-baseline cross-binding blocker differs")
+    if not cross_blocked and (
+        cross_binding.get("status") != "PASS_AUTHORITATIVE"
+        or cross_binding.get("authoritative") is not True
+    ):
+        raise IntegrationAuditError("candidate-baseline cross-binding is not authoritative")
     adapter_pin = components.get("adapter_pin", {})
     if isinstance(adapter_pin.get("pinned"), dict) and isinstance(adapter_pin.get("current"), dict) and adapter_pin["pinned"] != adapter_pin["current"] and "REQUALIFICATION_REQUIRED" not in codes:
         raise IntegrationAuditError("adapter requalification blocker was removed")
@@ -944,6 +1177,11 @@ def build_result() -> dict[str, Any]:
         FRESH_BASELINE, "fresh baseline", "s22plus_fyg8_p319_fresh_baseline_v3"
     )
     blockers.extend(baseline_blockers)
+    (
+        components["candidate_baseline_cross_binding"],
+        cross_binding_blockers,
+    ) = _candidate_baseline_cross_binding(components["fresh_baseline"])
+    blockers.extend(cross_binding_blockers)
     components["consumed_candidate_registry"], registry_blockers = _required_private_receipt(
         CONSUMED_CANDIDATE_REGISTRY, "global consumed-candidate registry", "device_action_f1_consumed_candidate_registry_qualification_v1"
     )

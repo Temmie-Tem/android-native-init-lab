@@ -188,6 +188,14 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             "rollback_and_final_health_path_exercised": True,
         }, []
 
+    def cross_binding_fixture(self):
+        return {
+            "name": "candidate_baseline_cross_binding",
+            "status": "PASS_AUTHORITATIVE",
+            "authoritative": True,
+            "fixture": True,
+        }, []
+
     def pass_environment(self, *, pending: bool = True, normalized=None):
         closure, closure_blockers = self.closure(pending=pending)
         baseline = {
@@ -216,6 +224,9 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
                 return_value=self.recovery_fixture()
             ),
             _adapter_pin=mock.Mock(return_value=self.adapter_pin_fixture()),
+            _candidate_baseline_cross_binding=mock.Mock(
+                return_value=self.cross_binding_fixture()
+            ),
             _required_private_receipt=mock.Mock(side_effect=[(baseline, []), (registry, [])]),
             _contract_provenance=mock.Mock(return_value=(provenance, [])),
             _load_local=mock.Mock(return_value=_StrictFreshBaselineFixture()),
@@ -302,7 +313,84 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertEqual(result["predecessor_result"], self.module.PREVIOUS_RESULT)
         self.assertEqual(
             self.module.DEFAULT_OUTPUT.parent.name,
-            "process-v2-integration-qualification-v2-20260829-02",
+            "process-v2-integration-qualification-v2-20260829-03",
+        )
+
+    def test_v2_cross_binds_baseline_and_current_candidate_bytes(self):
+        result = self.real_result()
+        binding = result["components"]["candidate_baseline_cross_binding"]
+        self.assertEqual(binding["status"], "PASS_AUTHORITATIVE")
+        self.assertTrue(binding["authoritative"])
+        self.assertEqual(
+            binding["source_key_delta"]["changed_keys"], ["target_contract"]
+        )
+        self.assertTrue(binding["phases"]["phase1"]["byte_identical"])
+        self.assertTrue(binding["phases"]["phase2"]["byte_identical"])
+        self.assertEqual(
+            binding["artifacts"]["candidate"]["ap_tar_md5"]["sha256"],
+            "db5666ac794dfbf6f64192d7ea341ed79ff330f03db74c57da5ef61f659032f6",
+        )
+        self.assertEqual(
+            binding["artifacts"]["userspace"]["init"]["sha256"],
+            "f6e6ea932c6c5297e18a932197e2fe1a131fac93c9caff9416d8fb873b055acb",
+        )
+
+    def test_v2_rejects_missing_forged_or_wrong_predecessor_cross_binding(self):
+        result = self.real_result()
+        removed = result["components"].pop("candidate_baseline_cross_binding")
+        with self.assertRaises(self.module.IntegrationAuditError):
+            self.module.validate_result(result)
+        result["components"]["candidate_baseline_cross_binding"] = removed
+        result["components"]["candidate_baseline_cross_binding"]["authoritative"] = False
+        with self.assertRaises(self.module.IntegrationAuditError):
+            self.module.validate_result(result)
+        result = self.real_result()
+        result["predecessor_result"] = {**result["predecessor_result"], "size": 1}
+        with self.assertRaises(self.module.IntegrationAuditError):
+            self.module.validate_result(result)
+
+    def test_v2_candidate_or_phase_drift_creates_explicit_blocker(self):
+        fresh = self.real_result()["components"]["fresh_baseline"]
+        original = self.module._pinned_json
+
+        def source_key_drift(path, label, expected):
+            value, receipt = original(path, label, expected)
+            if path == self.module.INTENT:
+                value = copy.deepcopy(value)
+                value["source_keys"]["unexpected"] = {"size": 1, "sha256": "f" * 64}
+            if path == self.module.CURRENT_QUALIFICATION:
+                value = copy.deepcopy(value)
+                value["intent"]["source_keys"]["unexpected"] = {
+                    "size": 1,
+                    "sha256": "f" * 64,
+                }
+            return value, receipt
+
+        with mock.patch.object(
+            self.module, "_pinned_json", side_effect=source_key_drift
+        ):
+            component, blockers = self.module._candidate_baseline_cross_binding(fresh)
+        self.assertFalse(component["authoritative"])
+        self.assertEqual(
+            [item["code"] for item in blockers],
+            [self.module.CANDIDATE_CROSS_BINDING_BLOCKER],
+        )
+
+        def artifact_drift(path, label, expected):
+            value, receipt = original(path, label, expected)
+            if path == self.module.CURRENT_PHASES["phase2"]:
+                value = copy.deepcopy(value)
+                value["phase2"]["candidate"]["a"]["ap_tar_md5"]["sha256"] = "0" * 64
+            return value, receipt
+
+        with mock.patch.object(
+            self.module, "_pinned_json", side_effect=artifact_drift
+        ):
+            component, blockers = self.module._candidate_baseline_cross_binding(fresh)
+        self.assertFalse(component["authoritative"])
+        self.assertEqual(
+            [item["code"] for item in blockers],
+            [self.module.CANDIDATE_CROSS_BINDING_BLOCKER],
         )
 
     def test_v2_rejects_v1_v2_and_forged_normalized_data(self):
