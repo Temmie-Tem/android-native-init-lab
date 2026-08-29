@@ -66,14 +66,38 @@ CURRENT_PHASES = {
         "outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-55/result.json"
     ),
 }
+EXPECTED_CANDIDATE_ARTIFACTS = {
+    "ap_tar_md5": {
+        "size": 27279401,
+        "sha256": "db5666ac794dfbf6f64192d7ea341ed79ff330f03db74c57da5ef61f659032f6",
+    },
+    "boot_img": {
+        "size": 100663296,
+        "sha256": "2b492a71808a0483f62896eb804042da38ed9ba7867aea045c5de630c9a86cb1",
+    },
+    "boot_img_lz4": {
+        "size": 27267991,
+        "sha256": "0491d50adecf485d10ec5e58ea4f58c2f62a874897564fb7151059348205c7e0",
+    },
+}
+EXPECTED_USERSPACE_ARTIFACTS = {
+    "init": {
+        "size": 80080,
+        "sha256": "f6e6ea932c6c5297e18a932197e2fe1a131fac93c9caff9416d8fb873b055acb",
+    },
+    "child": {
+        "size": 1376,
+        "sha256": "eb3c072b41ab4d4953fd1d862388d3be5ca5a40e9a07f074cb273f96a28557cf",
+    },
+}
 PREVIOUS_RESULT = {
-    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-02/result.json",
-    "size": 118384,
-    "sha256": "d21bf634a4c5a07dd55bc10b62e40b57d67ce378a7d9a06a996cbdb38931205f",
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-03/result.json",
+    "size": 121247,
+    "sha256": "56ecefbcc7b051c9efb79e806f83754a0e20df9febc2c84c7c5d2ae4563cba11",
 }
 DEFAULT_OUTPUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-03/result.json"
+    "process-v2-integration-qualification-v2-20260829-04/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"
@@ -683,7 +707,69 @@ def _pinned_json(
     return value, receipt
 
 
-def _phase2_artifacts(value: Mapping[str, Any]) -> dict[str, Any]:
+def _stable_artifact_receipt(
+    path: Path, label: str, expected: Mapping[str, Any]
+) -> dict[str, Any]:
+    size = expected.get("size")
+    digest = expected.get("sha256")
+    if (
+        type(size) is not int
+        or size <= 0
+        or not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        raise IntegrationAuditError(f"{label} expected identity is malformed")
+    try:
+        before = path.lstat()
+    except OSError as exc:
+        raise IntegrationAuditError(f"{label} is unavailable") from exc
+    if (
+        stat.S_ISLNK(before.st_mode)
+        or not stat.S_ISREG(before.st_mode)
+        or stat.S_IMODE(before.st_mode) != 0o400
+        or before.st_nlink != 1
+        or before.st_size != size
+    ):
+        raise IntegrationAuditError(f"{label} metadata differs")
+    hasher = hashlib.sha256()
+    count = 0
+    try:
+        with path.open("rb") as stream:
+            while True:
+                chunk = stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                count += len(chunk)
+                if count > size:
+                    raise IntegrationAuditError(f"{label} exceeds its pinned size")
+                hasher.update(chunk)
+            inside = os.fstat(stream.fileno())
+    except OSError as exc:
+        raise IntegrationAuditError(f"{label} cannot be read") from exc
+    after = path.lstat()
+
+    def stable_identity(info: os.stat_result) -> tuple[int, ...]:
+        return (
+            info.st_dev,
+            info.st_ino,
+            info.st_mode,
+            info.st_nlink,
+            info.st_size,
+            info.st_mtime_ns,
+        )
+
+    if stable_identity(before) != stable_identity(inside) or stable_identity(before) != stable_identity(after):
+        raise IntegrationAuditError(f"{label} changed while reading")
+    actual = {"size": count, "sha256": hasher.hexdigest()}
+    if actual != dict(expected):
+        raise IntegrationAuditError(f"{label} content identity differs")
+    return {"path": _relative(path), **actual}
+
+
+def _phase2_artifacts(
+    value: Mapping[str, Any], root: Path
+) -> tuple[dict[str, Any], dict[str, Any]]:
     phase2 = value.get("phase2")
     if not isinstance(phase2, dict) or phase2.get("built") is not True:
         raise IntegrationAuditError("phase-2 build receipt is incomplete")
@@ -709,7 +795,39 @@ def _phase2_artifacts(value: Mapping[str, Any]) -> dict[str, Any]:
     userspace_b = select(userspace, "b", ("init", "child"))
     if not _same_json(candidate_a, candidate_b) or not _same_json(userspace_a, userspace_b):
         raise IntegrationAuditError("phase-2 candidate A/B artifacts differ")
-    return {"candidate": candidate_a, "userspace": userspace_a}
+    if not _same_json(candidate_a, EXPECTED_CANDIDATE_ARTIFACTS) or not _same_json(
+        userspace_a, EXPECTED_USERSPACE_ARTIFACTS
+    ):
+        raise IntegrationAuditError("phase-2 artifact identity differs from the pinned candidate")
+
+    files: dict[str, Any] = {"candidate": {}, "userspace": {}}
+    candidate_paths = {
+        "ap_tar_md5": "odin4/AP.tar.md5",
+        "boot_img": "boot.img",
+        "boot_img_lz4": "boot.img.lz4",
+    }
+    userspace_paths = {"init": "init", "child": "s22-e1-child"}
+    for side in ("a", "b"):
+        files["candidate"][side] = {
+            name: _stable_artifact_receipt(
+                root / f"candidate-{side}" / relative,
+                f"phase-2 candidate-{side} {name}",
+                EXPECTED_CANDIDATE_ARTIFACTS[name],
+            )
+            for name, relative in candidate_paths.items()
+        }
+        files["userspace"][side] = {
+            name: _stable_artifact_receipt(
+                root / f"userspace-{side}" / relative,
+                f"phase-2 userspace-{side} {name}",
+                EXPECTED_USERSPACE_ARTIFACTS[name],
+            )
+            for name, relative in userspace_paths.items()
+        }
+    return {
+        "candidate": dict(EXPECTED_CANDIDATE_ARTIFACTS),
+        "userspace": dict(EXPECTED_USERSPACE_ARTIFACTS),
+    }, files
 
 
 def _candidate_baseline_cross_binding(
@@ -789,7 +907,8 @@ def _candidate_baseline_cross_binding(
             raise IntegrationAuditError("candidate SOURCE_KEYS differ outside target_contract")
 
         phases: dict[str, Any] = {}
-        current_phase2: dict[str, Any] | None = None
+        artifacts: dict[str, Any] | None = None
+        artifact_files: dict[str, Any] = {}
         for name in ("phase1", "phase2"):
             old_ref = old_qualification.get(f"fresh_{name}")
             current_ref = current_qualification.get(f"fresh_{name}")
@@ -809,8 +928,17 @@ def _candidate_baseline_cross_binding(
                 "byte_identical": True,
             }
             if name == "phase2":
-                current_phase2 = current_value
-        artifacts = _phase2_artifacts(current_phase2 or {})
+                old_artifacts, artifact_files["baseline"] = _phase2_artifacts(
+                    old_value, BASELINE_PHASES[name].parent
+                )
+                current_artifacts, artifact_files["current"] = _phase2_artifacts(
+                    current_value, CURRENT_PHASES[name].parent
+                )
+                if not _same_json(old_artifacts, current_artifacts):
+                    raise IntegrationAuditError("baseline/current artifact identities differ")
+                artifacts = current_artifacts
+        if artifacts is None:
+            raise IntegrationAuditError("phase-2 artifacts were not checked")
         return {
             "name": "candidate_baseline_cross_binding",
             "status": "PASS_AUTHORITATIVE",
@@ -830,6 +958,7 @@ def _candidate_baseline_cross_binding(
             },
             "phases": phases,
             "artifacts": artifacts,
+            "artifact_files": artifact_files,
         }, []
     except (IntegrationAuditError, KeyError, TypeError, ValueError) as exc:
         return {

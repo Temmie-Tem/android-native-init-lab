@@ -50,23 +50,47 @@ does not trust the serialized success flag.
 
 The preserved predecessor is private Integration V2 `-02`, 118,384 bytes /
 `d21bf634a4c5a07dd55bc10b62e40b57d67ce378a7d9a06a996cbdb38931205f`.
-The new no-clobber `-03` receipt is 121,247 bytes, mode 0400, link count one,
-SHA-256
+The first no-clobber `-03` receipt is preserved at 121,247 bytes, mode 0400,
+link count one, SHA-256
 `56ecefbcc7b051c9efb79e806f83754a0e20df9febc2c84c7c5d2ae4563cba11`.
 
-It reports `candidate_baseline_cross_binding.status=PASS_AUTHORITATIVE`, zero
-blockers, and `source_closure_pass=true`. It remains
+It reported `candidate_baseline_cross_binding.status=PASS_AUTHORITATIVE`, zero
+blockers, and `source_closure_pass=true`. It remained
 `NOT_READY_P319_RUNTIME_CLASSIFICATION_PENDING_H0` with
 `runtime_classification_gate_pending=true`; `ready`, `runner_ready`, every
 ready/run/approval manifest flag, device contact, D0/D1/F1/live authority,
-replay, candidate success, and causal result remain false.
+replay, candidate success, and causal result false.
+
+## Hostile-review artifact-reopen repair
+
+Independent review rejected `-03` because the phase receipts were byte-pinned
+but their nested A/B artifact identities were only compared with each other.
+If both sides were replaced by the same forged size/SHA objects, the serialized
+comparison still passed without reopening the named AP, boot, LZ4, init, or
+child files.
+
+The repair pins the five expected identities as constants and reopens all A/B
+files in both the baseline `-53` and current `-55` phase roots. Each file must
+be a direct mode-0400, link-count-one regular file of the exact size; SHA-256 is
+streamed while device, inode, mode, link count, size, and mtime remain stable.
+The result records all 20 file receipts. A new hostile test replaces both
+phase receipts and both A/B sides with equal forged identities and confirms
+`FRESH_BASELINE_CANDIDATE_IDENTITY_DRIFT`.
+
+The repaired source is 68,331 bytes / `91034271`, and its 34,208-byte /
+`ffc1d1dd` focused test suite passes 24/24. The new no-clobber `-04` receipt
+preserves `-03` as its direct predecessor and is 125,735 bytes, mode 0400,
+link count one, SHA-256
+`77416056429e60d65564b0e2db55e88128fa03ff7042373ff820f3f8678b8ca3`.
+It has the same zero-blocker, source-closure-pass, runtime-pending and all-false
+authority/action result as `-03`, now backed by exact retained artifact bytes.
 
 ## Validation and boundary
 
-The focused Integration V2 suite passes 23/23, including exact retained
-cross-binding and hostile missing/forged/source-key/artifact drift cases. The
+The focused Integration V2 suite passes 24/24, including exact retained
+cross-binding and hostile missing/forged/source-key/paired-artifact drift. The
 raw-first documentation suite passes 21/21. Touched Python compiles and
-`git diff --check` passes. The retained `-03` bytes are independently
+`git diff --check` passes. The retained `-04` bytes are independently
 regenerated before commit and must remain byte-identical.
 
 This unit changes no candidate bytes, candidate registry state, target

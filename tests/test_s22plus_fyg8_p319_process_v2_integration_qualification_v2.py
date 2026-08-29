@@ -313,7 +313,7 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertEqual(result["predecessor_result"], self.module.PREVIOUS_RESULT)
         self.assertEqual(
             self.module.DEFAULT_OUTPUT.parent.name,
-            "process-v2-integration-qualification-v2-20260829-03",
+            "process-v2-integration-qualification-v2-20260829-04",
         )
 
     def test_v2_cross_binds_baseline_and_current_candidate_bytes(self):
@@ -333,6 +333,16 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertEqual(
             binding["artifacts"]["userspace"]["init"]["sha256"],
             "f6e6ea932c6c5297e18a932197e2fe1a131fac93c9caff9416d8fb873b055acb",
+        )
+        self.assertEqual(
+            binding["artifact_files"]["baseline"]["candidate"]["a"]
+            ["ap_tar_md5"]["sha256"],
+            binding["artifacts"]["candidate"]["ap_tar_md5"]["sha256"],
+        )
+        self.assertEqual(
+            binding["artifact_files"]["current"]["userspace"]["b"]
+            ["child"]["sha256"],
+            binding["artifacts"]["userspace"]["child"]["sha256"],
         )
 
     def test_v2_rejects_missing_forged_or_wrong_predecessor_cross_binding(self):
@@ -368,6 +378,46 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
 
         with mock.patch.object(
             self.module, "_pinned_json", side_effect=source_key_drift
+        ):
+            component, blockers = self.module._candidate_baseline_cross_binding(fresh)
+        self.assertFalse(component["authoritative"])
+        self.assertEqual(
+            [item["code"] for item in blockers],
+            [self.module.CANDIDATE_CROSS_BINDING_BLOCKER],
+        )
+
+    def test_v2_rejects_paired_forged_artifact_identities(self):
+        fresh = self.real_result()["components"]["fresh_baseline"]
+        original = self.module._pinned_json
+
+        def paired_forgery(path, label, expected):
+            value, receipt = original(path, label, expected)
+            if path in {
+                self.module.BASELINE_PHASES["phase2"],
+                self.module.CURRENT_PHASES["phase2"],
+            }:
+                value = copy.deepcopy(value)
+                forged_candidate = {
+                    name: {"size": index + 1, "sha256": f"{index:064x}"}
+                    for index, name in enumerate(
+                        ("ap_tar_md5", "boot_img", "boot_img_lz4")
+                    )
+                }
+                forged_userspace = {
+                    name: {"size": index + 4, "sha256": f"{index + 3:064x}"}
+                    for index, name in enumerate(("init", "child"))
+                }
+                for side in ("a", "b"):
+                    value["phase2"]["candidate"][side].update(
+                        copy.deepcopy(forged_candidate)
+                    )
+                    value["phase2"]["userspace"][side].update(
+                        copy.deepcopy(forged_userspace)
+                    )
+            return value, receipt
+
+        with mock.patch.object(
+            self.module, "_pinned_json", side_effect=paired_forgery
         ):
             component, blockers = self.module._candidate_baseline_cross_binding(fresh)
         self.assertFalse(component["authoritative"])
