@@ -162,52 +162,55 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                     REVALIDATION, {name: source + "\n# active-byte-drift\n"}
                 )
 
-    def test_p319_d1_v2_raw_first_seams_are_active_ordered_and_frozen(self):
-        name = "s22plus_fyg8_p319_d1_fresh_baseline_v2.py"
-        source = self.source(name)
-        self.assertIn(name, self.module.ACTIVE_FILES)
-        self.assertNotIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
-        self.assertEqual(
-            hashlib.sha256(source.encode()).hexdigest(),
-            self.module.EXPECTED_ACTIVE_SOURCE_SHA256[name],
-        )
-        mutations = (
-            source.replace(
-                "                self.client.bind_raw_capture_dir(raw_root)\n",
-                "                pass  # removed raw-first bind\n",
-                1,
-            ),
-            source.replace(
-                "                text = self.client._run([\"devices\", \"-l\"], \"adb inventory\", 10)\n",
-                "                text = forbidden_live_inventory()\n",
-                1,
-            ),
-            source.replace(
-                "            handle = raw.load_handle(RAW_ADB_DIR / receipt_name)\n",
-                "            handle = forbidden_unbound_handle(receipt_name)\n",
-                1,
-            ),
-            source.replace(
-                "    _preflight_new_run_namespace()\n",
-                "    pass  # removed one-shot namespace ownership\n",
-                1,
-            ),
-            source.replace(
-                '                return {"connected": True, "ready": False}\n',
-                '                raise ClassifiedFailure("poll-properties", "POLL_PROPERTIES")\n',
-                1,
-            ),
-        )
-        for mutation in mutations:
-            self.assertNotEqual(mutation, source)
-            with self.assertRaises(self.module.RawFirstAuditError):
-                self.module.audit_sources(REVALIDATION, {name: mutation})
-        with self.assertRaisesRegex(
-            self.module.RawFirstAuditError, "active raw-first source changed"
+    def test_p319_d1_v2_v3_raw_first_seams_are_active_ordered_and_frozen(self):
+        for name in (
+            "s22plus_fyg8_p319_d1_fresh_baseline_v2.py",
+            "s22plus_fyg8_p319_d1_fresh_baseline_v3.py",
         ):
-            self.module.audit_sources(
-                REVALIDATION, {name: source + "\n# active-byte-drift\n"}
+            source = self.source(name)
+            self.assertIn(name, self.module.ACTIVE_FILES)
+            self.assertNotIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+            self.assertEqual(
+                hashlib.sha256(source.encode()).hexdigest(),
+                self.module.EXPECTED_ACTIVE_SOURCE_SHA256[name],
             )
+            mutations = (
+                source.replace(
+                    "                self.client.bind_raw_capture_dir(raw_root)\n",
+                    "                pass  # removed raw-first bind\n",
+                    1,
+                ),
+                source.replace(
+                    "                text = self.client._run([\"devices\", \"-l\"], \"adb inventory\", 10)\n",
+                    "                text = forbidden_live_inventory()\n",
+                    1,
+                ),
+                source.replace(
+                    "            handle = raw.load_handle(RAW_ADB_DIR / receipt_name)\n",
+                    "            handle = forbidden_unbound_handle(receipt_name)\n",
+                    1,
+                ),
+                source.replace(
+                    "    _preflight_new_run_namespace()\n",
+                    "    pass  # removed one-shot namespace ownership\n",
+                    1,
+                ),
+                source.replace(
+                    '                return {"connected": True, "ready": False}\n',
+                    '                raise ClassifiedFailure("poll-properties", "POLL_PROPERTIES")\n',
+                    1,
+                ),
+            )
+            for mutation in mutations:
+                self.assertNotEqual(mutation, source)
+                with self.assertRaises(self.module.RawFirstAuditError):
+                    self.module.audit_sources(REVALIDATION, {name: mutation})
+            with self.assertRaisesRegex(
+                self.module.RawFirstAuditError, "active raw-first source changed"
+            ):
+                self.module.audit_sources(
+                    REVALIDATION, {name: source + "\n# active-byte-drift\n"}
+                )
 
     def test_f1_enumeration_and_cdc_preparse_mutations_reject(self):
         odin_name = "s22plus_odin_transition_core.py"

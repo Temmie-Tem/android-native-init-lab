@@ -41,6 +41,10 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-07-p319-d1-v3.json"
+)
+D1_V3_REGISTRATION_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260824-06-p319-d0-v2-repin.json"
 )
 D0_V2_REPIN_PREDECESSOR_RECEIPT = ROOT / (
@@ -138,7 +142,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260824-06-p319-d0-v2-repin.json",
+            "raw-first-observer-audit-20260829-07-p319-d1-v3.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -157,7 +161,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1742)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1743)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -165,16 +169,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "aa89d682be2a37eed9df27384e0e734f6681bb1d66b3578abe067fe2f0f726e7",
+            "07f359eb257f0c61fb10437838c681c0cd1395e84b8005fda8bcc24c9176b612",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 12916)
+        self.assertEqual(len(retained_bytes), 13518)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "66658f6739b8e0116209a13de3fbb2255b040fa68b0ee7bb34c7cb51876207ec",
+            "5562f3e56f7ac92f8da89b1932ad60f6b4313c429ef09ddacf3feb11ae8b9bbf",
         )
 
     def test_d0_registration_is_active_reviewed_and_not_a_current_run(self):
@@ -278,6 +282,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                D1_V3_REGISTRATION_PREDECESSOR_RECEIPT,
+                12916,
+                "66658f6739b8e0116209a13de3fbb2255b040fa68b0ee7bb34c7cb51876207ec",
+            ),
             (
                 D0_V2_REPIN_PREDECESSOR_RECEIPT,
                 12394,
