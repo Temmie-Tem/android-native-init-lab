@@ -45,6 +45,10 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-16-p319-process-v2-registration.json"
+)
+PROCESS_V2_REGISTRATION_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260829-15-p319-integration-v2.json"
 )
 INTEGRATION_V2_PREDECESSOR_RECEIPT = ROOT / (
@@ -175,7 +179,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260829-15-p319-integration-v2.json",
+            "raw-first-observer-audit-20260829-16-p319-process-v2-registration.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -202,7 +206,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "0ac76f745156878fdee4905f839336c0f1bbc03ada1ea6e06df596cdebfd97c0",
+            "0aa5a8b06b79715489acba60f703e92f0f71f4efee124b4fcbca3d8654582f5f",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -211,7 +215,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(retained_bytes), 15075)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "a93097d5b2d71ca3b045633f5b76ef961921421cace72a863dbe98e1684e8f16",
+            "8fb852498444fa65c79ce2f2ba4332ae21f0b175055eec658a1148f3c1809fac",
         )
 
     def test_process_v2_integration_v2_is_host_only_non_acquiring(self):
@@ -376,6 +380,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                PROCESS_V2_REGISTRATION_PREDECESSOR_RECEIPT,
+                15075,
+                "a93097d5b2d71ca3b045633f5b76ef961921421cace72a863dbe98e1684e8f16",
+            ),
             (
                 INTEGRATION_V2_PREDECESSOR_RECEIPT,
                 15075,

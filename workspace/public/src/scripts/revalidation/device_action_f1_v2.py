@@ -459,6 +459,7 @@ def _overridden_candidate_sources(
     userspace_overlay_contract_id: str | None,
 ) -> frozenset[str]:
     if userspace_overlay_contract_id in {
+        typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P318_MAX77705_OVERLAY_CONTRACT_ID,
@@ -575,7 +576,38 @@ def execution_critical_source_receipts(
                     "size": len(data),
                     "sha256": hashlib.sha256(data).hexdigest(),
                 }
-            if userspace_overlay_contract_id in (
+            root = candidate_intent.repo_root()
+            if userspace_overlay_contract_id == (
+                typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID
+            ):
+                # P319 is a stock-witness overlay over the P310 carrier.  Its
+                # adapter source closure is explicit and has no overlay
+                # DEFAULT_INTENT/verify_intent path.
+                try:
+                    adapter_sources = typed_evidence.p319_stock_adapter.source_bytes(
+                        root
+                    )
+                except (typed_evidence.p319_stock_adapter.DecodeError, OSError) as exc:
+                    raise F1V2Error(
+                        "P3.19 stock adapter source closure failed"
+                    ) from exc
+                if set(adapter_sources) != typed_evidence.p319_stock_adapter.SOURCE_KEYS:
+                    raise F1V2Error("P3.19 stock adapter source set differs")
+                for name, data in adapter_sources.items():
+                    receipts[f"p319_adapter_source_{name}"] = {
+                        "size": len(data),
+                        "sha256": hashlib.sha256(data).hexdigest(),
+                    }
+                e1_latest_stage_sources["p319_stock_adapter"] = Path(
+                    typed_evidence.p319_stock_adapter.__file__
+                )
+                e1_latest_stage_sources["p319_carrier_model"] = Path(
+                    typed_evidence.p319_stock_adapter.model.__file__
+                )
+                e1_latest_stage_sources["p319_telemetry_spec"] = Path(
+                    typed_evidence.p319_stock_adapter.spec.__file__
+                )
+            elif userspace_overlay_contract_id in (
                 typed_evidence.P301_TELEMETRY_OVERLAY_IDS
             ):
                 root = candidate_intent.repo_root()
@@ -1118,7 +1150,24 @@ def verify_candidate_source_binding(
             raise F1V2Error(
                 "candidate source preimage differs from execution-critical sources"
             )
-    if userspace_overlay_contract_id is not None:
+    if userspace_overlay_contract_id == typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID:
+        if verification.get("userspace_overlay_contract_id") != userspace_overlay_contract_id:
+            raise F1V2Error("P3.19 stock overlay selector changed")
+        expected_adapter = verification.get("p319_adapter_source_receipts")
+        if (
+            not isinstance(expected_adapter, dict)
+            or set(expected_adapter) != typed_evidence.p319_stock_adapter.SOURCE_KEYS
+        ):
+            raise F1V2Error("P3.19 stock adapter source binding is incomplete")
+        for name, source_receipt in expected_adapter.items():
+            actual = execution_sources.get(f"p319_adapter_source_{name}")
+            if (
+                not isinstance(actual, dict)
+                or {key: actual.get(key) for key in ("size", "sha256")}
+                != source_receipt
+            ):
+                raise F1V2Error("P3.19 stock adapter source differs from execution-critical sources")
+    elif userspace_overlay_contract_id is not None:
         if (
             userspace_overlay_contract_id
             not in typed_evidence.P301_TELEMETRY_OVERLAY_IDS
@@ -1296,6 +1345,10 @@ def verify_candidate_observer_binding(
 ) -> None:
     source_contract_id = acceptance.get("source_contract_id")
     profile = acceptance.get("profile")
+    stock_overlay = (
+        acceptance.get("userspace_overlay_contract_id")
+        == typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID
+    )
     if source_contract_id is None:
         if observer is not None:
             raise F1V2Error("candidate observer has no versioned source contract")
@@ -1306,8 +1359,10 @@ def verify_candidate_observer_binding(
         if observer is not None:
             raise F1V2Error("source contract does not define a candidate observer")
         return
-    if observer is None:
+    if observer is None and not stock_overlay:
         raise F1V2Error("source contract requires a candidate observer")
+    if observer is None:
+        return
     run_id_hex = acceptance.get("run_id")
     if not isinstance(run_id_hex, str) or re.fullmatch(r"[0-9a-f]{32}", run_id_hex) is None:
         raise F1V2Error("candidate observer run ID is invalid")

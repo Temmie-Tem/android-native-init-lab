@@ -65,6 +65,11 @@ DOWNLOAD_REQUEST_RECOVERY_ACTIONS = {
     "download_request_cut_recovery_exact",
     "download_request_cut_recovery_parked",
 }
+P319_OUTCOME_BY_PROOF_CLASS = {
+    "NONCAUSAL_SUCCESS_PATH": "p319_noncausal_success_path_rollback_verified",
+    "NO_PROOF_EXPERIMENT_PRECONDITION": "p319_experiment_precondition_unproved_rollback_verified",
+    "NO_PROOF_OBSERVER": "p319_observer_no_proof_rollback_verified",
+}
 
 
 class F1LiveError(RuntimeError):
@@ -202,6 +207,15 @@ def _closure(root: Path) -> dict[str, Any]:
         "odin_transition_core": scripts / "s22plus_odin_transition_core.py",
         "usbfs_identity": scripts / "s22plus_odin_usbfs_identity.py",
         "p313_guard_lifetime": scripts / "s22plus_fyg8_p313_guard_lifetime.py",
+        "p319_stock_adapter": Path(
+            typed_evidence.p319_stock_adapter.__file__
+        ).resolve(),
+        "p319_carrier_model": Path(
+            typed_evidence.p319_stock_adapter.model.__file__
+        ).resolve(),
+        "p319_telemetry_spec": Path(
+            typed_evidence.p319_stock_adapter.spec.__file__
+        ).resolve(),
         "consumed_candidate_registry": Path(consumed_registry.__file__).resolve(),
         "legacy_consumed_candidate_authority": Path(consumed_registry.LEGACY_AUTHORITY_PATH).resolve(),
     }
@@ -379,6 +393,13 @@ def _p318_bundle(bundle: core.Bundle) -> bool:
     return (
         _userspace_overlay_contract_id(bundle)
         == typed_evidence.P318_MAX77705_OVERLAY_CONTRACT_ID
+    )
+
+
+def _p319_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID
     )
 
 
@@ -1263,6 +1284,60 @@ def classify_acceptance(payload: bytes, acceptance: dict[str, Any]) -> dict[str,
     return classification
 
 
+def _p319_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
+    """Validate and retain the P319 stock proof/runtime projection."""
+    if not isinstance(classified, dict):
+        raise F1LiveError("P3.19 stock classification is not an object")
+    try:
+        proof = typed_evidence.p319_stock_adapter._proof_class_for_value(  # noqa: SLF001
+            classified
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise F1LiveError("P3.19 stock proof class is invalid") from exc
+    if classified.get("proof_class") != proof:
+        raise F1LiveError("P3.19 stock proof class differs from decoded predicates")
+    required_false = (
+        "causal_result_allowed",
+        "candidate_success",
+        "mux_result_claimable",
+        "host_silent_claimable",
+    )
+    if any(classified.get(name) is not False for name in required_false):
+        raise F1LiveError("P3.19 stock classification exposes a causal claim")
+    if classified.get("acm_supplemental") is not True or classified.get(
+        "acm_required_for_acceptance"
+    ) is not False:
+        raise F1LiveError("P3.19 ACM boundary is not supplemental")
+    stock = classified.get("p319_stock")
+    if not isinstance(stock, list) or len(stock) > 1:
+        raise F1LiveError("P3.19 stock runtime projection is incomplete")
+    if proof != "NO_PROOF_OBSERVER" and len(stock) != 1:
+        raise F1LiveError("P3.19 stock runtime projection is incomplete")
+    return {
+        "proof_class": proof,
+        "classification": classified.get("classification"),
+        "stock": stock,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+        "mux_result_claimable": False,
+        "host_silent_claimable": False,
+        "acm_supplemental": True,
+        "acm_required_for_acceptance": False,
+    }
+
+
+def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    projection = state.get("p319_stock")
+    final = state.get("final_evidence")
+    observer = final.get("observer") if isinstance(final, dict) else None
+    retained = observer.get("p319_stock") if isinstance(observer, dict) else None
+    if not isinstance(projection, dict) or projection != retained:
+        raise F1LiveError("P3.19 durable stock projection differs from final evidence")
+    if state.get("p319_proof_class") != projection.get("proof_class"):
+        raise F1LiveError("P3.19 durable proof class projection differs")
+    return projection
+
+
 def _persist_bytes(path: Path, payload: bytes) -> dict[str, Any]:
     descriptor = os.open(
         path,
@@ -2032,6 +2107,11 @@ class SamsungOdinBackend:
             marker_result, p318_topology_evidence = (
                 _p318_finalize_candidate_phase(prepared, marker_result)
             )
+        p319_projection = (
+            _p319_terminal_projection(marker_result)
+            if _p319_bundle(prepared.bundle)
+            else None
+        )
         accepted = marker_result["accepted"] is True
         result = {
             "health": health,
@@ -2057,6 +2137,8 @@ class SamsungOdinBackend:
         }
         if p318_topology_evidence is not None:
             result["p318_candidate_topology"] = p318_topology_evidence
+        if p319_projection is not None:
+            result["observer"]["p319_stock"] = p319_projection
         return result
 
 
@@ -2671,6 +2753,11 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.18 final topology evidence changed")
     elif "p318_candidate_topology" in evidence:
         raise F1LiveError("foreign P3.18 final topology evidence")
+    if _p319_bundle(prepared.bundle):
+        if observer.get("p319_stock") != _p319_terminal_projection(marker_result):
+            raise F1LiveError("P3.19 final stock projection changed")
+    elif "p319_stock" in observer:
+        raise F1LiveError("foreign P3.19 final stock evidence")
     exact = marker_result["exact_count"]
     family = marker_result["family_count"]
     accepted = marker_result["accepted"] is True
@@ -2807,6 +2894,24 @@ def validate_live_result(
             raise F1LiveError("Download request recovery invented candidate evidence")
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
+    if _p319_bundle(prepared.bundle) and state.get("final_verified") is True:
+        projection = _p319_durable_projection(state)
+        proof = projection.get("proof_class")
+        if proof not in P319_OUTCOME_BY_PROOF_CLASS:
+            raise F1LiveError("P3.19 durable proof class is invalid")
+        if result["verdict"] != "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK":
+            raise F1LiveError("P3.19 stock result cannot claim candidate proof")
+        if result["outcome_class"] != P319_OUTCOME_BY_PROOF_CLASS[proof]:
+            raise F1LiveError("P3.19 stock outcome class differs from proof class")
+        if (
+            journal.state() != "CLOSED"
+            or names != list(core.TIMELINE)
+            or state.get("candidate_completed") is not True
+            or state.get("rollback_completed") is not True
+            or result["recovery_required"] is not False
+        ):
+            raise F1LiveError("P3.19 stock terminal semantics are incomplete")
+        return result
     observer_required = (
         prepared.bundle.manifest["observation"].get("candidate_observer")
         is not None
@@ -3744,6 +3849,13 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
     """Recompute a CLOSED terminal without reopening any backend."""
 
     current = _state(prepared)
+    if _p319_bundle(prepared.bundle):
+        projection = _p319_durable_projection(current)
+        proof = projection.get("proof_class")
+        outcome = P319_OUTCOME_BY_PROOF_CLASS.get(proof)
+        if outcome is not None:
+            return "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", outcome
+        raise F1LiveError("P3.19 durable proof class is invalid")
     marker = current.get("marker_accepted") is True
     candidate = current.get("candidate_completed") is True
     observer_required = (
@@ -3949,6 +4061,12 @@ def _finish_rollback(
                 "final_evidence": final,
             }
         )
+        if _p319_bundle(prepared.bundle):
+            projection = final["observer"].get("p319_stock")
+            if not isinstance(projection, dict):
+                raise F1LiveError("P3.19 final stock projection is missing")
+            current["p319_proof_class"] = projection["proof_class"]
+            current["p319_stock"] = projection
         _save_state(prepared, current)
         journal.transition(
             "HEALTH_VERIFIED",

@@ -19,20 +19,20 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "458f1518c84f4c6da10eb60cb970c4b401ad0437670b5cc30b52b6a941d7c7ad"
+AUDITOR_NORMALIZED_SHA256 = "feabe85c557bec0c44b114fd8ce9318077d990387ae8da047e96dbf07576c5b6"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-15-p319-integration-v2.json"
+    "raw-first-observer-audit-20260829-16-p319-process-v2-registration.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "e37c808824b4b730d11c9924168220906ccddc30b30aa2877c336a59ac8210b0"
+    "f86be748e4ff460b95b2ad50be795da6a4566c5bef064c52a1342ef2c38554e3"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 126
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "e43273afef28623ede46065574987440f3dd8a0160a562ecc2cf91d5dc31ac4f"
+    "f6c149f13c015b8eebc8502ade86e6fe0678ce26af55a9a68ba7ec4f1bbab594"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "fcb3bb805ccbadb7277ecf4922ebd0d9c603f44204a9a0889162fceafb68bf95"
+    "f18e2b0d3bc6dec73a775e48a84a3e135dcb1d7326010f8aae1923c2a9805fa9"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -308,7 +308,7 @@ ACTIVE_FILES = {
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
     "device_action_d0_v2.py": "e71894396ca0c9ba0657a1c83d45883b99f53887c1fb87076ea0a38bbee5c37a",
-    "device_action_f1_live_v2.py": "18615f1a50098f4f3e2f58a5ee09f2764d96c02606b5380e263e2377f59bc053",
+    "device_action_f1_live_v2.py": "ec9321390365b89a453b28fffc6c6989dfe7a3009b0c2d721fb44c372c16959a",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",

@@ -72,6 +72,7 @@ import s22plus_fyg8_p315_telemetry_spec as p315_spec
 import s22plus_fyg8_p316_e2_stock_closure as p316_e2_closure
 import s22plus_fyg8_p317_e2_stock_closure as p317_e2_closure
 import s22plus_fyg8_p318_e2_stock_closure as p318_e2_closure
+import s22plus_fyg8_p319_stock_process_v2_adapter as p319_stock_adapter
 import s22plus_fyg8_max77705_telemetry_decoder as max77705_decoder
 import s22plus_fyg8_p317_max77705_telemetry_decoder as p317_max77705_decoder
 import s22plus_fyg8_p318_max77705_telemetry_decoder as p318_max77705_decoder
@@ -257,6 +258,8 @@ P315_OVERLAY_CONTRACT_ID = p315_overlay.CONTRACT_ID
 MAX77705_OVERLAY_CONTRACT_ID = max77705_decoder.OVERLAY_CONTRACT_ID
 P317_MAX77705_OVERLAY_CONTRACT_ID = p317_max77705_decoder.OVERLAY_CONTRACT_ID
 P318_MAX77705_OVERLAY_CONTRACT_ID = p318_max77705_decoder.OVERLAY_CONTRACT_ID
+P319_STOCK_OVERLAY_CONTRACT_ID = p319_stock_adapter.OVERLAY_CONTRACT_ID
+P319_STOCK_OVERLAY_IDS = frozenset({P319_STOCK_OVERLAY_CONTRACT_ID})
 P316_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p316_candidate_static_checker_v1"
 P316_CANDIDATE_STATIC_VERDICT = (
     "PASS_P316_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
@@ -575,7 +578,16 @@ def _latest_stage_observation_decoder(
 ):
     if userspace_overlay_contract_id is None:
         return _latest_stage_decoder(source_contract_id, profile)
-    if userspace_overlay_contract_id == P318_MAX77705_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
+        if (
+            source_contract_id != p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+            or profile != p319_stock_adapter.PROFILE
+        ):
+            raise EvidenceError(
+                "P3.19 stock userspace observation overlay is unsupported"
+            )
+        selected = p319_stock_adapter
+    elif userspace_overlay_contract_id == P318_MAX77705_OVERLAY_CONTRACT_ID:
         if (
             source_contract_id
             != p318_max77705_decoder.PARENT_SOURCE_CONTRACT_ID
@@ -690,11 +702,18 @@ def _validate_decoder_carrier_authority(
         )
     try:
         run_id = bytes.fromhex("00112233445566778899aabbccddeeff")
-        record = source_decoder.model.initialize_record(profile, run_id)
+        if selected_decoder is p319_stock_adapter:
+            record = selected_decoder.encode_fixture()
+        else:
+            record = source_decoder.model.initialize_record(profile, run_id)
         decoded = selected_decoder.decode_record(
             record,
             expected_profile=profile,
-            expected_run_id=run_id,
+            expected_run_id=(
+                selected_decoder.STOCK_RUN_ID
+                if selected_decoder is p319_stock_adapter
+                else run_id
+            ),
         )
         json.dumps(decoded, sort_keys=True, allow_nan=False)
     except (AttributeError, TypeError, ValueError, selected_decoder.DecodeError) as exc:
@@ -900,6 +919,14 @@ def _validate_p318_overlay_contract(value: Any) -> dict[str, Any]:
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
+    if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
+        # P319 deliberately validates only the explicit metadata object.  Its
+        # future candidate-static promotion must provide its own parent/static
+        # contract; this branch never invents DEFAULT_INTENT or verify_intent.
+        try:
+            return p319_stock_adapter.validate_contract(value)
+        except p319_stock_adapter.DecodeError as exc:
+            raise EvidenceError("P3.19 stock overlay metadata differs") from exc
     if userspace_overlay_contract_id == P318_MAX77705_OVERLAY_CONTRACT_ID:
         return _validate_p318_overlay_contract(value)
     if userspace_overlay_contract_id == P317_MAX77705_OVERLAY_CONTRACT_ID:
@@ -939,6 +966,10 @@ def _select_e2_closure(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None = None,
 ):
+    if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
+        if source_contract_id != p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
+            raise EvidenceError("P3.19 stock parent source contract differs")
+        return p310_e2_closure.select(source_contract_id)
     if userspace_overlay_contract_id == P318_MAX77705_OVERLAY_CONTRACT_ID:
         if source_contract_id != P310_SOURCE_CONTRACT_ID:
             raise EvidenceError("P3.18 parent source contract differs")
@@ -1820,6 +1851,8 @@ def _latest_stage_accepted_identity(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None,
 ) -> str:
+    if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
+        return "P319_STOCK_WITNESS_RETAINED"
     if (
         userspace_overlay_contract_id in P301_TELEMETRY_OVERLAY_IDS
         or source_contract_id == P310_SOURCE_CONTRACT_ID
@@ -2364,6 +2397,11 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                 contract["stock_baseline_result"],
                 "P3.03 stock baseline result",
             )
+        if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
+            try:
+                p319_stock_adapter.validate_acceptance_item(item)
+            except p319_stock_adapter.DecodeError as exc:
+                raise EvidenceError("P3.19 stock acceptance identity is invalid") from exc
         return item
     if kind == PID1_USERSPACE_KIND:
         item = _exact(
@@ -2887,6 +2925,14 @@ def _verify_e1_latest_stage_offline_contract(
     profile = item["profile"]
     source_contract_id = item.get("source_contract_id")
     userspace_overlay_contract_id = item.get("userspace_overlay_contract_id")
+    if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
+        # The existing P319 qualification is an H0 executability artifact, not
+        # the generic candidate-static/run-manifest contract consumed here.
+        # Refuse to promote it by accident until a real P319 Process-v2 static
+        # artifact and its narrow validator exist.
+        raise EvidenceError(
+            "P3.19 Process-v2 offline promotion is not yet registered"
+        )
     source_decoder = _latest_stage_decoder(source_contract_id, profile)
     selected_decoder = _latest_stage_observation_decoder(
         source_contract_id,
@@ -5533,6 +5579,29 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    if item.get("userspace_overlay_contract_id") == P319_STOCK_OVERLAY_CONTRACT_ID:
+        # Preserve the adapter's typed result boundary.  In particular,
+        # ``accepted`` is not candidate proof: COMPLETE is deliberately
+        # NONCAUSAL_SUCCESS_PATH and all causal/host-silent claims stay false.
+        for name in (
+            "proof_class",
+            "causal_result_allowed",
+            "candidate_success",
+            "mux_result_claimable",
+            "host_silent_claimable",
+            "acm_supplemental",
+            "acm_required_for_acceptance",
+            "stock_result_count",
+        ):
+            if name not in decoded:
+                raise EvidenceError(f"P3.19 stock result omitted {name}")
+            result[name] = decoded[name]
+        stock_rows = [
+            row.get("p319_stock")
+            for row in decoded.get("records", ())
+            if isinstance(row, dict) and "p319_stock" in row
+        ]
+        result["p319_stock"] = stock_rows
     if item.get("userspace_overlay_contract_id") in {
         P303_OVERLAY_CONTRACT_ID,
         P304_OVERLAY_CONTRACT_ID,
