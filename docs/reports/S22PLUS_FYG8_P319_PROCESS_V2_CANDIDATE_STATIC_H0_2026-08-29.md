@@ -1,6 +1,6 @@
 # S22+ FYG8 P3.19 Process-v2 Candidate-Static H0
 
-Status: `IMPLEMENTED_REVIEW_PENDING / NOT READY / NOT ACTIVE`.
+Status: `INDEPENDENT_PASS_GO / NOT READY / NOT ACTIVE`.
 
 This host-only unit creates the first P3.19-specific Process-v2
 candidate-static artifact. It does not register offline promotion, create a
@@ -71,9 +71,23 @@ Ten focused tests pass, including exact result regeneration and hostile
 boolean/integer substitution, proof-class relabel, EUD-index, and candidate AP
 identity drift.
 
-Independent changed-closure review is mandatory. After review, a separate
-small unit may register this exact schema in the shared offline verifier and
-derive a ready manifest. Until that registration and its own independent
-review pass, the existing fail-closed message `P3.19 Process-v2 offline
-promotion is not yet registered` remains correct and no F1 approval may bind
-this artifact.
+## Independent review
+
+Independent read-only hostile review returned `PASS_GO`. It verified that
+`build_result()` validates and freshly regenerates reviewed Integration V2
+`-05` before `_derive()` can construct the artifact, and that `_derive()`
+binds the exact plan, reopened candidate artifacts, preflight authorities,
+adapter sources, terminal mappings, and future witness contract. The retained
+artifact reopened as a direct 34,782-byte mode-0400/link-count-one file at
+`86cc71e1`.
+
+The independent fast hostile selection passed 9/9; the implementation's full
+10/10 selection additionally performed the 106-second byte-exact regeneration.
+The reviewer confirmed the analysis-path source has no device-acquisition
+primitive and all ready/run/approval/live/causal flags remain false.
+
+A separate small unit may now register this exact schema in the shared offline
+verifier and derive a ready manifest. Until that registration and its own
+independent review pass, the existing fail-closed message `P3.19 Process-v2
+offline promotion is not yet registered` remains correct and no F1 approval
+may bind this artifact.
