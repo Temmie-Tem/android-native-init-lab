@@ -3,7 +3,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
+import py_compile
 import stat
 import sys
 import tempfile
@@ -149,6 +151,27 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
         with self.assertRaises(evidence.EvidenceError):
             evidence._validate_p319_candidate_static(value)  # noqa: SLF001
 
+    def test_forged_candidate_static_provenance_is_rederived_and_rejected(self):
+        mutations = {
+            "integration": lambda value: value["integration"]["receipt"].__setitem__(
+                "sha256", "0" * 64
+            ),
+            "target": lambda value: value["candidate"]["identity"]["target"].__setitem__(
+                "model", "foreign"
+            ),
+            "source_keys": lambda value: value["candidate"]["identity"]["closure"][
+                "source_keys"
+            ].__setitem__("sha256", "0" * 64),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                value = copy.deepcopy(self.static_value)
+                mutate(value)
+                with self.assertRaisesRegex(
+                    evidence.EvidenceError, "authority rejected"
+                ):
+                    evidence._validate_p319_candidate_static(value)  # noqa: SLF001
+
     def test_terminal_relabel_is_rejected(self):
         value = copy.deepcopy(self.static_value)
         value["result_contract_arming"]["admitted_terminals"][0][
@@ -187,6 +210,94 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
             ready.DEFAULT_MANIFEST_ID,
         )
 
+    def test_ready_manifest_rejects_boolean_minimum_success_count(self):
+        mutations = {
+            "minimum_bool": ("minimum_success_count", True),
+            "minimum_float": ("minimum_success_count", 1.0),
+            "terminal_float": ("terminal_stage", 147.0),
+        }
+        for label, (field, replacement) in mutations.items():
+            with self.subTest(label=label):
+                value = copy.deepcopy(self.manifest)
+                value["observation"]["acceptance"][field] = replacement
+                with self.assertRaises(ready.ReadyManifestError):
+                    ready.verify_bundle(value)
+
+    def test_shared_verifier_rejects_float_module_plan_substitution(self):
+        mutations = (
+            ("candidate_count", ("candidate", "plan", "count"), 73.0),
+            ("candidate_eud", ("candidate", "plan", "eud_index"), 38.0),
+            (
+                "closure_count",
+                ("candidate", "identity", "closure", "module_plan", "count"),
+                73.0,
+            ),
+            (
+                "closure_eud",
+                ("candidate", "identity", "closure", "module_plan", "eud_index"),
+                38.0,
+            ),
+        )
+        for label, keys, replacement in mutations:
+            with self.subTest(label=label):
+                value = copy.deepcopy(self.static_value)
+                target = value
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = replacement
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence._validate_p319_candidate_static(value)  # noqa: SLF001
+
+    def test_shared_verifier_rejects_integer_boolean_substitution(self):
+        mutations = (
+            ("safety_host", ("safety", "host_only"), 1),
+            ("safety_device", ("safety", "device_contact"), 0),
+            (
+                "runtime_post_run",
+                ("runtime_observation_contract", "post_run_classification_only"),
+                1,
+            ),
+            (
+                "runtime_candidate",
+                ("runtime_observation_contract", "candidate_success"),
+                0,
+            ),
+        )
+        for label, keys, replacement in mutations:
+            with self.subTest(label=label):
+                value = copy.deepcopy(self.static_value)
+                target = value
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = replacement
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence._validate_p319_candidate_static(value)  # noqa: SLF001
+
+    def test_p319_adapter_dependency_loader_ignores_same_stamp_stale_pyc(self):
+        module_name = "s22plus_fyg8_p319_stock_process_v2_adapter"
+        payloads = evidence._stable_local_import_closure(  # noqa: SLF001
+            module_name, REVALIDATION
+        )
+        with tempfile.TemporaryDirectory(prefix="p319-stale-pyc-") as name:
+            root = Path(name) / "workspace/public/src/scripts/revalidation"
+            root.mkdir(parents=True)
+            for dependency, payload in payloads.items():
+                (root / f"{dependency}.py").write_bytes(payload)
+            carrier = root / "s22plus_fyg8_p310_carrier_model.py"
+            fixed_ns = 1_700_000_000_000_000_000
+            os.utime(carrier, ns=(fixed_ns, fixed_ns))
+            py_compile.compile(str(carrier), doraise=True)
+            original = carrier.read_bytes()
+            mutated = original.replace(b'b"S22E1L2|"', b'b"F0RE1L2|"')
+            self.assertEqual(len(mutated), len(original))
+            self.assertNotEqual(mutated, original)
+            carrier.write_bytes(mutated)
+            os.utime(carrier, ns=(fixed_ns, fixed_ns))
+            loaded = evidence._load_stable_local_module(  # noqa: SLF001
+                module_name, root
+            )
+            self.assertEqual(loaded.LONG_FAMILY, b"F0RE1L2|")
+
     def test_published_ready_manifest_is_exact_regeneration(self):
         payload = ready.stable_bytes(
             ready.DEFAULT_OUTPUT,
@@ -204,16 +315,17 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
         goal = GOAL.read_text(encoding="utf-8")
         ledger = LEDGER.read_text(encoding="utf-8")
         for token in (
-            "15,075 bytes / `7addbe2a2da4c57e",
-            "125,924 bytes / `664a8354456f5edd",
-            "34,892 bytes / `9504905e3ed0ac12",
-            "2,432 bytes / `fedb4eef51e5f6d9",
+            "15,075 bytes / `608799f12b16aab5",
+            "13,228 bytes / `d0f3fb5b43a52d07",
+            "126,085 bytes / `1542dfb9bf7f1543",
+            "35,259 bytes / `2425fed6e791e2d7",
+            "2,432 bytes / `2721ede6bc5d45fd",
             "creates no approval",
         ):
             self.assertIn(token, report)
         self.assertIn("`ready-for-f1-approval` manifest", goal)
         self.assertIn("h0-process-v2-offline-ready-51", ledger)
-        self.assertIn("74/56/18 across 420 rows", ledger)
+        self.assertIn("74/56/18 across 422 rows", ledger)
 
     def test_temporary_outputs_are_private_and_no_clobber(self):
         for path in self.promotion_root.iterdir():

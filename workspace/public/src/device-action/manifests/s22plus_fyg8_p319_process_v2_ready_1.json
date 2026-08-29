@@ -12,18 +12,18 @@
       "clean_baseline_required": true,
       "contract": {
         "candidate_static": {
-          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260829-05/candidate-static.json",
-          "sha256": "9504905e3ed0ac120e87a0edab1bd3648219a329c414b777588ee59287e89caa",
-          "size": 34892
+          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260830-10/candidate-static.json",
+          "sha256": "2425fed6e791e2d72150cabdf3704327df334b1484efd32c5e020036f8569a59",
+          "size": 35259
         },
         "run_manifest": {
-          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260829-05/run-manifest.json",
-          "sha256": "af09b4c031219ab6a801681e60ee0943a3bf5324355c69bb60ba22ebcb0ec358",
+          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260830-10/run-manifest.json",
+          "sha256": "25c3bb09cebfba91b3f82c58b20f72c3d13bcee1b7099d27c8eaadea9049e20a",
           "size": 1043
         },
         "static_check": {
-          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260829-05/static-check-result.json",
-          "sha256": "25691094db291a6f2408c8dc6d6a612a3cef9ca34fa4a0822d3e00901e29f313",
+          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260830-10/static-check-result.json",
+          "sha256": "83bc6508644c9f6896676b49e6234fd4c614e0eb3a8e61f2c80ce0eae5b9eadd",
           "size": 1842
         }
       },

@@ -9,6 +9,7 @@ from pathlib import Path
 import stat
 import sys
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,10 +45,10 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
         self.assertFalse(self.output.is_symlink())
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(self.payload), 34_892)
+        self.assertEqual(len(self.payload), 35_259)
         self.assertEqual(
             hashlib.sha256(self.payload).hexdigest(),
-            "9504905e3ed0ac120e87a0edab1bd3648219a329c414b777588ee59287e89caa",
+            "2425fed6e791e2d72150cabdf3704327df334b1484efd32c5e020036f8569a59",
         )
         self.assertEqual(self.module.canonical(self.value), self.payload)
         self.module.validate_result(self.value)
@@ -77,12 +78,47 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
     def test_integration_loader_executes_stable_source_not_cached_bytecode(self):
         source = inspect.getsource(self.module.load_local)
         self.assertIn("stable_bytes(", source)
-        self.assertIn("compile(source", source)
+        self.assertIn("_StableSourceFinder", source)
+        self.assertIn("importlib.import_module", source)
         self.assertNotIn("spec_from_file_location", source)
+
+    def test_candidate_static_self_binds_its_exact_validator_source(self):
+        authority = self.value["authority_source"]
+        source = ROOT / authority["path"]
+        payload = source.read_bytes()
+        self.assertEqual(authority["size"], len(payload))
+        self.assertEqual(authority["sha256"], hashlib.sha256(payload).hexdigest())
 
     def test_exact_regeneration_is_byte_identical(self):
         regenerated = self.module.canonical(self.module.build_result())
         self.assertEqual(regenerated, self.payload)
+
+    def test_validation_rebuilds_the_bound_integration_receipt(self):
+        original_load = self.module.load_local
+
+        class DriftedIntegration:
+            def __init__(self, wrapped):
+                self.wrapped = wrapped
+
+            def __getattr__(self, name):
+                return getattr(self.wrapped, name)
+
+            def build_result(self):
+                result = self.wrapped.build_result()
+                result["decision"] = "FORGED"
+                return result
+
+        def drifted_load(path, name):
+            loaded = original_load(path, name)
+            if path == self.module.INTEGRATION_SOURCE:
+                return DriftedIntegration(loaded)
+            return loaded
+
+        with mock.patch.object(self.module, "load_local", side_effect=drifted_load):
+            with self.assertRaisesRegex(
+                self.module.StaticContractError, "not byte-reproducible"
+            ):
+                self.module.validate_result(self.value)
 
     def test_three_real_terminal_paths_are_armed_without_causal_promotion(self):
         rows = self.value["result_contract_arming"]["admitted_terminals"]
@@ -154,6 +190,31 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.StaticContractError, "differs"):
             self.module.validate_result(value)
 
+    def test_candidate_plan_float_substitution_is_rejected(self):
+        mutations = (
+            ("plan_count", ("candidate", "plan", "count"), 73.0),
+            ("plan_eud", ("candidate", "plan", "eud_index"), 38.0),
+            (
+                "closure_count",
+                ("candidate", "identity", "closure", "module_plan", "count"),
+                73.0,
+            ),
+            (
+                "closure_eud",
+                ("candidate", "identity", "closure", "module_plan", "eud_index"),
+                38.0,
+            ),
+        )
+        for label, keys, replacement in mutations:
+            with self.subTest(label=label):
+                value = self.mutated()
+                target = value
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = replacement
+                with self.assertRaisesRegex(self.module.StaticContractError, "differs"):
+                    self.module.validate_result(value)
+
     def test_candidate_artifact_drift_is_rejected(self):
         value = self.mutated()
         value["candidate"]["artifacts"]["candidate"]["ap_tar_md5"]["sha256"] = "0" * 64
@@ -166,7 +227,7 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
             {
                 "path": (
                     "workspace/private/outputs/s22plus_fyg8_p319/"
-                    "process-v2-integration-qualification-v2-20260829-09/result.json"
+                    "process-v2-integration-qualification-v2-20260830-15/result.json"
                 ),
                 **self.module.INTEGRATION_IDENTITY,
             },

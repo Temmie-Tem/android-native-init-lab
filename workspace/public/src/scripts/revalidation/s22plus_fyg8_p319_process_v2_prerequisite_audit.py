@@ -39,13 +39,13 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
 VERDICT = "PASS_P319_PREREQUISITE_H0"
-RAW_AUDITOR_SHA256 = "bebefffbd6176027d1902bce47b289dcfa919699a46f29af370444aa8b7605fb"
-RAW_AUDITOR_SIZE = 76_347
-RAW_RECEIPT_SHA256 = "7addbe2a2da4c57e6e3011f116542af0b223c1f423adb37535a351599b0932cd"
+RAW_AUDITOR_SHA256 = "2819d3d26c19500c173ad36d0a9e50ad58f17258425a88ce71946f58b8598409"
+RAW_AUDITOR_SIZE = 76_339
+RAW_RECEIPT_SHA256 = "608799f12b16aab51b3ef12bcb70746c4debcc13eaf9ee342dae04f596f91c6f"
 RAW_RECEIPT_SIZE = 15_075
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-19-p319-process-v2-offline-ready.json"
+    "raw-first-observer-audit-20260830-23-p319-registry-absence.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"
@@ -88,13 +88,13 @@ PRIVATE_JSON_NAMES = frozenset(
 
 RAW_FIRST_PREDECESSOR = {
     "auditor": {
-        "size": 76_359,
-        "sha256": "a15f805808f4cc6c97515dd08da9852c1ae91cc0c51be382061e98f6863752cb",
+        "size": 76_350,
+        "sha256": "702219692babd65ba8e5b2d0cb6ee296247d1dcaa709901aff4472da7f297245",
     },
     "receipt": {
-        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json",
+        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260830-22-p319-offline-ready-stable-source.json",
         "size": 15_075,
-        "sha256": "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42",
+        "sha256": "d6ad008c8f49f9346e4438b84d7b1d1dcb131b3764de20c1270dd3595bc51ee3",
     },
 }
 
@@ -517,7 +517,7 @@ def _validate_nonconsuming_ready_manifest(
     if not path.exists() and not path.is_symlink():
         return
     value, _receipt = _strict_json(
-        path, "P319 non-consuming ready manifest", canonical=False, mode=None
+        path, "P319 non-consuming ready manifest", canonical=False, mode=0o644
     )
     if set(value) != {
         "allowed_member",
@@ -548,25 +548,29 @@ def _validate_nonconsuming_ready_manifest(
         or value.get("target_profile")
         != "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
         or value.get("final_health_profile") != "s22plus-fyg8-magisk"
-        or candidate
-        != {
-            "path": (
-                "workspace/private/outputs/s22plus_fyg8_p319/"
-                "stock-witness-runtime-v1-20260821-55/candidate-a/odin4/AP.tar.md5"
-            ),
-            "size": 27_279_401,
-            "sha256": CANDIDATE_AP_SHA256,
-        }
+        or not isinstance(candidate, dict)
+        or set(candidate) != {"path", "size", "sha256"}
+        or candidate.get("path")
+        != (
+            "workspace/private/outputs/s22plus_fyg8_p319/"
+            "stock-witness-runtime-v1-20260821-55/candidate-a/odin4/AP.tar.md5"
+        )
+        or type(candidate.get("size")) is not int
+        or candidate["size"] != 27_279_401
+        or not isinstance(candidate.get("sha256"), str)
+        or candidate["sha256"] != CANDIDATE_AP_SHA256
         or not isinstance(rollback, dict)
         or set(rollback) != {"path", "size", "sha256"}
         or rollback.get("path")
         != "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5"
-        or rollback.get("size") != 23_367_721
-        or rollback.get("sha256")
+        or type(rollback.get("size")) is not int
+        or rollback["size"] != 23_367_721
+        or not isinstance(rollback.get("sha256"), str)
+        or rollback["sha256"]
         != "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
         or set(observation or {}) != {"acceptance", "timeout_sec"}
         or type(observation.get("timeout_sec")) is not int
-        or observation["timeout_sec"] <= 0
+        or observation["timeout_sec"] != 300
         or not isinstance(acceptance, dict)
         or set(acceptance)
         != {
@@ -586,6 +590,19 @@ def _validate_nonconsuming_ready_manifest(
             "userspace_overlay_contract_id",
         }
         or acceptance.get("run_id") != CARRIER_OBSERVATION_RUN_ID
+        or acceptance.get("kind")
+        != "retained_e1_latest_stage_multiboot_after_rollback"
+        or acceptance.get("decoder")
+        != "s22plus_fyg8_p319_stock_witness_carrier_v1"
+        or acceptance.get("policy_id") != "44667ee3bea864cbc9ed94598480da32"
+        or acceptance.get("long_family_hex") != "53323245314c327c"
+        or acceptance.get("unsat_family_hex") != "533232453155327c"
+        or type(acceptance.get("terminal_stage")) is not int
+        or acceptance["terminal_stage"] != 147
+        or type(acceptance.get("minimum_success_count")) is not int
+        or acceptance["minimum_success_count"] != 1
+        or acceptance.get("clean_baseline_required") is not True
+        or acceptance.get("source") != "/proc/last_kmsg"
         or acceptance.get("source_contract_id")
         != "s22plus-fyg8-p310-carrier-v2-hsphy-attribution-v1"
         or acceptance.get("userspace_overlay_contract_id")
@@ -608,7 +625,7 @@ def _validate_nonconsuming_ready_manifest(
             or not isinstance(item.get("path"), str)
             or re.fullmatch(
                 r"workspace/private/outputs/s22plus_fyg8_p319/"
-                r"process-v2-promotion-20260829-[0-9]{2}/"
+                r"process-v2-promotion-202608(?:29|30)-[0-9]{2}/"
                 + re.escape(filename),
                 item["path"],
             )
@@ -619,6 +636,20 @@ def _validate_nonconsuming_ready_manifest(
             or re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) is None
         ):
             raise AuditError("P319 ready declaration contract identity differs")
+        artifact = ROOT / item["path"]
+        payload = _stable_bytes(
+            artifact,
+            f"P319 ready declaration {name}",
+            expected={"size": item["size"], "sha256": item["sha256"]},
+            mode=0o400,
+            nlink=1,
+            maximum=2 * 1024 * 1024,
+        )
+        if _identity(payload) != {
+            "size": item["size"],
+            "sha256": item["sha256"],
+        }:
+            raise AuditError("P319 ready declaration artifact differs")
 
 
 def _qualify_registry(module: Any) -> dict[str, Any]:
@@ -637,6 +668,37 @@ def _qualify_registry(module: Any) -> dict[str, Any]:
         **_identity(helper_data),
     }
     return value
+
+
+def _assert_candidate_absent_from_registry(module: Any) -> dict[str, Any]:
+    records = module.history(ROOT)
+    if not isinstance(records, list):
+        raise AuditError("global registry history is not a list")
+    active: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if not isinstance(record, dict):
+            raise AuditError("global registry history record is not an object")
+        candidate_key = record.get("candidate_key")
+        if not isinstance(candidate_key, str):
+            raise AuditError("global registry history candidate key is malformed")
+        if record.get("event") == "claim":
+            active[candidate_key] = record
+        elif record.get("event") == "release":
+            active.pop(candidate_key, None)
+        else:
+            raise AuditError("global registry history event is malformed")
+    matching = [
+        record
+        for record in active.values()
+        if record.get("candidate_ap_sha256") == CANDIDATE_AP_SHA256
+    ]
+    if matching:
+        raise AuditError("P319 candidate AP has an active global registry claim")
+    return {
+        "record_count": len(records),
+        "active_claim_count": len(active),
+        "candidate_active_claim_absent": True,
+    }
 
 
 def audit_no_replay() -> dict[str, Any]:
@@ -709,6 +771,7 @@ def audit_no_replay() -> dict[str, Any]:
     )
     try:
         qualification = _qualify_registry(registry_module)
+        registry_history = _assert_candidate_absent_from_registry(registry_module)
         live_consumption = _audit_live_registry_consumption()
     except Exception as exc:
         raise AuditError(
@@ -780,6 +843,7 @@ def audit_no_replay() -> dict[str, Any]:
             "runner_recovery_closed": False,
             "runner_ready": False,
             "qualification": qualification_receipt,
+            "history": registry_history,
             "structural_consumption": live_consumption,
         },
         "status": VERDICT,

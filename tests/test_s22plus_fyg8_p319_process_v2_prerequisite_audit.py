@@ -67,15 +67,83 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="p319-ready-declaration-") as name:
             path = Path(name) / "ready.json"
             value = json.loads(self.module.P319_READY_MANIFEST.read_bytes())
+            path.write_text(
+                json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
+                encoding="ascii",
+            )
+            path.chmod(0o644)
+            self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
             value["status"] = "approved"
             path.write_text(
                 json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
                 encoding="ascii",
             )
+            path.chmod(0o644)
             with self.assertRaisesRegex(
                 self.module.AuditError, "ready declaration identity differs"
             ):
                 self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
+
+    def test_ready_declaration_rejects_acceptance_and_artifact_drift(self):
+        original = json.loads(self.module.P319_READY_MANIFEST.read_bytes())
+        mutations = {
+            "decoder": lambda value: value["observation"]["acceptance"].__setitem__(
+                "decoder", "foreign"
+            ),
+            "policy": lambda value: value["observation"]["acceptance"].__setitem__(
+                "policy_id", "0" * 32
+            ),
+            "family": lambda value: value["observation"]["acceptance"].__setitem__(
+                "long_family_hex", "00"
+            ),
+            "terminal": lambda value: value["observation"]["acceptance"].__setitem__(
+                "terminal_stage", 146
+            ),
+            "terminal_float": lambda value: value["observation"]["acceptance"].__setitem__(
+                "terminal_stage", 147.0
+            ),
+            "minimum": lambda value: value["observation"]["acceptance"].__setitem__(
+                "minimum_success_count", 2
+            ),
+            "minimum_bool": lambda value: value["observation"]["acceptance"].__setitem__(
+                "minimum_success_count", True
+            ),
+            "minimum_float": lambda value: value["observation"]["acceptance"].__setitem__(
+                "minimum_success_count", 1.0
+            ),
+            "baseline": lambda value: value["observation"]["acceptance"].__setitem__(
+                "clean_baseline_required", False
+            ),
+            "timeout": lambda value: value["observation"].__setitem__(
+                "timeout_sec", 601
+            ),
+            "timeout_float": lambda value: value["observation"].__setitem__(
+                "timeout_sec", 300.0
+            ),
+            "candidate_size_float": lambda value: value["candidate_ap"].__setitem__(
+                "size", 27_279_401.0
+            ),
+            "rollback_size_float": lambda value: value["rollback_ap"].__setitem__(
+                "size", 23_367_721.0
+            ),
+            "digest": lambda value: value["observation"]["acceptance"]["contract"][
+                "candidate_static"
+            ].__setitem__("sha256", "0" * 64),
+        }
+        with tempfile.TemporaryDirectory(prefix="p319-ready-hostile-") as name:
+            for label, mutate in mutations.items():
+                with self.subTest(label=label):
+                    value = json.loads(json.dumps(original))
+                    mutate(value)
+                    path = Path(name) / f"{label}.json"
+                    path.write_text(
+                        json.dumps(value, sort_keys=True, separators=(",", ":"))
+                        + "\n",
+                        encoding="ascii",
+                    )
+                    path.chmod(0o644)
+                    with self.assertRaises(self.module.AuditError):
+                        self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
 
     def test_recovery_provenance_is_distinct_from_reopening_ap(self):
         recovery = self.receipt["recovery_usability_provenance"]
@@ -95,6 +163,24 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         self.assertEqual(len(recovery["journal"]["records_0010_0018"]), 9)
         self.assertEqual(recovery["topology"]["authority_state"], "rollback_bound_exact")
 
+    def test_active_global_registry_claim_is_not_reported_absent(self):
+        class ClaimedRegistry:
+            @staticmethod
+            def history(_root):
+                return [
+                    {
+                        "event": "claim",
+                        "candidate_key": "1" * 64,
+                        "candidate_ap_sha256": self.module.CANDIDATE_AP_SHA256,
+                    }
+                ]
+
+        with self.assertRaisesRegex(
+            self.module.AuditError, "active global registry claim"
+        ):
+            self.module._assert_candidate_absent_from_registry(  # noqa: SLF001
+                ClaimedRegistry
+            )
     def test_restart_probe_uses_two_durable_attempts_then_rejects(self):
         restart = self.receipt["restart_durability"]
         self.assertEqual(restart["helper"]["size"], 2974)
@@ -116,14 +202,14 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
 
     def test_raw_first_projection_is_disk_population_probe(self):
         raw = self.receipt["raw_first_execution_closure"]
-        self.assertEqual(raw["auditor"]["size"], 76347)
+        self.assertEqual(raw["auditor"]["size"], 76339)
         self.assertEqual(
             raw["auditor"]["sha256"],
-            "bebefffbd6176027d1902bce47b289dcfa919699a46f29af370444aa8b7605fb",
+            "2819d3d26c19500c173ad36d0a9e50ad58f17258425a88ce71946f58b8598409",
         )
         self.assertEqual(
             raw["receipt"]["sha256"],
-            "7addbe2a2da4c57e6e3011f116542af0b223c1f423adb37535a351599b0932cd",
+            "608799f12b16aab51b3ef12bcb70746c4debcc13eaf9ee342dae04f596f91c6f",
         )
         self.assertEqual(raw["receipt"]["size"], 15075)
         self.assertEqual(raw["predecessor"], self.module.RAW_FIRST_PREDECESSOR)
@@ -134,7 +220,7 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
             {
                 "all_revalidation_python_files_scanned": 1747,
                 "subprocess_modules_scanned": 412,
-                "projection_sha256": "029c8d43830205bb10e6aa9463eb352fe793f131409598459bd232a491a145f1",
+                "projection_sha256": "5b1f42dda9e4f26c5fa74efbe07a019a28a4a64f99cc59036c60e4d426993dee",
             },
         )
         self.assertEqual(

@@ -16,20 +16,20 @@ boot-only archives with the permitted `boot.img.lz4` member.
 
 ## Final authority chain
 
-- raw-first receipt `-19`: 15,075 bytes / `7addbe2a2da4c57e…`, mode 0400,
-  link count one. The independently preserved predecessor is `-18`
-  `15075B/0ffd6306…`.
-- prerequisite receipt `-04-p319-ready-declaration-final`: 13,111 bytes /
-  `4f36e5d8a30b5d49…`, mode 0400, link count one.
-- Integration V2 `-09`: 125,924 bytes / `664a8354456f5edd…`, mode 0400,
+- raw-first receipt `-23`: 15,075 bytes / `608799f12b16aab5…`, mode 0400,
+  link count one. The independently preserved immediate predecessor is `-22`
+  `15075B/d6ad008c…`.
+- prerequisite receipt `-11-p319-final`: 13,228 bytes / `d0f3fb5b43a52d07…`,
+  mode 0400, link count one.
+- Integration V2 `-15`: 126,085 bytes / `1542dfb9bf7f1543…`, mode 0400,
   link count one, zero blockers, `SOURCE_CLOSURE_PASS_RUNTIME_CLASSIFICATION_PENDING`.
-- candidate-static `-05`: 34,892 bytes / `9504905e3ed0ac12…`, mode 0400,
+- candidate-static `-10`: 35,259 bytes / `2425fed6e791e2d7…`, mode 0400,
   link count one.
-- promotion `-05`: `candidate-static.json` `34892B/9504905e…`,
-  `run-manifest.json` `1043B/af09b4c0…`, and
-  `static-check-result.json` `1842B/25691094…`; all are direct
+- promotion `-10`: `candidate-static.json` `35259B/2425fed6…`,
+  `run-manifest.json` `1043B/25c3bb09…`, and
+  `static-check-result.json` `1842B/83bc6508…`; all are direct
   mode-0400, link-count-one files.
-- tracked ready manifest: 2,432 bytes / `fedb4eef51e5f6d9…`, mode 0644,
+- tracked ready manifest: 2,432 bytes / `2721ede6bc5d45fd…`, mode 0644,
   link count one, schema `device_action_f1_candidate_v2`, status
   `ready-for-f1-approval`.
 
@@ -58,31 +58,69 @@ other occurrence still fails closed. The consumption-population counts use
 the same projection, so prerequisite bytes are identical before and after
 manifest publication.
 
+Independent hostile review then proved that the first classifier checked only
+part of the acceptance identity and only the shape of the three contract
+digests. It accepted mutations to decoder, policy, Carrier families, terminal,
+minimum count, clean-baseline flag, timeout, and candidate-static digest. The
+repair checks every fixed acceptance field, requires timeout 300, and reopens
+all three referenced private promotion files as direct mode-0400/link-one
+files before comparing their actual sizes and SHA-256 values. This avoids a
+source-level circular digest while rejecting all reproduced mutations.
+
 The check also caught that the final manifest uses the exact `-55` candidate
 path, not the older byte-identical `-49` qualification path. The final path is
-now checked explicitly. Promotion artifact digests are not pinned inside the
-prerequisite because that would create a circular authority; their paths and
-typed identities are checked there, while their exact bytes are pinned and
-reopened by the downstream common `verify_bundle()` gate.
+now checked explicitly. Promotion digests are not source-level constants in
+the prerequisite because that would create a circular authority; instead the
+manifest's typed identities are compared with the reopened private files, and
+the downstream common `verify_bundle()` independently repeats exact binding.
 
-An exact-regeneration attempt additionally reproduced stale Python bytecode
-loading after rapid same-size source edits. The candidate-static local loader
-now stable-reads, compiles, and executes the source bytes directly instead of
-using an importlib loader that may accept a stale `.pyc`.
+Hostile review also proved that the shared P3.19 candidate-static validator
+accepted self-consistent but forged nested Integration receipts, candidate
+identity fields, and source-key claims. The final candidate-static object now
+self-binds its exact builder source. The shared verifier stable-reads and
+executes that source, and the builder reopens and freshly regenerates the
+bound Integration result before recursively exact-type-comparing the complete
+candidate-static object. Shape-only nested provenance is no longer an
+authority path.
 
-Intermediate private `-06/-07/-08`, candidate-static `-02/-03/-04`, and
-promotion `-01/-02/-03/-04` artifacts remain preserved as non-authoritative
-predecessors. They grant no authority and are not referenced by the final
-manifest.
+Python equality also admitted `true`, `1.0`, `73.0`, and `38.0` in integer or
+Boolean fields. Exact integer checks now cover the public acceptance terminal,
+minimum count and timeout plus the candidate/AP 73-row and EUD-38 plan. The
+full-object regeneration rejects Boolean/integer substitutions in runtime and
+safety flags.
+
+The prerequisite now reads the current global registry's validated hash-chain
+history and reconstructs active claims before reporting candidate absence. The
+current authority contains zero records and zero active claims; an active claim
+for the P3.19 AP digest fails closed. The live runner still repeats its atomic
+preflight immediately before any candidate effect.
+
+Finally, hostile review reproduced a real same-size, same-timestamp stale
+`.pyc`: the P310 source contained a changed Carrier family while the imported
+module executed the old family, and the predecessor verifier accepted it.
+The shared P3.19 loader now stable-reads the complete 39-module local adapter
+closure, removes preloaded copies, and executes every member through a
+source-only graph loader. The candidate-static loader does the same and
+replaces Integration's dynamic local loader with that stable path. A hostile
+test recreates the stale bytecode and proves the changed source bytes, not the
+cached module, execute.
+
+Intermediate private raw-first `-19` through `-22`, prerequisite `-04` through `-10`,
+Integration `-06` through `-14`, candidate-static `-02` through `-09`, and
+promotion `-01` through `-09` artifacts remain preserved as non-authoritative
+predecessors. Integration `-11/-12` record the correct fail-closed reaction to
+an interim adapter identity drift. The unused host-only requalification
+`-12/-56/-57` independently reproduced the same candidate bytes but is not
+referenced by the final chain. None grants authority.
 
 ## Validation and boundary
 
-The final manifest-present chain passes 59/59 focused tests, including exact
+The final manifest-present chain passes 69/69 focused tests, including exact
 regeneration of prerequisite, Integration V2, candidate-static, promotion,
-and manifest bytes; hostile type, proof-class, plan, AP, declaration-shape,
-and no-clobber checks; and real C encoder-to-Carrier-to-decoder terminal
-arming. Common Process-v2 tests pass 142/142, and the additional P3.18/P3.19
-adapter/registration/arming regressions pass 25/25 (167/167 combined).
+and manifest bytes; hostile nested-provenance, stale-bytecode, exact-type,
+proof-class, plan, AP, declaration-shape, and no-clobber checks; and real C
+encoder-to-Carrier-to-decoder terminal arming. Common Process-v2 plus the
+additional P3.18/P3.19 adapter/registration/arming regressions pass 167/167.
 
 This unit creates a review-pending H0 capability only. It creates no approval,
 no prepared live run, no consumed-candidate claim, and no D0, D1, F1,

@@ -40,7 +40,8 @@ class P319ProcessV2RegistrationTests(unittest.TestCase):
             adapter.PROFILE,
             adapter.OVERLAY_CONTRACT_ID,
         )
-        self.assertIs(selected, adapter)
+        self.assertIs(selected, evidence.p319_stock_adapter)
+        self.assertEqual(selected.OVERLAY_CONTRACT_ID, adapter.OVERLAY_CONTRACT_ID)
         for source, profile, overlay in (
             ("wrong-source", adapter.PROFILE, adapter.OVERLAY_CONTRACT_ID),
             (adapter.PARENT_SOURCE_CONTRACT_ID, "E1B", adapter.OVERLAY_CONTRACT_ID),

@@ -9,8 +9,8 @@ baseline, or a missing global consumed-candidate registry remain explicit H0
 blockers.  The current result also proves that the V3 baseline's `-10`
 candidate and the current `-11` candidate produced byte-identical phase
 receipts.  This offline-ready repin leaves the reviewed V1 source and all prior
-V2 results intact; `-08` is preserved as the exact predecessor before the
-ready-declaration population count was projected consistently.
+V2 results intact; `-14` is the exact successful predecessor, while blocked
+`-11` and `-12` preserve the rejected interim adapter drift.
 """
 
 from __future__ import annotations
@@ -93,13 +93,13 @@ EXPECTED_USERSPACE_ARTIFACTS = {
     },
 }
 PREVIOUS_RESULT = {
-    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-08/result.json",
-    "size": 125924,
-    "sha256": "53c92c99175843c75b95a0039cc69a2324429c35f0df53cc43f64536862ed355",
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260830-14/result.json",
+    "size": 126094,
+    "sha256": "7a4a4c8c4997e8b9a9cdcef10668bddc266ed12b3b179850ec0778844e708176",
 }
 DEFAULT_OUTPUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-09/result.json"
+    "process-v2-integration-qualification-v2-20260830-15/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"

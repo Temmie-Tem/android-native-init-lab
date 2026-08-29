@@ -3,12 +3,134 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
+import importlib
+import importlib.abc
+import importlib.util
 import json
+import os
 import re
+import stat
+import sys
+import types
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Any
+
+
+def _stable_local_import_bytes(path: Path) -> bytes:
+    try:
+        before = path.lstat()
+        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
+            raise RuntimeError(f"stable local module is indirect: {path.name}")
+        with path.open("rb") as stream:
+            data = stream.read(2 * 1024 * 1024 + 1)
+            inside = os.fstat(stream.fileno())
+        after = path.lstat()
+    except OSError as exc:
+        raise RuntimeError(f"stable local module is unavailable: {path.name}") from exc
+    before_id = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+    if (
+        before_id
+        != (inside.st_dev, inside.st_ino, inside.st_size, inside.st_mtime_ns)
+        or before_id
+        != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        or len(data) != before.st_size
+        or len(data) > 2 * 1024 * 1024
+    ):
+        raise RuntimeError(f"stable local module changed while reading: {path.name}")
+    return data
+
+
+def _stable_local_import_closure(
+    root_name: str, directory: Path
+) -> dict[str, bytes]:
+    pending = [root_name]
+    payloads: dict[str, bytes] = {}
+    while pending:
+        name = pending.pop()
+        if name in payloads:
+            continue
+        path = directory / f"{name}.py"
+        payload = _stable_local_import_bytes(path)
+        try:
+            tree = ast.parse(payload, filename=str(path))
+        except SyntaxError as exc:
+            raise RuntimeError(f"stable local module is unparseable: {name}") from exc
+        payloads[name] = payload
+        dependencies: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                dependencies.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                dependencies.add(node.module.split(".", 1)[0])
+        pending.extend(
+            dependency
+            for dependency in sorted(dependencies, reverse=True)
+            if (directory / f"{dependency}.py").is_file()
+        )
+    return payloads
+
+
+class _StableLocalImportLoader(importlib.abc.Loader):
+    def __init__(self, name: str, directory: Path, payloads: dict[str, bytes]):
+        self.name = name
+        self.directory = directory
+        self.payloads = payloads
+
+    def create_module(self, spec: Any) -> None:
+        return None
+
+    def exec_module(self, module: types.ModuleType) -> None:
+        path = self.directory / f"{self.name}.py"
+        module.__file__ = str(path)
+        module.__package__ = ""
+        exec(
+            compile(self.payloads[self.name], str(path), "exec", dont_inherit=True),
+            module.__dict__,
+        )
+
+
+class _StableLocalImportFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, directory: Path, payloads: dict[str, bytes]):
+        self.directory = directory
+        self.payloads = payloads
+
+    def find_spec(self, fullname: str, path: Any = None, target: Any = None) -> Any:
+        del path, target
+        if fullname not in self.payloads:
+            return None
+        return importlib.util.spec_from_loader(
+            fullname,
+            _StableLocalImportLoader(fullname, self.directory, self.payloads),
+            origin=str(self.directory / f"{fullname}.py"),
+        )
+
+
+def _load_stable_local_module(
+    root_name: str, directory: Path | None = None
+) -> types.ModuleType:
+    source_dir = Path(__file__).resolve().parent if directory is None else directory
+    payloads = _stable_local_import_closure(root_name, source_dir)
+    prior = {name: sys.modules.get(name) for name in payloads}
+    for name in payloads:
+        sys.modules.pop(name, None)
+    finder = _StableLocalImportFinder(source_dir, payloads)
+    sys.meta_path.insert(0, finder)
+    try:
+        module = importlib.import_module(root_name)
+    finally:
+        sys.meta_path.remove(finder)
+        for name, previous in prior.items():
+            if previous is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = previous
+    for name, payload in payloads.items():
+        if _stable_local_import_bytes(source_dir / f"{name}.py") != payload:
+            raise RuntimeError(f"stable local module changed after import: {name}")
+    return module
 
 import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
 import s22plus_fyg8_p219_same_ring_decoder as same_ring
@@ -72,7 +194,9 @@ import s22plus_fyg8_p315_telemetry_spec as p315_spec
 import s22plus_fyg8_p316_e2_stock_closure as p316_e2_closure
 import s22plus_fyg8_p317_e2_stock_closure as p317_e2_closure
 import s22plus_fyg8_p318_e2_stock_closure as p318_e2_closure
-import s22plus_fyg8_p319_stock_process_v2_adapter as p319_stock_adapter
+p319_stock_adapter = _load_stable_local_module(
+    "s22plus_fyg8_p319_stock_process_v2_adapter"
+)
 import s22plus_fyg8_max77705_telemetry_decoder as max77705_decoder
 import s22plus_fyg8_p317_max77705_telemetry_decoder as p317_max77705_decoder
 import s22plus_fyg8_p318_max77705_telemetry_decoder as p318_max77705_decoder
@@ -291,6 +415,10 @@ P317_CANDIDATE_STATIC_MAX_BYTES = 5 * 1024 * 1024
 P318_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P319_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P319_RUN_ID = "b9cc424d0d184f5accbce94a844e817d"
+P319_CANDIDATE_STATIC_AUTHORITY_PATH = (
+    "workspace/public/src/scripts/analysis/"
+    "s22plus_fyg8_p319_process_v2_candidate_static.py"
+)
 P319_TARGET = {
     "model": "SM-S906N",
     "codename": "g0q",
@@ -1931,12 +2059,73 @@ def _latest_stage_accepted_identity(
     return f"{profile}_TERMINAL_SUCCESS_REACHED"
 
 
+def _validate_p319_candidate_static_authority(
+    value: dict[str, Any],
+) -> dict[str, Any]:
+    authority = _exact(
+        value.get("authority_source"),
+        {"path", "size", "sha256"},
+        "P3.19 candidate-static authority source",
+    )
+    if (
+        authority["path"] != P319_CANDIDATE_STATIC_AUTHORITY_PATH
+        or type(authority["size"]) is not int
+        or authority["size"] <= 0
+        or authority["size"] > 2 * 1024 * 1024
+        or not isinstance(authority["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", authority["sha256"]) is None
+    ):
+        raise EvidenceError("P3.19 candidate-static authority identity differs")
+    root = Path(__file__).resolve().parents[5]
+    path = root / P319_CANDIDATE_STATIC_AUTHORITY_PATH
+    try:
+        before = path.lstat()
+        if (
+            stat.S_ISLNK(before.st_mode)
+            or not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+        ):
+            raise EvidenceError("P3.19 candidate-static authority is indirect")
+        data = path.read_bytes()
+        after = path.lstat()
+    except OSError as exc:
+        raise EvidenceError("P3.19 candidate-static authority is unavailable") from exc
+    before_id = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+    after_id = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+    observed = {
+        "path": P319_CANDIDATE_STATIC_AUTHORITY_PATH,
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+    if before_id != after_id or before.st_size != len(data) or authority != observed:
+        raise EvidenceError("P3.19 candidate-static authority source changed")
+    namespace: dict[str, Any] = {
+        "__file__": str(path),
+        "__name__": "p319_candidate_static_bound_authority",
+        "__package__": "",
+    }
+    try:
+        exec(compile(data, str(path), "exec"), namespace)
+        validate = namespace.get("validate_result")
+        if not callable(validate):
+            raise EvidenceError("P3.19 candidate-static authority lacks validator")
+        validate(value)
+    except EvidenceError:
+        raise
+    except Exception as exc:
+        raise EvidenceError(
+            "P3.19 candidate-static authority rejected the result"
+        ) from exc
+    return observed
+
+
 def _validate_p319_candidate_static(value: Any) -> dict[str, Any]:
     item = _exact(
         value,
         {
             "schema",
             "verdict",
+            "authority_source",
             "target",
             "profile",
             "run_id",
@@ -2032,11 +2221,13 @@ def _validate_p319_candidate_static(value: Any) -> dict[str, Any]:
         {"count", "eud_index", "overlay_delta"},
         "P3.19 candidate module plan",
     )
-    if plan != {
-        "count": 73,
-        "eud_index": 38,
-        "overlay_delta": ["s22plus_dwc3_event_latch.ko"],
-    }:
+    if (
+        type(plan["count"]) is not int
+        or plan["count"] != 73
+        or type(plan["eud_index"]) is not int
+        or plan["eud_index"] != 38
+        or plan["overlay_delta"] != ["s22plus_dwc3_event_latch.ko"]
+    ):
         raise EvidenceError("P3.19 candidate module plan differs")
     expected_artifacts = {
         "candidate": {
@@ -2195,6 +2386,7 @@ def _validate_p319_candidate_static(value: Any) -> dict[str, Any]:
     }
     if item["safety"] != expected_safety:
         raise EvidenceError("P3.19 candidate-static safety boundary differs")
+    _validate_p319_candidate_static_authority(item)
     return item
 
 
@@ -2249,12 +2441,15 @@ def _validate_p319_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
     if (
         item["kind"] != "p319_exact_stock_witness_ap_v1"
         or item["run_id"] != P319_RUN_ID
-        or item["module_plan"]
-        != {
-            "count": 73,
-            "eud_index": 38,
-            "overlay_delta": ["s22plus_dwc3_event_latch.ko"],
-        }
+        or not isinstance(item["module_plan"], dict)
+        or set(item["module_plan"])
+        != {"count", "eud_index", "overlay_delta"}
+        or type(item["module_plan"].get("count")) is not int
+        or item["module_plan"]["count"] != 73
+        or type(item["module_plan"].get("eud_index")) is not int
+        or item["module_plan"]["eud_index"] != 38
+        or item["module_plan"].get("overlay_delta")
+        != ["s22plus_dwc3_event_latch.ko"]
         or item["source_contract_id"]
         != p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID
         or item["userspace_overlay_contract_id"]
@@ -2797,7 +2992,9 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             or item["run_id"] in model_ids
             or item["long_family_hex"] != model.LONG_FAMILY.hex()
             or item["unsat_family_hex"] != model.UNSAT_FAMILY.hex()
+            or type(item["terminal_stage"]) is not int
             or item["terminal_stage"] != terminal_stage
+            or type(item["minimum_success_count"]) is not int
             or item["minimum_success_count"] != 1
             or item["clean_baseline_required"] is not True
         ):
@@ -3526,6 +3723,7 @@ def _verify_e1_latest_stage_offline_contract(
             "candidate_ap_sha256": candidate_ap_identity["sha256"],
             "candidate_static_sha256": candidate_static_identity["sha256"],
             "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+            "candidate_static_authority": candidate_static["authority_source"],
             "candidate_source_receipts": candidate_source_receipts,
             "p319_adapter_source_receipts": {
                 name: {

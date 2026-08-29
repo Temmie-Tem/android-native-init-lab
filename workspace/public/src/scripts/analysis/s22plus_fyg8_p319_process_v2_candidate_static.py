@@ -10,7 +10,11 @@ only their encoder/carrier/decoder and classification contract is armed here.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
+import importlib
+import importlib.abc
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -21,6 +25,7 @@ from typing import Any, Mapping
 
 
 ROOT = Path(__file__).resolve().parents[5]
+SELF_SOURCE = Path(__file__).resolve()
 SCRIPT_DIR = ROOT / "workspace/public/src/scripts/revalidation"
 INTEGRATION_SOURCE = (
     SCRIPT_DIR / "s22plus_fyg8_p319_process_v2_integration_qualification_v2.py"
@@ -28,15 +33,15 @@ INTEGRATION_SOURCE = (
 ADAPTER_SOURCE = SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py"
 INTEGRATION_RESULT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-09/result.json"
+    "process-v2-integration-qualification-v2-20260830-15/result.json"
 )
 INTEGRATION_IDENTITY = {
-    "size": 125_924,
-    "sha256": "664a8354456f5edd33c352117ca7d6e8a89dc55c6a74a9264c8f55ad51aeba6d",
+    "size": 126_085,
+    "sha256": "1542dfb9bf7f154324dfdcf159ad957ed6179f08d4b522d49f842d2781e623fb",
 }
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-candidate-static-20260829-05.json"
+    "process-v2-candidate-static-20260830-10.json"
 )
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_candidate_static_v1"
@@ -142,26 +147,108 @@ def decode_object(data: bytes, label: str) -> dict[str, Any]:
     return value
 
 
-def load_local(path: Path, name: str) -> Any:
-    source = stable_bytes(path, f"{name} source", maximum=4 * 1024 * 1024)
-    old_path = list(sys.path)
-    previous = sys.modules.get(name)
-    sys.path.insert(0, str(path.parent))
-    try:
-        module = types.ModuleType(name)
-        module.__file__ = str(path)
+def _local_source_closure(path: Path) -> dict[str, bytes]:
+    pending = [path.stem]
+    payloads: dict[str, bytes] = {}
+    while pending:
+        module_name = pending.pop()
+        if module_name in payloads:
+            continue
+        module_path = path.parent / f"{module_name}.py"
+        source = stable_bytes(
+            module_path, f"{module_name} source", maximum=4 * 1024 * 1024
+        )
+        try:
+            tree = ast.parse(source, filename=str(module_path))
+        except SyntaxError as exc:
+            raise StaticContractError(
+                f"{module_name} source failed to parse"
+            ) from exc
+        payloads[module_name] = source
+        dependencies: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                dependencies.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                dependencies.add(node.module.split(".", 1)[0])
+        pending.extend(
+            dependency
+            for dependency in sorted(dependencies, reverse=True)
+            if (path.parent / f"{dependency}.py").is_file()
+        )
+    return payloads
+
+
+class _StableSourceLoader(importlib.abc.Loader):
+    def __init__(self, name: str, directory: Path, payloads: Mapping[str, bytes]):
+        self.name = name
+        self.directory = directory
+        self.payloads = payloads
+
+    def create_module(self, spec: Any) -> None:
+        return None
+
+    def exec_module(self, module: types.ModuleType) -> None:
+        module_path = self.directory / f"{self.name}.py"
+        module.__file__ = str(module_path)
         module.__package__ = ""
-        sys.modules[name] = module
-        exec(compile(source, str(path), "exec"), module.__dict__)
-        return module
+        exec(
+            compile(
+                self.payloads[self.name],
+                str(module_path),
+                "exec",
+                dont_inherit=True,
+            ),
+            module.__dict__,
+        )
+
+
+class _StableSourceFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, directory: Path, payloads: Mapping[str, bytes]):
+        self.directory = directory
+        self.payloads = payloads
+
+    def find_spec(self, fullname: str, path: Any = None, target: Any = None) -> Any:
+        del path, target
+        if fullname not in self.payloads:
+            return None
+        return importlib.util.spec_from_loader(
+            fullname,
+            _StableSourceLoader(fullname, self.directory, self.payloads),
+            origin=str(self.directory / f"{fullname}.py"),
+        )
+
+
+def load_local(path: Path, name: str) -> Any:
+    payloads = _local_source_closure(path)
+    prior = {module_name: sys.modules.get(module_name) for module_name in payloads}
+    for module_name in payloads:
+        sys.modules.pop(module_name, None)
+    finder = _StableSourceFinder(path.parent, payloads)
+    sys.meta_path.insert(0, finder)
+    try:
+        module = importlib.import_module(path.stem)
     except Exception as exc:
-        raise StaticContractError(f"{name} source failed to load: {type(exc).__name__}") from exc
+        raise StaticContractError(
+            f"{name} source failed to load: {type(exc).__name__}"
+        ) from exc
     finally:
-        if previous is None:
-            sys.modules.pop(name, None)
-        else:
-            sys.modules[name] = previous
-        sys.path[:] = old_path
+        sys.meta_path.remove(finder)
+        for module_name, previous in prior.items():
+            if previous is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous
+    for module_name, source in payloads.items():
+        if stable_bytes(
+            path.parent / f"{module_name}.py",
+            f"post-import {module_name} source",
+            maximum=4 * 1024 * 1024,
+        ) != source:
+            raise StaticContractError(f"{module_name} source changed after import")
+    if path == INTEGRATION_SOURCE:
+        module._load_local = load_local
+    return module
 
 
 def exact_equal(left: Any, right: Any) -> bool:
@@ -312,11 +399,15 @@ def _derive(value: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, A
         else None
     )
     plan = closure.get("module_plan") if isinstance(closure, dict) else None
-    if plan != {
-        "count": 73,
-        "eud_index": 38,
-        "overlay_delta": ["s22plus_dwc3_event_latch.ko"],
-    }:
+    if (
+        not isinstance(plan, dict)
+        or set(plan) != {"count", "eud_index", "overlay_delta"}
+        or type(plan["count"]) is not int
+        or plan["count"] != 73
+        or type(plan["eud_index"]) is not int
+        or plan["eud_index"] != 38
+        or plan["overlay_delta"] != ["s22plus_dwc3_event_latch.ko"]
+    ):
         raise StaticContractError("P3.19 candidate module plan differs")
     if candidate_identity.get("run_id") != RUN_ID:
         raise StaticContractError("P3.19 candidate run identity differs")
@@ -337,6 +428,10 @@ def _derive(value: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, A
     return {
         "schema": SCHEMA,
         "verdict": VERDICT,
+        "authority_source": {
+            "path": relative(SELF_SOURCE),
+            **identity(stable_bytes(SELF_SOURCE, "candidate-static authority source")),
+        },
         "target": TARGET,
         "profile": adapter.PROFILE,
         "run_id": RUN_ID,
@@ -434,6 +529,7 @@ def build_result() -> dict[str, Any]:
 
 
 def validate_result(value: Mapping[str, Any], *, stored: Mapping[str, Any] | None = None) -> None:
+    must_regenerate_integration = stored is None
     if stored is None:
         payload = stable_bytes(
             INTEGRATION_RESULT,
@@ -452,6 +548,13 @@ def validate_result(value: Mapping[str, Any], *, stored: Mapping[str, Any] | Non
     expected = _derive(stored, receipt)
     if not exact_equal(dict(value), expected):
         raise StaticContractError("P3.19 candidate-static result differs")
+    if must_regenerate_integration:
+        try:
+            regenerated = integration.build_result()
+        except Exception as exc:
+            raise StaticContractError("Integration V2 regeneration failed") from exc
+        if not exact_equal(stored, regenerated):
+            raise StaticContractError("Integration V2 is not byte-reproducible")
 
 
 def publish_exclusive(path: Path, payload: bytes) -> None:
