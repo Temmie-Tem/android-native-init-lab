@@ -320,12 +320,14 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
             "126,085 bytes / `1542dfb9bf7f1543",
             "35,259 bytes / `2425fed6e791e2d7",
             "2,432 bytes / `2721ede6bc5d45fd",
+            "PASS_GO_P319_PROCESS_V2_OFFLINE_READY_H0_CAPABILITY_V1",
             "creates no approval",
         ):
             self.assertIn(token, report)
         self.assertIn("`ready-for-f1-approval` manifest", goal)
         self.assertIn("h0-process-v2-offline-ready-51", ledger)
-        self.assertIn("74/56/18 across 422 rows", ledger)
+        self.assertIn("h0-process-v2-offline-ready-review-51", ledger)
+        self.assertIn("74/57/17 across 423 rows", ledger)
 
     def test_temporary_outputs_are_private_and_no_clobber(self):
         for path in self.promotion_root.iterdir():
