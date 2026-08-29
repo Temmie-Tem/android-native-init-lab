@@ -88,7 +88,7 @@ closure review remains required before any activation or executor integration.
 
 The repaired journal suite passes 18/18; the existing policy and coordinator suites pass
 20/20; and common Process-v2 passes 142/142. A direct full-tail taxonomy audit
-passes with 393 rows and review accounting 65 total / 47 resolved / 18 open.
+passes with 394 rows and review accounting 65 total / 47 resolved / 18 open.
 The isolated worktree does not contain the historical private taxonomy receipt,
 so the receipt-dependent 39-test wrapper is reserved for the evidence-bearing
 main tree after integration rather than being misreported as a product failure.
