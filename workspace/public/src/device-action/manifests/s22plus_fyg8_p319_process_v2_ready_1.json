@@ -1,0 +1,55 @@
+{
+  "allowed_member": "boot.img.lz4",
+  "candidate_ap": {
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/stock-witness-runtime-v1-20260821-55/candidate-a/odin4/AP.tar.md5",
+    "sha256": "db5666ac794dfbf6f64192d7ea341ed79ff330f03db74c57da5ef61f659032f6",
+    "size": 27279401
+  },
+  "final_health_profile": "s22plus-fyg8-magisk",
+  "manifest_id": "s22plus-fyg8-p319-process-v2-ready-1",
+  "observation": {
+    "acceptance": {
+      "clean_baseline_required": true,
+      "contract": {
+        "candidate_static": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260829-05/candidate-static.json",
+          "sha256": "9504905e3ed0ac120e87a0edab1bd3648219a329c414b777588ee59287e89caa",
+          "size": 34892
+        },
+        "run_manifest": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260829-05/run-manifest.json",
+          "sha256": "af09b4c031219ab6a801681e60ee0943a3bf5324355c69bb60ba22ebcb0ec358",
+          "size": 1043
+        },
+        "static_check": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-promotion-20260829-05/static-check-result.json",
+          "sha256": "25691094db291a6f2408c8dc6d6a612a3cef9ca34fa4a0822d3e00901e29f313",
+          "size": 1842
+        }
+      },
+      "decoder": "s22plus_fyg8_p319_stock_witness_carrier_v1",
+      "kind": "retained_e1_latest_stage_multiboot_after_rollback",
+      "long_family_hex": "53323245314c327c",
+      "minimum_success_count": 1,
+      "policy_id": "44667ee3bea864cbc9ed94598480da32",
+      "profile": "E2",
+      "run_id": "b9cc424d0d184f5accbce94a844e817d",
+      "source": "/proc/last_kmsg",
+      "source_contract_id": "s22plus-fyg8-p310-carrier-v2-hsphy-attribution-v1",
+      "terminal_stage": 147,
+      "unsat_family_hex": "533232453155327c",
+      "userspace_overlay_contract_id": "s22plus-fyg8-p319-stock-witness-carrier-v1"
+    },
+    "timeout_sec": 300
+  },
+  "rollback_ap": {
+    "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+    "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
+    "size": 23367721
+  },
+  "run_id": "s22plus-fyg8-p319-live-1",
+  "runner_version": "device-action-f1-v2-host-core-3",
+  "schema": "device_action_f1_candidate_v2",
+  "status": "ready-for-f1-approval",
+  "target_profile": "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
+}

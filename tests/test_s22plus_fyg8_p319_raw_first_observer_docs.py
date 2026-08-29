@@ -45,6 +45,10 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-19-p319-process-v2-offline-ready.json"
+)
+OFFLINE_READY_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json"
 )
 PROCESS_V2_REGISTRATION_FINAL_REPAIR_PREDECESSOR_RECEIPT = ROOT / (
@@ -187,7 +191,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json",
+            "raw-first-observer-audit-20260829-19-p319-process-v2-offline-ready.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -214,7 +218,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "5a54a6da33c62edf90ffb63c534cb293d76933918b5ef42b95845093f3d06b04",
+            "029c8d43830205bb10e6aa9463eb352fe793f131409598459bd232a491a145f1",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -223,7 +227,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(retained_bytes), 15075)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42",
+            "7addbe2a2da4c57e6e3011f116542af0b223c1f423adb37535a351599b0932cd",
         )
 
     def test_process_v2_integration_v2_is_host_only_non_acquiring(self):
@@ -388,6 +392,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                OFFLINE_READY_PREDECESSOR_RECEIPT,
+                15075,
+                "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42",
+            ),
             (
                 PROCESS_V2_REGISTRATION_FINAL_REPAIR_PREDECESSOR_RECEIPT,
                 15075,

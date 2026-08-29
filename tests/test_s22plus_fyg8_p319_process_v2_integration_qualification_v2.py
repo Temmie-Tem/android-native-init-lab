@@ -21,11 +21,11 @@ V1_SCRIPT = ROOT / (
 )
 CURRENT_RESULT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-05/result.json"
+    "process-v2-integration-qualification-v2-20260829-09/result.json"
 )
 CURRENT_PREREQUISITE = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-prerequisite-audit-20260829-01-p319-registration.json"
+    "process-v2-prerequisite-audit-20260829-04-p319-ready-declaration-final.json"
 )
 CURRENT_REGISTRY_QUALIFICATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
@@ -325,7 +325,7 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertEqual(result["predecessor_result"], self.module.PREVIOUS_RESULT)
         self.assertEqual(
             self.module.DEFAULT_OUTPUT.parent.name,
-            "process-v2-integration-qualification-v2-20260829-05",
+            "process-v2-integration-qualification-v2-20260829-09",
         )
 
     def test_post_registration_receipts_are_exact_and_reproducible(self):
@@ -337,13 +337,13 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             ),
             (
                 CURRENT_PREREQUISITE,
-                12995,
-                "e57f6dda7fb795e27a6f92eac11e45e95c4e08b8ec9e796c14b74e35f625fed9",
+                13111,
+                "4f36e5d8a30b5d491b1628206e2f07a25fa71f94f4fa73898ef83dcce81f5911",
             ),
             (
                 CURRENT_RESULT,
-                125814,
-                "16c9901f3e429370c39907e1632dfe4699656db698c8fb4f3c9ab87cef3e3e9c",
+                125924,
+                "664a8354456f5edd33c352117ca7d6e8a89dc55c6a74a9264c8f55ad51aeba6d",
             ),
         )
         for path, size, digest in expected:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib.util
+import inspect
 import json
 from pathlib import Path
 import stat
@@ -43,10 +44,10 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
         self.assertFalse(self.output.is_symlink())
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(self.payload), 34_782)
+        self.assertEqual(len(self.payload), 34_892)
         self.assertEqual(
             hashlib.sha256(self.payload).hexdigest(),
-            "86cc71e19360281bb3bff9e8565a6f7c77132e3adc4e3400dd7e1285ad742a46",
+            "9504905e3ed0ac120e87a0edab1bd3648219a329c414b777588ee59287e89caa",
         )
         self.assertEqual(self.module.canonical(self.value), self.payload)
         self.module.validate_result(self.value)
@@ -72,6 +73,12 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
             "candidate_success",
         ):
             self.assertIs(self.value["safety"][name], False)
+
+    def test_integration_loader_executes_stable_source_not_cached_bytecode(self):
+        source = inspect.getsource(self.module.load_local)
+        self.assertIn("stable_bytes(", source)
+        self.assertIn("compile(source", source)
+        self.assertNotIn("spec_from_file_location", source)
 
     def test_exact_regeneration_is_byte_identical(self):
         regenerated = self.module.canonical(self.module.build_result())
@@ -159,7 +166,7 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
             {
                 "path": (
                     "workspace/private/outputs/s22plus_fyg8_p319/"
-                    "process-v2-integration-qualification-v2-20260829-05/result.json"
+                    "process-v2-integration-qualification-v2-20260829-09/result.json"
                 ),
                 **self.module.INTEGRATION_IDENTITY,
             },

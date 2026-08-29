@@ -272,6 +272,12 @@ P318_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p318_candidate_static_checker_v1"
 P318_CANDIDATE_STATIC_VERDICT = (
     "PASS_P318_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
+P319_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p319_process_v2_candidate_static_v1"
+)
+P319_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P319_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
+)
 MAX77705_OVERLAY_CONTRACT_IDS = frozenset(
     {
         MAX77705_OVERLAY_CONTRACT_ID,
@@ -283,6 +289,70 @@ DEFAULT_CONTRACT_ARTIFACT_MAX_BYTES = 1024 * 1024
 P316_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P317_CANDIDATE_STATIC_MAX_BYTES = 5 * 1024 * 1024
 P318_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
+P319_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
+P319_RUN_ID = "b9cc424d0d184f5accbce94a844e817d"
+P319_TARGET = {
+    "model": "SM-S906N",
+    "codename": "g0q",
+    "build": "S906NKSS7FYG8",
+}
+P319_EXACT_ARTIFACTS = {
+    "ap_tar_md5": {
+        "size": 27_279_401,
+        "sha256": "db5666ac794dfbf6f64192d7ea341ed79ff330f03db74c57da5ef61f659032f6",
+    },
+    "boot_img": {
+        "size": 100_663_296,
+        "sha256": "2b492a71808a0483f62896eb804042da38ed9ba7867aea045c5de630c9a86cb1",
+    },
+    "boot_img_lz4": {
+        "size": 27_267_991,
+        "sha256": "0491d50adecf485d10ec5e58ea4f58c2f62a874897564fb7151059348205c7e0",
+    },
+    "image": {
+        "size": 41_490_944,
+        "sha256": "71f573eb77e67c82b9191bfe0926153f6c8dd5fefe3bba01f884c9beb0c4bae8",
+    },
+    "init": {
+        "size": 80_080,
+        "sha256": "f6e6ea932c6c5297e18a932197e2fe1a131fac93c9caff9416d8fb873b055acb",
+    },
+    "child": {
+        "size": 1_376,
+        "sha256": "eb3c072b41ab4d4953fd1d862388d3be5ca5a40e9a07f074cb273f96a28557cf",
+    },
+    "latch": {
+        "size": 423_232,
+        "sha256": "27be8abfe121867e50b0f8b2094fff1d615181e2e0168e5c37e9f8fab2364a2b",
+    },
+}
+P319_GENERIC_ROOTFS_NAMES = frozenset(
+    {
+        ".backup",
+        ".backup/.magisk",
+        ".backup/.rmlist",
+        ".backup/init.xz",
+        "debug_ramdisk",
+        "dev",
+        "init",
+        "lib/modules/s22plus_dwc3_event_latch.ko",
+        "metadata",
+        "mnt",
+        "overlay.d",
+        "overlay.d/sbin",
+        "overlay.d/sbin/init-ld.xz",
+        "overlay.d/sbin/magisk.xz",
+        "overlay.d/sbin/stub.xz",
+        "proc",
+        "s22-e1-child",
+        "second_stage_resources",
+        "sys",
+        "system",
+        "system/etc",
+        "system/etc/ramdisk",
+        "system/etc/ramdisk/build.prop",
+    }
+)
 P301_TELEMETRY_OVERLAY_IDS = frozenset(
     {
         P301_OVERLAY_CONTRACT_ID,
@@ -1861,6 +1931,383 @@ def _latest_stage_accepted_identity(
     return f"{profile}_TERMINAL_SUCCESS_REACHED"
 
 
+def _validate_p319_candidate_static(value: Any) -> dict[str, Any]:
+    item = _exact(
+        value,
+        {
+            "schema",
+            "verdict",
+            "target",
+            "profile",
+            "run_id",
+            "source_contract_id",
+            "userspace_overlay_contract_id",
+            "integration",
+            "candidate",
+            "preflight",
+            "adapter_contract",
+            "adapter_source_receipts",
+            "result_contract_arming",
+            "runtime_observation_contract",
+            "ready_manifest_created",
+            "run_manifest_created",
+            "approval_created",
+            "safety",
+        },
+        "P3.19 candidate-static result",
+    )
+    if (
+        item["schema"] != P319_CANDIDATE_STATIC_SCHEMA
+        or item["verdict"] != P319_CANDIDATE_STATIC_VERDICT
+        or item["target"] != P319_TARGET
+        or item["profile"] != p319_stock_adapter.PROFILE
+        or item["run_id"] != P319_RUN_ID
+        or item["source_contract_id"]
+        != p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+        or item["userspace_overlay_contract_id"]
+        != P319_STOCK_OVERLAY_CONTRACT_ID
+        or item["ready_manifest_created"] is not False
+        or item["run_manifest_created"] is not False
+        or item["approval_created"] is not False
+    ):
+        raise EvidenceError("P3.19 candidate-static header differs")
+
+    adapter_contract = _exact(
+        item["adapter_contract"],
+        {
+            "userspace_overlay_contract_id",
+            "decoder",
+            "policy_id",
+            "profile",
+            "acm_supplemental",
+            "source_contract_id",
+        },
+        "P3.19 adapter contract",
+    )
+    try:
+        p319_stock_adapter.validate_contract(adapter_contract)
+    except p319_stock_adapter.DecodeError as exc:
+        raise EvidenceError("P3.19 candidate-static adapter contract differs") from exc
+
+    root = Path(__file__).resolve().parents[5]
+    source_receipts = _exact(
+        item["adapter_source_receipts"],
+        set(p319_stock_adapter.SOURCE_KEYS),
+        "P3.19 adapter source receipts",
+    )
+    try:
+        source_payloads = p319_stock_adapter.source_bytes(root)
+    except (OSError, p319_stock_adapter.DecodeError) as exc:
+        raise EvidenceError("P3.19 adapter source closure is unavailable") from exc
+    for name, payload in source_payloads.items():
+        receipt = _exact(
+            source_receipts[name],
+            {"path", "size", "sha256"},
+            f"P3.19 adapter source {name}",
+        )
+        if (
+            receipt["path"] != p319_stock_adapter.SOURCE_PATHS[name]
+            or _binary_identity(
+                {key: receipt[key] for key in ("size", "sha256")},
+                f"P3.19 adapter source {name}",
+            )
+            != {"size": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+        ):
+            raise EvidenceError(f"P3.19 adapter source {name} differs")
+
+    try:
+        expected_arming = p319_stock_adapter.audit_result_contract_arming()
+    except p319_stock_adapter.DecodeError as exc:
+        raise EvidenceError("P3.19 result-contract arming cannot be reproduced") from exc
+    if _canonical(item["result_contract_arming"]) != _canonical(expected_arming):
+        raise EvidenceError("P3.19 result-contract arming differs")
+
+    candidate = _exact(
+        item["candidate"],
+        {"plan", "identity", "cross_binding", "artifacts", "artifact_files"},
+        "P3.19 candidate-static candidate",
+    )
+    plan = _exact(
+        candidate["plan"],
+        {"count", "eud_index", "overlay_delta"},
+        "P3.19 candidate module plan",
+    )
+    if plan != {
+        "count": 73,
+        "eud_index": 38,
+        "overlay_delta": ["s22plus_dwc3_event_latch.ko"],
+    }:
+        raise EvidenceError("P3.19 candidate module plan differs")
+    expected_artifacts = {
+        "candidate": {
+            name: P319_EXACT_ARTIFACTS[name]
+            for name in ("ap_tar_md5", "boot_img", "boot_img_lz4")
+        },
+        "userspace": {
+            name: P319_EXACT_ARTIFACTS[name] for name in ("child", "init")
+        },
+    }
+    if _canonical(candidate["artifacts"]) != _canonical(expected_artifacts):
+        raise EvidenceError("P3.19 candidate artifact identity differs")
+    cross_binding = candidate["cross_binding"]
+    if (
+        not isinstance(cross_binding, dict)
+        or cross_binding.get("status") != "PASS_AUTHORITATIVE"
+        or cross_binding.get("authoritative") is not True
+        or _canonical(cross_binding.get("artifacts"))
+        != _canonical(expected_artifacts)
+        or _canonical(cross_binding.get("artifact_files"))
+        != _canonical(candidate["artifact_files"])
+    ):
+        raise EvidenceError("P3.19 candidate cross-binding differs")
+    identity_value = candidate["identity"]
+    closure = identity_value.get("closure") if isinstance(identity_value, dict) else None
+    if (
+        not isinstance(closure, dict)
+        or identity_value.get("run_id") != P319_RUN_ID
+        or identity_value.get("fixed_image") != P319_EXACT_ARTIFACTS["image"]
+        or closure.get("module_plan") != plan
+    ):
+        raise EvidenceError("P3.19 candidate identity closure differs")
+
+    integration = _exact(
+        item["integration"],
+        {
+            "receipt",
+            "source",
+            "zero_blockers",
+            "candidate_baseline_cross_binding",
+            "runtime_values_observed",
+        },
+        "P3.19 Integration V2 binding",
+    )
+    _artifact(integration["receipt"], "P3.19 Integration V2 receipt")
+    _artifact(integration["source"], "P3.19 Integration V2 source")
+    if (
+        integration["zero_blockers"] is not True
+        or integration["candidate_baseline_cross_binding"] != "PASS_AUTHORITATIVE"
+        or integration["runtime_values_observed"] is not False
+    ):
+        raise EvidenceError("P3.19 Integration V2 boundary differs")
+
+    preflight = _exact(
+        item["preflight"],
+        {
+            "fresh_baseline",
+            "consumed_candidate_registry",
+            "prerequisite",
+            "download_request_recovery",
+        },
+        "P3.19 candidate-static preflight",
+    )
+    if (
+        not isinstance(preflight["fresh_baseline"], dict)
+        or preflight["fresh_baseline"].get("authoritative") is not True
+        or not isinstance(preflight["consumed_candidate_registry"], dict)
+        or preflight["consumed_candidate_registry"].get("status") != "PRESENT"
+        or not isinstance(preflight["prerequisite"], dict)
+        or preflight["prerequisite"].get("registry_capability_authoritative")
+        is not True
+        or preflight["prerequisite"].get("runner_registry_consumption_proved")
+        is not True
+        or not isinstance(preflight["download_request_recovery"], dict)
+        or preflight["download_request_recovery"].get("status")
+        != "PASS_HOST_ONLY_RUNNER_FIXTURES"
+        or preflight["download_request_recovery"].get("failures") != 0
+        or preflight["download_request_recovery"].get("errors") != 0
+        or preflight["download_request_recovery"].get("device_contact") is not False
+        or preflight["download_request_recovery"].get("candidate_backend_called")
+        is not False
+    ):
+        raise EvidenceError("P3.19 candidate-static preflight is incomplete")
+
+    runtime = _exact(
+        item["runtime_observation_contract"],
+        {
+            "post_run_classification_only",
+            "runtime_values_observed",
+            "witnesses",
+            "missing_or_malformed_result",
+            "precondition_failure_result",
+            "complete_result",
+            "acm_supplemental",
+            "causal_result_allowed",
+            "candidate_success",
+            "mux_result_claimable",
+            "host_silent_claimable",
+        },
+        "P3.19 runtime observation contract",
+    )
+    witnesses = _exact(
+        runtime["witnesses"],
+        {
+            "module_results",
+            "vbusdet_irq_tuple",
+            "initial_status_classification_probe",
+            "retained_carrier",
+        },
+        "P3.19 runtime witnesses",
+    )
+    for name, witness in witnesses.items():
+        row = _exact(
+            witness,
+            {"required", "status", "accepted_as_preflight_fact", "requirement"},
+            f"P3.19 runtime witness {name}",
+        )
+        if (
+            row["required"] is not True
+            or row["status"] != "PENDING_FRESH_CANDIDATE_RUN"
+            or row["accepted_as_preflight_fact"] is not False
+            or not isinstance(row["requirement"], str)
+            or not row["requirement"]
+        ):
+            raise EvidenceError(f"P3.19 runtime witness {name} differs")
+    if runtime != {
+        **runtime,
+        "post_run_classification_only": True,
+        "runtime_values_observed": False,
+        "missing_or_malformed_result": "NO_PROOF_OBSERVER",
+        "precondition_failure_result": "NO_PROOF_EXPERIMENT_PRECONDITION",
+        "complete_result": "NONCAUSAL_SUCCESS_PATH",
+        "acm_supplemental": True,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+        "mux_result_claimable": False,
+        "host_silent_claimable": False,
+    }:
+        raise EvidenceError("P3.19 runtime result boundary differs")
+
+    expected_safety = {
+        "host_only": True,
+        "device_contact": False,
+        "device_write": False,
+        "odin_invoked": False,
+        "odin_transfer": False,
+        "flash": False,
+        "partition_write": False,
+        "live_authorized": False,
+        "d0_authorized": False,
+        "d1_authorized": False,
+        "f1_authorized": False,
+        "replay_authorized": False,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+    }
+    if item["safety"] != expected_safety:
+        raise EvidenceError("P3.19 candidate-static safety boundary differs")
+    return item
+
+
+def _p319_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
+    artifacts = candidate_static["candidate"]["artifacts"]
+    return {
+        "kind": "p319_exact_stock_witness_ap_v1",
+        "boot_img_lz4": artifacts["candidate"]["boot_img_lz4"],
+        "boot_image": artifacts["candidate"]["boot_img"],
+        "image": P319_EXACT_ARTIFACTS["image"],
+        "init": artifacts["userspace"]["init"],
+        "child": artifacts["userspace"]["child"],
+        "latch": P319_EXACT_ARTIFACTS["latch"],
+        "run_id": candidate_static["run_id"],
+        "module_plan": candidate_static["candidate"]["plan"],
+        "source_contract_id": candidate_static["source_contract_id"],
+        "userspace_overlay_contract_id": candidate_static[
+            "userspace_overlay_contract_id"
+        ],
+    }
+
+
+def _validate_p319_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
+    item = _exact(
+        closure,
+        {
+            "kind",
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "latch",
+            "run_id",
+            "module_plan",
+            "source_contract_id",
+            "userspace_overlay_contract_id",
+        },
+        "P3.19 E2 AP payload closure",
+    )
+    identities = {
+        name: _binary_identity(item[name], f"P3.19 E2 AP {name}")
+        for name in (
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "latch",
+        )
+    }
+    if (
+        item["kind"] != "p319_exact_stock_witness_ap_v1"
+        or item["run_id"] != P319_RUN_ID
+        or item["module_plan"]
+        != {
+            "count": 73,
+            "eud_index": 38,
+            "overlay_delta": ["s22plus_dwc3_event_latch.ko"],
+        }
+        or item["source_contract_id"]
+        != p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+        or item["userspace_overlay_contract_id"]
+        != P319_STOCK_OVERLAY_CONTRACT_ID
+        or identities
+        != {
+            "boot_img_lz4": P319_EXACT_ARTIFACTS["boot_img_lz4"],
+            "boot_image": P319_EXACT_ARTIFACTS["boot_img"],
+            "image": P319_EXACT_ARTIFACTS["image"],
+            "init": P319_EXACT_ARTIFACTS["init"],
+            "child": P319_EXACT_ARTIFACTS["child"],
+            "latch": P319_EXACT_ARTIFACTS["latch"],
+        }
+    ):
+        raise EvidenceError("P3.19 E2 AP payload identity differs")
+    if e2_closure.receipt(frame) != identities["boot_img_lz4"]:
+        raise EvidenceError("P3.19 E2 AP boot member differs")
+    try:
+        boot_payload = e2_closure.boot_verify.decompress_lz4_frame_python(
+            frame, expected_size=identities["boot_image"]["size"]
+        )
+        if e2_closure.receipt(boot_payload) != identities["boot_image"]:
+            raise EvidenceError("P3.19 E2 AP decoded boot differs")
+        boot = e2_closure.boot_verify.parse_boot_v4(boot_payload)
+        if e2_closure.receipt(boot.kernel) != identities["image"]:
+            raise EvidenceError("P3.19 E2 AP Image differs")
+        ramdisk = e2_closure.boot_verify.decompress_lz4_stream_python(
+            boot.ramdisk, maximum=128 * 1024 * 1024
+        )
+        entries = e2_closure.boot_verify.parse_newc(ramdisk)
+    except e2_closure.boot_verify.BootVerifyError as exc:
+        raise EvidenceError("P3.19 E2 AP cannot be independently decoded") from exc
+    if len({entry.name for entry in entries}) != len(entries):
+        raise EvidenceError("P3.19 E2 AP rootfs contains duplicate names")
+    by_name = {entry.name: entry for entry in entries}
+    if set(by_name) != P319_GENERIC_ROOTFS_NAMES:
+        raise EvidenceError("P3.19 E2 AP generic rootfs inventory differs")
+    checks = {
+        "init": ("init", 0o100750),
+        "child": ("s22-e1-child", 0o100750),
+        "latch": ("lib/modules/s22plus_dwc3_event_latch.ko", 0o100640),
+    }
+    for identity_name, (entry_name, expected_mode) in checks.items():
+        entry = by_name[entry_name]
+        if entry.mode != expected_mode or e2_closure.receipt(entry.data) != identities[identity_name]:
+            raise EvidenceError(f"P3.19 E2 AP {entry_name} differs")
+    if {
+        name for name in by_name if name.startswith("lib/modules/")
+    } != {"lib/modules/s22plus_dwc3_event_latch.ko"}:
+        raise EvidenceError("P3.19 E2 AP generic module overlay differs")
+    return {"verified": True, **identities, "rootfs_entry_count": len(entries)}
+
+
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
@@ -1872,6 +2319,8 @@ def validate_e2_ap_payload(
         if isinstance(closure, dict)
         else None
     )
+    if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
+        return _validate_p319_e2_ap_payload(frame, closure)
     expected_keys = {
         "boot_img_lz4",
         "boot_image",
@@ -2375,7 +2824,10 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             contract["candidate_static"],
             "E1 latest-stage candidate_static",
             maximum=(
-                P318_CANDIDATE_STATIC_MAX_BYTES
+                P319_CANDIDATE_STATIC_MAX_BYTES
+                if userspace_overlay_contract_id
+                == P319_STOCK_OVERLAY_CONTRACT_ID
+                else P318_CANDIDATE_STATIC_MAX_BYTES
                 if userspace_overlay_contract_id
                 == P318_MAX77705_OVERLAY_CONTRACT_ID
                 else P317_CANDIDATE_STATIC_MAX_BYTES
@@ -2926,13 +3378,176 @@ def _verify_e1_latest_stage_offline_contract(
     source_contract_id = item.get("source_contract_id")
     userspace_overlay_contract_id = item.get("userspace_overlay_contract_id")
     if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
-        # The existing P319 qualification is an H0 executability artifact, not
-        # the generic candidate-static/run-manifest contract consumed here.
-        # Refuse to promote it by accident until a real P319 Process-v2 static
-        # artifact and its narrow validator exist.
-        raise EvidenceError(
-            "P3.19 Process-v2 offline promotion is not yet registered"
+        expected_payloads = {"candidate_static", "run_manifest", "static_check"}
+        if set(payloads) != expected_payloads or set(receipts) != expected_payloads:
+            raise EvidenceError(
+                "P3.19 Process-v2 offline promotion artifacts are incomplete"
+            )
+        for name, payload in payloads.items():
+            pin = item["contract"][name]
+            receipt = receipts[name]
+            if (
+                len(payload) != pin["size"]
+                or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+                or receipt.get("size") != pin["size"]
+                or receipt.get("sha256") != pin["sha256"]
+            ):
+                raise EvidenceError(f"P3.19 offline contract {name} changed")
+
+        candidate_static = _json(
+            payloads["candidate_static"], "P3.19 candidate-static result"
         )
+        if payloads["candidate_static"] != _canonical(candidate_static) + b"\n":
+            raise EvidenceError("P3.19 candidate-static bytes are not canonical")
+        candidate_static = _validate_p319_candidate_static(candidate_static)
+        run_manifest = _json(payloads["run_manifest"], "P3.19 run manifest")
+        static_result = _json(payloads["static_check"], "P3.19 static result")
+        if (
+            payloads["run_manifest"] != _canonical(run_manifest)
+            or payloads["static_check"] != _canonical(static_result)
+        ):
+            raise EvidenceError("P3.19 promotion artifacts are not canonical")
+        candidate_static_identity = {
+            "size": len(payloads["candidate_static"]),
+            "sha256": hashlib.sha256(payloads["candidate_static"]).hexdigest(),
+        }
+        candidate_ap_identity = _binary_identity(
+            {
+                "size": candidate_ap.get("size"),
+                "sha256": candidate_ap.get("sha256"),
+            },
+            "P3.19 candidate AP",
+        )
+        if (
+            candidate_ap_identity != P319_EXACT_ARTIFACTS["ap_tar_md5"]
+            or candidate_ap.get("member")
+            != {
+                "name": "boot.img.lz4",
+                **P319_EXACT_ARTIFACTS["boot_img_lz4"],
+            }
+        ):
+            raise EvidenceError("P3.19 candidate AP binding differs")
+        expected_run_manifest = {
+            "schema": E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA,
+            "target": PID1_USERSPACE_TARGET,
+            "profile": p319_stock_adapter.PROFILE,
+            "run_id": P319_RUN_ID,
+            "decoder": p319_stock_adapter.DECODER_ID,
+            "policy_id": p319_stock_adapter.POLICY_ID,
+            "records": {
+                "long_family_hex": p319_stock_adapter.LONG_FAMILY.hex(),
+                "unsat_family_hex": p319_stock_adapter.UNSAT_FAMILY.hex(),
+                "terminal_stage": p319_stock_adapter.TERMINAL_STAGE,
+            },
+            "observation_contract": {
+                "accepted_identity": "P319_STOCK_WITNESS_RETAINED",
+                "minimum_success_count": 1,
+                "clean_baseline_required": True,
+                "runtime_witnesses_required": sorted(
+                    candidate_static["runtime_observation_contract"]["witnesses"]
+                ),
+                "runtime_values_preflighted": False,
+                "complete_is_noncausal": True,
+            },
+            "candidate_ap": candidate_ap_identity,
+            "candidate_static": candidate_static_identity,
+            "source_contract_id": p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": P319_STOCK_OVERLAY_CONTRACT_ID,
+        }
+        if _canonical(run_manifest) != _canonical(expected_run_manifest):
+            raise EvidenceError("P3.19 run manifest differs from candidate-static")
+        run_payload = _canonical(run_manifest)
+        expected_static_result = {
+            "schema": E1_LATEST_STAGE_STATIC_SCHEMA,
+            "target": PID1_USERSPACE_TARGET,
+            "verdict": E1_LATEST_STAGE_STATIC_VERDICT,
+            "profile": p319_stock_adapter.PROFILE,
+            "run_id": P319_RUN_ID,
+            "decoder": p319_stock_adapter.DECODER_ID,
+            "policy_id": p319_stock_adapter.POLICY_ID,
+            "source_contract_id": p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": P319_STOCK_OVERLAY_CONTRACT_ID,
+            "run_binding": {
+                "canonical_manifest_size": len(run_payload),
+                "canonical_manifest_sha256": hashlib.sha256(run_payload).hexdigest(),
+                "verified": True,
+            },
+            "candidate": {
+                "artifacts": {
+                    "ap": P319_EXACT_ARTIFACTS["ap_tar_md5"],
+                    "candidate_static": candidate_static_identity,
+                    "boot_image": P319_EXACT_ARTIFACTS["boot_img"],
+                    "boot_img_lz4": P319_EXACT_ARTIFACTS["boot_img_lz4"],
+                    "image": P319_EXACT_ARTIFACTS["image"],
+                    "init": P319_EXACT_ARTIFACTS["init"],
+                    "child": P319_EXACT_ARTIFACTS["child"],
+                    "latch": P319_EXACT_ARTIFACTS["latch"],
+                },
+                "boot_only_ap": True,
+                "independent_static_contract": True,
+                "complete_is_noncausal": True,
+                "runtime_values_observed": False,
+                "verified": True,
+            },
+            "safety": {
+                "host_only": True,
+                "device_contact": False,
+                "device_write": False,
+                "odin_invoked": False,
+                "odin_transfer": False,
+                "flash": False,
+                "partition_write": False,
+                "live_authorized": False,
+                "causal_result_allowed": False,
+                "candidate_success": False,
+            },
+        }
+        if _canonical(static_result) != _canonical(expected_static_result):
+            raise EvidenceError("P3.19 static result differs")
+        source_contract = _selected_contract(
+            p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+            p319_stock_adapter.PROFILE,
+        )
+        try:
+            _source_payloads, candidate_source_receipts = (
+                source_contract.module.source_receipts(
+                    Path(__file__).resolve().parents[5]
+                )
+            )
+        except (OSError, source_contract.module.SourceContractError) as exc:
+            raise EvidenceError("P3.19 parent source receipts are unavailable") from exc
+        return {
+            "schema": "device_action_f1_p319_stock_offline_contract_v1",
+            "decoder": p319_stock_adapter.DECODER_ID,
+            "policy_id": p319_stock_adapter.POLICY_ID,
+            "profile": p319_stock_adapter.PROFILE,
+            "run_id": P319_RUN_ID,
+            "terminal_stage": p319_stock_adapter.TERMINAL_STAGE,
+            "candidate_ap_sha256": candidate_ap_identity["sha256"],
+            "candidate_static_sha256": candidate_static_identity["sha256"],
+            "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+            "candidate_source_receipts": candidate_source_receipts,
+            "p319_adapter_source_receipts": {
+                name: {
+                    key: receipt[key] for key in ("size", "sha256")
+                }
+                for name, receipt in candidate_static[
+                    "adapter_source_receipts"
+                ].items()
+            },
+            "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+            "static_check_sha256": receipts["static_check"]["sha256"],
+            "clean_baseline_required": True,
+            "minimum_success_count": 1,
+            "source_contract_id": p319_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": P319_STOCK_OVERLAY_CONTRACT_ID,
+            "ap_payload_closure": _p319_ap_payload_closure(candidate_static),
+            "runtime_values_observed": False,
+            "complete_is_noncausal": True,
+            "causal_result_allowed": False,
+            "candidate_success": False,
+            "verified": True,
+        }
     source_decoder = _latest_stage_decoder(source_contract_id, profile)
     selected_decoder = _latest_stage_observation_decoder(
         source_contract_id,

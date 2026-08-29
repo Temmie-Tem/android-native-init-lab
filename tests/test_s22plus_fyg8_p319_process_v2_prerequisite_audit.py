@@ -38,8 +38,13 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         self.assertEqual(self.receipt["verdict"], self.module.VERDICT)
         self.assertEqual(self.receipt["status"], self.module.VERDICT)
         admission = self.receipt["no_replay"]
-        self.assertTrue(admission["new_live_run_id_absent"])
-        self.assertTrue(admission["candidate_pair_absent"])
+        self.assertTrue(
+            admission["new_live_run_id_absent_from_consumed_population"]
+        )
+        self.assertTrue(
+            admission["candidate_pair_absent_from_consumed_population"]
+        )
+        self.assertTrue(admission["ready_manifest_is_nonconsuming_declaration"])
         self.assertTrue(admission["observation_and_consumption_namespaces_distinct"])
         self.assertEqual(
             admission["carrier_observation_run_id"],
@@ -56,6 +61,21 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         self.assertFalse(registry["runner_recovery_closed"])
         self.assertFalse(registry["runner_ready"])
         self.assertIsNone(self.receipt["global_registry_blocker"])
+
+    def test_ready_manifest_is_classified_as_declaration_not_consumption(self):
+        self.module._validate_nonconsuming_ready_manifest()  # noqa: SLF001
+        with tempfile.TemporaryDirectory(prefix="p319-ready-declaration-") as name:
+            path = Path(name) / "ready.json"
+            value = json.loads(self.module.P319_READY_MANIFEST.read_bytes())
+            value["status"] = "approved"
+            path.write_text(
+                json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
+                encoding="ascii",
+            )
+            with self.assertRaisesRegex(
+                self.module.AuditError, "ready declaration identity differs"
+            ):
+                self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
 
     def test_recovery_provenance_is_distinct_from_reopening_ap(self):
         recovery = self.receipt["recovery_usability_provenance"]
@@ -96,14 +116,14 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
 
     def test_raw_first_projection_is_disk_population_probe(self):
         raw = self.receipt["raw_first_execution_closure"]
-        self.assertEqual(raw["auditor"]["size"], 76359)
+        self.assertEqual(raw["auditor"]["size"], 76347)
         self.assertEqual(
             raw["auditor"]["sha256"],
-            "a15f805808f4cc6c97515dd08da9852c1ae91cc0c51be382061e98f6863752cb",
+            "bebefffbd6176027d1902bce47b289dcfa919699a46f29af370444aa8b7605fb",
         )
         self.assertEqual(
             raw["receipt"]["sha256"],
-            "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42",
+            "7addbe2a2da4c57e6e3011f116542af0b223c1f423adb37535a351599b0932cd",
         )
         self.assertEqual(raw["receipt"]["size"], 15075)
         self.assertEqual(raw["predecessor"], self.module.RAW_FIRST_PREDECESSOR)
@@ -114,7 +134,7 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
             {
                 "all_revalidation_python_files_scanned": 1747,
                 "subprocess_modules_scanned": 412,
-                "projection_sha256": "5a54a6da33c62edf90ffb63c534cb293d76933918b5ef42b95845093f3d06b04",
+                "projection_sha256": "029c8d43830205bb10e6aa9463eb352fe793f131409598459bd232a491a145f1",
             },
         )
         self.assertEqual(

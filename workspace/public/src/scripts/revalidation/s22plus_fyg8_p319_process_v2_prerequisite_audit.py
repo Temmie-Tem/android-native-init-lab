@@ -31,18 +31,21 @@ from typing import Any, Mapping
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT_DIR = ROOT / "workspace/public/src/scripts/revalidation"
 PUBLIC_MANIFEST_DIR = ROOT / "workspace/public/src/device-action/manifests"
+P319_READY_MANIFEST = (
+    PUBLIC_MANIFEST_DIR / "s22plus_fyg8_p319_process_v2_ready_1.json"
+)
 PRIVATE_RUNS = ROOT / "workspace/private/runs"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
 VERDICT = "PASS_P319_PREREQUISITE_H0"
-RAW_AUDITOR_SHA256 = "a15f805808f4cc6c97515dd08da9852c1ae91cc0c51be382061e98f6863752cb"
-RAW_AUDITOR_SIZE = 76_359
-RAW_RECEIPT_SHA256 = "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42"
+RAW_AUDITOR_SHA256 = "bebefffbd6176027d1902bce47b289dcfa919699a46f29af370444aa8b7605fb"
+RAW_AUDITOR_SIZE = 76_347
+RAW_RECEIPT_SHA256 = "7addbe2a2da4c57e6e3011f116542af0b223c1f423adb37535a351599b0932cd"
 RAW_RECEIPT_SIZE = 15_075
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json"
+    "raw-first-observer-audit-20260829-19-p319-process-v2-offline-ready.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"
@@ -85,13 +88,13 @@ PRIVATE_JSON_NAMES = frozenset(
 
 RAW_FIRST_PREDECESSOR = {
     "auditor": {
-        "size": 76_337,
-        "sha256": "f9d3e0bc35780c3e8b2eb466f04b2cbaedcba8b26afccea3d41aa0a673f5b3ad",
+        "size": 76_359,
+        "sha256": "a15f805808f4cc6c97515dd08da9852c1ae91cc0c51be382061e98f6863752cb",
     },
     "receipt": {
-        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260829-15-p319-integration-v2.json",
+        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json",
         "size": 15_075,
-        "sha256": "a93097d5b2d71ca3b045633f5b76ef961921421cace72a863dbe98e1684e8f16",
+        "sha256": "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42",
     },
 }
 
@@ -499,6 +502,125 @@ def _population_paths() -> list[Path]:
     return paths
 
 
+def _validate_nonconsuming_ready_manifest(
+    path: Path = P319_READY_MANIFEST,
+) -> None:
+    """Classify the one P319 ready declaration without treating it as use.
+
+    The declaration is intentionally not hash-pinned here: its candidate-static
+    identity is derived from this prerequisite and pinning it would create a
+    circular authority.  The live runner independently verifies every contract
+    artifact before an approval or effect.  This seam only proves that the
+    public object is the exact non-consuming ready schema rather than a private
+    prepared/journal/claim record.
+    """
+    if not path.exists() and not path.is_symlink():
+        return
+    value, _receipt = _strict_json(
+        path, "P319 non-consuming ready manifest", canonical=False, mode=None
+    )
+    if set(value) != {
+        "allowed_member",
+        "candidate_ap",
+        "final_health_profile",
+        "manifest_id",
+        "observation",
+        "rollback_ap",
+        "run_id",
+        "runner_version",
+        "schema",
+        "status",
+        "target_profile",
+    }:
+        raise AuditError("P319 ready declaration schema differs")
+    candidate = value.get("candidate_ap")
+    rollback = value.get("rollback_ap")
+    observation = value.get("observation")
+    acceptance = observation.get("acceptance") if isinstance(observation, dict) else None
+    contract = acceptance.get("contract") if isinstance(acceptance, dict) else None
+    if (
+        value.get("schema") != "device_action_f1_candidate_v2"
+        or value.get("status") != "ready-for-f1-approval"
+        or value.get("manifest_id") != "s22plus-fyg8-p319-process-v2-ready-1"
+        or value.get("run_id") != NEW_LIVE_RUN_ID
+        or value.get("allowed_member") != "boot.img.lz4"
+        or value.get("runner_version") != "device-action-f1-v2-host-core-3"
+        or value.get("target_profile")
+        != "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
+        or value.get("final_health_profile") != "s22plus-fyg8-magisk"
+        or candidate
+        != {
+            "path": (
+                "workspace/private/outputs/s22plus_fyg8_p319/"
+                "stock-witness-runtime-v1-20260821-55/candidate-a/odin4/AP.tar.md5"
+            ),
+            "size": 27_279_401,
+            "sha256": CANDIDATE_AP_SHA256,
+        }
+        or not isinstance(rollback, dict)
+        or set(rollback) != {"path", "size", "sha256"}
+        or rollback.get("path")
+        != "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5"
+        or rollback.get("size") != 23_367_721
+        or rollback.get("sha256")
+        != "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
+        or set(observation or {}) != {"acceptance", "timeout_sec"}
+        or type(observation.get("timeout_sec")) is not int
+        or observation["timeout_sec"] <= 0
+        or not isinstance(acceptance, dict)
+        or set(acceptance)
+        != {
+            "clean_baseline_required",
+            "contract",
+            "decoder",
+            "kind",
+            "long_family_hex",
+            "minimum_success_count",
+            "policy_id",
+            "profile",
+            "run_id",
+            "source",
+            "source_contract_id",
+            "terminal_stage",
+            "unsat_family_hex",
+            "userspace_overlay_contract_id",
+        }
+        or acceptance.get("run_id") != CARRIER_OBSERVATION_RUN_ID
+        or acceptance.get("source_contract_id")
+        != "s22plus-fyg8-p310-carrier-v2-hsphy-attribution-v1"
+        or acceptance.get("userspace_overlay_contract_id")
+        != "s22plus-fyg8-p319-stock-witness-carrier-v1"
+        or acceptance.get("profile") != "E2"
+        or not isinstance(contract, dict)
+        or set(contract) != {"candidate_static", "run_manifest", "static_check"}
+    ):
+        raise AuditError("P319 ready declaration identity differs")
+    expected_paths = {
+        "candidate_static": "candidate-static.json",
+        "run_manifest": "run-manifest.json",
+        "static_check": "static-check-result.json",
+    }
+    for name, filename in expected_paths.items():
+        item = contract[name]
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"path", "size", "sha256"}
+            or not isinstance(item.get("path"), str)
+            or re.fullmatch(
+                r"workspace/private/outputs/s22plus_fyg8_p319/"
+                r"process-v2-promotion-20260829-[0-9]{2}/"
+                + re.escape(filename),
+                item["path"],
+            )
+            is None
+            or type(item.get("size")) is not int
+            or item["size"] <= 0
+            or not isinstance(item.get("sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) is None
+        ):
+            raise AuditError("P319 ready declaration contract identity differs")
+
+
 def _qualify_registry(module: Any) -> dict[str, Any]:
     helper = _load_module(
         CONSUMED_REGISTRY_QUALIFICATION_HELPER,
@@ -542,7 +664,10 @@ def audit_no_replay() -> dict[str, Any]:
     observation_ids: list[str] = []
     occurrences: list[str] = []
     population = _population_paths()
+    _validate_nonconsuming_ready_manifest()
     for path in population:
+        if path == P319_READY_MANIFEST:
+            continue
         is_public = path.is_relative_to(PUBLIC_MANIFEST_DIR)
         value, receipt = _strict_json(
             path,
@@ -636,11 +761,15 @@ def audit_no_replay() -> dict[str, Any]:
         },
         "observation_and_consumption_namespaces_distinct": True,
         "public_manifest_count": sum(
-            1 for path in population if path.is_relative_to(PUBLIC_MANIFEST_DIR)
+            1
+            for path in population
+            if path.is_relative_to(PUBLIC_MANIFEST_DIR)
+            and path != P319_READY_MANIFEST
         ),
         "population_file_count": len(files),
-        "new_live_run_id_absent": True,
-        "candidate_pair_absent": True,
+        "new_live_run_id_absent_from_consumed_population": True,
+        "candidate_pair_absent_from_consumed_population": True,
+        "ready_manifest_is_nonconsuming_declaration": True,
         "strict_population_scan": True,
         "global_consumed_run_registry": {
             "path": _relative(registry),

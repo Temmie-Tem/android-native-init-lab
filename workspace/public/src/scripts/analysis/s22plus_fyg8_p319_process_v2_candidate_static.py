@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
 import stat
 import sys
+import types
 from typing import Any, Mapping
 
 
@@ -28,15 +28,15 @@ INTEGRATION_SOURCE = (
 ADAPTER_SOURCE = SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py"
 INTEGRATION_RESULT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-05/result.json"
+    "process-v2-integration-qualification-v2-20260829-09/result.json"
 )
 INTEGRATION_IDENTITY = {
-    "size": 125_814,
-    "sha256": "16c9901f3e429370c39907e1632dfe4699656db698c8fb4f3c9ab87cef3e3e9c",
+    "size": 125_924,
+    "sha256": "664a8354456f5edd33c352117ca7d6e8a89dc55c6a74a9264c8f55ad51aeba6d",
 }
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-candidate-static-20260829-01.json"
+    "process-v2-candidate-static-20260829-05.json"
 )
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_candidate_static_v1"
@@ -143,20 +143,24 @@ def decode_object(data: bytes, label: str) -> dict[str, Any]:
 
 
 def load_local(path: Path, name: str) -> Any:
-    if path.is_symlink() or not path.is_file():
-        raise StaticContractError(f"{name} source is unavailable")
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise StaticContractError(f"{name} source cannot be loaded")
+    source = stable_bytes(path, f"{name} source", maximum=4 * 1024 * 1024)
     old_path = list(sys.path)
+    previous = sys.modules.get(name)
     sys.path.insert(0, str(path.parent))
     try:
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = types.ModuleType(name)
+        module.__file__ = str(path)
+        module.__package__ = ""
+        sys.modules[name] = module
+        exec(compile(source, str(path), "exec"), module.__dict__)
         return module
     except Exception as exc:
         raise StaticContractError(f"{name} source failed to load: {type(exc).__name__}") from exc
     finally:
+        if previous is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
         sys.path[:] = old_path
 
 

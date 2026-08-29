@@ -83,12 +83,12 @@ REQUEST_RECOVERY_PREREQUISITE = ROOT / (
     "process-v2-prerequisite-audit-20260823-02.json"
 )
 P319_TEST_PATTERN = "test_s22plus_fyg8_p319*.py"
-P319_SELECTED_TEST_COUNT = 731
+P319_SELECTED_TEST_COUNT = 845
 P319_EXECUTABILITY_CLASS = (
     "test_s22plus_fyg8_p319_experiment_executability_closure."
     "P319ExperimentExecutabilityClosureTest."
 )
-P319_EXECUTABILITY_CLASS_COUNT = 13
+P319_EXECUTABILITY_CLASS_COUNT = 14
 
 
 def _flatten_tests(suite):
@@ -463,7 +463,11 @@ class P319ProcessV2IntegrationDocsTest(unittest.TestCase):
         self.assertIn("only on `FRESH_BASELINE_MISSING`", self.goal)
         self.assertIn("no ready/run manifest", self.goal)
         self.assertIn("scoped independent H0 `PASS_GO`", self.goal)
-        self.assertIn("independently reviewed H0-only prerequisite integration", self.goal)
+        self.assertIn(
+            "The prerequisite gates retain scoped independent H0 `PASS_GO`",
+            self.goal,
+        )
+        self.assertIn("`ready-for-f1-approval` manifest", self.goal)
 
 
 if __name__ == "__main__":

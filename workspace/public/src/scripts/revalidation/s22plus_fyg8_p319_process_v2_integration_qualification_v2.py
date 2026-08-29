@@ -8,8 +8,9 @@ Missing prerequisites, a stale candidate pin, an invalid or missing V3 fresh
 baseline, or a missing global consumed-candidate registry remain explicit H0
 blockers.  The current result also proves that the V3 baseline's `-10`
 candidate and the current `-11` candidate produced byte-identical phase
-receipts.  This post-registration repin leaves the reviewed V1 source, the
-prior V2 results, and the exact `-04` predecessor intact.
+receipts.  This offline-ready repin leaves the reviewed V1 source and all prior
+V2 results intact; `-08` is preserved as the exact predecessor before the
+ready-declaration population count was projected consistently.
 """
 
 from __future__ import annotations
@@ -92,13 +93,13 @@ EXPECTED_USERSPACE_ARTIFACTS = {
     },
 }
 PREVIOUS_RESULT = {
-    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-04/result.json",
-    "size": 125735,
-    "sha256": "77416056429e60d65564b0e2db55e88128fa03ff7042373ff820f3f8678b8ca3",
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-08/result.json",
+    "size": 125924,
+    "sha256": "53c92c99175843c75b95a0039cc69a2324429c35f0df53cc43f64536862ed355",
 }
 DEFAULT_OUTPUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-05/result.json"
+    "process-v2-integration-qualification-v2-20260829-09/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"
