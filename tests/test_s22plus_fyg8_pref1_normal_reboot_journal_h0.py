@@ -375,7 +375,10 @@ class S22PlusPreF1NormalRebootJournalH0Test(unittest.TestCase):
     def test_report_goal_and_ledger_keep_the_unit_review_pending_and_dormant(self):
         report = REPORT.read_text(encoding="utf-8")
         for token in (
-            "IMPLEMENTED / REVIEW PENDING / NOT ACTIVE",
+            "INDEPENDENTLY REVIEWED / PASS_GO / NOT ACTIVE",
+            "70b1157013",
+            "61543c98b7",
+            "8bfc6b6dab",
             "d1-fresh-baseline-3",
             "normal_android_reboot_health",
             "new_boot_health",
@@ -408,10 +411,22 @@ class S22PlusPreF1NormalRebootJournalH0Test(unittest.TestCase):
         )
         self.assertNotIn("PASS_GO", repair_rows[0])
         self.assertNotIn("REVIEW_PENDING", repair_rows[0])
+        review_ordinal = "h0-pref1-normal-reboot-journal-review-1"
+        review_rows = [
+            line
+            for line in ledger.splitlines()
+            if f" | {review_ordinal} | " in line
+        ]
+        self.assertEqual(len(review_rows), 1)
+        self.assertIn(
+            "PASS_GO_S22PLUS_FYG8_PREF1_NORMAL_REBOOT_JOURNAL_H0_CAPABILITY_V1",
+            review_rows[0],
+        )
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn(
-            "fixed normal-reboot descriptor journal is implemented review-pending",
+            "fixed normal-reboot descriptor journal are independently reviewed H0-only "
+            "`PASS_GO`",
             goal,
         )
 
