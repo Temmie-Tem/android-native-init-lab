@@ -19,12 +19,12 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "072a31b8f90db971aaeda09cafeb52fe38c92688c1bc163b9af0a5059b0b74ad"
+AUDITOR_NORMALIZED_SHA256 = "458f1518c84f4c6da10eb60cb970c4b401ad0437670b5cc30b52b6a941d7c7ad"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-14-p319-d0-v3-repin-blocker-repair.json"
+    "raw-first-observer-audit-20260829-15-p319-integration-v2.json"
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
