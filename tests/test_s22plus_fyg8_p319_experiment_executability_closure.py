@@ -49,6 +49,16 @@ class P319ExperimentExecutabilityClosureTest(unittest.TestCase):
         self.assertEqual(repin["new"]["sha256"], "26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1")
         self.assertEqual(repin["delta"], {"added_lines": 41, "removed_lines": 0, "added_bytes": 2665})
         self.assertFalse(repin["authority_expanded"])
+        predecessor = result["authority"]["contracts"][
+            "predecessor_target_and_qualification"
+        ]
+        self.assertEqual(predecessor, self.module.PREVIOUS_AUTHORITY_IDS)
+        self.assertEqual(self.module.P319_QUALIFICATION_INTENT.parent.name, "candidate-qualification-v1-20260821-11")
+        self.assertEqual(self.module.P319_QUALIFICATION.parent.name, "candidate-qualification-v1-20260821-11")
+        self.assertEqual(
+            result["authority"]["contracts"]["target"],
+            self.module.EXPECTED_IDS["target_contract"],
+        )
         process = self.module.stable_bytes(self.module.PROCESS_CONTRACT, "Process-v2 test contract", maximum=2 * 1024 * 1024)
         self.module.validate_process_contract_repin(process)
         mutated = copy.deepcopy(repin)
@@ -80,6 +90,15 @@ class P319ExperimentExecutabilityClosureTest(unittest.TestCase):
             self.assertTrue(item["required"])
             self.assertEqual(item["status"], "PENDING_FRESH_CANDIDATE_RUN")
             self.assertFalse(item["accepted_as_preflight_fact"])
+
+    def test_predecessor_target_pin_cannot_validate_current_contract(self):
+        with self.assertRaises(self.module.AuditError):
+            self.module.stable_bytes(
+                self.module.TARGET_CONTRACT,
+                "predecessor target contract",
+                expected=self.module.PREVIOUS_AUTHORITY_IDS["target_contract"],
+                maximum=128 * 1024,
+            )
 
     def test_stock_roots_and_chain_replace_p317_diagnostic_root(self):
         result = self.result

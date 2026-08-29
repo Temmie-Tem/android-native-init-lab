@@ -267,26 +267,20 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertEqual(component["normalized"]["schema"], "s22plus_fyg8_p319_fresh_baseline_v3")
         self.assertEqual(component["identity"], identity)
 
-    def test_v2_current_result_removes_only_stale_baseline_blocker(self):
+    def test_v2_current_result_is_not_ready_with_runtime_witnesses_pending(self):
         result = self.real_result()
-        expected = {
-            "BLOCKED_MISSING_GLOBAL_CONSUMED_REGISTRY":
-            "prerequisite runner-consumption and authoritative registry proof is absent",
-            "EXECUTABILITY_SOURCE_CLOSURE_BLOCKED":
-            "P3.19 executability closure raised AuditError",
-            "PREREQUISITE_BLOCKED": "audit raised AuditError",
-            "REQUALIFICATION_REQUIRED":
-            "candidate qualifier SOURCE_KEYS differ from pinned intent: 1 mismatches",
-        }
         self.assertEqual(result["schema"], "s22plus_fyg8_p319_process_v2_integration_qualification_v2")
-        self.assertEqual(result["verdict"], self.module.BLOCKED_VERDICT)
-        self.assertEqual(
-            {item["code"]: item["detail"] for item in result["blockers"]},
-            expected,
-        )
-        self.assertNotIn("FRESH_BASELINE_MISSING", expected)
+        self.assertEqual(result["verdict"], self.module.NOT_READY_VERDICT)
+        self.assertEqual(result["status"], "SOURCE_CLOSURE_PASS_RUNTIME_CLASSIFICATION_PENDING")
+        self.assertEqual(result["blockers"], [])
+        self.assertEqual(result["blocker_count"], 0)
         self.assertTrue(result["fresh_baseline_present"])
         self.assertTrue(result["components"]["fresh_baseline"]["authoritative"])
+        self.assertTrue(result["source_closure_pass"])
+        self.assertTrue(result["runtime_classification_gate_pending"])
+        self.assertTrue(result["registry_capability_authoritative"])
+        self.assertTrue(result["runner_registry_consumption_proved"])
+        self.assertTrue(result["runner_recovery_closed"])
         for key in (
             "ready", "runner_ready", "ready_manifest_created", "run_manifest_created",
             "approval_created", "live_authorized", "d0_authorized", "d1_authorized",
@@ -294,6 +288,22 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             "causal_result_allowed", "device_contact",
         ):
             self.assertIs(result[key], False, key)
+
+    def test_v2_binds_current_intent_and_preserves_previous_result(self):
+        result = self.real_result()
+        self.assertEqual(self.module.INTENT.parent.name, "candidate-qualification-v1-20260821-11")
+        _value, identity = self.module._json_receipt(
+            self.module.INTENT, "current qualification intent"
+        )
+        self.assertEqual(
+            {key: identity[key] for key in ("size", "sha256")},
+            self.module.INTENT_IDENTITY,
+        )
+        self.assertEqual(result["predecessor_result"], self.module.PREVIOUS_RESULT)
+        self.assertEqual(
+            self.module.DEFAULT_OUTPUT.parent.name,
+            "process-v2-integration-qualification-v2-20260829-02",
+        )
 
     def test_v2_rejects_v1_v2_and_forged_normalized_data(self):
         result = self.real_result()
@@ -505,7 +515,9 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             }
             intent.write_bytes(self.module._canonical(payload))
             intent.chmod(0o400)
-            with mock.patch.object(self.module, "INTENT", intent):
+            with mock.patch.object(self.module, "INTENT", intent), mock.patch.object(
+                self.module, "INTENT_IDENTITY", self.module._identity(intent.read_bytes())
+            ):
                 value, blockers = self.module._adapter_pin()
             self.assertEqual(value["pinned"]["sha256"], value["current"]["sha256"])
             self.assertEqual(blockers[0]["code"], "REQUALIFICATION_REQUIRED")
@@ -521,7 +533,9 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             intent = Path(directory) / "intent.json"
             intent.write_bytes(self.module._canonical(payload))
             intent.chmod(0o400)
-            with mock.patch.object(self.module, "INTENT", intent):
+            with mock.patch.object(self.module, "INTENT", intent), mock.patch.object(
+                self.module, "INTENT_IDENTITY", self.module._identity(intent.read_bytes())
+            ):
                 value, blockers = self.module._adapter_pin()
         self.assertIn("REQUALIFICATION_REQUIRED", {item["code"] for item in blockers})
         comparison = value["source_keys"]

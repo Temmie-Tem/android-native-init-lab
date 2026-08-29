@@ -6,7 +6,7 @@ independent experiment-executability closure, and the prerequisite audit.  It
 does not create a ready/run/approval manifest and never contacts a device.
 Missing prerequisites, a stale candidate pin, an invalid or missing V3 fresh
 baseline, or a missing global consumed-candidate registry remain explicit H0
-blockers.  This successor leaves the reviewed V1 integration source intact.
+blockers.  This repin leaves the reviewed V1 source and V2 `-01` result intact.
 """
 
 from __future__ import annotations
@@ -32,7 +32,20 @@ PREREQUISITE = SCRIPT_DIR / "s22plus_fyg8_p319_process_v2_prerequisite_audit.py"
 CANDIDATE_QUALIFICATION = SCRIPT_DIR / "s22plus_fyg8_p319_candidate_qualification.py"
 FRESH_BASELINE_CAPABILITY = SCRIPT_DIR / "s22plus_fyg8_p319_fresh_baseline_capability_v3.py"
 INTENT = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/intent.json"
+    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-11/intent.json"
+)
+INTENT_IDENTITY = {
+    "size": 107403,
+    "sha256": "b4e1e5ba44eedc59ed7f7dea9827ef8361d2a9c7e845a277d2ab669dc1e79762",
+}
+PREVIOUS_RESULT = {
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-01/result.json",
+    "size": 105854,
+    "sha256": "8ce5902bf235247e9eec662d1276f3841c41dcafb100221bba80586e16968a9b",
+}
+DEFAULT_OUTPUT = PRIVATE / (
+    "outputs/s22plus_fyg8_p319/"
+    "process-v2-integration-qualification-v2-20260829-02/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"
@@ -553,6 +566,8 @@ def _source_key_comparison(
 def _adapter_pin() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     try:
         intent, intent_identity = _json_receipt(INTENT, "candidate qualification intent")
+        if {key: intent_identity[key] for key in ("size", "sha256")} != INTENT_IDENTITY:
+            raise IntegrationAuditError("candidate qualification intent identity differs")
         pinned_source_keys = intent["source_keys"]
         if not isinstance(pinned_source_keys, dict):
             raise IntegrationAuditError("candidate intent SOURCE_KEYS is not an object")
@@ -756,6 +771,8 @@ def _blocker_key(item: Mapping[str, Any]) -> tuple[str, str]:
 
 
 def validate_result(value: Mapping[str, Any]) -> None:
+    if value.get("predecessor_result") != PREVIOUS_RESULT:
+        raise IntegrationAuditError("integration predecessor result differs")
     if value.get("ready") is not False or value.get("ready_manifest_created") is not False or value.get("run_manifest_created") is not False or value.get("approval_created") is not False:
         raise IntegrationAuditError("integration receipt contains a ready/run/approval claim")
     if value.get("causal_result_allowed") is not False or value.get("candidate_success") is not False or value.get("device_contact") is not False:
@@ -961,6 +978,7 @@ def build_result() -> dict[str, Any]:
         "status": "BLOCKED_H0" if unique_blockers else "SOURCE_CLOSURE_PASS_RUNTIME_CLASSIFICATION_PENDING",
         "decision": "BLOCKED_H0" if unique_blockers else "NOT_READY_RUNTIME_CLASSIFICATION_PENDING",
         "target": TARGET,
+        "predecessor_result": PREVIOUS_RESULT,
         "blockers": unique_blockers,
         "blocker_count": len(unique_blockers),
         "blocker_digest": _identity(_canonical(unique_blockers))["sha256"],
@@ -1060,7 +1078,7 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", type=Path, default=PRIVATE / "outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-01/result.json")
+    parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)
     result = build_result()
     publish_exclusive(args.out, encode(result))

@@ -71,10 +71,10 @@ P319_MATERIALIZATION = PRIVATE / (
     "successor-module-materialization-v1-20260820-04/result.json"
 )
 P319_QUALIFICATION_INTENT = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/intent.json"
+    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-11/intent.json"
 )
 P319_QUALIFICATION = PRIVATE / (
-    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-10/qualification.json"
+    "outputs/s22plus_fyg8_p319/candidate-qualification-v1-20260821-11/qualification.json"
 )
 PROCESS_CONTRACT = ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET_CONTRACT = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
@@ -107,11 +107,26 @@ EXPECTED_IDS = {
     "p319_pdic": {"size": 15563, "sha256": "7744d9e7c5d76148ad4038f59531dd686d6e8b3a1327e78206ae5c6ad4390025"},
     "p319_plan": {"size": 14833, "sha256": "d8c12396e241e387fe342803eca4537b6728dcda7fb901aa8dc7e591d4745cb2"},
     "p319_materialization": {"size": 10658, "sha256": "8b8c1f5afd8c02693901d3552c221bcc73bafa2543c77dfff4954bdba188f6b5"},
-    "p319_intent": {"size": 107403, "sha256": "5a6a24195d89743b7b71e3dbd8db2d8d263c129b774d4a1d6155704507cb3bb2"},
-    "p319_qualification": {"size": 113386, "sha256": "72b39572318945a180dff396998c8f2d72babc89a0f8655557a0dfc000cc852d"},
+    "p319_intent": {"size": 107403, "sha256": "b4e1e5ba44eedc59ed7f7dea9827ef8361d2a9c7e845a277d2ab669dc1e79762"},
+    "p319_qualification": {"size": 113386, "sha256": "584f5ffc973e54b1c3d93cbef53e85bbe2022ddab432ab5f42a826703d1a48d6"},
     "p317_source": {"size": 42902, "sha256": "cdc99e05884b2bd127a36536e349b005322c049e36e9f8582f0f53a3530088f8"},
     "process_contract": {"size": 36163, "sha256": "26d9c8110e19ca4dba09418d07350cd051167423387a684f8deebf76c0843af1"},
-    "target_contract": {"size": 14926, "sha256": "e429c80c86f8b122443e56a8d8d3b01605aabb320d2d5ef5e3eb9fcc666a55e0"},
+    "target_contract": {"size": 15287, "sha256": "e220df444a46dbb31670cb4dde45d5ad63e1be68cc4699dcac9cacdddf443b20"},
+}
+
+PREVIOUS_AUTHORITY_IDS = {
+    "target_contract": {
+        "size": 14926,
+        "sha256": "e429c80c86f8b122443e56a8d8d3b01605aabb320d2d5ef5e3eb9fcc666a55e0",
+    },
+    "p319_intent": {
+        "size": 107403,
+        "sha256": "5a6a24195d89743b7b71e3dbd8db2d8d263c129b774d4a1d6155704507cb3bb2",
+    },
+    "p319_qualification": {
+        "size": 113386,
+        "sha256": "72b39572318945a180dff396998c8f2d72babc89a0f8655557a0dfc000cc852d",
+    },
 }
 
 # The registry is a restrictive additive change to the binding common
@@ -403,6 +418,7 @@ def load_exact_authority() -> dict[str, Any]:
         "process_v2": identity(process),
         "process_v2_repin": process_repin,
         "target": identity(target),
+        "predecessor_target_and_qualification": PREVIOUS_AUTHORITY_IDS,
     }
     return data
 

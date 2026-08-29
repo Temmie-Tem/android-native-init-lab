@@ -5,8 +5,8 @@ This auditor does not create a manifest, approval, live run, recovery
 authority, or device command. It binds the already-consumed P3.18 rollback
 evidence, exercises the generic journal/attempt code in disposable host-only
 directories, and probes the raw-first auditor against a real copied source
-population. The result is intentionally blocked until a reviewed global
-consumed-candidate registry is consumed by the live runner.
+population. The reviewed global consumed-candidate registry remains H0
+capability evidence and creates no live runner authority.
 """
 
 from __future__ import annotations
@@ -36,13 +36,13 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
 VERDICT = "PASS_P319_PREREQUISITE_H0"
-RAW_AUDITOR_SHA256 = "0cfd391b2ca26ddd8f51cac9fe2b7fcb14daaeba5985d4541e8b08354e9c0487"
-RAW_AUDITOR_SIZE = 68_231
-RAW_RECEIPT_SHA256 = "66658f6739b8e0116209a13de3fbb2255b040fa68b0ee7bb34c7cb51876207ec"
-RAW_RECEIPT_SIZE = 12_916
+RAW_AUDITOR_SHA256 = "f9d3e0bc35780c3e8b2eb466f04b2cbaedcba8b26afccea3d41aa0a673f5b3ad"
+RAW_AUDITOR_SIZE = 76_337
+RAW_RECEIPT_SHA256 = "a93097d5b2d71ca3b045633f5b76ef961921421cace72a863dbe98e1684e8f16"
+RAW_RECEIPT_SIZE = 15_075
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260824-06-p319-d0-v2-repin.json"
+    "raw-first-observer-audit-20260829-15-p319-integration-v2.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"
@@ -82,6 +82,18 @@ P318_BINDING_SHA256 = "fd68d3b4713d13afceaabdc5f97240f76808a5be2d09fc59b8853bcfd
 PRIVATE_JSON_NAMES = frozenset(
     {"prepared.json", "live-result.json", "live-state.json", "journal-head.json"}
 )
+
+RAW_FIRST_PREDECESSOR = {
+    "auditor": {
+        "size": 68_231,
+        "sha256": "0cfd391b2ca26ddd8f51cac9fe2b7fcb14daaeba5985d4541e8b08354e9c0487",
+    },
+    "receipt": {
+        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260824-06-p319-d0-v2-repin.json",
+        "size": 12_916,
+        "sha256": "66658f6739b8e0116209a13de3fbb2255b040fa68b0ee7bb34c7cb51876207ec",
+    },
+}
 
 
 class AuditError(RuntimeError):
@@ -844,6 +856,7 @@ def audit_raw_first_population() -> dict[str, Any]:
             "mode_is_not_authority": True,
         },
         "receipt": receipt_identity,
+        "predecessor": RAW_FIRST_PREDECESSOR,
         "semantic_projection_omits_only": list(RAW_PROJECTION_EXCLUDED),
         "baseline": {
             "all_revalidation_python_files_scanned": baseline[
