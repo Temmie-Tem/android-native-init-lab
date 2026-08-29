@@ -2,7 +2,7 @@
 
 Date: 2026-08-29
 
-Status: **IMPLEMENTED / REVIEW PENDING / NOT ACTIVE**
+Status: **INDEPENDENTLY REVIEWED / PASS_GO / NOT ACTIVE**
 
 ## Cause
 
@@ -35,10 +35,11 @@ proof; only the exact V1 journal error for V3's fixed arm becomes
 
 ## Boundary
 
-The tracked binding remains `review-pending`, so `run_live()` rejects before
-execution-input loading. The default CLI is the host-only self-test. No token
-was issued, no approval exists, and no device, USB transport, reboot, Download,
-payload, D0, D1, F1, recovery, or replay authority is created.
+The tracked binding records the exact independent `PASS_GO`, but that capability
+review is not a current operator approval. The default CLI is the host-only
+self-test. No token was issued, no approval exists, and no device, USB
+transport, reboot, Download, payload, D0, D1, F1, recovery, or replay authority
+is created.
 
 V3 is a prerequisite candidate for the future autonomous normal-reboot
 descriptor, not that descriptor's activation. The pre-F1 catalog and
@@ -47,10 +48,11 @@ Machine integration remains blocked on `FRESH_BASELINE_MISSING`.
 
 ## Validation
 
-The review-pending source is 73,125 bytes with SHA-256
+The reviewed source is 73,125 bytes with SHA-256
 `cb13236e1fb10bf25ac47f7706df050abe15b2ab5a7e423bbdc7b5b31c2c491d`.
-The canonical review-pending binding is 6,650 bytes with SHA-256
-`1f5f5ffc60adbea4563c2afaa564785683a3e53e43467fe98cb61fe788c8417c`.
+The 6,650-byte `1f5f5ffc` review-pending binding remains in Git history. The
+canonical reviewed binding is 6,705 bytes with SHA-256
+`dcb869aeeebf877d669da0a1f45b8c1d56a65777c13c9d518c0ad2dace93fc10`.
 The raw-first auditor registers V3 as its nineteenth active source and emits a
 13,518-byte mode-0400 receipt with SHA-256
 `5562f3e56f7ac92f8da89b1932ad60f6b4313c429ef09ddacf3feb11ae8b9bbf`;
@@ -63,4 +65,6 @@ The default self-test returns
 V2 binding, and makes no process or device call. The V3 suite inherits the 28
 reviewed V2 hostile cases and replaces only version/binding/report assertions;
 three additional cases cover V2 provenance, the canonical writer-to-validator
-seam, and exact duplicate classification. Independent review remains required.
+seam, and exact duplicate classification. Independent read-only review of
+implementation commit `3c062fb386` found no remaining load-bearing blocker and
+approved only this H0 capability.

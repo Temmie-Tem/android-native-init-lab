@@ -73,7 +73,7 @@ class P319D1FreshBaselineV3Test(base.P319D1FreshBaselineV2Test):
             "subprocess.Popen", side_effect=AssertionError("device/process call")
         ):
             value = self.module.self_test()
-        self.assertEqual(value["review_status"], "review-pending")
+        self.assertEqual(value["review_status"], "pass-go")
         self.assertTrue(value["consumed_v2_bound"])
         self.assertFalse(value["device_contact"])
         self.assertFalse(value["live_authorized"])
@@ -130,7 +130,7 @@ class P319D1FreshBaselineV3Test(base.P319D1FreshBaselineV2Test):
         self.assertEqual(payload, self.module.canonical(value))
         self.assertEqual(
             value["independent_review"],
-            {"status": "review-pending", "verdict": None},
+            {"status": "pass-go", "verdict": self.module.REVIEW_VERDICT},
         )
         self.assertEqual(value["run"]["ordinal"], "d1-fresh-baseline-3")
         self.assertEqual(value["successor"]["size"], SOURCE.stat().st_size)
@@ -143,7 +143,8 @@ class P319D1FreshBaselineV3Test(base.P319D1FreshBaselineV2Test):
     def test_report_ledger_and_goal_preserve_v1_and_resolve_only_topic_42(self):
         report = REPORT.read_text(encoding="utf-8")
         for token in (
-            "IMPLEMENTED / REVIEW PENDING / NOT ACTIVE",
+            "INDEPENDENTLY REVIEWED / PASS_GO / NOT ACTIVE",
+            "3c062fb386",
             "pinned V1 canonical writer",
             "consumed V2",
             "d1-fresh-baseline-3",
@@ -160,9 +161,19 @@ class P319D1FreshBaselineV3Test(base.P319D1FreshBaselineV2Test):
             rows[0],
         )
         self.assertNotIn("PASS_GO", rows[0])
+        review_ordinal = "h0-d1-fresh-baseline-canonical-arm-v3-review-1"
+        review_rows = [
+            line for line in ledger.splitlines() if f" | {review_ordinal} | " in line
+        ]
+        self.assertEqual(len(review_rows), 1)
+        self.assertIn(self.module.REVIEW_VERDICT, review_rows[0])
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
-        self.assertIn("D1 V3 canonical-arm successor is implemented review-pending", goal)
+        self.assertIn(
+            "D1 V3 canonical-arm successor binds both consumed V1/V2 histories and is "
+            "independently reviewed H0-only `PASS_GO`",
+            goal,
+        )
 
     def test_run_live_arm_write_cut_is_consumed_and_stopped(self):
         self.sandbox(pass_go=True)
