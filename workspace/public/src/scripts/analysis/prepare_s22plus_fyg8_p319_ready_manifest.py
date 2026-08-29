@@ -70,12 +70,14 @@ def relative(path: Path) -> str:
         raise ReadyManifestError("P3.19 ready path is outside the repository") from exc
 
 
-def stable_bytes(path: Path, label: str, maximum: int) -> bytes:
+def stable_bytes(
+    path: Path, label: str, maximum: int, *, mode: int = 0o400
+) -> bytes:
     try:
         before = path.lstat()
         if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
             raise ReadyManifestError(f"{label} is not a direct regular file")
-        if stat.S_IMODE(before.st_mode) != 0o400 or before.st_nlink != 1:
+        if stat.S_IMODE(before.st_mode) != mode or before.st_nlink != 1:
             raise ReadyManifestError(f"{label} metadata differs")
         with path.open("rb") as stream:
             data = stream.read(maximum + 1)
@@ -183,10 +185,10 @@ def publish(path: Path, payload: bytes) -> None:
     if path.exists() or path.is_symlink():
         raise ReadyManifestError("P3.19 ready manifest already exists")
     descriptor = os.open(
-        path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o400
+        path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644
     )
     try:
-        os.fchmod(descriptor, 0o400)
+        os.fchmod(descriptor, 0o644)
         offset = 0
         while offset < len(payload):
             written = os.write(descriptor, payload[offset:])

@@ -192,10 +192,11 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
             ready.DEFAULT_OUTPUT,
             "published P3.19 ready manifest",
             1024 * 1024,
+            mode=0o644,
         )
         self.assertEqual(payload, self.manifest_payload)
         info = ready.DEFAULT_OUTPUT.lstat()
-        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o644)
         self.assertEqual(info.st_nlink, 1)
 
     def test_report_goal_and_ledger_keep_ready_non_authoritative(self):

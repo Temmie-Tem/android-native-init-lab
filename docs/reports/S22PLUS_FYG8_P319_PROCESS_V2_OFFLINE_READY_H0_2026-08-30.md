@@ -29,7 +29,7 @@ boot-only archives with the permitted `boot.img.lz4` member.
   `run-manifest.json` `1043B/af09b4c0…`, and
   `static-check-result.json` `1842B/25691094…`; all are direct
   mode-0400, link-count-one files.
-- tracked ready manifest: 2,432 bytes / `fedb4eef51e5f6d9…`, mode 0400,
+- tracked ready manifest: 2,432 bytes / `fedb4eef51e5f6d9…`, mode 0644,
   link count one, schema `device_action_f1_candidate_v2`, status
   `ready-for-f1-approval`.
 
