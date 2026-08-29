@@ -25,11 +25,13 @@ source or binding changed, and the corrected prepare was the only re-entry.
 The prior D0 V2 source and reducer are permanently bound to the consumed
 `d1-fresh-baseline-2` namespace and cannot consume the V3 result. They remain
 byte-preserved. The successor therefore adds two versioned files rather than
-rewriting reviewed history:
+rewriting reviewed history. The initial implementation is preserved by commit
+`d669b84b45`; independent review then required a bounded repair. The current
+artifacts are:
 
-- D0 producer: 73,378 bytes / `a8b902e1`;
-- normalized reducer: 70,596 bytes / `db184e14`;
-- pending execution binding: 14,504 bytes / `c751815b`.
+- D0 producer: 77,915 bytes / `adc3e979`;
+- normalized reducer: 74,366 bytes / `3567b5eb`;
+- pending execution binding: 14,504 bytes / `adbc8369`.
 
 The D0 namespace is separate from the D1 parent because D1 V3 permits only its
 fixed arm and run children. The D0 behavior itself is unchanged: one exact
@@ -44,23 +46,45 @@ result must be canonical-equal to that reopened result, after which the exact
 result, D1 source, and D1 binding are read once more. V1/V2 paths, substituted
 health, and forged raw inventory fail closed.
 
+## Independent-review repair
+
+The first hostile review returned `CHANGES_REQUIRED`, not `PASS_GO`. It found
+five local D0-consumer gaps. The repair now:
+
+- uses typed structural equality for nested execution bindings and results;
+- refuses any stale arm, stop, or run directory before loading D1 evidence and
+  reopens the exact arm-only parent before transport construction;
+- rereads the consumed D1 V2 source, binding, arm, and stop after D1 V3
+  `_post_validate()` without changing the reviewed D1 V3 source;
+- records the exact consumed D1 V3 result receipt in the durable D0 arm; and
+- requires every reconstructed raw-ADB handle to have return code zero, no
+  timeout, no overflow, no producer error, and empty stderr.
+
+These checks do not add a device action or widen the D0 command set. They close
+pre-intent, provenance, and retained-result seams in the already bounded
+consumer.
+
 ## Raw-first boundary
 
-The new producer is registered as the twentieth active observer source. The
-76,334-byte auditor has SHA-256 `75231c68` and normalized self-hash `5e9f0763`.
-Its 15,075-byte `b70ac022` receipt is mode 0400/link-count one and preserves the
+The new producer remains the twentieth active observer source. The current
+76,349-byte auditor has SHA-256 `b86b0a67` and normalized self-hash `072a31b8`.
+Its `-14` 15,075-byte `5dae3014` receipt is mode 0400/link-count one and preserves the
 128-member pre-boundary and 126-member closed-observer inventories. The source
 census changes only from 1,744 to 1,746 for the two new Python files;
-subprocess-module census remains 412. Receipt `-12` and all predecessors remain
-unchanged.
+subprocess-module census remains 412. The `-13` 15,075-byte `b70ac022` receipt,
+`-12`, and all earlier predecessors remain unchanged.
 
 ## Validation and boundary
 
-Focused V3 tests pass 11/11. They reopen the actual D1 V3 result, reject V2
+Focused V3 tests pass 16/16. They reopen the actual D1 V3 result, reject V2
 paths and forged health/raw data, keep review and approval checks before
 acquisition, exercise one exact raw-first read, reject short/stderr/nonzero
-captures and target/topology/boot drift, and preserve consumed no-replay arm
-state. Raw active-source seams and deterministic documentation pass 22/22.
+captures and target/topology/boot drift, reject stale namespaces and malformed
+raw-handle outcomes, bind the D1 result receipt in the arm, reread consumed V2
+evidence, and preserve consumed no-replay state. Raw active-source seams and
+deterministic documentation pass 22/22. The combined D0 V2/V3, D1 V3,
+taxonomy, and current-state guard passes 116/116; the unchanged common
+Process-v2 four-module selection passes 142/142.
 
 The binding remains `review-pending`. No D0 approval, arm, device read, result,
 or normalized baseline exists. Process-v2 integration remains

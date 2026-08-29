@@ -197,6 +197,15 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
         root, _ = self.sandbox(pass_go=pass_go)
         static = self.d0._validated_static_inputs()
         inputs = self.d0._validated_execution_inputs(static)
+        payload = D1_RESULT.read_bytes()
+        inputs = {
+            **inputs,
+            "d1_result_receipt": {
+                "path": self.d0._relative(D1_RESULT),
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            },
+        }
         return root, static, inputs
 
     def fake_health(self, inputs):
@@ -276,7 +285,7 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
     def execute(self, inputs, d1, *, capture=None, client=None, adapter=None):
         health = d1["after"]
         client = client or FakeClient(None, None, self.d0.ADB_SNAPSHOT, health)
-        self.d0._durable_create(self.d0.RUN_ARM, self.d0._arm_value(inputs))
+        self.d0._durable_create(self.d0.RUN_ARM, self.d0._arm_value(inputs, d1))
         return self.d0._execute(
             inputs,
             d1,
@@ -356,6 +365,19 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
         self.assertTrue(self.reducer.SCHEMA.endswith("_v3"))
         self.assertNotIn("v2", self.d0.BINDING_ID)
 
+    def test_reducer_nested_typed_equality_rejects_numeric_substitutions(self):
+        self.assertFalse(
+            self.reducer._typed_equal(
+                {"binding": {"size": 1}}, {"binding": {"size": 1.0}}
+            )
+        )
+        self.assertFalse(
+            self.reducer._typed_equal(
+                {"result": {"complete": True}},
+                {"result": {"complete": 1}},
+            )
+        )
+
     def test_pending_review_and_wrong_approval_precede_any_acquisition(self):
         _root, _ = self.sandbox(pass_go=False)
         with mock.patch.object(
@@ -380,6 +402,92 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
                 self.d0.run_live("wrong-approval")
         self.assertFalse(self.d0.RUN_ARM.exists())
         self.assertTrue(static["manifest"]["independent_review"]["status"] == "pass-go")
+
+    def test_stale_stop_arm_or_run_is_rejected_before_d1_or_transport(self):
+        for stale_name in ("stop", "arm", "run"):
+            with self.subTest(stale_name=stale_name):
+                _root, _ = self.sandbox(pass_go=True)
+                if stale_name == "stop":
+                    self.d0._durable_create(self.d0.RUN_STOP, {"stale": True})
+                elif stale_name == "arm":
+                    self.d0._durable_create(self.d0.RUN_ARM, {"stale": True})
+                else:
+                    self.d0.RUN_PARENT.mkdir(mode=0o700)
+                    self.d0.RUN_DIR.mkdir(mode=0o700)
+                static = self.d0._validated_static_inputs()
+                inputs = self.d0._validated_execution_inputs(static)
+                with mock.patch.object(
+                    self.d0, "_load_d1_evidence", side_effect=AssertionError
+                ), mock.patch.object(
+                    self.d0, "_execute", side_effect=AssertionError
+                ):
+                    with self.assertRaises(self.d0.D0FreshBaselineError):
+                        self.d0.run_live(
+                            static["authority"]
+                        )
+                self.assertFalse(self.d0.RESULT_PATH.exists())
+                self.assertEqual(
+                    stale_name == "run", self.d0.RUN_DIR.exists()
+                )
+                del inputs
+
+    def test_d1_result_receipt_is_pinned_into_and_revalidated_from_arm(self):
+        _root, _static, inputs = self.static_execution(pass_go=True)
+        d1 = self.fake_d1(inputs)
+        arm = self.d0._arm_value(inputs, d1)
+        self.assertEqual(arm["d1_result_receipt"], d1["receipt"])
+        self.d0._durable_create(self.d0.RUN_ARM, arm)
+        self.assertTrue(self.d0._arm_state(inputs, d1)["bytes_complete"])
+        forged = copy.deepcopy(d1)
+        forged["receipt"]["sha256"] = "0" * 64
+        self.assertFalse(self.d0._arm_state(inputs, forged)["bytes_complete"])
+
+    def test_post_validate_consumed_v2_drift_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="p319-d1-v2-closure-") as temporary:
+            root = Path(temporary)
+            specs = []
+            payloads = {}
+            for key, attribute, _path, mode in self.reducer.D1_V2_CONSUMED_SPECS:
+                path = root / key
+                payload = key.encode("ascii")
+                path.write_bytes(payload)
+                path.chmod(mode or 0o644)
+                specs.append((key, attribute, path, mode))
+                payloads[key] = payload
+            with mock.patch.object(self.reducer, "D1_V2_CONSUMED_SPECS", tuple(specs)):
+                module = types.SimpleNamespace(
+                    **{attribute: path for _key, attribute, path, _mode in specs}
+                )
+                self.reducer._reread_consumed_d1_v2(module, {"payloads": payloads})
+                specs[2][2].chmod(0o600)
+                specs[2][2].write_bytes(b"drift")
+                specs[2][2].chmod(0o400)
+                with self.assertRaises(self.reducer.FreshBaselineError):
+                    self.reducer._reread_consumed_d1_v2(module, {"payloads": payloads})
+
+    def test_raw_inventory_rejects_malformed_or_nonzero_reconstructed_handles(self):
+        _root, _static, inputs = self.static_execution(pass_go=True)
+        d1 = self.fake_d1(inputs)
+        result, _client = self.execute(inputs, d1)
+        inventory = result["raw_adb"]
+        mutations = (
+            ("schema", "wrong"),
+            ("returncode", 1),
+            ("timed_out", True),
+            ("output_exceeded", True),
+            ("producer_error_type", "OSError"),
+            ("stderr_size", 1),
+            ("returncode", True),
+        )
+        for field, replacement in mutations:
+            forged = copy.deepcopy(inventory)
+            if field == "stderr_size":
+                forged["handles"][0]["stderr"]["size"] = replacement
+            else:
+                forged["handles"][0][field] = replacement
+            with self.subTest(field=field):
+                with self.assertRaises(self.d0.D0FreshBaselineError):
+                    self.d0._require_success_raw_adb(forged)
 
     def test_default_self_test_is_host_only_and_review_pending(self):
         with mock.patch("subprocess.Popen", side_effect=AssertionError("device call")):
@@ -415,7 +523,7 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
                 _root, _static, inputs = self.static_execution(pass_go=True)
                 d1 = self.fake_d1(inputs)
                 self.d0._durable_create(
-                    self.d0.RUN_ARM, self.d0._arm_value(inputs)
+                    self.d0.RUN_ARM, self.d0._arm_value(inputs, d1)
                 )
                 with self.assertRaises(self.d0.D0FreshBaselineError):
                     self.d0._execute(
@@ -441,7 +549,7 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
                 client = FakeClient(None, None, self.d0.ADB_SNAPSHOT, d1["after"])
                 setattr(client, "replace_" + mutation, True)
                 self.d0._durable_create(
-                    self.d0.RUN_ARM, self.d0._arm_value(inputs)
+                    self.d0.RUN_ARM, self.d0._arm_value(inputs, d1)
                 )
                 with self.assertRaises(self.d0.D0FreshBaselineError):
                     self.d0._execute(
@@ -482,15 +590,17 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
         self.assertEqual(arm.stat().st_mode & 0o777, 0o400)
         self.assertEqual(arm.stat().st_nlink, 1)
 
-    def test_existing_arm_is_consumed_and_never_replays(self):
+    def test_existing_arm_is_rejected_before_intent_and_never_replays(self):
         _root, _static, inputs = self.static_execution(pass_go=True)
         self.d0._durable_create(self.d0.RUN_ARM, self.d0._arm_value(inputs))
-        with mock.patch.object(self.d0, "_execute", side_effect=AssertionError):
+        with mock.patch.object(
+            self.d0, "_load_d1_evidence", side_effect=AssertionError
+        ), mock.patch.object(
+            self.d0, "_execute", side_effect=AssertionError
+        ):
             with self.assertRaises(self.d0.D0FreshBaselineError):
                 self.d0.run_live(inputs["authority"])
-        stop = json.loads(self.d0.RUN_STOP.read_text(encoding="utf-8"))
-        self.assertTrue(stop["consumed"])
-        self.assertFalse(stop["replay_authorized"])
+        self.assertFalse(self.d0.RUN_STOP.exists())
 
 
 if __name__ == "__main__":

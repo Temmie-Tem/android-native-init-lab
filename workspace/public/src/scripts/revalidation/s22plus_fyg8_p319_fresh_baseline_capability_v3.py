@@ -116,6 +116,25 @@ P319_LATCH_MODULE = "s22plus_dwc3_event_latch.ko"
 D1_AUTHORITY_PREFIX = "DEVICE-ACTION-D1-P319-FRESH-BASELINE-V3-APPROVE:"
 D0_AUTHORITY_PREFIX = "DEVICE-ACTION-D0-P319-FRESH-BASELINE-V3-APPROVE:"
 D0_REVIEW_VERDICT = "PASS_GO_P319_D0_FRESH_BASELINE_V3_H0_CAPABILITY_V1"
+CONSUMED_D1_V2_SOURCE = SCRIPT_DIR / "s22plus_fyg8_p319_d1_fresh_baseline_v2.py"
+CONSUMED_D1_V2_BINDING = ROOT / (
+    "workspace/public/src/device-action/bindings/"
+    "s22plus_fyg8_p319_d1_fresh_baseline_v2.json"
+)
+CONSUMED_D1_V2_ARM = ROOT / (
+    "workspace/private/runs/device-action-d1-p319-fresh-baseline-v2/"
+    "p319-fresh-baseline-2.arm.json"
+)
+CONSUMED_D1_V2_STOP = ROOT / (
+    "workspace/private/runs/device-action-d1-p319-fresh-baseline-v2/"
+    "p319-fresh-baseline-2/stop.json"
+)
+D1_V2_CONSUMED_SPECS = (
+    ("v2_source", "V2_SOURCE", CONSUMED_D1_V2_SOURCE, None),
+    ("v2_binding", "V2_BINDING", CONSUMED_D1_V2_BINDING, None),
+    ("v2_arm", "V2_ARM", CONSUMED_D1_V2_ARM, 0o400),
+    ("v2_stop", "V2_STOP", CONSUMED_D1_V2_STOP, 0o400),
+)
 D0_ADAPTER_MODULES = (
     "s22plus_boot_verify",
     "s22plus_fyg8_p232_e1_latest_stage_design",
@@ -290,11 +309,14 @@ def _profile() -> dict[str, Any]:
     target = value.get("target")
     if not isinstance(target, dict):
         raise FreshBaselineError("target profile target is malformed")
-    if {
-        "model": target.get("model"),
-        "codename": target.get("device"),
-        "build": target.get("firmware_incremental"),
-    } != TARGET:
+    if not _typed_equal(
+        {
+            "model": target.get("model"),
+            "codename": target.get("device"),
+            "build": target.get("firmware_incremental"),
+        },
+        TARGET,
+    ):
         raise FreshBaselineError("target profile identity differs")
     return value
 
@@ -333,7 +355,7 @@ def _validate_current_candidate_closure(
         raise FreshBaselineError("current candidate source closure is absent")
     if qualification_intent.get("schema") != intent.get("schema"):
         raise FreshBaselineError("current candidate qualification intent schema differs")
-    if qualification_intent.get("source_keys") != source_keys:
+    if not _typed_equal(qualification_intent.get("source_keys"), source_keys):
         raise FreshBaselineError("current candidate qualification source closure differs")
     if len(source_keys) != CURRENT_SOURCE_KEY_COUNT or _source_key_digest(source_keys) != CURRENT_SOURCE_KEY_DIGEST:
         raise FreshBaselineError("current candidate source-key closure digest differs")
@@ -352,7 +374,9 @@ def _validate_current_candidate_closure(
     if type(plan["eud_index"]) is not int or plan["eud_index"] != 38:
         raise FreshBaselineError("current candidate EUD index differs")
     overlay = plan["overlay_delta"]
-    if overlay != [P319_LATCH_MODULE] or qualification.get("overlay") != overlay:
+    if not _typed_equal(overlay, [P319_LATCH_MODULE]) or not _typed_equal(
+        qualification.get("overlay"), overlay
+    ):
         raise FreshBaselineError("current candidate overlay is not latch-only")
     if qualification.get("derived_eud_index") != plan["eud_index"]:
         raise FreshBaselineError("qualification EUD derivation differs")
@@ -372,13 +396,17 @@ def _current_candidate_identity() -> dict[str, Any]:
     if qualification.get("schema") != "s22plus_fyg8_p319_candidate_qualification_v1":
         raise FreshBaselineError("current candidate qualification schema differs")
     closure = _validate_current_candidate_closure(intent, qualification)
-    if intent.get("target") != TARGET or qualification.get("target") != TARGET:
+    if not _typed_equal(intent.get("target"), TARGET) or not _typed_equal(
+        qualification.get("target"), TARGET
+    ):
         raise FreshBaselineError("current candidate target differs")
     run_id = intent.get("run_id")
     if not isinstance(run_id, str) or HEX32.fullmatch(run_id) is None:
         raise FreshBaselineError("current candidate run_id differs")
     fixed = intent.get("fixed_image")
-    if not isinstance(fixed, dict) or fixed != qualification.get("fixed_image"):
+    if not isinstance(fixed, dict) or not _typed_equal(
+        fixed, qualification.get("fixed_image")
+    ):
         raise FreshBaselineError("current candidate Image identity differs")
     if type(fixed.get("size")) is not int or fixed["size"] <= 0:
         raise FreshBaselineError("current candidate Image size differs")
@@ -533,20 +561,21 @@ def _d1_v3_context() -> tuple[Any, dict[str, Any], dict[str, Any], str]:
     }
     if (
         static.get("manifest_payload") != binding_payload
-        or static.get("manifest", {}).get("independent_review") != review
-        or static.get("manifest_receipt")
-        != {
-            "path": _relative(D1_EXECUTION_MANIFEST),
-            **_identity(binding_payload),
-        }
+        or not _typed_equal(
+            static.get("manifest", {}).get("independent_review"), review
+        )
+        or not _typed_equal(
+            static.get("manifest_receipt"),
+            {"path": _relative(D1_EXECUTION_MANIFEST), **_identity(binding_payload)},
+        )
         or static.get("authority")
         != D1_AUTHORITY_PREFIX + hashlib.sha256(binding_payload).hexdigest()
     ):
         raise FreshBaselineError("P3.19 D1 V3 execution binding differs")
-    if _baseline_design_identity()["d1_source"] != {
-        "path": _relative(D1_SUCCESSOR),
-        **_identity(source_payload),
-    }:
+    if not _typed_equal(
+        _baseline_design_identity()["d1_source"],
+        {"path": _relative(D1_SUCCESSOR), **_identity(source_payload)},
+    ):
         raise FreshBaselineError("baseline design does not bind D1 V3 source")
     if _stable(
         D1_EXECUTION_MANIFEST,
@@ -557,6 +586,50 @@ def _d1_v3_context() -> tuple[Any, dict[str, Any], dict[str, Any], str]:
     ) != binding_payload:
         raise FreshBaselineError("P3.19 D1 V3 binding changed after load")
     return module, inputs, static["manifest_receipt"], static["approval_sha256"]
+
+
+def _reread_consumed_d1_v2(
+    module: Any, inputs: Mapping[str, Any]
+) -> None:
+    """Close the D1 V3 validator's inherited V2-input reread seam.
+
+    D1 V3 validates these predecessor bytes during execution-input loading,
+    but its result post-validator does not reopen all four V2 inputs.  The D0
+    consumer therefore reopens the exact paths named by the bound D1 module
+    and compares every byte with the payloads returned by that module.
+    """
+
+    payloads = inputs.get("payloads")
+    if not isinstance(payloads, Mapping):
+        raise FreshBaselineError("D1 V3 consumed-input payloads are absent")
+    module_paths = {
+        "V2_SOURCE": module.V2_SOURCE,
+        "V2_BINDING": module.V2_BINDING,
+        "V2_ARM": module.V2_ARM,
+        "V2_STOP": module.V2_STOP,
+    }
+    for key, attribute, expected_path, mode in D1_V2_CONSUMED_SPECS:
+        path = module_paths.get(attribute)
+        if not isinstance(path, Path) or path != expected_path:
+            raise FreshBaselineError(
+                f"D1 V3 consumed {key} path differs"
+            )
+        expected = payloads.get(key)
+        if type(expected) is not bytes:
+            raise FreshBaselineError(
+                f"D1 V3 consumed {key} payload differs"
+            )
+        actual = _stable(
+            path,
+            f"post-validate consumed D1 {key}",
+            maximum=max(len(expected), 1),
+            mode=mode,
+            nlink=1,
+        )
+        if actual != expected:
+            raise FreshBaselineError(
+                f"D1 V3 consumed {key} changed after post-validation"
+            )
 
 
 def _validate_d1(
@@ -575,8 +648,9 @@ def _validate_d1(
     if not isinstance(value, dict):
         raise FreshBaselineError("D1 V3 result is not an object")
     module, inputs, binding_receipt, _approval_sha256 = _d1_v3_context()
-    if design.get("d1_source") != _source_identity(
-        D1_SUCCESSOR, "P3.19 D1 V3 successor", maximum=1024 * 1024
+    if not _typed_equal(
+        design.get("d1_source"),
+        _source_identity(D1_SUCCESSOR, "P3.19 D1 V3 successor", maximum=1024 * 1024),
     ):
         raise FreshBaselineError("D1 V3 result baseline design differs")
     try:
@@ -589,6 +663,7 @@ def _validate_d1(
         raise FreshBaselineError(
             f"D1 V3 result evidence rejected: {type(exc).__name__}"
         ) from exc
+    _reread_consumed_d1_v2(module, inputs)
     if not _typed_equal(value, canonical_result):
         raise FreshBaselineError("D1 V3 result is not the canonical post-validation result")
     # The canonical validator has completed; reopen the exact final result and
@@ -631,11 +706,12 @@ def _validate_d1(
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise FreshBaselineError("final D1 V3 result is not strict JSON") from exc
-    if (
-        {"path": _relative(D1_SUCCESSOR), **_identity(final_source_payload)}
-        != design["d1_source"]
-        or {"path": _relative(D1_EXECUTION_MANIFEST), **_identity(final_binding_payload)}
-        != binding_receipt
+    if not _typed_equal(
+        {"path": _relative(D1_SUCCESSOR), **_identity(final_source_payload)},
+        design["d1_source"],
+    ) or not _typed_equal(
+        {"path": _relative(D1_EXECUTION_MANIFEST), **_identity(final_binding_payload)},
+        binding_receipt,
     ):
         raise FreshBaselineError("D1 V3 source or binding changed after validation")
     raw_evidence = canonical_result.get("raw_evidence")
@@ -741,13 +817,17 @@ def _d0_execution_binding(
         or value.get("action")
         != "one exact connected read-only P3.19 fresh-baseline acquisition"
         or value.get("authority_prefix") != D0_AUTHORITY_PREFIX
-        or value.get("target") != TARGET
-        or value.get("target_profile")
-        != _source_identity(PROFILE, "S22+ target profile", maximum=16 * 1024)
-        or value.get("current_candidate") != candidate
-        or value.get("baseline_design") != design
-        or value.get("independent_review")
-        != {"status": "pass-go", "verdict": D0_REVIEW_VERDICT}
+        or not _typed_equal(value.get("target"), TARGET)
+        or not _typed_equal(
+            value.get("target_profile"),
+            _source_identity(PROFILE, "S22+ target profile", maximum=16 * 1024),
+        )
+        or not _typed_equal(value.get("current_candidate"), candidate)
+        or not _typed_equal(value.get("baseline_design"), design)
+        or not _typed_equal(
+            value.get("independent_review"),
+            {"status": "pass-go", "verdict": D0_REVIEW_VERDICT},
+        )
         or value.get("failure_rule")
         != "consumed typed stop without retry or replay"
     ):
@@ -801,7 +881,7 @@ def _d0_execution_binding(
         ),
         "host_adb": receipt_for(HOST_ADB, adb_payload),
     }
-    if value.get("inputs") != expected_inputs:
+    if not _typed_equal(value.get("inputs"), expected_inputs):
         raise FreshBaselineError("P3.19 D0 execution-binding inputs differ")
     expected_d1 = {
         "result_path": _relative(DEFAULT_D1),
@@ -822,40 +902,58 @@ def _d0_execution_binding(
             "65e2953ecdcb55a0b5b21614e181c7ed8fe4daafaadda5e7319ae142ad9fbae9"
         ),
     }
-    if value.get("d1_dependency") != expected_d1:
+    if not _typed_equal(value.get("d1_dependency"), expected_d1):
         raise FreshBaselineError("P3.19 D0 D1-dependency binding differs")
-    if value.get("host_adb_execution_snapshot") != {
-        "path": _relative(D0_ADB_SNAPSHOT),
-        "size": 716_968,
-        "sha256": "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226",
-        "mode": "0500",
-        "publication": "file-fsync-link-no-replace-directory-fsync",
-    }:
+    if not _typed_equal(
+        value.get("host_adb_execution_snapshot"),
+        {
+            "path": _relative(D0_ADB_SNAPSHOT),
+            "size": 716_968,
+            "sha256": "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226",
+            "mode": "0500",
+            "publication": "file-fsync-link-no-replace-directory-fsync",
+        },
+    ):
         raise FreshBaselineError("P3.19 D0 ADB-snapshot binding differs")
-    if value.get("run_directory") != {
-        "path": _relative(D0_RUN_DIR),
-        "publication": "directory-no-replace-after-consumed-arm",
-    } or value.get("run_approval_arm") != {
-        "path": _relative(D0_RUN_ARM),
-        "publication": "file-no-replace-fsync-then-directory-fsync",
-    } or value.get("run_stop") != {
-        "path": _relative(D0_RUN_STOP),
-        "publication": "file-no-replace-fsync-then-directory-fsync",
-    }:
+    if not _typed_equal(
+        value.get("run_directory"),
+        {
+            "path": _relative(D0_RUN_DIR),
+            "publication": "directory-no-replace-after-consumed-arm",
+        },
+    ) or not _typed_equal(
+        value.get("run_approval_arm"),
+        {
+            "path": _relative(D0_RUN_ARM),
+            "publication": "file-no-replace-fsync-then-directory-fsync",
+        },
+    ) or not _typed_equal(
+        value.get("run_stop"),
+        {
+            "path": _relative(D0_RUN_STOP),
+            "publication": "file-no-replace-fsync-then-directory-fsync",
+        },
+    ):
         raise FreshBaselineError("P3.19 D0 fixed namespace differs")
-    if value.get("limits") != {
-        "observer_source": "/proc/last_kmsg", "observer_bytes": RAW_SIZE,
-        "observer_read_count": 1, "observer_timeout_sec": 180,
-        "stderr_bytes": 0,
-    }:
+    if not _typed_equal(
+        value.get("limits"),
+        {
+            "observer_source": "/proc/last_kmsg", "observer_bytes": RAW_SIZE,
+            "observer_read_count": 1, "observer_timeout_sec": 180,
+            "stderr_bytes": 0,
+        },
+    ):
         raise FreshBaselineError("P3.19 D0 acquisition limits differ")
-    if value.get("safety") != {
-        "device_writes": False, "reboot": False,
-        "download_transition": False, "odin": False,
-        "partition_transfer": False, "module_action": False,
-        "property_or_service_action": False, "f1_authorized": False,
-        "replay_authorized": False,
-    }:
+    if not _typed_equal(
+        value.get("safety"),
+        {
+            "device_writes": False, "reboot": False,
+            "download_transition": False, "odin": False,
+            "partition_transfer": False, "module_action": False,
+            "property_or_service_action": False, "f1_authorized": False,
+            "replay_authorized": False,
+        },
+    ):
         raise FreshBaselineError("P3.19 D0 safety binding differs")
     receipt = {
         "path": _relative(D0_EXECUTION_MANIFEST), **_identity(payload)
@@ -898,9 +996,10 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
     execution, execution_receipt, approval_sha256, context = _d0_execution_binding(
         design, candidate
     )
-    if item["runtime"] != {
-        **execution["inputs"]["common_d0_runtime"], "raw_first": True
-    }:
+    if not _typed_equal(
+        item["runtime"],
+        {**execution["inputs"]["common_d0_runtime"], "raw_first": True},
+    ):
         raise FreshBaselineError("D0 raw-first runtime identity differs")
     journal = _exact(item["journal"], {"arm", "result"}, "D0 journal")
     binding = _exact(item["binding"], {
@@ -913,21 +1012,27 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
         binding["schema"]
         != "s22plus_fyg8_p319_d0_fresh_baseline_binding_v3"
         or binding["action"] != execution["action"]
-        or binding["adapter"]
-        != execution["inputs"]["d0_source"]
-        or binding["baseline_design"] != design
-        or binding["candidate"] != candidate
-        or binding["d1"] != {
-            "receipt": d1["receipt"],
-            "returned_health": d1["after"],
-            "selection": d1["selection"],
-            "raw_evidence": d1["raw_evidence"],
-        }
-        or binding["execution_manifest"] != execution_receipt
+        or not _typed_equal(
+            binding["adapter"], execution["inputs"]["d0_source"]
+        )
+        or not _typed_equal(binding["baseline_design"], design)
+        or not _typed_equal(binding["candidate"], candidate)
+        or not _typed_equal(
+            binding["d1"],
+            {
+                "receipt": d1["receipt"],
+                "returned_health": d1["after"],
+                "selection": d1["selection"],
+                "raw_evidence": d1["raw_evidence"],
+            },
+        )
+        or not _typed_equal(binding["execution_manifest"], execution_receipt)
         or binding["approval_sha256"] != approval_sha256
         or binding["run_directory"] != execution["run_directory"]
-        or binding["run_approval_arm"] != execution["run_approval_arm"]
-        or binding["journal"] != journal
+        or not _typed_equal(
+            binding["run_approval_arm"], execution["run_approval_arm"]
+        )
+        or not _typed_equal(binding["journal"], journal)
     ):
         raise FreshBaselineError("D0 result execution binding differs")
     for key in (
@@ -954,13 +1059,16 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
     if (
         set(arm) != {
             "schema", "execution_manifest", "approval_sha256",
-            "run_directory", "action", "attempt", "consumed",
+            "run_directory", "action", "d1_result_receipt", "attempt", "consumed",
             "device_contact_before_arm",
         }
         or arm.get("schema")
         != "s22plus_fyg8_p319_d0_fresh_baseline_arm_v3"
-        or arm.get("execution_manifest") != execution_receipt
+        or not _typed_equal(arm.get("execution_manifest"), execution_receipt)
         or arm.get("approval_sha256") != approval_sha256
+        or not _typed_equal(
+            arm.get("d1_result_receipt"), d1.get("receipt")
+        )
         or arm.get("run_directory") != execution["run_directory"]
         or arm.get("action") != execution["action"]
         or arm.get("attempt") != 1
@@ -1061,7 +1169,7 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
         raise FreshBaselineError(
             f"D0 raw-adb inventory rejected: {type(exc).__name__}"
         ) from exc
-    if item["raw_adb"] != raw_adb:
+    if not _typed_equal(item["raw_adb"], raw_adb):
         raise FreshBaselineError("D0 raw-adb inventory differs")
     try:
         adapter = producer._load_adapter(context["adapter_payloads"])
@@ -1100,7 +1208,12 @@ def normalize(d1_path: Path, d0_path: Path) -> dict[str, Any]:
         )
     except Exception as exc:
         raise FreshBaselineError(f"P3.19 clean-baseline decoder rejected raw D0: {type(exc).__name__}") from exc
-    if not isinstance(decoded, dict) or decoded.get("baseline_clean") is not True or decoded.get("classification") != "ZERO_AMBIGUOUS" or decoded.get("integrity_issue") is not False:
+    if (
+        not isinstance(decoded, dict)
+        or decoded.get("baseline_clean") is not True
+        or decoded.get("classification") != "ZERO_AMBIGUOUS"
+        or decoded.get("integrity_issue") is not False
+    ):
         raise FreshBaselineError("P3.19 raw D0 is not a clean baseline")
     if not _marker_absent(payload, candidate):
         raise FreshBaselineError("candidate marker residual is present in raw baseline")
@@ -1149,7 +1262,11 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
     }
     if set(value) != required:
         raise FreshBaselineError("normalized fresh-baseline key set differs")
-    if value["schema"] != SCHEMA or value["verdict"] != VERDICT or value["target"] != TARGET:
+    if (
+        value["schema"] != SCHEMA
+        or value["verdict"] != VERDICT
+        or not _typed_equal(value["target"], TARGET)
+    ):
         raise FreshBaselineError("normalized fresh-baseline identity differs")
     for key, expected in {
         "fresh": True, "clean": True, "candidate_marker_family_absent": True, "marker_residual": False,
@@ -1160,7 +1277,7 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
         "causal_result_allowed": False,
     }.items():
         _bool(value[key], f"normalized.{key}", expected)
-    if value["baseline_design"] != _baseline_design_identity():
+    if not _typed_equal(value["baseline_design"], _baseline_design_identity()):
         raise FreshBaselineError("normalized baseline-design identity differs")
     for key in ("baseline_design", "candidate_identity", "d1", "d0", "raw", "decoder"):
         if not isinstance(value[key], dict):
@@ -1183,8 +1300,8 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
         or d1_raw.get("complete") is not True
         or not isinstance(d1_raw.get("children"), list)
         or not isinstance(d1_raw.get("handles"), list)
-        or d1_raw.get("invalid_receipts") != []
-        or d1_raw.get("unclaimed_children") != []
+        or not _typed_equal(d1_raw.get("invalid_receipts"), [])
+        or not _typed_equal(d1_raw.get("unclaimed_children"), [])
     ):
         raise FreshBaselineError("normalized D1 V3 raw evidence differs")
     _sha(d1_raw.get("aggregate_sha256"), "normalized D1 V3 raw evidence")
@@ -1197,7 +1314,7 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
         raise FreshBaselineError("normalized decoder output differs")
     if value["d0"].get("observer", {}).get("sha256") != raw["sha256"]:
         raise FreshBaselineError("normalized D0/raw binding differs")
-    if value["d0"].get("runtime") != _d0_runtime_identity():
+    if not _typed_equal(value["d0"].get("runtime"), _d0_runtime_identity()):
         raise FreshBaselineError("normalized D0 runtime binding differs")
     if value["d0"].get("health", {}).get("boot_id_sha256") != value["d1"].get("returned_health", {}).get("boot_id_sha256"):
         raise FreshBaselineError("normalized D1/D0 boot binding differs")
@@ -1247,7 +1364,7 @@ def validate_published_result(path: Path) -> dict[str, Any]:
     # baseline design, candidate intent/qualification, and the live P3.19 classifier,
     # then require byte-for-byte canonical equality with the publication.
     expected = normalize(DEFAULT_D1, DEFAULT_D0)
-    if value != expected:
+    if not _typed_equal(value, expected):
         raise FreshBaselineError("published fresh baseline is not the deterministic reduction of its inputs")
     result = validate_result(expected)
     final_payload, final_node, final_parent = _direct_output_snapshot(

@@ -45,11 +45,11 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-13-p319-d0-v3-repin.json"
+    "raw-first-observer-audit-20260829-14-p319-d0-v3-repin-blocker-repair.json"
 )
 D0_V3_REPIN_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-12-pref1-live-v3-result.json"
+    "raw-first-observer-audit-20260829-13-p319-d0-v3-repin.json"
 )
 PREF1_LIVE_EXACT_INVENTORY_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
@@ -171,7 +171,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260829-13-p319-d0-v3-repin.json",
+            "raw-first-observer-audit-20260829-14-p319-d0-v3-repin-blocker-repair.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -198,7 +198,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "94de02daf3ceb3cab2556c78e93c75e4ace67f54cb5a1cc5114cbcff59d2c375",
+            "d2fa526726f868c857eaadd2b16a515f3f836c7a4e4d0619dbd7d3ab63e57277",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -207,7 +207,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(retained_bytes), 15075)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "b70ac022de4d4836cfff90121041eba4f15e308ede4f36aea433cfb96dba3d9b",
+            "5dae30149506de02923e1084292cbead6e112db63658887953c7058bad7dc791",
         )
 
     def test_pref1_live_runner_is_registered_reviewed_and_session_is_closed(self):
@@ -292,7 +292,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             self.auditor.EXPECTED_ACTIVE_SOURCE_SHA256[
                 "s22plus_fyg8_p319_d0_fresh_baseline_v3.py"
             ],
-            "a8b902e1d6b8bb30cba6591d8f24523bdd61a5bc03249869b4d3ea76eebb4721",
+            "adc3e979771dbc4e67c264d3b6ad8f09f3fc512dc5decee7cff770094d24574d",
         )
         self.assertIn(
             "s22plus_fyg8_p319_d0_fresh_baseline_v3.py",
@@ -366,6 +366,14 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         expected = (
             (
                 D0_V3_REPIN_PREDECESSOR_RECEIPT,
+                15075,
+                "b70ac022de4d4836cfff90121041eba4f15e308ede4f36aea433cfb96dba3d9b",
+            ),
+            (
+                ROOT / (
+                    "workspace/private/outputs/s22plus_fyg8_p319/"
+                    "raw-first-observer-audit-20260829-12-pref1-live-v3-result.json"
+                ),
                 14553,
                 "b076020eae1b115b7e71002ba0936fe7a05ec52830b89a41543e7250a2edd281",
             ),

@@ -100,6 +100,7 @@ D1_BINDING_PREDECESSOR_SHA256 = (
 RAW_SIZE = 2_097_136
 MAX_TEXT = 64 * 1024
 SUCCESS_RAW_ADB_HANDLE_COUNT = 9
+RAW_CAPTURE_SCHEMA = "device_action_raw_capture_v1"
 TARGET = {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"}
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -790,13 +791,36 @@ def _prepare_snapshot(payload: bytes, path: Path) -> None:
     _validate_snapshot(path, payload)
 
 
-def _arm_value(inputs: Mapping[str, Any]) -> dict[str, Any]:
+def _d1_result_receipt(
+    inputs: Mapping[str, Any], d1: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    receipt = (
+        d1.get("receipt")
+        if isinstance(d1, Mapping)
+        else inputs.get("d1_result_receipt")
+    )
+    if (
+        not isinstance(receipt, dict)
+        or set(receipt) != {"path", "size", "sha256"}
+        or receipt.get("path") != _relative(D1_RESULT)
+        or type(receipt.get("size")) is not int
+        or receipt.get("size") <= 0
+    ):
+        raise D0FreshBaselineError("D1 V3 result receipt is not exact")
+    _sha(receipt.get("sha256"), "D1 V3 result receipt")
+    return dict(receipt)
+
+
+def _arm_value(
+    inputs: Mapping[str, Any], d1: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
     return {
         "schema": "s22plus_fyg8_p319_d0_fresh_baseline_arm_v3",
         "execution_manifest": inputs["manifest_receipt"],
         "approval_sha256": inputs["approval_sha256"],
         "run_directory": inputs["manifest"]["run_directory"],
         "action": inputs["manifest"]["action"],
+        "d1_result_receipt": _d1_result_receipt(inputs, d1),
         "attempt": 1,
         "consumed": True,
         "device_contact_before_arm": False,
@@ -806,6 +830,57 @@ def _arm_value(inputs: Mapping[str, Any]) -> dict[str, Any]:
 def _journal_receipt(path: Path, label: str) -> dict[str, Any]:
     payload = _stable_read(path, label, mode=0o400, maximum=512 * 1024)
     return {"path": _relative(path), **_identity(payload), "mode": "0400", "nlink": 1}
+
+
+def _preflight_new_run_namespace() -> None:
+    """Reject any prior D0 namespace before consuming the new arm."""
+
+    for path in (RUN_STOP, RUN_ARM, RUN_DIR):
+        if path.exists() or path.is_symlink():
+            raise D0FreshBaselineError(
+                f"fixed D0 namespace is already occupied: {path.name}"
+            )
+    try:
+        parent = RUN_PARENT.lstat()
+    except FileNotFoundError:
+        return
+    if (
+        stat.S_ISLNK(parent.st_mode)
+        or not stat.S_ISDIR(parent.st_mode)
+        or stat.S_IMODE(parent.st_mode) != 0o700
+        or parent.st_uid != os.getuid()
+        or RUN_PARENT.resolve(strict=True) != RUN_PARENT.absolute()
+    ):
+        raise D0FreshBaselineError("fixed D0 parent namespace is indirect")
+    if any(RUN_PARENT.iterdir()):
+        raise D0FreshBaselineError("fixed D0 parent namespace is not empty")
+
+
+def _validate_armed_namespace(
+    inputs: Mapping[str, Any], d1: Mapping[str, Any]
+) -> None:
+    """Reopen the exact parent and arm before any D0 transport construction."""
+
+    try:
+        parent = RUN_PARENT.lstat()
+    except OSError as exc:
+        raise D0FreshBaselineError("fixed D0 parent namespace is unavailable") from exc
+    if (
+        stat.S_ISLNK(parent.st_mode)
+        or not stat.S_ISDIR(parent.st_mode)
+        or stat.S_IMODE(parent.st_mode) != 0o700
+        or parent.st_uid != os.getuid()
+        or RUN_PARENT.resolve(strict=True) != RUN_PARENT.absolute()
+        or {child.name for child in RUN_PARENT.iterdir()} != {RUN_ARM.name}
+    ):
+        raise D0FreshBaselineError("fixed D0 parent namespace changed after arm")
+    payload = _stable_read(
+        RUN_ARM, "D0 arm after publication", mode=0o400, maximum=64 * 1024
+    )
+    arm = _strict_object(payload, "D0 arm after publication")
+    expected = _arm_value(inputs, d1)
+    if not _typed_equal(arm, expected) or payload != canonical(expected):
+        raise D0FreshBaselineError("D0 arm semantics changed after publication")
 
 
 def _load_d1_evidence(inputs: Mapping[str, Any]) -> dict[str, Any]:
@@ -1035,6 +1110,7 @@ def _raw_adb_inventory(raw: Any, *, run_directory_valid: bool = True) -> dict[st
             continue
         claimed.update(names)
         handles.append({
+            "schema": RAW_CAPTURE_SCHEMA,
             "name": handle.name,
             "receipt": dict(child_map[handle.receipt_path.name]),
             "stdout": dict(child_map[handle.stdout_path.name]),
@@ -1071,13 +1147,44 @@ def _raw_adb_inventory(raw: Any, *, run_directory_valid: bool = True) -> dict[st
 
 def _require_success_raw_adb(inventory: Mapping[str, Any]) -> None:
     if (
-        inventory.get("complete") is not True
+        not isinstance(inventory, Mapping)
+        or type(inventory.get("complete")) is not bool
+        or inventory.get("complete") is not True
+        or type(inventory.get("directory_node_valid")) is not bool
         or inventory.get("directory_node_valid") is not True
+        or type(inventory.get("handles")) is not list
+        or type(inventory.get("children")) is not list
         or len(inventory.get("handles", [])) != SUCCESS_RAW_ADB_HANDLE_COUNT
         or len(inventory.get("children", []))
         != SUCCESS_RAW_ADB_HANDLE_COUNT * 3
     ):
         raise D0FreshBaselineError("raw-adb success inventory differs")
+    required = {
+        "schema", "name", "receipt", "stdout", "stderr", "returncode",
+        "timed_out", "output_exceeded", "producer_error_type",
+    }
+    for handle in inventory["handles"]:
+        if not isinstance(handle, dict) or set(handle) != required:
+            raise D0FreshBaselineError("raw-adb handle schema differs")
+        if (
+            handle.get("schema") != RAW_CAPTURE_SCHEMA
+            or not isinstance(handle.get("name"), str)
+            or type(handle.get("returncode")) is not int
+            or handle.get("returncode") != 0
+            or type(handle.get("timed_out")) is not bool
+            or handle.get("timed_out") is not False
+            or type(handle.get("output_exceeded")) is not bool
+            or handle.get("output_exceeded") is not False
+            or handle.get("producer_error_type") is not None
+        ):
+            raise D0FreshBaselineError("raw-adb handle outcome differs")
+        stderr = handle.get("stderr")
+        if (
+            not isinstance(stderr, dict)
+            or type(stderr.get("size")) is not int
+            or stderr.get("size") != 0
+        ):
+            raise D0FreshBaselineError("raw-adb stderr is not empty")
 
 
 def validate_result(
@@ -1164,6 +1271,12 @@ def validate_result(
     _require_success_raw_adb(raw_adb)
     if not _typed_equal(value["raw_adb"], raw_adb):
         raise D0FreshBaselineError("D0 raw-adb inventory differs")
+    arm_value = _strict_object(
+        _stable_read(RUN_ARM, "D0 arm", mode=0o400, maximum=64 * 1024),
+        "D0 arm",
+    )
+    if not _typed_equal(arm_value, _arm_value(inputs, d1)):
+        raise D0FreshBaselineError("D0 arm result receipt differs")
     if not publishing:
         try:
             handle = raw.load_handle(RAW_RECEIPT)
@@ -1175,12 +1288,6 @@ def validate_result(
             ) from exc
         if handle.stdout_path != OBSERVER_PATH or len(payload) != RAW_SIZE or hashlib.sha256(payload).hexdigest() != observer["sha256"]:
             raise D0FreshBaselineError("D0 raw evidence identity differs")
-        arm_value = _strict_object(
-            _stable_read(RUN_ARM, "D0 arm", mode=0o400, maximum=64 * 1024),
-            "D0 arm",
-        )
-        if not _typed_equal(arm_value, _arm_value(inputs)):
-            raise D0FreshBaselineError("D0 arm bytes differ")
         result_payload = _stable_read(
             RESULT_PATH, "D0 result", mode=0o400, maximum=2 * 1024 * 1024
         )
@@ -1196,6 +1303,7 @@ def _execute(
     progress: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     progress = {} if progress is None else progress
+    _validate_armed_namespace(inputs, d1)
     try:
         RUN_DIR.mkdir(mode=0o700)
     except FileExistsError as exc:
@@ -1359,15 +1467,17 @@ def _node_state(
     return {"present": True, "node_valid": node_valid}
 
 
-def _arm_state(inputs: Mapping[str, Any]) -> dict[str, bool]:
+def _arm_state(
+    inputs: Mapping[str, Any], d1: Mapping[str, Any] | None = None
+) -> dict[str, bool]:
     state = _node_state(RUN_ARM, directory=False, expected_mode=0o400)
     if not state["node_valid"]:
         return {**state, "bytes_complete": False}
     try:
         payload = _stable_read(RUN_ARM, "D0 arm after cut", maximum=64 * 1024)
         complete = _typed_equal(
-            _strict_object(payload, "D0 arm after cut"), _arm_value(inputs)
-        ) and payload == canonical(_arm_value(inputs))
+            _strict_object(payload, "D0 arm after cut"), _arm_value(inputs, d1)
+        ) and payload == canonical(_arm_value(inputs, d1))
     except D0FreshBaselineError:
         complete = False
     return {**state, "bytes_complete": complete}
@@ -1547,7 +1657,7 @@ def validate_stop(
         raise D0FreshBaselineError("D0 stop header differs")
     if value["stage"] != "post-intent-failure" or not isinstance(value["error_type"], str) or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", value["error_type"]) is None or value["device_contact_unknown"] is not True:
         raise D0FreshBaselineError("D0 stop classification differs")
-    arm = _arm_state(inputs)
+    arm = _arm_state(inputs, d1)
     run = _run_state()
     result = _result_state(run)
     if (
@@ -1626,7 +1736,7 @@ def _publish_stop(
     inputs: Mapping[str, Any], d1: Mapping[str, Any], exc: BaseException,
     progress: Mapping[str, Any],
 ) -> None:
-    arm = _arm_state(inputs)
+    arm = _arm_state(inputs, d1)
     if not arm["present"]:
         return
     run = _run_state()
@@ -1681,13 +1791,16 @@ def run_live(approval: str) -> dict[str, Any]:
     if approval != inputs["authority"]:
         raise D0FreshBaselineError("exact D0 approval is absent")
     inputs = _validated_execution_inputs(inputs)
+    _preflight_new_run_namespace()
     d1 = _load_d1_evidence(inputs)
+    inputs = {**inputs, "d1_result_receipt": d1["receipt"]}
     progress: dict[str, Any] = {}
     try:
-        _durable_create(RUN_ARM, _arm_value(inputs))
+        _durable_create(RUN_ARM, _arm_value(inputs, d1))
+        _validate_armed_namespace(inputs, d1)
         return _execute(inputs, d1, progress=progress)
     except BaseException as exc:
-        if not _arm_state(inputs)["present"]:
+        if not _arm_state(inputs, d1)["present"]:
             raise D0FreshBaselineError(
                 f"D0 stopped before durable intent: {type(exc).__name__}"
             ) from exc
