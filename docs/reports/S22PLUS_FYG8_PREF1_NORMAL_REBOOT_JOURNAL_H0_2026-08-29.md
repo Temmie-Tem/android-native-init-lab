@@ -60,10 +60,10 @@ integration remains blocked by `FRESH_BASELINE_MISSING`.
 
 ## Validation
 
-The implementation is 31,790 bytes with SHA-256
-`58d5436a84d1c6335b050780cc4d897c179248344280122031a03d8a41097ed4`.
-The hostile test module is 15,542 bytes with SHA-256
-`20d88232daaac980b972fd7816558774d7b7ac42f108476b468fc78bd136cb72`.
+The repaired implementation is 32,123 bytes with SHA-256
+`0d13c6216c1c6a11795911daefe53ea35ee803f3e5b718b26e839a99599fedf6`.
+The hostile test module is 16,768 bytes with SHA-256
+`02dd7190ac80681b9c18c82d1d52112bdf96841793df995cfc2a20b44010d3d1`.
 
 The deterministic self-test output is `4e8a933a`; it reopens the journal four
 times and produces exactly:
@@ -73,14 +73,20 @@ times and produces exactly:
 3. `EFFECT_HEALTHY_RETURN`; and
 4. `CAMPAIGN_CLOSE`.
 
-Its final phase is `CLOSED`, and its last record is `ce3b6e87`. Hostile tests
+Its final phase is `CLOSED`, and its last record is `b6d462e4`. The first
+independent review correctly rejected the predecessor because `_read_regular()`
+opened a validly named FIFO before checking its type. The repair performs a
+direct `lstat` rejection and uses `O_NONBLOCK` on the subsequent no-follow open,
+so both a present FIFO and a replacement race fail without waiting.
+
+Hostile tests
 cover exact descriptor drift, activation mismatch, proof-mode non-selectability,
 same-boot rejection, uncertain-consumed parking, time regression, link failure,
 no-clobber, exclusive ownership, symlink/extra-file/mode/gap attacks, strict
 JSON, restart reconstruction, and the absent live CLI. Independent changed-
 closure review remains required before any activation or executor integration.
 
-The journal suite passes 17/17; the existing policy and coordinator suites pass
+The repaired journal suite passes 18/18; the existing policy and coordinator suites pass
 20/20; and common Process-v2 passes 142/142. A direct full-tail taxonomy audit
 passes with 393 rows and review accounting 65 total / 47 resolved / 18 open.
 The isolated worktree does not contain the historical private taxonomy receipt,

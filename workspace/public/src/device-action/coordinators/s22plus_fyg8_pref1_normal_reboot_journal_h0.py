@@ -165,15 +165,22 @@ def _read_regular(
     maximum: int,
     mode: int | None = None,
 ) -> bytes:
-    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
     try:
+        path_info = path.lstat()
+        if not stat.S_ISREG(path_info.st_mode) or stat.S_ISLNK(path_info.st_mode):
+            raise JournalError(f"{label} metadata differs")
+        flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK
         descriptor = os.open(path, flags)
+    except JournalError:
+        raise
     except OSError as exc:
         raise JournalError(f"{label} is unavailable") from exc
     try:
         before = os.fstat(descriptor)
         if (
             not stat.S_ISREG(before.st_mode)
+            or (before.st_dev, before.st_ino)
+            != (path_info.st_dev, path_info.st_ino)
             or before.st_nlink != 1
             or not 0 < before.st_size <= maximum
             or (mode is not None and stat.S_IMODE(before.st_mode) != mode)

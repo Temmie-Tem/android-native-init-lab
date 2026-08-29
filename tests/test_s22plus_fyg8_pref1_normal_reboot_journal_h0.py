@@ -11,6 +11,7 @@ import inspect
 import json
 import os
 from pathlib import Path
+import signal
 import stat
 import tempfile
 import unittest
@@ -293,6 +294,24 @@ class S22PlusPreF1NormalRebootJournalH0Test(unittest.TestCase):
             with self.module.Journal(root):
                 pass
 
+    def test_validly_named_fifo_is_rejected_without_blocking(self):
+        root = self.initialize()
+        fifo = root / "journal" / "000000-campaign-open.json"
+        os.mkfifo(fifo, 0o400)
+
+        def timeout(_number, _frame):
+            raise TimeoutError("FIFO open blocked")
+
+        previous = signal.signal(signal.SIGALRM, timeout)
+        signal.setitimer(signal.ITIMER_REAL, 0.5)
+        try:
+            with self.assertRaisesRegex(self.module.JournalError, "metadata differs"):
+                with self.module.Journal(root):
+                    pass
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous)
+
     def test_deleted_middle_record_and_tampered_mode_fail_closed(self):
         root = self.initialize()
         self.open_campaign(root)
@@ -376,6 +395,19 @@ class S22PlusPreF1NormalRebootJournalH0Test(unittest.TestCase):
             rows[0],
         )
         self.assertNotIn("PASS_GO", rows[0])
+        repair_ordinal = "h0-pref1-normal-reboot-journal-review-repair-1"
+        repair_rows = [
+            line
+            for line in ledger.splitlines()
+            if f" | {repair_ordinal} | " in line
+        ]
+        self.assertEqual(len(repair_rows), 1)
+        self.assertIn(
+            "PREF1_NORMAL_REBOOT_JOURNAL_FIFO_BOUND_REPAIR_UNDER_EXISTING_OBLIGATION",
+            repair_rows[0],
+        )
+        self.assertNotIn("PASS_GO", repair_rows[0])
+        self.assertNotIn("REVIEW_PENDING", repair_rows[0])
         goal = GOAL.read_text(encoding="utf-8")
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertIn(
