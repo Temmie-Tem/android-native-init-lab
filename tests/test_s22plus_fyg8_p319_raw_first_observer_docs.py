@@ -32,6 +32,10 @@ D0_V2_REPIN_REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P319_D0_FRESH_BASELINE_V2_REPIN_H0_2026-08-24.md"
 )
+PREF1_LIVE_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_PREF1_NORMAL_REBOOT_LIVE_V1_H0_2026-08-29.md"
+)
 TARGET = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
@@ -40,6 +44,10 @@ RECEIPT = ROOT / (
     "raw-first-observer-audit-20260821-05-population-parse-diagnostic.json"
 )
 CURRENT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-08-pref1-live-runner.json"
+)
+PREF1_LIVE_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260829-07-p319-d1-v3.json"
 )
@@ -134,6 +142,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         cls.d1_producer_report = D1_PRODUCER_REPORT.read_text(encoding="utf-8")
         cls.d0_producer_report = D0_PRODUCER_REPORT.read_text(encoding="utf-8")
         cls.d0_v2_repin_report = D0_V2_REPIN_REPORT.read_text(encoding="utf-8")
+        cls.pref1_live_report = PREF1_LIVE_REPORT.read_text(encoding="utf-8")
         cls.target = TARGET.read_text(encoding="utf-8")
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.goal = GOAL.read_text(encoding="utf-8")
@@ -142,7 +151,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260829-07-p319-d1-v3.json",
+            "raw-first-observer-audit-20260829-08-pref1-live-runner.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -161,7 +170,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertLessEqual(
             {key for key in retained if retained[key] != current[key]}, excluded
         )
-        self.assertEqual(current["all_revalidation_python_files_scanned"], 1743)
+        self.assertEqual(current["all_revalidation_python_files_scanned"], 1744)
         self.assertEqual(current["subprocess_modules_scanned"], 412)
         self.assertEqual(
             hashlib.sha256(
@@ -169,17 +178,35 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "07f359eb257f0c61fb10437838c681c0cd1395e84b8005fda8bcc24c9176b612",
+            "31cddedb2bc753e994b12af2f481cc2ea57f26d2336f1f3b5a3a226955ce7367",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(retained_bytes), 13518)
+        self.assertEqual(len(retained_bytes), 14138)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "5562f3e56f7ac92f8da89b1932ad60f6b4313c429ef09ddacf3feb11ae8b9bbf",
+            "a27001b02da8a056c39c8a575bd03de25ac3f675ed77bc5b944825df04aae8fd",
         )
+
+    def test_pref1_live_runner_is_registered_but_remains_review_pending(self):
+        name = "s22plus_fyg8_pref1_normal_reboot_live_v1.py"
+        self.assertIn(name, self.auditor.ACTIVE_FILES)
+        self.assertEqual(
+            self.auditor.EXPECTED_ACTIVE_SOURCE_SHA256[name],
+            "3acaf93ca6021cce6277008c669cf5c5f7a426ac2695d9d5c8de9ab68cea0f83",
+        )
+        for token in (
+            "IMPLEMENTED / REVIEW PENDING / NOT ACTIVE",
+            "45,930 bytes / `3acaf93c`",
+            "14,138 bytes / `a27001b0`",
+            "cut between healthy-return and close",
+            "activation proposal, session approval, device command",
+        ):
+            self.assertIn(token, self.pref1_live_report)
+        self.assertIn("implemented review-pending", self.goal)
+        self.assertIn("no activation manifest, session approval", self.goal)
 
     def test_d0_registration_is_active_reviewed_and_not_a_current_run(self):
         report = self.d0_producer_report
@@ -282,6 +309,11 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                PREF1_LIVE_PREDECESSOR_RECEIPT,
+                13518,
+                "5562f3e56f7ac92f8da89b1932ad60f6b4313c429ef09ddacf3feb11ae8b9bbf",
+            ),
             (
                 D1_V3_REGISTRATION_PREDECESSOR_RECEIPT,
                 12916,
