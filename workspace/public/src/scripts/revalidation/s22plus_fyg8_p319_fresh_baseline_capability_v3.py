@@ -369,7 +369,12 @@ def _validate_current_candidate_closure(
     plan = intent.get("module_plan")
     if not isinstance(plan, dict) or set(plan) != {"count", "eud_index", "overlay_delta"}:
         raise FreshBaselineError("current candidate module plan schema differs")
-    if "module:eud.ko" not in source_keys or len(module_names) != 73 or plan["count"] != len(module_names):
+    if (
+        "module:eud.ko" not in source_keys
+        or len(module_names) != 73
+        or type(plan["count"]) is not int
+        or plan["count"] != len(module_names)
+    ):
         raise FreshBaselineError("current candidate module-plan count differs")
     if type(plan["eud_index"]) is not int or plan["eud_index"] != 38:
         raise FreshBaselineError("current candidate EUD index differs")
@@ -378,9 +383,17 @@ def _validate_current_candidate_closure(
         qualification.get("overlay"), overlay
     ):
         raise FreshBaselineError("current candidate overlay is not latch-only")
-    if qualification.get("derived_eud_index") != plan["eud_index"]:
+    if (
+        type(qualification.get("derived_eud_index")) is not int
+        or qualification.get("derived_eud_index") != plan["eud_index"]
+    ):
         raise FreshBaselineError("qualification EUD derivation differs")
-    if qualification.get("exact_one_member_generic_overlay") is not True or qualification.get("vendor_layer_stock_modules") != len(module_names) - len(overlay):
+    if (
+        qualification.get("exact_one_member_generic_overlay") is not True
+        or type(qualification.get("vendor_layer_stock_modules")) is not int
+        or qualification.get("vendor_layer_stock_modules")
+        != len(module_names) - len(overlay)
+    ):
         raise FreshBaselineError("qualification module-plan semantics differ")
     return {
         "source_keys": {"count": len(source_keys), "sha256": _source_key_digest(source_keys)},
@@ -1047,6 +1060,7 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
     if (
         arm_receipt["path"] != _relative(D0_RUN_ARM)
         or arm_receipt["mode"] != "0400"
+        or type(arm_receipt["nlink"]) is not int
         or arm_receipt["nlink"] != 1
         or type(arm_receipt["size"]) is not int
         or arm_receipt["size"] <= 0
@@ -1071,6 +1085,7 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
         )
         or arm.get("run_directory") != execution["run_directory"]
         or arm.get("action") != execution["action"]
+        or type(arm.get("attempt")) is not int
         or arm.get("attempt") != 1
         or arm.get("consumed") is not True
         or arm.get("device_contact_before_arm") is not False
@@ -1138,11 +1153,24 @@ def _validate_d0(value: Any, design: dict[str, Any], d1: dict[str, Any], candida
         _validated_usb_snapshot(usb[key], f"D0 {key} USB")
     observer = item["observer"]
     required = {"path", "raw_capture", "source", "bytes", "sha256", "read_to_eof", "stderr_bytes", "raw_first", "parser_started_after_raw_publish"}
-    if not isinstance(observer, dict) or set(observer) != required or observer["source"] != "/proc/last_kmsg" or observer["bytes"] != RAW_SIZE or observer["read_to_eof"] is not True or observer["stderr_bytes"] != 0 or observer["raw_first"] is not True or observer["parser_started_after_raw_publish"] is not True:
+    if (
+        not isinstance(observer, dict)
+        or set(observer) != required
+        or observer["source"] != "/proc/last_kmsg"
+        or type(observer["bytes"]) is not int
+        or observer["bytes"] != RAW_SIZE
+        or observer["read_to_eof"] is not True
+        or type(observer["stderr_bytes"]) is not int
+        or observer["stderr_bytes"] != 0
+        or observer["raw_first"] is not True
+        or observer["parser_started_after_raw_publish"] is not True
+    ):
         raise FreshBaselineError("D0 observer raw-first evidence differs")
     _sha(observer["sha256"], "D0 observer")
     path = Path(observer["path"])
     raw_receipt = _exact(observer["raw_capture"], {"path", "size", "sha256"}, "D0 raw capture")
+    if type(raw_receipt["size"]) is not int or raw_receipt["size"] <= 0:
+        raise FreshBaselineError("D0 raw capture receipt size differs")
     receipt = Path(raw_receipt["path"])
     expected_dir = Path(run_dir_value)
     if not path.is_absolute() or path != D0_OBSERVER or not receipt.is_absolute() or receipt != D0_RAW_RECEIPT or expected_dir != D0_RUN_DIR:
@@ -1306,7 +1334,12 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
         raise FreshBaselineError("normalized D1 V3 raw evidence differs")
     _sha(d1_raw.get("aggregate_sha256"), "normalized D1 V3 raw evidence")
     raw = value["raw"]
-    if raw.get("size") != RAW_SIZE or raw.get("source") != "/proc/last_kmsg" or raw.get("raw_first") is not True:
+    if (
+        type(raw.get("size")) is not int
+        or raw.get("size") != RAW_SIZE
+        or raw.get("source") != "/proc/last_kmsg"
+        or raw.get("raw_first") is not True
+    ):
         raise FreshBaselineError("normalized raw evidence differs")
     _sha(raw.get("sha256"), "normalized raw")
     classification = value["decoder"].get("classification")
@@ -1324,6 +1357,8 @@ def validate_result(value: Mapping[str, Any]) -> dict[str, Any]:
     if (
         not isinstance(raw_adb, dict)
         or raw_adb.get("complete") is not True
+        or not isinstance(raw_adb.get("handles"), list)
+        or not isinstance(raw_adb.get("children"), list)
         or len(raw_adb.get("handles", [])) != 9
         or len(raw_adb.get("children", [])) != 27
     ):

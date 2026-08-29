@@ -378,6 +378,104 @@ class P319D0FreshBaselineV3Test(unittest.TestCase):
             )
         )
 
+    def test_reducer_real_d0_path_rejects_numeric_type_substitutions(self):
+        _root, _static, inputs = self.static_execution(pass_go=True)
+        d1 = self.fake_d1(inputs)
+        result, _client = self.execute(inputs, d1)
+        execution = inputs["manifest"]
+        context = {
+            "producer": self.d0,
+            "d0_runtime_payload": inputs["d0_payload"],
+            "raw_payload": inputs["raw_payload"],
+            "adapter_payloads": inputs["adapter_payloads"],
+        }
+        patches = {
+            "DEFAULT_D0": self.d0.RESULT_PATH,
+            "D0_RUN_ARM": self.d0.RUN_ARM,
+            "D0_RUN_DIR": self.d0.RUN_DIR,
+            "D0_ADB_SNAPSHOT": self.d0.ADB_SNAPSHOT,
+            "D0_OBSERVER": self.d0.OBSERVER_PATH,
+            "D0_RAW_RECEIPT": self.d0.RAW_RECEIPT,
+        }
+        with mock.patch.multiple(self.reducer, **patches), mock.patch.object(
+            self.reducer,
+            "_d0_execution_binding",
+            return_value=(
+                execution,
+                inputs["manifest_receipt"],
+                inputs["approval_sha256"],
+                context,
+            ),
+        ):
+            self.reducer._validate_d0(
+                result,
+                inputs["baseline_design"],
+                d1,
+                inputs["candidate"],
+                inputs["profile"],
+                self.d0.RESULT_PATH,
+            )
+            for path, replacement in (
+                (("observer", "bytes"), float(self.d0.RAW_SIZE)),
+                (("observer", "stderr_bytes"), False),
+                (("observer", "raw_capture", "size"), float(
+                    result["observer"]["raw_capture"]["size"]
+                )),
+            ):
+                forged = copy.deepcopy(result)
+                target = forged
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = replacement
+                with self.subTest(path=path):
+                    with self.assertRaises(self.reducer.FreshBaselineError):
+                        self.reducer._validate_d0(
+                            forged,
+                            inputs["baseline_design"],
+                            d1,
+                            inputs["candidate"],
+                            inputs["profile"],
+                            self.d0.RESULT_PATH,
+                        )
+            forged = copy.deepcopy(result)
+            forged["journal"]["arm"]["nlink"] = True
+            forged["binding"]["journal"] = copy.deepcopy(forged["journal"])
+            with self.assertRaises(self.reducer.FreshBaselineError):
+                self.reducer._validate_d0(
+                    forged,
+                    inputs["baseline_design"],
+                    d1,
+                    inputs["candidate"],
+                    inputs["profile"],
+                    self.d0.RESULT_PATH,
+                )
+
+            arm = json.loads(self.d0.RUN_ARM.read_text(encoding="utf-8"))
+            arm["attempt"] = True
+            arm_payload = self.d0.canonical(arm)
+            self.d0.RUN_ARM.chmod(0o600)
+            self.d0.RUN_ARM.write_bytes(arm_payload)
+            self.d0.RUN_ARM.chmod(0o400)
+            arm_receipt = {
+                "path": self.d0._relative(self.d0.RUN_ARM),
+                "size": len(arm_payload),
+                "sha256": hashlib.sha256(arm_payload).hexdigest(),
+                "mode": "0400",
+                "nlink": 1,
+            }
+            forged = copy.deepcopy(result)
+            forged["journal"]["arm"] = arm_receipt
+            forged["binding"]["journal"] = copy.deepcopy(forged["journal"])
+            with self.assertRaises(self.reducer.FreshBaselineError):
+                self.reducer._validate_d0(
+                    forged,
+                    inputs["baseline_design"],
+                    d1,
+                    inputs["candidate"],
+                    inputs["profile"],
+                    self.d0.RESULT_PATH,
+                )
+
     def test_pending_review_and_wrong_approval_precede_any_acquisition(self):
         _root, _ = self.sandbox(pass_go=False)
         with mock.patch.object(

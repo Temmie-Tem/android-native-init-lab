@@ -30,8 +30,8 @@ rewriting reviewed history. The initial implementation is preserved by commit
 artifacts are:
 
 - D0 producer: 77,915 bytes / `adc3e979`;
-- normalized reducer: 74,366 bytes / `3567b5eb`;
-- pending execution binding: 14,504 bytes / `adbc8369`.
+- normalized reducer: 75,232 bytes / `848e20d8`;
+- pending execution binding: 14,504 bytes / `cedf8b8b`.
 
 The D0 namespace is separate from the D1 parent because D1 V3 permits only its
 fixed arm and run children. The D0 behavior itself is unchanged: one exact
@@ -64,6 +64,13 @@ These checks do not add a device action or widen the D0 command set. They close
 pre-intent, provenance, and retained-result seams in the already bounded
 consumer.
 
+The first repair re-review still returned `CHANGES_REQUIRED` because several
+scalar integer comparisons in the reducer retained Python numeric coercion.
+The final repair requires exact integer types for candidate plan counts, arm
+link count and attempt, observer byte counts, raw-receipt size, and normalized
+raw cardinality. Its hostile test drives the real `_validate_d0()` path with
+float and bool substitutions rather than testing the equality helper alone.
+
 ## Raw-first boundary
 
 The new producer remains the twentieth active observer source. The current
@@ -76,14 +83,14 @@ subprocess-module census remains 412. The `-13` 15,075-byte `b70ac022` receipt,
 
 ## Validation and boundary
 
-Focused V3 tests pass 16/16. They reopen the actual D1 V3 result, reject V2
+Focused V3 tests pass 17/17. They reopen the actual D1 V3 result, reject V2
 paths and forged health/raw data, keep review and approval checks before
 acquisition, exercise one exact raw-first read, reject short/stderr/nonzero
 captures and target/topology/boot drift, reject stale namespaces and malformed
 raw-handle outcomes, bind the D1 result receipt in the arm, reread consumed V2
 evidence, and preserve consumed no-replay state. Raw active-source seams and
 deterministic documentation pass 22/22. The combined D0 V2/V3, D1 V3,
-taxonomy, and current-state guard passes 116/116; the unchanged common
+taxonomy, and current-state guard passes 117/117; the unchanged common
 Process-v2 four-module selection passes 142/142.
 
 The binding remains `review-pending`. No D0 approval, arm, device read, result,
