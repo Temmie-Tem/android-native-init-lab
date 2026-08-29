@@ -50,23 +50,30 @@ negative observation cannot outvote the retained stock classification.
 The final two identical raw-first `/proc/last_kmsg` reads remain the evidence
 source. The live state stores the exact stock projection and proof class, and
 validation compares them directly with the classification reconstructed from
-the final raw evidence. A state-only proof-class relabel is rejected.
+the final raw evidence. Independent review found that ordinary Python equality
+made nested `false`/`0`, `true`/`1`, and integer/equal-float substitutions look
+equal. The first repair covered durable reopen; re-review found the same
+ordinary-equality seam in final raw-observer validation. Both comparisons now
+use one recursive exact-type equality helper, and hostile boolean and
+integer-to-float mutations are rejected through the final-observer entrypoint.
+A state-only proof-class or type relabel is therefore rejected.
 
 ## Raw-first boundary
 
-Because the shared live runner is an active raw-first source, its new exact
-199,860-byte / `ec932139` identity is repinned in the permanent auditor. The
+Because the shared live runner is an active raw-first source, its final repaired
+200,471-byte / `d6249eda` identity is repinned in the permanent auditor. The
 unchanged populations are 1,747 revalidation Python files, 412 subprocess
 modules, 128 pre-boundary device sources, 126 closed observer sources, and 47
 legacy observer sources; their semantic inventory hashes change only where the
 modified evidence/core files are members.
 
-The 76,346-byte / `bcf06725` auditor has normalized self-hash `feabe85c` and
-publishes new private receipt `-16`, 15,075 bytes, mode 0400, link count one,
+The 76,359-byte / `a15f8058` auditor has normalized self-hash `60534fe5` and
+publishes new private receipt `-18`, 15,075 bytes, mode 0400, link count one,
 SHA-256
-`8fb852498444fa65c79ce2f2ba4332ae21f0b175055eec658a1148f3c1809fac`.
-The `-15` 15,075-byte / `a93097d5` predecessor and all earlier receipts remain
-unchanged.
+`0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42`.
+The incomplete first-repair `-17` 15,075-byte / `9db3ed71`, review-rejected
+`-16` 15,075-byte / `8fb85249`, the `-15` 15,075-byte / `a93097d5`
+predecessor, and all earlier receipts remain unchanged.
 
 ## Exact source identities
 
@@ -74,13 +81,13 @@ unchanged.
 |---|---:|---|
 | typed evidence | 243,987 | `f2176585719ebc616cd37024585cd039af20ecb0563f8823fea6e15d3cea2112` |
 | Process-v2 core | 86,025 | `b13d196098d6c1819b25bf3d2727ebc91631831fdea0e694c5335968606995cf` |
-| live runner | 199,860 | `ec9321390365b89a453b28fffc6c6989dfe7a3009b0c2d721fb44c372c16959a` |
-| registration test | 10,034 | `d2dfde1ac9b6b53e691f227c0dc61902dc1c2a4e55dc05d691479a4c28495481` |
+| live runner | 200,471 | `d6249eda341d315d1975c93dbc813cf63f1e653a6a49dc8a99ba1bcf183f8700` |
+| registration test | 15,249 | `77aabffadcb898b579e082a85cff9e87b9f9dce7fa1d34133aa56bf144c2ec9e` |
 
 ## Validation and remaining boundary
 
 P319 registration plus existing evidence, core, live, and common Process-v2
-docs pass 151/151. P319 result-contract arming plus the retained P318 native
+docs pass 154/154. P319 result-contract arming plus the retained P318 native
 fixture pass 13/13, and P318 live integration passes 5/5. Raw-first docs plus
 ledger taxonomy pass 60/60; the selected current-tree, frozen-inventory, and
 receipt gates pass 4/4 after the exact repin. Touched Python compiles and

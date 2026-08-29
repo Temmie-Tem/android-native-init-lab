@@ -1326,12 +1326,30 @@ def _p319_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _p319_exact_equal(left: Any, right: Any) -> bool:
+    """Compare the retained JSON domain without Python bool/number coercion."""
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return set(left) == set(right) and all(
+            _p319_exact_equal(left[key], right[key]) for key in left
+        )
+    if isinstance(left, list):
+        return len(left) == len(right) and all(
+            _p319_exact_equal(a, b) for a, b in zip(left, right)
+        )
+    return left == right
+
+
 def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     projection = state.get("p319_stock")
     final = state.get("final_evidence")
     observer = final.get("observer") if isinstance(final, dict) else None
     retained = observer.get("p319_stock") if isinstance(observer, dict) else None
-    if not isinstance(projection, dict) or projection != retained:
+
+    if not isinstance(projection, dict) or not _p319_exact_equal(
+        projection, retained
+    ):
         raise F1LiveError("P3.19 durable stock projection differs from final evidence")
     if state.get("p319_proof_class") != projection.get("proof_class"):
         raise F1LiveError("P3.19 durable proof class projection differs")
@@ -2754,7 +2772,9 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     elif "p318_candidate_topology" in evidence:
         raise F1LiveError("foreign P3.18 final topology evidence")
     if _p319_bundle(prepared.bundle):
-        if observer.get("p319_stock") != _p319_terminal_projection(marker_result):
+        if not _p319_exact_equal(
+            observer.get("p319_stock"), _p319_terminal_projection(marker_result)
+        ):
             raise F1LiveError("P3.19 final stock projection changed")
     elif "p319_stock" in observer:
         raise F1LiveError("foreign P3.19 final stock evidence")

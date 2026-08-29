@@ -45,6 +45,14 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json"
+)
+PROCESS_V2_REGISTRATION_FINAL_REPAIR_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260829-17-p319-process-v2-registration-repair.json"
+)
+PROCESS_V2_REGISTRATION_REPAIR_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260829-16-p319-process-v2-registration.json"
 )
 PROCESS_V2_REGISTRATION_PREDECESSOR_RECEIPT = ROOT / (
@@ -179,7 +187,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260829-16-p319-process-v2-registration.json",
+            "raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -206,7 +214,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "0aa5a8b06b79715489acba60f703e92f0f71f4efee124b4fcbca3d8654582f5f",
+            "5a54a6da33c62edf90ffb63c534cb293d76933918b5ef42b95845093f3d06b04",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -215,7 +223,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(retained_bytes), 15075)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "8fb852498444fa65c79ce2f2ba4332ae21f0b175055eec658a1148f3c1809fac",
+            "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42",
         )
 
     def test_process_v2_integration_v2_is_host_only_non_acquiring(self):
@@ -380,6 +388,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
 
     def test_candidate_requalification_predecessors_are_preserved(self):
         expected = (
+            (
+                PROCESS_V2_REGISTRATION_FINAL_REPAIR_PREDECESSOR_RECEIPT,
+                15075,
+                "9db3ed712484d1d5b9b1fdf6c43425d5593e1367406eff31dbf735b1cb21d716",
+            ),
+            (
+                PROCESS_V2_REGISTRATION_REPAIR_PREDECESSOR_RECEIPT,
+                15075,
+                "8fb852498444fa65c79ce2f2ba4332ae21f0b175055eec658a1148f3c1809fac",
+            ),
             (
                 PROCESS_V2_REGISTRATION_PREDECESSOR_RECEIPT,
                 15075,

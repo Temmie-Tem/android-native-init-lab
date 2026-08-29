@@ -1,6 +1,8 @@
+import copy
 import hashlib
 from types import SimpleNamespace
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -232,6 +234,124 @@ class P319ProcessV2RegistrationTests(unittest.TestCase):
             if projection["proof_class"] != "NO_PROOF_OBSERVER":
                 with self.assertRaises(live.F1LiveError):
                     live._p319_durable_projection(divergent)
+
+    def _complete_durable_state(self):
+        projection = live._p319_terminal_projection(self.classify(self.full()))
+        return projection, {
+            "p319_stock": copy.deepcopy(projection),
+            "p319_proof_class": projection["proof_class"],
+            "final_evidence": {"observer": {"p319_stock": projection}},
+        }
+
+    def test_durable_projection_rejects_nested_boolean_type_drift(self):
+        _projection, state = self._complete_durable_state()
+        state["p319_stock"]["stock"][0]["stock"]["chain_complete"] = 1
+        with self.assertRaises(live.F1LiveError):
+            live._p319_durable_projection(state)
+
+    def test_durable_projection_rejects_nested_integer_type_drift(self):
+        _projection, state = self._complete_durable_state()
+        state["p319_stock"]["stock"][0]["stock"]["chain_stage"] = 4.0
+        with self.assertRaises(live.F1LiveError):
+            live._p319_durable_projection(state)
+
+    def test_final_observer_rejects_nested_projection_type_drift(self):
+        raw = self.full()
+        classified = self.classify(raw)
+        projection = live._p319_terminal_projection(classified)
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            reads = []
+            for index in (1, 2):
+                path = run_dir / f"rollback-observer-{index}.bin"
+                handle = live.raw_capture.publish_captured_bytes(
+                    run_dir,
+                    f"{index:04d}-observer-eof",
+                    stdout=raw,
+                    stdout_name=path.name,
+                    stderr_name=path.name + ".stderr",
+                )
+                receipt_payload = handle.receipt_path.read_bytes()
+                reads.append(
+                    {
+                        "path": str(path),
+                        "bytes": len(raw),
+                        "sha256": hashlib.sha256(raw).hexdigest(),
+                        "raw_capture": {
+                            "path": str(handle.receipt_path),
+                            "size": len(receipt_payload),
+                            "sha256": hashlib.sha256(receipt_payload).hexdigest(),
+                        },
+                        "read_to_eof": True,
+                        "stderr_bytes": 0,
+                        "elapsed_sec": 0.01,
+                    }
+                )
+            final_health = {
+                "verified_boot_state": "orange",
+                "boot_sha256": "a" * 64,
+                "supporting_partition_sha256": {
+                    "vendor_boot": "b" * 64,
+                    "dtbo": "c" * 64,
+                    "recovery": "d" * 64,
+                },
+            }
+            prepared = SimpleNamespace(
+                run_dir=run_dir,
+                private_target={"serial": "s", "topology": "usb:1-1"},
+                bundle=SimpleNamespace(
+                    profile={"final_health": final_health},
+                    manifest={"observation": {"acceptance": self.acceptance}},
+                ),
+            )
+            observer = {
+                "reads": reads,
+                "byte_identical": True,
+                "bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "exact_marker_count": classified["exact_count"],
+                "marker_family_count": classified["family_count"],
+                "classification": classified,
+                "accepted": True,
+                "p319_stock": projection,
+            }
+            evidence_value = {
+                "health": {
+                    "android_boot_completed": True,
+                    "boot_animation_stopped": True,
+                    "verified_boot_state": "orange",
+                    "root_verified": True,
+                    "boot_sha256": "a" * 64,
+                    "supporting_partition_sha256": final_health[
+                        "supporting_partition_sha256"
+                    ],
+                    "odin_endpoint_absent": True,
+                    "kernel_release": "fixture-kernel",
+                    "boot_id_sha256": "e" * 64,
+                },
+                "target_evidence_sha256": core.json_sha256(
+                    {
+                        "serial": hashlib.sha256(b"s").hexdigest(),
+                        "topology": hashlib.sha256(b"usb:1-1").hexdigest(),
+                    }
+                ),
+                "observer": observer,
+                "rollback_verified": True,
+            }
+            state = {"final_evidence": evidence_value, "marker_accepted": True}
+            live._validate_final_observer(prepared, state)
+            mutations = (
+                ("chain_complete", 1),
+                ("chain_stage", 4.0),
+            )
+            for field, value in mutations:
+                with self.subTest(field=field):
+                    changed = copy.deepcopy(state)
+                    changed["final_evidence"]["observer"]["p319_stock"][
+                        "stock"
+                    ][0]["stock"][field] = value
+                    with self.assertRaises(live.F1LiveError):
+                        live._validate_final_observer(prepared, changed)
 
 
 if __name__ == "__main__":
