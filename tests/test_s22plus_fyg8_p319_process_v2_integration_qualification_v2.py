@@ -19,6 +19,18 @@ V1_SCRIPT = ROOT / (
     "workspace/public/src/scripts/revalidation/"
     "s22plus_fyg8_p319_process_v2_integration_qualification.py"
 )
+CURRENT_RESULT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-integration-qualification-v2-20260829-05/result.json"
+)
+CURRENT_PREREQUISITE = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "process-v2-prerequisite-audit-20260829-01-p319-registration.json"
+)
+CURRENT_REGISTRY_QUALIFICATION = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "consumed-candidate-registry-qualification-20260829-01-p319-registration.json"
+)
 
 
 def load_module_from(path, name):
@@ -313,7 +325,37 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertEqual(result["predecessor_result"], self.module.PREVIOUS_RESULT)
         self.assertEqual(
             self.module.DEFAULT_OUTPUT.parent.name,
-            "process-v2-integration-qualification-v2-20260829-04",
+            "process-v2-integration-qualification-v2-20260829-05",
+        )
+
+    def test_post_registration_receipts_are_exact_and_reproducible(self):
+        expected = (
+            (
+                CURRENT_REGISTRY_QUALIFICATION,
+                2964,
+                "5807c9199c52592710d2424c3bda0be16f7f046f7de93b2cd72f75c7b4f13437",
+            ),
+            (
+                CURRENT_PREREQUISITE,
+                12995,
+                "e57f6dda7fb795e27a6f92eac11e45e95c4e08b8ec9e796c14b74e35f625fed9",
+            ),
+            (
+                CURRENT_RESULT,
+                125814,
+                "16c9901f3e429370c39907e1632dfe4699656db698c8fb4f3c9ab87cef3e3e9c",
+            ),
+        )
+        for path, size, digest in expected:
+            with self.subTest(path=path.name):
+                payload = path.read_bytes()
+                info = path.stat()
+                self.assertEqual(len(payload), size)
+                self.assertEqual(self.module._identity(payload)["sha256"], digest)
+                self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+                self.assertEqual(info.st_nlink, 1)
+        self.assertEqual(
+            CURRENT_RESULT.read_bytes(), self.module.encode(self.real_result())
         )
 
     def test_v2_cross_binds_baseline_and_current_candidate_bytes(self):

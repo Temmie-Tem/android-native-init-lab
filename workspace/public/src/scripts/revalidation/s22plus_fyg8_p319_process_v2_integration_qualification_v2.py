@@ -8,7 +8,8 @@ Missing prerequisites, a stale candidate pin, an invalid or missing V3 fresh
 baseline, or a missing global consumed-candidate registry remain explicit H0
 blockers.  The current result also proves that the V3 baseline's `-10`
 candidate and the current `-11` candidate produced byte-identical phase
-receipts.  This repin leaves the reviewed V1 source and V2 `-02` result intact.
+receipts.  This post-registration repin leaves the reviewed V1 source, the
+prior V2 results, and the exact `-04` predecessor intact.
 """
 
 from __future__ import annotations
@@ -91,20 +92,20 @@ EXPECTED_USERSPACE_ARTIFACTS = {
     },
 }
 PREVIOUS_RESULT = {
-    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-03/result.json",
-    "size": 121247,
-    "sha256": "56ecefbcc7b051c9efb79e806f83754a0e20df9febc2c84c7c5d2ae4563cba11",
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260829-04/result.json",
+    "size": 125735,
+    "sha256": "77416056429e60d65564b0e2db55e88128fa03ff7042373ff820f3f8678b8ca3",
 }
 DEFAULT_OUTPUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260829-04/result.json"
+    "process-v2-integration-qualification-v2-20260829-05/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"
 )
 CONSUMED_CANDIDATE_REGISTRY = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "consumed-candidate-registry-qualification-20260823-02.json"
+    "consumed-candidate-registry-qualification-20260829-01-p319-registration.json"
 )
 PROCESS_CONTRACT = ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 DOWNLOAD_REQUEST_RECOVERY_TEST = ROOT / "tests/test_device_action_f1_live_v2.py"

@@ -36,13 +36,13 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
 VERDICT = "PASS_P319_PREREQUISITE_H0"
-RAW_AUDITOR_SHA256 = "f9d3e0bc35780c3e8b2eb466f04b2cbaedcba8b26afccea3d41aa0a673f5b3ad"
-RAW_AUDITOR_SIZE = 76_337
-RAW_RECEIPT_SHA256 = "a93097d5b2d71ca3b045633f5b76ef961921421cace72a863dbe98e1684e8f16"
+RAW_AUDITOR_SHA256 = "a15f805808f4cc6c97515dd08da9852c1ae91cc0c51be382061e98f6863752cb"
+RAW_AUDITOR_SIZE = 76_359
+RAW_RECEIPT_SHA256 = "0ffd630671974208eddd2ee4ea7d6037c1c9c667b501d4e342a03e1d3c46ca42"
 RAW_RECEIPT_SIZE = 15_075
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260829-15-p319-integration-v2.json"
+    "raw-first-observer-audit-20260829-18-p319-process-v2-registration-final-repair.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"
@@ -59,7 +59,7 @@ CONSUMED_REGISTRY_QUALIFICATION_HELPER = ROOT / (
 )
 CONSUMED_REGISTRY_QUALIFICATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "consumed-candidate-registry-qualification-20260823-02.json"
+    "consumed-candidate-registry-qualification-20260829-01-p319-registration.json"
 )
 
 P318_RUN = ROOT / (
@@ -85,13 +85,13 @@ PRIVATE_JSON_NAMES = frozenset(
 
 RAW_FIRST_PREDECESSOR = {
     "auditor": {
-        "size": 68_231,
-        "sha256": "0cfd391b2ca26ddd8f51cac9fe2b7fcb14daaeba5985d4541e8b08354e9c0487",
+        "size": 76_337,
+        "sha256": "f9d3e0bc35780c3e8b2eb466f04b2cbaedcba8b26afccea3d41aa0a673f5b3ad",
     },
     "receipt": {
-        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260824-06-p319-d0-v2-repin.json",
-        "size": 12_916,
-        "sha256": "66658f6739b8e0116209a13de3fbb2255b040fa68b0ee7bb34c7cb51876207ec",
+        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260829-15-p319-integration-v2.json",
+        "size": 15_075,
+        "sha256": "a93097d5b2d71ca3b045633f5b76ef961921421cace72a863dbe98e1684e8f16",
     },
 }
 
