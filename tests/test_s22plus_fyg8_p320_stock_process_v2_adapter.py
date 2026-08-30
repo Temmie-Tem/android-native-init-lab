@@ -79,8 +79,8 @@ class P320StockProcessV2AdapterTests(unittest.TestCase):
         self.assertTrue(bound["exact_p310_carrier_model_bound"])
         self.assertTrue(bound["exact_p308_telemetry_spec_bound"])
         self.assertTrue(bound["whole_observer_hash_pinned"])
-        self.assertEqual(bound["observer_contract_base_commit"], "b37d630098")
-        self.assertEqual(bound["observer_contract_commit"], "b37d630098")
+        self.assertEqual(bound["observer_contract_base_commit"], "8348fc0085")
+        self.assertEqual(bound["observer_contract_commit"], "8348fc0085")
         observer_file = self.adapter.P320_OBSERVER_SOURCE.read_bytes()
         self.assertEqual(
             bound["sources"]["p320_observer_contract"],

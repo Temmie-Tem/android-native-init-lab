@@ -44,7 +44,7 @@ PARENT_SOURCE_CONTRACT_ID = "s22plus-fyg8-p310-carrier-v2-hsphy-attribution-v1"
 PROFILE = spec.PROFILE
 DECODER_ID = "s22plus_fyg8_p320_observer_v4_carrier_v1"
 OBSERVER_CONTRACT_ID = "s22plus-fyg8-p320-observer-error-v1"
-OBSERVER_CONTRACT_BASE_COMMIT = "b37d630098"
+OBSERVER_CONTRACT_BASE_COMMIT = "8348fc0085"
 OBSERVER_CONTRACT_COMMIT = OBSERVER_CONTRACT_BASE_COMMIT
 LONG_FAMILY = carrier.LONG_FAMILY
 UNSAT_FAMILY = carrier.UNSAT_FAMILY
@@ -106,8 +106,8 @@ P308_SPEC_IDENTITY = {
     "sha256": "598ef196058d5ae02a43a6885394b84953b12b0cde3c53dfcf14d9bdf67d1d01",
 }
 P320_OBSERVER_SOURCE_IDENTITY = {
-    "size": 78_289,
-    "sha256": "efd4b845fb270187f3e17c7ab3f74c8e0dbeb6d190aab9bb23d500b6fbd716a1",
+    "size": 81_705,
+    "sha256": "7b1330ad28712474d5c3ea0f2d4f7649c4d4da94ad7ff1cff705a3b14681cf72",
 }
 SOURCE_PATHS = {
     "p320_observer_contract": "workspace/public/src/scripts/analysis/s22plus_fyg8_p320_observer_contract.py",
