@@ -17,8 +17,9 @@ Neither candidate nor rollback was replayed.
 
 The experiment did not produce an accepted P3.21 result. Two full-length final
 `/proc/last_kmsg` reads were byte-identical and contained one exact P3.21 Carrier
-family, but only one slot had a valid body. The strict result is therefore
-`NO_PROOF_OBSERVER`, not candidate success or experiment failure.
+family. Both slot CRCs were valid, but the newer slot was semantically invalid.
+The strict result is therefore `NO_PROOF_OBSERVER`, not candidate success or
+experiment failure.
 
 ## Preparation
 
@@ -65,10 +66,30 @@ Their typed classification retained:
 - exact P3.21 run ID and one Carrier family;
 - valid Carrier header CRC;
 - slot 0 valid at generation 92, stage `0x8f`, item index 4, outcome 0;
-- slot 1 `bad-body`;
+- slot 1 has a valid CRC and canonical padding at generation 93, stage `0x90`,
+  item index 0, outcome 2, detail `0x6720`, but decodes as `bad-body` because
+  that failure detail is outside the declared route for this position;
 - fallback/progress only, no terminal success;
 - `p320-stock-envelope-shape` integrity issue and contradiction count 1;
 - zero accepted P3.21 stock results.
+
+## Exact writer cause
+
+The retained generation-92 position is `restart_deadline_ready`. The generated
+P3.21 runtime then enters `p319_stock_publish()`, whose
+`p319_stock_bypass_to_pair()` requires `g_checkpoint.generation == 105U` and
+immediately calls `p290_fail_next(0x6720)` otherwise. It contains no progression
+from 92 to 105. The failure writer therefore correctly commits the next A/B slot
+with a valid CRC at generation 93, but writes the position-contradiction detail
+into `restart_helper_dispatch`, where that detail is not legal. The decoder's
+`bad-body` classification is consequently a semantic rejection, not torn media,
+CRC damage, USB corruption, or a boot failure.
+
+The earlier P3.13 implementation already contains the proportional repair shape:
+reject terminal or generation greater than 105, then advance the bounded missing
+positions until generation 105 before publishing positions 105 and 106. A future
+successor may reuse that state transition, but P3.21 remains consumed and is never
+replayed.
 
 `COMPLETE` was not observed. The partial record proves only that a P3.21-bound
 writer reached the retained progress structure. It does not prove the intended
@@ -89,7 +110,9 @@ The supplemental host USB sidecar remained `UNKNOWN` after the endpoint exceptio
 
 ## Next bounded work
 
-P3.21 is consumed and cannot be retried. The next H0 unit should inspect only two
-observed seams: why the second P3.21 slot body was invalid, and why exact Download
-node removal is still rejected at enumeration membership before the birth-read
-departure handler. Neither investigation requires another baseline, D1, or F1 run.
+P3.21 is consumed and cannot be retried. H0 has isolated its publisher state
+transition and repaired the separate post-transfer enumeration seam so that an
+empty Odin list may accept only the exact single Download node retained by the
+immediately preceding live receipt. Default enumeration, additions, replacements,
+multiple removals, and an unbound removal remain fail-closed. Neither result grants
+device authority; the next candidate requires new bytes and fresh preparation.

@@ -633,6 +633,119 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             capture.call_args.kwargs["allow_endpoint_departure_resnapshot"]
         )
 
+    def test_post_transfer_empty_list_accepts_only_previous_live_node_departure(self):
+        module = self.module
+        core = self.core
+        before = node(module)
+        other_path = "/dev/bus/usb/001/001"
+        other = node(
+            module,
+            path=other_path,
+            st_ino=55,
+            st_rdev=os.makedev(189, 0),
+            device_minor=0,
+        )
+        observations = iter(
+            (
+                {other_path: other, USB_008: before},
+                {other_path: other},
+                {other_path: other},
+            )
+        )
+        inventory_calls = {"count": 0}
+        runner_calls = {"count": 0}
+
+        def reader():
+            inventory_calls["count"] += 1
+            return dict(next(observations))
+
+        def factory():
+            return module.MeasuredUsbfsIdentityObserver(inventory_reader=reader)
+
+        def runner(_argv, _timeout):
+            runner_calls["count"] += 1
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        previous = core.OdinSnapshot(
+            timestamp_utc="2026-08-31T00:00:00.000000Z",
+            returncode=0,
+            raw_devices=(USB_008,),
+            live_devices=(USB_008,),
+            stale_devices=(),
+            live_device_identities=((USB_008, module.immutable_identity(before)),),
+            stdout=USB_008,
+            stderr="",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with core.transaction_session(run_dir) as lease:
+                core.persist_snapshot(run_dir, 0, previous, lease=lease)
+                result = core.wait_for_no_live_endpoint(
+                    Path("odin4"),
+                    run_dir,
+                    timeout_sec=1,
+                    lease=lease,
+                    sequence_start=1,
+                    runner=runner,
+                    endpoint_observer_factory=factory,
+                    allow_live_departure=True,
+                )
+            receipts = core.list_snapshot_receipts(run_dir)
+
+        self.assertTrue(result.absent)
+        self.assertEqual(result.next_sequence, 2)
+        self.assertEqual(runner_calls["count"], 1)
+        # Baseline, the exact removal read, and one ordinary receipt recheck.
+        self.assertEqual(inventory_calls["count"], 3)
+        self.assertEqual(receipts[1]["live_devices"], [])
+        self.assertEqual(
+            receipts[1]["endpoint_transition_evidence"]["inventory_paths"],
+            [other_path],
+        )
+
+    def test_empty_list_departure_rejects_unbound_or_non_exact_membership_change(self):
+        module = self.module
+        core = self.core
+        before = node(module)
+        other_path = "/dev/bus/usb/001/001"
+        other = node(
+            module,
+            path=other_path,
+            st_ino=55,
+            st_rdev=os.makedev(189, 0),
+            device_minor=0,
+        )
+        added = node(
+            module,
+            path=USB_009,
+            st_ino=56,
+            st_rdev=os.makedev(189, 136),
+            device_minor=136,
+        )
+        cases = (
+            (False, None, {other_path: other}),
+            (True, USB_009, {other_path: other}),
+            (True, USB_008, {}),
+            (True, USB_008, {other_path: other, USB_009: added}),
+        )
+        for allowed, expected, after in cases:
+            with self.subTest(allowed=allowed, expected=expected, added=USB_009 in after):
+                observer = module.MeasuredUsbfsIdentityObserver(
+                    inventory_reader=sequence_inventory(
+                        {other_path: other, USB_008: before}, after
+                    )
+                )
+                with self.assertRaises(core.OdinMeasuredEvidenceFailure):
+                    core.enumerate_odin(
+                        Path("odin4"),
+                        runner=lambda _argv, _timeout: SimpleNamespace(
+                            returncode=0, stdout="", stderr=""
+                        ),
+                        endpoint_observer_factory=lambda: observer,
+                        allow_live_departure_race=allowed,
+                        expected_live_departure=expected,
+                    )
+
     def test_core_rejects_mixed_legacy_and_measured_identity_modes(self):
         core = self.core
         called = []

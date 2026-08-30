@@ -415,6 +415,7 @@ def enumerate_odin(
     device_inventory: DeviceInventory = _default_device_inventory,
     endpoint_observer_factory: EndpointObserverFactory | None = None,
     allow_live_departure_race: bool = False,
+    expected_live_departure: str | None = None,
     allow_live_arrival_race: bool = False,
     timeout_sec: float = 10.0,
     timestamp: Callable[[], str] = live_core.utc_now,
@@ -423,6 +424,13 @@ def enumerate_odin(
 
     if not math.isfinite(timeout_sec) or timeout_sec <= 0:
         raise OdinTransitionError("Odin enumeration timeout must be positive")
+    if expected_live_departure is not None and (
+        not allow_live_departure_race
+        or endpoint_observer_factory is None
+        or not isinstance(expected_live_departure, str)
+        or ODIN_DEVICE_RE.fullmatch(expected_live_departure) is None
+    ):
+        raise OdinTransitionError("expected Odin departure binding is invalid")
     observer: EndpointIdentityObserver | None = None
     if endpoint_observer_factory is not None:
         if (
@@ -563,6 +571,37 @@ def enumerate_odin(
             f"unexpected USB endpoint arrival during enumeration: {exc.path}"
         ) from exc
     except usbfs_identity.UsbfsInventoryMembershipChanged as exc:
+        if (
+            allow_live_departure_race
+            and observer is not None
+            and expected_live_departure is not None
+            and not raw_devices
+            and not live_devices
+            and exc.removed == (expected_live_departure,)
+            and not exc.added
+        ):
+            try:
+                endpoint_evidence = observer.evidence_after_exact_departure(
+                    expected_live_departure
+                )
+            except (OSError, usbfs_identity.UsbfsIdentityError) as departure_exc:
+                raise OdinMeasuredEvidenceFailure(
+                    "inventory-membership-changed",
+                    "UsbfsInventoryMembershipChanged",
+                    removed=exc.removed,
+                    added=exc.added,
+                ) from departure_exc
+            return OdinSnapshot(
+                timestamp_utc=timestamp(),
+                returncode=returncode,
+                raw_devices=(),
+                live_devices=(),
+                stale_devices=(),
+                live_device_identities=(),
+                stdout=stdout,
+                stderr=stderr,
+                endpoint_transition_evidence=endpoint_evidence,
+            )
         raise OdinMeasuredEvidenceFailure(
             "inventory-membership-changed",
             "UsbfsInventoryMembershipChanged",
@@ -1582,6 +1621,7 @@ def _snapshot_and_record(
     lease: _TransactionLease,
     allow_empty_post_receipt_change: bool = False,
     allow_live_departure: bool = False,
+    expected_live_departure: str | None = None,
 ) -> tuple[OdinSnapshot, dict[str, Any]]:
     if allow_empty_post_receipt_change and allow_live_departure:
         raise OdinTransitionError("snapshot transition policy is ambiguous")
@@ -1606,6 +1646,7 @@ def _snapshot_and_record(
             device_inventory=device_inventory,
             endpoint_observer_factory=effective_observer_factory,
             allow_live_departure_race=allow_live_departure,
+            expected_live_departure=expected_live_departure,
             allow_live_arrival_race=allow_empty_post_receipt_change,
             timeout_sec=enumeration_timeout_sec,
             timestamp=timestamp,
@@ -1758,7 +1799,12 @@ def wait_for_no_live_endpoint(
         raise OdinTransitionError("disconnect timeout must be positive and poll non-negative")
     deadline = _deadline_after(_monotonic_now(monotonic), timeout_sec)
     sequence = sequence_start
-    _resume_tracker(run_dir, sequence_start, lease=lease)
+    _tracker, receipts = _resume_tracker(run_dir, sequence_start, lease=lease)
+    expected_live_departure = None
+    if allow_live_departure and receipts:
+        previous_live = receipts[-1]["live_devices"]
+        if len(previous_live) == 1:
+            expected_live_departure = previous_live[0]
     while True:
         remaining = deadline - _monotonic_now(monotonic)
         if remaining <= 0:
@@ -1775,6 +1821,7 @@ def wait_for_no_live_endpoint(
             enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
             lease=lease,
             allow_live_departure=allow_live_departure,
+            expected_live_departure=expected_live_departure,
         )
         sequence += 1
         if len(snapshot.live_devices) > 1:
@@ -1785,6 +1832,7 @@ def wait_for_no_live_endpoint(
             return AbsenceResult(absent=False, next_sequence=sequence, timed_out=True)
         if not snapshot.live_devices:
             return AbsenceResult(absent=True, next_sequence=sequence, timed_out=False)
+        expected_live_departure = snapshot.live_devices[0]
         remaining = deadline - _monotonic_now(monotonic)
         if remaining <= 0:
             return AbsenceResult(absent=False, next_sequence=sequence, timed_out=True)

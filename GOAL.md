@@ -14,13 +14,13 @@ authority, evidence, transports, and commands remain separate.
 P3.21 is closed and consumed. Its boot-only candidate and exact rollback transferred
 once each; the 19-record journal is `CLOSED`, final rooted FYG8 health passed, and
 `recovery_required=false`. The operator observed a normal candidate boot without a loop.
-Two full-length final reads are byte-identical and contain one P3.21 family: its header
-CRC and generation-92/stage-`0x8f`/item-4 progress slot are valid, but the second slot has
-a bad body, so no P3.21 stock result is accepted. Formal terminal is
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`. The post-candidate USB
-fault was an exact Download-node removal at enumeration-membership validation, outside
-the narrower birth-read repair; journal recovery did not replay, and physical Download entry completed rollback. P3.21 is never replayable; next H0 isolates the bad-body writer
-and the still-too-strict membership seam without reopening F1.
+Two full-length final reads are byte-identical and contain one P3.21 family. Both slot
+CRCs are valid; generation 92 is valid progress, while generation 93 is semantic
+`bad-body`: the stock publisher required generation 105 without advancing 92 through
+104, then committed route-invalid failure detail `0x6720`. Formal terminal remains
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`. The separate USB stop is
+now repaired H0-side only for an empty post-transfer Odin list plus removal of the exact
+single path in the immediately preceding live receipt; all wider membership change still stops. P3.21 is never replayable, and any successor requires new bytes and fresh preparation.
 
 P3.20 is closed and consumed. Candidate and exact rollback transferred once, the
 19-record journal is `CLOSED`, final rooted FYG8 health passed, and no replay occurred.

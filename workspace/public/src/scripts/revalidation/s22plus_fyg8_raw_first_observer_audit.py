@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "98c7bfe25720957e3e5ffce48beb96c7cb904162db4571e5c775c4c67d21ecb3"
+AUDITOR_NORMALIZED_SHA256 = "3925589e7f09bdb7af136eb8206844b359f432df89a8e222bab35f1178dbee06"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -336,8 +336,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p320_d0_fresh_baseline.py": "996b6590cb61e5070189e4f16f349bfab2c8ab08f87414b325d66d76a2cb6b71",
     "s22plus_fyg8_p320_d1_fresh_baseline.py": "193dced3d36d6165f8e2810a95e535061a63b93c93ac7484e127ea91a1fa8b56",
     "s22plus_fyg8_pref1_normal_reboot_live_v1.py": "e93ec6df89d2ae050876e67713bf8c80cd43301733ece98795d298e407504ed7",
-    "s22plus_odin_transition_core.py": "f0e31cbd07420fbc0dfa6f43e925c3f198016dcc872ccb910947a3201ddb1146",
-    "s22plus_odin_usbfs_identity.py": "04f28ef811f8b600d4b65203f28c18ff2761c67b21572dfd71fc5f39a1d13984",
+    "s22plus_odin_transition_core.py": "550ee4960cce110a2f5fbde2763971122c88a6ba225cfea800f5bf60a4e65a5b",
+    "s22plus_odin_usbfs_identity.py": "caae61d64435e0fc85bb30adce9dc2bf07cf31bc4ffa033bab72dc072b5db415",
 }
 
 FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {

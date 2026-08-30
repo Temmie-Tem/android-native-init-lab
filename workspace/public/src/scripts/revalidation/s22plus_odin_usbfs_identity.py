@@ -744,12 +744,15 @@ class MeasuredUsbfsIdentityObserver:
                 _validate_snapshot(snapshot)
                 if path != snapshot.path:
                     raise UsbfsIdentityError("usbfs observer inventory path mismatch")
+            # Retain the exact validated read which produced any membership
+            # exception.  A post-transfer caller may then classify one bound
+            # endpoint departure without taking a looser third inventory.
+            self._after = dict(after)
             if not allow_membership_change:
                 arrival = _exact_single_arrival_path(self._baseline, after)
                 if arrival is not None:
                     raise UsbfsInventoryArrival(arrival)
                 enumeration_evidence(self._baseline, after, ())
-            self._after = dict(after)
         return self._after
 
     def identity(self, path: str) -> str | None:
