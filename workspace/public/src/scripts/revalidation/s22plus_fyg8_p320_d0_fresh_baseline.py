@@ -15,6 +15,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import sys
 import tempfile
@@ -59,6 +60,7 @@ HOST_ADB_SIZE = 716_968
 HOST_ADB_SHA256 = "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
 RAW_SIZE = 2_097_136
 MAX_TEXT = 64 * 1024
+HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class D0Error(RuntimeError):
@@ -363,6 +365,75 @@ def _prepare_snapshot(payload: bytes, path: Path) -> None:
             pass
 
 
+def _validate_d1_value(
+    value: Mapping[str, Any],
+    static: Mapping[str, Any],
+    d1_binding_payload: bytes,
+) -> None:
+    """Require the exact consumed D1 result before any D0 device read."""
+    if not isinstance(value, dict):
+        raise D0Error("P3.20 D1 result is not an object")
+    expected_manifest = _receipt(D1_BINDING, d1_binding_payload)
+    if (
+        value.get("schema") != "s22plus_fyg8_p320_d1_fresh_baseline_v1_result"
+        or value.get("verdict") != "PASS_P320_D1_FRESH_BASELINE_EXACT_NORMAL_REBOOT_RETURN_HEALTH"
+        or value.get("execution_manifest") != expected_manifest
+        or value.get("ordinal") != static["d1_binding"].get("ordinal")
+        or value.get("run_id") != P320_RUN_ID
+        or value.get("run_directory")
+        != static["manifest"]["d1_dependency"]["result"].rsplit("/", 1)[0]
+        or value.get("reboot_count") != 1
+    ):
+        raise D0Error("P3.20 D1 result identity differs")
+    required_flags = {
+        "device_contact": True,
+        "live_authorized": True,
+        "device_writes": False,
+        "candidate_transfer": False,
+        "partition_transfer": False,
+        "odin_invoked": False,
+        "download_transition_requested": False,
+        "f1_authorized": False,
+        "other_targets_commanded": False,
+    }
+    if any(type(value.get(key)) is not bool or value.get(key) is not expected for key, expected in required_flags.items()):
+        raise D0Error("P3.20 D1 result safety flags differ")
+    selection = value.get("selection")
+    if not isinstance(selection, dict) or set(selection) != {
+        "inventory_count",
+        "inventory_models",
+        "inventory_sha256",
+        "selected_serial_sha256",
+        "selected_topology_sha256",
+        "other_targets_commanded",
+    }:
+        raise D0Error("P3.20 D1 result selection shape differs")
+    if (
+        type(selection["inventory_count"]) is not int
+        or selection["inventory_count"] < 1
+        or not isinstance(selection["inventory_models"], list)
+        or "SM_S906N" not in selection["inventory_models"]
+        or selection["other_targets_commanded"] is not False
+        or not isinstance(selection["selected_serial_sha256"], str)
+        or not isinstance(selection["selected_topology_sha256"], str)
+        or HEX64.fullmatch(selection["selected_serial_sha256"]) is None
+        or HEX64.fullmatch(selection["selected_topology_sha256"]) is None
+        or selection["selected_serial_sha256"]
+        != static["d1_binding"]["target"].get("adb_serial_sha256")
+    ):
+        raise D0Error("P3.20 D1 result target selection differs")
+    before = value.get("before")
+    after = value.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        raise D0Error("P3.20 D1 result health shape differs")
+    for health in (before, after):
+        boot_id = health.get("boot_id_sha256")
+        if not isinstance(boot_id, str) or HEX64.fullmatch(boot_id) is None:
+            raise D0Error("P3.20 D1 result boot identity differs")
+    if before["boot_id_sha256"] == after["boot_id_sha256"]:
+        raise D0Error("P3.20 D1 result did not prove a changed boot")
+
+
 def _load_d1_result(static: Mapping[str, Any]) -> dict[str, Any]:
     path = ROOT / "workspace/private/runs/device-action-d1-p320-fresh-baseline/p320-d1-fresh-baseline-1/result.json"
     payload = _stable_read(path, "P3.20 D1 result", maximum=512 * 1024, mode=0o400)
@@ -373,12 +444,7 @@ def _load_d1_result(static: Mapping[str, Any]) -> dict[str, Any]:
         maximum=256 * 1024,
         expected=static["payloads"]["d1_binding"],
     )
-    if value.get("schema") != "s22plus_fyg8_p320_d1_fresh_baseline_v1_result" or value.get("verdict") != "PASS_P320_D1_FRESH_BASELINE_EXACT_NORMAL_REBOOT_RETURN_HEALTH" or value.get("execution_manifest") != _receipt(D1_BINDING, d1_binding_payload) or value.get("device_writes") is not False or value.get("reboot_count") != 1 or value.get("other_targets_commanded") is not False or value.get("f1_authorized") is not False:
-        raise D0Error("P3.20 D1 result identity differs")
-    selection = value.get("selection")
-    after = value.get("after")
-    if not isinstance(selection, dict) or not isinstance(after, dict) or not isinstance(selection.get("selected_serial_sha256"), str) or not isinstance(selection.get("selected_topology_sha256"), str) or not isinstance(after.get("boot_id_sha256"), str):
-        raise D0Error("P3.20 D1 result binding is incomplete")
+    _validate_d1_value(value, static, d1_binding_payload)
     return {"value": value, "receipt": _receipt(path, payload), "path": path}
 
 
@@ -467,8 +533,11 @@ def run_live(approval: str) -> dict[str, Any]:
     try:
         profile = _strict(_stable_read(PROFILE, "S22+ profile"), "S22+ profile")
         adb_payload = _stable_read(HOST_ADB, "host ADB", maximum=HOST_ADB_SIZE, expected={"size": HOST_ADB_SIZE, "sha256": HOST_ADB_SHA256}, owner=None)
-        _prepare_snapshot(adb_payload, ADB_SNAPSHOT)
+        # The host ADB snapshot is intentionally inside the run namespace;
+        # create that namespace once after the consumed arm, before publishing
+        # the no-replace snapshot into it.
         RUN_DIR.mkdir(mode=0o700, parents=False, exist_ok=False)
+        _prepare_snapshot(adb_payload, ADB_SNAPSHOT)
         d0_payload = _stable_read(
             D0_RUNTIME,
             "D0 runtime",

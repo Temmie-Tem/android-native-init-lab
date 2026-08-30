@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest import mock
 
@@ -70,6 +71,65 @@ class P320D0FreshBaselineTest(unittest.TestCase):
         with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("device/process call")):
             result = self.module.main(["--live", "--approval", "bad"])
         self.assertEqual(result, 2)
+
+    def test_snapshot_inside_run_directory_is_reachable_after_single_creation(self):
+        payload = b"fixture-adb"
+        with tempfile.TemporaryDirectory(prefix="p320-d0-snapshot-") as temporary:
+            root = Path(temporary)
+            run_dir = root / "run"
+            snapshot = run_dir / "adb-snapshot"
+            with mock.patch.object(self.module, "HOST_ADB_SIZE", len(payload)), mock.patch.object(
+                self.module, "HOST_ADB_SHA256", hashlib.sha256(payload).hexdigest()
+            ):
+                run_dir.mkdir(mode=0o700)
+                self.module._prepare_snapshot(payload, snapshot)
+                self.assertEqual(snapshot.read_bytes(), payload)
+                self.assertEqual(snapshot.stat().st_mode & 0o777, 0o500)
+
+    def test_d1_result_validator_requires_full_continuity_before_device_reads(self):
+        static = self.module._validated_static_inputs()
+        binding_payload = self.module._stable_read(
+            self.module.D1_BINDING, "P3.20 D1 binding", maximum=256 * 1024
+        )
+        serial_sha = static["d1_binding"]["target"]["adb_serial_sha256"]
+        base = {
+            "schema": "s22plus_fyg8_p320_d1_fresh_baseline_v1_result",
+            "verdict": "PASS_P320_D1_FRESH_BASELINE_EXACT_NORMAL_REBOOT_RETURN_HEALTH",
+            "execution_manifest": self.module._receipt(self.module.D1_BINDING, binding_payload),
+            "ordinal": static["d1_binding"]["ordinal"],
+            "run_id": self.module.P320_RUN_ID,
+            "run_directory": static["manifest"]["d1_dependency"]["result"].rsplit("/", 1)[0],
+            "reboot_count": 1,
+            "selection": {
+                "inventory_count": 1,
+                "inventory_models": ["SM_S906N"],
+                "inventory_sha256": "c" * 64,
+                "selected_serial_sha256": serial_sha,
+                "selected_topology_sha256": "d" * 64,
+                "other_targets_commanded": False,
+            },
+            "before": {"boot_id_sha256": "a" * 64},
+            "after": {"boot_id_sha256": "b" * 64},
+            "device_contact": True,
+            "live_authorized": True,
+            "device_writes": False,
+            "candidate_transfer": False,
+            "partition_transfer": False,
+            "odin_invoked": False,
+            "download_transition_requested": False,
+            "f1_authorized": False,
+            "other_targets_commanded": False,
+        }
+        self.module._validate_d1_value(base, static, binding_payload)
+        for key, bad in (("device_contact", False), ("live_authorized", False), ("candidate_transfer", True), ("partition_transfer", True)):
+            mutated = dict(base)
+            mutated[key] = bad
+            with self.subTest(key=key), self.assertRaises(self.module.D0Error):
+                self.module._validate_d1_value(mutated, static, binding_payload)
+        equal_boot = dict(base)
+        equal_boot["after"] = {"boot_id_sha256": "a" * 64}
+        with self.assertRaisesRegex(self.module.D0Error, "changed boot"):
+            self.module._validate_d1_value(equal_boot, static, binding_payload)
 
 
 if __name__ == "__main__":

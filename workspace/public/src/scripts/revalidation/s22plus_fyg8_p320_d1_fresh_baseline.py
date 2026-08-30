@@ -832,6 +832,30 @@ def _preflight() -> None:
             raise D1Error(f"fixed P3.20 D1 namespace already exists: {path.name}; replay is forbidden")
 
 
+def _prepare_raw_root() -> None:
+    """Create the owned raw root after the arm and before transport binding."""
+    if not RUN_PARENT.is_dir() or RUN_PARENT.is_symlink():
+        raise D1Error("P3.20 D1 arm parent is unavailable")
+    try:
+        os.mkdir(RAW_ROOT, 0o700)
+    except FileExistsError as exc:
+        raise D1Error("P3.20 D1 raw root already exists; replay is forbidden") from exc
+    os.chmod(RAW_ROOT, 0o700)
+    metadata = RAW_ROOT.lstat()
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or stat.S_IMODE(metadata.st_mode) != 0o700
+        or metadata.st_uid != os.getuid()
+        or RAW_ROOT.resolve(strict=True) != RAW_ROOT.absolute()
+    ):
+        raise D1Error("P3.20 D1 raw root identity differs")
+    directory = os.open(RUN_PARENT, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
 def _publish_stop(inputs: Mapping[str, Any], error: BaseException) -> None:
     if not RUN_DIR.exists():
         RUN_DIR.mkdir(mode=0o700, parents=False)
@@ -889,6 +913,7 @@ def run_live(approval: str) -> dict[str, Any]:
         "replay_authorized": False,
     })
     try:
+        _prepare_raw_root()
         adb_payload = _stable_read(HOST_ADB, "host ADB", maximum=HOST_ADB_SIZE, expected={"size": HOST_ADB_SIZE, "sha256": HOST_ADB_SHA256}, owner=None)
         _prepare_snapshot(adb_payload, ADB_SNAPSHOT)
         d0_payload = _stable_read(

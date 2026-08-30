@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest import mock
 
@@ -78,6 +79,27 @@ class P320D1FreshBaselineTest(unittest.TestCase):
             transport.reboot_once(transport.serial)
         self.assertEqual(transport.reboot_count, 1)
         self.assertEqual(transport.other_target_commands, 0)
+
+    def test_raw_root_is_created_before_raw_capture_binding(self):
+        with tempfile.TemporaryDirectory(prefix="p320-d1-raw-root-") as temporary:
+            root = Path(temporary)
+            with mock.patch.object(self.module, "RUN_PARENT", root / "parent"), mock.patch.object(
+                self.module, "RAW_ROOT", root / "parent" / "raw"
+            ):
+                self.module.RUN_PARENT.mkdir(mode=0o700)
+                self.module._prepare_raw_root()
+                self.assertTrue(self.module.RAW_ROOT.is_dir())
+                self.assertEqual(self.module.RAW_ROOT.stat().st_mode & 0o777, 0o700)
+
+                calls = []
+
+                class FakeClient:
+                    def bind_raw_capture_dir(self, path):
+                        calls.append(path)
+                        assert path.is_dir()
+
+                FakeClient.bind_raw_capture_dir(FakeClient(), self.module.RAW_ROOT)
+                self.assertEqual(calls, [self.module.RAW_ROOT])
 
 
 if __name__ == "__main__":
