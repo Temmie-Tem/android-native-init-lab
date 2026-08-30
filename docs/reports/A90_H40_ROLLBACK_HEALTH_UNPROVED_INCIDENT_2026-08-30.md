@@ -35,9 +35,11 @@ The candidate and rollback are both one-shot consumed and must never replay.
 
 ## Recovery boundary
 
-This report creates no live authority. The current target contract contains no
-H40-specific continuation. Any future connected observation or recovery must
-be independently reviewed, bind the exact retained journal and guards, permit
-no new candidate or rollback transfer, and publish final health before releasing
-the active guard. Until then, the exact A90 remains parked at
-`RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED`.
+This report creates no live authority. The reviewed fixed H40 continuation
+recorded one attended physical `Reboot -> System` action and then proved exact
+healthy V2321 on one unchanged boot. Canonical `41-recovery-closed.json` has
+SHA-256 `f5640f47eca10ae0a360f825c1c0821abd63b85161e1f72fb8faee7fe9b1a7e0`.
+It sent no host recovery command and wrote no boot bytes. The active guard is
+released while the H40 candidate guard remains consumed. This closes device
+health only: H40 boot, playback, cleanup, and final H40 health stay unproved,
+and the earlier candidate and rollback never replay.

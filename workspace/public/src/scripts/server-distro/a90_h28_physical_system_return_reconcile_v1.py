@@ -294,7 +294,7 @@ def _load_manifest() -> tuple[bytes, dict[str, Any]]:
         _verify_historical_qualification_binding(manifest)
     except owner.ContractError as exc:
         raise ContractError(str(exc)) from exc
-    if manifest["runId"] != RUN_ID or manifest["candidate"]["sha256"] != "aea34a96464affd2f7e6c30d237e2175940eef511e69c1452c9deab4833a521b" or manifest["rollback"]["sha256"] != owner.V2321_ROLLBACK_SHA256:
+    if manifest["runId"] != RUN_ID or manifest["candidate"]["sha256"] != HISTORICAL_H28_CANDIDATE_SHA256 or manifest["rollback"]["sha256"] != owner.V2321_ROLLBACK_SHA256:
         raise ContractError("fixed H28 manifest identity changed")
     return raw, manifest
 

@@ -18,6 +18,7 @@ import a90_boot_only_f1_minimal_v1 as owner
 
 CAPABILITY = "A90_H37_PRE_CANDIDATE_RECOVERY_PARK_CLOSE_V1"
 REVIEW_SCHEMA = "a90-h37-pre-candidate-recovery-park-close-review-v1"
+REVIEW_DATE = "2026-08-29"
 RESULT_SCHEMA = "a90-h37-pre-candidate-recovery-park-close-result-v1"
 INTENT_SCHEMA = "a90-h37-pre-candidate-recovery-park-close-observation-intent-v1"
 RUN_ID = "a90-h37-f1-20260829-01"
@@ -130,7 +131,7 @@ def review_lease() -> tuple[bytes, str]:
         or any(type(item) is not int or item != 0 for item in contacts.values())
         or type(value["reviewer"]) is not str
         or not value["reviewer"]
-        or value["reviewDate"] != "2026-08-29"
+        or value["reviewDate"] != REVIEW_DATE
     ):
         raise CloseError("review contains findings or contacts")
     return raw, hashlib.sha256(raw).hexdigest()

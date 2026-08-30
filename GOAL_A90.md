@@ -79,11 +79,13 @@ the separately registered S20+ goal and every future target row.
   return, but failed-boot evidence ended `NO_PROOF_OBSERVER` with no Recovery
   endpoint; H40 boot, playback, and final health remain unproved. Exact V2321
   rollback was then written/read back and its System return confirmed once.
-  The postrollback observer stopped on host validation error
-  `invalid minimum read budget: 0.25`, so the durable terminal is
-  `RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED` with no health snapshot.
-  Current resident identity and health are therefore unproved. The active and
-  H40 candidate guards remain; neither candidate nor rollback may replay. See
+  After the observer stopped on host validation error, the operator found the
+  A90 in TWRP. A reviewed continuation recorded one physical System return and
+  proved equal boot IDs, exact V2321, `selftest fail=0`, healthy status, and
+  sole-A90 isolation. Recovery record SHA-256 is
+  `f5640f47eca10ae0a360f825c1c0821abd63b85161e1f72fb8faee7fe9b1a7e0`.
+  The active guard is released and the H40 candidate guard remains consumed.
+  Neither candidate nor rollback may replay. See
   `A90_H40_ROLLBACK_HEALTH_UNPROVED_INCIDENT_2026-08-30.md`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
@@ -128,16 +130,15 @@ H19-H23 and H25 were retired before live use. Their exact reasons remain in the
 campaign ledger and named review reports. Retired identities, paths, artifacts,
 reviews, and evidence are never reinterpreted as a fresh successor.
 
-## Selected Bounded Unit: H40 Incident Reconciliation
+## Selected Bounded Unit: H41 Late-Recovery Manual Demo
 
-H40 v3 fixed the reviewed HUD-before-chime race and its H0 source, fresh build,
-manifest, and independent capability review remain exact. The consumed live run
-does not prove those runtime mechanics and grants no replay or new authority.
-This unit is now H0-only incident reporting and repository integration for the
-durable H40 terminal. No connected health continuation is active. Any future
-observation or recovery continuation must be separately represented by the A90
-target contract, bind the retained journal and both guards, send no candidate or
-rollback again, and receive independent review before fresh live authority.
+H41 run-02 parked before candidate intent or any boot write after its one
+Recovery request timed out. The exact A90 then appeared as sole bound TWRP only
+after a cable reconnect. A fixed continuation is being reviewed to inherit
+that late Recovery without resending the request, write H41 once, leave an
+explicitly unproved manual filming window, and roll back V2321 once after the
+menu is closed. Until review and fresh approval, no H41 write is authorized;
+the active guard remains and the H41 candidate guard is absent.
 
 ## Paused Isolated-Debian Architecture Unit
 

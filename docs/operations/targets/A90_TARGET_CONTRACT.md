@@ -1616,6 +1616,61 @@ not revive run-01 or its approval. A later H38 attempt, if any, requires a new
 run ID, fresh prepared state and approval, and all current gates; the H38
 runtime remains unproved until such a distinct run succeeds.
 
+The fixed H41 run-01 Recovery-transition park dated 2026-08-30 may close only
+through `a90_h41_pre_candidate_recovery_park_close_v1.py`. It binds the exact
+H41 manifest, four-record journal ending in
+`13-recovery-transition-parked.json`, and complete execute-log set. Those
+records prove only that one Native Recovery request was sent and Recovery was
+not proved: no candidate guard, candidate intent/helper, candidate bytes, or
+rollback bytes exist. The Recovery request is consumed and never replays.
+
+After a current independent `PASS_GO` and fresh approval, the closer may
+durably consume one observation intent and perform only the existing bounded
+ACM observation of current exact healthy V2321. It has no Recovery, reboot,
+ADB, flash, image, partition, candidate, rollback, physical instruction, or
+caller-selected command path. Exact health permits one durable sidecar result
+and removal of only the active guard while the H41 candidate guard remains
+absent. Intent, observation, or publication uncertainty parks without retry.
+This closure does not revive run-01 or its approval and does not prove H41.
+Only after exact closure may the same still-unwritten H41 candidate bytes enter
+a distinct run ID with fresh preparation and approval under all current gates.
+
+The fixed H41 run-02 late-Recovery incident may instead continue only through
+`a90_h41_run02_late_recovery_demo_v1.py`. It binds the exact run-02 manifest,
+four-record `RECOVERY_NOT_PROVED` journal, complete execute-log set, retained
+active guard, absent H41 candidate guard, exact H41/V2321 artifacts, and a
+current independent review. The consumed Native Recovery request never
+replays. A fresh approval binds one two-effect attended transaction: one H41
+candidate boot write from the already-present sole bound TWRP endpoint, a
+manual demo window that remains explicitly unproved, and one exact V2321
+rollback after the operator closes the menu.
+
+Before candidate intent, the runner performs two matching bounded Recovery
+USB/ADB inventories around one durable transaction intent. It uses only the
+existing `--reuse-bound-recovery-only` helper path, then durably publishes the
+candidate guard, intent, launch, and result in order. Candidate write/readback
+and confirmed System-return may open the manual window but are not candidate
+health or Bad Apple proof. The window grants no D0/D1/F1 action other than its
+same-transaction rollback. H41 playback may be reported only from this run's
+operator evidence and never inherits H37-H40 results.
+
+The rollback phase revalidates the same approval, exact prefix, quiescent
+candidate helper, both artifacts, current review, active and candidate guards,
+and target isolation. It durably publishes rollback intent and launch before
+the existing fixed rollback helper. A non-successful but quiescent candidate
+result proceeds directly to rollback; a nonquiescent or missing result parks
+without overlap. Rollback never replays after its intent. Exact V2321
+write/readback/confirmed System return plus fresh exact V2321 health may publish
+the final and release only the active guard while retaining the H41 candidate
+guard. Any uncertainty parks for separately reviewed recovery. A complete
+healthy final may resume active-guard cleanup without device contact.
+
+This exception permits only `boot`, has no caller-selected command/path,
+service/configuration/security mutation, non-boot partition, or other-target
+authority, and expires after its exact final, any bound drift, or a new
+incident. Its `PASS_GO` review qualifies capability bytes only; preparation
+and live use require the exact fresh attended approval.
+
 The fixed H38 run-02 rollback incident may recover only through
 `a90_h38_run02_rollback_continuation_v1.py`. It binds the exact run-02
 manifest, thirteen-record terminal journal, exact H38 candidate
@@ -1695,6 +1750,37 @@ uncertainty parks without another observation. All no-flash/no-ADB/no-TWRP/
 no-Recovery/no-reboot/no-partition boundaries remain unchanged.
 This exception grants no H39 replay or in-place repair, no H40 or other
 candidate authority, and no non-boot-partition access.
+
+The fixed H40 run-01 rollback-health incident dated 2026-08-30 may continue
+only through `a90_h40_physical_system_return_reconcile_v1.py`. It binds the
+exact H40 manifest, complete thirteen-record
+`RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED` journal, historical candidate
+qualification, and retained active and H40 candidate guards. Candidate and
+rollback execution are consumed and never replay. The earlier rollback receipt
+continues to prove exact V2321 write/readback and its accepted System-return
+command only; it is never promoted to final health or a successful H40 run.
+
+After a current independent `PASS_GO` review, `prepare` is host-only and may
+derive one fresh approval for that exact state. `authorize` durably publishes
+one no-replace physical-return intent before instructing the attended operator,
+who has identified the exact A90 already showing TWRP, to select
+`Reboot -> System` once. That intent consumes the physical continuation even
+if output or the physical result is lost; the instruction is never repeated.
+No host ADB, TWRP, reboot, service-control, image, flash, candidate, rollback,
+partition, or caller-selected command exists in this continuation.
+
+Only after the operator confirms that single physical action may `finalize`
+durably consume one Native-observation intent and perform the existing bounded
+ACM health sequence. It requires the managed bridge, one sole A90 Native USB
+endpoint, equal valid initial/final boot IDs, exact V2321 version/build,
+`selftest fail=0`, healthy status, and unchanged target isolation. Exact health
+may publish one canonical `41-recovery-closed.json`; exact readback precedes
+release of only the active guard, while the H40 candidate guard remains.
+H40 boot/playback/cleanup remain unproved and the rollback outcome remains
+unproved beyond its already recorded exact write/readback/return-command facts.
+An observation intent without exact closure parks permanently with no retry.
+This exception expires after its exact terminal, on any bound-byte or target
+drift, or on a new incident, and grants no next candidate or F1 authority.
 
 The fixed H32 pre-write incident dated 2026-08-22 may close only through
 `a90_h32_pretransfer_abort_reconcile_v1.py`, after this clause receives its
