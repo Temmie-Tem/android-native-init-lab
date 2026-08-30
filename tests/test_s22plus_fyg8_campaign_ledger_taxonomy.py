@@ -413,7 +413,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         for tier, action, proof, transfers, error in attacks:
             with self.subTest(tier=tier, action=action, transfers=transfers):
                 appended = self.ledger_data + (
-                    "2099-12-31T23:59:59Z | s22plus-fyg8-p319 | 1 | "
+                    "2099-12-31T23:59:59Z | s22plus-fyg8-p399 | 1 | "
                     f"{tier} | {action} | HEALTHY | {proof} | {transfers} | "
                     "Invalid tier and transfer combination.\n"
                 ).encode("ascii")
@@ -430,7 +430,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         for health, transfers, error in attacks:
             with self.subTest(health=health, transfers=transfers):
                 appended = self.ledger_data + (
-                    "2099-12-31T23:59:59Z | s22plus-fyg8-p319 | 1 | F1 | "
+                    "2099-12-31T23:59:59Z | s22plus-fyg8-p399 | 1 | F1 | "
                     f"CAMPAIGN_CLOSED | {health} | NO_PROOF_OBSERVER | "
                     f"{transfers} | Invalid campaign close state.\n"
                 ).encode("ascii")
@@ -438,7 +438,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                     self.auditor.audit_ledger_bytes(appended, self.script_data)
 
         recovery_required = self.ledger_data + (
-            b"2099-12-31T23:59:59Z | s22plus-fyg8-p319 | 1 | F1 | "
+            b"2099-12-31T23:59:59Z | s22plus-fyg8-p399 | 1 | F1 | "
             b"CAMPAIGN_CLOSED | RECOVERY_REQUIRED | NO_PROOF_OBSERVER | 1/0 | "
             b"Recovery exhausted after one candidate transfer.\n"
         )
@@ -593,7 +593,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "resumes a closed F1 attempt",
             ),
         )
-        prefix = "2099-12-31T23:59:59Z | s22plus-fyg8-p319 | "
+        prefix = "2099-12-31T23:59:59Z | s22plus-fyg8-p399 | "
         for first, second, error in attacks:
             with self.subTest(error=error):
                 appended = self.ledger_data + (prefix + first + prefix + second).encode(
@@ -603,7 +603,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                     self.auditor.audit_ledger_bytes(appended, self.script_data)
 
     def test_recovery_close_may_advance_one_existing_attempt(self):
-        prefix = "2099-12-31T23:59:59Z | s22plus-fyg8-p319 | "
+        prefix = "2099-12-31T23:59:59Z | s22plus-fyg8-p399 | "
         appended = self.ledger_data + (
             prefix
             + "1 | F1 | ROLLBACK_DOWNLOAD_WAIT | RECOVERY_PENDING_PARKED | "
@@ -621,7 +621,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_recovery_close_requires_prior_attempt_state(self):
         appended = self.ledger_data + (
-            b"2099-12-31T23:59:59Z | s22plus-fyg8-p319 | "
+            b"2099-12-31T23:59:59Z | s22plus-fyg8-p399 | "
             b"1-recovery-close | F1 | CAMPAIGN_CLOSED | HEALTHY | "
             b"NO_PROOF_OBSERVER | 1/1 | Orphan recovery close.\n"
         )
@@ -1035,7 +1035,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 427)
+        self.assertEqual(len(all_rows), 430)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -1247,7 +1247,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
     def test_candidate_bearing_open_attempt_enters_inventory(self):
         marker = self.auditor.MARKER
         appended = self.ledger_data + (
-            b"2099-12-31T23:59:59Z | s22plus-fyg8-p319 | 1 | F1 | "
+            b"2099-12-31T23:59:59Z | s22plus-fyg8-p399 | 1 | F1 | "
             b"ROLLBACK_DOWNLOAD_WAIT | RECOVERY_PENDING_PARKED | "
             b"NO_PROOF_OBSERVER | 1/0 | Synthetic open attempt.\n"
         )
@@ -1255,7 +1255,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         rows, _, _ = self.auditor.parse_log_rows(lines)
         inventory = self.auditor.audit_attempt_inventory(rows)
         open_item = next(
-            item for item in inventory if item["campaign"] == "s22plus-fyg8-p319"
+            item for item in inventory if item["campaign"] == "s22plus-fyg8-p399"
         )
         self.assertEqual(open_item["attempt_state"], "ATTEMPT_OPEN")
         self.assertEqual(open_item["candidate_transfers"], 1)
@@ -1263,7 +1263,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         header = appended.split(marker, 1)[0].decode("utf-8")
         corrections = self.auditor.parse_corrections(header, rows)
         outcomes = self.auditor.derive_attempt_outcomes(rows, corrections)
-        open_cohort = self.auditor.cohort(outcomes, ["s22plus-fyg8-p319"])
+        open_cohort = self.auditor.cohort(outcomes, ["s22plus-fyg8-p399"])
         self.assertEqual(open_cohort["attempt_count"], 1)
         self.assertEqual(
             open_cohort["attempt_state_counts"],

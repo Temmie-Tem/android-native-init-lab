@@ -37,6 +37,10 @@ chain을 충분히 재구성하는 더 어려운 early USB 문제에 집중합�
   plan은 73개 row, 누락된 declared dependency 0개, ordering violation 0개, 72개
   vendor row의 exact module byte, built-in DWC3/gadget core를 가집니다. 이는 static
   membership/order/ABI 결과에만 해당합니다.
+- **PROVED(증명됨) — P3.19 recovered final health.** Exact candidate와 rollback이
+  각각 한 번 전송됐고 journal이 닫혔으며 rooted FYG8 Android health가
+  통과했습니다. Formal result는 USB 성공이 아닌 `NO_PROOF_OBSERVER`이며
+  candidate는 replay 없이 소비됐습니다.
 
 ## 부분 증명 / 관측
 
@@ -65,8 +69,7 @@ chain을 충분히 재구성하는 더 어려운 early USB 문제에 집중합�
 - Configfs gadget bind, DWC3 pull-up/connect, physical host attach, tty
   publication, framed native transport의 성공.
 - 현재 candidate plan에서 complete natural UCSI/PMIC-GLINK role path.
-- Fresh P3.19 baseline 또는 현재 ready/run manifest, approval, F1 result,
-  standing live authority.
+- P3.20 successor candidate, 현재 ready/run manifest, standing live authority.
 
 ## 현재 프론티어
 
@@ -86,11 +89,11 @@ Dynamic supplier availability, `dwc3_msm_probe()`, parent bind, child creation,
 UDC publication, 모든 transport step은 **unproved(미증명), candidate runtime
 한정**입니다.
 
-즉시 막고 있는 process blocker도 별개입니다. Machine integration은 계속
-`FRESH_BASELINE_MISSING`입니다. 새 canonical-arm V3 producer는 independently
-reviewed `PASS_GO`지만 **not active(비활성)**이며 approval, reboot, device contact,
-result, live authority를 만들지 않았습니다. 따라서 저장소에 생긴 것은 더 날카로운
-discriminator와 qualified host capability이지 새로운 USB 성공이 아닙니다.
+이후 P3.19는 healthy close했지만 USB plan이 실행되기 전에 observer가
+실패했습니다. Additive H0 decoding은 formal no-proof result를 보존하면서 가장 강한
+설명을 row 1 이후 kmsg drain으로 국한합니다. Bounded P3.20 host prototype은 valid
+kmsg dictionary line을 human message와 분리하고 같은 C envelope도 compile합니다.
+아직 candidate에 연결되지 않았으며 현재 live authority는 없습니다.
 
 ## 주요 milestone
 
@@ -105,6 +108,8 @@ discriminator와 qualified host capability이지 새로운 USB 성공이 아닙�
    DWC3-child → UDC → transport chain으로 프론티어를 옮겼습니다.
 6. 현재 73-row plan은 static module/order/ABI 문제를 닫으면서 모든 dynamic
    runtime 문제를 unproved(미증명)로 보존했습니다.
+7. P3.19는 healthy close했지만 early observer-contract failure를 드러냈으며,
+   소비된 run은 새로운 USB hardware verdict를 제공하지 않습니다.
 
 ## Architecture 요약
 
@@ -133,5 +138,6 @@ line은 현재 test 대상 architecture와 runtime gate를 나타내며 complete
 - Direct PID1 boundary: [R4W1-D live pass](../reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md)
 - Stock ACM positive control: [O0 stock USB control](../reports/NATIVE_INIT_V3403_S22PLUS_O0_STOCK_USB_CONTROL_LIVE_2026-07-10.md)
 - 현재 static USB closure: [P3.19 SSUSB/UDC plan closure](../reports/S22PLUS_FYG8_P319_SSUSB_UDC_PLAN_CLOSURE_H0_2026-08-24.md)
-- Fresh-baseline blocker: [P3.19 Process-v2 prerequisites](../reports/S22PLUS_FYG8_P319_PROCESS_V2_INTEGRATION_PREREQUISITES_H0_2026-08-21.md)
-- 현재 non-active producer: [P3.19 D1 canonical-arm V3](../reports/S22PLUS_FYG8_P319_D1_FRESH_BASELINE_CANONICAL_ARM_V3_H0_2026-08-29.md)
+- 현재 USB audit와 live interpretation: [P3.19 comprehensive USB audit](../reports/S22PLUS_FYG8_USB_COMPREHENSIVE_INVESTIGATION_AUDIT_H0_2026-08-30.md)
+- Additive post-live decoder: [`s22plus_fyg8_p319_postlive_decoder.py`](../../workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_postlive_decoder.py)
+- 현재 H0 kmsg successor prototype: [`s22plus_fyg8_p319_kmsg_record_envelope.py`](../../workspace/public/src/scripts/analysis/s22plus_fyg8_p319_kmsg_record_envelope.py)

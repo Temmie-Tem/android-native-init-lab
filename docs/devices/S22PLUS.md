@@ -38,6 +38,10 @@ observable without Android userspace.
   rows, no missing declared dependency or ordering violation, exact module
   bytes for its 72 vendor rows, and a built-in DWC3/gadget core. This is only a
   static membership/order/ABI result.
+- **PROVED — P3.19 recovered final health.** The exact candidate and rollback
+  each transferred once, the journal closed, and rooted FYG8 Android health
+  passed. The formal result is `NO_PROOF_OBSERVER`, not USB success, and the
+  candidate is consumed without replay.
 
 ## Partially proven / observed
 
@@ -64,8 +68,8 @@ observable without Android userspace.
 - Successful configfs gadget bind, DWC3 pull-up/connect, physical host attach,
   tty publication, or framed native transport.
 - A complete natural UCSI/PMIC-GLINK role path in the current candidate plan.
-- A fresh P3.19 baseline or any current ready/run manifest, approval, F1
-  result, or standing live authority.
+- A P3.20 successor candidate, current ready/run manifest, or standing live
+  authority.
 
 ## Current frontier
 
@@ -85,11 +89,12 @@ host-side**. Dynamic supplier availability, `dwc3_msm_probe()`, parent bind,
 child creation, UDC publication, and every transport step are **unproved at
 candidate runtime**.
 
-The immediate process blocker is also separate: machine integration remains
-`FRESH_BASELINE_MISSING`. The new canonical-arm V3 producer is independently
-reviewed `PASS_GO` but **not active**; it created no approval, reboot, device
-contact, result, or live authority. Thus the repository has a sharper
-discriminator and a qualified host capability, not a new USB success.
+P3.19 then ran and closed healthy, but its observer failed before the USB plan
+was exercised. Additive H0 decoding preserves the formal no-proof result while
+localizing the strongest explanation to the post-row-1 kmsg drain. A bounded
+P3.20 host prototype now separates valid kmsg dictionary lines from the human
+message and compiles the equivalent C envelope. It is not yet wired into a
+candidate, and no current live authority exists.
 
 ## Major milestones
 
@@ -104,6 +109,8 @@ discriminator and a qualified host capability, not a new USB success.
    explicit SSUSB-parent → DWC3-child → UDC → transport chain.
 6. The current 73-row plan closed static module/order/ABI questions while
    preserving all dynamic runtime questions as unproved.
+7. P3.19 closed healthy but exposed an early observer-contract failure; the
+   consumed run yields no new USB hardware verdict.
 
 ## Architecture summary
 
@@ -132,5 +139,6 @@ runtime gates, not a completed path.
 - Direct PID1 boundary: [R4W1-D live pass](../reports/S22PLUS_FYG8_R4W1D_F1_LIVE_PASS_2026-07-21.md)
 - Stock ACM positive control: [O0 stock USB control](../reports/NATIVE_INIT_V3403_S22PLUS_O0_STOCK_USB_CONTROL_LIVE_2026-07-10.md)
 - Current static USB closure: [P3.19 SSUSB/UDC plan closure](../reports/S22PLUS_FYG8_P319_SSUSB_UDC_PLAN_CLOSURE_H0_2026-08-24.md)
-- Fresh-baseline blocker: [P3.19 Process-v2 prerequisites](../reports/S22PLUS_FYG8_P319_PROCESS_V2_INTEGRATION_PREREQUISITES_H0_2026-08-21.md)
-- Current non-active producer: [P3.19 D1 canonical-arm V3](../reports/S22PLUS_FYG8_P319_D1_FRESH_BASELINE_CANONICAL_ARM_V3_H0_2026-08-29.md)
+- Current USB audit and live interpretation: [P3.19 comprehensive USB audit](../reports/S22PLUS_FYG8_USB_COMPREHENSIVE_INVESTIGATION_AUDIT_H0_2026-08-30.md)
+- Additive post-live decoder: [`s22plus_fyg8_p319_postlive_decoder.py`](../../workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_postlive_decoder.py)
+- Current H0 kmsg successor prototype: [`s22plus_fyg8_p319_kmsg_record_envelope.py`](../../workspace/public/src/scripts/analysis/s22plus_fyg8_p319_kmsg_record_envelope.py)
