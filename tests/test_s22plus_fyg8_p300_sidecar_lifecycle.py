@@ -1,6 +1,7 @@
 import contextlib
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import types
@@ -536,6 +537,55 @@ class P300SidecarLifecycleTest(unittest.TestCase):
 
         kill.assert_called_once_with(800, self.module.signal.SIGTERM)
         killpg.assert_called_once_with(800, self.module.signal.SIGTERM)
+
+    def test_close_timeout_foreign_member_race_blocks_direct_sigkill(self):
+        temporary, prepared, _binding, _result = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        session = self.module._P300UsbTraceSession(prepared, object())
+        process = mock.Mock()
+        process.pid = 900
+        process.returncode = None
+        process.poll.return_value = None
+        process.communicate.side_effect = subprocess.TimeoutExpired(
+            cmd="sidecar", timeout=30
+        )
+        session.process = process
+        session.binding = {"binding_sha256": "b" * 64}
+        session._binding = mock.Mock(return_value=session.binding)
+        session._refresh_owner_receipt = mock.Mock()
+        session._unknown = mock.Mock()
+
+        cleanup = {
+            "verified": False,
+            "group_absent": False,
+            "error_type": "F1LiveError",
+        }
+        with (
+            mock.patch.object(
+                self.module,
+                "_p300_owner_token",
+                return_value="owner-token",
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_revalidate_group_before_kill",
+                side_effect=self.module.F1LiveError(
+                    "P3.00 observer process group has a foreign member"
+                ),
+            ) as revalidate,
+            mock.patch.object(
+                self.module,
+                "_p300_cleanup_owned_processes",
+                return_value=cleanup,
+            ),
+            mock.patch.object(self.module.os, "killpg") as killpg,
+        ):
+            session._close_impl()
+
+        revalidate.assert_called_once_with("owner-token", 900)
+        killpg.assert_not_called()
+        process.communicate.assert_called_once_with(timeout=30)
+        session._unknown.assert_called_once()
 
 
 if __name__ == "__main__":

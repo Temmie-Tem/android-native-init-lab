@@ -4517,12 +4517,28 @@ class _P300UsbTraceSession:
                 try:
                     stdout, stderr = self.process.communicate(timeout=30)
                 except subprocess.TimeoutExpired:
+                    # A timed-out sidecar is still a live process-group
+                    # boundary.  Bind the owner token and re-read the full
+                    # group/session immediately before the destructive
+                    # SIGKILL; a foreign-member race must record UNKNOWN and
+                    # leave the group untouched for recovery.
                     try:
-                        os.killpg(self.process.pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-                    stdout, stderr = self.process.communicate(timeout=10)
-                    raise F1LiveError("P3.00 USB trace sidecar did not stop")
+                        binding = self._binding()
+                        token = _p300_owner_token(binding)
+                        _p300_revalidate_group_before_kill(
+                            token, self.process.pid
+                        )
+                    except Exception as exc:
+                        capture_error = exc
+                    else:
+                        try:
+                            os.killpg(self.process.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        stdout, stderr = self.process.communicate(timeout=10)
+                        raise F1LiveError(
+                            "P3.00 USB trace sidecar did not stop"
+                        )
             if self.process is not None and self.process.returncode != 0:
                 raise F1LiveError(
                     "P3.00 USB trace sidecar process failed: "
