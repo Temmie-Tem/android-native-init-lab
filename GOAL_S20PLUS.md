@@ -793,3 +793,8 @@ mechanical gates remain false.
 After a future combined review and activation, one fresh exact-target/
 current-boot attended opening may enable its finite read without per-action prompts.
 Permanent mutation or recovery-path risk always stops for fresh consent.
+
+## Recovery-v1 store/scanner H0 qualification
+
+The self-contained model passed 76/76 focused and 216/216 aggregate tests; whole recovery-v1 and every operational gate remain false.
+An independent loader, finalizer/re-emission, attended opening, fixed producer, private bundle, and device command remain absent.

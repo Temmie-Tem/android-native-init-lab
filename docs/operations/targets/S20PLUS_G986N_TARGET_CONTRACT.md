@@ -612,6 +612,22 @@ cross-root order, execution integration, and activation remain absent. Every
 live/mechanical/integration flag is false, so this paragraph grants no
 campaign, connected read, standing consent, or device authority.
 
+The separate self-contained recovery-v1 source is qualified only as
+`H0_PUBLIC_HEALTH_RECOVERY_V1_STORE_SCANNER_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_recovery_v1.py`.
+Its final source SHA-256 is
+`6186221593b3778475bf3b1ac4bd28bfe013534793eca4ce5fbe0007be8eb0c3`,
+normalized SHA-256 is
+`1b769167018a2a08e71e67adc00c20148eb4e0a11a6c428bf8fc82b517533b5d`,
+and focused-test SHA-256 is
+`620d807c8038c145e738d08f4d05ca10e8e8a65e8c7881ecfc1cef8d69a50978`;
+76 focused and 216 aggregate tests pass. This qualifies only its embedded
+parser, unbound manifest model, inactive three-root scanner/store primitives,
+and conservative cut classifier. `RECOVERY_V1_QUALIFIED`, scanner, writer,
+finalizer, re-emission, manifest, contract, and live gates all remain false;
+the immutable loader and finalizer are unimplemented. No private bundle,
+recovery authority, campaign, connected command, or device authority exists.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
