@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Materialize the bounded P3.20 envelope-only stock candidate, H0 only.
+"""Materialize the bounded P3.20 observer-integrated stock candidate, H0 only.
 
 This builder starts from the exact stock runtime used to reproduce the
-consumed P3.19 candidate (the ``-55`` output), injects the already-reviewed
-P320 kmsg envelope/wiring, and replaces only the reachable
-``p303_kmsg_record`` seam.  It reuses the pinned P319 userspace/package
-helpers for a private boot-only A/B build.  No device, ADB, Odin, transfer,
-authority, or new Carrier/detail ABI is created here.
+consumed P3.19 candidate (the ``-55`` output), applies the finalized P320
+observer composition to both runtime seams, and reuses the pinned P319
+userspace/package helpers for a private boot-only A/B build.  No device, ADB,
+Odin, transfer, authority, or new Carrier/detail ABI is created here.
 """
 
 from __future__ import annotations
@@ -39,12 +38,17 @@ P319_BASE_BOOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p311/candidate-a
 P319_STOCK_BUILDER = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_stock_candidate_build.py"
 P320_WIRING = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p320_kmsg_witness_wiring.py"
 P319_ENVELOPE = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_kmsg_record_envelope.py"
+P320_OBSERVER = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p320_observer_contract.py"
 O2_LOADER_CORE = ROOT / "workspace/public/src/native-init/s22plus_o2_loader_core.h"
 
-DEFAULT_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-01"
-SCHEMA = "s22plus-fyg8-p320-stock-candidate-build-v1"
-VERDICT = "PASS_P320_STOCK_CANDIDATE_BUILD_H0_ENVELOPE_ONLY"
+DEFAULT_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-03"
+HISTORICAL_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-01"
+FAILED_ATTEMPT_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-02"
+SCHEMA = "s22plus-fyg8-p320-stock-candidate-build-v2"
+VERDICT = "PASS_P320_STOCK_CANDIDATE_BUILD_H0_OBSERVER_INTEGRATED"
+STATUS = "IMPLEMENTED_H0_OBSERVER_INTEGRATED_REVIEW_PENDING"
 TARGET = {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"}
+P319_RUNTIME_ABI = 2
 
 # This is intentionally distinct from the consumed P319 stock run id.
 P320_RUN_ID = bytes.fromhex("c320f1e0a90b5e6d7c8a9b0c1d2e3f40")
@@ -99,6 +103,11 @@ P320_WIRING_IDENTITY = {
 P319_ENVELOPE_IDENTITY = {
     "size": 6_367,
     "sha256": "a0f6f9d1dffd85cc5e6beaa838a8f57e229b54c50a7e169c7f91dfe86a074c24",
+}
+P320_OBSERVER_COMMIT = "1591df347f0173b5063bb355f0b683fe958a4467"
+P320_OBSERVER_SOURCE_IDENTITY = {
+    "size": 78_508,
+    "sha256": "0ee66eb9ea774b54eb390d6eb869baa72587c812c830f98a040d89037ab6c395",
 }
 P319_STOCK_BUILDER_IDENTITY = {
     "size": 114_260,
@@ -294,6 +303,40 @@ def _bind_p320_helpers() -> tuple[types.ModuleType, types.ModuleType, dict[str, 
     }
 
 
+def _bind_observer_contract() -> tuple[types.ModuleType, bytes]:
+    """Load the finalized observer source at its immutable commit identity."""
+    observer, source = _load_bound_module(
+        P320_OBSERVER,
+        P320_OBSERVER_SOURCE_IDENTITY,
+        "p320_observer_contract_bound",
+    )
+    required = (
+        "bind_exact_sources", "compose_runtime", "compose_wrapper",
+        "P320_C_OBSERVER_SOURCE", "P320_C_RECORD_SOURCE",
+        "P320_PAYLOAD_ABI", "OBSERVER_RECEIPT_OFFSET", "OBSERVER_RECEIPT_SIZE",
+    )
+    if any(not hasattr(observer, name) for name in required):
+        raise AuditError("P320 observer contract API is incomplete")
+    if observer.P320_PAYLOAD_ABI != 4 or observer.OBSERVER_RECEIPT_OFFSET != 61 \
+            or observer.OBSERVER_RECEIPT_SIZE != 15:
+        raise AuditError("P320 observer payload ABI differs")
+    try:
+        lineage = observer.bind_exact_sources()
+    except Exception as exc:
+        raise AuditError("P320 observer source lineage cannot be bound") from exc
+    if (
+        not isinstance(lineage, dict)
+        or lineage.get("target") != TARGET
+        or lineage.get("runtime_abi") != P319_RUNTIME_ABI
+        or lineage.get("raw_checkpoint_source") != "/proc/last_kmsg"
+        or lineage.get("exact_runtime_bound") is not True
+        or lineage.get("envelope_source_bound") is not True
+        or lineage.get("wiring_source_bound") is not True
+    ):
+        raise AuditError("P320 observer lineage differs")
+    return observer, source
+
+
 def _load_live_result() -> tuple[dict[str, Any], bytes]:
     payload = stable_bytes(P319_RESULT, "P319 -55 result", 2 * 1024 * 1024, P319_RESULT_IDENTITY)
     result = _strict_json(payload, "P319 -55 result")
@@ -344,94 +387,11 @@ def _function_bytes(source: bytes, signature: bytes, label: str) -> bytes:
     raise AuditError(f"{label} body is truncated")
 
 
-P320_RECORD_REPLACEMENT = br'''static long p303_kmsg_record(const char *record, size_t length) {
-    if (record == NULL || length == 0U || length > P303_KMSG_RECORD_CAPACITY
-        || g_p303_kmsg.drain_record_count >= P319_KMSG_MAX_DRAIN_RECORDS
-        || length > (size_t)(P319_KMSG_MAX_DRAIN_BYTES - g_p303_kmsg.drain_bytes)
-        || g_p303_kmsg.record_count >= P319_KMSG_MAX_TOTAL_RECORDS
-        || length > (size_t)(P319_KMSG_MAX_TOTAL_BYTES - g_p303_kmsg.record_bytes)) {
-        return P319_DETAIL_WITNESS_BOUNDARY;
-    }
-    ++g_p303_kmsg.drain_record_count;
-    g_p303_kmsg.drain_bytes += (uint32_t)length;
-    ++g_p303_kmsg.record_count;
-    g_p303_kmsg.record_bytes += (uint64_t)length;
-
-    struct p320_kmsg_record_view view = {0};
-    long envelope_rc = p320_kmsg_record_envelope(record, length, &view);
-    if (envelope_rc == P320_KMSG_ENVELOPE_BOUNDARY_ERROR)
-        return P319_DETAIL_WITNESS_BOUNDARY;
-    if (envelope_rc != 0)
-        return P319_DETAIL_WITNESS_GRAMMAR_CONTRADICTION;
-    if (g_p303_kmsg.sequence_seen
-        && (g_p303_kmsg.previous_sequence == UINT64_MAX
-            || view.sequence != g_p303_kmsg.previous_sequence + 1U)) {
-        return P303_DETAIL_KMSG_SEQUENCE_CONTRADICTION;
-    }
-    if (!g_p303_kmsg.sequence_seen)
-        g_p303_kmsg.first_sequence = view.sequence;
-    g_p303_kmsg.sequence_seen = 1U;
-    g_p303_kmsg.previous_sequence = view.sequence;
-
-    long rc = p320_kmsg_witness_observe_v2(record, length);
-    if (rc == 0)
-        rc = p308_kmsg_observe(view.message, view.message_length);
-    if (rc != 0)
-        return rc;
-    if (p282_find_bytes(
-            view.message, view.message_length, "msm_hsphy_enable_clocks():") != NULL) {
-        g_p303_kmsg.path_seen = 1U;
-    }
-    if (p282_find_bytes(
-            view.message, view.message_length, "phy_reset assert failed") != NULL) {
-        g_p303_kmsg.reset_mask |= 1U;
-    }
-    if (p282_find_bytes(
-            view.message, view.message_length, "phy_reset deassert failed") != NULL) {
-        g_p303_kmsg.reset_mask |= 2U;
-    }
-    const char *writeback = p282_find_bytes(
-        view.message, view.message_length, "msm_usb_write_readback: write:");
-    if (writeback == NULL) return 0;
-    const char *offset = p282_find_bytes(
-        view.message, view.message_length, "QSCRATCH:");
-    const char *failed = p282_find_bytes(
-        view.message, view.message_length, "FAILED");
-    if (offset == NULL || failed == NULL || offset >= failed)
-        return P303_DETAIL_KMSG_READBACK_FORMAT_CONTRADICTION;
-    offset += cstr_len("QSCRATCH:");
-    while (offset < failed && p282_is_space(*offset)) ++offset;
-    const char *offset_end = offset;
-    while (offset_end < failed
-        && ((*offset_end >= '0' && *offset_end <= '9')
-            || (*offset_end >= 'a' && *offset_end <= 'f')
-            || (*offset_end >= 'A' && *offset_end <= 'F'))) {
-        ++offset_end;
-    }
-    uint32_t parsed_offset = 0;
-    rc = p303_parse_hex(offset, offset_end, &parsed_offset);
-    if (rc != 0 || parsed_offset > 0x1f8U || (parsed_offset & 3U) != 0U)
-        return P303_DETAIL_KMSG_READBACK_FORMAT_CONTRADICTION;
-    if (g_p303_kmsg.readback_count == UINT32_MAX)
-        return P303_DETAIL_KMSG_COUNT_OVERFLOW;
-    if (g_p303_kmsg.readback_count == 0U)
-        g_p303_kmsg.first_offset = parsed_offset;
-    ++g_p303_kmsg.readback_count;
-    return 0;
-}'''
-
-
 def compose_runtime_transforms(
     runtime: bytes,
     transforms: tuple[Callable[[bytes], bytes], ...] = (),
 ) -> bytes:
-    """Apply optional post-envelope transforms before source compilation.
-
-    The current H0 build supplies no observer-contract transform.  Keeping
-    this seam explicit lets a separately reviewed P320 observer transform be
-    composed before ``_copy_source_closure`` and the stock compiler without
-    changing the envelope-only transform itself.
-    """
+    """Apply deterministic, independently reviewed post-composition transforms."""
     current = runtime
     for index, transform in enumerate(transforms):
         current = transform(current)
@@ -441,76 +401,103 @@ def compose_runtime_transforms(
 
 
 def transform_runtime(
-    original: bytes, envelope_source: str, wiring_source: str,
+    original: bytes,
+    observer: types.ModuleType | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
-    """Inject exact P320 code and replace only the reachable record seam."""
-    if not isinstance(envelope_source, str) or not isinstance(wiring_source, str):
-        raise AuditError("P320 C sources are not text")
-    envelope = envelope_source.encode("ascii")
-    wiring = wiring_source.encode("ascii")
-    anchor = b"static long p303_kmsg_record("
-    old_record = _function_bytes(original, anchor, "P319 p303_kmsg_record")
-    if original.count(anchor) != 1 or original.count(b"P320_KMSG_ENVELOPE_MAX_RECORD") != 0:
-        raise AuditError("P319 runtime transform anchors differ")
-    injected = envelope + b"\n" + wiring + b"\n" + anchor
-    transformed = original.replace(anchor, injected, 1)
-    if transformed.count(old_record) != 1:
-        raise AuditError("P319 p303 record replacement multiplicity differs")
-    transformed = transformed.replace(old_record, P320_RECORD_REPLACEMENT, 1)
-
-    # This exact reconstruction proves that no unrelated runtime byte moved.
-    expected = original.replace(anchor, injected, 1).replace(old_record, P320_RECORD_REPLACEMENT, 1)
-    if transformed != expected:
-        raise AuditError("P320 runtime changed outside the declared seam")
-    if transformed.count(envelope) != 1 or transformed.count(wiring) != 1:
-        raise AuditError("P320 envelope/wiring insertion multiplicity differs")
-    if transformed.count(b"p319_witness_observe_v2(view.message, view.message_length)") != 1:
-        raise AuditError("P320 human-message parser seam is absent")
-    if b"p319_witness_observe_v2(record" in transformed:
-        raise AuditError("P320 record bytes reach the witness parser")
-    if any(token in transformed for token in (
-        b"view.dictionary_lines", b"view.extension_fields", b"view.flag",
-    )):
-        raise AuditError("P320 envelope metadata reaches the parser seam")
-    for forbidden in (
-        b"P320_DETAIL_", b"P320_WITNESS_ABI", b"P320_CARRIER_",
-    ):
-        if forbidden in transformed:
-            raise AuditError("P320 transform invents a new detail/Carrier ABI")
-
-    unchanged_functions: dict[str, dict[str, Any]] = {}
-    for name in (
-        b"static long p308_kmsg_observe(",
-        b"static long p303_kmsg_drain(",
-        b"static int s22plus_max77705_p318_encode_envelope(",
-        b"static uint32_t s22plus_max77705_p319_stock_crc32(",
-        b"static int s22plus_max77705_p319_stock_encode(",
-        b"static __attribute__((noreturn)) void p319_stock_publish(",
-    ):
-        before = _function_bytes(original, name, name.decode("ascii"))
-        after = _function_bytes(transformed, name, name.decode("ascii"))
-        if before != after:
-            raise AuditError(f"preserved P319 function changed: {name.decode()}")
-        unchanged_functions[name.decode("ascii").removesuffix("(")] = identity(before)
+    """Apply the finalized observer composition directly to exact P319 bytes."""
+    if not isinstance(original, bytes):
+        raise AuditError("P319 runtime source must be bytes")
+    if observer is None:
+        observer, _ = _bind_observer_contract()
+    try:
+        transformed = observer.compose_runtime(original)
+    except Exception as exc:
+        raise AuditError("P320 observer runtime composition failed") from exc
+    if not isinstance(transformed, bytes):
+        raise AuditError("P320 observer runtime composition is not bytes")
+    if b"return P319_DETAIL_WITNESS_BOUNDARY;" in transformed:
+        raise AuditError("P320 observer path still escapes legacy boundary detail")
+    if transformed == original:
+        raise AuditError("P320 observer runtime was not transformed")
+    observer_c = observer.P320_C_OBSERVER_SOURCE.encode("ascii")
+    record_c = observer.P320_C_RECORD_SOURCE.encode("ascii")
+    if observer_c not in transformed or record_c not in transformed:
+        raise AuditError("P320 observer C composition is incomplete")
+    if b"p320_observer_finalize_stock_payload_v4(payload)" not in transformed:
+        raise AuditError("P320 ABI-v4 payload finalizer is absent")
     return transformed, {
         "original": identity(original),
         "transformed": identity(transformed),
-        "injected_envelope": identity(envelope),
-        "injected_wiring": identity(wiring),
-        "record_function_original": identity(old_record),
-        "record_function_replacement": identity(P320_RECORD_REPLACEMENT),
-        "changed_only_injected_envelope_and_record_seam": True,
+        "composition": "observer.compose_runtime",
+        "observer_contract_commit": P320_OBSERVER_COMMIT,
+        "observer_source": P320_OBSERVER_SOURCE_IDENTITY,
+        "payload_abi": 4,
+        "receipt_offset": 61,
+        "receipt_size": 15,
+        "changed_only_in_observer_runtime_seams": True,
+        "changed_only_injected_envelope_and_record_seam": False,
+        "declared_runtime_seams": [
+            "observer_source_insertion",
+            "p303_kmsg_record",
+            "p303_kmsg_begin",
+            "p303_kmsg_drain",
+            "p303_kmsg_finish",
+            "p319_note_successful_module",
+            "stock_payload_abi4",
+            "stock_payload_v4_finalizer",
+        ],
         "parser_entry": "p319_witness_observe_v2",
         "human_message_only": True,
         "dictionary_lines_excluded": True,
         "header_extensions_excluded": True,
         "fragment_flag_metadata_excluded": True,
         "fragment_reassembly": False,
-        "existing_p319_detail_namespace_reused": True,
+        "existing_p319_detail_namespace_reused": False,
+        "existing_stock_terminal_detail_reused": True,
+        "new_observer_error_kind_namespace": True,
         "new_detail_namespace": False,
-        "fail_closed_on_envelope_error": True,
-        "preserved_p319_functions": unchanged_functions,
+        "fail_closed_on_envelope_error": False,
+        "observer_failure_fail_soft": True,
+        "final_ambiguous_on_observer_error": True,
+        "legacy_observer_detail_escape": False,
         "stock_payload_carrier_decoder_semantics_preserved": True,
+    }
+
+
+def transform_wrapper(
+    original: bytes,
+    observer: types.ModuleType | None = None,
+) -> tuple[bytes, dict[str, Any]]:
+    """Apply the finalized observer post-module seam to exact P319 wrapper bytes."""
+    if not isinstance(original, bytes):
+        raise AuditError("P319 runtime wrapper source must be bytes")
+    if observer is None:
+        observer, _ = _bind_observer_contract()
+    try:
+        transformed = observer.compose_wrapper(original)
+    except Exception as exc:
+        raise AuditError("P320 observer wrapper composition failed") from exc
+    if not isinstance(transformed, bytes) or transformed == original:
+        raise AuditError("P320 observer wrapper was not transformed")
+    if b"return P319_DETAIL_WITNESS_BOUNDARY;" in transformed:
+        raise AuditError("P320 wrapper still escapes legacy boundary detail")
+    required = (
+        b"p320_observer_transport_failure()",
+        b"(void)p320_observer_set_active_module(0U, 0);",
+        b"if (load_rc != 0L) return load_rc;",
+    )
+    if any(token not in transformed for token in required):
+        raise AuditError("P320 observer wrapper composition is incomplete")
+    return transformed, {
+        "original": identity(original),
+        "transformed": identity(transformed),
+        "composition": "observer.compose_wrapper",
+        "observer_contract_commit": P320_OBSERVER_COMMIT,
+        "observer_source": P320_OBSERVER_SOURCE_IDENTITY,
+        "changed_only_observer_post_module_seam": True,
+        "legacy_observer_detail_escape": False,
+        "module_load_fail_fast": True,
+        "active_module_clear_after_drain": True,
     }
 
 
@@ -520,17 +507,21 @@ def _copy_input(path: Path, destination: Path, expected: dict[str, Any], label: 
     return identity(payload)
 
 
-def _copy_source_closure(output_root: Path, live_result: dict[str, Any], transformed_runtime: bytes) -> dict[str, dict[str, Any]]:
+def _copy_source_closure(
+    output_root: Path,
+    live_result: dict[str, Any],
+    transformed_sources: dict[str, bytes],
+) -> dict[str, dict[str, Any]]:
     source_root = output_root / "stock-sources"
     _mkdir(source_root)
     materialized: dict[str, dict[str, Any]] = {}
     for name, expected in P319_SOURCE_IDENTITIES.items():
         source = P319_SOURCE_ROOT / name
-        payload = transformed_runtime if name == RUNTIME_INCLUDE_NAME else stable_bytes(
+        payload = transformed_sources[name] if name in transformed_sources else stable_bytes(
             source, f"P319 source {name}", 2 * 1024 * 1024, expected, required_mode=0o400, required_nlink=1
         )
-        if name == RUNTIME_INCLUDE_NAME and identity(payload) == expected:
-            raise AuditError("P320 runtime was not transformed")
+        if name in transformed_sources and identity(payload) == expected:
+            raise AuditError(f"P320 source was not transformed: {name}")
         _write_exclusive(source_root / name, payload)
         materialized[name] = identity(payload)
     if set(materialized) != set(P319_SOURCE_IDENTITIES):
@@ -638,7 +629,7 @@ def _make_result(
     return {
         "schema": SCHEMA,
         "verdict": VERDICT,
-        "status": "IMPLEMENTED_REVIEW_PENDING",
+        "status": STATUS,
         "target": TARGET,
         "run_id_hex": P320_RUN_ID.hex(),
         "scope": {
@@ -663,18 +654,23 @@ def _make_result(
         } | {"p319_stock_candidate_build.py": P319_STOCK_BUILDER_IDENTITY, "s22plus_o2_loader_core.h": O2_LOADER_CORE_IDENTITY},
         "tools": tool_identities,
         "runtime_transform": lineage["runtime_transform"],
+        "wrapper_transform": lineage["wrapper_transform"],
         "phase2": phase2,
         "limitations": [
-            "P319 detail 0x6020 namespace collision remains unresolved and blocks live-ready promotion.",
+            "P320 observer failures are fail-soft: the first typed error is retained in the ABI-v4 15-byte receipt and the stock chain closes as AMBIGUOUS using existing detail 0x6726.",
+            "The P320 observer path does not emit legacy 0x6020, 0x6021, or 0x6022; full raw records remain recoverable only from the mandatory /proc/last_kmsg retention.",
             "This H0 unit does not create approval, D0/D1/F1/recovery/replay authority.",
-            "The P320 envelope accepts ABI-valid dictionary/header-extension shapes, but c records are observed independently without fragment reassembly.",
+            "The P320 envelope accepts ABI-valid dictionary/header-extension shapes, but c records are observed independently without fragment reassembly; no USB, MUX, or causal result is claimed.",
             "No runtime USB, host attach, or physical MUX claim is made by this package.",
         ],
         "preservation": {
             "p319_run_id_unchanged_in_consumed_lineage": P319_RUN_ID.hex(),
             "stock_payload_carrier_decoder_semantics_preserved": True,
             "new_p320_carrier_or_detail_abi": False,
+            "stock_payload_abi": 4,
+            "observer_error_kind_namespace": "P320_OBSERVER_ERROR_KIND",
             "exact_rollback_untouched": True,
+            "historical_p320_prototype_preserved": True,
         },
     }
 
@@ -690,6 +686,8 @@ def build_result(output_root: Path, *, audit_only: bool = False) -> dict[str, An
         output_root.parent.chmod(0o700)
     live_result, _ = _load_live_result()
     wiring, envelope, helper_sources = _bind_p320_helpers()
+    observer, observer_source = _bind_observer_contract()
+    helper_sources["p320_observer_contract.py"] = observer_source
     packager, packager_source = _load_bound_module(
         P319_STOCK_BUILDER, P319_STOCK_BUILDER_IDENTITY, "p319_stock_builder_bound"
     )
@@ -705,18 +703,33 @@ def build_result(output_root: Path, *, audit_only: bool = False) -> dict[str, An
         required_mode=0o400,
         required_nlink=1,
     )
-    transformed_runtime, transform = transform_runtime(
-        original_runtime, wiring.P320_C_SOURCE, wiring.P320_C_WIRING_SOURCE,
+    original_wrapper = stable_bytes(
+        P319_SOURCE_ROOT / RUNTIME_NAME,
+        "P319 -55 runtime wrapper",
+        2 * 1024 * 1024,
+        P319_SOURCE_IDENTITIES[RUNTIME_NAME],
+        required_mode=0o400,
+        required_nlink=1,
+    )
+    transformed_runtime, transform = transform_runtime(original_runtime, observer)
+    transformed_wrapper, wrapper_transform = transform_wrapper(
+        original_wrapper, observer
     )
     transformed_runtime = compose_runtime_transforms(transformed_runtime)
     lineage = {
         "p319_result": P319_RESULT_IDENTITY,
         "p319_consumed_ap": P319_AP_IDENTITY,
         "p319_runtime": P319_RUNTIME_IDENTITY,
+        "p319_runtime_wrapper": P319_SOURCE_IDENTITIES[RUNTIME_NAME],
         "p319_rollback": P319_ROLLBACK_IDENTITY,
         "p319_result_schema": live_result["schema"],
         "p319_candidate_reproductions": 2,
         "runtime_transform": transform,
+        "wrapper_transform": wrapper_transform,
+        "p320_observer_contract": {
+            "commit": P320_OBSERVER_COMMIT,
+            **P320_OBSERVER_SOURCE_IDENTITY,
+        },
     }
     _mkdir(output_root)
     input_root = output_root / "inputs"
@@ -730,6 +743,13 @@ def build_result(output_root: Path, *, audit_only: bool = False) -> dict[str, An
     )
     input_identities["p320-kmsg-witness-wiring.py"] = _copy_input(
         P320_WIRING, input_root / "p320-kmsg-witness-wiring.py", P320_WIRING_IDENTITY, "P320 wiring", 2 << 20
+    )
+    input_identities["p320-observer-contract.py"] = _copy_input(
+        P320_OBSERVER,
+        input_root / "p320-observer-contract.py",
+        P320_OBSERVER_SOURCE_IDENTITY,
+        "P320 observer contract",
+        2 << 20,
     )
     input_identities["p319-kmsg-record-envelope.py"] = _copy_input(
         P319_ENVELOPE, input_root / "p319-kmsg-record-envelope.py", P319_ENVELOPE_IDENTITY, "P319 envelope", 2 << 20
@@ -746,7 +766,14 @@ def build_result(output_root: Path, *, audit_only: bool = False) -> dict[str, An
     input_identities[CHILD_NAME] = _copy_input(
         P319_CHILD_SOURCE, input_root / CHILD_NAME, P319_CHILD_IDENTITY, "child source", 64 << 10
     )
-    source_identities = _copy_source_closure(output_root, live_result, transformed_runtime)
+    source_identities = _copy_source_closure(
+        output_root,
+        live_result,
+        {
+            RUNTIME_INCLUDE_NAME: transformed_runtime,
+            RUNTIME_NAME: transformed_wrapper,
+        },
+    )
     module_root = output_root / "module-bytes"
     _mkdir(module_root)
     _copy_input(
@@ -792,7 +819,11 @@ def build_result(output_root: Path, *, audit_only: bool = False) -> dict[str, An
     return result
 
 
-def _audit_source_output(output_root: Path, result: dict[str, Any], wiring: types.ModuleType) -> None:
+def _audit_source_output(
+    output_root: Path,
+    result: dict[str, Any],
+    observer: types.ModuleType,
+) -> None:
     source_root = output_root / "stock-sources"
     names = sorted(path.name for path in source_root.iterdir())
     if names != sorted(P319_SOURCE_IDENTITIES):
@@ -800,17 +831,42 @@ def _audit_source_output(output_root: Path, result: dict[str, Any], wiring: type
     for name, expected in result["source_closure"].items():
         stable_bytes(source_root / name, f"P320 output source {name}", 2 << 20, expected, required_mode=0o400, required_nlink=1)
     original = stable_bytes(P319_SOURCE_ROOT / RUNTIME_INCLUDE_NAME, "P319 original runtime", 2 << 20, P319_RUNTIME_IDENTITY, required_mode=0o400, required_nlink=1)
-    transformed, transform = transform_runtime(original, wiring.P320_C_SOURCE, wiring.P320_C_WIRING_SOURCE)
+    transformed, transform = transform_runtime(original, observer)
     output_runtime = stable_bytes(source_root / RUNTIME_INCLUDE_NAME, "P320 transformed runtime", 2 << 20, result["runtime_transform"]["transformed"], required_mode=0o400, required_nlink=1)
     if transformed != output_runtime or transform != result["runtime_transform"]:
         raise AuditError("P320 runtime regeneration differs")
+    original_wrapper = stable_bytes(
+        P319_SOURCE_ROOT / RUNTIME_NAME,
+        "P319 original runtime wrapper",
+        2 << 20,
+        P319_SOURCE_IDENTITIES[RUNTIME_NAME],
+        required_mode=0o400,
+        required_nlink=1,
+    )
+    transformed_wrapper, wrapper_transform = transform_wrapper(
+        original_wrapper, observer
+    )
+    output_wrapper = stable_bytes(
+        source_root / RUNTIME_NAME,
+        "P320 transformed runtime wrapper",
+        2 << 20,
+        result["wrapper_transform"]["transformed"],
+        required_mode=0o400,
+        required_nlink=1,
+    )
+    if transformed_wrapper != output_wrapper or wrapper_transform != result["wrapper_transform"]:
+        raise AuditError("P320 runtime wrapper regeneration differs")
 
 
 def audit_existing(output_root: Path) -> dict[str, Any]:
     result_payload = stable_bytes(output_root / "result.json", "P320 result", 2 << 20, required_mode=0o400, required_nlink=1)
     result = _strict_json(result_payload, "P320 result")
-    if result.get("schema") != SCHEMA or result.get("verdict") != VERDICT:
-        raise AuditError("P320 result schema/verdict differs")
+    if (
+        result.get("schema") != SCHEMA
+        or result.get("verdict") != VERDICT
+        or result.get("status") != STATUS
+    ):
+        raise AuditError("P320 result schema/verdict/status differs")
     if result.get("run_id_hex") != P320_RUN_ID.hex() or result.get("scope", {}).get("device_contact") is not False:
         raise AuditError("P320 run/scope differs")
     live_result, _ = _load_live_result()
@@ -826,6 +882,12 @@ def audit_existing(output_root: Path) -> dict[str, Any]:
     }:
         raise AuditError("P320 module byte identity differs")
     wiring, envelope, helper_sources = _bind_p320_helpers()
+    observer, observer_source = _bind_observer_contract()
+    if result.get("lineage", {}).get("p320_observer_contract") != {
+        "commit": P320_OBSERVER_COMMIT,
+        **P320_OBSERVER_SOURCE_IDENTITY,
+    }:
+        raise AuditError("P320 observer commit/source identity differs")
     packager, _ = _load_bound_module(P319_STOCK_BUILDER, P319_STOCK_BUILDER_IDENTITY, "p319_stock_builder_audit_bound")
     packager.RUN_ID = P320_RUN_ID
     packager._ACTIVE_TOOLS = None
@@ -836,7 +898,7 @@ def audit_existing(output_root: Path) -> dict[str, Any]:
     }
     if result.get("tools") != expected_tools:
         raise AuditError("P320 bound packaging tool identities differ")
-    _audit_source_output(output_root, result, wiring)
+    _audit_source_output(output_root, result, observer)
     for name, expected in result["inputs"].items():
         path = output_root / "inputs" / name
         stable_bytes(path, f"P320 input {name}", 128 << 20, expected, required_mode=0o400, required_nlink=1)
