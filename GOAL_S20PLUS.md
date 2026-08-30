@@ -764,37 +764,32 @@ reboot/Download control remains later and F1/R1 remain attended.
 
 ## Attended root-health D0 capability
 
-The exact separate root-health D0 is independently qualified and
-`BINDING - ATTENDED ROOT-HEALTH D0 ACTIVE` at commit `c68f8c55cf`. Its
-focused/helper validation passed 43/43, and post-rotation independent review
-returned `PASS_GO`. It still permits only one
-freshly requested attended fixed read, never generic `su`; no connected run,
-private live evidence, or root result exists. Full design and boundaries are in
-`docs/reports/S20PLUS_G986N_ATTENDED_ROOT_HEALTH_D0_H0_2026-08-31.md`.
+The separate fixed root-health D0 is independently qualified and active at
+commit `c68f8c55cf` (43/43); it still requires one fresh attended request and
+never permits generic `su`. No connected root-health run or result exists; its
+exact design remains in the attended root-health D0 report.
 
 ## Autonomous public-health evidence/accounting H0 qualification
 
-The current unit defines a standalone private evidence owner at
-`workspace/private/runs/s20plus-g986n-autonomous-public-health-evidence/`.
-`EVIDENCE_ACTIVE`, `LIVE_AUTHORITY`, `MECHANICALLY_ACTIVATABLE`, and
-`COORDINATOR_INTEGRATED` remain false. It exact-binds the reviewed sources but
-requires a future coordinator-owned lease from the freshly validated current
-chain head; the present coordinator lacks that serialization, so this owner
-cannot activate or create, renew, or alter a campaign.
+The fixed private evidence owner is exact-byte qualified as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_EVIDENCE_PASS_GO_NOT_ACTIVE` (31/31 focused,
+94/94 aggregate). It models only the initial ordinal-1 512-KiB evidence lease,
+retained returns, zero-command reporting, and a parked settlement. Partial
+publication remains `uncertain-consumed`: no replay, refund, control, or next
+read. Its active/live/mechanical/coordinator gates and every command surface
+remain false; trusted writer, durable order, execution, and activation are future.
 
-The future coordinator lease reserves one read and 512 KiB in both scopes and
-blocks every control. This pure model accepts only ordinal 1 in the initial
-attended session, retains six raw returns/receipts, derives health without
-commands, and proposes a parked settlement; later actions remain deferred.
-An intent-only or partial-publication cut is `uncertain-consumed`: preserve the
-reservation, park, and never replay, refund, start another read, or start a
-control. Complete retained raw returns/receipts may finish reporting with zero command.
+## Autonomous public-health read-leaf coordinator H0 qualification
 
-This commandless owner passed exact-byte independent review as
-`H0_AUTONOMOUS_PUBLIC_HEALTH_EVIDENCE_PASS_GO_NOT_ACTIVE`; focused/aggregate
-tests passed 31/31 and 94/94. All four gates remain false: coordinator
-lease/completion, trusted writer, execution, and activation remain future
-reviewed units; see the evidence/accounting H0 report. After future activation,
-one fresh exact-target/boot attended campaign opening may cover bounded
-nonpersistent recovery-preserving work without per-action prompts. Permanent
-mutation or recovery-path risk always stops and requires fresh consent.
+The separate leaf is exact-byte qualified as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_READ_LEAF_PASS_GO_NOT_ACTIVE` (46/46 focused,
+140/140 aggregate). It pins the frozen coordinator/evidence bytes and admits
+only the initial ordinal-1 lease plus a completion that always parks; control,
+terminal, reboot, Download, root, R1, and F1 successors remain absent. The 19
+evidence files keep their 512-KiB charge, while eight structural JSON nodes
+have per-node limits and one 48-KiB aggregate. All live/writer/clock/execution/
+mechanical gates remain false.
+
+After a future combined review and activation, one fresh exact-target/
+current-boot attended opening may enable its finite read without per-action prompts.
+Permanent mutation or recovery-path risk always stops for fresh consent.

@@ -595,6 +595,23 @@ stable Android, enforcing SELinux, shell identity, and zero other-target
 commands. It remains render-only: durable evidence, campaign accounting,
 coordinator consumption, control actions, and activation are not implemented.
 
+The separate public-health read-leaf coordinator is exact-byte qualified only
+as `H0_AUTONOMOUS_PUBLIC_HEALTH_READ_LEAF_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_coordinator_h0.py`.
+It may model only the initial attended session's ordinal-1 lease and a
+permanently parked completion. It admits no control or terminal successor and
+leaves the base coordinator and qualified evidence source unchanged. Its
+evidence reservation covers the exact 19-file set; eight excluded structural
+JSON nodes are separately bounded by per-node limits and one 48-KiB aggregate
+in both scopes. The final source SHA-256 is
+`e2952245bf4433044fae12ff8114ee9ff4239cbacd173a83cdc5a3dfcfa3d2c6`
+and the test SHA-256 is
+`2f322e064e9f120fc04f019f5244448814a30665698fab9ab3b30d5f74fc72ab`;
+46 focused and 140 aggregate tests pass. Trusted writer/clock, durable
+cross-root order, execution integration, and activation remain absent. Every
+live/mechanical/integration flag is false, so this paragraph grants no
+campaign, connected read, standing consent, or device authority.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
