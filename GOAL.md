@@ -11,16 +11,16 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.20 is the current prepared unit. Its distinct observer-integrated boot-only candidate,
-rollback, ready bundle, and fresh approval binding reopen successfully.
-D1 ordinal 1 stopped after arm on Recovery inventory with no reboot and is never replayable; fresh ordinal 2 completed one normal reboot and same-target/topology
-return, changed boot ID, and healthy rooted FYG8 Android. Its dependent raw-first D0 read
-classified the pre-candidate P3.20 record baseline `ZERO_AMBIGUOUS` with
-`baseline_clean=true`, `candidate_success=false`, and `causal_result_allowed=false`.
-Process-v2 run `p320-ready1-prepared-20260830-1` is prepared with no transaction, F1
-session, transfer intent, or live result; `f1_authorized=false` and `live_authorized=false`.
-Stop before `--execute`. P3.19 remains closed, rolled back, no-proof, consumed, and never
-replayable. Report: `docs/reports/S22PLUS_FYG8_P320_PREF1_PREPARED_2026-08-30.md`.
+P3.20 is the current closed live unit. Candidate and exact rollback transferred once;
+the 19-record journal is `CLOSED`, final rooted FYG8 health passed, and
+`recovery_required=false`. The operator observed normal candidate boot without a loop.
+Candidate observation hit a usbfs node-departure race; journal recovery did not replay, and final identical raw reads contain one CRC-valid P3.19
+generation-0 Carrier and no accepted P3.20 record. Three fresh baselines contained neither.
+The candidate combined a P3.19-configured fixed Image with a P3.20 userspace run ID; the
+kernel guard rejects mismatched request IDs. This causality is `SUPPORTED` because the exact
+rejected return was not retained. Formal terminal remains
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`; P3.20 is consumed and never
+replayable. Report: `docs/reports/S22PLUS_FYG8_P320_F1_MIXED_RUN_NO_PROOF_2026-08-30.md`.
 
 P3.18 is the preceding closed live unit. Its finalizer advanced the journal from 15 to
 19 records at `CLOSED`; exact transfers remain 1/1 and `recovery_required=false`. H0
