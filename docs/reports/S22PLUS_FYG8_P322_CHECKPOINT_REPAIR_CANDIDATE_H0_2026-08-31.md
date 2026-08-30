@@ -73,7 +73,44 @@ real AP unpack/join, deterministic A/B comparison, rollback reopening, adapter
 fixtures, artifact transform tests, and the executed checkpoint fixture pass.
 Independent hostile review returned `PASS_GO_P322_H0` with no material blocker.
 
-This is H0 evidence only. It creates no D0, D1, F1, recovery, replay, approval,
-run manifest, ready manifest, live authority, USB claim, or candidate-success
-claim. P3.21 and all earlier candidates remain consumed and unchanged. A later
-promotion must bind these exact bytes and current common Process-v2 closure.
+The candidate-build unit was H0 evidence only. At that stage it created no D0,
+D1, F1, recovery, replay, approval, run manifest, ready manifest, live
+authority, USB claim, or candidate-success claim. P3.21 and all earlier
+candidates remain consumed and unchanged. The subsequent promotion below binds
+these exact bytes and the current common Process-v2 closure.
+
+## Process-v2 H0 promotion
+
+The exact P3.22 candidate is now registered as a distinct Process-v2 stock
+observer path. It does not alias P3.21: the common verifier accepts the P3.22
+run ID, overlay, schemas, source receipts, and AP while rejecting the P3.19,
+P3.20, and P3.21 identities. `COMPLETE` remains the non-causal success path;
+the separate no-proof outcomes and rollback requirements remain unchanged.
+
+The thin promotion wrapper exact-loads the reviewed P3.21 publisher source but
+supplies every P3.22 path, schema, run, and timeout argument explicitly. It
+uses a P3.22-only temporary directory and module-local proxies rather than
+mutating shared P3.21 constants. The first H0 rehearsal exposed one inherited
+presentation literal, `P321_STOCK_OBSERVER_V4_RETAINED`; before any device
+contact, the wrapper was narrowed to rotate only that literal and its dependent
+canonical run-manifest hash. The corrected rehearsal and publication pass.
+
+Published identities are:
+
+- candidate-static: 24,398 bytes,
+  `650f56785a0c0c165c0a276a56b9bd00e406a8126696e3522530f2a06a01745a`;
+- promotion run manifest: 1,021 bytes,
+  `ce92c77b3f32d524618e3675924e1276ecc5b60a14090223179d15182821fa5f`;
+- promotion static result: 1,835 bytes,
+  `054e710fe839a7adaefcfa96d3c0dc0872925b7c305c48b7dfe41744c3d1a2c3`;
+- public ready manifest: 2,743 bytes,
+  `37b5c94fdc7098f3e078bb309f52177a691c48495aba26c9d1cfc5cfb2ceecb3`.
+
+The common Process-v2 suite passes 120 tests, the P3.22 artifact/static suite
+passes 22, the ready/promotion suite passes 3, and the current-tree raw-first
+audit passes after membership-only S20+ census drift was re-pinned. `py_compile`
+and `git diff --check` also pass. The public status is
+`ready-for-f1-approval`, which is only a non-consuming H0 declaration. It does
+not grant connected D0, F1 transfer, replay, candidate success, USB causality,
+or live authority; those require a fresh exact target preparation and one
+fresh attended approval.

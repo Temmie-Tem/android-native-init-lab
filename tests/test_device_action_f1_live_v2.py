@@ -1402,6 +1402,35 @@ else:
         self.assertFalse(foreign["accepted"])
         self.assertEqual(foreign["foreign_count"], 1)
 
+    def test_p322_projection_uses_distinct_outcome_namespace(self):
+        typed = self.module.typed_evidence
+        adapter = typed.p322_stock_adapter
+        acceptance = adapter.acceptance_fixture()
+        outcomes = {
+            "NONCAUSAL_SUCCESS_PATH": "p322_noncausal_success_path_rollback_verified",
+            "NO_PROOF_EXPERIMENT_PRECONDITION": (
+                "p322_experiment_precondition_unproved_rollback_verified"
+            ),
+            "NO_PROOF_OBSERVER": "p322_observer_no_proof_rollback_verified",
+        }
+        for state, proof in (
+            ("COMPLETE", "NONCAUSAL_SUCCESS_PATH"),
+            ("INCOMPLETE", "NO_PROOF_EXPERIMENT_PRECONDITION"),
+            ("AMBIGUOUS", "NO_PROOF_OBSERVER"),
+        ):
+            with self.subTest(state=state):
+                classified = self.module.classify_acceptance(
+                    adapter._full_fixture(state=state), acceptance
+                )
+                projection = self.module._p320_terminal_projection(classified)
+                self.assertEqual(projection["proof_class"], proof)
+                self.assertEqual(
+                    self.module.P322_OUTCOME_BY_PROOF_CLASS[proof],
+                    outcomes[proof],
+                )
+                self.assertFalse(projection["causal_result_allowed"])
+                self.assertFalse(projection["candidate_success"])
+
     def test_same_ring_typed_observer_dispatches_without_generic_marker_fields(self):
         evidence = self.module.typed_evidence
         same_ring = evidence.same_ring

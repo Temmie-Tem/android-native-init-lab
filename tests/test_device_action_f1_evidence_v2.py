@@ -730,6 +730,44 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
             "E2_TERMINAL_SUCCESS_REACHED",
         )
 
+    def test_p322_stock_overlay_classifies_into_distinct_projection(self):
+        adapter = self.module.p322_stock_adapter
+        acceptance = self.module.validate_acceptance(adapter.acceptance_fixture())
+        self.assertEqual(
+            self.module._latest_stage_observation_decoder(
+                adapter.PARENT_SOURCE_CONTRACT_ID,
+                adapter.PROFILE,
+                adapter.P322_OVERLAY_CONTRACT_ID,
+            ),
+            adapter,
+        )
+        self.assertEqual(
+            self.module._latest_stage_accepted_identity(
+                adapter.PROFILE,
+                adapter.PARENT_SOURCE_CONTRACT_ID,
+                adapter.P322_OVERLAY_CONTRACT_ID,
+            ),
+            "P322_STOCK_OBSERVER_V4_RETAINED",
+        )
+        for state, proof in (
+            ("COMPLETE", "NONCAUSAL_SUCCESS_PATH"),
+            ("INCOMPLETE", "NO_PROOF_EXPERIMENT_PRECONDITION"),
+            ("AMBIGUOUS", "NO_PROOF_OBSERVER"),
+        ):
+            with self.subTest(state=state):
+                result = self.module.classify_e1_latest_stage(
+                    adapter._full_fixture(state=state), acceptance
+                )
+                self.assertEqual(result["proof_class"], proof)
+                self.assertEqual(
+                    result["overlay_contract_id"],
+                    self.module.P322_STOCK_OVERLAY_CONTRACT_ID,
+                )
+                self.assertIn("p322_stock", result)
+                self.assertNotIn("p321_stock", result)
+                self.assertFalse(result["causal_result_allowed"])
+                self.assertFalse(result["candidate_success"])
+
     def test_p280_generic_rootfs_rejects_missing_adapter(self):
         with self.assertRaisesRegex(
             self.module.EvidenceError, "adapter is unavailable"

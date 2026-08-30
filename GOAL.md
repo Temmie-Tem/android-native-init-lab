@@ -11,13 +11,13 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.22 is a new H0-only candidate with run ID `c322f1e0...3f4b`. It reopens the exact
-P3.21 12-source stock closure and changes only `p319_stock_bypass_to_pair()` so
-generation 92 advances through 104 before payload positions 105/106; terminal or
-overrun still fails. The 41,490,944-byte Image uses the same-length identity transform,
-`/init` is the only changed userspace artifact, and real boot-only A/B APs are identical at
-`27279401B/ff7f189d`; rollback remains `23367721B/d2373bf8`. Builder audit and 18
-focused tests and independent `PASS_GO_P322_H0` pass without Full-LTO or device contact; no ready, approval, live, USB, causal, or success authority exists.
+P3.22 is the current Process-v2 H0 offline-ready candidate with run ID `c322f1e0...3f4b`; it changes only `p319_stock_bypass_to_pair()` so generation 92
+advances through 104 before payload positions 105/106; terminal or overrun still fails.
+The boot-only A/B APs are identical at `27279401B/ff7f189d`; rollback remains
+`23367721B/d2373bf8`. Exact candidate-static `24398B/650f5678`, private promotion
+`-02`, and public ready manifest `2743B/37b5c94f` pass non-creating rehearsal with the
+P322-specific common Process-v2 registration. This is non-consuming H0 preparation:
+fresh connected prerequisites and one exact attended F1 approval remain mandatory.
 
 P3.21 remains closed and consumed after exact candidate/rollback transfers and healthy
 rooted FYG8 return. Its CRC-valid generation-93 semantic `bad-body` came from the missing

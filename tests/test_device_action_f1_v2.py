@@ -258,6 +258,18 @@ class DeviceActionF1V2Test(unittest.TestCase):
         ):
             self.module.verify_candidate_observer_binding(acceptance, None)
 
+    def test_p322_stock_overlay_reuses_only_the_p310_source_override(self):
+        typed = self.module.typed_evidence
+        acceptance = typed.p322_stock_adapter.acceptance_fixture()
+        typed.validate_acceptance(acceptance)
+        self.assertIn(
+            "p310_telemetry_decoder",
+            self.module._overridden_candidate_sources(
+                typed.P322_STOCK_OVERLAY_CONTRACT_ID
+            ),
+        )
+        self.module.verify_candidate_observer_binding(acceptance, None)
+
     def test_legacy_contract_rejects_unbound_candidate_observer(self):
         acceptance = {
             "source_contract_id": None,

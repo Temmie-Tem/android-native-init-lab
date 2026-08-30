@@ -80,6 +80,11 @@ P321_OUTCOME_BY_PROOF_CLASS = {
     "NO_PROOF_EXPERIMENT_PRECONDITION": "p321_experiment_precondition_unproved_rollback_verified",
     "NO_PROOF_OBSERVER": "p321_observer_no_proof_rollback_verified",
 }
+P322_OUTCOME_BY_PROOF_CLASS = {
+    "NONCAUSAL_SUCCESS_PATH": "p322_noncausal_success_path_rollback_verified",
+    "NO_PROOF_EXPERIMENT_PRECONDITION": "p322_experiment_precondition_unproved_rollback_verified",
+    "NO_PROOF_OBSERVER": "p322_observer_no_proof_rollback_verified",
+}
 
 
 class F1LiveError(RuntimeError):
@@ -229,14 +234,20 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         "consumed_candidate_registry": Path(consumed_registry.__file__).resolve(),
         "legacy_consumed_candidate_authority": Path(consumed_registry.LEGACY_AUTHORITY_PATH).resolve(),
     }
-    if bundle is not None and (_p320_bundle(bundle) or _p321_bundle(bundle)):
+    if bundle is not None and (
+        _p320_bundle(bundle) or _p321_bundle(bundle) or _p322_bundle(bundle)
+    ):
         stock_adapter = typed_evidence.STOCK_ADAPTERS[
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p321"
-            if _p321_bundle(bundle)
-            else "p320"
+            "p322"
+            if _p322_bundle(bundle)
+            else (
+                "p321"
+                if _p321_bundle(bundle)
+                else "p320"
+            )
         )
         paths.update(
             {
@@ -443,6 +454,13 @@ def _p321_bundle(bundle: core.Bundle) -> bool:
     return (
         _userspace_overlay_contract_id(bundle)
         == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
+    )
+
+
+def _p322_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     )
 
 
@@ -1450,13 +1468,21 @@ def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
-    """Validate and retain a P320/P321 ABI-v4 stock projection."""
+    """Validate and retain a P320/P321/P322 ABI-v4 stock projection."""
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
-    is_p321 = classified.get("overlay_contract_id") == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
-    adapter = typed_evidence.p321_stock_adapter if is_p321 else typed_evidence.p320_stock_adapter
-    label = "P3.21" if is_p321 else "P3.20"
-    stock_key = "p321_stock" if is_p321 else "p320_stock"
+    overlay = classified.get("overlay_contract_id")
+    is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
+    is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
+    adapter = (
+        typed_evidence.p322_stock_adapter
+        if is_p322
+        else typed_evidence.p321_stock_adapter
+        if is_p321
+        else typed_evidence.p320_stock_adapter
+    )
+    label = "P3.22" if is_p322 else "P3.21" if is_p321 else "P3.20"
+    stock_key = "p322_stock" if is_p322 else "p321_stock" if is_p321 else "p320_stock"
     try:
         proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
     except (AttributeError, TypeError, ValueError) as exc:
@@ -1494,9 +1520,16 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    is_p322 = "p322_stock" in state
     is_p321 = "p321_stock" in state
-    label = "P3.21" if is_p321 else "P3.20"
-    stock_key = "p321_stock" if is_p321 else "p320_stock"
+    label = "P3.22" if is_p322 else "P3.21" if is_p321 else "P3.20"
+    stock_key = (
+        "p322_stock"
+        if is_p322
+        else "p321_stock"
+        if is_p321
+        else "p320_stock"
+    )
     projection = state.get(stock_key)
     final = state.get("final_evidence")
     observer = final.get("observer") if isinstance(final, dict) else None
@@ -1505,7 +1538,13 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
         projection, retained
     ):
         raise F1LiveError(f"{label} durable stock projection differs from final evidence")
-    proof_key = "p321_proof_class" if is_p321 else "p320_proof_class"
+    proof_key = (
+        "p322_proof_class"
+        if is_p322
+        else "p321_proof_class"
+        if is_p321
+        else "p320_proof_class"
+    )
     if state.get(proof_key) != projection.get("proof_class"):
         raise F1LiveError(f"{label} durable proof class projection differs")
     return projection
@@ -2287,7 +2326,11 @@ class SamsungOdinBackend:
         )
         p320_projection = (
             _p320_terminal_projection(marker_result)
-            if (_p320_bundle(prepared.bundle) or _p321_bundle(prepared.bundle))
+            if (
+                _p320_bundle(prepared.bundle)
+                or _p321_bundle(prepared.bundle)
+                or _p322_bundle(prepared.bundle)
+            )
             else None
         )
         accepted = marker_result["accepted"] is True
@@ -2319,7 +2362,11 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p321_stock" if _p321_bundle(prepared.bundle) else "p320_stock"
+                "p322_stock"
+                if _p322_bundle(prepared.bundle)
+                else "p321_stock"
+                if _p321_bundle(prepared.bundle)
+                else "p320_stock"
             ] = p320_projection
         return result
 
@@ -2956,6 +3003,13 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.21 final stock projection changed")
     elif "p321_stock" in observer:
         raise F1LiveError("foreign P3.21 final stock evidence")
+    if _p322_bundle(prepared.bundle):
+        if not _p319_exact_equal(
+            observer.get("p322_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.22 final stock projection changed")
+    elif "p322_stock" in observer:
+        raise F1LiveError("foreign P3.22 final stock evidence")
     exact = marker_result["exact_count"]
     family = marker_result["family_count"]
     accepted = marker_result["accepted"] is True
@@ -3127,6 +3181,24 @@ def validate_live_result(
             or result["recovery_required"] is not False
         ):
             raise F1LiveError("P3.21 stock terminal semantics are incomplete")
+        return result
+    if _p322_bundle(prepared.bundle) and state.get("final_verified") is True:
+        projection = _p320_durable_projection(state)
+        proof = projection.get("proof_class")
+        if proof not in P322_OUTCOME_BY_PROOF_CLASS:
+            raise F1LiveError("P3.22 durable proof class is invalid")
+        if result["verdict"] != "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK":
+            raise F1LiveError("P3.22 stock result cannot claim candidate proof")
+        if result["outcome_class"] != P322_OUTCOME_BY_PROOF_CLASS[proof]:
+            raise F1LiveError("P3.22 stock outcome class differs from proof class")
+        if (
+            journal.state() != "CLOSED"
+            or names != list(core.TIMELINE)
+            or state.get("candidate_completed") is not True
+            or state.get("rollback_completed") is not True
+            or result["recovery_required"] is not False
+        ):
+            raise F1LiveError("P3.22 stock terminal semantics are incomplete")
         return result
     if _p319_bundle(prepared.bundle) and state.get("final_verified") is True:
         projection = _p319_durable_projection(state)
@@ -4126,6 +4198,13 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         if outcome is not None:
             return "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", outcome
         raise F1LiveError("P3.21 durable proof class is invalid")
+    if _p322_bundle(prepared.bundle):
+        projection = _p320_durable_projection(current)
+        proof = projection.get("proof_class")
+        outcome = P322_OUTCOME_BY_PROOF_CLASS.get(proof)
+        if outcome is not None:
+            return "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", outcome
+        raise F1LiveError("P3.22 durable proof class is invalid")
     if _p319_bundle(prepared.bundle):
         projection = _p319_durable_projection(current)
         proof = projection.get("proof_class")
@@ -4356,6 +4435,12 @@ def _finish_rollback(
                 raise F1LiveError("P3.21 final stock projection is missing")
             current["p321_proof_class"] = projection["proof_class"]
             current["p321_stock"] = projection
+        if _p322_bundle(prepared.bundle):
+            projection = final["observer"].get("p322_stock")
+            if not isinstance(projection, dict):
+                raise F1LiveError("P3.22 final stock projection is missing")
+            current["p322_proof_class"] = projection["proof_class"]
+            current["p322_stock"] = projection
         _save_state(prepared, current)
         journal.transition(
             "HEALTH_VERIFIED",

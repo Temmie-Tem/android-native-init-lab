@@ -461,6 +461,7 @@ def _overridden_candidate_sources(
     if userspace_overlay_contract_id in {
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID,
@@ -582,6 +583,7 @@ def execution_critical_source_receipts(
             if userspace_overlay_contract_id in {
                 typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+                typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
             }:
                 # Stock adapters retain the P310 carrier closure while their
                 # adapter/observer bytes are bound separately below.
@@ -589,12 +591,21 @@ def execution_critical_source_receipts(
                     userspace_overlay_contract_id
                 ]
                 prefix = (
-                    "p321"
+                    "p322"
                     if userspace_overlay_contract_id
-                    == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
-                    else "p320"
+                    == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
+                    else (
+                        "p321"
+                        if userspace_overlay_contract_id
+                        == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
+                        else "p320"
+                    )
                 )
-                label = "P3.21" if prefix == "p321" else "P3.20"
+                label = {
+                    "p322": "P3.22",
+                    "p321": "P3.21",
+                    "p320": "P3.20",
+                }[prefix]
                 try:
                     adapter_sources = stock_adapter.source_bytes(root)
                 except (stock_adapter.DecodeError, OSError) as exc:
@@ -1196,11 +1207,20 @@ def verify_candidate_source_binding(
     if userspace_overlay_contract_id in {
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
     }:
         if verification.get("userspace_overlay_contract_id") != userspace_overlay_contract_id:
             raise F1V2Error("stock overlay selector changed")
         adapter = typed_evidence.STOCK_ADAPTERS[userspace_overlay_contract_id]
-        prefix = "p321" if userspace_overlay_contract_id == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID else "p320"
+        prefix = (
+            "p322"
+            if userspace_overlay_contract_id
+            == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
+            else "p321"
+            if userspace_overlay_contract_id
+            == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
+            else "p320"
+        )
         expected_adapter = verification.get(f"{prefix}_adapter_source_receipts")
         if (
             not isinstance(expected_adapter, dict)
@@ -1414,6 +1434,7 @@ def verify_candidate_observer_binding(
         typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
     }
     if source_contract_id is None:
         if observer is not None:

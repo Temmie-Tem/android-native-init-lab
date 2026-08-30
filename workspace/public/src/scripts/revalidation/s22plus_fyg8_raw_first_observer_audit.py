@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "3925589e7f09bdb7af136eb8206844b359f432df89a8e222bab35f1178dbee06"
+AUDITOR_NORMALIZED_SHA256 = "9da6c64fcb18386eaa4e8bed0bf93e831f0f7c3e34e4802d225069a1817de297"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -28,11 +28,11 @@ DEFAULT_OUTPUT = Path(
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "b3e5b390dd2e1835f1032c969e43cb2f9fe81e8f96e86639dfd1e11ea1770efa"
+    "11dbb0b46b39918c5d0ecd4b349f0ebd4b027ed82a97010ad9020b3f4824e6b4"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 127
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "3468fbcdcff2569d73fcd93daf412d474afe7d2024dfebda47a986bd90f7da9e"
+    "18ef6578e74aed6b2ffec2cfb865517abc18bc6a29271be3ae21de08a0b60da6"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "5a6ea0905dc02766e97de3111ed7a95823c0ae72d70aa1d35cefc725cdf9e097"
+    "861ba8c855b373960535a7da2a74f803139432b2b82bfc127faf83f7253152f0"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -126,6 +126,7 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s20plus_g986n_boot_only_odin_prep.py",
         "s20plus_g986n_autonomous_health_h0.py",
         "s20plus_g986n_autonomous_research_coordinator_h0.py",
+        "s20plus_g986n_attended_root_health_d0.py",
         "s20plus_g986n_d0_inventory.py",
         "s20plus_g986n_download_exit_d1.py",
         "s20plus_g986n_magisk_bootstrap_f1.py",
@@ -272,6 +273,22 @@ S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
         "sha256": "dc303ef20175a7a6cbe350328fff499ef585edfba995735a990d0891e3570055",
         "exact_host_tool": True,
     },
+    "s22plus_fyg8_p322_artifact_identity.py": {
+        "owner": "s22plus-fyg8-p322",
+        "classification": "host-only-exact-artifact-tool",
+        "profile": "H0-ap-identity-join",
+        "size": 9453,
+        "sha256": "8e77653fa23f47f48980fb2eae906118239e53e763d4e9643be27a71b0749975",
+        "exact_host_tool": True,
+    },
+    "s22plus_fyg8_p322_stock_process_v2_adapter.py": {
+        "owner": "s22plus-fyg8-p322",
+        "classification": "host-only-exact-decoder-adapter",
+        "profile": "H0-process-v2-observer-adapter",
+        "size": 12739,
+        "sha256": "574f88d966b091fb24a3feb6ea7cbdde54f630fcaab688ca25d10c8181cd4bda",
+        "exact_host_tool": True,
+    },
 }
 OBSERVER_FILE_RE = re.compile(
     r"(?:s22plus|device_action)[A-Za-z0-9_]*"
@@ -318,7 +335,7 @@ ACTIVE_FILES = {
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
     "device_action_d0_v2.py": "e71894396ca0c9ba0657a1c83d45883b99f53887c1fb87076ea0a38bbee5c37a",
-    "device_action_f1_live_v2.py": "004b106d7660bd0edf8a992d81f64696be074159664f90d02b81dec966701819",
+    "device_action_f1_live_v2.py": "ebfd230eebf2a8cb603465570db0bde78645411134171bab5e922225dde4d9fe",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
