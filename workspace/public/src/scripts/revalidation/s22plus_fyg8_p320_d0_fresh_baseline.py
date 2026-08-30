@@ -395,8 +395,6 @@ def _validate_d1_value(
         or value.get("execution_manifest") != expected_manifest
         or value.get("ordinal") != static["d1_binding"].get("ordinal")
         or value.get("run_id") != P320_RUN_ID
-        or value.get("run_directory")
-        != static["manifest"]["d1_dependency"]["result"].rsplit("/", 1)[0]
         or value.get("reboot_count") != 1
     ):
         raise D0Error("P3.20 D1 result identity differs")

@@ -114,7 +114,6 @@ class P320D0FreshBaselineTest(unittest.TestCase):
             "execution_manifest": self.module._receipt(self.module.D1_BINDING, binding_payload),
             "ordinal": static["d1_binding"]["ordinal"],
             "run_id": self.module.P320_RUN_ID,
-            "run_directory": static["manifest"]["d1_dependency"]["result"].rsplit("/", 1)[0],
             "reboot_count": 1,
             "selection": {
                 "inventory_count": 1,
