@@ -16,7 +16,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ContextManager, Mapping, Protocol
+from typing import Any, Callable, ContextManager, Mapping, Protocol
 
 import device_action_d0_v2 as d0
 import device_action_raw_capture_v1 as raw_capture
@@ -780,6 +780,21 @@ def _p300_wait_owner_absent(token: str, timeout_sec: float) -> bool:
     return not _p300_owned_processes(token)
 
 
+def _p300_revalidate_group_before_kill(
+    token: str, group: int
+) -> list[dict[str, Any]]:
+    """Re-read the complete owned process group before a group signal."""
+    remaining = _p300_owned_processes(token)
+    groups = {value["process_group_id"] for value in remaining}
+    sessions = {value["session_id"] for value in remaining}
+    if groups != {group} or sessions != {group}:
+        raise F1LiveError("P3.00 observer process group changed during cleanup")
+    group_members = _p300_group_members({group})
+    if any(not _proc_has_owner(value["pid"], token) for value in group_members):
+        raise F1LiveError("P3.00 observer process group has a foreign member")
+    return remaining
+
+
 def _p300_cleanup_owned_processes(
     binding: dict[str, Any], *, expected_group: int | None = None
 ) -> dict[str, Any]:
@@ -824,20 +839,14 @@ def _p300_cleanup_owned_processes(
             except ProcessLookupError:
                 pass
         if not _p300_wait_owner_absent(token, P300_PROCESS_WAIT_SEC):
-            remaining = _p300_owned_processes(token)
-            remaining_groups = {value["process_group_id"] for value in remaining}
-            if remaining_groups != {group}:
-                raise F1LiveError("P3.00 observer process group changed during cleanup")
+            _p300_revalidate_group_before_kill(token, group)
             try:
                 os.killpg(group, signal.SIGTERM)
                 signals.append("SIGTERM")
             except ProcessLookupError:
                 pass
             if not _p300_wait_owner_absent(token, P300_PROCESS_WAIT_SEC):
-                remaining = _p300_owned_processes(token)
-                remaining_groups = {value["process_group_id"] for value in remaining}
-                if remaining_groups != {group}:
-                    raise F1LiveError("P3.00 observer process group changed during cleanup")
+                _p300_revalidate_group_before_kill(token, group)
                 try:
                     os.killpg(group, signal.SIGKILL)
                     signals.append("SIGKILL")
@@ -4266,9 +4275,15 @@ class _P300UsbTraceSession:
         except Exception as exc:
             self.failure_reason = f"witness:{type(exc).__name__}"
 
-    def close_from_observer_stack(self) -> None:
-        if not self.defer_stack_close:
+    def close_from_observer_stack(
+        self,
+        exc_type: type[BaseException] | None = None,
+        _exc_value: BaseException | None = None,
+        _traceback: Any = None,
+    ) -> bool:
+        if exc_type is not None or not self.defer_stack_close:
             self.close()
+        return False
 
     def _binding(self) -> dict[str, Any]:
         if self.binding is None:
@@ -4807,6 +4822,106 @@ def _seal_p300_before_candidate_boot_ready(
     trace_session.finalize()
 
 
+def _run_deferred_p300_segment(
+    trace_session: _P300UsbTraceSession,
+    operation: Callable[[], Any],
+) -> Any:
+    """Run the post-observation segment with an exception cleanup fallback."""
+    try:
+        return operation()
+    except BaseException:
+        if trace_session.defer_stack_close:
+            trace_session.defer_stack_close = False
+            try:
+                trace_session.close()
+            except BaseException:
+                # Preserve the original failure.  Recovery will re-open the
+                # durable owner/capture state and perform the same bounded
+                # cleanup without replaying a device action.
+                pass
+        raise
+
+
+def _finish_candidate_window(
+    prepared: PreparedRun,
+    backend: LiveBackend,
+    journal: core.Journal,
+    endpoint_dir: Path,
+    lease: Any,
+    candidate: TransferOutcome,
+    observation: dict[str, Any],
+    trace_session: _P300UsbTraceSession,
+) -> dict[str, Any]:
+    if (
+        prepared.bundle.manifest["observation"].get("candidate_observer")
+        is not None
+    ):
+        guard_release = _reopen_candidate_guard_release(prepared)
+        current = _state(prepared)
+        current.update(
+            {
+                "candidate_observer_guard_release_status": guard_release[
+                    "status"
+                ],
+                "candidate_observer_guard_released": guard_release[
+                    "released"
+                ],
+                "candidate_observer_guard_warning": guard_release[
+                    "warning"
+                ],
+                "candidate_observer_guard_release_receipt_sha256": (
+                    guard_release["receipt_sha256"]
+                ),
+            }
+        )
+        _save_state(prepared, current)
+        observation["candidate_observer_guard_released"] = guard_release[
+            "released"
+        ]
+        observation["candidate_observer_guard_warning"] = guard_release[
+            "warning"
+        ]
+        observation[
+            "candidate_observer_guard_release_status"
+        ] = guard_release["status"]
+    journal.transition(
+        "OBSERVED",
+        "bounded_candidate_observation_closed",
+        observation,
+    )
+    proof = (
+        candidate.completed
+        and observation.get("download_endpoint_absent") is True
+        and (
+            prepared.bundle.manifest["observation"].get(
+                "candidate_observer"
+            )
+            is None
+            or (
+                observation.get("candidate_observer_accepted") is True
+                and _observer_guard_supports_result(
+                    accepted=True,
+                    status=observation.get(
+                        "candidate_observer_guard_release_status"
+                    ),
+                    released=(
+                        observation.get("candidate_observer_guard_released")
+                        is True
+                    ),
+                )
+            )
+        )
+    )
+    # Seal the passive trace immediately before the durable boot-ready event.
+    # This keeps the capture alive through the complete bounded observation
+    # while preserving the binding's end <= boot-ready ordering.  ``finalize``
+    # only verifies the already sealed capture and cannot re-arm it.
+    _seal_p300_before_candidate_boot_ready(trace_session, journal, proof)
+    return _finish_rollback(
+        prepared, backend, journal, endpoint_dir, lease
+    )
+
+
 def _execute_prepared_locked(
     prepared: PreparedRun,
     approval: str,
@@ -4840,6 +4955,10 @@ def _execute_prepared_locked(
     with backend.endpoint_session(endpoint_dir) as lease:
         with contextlib.ExitStack() as observer_stack:
             trace_session = _P300UsbTraceSession(prepared, journal)
+            # Push the failure-aware cleanup before the observer context is
+            # entered, so an observer __exit__ fault is still visible to the
+            # sidecar cleanup callback after durable observation.
+            observer_stack.push(trace_session.close_from_observer_stack)
             try:
                 observer_session = observer_stack.enter_context(
                     backend.candidate_observer_session(prepared)
@@ -4862,7 +4981,6 @@ def _execute_prepared_locked(
                     False,
                 )
             trace_session.start()
-            observer_stack.callback(trace_session.close_from_observer_stack)
             try:
                 request_intent = {
                     "schema": DOWNLOAD_REQUEST_INTENT_SCHEMA,
@@ -4988,76 +5106,18 @@ def _execute_prepared_locked(
             if _p300_bundle(prepared.bundle):
                 trace_session.observation_durable(current)
                 trace_session.defer_stack_close = True
-        if (
-            prepared.bundle.manifest["observation"].get("candidate_observer")
-            is not None
-        ):
-            guard_release = _reopen_candidate_guard_release(prepared)
-            current = _state(prepared)
-            current.update(
-                {
-                    "candidate_observer_guard_release_status": guard_release[
-                        "status"
-                    ],
-                    "candidate_observer_guard_released": guard_release[
-                        "released"
-                    ],
-                    "candidate_observer_guard_warning": guard_release[
-                        "warning"
-                    ],
-                    "candidate_observer_guard_release_receipt_sha256": (
-                        guard_release["receipt_sha256"]
-                    ),
-                }
-            )
-            _save_state(prepared, current)
-            observation["candidate_observer_guard_released"] = guard_release[
-                "released"
-            ]
-            observation["candidate_observer_guard_warning"] = guard_release[
-                "warning"
-            ]
-            observation[
-                "candidate_observer_guard_release_status"
-            ] = guard_release["status"]
-        journal.transition(
-            "OBSERVED",
-            "bounded_candidate_observation_closed",
-            observation,
-        )
-        proof = (
-            candidate.completed
-            and observation.get("download_endpoint_absent") is True
-            and (
-                prepared.bundle.manifest["observation"].get(
-                    "candidate_observer"
-                )
-                is None
-                or (
-                    observation.get("candidate_observer_accepted") is True
-                    and _observer_guard_supports_result(
-                        accepted=True,
-                        status=observation.get(
-                            "candidate_observer_guard_release_status"
-                        ),
-                        released=(
-                            observation.get(
-                                "candidate_observer_guard_released"
-                            )
-                            is True
-                        ),
-                    )
-                )
-            )
-        )
-        # Seal the passive trace immediately before the durable boot-ready
-        # event.  This keeps the capture alive through the complete bounded
-        # observation while preserving the binding's end <= boot-ready
-        # ordering.  ``finalize`` only verifies the already sealed capture
-        # and cannot re-arm it.
-        _seal_p300_before_candidate_boot_ready(trace_session, journal, proof)
-        return _finish_rollback(
-            prepared, backend, journal, endpoint_dir, lease
+        return _run_deferred_p300_segment(
+            trace_session,
+            lambda: _finish_candidate_window(
+                prepared,
+                backend,
+                journal,
+                endpoint_dir,
+                lease,
+                candidate,
+                observation,
+                trace_session,
+            ),
         )
 
 

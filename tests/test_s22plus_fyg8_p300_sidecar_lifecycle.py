@@ -80,13 +80,12 @@ class P300SidecarLifecycleTest(unittest.TestCase):
 
     def test_source_orders_durable_observation_defer_and_seal_boundary(self):
         source = SCRIPT.read_text(encoding="utf-8")
-        observation = source.index(
+        execute = source[source.index("def _execute_prepared_locked") :]
+        observation = execute.index(
             "trace_session.observation_durable(current)"
         )
-        defer = source.index("trace_session.defer_stack_close = True")
-        seal = source.rindex(
-            "_seal_p300_before_candidate_boot_ready(trace_session, journal, proof)"
-        )
+        defer = execute.index("trace_session.defer_stack_close = True")
+        seal = execute.index("_run_deferred_p300_segment(")
         self.assertLess(observation, defer)
         self.assertLess(defer, seal)
 
@@ -114,6 +113,39 @@ class P300SidecarLifecycleTest(unittest.TestCase):
         )
         trace.close.assert_called_once_with()
         trace.finalize.assert_called_once_with()
+
+    def test_deferred_segment_cleanup_preserves_original_exception(self):
+        session = mock.Mock()
+        session.defer_stack_close = True
+        session.close.side_effect = RuntimeError("cleanup failure")
+
+        def interrupted_segment():
+            raise KeyboardInterrupt("post-observation cut")
+
+        with self.assertRaisesRegex(KeyboardInterrupt, "post-observation cut"):
+            self.module._run_deferred_p300_segment(
+                session, interrupted_segment
+            )
+
+        self.assertFalse(session.defer_stack_close)
+        session.close.assert_called_once_with()
+
+    def test_observer_exit_fault_also_reaps_deferred_sidecar(self):
+        session = object.__new__(self.module._P300UsbTraceSession)
+        session.defer_stack_close = True
+        session.close = mock.Mock()
+
+        @contextlib.contextmanager
+        def faulty_observer():
+            yield
+            raise RuntimeError("observer exit fault")
+
+        with self.assertRaisesRegex(RuntimeError, "observer exit fault"):
+            with contextlib.ExitStack() as stack:
+                stack.push(session.close_from_observer_stack)
+                stack.enter_context(faulty_observer())
+
+        session.close.assert_called_once_with()
 
     def test_cut_after_observation_durable_defers_stack_close_then_recovery_adopts(self):
         temporary, prepared, binding, result = self.prepared()
@@ -386,6 +418,124 @@ class P300SidecarLifecycleTest(unittest.TestCase):
         self.assertEqual(reopened_lifecycle, lifecycle)
         self.assertTrue(session.closed)
         self.assertEqual(session.result, result)
+
+    def test_group_foreign_member_race_blocks_first_killpg_escalation(self):
+        owned = [
+            {
+                "pid": 700,
+                "process_group_id": 700,
+                "session_id": 700,
+                "state": "S",
+            },
+            {
+                "pid": 701,
+                "process_group_id": 700,
+                "session_id": 700,
+                "state": "S",
+            },
+        ]
+        foreign = {
+            "pid": 799,
+            "process_group_id": 700,
+            "session_id": 700,
+            "state": "S",
+        }
+        with (
+            mock.patch.object(
+                self.module, "_p300_owner_token", return_value="owner"
+            ),
+            mock.patch.object(
+                self.module, "_p300_owner_sha256", return_value="digest"
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_owned_processes",
+                return_value=owned,
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_group_members",
+                side_effect=[owned, [foreign]],
+            ),
+            mock.patch.object(
+                self.module,
+                "_proc_has_owner",
+                side_effect=lambda pid, _token: pid != foreign["pid"],
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_wait_owner_absent",
+                return_value=False,
+            ),
+            mock.patch.object(self.module.os, "kill") as kill,
+            mock.patch.object(self.module.os, "killpg") as killpg,
+        ):
+            with self.assertRaisesRegex(
+                self.module.F1LiveError, "foreign member"
+            ):
+                self.module._p300_cleanup_owned_processes({}, expected_group=700)
+
+        kill.assert_called_once_with(700, self.module.signal.SIGTERM)
+        killpg.assert_not_called()
+
+    def test_group_foreign_member_race_blocks_sigkill_escalation(self):
+        owned = [
+            {
+                "pid": 800,
+                "process_group_id": 800,
+                "session_id": 800,
+                "state": "S",
+            },
+            {
+                "pid": 801,
+                "process_group_id": 800,
+                "session_id": 800,
+                "state": "S",
+            },
+        ]
+        foreign = {
+            "pid": 899,
+            "process_group_id": 800,
+            "session_id": 800,
+            "state": "S",
+        }
+        with (
+            mock.patch.object(
+                self.module, "_p300_owner_token", return_value="owner"
+            ),
+            mock.patch.object(
+                self.module, "_p300_owner_sha256", return_value="digest"
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_owned_processes",
+                return_value=owned,
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_group_members",
+                side_effect=[owned, owned, [foreign]],
+            ),
+            mock.patch.object(
+                self.module,
+                "_proc_has_owner",
+                side_effect=lambda pid, _token: pid != foreign["pid"],
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_wait_owner_absent",
+                side_effect=[False, False],
+            ),
+            mock.patch.object(self.module.os, "kill") as kill,
+            mock.patch.object(self.module.os, "killpg") as killpg,
+        ):
+            with self.assertRaisesRegex(
+                self.module.F1LiveError, "foreign member"
+            ):
+                self.module._p300_cleanup_owned_processes({}, expected_group=800)
+
+        kill.assert_called_once_with(800, self.module.signal.SIGTERM)
+        killpg.assert_called_once_with(800, self.module.signal.SIGTERM)
 
 
 if __name__ == "__main__":
