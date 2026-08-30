@@ -48,6 +48,15 @@ RUNTIME_SOURCE_SIZE = 435_334
 RUNTIME_SOURCE_SHA256 = (
     "0a12a9c0f148d58009ebc378b667733b5913d46ebf6466dff3f37bbb850c51a9"
 )
+RUNTIME_WRAPPER_SOURCE = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "stock-witness-runtime-v1-20260821-55/stock-sources/"
+    "s22plus_fyg8_p290_e3_runtime.c"
+)
+RUNTIME_WRAPPER_SOURCE_SIZE = 31_282
+RUNTIME_WRAPPER_SOURCE_SHA256 = (
+    "c55aae39ac4846e952e2d6c8672b93dd44f8a8d2388645aa8cd8dcd761f60064"
+)
 ENVELOPE_SOURCE = Path(__file__).with_name(
     "s22plus_fyg8_p319_kmsg_record_envelope.py"
 )
@@ -99,6 +108,7 @@ class ObserverErrorKind(IntEnum):
     BODY = 3
     SEQUENCE = 4
     WITNESS = 5
+    TRANSPORT = 6
     UNKNOWN = 0xFF
 
 
@@ -110,6 +120,7 @@ ERROR_KIND_VALUES = {
     ObserverErrorKind.BODY: "BODY",
     ObserverErrorKind.SEQUENCE: "SEQUENCE",
     ObserverErrorKind.WITNESS: "WITNESS",
+    ObserverErrorKind.TRANSPORT: "TRANSPORT",
     ObserverErrorKind.UNKNOWN: "UNKNOWN",
 }
 
@@ -135,6 +146,11 @@ class SourceSpec:
 SOURCE_SPECS = {
     "p319_runtime": SourceSpec(
         RUNTIME_SOURCE, RUNTIME_SOURCE_SIZE, RUNTIME_SOURCE_SHA256
+    ),
+    "p319_runtime_wrapper": SourceSpec(
+        RUNTIME_WRAPPER_SOURCE,
+        RUNTIME_WRAPPER_SOURCE_SIZE,
+        RUNTIME_WRAPPER_SOURCE_SHA256,
     ),
     "p320_envelope": SourceSpec(
         ENVELOPE_SOURCE, ENVELOPE_SOURCE_SIZE, ENVELOPE_SOURCE_SHA256
@@ -273,6 +289,7 @@ P320_C_OBSERVER_SOURCE = r'''
 #define P320_OBSERVER_ERROR_KIND_BODY 3U
 #define P320_OBSERVER_ERROR_KIND_SEQUENCE 4U
 #define P320_OBSERVER_ERROR_KIND_WITNESS 5U
+#define P320_OBSERVER_ERROR_KIND_TRANSPORT 6U
 #define P320_OBSERVER_ERROR_KIND_UNKNOWN 0xffU
 #define P320_OBSERVER_RECEIPT_SIZE 15U
 #define P320_OBSERVER_RECEIPT_OFFSET 61U
@@ -303,6 +320,7 @@ struct p320_observer_error_state {
     uint64_t previous_sequence;
     uint8_t active_module_valid;
     uint32_t active_module_index;
+    uint8_t drain_disabled;
 };
 
 static struct p320_observer_error_state g_p320_observer = {0};
@@ -311,7 +329,7 @@ static uint8_t p320_observer_record_checksum(
         const char *record, size_t length)
 {
     uint32_t hash = 0x811c9dc5U;
-    if (record == NULL) return 0U;
+    if (record == NULL || length == 0U) return 0U;
     for (size_t index = 0U; index < length; ++index) {
         hash ^= (uint8_t)record[index];
         hash *= 0x01000193U;
@@ -336,14 +354,35 @@ static int p320_observer_set_active_module(uint32_t index, int valid) {
     return 0;
 }
 
-static void p320_observer_latch(
-        uint8_t kind, const char *record, size_t length,
-        uint8_t flag, int flag_known,
+static void p320_observer_stop_current_drain(void) {
+    g_p320_observer.drain_disabled = 1U;
+}
+
+static int p320_observer_drain_disabled(void) {
+    return g_p320_observer.drain_disabled != 0U;
+}
+
+/*
+ * This is the narrow runtime-level successful-module seam.  The composed
+ * P319 p319_note_successful_module() calls it before its post-load drain, so
+ * an observer error is attributed to the module whose drain saw it.
+ */
+static long p320_observer_note_successful_module(
+        size_t index, long result, const char *name) {
+    if (index > UINT32_MAX || result != 0L || name == NULL
+        || index > P320_OBSERVER_MAX_MODULE_INDEX)
+        return -1L;
+    return p320_observer_set_active_module((uint32_t)index, 1);
+}
+
+static void p320_observer_latch_bounded(
+        uint8_t kind, const char *record, size_t record_length,
+        size_t checksum_length, uint8_t flag, int flag_known,
         uint64_t sequence, int sequence_known) {
     if (g_p320_observer.latched) return;
     if (kind == P320_OBSERVER_ERROR_KIND_NONE
         || kind == P320_OBSERVER_ERROR_KIND_UNKNOWN
-        || kind > P320_OBSERVER_ERROR_KIND_WITNESS) {
+        || kind > P320_OBSERVER_ERROR_KIND_TRANSPORT) {
         kind = P320_OBSERVER_ERROR_KIND_UNKNOWN;
     }
     g_p320_observer.latched = 1U;
@@ -353,7 +392,7 @@ static void p320_observer_latch(
     g_p320_observer.module_index = 0xffU;
     g_p320_observer.sequence = 0U;
     g_p320_observer.record_checksum =
-        p320_observer_record_checksum(record, length);
+        p320_observer_record_checksum(record, checksum_length);
     if (flag_known && (flag == '-' || flag == 'c')) {
         g_p320_observer.flags |= P320_OBSERVER_FLAG_FLAG_KNOWN;
         g_p320_observer.flag = flag;
@@ -367,12 +406,49 @@ static void p320_observer_latch(
         g_p320_observer.module_index =
             (uint8_t)g_p320_observer.active_module_index;
     }
-    if (length > UINT16_MAX) {
+    if (record_length > UINT16_MAX) {
         g_p320_observer.flags |= P320_OBSERVER_FLAG_LENGTH_SATURATED;
         g_p320_observer.record_length = UINT16_MAX;
     } else {
-        g_p320_observer.record_length = (uint16_t)length;
+        g_p320_observer.record_length = (uint16_t)record_length;
     }
+}
+
+static void p320_observer_latch(
+        uint8_t kind, const char *record, size_t length,
+        uint8_t flag, int flag_known,
+        uint64_t sequence, int sequence_known) {
+    p320_observer_latch_bounded(
+        kind, record, length, length, flag, flag_known,
+        sequence, sequence_known);
+}
+
+/*
+ * A record/budget guard may know the claimed length but must not hash bytes
+ * beyond the bounded kmsg buffer.  For an over-capacity pointer the checksum
+ * is deliberately unknown (zero), while the exact uint16 length is retained
+ * when it fits.  No parser is re-entered from this path.
+ */
+static void p320_observer_latch_boundary(
+        const char *record, size_t length, int disable_drain) {
+    size_t checksum_length = length <= P320_OBSERVER_MAX_RECORD_LENGTH
+        ? length : 0U;
+    if (disable_drain) p320_observer_stop_current_drain();
+    p320_observer_latch_bounded(
+        P320_OBSERVER_ERROR_KIND_ENVELOPE, record, length,
+        checksum_length, 0U, 0, 0U, 0);
+}
+
+static __attribute__((unused)) void p320_observer_transport_failure(void) {
+    /* kmsg open/read/close and lifecycle counters are transport failures. */
+    if (g_p320_observer.latched) {
+        p320_observer_stop_current_drain();
+        return;
+    }
+    p320_observer_stop_current_drain();
+    p320_observer_latch_bounded(
+        P320_OBSERVER_ERROR_KIND_TRANSPORT, NULL, 0U, 0U,
+        0U, 0, 0U, 0);
 }
 
 static uint8_t p320_observer_kind_for_envelope(long rc) {
@@ -513,15 +589,23 @@ P320_C_RECORD_SOURCE = r'''
 static long p303_kmsg_record(const char *record, size_t length) {
     if (record == NULL || length == 0U) {
         /* A malformed envelope is an observer error, not a module abort. */
-        (void)p320_observer_record_continue(record, length);
+        p320_observer_latch_boundary(record, length, 0);
         return 0L;
     }
-    if (length > P303_KMSG_RECORD_CAPACITY
-        || g_p303_kmsg.drain_record_count >= P319_KMSG_MAX_DRAIN_RECORDS
-        || length > (size_t)(P319_KMSG_MAX_DRAIN_BYTES - g_p303_kmsg.drain_bytes)
+    if (length > P303_KMSG_RECORD_CAPACITY) {
+        p320_observer_latch_boundary(record, length, 0);
+        return 0L;
+    }
+    if (g_p303_kmsg.drain_record_count >= P319_KMSG_MAX_DRAIN_RECORDS
+        || g_p303_kmsg.drain_bytes > P319_KMSG_MAX_DRAIN_BYTES
+        || (uint64_t)length > (uint64_t)P319_KMSG_MAX_DRAIN_BYTES
+            - (uint64_t)g_p303_kmsg.drain_bytes
         || g_p303_kmsg.record_count >= P319_KMSG_MAX_TOTAL_RECORDS
-        || length > (size_t)(P319_KMSG_MAX_TOTAL_BYTES - g_p303_kmsg.record_bytes)) {
-        return P319_DETAIL_WITNESS_BOUNDARY;
+        || g_p303_kmsg.record_bytes > (uint64_t)P319_KMSG_MAX_TOTAL_BYTES
+        || (uint64_t)length > (uint64_t)P319_KMSG_MAX_TOTAL_BYTES
+            - g_p303_kmsg.record_bytes) {
+        p320_observer_latch_boundary(record, length, 1);
+        return 0L;
     }
     ++g_p303_kmsg.drain_record_count;
     g_p303_kmsg.drain_bytes += (uint32_t)length;
@@ -538,7 +622,13 @@ static long p303_kmsg_record(const char *record, size_t length) {
     g_p303_kmsg.previous_sequence = view.sequence;
 
     rc = p308_kmsg_observe(view.message, view.message_length);
-    if (rc != 0L) return rc;
+    if (rc != 0L) {
+        p320_observer_latch(
+            P320_OBSERVER_ERROR_KIND_WITNESS, record, length,
+            view.flag, 1, view.sequence, 1);
+        p320_observer_stop_current_drain();
+        return 0L;
+    }
     if (p282_find_bytes(
             view.message, view.message_length,
             "msm_hsphy_enable_clocks():") != NULL) {
@@ -561,8 +651,13 @@ static long p303_kmsg_record(const char *record, size_t length) {
         view.message, view.message_length, "QSCRATCH:");
     const char *failed = p282_find_bytes(
         view.message, view.message_length, "FAILED");
-    if (offset == NULL || failed == NULL || offset >= failed)
-        return P303_DETAIL_KMSG_READBACK_FORMAT_CONTRADICTION;
+    if (offset == NULL || failed == NULL || offset >= failed) {
+        p320_observer_latch(
+            P320_OBSERVER_ERROR_KIND_WITNESS, record, length,
+            view.flag, 1, view.sequence, 1);
+        p320_observer_stop_current_drain();
+        return 0L;
+    }
     offset += cstr_len("QSCRATCH:");
     while (offset < failed && p282_is_space(*offset)) ++offset;
     const char *offset_end = offset;
@@ -574,13 +669,144 @@ static long p303_kmsg_record(const char *record, size_t length) {
     }
     uint32_t parsed_offset = 0U;
     rc = p303_parse_hex(offset, offset_end, &parsed_offset);
-    if (rc != 0L || parsed_offset > 0x1f8U || (parsed_offset & 3U) != 0U)
-        return P303_DETAIL_KMSG_READBACK_FORMAT_CONTRADICTION;
-    if (g_p303_kmsg.readback_count == UINT32_MAX)
-        return P303_DETAIL_KMSG_COUNT_OVERFLOW;
+    if (rc != 0L || parsed_offset > 0x1f8U || (parsed_offset & 3U) != 0U) {
+        p320_observer_latch(
+            P320_OBSERVER_ERROR_KIND_WITNESS, record, length,
+            view.flag, 1, view.sequence, 1);
+        p320_observer_stop_current_drain();
+        return 0L;
+    }
+    if (g_p303_kmsg.readback_count == UINT32_MAX) {
+        p320_observer_latch(
+            P320_OBSERVER_ERROR_KIND_WITNESS, record, length,
+            view.flag, 1, view.sequence, 1);
+        p320_observer_stop_current_drain();
+        return 0L;
+    }
     if (g_p303_kmsg.readback_count == 0U)
         g_p303_kmsg.first_offset = parsed_offset;
     ++g_p303_kmsg.readback_count;
+    return 0L;
+}
+'''
+
+
+P320_C_BEGIN_SOURCE = r'''
+static long p303_kmsg_begin(void) {
+    if (g_p303_kmsg.started || g_p303_kmsg.fd >= 0) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    long rc = sys_mknodat(
+        "/dev/kmsg", S_IFCHR | 0600U, make_dev(1U, 11U));
+    if (rc != 0L && rc != -EEXIST) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    long fd = sys_openat(
+        "/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC, 0);
+    if (fd < 0L) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    rc = p303_lseek((int)fd, 0L, P303_SEEK_END);
+    if (rc < 0L) {
+        (void)sys_close((int)fd);
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    g_p303_kmsg.fd = (int)fd;
+    g_p303_kmsg.started = 1U;
+    return 0L;
+}
+'''
+
+
+P320_C_DRAIN_SOURCE = r'''
+static long p303_kmsg_drain(void) {
+    if (p320_observer_drain_disabled()) return 0L;
+    if (!g_p303_kmsg.started || g_p303_kmsg.fd < 0 || g_p303_kmsg.final) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    if (g_p303_kmsg.drain_count == UINT32_MAX) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    ++g_p303_kmsg.drain_count;
+    g_p303_kmsg.drain_record_count = 0U;
+    g_p303_kmsg.drain_bytes = 0U;
+    char record[P303_KMSG_RECORD_CAPACITY];
+    for (;;) {
+        long amount = sys_read(g_p303_kmsg.fd, record, sizeof(record));
+        if (amount == -EAGAIN) return 0L;
+        if (amount == -P303_EPIPE) {
+            p320_observer_transport_failure();
+            return 0L;
+        }
+        if (amount <= 0L || amount > (long)sizeof(record)) {
+            p320_observer_transport_failure();
+            return 0L;
+        }
+        long rc = p303_kmsg_record(record, (size_t)amount);
+        if (rc != 0L) {
+            p320_observer_transport_failure();
+            return 0L;
+        }
+        if (p320_observer_drain_disabled()) return 0L;
+    }
+}
+'''
+
+
+P320_C_FINISH_SOURCE = r'''
+static long p303_kmsg_finish(void) {
+    long rc = p303_kmsg_drain();
+    long close_rc = g_p303_kmsg.fd >= 0
+        ? sys_close(g_p303_kmsg.fd) : 0L;
+    g_p303_kmsg.fd = -1;
+    if (rc != 0L || close_rc != 0L)
+        p320_observer_transport_failure();
+    g_p303_kmsg.final = 1U;
+    return 0L;
+}
+'''
+
+
+P320_C_AFTER_MODULE_SOURCE = r'''
+static long p319_after_module_load(size_t index, long load_rc) {
+    /* A real module-load result belongs to the module loop's fail-fast path. */
+    if (load_rc != 0L) return load_rc;
+    if (g_p303_kmsg.module_count >= P319_KMSG_MAX_MODULES) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    long note_rc = p319_note_successful_module(
+        index, load_rc, s22plus_o2_module_plan[index].filename);
+    if (note_rc != 0L) {
+        /* Invalid module identity/name remains a genuine module failure. */
+        return note_rc;
+    }
+    ++g_p303_kmsg.module_count;
+    long drain_rc = p303_kmsg_drain();
+    g_p319_witness.active_module_valid = 0U;
+    /* A later final poll is not attributable to the last completed row. */
+    (void)p320_observer_set_active_module(0U, 0);
+    if (drain_rc != 0L) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    if (g_p303_kmsg.module_drain_count == UINT32_MAX) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
+    ++g_p303_kmsg.module_drain_count;
+    long eud_rc = index == S22PLUS_O2_EUD_MODULE_INDEX
+        ? p307_read_eud_cache() : 0L;
+    if (eud_rc != 0L) {
+        p320_observer_transport_failure();
+        return 0L;
+    }
     return 0L;
 }
 '''
@@ -711,6 +937,8 @@ def fnv1a8(record: bytes) -> int:
     """The low byte of FNV-1a over the retained raw record."""
     if not isinstance(record, bytes):
         raise ReceiptError("record must be bytes")
+    if not record:
+        return 0
     value = 0x811C9DC5
     for byte in record:
         value ^= byte
@@ -896,6 +1124,7 @@ class ObserverState:
     active_module_index: int | None = None
     previous_sequence: int | None = None
     first_error: ObserverError | None = None
+    drain_disabled: bool = False
 
     @property
     def chain_ambiguous(self) -> bool:
@@ -917,6 +1146,22 @@ class ObserverState:
             self.first_error = _normalise_error(error)
         return self.first_error
 
+    def latch_boundary(
+        self, error: ObserverError, *, disable_drain: bool = True
+    ) -> ObserverError:
+        if disable_drain:
+            self.drain_disabled = True
+        return self.latch(error)
+
+    def transport_failure(self) -> ObserverError:
+        """Latch a non-record kmsg lifecycle failure and stop future drains."""
+        return self.latch_boundary(
+            make_observer_error(
+                ObserverErrorKind.TRANSPORT,
+                active_module_index=self.active_module_index,
+            )
+        )
+
     def observe(
         self,
         record: bytes,
@@ -925,6 +1170,10 @@ class ObserverState:
     ) -> ObservationOutcome:
         if not isinstance(record, bytes):
             raise ContractError("kmsg record must be bytes")
+        if self.drain_disabled:
+            return ObservationOutcome(
+                0, False, self.first_error, self.chain_ambiguous, None
+            )
         metadata = _header_metadata(record)
         try:
             value = _envelope_parse(record)
@@ -1180,6 +1429,18 @@ def compose_runtime(runtime: bytes | None = None) -> bytes:
         + anchor,
         "P3.20 runtime insertion",
     )
+    module_anchor = (
+        b"    g_p319_witness.active_module_index = (uint32_t)index;"
+    )
+    composed = _replace_once(
+        composed,
+        module_anchor,
+        b"    if (p320_observer_note_successful_module(\n"
+        b"            index, result, name) != 0L)\n"
+        b"        return -P319_DETAIL_WITNESS_GRAMMAR_CONTRADICTION;\n"
+        + module_anchor,
+        "P3.20 active-module seam",
+    )
     old_record = _extract_c_function(composed, b"p303_kmsg_record")
     composed = _replace_once(
         composed,
@@ -1187,6 +1448,18 @@ def compose_runtime(runtime: bytes | None = None) -> bytes:
         P320_C_RECORD_SOURCE.encode("ascii"),
         "P3.20 record transform",
     )
+    for name, replacement, label in (
+        (b"p303_kmsg_begin", P320_C_BEGIN_SOURCE, "P3.20 begin transform"),
+        (b"p303_kmsg_drain", P320_C_DRAIN_SOURCE, "P3.20 drain transform"),
+        (b"p303_kmsg_finish", P320_C_FINISH_SOURCE, "P3.20 finish transform"),
+    ):
+        original_function = _extract_c_function(composed, name)
+        composed = _replace_once(
+            composed,
+            original_function,
+            replacement.encode("ascii"),
+            label,
+        )
     composed = _replace_once(
         composed,
         b"#define S22PLUS_MAX77705_P319_STOCK_PAYLOAD_ABI 3U",
@@ -1233,6 +1506,31 @@ def compose_runtime(runtime: bytes | None = None) -> bytes:
 
 
 compose_stock_runtime = compose_runtime
+
+
+def compose_wrapper(wrapper: bytes | None = None) -> bytes:
+    """Compose fail-soft observer handling into the exact P319 wrapper."""
+    if wrapper is None:
+        wrapper = _stable_source(SOURCE_SPECS["p319_runtime_wrapper"])
+    elif not isinstance(wrapper, bytes):
+        raise ContractError("runtime wrapper source must be bytes")
+    if (
+        len(wrapper) != RUNTIME_WRAPPER_SOURCE_SIZE
+        or sha256(wrapper) != RUNTIME_WRAPPER_SOURCE_SHA256
+    ):
+        raise ContractError("runtime wrapper is not the exact consumed P3.19 source")
+    original_function = _extract_c_function(
+        wrapper, b"p319_after_module_load"
+    )
+    return _replace_once(
+        wrapper,
+        original_function,
+        P320_C_AFTER_MODULE_SOURCE.encode("ascii"),
+        "P3.20 wrapper observer transform",
+    )
+
+
+compose_runtime_wrapper = compose_wrapper
 
 
 def observer_source_fragment() -> bytes:
@@ -1297,6 +1595,8 @@ int main(int argc, char **argv) {
     payload[58] = 1U;
     p320_observer_reset();
     (void)&p320_kmsg_witness_observe_v2;
+    (void)&p320_observer_latch_boundary;
+    (void)&p320_observer_drain_disabled;
     for (int index = 1; index < argc; ++index) {
         if (strncmp(argv[index], "module=", 7) == 0) {
             char *end = NULL;
@@ -1304,6 +1604,15 @@ int main(int argc, char **argv) {
             if (end == argv[index] + 7 || *end != '\0'
                 || p320_observer_set_active_module((uint32_t)value, 1) != 0)
                 return 10;
+            continue;
+        }
+        if (strncmp(argv[index], "module-note=", 12) == 0) {
+            char *end = NULL;
+            unsigned long value = strtoul(argv[index] + 12, &end, 10);
+            if (end == argv[index] + 12 || *end != '\0'
+                || p320_observer_note_successful_module(
+                    (size_t)value, 0L, "fixture-module") != 0L)
+                return 15;
             continue;
         }
         if (strncmp(argv[index], "witness=", 8) == 0) {
@@ -1342,6 +1651,500 @@ int main(int argc, char **argv) {
     )
 
 
+def host_runtime_fixture_source() -> bytes:
+    """Build a C fixture that exercises the transformed p303 guard seam."""
+    envelope, wiring = committed_c_sources()
+    wiring = wiring.replace(
+        b"static long p320_kmsg_witness_observe_v2(",
+        b"static __attribute__((unused)) long p320_kmsg_witness_observe_v2(",
+        1,
+    )
+    prefix = b"""#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#define P303_KMSG_RECORD_CAPACITY 4096U
+#define P319_KMSG_MAX_DRAIN_RECORDS 2U
+#define P319_KMSG_MAX_DRAIN_BYTES 1048576U
+#define P319_KMSG_MAX_TOTAL_RECORDS 4096U
+#define P319_KMSG_MAX_TOTAL_BYTES 1048576U
+#define P319_DETAIL_WITNESS_BOUNDARY 24610L
+#define P303_DETAIL_KMSG_READBACK_FORMAT_CONTRADICTION 24580L
+#define P303_DETAIL_KMSG_COUNT_OVERFLOW 24581L
+static size_t cstr_len(const char *value) { return strlen(value); }
+static long g_fixture_witness_rc;
+static unsigned int g_fixture_witness_calls;
+static long p319_witness_observe_v2(const char *message, size_t length) {
+    ++g_fixture_witness_calls;
+    (void)message;
+    (void)length;
+    return g_fixture_witness_rc;
+}
+struct p303_kmsg_capture {
+    int fd;
+    uint8_t started;
+    uint8_t final;
+    uint8_t path_seen;
+    uint8_t reset_mask;
+    uint8_t sequence_seen;
+    uint32_t readback_count;
+    uint32_t first_offset;
+    uint64_t previous_sequence;
+    uint64_t first_sequence;
+    uint64_t record_count;
+    uint64_t record_bytes;
+    uint32_t drain_count;
+    uint32_t module_count;
+    uint32_t module_drain_count;
+    uint32_t drain_record_count;
+    uint32_t drain_bytes;
+};
+static struct p303_kmsg_capture g_p303_kmsg;
+static long p308_kmsg_observe(const char *message, size_t length) {
+    (void)message;
+    (void)length;
+    return 0L;
+}
+static int p282_is_space(char value) {
+    return value == ' ' || value == '\\t';
+}
+static const char *p282_find_bytes(
+        const char *message, size_t length, const char *needle) {
+    (void)message;
+    (void)length;
+    (void)needle;
+    return NULL;
+}
+static long p303_parse_hex(
+        const char *start, const char *end, uint32_t *value) {
+    (void)start;
+    (void)end;
+    if (value != NULL) *value = 0U;
+    return 0L;
+}
+"""
+    suffix = r'''
+/* P320_RUNTIME_FIXTURE */
+static int fixture_hex(char value) {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return 10 + value - 'a';
+    if (value >= 'A' && value <= 'F') return 10 + value - 'A';
+    return -1;
+}
+static size_t fixture_decode(const char *text, unsigned char *out, size_t cap) {
+    size_t length = strlen(text);
+    if ((length & 1U) != 0U || length / 2U > cap) return 0U;
+    for (size_t index = 0U; index < length / 2U; ++index) {
+        int high = fixture_hex(text[index * 2U]);
+        int low = fixture_hex(text[index * 2U + 1U]);
+        if (high < 0 || low < 0) return 0U;
+        out[index] = (unsigned char)((high << 4) | low);
+    }
+    return length / 2U;
+}
+static long g_fixture_read_calls;
+static long g_fixture_reads_remaining;
+static const unsigned char *g_fixture_record;
+static size_t g_fixture_record_length;
+static int g_fixture_sequence_mode;
+static int g_fixture_near_drain_limit;
+static long sys_read(int fd, char *destination, size_t capacity) {
+    (void)fd;
+    if (g_fixture_reads_remaining <= 0L) return -11L;
+    size_t record_length;
+    if (g_fixture_sequence_mode) {
+        int written = snprintf(
+            destination, capacity, "6,%ld,25,-;x\n", 10L + g_fixture_read_calls);
+        if (written <= 0 || (size_t)written >= capacity) return -12L;
+        record_length = (size_t)written;
+    } else {
+        if (g_fixture_record == NULL || g_fixture_record_length > capacity)
+            return -12L;
+        memcpy(destination, g_fixture_record, g_fixture_record_length);
+        record_length = g_fixture_record_length;
+    }
+    --g_fixture_reads_remaining;
+    ++g_fixture_read_calls;
+    return (long)record_length;
+}
+static long p303_kmsg_drain(void) {
+    if (p320_observer_drain_disabled()) return 0L;
+    if (!g_p303_kmsg.started || g_p303_kmsg.fd < 0 || g_p303_kmsg.final)
+        return -20L;
+    if (g_p303_kmsg.drain_count == UINT32_MAX) return -21L;
+    ++g_p303_kmsg.drain_count;
+    g_p303_kmsg.drain_record_count = 0U;
+    g_p303_kmsg.drain_bytes = 0U;
+    if (g_fixture_near_drain_limit)
+        g_p303_kmsg.drain_bytes = P319_KMSG_MAX_DRAIN_BYTES - 12U;
+    char record[P303_KMSG_RECORD_CAPACITY];
+    for (;;) {
+        long amount = sys_read(g_p303_kmsg.fd, record, sizeof(record));
+        if (amount == -11L) return 0L;
+        if (amount <= 0L || amount > (long)sizeof(record)) return -22L;
+        long result = p303_kmsg_record(record, (size_t)amount);
+        if (result != 0L) return result;
+        if (p320_observer_drain_disabled()) return 0L;
+    }
+}
+static void fixture_print_hex(const unsigned char *value, size_t length) {
+    for (size_t index = 0U; index < length; ++index)
+        printf("%02x", value[index]);
+}
+int main(int argc, char **argv) {
+    unsigned char record[8192];
+    unsigned char receipt[P320_OBSERVER_RECEIPT_SIZE];
+    long rc = 0L;
+    const char *normal = "362c31302c32352c2d3b780a";
+    const char *malformed =
+        "362c31302c32352c2d3b6261640a6e6f742d64696374696f6e6172790a";
+    p320_observer_reset();
+    (void)&p320_observer_note_successful_module;
+    (void)&p320_observer_error_latched;
+    (void)&p320_observer_chain_ambiguous;
+    (void)&p320_observer_finalize_stock_payload_v4;
+    for (int index = 1; index < argc; ++index) {
+        if (strcmp(argv[index], "empty") == 0) {
+            rc = p303_kmsg_record(NULL, 0U);
+        } else if (strcmp(argv[index], "normal") == 0) {
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "malformed") == 0) {
+            size_t length = fixture_decode(malformed, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "oversize") == 0) {
+            memset(record, 'x', sizeof(record));
+            rc = p303_kmsg_record((const char *)record,
+                P303_KMSG_RECORD_CAPACITY + 1U);
+        } else if (strcmp(argv[index], "drain-record") == 0) {
+            g_p303_kmsg.drain_record_count = P319_KMSG_MAX_DRAIN_RECORDS;
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "drain-bytes") == 0) {
+            g_p303_kmsg.drain_bytes = P319_KMSG_MAX_DRAIN_BYTES;
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "total-record") == 0) {
+            g_p303_kmsg.record_count = P319_KMSG_MAX_TOTAL_RECORDS;
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "total-bytes") == 0) {
+            g_p303_kmsg.record_bytes = P319_KMSG_MAX_TOTAL_BYTES;
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "underflow-drain") == 0) {
+            g_p303_kmsg.drain_bytes = UINT32_MAX;
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "underflow-total") == 0) {
+            g_p303_kmsg.record_bytes = UINT64_MAX;
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            rc = p303_kmsg_record((const char *)record, length);
+        } else if (strcmp(argv[index], "flood-record") == 0) {
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            g_fixture_record = record;
+            g_fixture_record_length = length;
+            g_fixture_sequence_mode = 1;
+            g_fixture_reads_remaining = 8L;
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 1;
+            rc = p303_kmsg_drain();
+            if (rc == 0L) rc = p303_kmsg_drain();
+        } else if (strcmp(argv[index], "flood-bytes") == 0) {
+            size_t length = fixture_decode(normal, record, sizeof(record));
+            g_fixture_record = record;
+            g_fixture_record_length = length;
+            g_fixture_sequence_mode = 1;
+            g_fixture_near_drain_limit = 1;
+            g_fixture_reads_remaining = 8L;
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 1;
+            rc = p303_kmsg_drain();
+            if (rc == 0L) rc = p303_kmsg_drain();
+        } else if (strncmp(argv[index], "module-note=", 12) == 0) {
+            char *end = NULL;
+            unsigned long value = strtoul(argv[index] + 12, &end, 10);
+            if (end == argv[index] + 12 || *end != '\0'
+                || p320_observer_note_successful_module(
+                    (size_t)value, 0L, "fixture-module") != 0L)
+                return 21;
+        } else if (strncmp(argv[index], "witness=", 8) == 0) {
+            char *end = NULL;
+            g_fixture_witness_rc = strtol(argv[index] + 8, &end, 10);
+            if (end == argv[index] + 8 || *end != '\0') return 22;
+        }
+    }
+    if (p320_observer_encode_receipt(receipt) != 0) return 20;
+    printf("%ld %u %u %ld ", rc, g_fixture_witness_calls,
+        p320_observer_drain_disabled(), g_fixture_read_calls);
+    fixture_print_hex(receipt, sizeof(receipt));
+    printf("\n");
+    return 0;
+}
+'''.encode("ascii")
+    return (
+        prefix
+        + envelope
+        + b"\n"
+        + wiring
+        + b"\n"
+        + P320_C_OBSERVER_SOURCE.encode("ascii")
+        + b"\n"
+        + P320_C_RECORD_SOURCE.encode("ascii")
+        + suffix
+    )
+
+
+def host_lifecycle_fixture_source() -> bytes:
+    """Build a C fixture for begin/drain/finish fail-soft lifecycle paths."""
+    envelope, wiring = committed_c_sources()
+    wiring = wiring.replace(
+        b"static long p320_kmsg_witness_observe_v2(",
+        b"static __attribute__((unused)) long p320_kmsg_witness_observe_v2(",
+        1,
+    )
+    prefix = b"""#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+#ifndef O_NONBLOCK
+#define O_NONBLOCK 0
+#endif
+#ifndef S_IFCHR
+#define S_IFCHR 0020000U
+#endif
+#define P303_SEEK_END 2
+#define P303_EPIPE EPIPE
+#define P303_KMSG_RECORD_CAPACITY 4096U
+#define P319_KMSG_MAX_DRAIN_RECORDS 256U
+#define P319_KMSG_MAX_DRAIN_BYTES 1048576U
+#define P319_KMSG_MAX_TOTAL_RECORDS 4096U
+#define P319_KMSG_MAX_TOTAL_BYTES 1048576U
+#define P319_KMSG_MAX_MODULES 73U
+#define S22PLUS_O2_EUD_MODULE_INDEX 72U
+#define P319_DETAIL_WITNESS_BOUNDARY 24610L
+#define P303_DETAIL_KMSG_READ_FAILED 24611L
+#define P303_DETAIL_KMSG_RING_LOSS 24612L
+#define P319_DETAIL_WITNESS_COUNTER_OVERFLOW 24613L
+static long g_fixture_mknod_rc;
+static long g_fixture_open_rc = 3L;
+static long g_fixture_lseek_rc;
+static long g_fixture_close_rc;
+static long g_fixture_read_rc = -EAGAIN;
+static unsigned int g_fixture_read_calls;
+static size_t cstr_len(const char *value) { return strlen(value); }
+static long p320_observer_note_successful_module(
+        size_t index, long result, const char *name);
+static struct {
+    uint8_t active_module_valid;
+    uint32_t active_module_index;
+} g_p319_witness;
+struct fixture_module_plan_row {
+    const char *filename;
+};
+static const struct fixture_module_plan_row s22plus_o2_module_plan[73] = {
+    [72] = {"fixture-module"},
+};
+static long g_fixture_eud_rc;
+static long p319_note_successful_module(
+        size_t index, long result, const char *name) {
+    if (index > 72U || result != 0L || name == NULL) return -30L;
+    if (p320_observer_note_successful_module(index, result, name) != 0L)
+        return -31L;
+    g_p319_witness.active_module_valid = 1U;
+    g_p319_witness.active_module_index = (uint32_t)index;
+    return 0L;
+}
+static long p307_read_eud_cache(void) { return g_fixture_eud_rc; }
+static long sys_mknodat(
+        const char *path, unsigned int mode, unsigned long device) {
+    (void)path;
+    (void)mode;
+    (void)device;
+    return g_fixture_mknod_rc;
+}
+static long sys_openat(
+        const char *path, int flags, unsigned int mode) {
+    (void)path;
+    (void)flags;
+    (void)mode;
+    return g_fixture_open_rc;
+}
+static long p303_lseek(int fd, long offset, int whence) {
+    (void)fd;
+    (void)offset;
+    (void)whence;
+    return g_fixture_lseek_rc;
+}
+static long sys_close(int fd) {
+    (void)fd;
+    return g_fixture_close_rc;
+}
+static long sys_read(int fd, char *record, size_t capacity) {
+    (void)fd;
+    (void)record;
+    (void)capacity;
+    ++g_fixture_read_calls;
+    return g_fixture_read_rc;
+}
+static unsigned long make_dev(unsigned int major, unsigned int minor) {
+    return ((unsigned long)major << 8U) | minor;
+}
+static long p319_witness_observe_v2(const char *message, size_t length) {
+    (void)message;
+    (void)length;
+    return 0L;
+}
+struct p303_kmsg_capture {
+    int fd;
+    uint8_t started;
+    uint8_t final;
+    uint8_t path_seen;
+    uint8_t reset_mask;
+    uint8_t sequence_seen;
+    uint32_t readback_count;
+    uint32_t first_offset;
+    uint64_t previous_sequence;
+    uint64_t first_sequence;
+    uint64_t record_count;
+    uint64_t record_bytes;
+    uint32_t drain_count;
+    uint32_t module_count;
+    uint32_t module_drain_count;
+    uint32_t drain_record_count;
+    uint32_t drain_bytes;
+};
+static struct p303_kmsg_capture g_p303_kmsg = {.fd = -1};
+static long p308_kmsg_observe(const char *message, size_t length) {
+    (void)message;
+    (void)length;
+    return 0L;
+}
+static int p282_is_space(char value) {
+    return value == ' ' || value == '\\t';
+}
+static const char *p282_find_bytes(
+        const char *message, size_t length, const char *needle) {
+    (void)message;
+    (void)length;
+    (void)needle;
+    return NULL;
+}
+static long p303_parse_hex(
+        const char *start, const char *end, uint32_t *value) {
+    (void)start;
+    (void)end;
+    if (value != NULL) *value = 0U;
+    return 0L;
+}
+"""
+    suffix = r'''
+static void fixture_print_hex(const unsigned char *value, size_t length) {
+    for (size_t index = 0U; index < length; ++index)
+        printf("%02x", value[index]);
+}
+int main(int argc, char **argv) {
+    unsigned char receipt[P320_OBSERVER_RECEIPT_SIZE];
+    long rc = 0L;
+    int load_failure = 0;
+    p320_observer_reset();
+    (void)&p320_observer_note_successful_module;
+    (void)&p320_observer_error_latched;
+    (void)&p320_observer_chain_ambiguous;
+    (void)&p320_observer_latch_boundary;
+    (void)&p320_observer_finalize_stock_payload_v4;
+    for (int index = 1; index < argc; ++index) {
+        if (strcmp(argv[index], "begin-open-fail") == 0) {
+            g_fixture_open_rc = -1L;
+            rc = p303_kmsg_begin();
+            if (rc == 0L) rc = p303_kmsg_drain();
+        } else if (strcmp(argv[index], "begin-lseek-fail") == 0) {
+            g_fixture_lseek_rc = -1L;
+            rc = p303_kmsg_begin();
+            if (rc == 0L) rc = p303_kmsg_drain();
+        } else if (strcmp(argv[index], "drain-read-fail") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            g_fixture_read_rc = -5L;
+            rc = p303_kmsg_drain();
+        } else if (strcmp(argv[index], "drain-ring-fail") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            g_fixture_read_rc = -P303_EPIPE;
+            rc = p303_kmsg_drain();
+        } else if (strcmp(argv[index], "drain-count-fail") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            g_p303_kmsg.drain_count = UINT32_MAX;
+            rc = p303_kmsg_drain();
+        } else if (strcmp(argv[index], "finish-close-fail") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            g_fixture_close_rc = -6L;
+            rc = p303_kmsg_finish();
+        } else if (strcmp(argv[index], "module-drain-fail") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            g_fixture_read_rc = -5L;
+            rc = p319_after_module_load(72U, 0L);
+        } else if (strcmp(argv[index], "module-final-poll-fail") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            rc = p319_after_module_load(72U, 0L);
+            g_fixture_read_rc = -5L;
+            if (rc == 0L) rc = p303_kmsg_drain();
+        } else if (strcmp(argv[index], "module-eud-fail") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            g_fixture_eud_rc = -8L;
+            rc = p319_after_module_load(72U, 0L);
+        } else if (strcmp(argv[index], "module-load-fail") == 0) {
+            load_failure = 1;
+            rc = p319_after_module_load(72U, -9L);
+        } else if (strcmp(argv[index], "clean") == 0) {
+            g_p303_kmsg.started = 1U;
+            g_p303_kmsg.fd = 3;
+            rc = p303_kmsg_finish();
+        }
+    }
+    if (!load_failure && !g_p303_kmsg.final) (void)p303_kmsg_finish();
+    if (p320_observer_encode_receipt(receipt) != 0) return 20;
+    printf("%ld %u %u %u %d ",
+        rc, g_fixture_read_calls, p320_observer_drain_disabled(),
+        g_p303_kmsg.final, g_p303_kmsg.fd);
+    fixture_print_hex(receipt, sizeof(receipt));
+    printf("\n");
+    return 0;
+}
+'''.encode("ascii")
+    return (
+        prefix
+        + envelope
+        + b"\n"
+        + wiring
+        + b"\n"
+        + P320_C_OBSERVER_SOURCE.encode("ascii")
+        + b"\n"
+        + P320_C_RECORD_SOURCE.encode("ascii")
+        + b"\n"
+        + P320_C_BEGIN_SOURCE.encode("ascii")
+        + b"\n"
+        + P320_C_DRAIN_SOURCE.encode("ascii")
+        + b"\n"
+        + P320_C_FINISH_SOURCE.encode("ascii")
+        + b"\n"
+        + P320_C_AFTER_MODULE_SOURCE.encode("ascii")
+        + suffix
+    )
+
+
 __all__ = [
     "ContractError",
     "ERROR_KIND_NAMESPACE",
@@ -1364,12 +2167,19 @@ __all__ = [
     "P320_C_OBSERVER_ERROR_SOURCE",
     "P320_C_RECORD_SOURCE",
     "P320_C_RECORD_TRANSFORM_SOURCE",
+    "P320_C_BEGIN_SOURCE",
+    "P320_C_DRAIN_SOURCE",
+    "P320_C_FINISH_SOURCE",
+    "P320_C_AFTER_MODULE_SOURCE",
     "P320_PAYLOAD_ABI",
     "ReceiptError",
     "RAW_CHECKPOINT_SOURCE",
     "RUNTIME_SOURCE",
     "RUNTIME_SOURCE_SHA256",
     "RUNTIME_SOURCE_SIZE",
+    "RUNTIME_WRAPPER_SOURCE",
+    "RUNTIME_WRAPPER_SOURCE_SHA256",
+    "RUNTIME_WRAPPER_SOURCE_SIZE",
     "STOCK_DETAIL_AMBIGUOUS",
     "STOCK_DETAIL_COMPLETE",
     "STOCK_DETAIL_INCOMPLETE",
@@ -1381,7 +2191,9 @@ __all__ = [
     "bind_lineage",
     "committed_c_sources",
     "compose_runtime",
+    "compose_wrapper",
     "compose_stock_runtime",
+    "compose_runtime_wrapper",
     "decode_error_receipt",
     "decode_payload_v4",
     "decode_receipt",
@@ -1392,6 +2204,8 @@ __all__ = [
     "encode_stock_payload_v4",
     "fnv1a8",
     "host_fixture_source",
+    "host_runtime_fixture_source",
+    "host_lifecycle_fixture_source",
     "make_observer_error",
     "observer_source_fragment",
     "terminal_detail_for_payload",
