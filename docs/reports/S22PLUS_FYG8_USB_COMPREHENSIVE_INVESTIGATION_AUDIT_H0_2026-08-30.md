@@ -981,5 +981,16 @@ Later on 2026-08-30, the first deliberately small H0 follow-up was implemented:
   immutable evidence.
 
 This unit intentionally does not repair the candidate `/dev/kmsg` parser or
-sidecar. The next small unit is the bounded parser record-envelope correction
-and a short official-ABI fixture set; sidecar lifecycle remains separate.
+sidecar.
+
+A second small H0 unit adds
+`workspace/public/src/scripts/analysis/s22plus_fyg8_p319_kmsg_record_envelope.py`.
+It is a host prototype, not candidate integration: it separates the human
+message from space-prefixed continuation dictionary lines, preserves unknown
+header extensions, accepts the `c` fragment flag without pretending to merge
+fragments, and keeps record size/newline bounds. Six focused fixtures cover the
+plain, official dictionary, future-header, fragment, malformed continuation,
+and boundary shapes. The consumed v2 source remains unchanged.
+
+The next bounded unit is only the generated-C port and witness-parser wiring of
+that envelope. Sidecar lifecycle and a new candidate remain separate.
