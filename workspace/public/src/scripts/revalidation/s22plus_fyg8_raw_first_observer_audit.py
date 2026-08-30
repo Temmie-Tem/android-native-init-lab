@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "8f9e72cb53cfc0044a8eb93f3ddf0fce3dacecc86e8df62770c836ab81f97323"
+AUDITOR_NORMALIZED_SHA256 = "3571ef40485bcf5eec19c47538bb65bb9343da95cff4fb0c7e3012533ae3b9f9"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -28,11 +28,11 @@ DEFAULT_OUTPUT = Path(
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "be9be3666407b580922bd80b8be356cc26dc5276f42f1412f85d3f0f3ba1896c"
+    "3a243157df96e8236552ff97d54bb061f34959e18080bffe4c791b9f71c320ad"
 )
-CLOSED_OBSERVER_SOURCE_COUNT = 126
+CLOSED_OBSERVER_SOURCE_COUNT = 127
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "42f5c1a8aa109e7377ae0a70553059aa9d37498be81fe327e20d87a518598c6d"
+    "a9a5fdd2056f20fea84f8c41bf5fd2afad9ab6e39e5cbf80dcfe852d914ab9dd"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "e59010a7ddf187f52f5e6e52f39a0de2f591037306123be23c31f772aa881c9f"
+    "435699f97dd13913b26f8a883321d54f2bb50b11fb2a8a7195293bde2d11fb3e"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -291,6 +291,8 @@ ACTIVE_FILES = {
     "s22plus_fyg8_p319_d0_fresh_baseline_v3.py",
     "s22plus_fyg8_p319_d1_fresh_baseline_v2.py",
     "s22plus_fyg8_p319_d1_fresh_baseline_v3.py",
+    "s22plus_fyg8_p320_d0_fresh_baseline.py",
+    "s22plus_fyg8_p320_d1_fresh_baseline.py",
     "s22plus_fyg8_pref1_normal_reboot_live_v1.py",
     "s22plus_fyg8_p319_max77705_attribute_stage_a.py",
     "s22plus_fyg8_max77705_sysfs_d0.py",
@@ -308,7 +310,7 @@ ACTIVE_FILES = {
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
     "device_action_d0_v2.py": "e71894396ca0c9ba0657a1c83d45883b99f53887c1fb87076ea0a38bbee5c37a",
-    "device_action_f1_live_v2.py": "094766ef9b5cd3f1b548b337660d4682fa55ed1ec4b91bffde50efd85222bda8",
+    "device_action_f1_live_v2.py": "a1db5bf7476a3e7fd732b2fc95cc464ebc8de2072075beebc68ee37cd297c42e",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
@@ -323,6 +325,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p319_d0_fresh_baseline_v3.py": "adc3e979771dbc4e67c264d3b6ad8f09f3fc512dc5decee7cff770094d24574d",
     "s22plus_fyg8_p319_d1_fresh_baseline_v2.py": "9443c81cd51e23a24f48a0f43573e1449cfa188b3cd1c69e6f6f11644d15d478",
     "s22plus_fyg8_p319_d1_fresh_baseline_v3.py": "cb13236e1fb10bf25ac47f7706df050abe15b2ab5a7e423bbdc7b5b31c2c491d",
+    "s22plus_fyg8_p320_d0_fresh_baseline.py": "1188a4165077ff79950f9bca579b23d87f9363e33795006fc4e8f985db36b51a",
+    "s22plus_fyg8_p320_d1_fresh_baseline.py": "f73aa2046c809ec2c15e305906d2c20ef5befb9c4aa8d580dcd781985cb8e4d8",
     "s22plus_fyg8_pref1_normal_reboot_live_v1.py": "e93ec6df89d2ae050876e67713bf8c80cd43301733ece98795d298e407504ed7",
     "s22plus_odin_transition_core.py": "a44e5ce43eebc3d254c1cc428b986484f244d47ae13a4125399c26c4b3e4014c",
     "s22plus_odin_usbfs_identity.py": "e337026d70f4c231468bfddab4a28e9ae65ab142f82859370c926332fb7bb9b5",
@@ -504,6 +508,65 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "_publish_stop(inputs, exc)",
             ),
             ("p318._durable_arm(",),
+        ),
+    },
+    "s22plus_fyg8_p320_d0_fresh_baseline.py": {
+        "run_live": (
+            (
+                "_preflight()",
+                "_durable_create(RUN_ARM",
+                "client.bind_raw_capture_dir(RUN_DIR)",
+                "capture = client.capture(",
+                "payload = raw.read_stdout(",
+                "observer_result = _classify_clean_baseline(",
+                "observer_receipt_payload = _stable_read(",
+                "_durable_create(RESULT_PATH, result)",
+            ),
+            ("subprocess.", "result.stdout", "result.stderr"),
+        ),
+        "_raw_inventory": (
+            (
+                "for child in children:",
+                "handle = raw.load_handle(child)",
+                "handles.append({",
+            ),
+            ("raw.read_stdout(", "raw.read_stderr(", "subprocess."),
+        ),
+    },
+    "s22plus_fyg8_p320_d1_fresh_baseline.py": {
+        "RawFirstTransport.__init__": (
+            ("self.client.bind_raw_capture_dir(raw_root)",),
+            ("bounded_command(", "result.stdout", "result.stderr"),
+        ),
+        "RawFirstTransport.reboot_once": (
+            (
+                "handle = self.client.capture_command(",
+                "current = self.raw.load_handle(handle.receipt_path)",
+                "self.raw.require_success(current)",
+                "self.raw.read_stdout(current",
+                "self.raw.read_stderr(current",
+            ),
+            ("subprocess.", "result.stdout", "result.stderr"),
+        ),
+        "_raw_inventory": (
+            (
+                "for name in children:",
+                "handle = raw.load_handle(RAW_ADB_DIR / name)",
+                "handles.append({",
+            ),
+            ("raw.read_stdout(", "raw.read_stderr(", "subprocess."),
+        ),
+        "run_live": (
+            (
+                "_preflight()",
+                "_durable_create(RUN_ARM",
+                "_prepare_raw_root()",
+                "_prepare_snapshot(adb_payload, ADB_SNAPSHOT)",
+                "_load_runtime(",
+                "raw_evidence = _raw_inventory(raw)",
+                "result = perform_rotation(",
+            ),
+            ("subprocess.", "result.stdout", "result.stderr"),
         ),
     },
     "s22plus_fyg8_pref1_normal_reboot_live_v1.py": {
@@ -870,6 +933,57 @@ ORDERED_FUNCTION_TOKENS = {
         "raw.read_stdout(handle, maximum=RAW_SIZE)",
         "raw.read_stderr(handle, maximum=MAX_TEXT)",
         "adapter.classify_clean_baseline(",
+    ),
+    (
+        "s22plus_fyg8_p320_d0_fresh_baseline.py",
+        "run_live",
+    ): (
+        "_preflight()",
+        "_durable_create(RUN_ARM",
+        "client.bind_raw_capture_dir(RUN_DIR)",
+        "capture = client.capture(",
+        "payload = raw.read_stdout(",
+        "observer_result = _classify_clean_baseline(",
+        "observer_receipt_payload = _stable_read(",
+        "_durable_create(RESULT_PATH, result)",
+    ),
+    (
+        "s22plus_fyg8_p320_d0_fresh_baseline.py",
+        "_raw_inventory",
+    ): (
+        "for child in children:",
+        "handle = raw.load_handle(child)",
+        "handles.append({",
+    ),
+    (
+        "s22plus_fyg8_p320_d1_fresh_baseline.py",
+        "RawFirstTransport.reboot_once",
+    ): (
+        "handle = self.client.capture_command(",
+        "current = self.raw.load_handle(handle.receipt_path)",
+        "self.raw.require_success(current)",
+        "self.raw.read_stdout(current",
+        "self.raw.read_stderr(current",
+    ),
+    (
+        "s22plus_fyg8_p320_d1_fresh_baseline.py",
+        "_raw_inventory",
+    ): (
+        "for name in children:",
+        "handle = raw.load_handle(RAW_ADB_DIR / name)",
+        "handles.append({",
+    ),
+    (
+        "s22plus_fyg8_p320_d1_fresh_baseline.py",
+        "run_live",
+    ): (
+        "_preflight()",
+        "_durable_create(RUN_ARM",
+        "_prepare_raw_root()",
+        "_prepare_snapshot(adb_payload, ADB_SNAPSHOT)",
+        "_load_runtime(",
+        "raw_evidence = _raw_inventory(raw)",
+        "result = perform_rotation(",
     ),
     (
         "device_action_cdc_acm_observer_v1.py",

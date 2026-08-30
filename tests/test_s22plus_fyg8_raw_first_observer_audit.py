@@ -83,6 +83,26 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertTrue(value["auditor_bound_source_execution"])
         self.assertTrue(value["permanent"])
         self.assertIsNone(value["expiry"])
+        self.assertIn(
+            "s22plus_fyg8_p320_d0_fresh_baseline.py",
+            value["audited_active_observer_modules"],
+        )
+        self.assertIn(
+            "s22plus_fyg8_p320_d1_fresh_baseline.py",
+            value["audited_active_observer_modules"],
+        )
+        self.assertIn(
+            "s22plus_fyg8_p320_d0_fresh_baseline.py",
+            value["d0_subprocess_candidates"],
+        )
+        self.assertIn(
+            "s22plus_fyg8_p320_d0_fresh_baseline.py:run_live",
+            value["function_sha256"],
+        )
+        self.assertIn(
+            "s22plus_fyg8_p320_d1_fresh_baseline.py:RawFirstTransport.reboot_once",
+            value["function_sha256"],
+        )
 
     def test_d0_direct_stdout_and_nonhandle_parser_mutations_reject(self):
         raw_name = "device_action_raw_capture_v1.py"
@@ -732,7 +752,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["pre_boundary_device_source_count"], 128)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "f18e2b0d3bc6dec73a775e48a84a3e135dcb1d7326010f8aae1923c2a9805fa9",
+            "435699f97dd13913b26f8a883321d54f2bb50b11fb2a8a7195293bde2d11fb3e",
         )
         self.assertEqual(
             value["p319_d1_pre_boundary_classification"],
