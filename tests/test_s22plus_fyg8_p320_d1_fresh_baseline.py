@@ -44,7 +44,10 @@ class P320D1FreshBaselineTest(unittest.TestCase):
             value["inputs"]["d1_source"]["sha256"],
             hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
         )
-        self.assertEqual(value["independent_review"], {"status": "review-pending", "verdict": None})
+        self.assertEqual(
+            value["independent_review"],
+            {"status": "pass-go", "verdict": self.module.REVIEW_VERDICT},
+        )
 
     def test_self_test_executes_the_pinned_p296_one_reboot_path(self):
         with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("device/process call")):
@@ -65,7 +68,7 @@ class P320D1FreshBaselineTest(unittest.TestCase):
         self.assertEqual(static["manifest"]["safety"]["candidate_transfer"], False)
         self.assertEqual(static["manifest"]["safety"]["f1_authorized"], False)
 
-    def test_live_is_blocked_while_review_pending_without_contact(self):
+    def test_live_is_blocked_on_wrong_exact_approval_without_contact(self):
         with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("device/process call")):
             result = self.module.main(["--live", "--approval", "bad"])
         self.assertEqual(result, 2)

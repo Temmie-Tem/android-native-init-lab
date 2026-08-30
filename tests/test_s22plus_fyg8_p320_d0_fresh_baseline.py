@@ -41,7 +41,10 @@ class P320D0FreshBaselineTest(unittest.TestCase):
         self.assertEqual(value["target"], {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"})
         self.assertEqual(value["inputs"]["d0_source"]["sha256"], hashlib.sha256(SOURCE.read_bytes()).hexdigest())
         self.assertEqual(value["d1_dependency"]["result_schema"], "s22plus_fyg8_p320_d1_fresh_baseline_v1_result")
-        self.assertEqual(value["independent_review"], {"status": "review-pending", "verdict": None})
+        self.assertEqual(
+            value["independent_review"],
+            {"status": "pass-go", "verdict": self.module.REVIEW_VERDICT},
+        )
 
     def test_self_test_is_zero_device_and_rejects_p319_run_id(self):
         with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("device/process call")):
@@ -67,7 +70,7 @@ class P320D0FreshBaselineTest(unittest.TestCase):
         self.assertEqual(static["manifest"]["safety"]["device_writes"], False)
         self.assertEqual(static["manifest"]["safety"]["reboot"], False)
 
-    def test_live_is_blocked_while_review_pending_without_contact(self):
+    def test_live_is_blocked_on_wrong_exact_approval_without_contact(self):
         with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("device/process call")):
             result = self.module.main(["--live", "--approval", "bad"])
         self.assertEqual(result, 2)
