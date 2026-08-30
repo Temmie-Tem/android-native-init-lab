@@ -373,10 +373,15 @@ def _validated_device_inventory(device_inventory: DeviceInventory) -> dict[str, 
 
 def measured_usbfs_observer(
     capture_dir: Path | None = None,
+    *,
+    allow_live_departure: bool = False,
 ) -> EndpointIdentityObserver:
     """Return the opt-in R4W1-C-derived timestamp-aware identity observer."""
 
-    return usbfs_identity.MeasuredUsbfsIdentityObserver(capture_dir=capture_dir)
+    return usbfs_identity.MeasuredUsbfsIdentityObserver(
+        capture_dir=capture_dir,
+        allow_endpoint_departure_resnapshot=allow_live_departure,
+    )
 
 
 def _new_endpoint_observer(
@@ -1590,7 +1595,8 @@ def _snapshot_and_record(
             run_dir, f"raw-usbfs-identity-{sequence:06d}"
         )
         effective_observer_factory = lambda: measured_usbfs_observer(
-            usbfs_capture_dir
+            usbfs_capture_dir,
+            allow_live_departure=allow_live_departure,
         )
     try:
         snapshot = enumerate_odin(

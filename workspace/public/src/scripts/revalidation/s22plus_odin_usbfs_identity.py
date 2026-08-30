@@ -10,6 +10,7 @@ evidence through their transaction harness.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -30,6 +31,7 @@ USBFS_ROOT = Path("/dev/bus/usb")
 STAT_BINARY = Path("/usr/bin/stat")
 USBFS_PATH_RE = re.compile(r"/dev/bus/usb/([0-9]{3})/([0-9]{3})")
 MAX_INVENTORY_ENTRIES = 4096
+MAX_INVENTORY_RESNAPSHOTS = 1
 MAX_BIRTH_OUTPUT_BYTES = 1024
 
 MUTABLE_METADATA_FIELDS = (
@@ -56,6 +58,33 @@ ALL_NODE_FIELDS = IMMUTABLE_IDENTITY_FIELDS + MUTABLE_METADATA_FIELDS
 
 class UsbfsIdentityError(RuntimeError):
     pass
+
+
+class UsbfsEndpointDeparture(UsbfsIdentityError):
+    """A validated usbfs node vanished during one bounded node snapshot."""
+
+    def __init__(
+        self,
+        path: str,
+        *,
+        inventory_paths: tuple[str, ...] | None = None,
+    ):
+        _validated_usbfs_coordinates(path)
+        if inventory_paths is None:
+            normalized_paths = ()
+        elif (
+            not isinstance(inventory_paths, tuple)
+            or inventory_paths != tuple(sorted(set(inventory_paths)))
+            or path not in inventory_paths
+        ):
+            raise UsbfsIdentityError("usbfs departure inventory is invalid")
+        else:
+            normalized_paths = inventory_paths
+        for inventory_path in normalized_paths:
+            _validated_usbfs_coordinates(inventory_path)
+        self.path = path
+        self.inventory_paths = normalized_paths
+        super().__init__(f"usbfs endpoint disappeared during snapshot: {path}")
 
 
 class UsbfsInventoryArrival(UsbfsIdentityError):
@@ -134,6 +163,12 @@ def _validated_usbfs_coordinates(path: str) -> tuple[int, int]:
     return bus, device
 
 
+def _is_enoent_error(error: BaseException) -> bool:
+    return isinstance(error, FileNotFoundError) or getattr(
+        error, "errno", None
+    ) == errno.ENOENT
+
+
 def _validate_snapshot(snapshot: UsbfsNodeSnapshot) -> None:
     if not isinstance(snapshot, UsbfsNodeSnapshot):
         raise UsbfsIdentityError("usbfs snapshot has an invalid type")
@@ -178,6 +213,31 @@ def parse_birth_time_ns(value: str) -> int | None:
     except ValueError as exc:
         raise UsbfsIdentityError("usbfs birth-time output is malformed") from exc
     return int(instant.timestamp()) * 1_000_000_000 + int(fraction.ljust(9, "0"))
+
+
+def _path_is_missing(path: str) -> bool:
+    try:
+        os.stat(path, follow_symlinks=False)
+    except OSError as exc:
+        return _is_enoent_error(exc)
+    return False
+
+
+def _birth_time_read_is_completed_nonzero(
+    handle: raw_capture.RawCaptureHandle,
+) -> bool:
+    if (
+        type(handle.returncode) is not int
+        or handle.returncode <= 0
+        or handle.timed_out
+        or handle.output_exceeded
+        or handle.producer_error_type is not None
+    ):
+        return False
+    try:
+        return int(handle.stdout["size"]) == 0
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def _next_birth_capture_name(capture_dir: Path, path: str) -> str:
@@ -233,6 +293,8 @@ def read_birth_time_ns(path: str, capture_dir: Path | None = None) -> int | None
             raise UsbfsIdentityError("birth-time reader changed during execution")
     finally:
         os.close(descriptor)
+    if _birth_time_read_is_completed_nonzero(handle) and _path_is_missing(path):
+        raise UsbfsEndpointDeparture(path)
     if (
         handle.returncode != 0
         or handle.timed_out
@@ -288,13 +350,28 @@ def snapshot_node(
     birth_reader: Callable[[str], int | None] = read_birth_time_ns,
 ) -> UsbfsNodeSnapshot:
     _validated_usbfs_coordinates(path)
-    before = os.stat(path, follow_symlinks=False)
+    try:
+        before = os.stat(path, follow_symlinks=False)
+    except OSError as exc:
+        if _is_enoent_error(exc):
+            raise UsbfsEndpointDeparture(path) from exc
+        raise
     if not stat.S_ISCHR(before.st_mode) or before.st_nlink != 1:
         raise UsbfsIdentityError(f"usbfs endpoint is not a direct character device: {path}")
-    birth_time = birth_reader(path)
+    try:
+        birth_time = birth_reader(path)
+    except OSError as exc:
+        if _is_enoent_error(exc):
+            raise UsbfsEndpointDeparture(path) from exc
+        raise
     if birth_time is None:
         raise UsbfsIdentityError(f"usbfs endpoint has no birth time: {path}")
-    after = os.stat(path, follow_symlinks=False)
+    try:
+        after = os.stat(path, follow_symlinks=False)
+    except OSError as exc:
+        if _is_enoent_error(exc):
+            raise UsbfsEndpointDeparture(path) from exc
+        raise
     if _stat_identity(before) != _stat_identity(after):
         raise UsbfsIdentityError(f"usbfs endpoint changed during snapshot: {path}")
     snapshot = UsbfsNodeSnapshot(
@@ -318,7 +395,7 @@ def snapshot_node(
     return snapshot
 
 
-def capture_inventory(
+def _capture_inventory_once(
     *,
     root: Path = USBFS_ROOT,
     snapshotter: NodeSnapshotter = snapshot_node,
@@ -329,14 +406,29 @@ def capture_inventory(
         paths = sorted(root.glob("[0-9][0-9][0-9]/[0-9][0-9][0-9]"))
     except OSError as exc:
         raise UsbfsIdentityError("usbfs inventory failed") from exc
+    inventory_paths = tuple(
+        str(USBFS_ROOT / path.relative_to(root))
+        for path in paths
+        if USBFS_PATH_RE.fullmatch(str(USBFS_ROOT / path.relative_to(root)))
+        is not None
+    )
     inventory: dict[str, UsbfsNodeSnapshot] = {}
-    for path in paths:
-        encoded = str(USBFS_ROOT / path.relative_to(root))
-        if USBFS_PATH_RE.fullmatch(encoded) is None:
-            continue
+    for encoded in inventory_paths:
         try:
             snapshot = snapshotter(encoded)
-        except (OSError, UsbfsIdentityError) as exc:
+        except UsbfsEndpointDeparture as exc:
+            raise UsbfsEndpointDeparture(
+                exc.path,
+                inventory_paths=inventory_paths,
+            ) from exc
+        except OSError as exc:
+            if _is_enoent_error(exc):
+                raise UsbfsEndpointDeparture(
+                    encoded,
+                    inventory_paths=inventory_paths,
+                ) from exc
+            raise UsbfsIdentityError(f"usbfs inventory is incomplete: {encoded}") from exc
+        except UsbfsIdentityError as exc:
             raise UsbfsIdentityError(f"usbfs inventory is incomplete: {encoded}") from exc
         _validate_snapshot(snapshot)
         if snapshot.path != encoded:
@@ -345,6 +437,39 @@ def capture_inventory(
         if len(inventory) > MAX_INVENTORY_ENTRIES:
             raise UsbfsIdentityError("usbfs inventory exceeds bound")
     return inventory
+
+
+def capture_inventory(
+    *,
+    root: Path = USBFS_ROOT,
+    snapshotter: NodeSnapshotter = snapshot_node,
+    allow_endpoint_departure_resnapshot: bool = False,
+) -> dict[str, UsbfsNodeSnapshot]:
+    """Capture inventory, allowing one exact node-disappearance resnapshot."""
+
+    if type(allow_endpoint_departure_resnapshot) is not bool:
+        raise UsbfsIdentityError("usbfs inventory resnapshot policy is invalid")
+    for attempt in range(MAX_INVENTORY_RESNAPSHOTS + 1):
+        try:
+            return _capture_inventory_once(root=root, snapshotter=snapshotter)
+        except UsbfsEndpointDeparture as departure:
+            if (
+                not allow_endpoint_departure_resnapshot
+                or attempt >= MAX_INVENTORY_RESNAPSHOTS
+            ):
+                raise
+            expected_paths = tuple(
+                path
+                for path in departure.inventory_paths
+                if path != departure.path
+            )
+            retry = _capture_inventory_once(root=root, snapshotter=snapshotter)
+            if tuple(sorted(retry)) != expected_paths:
+                raise UsbfsIdentityError(
+                    "usbfs endpoint departure resnapshot changed unexpectedly"
+                )
+            return retry
+    raise UsbfsIdentityError("usbfs inventory resnapshot did not converge")
 
 
 def immutable_identity(snapshot: UsbfsNodeSnapshot) -> str:
@@ -559,7 +684,10 @@ class MeasuredUsbfsIdentityObserver:
         *,
         inventory_reader: InventoryReader | None = None,
         capture_dir: Path | None = None,
+        allow_endpoint_departure_resnapshot: bool = False,
     ) -> None:
+        if type(allow_endpoint_departure_resnapshot) is not bool:
+            raise UsbfsIdentityError("usbfs inventory resnapshot policy is invalid")
         if inventory_reader is None:
             if capture_dir is None:
                 raise UsbfsIdentityError(
@@ -576,7 +704,10 @@ class MeasuredUsbfsIdentityObserver:
                         birth_reader=lambda current: read_birth_time_ns(
                             current, direct
                         ),
-                    )
+                    ),
+                    allow_endpoint_departure_resnapshot=(
+                        allow_endpoint_departure_resnapshot
+                    ),
                 )
 
             self._inventory_reader = reader

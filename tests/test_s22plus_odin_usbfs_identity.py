@@ -1,4 +1,5 @@
 import dataclasses
+import errno
 import importlib.util
 import os
 import stat
@@ -119,6 +120,173 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
         self.assertEqual(seen[0][3]["pass_fds"], (42,))
         self.assertEqual(seen[0][3]["timeout"], 5.0)
         close.assert_called_once_with(42)
+
+    def test_birth_time_reader_classifies_exact_enoent_as_endpoint_departure(self):
+        module = self.module
+        metadata = SimpleNamespace(
+            st_dev=1,
+            st_ino=2,
+            st_mode=stat.S_IFREG | 0o755,
+            st_nlink=1,
+            st_uid=0,
+            st_gid=0,
+            st_size=100,
+            st_mtime_ns=10,
+            st_ctime_ns=20,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            capture_dir = Path(temporary)
+            real_stat = module.os.stat
+
+            def stat_after_failure(path, **kwargs):
+                if str(path) == USB_008:
+                    raise FileNotFoundError(errno.ENOENT, "raced", path)
+                return real_stat(path, **kwargs)
+
+            fixture_handle = module.raw_capture.publish_captured_bytes(
+                capture_dir,
+                "birth-enoent-fixture",
+                stdout=b"",
+                stderr=(
+                    b"stat: cannot stat '/dev/bus/usb/002/008': "
+                    b"No such file or directory (os error 2)\n"
+                ),
+                returncode=1,
+            )
+            with mock.patch.object(module.os, "open", return_value=42), mock.patch.object(
+                module.os, "fstat", return_value=metadata
+            ), mock.patch.object(module.os, "close"), mock.patch.object(
+                module.raw_capture, "acquire_command", return_value=fixture_handle
+            ), mock.patch.object(
+                module.os,
+                "stat",
+                side_effect=stat_after_failure,
+            ), mock.patch.object(
+                module.raw_capture,
+                "read_stderr",
+                return_value=(
+                    b"stat: cannot stat '/dev/bus/usb/002/008': "
+                    b"No such file or directory (os error 2)\n"
+                ),
+            ):
+                with self.assertRaises(module.UsbfsEndpointDeparture) as raised:
+                    module.read_birth_time_ns(USB_008, capture_dir)
+        self.assertEqual(raised.exception.path, USB_008)
+
+    def test_capture_inventory_resnapshots_once_after_enoent(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            endpoint = root / "002" / "008"
+            endpoint.parent.mkdir()
+            endpoint.touch()
+            other = root / "002" / "009"
+            other.touch()
+            calls = {"count": 0}
+
+            def snapshotter(path):
+                calls["count"] += 1
+                if path == USB_008 and calls["count"] == 1:
+                    endpoint.unlink()
+                    raise FileNotFoundError(errno.ENOENT, "raced", path)
+                return node(
+                    module,
+                    path=USB_009,
+                    st_ino=109,
+                    st_rdev=os.makedev(189, 136),
+                    device_minor=136,
+                )
+
+            inventory = module.capture_inventory(
+                root=root,
+                snapshotter=snapshotter,
+                allow_endpoint_departure_resnapshot=True,
+            )
+        self.assertEqual(calls["count"], 2)
+        self.assertEqual(tuple(inventory), (USB_009,))
+
+    def test_capture_inventory_resnapshot_is_bounded_and_non_enoent_stays_fatal(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            endpoint = root / "002" / "008"
+            endpoint.parent.mkdir()
+            endpoint.touch()
+            calls = {"count": 0}
+
+            def always_missing(path):
+                calls["count"] += 1
+                raise FileNotFoundError(errno.ENOENT, "raced", path)
+
+            with self.assertRaises(module.UsbfsEndpointDeparture):
+                module.capture_inventory(
+                    root=root,
+                    snapshotter=always_missing,
+                    allow_endpoint_departure_resnapshot=True,
+                )
+            self.assertEqual(calls["count"], 2)
+
+            calls["count"] = 0
+
+            def unrelated_failure(_path):
+                calls["count"] += 1
+                raise module.UsbfsIdentityError("replacement or malformed node")
+
+            with self.assertRaises(module.UsbfsIdentityError):
+                module.capture_inventory(root=root, snapshotter=unrelated_failure)
+            self.assertEqual(calls["count"], 1)
+
+    def test_opt_in_resnapshot_requires_one_exact_departed_path(self):
+        module = self.module
+
+        def run(case):
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                root.joinpath("002").mkdir()
+                endpoint = root / "002" / "008"
+                endpoint.touch()
+                root.joinpath("002", "009").touch()
+                calls = {"count": 0}
+
+                def snapshotter(path):
+                    calls["count"] += 1
+                    if path == USB_008 and calls["count"] == 1:
+                        if case in {"arrival", "second-disappearance"}:
+                            endpoint.unlink()
+                        if case == "arrival":
+                            root.joinpath("002", "010").touch()
+                        raise FileNotFoundError(errno.ENOENT, "raced", path)
+                    if case == "second-disappearance" and path == USB_009:
+                        raise FileNotFoundError(errno.ENOENT, "raced", path)
+                    if path == USB_008:
+                        return node(module, st_ino=102)
+                    if path == USB_009:
+                        return node(
+                            module,
+                            path=USB_009,
+                            st_ino=109,
+                            st_rdev=os.makedev(189, 136),
+                            device_minor=136,
+                        )
+                    return node(
+                        module,
+                        path="/dev/bus/usb/002/010",
+                        st_ino=110,
+                        st_rdev=os.makedev(189, 137),
+                        device_minor=137,
+                    )
+
+                with self.assertRaises(module.UsbfsIdentityError):
+                    module.capture_inventory(
+                        root=root,
+                        snapshotter=snapshotter,
+                        allow_endpoint_departure_resnapshot=True,
+                    )
+                return calls["count"]
+
+        self.assertEqual(run("replacement"), 3)
+        self.assertEqual(run("arrival"), 3)
+        self.assertEqual(run("second-disappearance"), 2)
 
     def test_source_has_no_device_mutation_or_transfer_surface(self):
         source = IDENTITY_SCRIPT.read_text(encoding="utf-8")
@@ -346,13 +514,18 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             endpoint = root / "002" / "008"
             endpoint.parent.mkdir()
             endpoint.touch()
-            with self.assertRaises(module.UsbfsIdentityError):
+            calls = {"count": 0}
+
+            def missing(_path):
+                calls["count"] += 1
+                raise FileNotFoundError(errno.ENOENT, "raced")
+
+            with self.assertRaises(module.UsbfsEndpointDeparture):
                 module.capture_inventory(
                     root=root,
-                    snapshotter=lambda _path: (_ for _ in ()).throw(
-                        FileNotFoundError("raced")
-                    ),
+                    snapshotter=missing,
                 )
+            self.assertEqual(calls["count"], 1)
 
     def test_core_opt_in_persists_evidence_and_keeps_generation_stable(self):
         module = self.module
@@ -411,6 +584,54 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             )
             payload = Path(receipts[0]["path"]).read_text(encoding="ascii")
             self.assertIn(core.SNAPSHOT_SCHEMA, payload)
+
+    def test_post_transfer_departure_resnapshot_does_not_replay_odin_enumeration(self):
+        module = self.module
+        core = self.core
+        calls = {"inventory": 0, "runner": 0}
+
+        def inventory_once(*, root, snapshotter):
+            del root, snapshotter
+            calls["inventory"] += 1
+            if calls["inventory"] == 1:
+                raise module.UsbfsEndpointDeparture(
+                    USB_008,
+                    inventory_paths=(USB_008,),
+                )
+            return {}
+
+        def runner(_argv, _timeout):
+            calls["runner"] += 1
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with mock.patch.object(
+                module, "_capture_inventory_once", side_effect=inventory_once
+            ), mock.patch.object(
+                module,
+                "capture_inventory",
+                wraps=module.capture_inventory,
+            ) as capture:
+                with core.transaction_session(run_dir) as lease:
+                    result = core.wait_for_no_live_endpoint(
+                        Path("odin4"),
+                        run_dir,
+                        timeout_sec=1,
+                        lease=lease,
+                        runner=runner,
+                        endpoint_observer_factory=core.measured_usbfs_observer,
+                        allow_live_departure=True,
+                    )
+
+        self.assertTrue(result.absent)
+        # Two attempts are the initial inventory plus its one resnapshot; the
+        # later two are the ordinary post-enumeration and receipt reads.
+        self.assertEqual(calls["inventory"], 4)
+        self.assertEqual(calls["runner"], 1)
+        self.assertTrue(
+            capture.call_args.kwargs["allow_endpoint_departure_resnapshot"]
+        )
 
     def test_core_rejects_mixed_legacy_and_measured_identity_modes(self):
         core = self.core
