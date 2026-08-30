@@ -963,3 +963,23 @@ rewrite that formal result. The best available H0 conclusion is:
 > hardware verdict. Repair and qualify the observer and sidecar first; then use
 > a new, independently reviewed candidate to re-enter the module/SSUSB/UDC
 > chain from the beginning. Preserve the consumed run and never replay it.
+
+## 18. Immediate bounded implementation update
+
+Later on 2026-08-30, the first deliberately small H0 follow-up was implemented:
+
+- `workspace/public/src/scripts/revalidation/s22plus_fyg8_p319_postlive_decoder.py`
+  reads only the fixed current run, verifies the exact live-result and two raw
+  identities, and prints an additive JSON interpretation to stdout;
+- it leaves the formal verdict and observer proof class unchanged;
+- it reports both Carrier slots as structurally valid while preserving the
+  second slot's legacy `semantic-out-of-domain` status;
+- it labels the early observer conclusion `SUPPORTED`, keeps the `0x6020`
+  subclass and `smem.ko` execution `UNKNOWN`, and grants no USB or replay claim;
+- `tests/test_s22plus_fyg8_p319_postlive_decoder.py` adds four focused tests for
+  structural/semantic separation, non-promotion, CRC rejection, and the actual
+  immutable evidence.
+
+This unit intentionally does not repair the candidate `/dev/kmsg` parser or
+sidecar. The next small unit is the bounded parser record-envelope correction
+and a short official-ABI fixture set; sidecar lifecycle remains separate.
