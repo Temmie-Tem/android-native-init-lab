@@ -804,23 +804,47 @@ def _p300_cleanup_owned_processes(
         ):
             raise F1LiveError("P3.00 observer process group has a foreign member")
         group = next(iter(groups))
-        try:
-            os.killpg(group, signal.SIGTERM)
-            signals.append("SIGTERM")
-        except ProcessLookupError:
-            pass
+        # Prefer the sidecar leader's private SIGTERM path.  The sidecar then
+        # stops its source children one by one, preserving their clean
+        # ``alive_before_stop`` receipts.  Escalate to the whole verified
+        # group only if the leader is already gone or does not finish.
+        leader = next(
+            (value for value in members if value["pid"] == group), None
+        )
+        if leader is not None and _proc_has_owner(leader["pid"], token):
+            try:
+                os.kill(leader["pid"], signal.SIGTERM)
+                signals.append("SIGTERM")
+            except ProcessLookupError:
+                pass
+        else:
+            try:
+                os.killpg(group, signal.SIGTERM)
+                signals.append("SIGTERM")
+            except ProcessLookupError:
+                pass
         if not _p300_wait_owner_absent(token, P300_PROCESS_WAIT_SEC):
             remaining = _p300_owned_processes(token)
             remaining_groups = {value["process_group_id"] for value in remaining}
             if remaining_groups != {group}:
                 raise F1LiveError("P3.00 observer process group changed during cleanup")
             try:
-                os.killpg(group, signal.SIGKILL)
-                signals.append("SIGKILL")
+                os.killpg(group, signal.SIGTERM)
+                signals.append("SIGTERM")
             except ProcessLookupError:
                 pass
             if not _p300_wait_owner_absent(token, P300_PROCESS_WAIT_SEC):
-                raise F1LiveError("P3.00 observer process group survived cleanup")
+                remaining = _p300_owned_processes(token)
+                remaining_groups = {value["process_group_id"] for value in remaining}
+                if remaining_groups != {group}:
+                    raise F1LiveError("P3.00 observer process group changed during cleanup")
+                try:
+                    os.killpg(group, signal.SIGKILL)
+                    signals.append("SIGKILL")
+                except ProcessLookupError:
+                    pass
+                if not _p300_wait_owner_absent(token, P300_PROCESS_WAIT_SEC):
+                    raise F1LiveError("P3.00 observer process group survived cleanup")
     return {
         "schema": P300_PROCESS_CLEANUP_SCHEMA,
         "owner_token_sha256": token_sha256,
@@ -3400,6 +3424,8 @@ def _recover_download_request_cut(
         "HEALTH_VERIFIED",
     }:
         return None
+    if _p300_bundle(prepared.bundle):
+        _p300_reconcile_before_candidate(prepared, journal)
     transition = _request_cut_transition(journal)
     has_candidate_evidence = _request_cut_has_candidate_evidence(
         prepared, journal
@@ -3600,29 +3626,11 @@ def _recover_download_request_cut(
 
 def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
     p300_lifecycle = None
+    p300_session = None
     if _p300_bundle(prepared.bundle):
-        try:
-            p300_lifecycle = _p300_recovery_process_cleanup(prepared)
-        except Exception as exc:
-            binding = p300_usb_trace.verify_binding(
-                _read_json(
-                    prepared.run_dir / "p300-usb-trace-binding.json",
-                    "P3.00 USB trace binding",
-                )
-            )
-            owner_path = _p300_process_owner_path(prepared)
-            owner_receipt = None
-            try:
-                if owner_path.is_file() and not owner_path.is_symlink():
-                    owner_receipt = _receipt(
-                        owner_path, "P3.00 USB trace process owner"
-                    )
-            except Exception:
-                pass
-            p300_lifecycle = (
-                owner_receipt,
-                _p300_cleanup_failure(binding, exc),
-            )
+        p300_session, p300_lifecycle = _p300_recovery_session(
+            prepared, journal
+        )
     global_state, global_receipt = _global_registry_recovery_state(
         prepared, journal_state=journal.state()
     )
@@ -3693,6 +3701,27 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     {"proof": False, "recovery_only": True},
                 )
                 journal.event("candidate_boot_ready", {"proof": False, "recovery_only": True})
+            if _p300_bundle(prepared.bundle) and p300_session is not None:
+                owner_receipt, cleanup = p300_lifecycle
+                current = _state(prepared)
+                if (
+                    p300_session.result is not None
+                    and p300_session.integrity is not None
+                ):
+                    current["p300_usb_trace"] = p300_session.captured_state()
+                    _save_state(prepared, current)
+                    p300_session.finalize()
+                else:
+                    current["p300_usb_trace"] = {
+                        "status": "unknown",
+                        "reason": "recovery:interrupted-candidate-window",
+                        "binding": prepared.prepared["p300_usb_trace_binding"],
+                        "process_owner": owner_receipt,
+                        "process_cleanup": cleanup,
+                        "host_axis": "UNKNOWN",
+                        "device_result_authoritative": True,
+                    }
+                    _save_state(prepared, current)
             return True
     attempt_count = _reconcile_transfer_attempts(
         prepared, journal, "candidate", repair_orphan_start=True
@@ -3714,15 +3743,30 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
         current = _state(prepared)
         trace = current.get("p300_usb_trace")
         if not isinstance(trace, dict) or trace.get("status") != "verified":
-            current["p300_usb_trace"] = {
-                "status": "unknown",
-                "reason": "recovery:interrupted-candidate-window",
-                "binding": prepared.prepared["p300_usb_trace_binding"],
-                "process_owner": owner_receipt,
-                "process_cleanup": cleanup,
-                "host_axis": "UNKNOWN",
-                "device_result_authoritative": True,
-            }
+            adopted = (
+                p300_session is not None
+                and p300_session.result is not None
+                and p300_session.integrity is not None
+                and attempt_count > 0
+                and p300_session.failure_reason is None
+            )
+            if adopted:
+                current["p300_usb_trace"] = p300_session.captured_state()
+            else:
+                current["p300_usb_trace"] = {
+                    "status": "unknown",
+                    "reason": (
+                        p300_session.failure_reason
+                        if p300_session is not None
+                        and p300_session.failure_reason is not None
+                        else "recovery:interrupted-candidate-window"
+                    ),
+                    "binding": prepared.prepared["p300_usb_trace_binding"],
+                    "process_owner": owner_receipt,
+                    "process_cleanup": cleanup,
+                    "host_axis": "UNKNOWN",
+                    "device_result_authoritative": True,
+                }
             try:
                 _save_state(prepared, current)
             except Exception:
@@ -3862,6 +3906,15 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
         journal.event(
             "candidate_boot_ready", {"proof": proof, "resumed": True}
         )
+    if (
+        p300_session is not None
+        and p300_session.result is not None
+        and p300_session.integrity is not None
+    ):
+        # The sidecar was adopted and sealed before candidate_boot_ready.  A
+        # recovery finalizer may now verify the immutable witness/window; it
+        # does not start a second sidecar or replay any device action.
+        p300_session.finalize()
     return True
 
 
@@ -4153,8 +4206,14 @@ class _P300UsbTraceSession:
         self.owner_token: str | None = None
         self.owner_receipt: dict[str, Any] | None = None
         self.cleanup: dict[str, Any] | None = None
+        self.process_output: dict[str, Any] | None = None
         self.failure_reason: str | None = None
         self.closed = False
+        # The observer ExitStack normally closes before the durable
+        # candidate_boot_ready boundary.  Once the bounded observation is
+        # durable, defer that cleanup callback so the trace can span the guard
+        # release and be sealed immediately before candidate_boot_ready.
+        self.defer_stack_close = False
 
     @property
     def output_dir(self) -> Path:
@@ -4207,6 +4266,10 @@ class _P300UsbTraceSession:
         except Exception as exc:
             self.failure_reason = f"witness:{type(exc).__name__}"
 
+    def close_from_observer_stack(self) -> None:
+        if not self.defer_stack_close:
+            self.close()
+
     def _binding(self) -> dict[str, Any]:
         if self.binding is None:
             self.binding = p300_usb_trace.verify_binding(
@@ -4223,6 +4286,77 @@ class _P300UsbTraceSession:
             self.owner_receipt = _receipt(
                 path, "P3.00 USB trace process owner"
             )
+
+    def _load_completed_capture(self) -> None:
+        """Reopen a completed sidecar without making a device call.
+
+        Recovery can run in a new host process, so it cannot use the original
+        ``Popen`` object.  The binding and capture-directory verifier are the
+        durable handoff in that case; the process owner/cleanup proof is
+        supplied by the caller before this method is reached.
+        """
+        result_path = self.output_dir / "result.json"
+        if not result_path.is_file() or result_path.is_symlink():
+            raise F1LiveError("P3.00 USB trace result is not complete")
+        self.result = _read_json(result_path, "P3.00 USB trace result")
+        self.integrity = p300_usb_trace.verify_capture_directory(
+            self._binding(),
+            self.result,
+            root=self.prepared.root,
+            output_dir=self.output_dir,
+        )
+
+    def captured_state(self) -> dict[str, Any]:
+        if self.result is None or self.integrity is None:
+            raise F1LiveError("P3.00 USB trace capture is not loaded")
+        value = {
+            "status": "captured",
+            "binding": self.prepared.prepared["p300_usb_trace_binding"],
+            "result": _receipt(
+                self.output_dir / "result.json",
+                "P3.00 USB trace result",
+            ),
+            "capture_integrity": self.integrity,
+            "process_owner": self.owner_receipt,
+            "process_cleanup": self.cleanup,
+            "host_axis": "PENDING",
+            "device_result_authoritative": True,
+        }
+        if self.process_output is not None:
+            value["process_output"] = self.process_output
+        return value
+
+    def adopt_completed_capture(
+        self,
+        owner_receipt: dict[str, Any] | None,
+        cleanup: dict[str, Any],
+    ) -> bool:
+        """Adopt a sidecar that was stopped by recovery or a prior cut.
+
+        Adoption is only a host-evidence operation.  It never re-arms the
+        sidecar and never touches the device.  A failed cleanup proof is not a
+        safe handoff because the result could still be changing underneath
+        the verifier.
+        """
+        if not self.enabled:
+            return False
+        result_path = self.output_dir / "result.json"
+        if not result_path.is_file() or result_path.is_symlink():
+            return False
+        if cleanup.get("verified") is not True:
+            raise F1LiveError("P3.00 sidecar cleanup is not verified")
+        self.owner_receipt = owner_receipt
+        self.cleanup = cleanup
+        self.binding = p300_usb_trace.verify_binding(
+            _read_json(
+                self.prepared.run_dir / "p300-usb-trace-binding.json",
+                "P3.00 USB trace binding",
+            )
+        )
+        self.owner_token = _p300_owner_token(self.binding)
+        self._load_completed_capture()
+        self.closed = True
+        return True
 
     def start(self) -> None:
         if not self.enabled:
@@ -4412,37 +4546,28 @@ class _P300UsbTraceSession:
             self._unknown(reason)
             return
         if self.process is None:
+            # A recovery process may have stopped the durable sidecar group
+            # without owning its Popen handle.  Reuse the completed capture
+            # if it is present; do not invent a new capture or device action.
+            result_path = self.output_dir / "result.json"
+            if not result_path.is_file() or result_path.is_symlink():
+                return
+            try:
+                self._load_completed_capture()
+                self.process_output = None
+                self._save(self.captured_state())
+            except Exception as exc:
+                self._unknown(f"capture:{type(exc).__name__}")
             return
         try:
-            result_path = self.output_dir / "result.json"
-            self.result = _read_json(result_path, "P3.00 USB trace result")
-            assert self.binding is not None
-            self.integrity = p300_usb_trace.verify_capture_directory(
-                self.binding,
-                self.result,
-                root=self.prepared.root,
-                output_dir=self.output_dir,
-            )
-            self._save(
-                {
-                    "status": "captured",
-                    "binding": self.prepared.prepared[
-                        "p300_usb_trace_binding"
-                    ],
-                    "result": _receipt(result_path, "P3.00 USB trace result"),
-                    "capture_integrity": self.integrity,
-                    "process_owner": self.owner_receipt,
-                    "process_cleanup": self.cleanup,
-                    "process_output": {
-                        "stdout_size": len(stdout),
-                        "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
-                        "stderr_size": len(stderr),
-                        "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
-                    },
-                    "host_axis": "PENDING",
-                    "device_result_authoritative": True,
-                }
-            )
+            self._load_completed_capture()
+            self.process_output = {
+                "stdout_size": len(stdout),
+                "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+                "stderr_size": len(stderr),
+                "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+            }
+            self._save(self.captured_state())
         except Exception as exc:
             self._unknown(f"capture:{type(exc).__name__}")
 
@@ -4490,6 +4615,65 @@ class _P300UsbTraceSession:
             )
         except Exception as exc:
             self._unknown(f"binding:{type(exc).__name__}")
+
+
+def _p300_recovery_session(
+    prepared: PreparedRun, journal: core.Journal
+) -> tuple[_P300UsbTraceSession, tuple[dict[str, Any] | None, dict[str, Any]]]:
+    """Stop/reopen a surviving P3.00 sidecar during host-only recovery."""
+    try:
+        lifecycle = _p300_recovery_process_cleanup(prepared)
+    except Exception as exc:
+        binding = p300_usb_trace.verify_binding(
+            _read_json(
+                prepared.run_dir / "p300-usb-trace-binding.json",
+                "P3.00 USB trace binding",
+            )
+        )
+        owner_path = _p300_process_owner_path(prepared)
+        owner_receipt = None
+        try:
+            if owner_path.is_file() and not owner_path.is_symlink():
+                owner_receipt = _receipt(
+                    owner_path, "P3.00 USB trace process owner"
+                )
+        except Exception:
+            pass
+        lifecycle = (owner_receipt, _p300_cleanup_failure(binding, exc))
+    session = _P300UsbTraceSession(prepared, journal)
+    owner_receipt, cleanup = lifecycle
+    previous_trace = _state(prepared).get("p300_usb_trace")
+    if isinstance(previous_trace, dict) and isinstance(
+        previous_trace.get("process_output"), dict
+    ):
+        session.process_output = previous_trace["process_output"]
+    try:
+        session.adopt_completed_capture(owner_receipt, cleanup)
+    except Exception as exc:
+        session.failure_reason = f"adopt:{type(exc).__name__}"
+    return session, lifecycle
+
+
+def _p300_reconcile_before_candidate(
+    prepared: PreparedRun, journal: core.Journal
+) -> None:
+    """Reap a pre-candidate sidecar without treating it as a same-attempt proof."""
+    session, lifecycle = _p300_recovery_session(prepared, journal)
+    current = _state(prepared)
+    trace = current.get("p300_usb_trace")
+    if isinstance(trace, dict) and trace.get("status") == "verified":
+        return
+    owner_receipt, cleanup = lifecycle
+    current["p300_usb_trace"] = {
+        "status": "unknown",
+        "reason": "recovery:before-candidate-window",
+        "binding": prepared.prepared["p300_usb_trace_binding"],
+        "process_owner": owner_receipt,
+        "process_cleanup": cleanup,
+        "host_axis": "UNKNOWN",
+        "device_result_authoritative": True,
+    }
+    _save_state(prepared, current)
 
 
 def _validate_p300_usb_trace_state(
@@ -4612,6 +4796,17 @@ def _validate_p300_usb_trace_state(
         raise F1LiveError("P3.00 USB trace durable verification changed")
 
 
+def _seal_p300_before_candidate_boot_ready(
+    trace_session: _P300UsbTraceSession,
+    journal: core.Journal,
+    proof: bool,
+) -> None:
+    """Close the passive sidecar before recording the window's end event."""
+    trace_session.close()
+    journal.event("candidate_boot_ready", {"proof": proof})
+    trace_session.finalize()
+
+
 def _execute_prepared_locked(
     prepared: PreparedRun,
     approval: str,
@@ -4667,7 +4862,7 @@ def _execute_prepared_locked(
                     False,
                 )
             trace_session.start()
-            observer_stack.callback(trace_session.close)
+            observer_stack.callback(trace_session.close_from_observer_stack)
             try:
                 request_intent = {
                     "schema": DOWNLOAD_REQUEST_INTENT_SCHEMA,
@@ -4792,6 +4987,7 @@ def _execute_prepared_locked(
             _save_state(prepared, current)
             if _p300_bundle(prepared.bundle):
                 trace_session.observation_durable(current)
+                trace_session.defer_stack_close = True
         if (
             prepared.bundle.manifest["observation"].get("candidate_observer")
             is not None
@@ -4854,11 +5050,12 @@ def _execute_prepared_locked(
                 )
             )
         )
-        journal.event(
-            "candidate_boot_ready",
-            {"proof": proof},
-        )
-        trace_session.finalize()
+        # Seal the passive trace immediately before the durable boot-ready
+        # event.  This keeps the capture alive through the complete bounded
+        # observation while preserving the binding's end <= boot-ready
+        # ordering.  ``finalize`` only verifies the already sealed capture
+        # and cannot re-arm it.
+        _seal_p300_before_candidate_boot_ready(trace_session, journal, proof)
         return _finish_rollback(
             prepared, backend, journal, endpoint_dir, lease
         )
