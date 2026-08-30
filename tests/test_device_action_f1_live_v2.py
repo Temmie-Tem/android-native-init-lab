@@ -2490,7 +2490,15 @@ else:
                 prepared_record = self.module.prepare_connected(
                     root, bundle, run_dir, Client()
                 )
-                reopened = self.module.load_prepared(root, manifest_path, run_dir)
+                with mock.patch.object(
+                    self.module.core,
+                    "verify_bundle",
+                    wraps=self.module.core.verify_bundle,
+                ) as verify_bundle:
+                    reopened = self.module.load_prepared(root, manifest_path, run_dir)
+                verify_bundle.assert_called_once_with(
+                    root.resolve(), manifest_path, runtime_bound=True
+                )
             self.assertEqual(reopened.approval_token, prepared_record["approval_token"])
             manifest["status"] = "draft-host-only"
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")

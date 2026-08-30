@@ -21,15 +21,15 @@ V1_SCRIPT = ROOT / (
 )
 CURRENT_RESULT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260830-16/result.json"
+    "process-v2-integration-qualification-v2-20260830-19/result.json"
 )
 CURRENT_PREREQUISITE = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-prerequisite-audit-20260830-12-p319-census-decoupled.json"
+    "process-v2-prerequisite-audit-20260830-14-p319-prepared-exemption-final.json"
 )
 CURRENT_REGISTRY_QUALIFICATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "consumed-candidate-registry-qualification-20260829-01-p319-registration.json"
+    "consumed-candidate-registry-qualification-20260830-02-p319-runtime-bound.json"
 )
 
 
@@ -325,7 +325,7 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
         self.assertEqual(result["predecessor_result"], self.module.PREVIOUS_RESULT)
         self.assertEqual(
             self.module.DEFAULT_OUTPUT.parent.name,
-            "process-v2-integration-qualification-v2-20260830-16",
+            "process-v2-integration-qualification-v2-20260830-19",
         )
 
     def test_post_registration_receipts_are_exact_and_reproducible(self):
@@ -333,17 +333,17 @@ class P319ProcessV2IntegrationQualificationTest(unittest.TestCase):
             (
                 CURRENT_REGISTRY_QUALIFICATION,
                 2964,
-                "5807c9199c52592710d2424c3bda0be16f7f046f7de93b2cd72f75c7b4f13437",
+                "7be7e29cb458457da16416f5074b8920a7b621564235daae9a6988fdd5eb58e4",
             ),
             (
                 CURRENT_PREREQUISITE,
-                13190,
-                "4a18cf1148a7c8bdd0bbb0d8ca0b69fef6128ed112624b11000868f20fcfd769",
+                13186,
+                "4e29a5630c8a7a0db96f37b862fc7d2e3a4dbf858989c95928fa375bbcd830dd",
             ),
             (
                 CURRENT_RESULT,
-                126135,
-                "1506e8988dfe2c9b5cbc47c0618939d6eb85c20704b6c792c70455caa3e6e76e",
+                126133,
+                "dc9380a73e61e6f9d8c28b59b17eec21ca6859ff9146f1b2e141265504143d61",
             ),
         )
         for path, size, digest in expected:

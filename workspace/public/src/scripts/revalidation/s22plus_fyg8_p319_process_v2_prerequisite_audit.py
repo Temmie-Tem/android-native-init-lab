@@ -39,15 +39,16 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_prerequisite_audit_v1"
 VERDICT = "PASS_P319_PREREQUISITE_H0"
-RAW_AUDITOR_SHA256 = "2819d3d26c19500c173ad36d0a9e50ad58f17258425a88ce71946f58b8598409"
-RAW_AUDITOR_SIZE = 76_339
-RAW_RECEIPT_SHA256 = "608799f12b16aab51b3ef12bcb70746c4debcc13eaf9ee342dae04f596f91c6f"
+RAW_AUDITOR_SHA256 = "122c4bd497c4d54c76f4fce572f3c8dc84b6d2ea7647087692a976dc590ce4b6"
+RAW_AUDITOR_SIZE = 76_345
+RAW_RECEIPT_SHA256 = "54db40b2fc63f98bc235cdc52bf87e02b9b875346859eea3b2eb257e61aa0958"
 RAW_RECEIPT_SIZE = 15_075
 RAW_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260830-23-p319-registry-absence.json"
+    "raw-first-observer-audit-20260830-24-p319-prepared-runtime-bound.json"
 )
 RAW_AUDITOR = SCRIPT_DIR / "s22plus_fyg8_raw_first_observer_audit.py"
+LIVE_RUNNER = SCRIPT_DIR / "device_action_f1_live_v2.py"
 RESTART_PROBE = ROOT / "workspace/public/src/scripts/h0/s22plus_fyg8_p319_restart_probe.py"
 RESTART_PROBE_SIZE = 2_974
 RESTART_PROBE_SHA256 = "e24090b43d9a0b59f675f7a4c2bab8ee6343183dd34e3bdee9ff86f116dc1e7f"
@@ -62,7 +63,7 @@ CONSUMED_REGISTRY_QUALIFICATION_HELPER = ROOT / (
 )
 CONSUMED_REGISTRY_QUALIFICATION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "consumed-candidate-registry-qualification-20260829-01-p319-registration.json"
+    "consumed-candidate-registry-qualification-20260830-02-p319-runtime-bound.json"
 )
 
 P318_RUN = ROOT / (
@@ -85,16 +86,76 @@ P318_BINDING_SHA256 = "fd68d3b4713d13afceaabdc5f97240f76808a5be2d09fc59b8853bcfd
 PRIVATE_JSON_NAMES = frozenset(
     {"prepared.json", "live-result.json", "live-state.json", "journal-head.json"}
 )
+PREPARED_KEYS = frozenset(
+    {
+        "schema",
+        "adapter_version",
+        "manifest_id",
+        "bundle_sha256",
+        "manifest_status",
+        "d0_result",
+        "private_target",
+        "execution_closure",
+        "approval_binding",
+        "approval_binding_sha256",
+        "approval_token",
+        "p300_usb_trace_binding",
+        "device_contact",
+        "device_writes",
+        "reboot_requested",
+        "odin_invoked",
+        "partition_transfer",
+        "f1_authorized",
+        "live_authorized",
+    }
+)
+PREPARED_RUN_CHILD_NAMES = frozenset(
+    {
+        "prepared.json",
+        "target-private.json",
+        "preflight",
+        "p300-usb-trace-binding.json",
+    }
+)
+HISTORICAL_PRE_EFFECT_PREPARED = {
+    "f1-2026-08-30T055154386384Z-1788069114386414032": {
+        "size": 10_632,
+        "sha256": "c919cf752c539f30aca0a5afc20f1e4192aff02518eeb5cecd508df89d01ef6d",
+    }
+}
+PREPARED_EXECUTION_SOURCE_PATHS = {
+    "adapter": LIVE_RUNNER,
+    "cdc_acm_observer": SCRIPT_DIR / "device_action_cdc_acm_observer_v1.py",
+    "raw_capture": SCRIPT_DIR / "device_action_raw_capture_v1.py",
+    "usb_trace_sidecar": SCRIPT_DIR / "device_action_usb_trace_sidecar_v1.py",
+    "p300_usb_trace_binding": SCRIPT_DIR / "s22plus_fyg8_p300_usb_trace_binding.py",
+    "f1_core": SCRIPT_DIR / "device_action_f1_v2.py",
+    "typed_evidence": SCRIPT_DIR / "device_action_f1_evidence_v2.py",
+    "checkpoint_decoder": SCRIPT_DIR / "s22plus_fyg8_r4w1e_checkpoint_contract.py",
+    "d0_adapter": SCRIPT_DIR / "device_action_d0_v2.py",
+    "regular_path_transport": SCRIPT_DIR / "s22plus_boot_only_f1_transport.py",
+    "live_core": SCRIPT_DIR / "s22plus_boot_only_live_core.py",
+    "odin_transition_core": SCRIPT_DIR / "s22plus_odin_transition_core.py",
+    "usbfs_identity": SCRIPT_DIR / "s22plus_odin_usbfs_identity.py",
+    "p313_guard_lifetime": SCRIPT_DIR / "s22plus_fyg8_p313_guard_lifetime.py",
+    "p319_stock_adapter": SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py",
+    "p319_carrier_model": SCRIPT_DIR / "s22plus_fyg8_p310_carrier_model.py",
+    "p319_telemetry_spec": SCRIPT_DIR / "s22plus_fyg8_p308_telemetry_spec.py",
+    "consumed_candidate_registry": SCRIPT_DIR / "consumed_candidate_registry_v1.py",
+    "legacy_consumed_candidate_authority": (
+        SCRIPT_DIR / "device_action_f1_legacy_consumed_candidate_authority_v1.json"
+    ),
+}
 
 RAW_FIRST_PREDECESSOR = {
     "auditor": {
-        "size": 76_350,
-        "sha256": "702219692babd65ba8e5b2d0cb6ee296247d1dcaa709901aff4472da7f297245",
+        "size": 76_339,
+        "sha256": "2819d3d26c19500c173ad36d0a9e50ad58f17258425a88ce71946f58b8598409",
     },
     "receipt": {
-        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260830-22-p319-offline-ready-stable-source.json",
+        "path": "workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260830-23-p319-registry-absence.json",
         "size": 15_075,
-        "sha256": "d6ad008c8f49f9346e4438b84d7b1d1dcb131b3764de20c1270dd3595bc51ee3",
+        "sha256": "608799f12b16aab51b3ef12bcb70746c4debcc13eaf9ee342dae04f596f91c6f",
     },
 }
 
@@ -227,6 +288,22 @@ def _strict_json(
         "mode": f"{stat.S_IMODE(info.st_mode):04o}",
         "nlink": info.st_nlink,
     }
+
+
+def _exact_json_equal(left: Any, right: Any) -> bool:
+    """Compare JSON values without Python bool/int or int/float coercion."""
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return set(left) == set(right) and all(
+            _exact_json_equal(left[key], right[key]) for key in left
+        )
+    if isinstance(left, list):
+        return len(left) == len(right) and all(
+            _exact_json_equal(item, other)
+            for item, other in zip(left, right)
+        )
+    return left == right
 
 
 def _contains(value: Any, needle: str) -> bool:
@@ -504,7 +581,7 @@ def _population_paths() -> list[Path]:
 
 def _validate_nonconsuming_ready_manifest(
     path: Path = P319_READY_MANIFEST,
-) -> None:
+) -> dict[str, Any] | None:
     """Classify the one P319 ready declaration without treating it as use.
 
     The declaration is intentionally not hash-pinned here: its candidate-static
@@ -515,7 +592,7 @@ def _validate_nonconsuming_ready_manifest(
     prepared/journal/claim record.
     """
     if not path.exists() and not path.is_symlink():
-        return
+        return None
     value, receipt = _strict_json(
         path, "P319 non-consuming ready manifest", canonical=False
     )
@@ -652,6 +729,305 @@ def _validate_nonconsuming_ready_manifest(
             "sha256": item["sha256"],
         }:
             raise AuditError("P319 ready declaration artifact differs")
+    return value
+
+
+def _canonical_digest(value: Any) -> str:
+    try:
+        payload = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise AuditError("prepared record contains non-canonical JSON values") from exc
+    return _sha(payload)
+
+
+def _validate_prepared_receipt(
+    value: Any,
+    expected_path: Path,
+    label: str,
+) -> None:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"path", "size", "sha256"}
+        or value.get("path") != str(expected_path.absolute())
+        or type(value.get("size")) is not int
+        or value["size"] < 0
+        or not isinstance(value.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", value["sha256"]) is None
+    ):
+        raise AuditError(f"{label} receipt is malformed")
+    _stable_bytes(
+        expected_path,
+        label,
+        expected={"size": value["size"], "sha256": value["sha256"]},
+        mode=0o400,
+        nlink=1,
+        maximum=4 * 1024 * 1024,
+    )
+
+
+def _current_live_prepared_schema() -> tuple[str, str, frozenset[str]]:
+    """Read the active runner's prepared schema without importing its runtime."""
+    try:
+        source = _stable_bytes(
+            LIVE_RUNNER,
+            "P319 live runner source",
+            maximum=2 * 1024 * 1024,
+        ).decode("utf-8", "strict")
+        tree = ast.parse(source, filename=str(LIVE_RUNNER))
+    except (UnicodeDecodeError, SyntaxError) as exc:
+        raise AuditError("P319 live runner prepared schema is not parseable") from exc
+
+    assignments: dict[str, Any] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        else:
+            continue
+        for target in targets:
+            if not isinstance(target, ast.Name) or target.id not in {
+                "ADAPTER_VERSION",
+                "PREPARED_SCHEMA",
+            }:
+                continue
+            try:
+                assignments[target.id] = ast.literal_eval(node.value)
+            except (ValueError, TypeError, SyntaxError) as exc:
+                raise AuditError(
+                    "P319 live runner prepared schema constants are not literals"
+                ) from exc
+
+    expected_keys: Any = None
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef) or node.name != "load_prepared":
+            continue
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Assign):
+                continue
+            if not any(
+                isinstance(target, ast.Name) and target.id == "expected_keys"
+                for target in child.targets
+            ):
+                continue
+            try:
+                expected_keys = ast.literal_eval(child.value)
+            except (ValueError, TypeError, SyntaxError) as exc:
+                raise AuditError(
+                    "P319 live runner prepared key schema is not a literal"
+                ) from exc
+            break
+        break
+
+    adapter_version = assignments.get("ADAPTER_VERSION")
+    prepared_schema = assignments.get("PREPARED_SCHEMA")
+    if (
+        not isinstance(adapter_version, str)
+        or not adapter_version
+        or not isinstance(prepared_schema, str)
+        or not prepared_schema
+        or not isinstance(expected_keys, set)
+        or any(type(key) is not str for key in expected_keys)
+        or frozenset(expected_keys) != PREPARED_KEYS
+    ):
+        raise AuditError("P319 live runner prepared schema differs")
+    return prepared_schema, adapter_version, frozenset(expected_keys)
+
+
+def _current_execution_closure() -> dict[str, Any]:
+    """Rebuild the runner's fixed source closure from stable source bytes."""
+    sources: dict[str, Any] = {}
+    for name, path in PREPARED_EXECUTION_SOURCE_PATHS.items():
+        payload = _stable_bytes(
+            path,
+            f"P319 prepared execution source {name}",
+            maximum=2 * 1024 * 1024,
+        )
+        sources[name] = {
+            "path": str(path.absolute()),
+            **_identity(payload),
+        }
+    return {
+        "schema": "device_action_f1_execution_closure_v2",
+        "sources": sources,
+        "sha256": _canonical_digest(sources),
+        "repo_root": str(ROOT),
+    }
+
+
+def _validate_nonconsuming_prepared_record(
+    path: Path,
+    value: Any,
+    parsed_receipt: Mapping[str, Any] | None = None,
+) -> None:
+    """Recognize only an exact pre-effect prepared record as non-consuming.
+
+    A prepared record is written after connected D0 but before the transaction,
+    Download request, registry claim, or candidate attempt.  It must not make
+    the immutable offline qualification reject its own execute step.  Any
+    execution-state sibling, malformed binding, or action flag keeps the
+    record in the fail-closed consumption population.
+    """
+    run_dir = path.parent.absolute()
+    live_root = (PRIVATE_RUNS / "device-action-f1-live-v2").absolute()
+    # The population scanner parsed this exact path already.  Reopen it using
+    # the stable reader and compare the receipt before treating it as the one
+    # pre-effect exception; a replacement between parse and classification is
+    # therefore never silently exempted.
+    reopened, reopened_receipt = _strict_json(
+        path,
+        "P319 prepared record",
+        canonical=False,
+        mode=0o400,
+        maximum=4 * 1024 * 1024,
+    )
+    if parsed_receipt is not None and (
+        not _exact_json_equal(reopened, value)
+        or not _exact_json_equal(reopened_receipt, dict(parsed_receipt))
+    ):
+        raise AuditError("P319 prepared record identity differs")
+    historical_identity = HISTORICAL_PRE_EFFECT_PREPARED.get(run_dir.name)
+    historical = historical_identity is not None and {
+        "size": reopened_receipt["size"],
+        "sha256": reopened_receipt["sha256"],
+    } == historical_identity
+    if historical_identity is not None and not historical:
+        raise AuditError("P319 historical prepared record identity differs")
+    if (
+        path.name != "prepared.json"
+        or run_dir.parent != live_root
+        or stat.S_IMODE(path.lstat().st_mode) != 0o400
+        or run_dir.is_symlink()
+        or not run_dir.is_dir()
+        or run_dir.resolve(strict=True) != run_dir
+        or not isinstance(value, dict)
+        or set(value) != _current_live_prepared_schema()[2]
+    ):
+        raise AuditError("P319 prepared record path or schema differs")
+    children = list(run_dir.iterdir())
+    if {child.name for child in children} != PREPARED_RUN_CHILD_NAMES:
+        raise AuditError("P319 prepared record has unexpected run children")
+    expected_child_types = {
+        "prepared.json": stat.S_ISREG,
+        "target-private.json": stat.S_ISREG,
+        "p300-usb-trace-binding.json": stat.S_ISREG,
+        "preflight": stat.S_ISDIR,
+    }
+    for child in children:
+        if child.is_symlink() or not expected_child_types[child.name](child.stat().st_mode):
+            raise AuditError("P319 prepared record has unexpected run children")
+
+    binding = value.get("approval_binding")
+    base = binding.get("base_binding") if isinstance(binding, dict) else None
+    closure = value.get("execution_closure")
+    prepared_schema, adapter_version, _prepared_keys = _current_live_prepared_schema()
+    ready = None if historical else _validate_nonconsuming_ready_manifest()
+    if not historical and ready is None:
+        raise AuditError("P319 ready declaration is absent")
+    expected_closure = None if historical else _current_execution_closure()
+    if (
+        value.get("schema") != prepared_schema
+        or value.get("adapter_version") != adapter_version
+        or value.get("manifest_id") != "s22plus-fyg8-p319-process-v2-ready-1"
+        or value.get("manifest_status") != "ready-for-f1-approval"
+        or not isinstance(value.get("bundle_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", value["bundle_sha256"]) is None
+        or value.get("device_contact") is not True
+        or any(
+            value.get(key) is not False
+            for key in (
+                "device_writes",
+                "reboot_requested",
+                "odin_invoked",
+                "partition_transfer",
+                "f1_authorized",
+                "live_authorized",
+            )
+        )
+        or not isinstance(binding, dict)
+        or set(binding)
+        != {
+            "schema",
+            "adapter_version",
+            "base_binding",
+            "base_binding_sha256",
+            "d0_result",
+            "private_target",
+            "execution_closure_sha256",
+            "mandatory_rollback_preapproved",
+            "recovery_requires_second_approval",
+        }
+        or binding.get("schema") != "device_action_f1_live_approval_binding_v2"
+        or binding.get("adapter_version") != value["adapter_version"]
+        or binding.get("d0_result") != value.get("d0_result")
+        or binding.get("private_target") != value.get("private_target")
+        or binding.get("mandatory_rollback_preapproved") is not True
+        or binding.get("recovery_requires_second_approval") is not False
+        or not isinstance(base, dict)
+        or set(base)
+        != {
+            "schema",
+            "bundle_sha256",
+            "candidate_ap_sha256",
+            "manifest_id",
+            "observation",
+            "profile_id",
+            "rollback_ap_sha256",
+            "rollback_preapproved",
+            "runner_version",
+            "target_evidence_sha256",
+        }
+        or base.get("schema") != "device_action_f1_approval_binding_v2"
+        or base.get("bundle_sha256") != value["bundle_sha256"]
+        or base.get("candidate_ap_sha256") != CANDIDATE_AP_SHA256
+        or base.get("manifest_id") != value["manifest_id"]
+        or base.get("profile_id") != "s22plus-fyg8"
+        or base.get("rollback_ap_sha256")
+        != "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
+        or base.get("rollback_preapproved") is not True
+        or base.get("runner_version") != "device-action-f1-v2-host-core-3"
+        or not isinstance(base.get("observation"), dict)
+        or not historical
+        and not _exact_json_equal(base["observation"], ready["observation"])
+        or not isinstance(base.get("target_evidence_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", base["target_evidence_sha256"]) is None
+        or not isinstance(closure, dict)
+        or set(closure) != {"repo_root", "schema", "sha256", "sources"}
+        or closure.get("repo_root") != str(ROOT)
+        or closure.get("schema") != "device_action_f1_execution_closure_v2"
+        or not isinstance(closure.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", closure["sha256"]) is None
+        or not isinstance(closure.get("sources"), dict)
+        or not historical
+        and not _exact_json_equal(closure, expected_closure)
+        or binding.get("execution_closure_sha256") != closure.get("sha256")
+        or binding.get("base_binding_sha256") != _canonical_digest(base)
+        or value.get("approval_binding_sha256") != _canonical_digest(binding)
+        or value.get("approval_token")
+        != ("DEVICE-ACTION-F1-" + "V2-APPROVE:")
+        + value["approval_binding_sha256"]
+    ):
+        raise AuditError("P319 prepared record identity differs")
+
+    _validate_prepared_receipt(
+        value["d0_result"], run_dir / "preflight/result.json", "prepared D0 result"
+    )
+    _validate_prepared_receipt(
+        value["private_target"], run_dir / "target-private.json", "prepared private target"
+    )
+    p300 = value.get("p300_usb_trace_binding")
+    if not isinstance(p300, dict):
+        raise AuditError("prepared USB trace binding receipt is absent")
+    _validate_prepared_receipt(
+        p300,
+        run_dir / "p300-usb-trace-binding.json",
+        "prepared USB trace binding",
+    )
 
 
 def _qualify_registry(module: Any) -> dict[str, Any]:
@@ -739,6 +1115,16 @@ def audit_no_replay() -> dict[str, Any]:
             canonical=False,
             mode=None,
         )
+        if (
+            not is_public
+            and path.name == "prepared.json"
+            and (
+                _contains(value, NEW_LIVE_RUN_ID)
+                or _contains(value, CANDIDATE_AP_SHA256)
+            )
+        ):
+            _validate_nonconsuming_prepared_record(path, value, receipt)
+            continue
         files.append(receipt)
         if is_public:
             if isinstance(value.get("run_id"), str):

@@ -1374,7 +1374,12 @@ def verify_candidate_observer_binding(
         raise F1V2Error("candidate observer differs from the source contract")
 
 
-def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
+def verify_bundle(
+    root: Path,
+    manifest_path: Path,
+    *,
+    runtime_bound: bool = False,
+) -> Bundle:
     root = root.resolve()
     manifest_file = manifest_path if manifest_path.is_absolute() else root / manifest_path
     manifest_raw, manifest_receipt = load_json(manifest_file, "candidate manifest")
@@ -1440,6 +1445,7 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
                 payloads=contract_payloads,
                 receipts=contract_receipts,
                 candidate_ap=receipts["candidate_ap"],
+                runtime_bound=runtime_bound,
             )
         except typed_evidence.EvidenceError as exc:
             raise F1V2Error(str(exc)) from exc

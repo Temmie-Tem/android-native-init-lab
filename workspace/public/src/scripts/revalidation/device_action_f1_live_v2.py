@@ -1062,7 +1062,7 @@ def prepare_connected(
 def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun:
     root = root.resolve()
     run_dir = _validate_private_run_dir(root, run_dir)
-    bundle = core.verify_bundle(root, manifest_path)
+    bundle = core.verify_bundle(root, manifest_path, runtime_bound=True)
     prepared = _read_json(run_dir / "prepared.json", "prepared F1 record")
     expected_keys = {
         "schema",
@@ -4992,8 +4992,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = core.repo_root()
     try:
-        bundle = core.verify_bundle(root, args.manifest)
         if args.validate or args.render_plan:
+            bundle = core.verify_bundle(root, args.manifest)
             result = render_plan(root, bundle)
             if args.validate:
                 result = {
@@ -5002,6 +5002,7 @@ def main(argv: list[str] | None = None) -> int:
                     "verdict": "PASS_DEVICE_ACTION_F1_LIVE_V2_HOST_READY",
                 }
         elif args.prepare:
+            bundle = core.verify_bundle(root, args.manifest)
             if bundle.manifest["status"] != "ready-for-f1-approval":
                 raise F1LiveError("manifest is not ready for F1 preparation")
             run_dir = allocate_run_dir(root, args.run_dir)
@@ -5017,7 +5018,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise F1LiveError("recovery must not require a second approval")
             prepared = load_prepared(root, args.manifest, args.run_dir)
             adb = args.adb or d0.default_adb()
-            backend = SamsungOdinBackend(root, bundle, adb)
+            backend = SamsungOdinBackend(root, prepared.bundle, adb)
             if args.execute:
                 if not args.approval:
                     raise F1LiveError("execute requires --approval")

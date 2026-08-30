@@ -2061,6 +2061,8 @@ def _latest_stage_accepted_identity(
 
 def _validate_p319_candidate_static_authority(
     value: dict[str, Any],
+    *,
+    runtime_bound: bool = False,
 ) -> dict[str, Any]:
     authority = _exact(
         value.get("authority_source"),
@@ -2106,9 +2108,12 @@ def _validate_p319_candidate_static_authority(
     }
     try:
         exec(compile(data, str(path), "exec"), namespace)
-        validate = namespace.get("validate_result")
+        validator_name = "validate_bound_result" if runtime_bound else "validate_result"
+        validate = namespace.get(validator_name)
         if not callable(validate):
-            raise EvidenceError("P3.19 candidate-static authority lacks validator")
+            raise EvidenceError(
+                f"P3.19 candidate-static authority lacks {validator_name}"
+            )
         validate(value)
     except EvidenceError:
         raise
@@ -2119,7 +2124,11 @@ def _validate_p319_candidate_static_authority(
     return observed
 
 
-def _validate_p319_candidate_static(value: Any) -> dict[str, Any]:
+def _validate_p319_candidate_static(
+    value: Any,
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
     item = _exact(
         value,
         {
@@ -2386,7 +2395,10 @@ def _validate_p319_candidate_static(value: Any) -> dict[str, Any]:
     }
     if item["safety"] != expected_safety:
         raise EvidenceError("P3.19 candidate-static safety boundary differs")
-    _validate_p319_candidate_static_authority(item)
+    _validate_p319_candidate_static_authority(
+        item,
+        runtime_bound=runtime_bound,
+    )
     return item
 
 
@@ -3567,6 +3579,7 @@ def _verify_e1_latest_stage_offline_contract(
     payloads: dict[str, bytes],
     receipts: dict[str, dict[str, Any]],
     candidate_ap: dict[str, Any],
+    runtime_bound: bool = False,
 ) -> dict[str, Any]:
     item = validate_acceptance(acceptance)
     if item["kind"] != E1_LATEST_STAGE_KIND:
@@ -3596,7 +3609,10 @@ def _verify_e1_latest_stage_offline_contract(
         )
         if payloads["candidate_static"] != _canonical(candidate_static) + b"\n":
             raise EvidenceError("P3.19 candidate-static bytes are not canonical")
-        candidate_static = _validate_p319_candidate_static(candidate_static)
+        candidate_static = _validate_p319_candidate_static(
+            candidate_static,
+            runtime_bound=runtime_bound,
+        )
         run_manifest = _json(payloads["run_manifest"], "P3.19 run manifest")
         static_result = _json(payloads["static_check"], "P3.19 static result")
         if (
@@ -5977,6 +5993,7 @@ def verify_offline_contract(
     payloads: dict[str, bytes],
     receipts: dict[str, dict[str, Any]],
     candidate_ap: dict[str, Any],
+    runtime_bound: bool = False,
 ) -> dict[str, Any]:
     if acceptance.get("kind") == E1_LATEST_STAGE_KIND:
         return _verify_e1_latest_stage_offline_contract(
@@ -5984,6 +6001,7 @@ def verify_offline_contract(
             payloads=payloads,
             receipts=receipts,
             candidate_ap=candidate_ap,
+            runtime_bound=runtime_bound,
         )
     if acceptance.get("kind") in {SAME_RING_KIND, SAME_RING_MULTIBOOT_KIND}:
         return _verify_same_ring_offline_contract(

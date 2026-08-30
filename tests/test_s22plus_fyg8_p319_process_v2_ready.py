@@ -17,7 +17,7 @@ ANALYSIS = ROOT / "workspace/public/src/scripts/analysis"
 REVALIDATION = ROOT / "workspace/public/src/scripts/revalidation"
 REPORT = ROOT / (
     "docs/reports/"
-    "S22PLUS_FYG8_P319_PROCESS_V2_OFFLINE_READY_H0_2026-08-30.md"
+    "S22PLUS_FYG8_P319_PREPARED_RUNTIME_BOUND_REPAIR_H0_2026-08-30.md"
 )
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
@@ -316,19 +316,18 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
         goal = GOAL.read_text(encoding="utf-8")
         ledger = LEDGER.read_text(encoding="utf-8")
         for token in (
-            "15,075 bytes / `608799f12b16aab5",
-            "13,190 bytes / `4a18cf1148a7c8bd",
-            "126,135 bytes / `1506e8988dfe2c9",
-            "35,309 bytes / `d00f422e46c55c15",
-            "2,432 bytes / `e6c758460f45e52b",
-            "PASS_GO_P319_PROCESS_V2_OFFLINE_READY_CENSUS_DECOUPLE_H0_CAPABILITY_V1",
-            "creates no approval",
+            "15,075 bytes / `54db40b2fc63f98b",
+            "13,186 bytes / `4e29a5630c8a7a0d",
+            "126,133 bytes / `dc9380a73e61e6f9",
+            "35,307 bytes / `37654942055d063a",
+            "2,432 bytes / `e84e81837c010e4c",
+            "P319_PREPARED_RUNTIME_BOUND_REPAIR_IMPLEMENTED_REVIEW_PENDING",
+            "grants no D0, D1, F1",
         ):
             self.assertIn(token, report)
         self.assertIn("`ready-for-f1-approval`", goal)
-        self.assertIn("h0-process-v2-offline-ready-51", ledger)
-        self.assertIn("h0-process-v2-offline-ready-census-decouple-review-52", ledger)
-        self.assertIn("75/58/17 across 425 rows", ledger)
+        self.assertIn("h0-process-v2-prepared-runtime-bound-repair-53", ledger)
+        self.assertIn("76/58/18 across 426 rows", ledger)
 
     def test_temporary_outputs_are_private_and_no_clobber(self):
         for path in self.promotion_root.iterdir():

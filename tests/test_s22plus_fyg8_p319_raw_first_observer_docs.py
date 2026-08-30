@@ -45,7 +45,7 @@ RECEIPT = ROOT / (
 )
 CURRENT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260830-23-p319-registry-absence.json"
+    "raw-first-observer-audit-20260830-24-p319-prepared-runtime-bound.json"
 )
 OFFLINE_READY_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
@@ -191,7 +191,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             self.auditor.DEFAULT_OUTPUT.as_posix(),
             "workspace/private/outputs/s22plus_fyg8_p319/"
-            "raw-first-observer-audit-20260830-23-p319-registry-absence.json",
+            "raw-first-observer-audit-20260830-24-p319-prepared-runtime-bound.json",
         )
         retained_bytes = CURRENT_RECEIPT.read_bytes()
         retained = json.loads(retained_bytes)
@@ -219,7 +219,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
                     current_projection, sort_keys=True, separators=(",", ":")
                 ).encode()
             ).hexdigest(),
-            "5b1f42dda9e4f26c5fa74efbe07a019a28a4a64f99cc59036c60e4d426993dee",
+            "79d3088c218d64b3f6a660fd249af7164ad100cdb0ccf8a27c3c753013ebff0e",
         )
         info = CURRENT_RECEIPT.stat()
         self.assertTrue(stat.S_ISREG(info.st_mode))
@@ -228,7 +228,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(retained_bytes), 15075)
         self.assertEqual(
             hashlib.sha256(retained_bytes).hexdigest(),
-            "608799f12b16aab51b3ef12bcb70746c4debcc13eaf9ee342dae04f596f91c6f",
+            "54db40b2fc63f98bc235cdc52bf87e02b9b875346859eea3b2eb257e61aa0958",
         )
 
     def test_process_v2_integration_v2_is_host_only_non_acquiring(self):

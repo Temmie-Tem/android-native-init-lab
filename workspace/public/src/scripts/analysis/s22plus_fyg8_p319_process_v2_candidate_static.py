@@ -33,15 +33,15 @@ INTEGRATION_SOURCE = (
 ADAPTER_SOURCE = SCRIPT_DIR / "s22plus_fyg8_p319_stock_process_v2_adapter.py"
 INTEGRATION_RESULT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260830-16/result.json"
+    "process-v2-integration-qualification-v2-20260830-19/result.json"
 )
 INTEGRATION_IDENTITY = {
-    "size": 126_135,
-    "sha256": "1506e8988dfe2c9b5cbc47c0618939d6eb85c20704b6c792c70455caa3e6e76e",
+    "size": 126_133,
+    "sha256": "dc9380a73e61e6f9d8c28b59b17eec21ca6859ff9146f1b2e141265504143d61",
 }
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "process-v2-candidate-static-20260830-11.json"
+    "process-v2-candidate-static-20260830-14.json"
 )
 
 SCHEMA = "s22plus_fyg8_p319_process_v2_candidate_static_v1"
@@ -555,6 +555,28 @@ def validate_result(value: Mapping[str, Any], *, stored: Mapping[str, Any] | Non
             raise StaticContractError("Integration V2 regeneration failed") from exc
         if not exact_equal(stored, regenerated):
             raise StaticContractError("Integration V2 is not byte-reproducible")
+
+
+def validate_bound_result(value: Mapping[str, Any]) -> None:
+    """Validate the immutable qualification snapshot without replaying its live-state probe.
+
+    The full ``validate_result`` path intentionally regenerates Integration V2
+    while creating or preparing a run.  After preparation, the exact
+    ``prepared.json`` and later the consumed-candidate registry are expected to
+    change.  Execute/recovery must therefore reopen the pinned Integration
+    snapshot and rederive this object, while the live runner separately checks
+    the current registry and durable journal before any effect.
+    """
+    payload = stable_bytes(
+        INTEGRATION_RESULT,
+        "reviewed Integration V2 result",
+        expected=INTEGRATION_IDENTITY,
+        maximum=256 * 1024,
+        mode=0o400,
+        nlink=1,
+    )
+    stored = decode_object(payload, "reviewed Integration V2 result")
+    validate_result(value, stored=stored)
 
 
 def publish_exclusive(path: Path, payload: bytes) -> None:

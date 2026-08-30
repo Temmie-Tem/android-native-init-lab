@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import stat
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -152,6 +154,226 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
                     with self.assertRaises(self.module.AuditError):
                         self.module._validate_nonconsuming_ready_manifest(path)  # noqa: SLF001
 
+    def test_exact_pre_effect_prepared_record_is_nonconsuming_only(self):
+        with tempfile.TemporaryDirectory(prefix="p319-prepared-nonconsuming-") as name:
+            private_runs = Path(name) / "workspace/private/runs"
+            run_dir = private_runs / "device-action-f1-live-v2/fixture-run"
+            preflight = run_dir / "preflight"
+            preflight.mkdir(parents=True)
+
+            def write_private(path, payload):
+                path.write_bytes(payload)
+                path.chmod(0o400)
+                return {
+                    "path": str(path.absolute()),
+                    "size": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                }
+
+            d0_receipt = write_private(preflight / "result.json", b"{}\n")
+            target_receipt = write_private(run_dir / "target-private.json", b"{}\n")
+            trace_receipt = write_private(
+                run_dir / "p300-usb-trace-binding.json", b"{}\n"
+            )
+            base = {
+                "schema": "device_action_f1_approval_binding_v2",
+                "bundle_sha256": "1" * 64,
+                "candidate_ap_sha256": self.module.CANDIDATE_AP_SHA256,
+                "manifest_id": "s22plus-fyg8-p319-process-v2-ready-1",
+                "observation": {},
+                "profile_id": "s22plus-fyg8",
+                "rollback_ap_sha256": (
+                    "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56"
+                ),
+                "rollback_preapproved": True,
+                "runner_version": "device-action-f1-v2-host-core-3",
+                "target_evidence_sha256": "2" * 64,
+            }
+            closure = {
+                "repo_root": str(self.module.ROOT),
+                "schema": "device_action_f1_execution_closure_v2",
+                "sha256": "3" * 64,
+                "sources": {},
+            }
+            binding = {
+                "schema": "device_action_f1_live_approval_binding_v2",
+                "adapter_version": "device-action-f1-live-v2-8",
+                "base_binding": base,
+                "base_binding_sha256": self.module._canonical_digest(base),  # noqa: SLF001
+                "d0_result": d0_receipt,
+                "private_target": target_receipt,
+                "execution_closure_sha256": closure["sha256"],
+                "mandatory_rollback_preapproved": True,
+                "recovery_requires_second_approval": False,
+            }
+            binding_sha256 = self.module._canonical_digest(binding)  # noqa: SLF001
+            prepared = {
+                "schema": "device_action_f1_prepared_v2",
+                "adapter_version": "device-action-f1-live-v2-8",
+                "manifest_id": "s22plus-fyg8-p319-process-v2-ready-1",
+                "bundle_sha256": "1" * 64,
+                "manifest_status": "ready-for-f1-approval",
+                "d0_result": d0_receipt,
+                "private_target": target_receipt,
+                "execution_closure": closure,
+                "approval_binding": binding,
+                "approval_binding_sha256": binding_sha256,
+                "approval_token": "DEVICE-ACTION-F1-V2-APPROVE:" + binding_sha256,
+                "p300_usb_trace_binding": trace_receipt,
+                "device_contact": True,
+                "device_writes": False,
+                "reboot_requested": False,
+                "odin_invoked": False,
+                "partition_transfer": False,
+                "f1_authorized": False,
+                "live_authorized": False,
+            }
+            path = run_dir / "prepared.json"
+            path.write_text(json.dumps(prepared), encoding="utf-8")
+            path.chmod(0o400)
+            ready = {"observation": base["observation"]}
+            schema = (
+                "device_action_f1_prepared_v2",
+                "device-action-f1-live-v2-8",
+                self.module.PREPARED_KEYS,
+            )
+            with (
+                mock.patch.object(self.module, "PRIVATE_RUNS", private_runs),
+                mock.patch.object(
+                    self.module,
+                    "_current_live_prepared_schema",
+                    return_value=schema,
+                ),
+                mock.patch.object(
+                    self.module,
+                    "_current_execution_closure",
+                    return_value=closure,
+                ),
+                mock.patch.object(
+                    self.module,
+                    "_validate_nonconsuming_ready_manifest",
+                    return_value=ready,
+                ),
+            ):
+                parsed, parsed_receipt = self.module._strict_json(  # noqa: SLF001
+                    path, "prepared fixture", mode=0o400
+                )
+                self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                    path, parsed, parsed_receipt
+                )
+                forged = dict(prepared)
+                forged["f1_authorized"] = True
+                with self.assertRaisesRegex(
+                    self.module.AuditError, "prepared record identity differs"
+                ):
+                    self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                        path, forged
+                    )
+                missing_trace = dict(prepared)
+                missing_trace["p300_usb_trace_binding"] = None
+                with self.assertRaisesRegex(
+                    self.module.AuditError, "USB trace binding receipt is absent"
+                ):
+                    self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                        path, missing_trace
+                    )
+                for unexpected in (
+                    "transaction",
+                    "f1-session",
+                    "odin-endpoints",
+                    "p300-candidate-observation-durable.json",
+                    "weird.json",
+                ):
+                    extra = run_dir / unexpected
+                    if "." in unexpected:
+                        extra.write_text("{}\n", encoding="utf-8")
+                    else:
+                        extra.mkdir()
+                    with self.assertRaisesRegex(
+                        self.module.AuditError, "unexpected run children"
+                    ):
+                        self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                            path, prepared
+                        )
+                    if extra.is_dir():
+                        extra.rmdir()
+                    else:
+                        extra.unlink()
+
+                wrong_version = dict(prepared)
+                wrong_version["adapter_version"] = "device-action-f1-live-v2-9"
+                with self.assertRaisesRegex(
+                    self.module.AuditError, "prepared record identity differs"
+                ):
+                    self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                        path, wrong_version
+                    )
+
+                wrong_observation = json.loads(json.dumps(prepared))
+                wrong_observation["approval_binding"]["base_binding"][
+                    "observation"
+                ] = {"forged": True}
+                wrong_observation["approval_binding"]["base_binding_sha256"] = (
+                    self.module._canonical_digest(  # noqa: SLF001
+                        wrong_observation["approval_binding"]["base_binding"]
+                    )
+                )
+                wrong_observation["approval_binding_sha256"] = (
+                    self.module._canonical_digest(  # noqa: SLF001
+                        wrong_observation["approval_binding"]
+                    )
+                )
+                wrong_observation["approval_token"] = (
+                    "DEVICE-ACTION-F1-V2-APPROVE:"
+                    + wrong_observation["approval_binding_sha256"]
+                )
+                with self.assertRaisesRegex(
+                    self.module.AuditError, "prepared record identity differs"
+                ):
+                    self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                        path, wrong_observation
+                    )
+
+                wrong_closure = json.loads(json.dumps(prepared))
+                wrong_closure["execution_closure"]["sources"] = {
+                    "forged": {"path": "/tmp/forged", "size": 1, "sha256": "0" * 64}
+                }
+                wrong_closure["execution_closure"]["sha256"] = (
+                    self.module._canonical_digest(  # noqa: SLF001
+                        wrong_closure["execution_closure"]["sources"]
+                    )
+                )
+                wrong_closure["approval_binding"]["execution_closure_sha256"] = (
+                    wrong_closure["execution_closure"]["sha256"]
+                )
+                wrong_closure["approval_binding_sha256"] = (
+                    self.module._canonical_digest(  # noqa: SLF001
+                        wrong_closure["approval_binding"]
+                    )
+                )
+                wrong_closure["approval_token"] = (
+                    "DEVICE-ACTION-F1-V2-APPROVE:"
+                    + wrong_closure["approval_binding_sha256"]
+                )
+                with self.assertRaisesRegex(
+                    self.module.AuditError, "prepared record identity differs"
+                ):
+                    self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                        path, wrong_closure
+                    )
+
+                replacement = dict(prepared)
+                replacement["bundle_sha256"] = "9" * 64
+                path.unlink()
+                path.write_text(json.dumps(replacement), encoding="utf-8")
+                path.chmod(0o400)
+                with self.assertRaisesRegex(
+                    self.module.AuditError, "prepared record identity differs"
+                ):
+                    self.module._validate_nonconsuming_prepared_record(  # noqa: SLF001
+                        path, parsed, parsed_receipt
+                    )
+
     def test_recovery_provenance_is_distinct_from_reopening_ap(self):
         recovery = self.receipt["recovery_usability_provenance"]
         self.assertTrue(recovery["demonstrated_download_path"])
@@ -209,14 +431,14 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
 
     def test_raw_first_projection_is_disk_population_probe(self):
         raw = self.receipt["raw_first_execution_closure"]
-        self.assertEqual(raw["auditor"]["size"], 76339)
+        self.assertEqual(raw["auditor"]["size"], 76345)
         self.assertEqual(
             raw["auditor"]["sha256"],
-            "2819d3d26c19500c173ad36d0a9e50ad58f17258425a88ce71946f58b8598409",
+            "122c4bd497c4d54c76f4fce572f3c8dc84b6d2ea7647087692a976dc590ce4b6",
         )
         self.assertEqual(
             raw["receipt"]["sha256"],
-            "608799f12b16aab51b3ef12bcb70746c4debcc13eaf9ee342dae04f596f91c6f",
+            "54db40b2fc63f98bc235cdc52bf87e02b9b875346859eea3b2eb257e61aa0958",
         )
         self.assertEqual(raw["receipt"]["size"], 15075)
         self.assertEqual(raw["predecessor"], self.module.RAW_FIRST_PREDECESSOR)
@@ -225,7 +447,7 @@ class P319ProcessV2PrerequisiteAuditTest(unittest.TestCase):
         self.assertEqual(
             raw["baseline"],
             {
-                "projection_sha256": "5b1f42dda9e4f26c5fa74efbe07a019a28a4a64f99cc59036c60e4d426993dee",
+                "projection_sha256": "79d3088c218d64b3f6a660fd249af7164ad100cdb0ccf8a27c3c753013ebff0e",
             },
         )
         self.assertTrue(raw["census_values_retained_only_in_raw_receipt"])

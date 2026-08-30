@@ -45,10 +45,10 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
         self.assertFalse(self.output.is_symlink())
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(self.payload), 35_309)
+        self.assertEqual(len(self.payload), 35_307)
         self.assertEqual(
             hashlib.sha256(self.payload).hexdigest(),
-            "d00f422e46c55c15795c171ef893d8d6a01e441e00adebbaae2d7316af859fab",
+            "37654942055d063abca5263d9ff729ac72670def765fe001107ec47da749737f",
         )
         self.assertEqual(self.module.canonical(self.value), self.payload)
         self.module.validate_result(self.value)
@@ -119,6 +119,28 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
                 self.module.StaticContractError, "not byte-reproducible"
             ):
                 self.module.validate_result(self.value)
+
+    def test_runtime_bound_validation_reopens_without_replaying_state_probe(self):
+        original_load = self.module.load_local
+
+        class ExplodingIntegration:
+            def __init__(self, wrapped):
+                self.wrapped = wrapped
+
+            def __getattr__(self, name):
+                return getattr(self.wrapped, name)
+
+            def build_result(self):
+                raise AssertionError("runtime-bound validation replayed Integration")
+
+        def exploding_load(path, name):
+            loaded = original_load(path, name)
+            if path == self.module.INTEGRATION_SOURCE:
+                return ExplodingIntegration(loaded)
+            return loaded
+
+        with mock.patch.object(self.module, "load_local", side_effect=exploding_load):
+            self.module.validate_bound_result(self.value)
 
     def test_three_real_terminal_paths_are_armed_without_causal_promotion(self):
         rows = self.value["result_contract_arming"]["admitted_terminals"]
@@ -227,7 +249,7 @@ class P319ProcessV2CandidateStaticTest(unittest.TestCase):
             {
                 "path": (
                     "workspace/private/outputs/s22plus_fyg8_p319/"
-                    "process-v2-integration-qualification-v2-20260830-16/result.json"
+                    "process-v2-integration-qualification-v2-20260830-19/result.json"
                 ),
                 **self.module.INTEGRATION_IDENTITY,
             },

@@ -93,20 +93,20 @@ EXPECTED_USERSPACE_ARTIFACTS = {
     },
 }
 PREVIOUS_RESULT = {
-    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260830-15/result.json",
-    "size": 126085,
-    "sha256": "1542dfb9bf7f154324dfdcf159ad957ed6179f08d4b522d49f842d2781e623fb",
+    "path": "workspace/private/outputs/s22plus_fyg8_p319/process-v2-integration-qualification-v2-20260830-18/result.json",
+    "size": 126133,
+    "sha256": "523688b45e98da498cfc8b89f6cbd15b30d9eee82186030437b0db28ac088f73",
 }
 DEFAULT_OUTPUT = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "process-v2-integration-qualification-v2-20260830-16/result.json"
+    "process-v2-integration-qualification-v2-20260830-19/result.json"
 )
 FRESH_BASELINE = PRIVATE / (
     "outputs/s22plus_fyg8_p319/fresh-baseline-v3/result.json"
 )
 CONSUMED_CANDIDATE_REGISTRY = PRIVATE / (
     "outputs/s22plus_fyg8_p319/"
-    "consumed-candidate-registry-qualification-20260829-01-p319-registration.json"
+    "consumed-candidate-registry-qualification-20260830-02-p319-runtime-bound.json"
 )
 PROCESS_CONTRACT = ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 DOWNLOAD_REQUEST_RECOVERY_TEST = ROOT / "tests/test_device_action_f1_live_v2.py"
