@@ -13,6 +13,7 @@ authority.
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -21,13 +22,22 @@ ROOT = Path(__file__).resolve().parents[5]
 ENVELOPE_SCRIPT = Path(__file__).with_name("s22plus_fyg8_p319_kmsg_record_envelope.py")
 RETAINED_RUNTIME = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "stock-witness-runtime-v1-20260821-25/stock-sources/"
+    "stock-witness-runtime-v1-20260821-55/stock-sources/"
     "s22plus_fyg8_p290_e3_runtime.inc.c"
 )
+LIVE_CANDIDATE_RESULT = RETAINED_RUNTIME.parent.parent / "result.json"
 
-RETAINED_RUNTIME_SIZE = 435_446
+RETAINED_RUNTIME_SIZE = 435_334
 RETAINED_RUNTIME_SHA256 = (
-    "4cf48cc790881bebc0b27facf9919e7b81e892b54dcf10c8e03c7b4e77c5c198"
+    "0a12a9c0f148d58009ebc378b667733b5913d46ebf6466dff3f37bbb850c51a9"
+)
+LIVE_CANDIDATE_RESULT_SIZE = 392_886
+LIVE_CANDIDATE_RESULT_SHA256 = (
+    "21beec5d2010ecb5804c09055c93a24f83f0fc4be0c9125d24a831908efeaa4a"
+)
+LIVE_CANDIDATE_AP_SIZE = 27_279_401
+LIVE_CANDIDATE_AP_SHA256 = (
+    "db5666ac794dfbf6f64192d7ea341ed79ff330f03db74c57da5ef61f659032f6"
 )
 P319_PARSER_ABI_VERSION = 2
 P319_PARSER_START = b"#define S22PLUS_MAX77705_P319_STOCK_STATUS_WIDTH"
@@ -85,8 +95,13 @@ def _sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def load_retained_runtime(path: Path = RETAINED_RUNTIME) -> bytes:
-    """Read the exact consumed P3.19 stock runtime with an identity check."""
+def _read_exact(
+    path: Path,
+    *,
+    expected_size: int,
+    expected_sha256: str,
+    label: str,
+) -> bytes:
     direct = path.absolute()
     try:
         before = direct.lstat()
@@ -94,21 +109,114 @@ def load_retained_runtime(path: Path = RETAINED_RUNTIME) -> bytes:
         payload = direct.read_bytes()
         after = direct.lstat()
     except OSError as exc:
-        raise WiringError("retained P3.19 stock runtime is unavailable") from exc
+        raise WiringError(f"{label} is unavailable") from exc
     if (
         direct != resolved
         or not direct.is_file()
         or before.st_nlink != 1
-        or before.st_size != RETAINED_RUNTIME_SIZE
-        or len(payload) != RETAINED_RUNTIME_SIZE
-        or _sha256(payload) != RETAINED_RUNTIME_SHA256
+        or before.st_size != expected_size
+        or len(payload) != expected_size
+        or _sha256(payload) != expected_sha256
         or before.st_ino != after.st_ino
         or before.st_size != after.st_size
         or before.st_mtime_ns != after.st_mtime_ns
         or before.st_ctime_ns != after.st_ctime_ns
     ):
-        raise WiringError("retained P3.19 stock runtime identity differs")
+        raise WiringError(f"{label} identity differs")
     return payload
+
+
+def load_retained_runtime(path: Path = RETAINED_RUNTIME) -> bytes:
+    """Read the exact consumed P3.19 stock runtime with an identity check."""
+    return _read_exact(
+        path,
+        expected_size=RETAINED_RUNTIME_SIZE,
+        expected_sha256=RETAINED_RUNTIME_SHA256,
+        label="retained P3.19 stock runtime",
+    )
+
+
+def _strict_json(payload: bytes, label: str) -> dict[str, Any]:
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in items:
+            if key in value:
+                raise WiringError(f"{label} has duplicate key {key}")
+            value[key] = item
+        return value
+
+    def reject_constant(token: str) -> Any:
+        raise WiringError(f"{label} has non-finite JSON constant {token}")
+
+    try:
+        value = json.loads(
+            payload.decode("ascii"),
+            object_pairs_hook=pairs,
+            parse_constant=reject_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise WiringError(f"{label} is not strict JSON") from exc
+    if not isinstance(value, dict):
+        raise WiringError(f"{label} root differs")
+    return value
+
+
+def bind_live_candidate_lineage() -> dict[str, Any]:
+    """Bind retained runtime source to the AP/result identity used by P3.19."""
+    result_payload = _read_exact(
+        LIVE_CANDIDATE_RESULT,
+        expected_size=LIVE_CANDIDATE_RESULT_SIZE,
+        expected_sha256=LIVE_CANDIDATE_RESULT_SHA256,
+        label="consumed P3.19 stock result",
+    )
+    result = _strict_json(result_payload, "consumed P3.19 stock result")
+    if (
+        result.get("schema") != "s22plus-fyg8-p319-stock-witness-runtime-v1"
+        or result.get("verdict") != "PASS_P319_STOCK_WITNESS_RUNTIME_H0"
+    ):
+        raise WiringError("consumed P3.19 stock result schema differs")
+
+    source = result.get("source")
+    if not isinstance(source, dict):
+        raise WiringError("consumed P3.19 source lineage is absent")
+    materialized = source.get("materialized_stock_sources")
+    runtime = materialized.get("s22plus_fyg8_p290_e3_runtime.inc.c") if isinstance(materialized, dict) else None
+    if runtime != {"sha256": RETAINED_RUNTIME_SHA256, "size": RETAINED_RUNTIME_SIZE}:
+        raise WiringError("consumed P3.19 runtime lineage differs")
+
+    phase2 = result.get("phase2")
+    candidate = phase2.get("candidate") if isinstance(phase2, dict) else None
+    if (
+        not isinstance(candidate, dict)
+        or not isinstance(candidate.get("a"), dict)
+        or not isinstance(candidate.get("b"), dict)
+        or candidate.get("byte_identical") is not True
+    ):
+        raise WiringError("consumed P3.19 candidate reproductions differ")
+    for slot in ("a", "b"):
+        row = candidate.get(slot)
+        ap = row.get("ap_tar_md5") if isinstance(row, dict) else None
+        if ap != {"sha256": LIVE_CANDIDATE_AP_SHA256, "size": LIVE_CANDIDATE_AP_SIZE}:
+            raise WiringError(f"consumed P3.19 candidate {slot} identity differs")
+        package = row.get("package") if isinstance(row, dict) else None
+        package_ap = package.get("ap_tar_md5") if isinstance(package, dict) else None
+        if package_ap != ap:
+            raise WiringError(f"consumed P3.19 candidate {slot} package lineage differs")
+
+    return {
+        "result": {
+            "size": LIVE_CANDIDATE_RESULT_SIZE,
+            "sha256": LIVE_CANDIDATE_RESULT_SHA256,
+        },
+        "runtime": runtime,
+        "candidate_ap": {
+            "size": LIVE_CANDIDATE_AP_SIZE,
+            "sha256": LIVE_CANDIDATE_AP_SHA256,
+        },
+        "candidate_reproductions": 2,
+        "runtime_source_matches_result": True,
+        "live_candidate_lineage_bound": True,
+    }
 
 
 def extract_retained_parser(runtime: bytes | None = None) -> bytes:
@@ -165,12 +273,18 @@ def build_fixture_source(parser: bytes | None = None) -> bytes:
 
 __all__ = [
     "EnvelopeError",
+    "LIVE_CANDIDATE_AP_SHA256",
+    "LIVE_CANDIDATE_AP_SIZE",
+    "LIVE_CANDIDATE_RESULT",
+    "LIVE_CANDIDATE_RESULT_SHA256",
+    "LIVE_CANDIDATE_RESULT_SIZE",
     "P320_C_SOURCE",
     "P320_C_WIRING_SOURCE",
     "RETAINED_RUNTIME",
     "RETAINED_RUNTIME_SHA256",
     "RETAINED_RUNTIME_SIZE",
     "WiringError",
+    "bind_live_candidate_lineage",
     "build_fixture_source",
     "extract_retained_parser",
     "human_message",

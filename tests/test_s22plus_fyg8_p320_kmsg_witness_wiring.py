@@ -137,6 +137,18 @@ int main(int argc, char **argv) {
                 1,
             ))
 
+    def test_runtime_lineage_binds_consumed_live_ap_and_result(self) -> None:
+        lineage = self.module.bind_live_candidate_lineage()
+        self.assertTrue(lineage["live_candidate_lineage_bound"])
+        self.assertTrue(lineage["runtime_source_matches_result"])
+        self.assertEqual(lineage["candidate_reproductions"], 2)
+        self.assertEqual(lineage["runtime"]["sha256"], self.module.RETAINED_RUNTIME_SHA256)
+        self.assertEqual(lineage["runtime"]["size"], self.module.RETAINED_RUNTIME_SIZE)
+        self.assertEqual(lineage["candidate_ap"]["sha256"], self.module.LIVE_CANDIDATE_AP_SHA256)
+        self.assertEqual(lineage["candidate_ap"]["size"], self.module.LIVE_CANDIDATE_AP_SIZE)
+        self.assertEqual(lineage["result"]["sha256"], self.module.LIVE_CANDIDATE_RESULT_SHA256)
+        self.assertEqual(lineage["result"]["size"], self.module.LIVE_CANDIDATE_RESULT_SIZE)
+
     def test_c_wiring_passes_human_message_to_existing_parser(self) -> None:
         record = (
             b"6,30,40,-,future=1;"
