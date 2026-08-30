@@ -764,36 +764,37 @@ reboot/Download control remains later and F1/R1 remain attended.
 
 ## Attended root-health D0 capability
 
-The 2026-08-31 bounded unit activates a separate S20+-only attended root-health read.
-It is not routine public D0, autonomous research, N1 R1, or F1, and none of those paths grants it authority. The design
-is recorded in
+The exact separate root-health D0 is independently qualified and
+`BINDING - ATTENDED ROOT-HEALTH D0 ACTIVE` at commit `c68f8c55cf`. Its
+focused/helper validation passed 43/43, and post-rotation independent review
+returned `PASS_GO`. It still permits only one
+freshly requested attended fixed read, never generic `su`; no connected run,
+private live evidence, or root result exists. Full design and boundaries are in
 `docs/reports/S20PLUS_G986N_ATTENDED_ROOT_HEALTH_D0_H0_2026-08-31.md`.
 
-One freshly requested attended invocation is limited to two global inventories and four selected-
-target commands: `get-devpath`, identical public health snapshots before and
-after one fixed `su -c` read, and no other command. The fixed root result must
-be exactly uid/gid zero in `u:r:magisk:s0`, Magisk `30.7:MAGISK:R` / `30700`,
-SELinux `Enforcing`, and stock PID 1 `/system/bin/init` in `u:r:init:s0`.
-It records only hashed serial/devpath/boot identity, zero effects and writes,
-and zero commands to S22+, A90, and other targets. Generic `su`, caller command
-or path input, file extraction, mutation, reboot, mode transition, Odin, and
-partition access remain excluded.
+## Autonomous public-health evidence/accounting H0 qualification
 
-The active runner is
-`workspace/public/src/scripts/revalidation/s20plus_g986n_attended_root_health_d0.py`,
-with `ATTENDED_ROOT_HEALTH_D0_ACTIVE = True`. Its 28/28 focused tests and the
-15/15 pinned inventory-helper tests pass; `py_compile` and scoped diff checks
-pass. Independent hostile review returned `PASS_GO` with no unresolved finding
-for dormant runner SHA-256
-`89c93b815dda6a5ad80d4e926958cfc0ce9758b563c307d286057647ebe3622b`.
-Mechanical activation changed the reviewed boolean, status-neutral help text,
-and authority/test atoms. The active runner SHA-256 is
-`7967f85dc1418473c66b418cedfc2c15063a141fed2550d040eb122fec04584a`,
-normalized SHA-256
-`0c4c15a014d181b43f85a00a55d335e6256663969664c95c1adf953049038b91`,
-and active test SHA-256
-`70f43252ba163f854eb21c325a5087c470a7d9305bb114c593266a5457bc3cb7`.
-Post-rotation independent review returned `PASS_GO` with no unresolved finding.
-No connected run, private live evidence, or root result is claimed.
-Every invocation still requires a new direct operator request and attendance;
-the design request does not carry forward as standing live authority.
+The current unit defines a standalone private evidence owner at
+`workspace/private/runs/s20plus-g986n-autonomous-public-health-evidence/`.
+`EVIDENCE_ACTIVE`, `LIVE_AUTHORITY`, `MECHANICALLY_ACTIVATABLE`, and
+`COORDINATOR_INTEGRATED` remain false. It exact-binds the reviewed sources but
+requires a future coordinator-owned lease from the freshly validated current
+chain head; the present coordinator lacks that serialization, so this owner
+cannot activate or create, renew, or alter a campaign.
+
+The future coordinator lease reserves one read and 512 KiB in both scopes and
+blocks every control. This pure model accepts only ordinal 1 in the initial
+attended session, retains six raw returns/receipts, derives health without
+commands, and proposes a parked settlement; later actions remain deferred.
+An intent-only or partial-publication cut is `uncertain-consumed`: preserve the
+reservation, park, and never replay, refund, start another read, or start a
+control. Complete retained raw returns/receipts may finish reporting with zero command.
+
+This commandless owner passed exact-byte independent review as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_EVIDENCE_PASS_GO_NOT_ACTIVE`; focused/aggregate
+tests passed 31/31 and 94/94. All four gates remain false: coordinator
+lease/completion, trusted writer, execution, and activation remain future
+reviewed units; see the evidence/accounting H0 report. After future activation,
+one fresh exact-target/boot attended campaign opening may cover bounded
+nonpersistent recovery-preserving work without per-action prompts. Permanent
+mutation or recovery-path risk always stops and requires fresh consent.
