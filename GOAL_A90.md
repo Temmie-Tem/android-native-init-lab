@@ -130,15 +130,15 @@ H19-H23 and H25 were retired before live use. Their exact reasons remain in the
 campaign ledger and named review reports. Retired identities, paths, artifacts,
 reviews, and evidence are never reinterpreted as a fresh successor.
 
-## Selected Bounded Unit: H41 Late-Recovery Manual Demo
-
-H41 run-02 parked before candidate intent or any boot write after its one
-Recovery request timed out. The exact A90 then appeared as sole bound TWRP only
-after a cable reconnect. A fixed continuation is being reviewed to inherit
-that late Recovery without resending the request, write H41 once, leave an
-explicitly unproved manual filming window, and roll back V2321 once after the
-menu is closed. Until review and fresh approval, no H41 write is authorized;
-the active guard remains and the H41 candidate guard is absent.
+## Selected Bounded Unit: H41 Rollback Recovery
+H41 run-02 wrote/read back exact H41 and confirmed System return. Its manual
+Bad Apple action returned observed `RC=-110`; playback remains unproved. The
+original V2321 rollback intent/launch is consumed, but a two-Samsung pre-effect
+inventory stopped before helper dispatch, Recovery transition, or boot write.
+After the other device was disconnected, only exact H41 Native remained. A
+fixed no-candidate continuation is under review for one V2321 rollback and one
+post-menu-close health observation. Both guards remain; no rollback may run
+until current independent review and fresh exact approval.
 
 ## Paused Isolated-Debian Architecture Unit
 

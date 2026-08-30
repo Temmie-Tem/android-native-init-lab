@@ -1671,6 +1671,47 @@ authority, and expires after its exact final, any bound drift, or a new
 incident. Its `PASS_GO` review qualifies capability bytes only; preparation
 and live use require the exact fresh attended approval.
 
+The fixed H41 run-02 rollback preflight incident dated 2026-08-31 may recover
+only through `a90_h41_run02_rollback_continuation_v1.py`. It binds the exact
+H41 run-02 manifest, eight-record late-Recovery side journal ending in the
+original rollback launch, the exact candidate helper receipt, and the original
+rollback log set containing only a rejected two-Samsung pre-effect USB
+inventory. The absence of ADB inventory, flash-helper logs, Recovery
+transition, push, boot write, readback, or System-return receipt is mandatory:
+the original rollback invocation is consumed and never replays, but it wrote
+zero V2321 bytes.
+
+After a current independent `PASS_GO`, retained active and H41 candidate
+guards, an exact readable V2321 rollback artifact, and fresh exact approval,
+one continuation may require a sole exact H41 Native endpoint, durably publish
+one new intent, and invoke only the fixed bound Native-to-Recovery rollback
+helper for one V2321 boot write. It has no candidate path. The helper and
+artifact are revalidated around intent and effect; any result or uncertainty
+consumes the continuation write and never permits replay. A confirmed exact
+V2321 write/readback/System return may proceed to a separate phase under the
+same approval only after the operator confirms that the returned menu is
+closed through explicit attended and menu-closed inputs. That phase durably consumes one health intent before one existing
+read-only V2321 ACM observation. Exact healthy V2321 and unchanged sole-A90
+inventory are required before final publication and active-guard release; the
+H41 candidate guard remains consumed.
+
+If the exact final was durably published but active-guard release or stdout was
+interrupted, the finalization command may take a no-contact resume branch. It
+must revalidate the current review and execution closure, all original and
+continuation records, both complete log sets, exact healthy snapshot, and the
+candidate guard. It may then remove only the still-present exact active guard,
+or re-emit the already-final result if that guard is absent. It performs no
+second health observation and no device, USB, ADB, Recovery, reboot, flash, or
+partition action.
+
+Failure before the continuation intent permits no device effect. Failure or
+uncertainty after either continuation intent parks for another separately
+reviewed recovery without replay. This exception grants no H41 success claim,
+no arbitrary command or path, no service/configuration/security mutation, no
+non-boot partition, and no authority over S22+, S20+, or another Samsung
+endpoint. The observed H41 `RC=-110` remains a run-local timeout and does not
+inherit or negate another run's evidence.
+
 The fixed H38 run-02 rollback incident may recover only through
 `a90_h38_run02_rollback_continuation_v1.py`. It binds the exact run-02
 manifest, thirteen-record terminal journal, exact H38 candidate
