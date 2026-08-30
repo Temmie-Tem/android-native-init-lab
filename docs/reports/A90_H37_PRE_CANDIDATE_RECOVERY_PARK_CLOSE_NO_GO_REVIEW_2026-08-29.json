@@ -1,0 +1,51 @@
+{
+  "capability": "A90_H37_PRE_CANDIDATE_RECOVERY_PARK_CLOSE_V1",
+  "contacts": {
+    "adb": 0,
+    "device": 0,
+    "network": 0,
+    "otherTargets": 0,
+    "usb": 0,
+    "writes": 0
+  },
+  "executionClosureSha256": "e104b64d04d46b922aaf471a1e8df4e53d32fdfdc8d4ab54a6b4e29f2de7862c",
+  "findings": {
+    "high": [
+      "The fixed current manifest and active-run.guard each have link count 2 because another local checkout hardlinks the same inodes. owner.load_manifest already rejects the manifest with 'manifest path identity mismatch', and owner._require_active_guard would reject the guard for the same nlink != 1 condition. The reviewed closer therefore cannot prepare or execute against the exact current inputs.",
+      "The target-contract clause promises that a cut after durable sidecar publication may validate the same receipt and finish active-guard cleanup, but the implementation exposes only prepare and execute. execute rejects any existing RESULT, so a crash after publish(payload) and before owner._release_active_guard permanently strands the exact active guard with no idempotent finalizer path."
+    ],
+    "low": [],
+    "medium": [
+      "fixed_inputs hashes journal and log paths with Path.read_bytes but does not require each pinned entry to be a direct regular, owner-matched, mode-safe, single-link file. The exact byte hashes stop content substitution but do not establish the direct-file identities required for authoritative retained evidence.",
+      "review_lease checks only whether any nested values are truthy. It does not enforce exact findings keys and list types or exact contacts keys and integer-zero types, so empty or structurally substituted nested objects can satisfy the review gate.",
+      "publish does not establish that SIDE_ROOT is a direct owner-controlled mode-0700 directory before opening RESULT. A pre-existing directory identity or mode is accepted, and RESULT itself is not read back and canonically revalidated before active-guard removal.",
+      "A cut or observer failure after HostRunner creates LOG_DIR and before sidecar publication is permanently non-resumable because subsequent execute rejects LOG_DIR.exists(). This sends no candidate or rollback effect, but it defeats the target contract's observer-repair model and leaves the active park without this closer."
+    ]
+  },
+  "fixedEvidence": {
+    "journalHashesMatch": true,
+    "logHashesMatch": true,
+    "manifestSha256": "c7bee308bdbf6f9088b75b534395193e3b5d0266bf392eff2478d2b15a8a0546",
+    "candidateGuardAbsent": true,
+    "activeGuardPresent": true,
+    "currentInputLinkCount": {
+      "activeGuard": 2,
+      "manifest": 2
+    }
+  },
+  "liveAuthority": false,
+  "reviewDate": "2026-08-29",
+  "reviewedFiles": {
+    "contractSha256": "175e7a1298d8719de63841d69449f0b357dd2b02788ee63ab1f5aa11be990534",
+    "scriptSha256": "1c9473cd02417e4c08f5ea4e4ff609e950a989d995bf85886f0b4f2bfea38086",
+    "testSha256": "e54f03b0bf880058872466a27810dbe4ee209473cc7dd19e85da794976885da7"
+  },
+  "reviewer": "Codex independent adversarial H0 reviewer /root/h37_review",
+  "schema": "a90-h37-pre-candidate-recovery-park-close-no-go-review-v1",
+  "validation": {
+    "fixedInputs": "FAIL_MANIFEST_PATH_IDENTITY_MISMATCH",
+    "focusedTests": "2 tests OK",
+    "hostOnly": true
+  },
+  "verdict": "NO_GO"
+}

@@ -145,6 +145,10 @@ static int audio_materialize_ion_devnode_once(void);
 static int audio_materialize_msm_audio_cal_devnode_once(void);
 static void audio_play_async_statusf(const char *fmt, ...);
 
+pid_t a90_audio_current_worker_pid(void) {
+    return audio_play_async_worker_pid;
+}
+
 static uint64_t audio_monotonic_ns(void) {
     struct timespec ts;
 
@@ -3967,6 +3971,47 @@ static int audio_chime_cmd(char **argv, int argc) {
 
 int a90_audio_boot_chime_start_once(void) {
 #if AUDIO_CHIME_BOOT_AUTOPLAY_DEFAULT
+#if A90_AUDIO_BOOT_CHIME_TRACKED_OWNER
+    char amplitude_text[16];
+    char duration_text[16];
+    char *argv[9];
+    int argc = 0;
+    int rc;
+
+    snprintf(amplitude_text, sizeof(amplitude_text), "%d", AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI);
+    snprintf(duration_text, sizeof(duration_text), "%d", AUDIO_CHIME_DEFAULT_DURATION_MS);
+    argv[argc++] = "audio";
+    argv[argc++] = "chime";
+    argv[argc++] = "--duration-ms";
+    argv[argc++] = duration_text;
+    argv[argc++] = "--amplitude-milli";
+    argv[argc++] = amplitude_text;
+    argv[argc++] = "--execute";
+    argv[argc] = NULL;
+
+    a90_console_printf("audio.boot_chime.version=2\r\n");
+    a90_console_printf("audio.boot_chime.enabled=1\r\n");
+    a90_console_printf("audio.boot_chime.owner=pid1-tracked-worker\r\n");
+    a90_console_printf("audio.boot_chime.blocks_boot=0\r\n");
+    rc = audio_chime_cmd(argv, argc);
+    a90_console_printf("audio.boot_chime.started=%d\r\n", rc == 0 ? 1 : 0);
+    a90_console_printf("audio.boot_chime.worker_pid=%ld\r\n",
+                       (long)audio_play_async_worker_pid);
+    a90_console_printf("audio.boot_chime.start_rc=%d\r\n", rc);
+    a90_console_printf("audio.boot_chime.status_path=%s\r\n",
+                       AUDIO_PLAY_ASYNC_STATUS_PATH);
+    a90_console_printf("audio.boot_chime.log_path=%s\r\n",
+                       AUDIO_PLAY_ASYNC_LOG_PATH);
+    a90_console_printf("audio.boot_chime.best_effort=1\r\n");
+    a90_logf("audio",
+             "boot chime launched as PID1-tracked worker pid=%ld rc=%d amplitude=%d duration=%d manifest=%s",
+             (long)audio_play_async_worker_pid,
+             rc,
+             AUDIO_CHIME_DEFAULT_AMPLITUDE_MILLI,
+             AUDIO_CHIME_DEFAULT_DURATION_MS,
+             AUDIO_SETCAL_DEFAULT_MANIFEST_PATH);
+    return rc;
+#else
     pid_t pid;
 
     pid = fork();
@@ -4029,6 +4074,7 @@ int a90_audio_boot_chime_start_once(void) {
              AUDIO_CHIME_DEFAULT_DURATION_MS,
              AUDIO_SETCAL_DEFAULT_MANIFEST_PATH);
     return 0;
+#endif
 #else
     return 0;
 #endif

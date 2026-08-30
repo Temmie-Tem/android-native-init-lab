@@ -1507,6 +1507,195 @@ A cut after 41 may only validate the same receipt and finish active-guard
 cleanup. The reconciler has no ADB, reboot, recovery-transition, image,
 candidate, rollback, or partition primitive.
 
+The fixed H37 pre-candidate Recovery park dated 2026-08-29 may close only
+through `a90_h37_pre_candidate_recovery_park_close_v1.py`. It is limited to
+run `a90-h37-f1-20260829-01`, its exact manifest, four-record journal ending in
+`13-recovery-transition-parked.json`, and complete fixed execute-log set. It
+must prove the candidate guard absent and candidate/rollback transfer bytes
+zero, receive an independent current `PASS_GO` and one fresh exact approval,
+then perform only the existing ACM-scoped V2321 health observation. Exact
+healthy V2321 permits one durable sidecar closure followed by removal of only
+the active guard. A cut after sidecar publication may validate that exact
+receipt and finish only the same active-guard removal. Read-only observer cuts
+may use a fresh bounded log ordinal and never repeat Recovery transition. It
+never sends Recovery, reboot, candidate, rollback, ADB,
+image, partition, or caller-selected commands; the consumed Recovery-transition
+intent never replays, and the closure grants no H37 or later live authority.
+
+The fixed H37 run-02 rollback incident dated 2026-08-29 may recover only
+through `a90_h37_run02_rollback_continuation_v1.py`. It binds run
+`a90-h37-f1-20260829-02`, the exact manifest and complete journal through the
+`RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED` terminal, the exact successful
+candidate write/readback/System-return receipt, and the exact rollback helper
+`PRE_WRITE_FAILURE` whose retained log proves failure at the Native recovery
+request before ADB push, boot write, or readback. The original candidate and
+rollback invocations remain consumed and never replay. After a current
+independent `PASS_GO`, one fresh exact approval, the retained active and
+candidate guards, and an already-present sole bound TWRP Recovery endpoint,
+one durable sidecar intent permits one incident-continuation write of only the
+manifest-bound V2321 rollback artifact through the existing fixed rollback
+helper. There is no candidate path and no Native recovery command in this
+already-Recovery branch. Uncertainty after the sidecar intent never retries
+the write. Exact completion requires the confirmed boot write/readback/System
+return receipt and fresh healthy V2321 Native observation before publishing
+the final sidecar and removing only the active guard; the H37 candidate guard
+remains consumed. Any mismatch or failure retains recovery-required state.
+If that single rollback proves exact V2321 write/readback and an accepted TWRP
+System command but the automatic return remains explicitly uncertain, the
+operator may perform one attended physical `Reboot -> System`. A separately
+reviewed health-only phase of the same fixed runner may then bind the exact
+intent, result, and complete helper logs, retain the uncertain helper outcome
+without promotion, publish a fresh no-replay observation intent, perform only
+the existing bounded Native V2321 health observation, and close/release the
+active guard only on exact healthy V2321 while retaining the candidate guard.
+It cannot invoke the flash helper, ADB, TWRP, Recovery, reboot, or any write.
+This temporary gate retires for write authority after its first sidecar intent,
+and retires completely after the health-only intent, on source, manifest,
+journal, artifact, target, Recovery, or review drift, or on any new incident,
+whichever occurs first. A cut after the health-only intent parks without
+another observation unless separately reviewed.
+The exact first health-only observation may receive one incident-specific
+replacement only when its complete fixed log set proves the sole A90 Native
+endpoint and managed bridge were bound and the first boot-ID command returned
+the structured `EBUSY / auto menu active` receipt before any health claim. The
+replacement phase requires a newly pinned independent review and fresh exact
+approval. It durably consumes a separate intent before sending exactly one raw
+`hide\n` line through the fixed bridge, requires the explicit `hide requested`
+receipt, waits the existing three-second asynchronous-menu settle, then reads
+only boot ID, version, selftest, status, and final boot ID through the reviewed
+slow-input observer. Both boot IDs must be valid and equal, and exact V2321
+health plus unchanged sole-A90 USB inventory is required before final
+publication and active-guard release. The prior helper outcome and operator
+physical action remain respectively uncertain and operator-reported, never
+promoted. A missing or failed hide receipt, settle interruption, observation
+failure, publication uncertainty, drift, or host loss consumes the replacement
+intent and parks permanently; neither hide nor observation may replay. This
+phase has no flash, boot write, ADB, TWRP, Recovery, reboot, image, partition,
+service-control, or caller-selected command path, and it retains the H37
+candidate guard.
+If that exact one-shot hide log contains byte-exact
+`hide\r\n[busy] auto menu active; hide requested\r\n`, it is a new validator
+incident rather than authority to resend: the bound V2321 shell source writes
+the hide request and clears controller menu-active state before emitting that
+fixed response, while the H28 host validator rejects any `[busy]` prefix before
+its settle and health reads. One separately reviewed post-hide continuation may
+bind the consumed hide intent, complete fixed three-pair log set, those exact
+source semantics, both guards, and a fresh approval. It sends no additional
+hide and may perform only one new read-only slow-input sequence of boot ID,
+version, selftest, status, and final boot ID under unchanged sole-A90 USB and
+managed-bridge binding. Equal valid boot IDs and exact healthy V2321 are
+required before final readback and active-guard release. Its own intent
+consumes that observation on any result; failure or uncertainty parks without
+another observation. The response proves only that the fixed request path was
+accepted; it does not prove menu quiescence or health until this separate
+observation succeeds. All prior helper and physical-action claim boundaries,
+the candidate guard, and every no-flash/no-ADB/no-reboot/no-partition boundary
+remain unchanged.
+It grants no authority to H38, S22+, another A90, another artifact, a second
+rollback write, or any non-boot partition.
+
+The fixed H38 run-01 Recovery-transition park dated 2026-08-29 may close only
+through `a90_h38_pre_candidate_recovery_park_close_v1.py`. It binds run
+`a90-h38-f1-20260829-01`, its exact H38 manifest, four-record journal ending in
+`13-recovery-transition-parked.json`, and complete fixed execute-log set. Those
+records must prove `RECOVERY_NOT_PROVED`, no candidate guard, no candidate
+intent/helper, and zero candidate and rollback transfer bytes. The consumed
+Native Recovery request never replays. After a current independent `PASS_GO`
+and one fresh exact approval, the closer may perform only the existing bounded
+ACM observation of current exact healthy V2321; it has no Recovery, reboot,
+ADB, flash, image, partition, candidate, rollback, or caller-selected command
+path. Exact health permits one durable sidecar result and removal of only the
+active guard while the H38 candidate guard remains absent. Observation or
+publication uncertainty parks without another observation. Before constructing
+the observer it must durably publish one no-replace observation intent bound to
+the manifest, current review and closure, and fresh approval. Intent without a
+complete result permanently forbids another observer; a complete exact result
+may resume only final readback and active-guard cleanup without device contact.
+This closure does
+not revive run-01 or its approval. A later H38 attempt, if any, requires a new
+run ID, fresh prepared state and approval, and all current gates; the H38
+runtime remains unproved until such a distinct run succeeds.
+
+The fixed H38 run-02 rollback incident may recover only through
+`a90_h38_run02_rollback_continuation_v1.py`. It binds the exact run-02
+manifest, thirteen-record terminal journal, exact H38 candidate
+write/readback/confirmed System-return receipt, and the rollback helper's
+`PRE_WRITE_FAILURE` at its single uncertain Native Recovery request before ADB
+push, boot write, or readback. Candidate execution and the original rollback
+invocation are consumed and never replay. After a current independent
+`PASS_GO`, fresh exact approval, retained active and H38 candidate guards, and
+an already-present sole bound TWRP Recovery endpoint, one durable continuation
+intent permits exactly one write of the manifest-bound V2321 rollback through
+the existing fixed helper. There is no candidate path and no Native Recovery
+command in that already-Recovery branch. Any uncertainty after intent consumes
+the continuation and never retries the write. Exact V2321 write/readback,
+System return, and fresh healthy Native observation are required before final
+publication and active-guard release; the H38 candidate guard remains consumed.
+It grants no authority to repair H38 in place, replay its demo, use another
+artifact or target, or touch any non-boot partition.
+If that continuation proves exact V2321 write/readback and an accepted TWRP
+System command but automatic return remains uncertain, the operator may perform
+one attended physical `Reboot -> System`. A separately reviewed finalizer in
+the same H38 runner may then bind the exact continuation intent/result/helper
+logs and operator report, durably consume a new intent, send exactly one raw
+menu `hide` with no retry, wait the fixed settle, and perform only the bounded
+boot-ID/version/selftest/status/final-boot-ID observation. It publishes final
+health and releases only the active guard only when both boot IDs match and
+exact V2321 health is proved. The helper outcome remains uncertain and the
+physical button action remains operator-reported, not host-proved. Any hide,
+observation, publication, review, guard, or evidence uncertainty consumes the
+finalizer and parks; it has no flash, ADB, TWRP, Recovery, reboot, image,
+partition, service-control, candidate, or rollback path. The H38 candidate
+guard remains consumed.
+
+The fixed H39 run-01 rollback incident dated 2026-08-30 may recover only
+through `a90_h39_run01_rollback_continuation_v1.py`. It binds run
+`a90-h39-f1-20260830-01`, its exact manifest, thirteen-record terminal journal,
+the exact H39 candidate write/readback/confirmed System-return receipt, and the
+rollback helper's `PRE_WRITE_FAILURE` at its single Native Recovery request
+before ADB push, boot write, or readback. Candidate execution and the original
+rollback invocation are consumed and never replay. After a current independent
+`PASS_GO`, fresh exact approval, retained active and H39 candidate guards, and
+an already-present sole bound TWRP Recovery endpoint, one durable continuation
+intent permits exactly one write of only the manifest-bound V2321 rollback
+through the existing fixed helper. There is no candidate path and no Native
+Recovery command in that already-Recovery branch. Any uncertainty after intent
+consumes the continuation and never retries the write. Exact V2321
+write/readback, confirmed System return, and fresh healthy Native observation
+are required before final publication and active-guard release; the H39
+candidate guard remains consumed. A non-confirmed System return or any new
+incident parks for a separately designed and reviewed health-only continuation.
+For the exact first continuation dated 2026-08-30, confirmed V2321
+write/readback/System return and the helper's internal exact V2321 selftest were
+followed by a separate health observer whose sole first boot-ID producer was
+empty; the contemporaneous bridge capture's structured `EBUSY / auto menu
+active` remains diagnostic rather than an authority input. No final sidecar or
+active-guard release occurred. One separately
+reviewed phase of the same fixed H39 runner may bind the exact continuation
+intent/result, complete fixed log set, absent final, retained guards, and a
+fresh approval. It durably consumes a new intent before sending exactly one
+raw `hide` through the fixed bridge, waits the existing settle, and then reads
+only boot ID, version, selftest, status, and final boot ID. Equal valid boot IDs
+and exact healthy V2321 are required before final readback and active-guard
+release. It cannot invoke the flash helper, ADB, TWRP, Recovery, reboot, image,
+partition, candidate, rollback, or service-control path. Any failure or
+uncertainty consumes this finalizer and parks without another hide or observer.
+For the exact first finalizer, the sole hide response was byte-exact
+`hide\r\n[busy] auto menu active; hide requested\r\n`. The bound V2321 source
+writes the hide request before returning that diagnostic busy prefix, so the
+response proves request acceptance but not menu quiescence or health. One
+separately reviewed post-hide phase may bind that consumed finalizer intent and
+complete six-file log set, both retained guards, absent final, and a fresh
+approval. It permits no additional hide and may perform only one new read-only
+sequence of boot ID, version, selftest, status, and final boot ID under
+unchanged sole-A90 USB and managed-bridge binding. Equal valid boot IDs and
+exact healthy V2321 are required before final publication and active-guard
+release. Its intent consumes that observation on every result; failure or
+uncertainty parks without another observation. All no-flash/no-ADB/no-TWRP/
+no-Recovery/no-reboot/no-partition boundaries remain unchanged.
+This exception grants no H39 replay or in-place repair, no H40 or other
+candidate authority, and no non-boot-partition access.
+
 The fixed H32 pre-write incident dated 2026-08-22 may close only through
 `a90_h32_pretransfer_abort_reconcile_v1.py`, after this clause receives its
 own independent review. It is limited to run `a90-h32-f1-20260822-01`, the

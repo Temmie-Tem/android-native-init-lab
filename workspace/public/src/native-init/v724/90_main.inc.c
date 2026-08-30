@@ -32,6 +32,12 @@ static void selftest_boot_draw_frame(void *ctx) {
 #define A90_V641_FW_MNT_DIR "/vendor/firmware_mnt"
 #define A90_V641_FW_MODEM_DIR "/vendor/firmware-modem"
 #define A90_V641_SYSTEM_VENDOR_DIR "/mnt/system/vendor"
+#ifndef A90_BADAPPLE_BOOT_AUDIO_FIRMWARE_MOUNTS
+#define A90_BADAPPLE_BOOT_AUDIO_FIRMWARE_MOUNTS 0
+#endif
+#ifndef A90_BADAPPLE_BOOT_EXPLICIT_SIBLING_SSCTL
+#define A90_BADAPPLE_BOOT_EXPLICIT_SIBLING_SSCTL 0
+#endif
 static int v641_find_block_by_partname(const char *partname,
                                        const char *fallback_block,
                                        char *out,
@@ -6364,6 +6370,36 @@ static void v641_run_sibling_ssctl_once(void) {
           timeouts);
 }
 
+#if A90_BADAPPLE_BOOT_EXPLICIT_SIBLING_SSCTL
+static int v641_run_badapple_sibling_ssctl_once(void) {
+    static const struct {
+        const char *label;
+        const char *path;
+    } nodes[] = {
+        { "adsp", "/sys/kernel/boot_adsp/boot" },
+        { "cdsp", "/sys/kernel/boot_cdsp/boot" },
+        { "slpi", "/sys/kernel/boot_slpi/boot" },
+    };
+    size_t index;
+    int failures = 0;
+
+    for (index = 0; index < sizeof(nodes) / sizeof(nodes[0]); ++index) {
+        int rc = v641_run_sibling_ssctl_node(nodes[index].label, nodes[index].path);
+
+        a90_console_printf("audio.boot_prereq.sibling_ssctl.%s.rc=%d\r\n",
+                           nodes[index].label,
+                           rc);
+        if (rc != 0) {
+            ++failures;
+        }
+    }
+    a90_console_printf("audio.boot_prereq.sibling_ssctl.explicit=1\r\n");
+    a90_console_printf("audio.boot_prereq.sibling_ssctl.cache_flag_required=0\r\n");
+    a90_console_printf("audio.boot_prereq.sibling_ssctl.failures=%d\r\n", failures);
+    return failures == 0 ? 0 : -EIO;
+}
+#endif
+
 int main(void) {
     static const struct a90_storage_boot_hooks storage_hooks = {
         .set_line = storage_boot_set_line,
@@ -6861,6 +6897,35 @@ int main(void) {
 #endif
             v724_run_qrtr_servloc_boot_once();
             v641_run_sibling_ssctl_once();
+#if A90_BADAPPLE_BOOT_AUDIO_FIRMWARE_MOUNTS
+            {
+                int audio_firmware_rc = v641_prepare_firmware_mounts();
+
+                a90_console_printf("audio.boot_prereq.firmware_mounts.explicit=1\r\n");
+                a90_console_printf("audio.boot_prereq.firmware_mounts.cache_flag_required=0\r\n");
+                a90_console_printf("audio.boot_prereq.firmware_mounts.rc=%d\r\n",
+                                   audio_firmware_rc);
+                a90_logf("audio",
+                         "explicit boot audio firmware mounts rc=%d before chime",
+                         audio_firmware_rc);
+#if A90_BADAPPLE_BOOT_EXPLICIT_SIBLING_SSCTL
+                if (audio_firmware_rc == 0) {
+                    int sibling_rc = v641_run_badapple_sibling_ssctl_once();
+
+                    a90_console_printf("audio.boot_prereq.sibling_ssctl.rc=%d\r\n",
+                                       sibling_rc);
+                    a90_logf("audio",
+                             "explicit Bad Apple sibling SSCTL rc=%d before chime",
+                             sibling_rc);
+                } else {
+                    a90_console_printf("audio.boot_prereq.sibling_ssctl.skipped=firmware-mount-failed\r\n");
+                }
+#endif
+            }
+#endif
+            /* Fork the interactive HUD only after its inherited tracked-worker
+             * state includes the last possible PID1 boot-chime launch. */
+            (void)a90_audio_boot_chime_start_once();
             if (start_auto_hud(BOOT_HUD_REFRESH_SECONDS, false) == 0) {
                 a90_logf("boot", "autohud started refresh=%d", BOOT_HUD_REFRESH_SECONDS);
                 a90_timeline_record(0, 0, "autohud", "started refresh=%d", BOOT_HUD_REFRESH_SECONDS);
@@ -6955,7 +7020,6 @@ int main(void) {
 #else
             (void)a90_wifi_start_boot_autoconnect_once();
 #endif
-            (void)a90_audio_boot_chime_start_once();
         }  /* end !a90_reloaded live-service re-init guard */
 #if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
         if (!a90_reloaded && direct_handoff_checked && direct_handoff_rc < 0) {
