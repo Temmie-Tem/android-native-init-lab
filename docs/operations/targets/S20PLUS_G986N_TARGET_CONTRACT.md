@@ -668,6 +668,33 @@ Therefore this qualification grants no recovery operation, campaign,
 connected command, standing consent, or device authority. The exact report is
 `docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_RECOVERY_LOADER_FINALIZER_V1_H0_2026-08-31.md`.
 
+The separate campaign-v1 Phase-A artifact model is exact-byte qualified only
+as `H0_AUTONOMOUS_PUBLIC_HEALTH_CAMPAIGN_V1_MODEL_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_campaign_v1.py`.
+Its final source is 92,607 bytes at SHA-256
+`43edcfc5bf2c69f96bcef015f305d38be9c310dd92371a2a942e075261dfa8e2`,
+with activation-normalized SHA-256
+`be1f73de763b7fcce8e1b74da23cb662244b7b1de9bcbb862ffa59c5c296e773`;
+its 39,772-byte test is SHA-256
+`1ba2d127e02cf950ebd8deac6e618329eea6d1d86f9ec8eb69aa4ea6a8fe2b27`.
+Focused validation passed 32 methods/37 cases. The canonical nine-suite
+autonomous aggregate passed 295 tests; adding the 13-test routine-D0 suite
+produced a ten-suite 308-test pass. Independent exact-byte and status-rotation
+reviews returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+
+This qualification fixes only a planned two-phase transcript, canonical
+opening/forward artifacts, logical receipt-chain cap, storage closure, and
+non-authorizing cut model. Both executors and the unforgeable same-process
+handoff are absent; the 12 host and six selected-target command counts are
+plans only. Actual opening-to-read freshness, attended request, activation
+binding, ADB-server provenance, USB generation, trusted clock, durable cut
+content, process capability, finalizer resume, cross-code coordination,
+private recovery binding, scanner/finalizer grammar rotation, contract,
+mechanical activation, and live authority all remain unproved or false.
+Durable nodes grant zero commands, and even forced true gates reach only an
+unimplemented stub. The exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_CAMPAIGN_V1_PHASE_A_H0_2026-08-31.md`.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
