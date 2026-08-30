@@ -761,3 +761,39 @@ review returned `PASS_GO`; the mechanical status is
 mechanical activation, and durable-evidence integration all false. A strict
 private evidence owner and campaign read/byte accounting are the next unit;
 reboot/Download control remains later and F1/R1 remain attended.
+
+## Attended root-health D0 capability
+
+The 2026-08-31 bounded unit activates a separate S20+-only attended root-health read.
+It is not routine public D0, autonomous research, N1 R1, or F1, and none of those paths grants it authority. The design
+is recorded in
+`docs/reports/S20PLUS_G986N_ATTENDED_ROOT_HEALTH_D0_H0_2026-08-31.md`.
+
+One freshly requested attended invocation is limited to two global inventories and four selected-
+target commands: `get-devpath`, identical public health snapshots before and
+after one fixed `su -c` read, and no other command. The fixed root result must
+be exactly uid/gid zero in `u:r:magisk:s0`, Magisk `30.7:MAGISK:R` / `30700`,
+SELinux `Enforcing`, and stock PID 1 `/system/bin/init` in `u:r:init:s0`.
+It records only hashed serial/devpath/boot identity, zero effects and writes,
+and zero commands to S22+, A90, and other targets. Generic `su`, caller command
+or path input, file extraction, mutation, reboot, mode transition, Odin, and
+partition access remain excluded.
+
+The active runner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_attended_root_health_d0.py`,
+with `ATTENDED_ROOT_HEALTH_D0_ACTIVE = True`. Its 28/28 focused tests and the
+15/15 pinned inventory-helper tests pass; `py_compile` and scoped diff checks
+pass. Independent hostile review returned `PASS_GO` with no unresolved finding
+for dormant runner SHA-256
+`89c93b815dda6a5ad80d4e926958cfc0ce9758b563c307d286057647ebe3622b`.
+Mechanical activation changed the reviewed boolean, status-neutral help text,
+and authority/test atoms. The active runner SHA-256 is
+`7967f85dc1418473c66b418cedfc2c15063a141fed2550d040eb122fec04584a`,
+normalized SHA-256
+`0c4c15a014d181b43f85a00a55d335e6256663969664c95c1adf953049038b91`,
+and active test SHA-256
+`70f43252ba163f854eb21c325a5087c470a7d9305bb114c593266a5457bc3cb7`.
+Post-rotation independent review returned `PASS_GO` with no unresolved finding.
+No connected run, private live evidence, or root result is claimed.
+Every invocation still requires a new direct operator request and attendance;
+the design request does not carry forward as standing live authority.

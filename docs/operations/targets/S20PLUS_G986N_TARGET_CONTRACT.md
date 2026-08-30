@@ -1,6 +1,6 @@
 # S20+ G986N Binding Target Contract
 
-Status: **BINDING - ROUTINE D0/D1, P0 ABORT, ATTENDED F1, AND ATTENDED R1 ACTIVE**
+Status: **BINDING - ROUTINE D0/D1, ATTENDED ROOT-HEALTH D0, P0 ABORT, ATTENDED F1, AND ATTENDED R1 ACTIVE**
 
 This is the binding target contract for the operator-owned Samsung Galaxy S20+
 5G `SM-G986N` / `y2q` / `G986NKSS8IYC2`, listed in the binding target registry
@@ -9,6 +9,7 @@ The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
 removing, rotating, or reusing that onboarding guard. The exact routine D1 and
 attended boot-only F1 and attended native-canary R1 are reviewed and active.
+The exact attended root-health D0 is separately reviewed and active.
 R1 activation creates no run or standing approval; each transaction still
 requires fresh exact preparation, its emitted approval, and attendance.
 
@@ -72,7 +73,7 @@ process identity. It must not request or retain `ro.serialno`, IMEI, telephony,
 account, credential, network-address, package-list, user-data, or partition
 contents.
 
-D0 must not use `su`, root, `setprop`, service control, device-file creation,
+This onboarding D0 must not use `su`, root, `setprop`, service control, device-file creation,
 settings mutation, reboot, Download/recovery entry, Odin, block-device access,
 payload transfer, or partition access. It has no internal retry. Before its
 first connected command it durably creates one private intent and one fixed
@@ -123,6 +124,209 @@ settings or property mutation, service control, package inventory, `/efs` or
 partition access, payload transfer, reboot, Download/recovery transition,
 Odin, D1, or F1. A routine result cannot establish root, recovery, rollback,
 firmware-package identity, or flash readiness.
+
+## S20+ Attended Root-Health D0
+
+Status: **BINDING - ATTENDED ROOT-HEALTH D0 ACTIVE**
+
+This is a separate target-specific capability for one attended, fixed,
+read-only root-health snapshot. It is not part of routine public-property D0,
+the autonomous-research session, or the active N1 R1 capability. Existing
+resident Magisk root is a precondition only and grants no generic `su`
+authority. Only the fixed read below is active; an R1 preparation, approval,
+result, or recovery journal cannot
+authorize this D0. The common invariants and permanent boundaries in
+`AGENTS.md` and the target-isolation rules above retain higher precedence; any
+conflict stops the invocation.
+
+The active implementation path is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_attended_root_health_d0.py`.
+Its activation constant is `ATTENDED_ROOT_HEALTH_D0_ACTIVE = True`. Its only
+CLI modes are host-only `--render-plan` and one `--connected` entrypoint. The
+constant is repeated at the CLI, execution-owner, and backend boundaries.
+
+Under this reviewed activation,
+one fresh direct operator request may authorize exactly one invocation with
+these six bounded host commands in order:
+
+1. one global ADB inventory;
+2. one selected-target `get-devpath`;
+3. one fixed unprivileged pre-snapshot whose exact keys are `model`, `device`,
+   `product_name`, `incremental`, `boot_completed`, `bootanim`, `selinux`, and
+   `boot_id`;
+4. one selected-target `shell su -c` invocation of the fixed root-health
+   literal defined below;
+5. the byte-identical fixed unprivileged post-snapshot; and
+6. one final global ADB inventory.
+
+The complete non-root command closure is fixed as follows. Both inventory
+commands use exactly `[adb, devices, -l]`; `get-devpath` uses exactly
+`[adb, -s, <internally-selected-serial>, get-devpath]`. Those commands have a
+10-second timeout, a 32-KiB combined-output bound, rc zero, and empty stderr.
+Each public snapshot uses exactly
+`[adb, -s, <internally-selected-serial>, exec-out, sh, -c,
+shlex.quote(<public-snapshot-script>)]`, a 20-second timeout, an 8-KiB combined-output
+bound, rc zero, empty stderr, and the following complete script bytes
+including the final newline:
+
+```sh
+set -eu
+emit_prop() {
+    printf '%s=' "$1"
+    /system/bin/getprop "$2"
+}
+emit_prop model ro.product.model
+emit_prop device ro.product.device
+emit_prop product_name ro.product.name
+emit_prop incremental ro.build.version.incremental
+emit_prop boot_completed sys.boot_completed
+emit_prop bootanim init.svc.bootanim
+printf 'selinux='; /system/bin/getenforce
+printf 'boot_id='; /system/bin/cat /proc/sys/kernel/random/boot_id
+```
+
+Its stdout is exactly eight ordered, LF-terminated `key=value` lines matching
+the keys named above; duplicates, extra bytes, CR, NUL, non-UTF-8, or a
+malformed boot ID are rejected.
+
+Both inventories must select the same sole healthy
+`model:SM_G986N` / `device:y2q` / `product:y2qksx` row. The selected row must
+contain exactly one `usb:` metadata token, and it must equal
+`usb:<get-devpath>`. The same exact token must remain in the final selected
+row while the complete sanitized global inventory remains unchanged. The public snapshots
+must bind `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`, completed healthy
+Android, enforcing SELinux, and one unchanged current boot. Selection,
+devpath, public identity, health, and boot must remain stable across the
+root read and final inventory. Any missing, duplicate, unauthorized, changed,
+or conflicting row or field stops the invocation without selecting another
+device.
+
+The root command is one runner-owned, shell-quoted literal and accepts no
+caller text. Its host argv is exactly
+`[adb, -s, <internally-selected-serial>, shell, su, -c,
+shlex.quote(<root-read-script>)]`. It has a 30-second timeout, a 4-KiB
+combined-output bound, rc zero, empty stderr, and the following complete
+script bytes including the final newline:
+
+```sh
+set -eu
+uid=$(/system/bin/id -u)
+gid=$(/system/bin/id -g)
+context=$(/system/bin/cat /proc/self/attr/current)
+magisk_version=$(/data/adb/magisk/magisk -v)
+magisk_version_code=$(/data/adb/magisk/magisk -V)
+selinux=$(/system/bin/getenforce)
+pid1_exe=$(/system/bin/readlink /proc/1/exe)
+pid1_context=$(/system/bin/cat /proc/1/attr/current)
+printf '%s\n' \
+    "uid=$uid" \
+    "gid=$gid" \
+    "context=$context" \
+    "magisk_version=$magisk_version" \
+    "magisk_version_code=$magisk_version_code" \
+    "selinux=$selinux" \
+    "pid1_exe=$pid1_exe" \
+    "pid1_context=$pid1_context"
+```
+
+Its accepted stdout is exactly these eight ordered lines:
+
+```text
+uid=0
+gid=0
+context=u:r:magisk:s0
+magisk_version=30.7:MAGISK:R
+magisk_version_code=30700
+selinux=Enforcing
+pid1_exe=/system/bin/init
+pid1_context=u:r:init:s0
+```
+
+This proves only that the fixed read observed the expected current root,
+Magisk, SELinux, and stock PID-1 health fields. It does not prove native init,
+module health, arbitrary root access, recovery, rollback, F1 readiness, or
+future root availability. The CLI must never accept a serial, path, shell
+fragment, command, executable, property, service, package, module, mount,
+credential, callback, or output destination. Generic or interactive `su`, a
+caller-selected `su -c`, file-byte extraction, directory enumeration, writes,
+deletion, permission or ownership change, settings/property/service mutation,
+package action, module action, reboot, mode transition, transfer, Odin, block
+access, and partition access are outside this capability.
+
+Private evidence belongs only under
+`workspace/private/runs/s20plus-g986n-attended-root-health-d0/` and must use a
+runner-allocated no-clobber run directory, bounded no-follow reads, strict
+typed parsing, atomic no-replace publication, and file/directory fsync. Raw
+serial, devpath, boot ID, and complete inventories must never be persisted;
+only their SHA-256 representations may be retained. A success records exactly
+two inventory commands, four selected-target commands, and one root command.
+A failure records the actual executed prefix bounded by at most two, four, and
+one respectively. Both paths record zero device effects, writes, reboots,
+transfers, partition operations, and commands to S22+, A90, or every other
+target. Failure is terminal for that invocation and never triggers an internal
+retry.
+
+The reviewed dormant runner is 39,830 bytes with SHA-256
+`89c93b815dda6a5ad80d4e926958cfc0ce9758b563c307d286057647ebe3622b` and
+activation-only normalized SHA-256
+`86f7d49fc533750e9d641ae1d481fd2603f4b90e20e9051ef5e6a5080464848c`.
+The 35,704-byte focused test has SHA-256
+`3ebb9d538e73bd69985fa9aa4f2904cad5a3a524aaaba2722b095ce67a07111e`.
+The 423-byte public script, its 449-byte quoted shell argument, the 584-byte
+root script, and its 594-byte quoted shell argument have SHA-256
+`f17aac6c9c946968b18ac91a05c6d8f006fef1857533518495a97d5e71d9813b`,
+`0fa4c7d3b01941f467f5ad2da51059f5b7ae5d054267a39fdca2cac878f8e4f9`,
+`128ba6294378442b9e2a580086c2a8f6fc2f06afe30e642066f9bca4af314da1`, and
+`e5db5a7bb0fb78553e033649bc16496c008b9e5882b88f0c84234c1dede657aa`
+respectively. The exact inventory helper remains 21,474 bytes at SHA-256
+`3c89eaa348ec7a3a06a3ae2a0de227c781c97238b4e8f33e62b6e0bd370eec81`.
+
+Focused validation passed 28/28 and the pinned inventory-helper suite passed
+15/15; `py_compile` and scoped `git diff --check` passed. Independent hostile
+review of the dormant runner, tests, command framing, target/USB/boot binding,
+privacy/evidence owner, policy interaction, and prior review corrections
+returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. This qualifies only the
+dormant bytes and creates no live request or authority.
+
+Mechanical activation changed the runner boolean from false to true, made its
+module help text status-neutral, and rotated the corresponding test
+expectations, this section and top-level status, the single
+S20+ registry process cell, and the goal/report activation record. The active
+runner is 39,820 bytes with SHA-256
+`7967f85dc1418473c66b418cedfc2c15063a141fed2550d040eb122fec04584a`; its
+normalized SHA-256 is
+`0c4c15a014d181b43f85a00a55d335e6256663969664c95c1adf953049038b91`.
+The active 35,922-byte focused test SHA-256 is
+`70f43252ba163f854eb21c325a5087c470a7d9305bb114c593266a5457bc3cb7`.
+Four existing document-assertion tests changed only the target header and/or
+exact S20+ registry-row strings required by this activation:
+
+| Test | Predecessor size / SHA-256 | Active size / SHA-256 |
+|---|---|---|
+| onboarding D0 | 13,218 / `40875785faf27edc2315f3735b8f200e657c0c1e4ca9fc4743d6d5c73d7ffa9c` | 13,281 / `214ae02ed69023b2096010add91e0b29502976ccece80233925281c152c343d9` |
+| routine D0 | 12,332 / `19c2483934327be3e9b6815c853e69768fcca0c07a29f44547e88368c4fa5f9e` | 12,370 / `a713846021822a0f28c1514e4813c3735a10e89397dafb6daaed394d4cd07101` |
+| routine actions | 37,204 / `e90eccc5bc7d5980682cdaced7bef3f4cd437b3001a5b2122cfb4f5eca7a7960` | 37,242 / `533255e6a97d18c932f236e2d68e8f25e7223ffee798ee18c4f7216ee574fedc` |
+| bootstrap F1 | 96,409 / `e6325fe50fa030f455959d66004d28669df12d3484ad7aa3dfa431c2650af0ac` | 96,447 / `4ec89126082b1da183246397794b5ad5af9cad10dbd4bf2bdba2b764424e1112` |
+Post-rotation independent review returned `PASS_GO` with HIGH/MEDIUM/LOW
+`0/0/0`; no connected use occurred during qualification.
+
+The activation gates required the exact runner and hostile test identities to be frozen,
+focused tests to pass for dormancy, wrong/duplicate/replaced targets,
+pre/post/final drift, parser/order/type/output/time bounds, identifier leakage,
+no-clobber evidence and zero-effect accounting, and one independent review of
+the runner, tests, this section, higher-precedence interactions, and the
+mechanical activation-only transition to return `PASS_GO` with no unresolved
+finding. The completed mechanical activation changed all and only these
+authority atoms together: this section's status,
+the runner's activation constant and exact full/normalized identity assertions,
+the top-level target-contract status sentence, the single S20+ `AGENTS.md`
+registry process cell, the exact test assertions, and the activation/review
+record. A partial rotation, stale identity, or an omitted authority atom would
+leave the capability inactive. Despite activation, the design request is not
+standing live authority: one
+new direct operator request and attendance are required for each invocation.
+No activation or invocation in this section transfers authority to S22+, A90,
+the autonomous lane, R1, or F1.
 
 ## S20+ Routine Connected Actions
 
