@@ -11,23 +11,23 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.21 is closed and consumed. Its boot-only candidate and exact rollback transferred
-once each; the 19-record journal is `CLOSED`, final rooted FYG8 health passed, and
-`recovery_required=false`. The operator observed a normal candidate boot without a loop.
-Two full-length final reads are byte-identical and contain one P3.21 family. Both slot
-CRCs are valid; generation 92 is valid progress, while generation 93 is semantic
-`bad-body`: the stock publisher required generation 105 without advancing 92 through
-104, then committed route-invalid failure detail `0x6720`. Formal terminal remains
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`. The separate USB stop is
-now repaired H0-side only for an empty post-transfer Odin list plus removal of the exact
-single path in the immediately preceding live receipt; all wider membership change still stops. P3.21 is never replayable, and any successor requires new bytes and fresh preparation.
+P3.22 is a new H0-only candidate with run ID `c322f1e0...3f4b`. It reopens the exact
+P3.21 12-source stock closure and changes only `p319_stock_bypass_to_pair()` so
+generation 92 advances through 104 before payload positions 105/106; terminal or
+overrun still fails. The 41,490,944-byte Image uses the same-length identity transform,
+`/init` is the only changed userspace artifact, and real boot-only A/B APs are identical at
+`27279401B/ff7f189d`; rollback remains `23367721B/d2373bf8`. Builder audit and 18
+focused tests and independent `PASS_GO_P322_H0` pass without Full-LTO or device contact; no ready, approval, live, USB, causal, or success authority exists.
 
-P3.20 is closed and consumed. Candidate and exact rollback transferred once, the
-19-record journal is `CLOSED`, final rooted FYG8 health passed, and no replay occurred.
-Its AP mixed a P3.19-configured Image with a P3.20 userspace run ID, while observation
-hit a usbfs departure race. Three fresh baselines had neither retained family, but final
-identical reads contained one P3.19 generation-0 Carrier and no P3.20 record. Formal
-terminal remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`; see
+P3.21 remains closed and consumed after exact candidate/rollback transfers and healthy
+rooted FYG8 return. Its CRC-valid generation-93 semantic `bad-body` came from the missing
+92-to-105 bridge; formal terminal remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`.
+Its post-transfer USB seam is repaired H0-side only for the preceding live path; P3.21 is never replayable.
+
+P3.20 is closed and consumed after one candidate/rollback transfer and healthy return.
+Its AP mixed P3.19 Image and P3.20 userspace IDs; final reads contained only P3.19
+generation 0. Formal terminal remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` /
+`NO_PROOF_OBSERVER`; see
 `docs/reports/S22PLUS_FYG8_P320_F1_MIXED_RUN_NO_PROOF_2026-08-30.md`.
 
 P3.18 and P3.16 are closed consumed predecessors with exact 1/1 transfer and healthy
