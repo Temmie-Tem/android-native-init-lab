@@ -11,16 +11,16 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.21 is the current H0 closure and is ready for a fresh F1 approval. Its byte-identical
-A/B boot-only AP binds Image IKCONFIG/rodata, `/init`, Carrier/decoder, and manifest to
-run ID `c321f1e0a90b5e6d7c8a9b0c1d2e3f4b`; mixed P319/P320 identities are rejected. The
-identity-only Image transform preserves the reviewed layout without a Full-LTO rebuild.
-The observed usbfs birth-read `ENOENT` may receive one post-transfer, exact-set-minus-one
-resnapshot without selector widening or Odin/candidate replay. Focused P321, P320
-regression, USB and raw-first tests pass; review is `PASS_GO_P321_H0`. Private promotion `-02` and tracked ready manifest
-`d3c5a4885727bfe1b0ac5000ae38d6d523a3a4d0545a32f57a460f703839c7ef` create no run,
-approval or live authority. Prepare owns one fresh baseline; D1 is only for a dirty
-baseline, and fresh attended F1 approval remains mandatory.
+P3.21 is closed and consumed. Its boot-only candidate and exact rollback transferred
+once each; the 19-record journal is `CLOSED`, final rooted FYG8 health passed, and
+`recovery_required=false`. The operator observed a normal candidate boot without a loop.
+Two full-length final reads are byte-identical and contain one P3.21 family: its header
+CRC and generation-92/stage-`0x8f`/item-4 progress slot are valid, but the second slot has
+a bad body, so no P3.21 stock result is accepted. Formal terminal is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`. The post-candidate USB
+fault was an exact Download-node removal at enumeration-membership validation, outside
+the narrower birth-read repair; journal recovery did not replay, and physical Download entry completed rollback. P3.21 is never replayable; next H0 isolates the bad-body writer
+and the still-too-strict membership seam without reopening F1.
 
 P3.20 is closed and consumed. Candidate and exact rollback transferred once, the
 19-record journal is `CLOSED`, final rooted FYG8 health passed, and no replay occurred.
