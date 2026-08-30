@@ -75,6 +75,17 @@ class P320D0FreshBaselineTest(unittest.TestCase):
             result = self.module.main(["--live", "--approval", "bad"])
         self.assertEqual(result, 2)
 
+    def test_pretty_target_profile_uses_strict_document_parser(self):
+        payload = self.module.PROFILE.read_bytes()
+        profile = self.module._strict_document(payload, "S22+ target profile")
+        self.assertEqual(profile["target"]["device"], "g0q")
+        self.assertNotEqual(payload, self.module.canonical(profile))
+        with self.assertRaisesRegex(self.module.D0Error, "canonical object"):
+            self.module._strict(payload, "canonical binding")
+        for hostile in (b'{"target":{},"target":{}}', b'{"value":Infinity}'):
+            with self.subTest(hostile=hostile), self.assertRaises(self.module.D0Error):
+                self.module._strict_document(hostile, "hostile profile")
+
     def test_snapshot_inside_run_directory_is_reachable_after_single_creation(self):
         payload = b"fixture-adb"
         with tempfile.TemporaryDirectory(prefix="p320-d0-snapshot-") as temporary:

@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "3571ef40485bcf5eec19c47538bb65bb9343da95cff4fb0c7e3012533ae3b9f9"
+AUDITOR_NORMALIZED_SHA256 = "554e17b7804ae2c6b1260e68bd34f5ba010a231306ea714bfc2cd1138bc3a8f1"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -325,8 +325,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p319_d0_fresh_baseline_v3.py": "adc3e979771dbc4e67c264d3b6ad8f09f3fc512dc5decee7cff770094d24574d",
     "s22plus_fyg8_p319_d1_fresh_baseline_v2.py": "9443c81cd51e23a24f48a0f43573e1449cfa188b3cd1c69e6f6f11644d15d478",
     "s22plus_fyg8_p319_d1_fresh_baseline_v3.py": "cb13236e1fb10bf25ac47f7706df050abe15b2ab5a7e423bbdc7b5b31c2c491d",
-    "s22plus_fyg8_p320_d0_fresh_baseline.py": "1188a4165077ff79950f9bca579b23d87f9363e33795006fc4e8f985db36b51a",
-    "s22plus_fyg8_p320_d1_fresh_baseline.py": "f73aa2046c809ec2c15e305906d2c20ef5befb9c4aa8d580dcd781985cb8e4d8",
+    "s22plus_fyg8_p320_d0_fresh_baseline.py": "5062447097ce172d6d072c76eade562e80b61a500dc12d9cb35e05e678f9b05f",
+    "s22plus_fyg8_p320_d1_fresh_baseline.py": "2a05396588989edf93456de7788bbd0cf7c929ed702e7987dbb71499bfea99c6",
     "s22plus_fyg8_pref1_normal_reboot_live_v1.py": "e93ec6df89d2ae050876e67713bf8c80cd43301733ece98795d298e407504ed7",
     "s22plus_odin_transition_core.py": "a44e5ce43eebc3d254c1cc428b986484f244d47ae13a4125399c26c4b3e4014c",
     "s22plus_odin_usbfs_identity.py": "e337026d70f4c231468bfddab4a28e9ae65ab142f82859370c926332fb7bb9b5",

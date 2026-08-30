@@ -73,6 +73,17 @@ class P320D1FreshBaselineTest(unittest.TestCase):
             result = self.module.main(["--live", "--approval", "bad"])
         self.assertEqual(result, 2)
 
+    def test_pretty_target_profile_uses_strict_document_parser(self):
+        payload = self.module.PROFILE.read_bytes()
+        profile = self.module._strict_document(payload, "S22+ target profile")
+        self.assertEqual(profile["target"]["model"], "SM-S906N")
+        self.assertNotEqual(payload, self.module.canonical(profile))
+        with self.assertRaisesRegex(self.module.D1Error, "canonical object"):
+            self.module._strict(payload, "canonical binding")
+        for hostile in (b'{"target":{},"target":{}}', b'{"value":NaN}'):
+            with self.subTest(hostile=hostile), self.assertRaises(self.module.D1Error):
+                self.module._strict_document(hostile, "hostile profile")
+
     def test_fixture_transport_rejects_second_reboot_and_other_target(self):
         transport = self.module.FixtureTransport()
         with self.assertRaisesRegex(self.module.D1Error, "fixture reboot target"):

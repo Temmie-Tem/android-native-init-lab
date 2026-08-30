@@ -133,7 +133,12 @@ def _stable_read(path: Path, label: str, *, maximum: int = 8 * 1024 * 1024,
     return payload
 
 
-def _strict(payload: bytes, label: str) -> dict[str, Any]:
+def _strict_object(
+    payload: bytes,
+    label: str,
+    *,
+    canonical_required: bool,
+) -> dict[str, Any]:
     def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         value: dict[str, Any] = {}
         for key, item in pairs:
@@ -146,9 +151,19 @@ def _strict(payload: bytes, label: str) -> dict[str, Any]:
                            parse_constant=lambda item: (_ for _ in ()).throw(D0Error(f"{label} contains non-finite JSON: {item}")))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise D0Error(f"{label} is not strict JSON") from exc
-    if not isinstance(value, dict) or canonical(value) != payload:
+    if not isinstance(value, dict):
+        raise D0Error(f"{label} is not an object")
+    if canonical_required and canonical(value) != payload:
         raise D0Error(f"{label} is not a canonical object")
     return value
+
+
+def _strict(payload: bytes, label: str) -> dict[str, Any]:
+    return _strict_object(payload, label, canonical_required=True)
+
+
+def _strict_document(payload: bytes, label: str) -> dict[str, Any]:
+    return _strict_object(payload, label, canonical_required=False)
 
 
 def _typed_equal(left: Any, right: Any) -> bool:
@@ -531,7 +546,7 @@ def run_live(approval: str) -> dict[str, Any]:
         "replay_authorized": False,
     })
     try:
-        profile = _strict(_stable_read(PROFILE, "S22+ profile"), "S22+ profile")
+        profile = _strict_document(_stable_read(PROFILE, "S22+ profile"), "S22+ profile")
         adb_payload = _stable_read(HOST_ADB, "host ADB", maximum=HOST_ADB_SIZE, expected={"size": HOST_ADB_SIZE, "sha256": HOST_ADB_SHA256}, owner=None)
         # The host ADB snapshot is intentionally inside the run namespace;
         # create that namespace once after the consumed arm, before publishing
