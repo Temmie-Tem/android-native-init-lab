@@ -992,5 +992,11 @@ fragments, and keeps record size/newline bounds. Six focused fixtures cover the
 plain, official dictionary, future-header, fragment, malformed continuation,
 and boundary shapes. The consumed v2 source remains unchanged.
 
-The next bounded unit is only the generated-C port and witness-parser wiring of
-that envelope. Sidecar lifecycle and a new candidate remain separate.
+The same module now carries a libc-free generated-C envelope function. A host
+`-Wall -Wextra -Werror` fixture confirms parity with the Python prototype for
+the four positive shapes and the two relevant body failures. It still assigns
+only local symbolic errors and is not wired into a candidate or checkpoint
+detail namespace.
+
+The next bounded unit is only witness-parser wiring of this compiled envelope.
+Sidecar lifecycle and a new candidate remain separate.

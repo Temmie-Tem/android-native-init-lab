@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -17,6 +20,70 @@ SPEC.loader.exec_module(envelope)
 
 
 class P319KmsgRecordEnvelopeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        compiler = shutil.which("gcc")
+        if compiler is None:
+            raise AssertionError("host C compiler is unavailable")
+        cls.tempdir = tempfile.TemporaryDirectory(prefix="p320-kmsg-envelope-")
+        source = Path(cls.tempdir.name) / "fixture.c"
+        source.write_text(
+            "#include <stdint.h>\n"
+            "#include <stddef.h>\n"
+            "#include <stdio.h>\n"
+            + envelope.P320_C_SOURCE
+            + r'''
+int main(void) {
+    char record[P320_KMSG_ENVELOPE_MAX_RECORD + 1U];
+    size_t length = fread(record, 1U, sizeof(record), stdin);
+    if (length > P320_KMSG_ENVELOPE_MAX_RECORD) return 9;
+    struct p320_kmsg_record_view view = {0};
+    long rc = p320_kmsg_record_envelope(record, length, &view);
+    if (rc != 0) { printf("ERR %ld\n", rc); return 2; }
+    printf("OK %u %llu %llu %c %u %u %zu ", view.facility_level,
+           (unsigned long long)view.sequence,
+           (unsigned long long)view.timestamp_us, view.flag,
+           view.extension_fields, view.dictionary_lines, view.message_length);
+    for (size_t i = 0; i < view.message_length; ++i)
+        printf("%02x", (unsigned char)view.message[i]);
+    printf("\n");
+    return 0;
+}
+''',
+            encoding="ascii",
+        )
+        cls.fixture = Path(cls.tempdir.name) / "fixture"
+        completed = subprocess.run(
+            [
+                compiler,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-o",
+                str(cls.fixture),
+                str(source),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise AssertionError((completed.stdout + completed.stderr).decode())
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.tempdir.cleanup()
+
+    def run_c(self, record: bytes) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            [str(self.fixture)],
+            input=record,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
     def test_plain_record(self) -> None:
         value = envelope.parse_record(b"6,10,25,-;plain message\n")
         self.assertEqual(value["facility_level"], 6)
@@ -60,6 +127,37 @@ class P319KmsgRecordEnvelopeTests(unittest.TestCase):
             envelope.parse_record(b"6,10,25,-;message")
         with self.assertRaisesRegex(envelope.EnvelopeError, "record length"):
             envelope.parse_record(b"6,10,25,-;" + b"x" * 4090 + b"\n")
+
+    def test_compiled_c_matches_positive_envelope_shapes(self) -> None:
+        records = (
+            b"6,10,25,-;plain message\n",
+            b"7,160,424069,-;pci root\n SUBSYSTEM=acpi\n DEVICE=+acpi:x\n",
+            b"6,10,25,-,future=1,caller=T42;message\n",
+            b"6,10,25,c;fragment\n",
+        )
+        for record in records:
+            expected = envelope.parse_record(record)
+            completed = self.run_c(record)
+            self.assertEqual(completed.returncode, 0, completed.stdout)
+            fields = completed.stdout.decode("ascii").strip().split()
+            self.assertEqual(fields[0], "OK")
+            self.assertEqual(int(fields[1]), expected["facility_level"])
+            self.assertEqual(int(fields[2]), expected["sequence"])
+            self.assertEqual(int(fields[3]), expected["timestamp_us"])
+            self.assertEqual(fields[4], expected["flag"])
+            self.assertEqual(int(fields[5]), len(expected["header_extensions"]))
+            self.assertEqual(int(fields[6]), len(expected["dictionary"]))
+            self.assertEqual(int(fields[7]), len(expected["message"]))
+            self.assertEqual(bytes.fromhex(fields[8]), expected["message"])
+
+    def test_compiled_c_rejects_the_same_body_failures(self) -> None:
+        for record in (
+            b"6,10,25,-;message",
+            b"6,10,25,-;message\nnot-dictionary\n",
+        ):
+            with self.assertRaises(envelope.EnvelopeError):
+                envelope.parse_record(record)
+            self.assertNotEqual(self.run_c(record).returncode, 0)
 
 
 if __name__ == "__main__":
