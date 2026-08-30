@@ -13,8 +13,7 @@ authority, evidence, transports, and commands remain separate.
 
 P3.20 is the current prepared unit. Its distinct observer-integrated boot-only candidate,
 rollback, ready bundle, and fresh approval binding reopen successfully.
-D1 ordinal 1 stopped after arm on an initial Recovery-state inventory with no reboot and
-is never replayable. Fresh ordinal 2 completed one normal reboot, same-target/topology
+D1 ordinal 1 stopped after arm on Recovery inventory with no reboot and is never replayable; fresh ordinal 2 completed one normal reboot and same-target/topology
 return, changed boot ID, and healthy rooted FYG8 Android. Its dependent raw-first D0 read
 classified the pre-candidate P3.20 record baseline `ZERO_AMBIGUOUS` with
 `baseline_clean=true`, `candidate_success=false`, and `causal_result_allowed=false`.
