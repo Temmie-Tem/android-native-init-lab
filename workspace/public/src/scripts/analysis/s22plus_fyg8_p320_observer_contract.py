@@ -337,7 +337,7 @@ static uint8_t p320_observer_record_checksum(
     return (uint8_t)hash;
 }
 
-static void p320_observer_reset(void) {
+static __attribute__((unused)) void p320_observer_reset(void) {
     memset(&g_p320_observer, 0, sizeof(g_p320_observer));
 }
 
@@ -697,6 +697,7 @@ static long p303_kmsg_begin(void) {
         p320_observer_transport_failure();
         return 0L;
     }
+    p320_observer_reset();
     long rc = sys_mknodat(
         "/dev/kmsg", S_IFCHR | 0600U, make_dev(1U, 11U));
     if (rc != 0L && rc != -EEXIST) {
@@ -1412,19 +1413,22 @@ def compose_runtime(runtime: bytes | None = None) -> bytes:
         b"static __attribute__((unused)) long p320_kmsg_witness_observe_v2(",
         "P320 wiring helper",
     )
-    anchor = (
-        b"#define S22PLUS_MAX77705_P319_STOCK_STATUS_WIDTH 3U\n"
-        b"#define P319_WITNESS_ABI_VERSION 2U\n"
-    )
+    anchor = b"static long p303_kmsg_begin(void) {"
+    forward = b"static long p319_witness_observe_v2("
+    if runtime.count(anchor) != 1:
+        raise ContractError("P3.20 begin insertion anchor count differs")
     composed = _replace_once(
         runtime,
         anchor,
         b"/* P3.20 committed envelope and wiring seam. */\n"
         + envelope
         + b"\n"
-        + wiring
+        + forward
+        + b"const char *message, size_t length);\n"
         + b"\n"
         + P320_C_OBSERVER_SOURCE.encode("ascii")
+        + b"\n"
+        + wiring
         + b"\n"
         + anchor,
         "P3.20 runtime insertion",
@@ -1470,7 +1474,7 @@ def compose_runtime(runtime: bytes | None = None) -> bytes:
         composed,
         b"witness->malformed_count != 0U ||\n"
         b"        witness->initial_chain_stage > 4U ||",
-        b"witness->malformed_count != 0U && !p320_observer_error_latched() ||\n"
+        b"(witness->malformed_count != 0U && !p320_observer_error_latched()) ||\n"
         b"        witness->initial_chain_stage > 4U ||",
         "P3.20 observer-malformed gate",
     )

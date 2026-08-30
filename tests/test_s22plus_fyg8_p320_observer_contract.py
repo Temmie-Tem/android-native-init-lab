@@ -300,7 +300,7 @@ class P320ObserverContractTests(unittest.TestCase):
         )
         self.assertLess(module_call, module_assignment)
         self.assertIn(
-            b"witness->malformed_count != 0U && !p320_observer_error_latched() ||",
+            b"(witness->malformed_count != 0U && !p320_observer_error_latched()) ||",
             composed,
         )
         self.assertIn(b"p320_observer_chain_ambiguous()", composed)
