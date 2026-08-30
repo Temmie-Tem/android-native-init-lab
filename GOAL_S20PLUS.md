@@ -794,7 +794,7 @@ After a future combined review and activation, one fresh exact-target/
 current-boot attended opening may enable its finite read without per-action prompts.
 Permanent mutation or recovery-path risk always stops for fresh consent.
 
-## Recovery-v1 store/scanner H0 qualification
+## Recovery-v1 H0 qualifications
 
-The self-contained model passed 76/76 focused and 216/216 aggregate tests; whole recovery-v1 and every operational gate remain false.
-An independent loader, finalizer/re-emission, attended opening, fixed producer, private bundle, and device command remain absent.
+The immutable store/scanner remains `H0_PUBLIC_HEALTH_RECOVERY_V1_STORE_SCANNER_PASS_GO_NOT_ACTIVE`; the separate loader and self-contained finalizer are now exact-byte qualified as `H0_PUBLIC_HEALTH_RECOVERY_LOADER_V1_PASS_GO_NOT_ACTIVE` and `H0_PUBLIC_HEALTH_RECOVERY_V1_FINALIZER_PASS_GO_NOT_ACTIVE` after 47/47 focused and 263/263 aggregate tests plus independent HIGH/MEDIUM/LOW `0/0/0` review.
+Whole recovery-v1 and every operational/live gate remain false: the runner binding is unbound, no private bundle/opening/fixed producer/device command exists, and the current scanner rejects future opening/campaign-binding nodes. The next unit is the attended-opening and fixed six-command producer H0 closure; permanent mutation or recovery-path risk still requires fresh consent.

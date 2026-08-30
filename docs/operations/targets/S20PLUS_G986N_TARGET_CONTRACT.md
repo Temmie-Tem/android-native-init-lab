@@ -625,8 +625,48 @@ and focused-test SHA-256 is
 parser, unbound manifest model, inactive three-root scanner/store primitives,
 and conservative cut classifier. `RECOVERY_V1_QUALIFIED`, scanner, writer,
 finalizer, re-emission, manifest, contract, and live gates all remain false;
-the immutable loader and finalizer are unimplemented. No private bundle,
+the immutable loader and finalizer are qualified separately below. No private bundle,
 recovery authority, campaign, connected command, or device authority exists.
+
+The separate immutable-loader and self-contained-finalizer H0 subset is
+exact-byte qualified only as
+`H0_PUBLIC_HEALTH_RECOVERY_LOADER_V1_PASS_GO_NOT_ACTIVE` and
+`H0_PUBLIC_HEALTH_RECOVERY_V1_FINALIZER_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_recovery_loader_v1_h0.py`
+and
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_recovery_v1_finalizer_h0.py`.
+The loader is 35,315 bytes at SHA-256
+`a210944447dc33b7593b42ba5c46cde9561c9449e8981523b468a4121c4284cc`
+with normalized SHA-256
+`8df4dc534a1d4e9ac1a73867151e4bfcf2450a52283a281c7091d9c47e1e09cc`.
+The finalizer is 162,875 bytes at SHA-256
+`94f6022aebcdc63bcad08757f493349d2e4b198610a367e72181a65694321f0b`
+with normalized SHA-256
+`38cb154e526e8a1a3ad38f8c857f03668f92fedced786745f5e8e85d91e21dac`;
+its derived unbound manifest is 7,669 bytes at SHA-256
+`51931dd9a084e1c7ae8d674681d34be7bd2f50b32d8c0b84b2842d51749df593`.
+The loader and finalizer tests passed 21/21 and 26/26 respectively, and the
+eight-suite autonomous aggregate passed 263/263. Independent exact-byte and
+cut reviews returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+
+This H0 finalizer can model exactly one no-replace missing-node publication per
+invocation from a fully revalidated retained chain: lease mirror, health,
+deterministic result, or permanently parked completion. Re-emission is a
+sanitized repeatable zero-write envelope. A command-6 receipt time is only a
+logical completion lower bound; reporting-cut time, expiry, and drift remain
+unproved. The loader verifies exact no-follow private core/manifest bytes under
+the fixed lock before compiling them and caps its own source read at 64 KiB.
+Direct core execution is not authority. The original store/scanner bytes above
+remain unchanged.
+
+Every loader operational-qualification/identity/operation/future-runner/contract/
+mechanical/live gate and every finalizer qualification/scanner/writer/
+publication/finalizer/re-emission/manifest/contract/live gate remains false.
+The future-runner binding is unbound, no private bundle is installed, and the
+current scanner still rejects future `opening-v1` and `campaign-binding.json`.
+Therefore this qualification grants no recovery operation, campaign,
+connected command, standing consent, or device authority. The exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_RECOVERY_LOADER_FINALIZER_V1_H0_2026-08-31.md`.
 
 ## Magisk bootstrap F1
 
