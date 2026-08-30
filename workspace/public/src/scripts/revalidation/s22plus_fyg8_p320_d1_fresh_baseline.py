@@ -28,7 +28,7 @@ SCRIPT = Path(__file__).resolve(strict=True)
 SCRIPT_DIR = SCRIPT.parent
 BINDING_MANIFEST = ROOT / (
     "workspace/public/src/device-action/bindings/"
-    "s22plus_fyg8_p320_d1_fresh_baseline.json"
+    "s22plus_fyg8_p320_d1_fresh_baseline_2.json"
 )
 P296_PRIMITIVE = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p296/d1-baseline-rotation/"
@@ -39,14 +39,14 @@ RAW_CAPTURE = SCRIPT_DIR / "device_action_raw_capture_v1.py"
 PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
 HOST_ADB = Path("/usr/lib/android-sdk/platform-tools/adb")
 
-RUN_PARENT = ROOT / "workspace/private/runs/device-action-d1-p320-fresh-baseline"
-RUN_DIR = RUN_PARENT / "p320-d1-fresh-baseline-1"
-RUN_ARM = RUN_PARENT / "p320-d1-fresh-baseline-1.arm.json"
+RUN_PARENT = ROOT / "workspace/private/runs/device-action-d1-p320-fresh-baseline-2"
+RUN_DIR = RUN_PARENT / "p320-d1-fresh-baseline-2"
+RUN_ARM = RUN_PARENT / "p320-d1-fresh-baseline-2.arm.json"
 RUN_STOP = RUN_DIR / "stop.json"
-RAW_ROOT = RUN_PARENT / "p320-d1-fresh-baseline-1-raw"
+RAW_ROOT = RUN_PARENT / "p320-d1-fresh-baseline-2-raw"
 RAW_ADB_DIR = RAW_ROOT / "raw-adb"
 ADB_SNAPSHOT = ROOT / (
-    "workspace/private/outputs/s22plus_fyg8_p320/d1-fresh-baseline/"
+    "workspace/private/outputs/s22plus_fyg8_p320/d1-fresh-baseline-2/"
     "adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226"
 )
 
@@ -59,11 +59,11 @@ TARGET = {
     "adb_serial_sha256": "c5302ccc08374d408ca3ec4df0ef23770d5ecd35ce173b7d150c4316e9a0757b",
 }
 P320_RUN_ID = "c320f1e0a90b5e6d7c8a9b0c1d2e3f40"
-ORDINAL = "p320-d1-fresh-baseline-1"
-BINDING_SCHEMA = "s22plus_fyg8_p320_d1_fresh_baseline_execution_binding_v1"
-BINDING_ID = "s22plus-fyg8-p320-d1-fresh-baseline-v1"
-AUTHORITY_PREFIX = "DEVICE-ACTION-D1-P320-FRESH-BASELINE-APPROVE:"
-REVIEW_VERDICT = "PASS_GO_P320_D1_FRESH_BASELINE_H0_CAPABILITY_V1"
+ORDINAL = "p320-d1-fresh-baseline-2"
+BINDING_SCHEMA = "s22plus_fyg8_p320_d1_fresh_baseline_execution_binding_v2"
+BINDING_ID = "s22plus-fyg8-p320-d1-fresh-baseline-v2"
+AUTHORITY_PREFIX = "DEVICE-ACTION-D1-P320-FRESH-BASELINE-2-APPROVE:"
+REVIEW_VERDICT = "PASS_GO_P320_D1_FRESH_BASELINE_H0_CAPABILITY_V2"
 RESULT_SCHEMA = "s22plus_fyg8_p320_d1_fresh_baseline_v1_result"
 RESULT_VERDICT = "PASS_P320_D1_FRESH_BASELINE_EXACT_NORMAL_REBOOT_RETURN_HEALTH"
 STOP_SCHEMA = "s22plus_fyg8_p320_d1_fresh_baseline_stop_v1"

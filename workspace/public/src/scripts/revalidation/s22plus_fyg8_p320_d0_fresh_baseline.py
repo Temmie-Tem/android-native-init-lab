@@ -28,16 +28,16 @@ SCRIPT = Path(__file__).resolve(strict=True)
 SCRIPT_DIR = SCRIPT.parent
 ADAPTER = SCRIPT_DIR / "s22plus_fyg8_p320_stock_process_v2_adapter.py"
 D1_SOURCE = SCRIPT_DIR / "s22plus_fyg8_p320_d1_fresh_baseline.py"
-D1_BINDING = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d1_fresh_baseline.json"
+D1_BINDING = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d1_fresh_baseline_2.json"
 D0_RUNTIME = SCRIPT_DIR / "device_action_d0_v2.py"
 RAW_CAPTURE = SCRIPT_DIR / "device_action_raw_capture_v1.py"
 PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
 HOST_ADB = Path("/usr/lib/android-sdk/platform-tools/adb")
-BINDING_MANIFEST = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d0_fresh_baseline.json"
+BINDING_MANIFEST = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d0_fresh_baseline_2.json"
 
-RUN_PARENT = ROOT / "workspace/private/runs/device-action-d0-p320-fresh-baseline"
-RUN_DIR = RUN_PARENT / "p320-d0-fresh-baseline-1"
-RUN_ARM = RUN_PARENT / "p320-d0-fresh-baseline-1.arm.json"
+RUN_PARENT = ROOT / "workspace/private/runs/device-action-d0-p320-fresh-baseline-2"
+RUN_DIR = RUN_PARENT / "p320-d0-fresh-baseline-2"
+RUN_ARM = RUN_PARENT / "p320-d0-fresh-baseline-2.arm.json"
 RUN_STOP = RUN_DIR / "stop.json"
 RESULT_PATH = RUN_DIR / "result.json"
 OBSERVER_PATH = RUN_DIR / "baseline-observer.bin"
@@ -46,12 +46,12 @@ ADB_SNAPSHOT = RUN_DIR / "adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c4
 
 TARGET = {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"}
 P320_RUN_ID = "c320f1e0a90b5e6d7c8a9b0c1d2e3f40"
-ORDINAL = "p320-d0-fresh-baseline-1"
-BINDING_SCHEMA = "s22plus_fyg8_p320_d0_fresh_baseline_execution_binding_v1"
-BINDING_ID = "s22plus-fyg8-p320-d0-fresh-baseline-v1"
-AUTHORITY_PREFIX = "DEVICE-ACTION-D0-P320-FRESH-BASELINE-APPROVE:"
-REVIEW_VERDICT = "PASS_GO_P320_D0_FRESH_BASELINE_H0_CAPABILITY_V1"
-D1_REVIEW_VERDICT = "PASS_GO_P320_D1_FRESH_BASELINE_H0_CAPABILITY_V1"
+ORDINAL = "p320-d0-fresh-baseline-2"
+BINDING_SCHEMA = "s22plus_fyg8_p320_d0_fresh_baseline_execution_binding_v2"
+BINDING_ID = "s22plus-fyg8-p320-d0-fresh-baseline-v2"
+AUTHORITY_PREFIX = "DEVICE-ACTION-D0-P320-FRESH-BASELINE-2-APPROVE:"
+REVIEW_VERDICT = "PASS_GO_P320_D0_FRESH_BASELINE_H0_CAPABILITY_V2"
+D1_REVIEW_VERDICT = "PASS_GO_P320_D1_FRESH_BASELINE_H0_CAPABILITY_V2"
 RESULT_SCHEMA = "s22plus_fyg8_p320_d0_fresh_baseline_result_v1"
 RESULT_VERDICT = "PASS_P320_D0_FRESH_BASELINE_RAW_FIRST_V1"
 STOP_SCHEMA = "s22plus_fyg8_p320_d0_fresh_baseline_stop_v1"
@@ -206,7 +206,7 @@ def _expected_binding(inputs: Mapping[str, Any], review: Mapping[str, Any]) -> d
         "d1_dependency": {
             "binding": _relative(D1_BINDING),
             "binding_review_verdict": D1_REVIEW_VERDICT,
-            "result": _relative(ROOT / "workspace/private/runs/device-action-d1-p320-fresh-baseline/p320-d1-fresh-baseline-1/result.json"),
+            "result": _relative(ROOT / "workspace/private/runs/device-action-d1-p320-fresh-baseline-2/p320-d1-fresh-baseline-2/result.json"),
             "result_schema": "s22plus_fyg8_p320_d1_fresh_baseline_v1_result",
             "result_verdict": "PASS_P320_D1_FRESH_BASELINE_EXACT_NORMAL_REBOOT_RETURN_HEALTH",
             "result_replay_authorized": False,
@@ -256,7 +256,7 @@ def _validated_static_inputs() -> dict[str, Any]:
         D1_BINDING, "P3.20 D1 binding", maximum=256 * 1024
     )
     d1 = _strict(d1_binding_payload, "P3.20 D1 binding")
-    if d1.get("schema") != "s22plus_fyg8_p320_d1_fresh_baseline_execution_binding_v1" or d1.get("binding_id") != "s22plus-fyg8-p320-d1-fresh-baseline-v1" or d1.get("target", {}).get("model") != TARGET["model"] or d1.get("target", {}).get("codename") != TARGET["codename"] or d1.get("target", {}).get("build") != TARGET["build"]:
+    if d1.get("schema") != "s22plus_fyg8_p320_d1_fresh_baseline_execution_binding_v2" or d1.get("binding_id") != "s22plus-fyg8-p320-d1-fresh-baseline-v2" or d1.get("target", {}).get("model") != TARGET["model"] or d1.get("target", {}).get("codename") != TARGET["codename"] or d1.get("target", {}).get("build") != TARGET["build"]:
         raise D0Error("P3.20 D1 predecessor identity differs")
     return {
         "manifest": binding,
@@ -450,7 +450,7 @@ def _validate_d1_value(
 
 
 def _load_d1_result(static: Mapping[str, Any]) -> dict[str, Any]:
-    path = ROOT / "workspace/private/runs/device-action-d1-p320-fresh-baseline/p320-d1-fresh-baseline-1/result.json"
+    path = ROOT / "workspace/private/runs/device-action-d1-p320-fresh-baseline-2/p320-d1-fresh-baseline-2/result.json"
     payload = _stable_read(path, "P3.20 D1 result", maximum=512 * 1024, mode=0o400)
     value = _strict(payload, "P3.20 D1 result")
     d1_binding_payload = _stable_read(

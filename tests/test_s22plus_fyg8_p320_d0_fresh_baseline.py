@@ -12,7 +12,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p320_d0_fresh_baseline.py"
-BINDING = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d0_fresh_baseline.json"
+BINDING = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d0_fresh_baseline_2.json"
 D1_SOURCE = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p320_d1_fresh_baseline.py"
 
 
@@ -38,6 +38,8 @@ class P320D0FreshBaselineTest(unittest.TestCase):
         self.assertEqual(static["manifest"], value)
         self.assertEqual(value["schema"], self.module.BINDING_SCHEMA)
         self.assertEqual(value["ordinal"], self.module.ORDINAL)
+        self.assertEqual(value["ordinal"], "p320-d0-fresh-baseline-2")
+        self.assertTrue(str(self.module.RUN_PARENT).endswith("device-action-d0-p320-fresh-baseline-2"))
         self.assertEqual(value["target"], {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"})
         self.assertEqual(value["inputs"]["d0_source"]["sha256"], hashlib.sha256(SOURCE.read_bytes()).hexdigest())
         self.assertEqual(value["d1_dependency"]["result_schema"], "s22plus_fyg8_p320_d1_fresh_baseline_v1_result")

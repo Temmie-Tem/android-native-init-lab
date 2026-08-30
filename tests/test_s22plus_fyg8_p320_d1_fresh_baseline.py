@@ -12,7 +12,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "workspace/public/src/scripts/revalidation/s22plus_fyg8_p320_d1_fresh_baseline.py"
-BINDING = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d1_fresh_baseline.json"
+BINDING = ROOT / "workspace/public/src/device-action/bindings/s22plus_fyg8_p320_d1_fresh_baseline_2.json"
 
 
 def load_module():
@@ -37,6 +37,8 @@ class P320D1FreshBaselineTest(unittest.TestCase):
         self.assertEqual(static["manifest"], value)
         self.assertEqual(value["schema"], self.module.BINDING_SCHEMA)
         self.assertEqual(value["ordinal"], self.module.ORDINAL)
+        self.assertEqual(value["ordinal"], "p320-d1-fresh-baseline-2")
+        self.assertTrue(str(self.module.RUN_PARENT).endswith("device-action-d1-p320-fresh-baseline-2"))
         self.assertEqual(value["target"]["model"], "SM-S906N")
         self.assertEqual(value["target"]["codename"], "g0q")
         self.assertEqual(value["target"]["build"], "S906NKSS7FYG8")
