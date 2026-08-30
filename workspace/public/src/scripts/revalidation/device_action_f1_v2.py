@@ -460,6 +460,7 @@ def _overridden_candidate_sources(
 ) -> frozenset[str]:
     if userspace_overlay_contract_id in {
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID,
@@ -578,38 +579,47 @@ def execution_critical_source_receipts(
                     "sha256": hashlib.sha256(data).hexdigest(),
                 }
             root = candidate_intent.repo_root()
-            if userspace_overlay_contract_id == (
-                typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID
-            ):
-                # P320 retains the P310 carrier source closure while its
-                # stock adapter/observer bytes are bound separately below.
+            if userspace_overlay_contract_id in {
+                typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
+                typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+            }:
+                # Stock adapters retain the P310 carrier closure while their
+                # adapter/observer bytes are bound separately below.
+                stock_adapter = typed_evidence.STOCK_ADAPTERS[
+                    userspace_overlay_contract_id
+                ]
+                prefix = (
+                    "p321"
+                    if userspace_overlay_contract_id
+                    == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
+                    else "p320"
+                )
+                label = "P3.21" if prefix == "p321" else "P3.20"
                 try:
-                    adapter_sources = typed_evidence.p320_stock_adapter.source_bytes(
-                        root
-                    )
-                except (typed_evidence.p320_stock_adapter.DecodeError, OSError) as exc:
-                    raise F1V2Error(
-                        "P3.20 stock adapter source closure failed"
-                    ) from exc
-                if set(adapter_sources) != typed_evidence.p320_stock_adapter.SOURCE_KEYS:
-                    raise F1V2Error("P3.20 stock adapter source set differs")
+                    adapter_sources = stock_adapter.source_bytes(root)
+                except (stock_adapter.DecodeError, OSError) as exc:
+                    raise F1V2Error(f"{label} stock adapter source closure failed") from exc
+                if set(adapter_sources) != stock_adapter.SOURCE_KEYS:
+                    raise F1V2Error(f"{label} stock adapter source set differs")
                 for name, data in adapter_sources.items():
-                    receipts[f"p320_adapter_source_{name}"] = {
+                    receipts[f"{prefix}_adapter_source_{name}"] = {
                         "size": len(data),
                         "sha256": hashlib.sha256(data).hexdigest(),
                     }
-                e1_latest_stage_sources["p320_stock_adapter"] = Path(
-                    typed_evidence.p320_stock_adapter.__file__
+                e1_latest_stage_sources[f"{prefix}_stock_adapter"] = Path(
+                    stock_adapter.__file__
                 )
-                e1_latest_stage_sources["p320_carrier_model"] = Path(
-                    typed_evidence.p320_stock_adapter.model.__file__
+                e1_latest_stage_sources[f"{prefix}_carrier_model"] = Path(
+                    stock_adapter.model.__file__
                 )
-                e1_latest_stage_sources["p320_telemetry_spec"] = Path(
-                    typed_evidence.p320_stock_adapter.spec.__file__
+                e1_latest_stage_sources[f"{prefix}_telemetry_spec"] = Path(
+                    stock_adapter.spec.__file__
                 )
-                e1_latest_stage_sources["p320_observer_contract"] = Path(
-                    typed_evidence.p320_stock_adapter.P320_OBSERVER_SOURCE
-                )
+                observer_source = getattr(stock_adapter, "P320_OBSERVER_SOURCE", None)
+                if observer_source is not None:
+                    e1_latest_stage_sources[f"{prefix}_observer_contract"] = Path(
+                        observer_source
+                    )
             elif userspace_overlay_contract_id == (
                 typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID
             ):
@@ -1183,23 +1193,28 @@ def verify_candidate_source_binding(
             raise F1V2Error(
                 "candidate source preimage differs from execution-critical sources"
             )
-    if userspace_overlay_contract_id == typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id in {
+        typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+    }:
         if verification.get("userspace_overlay_contract_id") != userspace_overlay_contract_id:
-            raise F1V2Error("P3.20 stock overlay selector changed")
-        expected_adapter = verification.get("p320_adapter_source_receipts")
+            raise F1V2Error("stock overlay selector changed")
+        adapter = typed_evidence.STOCK_ADAPTERS[userspace_overlay_contract_id]
+        prefix = "p321" if userspace_overlay_contract_id == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID else "p320"
+        expected_adapter = verification.get(f"{prefix}_adapter_source_receipts")
         if (
             not isinstance(expected_adapter, dict)
-            or set(expected_adapter) != typed_evidence.p320_stock_adapter.SOURCE_KEYS
+            or set(expected_adapter) != adapter.SOURCE_KEYS
         ):
-            raise F1V2Error("P3.20 stock adapter source binding is incomplete")
+            raise F1V2Error(f"{prefix} stock adapter source binding is incomplete")
         for name, source_receipt in expected_adapter.items():
-            actual = execution_sources.get(f"p320_adapter_source_{name}")
+            actual = execution_sources.get(f"{prefix}_adapter_source_{name}")
             if (
                 not isinstance(actual, dict)
                 or {key: actual.get(key) for key in ("size", "sha256")}
                 != source_receipt
             ):
-                raise F1V2Error("P3.20 stock adapter source differs from execution-critical sources")
+                raise F1V2Error(f"{prefix} stock adapter source differs from execution-critical sources")
     elif userspace_overlay_contract_id == typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID:
         if verification.get("userspace_overlay_contract_id") != userspace_overlay_contract_id:
             raise F1V2Error("P3.19 stock overlay selector changed")
@@ -1398,6 +1413,7 @@ def verify_candidate_observer_binding(
     stock_overlay = acceptance.get("userspace_overlay_contract_id") in {
         typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
     }
     if source_contract_id is None:
         if observer is not None:

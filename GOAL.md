@@ -11,28 +11,28 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.20 is the current closed live unit. Candidate and exact rollback transferred once;
-the 19-record journal is `CLOSED`, final rooted FYG8 health passed, and
-`recovery_required=false`. The operator observed normal candidate boot without a loop.
-Candidate observation hit a usbfs node-departure race; journal recovery did not replay, and final identical raw reads contain one CRC-valid P3.19
-generation-0 Carrier and no accepted P3.20 record. Three fresh baselines contained neither.
-The candidate combined a P3.19-configured fixed Image with a P3.20 userspace run ID; the
-kernel guard rejects mismatched request IDs. This causality is `SUPPORTED` because the exact
-rejected return was not retained. Formal terminal remains
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`; P3.20 is consumed and never
-replayable. Report: `docs/reports/S22PLUS_FYG8_P320_F1_MIXED_RUN_NO_PROOF_2026-08-30.md`.
+P3.21 is the current H0 closure and is ready for a fresh F1 approval. Its byte-identical
+A/B boot-only AP binds Image IKCONFIG/rodata, `/init`, Carrier/decoder, and manifest to
+run ID `c321f1e0a90b5e6d7c8a9b0c1d2e3f4b`; mixed P319/P320 identities are rejected. The
+identity-only Image transform preserves the reviewed layout without a Full-LTO rebuild.
+The observed usbfs birth-read `ENOENT` may receive one post-transfer, exact-set-minus-one
+resnapshot without selector widening or Odin/candidate replay. Focused P321, P320
+regression, USB and raw-first tests pass; review is `PASS_GO_P321_H0`. Private promotion `-02` and tracked ready manifest
+`d3c5a4885727bfe1b0ac5000ae38d6d523a3a4d0545a32f57a460f703839c7ef` create no run,
+approval or live authority. Prepare owns one fresh baseline; D1 is only for a dirty
+baseline, and fresh attended F1 approval remains mandatory.
 
-P3.18 is the preceding closed live unit. Its finalizer advanced the journal from 15 to
-19 records at `CLOSED`; exact transfers remain 1/1 and `recovery_required=false`. H0
-reconstruction recovered generation 47/stage `0x66`/item 38/failure `0x6010`, proving
-the EUD latch/index mismatch before Max77705 rather than terminal absence. Its
-effective proof is `NO_PROOF_EXPERIMENT_PRECONDITION`; the immutable F1 result remains
-`NO_PROOF_OBSERVER`, and the consumed candidate is never replayable.
+P3.20 is closed and consumed. Candidate and exact rollback transferred once, the
+19-record journal is `CLOSED`, final rooted FYG8 health passed, and no replay occurred.
+Its AP mixed a P3.19-configured Image with a P3.20 userspace run ID, while observation
+hit a usbfs departure race. Three fresh baselines had neither retained family, but final
+identical reads contained one P3.19 generation-0 Carrier and no P3.20 record. Formal
+terminal remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`; see
+`docs/reports/S22PLUS_FYG8_P320_F1_MIXED_RUN_NO_PROOF_2026-08-30.md`.
 
-P3.16 is an earlier closed live unit. Its candidate and exact Magisk rollback each
-transferred once, the journal closed, and rooted FYG8 health passed. Its sound observer
-proved that the Max77705 experiment did not execute; the effective class is
-`NO_PROOF_EXPERIMENT_PRECONDITION`. The immutable decoder and ledger row are historical.
+P3.18 and P3.16 are closed consumed predecessors with exact 1/1 transfer and healthy
+rollback. Both are `NO_PROOF_EXPERIMENT_PRECONDITION`: P3.18 reconstructed the EUD
+latch/index mismatch; P3.16 proved Max77705 did not execute. Neither is replayable.
 
 P3.15 is the preceding closed cycle unit. Its distinct boot-only candidate and
 exact Magisk rollback each transferred exactly once. The Process-v2 journal is

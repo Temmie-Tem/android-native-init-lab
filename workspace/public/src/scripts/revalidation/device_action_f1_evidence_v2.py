@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 import hashlib
 import importlib
 import importlib.abc
@@ -16,7 +17,7 @@ import sys
 import types
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 def _stable_local_import_bytes(path: Path) -> bytes:
@@ -199,6 +200,9 @@ p319_stock_adapter = _load_stable_local_module(
 )
 p320_stock_adapter = _load_stable_local_module(
     "s22plus_fyg8_p320_stock_process_v2_adapter"
+)
+p321_stock_adapter = _load_stable_local_module(
+    "s22plus_fyg8_p321_stock_process_v2_adapter"
 )
 import s22plus_fyg8_max77705_telemetry_decoder as max77705_decoder
 import s22plus_fyg8_p317_max77705_telemetry_decoder as p317_max77705_decoder
@@ -389,6 +393,13 @@ P319_STOCK_OVERLAY_CONTRACT_ID = p319_stock_adapter.OVERLAY_CONTRACT_ID
 P319_STOCK_OVERLAY_IDS = frozenset({P319_STOCK_OVERLAY_CONTRACT_ID})
 P320_STOCK_OVERLAY_CONTRACT_ID = p320_stock_adapter.OVERLAY_CONTRACT_ID
 P320_STOCK_OVERLAY_IDS = frozenset({P320_STOCK_OVERLAY_CONTRACT_ID})
+P321_STOCK_OVERLAY_CONTRACT_ID = p321_stock_adapter.OVERLAY_CONTRACT_ID
+P321_STOCK_OVERLAY_IDS = frozenset({P321_STOCK_OVERLAY_CONTRACT_ID})
+STOCK_ADAPTERS = {
+    P319_STOCK_OVERLAY_CONTRACT_ID: p319_stock_adapter,
+    P320_STOCK_OVERLAY_CONTRACT_ID: p320_stock_adapter,
+    P321_STOCK_OVERLAY_CONTRACT_ID: p321_stock_adapter,
+}
 P316_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p316_candidate_static_checker_v1"
 P316_CANDIDATE_STATIC_VERDICT = (
     "PASS_P316_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
@@ -413,6 +424,12 @@ P320_CANDIDATE_STATIC_SCHEMA = (
 P320_CANDIDATE_STATIC_VERDICT = (
     "PASS_P320_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
 )
+P321_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p321_process_v2_candidate_static_v1"
+)
+P321_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P321_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
+)
 MAX77705_OVERLAY_CONTRACT_IDS = frozenset(
     {
         MAX77705_OVERLAY_CONTRACT_ID,
@@ -426,11 +443,17 @@ P317_CANDIDATE_STATIC_MAX_BYTES = 5 * 1024 * 1024
 P318_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P319_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P320_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
+P321_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P319_RUN_ID = "b9cc424d0d184f5accbce94a844e817d"
 P320_RUN_ID = p320_stock_adapter.P320_STOCK_RUN_ID.hex()
+P321_RUN_ID = p321_stock_adapter.P321_RUN_ID_HEX
 P320_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p320_process_v2_candidate_static.py"
+)
+P321_CANDIDATE_STATIC_AUTHORITY_PATH = (
+    "workspace/public/src/scripts/analysis/"
+    "s22plus_fyg8_p321_process_v2_candidate_static.py"
 )
 P319_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
@@ -442,6 +465,7 @@ P319_TARGET = {
     "build": "S906NKSS7FYG8",
 }
 P320_TARGET = dict(P319_TARGET)
+P321_TARGET = dict(P319_TARGET)
 P319_EXACT_ARTIFACTS = {
     "ap_tar_md5": {
         "size": 27_279_401,
@@ -794,7 +818,16 @@ def _latest_stage_observation_decoder(
 ):
     if userspace_overlay_contract_id is None:
         return _latest_stage_decoder(source_contract_id, profile)
-    if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id == P321_STOCK_OVERLAY_CONTRACT_ID:
+        if (
+            source_contract_id != p321_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+            or profile != p321_stock_adapter.PROFILE
+        ):
+            raise EvidenceError(
+                "P3.21 stock userspace observation overlay is unsupported"
+            )
+        selected = p321_stock_adapter
+    elif userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
         if (
             source_contract_id != p320_stock_adapter.PARENT_SOURCE_CONTRACT_ID
             or profile != p320_stock_adapter.PROFILE
@@ -927,7 +960,7 @@ def _validate_decoder_carrier_authority(
         )
     try:
         run_id = bytes.fromhex("00112233445566778899aabbccddeeff")
-        if selected_decoder in {p319_stock_adapter, p320_stock_adapter}:
+        if selected_decoder in STOCK_ADAPTERS.values():
             record = selected_decoder.encode_fixture()
         else:
             record = source_decoder.model.initialize_record(profile, run_id)
@@ -936,7 +969,7 @@ def _validate_decoder_carrier_authority(
             expected_profile=profile,
             expected_run_id=(
                 selected_decoder.STOCK_RUN_ID
-                if selected_decoder in {p319_stock_adapter, p320_stock_adapter}
+                if selected_decoder in STOCK_ADAPTERS.values()
                 else run_id
             ),
         )
@@ -1144,6 +1177,11 @@ def _validate_p318_overlay_contract(value: Any) -> dict[str, Any]:
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
+    if userspace_overlay_contract_id == P321_STOCK_OVERLAY_CONTRACT_ID:
+        try:
+            return p321_stock_adapter.validate_contract(value)
+        except p321_stock_adapter.DecodeError as exc:
+            raise EvidenceError("P3.21 stock overlay metadata differs") from exc
     if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
         # P320 is a distinct ABI-v4 stock overlay.  The adapter validates the
         # observer contract and its P310 Carrier parent without creating a
@@ -1199,6 +1237,10 @@ def _select_e2_closure(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None = None,
 ):
+    if userspace_overlay_contract_id == P321_STOCK_OVERLAY_CONTRACT_ID:
+        if source_contract_id != p321_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
+            raise EvidenceError("P3.21 stock parent source contract differs")
+        return p310_e2_closure.select(source_contract_id)
     if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
         if source_contract_id != p320_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
             raise EvidenceError("P3.20 stock parent source contract differs")
@@ -2088,6 +2130,8 @@ def _latest_stage_accepted_identity(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None,
 ) -> str:
+    if userspace_overlay_contract_id == P321_STOCK_OVERLAY_CONTRACT_ID:
+        return "P321_STOCK_OBSERVER_V4_RETAINED"
     if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
         return "P320_STOCK_OBSERVER_V4_RETAINED"
     if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
@@ -2443,28 +2487,31 @@ def _validate_p319_candidate_static(
     return item
 
 
-def _validate_p320_candidate_static_authority(
+def _validate_candidate_static_authority(
     value: dict[str, Any],
     *,
+    authority_path: str,
+    label: str,
+    maximum: int,
     runtime_bound: bool = False,
 ) -> dict[str, Any]:
-    """Reopen the small P3.20 validator at the result's exact source path."""
+    """Reopen a candidate-static validator at its exact source path."""
     authority = _exact(
         value.get("authority_source"),
         {"path", "size", "sha256"},
-        "P3.20 candidate-static authority source",
+        f"{label} candidate-static authority source",
     )
     if (
-        authority["path"] != P320_CANDIDATE_STATIC_AUTHORITY_PATH
+        authority["path"] != authority_path
         or type(authority["size"]) is not int
         or authority["size"] <= 0
-        or authority["size"] > P320_CANDIDATE_STATIC_MAX_BYTES
+        or authority["size"] > maximum
         or not isinstance(authority["sha256"], str)
         or re.fullmatch(r"[0-9a-f]{64}", authority["sha256"]) is None
     ):
-        raise EvidenceError("P3.20 candidate-static authority identity differs")
+        raise EvidenceError(f"{label} candidate-static authority identity differs")
     root = Path(__file__).resolve().parents[5]
-    path = root / P320_CANDIDATE_STATIC_AUTHORITY_PATH
+    path = root / authority_path
     try:
         before = path.lstat()
         if (
@@ -2472,23 +2519,23 @@ def _validate_p320_candidate_static_authority(
             or not stat.S_ISREG(before.st_mode)
             or before.st_nlink != 1
         ):
-            raise EvidenceError("P3.20 candidate-static authority is indirect")
+            raise EvidenceError(f"{label} candidate-static authority is indirect")
         data = path.read_bytes()
         after = path.lstat()
     except OSError as exc:
-        raise EvidenceError("P3.20 candidate-static authority is unavailable") from exc
+        raise EvidenceError(f"{label} candidate-static authority is unavailable") from exc
     before_id = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
     after_id = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
     observed = {
-        "path": P320_CANDIDATE_STATIC_AUTHORITY_PATH,
+        "path": authority_path,
         "size": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
     if before_id != after_id or before.st_size != len(data) or authority != observed:
-        raise EvidenceError("P3.20 candidate-static authority source changed")
+        raise EvidenceError(f"{label} candidate-static authority source changed")
     namespace: dict[str, Any] = {
         "__file__": str(path),
-        "__name__": "p320_candidate_static_bound_authority",
+        "__name__": f"{label.lower().replace('.', '')}_candidate_static_bound_authority",
         "__package__": "",
     }
     try:
@@ -2497,14 +2544,28 @@ def _validate_p320_candidate_static_authority(
         validate = namespace.get(validator_name)
         if not callable(validate):
             raise EvidenceError(
-                f"P3.20 candidate-static authority lacks {validator_name}"
+                f"{label} candidate-static authority lacks {validator_name}"
             )
         validate(value)
     except EvidenceError:
         raise
     except Exception as exc:
-        raise EvidenceError("P3.20 candidate-static authority rejected the result") from exc
+        raise EvidenceError(f"{label} candidate-static authority rejected the result") from exc
     return observed
+
+
+def _validate_p320_candidate_static_authority(
+    value: dict[str, Any],
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    return _validate_candidate_static_authority(
+        value,
+        authority_path=P320_CANDIDATE_STATIC_AUTHORITY_PATH,
+        label="P3.20",
+        maximum=P320_CANDIDATE_STATIC_MAX_BYTES,
+        runtime_bound=runtime_bound,
+    )
 
 
 def _validate_p320_candidate_static(
@@ -2515,6 +2576,31 @@ def _validate_p320_candidate_static(
     if not isinstance(value, dict):
         raise EvidenceError("P3.20 candidate-static result is not an object")
     _validate_p320_candidate_static_authority(value, runtime_bound=runtime_bound)
+    return value
+
+
+def _validate_p321_candidate_static_authority(
+    value: dict[str, Any],
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    return _validate_candidate_static_authority(
+        value,
+        authority_path=P321_CANDIDATE_STATIC_AUTHORITY_PATH,
+        label="P3.21",
+        maximum=P321_CANDIDATE_STATIC_MAX_BYTES,
+        runtime_bound=runtime_bound,
+    )
+
+
+def _validate_p321_candidate_static(
+    value: Any,
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise EvidenceError("P3.21 candidate-static result is not an object")
+    _validate_p321_candidate_static_authority(value, runtime_bound=runtime_bound)
     return value
 
 
@@ -2551,6 +2637,25 @@ def _p320_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]
         "latch": candidate_static["builder_closure"]["module_bytes"][
             "s22plus_dwc3_event_latch.ko"
         ],
+        "run_id": candidate_static["run_id"],
+        "source_contract_id": candidate_static["source_contract_id"],
+        "userspace_overlay_contract_id": candidate_static[
+            "userspace_overlay_contract_id"
+        ],
+    }
+
+
+def _p321_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
+    candidate = candidate_static["candidate"]
+    artifacts = candidate["a"]
+    return {
+        "kind": "p321_exact_stock_observer_ap_v1",
+        "boot_img_lz4": artifacts["boot_img_lz4"],
+        "boot_image": artifacts["boot_img"],
+        "image": candidate["image"],
+        "init": candidate["init"],
+        "child": candidate["child"],
+        "latch": P319_EXACT_ARTIFACTS["latch"],
         "run_id": candidate_static["run_id"],
         "source_contract_id": candidate_static["source_contract_id"],
         "userspace_overlay_contract_id": candidate_static[
@@ -2725,6 +2830,60 @@ def _validate_p320_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
     return {"verified": True, **identities, "rootfs_entry_count": len(entries)}
 
 
+def _validate_p321_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
+    item = _exact(
+        closure,
+        {
+            "kind",
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "latch",
+            "run_id",
+            "source_contract_id",
+            "userspace_overlay_contract_id",
+        },
+        "P3.21 E2 AP payload closure",
+    )
+    if (
+        item["kind"] != "p321_exact_stock_observer_ap_v1"
+        or item["run_id"] != P321_RUN_ID
+        or item["source_contract_id"] != p321_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+        or item["userspace_overlay_contract_id"] != P321_STOCK_OVERLAY_CONTRACT_ID
+    ):
+        raise EvidenceError("P3.21 E2 AP payload header differs")
+    identities = {
+        name: _binary_identity(item[name], f"P3.21 E2 AP {name}")
+        for name in (
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "latch",
+        )
+    }
+    # P3.21 has the same generic rootfs/AP semantics as P3.20.  Validate those
+    # bytes through the reviewed helper, while retaining the fresh P3.21 header.
+    p320_closure = {
+        **item,
+        "kind": "p320_exact_stock_observer_ap_v1",
+        "run_id": P320_RUN_ID,
+        "userspace_overlay_contract_id": P320_STOCK_OVERLAY_CONTRACT_ID,
+    }
+    verified = _validate_p320_e2_ap_payload(frame, p320_closure)
+    return {
+        "verified": True,
+        **identities,
+        "rootfs_entry_count": verified["rootfs_entry_count"],
+        "run_id": P321_RUN_ID,
+        "source_contract_id": item["source_contract_id"],
+        "userspace_overlay_contract_id": item["userspace_overlay_contract_id"],
+    }
+
+
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
@@ -2736,6 +2895,8 @@ def validate_e2_ap_payload(
         if isinstance(closure, dict)
         else None
     )
+    if userspace_overlay_contract_id == P321_STOCK_OVERLAY_CONTRACT_ID:
+        return _validate_p321_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
         return _validate_p320_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P319_STOCK_OVERLAY_CONTRACT_ID:
@@ -3191,7 +3352,10 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             expected_keys.add("source_contract_id")
         if userspace_overlay_contract_id is not None:
             expected_keys.add("userspace_overlay_contract_id")
-        if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
+        if userspace_overlay_contract_id in {
+            P320_STOCK_OVERLAY_CONTRACT_ID,
+            P321_STOCK_OVERLAY_CONTRACT_ID,
+        }:
             expected_keys.update(
                 {"observer_contract", "causal_result_allowed", "candidate_success"}
             )
@@ -3249,9 +3413,11 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             contract["candidate_static"],
             "E1 latest-stage candidate_static",
             maximum=(
-                P320_CANDIDATE_STATIC_MAX_BYTES
+                P321_CANDIDATE_STATIC_MAX_BYTES
                 if userspace_overlay_contract_id
-                == P320_STOCK_OVERLAY_CONTRACT_ID
+                == P321_STOCK_OVERLAY_CONTRACT_ID
+                else P320_CANDIDATE_STATIC_MAX_BYTES
+                if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID
                 else
                 P319_CANDIDATE_STATIC_MAX_BYTES
                 if userspace_overlay_contract_id
@@ -3283,11 +3449,17 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                 p319_stock_adapter.validate_acceptance_item(item)
             except p319_stock_adapter.DecodeError as exc:
                 raise EvidenceError("P3.19 stock acceptance identity is invalid") from exc
-        elif userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
+        elif userspace_overlay_contract_id in {
+            P320_STOCK_OVERLAY_CONTRACT_ID,
+            P321_STOCK_OVERLAY_CONTRACT_ID,
+        }:
             try:
-                p320_stock_adapter.validate_acceptance_item(item)
-            except p320_stock_adapter.DecodeError as exc:
-                raise EvidenceError("P3.20 stock acceptance identity is invalid") from exc
+                STOCK_ADAPTERS[userspace_overlay_contract_id].validate_acceptance_item(
+                    item
+                )
+            except STOCK_ADAPTERS[userspace_overlay_contract_id].DecodeError as exc:
+                label = "P3.21" if userspace_overlay_contract_id == P321_STOCK_OVERLAY_CONTRACT_ID else "P3.20"
+                raise EvidenceError(f"{label} stock acceptance identity is invalid") from exc
         return item
     if kind == PID1_USERSPACE_KIND:
         item = _exact(
@@ -3801,6 +3973,184 @@ def _verify_same_ring_offline_contract(
 P320_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p320_process_v2_run_manifest_v1"
 P320_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p320_process_v2_static_result_v1"
 P320_STATIC_RESULT_VERDICT = "PASS_P320_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
+P321_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p321_process_v2_run_manifest_v1"
+P321_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p321_process_v2_static_result_v1"
+P321_STATIC_RESULT_VERDICT = "PASS_P321_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
+
+
+def _verify_p321_stock_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    item = validate_acceptance(acceptance)
+    if item.get("userspace_overlay_contract_id") != P321_STOCK_OVERLAY_CONTRACT_ID:
+        raise EvidenceError("P3.21 offline contract is not applicable")
+    expected_names = {"candidate_static", "run_manifest", "static_check"}
+    if set(payloads) != expected_names or set(receipts) != expected_names:
+        raise EvidenceError("P3.21 promotion artifacts are incomplete")
+    for name, payload in payloads.items():
+        pin = item["contract"][name]
+        if (
+            len(payload) != pin["size"]
+            or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+            or receipts[name].get("size") != pin["size"]
+            or receipts[name].get("sha256") != pin["sha256"]
+        ):
+            raise EvidenceError(f"P3.21 offline contract {name} changed")
+    candidate_static = _json(payloads["candidate_static"], "P3.21 candidate-static result")
+    if payloads["candidate_static"] != _canonical(candidate_static) + b"\n":
+        raise EvidenceError("P3.21 candidate-static bytes are not canonical")
+    candidate_static = _validate_p321_candidate_static(
+        candidate_static, runtime_bound=runtime_bound
+    )
+    candidate = candidate_static.get("candidate")
+    if not isinstance(candidate, dict) or not isinstance(candidate.get("a"), dict):
+        raise EvidenceError("P3.21 candidate package is incomplete")
+    candidate_ap_identity = _binary_identity(
+        {key: candidate_ap.get(key) for key in ("size", "sha256")},
+        "P3.21 candidate AP",
+    )
+    expected_member = {
+        "name": "boot.img.lz4",
+        **_binary_identity(candidate["a"].get("boot_img_lz4"), "P3.21 AP boot member"),
+    }
+    if (
+        candidate_ap_identity != candidate["a"].get("ap_tar_md5")
+        or candidate_ap.get("member") != expected_member
+        or candidate_static.get("run_id") != P321_RUN_ID
+        or candidate_ap_identity == P319_EXACT_ARTIFACTS["ap_tar_md5"]
+    ):
+        raise EvidenceError("P3.21 candidate AP binding differs")
+    static_identity = {
+        "size": len(payloads["candidate_static"]),
+        "sha256": hashlib.sha256(payloads["candidate_static"]).hexdigest(),
+    }
+    records = {
+        "long_family_hex": p321_stock_adapter.LONG_FAMILY.hex(),
+        "unsat_family_hex": p321_stock_adapter.UNSAT_FAMILY.hex(),
+        "terminal_stage": p321_stock_adapter.TERMINAL_STAGE,
+    }
+    expected_observation = {
+        "accepted_identity": "P321_STOCK_OBSERVER_V4_RETAINED",
+        "minimum_success_count": 1,
+        "clean_baseline_required": True,
+        "runtime_values_preflighted": False,
+        "complete_is_noncausal": True,
+        "incomplete_result": "NO_PROOF_EXPERIMENT_PRECONDITION",
+        "receipt_result": "NO_PROOF_OBSERVER",
+    }
+    run_manifest = _json(payloads["run_manifest"], "P3.21 run manifest")
+    expected_manifest = {
+        "schema": P321_RUN_MANIFEST_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "profile": p321_stock_adapter.PROFILE,
+        "run_id": P321_RUN_ID,
+        "decoder": p321_stock_adapter.DECODER_ID,
+        "policy_id": p321_stock_adapter.POLICY_ID,
+        "records": records,
+        "observation_contract": expected_observation,
+        "candidate_ap": candidate_ap_identity,
+        "candidate_static": static_identity,
+        "source_contract_id": p321_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P321_STOCK_OVERLAY_CONTRACT_ID,
+    }
+    if run_manifest != expected_manifest or payloads["run_manifest"] != _canonical(run_manifest):
+        raise EvidenceError("P3.21 run manifest differs from candidate-static")
+    static_result = _json(payloads["static_check"], "P3.21 static result")
+    run_payload = _canonical(run_manifest)
+    expected_static = {
+        "schema": P321_STATIC_RESULT_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "verdict": P321_STATIC_RESULT_VERDICT,
+        "profile": p321_stock_adapter.PROFILE,
+        "run_id": P321_RUN_ID,
+        "decoder": p321_stock_adapter.DECODER_ID,
+        "policy_id": p321_stock_adapter.POLICY_ID,
+        "source_contract_id": p321_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P321_STOCK_OVERLAY_CONTRACT_ID,
+        "run_binding": {
+            "canonical_manifest_size": len(run_payload),
+            "canonical_manifest_sha256": hashlib.sha256(run_payload).hexdigest(),
+            "verified": True,
+        },
+        "candidate": {
+            "artifacts": {
+                "ap": candidate_ap_identity,
+                "candidate_static": static_identity,
+                "boot_image": candidate["a"]["boot_img"],
+                "boot_img_lz4": candidate["a"]["boot_img_lz4"],
+                "image": candidate["image"],
+                "init": candidate["init"],
+                "child": candidate["child"],
+                "latch": P319_EXACT_ARTIFACTS["latch"],
+            },
+            "boot_only_ap": True,
+            "independent_static_contract": True,
+            "complete_is_noncausal": True,
+            "runtime_values_observed": False,
+            "verified": True,
+        },
+        "safety": {
+            "host_only": True,
+            "device_contact": False,
+            "device_write": False,
+            "odin_invoked": False,
+            "odin_transfer": False,
+            "flash": False,
+            "partition_write": False,
+            "live_authorized": False,
+            "causal_result_allowed": False,
+            "candidate_success": False,
+        },
+    }
+    if static_result != expected_static or payloads["static_check"] != _canonical(static_result):
+        raise EvidenceError("P3.21 static result differs")
+    source_contract = _selected_contract(
+        p321_stock_adapter.PARENT_SOURCE_CONTRACT_ID, p321_stock_adapter.PROFILE
+    )
+    try:
+        _source_payloads, candidate_source_receipts = source_contract.module.source_receipts(
+            Path(__file__).resolve().parents[5]
+        )
+    except (OSError, source_contract.module.SourceContractError) as exc:
+        raise EvidenceError("P3.21 parent source receipts are unavailable") from exc
+    lineage_sources = candidate_static.get("adapter", {}).get("lineage", {}).get("sources")
+    if not isinstance(lineage_sources, dict) or set(lineage_sources) != p321_stock_adapter.SOURCE_KEYS:
+        raise EvidenceError("P3.21 adapter source receipts are incomplete")
+    return {
+        "schema": "device_action_f1_p321_stock_offline_contract_v1",
+        "decoder": p321_stock_adapter.DECODER_ID,
+        "policy_id": p321_stock_adapter.POLICY_ID,
+        "profile": p321_stock_adapter.PROFILE,
+        "run_id": P321_RUN_ID,
+        "terminal_stage": p321_stock_adapter.TERMINAL_STAGE,
+        "candidate_ap_sha256": candidate_ap_identity["sha256"],
+        "candidate_static_sha256": static_identity["sha256"],
+        "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+        "candidate_static_authority": candidate_static["authority_source"],
+        "candidate_source_receipts": candidate_source_receipts,
+        "p321_adapter_source_receipts": {
+            name: _binary_identity(value, f"P3.21 adapter source {name}")
+            for name, value in lineage_sources.items()
+        },
+        "p321_builder_result": candidate_static["builder_result"],
+        "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+        "static_check_sha256": receipts["static_check"]["sha256"],
+        "clean_baseline_required": True,
+        "minimum_success_count": 1,
+        "source_contract_id": p321_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P321_STOCK_OVERLAY_CONTRACT_ID,
+        "ap_payload_closure": _p321_ap_payload_closure(candidate_static),
+        "runtime_values_observed": False,
+        "complete_is_noncausal": True,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+        "verified": True,
+    }
 
 
 def _verify_p320_stock_offline_contract(
@@ -4000,6 +4350,14 @@ def _verify_e1_latest_stage_offline_contract(
     profile = item["profile"]
     source_contract_id = item.get("source_contract_id")
     userspace_overlay_contract_id = item.get("userspace_overlay_contract_id")
+    if userspace_overlay_contract_id == P321_STOCK_OVERLAY_CONTRACT_ID:
+        return _verify_p321_stock_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=candidate_ap,
+            runtime_bound=runtime_bound,
+        )
     if userspace_overlay_contract_id == P320_STOCK_OVERLAY_CONTRACT_ID:
         return _verify_p320_stock_offline_contract(
             acceptance,
@@ -6831,6 +7189,8 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    if item.get("userspace_overlay_contract_id") == P321_STOCK_OVERLAY_CONTRACT_ID:
+        result["overlay_contract_id"] = P321_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P319_STOCK_OVERLAY_CONTRACT_ID:
         # Preserve the adapter's typed result boundary.  In particular,
         # ``accepted`` is not candidate proof: COMPLETE is deliberately
@@ -6854,7 +7214,10 @@ def classify_e1_latest_stage(
             if isinstance(row, dict) and "p319_stock" in row
         ]
         result["p319_stock"] = stock_rows
-    if item.get("userspace_overlay_contract_id") == P320_STOCK_OVERLAY_CONTRACT_ID:
+    if item.get("userspace_overlay_contract_id") in {
+        P320_STOCK_OVERLAY_CONTRACT_ID,
+        P321_STOCK_OVERLAY_CONTRACT_ID,
+    }:
         # Keep the P320 projection distinct from P319.  The adapter owns the
         # ABI-v4 receipt/state policy; this classifier only carries its typed
         # predicates into the existing E1 result shape.
@@ -6869,14 +7232,20 @@ def classify_e1_latest_stage(
             "stock_result_count",
         ):
             if name not in decoded:
-                raise EvidenceError(f"P3.20 stock result omitted {name}")
+                label = "P3.21" if item.get("userspace_overlay_contract_id") == P321_STOCK_OVERLAY_CONTRACT_ID else "P3.20"
+                raise EvidenceError(f"{label} stock result omitted {name}")
             result[name] = decoded[name]
+        stock_key = (
+            "p321_stock"
+            if item.get("userspace_overlay_contract_id") == P321_STOCK_OVERLAY_CONTRACT_ID
+            else "p320_stock"
+        )
         stock_rows = [
             row.get("p320_stock")
             for row in decoded.get("records", ())
             if isinstance(row, dict) and "p320_stock" in row
         ]
-        result["p320_stock"] = stock_rows
+        result[stock_key] = stock_rows
     if item.get("userspace_overlay_contract_id") in {
         P303_OVERLAY_CONTRACT_ID,
         P304_OVERLAY_CONTRACT_ID,
