@@ -279,6 +279,39 @@ class P320ObserverContractTests(unittest.TestCase):
         fields = self.run_c("module=72", record)
         self.assertEqual(bytes.fromhex(fields[8]), state.receipt())
 
+    def test_malformed_header_metadata_is_byte_identical_in_python_and_c(self) -> None:
+        records = (
+            b"6,10,25,-x;bad\n",
+            b"6,10,25,-,caller=T42;missing-terminal-newline",
+            b"6,10,25,-" + b"x" * (contract.MAX_RECORD_BYTES - 11),
+        )
+        for record in records:
+            with self.subTest(length=len(record), prefix=record[:24]):
+                state = contract.ObserverState()
+                state.set_active_module(72)
+                outcome = state.observe(record)
+                self.assertFalse(outcome.accepted)
+                fields = self.run_c("module=72", record)
+                self.assertEqual(bytes.fromhex(fields[8]), state.receipt())
+
+    def test_uint8_witness_counter_boundary_latches_before_encoder_loss(self) -> None:
+        fields = self.run_c("module=72", "count-overflow")
+        receipt = bytes.fromhex(fields[8])
+        payload = bytes.fromhex(fields[9])
+        error = contract.decode_error_receipt(receipt)
+        self.assertIsNotNone(error)
+        assert error is not None
+        self.assertEqual(error.kind, contract.ObserverErrorKind.WITNESS)
+        self.assertEqual(error.active_module_index, 72)
+        self.assertEqual(error.sequence, 10)
+        self.assertEqual(error.flag, "-")
+        self.assertEqual(int(fields[10]), 255)
+        self.assertEqual(payload[0], contract.P320_PAYLOAD_ABI)
+        self.assertEqual(
+            contract.terminal_detail_for_payload(payload),
+            contract.STOCK_DETAIL_AMBIGUOUS,
+        )
+
     def test_observer_source_has_no_early_failure_publisher(self) -> None:
         self.assertNotIn(b"p290_fail_next", contract.P320_C_OBSERVER_SOURCE.encode())
         self.assertNotIn(b"p290_fail_next", contract.P320_C_RECORD_SOURCE.encode())

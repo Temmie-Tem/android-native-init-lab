@@ -321,6 +321,12 @@ struct p320_observer_error_state {
     uint8_t active_module_valid;
     uint32_t active_module_index;
     uint8_t drain_disabled;
+    const char *current_record;
+    size_t current_record_length;
+    uint8_t current_flag;
+    uint8_t current_flag_known;
+    uint64_t current_sequence;
+    uint8_t current_sequence_known;
 };
 
 static struct p320_observer_error_state g_p320_observer = {0};
@@ -360,6 +366,43 @@ static void p320_observer_stop_current_drain(void) {
 
 static int p320_observer_drain_disabled(void) {
     return g_p320_observer.drain_disabled != 0U;
+}
+
+static void p320_observer_latch(
+        uint8_t kind, const char *record, size_t length,
+        uint8_t flag, int flag_known,
+        uint64_t sequence, int sequence_known);
+
+static void p320_observer_set_current_record(
+        const char *record, size_t length, uint8_t flag,
+        int flag_known, uint64_t sequence, int sequence_known) {
+    g_p320_observer.current_record = record;
+    g_p320_observer.current_record_length = length;
+    g_p320_observer.current_flag = flag;
+    g_p320_observer.current_flag_known = flag_known != 0;
+    g_p320_observer.current_sequence = sequence;
+    g_p320_observer.current_sequence_known = sequence_known != 0;
+}
+
+static void p320_observer_clear_current_record(void) {
+    g_p320_observer.current_record = NULL;
+    g_p320_observer.current_record_length = 0U;
+    g_p320_observer.current_flag = 0U;
+    g_p320_observer.current_flag_known = 0U;
+    g_p320_observer.current_sequence = 0U;
+    g_p320_observer.current_sequence_known = 0U;
+}
+
+static __attribute__((unused)) void p320_observer_latch_current_witness(void) {
+    p320_observer_latch(
+        P320_OBSERVER_ERROR_KIND_WITNESS,
+        g_p320_observer.current_record,
+        g_p320_observer.current_record_length,
+        g_p320_observer.current_flag,
+        g_p320_observer.current_flag_known,
+        g_p320_observer.current_sequence,
+        g_p320_observer.current_sequence_known);
+    p320_observer_stop_current_drain();
 }
 
 /*
@@ -486,13 +529,11 @@ static int p320_observer_header_hint(
         if (field == 1U) *sequence = value;
         ++cursor;
     }
-    if (cursor >= end || (*cursor != '-' && *cursor != 'c')) return 0;
+    if (cursor >= end || (*cursor != '-' && *cursor != 'c')
+        || cursor + 1U >= end
+        || (cursor[1] != ';' && cursor[1] != ',')) return 0;
     *flag = *cursor;
     return 1;
-}
-
-static int p320_observer_is_known_flag(char flag) {
-    return flag == '-' || flag == 'c';
 }
 
 /*
@@ -510,14 +551,12 @@ static long p320_observer_record_continue(
         char hint_flag = 0;
         int hint_known = p320_observer_header_hint(
             record, length, &hint_sequence, &hint_flag);
-        int view_known = p320_observer_is_known_flag(view.flag);
-        int known = hint_known || view_known;
+        if (kind == P320_OBSERVER_ERROR_KIND_BODY && !hint_known)
+            kind = P320_OBSERVER_ERROR_KIND_HEADER;
         p320_observer_latch(
             kind, record, length,
-            hint_known ? hint_flag : view.flag,
-            known,
-            hint_known ? hint_sequence : view.sequence,
-            known);
+            hint_flag, hint_known,
+            hint_sequence, hint_known);
         return 0L;
     }
     if (g_p320_observer.sequence_seen
@@ -530,13 +569,17 @@ static long p320_observer_record_continue(
     }
     g_p320_observer.sequence_seen = 1U;
     g_p320_observer.previous_sequence = view.sequence;
+    p320_observer_set_current_record(
+        record, length, view.flag, 1, view.sequence, 1);
     rc = p319_witness_observe_v2(view.message, view.message_length);
+    p320_observer_clear_current_record();
     if (rc != 0L) {
         p320_observer_latch(
             P320_OBSERVER_ERROR_KIND_WITNESS, record, length,
             view.flag, 1, view.sequence, 1);
         return 0L;
     }
+    if (p320_observer_drain_disabled()) return 0L;
     return 0L;
 }
 
@@ -686,6 +729,22 @@ static long p303_kmsg_record(const char *record, size_t length) {
     if (g_p303_kmsg.readback_count == 0U)
         g_p303_kmsg.first_offset = parsed_offset;
     ++g_p303_kmsg.readback_count;
+    return 0L;
+}
+'''
+
+
+P320_C_COUNT_SOURCE = r'''
+/* The stock encoder carries these six p319_count-backed fields as uint8. */
+static long p319_count(uint32_t *value) {
+    if (value == NULL || *value == UINT32_MAX)
+        return -P319_DETAIL_WITNESS_COUNTER_OVERFLOW;
+    if (*value >= UINT8_MAX) {
+        *value = UINT8_MAX;
+        p320_observer_latch_current_witness();
+        return 0L;
+    }
+    ++*value;
     return 0L;
 }
 '''
@@ -1452,6 +1511,16 @@ def compose_runtime(runtime: bytes | None = None) -> bytes:
         P320_C_RECORD_SOURCE.encode("ascii"),
         "P3.20 record transform",
     )
+    count_call = b"p319_count(&g_p319_witness."
+    if composed.count(count_call) != 6:
+        raise ContractError("P3.20 byte-counter seam count differs")
+    old_count = _extract_c_function(composed, b"p319_count")
+    composed = _replace_once(
+        composed,
+        old_count,
+        P320_C_COUNT_SOURCE.encode("ascii"),
+        "P3.20 byte-counter transform",
+    )
     for name, replacement, label in (
         (b"p303_kmsg_begin", P320_C_BEGIN_SOURCE, "P3.20 begin transform"),
         (b"p303_kmsg_drain", P320_C_DRAIN_SOURCE, "P3.20 drain transform"),
@@ -1556,8 +1625,10 @@ def host_fixture_source() -> bytes:
 #include <stdlib.h>
 static long g_fixture_witness_rc;
 static unsigned int g_fixture_witness_calls;
+static uint32_t g_fixture_counter;
 static unsigned char g_fixture_last_message[4096];
 static size_t g_fixture_last_message_length;
+#define P319_DETAIL_WITNESS_COUNTER_OVERFLOW 0x6021L
 static long p319_witness_observe_v2(const char *message, size_t length) {
     ++g_fixture_witness_calls;
     if (length > sizeof(g_fixture_last_message)) return -77L;
@@ -1625,6 +1696,16 @@ int main(int argc, char **argv) {
             if (end == argv[index] + 8 || *end != '\0') return 11;
             continue;
         }
+        if (strcmp(argv[index], "count-overflow") == 0) {
+            static const char sample[] = "6,10,25,-;count-overflow\n";
+            p320_observer_set_current_record(
+                sample, sizeof(sample) - 1U, '-', 1, 10U, 1);
+            for (unsigned int count = 0U; count < 256U; ++count) {
+                if (p319_count(&g_fixture_counter) != 0L) return 16;
+            }
+            p320_observer_clear_current_record();
+            continue;
+        }
         size_t length = fixture_decode(argv[index], record, sizeof(record));
         if (length == 0U && argv[index][0] != '\0') return 12;
         (void)p320_observer_record_continue((const char *)record, length);
@@ -1640,7 +1721,7 @@ int main(int argc, char **argv) {
     fixture_print_hex(payload, sizeof(payload));
     printf(" ");
     fixture_print_hex(g_fixture_last_message, g_fixture_last_message_length);
-    printf("\n");
+    printf(" %u\n", g_fixture_counter);
     return 0;
 }
 '''.encode("ascii")
@@ -1651,6 +1732,8 @@ int main(int argc, char **argv) {
         + wiring
         + b"\n"
         + P320_C_OBSERVER_SOURCE.encode("ascii")
+        + b"\n"
+        + P320_C_COUNT_SOURCE.encode("ascii")
         + suffix
     )
 
@@ -2171,6 +2254,7 @@ __all__ = [
     "P320_C_OBSERVER_ERROR_SOURCE",
     "P320_C_RECORD_SOURCE",
     "P320_C_RECORD_TRANSFORM_SOURCE",
+    "P320_C_COUNT_SOURCE",
     "P320_C_BEGIN_SOURCE",
     "P320_C_DRAIN_SOURCE",
     "P320_C_FINISH_SOURCE",
