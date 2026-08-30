@@ -11,16 +11,17 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.19 is the current closed live unit. Candidate and exact rollback transferred once;
-the 19-record journal is `CLOSED`, final rooted FYG8 health passed, and
-`recovery_required=false`. Formal terminal remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`
-with observer proof `NO_PROOF_OBSERVER`; the consumed candidate is never replayable. Two
-final 2,097,136-byte reads are byte-identical. Additive H0 reconstruction proves two
-CRC-valid bodies but one legacy semantic-out-of-domain failure `0x6020`; control-flow
-localization after row 1 remains `SUPPORTED`, `smem.ko` execution remains `UNKNOWN`, and
-no USB/MUX/DWC3/UDC result follows. The sidecar missed boot-ready, so its host axis is
-`UNKNOWN`. Current decoder and Python/C kmsg envelope are H0 prototypes, not a candidate.
-Report: `docs/reports/S22PLUS_FYG8_USB_COMPREHENSIVE_INVESTIGATION_AUDIT_H0_2026-08-30.md`.
+P3.20 is the current prepared unit. Its distinct observer-integrated boot-only candidate,
+rollback, ready bundle, and fresh approval binding reopen successfully.
+D1 ordinal 1 stopped after arm on an initial Recovery-state inventory with no reboot and
+is never replayable. Fresh ordinal 2 completed one normal reboot, same-target/topology
+return, changed boot ID, and healthy rooted FYG8 Android. Its dependent raw-first D0 read
+classified the pre-candidate P3.20 record baseline `ZERO_AMBIGUOUS` with
+`baseline_clean=true`, `candidate_success=false`, and `causal_result_allowed=false`.
+Process-v2 run `p320-ready1-prepared-20260830-1` is prepared with no transaction, F1
+session, transfer intent, or live result; `f1_authorized=false` and `live_authorized=false`.
+Stop before `--execute`. P3.19 remains closed, rolled back, no-proof, consumed, and never
+replayable. Report: `docs/reports/S22PLUS_FYG8_P320_PREF1_PREPARED_2026-08-30.md`.
 
 P3.18 is the preceding closed live unit. Its finalizer advanced the journal from 15 to
 19 records at `CLOSED`; exact transfers remain 1/1 and `recovery_required=false`. H0
