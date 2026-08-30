@@ -41,10 +41,11 @@ P319_ENVELOPE = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_
 P320_OBSERVER = ROOT / "workspace/public/src/scripts/analysis/s22plus_fyg8_p320_observer_contract.py"
 O2_LOADER_CORE = ROOT / "workspace/public/src/native-init/s22plus_o2_loader_core.h"
 
-DEFAULT_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-03"
+DEFAULT_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-04"
 HISTORICAL_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-01"
 FAILED_ATTEMPT_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-02"
-SCHEMA = "s22plus-fyg8-p320-stock-candidate-build-v2"
+REVIEW_BLOCKED_OUTPUT_ROOT = ROOT / "workspace/private/outputs/s22plus_fyg8_p320/stock-candidate-build-v1-20260830-03"
+SCHEMA = "s22plus-fyg8-p320-stock-candidate-build-v3"
 VERDICT = "PASS_P320_STOCK_CANDIDATE_BUILD_H0_OBSERVER_INTEGRATED"
 STATUS = "IMPLEMENTED_H0_OBSERVER_INTEGRATED_REVIEW_PENDING"
 TARGET = {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"}
@@ -104,10 +105,10 @@ P319_ENVELOPE_IDENTITY = {
     "size": 6_367,
     "sha256": "a0f6f9d1dffd85cc5e6beaa838a8f57e229b54c50a7e169c7f91dfe86a074c24",
 }
-P320_OBSERVER_COMMIT = "1591df347f0173b5063bb355f0b683fe958a4467"
+P320_OBSERVER_COMMIT = "8348fc00855be01eb50c9da3103d75d5126e84ea"
 P320_OBSERVER_SOURCE_IDENTITY = {
-    "size": 78_508,
-    "sha256": "0ee66eb9ea774b54eb390d6eb869baa72587c812c830f98a040d89037ab6c395",
+    "size": 81_705,
+    "sha256": "7b1330ad28712474d5c3ea0f2d4f7649c4d4da94ad7ff1cff705a3b14681cf72",
 }
 P319_STOCK_BUILDER_IDENTITY = {
     "size": 114_260,
@@ -421,7 +422,12 @@ def transform_runtime(
         raise AuditError("P320 observer runtime was not transformed")
     observer_c = observer.P320_C_OBSERVER_SOURCE.encode("ascii")
     record_c = observer.P320_C_RECORD_SOURCE.encode("ascii")
-    if observer_c not in transformed or record_c not in transformed:
+    count_c = observer.P320_C_COUNT_SOURCE.encode("ascii")
+    if (
+        observer_c not in transformed
+        or record_c not in transformed
+        or count_c not in transformed
+    ):
         raise AuditError("P320 observer C composition is incomplete")
     if b"p320_observer_finalize_stock_payload_v4(payload)" not in transformed:
         raise AuditError("P320 ABI-v4 payload finalizer is absent")
@@ -443,6 +449,7 @@ def transform_runtime(
             "p303_kmsg_drain",
             "p303_kmsg_finish",
             "p319_note_successful_module",
+            "p319_count_uint8_boundary",
             "stock_payload_abi4",
             "stock_payload_v4_finalizer",
         ],
@@ -659,6 +666,7 @@ def _make_result(
         "limitations": [
             "P320 observer failures are fail-soft: the first typed error is retained in the ABI-v4 15-byte receipt and the stock chain closes as AMBIGUOUS using existing detail 0x6726.",
             "The P320 observer path does not emit legacy 0x6020, 0x6021, or 0x6022; full raw records remain recoverable only from the mandatory /proc/last_kmsg retention.",
+            "Each uint8-backed witness counter stops at 255; the next matching record latches a typed WITNESS receipt and disables further draining instead of escaping the ABI-v4 encoder.",
             "This H0 unit does not create approval, D0/D1/F1/recovery/replay authority.",
             "The P320 envelope accepts ABI-valid dictionary/header-extension shapes, but c records are observed independently without fragment reassembly; no USB, MUX, or causal result is claimed.",
             "No runtime USB, host attach, or physical MUX claim is made by this package.",
@@ -671,6 +679,7 @@ def _make_result(
             "observer_error_kind_namespace": "P320_OBSERVER_ERROR_KIND",
             "exact_rollback_untouched": True,
             "historical_p320_prototype_preserved": True,
+            "review_blocked_p320_minus_03_preserved": True,
         },
     }
 

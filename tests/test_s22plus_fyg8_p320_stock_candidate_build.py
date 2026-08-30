@@ -34,10 +34,10 @@ class P320StockCandidateBuildTests(unittest.TestCase):
             cls.result = cls.module.build_result(cls.output)
 
     def test_result_is_h0_observer_integrated_and_run_id_is_new(self) -> None:
-        self.assertEqual(self.result["schema"], "s22plus-fyg8-p320-stock-candidate-build-v2")
+        self.assertEqual(self.result["schema"], "s22plus-fyg8-p320-stock-candidate-build-v3")
         self.assertEqual(self.result["verdict"], "PASS_P320_STOCK_CANDIDATE_BUILD_H0_OBSERVER_INTEGRATED")
         self.assertEqual(self.result["status"], "IMPLEMENTED_H0_OBSERVER_INTEGRATED_REVIEW_PENDING")
-        self.assertTrue(self.module.DEFAULT_OUTPUT_ROOT.name.endswith("-03"))
+        self.assertTrue(self.module.DEFAULT_OUTPUT_ROOT.name.endswith("-04"))
         self.assertEqual(self.result["run_id_hex"], self.module.P320_RUN_ID.hex())
         self.assertNotEqual(self.result["run_id_hex"], self.module.P319_RUN_ID.hex())
         self.assertFalse(self.result["scope"]["device_contact"])
@@ -100,6 +100,9 @@ class P320StockCandidateBuildTests(unittest.TestCase):
         self.assertTrue(transform["observer_failure_fail_soft"])
         self.assertTrue(transform["final_ambiguous_on_observer_error"])
         self.assertTrue(transform["new_observer_error_kind_namespace"])
+        self.assertIn(
+            "p319_count_uint8_boundary", transform["declared_runtime_seams"]
+        )
         self.assertFalse(transform["existing_p319_detail_namespace_reused"])
         self.assertTrue(transform["existing_stock_terminal_detail_reused"])
         self.assertFalse(transform["fail_closed_on_envelope_error"])
@@ -119,6 +122,8 @@ class P320StockCandidateBuildTests(unittest.TestCase):
         self.assertNotIn(b"P320_DETAIL_", runtime)
         self.assertNotIn(b"P320_CARRIER_", runtime)
         self.assertNotIn(b"return P319_DETAIL_WITNESS_BOUNDARY;", runtime)
+        self.assertIn(b"*value >= UINT8_MAX", runtime)
+        self.assertIn(b"p320_observer_latch_current_witness();", runtime)
         wrapper = (self.output / "stock-sources" / self.module.RUNTIME_NAME).read_bytes()
         self.assertEqual(
             wrapper,
@@ -226,15 +231,19 @@ class P320StockCandidateBuildTests(unittest.TestCase):
         self.assertTrue(self.result["preservation"]["exact_rollback_untouched"])
         self.assertFalse(self.result["preservation"]["new_p320_carrier_or_detail_abi"])
 
-    def test_failed_minus_02_attempt_and_historical_minus_01_are_preserved(self) -> None:
+    def test_predecessor_outputs_are_preserved(self) -> None:
         failed = self.module.FAILED_ATTEMPT_OUTPUT_ROOT
         historical = self.module.HISTORICAL_OUTPUT_ROOT
+        review_blocked = self.module.REVIEW_BLOCKED_OUTPUT_ROOT
         self.assertTrue(failed.is_dir())
         self.assertFalse((failed / "result.json").exists())
         self.assertTrue(historical.is_dir())
         self.assertTrue((historical / "result.json").is_file())
+        self.assertTrue(review_blocked.is_dir())
+        self.assertTrue((review_blocked / "result.json").is_file())
         self.assertNotEqual(failed, self.output)
         self.assertNotEqual(historical, self.output)
+        self.assertNotEqual(review_blocked, self.output)
 
     def test_runtime_transform_has_composable_post_envelope_seam(self) -> None:
         self.assertEqual(
