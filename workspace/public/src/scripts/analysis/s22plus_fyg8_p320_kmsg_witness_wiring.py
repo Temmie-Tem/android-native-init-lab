@@ -2,11 +2,12 @@
 """Host-only P3.20 kmsg-envelope to P3.19-witness wiring fixture.
 
 The P3.19 candidate is consumed evidence.  This successor reads the exact
-retained materialized runtime, extracts its existing witness parser without
-editing it, and defines the smallest seam needed to pass the envelope's human
-message to that parser.  Header extensions, dictionary lines, and the ``c``
-flag are envelope metadata; this module deliberately keeps no fragment
-reassembly state and grants no candidate or device authority.
+retained stock-candidate runtime, extracts its existing v2 witness parser
+without editing it, and defines the smallest seam needed to pass the
+envelope's human message to that parser.  Header extensions, dictionary
+lines, and the ``c`` flag are envelope metadata; this module deliberately
+keeps no fragment reassembly state and grants no candidate or device
+authority.
 """
 
 from __future__ import annotations
@@ -20,17 +21,18 @@ ROOT = Path(__file__).resolve().parents[5]
 ENVELOPE_SCRIPT = Path(__file__).with_name("s22plus_fyg8_p319_kmsg_record_envelope.py")
 RETAINED_RUNTIME = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "successor-witness-parser-v2-20260820-14/materialized-sources/"
+    "stock-witness-runtime-v1-20260821-25/stock-sources/"
     "s22plus_fyg8_p290_e3_runtime.inc.c"
 )
 
-RETAINED_RUNTIME_SIZE = 417_236
+RETAINED_RUNTIME_SIZE = 435_446
 RETAINED_RUNTIME_SHA256 = (
-    "267657cb8b9e06e455f25e47c0fbe73f65c11e9a295141ee2261f45b7c8b2642"
+    "4cf48cc790881bebc0b27facf9919e7b81e892b54dcf10c8e03c7b4e77c5c198"
 )
-P319_PARSER_ABI_VERSION = 1
-P319_PARSER_START = b"#define P319_WITNESS_ABI_VERSION"
+P319_PARSER_ABI_VERSION = 2
+P319_PARSER_START = b"#define S22PLUS_MAX77705_P319_STOCK_STATUS_WIDTH"
 P319_RECORD_START = b"static long p303_kmsg_record"
+P319_PARSER_ENTRY = b"p319_witness_observe_v2"
 
 
 class WiringError(ValueError):
@@ -65,16 +67,16 @@ P320_C_SOURCE = _ENVELOPE.P320_C_SOURCE
 
 P320_C_WIRING_SOURCE = r'''
 /*
- * P3.20 H0 seam: envelope parsing owns the record boundary.  The retained
- * P3.19 parser receives exactly view.message/view.message_length.  No header,
- * dictionary line, or fragment accumulator is passed across this seam.
+ * P3.20 H0 seam: envelope parsing owns the record boundary.  The consumed
+ * P3.19 v2 parser receives exactly view.message/view.message_length.  No
+ * header, dictionary line, or fragment accumulator is passed across it.
  */
-static long p320_kmsg_witness_observe_v1(
+static long p320_kmsg_witness_observe_v2(
     const char *record, size_t length) {
     struct p320_kmsg_record_view view = {0};
     long rc = p320_kmsg_record_envelope(record, length, &view);
     if (rc != 0) return rc;
-    return p319_witness_observe_v1(view.message, view.message_length);
+    return p319_witness_observe_v2(view.message, view.message_length);
 }
 '''
 
@@ -84,7 +86,7 @@ def _sha256(payload: bytes) -> str:
 
 
 def load_retained_runtime(path: Path = RETAINED_RUNTIME) -> bytes:
-    """Read the exact retained P3.19 runtime with a no-mutation identity check."""
+    """Read the exact consumed P3.19 stock runtime with an identity check."""
     direct = path.absolute()
     try:
         before = direct.lstat()
@@ -92,7 +94,7 @@ def load_retained_runtime(path: Path = RETAINED_RUNTIME) -> bytes:
         payload = direct.read_bytes()
         after = direct.lstat()
     except OSError as exc:
-        raise WiringError("retained P3.19 materialized runtime is unavailable") from exc
+        raise WiringError("retained P3.19 stock runtime is unavailable") from exc
     if (
         direct != resolved
         or not direct.is_file()
@@ -105,12 +107,12 @@ def load_retained_runtime(path: Path = RETAINED_RUNTIME) -> bytes:
         or before.st_mtime_ns != after.st_mtime_ns
         or before.st_ctime_ns != after.st_ctime_ns
     ):
-        raise WiringError("retained P3.19 materialized runtime identity differs")
+        raise WiringError("retained P3.19 stock runtime identity differs")
     return payload
 
 
 def extract_retained_parser(runtime: bytes | None = None) -> bytes:
-    """Extract the existing P3.19 parser bytes, without transforming them."""
+    """Extract the consumed candidate's existing P3.19 v2 parser bytes."""
     source = load_retained_runtime() if runtime is None else runtime
     start = source.find(P319_PARSER_START)
     end = source.find(P319_RECORD_START, start)
@@ -118,7 +120,7 @@ def extract_retained_parser(runtime: bytes | None = None) -> bytes:
         raise WiringError("retained P3.19 parser boundaries are absent")
     parser = source[start:end]
     marker = f"#define P319_WITNESS_ABI_VERSION {P319_PARSER_ABI_VERSION}U".encode("ascii")
-    if parser.count(marker) != 1:
+    if parser.count(marker) != 1 or parser.count(P319_PARSER_ENTRY) < 1:
         raise WiringError("retained P3.19 parser ABI differs")
     return parser
 

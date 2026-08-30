@@ -41,7 +41,7 @@ class P320KmsgWitnessWiringTests(unittest.TestCase):
 
 int main(int argc, char **argv) {
     for (int index = 1; index < argc; ++index) {
-        long rc = p320_kmsg_witness_observe_v1(argv[index], strlen(argv[index]));
+        long rc = p320_kmsg_witness_observe_v2(argv[index], strlen(argv[index]));
         if (rc != 0) {
             printf("ERR %ld\n", rc);
             return 2;
@@ -127,13 +127,13 @@ int main(int argc, char **argv) {
         runtime = self.module.load_retained_runtime()
         self.assertEqual(len(runtime), self.module.RETAINED_RUNTIME_SIZE)
         parser = self.module.extract_retained_parser(runtime)
-        self.assertIn(b"#define P319_WITNESS_ABI_VERSION 1U", parser)
-        self.assertIn(b"static long p319_witness_observe_v1", parser)
-        self.assertLess(parser.find(b"p319_witness_observe_v1"), len(parser))
+        self.assertIn(b"#define P319_WITNESS_ABI_VERSION 2U", parser)
+        self.assertIn(b"static long p319_witness_observe_v2", parser)
+        self.assertLess(parser.find(b"p319_witness_observe_v2"), len(parser))
         with self.assertRaises(self.module.WiringError):
             self.module.extract_retained_parser(runtime.replace(
-                b"#define P319_WITNESS_ABI_VERSION 1U",
                 b"#define P319_WITNESS_ABI_VERSION 2U",
+                b"#define P319_WITNESS_ABI_VERSION 1U",
                 1,
             ))
 
@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
     def test_c_wiring_source_has_one_way_message_seam(self) -> None:
         source = self.module.P320_C_WIRING_SOURCE
         self.assertEqual(source.count("p320_kmsg_record_envelope"), 1)
-        self.assertEqual(source.count("p319_witness_observe_v1"), 1)
+        self.assertEqual(source.count("p319_witness_observe_v2"), 1)
         self.assertIn("view.message, view.message_length", source)
         self.assertNotIn("view.dictionary", source)
         self.assertNotIn("dictionary_lines", source)
