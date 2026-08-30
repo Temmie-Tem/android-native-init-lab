@@ -321,13 +321,16 @@ class P319ProcessV2ReadyTest(unittest.TestCase):
             "126,133 bytes / `dc9380a73e61e6f9",
             "35,307 bytes / `37654942055d063a",
             "2,432 bytes / `e84e81837c010e4c",
-            "P319_PREPARED_RUNTIME_BOUND_REPAIR_IMPLEMENTED_REVIEW_PENDING",
+            "PASS_GO_P319_PREPARED_RUNTIME_BOUND_REPAIR_H0_CAPABILITY_V1",
             "grants no D0, D1, F1",
         ):
             self.assertIn(token, report)
         self.assertIn("`ready-for-f1-approval`", goal)
         self.assertIn("h0-process-v2-prepared-runtime-bound-repair-53", ledger)
-        self.assertIn("76/58/18 across 426 rows", ledger)
+        self.assertIn(
+            "h0-process-v2-prepared-runtime-bound-repair-review-53", ledger
+        )
+        self.assertIn("76/59/17 across 427 rows", ledger)
 
     def test_temporary_outputs_are_private_and_no_clobber(self):
         for path in self.promotion_root.iterdir():
