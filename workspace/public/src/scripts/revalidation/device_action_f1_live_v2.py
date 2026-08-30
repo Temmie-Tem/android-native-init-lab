@@ -795,6 +795,21 @@ def _p300_revalidate_group_before_kill(
     return remaining
 
 
+def _p300_validate_expected_group_absent(token: str, group: int) -> None:
+    """Confirm an expected PGID has no live member after owner disappearance."""
+    group_members = _p300_group_members({group})
+    if not group_members:
+        return
+    sessions = {value["session_id"] for value in group_members}
+    if sessions != {group}:
+        raise F1LiveError("P3.00 observer process group changed during cleanup")
+    if any(not _proc_has_owner(value["pid"], token) for value in group_members):
+        raise F1LiveError("P3.00 observer process group has a foreign member")
+    # An owned live member that was not returned by _p300_owned_processes is
+    # an inconsistent observation.  Do not claim group absence or signal it.
+    raise F1LiveError("P3.00 observer process group changed during cleanup")
+
+
 def _p300_cleanup_owned_processes(
     binding: dict[str, Any], *, expected_group: int | None = None
 ) -> dict[str, Any]:
@@ -803,6 +818,8 @@ def _p300_cleanup_owned_processes(
     members = _p300_owned_processes(token)
     initial_count = len(members)
     signals: list[str] = []
+    if not members and expected_group is not None:
+        _p300_validate_expected_group_absent(token, expected_group)
     if members:
         groups = {value["process_group_id"] for value in members}
         sessions = {value["session_id"] for value in members}

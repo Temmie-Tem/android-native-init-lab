@@ -587,6 +587,48 @@ class P300SidecarLifecycleTest(unittest.TestCase):
         process.communicate.assert_called_once_with(timeout=30)
         session._unknown.assert_called_once()
 
+    def test_empty_owned_set_with_expected_pgid_900_rejects_foreign_member(self):
+        foreign = {
+            "pid": 901,
+            "process_group_id": 900,
+            "session_id": 900,
+            "state": "S",
+        }
+        with (
+            mock.patch.object(
+                self.module, "_p300_owner_token", return_value="owner-token"
+            ),
+            mock.patch.object(
+                self.module, "_p300_owner_sha256", return_value="digest"
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_owned_processes",
+                return_value=[],
+            ),
+            mock.patch.object(
+                self.module,
+                "_p300_group_members",
+                return_value=[foreign],
+            ),
+            mock.patch.object(
+                self.module,
+                "_proc_has_owner",
+                return_value=False,
+            ),
+            mock.patch.object(self.module.os, "kill") as kill,
+            mock.patch.object(self.module.os, "killpg") as killpg,
+        ):
+            with self.assertRaisesRegex(
+                self.module.F1LiveError, "foreign member"
+            ):
+                self.module._p300_cleanup_owned_processes(
+                    {}, expected_group=900
+                )
+
+        kill.assert_not_called()
+        killpg.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
