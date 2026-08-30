@@ -465,6 +465,23 @@ static int auto_hud_stop_demo_audio(const char *demo_name, const char *phase) {
                        rc);
     return rc;
 }
+
+static void auto_hud_draw_demo_transition(const char *title,
+                                          const char *detail,
+                                          uint32_t detail_color) {
+    struct a90_fb *fb;
+
+    if (a90_kms_begin_frame(0x000000) < 0) {
+        return;
+    }
+    fb = a90_kms_framebuffer();
+    if (fb == NULL) {
+        return;
+    }
+    video_draw_label(fb, title, "A90 NATIVE DEMO");
+    a90_draw_text_fit(fb, 48U, 180U, detail, detail_color, 4U, fb->width - 96U);
+    (void)a90_kms_present("demo-transition", false);
+}
 #endif
 
 static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
@@ -557,6 +574,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             auto_hud_enter_app(state, SCREEN_APP_CUTOUT_CAL);
             break;
         case SCREEN_MENU_DEMO_BADAPPLE: {
+            char audio_pid_text[24];
             char *audio_argv[] = {
                 "audio", "play", "internal-speaker-safe",
                 "--mode", "listen",
@@ -572,11 +590,14 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 "--present", "setcrtc",
                 "--layout", "player-hud",
                 "--sync-audio-status", "/cache/a90-audio-play/status.txt",
-                "--sync-wait-ms", "60000",
+                "--sync-audio-pid", audio_pid_text,
+                "--sync-wait-ms", "10000",
                 "--sync-start-offset-ms", "450",
             };
+            pid_t audio_pid = -1;
             int audio_rc;
             int pre_stop_rc;
+            int post_stop_rc;
             int rc;
 
             a90_console_printf("menu.demo.badapple.action=play-av-fullsong\r\n");
@@ -601,6 +622,10 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             state->menu_active = false;
             a90_controller_set_menu_active(false);
             a90_controller_clear_menu_request();
+            auto_hud_draw_demo_transition(
+                "DEMO / BAD APPLE", "STARTING - PRESS ANY HARDWARE KEY TO CANCEL", 0x66ddff
+            );
+            a90_input_close(ctx);
             pre_stop_rc = auto_hud_stop_demo_audio("badapple", "pre");
             a90_console_printf("menu.demo.badapple.audio_pre_stop_best_effort=1\r\n");
             a90_console_printf("menu.demo.badapple.audio_pre_stop_rc=%d\r\n", pre_stop_rc);
@@ -608,13 +633,39 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                                      (int)(sizeof(audio_argv) / sizeof(audio_argv[0])));
             a90_console_printf("menu.demo.badapple.audio_rc=%d\r\n", audio_rc);
             if (audio_rc == 0) {
-                rc = cmd_video_demo(demo_argv,
-                                    (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+                audio_pid = a90_audio_current_worker_pid();
+                a90_console_printf("menu.demo.badapple.audio_worker_pid=%ld\r\n",
+                                   (long)audio_pid);
+                if (audio_pid <= 1) {
+                    rc = -ECHILD;
+                    a90_console_printf("menu.demo.badapple.video_skipped=audio-worker-unbound\r\n");
+                } else {
+                    snprintf(audio_pid_text, sizeof(audio_pid_text), "%ld", (long)audio_pid);
+                    rc = cmd_video_demo(demo_argv,
+                                        (int)(sizeof(demo_argv) / sizeof(demo_argv[0])));
+                }
             } else {
                 rc = audio_rc;
                 a90_console_printf("menu.demo.badapple.video_skipped=audio-start-failed\r\n");
             }
+            post_stop_rc = auto_hud_stop_demo_audio("badapple", "post");
+            a90_console_printf("menu.demo.badapple.audio_post_stop_rc=%d\r\n", post_stop_rc);
+            if (rc == 0 && post_stop_rc < 0) {
+                rc = post_stop_rc;
+            }
             a90_console_printf("menu.demo.badapple.rc=%d\r\n", rc);
+            if (rc < 0) {
+                char detail[96];
+
+                snprintf(detail, sizeof(detail), "FAILED RC=%d - RETURNING TO MENU", rc);
+                auto_hud_draw_demo_transition("DEMO / BAD APPLE", detail, 0xff6666);
+                usleep(750000);
+            }
+            if (a90_input_open(ctx, "autohud") < 0) {
+                a90_console_printf("menu.demo.badapple.input_reopen_failed=1 errno=%d\r\n", errno);
+                return false;
+            }
+            a90_console_printf("menu.demo.badapple.input_reopened=1\r\n");
             auto_hud_show_menu(state, false);
             break;
         }

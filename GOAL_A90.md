@@ -23,28 +23,18 @@ the separately registered S20+ goal and every future target row.
 
 ## Exact Current State
 
-- The current proved resident is native V2321
-  `0.9.285 / v2321-usb-clean-identity-rodata`. A reviewed H32-only continuation
-  sent one menu `hide`, then re-observed exact healthy V2321 over ACM.
-- H28-H31 are consumed and never replayed. H31 transferred zero candidate and
-  rollback bytes; its reviewed pre-transfer reconciler proved exact healthy
-  V2321, released only the active guard, and retained the H31 candidate guard.
-- H32 is consumed: `0.11.199 / phase3-minimal-h32-stock-rebuild-1007-cfp`,
-  58,372,096 bytes, SHA-256 `e56cb1201d63e26f275de10d6a4eb6a1686f6021b6613aa4dde1374930dd299d`.
-  Candidate and rollback writes were zero, but its approval/ordinal cannot
-  replay. Its stale qualification is frozen in
-  `docs/reports/A90_H32_MINIMAL_F1_QUALIFICATION_SUPERSEDED_2026-08-22.md`;
-  the H32-only continuation released the active guard, retained the consumed
-  candidate guard, and closed `PRETRANSFER_ABORTED_NO_BOOT_WRITE`.
-- H29–H34 are consumed and cannot be replayed. One attended H34 F1 wrote and
-  read back exact `0.11.201 / phase3-minimal-h34-stock-rebuild-1007-cfp`
-  boot bytes and confirmed its sole System-return request, but proved no H34
-  Native health before recovery. Exact V2321 rollback bytes were then written
-  and read back; its sole System-return request was uncertain. Terminal state
-  is `RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED`; current V2321 health is
-  unproved and neither image may replay. Host analysis localized H34 to missing
-  `rtic_mp` plus a stale RTIC DTB; the repaired public producer now emits exact
-  offsets `88/1704/1728/2144` and structural RTIC `PASS`.
+- The last proved resident before H40 was native V2321
+  `0.9.285 / v2321-usb-clean-identity-rodata`. After the consumed H37 run-02
+  rollback wrote and read back exact V2321 once, the operator-reported physical
+  System return was followed by a reviewed one-shot ACM health continuation.
+  Its first read exposed the active menu; one exact `hide` request was accepted,
+  and a separately reviewed no-hide continuation then proved same-boot V2321,
+  `selftest fail=0`, healthy status, and unchanged sole-A90 USB inventory. The
+  active guard is released and the H37 candidate guard remains consumed.
+- H28-H34 are consumed and never replayed. H31/H32 transferred no boot bytes
+  and their reviewed continuations retained their candidate guards. H34's
+  rollback provenance remains unproved; its RTIC diagnosis and exact boundaries
+  remain in the named incident reports and campaign ledger.
 - H35 is consumed and never replayed: `0.11.202 / phase3-minimal-h35-public-mpgen-rtic-canary`,
   58,372,096 bytes, SHA-256 `5e2a44420195090e75f63e350cacdbcad88710e77cef9bcf29a6d3ee6f4ad759`.
   Its helper verified exact bytes; the sole recovery request was uncertain. The receipt
@@ -53,7 +43,48 @@ the separately registered S20+ goal and every future target row.
   read back; the current postrollback finalizer then proved healthy V2321,
   released the active guard, and retained the consumed H35 candidate guard.
   See `A90_H35_NATIVE_RECOVERY_COMMAND_PREWRITE_FAILURE_2026-08-23.md`. The H0 host repairs are independently `PASS_GO`-reviewed;
-  this qualifies only the reusable capability. No H36 identity or authority exists.
+  this qualifies only the reusable capability. H36 is retired `NO_GO` without
+  device contact. H37 run-02 is consumed and never replays. Its exact candidate
+  boot write/readback/System return and the operator's Bad Apple audio/video
+  observation do not turn the run into a formal resident-health PASS; its
+  separately proved terminal device state is restored healthy V2321.
+- H38 is consumed and never replays. Run-02 wrote/read back exact H38 and
+  confirmed its System return, but the general observer hit the active menu.
+  The operator then selected Bad Apple once: the menu stayed responsive, but
+  audio refused because `/vendor/firmware_mnt/image` and `/dev/snd` were absent,
+  and video correctly skipped after `audio_rc=-2`. This is an observed H38
+  playback failure, not a successful demo. Exact V2321 was subsequently written
+  and read back once; after the operator-reported physical System return, the
+  reviewed same-boot finalizer proved healthy V2321, released the active guard,
+  and retained the consumed H38 candidate guard.
+- H39 run-01 is consumed and never replays. It wrote/read back exact H39 and
+  confirmed System return. The physical Bad Apple action was observed twice;
+  both attempts found the exact cached video but timed out at 60.02 seconds
+  before audio sync became ready, so H39 playback is not proved. The original
+  rollback helper stopped at its sole Native Recovery request before ADB push,
+  boot write, or readback. A separately reviewed continuation then wrote/read
+  back exact V2321 once and confirmed System return; helper-internal V2321
+  selftest passed. Its separate health observer bound V2321/ACM but the first
+  boot-ID producer stopped on the active menu. The next reviewed finalizer sent
+  one `hide`; V2321 accepted the request but returned the known diagnostic
+  `[busy]` prefix, so its strict observer stopped before health reads. A
+  separately reviewed no-hide continuation then proved equal boot IDs, exact
+  V2321 version/build, `selftest fail=0`, healthy status, and unchanged sole-A90
+  inventory. Final sidecar SHA-256 is
+  `e6472d0e85daaa58e4898195550673a73b237794881f3bdbebefc174b5fcf029`;
+  the active guard is released and the consumed H39 candidate guard remains.
+  Candidate, original rollback, continuation rollback, and hide never replay.
+- H40 run-01 is consumed and never replays. It wrote/read back exact
+  `0.12.006 / h40-badapple-deterministic-lifecycle-v3` and confirmed System
+  return, but failed-boot evidence ended `NO_PROOF_OBSERVER` with no Recovery
+  endpoint; H40 boot, playback, and final health remain unproved. Exact V2321
+  rollback was then written/read back and its System return confirmed once.
+  The postrollback observer stopped on host validation error
+  `invalid minimum read budget: 0.25`, so the durable terminal is
+  `RECOVERY_REQUIRED / ROLLBACK_HEALTH_UNPROVED` with no health snapshot.
+  Current resident identity and health are therefore unproved. The active and
+  H40 candidate guards remain; neither candidate nor rollback may replay. See
+  `A90_H40_ROLLBACK_HEALTH_UNPROVED_INCIDENT_2026-08-30.md`.
 - S22+ and S20+ remain untouched. Their profiles, approvals, evidence, and
   authority do not transfer to A90.
 
@@ -93,56 +124,24 @@ reviving it.
 
 ## Retired Successor Experiments
 
-- H19-H23 were host-only successors retired before live use as their display
-  ownership or device-isolation assumptions failed review.
-- H25 `0.11.193` was also host-only and is `NO_GO_RETIRED`. Its `chroot` design
-  left the old mount graph reachable as a namespace capability; its boot
-  self-test could leave parent mounts, touch an unowned fixed path, be rerun or
-  overwrite boot evidence, and did not close every reap/parser/receipt failure
-  path. No H25 runner, approval, connected D0, flash, reboot, or handoff ever
-  existed. Its draft source and manifest were removed and its untracked build
-  output was moved to trash.
-- Retired identities, paths, artifacts, reviews, and evidence are never
-  reinterpreted as a fresh successor.
+H19-H23 and H25 were retired before live use. Their exact reasons remain in the
+campaign ledger and named review reports. Retired identities, paths, artifacts,
+reviews, and evidence are never reinterpreted as a fresh successor.
 
-## Selected Bounded Unit: Retire Ownership Diagnostics and Bound Isolated Debian
+## Selected Bounded Unit: H40 Incident Reconciliation
 
-The current unit remains H0 architecture and contract work only. A fresh
-static audit found that
-the existing persistent native Wi-Fi companion cannot simply be carried into a
-headless successor: it retains the old Android root in a private mount
-namespace while Debian receives the shared PID namespace and `/proc`. A private
-mount namespace alone does not prevent Debian root from reaching a surviving
-process through `/proc/<pid>/root`, `fd`, or `ns/mnt`.
+H40 v3 fixed the reviewed HUD-before-chime race and its H0 source, fresh build,
+manifest, and independent capability review remain exact. The consumed live run
+does not prove those runtime mechanics and grants no replay or new authority.
+This unit is now H0-only incident reporting and repository integration for the
+durable H40 terminal. No connected health continuation is active. Any future
+observation or recovery continuation must be separately represented by the A90
+target contract, bind the retained journal and both guards, send no candidate or
+rollback again, and receive independent review before fresh live authority.
 
-The binding plan is
-`docs/plans/A90_UFS_HANDOFF_ARCHITECTURE_AND_PRODUCTION_REDUCTION_PLAN_2026-08-12.md`.
-Its ownership decision is refined by
-`docs/plans/A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md`
-and the host incident report
-`docs/reports/A90_NATIVE_WIFI_SIDECAR_PROC_ROOT_EXPOSURE_HOST_INCIDENT_2026-08-13.md`.
-This unit does not build a successor and does not touch the device, UFS root,
-boot partition, private evidence, or another target. No H26 identity or path is
-allocated.
+## Paused Isolated-Debian Architecture Unit
 
-The attempted H24 shell-based W0 implementation is retired before review or
-live use. Every H24 `cat` or `run` command reaches the generic command-boundary
-orphan reaper, so a `run`-based inventory is not connected read-only D0.
-Furthermore, inventory and stop were separate frames: the approved
-process/group/session/mount-namespace set could change before `SIGTERM`. A host
-journal cannot make that device-side gap atomic. The unqualified runner and
-tests were removed; no W0 qualification, connected read, approval, durable
-intent, signal, reboot, transfer, or recovery exists to resume.
-
-The replacement atomic diagnostic is also `NO_GO_RETIRED`. Successive reviews
-showed that safely reproducing H24's Binder/property/service tree would require
-new process brokers, AF_UNIX mediation, and multiple Android UID/GID/capability
-launch contracts. The final frozen H24 source proves those identities differ
-after fork and before exec, contradicting the diagnostic filter model. No
-diagnostic identity, qualification, connected read, approval, signal, reboot,
-transfer, or recovery exists; the long design is historical evidence only.
-
-The selected direction is now
+The longer-term selected direction remains
 `docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`:
 
 - native PID 1 remains a small headless supervisor and keeps the existing
