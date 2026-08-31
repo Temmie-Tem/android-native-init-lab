@@ -433,7 +433,22 @@ class FakeBackend:
             self.final_failures -= 1
             raise RuntimeError("final health unavailable")
         acceptance = prepared.bundle.manifest["observation"]["acceptance"]
-        if self.marker is True:
+        if self.module._p323_bundle(prepared.bundle):  # noqa: SLF001
+            adapter = self.module.typed_evidence.p323_stock_adapter
+            if self.marker is True:
+                record = adapter.encode_fixture()
+                payload = bytes(adapter.RAW_SIZE - len(record)) + record
+            elif self.marker is False:
+                payload = bytes(adapter.RAW_SIZE)
+            elif self.marker == "foreign":
+                record = self.module.typed_evidence.p322_stock_adapter.encode_fixture()
+                payload = bytes(adapter.RAW_SIZE - len(record)) + record
+            elif self.marker == "partial":
+                raw = adapter.LONG_FAMILY[:4]
+                payload = bytes(adapter.RAW_SIZE - len(raw)) + raw
+            else:
+                raise AssertionError("unknown P323 marker fixture")
+        elif self.marker is True:
             payload = ("prefix\n" + acceptance["marker"] + "\nsuffix\n").encode()
         elif self.marker is False:
             payload = b"clean retained log\n"
@@ -470,7 +485,16 @@ class FakeBackend:
                     "elapsed_sec": 0.01,
                 }
             )
-        classification = self.module.classify_acceptance(payload, acceptance)
+        stock_error = None
+        try:
+            classification = self.module.classify_acceptance(payload, acceptance)
+        except self.module.F1LiveError as exc:
+            if not self.module._p323_bundle(prepared.bundle):  # noqa: SLF001
+                raise
+            stock_error = self.module._p323_stock_error(payload, exc)  # noqa: SLF001
+            classification = self.module._p323_parser_failure_classification(  # noqa: SLF001
+                payload, exc
+            )
         exact = classification["exact_count"]
         family = classification["family_count"]
         accepted = classification["accepted"]
@@ -487,7 +511,7 @@ class FakeBackend:
             "kernel_release": "fixture-kernel",
             "boot_id_sha256": "3" * 64,
         }
-        return {
+        result = {
             "health": health,
             "target_evidence_sha256": self.module.core.json_sha256(
                 {
@@ -511,6 +535,14 @@ class FakeBackend:
             },
             "rollback_verified": True,
         }
+        if self.module._p323_bundle(prepared.bundle):  # noqa: SLF001
+            if stock_error is not None:
+                result["observer"]["p323_stock_error"] = stock_error
+            else:
+                result["observer"]["p323_stock"] = (
+                    self.module._p320_terminal_projection(classification)  # noqa: SLF001
+                )
+        return result
 
 
 class DeviceActionF1LiveV2Test(unittest.TestCase):
@@ -623,6 +655,14 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
                 ).encode("ascii").hex(),
             }
         if acm_primary:
+            manifest["observation"]["acceptance"] = (
+                self.module.typed_evidence.p323_stock_adapter.acceptance_fixture()
+            )
+            p300_patch = mock.patch.object(
+                self.module, "_p300_bundle", return_value=False
+            )
+            p300_patch.start()
+            self.addCleanup(p300_patch.stop)
             manifest["observation"][
                 self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
             ] = self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE
@@ -727,6 +767,52 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         self.assertTrue(primary["observer_receipt_accepted"])
         self.assertTrue(primary["target_topology_continuity"])
         self.assertFalse(result["live_state"]["marker_accepted"])
+
+    def test_p323_acm_primary_survives_supplemental_parser_exception(self):
+        temporary, prepared = self.prepared(e3=True, acm_primary=True)
+        self.addCleanup(temporary.cleanup)
+        failure = self.module.F1LiveError("fixture Carrier parser failure")
+        with mock.patch.object(
+            self.module, "classify_acceptance", side_effect=failure
+        ):
+            result = self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, acm="accepted", marker=True),
+            )
+        self.assertEqual(
+            result["verdict"], self.module.typed_evidence.P323_ACM_PRIMARY_VERDICT
+        )
+        self.assertTrue(
+            result["live_state"][
+                self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
+            ]["proof"]
+        )
+        self.assertEqual(
+            result["live_state"]["p323_stock_error"]["classification"],
+            "P323_STOCK_PARSER_EXCEPTION",
+        )
+
+    def test_p323_valid_encoder_failure_is_supplemental_not_integrity_damage(self):
+        adapter = self.module.typed_evidence.p323_stock_adapter
+        header = adapter.carrier._header("E2", adapter.P323_RUN_ID)  # noqa: SLF001
+        record = (
+            header
+            + adapter.carrier._encode_slot(  # noqa: SLF001
+                header, adapter.carrier.Slot(0, 92, 0x8F, 0, 4, 0)
+            )
+            + adapter.carrier._encode_slot(  # noqa: SLF001
+                header, adapter.carrier.Slot(1, 93, 0x90, 2, 0, 0x6726)
+            )
+        )
+        classified = self.module.typed_evidence.classify_e1_latest_stage(
+            bytes(adapter.RAW_SIZE - len(record)) + record,
+            adapter.acceptance_fixture(),
+        )
+        projection = self.module._p320_terminal_projection(classified)  # noqa: SLF001
+        self.assertEqual(projection["proof_class"], "P323_STOCK_ENCODER_FAILURE")
+        self.assertTrue(projection["producer_failure"])
+        self.assertEqual(projection["stock"], [])
 
     def test_p323_absent_failed_or_malformed_acm_is_no_proof(self):
         for acm in ("read-timeout", "fault", "extra-byte"):

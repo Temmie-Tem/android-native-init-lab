@@ -299,6 +299,29 @@ class DeviceActionF1V2Test(unittest.TestCase):
             ):
                 self.module.verify_bundle(root, manifest_path)
 
+    def test_acm_primary_role_requires_exact_p323_stock_binding(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _, manifest, _, manifest_path = self.fixture(root)
+            run_id = self.module.typed_evidence.P323_RUN_ID
+            manifest["observation"]["candidate_observer"] = {
+                "kind": "exact_cdc_acm_banner_v1",
+                "usb_vendor_id": "04e8",
+                "usb_product_id": "6861",
+                "usb_serial": "S22E3" + run_id,
+                "usb_driver": "cdc_acm",
+                "usb_interface_number": "00",
+                "banner_hex": ("S22PLUS-FYG8-E3:" + run_id + "\n").encode().hex(),
+            }
+            manifest["observation"][
+                self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+            ] = self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(
+                self.module.F1V2Error, "exact P3.23 stock binding"
+            ):
+                self.module.verify_bundle(root, manifest_path)
+
     def test_candidate_ap_rejects_extra_member(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

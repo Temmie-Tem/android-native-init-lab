@@ -391,17 +391,16 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
     except typed_evidence.EvidenceError as exc:
         raise F1V2Error(str(exc)) from exc
     role = observation.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
-    if role is not None and observation["acceptance"].get(
-        "userspace_overlay_contract_id"
-    ) in {
-        typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
-        typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
-        typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
-        typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
-    }:
-        raise F1V2Error(
-            "candidate arrival proof role cannot be attached to an old stock overlay"
-        )
+    if role is not None:
+        acceptance = observation["acceptance"]
+        if (
+            acceptance.get("userspace_overlay_contract_id")
+            != typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
+            or acceptance.get("run_id") != typed_evidence.P323_RUN_ID
+        ):
+            raise F1V2Error(
+                "candidate arrival proof role requires the exact P3.23 stock binding"
+            )
     if manifest["final_health_profile"] != profile["health_profile_id"] or manifest["runner_version"] != RUNNER_VERSION:
         raise F1V2Error("manifest health profile or runner version mismatch")
     return manifest
@@ -496,6 +495,7 @@ def _overridden_candidate_sources(
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID,
@@ -620,6 +620,7 @@ def execution_critical_source_receipts(
                 typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
+                typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID,
             }:
                 # Stock adapters retain the P310 carrier closure while their
                 # adapter/observer bytes are bound separately below.
@@ -627,7 +628,10 @@ def execution_critical_source_receipts(
                     userspace_overlay_contract_id
                 ]
                 prefix = (
-                    "p322"
+                    "p323"
+                    if userspace_overlay_contract_id
+                    == typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
+                    else "p322"
                     if userspace_overlay_contract_id
                     == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
                     else (
@@ -638,6 +642,7 @@ def execution_critical_source_receipts(
                     )
                 )
                 label = {
+                    "p323": "P3.23",
                     "p322": "P3.22",
                     "p321": "P3.21",
                     "p320": "P3.20",
@@ -1255,12 +1260,16 @@ def verify_candidate_source_binding(
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID,
     }:
         if verification.get("userspace_overlay_contract_id") != userspace_overlay_contract_id:
             raise F1V2Error("stock overlay selector changed")
         adapter = typed_evidence.STOCK_ADAPTERS[userspace_overlay_contract_id]
         prefix = (
-            "p322"
+            "p323"
+            if userspace_overlay_contract_id
+            == typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
+            else "p322"
             if userspace_overlay_contract_id
             == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
             else "p321"
@@ -1482,6 +1491,7 @@ def verify_candidate_observer_binding(
         typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID,
     }
     if source_contract_id is None:
         if observer is not None:

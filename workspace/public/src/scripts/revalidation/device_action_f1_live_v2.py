@@ -87,6 +87,39 @@ P322_OUTCOME_BY_PROOF_CLASS = {
 }
 
 
+def _p323_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    """Retain a Carrier parser fault without making it an ACM fault."""
+    detail = f"{type(error).__name__}:{error}".encode("utf-8", "replace")
+    return {
+        "schema": "device_action_f1_p323_stock_error_v1",
+        "classification": "P323_STOCK_PARSER_EXCEPTION",
+        "supplemental": True,
+        "accepted": False,
+        "candidate_success": False,
+        "causal_result_allowed": False,
+        "payload_bytes": len(payload),
+        "payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "error_type": type(error).__name__,
+        "error_sha256": hashlib.sha256(detail).hexdigest(),
+    }
+
+
+def _p323_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p323_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "accepted": False,
+        "integrity_issue": True,
+        "integrity_issues": ["p323-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p323_stock_error": diagnostic,
+    }
+
+
 class F1LiveError(RuntimeError):
     pass
 
@@ -235,13 +268,18 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         "legacy_consumed_candidate_authority": Path(consumed_registry.LEGACY_AUTHORITY_PATH).resolve(),
     }
     if bundle is not None and (
-        _p320_bundle(bundle) or _p321_bundle(bundle) or _p322_bundle(bundle)
+        _p320_bundle(bundle)
+        or _p321_bundle(bundle)
+        or _p322_bundle(bundle)
+        or _p323_bundle(bundle)
     ):
         stock_adapter = typed_evidence.STOCK_ADAPTERS[
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p322"
+            "p323"
+            if _p323_bundle(bundle)
+            else "p322"
             if _p322_bundle(bundle)
             else (
                 "p321"
@@ -493,22 +531,28 @@ def _p322_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p323_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
 def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
     role = bundle.manifest["observation"].get(
         typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
     )
     if role is None:
         return None
-    if bundle.manifest["observation"]["acceptance"].get(
-        "userspace_overlay_contract_id"
-    ) in {
-        typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
-        typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
-        typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
-        typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
-    }:
+    acceptance = bundle.manifest["observation"]["acceptance"]
+    if (
+        acceptance.get("userspace_overlay_contract_id")
+        != typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
+        or acceptance.get("run_id") != typed_evidence.P323_RUN_ID
+    ):
         raise F1LiveError(
-            "candidate arrival proof role cannot be attached to an old stock overlay"
+            "candidate arrival proof role requires the exact P3.23 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(
@@ -521,10 +565,6 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
     except (typed_evidence.EvidenceError, cdc_acm_observer.ObserverError) as exc:
         raise F1LiveError(str(exc)) from exc
     return role
-
-
-def _p323_bundle(bundle: core.Bundle) -> bool:
-    return _candidate_arrival_proof_role(bundle) is not None
 
 
 def _p318_phase_paths(prepared: PreparedRun, phase: str) -> tuple[Path, Path]:
@@ -1551,23 +1591,52 @@ def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
-    """Validate and retain a P320/P321/P322 ABI-v4 stock projection."""
+    """Validate and retain the ABI-v4 stock projection for P320-P323."""
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p323 = overlay == typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
+        typed_evidence.p323_stock_adapter
+        if is_p323
+        else
         typed_evidence.p322_stock_adapter
         if is_p322
         else typed_evidence.p321_stock_adapter
         if is_p321
         else typed_evidence.p320_stock_adapter
     )
-    label = "P3.22" if is_p322 else "P3.21" if is_p321 else "P3.20"
-    stock_key = "p322_stock" if is_p322 else "p321_stock" if is_p321 else "p320_stock"
+    label = (
+        "P3.23"
+        if is_p323
+        else "P3.22"
+        if is_p322
+        else "P3.21"
+        if is_p321
+        else "P3.20"
+    )
+    stock_key = (
+        "p323_stock"
+        if is_p323
+        else "p322_stock"
+        if is_p322
+        else "p321_stock"
+        if is_p321
+        else "p320_stock"
+    )
     try:
-        proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
+        if (
+            is_p323
+            and classified.get("proof_class") == "P323_STOCK_ENCODER_FAILURE"
+            and adapter._encoder_failure_shape(classified)  # noqa: SLF001
+            and classified.get("producer_failure") is True
+            and classified.get("stock_encoder_failure") is True
+        ):
+            proof = "P323_STOCK_ENCODER_FAILURE"
+        else:
+            proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
     except (AttributeError, TypeError, ValueError) as exc:
         raise F1LiveError(f"{label} stock proof class is invalid") from exc
     if classified.get("proof_class") != proof:
@@ -1580,16 +1649,21 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     if any(classified.get(name) is not False for name in required_false):
         raise F1LiveError(f"{label} stock classification exposes a causal claim")
-    if classified.get("acm_supplemental") is not True or classified.get(
+    expected_acm_supplemental = not is_p323
+    expected_acm_required = is_p323
+    if classified.get("acm_supplemental") is not expected_acm_supplemental or classified.get(
         "acm_required_for_acceptance"
-    ) is not False:
+    ) is not expected_acm_required:
         raise F1LiveError(f"{label} ACM boundary is not supplemental")
     stock = classified.get(stock_key)
     if not isinstance(stock, list) or len(stock) > 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
-    if proof != "NO_PROOF_OBSERVER" and len(stock) != 1:
+    if proof not in {
+        "NO_PROOF_OBSERVER",
+        "P323_STOCK_ENCODER_FAILURE",
+    } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
-    return {
+    result = {
         "proof_class": proof,
         "classification": classified.get("classification"),
         "stock": stock,
@@ -1597,9 +1671,23 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "candidate_success": False,
         "mux_result_claimable": False,
         "host_silent_claimable": False,
-        "acm_supplemental": True,
-        "acm_required_for_acceptance": False,
+        "acm_supplemental": expected_acm_supplemental,
+        "acm_required_for_acceptance": expected_acm_required,
+        **(
+            {
+                "acm_primary": True,
+                "carrier_supplemental": True,
+                "acm_required_for_arrival_proof": True,
+            }
+            if is_p323
+            else {}
+        ),
     }
+    if is_p323 and proof == "P323_STOCK_ENCODER_FAILURE":
+        result["producer_failure"] = True
+        result["max77705_scientific_result"] = "NOT_PRODUCED"
+        result["exact_encoder_predicate"] = "UNKNOWN_NOT_RETAINED"
+    return result
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
@@ -2396,7 +2484,14 @@ class SamsungOdinBackend:
             or final_topology != prepared.private_target["topology"]
         ):
             raise F1LiveError("final target changed during observer collection")
-        marker_result = classify_acceptance(payloads[0], acceptance)
+        stock_error = None
+        try:
+            marker_result = classify_acceptance(payloads[0], acceptance)
+        except F1LiveError as exc:
+            if not _p323_bundle(prepared.bundle):
+                raise
+            stock_error = _p323_stock_error(payloads[0], exc)
+            marker_result = _p323_parser_failure_classification(payloads[0], exc)
         p318_topology_evidence = None
         if _p318_bundle(prepared.bundle):
             marker_result, p318_topology_evidence = (
@@ -2410,9 +2505,13 @@ class SamsungOdinBackend:
         p320_projection = (
             _p320_terminal_projection(marker_result)
             if (
-                _p320_bundle(prepared.bundle)
-                or _p321_bundle(prepared.bundle)
-                or _p322_bundle(prepared.bundle)
+                stock_error is None
+                and (
+                    _p320_bundle(prepared.bundle)
+                    or _p321_bundle(prepared.bundle)
+                    or _p322_bundle(prepared.bundle)
+                    or _p323_bundle(prepared.bundle)
+                )
             )
             else None
         )
@@ -2445,12 +2544,17 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p322_stock"
+                "p323_stock"
+                if _p323_bundle(prepared.bundle)
+                else "p322_stock"
                 if _p322_bundle(prepared.bundle)
                 else "p321_stock"
                 if _p321_bundle(prepared.bundle)
                 else "p320_stock"
             ] = p320_projection
+        if stock_error is not None:
+            result["observer"]["p323_stock_error"] = stock_error
+            result["observer"].pop("p323_stock", None)
         return result
 
 
@@ -2780,6 +2884,15 @@ def _candidate_arrival_proof_projection(
                 "projection": carrier,
                 "marker_accepted": state.get("marker_accepted") is True,
             }
+        else:
+            error = final_observer.get("p323_stock_error")
+            if isinstance(error, dict):
+                supplemental = {
+                    "source": "p323_stock_error",
+                    "field": "p323_stock_error",
+                    "projection": error,
+                    "marker_accepted": state.get("marker_accepted") is True,
+                }
     proof = all(
         (
             candidate_completed,
@@ -3180,7 +3293,14 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     if len(payloads) != 2 or not payloads[0] or payloads[0] != payloads[1]:
         raise F1LiveError("final observer raw reads are not identical")
     acceptance = prepared.bundle.manifest["observation"]["acceptance"]
-    marker_result = classify_acceptance(payloads[0], acceptance)
+    stock_error = None
+    try:
+        marker_result = classify_acceptance(payloads[0], acceptance)
+    except F1LiveError as exc:
+        if not _p323_bundle(prepared.bundle):
+            raise
+        stock_error = _p323_stock_error(payloads[0], exc)
+        marker_result = _p323_parser_failure_classification(payloads[0], exc)
     if _p318_bundle(prepared.bundle):
         marker_result, topology_evidence = _p318_finalize_candidate_phase(
             prepared, marker_result
@@ -3217,6 +3337,19 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.22 final stock projection changed")
     elif "p322_stock" in observer:
         raise F1LiveError("foreign P3.22 final stock evidence")
+    if _p323_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p323_stock_error") != stock_error
+                or "p323_stock" in observer
+            ):
+                raise F1LiveError("P3.23 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p323_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.23 final stock projection changed")
+    elif "p323_stock" in observer or "p323_stock_error" in observer:
+        raise F1LiveError("foreign P3.23 final stock evidence")
     exact = marker_result["exact_count"]
     family = marker_result["family_count"]
     accepted = marker_result["accepted"] is True
@@ -4707,6 +4840,18 @@ def _finish_rollback(
                 raise F1LiveError("P3.22 final stock projection is missing")
             current["p322_proof_class"] = projection["proof_class"]
             current["p322_stock"] = projection
+        if _p323_bundle(prepared.bundle):
+            error = final["observer"].get("p323_stock_error")
+            projection = final["observer"].get("p323_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError("P3.23 supplemental parser failure is malformed")
+                current["p323_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.23 final stock projection is missing")
+                current["p323_proof_class"] = projection["proof_class"]
+                current["p323_stock"] = projection
         _save_state(prepared, current)
         journal.transition(
             "HEALTH_VERIFIED",

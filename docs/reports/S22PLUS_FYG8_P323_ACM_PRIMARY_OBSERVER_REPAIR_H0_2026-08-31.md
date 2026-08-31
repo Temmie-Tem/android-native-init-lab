@@ -4,7 +4,7 @@ Date: 2026-08-31
 
 Target: `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
-Status: `PASS_GO_P323_ACM_PRIMARY_H0`
+Status: `PASS_GO_P323_PROCESS_V2_H0`
 
 ## Finding
 
@@ -70,14 +70,37 @@ through P322 identities are rejected. The build and audit-only reopen both
 pass. The failed first presentation output and one `/tmp`-exhausted partial
 attempt are preserved privately and are not readiness inputs.
 
+## Process-v2 registration
+
+P3.23 is registered under its exact overlay, run ID, adapter source, and
+ACM-primary role. A Carrier parser exception is retained as supplemental
+`P323_STOCK_PARSER_EXCEPTION`; it cannot discard an accepted ACM receipt or
+promote a Max77705 result. The exact CRC-valid `0x6726` transition remains the
+separate non-success class `P323_STOCK_ENCODER_FAILURE`.
+
+- Candidate-static: 22,258 bytes, SHA-256
+  `67bd51665ccb8b6c8e56801fe9a9648a7611029115f6e05ed436aa040107004d`
+- Run manifest: 1,021 bytes, SHA-256
+  `836c89621ee6d6935bf2eafa67dc6a9bf708c80e9dd33f93c88371c3d10489f4`
+- Static check: 1,835 bytes, SHA-256
+  `aa6586ee92ee191e8b9c05201973645124871e1b0ed65b74117d628bb2a1dddc`
+- Ready manifest: 3,327 bytes, SHA-256
+  `ef8bd5ad6b5b525d77fb69f8d6e24c39900ebf6a2635a07049fd14ea1b37c2ef`
+
+The private outputs are mode `0400`, their promotion directory is `0700`, and
+the tracked ready manifest is `0644`. Ready remains a data declaration, not
+device authority.
+
 ## Validation and boundary
 
-The P323 runtime/artifact/adapter/builder/reanalysis suites pass 19 tests. The
-common evidence, Process-v2, and live suites pass 127 tests, including the
-ACM-primary hostile cases and unchanged legacy behavior. Python compilation,
-actual AArch64 static compilation, deterministic A/B packaging, and diff
-checks pass. Independent review returned `PASS_GO_P323_ACM_PRIMARY_H0` with no
-blocker in this H0 repair or its host artifacts.
+The P323 runtime/artifact/adapter/builder/reanalysis/static/ready suites pass
+26 tests. The common evidence, Process-v2, and live suites pass 130 tests,
+including exact-role, parser-exception, encoder-failure, and unchanged legacy
+behavior. The P322 ready regression passes 3 tests. Python compilation, actual
+AArch64 static compilation, deterministic A/B packaging, and diff checks pass.
+Independent review returned `PASS_GO` for the exact Process-v2 closure with no
+blocker or unnecessary new gate. The combined H0 status is
+`PASS_GO_P323_PROCESS_V2_H0`.
 
 The global raw-first current-tree smoke is not counted as a P3.23 failure. It
 currently stops on the separately added S20+ host builder
@@ -87,8 +110,5 @@ S20+/auditor owner and is not carried forward as another P3.23 gate.
 
 This work made no device contact, issued no ADB or Odin command, transferred no
 payload, created no approval, and grants no D0, D1, F1, recovery, replay, or
-live authority. P3.23 still requires exact common registration, candidate
-static/promotion/ready generation, and validation that a supplemental Carrier
-parser exception cannot discard an accepted ACM receipt. That added execution
-closure then requires its normal independent review, fresh connected
-preparation, and a fresh attended approval before any live action.
+live authority. P3.23 now requires only fresh connected preparation and a fresh
+attended approval before any live action.
