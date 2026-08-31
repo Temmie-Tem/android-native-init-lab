@@ -2,7 +2,7 @@
 
 Date: 2026-08-31
 
-Status: **PASS_GO - EFFECTIVE ONLY AFTER SCOPED COMMIT; CANDIDATE REPLAY FORBIDDEN**
+Status: **CLOSED - NO_PROOF, RESIDENT ROLLBACK AND HEALTH PROVED**
 
 ## Runtime state
 
@@ -17,9 +17,9 @@ supportive attended observation only: it does not identify the running boot
 artifact, bind the current boot ID, prove root health, upgrade the B0 claim, or
 replace the mandatory resident rollback.
 
-The candidate intent and global candidate claim are consumed. Candidate replay
-is forbidden. No rollback intent or rollback transfer exists. The shared guard
-remains present for the exact run.
+At the incident point, the candidate intent and global candidate claim were
+consumed, candidate replay was forbidden, no rollback intent or transfer
+existed, and the shared guard remained present for the exact run.
 
 ## Incident
 
@@ -37,7 +37,7 @@ pre-candidate payload-free return result validator.
 
 ## Recovery repair
 
-The proposed owner keeps the journal `VERSION` at v2. A new fixed helper opens
+The repaired owner keeps the journal `VERSION` at v2. A new fixed helper opens
 the direct canonical receipt with the B0 no-follow bounded reader, binds schema,
 name, return code, timeout/output flags, producer error, and both stream
 receipts back to the already validated handle, then returns the receipt value.
@@ -59,7 +59,7 @@ Host-only parsing of the exact current journal now returns
 `PASS_CURRENT_JOURNAL_RECOVERY_PARSE`. No recovery device command was issued
 during this validation.
 
-## Exact proposed closure
+## Exact recovery closure
 
 - owner: `224,559` bytes, SHA-256
   `82ec4cee48c3a39aa8dc4de6136e8fda3fbefe88d4821a71bdb0df55d2a17c2a`;
@@ -79,15 +79,42 @@ Fresh exact-byte review returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. It
 independently reproduced 56/56 tests, exact owner/normalized/test identities,
 host closure, compilation, scoped diff checking, and current-journal rollback
 and health parsing. Candidate-phase parsing rejected the predecessor identity.
-It also re-derived the current attributed candidate transfer, cgroup
+At review time it also re-derived the attributed candidate transfer, cgroup
 quiescence, `NO_PROOF` observation, exact global claim, absent rollback intent,
-and present guard. The review made no arm, resume, device, ADB, Odin, or USB
-call and no edit.
+and then-present guard. The review made no arm, resume, device, ADB, Odin, or
+USB call and no edit.
 
-The complete owner, test, target-contract, goal, and this incident report become
-effective only when committed together. The repair may continue only the
-current journal's mandatory resident rollback and health closure; it grants no
-candidate replay. The arm must still emit its exact physical confirmation,
-which the attended operator must return before a fresh physical observation or
-rollback transfer. S22+, A90, and the other attached ADB device receive zero
-commands and no modification.
+The complete owner, test, target-contract, goal, and incident report were
+committed together as `cf8bc38a98`. That repair authorized only the current
+journal's mandatory resident rollback and health closure, never candidate
+replay. The arm still required its exact physical confirmation before a fresh
+physical observation or rollback transfer. S22+, A90, and the other attached
+ADB device received zero commands and no modification.
+
+## Recovery execution and terminal
+
+The reviewed repair was committed as `cf8bc38a98`. A new physical rollback arm
+recorded the empty Download baseline and emitted one exact attended
+confirmation. After the operator placed only the S20+ in Download and returned
+that confirmation, the owner bound the exact arrival and transferred the fixed
+resident rollback once. It then proved fresh exact rooted resident health and
+published the terminal before releasing the shared guard.
+
+The terminal result is `NO_PROOF_B0_RETURNED_RESIDENT_HEALTHY`:
+
+- candidate classification: `odin_transfer_completed`;
+- candidate observation: `no-arrival`, claim `NO_PROOF`;
+- candidate attempts: `1`, replay forbidden;
+- rollback classification: `odin_transfer_completed`;
+- rollback attempts: `1`, replay forbidden;
+- rollback transfer completed and outcome proved: `true`;
+- fresh rooted resident health: `true`;
+- B0 experiment pass: `false`;
+- recovery-partition reads/writes/transfers: `0/0/0`;
+- other-target commands: `0`;
+- shared guard: released;
+- global candidate claim: consumed and retained.
+
+The operator's earlier normal-boot/no-bootloop observation remains supportive
+only. The structured terminal derives recovery health from the fresh exact
+rooted receipt and does not upgrade the unobserved B0 claim.

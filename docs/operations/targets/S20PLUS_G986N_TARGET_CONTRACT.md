@@ -701,6 +701,16 @@ authority only when their complete diff is committed together. They authorize
 only journal-derived recovery and future fresh runs under the unchanged exact
 approval gate, never candidate replay.
 
+The repaired closure was committed as `cf8bc38a98`. The attended operator then
+returned the exact physical confirmation emitted by the arm. The owner bound
+the exact S20+ Download arrival, completed one resident rollback transfer, and
+proved fresh exact rooted resident health. The durable terminal is
+`NO_PROOF_B0_RETURNED_RESIDENT_HEALTHY`: candidate and rollback attempts are
+1/1, candidate experiment pass is false, rollback transfer completion is true,
+all recovery-partition access counts and other-target commands are zero, the
+shared guard is released, and the global candidate claim remains consumed.
+Neither candidate nor rollback may replay.
+
 ## Bounded autonomous research session
 
 Status: **H0 POLICY PASS_GO - NOT ACTIVE**

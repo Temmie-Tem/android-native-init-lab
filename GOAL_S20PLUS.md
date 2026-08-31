@@ -867,13 +867,21 @@ The first v2 run then completed one attributed candidate transfer; candidate
 observation found no ADB or Download arrival, so the B0 claim is `NO_PROOF` and
 candidate replay is forbidden. The operator subsequently reported normal boot
 with no bootloop; that is supportive only and does not replace exact
-target/root/current-boot health or mandatory rollback proof. The
-physical-rollback arm stopped before any
-device command on a host-only `RawCaptureHandle.argv0_name` parser mismatch.
+target/root/current-boot health or mandatory rollback proof. The first
+physical-rollback arm stopped before any device command on a host-only
+`RawCaptureHandle.argv0_name` parser mismatch.
 The recovery patch re-derives that already-validated field from the exact
 durable receipt and allows the prepared v2 normalized identity only for
 rollback/health after candidate intent. Its current-journal host parse passes,
 and exact candidate-phase parsing rejects the predecessor. The 224,559-byte
 owner and 60,003-byte 56-test closure received independent `PASS_GO` with
-HIGH/MEDIUM/LOW `0/0/0`; physical arm/rollback becomes available only in their
-scoped commit.
+HIGH/MEDIUM/LOW `0/0/0` and were committed as `cf8bc38a98`.
+
+The repaired physical arm then consumed the exact attended confirmation,
+bound the S20+ Download arrival, transferred the resident rollback exactly
+once, and proved fresh exact rooted resident health. Terminal is
+`NO_PROOF_B0_RETURNED_RESIDENT_HEALTHY`: candidate and rollback attempts are
+1/1, rollback transfer is proved complete, B0 experiment pass is false,
+recovery-partition read/write/transfer and other-target commands are all zero,
+and both replays remain forbidden. The shared guard is released; the consumed
+global candidate claim is retained permanently.
