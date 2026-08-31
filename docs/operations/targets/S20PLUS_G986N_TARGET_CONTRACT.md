@@ -523,12 +523,150 @@ remain undefined.
 
 The binding section above defines six exact D1 setup/control actions and one
 exact D0 patched-AP retrieval. It does not activate or imply arbitrary D0 or
-D1. Except for the exact bootstrap F1, resident F1, and boot recovery-canary B0
-F1 named below, this contract defines no S20+ F1, arbitrary flash, non-boot
-partition recovery, or rollback capability. Any such work requires a
+D1. Except for the exact bootstrap F1, resident F1, boot recovery-canary B0 F1,
+and the single recovery-canary T0 F2 section immediately below, this contract
+defines no S20+ F1/F2, arbitrary flash, non-boot partition recovery, or
+rollback capability. Any such work requires a
 later exact contract amendment, recovery design, appropriate artifacts,
 proportional validation, independent safety review, and fresh authority.
 Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
+
+## Recovery-canary T0 F2
+
+Status: **H0 CONNECTED OWNER IMPLEMENTED - REVIEW PENDING - NOT ACTIVE**
+
+This section defines, but does not yet activate, the one S20+-only F2
+exception delegated by `AGENTS.md` and
+`docs/operations/DEVICE_ACTION_RISK_TIERS.md`. It applies only to the exact
+operator-owned `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`. While this
+status or the owner's activation constant remains false, every recovery block
+read and recovery AP transfer below remains forbidden.
+
+The dormant concrete owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_recovery_canary_t0_f2.py`,
+153,449 bytes at SHA-256
+`c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4`
+and activation-normalized SHA-256
+`33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e`.
+`T0_F2_ACTIVE=false`. Its 53,775-byte focused test is SHA-256
+`6028cfc471a860e145df20e32b7c7d8425dd66c2c129ccff441c9ae985f931f6`
+and passes 43/43; the owner plus earlier T0 model and recovery-digest profile
+pass 78/78. These receipts identify a review candidate only and grant no live
+authority.
+
+The owner pins the earlier H0 artifact model, fixed recovery-digest profile,
+exact S20+ inventory and raw-capture helpers, and the current reviewed B0
+target/USB/process-cage primitives. It calls no B0 candidate or rollback
+transfer function. Any dependency byte or imported API drift stops. The CLI
+accepts only an internally allocated closed-grammar run ID and exact emitted
+approval/physical-confirmation tokens; it accepts no serial, endpoint, path,
+artifact, partition, shell fragment, command, property, executable, or output
+destination.
+
+Its strict journal accepts only the fixed regular-file namespace and exact
+typed predecessor graph. Preparation, execution pre-transfer, and either final
+health or pre-candidate abort each have a separate one-shot recovery-read
+intent. `--resume` first quiesces any candidate/rollback cgroup, rederives a
+complete missing result from raw capture where possible, otherwise publishes
+unknown without replay, and can consume only an already-bound physical
+confirmation/arrival. Fake semantic JSON, an unknown node, a duplicate raw
+ordinal, a result without its intent, or a classification not reproduced from
+raw bytes stops.
+
+The only candidate is the recovery-only AP at 36,556,841 bytes and SHA-256
+`30227458889f1fa99eca192c9b7f8747f168d9e33cc1f407b52ae2b4d298559a`.
+Its sole member is `recovery.img.lz4`, 36,547,618 bytes at SHA-256
+`7f0e6b53a1036904fd02c5e8c2c014d3112ffb58fc33f9aa9a26c0962af45928`;
+the decoded fixed-size recovery image SHA-256 is
+`e1297613df576d25cc9391df97dac7cf316fee545f56111e6bc5340cb8ce659b`.
+The only rollback is the exact-stock recovery-only AP at 36,608,041 bytes and
+SHA-256
+`ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`.
+Its sole member is `recovery.img.lz4`, 36,600,544 bytes at SHA-256
+`6b962af2fc4fcc424d16ecdcee1793bdd6d4c8dba2e80d35cb21961fcb865923`;
+the decoded exact-stock recovery SHA-256 is
+`dd797bc0a462d2486ff71c020e89d1137df46299374e48855012e36e86f97e0e`.
+No archive may contain boot, VBMeta, DTBO, BL, CP, CSC, super, userdata,
+persist, EFS, misc, or a second member.
+
+Preparation is read-only. Under a future activation, one direct attended
+request may acquire the shared S20+ action guard, validate the complete host
+closure, select exactly one exact healthy S20+ while permitting but never
+addressing foreign ADB rows, and run the fixed root-health plus recovery-digest
+profile. `/dev/block/by-name/recovery` must resolve to the H0-derived direct
+block node `/dev/block/sda24`, report exactly 82,694,144 bytes, and hash to the
+exact stock recovery above. The target serial, topology, current boot, build,
+healthy rooted Android, Magisk 30.7/30700, enforcing SELinux, and stock PID 1
+are hash-bound around that read. Preparation records an empty Download
+baseline and emits one approval beginning
+`S20PLUS-G986N-RECOVERY-CANARY-T0-F2-APPROVE:` with a 15-minute expiry. It
+sends no reboot, Odin, transfer, or other device effect.
+
+Only the byte-identical approval may start execution. Execution repeats the
+exact Android/root/recovery-digest read and requires the same prepared boot,
+then durably records the Download intent before one exact selected-target
+`adb reboot download`. A missing arrival permits no candidate claim or
+transfer; after an attended payload-free/manual Android return, the health-only
+`abort-pre-candidate` path may record zero partition attempts and release the
+guard. It never sends a return command.
+
+After one newly bound exact Download endpoint arrives, a global no-replace
+candidate claim is published before candidate intent. That claim permanently
+prevents another run from sending this candidate even if execution cuts before
+the local intent. The candidate command is exactly
+`/usr/bin/odin4 -a <exact-candidate-AP> -d <bound-USBFS>` with no auto-reboot.
+The AP, Odin, and process-cage shell remain open and identity-stable across the
+command and are revalidated afterward. Intent precedes the caged bounded raw
+capture; descendant quiescence precedes observation or rollback. Missing,
+partial, timed-out, locally rejected, or ambiguous output consumes the attempt
+and never permits replay.
+
+Only a completed candidate classification publishes the already-reviewed
+one-shot attended direct-Recovery action intent. The operator must leave
+Download directly for Recovery without booting Android. The bounded observer
+requires the same serial/topology, ADB state `recovery`, a fresh boot ID, exact
+IYC2 identity, running root adbd properties, and the exact fixed marker SHA-256
+`5aafd7ca6918bf82aef0b7de62346d8de1b17bb0c9ececafa15978cfae2c87b0`.
+Absence, malformed output, Android arrival, or timeout is `NO_PROOF`; it never
+authorizes a candidate retry.
+
+From proved recovery ADB, rollback entry is one separately journaled exact
+`adb reboot download`. If recovery ADB or automatic arrival is unavailable,
+the owner may instead publish one 15-minute attended physical-rollback arm;
+only its exact returned confirmation may bind the current sole exact Download
+endpoint. The confirmation permits one deadline-bounded initial observation;
+an owner cut permits at most one separately intended resume observation before
+the original deadline. Expiry, absence, ambiguity, listing/identity mismatch,
+or either observation miss is durable and no later endpoint may be rebound.
+Both branches converge only on
+`/usr/bin/odin4 --reboot -a <exact-stock-recovery-AP> -d <bound-USBFS>`.
+Rollback intent consumes its sole attempt. Uncertainty permits observation and
+health finalization only, never a second Odin transfer.
+
+Terminal closure repeats exact healthy rooted Android on a later boot and the
+fixed recovery digest read. It separately records candidate/rollback attempts,
+proved transfer counts, canary claim, rollback classification, and exact stock
+bytes. Only exact stock recovery plus healthy Android releases the shared
+guard. A raw rollback result that remains unproved cannot be relabeled as a
+completed transfer merely because stock bytes are later observed.
+The final Android wait retries only genuine exact-target absence; malformed or
+ambiguous inventory, prepared-serial metadata mismatch, a wrong state, or a
+foreign exact-target selection stops immediately.
+
+This capability expires on target/build, recovery node, Magisk, artifact,
+source, ADB/Odin, endpoint/topology, key-choreography, journal, or physical
+Download-path drift; any new incident also stops activation. The first global
+candidate claim permanently retires fresh T0 candidate use. A T0 terminal,
+including `PROVED`, grants no T1 authority. T1 requires a separate exact
+contract amendment, review, preparation, and approval.
+
+Activation requires one independent hostile review of the common revision-3
+boundary, F2 tier, this section, owner, tests, exact artifacts, recovery-digest
+read, key choreography, cut/recovery behavior, and higher-precedence
+interactions. A later activation-only commit may change only the owner boolean,
+reviewed identities/status assertions, this status, the single S20+ registry
+cell, goal/report wording, and exact tests. Until that complete transition is
+committed, `--prepare` and every connected mode stop before device access.
 
 ## Boot recovery-canary B0 F1
 

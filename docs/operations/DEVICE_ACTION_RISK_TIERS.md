@@ -116,6 +116,54 @@ Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
   closures across one separate resident reboot. This does not apply to S22+
   or authorize an untested candidate.
 
+### F2 - Exact S20+ Recovery-Canary Bootstrap
+
+F2 exists only for the one exact `SM-G986N` / `y2q` / `y2qksx` /
+`G986NKSS8IYC2` T0 capability named by its binding target contract. It is not a
+general recovery tier and does not apply to TWRP T1, S22+, A90, another build,
+or another image.
+
+- Preparation is attended and read-only. It requires healthy rooted Android,
+  exact target/serial/topology/current-boot binding, an empty Download
+  baseline, and the fixed no-input root profile proving the live recovery node
+  is the expected size and exact stock SHA-256.
+- One fresh approval binds the exact runner/source closure, current boot,
+  candidate, stock rollback, Download/recovery handoffs, observations, and
+  expiry. It authorizes at most one candidate and one stock rollback attempt.
+- Each AP contains exactly one deterministic regular `recovery.img.lz4`
+  member. The candidate transfer omits auto-reboot; only a previously intended
+  attended direct-Recovery key action may follow a completed classification.
+  The rollback is preauthorized before candidate intent and never waits for a
+  second approval.
+- Candidate and rollback intents precede their exact Odin processes. Each
+  intent consumes its attempt. Timeout, partial output, local parse failure,
+  missing receipt, endpoint drift, reporting cut, or ambiguous state never
+  permits replay. The exact candidate SHA-256 is also globally consumed so a
+  later run cannot resend it.
+- Odin and each AP are held as direct regular files across dispatch and
+  revalidated afterward. Endpoint identity is refreshed immediately before
+  dispatch. Bounded raw output, process-cage entry, descendant quiescence, and
+  private atomic no-replace journal publication are mandatory.
+- Recovery observation is bounded to the exact prepared serial/topology and
+  fixed marker/properties. Absence or malformed evidence is `NO_PROOF`, not
+  permission to retry. Automatic or attended physical Download recovery may
+  lead only to the fixed stock recovery rollback.
+- Terminal closure requires a later healthy exact rooted Android boot and the
+  same fixed privileged digest profile proving exact stock recovery bytes.
+  Transfer attribution, candidate claim, rollback health, and terminal health
+  remain separate. An unknown rollback result can close only with an explicit
+  unproved-transfer verdict after exact stock bytes are independently read.
+- Every other partition payload, format, mount, `dd`, direct block write,
+  caller path/artifact/partition/command, security or Magisk mutation, and
+  other-target command remains forbidden. T0 PASS supplies evidence for a
+  later independently reviewed T1 proposal; it never authorizes T1.
+
+F2 remains unavailable until the target contract, exact connected owner,
+hostile tests, permanent-boundary diff, and activation-only transition receive
+independent `PASS_GO` and are committed together. An incident, source/artifact
+drift, lost physical Download path, or the first global candidate claim retires
+fresh candidate use.
+
 ### R1 - Exact Privileged Root-Data Transaction
 
 Examples: one independently reviewed, target-bound Magisk module experiment
@@ -207,11 +255,12 @@ and stock-boot recovery are one preauthorized attended transaction.
 
 ### X - Forbidden
 
-The existing forbidden partition and primitive list remains absolute. In
-particular, no policy tier authorizes a partition image, raw block write, or
-flashing operation to recovery, vendor_boot, DTBO, vbmeta, BL, CP, CSC, super,
-userdata, persist, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any
-partition other than an explicitly authorized boot payload. Normal Android
+The existing forbidden partition and primitive list remains absolute except
+for the exact S20+ F2 T0 recovery-only AP pair above. In particular, no policy
+tier authorizes a raw block write or a flashing operation to vendor_boot, DTBO,
+vbmeta, BL, CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB, keymaster,
+modem, bootloader, or any partition other than an explicitly authorized boot
+payload or that one mechanically active recovery-only T0 pair. Normal Android
 Package Manager and shared-user-storage writes are not partition operations
 when they satisfy the exact reviewed D1 rules above. Raw host `dd`,
 partition-table action, qdl/Sahara/Firehose, RAM dump, EUD/UART write, format,
@@ -220,7 +269,7 @@ separate binding contract explicitly says otherwise.
 
 ## Escalation Rules
 
-Escalate to F1, R1, or a separately reviewed contract when any command hands a
+Escalate to F1, F2, R1, or a separately reviewed contract when any command hands a
 payload to a bootloader, recovery, partition writer, or other executable
 runtime; can write a partition; changes a credential, security, debug, or
 persistent system configuration state; introduces a new low-level transport

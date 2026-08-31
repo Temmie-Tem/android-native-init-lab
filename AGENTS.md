@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **2** (supersedes revision 1; 2026-08-03)
+Contract-Revision: **3** (supersedes revision 2; 2026-08-31)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -62,6 +62,15 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
    write, not a partition payload; it is permitted only within the closed
    package/file staging rules below and never authorizes block or filesystem
    access to a partition mount outside that normal API.
+   One narrow S20+ recovery-canary T0 exception may be activated only by the
+   exact S20+ target contract under the `F2` tier below. It is limited to one
+   SHA-pinned candidate and one SHA-pinned exact-stock rollback, each an Odin
+   AP with exactly one regular `recovery.img.lz4` member. It permits no TWRP
+   T1 payload, caller artifact/path/partition, other target, or other partition.
+   Its first candidate intent permanently consumes that candidate. This
+   delegation grants nothing while any common, risk-tier, target-contract,
+   runner, hostile-test, independent-review, mechanical-activation, fresh
+   preparation, approval, attendance, or physical-recovery gate is absent.
 3. Never use raw host `dd`, fastboot, partition-table actions, qdl/Sahara/
    Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format operations,
    or an unreviewed panic/RDX path.
@@ -73,8 +82,18 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
    fixed by reviewed code. It accepts no caller path, offset, count, command,
    or payload; drift or a second invocation stops. This exception grants no
    other `misc` access and never transfers to another target or process.
+   The S20+ T0 exception uses only the exact pinned `/usr/bin/odin4` recovery-
+   only AP transfer. It does not permit `dd`, direct block writes, fastboot,
+   PIT/partition-table actions, or a caller-selected Odin option.
 4. Never flash unless the exact rollback artifact is present, readable,
    hash-verified, and usable through a demonstrated recovery path.
+   For the one S20+ F2 bootstrap only, this means the already demonstrated
+   exact-target physical Download entry and payload-free return, a host-
+   validated exact-stock recovery-only AP, a fresh pre-write on-device stock
+   recovery digest, and an attended direct-to-Recovery key path. It does not
+   presume that the untried recovery transfer itself works: that proposition
+   is T0, stock rollback remains mandatory, and any rollback uncertainty parks
+   without replay.
 5. Never flash a new experiment over an unhealthy or unverified device.
    Recover first, verify health, and stop that experiment.
 6. A target ambiguity, unexpected archive member, forbidden partition signal,
@@ -124,6 +143,10 @@ Classify every action using
   reviewed recovery owner. It grants no caller-supplied `su`, arbitrary module/
   path/configuration mutation, or partition payload; root grants no R1.
 - **F1:** a boot-only transfer process defined by the selected target contract.
+- **F2:** the single-target S20+ recovery-canary T0 exception only. It permits
+  one exact recovery candidate attempt and one exact-stock recovery rollback
+  attempt under the separately activated target process; it never generalizes
+  to TWRP T1, another recovery image, another target, or ordinary F1.
 - **X:** forbidden by the permanent boundaries.
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

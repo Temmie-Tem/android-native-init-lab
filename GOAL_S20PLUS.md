@@ -801,21 +801,20 @@ They close modeled ADB 34 version isolation, immutable ordinal framing, x32 deni
 
 ## Recovery/TWRP H0 preparation
 
-The exact IYC2 stock recovery and exact-stock-derived recovery ADB canary T0 are
-host-bound; a sanitized stock-kernel/DTB/recovery-DTBO plus donor-ramdisk TWRP
-T1 candidate is also host-built. Neither is live-authorized. The common process
-still permits partition payloads only to `boot`, so recovery reads/writes remain
-forbidden until an independently reviewed common and target-specific exception
-is mechanically activated.
-
-The next review unit is recorded in
-`docs/reports/S20PLUS_G986N_RECOVERY_T0_EXECUTION_CLOSURE_H0_2026-08-31.md`.
-It adds a dormant no-input stock-recovery digest profile (16/16), exact host
-artifact/archive validation and a pure no-replay T0 journal/observer model
-(19/19), plus a non-binding proposed process. Both `--connected` paths stop
-before artifact or device access; the T0 runner has no connected backend.
-Exact-stock rollback is present but not demonstrated live, and T1 remains
-ineligible until T0 proves candidate recovery ADB and completes stock rollback.
+The exact IYC2 stock recovery, stock-derived ADB canary T0, and sanitized
+stock-substrate/donor-ramdisk TWRP T1 are host-built. A revision-3 common F2
+exception and exact target section are now proposed only for T0. The concrete
+owner `s20plus_g986n_recovery_canary_t0_f2.py` is 153,449 bytes at SHA-256
+`c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4`
+(normalized `33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e`).
+It pins the one-member candidate and stock rollback APs, performs an exact
+pre/post stock-recovery digest read, creates intent-before-effect journals,
+globally consumes the candidate, and has automatic plus attended rollback
+branches. The fixed S20-series direct-Recovery chord is part of the owner;
+focused tests pass 43/43 and the combined T0 closure passes 78/78.
+`T0_F2_ACTIVE=false`: the boundary diff, owner, tests, chord, and activation require `PASS_GO`; all connected modes stop
+before device access. Exact-stock rollback is present but not demonstrated live,
+and T1 remains ineligible until T0 proves recovery ADB and stock rollback.
 
 Direct recovery-partition T0 remains `NO_GO`. A narrower B0 candidate instead
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,

@@ -1,6 +1,6 @@
 # S20+ G986N recovery-only T0 process, proposed v1
 
-Status: **PROPOSED_NOT_ACTIVE**
+Status: **CONCRETE OWNER IMPLEMENTED; REVIEW PENDING; NOT ACTIVE**
 Date: 2026-08-31
 Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 Experiment: exact-stock-derived recovery ADB canary T0 only
@@ -10,24 +10,28 @@ Experiment: exact-stock-derived recovery ADB canary T0 only
 This document is a review input. It is not a binding target contract, is not a
 live process, and grants no device authority.
 
-The repository-wide contract currently permits ordinary partition payloads
-only to `boot`. It classifies a `recovery` partition payload as forbidden. The
-S20+ target contract also forbids privileged partition and block-device access
-in its active root-health D0 lane. Consequently:
+The repository-wide contract still permits ordinary partition payloads only to
+`boot`. Revision 3 now delegates one F2 T0 exception, but its S20+ target
+section and connected owner are not active. Every other `recovery` payload
+remains forbidden, and the active root-health D0 lane still excludes privileged
+partition access. Consequently:
 
 - the proposed fixed stock-recovery digest is not presently an allowed live
   read;
 - neither the candidate nor rollback AP may presently be transferred;
 - the user direction to continue does not mechanically activate this design;
-- ordinary D0, D1, R1, and F1 labels must not be used to disguise this gap;
-- the temporary name `T0` identifies an experiment rung, not an active risk
-  tier.
+- ordinary D0, D1, R1, or F1 labels must not be used to disguise this gap;
+- `T0` identifies the single experiment and `F2` its inactive dedicated tier;
+  neither grants authority before mechanical activation.
 
 Activation requires an independently reviewed common-boundary amendment,
-matching risk-tier and S20+ target-contract clauses, an independently reviewed
-connected owner, exact activation identities, and a fresh attended binding.
-The H0 runner named below intentionally contains no device backend and cannot
-be activated by changing a Boolean.
+matching risk-tier and S20+ target-contract clauses, independent review of the
+new connected owner, exact activation identities, and a fresh attended
+binding. The earlier H0 runner named below still contains no device backend.
+The separate concrete owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_recovery_canary_t0_f2.py`;
+its activation constant is false and changing that Boolean without the complete
+reviewed contract/status transition grants nothing.
 
 ## Objective
 
@@ -67,7 +71,9 @@ VBMeta, stops before device contact.
 
 The complete T0 campaign may contain at most:
 
-1. one fixed privileged read of the recovery block to prove exact stock bytes;
+1. at most three one-shot fixed privileged recovery-block reads: preparation,
+   execution pre-transfer, and final health (or pre-candidate abort instead of
+   final health); each read has its own durable intent and may not replay;
 2. one candidate transfer to `recovery`;
 3. one attended physical direct-recovery boot after a completed candidate
    transfer classification;
@@ -104,8 +110,10 @@ All conditions are conjunctive and fresh for one run:
    journal schema, and tests match the independently reviewed hashes.
 6. Physical Download entry and return remain demonstrated independently of the
    recovery partition. This is the recovery path if the candidate cannot boot.
-7. The operator has rehearsed the exact post-transfer key choreography needed
-   to boot recovery directly without first booting Android.
+7. The owner fixes the S20-series post-transfer choreography: keep USB
+   connected, hold Side/Power plus Volume Down until fully black, keep
+   Side/Power held while immediately switching from Volume Down to Volume Up,
+   and hold Side/Power plus Volume Up until Recovery; Android must not boot.
 8. The initial Download listing is empty. After the attended transition, one
    exact `04e8:685d` / `SM8250` endpoint arrives on an allowed topology and is
    bound by path hash plus device/inode/type identity.
@@ -117,7 +125,7 @@ All conditions are conjunctive and fresh for one run:
 
 Any drift or ambiguity stops before candidate intent.
 
-## Proposed state and journal
+## Concrete state and journal
 
 Every final journal node is canonical JSON, file-fsynced, atomically published
 no-replace, and followed by a directory fsync. A later node cannot exist without
@@ -144,6 +152,17 @@ completed-candidate branch.
 If execution stops after an intent but before its result, a later invocation may
 publish an `unknown`/`uncertain` result from the durable intent and read-only
 state. It must not invoke that effect again.
+
+The concrete `--resume` path validates the whole closed namespace and graph,
+quiesces each intent-bound Odin cgroup before device observation, and derives a
+missing transfer result from a complete raw receipt or publishes conservative
+unknown. An observation-intent cut closes as `NO_PROOF`. A consumed physical
+confirmation permits only its deadline-bounded initial observation and at most
+one separately intended resume observation after an owner cut. Expiry, absence,
+ambiguity, or listing/identity mismatch publishes a durable miss; later
+endpoints cannot be rebound, and the arm or physical action cannot repeat.
+Each recovery-block digest read is likewise preceded by a phase-fixed
+one-shot intent and may reuse only its complete existing raw receipt.
 
 ## Exact transfer shapes
 
@@ -251,6 +270,16 @@ must mechanically activate all of these together:
   evidence bounds, transfer classification, recovery branches, and finalizer;
 - exact source and artifact hashes, hostile tests, and independent `PASS_GO`;
 - a fresh attended prepared binding and approval after activation.
+
+The dormant connected owner is 153,449 bytes at SHA-256
+`c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4`,
+normalized SHA-256
+`33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e`.
+Its 53,775-byte test at SHA-256
+`6028cfc471a860e145df20e32b7c7d8425dd66c2c129ccff441c9ae985f931f6`
+passes 43/43; the combined T0 owner/model/digest suite passes 78/78. The exact
+instruction above is emitted only after candidate completion and before the
+already-intended attended physical action.
 
 Until then, the only permitted commands are the H0 render and host-validation
 modes. `--connected` must return the dormant verdict without reading artifacts,
