@@ -826,3 +826,13 @@ review returned `PASS_GO_H0` at 10/10 tests and findings 0/0/0, but runtime
 acceptance and live/F1 authority remain unproved. A reviewed exact B0 owner,
 mandatory rollback state machine, target-contract activation, fresh connected
 prepare, and its emitted approval are still required before any transfer.
+
+The exact dormant B0 F1 owner is now H0-qualified at 48/48 with independent
+`PASS_GO_H0` and HIGH/MEDIUM/LOW `0/0/0`. Its 218,089-byte source SHA-256 is
+`4457bb0179586fcb8edaa88e895aae17ca951ae44ed8ddb0d0c0a592de86a6b7`,
+activation-normalized SHA-256 is
+`7d4299e8a4fc503eee8d41ae0cf051b4f922b72c5550443e2d8cdba3cf2622b5`,
+and host closure SHA-256 is
+`3623bdb9b4c3d907355808e4653d46dbd6012821ca023ea2240dd0ee4c29501e`.
+It remains `B0_F1_ACTIVE = False`; contract activation, a fresh prepare, and
+the exact emitted attended approval remain mandatory before device contact.
