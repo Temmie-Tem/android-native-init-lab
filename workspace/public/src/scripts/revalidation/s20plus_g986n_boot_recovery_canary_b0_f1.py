@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dormant attended boot-only S20+ recovery-canary B0 F1 owner.
+"""Binding attended boot-only S20+ recovery-canary B0 F1 owner.
 
 This owner never addresses the recovery partition.  Its sole candidate and
 rollback members are ``boot.img.lz4``.  Candidate and rollback effects are
@@ -30,8 +30,8 @@ import s22plus_boot_only_f1_transport as transport
 
 VERSION = "s20plus-g986n-boot-recovery-canary-b0-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_boot_recovery_canary_b0_f1_plan_v1"
-B0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "7d4299e8a4fc503eee8d41ae0cf051b4f922b72c5550443e2d8cdba3cf2622b5"
+B0_F1_ACTIVE = True
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "cdd34821dbc2b555ccb9ce8f14dbeb6dd0ff2baa9af50deb46708684c9167788"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -5473,9 +5473,13 @@ def render_plan() -> dict[str, Any]:
     return {
         "schema": PLAN_SCHEMA,
         "version": VERSION,
-        "status": "H0_REVIEW_PENDING_NOT_ACTIVE",
+        "status": (
+            "BINDING_ATTENDED_BOOT_ONLY_F1_ACTIVE"
+            if B0_F1_ACTIVE
+            else "H0_REVIEW_PENDING_NOT_ACTIVE"
+        ),
         "active": B0_F1_ACTIVE,
-        "live_authority": False,
+        "live_authority": B0_F1_ACTIVE,
         "target": dict(TARGET),
         "candidate": {
             "partition": "boot",

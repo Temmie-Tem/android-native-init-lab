@@ -822,17 +822,24 @@ carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,
 disables automatic `/system/bin/recovery` start, and retains PID1, ueventd,
 the fixed root-ADB banner, and marker. Recovery-partition reads/writes are zero;
 the fixed rollback is the known resident Magisk boot AP. Exact-byte artifact
-review returned `PASS_GO_H0` at 10/10 tests and findings 0/0/0, but runtime
-acceptance and live/F1 authority remain unproved. A reviewed exact B0 owner,
-mandatory rollback state machine, target-contract activation, fresh connected
-prepare, and its emitted approval are still required before any transfer.
+review returned `PASS_GO_H0` at 10/10 tests and findings 0/0/0. That
+artifact-only milestone did not prove runtime acceptance or live authority.
+The reviewed exact owner, mandatory rollback state machine, and target-contract
+activation are now supplied by the bounded activation below. Runtime acceptance
+remains unproved; a fresh connected prepare and its exact emitted approval are
+the remaining gates before any transfer.
 
-The exact dormant B0 F1 owner is now H0-qualified at 48/48 with independent
-`PASS_GO_H0` and HIGH/MEDIUM/LOW `0/0/0`. Its 218,089-byte source SHA-256 is
-`4457bb0179586fcb8edaa88e895aae17ca951ae44ed8ddb0d0c0a592de86a6b7`,
-activation-normalized SHA-256 is
-`7d4299e8a4fc503eee8d41ae0cf051b4f922b72c5550443e2d8cdba3cf2622b5`,
-and host closure SHA-256 is
-`3623bdb9b4c3d907355808e4653d46dbd6012821ca023ea2240dd0ee4c29501e`.
-It remains `B0_F1_ACTIVE = False`; contract activation, a fresh prepare, and
-the exact emitted attended approval remain mandatory before device contact.
+The exact dormant B0 F1 owner remains historically H0-qualified at 48/48 with
+independent `PASS_GO_H0` and HIGH/MEDIUM/LOW `0/0/0`. The binding activation
+changes only its reviewed status/identity closure: the active owner
+is 218,203 bytes at SHA-256
+`80d961e06c03f4d092efb65ba92f142ec1061227bab55d19068b1b623a69a8ad`,
+with normalized SHA-256
+`cdd34821dbc2b555ccb9ce8f14dbeb6dd0ff2baa9af50deb46708684c9167788`;
+the 48,102-byte focused test has SHA-256
+`872895bfd12277dc35c05c34fa5b2d0105e84df2e640bde1bf52f3a01b14a588`.
+The complete activation diff received independent `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0` and becomes live-capable only in its scoped commit.
+Activation itself creates no run or approval: a fresh connected prepare and
+that run's exact emitted attended approval remain mandatory before candidate
+transfer.

@@ -523,12 +523,122 @@ remain undefined.
 
 The binding section above defines six exact D1 setup/control actions and one
 exact D0 patched-AP retrieval. It does not activate or imply arbitrary D0 or
-D1. Except for the exact bootstrap F1 below, this contract defines no S20+ F1,
-resident root, arbitrary flash, non-boot partition recovery, or rollback
-capability. Any such work requires a
+D1. Except for the exact bootstrap F1, resident F1, and boot recovery-canary B0
+F1 named below, this contract defines no S20+ F1, arbitrary flash, non-boot
+partition recovery, or rollback capability. Any such work requires a
 later exact contract amendment, recovery design, appropriate artifacts,
 proportional validation, independent safety review, and fresh authority.
 Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
+
+## Boot recovery-canary B0 F1
+
+Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE AFTER REVIEWED COMMIT**
+
+This section activates only the exact attended B0 owner at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_boot_recovery_canary_b0_f1.py`
+for the operator-owned `SM-G986N` / `y2q` / `y2qksx` /
+`G986NKSS8IYC2` target. It does not activate the earlier direct
+recovery-partition T0 proposal or the donor-ramdisk T1 image. Recovery-partition
+read, write, and transfer remain forbidden and fixed at zero.
+
+The candidate is the `36,198,441`-byte AP with SHA-256
+`a8ed52d314e3b0cf5820e99ecd55e97cacdbc8a943d2181886d52d42a1c177fa`.
+Its only TAR member is canonical `boot.img.lz4`; its decoded 64-MiB boot image
+has SHA-256
+`b42ba829a4a45728951f688b7b4ef07140686ce07f111a751bba948d1d934b4c`.
+It carries the fixed recovery-canary ramdisk in `boot`, disables automatic
+`/system/bin/recovery` service start, and retains only the reviewed PID1,
+ueventd, root-ADB transport, and marker observation surface.
+
+The mandatory rollback is the known resident Magisk boot AP, `25,835,561`
+bytes with SHA-256
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Its only member is canonical `boot.img.lz4`; its decoded 64-MiB resident boot
+has SHA-256
+`d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707418f7efc`.
+No stock AP, builder, manifest, candidate, or prose report is a runtime
+dependency after candidate intent except where the branch has not yet
+consumed that input. Health-only finalization requires only the exact owner,
+inventory/parser, raw-capture helper, and ADB. Rollback requires only those
+execution sources, fixed tools, and the exact resident rollback AP.
+
+One current direct attended operator request authorizes one `--prepare` under
+this section. Preparation starts only from the sole exact healthy resident
+Android row and one root-health capture that binds the boot ID inside the same
+fixed `su -c` raw output. It records an empty Download baseline, durably records
+one no-replay `adb reboot download` intent, binds the exact resulting Download
+profile/topology/character endpoint, and then emits an approval token beginning
+`S20PLUS-G986N-BOOT-RECOVERY-CANARY-B0-F1-APPROVE:`. The token expires after
+15 minutes and binds the exact run, target/current source boot, candidate,
+rollback, tools, source closure, and Download endpoint. Preparation itself
+does not authorize candidate transfer. Only the exact token copied back by the
+attended operator authorizes that run's one `--execute`.
+
+Candidate and rollback each have one attempt. A global exact-candidate claim
+is consumed before candidate intent; any complete or prefix-partial claim
+prevents candidate replay while retaining recovery for the guard-owning run.
+Every effect intent is durably complete before its backend and every journal,
+guard, and global-claim final name is published with file fsync, atomic
+no-replace `O_TMPFILE` plus `linkat(AT_EMPTY_PATH)`, and directory fsync.
+Unknown or missing transfer results never authorize candidate replay.
+Rollback intent likewise makes the rollback one-shot; after it, only bounded
+observation and healthy resident finalization remain.
+
+Every Odin invocation uses the exact pinned binary and a fixed environment
+containing only `LANG=C`, `LC_ALL=C`, and `PATH=/usr/bin:/bin`. Candidate,
+rollback, and payload-free return execute inside an intent-bound cgroup. A cut,
+timeout, or output fault must kill that cgroup, prove it empty, remove it, and
+publish quiescence before any device observation, later transfer, or terminal
+health. Read-only `odin4 -l` uses a stable transient cgroup and the pinned
+static BusyBox ten-second watchdog; a prior owner-death cage must become empty
+and be removed before a new listing. Host reboot may prove an old intent-bound
+cgroup absent, but does not authorize replay.
+
+Candidate observation requires a new boot. Exact root ADB plus the fixed
+marker/PID1/ueventd/service evidence may classify the B0 claim `PROVED` or
+`REFUTED`; malformed or incomplete evidence remains `NO_PROOF`. An uncertain
+transfer whose prepared Download endpoint never departed is
+`download-unquiesced` and cannot authorize rollback on that endpoint. Regardless
+of claim verdict, candidate intent makes resident rollback mandatory.
+
+If automatic exact-target rollback entry cannot be proved, physical fallback
+is a separate attended arm and confirmation. The arm binds either an exact
+already-present qualified Download endpoint or a fresh empty baseline, expires
+after 15 minutes, and emits one exact confirmation token. Confirmation is
+durably consumed before use. The observer has one bounded attempt and, after a
+reporting cut, at most one current read; absence, ambiguity, identity failure,
+or expiry publishes a durable miss and permits no further observation or
+transfer. A bound arrival permits only the fixed resident rollback.
+
+Terminal `PROVED_B0_RETURNED_RESIDENT_HEALTHY` requires completed candidate
+transfer attribution, `PROVED` B0 evidence on a distinct boot, completed
+resident rollback transfer, and exact rooted resident health on another fresh
+boot. `REFUTED` requires completed candidate attribution; otherwise the
+experiment remains `NO_PROOF`. Healthy resident return and exact rollback
+transfer provenance remain separate fields. The shared S20+ guard is released
+only after the terminal record is durable. S22+, A90, and every other target
+receive zero commands.
+
+The dormant H0-qualified owner was `218,089` bytes at SHA-256
+`4457bb0179586fcb8edaa88e895aae17ca951ae44ed8ddb0d0c0a592de86a6b7`,
+with normalized SHA-256
+`7d4299e8a4fc503eee8d41ae0cf051b4f922b72c5550443e2d8cdba3cf2622b5`.
+Independent dormant review returned `PASS_GO_H0`, HIGH/MEDIUM/LOW `0/0/0`,
+after 48/48 focused tests and host closure
+`3623bdb9b4c3d907355808e4653d46dbd6012821ca023ea2240dd0ee4c29501e`.
+
+The active owner is `218,203` bytes at SHA-256
+`80d961e06c03f4d092efb65ba92f142ec1061227bab55d19068b1b623a69a8ad`,
+with reviewed normalized SHA-256
+`cdd34821dbc2b555ccb9ce8f14dbeb6dd0ff2baa9af50deb46708684c9167788`.
+The active focused test is `48,102` bytes at SHA-256
+`872895bfd12277dc35c05c34fa5b2d0105e84df2e640bde1bf52f3a01b14a588`.
+This section, those exact active bytes, the registry wording, goal status, and
+activation report received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`
+and become effective only when their complete diff is committed together.
+Activation creates no run, approval, transfer, or standing unattended
+authority. Every run still requires fresh prepare, its exact emitted approval,
+and attendance.
 
 ## Bounded autonomous research session
 

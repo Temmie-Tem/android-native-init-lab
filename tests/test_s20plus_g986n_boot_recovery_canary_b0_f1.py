@@ -29,10 +29,11 @@ def ordered(values: dict[str, str], keys: tuple[str, ...]) -> bytes:
 
 
 class S20PlusG986NBootRecoveryCanaryB0F1Tests(unittest.TestCase):
-    def test_plan_is_dormant_boot_only_and_mandatory_rollback(self) -> None:
+    def test_plan_is_active_boot_only_and_mandatory_rollback(self) -> None:
         plan = b0.render_plan()
-        self.assertFalse(plan["active"])
-        self.assertFalse(plan["live_authority"])
+        self.assertTrue(plan["active"])
+        self.assertTrue(plan["live_authority"])
+        self.assertEqual(plan["status"], "BINDING_ATTENDED_BOOT_ONLY_F1_ACTIVE")
         self.assertEqual(plan["candidate"]["partition"], "boot")
         self.assertEqual(plan["rollback"]["partition"], "boot")
         self.assertTrue(plan["rollback"]["mandatory"])
@@ -42,17 +43,19 @@ class S20PlusG986NBootRecoveryCanaryB0F1Tests(unittest.TestCase):
         self.assertTrue(plan["forbidden"]["candidate_replay"])
         self.assertTrue(plan["forbidden"]["rollback_replay"])
 
-    def test_dormant_connected_mode_stops_before_any_command(self) -> None:
+    def test_active_cli_dispatches_only_to_the_owned_prepare_entrypoint(self) -> None:
+        run_dir = Path("/tmp/b0-active-cli-fixture")
         with mock.patch.object(
             b0.base,
             "bounded_command",
             side_effect=AssertionError("device command reached"),
+        ), mock.patch.object(b0, "prepare", return_value=run_dir) as prepare, mock.patch.object(
+            b0,
+            "read_prepared",
+            return_value={"approval_token": "fixture-approval"},
         ):
-            self.assertEqual(b0.main(["--prepare"]), 3)
-            self.assertEqual(
-                b0.main(["--execute", "--run-dir", "/tmp/never", "--approval", "x"]),
-                3,
-            )
+            self.assertEqual(b0.main(["--prepare"]), 0)
+        prepare.assert_called_once_with(None)
 
     def test_self_normalized_identity_is_exact(self) -> None:
         self.assertEqual(
