@@ -322,6 +322,46 @@ class DeviceActionF1V2Test(unittest.TestCase):
             ):
                 self.module.verify_bundle(root, manifest_path)
 
+    def test_p323_baseline_accepts_only_exact_consumed_p322_receipt(self):
+        typed = self.module.typed_evidence
+        adapter = typed.p323_stock_adapter
+        raw = (
+            ROOT
+            / "workspace/private/runs/device-action-f1-live-v2/"
+            "f1-2026-08-31T114843125415Z-1788176923125468123/"
+            "preflight/baseline-observer.bin"
+        ).read_bytes()
+        self.assertEqual(
+            {
+                "size": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            },
+            typed.P323_CONSUMED_P322_BASELINE_IDENTITY,
+        )
+        baseline = typed.classify_clean_baseline(
+            raw, adapter.acceptance_fixture()
+        )
+        self.assertTrue(baseline["baseline_clean"])
+        self.assertEqual(
+            baseline["classification"],
+            "P323_CURRENT_RUN_ABSENT_P322_PREDECESSOR_EXACT",
+        )
+        self.assertEqual(baseline["exact_record_count"], 0)
+        self.assertEqual(baseline["family_count"], 1)
+
+        variants = (
+            raw[:-1],
+            raw + b"\x00",
+            bytes([raw[0] ^ 1]) + raw[1:],
+            raw[1:] + raw[:1],
+        )
+        for changed in variants:
+            with self.subTest(size=len(changed)):
+                with self.assertRaises(typed.EvidenceError):
+                    typed.classify_clean_baseline(
+                        changed, adapter.acceptance_fixture()
+                    )
+
     def test_candidate_ap_rejects_extra_member(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

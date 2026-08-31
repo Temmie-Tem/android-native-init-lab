@@ -4,7 +4,7 @@ Date: 2026-08-31
 
 Target: `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
-Status: `PASS_GO_P323_PROCESS_V2_H0`
+Status: `PASS_GO_P323_PROCESS_V2_H0`; corrected connected prepare pending
 
 ## Finding
 
@@ -94,7 +94,7 @@ device authority.
 ## Validation and boundary
 
 The P323 runtime/artifact/adapter/builder/reanalysis/static/ready suites pass
-26 tests. The common evidence, Process-v2, and live suites pass 130 tests,
+26 tests. The common evidence, Process-v2, and live suites pass 131 tests,
 including exact-role, parser-exception, encoder-failure, and unchanged legacy
 behavior. The P322 ready regression passes 3 tests. Python compilation, actual
 AArch64 static compilation, deterministic A/B packaging, and diff checks pass.
@@ -108,7 +108,24 @@ currently stops on the separately added S20+ host builder
 the reported boundary bypass. That cross-target census coupling is left to the
 S20+/auditor owner and is not carried forward as another P3.23 gate.
 
-This work made no device contact, issued no ADB or Odin command, transferred no
-payload, created no approval, and grants no D0, D1, F1, recovery, replay, or
-live authority. P3.23 now requires only fresh connected preparation and a fresh
+The host build and registration issued no device command. The connected stop
+below performed bounded read-only D0 contact but no write, reboot, Odin command,
+payload transfer, or approval. It grants no D1, F1, recovery, replay, or live
+authority. P3.23 now requires one corrected connected preparation and a fresh
 attended approval before any live action.
+
+## First connected prepare stop
+
+The first fresh prepare contacted the exact healthy target read-only and
+stopped before `prepared.json`, approval, reboot, Download, Odin, or transfer.
+Its durable D0 stop retained the 2,097,136-byte baseline at SHA-256
+`3d186a2a46cdca7eed219d6a915906322d3c2da001e7380b3a75e8b52ef7b4e2`.
+That is the consumed P3.22 CRC-valid producer-failure receipt, not a current
+P3.23 record.
+
+The bounded Rule-7 correction admits only that complete raw identity, its exact
+P3.22 reanalysis, and Carrier offset 1,634,466 as “current P3.23 run absent.”
+Short, appended, shifted, padding-mutated, corrupt, arbitrary predecessor, and
+current-P3.23 baselines remain rejected. Common tests pass 131/131 and focused
+independent review returned `PASS_GO`. One corrected prepare remains; this
+exception creates no device-write, F1, or replay authority.

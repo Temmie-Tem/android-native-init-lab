@@ -315,6 +315,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         paths["p323_acm_primary_runtime"] = scripts / (
             "s22plus_fyg8_p323_acm_primary_runtime.py"
         )
+        paths["p323_predecessor_baseline"] = Path(
+            typed_evidence.p323_predecessor_baseline.__file__
+        ).resolve()
     values = {
         name: _receipt(path.resolve(), f"execution source {name}")
         for name, path in paths.items()

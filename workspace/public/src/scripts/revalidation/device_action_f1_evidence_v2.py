@@ -210,6 +210,9 @@ p322_stock_adapter = _load_stable_local_module(
 p323_stock_adapter = _load_stable_local_module(
     "s22plus_fyg8_p323_stock_process_v2_adapter"
 )
+p323_predecessor_baseline = _load_stable_local_module(
+    "s22plus_fyg8_p323_p322_carrier_reanalysis"
+)
 import s22plus_fyg8_max77705_telemetry_decoder as max77705_decoder
 import s22plus_fyg8_p317_max77705_telemetry_decoder as p317_max77705_decoder
 import s22plus_fyg8_p318_max77705_telemetry_decoder as p318_max77705_decoder
@@ -525,6 +528,11 @@ P320_TARGET = dict(P319_TARGET)
 P321_TARGET = dict(P319_TARGET)
 P322_TARGET = dict(P319_TARGET)
 P323_TARGET = dict(P319_TARGET)
+P323_CONSUMED_P322_BASELINE_IDENTITY = {
+    "size": 2_097_136,
+    "sha256": "3d186a2a46cdca7eed219d6a915906322d3c2da001e7380b3a75e8b52ef7b4e2",
+}
+P323_CONSUMED_P322_RECORD_OFFSET = 1_634_466
 P319_EXACT_ARTIFACTS = {
     "ap_tar_md5": {
         "size": 27_279_401,
@@ -8148,11 +8156,48 @@ def classify_clean_baseline(
             item["profile"],
             item.get("userspace_overlay_contract_id"),
         )
-        baseline = selected_decoder.classify_clean_baseline(
-            payload,
-            expected_profile=item["profile"],
-            expected_run_id=bytes.fromhex(item["run_id"]),
-        )
+        try:
+            baseline = selected_decoder.classify_clean_baseline(
+                payload,
+                expected_profile=item["profile"],
+                expected_run_id=bytes.fromhex(item["run_id"]),
+            )
+        except ValueError as exc:
+            if (
+                item.get("userspace_overlay_contract_id")
+                != P323_STOCK_OVERLAY_CONTRACT_ID
+            ):
+                raise
+            raw_identity = {
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+            if raw_identity != P323_CONSUMED_P322_BASELINE_IDENTITY:
+                raise EvidenceError(
+                    "P3.23 predecessor baseline raw identity differs"
+                ) from exc
+            try:
+                predecessor = p323_predecessor_baseline.reanalyze(payload)
+            except p323_predecessor_baseline.ReanalysisError as predecessor_exc:
+                raise EvidenceError(
+                    "P3.23 baseline is neither empty nor the exact consumed P3.22 receipt"
+                ) from predecessor_exc
+            if (
+                predecessor.get("raw_observer")
+                != P323_CONSUMED_P322_BASELINE_IDENTITY
+                or predecessor.get("carrier_record_offset")
+                != P323_CONSUMED_P322_RECORD_OFFSET
+            ):
+                raise EvidenceError(
+                    "P3.23 predecessor baseline placement differs"
+                )
+            return {
+                "classification": "P323_CURRENT_RUN_ABSENT_P322_PREDECESSOR_EXACT",
+                "exact_record_count": 0,
+                "family_count": 1,
+                "integrity_issue": False,
+                "baseline_clean": True,
+            }
         return {
             "classification": baseline["classification"],
             "exact_record_count": 0,

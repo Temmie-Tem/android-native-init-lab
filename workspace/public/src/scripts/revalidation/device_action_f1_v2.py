@@ -672,6 +672,10 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources[f"{prefix}_observer_contract"] = Path(
                         observer_source
                     )
+                if prefix == "p323":
+                    e1_latest_stage_sources["p323_predecessor_baseline"] = Path(
+                        typed_evidence.p323_predecessor_baseline.__file__
+                    )
             elif userspace_overlay_contract_id == (
                 typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID
             ):
