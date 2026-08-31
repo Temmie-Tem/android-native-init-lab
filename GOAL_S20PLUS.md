@@ -816,3 +816,13 @@ artifact/archive validation and a pure no-replay T0 journal/observer model
 before artifact or device access; the T0 runner has no connected backend.
 Exact-stock rollback is present but not demonstrated live, and T1 remains
 ineligible until T0 proves candidate recovery ADB and completes stock rollback.
+
+Direct recovery-partition T0 remains `NO_GO`. A narrower B0 candidate instead
+carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,
+disables automatic `/system/bin/recovery` start, and retains PID1, ueventd,
+the fixed root-ADB banner, and marker. Recovery-partition reads/writes are zero;
+the fixed rollback is the known resident Magisk boot AP. Exact-byte artifact
+review returned `PASS_GO_H0` at 10/10 tests and findings 0/0/0, but runtime
+acceptance and live/F1 authority remain unproved. A reviewed exact B0 owner,
+mandatory rollback state machine, target-contract activation, fresh connected
+prepare, and its emitted approval are still required before any transfer.
