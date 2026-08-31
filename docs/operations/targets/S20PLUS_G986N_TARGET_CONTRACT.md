@@ -671,6 +671,76 @@ status, the single S20+ registry cell, goal/report wording, and exact tests.
 Its separate activation-diff review and commit are required before these
 sentences grant live authority.
 
+## TWRP T1 F2 retained recovery
+
+Status: **DEFINED NOT ACTIVE - ATTENDED TWRP T1 F2**
+
+This section defines, but does not activate, the separate F2-T1 exception for
+the exact operator-owned `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. It receives no
+live authority from T0. The completed T0 terminal proved one recovery-only
+candidate transfer, one exact-stock rollback transfer, later healthy rooted
+Android, and the exact stock recovery SHA-256. Its candidate observation was
+`NO_PROOF`; therefore it proves neither TWRP nor recovery ADB.
+The owner must revalidate the complete fixed T0 journal and exact 2,188-byte
+terminal SHA-256
+`94a7edbf5607f60cb19eeb3c7f09795682ccecb26a4dc807bed2485263b9e67a`,
+pin the T0 owner and 30,909-byte H0 base source, and compare the terminal's final
+serial hash to the current healthy T1 preflight. It returns only a sanitized
+qualification summary and never publishes the serial value.
+
+The only T1 candidate is the 52,111,401-byte recovery-only AP at SHA-256
+`3ed8498243ff09399ffd93fa3b0e90044a3cfe1709b7204dac53fe190647260f`.
+Its only member is `recovery.img.lz4`, 52,100,173 bytes at SHA-256
+`f4ccd3fbcd683b5597cf20b028b1230cfb0dd8f4f3c93d3db27c5314834ace7a`;
+the decoded recovery is 82,694,144 bytes at SHA-256
+`48406883b1f631c4dfa1b157708f2e320e70b744967024bad6cb50b08cd06cb2`.
+It uses the exact IYC2 stock header, kernel, DTB, and recovery DTBO with the
+pinned AstroForge V2 TWRP ramdisk and the reviewed five-entry safety delta.
+
+The prebound rollback is the 36,608,041-byte exact-stock recovery-only AP at
+SHA-256
+`ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`.
+No VBMeta, DTBO, boot, userdata, misc, EFS, persist, super, or other partition
+member is present in either archive.
+
+The dormant exact profile is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t1_profile_h0.py`,
+12,843 bytes at SHA-256
+`c495deaac141fbbbee8fa9d13501f0e593306fa40127618640615f6a498de5e1`.
+The dormant connected owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t1_f2.py`,
+161,746 bytes at SHA-256
+`76f978028cd24f1b75f27ba95704d7d33d4fd1b42e7281beb7c4541e5d3f5557`
+and activation-normalized SHA-256
+`6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`.
+`T1_F2_ACTIVE=false`. Its focused hostile test is 60,078 bytes at SHA-256
+`930934dde91e23d593ee5c00354bee4c52bea32ed82cb0aa1374218f4fae17c0`.
+
+Preparation requires fresh healthy exact rooted Android, a fresh stock recovery
+digest, an empty Download baseline, exact host closure, no foreign guard, and a
+new short-lived approval. Candidate and rollback each have at most one intent
+and one caged Odin process. The candidate is globally no-replay. A completed
+candidate may enter recovery only through the fixed attended key choreography.
+
+Retention requires the same prepared serial and topology to appear once in ADB
+state `recovery`, then return exact root UID, TWRP version
+`3.7.1_12-AstroForge_v2`, donor incremental, ADB-only state, fresh boot ID, and
+the fixed T1 marker SHA-256. The retained terminal performs no rollback, mount,
+format, install, backup, restore, terminal command, or other partition action.
+Visual UI is supportive observation and cannot substitute for the fixed ADB
+marker proof.
+
+If that proof is absent or malformed, the candidate is not retained by proof
+and may not be replayed. Before any retained terminal, the attended physical
+Download path may send only the exact-stock rollback once, followed by exact
+Android and stock-recovery health. A clean retained terminal closes that run
+and its approval; any later stock restoration requires separately reviewed
+fresh exact-stock authority. Drift or ambiguity stops. Activation requires a separate
+independent `PASS_GO` over the common/risk/target boundary, profile, owner,
+tests, retained terminal, rollback graph, and exact identities, followed by a
+mechanical activation-only commit. Until then every connected mode stops before
+device inventory.
+
 ## Boot recovery-canary B0 F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE AFTER REVIEWED COMMIT**

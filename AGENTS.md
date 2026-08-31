@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **3** (supersedes revision 2; 2026-08-31)
+Contract-Revision: **4** (supersedes revision 3; 2026-08-31)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -40,7 +40,7 @@ are current. An unactivated policy edit remains H0 only.
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
 | Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Resident Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
-| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; attended recovery-canary T0 F2 active; reviewed attended native-canary R1 active |
+| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; attended recovery-canary T0 F2 active; TWRP T1 F2 defined but not active; reviewed attended native-canary R1 active |
 
 Targets, profiles, rollback identities, transports, approvals, and health evidence never transfer between registry rows. Without an exact matching contract, remain H0.
 
@@ -62,15 +62,27 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
    write, not a partition payload; it is permitted only within the closed
    package/file staging rules below and never authorizes block or filesystem
    access to a partition mount outside that normal API.
-   One narrow S20+ recovery-canary T0 exception may be activated only by the
-   exact S20+ target contract under the `F2` tier below. It is limited to one
+   One narrow S20+ recovery-canary T0 exception is activated only by the exact
+   S20+ target contract under the `F2` tier below. It is limited to one
    SHA-pinned candidate and one SHA-pinned exact-stock rollback, each an Odin
-   AP with exactly one regular `recovery.img.lz4` member. It permits no TWRP
-   T1 payload, caller artifact/path/partition, other target, or other partition.
+   AP with exactly one regular `recovery.img.lz4` member. It transfers no
+   authority to TWRP T1, a caller artifact/path/partition, another target, or
+   another partition.
    Its first candidate intent permanently consumes that candidate. This
    delegation grants nothing while any common, risk-tier, target-contract,
    runner, hostile-test, independent-review, mechanical-activation, fresh
    preparation, approval, attendance, or physical-recovery gate is absent.
+   A second exact S20+ TWRP T1 exception may be defined under `F2-T1`, but is
+   **not active**. It is limited to candidate AP SHA-256
+   `3ed8498243ff09399ffd93fa3b0e90044a3cfe1709b7204dac53fe190647260f`
+   and the same exact-stock rollback AP SHA-256
+   `ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`,
+   each with exactly one `recovery.img.lz4`. It gains no authority until its
+   separate profile, connected owner, hostile tests, target section, risk-tier
+   section, independent review, and mechanical activation all close together.
+   Preparation must mechanically revalidate the exact completed T0 terminal,
+   its source closure, both proved transfers, final stock digest, and current
+   serial continuity; documentation of those facts is not a substitute.
 3. Never use raw host `dd`, fastboot, partition-table actions, qdl/Sahara/
    Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format operations,
    or an unreviewed panic/RDX path.
@@ -82,9 +94,10 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
    fixed by reviewed code. It accepts no caller path, offset, count, command,
    or payload; drift or a second invocation stops. This exception grants no
    other `misc` access and never transfers to another target or process.
-   The S20+ T0 exception uses only the exact pinned `/usr/bin/odin4` recovery-
-   only AP transfer. It does not permit `dd`, direct block writes, fastboot,
-   PIT/partition-table actions, or a caller-selected Odin option.
+   The S20+ T0 exception and any later activated exact T1 exception use only
+   the pinned `/usr/bin/odin4` recovery-only AP transfer. Neither permits `dd`,
+   direct block writes, fastboot, PIT/partition-table actions, or a caller-
+   selected Odin option.
 4. Never flash unless the exact rollback artifact is present, readable,
    hash-verified, and usable through a demonstrated recovery path.
    For the one S20+ F2 bootstrap only, this means the already demonstrated
@@ -147,6 +160,9 @@ Classify every action using
   one exact recovery candidate attempt and one exact-stock recovery rollback
   attempt under the separately activated target process; it never generalizes
   to TWRP T1, another recovery image, another target, or ordinary F1.
+- **F2-T1:** a separately reviewed exact-target S20+ TWRP retained-recovery
+  exception. It is currently **defined but not active** and grants zero device
+  commands until every named activation atom is reviewed and committed.
 - **X:** forbidden by the permanent boundaries.
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

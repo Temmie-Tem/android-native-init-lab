@@ -153,6 +153,55 @@ or another image.
   Transfer attribution, candidate claim, rollback health, and terminal health
   remain separate. An unknown rollback result can close only with an explicit
   unproved-transfer verdict after exact stock bytes are independently read.
+
+### F2-T1 - Exact S20+ TWRP Retained Recovery
+
+Status: **DEFINED NOT ACTIVE**
+
+F2-T1 is a separate, non-generalizing exception for the exact
+`SM-G986N/y2q/y2qksx/G986NKSS8IYC2` TWRP T1 candidate. It receives no authority
+from F2 T0. Its only candidate AP SHA-256 is
+`3ed8498243ff09399ffd93fa3b0e90044a3cfe1709b7204dac53fe190647260f`;
+its only recovery AP SHA-256 is the exact-stock
+`ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`.
+Each contains exactly one deterministic regular `recovery.img.lz4` member.
+
+The completed T0 terminal may qualify only these predecessor facts: one exact
+candidate transfer and one exact-stock rollback transfer were Odin-derived,
+the physical Download recovery path worked, and a later root read proved the
+stock recovery bytes. Its `NO_PROOF` candidate observation does not prove TWRP,
+recovery ADB, display, touch, mounts, or retention. F2-T1 exists specifically
+to test those still-unknown properties with a different SHA-pinned image.
+Preparation must rederive those facts from the exact 2,188-byte private T0
+terminal SHA-256
+`94a7edbf5607f60cb19eeb3c7f09795682ccecb26a4dc807bed2485263b9e67a`,
+pin its owner/base sources, and match its final serial binding to the current
+healthy T1 target without publishing that identifier.
+
+If separately activated, one fresh attended preparation and exact returned
+approval may consume the T1 candidate once. It retains the T1 recovery only
+after a raw-derived completed transfer plus a fresh recovery boot whose same
+prepared serial and topology answer the fixed root-ADB marker/version profile.
+That terminal permits no TWRP UI action, mount, terminal command, format,
+install, backup, restore, or another partition write. Visual UI is supportive
+only; ADB marker proof is the retention gate.
+
+Missing or malformed recovery ADB, Android arrival, transfer uncertainty, or
+endpoint drift never retains by proof and never replays the candidate. Before
+a retained terminal, the prebound exact-stock rollback remains reachable only
+through the bounded attended physical Download path. Candidate/rollback intents,
+global no-replay claim, cgroup quiescence, raw capture, exact endpoint binding,
+and no-clobber journal rules remain at least as strict as F2 T0.
+
+A clean retained terminal intentionally closes the run and its rollback
+approval. Later stock restoration is possible only through separately reviewed
+fresh exact-stock authority; it is not silently available from the closed run.
+
+Activation requires an independent review of the common boundary, target
+section, exact profile, connected owner, hostile tests, artifact closure,
+retained terminal, and rollback branches, followed by a mechanical activation
+commit. Until then every connected mode stops before inventory or device
+contact.
 - Every other partition payload, format, mount, `dd`, direct block write,
   caller path/artifact/partition/command, security or Magisk mutation, and
   other-target command remains forbidden. T0 PASS supplies evidence for a

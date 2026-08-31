@@ -799,27 +799,28 @@ Permanent mutation or recovery-path risk always stops for fresh consent.
 Campaign Phase A, recovery predecessors, start-interlock, runtime, and receipt-06 remain inactive; the proxy audit, pure two-pass incremental parser, and x86-64 seccomp artifacts are exact-byte qualified only as `H0_*_PASS_GO_NOT_ACTIVE` after 40/40, 33/33, and 42/42 focused validation and independent final `0/0/0` reviews.
 They close modeled ADB 34 version isolation, immutable ordinal framing, x32 denial, and raw execveat values but implement no real socket/proxy, authenticated wire observation, executor-owned argv/env, ADB child, journal, interlock/recovery composition, contract/mechanical activation, or live authority; a fresh post-activation attended opening is still required, while permanent mutation or recovery-path risk always stops for fresh consent.
 
-## Recovery/TWRP T0 execution
+## Recovery/TWRP execution
 
-The exact IYC2 stock recovery, stock-derived ADB canary T0, and sanitized
-stock-substrate/donor-ramdisk TWRP T1 are host-built. The revision-3 common F2
-exception and exact target section are active only for T0. The concrete
-owner `s20plus_g986n_recovery_canary_t0_f2.py` is 153,798 bytes at SHA-256
-`a91d45e14f4cb82f10a83a8c2bdc38126deb20b9b841918888ec45842ad51e75`
-(normalized `82a357b96f5b7cc03868d5c174d70f5b3d66a4aa2525482e14bd862e40d5425b`).
-It pins the one-member candidate and stock rollback APs, performs an exact
-pre/post stock-recovery digest read, creates intent-before-effect journals,
-globally consumes the candidate, and has automatic plus attended rollback
-branches. The fixed S20-series direct-Recovery chord is part of the owner;
-focused tests pass 44/44 and the combined T0 closure passes 79/79.
-`T0_F2_ACTIVE=true` after dormant and activation-diff independent `PASS_GO`.
-The first live candidate transfer completed once. Its first observation call
-stopped before device contact because the reused B0 Download-arrival producer
-hashes canonical durable JSON with a trailing newline while the T0 validator
-used its no-newline binding digest. Candidate replay remains forbidden. The
-reviewed incident repair uses the producer's `b0.digest` only for that arrival
-edge; the next step is resume of the same journal, recovery observation, exact
-stock rollback, and final health. T1 remains ineligible until those complete.
+The T0 campaign closed as
+`NO_PROOF_T0_RETURNED_STOCK_RECOVERY_HEALTHY`: its candidate and exact-stock
+rollback transfers are both raw-derived complete, later Android/root health is
+good, and the live recovery digest is exact stock
+`dd797bc0a462d2486ff71c020e89d1137df46299374e48855012e36e86f97e0e`.
+Recovery ADB/marker proof was absent, so T0 itself remains `NO_PROOF` and its
+candidate is permanently non-replayable.
+
+The revision-4 boundary now defines but does not activate a separate TWRP T1
+F2 lane. Its candidate is the IYC2-stock-substrate/AstroForge-ramdisk AP
+`3ed8498243ff09399ffd93fa3b0e90044a3cfe1709b7204dac53fe190647260f`;
+rollback is the demonstrated exact-stock AP. The dormant profile is
+`c495deaac141fbbbee8fa9d13501f0e593306fa40127618640615f6a498de5e1`.
+The dormant owner is
+`76f978028cd24f1b75f27ba95704d7d33d4fd1b42e7281beb7c4541e5d3f5557`
+(normalized `6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`).
+It may retain TWRP only after same-serial/topology root-ADB marker/version proof;
+otherwise only the one-shot stock rollback branch remains. Current next step is
+focused hostile validation and independent dormant review; no T1 device
+authority or approval exists yet.
 
 The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,
