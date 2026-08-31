@@ -719,6 +719,30 @@ contract, mechanical activation, and live authority remain unimplemented or
 false. The exact report is
 `docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_START_INTERLOCK_V1_H0_2026-08-31.md`.
 
+The separate runtime-primitives source is exact-byte qualified only as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_RUNTIME_PRIMITIVES_V1_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_runtime_v1_h0.py`.
+Its final source is 85,645 bytes at SHA-256
+`f6644edc1f8eee80e6f9fc5e7623c96b8e58de23312e71607e51a4658d67652f`,
+with activation-normalized SHA-256
+`12b993c199a104c2c0f1bdb9706c179005292971428ef26317442e600eb89ac2`;
+its 79,428-byte test is SHA-256
+`69b90ff55e3a4e7b48f346b9a452c1227dca345e6d334b4e443e6faeef53a403`.
+Focused validation passed 64/64 and the eleven-suite autonomous aggregate
+passed 405 tests. Independent exact-byte and status-rotation reviews returned
+`PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+
+This qualifies only the inactive source primitives for exact held-file ADB
+execution, preexisting-server continuity detection, bounded clock and USB
+generation ownership, direct-child cleanup, and a process-local one-shot
+state object. Concrete host observers are import-reachable fixtures and Python
+privacy is not authority. No closed executor call graph or journal integration
+exists. ADB server autostart is detected after drift but not prevented; the
+no-autostart transport remains an explicit blocker. Every execution,
+same-process integration, target/cross-code, contract, mechanical, and live
+gate remains false. The exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_RUNTIME_PRIMITIVES_V1_H0_2026-08-31.md`.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**

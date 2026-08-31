@@ -794,7 +794,7 @@ After a future combined review and activation, one fresh exact-target/
 current-boot attended opening may enable its finite read without per-action prompts.
 Permanent mutation or recovery-path risk always stops for fresh consent.
 
-## Phase-B start-interlock fixture qualification
+## Phase-B runtime-primitives qualification
 
-Campaign Phase A and its recovery predecessors remain inactive; the start-interlock fixture protocol is exact-byte qualified only as `H0_AUTONOMOUS_PUBLIC_HEALTH_START_INTERLOCK_V1_MODEL_PASS_GO_NOT_ACTIVE` after 46/46 focused and 341 aggregate tests plus independent HIGH/MEDIUM/LOW `0/0/0` review.
-It models only a temporary held leaf-directory lock and nonauthorizing EMPTY/PARKED admission. Production scanning, real-root reopening, guard publication, every runner integration, runtime owners/executor, recovery rotation, contract, mechanical activation, and live authority remain false. A fresh post-activation attended opening is still required; permanent mutation or recovery-path risk always stops for fresh consent.
+Campaign Phase A, recovery predecessors, and start-interlock remain inactive; runtime primitives are exact-byte qualified only as `H0_AUTONOMOUS_PUBLIC_HEALTH_RUNTIME_PRIMITIVES_V1_PASS_GO_NOT_ACTIVE` after 64/64 focused and 405 aggregate tests plus independent HIGH/MEDIUM/LOW `0/0/0` review.
+The held-file/server/clock/USB/capability sources are not an executor: ADB autostart prevention, closed call graph, raw journal and receipt-06 continuity, production interlock/recovery integration, contract, mechanical activation, and live authority remain false. A fresh post-activation attended opening is still required; permanent mutation or recovery-path risk always stops for fresh consent.
