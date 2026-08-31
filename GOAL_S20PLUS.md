@@ -798,3 +798,21 @@ Permanent mutation or recovery-path risk always stops for fresh consent.
 
 Campaign Phase A, recovery predecessors, start-interlock, runtime, and receipt-06 remain inactive; the proxy audit, pure two-pass incremental parser, and x86-64 seccomp artifacts are exact-byte qualified only as `H0_*_PASS_GO_NOT_ACTIVE` after 40/40, 33/33, and 42/42 focused validation and independent final `0/0/0` reviews.
 They close modeled ADB 34 version isolation, immutable ordinal framing, x32 denial, and raw execveat values but implement no real socket/proxy, authenticated wire observation, executor-owned argv/env, ADB child, journal, interlock/recovery composition, contract/mechanical activation, or live authority; a fresh post-activation attended opening is still required, while permanent mutation or recovery-path risk always stops for fresh consent.
+
+## Recovery/TWRP H0 preparation
+
+The exact IYC2 stock recovery and exact-stock-derived recovery ADB canary T0 are
+host-bound; a sanitized stock-kernel/DTB/recovery-DTBO plus donor-ramdisk TWRP
+T1 candidate is also host-built. Neither is live-authorized. The common process
+still permits partition payloads only to `boot`, so recovery reads/writes remain
+forbidden until an independently reviewed common and target-specific exception
+is mechanically activated.
+
+The next review unit is recorded in
+`docs/reports/S20PLUS_G986N_RECOVERY_T0_EXECUTION_CLOSURE_H0_2026-08-31.md`.
+It adds a dormant no-input stock-recovery digest profile (16/16), exact host
+artifact/archive validation and a pure no-replay T0 journal/observer model
+(19/19), plus a non-binding proposed process. Both `--connected` paths stop
+before artifact or device access; the T0 runner has no connected backend.
+Exact-stock rollback is present but not demonstrated live, and T1 remains
+ineligible until T0 proves candidate recovery ADB and completes stock rollback.

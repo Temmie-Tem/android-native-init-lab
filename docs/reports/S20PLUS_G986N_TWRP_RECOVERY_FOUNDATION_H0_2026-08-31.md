@@ -242,6 +242,8 @@ the S20+-specific treatment that made the exact A90 hook acceptable. Neither
 public candidate is presently eligible for device transfer as-is.
 
 T0 host construction and hostile static validation are complete. The next
-bounded unit is a separate policy/process and execution-closure review. There
-is no current live recovery-write authority, no installation approval consumed,
-and no claim that recovery rollback has been demonstrated.
+bounded policy/process and execution-closure H0 unit is now recorded in
+`docs/reports/S20PLUS_G986N_RECOVERY_T0_EXECUTION_CLOSURE_H0_2026-08-31.md`.
+It remains dormant and review-pending: there is no current live recovery-read
+or recovery-write authority, no installation approval consumed, and no claim
+that recovery rollback has been demonstrated.
