@@ -35,7 +35,7 @@ import s20plus_g986n_twrp_t1_f2 as t1_predecessor  # noqa: E402
 
 VERSION = "s20plus-g986n-twrp-t2-f2-v1"
 PLAN_SCHEMA = "s20plus_g986n_twrp_t2_f2_plan_v1"
-T2_F2_ACTIVE = False
+T2_F2_ACTIVE = True
 EXPECTED_REVIEWED_NORMALIZED_SHA256 = "51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9"
 
 ROOT = Path(__file__).resolve().parents[5]

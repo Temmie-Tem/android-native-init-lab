@@ -815,15 +815,17 @@ and marker; only `sys.usb.config=mtp,adb` differed from the predeclared `adb`.
 The one-shot stock rollback then proved healthy rooted Android and exact stock
 recovery. Both T1 transfers are proved and neither can replay.
 
-Revision 5 defines but does not activate T2. Its byte-distinct candidate AP is
+Revision 5 and the exact target section activate attended T2. Its byte-distinct
+candidate AP is
 `6d10b3154f2e899ee64305f3f3279d7d5243eb917f1fedb413b8f88d22ec88cb`;
-rollback remains exact stock. The dormant owner is
-`b915810a2d360c293698e3628e7505e149926f1f29d690086757ec8d1febe364`
+rollback remains exact stock. The active owner is
+`eae10c74cfd3de2f705c6999749ddf9bc41fc38e25d13792bbb8c047c779e8ab`
 (normalized `51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`).
 It revalidates the exact T1 terminal/raw observation, requires current serial
 continuity, and accepts only the observed `mtp,adb` alongside a new T2 marker.
-Current next step is hostile validation and independent dormant review; T2 has
-no device authority or approval.
+Dormant and activation-only review passed; activation creates no standing run
+or approval. Current next step is fresh attended `--prepare`, then return its
+exact short-lived approval before any T2 transfer.
 
 The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,

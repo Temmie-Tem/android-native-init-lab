@@ -2,7 +2,7 @@
 
 Date: 2026-08-31
 Target: `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`
-Status: **PASS_GO - DORMANT QUALIFIED, NOT ACTIVE**
+Status: **BINDING ACTIVE AFTER DORMANT AND ACTIVATION-DIFF REVIEW**
 
 ## T1-derived correction
 
@@ -53,7 +53,7 @@ recovery-only AP SHA-256
 `ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`.
 Both archives contain one regular `recovery.img.lz4` and no other partition.
 
-## Dormant implementation
+## Qualified implementation
 
 The profile
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_profile_h0.py`
@@ -64,12 +64,12 @@ all other fixed TWRP properties and bounds remain.
 
 The connected owner
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_f2.py` is
-167,340 bytes at SHA-256
-`b915810a2d360c293698e3628e7505e149926f1f29d690086757ec8d1febe364`;
+167,339 bytes at SHA-256
+`eae10c74cfd3de2f705c6999749ddf9bc41fc38e25d13792bbb8c047c779e8ab`;
 its activation-normalized SHA-256 is
 `51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`.
-`T2_F2_ACTIVE=false`. The 61,285-byte focused hostile test is SHA-256
-`7d4790be558b3404fd10f76420ef329639ffddb5f3885e6cc9141eac053b983e`.
+`T2_F2_ACTIVE=true`. The 61,234-byte focused hostile test is SHA-256
+`4a9e3d79965545d4e37d69b59b9daa447fe4a2d927f76f102be036f6bd046f51`.
 
 The owner retains T1's exact-target binding, caged single Odin attempt per
 branch, global candidate no-replay, no-clobber typed journal, raw evidence,
@@ -84,11 +84,13 @@ restore, terminal, or other partition action.
 The T2 builder corpus passes 14/14 and the connected-owner corpus passes 52/52,
 including exact T1 raw-evidence acceptance and negative USB/marker mutations;
 the combined T2 corpus passes 66/66. `py_compile`, deterministic rebuild,
-dormant render/host validation, predecessor revalidation, prior T1 51/51,
+dormant and active render/host validation, predecessor revalidation, prior T1 51/51,
 registry integration, and `git diff --check` pass. This report, revision-5
 boundary, risk-tier/target sections, builder, profile, owner, and tests remain
-H0. Independent dormant review returned `PASS_GO` with HIGH/MEDIUM/LOW
-`0/0/0`. The dormant qualification commit, then a separate activation-only
-`PASS_GO` and commit, are required before any T2 inventory or device command.
-No T2 prepare, approval, Download entry, Odin invocation, or recovery write has
-occurred.
+exactly bound. The dormant closure and activation-only diff each received
+independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` before their commits.
+Activation creates no run or standing approval. The first permitted live step
+is fresh attended `--prepare`; no T2 transfer is possible until its exact
+emitted approval is returned before expiry. No T2 prepare, approval, Download
+entry, Odin invocation, or recovery write occurred during qualification or
+activation.

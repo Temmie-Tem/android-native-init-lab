@@ -11,7 +11,7 @@ removing, rotating, or reusing that onboarding guard. The exact routine D1 and
 attended boot-only F1 and attended native-canary R1 are reviewed and active.
 The exact attended root-health D0 remains active. Recovery-canary T0 and TWRP
 T1 owners retain only their consumed-candidate journals and terminal paths;
-TWRP T2 F2 is defined but not active.
+TWRP T2 F2 is active only through its exact attended owner.
 R1 activation creates no run or standing approval; each transaction still
 requires fresh exact preparation, its emitted approval, and attendance.
 
@@ -755,9 +755,9 @@ and its exact returned approval.
 
 ## TWRP T2 F2 corrected retained recovery
 
-Status: **DEFINED NOT ACTIVE - ATTENDED TWRP T2 F2**
+Status: **BINDING - ATTENDED TWRP T2 F2 ACTIVE**
 
-This section defines but does not activate F2-T2 for only the operator-owned
+This section activates F2-T2 only for the operator-owned
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. T1 remains `NO_PROOF`; its observation is
 predecessor evidence, not inherited authority or a relabeled T1 result.
 
@@ -785,14 +785,14 @@ The exact profile is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_profile_h0.py`,
 12,847 bytes at SHA-256
 `c02b78f2a1215a1fc2104a4634264609d2060d610bc628a068b318cb1cf55fb7`.
-The dormant connected owner is
+The connected owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_f2.py`,
-167,340 bytes at SHA-256
-`b915810a2d360c293698e3628e7505e149926f1f29d690086757ec8d1febe364`
+167,339 bytes at SHA-256
+`eae10c74cfd3de2f705c6999749ddf9bc41fc38e25d13792bbb8c047c779e8ab`
 and activation-normalized SHA-256
 `51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`.
-`T2_F2_ACTIVE=false`. Its focused hostile test is 61,285 bytes at SHA-256
-`7d4790be558b3404fd10f76420ef329639ffddb5f3885e6cc9141eac053b983e`.
+`T2_F2_ACTIVE=true`. Its focused hostile test is 61,234 bytes at SHA-256
+`4a9e3d79965545d4e37d69b59b9daa447fe4a2d927f76f102be036f6bd046f51`.
 
 Host validation must first re-run the exact active T1 source closure and the
 complete fixed T1 journal. It pins the 2,144-byte T1 terminal SHA-256
@@ -808,7 +808,7 @@ exactly `mtp,adb`, proves its recovery boot differs from prepared and final
 Android boots, and requires current serial continuity without publishing the
 identifier.
 
-If separately activated, preparation still requires fresh healthy exact rooted
+Preparation still requires fresh healthy exact rooted
 Android, a fresh exact-stock recovery digest, empty Download baseline, exact
 host closure, no foreign guard, and a new short-lived returned approval.
 Candidate and rollback each have one intent and one caged Odin process. The T2
@@ -826,10 +826,11 @@ attended exact-stock physical rollback. A clean retained terminal closes the
 run and its rollback approval; any later stock restore requires separate fresh
 reviewed authority.
 
-Activation requires independent review of the common/risk/target boundary,
+Activation required independent review of the common/risk/target boundary,
 builder, profile, owner, tests, T1 predecessor closure, retained terminal,
 rollback graph, and exact identities, followed by a mechanical activation-only
-commit. Until then all connected modes stop before device inventory.
+commit. Activation creates no run or standing approval; live use still requires
+fresh attended preparation and its exact returned approval.
 
 ## Boot recovery-canary B0 F1
 

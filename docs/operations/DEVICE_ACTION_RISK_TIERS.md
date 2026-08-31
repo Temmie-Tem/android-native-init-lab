@@ -216,7 +216,7 @@ fresh candidate use.
 
 ### F2-T2 - Exact S20+ TWRP Corrected Retained Recovery
 
-Status: **DEFINED NOT ACTIVE**
+Status: **BINDING - ACTIVE ONLY THROUGH EXACT ATTENDED T2 OWNER**
 
 F2-T2 is a new non-generalizing exception for only the exact
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2` T2 candidate. Its sole candidate AP
@@ -235,7 +235,7 @@ terminal, observation, raw-capture receipt, raw stdout, and source closure must
 all be mechanically revalidated. Documentation or semantic reconstruction of
 those private bytes grants nothing.
 
-If activated, one fresh attended preparation and exact returned approval may
+One fresh attended preparation and exact returned approval may
 consume the byte-distinct T2 candidate once. Retention requires a raw-derived
 completed transfer and the same prepared serial/topology in ADB recovery state,
 with a fresh boot ID, root UID, exact TWRP version/incremental, security fields,
@@ -249,11 +249,11 @@ future stock restore requires separate fresh reviewed authority. No mount,
 format, UI action, terminal command, install, backup, restore, caller path,
 other partition, or security/Magisk mutation is introduced.
 
-Activation requires independent review of the common boundary, target section,
+Activation required independent review of the common boundary, target section,
 exact builder/profile/owner, hostile tests, artifact and predecessor closures,
 retained terminal, and rollback branches, followed by a separate mechanical
-activation commit. Until then every connected mode stops before inventory or
-device contact.
+activation commit. Each run still requires a fresh attended preparation and its
+exact returned approval before candidate transfer.
 
 ### R1 - Exact Privileged Root-Data Transaction
 
