@@ -673,9 +673,9 @@ sentences grant live authority.
 
 ## TWRP T1 F2 retained recovery
 
-Status: **DEFINED NOT ACTIVE - ATTENDED TWRP T1 F2**
+Status: **BINDING - ATTENDED TWRP T1 F2 ACTIVE**
 
-This section defines, but does not activate, the separate F2-T1 exception for
+This section activates the separate F2-T1 exception only for
 the exact operator-owned `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. It receives no
 live authority from T0. The completed T0 terminal proved one recovery-only
 candidate transfer, one exact-stock rollback transfer, later healthy rooted
@@ -703,18 +703,18 @@ SHA-256
 No VBMeta, DTBO, boot, userdata, misc, EFS, persist, super, or other partition
 member is present in either archive.
 
-The dormant exact profile is
+The exact profile is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t1_profile_h0.py`,
 12,843 bytes at SHA-256
 `c495deaac141fbbbee8fa9d13501f0e593306fa40127618640615f6a498de5e1`.
-The dormant connected owner is
+The connected owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t1_f2.py`,
-161,746 bytes at SHA-256
-`76f978028cd24f1b75f27ba95704d7d33d4fd1b42e7281beb7c4541e5d3f5557`
+161,745 bytes at SHA-256
+`756289617ee4837457a5d1c0357d6a8b78d10d86f4b6822d30a86ed24a174fd0`
 and activation-normalized SHA-256
 `6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`.
-`T1_F2_ACTIVE=false`. Its focused hostile test is 60,078 bytes at SHA-256
-`930934dde91e23d593ee5c00354bee4c52bea32ed82cb0aa1374218f4fae17c0`.
+`T1_F2_ACTIVE=true`. Its focused hostile test is 60,027 bytes at SHA-256
+`270cea73c3aa943a4ffd49703452644bf8ad32666d9094c7555aca5c9f63720e`.
 
 Preparation requires fresh healthy exact rooted Android, a fresh stock recovery
 digest, an empty Download baseline, exact host closure, no foreign guard, and a
@@ -735,11 +735,12 @@ and may not be replayed. Before any retained terminal, the attended physical
 Download path may send only the exact-stock rollback once, followed by exact
 Android and stock-recovery health. A clean retained terminal closes that run
 and its approval; any later stock restoration requires separately reviewed
-fresh exact-stock authority. Drift or ambiguity stops. Activation requires a separate
-independent `PASS_GO` over the common/risk/target boundary, profile, owner,
-tests, retained terminal, rollback graph, and exact identities, followed by a
-mechanical activation-only commit. Until then every connected mode stops before
-device inventory.
+fresh exact-stock authority. Drift or ambiguity stops. Activation required a
+separate independent `PASS_GO` over the common/risk/target boundary, profile,
+owner, tests, retained terminal, rollback graph, and exact identities, followed
+by an independently reviewed mechanical activation-only commit. It creates no
+run or standing approval; live use still requires fresh attended preparation
+and its exact returned approval.
 
 ## Boot recovery-canary B0 F1
 

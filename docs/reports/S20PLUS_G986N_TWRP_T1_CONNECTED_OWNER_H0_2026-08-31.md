@@ -2,7 +2,7 @@
 
 Date: 2026-08-31
 Target: `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`
-Status: **DEFINED NOT ACTIVE - INDEPENDENT REVIEW PENDING**
+Status: **BINDING ACTIVE AFTER DORMANT AND ACTIVATION-DIFF REVIEW**
 
 ## Predecessor evidence
 
@@ -36,7 +36,7 @@ bytes at SHA-256
 Neither AP contains another partition member. Donor source reproduction remains
 unproved; the exact downloaded bytes and sanitized port are pinned.
 
-## Dormant implementation
+## Qualified implementation
 
 The profile
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t1_profile_h0.py`
@@ -49,12 +49,12 @@ ID, and marker SHA-256
 
 The connected owner
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t1_f2.py` is
-161,746 bytes at SHA-256
-`76f978028cd24f1b75f27ba95704d7d33d4fd1b42e7281beb7c4541e5d3f5557`;
+161,745 bytes at SHA-256
+`756289617ee4837457a5d1c0357d6a8b78d10d86f4b6822d30a86ed24a174fd0`;
 its activation-normalized SHA-256 is
 `6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`.
-`T1_F2_ACTIVE=false`. The 60,078-byte focused test is SHA-256
-`930934dde91e23d593ee5c00354bee4c52bea32ed82cb0aa1374218f4fae17c0`.
+`T1_F2_ACTIVE=true`. The 60,027-byte focused test is SHA-256
+`270cea73c3aa943a4ffd49703452644bf8ad32666d9094c7555aca5c9f63720e`.
 
 The owner inherits the reviewed T0 exact-target binding, raw capture, cgroup
 quiescence, no-clobber typed journal, one-shot Download/Odin classification,
@@ -76,10 +76,12 @@ authority.
 
 The focused owner corpus passes 51/51 after adding exact TWRP profile and
 retained-terminal tests. Together with the 14/14 deterministic T1 builder suite,
-the current T1 corpus passes 65/65. `py_compile`, dormant render/host validation,
+the current T1 corpus passes 65/65. `py_compile`, active render/host validation,
 and `git diff --check` pass.
 
-This report, common revision-4 wording, risk-tier section, target section,
-profile, owner, and tests are H0 only. They require independent review and a
-separate mechanical activation commit. No T1 prepare, approval, Download entry,
-Odin invocation, recovery write, or device command occurred during this unit.
+The dormant closure and activation-only diff each received independent
+`PASS_GO` before their commits. Activation creates no run or standing approval.
+The first permitted live step is a fresh attended `--prepare`; no T1 transfer is
+possible until its exact emitted approval is returned before expiry. No T1
+prepare, approval, Download entry, Odin invocation, recovery write, or device
+command occurred during qualification or activation.

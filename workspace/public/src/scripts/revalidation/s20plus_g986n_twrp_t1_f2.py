@@ -35,7 +35,7 @@ import s20plus_g986n_recovery_canary_t0_f2 as t0_predecessor  # noqa: E402
 
 VERSION = "s20plus-g986n-twrp-t1-f2-v1"
 PLAN_SCHEMA = "s20plus_g986n_twrp_t1_f2_plan_v1"
-T1_F2_ACTIVE = False
+T1_F2_ACTIVE = True
 EXPECTED_REVIEWED_NORMALIZED_SHA256 = "6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a"
 
 ROOT = Path(__file__).resolve().parents[5]

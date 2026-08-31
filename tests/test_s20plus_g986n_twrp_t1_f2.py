@@ -23,7 +23,7 @@ assert SPEC is not None and SPEC.loader is not None
 T1 = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(T1)
 
-EXPECTED_SOURCE_SHA256 = "76f978028cd24f1b75f27ba95704d7d33d4fd1b42e7281beb7c4541e5d3f5557"
+EXPECTED_SOURCE_SHA256 = "756289617ee4837457a5d1c0357d6a8b78d10d86f4b6822d30a86ed24a174fd0"
 BOOT_A = "a" * 64
 BOOT_B = "b" * 64
 SERIAL = "c" * 64
@@ -255,11 +255,11 @@ class S20PlusG986NRecoveryCanaryT1F2Tests(unittest.TestCase):
         with self.assertRaisesRegex(T1.T1F2Error, "T0-qualified device"):
             T1.validate_t0_predecessor(expected_serial_sha256="0" * 64)
 
-    def test_plan_is_dormant_and_recovery_only(self) -> None:
+    def test_plan_is_active_and_recovery_only(self) -> None:
         plan = T1.render_plan()
-        self.assertFalse(plan["active"])
-        self.assertFalse(plan["live_authority"])
-        self.assertEqual(plan["status"], "DORMANT_REVIEW_PENDING_NOT_ACTIVE")
+        self.assertTrue(plan["active"])
+        self.assertTrue(plan["live_authority"])
+        self.assertEqual(plan["status"], "BINDING_ATTENDED_TWRP_T1_F2_ACTIVE")
         self.assertEqual(plan["candidate"]["member"], "recovery.img.lz4")
         self.assertEqual(plan["rollback"]["member"], "recovery.img.lz4")
         self.assertEqual(plan["limits"]["all_other_partition_transfers"], 0)
@@ -275,19 +275,16 @@ class S20PlusG986NRecoveryCanaryT1F2Tests(unittest.TestCase):
         self.assertIn("Do not allow Android to boot", instruction)
         self.assertEqual(T1.render_plan()["direct_recovery_instruction"], instruction)
 
-    def test_connected_cli_stops_before_the_dormant_owner(self) -> None:
+    def test_connected_cli_reaches_only_the_named_active_owner(self) -> None:
         output = io.StringIO()
         with mock.patch.object(
             T1, "prepare", return_value={"verdict": "FIXTURE_PREPARED"}
         ) as prepare_owner:
             with contextlib.redirect_stdout(output):
                 rc = T1.main(["--prepare"])
-        self.assertEqual(rc, 2)
-        prepare_owner.assert_not_called()
-        self.assertEqual(
-            output.getvalue().strip(),
-            "STOP_S20PLUS_G986N_TWRP_T1_F2_NOT_ACTIVE",
-        )
+        self.assertEqual(rc, 0)
+        prepare_owner.assert_called_once_with()
+        self.assertEqual(json.loads(output.getvalue())["verdict"], "FIXTURE_PREPARED")
 
     def test_cli_has_no_artifact_serial_endpoint_or_path_input(self) -> None:
         parser = T1.build_parser()
@@ -1255,7 +1252,7 @@ class S20PlusG986NRecoveryCanaryT1F2Tests(unittest.TestCase):
         self.assertEqual((active_count, hash_count), (1, 1))
         self.assertEqual(hashlib.sha256(source).hexdigest(), normalized)
 
-    def test_common_and_target_contract_keep_t1_dormant(self) -> None:
+    def test_common_and_target_contract_activate_exact_t1_only(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         tiers = (ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md").read_text(
             encoding="utf-8"
@@ -1264,10 +1261,10 @@ class S20PlusG986NRecoveryCanaryT1F2Tests(unittest.TestCase):
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
         self.assertIn("Contract-Revision: **4**", agents)
-        self.assertIn("TWRP T1 F2 defined but not active", agents)
+        self.assertIn("TWRP T1 F2 active", agents)
         self.assertIn("### F2-T1 - Exact S20+ TWRP Retained Recovery", tiers)
         self.assertIn(
-            "Status: **DEFINED NOT ACTIVE - ATTENDED TWRP T1 F2**",
+            "Status: **BINDING - ATTENDED TWRP T1 F2 ACTIVE**",
             contract,
         )
         self.assertIn(f"`{T1.EXPECTED_REVIEWED_NORMALIZED_SHA256}`", contract)
@@ -1276,7 +1273,7 @@ class S20PlusG986NRecoveryCanaryT1F2Tests(unittest.TestCase):
             for line in agents.splitlines()
             if line.startswith("| Samsung Galaxy S20+ 5G")
         )
-        self.assertNotIn("TWRP T1 F2 active", registry_line)
+        self.assertIn("TWRP T1 F2 active", registry_line)
 
 
 if __name__ == "__main__":

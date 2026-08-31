@@ -156,7 +156,7 @@ or another image.
 
 ### F2-T1 - Exact S20+ TWRP Retained Recovery
 
-Status: **DEFINED NOT ACTIVE**
+Status: **BINDING - ACTIVE ONLY THROUGH EXACT ATTENDED T1 OWNER**
 
 F2-T1 is a separate, non-generalizing exception for the exact
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2` TWRP T1 candidate. It receives no authority
@@ -197,11 +197,11 @@ A clean retained terminal intentionally closes the run and its rollback
 approval. Later stock restoration is possible only through separately reviewed
 fresh exact-stock authority; it is not silently available from the closed run.
 
-Activation requires an independent review of the common boundary, target
-section, exact profile, connected owner, hostile tests, artifact closure,
-retained terminal, and rollback branches, followed by a mechanical activation
-commit. Until then every connected mode stops before inventory or device
-contact.
+Activation required independent review of the common boundary, target section,
+exact profile, connected owner, hostile tests, artifact closure, retained
+terminal, and rollback branches, followed by a separately reviewed mechanical
+activation commit. Every run still begins with a fresh attended preparation and
+exact returned approval.
 - Every other partition payload, format, mount, `dd`, direct block write,
   caller path/artifact/partition/command, security or Magisk mutation, and
   other-target command remains forbidden. T0 PASS supplies evidence for a

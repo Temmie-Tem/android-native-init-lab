@@ -809,18 +809,19 @@ good, and the live recovery digest is exact stock
 Recovery ADB/marker proof was absent, so T0 itself remains `NO_PROOF` and its
 candidate is permanently non-replayable.
 
-The revision-4 boundary now defines but does not activate a separate TWRP T1
-F2 lane. Its candidate is the IYC2-stock-substrate/AstroForge-ramdisk AP
+The revision-4 boundary and exact target section activate the separate attended
+TWRP T1 F2 lane. Its candidate is the IYC2-stock-substrate/AstroForge-ramdisk AP
 `3ed8498243ff09399ffd93fa3b0e90044a3cfe1709b7204dac53fe190647260f`;
-rollback is the demonstrated exact-stock AP. The dormant profile is
+rollback is the demonstrated exact-stock AP. The exact profile is
 `c495deaac141fbbbee8fa9d13501f0e593306fa40127618640615f6a498de5e1`.
-The dormant owner is
-`76f978028cd24f1b75f27ba95704d7d33d4fd1b42e7281beb7c4541e5d3f5557`
+The active owner is
+`756289617ee4837457a5d1c0357d6a8b78d10d86f4b6822d30a86ed24a174fd0`
 (normalized `6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`).
 It may retain TWRP only after same-serial/topology root-ADB marker/version proof;
-otherwise only the one-shot stock rollback branch remains. Current next step is
-focused hostile validation and independent dormant review; no T1 device
-authority or approval exists yet.
+otherwise only the one-shot stock rollback branch remains. Dormant and
+activation-only reviews passed; activation creates no standing run or approval.
+Current next step is one fresh attended `--prepare`, then return its exact
+short-lived approval before any T1 transfer.
 
 The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,

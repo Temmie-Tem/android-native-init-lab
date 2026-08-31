@@ -40,7 +40,7 @@ are current. An unactivated policy edit remains H0 only.
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
 | Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Resident Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
-| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; attended recovery-canary T0 F2 active; TWRP T1 F2 defined but not active; reviewed attended native-canary R1 active |
+| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; attended recovery-canary T0 F2 active; attended TWRP T1 F2 active; reviewed attended native-canary R1 active |
 
 Targets, profiles, rollback identities, transports, approvals, and health evidence never transfer between registry rows. Without an exact matching contract, remain H0.
 
@@ -72,8 +72,8 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
    delegation grants nothing while any common, risk-tier, target-contract,
    runner, hostile-test, independent-review, mechanical-activation, fresh
    preparation, approval, attendance, or physical-recovery gate is absent.
-   A second exact S20+ TWRP T1 exception may be defined under `F2-T1`, but is
-   **not active**. It is limited to candidate AP SHA-256
+   A second exact S20+ TWRP T1 exception is activated only by the exact S20+
+   target contract under `F2-T1`. It is limited to candidate AP SHA-256
    `3ed8498243ff09399ffd93fa3b0e90044a3cfe1709b7204dac53fe190647260f`
    and the same exact-stock rollback AP SHA-256
    `ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`,
@@ -160,9 +160,9 @@ Classify every action using
   one exact recovery candidate attempt and one exact-stock recovery rollback
   attempt under the separately activated target process; it never generalizes
   to TWRP T1, another recovery image, another target, or ordinary F1.
-- **F2-T1:** a separately reviewed exact-target S20+ TWRP retained-recovery
-  exception. It is currently **defined but not active** and grants zero device
-  commands until every named activation atom is reviewed and committed.
+- **F2-T1:** the separately reviewed exact-target S20+ TWRP retained-recovery
+  exception. It is active only through its exact target owner and one fresh
+  attended prepared binding; it never grants standing or cross-target authority.
 - **X:** forbidden by the permanent boundaries.
 
 Do not split a higher-risk action into lower-tier commands. A device-connected
