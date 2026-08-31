@@ -743,6 +743,39 @@ same-process integration, target/cross-code, contract, mechanical, and live
 gate remains false. The exact report is
 `docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_RUNTIME_PRIMITIVES_V1_H0_2026-08-31.md`.
 
+The separate terminal-continuity adapter is exact-byte qualified only as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_TERMINAL_CONTINUITY_V1_MODEL_PASS_GO_NOT_ACTIVE`
+at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_terminal_continuity_v1_h0.py`.
+Its final source is 40,593 bytes at SHA-256
+`134c674d4ddfafae958436a011956e144214fc896cb67070bdc4c88e72f610ad`,
+with activation-normalized SHA-256
+`bba10951e24e798c57d4db103f9d591a09d495c753f106ca144b3b90d923095a`;
+its 36,623-byte test is SHA-256
+`4d23a89a3526dd83d8af49efdc0f859328cfc1c8b351b33cc0889344a64010d2`.
+Focused validation passed 41/41 and the twelve-suite autonomous aggregate
+passed 446/446. Two exact post-correction reviews independently returned
+`PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+
+This H0 model adds one exact `terminal_continuity` field: null on opening
+receipts 1–5 and a fixed schema/clock/server/USB object on receipt 6. It hashes
+the previous complete extended receipt, strips the extension through the exact
+Phase-A validator, authenticates the retained 19-file set, derives the serial
+only from command-2 inventory, and derives a sanitized recovery-input envelope
+only from `(intent_raw, evidence)`. It exact-loads the frozen runtime solely to
+enforce the Linux USB rdev mapping. It does not authenticate shared-guard
+absence or a usable source identity, and explicitly leaves runtime-owner
+observation false. Recovery loader/core/manifest identities are declarative
+pins only; no private bundle is opened or proved.
+
+All 14 gates, opening-result/campaign-binding/loader integration, executor,
+target/cross-code coordination, contract, mechanical activation, and live
+authority remain false. The scanner/finalizer still rejects this future
+grammar. The ADB no-autostart/host-kill blocker also remains open. This unit
+grants no campaign, recovery invocation, connected command, standing consent,
+or device authority. The exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_TERMINAL_CONTINUITY_V1_H0_2026-08-31.md`.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
