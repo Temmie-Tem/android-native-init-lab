@@ -776,6 +776,39 @@ grants no campaign, recovery invocation, connected command, standing consent,
 or device authority. The exact report is
 `docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_TERMINAL_CONTINUITY_V1_H0_2026-08-31.md`.
 
+The separate restricted-ADB-proxy artifact is exact-byte qualified only as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_ADB_PROXY_V1_MODEL_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_adb_proxy_v1_h0.py`.
+Its final source is 46,477 bytes at SHA-256
+`18993008de3c236211c11de2756dc9b05424d9704cfdcb9c02f3cf70e9e29d92`,
+with activation-normalized SHA-256
+`8878c5e39f2d34ea90707bf81697aed119db1fdf3141807b56c81480fbe1c8c9`;
+its 30,975-byte test is SHA-256
+`058977bc8cb16cdf28af3ae2a4828e0eab035caa5d2a6177e788df8efd7f568e`.
+Focused validation passed 40/40 and the thirteen-suite autonomous aggregate
+passed 486/486. Two independent final reviews returned `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0`.
+
+This qualifies only an inactive post-run protocol/relay audit model. It fixes
+the exact ADB 34 local `0029` version response, per-ordinal allowlist,
+`host:tport:serial` plus nonzero eight-byte transport ID and same-connection
+exec sequence, fixed Phase-A snapshot escaping, exact response relay, and
+server/child/accepted-peer/held-FD composition. It rejects modeled
+`host:kill`, `host:start-server`, unknown services, and reconnects before an
+accepted forward event. These are caller-constructed normalized trace objects,
+not a live observer or causal enforcement proof.
+
+All 17 gates remain false. The exact pins are declarative, and the concrete
+AF_UNIX proxy, incremental fragmentation-safe parser/emitter, response stream,
+seccomp BPF/install/failure path, FD-reuse closure, ADB child compatibility,
+executor, journal/evidence, same-process handoff, target/cross-code
+coordination, recovery integration, contract, mechanical activation, and live
+authority are absent or unproved. Proxy absence can still trigger a local ADB
+launch attempt until the filter is concretely installed. This unit grants no
+connected command, campaign, recovery, standing consent, or device authority.
+The exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_ADB_PROXY_V1_H0_2026-08-31.md`.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
