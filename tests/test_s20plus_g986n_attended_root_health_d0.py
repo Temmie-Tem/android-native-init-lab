@@ -301,23 +301,23 @@ class S20PlusG986NAttendedRootHealthD0Tests(unittest.TestCase):
         self.assertFalse(result["root_writes"])
         self.assertEqual(result["device_effect_count"], 0)
 
-    def test_fake_adb_argument_join_preserves_one_public_inner_script(self):
+    def test_fake_adb_exec_out_escape_preserves_one_public_inner_script(self):
         backend = FakeBackend(self)
         self.collect(backend)
         public_argv = backend.calls[2][0]
         tail = public_argv[public_argv.index("exec-out") + 1 :]
-        joined_by_adb = " ".join(tail)
+        adb_escape = lambda value: "'" + value.replace("'", "'\\''") + "'"
+        joined_by_adb = tail[0] + "".join(
+            " " + adb_escape(value) for value in tail[1:]
+        )
         self.assertEqual(
             shlex.split(joined_by_adb),
             ["sh", "-c", MODULE.PUBLIC_SNAPSHOT_SCRIPT],
         )
-        raw_tail = ["sh", "-c", MODULE.PUBLIC_SNAPSHOT_SCRIPT]
+        self.assertEqual(public_argv[-1], MODULE.PUBLIC_SNAPSHOT_SCRIPT)
         self.assertNotEqual(
-            shlex.split(" ".join(raw_tail)),
-            ["sh", "-c", MODULE.PUBLIC_SNAPSHOT_SCRIPT],
+            public_argv[-1], shlex.quote(MODULE.PUBLIC_SNAPSHOT_SCRIPT)
         )
-        self.assertNotEqual(public_argv[-1], MODULE.PUBLIC_SNAPSHOT_SCRIPT)
-        self.assertEqual(public_argv[-1], shlex.quote(MODULE.PUBLIC_SNAPSHOT_SCRIPT))
         root_argv = backend.calls[3][0]
         root_tail = root_argv[root_argv.index("shell") + 1 :]
         self.assertEqual(
@@ -786,9 +786,7 @@ class S20PlusG986NAttendedRootHealthD0Tests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, scripts)
         self.assertEqual(MODULE.ROOT_SHELL_ARGUMENT, shlex.quote(MODULE.ROOT_READ_SCRIPT))
-        self.assertEqual(
-            MODULE.PUBLIC_SHELL_ARGUMENT, shlex.quote(MODULE.PUBLIC_SNAPSHOT_SCRIPT)
-        )
+        self.assertEqual(MODULE.PUBLIC_SHELL_ARGUMENT, MODULE.PUBLIC_SNAPSHOT_SCRIPT)
         self.assertEqual(
             hashlib.sha256(MODULE.ROOT_READ_SCRIPT.encode()).hexdigest(),
             MODULE.render_plan()["root_script_sha256"],

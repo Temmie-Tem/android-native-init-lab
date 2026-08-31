@@ -165,9 +165,10 @@ commands use exactly `[adb, devices, -l]`; `get-devpath` uses exactly
 10-second timeout, a 32-KiB combined-output bound, rc zero, and empty stderr.
 Each public snapshot uses exactly
 `[adb, -s, <internally-selected-serial>, exec-out, sh, -c,
-shlex.quote(<public-snapshot-script>)]`, a 20-second timeout, an 8-KiB combined-output
-bound, rc zero, empty stderr, and the following complete script bytes
-including the final newline:
+<public-snapshot-script>]`, where the final host argv element is the raw fixed
+script and ADB 34.0.5 applies its own `escape_arg()` exactly once. It has a
+20-second timeout, an 8-KiB combined-output bound, rc zero, empty stderr, and
+the following complete script bytes including the final newline:
 
 ```sh
 set -eu
@@ -288,15 +289,15 @@ privacy/evidence owner, policy interaction, and prior review corrections
 returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. This qualifies only the
 dormant bytes and creates no live request or authority.
 
-Mechanical activation changed the runner boolean from false to true, made its
+The initial mechanical activation changed the runner boolean from false to true, made its
 module help text status-neutral, and rotated the corresponding test
 expectations, this section and top-level status, the single
 S20+ registry process cell, and the goal/report activation record. The active
-runner is 39,820 bytes with SHA-256
+runner at that activation was 39,820 bytes with SHA-256
 `7967f85dc1418473c66b418cedfc2c15063a141fed2550d040eb122fec04584a`; its
 normalized SHA-256 is
 `0c4c15a014d181b43f85a00a55d335e6256663969664c95c1adf953049038b91`.
-The active 35,922-byte focused test SHA-256 is
+The corresponding 35,922-byte focused test SHA-256 is
 `70f43252ba163f854eb21c325a5087c470a7d9305bb114c593266a5457bc3cb7`.
 Four existing document-assertion tests changed only the target header and/or
 exact S20+ registry-row strings required by this activation:
@@ -309,6 +310,30 @@ exact S20+ registry-row strings required by this activation:
 | bootstrap F1 | 96,409 / `e6325fe50fa030f455959d66004d28669df12d3484ad7aa3dfa431c2650af0ac` | 96,447 / `4ec89126082b1da183246397794b5ad5af9cad10dbd4bf2bdba2b764424e1112` |
 Post-rotation independent review returned `PASS_GO` with HIGH/MEDIUM/LOW
 `0/0/0`; no connected use occurred during qualification.
+
+One 2026-08-31 attended invocation then stopped before root because the public
+pre-snapshot had the wrong field count. Host-only analysis proved that the
+active runner prequoted the public script before ADB's exec-out path escaped it
+again. The failure receipt recorded three host commands, one public snapshot,
+zero root commands, and zero device effects; the consumed request was not
+replayed. The exact inactive repair qualification passed 21/21 tests and
+independent HIGH/MEDIUM/LOW `0/0/0` review. Its two-fragment candidate removes
+only the public prequote and rotates the render-plan description; the public
+and root scripts remain byte-identical, and the root `adb shell su -c` argument
+retains its required `shlex.quote()`.
+
+The corrected active runner is 39,819 bytes at SHA-256
+`24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44`;
+its activation-normalized SHA-256 is
+`afdae9953f6ea93d2d299857f38d93229152e834395783fb12ae3c3df5693668`.
+The corrected 35,854-byte focused test SHA-256 is
+`7b0029aaf7bf00bd6655cada41fcc2430192bb9bdfbf41dc6a525cce73985615`.
+The 423-byte raw public argv produces the exact 456-byte ADB exec service at
+SHA-256
+`8ff45512fd92c37671396cf1d0abeb5b591dd1cdf37a5ee7bbc489d9f3acdbbf`.
+This host-only rotation creates no invocation and no standing approval; a new
+direct attended request is still required before the corrected runner may
+contact the device.
 
 The activation gates required the exact runner and hostile test identities to be frozen,
 focused tests to pass for dormancy, wrong/duplicate/replaced targets,

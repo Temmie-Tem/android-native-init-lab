@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Inactive H0 qualification model for the S20+ public exec-out repair.
 
-The active attended root-health runner pre-quotes its public snapshot script
-before passing it as the final argv element of ``adb exec-out sh -c``.  ADB
-34.0.5 itself applies ``escape_arg`` to every exec-out argv element after the
-first command, so that construction sends the already-quoted text as the
-remote ``sh -c`` argument.  The root read uses the different ``adb shell``
-join path and must retain its existing runner-owned ``shlex.quote`` literal.
+The qualified predecessor of the attended root-health runner pre-quoted its
+public snapshot script before passing it as the final argv element of
+``adb exec-out sh -c``.  ADB 34.0.5 itself applies ``escape_arg`` to every
+exec-out argv element after the first command, so that construction sent the
+already-quoted text as the remote ``sh -c`` argument.  The root read uses the
+different ``adb shell`` join path and retains its required runner-owned
+``shlex.quote`` literal.
 
-This module performs no replacement and has no connected mode.  It validates
-an exact two-fragment candidate transformation in memory, models the two ADB
-command constructors, and renders a review plan.  Activation, runner/test/
-contract rotation, a new direct request, and all live authority remain false.
+The host-only two-fragment correction has now been applied to the exact active
+runner/test/contract closure.  This module still performs no replacement and
+has no connected mode: it reconstructs only the exact qualified predecessor
+in memory, reapplies the reviewed transform, and requires equality with the
+current corrected runner.  Post-rotation review is complete; a new direct
+request and all live invocation authority remain false.
 """
 
 from __future__ import annotations
@@ -27,20 +30,20 @@ from types import MappingProxyType
 from typing import Any, Final, Mapping, Sequence
 
 
-STATUS = "H0_ATTENDED_ROOT_HEALTH_PUBLIC_EXEC_REPAIR_V1_PASS_GO_NOT_ACTIVE"
+STATUS = "H0_ATTENDED_ROOT_HEALTH_PUBLIC_EXEC_REPAIR_V1_PASS_GO_APPLIED_HOST_ONLY_NO_REQUEST"
 SCHEMA = "s20plus_g986n_attended_root_health_public_exec_repair_v1_h0"
 EXPECTED_SELF_NORMALIZED_SHA256 = (
-    "b507ec66a7ab3223fc8dbc38e083895b44ff553cc65517a438b03a5c3de4084e"
+    "867837b8bcfea220086e86286c880ce23e1f918c20f1978a6bec456b42e4b61e"
 )
 
-REPAIR_REVIEWED = False
-ACTIVE_RUNNER_EXACT_BOUND = False
-ADB_SOURCE_CORRESPONDENCE_REVIEWED = False
-FOCUSED_TEST_ROTATION_REVIEWED = False
-TARGET_CONTRACT_ROTATED = False
-DOCUMENT_ASSERTIONS_ROTATED = False
-ACTIVE_RUNNER_ROTATED = False
-MECHANICAL_ACTIVATION_COMPLETE = False
+REPAIR_REVIEWED = True
+ACTIVE_RUNNER_EXACT_BOUND = True
+ADB_SOURCE_CORRESPONDENCE_REVIEWED = True
+FOCUSED_TEST_ROTATION_REVIEWED = True
+TARGET_CONTRACT_ROTATED = True
+DOCUMENT_ASSERTIONS_ROTATED = True
+ACTIVE_RUNNER_ROTATED = True
+MECHANICAL_ACTIVATION_COMPLETE = True
 FRESH_DIRECT_REQUEST_PRESENT = False
 LIVE_AUTHORITY = False
 
@@ -71,7 +74,7 @@ ACTIVE_RUNNER_PATH = REPO_ROOT / (
     "workspace/public/src/scripts/revalidation/"
     "s20plus_g986n_attended_root_health_d0.py"
 )
-ACTIVE_RUNNER_IDENTITY = MappingProxyType(
+QUALIFIED_PREDECESSOR_IDENTITY = MappingProxyType(
     {
         "path": str(ACTIVE_RUNNER_PATH),
         "size": 39_820,
@@ -156,12 +159,12 @@ PUBLIC_SCRIPT_SIZE = 423
 PUBLIC_SCRIPT_SHA256 = (
     "f17aac6c9c946968b18ac91a05c6d8f006fef1857533518495a97d5e71d9813b"
 )
-ACTIVE_PUBLIC_ARGUMENT_SIZE = 449
-ACTIVE_PUBLIC_ARGUMENT_SHA256 = (
+PREDECESSOR_PUBLIC_ARGUMENT_SIZE = 449
+PREDECESSOR_PUBLIC_ARGUMENT_SHA256 = (
     "0fa4c7d3b01941f467f5ad2da51059f5b7ae5d054267a39fdca2cac878f8e4f9"
 )
-ACTIVE_EXEC_SERVICE_SIZE = 524
-ACTIVE_EXEC_SERVICE_SHA256 = (
+PREDECESSOR_EXEC_SERVICE_SIZE = 524
+PREDECESSOR_EXEC_SERVICE_SHA256 = (
     "206586836f8f8bc43a0f6b1d414c9d2df9b3fa7d41e1c9629b4d1ce460a0771f"
 )
 CANDIDATE_EXEC_SERVICE_SIZE = 456
@@ -303,15 +306,15 @@ def shell_join(command: str, *arguments: str) -> str:
     return " ".join(values)
 
 
-def apply_candidate_transform(active: bytes) -> bytes:
-    if type(active) is not bytes:
-        raise PublicExecRepairV1Error("active runner input must be exact bytes")
+def apply_candidate_transform(predecessor: bytes) -> bytes:
+    if type(predecessor) is not bytes:
+        raise PublicExecRepairV1Error("qualified predecessor input must be exact bytes")
     if (
-        len(active) != ACTIVE_RUNNER_IDENTITY["size"]
-        or sha256_bytes(active) != ACTIVE_RUNNER_IDENTITY["sha256"]
+        len(predecessor) != QUALIFIED_PREDECESSOR_IDENTITY["size"]
+        or sha256_bytes(predecessor) != QUALIFIED_PREDECESSOR_IDENTITY["sha256"]
     ):
-        raise PublicExecRepairV1Error("active runner identity differs")
-    candidate = active
+        raise PublicExecRepairV1Error("qualified predecessor identity differs")
+    candidate = predecessor
     for old, new in EXACT_REPLACEMENTS:
         if candidate.count(old) != 1 or new in candidate:
             raise PublicExecRepairV1Error("candidate replacement is ambiguous")
@@ -324,30 +327,54 @@ def apply_candidate_transform(active: bytes) -> bytes:
     return candidate
 
 
-def validate_candidate(active: bytes) -> dict[str, Any]:
-    candidate = apply_candidate_transform(active)
-    active_literals = _literal_assignments(active)
+def reconstruct_qualified_predecessor(current: bytes) -> bytes:
+    """Recover only the exact reviewed predecessor from the applied candidate."""
+
+    if type(current) is not bytes:
+        raise PublicExecRepairV1Error("current runner input must be exact bytes")
+    if (
+        len(current) != CANDIDATE_RUNNER_IDENTITY["size"]
+        or sha256_bytes(current) != CANDIDATE_RUNNER_IDENTITY["sha256"]
+    ):
+        raise PublicExecRepairV1Error("current corrected runner identity differs")
+    predecessor = current
+    for old, new in reversed(EXACT_REPLACEMENTS):
+        if predecessor.count(new) != 1 or old in predecessor:
+            raise PublicExecRepairV1Error("predecessor reconstruction is ambiguous")
+        predecessor = predecessor.replace(new, old, 1)
+    if (
+        len(predecessor) != QUALIFIED_PREDECESSOR_IDENTITY["size"]
+        or sha256_bytes(predecessor) != QUALIFIED_PREDECESSOR_IDENTITY["sha256"]
+    ):
+        raise PublicExecRepairV1Error("reconstructed predecessor identity differs")
+    return predecessor
+
+
+def validate_candidate(predecessor: bytes) -> dict[str, Any]:
+    candidate = apply_candidate_transform(predecessor)
+    predecessor_literals = _literal_assignments(predecessor)
     candidate_literals = _literal_assignments(candidate)
-    if candidate_literals != active_literals:
+    if candidate_literals != predecessor_literals:
         raise PublicExecRepairV1Error("fixed remote scripts changed")
 
     public_script = candidate_literals["PUBLIC_SNAPSHOT_SCRIPT"]
     root_script = candidate_literals["ROOT_READ_SCRIPT"]
     _assert_shlex_quote_assignment(
-        active, "PUBLIC_SHELL_ARGUMENT", "PUBLIC_SNAPSHOT_SCRIPT"
+        predecessor, "PUBLIC_SHELL_ARGUMENT", "PUBLIC_SNAPSHOT_SCRIPT"
     )
     _assert_name_assignment(
         candidate, "PUBLIC_SHELL_ARGUMENT", "PUBLIC_SNAPSHOT_SCRIPT"
     )
     _assert_shlex_quote_assignment(candidate, "ROOT_SHELL_ARGUMENT", "ROOT_READ_SCRIPT")
 
-    active_argument = shlex.quote(public_script)
+    predecessor_argument = shlex.quote(public_script)
     root_argument = shlex.quote(root_script)
     if (
         len(public_script.encode()) != PUBLIC_SCRIPT_SIZE
         or sha256_bytes(public_script.encode()) != PUBLIC_SCRIPT_SHA256
-        or len(active_argument.encode()) != ACTIVE_PUBLIC_ARGUMENT_SIZE
-        or sha256_bytes(active_argument.encode()) != ACTIVE_PUBLIC_ARGUMENT_SHA256
+        or len(predecessor_argument.encode()) != PREDECESSOR_PUBLIC_ARGUMENT_SIZE
+        or sha256_bytes(predecessor_argument.encode())
+        != PREDECESSOR_PUBLIC_ARGUMENT_SHA256
         or len(root_script.encode()) != ROOT_SCRIPT_SIZE
         or sha256_bytes(root_script.encode()) != ROOT_SCRIPT_SHA256
         or len(root_argument.encode()) != ROOT_ARGUMENT_SIZE
@@ -355,21 +382,24 @@ def validate_candidate(active: bytes) -> dict[str, Any]:
     ):
         raise PublicExecRepairV1Error("fixed script or argument identity differs")
 
-    active_service = exec_out_service("sh", "-c", active_argument)
+    predecessor_service = exec_out_service("sh", "-c", predecessor_argument)
     candidate_service = exec_out_service("sh", "-c", public_script)
     if (
-        len(active_service.encode()) != ACTIVE_EXEC_SERVICE_SIZE
-        or sha256_bytes(active_service.encode()) != ACTIVE_EXEC_SERVICE_SHA256
+        len(predecessor_service.encode()) != PREDECESSOR_EXEC_SERVICE_SIZE
+        or sha256_bytes(predecessor_service.encode())
+        != PREDECESSOR_EXEC_SERVICE_SHA256
         or len(candidate_service.encode()) != CANDIDATE_EXEC_SERVICE_SIZE
         or sha256_bytes(candidate_service.encode()) != CANDIDATE_EXEC_SERVICE_SHA256
     ):
         raise PublicExecRepairV1Error("modeled exec-out service identity differs")
 
-    active_remote_argv = shlex.split(active_service.removeprefix("exec:"))
+    predecessor_remote_argv = shlex.split(
+        predecessor_service.removeprefix("exec:")
+    )
     candidate_remote_argv = shlex.split(candidate_service.removeprefix("exec:"))
     root_remote_argv = shlex.split(shell_join("su", "-c", root_argument))
-    if active_remote_argv != ["sh", "-c", active_argument]:
-        raise PublicExecRepairV1Error("active double-quote model differs")
+    if predecessor_remote_argv != ["sh", "-c", predecessor_argument]:
+        raise PublicExecRepairV1Error("qualified predecessor double-quote model differs")
     if candidate_remote_argv != ["sh", "-c", public_script]:
         raise PublicExecRepairV1Error("candidate single-escape model differs")
     if root_remote_argv != ["su", "-c", root_script]:
@@ -382,18 +412,23 @@ def validate_candidate(active: bytes) -> dict[str, Any]:
         raise PublicExecRepairV1Error("incident failure signature differs")
 
     return {
-        "active_runner": dict(ACTIVE_RUNNER_IDENTITY),
+        "qualified_predecessor_runner": dict(QUALIFIED_PREDECESSOR_IDENTITY),
         "candidate_runner": dict(CANDIDATE_RUNNER_IDENTITY),
         "changed_fragments": len(EXACT_REPLACEMENTS),
         "remote_scripts_byte_identical": True,
-        "active_public_argument_equals_raw_script": active_argument == public_script,
+        "qualified_predecessor_public_argument_equals_raw_script": (
+            predecessor_argument == public_script
+        ),
         "candidate_public_argument_equals_raw_script": True,
-        "active_exec_service": {
-            "size": len(active_service.encode()),
-            "sha256": sha256_bytes(active_service.encode()),
-            "remote_final_argv_equals_raw_script": active_remote_argv[-1] == public_script,
-            "remote_final_argv_equals_prequoted_script": active_remote_argv[-1]
-            == active_argument,
+        "qualified_predecessor_exec_service": {
+            "size": len(predecessor_service.encode()),
+            "sha256": sha256_bytes(predecessor_service.encode()),
+            "remote_final_argv_equals_raw_script": (
+                predecessor_remote_argv[-1] == public_script
+            ),
+            "remote_final_argv_equals_prequoted_script": (
+                predecessor_remote_argv[-1] == predecessor_argument
+            ),
         },
         "candidate_exec_service": {
             "size": len(candidate_service.encode()),
@@ -432,10 +467,23 @@ def render_plan() -> dict[str, Any]:
     if normalized != EXPECTED_SELF_NORMALIZED_SHA256:
         raise PublicExecRepairV1Error("repair model normalized source identity differs")
     gates = _gates()
-    if any(gates.values()):
-        raise PublicExecRepairV1Error("H0 render found an active gate")
-    active_source = ACTIVE_RUNNER_PATH.read_bytes()
-    qualification = validate_candidate(active_source)
+    expected_gates = {
+        "repair_reviewed": True,
+        "active_runner_exact_bound": True,
+        "adb_source_correspondence_reviewed": True,
+        "focused_test_rotation_reviewed": True,
+        "target_contract_rotated": True,
+        "document_assertions_rotated": True,
+        "active_runner_rotated": True,
+        "mechanical_activation_complete": True,
+        "fresh_direct_request_present": False,
+        "live_authority": False,
+    }
+    if gates != expected_gates:
+        raise PublicExecRepairV1Error("completed host rotation gate state differs")
+    current_source = ACTIVE_RUNNER_PATH.read_bytes()
+    predecessor_source = reconstruct_qualified_predecessor(current_source)
+    qualification = validate_candidate(predecessor_source)
     return {
         "schema": SCHEMA,
         "status": STATUS,
@@ -470,10 +518,10 @@ def render_plan() -> dict[str, Any]:
         "qualification": qualification,
         "claims": {
             "proved": [
-                "active-runner-prequotes-public-script",
+                "qualified-predecessor-prequotes-public-script",
                 "ADB-34-exec-out-escapes-each-argv-after-command",
-                "active-modeled-service-delivers-prequoted-not-raw-script",
-                "two-fragment-candidate-delivers-exact-raw-public-script",
+                "qualified-predecessor-service-delivers-prequoted-not-raw-script",
+                "current-corrected-runner-delivers-exact-raw-public-script",
                 "root-shell-join-remains-byte-identical-and-correctly-prequoted",
                 "candidate-performs-no-device-action",
             ],
@@ -488,7 +536,9 @@ def render_plan() -> dict[str, Any]:
             ],
         },
         "candidate_application": {
-            "performed": False,
+            "performed": True,
+            "current_runner_matches_candidate": current_source
+            == apply_candidate_transform(predecessor_source),
             "exact_replacement_count": len(EXACT_REPLACEMENTS),
             "root_script_changed": False,
             "root_argument_changed": False,
@@ -499,14 +549,7 @@ def render_plan() -> dict[str, Any]:
         "device_commands": [],
         "root_commands": [],
         "private_writes": [],
-        "unresolved_gates": [
-            "independent-hostile-review-of-model-and-two-fragment-candidate",
-            "focused-active-runner-test-rotation",
-            "target-contract-and-document-assertion-rotation",
-            "post-rotation-independent-review",
-            "mechanical-active-identity-rotation",
-            "fresh-direct-attended-request-after-activation",
-        ],
+        "unresolved_gates": ["fresh-direct-attended-request-after-activation"],
     }
 
 

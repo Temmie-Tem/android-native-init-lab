@@ -39,9 +39,10 @@ class PublicExecRepairV1Tests(unittest.TestCase):
     def setUpClass(cls):
         cls.m = load_module()
         cls.source = SOURCE.read_bytes()
-        cls.active = cls.m.ACTIVE_RUNNER_PATH.read_bytes()
-        cls.candidate = cls.m.apply_candidate_transform(cls.active)
-        cls.qualification = cls.m.validate_candidate(cls.active)
+        cls.candidate = cls.m.ACTIVE_RUNNER_PATH.read_bytes()
+        cls.predecessor = cls.m.reconstruct_qualified_predecessor(cls.candidate)
+        cls.assert_candidate = cls.m.apply_candidate_transform(cls.predecessor)
+        cls.qualification = cls.m.validate_candidate(cls.predecessor)
 
     def test_render_is_exact_inactive_h0(self):
         plan = self.m.render_plan()
@@ -52,8 +53,25 @@ class PublicExecRepairV1Tests(unittest.TestCase):
         self.assertFalse(plan["authority"]["adb_executed"])
         self.assertFalse(plan["authority"]["su_executed"])
         self.assertEqual(plan["authority"]["device_effects"], 0)
-        self.assertTrue(all(value is False for value in plan["gates"].values()))
-        self.assertFalse(plan["candidate_application"]["performed"])
+        self.assertEqual(
+            plan["gates"],
+            {
+                "repair_reviewed": True,
+                "active_runner_exact_bound": True,
+                "adb_source_correspondence_reviewed": True,
+                "focused_test_rotation_reviewed": True,
+                "target_contract_rotated": True,
+                "document_assertions_rotated": True,
+                "active_runner_rotated": True,
+                "mechanical_activation_complete": True,
+                "fresh_direct_request_present": False,
+                "live_authority": False,
+            },
+        )
+        self.assertTrue(plan["candidate_application"]["performed"])
+        self.assertTrue(
+            plan["candidate_application"]["current_runner_matches_candidate"]
+        )
         self.assertFalse(plan["candidate_application"]["device_retry_authorized"])
         self.assertEqual(plan["caller_inputs"], [])
         self.assertEqual(plan["connected_modes"], [])
@@ -75,10 +93,12 @@ class PublicExecRepairV1Tests(unittest.TestCase):
             self.m.normalized_source_sha256(bytearray(self.source))
 
     def test_active_and_candidate_identities_are_exact(self):
-        self.assertEqual(len(self.active), self.m.ACTIVE_RUNNER_IDENTITY["size"])
         self.assertEqual(
-            hashlib.sha256(self.active).hexdigest(),
-            self.m.ACTIVE_RUNNER_IDENTITY["sha256"],
+            len(self.predecessor), self.m.QUALIFIED_PREDECESSOR_IDENTITY["size"]
+        )
+        self.assertEqual(
+            hashlib.sha256(self.predecessor).hexdigest(),
+            self.m.QUALIFIED_PREDECESSOR_IDENTITY["sha256"],
         )
         self.assertEqual(
             len(self.candidate), self.m.CANDIDATE_RUNNER_IDENTITY["size"]
@@ -87,11 +107,27 @@ class PublicExecRepairV1Tests(unittest.TestCase):
             hashlib.sha256(self.candidate).hexdigest(),
             self.m.CANDIDATE_RUNNER_IDENTITY["sha256"],
         )
+        self.assertEqual(self.assert_candidate, self.candidate)
+
+    def test_current_candidate_reconstructs_only_exact_predecessor(self):
+        self.assertEqual(
+            self.m.reconstruct_qualified_predecessor(self.candidate),
+            self.predecessor,
+        )
+        for changed in (
+            self.candidate + b"\n",
+            self.candidate.replace(b"SM-G986N", b"SM-G986X", 1),
+            self.candidate.replace(self.m.NEW_ARGUMENT_LINE, b"", 1),
+            bytearray(self.candidate),
+        ):
+            with self.subTest(kind=type(changed).__name__, size=len(changed)):
+                with self.assertRaises(self.m.PublicExecRepairV1Error):
+                    self.m.reconstruct_qualified_predecessor(changed)
 
     def test_transform_is_exactly_two_reviewed_line_changes(self):
         diff = list(
             difflib.unified_diff(
-                self.active.decode().splitlines(),
+                self.predecessor.decode().splitlines(),
                 self.candidate.decode().splitlines(),
                 lineterm="",
             )
@@ -115,10 +151,10 @@ class PublicExecRepairV1Tests(unittest.TestCase):
 
     def test_transform_rejects_any_active_source_drift(self):
         variants = (
-            self.active + b"\n",
-            self.active.replace(b"SM-G986N", b"SM-G986X", 1),
-            self.active.replace(self.m.OLD_ARGUMENT_LINE, b"", 1),
-            bytearray(self.active),
+            self.predecessor + b"\n",
+            self.predecessor.replace(b"SM-G986N", b"SM-G986X", 1),
+            self.predecessor.replace(self.m.OLD_ARGUMENT_LINE, b"", 1),
+            bytearray(self.predecessor),
         )
         for variant in variants:
             with self.subTest(kind=type(variant).__name__, size=len(variant)):
@@ -126,7 +162,7 @@ class PublicExecRepairV1Tests(unittest.TestCase):
                     self.m.apply_candidate_transform(variant)
 
     def test_fixed_remote_script_literals_are_byte_identical(self):
-        active = self.m._literal_assignments(self.active)
+        active = self.m._literal_assignments(self.predecessor)
         candidate = self.m._literal_assignments(self.candidate)
         self.assertEqual(active, candidate)
         public = active["PUBLIC_SNAPSHOT_SCRIPT"].encode()
@@ -137,7 +173,9 @@ class PublicExecRepairV1Tests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(root).hexdigest(), self.m.ROOT_SCRIPT_SHA256)
 
     def test_public_assignment_changes_from_prequote_to_direct_reference(self):
-        active = self.m._assignment_shape(self.active, "PUBLIC_SHELL_ARGUMENT")
+        active = self.m._assignment_shape(
+            self.predecessor, "PUBLIC_SHELL_ARGUMENT"
+        )
         candidate = self.m._assignment_shape(
             self.candidate, "PUBLIC_SHELL_ARGUMENT"
         )
@@ -147,7 +185,7 @@ class PublicExecRepairV1Tests(unittest.TestCase):
 
     def test_root_assignment_remains_exact_shlex_quote(self):
         active = ast.dump(
-            self.m._assignment_shape(self.active, "ROOT_SHELL_ARGUMENT"),
+            self.m._assignment_shape(self.predecessor, "ROOT_SHELL_ARGUMENT"),
             include_attributes=False,
         )
         candidate = ast.dump(
@@ -179,15 +217,19 @@ class PublicExecRepairV1Tests(unittest.TestCase):
             ["sh", "-c", "printf '%s' x"],
         )
 
-    def test_active_exec_service_delivers_prequoted_script(self):
-        public = self.m._literal_assignments(self.active)["PUBLIC_SNAPSHOT_SCRIPT"]
+    def test_qualified_predecessor_exec_service_delivers_prequoted_script(self):
+        public = self.m._literal_assignments(self.predecessor)[
+            "PUBLIC_SNAPSHOT_SCRIPT"
+        ]
         prequoted = shlex.quote(public)
         service = self.m.exec_out_service("sh", "-c", prequoted)
         remote = shlex.split(service.removeprefix("exec:"))
-        self.assertEqual(len(service.encode()), self.m.ACTIVE_EXEC_SERVICE_SIZE)
+        self.assertEqual(
+            len(service.encode()), self.m.PREDECESSOR_EXEC_SERVICE_SIZE
+        )
         self.assertEqual(
             hashlib.sha256(service.encode()).hexdigest(),
-            self.m.ACTIVE_EXEC_SERVICE_SHA256,
+            self.m.PREDECESSOR_EXEC_SERVICE_SHA256,
         )
         self.assertEqual(remote, ["sh", "-c", prequoted])
         self.assertNotEqual(remote[-1], public)
@@ -229,15 +271,17 @@ class PublicExecRepairV1Tests(unittest.TestCase):
 
     def test_qualification_preserves_claim_boundary(self):
         self.assertFalse(
-            self.qualification["active_public_argument_equals_raw_script"]
+            self.qualification[
+                "qualified_predecessor_public_argument_equals_raw_script"
+            ]
         )
         self.assertFalse(
-            self.qualification["active_exec_service"][
+            self.qualification["qualified_predecessor_exec_service"][
                 "remote_final_argv_equals_raw_script"
             ]
         )
         self.assertTrue(
-            self.qualification["active_exec_service"][
+            self.qualification["qualified_predecessor_exec_service"][
                 "remote_final_argv_equals_prequoted_script"
             ]
         )
@@ -294,7 +338,11 @@ class PublicExecRepairV1Tests(unittest.TestCase):
         self.assertNotIn(b"execve", self.source)
 
     def test_live_gate_is_unconditionally_unimplemented(self):
-        self.assertTrue(all(value is False for value in self.m._gates().values()))
+        self.assertTrue(self.m._gates()["repair_reviewed"])
+        self.assertTrue(self.m._gates()["active_runner_rotated"])
+        self.assertTrue(self.m._gates()["mechanical_activation_complete"])
+        self.assertFalse(self.m._gates()["fresh_direct_request_present"])
+        self.assertFalse(self.m._gates()["live_authority"])
         with self.assertRaisesRegex(
             self.m.PublicExecRepairV1Error, "H0-only and not active"
         ):
@@ -325,16 +373,16 @@ class PublicExecRepairV1Tests(unittest.TestCase):
         self.assertEqual(self.m.ADB_IDENTITY["platform_tools_tag"], "platform-tools-34.0.5")
         self.assertRegex(self.m.ADB_IDENTITY["sha256"], r"\A[0-9a-f]{64}\Z")
 
-    def test_candidate_parser_metadata_is_rotated_but_not_applied(self):
+    def test_current_parser_metadata_matches_exact_applied_candidate(self):
         active_plan = self.m.OLD_PLAN_BLOCK.decode()
         candidate_plan = self.m.NEW_PLAN_BLOCK.decode()
         self.assertIn("single-shlex-quoted-fixed-literal", active_plan)
         self.assertIn("single-raw-fixed-script-argv-ADB-escaped-once", candidate_plan)
-        self.assertIn(self.m.OLD_PLAN_BLOCK, self.active)
+        self.assertIn(self.m.OLD_PLAN_BLOCK, self.predecessor)
         self.assertNotIn(self.m.OLD_PLAN_BLOCK, self.candidate)
         self.assertIn(self.m.NEW_PLAN_BLOCK, self.candidate)
-        self.assertIn(self.m.OLD_ARGUMENT_LINE, self.active)
-        self.assertNotIn(self.m.NEW_ARGUMENT_LINE, self.active)
+        self.assertIn(self.m.OLD_ARGUMENT_LINE, self.predecessor)
+        self.assertNotIn(self.m.NEW_ARGUMENT_LINE, self.predecessor)
 
 
 if __name__ == "__main__":

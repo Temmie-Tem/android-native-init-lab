@@ -84,7 +84,7 @@ printf 'selinux='; /system/bin/getenforce
 printf 'boot_id='; /system/bin/cat /proc/sys/kernel/random/boot_id
 """
 
-PUBLIC_SHELL_ARGUMENT = shlex.quote(PUBLIC_SNAPSHOT_SCRIPT)
+PUBLIC_SHELL_ARGUMENT = PUBLIC_SNAPSHOT_SCRIPT
 
 ROOT_OUTPUT_KEYS = (
     "uid",
@@ -1022,7 +1022,7 @@ def render_plan() -> dict[str, Any]:
             "exec-out",
             "sh",
             "-c",
-            "<single-shlex-quoted-fixed-literal>",
+            "<single-raw-fixed-script-argv-ADB-escaped-once>",
         ],
         "root_output_keys": list(ROOT_OUTPUT_KEYS),
         "expected_root_output": dict(EXPECTED_ROOT_OUTPUT),
