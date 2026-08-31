@@ -4,7 +4,9 @@
 This owner never addresses the recovery partition.  Its sole candidate and
 rollback members are ``boot.img.lz4``.  Candidate and rollback effects are
 one-shot and the resident Magisk boot is mandatory recovery after any consumed
-candidate intent.
+candidate intent.  Global ADB inventory may contain foreign devices, but only
+one exact S20+ model row may be selected and every target command uses its
+serial selector.
 """
 
 from __future__ import annotations
@@ -28,10 +30,10 @@ import s20plus_g986n_d0_inventory as base
 import s22plus_boot_only_f1_transport as transport
 
 
-VERSION = "s20plus-g986n-boot-recovery-canary-b0-f1-v1"
-PLAN_SCHEMA = "s20plus_g986n_boot_recovery_canary_b0_f1_plan_v1"
+VERSION = "s20plus-g986n-boot-recovery-canary-b0-f1-v2"
+PLAN_SCHEMA = "s20plus_g986n_boot_recovery_canary_b0_f1_plan_v2"
 B0_F1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "cdd34821dbc2b555ccb9ce8f14dbeb6dd0ff2baa9af50deb46708684c9167788"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -48,6 +50,7 @@ TARGET = {
 EXPECTED_ADB_METADATA = frozenset(
     {"model:SM_G986N", "device:y2q", "product:y2qksx"}
 )
+EXPECTED_ADB_MODEL = "model:SM_G986N"
 EXPECTED_ANDROID_TOPOLOGY_SHA256 = (
     "3279d577ef7a789f8aac93664e3b45543e10522b08d29ebabc99564ca86295f1"
 )
@@ -1063,14 +1066,55 @@ def sanitized_inventory(rows: tuple[dict[str, Any], ...]) -> list[dict[str, Any]
     ]
 
 
+def validate_sanitized_inventory(value: Any, label: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or len(value) > 64:
+        raise B0F1Error(f"{label} is malformed")
+    serials: set[str] = set()
+    for row in value:
+        if not isinstance(row, dict) or set(row) != {
+            "serial_sha256",
+            "state",
+            "metadata",
+        }:
+            raise B0F1Error(f"{label} row is malformed")
+        serial_sha256 = row.get("serial_sha256")
+        state = row.get("state")
+        metadata = row.get("metadata")
+        if (
+            not isinstance(serial_sha256, str)
+            or HEX64_RE.fullmatch(serial_sha256) is None
+            or serial_sha256 in serials
+            or not isinstance(state, str)
+            or SAFE_VALUE_RE.fullmatch(state) is None
+            or not state
+            or not isinstance(metadata, list)
+            or len(metadata) > 64
+            or any(
+                not isinstance(item, str)
+                or not item
+                or SAFE_VALUE_RE.fullmatch(item) is None
+                for item in metadata
+            )
+            or metadata != sorted(set(metadata))
+        ):
+            raise B0F1Error(f"{label} row fields are malformed")
+        serials.add(serial_sha256)
+    return value
+
+
+def target_adb_rows(rows: tuple[dict[str, Any], ...]) -> tuple[dict[str, Any], ...]:
+    return tuple(row for row in rows if EXPECTED_ADB_MODEL in row["metadata"])
+
+
 def exact_adb_row(
     rows: tuple[dict[str, Any], ...],
     expected_serial_sha256: str | None,
     expected_state: str,
 ) -> dict[str, Any]:
-    if len(rows) != 1:
-        raise B0F1Error("ADB inventory is absent or ambiguous")
-    row = rows[0]
+    matches = target_adb_rows(rows)
+    if len(matches) != 1:
+        raise B0F1Error("exact S20+ ADB inventory is absent or ambiguous")
+    row = matches[0]
     serial_sha256 = hashlib.sha256(row["serial"].encode()).hexdigest()
     if (
         (expected_serial_sha256 is not None and serial_sha256 != expected_serial_sha256)
@@ -1079,6 +1123,25 @@ def exact_adb_row(
     ):
         raise B0F1Error("ADB row is not the exact target state")
     return row
+
+
+def candidate_adb_baseline_receipt(
+    rows: tuple[dict[str, Any], ...], expected_serial_sha256: str
+) -> dict[str, Any]:
+    inventory = sanitized_inventory(rows)
+    validate_sanitized_inventory(inventory, "candidate ADB baseline inventory")
+    if any(
+        row["serial_sha256"] == expected_serial_sha256
+        or EXPECTED_ADB_MODEL in row["metadata"]
+        for row in inventory
+    ):
+        raise B0F1Error("exact S20+ remains present in candidate ADB baseline")
+    return {
+        "inventory": inventory,
+        "inventory_sha256": digest(inventory),
+        "exact_target_present": False,
+        "other_target_commands": 0,
+    }
 
 
 def adb_devpath(serial: str) -> str:
@@ -2059,12 +2122,32 @@ def validate_critical_records(run_dir: Path, actual: set[str]) -> None:
         baseline = read_json(
             run_dir / "candidate-adb-baseline.json", "candidate ADB baseline"
         )
+        baseline_inventory = validate_sanitized_inventory(
+            baseline.get("inventory"), "candidate ADB baseline inventory"
+        )
         if (
-            baseline.get("schema")
-            != "s20plus_g986n_b0_candidate_adb_baseline_v1"
+            set(baseline)
+            != {
+                "schema",
+                "version",
+                "inventory",
+                "inventory_sha256",
+                "exact_target_present",
+                "other_target_commands",
+                "at",
+            }
+            or baseline.get("schema")
+            != "s20plus_g986n_b0_candidate_adb_baseline_v2"
             or baseline.get("version") != VERSION
-            or baseline.get("inventory") != []
-            or baseline.get("inventory_sha256") != digest([])
+            or baseline.get("inventory_sha256") != digest(baseline_inventory)
+            or baseline.get("exact_target_present") is not False
+            or baseline.get("other_target_commands") != 0
+            or type(baseline.get("other_target_commands")) is not int
+            or any(
+                row["serial_sha256"] == binding["preflight"]["serial_sha256"]
+                or EXPECTED_ADB_MODEL in row["metadata"]
+                for row in baseline_inventory
+            )
         ):
             raise B0F1Error("candidate ADB baseline is malformed")
     if "candidate-intent.json" in actual:
@@ -4023,7 +4106,10 @@ def require_all_transfer_processes_quiescent(
 
 
 def recovery_probe(
-    run_dir: Path, row: dict[str, Any], prepared: dict[str, Any]
+    run_dir: Path,
+    initial_rows: tuple[dict[str, Any], ...],
+    row: dict[str, Any],
+    prepared: dict[str, Any],
 ) -> dict[str, Any]:
     serial = row["serial"]
     serial_sha256 = hashlib.sha256(serial.encode()).hexdigest()
@@ -4066,7 +4152,7 @@ def recovery_probe(
     final = adb_inventory()
     final_row = exact_adb_row(final, serial_sha256, "recovery")
     if (
-        sanitized_inventory(final) != sanitized_inventory((row,))
+        sanitized_inventory(final) != sanitized_inventory(initial_rows)
         or adb_devpath(final_row["serial"]) != devpath
     ):
         raise B0F1Error("recovery ADB identity changed during observation")
@@ -4138,18 +4224,32 @@ def observe_candidate(run_dir: Path, prepared: dict[str, Any]) -> tuple[dict[str
                 "reason": "adb-inventory-malformed",
                 "at": utc_now(),
             }, None
-        if not rows:
-            time.sleep(2)
-            continue
-        if len(rows) != 1:
+        matching_rows = target_adb_rows(rows)
+        expected_rows = tuple(
+            row
+            for row in rows
+            if hashlib.sha256(row["serial"].encode()).hexdigest() == expected_serial
+        )
+        if len(matching_rows) > 1:
             return {
                 "environment": "adb-ambiguous",
                 "transport_authorized": False,
                 "claim_verdict": "NO_PROOF",
-                "reason": "adb-row-count",
+                "reason": "exact-target-row-count",
                 "at": utc_now(),
             }, None
-        row = rows[0]
+        if not matching_rows:
+            if expected_rows:
+                return {
+                    "environment": "adb-wrong-state",
+                    "transport_authorized": False,
+                    "claim_verdict": "NO_PROOF",
+                    "reason": "selected-serial-lacks-exact-target-metadata",
+                    "at": utc_now(),
+                }, None
+            time.sleep(2)
+            continue
+        row = matching_rows[0]
         if hashlib.sha256(row["serial"].encode()).hexdigest() != expected_serial:
             return {
                 "environment": "adb-foreign",
@@ -4160,7 +4260,7 @@ def observe_candidate(run_dir: Path, prepared: dict[str, Any]) -> tuple[dict[str
             }, None
         if row["state"] == "recovery" and EXPECTED_ADB_METADATA <= row["metadata"]:
             try:
-                return recovery_probe(run_dir, row, prepared), row["serial"]
+                return recovery_probe(run_dir, rows, row, prepared), row["serial"]
             except B0F1Error as exc:
                 return {
                     "environment": "recovery-adb-unqualified",
@@ -4275,7 +4375,7 @@ def revalidate_rollback_source(
         final = adb_inventory()
         final_row = exact_adb_row(final, expected_serial, "recovery")
         if (
-            sanitized_inventory(final) != sanitized_inventory((row,))
+            sanitized_inventory(final) != sanitized_inventory(first)
             or adb_devpath(final_row["serial"]) != devpath
         ):
             raise B0F1Error("rollback recovery transport changed")
@@ -4612,24 +4712,35 @@ def execute(run_dir: Path, approval: str) -> dict[str, Any]:
     baseline_path = run_dir / "candidate-adb-baseline.json"
     if os.path.lexists(baseline_path):
         baseline_value = read_json(baseline_path, "candidate ADB baseline")
-        if baseline_value.get("inventory") != [] or baseline_value.get(
-            "inventory_sha256"
-        ) != digest([]):
+        baseline_inventory = validate_sanitized_inventory(
+            baseline_value.get("inventory"), "candidate ADB baseline inventory"
+        )
+        if (
+            baseline_value.get("inventory_sha256") != digest(baseline_inventory)
+            or baseline_value.get("exact_target_present") is not False
+            or baseline_value.get("other_target_commands") != 0
+            or any(
+                row["serial_sha256"] == binding["preflight"]["serial_sha256"]
+                or EXPECTED_ADB_MODEL in row["metadata"]
+                for row in baseline_inventory
+            )
+        ):
             raise B0F1Error("candidate ADB baseline differs")
     else:
-        rows = adb_inventory()
-        if rows:
-            raise B0F1Error("candidate ADB baseline is not empty")
         durable_json(
             baseline_path,
             {
-            "schema": "s20plus_g986n_b0_candidate_adb_baseline_v1",
-            "version": VERSION,
-            "inventory": [],
-            "inventory_sha256": digest([]),
-            "at": utc_now(),
+                "schema": "s20plus_g986n_b0_candidate_adb_baseline_v2",
+                "version": VERSION,
+                **candidate_adb_baseline_receipt(
+                    adb_inventory(), binding["preflight"]["serial_sha256"]
+                ),
+                "at": utc_now(),
             },
         )
+    candidate_adb_baseline_receipt(
+        adb_inventory(), binding["preflight"]["serial_sha256"]
+    )
     consume_candidate_globally(run_dir, prepared["binding_sha256"])
     require_candidate_claim(run_dir, prepared["binding_sha256"])
     transfer_boot(run_dir, "candidate", current, prepared["binding_sha256"])
@@ -5481,6 +5592,13 @@ def render_plan() -> dict[str, Any]:
         "active": B0_F1_ACTIVE,
         "live_authority": B0_F1_ACTIVE,
         "target": dict(TARGET),
+        "adb_selection": {
+            "global_inventory": True,
+            "exact_target_match_count": 1,
+            "foreign_rows_permitted": True,
+            "selected_target_commands_require_serial": True,
+            "other_target_commands": 0,
+        },
         "candidate": {
             "partition": "boot",
             "ap_size": CANDIDATE_AP_SIZE,

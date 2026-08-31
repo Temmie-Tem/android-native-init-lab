@@ -843,3 +843,22 @@ HIGH/MEDIUM/LOW `0/0/0` and becomes live-capable only in its scoped commit.
 Activation itself creates no run or approval: a fresh connected prepare and
 that run's exact emitted attended approval remain mandatory before candidate
 transfer.
+
+Two post-activation v1 prepare invocations encountered the expected two-device
+ADB inventory and stopped before selecting a target or publishing any record.
+Both private run directories are empty; the shared guard and global candidate
+claim are absent, and root reads, reboot/Download intents, Odin, and partition
+writes remain zero. The proposed v2 owner now permits foreign ADB rows while
+requiring exactly one `SM_G986N` row with exact y2q metadata, uses that row's
+serial selector for every target command, and rejects a second matching row,
+state/metadata/serial drift, or any selected S20+ presence in the pre-transfer
+Download baseline. Foreign rows are retained only as bounded sanitized
+inventory evidence and receive zero commands. The v2 owner is 222,832
+bytes at SHA-256
+`0246014e50b1ff509568ee019f36680694e3a87644ccca8c340767b3dd75445d`,
+normalized SHA-256
+`e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40`;
+its 58,443-byte test is
+`8a7425b8d63582cda62e55a82c7e2b300990af0fe5809e7e24c5f33f33fb3741`
+at 54/54. The complete revision received independent `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0` and becomes live-capable only in its scoped commit.

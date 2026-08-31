@@ -563,16 +563,31 @@ inventory/parser, raw-capture helper, and ADB. Rollback requires only those
 execution sources, fixed tools, and the exact resident rollback AP.
 
 One current direct attended operator request authorizes one `--prepare` under
-this section. Preparation starts only from the sole exact healthy resident
-Android row and one root-health capture that binds the boot ID inside the same
-fixed `su -c` raw output. It records an empty Download baseline, durably records
-one no-replay `adb reboot download` intent, binds the exact resulting Download
+this section. Preparation inventories every global ADB row and starts only when
+exactly one row matches the healthy resident `SM_G986N` / `y2q` / `y2qksx`
+target. Foreign ADB rows are permitted, receive zero selected-target commands,
+and do not make the exact S20+ ambiguous. A second matching model row, missing
+or conflicting target metadata, unauthorized/offline target state, or selected
+serial drift stops. Every non-inventory ADB command uses the selected serial's
+exact `-s` selector. The root-health capture binds the boot ID inside the same
+fixed `su -c` raw output and repeats the complete sanitized inventory before
+acceptance. Preparation records an empty Download baseline, durably records one
+no-replay `adb reboot download` intent, binds the exact resulting Download
 profile/topology/character endpoint, and then emits an approval token beginning
 `S20PLUS-G986N-BOOT-RECOVERY-CANARY-B0-F1-APPROVE:`. The token expires after
 15 minutes and binds the exact run, target/current source boot, candidate,
 rollback, tools, source closure, and Download endpoint. Preparation itself
 does not authorize candidate transfer. Only the exact token copied back by the
 attended operator authorizes that run's one `--execute`.
+
+While the selected S20+ is in Download, the candidate ADB baseline need not be
+globally empty. It durably records the bounded sanitized foreign inventory but
+requires both the prepared serial and every `model:SM_G986N` row to be absent;
+it reports zero other-target commands. Candidate and recovery observation
+likewise ignores foreign rows for target-count purposes, selects only the
+prepared serial plus exact target metadata, and rechecks the complete inventory
+around each selected-target transaction. A foreign row is never probed to
+resolve S20+ identity.
 
 Candidate and rollback each have one attempt. A global exact-candidate claim
 is consumed before candidate intent; any complete or prefix-partial claim
@@ -627,18 +642,29 @@ Independent dormant review returned `PASS_GO_H0`, HIGH/MEDIUM/LOW `0/0/0`,
 after 48/48 focused tests and host closure
 `3623bdb9b4c3d907355808e4653d46dbd6012821ca023ea2240dd0ee4c29501e`.
 
-The active owner is `218,203` bytes at SHA-256
+The first active singleton-inventory owner was `218,203` bytes at SHA-256
 `80d961e06c03f4d092efb65ba92f142ec1061227bab55d19068b1b623a69a8ad`,
 with reviewed normalized SHA-256
 `cdd34821dbc2b555ccb9ce8f14dbeb6dd0ff2baa9af50deb46708684c9167788`.
-The active focused test is `48,102` bytes at SHA-256
+Its focused test was `48,102` bytes at SHA-256
 `872895bfd12277dc35c05c34fa5b2d0105e84df2e640bde1bf52f3a01b14a588`.
-This section, those exact active bytes, the registry wording, goal status, and
-activation report received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`
-and become effective only when their complete diff is committed together.
-Activation creates no run, approval, transfer, or standing unattended
-authority. Every run still requires fresh prepare, its exact emitted approval,
-and attendance.
+That activation received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`
+and was committed as `0ae1c30792`.
+
+The active multi-ADB v2 owner is `222,832` bytes at SHA-256
+`0246014e50b1ff509568ee019f36680694e3a87644ccca8c340767b3dd75445d`,
+with normalized SHA-256
+`e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40`.
+Its active 54-test file is
+`58,443` bytes at SHA-256
+`8a7425b8d63582cda62e55a82c7e2b300990af0fe5809e7e24c5f33f33fb3741`;
+the host closure is
+`4a28081b9829a8908c079aa110b9e95be20427873367808cd50e81da418502a8`.
+Those exact bytes, this contract delta, the goal delta, and the v2 review report
+received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` and become
+effective only when their complete diff is committed together. The revision
+creates no run, approval, transfer, or standing unattended authority. Every
+run still requires fresh prepare, its exact emitted approval, and attendance.
 
 ## Bounded autonomous research session
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -42,6 +43,9 @@ class S20PlusG986NBootRecoveryCanaryB0F1Tests(unittest.TestCase):
         self.assertTrue(plan["forbidden"]["recovery_partition_transfer"])
         self.assertTrue(plan["forbidden"]["candidate_replay"])
         self.assertTrue(plan["forbidden"]["rollback_replay"])
+        self.assertEqual(plan["adb_selection"]["exact_target_match_count"], 1)
+        self.assertTrue(plan["adb_selection"]["foreign_rows_permitted"])
+        self.assertEqual(plan["adb_selection"]["other_target_commands"], 0)
 
     def test_active_cli_dispatches_only_to_the_owned_prepare_entrypoint(self) -> None:
         run_dir = Path("/tmp/b0-active-cli-fixture")
@@ -56,6 +60,212 @@ class S20PlusG986NBootRecoveryCanaryB0F1Tests(unittest.TestCase):
         ):
             self.assertEqual(b0.main(["--prepare"]), 0)
         prepare.assert_called_once_with(None)
+
+    def test_exact_target_selection_allows_foreign_rows_only(self) -> None:
+        target = {
+            "serial": "S20SERIAL",
+            "state": "device",
+            "metadata": b0.EXPECTED_ADB_METADATA,
+        }
+        foreign = {
+            "serial": "FOREIGNSERIAL",
+            "state": "device",
+            "metadata": frozenset(
+                {"model:SM_G906N", "device:foreign", "product:foreign"}
+            ),
+        }
+        self.assertIs(b0.exact_adb_row((foreign, target), None, "device"), target)
+        target_hash = hashlib.sha256(target["serial"].encode()).hexdigest()
+        self.assertIs(
+            b0.exact_adb_row((target, foreign), target_hash, "device"), target
+        )
+        duplicate = {**target, "serial": "SECONDS20"}
+        with self.assertRaisesRegex(b0.B0F1Error, "absent or ambiguous"):
+            b0.exact_adb_row((foreign, target, duplicate), None, "device")
+        with self.assertRaisesRegex(b0.B0F1Error, "exact target state"):
+            b0.exact_adb_row(
+                (foreign, {**target, "state": "unauthorized"}), None, "device"
+            )
+
+    def test_candidate_adb_baseline_keeps_foreign_rows_but_rejects_s20(self) -> None:
+        target = {
+            "serial": "S20SERIAL",
+            "state": "device",
+            "metadata": b0.EXPECTED_ADB_METADATA,
+        }
+        foreign = {
+            "serial": "FOREIGNSERIAL",
+            "state": "device",
+            "metadata": frozenset(
+                {"model:SM_G906N", "device:foreign", "product:foreign"}
+            ),
+        }
+        target_hash = hashlib.sha256(target["serial"].encode()).hexdigest()
+        receipt = b0.candidate_adb_baseline_receipt((foreign,), target_hash)
+        self.assertEqual(len(receipt["inventory"]), 1)
+        self.assertEqual(receipt["inventory_sha256"], b0.digest(receipt["inventory"]))
+        self.assertFalse(receipt["exact_target_present"])
+        self.assertEqual(receipt["other_target_commands"], 0)
+        with self.assertRaisesRegex(b0.B0F1Error, r"exact S20\+"):
+            b0.candidate_adb_baseline_receipt((foreign, target), target_hash)
+        with self.assertRaises(b0.B0F1Error):
+            b0.validate_sanitized_inventory(
+                [
+                    {
+                        "serial_sha256": "1" * 64,
+                        "state": "device",
+                        "metadata": ["model:foreign", 1],
+                    }
+                ],
+                "hostile inventory",
+            )
+
+    def test_resident_health_with_foreign_row_commands_only_selected_s20(self) -> None:
+        target = {
+            "serial": "S20SERIAL",
+            "state": "device",
+            "metadata": b0.EXPECTED_ADB_METADATA,
+        }
+        foreign = {
+            "serial": "FOREIGNSERIAL",
+            "state": "device",
+            "metadata": frozenset(
+                {"model:SM_S906N", "device:g0q", "product:g0qksx"}
+            ),
+        }
+        rows = (foreign, target)
+        public = {
+            "model": b0.TARGET["model"],
+            "device": b0.TARGET["device"],
+            "product_name": b0.TARGET["product"],
+            "incremental": b0.TARGET["incremental"],
+            "boot_completed": "1",
+            "bootanim": "stopped",
+            "selinux": "Enforcing",
+            "boot_id": BOOT_ID,
+        }
+        root = {"boot_id": BOOT_ID, **b0.EXPECTED_ROOT_OUTPUT}
+
+        def acquire(argv, directory, name, **kwargs):
+            self.assertEqual(argv[1:3], ["-s", target["serial"]])
+            return b0.raw_capture.publish_captured_bytes(
+                directory,
+                name,
+                stdout=ordered(root, b0.ROOT_OUTPUT_KEYS),
+                stdout_name=kwargs["stdout_name"],
+                stderr_name=kwargs["stderr_name"],
+            )
+
+        def devpath(serial: str) -> str:
+            self.assertEqual(serial, target["serial"])
+            return "usb:test"
+
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            b0, "health_source_closure_receipts", return_value={"fixed": True}
+        ), mock.patch.object(
+            b0, "adb_inventory", return_value=rows
+        ), mock.patch.object(
+            b0, "adb_devpath", side_effect=devpath
+        ), mock.patch.object(
+            b0.base,
+            "bounded_command",
+            return_value=(0, ordered(public, b0.PUBLIC_SNAPSHOT_KEYS), b""),
+        ) as bounded, mock.patch.object(
+            b0.raw_capture, "acquire_command", side_effect=acquire
+        ):
+            health, serial = b0.resident_health_once(
+                Path(temporary), "preflight-root"
+            )
+        self.assertEqual(serial, target["serial"])
+        self.assertEqual(
+            health["inventory_sha256"], b0.digest(b0.sanitized_inventory(rows))
+        )
+        self.assertEqual(bounded.call_count, 2)
+        for call in bounded.call_args_list:
+            self.assertEqual(call.args[0][1:3], ["-s", target["serial"]])
+
+    def test_existing_candidate_baseline_is_freshly_revalidated_before_claim(self) -> None:
+        selected_serial = "S20SERIAL"
+        selected_hash = hashlib.sha256(selected_serial.encode()).hexdigest()
+        foreign = {
+            "serial": "FOREIGNSERIAL",
+            "state": "device",
+            "metadata": frozenset(
+                {"model:SM_S906N", "device:g0q", "product:g0qksx"}
+            ),
+        }
+        reappeared_s20 = {
+            "serial": selected_serial,
+            "state": "device",
+            "metadata": b0.EXPECTED_ADB_METADATA,
+        }
+        approval = "exact-approval"
+        prepared = {
+            "approval_token": approval,
+            "binding_sha256": "1" * 64,
+            "binding": {
+                "expires_unix": int(b0.time.time()) + 600,
+                "endpoint": {"fixed": True},
+                "preflight": {"serial_sha256": selected_hash},
+            },
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            baseline = b0.candidate_adb_baseline_receipt((foreign,), selected_hash)
+            b0.durable_json(
+                run_dir / "candidate-adb-baseline.json",
+                {
+                    "schema": "s20plus_g986n_b0_candidate_adb_baseline_v2",
+                    "version": b0.VERSION,
+                    **baseline,
+                    "at": "2026-08-31T00:00:00+00:00",
+                },
+            )
+            with mock.patch.object(b0, "require_active"), mock.patch.object(
+                b0, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                b0, "candidate_claim_present", return_value=False
+            ), mock.patch.object(
+                b0, "identify_download", return_value={"fixed": True}
+            ), mock.patch.object(
+                b0, "same_download_session", return_value=True
+            ), mock.patch.object(
+                b0, "adb_inventory", return_value=(foreign, reappeared_s20)
+            ) as inventory, mock.patch.object(
+                b0, "consume_candidate_globally"
+            ) as consume:
+                with self.assertRaisesRegex(b0.B0F1Error, r"exact S20\+"):
+                    b0.execute(run_dir, approval)
+            self.assertEqual(inventory.call_count, 1)
+            consume.assert_not_called()
+
+    def test_every_noninventory_adb_command_is_serial_selected(self) -> None:
+        tree = ast.parse(b0.SCRIPT.read_text())
+        adb_argv: list[list[ast.expr]] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.List) or not node.elts:
+                continue
+            first = node.elts[0]
+            if (
+                isinstance(first, ast.Call)
+                and isinstance(first.func, ast.Name)
+                and first.func.id == "str"
+                and len(first.args) == 1
+                and isinstance(first.args[0], ast.Name)
+                and first.args[0].id == "ADB"
+            ):
+                adb_argv.append(node.elts)
+        self.assertGreaterEqual(len(adb_argv), 7)
+        for argv in adb_argv:
+            second = argv[1]
+            if isinstance(second, ast.Constant) and second.value == "devices":
+                self.assertEqual(
+                    [item.value for item in argv[1:] if isinstance(item, ast.Constant)],
+                    ["devices", "-l"],
+                )
+                continue
+            self.assertIsInstance(second, ast.Constant)
+            self.assertEqual(second.value, "-s")
 
     def test_self_normalized_identity_is_exact(self) -> None:
         self.assertEqual(
@@ -296,6 +506,50 @@ class S20PlusG986NBootRecoveryCanaryB0F1Tests(unittest.TestCase):
             b0.parse_recovery_transport(
                 (0, ordered(values, b0.RECOVERY_TRANSPORT_KEYS), b"")
             )
+
+    def test_candidate_observer_ignores_foreign_row_and_probes_only_exact_s20(self) -> None:
+        target = {
+            "serial": "S20SERIAL",
+            "state": "recovery",
+            "metadata": b0.EXPECTED_ADB_METADATA,
+        }
+        foreign = {
+            "serial": "FOREIGNSERIAL",
+            "state": "device",
+            "metadata": frozenset(
+                {"model:SM_S906N", "device:g0q", "product:g0qksx"}
+            ),
+        }
+        rows = (foreign, target)
+        prepared = {
+            "binding": {
+                "endpoint": {
+                    "device": "/dev/bus/usb/001/002",
+                    "endpoint_identity": [1, 2, 3, 4],
+                },
+                "preflight": {
+                    "serial_sha256": hashlib.sha256(
+                        target["serial"].encode()
+                    ).hexdigest()
+                },
+            }
+        }
+        result = {
+            "environment": "recovery-adb",
+            "transport_authorized": True,
+            "claim_verdict": "PROVED",
+        }
+        with mock.patch.object(
+            b0, "endpoint_stat", side_effect=FileNotFoundError
+        ), mock.patch.object(
+            b0, "adb_inventory", return_value=rows
+        ), mock.patch.object(
+            b0, "recovery_probe", return_value=result
+        ) as probe:
+            observed, serial = b0.observe_candidate(Path("/tmp/run"), prepared)
+        self.assertIs(observed, result)
+        self.assertEqual(serial, target["serial"])
+        probe.assert_called_once_with(Path("/tmp/run"), rows, target, prepared)
 
     def test_health_validator_rejects_forged_boot_digest_and_wrong_capture_family(self) -> None:
         boot_b = "abcdef12-3456-4789-abcd-0123456789ab"
