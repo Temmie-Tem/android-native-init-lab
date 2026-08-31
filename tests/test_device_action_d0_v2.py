@@ -521,6 +521,27 @@ class DeviceActionD0V2Test(unittest.TestCase):
         with self.assertRaises(self.module.D0Error):
             self.module.validate_result(result, self.bundle(), run_dir)
 
+    def test_result_validator_defers_clean_family_count_to_bound_decoder(self):
+        temporary, result, _client = self.run_connected()
+        self.addCleanup(temporary.cleanup)
+        run_dir = Path(temporary.name) / "run"
+        changed = copy.deepcopy(result)
+        changed["observer"]["marker_family_count"] = 1
+        baseline = {
+            "classification": "EXACT_PREDECESSOR_CURRENT_RUN_ABSENT",
+            "exact_record_count": 0,
+            "family_count": 1,
+            "integrity_issue": False,
+            "baseline_clean": True,
+        }
+        with mock.patch.object(
+            self.module, "_inspect_clean_baseline", return_value=(baseline, None)
+        ):
+            self.assertEqual(
+                self.module.validate_result(changed, self.bundle(), run_dir),
+                changed,
+            )
+
     def test_wrong_target_or_partition_hash_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

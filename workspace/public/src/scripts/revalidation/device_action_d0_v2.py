@@ -858,8 +858,7 @@ def validate_result(
         label="D0 observer",
     )
     if (
-        observer["marker_family_count"] != 0
-        or observer["exact_marker_count"] != 0
+        observer["exact_marker_count"] != 0
         or observer["baseline_clean"] is not True
     ):
         raise D0Error("D0 observer evidence is invalid")

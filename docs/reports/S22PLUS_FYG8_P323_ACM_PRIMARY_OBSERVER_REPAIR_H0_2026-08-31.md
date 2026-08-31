@@ -123,9 +123,18 @@ Its durable D0 stop retained the 2,097,136-byte baseline at SHA-256
 That is the consumed P3.22 CRC-valid producer-failure receipt, not a current
 P3.23 record.
 
-The bounded Rule-7 correction admits only that complete raw identity, its exact
+The first bounded Rule-7 correction admits only that complete raw identity, its exact
 P3.22 reanalysis, and Carrier offset 1,634,466 as “current P3.23 run absent.”
 Short, appended, shifted, padding-mutated, corrupt, arbitrary predecessor, and
 current-P3.23 baselines remain rejected. Common tests pass 131/131 and focused
-independent review returned `PASS_GO`. One corrected prepare remains; this
-exception creates no device-write, F1, or replay authority.
+independent review returned `PASS_GO`.
+
+That corrected prepare passed classification but stopped at the generic D0
+result validator, which redundantly required `marker_family_count == 0` before
+recomputing the bound raw classification. It also created no `prepared.json`,
+approval, write, reboot, Download transition, Odin invocation, or transfer.
+The second bounded correction removes only that duplicate zero check;
+`exact_marker_count == 0`, `baseline_clean == true`, and the existing exact raw
+reclassification comparison remain mandatory. D0 tests pass 23/23, ready audit
+passes, and independent review returned `PASS_GO`. One final corrected prepare
+remains; neither correction creates F1 or replay authority.
