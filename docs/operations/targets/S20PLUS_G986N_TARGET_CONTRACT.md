@@ -662,9 +662,44 @@ the host closure is
 `4a28081b9829a8908c079aa110b9e95be20427873367808cd50e81da418502a8`.
 Those exact bytes, this contract delta, the goal delta, and the v2 review report
 received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` and become
-effective only when their complete diff is committed together. The revision
-creates no run, approval, transfer, or standing unattended authority. Every
-run still requires fresh prepare, its exact emitted approval, and attendance.
+effective only when their complete diff is committed together. They were
+committed as `60f3f9f11a`. The revision creates no standing unattended
+authority. Every new run still requires fresh prepare, its exact emitted
+approval, and attendance.
+
+The first v2 run consumed its exact approval and completed one attributed
+candidate transfer. Candidate observation returned `NO_PROOF` with no ADB or
+Download arrival, so mandatory resident rollback remains open and candidate
+replay remains forbidden. Its first physical-rollback arm stopped before any
+device command because the B0 validator referenced an `argv0_name` attribute
+that the pinned raw-capture loader validates in its durable JSON receipt but
+does not expose on `RawCaptureHandle`.
+
+The recovery-parser owner keeps `VERSION` v2 so it can consume the
+existing journal. It reads the same direct canonical raw-capture receipt,
+binds every handle-exposed field back to that validated handle, and derives
+`argv0_name` from the receipt bytes whose exact size and SHA-256 are already in
+the transfer result. It never accepts a caller value. Its predecessor set
+contains only normalized SHA-256
+`e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40`
+and accepts that identity only for `rollback` or `health` after a durable
+candidate intent; the `candidate` phase and a pre-candidate run reject it.
+The existing global candidate claim must still bind the same run, so this
+compatibility path cannot replay or open another candidate.
+
+The repaired owner is `224,559` bytes at SHA-256
+`82ec4cee48c3a39aa8dc4de6136e8fda3fbefe88d4821a71bdb0df55d2a17c2a`,
+with normalized SHA-256
+`52f2df6aa1864a956cd4d0e43a3906ffbb613116577d7735788630a43323ea06`.
+Its 56-test file is `60,003` bytes at SHA-256
+`e7f4add57131bdfe7ba3b2285aa02283ff2110d1e1abb9d507e35acf7cceee7b`;
+the host closure is
+`aa17bf9d145f4909158b9132a58e81680f94e6007777aa601630bc8104f0812a`.
+Those exact bytes, this contract delta, the goal delta, and the incident report
+received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` and become recovery
+authority only when their complete diff is committed together. They authorize
+only journal-derived recovery and future fresh runs under the unchanged exact
+approval gate, never candidate replay.
 
 ## Bounded autonomous research session
 

@@ -275,6 +275,43 @@ class S20PlusG986NBootRecoveryCanaryB0F1Tests(unittest.TestCase):
         self.assertEqual(receipt["normalized_sha256"], b0.EXPECTED_REVIEWED_NORMALIZED_SHA256)
         self.assertEqual(receipt["sha256"], hashlib.sha256(b0.SCRIPT.read_bytes()).hexdigest())
 
+    def test_predecessor_identity_is_recovery_only_after_candidate_intent(self) -> None:
+        predecessor = next(iter(b0.RECOVERY_PREDECESSOR_NORMALIZED_SHA256))
+        self.assertFalse(
+            b0.stored_runner_identity_permitted(predecessor, "candidate", True)
+        )
+        self.assertFalse(
+            b0.stored_runner_identity_permitted(predecessor, "rollback", False)
+        )
+        self.assertTrue(
+            b0.stored_runner_identity_permitted(predecessor, "rollback", True)
+        )
+        self.assertTrue(
+            b0.stored_runner_identity_permitted(predecessor, "health", True)
+        )
+        self.assertTrue(
+            b0.stored_runner_identity_permitted(
+                b0.EXPECTED_REVIEWED_NORMALIZED_SHA256, "candidate", False
+            )
+        )
+
+    def test_raw_capture_argv0_is_rederived_from_validated_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            handle = b0.raw_capture.publish_captured_bytes(
+                Path(temporary),
+                "candidate-transfer",
+                stdout=b"fixed\n",
+                argv0_name=b0.DASH.name,
+                stdout_name="candidate.stdout",
+                stderr_name="candidate.stderr",
+            )
+            self.assertFalse(hasattr(handle, "argv0_name"))
+            record = b0.validated_raw_capture_record(
+                handle, "candidate raw capture"
+            )
+        self.assertEqual(record["argv0_name"], b0.DASH.name)
+        self.assertNotIn("handle.argv0_name", b0.SCRIPT.read_text())
+
     def test_independent_source_closure_is_exact_and_excludes_bootstrap(self) -> None:
         source = b0.SCRIPT.read_text()
         self.assertNotIn("s20plus_g986n_magisk_bootstrap_f1", source)

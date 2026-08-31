@@ -825,9 +825,9 @@ the fixed rollback is the known resident Magisk boot AP. Exact-byte artifact
 review returned `PASS_GO_H0` at 10/10 tests and findings 0/0/0. That
 artifact-only milestone did not prove runtime acceptance or live authority.
 The reviewed exact owner, mandatory rollback state machine, and target-contract
-activation are now supplied by the bounded activation below. Runtime acceptance
-remains unproved; a fresh connected prepare and its exact emitted approval are
-the remaining gates before any transfer.
+activation are supplied by the bounded activation below. The first runtime
+transfer is now attributed, but its B0 claim remains `NO_PROOF` and mandatory
+resident recovery remains open as recorded below.
 
 The exact dormant B0 F1 owner remains historically H0-qualified at 48/48 with
 independent `PASS_GO_H0` and HIGH/MEDIUM/LOW `0/0/0`. The binding activation
@@ -848,7 +848,7 @@ Two post-activation v1 prepare invocations encountered the expected two-device
 ADB inventory and stopped before selecting a target or publishing any record.
 Both private run directories are empty; the shared guard and global candidate
 claim are absent, and root reads, reboot/Download intents, Odin, and partition
-writes remain zero. The proposed v2 owner now permits foreign ADB rows while
+writes remain zero. The active v2 owner permits foreign ADB rows while
 requiring exactly one `SM_G986N` row with exact y2q metadata, uses that row's
 serial selector for every target command, and rejects a second matching row,
 state/metadata/serial drift, or any selected S20+ presence in the pre-transfer
@@ -861,4 +861,19 @@ normalized SHA-256
 its 58,443-byte test is
 `8a7425b8d63582cda62e55a82c7e2b300990af0fe5809e7e24c5f33f33fb3741`
 at 54/54. The complete revision received independent `PASS_GO` with
-HIGH/MEDIUM/LOW `0/0/0` and becomes live-capable only in its scoped commit.
+HIGH/MEDIUM/LOW `0/0/0` and was committed as `60f3f9f11a`.
+
+The first v2 run then completed one attributed candidate transfer; candidate
+observation found no ADB or Download arrival, so the B0 claim is `NO_PROOF` and
+candidate replay is forbidden. The operator subsequently reported normal boot
+with no bootloop; that is supportive only and does not replace exact
+target/root/current-boot health or mandatory rollback proof. The
+physical-rollback arm stopped before any
+device command on a host-only `RawCaptureHandle.argv0_name` parser mismatch.
+The recovery patch re-derives that already-validated field from the exact
+durable receipt and allows the prepared v2 normalized identity only for
+rollback/health after candidate intent. Its current-journal host parse passes,
+and exact candidate-phase parsing rejects the predecessor. The 224,559-byte
+owner and 60,003-byte 56-test closure received independent `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0`; physical arm/rollback becomes available only in their
+scoped commit.

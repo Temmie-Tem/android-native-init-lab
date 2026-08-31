@@ -33,7 +33,10 @@ import s22plus_boot_only_f1_transport as transport
 VERSION = "s20plus-g986n-boot-recovery-canary-b0-f1-v2"
 PLAN_SCHEMA = "s20plus_g986n_boot_recovery_canary_b0_f1_plan_v2"
 B0_F1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "52f2df6aa1864a956cd4d0e43a3906ffbb613116577d7735788630a43323ea06"
+RECOVERY_PREDECESSOR_NORMALIZED_SHA256 = frozenset(
+    {"e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40"}
+)
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -672,6 +675,24 @@ def read_json(path: Path, label: str) -> dict[str, Any]:
         os.close(descriptor)
         os.close(parent_fd)
     return _decode_canonical_json(bytes(payload), label)
+
+
+def validated_raw_capture_record(
+    handle: raw_capture.RawCaptureHandle, label: str
+) -> dict[str, Any]:
+    value = read_json(handle.receipt_path, label)
+    if (
+        value.get("schema") != raw_capture.SCHEMA
+        or value.get("name") != handle.name
+        or value.get("returncode") != handle.returncode
+        or value.get("timed_out") is not handle.timed_out
+        or value.get("output_exceeded") is not handle.output_exceeded
+        or value.get("producer_error_type") != handle.producer_error_type
+        or value.get("stdout") != dict(handle.stdout)
+        or value.get("stderr") != dict(handle.stderr)
+    ):
+        raise B0F1Error(f"{label} differs from its validated handle")
+    return value
 
 
 def file_receipt(path: Path, size: int, sha256: str, label: str) -> dict[str, Any]:
@@ -1690,14 +1711,17 @@ def _validate_transfer_outcome(
             raise B0F1Error(f"{kind} transport receipt is malformed")
         handle = raw_capture.load_handle(run_dir / f"{kind}-transfer.capture.json")
         raw_receipt = receipt.get("raw_capture_receipt")
+        raw_record = validated_raw_capture_record(
+            handle, f"{kind} raw capture receipt"
+        )
+        raw_record_bytes = canonical_bytes(raw_record)
         if (
-            handle.argv0_name != DASH.name
-            or
-            not isinstance(raw_receipt, dict)
+            raw_record.get("argv0_name") != DASH.name
+            or not isinstance(raw_receipt, dict)
             or raw_receipt.get("path") != str(handle.receipt_path)
-            or raw_receipt.get("size") != handle.receipt_path.stat().st_size
+            or raw_receipt.get("size") != len(raw_record_bytes)
             or raw_receipt.get("sha256")
-            != hashlib.sha256(handle.receipt_path.read_bytes()).hexdigest()
+            != hashlib.sha256(raw_record_bytes).hexdigest()
         ):
             raise B0F1Error(f"{kind} raw capture receipt differs")
         stdout = raw_capture.read_stdout(handle, maximum=MAX_RAW_BYTES)
@@ -2001,6 +2025,7 @@ def validate_critical_records(run_dir: Path, actual: set[str]) -> None:
     if "abort-return-result.json" in actual:
         result = read_json(run_dir / "abort-return-result.json", "abort return result")
         handle = raw_capture.load_handle(run_dir / "abort-return.capture.json")
+        raw_record = validated_raw_capture_record(handle, "abort return raw capture")
         stdout = raw_capture.read_stdout(handle, maximum=MAX_ADB_BYTES)
         stderr = raw_capture.read_stderr(handle, maximum=MAX_ADB_BYTES)
         derived = "dispatched" if raw_dispatch_proved(handle, stderr) else "uncertain"
@@ -2013,7 +2038,7 @@ def validate_critical_records(run_dir: Path, actual: set[str]) -> None:
             or result.get("outcome") != derived
             or result.get("replay_permitted") is not False
             or abort_cage_quiescent is None
-            or handle.argv0_name != DASH.name
+            or raw_record.get("argv0_name") != DASH.name
             or not stdout.startswith(ODIN_CAGE_ENTRY_MARKER)
         ):
             raise B0F1Error("abort return result is not raw-derived")
@@ -3340,6 +3365,20 @@ def validate_prepared_history(
         raise B0F1Error("initial Download arrival is malformed")
 
 
+def stored_runner_identity_permitted(
+    stored_normalized_sha256: Any,
+    phase: str,
+    candidate_intent_present: bool,
+) -> bool:
+    if stored_normalized_sha256 == EXPECTED_REVIEWED_NORMALIZED_SHA256:
+        return True
+    return (
+        phase in {"rollback", "health"}
+        and candidate_intent_present is True
+        and stored_normalized_sha256 in RECOVERY_PREDECESSOR_NORMALIZED_SHA256
+    )
+
+
 def read_prepared(run_dir: Path, *, phase: str) -> dict[str, Any]:
     run_dir = validate_run_dir(run_dir)
     require_guard(run_dir)
@@ -3402,6 +3441,11 @@ def read_prepared(run_dir: Path, *, phase: str) -> dict[str, Any]:
     _validate_endpoint(binding.get("endpoint"), "prepared Download endpoint")
     validate_prepared_history(run_dir, binding)
     stored_closure = binding.get("closure")
+    stored_runner_normalized = (
+        stored_closure.get("runner", {}).get("normalized_sha256")
+        if isinstance(stored_closure, dict)
+        else None
+    )
     if (
         not isinstance(stored_closure, dict)
         or stored_closure.get("candidate", {}).get("ap", {}).get("sha256")
@@ -3410,8 +3454,11 @@ def read_prepared(run_dir: Path, *, phase: str) -> dict[str, Any]:
         != ROLLBACK_AP_SHA256
         or stored_closure.get("manifest", {}).get("sha256") != MANIFEST_SHA256
         or stored_closure.get("builder", {}).get("sha256") != BUILDER_SHA256
-        or stored_closure.get("runner", {}).get("normalized_sha256")
-        != EXPECTED_REVIEWED_NORMALIZED_SHA256
+        or not stored_runner_identity_permitted(
+            stored_runner_normalized,
+            phase,
+            os.path.lexists(run_dir / "candidate-intent.json"),
+        )
     ):
         raise B0F1Error("stored B0 closure is malformed")
     if phase == "candidate":
