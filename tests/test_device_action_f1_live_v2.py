@@ -518,7 +518,7 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
 
-    def prepared(self, *, e3=False):
+    def prepared(self, *, e3=False, acm_primary=False):
         temporary = tempfile.TemporaryDirectory()
         root = Path(temporary.name)
         private = root / "workspace/private"
@@ -606,17 +606,26 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             },
         }
         if e3:
+            observer_run_id = (
+                self.module.typed_evidence.P323_ACM_PRIMARY_RUN_ID_HEX
+                if acm_primary
+                else "1" * 32
+            )
             manifest["observation"]["candidate_observer"] = {
                 "kind": "exact_cdc_acm_banner_v1",
                 "usb_vendor_id": "04e8",
                 "usb_product_id": "6861",
-                "usb_serial": "S22E3" + "1" * 32,
+                "usb_serial": "S22E3" + observer_run_id,
                 "usb_driver": "cdc_acm",
                 "usb_interface_number": "00",
                 "banner_hex": (
-                    b"S22PLUS-FYG8-E3:" + b"1" * 32 + b"\n"
-                ).hex(),
+                    "S22PLUS-FYG8-E3:" + observer_run_id + "\n"
+                ).encode("ascii").hex(),
             }
+        if acm_primary:
+            manifest["observation"][
+                self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+            ] = self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE
         bundle = self.module.core.Bundle(
             profile,
             manifest,
@@ -656,6 +665,10 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             [call for call in backend.calls if call.startswith("transfer-")],
             ["transfer-candidate", "transfer-rollback"],
         )
+        self.assertNotIn(
+            self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY,
+            result["live_state"],
+        )
 
     def test_e3_all_of_verdict_matrix(self):
         cases = (
@@ -690,6 +703,142 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
                     FakeBackend(self.module, acm=acm, marker=marker),
                 )
                 self.assertEqual(result["verdict"], verdict)
+
+    def test_p323_acm_primary_pass_is_independent_of_retained_parse_failure(self):
+        temporary, prepared = self.prepared(e3=True, acm_primary=True)
+        self.addCleanup(temporary.cleanup)
+        result = self.module.execute_prepared(
+            prepared,
+            prepared.approval_token,
+            FakeBackend(self.module, acm="accepted", marker="foreign"),
+        )
+        self.assertEqual(
+            result["verdict"],
+            self.module.typed_evidence.P323_ACM_PRIMARY_VERDICT,
+        )
+        self.assertEqual(
+            result["outcome_class"],
+            self.module.typed_evidence.P323_ACM_PRIMARY_OUTCOME,
+        )
+        primary = result["live_state"][
+            self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
+        ]
+        self.assertTrue(primary["proof"])
+        self.assertTrue(primary["observer_receipt_accepted"])
+        self.assertTrue(primary["target_topology_continuity"])
+        self.assertFalse(result["live_state"]["marker_accepted"])
+
+    def test_p323_absent_failed_or_malformed_acm_is_no_proof(self):
+        for acm in ("read-timeout", "fault", "extra-byte"):
+            with self.subTest(acm=acm):
+                temporary, prepared = self.prepared(
+                    e3=True, acm_primary=True
+                )
+                self.addCleanup(temporary.cleanup)
+                result = self.module.execute_prepared(
+                    prepared,
+                    prepared.approval_token,
+                    FakeBackend(self.module, acm=acm, marker=True),
+                )
+                self.assertEqual(
+                    result["verdict"],
+                    "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+                )
+                self.assertEqual(
+                    result["outcome_class"],
+                    self.module.typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME,
+                )
+                self.assertFalse(
+                    result["live_state"][
+                        self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
+                    ]["proof"]
+                )
+
+    def test_p323_role_rejects_another_exact_length_run_identity(self):
+        temporary, prepared = self.prepared(e3=True, acm_primary=True)
+        self.addCleanup(temporary.cleanup)
+        observer = prepared.bundle.manifest["observation"]["candidate_observer"]
+        observer["usb_serial"] = "S22E3" + "2" * 32
+        observer["banner_hex"] = (
+            "S22PLUS-FYG8-E3:" + "2" * 32 + "\n"
+        ).encode("ascii").hex()
+        with self.assertRaisesRegex(
+            self.module.F1LiveError, "exact P3.23 ACM identity"
+        ):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(self.module, acm="accepted"),
+            )
+
+    def test_p323_failed_candidate_cannot_be_outvoted_by_acm(self):
+        temporary, prepared = self.prepared(e3=True, acm_primary=True)
+        self.addCleanup(temporary.cleanup)
+        with self.assertRaisesRegex(
+            self.module.F1LiveError, "lacks transfer continuity"
+        ):
+            self.module.execute_prepared(
+                prepared,
+                prepared.approval_token,
+                FakeBackend(
+                    self.module,
+                    candidate="odin_device_session_failure_or_unknown",
+                    acm="accepted",
+                ),
+            )
+
+    def test_p323_pre_candidate_failure_has_no_arrival_projection(self):
+        temporary, prepared = self.prepared(e3=True, acm_primary=True)
+        self.addCleanup(temporary.cleanup)
+        result = self.module.execute_prepared(
+            prepared,
+            prepared.approval_token,
+            FakeBackend(self.module, candidate="odin_local_parse_failure"),
+        )
+        self.assertEqual(
+            result["verdict"],
+            "FAIL_F1_V2_ODIN_LOCAL_PARSE_NO_DEVICE_SESSION",
+        )
+        self.assertNotIn(
+            self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY,
+            result["live_state"],
+        )
+
+    def test_p323_guard_or_topology_failure_is_no_proof(self):
+        temporary, prepared = self.prepared(e3=True, acm_primary=True)
+        self.addCleanup(temporary.cleanup)
+        result = self.module.execute_prepared(
+            prepared,
+            prepared.approval_token,
+            FakeBackend(
+                self.module,
+                acm="accepted",
+                marker=True,
+                observer_release="release-failed",
+            ),
+        )
+        self.assertEqual(
+            result["outcome_class"],
+            self.module.typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME,
+        )
+        self.assertFalse(
+            result["live_state"][
+                self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
+            ]["proof"]
+        )
+
+        temporary, prepared = self.prepared(e3=True, acm_primary=True)
+        self.addCleanup(temporary.cleanup)
+        prepared.private_target["topology"] = "usb:9-9"
+        result = self.module.execute_prepared(
+            prepared,
+            prepared.approval_token,
+            FakeBackend(self.module, acm="accepted", marker=True),
+        )
+        self.assertEqual(
+            result["outcome_class"],
+            self.module.typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME,
+        )
 
     def test_e3_acm_acceptance_cannot_outvote_failed_candidate_transfer(self):
         temporary, prepared = self.prepared(e3=True)

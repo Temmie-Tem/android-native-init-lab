@@ -221,6 +221,27 @@ SAME_RING_MULTIBOOT_KIND = (
     "retained_pid1_same_ring_multiboot_discriminator_after_rollback"
 )
 E1_LATEST_STAGE_KIND = "retained_e1_latest_stage_multiboot_after_rollback"
+CANDIDATE_ARRIVAL_PROOF_ROLE_KEY = "candidate_arrival_proof_role"
+CANDIDATE_ARRIVAL_PROOF_STATE_KEY = "candidate_arrival_proof"
+# This is deliberately a manifest opt-in.  Existing manifests have no role and
+# retain their historical ACM/Carrier precedence.
+CANDIDATE_ARRIVAL_PROOF_ROLE = "cdc_acm_primary_v1"
+P323_ACM_PRIMARY_ROLE = CANDIDATE_ARRIVAL_PROOF_ROLE
+CANDIDATE_ARRIVAL_PROOF_SCHEMA = "device_action_f1_candidate_arrival_proof_v1"
+P323_ACM_PRIMARY_RUNTIME_CONTRACT_ID = (
+    "s22plus-fyg8-p323-acm-primary-runtime-v1"
+)
+P323_ACM_PRIMARY_RUN_ID_HEX = "c323f1e0a90b5e6d7c8a9b0c1d2e3f4b"
+P323_ACM_PRIMARY_BANNER_SIZE = 49
+P323_ACM_PRIMARY_VERDICT = (
+    "PASS_F1_V2_ACM_PRIMARY_NATIVE_PID1_USB_ARRIVAL_AND_ROLLED_BACK"
+)
+P323_ACM_PRIMARY_OUTCOME = (
+    "acm_primary_native_pid1_usb_arrival_rollback_verified"
+)
+P323_ACM_PRIMARY_NO_PROOF_OUTCOME = (
+    "p323_acm_primary_native_pid1_arrival_unproved_rollback_verified"
+)
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
 PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
 SAME_RING_DECODER = "s22plus_fyg8_p219_same_ring_v1"
@@ -3355,6 +3376,59 @@ def _bounded_text(value: Any, label: str, maximum: int) -> str:
         or "\x00" in value
     ):
         raise EvidenceError(f"{label} must be a bounded string")
+    return value
+
+
+def validate_candidate_arrival_proof_role(
+    value: Any, candidate_observer: Any = None
+) -> str | None:
+    """Validate the narrow P3.23 manifest role without elevating Carrier.
+
+    The role is intentionally a string rather than a second observer schema:
+    the existing candidate-observer validator remains the authority for the
+    USB binding and receipt grammar.  This helper only makes the opt-in
+    versioned and requires the exact 49-byte ACM banner shape.
+    """
+    if value is None:
+        return None
+    if value != CANDIDATE_ARRIVAL_PROOF_ROLE:
+        raise EvidenceError("candidate arrival proof role is not allowlisted")
+    if not isinstance(candidate_observer, dict):
+        raise EvidenceError(
+            "candidate arrival proof role requires a candidate observer"
+        )
+    if candidate_observer.get("kind") != "exact_cdc_acm_banner_v1":
+        raise EvidenceError(
+            "candidate arrival proof role requires the exact CDC ACM observer"
+        )
+    banner_hex = candidate_observer.get("banner_hex")
+    if (
+        not isinstance(banner_hex, str)
+        or not banner_hex
+        or len(banner_hex) % 2
+        or re.fullmatch(r"[0-9a-f]+", banner_hex) is None
+    ):
+        raise EvidenceError(
+            "candidate arrival proof role requires an exact ACM banner"
+        )
+    try:
+        banner_size = len(bytes.fromhex(banner_hex))
+    except ValueError as exc:
+        raise EvidenceError(
+            "candidate arrival proof role requires an exact ACM banner"
+        ) from exc
+    expected_banner = (
+        "S22PLUS-FYG8-E3:" + P323_ACM_PRIMARY_RUN_ID_HEX + "\n"
+    ).encode("ascii")
+    if (
+        banner_size != P323_ACM_PRIMARY_BANNER_SIZE
+        or bytes.fromhex(banner_hex) != expected_banner
+        or candidate_observer.get("usb_serial")
+        != "S22E3" + P323_ACM_PRIMARY_RUN_ID_HEX
+    ):
+        raise EvidenceError(
+            "candidate arrival proof role requires the exact P3.23 ACM identity"
+        )
     return value
 
 

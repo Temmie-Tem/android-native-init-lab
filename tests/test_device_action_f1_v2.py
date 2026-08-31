@@ -286,6 +286,19 @@ class DeviceActionF1V2Test(unittest.TestCase):
                 },
             )
 
+    def test_acm_primary_role_requires_candidate_observer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _, manifest, _, manifest_path = self.fixture(root)
+            manifest["observation"][
+                self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+            ] = self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(
+                self.module.F1V2Error, "requires a candidate observer"
+            ):
+                self.module.verify_bundle(root, manifest_path)
+
     def test_candidate_ap_rejects_extra_member(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

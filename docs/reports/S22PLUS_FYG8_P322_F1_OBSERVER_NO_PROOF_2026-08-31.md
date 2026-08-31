@@ -55,29 +55,31 @@ The journal head is 276 bytes with SHA-256
 Both post-rollback `/proc/last_kmsg` reads are 2,097,136 bytes and
 byte-identical at SHA-256
 `3d186a2a46cdca7eed219d6a915906322d3c2da001e7380b3a75e8b52ef7b4e2`.
-They contain one P3.22-family record with one valid slot and one `bad-body`
-slot. The valid active value is generation 92, stage `0x8f` (143), item index
-4, progress outcome, detail zero, and no payload. The adapter therefore reports
-`AMBIGUOUS_INTEGRITY_FAILURE`, integrity issue
-`p320-stock-envelope-shape`, and proof class `NO_PROOF_OBSERVER`.
+The frozen P3.22 adapter reported one valid slot and one `bad-body` slot, then
+classified `AMBIGUOUS_INTEGRITY_FAILURE` / `NO_PROOF_OBSERVER`.
 
-This proves that the fresh P3.22 candidate identity booted and left a retained
-checkpoint record. It does not prove that the intended 92-through-104 bridge
-completed, that either 105/106 payload position published, or that the stock
-observer result was complete. `candidate_success`, causal-result authority,
-host-silent, MUX, and USB claims all remain false.
+Post-live H0 re-derivation through the already-existing P3.13 Carrier semantic
+model corrects the meaning without changing that consumed formal verdict. The
+record header and both slots have exact valid CRCs. Slot 0 is generation 92,
+stage `0x8f`, item 4, progress/detail zero. Slot 1 is generation 93, stage
+`0x90`, item 0, failure detail `0x6726`, with no payload. The older P3.10/P3.08
+host model rejected that P3.13 intermediate contradiction route as `bad-body`;
+the bytes were not torn or corrupt.
+
+The exact source order means the P3.19 stock envelope encoder rejected its
+witness and called the one-shot failure publisher before the repaired
+92-through-104 bridge. Which internal encoder predicate rejected is not
+retained. P3.22 therefore supports native candidate arrival and a valid
+producer-failure receipt, but it still produced no Max77705 scientific result.
+`candidate_success`, causal-result authority, host-silent, MUX, and USB claims
+remain false.
 
 ## Next bounded unit
 
-Do not replay P3.22. Before building another candidate, execute one small H0
-re-derivation through the actual Carrier writer rules for the first generation
-92 transition and its following slot. The existing C fixture proves only the
-userspace generation loop; it does not yet discriminate a kernel writer
-rejection, publication error, or persistence cut that leaves the observed
-valid/`bad-body` pair.
-
-If that re-derivation identifies one deterministic first-write or second-slot
-failure, P3.23 should change only that mechanism and reuse the existing
-Process-v2 machinery. If it does not, stop at the retained no-proof result and
-add only the minimum error witness needed to distinguish those branches. No
-new device action is authorized by this report.
+Do not replay P3.22. P3.23 should attempt the already-qualified, run-bound
+49-byte ACM banner once at stock-publisher entry, before witness copy or
+encoding, and make that exact host receipt primary only for native PID-1/USB
+arrival. The unchanged Carrier path remains supplemental experiment evidence,
+so an encoder or retained-decoder failure cannot erase a valid ACM arrival and
+an ACM arrival cannot promote a missing scientific result. No new device
+action is authorized by this report.

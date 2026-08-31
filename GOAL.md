@@ -11,13 +11,13 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.22 is closed and consumed after exact candidate/rollback transfers 1/1 and healthy rooted FYG8 return. Its fresh run ID record retained generation 92, stage `0x8f`, item
-4, with one valid slot and one `bad-body`; no 105/106 payload pair was accepted. The
-formal terminal is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`,
-not candidate success or causal USB evidence. The initial physical-Download wait expired,
-then recovery resumed only from the durable journal and sent rollback once; terminal state
-is `CLOSED` with 19 records. Next is a small H0 re-derivation of the actual Carrier writer's
-generation-92/next-slot transition before any P3.23 design. P3.22 is never replayable.
+P3.22 is closed and consumed after exact candidate/rollback transfers 1/1 and healthy rooted FYG8 return. Its formal terminal remains
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`; P3.22 is never replayable. Post-live H0 re-derivation corrects the frozen adapter's `bad-body` presentation:
+the header and both slots are CRC-valid, advancing from generation 92 stage `0x8f`/item 4 progress to generation 93 stage `0x90`/item 0 failure `0x6726`.
+The older host semantic model rejected a valid P3.13 intermediate contradiction; persistence was not torn. Source order identifies a stock-envelope encoder failure before
+the repaired bridge, but the exact rejected predicate was not retained, so no Max77705 scientific result exists. P3.23 keeps Carrier supplemental and moves the already-qualified
+exact 49-byte run-bound ACM banner to stock-publisher entry as primary evidence only for native PID-1/USB arrival. This prevents a later producer/parser failure from erasing arrival
+proof and prevents arrival proof from promoting a missing scientific result. P3.23 private `-03` is built/audited and independently `PASS_GO_P323_ACM_PRIMARY_H0`; exact common registration and ready publication remain the next unit. P3.22 recovery sent rollback once and closed with 19 records.
 
 P3.21 remains closed and consumed after exact candidate/rollback transfers and healthy
 rooted FYG8 return. Its CRC-valid generation-93 semantic `bad-body` came from the missing

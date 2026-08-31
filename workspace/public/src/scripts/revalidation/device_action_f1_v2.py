@@ -355,6 +355,21 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
     if not isinstance(observation, dict) or frozenset(observation) not in {
         frozenset({"timeout_sec", "acceptance"}),
         frozenset({"timeout_sec", "acceptance", "candidate_observer"}),
+        frozenset(
+            {
+                "timeout_sec",
+                "acceptance",
+                "candidate_observer",
+                typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY,
+            }
+        ),
+        frozenset(
+            {
+                "timeout_sec",
+                "acceptance",
+                typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY,
+            }
+        ),
     }:
         raise F1V2Error("observation shape mismatch")
     if isinstance(observation["timeout_sec"], bool) or not isinstance(observation["timeout_sec"], int) or not 1 <= observation["timeout_sec"] <= 600:
@@ -368,6 +383,25 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
             cdc_acm_observer.validate_spec(observation["candidate_observer"])
         except cdc_acm_observer.ObserverError as exc:
             raise F1V2Error(str(exc)) from exc
+    try:
+        typed_evidence.validate_candidate_arrival_proof_role(
+            observation.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY),
+            observation.get("candidate_observer"),
+        )
+    except typed_evidence.EvidenceError as exc:
+        raise F1V2Error(str(exc)) from exc
+    role = observation.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
+    if role is not None and observation["acceptance"].get(
+        "userspace_overlay_contract_id"
+    ) in {
+        typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
+    }:
+        raise F1V2Error(
+            "candidate arrival proof role cannot be attached to an old stock overlay"
+        )
     if manifest["final_health_profile"] != profile["health_profile_id"] or manifest["runner_version"] != RUNNER_VERSION:
         raise F1V2Error("manifest health profile or runner version mismatch")
     return manifest
@@ -478,6 +512,8 @@ def _overridden_candidate_sources(
 
 def execution_critical_source_receipts(
     acceptance: dict[str, Any],
+    *,
+    candidate_arrival_proof_role: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     receipts = {
         "runner": _stable_read(Path(__file__).resolve(), "F1 v2 runner")[1],
@@ -1156,6 +1192,17 @@ def execution_critical_source_receipts(
                     name, userspace_overlay_contract_id
                 ),
             )[1]
+    if candidate_arrival_proof_role is not None:
+        if candidate_arrival_proof_role != (
+            typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE
+        ):
+            raise F1V2Error("candidate arrival proof role is not allowlisted")
+        runtime_path = Path(__file__).with_name(
+            "s22plus_fyg8_p323_acm_primary_runtime.py"
+        )
+        receipts["p323_acm_primary_runtime"] = _stable_read(
+            runtime_path.resolve(), "P3.23 ACM-primary runtime"
+        )[1]
     return receipts
 
 
@@ -1493,10 +1540,16 @@ def verify_bundle(
                     "sha256": hashlib.sha256(candidate_ap_frame).hexdigest(),
                 }
     acceptance = manifest["observation"]["acceptance"]
+    candidate_arrival_proof_role = manifest["observation"].get(
+        typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+    )
     verify_candidate_observer_binding(
         acceptance, manifest["observation"].get("candidate_observer")
     )
-    execution_sources = execution_critical_source_receipts(acceptance)
+    execution_sources = execution_critical_source_receipts(
+        acceptance,
+        candidate_arrival_proof_role=candidate_arrival_proof_role,
+    )
     try:
         contract_items = typed_evidence.contract_artifacts(acceptance)
     except typed_evidence.EvidenceError as exc:
@@ -1611,6 +1664,11 @@ def approval_binding(bundle: Bundle, evidence: dict[str, Any]) -> tuple[dict[str
         "observation": bundle.manifest["observation"],
         "rollback_preapproved": True,
     }
+    role = bundle.manifest["observation"].get(
+        typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+    )
+    if role is not None:
+        value[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = role
     return value, json_sha256(value)
 
 

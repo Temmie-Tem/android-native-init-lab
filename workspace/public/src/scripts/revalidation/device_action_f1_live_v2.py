@@ -259,16 +259,45 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 ).resolve(),
             }
         )
+    candidate_arrival_role = (
+        bundle.manifest["observation"].get(
+            typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+        )
+        if bundle is not None
+        else None
+    )
+    if candidate_arrival_role is not None:
+        try:
+            typed_evidence.validate_candidate_arrival_proof_role(
+                candidate_arrival_role,
+                bundle.manifest["observation"].get("candidate_observer"),
+            )
+        except typed_evidence.EvidenceError as exc:
+            raise F1LiveError(str(exc)) from exc
+        paths["p323_acm_primary_runtime"] = scripts / (
+            "s22plus_fyg8_p323_acm_primary_runtime.py"
+        )
     values = {
         name: _receipt(path.resolve(), f"execution source {name}")
         for name, path in paths.items()
     }
-    return {
+    closure = {
         "schema": "device_action_f1_execution_closure_v2",
         "sources": values,
         "sha256": core.json_sha256(values),
         "repo_root": str(root),
     }
+    if candidate_arrival_role is not None:
+        closure[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = (
+            candidate_arrival_role
+        )
+        closure["p323_acm_primary_runtime_contract_id"] = (
+            typed_evidence.P323_ACM_PRIMARY_RUNTIME_CONTRACT_ID
+        )
+        closure["sha256"] = core.json_sha256(
+            {key: value for key, value in closure.items() if key != "sha256"}
+        )
+    return closure
 
 
 def _private_root(root: Path) -> Path:
@@ -462,6 +491,40 @@ def _p322_bundle(bundle: core.Bundle) -> bool:
         _userspace_overlay_contract_id(bundle)
         == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     )
+
+
+def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
+    role = bundle.manifest["observation"].get(
+        typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+    )
+    if role is None:
+        return None
+    if bundle.manifest["observation"]["acceptance"].get(
+        "userspace_overlay_contract_id"
+    ) in {
+        typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P320_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID,
+    }:
+        raise F1LiveError(
+            "candidate arrival proof role cannot be attached to an old stock overlay"
+        )
+    try:
+        typed_evidence.validate_candidate_arrival_proof_role(
+            role,
+            bundle.manifest["observation"].get("candidate_observer"),
+        )
+        cdc_acm_observer.validate_spec(
+            bundle.manifest["observation"].get("candidate_observer")
+        )
+    except (typed_evidence.EvidenceError, cdc_acm_observer.ObserverError) as exc:
+        raise F1LiveError(str(exc)) from exc
+    return role
+
+
+def _p323_bundle(bundle: core.Bundle) -> bool:
+    return _candidate_arrival_proof_role(bundle) is not None
 
 
 def _p318_phase_paths(prepared: PreparedRun, phase: str) -> tuple[Path, Path]:
@@ -1166,6 +1229,14 @@ def prepare_connected(
         "f1_authorized": False,
         "live_authorized": False,
     }
+    candidate_arrival_role = bundle.manifest["observation"].get(
+        typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+    )
+    if candidate_arrival_role is not None:
+        _candidate_arrival_proof_role(bundle)
+        prepared[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = (
+            candidate_arrival_role
+        )
     _write_exclusive(run_dir / "prepared.json", prepared)
     return prepared
 
@@ -1196,6 +1267,11 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
         "f1_authorized",
         "live_authorized",
     }
+    candidate_arrival_role = bundle.manifest["observation"].get(
+        typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
+    )
+    if candidate_arrival_role is not None:
+        expected_keys.add(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
     if set(prepared) != expected_keys:
         raise F1LiveError("prepared F1 record shape mismatch")
     if (
@@ -1221,6 +1297,13 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
         )
     ):
         raise F1LiveError("prepared F1 record header mismatch")
+    if candidate_arrival_role is not None:
+        if (
+            prepared.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
+            != candidate_arrival_role
+        ):
+            raise F1LiveError("prepared candidate arrival proof role mismatch")
+        _candidate_arrival_proof_role(bundle)
     closure = _closure(root, bundle)
     if prepared["execution_closure"] != closure:
         raise F1LiveError("execution-critical source closure changed")
@@ -2632,6 +2715,120 @@ def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
     }
 
 
+def _candidate_arrival_proof_projection(
+    prepared: PreparedRun, state: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Derive the opt-in ACM-primary proof, keeping Carrier supplemental."""
+    role = _candidate_arrival_proof_role(prepared.bundle)
+    if role is None:
+        return None
+    durable = _reopen_candidate_observation(prepared)
+    guard_release = _reopen_candidate_guard_release(prepared)
+    expected_topology = hashlib.sha256(
+        prepared.private_target["topology"].removeprefix("usb:").encode()
+    ).hexdigest()
+    observer_valid = durable["valid_receipt"] is True
+    observer_accepted = (
+        observer_valid
+        and durable["accepted"] is True
+        and durable["classification"] == "accepted"
+    )
+    topology_continuous = (
+        observer_accepted
+        and durable["topology_sha256"] == expected_topology
+        and isinstance(durable["endpoint_identity_sha256"], str)
+        and re.fullmatch(r"[0-9a-f]{64}", durable["endpoint_identity_sha256"])
+        is not None
+    )
+    candidate_completed = (
+        state.get("candidate_classification") == "odin_transfer_completed"
+        and state.get("candidate_completed") is True
+    )
+    download_departure = (
+        state.get("download_endpoint_absent") is True
+        and durable["download_endpoint_absent"] is True
+    )
+    guard_released = (
+        guard_release["status"] == "released"
+        and guard_release["released"] is True
+    )
+    rollback_completed = (
+        state.get("rollback_classification") == "odin_transfer_completed"
+        and state.get("rollback_completed") is True
+    )
+    final_healthy = state.get("final_verified") is True
+    supplemental = None
+    final = state.get("final_evidence")
+    final_observer = final.get("observer") if isinstance(final, dict) else None
+    if isinstance(final_observer, dict):
+        key = (
+            "p323_stock"
+            if _p323_bundle(prepared.bundle)
+            else "p322_stock"
+            if _p322_bundle(prepared.bundle)
+            else "p321_stock"
+            if _p321_bundle(prepared.bundle)
+            else "p320_stock"
+            if _p320_bundle(prepared.bundle)
+            else "p319_stock"
+        )
+        carrier = final_observer.get(key)
+        if isinstance(carrier, dict):
+            supplemental = {
+                "source": "retained_carrier",
+                "field": key,
+                "projection": carrier,
+                "marker_accepted": state.get("marker_accepted") is True,
+            }
+    proof = all(
+        (
+            candidate_completed,
+            download_departure,
+            observer_accepted,
+            topology_continuous,
+            guard_released,
+            rollback_completed,
+            final_healthy,
+        )
+    )
+    return {
+        "schema": typed_evidence.CANDIDATE_ARRIVAL_PROOF_SCHEMA,
+        "role": role,
+        "primary_source": "candidate_observer",
+        "banner_size": typed_evidence.P323_ACM_PRIMARY_BANNER_SIZE,
+        "candidate_transfer_completed": candidate_completed,
+        "download_departure": download_departure,
+        "observer_receipt_valid": observer_valid,
+        "observer_receipt_accepted": observer_accepted,
+        "observer_receipt_classification": durable["classification"],
+        "observer_receipt_sha256": durable["receipt_sha256"],
+        "target_topology_continuity": topology_continuous,
+        "guard_released": guard_released,
+        "rollback_transfer_completed": rollback_completed,
+        "final_healthy_return": final_healthy,
+        "proof": proof,
+        "supplemental_carrier": supplemental,
+    }
+
+
+def _save_candidate_arrival_proof(
+    prepared: PreparedRun, state: dict[str, Any]
+) -> None:
+    projection = _candidate_arrival_proof_projection(prepared, state)
+    if projection is not None:
+        state[typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY] = projection
+
+
+def _validate_candidate_arrival_proof_state(
+    prepared: PreparedRun, state: dict[str, Any]
+) -> None:
+    if not _p323_bundle(prepared.bundle):
+        return
+    expected = _candidate_arrival_proof_projection(prepared, state)
+    if state.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY) != expected:
+        raise F1LiveError("candidate arrival proof durable state mismatch")
+
+
 def _guard_release_failure_outcome(status: Any) -> str:
     if status == "guard-expired":
         return "candidate_observer_guard_expired_rollback_verified"
@@ -2666,6 +2863,16 @@ def _result(
     outcome: str,
     recovery_required: bool,
 ) -> dict[str, Any]:
+    state = _state(prepared)
+    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+        _save_candidate_arrival_proof(prepared, state)
+        if state != _state(prepared):
+            _save_state(prepared, state)
+    elif (
+        _p323_bundle(prepared.bundle)
+        and typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY in state
+    ):
+        raise F1LiveError("candidate arrival proof precedes final health")
     value = {
         "schema": LIVE_RESULT_SCHEMA,
         "adapter_version": ADAPTER_VERSION,
@@ -2675,7 +2882,7 @@ def _result(
         "journal": journal.receipt(),
         "current_state": journal.state(),
         "timeline": core.timeline(journal.records()),
-        "live_state": _state(prepared),
+        "live_state": state,
         "verdict": verdict,
         "outcome_class": outcome,
         "recovery_required": recovery_required,
@@ -3051,6 +3258,13 @@ def _validate_candidate_observer_state(
         != guard_release["receipt_sha256"]
     ):
         raise F1LiveError("candidate observer durable state mismatch")
+    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+        _validate_candidate_arrival_proof_state(prepared, state)
+    elif (
+        _p323_bundle(prepared.bundle)
+        and typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY in state
+    ):
+        raise F1LiveError("candidate arrival proof precedes final health")
     if durable["accepted"] is True and (
         state.get("candidate_completed") is not True
         or durable["download_endpoint_absent"] is not True
@@ -3106,6 +3320,13 @@ def validate_live_result(
         "odin_device_session_failure_or_unknown",
     }:
         raise F1LiveError("live candidate classification is invalid")
+    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+        _validate_candidate_arrival_proof_state(prepared, state)
+    elif (
+        _p323_bundle(prepared.bundle)
+        and typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY in state
+    ):
+        raise F1LiveError("candidate arrival proof precedes final health")
     if candidate_classification != "not-attempted":
         evidence = _validate_transfer_evidence(prepared, "candidate")
         if evidence["classification"] != candidate_classification:
@@ -3146,6 +3367,36 @@ def validate_live_result(
             raise F1LiveError("Download request recovery invented candidate evidence")
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
+    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+        projection = state.get(
+            typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
+        )
+        if not isinstance(projection, dict):
+            raise F1LiveError("P3.23 candidate arrival proof is missing")
+        proof = projection.get("proof") is True
+        if proof:
+            if (
+                result["verdict"] != typed_evidence.P323_ACM_PRIMARY_VERDICT
+                or result["outcome_class"]
+                != typed_evidence.P323_ACM_PRIMARY_OUTCOME
+                or journal.state() != "CLOSED"
+                or names != list(core.TIMELINE)
+                or state.get("candidate_completed") is not True
+                or state.get("rollback_completed") is not True
+                or result["recovery_required"] is not False
+            ):
+                raise F1LiveError("P3.23 ACM-primary terminal semantics are incomplete")
+        elif (
+            result["verdict"] != "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+            or result["outcome_class"]
+            != typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME
+            or journal.state() != "CLOSED"
+            or names != list(core.TIMELINE)
+            or state.get("rollback_completed") is not True
+            or result["recovery_required"] is not False
+        ):
+            raise F1LiveError("P3.23 ACM-primary no-proof semantics are incomplete")
+        return result
     if _p320_bundle(prepared.bundle) and state.get("final_verified") is True:
         projection = _p320_durable_projection(state)
         proof = projection.get("proof_class")
@@ -4184,6 +4435,21 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
     """Recompute a CLOSED terminal without reopening any backend."""
 
     current = _state(prepared)
+    if _p323_bundle(prepared.bundle):
+        projection = current.get(
+            typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
+        )
+        if not isinstance(projection, dict):
+            projection = _candidate_arrival_proof_projection(prepared, current)
+        if isinstance(projection, dict) and projection.get("proof") is True:
+            return (
+                typed_evidence.P323_ACM_PRIMARY_VERDICT,
+                typed_evidence.P323_ACM_PRIMARY_OUTCOME,
+            )
+        return (
+            "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+            typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME,
+        )
     if _p320_bundle(prepared.bundle):
         projection = _p320_durable_projection(current)
         proof = projection.get("proof_class")
@@ -4668,12 +4934,14 @@ class _P300UsbTraceSession:
     def start(self) -> None:
         if not self.enabled:
             return
+        phase = "bind"
         try:
             binding_path = self.prepared.run_dir / "p300-usb-trace-binding.json"
             binding = _read_json(binding_path, "P3.00 USB trace binding")
             self.binding = p300_usb_trace.verify_binding(binding)
             self.owner_token = _p300_owner_token(self.binding)
             owner_path = _p300_process_owner_path(self.prepared)
+            phase = "owner"
             _write_exclusive(
                 owner_path,
                 _p300_process_owner_value(self.prepared, self.binding),
@@ -4689,6 +4957,7 @@ class _P300UsbTraceSession:
                     + 180,
                 ),
             )
+            phase = "spawn"
             self.process = subprocess.Popen(
                 [
                     sys.executable,
@@ -4727,6 +4996,7 @@ class _P300UsbTraceSession:
                 _read_json(owner_path, "P3.00 USB trace process owner"),
             )
             self._refresh_owner_receipt()
+            phase = "arm-receipt"
             deadline = time.monotonic() + 20
             required = (
                 self.output_dir / "start.json",
@@ -4787,7 +5057,7 @@ class _P300UsbTraceSession:
             raise F1LiveError("P3.00 USB trace sidecar arm timed out")
         except Exception as exc:
             self.close()
-            self._unknown(f"arm:{type(exc).__name__}")
+            self._unknown(f"arm:{phase}:{type(exc).__name__}")
 
     def close(self) -> None:
         if self.closed or not self.enabled:
