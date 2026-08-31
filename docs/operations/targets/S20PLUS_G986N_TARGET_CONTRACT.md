@@ -695,6 +695,30 @@ Durable nodes grant zero commands, and even forced true gates reach only an
 unimplemented stub. The exact report is
 `docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_CAMPAIGN_V1_PHASE_A_H0_2026-08-31.md`.
 
+The cross-code start-interlock fixture protocol is exact-byte qualified only
+as `H0_AUTONOMOUS_PUBLIC_HEALTH_START_INTERLOCK_V1_MODEL_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_start_interlock_v1_h0.py`.
+Its final source is 33,130 bytes at SHA-256
+`f75c9980b044b4e51748fe92d7ed7e0558a11e8417cba257e7ad36cff77aa7d9`,
+with activation-normalized SHA-256
+`52e7ad159f6875f2367f0eeeaf6a05024c36bb0e3a7c76745defde79852d1e5d`;
+its 33,156-byte test is SHA-256
+`03acdaa34619304152fdf743ca46f60775f00992b0a46c00ab80b3e4d36c9b8b`.
+Focused validation passed 46/46 and the ten-suite autonomous aggregate passed
+341 tests. Independent exact-byte and status-rotation reviews returned
+`PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+
+This qualifies only temporary-directory fixture behavior: an exact held
+leaf-root directory `LOCK_EX|LOCK_NB`, strict modeled `EMPTY` or fully parked
+admission, and shared-action-guard absence under the lock. The public-health
+`coordinator.lock` remains recovery-only, and modeled owned continuation or
+recovery bypass grants no new start, command, replay, or recovery authority.
+Fixed real-root reopening, the exact production scanner, runner-owned guard
+publication, every D0/D1/F1/R1 integration, legacy-process quiescence,
+contract, mechanical activation, and live authority remain unimplemented or
+false. The exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_START_INTERLOCK_V1_H0_2026-08-31.md`.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**

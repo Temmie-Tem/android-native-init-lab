@@ -794,7 +794,7 @@ After a future combined review and activation, one fresh exact-target/
 current-boot attended opening may enable its finite read without per-action prompts.
 Permanent mutation or recovery-path risk always stops for fresh consent.
 
-## Campaign-v1 Phase-A model qualification
+## Phase-B start-interlock fixture qualification
 
-The recovery predecessors remain inactive; campaign-v1 Phase A is exact-byte qualified only as `H0_AUTONOMOUS_PUBLIC_HEALTH_CAMPAIGN_V1_MODEL_PASS_GO_NOT_ACTIVE` after 32 methods/37 cases, 295 autonomous aggregate tests (308 with routine D0), and independent HIGH/MEDIUM/LOW `0/0/0` review.
-It plans 12 host/six selected-target commands but implements none: same-process handoff, actual freshness, attendance/activation, ADB-server/USB/clock proof, private recovery binding/grammar, cross-code coordination, contract, mechanical activation, and every live gate remain false. Phase B and a fresh post-activation attended opening are still required; permanent mutation or recovery-path risk always stops for fresh consent.
+Campaign Phase A and its recovery predecessors remain inactive; the start-interlock fixture protocol is exact-byte qualified only as `H0_AUTONOMOUS_PUBLIC_HEALTH_START_INTERLOCK_V1_MODEL_PASS_GO_NOT_ACTIVE` after 46/46 focused and 341 aggregate tests plus independent HIGH/MEDIUM/LOW `0/0/0` review.
+It models only a temporary held leaf-directory lock and nonauthorizing EMPTY/PARKED admission. Production scanning, real-root reopening, guard publication, every runner integration, runtime owners/executor, recovery rotation, contract, mechanical activation, and live authority remain false. A fresh post-activation attended opening is still required; permanent mutation or recovery-path risk always stops for fresh consent.
