@@ -35,7 +35,7 @@ import s20plus_g986n_recovery_digest_profile_h0 as recovery_digest  # noqa: E402
 VERSION = "s20plus-g986n-recovery-canary-t0-f2-v1"
 PLAN_SCHEMA = "s20plus_g986n_recovery_canary_t0_f2_plan_v1"
 T0_F2_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "82a357b96f5b7cc03868d5c174d70f5b3d66a4aa2525482e14bd862e40d5425b"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -408,7 +408,10 @@ def _validate_arrival(value: Any, prepared: dict[str, Any], label: str) -> dict[
     _hex64(item["arrival_listing_sha256"], f"{label}.listing")
     _text(item["at"], f"{label}.at", 128)
     baseline = prepared["binding"]["initial_download_baseline"]
-    if item["baseline_sha256"] != digest(baseline):
+    # The arrival is emitted by b0.wait_download(), whose canonical receipt
+    # includes the durable JSON trailing newline.  Keep its provenance in the
+    # producer's digest domain instead of the T0 binding digest domain.
+    if item["baseline_sha256"] != b0.digest(baseline):
         raise T0F2Error(f"{label} is not descended from the prepared baseline")
     return item
 

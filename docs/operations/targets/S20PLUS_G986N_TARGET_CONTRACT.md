@@ -544,14 +544,14 @@ recovery image, target, partition, path, and command remains forbidden.
 
 The active concrete owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_recovery_canary_t0_f2.py`,
-153,569 bytes at SHA-256
-`57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d`
+153,798 bytes at SHA-256
+`a91d45e14f4cb82f10a83a8c2bdc38126deb20b9b841918888ec45842ad51e75`
 and activation-normalized SHA-256
-`514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce`.
-`T0_F2_ACTIVE=true`. Its 53,917-byte focused test is SHA-256
-`4ce87e5b51bfcd756390fc9415b89ae1cb2e0e1f524675cf1f44fe88158b6a2d`
-and passes 43/43; the owner plus earlier T0 model and recovery-digest profile
-pass 78/78. Activation creates no run or standing approval; live use still
+`82a357b96f5b7cc03868d5c174d70f5b3d66a4aa2525482e14bd862e40d5425b`.
+`T0_F2_ACTIVE=true`. Its 54,687-byte focused test is SHA-256
+`5ffb49c0836ebff473ef2a09268ee7c60073d418c10477036f7d4a8ceaea6c94`
+and passes 44/44; the owner plus earlier T0 model and recovery-digest profile
+pass 79/79. Activation creates no run or standing approval; live use still
 requires exact fresh preparation, its emitted approval, attendance, and all
 current health/recovery gates.
 

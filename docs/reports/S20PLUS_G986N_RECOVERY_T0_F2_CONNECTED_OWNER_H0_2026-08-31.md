@@ -44,11 +44,11 @@ super, userdata, persist, EFS, misc, or another member.
 The activated owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_recovery_canary_t0_f2.py`:
 
-- size: 153,569 bytes;
+- size: 153,798 bytes;
 - SHA-256:
-  `57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d`;
+  `a91d45e14f4cb82f10a83a8c2bdc38126deb20b9b841918888ec45842ad51e75`;
 - activation-normalized SHA-256:
-  `514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce`;
+  `82a357b96f5b7cc03868d5c174d70f5b3d66a4aa2525482e14bd862e40d5425b`;
 - `T0_F2_ACTIVE=true`.
 
 Its closed CLI has host-only render/validation and the active named operations
@@ -100,11 +100,27 @@ fresh read proving exact stock recovery bytes.
 
 ## Validation
 
-The focused owner suite passes 43/43. Together with the prior H0 T0 journal/AP
-validator and fixed recovery-digest profile, 78/78 tests pass. `py_compile`,
-host validation, and `git diff --check` pass. The focused test is 53,917 bytes
+The focused owner suite passes 44/44. Together with the prior H0 T0 journal/AP
+validator and fixed recovery-digest profile, 79/79 tests pass. `py_compile`,
+host validation, and `git diff --check` pass. The focused test is 54,687 bytes
 at SHA-256
-`4ce87e5b51bfcd756390fc9415b89ae1cb2e0e1f524675cf1f44fe88158b6a2d`.
+`5ffb49c0836ebff473ef2a09268ee7c60073d418c10477036f7d4a8ceaea6c94`.
+
+## First live-run incident and repair
+
+The candidate recovery transfer completed once. Before the first recovery ADB
+inventory, `--observe-recovery` rejected `candidate-download-arrival.json`.
+The reused `b0.wait_download()` producer records `b0.digest(baseline)`, whose
+canonical durable JSON includes a trailing newline; `_validate_arrival()` had
+incorrectly compared the distinct T0 no-newline binding digest. The durable
+arrival is internally consistent with its producer and was not rewritten.
+
+The repair changes only that validator edge to `b0.digest(baseline)` and adds a
+hostile regression proving that the producer digest is accepted and the T0
+binding digest is rejected. It performs no device action, does not widen an
+artifact, target, partition, endpoint, command, or replay rule, and preserves
+the consumed candidate plus exact-stock rollback. Continuation remains the
+same run journal after independent incident-diff review and commit.
 
 ## Activation and remaining live gate
 
@@ -124,10 +140,11 @@ row and F1/F2 target header:
 | routine actions | 37,302 | `1a258784ffdf2fb1596a494f174c506fe4cad54bf6b04be22832eba206694a8f` |
 | bootstrap F1 | 96,507 | `650734d33662bd1d0cedeb671e592028f8699e085a65dd5fa56b87a8fb5aec63` |
 
-After that commit, activation creates no run or standing approval. The only
-next live step is a fresh attended prepare. It performs fixed read-only health
-and stock-recovery digest checks and emits a new exact approval; no recovery
-transfer is possible until that approval is returned before expiry.
+After that commit, activation created no run or standing approval. The first
+live step was a fresh attended prepare, followed by the exact returned approval
+and the now-consumed single candidate transfer. A fresh prepare or candidate
+replay is no longer available. The current next step is recovery observation,
+exact-stock rollback, and final health from the same durable journal.
 
 T1 remains ineligible. A later T0 `PROVED` result is evidence for a separate T1
 review and never authorizes the TWRP image by itself.

@@ -804,18 +804,22 @@ They close modeled ADB 34 version isolation, immutable ordinal framing, x32 deni
 The exact IYC2 stock recovery, stock-derived ADB canary T0, and sanitized
 stock-substrate/donor-ramdisk TWRP T1 are host-built. The revision-3 common F2
 exception and exact target section are active only for T0. The concrete
-owner `s20plus_g986n_recovery_canary_t0_f2.py` is 153,569 bytes at SHA-256
-`57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d`
-(normalized `514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce`).
+owner `s20plus_g986n_recovery_canary_t0_f2.py` is 153,798 bytes at SHA-256
+`a91d45e14f4cb82f10a83a8c2bdc38126deb20b9b841918888ec45842ad51e75`
+(normalized `82a357b96f5b7cc03868d5c174d70f5b3d66a4aa2525482e14bd862e40d5425b`).
 It pins the one-member candidate and stock rollback APs, performs an exact
 pre/post stock-recovery digest read, creates intent-before-effect journals,
 globally consumes the candidate, and has automatic plus attended rollback
 branches. The fixed S20-series direct-Recovery chord is part of the owner;
-focused tests pass 43/43 and the combined T0 closure passes 78/78.
+focused tests pass 44/44 and the combined T0 closure passes 79/79.
 `T0_F2_ACTIVE=true` after dormant and activation-diff independent `PASS_GO`.
-Activation creates no run or standing approval. The next step is one fresh
-attended `--prepare`; exact-stock rollback is present but not demonstrated live,
-and T1 remains ineligible until T0 proves recovery ADB and stock rollback.
+The first live candidate transfer completed once. Its first observation call
+stopped before device contact because the reused B0 Download-arrival producer
+hashes canonical durable JSON with a trailing newline while the T0 validator
+used its no-newline binding digest. Candidate replay remains forbidden. The
+reviewed incident repair uses the producer's `b0.digest` only for that arrival
+edge; the next step is resume of the same journal, recovery observation, exact
+stock rollback, and final health. T1 remains ineligible until those complete.
 
 The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,

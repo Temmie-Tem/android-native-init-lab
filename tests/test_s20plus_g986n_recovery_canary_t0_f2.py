@@ -23,7 +23,7 @@ assert SPEC is not None and SPEC.loader is not None
 T0 = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(T0)
 
-EXPECTED_SOURCE_SHA256 = "57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d"
+EXPECTED_SOURCE_SHA256 = "a91d45e14f4cb82f10a83a8c2bdc38126deb20b9b841918888ec45842ad51e75"
 BOOT_A = "a" * 64
 BOOT_B = "b" * 64
 SERIAL = "c" * 64
@@ -310,6 +310,25 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
         handle = FakeHandle(returncode=1)
         stdout = T0.b0.ODIN_CAGE_ENTRY_MARKER + b"Fail parse archive\n"
         self.assertEqual(T0._classify_odin(handle, stdout, b""), "odin_local_parse_failure")
+
+    def test_candidate_arrival_uses_wait_download_digest_domain(self) -> None:
+        value = prepared(self.run_dir)
+        arrival = {
+            "endpoint": endpoint(),
+            "baseline_sha256": T0.b0.digest(
+                value["binding"]["initial_download_baseline"]
+            ),
+            "arrival_listing_sha256": "1" * 64,
+            "at": "2026-08-31T00:00:01Z",
+        }
+        self.assertEqual(
+            T0._validate_arrival(arrival, value, "candidate arrival"), arrival
+        )
+        arrival["baseline_sha256"] = T0.digest(
+            value["binding"]["initial_download_baseline"]
+        )
+        with self.assertRaisesRegex(T0.T0F2Error, "prepared baseline"):
+            T0._validate_arrival(arrival, value, "candidate arrival")
 
     def test_execute_records_download_intent_before_wait_and_no_candidate_on_miss(self) -> None:
         value = prepared(self.run_dir)
