@@ -767,7 +767,7 @@ reboot/Download control remains later and F1/R1 remain attended.
 The separate fixed root-health D0 remains independently qualified and active at commit `c68f8c55cf` (43/43); it requires one fresh attended request and never permits generic `su`.
 One fresh 2026-08-31 invocation stopped terminally after three host commands because the public pre-snapshot had the wrong field count; the fixed `su` command was not invoked, no retry occurred, and the failure receipt SHA-256 is `ddbab45528249b7c6c65e61d53e2a036ce5a4c67834ec78f7483038c5ebc1296`.
 Host-only analysis proved exec-out double escaping; the exact two-fragment public-argv repair passed 21/21 and independent `0/0/0` review, while the public/root scripts and root shell quoting remain unchanged.
-The corrected active runner is 39,819 bytes at SHA-256 `24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44`; it creates no invocation, and a fresh direct attended request remains required.
+The corrected active runner is 39,819 bytes at SHA-256 `24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44`; a second fresh invocation stopped after its initial nonzero ADB inventory with host/inventory 1, selected/snapshot/root/effects 0, receipt SHA-256 `2b3839be4e8870f7e7d5778e064b0968d64d779086342edb7ee56cf6ba419b63`, and no retry. After physical reconnection, a separate routine D0 passed exact-target healthy Android with result SHA-256 `eaf9d0a7fe02b8d7088626fcdb304f4effed58cb319a6737ccf4a53173046004`; this supports current ADB connectivity only, root remains unknown, and another root invocation requires a new direct request.
 
 ## Autonomous public-health evidence/accounting H0 qualification
 
