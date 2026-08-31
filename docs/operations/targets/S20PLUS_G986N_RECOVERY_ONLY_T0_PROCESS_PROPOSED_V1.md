@@ -1,37 +1,26 @@
 # S20+ G986N recovery-only T0 process, proposed v1
 
-Status: **CONCRETE OWNER IMPLEMENTED; REVIEW PENDING; NOT ACTIVE**
+Status: **REVIEWED DESIGN RECORD; EXACT OWNER ACTIVE THROUGH TARGET CONTRACT**
 Date: 2026-08-31
 Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 Experiment: exact-stock-derived recovery ADB canary T0 only
 
 ## Non-authority statement
 
-This document is a review input. It is not a binding target contract, is not a
-live process, and grants no device authority.
+This document is a design and review record. It is not the binding target
+contract and grants no authority by itself.
 
 The repository-wide contract still permits ordinary partition payloads only to
-`boot`. Revision 3 now delegates one F2 T0 exception, but its S20+ target
-section and connected owner are not active. Every other `recovery` payload
-remains forbidden, and the active root-health D0 lane still excludes privileged
-partition access. Consequently:
-
-- the proposed fixed stock-recovery digest is not presently an allowed live
-  read;
-- neither the candidate nor rollback AP may presently be transferred;
-- the user direction to continue does not mechanically activate this design;
-- ordinary D0, D1, R1, or F1 labels must not be used to disguise this gap;
-- `T0` identifies the single experiment and `F2` its inactive dedicated tier;
-  neither grants authority before mechanical activation.
-
-Activation requires an independently reviewed common-boundary amendment,
-matching risk-tier and S20+ target-contract clauses, independent review of the
-new connected owner, exact activation identities, and a fresh attended
-binding. The earlier H0 runner named below still contains no device backend.
-The separate concrete owner is
+`boot`. Revision 3 delegates one F2 T0 exception, now activated only by the
+exact S20+ target section and connected owner. Every other `recovery` payload
+remains forbidden, and ordinary D0, D1, R1, or F1 labels cannot substitute for
+F2. `T0` identifies the single experiment and `F2` its dedicated risk tier.
+The earlier H0 runner named below still contains no device backend. The
+separate concrete owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_recovery_canary_t0_f2.py`;
-its activation constant is false and changing that Boolean without the complete
-reviewed contract/status transition grants nothing.
+its true activation constant grants nothing unless the complete reviewed and
+committed contract/status transition, fresh attended binding, and emitted
+approval are also present.
 
 ## Objective
 
@@ -257,10 +246,11 @@ enough.
 T1 is never authorized by this process. A T0 `PROVED` result only supplies one
 review input for a separate T1 binding.
 
-## Activation checklist
+## Activation record and live entry gate
 
-Before any live use, an independent reviewer must verify and a later commit
-must mechanically activate all of these together:
+The dormant closure received independent `PASS_GO` with HIGH/MEDIUM/LOW
+`0/0/0` at commit `1084e67f3b`. The separately reviewed activation commit
+mechanically activates all of these together:
 
 - common `AGENTS.md` recovery-only T0 exception with unchanged permanent bans;
 - a risk-tier definition that cannot leak into ordinary F1 or another target;
@@ -271,16 +261,16 @@ must mechanically activate all of these together:
 - exact source and artifact hashes, hostile tests, and independent `PASS_GO`;
 - a fresh attended prepared binding and approval after activation.
 
-The dormant connected owner is 153,449 bytes at SHA-256
-`c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4`,
+The active connected owner is 153,569 bytes at SHA-256
+`57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d`,
 normalized SHA-256
-`33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e`.
-Its 53,775-byte test at SHA-256
-`6028cfc471a860e145df20e32b7c7d8425dd66c2c129ccff441c9ae985f931f6`
+`514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce`.
+Its 53,917-byte test at SHA-256
+`4ce87e5b51bfcd756390fc9415b89ae1cb2e0e1f524675cf1f44fe88158b6a2d`
 passes 43/43; the combined T0 owner/model/digest suite passes 78/78. The exact
 instruction above is emitted only after candidate completion and before the
 already-intended attended physical action.
 
-Until then, the only permitted commands are the H0 render and host-validation
-modes. `--connected` must return the dormant verdict without reading artifacts,
-enumerating USB, invoking ADB, invoking `su`, or invoking Odin.
+Activation creates no run or standing approval. The first permitted live step
+is a fresh attended `--prepare`; no transfer is possible until the operator
+returns its exact emitted approval to `--execute` before expiry.

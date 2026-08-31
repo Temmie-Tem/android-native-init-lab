@@ -2,15 +2,17 @@
 
 Date: 2026-08-31
 Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
-Result: **IMPLEMENTED_REVIEW_PENDING_NOT_ACTIVE**
+Result: **ACTIVATED_AFTER_INDEPENDENT_PASS_GO_COMMIT**
 
 ## Outcome
 
 The boot-carrier B0 surrogate is no longer the selected next experiment. This
 unit implements a separate concrete owner for the actual recovery-partition T0
-canary and drafts the matching common F2 and target-specific exception. No
-connected mode is active. This unit sent no ADB, `su`, USB, reboot, Odin, or
-device command and performed no partition read, write, transfer, or format.
+canary and the matching common F2 and target-specific exception. Dormant review
+returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`; the activation becomes binding
+only when its separately reviewed complete diff is committed. Qualification
+sent no ADB, `su`, USB, reboot, Odin, or device command and performed no
+partition read, write, transfer, or format.
 S22+, A90, and every other target received zero commands.
 
 The existing T0 ramdisk already uses a fixed attended root-adbd configuration:
@@ -39,17 +41,17 @@ super, userdata, persist, EFS, misc, or another member.
 
 ## Concrete owner
 
-The new dormant owner is
+The activated owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_recovery_canary_t0_f2.py`:
 
-- size: 153,449 bytes;
+- size: 153,569 bytes;
 - SHA-256:
-  `c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4`;
+  `57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d`;
 - activation-normalized SHA-256:
-  `33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e`;
-- `T0_F2_ACTIVE=false`.
+  `514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce`;
+- `T0_F2_ACTIVE=true`.
 
-Its closed CLI has host-only render/validation and the dormant named operations
+Its closed CLI has host-only render/validation and the active named operations
 `prepare`, `execute`, `observe-recovery`, `abort-pre-candidate`,
 `arm-physical-rollback`, `confirm-physical-rollback`, `resume`, and `finalize`. It accepts
 no caller artifact, path, partition, serial, endpoint, shell fragment, command,
@@ -100,23 +102,32 @@ fresh read proving exact stock recovery bytes.
 
 The focused owner suite passes 43/43. Together with the prior H0 T0 journal/AP
 validator and fixed recovery-digest profile, 78/78 tests pass. `py_compile`,
-host validation, and `git diff --check` pass. The focused test is 53,775 bytes
+host validation, and `git diff --check` pass. The focused test is 53,917 bytes
 at SHA-256
-`6028cfc471a860e145df20e32b7c7d8425dd66c2c129ccff441c9ae985f931f6`.
+`4ce87e5b51bfcd756390fc9415b89ae1cb2e0e1f524675cf1f44fe88158b6a2d`.
 
-## Remaining gates
+## Activation and remaining live gate
 
-No device action is authorized yet. Before activation:
+The activation transition changes only the reviewed boolean/status-derived
+plan, exact identities and tests, F2 status text, the single S20+ registry row,
+and goal/report wording. It requires independent activation-diff `PASS_GO` and
+the complete commit; a partial or uncommitted working tree grants no device
+authority.
 
-1. independently review the revision-3 permanent-boundary/F2 changes, exact
-   target section, connected owner, tests, root digest read, and dependencies;
-2. independently validate the fixed keep-USB-connected, Volume Down-to-Up
-   switch instruction against the exact S20+ execution closure;
-3. remediate every review finding and repeat exact-byte validation;
-4. independently review the activation-only diff, then commit the common,
-   target, runner, tests, goal, and report transition together;
-5. only afterward perform a fresh attended prepare and return its exact
-   generated approval before any recovery transfer.
+Four existing document-assertion tests rotate only to the one active registry
+row and F1/F2 target header:
+
+| Test | Size | SHA-256 |
+|---|---:|---|
+| onboarding D0 | 13,402 | `7bcd65e8030156f1aa026f248775afb962163df3f5b41b0c2ce5eba90e91bfab` |
+| routine D0 | 12,430 | `fdbc8ffc19a520b5d4a12cf0cbd26ff1ab033832ed3d12d3f9fca210c37a1712` |
+| routine actions | 37,302 | `1a258784ffdf2fb1596a494f174c506fe4cad54bf6b04be22832eba206694a8f` |
+| bootstrap F1 | 96,507 | `650734d33662bd1d0cedeb671e592028f8699e085a65dd5fa56b87a8fb5aec63` |
+
+After that commit, activation creates no run or standing approval. The only
+next live step is a fresh attended prepare. It performs fixed read-only health
+and stock-recovery digest checks and emits a new exact approval; no recovery
+transfer is possible until that approval is returned before expiry.
 
 T1 remains ineligible. A later T0 `PROVED` result is evidence for a separate T1
 review and never authorizes the TWRP image by itself.

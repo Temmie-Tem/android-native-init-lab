@@ -799,24 +799,25 @@ Permanent mutation or recovery-path risk always stops for fresh consent.
 Campaign Phase A, recovery predecessors, start-interlock, runtime, and receipt-06 remain inactive; the proxy audit, pure two-pass incremental parser, and x86-64 seccomp artifacts are exact-byte qualified only as `H0_*_PASS_GO_NOT_ACTIVE` after 40/40, 33/33, and 42/42 focused validation and independent final `0/0/0` reviews.
 They close modeled ADB 34 version isolation, immutable ordinal framing, x32 denial, and raw execveat values but implement no real socket/proxy, authenticated wire observation, executor-owned argv/env, ADB child, journal, interlock/recovery composition, contract/mechanical activation, or live authority; a fresh post-activation attended opening is still required, while permanent mutation or recovery-path risk always stops for fresh consent.
 
-## Recovery/TWRP H0 preparation
+## Recovery/TWRP T0 execution
 
 The exact IYC2 stock recovery, stock-derived ADB canary T0, and sanitized
-stock-substrate/donor-ramdisk TWRP T1 are host-built. A revision-3 common F2
-exception and exact target section are now proposed only for T0. The concrete
-owner `s20plus_g986n_recovery_canary_t0_f2.py` is 153,449 bytes at SHA-256
-`c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4`
-(normalized `33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e`).
+stock-substrate/donor-ramdisk TWRP T1 are host-built. The revision-3 common F2
+exception and exact target section are active only for T0. The concrete
+owner `s20plus_g986n_recovery_canary_t0_f2.py` is 153,569 bytes at SHA-256
+`57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d`
+(normalized `514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce`).
 It pins the one-member candidate and stock rollback APs, performs an exact
 pre/post stock-recovery digest read, creates intent-before-effect journals,
 globally consumes the candidate, and has automatic plus attended rollback
 branches. The fixed S20-series direct-Recovery chord is part of the owner;
 focused tests pass 43/43 and the combined T0 closure passes 78/78.
-`T0_F2_ACTIVE=false`: the boundary diff, owner, tests, chord, and activation require `PASS_GO`; all connected modes stop
-before device access. Exact-stock rollback is present but not demonstrated live,
+`T0_F2_ACTIVE=true` after dormant and activation-diff independent `PASS_GO`.
+Activation creates no run or standing approval. The next step is one fresh
+attended `--prepare`; exact-stock rollback is present but not demonstrated live,
 and T1 remains ineligible until T0 proves recovery ADB and stock rollback.
 
-Direct recovery-partition T0 remains `NO_GO`. A narrower B0 candidate instead
+The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,
 disables automatic `/system/bin/recovery` start, and retains PID1, ueventd,
 the fixed root-ADB banner, and marker. Recovery-partition reads/writes are zero;

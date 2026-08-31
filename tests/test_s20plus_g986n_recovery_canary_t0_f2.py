@@ -23,7 +23,7 @@ assert SPEC is not None and SPEC.loader is not None
 T0 = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(T0)
 
-EXPECTED_SOURCE_SHA256 = "c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4"
+EXPECTED_SOURCE_SHA256 = "57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d"
 BOOT_A = "a" * 64
 BOOT_B = "b" * 64
 SERIAL = "c" * 64
@@ -239,10 +239,13 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
             "recovery.img.lz4",
         )
 
-    def test_plan_is_dormant_and_recovery_only(self) -> None:
+    def test_plan_is_active_and_recovery_only(self) -> None:
         plan = T0.render_plan()
-        self.assertFalse(plan["active"])
-        self.assertFalse(plan["live_authority"])
+        self.assertTrue(plan["active"])
+        self.assertTrue(plan["live_authority"])
+        self.assertEqual(
+            plan["status"], "BINDING_ATTENDED_RECOVERY_CANARY_T0_F2_ACTIVE"
+        )
         self.assertEqual(plan["candidate"]["member"], "recovery.img.lz4")
         self.assertEqual(plan["rollback"]["member"], "recovery.img.lz4")
         self.assertEqual(plan["limits"]["all_other_partition_transfers"], 0)
@@ -258,16 +261,16 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
         self.assertIn("Do not allow Android to boot", instruction)
         self.assertEqual(T0.render_plan()["direct_recovery_instruction"], instruction)
 
-    def test_connected_cli_stops_before_dispatch_while_inactive(self) -> None:
+    def test_connected_cli_reaches_only_the_named_active_owner(self) -> None:
         output = io.StringIO()
-        with mock.patch.object(T0, "prepare", side_effect=AssertionError("called")):
+        with mock.patch.object(
+            T0, "prepare", return_value={"verdict": "FIXTURE_PREPARED"}
+        ) as prepare_owner:
             with contextlib.redirect_stdout(output):
                 rc = T0.main(["--prepare"])
-        self.assertEqual(rc, 2)
-        self.assertEqual(
-            output.getvalue().strip(),
-            "STOP_S20PLUS_G986N_RECOVERY_CANARY_T0_F2_NOT_ACTIVE",
-        )
+        self.assertEqual(rc, 0)
+        prepare_owner.assert_called_once_with()
+        self.assertEqual(json.loads(output.getvalue())["verdict"], "FIXTURE_PREPARED")
 
     def test_cli_has_no_artifact_serial_endpoint_or_path_input(self) -> None:
         parser = T0.build_parser()
@@ -1105,7 +1108,7 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
         self.assertEqual((active_count, hash_count), (1, 1))
         self.assertEqual(hashlib.sha256(source).hexdigest(), normalized)
 
-    def test_common_and_target_contract_define_f2_but_leave_it_inactive(self) -> None:
+    def test_common_and_target_contract_activate_only_exact_f2(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         tiers = (ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md").read_text(
             encoding="utf-8"
@@ -1117,7 +1120,7 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
         self.assertIn("**F2:** the single-target S20+ recovery-canary T0", agents)
         self.assertIn("### F2 - Exact S20+ Recovery-Canary Bootstrap", tiers)
         self.assertIn(
-            "Status: **H0 CONNECTED OWNER IMPLEMENTED - REVIEW PENDING - NOT ACTIVE**",
+            "Status: **BINDING - ATTENDED RECOVERY-CANARY T0 F2 ACTIVE**",
             contract,
         )
         self.assertIn(f"`{T0.EXPECTED_REVIEWED_NORMALIZED_SHA256}`", contract)
@@ -1126,7 +1129,7 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
             for line in agents.splitlines()
             if line.startswith("| Samsung Galaxy S20+ 5G")
         )
-        self.assertNotIn("F2 active", registry_line)
+        self.assertIn("recovery-canary T0 F2 active", registry_line)
 
 
 if __name__ == "__main__":

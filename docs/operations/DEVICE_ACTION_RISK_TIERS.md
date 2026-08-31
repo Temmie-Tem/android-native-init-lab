@@ -158,9 +158,9 @@ or another image.
   other-target command remains forbidden. T0 PASS supplies evidence for a
   later independently reviewed T1 proposal; it never authorizes T1.
 
-F2 remains unavailable until the target contract, exact connected owner,
-hostile tests, permanent-boundary diff, and activation-only transition receive
-independent `PASS_GO` and are committed together. An incident, source/artifact
+F2 is available only while the target contract, exact connected owner, hostile
+tests, permanent-boundary diff, and activation transition retain their
+independently reviewed committed identities. An incident, source/artifact
 drift, lost physical Download path, or the first global candidate claim retires
 fresh candidate use.
 

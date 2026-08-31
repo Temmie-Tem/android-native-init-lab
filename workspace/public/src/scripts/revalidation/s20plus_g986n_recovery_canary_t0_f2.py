@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Dormant connected owner for the exact S20+ recovery-canary T0 campaign.
+"""Connected owner for the exact S20+ recovery-canary T0 campaign.
 
 This is deliberately a separate owner from the boot-only B0 process.  It can
 address only the SHA-pinned T0 candidate and exact-stock rollback AP archives,
 each containing one ``recovery.img.lz4`` member.  The live entrypoints remain
-disabled until the common and target recovery-only exception, this source,
-its hostile tests, and its activation-only diff receive independent review.
+enabled only when the common and target recovery-only exception, this source,
+its hostile tests, and its activation transition are all reviewed and active.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ import s20plus_g986n_recovery_digest_profile_h0 as recovery_digest  # noqa: E402
 
 VERSION = "s20plus-g986n-recovery-canary-t0-f2-v1"
 PLAN_SCHEMA = "s20plus_g986n_recovery_canary_t0_f2_plan_v1"
-T0_F2_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e"
+T0_F2_ACTIVE = True
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -3852,9 +3852,13 @@ def render_plan() -> dict[str, Any]:
     return {
         "schema": PLAN_SCHEMA,
         "version": VERSION,
-        "status": "DORMANT_REVIEW_PENDING_NOT_ACTIVE",
+        "status": (
+            "BINDING_ATTENDED_RECOVERY_CANARY_T0_F2_ACTIVE"
+            if T0_F2_ACTIVE
+            else "DORMANT_REVIEW_PENDING_NOT_ACTIVE"
+        ),
         "active": T0_F2_ACTIVE,
-        "live_authority": False,
+        "live_authority": T0_F2_ACTIVE,
         "target": dict(h0.EXPECTED_TARGET),
         "candidate": {
             "size": h0.CANDIDATE_AP_SIZE,

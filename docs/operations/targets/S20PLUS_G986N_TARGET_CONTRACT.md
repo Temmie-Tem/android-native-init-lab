@@ -1,6 +1,6 @@
 # S20+ G986N Binding Target Contract
 
-Status: **BINDING - ROUTINE D0/D1, ATTENDED ROOT-HEALTH D0, P0 ABORT, ATTENDED F1, AND ATTENDED R1 ACTIVE**
+Status: **BINDING - ROUTINE D0/D1, ATTENDED ROOT-HEALTH D0, P0 ABORT, ATTENDED F1/F2, AND ATTENDED R1 ACTIVE**
 
 This is the binding target contract for the operator-owned Samsung Galaxy S20+
 5G `SM-G986N` / `y2q` / `G986NKSS8IYC2`, listed in the binding target registry
@@ -9,7 +9,8 @@ The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
 removing, rotating, or reusing that onboarding guard. The exact routine D1 and
 attended boot-only F1 and attended native-canary R1 are reviewed and active.
-The exact attended root-health D0 is separately reviewed and active.
+The exact attended root-health D0 and recovery-canary T0 F2 are separately
+reviewed and active.
 R1 activation creates no run or standing approval; each transaction still
 requires fresh exact preparation, its emitted approval, and attendance.
 
@@ -533,26 +534,26 @@ Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
 
 ## Recovery-canary T0 F2
 
-Status: **H0 CONNECTED OWNER IMPLEMENTED - REVIEW PENDING - NOT ACTIVE**
+Status: **BINDING - ATTENDED RECOVERY-CANARY T0 F2 ACTIVE**
 
-This section defines, but does not yet activate, the one S20+-only F2
+This section activates the one S20+-only F2
 exception delegated by `AGENTS.md` and
 `docs/operations/DEVICE_ACTION_RISK_TIERS.md`. It applies only to the exact
-operator-owned `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`. While this
-status or the owner's activation constant remains false, every recovery block
-read and recovery AP transfer below remains forbidden.
+operator-owned `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`. Every other
+recovery image, target, partition, path, and command remains forbidden.
 
-The dormant concrete owner is
+The active concrete owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_recovery_canary_t0_f2.py`,
-153,449 bytes at SHA-256
-`c89ef6658e85c60c0d933acd4eb0d2acef6c86da58c032eb03d617c10018d9c4`
+153,569 bytes at SHA-256
+`57b04179e46a883d3bbfd93c12a5f2ae09ca014dd7e34f9c845b2c6d3abd451d`
 and activation-normalized SHA-256
-`33f5e9ae3b98327a78dec6168a458ef263816f3707d8edefcf9b5d2a7aee0c5e`.
-`T0_F2_ACTIVE=false`. Its 53,775-byte focused test is SHA-256
-`6028cfc471a860e145df20e32b7c7d8425dd66c2c129ccff441c9ae985f931f6`
+`514c826bcae591b65716dbe6e826a8021a039d3eb164e21b51b595ce820f83ce`.
+`T0_F2_ACTIVE=true`. Its 53,917-byte focused test is SHA-256
+`4ce87e5b51bfcd756390fc9415b89ae1cb2e0e1f524675cf1f44fe88158b6a2d`
 and passes 43/43; the owner plus earlier T0 model and recovery-digest profile
-pass 78/78. These receipts identify a review candidate only and grant no live
-authority.
+pass 78/78. Activation creates no run or standing approval; live use still
+requires exact fresh preparation, its emitted approval, attendance, and all
+current health/recovery gates.
 
 The owner pins the earlier H0 artifact model, fixed recovery-digest profile,
 exact S20+ inventory and raw-capture helpers, and the current reviewed B0
@@ -660,13 +661,15 @@ candidate claim permanently retires fresh T0 candidate use. A T0 terminal,
 including `PROVED`, grants no T1 authority. T1 requires a separate exact
 contract amendment, review, preparation, and approval.
 
-Activation requires one independent hostile review of the common revision-3
+Independent hostile review of the common revision-3
 boundary, F2 tier, this section, owner, tests, exact artifacts, recovery-digest
 read, key choreography, cut/recovery behavior, and higher-precedence
-interactions. A later activation-only commit may change only the owner boolean,
-reviewed identities/status assertions, this status, the single S20+ registry
-cell, goal/report wording, and exact tests. Until that complete transition is
-committed, `--prepare` and every connected mode stop before device access.
+interactions returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` on dormant commit
+`1084e67f3b`. The mechanical activation changes only the owner boolean,
+status-derived plan assertions, reviewed identities/status assertions, this
+status, the single S20+ registry cell, goal/report wording, and exact tests.
+Its separate activation-diff review and commit are required before these
+sentences grant live authority.
 
 ## Boot recovery-canary B0 F1
 
@@ -675,9 +678,10 @@ Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE AFTER REVIEWED COMMIT**
 This section activates only the exact attended B0 owner at
 `workspace/public/src/scripts/revalidation/s20plus_g986n_boot_recovery_canary_b0_f1.py`
 for the operator-owned `SM-G986N` / `y2q` / `y2qksx` /
-`G986NKSS8IYC2` target. It does not activate the earlier direct
-recovery-partition T0 proposal or the donor-ramdisk T1 image. Recovery-partition
-read, write, and transfer remain forbidden and fixed at zero.
+`G986NKSS8IYC2` target. It does not activate the separate F2 owner above or the
+donor-ramdisk T1 image. Within B0, recovery-partition reads, writes, and
+transfers remain forbidden and fixed at zero; the independently bound F2
+exception does not transfer authority into B0.
 
 The candidate is the `36,198,441`-byte AP with SHA-256
 `a8ed52d314e3b0cf5820e99ecd55e97cacdbc8a943d2181886d52d42a1c177fa`.
