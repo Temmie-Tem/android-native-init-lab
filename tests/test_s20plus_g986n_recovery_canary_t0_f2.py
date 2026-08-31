@@ -1135,7 +1135,7 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
         contract = (
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("Contract-Revision: **3**", agents)
+        self.assertIn("Contract-Revision: **5**", agents)
         self.assertIn("**F2:** the single-target S20+ recovery-canary T0", agents)
         self.assertIn("### F2 - Exact S20+ Recovery-Canary Bootstrap", tiers)
         self.assertIn(
@@ -1148,7 +1148,7 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
             for line in agents.splitlines()
             if line.startswith("| Samsung Galaxy S20+ 5G")
         )
-        self.assertIn("recovery-canary T0 F2 active", registry_line)
+        self.assertIn("recovery-canary T0 and TWRP T1 F2 candidates consumed", registry_line)
 
 
 if __name__ == "__main__":

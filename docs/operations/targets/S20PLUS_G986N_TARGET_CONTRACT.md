@@ -9,8 +9,9 @@ The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
 removing, rotating, or reusing that onboarding guard. The exact routine D1 and
 attended boot-only F1 and attended native-canary R1 are reviewed and active.
-The exact attended root-health D0 and recovery-canary T0 F2 are separately
-reviewed and active.
+The exact attended root-health D0 remains active. Recovery-canary T0 and TWRP
+T1 owners retain only their consumed-candidate journals and terminal paths;
+TWRP T2 F2 is defined but not active.
 R1 activation creates no run or standing approval; each transaction still
 requires fresh exact preparation, its emitted approval, and attendance.
 
@@ -673,7 +674,7 @@ sentences grant live authority.
 
 ## TWRP T1 F2 retained recovery
 
-Status: **BINDING - ATTENDED TWRP T1 F2 ACTIVE**
+Status: **BINDING OWNER ACTIVE - T1 CANDIDATE CONSUMED**
 
 This section activates the separate F2-T1 exception only for
 the exact operator-owned `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. It receives no
@@ -713,8 +714,10 @@ The connected owner is
 `756289617ee4837457a5d1c0357d6a8b78d10d86f4b6822d30a86ed24a174fd0`
 and activation-normalized SHA-256
 `6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`.
-`T1_F2_ACTIVE=true`. Its focused hostile test is 60,027 bytes at SHA-256
-`270cea73c3aa943a4ffd49703452644bf8ad32666d9094c7555aca5c9f63720e`.
+`T1_F2_ACTIVE=true`. After the revision-5 consumed-state assertion rotation,
+its focused hostile test is 60,061 bytes at SHA-256
+`3f3e80a849e71244b94679207dc0f2407f852fcfa67850a7c51b01d0310487da`;
+the T1 execution model and owner identity are unchanged.
 
 Preparation requires fresh healthy exact rooted Android, a fresh stock recovery
 digest, an empty Download baseline, exact host closure, no foreign guard, and a
@@ -730,6 +733,14 @@ format, install, backup, restore, terminal command, or other partition action.
 Visual UI is supportive observation and cannot substitute for the fixed ADB
 marker proof.
 
+The sole T1 candidate is now consumed. Its exact observer proved root UID,
+TWRP version/incremental, security fields, running adbd, and the T1 marker, but
+returned `sys.usb.config=mtp,adb` instead of the predeclared `adb`. The immutable
+result is `NO_PROOF_T1_RETURNED_STOCK_RECOVERY_HEALTHY`: one candidate transfer,
+one exact-stock rollback transfer, final healthy rooted Android, and the exact
+stock recovery digest are proved. The T1 owner remains active only to validate
+and re-emit that closed journal; the global claim prevents a new T1 prepare.
+
 If that proof is absent or malformed, the candidate is not retained by proof
 and may not be replayed. Before any retained terminal, the attended physical
 Download path may send only the exact-stock rollback once, followed by exact
@@ -741,6 +752,84 @@ owner, tests, retained terminal, rollback graph, and exact identities, followed
 by an independently reviewed mechanical activation-only commit. It creates no
 run or standing approval; live use still requires fresh attended preparation
 and its exact returned approval.
+
+## TWRP T2 F2 corrected retained recovery
+
+Status: **DEFINED NOT ACTIVE - ATTENDED TWRP T2 F2**
+
+This section defines but does not activate F2-T2 for only the operator-owned
+`SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. T1 remains `NO_PROOF`; its observation is
+predecessor evidence, not inherited authority or a relabeled T1 result.
+
+The sole T2 candidate is the 52,101,161-byte recovery-only AP at SHA-256
+`6d10b3154f2e899ee64305f3f3279d7d5243eb917f1fedb413b8f88d22ec88cb`.
+Its only member is `recovery.img.lz4`, 52,096,466 bytes at SHA-256
+`6fed66d26ff7cc75899c4471ab60eefb49bccff052de37043bced65719b65936`;
+the decoded recovery is 82,694,144 bytes at SHA-256
+`d46a1f72743a28acc4c820184d7318df9801ee43d425c22d092778e4b63d1f89`.
+It preserves the T1 stock substrate and safety delta but carries the distinct
+398-byte T2 marker SHA-256
+`19a1a617fd2e97feda6362a2435e3d2bcce600fb37f983dd131e21c5ecf9c246`.
+The 25,475-byte deterministic builder is SHA-256
+`505f4fabc5e9684464b3c266453734db9e5f089507576df5dac00785683e635d`.
+Its 11,687-byte focused test is SHA-256
+`ce29e8d8f74051dcb4502835c3ebe92dec26cbfeac74cd68788ed4722d1f987c`.
+
+The sole rollback is the already demonstrated 36,608,041-byte exact-stock
+recovery-only AP SHA-256
+`ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`.
+Both APs contain exactly one regular `recovery.img.lz4`; neither contains
+VBMeta, DTBO, boot, userdata, misc, EFS, persist, super, or another partition.
+
+The exact profile is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_profile_h0.py`,
+12,847 bytes at SHA-256
+`c02b78f2a1215a1fc2104a4634264609d2060d610bc628a068b318cb1cf55fb7`.
+The dormant connected owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_f2.py`,
+167,340 bytes at SHA-256
+`b915810a2d360c293698e3628e7505e149926f1f29d690086757ec8d1febe364`
+and activation-normalized SHA-256
+`51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`.
+`T2_F2_ACTIVE=false`. Its focused hostile test is 61,285 bytes at SHA-256
+`7d4790be558b3404fd10f76420ef329639ffddb5f3885e6cc9141eac053b983e`.
+
+Host validation must first re-run the exact active T1 source closure and the
+complete fixed T1 journal. It pins the 2,144-byte T1 terminal SHA-256
+`9475e2cd6f283c7390b0d4b86b5e5208f0e943b2b452439febbe1dc3ca82cd7f`,
+336-byte observation SHA-256
+`c2c1d123d1f26a2416252fc5da8c576efbb0bf2bd9527c2b2fcebd3529204e74`,
+546-byte raw-capture receipt SHA-256
+`bbd780281ffccf7991ad4a5b10c4ba063be9bc690422699b75a9b033159d024b`,
+and 271-byte observer stdout SHA-256
+`c2c8b4e7393153ff40e1ca3487b76d8c345e1c2816636a6f30913e9d27baf0cc`.
+It strictly reparses that stdout as the T1 marker/version/security tuple with
+exactly `mtp,adb`, proves its recovery boot differs from prepared and final
+Android boots, and requires current serial continuity without publishing the
+identifier.
+
+If separately activated, preparation still requires fresh healthy exact rooted
+Android, a fresh exact-stock recovery digest, empty Download baseline, exact
+host closure, no foreign guard, and a new short-lived returned approval.
+Candidate and rollback each have one intent and one caged Odin process. The T2
+candidate is globally no-replay. Recovery retention requires the same prepared
+serial/topology in ADB state `recovery`, a fresh boot ID, root UID, exact TWRP
+version/incremental, `ro.secure=0`, `ro.debuggable=1`, exactly `mtp,adb`, running
+adbd, and the T2 marker SHA-256.
+
+A retained terminal records one candidate and zero rollback transfers, releases
+the shared guard, and intentionally leaves TWRP installed. It grants no UI,
+mount, format, install, backup, restore, terminal, or other partition action.
+Absent/malformed proof, Android arrival, transfer uncertainty, or endpoint
+drift never replays or retains the candidate and may converge only on the
+attended exact-stock physical rollback. A clean retained terminal closes the
+run and its rollback approval; any later stock restore requires separate fresh
+reviewed authority.
+
+Activation requires independent review of the common/risk/target boundary,
+builder, profile, owner, tests, T1 predecessor closure, retained terminal,
+rollback graph, and exact identities, followed by a mechanical activation-only
+commit. Until then all connected modes stop before device inventory.
 
 ## Boot recovery-canary B0 F1
 

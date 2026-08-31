@@ -156,7 +156,7 @@ or another image.
 
 ### F2-T1 - Exact S20+ TWRP Retained Recovery
 
-Status: **BINDING - ACTIVE ONLY THROUGH EXACT ATTENDED T1 OWNER**
+Status: **BINDING OWNER ACTIVE - T1 CANDIDATE CONSUMED**
 
 F2-T1 is a separate, non-generalizing exception for the exact
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2` TWRP T1 candidate. It receives no authority
@@ -178,8 +178,8 @@ terminal SHA-256
 pin its owner/base sources, and match its final serial binding to the current
 healthy T1 target without publishing that identifier.
 
-If separately activated, one fresh attended preparation and exact returned
-approval may consume the T1 candidate once. It retains the T1 recovery only
+The one attended T1 preparation and exact returned approval consumed the T1
+candidate once. It could retain the T1 recovery only
 after a raw-derived completed transfer plus a fresh recovery boot whose same
 prepared serial and topology answer the fixed root-ADB marker/version profile.
 That terminal permits no TWRP UI action, mount, terminal command, format,
@@ -201,7 +201,8 @@ Activation required independent review of the common boundary, target section,
 exact profile, connected owner, hostile tests, artifact closure, retained
 terminal, and rollback branches, followed by a separately reviewed mechanical
 activation commit. Every run still begins with a fresh attended preparation and
-exact returned approval.
+exact returned approval. The global T1 claim now prevents another preparation;
+the owner remains only for closed-journal validation and terminal re-emission.
 - Every other partition payload, format, mount, `dd`, direct block write,
   caller path/artifact/partition/command, security or Magisk mutation, and
   other-target command remains forbidden. T0 PASS supplies evidence for a
@@ -212,6 +213,47 @@ tests, permanent-boundary diff, and activation transition retain their
 independently reviewed committed identities. An incident, source/artifact
 drift, lost physical Download path, or the first global candidate claim retires
 fresh candidate use.
+
+### F2-T2 - Exact S20+ TWRP Corrected Retained Recovery
+
+Status: **DEFINED NOT ACTIVE**
+
+F2-T2 is a new non-generalizing exception for only the exact
+`SM-G986N/y2q/y2qksx/G986NKSS8IYC2` T2 candidate. Its sole candidate AP
+SHA-256 is
+`6d10b3154f2e899ee64305f3f3279d7d5243eb917f1fedb413b8f88d22ec88cb`;
+its sole rollback is the demonstrated exact-stock recovery-only AP SHA-256
+`ac9745b642c7fbd950d988671f707e47d58f8e2092464b27a37bede2267d7157`.
+Each archive contains exactly one deterministic regular `recovery.img.lz4`.
+
+T1 remains `NO_PROOF_T1_RETURNED_STOCK_RECOVERY_HEALTHY`. T2 may use that run
+only as exact predecessor evidence: both T1 recovery transfers completed, the
+final stock digest and rooted Android health passed, and its fixed root-ADB
+observer matched every required field except that the effective property was
+`sys.usb.config=mtp,adb` rather than the predeclared `adb`. The exact T1 owner,
+terminal, observation, raw-capture receipt, raw stdout, and source closure must
+all be mechanically revalidated. Documentation or semantic reconstruction of
+those private bytes grants nothing.
+
+If activated, one fresh attended preparation and exact returned approval may
+consume the byte-distinct T2 candidate once. Retention requires a raw-derived
+completed transfer and the same prepared serial/topology in ADB recovery state,
+with a fresh boot ID, root UID, exact TWRP version/incremental, security fields,
+running adbd, exact T2 marker, and exactly `mtp,adb`. Neither T1's supportive
+observation nor T2 visual UI can substitute for that new T2 marker proof.
+
+Every T1 no-replay, caged Odin, intent-before-effect, endpoint, physical
+rollback, final stock-health, no-clobber journal, and other-target isolation
+rule remains. A retained terminal closes the run and its rollback approval;
+future stock restore requires separate fresh reviewed authority. No mount,
+format, UI action, terminal command, install, backup, restore, caller path,
+other partition, or security/Magisk mutation is introduced.
+
+Activation requires independent review of the common boundary, target section,
+exact builder/profile/owner, hostile tests, artifact and predecessor closures,
+retained terminal, and rollback branches, followed by a separate mechanical
+activation commit. Until then every connected mode stops before inventory or
+device contact.
 
 ### R1 - Exact Privileged Root-Data Transaction
 
@@ -305,11 +347,12 @@ and stock-boot recovery are one preauthorized attended transaction.
 ### X - Forbidden
 
 The existing forbidden partition and primitive list remains absolute except
-for the exact S20+ F2 T0 recovery-only AP pair above. In particular, no policy
-tier authorizes a raw block write or a flashing operation to vendor_boot, DTBO,
+for the exact contract-bound S20+ T0/T1 recovery-only AP pairs and a separately
+activated exact T2 pair. In particular, no policy tier authorizes a raw block
+write or a flashing operation to vendor_boot, DTBO,
 vbmeta, BL, CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB, keymaster,
 modem, bootloader, or any partition other than an explicitly authorized boot
-payload or that one mechanically active recovery-only T0 pair. Normal Android
+payload or one mechanically active exact S20+ recovery-only pair. Normal Android
 Package Manager and shared-user-storage writes are not partition operations
 when they satisfy the exact reviewed D1 rules above. Raw host `dd`,
 partition-table action, qdl/Sahara/Firehose, RAM dump, EUD/UART write, format,

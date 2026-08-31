@@ -809,19 +809,21 @@ good, and the live recovery digest is exact stock
 Recovery ADB/marker proof was absent, so T0 itself remains `NO_PROOF` and its
 candidate is permanently non-replayable.
 
-The revision-4 boundary and exact target section activate the separate attended
-TWRP T1 F2 lane. Its candidate is the IYC2-stock-substrate/AstroForge-ramdisk AP
-`3ed8498243ff09399ffd93fa3b0e90044a3cfe1709b7204dac53fe190647260f`;
-rollback is the demonstrated exact-stock AP. The exact profile is
-`c495deaac141fbbbee8fa9d13501f0e593306fa40127618640615f6a498de5e1`.
-The active owner is
-`756289617ee4837457a5d1c0357d6a8b78d10d86f4b6822d30a86ed24a174fd0`
-(normalized `6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`).
-It may retain TWRP only after same-serial/topology root-ADB marker/version proof;
-otherwise only the one-shot stock rollback branch remains. Dormant and
-activation-only reviews passed; activation creates no standing run or approval.
-Current next step is one fresh attended `--prepare`, then return its exact
-short-lived approval before any T1 transfer.
+T1 closed as `NO_PROOF_T1_RETURNED_STOCK_RECOVERY_HEALTHY`. Its transferred
+TWRP reached root ADB and matched version, incremental, security fields, adbd,
+and marker; only `sys.usb.config=mtp,adb` differed from the predeclared `adb`.
+The one-shot stock rollback then proved healthy rooted Android and exact stock
+recovery. Both T1 transfers are proved and neither can replay.
+
+Revision 5 defines but does not activate T2. Its byte-distinct candidate AP is
+`6d10b3154f2e899ee64305f3f3279d7d5243eb917f1fedb413b8f88d22ec88cb`;
+rollback remains exact stock. The dormant owner is
+`b915810a2d360c293698e3628e7505e149926f1f29d690086757ec8d1febe364`
+(normalized `51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`).
+It revalidates the exact T1 terminal/raw observation, requires current serial
+continuity, and accepts only the observed `mtp,adb` alongside a new T2 marker.
+Current next step is hostile validation and independent dormant review; T2 has
+no device authority or approval.
 
 The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,

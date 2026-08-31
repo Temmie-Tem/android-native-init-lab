@@ -240,7 +240,7 @@ class S20PlusG986ND0InventoryTests(unittest.TestCase):
         row = (
             "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
             "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-            "| Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; attended recovery-canary T0 F2 active; attended TWRP T1 F2 active; reviewed attended native-canary R1 active |"
+            "| Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 F2 defined but not active; reviewed attended native-canary R1 active |"
         )
         self.assertEqual(agents.count(row), 1)
 

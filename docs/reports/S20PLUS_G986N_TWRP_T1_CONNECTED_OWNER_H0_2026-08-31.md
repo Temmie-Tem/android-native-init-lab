@@ -53,8 +53,10 @@ The connected owner
 `756289617ee4837457a5d1c0357d6a8b78d10d86f4b6822d30a86ed24a174fd0`;
 its activation-normalized SHA-256 is
 `6ed9fe2ff0cf23f7ff28a2f3cc036cebc97ff48c37228fbac67d3c87cb72ee7a`.
-`T1_F2_ACTIVE=true`. The 60,027-byte focused test is SHA-256
-`270cea73c3aa943a4ffd49703452644bf8ad32666d9094c7555aca5c9f63720e`.
+`T1_F2_ACTIVE=true`. The revision-5 consumed-state assertion rotation makes
+the focused test 60,061 bytes at SHA-256
+`3f3e80a849e71244b94679207dc0f2407f852fcfa67850a7c51b01d0310487da`;
+the reviewed T1 execution model and owner identity remain unchanged.
 
 The owner inherits the reviewed T0 exact-target binding, raw capture, cgroup
 quiescence, no-clobber typed journal, one-shot Download/Odin classification,

@@ -1260,11 +1260,11 @@ class S20PlusG986NRecoveryCanaryT1F2Tests(unittest.TestCase):
         contract = (
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("Contract-Revision: **4**", agents)
-        self.assertIn("TWRP T1 F2 active", agents)
+        self.assertIn("Contract-Revision: **5**", agents)
+        self.assertIn("TWRP T1 F2 candidates consumed", agents)
         self.assertIn("### F2-T1 - Exact S20+ TWRP Retained Recovery", tiers)
         self.assertIn(
-            "Status: **BINDING - ATTENDED TWRP T1 F2 ACTIVE**",
+            "Status: **BINDING OWNER ACTIVE - T1 CANDIDATE CONSUMED**",
             contract,
         )
         self.assertIn(f"`{T1.EXPECTED_REVIEWED_NORMALIZED_SHA256}`", contract)
@@ -1273,7 +1273,7 @@ class S20PlusG986NRecoveryCanaryT1F2Tests(unittest.TestCase):
             for line in agents.splitlines()
             if line.startswith("| Samsung Galaxy S20+ 5G")
         )
-        self.assertIn("TWRP T1 F2 active", registry_line)
+        self.assertIn("TWRP T1 F2 candidates consumed", registry_line)
 
 
 if __name__ == "__main__":

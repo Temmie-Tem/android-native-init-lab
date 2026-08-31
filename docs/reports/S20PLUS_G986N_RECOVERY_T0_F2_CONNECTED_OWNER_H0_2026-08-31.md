@@ -102,9 +102,10 @@ fresh read proving exact stock recovery bytes.
 
 The focused owner suite passes 44/44. Together with the prior H0 T0 journal/AP
 validator and fixed recovery-digest profile, 79/79 tests pass. `py_compile`,
-host validation, and `git diff --check` pass. The focused test is 54,687 bytes
-at SHA-256
-`5ffb49c0836ebff473ef2a09268ee7c60073d418c10477036f7d4a8ceaea6c94`.
+host validation, and `git diff --check` pass. The revision-5 consumed-state
+assertion rotation makes the focused test 54,712 bytes at SHA-256
+`685437ceff6879f01e10eeedc4c13da5f78dcd6232ac3fc08b2351b1de11efe6`;
+the reviewed T0 execution model and owner identity remain unchanged.
 
 ## First live-run incident and repair
 
