@@ -5,7 +5,7 @@ Date: 2026-08-31
 Target: Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2`)
 
-Status: **TWO TERMINAL READ-CLOSED INVOCATIONS; ROOT NEVER ATTEMPTED**
+Status: **EARLIER FAILURES RETAINED; LATER FRESH ROOT-HEALTH PASS; ZERO EFFECTS**
 
 ## Outcome
 
@@ -99,17 +99,51 @@ time. It neither identifies the cause of the earlier nonzero inventory result
 nor proves SELinux or root health, and it does not authorize a root-health
 invocation.
 
+## Successful post-reconnect root-health invocation
+
+A third, separately requested attended root-health invocation then ran the
+corrected active runner exactly once and returned
+`PASS_S20PLUS_G986N_ATTENDED_ROOT_HEALTH_D0`. Its 3,281-byte mode-`0400`,
+link-count-one `result.json` has SHA-256
+`88412056fb713ca127ea2bd56c0b86b1491435356faae2a371375b083ff1a180`
+inside a mode-`0700` runner-allocated directory.
+
+The exact fixed read observed:
+
+```text
+uid=0
+gid=0
+context=u:r:magisk:s0
+magisk_version=30.7:MAGISK:R
+magisk_version_code=30700
+selinux=Enforcing
+pid1_exe=/system/bin/init
+pid1_context=u:r:init:s0
+```
+
+Both public snapshots bound the same exact
+`SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2` target and current boot with
+`boot_completed=1`, `bootanim=stopped`, and SELinux enforcing. The final
+inventory remained unchanged. Counts were six host commands, two inventories,
+four selected-target commands, two public snapshots, and one fixed root read;
+S22+, A90, every other target, device effects, writes, root writes, package or
+property/service changes, reboots, mode transitions, transfers, and partition
+access were all zero.
+
+This proves only the fixed root/Magisk/SELinux/PID-1 health fields at that
+collection time. It is not generic root authority, a standing lease, module or
+native-init health, recovery/rollback proof, R1 authority, or F1 readiness.
+
 ## No-replay and recovery boundary
 
-Both invocations are terminal and neither was retried. Because neither reached
-a root command or device effect, no device recovery action is required. The
-active runner must not be bypassed with an interactive, generic, or
-caller-selected `su` command. Any host/transport diagnosis remains a separate
-bounded action, and a later root-health attempt requires another fresh direct
-attended request. Neither consumed request nor either failure receipt grants
-replay authority.
+Both failed invocations remain terminal and neither was retried. The later
+successful invocation was a new request, not a replay or continuation. No
+device recovery action is required because all three invocations had zero
+device effects. The active runner must not be bypassed with an interactive,
+generic, or caller-selected `su` command. A later root-health attempt still
+requires another fresh direct attended request; no consumed request, failure
+receipt, or success result grants replay or standing authority.
 
-The most recent separate routine public-property D0 result remains supportive
-only for its own collection time and scope. It does not upgrade this failed
-root-health invocation, prove current root availability, or authorize any
-root, R1, or F1 action.
+The separate routine public-property D0 result remains supportive only for its
+own collection time and scope. The later fixed root-health success is likewise
+time-bounded and authorizes no further root, R1, or F1 action.
