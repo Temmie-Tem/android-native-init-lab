@@ -4,7 +4,7 @@ Date: 2026-08-31
 
 Target: `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
-Status: `PASS_GO_P323_PROCESS_V2_H0`; corrected connected prepare pending
+Status: `PASS_GO_P323_PROCESS_V2_H0`; host temporary-space stop before corrected prepare
 
 ## Finding
 
@@ -138,3 +138,19 @@ The second bounded correction removes only that duplicate zero check;
 reclassification comparison remain mandatory. D0 tests pass 23/23, ready audit
 passes, and independent review returned `PASS_GO`. One final corrected prepare
 remains; neither correction creates F1 or replay authority.
+
+## Final corrected prepare host stop
+
+The final corrected prepare did not create a new live run directory. Runtime-bound
+candidate-static regeneration stopped in the inherited P3.21 candidate-A cpio
+listing audit; the outer runner reported `P3.23 candidate-static authority rejected
+the result`. At that point `/tmp` was 98% used with about 199 MiB free, while this
+audit path has previously required substantially more temporary capacity. This is
+a host pre-session capacity failure, not USB, target, candidate, or observer
+evidence.
+
+No `prepared.json`, approval, reboot, Download transition, Odin invocation,
+candidate transfer, or rollback transfer was created. The runner was not retried.
+Before another prepare, provide a bounded private temporary directory with enough
+space and pass the same runtime-bound audit once; then a fresh prepare may issue a
+new exact approval binding.
