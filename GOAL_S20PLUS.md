@@ -764,10 +764,10 @@ reboot/Download control remains later and F1/R1 remain attended.
 
 ## Attended root-health D0 capability
 
-The separate fixed root-health D0 is independently qualified and active at
-commit `c68f8c55cf` (43/43); it still requires one fresh attended request and
-never permits generic `su`. No connected root-health run or result exists; its
-exact design remains in the attended root-health D0 report.
+The separate fixed root-health D0 remains independently qualified and active at commit `c68f8c55cf` (43/43); it requires one fresh attended request and never permits generic `su`.
+One fresh 2026-08-31 invocation stopped terminally after three host commands because the public pre-snapshot had the wrong field count; the fixed `su` command was not invoked.
+Counts were inventory 1, selected target 2, root 0, and every other-target/device-effect/write/reboot/mode/transfer/partition surface 0; no retry occurred. The private failure receipt SHA-256 is `ddbab45528249b7c6c65e61d53e2a036ce5a4c67834ec78f7483038c5ebc1296`.
+The exact design and no-replay incident boundary are retained in the attended root-health D0 design and incident reports.
 
 ## Autonomous public-health evidence/accounting H0 qualification
 
