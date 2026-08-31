@@ -190,6 +190,11 @@ all persistent/critical surfaces excluded or guarded, exact target components
 bound, and proprietary blob provenance resolved. The current public binaries
 will not be promoted directly.
 
+A later host-only binary-donor port now implements the guarded alternative
+without directly promoting the public image. It is recorded in
+`docs/reports/S20PLUS_G986N_TWRP_PORT_T1_H0_2026-08-31.md`; T0 remains the first
+live rung.
+
 ## T0 host build result
 
 The fixed host-only builder is now implemented at

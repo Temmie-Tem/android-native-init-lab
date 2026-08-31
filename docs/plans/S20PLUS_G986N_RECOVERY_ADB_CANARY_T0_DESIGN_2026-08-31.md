@@ -212,6 +212,12 @@ S20+-only exception, and treat every manual TWRP flash/wipe/terminal surface as
 outside runner authority. `/data` usability is then a separate observed claim,
 not a prerequisite for proving TWRP boot and recovery ADB.
 
+The host-only binary-donor route is now built and recorded in
+`docs/reports/S20PLUS_G986N_TWRP_PORT_T1_H0_2026-08-31.md`. It uses only the
+donor ramdisk on the exact IYC2 stock substrate and closes the named automatic
+mutation paths. This preparation does not reorder the live gates: T0 still
+precedes T1.
+
 ## Current verdict
 
 The T0 artifacts and 9/9 focused host corpus are ready for independent review.
