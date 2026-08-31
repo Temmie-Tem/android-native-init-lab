@@ -834,6 +834,57 @@ connected command, campaign, recovery, standing consent, or device authority.
 The exact report is
 `docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_ADB_PROXY_V1_H0_2026-08-31.md`.
 
+The separate pure incremental-parser artifact is exact-byte qualified as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_ADB_PROXY_INCREMENTAL_V1_MODEL_PASS_GO_NOT_ACTIVE`
+at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_adb_proxy_incremental_v1_h0.py`.
+Its final source is 33,817 bytes at SHA-256
+`f956bc65a5e7abedd2f57ab8fa723275be1e7d6fb2b4ae86295de947c42f3f05`,
+with normalized SHA-256
+`ec1dcd8236f6778bdf6994b5d1a9a26132e95d92d9ce8955cfba08122c95a2cc`;
+its 28,068-byte test is SHA-256
+`6786cda31d30813e6243ac8189a9f0802b455aa478656456a489f743e2c31cce`.
+Focused and committed proxy-audit validation passes 33/33 plus 40/40.
+
+This model accepts only one caller-selected immutable typed transcript. Its
+first pass validates the complete ordinal closure without constructing an
+emission; only a success-only second pass derives a fresh frozen emission
+tuple. Three earlier mutable-sink/reducer candidates remained `NO_GO` until
+caller sink, owner, session, duplicated ledger, arbitrary service reducer, and
+failure-traceback partial-emission surfaces were removed. Final independent
+review returned HIGH/MEDIUM/LOW `0/0/0`. Acceptance authenticates only the
+supplied model bytes, not a real wire observation. All 23 operational gates
+remain false; there is no socket, peer, relay, process, ADB child, server
+binding, journal, executor, integration, campaign, or device authority. The
+exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_ADB_PROXY_INCREMENTAL_V1_H0_2026-08-31.md`.
+
+The separate exact-host seccomp artifact is qualified as
+`H0_AUTONOMOUS_PUBLIC_HEALTH_ADB_SECCOMP_V1_PASS_GO_NOT_ACTIVE` at
+`workspace/public/src/scripts/revalidation/s20plus_g986n_autonomous_public_health_adb_seccomp_v1_h0.py`.
+Its final source is 47,577 bytes at SHA-256
+`0c5ee2a7c293dd9c04d152945e29a7f5c278bce6f7960cfdc19979d8fc79d23e`,
+with normalized SHA-256
+`cf041861841f79d9fe158f4c650b27d5b596aff9cea26acb68e66e5a3eabe3e6`;
+its 30,103-byte test is SHA-256
+`d8ab5ea91385375c5af28b562869a1125cd56fbdca339e21902f44317e7a0db7`.
+The deterministic 53-instruction, 424-byte classic-BPF program is SHA-256
+`6f2e13a14ff7e17668fa6501535dc097960e5b1d02a83b7443d3ea86e103aaa5`,
+and focused validation passes 42/42.
+
+The filter is an inactive x86-64 launch-prevention model, not a general
+sandbox. It kills architecture mismatch, traps the complete x32 namespace
+before default allow, traps native bind/listen/process creation/path exec, and
+compares only the five raw execveat argument values for one held-fd transition.
+Classic BPF cannot dereference the pathname, argv, or envp content, retain
+one-shot state, or close post-exec fd/address reuse; exact executor-owned
+pathname/argv/environment bytes, ADB compatibility, process-death behavior,
+production installation, and composition remain unproved. Two independent
+`NO_GO` findings for x32 default-allow and omitted argv/env content visibility
+were corrected before final HIGH/MEDIUM/LOW `0/0/0` review. All 17 operational
+gates remain false. The exact report is
+`docs/reports/S20PLUS_G986N_AUTONOMOUS_PUBLIC_HEALTH_ADB_SECCOMP_V1_H0_2026-08-31.md`.
+
 ## Magisk bootstrap F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
