@@ -1073,6 +1073,13 @@ the full physical/recovery continuation, stage/cleanup runner, physical
 choreography, recovery owner, fresh preparation, approval, and activation
 remain blockers.
 
+The later P0 Odin-owner amendment changes this target-contract identity. The
+render-only TWRP owner intentionally retains its predecessor contract pin and
+therefore now fails closed; its historical `PASS_GO` is expired for current
+bytes and grants no preparation or connected authority. Two current expiry
+regressions pass while ten old exact-closure cases remain explicitly preserved
+as historical skips.
+
 ## Boot recovery-canary B0 F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE AFTER REVIEWED COMMIT**
@@ -1254,6 +1261,317 @@ proved fresh exact rooted resident health. The durable terminal is
 all recovery-partition access counts and other-target commands are zero, the
 shared guard is released, and the global candidate claim remains consumed.
 Neither candidate nor rollback may replay.
+
+## P0 PID1 ACM Odin boot-only F1
+
+Status: **ACTIVE - ATTENDED F1 ONLY**
+
+This section defines the smallest ordinary F1 successor for direct native PID1
+first light. It applies only to the operator-owned
+`SM-G986N/y2q/y2qksx/G986NKSS8IYC2`; it receives no live authority from B0,
+T0/T1/T2, root, retained TWRP, the boot-metadata D0, or Q0. The exact dormant
+owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_p0_pid1_odin_f1.py`.
+`P0_F1_ACTIVE=false`, the bound P0 observer remains
+`OBSERVER_ACTIVE=false`, and connected modes stop before ADB, USB inventory,
+Odin, reboot, or any target command. Only host validation and plan rendering
+are available. The dormant owner is 204,224 bytes at SHA-256
+`c1b31303e93e0769b1a17317b6df01e95d5928ac8252c6d6683cd38635108ab0`
+and activation-normalized SHA-256
+`22958f856bfcb9ffebebb59f5823f62f3ec1049a443ce16169fd7866cba54ac6`;
+its 108,307-byte focused test SHA-256 is
+`9c5e8c168a3245fec4c825d73e80593724f87533803ec81b9cdd143e7354591a`.
+
+The owner exact-loads the currently reviewed B0 recovery owner, 224,559 bytes
+at SHA-256
+`82ec4cee48c3a39aa8dc4de6136e8fda3fbefe88d4821a71bdb0df55d2a17c2a`,
+in a private module instance. Its inventory, raw-capture, boot-verifier, and
+transport dependencies are also exact-loaded into private module instances.
+It does not import or modify the ordinary B0 module or dependencies, B0 run
+root, B0 global candidate claim, or any closed B0 journal. The private
+instance retains B0's exact target/root-health preflight, causal
+Android-to-Download transition, Odin/process-cage/raw-capture implementation,
+intent-before-effect journal, physical Download fallback, mandatory resident
+rollback, final rooted-Android health, and no-replay validators. The profile
+changes only its private run and claim roots, exact candidate data, P0 manifest
+validator, ACM observer join, approval/physical-confirmation prefixes, raw ACM
+evidence nodes, an empty recovery-predecessor set, and P0 terminal spelling.
+The exact profile value/function maps are shared by installation and runtime
+assertion so an undocumented delta stops. Any engine, profile,
+function-identity, source, artifact, observer, registry, or activation drift
+stops.
+
+The authoritative P0 no-replay record is the existing Process-v2 append-only
+global registry under `workspace/private/consumed-candidate-registry-v1`, not
+the recreatable local B0-compatible recovery projection. Its 53,811-byte source
+SHA-256 is
+`0a112d7dd2633d3465137cdb67ed4539949a3c0c0ec90b178a3ec293735dbdc4`;
+its immutable 21,276-byte activation SHA-256 is
+`aa50c211ee86d4b1534399c6d9fd82d4de3550856724e5788d693b012bce471b`.
+Prepare fails closed before target contact when that authority is missing,
+indirect, corrupt, or already contains the physical-target/candidate identity.
+An intent precedes the append-only global claim. A cut after that append may
+reconstruct only its exact same-run local recovery projection; it never appends
+a second claim or authorizes a candidate replay. Registry failure before the
+existing P0 claim intent remains a stop. If registry chain readability is lost
+after that durable intent or its local claim receipt, the exact guarded run may
+publish only a consumed-uncertain recovery receipt, reconstruct its local
+rollback projection, and continue journal-derived rollback/health; it may not
+invoke the candidate or wait for registry repair. The sole append-only release
+requires the reopened raw candidate result to derive exact
+`odin_local_parse_failure`, with no device session and no partition transfer.
+Release intent precedes the registry release. Only afterward may the owner
+remove the verified same-run local projection; that run remains non-replayable.
+The normal global-claim receipt and consumed-uncertain receipt are mutually
+exclusive; simultaneous, duplicate, or contradictory state is malformed and
+stops before any backend.
+
+Every connected prepare, execute, resume, physical-rollback, final-health, and
+pre-candidate-abort entrypoint first acquires the fixed Process-v2 nonblocking
+`target-session.lock` lease and holds its open descriptor through that
+invocation. Every nested call revalidates an internally issued opaque lease,
+that descriptor, the direct lock path/inode/mode/link count, and fixed payload.
+The sentinel, ContextVar, lease/mutation types, and issuers remain
+closure-private; a caller-created boolean, token, context, dictionary, or
+module global grants nothing. The private engine graph's direct command, ADB,
+USB, Odin, transfer, recovery, raw-stream and journal publication,
+registry-mutation, cgroup-control, shared-guard read/write, evidence, and
+observer-live calls additionally
+require P0 activation and the leased dispatcher. Registry append/head writes
+also require the exact closure-private claim-or-release grant. Direct
+calls therefore gain no target contact or mutation while dormant and cannot
+bypass the lease after activation.
+
+The only candidate AP is 25,733,161 bytes at SHA-256
+`2c7b1563e7d340cbe0b1ef16dcc09fe828e1a24237a18c93382b5f61bf0c4cc6`.
+It contains exactly one regular `boot.img.lz4`, 25,722,068 bytes at SHA-256
+`09262d23d1b3925f946b7e249ef2f3a8d72745e00fb0ae98f23786a826afb57b`;
+the decoded 67,108,864-byte boot image SHA-256 is
+`de889ff6256950b98ad8898f4d646f2229cb41a3d1a42d22af608e72161cbf01`.
+Its 3,584-byte freestanding `/init` executes raw `getpid` as its first syscall,
+parks unless the return is exactly one, mounts only volatile kernel
+filesystems, creates one ACM function, and emits only the exact 52-byte banner
+whose SHA-256 is
+`e9ed7e002f060e7ab46a554c2b7d76d5652127d4dbf9a43312277b28bac4522a`.
+It has no reboot, block-device, persistent-mount, storage-function, network,
+module, Android, Magisk, exec, or clone path.
+
+The fixed rollback is the already demonstrated resident-Magisk boot AP,
+25,835,561 bytes at SHA-256
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Its sole `boot.img.lz4` and decoded boot identities remain exactly those bound
+by B0. Candidate intent makes this rollback mandatory regardless of proof,
+timeout, malformed observation, or host reporting loss. Candidate and rollback
+each have one attempt and never replay. Recovery, vendor_boot, DTBO, vbmeta*,
+userdata, EFS, persist, super, misc, and every other partition remain outside
+the lane.
+
+Before allocating a cgroup for a candidate, rollback, payload-free return, or
+Odin no-payload listing, the owner publishes a typed P0 cage-prepare intent.
+Each bounded generation includes the exact effect binding, run, host boot,
+parent identity, direct derived path, allocated cage identity, and bound
+receipt before its effect intent. If a cut leaves a prepare record without an
+effect intent, leased recovery verifies and removes only that empty exact cage,
+publishes no-backend-replay reconciliation, and may allocate a later host-only
+generation. It never reuses or overwrites the old generation. The listing lane
+also journals exact `odin4 -l` no-payload intent, raw result, descendant
+quiescence, and removal. A populated transfer cage, replaced/foreign path,
+generation gap, or ambiguous lineage stops. P0-aware replacements for the
+inherited B0 cage-binding and quiescence validators accept only the exact
+generation-bound P0 candidate, rollback, or abort-return identity and preserve
+the standard B0 quiescence schema. Reconciled generations remain cross-bound
+to the exact effect, and exactly one generation may own that effect.
+
+Immediately before the global candidate claim, the owner revalidates the exact
+prepared Download session, maps its bound USBFS bus/device to one sysfs USB
+node, proves that node's `usb:<node>` hash equals the prepared topology, and
+publishes a private no-clobber P0-identity-absent baseline. It then completes
+and journals non-effect candidate preflight: exact Odin/AP/shell pins,
+boot-only membership, endpoint identity, and one empty bound process cage.
+Only afterward may it publish global-claim intent and append the claim. On every pre-claim
+cut continuation it freshly repeats the Download session, USBFS-to-sysfs
+mapping, topology, and P0-identity-absence reads before the global claim. The
+raw node name is not persisted. Only after that durable baseline may the global
+P0 candidate claim and candidate intent exist. A cut after preflight but before
+claim reconciles the host-only cage and permits only pre-candidate abort; it
+does not reuse the approval. A cut after claim but before candidate intent is
+consumed-uncertain and can synthesize only no-backend candidate state followed
+by mandatory recovery.
+
+After a possible candidate transfer, the observer accepts only one
+`04e8:6861` endpoint on the prepared physical topology with manufacturer
+`Samsung`, product `S20Plus-P0-PID1`, no serial descriptor, one `cdc_acm`
+interface zero, a dynamically discovered `ttyACM<n>` character node, and the
+exact banner. It opens that node no-follow/exclusive, binds its rdev before and
+after the read, and repeats USB identity after the read. The actual 52 bytes
+are published first as one atomic no-clobber mode-`0400` private raw file. The
+structured observation binds and reopens that file's size/SHA plus the hashed
+endpoint identity and descriptor rdev. Only this exact raw-derived receipt may
+set `pid1_exact=true` and `claim_verdict=PROVED`; every inherited B0 environment
+is restricted to `NO_PROOF`. Absence,
+pending enumeration, ambiguity, conflicting identity, foreign topology,
+banner mismatch, or timeout is `NO_PROOF`; none permits replay. A positive
+banner still does not close F1 until one resident rollback transfer and fresh
+exact rooted-Android health both pass.
+
+The expected live sequence is one fresh healthy rooted-Android prepare, one
+causal Download arrival, one short-lived approval beginning
+`S20PLUS-G986N-P0-PID1-ODIN-F1-APPROVE:`, one candidate attempt, one bounded
+ACM observation, attended physical Download fallback, one resident rollback,
+and final health. The operator confirmation prefix is
+`S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-CONFIRM:`. Foreign ADB rows may remain but
+receive zero commands; a second matching S20+ row or identity drift stops.
+
+Activation remains blocked until the exact owner, observer activation,
+focused and inherited B0 tests, this target section, common/risk/Process-v2
+interactions, physical recovery flow, and complete execution-critical closure
+receive independent `PASS_GO`, followed by a separately reviewed mechanical
+activation changing the owner/observer booleans, exact identities, this status,
+the single S20+ registry cell, and goal/report wording only. The reviewed tests
+remain byte-identical and must be rerun after that status-only activation.
+Boolean activation alone remains inert. Runtime first requires a
+direct mode-`0400` private zero-finding review record binding the exact dormant
+normalized owner/observer, policies including the current goal, tests, engine,
+and registry. A second direct mode-`0400` record must bind the allowlisted
+dormant-to-active file receipts, exact semantic transitions, the first record,
+and a separate zero-finding review of that mechanical diff. The final direct
+mode-`0400` live activation record binds both records plus the current owner,
+observer, engine, registry and activation, repository/target/risk/Process-v2
+contracts, goal, qualification report, and focused tests. A stale, partial,
+missing, indirect, semantically inactive, or contradictory record grants
+nothing. Even after activation, each run
+requires a new connected prepare, its emitted exact approval, and attendance.
+This dormant definition creates no preparation, approval, target contact,
+reboot, mode transition, USB open, Odin invocation, candidate claim, transfer,
+or live PID1 result.
+
+The first independent hostile review returned `NO_GO`, HIGH/MEDIUM/LOW
+`2/4/2`, for dormant-helper bypass, non-durable local no-replay authority,
+inherited positive observations, stale baseline reuse, non-raw ACM proof,
+incomplete predecessor/profile closure, activation overreporting, and stale
+TWRP-sibling status. A second read-only hostile review of those corrected bytes
+returned `NO_GO`, HIGH/MEDIUM/LOW `2/2/2`, for remaining inherited direct-call
+bypasses, registry-loss recovery blockage, missing exact local-parse release,
+missing target-session lease, an unjournaled process-cage allocation cut, and
+the mislabeled local projection. A third read-only hostile review returned
+`NO_GO`, HIGH/MEDIUM/LOW `4/3/0`, for registry-first recovery stranding,
+forgeable lease context, directly exposed dependency effects, global claim
+before complete transfer preflight, an unjournaled Odin-listing cage,
+boolean-only activation, and contradictory global receipt states. A fourth
+read-only hostile review returned `NO_GO`, HIGH/MEDIUM/LOW `4/4/0`, for
+P0/B0 cage-validator incompatibility, module-accessible lease and registry
+mutation capabilities, exposed raw/journal writers, activation not binding the
+goal or dedicated review/mechanical records, dormant root creation, ungated
+shared-guard reads, and reconciled cage cross-binding loss. The current
+bytes then received a fifth read-only hostile `NO_GO`, HIGH/MEDIUM/LOW
+`1/2/0`, because free substring status markers could be relocated into
+comments or history, a raw capture writer could retain open descriptors beyond
+its lease, cage prepare accepted parent traversal, and bound-cage validation
+did not validate the complete nested identity. The fifth correction uses
+unique structurally anchored authoritative status fields; a second
+closure-private short-lived raw-acquisition capability that never returns the
+writer; complete parent and nested-cage validation; and additional fences for
+the inherited inventory entrypoints, local candidate-claim writer, and direct
+cgroup/sysfs identity readers. A sixth read-only hostile review returned
+`NO_GO`, HIGH/MEDIUM/LOW `5/0/0`, challenging closure introspection, generic
+leased arguments, raw-writer method lifetime, Markdown status placement, and
+stale activation-policy binding. The first two claims require a malicious
+same-UID Python runtime owner excluded by the risk-tier threat model; the
+ordinary surface is nevertheless narrowed to fixed target serial and
+journal-bound ADB/Odin command forms, with unused inherited helpers denied.
+The raw writer is now an acquisition-bound proxy that closes any unfinished
+descriptor before its grant ends. Active document semantics exclude comments
+and code fences and bind exact heading/status positions plus the complete
+registry row. Every changing document has an activation-normalized receipt,
+and the mechanical record binds their equality, an exact replacement
+allowlist, and the full semantic transition; unchanged policy and tests remain
+full-byte equal. The current 60-test owner implements all corrections
+described above and passes a 134-test core plus 164-test wider
+retained suite with ten historical skips. Its host closure SHA-256 is
+`f3973892c10b96d4c9e1404fdcceb128695de9c6570aef268c18fe1ad3c9f129`.
+The sixth-round corrections remain exact-byte review-pending and create no
+preparation, approval, claim, target contact, or live authority.
+
+The sixth-round exact closure subsequently received a seventh read-only
+hostile `PASS_GO`, HIGH/MEDIUM/LOW `0/0/0`, with zero device contacts and zero
+writes. A pre-activation consistency audit then found the focused P0 tests
+still assumed false module booleans, so their full-byte equality would conflict
+with mechanical activation. Its exact private seventh-review record was
+retired before any activation atom or device authority. The follow-on dormant
+baseline makes dormant assertions explicit local false-state tests, permits
+the same test bytes to validate either reviewed activation state, and gives the
+standalone observer an active-component status without standalone live
+authority. This source/test closure must receive a fresh exact independent
+review before its zero-finding record or mechanical activation.
+
+That follow-on review returned `NO_GO`, CRITICAL/MAJOR/MINOR `1/3/2`, for an
+ADB environment/server-ownership gap, dormant-only observer pinning, a loose
+review-test receipt, ambient partial-activation state, a non-unique observer
+activation atom, and inaccurate unchanged-test wording. The current owner uses
+one transaction-private pinned ADB server with an internal random localabstract
+socket, exact peer/process validation, and one closed environment shared by
+structured and raw ADB paths. It binds the observer's exact dormant/active pair
+through one normalized identity and requires exact fixed raw test terminals.
+The negative tests now set their state explicitly and require exactly one
+activation atom; test bytes remain unchanged during future activation.
+
+The same validation exposed host mount `st_dev` drift in both global-registry
+lock identities while every other lock field, all six records, the chain/head,
+and legacy deny list remained exact. An independently reviewed H0 one-shot
+repair changed only those two activation fields, preserved the exact old
+activation as its rollback backup, and closed with private durable intent and
+result. Its first exchange safely rolled back after an `atime`-sensitive reader
+false positive; the narrowed reader correction retained every stable identity
+field, passed a second 0/0/0 independent review, and then completed. The global
+registry activation is now the exact SHA-256 bound above. Candidate replay
+remains false, and the repair made zero device contacts and zero record
+mutations. Current focused owner/observer tests pass 60/60 and 10/10; the core
+passes 134/134 and the wider retained suite passes 164 with ten historical
+skips. The corrected exact closure still requires a fresh final independent
+review before its zero-finding record or mechanical activation.
+
+A ninth full-closure review returned `NO_GO`, HIGH/MEDIUM/LOW `1/0/0`: one
+owner test still constructed only the dormant observer and the activation
+records could reuse the dormant raw test logs after changing the authority
+atoms. The current test derives and verifies both exact observer byte forms
+from either current atom. The mechanical activation record now additionally
+binds one separate active-state test closure and a distinct mode-`0400` active
+raw-log namespace with the exact 10/60/164 counts and ten skips. Missing,
+stale, dormant, extra, malformed, or closure-mismatched active logs leave the
+mechanical and live activation records invalid. This correction remains H0
+and requires fresh final review; it creates no connected authority.
+
+The first inert six-atom activation trial then stopped during owner import,
+before any test backend or target contact, because replacing `False` with
+`True` makes the exact observer one byte shorter while the loader still
+required the dormant size. All six atoms were returned to dormant, and the
+superseded zero-finding record was retained outside the live namespace. The
+current activation pair binds dormant size 16,487 and active size 16,486
+separately before checking their respective full hashes and shared normalized
+hash. The focused test now loads an actual generated active observer through
+the production normalized loader, so this size/atom mismatch is a regression
+failure. These corrected dormant bytes require a new exact review and new
+zero-finding record; no active or device authority survived the stopped trial.
+
+A subsequent exact review returned `PASS_GO` at 0/0/0 and a new dormant
+zero-finding record was published. The second inert activation reached the
+active owner suite, where one of 60 tests failed because the document-
+normalization test still treated the current files as necessarily dormant.
+The six atoms were again returned to dormant before any ADB, USB, Odin, reboot,
+claim, or transfer, and both the superseded review record and partial active
+logs were retained outside the live namespace. The corrected test now parses
+the current authoritative semantics, constructs both exact dormant and active
+document sets from that state, and compares their normalized receipts. This
+test-only correction requires a fresh exact review and record sequence.
+
+The next inert activation passed the focused observer and owner suites, then
+the wider suite stopped because the expired TWRP-owner regression expected the
+target-contract mismatch even though the allowlisted repository-registry atom
+is checked first. The legacy owner still failed closed correctly; only its
+error-order assertion was state-dependent. All six atoms were restored before
+any device contact. The regression now accepts either exact repository- or
+target-contract identity rejection and continues to require the qualification-
+expiry report. These test/report bytes require a fresh exact review.
 
 ## Bounded autonomous research session
 

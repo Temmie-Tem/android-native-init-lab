@@ -6,7 +6,18 @@ Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
 Tier: H0 only
 
-Status: `H0_DESIGN_PASS_GO_NOT_ACTIVE`
+Status: `H0_DESIGN_PASS_GO_EXPIRED_BY_TARGET_CONTRACT_DRIFT_NOT_ACTIVE`
+
+Current note: the later P0 Odin owner amendment changed the binding S20+
+target-contract bytes. The render-only TWRP owner intentionally retains its
+older exact contract pin and therefore now fails closed. Its historical review
+remains evidence for the old closure only; it is not a current qualification or
+live authority. The 12,614-byte current regression test at SHA-256
+`ef38626fdc5118e0d5eafb58049dd61a723f61391e55c8bfc9eb29e22d5c02a7`
+preserves the ten old exact-closure cases as explicit historical skips and
+passes two current checks: render fails on the changed repository- or target-
+contract identity and
+the report states the qualification expiry.
 
 ## Outcome
 
@@ -181,19 +192,21 @@ The independently reviewed public identities are:
 The owner binding SHA-256 is
 `695cd96cd2d5b4caeb5ae48b4963172e885839ff6239935f29b937f07fde00a1`.
 
-Independent hostile review returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+Independent hostile review historically returned `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0` for the then-exact closure.
 It confirmed the direct-PID1 structure, byte-exact non-init ramdisk closure,
 observer attribution, retained-T2 boundary, structured activation blockers,
 and absence of a connected command surface. A final delta review of the
 physical no-hook System/direct-Recovery qualification also returned `PASS_GO`
 with `0/0/0` and exact supplied identities.
 
-The strongest truthful status is therefore:
+After the later target-contract drift, the strongest truthful current status is:
 
-`H0_DESIGN_PASS_GO_NOT_ACTIVE`
+`H0_DESIGN_PASS_GO_EXPIRED_BY_TARGET_CONTRACT_DRIFT_NOT_ACTIVE`
 
-This qualifies only the host design. It does not retire any activation blocker,
-prepare a run, create an approval, or authorize a connected action.
+The old result documents a host design but no longer qualifies current bytes.
+It does not retire any activation blocker, prepare a run, create an approval,
+or authorize a connected action.
 
 ## Claim boundary
 

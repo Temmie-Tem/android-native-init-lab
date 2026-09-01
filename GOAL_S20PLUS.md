@@ -840,59 +840,61 @@ activation are supplied by the bounded activation below. The first runtime
 transfer is now attributed, but its B0 claim remains `NO_PROOF` and mandatory
 resident recovery remains open as recorded below.
 
-The exact dormant B0 F1 owner remains historically H0-qualified at 48/48 with
-independent `PASS_GO_H0` and HIGH/MEDIUM/LOW `0/0/0`. The binding activation
-changes only its reviewed status/identity closure: the active owner
-is 218,203 bytes at SHA-256
-`80d961e06c03f4d092efb65ba92f142ec1061227bab55d19068b1b623a69a8ad`,
-with normalized SHA-256
-`cdd34821dbc2b555ccb9ce8f14dbeb6dd0ff2baa9af50deb46708684c9167788`;
-the 48,102-byte focused test has SHA-256
-`872895bfd12277dc35c05c34fa5b2d0105e84df2e640bde1bf52f3a01b14a588`.
-The complete activation diff received independent `PASS_GO` with
-HIGH/MEDIUM/LOW `0/0/0` and becomes live-capable only in its scoped commit.
-Activation itself creates no run or approval: a fresh connected prepare and
-that run's exact emitted attended approval remain mandatory before candidate
-transfer.
+The consumed B0 run is terminal
+`NO_PROOF_B0_RETURNED_RESIDENT_HEALTHY`: candidate/rollback attempts are 1/1,
+resident rollback and fresh rooted health are proved, both replays are false,
+the shared guard is released, and its global candidate claim remains consumed.
+Its detailed revision and incident history remains in the binding target
+contract and named reports rather than this current-state goal.
 
-Two post-activation v1 prepare invocations encountered the expected two-device
-ADB inventory and stopped before selecting a target or publishing any record.
-Both private run directories are empty; the shared guard and global candidate
-claim are absent, and root reads, reboot/Download intents, Odin, and partition
-writes remain zero. The active v2 owner permits foreign ADB rows while
-requiring exactly one `SM_G986N` row with exact y2q metadata, uses that row's
-serial selector for every target command, and rejects a second matching row,
-state/metadata/serial drift, or any selected S20+ presence in the pre-transfer
-Download baseline. Foreign rows are retained only as bounded sanitized
-inventory evidence and receive zero commands. The v2 owner is 222,832
-bytes at SHA-256
-`0246014e50b1ff509568ee019f36680694e3a87644ccca8c340767b3dd75445d`,
-normalized SHA-256
-`e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40`;
-its 58,443-byte test is
-`8a7425b8d63582cda62e55a82c7e2b300990af0fe5809e7e24c5f33f33fb3741`
-at 54/54. The complete revision received independent `PASS_GO` with
-HIGH/MEDIUM/LOW `0/0/0` and was committed as `60f3f9f11a`.
+## Current P0 PID1 Odin F1 state
 
-The first v2 run then completed one attributed candidate transfer; candidate
-observation found no ADB or Download arrival, so the B0 claim is `NO_PROOF` and
-candidate replay is forbidden. The operator subsequently reported normal boot
-with no bootloop; that is supportive only and does not replace exact
-target/root/current-boot health or mandatory rollback proof. The first
-physical-rollback arm stopped before any device command on a host-only
-`RawCaptureHandle.argv0_name` parser mismatch.
-The recovery patch re-derives that already-validated field from the exact
-durable receipt and allows the prepared v2 normalized identity only for
-rollback/health after candidate intent. Its current-journal host parse passes,
-and exact candidate-phase parsing rejects the predecessor. The 224,559-byte
-owner and 60,003-byte 56-test closure received independent `PASS_GO` with
-HIGH/MEDIUM/LOW `0/0/0` and were committed as `cf8bc38a98`.
+Status: `P0_PID1_ODIN_F1_ACTIVE_ATTENDED`
 
-The repaired physical arm then consumed the exact attended confirmation,
-bound the S20+ Download arrival, transferred the resident rollback exactly
-once, and proved fresh exact rooted resident health. Terminal is
-`NO_PROOF_B0_RETURNED_RESIDENT_HEALTHY`: candidate and rollback attempts are
-1/1, rollback transfer is proved complete, B0 experiment pass is false,
-recovery-partition read/write/transfer and other-target commands are all zero,
-and both replays remain forbidden. The shared guard is released; the consumed
-global candidate claim is retained permanently.
+The P0 PID1 Odin owner is implemented but dormant. It exact-loads the reviewed
+B0 engine in an isolated module instance, substitutes only the exact P0
+one-member boot AP and ACM observer, preserves mandatory resident rollback,
+and leaves ordinary B0 code and journals untouched. Its first independent
+review returned `NO_GO` at 2/4/2 and the corrected bytes received a second
+`NO_GO` at 2/2/2; a third exact-byte review returned `NO_GO` at 4/3/0 and a
+fourth returned `NO_GO` at 4/4/0. A fifth review returned `NO_GO` at 1/2/0 for
+unanchored activation markers, raw-writer lifetime, and incomplete cage path
+and nested-identity validation. A sixth review returned `NO_GO` at 5/0/0 for
+closure-reflection and generic leased-argument concerns, raw-writer method
+lifetime, hidden Markdown status placement, and stale activation binding. The
+same-UID reflection premise is outside the repository threat model; the
+ordinary surface was still narrowed to exact serial and journal-bound command
+forms, unused helpers were denied, raw writers became acquisition-bound
+proxies, and activation documents gained structural parsing plus normalized
+before/after receipts. Those bytes received a seventh exact read-only
+`PASS_GO` at 0/0/0. A pre-activation test-state audit retired that review
+record before authority. The activation-neutral follow-up then returned
+`NO_GO` at 1/3/2 for caller-influenced ADB ownership, dormant-only observer
+pinning, loose test receipts, ambient negative-test state, and stale wording.
+The current correction owns a transaction-private ADB server and closed
+environment, binds both observer atoms and their 16,487/16,486-byte sizes through one normalized identity, and
+requires distinct dormant/active raw test terminals. A host-mount `st_dev` rotation was repaired
+H0-only after an independent 0/0/0 review without changing records or replay
+state. Later inert activation trials fixed the observer size pair, one active-only
+normalization assumption, and one legacy rejection-order assertion. Final review remains. The current dormant owner exact-loads the B0
+dependency graph without changing ordinary B0; gates command, transport, raw
+and journal writers, shared guards, observer, cgroup, and registry mutation
+behind a closure-private open-FD target-session capability; uses the append-only global
+candidate registry with local-boundary-first consumed-uncertain recovery and
+the raw-proved local-parse release; completes exact transfer preflight before
+the global claim; journals bounded transfer/abort/listing cage generations and
+replaces inherited cage validation with the exact P0 generation grammar;
+requires dedicated zero-finding, mechanical-diff, and final activation records
+binding structurally anchored authoritative goal/policy/report status fields
+and tests in addition to future booleans; gives raw acquisition a second
+short-lived closure-private capability that returns no writer; validates the
+complete direct cage path and nested identity; fences inherited inventory,
+local claim, and cgroup/sysfs bypasses; rejects
+contradictory global states; freshly revalidates the
+pre-claim USB baseline; persists/reopens the raw 52-byte ACM banner; rejects
+inherited B0 positive claims; and removes B0 recovery predecessors. The
+candidate's first runtime syscall remains raw `getpid`; only return value one
+reaches that banner. The 60-test focused, 134-test core, and 164-test wider host
+closures pass, but final exact-byte re-review, mechanical activation, a fresh healthy-Android
+preparation, its exact returned approval, and attendance remain required
+before any device command or live PID1 claim.

@@ -31,6 +31,7 @@ def load_module():
     return module
 
 
+@unittest.skip("historical exact closure expired after the P0 Odin contract amendment")
 class S20PlusP0TwrpBootOwnerH0Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -288,6 +289,32 @@ class S20PlusP0TwrpBootOwnerH0Test(unittest.TestCase):
             with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
                 with mock.patch.object(sys, "argv", [str(SCRIPT)]):
                     self.module.main()
+
+
+class S20PlusP0TwrpBootOwnerExpiredClosureTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.module = load_module()
+
+    def test_current_activation_policy_drift_fails_closed(self):
+        with self.assertRaisesRegex(
+            self.module.OwnerDesignError,
+            "(?:repository_contract|target_contract) identity differs",
+        ):
+            self.module.render_plan()
+
+    def test_current_report_marks_historical_pass_go_expired(self):
+        report = (
+            ROOT
+            / "docs/reports/"
+            "S20PLUS_G986N_P0_PID1_TWRP_BOOT_OWNER_H0_2026-09-01.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "H0_DESIGN_PASS_GO_EXPIRED_BY_TARGET_CONTRACT_DRIFT_NOT_ACTIVE",
+            report,
+        )
+        self.assertIn("historical review", report)
+        self.assertIn("remains evidence for the old closure only", report)
 
 
 if __name__ == "__main__":

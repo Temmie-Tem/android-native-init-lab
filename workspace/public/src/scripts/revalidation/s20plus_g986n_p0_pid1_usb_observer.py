@@ -22,7 +22,7 @@ from typing import Any, Callable
 SCHEMA = "s20plus_g986n_p0_pid1_usb_observer_v1"
 BASELINE_SCHEMA = "s20plus_g986n_p0_pid1_usb_baseline_v1"
 RECEIPT_SCHEMA = "s20plus_g986n_p0_pid1_usb_receipt_v1"
-OBSERVER_ACTIVE = False
+OBSERVER_ACTIVE = True
 
 USB_VENDOR = "04e8"
 USB_PRODUCT = "6861"
@@ -493,7 +493,11 @@ def render_plan() -> dict[str, Any]:
         "device_commands": [],
         "device_writes": [],
         "partition_transfers": [],
-        "status": "REVIEW_PENDING_NOT_ACTIVE",
+        "status": (
+            "BOUND_COMPONENT_ACTIVE_NO_STANDALONE_AUTHORITY"
+            if OBSERVER_ACTIVE
+            else "REVIEW_PENDING_NOT_ACTIVE"
+        ),
     }
 
 

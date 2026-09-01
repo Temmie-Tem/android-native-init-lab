@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 import pty
+import re
 import sys
 import tempfile
 import threading
@@ -107,7 +108,8 @@ class S20PlusP0Pid1UsbObserverTest(unittest.TestCase):
         return self.module.baseline_value(usb_node)
 
     def test_plan_is_dormant_and_has_no_device_action_surface(self):
-        plan = self.module.render_plan()
+        with mock.patch.object(self.module, "OBSERVER_ACTIVE", False):
+            plan = self.module.render_plan()
         self.assertFalse(plan["active"])
         self.assertFalse(plan["live_authority"])
         self.assertEqual(plan["status"], "REVIEW_PENDING_NOT_ACTIVE")
@@ -119,6 +121,8 @@ class S20PlusP0Pid1UsbObserverTest(unittest.TestCase):
 
     def test_dormant_gate_stops_before_inventory(self):
         with mock.patch.object(
+            self.module, "OBSERVER_ACTIVE", False
+        ), mock.patch.object(
             self.module,
             "scan_inventory",
             side_effect=AssertionError("live sysfs must not be read"),
@@ -304,7 +308,10 @@ class S20PlusP0Pid1UsbObserverTest(unittest.TestCase):
             "os.O_WRONLY",
         ):
             self.assertNotIn(forbidden, source)
-        self.assertIn("OBSERVER_ACTIVE = False", source)
+        self.assertEqual(
+            re.findall(r"(?m)^OBSERVER_ACTIVE = (?:False|True)$", source),
+            [f"OBSERVER_ACTIVE = {self.module.OBSERVER_ACTIVE}"],
+        )
 
 
 if __name__ == "__main__":
