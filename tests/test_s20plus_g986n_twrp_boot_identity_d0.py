@@ -134,11 +134,23 @@ class S20PlusTwrpBootIdentityD0Test(unittest.TestCase):
 
         return command, calls
 
-    def test_plan_is_dormant_and_has_zero_effect_limits(self):
+    def test_plan_matches_activation_state_and_has_zero_effect_limits(self):
         plan = self.module.render_plan()
-        self.assertFalse(plan["active"])
-        self.assertFalse(plan["live_authority"])
-        self.assertEqual(plan["status"], "H0_REVIEW_PENDING_NOT_ACTIVE")
+        self.assertEqual(
+            plan["active"], self.module.ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE
+        )
+        self.assertEqual(
+            plan["live_authority"],
+            self.module.ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE,
+        )
+        self.assertEqual(
+            plan["status"],
+            (
+                "BINDING_ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE"
+                if self.module.ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE
+                else "H0_REVIEW_PENDING_NOT_ACTIVE"
+            ),
+        )
         self.assertEqual(plan["target"], self.module.TARGET)
         self.assertEqual(len(plan["connected_commands"]), 7)
         self.assertFalse(plan["grants_f1"])
@@ -155,25 +167,44 @@ class S20PlusTwrpBootIdentityD0Test(unittest.TestCase):
         ):
             self.assertEqual(plan["limits"][key], 0, key)
 
-    def test_dormant_connected_gate_stops_before_closure_or_command(self):
+    def test_activation_gate_stops_dormant_and_validates_active_closure(self):
         with mock.patch.object(
+            self.module,
+            "ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE",
+            False,
+        ), mock.patch.object(
             self.module,
             "validate_host_closure",
             side_effect=AssertionError("dormant gate must stop first"),
-        ), mock.patch.object(
-            self.module.base,
-            "bounded_command",
-            side_effect=AssertionError("no device command permitted"),
         ):
             with self.assertRaisesRegex(self.module.AuditError, "dormant"):
-                self.module.run_connected()
+                self.module.require_active()
+
+        with mock.patch.object(
+            self.module,
+            "ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE",
+            True,
+        ), mock.patch.object(
+            self.module, "validate_host_closure"
+        ) as validate_host_closure:
+            self.module.require_active()
+            validate_host_closure.assert_called_once_with(enforce_self=True)
 
     def test_activation_normalization_is_boolean_and_expected_hash_independent(self):
         baseline = self.module.normalized_self_sha256()
         source = SCRIPT.read_text(encoding="utf-8")
+        current = (
+            "ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE = "
+            f"{self.module.ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE}"
+        )
+        opposite = (
+            "ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE = "
+            f"{not self.module.ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE}"
+        )
         mutated = source.replace(
-            "ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE = False",
-            "ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE = True",
+            current,
+            opposite,
+            1,
         ).replace(
             self.module.EXPECTED_REVIEWED_NORMALIZED_SHA256,
             "f" * 64,

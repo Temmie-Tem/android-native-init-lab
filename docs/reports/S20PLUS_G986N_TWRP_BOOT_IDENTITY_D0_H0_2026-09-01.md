@@ -4,11 +4,11 @@ Date: 2026-09-01
 
 Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
-Status: `H0_PASS_GO_NOT_ACTIVE`
+Status: `BINDING_ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE`
 
 ## Outcome
 
-A fixed-input attended D0 runner is implemented but dormant. Its future sole
+A fixed-input attended D0 runner is reviewed and active. Its sole
 connected purpose is to bind the S20+ `boot` partition's direct device path,
 major/minor, `PARTNAME`, partition number, and exact size while the already
 retained T2 recovery is running.
@@ -20,7 +20,7 @@ invocation, or transfer. This H0 unit contacted no device.
 
 ## Exact predecessor
 
-Before a future first ADB command, the runner revalidates the complete retained
+Before each first ADB command, the runner revalidates the complete retained
 T2 run using the committed T2 owner. It requires all 43 journal nodes, the
 exact 1,911-byte terminal at SHA-256
 `da24acd3b33c78f4ed41565858e5314bb2c3a1acaf020ac06fb83fd99ab84d05`,
@@ -112,12 +112,14 @@ install, backup, restore, or replay authority.
 
 ## H0 validation
 
-The dormant runner is 29,864 bytes at SHA-256
+The reviewed dormant runner was 29,864 bytes at SHA-256
 `428899d373fce632337f4b552a62e3e593e7f6440fe6f4724322b2a9fd65e013`.
+The mechanically activated runner is 29,863 bytes at SHA-256
+`a71db531a25778b2dbd38c0b05b897dac33a7cc2f7eef51ba59edd899f9ecec6`.
 Its activation-normalized SHA-256 is
 `abd40c644e5bbbac8da743bee8e94e427730dca252bfadcbf39f6beb71b7bdfb`.
-The 20,252-byte focused test is SHA-256
-`96c31541910b111760a9148055943b2e4044902009cc394350eb0cdfbe56f7c3`.
+The mechanically activated 21,208-byte focused test is SHA-256
+`5f895be987466257a88c59cec980a329aa1027e90b1ba018325b98fe2b6aad1d`.
 
 Focused tests pass 15/15. They cover the dormant gate, complete current T2
 journal, exact fake two-device selection, foreign-device isolation, all field
@@ -128,12 +130,15 @@ normalization. `py_compile` and `git diff --check` pass.
 
 Independent hostile review returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
 The exact T2-ramdisk command/boot-flag test delta received the same `0/0/0`
-result. Target-contract activation is still absent; until it closes,
-`--connected` stops before closure validation or any ADB command.
+result. Mechanical activation changed only the reviewed boolean,
+activation-state test assertions, and target-contract status/full-hash wording.
+The normalized identity and command surface are unchanged. Activation creates
+no invocation or standing authority. Independent review of that exact
+activation delta returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
 
 ## Next gate
 
-The remaining step is a mechanical activation changing only the reviewed
-boolean and binding documentation, followed by exact-delta re-review. Even a
-successful D0 result will return to H0 review before any identical-resident
-write qualification is designed.
+The remaining step is one attended `--connected` invocation under the current
+direct operator request, followed by exact result review. Even a successful D0
+result will return to H0 review before any identical-resident write
+qualification is designed.

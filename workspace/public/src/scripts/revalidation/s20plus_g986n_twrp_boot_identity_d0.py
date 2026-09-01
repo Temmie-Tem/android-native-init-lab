@@ -28,7 +28,7 @@ SCRIPT = Path(__file__).resolve()
 VERSION = "s20plus-g986n-twrp-boot-identity-d0-v1"
 SCHEMA = "s20plus_g986n_twrp_boot_identity_d0_result_v1"
 PLAN_SCHEMA = "s20plus_g986n_twrp_boot_identity_d0_plan_v1"
-ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE = False
+ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE = True
 EXPECTED_REVIEWED_NORMALIZED_SHA256 = "abd40c644e5bbbac8da743bee8e94e427730dca252bfadcbf39f6beb71b7bdfb"
 
 TARGET = {

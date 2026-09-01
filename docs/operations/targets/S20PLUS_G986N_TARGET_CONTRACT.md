@@ -1,6 +1,6 @@
 # S20+ G986N Binding Target Contract
 
-Status: **BINDING - ROUTINE D0/D1, ATTENDED ROOT-HEALTH D0, P0 ABORT, ATTENDED F1/F2, AND ATTENDED R1 ACTIVE**
+Status: **BINDING - ROUTINE D0/D1, ATTENDED ROOT-HEALTH AND TWRP BOOT-IDENTITY D0, P0 ABORT, ATTENDED F1/F2, AND ATTENDED R1 ACTIVE**
 
 This is the binding target contract for the operator-owned Samsung Galaxy S20+
 5G `SM-G986N` / `y2q` / `G986NKSS8IYC2`, listed in the binding target registry
@@ -9,7 +9,8 @@ The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
 removing, rotating, or reusing that onboarding guard. The exact routine D1 and
 attended boot-only F1 and attended native-canary R1 are reviewed and active.
-The exact attended root-health D0 remains active. Recovery-canary T0 and TWRP
+The exact attended root-health and TWRP boot-identity D0 lanes are active.
+Recovery-canary T0 and TWRP
 T1 owners retain only their consumed-candidate journals and terminal paths;
 TWRP T2 recovery is retained and its candidate is consumed; its owner remains
 active only for journal validation and terminal re-emission.
@@ -872,28 +873,28 @@ arbitrary ADB authority.
 
 ## TWRP boot-identity metadata D0
 
-Status: **DEFINED - NOT ACTIVE**
+Status: **BINDING - ATTENDED TWRP BOOT-IDENTITY D0 ACTIVE**
 
-This section defines one future attended read-only D0 for the exact retained
+This section activates one attended read-only D0 for the exact retained
 T2 recovery on the operator-owned
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. It does not extend the consumed T2 F2
 owner or inherit any T2 command, transfer, UI, terminal, mount, format,
 install, backup, restore, or block-write authority.
 
-The dormant implementation is
+The active implementation is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_boot_identity_d0.py`,
-29,864 bytes at SHA-256
-`428899d373fce632337f4b552a62e3e593e7f6440fe6f4724322b2a9fd65e013`.
+29,863 bytes at SHA-256
+`a71db531a25778b2dbd38c0b05b897dac33a7cc2f7eef51ba59edd899f9ecec6`.
 Its activation-normalized SHA-256 is
 `abd40c644e5bbbac8da743bee8e94e427730dca252bfadcbf39f6beb71b7bdfb`,
-and `ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE=false`. Its 20,252-byte focused
+and `ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE=true`. Its 21,208-byte focused
 test is SHA-256
-`96c31541910b111760a9148055943b2e4044902009cc394350eb0cdfbe56f7c3`.
-The only CLI modes are host-only `--render-plan` and the dormant
-`--connected` entrypoint. While dormant, `--connected` stops before source
-closure validation, ADB inventory, target selection, or a device command.
+`5f895be987466257a88c59cec980a329aa1027e90b1ba018325b98fe2b6aad1d`.
+The only CLI modes are host-only `--render-plan` and one attended
+`--connected` entrypoint. A fresh direct operator request authorizes exactly
+one invocation; it is not standing or background authority.
 
-Before a future first connected command, the runner must revalidate the exact
+Before each first connected command, the runner must revalidate the exact
 active T2 owner and its complete retained run: all 43 journal nodes, the
 1,911-byte terminal SHA-256
 `da24acd3b33c78f4ed41565858e5314bb2c3a1acaf020ac06fb83fd99ab84d05`,
@@ -904,7 +905,7 @@ serial/topology select only the same live ADB row in state `recovery`; another
 commands. Raw serial, devpath, boot ID, and complete inventory bytes are never
 persisted.
 
-One future invocation has exactly two global inventories and five
+One invocation has exactly two global inventories and five
 selected-target commands: initial inventory; selected `get-devpath`; the exact
 T2 identity script; one fixed boot-metadata script; the same T2 identity
 script; selected `get-devpath`; and final inventory. Both inventories,
@@ -938,15 +939,20 @@ hashed private identity plus the bounded non-secret boot metadata and exact
 command/effect counters. Failure is terminal for that invocation and has no
 internal retry.
 
-The activation gate blocks the hazard of treating retained T2 root ADB as
-generic partition authority. Its scope is this fixed metadata-only D0. It may
-retire only after independent review covers this section, runner, scripts,
-parsers, current T2 predecessor, hostile tests, private schema, and
-higher-precedence boundaries, followed by a mechanical activation commit.
-Any runner/script/parser/schema/T2/target/build/recovery/block-map or policy
-drift triggers re-review. Even after activation, each invocation requires a
-fresh direct operator request and attendance; disconnect, reboot, identity
-drift, guard conflict, or invocation completion expires that request.
+Independent review of this section, runner, scripts, parsers, current T2
+predecessor, hostile tests, private schema, and higher-precedence boundaries
+returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. The exact T2 ramdisk command
+and boot-flag delta re-review also returned `0/0/0`. Mechanical activation
+changed only the reviewed boolean, activation-state test assertions, and this
+status/full-hash wording; the normalized identity and command surface are
+unchanged. Independent review of that exact activation delta returned
+`PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. This retires only the
+activation gate that blocked the hazard of treating retained T2 root ADB as
+generic partition authority within this fixed metadata-only D0. Any
+runner/script/parser/schema/T2/target/build/recovery/block-map or policy drift
+triggers re-review. Each invocation still requires a fresh direct operator
+request and attendance; disconnect, reboot, identity drift, guard conflict,
+or invocation completion expires that request.
 
 A successful result proves only that one observed current direct node maps to
 `PARTNAME=boot` with the recorded rdev, partition number, and size. It is not a
