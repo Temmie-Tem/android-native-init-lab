@@ -224,9 +224,15 @@ control plane을 보존했으며 Debian은 USB/NCM 위에서 chroot된 서비스
 않으며, 어느 것도 단일 end-to-end 시연으로 읽혀서는 안 됩니다.
 
 **다른 타겟은 단계가 다릅니다.** S22+(`SM-S906N`, GKI 커널 5.10)는 별도의
-호스트 관측 가능한 네이티브 PID-1 결과를 갖고 있습니다. 정확한 candidate가
-`04e8:6861` / `cdc_acm`으로 열거되고 호스트가 정확히 49바이트 배너를 수신했으며,
-candidate 전송, ACM 도달, 롤백, 정상 rooted 복귀까지 모두 닫혔습니다.
+호스트 관측 가능한 네이티브 PID-1 결과를 갖고 있으며, 두 번의 실행 사이에 증명의
+종류가 바뀌었습니다. 앞선 P3.25는 도달을 증명했습니다 — 정확한 candidate가
+`04e8:6861` / `cdc_acm`으로 열거되고 정확히 49바이트 배너가 유지됐습니다. 이후의
+P3.26은 그것을 한정된 양방향 제어 교환으로 확장했습니다 — 고정된 ACM 채널을 통한
+host-to-device 및 device-to-host 트래픽, 실행에 바인딩된 PID 1 `PONG`, 그리고 정적
+BusyBox `ash`의 `SHELL-OK` 응답이며, `pid1_bidirectional_proof`와
+`busybox_shell_roundtrip_proof`가 모두 true이고 trailing 바이트는 0입니다. 두 실행 모두
+요구된 롤백과 정상 rooted Android 복귀로 닫혔습니다. BusyBox 자식은 고정된 응답 후
+종료하므로, 이는 일반적인 대화형 shell이 아니라 고정된 교환입니다.
 S20+(`SM-G986N`)는 결정론적 PID-1 candidate는 있으나 아직 live PID-1 증명이 없습니다.
 두 타겟 모두 A90의 넓은 런타임 스택을 갖고 있지 않으며, 권한·아티팩트·증거는 타겟 간에
 전이되지 않습니다.

@@ -242,12 +242,19 @@ continuous session, and none of them should be read as a single end-to-end
 demonstration.
 
 **Other targets are at different stages.** The S22+ (`SM-S906N`, GKI kernel
-5.10) has a separate host-visible native-PID-1 result: an exact candidate
-enumerated as `04e8:6861` / `cdc_acm` and the host received the exact 49-byte
-banner, with candidate transfer, ACM arrival, rollback and a healthy rooted
-return all closed. The S20+ (`SM-G986N`) has a deterministic PID-1 candidate but
-no live PID-1 proof yet. Neither target has the A90's broader runtime stack, and
-authority, artifacts and evidence never transfer between targets.
+5.10) has a separate host-visible native-PID-1 result, and the kind of proof
+changed between its two runs. The earlier P3.25 run proved arrival: the exact
+candidate enumerated as `04e8:6861` / `cdc_acm` and an exact 49-byte banner was
+retained. The later P3.26 run extended that into a bounded bidirectional control
+exchange — host-to-device and device-to-host traffic through the fixed ACM
+channel, a run-bound PID 1 `PONG`, and a static BusyBox `ash` `SHELL-OK` reply,
+with `pid1_bidirectional_proof` and `busybox_shell_roundtrip_proof` both true and
+zero trailing bytes. Both runs closed with the required rollback and a healthy
+rooted Android return. The BusyBox child exits after its fixed reply, so this is
+a fixed exchange rather than a general interactive shell. The S20+
+(`SM-G986N`) has a deterministic PID-1 candidate but no live PID-1 proof yet.
+Neither target has the A90's broader runtime stack, and authority, artifacts and
+evidence never transfer between targets.
 
 **The pictured Debian run is not the final architecture.** It is a real PID 1 /
 switch-root handoff, but it is weaker than the isolation this project has
