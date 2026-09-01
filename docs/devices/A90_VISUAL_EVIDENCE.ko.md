@@ -49,10 +49,11 @@ ext4 루트, 키 전용 Dropbear SSH와 루프백 HTTP 서비스. 5,375 MB 중 2
 
 ![스톡 Linux 4.14 벤더 커널에서 부팅하는 A90 네이티브 init](../images/a90/boot-sequence.gif)
 
-**보이는 것** — 기기에서 촬영한 콜드 부팅: 부트로더 언락 경고, 삼성 스플래시, 그리고
-네이티브 init 인수. 점검 항목이 순서대로 해결됩니다 — `SD PROBE MMCBLK0P1` → `RW TEST OK`,
-`STORAGE CACHE FALLBACK` → `SD MAIN READY`, `SERIAL USB ACM STARTING` → `TTYGS0 READY`,
-그리고 `RUNTIME HUD MENU LOADING`으로 종료. 빌드 `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
+**보이는 것** — 기기에서 촬영한 콜드 부팅: 부트로더 언락 경고가 붙은 삼성 스플래시,
+그리고 그 화면들이 방금 올린 바로 그 커널 위에서 네이티브 init이 인수합니다. 시리얼
+항목이 세 단계로 해결되고 — `USB ACM STARTING` → `ACM GADGET OK` → `TTYGS0 READY` —
+클립은 HUD가 올라와 `BOOT OK WIFI-V641- 4.8S`, 5,375 MB 중 276 MB, 실시간 로그 꼬리를
+보고하는 지점에서 끝납니다. 빌드 `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
 
 **기술적 맥락** — 언락 경고와 삼성 스플래시는 스톡 부트 체인이 그리는 화면이므로, 이는
 재개된 세션이 아니라 실제 콜드 부팅입니다. 네이티브 init은 그 화면들이 방금 올린 벤더

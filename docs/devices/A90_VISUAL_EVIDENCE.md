@@ -51,11 +51,12 @@ continuously operated service.
 
 ![A90 native init booting on the stock Linux 4.14 vendor kernel](../images/a90/boot-sequence.gif)
 
-**What it shows** — a cold boot recorded on the device: the unlocked-bootloader
-warning, the Samsung splash, then native init taking over. Its checks resolve in
-order — `SD PROBE MMCBLK0P1` to `RW TEST OK`, `STORAGE CACHE FALLBACK` to
-`SD MAIN READY`, `SERIAL USB ACM STARTING` to `TTYGS0 READY` — ending at
-`RUNTIME HUD MENU LOADING`. Build `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
+**What it shows** — a cold boot recorded on the device: the Samsung splash with
+its unlocked-bootloader warning, then native init taking over on the same kernel
+those screens just loaded. The serial line resolves across three states —
+`USB ACM STARTING`, `ACM GADGET OK`, `TTYGS0 READY` — and the clip ends with the
+HUD up, reporting `BOOT OK WIFI-V641- 4.8S`, 276 MB of 5,375 MB and a live log
+tail. Build `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
 
 **Technical context** — the unlock warning and the Samsung splash are produced by
 the stock boot chain, so this is a real cold boot and not a resumed session.

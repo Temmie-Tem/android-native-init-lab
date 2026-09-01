@@ -34,7 +34,7 @@ runtime을 구성·검증하는 다기기 로컬 연구/문서화 작업 공간�
 로컬 USB-NCM 링크의 Dropbear SSH와, 아웃바운드 Cloudflare Quick Tunnel로도
 접근된 루프백 HTTP 서비스.<br>
 <b>오른쪽</b> — 스톡 삼성 Linux 4.14 벤더 커널 위의 네이티브 init 콜드 부팅.
-스토리지·시리얼·USB 점검이 순차적으로 해결되는 과정.<br>
+삼성 스플래시부터 USB 시리얼 가젯이 올라오고 HUD가 뜨기까지.<br>
 <a href="docs/devices/A90_VISUAL_EVIDENCE.ko.md">A90 시각 증거와 실행 리포트 더 보기 →</a>
 </sub></p>
 

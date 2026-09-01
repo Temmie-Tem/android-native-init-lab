@@ -32,7 +32,8 @@ Two separate A90 runs, on different builds, recorded on the physical device.<br>
 with Dropbear SSH on the local USB-NCM link and a loopback HTTP service also
 reached through an outbound Cloudflare Quick Tunnel.<br>
 <b>Right</b> — a native-init cold boot on the stock Samsung Linux 4.14 vendor
-kernel, with the storage, serial and USB checks resolving in sequence.<br>
+kernel, from the Samsung splash through the USB serial gadget coming up to the
+HUD.<br>
 <a href="docs/devices/A90_VISUAL_EVIDENCE.md">More A90 visual evidence and run references →</a>
 </sub></p>
 
