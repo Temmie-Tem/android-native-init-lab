@@ -823,9 +823,10 @@ rollback remains exact stock. The active owner is
 (normalized `67f5f1708037afb6ba8c3f2879e70195453bc36df112bb37e0a37378bebd66a7`).
 It revalidates the exact T1 terminal/raw observation, requires current serial
 continuity, and accepts only the observed `mtp,adb` alongside a new T2 marker.
-The first approval expired before candidate intent. Its same-boot exact-stock
-abort exposed an owner-ordering incident; the bounded zero-transfer cleanup
-repair passed review. Next close the old guard, then prepare again.
+The first approval expired before candidate intent; reviewed same-boot cleanup
+closed it with zero transfers. A second fresh run is terminal
+`PROVED_T2_RECOVERY_RETAINED`: one candidate transfer, exact root-ADB T2 marker,
+zero rollback/other transfers, guard released, and TWRP intentionally retained.
 
 The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,

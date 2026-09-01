@@ -1348,7 +1348,7 @@ class S20PlusG986NRecoveryCanaryT2F2Tests(unittest.TestCase):
         self.assertEqual((active_count, hash_count), (1, 1))
         self.assertEqual(hashlib.sha256(source).hexdigest(), normalized)
 
-    def test_common_and_target_contract_activate_exact_t2_only(self) -> None:
+    def test_common_and_target_contract_record_exact_t2_retention(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         tiers = (ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md").read_text(
             encoding="utf-8"
@@ -1357,10 +1357,10 @@ class S20PlusG986NRecoveryCanaryT2F2Tests(unittest.TestCase):
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
         self.assertIn("Contract-Revision: **5**", agents)
-        self.assertIn("TWRP T2 F2 active", agents)
+        self.assertIn("TWRP T2 recovery retained and candidate consumed", agents)
         self.assertIn("### F2-T2 - Exact S20+ TWRP Corrected Retained Recovery", tiers)
         self.assertIn(
-            "Status: **BINDING - ATTENDED TWRP T2 F2 ACTIVE**",
+            "Status: **PROVED - T2 RECOVERY RETAINED, CANDIDATE CONSUMED**",
             contract,
         )
         self.assertIn(f"`{T2.EXPECTED_REVIEWED_NORMALIZED_SHA256}`", contract)
@@ -1369,7 +1369,7 @@ class S20PlusG986NRecoveryCanaryT2F2Tests(unittest.TestCase):
             for line in agents.splitlines()
             if line.startswith("| Samsung Galaxy S20+ 5G")
         )
-        self.assertIn("TWRP T2 F2 active", registry_line)
+        self.assertIn("TWRP T2 recovery retained and candidate consumed", registry_line)
 
 
 if __name__ == "__main__":

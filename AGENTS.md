@@ -40,7 +40,7 @@ are current. An unactivated policy edit remains H0 only.
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
 | Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Resident Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
-| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; attended TWRP T2 F2 active; reviewed attended native-canary R1 active |
+| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 recovery retained and candidate consumed; reviewed attended native-canary R1 active |
 
 Targets, profiles, rollback identities, transports, approvals, and health evidence never transfer between registry rows. Without an exact matching contract, remain H0.
 
@@ -174,8 +174,8 @@ Classify every action using
   exception. Its sole candidate is consumed; the active owner now permits only
   journal validation and terminal re-emission, never another candidate run.
 - **F2-T2:** a separately reviewed exact-target S20+ TWRP retained-recovery
-  exception. It is active only through its exact target owner and one fresh
-  attended prepared binding; it never grants standing or cross-target authority.
+  exception. Its sole candidate is consumed and TWRP is retained; the active
+  owner permits journal validation/terminal re-emission only, not another run.
 - **X:** forbidden by the permanent boundaries.
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

@@ -11,7 +11,8 @@ removing, rotating, or reusing that onboarding guard. The exact routine D1 and
 attended boot-only F1 and attended native-canary R1 are reviewed and active.
 The exact attended root-health D0 remains active. Recovery-canary T0 and TWRP
 T1 owners retain only their consumed-candidate journals and terminal paths;
-TWRP T2 F2 is active only through its exact attended owner.
+TWRP T2 recovery is retained and its candidate is consumed; its owner remains
+active only for journal validation and terminal re-emission.
 R1 activation creates no run or standing approval; each transaction still
 requires fresh exact preparation, its emitted approval, and attendance.
 
@@ -755,7 +756,7 @@ and its exact returned approval.
 
 ## TWRP T2 F2 corrected retained recovery
 
-Status: **BINDING - ATTENDED TWRP T2 F2 ACTIVE**
+Status: **PROVED - T2 RECOVERY RETAINED, CANDIDATE CONSUMED**
 
 This section activates F2-T2 only for the operator-owned
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. T1 remains `NO_PROOF`; its observation is
@@ -791,8 +792,10 @@ The connected owner is
 `7f5519ef76091f491165a0be5ce81733f0343318057d02f7577954db1d1a0d11`
 and activation-normalized SHA-256
 `67f5f1708037afb6ba8c3f2879e70195453bc36df112bb37e0a37378bebd66a7`.
-`T2_F2_ACTIVE=true`. Its focused hostile test is 64,691 bytes at SHA-256
-`1865c071546858035bffa667d17ee0f9f89de19b017df9e6c687c7be738a6929`.
+`T2_F2_ACTIVE=true`. After the retained-state assertion rotation, its focused
+hostile test is 64,769 bytes at SHA-256
+`8657920b486039ef37ff0dcf2ec14b2bdebd64980c7ee11c8c71d1eea39f3c5c`;
+the execution model and owner identity are unchanged.
 
 Host validation must first re-run the exact active T1 source closure and the
 complete fixed T1 journal. It pins the 2,144-byte T1 terminal SHA-256
@@ -846,8 +849,26 @@ reviewed authority.
 Activation required independent review of the common/risk/target boundary,
 builder, profile, owner, tests, T1 predecessor closure, retained terminal,
 rollback graph, and exact identities, followed by a mechanical activation-only
-commit. Activation creates no run or standing approval; live use still requires
-fresh attended preparation and its exact returned approval.
+commit. Activation created no run or standing approval; the now-completed live
+use still required fresh attended preparation and its exact returned approval.
+
+The first prepared run expired and closed with zero transfer attempts under the
+reviewed same-boot cleanup. The second fresh prepared run consumed the sole T2
+candidate. Its caged Odin result proves one recovery-only transfer, and the
+same prepared serial/topology appeared in ADB state `recovery` with a fresh boot
+ID, root UID, exact TWRP version/incremental, `ro.secure=0`,
+`ro.debuggable=1`, exact `mtp,adb`, running adbd, and the T2 marker. The exact
+1,911-byte retained terminal SHA-256 is
+`da24acd3b33c78f4ed41565858e5314bb2c3a1acaf020ac06fb83fd99ab84d05`.
+It records `PROVED_T2_RECOVERY_RETAINED`, one proved candidate transfer, zero
+rollback attempts, zero other partition transfers, and zero S22+/A90/other-
+target commands. The guard is absent and TWRP remains installed/running.
+
+The candidate cannot replay and the owner cannot prepare another T2 run. The
+retained terminal closed its stock rollback approval; any later stock recovery
+restore requires a separately reviewed fresh exact-stock authority. Retention
+does not grant TWRP UI, mount, format, install, backup, restore, terminal, or
+arbitrary ADB authority.
 
 ## Boot recovery-canary B0 F1
 

@@ -216,7 +216,7 @@ fresh candidate use.
 
 ### F2-T2 - Exact S20+ TWRP Corrected Retained Recovery
 
-Status: **BINDING - ACTIVE ONLY THROUGH EXACT ATTENDED T2 OWNER**
+Status: **BINDING OWNER ACTIVE - T2 RECOVERY RETAINED, CANDIDATE CONSUMED**
 
 F2-T2 is a new non-generalizing exception for only the exact
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2` T2 candidate. Its sole candidate AP
@@ -261,6 +261,14 @@ exact builder/profile/owner, hostile tests, artifact and predecessor closures,
 retained terminal, and rollback branches, followed by a separate mechanical
 activation commit. Each run still requires a fresh attended preparation and its
 exact returned approval before candidate transfer.
+
+The sole T2 candidate-transfer run is now terminal
+`PROVED_T2_RECOVERY_RETAINED`: one candidate recovery transfer and its exact
+T2 marker/root-ADB observation are proved,
+rollback and every other partition transfer are zero, and the guard is released.
+The global claim forbids another T2 prepare. The closed run grants no continuing
+rollback approval; later stock restore requires separate fresh reviewed
+authority.
 
 ### R1 - Exact Privileged Root-Data Transaction
 

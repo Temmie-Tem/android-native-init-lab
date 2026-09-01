@@ -1,8 +1,9 @@
 # S20+ G986N TWRP T2 connected-owner H0 record
 
 Date: 2026-08-31
+Live result: 2026-09-01
 Target: `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`
-Status: **ACTIVE OWNER INCIDENT REPAIR - PASS_GO**
+Status: **PROVED - T2 RECOVERY RETAINED, CANDIDATE CONSUMED**
 
 ## T1-derived correction
 
@@ -68,8 +69,10 @@ The connected owner
 `7f5519ef76091f491165a0be5ce81733f0343318057d02f7577954db1d1a0d11`;
 its activation-normalized SHA-256 is
 `67f5f1708037afb6ba8c3f2879e70195453bc36df112bb37e0a37378bebd66a7`.
-`T2_F2_ACTIVE=true`. The 64,691-byte focused hostile test is SHA-256
-`1865c071546858035bffa667d17ee0f9f89de19b017df9e6c687c7be738a6929`.
+`T2_F2_ACTIVE=true`. The retained-state assertion rotation makes the focused
+hostile test 64,769 bytes at SHA-256
+`8657920b486039ef37ff0dcf2ec14b2bdebd64980c7ee11c8c71d1eea39f3c5c`;
+the execution model and owner identity are unchanged.
 
 The owner retains T1's exact-target binding, caged single Odin attempt per
 branch, global candidate no-replay, no-clobber typed journal, raw evidence,
@@ -84,7 +87,7 @@ restore, terminal, or other partition action.
 The first fresh T2 preparation completed, but its exact approval was returned
 after expiry. `--execute` rejected it inside `read_prepared()` before approval
 consumption, candidate claim, Download intent, Odin, or any partition effect.
-The candidate therefore remains globally unclaimed.
+The candidate therefore remained globally unclaimed for a fresh run.
 
 The first prepared-only abort revalidated the same healthy rooted Android boot
 and exact stock recovery, publishing its bounded root/recovery receipts, then
@@ -101,6 +104,38 @@ accepts only the exact pre-repair active closure SHA-256
 or the freshly rederived current reviewed closure. A stale/forged third closure
 stops with the guard retained.
 
+The reviewed repair was committed and re-emitted the first run as
+`ABORTED_PRE_CANDIDATE_STOCK_RECOVERY_HEALTHY`, with zero candidate, rollback,
+and partition-transfer attempts. It released only that run's guard and left the
+T2 candidate unclaimed.
+
+## T2 retained result
+
+A second fresh preparation and exact returned approval consumed the sole T2
+candidate. The 1,000-byte candidate result SHA-256
+`4e3ccf32673c2f700fc97a09fc06691ffc2f65a088fda2e59f39e23b7047d764`
+proves the caged recovery-only Odin transfer completed.
+
+The same prepared serial and topology then appeared in ADB recovery state. The
+fixed observer proved a fresh boot ID, root UID, TWRP
+`3.7.1_12-AstroForge_v2`, donor incremental, `ro.secure=0`,
+`ro.debuggable=1`, exact `mtp,adb`, running adbd, and the 398-byte T2 marker.
+The 1,027-byte observation SHA-256 is
+`636c5f68da26da44bade2230e50061b09ce0655cbf854ca894f0a4acf3685a4a`;
+its 546-byte raw-capture receipt SHA-256 is
+`d12d60e2c04e3e2b8734ef794105b98885c7dc818dcf80f5c9d0cd74ca3d5132`
+and its 271-byte stdout SHA-256 is
+`2a1fd5d711f35788449db6342e8d34b4e3fbacf2ce4356abd9646ca08b5401d8`.
+
+The exact 1,911-byte terminal SHA-256 is
+`da24acd3b33c78f4ed41565858e5314bb2c3a1acaf020ac06fb83fd99ab84d05`.
+It reports `PROVED_T2_RECOVERY_RETAINED`, one candidate/proved recovery
+transfer, zero rollback attempts, zero other partition transfers, and zero
+S22+/A90/other-target commands. Terminal revalidation passed and the shared
+guard is absent. TWRP is intentionally retained. The H0 manifest's historical
+`UNKNOWN_REQUIRES_T2_FIRST_ATTEMPT` is now resolved by this separate live
+terminal; the immutable build manifest is not rewritten.
+
 ## Validation and authority
 
 The T2 builder corpus passes 14/14 and the connected-owner corpus passes 55/55,
@@ -113,7 +148,14 @@ exactly bound. The dormant closure and activation-only diff each received
 independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` before their commits.
 Activation created no standing approval. One T2 prepare and one bounded
 prepared-only cleanup read occurred; the approval expired before consumption.
-No T2 candidate claim, Download entry, Odin invocation, or recovery write has
-occurred. Independent incident-repair review returned `PASS_GO` with
-HIGH/MEDIUM/LOW `0/0/0`; the committed repair is required before the existing
-zero-transfer run may close.
+Independent incident-repair review returned `PASS_GO` with HIGH/MEDIUM/LOW
+`0/0/0`, and the zero-transfer run closed. The second fresh run produced the
+retained terminal above. The global claim forbids another T2 prepare or
+candidate transfer. Its closed rollback approval does not survive; any future
+stock restore requires separate fresh reviewed authority. This result grants no
+TWRP UI, mount, format, terminal, install, backup, restore, or arbitrary ADB
+authority.
+
+Independent review of the retained-result/status diff returned `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0` and rederived the terminal, global claim, guard absence,
+raw observation, and no-authority-expansion conclusions.
