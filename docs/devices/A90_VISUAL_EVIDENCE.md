@@ -53,21 +53,24 @@ continuously operated service.
 
 **What it shows** — a cold boot recorded on the device: the Samsung splash with
 its unlocked-bootloader warning, then native init taking over on the same kernel
-those screens just loaded. The serial line resolves across three states —
-`USB ACM STARTING`, `ACM GADGET OK`, `TTYGS0 READY` — and the clip ends with the
-HUD up, reporting `BOOT OK WIFI-V641- 4.8S`, 276 MB of 5,375 MB and a live log
-tail. Build `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
+those screens just loaded. Three checks resolve on screen — `SD` from
+`MOUNT/RW OK` to `RW TEST OK`, `STORAGE` from `CACHE FALLBACK` to `SD MAIN READY`,
+and `SERIAL` from `USB ACM STARTING` to `TTYGS0 READY` — and the clip ends with
+the HUD up, reporting `BOOT OK WIFI-V641- 4.8S`, 276 MB of 5,375 MB and a live
+log tail. Build `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
 
 **Technical context** — the unlock warning and the Samsung splash are produced by
 the stock boot chain, so this is a real cold boot and not a resumed session.
 Native init replaces only what runs after them, on the vendor kernel those
 screens just loaded.
 
-**Evidence boundary** — a 7-second excerpt of one boot, resampled to 8 frames per
-second and denoised for size. It shows the bring-up order this build reports on
-its own console; it does not establish timing accuracy, and the later runtime
-stack is not in frame. This is a different run and a different build from the
-still below.
+**Evidence boundary** — an excerpt of one boot, resampled to 8 frames per second
+and denoised for size. It is **two segments of that recording joined together**:
+roughly 2.4 seconds during which the console sat unchanged at
+`RUNTIME HUD MENU LOADING` were removed, so elapsed time on screen is not real
+time and the clip establishes bring-up order, not timing. Nothing between the
+two segments changed on the console. The later runtime stack is not in frame,
+and this is a different run and a different build from the still below.
 
 ---
 
