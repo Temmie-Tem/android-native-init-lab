@@ -4,7 +4,7 @@ Date: 2026-09-02
 
 Target: `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
-Status: `P326_BIDIRECTIONAL_ACM_BUSYBOX_CONSOLE_IMPLEMENTED_REVIEW_PENDING`
+Status: `PASS_GO_P326_H0`; ready declaration published; no device action
 
 ## Result
 
@@ -71,8 +71,15 @@ debt is not relabeled as a P3.26 pass and was not widened into this unit. The
 P3.26 raw-before-classification behavior is covered directly by its exchange
 test and by exact execution-closure binding.
 
-No public ready manifest or private promotion was published. No D0, D1, F1,
-ADB, USB, `pkexec`, Odin, transfer, flash, or device contact occurred.
+After final review, private promotion `process-v2-promotion-20260902-01` was
+published as one mode-0700 directory containing only three mode-0400,
+single-link records: candidate-static 23,796 bytes / `85b27207...`,
+run-manifest 1,021 bytes / `b173f212...`, and static-check 1,938 bytes /
+`315be498...`. Public ready manifest
+`s22plus_fyg8_p326_process_v2_ready_1.json` is 3,533 bytes, mode 0644,
+single-link, SHA-256 `840878c4875f511799671c071a73db83294871be3f93cf71783cbea4e2496b0a`.
+Publishing performed no D0, D1, F1, ADB, USB, `pkexec`, Odin, transfer, flash,
+or device contact.
 
 The first independent review rejected the predecessor because it accepted a
 correct 145-byte prefix while leaving appended data unread. Its first repair
@@ -81,14 +88,14 @@ actual `expected + 1` writer before retaining evidence. The final observer
 performs a short bounded trailing check, writes exactly the first detected
 trailing byte to that 146-byte raw writer, and rejects. Both an unbounded
 fixture and the actual bounded `RawCaptureWriter` prove the hostile valid-prefix
-plus `TRAILING` case. Final re-review remains pending.
+plus `TRAILING` case. Final re-review returned `PASS_GO_P326_H0` for exact
+repair commit `5e5ff8626d` and rederived all final artifact identities.
 
 ## Claim boundary and next step
 
 This unit is `PROVED` only as a deterministic H0 implementation and artifact
 closure. It does not prove on-device bidirectional traffic, a usable general
 shell, persistent recovery, Max77705 causality, or candidate success. The
-execution-critical common runner, observer, schema, and target-contract change
-require one independent review. After a clean review, publish the already
-rehearsed promotion and ready declaration, then perform one fresh connected
-prepare and request one exact attended F1 approval.
+independent review and ready publication qualify only this exact host-side
+capability; neither is approval or a prepared run. The next step is one fresh
+connected prepare, followed by one exact attended F1 approval.
