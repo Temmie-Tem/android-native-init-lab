@@ -74,9 +74,10 @@ and this is a different run and a different build from the still below.
 
 **Full recording** — [▶ `a90-boot-full.mp4`](../images/a90/a90-boot-full.mp4)
 — 26 s, 2.7 MB, re-encoded from the original capture and not otherwise edited.
-It carries the whole take, including the deliberate reboot out of Android that
+It carries the whole take, including the deliberate TWRP `System` reboot that
 precedes the clip above and the static wait removed from it, so the join
-described here can be checked against it.
+described here can be checked against it. The device was in TWRP before the
+boot, not in a running Android session.
 
 ---
 
