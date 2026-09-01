@@ -1003,10 +1003,16 @@ and its 7,517-byte H0 manifest is SHA-256
 `e9b587c558c15cf1367e271f6b05561a40131a680bf5ee299d6e6c75a2ce9d86`.
 The dormant render-only owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_identical_resident_q0_owner_h0.py`,
-22,647 bytes at SHA-256
-`706e9ec5792773db93508bb7866eae55dfba88329db830444dc1e810c4a774f4`;
-its 12,598-byte focused test is SHA-256
-`93c488ee794ed3119549b61eaddf5d1c5725a352f5f33bea68b3232be913b2b8`.
+25,040 bytes at SHA-256
+`8ac859a91deee1b565896c6e6e16924a5698cbb89e80074de25556091e6054ae`;
+its 13,587-byte focused test is SHA-256
+`824609f8dc4f679ddd06653fe693bbe103ec85c441efb0f2eebb383c264280b7`.
+The host-only evidence model is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_identical_resident_q0_evidence_h0.py`,
+21,084 bytes at SHA-256
+`6ef0ba273c164e4bd4bb3d8aae3c8c2c98d0d72dbbf5279fee8fd00e47321a89`;
+its 18,326-byte focused test is SHA-256
+`06d724573c0b11697f4ba52d5dfcf0ce4b5c679a771fcda53f3098df0e0b4d06`.
 They construct one static AArch64 executable with no caller argument. Its only
 stage is fixed tmpfs directory
 `/tmp/s20plus-g986n-identical-resident-q0`, containing exactly the executable
@@ -1055,9 +1061,17 @@ Independent hostile review of the exact H0 backend, builder, artifact,
 manifest, render-only owner, tests, this inactive section, report, D0/T2
 predecessors, and higher-precedence boundaries returned `PASS_GO` with
 HIGH/MEDIUM/LOW `0/0/0`. A delta review of the builder's fail-closed `nm`
-audit correction returned the same result. This qualifies only the H0 bytes;
-the missing live parser, journal, stage/cleanup runner, physical choreography,
-recovery owner, fresh preparation, approval, and activation remain blockers.
+audit correction returned the same result. A strict host-only backend parser
+and canonical intent-through-backend-result journal-prefix validator are also
+implemented and independently reviewed. Their initial hostile review found two
+MEDIUM and two LOW issues; canonical typed comparison, prepared/write boot
+continuity, and the stale owner description were corrected, and the remaining
+`write-fsync` claim was withdrawn after the exact source-drift path was shown.
+Final re-review returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+All of these findings qualify only H0 bytes. Durable no-replace journal publication,
+the full physical/recovery continuation, stage/cleanup runner, physical
+choreography, recovery owner, fresh preparation, approval, and activation
+remain blockers.
 
 ## Boot recovery-canary B0 F1
 

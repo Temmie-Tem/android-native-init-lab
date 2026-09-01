@@ -119,19 +119,54 @@ future owner must remain in Recovery, preserve the guard, and use only a
 separately reviewed recovery branch. The current H0 owner implements none of
 those live effects.
 
+## Host-only evidence and journal-prefix model
+
+The new evidence model accepts only two complete backend capture grammars:
+the exact 15-line success with rc 0, or the exact ordered 10-line failure with
+rc 70. Both require empty stderr, canonical ASCII/LF framing, bounded bytes,
+fixed schema, zero reboot/other-partition counts, and exact numeric forms.
+Success requires the fixed target/rdev/partition/size, resident source and
+preimage hashes, 67,108,864 write bytes, successful fsync, and exact resident
+readback hash.
+
+Failure stages and counters are cross-constrained. A pre-write stage cannot
+claim a write; `write` may report a partial effect; `write-fsync` requires a
+complete write and fsync attempt; and post-fsync/readback failures require a
+complete write plus successful fsync where applicable. No failure is promoted
+to a proved effect, and every parsed backend invocation has replay false.
+
+The model also validates only the canonical prefix
+`prepared -> stage-intent -> stage-result -> write-intent -> backend-result`.
+Each node has exact keys/types, one 19-digit run ID, monotonic ordinal, exact
+predecessor hash, canonical bytes, and fixed payload closure. A backend-result
+node is accepted only with the exact raw capture whose size/hash and fresh
+strict parse match its payload using canonical-byte equality, so Python
+bool/integer equality cannot substitute types. The write-intent source boot
+must also equal the prepared recovery boot exactly.
+
+The decisive cut rule is mechanical: a prefix ending at `write-intent`
+classifies as `WRITE_OUTCOME_UNPROVED_ATTEMPT_CONSUMED_NO_REPLAY` even with no
+capture or result. A later zero-write failure still remains consumed; a partial
+write remains outcome-unproved; exact backend success remains pending physical
+health and does not authorize System boot. This model publishes no file and
+has no connected owner, so durable publication and full continuation remain
+separate gates.
+
 ## Dormant owner and remaining blockers
 
 The render-only owner binds the complete T2 predecessor, D0 result, target and
 common policy, backend source/build/test closure, exact static artifact and
 manifest, resident source, and boot-only fallback AP. Its binding SHA-256 is
-`7b4aad4df0102da4c5119a83a9d50b246c788a9df3fec40e287c0a5b618b6e74`.
+`7d296f1666bfecd42044fa7dda49483cdcd418fbb7a478c3d98fc71c2be2b018`.
 It exposes zero device commands, writes, or transfers and merely reserves the
 future approval prefix.
 
 Eight blockers remain explicit:
 
-- strict backend success/failure stdout parser;
-- durable intent-before-effect journal and cut resumption;
+- the strict backend parser is H0-only and not integrated into a connected
+  owner;
+- the H0 journal-prefix validator has no durable no-replace publisher or full
+  physical/recovery continuation;
 - fixed stage/push verification and owned cleanup runner;
 - physical no-hook System boot and direct-to-Recovery choreography owner;
 - a boot-only Download/Odin fallback freshly bound to the Q0 run;
@@ -154,16 +189,18 @@ remain forbidden.
 | backend test | 9,923 | `3e33f3bc0f91c12d2e1162ef1f9ef759dd730a7733da194fea6af8b4a2839086` |
 | private static backend | 597,720 | `16271fee5c31ddb34e426b29ae5032e0fe366623eb3114862aac1ea1cc1022b5` |
 | private build manifest | 7,517 | `e9b587c558c15cf1367e271f6b05561a40131a680bf5ee299d6e6c75a2ce9d86` |
-| dormant H0 owner | 22,647 | `706e9ec5792773db93508bb7866eae55dfba88329db830444dc1e810c4a774f4` |
-| owner test | 12,598 | `93c488ee794ed3119549b61eaddf5d1c5725a352f5f33bea68b3232be913b2b8` |
+| dormant H0 owner | 25,040 | `8ac859a91deee1b565896c6e6e16924a5698cbb89e80074de25556091e6054ae` |
+| owner test | 13,587 | `824609f8dc4f679ddd06653fe693bbe103ec85c441efb0f2eebb383c264280b7` |
+| H0 evidence model | 21,084 | `6ef0ba273c164e4bd4bb3d8aae3c8c2c98d0d72dbbf5279fee8fd00e47321a89` |
+| evidence test | 18,326 | `06d724573c0b11697f4ba52d5dfcf0ce4b5c679a771fcda53f3098df0e0b4d06` |
 
 Two independent builds produce the same stripped static AArch64 executable.
 ELF audit finds no interpreter, dynamic dependency, undefined symbol, or RWE
 LOAD segment. QEMU supplies a forbidden argument and receives the exact
 bounded `stage=arguments`, `write_started=0` refusal.
 
-Focused tests currently pass 24/24: 11 backend/builder tests and 13 owner
-tests. They cover fixed target/source/geometry and operation ordering; one
+Focused tests currently pass 40/40: 11 backend/builder tests, 15 evidence
+tests, and 14 owner tests. They cover fixed target/source/geometry and operation ordering; one
 `pwrite` site; forbidden partition/action strings; source, manifest, D0, type,
 authority, count, target-contract, symlink, and hardlink mutations; exact
 artifact modes and hashes; deterministic rebuild; interruption/no-replay
@@ -173,8 +210,12 @@ claims; private-identifier exclusion; and absence of any connected CLI.
 Independent hostile safety review returned `PASS_GO` with HIGH/MEDIUM/LOW
 `0/0/0`. A final delta review of the fail-closed `nm` audit correction returned
 the same result. Both reviews qualify only these H0 bytes and explicitly found
-no live authority. Therefore the strongest truthful claim is
-`H0_PASS_GO_NOT_ACTIVE`.
+no live authority. The evidence extension's initial hostile review found two
+MEDIUM and two LOW issues; canonical typed comparison, prepared/write boot
+continuity, and the stale owner description were corrected, while the claimed
+`write-fsync` issue was withdrawn after the exact source-drift path was shown.
+Final re-review returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. Therefore the
+strongest truthful claim is `H0_PASS_GO_NOT_ACTIVE`.
 
 ## Claim boundary
 

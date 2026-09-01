@@ -3,9 +3,9 @@
 
 The model binds the exact metadata D0 proof, retained T2 recovery, known-good
 resident boot and Download/Odin fallback, and the fixed write/readback backend.
-It deliberately exposes only a render-plan entrypoint.  Journal, parser,
-recovery owner, contract activation, fresh preparation, approval, and every
-device action remain absent.
+It deliberately exposes only a render-plan entrypoint.  Connected parser
+integration, durable journal publication, recovery owner, contract activation,
+fresh preparation, approval, and every device action remain absent.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from typing import Any
 import build_s20plus_g986n_twrp_identical_resident_write_q0_h0 as q0_build
 import s20plus_g986n_p0_twrp_boot_owner_h0 as p0
 import s20plus_g986n_twrp_boot_identity_d0 as d0
+import s20plus_g986n_twrp_identical_resident_q0_evidence_h0 as q0_evidence
 
 
 ROOT = Path(__file__).resolve().parents[5]
@@ -121,6 +122,19 @@ PUBLIC_CLOSURE = {
         ),
         "size": 9_923,
         "sha256": "3e33f3bc0f91c12d2e1162ef1f9ef759dd730a7733da194fea6af8b4a2839086",
+    },
+    "q0_evidence_model": {
+        "path": Path(q0_evidence.__file__).resolve(),
+        "size": 21_084,
+        "sha256": "6ef0ba273c164e4bd4bb3d8aae3c8c2c98d0d72dbbf5279fee8fd00e47321a89",
+    },
+    "q0_evidence_test": {
+        "path": ROOT / (
+            "tests/"
+            "test_s20plus_g986n_twrp_identical_resident_q0_evidence_h0.py"
+        ),
+        "size": 18_326,
+        "sha256": "06d724573c0b11697f4ba52d5dfcf0ce4b5c679a771fcda53f3098df0e0b4d06",
     },
     "t2_owner": {
         "path": Path(d0.t2.__file__).resolve(),
@@ -492,6 +506,42 @@ def validate_t2_predecessor() -> dict[str, Any]:
     }
 
 
+def validate_evidence_model() -> dict[str, Any]:
+    plan = q0_evidence.render_plan()
+    if (
+        plan.get("schema") != q0_evidence.SCHEMA
+        or plan.get("status")
+        != "H0_PASS_GO_NOT_ACTIVE"
+        or plan.get("target") != TARGET
+        or plan.get("backend_h0_owner_binding_sha256")
+        != "7b4aad4df0102da4c5119a83a9d50b246c788a9df3fec40e287c0a5b618b6e74"
+        or plan.get("backend_sha256") != BACKEND_SHA256
+        or plan.get("journal_prefix_kinds")
+        != ["prepared", "stage-intent", "stage-result", "write-intent", "backend-result"]
+        or plan.get("write_intent_consumes_attempt_without_result") is not True
+        or plan.get("backend_replay_permitted") is not False
+        or plan.get("system_boot_authorized") is not False
+        or plan.get("durable_publisher_implemented") is not False
+        or plan.get("connected_owner_implemented") is not False
+        or plan.get("device_commands") != []
+        or plan.get("device_writes") != []
+    ):
+        raise OwnerError("Q0 evidence model semantics differ")
+    exact_bool(plan.get("active"), False, "Q0 evidence active")
+    exact_bool(plan.get("live_authority"), False, "Q0 evidence live authority")
+    return {
+        "schema": q0_evidence.SCHEMA,
+        "status": plan["status"],
+        "strict_backend_parser": True,
+        "canonical_journal_prefix_validator": True,
+        "write_intent_consumes_attempt_without_result": True,
+        "backend_replay_permitted": False,
+        "system_boot_authorized": False,
+        "durable_publisher_implemented": False,
+        "connected_owner_implemented": False,
+    }
+
+
 def validate_closure() -> dict[str, Any]:
     closure: dict[str, Any] = {}
     for name, expected in PUBLIC_CLOSURE.items():
@@ -512,6 +562,7 @@ def validate_closure() -> dict[str, Any]:
     )
     closure["metadata_d0_result"] = validate_d0_result()
     closure["retained_t2"] = validate_t2_predecessor()
+    closure["q0_evidence_model_plan"] = validate_evidence_model()
     closure["resident_boot"] = receipt(
         RESIDENT_BOOT,
         RESIDENT_BOOT_SIZE,
@@ -576,8 +627,8 @@ def binding_value() -> dict[str, Any]:
             "recovery_uncertain": "retain guard; exact attended Download/Odin boot fallback only if separately activated",
         },
         "activation_blockers": [
-            "strict backend stdout/failure parser is not implemented",
-            "durable intent-before-effect journal and cut resumption are not implemented",
+            "strict backend stdout/failure parser is H0-only and not integrated into a connected owner",
+            "intent-before-effect journal prefix validator is H0-only; durable no-replace publisher and full cut/physical/recovery continuation are not implemented",
             "fixed staging and owned cleanup runner are not implemented",
             "physical no-hook System/direct-Recovery choreography owner is not implemented",
             "boot-only Download/Odin fallback is not freshly bound to this Q0 run",

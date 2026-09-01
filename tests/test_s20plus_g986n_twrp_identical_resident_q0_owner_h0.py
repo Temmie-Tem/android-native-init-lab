@@ -109,6 +109,25 @@ class S20PlusTwrpIdenticalResidentQ0OwnerH0Test(unittest.TestCase):
             retained["terminal_sha256"], self.module.T2_TERMINAL_SHA256
         )
 
+    def test_h0_evidence_model_is_bound_but_not_integrated_or_live(self):
+        evidence = self.plan["binding"]["closure"]["q0_evidence_model_plan"]
+        self.assertTrue(evidence["strict_backend_parser"])
+        self.assertTrue(evidence["canonical_journal_prefix_validator"])
+        self.assertTrue(evidence["write_intent_consumes_attempt_without_result"])
+        self.assertFalse(evidence["backend_replay_permitted"])
+        self.assertFalse(evidence["system_boot_authorized"])
+        self.assertFalse(evidence["durable_publisher_implemented"])
+        self.assertFalse(evidence["connected_owner_implemented"])
+        closure = self.plan["binding"]["closure"]
+        self.assertEqual(
+            closure["q0_evidence_model"]["sha256"],
+            self.module.PUBLIC_CLOSURE["q0_evidence_model"]["sha256"],
+        )
+        self.assertEqual(
+            closure["q0_evidence_test"]["sha256"],
+            self.module.PUBLIC_CLOSURE["q0_evidence_test"]["sha256"],
+        )
+
     def test_proposed_effect_budget_is_one_boot_write_and_no_other_partition(self):
         budget = self.plan["binding"]["proposed_effect_budget"]
         self.assertEqual(budget["boot_partition_content_reads"], 2)
