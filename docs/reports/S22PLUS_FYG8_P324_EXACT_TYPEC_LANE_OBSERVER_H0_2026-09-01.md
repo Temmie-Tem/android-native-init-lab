@@ -4,7 +4,52 @@ Date: 2026-09-01
 
 Target: `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
-Status: H0 ready capability; no P3.24 device action yet
+Status: F1 closed and consumed; exact USB enumeration proved, native PID-1
+arrival unproved, exact rollback and final health verified
+
+## Live result and incident
+
+The first prepared invocation stopped at `ABORTED/4` before candidate intent
+because the Codex process could not cross the host `pkexec` privilege boundary.
+It performed no reboot, Download entry, Odin session, candidate transfer, or
+rollback transfer. Its approval is stopped and was not reused.
+
+The fresh attended invocation then completed the exact P3.24 candidate and
+rollback transfers once each and closed its journal at 19 records. Final rooted
+FYG8 health passed and `recovery_required=false`; P3.24 is consumed and never
+replayable. The host P3.00 trace and P3.24 lane receipt prove that the candidate
+enumerated at exact `usb:3-1.3` as `04e8:6861`, `cdc_acm`, and `ttyACM0`, with
+source-lane count zero, candidate exact count one, foreign count zero, and
+same-run Type-C partner continuity.
+
+The primary observer nevertheless retained zero bytes and classified
+`identity-mismatch`. Its pre-open ModemManager check passed the resolved USB
+interface node `3-1.3:1.0` to `udevadm`; that object's properties did not carry
+the two tty rule flags. The same-run tty add event did carry
+`ID_MM_DEVICE_IGNORE=1`, `ID_MM_PORT_IGNORE=1`, and interface `00`. This proves
+a host observer property-scope defect before `open()`, not a missing candidate
+endpoint or failed guard arm. It does not prove the candidate banner, native
+PID 1, or USB data success. The retained Carrier projection also remains
+`NO_PROOF_OBSERVER` and grants no causal, MUX, or host-silent claim.
+
+After `CLOSED`, the ordinary result path tried to add the final arrival
+projection to the 29,102-byte live state. The canonical state became 34,672
+bytes and exceeded the shared 32 KiB record bound before `live-result.json`
+publication. The exact-run host-only finalizer permitted only that pinned
+pre-state to become the pinned mode-`0400` state, then published the canonical
+38,558-byte mode-`0400`/single-link result. Post-publication audit passes with
+no ADB, USB revalidation, Odin, backend, candidate, rollback, or device action.
+Its SHA-256 values are `9f23ecbf34ebec17693d6f5b62283e0b4a0970866d36124d0563919967b1ab24`
+for state and `b2eca7a4921e8d8294f3ef9dad01ec6dd18acf4fd4d74aa23015c0b0caf6749a`
+for result.
+
+The formal terminal is therefore
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` /
+`p324_acm_primary_native_pid1_arrival_unproved_rollback_verified`. The next
+candidate must be fresh. The proportional P3.25 repair keeps the P3.24 lane,
+selector, transient udev rule, receipt taxonomy, and rollback unchanged and
+redirects only the two delegated guard property probes to the exact selected
+tty class node.
 
 ## Why P3.23 did not produce proof
 
@@ -97,8 +142,9 @@ The P3.24 execution closure directly binds the changed common live source and
 the new lane and observer sources; the independent review treats the unrelated
 cross-target scan stop separately.
 
-This report and the ready manifest are H0 capability evidence only. They create
-no D0 result, prepared binding, approval, reboot, Download entry, Odin call,
-partition transfer, recovery, candidate success, USB proof, or live authority.
-A fresh connected D0 prepare and its newly emitted exact approval token are
-required before P3.24 F1.
+The former ready manifest was H0 capability evidence and is now consumed by the
+closed P3.24 run. Exact candidate enumeration, two exact transfers, rollback,
+and final health are proved; banner/native-PID-1 arrival and candidate success
+remain unproved. No P3.24 approval, replay, recovery, or live authority remains.
+A P3.25 successor requires fresh candidate bytes, host qualification, connected
+preparation, and a new attended approval.
