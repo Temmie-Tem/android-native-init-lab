@@ -28,6 +28,8 @@ import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
 import s22plus_fyg8_p313_guard_lifetime as p313_guard_lifetime
 import s22plus_fyg8_p318_topology_receipt as p318_topology
+import s22plus_fyg8_p324_cdc_acm_observer as p324_cdc_observer
+import s22plus_fyg8_p324_typec_lane_binding as p324_typec_lane
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -42,6 +44,7 @@ LIVE_RESULT_SCHEMA = "device_action_f1_live_result_v2"
 APPROVAL_PREFIX = "DEVICE-ACTION-F1-V2-APPROVE:"
 DEFAULT_RUN_ROOT = Path("workspace/private/runs/device-action-f1-live-v2")
 DEFAULT_USB_ROOT = Path("/sys/bus/usb/devices")
+DEFAULT_TYPEC_ROOT = Path("/sys/class/typec")
 MAX_PRIVATE_JSON = 1024 * 1024
 MAX_ODIN_OUTPUT = 8 * 1024 * 1024
 MAX_OBSERVER_BYTES = 64 * 1024 * 1024
@@ -59,6 +62,8 @@ NON_TAINTING_GUARD_WARNINGS = {
 }
 P300_PROCESS_OWNER_SCHEMA = "s22plus_fyg8_p300_usb_trace_process_owner_v1"
 P300_PROCESS_CLEANUP_SCHEMA = "s22plus_fyg8_p300_usb_trace_process_cleanup_v1"
+P300_OWNER_ARM_TIMEOUT_SEC = 2.0
+P300_OWNER_ARM_POLL_SEC = 0.01
 P300_PROCESS_WAIT_SEC = 10.0
 DOWNLOAD_REQUEST_INTENT_SCHEMA = "device_action_f1_download_request_intent_v2"
 DOWNLOAD_REQUEST_RECOVERY_ACTIONS = {
@@ -117,6 +122,38 @@ def _p323_parser_failure_classification(
         "family_count": 0,
         "foreign_count": 0,
         "p323_stock_error": diagnostic,
+    }
+
+
+def _p324_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    detail = f"{type(error).__name__}:{error}".encode("utf-8", "replace")
+    return {
+        "schema": "device_action_f1_p324_stock_error_v1",
+        "classification": "P324_STOCK_PARSER_EXCEPTION",
+        "supplemental": True,
+        "accepted": False,
+        "candidate_success": False,
+        "causal_result_allowed": False,
+        "payload_bytes": len(payload),
+        "payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "error_type": type(error).__name__,
+        "error_sha256": hashlib.sha256(detail).hexdigest(),
+    }
+
+
+def _p324_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p324_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "accepted": False,
+        "integrity_issue": True,
+        "integrity_issues": ["p324-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p324_stock_error": diagnostic,
     }
 
 
@@ -180,6 +217,8 @@ class LiveBackend(Protocol):
         lease: Any,
         timeout_sec: float,
     ) -> Endpoint: ...
+
+    def revalidate_candidate_lane(self, prepared: PreparedRun) -> None: ...
 
     def transfer(
         self,
@@ -272,12 +311,15 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p321_bundle(bundle)
         or _p322_bundle(bundle)
         or _p323_bundle(bundle)
+        or _p324_bundle(bundle)
     ):
         stock_adapter = typed_evidence.STOCK_ADAPTERS[
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p323"
+            "p324"
+            if _p324_bundle(bundle)
+            else "p323"
             if _p323_bundle(bundle)
             else "p322"
             if _p322_bundle(bundle)
@@ -309,15 +351,29 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             typed_evidence.validate_candidate_arrival_proof_role(
                 candidate_arrival_role,
                 bundle.manifest["observation"].get("candidate_observer"),
+                expected_run_id=bundle.manifest["observation"]["acceptance"].get(
+                    "run_id"
+                ),
             )
         except typed_evidence.EvidenceError as exc:
             raise F1LiveError(str(exc)) from exc
-        paths["p323_acm_primary_runtime"] = scripts / (
-            "s22plus_fyg8_p323_acm_primary_runtime.py"
-        )
-        paths["p323_predecessor_baseline"] = Path(
-            typed_evidence.p323_predecessor_baseline.__file__
-        ).resolve()
+        if _p324_bundle(bundle):
+            paths["p324_acm_primary_runtime"] = scripts / (
+                "s22plus_fyg8_p324_acm_primary_runtime.py"
+            )
+            paths["p324_typec_lane_binding"] = Path(
+                p324_typec_lane.__file__
+            ).resolve()
+            paths["p324_cdc_acm_observer"] = Path(
+                p324_cdc_observer.__file__
+            ).resolve()
+        else:
+            paths["p323_acm_primary_runtime"] = scripts / (
+                "s22plus_fyg8_p323_acm_primary_runtime.py"
+            )
+            paths["p323_predecessor_baseline"] = Path(
+                typed_evidence.p323_predecessor_baseline.__file__
+            ).resolve()
     values = {
         name: _receipt(path.resolve(), f"execution source {name}")
         for name, path in paths.items()
@@ -332,9 +388,18 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         closure[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = (
             candidate_arrival_role
         )
-        closure["p323_acm_primary_runtime_contract_id"] = (
-            typed_evidence.P323_ACM_PRIMARY_RUNTIME_CONTRACT_ID
-        )
+        if _p324_bundle(bundle):
+            closure["p324_acm_primary_runtime_contract_id"] = (
+                typed_evidence.P324_ACM_PRIMARY_RUNTIME_CONTRACT_ID
+            )
+            closure["p324_typec_lane_contract_id"] = p324_typec_lane.CONTRACT_ID
+            closure["p324_cdc_acm_observer_contract_id"] = (
+                p324_cdc_observer.CONTRACT_ID
+            )
+        else:
+            closure["p323_acm_primary_runtime_contract_id"] = (
+                typed_evidence.P323_ACM_PRIMARY_RUNTIME_CONTRACT_ID
+            )
         closure["sha256"] = core.json_sha256(
             {key: value for key, value in closure.items() if key != "sha256"}
         )
@@ -424,6 +489,7 @@ def _binding(
     d0_receipt: dict[str, Any],
     private_receipt: dict[str, Any],
     closure: dict[str, Any],
+    p324_lane_receipt: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], str]:
     base, base_sha256 = core.approval_binding(
         bundle, d0_result["target_evidence"]
@@ -439,6 +505,12 @@ def _binding(
         "mandatory_rollback_preapproved": True,
         "recovery_requires_second_approval": False,
     }
+    if _p324_bundle(bundle):
+        if not isinstance(p324_lane_receipt, dict):
+            raise F1LiveError("P3.24 Type-C lane binding receipt is absent")
+        value["p324_typec_lane_binding"] = p324_lane_receipt
+    elif p324_lane_receipt is not None:
+        raise F1LiveError("foreign P3.24 Type-C lane binding receipt")
     derivation = _p313_guard_derivation(bundle)
     if derivation is not None:
         value["candidate_observer_guard_lifetime"] = {
@@ -446,6 +518,67 @@ def _binding(
             "derivation_sha256": p313_guard_lifetime.digest(derivation),
         }
     return value, core.json_sha256(value)
+
+
+P324_TYPEC_LANE_NAME = "p324-typec-lane-binding.json"
+
+
+def _prepare_p324_typec_lane(
+    bundle: core.Bundle,
+    run_dir: Path,
+    private_target: dict[str, str],
+    *,
+    usb_root: Path,
+    typec_root: Path,
+) -> dict[str, Any] | None:
+    if not _p324_bundle(bundle):
+        return None
+    try:
+        value = p324_typec_lane.capture_binding(
+            private_target["topology"],
+            usb_root=usb_root,
+            typec_root=typec_root,
+        )
+        p324_typec_lane.validate_binding(
+            value, source_topology=private_target["topology"]
+        )
+    except p324_typec_lane.LaneBindingError as exc:
+        raise F1LiveError(str(exc)) from exc
+    path = run_dir / P324_TYPEC_LANE_NAME
+    _write_exclusive(path, value)
+    return _receipt(path, "P3.24 Type-C lane binding")
+
+
+def _p324_typec_lane_value(
+    prepared: PreparedRun,
+    *,
+    revalidate: bool = False,
+    usb_root: Path = DEFAULT_USB_ROOT,
+    typec_root: Path = DEFAULT_TYPEC_ROOT,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not _p324_bundle(prepared.bundle):
+        raise F1LiveError("P3.24 Type-C lane binding requested for another run")
+    path = prepared.run_dir / P324_TYPEC_LANE_NAME
+    value = _read_json(path, "P3.24 Type-C lane binding")
+    receipt = _receipt(path, "P3.24 Type-C lane binding")
+    expected_receipt = prepared.prepared.get("p324_typec_lane_binding")
+    if receipt != expected_receipt:
+        raise F1LiveError("P3.24 Type-C lane binding receipt changed")
+    try:
+        if revalidate:
+            p324_typec_lane.revalidate_binding(
+                value,
+                source_topology=prepared.private_target["topology"],
+                usb_root=usb_root,
+                typec_root=typec_root,
+            )
+        else:
+            p324_typec_lane.validate_binding(
+                value, source_topology=prepared.private_target["topology"]
+            )
+    except p324_typec_lane.LaneBindingError as exc:
+        raise F1LiveError(str(exc)) from exc
+    return value, receipt
 
 
 def _userspace_overlay_contract_id(bundle: core.Bundle) -> Any:
@@ -542,6 +675,18 @@ def _p323_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p324_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P324_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
+def _acm_primary_bundle(bundle: core.Bundle) -> bool:
+    return _p323_bundle(bundle) or _p324_bundle(bundle)
+
+
 def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
     role = bundle.manifest["observation"].get(
         typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
@@ -549,18 +694,29 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
     if role is None:
         return None
     acceptance = bundle.manifest["observation"]["acceptance"]
-    if (
-        acceptance.get("userspace_overlay_contract_id")
-        != typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
-        or acceptance.get("run_id") != typed_evidence.P323_RUN_ID
-    ):
+    identity = (
+        acceptance.get("userspace_overlay_contract_id"),
+        acceptance.get("run_id"),
+    )
+    if identity not in {
+        (
+            typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P323_RUN_ID,
+        ),
+        (
+            typed_evidence.P324_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P324_RUN_ID,
+        ),
+    }:
         raise F1LiveError(
-            "candidate arrival proof role requires the exact P3.23 stock binding"
+            "candidate arrival proof role requires the exact P3.23 stock binding "
+            "or exact P3.24 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(
             role,
             bundle.manifest["observation"].get("candidate_observer"),
+            expected_run_id=identity[1],
         )
         cdc_acm_observer.validate_spec(
             bundle.manifest["observation"].get("candidate_observer")
@@ -884,6 +1040,46 @@ def _proc_has_owner(pid: int, token: str) -> bool:
         + token.encode("ascii", "strict")
     )
     return expected in payload.split(b"\0")
+
+
+def _p300_wait_owned_identity(
+    process: subprocess.Popen[bytes],
+    token: str,
+    *,
+    timeout_sec: float = P300_OWNER_ARM_TIMEOUT_SEC,
+) -> dict[str, Any]:
+    """Wait briefly for setsid/exec and the child environment to reach /proc.
+
+    Immediately after ``Popen`` Linux may still expose the pre-exec child or
+    an empty ``/proc/<pid>/environ``.  That is a host scheduling race, not a
+    sidecar failure.  The bounded poll owns no device action and still rejects
+    a child that exits, never enters its own session/group, or never exposes
+    the exact owner token.
+    """
+    if (
+        not isinstance(token, str)
+        or not token
+        or isinstance(timeout_sec, bool)
+        or not isinstance(timeout_sec, (int, float))
+        or not 0 < timeout_sec <= P300_OWNER_ARM_TIMEOUT_SEC
+    ):
+        raise F1LiveError("P3.00 USB trace ownership wait is invalid")
+    deadline = time.monotonic() + float(timeout_sec)
+    while True:
+        if process.poll() is not None:
+            raise F1LiveError("P3.00 USB trace process exited before ownership")
+        identity = _proc_identity(process.pid)
+        if (
+            identity is not None
+            and identity["state"] != "Z"
+            and identity["process_group_id"] == process.pid
+            and identity["session_id"] == process.pid
+            and _proc_has_owner(process.pid, token)
+        ):
+            return identity
+        if time.monotonic() >= deadline:
+            raise F1LiveError("P3.00 USB trace process ownership did not arm")
+        time.sleep(P300_OWNER_ARM_POLL_SEC)
 
 
 def _proc_has_any_p300_owner(pid: int) -> bool:
@@ -1228,6 +1424,7 @@ def prepare_connected(
     run_dir: Path,
     client: d0.AdbReadOnlyClient,
     usb_root: Path = DEFAULT_USB_ROOT,
+    typec_root: Path = DEFAULT_TYPEC_ROOT,
 ) -> dict[str, Any]:
     if bundle.manifest["status"] != "ready-for-f1-approval":
         raise F1LiveError("manifest is not ready for F1 approval")
@@ -1244,9 +1441,21 @@ def prepare_connected(
     d0_path = preflight / "result.json"
     d0_receipt = _receipt(d0_path, "prepared D0 result")
     private_receipt = _receipt(private_path, "private target")
+    p324_lane_receipt = _prepare_p324_typec_lane(
+        bundle,
+        run_dir,
+        private_target,
+        usb_root=usb_root,
+        typec_root=typec_root,
+    )
     closure = _closure(root, bundle)
     binding, binding_sha256 = _binding(
-        bundle, result, d0_receipt, private_receipt, closure
+        bundle,
+        result,
+        d0_receipt,
+        private_receipt,
+        closure,
+        p324_lane_receipt,
     )
     p300_binding = _prepare_p300_usb_binding(
         root, bundle, run_dir, binding_sha256
@@ -1272,6 +1481,8 @@ def prepare_connected(
         "f1_authorized": False,
         "live_authorized": False,
     }
+    if p324_lane_receipt is not None:
+        prepared["p324_typec_lane_binding"] = p324_lane_receipt
     candidate_arrival_role = bundle.manifest["observation"].get(
         typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY
     )
@@ -1315,6 +1526,8 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
     )
     if candidate_arrival_role is not None:
         expected_keys.add(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
+    if _p324_bundle(bundle):
+        expected_keys.add("p324_typec_lane_binding")
     if set(prepared) != expected_keys:
         raise F1LiveError("prepared F1 record shape mismatch")
     if (
@@ -1371,12 +1584,22 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
         != target["usb_topology_sha256"]
     ):
         raise F1LiveError("private target no longer matches D0 evidence")
+    p324_lane_receipt = None
+    if _p324_bundle(bundle):
+        temporary_prepared = PreparedRun(
+            root, run_dir, bundle, prepared, private_target
+        )
+        _lane_value, p324_lane_receipt = _p324_typec_lane_value(
+            temporary_prepared,
+            revalidate=True,
+        )
     binding, binding_sha256 = _binding(
         bundle,
         d0_result,
         prepared["d0_result"],
         prepared["private_target"],
         closure,
+        p324_lane_receipt,
     )
     if (
         prepared["approval_binding"] != binding
@@ -1594,15 +1817,18 @@ def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
-    """Validate and retain the ABI-v4 stock projection for P320-P323."""
+    """Validate and retain the ABI-v4 stock projection for P320-P324."""
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p324 = overlay == typed_evidence.P324_STOCK_OVERLAY_CONTRACT_ID
     is_p323 = overlay == typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
-        typed_evidence.p323_stock_adapter
+        typed_evidence.p324_stock_adapter
+        if is_p324
+        else typed_evidence.p323_stock_adapter
         if is_p323
         else
         typed_evidence.p322_stock_adapter
@@ -1612,7 +1838,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter
     )
     label = (
-        "P3.23"
+        "P3.24"
+        if is_p324
+        else "P3.23"
         if is_p323
         else "P3.22"
         if is_p322
@@ -1621,7 +1849,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p323_stock"
+        "p324_stock"
+        if is_p324
+        else "p323_stock"
         if is_p323
         else "p322_stock"
         if is_p322
@@ -1631,13 +1861,22 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     try:
         if (
-            is_p323
-            and classified.get("proof_class") == "P323_STOCK_ENCODER_FAILURE"
+            (is_p323 or is_p324)
+            and classified.get("proof_class")
+            == (
+                "P324_STOCK_ENCODER_FAILURE"
+                if is_p324
+                else "P323_STOCK_ENCODER_FAILURE"
+            )
             and adapter._encoder_failure_shape(classified)  # noqa: SLF001
             and classified.get("producer_failure") is True
             and classified.get("stock_encoder_failure") is True
         ):
-            proof = "P323_STOCK_ENCODER_FAILURE"
+            proof = (
+                "P324_STOCK_ENCODER_FAILURE"
+                if is_p324
+                else "P323_STOCK_ENCODER_FAILURE"
+            )
         else:
             proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
     except (AttributeError, TypeError, ValueError) as exc:
@@ -1652,8 +1891,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     if any(classified.get(name) is not False for name in required_false):
         raise F1LiveError(f"{label} stock classification exposes a causal claim")
-    expected_acm_supplemental = not is_p323
-    expected_acm_required = is_p323
+    acm_primary = is_p323 or is_p324
+    expected_acm_supplemental = not acm_primary
+    expected_acm_required = acm_primary
     if classified.get("acm_supplemental") is not expected_acm_supplemental or classified.get(
         "acm_required_for_acceptance"
     ) is not expected_acm_required:
@@ -1664,6 +1904,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if proof not in {
         "NO_PROOF_OBSERVER",
         "P323_STOCK_ENCODER_FAILURE",
+        "P324_STOCK_ENCODER_FAILURE",
     } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
     result = {
@@ -1682,11 +1923,14 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
                 "carrier_supplemental": True,
                 "acm_required_for_arrival_proof": True,
             }
-            if is_p323
+            if acm_primary
             else {}
         ),
     }
-    if is_p323 and proof == "P323_STOCK_ENCODER_FAILURE":
+    if acm_primary and proof in {
+        "P323_STOCK_ENCODER_FAILURE",
+        "P324_STOCK_ENCODER_FAILURE",
+    }:
         result["producer_failure"] = True
         result["max77705_scientific_result"] = "NOT_PRODUCED"
         result["exact_encoder_predicate"] = "UNKNOWN_NOT_RETAINED"
@@ -1694,11 +1938,22 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    is_p324 = "p324_stock" in state
     is_p322 = "p322_stock" in state
     is_p321 = "p321_stock" in state
-    label = "P3.22" if is_p322 else "P3.21" if is_p321 else "P3.20"
+    label = (
+        "P3.24"
+        if is_p324
+        else "P3.22"
+        if is_p322
+        else "P3.21"
+        if is_p321
+        else "P3.20"
+    )
     stock_key = (
-        "p322_stock"
+        "p324_stock"
+        if is_p324
+        else "p322_stock"
         if is_p322
         else "p321_stock"
         if is_p321
@@ -1713,7 +1968,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     ):
         raise F1LiveError(f"{label} durable stock projection differs from final evidence")
     proof_key = (
-        "p322_proof_class"
+        "p324_proof_class"
+        if is_p324
+        else "p322_proof_class"
         if is_p322
         else "p321_proof_class"
         if is_p321
@@ -2042,12 +2299,14 @@ class SamsungOdinBackend:
         bundle: core.Bundle,
         adb: Path,
         usb_root: Path = DEFAULT_USB_ROOT,
+        typec_root: Path = DEFAULT_TYPEC_ROOT,
     ):
         self.root = root.resolve()
         self.bundle = bundle
         self.adb = adb.resolve(strict=True)
         self.client = d0.adb_client_for_bundle(adb, bundle)
         self.usb_root = usb_root
+        self.typec_root = typec_root
         self.odin = core._artifact_path(
             self.root, bundle.profile["transport"]["odin"], "odin"
         )
@@ -2070,6 +2329,13 @@ class SamsungOdinBackend:
             or topology != prepared.private_target["topology"]
         ):
             raise F1LiveError("execution-time private target continuity changed")
+        if _p324_bundle(prepared.bundle):
+            _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         return {
             "d0_result_sha256": _receipt(
                 destination / "result.json", "execution D0 result"
@@ -2106,6 +2372,23 @@ class SamsungOdinBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
+        if _p324_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
+            return p324_cdc_observer.observer_session(
+                spec,
+                prepared.private_target["topology"],
+                prepared.run_dir,
+                _candidate_observer_binding(prepared),
+                lane_value,
+                lane_receipt,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         if _p313_bundle(prepared.bundle):
             return _p313_candidate_observer_session(
                 prepared,
@@ -2118,6 +2401,18 @@ class SamsungOdinBackend:
             prepared.run_dir,
             _candidate_observer_binding(prepared),
             usb_root=self.usb_root,
+        )
+
+    def revalidate_candidate_lane(self, prepared: PreparedRun) -> None:
+        if not _p324_bundle(prepared.bundle):
+            raise F1LiveError(
+                "P3.24 Type-C lane revalidation requested for another run"
+            )
+        _p324_typec_lane_value(
+            prepared,
+            revalidate=True,
+            usb_root=self.usb_root,
+            typec_root=self.typec_root,
         )
 
     def wait_download(
@@ -2349,7 +2644,11 @@ class SamsungOdinBackend:
                         timeout_sec=timeout,
                         download_departure=departure,
                     )
-                except (cdc_acm_observer.ObserverError, OSError):
+                except (
+                    cdc_acm_observer.ObserverError,
+                    p324_cdc_observer.P324ObserverError,
+                    OSError,
+                ):
                     pass
             durable = _reopen_candidate_observation(prepared)
             result = {
@@ -2491,10 +2790,18 @@ class SamsungOdinBackend:
         try:
             marker_result = classify_acceptance(payloads[0], acceptance)
         except F1LiveError as exc:
-            if not _p323_bundle(prepared.bundle):
+            if not _acm_primary_bundle(prepared.bundle):
                 raise
-            stock_error = _p323_stock_error(payloads[0], exc)
-            marker_result = _p323_parser_failure_classification(payloads[0], exc)
+            if _p324_bundle(prepared.bundle):
+                stock_error = _p324_stock_error(payloads[0], exc)
+                marker_result = _p324_parser_failure_classification(
+                    payloads[0], exc
+                )
+            else:
+                stock_error = _p323_stock_error(payloads[0], exc)
+                marker_result = _p323_parser_failure_classification(
+                    payloads[0], exc
+                )
         p318_topology_evidence = None
         if _p318_bundle(prepared.bundle):
             marker_result, p318_topology_evidence = (
@@ -2514,6 +2821,7 @@ class SamsungOdinBackend:
                     or _p321_bundle(prepared.bundle)
                     or _p322_bundle(prepared.bundle)
                     or _p323_bundle(prepared.bundle)
+                    or _p324_bundle(prepared.bundle)
                 )
             )
             else None
@@ -2547,7 +2855,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p323_stock"
+                "p324_stock"
+                if _p324_bundle(prepared.bundle)
+                else "p323_stock"
                 if _p323_bundle(prepared.bundle)
                 else "p322_stock"
                 if _p322_bundle(prepared.bundle)
@@ -2556,8 +2866,18 @@ class SamsungOdinBackend:
                 else "p320_stock"
             ] = p320_projection
         if stock_error is not None:
-            result["observer"]["p323_stock_error"] = stock_error
-            result["observer"].pop("p323_stock", None)
+            key = (
+                "p324_stock_error"
+                if _p324_bundle(prepared.bundle)
+                else "p323_stock_error"
+            )
+            result["observer"][key] = stock_error
+            result["observer"].pop(
+                "p324_stock"
+                if _p324_bundle(prepared.bundle)
+                else "p323_stock",
+                None,
+            )
         return result
 
 
@@ -2658,59 +2978,90 @@ def _p313_candidate_observer_session(
 
 
 def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
+    def unavailable(classification: str) -> dict[str, Any]:
+        result = {
+            "classification": classification,
+            "accepted": False,
+            "receipt_sha256": None,
+            "valid_receipt": False,
+            "download_endpoint_absent": False,
+            "endpoint_identity_sha256": None,
+            "topology_sha256": None,
+            "bounded": False,
+        }
+        if _p324_bundle(prepared.bundle):
+            result.update(
+                {
+                    "source_topology_sha256": None,
+                    "candidate_topology_sha256": None,
+                    "both_topologies_inventory_complete": False,
+                    "accepted_inventory_exact": False,
+                    "same_run_typec_partner_continuity": False,
+                    "accepted_for_p324": False,
+                }
+            )
+        return result
+
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
     if spec is None:
-        return {
-            "classification": "not-required",
-            "accepted": False,
-            "receipt_sha256": None,
-            "valid_receipt": False,
-            "download_endpoint_absent": False,
-            "endpoint_identity_sha256": None,
-            "topology_sha256": None,
-            "bounded": False,
-        }
+        return unavailable("not-required")
     path = prepared.run_dir / "candidate-observer.json"
     if not path.is_file() or path.is_symlink():
-        return {
-            "classification": "interrupted-before-receipt",
-            "accepted": False,
-            "receipt_sha256": None,
-            "valid_receipt": False,
-            "download_endpoint_absent": False,
-            "endpoint_identity_sha256": None,
-            "topology_sha256": None,
-            "bounded": False,
-        }
+        return unavailable("interrupted-before-receipt")
     try:
-        value = cdc_acm_observer.validate_receipt(
-            path,
-            spec=spec,
-            binding=_candidate_observer_binding(prepared),
-            topology=prepared.private_target["topology"],
-        )
-        receipt = _receipt(path, "candidate observer receipt")
-    except (cdc_acm_observer.ObserverError, F1LiveError, core.F1V2Error):
-        return {
-            "classification": "interrupted-before-receipt",
-            "accepted": False,
-            "receipt_sha256": None,
-            "valid_receipt": False,
-            "download_endpoint_absent": False,
-            "endpoint_identity_sha256": None,
-            "topology_sha256": None,
-            "bounded": False,
-        }
-    return {
+        if _p324_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(prepared)
+            value = p324_cdc_observer.validate_receipt(
+                prepared.run_dir,
+                spec=spec,
+                binding=_candidate_observer_binding(prepared),
+                source_topology=prepared.private_target["topology"],
+                lane_binding=lane_value,
+                lane_binding_receipt=lane_receipt,
+            )
+            receipt_sha256 = value["lane_receipt_sha256"]
+        else:
+            value = cdc_acm_observer.validate_receipt(
+                path,
+                spec=spec,
+                binding=_candidate_observer_binding(prepared),
+                topology=prepared.private_target["topology"],
+            )
+            receipt_sha256 = _receipt(
+                path, "candidate observer receipt"
+            )["sha256"]
+    except (
+        cdc_acm_observer.ObserverError,
+        p324_cdc_observer.P324ObserverError,
+        F1LiveError,
+        core.F1V2Error,
+    ):
+        return unavailable("interrupted-before-receipt")
+    result = {
         "classification": value["classification"],
         "accepted": value["accepted"],
-        "receipt_sha256": receipt["sha256"],
+        "receipt_sha256": receipt_sha256,
         "valid_receipt": True,
         "download_endpoint_absent": value["download_endpoint_absent"],
         "endpoint_identity_sha256": value["endpoint_identity_sha256"],
         "topology_sha256": value["topology_sha256"],
         "bounded": value["bounded"],
     }
+    if _p324_bundle(prepared.bundle):
+        result.update(
+            {
+                name: value[name]
+                for name in (
+                    "source_topology_sha256",
+                    "candidate_topology_sha256",
+                    "both_topologies_inventory_complete",
+                    "accepted_inventory_exact",
+                    "same_run_typec_partner_continuity",
+                    "accepted_for_p324",
+                )
+            }
+        )
+    return result
 
 
 def _p318_host_observer(
@@ -2831,8 +3182,13 @@ def _candidate_arrival_proof_projection(
         return None
     durable = _reopen_candidate_observation(prepared)
     guard_release = _reopen_candidate_guard_release(prepared)
+    p324 = _p324_bundle(prepared.bundle)
     expected_topology = hashlib.sha256(
-        prepared.private_target["topology"].removeprefix("usb:").encode()
+        (
+            p324_typec_lane.CANDIDATE_TOPOLOGY
+            if p324
+            else prepared.private_target["topology"]
+        ).removeprefix("usb:").encode()
     ).hexdigest()
     observer_valid = durable["valid_receipt"] is True
     observer_accepted = (
@@ -2847,6 +3203,15 @@ def _candidate_arrival_proof_projection(
         and re.fullmatch(r"[0-9a-f]{64}", durable["endpoint_identity_sha256"])
         is not None
     )
+    if p324:
+        topology_continuous = (
+            topology_continuous
+            and durable["candidate_topology_sha256"] == expected_topology
+            and durable["both_topologies_inventory_complete"] is True
+            and durable["accepted_inventory_exact"] is True
+            and durable["same_run_typec_partner_continuity"] is True
+            and durable["accepted_for_p324"] is True
+        )
     candidate_completed = (
         state.get("candidate_classification") == "odin_transfer_completed"
         and state.get("candidate_completed") is True
@@ -2869,7 +3234,9 @@ def _candidate_arrival_proof_projection(
     final_observer = final.get("observer") if isinstance(final, dict) else None
     if isinstance(final_observer, dict):
         key = (
-            "p323_stock"
+            "p324_stock"
+            if _p324_bundle(prepared.bundle)
+            else "p323_stock"
             if _p323_bundle(prepared.bundle)
             else "p322_stock"
             if _p322_bundle(prepared.bundle)
@@ -2888,11 +3255,16 @@ def _candidate_arrival_proof_projection(
                 "marker_accepted": state.get("marker_accepted") is True,
             }
         else:
-            error = final_observer.get("p323_stock_error")
+            error_key = (
+                "p324_stock_error"
+                if _p324_bundle(prepared.bundle)
+                else "p323_stock_error"
+            )
+            error = final_observer.get(error_key)
             if isinstance(error, dict):
                 supplemental = {
-                    "source": "p323_stock_error",
-                    "field": "p323_stock_error",
+                    "source": error_key,
+                    "field": error_key,
                     "projection": error,
                     "marker_accepted": state.get("marker_accepted") is True,
                 }
@@ -2907,11 +3279,15 @@ def _candidate_arrival_proof_projection(
             final_healthy,
         )
     )
-    return {
+    result = {
         "schema": typed_evidence.CANDIDATE_ARRIVAL_PROOF_SCHEMA,
         "role": role,
         "primary_source": "candidate_observer",
-        "banner_size": typed_evidence.P323_ACM_PRIMARY_BANNER_SIZE,
+        "banner_size": (
+            typed_evidence.P324_ACM_PRIMARY_BANNER_SIZE
+            if p324
+            else typed_evidence.P323_ACM_PRIMARY_BANNER_SIZE
+        ),
         "candidate_transfer_completed": candidate_completed,
         "download_departure": download_departure,
         "observer_receipt_valid": observer_valid,
@@ -2925,6 +3301,18 @@ def _candidate_arrival_proof_projection(
         "proof": proof,
         "supplemental_carrier": supplemental,
     }
+    if p324:
+        result.update(
+            {
+                "same_run_typec_partner_continuity": durable.get(
+                    "same_run_typec_partner_continuity"
+                ),
+                "candidate_lane_inventory_exact": durable.get(
+                    "accepted_inventory_exact"
+                ),
+            }
+        )
+    return result
 
 
 def _save_candidate_arrival_proof(
@@ -2938,7 +3326,7 @@ def _save_candidate_arrival_proof(
 def _validate_candidate_arrival_proof_state(
     prepared: PreparedRun, state: dict[str, Any]
 ) -> None:
-    if not _p323_bundle(prepared.bundle):
+    if not (_p323_bundle(prepared.bundle) or _p324_bundle(prepared.bundle)):
         return
     expected = _candidate_arrival_proof_projection(prepared, state)
     if state.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY) != expected:
@@ -2980,12 +3368,12 @@ def _result(
     recovery_required: bool,
 ) -> dict[str, Any]:
     state = _state(prepared)
-    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+    if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
         _save_candidate_arrival_proof(prepared, state)
         if state != _state(prepared):
             _save_state(prepared, state)
     elif (
-        _p323_bundle(prepared.bundle)
+        _acm_primary_bundle(prepared.bundle)
         and typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY in state
     ):
         raise F1LiveError("candidate arrival proof precedes final health")
@@ -3300,10 +3688,18 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     try:
         marker_result = classify_acceptance(payloads[0], acceptance)
     except F1LiveError as exc:
-        if not _p323_bundle(prepared.bundle):
+        if not _acm_primary_bundle(prepared.bundle):
             raise
-        stock_error = _p323_stock_error(payloads[0], exc)
-        marker_result = _p323_parser_failure_classification(payloads[0], exc)
+        if _p324_bundle(prepared.bundle):
+            stock_error = _p324_stock_error(payloads[0], exc)
+            marker_result = _p324_parser_failure_classification(
+                payloads[0], exc
+            )
+        else:
+            stock_error = _p323_stock_error(payloads[0], exc)
+            marker_result = _p323_parser_failure_classification(
+                payloads[0], exc
+            )
     if _p318_bundle(prepared.bundle):
         marker_result, topology_evidence = _p318_finalize_candidate_phase(
             prepared, marker_result
@@ -3353,6 +3749,20 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.23 final stock projection changed")
     elif "p323_stock" in observer or "p323_stock_error" in observer:
         raise F1LiveError("foreign P3.23 final stock evidence")
+    if _p324_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p324_stock_error") != stock_error
+                or "p324_stock" in observer
+            ):
+                raise F1LiveError("P3.24 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p324_stock"),
+            _p320_terminal_projection(marker_result),
+        ):
+            raise F1LiveError("P3.24 final stock projection changed")
+    elif "p324_stock" in observer or "p324_stock_error" in observer:
+        raise F1LiveError("foreign P3.24 final stock evidence")
     exact = marker_result["exact_count"]
     family = marker_result["family_count"]
     accepted = marker_result["accepted"] is True
@@ -3394,10 +3804,10 @@ def _validate_candidate_observer_state(
         != guard_release["receipt_sha256"]
     ):
         raise F1LiveError("candidate observer durable state mismatch")
-    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+    if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
         _validate_candidate_arrival_proof_state(prepared, state)
     elif (
-        _p323_bundle(prepared.bundle)
+        _acm_primary_bundle(prepared.bundle)
         and typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY in state
     ):
         raise F1LiveError("candidate arrival proof precedes final health")
@@ -3456,10 +3866,10 @@ def validate_live_result(
         "odin_device_session_failure_or_unknown",
     }:
         raise F1LiveError("live candidate classification is invalid")
-    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+    if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
         _validate_candidate_arrival_proof_state(prepared, state)
     elif (
-        _p323_bundle(prepared.bundle)
+        _acm_primary_bundle(prepared.bundle)
         and typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY in state
     ):
         raise F1LiveError("candidate arrival proof precedes final health")
@@ -3503,35 +3913,55 @@ def validate_live_result(
             raise F1LiveError("Download request recovery invented candidate evidence")
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
-    if _p323_bundle(prepared.bundle) and state.get("final_verified") is True:
+    if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
+        p324 = _p324_bundle(prepared.bundle)
+        label = "P3.24" if p324 else "P3.23"
+        success_verdict = (
+            typed_evidence.P324_ACM_PRIMARY_VERDICT
+            if p324
+            else typed_evidence.P323_ACM_PRIMARY_VERDICT
+        )
+        success_outcome = (
+            typed_evidence.P324_ACM_PRIMARY_OUTCOME
+            if p324
+            else typed_evidence.P323_ACM_PRIMARY_OUTCOME
+        )
+        no_proof_outcome = (
+            typed_evidence.P324_ACM_PRIMARY_NO_PROOF_OUTCOME
+            if p324
+            else typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME
+        )
         projection = state.get(
             typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
         )
         if not isinstance(projection, dict):
-            raise F1LiveError("P3.23 candidate arrival proof is missing")
+            raise F1LiveError(f"{label} candidate arrival proof is missing")
         proof = projection.get("proof") is True
         if proof:
             if (
-                result["verdict"] != typed_evidence.P323_ACM_PRIMARY_VERDICT
-                or result["outcome_class"]
-                != typed_evidence.P323_ACM_PRIMARY_OUTCOME
+                result["verdict"] != success_verdict
+                or result["outcome_class"] != success_outcome
                 or journal.state() != "CLOSED"
                 or names != list(core.TIMELINE)
                 or state.get("candidate_completed") is not True
                 or state.get("rollback_completed") is not True
                 or result["recovery_required"] is not False
             ):
-                raise F1LiveError("P3.23 ACM-primary terminal semantics are incomplete")
+                raise F1LiveError(
+                    f"{label} ACM-primary terminal semantics are incomplete"
+                )
         elif (
             result["verdict"] != "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
             or result["outcome_class"]
-            != typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME
+            != no_proof_outcome
             or journal.state() != "CLOSED"
             or names != list(core.TIMELINE)
             or state.get("rollback_completed") is not True
             or result["recovery_required"] is not False
         ):
-            raise F1LiveError("P3.23 ACM-primary no-proof semantics are incomplete")
+            raise F1LiveError(
+                f"{label} ACM-primary no-proof semantics are incomplete"
+            )
         return result
     if _p320_bundle(prepared.bundle) and state.get("final_verified") is True:
         projection = _p320_durable_projection(state)
@@ -4571,7 +5001,8 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
     """Recompute a CLOSED terminal without reopening any backend."""
 
     current = _state(prepared)
-    if _p323_bundle(prepared.bundle):
+    if _acm_primary_bundle(prepared.bundle):
+        p324 = _p324_bundle(prepared.bundle)
         projection = current.get(
             typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY
         )
@@ -4579,12 +5010,24 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
             projection = _candidate_arrival_proof_projection(prepared, current)
         if isinstance(projection, dict) and projection.get("proof") is True:
             return (
-                typed_evidence.P323_ACM_PRIMARY_VERDICT,
-                typed_evidence.P323_ACM_PRIMARY_OUTCOME,
+                (
+                    typed_evidence.P324_ACM_PRIMARY_VERDICT
+                    if p324
+                    else typed_evidence.P323_ACM_PRIMARY_VERDICT
+                ),
+                (
+                    typed_evidence.P324_ACM_PRIMARY_OUTCOME
+                    if p324
+                    else typed_evidence.P323_ACM_PRIMARY_OUTCOME
+                ),
             )
         return (
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
-            typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME,
+            (
+                typed_evidence.P324_ACM_PRIMARY_NO_PROOF_OUTCOME
+                if p324
+                else typed_evidence.P323_ACM_PRIMARY_NO_PROOF_OUTCOME
+            ),
         )
     if _p320_bundle(prepared.bundle):
         projection = _p320_durable_projection(current)
@@ -4855,6 +5298,20 @@ def _finish_rollback(
                     raise F1LiveError("P3.23 final stock projection is missing")
                 current["p323_proof_class"] = projection["proof_class"]
                 current["p323_stock"] = projection
+        if _p324_bundle(prepared.bundle):
+            error = final["observer"].get("p324_stock_error")
+            projection = final["observer"].get("p324_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError(
+                        "P3.24 supplemental parser failure is malformed"
+                    )
+                current["p324_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.24 final stock projection is missing")
+                current["p324_proof_class"] = projection["proof_class"]
+                current["p324_stock"] = projection
         _save_state(prepared, current)
         journal.transition(
             "HEALTH_VERIFIED",
@@ -5126,14 +5583,9 @@ class _P300UsbTraceSession:
                 },
                 start_new_session=True,
             )
-            identity = _proc_identity(self.process.pid)
-            if (
-                identity is None
-                or identity["process_group_id"] != self.process.pid
-                or identity["session_id"] != self.process.pid
-                or not _proc_has_owner(self.process.pid, self.owner_token)
-            ):
-                raise F1LiveError("P3.00 USB trace process ownership did not arm")
+            identity = _p300_wait_owned_identity(
+                self.process, self.owner_token
+            )
             owner_value = _p300_process_owner_value(
                 self.prepared, self.binding, identity
             )
@@ -5727,10 +6179,30 @@ def _execute_prepared_locked(
                 )
             except Exception as exc:
                 raise F1LiveError("BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY: Download endpoint outcome is uncertain; recovery is required") from exc
+            if _p324_bundle(prepared.bundle):
+                try:
+                    backend.revalidate_candidate_lane(prepared)
+                except Exception as exc:
+                    raise F1LiveError(
+                        "BLOCKED_DOWNLOAD_REQUEST_CUT_RECOVERY: P3.24 Type-C lane "
+                        "changed before the candidate effect; recovery is required"
+                    ) from exc
+            endpoint_details = {
+                "endpoint_identity_sha256": endpoint.identity_sha256
+            }
+            if _p324_bundle(prepared.bundle):
+                endpoint_details.update(
+                    {
+                        "p324_typec_lane_pre_effect_revalidated": True,
+                        "p324_typec_lane_receipt_sha256": prepared.prepared[
+                            "p324_typec_lane_binding"
+                        ]["sha256"],
+                    }
+                )
             journal.transition(
                 "DOWNLOAD_IDENTIFIED",
                 "candidate_endpoint_identified",
-                {"endpoint_identity_sha256": endpoint.identity_sha256},
+                endpoint_details,
             )
             # Claim before allocating a local transfer attempt.  A cut after
             # the durable claim intent but before the registry claim therefore

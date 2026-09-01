@@ -1,0 +1,77 @@
+{
+  "allowed_member": "boot.img.lz4",
+  "candidate_ap": {
+    "path": "workspace/private/outputs/s22plus_fyg8_p324/stock-candidate-build-v1-20260901-03/candidate-a/odin4/AP.tar.md5",
+    "sha256": "a1703c66557375dee614fc38b6eceb476544a1ad6ed59815a72896e370976ce1",
+    "size": 27279401
+  },
+  "final_health_profile": "s22plus-fyg8-magisk",
+  "manifest_id": "s22plus-fyg8-p324-process-v2-ready-1",
+  "observation": {
+    "acceptance": {
+      "candidate_success": false,
+      "causal_result_allowed": false,
+      "clean_baseline_required": true,
+      "contract": {
+        "candidate_static": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p324/process-v2-promotion-20260901-01/candidate-static.json",
+          "sha256": "e694dbef5a25e2865fa62c9e09f4976a6400d18c1783430b48abb377b4738103",
+          "size": 22558
+        },
+        "run_manifest": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p324/process-v2-promotion-20260901-01/run-manifest.json",
+          "sha256": "52e4d4fdd3fea51d07b04c3ea2526ee47a115bdfe0000ad4110a4547b7be70f5",
+          "size": 1021
+        },
+        "static_check": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p324/process-v2-promotion-20260901-01/static-check-result.json",
+          "sha256": "4d29493ad2a3846441dcf7b15468b8d0a65ea75ad35395c7e553971642cf0c64",
+          "size": 1835
+        }
+      },
+      "decoder": "s22plus_fyg8_p324_observer_v4_carrier_v1",
+      "kind": "retained_e1_latest_stage_multiboot_after_rollback",
+      "long_family_hex": "53323245314c327c",
+      "minimum_success_count": 1,
+      "observer_contract": {
+        "base_commit": "8348fc0085",
+        "commit": "8348fc0085",
+        "id": "s22plus-fyg8-p324-observer-error-v1",
+        "payload_abi": 4,
+        "receipt_offset": 61,
+        "receipt_size": 15
+      },
+      "overlay_contract_id": "s22plus-fyg8-p324-observer-v4-carrier-v1",
+      "policy_id": "3bb13d91b4fcc88b93be21208aa902ae",
+      "profile": "E2",
+      "run_id": "c324f1e0a90b5e6d7c8a9b0c1d2e3f4b",
+      "schema": "s22plus_fyg8_p324_stock_process_v2_adapter_v1",
+      "source": "/proc/last_kmsg",
+      "source_contract_id": "s22plus-fyg8-p310-carrier-v2-hsphy-attribution-v1",
+      "terminal_stage": 147,
+      "unsat_family_hex": "533232453155327c",
+      "userspace_overlay_contract_id": "s22plus-fyg8-p324-observer-v4-carrier-v1"
+    },
+    "candidate_arrival_proof_role": "cdc_acm_primary_v1",
+    "candidate_observer": {
+      "banner_hex": "533232504c55532d465947382d45333a63333234663165306139306235653664376338613962306331643265336634620a",
+      "kind": "exact_cdc_acm_banner_v1",
+      "usb_driver": "cdc_acm",
+      "usb_interface_number": "00",
+      "usb_product_id": "6861",
+      "usb_serial": "S22E3c324f1e0a90b5e6d7c8a9b0c1d2e3f4b",
+      "usb_vendor_id": "04e8"
+    },
+    "timeout_sec": 300
+  },
+  "rollback_ap": {
+    "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+    "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
+    "size": 23367721
+  },
+  "run_id": "s22plus-fyg8-p324-live-1",
+  "runner_version": "device-action-f1-v2-host-core-3",
+  "schema": "device_action_f1_candidate_v2",
+  "status": "ready-for-f1-approval",
+  "target_profile": "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
+}

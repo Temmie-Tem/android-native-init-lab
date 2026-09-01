@@ -33,6 +33,60 @@ def load_module():
 
 
 class P300SidecarLifecycleTest(unittest.TestCase):
+    def test_owner_identity_wait_tolerates_pre_exec_proc_race(self) -> None:
+        process = mock.Mock(pid=741)
+        process.poll.return_value = None
+        identity = {
+            "pid": 741,
+            "state": "S",
+            "parent_pid": 100,
+            "process_group_id": 741,
+            "session_id": 741,
+            "start_ticks": 12345,
+        }
+        with (
+            mock.patch.object(
+                self.module,
+                "_proc_identity",
+                side_effect=[None, identity, identity],
+            ),
+            mock.patch.object(
+                self.module, "_proc_has_owner", side_effect=[False, True]
+            ),
+            mock.patch.object(self.module.time, "sleep"),
+            mock.patch.object(
+                self.module.time,
+                "monotonic",
+                side_effect=[0.0, 0.1, 0.2, 0.3],
+            ),
+        ):
+            self.assertEqual(
+                self.module._p300_wait_owned_identity(  # noqa: SLF001
+                    process, "owner-token", timeout_sec=1.0
+                ),
+                identity,
+            )
+        self.assertEqual(process.poll.call_count, 3)
+
+    def test_owner_identity_wait_remains_bounded(self) -> None:
+        process = mock.Mock(pid=742)
+        process.poll.return_value = None
+        with (
+            mock.patch.object(self.module, "_proc_identity", return_value=None),
+            mock.patch.object(self.module, "_proc_has_owner") as owner,
+            mock.patch.object(self.module.time, "sleep"),
+            mock.patch.object(
+                self.module.time,
+                "monotonic",
+                side_effect=[0.0, 0.2, 1.1],
+            ),
+            self.assertRaises(self.module.F1LiveError),
+        ):
+            self.module._p300_wait_owned_identity(  # noqa: SLF001
+                process, "owner-token", timeout_sec=1.0
+            )
+        owner.assert_not_called()
+
     @classmethod
     def setUpClass(cls):
         cls.module = load_module()

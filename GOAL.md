@@ -11,12 +11,10 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.23 is closed and consumed after exact candidate/rollback transfers 1/1 and healthy rooted FYG8 return. The operator observed a normal candidate boot without a loop, but the
-primary ACM observer timed out and accepted no receipt, so the formal terminal is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` /
-`p323_acm_primary_native_pid1_arrival_unproved_rollback_verified`; native PID-1/USB arrival remains unproved and P3.23 is never replayable. The first rollback Download inventory
-failed after durable candidate observation, then `--recover` resumed only the exact journal and sent the rollback once. Final health passed and the 19-record journal closed.
-The ordinary result publisher then exceeded its 32 KiB record bound after closure. Independently reviewed host-only finalizer `c45e60260f` published the canonical 34,937-byte
-result at SHA-256 `de24b959c37357a2532556258dbb0e64dd21390cb0ae2d16662add6776e26829` with no device, ADB, Odin, or transfer action.
+P3.24 is the current H0-ready successor. It binds the host's exact `port0` speed-lane pair `usb:2-1.3`/`usb:3-1.3`, opens only the candidate ACM at `3-1.3`, rejects foreign/ambiguous/malformed endpoints and USB4 inference, and treats Type-C partner continuity only as corroborating evidence under the attended no-disconnect/no-move/no-reroute condition.
+Its minimal P3.00 repair polls the new sidecar's `/proc` ownership for at most two seconds without retrying any device action. Final builder/static/promotion/ready bytes pass 189 focused/common tests, exact runtime-bound bundle verification, noncreating rehearsal, and independent verdict `PASS_GO_P324_PROCESS_V2_H0`; no P3.24 device action, prepared run, approval, Odin invocation, or transfer has occurred. A fresh connected D0 prepare is next.
+P3.23 is closed and consumed after exact candidate/rollback transfers 1/1 and healthy rooted FYG8 return. The operator observed a normal candidate boot without a loop, but the primary ACM observer timed out at zero bytes because it was frozen to Android topology `2-1.3` while post-run host evidence places the exact candidate at `3-1.3`; its formal terminal remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `p323_acm_primary_native_pid1_arrival_unproved_rollback_verified`, and uncertain physical reconnect history prevents retroactive reclassification.
+The first rollback Download inventory failed after durable candidate observation; `--recover` resumed only the exact journal, sent rollback once, verified final health, and closed 19 records. Host-only finalizer `c45e60260f` then published canonical result `34937B/de24b959` after the ordinary 32 KiB publisher bound stopped post-close. P3.23 is never replayable.
 P3.22 remains a closed consumed predecessor with exact 1/1 transfers and healthy return. Its CRC-valid generation-92 progress to generation-93 failure `0x6726` supports native candidate arrival and a producer-failure receipt but no Max77705 scientific result. P3.22 is never replayable.
 
 P3.21 remains closed and consumed after exact candidate/rollback transfers and healthy

@@ -156,6 +156,19 @@ and has no expiry. Any change to endpoint identity, topology/controller
 capture, phase classification, recovery rebinding, or selector semantics
 requires a new independent boundary review.
 
+**P324 exact Type-C lane binding.** For the P324 S22+ observer only, the
+approval must bind and the runner must capture/revalidate the exact `port0`
+lane pair `usb:2-1.3` (`usb2-port1`, controller `0000:00:0d.0`) and `usb:3-1.3`
+(`usb3-port1`, controller `0000:00:14.0`) with their shared connector/location
+identity. Both lanes may be recorded, but the candidate observer may open only
+the explicitly approved exact candidate endpoint at `usb:3-1.3`; foreign,
+duplicate/ambiguous, incomplete, or malformed endpoint state fails closed. This
+does not generalize to USB4, a shared topology suffix, another host, or another
+target. Same-run Type-C partner continuity is corroborating evidence only and
+never replaces the operator's no-disconnect/no-move/no-reroute condition. Any
+change to this pair, its approval-bound capture/revalidation, or its
+single-endpoint selector requires a fresh independent boundary review.
+
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
 start and candidate-observer closure. Before rollback transfer it must retain a

@@ -210,6 +210,9 @@ p322_stock_adapter = _load_stable_local_module(
 p323_stock_adapter = _load_stable_local_module(
     "s22plus_fyg8_p323_stock_process_v2_adapter"
 )
+p324_stock_adapter = _load_stable_local_module(
+    "s22plus_fyg8_p324_stock_process_v2_adapter"
+)
 p323_predecessor_baseline = _load_stable_local_module(
     "s22plus_fyg8_p323_p322_carrier_reanalysis"
 )
@@ -247,6 +250,20 @@ P323_ACM_PRIMARY_OUTCOME = (
 )
 P323_ACM_PRIMARY_NO_PROOF_OUTCOME = (
     "p323_acm_primary_native_pid1_arrival_unproved_rollback_verified"
+)
+P324_ACM_PRIMARY_RUNTIME_CONTRACT_ID = (
+    "s22plus-fyg8-p324-acm-primary-runtime-v1"
+)
+P324_ACM_PRIMARY_RUN_ID_HEX = "c324f1e0a90b5e6d7c8a9b0c1d2e3f4b"
+P324_ACM_PRIMARY_BANNER_SIZE = 49
+P324_ACM_PRIMARY_VERDICT = (
+    "PASS_F1_V2_P324_ACM_PRIMARY_NATIVE_PID1_USB_ARRIVAL_AND_ROLLED_BACK"
+)
+P324_ACM_PRIMARY_OUTCOME = (
+    "p324_acm_primary_native_pid1_usb_arrival_rollback_verified"
+)
+P324_ACM_PRIMARY_NO_PROOF_OUTCOME = (
+    "p324_acm_primary_native_pid1_arrival_unproved_rollback_verified"
 )
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
 PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
@@ -429,12 +446,15 @@ P322_STOCK_OVERLAY_CONTRACT_ID = p322_stock_adapter.OVERLAY_CONTRACT_ID
 P322_STOCK_OVERLAY_IDS = frozenset({P322_STOCK_OVERLAY_CONTRACT_ID})
 P323_STOCK_OVERLAY_CONTRACT_ID = p323_stock_adapter.OVERLAY_CONTRACT_ID
 P323_STOCK_OVERLAY_IDS = frozenset({P323_STOCK_OVERLAY_CONTRACT_ID})
+P324_STOCK_OVERLAY_CONTRACT_ID = p324_stock_adapter.OVERLAY_CONTRACT_ID
+P324_STOCK_OVERLAY_IDS = frozenset({P324_STOCK_OVERLAY_CONTRACT_ID})
 STOCK_ADAPTERS = {
     P319_STOCK_OVERLAY_CONTRACT_ID: p319_stock_adapter,
     P320_STOCK_OVERLAY_CONTRACT_ID: p320_stock_adapter,
     P321_STOCK_OVERLAY_CONTRACT_ID: p321_stock_adapter,
     P322_STOCK_OVERLAY_CONTRACT_ID: p322_stock_adapter,
     P323_STOCK_OVERLAY_CONTRACT_ID: p323_stock_adapter,
+    P324_STOCK_OVERLAY_CONTRACT_ID: p324_stock_adapter,
 }
 P316_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p316_candidate_static_checker_v1"
 P316_CANDIDATE_STATIC_VERDICT = (
@@ -478,6 +498,12 @@ P323_CANDIDATE_STATIC_SCHEMA = (
 P323_CANDIDATE_STATIC_VERDICT = (
     "PASS_P323_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
 )
+P324_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p324_process_v2_candidate_static_v1"
+)
+P324_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P324_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
+)
 MAX77705_OVERLAY_CONTRACT_IDS = frozenset(
     {
         MAX77705_OVERLAY_CONTRACT_ID,
@@ -494,11 +520,13 @@ P320_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P321_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P322_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P323_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
+P324_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P319_RUN_ID = "b9cc424d0d184f5accbce94a844e817d"
 P320_RUN_ID = p320_stock_adapter.P320_STOCK_RUN_ID.hex()
 P321_RUN_ID = p321_stock_adapter.P321_RUN_ID_HEX
 P322_RUN_ID = p322_stock_adapter.P322_RUN_ID_HEX
 P323_RUN_ID = p323_stock_adapter.P323_RUN_ID_HEX
+P324_RUN_ID = p324_stock_adapter.P324_RUN_ID_HEX
 P320_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p320_process_v2_candidate_static.py"
@@ -515,6 +543,10 @@ P323_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p323_process_v2_candidate_static.py"
 )
+P324_CANDIDATE_STATIC_AUTHORITY_PATH = (
+    "workspace/public/src/scripts/analysis/"
+    "s22plus_fyg8_p324_process_v2_candidate_static.py"
+)
 P319_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p319_process_v2_candidate_static.py"
@@ -528,11 +560,17 @@ P320_TARGET = dict(P319_TARGET)
 P321_TARGET = dict(P319_TARGET)
 P322_TARGET = dict(P319_TARGET)
 P323_TARGET = dict(P319_TARGET)
+P324_TARGET = dict(P319_TARGET)
 P323_CONSUMED_P322_BASELINE_IDENTITY = {
     "size": 2_097_136,
     "sha256": "3d186a2a46cdca7eed219d6a915906322d3c2da001e7380b3a75e8b52ef7b4e2",
 }
 P323_CONSUMED_P322_RECORD_OFFSET = 1_634_466
+P324_CONSUMED_P323_BASELINE_IDENTITY = {
+    "size": 2_097_136,
+    "sha256": "da8df4578847a3a857907c0ea17d20e9723f0b69d7bd9b109981515c0404afc6",
+}
+P324_CONSUMED_P323_RECORD_OFFSET = 1_657_064
 P319_EXACT_ARTIFACTS = {
     "ap_tar_md5": {
         "size": 27_279_401,
@@ -885,7 +923,16 @@ def _latest_stage_observation_decoder(
 ):
     if userspace_overlay_contract_id is None:
         return _latest_stage_decoder(source_contract_id, profile)
-    if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id == P324_STOCK_OVERLAY_CONTRACT_ID:
+        if (
+            source_contract_id != p324_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+            or profile != p324_stock_adapter.PROFILE
+        ):
+            raise EvidenceError(
+                "P3.24 stock userspace observation overlay is unsupported"
+            )
+        selected = p324_stock_adapter
+    elif userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
         if (
             source_contract_id != p323_stock_adapter.PARENT_SOURCE_CONTRACT_ID
             or profile != p323_stock_adapter.PROFILE
@@ -1262,6 +1309,11 @@ def _validate_p318_overlay_contract(value: Any) -> dict[str, Any]:
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
+    if userspace_overlay_contract_id == P324_STOCK_OVERLAY_CONTRACT_ID:
+        try:
+            return p324_stock_adapter.validate_contract(value)
+        except p324_stock_adapter.DecodeError as exc:
+            raise EvidenceError("P3.24 stock overlay metadata differs") from exc
     if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
         try:
             return p323_stock_adapter.validate_contract(value)
@@ -1332,6 +1384,10 @@ def _select_e2_closure(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None = None,
 ):
+    if userspace_overlay_contract_id == P324_STOCK_OVERLAY_CONTRACT_ID:
+        if source_contract_id != p324_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
+            raise EvidenceError("P3.24 stock parent source contract differs")
+        return p310_e2_closure.select(source_contract_id)
     if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
         if source_contract_id != p323_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
             raise EvidenceError("P3.23 stock parent source contract differs")
@@ -2233,6 +2289,8 @@ def _latest_stage_accepted_identity(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None,
 ) -> str:
+    if userspace_overlay_contract_id == P324_STOCK_OVERLAY_CONTRACT_ID:
+        return "P324_STOCK_OBSERVER_V4_RETAINED"
     if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
         return "P323_STOCK_OBSERVER_V4_RETAINED"
     if userspace_overlay_contract_id == P322_STOCK_OVERLAY_CONTRACT_ID:
@@ -2761,6 +2819,31 @@ def _validate_p323_candidate_static(
     return value
 
 
+def _validate_p324_candidate_static_authority(
+    value: dict[str, Any],
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    return _validate_candidate_static_authority(
+        value,
+        authority_path=P324_CANDIDATE_STATIC_AUTHORITY_PATH,
+        label="P3.24",
+        maximum=P324_CANDIDATE_STATIC_MAX_BYTES,
+        runtime_bound=runtime_bound,
+    )
+
+
+def _validate_p324_candidate_static(
+    value: Any,
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise EvidenceError("P3.24 candidate-static result is not an object")
+    _validate_p324_candidate_static_authority(value, runtime_bound=runtime_bound)
+    return value
+
+
 def _p319_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
     artifacts = candidate_static["candidate"]["artifacts"]
     return {
@@ -2845,6 +2928,25 @@ def _p323_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]
     artifacts = candidate["a"]
     return {
         "kind": "p323_exact_stock_observer_ap_v1",
+        "boot_img_lz4": artifacts["boot_img_lz4"],
+        "boot_image": artifacts["boot_img"],
+        "image": candidate["image"],
+        "init": candidate["init"],
+        "child": candidate["child"],
+        "latch": P319_EXACT_ARTIFACTS["latch"],
+        "run_id": candidate_static["run_id"],
+        "source_contract_id": candidate_static["source_contract_id"],
+        "userspace_overlay_contract_id": candidate_static[
+            "userspace_overlay_contract_id"
+        ],
+    }
+
+
+def _p324_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
+    candidate = candidate_static["candidate"]
+    artifacts = candidate["a"]
+    return {
+        "kind": "p324_exact_stock_observer_ap_v1",
         "boot_img_lz4": artifacts["boot_img_lz4"],
         "boot_image": artifacts["boot_img"],
         "image": candidate["image"],
@@ -3196,6 +3298,62 @@ def _validate_p323_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
     }
 
 
+def _validate_p324_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
+    item = _exact(
+        closure,
+        {
+            "kind",
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "latch",
+            "run_id",
+            "source_contract_id",
+            "userspace_overlay_contract_id",
+        },
+        "P3.24 E2 AP payload closure",
+    )
+    if (
+        item["kind"] != "p324_exact_stock_observer_ap_v1"
+        or item["run_id"] != P324_RUN_ID
+        or item["source_contract_id"]
+        != p324_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+        or item["userspace_overlay_contract_id"]
+        != P324_STOCK_OVERLAY_CONTRACT_ID
+    ):
+        raise EvidenceError("P3.24 E2 AP payload header differs")
+    identities = {
+        name: _binary_identity(item[name], f"P3.24 E2 AP {name}")
+        for name in (
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "latch",
+        )
+    }
+    structural = {
+        **item,
+        "kind": "p320_exact_stock_observer_ap_v1",
+        "run_id": P320_RUN_ID,
+        "userspace_overlay_contract_id": P320_STOCK_OVERLAY_CONTRACT_ID,
+    }
+    verified = _validate_p320_e2_ap_payload(frame, structural)
+    return {
+        "verified": True,
+        **identities,
+        "rootfs_entry_count": verified["rootfs_entry_count"],
+        "run_id": P324_RUN_ID,
+        "source_contract_id": item["source_contract_id"],
+        "userspace_overlay_contract_id": item[
+            "userspace_overlay_contract_id"
+        ],
+    }
+
+
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
@@ -3207,6 +3365,8 @@ def validate_e2_ap_payload(
         if isinstance(closure, dict)
         else None
     )
+    if userspace_overlay_contract_id == P324_STOCK_OVERLAY_CONTRACT_ID:
+        return _validate_p324_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
         return _validate_p323_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P322_STOCK_OVERLAY_CONTRACT_ID:
@@ -3536,9 +3696,12 @@ def _bounded_text(value: Any, label: str, maximum: int) -> str:
 
 
 def validate_candidate_arrival_proof_role(
-    value: Any, candidate_observer: Any = None
+    value: Any,
+    candidate_observer: Any = None,
+    *,
+    expected_run_id: str | None = None,
 ) -> str | None:
-    """Validate the narrow P3.23 manifest role without elevating Carrier.
+    """Validate the narrow ACM-primary role without elevating Carrier.
 
     The role is intentionally a string rather than a second observer schema:
     the existing candidate-observer validator remains the authority for the
@@ -3573,17 +3736,42 @@ def validate_candidate_arrival_proof_role(
         raise EvidenceError(
             "candidate arrival proof role requires an exact ACM banner"
         ) from exc
-    expected_banner = (
-        "S22PLUS-FYG8-E3:" + P323_ACM_PRIMARY_RUN_ID_HEX + "\n"
-    ).encode("ascii")
+    expected = {
+        run_id: (
+            ("S22PLUS-FYG8-E3:" + run_id + "\n").encode("ascii"),
+            "S22E3" + run_id,
+        )
+        for run_id in (
+            P323_ACM_PRIMARY_RUN_ID_HEX,
+            P324_ACM_PRIMARY_RUN_ID_HEX,
+        )
+    }
+    supplied = (
+        bytes.fromhex(banner_hex),
+        candidate_observer.get("usb_serial"),
+    )
+    if expected_run_id is not None and expected_run_id not in expected:
+        raise EvidenceError(
+            "candidate arrival proof role run identity is not allowlisted"
+        )
+    accepted_identities = (
+        {expected[expected_run_id]}
+        if expected_run_id is not None
+        else set(expected.values())
+    )
     if (
         banner_size != P323_ACM_PRIMARY_BANNER_SIZE
-        or bytes.fromhex(banner_hex) != expected_banner
-        or candidate_observer.get("usb_serial")
-        != "S22E3" + P323_ACM_PRIMARY_RUN_ID_HEX
+        or supplied not in accepted_identities
     ):
+        label = (
+            "P3.24"
+            if expected_run_id == P324_ACM_PRIMARY_RUN_ID_HEX
+            else "P3.23"
+            if expected_run_id == P323_ACM_PRIMARY_RUN_ID_HEX
+            else "ACM-primary"
+        )
         raise EvidenceError(
-            "candidate arrival proof role requires the exact P3.23 ACM identity"
+            f"candidate arrival proof role requires the exact {label} ACM identity"
         )
     return value
 
@@ -3726,11 +3914,15 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             P321_STOCK_OVERLAY_CONTRACT_ID,
             P322_STOCK_OVERLAY_CONTRACT_ID,
             P323_STOCK_OVERLAY_CONTRACT_ID,
+            P324_STOCK_OVERLAY_CONTRACT_ID,
         }:
             expected_keys.update(
                 {"observer_contract", "causal_result_allowed", "candidate_success"}
             )
-            if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
+            if userspace_overlay_contract_id in {
+                P323_STOCK_OVERLAY_CONTRACT_ID,
+                P324_STOCK_OVERLAY_CONTRACT_ID,
+            }:
                 expected_keys.update({"schema", "overlay_contract_id"})
         item = _exact(
             value,
@@ -3786,7 +3978,10 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             contract["candidate_static"],
             "E1 latest-stage candidate_static",
             maximum=(
-                P323_CANDIDATE_STATIC_MAX_BYTES
+                P324_CANDIDATE_STATIC_MAX_BYTES
+                if userspace_overlay_contract_id
+                == P324_STOCK_OVERLAY_CONTRACT_ID
+                else P323_CANDIDATE_STATIC_MAX_BYTES
                 if userspace_overlay_contract_id
                 == P323_STOCK_OVERLAY_CONTRACT_ID
                 else P322_CANDIDATE_STATIC_MAX_BYTES
@@ -3833,19 +4028,36 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             P321_STOCK_OVERLAY_CONTRACT_ID,
             P322_STOCK_OVERLAY_CONTRACT_ID,
             P323_STOCK_OVERLAY_CONTRACT_ID,
+            P324_STOCK_OVERLAY_CONTRACT_ID,
         }:
-            if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID and (
-                item["schema"] != p323_stock_adapter.SCHEMA
-                or item["overlay_contract_id"] != P323_STOCK_OVERLAY_CONTRACT_ID
-            ):
-                raise EvidenceError("P3.23 stock acceptance identity is invalid")
+            if userspace_overlay_contract_id in {
+                P323_STOCK_OVERLAY_CONTRACT_ID,
+                P324_STOCK_OVERLAY_CONTRACT_ID,
+            }:
+                selected_adapter = STOCK_ADAPTERS[userspace_overlay_contract_id]
+                if (
+                    item["schema"] != selected_adapter.SCHEMA
+                    or item["overlay_contract_id"]
+                    != userspace_overlay_contract_id
+                ):
+                    label = (
+                        "P3.24"
+                        if userspace_overlay_contract_id
+                        == P324_STOCK_OVERLAY_CONTRACT_ID
+                        else "P3.23"
+                    )
+                    raise EvidenceError(
+                        f"{label} stock acceptance identity is invalid"
+                    )
             try:
                 STOCK_ADAPTERS[userspace_overlay_contract_id].validate_acceptance_item(
                     item
                 )
             except STOCK_ADAPTERS[userspace_overlay_contract_id].DecodeError as exc:
                 label = (
-                    "P3.23"
+                    "P3.24"
+                    if userspace_overlay_contract_id == P324_STOCK_OVERLAY_CONTRACT_ID
+                    else "P3.23"
                     if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID
                     else
                     "P3.22"
@@ -4377,6 +4589,9 @@ P322_STATIC_RESULT_VERDICT = "PASS_P322_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
 P323_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p323_process_v2_run_manifest_v1"
 P323_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p323_process_v2_static_result_v1"
 P323_STATIC_RESULT_VERDICT = "PASS_P323_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
+P324_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p324_process_v2_run_manifest_v1"
+P324_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p324_process_v2_static_result_v1"
+P324_STATIC_RESULT_VERDICT = "PASS_P324_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
 
 
 def _verify_p321_stock_offline_contract(
@@ -4903,6 +5118,198 @@ def _verify_p323_stock_offline_contract(
     }
 
 
+def _verify_p324_stock_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    """Verify the P324 identity successor and its exact host-only closure."""
+    item = validate_acceptance(acceptance)
+    if item.get("userspace_overlay_contract_id") != P324_STOCK_OVERLAY_CONTRACT_ID:
+        raise EvidenceError("P3.24 offline contract is not applicable")
+    expected_names = {"candidate_static", "run_manifest", "static_check"}
+    if set(payloads) != expected_names or set(receipts) != expected_names:
+        raise EvidenceError("P3.24 promotion artifacts are incomplete")
+    for name, payload in payloads.items():
+        pin = item["contract"][name]
+        if (
+            len(payload) != pin["size"]
+            or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+            or receipts[name].get("size") != pin["size"]
+            or receipts[name].get("sha256") != pin["sha256"]
+        ):
+            raise EvidenceError(f"P3.24 offline contract {name} changed")
+    candidate_static = _json(
+        payloads["candidate_static"], "P3.24 candidate-static result"
+    )
+    if payloads["candidate_static"] != _canonical(candidate_static) + b"\n":
+        raise EvidenceError("P3.24 candidate-static bytes are not canonical")
+    candidate_static = _validate_p324_candidate_static(
+        candidate_static, runtime_bound=runtime_bound
+    )
+    candidate = candidate_static.get("candidate")
+    if not isinstance(candidate, dict) or not isinstance(candidate.get("a"), dict):
+        raise EvidenceError("P3.24 candidate package is incomplete")
+    candidate_ap_identity = _binary_identity(
+        {key: candidate_ap.get(key) for key in ("size", "sha256")},
+        "P3.24 candidate AP",
+    )
+    expected_member = {
+        "name": "boot.img.lz4",
+        **_binary_identity(
+            candidate["a"].get("boot_img_lz4"), "P3.24 AP boot member"
+        ),
+    }
+    if (
+        candidate_ap_identity != candidate["a"].get("ap_tar_md5")
+        or candidate_ap.get("member") != expected_member
+        or candidate_static.get("run_id") != P324_RUN_ID
+        or candidate_ap_identity == P319_EXACT_ARTIFACTS["ap_tar_md5"]
+    ):
+        raise EvidenceError("P3.24 candidate AP binding differs")
+    static_identity = {
+        "size": len(payloads["candidate_static"]),
+        "sha256": hashlib.sha256(payloads["candidate_static"]).hexdigest(),
+    }
+    run_manifest = _json(payloads["run_manifest"], "P3.24 run manifest")
+    expected_manifest = {
+        "schema": P324_RUN_MANIFEST_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "profile": p324_stock_adapter.PROFILE,
+        "run_id": P324_RUN_ID,
+        "decoder": p324_stock_adapter.DECODER_ID,
+        "policy_id": p324_stock_adapter.POLICY_ID,
+        "records": {
+            "long_family_hex": p324_stock_adapter.LONG_FAMILY.hex(),
+            "unsat_family_hex": p324_stock_adapter.UNSAT_FAMILY.hex(),
+            "terminal_stage": p324_stock_adapter.TERMINAL_STAGE,
+        },
+        "observation_contract": {
+            "accepted_identity": "P324_STOCK_OBSERVER_V4_RETAINED",
+            "minimum_success_count": 1,
+            "clean_baseline_required": True,
+            "runtime_values_preflighted": False,
+            "complete_is_noncausal": True,
+            "incomplete_result": "NO_PROOF_EXPERIMENT_PRECONDITION",
+            "receipt_result": "NO_PROOF_OBSERVER",
+        },
+        "candidate_ap": candidate_ap_identity,
+        "candidate_static": static_identity,
+        "source_contract_id": p324_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P324_STOCK_OVERLAY_CONTRACT_ID,
+    }
+    if (
+        run_manifest != expected_manifest
+        or payloads["run_manifest"] != _canonical(run_manifest)
+    ):
+        raise EvidenceError("P3.24 run manifest differs from candidate-static")
+    static_result = _json(payloads["static_check"], "P3.24 static result")
+    run_payload = _canonical(run_manifest)
+    expected_static = {
+        "schema": P324_STATIC_RESULT_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "verdict": P324_STATIC_RESULT_VERDICT,
+        "profile": p324_stock_adapter.PROFILE,
+        "run_id": P324_RUN_ID,
+        "decoder": p324_stock_adapter.DECODER_ID,
+        "policy_id": p324_stock_adapter.POLICY_ID,
+        "source_contract_id": p324_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P324_STOCK_OVERLAY_CONTRACT_ID,
+        "run_binding": {
+            "canonical_manifest_size": len(run_payload),
+            "canonical_manifest_sha256": hashlib.sha256(run_payload).hexdigest(),
+            "verified": True,
+        },
+        "candidate": {
+            "artifacts": {
+                "ap": candidate_ap_identity,
+                "candidate_static": static_identity,
+                "boot_image": candidate["a"]["boot_img"],
+                "boot_img_lz4": candidate["a"]["boot_img_lz4"],
+                "image": candidate["image"],
+                "init": candidate["init"],
+                "child": candidate["child"],
+                "latch": P319_EXACT_ARTIFACTS["latch"],
+            },
+            "boot_only_ap": True,
+            "independent_static_contract": True,
+            "complete_is_noncausal": True,
+            "runtime_values_observed": False,
+            "verified": True,
+        },
+        "safety": {
+            "host_only": True,
+            "device_contact": False,
+            "device_write": False,
+            "odin_invoked": False,
+            "odin_transfer": False,
+            "flash": False,
+            "partition_write": False,
+            "live_authorized": False,
+            "causal_result_allowed": False,
+            "candidate_success": False,
+        },
+    }
+    if (
+        static_result != expected_static
+        or payloads["static_check"] != _canonical(static_result)
+    ):
+        raise EvidenceError("P3.24 static result differs")
+    source_contract = _selected_contract(
+        p324_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        p324_stock_adapter.PROFILE,
+    )
+    try:
+        _source_payloads, candidate_source_receipts = (
+            source_contract.module.source_receipts(
+                Path(__file__).resolve().parents[5]
+            )
+        )
+    except (OSError, source_contract.module.SourceContractError) as exc:
+        raise EvidenceError("P3.24 parent source receipts are unavailable") from exc
+    lineage_sources = (
+        candidate_static.get("adapter", {}).get("lineage", {}).get("sources")
+    )
+    if (
+        not isinstance(lineage_sources, dict)
+        or set(lineage_sources) != p324_stock_adapter.SOURCE_KEYS
+    ):
+        raise EvidenceError("P3.24 adapter source receipts are incomplete")
+    return {
+        "schema": "device_action_f1_p324_stock_offline_contract_v1",
+        "decoder": p324_stock_adapter.DECODER_ID,
+        "policy_id": p324_stock_adapter.POLICY_ID,
+        "profile": p324_stock_adapter.PROFILE,
+        "run_id": P324_RUN_ID,
+        "terminal_stage": p324_stock_adapter.TERMINAL_STAGE,
+        "candidate_ap_sha256": candidate_ap_identity["sha256"],
+        "candidate_static_sha256": static_identity["sha256"],
+        "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+        "candidate_static_authority": candidate_static["authority_source"],
+        "candidate_source_receipts": candidate_source_receipts,
+        "p324_adapter_source_receipts": {
+            name: _binary_identity(value, f"P3.24 adapter source {name}")
+            for name, value in lineage_sources.items()
+        },
+        "p324_builder_result": candidate_static["builder_result"],
+        "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+        "static_check_sha256": receipts["static_check"]["sha256"],
+        "clean_baseline_required": True,
+        "minimum_success_count": 1,
+        "source_contract_id": p324_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P324_STOCK_OVERLAY_CONTRACT_ID,
+        "ap_payload_closure": _p324_ap_payload_closure(candidate_static),
+        "runtime_values_observed": False,
+        "complete_is_noncausal": True,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+        "verified": True,
+    }
+
+
 def _verify_p320_stock_offline_contract(
     acceptance: dict[str, Any],
     *,
@@ -5100,6 +5507,14 @@ def _verify_e1_latest_stage_offline_contract(
     profile = item["profile"]
     source_contract_id = item.get("source_contract_id")
     userspace_overlay_contract_id = item.get("userspace_overlay_contract_id")
+    if userspace_overlay_contract_id == P324_STOCK_OVERLAY_CONTRACT_ID:
+        return _verify_p324_stock_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=candidate_ap,
+            runtime_bound=runtime_bound,
+        )
     if userspace_overlay_contract_id == P323_STOCK_OVERLAY_CONTRACT_ID:
         return _verify_p323_stock_offline_contract(
             acceptance,
@@ -7955,6 +8370,8 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    if item.get("userspace_overlay_contract_id") == P324_STOCK_OVERLAY_CONTRACT_ID:
+        result["overlay_contract_id"] = P324_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P323_STOCK_OVERLAY_CONTRACT_ID:
         result["overlay_contract_id"] = P323_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P322_STOCK_OVERLAY_CONTRACT_ID:
@@ -7989,14 +8406,19 @@ def classify_e1_latest_stage(
         P321_STOCK_OVERLAY_CONTRACT_ID,
         P322_STOCK_OVERLAY_CONTRACT_ID,
         P323_STOCK_OVERLAY_CONTRACT_ID,
+        P324_STOCK_OVERLAY_CONTRACT_ID,
     }:
         # Keep the P320 projection distinct from P319.  The adapter owns the
         # ABI-v4 receipt/state policy; this classifier only carries its typed
         # predicates into the existing E1 result shape.
         if (
             item.get("userspace_overlay_contract_id")
-            == P323_STOCK_OVERLAY_CONTRACT_ID
-            and decoded.get("proof_class") == "P323_STOCK_ENCODER_FAILURE"
+            in {
+                P323_STOCK_OVERLAY_CONTRACT_ID,
+                P324_STOCK_OVERLAY_CONTRACT_ID,
+            }
+            and decoded.get("proof_class")
+            in {"P323_STOCK_ENCODER_FAILURE", "P324_STOCK_ENCODER_FAILURE"}
             and decoded.get("producer_failure") is True
             and "stock_result_count" not in decoded
         ):
@@ -8014,7 +8436,9 @@ def classify_e1_latest_stage(
         ):
             if name not in decoded:
                 label = (
-                    "P3.23"
+                    "P3.24"
+                    if item.get("userspace_overlay_contract_id") == P324_STOCK_OVERLAY_CONTRACT_ID
+                    else "P3.23"
                     if item.get("userspace_overlay_contract_id") == P323_STOCK_OVERLAY_CONTRACT_ID
                     else
                     "P3.22"
@@ -8026,7 +8450,9 @@ def classify_e1_latest_stage(
                 raise EvidenceError(f"{label} stock result omitted {name}")
             result[name] = decoded[name]
         stock_key = (
-            "p323_stock"
+            "p324_stock"
+            if item.get("userspace_overlay_contract_id") == P324_STOCK_OVERLAY_CONTRACT_ID
+            else "p323_stock"
             if item.get("userspace_overlay_contract_id") == P323_STOCK_OVERLAY_CONTRACT_ID
             else
             "p322_stock"
@@ -8041,7 +8467,10 @@ def classify_e1_latest_stage(
             if isinstance(row, dict) and "p320_stock" in row
         ]
         result[stock_key] = stock_rows
-        if item.get("userspace_overlay_contract_id") == P323_STOCK_OVERLAY_CONTRACT_ID:
+        if item.get("userspace_overlay_contract_id") in {
+            P323_STOCK_OVERLAY_CONTRACT_ID,
+            P324_STOCK_OVERLAY_CONTRACT_ID,
+        }:
             for name in (
                 "producer_failure",
                 "stock_encoder_failure",
@@ -8163,15 +8592,62 @@ def classify_clean_baseline(
                 expected_run_id=bytes.fromhex(item["run_id"]),
             )
         except ValueError as exc:
-            if (
-                item.get("userspace_overlay_contract_id")
-                != P323_STOCK_OVERLAY_CONTRACT_ID
-            ):
+            overlay = item.get("userspace_overlay_contract_id")
+            if overlay not in {
+                P323_STOCK_OVERLAY_CONTRACT_ID,
+                P324_STOCK_OVERLAY_CONTRACT_ID,
+            }:
                 raise
             raw_identity = {
                 "size": len(payload),
                 "sha256": hashlib.sha256(payload).hexdigest(),
             }
+            if overlay == P324_STOCK_OVERLAY_CONTRACT_ID:
+                if raw_identity != P324_CONSUMED_P323_BASELINE_IDENTITY:
+                    raise EvidenceError(
+                        "P3.24 predecessor baseline raw identity differs"
+                    ) from exc
+                try:
+                    predecessor = p323_stock_adapter.classify_observation(
+                        payload,
+                        expected_profile=p323_stock_adapter.PROFILE,
+                        expected_run_id=p323_stock_adapter.P323_RUN_ID,
+                    )
+                except ValueError as predecessor_exc:
+                    raise EvidenceError(
+                        "P3.24 baseline is neither empty nor the exact consumed P3.23 receipt"
+                    ) from predecessor_exc
+                records = predecessor.get("records")
+                if (
+                    predecessor.get("classification")
+                    != "P320_STOCK_WITNESS_AMBIGUOUS_NO_PROOF"
+                    or predecessor.get("accepted") is not False
+                    or predecessor.get("integrity_issue") is not False
+                    or predecessor.get("integrity_issues") != []
+                    or predecessor.get("exact_record_count") != 1
+                    or predecessor.get("long_record_count") != 1
+                    or predecessor.get("foreign_count") != 0
+                    or predecessor.get("candidate_success") is not False
+                    or predecessor.get("proof_class") != "NO_PROOF_OBSERVER"
+                    or not isinstance(records, list)
+                    or len(records) != 1
+                    or records[0].get("observer_offset")
+                    != P324_CONSUMED_P323_RECORD_OFFSET
+                    or records[0].get("run_id") != p323_stock_adapter.P323_RUN_ID_HEX
+                    or records[0].get("slot_status") != ["valid", "valid"]
+                ):
+                    raise EvidenceError(
+                        "P3.24 predecessor baseline placement or semantics differ"
+                    )
+                return {
+                    "classification": (
+                        "P324_CURRENT_RUN_ABSENT_P323_PREDECESSOR_EXACT"
+                    ),
+                    "exact_record_count": 0,
+                    "family_count": 1,
+                    "integrity_issue": False,
+                    "baseline_clean": True,
+                }
             if raw_identity != P323_CONSUMED_P322_BASELINE_IDENTITY:
                 raise EvidenceError(
                     "P3.23 predecessor baseline raw identity differs"
