@@ -26,7 +26,7 @@ CONTRACT_ID = "s22plus-fyg8-p326-bidirectional-acm-v1"
 TARGET = runtime.TARGET
 RECEIPT_NAME = "p326-candidate-observer-roundtrip.json"
 TRAILING_QUIET_SEC = 0.05
-MAX_TRAILING_CAPTURE = 4096
+MAX_TRAILING_CAPTURE = 1
 P325_SOURCE = Path(p325.__file__).resolve()
 P325_SOURCE_IDENTITY = {
     "size": 6_295,

@@ -31,9 +31,9 @@ predecessor identities remain non-accepting.
 ## Exact host artifacts
 
 - Fresh run ID: `c326f1e0a90b5e6d7c8a9b0c1d2e3f4b`.
-- Builder result `stock-candidate-build-v1-20260902-07/result.json`:
-  42,373 bytes, SHA-256
-  `98362485f38f994e75216739aebe7815e9fc5ad7f587c54f66a7bc45f9cf8614`.
+- Builder result `stock-candidate-build-v1-20260902-08/result.json`:
+  42,384 bytes, SHA-256
+  `58142bf3b5121d616987f920232ddfe9fdd9b1f1307da5a1ee63480851341436`.
 - Candidate A/B AP: 28,631,081 bytes, SHA-256
   `954b560309e5c7a1f99484dbe00efc08743cc97bc228bad5c7f8924e8c7c2712`.
 - Boot image: 100,663,296 bytes, SHA-256
@@ -42,9 +42,9 @@ predecessor identities remain non-accepting.
   `062f1366794d31b2f674ef5dd2cb61ab572b79ea2115b745805468272c8d69b0`.
 - `/init`: 80,808 bytes, SHA-256
   `8cedf9d586bd8bc510ecdc9983e53e11978536ac9c7ccfcf1f48ab32f5a98d80`.
-- Candidate-static `process-v2-candidate-static-20260902-05.json`:
-  23,785 bytes, SHA-256
-  `fd6c98b8b0e22ef598397c53647cfcffef8832c93f013fe6ead234a7114efd47`.
+- Candidate-static `process-v2-candidate-static-20260902-06.json`:
+  23,796 bytes, SHA-256
+  `85b27207736f9447c2cd44943dbcd2b38fd8526638bd43735f946dde83fed50c`.
 - Exact Magisk rollback remains 23,367,721 bytes, SHA-256
   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
 
@@ -57,7 +57,7 @@ its fixed config enables static linkage and `ash` while omitting `su`,
 
 ## Validation
 
-The P3.26 focused suites pass 13/13. Shared evidence, Process-v2 core, and live
+The P3.26 focused suites pass 14/14. Shared evidence, Process-v2 core, and live
 runner suites pass 131/131. Python compilation and diff checks pass. Builder
 audit, candidate-static audit, and a noncreating Process-v2 rehearsal all pass;
 the rehearsal reports `verification=true`, `created=false`,
@@ -75,10 +75,13 @@ No public ready manifest or private promotion was published. No D0, D1, F1,
 ADB, USB, `pkexec`, Odin, transfer, flash, or device contact occurred.
 
 The first independent review rejected the predecessor because it accepted a
-correct 145-byte prefix while leaving an appended byte unread. The repaired
-observer now performs a short bounded trailing check, writes any discovered
-trailing bytes to the same raw writer, and rejects. A hostile valid-prefix plus
-`TRAILING` fixture proves the repair. Re-review remains pending.
+correct 145-byte prefix while leaving appended data unread. Its first repair
+read a multi-byte trailing chunk, which the second review showed exceeded the
+actual `expected + 1` writer before retaining evidence. The final observer
+performs a short bounded trailing check, writes exactly the first detected
+trailing byte to that 146-byte raw writer, and rejects. Both an unbounded
+fixture and the actual bounded `RawCaptureWriter` prove the hostile valid-prefix
+plus `TRAILING` case. Final re-review remains pending.
 
 ## Claim boundary and next step
 

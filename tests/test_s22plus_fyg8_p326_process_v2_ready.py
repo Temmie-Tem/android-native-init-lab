@@ -70,7 +70,7 @@ class P326ProcessV2ReadyTests(unittest.TestCase):
         )
         self.assertEqual(
             static_value["observer_adapter"]["trailing_bytes_policy"],
-            "reject-and-retain",
+            "reject-and-retain-first-byte",
         )
         self.assertTrue(
             static_value["observer_adapter"]["busybox_ash_exits_after_proof"]

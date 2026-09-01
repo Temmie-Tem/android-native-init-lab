@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import socket
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -175,9 +176,68 @@ class P326BidirectionalConsoleTests(unittest.TestCase):
         if errors:
             raise errors[0]
         self.assertEqual(
-            bytes(writer.payload), self.runtime.DEVICE_TRANSCRIPT + extra
+            bytes(writer.payload), self.runtime.DEVICE_TRANSCRIPT + extra[:1]
         )
-        self.assertEqual(bytes(audit.trailing_rx), extra)
+        self.assertEqual(bytes(audit.trailing_rx), extra[:1])
+
+    def test_real_bounded_raw_writer_retains_one_trailing_byte_and_rejects(self) -> None:
+        host, device = socket.socketpair()
+        host.setblocking(False)
+        errors: list[BaseException] = []
+
+        def receive_exact(amount: int) -> bytes:
+            value = bytearray()
+            while len(value) < amount:
+                value.extend(device.recv(amount - len(value)))
+            return bytes(value)
+
+        def simulate() -> None:
+            try:
+                device.sendall(self.runtime.DEVICE_BANNER)
+                self.assertEqual(
+                    receive_exact(len(self.runtime.HOST_PING)),
+                    self.runtime.HOST_PING,
+                )
+                device.sendall(self.runtime.DEVICE_PONG)
+                self.assertEqual(
+                    receive_exact(len(self.runtime.HOST_SHELL)),
+                    self.runtime.HOST_SHELL,
+                )
+                device.sendall(self.runtime.DEVICE_SHELL_OK + b"TRAILING")
+            except BaseException as exc:  # pragma: no cover - surfaced below
+                errors.append(exc)
+            finally:
+                device.close()
+
+        with tempfile.TemporaryDirectory() as temporary:
+            raw = self.observer.observer.raw_capture
+            capture = raw.prepare_capture_dir(Path(temporary))
+            writer = raw.RawCaptureWriter(
+                capture,
+                "p326-bounded",
+                stdout_maximum=len(self.runtime.DEVICE_TRANSCRIPT) + 1,
+                stderr_maximum=1,
+            )
+            thread = threading.Thread(target=simulate)
+            thread.start()
+            audit = self.observer.RoundTripAudit()
+            try:
+                self.assertFalse(
+                    self.observer._exchange(
+                        host.fileno(), time.monotonic() + 2, writer, audit
+                    )
+                )
+            finally:
+                host.close()
+                thread.join(timeout=2)
+            if errors:
+                raise errors[0]
+            handle = writer.finalize(returncode=0)
+            self.assertEqual(
+                raw.read_stdout(handle, maximum=len(self.runtime.DEVICE_TRANSCRIPT) + 1),
+                self.runtime.DEVICE_TRANSCRIPT + b"T",
+            )
+            self.assertEqual(bytes(audit.trailing_rx), b"T")
 
     def test_fresh_image_and_predecessor_rejection(self) -> None:
         source = self.artifact.stable_bytes(

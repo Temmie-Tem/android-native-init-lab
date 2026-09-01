@@ -45,7 +45,7 @@ P325_RESULT_IDENTITY = {
 }
 DEFAULT_OUTPUT_ROOT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p326/"
-    "stock-candidate-build-v1-20260902-07"
+    "stock-candidate-build-v1-20260902-08"
 )
 BUSYBOX = ROOT / (
     "workspace/private/inputs/s22plus_fyg8_p326/busybox/bin/"
@@ -552,7 +552,7 @@ def _normalize_result(value: dict[str, Any]) -> dict[str, Any]:
         "pid1_ping_pong": True,
         "busybox_ash_child": True,
         "busybox_ash_exits_after_proof": True,
-        "trailing_bytes_policy": "reject-and-retain",
+        "trailing_bytes_policy": "reject-and-retain-first-byte",
         "fixed_lines": 2,
     }
     result["limitations"] = [
