@@ -24,17 +24,17 @@ runtime을 구성·검증하는 다기기 로컬 연구/문서화 작업 공간�
 > 곳에 한해 그대로 둔다.
 
 <p align="center">
-  <img src="docs/images/a90/01-debian-pid1-appliance.jpg" width="37%" alt="A90에서 PID 1으로 동작하는 Debian 12.14">
-  <img src="docs/images/a90/02-native-init-stock-kernel.jpg" width="39%" alt="스톡 Linux 4.14를 보고하는 A90 네이티브 init">
+  <img src="docs/images/a90/01-debian-pid1-appliance.jpg" width="36%" alt="A90에서 PID 1으로 동작하는 Debian 12.14">
+  <img src="docs/images/a90/boot-sequence.gif" width="41%" alt="스톡 Linux 4.14 벤더 커널에서 부팅하는 A90 네이티브 init">
 </p>
 
 <p align="center"><sub>
-서로 다른 두 번의 A90 실행을 실제 기기에서 촬영한 사진.<br>
+서로 다른 빌드의 서로 다른 두 A90 실행을 실제 기기에서 기록한 것.<br>
 <b>왼쪽</b> — ext4 루트 위에서 <code>/usr/sbin/init</code>이 PID 1으로 도는 Debian 12.14.
 로컬 USB-NCM 링크의 Dropbear SSH와, 아웃바운드 Cloudflare Quick Tunnel로도
 접근된 루프백 HTTP 서비스.<br>
-<b>오른쪽</b> — 그 접근 방식을 보여주는 이전 네이티브 init 부팅. 스톡 삼성
-Linux 4.14 벤더 커널에 커스텀 userspace 진입점.<br>
+<b>오른쪽</b> — 스톡 삼성 Linux 4.14 벤더 커널 위의 네이티브 init 콜드 부팅.
+스토리지·시리얼·USB 점검이 순차적으로 해결되는 과정.<br>
 <a href="docs/devices/A90_VISUAL_EVIDENCE.ko.md">A90 시각 증거와 실행 리포트 더 보기 →</a>
 </sub></p>
 

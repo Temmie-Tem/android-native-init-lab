@@ -4,14 +4,18 @@ Photographs of the operator-owned Samsung Galaxy A90 5G (`SM-A908N`) running
 this project's native PID 1 and, in one run, Debian as PID 1 on the phone's own
 vendor kernel.
 
-Each image below is a photograph of the physical A90. The captions separate what
-is visible in the frame from the stronger claims established by linked run
-evidence. Device-reported numbers are labelled as such. Frames are from
+Everything below was recorded on the physical A90 — photographs, one boot
+sequence and one screen-capture clip. The captions separate what is visible in
+the frame from the stronger claims established by linked run evidence. Device-reported numbers are labelled as such. Frames are from
 different runs and are never presented as one continuous sequence.
 
 Some linked reports sit under `docs/archive/`. Those are historical records
 only and carry no current authority, matching the repository's own archive
 rule; they are cited here as lineage, not as live proof.
+
+The A90's display panel is physically damaged from a drop. The vertical banding
+visible in several frames is panel damage, not a rendering fault, and has no
+bearing on headless operation.
 
 **English** · [한국어](A90_VISUAL_EVIDENCE.ko.md)
 
@@ -40,6 +44,29 @@ continuously operated service.
 **Related evidence** —
 [`SERVER_DISTRO_DPUBLIC_LIVE_PUBLISH_2026-07-04.md`](../reports/SERVER_DISTRO_DPUBLIC_LIVE_PUBLISH_2026-07-04.md),
 [`SERVER_DISTRO_DPUBLIC_BOOT_VISUAL_HUD_2026-07-04.md`](../reports/SERVER_DISTRO_DPUBLIC_BOOT_VISUAL_HUD_2026-07-04.md)
+
+---
+
+## Native init boot sequence
+
+![A90 native init booting on the stock Linux 4.14 vendor kernel](../images/a90/boot-sequence.gif)
+
+**What it shows** — a cold boot recorded on the device: the unlocked-bootloader
+warning, the Samsung splash, then native init taking over. Its checks resolve in
+order — `SD PROBE MMCBLK0P1` to `RW TEST OK`, `STORAGE CACHE FALLBACK` to
+`SD MAIN READY`, `SERIAL USB ACM STARTING` to `TTYGS0 READY` — ending at
+`RUNTIME HUD MENU LOADING`. Build `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
+
+**Technical context** — the unlock warning and the Samsung splash are produced by
+the stock boot chain, so this is a real cold boot and not a resumed session.
+Native init replaces only what runs after them, on the vendor kernel those
+screens just loaded.
+
+**Evidence boundary** — a 7-second excerpt of one boot, resampled to 8 frames per
+second and denoised for size. It shows the bring-up order this build reports on
+its own console; it does not establish timing accuracy, and the later runtime
+stack is not in frame. This is a different run and a different build from the
+still below.
 
 ---
 
@@ -158,6 +185,26 @@ demonstrates graphics performance.
 [`NATIVE_INIT_V3054_DOOMGENERIC_AUDIO_CORUN_LIVE_2026-06-22.md`](../reports/NATIVE_INIT_V3054_DOOMGENERIC_AUDIO_CORUN_LIVE_2026-06-22.md)
 — installed init `0.10.85` (`v3053-doomgeneric-audio-corun`), continuous DOOM
 loop PASS, native speaker co-run PASS, final health PASS.
+
+---
+
+## Input stack and menu navigation
+
+[▶ `a90-input-stack-demo.mp4`](../images/a90/a90-input-stack-demo.mp4) — 10 s, 1.3 MB
+
+**What it shows** — menu navigation driven from the physical volume and power
+keys. The selection moves APPS → POWER → DEMO while the lower panel switches
+between `TOOLS AND VIEWERS`, `REBOOT OPTIONS` and `PLAYER HUD DEMOS`, with the
+uptime counter advancing from 4.02 s to 10.93 s.
+
+**Technical context** — button events are decoded and surfaced by the custom
+input and UI layer running on the stock vendor kernel. This is an interactive
+state machine responding to hardware keys, not console output scrolling past.
+
+**Evidence boundary** — this clip demonstrates interactive input handling and
+menu state only. No workload is running behind the menu, and it establishes
+nothing about service availability. It is the continuation of the same recording
+as the boot sequence above.
 
 ---
 

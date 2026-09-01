@@ -22,17 +22,17 @@ native runtime.
 It is not a distribution port and not a custom ROM.
 
 <p align="center">
-  <img src="docs/images/a90/01-debian-pid1-appliance.jpg" width="37%" alt="Debian 12.14 running as PID 1 on the A90">
-  <img src="docs/images/a90/02-native-init-stock-kernel.jpg" width="39%" alt="A90 native init reporting stock Linux 4.14">
+  <img src="docs/images/a90/01-debian-pid1-appliance.jpg" width="36%" alt="Debian 12.14 running as PID 1 on the A90">
+  <img src="docs/images/a90/boot-sequence.gif" width="41%" alt="A90 native init booting on the stock Linux 4.14 vendor kernel">
 </p>
 
 <p align="center"><sub>
-Two separate A90 runs, photographed on the physical device.<br>
+Two separate A90 runs, on different builds, recorded on the physical device.<br>
 <b>Left</b> — Debian 12.14 with <code>/usr/sbin/init</code> as PID 1 on an ext4 root,
 with Dropbear SSH on the local USB-NCM link and a loopback HTTP service also
 reached through an outbound Cloudflare Quick Tunnel.<br>
-<b>Right</b> — an earlier native-init boot showing the underlying approach: the
-stock Samsung Linux 4.14 vendor kernel with a custom userspace entry point.<br>
+<b>Right</b> — a native-init cold boot on the stock Samsung Linux 4.14 vendor
+kernel, with the storage, serial and USB checks resolving in sequence.<br>
 <a href="docs/devices/A90_VISUAL_EVIDENCE.md">More A90 visual evidence and run references →</a>
 </sub></p>
 

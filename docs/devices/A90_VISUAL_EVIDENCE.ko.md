@@ -4,14 +4,18 @@
 그리고 한 번의 실행에서는 폰 자체의 벤더 커널 위에서 Debian을 PID 1으로 구동하는
 모습을 촬영한 사진입니다.
 
-아래 이미지는 모두 실제 A90을 촬영한 사진입니다. 캡션은 프레임에서 눈으로 확인되는
-것과, 링크된 실행 증거가 뒷받침하는 더 강한 주장을 구분합니다. 기기가 스스로 보고한
+아래 자료는 모두 실제 A90에서 기록한 것입니다 — 사진과 부팅 시퀀스 하나, 화면 클립
+하나. 캡션은 프레임에서 눈으로 확인되는 것과, 링크된 실행 증거가 뒷받침하는 더 강한
+주장을 구분합니다. 기기가 스스로 보고한
 수치는 그렇다고 표기했습니다. 각 프레임은 서로 다른 실행이며, 하나의 연속된 시퀀스로
 제시하지 않습니다.
 
 일부 링크된 리포트는 `docs/archive/` 아래에 있습니다. 저장소 자체의 archive 규칙에
 따라 이들은 역사적 기록일 뿐 현재 권위를 갖지 않으며, 여기서는 live proof가 아니라
 계보(lineage)로 인용합니다.
+
+A90의 디스플레이 패널은 낙하로 물리적으로 파손된 상태입니다. 여러 프레임에 보이는
+세로 줄무늬는 렌더링 결함이 아니라 패널 손상이며, 헤드리스 운용에는 영향이 없습니다.
 
 [English](A90_VISUAL_EVIDENCE.md) · **한국어**
 
@@ -38,6 +42,26 @@ ext4 루트, 키 전용 Dropbear SSH와 루프백 HTTP 서비스. 5,375 MB 중 2
 **관련 증거** —
 [`SERVER_DISTRO_DPUBLIC_LIVE_PUBLISH_2026-07-04.md`](../reports/SERVER_DISTRO_DPUBLIC_LIVE_PUBLISH_2026-07-04.md),
 [`SERVER_DISTRO_DPUBLIC_BOOT_VISUAL_HUD_2026-07-04.md`](../reports/SERVER_DISTRO_DPUBLIC_BOOT_VISUAL_HUD_2026-07-04.md)
+
+---
+
+## 네이티브 init 부팅 시퀀스
+
+![스톡 Linux 4.14 벤더 커널에서 부팅하는 A90 네이티브 init](../images/a90/boot-sequence.gif)
+
+**보이는 것** — 기기에서 촬영한 콜드 부팅: 부트로더 언락 경고, 삼성 스플래시, 그리고
+네이티브 init 인수. 점검 항목이 순서대로 해결됩니다 — `SD PROBE MMCBLK0P1` → `RW TEST OK`,
+`STORAGE CACHE FALLBACK` → `SD MAIN READY`, `SERIAL USB ACM STARTING` → `TTYGS0 READY`,
+그리고 `RUNTIME HUD MENU LOADING`으로 종료. 빌드 `0.12.008 / H41-BADAPPLE-VIDEO-DEMO-V2`.
+
+**기술적 맥락** — 언락 경고와 삼성 스플래시는 스톡 부트 체인이 그리는 화면이므로, 이는
+재개된 세션이 아니라 실제 콜드 부팅입니다. 네이티브 init은 그 화면들이 방금 올린 벤더
+커널 위에서, 그 이후에 실행되는 부분만 대체합니다.
+
+**증거 경계** — 한 번의 부팅에서 7초를 발췌해 초당 8프레임으로 재샘플링하고 용량을 위해
+디노이즈했습니다. 이 빌드가 자체 콘솔에 보고하는 브링업 순서를 보여줄 뿐 타이밍 정확도를
+입증하지 않으며, 이후의 런타임 스택은 화면에 없습니다. 아래 정지 사진과는 다른 실행이자
+다른 빌드입니다.
 
 ---
 
@@ -147,6 +171,24 @@ end-to-end로 보여주기 때문에 포함했습니다.
 [`NATIVE_INIT_V3054_DOOMGENERIC_AUDIO_CORUN_LIVE_2026-06-22.md`](../reports/NATIVE_INIT_V3054_DOOMGENERIC_AUDIO_CORUN_LIVE_2026-06-22.md)
 — 설치된 init `0.10.85`(`v3053-doomgeneric-audio-corun`), DOOM 연속 루프 PASS,
 네이티브 스피커 co-run PASS, 최종 health PASS.
+
+---
+
+## 입력 스택과 메뉴 조작
+
+[▶ `a90-input-stack-demo.mp4`](../images/a90/a90-input-stack-demo.mp4) — 10초, 1.3 MB
+
+**보이는 것** — 물리 볼륨·전원 키로 구동하는 메뉴 조작. 선택이 APPS → POWER → DEMO로
+이동하고 하단 패널이 `TOOLS AND VIEWERS` → `REBOOT OPTIONS` → `PLAYER HUD DEMOS`로
+바뀌며, uptime 카운터가 4.02초에서 10.93초로 진행합니다.
+
+**기술적 맥락** — 버튼 이벤트를 스톡 벤더 커널 위에서 동작하는 커스텀 입력·UI 계층이
+디코딩해 표시합니다. 콘솔 출력이 흘러가는 것이 아니라 하드웨어 키에 반응하는 대화형
+상태 기계입니다.
+
+**증거 경계** — 이 클립은 대화형 입력 처리와 메뉴 상태만 보여줍니다. 메뉴 뒤에서 돌아가는
+워크로드는 없으며 서비스 가용성에 대해서는 아무것도 입증하지 않습니다. 위 부팅 시퀀스와
+같은 녹화의 이어지는 구간입니다.
 
 ---
 
