@@ -939,6 +939,21 @@ hashed private identity plus the bounded non-secret boot metadata and exact
 command/effect counters. Failure is terminal for that invocation and has no
 internal retry.
 
+One attended invocation completed on 2026-09-01 with private 2,812-byte result
+SHA-256
+`46ffd0388fdcf23b46608f1557d9523e9b338316537bc19c45015877eba5f6b7` and
+verdict `PROVED_S20PLUS_G986N_TWRP_BOOT_IDENTITY_METADATA`. It proved the
+fixed boot link resolved to direct node `/dev/block/sda23`, with block-inode
+and sysfs rdev `259:7`, `DEVNAME=sda23`, `DEVTYPE=partition`,
+`PARTNAME=boot`, partition number 23, 131,072 sectors, and 67,108,864 bytes.
+The receipt records seven host commands, zero commands to every other target,
+zero block opens or partition-content bytes, and zero writes, staging,
+reboots, mode transitions, Odin invocations, or transfers. It explicitly
+records F1 and direct block write as unauthorized. Completion expired that
+request and creates no standing identity lease.
+Independent host-only review of the exact receipt and documentation returned
+`PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`.
+
 Independent review of this section, runner, scripts, parsers, current T2
 predecessor, hostile tests, private schema, and higher-precedence boundaries
 returned `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`. The exact T2 ramdisk command
