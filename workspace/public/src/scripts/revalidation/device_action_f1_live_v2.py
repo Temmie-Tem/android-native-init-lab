@@ -31,6 +31,7 @@ import s22plus_fyg8_p318_topology_receipt as p318_topology
 import s22plus_fyg8_p324_cdc_acm_observer as p324_cdc_observer
 import s22plus_fyg8_p324_typec_lane_binding as p324_typec_lane
 import s22plus_fyg8_p325_cdc_acm_guard_adapter as p325_guard_adapter
+import s22plus_fyg8_p326_bidirectional_acm_observer as p326_console_observer
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -95,6 +96,11 @@ P325_OUTCOME_BY_PROOF_CLASS = {
     "NONCAUSAL_SUCCESS_PATH": "p325_noncausal_success_path_rollback_verified",
     "NO_PROOF_EXPERIMENT_PRECONDITION": "p325_experiment_precondition_unproved_rollback_verified",
     "NO_PROOF_OBSERVER": "p325_observer_no_proof_rollback_verified",
+}
+P326_OUTCOME_BY_PROOF_CLASS = {
+    "NONCAUSAL_SUCCESS_PATH": "p326_noncausal_success_path_rollback_verified",
+    "NO_PROOF_EXPERIMENT_PRECONDITION": "p326_experiment_precondition_unproved_rollback_verified",
+    "NO_PROOF_OBSERVER": "p326_observer_no_proof_rollback_verified",
 }
 
 
@@ -192,6 +198,38 @@ def _p325_parser_failure_classification(
         "family_count": 0,
         "foreign_count": 0,
         "p325_stock_error": diagnostic,
+    }
+
+
+def _p326_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    detail = f"{type(error).__name__}:{error}".encode("utf-8", "replace")
+    return {
+        "schema": "device_action_f1_p326_stock_error_v1",
+        "classification": "P326_STOCK_PARSER_EXCEPTION",
+        "supplemental": True,
+        "accepted": False,
+        "candidate_success": False,
+        "causal_result_allowed": False,
+        "payload_bytes": len(payload),
+        "payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "error_type": type(error).__name__,
+        "error_sha256": hashlib.sha256(detail).hexdigest(),
+    }
+
+
+def _p326_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p326_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "accepted": False,
+        "integrity_issue": True,
+        "integrity_issues": ["p326-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p326_stock_error": diagnostic,
     }
 
 
@@ -351,12 +389,15 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p323_bundle(bundle)
         or _p324_bundle(bundle)
         or _p325_bundle(bundle)
+        or _p326_bundle(bundle)
     ):
         stock_adapter = typed_evidence.STOCK_ADAPTERS[
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p325"
+            "p326"
+            if _p326_bundle(bundle)
+            else "p325"
             if _p325_bundle(bundle)
             else
             "p324"
@@ -399,7 +440,23 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             )
         except typed_evidence.EvidenceError as exc:
             raise F1LiveError(str(exc)) from exc
-        if _p325_bundle(bundle):
+        if _p326_bundle(bundle):
+            paths["p326_bidirectional_console_runtime"] = scripts / (
+                "s22plus_fyg8_p326_bidirectional_console_runtime.py"
+            )
+            paths["p324_typec_lane_binding"] = Path(
+                p324_typec_lane.__file__
+            ).resolve()
+            paths["p324_cdc_acm_observer"] = Path(
+                p324_cdc_observer.__file__
+            ).resolve()
+            paths["p325_cdc_acm_guard_adapter"] = Path(
+                p325_guard_adapter.__file__
+            ).resolve()
+            paths["p326_bidirectional_acm_observer"] = Path(
+                p326_console_observer.__file__
+            ).resolve()
+        elif _p325_bundle(bundle):
             paths["p324_acm_primary_runtime"] = scripts / (
                 "s22plus_fyg8_p324_acm_primary_runtime.py"
             )
@@ -443,7 +500,21 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         closure[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = (
             candidate_arrival_role
         )
-        if _p325_bundle(bundle):
+        if _p326_bundle(bundle):
+            closure["p326_console_runtime_contract_id"] = (
+                typed_evidence.P326_CONSOLE_RUNTIME_CONTRACT_ID
+            )
+            closure["p324_typec_lane_contract_id"] = p324_typec_lane.CONTRACT_ID
+            closure["p324_cdc_acm_observer_contract_id"] = (
+                p324_cdc_observer.CONTRACT_ID
+            )
+            closure["p325_cdc_acm_guard_contract_id"] = (
+                p325_guard_adapter.CONTRACT_ID
+            )
+            closure["p326_bidirectional_acm_contract_id"] = (
+                p326_console_observer.CONTRACT_ID
+            )
+        elif _p325_bundle(bundle):
             closure["p325_acm_primary_runtime_contract_id"] = (
                 typed_evidence.P325_ACM_PRIMARY_RUNTIME_CONTRACT_ID
             )
@@ -571,7 +642,7 @@ def _binding(
         "mandatory_rollback_preapproved": True,
         "recovery_requires_second_approval": False,
     }
-    if _p324_bundle(bundle) or _p325_bundle(bundle):
+    if _p324_bundle(bundle) or _p325_bundle(bundle) or _p326_bundle(bundle):
         if not isinstance(p324_lane_receipt, dict):
             raise F1LiveError("P3.24 Type-C lane binding receipt is absent")
         value["p324_typec_lane_binding"] = p324_lane_receipt
@@ -597,7 +668,7 @@ def _prepare_p324_typec_lane(
     usb_root: Path,
     typec_root: Path,
 ) -> dict[str, Any] | None:
-    if not (_p324_bundle(bundle) or _p325_bundle(bundle)):
+    if not (_p324_bundle(bundle) or _p325_bundle(bundle) or _p326_bundle(bundle)):
         return None
     try:
         value = p324_typec_lane.capture_binding(
@@ -622,7 +693,11 @@ def _p324_typec_lane_value(
     usb_root: Path = DEFAULT_USB_ROOT,
     typec_root: Path = DEFAULT_TYPEC_ROOT,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    if not (_p324_bundle(prepared.bundle) or _p325_bundle(prepared.bundle)):
+    if not (
+        _p324_bundle(prepared.bundle)
+        or _p325_bundle(prepared.bundle)
+        or _p326_bundle(prepared.bundle)
+    ):
         raise F1LiveError("P3.24 Type-C lane binding requested for another run")
     path = prepared.run_dir / P324_TYPEC_LANE_NAME
     value = _read_json(path, "P3.24 Type-C lane binding")
@@ -757,12 +832,25 @@ def _p325_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p326_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P326_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
 def _p324_lane_bundle(bundle: core.Bundle) -> bool:
-    return _p324_bundle(bundle) or _p325_bundle(bundle)
+    return _p324_bundle(bundle) or _p325_bundle(bundle) or _p326_bundle(bundle)
 
 
 def _acm_primary_bundle(bundle: core.Bundle) -> bool:
-    return _p323_bundle(bundle) or _p324_bundle(bundle) or _p325_bundle(bundle)
+    return (
+        _p323_bundle(bundle)
+        or _p324_bundle(bundle)
+        or _p325_bundle(bundle)
+        or _p326_bundle(bundle)
+    )
 
 
 def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
@@ -789,10 +877,14 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             typed_evidence.P325_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P325_RUN_ID,
         ),
+        (
+            typed_evidence.P326_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P326_RUN_ID,
+        ),
     }:
         raise F1LiveError(
             "candidate arrival proof role requires the exact P3.23 stock binding "
-            "or exact P3.24 stock binding, or exact P3.25 stock binding"
+            "through the exact P3.26 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(
@@ -1899,17 +1991,20 @@ def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
-    """Validate and retain the ABI-v4 stock projection for P320-P325."""
+    """Validate and retain the ABI-v4 stock projection for P320-P326."""
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p326 = overlay == typed_evidence.P326_STOCK_OVERLAY_CONTRACT_ID
     is_p325 = overlay == typed_evidence.P325_STOCK_OVERLAY_CONTRACT_ID
     is_p324 = overlay == typed_evidence.P324_STOCK_OVERLAY_CONTRACT_ID
     is_p323 = overlay == typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
-        typed_evidence.p325_stock_adapter
+        typed_evidence.p326_stock_adapter
+        if is_p326
+        else typed_evidence.p325_stock_adapter
         if is_p325
         else
         typed_evidence.p324_stock_adapter
@@ -1924,7 +2019,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter
     )
     label = (
-        "P3.25"
+        "P3.26"
+        if is_p326
+        else "P3.25"
         if is_p325
         else
         "P3.24"
@@ -1938,7 +2035,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p325_stock"
+        "p326_stock"
+        if is_p326
+        else "p325_stock"
         if is_p325
         else
         "p324_stock"
@@ -1953,10 +2052,14 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     try:
         if (
-            (is_p323 or is_p324)
+            (is_p323 or is_p324 or is_p325 or is_p326)
             and classified.get("proof_class")
             == (
-                "P324_STOCK_ENCODER_FAILURE"
+                "P326_STOCK_ENCODER_FAILURE"
+                if is_p326
+                else "P325_STOCK_ENCODER_FAILURE"
+                if is_p325
+                else "P324_STOCK_ENCODER_FAILURE"
                 if is_p324
                 else "P323_STOCK_ENCODER_FAILURE"
             )
@@ -1965,7 +2068,11 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
             and classified.get("stock_encoder_failure") is True
         ):
             proof = (
-                "P324_STOCK_ENCODER_FAILURE"
+                "P326_STOCK_ENCODER_FAILURE"
+                if is_p326
+                else "P325_STOCK_ENCODER_FAILURE"
+                if is_p325
+                else "P324_STOCK_ENCODER_FAILURE"
                 if is_p324
                 else "P323_STOCK_ENCODER_FAILURE"
             )
@@ -1983,7 +2090,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     if any(classified.get(name) is not False for name in required_false):
         raise F1LiveError(f"{label} stock classification exposes a causal claim")
-    acm_primary = is_p323 or is_p324 or is_p325
+    acm_primary = is_p323 or is_p324 or is_p325 or is_p326
     expected_acm_supplemental = not acm_primary
     expected_acm_required = acm_primary
     if classified.get("acm_supplemental") is not expected_acm_supplemental or classified.get(
@@ -1998,6 +2105,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P323_STOCK_ENCODER_FAILURE",
         "P324_STOCK_ENCODER_FAILURE",
         "P325_STOCK_ENCODER_FAILURE",
+        "P326_STOCK_ENCODER_FAILURE",
     } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
     result = {
@@ -2024,6 +2132,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P323_STOCK_ENCODER_FAILURE",
         "P324_STOCK_ENCODER_FAILURE",
         "P325_STOCK_ENCODER_FAILURE",
+        "P326_STOCK_ENCODER_FAILURE",
     }:
         result["producer_failure"] = True
         result["max77705_scientific_result"] = "NOT_PRODUCED"
@@ -2032,12 +2141,15 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    is_p326 = "p326_stock" in state
     is_p325 = "p325_stock" in state
     is_p324 = "p324_stock" in state
     is_p322 = "p322_stock" in state
     is_p321 = "p321_stock" in state
     label = (
-        "P3.25"
+        "P3.26"
+        if is_p326
+        else "P3.25"
         if is_p325
         else
         "P3.24"
@@ -2049,7 +2161,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p325_stock"
+        "p326_stock"
+        if is_p326
+        else "p325_stock"
         if is_p325
         else
         "p324_stock"
@@ -2069,7 +2183,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     ):
         raise F1LiveError(f"{label} durable stock projection differs from final evidence")
     proof_key = (
-        "p325_proof_class"
+        "p326_proof_class"
+        if is_p326
+        else "p325_proof_class"
         if is_p325
         else
         "p324_proof_class"
@@ -2476,6 +2592,23 @@ class SamsungOdinBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
+        if _p326_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
+            return p326_console_observer.observer_session(
+                spec,
+                prepared.private_target["topology"],
+                prepared.run_dir,
+                _candidate_observer_binding(prepared),
+                lane_value,
+                lane_receipt,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         if _p325_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
@@ -2769,6 +2902,7 @@ class SamsungOdinBackend:
                     cdc_acm_observer.ObserverError,
                     p324_cdc_observer.P324ObserverError,
                     p325_guard_adapter.P325ObserverError,
+                    p326_console_observer.P326ObserverError,
                     OSError,
                 ):
                     pass
@@ -2914,7 +3048,12 @@ class SamsungOdinBackend:
         except F1LiveError as exc:
             if not _acm_primary_bundle(prepared.bundle):
                 raise
-            if _p325_bundle(prepared.bundle):
+            if _p326_bundle(prepared.bundle):
+                stock_error = _p326_stock_error(payloads[0], exc)
+                marker_result = _p326_parser_failure_classification(
+                    payloads[0], exc
+                )
+            elif _p325_bundle(prepared.bundle):
                 stock_error = _p325_stock_error(payloads[0], exc)
                 marker_result = _p325_parser_failure_classification(
                     payloads[0], exc
@@ -2950,6 +3089,7 @@ class SamsungOdinBackend:
                     or _p323_bundle(prepared.bundle)
                     or _p324_bundle(prepared.bundle)
                     or _p325_bundle(prepared.bundle)
+                    or _p326_bundle(prepared.bundle)
                 )
             )
             else None
@@ -2983,7 +3123,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p325_stock"
+                "p326_stock"
+                if _p326_bundle(prepared.bundle)
+                else "p325_stock"
                 if _p325_bundle(prepared.bundle)
                 else "p324_stock"
                 if _p324_bundle(prepared.bundle)
@@ -2997,7 +3139,9 @@ class SamsungOdinBackend:
             ] = p320_projection
         if stock_error is not None:
             key = (
-                "p325_stock_error"
+                "p326_stock_error"
+                if _p326_bundle(prepared.bundle)
+                else "p325_stock_error"
                 if _p325_bundle(prepared.bundle)
                 else
                 "p324_stock_error"
@@ -3006,7 +3150,9 @@ class SamsungOdinBackend:
             )
             result["observer"][key] = stock_error
             result["observer"].pop(
-                "p325_stock"
+                "p326_stock"
+                if _p326_bundle(prepared.bundle)
+                else "p325_stock"
                 if _p325_bundle(prepared.bundle)
                 else "p324_stock"
                 if _p324_bundle(prepared.bundle)
@@ -3144,7 +3290,18 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         return unavailable("interrupted-before-receipt")
     try:
-        if _p325_bundle(prepared.bundle):
+        if _p326_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(prepared)
+            value = p326_console_observer.validate_receipt(
+                prepared.run_dir,
+                spec=spec,
+                binding=_candidate_observer_binding(prepared),
+                source_topology=prepared.private_target["topology"],
+                lane_binding=lane_value,
+                lane_binding_receipt=lane_receipt,
+            )
+            receipt_sha256 = value["lane_receipt_sha256"]
+        elif _p325_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(prepared)
             value = p325_guard_adapter.validate_receipt(
                 prepared.run_dir,
@@ -3180,6 +3337,7 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
         cdc_acm_observer.ObserverError,
         p324_cdc_observer.P324ObserverError,
         p325_guard_adapter.P325ObserverError,
+        p326_console_observer.P326ObserverError,
         F1LiveError,
         core.F1V2Error,
     ):
@@ -3206,6 +3364,20 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                     "same_run_typec_partner_continuity",
                     "accepted_for_p324",
                 )
+            }
+        )
+    if _p326_bundle(prepared.bundle):
+        result.update(
+            {
+                "pid1_bidirectional_proof": value.get(
+                    "pid1_bidirectional_proof"
+                )
+                is True,
+                "busybox_shell_roundtrip_proof": value.get(
+                    "busybox_shell_roundtrip_proof"
+                )
+                is True,
+                "p326_roundtrip": value.get("p326_roundtrip"),
             }
         )
     return result
@@ -3329,9 +3501,10 @@ def _candidate_arrival_proof_projection(
         return None
     durable = _reopen_candidate_observation(prepared)
     guard_release = _reopen_candidate_guard_release(prepared)
+    p326 = _p326_bundle(prepared.bundle)
     p325 = _p325_bundle(prepared.bundle)
     p324 = _p324_bundle(prepared.bundle)
-    lane_bound = p324 or p325
+    lane_bound = p324 or p325 or p326
     expected_topology = hashlib.sha256(
         (
             p324_typec_lane.CANDIDATE_TOPOLOGY
@@ -3345,6 +3518,12 @@ def _candidate_arrival_proof_projection(
         and durable["accepted"] is True
         and durable["classification"] == "accepted"
     )
+    if p326:
+        observer_accepted = (
+            observer_accepted
+            and durable.get("pid1_bidirectional_proof") is True
+            and durable.get("busybox_shell_roundtrip_proof") is True
+        )
     topology_continuous = (
         observer_accepted
         and durable["topology_sha256"] == expected_topology
@@ -3383,7 +3562,9 @@ def _candidate_arrival_proof_projection(
     final_observer = final.get("observer") if isinstance(final, dict) else None
     if isinstance(final_observer, dict):
         key = (
-            "p325_stock"
+            "p326_stock"
+            if _p326_bundle(prepared.bundle)
+            else "p325_stock"
             if _p325_bundle(prepared.bundle)
             else "p324_stock"
             if _p324_bundle(prepared.bundle)
@@ -3407,7 +3588,9 @@ def _candidate_arrival_proof_projection(
             }
         else:
             error_key = (
-                "p325_stock_error"
+                "p326_stock_error"
+                if _p326_bundle(prepared.bundle)
+                else "p325_stock_error"
                 if _p325_bundle(prepared.bundle)
                 else "p324_stock_error"
                 if _p324_bundle(prepared.bundle)
@@ -3423,7 +3606,7 @@ def _candidate_arrival_proof_projection(
                 }
     # P3.25 already retains the complete Carrier projection in final_evidence.
     # Repeating it here makes the durable live-state record exceed MAX_RECORD.
-    if p325:
+    if p325 or p326:
         supplemental = None
     proof = all(
         (
@@ -3441,7 +3624,9 @@ def _candidate_arrival_proof_projection(
         "role": role,
         "primary_source": "candidate_observer",
         "banner_size": (
-            typed_evidence.P325_ACM_PRIMARY_BANNER_SIZE
+            typed_evidence.P326_CONSOLE_TRANSCRIPT_SIZE
+            if p326
+            else typed_evidence.P325_ACM_PRIMARY_BANNER_SIZE
             if p325
             else typed_evidence.P324_ACM_PRIMARY_BANNER_SIZE
             if p324
@@ -3460,6 +3645,19 @@ def _candidate_arrival_proof_projection(
         "proof": proof,
         "supplemental_carrier": supplemental,
     }
+    if p326:
+        result.update(
+            {
+                "pid1_bidirectional_proof": durable.get(
+                    "pid1_bidirectional_proof"
+                )
+                is True,
+                "busybox_shell_roundtrip_proof": durable.get(
+                    "busybox_shell_roundtrip_proof"
+                )
+                is True,
+            }
+        )
     if lane_bound:
         result.update(
             {
@@ -3489,6 +3687,7 @@ def _validate_candidate_arrival_proof_state(
         _p323_bundle(prepared.bundle)
         or _p324_bundle(prepared.bundle)
         or _p325_bundle(prepared.bundle)
+        or _p326_bundle(prepared.bundle)
     ):
         return
     expected = _candidate_arrival_proof_projection(prepared, state)
@@ -3853,7 +4052,12 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     except F1LiveError as exc:
         if not _acm_primary_bundle(prepared.bundle):
             raise
-        if _p325_bundle(prepared.bundle):
+        if _p326_bundle(prepared.bundle):
+            stock_error = _p326_stock_error(payloads[0], exc)
+            marker_result = _p326_parser_failure_classification(
+                payloads[0], exc
+            )
+        elif _p325_bundle(prepared.bundle):
             stock_error = _p325_stock_error(payloads[0], exc)
             marker_result = _p325_parser_failure_classification(
                 payloads[0], exc
@@ -3944,6 +4148,19 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.25 final stock projection changed")
     elif "p325_stock" in observer or "p325_stock_error" in observer:
         raise F1LiveError("foreign P3.25 final stock evidence")
+    if _p326_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p326_stock_error") != stock_error
+                or "p326_stock" in observer
+            ):
+                raise F1LiveError("P3.26 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p326_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.26 final stock projection changed")
+    elif "p326_stock" in observer or "p326_stock_error" in observer:
+        raise F1LiveError("foreign P3.26 final stock evidence")
     exact = marker_result["exact_count"]
     family = marker_result["family_count"]
     accepted = marker_result["accepted"] is True
@@ -4095,11 +4312,14 @@ def validate_live_result(
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
     if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
+        p326 = _p326_bundle(prepared.bundle)
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
-        label = "P3.25" if p325 else "P3.24" if p324 else "P3.23"
+        label = "P3.26" if p326 else "P3.25" if p325 else "P3.24" if p324 else "P3.23"
         success_verdict = (
-            typed_evidence.P325_ACM_PRIMARY_VERDICT
+            typed_evidence.P326_CONSOLE_VERDICT
+            if p326
+            else typed_evidence.P325_ACM_PRIMARY_VERDICT
             if p325
             else
             typed_evidence.P324_ACM_PRIMARY_VERDICT
@@ -4107,7 +4327,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_VERDICT
         )
         success_outcome = (
-            typed_evidence.P325_ACM_PRIMARY_OUTCOME
+            typed_evidence.P326_CONSOLE_OUTCOME
+            if p326
+            else typed_evidence.P325_ACM_PRIMARY_OUTCOME
             if p325
             else
             typed_evidence.P324_ACM_PRIMARY_OUTCOME
@@ -4115,7 +4337,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_OUTCOME
         )
         no_proof_outcome = (
-            typed_evidence.P325_ACM_PRIMARY_NO_PROOF_OUTCOME
+            typed_evidence.P326_CONSOLE_NO_PROOF_OUTCOME
+            if p326
+            else typed_evidence.P325_ACM_PRIMARY_NO_PROOF_OUTCOME
             if p325
             else
             typed_evidence.P324_ACM_PRIMARY_NO_PROOF_OUTCOME
@@ -5193,6 +5417,7 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
 
     current = _state(prepared)
     if _acm_primary_bundle(prepared.bundle):
+        p326 = _p326_bundle(prepared.bundle)
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
         projection = current.get(
@@ -5203,7 +5428,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         if isinstance(projection, dict) and projection.get("proof") is True:
             return (
                 (
-                    typed_evidence.P325_ACM_PRIMARY_VERDICT
+                    typed_evidence.P326_CONSOLE_VERDICT
+                    if p326
+                    else typed_evidence.P325_ACM_PRIMARY_VERDICT
                     if p325
                     else
                     typed_evidence.P324_ACM_PRIMARY_VERDICT
@@ -5211,7 +5438,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
                     else typed_evidence.P323_ACM_PRIMARY_VERDICT
                 ),
                 (
-                    typed_evidence.P325_ACM_PRIMARY_OUTCOME
+                    typed_evidence.P326_CONSOLE_OUTCOME
+                    if p326
+                    else typed_evidence.P325_ACM_PRIMARY_OUTCOME
                     if p325
                     else
                     typed_evidence.P324_ACM_PRIMARY_OUTCOME
@@ -5222,7 +5451,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         return (
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
             (
-                typed_evidence.P325_ACM_PRIMARY_NO_PROOF_OUTCOME
+                typed_evidence.P326_CONSOLE_NO_PROOF_OUTCOME
+                if p326
+                else typed_evidence.P325_ACM_PRIMARY_NO_PROOF_OUTCOME
                 if p325
                 else
                 typed_evidence.P324_ACM_PRIMARY_NO_PROOF_OUTCOME
@@ -5527,6 +5758,20 @@ def _finish_rollback(
                     raise F1LiveError("P3.25 final stock projection is missing")
                 current["p325_proof_class"] = projection["proof_class"]
                 current["p325_stock"] = projection
+        if _p326_bundle(prepared.bundle):
+            error = final["observer"].get("p326_stock_error")
+            projection = final["observer"].get("p326_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError(
+                        "P3.26 supplemental parser failure is malformed"
+                    )
+                current["p326_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.26 final stock projection is missing")
+                current["p326_proof_class"] = projection["proof_class"]
+                current["p326_stock"] = projection
         _save_state(prepared, current)
         journal.transition(
             "HEALTH_VERIFIED",

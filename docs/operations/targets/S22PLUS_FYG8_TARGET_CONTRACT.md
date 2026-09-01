@@ -157,7 +157,7 @@ capture, phase classification, recovery rebinding, or selector semantics
 requires a new independent boundary review.
 
 **P324 exact Type-C lane binding.** For the P324 S22+ observer and only the
-exact P325 successor defined immediately below, the
+exact P325 and P326 successors defined immediately below, the
 approval must bind and the runner must capture/revalidate the exact `port0`
 lane pair `usb:2-1.3` (`usb2-port1`, controller `0000:00:0d.0`) and `usb:3-1.3`
 (`usb3-port1`, controller `0000:00:14.0`) with their shared connector/location
@@ -195,6 +195,29 @@ identity drift or P325 candidate intent.
 P325 candidate intent has now occurred and the exact candidate is closed and
 consumed. Both P325 clauses above are retained evidence only and grant no new
 prepare, approval, candidate action, or replay.
+
+**P326 fixed bidirectional-console successor.** P326 may reuse the unchanged
+P324 `port0` lane selector and the proved P325 tty-class two-property guard.
+It changes neither endpoint, udev rule, ModemManager predicate, P300 passive
+trace, nor rollback choreography. After the exact fresh 49-byte P326 banner,
+the observer may write only the two fixed run-bound lines `PING` and `SHELL`
+(77 bytes total). PID 1 must return the exact run-bound `PONG ... pid=1`, and
+the fixed `/bin/busybox ash` child must return the exact
+`SHELL-OK ... busybox=1`; the complete device transcript is exactly 145 bytes
+and is retained through the inherited raw writer before classification.
+
+The P326 ramdisk may add only direct regular `/bin` and
+`/bin/busybox`; the latter is the static AArch64 BusyBox 1.36.1 binary of
+2,237,056 bytes with SHA-256
+`d4e1ca8235fd5c47a7dfca5c9c60ad2243f5d17d3c43d58a7c42355f10fa2cba`.
+The candidate remains a boot-only AP, the shell is ephemeral, and exact Magisk
+rollback plus final rooted FYG8 health remain mandatory. The two proof writes
+do not authorize a caller command, a persistent shell, ADB/MTP, a package or
+filesystem mutation, or a USB/Max77705 causal claim. Any command beyond those
+two fixed lines, or any guard/rule/lane/selector/rollback change, is outside
+P326. This clause remains H0 and inactive until its exact execution-critical
+closure receives independent review and a ready declaration is published;
+neither event is a device approval.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download

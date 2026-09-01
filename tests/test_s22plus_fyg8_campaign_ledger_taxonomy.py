@@ -670,13 +670,14 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # topics remain explicit rather than inferred from prose.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (76, 59, 17),
+            (77, 59, 18),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
             [
                 "acm-control-requalification",
                 "auditor-stale-bytecode",
+                "bidirectional-acm-busybox-console",
                 "boundary-failclosed",
                 "evidence-crosscheck",
                 "fyd9-fyg8-usb-delta",
@@ -699,6 +700,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             [
                 "h0-acm-control-requalification-1",
                 "h0-auditor-stale-bytecode-1",
+                "h0-bidirectional-acm-busybox-console-1",
                 "h0-boundary-failclosed-1",
                 "h0-evidence-crosscheck-1",
                 "h0-fyd9-fyg8-usb-delta-33",
@@ -716,9 +718,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "h0-usblog-parse-1",
             ],
         )
-        self.assertEqual(current["total"], 76)
+        self.assertEqual(current["total"], 77)
         self.assertEqual(current["resolved_count"], 59)
-        self.assertEqual(current["unresolved_count"], 17)
+        self.assertEqual(current["unresolved_count"], 18)
         self.assertEqual(
             [item["review_topic"] for item in current["resolved"][-5:]],
             [
@@ -1002,7 +1004,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 }
             ],
         )
-        self.assertEqual(current["pass_go_resolving_no_obligation_count"], 10)
+        # P324 readiness plus P325 readiness and baseline repair are scoped
+        # capability verdicts without same-topic REVIEW_PENDING rows.
+        self.assertEqual(current["pass_go_resolving_no_obligation_count"], 13)
         self.assertEqual(scoped["pass_go_resolving_no_obligation_count"], 10)
         self.assertEqual(
             [item["campaign"] for item in scoped["pass_go_resolving_no_obligation"]],
@@ -1035,7 +1039,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 432)
+        self.assertEqual(len(all_rows), 444)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -1067,7 +1071,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 obligations["resolved_count"],
                 obligations["unresolved_count"],
             ),
-            (76, 59, 17),
+            (77, 59, 18),
         )
         self.assertEqual(
             [
@@ -1214,7 +1218,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             live_topics | {"taxonomy-guard"},
         )
         self.assertEqual(
-            obligations["pass_go_resolving_no_obligation_count"], 11
+            obligations["pass_go_resolving_no_obligation_count"], 14
         )
 
     def test_matching_review_resolves_only_its_topic(self):
