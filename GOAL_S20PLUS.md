@@ -875,8 +875,7 @@ The current correction owns a transaction-private ADB server and closed
 environment, binds both observer atoms and their 16,487/16,486-byte sizes through one normalized identity, and
 requires distinct dormant/active raw test terminals. A host-mount `st_dev` rotation was repaired
 H0-only after an independent 0/0/0 review without changing records or replay
-state. Later inert activation trials fixed the observer size pair, one active-only
-normalization assumption, and one legacy rejection-order assertion. Final review remains. The current dormant owner exact-loads the B0
+state. Later inert activation trials fixed three state-dependent checks. The first connected prepare then stopped before run allocation or target contact at the registry writer fence; the correction uses only the pinned legacy-set proof and shared-reader active-claim check, and fails closed without writer recovery. Final review remains. The current dormant owner exact-loads the B0
 dependency graph without changing ordinary B0; gates command, transport, raw
 and journal writers, shared guards, observer, cgroup, and registry mutation
 behind a closure-private open-FD target-session capability; uses the append-only global

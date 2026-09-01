@@ -37,7 +37,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "22958f856bfcb9ffebebb59f5823f62f3ec1049a443ce16169fd7866cba54ac6"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "c458cf130f8e484530d5ce696038e6b9b810c5933b2da5637f0975770febf647"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -1482,6 +1482,10 @@ def _create_capability_system() -> dict[str, Any]:
         def guarded(*args, **kwargs):
             grant = mutation_state.get()
             event = grant.event if type(grant) is Mutation else ""
+            if event not in {"claim", "release"}:
+                raise P0F1Error(
+                    "P0 registry record write lacks a claim or release internal capability"
+                )
             require_mutation(event)
             return original(*args, **kwargs)
 
@@ -1493,6 +1497,10 @@ def _create_capability_system() -> dict[str, Any]:
         def guarded(*args, **kwargs):
             grant = mutation_state.get()
             event = grant.event if type(grant) is Mutation else ""
+            if event not in {"claim", "release"}:
+                raise P0F1Error(
+                    "P0 registry writer lock lacks an exact internal capability"
+                )
             require_mutation(event)
             with original(*args, **kwargs):
                 yield
@@ -2545,8 +2553,15 @@ def _registry_authority() -> dict[str, Any]:
     )
     try:
         state = registry.validate(ROOT)
+        activation_value = engine.read_json(
+            REGISTRY_ACTIVATION, "P0 global registry activation"
+        )
     except registry.RegistryError as exc:
         raise P0F1Error("P0 global candidate registry failed closed") from exc
+    except engine.B0F1Error as exc:
+        raise P0F1Error("P0 global registry activation failed closed") from exc
+    activation_payload = engine.canonical_bytes(activation_value)
+    legacy_candidates = activation_value.get("legacy_candidates")
     if (
         state.get("schema") != registry.REGISTRY_SCHEMA
         or state.get("root") != registry.REGISTRY_DIR_NAME
@@ -2555,13 +2570,24 @@ def _registry_authority() -> dict[str, Any]:
         or state.get("hash_chained") is not True
         or state.get("restart_durable") is not True
         or registry.registry_root(ROOT) != REGISTRY_ACTIVATION.parent
+        or len(activation_payload) != REGISTRY_ACTIVATION_SIZE
+        or hashlib.sha256(activation_payload).hexdigest()
+        != REGISTRY_ACTIVATION_SHA256
+        or not isinstance(legacy_candidates, list)
     ):
         raise P0F1Error("P0 global candidate registry authority differs")
+    if any(
+        isinstance(item, dict)
+        and item.get("candidate_ap_sha256") == CANDIDATE_AP_SHA256
+        for item in legacy_candidates
+    ):
+        raise P0F1Error("P0 candidate predates the global registry")
     return {
         "source": source,
         "activation": activation,
         "root": registry.REGISTRY_DIR_NAME,
         "validated_append_only_hash_chain": True,
+        "p0_candidate_absent_from_pinned_legacy_activation": True,
     }
 
 
@@ -2666,12 +2692,9 @@ def candidate_claim_present() -> bool:
     _registry_authority()
     identity = _registry_identity("p0-preflight-only", "0" * 64)
     try:
-        registry.preflight_candidate(ROOT, identity)
-    except registry.DuplicateCandidateClaim:
-        return True
+        return registry.active_claim(ROOT, identity["candidate_key"]) is not None
     except registry.RegistryError as exc:
         raise P0F1Error("P0 global candidate preflight failed closed") from exc
-    return False
 
 
 def _registry_intent(

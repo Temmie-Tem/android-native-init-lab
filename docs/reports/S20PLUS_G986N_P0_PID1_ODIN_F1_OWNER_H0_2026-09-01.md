@@ -131,9 +131,9 @@ and fresh rooted resident Android health.
 
 | File | Size | SHA-256 |
 | --- | ---: | --- |
-| P0 Odin owner | 204,224 | `c1b31303e93e0769b1a17317b6df01e95d5928ac8252c6d6683cd38635108ab0` |
-| owner activation-normalized | 204,224 | `22958f856bfcb9ffebebb59f5823f62f3ec1049a443ce16169fd7866cba54ac6` |
-| focused owner test | 108,307 | `9c5e8c168a3245fec4c825d73e80593724f87533803ec81b9cdd143e7354591a` |
+| P0 Odin owner | 205,415 | `c3f0ba94392189fc245f2965dee17a154f6c40a2262068faf3adf58d147d5620` |
+| owner activation-normalized | 205,415 | `c458cf130f8e484530d5ce696038e6b9b810c5933b2da5637f0975770febf647` |
+| focused owner test | 111,345 | `0be992d9230d67f4eb8afdcbba04f9cd37c1ce76418839efb2914e6176ff8d39` |
 | P0 observer dormant | 16,487 | `beba2925988da55c3e210a98616c1b9392d48f5459eb5170ce5ba060eeb09830` |
 | P0 observer active | 16,486 | `a5ee9c1411701133b25c790a1d5bb9b389d3b582abf9e73955ad8b06767ee022` |
 | observer activation-normalized | 16,487 | `0ffd28fcc99e023894de940f5e6fe05b2e30bdedbfccfc86af7ddfbc5fcca6db` |
@@ -145,7 +145,7 @@ and fresh rooted resident Android health.
 | immutable registry activation | 21,276 | `aa50c211ee86d4b1534399c6d9fd82d4de3550856724e5788d693b012bce471b` |
 
 The current host closure validates to SHA-256
-`f3973892c10b96d4c9e1404fdcceb128695de9c6570aef268c18fe1ad3c9f129`.
+`cf1914d27e90a7ea8999e5e374daf7c54556b638d8ee6c891e79aae33899b513`.
 
 ## Validation
 
@@ -462,6 +462,30 @@ target-contract error even though the active repository-registry atom is
 validated first. The legacy owner did fail closed. The six atoms were restored
 before device contact, and the test now accepts either exact repository- or
 target-contract identity rejection. Fresh review remains required.
+
+## Connected prepare pre-contact stop and correction
+
+The first connected `--prepare` after the activation commit stopped at the
+initial global candidate-presence check with `P0 registry mutation lacks its
+exact internal capability`. The inherited preflight helper enters the registry
+writer path, while the P0 fence had reserved that path for claim/release
+mutation grants. The failure happened before run allocation,
+shared guard creation, ADB server startup, target inventory, reboot, Download
+intent, candidate claim, Odin, or transfer. The P0 run namespace gained no run,
+the local claim directory remained empty, and the global registry remained at
+seven non-P0 records.
+
+Review of that writer path found it may remove a leftover head-staging file or
+repair a valid uncommitted tail before yielding, so it is not a read-only
+preflight. The correction does not grant it. The pinned activation is instead
+reopened as canonical exact bytes to prove the P0 AP is absent from all legacy
+candidates, then the existing shared-reader `active_claim` query checks only
+the fixed candidate key. Any head staging or tail inconsistency fails closed
+without recovery mutation. Regressions drive the real prepare entrypoint
+against an isolated initialized registry, prove the complete namespace and
+bytes unchanged, and prove a staged-head condition remains untouched. All
+prior active records were retired before changing these bytes; fresh review
+and activation are required.
 
 ## Activation sequence
 

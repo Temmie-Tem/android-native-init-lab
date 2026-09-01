@@ -1275,12 +1275,12 @@ owner is
 `P0_F1_ACTIVE=false`, the bound P0 observer remains
 `OBSERVER_ACTIVE=false`, and connected modes stop before ADB, USB inventory,
 Odin, reboot, or any target command. Only host validation and plan rendering
-are available. The dormant owner is 204,224 bytes at SHA-256
-`c1b31303e93e0769b1a17317b6df01e95d5928ac8252c6d6683cd38635108ab0`
+are available. The dormant owner is 205,415 bytes at SHA-256
+`c3f0ba94392189fc245f2965dee17a154f6c40a2262068faf3adf58d147d5620`
 and activation-normalized SHA-256
-`22958f856bfcb9ffebebb59f5823f62f3ec1049a443ce16169fd7866cba54ac6`;
-its 108,307-byte focused test SHA-256 is
-`9c5e8c168a3245fec4c825d73e80593724f87533803ec81b9cdd143e7354591a`.
+`c458cf130f8e484530d5ce696038e6b9b810c5933b2da5637f0975770febf647`;
+its 111,345-byte focused test SHA-256 is
+`0be992d9230d67f4eb8afdcbba04f9cd37c1ce76418839efb2914e6176ff8d39`.
 
 The owner exact-loads the currently reviewed B0 recovery owner, 224,559 bytes
 at SHA-256
@@ -1341,6 +1341,14 @@ require P0 activation and the leased dispatcher. Registry append/head writes
 also require the exact closure-private claim-or-release grant. Direct
 calls therefore gain no target contact or mutation while dormant and cannot
 bypass the lease after activation.
+
+The global candidate-presence check receives no mutation grant. The exact
+pinned activation bytes prove the P0 AP is absent from the legacy set, and the
+registry's existing shared-reader `active_claim` query checks only the fixed P0
+candidate key. Head staging, an unmatched tail, or any registry inconsistency
+fails closed without writer recovery. `_writer`, `_append`,
+`_write_no_replace`, and `_write_head` remain reachable only through an exact
+`claim` or `release` grant.
 
 The only candidate AP is 25,733,161 bytes at SHA-256
 `2c7b1563e7d340cbe0b1ef16dcc09fe828e1a24237a18c93382b5f61bf0c4cc6`.
@@ -1488,7 +1496,7 @@ allowlist, and the full semantic transition; unchanged policy and tests remain
 full-byte equal. The current 60-test owner implements all corrections
 described above and passes a 134-test core plus 164-test wider
 retained suite with ten historical skips. Its host closure SHA-256 is
-`f3973892c10b96d4c9e1404fdcceb128695de9c6570aef268c18fe1ad3c9f129`.
+`cf1914d27e90a7ea8999e5e374daf7c54556b638d8ee6c891e79aae33899b513`.
 The sixth-round corrections remain exact-byte review-pending and create no
 preparation, approval, claim, target contact, or live authority.
 
@@ -1572,6 +1580,22 @@ error-order assertion was state-dependent. All six atoms were restored before
 any device contact. The regression now accepts either exact repository- or
 target-contract identity rejection and continues to require the qualification-
 expiry report. These test/report bytes require a fresh exact review.
+
+After the reviewed activation commit and live record, the first connected
+`--prepare` stopped at its initial global candidate-presence check. The
+inherited helper enters the registry writer path, but the P0 dependency fence
+had allowed that internal path solely inside claim/release mutation grants.
+The stop preceded run allocation, shared guard creation, ADB server
+startup, target inventory, Download intent, candidate claim, and every
+transfer; the registry remained at seven non-P0 records. No replay occurred.
+That writer path may remove a leftover head-staging file or repair a valid
+uncommitted tail before yielding, so the current correction grants it nothing.
+It checks the pinned legacy set and then uses only the registry shared reader.
+A real entrypoint regression runs against an isolated registry and proves the
+complete namespace and bytes unchanged; a second condition proves head staging
+fails closed and remains untouched. The active records were retired before
+this source change. Fresh exact review, activation records, commit, and
+connected preparation are required.
 
 ## Bounded autonomous research session
 

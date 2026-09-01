@@ -180,6 +180,11 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                 "validated_append_only_hash_chain"
             ]
         )
+        self.assertTrue(
+            closure["p0_profile"]["p0_global_registry"][
+                "p0_candidate_absent_from_pinned_legacy_activation"
+            ]
+        )
 
     def test_observer_activation_pair_has_one_normalized_identity(self):
         payload = self.module.OBSERVER_PATH.read_bytes()
@@ -753,10 +758,71 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             return_value={"candidate_key": "2" * 64},
         ), mock.patch.object(
             self.module.registry,
-            "preflight_candidate",
-            side_effect=self.module.registry.DuplicateCandidateClaim("consumed"),
+            "active_claim",
+            return_value={"candidate_key": "2" * 64},
         ):
             self.assertTrue(self.module.candidate_claim_present())
+
+        ordinary_registry = importlib.import_module(
+            "consumed_candidate_registry_v1"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "workspace/private").mkdir(parents=True)
+            ordinary_registry.initialize(root)
+
+            def registry_snapshot():
+                registry_root = ordinary_registry.registry_root(root)
+                return {
+                    str(path.relative_to(registry_root)): (
+                        path.lstat().st_mode,
+                        path.lstat().st_nlink,
+                        path.lstat().st_size,
+                        path.read_bytes() if path.is_file() else None,
+                    )
+                    for path in [registry_root, *sorted(registry_root.rglob("*"))]
+                }
+
+            before = registry_snapshot()
+            with mock.patch.object(
+                self.module, "ROOT", root
+            ), mock.patch.object(
+                self.module, "P0_F1_ACTIVE", True
+            ), mock.patch.object(
+                self.module.observer, "OBSERVER_ACTIVE", True
+            ), mock.patch.object(
+                self.module, "_assert_profile_installed"
+            ), mock.patch.object(
+                self.module, "_validate_live_activation", return_value={}
+            ), mock.patch.object(
+                self.module, "_registry_authority", return_value={"valid": True}
+            ), mock.patch.object(
+                self.module.engine,
+                "validate_host_closure",
+                side_effect=self.module.P0F1Error("post-preflight-stop"),
+            ):
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "post-preflight-stop"
+                ):
+                    self.module.engine.prepare(None)
+            self.assertEqual(registry_snapshot(), before)
+
+            staging = ordinary_registry.registry_root(root) / ".head.json.next-1-1"
+            staging.write_bytes(b"incomplete-head\n")
+            staging.chmod(0o400)
+            before_staging_stop = registry_snapshot()
+            with mock.patch.object(
+                self.module, "ROOT", root
+            ), mock.patch.object(
+                self.module, "require_active"
+            ), self.live_transaction(), mock.patch.object(
+                self.module, "_registry_authority", return_value={"valid": True}
+            ):
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "preflight failed closed"
+                ):
+                    self.module.candidate_claim_present()
+            self.assertEqual(registry_snapshot(), before_staging_stop)
 
     def test_global_registry_key_binds_target_ap_and_member_across_runs(self):
         first = self.module._registry_identity("run-first", "1" * 64)
@@ -967,6 +1033,11 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                         self.module.P0F1Error, "internal capability"
                     ):
                         operation()
+            with self.assertRaisesRegex(
+                self.module.P0F1Error, "writer lock lacks"
+            ):
+                with self.module.registry._writer(self.module.ROOT):
+                    pass
             with self.assertRaisesRegex(
                 self.module.P0F1Error, "raw writer lacks"
             ):
