@@ -183,6 +183,15 @@ is permitted. P324 is closed and consumed and grants no replay or standing
 authority. Any further guard, rule, lane, or selector change requires a fresh
 independent review.
 
+P325 D0 may classify one retained predecessor baseline as current-run clean
+only when the complete raw `/proc/last_kmsg` is exactly 2,097,136 bytes with
+SHA-256 `e64815cf43f0772226518d39e566d6b8670f225a0469bca89022e50a9d918552`
+and the P324 decoder independently finds one integrity-clean, foreign-free
+`NO_PROOF_OBSERVER` record at offset 1,657,196 for the consumed P324 run. This
+exception applies only to P325 preparation, admits no other P324 bytes or
+semantics, grants no replay or standing D0/F1 authority, and expires on raw
+identity drift or P325 candidate intent.
+
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
 start and candidate-observer closure. Before rollback transfer it must retain a

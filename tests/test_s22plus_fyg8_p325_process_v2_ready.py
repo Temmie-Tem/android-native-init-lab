@@ -127,6 +127,38 @@ class P325ReadyTests(unittest.TestCase):
         )
         self.assertEqual(stat.S_IMODE(module.DEFAULT_ROLLBACK_AP.stat().st_mode), 0o600)
 
+    def test_only_exact_consumed_p324_receipt_is_a_p325_baseline(self) -> None:
+        raw_path = ROOT / (
+            "workspace/private/runs/device-action-f1-live-v2/"
+            "f1-2026-09-01T142236456746981Z/preflight/baseline-observer.bin"
+        )
+        raw = raw_path.read_bytes()
+        evidence = self.module.current_evidence
+        self.assertEqual(
+            {"size": len(raw), "sha256": hashlib.sha256(raw).hexdigest()},
+            evidence.P325_CONSUMED_P324_BASELINE_IDENTITY,
+        )
+        value = evidence.classify_clean_baseline(
+            raw, self.module.p325_adapter.acceptance_fixture()
+        )
+        self.assertEqual(
+            value["classification"],
+            "P325_CURRENT_RUN_ABSENT_P324_PREDECESSOR_EXACT",
+        )
+        self.assertTrue(value["baseline_clean"])
+        self.assertEqual(value["exact_record_count"], 0)
+        self.assertEqual(value["family_count"], 1)
+
+        changed = bytearray(raw)
+        changed[0] ^= 1
+        with self.assertRaisesRegex(
+            evidence.EvidenceError,
+            "P3.25 predecessor baseline raw identity differs",
+        ):
+            evidence.classify_clean_baseline(
+                bytes(changed), self.module.p325_adapter.acceptance_fixture()
+            )
+
     def test_closed_state_omits_duplicate_carrier_and_stays_in_core_bound(self) -> None:
         bundle = SimpleNamespace(manifest=self.manifest)
         prepared = live.PreparedRun(
