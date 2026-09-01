@@ -192,6 +192,10 @@ exception applies only to P325 preparation, admits no other P324 bytes or
 semantics, grants no replay or standing D0/F1 authority, and expires on raw
 identity drift or P325 candidate intent.
 
+P325 candidate intent has now occurred and the exact candidate is closed and
+consumed. Both P325 clauses above are retained evidence only and grant no new
+prepare, approval, candidate action, or replay.
+
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
 start and candidate-observer closure. Before rollback transfer it must retain a
