@@ -156,7 +156,8 @@ and has no expiry. Any change to endpoint identity, topology/controller
 capture, phase classification, recovery rebinding, or selector semantics
 requires a new independent boundary review.
 
-**P324 exact Type-C lane binding.** For the P324 S22+ observer only, the
+**P324 exact Type-C lane binding.** For the P324 S22+ observer and only the
+exact P325 successor defined immediately below, the
 approval must bind and the runner must capture/revalidate the exact `port0`
 lane pair `usb:2-1.3` (`usb2-port1`, controller `0000:00:0d.0`) and `usb:3-1.3`
 (`usb3-port1`, controller `0000:00:14.0`) with their shared connector/location
@@ -168,6 +169,19 @@ target. Same-run Type-C partner continuity is corroborating evidence only and
 never replaces the operator's no-disconnect/no-move/no-reroute condition. Any
 change to this pair, its approval-bound capture/revalidation, or its
 single-endpoint selector requires a fresh independent boundary review.
+
+**P325 exact tty guard-property repair.** P325 may reuse the unchanged P324
+`port0` lane capture, revalidation, single-endpoint selector, transient udev
+rule, P300 passive trace, and rollback choreography only under a fresh P325
+candidate identity, execution closure, connected preparation, and attended
+approval. Its sole observer change is that both existing read-time
+ModemManager guard property probes resolve the exact selected tty class node
+instead of the USB interface node. The existing matcher must still require
+both `ID_MM_DEVICE_IGNORE=1` and `ID_MM_PORT_IGNORE=1`; no parent/interface
+fallback, one-flag acceptance, selector widening, retry, or extra device action
+is permitted. P324 is closed and consumed and grants no replay or standing
+authority. Any further guard, rule, lane, or selector change requires a fresh
+independent review.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
