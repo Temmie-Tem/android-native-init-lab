@@ -67,6 +67,11 @@ ext4 루트, 키 전용 Dropbear SSH와 루프백 HTTP 서비스. 5,375 MB 중 2
 사이에 콘솔에서 변한 것은 없습니다. 이후의 런타임 스택은 화면에 없고, 아래 정지 사진과는
 다른 실행이자 다른 빌드입니다.
 
+**전체 녹화본** — [▶ `a90-boot-full.mp4`](../images/a90/a90-boot-full.mp4)
+— 26초, 2.7 MB. 원본 촬영본을 재인코딩한 것이며 그 외 편집은 없습니다. 위 클립보다 앞선
+Android에서의 의도적 재부팅과 클립에서 제거된 정지 구간을 포함한 전체 테이크가 담겨
+있어, 여기 설명한 이어붙임을 대조해 확인할 수 있습니다.
+
 ---
 
 ## 스톡 벤더 커널 위의 네이티브 init
@@ -180,7 +185,8 @@ end-to-end로 보여주기 때문에 포함했습니다.
 
 ## 입력 스택과 메뉴 조작
 
-[▶ `a90-input-stack-demo.mp4`](../images/a90/a90-input-stack-demo.mp4) — 10초, 1.3 MB
+[▶ `a90-input-stack-demo.mp4`](../images/a90/a90-input-stack-demo.mp4) — 10초, 1.3 MB.
+같은 구간이 위에 링크된 전체 녹화본의 13.5초 지점부터도 이어집니다
 
 **보이는 것** — 물리 볼륨·전원 키로 구동하는 메뉴 조작. 선택이 APPS → POWER → DEMO로
 이동하고 하단 패널이 `TOOLS AND VIEWERS` → `REBOOT OPTIONS` → `PLAYER HUD DEMOS`로

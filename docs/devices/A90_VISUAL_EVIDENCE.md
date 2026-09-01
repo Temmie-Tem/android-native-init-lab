@@ -72,6 +72,12 @@ time and the clip establishes bring-up order, not timing. Nothing between the
 two segments changed on the console. The later runtime stack is not in frame,
 and this is a different run and a different build from the still below.
 
+**Full recording** — [▶ `a90-boot-full.mp4`](../images/a90/a90-boot-full.mp4)
+— 26 s, 2.7 MB, re-encoded from the original capture and not otherwise edited.
+It carries the whole take, including the deliberate reboot out of Android that
+precedes the clip above and the static wait removed from it, so the join
+described here can be checked against it.
+
 ---
 
 ## Native init on the stock vendor kernel
@@ -194,7 +200,8 @@ loop PASS, native speaker co-run PASS, final health PASS.
 
 ## Input stack and menu navigation
 
-[▶ `a90-input-stack-demo.mp4`](../images/a90/a90-input-stack-demo.mp4) — 10 s, 1.3 MB
+[▶ `a90-input-stack-demo.mp4`](../images/a90/a90-input-stack-demo.mp4) — 10 s, 1.3 MB,
+the same segment also runs from 13.5 s in the full recording linked above
 
 **What it shows** — menu navigation driven from the physical volume and power
 keys. The selection moves APPS → POWER → DEMO while the lower panel switches
