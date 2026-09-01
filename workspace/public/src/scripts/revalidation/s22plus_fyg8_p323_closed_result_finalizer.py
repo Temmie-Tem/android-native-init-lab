@@ -427,10 +427,40 @@ def finalize(*, audit_only: bool) -> dict[str, Any]:
     }
 
 
+RETIRED_REASON = (
+    "This P3.23 finalizer predates the P3.24 review finding and still reads the "
+    "journal through the common repairing Journal.reopen. Running it, including "
+    "with --audit-only, rewrites identical journal-head bytes and changes the "
+    "inode and timestamps of P3.23's retained evidence. P3.23 is closed, "
+    "consumed and already published, so there is no reason to run it again. "
+    "Successors use the read-only journal view; see "
+    "docs/reports/S22PLUS_FYG8_P325_CLOSED_RESULT_FINALIZER_INDEPENDENT_REVIEW_"
+    "2026-09-02.md."
+)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--audit-only", action="store_true")
+    parser.add_argument(
+        "--i-accept-p323-evidence-mutation",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args(argv)
+    if not args.i_accept_p323_evidence_mutation:
+        print(
+            json.dumps(
+                {
+                    "schema": SCHEMA,
+                    "verdict": "REFUSED_RETIRED_FINALIZER",
+                    "reason": RETIRED_REASON,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 2
     try:
         result = finalize(audit_only=args.audit_only)
     except (FinalizerError, OSError, RuntimeError, ValueError) as exc:
