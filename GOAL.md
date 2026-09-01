@@ -11,13 +11,13 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.22 is closed and consumed after exact candidate/rollback transfers 1/1 and healthy rooted FYG8 return. Its formal terminal remains
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` / `NO_PROOF_OBSERVER`; P3.22 is never replayable. Post-live H0 re-derivation corrects the frozen adapter's `bad-body` presentation:
-the header and both slots are CRC-valid, advancing from generation 92 stage `0x8f`/item 4 progress to generation 93 stage `0x90`/item 0 failure `0x6726`.
-The older host semantic model rejected a valid P3.13 intermediate contradiction; persistence was not torn. Source order identifies a stock-envelope encoder failure before
-the repaired bridge, but the exact rejected predicate was not retained, so no Max77705 scientific result exists. P3.23 keeps Carrier supplemental and moves the already-qualified
-exact 49-byte run-bound ACM banner to stock-publisher entry as primary evidence only for native PID-1/USB arrival. This prevents a later producer/parser failure from erasing arrival
-proof and prevents arrival proof from promoting a missing scientific result. P3.23 private `-03`, exact common registration, parser-failure isolation, static `-01`, promotion `-01`, and ready manifest are independently `PASS_GO_P323_PROCESS_V2_H0`. Its first two prepares stopped pre-effect on the exact consumed P3.22 baseline and then the redundant generic D0 family-count check; both bounded fixes are independently `PASS_GO`. The final corrected prepare stopped before a run directory or device effect when runtime-bound candidate-static regeneration hit a host cpio audit failure with `/tmp` exhausted. Removing only four stale P320 failed-build scratch trees restored 2.2 GiB free, and the same runtime-bound audit now passes host-only. One fresh prepare is next; no approval exists. P3.22 recovery sent rollback once and closed with 19 records.
+P3.23 is closed and consumed after exact candidate/rollback transfers 1/1 and healthy rooted FYG8 return. The operator observed a normal candidate boot without a loop, but the
+primary ACM observer timed out and accepted no receipt, so the formal terminal is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` /
+`p323_acm_primary_native_pid1_arrival_unproved_rollback_verified`; native PID-1/USB arrival remains unproved and P3.23 is never replayable. The first rollback Download inventory
+failed after durable candidate observation, then `--recover` resumed only the exact journal and sent the rollback once. Final health passed and the 19-record journal closed.
+The ordinary result publisher then exceeded its 32 KiB record bound after closure. Independently reviewed host-only finalizer `c45e60260f` published the canonical 34,937-byte
+result at SHA-256 `de24b959c37357a2532556258dbb0e64dd21390cb0ae2d16662add6776e26829` with no device, ADB, Odin, or transfer action.
+P3.22 remains a closed consumed predecessor with exact 1/1 transfers and healthy return. Its CRC-valid generation-92 progress to generation-93 failure `0x6726` supports native candidate arrival and a producer-failure receipt but no Max77705 scientific result. P3.22 is never replayable.
 
 P3.21 remains closed and consumed after exact candidate/rollback transfers and healthy
 rooted FYG8 return. Its CRC-valid generation-93 semantic `bad-body` came from the missing

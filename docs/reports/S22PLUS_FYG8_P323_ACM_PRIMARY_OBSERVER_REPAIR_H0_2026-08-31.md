@@ -4,7 +4,7 @@ Date: 2026-08-31
 
 Target: `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
-Status: `PASS_GO_P323_PROCESS_V2_H0`; host capacity restored and corrected prepare pending
+Status: P3.23 F1 `CLOSED`; exact rollback healthy; formal ACM result `NO_PROOF`
 
 ## Finding
 
@@ -164,3 +164,37 @@ regeneration then passed host-only with `device_contact=false`,
 `odin_invoked=false`, and `live_authorized=false`. Its temporary audit directory
 was removed after completion. A fresh connected prepare, not a reused stopped
 run, is the next step.
+
+## Live execution and result
+
+The consumed P3.23 run is
+`workspace/private/runs/device-action-f1-live-v2/f1-2026-09-01T100714815943Z-1788257234815987455`.
+The exact candidate AP transferred once. The operator observed a normal candidate
+boot with no boot loop. The primary ACM observer nevertheless closed as
+`endpoint-timeout` with `candidate_observer_accepted=false`; therefore this
+observation does not prove native PID-1/USB arrival.
+
+After durable candidate observation, the first rollback Download inventory
+failed. The journal already proved the candidate transfer and observation, so
+the candidate was not replayed. The exact `--recover` path reopened that journal,
+identified the current exact Download endpoint, and transferred the preapproved
+Magisk rollback once. Final rooted FYG8 health passed. The journal closed with
+19 records, candidate/rollback counts `1/1`, no attempt 2, and
+`recovery_required=false`.
+
+The ordinary result publication then failed after closure because the canonical
+P3.23 result is 34,937 bytes, 2,169 bytes above the shared 32 KiB record bound.
+The run-specific host-only finalizer committed at `c45e60260f` is 16,257 bytes,
+SHA-256 `df317c128b4d309f5ce317f1e01dad8b5b73d1e0be33af938ba8cb5a08d3946d`.
+It pins the exact run, binding, manifest, frozen live/core sources, CLOSED journal,
+state and both transfer receipts; it has no ADB, Odin, backend, execute, recover,
+or device path. Seven focused tests, Python compilation, exact-run audit, and two
+independent hostile reviews passed.
+
+The finalizer published `live-result.json` mode `0400`, link count 1, at 34,937
+bytes and SHA-256
+`de24b959c37357a2532556258dbb0e64dd21390cb0ae2d16662add6776e26829`.
+The formal verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
+`p323_acm_primary_native_pid1_arrival_unproved_rollback_verified`. Candidate and
+rollback remain consumed exactly once; no result-finalization step contacted the
+device or created replay authority.
