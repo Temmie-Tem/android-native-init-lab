@@ -42,7 +42,7 @@ class RestrictedAdbProxyV1Tests(unittest.TestCase):
         cls.source = SOURCE.read_bytes()
 
     def setUp(self):
-        self.serial = "R58N00FIXED"
+        self.serial = "RFCM0000000"
         self.child = self.m.ChildIdentity(pid=4101, uid=1000, gid=1000, start_ticks=811)
         self.peer = self.m.PeerCredentials(
             source=self.m.SO_PEERCRED_SOURCE,

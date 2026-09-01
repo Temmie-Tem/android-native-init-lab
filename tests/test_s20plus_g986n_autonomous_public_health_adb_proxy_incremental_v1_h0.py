@@ -49,7 +49,7 @@ class IncrementalRestrictedAdbProxyV1Tests(unittest.TestCase):
         cls.source = SOURCE.read_bytes()
 
     def setUp(self):
-        self.serial = "R58N00FIXED"
+        self.serial = "RFCM0000000"
 
     def event(self, kind, connection, payload=b""):
         return self.m.TranscriptFragment(kind, connection, payload)

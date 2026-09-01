@@ -732,7 +732,7 @@ class S20PlusPublicHealthRuntimeV1H0Tests(unittest.TestCase):
         self.assertTrue(all(getattr(self.m, name) is False for name in names))
 
     def test_fixed_transcript_has_no_caller_command_surface(self):
-        serial = "R58N00FIXED"
+        serial = "RFCM0000000"
         expected = (
             (self.m.ADB_PATH, "version"),
             (self.m.ADB_PATH, "devices", "-l"),
@@ -841,20 +841,20 @@ class S20PlusPublicHealthRuntimeV1H0Tests(unittest.TestCase):
         with mock.patch.object(
             self.m, "_operational_gates", return_value={"test-only": True}
         ):
-            capture = owner.capture(4, "R58N00FIXED")
-        self.assertEqual(capture.argv, self.m._fixed_argv(4, "R58N00FIXED"))
-        self.assertEqual(self.env.exec_calls, [(owner._file.descriptor, 4, "R58N00FIXED")])
+            capture = owner.capture(4, "RFCM0000000")
+        self.assertEqual(capture.argv, self.m._fixed_argv(4, "RFCM0000000"))
+        self.assertEqual(self.env.exec_calls, [(owner._file.descriptor, 4, "RFCM0000000")])
 
     def test_imported_adb_capture_stops_before_injected_environment_call(self):
         owner = self.bind_adb()
         with self.assertRaisesRegex(self.m.RuntimePrimitiveError, "inactive"):
-            owner.capture(1, "R58N00FIXED")
+            owner.capture(1, "RFCM0000000")
         self.assertEqual(self.env.exec_calls, [])
 
     def test_adb_capture_rejects_forged_or_oversized_child_receipt(self):
         owner = self.bind_adb()
         good = self.m.CommandCapture(
-            argv=self.m._fixed_argv(1, "R58N00FIXED"),
+            argv=self.m._fixed_argv(1, "RFCM0000000"),
             timeout_sec=10,
             returncode=0,
             stdout=b"",
@@ -879,12 +879,12 @@ class S20PlusPublicHealthRuntimeV1H0Tests(unittest.TestCase):
                     self.m, "_operational_gates", return_value={"test-only": True}
                 ):
                     with self.assertRaises(self.m.RuntimePrimitiveError):
-                        owner.capture(1, "R58N00FIXED")
+                        owner.capture(1, "RFCM0000000")
 
     def test_adb_owner_makes_post_child_drain_expiry_mandatory_non_success(self):
         owner = self.bind_adb()
         self.env.next_capture = self.m.CommandCapture(
-            argv=self.m._fixed_argv(1, "R58N00FIXED"),
+            argv=self.m._fixed_argv(1, "RFCM0000000"),
             timeout_sec=10,
             returncode=0,
             stdout=b"apparently complete\n",
@@ -900,12 +900,12 @@ class S20PlusPublicHealthRuntimeV1H0Tests(unittest.TestCase):
             with self.assertRaisesRegex(
                 self.m.RuntimePrimitiveError, "mandatory non-success"
             ):
-                owner.capture(1, "R58N00FIXED")
+                owner.capture(1, "RFCM0000000")
 
     def test_adb_owner_makes_late_child_completion_timeout_mandatory_non_success(self):
         owner = self.bind_adb()
         self.env.next_capture = self.m.CommandCapture(
-            argv=self.m._fixed_argv(1, "R58N00FIXED"),
+            argv=self.m._fixed_argv(1, "RFCM0000000"),
             timeout_sec=10,
             returncode=0,
             stdout=b"apparently complete\n",
@@ -921,7 +921,7 @@ class S20PlusPublicHealthRuntimeV1H0Tests(unittest.TestCase):
             with self.assertRaisesRegex(
                 self.m.RuntimePrimitiveError, "mandatory non-success"
             ):
-                owner.capture(1, "R58N00FIXED")
+                owner.capture(1, "RFCM0000000")
 
     def test_server_owner_binds_preexisting_unique_same_uid_exact_exe(self):
         adb = self.bind_adb()
@@ -1700,13 +1700,13 @@ class S20PlusPublicHealthRuntimeV1H0Tests(unittest.TestCase):
     def test_execveat_candidate_is_false_gate_before_fork(self):
         with mock.patch.object(os, "fork", side_effect=AssertionError("fork reached")):
             with self.assertRaisesRegex(self.m.RuntimePrimitiveError, "inactive"):
-                self.m._execveat_capture(9, 1, "R58N00FIXED")
+                self.m._execveat_capture(9, 1, "RFCM0000000")
         environment = self.m._PosixEnvironment()
         with mock.patch.object(
             self.m, "_execveat_capture", side_effect=AssertionError("exec reached")
         ):
             with self.assertRaisesRegex(self.m.RuntimePrimitiveError, "inactive"):
-                environment.execute_fixed_adb(9, 1, "R58N00FIXED")
+                environment.execute_fixed_adb(9, 1, "RFCM0000000")
         with mock.patch.object(
             self.m.ctypes, "CDLL", side_effect=AssertionError("libc reached")
         ):
@@ -1813,7 +1813,7 @@ class S20PlusPublicHealthRuntimeV1H0Tests(unittest.TestCase):
             self.m, "_operational_gates", return_value={"test-only": True}
         ):
             return self.m._execveat_capture_with_ops(
-                9, 1, "R58N00FIXED", operations
+                9, 1, "RFCM0000000", operations
             )
 
     def test_direct_child_exit_has_fixed_descendant_held_pipe_deadline(self):

@@ -162,7 +162,7 @@ def fixture_properties(phase):
 
 def complete_base_model(*, socket_inode=51, pid_start_ticks=53):
     phase = PHASE_A
-    serial = "R58MTEST123"
+    serial = "RFCM0000000"
     devpath = "usb:1-2.3"
     tool = fixture_tool(phase)
     server = fixture_server(
@@ -610,7 +610,7 @@ class TerminalContinuityV1Tests(unittest.TestCase):
     def test_serial_is_rederived_only_from_cmd02(self):
         forged = dict(self.model["evidence"])
         forged["cmd-02.stdout.bin"] = forged["cmd-02.stdout.bin"].replace(
-            b"R58MTEST123", b"R58MOTHER999"
+            b"RFCM0000000", b"RFCT0000000"
         )
         receipt = json.loads(forged["cmd-02.receipt.json"])
         receipt["stdout_size"] = len(forged["cmd-02.stdout.bin"])

@@ -201,7 +201,7 @@ def fixture_health(module, tool, serial, devpath, boot_id):
 
 
 def complete_model(campaign):
-    serial = "R58MTEST123"
+    serial = "RFCM0000000"
     devpath = "usb:1-2.3"
     boot_id = "12345678-1234-1234-1234-123456789abc"
     tool = fixture_tool(campaign)
