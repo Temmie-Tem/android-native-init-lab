@@ -977,6 +977,88 @@ drift and must return to H0 design/review before an identical-resident write
 qualification. It grants no F1/F2, direct block write, candidate, rollback,
 reboot, Odin, partition transfer, or replay authority.
 
+## TWRP identical-resident boot-write qualification Q0
+
+Status: **DEFINED - H0 ONLY - NOT ACTIVE**
+
+This section records a proposed, separately gated F1 qualification for the
+exact retained S20+ T2 recovery. It does not activate a run, command, block
+open, content read, stage, write, fsync, readback, reboot, approval, or
+recovery action. The active metadata D0 above remains read-only and grants none
+of this proposed authority.
+
+The H0 backend source is
+`workspace/public/src/native-init/s20plus_twrp_identical_resident_write_q0.c`.
+The H0 builder is
+`workspace/public/src/scripts/revalidation/build_s20plus_g986n_twrp_identical_resident_write_q0_h0.py`.
+The source is 25,151 bytes at SHA-256
+`ba79e36822487fdec23909c653bb05540bdced8678fea2a20dba972096378e06`;
+the builder is 16,846 bytes at SHA-256
+`57edd59c660faef1a3c39b5fcf6e9eebb1f21d273bb39ac5e63edcf3f9b5949a`;
+and its 9,923-byte focused test is SHA-256
+`3e33f3bc0f91c12d2e1162ef1f9ef759dd730a7733da194fea6af8b4a2839086`.
+The private reproducible static executable is 597,720 bytes at SHA-256
+`16271fee5c31ddb34e426b29ae5032e0fe366623eb3114862aac1ea1cc1022b5`,
+and its 7,517-byte H0 manifest is SHA-256
+`e9b587c558c15cf1367e271f6b05561a40131a680bf5ee299d6e6c75a2ce9d86`.
+The dormant render-only owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_identical_resident_q0_owner_h0.py`,
+22,647 bytes at SHA-256
+`706e9ec5792773db93508bb7866eae55dfba88329db830444dc1e810c4a774f4`;
+its 12,598-byte focused test is SHA-256
+`93c488ee794ed3119549b61eaddf5d1c5725a352f5f33bea68b3232be913b2b8`.
+They construct one static AArch64 executable with no caller argument. Its only
+stage is fixed tmpfs directory
+`/tmp/s20plus-g986n-identical-resident-q0`, containing exactly the executable
+and exact 67,108,864-byte resident Magisk boot image at SHA-256
+`d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707418f7efc`.
+The only target literal is direct node `/dev/block/sda23`.
+
+The proposed backend must reach its sole `pwrite` call site only after it has
+opened and pinned that exact staged source, proved the source SHA-256, opened a
+fresh O_DIRECT preimage fd, and rederived block inode rdev `259:7`, sysfs
+`DEVNAME=sda23`, `DEVTYPE=partition`, `PARTNAME=boot`, partition number 23,
+131,072 sectors, and 67,108,864 bytes from the opened target. The complete
+preimage must equal the same resident SHA-256. It then opens one O_WRONLY fd,
+repeats the complete opened-fd and sysfs guard, writes only the same full
+resident image through that fd, calls `fsync`, and reopens a fresh O_DIRECT fd
+whose identity is independently guarded before a complete exact-SHA readback.
+It blocks host-disconnect signals before the effect and never reboots.
+
+Identical content does not make an interrupted UFS write safe. Before any
+future effect, a durable no-replay owner must publish intent, bind the current
+T2 boot and D0 geometry, prove an empty exclusive stage, retain the exact
+resident boot and demonstrated boot-only Download/Odin recovery artifact, and
+obtain one fresh attended approval. Once write intent exists, the attempt is
+consumed even if stdout, ADB, fsync, or readback is absent. No backend or
+candidate replay is permitted. Pre-write rejection may close with zero writes;
+post-intent uncertainty must remain in Recovery and use only a separately
+reviewed exact recovery branch.
+
+A future proved write/readback must still use an attended physical no-hook
+System boot, prove the exact resident Android/Magisk health on a fresh boot,
+and return by attended physical direct-to-Recovery keys before it can publish a
+qualification terminal. TWRP's System-reboot hook and every `misc` write are
+forbidden. Recovery, vendor_boot, DTBO, vbmeta*, userdata, EFS, RPMB, modem,
+bootloader, and every non-boot partition remain outside the lane.
+
+Activation is blocked until the exact backend, builder, artifact, manifest,
+strict result parser, durable journal/owner, stage cleanup, physical
+choreography, exact-stock recovery branch, hostile cut tests, this section,
+and higher-precedence boundaries receive independent `PASS_GO`, followed by a
+mechanical activation commit. Any source, toolchain, artifact, resident image,
+D0 receipt, T2 recovery, target/build, block map, command, parser, journal,
+recovery, or policy drift requires re-review. H0 build success alone is never
+live authority.
+
+Independent hostile review of the exact H0 backend, builder, artifact,
+manifest, render-only owner, tests, this inactive section, report, D0/T2
+predecessors, and higher-precedence boundaries returned `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0`. A delta review of the builder's fail-closed `nm`
+audit correction returned the same result. This qualifies only the H0 bytes;
+the missing live parser, journal, stage/cleanup runner, physical choreography,
+recovery owner, fresh preparation, approval, and activation remain blockers.
+
 ## Boot recovery-canary B0 F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE AFTER REVIEWED COMMIT**
