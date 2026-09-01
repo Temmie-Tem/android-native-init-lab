@@ -124,6 +124,25 @@ class P324ClosedResultFinalizerTests(unittest.TestCase):
         original.assert_called_once_with(prepared, revalidate=False)
         self.assertIs(live._p324_typec_lane_value, original)
 
+    def test_read_only_journal_does_not_call_reopen_or_write_head(self):
+        module = self.module
+
+        class Journal:
+            reopen = mock.Mock(side_effect=AssertionError("must not reopen"))
+
+            def __init__(self, run_dir, binding):
+                self.run_dir = run_dir
+                self.binding = binding
+
+            def records(self):
+                return [{"state": "CLOSED"}]
+
+        core = mock.Mock(Journal=Journal)
+        journal = module._read_only_journal(core, Path("/run/transaction"), "a" * 64)
+        self.assertEqual(journal.run_dir, Path("/run/transaction"))
+        self.assertEqual(journal.binding, "a" * 64)
+        Journal.reopen.assert_not_called()
+
     def test_final_state_uses_temporary_dedicated_bound(self):
         module = self.module
         pre = b"pre"

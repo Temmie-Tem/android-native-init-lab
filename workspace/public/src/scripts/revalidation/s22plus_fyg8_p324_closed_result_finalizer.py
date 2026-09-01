@@ -225,13 +225,29 @@ def _load_prepared_stored_lane(live: Any) -> Any:
         live._p324_typec_lane_value = original  # noqa: SLF001
 
 
+def _read_only_journal(core: Any, run_dir: Path, binding_sha256: str) -> Any:
+    """Validate and return a journal without ``Journal.reopen`` head repair."""
+
+    journal = core.Journal(run_dir, binding_sha256)
+    journal.records()
+    return journal
+
+
 def _validate_with_state(live: Any, value: dict[str, Any], prepared: Any, state: dict[str, Any]) -> None:
-    original = live._state  # noqa: SLF001
+    core = live.core
+    original_state = live._state  # noqa: SLF001
+    original_reopen = core.Journal.__dict__["reopen"]
+
+    def read_only_reopen(cls: Any, run_dir: Path, binding_sha256: str) -> Any:
+        return _read_only_journal(core, run_dir, binding_sha256)
+
     live._state = lambda _prepared: state  # noqa: SLF001
+    core.Journal.reopen = classmethod(read_only_reopen)
     try:
         live.validate_live_result(value, prepared)
     finally:
-        live._state = original  # noqa: SLF001
+        core.Journal.reopen = original_reopen
+        live._state = original_state  # noqa: SLF001
 
 
 def reconstruct() -> tuple[dict[str, Any], bytes, dict[str, Any], bytes, str, Any, Any]:
@@ -250,7 +266,9 @@ def reconstruct() -> tuple[dict[str, Any], bytes, dict[str, Any], bytes, str, An
         or prepared.run_dir != RUN_DIR
     ):
         raise FinalizerError("prepared P3.24 binding differs")
-    journal = core.Journal.reopen(RUN_DIR / "transaction", EXPECTED_BINDING)
+    journal = _read_only_journal(
+        core, RUN_DIR / "transaction", EXPECTED_BINDING
+    )
     records = journal.records()
     if journal.state() != "CLOSED" or len(records) != 19:
         raise FinalizerError("P3.24 journal is not the exact CLOSED 19-record run")
