@@ -787,12 +787,12 @@ The exact profile is
 `c02b78f2a1215a1fc2104a4634264609d2060d610bc628a068b318cb1cf55fb7`.
 The connected owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_f2.py`,
-167,339 bytes at SHA-256
-`eae10c74cfd3de2f705c6999749ddf9bc41fc38e25d13792bbb8c047c779e8ab`
+167,684 bytes at SHA-256
+`7f5519ef76091f491165a0be5ce81733f0343318057d02f7577954db1d1a0d11`
 and activation-normalized SHA-256
-`51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`.
-`T2_F2_ACTIVE=true`. Its focused hostile test is 61,234 bytes at SHA-256
-`4a9e3d79965545d4e37d69b59b9daa447fe4a2d927f76f102be036f6bd046f51`.
+`67f5f1708037afb6ba8c3f2879e70195453bc36df112bb37e0a37378bebd66a7`.
+`T2_F2_ACTIVE=true`. Its focused hostile test is 64,691 bytes at SHA-256
+`1865c071546858035bffa667d17ee0f9f89de19b017df9e6c687c7be738a6929`.
 
 Host validation must first re-run the exact active T1 source closure and the
 complete fixed T1 journal. It pins the 2,144-byte T1 terminal SHA-256
@@ -816,6 +816,23 @@ candidate is globally no-replay. Recovery retention requires the same prepared
 serial/topology in ADB state `recovery`, a fresh boot ID, root UID, exact TWRP
 version/incremental, `ro.secure=0`, `ro.debuggable=1`, exactly `mtp,adb`, running
 adbd, and the T2 marker SHA-256.
+
+The first T2 approval expired before approval consumption, candidate claim,
+Download intent, or transfer. Its initial `--abort-pre-candidate` invocation
+proved the same prepared boot remained healthy and recovery remained exact
+stock, then stopped because the original owner required a later boot after
+already publishing that fixed read. The reviewed incident repair permits this
+prepared-only same-boot terminal only when candidate and rollback intents are
+absent, preserves zero transfer attempts and the unclaimed candidate, validates
+the exact existing root/recovery receipts, and releases only that run's guard.
+It neither reuses the expired approval nor performs a reboot or partition write.
+Before any cleanup read or terminal publication, the repair accepts only the
+exact pre-repair active closure SHA-256
+`bdf8bd67962729c38152235b725ca8badca093fe1d08b229c84dd5fd2a669a57`
+or the freshly rederived current reviewed closure. Any other stale/forged
+closure stops while retaining the guard.
+Independent incident-repair review returned `PASS_GO` with HIGH/MEDIUM/LOW
+`0/0/0`; its committed exact source is required before cleanup resumes.
 
 A retained terminal records one candidate and zero rollback transfers, releases
 the shared guard, and intentionally leaves TWRP installed. It grants no UI,

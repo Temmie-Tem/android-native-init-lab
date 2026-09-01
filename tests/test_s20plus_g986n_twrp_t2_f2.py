@@ -23,7 +23,7 @@ assert SPEC is not None and SPEC.loader is not None
 T2 = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(T2)
 
-EXPECTED_SOURCE_SHA256 = "eae10c74cfd3de2f705c6999749ddf9bc41fc38e25d13792bbb8c047c779e8ab"
+EXPECTED_SOURCE_SHA256 = "7f5519ef76091f491165a0be5ce81733f0343318057d02f7577954db1d1a0d11"
 BOOT_A = "a" * 64
 BOOT_B = "b" * 64
 SERIAL = "c" * 64
@@ -587,6 +587,7 @@ class S20PlusG986NRecoveryCanaryT2F2Tests(unittest.TestCase):
 
     def test_abort_pre_candidate_requires_zero_transfer_intents(self) -> None:
         value = prepared(self.run_dir)
+        value["binding"]["closure_sha256"] = T2.PRE_REPAIR_ACTIVE_CLOSURE_SHA256
         T2.b0.durable_json(self.run_dir / "candidate-intent.json", {"consumed": True})
         with (
             mock.patch.object(T2, "require_active"),
@@ -597,19 +598,91 @@ class S20PlusG986NRecoveryCanaryT2F2Tests(unittest.TestCase):
             with self.assertRaisesRegex(T2.T2F2Error, "unavailable"):
                 T2.abort_pre_candidate(self.run_dir)
 
-    def test_abort_pre_candidate_closes_guard_after_stock_digest(self) -> None:
+    def test_abort_pre_candidate_closes_same_boot_guard_after_stock_digest(self) -> None:
         value = prepared(self.run_dir)
+        value["binding"]["closure_sha256"] = T2.PRE_REPAIR_ACTIVE_CLOSURE_SHA256
         T2.acquire_guard(self.run_dir)
         with (
             mock.patch.object(T2, "require_active"),
             mock.patch.object(T2, "read_prepared", return_value=value),
             mock.patch.object(T2, "validate_journal", return_value=set()),
             mock.patch.object(T2, "require_all_transfer_processes_quiescent"),
-            mock.patch.object(T2, "android_stock_recovery_health", return_value=(health(BOOT_B), "raw-serial")),
+            mock.patch.object(T2, "android_stock_recovery_health", return_value=(health(BOOT_A), "raw-serial")),
         ):
             result = T2.abort_pre_candidate(self.run_dir)
         self.assertEqual(result["partition_transfer_attempts"], 0)
+        self.assertEqual(
+            result["final_health"]["boot_id_sha256"],
+            value["binding"]["preflight"]["boot_id_sha256"],
+        )
         self.assertFalse(self.guard.exists())
+
+    def test_abort_accepts_only_pre_repair_or_current_source_closure(self) -> None:
+        value = prepared(self.run_dir)
+        with mock.patch.object(
+            T2, "validate_host_closure", side_effect=AssertionError("old closure reopened")
+        ):
+            value["binding"]["closure_sha256"] = T2.PRE_REPAIR_ACTIVE_CLOSURE_SHA256
+            T2._require_pre_candidate_abort_closure(value)
+
+        current = {"schema": "fixture-current-reviewed-closure"}
+        with mock.patch.object(T2, "validate_host_closure", return_value=current):
+            value["binding"]["closure_sha256"] = T2.digest(current)
+            T2._require_pre_candidate_abort_closure(value)
+
+    def test_forged_abort_closure_stops_before_health_or_guard_release(self) -> None:
+        value = prepared(self.run_dir)
+        value["binding"]["closure_sha256"] = "0" * 64
+        T2.acquire_guard(self.run_dir)
+        with (
+            mock.patch.object(T2, "require_active"),
+            mock.patch.object(T2, "read_prepared", return_value=value),
+            mock.patch.object(T2, "validate_journal", return_value=set()),
+            mock.patch.object(
+                T2,
+                "validate_host_closure",
+                return_value={"schema": "fixture-current-reviewed-closure"},
+            ),
+            mock.patch.object(T2, "android_stock_recovery_health") as health_owner,
+        ):
+            with self.assertRaisesRegex(T2.T2F2Error, "source closure is unrecognized"):
+                T2.abort_pre_candidate(self.run_dir)
+        health_owner.assert_not_called()
+        self.assertTrue(self.guard.is_file())
+
+    def test_same_boot_abort_terminal_still_requires_zero_transfer_graph(self) -> None:
+        value = prepared(self.run_dir)
+        terminal = {
+            "schema": "s20plus_g986n_twrp_t2_pre_candidate_abort_v1",
+            "version": T2.VERSION,
+            "binding_sha256": value["binding_sha256"],
+            "verdict": "ABORTED_PRE_CANDIDATE_STOCK_RECOVERY_HEALTHY",
+            "global_candidate_claim_consumed": False,
+            "candidate_attempts": 0,
+            "rollback_attempts": 0,
+            "partition_transfer_attempts": 0,
+            "candidate_replay_permitted": False,
+            "final_health": health(BOOT_A),
+            "at": "2026-09-01T00:00:00Z",
+        }
+        T2.b0.durable_json(self.run_dir / "terminal.json", terminal)
+        with mock.patch.object(T2, "_validate_health", return_value=health(BOOT_A)):
+            accepted = T2._validate_terminal(
+                self.run_dir,
+                value,
+                {"pre-candidate-abort-recovery-read-intent.json", "terminal.json"},
+            )
+            self.assertEqual(accepted, terminal)
+            with self.assertRaisesRegex(T2.T2F2Error, "pre-candidate terminal differs"):
+                T2._validate_terminal(
+                    self.run_dir,
+                    value,
+                    {
+                        "pre-candidate-abort-recovery-read-intent.json",
+                        "candidate-intent.json",
+                        "terminal.json",
+                    },
+                )
 
     def test_finalize_distinguishes_attempts_from_proved_transfers(self) -> None:
         value = prepared(self.run_dir)

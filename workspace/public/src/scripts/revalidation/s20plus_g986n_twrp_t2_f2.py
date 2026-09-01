@@ -36,7 +36,7 @@ import s20plus_g986n_twrp_t1_f2 as t1_predecessor  # noqa: E402
 VERSION = "s20plus-g986n-twrp-t2-f2-v1"
 PLAN_SCHEMA = "s20plus_g986n_twrp_t2_f2_plan_v1"
 T2_F2_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "67f5f1708037afb6ba8c3f2879e70195453bc36df112bb37e0a37378bebd66a7"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -81,6 +81,9 @@ PHYSICAL_LIFETIME_SECONDS = 15 * 60
 RECOVERY_WAIT_SECONDS = 90
 ANDROID_WAIT_SECONDS = 420
 MAX_RAW_BYTES = 8 * 1024 * 1024
+PRE_REPAIR_ACTIVE_CLOSURE_SHA256 = (
+    "bdf8bd67962729c38152235b725ca8badca093fe1d08b229c84dd5fd2a669a57"
+)
 DIRECT_RECOVERY_INSTRUCTION = (
     "Keep USB connected. Hold Side/Power + Volume Down until the display turns "
     "fully black; keep holding Side/Power, immediately release Volume Down and "
@@ -767,6 +770,22 @@ def require_active() -> None:
     if not T2_F2_ACTIVE:
         raise T2F2Error("S20+ TWRP T2 F2 is not active")
     source_closure()
+
+
+def _require_pre_candidate_abort_closure(prepared: dict[str, Any]) -> None:
+    stored = _hex64(
+        prepared["binding"]["closure_sha256"],
+        "prepared pre-candidate abort closure",
+    )
+    if stored == PRE_REPAIR_ACTIVE_CLOSURE_SHA256:
+        return
+    current = digest(
+        validate_host_closure(
+            expected_serial_sha256=prepared["binding"]["preflight"]["serial_sha256"]
+        )
+    )
+    if stored != current:
+        raise T2F2Error("prepared pre-candidate abort source closure is unrecognized")
 
 
 def _ensure_private_roots() -> None:
@@ -2332,9 +2351,7 @@ def _validate_terminal(
             or "pre-candidate-abort-recovery-read-intent.json" not in actual
         ):
             raise T2F2Error("pre-candidate terminal differs")
-        health = _validate_health(item["final_health"], run_dir, "abort final health")
-        if health["boot_id_sha256"] == prepared["binding"]["preflight"]["boot_id_sha256"]:
-            raise T2F2Error("pre-candidate abort did not return through a new boot")
+        _validate_health(item["final_health"], run_dir, "abort final health")
         _text(item["at"], "pre-candidate terminal time", 128)
         return item
     item = _exact(
@@ -3014,11 +3031,12 @@ def execute(run_dir: Path, approval: str) -> dict[str, Any]:
 
 
 def abort_pre_candidate(run_dir: Path) -> dict[str, Any]:
-    """Close only after a prepared/approved run returned without a candidate intent."""
+    """Close a prepared/approved run with exact stock health and no transfer intent."""
 
     require_active()
     prepared = read_prepared(run_dir, require_unexpired=False)
     actual = validate_journal(run_dir, prepared)
+    _require_pre_candidate_abort_closure(prepared)
     require_all_transfer_processes_quiescent(run_dir, prepared)
     forbidden = (
         "candidate-intent.json",
@@ -3041,8 +3059,6 @@ def abort_pre_candidate(run_dir: Path) -> dict[str, Any]:
         "pre-candidate-abort",
         prepared["binding"]["preflight"]["serial_sha256"],
     )
-    if health["boot_id_sha256"] == prepared["binding"]["preflight"]["boot_id_sha256"]:
-        raise T2F2Error("pre-candidate abort requires a later Android boot")
     terminal = {
         "schema": "s20plus_g986n_twrp_t2_pre_candidate_abort_v1",
         "version": VERSION,

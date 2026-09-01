@@ -2,7 +2,7 @@
 
 Date: 2026-08-31
 Target: `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`
-Status: **BINDING ACTIVE AFTER DORMANT AND ACTIVATION-DIFF REVIEW**
+Status: **ACTIVE OWNER INCIDENT REPAIR - PASS_GO**
 
 ## T1-derived correction
 
@@ -64,12 +64,12 @@ all other fixed TWRP properties and bounds remain.
 
 The connected owner
 `workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_t2_f2.py` is
-167,339 bytes at SHA-256
-`eae10c74cfd3de2f705c6999749ddf9bc41fc38e25d13792bbb8c047c779e8ab`;
+167,684 bytes at SHA-256
+`7f5519ef76091f491165a0be5ce81733f0343318057d02f7577954db1d1a0d11`;
 its activation-normalized SHA-256 is
-`51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`.
-`T2_F2_ACTIVE=true`. The 61,234-byte focused hostile test is SHA-256
-`4a9e3d79965545d4e37d69b59b9daa447fe4a2d927f76f102be036f6bd046f51`.
+`67f5f1708037afb6ba8c3f2879e70195453bc36df112bb37e0a37378bebd66a7`.
+`T2_F2_ACTIVE=true`. The 64,691-byte focused hostile test is SHA-256
+`1865c071546858035bffa667d17ee0f9f89de19b017df9e6c687c7be738a6929`.
 
 The owner retains T1's exact-target binding, caged single Odin attempt per
 branch, global candidate no-replay, no-clobber typed journal, raw evidence,
@@ -79,18 +79,41 @@ Only a new same-serial/topology T2 marker observation can produce
 rollback transfers, and grants no recovery UI, mount, format, install, backup,
 restore, terminal, or other partition action.
 
+## Expired-approval cleanup incident
+
+The first fresh T2 preparation completed, but its exact approval was returned
+after expiry. `--execute` rejected it inside `read_prepared()` before approval
+consumption, candidate claim, Download intent, Odin, or any partition effect.
+The candidate therefore remains globally unclaimed.
+
+The first prepared-only abort revalidated the same healthy rooted Android boot
+and exact stock recovery, publishing its bounded root/recovery receipts, then
+stopped because the original check required a later boot. That ordering left
+the run guard held even though candidate and rollback intents are absent. The
+repair removes only the later-boot requirement for this already zero-transfer
+terminal. The terminal validator still requires no candidate/rollback intent,
+zero attempts, exact current health and stock recovery, matching global-claim
+state, and the fixed pre-candidate recovery-read receipt before releasing the
+run's guard. It sends no reboot or partition payload and grants no approval.
+Before any new health read, terminal publication, or guard release, the repair
+accepts only the exact pre-repair active closure SHA-256
+`bdf8bd67962729c38152235b725ca8badca093fe1d08b229c84dd5fd2a669a57`
+or the freshly rederived current reviewed closure. A stale/forged third closure
+stops with the guard retained.
+
 ## Validation and authority
 
-The T2 builder corpus passes 14/14 and the connected-owner corpus passes 52/52,
+The T2 builder corpus passes 14/14 and the connected-owner corpus passes 55/55,
 including exact T1 raw-evidence acceptance and negative USB/marker mutations;
-the combined T2 corpus passes 66/66. `py_compile`, deterministic rebuild,
+the combined T2 corpus passes 69/69. `py_compile`, deterministic rebuild,
 dormant and active render/host validation, predecessor revalidation, prior T1 51/51,
 registry integration, and `git diff --check` pass. This report, revision-5
 boundary, risk-tier/target sections, builder, profile, owner, and tests remain
 exactly bound. The dormant closure and activation-only diff each received
 independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` before their commits.
-Activation creates no run or standing approval. The first permitted live step
-is fresh attended `--prepare`; no T2 transfer is possible until its exact
-emitted approval is returned before expiry. No T2 prepare, approval, Download
-entry, Odin invocation, or recovery write occurred during qualification or
-activation.
+Activation created no standing approval. One T2 prepare and one bounded
+prepared-only cleanup read occurred; the approval expired before consumption.
+No T2 candidate claim, Download entry, Odin invocation, or recovery write has
+occurred. Independent incident-repair review returned `PASS_GO` with
+HIGH/MEDIUM/LOW `0/0/0`; the committed repair is required before the existing
+zero-transfer run may close.

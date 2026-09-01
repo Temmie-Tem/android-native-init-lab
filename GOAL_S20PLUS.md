@@ -819,13 +819,13 @@ Revision 5 and the exact target section activate attended T2. Its byte-distinct
 candidate AP is
 `6d10b3154f2e899ee64305f3f3279d7d5243eb917f1fedb413b8f88d22ec88cb`;
 rollback remains exact stock. The active owner is
-`eae10c74cfd3de2f705c6999749ddf9bc41fc38e25d13792bbb8c047c779e8ab`
-(normalized `51e88d8c43cd2150a472528efe7352d22f3b1bb9d43457bfe2a5ac0a779a3ae9`).
+`7f5519ef76091f491165a0be5ce81733f0343318057d02f7577954db1d1a0d11`
+(normalized `67f5f1708037afb6ba8c3f2879e70195453bc36df112bb37e0a37378bebd66a7`).
 It revalidates the exact T1 terminal/raw observation, requires current serial
 continuity, and accepts only the observed `mtp,adb` alongside a new T2 marker.
-Dormant and activation-only review passed; activation creates no standing run
-or approval. Current next step is fresh attended `--prepare`, then return its
-exact short-lived approval before any T2 transfer.
+The first approval expired before candidate intent. Its same-boot exact-stock
+abort exposed an owner-ordering incident; the bounded zero-transfer cleanup
+repair passed review. Next close the old guard, then prepare again.
 
 The earlier narrower B0 candidate
 carries the fixed recovery-canary ramdisk in an ordinary 64-MiB `boot` image,

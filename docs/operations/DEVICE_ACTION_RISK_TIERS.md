@@ -249,6 +249,13 @@ future stock restore requires separate fresh reviewed authority. No mount,
 format, UI action, terminal command, install, backup, restore, caller path,
 other partition, or security/Magisk mutation is introduced.
 
+An expired or declined prepared-only run with no candidate or rollback intent
+may close on the prepared Android boot only after a fresh exact-target/root
+health check and exact-stock recovery digest. It records zero transfer attempts,
+never consumes or replays a candidate unless a prior global claim already did,
+and releases only its own guard. Same-boot closure is forbidden after any
+transfer intent and grants no new approval or device effect.
+
 Activation required independent review of the common boundary, target section,
 exact builder/profile/owner, hostile tests, artifact and predecessor closures,
 retained terminal, and rollback branches, followed by a separate mechanical
