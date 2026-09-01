@@ -4,7 +4,7 @@ Date: 2026-08-31
 
 Target: `SM-S906N` / `g0q` / `S906NKSS7FYG8`
 
-Status: `PASS_GO_P323_PROCESS_V2_H0`; host temporary-space stop before corrected prepare
+Status: `PASS_GO_P323_PROCESS_V2_H0`; host capacity restored and corrected prepare pending
 
 ## Finding
 
@@ -154,3 +154,13 @@ candidate transfer, or rollback transfer was created. The runner was not retried
 Before another prepare, provide a bounded private temporary directory with enough
 space and pass the same runtime-bound audit once; then a fresh prepare may issue a
 new exact approval binding.
+
+On 2026-09-01, four stale P3.20 failed-build scratch directories under `/tmp`
+were confirmed owned by the operator, inactive, and free of open handles, then
+removed. No P3.19, A90, S20+, browser, repository, private run-evidence,
+candidate, or rollback path was removed. Available `/tmp` capacity increased
+from about 3 MiB to 2.2 GiB. The exact P3.23 runtime-bound candidate-static
+regeneration then passed host-only with `device_contact=false`,
+`odin_invoked=false`, and `live_authorized=false`. Its temporary audit directory
+was removed after completion. A fresh connected prepare, not a reused stopped
+run, is the next step.
