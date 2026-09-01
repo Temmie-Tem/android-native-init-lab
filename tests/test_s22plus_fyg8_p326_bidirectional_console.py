@@ -72,6 +72,7 @@ class P326BidirectionalConsoleTests(unittest.TestCase):
         self.assertEqual(len(self.runtime.HOST_TRANSCRIPT), 77)
         self.assertEqual(len(self.runtime.DEVICE_TRANSCRIPT), 145)
         self.assertIn(b"/bin/busybox", after)
+        self.assertNotIn(b"ash -i", after)
 
     def test_socket_exchange_proves_both_directions(self) -> None:
         host, device = socket.socketpair()
@@ -127,6 +128,56 @@ class P326BidirectionalConsoleTests(unittest.TestCase):
         finally:
             host.close()
         self.assertEqual(bytes(audit.tx), b"")
+
+    def test_valid_transcript_with_trailing_bytes_is_rejected_and_retained(self) -> None:
+        host, device = socket.socketpair()
+        host.setblocking(False)
+        extra = b"TRAILING"
+        errors: list[BaseException] = []
+
+        def receive_exact(amount: int) -> bytes:
+            value = bytearray()
+            while len(value) < amount:
+                value.extend(device.recv(amount - len(value)))
+            return bytes(value)
+
+        def simulate() -> None:
+            try:
+                device.sendall(self.runtime.DEVICE_BANNER)
+                self.assertEqual(
+                    receive_exact(len(self.runtime.HOST_PING)),
+                    self.runtime.HOST_PING,
+                )
+                device.sendall(self.runtime.DEVICE_PONG)
+                self.assertEqual(
+                    receive_exact(len(self.runtime.HOST_SHELL)),
+                    self.runtime.HOST_SHELL,
+                )
+                device.sendall(self.runtime.DEVICE_SHELL_OK + extra)
+            except BaseException as exc:  # pragma: no cover - surfaced below
+                errors.append(exc)
+            finally:
+                device.close()
+
+        thread = threading.Thread(target=simulate)
+        thread.start()
+        writer = Writer()
+        audit = self.observer.RoundTripAudit()
+        try:
+            self.assertFalse(
+                self.observer._exchange(
+                    host.fileno(), time.monotonic() + 2, writer, audit
+                )
+            )
+        finally:
+            host.close()
+            thread.join(timeout=2)
+        if errors:
+            raise errors[0]
+        self.assertEqual(
+            bytes(writer.payload), self.runtime.DEVICE_TRANSCRIPT + extra
+        )
+        self.assertEqual(bytes(audit.trailing_rx), extra)
 
     def test_fresh_image_and_predecessor_rejection(self) -> None:
         source = self.artifact.stable_bytes(

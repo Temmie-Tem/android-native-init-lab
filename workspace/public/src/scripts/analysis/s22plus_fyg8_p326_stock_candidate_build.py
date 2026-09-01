@@ -45,7 +45,7 @@ P325_RESULT_IDENTITY = {
 }
 DEFAULT_OUTPUT_ROOT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p326/"
-    "stock-candidate-build-v1-20260902-05"
+    "stock-candidate-build-v1-20260902-07"
 )
 BUSYBOX = ROOT / (
     "workspace/private/inputs/s22plus_fyg8_p326/busybox/bin/"
@@ -551,11 +551,14 @@ def _normalize_result(value: dict[str, Any]) -> dict[str, Any]:
         "device_rx": identity(console.DEVICE_TRANSCRIPT),
         "pid1_ping_pong": True,
         "busybox_ash_child": True,
+        "busybox_ash_exits_after_proof": True,
+        "trailing_bytes_policy": "reject-and-retain",
         "fixed_lines": 2,
     }
     result["limitations"] = [
         "P326 proves only the fixed PID1 PING/PONG and BusyBox ash round trip over the P325 ACM path.",
-        "The shell is ephemeral in the boot-only candidate; no partition other than boot is transferred and rollback remains mandatory.",
+        "The BusyBox ash child exits after its fixed reply; no general interactive command is accepted by P326.",
+        "No partition other than boot is transferred and rollback remains mandatory.",
         "Carrier remains supplemental and makes no Max77705 causal claim.",
         "No device contact, approval, D0, D1, F1, recovery, replay, or live authority is created by this host build.",
     ]

@@ -25,6 +25,8 @@ SCHEMA = "s22plus_fyg8_p326_bidirectional_acm_receipt_v1"
 CONTRACT_ID = "s22plus-fyg8-p326-bidirectional-acm-v1"
 TARGET = runtime.TARGET
 RECEIPT_NAME = "p326-candidate-observer-roundtrip.json"
+TRAILING_QUIET_SEC = 0.05
+MAX_TRAILING_CAPTURE = 4096
 P325_SOURCE = Path(p325.__file__).resolve()
 P325_SOURCE_IDENTITY = {
     "size": 6_295,
@@ -83,6 +85,7 @@ def _validate_base() -> None:
 @dataclass
 class RoundTripAudit:
     tx: bytearray = field(default_factory=bytearray)
+    trailing_rx: bytearray = field(default_factory=bytearray)
     banner_seen: bool = False
     pong_seen: bool = False
     shell_ok_seen: bool = False
@@ -137,6 +140,34 @@ def _write_segment(
     return written == len(payload)
 
 
+def _reject_trailing(
+    descriptor: int,
+    deadline: float,
+    writer: Any,
+    audit: RoundTripAudit,
+) -> bool:
+    quiet_deadline = min(deadline, time.monotonic() + TRAILING_QUIET_SEC)
+    while time.monotonic() < quiet_deadline:
+        readable, _, _ = select.select(
+            [descriptor],
+            [],
+            [],
+            min(0.01, max(0.0, quiet_deadline - time.monotonic())),
+        )
+        if not readable:
+            continue
+        try:
+            chunk = os.read(descriptor, MAX_TRAILING_CAPTURE)
+        except BlockingIOError:
+            continue
+        if not chunk:
+            return True
+        writer.write_stdout(chunk)
+        audit.trailing_rx.extend(chunk)
+        return False
+    return True
+
+
 def _exchange(
     descriptor: int,
     deadline: float,
@@ -160,7 +191,9 @@ def _exchange(
     audit.shell_ok_seen = _read_segment(
         descriptor, runtime.DEVICE_SHELL_OK, deadline, writer
     )
-    return audit.shell_ok_seen
+    return audit.shell_ok_seen and _reject_trailing(
+        descriptor, deadline, writer, audit
+    )
 
 
 @contextlib.contextmanager
@@ -258,6 +291,7 @@ class P326ObserverSession:
             and self.audit.banner_seen
             and self.audit.pong_seen
             and self.audit.shell_ok_seen
+            and not self.audit.trailing_rx
             and tx == runtime.HOST_TRANSCRIPT
             and self.audit.endpoint_identity_sha256
             == result.get("endpoint_identity_sha256")
@@ -273,6 +307,8 @@ class P326ObserverSession:
             "tx_hex": tx.hex(),
             "tx": _identity(tx),
             "rx": _identity(runtime.DEVICE_TRANSCRIPT),
+            "trailing_rx": _identity(bytes(self.audit.trailing_rx)),
+            "trailing_bytes_seen": len(self.audit.trailing_rx),
             "banner_seen": self.audit.banner_seen,
             "pid1_pong_seen": self.audit.pong_seen,
             "busybox_shell_ok_seen": self.audit.shell_ok_seen,
@@ -366,7 +402,8 @@ def validate_receipt(
     value = _strict_json(run_dir / RECEIPT_NAME)
     expected_keys = {
         "schema", "contract_id", "target", "base_observer", "tx_hex", "tx",
-        "rx", "banner_seen", "pid1_pong_seen", "busybox_shell_ok_seen",
+        "rx", "trailing_rx", "trailing_bytes_seen", "banner_seen",
+        "pid1_pong_seen", "busybox_shell_ok_seen",
         "endpoint_identity_sha256", "accepted", "host_usb_write_count",
         "host_usb_write_bytes", "fixed_candidate_channel_only", "adb_commands",
         "odin_invocations",
@@ -387,6 +424,8 @@ def validate_receipt(
         or value["tx"] != _identity(tx)
         or tx != runtime.HOST_TRANSCRIPT
         or value["rx"] != _identity(runtime.DEVICE_TRANSCRIPT)
+        or value["trailing_rx"] != _identity(b"")
+        or value["trailing_bytes_seen"] != 0
         or value["banner_seen"] is not True
         or value["pid1_pong_seen"] is not True
         or value["busybox_shell_ok_seen"] is not True

@@ -17,33 +17,34 @@ The candidate-side PID 1 retains the proved 49-byte banner, then accepts only
 one exact run-bound `PING` line and returns one exact `PONG ... pid=1` line. It
 starts one static `/bin/busybox ash` child, which accepts only one exact
 run-bound `SHELL` line, returns one exact `SHELL-OK ... busybox=1` line, and
-then becomes an ephemeral interactive `ash`. The current Process-v2 observer
-closes after that fixed proof, so this unit proves the byte path but does not
-yet expose a general host command interface.
+then exits. This unit proves both directions and actual BusyBox `ash`
+execution, but deliberately does not yet expose a general host command
+interface.
 
 The host transmits exactly 77 fixed bytes in two writes. The device transcript
 is exactly 145 bytes. Received chunks are written to the inherited durable raw
-writer before any equality or success classification. Wrong banner, missing
-reply, wrong endpoint identity, guard loss, and predecessor identities remain
-non-accepting.
+writer before any equality or success classification. Any immediately
+available byte after the fixed transcript is retained and rejects the proof.
+Wrong banner, missing reply, wrong endpoint identity, guard loss, and
+predecessor identities remain non-accepting.
 
 ## Exact host artifacts
 
 - Fresh run ID: `c326f1e0a90b5e6d7c8a9b0c1d2e3f4b`.
-- Builder result `stock-candidate-build-v1-20260902-05/result.json`:
-  42,176 bytes, SHA-256
-  `acbba4fd75a207e31aa4e857b8871f63bd8660ba9ad826ba6d082a14d146763e`.
+- Builder result `stock-candidate-build-v1-20260902-07/result.json`:
+  42,373 bytes, SHA-256
+  `98362485f38f994e75216739aebe7815e9fc5ad7f587c54f66a7bc45f9cf8614`.
 - Candidate A/B AP: 28,631,081 bytes, SHA-256
-  `df0eea9f06866d1a3943280f13a03a34d3afc230e167350b8a0ca0f1148e11d8`.
+  `954b560309e5c7a1f99484dbe00efc08743cc97bc228bad5c7f8924e8c7c2712`.
 - Boot image: 100,663,296 bytes, SHA-256
-  `7d8f3ac400a9506eb0051adf23800e3c926156bf1e8d5fdbfae0db28b4b79507`.
+  `1a0c3d8cdf8bbc2ab69455fb2215f8b86eef1ad1cb93d00bf6f2646d471addb3`.
 - Image: 41,490,944 bytes, SHA-256
   `062f1366794d31b2f674ef5dd2cb61ab572b79ea2115b745805468272c8d69b0`.
 - `/init`: 80,808 bytes, SHA-256
-  `0452d2545a9512500f132c6d5342767d55409bdb526386a178fead1740cdabed`.
-- Candidate-static `process-v2-candidate-static-20260902-03.json`:
-  23,667 bytes, SHA-256
-  `5bebc42b150ef10e85f4560b9333293da4c9eeb74b9d857dbefb1cc786c0a64c`.
+  `8cedf9d586bd8bc510ecdc9983e53e11978536ac9c7ccfcf1f48ab32f5a98d80`.
+- Candidate-static `process-v2-candidate-static-20260902-05.json`:
+  23,785 bytes, SHA-256
+  `fd6c98b8b0e22ef598397c53647cfcffef8832c93f013fe6ead234a7114efd47`.
 - Exact Magisk rollback remains 23,367,721 bytes, SHA-256
   `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
 
@@ -56,7 +57,7 @@ its fixed config enables static linkage and `ash` while omitting `su`,
 
 ## Validation
 
-The P3.26 focused suites pass 12/12. Shared evidence, Process-v2 core, and live
+The P3.26 focused suites pass 13/13. Shared evidence, Process-v2 core, and live
 runner suites pass 131/131. Python compilation and diff checks pass. Builder
 audit, candidate-static audit, and a noncreating Process-v2 rehearsal all pass;
 the rehearsal reports `verification=true`, `created=false`,
@@ -72,6 +73,12 @@ test and by exact execution-closure binding.
 
 No public ready manifest or private promotion was published. No D0, D1, F1,
 ADB, USB, `pkexec`, Odin, transfer, flash, or device contact occurred.
+
+The first independent review rejected the predecessor because it accepted a
+correct 145-byte prefix while leaving an appended byte unread. The repaired
+observer now performs a short bounded trailing check, writes any discovered
+trailing bytes to the same raw writer, and rejects. A hostile valid-prefix plus
+`TRAILING` fixture proves the repair. Re-review remains pending.
 
 ## Claim boundary and next step
 

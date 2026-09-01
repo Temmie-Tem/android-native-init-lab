@@ -204,13 +204,15 @@ the observer may write only the two fixed run-bound lines `PING` and `SHELL`
 (77 bytes total). PID 1 must return the exact run-bound `PONG ... pid=1`, and
 the fixed `/bin/busybox ash` child must return the exact
 `SHELL-OK ... busybox=1`; the complete device transcript is exactly 145 bytes
-and is retained through the inherited raw writer before classification.
+and is retained through the inherited raw writer before classification. Any
+immediately available trailing byte is also retained and rejects the proof;
+the BusyBox `ash` child exits after its fixed reply.
 
 The P326 ramdisk may add only direct regular `/bin` and
 `/bin/busybox`; the latter is the static AArch64 BusyBox 1.36.1 binary of
 2,237,056 bytes with SHA-256
 `d4e1ca8235fd5c47a7dfca5c9c60ad2243f5d17d3c43d58a7c42355f10fa2cba`.
-The candidate remains a boot-only AP, the shell is ephemeral, and exact Magisk
+The candidate remains a boot-only AP, the shell child is ephemeral, and exact Magisk
 rollback plus final rooted FYG8 health remain mandatory. The two proof writes
 do not authorize a caller command, a persistent shell, ADB/MTP, a package or
 filesystem mutation, or a USB/Max77705 causal claim. Any command beyond those

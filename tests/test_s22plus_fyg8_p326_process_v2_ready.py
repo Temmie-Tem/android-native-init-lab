@@ -68,6 +68,13 @@ class P326ProcessV2ReadyTests(unittest.TestCase):
             verification["p326_observer_source"]["sha256"],
             static_value["observer_adapter"]["source"]["sha256"],
         )
+        self.assertEqual(
+            static_value["observer_adapter"]["trailing_bytes_policy"],
+            "reject-and-retain",
+        )
+        self.assertTrue(
+            static_value["observer_adapter"]["busybox_ash_exits_after_proof"]
+        )
         self.assertFalse(verification["candidate_success"])
         self.assertFalse(verification["causal_result_allowed"])
 
@@ -85,7 +92,7 @@ class P326ProcessV2ReadyTests(unittest.TestCase):
         self.assertTrue(static_result["candidate"]["boot_only_ap"])
         self.assertEqual(
             self.manifest["candidate_ap"]["sha256"],
-            "df0eea9f06866d1a3943280f13a03a34d3afc230e167350b8a0ca0f1148e11d8",
+            "954b560309e5c7a1f99484dbe00efc08743cc97bc228bad5c7f8924e8c7c2712",
         )
 
     def test_live_projection_requires_both_round_trip_proofs(self) -> None:

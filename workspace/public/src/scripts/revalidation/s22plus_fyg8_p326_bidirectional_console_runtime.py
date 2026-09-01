@@ -5,8 +5,9 @@ The P3.25 runtime is accepted only by its complete byte identity.  P3.26 keeps
 the proved banner and stock Carrier path, but between them PID 1 reads one
 run-bound PING, writes one PONG, and starts one ``/bin/busybox ash`` child.  The
 child consumes one run-bound SHELL line, emits the fixed SHELL-OK line, and
-then remains interactive.  This module is host-only source transformation; it
-does not contact a device.
+then exits.  This first round trip proves that BusyBox ash executed without
+mixing an unbounded interactive stream into the proof receipt.  This module is
+host-only source transformation; it does not contact a device.
 """
 
 from __future__ import annotations
@@ -59,7 +60,7 @@ _SHELL_SCRIPT = (
     "read p326_kind p326_nonce; "
     f"if [ \"$p326_kind\" = SHELL ] && [ \"$p326_nonce\" = {P326_RUN_ID_HEX} ]; "
     f"then printf 'SHELL-OK {P326_RUN_ID_HEX} busybox=1\\n'; "
-    "exec /bin/busybox ash -i; fi; exit 64"
+    "exit 0; fi; exit 64"
 ).encode("ascii")
 
 P326_HELPER = f'''/* P3.26 bounded PID1 ACM round trip and BusyBox ash child. */
@@ -179,6 +180,7 @@ def validate_p326_runtime(value: bytes) -> dict[str, Any]:
         "run_id_hex": P326_RUN_ID_HEX,
         "pid1_ping_pong": True,
         "busybox_ash_child": True,
+        "busybox_ash_exits_after_proof": True,
         "host_tx_size": len(HOST_TRANSCRIPT),
         "device_rx_size": len(DEVICE_TRANSCRIPT),
         "carrier_path_retained": True,

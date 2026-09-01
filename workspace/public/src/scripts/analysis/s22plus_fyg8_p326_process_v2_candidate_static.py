@@ -35,7 +35,7 @@ P326_RUNTIME = BUILDER_OUTPUT / "stock-sources/s22plus_fyg8_p290_e3_runtime.inc.
 ROLLBACK_AP = ROOT / "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5"
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p326/"
-    "process-v2-candidate-static-20260902-03.json"
+    "process-v2-candidate-static-20260902-05.json"
 )
 
 SCHEMA = "s22plus_fyg8_p326_process_v2_candidate_static_v1"
@@ -301,6 +301,8 @@ def build_result(*, runtime_bound: bool = False) -> dict[str, Any]:
             "host_tx": identity(console.HOST_TRANSCRIPT),
             "device_rx": identity(console.DEVICE_TRANSCRIPT),
             "fixed_host_writes": 2,
+            "busybox_ash_exits_after_proof": True,
+            "trailing_bytes_policy": "reject-and-retain",
             "host_only": True,
             "device_contact": False,
         },
