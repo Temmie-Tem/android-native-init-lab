@@ -870,6 +870,92 @@ restore requires a separately reviewed fresh exact-stock authority. Retention
 does not grant TWRP UI, mount, format, install, backup, restore, terminal, or
 arbitrary ADB authority.
 
+## TWRP boot-identity metadata D0
+
+Status: **DEFINED - NOT ACTIVE**
+
+This section defines one future attended read-only D0 for the exact retained
+T2 recovery on the operator-owned
+`SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. It does not extend the consumed T2 F2
+owner or inherit any T2 command, transfer, UI, terminal, mount, format,
+install, backup, restore, or block-write authority.
+
+The dormant implementation is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_boot_identity_d0.py`,
+29,864 bytes at SHA-256
+`428899d373fce632337f4b552a62e3e593e7f6440fe6f4724322b2a9fd65e013`.
+Its activation-normalized SHA-256 is
+`abd40c644e5bbbac8da743bee8e94e427730dca252bfadcbf39f6beb71b7bdfb`,
+and `ATTENDED_TWRP_BOOT_IDENTITY_D0_ACTIVE=false`. Its 20,252-byte focused
+test is SHA-256
+`96c31541910b111760a9148055943b2e4044902009cc394350eb0cdfbe56f7c3`.
+The only CLI modes are host-only `--render-plan` and the dormant
+`--connected` entrypoint. While dormant, `--connected` stops before source
+closure validation, ADB inventory, target selection, or a device command.
+
+Before a future first connected command, the runner must revalidate the exact
+active T2 owner and its complete retained run: all 43 journal nodes, the
+1,911-byte terminal SHA-256
+`da24acd3b33c78f4ed41565858e5314bb2c3a1acaf020ac06fb83fd99ab84d05`,
+`PROVED_T2_RECOVERY_RETAINED`, the consumed no-replay T2 candidate, current T2
+host closure, and an absent shared S20+ action guard. The terminal's hashed
+serial/topology select only the same live ADB row in state `recovery`; another
+`model:SM_G986N` row is ambiguity. Foreign attached rows receive zero
+commands. Raw serial, devpath, boot ID, and complete inventory bytes are never
+persisted.
+
+One future invocation has exactly two global inventories and five
+selected-target commands: initial inventory; selected `get-devpath`; the exact
+T2 identity script; one fixed boot-metadata script; the same T2 identity
+script; selected `get-devpath`; and final inventory. Both inventories,
+devpaths, selected serial, topology, and current recovery identity must remain
+stable. The T2 script must prove root UID 0, exact TWRP version/incremental,
+`ro.secure=0`, `ro.debuggable=1`, `mtp,adb`, running adbd, the T2 marker, and
+one current boot. No `su` is invoked.
+
+The fixed 1,916-byte metadata script SHA-256 is
+`1335eeee973bf4a77802c54b0eaff38a15122efe58ff7be0bded6f0557abe09d`.
+It accepts no caller input and resolves only
+`/dev/block/bootdevice/by-name/boot`. It requires a symlink resolving below
+`/dev/block/` to a block inode, takes major/minor from that inode, then reads
+only `uevent`, `dev`, `partition`, and `size` below the derived exact
+`/sys/dev/block/<major>:<minor>` node. It emits only `MAJOR`, `MINOR`,
+`DEVNAME`, `DEVTYPE`, `PARTNAME`, `PARTN`, direct path, partition number,
+sector count, calculated size, and three fixed zero/open-type facts; it never
+emits `PARTUUID`. Cross-checks require identical inode/sysfs rdev, direct
+basename equal to `DEVNAME`, `DEVTYPE=partition`, `PARTNAME=boot`, equal
+partition numbers, exactly 131,072 512-byte sectors, and exactly 67,108,864
+bytes.
+
+The remote script may test the fixed inode type and read its metadata, but it
+must not open the block device, read a partition byte, enumerate another
+partition, invoke `blockdev`, hash block bytes, stage a file, write, mount,
+reboot, enter another mode, invoke Odin, or transfer a payload. Therefore
+block-device opens, partition-content bytes, writes, reboots, mode transitions, Odin invocations, and transfers are all zero.
+The result is one no-clobber private JSON under
+`workspace/private/runs/s20plus-g986n-twrp-boot-identity-d0/`, containing only
+hashed private identity plus the bounded non-secret boot metadata and exact
+command/effect counters. Failure is terminal for that invocation and has no
+internal retry.
+
+The activation gate blocks the hazard of treating retained T2 root ADB as
+generic partition authority. Its scope is this fixed metadata-only D0. It may
+retire only after independent review covers this section, runner, scripts,
+parsers, current T2 predecessor, hostile tests, private schema, and
+higher-precedence boundaries, followed by a mechanical activation commit.
+Any runner/script/parser/schema/T2/target/build/recovery/block-map or policy
+drift triggers re-review. Even after activation, each invocation requires a
+fresh direct operator request and attendance; disconnect, reboot, identity
+drift, guard conflict, or invocation completion expires that request.
+
+A successful result proves only that one observed current direct node maps to
+`PARTNAME=boot` with the recorded rdev, partition number, and size. It is not a
+write pin or standing lease. It expires for future use on any target, build,
+recovery boot, TWRP, topology, block map, runner, script, parser, or policy
+drift and must return to H0 design/review before an identical-resident write
+qualification. It grants no F1/F2, direct block write, candidate, rollback,
+reboot, Odin, partition transfer, or replay authority.
+
 ## Boot recovery-canary B0 F1
 
 Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE AFTER REVIEWED COMMIT**
