@@ -43,6 +43,13 @@ Its SHA-256 values are `9f23ecbf34ebec17693d6f5b62283e0b4a0970866d36124d05639199
 for state and `b2eca7a4921e8d8294f3ef9dad01ec6dd18acf4fd4d74aa23015c0b0caf6749a`
 for result.
 
+Independent hostile review found and blocked an initial audit-only seam where
+the common journal reopen routine rewrote an identical journal head. Commit
+`7fa1a78b65` replaces that call with a validating read-only journal view; a
+real post-publication audit then preserved the inode, size, timestamps, mode,
+link count, and bytes of the journal head, state, and result. The re-review
+verdict is `PASS_GO` for this exact host-only finalizer.
+
 The formal terminal is therefore
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` /
 `p324_acm_primary_native_pid1_arrival_unproved_rollback_verified`. The next
