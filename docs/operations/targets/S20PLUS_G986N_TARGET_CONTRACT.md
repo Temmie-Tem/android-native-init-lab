@@ -1264,7 +1264,7 @@ Neither candidate nor rollback may replay.
 
 ## P0 PID1 ACM Odin boot-only F1
 
-Status: **ACTIVE - ATTENDED F1 ONLY**
+Status: **DEFINED - H0 ONLY - NOT ACTIVE**
 
 This section defines the smallest ordinary F1 successor for direct native PID1
 first light. It applies only to the operator-owned
@@ -1466,6 +1466,16 @@ one rebind-miss receipt and forbids another attempt. Rollback replay remains
 forbidden. While the authoritative status is dormant, this continuation has
 no device authority and no prior live-activation receipt can grant it. In the
 active state, only fresh records matching this exact closure can do so.
+
+The retained incident run subsequently resumed that durable confirmation once.
+Its fixed resident-Magisk `boot` rollback completed with proved process
+quiescence and healthy resident Android. The terminal is
+`NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`: candidate/rollback attempts are 1/1,
+both replays are false, recovery-partition read/write/transfer counts and
+other-target commands are zero, and the shared guard is absent. This closes
+the run without proving or disproving native PID1. Its activation records were
+retired after terminal publication; the consumed candidate grants no further
+P0 action.
 
 A dormant-to-active transition is blocked until the exact owner, observer
 activation, focused and inherited B0 tests, this target section,

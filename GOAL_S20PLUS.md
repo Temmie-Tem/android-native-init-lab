@@ -849,47 +849,25 @@ contract and named reports rather than this current-state goal.
 
 ## Current P0 PID1 Odin F1 state
 
-Status: `P0_PID1_ODIN_F1_ACTIVE_ATTENDED`
+Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`
 
-The first P0 candidate was consumed before its Odin backend by a ctime-only
-host check; its mandatory resident rollback completed and Android returned
-healthy with `NO_PROOF`. The distinct V2 candidate then reached one uncertain
-Odin attempt: `ProcessCageError`, possible partition effect, and no proved host
-quiescence. Its 180-second ACM observation was `NO_PROOF`, so native PID1 is
-still neither proved nor refuted and the candidate may never replay.
+The distinct V2 candidate was consumed by one uncertain Odin attempt and its
+180-second ACM observation was `NO_PROOF`. Two host-side recovery stops were
+resolved without candidate or rollback replay: one USBFS address
+re-enumeration and one stable-endpoint `st_ctime_ns` change.
 
-The V2 physical fallback bound the exact sole Download endpoint and consumed
-the operator confirmation, but the device re-enumerated on the same physical
-topology from USBFS address `/002/032` to `/002/034` before rollback intent.
-No rollback transfer was attempted. The device remains recovery-pending in
-Download mode; TWRP, userdata, and every non-boot partition are untouched by
-this P0 run.
+The retained confirmation then resumed once and the fixed resident-Magisk
+`boot` rollback completed. The terminal is
+`NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`: candidate/rollback attempts are 1/1,
+rollback transfer and process quiescence are proved, resident Android is
+healthy, both replays are false, the shared guard is absent, and recovery
+partition reads/writes/transfers plus other-target commands are all zero.
+Terminal SHA-256 is
+`67a291732731e244a942b376779f4c493a8f8e61ccbee764bb84625994362005`.
 
-The fresh rebind token was then confirmed and its arrival recorded, but the
-owner again stopped before rollback intent because only USBFS `st_ctime_ns`
-changed between the arm and arrival. Stable path/hash, identity prefix,
-topology, and USB profile remained equal. The reviewed correction uses
-the existing stable-session predicate for that arrival; it adds no new effect
-and resumes the already durable confirmation without repeating it.
-
-The remaining bounded unit validates the existing arm, durable confirmation,
-and rebound arrival, then obtains one fresh current Download identity and may
-enter only the existing fixed resident-Magisk boot rollback. It emits no new
-token and does not repeat confirmation. Any stable path/hash, identity-prefix,
-topology, or USB-profile drift publishes a permanent miss before rollback
-intent; an existing miss or rollback intent also stops. The reporting-cut
-resume permits at most that one fixed rollback effect. Candidate replay
-remains impossible.
-
-The recovery capability passes 74/74 focused tests and 178 wider tests with ten
-historical skips. Its reviewed owner pair is dormant 222,968 bytes at SHA-256
-`9d97a5a4f80cd7a12f7ee9a0d7829d2590780821f7b4b5535330a3f7cf806018`
-and active 222,967 bytes at SHA-256
-`82657b47822a85a1a3961bbc362f99f4e9bce9d62dcb49316de9d7a9df218cfd`,
-with normalized SHA-256
-`03a214c68f0f2725021796ee27155378afc81dcbe381a8a8aadcaab5fbca831e`;
-the 146,304-byte test SHA-256 is
-`98c2d7a6331911d0a57b22f5ef809b472f0632f55a069e38b3fccf588778dd02`.
-While the status above is dormant, exact review and fresh activation records
-are required before Download contact. Active status still requires all three
-records to match the same closure.
+Native PID1 remains unproved rather than disproved. The P0 owner is dormant and
+its terminal activation records are preserved under `workspace/private/retired/`;
+no further P0 device action is authorized. Any next PID1 experiment requires a
+distinct H0 candidate design and fresh review, not reuse of this candidate.
+Exact implementation identities and incident chronology remain in the target
+contract and P0 qualification report.

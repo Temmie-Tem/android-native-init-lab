@@ -6,7 +6,7 @@ Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
 Tier: H0 only
 
-Status: `PASS_GO_ACTIVE_ATTENDED_F1`
+Status: `H0_REVIEW_PENDING_NOT_ACTIVE`
 
 ## Outcome
 
@@ -610,10 +610,21 @@ predicate already used immediately before transfer; it changes no effect,
 artifact, endpoint selection, or replay rule. The existing durable
 confirmation is resumed as a reporting cut rather than repeated.
 
-The focused owner suite passes 74/74 and the wider retained suite passes
-178 tests with ten historical skips. The exact dormant/active,
-activation-normalized, and focused-test identities are in the table above.
-While the authoritative status is `H0_REVIEW_PENDING_NOT_ACTIVE`, independent
-review and fresh activation records are required before the rebind arm may
-read Download. After an active transition, the same arm remains unavailable
-unless its zero-finding, mechanical, and live records all match this closure.
+The corrected dormant and active suites passed 74/74 focused and 178 wider
+tests with ten historical skips, followed by independent `PASS_GO` reviews at
+`0/0/0`. The existing confirmation then resumed once. The fixed
+resident-Magisk rollback result is `odin_transfer_completed`, host process
+quiescence is proved, and final health proves healthy resident Android.
+Rollback-result SHA-256 is
+`42fa97fa826b3170c710550c610fd857ff6db9acb3c4306748ceb7e6249b8b40`;
+final-health SHA-256 is
+`797d02ac2513720648cbf3e6663bc5a615ad575ef832e4b914bbc782d3d273aa`.
+
+The exact terminal is `NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`, SHA-256
+`67a291732731e244a942b376779f4c493a8f8e61ccbee764bb84625994362005`.
+Candidate/rollback attempts are 1/1; both replays are false; recovery
+partition read/write/transfer and other-target command counts are zero; the
+shared guard is absent. Native PID1 remains unproved rather than disproved.
+The owner was returned to dormant and the terminal activation records were
+preserved under `workspace/private/retired/`; no further P0 device action is
+authorized.
