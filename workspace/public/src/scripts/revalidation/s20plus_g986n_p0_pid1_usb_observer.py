@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dormant bounded host observer for the S20+ P0 PID1 ACM witness."""
+"""Bounded host observer for the S20+ P0 PID1 ACM witness."""
 
 from __future__ import annotations
 

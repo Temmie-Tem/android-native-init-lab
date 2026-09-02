@@ -20,9 +20,11 @@ profile additionally binds the existing Process-v2 append-only global
 consumed-candidate registry, its fixed nonblocking target-session lease, one
 raw ACM evidence node, and pre-effect process-cage recovery records.
 
-The owner and observer remain mechanically dormant. No device, ADB, USB
-endpoint, Odin process, reboot, mode transition, candidate claim, or partition
-transfer was used in this unit. A live run is not authorized.
+This H0 implementation unit used no device, ADB, USB endpoint, Odin process,
+reboot, mode transition, candidate claim, or partition transfer. The owner and
+observer are mechanically dormant whenever their activation booleans are
+false. A later active status authorizes nothing unless all three current
+private activation records also validate.
 
 ## Why this is smaller than the TWRP Q0 route
 
@@ -127,16 +129,17 @@ preauthorized resident rollback. Final PASS additionally requires an
 Odin-derived completed candidate transfer, one completed resident rollback,
 and fresh rooted resident Android health.
 
-## Frozen H0 identities
+## Reviewed activation identities
 
 | File | Size | SHA-256 |
 | --- | ---: | --- |
-| P0 Odin owner | 222,502 | `3939d4c9866da7298980219cc1051c112c616d6bec0f16b2dd2baf4ebf1090bd` |
-| owner activation-normalized | 222,502 | `5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410` |
+| P0 Odin owner dormant | 222,494 | `1e871e35c99e1fffb16b5de4e88fe517213b58b2f6730119c69e529770fbff86` |
+| P0 Odin owner active | 222,493 | `5d4697672a9b2cb94caaad57b2f515e9d578ef44172a71a3eed68d171bd89ff3` |
+| owner activation-normalized | 222,494 | `13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe` |
 | focused owner test | 145,676 | `cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741` |
-| P0 observer dormant | 16,487 | `39ea696119c104952744f3937745bc56906e53e4b8fd4bb5b7128485f8d94041` |
-| P0 observer active | 16,486 | `6e7e9c86d2bc2be412c45896fcab8af87c6f6cb2175ac574e9db3acb1bbdff69` |
-| observer activation-normalized | 16,487 | `980c354e4d31a315b0e0389255a8266d027315ec70fe22ed64204875a3a04232` |
+| P0 observer dormant | 16,479 | `98406b1cb968943f0e9cf62cd698123ecd9aa7aa3b84660838b0ff2c89ad34ab` |
+| P0 observer active | 16,478 | `d9304b7b6de1d366d7aea78bc44b785a1149b9d9096ad85c21be7d2d1a1d1ce3` |
+| observer activation-normalized | 16,479 | `214e0296c5918d9f8e8512b1617a8f7cc059db739624688382a12ccf14d8e4b1` |
 | focused observer test | 12,482 | `f7f039d33230cc864d1f76bf8df18c1e67c59106c9d5ddf00f6477955b57fbd2` |
 | P0 C init | 15,549 | `16c21037094529bbce6158658f892aaa6d24412708ceae7251af4f42c4450e51` |
 | P0 builder | 23,173 | `de48f3c86812ac5debb007d8d601964670244a3c5def99438460aa83e13d5545` |
@@ -144,7 +147,7 @@ and fresh rooted resident Android health.
 | global registry source | 53,811 | `0a112d7dd2633d3465137cdb67ed4539949a3c0c0ec90b178a3ec293735dbdc4` |
 | immutable registry activation | 21,276 | `aa50c211ee86d4b1534399c6d9fd82d4de3550856724e5788d693b012bce471b` |
 
-The exact current host-closure digest is emitted by the dormant validator and
+The exact current host-closure digest is emitted by the validator and
 is bound by the private review record rather than recursively embedded in a
 closure input.
 
@@ -588,11 +591,18 @@ without repeating confirmation or granting a second effect. After durable
 confirmation, every unproved or changed Download identity before rollback
 intent publishes an immutable rebind-miss receipt and blocks retry.
 
+The first six-atom activation draft remained mechanically inert because no
+mechanical or live record existed. Its independent H0 review returned
+`NO_GO` after finding that fixed present-tense dormant wording contradicted the
+active status. No connected entrypoint or device contact occurred. All six
+atoms were restored to dormant, the superseded zero-finding and raw-test
+evidence was preserved under `workspace/private/retired/`, and the reviewed
+identity descriptions and authority wording were made valid in either state.
+
 The focused owner suite passes 74/74 and the wider retained suite passes
-178 tests with ten historical skips. The exact owner, activation-normalized,
-and focused-test identities are the current values in the closure table above.
-This recovery continuation remains
-`H0_REVIEW_PENDING_NOT_ACTIVE`: the previous live-activation receipt does not
-match the rotated owner/policy/test closure. Independent review and a fresh
-mechanical activation receipt are required before the new rebind arm may read
-the current Download endpoint or emit its confirmation token.
+178 tests with ten historical skips. The exact dormant/active,
+activation-normalized, and focused-test identities are in the table above.
+While the authoritative status is `H0_REVIEW_PENDING_NOT_ACTIVE`, independent
+review and fresh activation records are required before the rebind arm may
+read Download. After an active transition, the same arm remains unavailable
+unless its zero-finding, mechanical, and live records all match this closure.

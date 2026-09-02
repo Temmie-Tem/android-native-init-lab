@@ -1269,17 +1269,26 @@ Status: **DEFINED - H0 ONLY - NOT ACTIVE**
 This section defines the smallest ordinary F1 successor for direct native PID1
 first light. It applies only to the operator-owned
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`; it receives no live authority from B0,
-T0/T1/T2, root, retained TWRP, the boot-metadata D0, or Q0. The exact dormant
-owner is
+T0/T1/T2, root, retained TWRP, the boot-metadata D0, or Q0. The exact owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_p0_pid1_odin_f1.py`.
-`P0_F1_ACTIVE=false`, the bound P0 observer remains
-`OBSERVER_ACTIVE=false`, and connected modes stop before ADB, USB inventory,
-Odin, reboot, or any target command. Only host validation and plan rendering
-are available. The current owner is 222,502 bytes at SHA-256
-`3939d4c9866da7298980219cc1051c112c616d6bec0f16b2dd2baf4ebf1090bd`
-and activation-normalized SHA-256
-`5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410`;
-its 145,676-byte focused test SHA-256 is
+Its reviewed activation pair is dormant 222,494 bytes at SHA-256
+`1e871e35c99e1fffb16b5de4e88fe517213b58b2f6730119c69e529770fbff86`
+and active 222,493 bytes at SHA-256
+`5d4697672a9b2cb94caaad57b2f515e9d578ef44172a71a3eed68d171bd89ff3`,
+with activation-normalized SHA-256
+`13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe`.
+The observer pair is dormant 16,479 bytes at SHA-256
+`98406b1cb968943f0e9cf62cd698123ecd9aa7aa3b84660838b0ff2c89ad34ab`
+and active 16,478 bytes at SHA-256
+`d9304b7b6de1d366d7aea78bc44b785a1149b9d9096ad85c21be7d2d1a1d1ce3`,
+with normalized SHA-256
+`214e0296c5918d9f8e8512b1617a8f7cc059db739624688382a12ccf14d8e4b1`.
+The owner and observer booleans must match the authoritative status. In the
+dormant state, connected modes stop before ADB, USB inventory, Odin, reboot,
+or any target command and only host validation or plan rendering is available.
+The active state additionally requires all three current private activation
+records before any connected entrypoint can pass its first gate. The
+145,676-byte focused test SHA-256 is
 `cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741`.
 
 The owner exact-loads the currently reviewed B0 recovery owner, 224,559 bytes
@@ -1450,11 +1459,12 @@ expiry; it neither repeats confirmation nor grants another observation or
 effect. Once rebind confirmation is durable, any absent, ambiguous, malformed,
 foreign, or changed Download identity before rollback intent durably publishes
 one rebind-miss receipt and forbids another attempt. Rollback replay remains
-forbidden. This continuation is H0 review-pending and the prior live-activation
-receipt grants it no device authority.
+forbidden. While the authoritative status is dormant, this continuation has
+no device authority and no prior live-activation receipt can grant it. In the
+active state, only fresh records matching this exact closure can do so.
 
-Activation remains blocked until the exact owner, observer activation,
-focused and inherited B0 tests, this target section, common/risk/Process-v2
+A dormant-to-active transition is blocked until the exact owner, observer
+activation, focused and inherited B0 tests, this target section, common/risk/Process-v2
 interactions, physical recovery flow, and complete execution-critical closure
 receive independent `PASS_GO`, followed by a separately reviewed mechanical
 activation changing the owner/observer booleans, exact identities, this status,
@@ -1472,7 +1482,7 @@ contracts, goal, qualification report, and focused tests. A stale, partial,
 missing, indirect, semantically inactive, or contradictory record grants
 nothing. Even after activation, each run
 requires a new connected prepare, its emitted exact approval, and attendance.
-This dormant definition creates no preparation, approval, target contact,
+The dormant state creates no preparation, approval, target contact,
 reboot, mode transition, USB open, Odin invocation, candidate claim, transfer,
 or live PID1 result.
 
@@ -1519,7 +1529,7 @@ allowlist, and the full semantic transition; unchanged policy and tests remain
 full-byte equal. The current 74-test owner implements all corrections
 described above and passes a 148-test core plus 178-test wider
 retained suite with ten historical skips. The exact current host-closure digest
-is emitted by the dormant validator and must be bound by the private review
+is emitted by the validator and must be bound by the private review
 record rather than recursively embedded in a closure input.
 The sixth-round corrections remain exact-byte review-pending and create no
 preparation, approval, claim, target contact, or live authority.
@@ -1557,16 +1567,17 @@ false positive; the narrowed reader correction retained every stable identity
 field, passed a second 0/0/0 independent review, and then completed. The global
 registry activation is now the exact SHA-256 bound above. Candidate replay
 remains false, and the repair made zero device contacts and zero record
-mutations. Current focused owner/observer tests pass 60/60 and 10/10; the core
-passes 134/134 and the wider retained suite passes 164 with ten historical
+mutations. At that correction, focused owner/observer tests passed 60/60 and
+10/10; the core passed 134/134 and the wider retained suite passed 164 with
+ten historical
 skips. The corrected exact closure still requires a fresh final independent
 review before its zero-finding record or mechanical activation.
 
 A ninth full-closure review returned `NO_GO`, HIGH/MEDIUM/LOW `1/0/0`: one
 owner test still constructed only the dormant observer and the activation
 records could reuse the dormant raw test logs after changing the authority
-atoms. The current test derives and verifies both exact observer byte forms
-from either current atom. The mechanical activation record now additionally
+atoms. That test derived and verified both exact observer byte forms from
+either atom. The mechanical activation design additionally
 binds one separate active-state test closure and a distinct mode-`0400` active
 raw-log namespace with the exact 10/60/164 counts and ten skips. Missing,
 stale, dormant, extra, malformed, or closure-mismatched active logs leave the
@@ -1578,9 +1589,9 @@ before any test backend or target contact, because replacing `False` with
 `True` makes the exact observer one byte shorter while the loader still
 required the dormant size. All six atoms were returned to dormant, and the
 superseded zero-finding record was retained outside the live namespace. The
-current activation pair binds dormant size 16,487 and active size 16,486
+then-current activation pair bound dormant size 16,487 and active size 16,486
 separately before checking their respective full hashes and shared normalized
-hash. The focused test now loads an actual generated active observer through
+hash. The focused test then loaded an actual generated active observer through
 the production normalized loader, so this size/atom mismatch is a regression
 failure. These corrected dormant bytes require a new exact review and new
 zero-finding record; no active or device authority survived the stopped trial.

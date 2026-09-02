@@ -876,11 +876,15 @@ cut may resume only that exact chain without repeating an effect. Any unproved
 or changed identity after durable confirmation records a permanent miss and
 blocks retry. Candidate replay remains impossible.
 
-The dormant recovery candidate passes 74/74 focused tests and 178 wider tests
-with ten historical skips. Its owner is 222,502 bytes, SHA-256
-`3939d4c9866da7298980219cc1051c112c616d6bec0f16b2dd2baf4ebf1090bd`,
+The recovery capability passes 74/74 focused tests and 178 wider tests with ten
+historical skips. Its reviewed owner pair is dormant 222,494 bytes at SHA-256
+`1e871e35c99e1fffb16b5de4e88fe517213b58b2f6730119c69e529770fbff86`
+and active 222,493 bytes at SHA-256
+`5d4697672a9b2cb94caaad57b2f515e9d578ef44172a71a3eed68d171bd89ff3`,
 with normalized SHA-256
-`5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410`;
+`13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe`;
 the 145,676-byte test SHA-256 is
 `cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741`.
-Exact review and fresh activation records are required before Download contact.
+While the status above is dormant, exact review and fresh activation records
+are required before Download contact. Active status still requires all three
+records to match the same closure.

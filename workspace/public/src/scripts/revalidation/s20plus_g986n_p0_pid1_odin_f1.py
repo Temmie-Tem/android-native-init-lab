@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dormant attended Odin boot-only owner for the S20+ P0 PID1 ACM witness.
+"""Attended Odin boot-only owner for the S20+ P0 PID1 ACM witness.
 
 The implementation exact-loads the already reviewed B0 one-shot transfer and
 resident-rollback engine in an isolated module instance.  Its explicit P0
@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -72,16 +72,16 @@ OBSERVER_PATH = ROOT / (
     "workspace/public/src/scripts/revalidation/"
     "s20plus_g986n_p0_pid1_usb_observer.py"
 )
-OBSERVER_DORMANT_SIZE = 16_487
-OBSERVER_ACTIVE_SIZE = 16_486
+OBSERVER_DORMANT_SIZE = 16_479
+OBSERVER_ACTIVE_SIZE = 16_478
 OBSERVER_DORMANT_SHA256 = (
-    "39ea696119c104952744f3937745bc56906e53e4b8fd4bb5b7128485f8d94041"
+    "98406b1cb968943f0e9cf62cd698123ecd9aa7aa3b84660838b0ff2c89ad34ab"
 )
 OBSERVER_ACTIVE_SHA256 = (
-    "6e7e9c86d2bc2be412c45896fcab8af87c6f6cb2175ac574e9db3acb1bbdff69"
+    "d9304b7b6de1d366d7aea78bc44b785a1149b9d9096ad85c21be7d2d1a1d1ce3"
 )
 OBSERVER_NORMALIZED_SHA256 = (
-    "980c354e4d31a315b0e0389255a8266d027315ec70fe22ed64204875a3a04232"
+    "214e0296c5918d9f8e8512b1617a8f7cc059db739624688382a12ccf14d8e4b1"
 )
 OBSERVER_SHA256_BY_ACTIVE = {
     False: OBSERVER_DORMANT_SHA256,
