@@ -71,7 +71,7 @@ class P329H0Tests(unittest.TestCase):
         self.assertEqual(value["schema"], evidence.P329_CANDIDATE_STATIC_SCHEMA)
         self.assertEqual(value["candidate"]["a"]["ap_tar_md5"], static.P329_AP_IDENTITY)
 
-    def test_prepare_build_verifies_without_publishing(self) -> None:
+    def test_prepare_build_reopens_published_ready_outputs(self) -> None:
         manifest, payloads, verification = prepare.build()
         self.assertEqual(manifest["manifest_id"], prepare.DEFAULT_MANIFEST_ID)
         self.assertEqual(
@@ -80,9 +80,18 @@ class P329H0Tests(unittest.TestCase):
         )
         self.assertEqual(verification["schema"], "device_action_f1_p329_stock_offline_contract_v1")
         self.assertTrue(verification["udev_guard_settle_bounded"])
-        self.assertFalse(prepare.DEFAULT_MANIFEST.exists())
-        self.assertFalse(prepare.DEFAULT_PROMOTION.exists())
         self.assertEqual(set(payloads), {"candidate_static", "run_manifest", "static_check"})
+        self.assertEqual(
+            prepare.DEFAULT_MANIFEST.read_bytes(), prepare.manifest_bytes(manifest)
+        )
+        for key, name in {
+            "candidate_static": "candidate-static.json",
+            "run_manifest": "run-manifest.json",
+            "static_check": "static-check-result.json",
+        }.items():
+            self.assertEqual(
+                (prepare.DEFAULT_PROMOTION / name).read_bytes(), payloads[key]
+            )
 
 
 if __name__ == "__main__":
