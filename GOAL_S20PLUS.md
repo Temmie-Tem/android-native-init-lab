@@ -849,7 +849,7 @@ contract and named reports rather than this current-state goal.
 
 ## Current P0 PID1 Odin F1 state
 
-Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`
+Status: `P0_PID1_ODIN_F1_ACTIVE_ATTENDED`
 
 The first P0 candidate was consumed before its Odin backend by a ctime-only
 host check; its mandatory resident rollback completed and Android returned

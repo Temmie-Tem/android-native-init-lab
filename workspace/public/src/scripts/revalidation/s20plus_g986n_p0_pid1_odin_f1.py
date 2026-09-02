@@ -31,7 +31,7 @@ from typing import Any, Sequence
 
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
-P0_F1_ACTIVE = False
+P0_F1_ACTIVE = True
 EXPECTED_REVIEWED_NORMALIZED_SHA256 = "13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe"
 
 ROOT = Path(__file__).resolve().parents[5]

@@ -6,7 +6,7 @@ Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
 Tier: H0 only
 
-Status: `H0_REVIEW_PENDING_NOT_ACTIVE`
+Status: `PASS_GO_ACTIVE_ATTENDED_F1`
 
 ## Outcome
 

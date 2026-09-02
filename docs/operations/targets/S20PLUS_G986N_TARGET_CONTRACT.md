@@ -1264,7 +1264,7 @@ Neither candidate nor rollback may replay.
 
 ## P0 PID1 ACM Odin boot-only F1
 
-Status: **DEFINED - H0 ONLY - NOT ACTIVE**
+Status: **ACTIVE - ATTENDED F1 ONLY**
 
 This section defines the smallest ordinary F1 successor for direct native PID1
 first light. It applies only to the operator-owned
