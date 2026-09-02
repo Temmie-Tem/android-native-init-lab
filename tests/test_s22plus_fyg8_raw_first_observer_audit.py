@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 375_159,
-                "sha256": "0e0efb10d8feb4ef55f1ec62926ceb05856a22661674b3d12054e6b8b7bd4e7d",
+                "size": 395_677,
+                "sha256": "9bb02951bb5515592b2d69becea4da7c022978c26b07b18582c551e9ef2aaeae",
             },
         )
         self.assertEqual(

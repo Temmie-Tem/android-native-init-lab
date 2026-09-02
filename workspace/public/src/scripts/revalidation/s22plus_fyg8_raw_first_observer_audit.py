@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "70bf95c75a3457a26b101291e86996105740603f0d7ba033b716c3e3b9c8db71"
+AUDITOR_NORMALIZED_SHA256 = "5b59515c88ea3cd10856fe77f0704575104a7978f409f67b1b37dbd2509df30a"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -28,11 +28,11 @@ DEFAULT_OUTPUT = Path(
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "1577ad44f1ff0bac0365e3fdee3714030fea4f5747f5cbf4d59e15391d99d105"
+    "19c0af24fe833acbe176cbdc4183097c8003d52eecab6c2ebcff2689767e72f4"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 130
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "dfb61f87b041325e76acb6c69b7cd43d8b84108099577e1b8016c9adc2b34c94"
+    "360ea989444740349543cd08774b365a5b0d9bd2327bf03a6540496ab939281a"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "5df09d23f1131b529142fb01de57d3e8933f5853d757360e88f0744695dc464a"
+    "8209ad06f50beb499064f29be743d0ab96e89348904e13e5d5c0a3184e0f7cd6"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -366,6 +366,30 @@ S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
         "sha256": "e849578b1e7fcb9853ee0a07eaafb28922aa3e5f6b6f746851122f354cc00931",
         "exact_host_tool": True,
     },
+    "s22plus_fyg8_p330_artifact_identity.py": {
+        "owner": "s22plus-fyg8-p330",
+        "classification": "host-only-exact-artifact-tool",
+        "profile": "H0-ap-and-auth-key-identity-join",
+        "size": 7846,
+        "sha256": "bc85e7e88c85a9b2678586a0897e14246e1a09976b15921d5f1b414d10118a36",
+        "exact_host_tool": True,
+    },
+    "s22plus_fyg8_p330_auth_exec_runtime.py": {
+        "owner": "s22plus-fyg8-p330",
+        "classification": "host-only-exact-runtime-transform",
+        "profile": "H0-preauth-diagnostic-runtime",
+        "size": 8818,
+        "sha256": "c281a19568569195640fa73de72ae62fafca8481e17037934e595e8da6a77e6a",
+        "exact_host_tool": True,
+    },
+    "s22plus_fyg8_p330_stock_process_v2_adapter.py": {
+        "owner": "s22plus-fyg8-p330",
+        "classification": "host-only-exact-decoder-adapter",
+        "profile": "H0-process-v2-observer-adapter",
+        "size": 9731,
+        "sha256": "1e72d5d5acffbb98c65c7e61ad3fbb42252398644b78fa9b7558fe532cef63d8",
+        "exact_host_tool": True,
+    },
 }
 OBSERVER_FILE_RE = re.compile(
     r"(?:s22plus|device_action)[A-Za-z0-9_]*"
@@ -409,6 +433,7 @@ ACTIVE_FILES = {
     "s22plus_boot_only_f1_transport.py",
     "s22plus_fyg8_p326_bidirectional_acm_observer.py",
     "s22plus_fyg8_p329_auth_acm_observer.py",
+    "s22plus_fyg8_p330_auth_acm_observer.py",
     "device_action_f1_live_v2.py",
 }
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
@@ -416,7 +441,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "device_action_d0_v2.py": "b55deb12c487cc66a50008aa7b1bd587fdc1a70bfb3e01e5168fc107ff40b1ce",
     "s22plus_fyg8_p326_bidirectional_acm_observer.py": "6357256ddca6faab28292e807e7e393c0c0fb841244fd4ce84a0c1f4643d5622",
     "s22plus_fyg8_p329_auth_acm_observer.py": "ddcc7ab2cc8e6fd70f096b4b19606d9e9fde8355eaa9cb65534b43eb917bbe76",
-    "device_action_f1_live_v2.py": "0e0efb10d8feb4ef55f1ec62926ceb05856a22661674b3d12054e6b8b7bd4e7d",
+    "s22plus_fyg8_p330_auth_acm_observer.py": "a00589310609cbab776dd99a23325644406d4d52cc0038ab34ab11ae726b3240",
+    "device_action_f1_live_v2.py": "9bb02951bb5515592b2d69becea4da7c022978c26b07b18582c551e9ef2aaeae",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
@@ -438,8 +464,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_odin_usbfs_identity.py": "caae61d64435e0fc85bb30adce9dc2bf07cf31bc4ffa033bab72dc072b5db415",
 }
 P328_LIVE_SOURCE_IDENTITY = {
-    "size": 375_159,
-    "sha256": "0e0efb10d8feb4ef55f1ec62926ceb05856a22661674b3d12054e6b8b7bd4e7d",
+    "size": 395_677,
+    "sha256": "9bb02951bb5515592b2d69becea4da7c022978c26b07b18582c551e9ef2aaeae",
 }
 P328_RAW_FIRST_FUNCTIONS = (
     "device_action_f1_live_v2.py:_P327ObserverSession._publish_value",
@@ -465,7 +491,10 @@ P326_RAW_FIRST_FUNCTIONS = (
     "s22plus_fyg8_p326_bidirectional_acm_observer.py:validate_receipt",
 )
 RAW_CAPTURE_INJECTED_WRITER_SOURCES = frozenset(
-    {"s22plus_fyg8_p326_bidirectional_acm_observer.py"}
+    {
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "s22plus_fyg8_p330_auth_acm_observer.py",
+    }
 )
 
 FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
@@ -975,6 +1004,9 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "self.base._raw_tty(",
                 "self.auth_observer.exchange_commands(",
                 "writer=writer,",
+                "partial = getattr(exc, \"audit\", None)",
+                "isinstance(partial, p330_auth_observer.ExchangeAudit)",
+                "p330_auth_observer.SessionResult((), partial)",
                 "self.exchange = exchange",
                 "self.trailing_rx = _p327_trailing_probe(",
                 "self.auth_observer.validate_default_proof(",
@@ -998,6 +1030,7 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "accepted = bool(",
                 '"classification": classification',
                 "self._publish_value(",
+                "value.update(self._receipt_additions(audit))",
             ),
             (
                 "_write_exclusive(",
@@ -1039,7 +1072,8 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "_p328_validate_common_receipt(",
                 "_p328_bound_auth_key_identity(",
                 "if accepted:",
-                "return {",
+                "result = {",
+                "return result",
             ),
             (
                 "_p328_read_auth_key(",
@@ -1080,6 +1114,57 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "receipt_schema=P329_OBSERVER_RECEIPT_SCHEMA",
             ),
             ("_p328_read_auth_key(", "_write_exclusive(", ".unlink(", ".remove("),
+        ),
+        "_P330ObserverSession._receipt_additions": (
+            (
+                "diagnostics = []",
+                "current_stage = failure_stage = exception_type = exception_sha256 = None",
+                "failure_code = rng_eagain_retries = None",
+                "isinstance(audit, p330_auth_observer.ExchangeAudit)",
+                '"stage": item.stage',
+                '"code": item.code',
+                "audit.current_stage",
+                "audit.failure_stage",
+                "audit.failure_code",
+                "audit.exception_type",
+                "audit.exception_sha256",
+                "audit.rng_eagain_retries",
+                '"diagnostics": diagnostics',
+                '"rng_eagain_retries": rng_eagain_retries',
+                '"partial_exchange": {',
+                '"current_stage": current_stage',
+                '"failure_stage": failure_stage',
+                '"failure_code": failure_code',
+                '"exception_type": exception_type',
+                '"exception_sha256": exception_sha256',
+            ),
+            (
+                "subprocess.",
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+            ),
+        ),
+        "_p330_validate_receipt": (
+            (
+                "return _p328_validate_receipt(",
+                "auth_observer=p330_auth_observer",
+                "auth_runtime=p330_auth_runtime",
+                "receipt_schema=P330_OBSERVER_RECEIPT_SCHEMA",
+                "classifications=P330_CLASSIFICATIONS",
+                'label="P330"',
+                'proof_key="p330_authenticated_exec"',
+                "extra_keys=P330_RECEIPT_EXTRA_KEYS",
+                "extra_validator=_p330_validate_receipt_extras",
+            ),
+            (
+                "subprocess.",
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+            ),
         ),
     },
     "s22plus_fyg8_p326_bidirectional_acm_observer.py": {
@@ -1220,6 +1305,36 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 ".truncate(",
                 "write_text(",
                 "write_bytes(",
+            ),
+        ),
+    },
+    "s22plus_fyg8_p330_auth_acm_observer.py": {
+        "exchange_commands": (
+            (
+                "audit = ExchangeAudit(",
+                "_BASE._read_exact(",
+                "len(runtime.DEVICE_BANNER), deadline, audit, writer",
+                "_BASE._send(",
+                "parse_diagnostic_frame(",
+                "audit.diagnostics.append(opened)",
+                "audit.diagnostics.append(rng)",
+                "audit.rng_eagain_retries = rng.code",
+                "_BASE._read_frame(",
+                "writer,",
+                "output.extend(frame.payload)",
+                "return _BASE.SessionResult(tuple(results), audit)",
+                "except Exception as exc:",
+                "_raise_partial(",
+                "audit.current_stage",
+            ),
+            (
+                "subprocess.",
+                "os.popen(",
+                "os.system(",
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
             ),
         ),
     },
@@ -1405,6 +1520,8 @@ ORDERED_FUNCTION_TOKENS = {
         "self.base._raw_tty(",
         "self.auth_observer.exchange_commands(",
         "writer=writer,",
+        "partial = getattr(exc, \"audit\", None)",
+        "p330_auth_observer.SessionResult((), partial)",
         "self.exchange = exchange",
         "self.trailing_rx = _p327_trailing_probe(",
         "self.auth_observer.validate_default_proof(",
@@ -1418,6 +1535,7 @@ ORDERED_FUNCTION_TOKENS = {
         "value = dict(base_value)",
         "accepted = bool(",
         '"classification": classification',
+        "value.update(self._receipt_additions(audit))",
         "self._publish_value(",
     ),
     (
@@ -1441,7 +1559,8 @@ ORDERED_FUNCTION_TOKENS = {
         "_p328_validate_common_receipt(",
         "_p328_bound_auth_key_identity(",
         "if accepted:",
-        "return {",
+        "result = {",
+        "return result",
     ),
     (
         "device_action_f1_live_v2.py",
@@ -1470,6 +1589,54 @@ ORDERED_FUNCTION_TOKENS = {
         "auth_observer=p329_auth_observer",
         "auth_runtime=p329_auth_runtime",
         "receipt_schema=P329_OBSERVER_RECEIPT_SCHEMA",
+    ),
+    (
+        "s22plus_fyg8_p330_auth_acm_observer.py",
+        "exchange_commands",
+    ): (
+        'stage("banner-read")',
+        'stage("open-write")',
+        'stage("open-diagnostic-read")',
+        "audit.diagnostics.append(opened)",
+        'stage("rng-diagnostic-read")',
+        "audit.diagnostics.append(rng)",
+        'stage("challenge-read")',
+        'stage("auth-write")',
+        'stage("ready-read")',
+        'stage("exec-write")',
+        "output.extend(frame.payload)",
+        'stage("close-write")',
+        'stage("done-read")',
+        'stage("complete")',
+        "return _BASE.SessionResult(tuple(results), audit)",
+        "except Exception as exc:",
+        "_raise_partial(",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_P330ObserverSession._receipt_additions",
+    ): (
+        "diagnostics = []",
+        "if isinstance(audit, p330_auth_observer.ExchangeAudit)",
+        '"diagnostics": diagnostics',
+        '"partial_exchange": {',
+        '"current_stage": current_stage',
+        '"failure_stage": failure_stage',
+        '"failure_code": failure_code',
+        '"exception_type": exception_type',
+        '"exception_sha256": exception_sha256',
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_p330_validate_receipt",
+    ): (
+        "return _p328_validate_receipt(",
+        "auth_observer=p330_auth_observer",
+        "auth_runtime=p330_auth_runtime",
+        "receipt_schema=P330_OBSERVER_RECEIPT_SCHEMA",
+        "classifications=P330_CLASSIFICATIONS",
+        "extra_keys=P330_RECEIPT_EXTRA_KEYS",
+        "extra_validator=_p330_validate_receipt_extras",
     ),
     (
         "s22plus_fyg8_p326_bidirectional_acm_observer.py",

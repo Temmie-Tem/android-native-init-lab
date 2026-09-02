@@ -310,11 +310,29 @@ mandatory. This clause is H0-only until the changed execution-critical
 closure and timing boundary receive one independent review and a ready
 declaration is published; neither event is device approval.
 
-If a P327, P328, or P329 candidate transfer occurs, the same reporting unit that
-confirms `CAMPAIGN_CLOSED` must append exactly one matching
-`s22plus-fyg8-p327`, `s22plus-fyg8-p328`, or `s22plus-fyg8-p329` F1 closure row derived from that
-run's retained journal and result. This is post-terminal bookkeeping, not a
-pre-execution gate; no F1 row is written before the effect.
+**P330 bounded pre-auth diagnostic successor.** P330 may reuse P329's exact
+endpoint, 500-ms two-property udev settle, S328 HMAC protocol, private key,
+command/process bounds, topology lane, raw-first capture, and rollback under a
+fresh run identity and distinct boot-only AP. Its device delta emits only two
+fixed type-`0x86` eight-byte diagnostic frames: `OPEN_PARSED` after exact OPEN
+validation and `RNG` after nonce acquisition. `getrandom` may retry at 100-ms
+cadence no more than 64 times and only for `EAGAIN`; no endpoint, open,
+protocol, command, or other error is retried. The host retains actual partial
+TX/RX and a bounded stage/type/hash record after raw capture closes.
+
+Diagnostics localize failure only. They never establish challenge, HMAC,
+command, shell, closure, or candidate proof; PASS still requires the unchanged
+authenticated command exchange and final healthy rollback. P330 requires a
+fresh preparation, exact approval, and attendance. This clause is H0-only
+until the changed execution-critical closure has independent review and a
+ready declaration; neither event is device approval.
+
+If a P327, P328, P329, or P330 candidate transfer occurs, the same reporting
+unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
+`s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`, or
+`s22plus-fyg8-p330` F1 closure row derived from that run's retained journal and
+result. This is post-terminal bookkeeping, not a pre-execution gate; no F1 row
+is written before the effect.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
