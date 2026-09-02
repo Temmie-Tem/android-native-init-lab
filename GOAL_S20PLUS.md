@@ -868,7 +868,7 @@ this P0 run.
 The fresh rebind token was then confirmed and its arrival recorded, but the
 owner again stopped before rollback intent because only USBFS `st_ctime_ns`
 changed between the arm and arrival. Stable path/hash, identity prefix,
-topology, and USB profile remained equal. The current dormant correction uses
+topology, and USB profile remained equal. The reviewed correction uses
 the existing stable-session predicate for that arrival; it adds no new effect
 and resumes the already durable confirmation without repeating it.
 
