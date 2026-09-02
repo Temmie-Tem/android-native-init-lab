@@ -5,18 +5,22 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import fcntl
 import hashlib
 import json
 import math
 import os
 import re
+import select
 import signal
+import stat
 import subprocess
 import sys
+import termios
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Mapping, Protocol
+from typing import Any, Callable, ContextManager, Iterator, Mapping, Protocol
 
 import device_action_d0_v2 as d0
 import device_action_raw_capture_v1 as raw_capture
@@ -32,6 +36,8 @@ import s22plus_fyg8_p324_cdc_acm_observer as p324_cdc_observer
 import s22plus_fyg8_p324_typec_lane_binding as p324_typec_lane
 import s22plus_fyg8_p325_cdc_acm_guard_adapter as p325_guard_adapter
 import s22plus_fyg8_p326_bidirectional_acm_observer as p326_console_observer
+import s22plus_fyg8_p327_framed_acm_observer as p327_framed_observer
+import s22plus_fyg8_p327_framed_exec_runtime as p327_framed_runtime
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -101,6 +107,11 @@ P326_OUTCOME_BY_PROOF_CLASS = {
     "NONCAUSAL_SUCCESS_PATH": "p326_noncausal_success_path_rollback_verified",
     "NO_PROOF_EXPERIMENT_PRECONDITION": "p326_experiment_precondition_unproved_rollback_verified",
     "NO_PROOF_OBSERVER": "p326_observer_no_proof_rollback_verified",
+}
+P327_OUTCOME_BY_PROOF_CLASS = {
+    "NONCAUSAL_SUCCESS_PATH": "p327_noncausal_success_path_rollback_verified",
+    "NO_PROOF_EXPERIMENT_PRECONDITION": "p327_experiment_precondition_unproved_rollback_verified",
+    "NO_PROOF_OBSERVER": "p327_observer_no_proof_rollback_verified",
 }
 
 
@@ -230,6 +241,39 @@ def _p326_parser_failure_classification(
         "family_count": 0,
         "foreign_count": 0,
         "p326_stock_error": diagnostic,
+    }
+
+
+def _p327_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    """Retain a P327 Carrier parser fault without weakening ACM proof."""
+    detail = f"{type(error).__name__}:{error}".encode("utf-8", "replace")
+    return {
+        "schema": "device_action_f1_p327_stock_error_v1",
+        "classification": "P327_STOCK_PARSER_EXCEPTION",
+        "supplemental": True,
+        "accepted": False,
+        "candidate_success": False,
+        "causal_result_allowed": False,
+        "payload_bytes": len(payload),
+        "payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "error_type": type(error).__name__,
+        "error_sha256": hashlib.sha256(detail).hexdigest(),
+    }
+
+
+def _p327_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p327_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "integrity_issue": True,
+        "integrity_issues": ["p327-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p327_stock_error": diagnostic,
+        "accepted": False,
     }
 
 
@@ -389,13 +433,16 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p323_bundle(bundle)
         or _p324_bundle(bundle)
         or _p325_bundle(bundle)
+        or _p327_bundle(bundle)
         or _p326_bundle(bundle)
     ):
         stock_adapter = typed_evidence.STOCK_ADAPTERS[
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p326"
+            "p327"
+            if _p327_bundle(bundle)
+            else "p326"
             if _p326_bundle(bundle)
             else "p325"
             if _p325_bundle(bundle)
@@ -440,7 +487,29 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             )
         except typed_evidence.EvidenceError as exc:
             raise F1LiveError(str(exc)) from exc
-        if _p326_bundle(bundle):
+        if _p327_bundle(bundle):
+            paths["p327_framed_exec_runtime"] = Path(
+                p327_framed_runtime.__file__
+            ).resolve()
+            paths["p327_framed_acm_observer"] = Path(
+                p327_framed_observer.__file__
+            ).resolve()
+            paths["p326_bidirectional_console_runtime"] = scripts / (
+                "s22plus_fyg8_p326_bidirectional_console_runtime.py"
+            )
+            paths["p324_typec_lane_binding"] = Path(
+                p324_typec_lane.__file__
+            ).resolve()
+            paths["p324_cdc_acm_observer"] = Path(
+                p324_cdc_observer.__file__
+            ).resolve()
+            paths["p325_cdc_acm_guard_adapter"] = Path(
+                p325_guard_adapter.__file__
+            ).resolve()
+            paths["p326_bidirectional_acm_observer"] = Path(
+                p326_console_observer.__file__
+            ).resolve()
+        elif _p326_bundle(bundle):
             paths["p326_bidirectional_console_runtime"] = scripts / (
                 "s22plus_fyg8_p326_bidirectional_console_runtime.py"
             )
@@ -500,7 +569,21 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         closure[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = (
             candidate_arrival_role
         )
-        if _p326_bundle(bundle):
+        if _p327_bundle(bundle):
+            closure["p327_framed_exec_runtime_contract_id"] = (
+                typed_evidence.P327_FRAMED_EXEC_RUNTIME_CONTRACT_ID
+            )
+            closure["p324_typec_lane_contract_id"] = p324_typec_lane.CONTRACT_ID
+            closure["p324_cdc_acm_observer_contract_id"] = (
+                p324_cdc_observer.CONTRACT_ID
+            )
+            closure["p325_cdc_acm_guard_contract_id"] = (
+                p325_guard_adapter.CONTRACT_ID
+            )
+            closure["p327_framed_acm_contract_id"] = (
+                p327_framed_observer.CONTRACT_ID
+            )
+        elif _p326_bundle(bundle):
             closure["p326_console_runtime_contract_id"] = (
                 typed_evidence.P326_CONSOLE_RUNTIME_CONTRACT_ID
             )
@@ -642,7 +725,12 @@ def _binding(
         "mandatory_rollback_preapproved": True,
         "recovery_requires_second_approval": False,
     }
-    if _p324_bundle(bundle) or _p325_bundle(bundle) or _p326_bundle(bundle):
+    if (
+        _p324_bundle(bundle)
+        or _p325_bundle(bundle)
+        or _p327_bundle(bundle)
+        or _p326_bundle(bundle)
+    ):
         if not isinstance(p324_lane_receipt, dict):
             raise F1LiveError("P3.24 Type-C lane binding receipt is absent")
         value["p324_typec_lane_binding"] = p324_lane_receipt
@@ -668,7 +756,12 @@ def _prepare_p324_typec_lane(
     usb_root: Path,
     typec_root: Path,
 ) -> dict[str, Any] | None:
-    if not (_p324_bundle(bundle) or _p325_bundle(bundle) or _p326_bundle(bundle)):
+    if not (
+        _p324_bundle(bundle)
+        or _p325_bundle(bundle)
+        or _p327_bundle(bundle)
+        or _p326_bundle(bundle)
+    ):
         return None
     try:
         value = p324_typec_lane.capture_binding(
@@ -697,6 +790,7 @@ def _p324_typec_lane_value(
         _p324_bundle(prepared.bundle)
         or _p325_bundle(prepared.bundle)
         or _p326_bundle(prepared.bundle)
+        or _p327_bundle(prepared.bundle)
     ):
         raise F1LiveError("P3.24 Type-C lane binding requested for another run")
     path = prepared.run_dir / P324_TYPEC_LANE_NAME
@@ -840,8 +934,21 @@ def _p326_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p327_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P327_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
 def _p324_lane_bundle(bundle: core.Bundle) -> bool:
-    return _p324_bundle(bundle) or _p325_bundle(bundle) or _p326_bundle(bundle)
+    return (
+        _p324_bundle(bundle)
+        or _p325_bundle(bundle)
+        or _p326_bundle(bundle)
+        or _p327_bundle(bundle)
+    )
 
 
 def _acm_primary_bundle(bundle: core.Bundle) -> bool:
@@ -850,6 +957,7 @@ def _acm_primary_bundle(bundle: core.Bundle) -> bool:
         or _p324_bundle(bundle)
         or _p325_bundle(bundle)
         or _p326_bundle(bundle)
+        or _p327_bundle(bundle)
     )
 
 
@@ -881,10 +989,14 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             typed_evidence.P326_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P326_RUN_ID,
         ),
+        (
+            typed_evidence.P327_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P327_RUN_ID,
+        ),
     }:
         raise F1LiveError(
             "candidate arrival proof role requires the exact P3.23 stock binding "
-            "through the exact P3.26 stock binding"
+            "through the exact P3.27 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(
@@ -892,9 +1004,21 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             bundle.manifest["observation"].get("candidate_observer"),
             expected_run_id=identity[1],
         )
-        cdc_acm_observer.validate_spec(
-            bundle.manifest["observation"].get("candidate_observer")
+        candidate_observer = bundle.manifest["observation"].get(
+            "candidate_observer"
         )
+        if (
+            role == typed_evidence.CANDIDATE_FRAMED_FIXED_COMMAND_ROLE
+            and isinstance(candidate_observer, dict)
+        ):
+            inherited_observer = {
+                key: candidate_observer[key]
+                for key in cdc_acm_observer.SPEC_KEYS
+            }
+            inherited_observer["kind"] = cdc_acm_observer.KIND
+        else:
+            inherited_observer = candidate_observer
+        cdc_acm_observer.validate_spec(inherited_observer)
     except (typed_evidence.EvidenceError, cdc_acm_observer.ObserverError) as exc:
         raise F1LiveError(str(exc)) from exc
     return role
@@ -1995,6 +2119,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p327 = overlay == typed_evidence.P327_STOCK_OVERLAY_CONTRACT_ID
     is_p326 = overlay == typed_evidence.P326_STOCK_OVERLAY_CONTRACT_ID
     is_p325 = overlay == typed_evidence.P325_STOCK_OVERLAY_CONTRACT_ID
     is_p324 = overlay == typed_evidence.P324_STOCK_OVERLAY_CONTRACT_ID
@@ -2002,6 +2127,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
+        typed_evidence.p327_stock_adapter
+        if is_p327
+        else
         typed_evidence.p326_stock_adapter
         if is_p326
         else typed_evidence.p325_stock_adapter
@@ -2019,6 +2147,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter
     )
     label = (
+        "P3.27"
+        if is_p327
+        else
         "P3.26"
         if is_p326
         else "P3.25"
@@ -2035,6 +2166,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
+        "p327_stock"
+        if is_p327
+        else
         "p326_stock"
         if is_p326
         else "p325_stock"
@@ -2051,7 +2185,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "p320_stock"
     )
     try:
-        if (
+        if is_p327:
+            proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
+        elif (
             (is_p323 or is_p324 or is_p325 or is_p326)
             and classified.get("proof_class")
             == (
@@ -2090,7 +2226,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     if any(classified.get(name) is not False for name in required_false):
         raise F1LiveError(f"{label} stock classification exposes a causal claim")
-    acm_primary = is_p323 or is_p324 or is_p325 or is_p326
+    acm_primary = is_p323 or is_p324 or is_p325 or is_p326 or is_p327
     expected_acm_supplemental = not acm_primary
     expected_acm_required = acm_primary
     if classified.get("acm_supplemental") is not expected_acm_supplemental or classified.get(
@@ -2106,6 +2242,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P324_STOCK_ENCODER_FAILURE",
         "P325_STOCK_ENCODER_FAILURE",
         "P326_STOCK_ENCODER_FAILURE",
+        "P327_STOCK_ENCODER_FAILURE",
     } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
     result = {
@@ -2133,6 +2270,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P324_STOCK_ENCODER_FAILURE",
         "P325_STOCK_ENCODER_FAILURE",
         "P326_STOCK_ENCODER_FAILURE",
+        "P327_STOCK_ENCODER_FAILURE",
     }:
         result["producer_failure"] = True
         result["max77705_scientific_result"] = "NOT_PRODUCED"
@@ -2141,12 +2279,16 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    is_p327 = "p327_stock" in state
     is_p326 = "p326_stock" in state
     is_p325 = "p325_stock" in state
     is_p324 = "p324_stock" in state
     is_p322 = "p322_stock" in state
     is_p321 = "p321_stock" in state
     label = (
+        "P3.27"
+        if is_p327
+        else
         "P3.26"
         if is_p326
         else "P3.25"
@@ -2161,6 +2303,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
+        "p327_stock"
+        if is_p327
+        else
         "p326_stock"
         if is_p326
         else "p325_stock"
@@ -2183,6 +2328,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     ):
         raise F1LiveError(f"{label} durable stock projection differs from final evidence")
     proof_key = (
+        "p327_proof_class"
+        if is_p327
+        else
         "p326_proof_class"
         if is_p326
         else "p325_proof_class"
@@ -2592,6 +2740,21 @@ class SamsungOdinBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
+        if _p327_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
+            return _p327_candidate_observer_session(
+                prepared,
+                spec,
+                lane_value=lane_value,
+                lane_receipt=lane_receipt,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         if _p326_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
@@ -2903,6 +3066,7 @@ class SamsungOdinBackend:
                     p324_cdc_observer.P324ObserverError,
                     p325_guard_adapter.P325ObserverError,
                     p326_console_observer.P326ObserverError,
+                    p327_framed_observer.FramedObserverError,
                     OSError,
                 ):
                     pass
@@ -2922,6 +3086,26 @@ class SamsungOdinBackend:
                     "receipt_sha256"
                 ],
             }
+            if _p327_bundle(prepared.bundle):
+                result.update(
+                    {
+                        "pid1_framed_exec_proof": durable[
+                            "pid1_framed_exec_proof"
+                        ],
+                        "busybox_ash_command_proof": durable[
+                            "busybox_ash_command_proof"
+                        ],
+                        "framed_session_closed": durable[
+                            "framed_session_closed"
+                        ],
+                        "interactive_pty_proof": durable[
+                            "interactive_pty_proof"
+                        ],
+                        "caller_selected_command": durable[
+                            "caller_selected_command"
+                        ],
+                    }
+                )
             if _p318_bundle(prepared.bundle):
                 try:
                     topology_raw = p318_topology.capture_candidate_raw(
@@ -3048,7 +3232,12 @@ class SamsungOdinBackend:
         except F1LiveError as exc:
             if not _acm_primary_bundle(prepared.bundle):
                 raise
-            if _p326_bundle(prepared.bundle):
+            if _p327_bundle(prepared.bundle):
+                stock_error = _p327_stock_error(payloads[0], exc)
+                marker_result = _p327_parser_failure_classification(
+                    payloads[0], exc
+                )
+            elif _p326_bundle(prepared.bundle):
                 stock_error = _p326_stock_error(payloads[0], exc)
                 marker_result = _p326_parser_failure_classification(
                     payloads[0], exc
@@ -3090,6 +3279,7 @@ class SamsungOdinBackend:
                     or _p324_bundle(prepared.bundle)
                     or _p325_bundle(prepared.bundle)
                     or _p326_bundle(prepared.bundle)
+                    or _p327_bundle(prepared.bundle)
                 )
             )
             else None
@@ -3123,7 +3313,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p326_stock"
+                "p327_stock"
+                if _p327_bundle(prepared.bundle)
+                else "p326_stock"
                 if _p326_bundle(prepared.bundle)
                 else "p325_stock"
                 if _p325_bundle(prepared.bundle)
@@ -3139,7 +3331,9 @@ class SamsungOdinBackend:
             ] = p320_projection
         if stock_error is not None:
             key = (
-                "p326_stock_error"
+                "p327_stock_error"
+                if _p327_bundle(prepared.bundle)
+                else "p326_stock_error"
                 if _p326_bundle(prepared.bundle)
                 else "p325_stock_error"
                 if _p325_bundle(prepared.bundle)
@@ -3150,7 +3344,9 @@ class SamsungOdinBackend:
             )
             result["observer"][key] = stock_error
             result["observer"].pop(
-                "p326_stock"
+                "p327_stock"
+                if _p327_bundle(prepared.bundle)
+                else "p326_stock"
                 if _p326_bundle(prepared.bundle)
                 else "p325_stock"
                 if _p325_bundle(prepared.bundle)
@@ -3258,6 +3454,735 @@ def _p313_candidate_observer_session(
                 pass
 
 
+P327_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p327_framed_acm_receipt_v1"
+P327_MAX_RAW_BYTES = 512 * 1024
+P327_CLASSIFICATIONS = {
+    "accepted",
+    "endpoint-timeout",
+    "endpoint-ambiguous",
+    "identity-mismatch",
+    "open-failed",
+    "exclusive-failed",
+    "guard-lost",
+    "read-timeout",
+    "extra-byte",
+    "framed-session-error",
+}
+
+
+def _p327_identity(payload: bytes) -> dict[str, Any]:
+    return {
+        "size": len(payload),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
+
+
+def _p327_trailing_probe(
+    descriptor: int,
+    writer: raw_capture.RawCaptureWriter,
+) -> bytes:
+    """Capture one immediately readable trailing byte before rejecting.
+
+    The probe is intentionally nonblocking and reads at most one byte.  That
+    byte is forwarded to the inherited raw writer before the caller classifies
+    the session, so a trailing protocol violation remains durable evidence.
+    """
+    readable, _, _ = select.select([descriptor], [], [], 0)
+    if not readable:
+        return b""
+    try:
+        trailing = os.read(descriptor, 1)
+    except BlockingIOError:
+        return b""
+    if trailing:
+        writer.write_stdout(trailing)
+    return trailing
+
+
+@dataclass
+class _P327ObserverSession:
+    """P327 framed session over the exact P324/P325 observer stack."""
+
+    delegate: Any
+    base: Any
+    spec: dict[str, str]
+    run_dir: Path
+    lane_binding: dict[str, Any]
+    lane_binding_receipt: dict[str, Any]
+    usb_root: Path
+    typec_root: Path
+    exchange: Any | None = None
+    proof: dict[str, Any] | None = None
+    trailing_rx: bytes = b""
+    endpoint: Any | None = None
+    endpoint_classification: str | None = None
+    protocol_error: str | None = None
+
+    def _read_endpoint(
+        self,
+        endpoint: Any,
+        deadline: float,
+        writer: raw_capture.RawCaptureWriter,
+    ) -> str:
+        path = self.base.dev_root / endpoint.tty_name
+        self.endpoint = endpoint
+        if not self.base.guard.healthy(recheck=True):
+            return "guard-lost"
+        # P325's two-property repair is bound to the tty class node.  Keep the
+        # exact node here rather than allowing the inherited USB interface
+        # fallback used by the pre-P325 observer.
+        if not self.base.guard.matches_node(endpoint.tty_class):
+            return "identity-mismatch"
+        try:
+            info = path.stat()
+            if (
+                not stat.S_ISCHR(info.st_mode)
+                or os.major(info.st_rdev) != endpoint.major
+                or os.minor(info.st_rdev) != endpoint.minor
+            ):
+                return "identity-mismatch"
+            descriptor = os.open(
+                path,
+                os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK | os.O_CLOEXEC,
+            )
+        except OSError:
+            return "open-failed"
+        try:
+            try:
+                fcntl.ioctl(descriptor, termios.TIOCEXCL)
+            except OSError:
+                return "exclusive-failed"
+            if not self.base.guard.healthy(recheck=True):
+                return "guard-lost"
+            try:
+                self.base._raw_tty(descriptor)
+            except Exception as exc:  # pragma: no cover - tty fault
+                self.protocol_error = type(exc).__name__
+                return "open-failed"
+            try:
+                exchange = p327_framed_observer.exchange_commands(
+                    descriptor,
+                    p327_framed_observer.DEFAULT_COMMANDS,
+                    timeout_sec=min(
+                        120.0,
+                        max(0.001, deadline - time.monotonic()),
+                    ),
+                    writer=writer,
+                )
+            except p327_framed_observer.FramedObserverError as exc:
+                self.protocol_error = str(exc)[:160]
+                return "framed-session-error"
+            self.exchange = exchange
+            # DONE is the terminal frame.  Probe immediately, with no quiet
+            # wait or second read, and forward a detected byte before reject.
+            self.trailing_rx = _p327_trailing_probe(descriptor, writer)
+            if self.trailing_rx:
+                exchange.audit.rx.extend(self.trailing_rx)
+            try:
+                self.proof = p327_framed_observer.validate_default_proof(
+                    exchange
+                )
+            except p327_framed_observer.FramedObserverError as exc:
+                self.protocol_error = str(exc)[:160]
+                return (
+                    "extra-byte"
+                    if self.trailing_rx
+                    else "framed-session-error"
+                )
+            if self.trailing_rx:
+                return "extra-byte"
+            guard_healthy = self.base.guard.healthy(recheck=True)
+            guard_matches = (
+                self.base.guard.matches_node(endpoint.tty_class)
+                if guard_healthy
+                else False
+            )
+            identity, repeated = cdc_acm_observer._resolve_endpoint(  # noqa: SLF001
+                endpoint.tty_class
+            )
+            topology = cdc_acm_observer.TOPOLOGY_RE.fullmatch(
+                p324_typec_lane.CANDIDATE_TOPOLOGY
+            )
+            assert topology is not None
+            if (
+                repeated.identity_sha256 != endpoint.identity_sha256
+                or not cdc_acm_observer._matches(  # noqa: SLF001
+                    self.spec, topology.group(1), identity, repeated
+                )
+                or os.fstat(descriptor).st_rdev != info.st_rdev
+            ):
+                return "identity-mismatch"
+            if not guard_healthy:
+                return "guard-lost"
+            if not guard_matches:
+                return "identity-mismatch"
+            return "accepted"
+        finally:
+            os.close(descriptor)
+
+    def _lane_supplement(self, accepted: bool) -> dict[str, Any]:
+        """Retain the inherited P324 lane/partner end-state for P327."""
+        p324_session = self.delegate.delegate
+        partner_before = p324_session.partner_before
+        partner_after = p324_cdc_observer._partner(self.typec_root)  # noqa: SLF001
+        end_inventory = p324_cdc_observer._inventory(  # noqa: SLF001
+            self.spec, p324_session.class_tty, self.usb_root
+        )
+        p324_cdc_observer._validate_inventory(end_inventory, label="P327 end")  # noqa: SLF001
+        source_row = end_inventory["rows"][p324_typec_lane.SOURCE_TOPOLOGY]
+        candidate_row = end_inventory["rows"][p324_typec_lane.CANDIDATE_TOPOLOGY]
+        same_partner = (
+            partner_after == partner_before
+            and p324_session.partner_continuous
+            and p324_session.partner_poll_count > 0
+        )
+        accepted_inventory = (
+            accepted
+            and source_row["exact_candidate_count"] == 0
+            and candidate_row["exact_candidate_count"] == 1
+            and candidate_row["candidate_like_count"] == 1
+            and end_inventory["foreign_candidate_like_count"] == 0
+        )
+        current_lane = p324_typec_lane.revalidate_binding(
+            self.lane_binding,
+            source_topology=p324_typec_lane.SOURCE_TOPOLOGY,
+            usb_root=self.usb_root,
+            typec_root=self.typec_root,
+        )
+        return {
+            "schema": p324_cdc_observer.SCHEMA,
+            "contract_id": p324_cdc_observer.CONTRACT_ID,
+            "target": p324_cdc_observer.TARGET,
+            "lane_binding": self.lane_binding_receipt,
+            "lane_binding_sha256": p324_cdc_observer._digest(current_lane),  # noqa: SLF001
+            "arm": p324_session.arm_receipt,
+            "source_topology": p324_typec_lane.SOURCE_TOPOLOGY,
+            "candidate_topology": p324_typec_lane.CANDIDATE_TOPOLOGY,
+            "selector_topology_count": 1,
+            "partner_before": partner_before,
+            "partner_after": partner_after,
+            "partner_poll_count": p324_session.partner_poll_count,
+            "partner_continuous": p324_session.partner_continuous,
+            "end_inventory": end_inventory,
+            "both_topologies_inventory_complete": True,
+            "accepted_inventory_exact": accepted_inventory,
+            "same_run_typec_partner_continuity": same_partner,
+            "accepted_for_p324": accepted_inventory and same_partner,
+            "opens_only_candidate_topology": True,
+            "device_commands": False,
+        }
+
+    def observe(
+        self,
+        *,
+        timeout_sec: int,
+        download_departure: dict[str, Any],
+    ) -> dict[str, Any]:
+        if (
+            type(timeout_sec) is not int
+            or timeout_sec <= 0
+            or not isinstance(download_departure, dict)
+            or set(download_departure)
+            != {
+                "download_endpoint_absent",
+                "absence_timed_out",
+                "sequence",
+            }
+            or type(download_departure["download_endpoint_absent"]) is not bool
+            or type(download_departure["absence_timed_out"]) is not bool
+            or type(download_departure["sequence"]) is not int
+            or download_departure["sequence"] < 0
+        ):
+            raise p327_framed_observer.FramedObserverError(
+                "P327 observer departure is invalid"
+            )
+        departure_receipt = cdc_acm_observer.persist_json(
+            self.run_dir / "candidate-observer-download-departure.json",
+            download_departure,
+        )
+        started = time.monotonic()
+        deadline = started + timeout_sec
+        classification = "endpoint-timeout"
+        endpoint = None
+        mismatch_seen = False
+        if download_departure["download_endpoint_absent"] is True:
+            while time.monotonic() < deadline:
+                if not self.base.guard.healthy():
+                    classification = "guard-lost"
+                    break
+                classification, endpoint = self.delegate._select()
+                if classification == "identity-mismatch":
+                    mismatch_seen = True
+                if endpoint is not None or classification == "endpoint-ambiguous":
+                    break
+                time.sleep(0.05)
+            if endpoint is None and classification == "endpoint-timeout" and mismatch_seen:
+                classification = "identity-mismatch"
+        writer = raw_capture.RawCaptureWriter(
+            self.run_dir,
+            "candidate-observer",
+            stdout_maximum=P327_MAX_RAW_BYTES,
+            stderr_maximum=1,
+            argv0_name="tty-cdc-acm-p327",
+            stdout_name="candidate-observer.raw",
+            stderr_name="candidate-observer.raw.stderr",
+        )
+        acquisition = classification
+        try:
+            if endpoint is not None:
+                acquisition = self._read_endpoint(endpoint, deadline, writer)
+            raw_handle = writer.finalize(returncode=0)
+        except BaseException as exc:
+            if not writer.finished:
+                try:
+                    writer.finalize(
+                        returncode=None,
+                        producer_error_type=type(exc).__name__,
+                    )
+                except (OSError, raw_capture.RawCaptureError):
+                    pass
+            raise
+        raw_payload = raw_capture.read_stdout(raw_handle, maximum=P327_MAX_RAW_BYTES)
+        endpoint_identity = (
+            endpoint.identity_sha256 if endpoint is not None else None
+        )
+        accepted = acquisition == "accepted"
+        # The P327 proof must remain false if the inherited lane itself lost
+        # continuity, even if the wire exchange happened to be exact.
+        lane_supplement = self._lane_supplement(accepted)
+        accepted = accepted and lane_supplement["accepted_for_p324"] is True
+        if acquisition == "accepted" and not accepted:
+            acquisition = "identity-mismatch"
+        proof = self.proof or {}
+        exchange = self.exchange
+        if exchange is None:
+            tx = b""
+            rx = b""
+            banner_seen = ready_seen = done_seen = False
+        else:
+            tx = bytes(exchange.audit.tx)
+            rx = bytes(exchange.audit.rx)
+            banner_seen = exchange.audit.banner_seen
+            ready_seen = exchange.audit.ready_seen
+            done_seen = exchange.audit.done_seen
+        p327_value = {
+            "schema": P327_OBSERVER_RECEIPT_SCHEMA,
+            "contract_id": p327_framed_observer.CONTRACT_ID,
+            "target": p327_framed_observer.TARGET,
+            "binding": dict(self.base.binding),
+            "spec_sha256": cdc_acm_observer.digest(self.spec),
+            "baseline_sha256": _receipt(
+                self.run_dir / "candidate-observer-baseline.json",
+                "P327 candidate observer baseline",
+            )["sha256"],
+            "download_departure_sha256": departure_receipt["sha256"],
+            "download_endpoint_absent": download_departure[
+                "download_endpoint_absent"
+            ],
+            "topology_sha256": hashlib.sha256(
+                p324_typec_lane.CANDIDATE_TOPOLOGY.removeprefix("usb:").encode()
+            ).hexdigest(),
+            "endpoint_identity_sha256": endpoint_identity,
+            "guard_sha256": _receipt(
+                self.run_dir / "candidate-observer-guard.json",
+                "P327 candidate observer guard",
+            )["sha256"],
+            "raw": {
+                "path": str(raw_handle.stdout_path),
+                "size": len(raw_payload),
+                "sha256": hashlib.sha256(raw_payload).hexdigest(),
+                "capture_receipt": {
+                    "path": str(raw_handle.receipt_path),
+                    "size": raw_handle.receipt_path.stat().st_size,
+                    "sha256": hashlib.sha256(
+                        raw_handle.receipt_path.read_bytes()
+                    ).hexdigest(),
+                },
+            },
+            "banner_hex": p327_framed_runtime.DEVICE_BANNER.hex(),
+            "tx_hex": tx.hex(),
+            "tx": _p327_identity(tx),
+            "rx": _p327_identity(rx),
+            "trailing_rx": _p327_identity(self.trailing_rx),
+            "trailing_bytes_seen": len(self.trailing_rx),
+            "banner_seen": banner_seen,
+            "ready_seen": ready_seen,
+            "done_seen": done_seen,
+            "proof": proof,
+            "pid1_framed_exec_proof": proof.get(
+                "pid1_framed_exec_proof"
+            ) is True and not self.trailing_rx,
+            "busybox_ash_command_proof": proof.get(
+                "busybox_ash_command_proof"
+            ) is True and not self.trailing_rx,
+            "framed_session_closed": (
+                banner_seen and ready_seen and done_seen
+            ),
+            "interactive_pty_proof": False,
+            "caller_selected_command": False,
+            "command_count": len(p327_framed_observer.DEFAULT_COMMANDS),
+            "lane": lane_supplement,
+            "expected_size": len(p327_framed_runtime.DEVICE_BANNER),
+            "exact": accepted,
+            "extra_byte": bool(self.trailing_rx),
+            "classification": acquisition,
+            "accepted": accepted,
+            "bounded": True,
+            "elapsed_sec": round(time.monotonic() - started, 6),
+        }
+        cdc_acm_observer.persist_json(
+            self.run_dir / "candidate-observer.json", p327_value
+        )
+        # The P324 lane adapter normally emits this after its delegate's
+        # observe call.  P327 owns the framed receipt, so publish the same
+        # bounded lane supplement after the raw-first candidate receipt.
+        lane_value = dict(lane_supplement)
+        lane_value["base_observer"] = _receipt(
+            self.run_dir / "candidate-observer.json",
+            "P327 framed observer receipt",
+        )
+        cdc_acm_observer.persist_json(
+            self.run_dir / p324_cdc_observer.SUPPLEMENT_NAME, lane_value
+        )
+        return p327_value
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.delegate, name)
+
+
+@contextlib.contextmanager
+def _p327_candidate_observer_session(
+    prepared: PreparedRun,
+    spec: dict[str, str],
+    *,
+    lane_value: dict[str, Any],
+    lane_receipt: dict[str, Any],
+    usb_root: Path,
+    typec_root: Path,
+) -> Iterator[_P327ObserverSession]:
+    """Arm P324/P325 exactly once, then run the P327 framed exchange."""
+    if spec.get("protocol_contract") != p327_framed_observer.CONTRACT_ID:
+        raise F1LiveError("P3.27 framed observer contract differs")
+    # The P327 manifest has a distinct protocol ``kind``.  The inherited
+    # P324/P325 selector and guard intentionally consume the older banner
+    # observer grammar, so only this private delegate copy is normalized.
+    inherited_spec = _p327_inherited_spec(spec)
+    with p325_guard_adapter.observer_session(
+        inherited_spec,
+        prepared.private_target["topology"],
+        prepared.run_dir,
+        _candidate_observer_binding(prepared),
+        lane_value,
+        lane_receipt,
+        usb_root=usb_root,
+        typec_root=typec_root,
+    ) as inherited:
+        base = inherited.delegate.delegate
+        session = _P327ObserverSession(
+            inherited,
+            base,
+            inherited_spec,
+            prepared.run_dir,
+            lane_value,
+            lane_receipt,
+            usb_root,
+            typec_root,
+        )
+        yield session
+
+
+def _p327_inherited_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(spec, dict) or not cdc_acm_observer.SPEC_KEYS <= set(spec):
+        raise F1LiveError("P3.27 inherited observer projection is incomplete")
+    value = {
+        key: spec[key]
+        for key in cdc_acm_observer.SPEC_KEYS
+    }
+    value["kind"] = cdc_acm_observer.KIND
+    return value
+
+
+def _p327_validate_receipt(
+    prepared: PreparedRun,
+    path: Path,
+    spec: dict[str, Any],
+) -> dict[str, Any]:
+    """Reopen one P327 raw-first framed receipt without a device call."""
+    value = _read_json(path, "P327 framed observer receipt")
+    expected_keys = {
+        "schema",
+        "contract_id",
+        "target",
+        "binding",
+        "spec_sha256",
+        "baseline_sha256",
+        "download_departure_sha256",
+        "download_endpoint_absent",
+        "topology_sha256",
+        "endpoint_identity_sha256",
+        "guard_sha256",
+        "raw",
+        "banner_hex",
+        "tx_hex",
+        "tx",
+        "rx",
+        "trailing_rx",
+        "trailing_bytes_seen",
+        "banner_seen",
+        "ready_seen",
+        "done_seen",
+        "proof",
+        "pid1_framed_exec_proof",
+        "busybox_ash_command_proof",
+        "framed_session_closed",
+        "interactive_pty_proof",
+        "caller_selected_command",
+        "command_count",
+        "lane",
+        "expected_size",
+        "exact",
+        "extra_byte",
+        "classification",
+        "accepted",
+        "bounded",
+        "elapsed_sec",
+    }
+    if set(value) != expected_keys:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 framed observer receipt shape differs"
+        )
+    inherited_spec = _p327_inherited_spec(spec)
+    topology = hashlib.sha256(
+        p324_typec_lane.CANDIDATE_TOPOLOGY.removeprefix("usb:").encode()
+    ).hexdigest()
+    baseline = _receipt(
+        prepared.run_dir / "candidate-observer-baseline.json",
+        "P327 candidate observer baseline",
+    )
+    departure = _receipt(
+        prepared.run_dir / "candidate-observer-download-departure.json",
+        "P327 candidate observer departure",
+    )
+    guard = _receipt(
+        prepared.run_dir / "candidate-observer-guard.json",
+        "P327 candidate observer guard",
+    )
+    if (
+        value["schema"] != P327_OBSERVER_RECEIPT_SCHEMA
+        or value["contract_id"] != p327_framed_observer.CONTRACT_ID
+        or value["target"] != p327_framed_observer.TARGET
+        or value["binding"] != _candidate_observer_binding(prepared)
+        or value["spec_sha256"] != cdc_acm_observer.digest(inherited_spec)
+        or value["baseline_sha256"] != baseline["sha256"]
+        or value["download_departure_sha256"] != departure["sha256"]
+        or value["guard_sha256"] != guard["sha256"]
+        or type(value["download_endpoint_absent"]) is not bool
+        or value["topology_sha256"] != topology
+        or value["expected_size"] != len(p327_framed_runtime.DEVICE_BANNER)
+        or value["interactive_pty_proof"] is not False
+        or value["caller_selected_command"] is not False
+        or value["command_count"] != p327_framed_runtime.MAX_COMMANDS
+        or value["bounded"] is not True
+        or not isinstance(value["classification"], str)
+        or value["classification"] not in P327_CLASSIFICATIONS
+        or value["exact"] is not (value["accepted"] is True)
+        or value["extra_byte"] is not (value["trailing_bytes_seen"] > 0)
+        or value["accepted"] is not (value["classification"] == "accepted")
+        or (
+            value["accepted"] is True
+            and value["download_endpoint_absent"] is not True
+        )
+        or type(value["trailing_bytes_seen"]) is not int
+        or value["trailing_bytes_seen"] not in {0, 1}
+        or type(value["banner_seen"]) is not bool
+        or type(value["ready_seen"]) is not bool
+        or type(value["done_seen"]) is not bool
+        or value["framed_session_closed"] is not (
+            value["banner_seen"]
+            and value["ready_seen"]
+            and value["done_seen"]
+        )
+        or value["framed_session_closed"] is not True
+        or isinstance(value["elapsed_sec"], bool)
+        or not isinstance(value["elapsed_sec"], (int, float))
+        or not math.isfinite(float(value["elapsed_sec"]))
+        or not 0 <= value["elapsed_sec"] <= 600
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 framed observer receipt semantics differ"
+        )
+    endpoint_identity = value["endpoint_identity_sha256"]
+    if endpoint_identity is not None and (
+        not isinstance(endpoint_identity, str)
+        or re.fullmatch(r"[0-9a-f]{64}", endpoint_identity) is None
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 endpoint identity differs"
+        )
+    raw = value["raw"]
+    if not isinstance(raw, dict) or set(raw) != {
+        "path",
+        "size",
+        "sha256",
+        "capture_receipt",
+    }:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 raw receipt shape differs"
+        )
+    raw_path = Path(raw["path"])
+    capture_receipt = raw["capture_receipt"]
+    expected_raw_path = prepared.run_dir / "candidate-observer.raw"
+    expected_capture_path = prepared.run_dir / "candidate-observer.capture.json"
+    if (
+        raw_path != expected_raw_path
+        or type(raw["size"]) is not int
+        or raw["size"] < 0
+        or raw["size"] > P327_MAX_RAW_BYTES
+        or not isinstance(raw["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", raw["sha256"]) is None
+        or not isinstance(capture_receipt, dict)
+        or set(capture_receipt) != {"path", "size", "sha256"}
+        or type(capture_receipt["size"]) is not int
+        or not isinstance(capture_receipt["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", capture_receipt["sha256"]) is None
+        or Path(capture_receipt["path"]) != expected_capture_path
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 raw receipt binding differs"
+        )
+    try:
+        raw_payload = raw_path.read_bytes()
+        capture_payload = expected_capture_path.read_bytes()
+        handle = raw_capture.load_handle(expected_capture_path)
+    except (OSError, raw_capture.RawCaptureError) as exc:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 raw evidence cannot be reopened"
+        ) from exc
+    if (
+        len(raw_payload) != raw["size"]
+        or hashlib.sha256(raw_payload).hexdigest() != raw["sha256"]
+        or len(capture_payload) != capture_receipt["size"]
+        or hashlib.sha256(capture_payload).hexdigest()
+        != capture_receipt["sha256"]
+        or handle.stdout_path != expected_raw_path
+        or handle.stderr_path != prepared.run_dir / "candidate-observer.raw.stderr"
+        or handle.returncode != 0
+        or handle.timed_out
+        or handle.output_exceeded
+        or handle.producer_error_type is not None
+        or raw_capture.read_stdout(handle, maximum=P327_MAX_RAW_BYTES)
+        != raw_payload
+        or raw_capture.read_stderr(handle, maximum=1) != b""
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 raw evidence changed"
+        )
+    try:
+        tx = bytes.fromhex(value["tx_hex"])
+    except (TypeError, ValueError) as exc:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 tx encoding differs"
+        ) from exc
+    trailing = value["trailing_rx"]
+    if not isinstance(trailing, dict) or set(trailing) != {"size", "sha256"}:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 trailing receipt shape differs"
+        )
+    if (
+        value["tx"] != _p327_identity(tx)
+        or type(trailing["size"]) is not int
+        or not isinstance(trailing["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", trailing["sha256"]) is None
+        or trailing["size"] != value["trailing_bytes_seen"]
+        or trailing["size"] not in {0, 1}
+        or trailing["sha256"]
+        != hashlib.sha256(raw_payload[-trailing["size"] :] if trailing["size"] else b"").hexdigest()
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 tx/trailing accounting differs"
+        )
+    rx = value["rx"]
+    if not isinstance(rx, dict) or set(rx) != {"size", "sha256"}:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 rx receipt shape differs"
+        )
+    rx_payload = raw_payload
+    # TX bytes are not part of the device-to-host raw stream.  The exchange
+    # audit includes the banner and frames; the receipt binds that identity
+    # directly and only admits a one-byte trailing suffix.
+    if (
+        type(rx["size"]) is not int
+        or not isinstance(rx["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", rx["sha256"]) is None
+        or rx["size"] != len(rx_payload)
+        or rx["sha256"] != hashlib.sha256(rx_payload).hexdigest()
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 rx accounting differs"
+        )
+    proof = value["proof"]
+    if not isinstance(proof, dict) or proof.get("command_count") != 3:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 proof receipt is incomplete"
+        )
+    proof_flags = {
+        "pid1_framed_exec_proof": value["pid1_framed_exec_proof"],
+        "busybox_ash_command_proof": value["busybox_ash_command_proof"],
+        "framed_session_closed": value["framed_session_closed"],
+    }
+    if any(type(item) is not bool for item in proof_flags.values()):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 proof flags are malformed"
+        )
+    if value["accepted"] is True and not all(proof_flags.values()):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 accepted receipt lacks framed proof"
+        )
+    lane = value["lane"]
+    if not isinstance(lane, dict):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 lane receipt is absent"
+        )
+    required_lane = (
+        "source_topology_sha256",
+        "candidate_topology_sha256",
+        "both_topologies_inventory_complete",
+        "accepted_inventory_exact",
+        "same_run_typec_partner_continuity",
+        "accepted_for_p324",
+    )
+    if any(key not in lane for key in required_lane):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 lane receipt is incomplete"
+        )
+    return {
+        "classification": value["classification"],
+        "accepted": value["accepted"],
+        "receipt_sha256": _receipt(path, "P327 framed observer receipt")["sha256"],
+        "valid_receipt": True,
+        "download_endpoint_absent": value["download_endpoint_absent"],
+        "endpoint_identity_sha256": endpoint_identity,
+        "topology_sha256": value["topology_sha256"],
+        "bounded": value["bounded"],
+        "source_topology_sha256": lane["source_topology_sha256"],
+        "candidate_topology_sha256": lane["candidate_topology_sha256"],
+        "both_topologies_inventory_complete": lane[
+            "both_topologies_inventory_complete"
+        ],
+        "accepted_inventory_exact": lane["accepted_inventory_exact"],
+        "same_run_typec_partner_continuity": lane[
+            "same_run_typec_partner_continuity"
+        ],
+        "accepted_for_p324": lane["accepted_for_p324"],
+        "pid1_framed_exec_proof": value["pid1_framed_exec_proof"],
+        "busybox_ash_command_proof": value["busybox_ash_command_proof"],
+        "framed_session_closed": value["framed_session_closed"],
+        "interactive_pty_proof": value["interactive_pty_proof"],
+        "caller_selected_command": value["caller_selected_command"],
+        "p327_framed_exec": proof,
+    }
+
+
 def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     def unavailable(classification: str) -> dict[str, Any]:
         result = {
@@ -3281,6 +4206,16 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                     "accepted_for_p324": False,
                 }
             )
+        if _p327_bundle(prepared.bundle):
+            result.update(
+                {
+                    "pid1_framed_exec_proof": False,
+                    "busybox_ash_command_proof": False,
+                    "framed_session_closed": False,
+                    "interactive_pty_proof": False,
+                    "caller_selected_command": False,
+                }
+            )
         return result
 
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
@@ -3290,7 +4225,14 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         return unavailable("interrupted-before-receipt")
     try:
-        if _p326_bundle(prepared.bundle):
+        if _p327_bundle(prepared.bundle):
+            value = _p327_validate_receipt(
+                prepared,
+                path,
+                spec,
+            )
+            receipt_sha256 = value["receipt_sha256"]
+        elif _p326_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(prepared)
             value = p326_console_observer.validate_receipt(
                 prepared.run_dir,
@@ -3338,6 +4280,7 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
         p324_cdc_observer.P324ObserverError,
         p325_guard_adapter.P325ObserverError,
         p326_console_observer.P326ObserverError,
+        p327_framed_observer.FramedObserverError,
         F1LiveError,
         core.F1V2Error,
     ):
@@ -3366,7 +4309,33 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                 )
             }
         )
-    if _p326_bundle(prepared.bundle):
+    if _p327_bundle(prepared.bundle):
+        result.update(
+            {
+                "pid1_framed_exec_proof": value.get(
+                    "pid1_framed_exec_proof"
+                )
+                is True,
+                "busybox_ash_command_proof": value.get(
+                    "busybox_ash_command_proof"
+                )
+                is True,
+                "framed_session_closed": value.get(
+                    "framed_session_closed"
+                )
+                is True,
+                "interactive_pty_proof": value.get(
+                    "interactive_pty_proof"
+                )
+                is False,
+                "caller_selected_command": value.get(
+                    "caller_selected_command"
+                )
+                is False,
+                "p327_framed_exec": value.get("p327_framed_exec"),
+            }
+        )
+    elif _p326_bundle(prepared.bundle):
         result.update(
             {
                 "pid1_bidirectional_proof": value.get(
@@ -3501,10 +4470,11 @@ def _candidate_arrival_proof_projection(
         return None
     durable = _reopen_candidate_observation(prepared)
     guard_release = _reopen_candidate_guard_release(prepared)
+    p327 = _p327_bundle(prepared.bundle)
     p326 = _p326_bundle(prepared.bundle)
     p325 = _p325_bundle(prepared.bundle)
     p324 = _p324_bundle(prepared.bundle)
-    lane_bound = p324 or p325 or p326
+    lane_bound = p324 or p325 or p326 or p327
     expected_topology = hashlib.sha256(
         (
             p324_typec_lane.CANDIDATE_TOPOLOGY
@@ -3518,7 +4488,14 @@ def _candidate_arrival_proof_projection(
         and durable["accepted"] is True
         and durable["classification"] == "accepted"
     )
-    if p326:
+    if p327:
+        observer_accepted = (
+            observer_accepted
+            and durable.get("pid1_framed_exec_proof") is True
+            and durable.get("busybox_ash_command_proof") is True
+            and durable.get("framed_session_closed") is True
+        )
+    elif p326:
         observer_accepted = (
             observer_accepted
             and durable.get("pid1_bidirectional_proof") is True
@@ -3562,7 +4539,9 @@ def _candidate_arrival_proof_projection(
     final_observer = final.get("observer") if isinstance(final, dict) else None
     if isinstance(final_observer, dict):
         key = (
-            "p326_stock"
+            "p327_stock"
+            if _p327_bundle(prepared.bundle)
+            else "p326_stock"
             if _p326_bundle(prepared.bundle)
             else "p325_stock"
             if _p325_bundle(prepared.bundle)
@@ -3588,7 +4567,9 @@ def _candidate_arrival_proof_projection(
             }
         else:
             error_key = (
-                "p326_stock_error"
+                "p327_stock_error"
+                if _p327_bundle(prepared.bundle)
+                else "p326_stock_error"
                 if _p326_bundle(prepared.bundle)
                 else "p325_stock_error"
                 if _p325_bundle(prepared.bundle)
@@ -3606,7 +4587,7 @@ def _candidate_arrival_proof_projection(
                 }
     # P3.25 already retains the complete Carrier projection in final_evidence.
     # Repeating it here makes the durable live-state record exceed MAX_RECORD.
-    if p325 or p326:
+    if p325 or p326 or p327:
         supplemental = None
     proof = all(
         (
@@ -3624,7 +4605,9 @@ def _candidate_arrival_proof_projection(
         "role": role,
         "primary_source": "candidate_observer",
         "banner_size": (
-            typed_evidence.P326_CONSOLE_TRANSCRIPT_SIZE
+            len(p327_framed_runtime.DEVICE_BANNER)
+            if p327
+            else typed_evidence.P326_CONSOLE_TRANSCRIPT_SIZE
             if p326
             else typed_evidence.P325_ACM_PRIMARY_BANNER_SIZE
             if p325
@@ -3645,7 +4628,32 @@ def _candidate_arrival_proof_projection(
         "proof": proof,
         "supplemental_carrier": supplemental,
     }
-    if p326:
+    if p327:
+        result.update(
+            {
+                "pid1_framed_exec_proof": durable.get(
+                    "pid1_framed_exec_proof"
+                )
+                is True,
+                "busybox_ash_command_proof": durable.get(
+                    "busybox_ash_command_proof"
+                )
+                is True,
+                "framed_session_closed": durable.get(
+                    "framed_session_closed"
+                )
+                is True,
+                "interactive_pty_proof": durable.get(
+                    "interactive_pty_proof"
+                )
+                is False,
+                "caller_selected_command": durable.get(
+                    "caller_selected_command"
+                )
+                is False,
+            }
+        )
+    elif p326:
         result.update(
             {
                 "pid1_bidirectional_proof": durable.get(
@@ -3688,6 +4696,7 @@ def _validate_candidate_arrival_proof_state(
         or _p324_bundle(prepared.bundle)
         or _p325_bundle(prepared.bundle)
         or _p326_bundle(prepared.bundle)
+        or _p327_bundle(prepared.bundle)
     ):
         return
     expected = _candidate_arrival_proof_projection(prepared, state)
@@ -4052,7 +5061,12 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     except F1LiveError as exc:
         if not _acm_primary_bundle(prepared.bundle):
             raise
-        if _p326_bundle(prepared.bundle):
+        if _p327_bundle(prepared.bundle):
+            stock_error = _p327_stock_error(payloads[0], exc)
+            marker_result = _p327_parser_failure_classification(
+                payloads[0], exc
+            )
+        elif _p326_bundle(prepared.bundle):
             stock_error = _p326_stock_error(payloads[0], exc)
             marker_result = _p326_parser_failure_classification(
                 payloads[0], exc
@@ -4148,7 +5162,18 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.25 final stock projection changed")
     elif "p325_stock" in observer or "p325_stock_error" in observer:
         raise F1LiveError("foreign P3.25 final stock evidence")
-    if _p326_bundle(prepared.bundle):
+    if _p327_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p327_stock_error") != stock_error
+                or "p327_stock" in observer
+            ):
+                raise F1LiveError("P3.27 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p327_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.27 final stock projection changed")
+    elif _p326_bundle(prepared.bundle):
         if stock_error is not None:
             if (
                 observer.get("p326_stock_error") != stock_error
@@ -4202,6 +5227,17 @@ def _validate_candidate_observer_state(
         != guard_release["receipt_sha256"]
     ):
         raise F1LiveError("candidate observer durable state mismatch")
+    if _p327_bundle(prepared.bundle) and any(
+        state.get(key) != durable.get(key)
+        for key in (
+            "pid1_framed_exec_proof",
+            "busybox_ash_command_proof",
+            "framed_session_closed",
+            "interactive_pty_proof",
+            "caller_selected_command",
+        )
+    ):
+        raise F1LiveError("P3.27 framed proof durable state mismatch")
     if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
         _validate_candidate_arrival_proof_state(prepared, state)
     elif (
@@ -4312,11 +5348,25 @@ def validate_live_result(
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
     if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
+        p327 = _p327_bundle(prepared.bundle)
         p326 = _p326_bundle(prepared.bundle)
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
-        label = "P3.26" if p326 else "P3.25" if p325 else "P3.24" if p324 else "P3.23"
+        label = (
+            "P3.27"
+            if p327
+            else "P3.26"
+            if p326
+            else "P3.25"
+            if p325
+            else "P3.24"
+            if p324
+            else "P3.23"
+        )
         success_verdict = (
+            typed_evidence.P327_FRAMED_EXEC_VERDICT
+            if p327
+            else
             typed_evidence.P326_CONSOLE_VERDICT
             if p326
             else typed_evidence.P325_ACM_PRIMARY_VERDICT
@@ -4327,6 +5377,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_VERDICT
         )
         success_outcome = (
+            typed_evidence.P327_FRAMED_EXEC_OUTCOME
+            if p327
+            else
             typed_evidence.P326_CONSOLE_OUTCOME
             if p326
             else typed_evidence.P325_ACM_PRIMARY_OUTCOME
@@ -4337,6 +5390,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_OUTCOME
         )
         no_proof_outcome = (
+            typed_evidence.P327_FRAMED_EXEC_NO_PROOF_OUTCOME
+            if p327
+            else
             typed_evidence.P326_CONSOLE_NO_PROOF_OUTCOME
             if p326
             else typed_evidence.P325_ACM_PRIMARY_NO_PROOF_OUTCOME
@@ -5341,6 +6397,26 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     ),
                 }
             )
+            if _p327_bundle(prepared.bundle):
+                current.update(
+                    {
+                        "pid1_framed_exec_proof": durable[
+                            "pid1_framed_exec_proof"
+                        ],
+                        "busybox_ash_command_proof": durable[
+                            "busybox_ash_command_proof"
+                        ],
+                        "framed_session_closed": durable[
+                            "framed_session_closed"
+                        ],
+                        "interactive_pty_proof": durable[
+                            "interactive_pty_proof"
+                        ],
+                        "caller_selected_command": durable[
+                            "caller_selected_command"
+                        ],
+                    }
+                )
             _save_state(prepared, current)
             proof = (
                 current.get("candidate_completed") is True
@@ -5350,6 +6426,14 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     accepted=True,
                     status=guard_release["status"],
                     released=guard_release["released"],
+                )
+                and (
+                    not _p327_bundle(prepared.bundle)
+                    or (
+                        durable.get("pid1_framed_exec_proof") is True
+                        and durable.get("busybox_ash_command_proof") is True
+                        and durable.get("framed_session_closed") is True
+                    )
                 )
             )
             details = {
@@ -5396,6 +6480,14 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     current.get("candidate_observer_guard_released") is True
                 ),
             )
+            and (
+                not _p327_bundle(prepared.bundle)
+                or (
+                    current.get("pid1_framed_exec_proof") is True
+                    and current.get("busybox_ash_command_proof") is True
+                    and current.get("framed_session_closed") is True
+                )
+            )
         )
         journal.event(
             "candidate_boot_ready", {"proof": proof, "resumed": True}
@@ -5417,6 +6509,7 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
 
     current = _state(prepared)
     if _acm_primary_bundle(prepared.bundle):
+        p327 = _p327_bundle(prepared.bundle)
         p326 = _p326_bundle(prepared.bundle)
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
@@ -5428,6 +6521,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         if isinstance(projection, dict) and projection.get("proof") is True:
             return (
                 (
+                    typed_evidence.P327_FRAMED_EXEC_VERDICT
+                    if p327
+                    else
                     typed_evidence.P326_CONSOLE_VERDICT
                     if p326
                     else typed_evidence.P325_ACM_PRIMARY_VERDICT
@@ -5438,6 +6534,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
                     else typed_evidence.P323_ACM_PRIMARY_VERDICT
                 ),
                 (
+                    typed_evidence.P327_FRAMED_EXEC_OUTCOME
+                    if p327
+                    else
                     typed_evidence.P326_CONSOLE_OUTCOME
                     if p326
                     else typed_evidence.P325_ACM_PRIMARY_OUTCOME
@@ -5451,6 +6550,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         return (
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
             (
+                typed_evidence.P327_FRAMED_EXEC_NO_PROOF_OUTCOME
+                if p327
+                else
                 typed_evidence.P326_CONSOLE_NO_PROOF_OUTCOME
                 if p326
                 else typed_evidence.P325_ACM_PRIMARY_NO_PROOF_OUTCOME
@@ -5758,7 +6860,21 @@ def _finish_rollback(
                     raise F1LiveError("P3.25 final stock projection is missing")
                 current["p325_proof_class"] = projection["proof_class"]
                 current["p325_stock"] = projection
-        if _p326_bundle(prepared.bundle):
+        if _p327_bundle(prepared.bundle):
+            error = final["observer"].get("p327_stock_error")
+            projection = final["observer"].get("p327_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError(
+                        "P3.27 supplemental parser failure is malformed"
+                    )
+                current["p327_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.27 final stock projection is missing")
+                current["p327_proof_class"] = projection["proof_class"]
+                current["p327_stock"] = projection
+        elif _p326_bundle(prepared.bundle):
             error = final["observer"].get("p326_stock_error")
             projection = final["observer"].get("p326_stock")
             if error is not None:
@@ -6547,6 +7663,14 @@ def _finish_candidate_window(
                         is True
                     ),
                 )
+                and (
+                    not _p327_bundle(prepared.bundle)
+                    or (
+                        observation.get("pid1_framed_exec_proof") is True
+                        and observation.get("busybox_ash_command_proof") is True
+                        and observation.get("framed_session_closed") is True
+                    )
+                )
             )
         )
     )
@@ -6751,6 +7875,26 @@ def _execute_prepared_locked(
                         ],
                     }
                 )
+                if _p327_bundle(prepared.bundle):
+                    current.update(
+                        {
+                            "pid1_framed_exec_proof": durable[
+                                "pid1_framed_exec_proof"
+                            ],
+                            "busybox_ash_command_proof": durable[
+                                "busybox_ash_command_proof"
+                            ],
+                            "framed_session_closed": durable[
+                                "framed_session_closed"
+                            ],
+                            "interactive_pty_proof": durable[
+                                "interactive_pty_proof"
+                            ],
+                            "caller_selected_command": durable[
+                                "caller_selected_command"
+                            ],
+                        }
+                    )
                 if _p318_bundle(prepared.bundle):
                     topology_receipt = observation.get(
                         "p318_candidate_topology_raw"

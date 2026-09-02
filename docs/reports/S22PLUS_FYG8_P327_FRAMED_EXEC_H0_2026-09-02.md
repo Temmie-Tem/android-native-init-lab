@@ -8,7 +8,7 @@ Tier: H0 only
 
 Device contact: none
 
-Independent review: `PASS_GO_P327_FRAMED_EXEC_CANDIDATE_H0`
+Independent review: `PASS_GO_P327_PROCESS_V2_H0`
 
 ## Outcome
 
@@ -16,9 +16,10 @@ P3.27 now has a host-only framed fixed-command runtime and a deterministic
 boot-only A/B AP builder over the ACM path proved by P3.26. The initial
 protocol unit received `PASS_GO_P327_FRAMED_EXEC_H0`; the fresh Image/run-ID,
 adapter and candidate-build extension received
-`PASS_GO_P327_FRAMED_EXEC_CANDIDATE_H0`. It does not yet have common Process-v2
-registration, target-contract activation, ready declaration, approval, or
-live authority.
+`PASS_GO_P327_FRAMED_EXEC_CANDIDATE_H0`. The minimal Process-v2 registration,
+target-contract clause, and ready declaration subsequently received
+`PASS_GO_P327_PROCESS_V2_H0`. No connected preparation, approval, device
+contact, or live authority exists yet.
 
 The design deliberately keeps the next step smaller than ADB, FunctionFS,
 NCM/TCP, or an interactive PTY. It reuses the earlier S22+ O0 16-byte framed
@@ -117,9 +118,51 @@ multi-frame output, explicit timeout/truncation, exec failure accounting,
 exact-command rejection including BusyBox `setsid`, finite host deadlines,
 fresh run binding, and the exact two-anchor runtime transform.
 
+## Process-v2 registration
+
+P327 has a distinct common evidence/core/live dispatch; it does not alias the
+P326 transcript role or parser. It reuses only the unchanged P324 Type-C lane,
+P325 tty-class guard, rollback, and final-health choreography. Its live receipt
+requires all three framed commands, clean `DONE`, raw-first capture, and
+immediate trailing-byte retention/rejection.
+
+Independent review first blocked a real defect: session creation hashed the
+seven-field inherited CDC projection while receipt reopen hashed the larger
+P327 manifest object. Both paths now use one shared projection. A real socket
+exchange through raw capture, durable receipt publication, and reopen passes;
+the P327 live tests pass 5/5 and ready tests pass 5/5.
+
+Published H0 identities:
+
+- candidate-static: 24,347 bytes, SHA-256
+  `e4ba955e06d61475fc6bdc2949fe9b8e8585232fe06945702c30bba63b96bbdd`;
+- run manifest: 1,021 bytes, SHA-256
+  `6966232397876bc338b5fbb7f73ac13260366397ab9a36d0f8db4a08dce9feeb`;
+- static result: 1,938 bytes, SHA-256
+  `493c6d9a9ecfda8faa2f9ce3ab00dda476d64e74b6d91f021e40f87781084210`;
+- ready manifest: 4,105 bytes, SHA-256
+  `c5a4a4abcc4ae00951d895c1ae899a66acdbda1fdea2467b7fdf87fe340b9d2c`.
+
+The ready manifest is H0 qualification only. It creates no F1 approval and no
+permission to transfer either AP.
+
+## Ledger continuity
+
+The current machine-readable ledger independently reproduces 25 candidate and
+25 rollback transfers. It omits the retained P320, P321, and P322 consumed F1
+runs; audit commit `bd86d11337` records that divergence without choosing a
+retrospective disposition. This unit does not backfill them.
+
+P327 currently has no F1 row because it has no device run. If its candidate is
+transferred, the same post-terminal reporting unit that proves
+`CAMPAIGN_CLOSED` will append exactly one P327 F1 closure row from the retained
+journal/result. The connected preparation will use a campaign-visible direct
+child name such as `p327-ready1-prepared-20260902-1`, avoiding the P322
+locatability problem without changing the common allocator or adding a gate.
+
 ## Next bounded unit
 
-Add the minimal common Process-v2 dispatch, target-contract clause and ready
-builder needed for the fixed three-command observation. No new protocol
-feature, general shell, PTY, resident service, or device work belongs in that
-registration unit.
+Run one fresh connected D0 preparation into the campaign-visible P327
+directory, then obtain one exact attended F1 approval. No new protocol feature,
+general shell, PTY, resident service, or extra qualification gate belongs
+between ready and that preparation.

@@ -157,7 +157,7 @@ capture, phase classification, recovery rebinding, or selector semantics
 requires a new independent boundary review.
 
 **P324 exact Type-C lane binding.** For the P324 S22+ observer and only the
-exact P325 and P326 successors defined immediately below, the
+exact P325, P326, and P327 successors defined below, the
 approval must bind and the runner must capture/revalidate the exact `port0`
 lane pair `usb:2-1.3` (`usb2-port1`, controller `0000:00:0d.0`) and `usb:3-1.3`
 (`usb3-port1`, controller `0000:00:14.0`) with their shared connector/location
@@ -220,6 +220,38 @@ two fixed lines, or any guard/rule/lane/selector/rollback change, is outside
 P326. This clause remains H0 and inactive until its exact execution-critical
 closure receives independent review and a ready declaration is published;
 neither event is a device approval.
+
+**P327 bounded framed-command successor.** P327 may reuse the exact P326
+BusyBox payload and the unchanged P324/P325 topology, tty guard, udev rule,
+P300 passive trace, Carrier supplement, and rollback choreography. Its sole
+live-protocol change replaces the fixed P326 `PING`/`SHELL` exchange with a
+16-byte little-endian `S327` version-1 frame header, CRC32, and payloads of at
+most 1,024 bytes. After the exact fresh run-bound banner, the host must send
+one `OPEN`, exactly the following three `EXEC` payloads in order, and one
+`CLOSE`: `/bin/busybox id`, `/bin/busybox uname -a`, and the exact run-bound
+`/bin/busybox echo P327-NONCE ...`. The device returns one `READY`, bounded
+`DATA` plus one `EXIT` for each command, and one `DONE`. Sequence, CRC, length,
+run ID, command list, and terminal status must all match.
+
+Each child has a ten-second PID-1-owned timeout and 128-KiB output bound;
+PID 1 must isolate, kill, and reap the complete child process group on timeout
+or closure. The observer retains received bytes through the inherited raw
+writer before classification. After `DONE`, any immediately readable trailing
+byte is also retained and rejects proof. Proof requires all three fixed
+commands to exit zero, root `id` evidence, a bounded Linux `uname` line, the
+exact nonce reply, and clean session closure. A caller-selected or fourth
+command, interactive PTY, persistent shell, filesystem mutation, ADB/MTP
+substitution, selector or recovery change, or causal USB/Max77705 claim is
+outside P327. The candidate
+remains a boot-only AP and exact Magisk rollback plus final rooted FYG8 health
+remain mandatory. This clause is H0-only until its exact execution-critical
+closure receives independent review and a ready declaration is published;
+neither event is a device approval.
+
+If a P327 candidate transfer occurs, the same reporting unit that confirms
+`CAMPAIGN_CLOSED` must append exactly one `s22plus-fyg8-p327` F1 closure row
+derived from that run's retained journal and result. This is post-terminal
+bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
