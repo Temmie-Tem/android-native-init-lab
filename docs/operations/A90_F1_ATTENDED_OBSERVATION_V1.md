@@ -1,5 +1,18 @@
 # A90 F1 Operator-Attended Observation v1
 
+> **This document is an implementation reference beneath the contracts below.
+> It does not authorize device work by itself.**
+>
+> Bound from above by:
+>
+> - `docs/operations/targets/A90_TARGET_CONTRACT.md`
+> - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
+>
+> Its procedures do not replace D0/D1/F1 risk-tier classification or the
+> gates of the selected binding target contract. On conflict the higher
+> layer wins (`AGENTS.md`, Authority and Precedence).
+
+
 Status: `H0_IMPLEMENTED_STATIC_GO_NO_LIVE_MANIFEST`
 
 This contract defines a future A90-only extension to Process v2. It is not

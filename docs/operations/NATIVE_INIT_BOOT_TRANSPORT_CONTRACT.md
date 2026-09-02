@@ -1,5 +1,17 @@
 # Native Init Boot And Transport Contract
 
+> **Operational guidance only; it does not authorize device work by itself.**
+> No higher contract binds this file as an implementation reference
+> (checked 2026-09-02).
+>
+> Device authority comes only from `AGENTS.md`, the selected binding target
+> contract, `DEVICE_ACTION_RISK_TIERS.md`, and `DEVICE_ACTION_PROCESS_V2.md`.
+> On conflict the higher layer wins.
+>
+> ⚠️ "Contract" here means a transport/boot interface agreement. It is **not** a
+> binding target contract in the `AGENTS.md` sense.
+
+
 Updated: `2026-06-12`
 
 This document defines the standing contract between:

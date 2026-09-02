@@ -53,11 +53,11 @@ the line.
 
 | Path | Role | Token |
 | --- | --- | --- |
-| `docs/operations/**` | Executable instructions | Runtime variable: `$A90_SERIAL`, `$S22P_SERIAL`; for expected tool output, `<your-device-serial>` |
-| `docs/reports/**`, `docs/archive/**` | Historical evidence | Public device alias: `DEVICE-A90-01`, `DEVICE-S22P-01` |
+| `docs/operations/**` | Executable instructions | Runtime variable: `$A90_SERIAL`, `$S22P_SERIAL`, `$S20P_SERIAL`; for expected tool output, `<your-device-serial>` |
+| `docs/reports/**`, `docs/archive/**` | Historical evidence | Public device alias: `DEVICE-A90-01`, `DEVICE-S22P-01`, `DEVICE-S20P-01` |
 | `workspace/public/archive/**` | Frozen past source, published copy | Explicit redaction token: `REDACTED-DEVICE-SERIAL` |
 | `docs/security/findings/**` (code quotes) | Evidence of past behavior | `REDACTED-DEVICE-SERIAL`, with an inline redaction note |
-| `tests/**` | Fixtures | Obviously synthetic but format-valid value: `RFCM0000000`, `RFCT0000000` |
+| `tests/**` | Fixtures | Obviously synthetic but format-valid value: `RFCM0000000`, `RFCT0000000`, `RFCS0000000` |
 
 Rationale for the third and fourth rows: an alias in an archived
 `wf(".../serialnumber", ...)` call would assert that the code once wrote
@@ -79,6 +79,7 @@ reports in the public tree.
 | --- | --- |
 | `DEVICE-A90-01` | `SM-A908N` |
 | `DEVICE-S22P-01` | `SM-S906N` |
+| `DEVICE-S20P-01` | `SM-G986N` |
 
 The alias-to-serial mapping is maintainer-private and lives only under
 `workspace/private/`. It is never committed.
@@ -114,9 +115,18 @@ A repository-boundary check runs over the tracked tree. Its required invariants:
    tree it is meant to keep clean.
 
 The concrete pattern, the approved-value list, and the tests live with the
-checker, not in this policy. At adoption the approved list holds only the test
-fixtures `RFCM0000000` and `RFCT0000000`; the synthetic USB gadget serial corpus
-is deliberately absent because no member of it can reach the heuristic.
+checker, not in this policy. At adoption the approved list held only the test
+fixtures `RFCM0000000` and `RFCT0000000`; `RFCS0000000` was added with the S20+
+row. The synthetic USB gadget serial corpus is deliberately absent because no
+member of it can reach the heuristic.
+
+> **Open item (owner-only).** This policy was last revised 2026-08-07 and the
+> S20+ (`SM-G986N`) was onboarded 2026-08-12, so the checker's layer-1
+> `KNOWN_IDENTIFIER_DIGESTS` still holds two entries and does not include the
+> S20+ serial digest. That serial is maintainer-private, so only the owner can
+> add it. Until then an S20+ serial is still caught, but by the layer-3
+> heuristic as an *unrecognised* serial-shaped token needing review, not as a
+> known identifier. Adding the digest upgrades it to an exact layer-1 failure.
 
 Implementation: `workspace/public/src/scripts/security/repository_boundary_check.py`,
 tests in `tests/test_repository_boundary_check.py`.

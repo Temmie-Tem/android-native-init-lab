@@ -1,5 +1,24 @@
 # Claude Handoff Prompt
 
+> **역사 문서 · 인계 경로로 쓰지 마십시오 (권한 없음)**
+>
+> 이 프롬프트는 `2026-06-12` 기준이며 **현재 계약 계층을 반영하지 않습니다.**
+> 구체적으로 아래가 모두 낡았습니다.
+>
+> - 저장소 경로를 `/home/temmie/dev/A90_5G_rooting`으로 지시합니다 (2026-07-19에
+>   `android-native-init-lab`으로 변경됨).
+> - A90 단일 타깃을 전제하며 S22+·S20+와 binding target registry를 모릅니다.
+> - `AGENTS.md`, target contract, `DEVICE_ACTION_RISK_TIERS.md`,
+>   `DEVICE_ACTION_PROCESS_V2.md`를 전혀 언급하지 않습니다. 즉 D0/D1/F1 위험
+>   등급과 boot-only F1 절차 없이 flash 명령을 제시합니다.
+> - baseline(v2321), fallback(v48/v49) 기준과 bridge 판정 문자열이 당시 값입니다.
+>
+> **현재 인계 순서는 [`../README.md`](../README.md)의 "새 에이전트 인계"를
+> 따르십시오.** 기기 작업 권한은 `../../AGENTS.md`와 선택된 binding target
+> contract에서만 나옵니다.
+>
+> 아래 본문은 당시 기록으로 보존하며 수정하지 않습니다.
+
 Date: `2026-06-12`
 
 아래 블록을 Claude나 다른 에이전트에게 그대로 붙여 넣는다.

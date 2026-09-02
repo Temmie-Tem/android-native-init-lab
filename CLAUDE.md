@@ -3,8 +3,8 @@
 `AGENTS.md` is the root binding operating and device-safety contract in this
 repository. Select exactly one binding target contract from its registry, then
 read `AGENTS.md`, that target contract, and the target goal in that order.
-`GOAL.md` defines the S22+ frontier and `GOAL_A90.md` defines the A90 frontier;
-neither goal grants device authority.
+`GOAL.md` defines the S22+ frontier, `GOAL_A90.md` the A90 frontier, and
+`GOAL_S20PLUS.md` the S20+ frontier; no goal grants device authority.
 
 Current posture:
 

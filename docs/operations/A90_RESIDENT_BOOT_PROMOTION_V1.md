@@ -1,5 +1,19 @@
 # A90 Resident Boot Promotion v1
 
+> **This document is an implementation reference beneath the contracts below.
+> It does not authorize device work by itself.**
+>
+> Bound from above by:
+>
+> - `docs/operations/targets/A90_TARGET_CONTRACT.md`
+> - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
+> - `docs/operations/DEVICE_ACTION_RISK_TIERS.md`
+>
+> Its procedures do not replace D0/D1/F1 risk-tier classification or the
+> gates of the selected binding target contract. On conflict the higher
+> layer wins (`AGENTS.md`, Authority and Precedence).
+
+
 Status: `H0_RUNNER_REVIEWED_NO_LIVE_MANIFEST`
 
 This is a target-specific F1 extension for the A90 only. It defines how one

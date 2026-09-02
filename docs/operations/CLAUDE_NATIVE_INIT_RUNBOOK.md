@@ -1,5 +1,13 @@
 # Claude / Agent Native Init Operations Runbook
 
+> **운영 안내 문서입니다. 이 문서 자체는 device 작업을 승인하지 않습니다.**
+> 어떤 상위 계약도 이 문서를 구현 참조로 묶고 있지 않습니다 (2026-09-02 확인).
+>
+> 기기 작업 권한은 `AGENTS.md`, 선택된 binding target contract,
+> `DEVICE_ACTION_RISK_TIERS.md`, `DEVICE_ACTION_PROCESS_V2.md`에서만 나옵니다.
+> 충돌 시 상위 계약이 이깁니다.
+
+
 Date: `2026-06-12`
 
 이 문서는 Claude나 다른 에이전트가 이 저장소에서 같은 실수를 반복하지 않도록 남기는

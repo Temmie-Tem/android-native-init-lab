@@ -1,5 +1,17 @@
 # A90 Native Init Development Loop Standard
 
+> **운영 안내 문서입니다. 이 문서 자체는 device 작업을 승인하지 않습니다.**
+> 어떤 상위 계약도 이 문서를 구현 참조로 묶고 있지 않습니다 (2026-09-02 확인).
+>
+> 기기 작업 권한은 `AGENTS.md`, 선택된 binding target contract,
+> `DEVICE_ACTION_RISK_TIERS.md`, `DEVICE_ACTION_PROCESS_V2.md`에서만 나옵니다.
+> 충돌 시 상위 계약이 이깁니다.
+>
+> ⚠️ 아래 `Gate 정의`는 이 문서 고유의 어휘이며 현행 **D0 / D1 / F1** 위험
+> 등급과 다릅니다. 두 체계를 섞지 마십시오. 기기 작업의 등급 판정은
+> `DEVICE_ACTION_RISK_TIERS.md`가 정본입니다.
+
+
 Date: `2026-05-21`
 
 이 문서는 A90 native init 작업의 표준 개발 루프다. Wi-Fi bring-up처럼 실기기 상태,

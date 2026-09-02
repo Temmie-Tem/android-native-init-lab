@@ -1,5 +1,21 @@
 # A90 WSTA Native-Uplink D-Public Operator Runbook
 
+> **종료된 에픽의 운영 문서 · 권한 없음**
+>
+> 이 문서는 A90 server-distro / WSTA 에픽에 속합니다. 해당 에픽은
+> **2026-07-05에 종료 선언**됐고, `GOAL_A90.md`는 WSTA를 "retired experiment"로,
+> `A90_TARGET_CONTRACT.md`는 남은 WSTA 스냅샷을 정리 대상 obsolete 파일로
+> 다룹니다.
+>
+> 본문은 현행 계약 계층(`AGENTS.md`, target contract,
+> `DEVICE_ACTION_RISK_TIERS.md`, `DEVICE_ACTION_PROCESS_V2.md`)을 참조하지
+> **않으며**, 여기 적힌 절차는 D0/D1/F1 위험 등급 판정을 대신하지 않습니다.
+> 기기 작업 권한은 `AGENTS.md`와 선택된 binding target contract에서만
+> 나옵니다.
+>
+> 과거 실행 기록으로 보존하며 본문은 수정하지 않습니다.
+
+
 This runbook is the operator path for the proven WSTA45 profile publish flow:
 
 ```text

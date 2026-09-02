@@ -1,5 +1,17 @@
 # Native Init Flash / Bridge Operator Guide
 
+> **This document is an implementation reference beneath the contracts below.
+> It does not authorize device work by itself.**
+>
+> Bound from above by:
+>
+> - `docs/operations/targets/A90_TARGET_CONTRACT.md`
+>
+> Its procedures do not replace D0/D1/F1 risk-tier classification or the
+> gates of the selected binding target contract. On conflict the higher
+> layer wins (`AGENTS.md`, Authority and Precedence).
+
+
 Date: `2026-06-12`
 
 이 문서는 사람이 직접 따라 하기 위한 짧은 운영 절차서다.

@@ -33,6 +33,12 @@ from pathlib import Path
 KNOWN_IDENTIFIER_DIGESTS = {
     "7f6dd1b66bdac00e950f3ddb207b7d8b2fca6859c7cdff99a3b96607d111fe46": "DEVICE-A90-01",
     "c5302ccc08374d408ca3ec4df0ef23770d5ecd35ce173b7d150c4316e9a0757b": "DEVICE-S22P-01",
+    # OPEN (owner-only): no entry for DEVICE-S20P-01 (`SM-G986N`, onboarded
+    # 2026-08-12). Its serial is maintainer-private, so only the owner can
+    # add the digest. Until then an S20+ serial is still caught, but by the
+    # layer-3 heuristic as an unrecognised serial-shaped token rather than as
+    # an exact layer-1 identifier. Do not fill this in with a guessed or
+    # placeholder digest: a wrong digest silently matches nothing.
 }
 KNOWN_IDENTIFIER_LENGTHS = (11,)
 
@@ -42,8 +48,10 @@ APPROVED_VALUES = frozenset(
     {
         "RFCM0000000",              # test fixture, DEVICE-A90-01
         "RFCT0000000",              # test fixture, DEVICE-S22P-01
+        "RFCS0000000",              # test fixture, DEVICE-S20P-01
         "DEVICE-A90-01",
         "DEVICE-S22P-01",
+        "DEVICE-S20P-01",
         "REDACTED-DEVICE-SERIAL",
     }
 )
