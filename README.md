@@ -150,7 +150,8 @@ fixtures and is not run in CI.
 - [`GOAL.md`](GOAL.md) / [`GOAL_A90.md`](GOAL_A90.md) / [`GOAL_S20PLUS.md`](GOAL_S20PLUS.md) — current frontier and next bounded unit per target
 - [`AGENTS.md`](AGENTS.md) — binding safety contract and absolute device boundaries
 - [`docs/README.md`](docs/README.md) — full documentation index
-- [`docs/overview/PROJECT_STATUS.md`](docs/overview/PROJECT_STATUS.md) — device state and verification history
+- [`docs/devices/README.md`](docs/devices/README.md) — per-device progress, established results, and open boundaries
+- [`docs/overview/PROJECT_HISTORY.md`](docs/overview/PROJECT_HISTORY.md) — how the project got here, era by era (narrative; not evidence)
 - [`CHANGELOG.md`](CHANGELOG.md) — native init and boot image version history
 - [`README.ko.md`](README.ko.md) — Korean documentation, including the detailed working rules
 

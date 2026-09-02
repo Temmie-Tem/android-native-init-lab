@@ -200,8 +200,8 @@ v2는 재사용 어댑터로 쓰입니다. A90은 확보한 native-init/runtime 
 - `docs/module-map/s22plus-fyg8/subsystem-usb.md` — S22+ 현재 frontier(USB
   gadget/UDC bring-up) 서브시스템 맵과 게이트 상태 (frontier·다음 unit 자체는
   `GOAL.md` 기준)
-- `docs/overview/PROJECT_STATUS.md` — 디바이스 상태 + 버전별 검증 이력
-- `docs/overview/PROGRESS_LOG.md` — 진행 로그
+- `docs/devices/README.ko.md` — 기기별 진행 상황, 확립된 결과, 미증명 경계
+- `docs/overview/PROJECT_HISTORY.ko.md` — 첫 커밋부터 현재까지의 연혁 (서술이며 증거 아님)
 
 운영 / 빌드:
 

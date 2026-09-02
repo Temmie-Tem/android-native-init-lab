@@ -311,7 +311,7 @@ USB cable -> ACM gadget (UDC bind) -> /dev/ttyGS0 console -> shell_loop() (no au
 - `stage3/linux_init/init_v30.c:3035-3164` - Dispatcher exposes dangerous commands to any console user (writefile/mknod/mountfs/run/runandroid/startadbd).
 - `stage3/linux_init/init_v30.c:2962-2966` - startadbd launches with root seclabel.
 - `README.md:3-5` - Repo is a rooted native-Linux boot workspace, indicating this is runtime boot-chain code in project context.
-- `docs/overview/PROGRESS_LOG.md:95-106` - Project workflow explicitly uses USB ACM serial mini-shell path and boot artifacts.
+- `docs/archive/overview/PROGRESS_LOG_2026-04-23_2026-05-02.md:111-122` (구 경로 `docs/overview/PROGRESS_LOG.md:95-106`; 2026-09-02 아카이브 이동으로 갱신, 내용 동일) - Project workflow explicitly uses USB ACM serial mini-shell path and boot artifacts.
 ## Narrative
 The commit introduces an early-boot USB ACM console that is automatically enabled and bound, then attached and dropped directly into an interactive shell without any authentication. The shell exposes direct root-impact primitives, including arbitrary execve and filesystem/device mutation. Validation evidence also reports executable PoC behavior confirming root command execution primitive. This is a real vulnerability when this init is deployed, but exploitability is constrained by physical USB access and custom-boot preconditions, aligning with medium severity.
 ## Controls

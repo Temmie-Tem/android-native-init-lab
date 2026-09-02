@@ -1,4 +1,24 @@
-# Samsung Galaxy A90 5G - 현재 상태
+# Samsung Galaxy A90 5G - 현재 상태 (2026-06-19 시점, 아카이브)
+
+> **아카이브 · 종료된 문서 (권위 없음)**
+>
+> 제목의 "현재 상태"는 **2026-06-19 기준**이며 지금은 유효하지 않습니다. 이
+> 문서는 A90 한 대만 대상이던 시기의 상태 문서로, S22+와 S20+가 합류하기
+> 전에 갱신이 멈췄습니다.
+>
+> 역할은 다음으로 나뉘어 이관됐습니다.
+>
+> - 연혁 서술(`프로젝트 여정` 절) → [`../../overview/PROJECT_HISTORY.ko.md`](../../overview/PROJECT_HISTORY.ko.md)
+> - 기기별 현재 상태 → [`../../devices/README.ko.md`](../../devices/README.ko.md) 및 각 기기 페이지
+> - 현재 프론티어와 다음 bounded unit → `GOAL.md` / `GOAL_A90.md` / `GOAL_S20PLUS.md`
+> - 기기 작업 권한 → `AGENTS.md`와 선택된 binding target contract
+>
+> `docs/archive/` 아래 파일은 역사적 기록이며 어떤 권한도 부여하지
+> 않습니다 (`CLAUDE.md`). 아래 내용은 당시 기록 그대로 보존하며 수정하지
+> 않습니다.
+>
+> 이전 경로: `docs/overview/PROJECT_STATUS.md`
+
 
 > 2026-06-19 native-init track update: the promoted audio-core candidate is
 > `A90 Linux init 0.10.0 (v2812-audio-core-promotion-candidate)`, boot image

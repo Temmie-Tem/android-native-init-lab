@@ -1,5 +1,24 @@
 # Samsung Galaxy A90 5G - 문서 인덱스
 
+> **아카이브 · 권위 없음 · 2025 세대 문서**
+>
+> 이 인덱스는 A90 한 대만 대상이던 **2025년 방향**의 문서 트리(Headless
+> Android / AOSP 최소 빌드 / Custom Kernel)를 설명합니다. 여기 적힌 Phase 0의
+> "네이티브 부팅 불가" 판단은 **이후 반증됐습니다** — 2026-04-23에 native
+> `/init`가 PID 1로 진입했습니다.
+>
+> 본문이 가리키는 `overview/PROJECT_STATUS.md`와 `overview/PROGRESS_LOG.md`는
+> 이 디렉터리 아래 2025 세대 사본이며 갱신되지 않습니다. 2026 재도전기의 동명
+> 후속 문서는 별도로 [`../overview/`](../overview/)에 보관합니다.
+>
+> - 현재 문서 인덱스: [`../../README.md`](../../README.md)
+> - 프로젝트 연혁: [`../../overview/PROJECT_HISTORY.ko.md`](../../overview/PROJECT_HISTORY.ko.md)
+> - 기기별 현재 상태: [`../../devices/README.ko.md`](../../devices/README.ko.md)
+> - 기기 작업 권한: `AGENTS.md`와 선택된 binding target contract
+>
+> 본문은 당시 기록 그대로 보존하며 수정하지 않습니다.
+
+
 최신 Phase 1(완료) / Phase 2(Headless Android + 커널 최적화) 결과물을 빠르게 찾기 위한 문서 인덱스입니다.  
 프로젝트 전반 개요와 현재 상태는 `overview/PROJECT_STATUS.md`에서 최신으로 유지합니다.
 

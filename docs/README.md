@@ -399,32 +399,61 @@ hygiene를 기준으로 한다.
 
 ## 문서 읽는 순서
 
+계약 계층이 우선입니다. 아래 순서는 `../CLAUDE.md`와 `../AGENTS.md`의
+authority/precedence 규칙을 따르며, 그 규칙과 어긋나면 계약 쪽이 이깁니다.
+
 ### 빠른 시작
 
-1. `overview/PROJECT_STATUS.md` – 현재 상태와 다음 후보를 본다.
-2. `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – flash/bridge 조작 절차를 따른다.
-3. `operations/DEVELOPMENT_LOOP_STANDARD.md` – 상태 확인부터 커밋까지 표준 개발 루프를 따른다.
-4. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트가 실수하지 않도록 운영 규칙을 확인한다.
-5. `plans/NATIVE_INIT_TASK_QUEUE_2026-04-25.md` – 바로 이어서 할 작업 큐를 본다.
-6. `plans/NATIVE_INIT_V109_V116_ROADMAP_2026-05-04.md` – v109 이후 장기 순서를 본다.
-7. `plans/NATIVE_INIT_LONG_TERM_ROADMAP_2026-05-03.md` – v101 이후 장기 순서를 본다.
+1. `../AGENTS.md` – 저장소 전체 불변식과 binding target registry. 여기서
+   타깃을 **정확히 하나** 선택한다.
+2. `operations/targets/<선택한 타깃>_TARGET_CONTRACT.md` – 그 타깃의 binding
+   contract. 다른 타깃의 계약은 아무 권한도 주지 않는다.
+3. 해당 goal (`../GOAL.md` S22+ / `../GOAL_A90.md` / `../GOAL_S20PLUS.md`) –
+   현재 frontier와 다음 bounded unit. **goal은 device authority를 부여하지
+   않는다.**
+4. `operations/DEVICE_ACTION_RISK_TIERS.md` – 기기 작업 위험 등급 분류.
+5. `operations/DEVICE_ACTION_PROCESS_V2.md` – boot-only F1 설계와 recovery
+   semantics.
+6. `devices/README.ko.md` – 기기별 확립된 결과, 현재 프론티어, 증거 taxonomy.
+7. `overview/PROJECT_HISTORY.ko.md` – 여기까지 온 경위 (서술이며 증거 아님).
+
+호스트 작업만 필요하면 4~5는 건너뛴다. host-only로 답할 수 있는 질문에
+device step을 추가하지 않는다 (`../AGENTS.md`).
 
 ### 새 에이전트 인계
 
-1. `operations/CLAUDE_HANDOFF_PROMPT.md`
-2. `operations/DEVELOPMENT_LOOP_STANDARD.md`
-3. `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md`
-4. `overview/PROJECT_STATUS.md`
-5. `docs/README.md`
+1. `../CLAUDE.md` – 현재 posture와 읽기 순서
+2. `../AGENTS.md` – 공통 불변식과 target registry
+3. 선택한 `operations/targets/*_TARGET_CONTRACT.md`
+4. 해당 `../GOAL*.md`
+5. `operations/DEVICE_ACTION_RISK_TIERS.md` · `operations/DEVICE_ACTION_PROCESS_V2.md`
+6. `devices/README.ko.md` · `overview/PROJECT_HISTORY.ko.md`
+7. `README.md` (이 문서)
+
+> `operations/CLAUDE_HANDOFF_PROMPT.md`는 **2026-06-12자 역사 문서**입니다.
+> 옛 저장소 경로(`A90_5G_rooting`)와 A90 단일 타깃, v2321/v48 기준을 쓰며
+> 현재 계약 계층(`AGENTS.md`, target contract, risk tier, Process v2)을
+> 반영하지 않습니다. 인계 경로로 쓰지 마십시오.
 
 ## 문서 카테고리
 
 ### 1. Overview
 
-- `overview/PROJECT_STATUS.md` – 현재 기준점, 성공/실패 조건, 다음 작업 링크
-- `overview/PROGRESS_LOG.md` – 날짜순 진행 로그
+- `overview/PROJECT_HISTORY.ko.md` / `overview/PROJECT_HISTORY.md` – 첫 커밋부터
+  현재까지의 시대별 연혁. **서술이며 증거가 아니고 device authority를 부여하지
+  않습니다.** 현재 상태는 `../AGENTS.md`와 각 `../GOAL*.md`가 기준입니다.
 - `overview/VERSIONING.md` – Run ID, native init version, build tag, helper version, SHA 축 분리 규칙
 - `../CHANGELOG.md` – 공식 버전별 업데이트 로그
+
+기기별 현재 상태와 프론티어는 Overview가 아니라 `devices/README.ko.md`와 각
+기기 페이지가 정본입니다.
+
+종료된 선행 문서 (아카이브, 권한 없음):
+
+- `archive/overview/PROJECT_STATUS_A90_THROUGH_2026-06-19.md` – A90 단일 타깃
+  시기의 상태 문서. 2026-06-19에 갱신 중단.
+- `archive/overview/PROGRESS_LOG_2026-04-23_2026-05-02.md` – 날짜순 진행 로그.
+  2026-05-02에 종료.
 
 ### 2. Operations
 
@@ -432,7 +461,8 @@ hygiene를 기준으로 한다.
 - `operations/HOST_VALIDATION_RESOURCE_GUARDRAILS.md` – host-side 검증/secret scan/log 검색의 OOM 방지 기준
 - `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트용 bridge/TWRP/custom init 작업 런북
 - `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – 사람이 직접 따라 하는 flash/bridge 운영 절차서
-- `operations/CLAUDE_HANDOFF_PROMPT.md` – Claude에게 그대로 붙여 넣는 안전 작업 프롬프트
+- `operations/CLAUDE_HANDOFF_PROMPT.md` – **역사 문서 (2026-06-12).** 옛 저장소 경로와
+  A90 단일 타깃 기준이며 현재 계약 계층을 반영하지 않습니다. 인계에 쓰지 마십시오.
 - `operations/PUBLIC_TREE_SANITIZATION_POLICY.md` – 공개 트리 기기 식별자 정리 규칙, 파일 역할별 치환 클래스, boundary check 불변식
 
 ### 3. Plans
