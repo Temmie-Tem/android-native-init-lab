@@ -31,8 +31,8 @@ from typing import Any, Sequence
 
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
-P0_F1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe"
+P0_F1_ACTIVE = False
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "03a214c68f0f2725021796ee27155378afc81dcbe381a8a8aadcaab5fbca831e"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -4462,6 +4462,16 @@ def _validate_physical_rebind_arrival(
         run_dir / P0_PHYSICAL_REBIND_ARRIVAL_NAME,
         "P0 physical rollback rebound arrival",
     )
+    endpoint = value.get("endpoint") if isinstance(value, dict) else None
+    if isinstance(endpoint, dict):
+        try:
+            engine._validate_endpoint(
+                endpoint, "P0 physical rollback rebound arrival endpoint"
+            )
+        except engine.B0F1Error as exc:
+            raise P0F1Error(
+                "P0 physical rollback rebound arrival is malformed"
+            ) from exc
     if (
         type(value) is not dict
         or set(value)
@@ -4479,7 +4489,8 @@ def _validate_physical_rebind_arrival(
         or value.get("binding_sha256") != prepared.get("binding_sha256")
         or value.get("arm_sha256") != engine.digest(arm)
         or value.get("confirmation_sha256") != engine.digest(confirmation)
-        or value.get("endpoint") != arm.get("endpoint")
+        or not isinstance(endpoint, dict)
+        or not engine.same_download_session(endpoint, arm.get("endpoint", {}))
         or not isinstance(value.get("at"), str)
         or not value["at"]
     ):

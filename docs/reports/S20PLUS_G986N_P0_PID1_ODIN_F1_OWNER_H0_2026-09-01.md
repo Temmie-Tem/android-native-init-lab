@@ -6,7 +6,7 @@ Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
 Tier: H0 only
 
-Status: `PASS_GO_ACTIVE_ATTENDED_F1`
+Status: `H0_REVIEW_PENDING_NOT_ACTIVE`
 
 ## Outcome
 
@@ -133,10 +133,10 @@ and fresh rooted resident Android health.
 
 | File | Size | SHA-256 |
 | --- | ---: | --- |
-| P0 Odin owner dormant | 222,494 | `1e871e35c99e1fffb16b5de4e88fe517213b58b2f6730119c69e529770fbff86` |
-| P0 Odin owner active | 222,493 | `5d4697672a9b2cb94caaad57b2f515e9d578ef44172a71a3eed68d171bd89ff3` |
-| owner activation-normalized | 222,494 | `13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe` |
-| focused owner test | 145,676 | `cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741` |
+| P0 Odin owner dormant | 222,968 | `9d97a5a4f80cd7a12f7ee9a0d7829d2590780821f7b4b5535330a3f7cf806018` |
+| P0 Odin owner active | 222,967 | `82657b47822a85a1a3961bbc362f99f4e9bce9d62dcb49316de9d7a9df218cfd` |
+| owner activation-normalized | 222,968 | `03a214c68f0f2725021796ee27155378afc81dcbe381a8a8aadcaab5fbca831e` |
+| focused owner test | 146,304 | `98c2d7a6331911d0a57b22f5ef809b472f0632f55a069e38b3fccf588778dd02` |
 | P0 observer dormant | 16,479 | `98406b1cb968943f0e9cf62cd698123ecd9aa7aa3b84660838b0ff2c89ad34ab` |
 | P0 observer active | 16,478 | `d9304b7b6de1d366d7aea78bc44b785a1149b9d9096ad85c21be7d2d1a1d1ce3` |
 | observer activation-normalized | 16,479 | `214e0296c5918d9f8e8512b1617a8f7cc059db739624688382a12ccf14d8e4b1` |
@@ -598,6 +598,17 @@ active status. No connected entrypoint or device contact occurred. All six
 atoms were restored to dormant, the superseded zero-finding and raw-test
 evidence was preserved under `workspace/private/retired/`, and the reviewed
 identity descriptions and authority wording were made valid in either state.
+
+After the reviewed activation, the operator supplied the exact rebind token.
+The owner durably recorded confirmation and a rebound arrival, then stopped
+before rollback intent because the arrival validator compared the complete
+endpoint object to the arm even though only volatile USBFS `st_ctime_ns`
+changed. Device path/hash, identity prefix, topology, and USB profile all
+remained equal. No rollback intent, capture, result, or transfer exists. The
+correction validates the complete arrival and applies the same stable-session
+predicate already used immediately before transfer; it changes no effect,
+artifact, endpoint selection, or replay rule. The existing durable
+confirmation is resumed as a reporting cut rather than repeated.
 
 The focused owner suite passes 74/74 and the wider retained suite passes
 178 tests with ten historical skips. The exact dormant/active,

@@ -2692,13 +2692,16 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             rollback.assert_not_called()
             original_arm.assert_not_called()
 
-    def test_rebind_confirmation_dispatches_one_bound_rollback(self):
+    def test_rebind_confirmation_accepts_ctime_drift_and_dispatches_rollback(self):
         prepared = {"binding_sha256": "1" * 64}
         prior = self.endpoint(
             "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
         )
         current = self.endpoint(
             "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        confirmed = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 30]
         )
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary)
@@ -2727,7 +2730,7 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             ), mock.patch.object(
                 self.module.engine,
                 "identify_download",
-                return_value=current,
+                return_value=confirmed,
             ), mock.patch.object(
                 self.module.engine,
                 "durable_json",
@@ -2747,7 +2750,18 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             self.assertTrue(
                 (run_dir / self.module.P0_PHYSICAL_REBIND_ARRIVAL_NAME).exists()
             )
-            rollback.assert_called_once_with(run_dir, prepared, current)
+            arrival = self.module._validate_physical_rebind_arrival(
+                run_dir,
+                prepared,
+                self.module._validate_physical_rebind_arm(run_dir, prepared),
+                self.module._validate_physical_rebind_confirmation(
+                    run_dir,
+                    prepared,
+                    self.module._validate_physical_rebind_arm(run_dir, prepared),
+                ),
+            )
+            self.assertEqual(arrival["endpoint"], confirmed)
+            rollback.assert_called_once_with(run_dir, prepared, confirmed)
 
     def test_rebind_wrong_confirmation_cannot_reach_rollback(self):
         prepared = {"binding_sha256": "1" * 64}

@@ -1264,19 +1264,19 @@ Neither candidate nor rollback may replay.
 
 ## P0 PID1 ACM Odin boot-only F1
 
-Status: **ACTIVE - ATTENDED F1 ONLY**
+Status: **DEFINED - H0 ONLY - NOT ACTIVE**
 
 This section defines the smallest ordinary F1 successor for direct native PID1
 first light. It applies only to the operator-owned
 `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`; it receives no live authority from B0,
 T0/T1/T2, root, retained TWRP, the boot-metadata D0, or Q0. The exact owner is
 `workspace/public/src/scripts/revalidation/s20plus_g986n_p0_pid1_odin_f1.py`.
-Its reviewed activation pair is dormant 222,494 bytes at SHA-256
-`1e871e35c99e1fffb16b5de4e88fe517213b58b2f6730119c69e529770fbff86`
-and active 222,493 bytes at SHA-256
-`5d4697672a9b2cb94caaad57b2f515e9d578ef44172a71a3eed68d171bd89ff3`,
+Its reviewed activation pair is dormant 222,968 bytes at SHA-256
+`9d97a5a4f80cd7a12f7ee9a0d7829d2590780821f7b4b5535330a3f7cf806018`
+and active 222,967 bytes at SHA-256
+`82657b47822a85a1a3961bbc362f99f4e9bce9d62dcb49316de9d7a9df218cfd`,
 with activation-normalized SHA-256
-`13820cde1e5dde91069a64db67d72a79a121ddafeb3c8d2a3387310919efc1fe`.
+`03a214c68f0f2725021796ee27155378afc81dcbe381a8a8aadcaab5fbca831e`.
 The observer pair is dormant 16,479 bytes at SHA-256
 `98406b1cb968943f0e9cf62cd698123ecd9aa7aa3b84660838b0ff2c89ad34ab`
 and active 16,478 bytes at SHA-256
@@ -1288,8 +1288,8 @@ dormant state, connected modes stop before ADB, USB inventory, Odin, reboot,
 or any target command and only host validation or plan rendering is available.
 The active state additionally requires all three current private activation
 records before any connected entrypoint can pass its first gate. The
-145,676-byte focused test SHA-256 is
-`cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741`.
+146,304-byte focused test SHA-256 is
+`98c2d7a6331911d0a57b22f5ef809b472f0632f55a069e38b3fccf588778dd02`.
 
 The owner exact-loads the currently reviewed B0 recovery owner, 224,559 bytes
 at SHA-256
@@ -1451,9 +1451,13 @@ profile, and absent serial while the USBFS path/hash changed. It durably arms
 that exact endpoint and emits a fresh confirmation beginning
 `S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-REENUM-CONFIRM:`. Only that copied-back
 token may publish one rebind confirmation/arrival chain and enter the existing
-fixed resident-Magisk rollback function. Any topology/profile/bus drift,
-second rebind, expiry before durable rebind confirmation, malformed journal,
-or existing rollback intent stops. A reporting cut after timely durable
+fixed resident-Magisk rollback function. The rebound arrival validates and
+stores the current complete endpoint but compares it to the arm with the same
+reviewed session predicate used by transfer preflight: only volatile USBFS
+`st_ctime_ns` may differ; path/hash, identity prefix, topology, and USB profile
+must remain equal. Any other topology/profile/bus/endpoint drift, second
+rebind, expiry before durable rebind confirmation, malformed journal, or
+existing rollback intent stops. A reporting cut after timely durable
 confirmation may resume only the same exact endpoint/rollback chain after
 expiry; it neither repeats confirmation nor grants another observation or
 effect. Once rebind confirmation is durable, any absent, ambiguous, malformed,
@@ -1464,7 +1468,8 @@ no device authority and no prior live-activation receipt can grant it. In the
 active state, only fresh records matching this exact closure can do so.
 
 A dormant-to-active transition is blocked until the exact owner, observer
-activation, focused and inherited B0 tests, this target section, common/risk/Process-v2
+activation, focused and inherited B0 tests, this target section,
+common/risk/Process-v2
 interactions, physical recovery flow, and complete execution-critical closure
 receive independent `PASS_GO`, followed by a separately reviewed mechanical
 activation changing the owner/observer booleans, exact identities, this status,
