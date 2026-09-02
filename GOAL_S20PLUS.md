@@ -849,7 +849,7 @@ contract and named reports rather than this current-state goal.
 
 ## Current P0 PID1 Odin F1 state
 
-Status: `P0_PID1_ODIN_F1_ACTIVE_ATTENDED`
+Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`
 
 The P0 PID1 Odin owner is implemented but dormant. It exact-loads the reviewed
 B0 engine in an isolated module instance, substitutes only the exact P0
@@ -888,11 +888,12 @@ and tests in addition to future booleans; gives raw acquisition a second
 short-lived closure-private capability that returns no writer; validates the
 complete direct cage path and nested identity; fences inherited inventory,
 local claim, and cgroup/sysfs bypasses; rejects
-contradictory global states; freshly revalidates the
-pre-claim USB baseline; persists/reopens the raw 52-byte ACM banner; rejects
-inherited B0 positive claims; and removes B0 recovery predecessors. The
-candidate's first runtime syscall remains raw `getpid`; only return value one
-reaches that banner. The 60-test focused, 134-test core, and 164-test wider host
-closures pass, but final exact-byte re-review, mechanical activation, a fresh healthy-Android
-preparation, its exact returned approval, and attendance remain required
-before any device command or live PID1 claim.
+contradictory global states and preserves the raw 52-byte ACM PID1 witness. The
+first approved run retained the same USB path, inode, device number, topology,
+and descriptors but changed only USBFS `st_ctime_ns`; a redundant exact digest
+check stopped after global claim and before the candidate Odin backend. The
+prebound resident-Magisk boot rollback completed and Android returned healthy with `NO_PROOF`;
+the unsent candidate remains consumed. The dormant correction binds the exact
+prepared receipt separately and accepts only stable same-session continuity.
+Its 61 focused tests pass; fresh exact-byte review, activation, and a genuinely
+new candidate remain required before another live PID1 attempt.

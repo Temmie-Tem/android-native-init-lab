@@ -6,7 +6,7 @@ Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
 Tier: H0 only
 
-Status: `PASS_GO_ACTIVE_ATTENDED_F1`
+Status: `H0_REVIEW_PENDING_NOT_ACTIVE`
 
 ## Outcome
 
@@ -131,9 +131,9 @@ and fresh rooted resident Android health.
 
 | File | Size | SHA-256 |
 | --- | ---: | --- |
-| P0 Odin owner | 198,791 | `3de1c262c131059e94b70060d79eeaf0ab06aaa1446a37ce4ef826df0bfb67b2` |
-| owner activation-normalized | 198,791 | `dd44d2bbc55a3f5108e3c1e0eef8647470e185a7ec808ec7f6a56f3562eff911` |
-| focused owner test | 110,942 | `94b08d001a6df27eab6a5b4db6cda3e64ec58ea0a75de5a79d6929a7667b23c6` |
+| P0 Odin owner | 199,315 | `f21888b6a9cc10c5b13aa0a1e0606521d0d53c99b81c4405317076d94eed545e` |
+| owner activation-normalized | 199,315 | `2b44b3831a38c0c2a312fbaeff14dea258a4ce652c0c8dc8e830efc3876db8fc` |
+| focused owner test | 114,692 | `b524f6fd3776aafabff66115bf3c738a1ccaeb75b00841e465e911434ad1eff0` |
 | P0 observer dormant | 16,487 | `beba2925988da55c3e210a98616c1b9392d48f5459eb5170ce5ba060eeb09830` |
 | P0 observer active | 16,486 | `a5ee9c1411701133b25c790a1d5bb9b389d3b582abf9e73955ad8b06767ee022` |
 | observer activation-normalized | 16,487 | `0ffd28fcc99e023894de940f5e6fe05b2e30bdedbfccfc86af7ddfbc5fcca6db` |
@@ -145,17 +145,17 @@ and fresh rooted resident Android health.
 | immutable registry activation | 21,276 | `aa50c211ee86d4b1534399c6d9fd82d4de3550856724e5788d693b012bce471b` |
 
 The current host closure validates to SHA-256
-`25533dd8c490cc2ffe834d13d89621c8a0803938884073e2c1ee04772a48b059`.
+`a54399576f92f2d6bae81414516a9ad65928c5fc3b3fa2f8069b8809e51d069b`.
 
 ## Validation
 
-The focused P0 owner suite passes 60/60. Core combined validation passes
-134/134, and the wider retained suite passes 164 tests with ten historical
+The focused P0 owner suite passes 61/61. Core combined validation passes
+135/135, and the wider retained suite passes 165 tests with ten historical
 TWRP skips:
 
 - P0 builder/artifact closure: 8;
 - P0 USB observer: 10;
-- P0 Odin owner: 60;
+- P0 Odin owner: 61;
 - unchanged active B0 owner: 56;
 - B0 H0 builder/closure: 10;
 - expired TWRP sibling: 12, including ten explicit historical skips; and
@@ -180,7 +180,7 @@ partial-activation and missing-live-activation-record denial, contradictory
 global-state rejection, and terminal conjunction. The historical TWRP
 sibling suite separately passes two current expiry checks and explicitly skips
 ten predecessor-closure checks. `py_compile`, host closure validation, and the
-164-test suite pass; final scoped diff validation remains part of the
+165-test suite pass; final scoped diff validation remains part of the
 review handoff.
 
 ## First independent review and correction
@@ -531,3 +531,23 @@ The intended terminal is
 alone is not the terminal. Unless the active status and all three exact private
 records validate together, there is no connected preparation, approval,
 device authority, or live PID1 proof.
+
+## 2026-09-02 candidate-preflight false positive
+
+The first approved P0 candidate never invoked the Odin candidate backend. The
+preclaim record proved `backend_invoked=false`, but the postclaim validator
+compared its prepared endpoint digest against a later endpoint object whose
+only change was USBFS `st_ctime_ns`. The stable device path, inode, `st_rdev`,
+topology, and USB descriptors remained equal, and the inherited
+`same_download_session` predicate already intentionally excludes that volatile
+fourth identity field. The redundant exact comparison therefore stopped a
+same-session transfer after the global claim and consumed the candidate
+without sending it.
+
+Recovery created no candidate backend invocation, performed the preapproved
+prebound resident-Magisk boot rollback once, returned to healthy rooted resident Android,
+and closed `NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`; other-target commands and
+all recovery-partition access were zero. The active records were retained under
+`workspace/private/retired/`, and this owner is dormant while the validator is
+corrected to bind the exact prepared receipt separately from stable live
+same-session comparison. The consumed candidate is not reusable.

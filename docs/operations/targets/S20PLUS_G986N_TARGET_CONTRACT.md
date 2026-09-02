@@ -1264,7 +1264,7 @@ Neither candidate nor rollback may replay.
 
 ## P0 PID1 ACM Odin boot-only F1
 
-Status: **ACTIVE - ATTENDED F1 ONLY**
+Status: **DEFINED - H0 ONLY - NOT ACTIVE**
 
 This section defines the smallest ordinary F1 successor for direct native PID1
 first light. It applies only to the operator-owned
@@ -1275,12 +1275,12 @@ owner is
 `P0_F1_ACTIVE=false`, the bound P0 observer remains
 `OBSERVER_ACTIVE=false`, and connected modes stop before ADB, USB inventory,
 Odin, reboot, or any target command. Only host validation and plan rendering
-are available. The dormant owner is 198,791 bytes at SHA-256
-`3de1c262c131059e94b70060d79eeaf0ab06aaa1446a37ce4ef826df0bfb67b2`
+are available. The dormant owner is 199,315 bytes at SHA-256
+`f21888b6a9cc10c5b13aa0a1e0606521d0d53c99b81c4405317076d94eed545e`
 and activation-normalized SHA-256
-`dd44d2bbc55a3f5108e3c1e0eef8647470e185a7ec808ec7f6a56f3562eff911`;
-its 110,942-byte focused test SHA-256 is
-`94b08d001a6df27eab6a5b4db6cda3e64ec58ea0a75de5a79d6929a7667b23c6`.
+`2b44b3831a38c0c2a312fbaeff14dea258a4ce652c0c8dc8e830efc3876db8fc`;
+its 114,692-byte focused test SHA-256 is
+`b524f6fd3776aafabff66115bf3c738a1ccaeb75b00841e465e911434ad1eff0`.
 
 The owner exact-loads the currently reviewed B0 recovery owner, 224,559 bytes
 at SHA-256
@@ -1493,10 +1493,10 @@ and code fences and bind exact heading/status positions plus the complete
 registry row. Every changing document has an activation-normalized receipt,
 and the mechanical record binds their equality, an exact replacement
 allowlist, and the full semantic transition; unchanged policy and tests remain
-full-byte equal. The current 60-test owner implements all corrections
-described above and passes a 134-test core plus 164-test wider
+full-byte equal. The current 61-test owner implements all corrections
+described above and passes a 135-test core plus 165-test wider
 retained suite with ten historical skips. Its host closure SHA-256 is
-`25533dd8c490cc2ffe834d13d89621c8a0803938884073e2c1ee04772a48b059`.
+`a54399576f92f2d6bae81414516a9ad65928c5fc3b3fa2f8069b8809e51d069b`.
 The sixth-round corrections remain exact-byte review-pending and create no
 preparation, approval, claim, target contact, or live authority.
 
@@ -1612,6 +1612,18 @@ fixed executable through one closed five-key environment and the fixed local
 all model/device/build, boot, root/Magisk, topology, inventory, and pre-effect
 revalidation. The P0 owner never starts, stops, detaches, or rehomes an ADB
 server. These bytes are H0-only until one fresh exact review and activation.
+
+The first approved P0 candidate later stopped after its global claim but before
+the candidate Odin backend. The prepared and current USBFS endpoint retained
+the same path, inode, `st_rdev`, topology, and descriptors; only
+`st_ctime_ns` changed. The validator incorrectly compared the exact prepared
+digest with the later same-session endpoint even though the binding predicate
+intentionally excludes that volatile field. Recovery sent no candidate,
+completed the prebound resident-Magisk boot rollback once, returned healthy resident
+Android, and closed `NO_PROOF`; the candidate remains consumed. The dormant
+correction keeps exact prepared receipt binding but uses the stable
+same-session predicate for later endpoint observations. Stable
+path/inode/device/topology or descriptor drift still stops.
 
 ## Bounded autonomous research session
 

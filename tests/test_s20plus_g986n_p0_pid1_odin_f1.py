@@ -494,6 +494,98 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         )
         self.assertEqual(result, {"ok": True})
 
+    def test_candidate_preflight_accepts_ctime_drift_only_within_same_session(self):
+        binding = "1" * 64
+        prepared_endpoint = self.endpoint()
+        prepared_endpoint["endpoint_identity"] = [1, 2, 3, 100]
+        current_endpoint = self.endpoint()
+        current_endpoint["endpoint_identity"] = [1, 2, 3, 200]
+        dispatch_endpoint = self.endpoint()
+        dispatch_endpoint["endpoint_identity"] = [1, 2, 3, 300]
+        prepared = {
+            "binding_sha256": binding,
+            "binding": {"endpoint": prepared_endpoint},
+        }
+        preflight = {
+            "schema": self.module.P0_CANDIDATE_PREFLIGHT_SCHEMA,
+            "version": self.module.VERSION,
+            "binding_sha256": binding,
+            "candidate_ap": {
+                "path": str(self.module.CANDIDATE_AP),
+                "size": self.module.CANDIDATE_AP_SIZE,
+                "sha256": self.module.CANDIDATE_AP_SHA256,
+                "member_name": "boot.img.lz4",
+                "member_size": self.module.CANDIDATE_MEMBER_SIZE,
+                "member_sha256": self.module.CANDIDATE_MEMBER_SHA256,
+            },
+            "prepared_endpoint_sha256": self.module.engine.digest(
+                prepared_endpoint
+            ),
+            "current_endpoint": current_endpoint,
+            "process_cage": {
+                "binding_sha256": binding,
+                "kind": "candidate",
+            },
+            "complete_before_global_claim": True,
+            "backend_invoked": False,
+            "at": "2026-09-02T00:00:00+00:00",
+        }
+
+        def read_record(path, _label):
+            return prepared if path.name == "prepared.json" else preflight
+
+        with mock.patch.object(
+            self.module.engine, "read_json", side_effect=read_record
+        ), mock.patch.object(
+            self.module, "_candidate_preflight_bound", return_value=(1, {})
+        ):
+            self.assertEqual(
+                self.module._validate_candidate_transfer_preflight(
+                    Path("/fixture"), binding, dispatch_endpoint
+                ),
+                preflight,
+            )
+            changed_session = json.loads(json.dumps(dispatch_endpoint))
+            changed_session["endpoint_identity"][2] = 99
+            with self.assertRaisesRegex(
+                self.module.P0F1Error, "candidate transfer preflight differs"
+            ):
+                self.module._validate_candidate_transfer_preflight(
+                    Path("/fixture"), binding, changed_session
+                )
+
+        fresh_endpoint = self.endpoint()
+        fresh_endpoint["endpoint_identity"] = [1, 2, 3, 400]
+
+        def present(path):
+            return Path(path).name in {
+                "candidate-claim-intent.json",
+                self.module.P0_REGISTRY_RECEIPT_NAME,
+            }
+
+        with mock.patch.object(
+            self.module, "require_active"
+        ), self.live_transaction(Path("/fixture")), mock.patch.object(
+            self.module.os.path, "lexists", side_effect=present
+        ), mock.patch.object(
+            self.module,
+            "_validate_candidate_transfer_preflight",
+            return_value=preflight,
+        ), mock.patch.object(
+            self.module.engine, "identify_download", return_value=fresh_endpoint
+        ):
+            returned, cage = self.module._P0_PREFLIGHT_ODIN_DISPATCH(
+                Path("/fixture"),
+                "candidate",
+                self.module.CANDIDATE_AP,
+                self.module.CANDIDATE_AP_SIZE,
+                self.module.CANDIDATE_AP_SHA256,
+                dispatch_endpoint,
+                binding,
+            )
+        self.assertEqual(returned, fresh_endpoint)
+        self.assertEqual(cage, preflight["process_cage"])
+
     def test_positive_observation_is_strictly_bound_to_exact_p0_receipt(self):
         binding = "1" * 64
         endpoint = self.endpoint()

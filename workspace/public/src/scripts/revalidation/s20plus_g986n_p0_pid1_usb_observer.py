@@ -22,7 +22,7 @@ from typing import Any, Callable
 SCHEMA = "s20plus_g986n_p0_pid1_usb_observer_v1"
 BASELINE_SCHEMA = "s20plus_g986n_p0_pid1_usb_baseline_v1"
 RECEIPT_SCHEMA = "s20plus_g986n_p0_pid1_usb_receipt_v1"
-OBSERVER_ACTIVE = True
+OBSERVER_ACTIVE = False
 
 USB_VENDOR = "04e8"
 USB_PRODUCT = "6861"

@@ -31,8 +31,8 @@ from typing import Any, Sequence
 
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
-P0_F1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "dd44d2bbc55a3f5108e3c1e0eef8647470e185a7ec808ec7f6a56f3562eff911"
+P0_F1_ACTIVE = False
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "2b44b3831a38c0c2a312fbaeff14dea258a4ce652c0c8dc8e830efc3876db8fc"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -212,7 +212,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
     },
     "focused_owner": {
         "modules": ["tests.test_s20plus_g986n_p0_pid1_odin_f1"],
-        "tests": 60,
+        "tests": 61,
         "skipped": 0,
         "log_name": "focused-owner.log",
     },
@@ -226,7 +226,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
             "tests.test_s20plus_g986n_p0_twrp_boot_owner_h0",
             "tests.test_device_action_f1_consumed_candidate_registry_v1",
         ],
-        "tests": 164,
+        "tests": 165,
         "skipped": 10,
         "log_name": "wider.log",
     },
@@ -4630,6 +4630,13 @@ def _validate_candidate_transfer_preflight(
         run_dir / P0_CANDIDATE_PREFLIGHT_NAME,
         "P0 candidate transfer preflight",
     )
+    prepared = engine.read_json(run_dir / "prepared.json", "P0 prepared binding")
+    prepared_binding = prepared.get("binding") if isinstance(prepared, dict) else None
+    prepared_endpoint = (
+        prepared_binding.get("endpoint")
+        if isinstance(prepared_binding, dict)
+        else None
+    )
     process_cage = value.get("process_cage") if isinstance(value, dict) else None
     if (
         type(value) is not dict
@@ -4649,6 +4656,8 @@ def _validate_candidate_transfer_preflight(
         or value.get("schema") != P0_CANDIDATE_PREFLIGHT_SCHEMA
         or value.get("version") != VERSION
         or value.get("binding_sha256") != binding_sha256
+        or prepared.get("binding_sha256") != binding_sha256
+        or not isinstance(prepared_endpoint, dict)
         or value.get("candidate_ap")
         != {
             "path": str(CANDIDATE_AP),
@@ -4658,8 +4667,10 @@ def _validate_candidate_transfer_preflight(
             "member_size": CANDIDATE_MEMBER_SIZE,
             "member_sha256": CANDIDATE_MEMBER_SHA256,
         }
-        or value.get("prepared_endpoint_sha256") != engine.digest(endpoint)
+        or value.get("prepared_endpoint_sha256")
+        != engine.digest(prepared_endpoint)
         or not isinstance(value.get("current_endpoint"), dict)
+        or not engine.same_download_session(endpoint, prepared_endpoint)
         or not engine.same_download_session(value["current_endpoint"], endpoint)
         or not isinstance(process_cage, dict)
         or process_cage.get("binding_sha256") != binding_sha256
@@ -4748,9 +4759,10 @@ def _make_candidate_preflight_pair(original):
             run_dir, binding_sha256, endpoint
         )
         current = value["current_endpoint"]
-        if not engine.same_download_session(engine.identify_download(), current):
+        live = engine.identify_download()
+        if not engine.same_download_session(live, current):
             raise P0F1Error("P0 candidate endpoint changed after preclaim closure")
-        return current, value["process_cage"]
+        return live, value["process_cage"]
 
     stage.__name__ = "p0_stage_candidate_transfer_preflight"
     replacement.__name__ = "p0_preflight_odin_dispatch"
