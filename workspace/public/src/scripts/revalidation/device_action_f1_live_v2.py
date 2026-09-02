@@ -3093,14 +3093,7 @@ class SamsungOdinBackend:
                 usb_root=self.usb_root,
                 typec_root=self.typec_root,
             )
-        if _p329_bundle(prepared.bundle):
-            value = _p329_validate_receipt(
-                prepared,
-                path,
-                spec,
-            )
-            receipt_sha256 = value["receipt_sha256"]
-        elif _p328_bundle(prepared.bundle):
+        if _p328_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
                 revalidate=True,
@@ -5448,7 +5441,14 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         return unavailable("interrupted-before-receipt")
     try:
-        if _p328_bundle(prepared.bundle):
+        if _p329_bundle(prepared.bundle):
+            value = _p329_validate_receipt(
+                prepared,
+                path,
+                spec,
+            )
+            receipt_sha256 = value["receipt_sha256"]
+        elif _p328_bundle(prepared.bundle):
             value = _p328_validate_receipt(
                 prepared,
                 path,

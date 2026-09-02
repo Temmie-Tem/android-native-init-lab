@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
+import tempfile
 import unittest
 
 
@@ -80,6 +81,37 @@ class P329UdevSettleTests(unittest.TestCase):
         ):
             self.assertIs(backend.candidate_observer_session(prepared), sentinel)
         selected.assert_called_once()
+
+    def test_receipt_reopen_selects_p329_before_p328_family(self) -> None:
+        spec = live.typed_evidence.p329_authenticated_framed_observer_spec()
+        bundle = SimpleNamespace(
+            manifest={
+                "observation": {
+                    "acceptance": {
+                        "userspace_overlay_contract_id": live.typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
+                        "run_id": live.typed_evidence.P329_RUN_ID,
+                    },
+                    live.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY: live.typed_evidence.CANDIDATE_AUTHENTICATED_SETTLED_EXEC_ROLE,
+                    "candidate_observer": spec,
+                }
+            }
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = Path(directory)
+            (run_dir / "candidate-observer.json").write_text("{}\n")
+            prepared = SimpleNamespace(bundle=bundle, run_dir=run_dir)
+            with (
+                mock.patch.object(
+                    live,
+                    "_p329_validate_receipt",
+                    side_effect=RuntimeError("P329_SELECTED"),
+                ) as p329,
+                mock.patch.object(live, "_p328_validate_receipt") as p328,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "P329_SELECTED"):
+                    live._reopen_candidate_observation(prepared)
+            p329.assert_called_once_with(prepared, run_dir / "candidate-observer.json", spec)
+            p328.assert_not_called()
 
     def test_initial_missing_properties_settle_before_open(self) -> None:
         matches = mock.Mock(side_effect=[False, True, True])
