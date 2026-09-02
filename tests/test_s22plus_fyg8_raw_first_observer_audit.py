@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 363_417,
-                "sha256": "20de30c2111f356ad98163de0f117aa1c3e7ee97e1418d26cbf4243f369f2a7a",
+                "size": 375_159,
+                "sha256": "a3abea22b9f8fc7f9ab0b7a137e2e77b6cc221a2bf694907522692e2edf3d759",
             },
         )
         self.assertEqual(
@@ -133,10 +133,10 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         source = self.source(name)
         mutations = (
             source.replace(
-                "                    p328_auth_observer.DEFAULT_COMMANDS,\n"
+                "                    self.auth_observer.DEFAULT_COMMANDS,\n"
                 "                    timeout_sec=min(120.0, max(0.001, deadline - time.monotonic())),\n"
                 "                    writer=writer,\n",
-                "                    p328_auth_observer.DEFAULT_COMMANDS,\n"
+                "                    self.auth_observer.DEFAULT_COMMANDS,\n"
                 "                    timeout_sec=min(120.0, max(0.001, deadline - time.monotonic())),\n"
                 "                    writer=None,\n",
                 1,

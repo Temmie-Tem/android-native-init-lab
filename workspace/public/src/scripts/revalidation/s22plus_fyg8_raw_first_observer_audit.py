@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "8b0d4d83891e639e76a6655ad58727298811ec15b1994d5c2d9cdf51d17c497a"
+AUDITOR_NORMALIZED_SHA256 = "3754b07705420a0bf237da256b86e1b34e831f23c473e81be4ff4e3d56b30576"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -28,11 +28,11 @@ DEFAULT_OUTPUT = Path(
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "c481487461855a1758c7a9e1e89529aa8619101bf2b6f21ff53cad9e5bc753ec"
+    "1577ad44f1ff0bac0365e3fdee3714030fea4f5747f5cbf4d59e15391d99d105"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 130
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "6adcfbe66b37a7f3501a1e5ba4a9feee08eae8bf84620d066d48c51f51918268"
+    "dfb61f87b041325e76acb6c69b7cd43d8b84108099577e1b8016c9adc2b34c94"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "7b6e7610820b9906d2b49e53117c9002c165564fe559fb1cb226d108bc4cb385"
+    "5df09d23f1131b529142fb01de57d3e8933f5853d757360e88f0744695dc464a"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -408,13 +408,15 @@ ACTIVE_FILES = {
     "s22plus_fyg8_p300_usb_trace_binding.py",
     "s22plus_boot_only_f1_transport.py",
     "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+    "s22plus_fyg8_p329_auth_acm_observer.py",
     "device_action_f1_live_v2.py",
 }
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
     "device_action_d0_v2.py": "b55deb12c487cc66a50008aa7b1bd587fdc1a70bfb3e01e5168fc107ff40b1ce",
     "s22plus_fyg8_p326_bidirectional_acm_observer.py": "6357256ddca6faab28292e807e7e393c0c0fb841244fd4ce84a0c1f4643d5622",
-    "device_action_f1_live_v2.py": "20de30c2111f356ad98163de0f117aa1c3e7ee97e1418d26cbf4243f369f2a7a",
+    "s22plus_fyg8_p329_auth_acm_observer.py": "ddcc7ab2cc8e6fd70f096b4b19606d9e9fde8355eaa9cb65534b43eb917bbe76",
+    "device_action_f1_live_v2.py": "a3abea22b9f8fc7f9ab0b7a137e2e77b6cc221a2bf694907522692e2edf3d759",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
@@ -436,8 +438,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_odin_usbfs_identity.py": "caae61d64435e0fc85bb30adce9dc2bf07cf31bc4ffa033bab72dc072b5db415",
 }
 P328_LIVE_SOURCE_IDENTITY = {
-    "size": 363_417,
-    "sha256": "20de30c2111f356ad98163de0f117aa1c3e7ee97e1418d26cbf4243f369f2a7a",
+    "size": 375_159,
+    "sha256": "a3abea22b9f8fc7f9ab0b7a137e2e77b6cc221a2bf694907522692e2edf3d759",
 }
 P328_RAW_FIRST_FUNCTIONS = (
     "device_action_f1_live_v2.py:_P327ObserverSession._publish_value",
@@ -445,6 +447,9 @@ P328_RAW_FIRST_FUNCTIONS = (
     "device_action_f1_live_v2.py:_P328ObserverSession.observe",
     "device_action_f1_live_v2.py:_p328_validate_common_receipt",
     "device_action_f1_live_v2.py:_p328_validate_receipt",
+    "device_action_f1_live_v2.py:_P329ObserverSession._settle_guard_properties",
+    "device_action_f1_live_v2.py:_P329ObserverSession._read_endpoint",
+    "device_action_f1_live_v2.py:_p329_validate_receipt",
 )
 P326_ACTIVE_SOURCE_IDENTITY = {
     "size": 15_223,
@@ -968,11 +973,11 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
         "_P328ObserverSession._read_endpoint": (
             (
                 "self.base._raw_tty(",
-                "p328_auth_observer.exchange_commands(",
+                "self.auth_observer.exchange_commands(",
                 "writer=writer,",
                 "self.exchange = exchange",
                 "self.trailing_rx = _p327_trailing_probe(",
-                "p328_auth_observer.validate_default_proof(",
+                "self.auth_observer.validate_default_proof(",
                 'return "accepted"',
             ),
             (
@@ -1047,6 +1052,34 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
                 "write_text(",
                 "write_bytes(",
             ),
+        ),
+        "_P329ObserverSession._settle_guard_properties": (
+            (
+                "self.base.guard.healthy(recheck=True)",
+                "self.base.guard.matches_node(endpoint.tty_class)",
+                "cdc_acm_observer._resolve_endpoint(",
+                "cdc_acm_observer._matches(",
+                "P329_UDEV_SETTLE_SEC",
+                "P329_UDEV_SETTLE_POLL_SEC",
+                'return "guard-property-timeout"',
+            ),
+            ("os.open(", "_write_exclusive(", ".unlink(", ".remove("),
+        ),
+        "_P329ObserverSession._read_endpoint": (
+            (
+                "self._settle_guard_properties(",
+                "super()._read_endpoint(endpoint, deadline, writer)",
+            ),
+            ("os.open(", "_write_exclusive(", ".unlink(", ".remove("),
+        ),
+        "_p329_validate_receipt": (
+            (
+                "_p328_validate_receipt(",
+                "auth_observer=p329_auth_observer",
+                "auth_runtime=p329_auth_runtime",
+                "receipt_schema=P329_OBSERVER_RECEIPT_SCHEMA",
+            ),
+            ("_p328_read_auth_key(", "_write_exclusive(", ".unlink(", ".remove("),
         ),
     },
     "s22plus_fyg8_p326_bidirectional_acm_observer.py": {
@@ -1370,11 +1403,11 @@ ORDERED_FUNCTION_TOKENS = {
         "_P328ObserverSession._read_endpoint",
     ): (
         "self.base._raw_tty(",
-        "p328_auth_observer.exchange_commands(",
+        "self.auth_observer.exchange_commands(",
         "writer=writer,",
         "self.exchange = exchange",
         "self.trailing_rx = _p327_trailing_probe(",
-        "p328_auth_observer.validate_default_proof(",
+        "self.auth_observer.validate_default_proof(",
         'return "accepted"',
     ),
     (
@@ -1409,6 +1442,34 @@ ORDERED_FUNCTION_TOKENS = {
         "_p328_bound_auth_key_identity(",
         "if accepted:",
         "return {",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_P329ObserverSession._settle_guard_properties",
+    ): (
+        "P329_UDEV_SETTLE_SEC",
+        "self.base.guard.healthy(recheck=True)",
+        "self.base.guard.matches_node(endpoint.tty_class)",
+        "cdc_acm_observer._resolve_endpoint(",
+        "cdc_acm_observer._matches(",
+        'return "guard-property-timeout"',
+        "P329_UDEV_SETTLE_POLL_SEC",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_P329ObserverSession._read_endpoint",
+    ): (
+        "self._settle_guard_properties(",
+        "super()._read_endpoint(endpoint, deadline, writer)",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_p329_validate_receipt",
+    ): (
+        "_p328_validate_receipt(",
+        "auth_observer=p329_auth_observer",
+        "auth_runtime=p329_auth_runtime",
+        "receipt_schema=P329_OBSERVER_RECEIPT_SCHEMA",
     ),
     (
         "s22plus_fyg8_p326_bidirectional_acm_observer.py",

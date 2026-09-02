@@ -278,16 +278,41 @@ an interactive PTY or standing command authority.  Any other P328 live
 command, unauthenticated fallback, persistent session, resident retention,
 filesystem or security mutation, ADB/MTP substitution, selector/recovery
 change, or causal USB/Max77705 claim is outside this campaign.  P329 resident
-retention and later command use require their own activated target lane.
+retention is not implied; later retained command use requires its own
+activated successor lane.
 
 The candidate remains a boot-only AP and exact Magisk rollback plus final
 rooted FYG8 health remain mandatory.  This clause is H0-only until the final
 execution-critical closure and this boundary change receive one independent
 review and a ready declaration is published; neither event is device approval.
 
-If a P327 or P328 candidate transfer occurs, the same reporting unit that
+**P329 bounded udev-settle successor.** P329 may reuse the exact P328
+authenticated protocol, private key, BusyBox, command/process bounds, P324
+lane, P325 two-property tty guard, raw-first capture, Carrier supplement, and
+rollback choreography under a fresh P329 run identity, distinct boot-only AP,
+connected preparation, and attended approval. Its only live-observer change
+is a maximum 500-ms settle, polled no faster than every 25 ms, between exact
+candidate endpoint selection and tty open. Every poll must keep the guard
+healthy and the exact tty class node, character-device numbers, USB identity,
+and approved `usb:3-1.3` topology unchanged. The observer may open only after
+both `ID_MM_DEVICE_IGNORE=1` and `ID_MM_PORT_IGNORE=1` are simultaneously
+present on that exact tty node. It has no parent/interface fallback, one-flag
+acceptance, endpoint widening, open retry, device action, or protocol retry.
+Stable absence through the bound is `guard-property-timeout`; identity or
+guard drift still fails immediately.
+
+The P328 `S328` wire magic, HMAC domains, and `P328-NONCE` proof namespace are
+retained compatibility labels; all carry the fresh P329 run bytes. Reusing
+those protocol labels or the same private key does not authorize P328 replay,
+resident retention, an interactive PTY, or later commands. The candidate
+remains boot-only and exact Magisk rollback plus final rooted FYG8 health are
+mandatory. This clause is H0-only until the changed execution-critical
+closure and timing boundary receive one independent review and a ready
+declaration is published; neither event is device approval.
+
+If a P327, P328, or P329 candidate transfer occurs, the same reporting unit that
 confirms `CAMPAIGN_CLOSED` must append exactly one matching
-`s22plus-fyg8-p327` or `s22plus-fyg8-p328` F1 closure row derived from that
+`s22plus-fyg8-p327`, `s22plus-fyg8-p328`, or `s22plus-fyg8-p329` F1 closure row derived from that
 run's retained journal and result. This is post-terminal bookkeeping, not a
 pre-execution gate; no F1 row is written before the effect.
 
