@@ -43,8 +43,8 @@ class P328ReadyTests(unittest.TestCase):
             prepare.AUTH_KEY_IDENTITY["sha256"],
             "7eb6a32ca96daa9cd125b2798834f45515265a76d653ae719091d98f0a1f515b",
         )
-        self.assertFalse(prepare.DEFAULT_PROMOTION.exists())
-        self.assertFalse(prepare.DEFAULT_MANIFEST.exists())
+        self.assertTrue(prepare.DEFAULT_PROMOTION.is_dir())
+        self.assertTrue(prepare.DEFAULT_MANIFEST.is_file())
 
     def test_observer_spec_contains_metadata_not_key_material(self) -> None:
         value = prepare._observer_spec()
@@ -100,12 +100,23 @@ class P328ReadyTests(unittest.TestCase):
         self.assertFalse(static_check["safety"]["device_contact"])
         self.assertNotIn(b"auth-key-v1.bin", payloads["static_check"])
 
-    def test_audit_only_does_not_publish_final_paths(self) -> None:
-        # The common P328 offline verifier is completed by the parallel
-        # integration unit.  This check remains intentionally structural and
-        # never calls the normal publisher or touches a device.
-        self.assertFalse(prepare.DEFAULT_PROMOTION.exists())
-        self.assertFalse(prepare.DEFAULT_MANIFEST.exists())
+    def test_published_final_paths_are_exact_and_host_only(self) -> None:
+        manifest_payload = prepare.DEFAULT_MANIFEST.read_bytes()
+        self.assertEqual(
+            prepare.identity(manifest_payload),
+            {
+                "size": 4_959,
+                "sha256": (
+                    "8720216dae8b03c4c905250607225f9a845fb7c09d5407ac6"
+                    "f3667bca4e3636e"
+                ),
+            },
+        )
+        manifest = prepare.decode(manifest_payload, "P3.28 published manifest")
+        self.assertEqual(manifest_payload, prepare.manifest_bytes(manifest))
+        self.assertEqual(manifest["status"], "ready-for-f1-approval")
+        self.assertEqual(manifest["candidate_ap"]["sha256"], "4ff89343a35a3bd0081ac8ed09ef0a872921b2ace5e9be266ce0c4d5a2bffbdb")
+        self.assertEqual(manifest["observation"]["candidate_observer"]["auth_key"], prepare.AUTH_KEY_IDENTITY)
         self.assertFalse(prepare.PRIVATE_PARENT.joinpath("run").exists())
 
     def test_runtime_bound_static_reopen_does_not_read_key_bytes(self) -> None:
