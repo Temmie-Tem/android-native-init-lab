@@ -22,7 +22,7 @@ from typing import Any, Callable
 SCHEMA = "s20plus_g986n_p0_pid1_usb_observer_v1"
 BASELINE_SCHEMA = "s20plus_g986n_p0_pid1_usb_baseline_v1"
 RECEIPT_SCHEMA = "s20plus_g986n_p0_pid1_usb_receipt_v1"
-OBSERVER_ACTIVE = False
+OBSERVER_ACTIVE = True
 
 USB_VENDOR = "04e8"
 USB_PRODUCT = "6861"
@@ -30,7 +30,7 @@ USB_MANUFACTURER = "Samsung"
 USB_PRODUCT_STRING = "S20Plus-P0-PID1"
 USB_DRIVER = "cdc_acm"
 USB_INTERFACE = "00"
-BANNER = b"S20PLUS_P0_PID1_ACM_V1;pid=00000001;stage=ACM_READY\n"
+BANNER = b"S20PLUS_P0_PID1_ACM_V2;pid=00000001;stage=ACM_READY\n"
 
 ARRIVAL_TIMEOUT_SEC = 180
 BANNER_TIMEOUT_SEC = 12

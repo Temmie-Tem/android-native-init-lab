@@ -6,7 +6,7 @@ Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
 Tier: H0 only
 
-Status: `H0_REVIEW_PENDING_NOT_ACTIVE`
+Status: `PASS_GO_ACTIVE_ATTENDED_F1`
 
 ## Outcome
 
@@ -63,16 +63,16 @@ The only candidate is:
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `AP.tar.md5` | 25,733,161 | `2c7b1563e7d340cbe0b1ef16dcc09fe828e1a24237a18c93382b5f61bf0c4cc6` |
-| `boot.img.lz4` | 25,722,068 | `09262d23d1b3925f946b7e249ef2f3a8d72745e00fb0ae98f23786a826afb57b` |
-| decoded `boot.img` | 67,108,864 | `de889ff6256950b98ad8898f4d646f2229cb41a3d1a42d22af608e72161cbf01` |
-| freestanding `/init` | 3,584 | `0243519e5d092d2b538b3c4e245935d2d149a3f0e8c38c491f413c827d91d4ee` |
-| build manifest | 14,574 | `2b8dc91ac01ba374e18c80127b588255efb2eb97ce40d9f22a489ee8798caf0a` |
+| `AP.tar.md5` | 25,733,161 | `58479a25ae2550366d38be4fae6727eafaadcdb98567de4a00c3a1cf5c0015db` |
+| `boot.img.lz4` | 25,722,068 | `c02c1ce1c963942d96de500d6caa89118424c36d211ab9aa788a85db0859c2ee` |
+| decoded `boot.img` | 67,108,864 | `5c967babf96b8b625c4afe3edbbd473cf55042e252dacf57def8c3809fc697ff` |
+| freestanding `/init` | 3,584 | `2a1e7b4a1c485058c790efca6dcc4fd3df1785496795c5fda299a026f77d40ee` |
+| build manifest | 14,574 | `75052fd00dd8c1b79aeec85b6dd4599bc81ccec9c0d684cfba7d6ba16b00d916` |
 
 The AP contains exactly one regular `boot.img.lz4`. The first runtime syscall
 is raw `getpid`; every non-one result parks before volatile mounts, configfs,
 ACM, or the banner. The exact positive banner is 52 bytes with SHA-256
-`e9ed7e002f060e7ab46a554c2b7d76d5652127d4dbf9a43312277b28bac4522a`.
+`6441acc62e89d8a92a54626e4635ff5ec26a51ad23f3a14dccdf7fb247913509`.
 
 The mandatory rollback is the already demonstrated resident-Magisk AP,
 25,835,561 bytes at SHA-256
@@ -131,21 +131,21 @@ and fresh rooted resident Android health.
 
 | File | Size | SHA-256 |
 | --- | ---: | --- |
-| P0 Odin owner | 199,315 | `f21888b6a9cc10c5b13aa0a1e0606521d0d53c99b81c4405317076d94eed545e` |
-| owner activation-normalized | 199,315 | `2b44b3831a38c0c2a312fbaeff14dea258a4ce652c0c8dc8e830efc3876db8fc` |
+| P0 Odin owner | 199,315 | `79a4a50260ff8b9099ab67fcabec543ddf5222414e32bbdfd61ac98b2e51ddfc` |
+| owner activation-normalized | 199,315 | `10963c82e7bded28b4fb97353d0d53fac3525057f0fbb4d2b607a45970e72042` |
 | focused owner test | 114,692 | `b524f6fd3776aafabff66115bf3c738a1ccaeb75b00841e465e911434ad1eff0` |
-| P0 observer dormant | 16,487 | `beba2925988da55c3e210a98616c1b9392d48f5459eb5170ce5ba060eeb09830` |
-| P0 observer active | 16,486 | `a5ee9c1411701133b25c790a1d5bb9b389d3b582abf9e73955ad8b06767ee022` |
-| observer activation-normalized | 16,487 | `0ffd28fcc99e023894de940f5e6fe05b2e30bdedbfccfc86af7ddfbc5fcca6db` |
+| P0 observer dormant | 16,487 | `39ea696119c104952744f3937745bc56906e53e4b8fd4bb5b7128485f8d94041` |
+| P0 observer active | 16,486 | `6e7e9c86d2bc2be412c45896fcab8af87c6f6cb2175ac574e9db3acb1bbdff69` |
+| observer activation-normalized | 16,487 | `980c354e4d31a315b0e0389255a8266d027315ec70fe22ed64204875a3a04232` |
 | focused observer test | 12,482 | `f7f039d33230cc864d1f76bf8df18c1e67c59106c9d5ddf00f6477955b57fbd2` |
-| P0 C init | 15,549 | `33fd27b2216a870947ccb88da18d0d6aada76f1de9e5f9f4aab7a17a02d2bdd9` |
-| P0 builder | 23,173 | `464878e79347fb82de019ff3297c41c048f75b090f393ca16762beab7d3e46b3` |
+| P0 C init | 15,549 | `16c21037094529bbce6158658f892aaa6d24412708ceae7251af4f42c4450e51` |
+| P0 builder | 23,173 | `de48f3c86812ac5debb007d8d601964670244a3c5def99438460aa83e13d5545` |
 | isolated B0 engine | 224,559 | `82ec4cee48c3a39aa8dc4de6136e8fda3fbefe88d4821a71bdb0df55d2a17c2a` |
 | global registry source | 53,811 | `0a112d7dd2633d3465137cdb67ed4539949a3c0c0ec90b178a3ec293735dbdc4` |
 | immutable registry activation | 21,276 | `aa50c211ee86d4b1534399c6d9fd82d4de3550856724e5788d693b012bce471b` |
 
 The current host closure validates to SHA-256
-`a54399576f92f2d6bae81414516a9ad65928c5fc3b3fa2f8069b8809e51d069b`.
+`343bb84be37493abccf8c8e1150b97dc2aca912bdbd4702407918bb727562924`.
 
 ## Validation
 

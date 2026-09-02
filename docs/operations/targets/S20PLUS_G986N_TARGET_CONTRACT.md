@@ -1264,7 +1264,7 @@ Neither candidate nor rollback may replay.
 
 ## P0 PID1 ACM Odin boot-only F1
 
-Status: **DEFINED - H0 ONLY - NOT ACTIVE**
+Status: **ACTIVE - ATTENDED F1 ONLY**
 
 This section defines the smallest ordinary F1 successor for direct native PID1
 first light. It applies only to the operator-owned
@@ -1276,9 +1276,9 @@ owner is
 `OBSERVER_ACTIVE=false`, and connected modes stop before ADB, USB inventory,
 Odin, reboot, or any target command. Only host validation and plan rendering
 are available. The dormant owner is 199,315 bytes at SHA-256
-`f21888b6a9cc10c5b13aa0a1e0606521d0d53c99b81c4405317076d94eed545e`
+`79a4a50260ff8b9099ab67fcabec543ddf5222414e32bbdfd61ac98b2e51ddfc`
 and activation-normalized SHA-256
-`2b44b3831a38c0c2a312fbaeff14dea258a4ce652c0c8dc8e830efc3876db8fc`;
+`10963c82e7bded28b4fb97353d0d53fac3525057f0fbb4d2b607a45970e72042`;
 its 114,692-byte focused test SHA-256 is
 `b524f6fd3776aafabff66115bf3c738a1ccaeb75b00841e465e911434ad1eff0`.
 
@@ -1351,16 +1351,16 @@ fails closed without writer recovery. `_writer`, `_append`,
 `claim` or `release` grant.
 
 The only candidate AP is 25,733,161 bytes at SHA-256
-`2c7b1563e7d340cbe0b1ef16dcc09fe828e1a24237a18c93382b5f61bf0c4cc6`.
+`58479a25ae2550366d38be4fae6727eafaadcdb98567de4a00c3a1cf5c0015db`.
 It contains exactly one regular `boot.img.lz4`, 25,722,068 bytes at SHA-256
-`09262d23d1b3925f946b7e249ef2f3a8d72745e00fb0ae98f23786a826afb57b`;
+`c02c1ce1c963942d96de500d6caa89118424c36d211ab9aa788a85db0859c2ee`;
 the decoded 67,108,864-byte boot image SHA-256 is
-`de889ff6256950b98ad8898f4d646f2229cb41a3d1a42d22af608e72161cbf01`.
+`5c967babf96b8b625c4afe3edbbd473cf55042e252dacf57def8c3809fc697ff`.
 Its 3,584-byte freestanding `/init` executes raw `getpid` as its first syscall,
 parks unless the return is exactly one, mounts only volatile kernel
 filesystems, creates one ACM function, and emits only the exact 52-byte banner
 whose SHA-256 is
-`e9ed7e002f060e7ab46a554c2b7d76d5652127d4dbf9a43312277b28bac4522a`.
+`6441acc62e89d8a92a54626e4635ff5ec26a51ad23f3a14dccdf7fb247913509`.
 It has no reboot, block-device, persistent-mount, storage-function, network,
 module, Android, Magisk, exec, or clone path.
 
@@ -1496,7 +1496,7 @@ allowlist, and the full semantic transition; unchanged policy and tests remain
 full-byte equal. The current 61-test owner implements all corrections
 described above and passes a 135-test core plus 165-test wider
 retained suite with ten historical skips. Its host closure SHA-256 is
-`a54399576f92f2d6bae81414516a9ad65928c5fc3b3fa2f8069b8809e51d069b`.
+`343bb84be37493abccf8c8e1150b97dc2aca912bdbd4702407918bb727562924`.
 The sixth-round corrections remain exact-byte review-pending and create no
 preparation, approval, claim, target contact, or live authority.
 

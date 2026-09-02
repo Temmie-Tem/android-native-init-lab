@@ -41,7 +41,7 @@
 #define P0_CONFIG P0_GADGET "/configs/b.1"
 #define P0_UDC_FILE P0_GADGET "/UDC"
 
-#define P0_BANNER "S20PLUS_P0_PID1_ACM_V1;pid=00000001;stage=ACM_READY\n"
+#define P0_BANNER "S20PLUS_P0_PID1_ACM_V2;pid=00000001;stage=ACM_READY\n"
 #define P0_BANNER_SIZE (sizeof(P0_BANNER) - 1U)
 
 struct p0_timespec {

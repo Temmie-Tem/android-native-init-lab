@@ -31,8 +31,8 @@ from typing import Any, Sequence
 
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
-P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "2b44b3831a38c0c2a312fbaeff14dea258a4ce652c0c8dc8e830efc3876db8fc"
+P0_F1_ACTIVE = True
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "10963c82e7bded28b4fb97353d0d53fac3525057f0fbb4d2b607a45970e72042"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -75,13 +75,13 @@ OBSERVER_PATH = ROOT / (
 OBSERVER_DORMANT_SIZE = 16_487
 OBSERVER_ACTIVE_SIZE = 16_486
 OBSERVER_DORMANT_SHA256 = (
-    "beba2925988da55c3e210a98616c1b9392d48f5459eb5170ce5ba060eeb09830"
+    "39ea696119c104952744f3937745bc56906e53e4b8fd4bb5b7128485f8d94041"
 )
 OBSERVER_ACTIVE_SHA256 = (
-    "a5ee9c1411701133b25c790a1d5bb9b389d3b582abf9e73955ad8b06767ee022"
+    "6e7e9c86d2bc2be412c45896fcab8af87c6f6cb2175ac574e9db3acb1bbdff69"
 )
 OBSERVER_NORMALIZED_SHA256 = (
-    "0ffd28fcc99e023894de940f5e6fe05b2e30bdedbfccfc86af7ddfbc5fcca6db"
+    "980c354e4d31a315b0e0389255a8266d027315ec70fe22ed64204875a3a04232"
 )
 OBSERVER_SHA256_BY_ACTIVE = {
     False: OBSERVER_DORMANT_SHA256,
@@ -98,21 +98,21 @@ BUILDER_PATH = ROOT / (
     "build_s20plus_g986n_p0_pid1_acm_h0.py"
 )
 BUILDER_SIZE = 23_173
-BUILDER_SHA256 = "464878e79347fb82de019ff3297c41c048f75b090f393ca16762beab7d3e46b3"
+BUILDER_SHA256 = "de48f3c86812ac5debb007d8d601964670244a3c5def99438460aa83e13d5545"
 INIT_SOURCE_PATH = (
     ROOT / "workspace/public/src/native-init/s20plus_p0_pid1_acm_init.c"
 )
 INIT_SOURCE_SIZE = 15_549
-INIT_SOURCE_SHA256 = "33fd27b2216a870947ccb88da18d0d6aada76f1de9e5f9f4aab7a17a02d2bdd9"
+INIT_SOURCE_SHA256 = "16c21037094529bbce6158658f892aaa6d24412708ceae7251af4f42c4450e51"
 
-OUTPUT_ROOT = ROOT / "workspace/private/outputs/s20plus_g986n/p0_pid1_acm_v1"
+OUTPUT_ROOT = ROOT / "workspace/private/outputs/s20plus_g986n/p0_pid1_acm_v2"
 CANDIDATE_AP = OUTPUT_ROOT / "AP.tar.md5"
 CANDIDATE_AP_SIZE = 25_733_161
-CANDIDATE_AP_SHA256 = "2c7b1563e7d340cbe0b1ef16dcc09fe828e1a24237a18c93382b5f61bf0c4cc6"
+CANDIDATE_AP_SHA256 = "58479a25ae2550366d38be4fae6727eafaadcdb98567de4a00c3a1cf5c0015db"
 CANDIDATE_MEMBER_SIZE = 25_722_068
-CANDIDATE_MEMBER_SHA256 = "09262d23d1b3925f946b7e249ef2f3a8d72745e00fb0ae98f23786a826afb57b"
+CANDIDATE_MEMBER_SHA256 = "c02c1ce1c963942d96de500d6caa89118424c36d211ab9aa788a85db0859c2ee"
 CANDIDATE_BOOT_SIZE = 67_108_864
-CANDIDATE_BOOT_SHA256 = "de889ff6256950b98ad8898f4d646f2229cb41a3d1a42d22af608e72161cbf01"
+CANDIDATE_BOOT_SHA256 = "5c967babf96b8b625c4afe3edbbd473cf55042e252dacf57def8c3809fc697ff"
 
 ROLLBACK_ROOT = (
     ROOT
@@ -128,7 +128,7 @@ ROLLBACK_BOOT_SHA256 = "d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707
 
 MANIFEST = OUTPUT_ROOT / "manifest.json"
 MANIFEST_SIZE = 14_574
-MANIFEST_SHA256 = "2b8dc91ac01ba374e18c80127b588255efb2eb97ce40d9f22a489ee8798caf0a"
+MANIFEST_SHA256 = "75052fd00dd8c1b79aeec85b6dd4599bc81ccec9c0d684cfba7d6ba16b00d916"
 
 APPROVAL_PREFIX = "S20PLUS-G986N-P0-PID1-ODIN-F1-APPROVE:"
 PHYSICAL_CONFIRM_PREFIX = "S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-CONFIRM:"
@@ -2317,14 +2317,14 @@ def _strict_manifest() -> dict[str, Any]:
         },
         "s20plus_p0_pid1_init": {
             "size": 3_584,
-            "sha256": "0243519e5d092d2b538b3c4e245935d2d149a3f0e8c38c491f413c827d91d4ee",
+            "sha256": "2a1e7b4a1c485058c790efca6dcc4fd3df1785496795c5fda299a026f77d40ee",
         },
     }
     observer_contract = value.get("observer_contract", {}) if isinstance(value, dict) else {}
     safety = value.get("safety", {}) if isinstance(value, dict) else {}
     if (
         type(value) is not dict
-        or value.get("schema") != "s20plus_g986n_p0_pid1_acm_build_v1"
+        or value.get("schema") != "s20plus_g986n_p0_pid1_acm_build_v2"
         or value.get("target") != engine.TARGET
         or value.get("tier") != "H0"
         or value.get("live_authority") is not False
@@ -2415,7 +2415,7 @@ def _registry_identity(run_id: str, binding_sha256: str) -> dict[str, Any]:
         "target": dict(engine.TARGET),
     }
     manifest = {
-        "manifest_id": "s20plus-g986n-p0-pid1-acm-v1",
+        "manifest_id": "s20plus-g986n-p0-pid1-acm-v2",
         "run_id": run_id,
         "allowed_member": "boot.img.lz4",
         "candidate_ap": {

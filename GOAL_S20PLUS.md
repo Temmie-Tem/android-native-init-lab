@@ -849,7 +849,7 @@ contract and named reports rather than this current-state goal.
 
 ## Current P0 PID1 Odin F1 state
 
-Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`
+Status: `P0_PID1_ODIN_F1_ACTIVE_ATTENDED`
 
 The P0 PID1 Odin owner is implemented but dormant. It exact-loads the reviewed
 B0 engine in an isolated module instance, substitutes only the exact P0
@@ -895,5 +895,5 @@ check stopped after global claim and before the candidate Odin backend. The
 prebound resident-Magisk boot rollback completed and Android returned healthy with `NO_PROOF`;
 the unsent candidate remains consumed. The dormant correction binds the exact
 prepared receipt separately and accepts only stable same-session continuity.
-Its 61 focused tests pass; fresh exact-byte review, activation, and a genuinely
-new candidate remain required before another live PID1 attempt.
+Its 61 focused tests pass. A genuine V2-banner candidate is now built host-only;
+fresh exact-byte review and activation remain required before its live attempt.
