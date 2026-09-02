@@ -25,7 +25,7 @@ SCHEMA = CONTRACT_ID
 TARGET = p326.TARGET
 RUNTIME_KEY = p326.RUNTIME_KEY
 
-P327_RUN_ID_HEX = "c327f1e0a90b5e6d7c8a9b0c1d2e3f4b"
+P327_RUN_ID_HEX = "c327f1e0a90b5e6d7c8a9b0c1d2e3f3b"
 P327_RUN_ID = bytes.fromhex(P327_RUN_ID_HEX)
 DEVICE_BANNER = f"S22PLUS-FYG8-E3:{P327_RUN_ID_HEX}\n".encode("ascii")
 
@@ -71,10 +71,6 @@ P327_ENTRY = (
 )
 
 
-def _c_array(value: bytes) -> str:
-    return ", ".join(f"0x{byte:02x}U" for byte in value)
-
-
 def _c_string(value: bytes) -> str:
     return "".join(f"\\x{byte:02x}" for byte in value)
 
@@ -105,7 +101,7 @@ P327_HELPER = f'''/* P3.27 bounded framed PID1 BusyBox command session. */
 #define P327_ECHILD 10
 #define P327_NR_SETSID 157
 
-static const uint8_t p327_run_id[16] = {{{_c_array(P327_RUN_ID)}}};
+#define p327_run_id k_run_id
 static const char p327_command_1[] = "{_c_string(DEFAULT_COMMANDS[0])}";
 static const char p327_command_2[] = "{_c_string(DEFAULT_COMMANDS[1])}";
 static const char p327_command_3[] = "{_c_string(DEFAULT_COMMANDS[2])}";
@@ -517,6 +513,7 @@ def validate_p327_runtime(value: bytes) -> dict[str, Any]:
         b"P327_MAX_COMMANDS 3U",
         b"P327_COMMAND_TIMEOUT_SEC 10LL",
         b"P327_MAX_OUTPUT 131072U",
+        b"#define p327_run_id k_run_id",
     )
     if any(item not in value for item in required) or b"ash -i" in value:
         raise FramedRuntimeError("P327 bounded execution contract differs")
