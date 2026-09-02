@@ -31,8 +31,8 @@ from typing import Any, Sequence
 
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
-P0_F1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "10963c82e7bded28b4fb97353d0d53fac3525057f0fbb4d2b607a45970e72042"
+P0_F1_ACTIVE = False
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -132,6 +132,9 @@ MANIFEST_SHA256 = "75052fd00dd8c1b79aeec85b6dd4599bc81ccec9c0d684cfba7d6ba16b00d
 
 APPROVAL_PREFIX = "S20PLUS-G986N-P0-PID1-ODIN-F1-APPROVE:"
 PHYSICAL_CONFIRM_PREFIX = "S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-CONFIRM:"
+PHYSICAL_REBIND_CONFIRM_PREFIX = (
+    "S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-REENUM-CONFIRM:"
+)
 P0_BASELINE_NAME = "p0-usb-baseline.json"
 P0_BASELINE_SCHEMA = "s20plus_g986n_p0_pid1_odin_usb_baseline_v1"
 P0_RAW_BANNER_NAME = "p0-acm-banner.raw"
@@ -143,6 +146,10 @@ P0_REGISTRY_RELEASE_INTENT_NAME = "p0-global-release-intent.json"
 P0_REGISTRY_RELEASE_RECEIPT_NAME = "p0-global-release.json"
 P0_LOCAL_PROJECTION_RELEASE_NAME = "p0-local-projection-release.json"
 P0_CANDIDATE_PREFLIGHT_NAME = "p0-candidate-transfer-preflight.json"
+P0_PHYSICAL_REBIND_ARM_NAME = "p0-physical-rollback-rebind-arm.json"
+P0_PHYSICAL_REBIND_CONFIRM_NAME = "p0-physical-rollback-rebind-confirmation.json"
+P0_PHYSICAL_REBIND_ARRIVAL_NAME = "p0-physical-rollback-rebind-arrival.json"
+P0_PHYSICAL_REBIND_MISS_NAME = "p0-physical-rollback-rebind-miss.json"
 P0_REGISTRY_INTENT_SCHEMA = "s20plus_g986n_p0_global_claim_intent_v1"
 P0_REGISTRY_RECEIPT_SCHEMA = "s20plus_g986n_p0_global_claim_receipt_v1"
 P0_REGISTRY_UNCERTAIN_SCHEMA = "s20plus_g986n_p0_global_claim_uncertain_v1"
@@ -156,6 +163,36 @@ P0_CAGE_BOUND_SCHEMA = "s20plus_g986n_p0_process_cage_bound_v1"
 P0_CAGE_RECONCILED_SCHEMA = "s20plus_g986n_p0_process_cage_reconciled_v1"
 P0_CANDIDATE_PREFLIGHT_SCHEMA = (
     "s20plus_g986n_p0_candidate_transfer_preflight_v1"
+)
+P0_PHYSICAL_REBIND_ARM_SCHEMA = (
+    "s20plus_g986n_p0_physical_rollback_rebind_arm_v1"
+)
+P0_PHYSICAL_REBIND_CONFIRM_SCHEMA = (
+    "s20plus_g986n_p0_physical_rollback_rebind_confirmation_v1"
+)
+P0_PHYSICAL_REBIND_ARRIVAL_SCHEMA = (
+    "s20plus_g986n_p0_physical_rollback_rebind_arrival_v1"
+)
+P0_PHYSICAL_REBIND_MISS_SCHEMA = (
+    "s20plus_g986n_p0_physical_rollback_rebind_miss_v1"
+)
+ROLLBACK_PREINTENT_IDENTITY_ERRORS = frozenset(
+    {
+        "P0 Download identity is unproved",
+        "Download endpoint is absent or ambiguous",
+        "Odin endpoint is not a direct character device",
+        "Download sysfs value is oversized",
+        "Download sysfs value is malformed",
+        "Download sysfs identity is absent or ambiguous",
+        "Download USB identity changed or differs",
+        "Download topology is not allowlisted",
+    }
+)
+ROLLBACK_PREINTENT_ENDPOINT_CHANGE_ERRORS = frozenset(
+    {
+        "Download endpoint changed before transfer intent",
+        "Download endpoint changed during transfer preflight",
+    }
 )
 CAGE_KINDS = ("candidate", "rollback", "abort-return", "odin-listing")
 CAGE_GENERATION_MAXIMUM = 512
@@ -212,7 +249,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
     },
     "focused_owner": {
         "modules": ["tests.test_s20plus_g986n_p0_pid1_odin_f1"],
-        "tests": 61,
+        "tests": 74,
         "skipped": 0,
         "log_name": "focused-owner.log",
     },
@@ -226,7 +263,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
             "tests.test_s20plus_g986n_p0_twrp_boot_owner_h0",
             "tests.test_device_action_f1_consumed_candidate_registry_v1",
         ],
-        "tests": 165,
+        "tests": 178,
         "skipped": 10,
         "log_name": "wider.log",
     },
@@ -1462,6 +1499,10 @@ P0_RUN_NODE_NAMES = frozenset(
         P0_REGISTRY_RELEASE_RECEIPT_NAME,
         P0_LOCAL_PROJECTION_RELEASE_NAME,
         P0_CANDIDATE_PREFLIGHT_NAME,
+        P0_PHYSICAL_REBIND_ARM_NAME,
+        P0_PHYSICAL_REBIND_CONFIRM_NAME,
+        P0_PHYSICAL_REBIND_ARRIVAL_NAME,
+        P0_PHYSICAL_REBIND_MISS_NAME,
         *(
             f"p0-{kind}-cage-{generation:04d}-{suffix}.json"
             for kind in CAGE_KINDS
@@ -4297,6 +4338,207 @@ def validate_candidate_observation(
         raise P0F1Error("P0 no-proof observation is malformed")
 
 
+def _physical_rebind_continuity(
+    prior: dict[str, Any], current: dict[str, Any]
+) -> bool:
+    try:
+        engine._validate_endpoint(prior, "P0 prior physical Download endpoint")
+        engine._validate_endpoint(current, "P0 rebound physical Download endpoint")
+    except engine.B0F1Error:
+        return False
+    prior_match = USBFS_RE.fullmatch(str(prior.get("device", "")))
+    current_match = USBFS_RE.fullmatch(str(current.get("device", "")))
+    return bool(
+        prior_match is not None
+        and current_match is not None
+        and prior_match.group(1) == current_match.group(1)
+        and prior["device"] != current["device"]
+        and prior["endpoint_sha256"] != current["endpoint_sha256"]
+        and prior["topology_sha256"] == current["topology_sha256"]
+        and prior["usb"] == current["usb"]
+        and prior["usb"] == {**engine.DOWNLOAD_USB, "serial_absent": True}
+    )
+
+
+def _validate_physical_rebind_arm(
+    run_dir: Path, prepared: dict[str, Any]
+) -> dict[str, Any]:
+    value = engine.read_json(
+        run_dir / P0_PHYSICAL_REBIND_ARM_NAME,
+        "P0 physical rollback rebind arm",
+    )
+    source_arrival = engine.read_json(
+        run_dir / "physical-rollback-arrival.json",
+        "P0 physical rollback source arrival",
+    )
+    source_confirmation = engine.read_json(
+        run_dir / "physical-confirmation-intent.json",
+        "P0 physical rollback source confirmation",
+    )
+    expected_keys = {
+        "schema",
+        "version",
+        "binding_sha256",
+        "source_arrival_sha256",
+        "source_confirmation_sha256",
+        "prior_endpoint",
+        "endpoint",
+        "reason",
+        "expires_unix",
+        "confirmation_token",
+        "no_replay",
+        "at",
+    }
+    core = {key: item for key, item in value.items() if key != "confirmation_token"}
+    if (
+        type(value) is not dict
+        or set(value) != expected_keys
+        or value.get("schema") != P0_PHYSICAL_REBIND_ARM_SCHEMA
+        or value.get("version") != VERSION
+        or value.get("binding_sha256") != prepared.get("binding_sha256")
+        or value.get("source_arrival_sha256") != engine.digest(source_arrival)
+        or value.get("source_confirmation_sha256")
+        != engine.digest(source_confirmation)
+        or value.get("prior_endpoint") != source_arrival.get("endpoint")
+        or not isinstance(value.get("endpoint"), dict)
+        or not _physical_rebind_continuity(
+            value.get("prior_endpoint"), value["endpoint"]
+        )
+        or value.get("reason") != "usbfs-address-reenumerated-same-physical-topology"
+        or type(value.get("expires_unix")) is not int
+        or value.get("confirmation_token")
+        != PHYSICAL_REBIND_CONFIRM_PREFIX + engine.digest(core)
+        or value.get("no_replay") is not True
+        or not isinstance(value.get("at"), str)
+        or not value["at"]
+    ):
+        raise P0F1Error("P0 physical rollback rebind arm is malformed")
+    return value
+
+
+def _validate_physical_rebind_confirmation(
+    run_dir: Path, prepared: dict[str, Any], arm: dict[str, Any]
+) -> dict[str, Any]:
+    value = engine.read_json(
+        run_dir / P0_PHYSICAL_REBIND_CONFIRM_NAME,
+        "P0 physical rollback rebind confirmation",
+    )
+    if (
+        type(value) is not dict
+        or set(value)
+        != {
+            "schema",
+            "version",
+            "binding_sha256",
+            "arm_sha256",
+            "confirmation_token_sha256",
+            "confirmed_unix",
+            "no_replay",
+            "at",
+        }
+        or value.get("schema") != P0_PHYSICAL_REBIND_CONFIRM_SCHEMA
+        or value.get("version") != VERSION
+        or value.get("binding_sha256") != prepared.get("binding_sha256")
+        or value.get("arm_sha256") != engine.digest(arm)
+        or value.get("confirmation_token_sha256")
+        != hashlib.sha256(arm["confirmation_token"].encode()).hexdigest()
+        or type(value.get("confirmed_unix")) is not int
+        or value.get("confirmed_unix") > arm.get("expires_unix", -1)
+        or value.get("no_replay") is not True
+        or not isinstance(value.get("at"), str)
+        or not value["at"]
+    ):
+        raise P0F1Error("P0 physical rollback rebind confirmation is malformed")
+    return value
+
+
+def _validate_physical_rebind_arrival(
+    run_dir: Path,
+    prepared: dict[str, Any],
+    arm: dict[str, Any],
+    confirmation: dict[str, Any],
+) -> dict[str, Any]:
+    value = engine.read_json(
+        run_dir / P0_PHYSICAL_REBIND_ARRIVAL_NAME,
+        "P0 physical rollback rebound arrival",
+    )
+    if (
+        type(value) is not dict
+        or set(value)
+        != {
+            "schema",
+            "version",
+            "binding_sha256",
+            "arm_sha256",
+            "confirmation_sha256",
+            "endpoint",
+            "at",
+        }
+        or value.get("schema") != P0_PHYSICAL_REBIND_ARRIVAL_SCHEMA
+        or value.get("version") != VERSION
+        or value.get("binding_sha256") != prepared.get("binding_sha256")
+        or value.get("arm_sha256") != engine.digest(arm)
+        or value.get("confirmation_sha256") != engine.digest(confirmation)
+        or value.get("endpoint") != arm.get("endpoint")
+        or not isinstance(value.get("at"), str)
+        or not value["at"]
+    ):
+        raise P0F1Error("P0 physical rollback rebound arrival is malformed")
+    return value
+
+
+def _validate_physical_rebind_miss(
+    run_dir: Path,
+    prepared: dict[str, Any],
+    arm: dict[str, Any],
+    confirmation: dict[str, Any],
+) -> dict[str, Any]:
+    value = engine.read_json(
+        run_dir / P0_PHYSICAL_REBIND_MISS_NAME,
+        "P0 physical rollback rebind miss",
+    )
+    current_endpoint = value.get("current_endpoint") if isinstance(value, dict) else None
+    if current_endpoint is not None:
+        try:
+            engine._validate_endpoint(
+                current_endpoint, "P0 physical rollback rebind miss endpoint"
+            )
+        except engine.B0F1Error as exc:
+            raise P0F1Error("P0 physical rollback rebind miss is malformed") from exc
+    if (
+        type(value) is not dict
+        or set(value)
+        != {
+            "schema",
+            "version",
+            "binding_sha256",
+            "arm_sha256",
+            "confirmation_sha256",
+            "reason",
+            "current_endpoint",
+            "no_replay",
+            "at",
+        }
+        or value.get("schema") != P0_PHYSICAL_REBIND_MISS_SCHEMA
+        or value.get("version") != VERSION
+        or value.get("binding_sha256") != prepared.get("binding_sha256")
+        or value.get("arm_sha256") != engine.digest(arm)
+        or value.get("confirmation_sha256") != engine.digest(confirmation)
+        or value.get("reason")
+        not in {
+            "identity-unproved-after-confirmation",
+            "identity-unproved-before-rollback-intent",
+            "endpoint-changed-after-confirmation",
+            "endpoint-changed-before-rollback-intent",
+        }
+        or value.get("no_replay") is not True
+        or not isinstance(value.get("at"), str)
+        or not value["at"]
+    ):
+        raise P0F1Error("P0 physical rollback rebind miss is malformed")
+    return value
+
+
 def validate_namespace(run_dir: Path) -> None:
     _ENGINE_VALIDATE_NAMESPACE(run_dir)
     names = {entry.name for entry in os.scandir(run_dir)}
@@ -4401,6 +4643,54 @@ def validate_namespace(run_dir: Path) -> None:
             raise P0F1Error("P0 raw ACM evidence differs")
     if "candidate-observation.json" in names and not baseline_present:
         raise P0F1Error("P0 observation lacks the USB baseline")
+    rebind_arm = None
+    rebind_confirmation = None
+    if P0_PHYSICAL_REBIND_ARM_NAME in names:
+        if not {
+            "prepared.json",
+            "physical-rollback-arrival.json",
+            "physical-confirmation-intent.json",
+        } <= names:
+            raise P0F1Error("P0 physical rollback rebind lacks its source chain")
+        assert prepared is not None
+        rebind_arm = _validate_physical_rebind_arm(run_dir, prepared)
+    if P0_PHYSICAL_REBIND_CONFIRM_NAME in names:
+        if rebind_arm is None:
+            raise P0F1Error("P0 physical rollback rebind confirmation lacks its arm")
+        assert prepared is not None
+        rebind_confirmation = _validate_physical_rebind_confirmation(
+            run_dir, prepared, rebind_arm
+        )
+    if P0_PHYSICAL_REBIND_ARRIVAL_NAME in names:
+        if rebind_arm is None or rebind_confirmation is None:
+            raise P0F1Error("P0 rebound arrival lacks its confirmation chain")
+        assert prepared is not None
+        _validate_physical_rebind_arrival(
+            run_dir, prepared, rebind_arm, rebind_confirmation
+        )
+    if P0_PHYSICAL_REBIND_MISS_NAME in names:
+        if rebind_arm is None or rebind_confirmation is None:
+            raise P0F1Error("P0 rebind miss lacks its confirmation chain")
+        assert prepared is not None
+        _validate_physical_rebind_miss(
+            run_dir, prepared, rebind_arm, rebind_confirmation
+        )
+    if "rollback-intent.json" in names and rebind_arm is not None:
+        if (
+            rebind_confirmation is None
+            or P0_PHYSICAL_REBIND_ARRIVAL_NAME not in names
+            or P0_PHYSICAL_REBIND_MISS_NAME in names
+        ):
+            raise P0F1Error("P0 rebound rollback lacks its complete arrival chain")
+        rollback_intent = engine.read_json(
+            run_dir / "rollback-intent.json", "P0 rollback intent"
+        )
+        rebound_arrival = engine.read_json(
+            run_dir / P0_PHYSICAL_REBIND_ARRIVAL_NAME,
+            "P0 physical rollback rebound arrival",
+        )
+        if rollback_intent.get("endpoint") != rebound_arrival.get("endpoint"):
+            raise P0F1Error("P0 rollback endpoint differs from rebound arrival")
     binding_sha256 = None if prepared is None else prepared["binding_sha256"]
     for kind in CAGE_KINDS:
         effect_name = _effect_intent_name(kind)
@@ -4798,6 +5088,289 @@ def _make_transfer_replacement(original):
 _P0_TRANSFER_BOOT = _make_transfer_replacement(engine.transfer_boot)
 
 
+_ENGINE_ARM_PHYSICAL_ROLLBACK = engine.arm_physical_rollback
+_ENGINE_CONFIRM_PHYSICAL_ROLLBACK = engine.confirm_physical_rollback
+
+
+def _arm_physical_rollback_rebind(
+    run_dir: Path, prepared: dict[str, Any]
+) -> dict[str, Any]:
+    if os.path.lexists(run_dir / "rollback-intent.json"):
+        raise P0F1Error("P0 rollback was already attempted; replay forbidden")
+    if os.path.lexists(run_dir / P0_PHYSICAL_REBIND_MISS_NAME):
+        raise P0F1Error("P0 physical rollback rebind was invalidated")
+    path = run_dir / P0_PHYSICAL_REBIND_ARM_NAME
+    if os.path.lexists(path):
+        arm = _validate_physical_rebind_arm(run_dir, prepared)
+        if (
+            not os.path.lexists(run_dir / P0_PHYSICAL_REBIND_CONFIRM_NAME)
+            and int(time.time()) > arm["expires_unix"]
+        ):
+            raise P0F1Error("P0 physical rollback rebind arm expired")
+    else:
+        source_arrival = engine.read_json(
+            run_dir / "physical-rollback-arrival.json",
+            "P0 physical rollback source arrival",
+        )
+        source_confirmation = engine.read_json(
+            run_dir / "physical-confirmation-intent.json",
+            "P0 physical rollback source confirmation",
+        )
+        current = engine.identify_download()
+        prior = source_arrival.get("endpoint")
+        if not isinstance(prior, dict) or not _physical_rebind_continuity(
+            prior, current
+        ):
+            raise P0F1Error(
+                "P0 physical rollback changed beyond one USBFS address re-enumeration"
+            )
+        core = {
+            "schema": P0_PHYSICAL_REBIND_ARM_SCHEMA,
+            "version": VERSION,
+            "binding_sha256": prepared["binding_sha256"],
+            "source_arrival_sha256": engine.digest(source_arrival),
+            "source_confirmation_sha256": engine.digest(source_confirmation),
+            "prior_endpoint": prior,
+            "endpoint": current,
+            "reason": "usbfs-address-reenumerated-same-physical-topology",
+            "expires_unix": int(time.time())
+            + engine.PHYSICAL_ARRIVAL_LIFETIME_SECONDS,
+            "no_replay": True,
+            "at": engine.utc_now(),
+        }
+        arm = {
+            **core,
+            "confirmation_token": PHYSICAL_REBIND_CONFIRM_PREFIX
+            + engine.digest(core),
+        }
+        engine.durable_json(path, arm)
+        arm = _validate_physical_rebind_arm(run_dir, prepared)
+    confirmed = os.path.lexists(run_dir / P0_PHYSICAL_REBIND_CONFIRM_NAME)
+    return {
+        "schema": "s20plus_g986n_p0_recovery_pending_v1",
+        "run_dir": str(run_dir),
+        "binding_sha256": prepared["binding_sha256"],
+        "verdict": (
+            "PHYSICAL_DOWNLOAD_REENUM_CONFIRMED_RECOVERY_PENDING"
+            if confirmed
+            else "PHYSICAL_DOWNLOAD_REENUM_BOUND_AWAITING_CONFIRMATION"
+        ),
+        "confirmation": arm["confirmation_token"],
+        "candidate_replay_permitted": False,
+        "rollback_replay_permitted": False,
+    }
+
+
+def _arm_physical_rollback_with_rebind(run_dir: Path) -> dict[str, Any]:
+    require_active()
+    prepared = engine.read_prepared(run_dir, phase="rollback")
+    engine.require_all_transfer_processes_quiescent(
+        run_dir, prepared["binding_sha256"]
+    )
+    if os.path.lexists(run_dir / P0_PHYSICAL_REBIND_ARM_NAME) or os.path.lexists(
+        run_dir / "physical-confirmation-intent.json"
+    ):
+        return _arm_physical_rollback_rebind(run_dir, prepared)
+    return _ENGINE_ARM_PHYSICAL_ROLLBACK(run_dir)
+
+
+def _publish_physical_rebind_miss(
+    run_dir: Path,
+    prepared: dict[str, Any],
+    arm: dict[str, Any],
+    confirmation: dict[str, Any],
+    reason: str,
+    current_endpoint: dict[str, Any] | None,
+) -> dict[str, Any]:
+    path = run_dir / P0_PHYSICAL_REBIND_MISS_NAME
+    if not os.path.lexists(path):
+        engine.durable_json(
+            path,
+            {
+                "schema": P0_PHYSICAL_REBIND_MISS_SCHEMA,
+                "version": VERSION,
+                "binding_sha256": prepared["binding_sha256"],
+                "arm_sha256": engine.digest(arm),
+                "confirmation_sha256": engine.digest(confirmation),
+                "reason": reason,
+                "current_endpoint": current_endpoint,
+                "no_replay": True,
+                "at": engine.utc_now(),
+            },
+        )
+    return _validate_physical_rebind_miss(
+        run_dir, prepared, arm, confirmation
+    )
+
+
+def _rollback_preintent_identity_miss_reason(exc: BaseException) -> str | None:
+    message = str(exc)
+    if message in ROLLBACK_PREINTENT_IDENTITY_ERRORS:
+        return "identity-unproved-before-rollback-intent"
+    if message in ROLLBACK_PREINTENT_ENDPOINT_CHANGE_ERRORS:
+        return "endpoint-changed-before-rollback-intent"
+    return None
+
+
+def _confirm_rebound_physical_rollback(
+    run_dir: Path, prepared: dict[str, Any], confirmation: str
+) -> dict[str, Any]:
+    arm = _validate_physical_rebind_arm(run_dir, prepared)
+    if confirmation != arm["confirmation_token"]:
+        raise P0F1Error("P0 physical rollback rebind confirmation differs")
+    if os.path.lexists(run_dir / "rollback-intent.json"):
+        raise P0F1Error("P0 rollback was already attempted; replay forbidden")
+    if os.path.lexists(run_dir / P0_PHYSICAL_REBIND_MISS_NAME):
+        raise P0F1Error("P0 physical rollback rebind was invalidated")
+    confirmation_path = run_dir / P0_PHYSICAL_REBIND_CONFIRM_NAME
+    if not os.path.lexists(confirmation_path):
+        confirmed_unix = int(time.time())
+        if confirmed_unix > arm["expires_unix"]:
+            raise P0F1Error("P0 physical rollback rebind confirmation expired")
+        current = engine.identify_download()
+        if not engine.same_download_session(current, arm["endpoint"]):
+            raise P0F1Error("P0 confirmed rebound Download endpoint changed")
+        engine.durable_json(
+            confirmation_path,
+            {
+                "schema": P0_PHYSICAL_REBIND_CONFIRM_SCHEMA,
+                "version": VERSION,
+                "binding_sha256": prepared["binding_sha256"],
+                "arm_sha256": engine.digest(arm),
+                "confirmation_token_sha256": hashlib.sha256(
+                    confirmation.encode()
+                ).hexdigest(),
+                "confirmed_unix": confirmed_unix,
+                "no_replay": True,
+                "at": engine.utc_now(),
+            },
+        )
+    rebound_confirmation = _validate_physical_rebind_confirmation(
+        run_dir, prepared, arm
+    )
+    try:
+        current = engine.identify_download()
+    except engine.B0F1Error as exc:
+        _publish_physical_rebind_miss(
+            run_dir,
+            prepared,
+            arm,
+            rebound_confirmation,
+            "identity-unproved-after-confirmation",
+            None,
+        )
+        raise P0F1Error(
+            "P0 rebound Download identity is unproved after confirmation"
+        ) from exc
+    if not engine.same_download_session(current, arm["endpoint"]):
+        _publish_physical_rebind_miss(
+            run_dir,
+            prepared,
+            arm,
+            rebound_confirmation,
+            "endpoint-changed-after-confirmation",
+            current,
+        )
+        raise P0F1Error("P0 rebound Download endpoint changed after confirmation")
+    arrival_path = run_dir / P0_PHYSICAL_REBIND_ARRIVAL_NAME
+    if not os.path.lexists(arrival_path):
+        engine.durable_json(
+            arrival_path,
+            {
+                "schema": P0_PHYSICAL_REBIND_ARRIVAL_SCHEMA,
+                "version": VERSION,
+                "binding_sha256": prepared["binding_sha256"],
+                "arm_sha256": engine.digest(arm),
+                "confirmation_sha256": engine.digest(rebound_confirmation),
+                "endpoint": current,
+                "at": engine.utc_now(),
+            },
+        )
+    rebound_arrival = _validate_physical_rebind_arrival(
+        run_dir, prepared, arm, rebound_confirmation
+    )
+    try:
+        dispatch_current = engine.identify_download()
+    except (engine.B0F1Error, OSError) as exc:
+        _publish_physical_rebind_miss(
+            run_dir,
+            prepared,
+            arm,
+            rebound_confirmation,
+            "identity-unproved-before-rollback-intent",
+            None,
+        )
+        raise P0F1Error(
+            "P0 rebound Download identity is unproved before rollback intent"
+        ) from exc
+    if not engine.same_download_session(
+        dispatch_current, rebound_arrival["endpoint"]
+    ):
+        _publish_physical_rebind_miss(
+            run_dir,
+            prepared,
+            arm,
+            rebound_confirmation,
+            "endpoint-changed-before-rollback-intent",
+            dispatch_current,
+        )
+        raise P0F1Error(
+            "P0 rebound Download endpoint changed before rollback intent"
+        )
+    try:
+        return engine.rollback_from_arrival(
+            run_dir, prepared, dispatch_current
+        )
+    except engine.B0F1Error as exc:
+        reason = _rollback_preintent_identity_miss_reason(exc)
+        if not os.path.lexists(run_dir / "rollback-intent.json") and reason:
+            _publish_physical_rebind_miss(
+                run_dir,
+                prepared,
+                arm,
+                rebound_confirmation,
+                reason,
+                None,
+            )
+        raise
+
+
+def _confirm_physical_rollback_with_rebind(
+    run_dir: Path, confirmation: str
+) -> dict[str, Any]:
+    require_active()
+    prepared = engine.read_prepared(run_dir, phase="rollback")
+    engine.require_all_transfer_processes_quiescent(
+        run_dir, prepared["binding_sha256"]
+    )
+    if os.path.lexists(run_dir / P0_PHYSICAL_REBIND_ARM_NAME):
+        return _confirm_rebound_physical_rollback(
+            run_dir, prepared, confirmation
+        )
+    if os.path.lexists(run_dir / "physical-confirmation-intent.json"):
+        raise P0F1Error(
+            "P0 physical rollback rebind must be armed before confirmation"
+        )
+    try:
+        return _ENGINE_CONFIRM_PHYSICAL_ROLLBACK(run_dir, confirmation)
+    except engine.B0F1Error as exc:
+        if str(exc) != "physical rollback endpoint changed":
+            raise
+        if not os.path.lexists(run_dir / "physical-confirmation-intent.json"):
+            raise P0F1Error(
+                "P0 physical endpoint changed without consumed confirmation"
+            ) from exc
+        return {
+            "schema": "s20plus_g986n_p0_recovery_pending_v1",
+            "run_dir": str(run_dir),
+            "binding_sha256": prepared["binding_sha256"],
+            "verdict": "PHYSICAL_DOWNLOAD_REENUM_REQUIRES_ARM",
+            "next_mode": "--arm-physical-rollback",
+            "candidate_replay_permitted": False,
+            "rollback_replay_permitted": False,
+        }
+
+
 def _make_execution_dependency_replacements() -> dict[str, tuple[Any, str, Any]]:
     def live_only(original, label: str):
         def guarded(*args, **kwargs):
@@ -5017,6 +5590,42 @@ _ENGINE_LIVE_REPLACEMENTS = {
     name: _guarded_live_alias(getattr(engine, name), f"engine_{name}")
     for name in _ENGINE_LIVE_NAMES
 }
+
+
+def _guarded_identify_download(original):
+    def guarded():
+        require_active()
+        _require_live_transaction()
+        try:
+            return original()
+        except OSError as exc:
+            raise engine.B0F1Error("P0 Download identity is unproved") from exc
+
+    guarded.__name__ = "p0_guarded_engine_identify_download"
+    guarded.__qualname__ = guarded.__name__
+    return guarded
+
+
+def _guarded_endpoint_stat(original):
+    def guarded(path: str):
+        require_active()
+        _require_live_transaction()
+        try:
+            return original(path)
+        except OSError as exc:
+            raise engine.B0F1Error("P0 Download identity is unproved") from exc
+
+    guarded.__name__ = "p0_guarded_engine_endpoint_stat"
+    guarded.__qualname__ = guarded.__name__
+    return guarded
+
+
+_ENGINE_LIVE_REPLACEMENTS["identify_download"] = _guarded_identify_download(
+    engine.identify_download
+)
+_ENGINE_LIVE_REPLACEMENTS["endpoint_stat"] = _guarded_endpoint_stat(
+    engine.endpoint_stat
+)
 _ENGINE_LIVE_REPLACEMENTS["adb_inventory"] = _build_adb_inventory_capability(
     engine.adb_inventory
 )
@@ -5074,14 +5683,8 @@ def _entrypoint_run(name: str, args: tuple[Any, ...]) -> Path | None:
     return run_dir
 
 
-_ENGINE_ENTRYPOINT_REPLACEMENTS = {
-    name: _build_entrypoint_capability(
-        name,
-        getattr(engine, name),
-        require_active,
-        _entrypoint_run,
-        _reconcile_orphan_process_cages,
-    )
+_ENGINE_ENTRYPOINT_ORIGINALS = {
+    name: getattr(engine, name)
     for name in (
         "prepare",
         "execute",
@@ -5091,6 +5694,22 @@ _ENGINE_ENTRYPOINT_REPLACEMENTS = {
         "finalize_resident",
         "abort_pre_candidate",
     )
+}
+_ENGINE_ENTRYPOINT_ORIGINALS["arm_physical_rollback"] = (
+    _arm_physical_rollback_with_rebind
+)
+_ENGINE_ENTRYPOINT_ORIGINALS["confirm_physical_rollback"] = (
+    _confirm_physical_rollback_with_rebind
+)
+_ENGINE_ENTRYPOINT_REPLACEMENTS = {
+    name: _build_entrypoint_capability(
+        name,
+        original,
+        require_active,
+        _entrypoint_run,
+        _reconcile_orphan_process_cages,
+    )
+    for name, original in _ENGINE_ENTRYPOINT_ORIGINALS.items()
 }
 _read_prepared_for_output = _build_prepare_output_capability(
     engine.read_prepared,

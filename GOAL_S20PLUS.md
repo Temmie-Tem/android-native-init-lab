@@ -849,51 +849,38 @@ contract and named reports rather than this current-state goal.
 
 ## Current P0 PID1 Odin F1 state
 
-Status: `P0_PID1_ODIN_F1_ACTIVE_ATTENDED`
+Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`
 
-The P0 PID1 Odin owner is implemented but dormant. It exact-loads the reviewed
-B0 engine in an isolated module instance, substitutes only the exact P0
-one-member boot AP and ACM observer, preserves mandatory resident rollback,
-and leaves ordinary B0 code and journals untouched. Its first independent
-review returned `NO_GO` at 2/4/2 and the corrected bytes received a second
-`NO_GO` at 2/2/2; a third exact-byte review returned `NO_GO` at 4/3/0 and a
-fourth returned `NO_GO` at 4/4/0. A fifth review returned `NO_GO` at 1/2/0 for
-unanchored activation markers, raw-writer lifetime, and incomplete cage path
-and nested-identity validation. A sixth review returned `NO_GO` at 5/0/0 for
-closure-reflection and generic leased-argument concerns, raw-writer method
-lifetime, hidden Markdown status placement, and stale activation binding. The
-same-UID reflection premise is outside the repository threat model; the
-ordinary surface was still narrowed to exact serial and journal-bound command
-forms, unused helpers were denied, raw writers became acquisition-bound
-proxies, and activation documents gained structural parsing plus normalized
-before/after receipts. Those bytes received a seventh exact read-only
-`PASS_GO` at 0/0/0. A pre-activation test-state audit retired that review
-record before authority. The activation-neutral follow-up then returned
-`NO_GO` at 1/3/2 for caller-influenced ADB ownership, dormant-only observer
-pinning, loose test receipts, ambient negative-test state, and stale wording.
-The latest correction removes the conflicting private ADB daemon and reuses B0's fixed local server through a closed environment; it retains exact-serial commands and all target/build/topology/root checks without adding handoff machinery. It binds both observer atoms and their 16,487/16,486-byte sizes through one normalized identity, and
-requires distinct dormant/active raw test terminals. A host-mount `st_dev` rotation was repaired
-H0-only after an independent 0/0/0 review without changing records or replay
-state. Later inert activation trials fixed three state-dependent checks. The first connected prepare then stopped before run allocation or target contact at the registry writer fence; the correction uses only the pinned legacy-set proof and shared-reader active-claim check, and fails closed without writer recovery. Final review remains. The current dormant owner exact-loads the B0
-dependency graph without changing ordinary B0; gates command, transport, raw
-and journal writers, shared guards, observer, cgroup, and registry mutation
-behind a closure-private open-FD target-session capability; uses the append-only global
-candidate registry with local-boundary-first consumed-uncertain recovery and
-the raw-proved local-parse release; completes exact transfer preflight before
-the global claim; journals bounded transfer/abort/listing cage generations and
-replaces inherited cage validation with the exact P0 generation grammar;
-requires dedicated zero-finding, mechanical-diff, and final activation records
-binding structurally anchored authoritative goal/policy/report status fields
-and tests in addition to future booleans; gives raw acquisition a second
-short-lived closure-private capability that returns no writer; validates the
-complete direct cage path and nested identity; fences inherited inventory,
-local claim, and cgroup/sysfs bypasses; rejects
-contradictory global states and preserves the raw 52-byte ACM PID1 witness. The
-first approved run retained the same USB path, inode, device number, topology,
-and descriptors but changed only USBFS `st_ctime_ns`; a redundant exact digest
-check stopped after global claim and before the candidate Odin backend. The
-prebound resident-Magisk boot rollback completed and Android returned healthy with `NO_PROOF`;
-the unsent candidate remains consumed. The dormant correction binds the exact
-prepared receipt separately and accepts only stable same-session continuity.
-Its 61 focused tests pass. A genuine V2-banner candidate is now built host-only;
-fresh exact-byte review and activation remain required before its live attempt.
+The first P0 candidate was consumed before its Odin backend by a ctime-only
+host check; its mandatory resident rollback completed and Android returned
+healthy with `NO_PROOF`. The distinct V2 candidate then reached one uncertain
+Odin attempt: `ProcessCageError`, possible partition effect, and no proved host
+quiescence. Its 180-second ACM observation was `NO_PROOF`, so native PID1 is
+still neither proved nor refuted and the candidate may never replay.
+
+The V2 physical fallback bound the exact sole Download endpoint and consumed
+the operator confirmation, but the device re-enumerated on the same physical
+topology from USBFS address `/002/032` to `/002/034` before rollback intent.
+No rollback transfer was attempted. The device remains recovery-pending in
+Download mode; TWRP, userdata, and every non-boot partition are untouched by
+this P0 run.
+
+The next bounded unit is one incident-only recovery continuation. It accepts
+only the same USB bus, allowlisted topology, exact Samsung Download profile,
+and absent serial with a changed USBFS address. It records that current
+endpoint and emits a new short-lived physical-rebind token; copying back that
+token can enter only the existing fixed resident-Magisk boot rollback. Wrong
+confirmation, pre-confirmation expiry, any topology/profile drift, a second
+rebind, or an existing rollback intent stops. A post-confirmation reporting
+cut may resume only that exact chain without repeating an effect. Any unproved
+or changed identity after durable confirmation records a permanent miss and
+blocks retry. Candidate replay remains impossible.
+
+The dormant recovery candidate passes 74/74 focused tests and 178 wider tests
+with ten historical skips. Its owner is 222,502 bytes, SHA-256
+`3939d4c9866da7298980219cc1051c112c616d6bec0f16b2dd2baf4ebf1090bd`,
+with normalized SHA-256
+`5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410`;
+the 145,676-byte test SHA-256 is
+`cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741`.
+Exact review and fresh activation records are required before Download contact.

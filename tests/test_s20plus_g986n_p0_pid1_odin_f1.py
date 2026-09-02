@@ -40,13 +40,16 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
 
-    def endpoint(self, node: str = "1-2") -> dict[str, object]:
+    def endpoint(
+        self,
+        node: str = "1-2",
+        device: str = "/dev/bus/usb/001/007",
+        identity: list[int] | None = None,
+    ) -> dict[str, object]:
         return {
-            "device": "/dev/bus/usb/001/007",
-            "endpoint_identity": [1, 2, 3, 4],
-            "endpoint_sha256": hashlib.sha256(
-                b"/dev/bus/usb/001/007"
-            ).hexdigest(),
+            "device": device,
+            "endpoint_identity": identity or [1, 2, 3, 4],
+            "endpoint_sha256": hashlib.sha256(device.encode()).hexdigest(),
             "topology_sha256": hashlib.sha256(
                 f"usb:{node}".encode("ascii")
             ).hexdigest(),
@@ -2614,6 +2617,701 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             )
             with self.assertRaisesRegex(self.module.P0F1Error, "lacks"):
                 self.module.validate_namespace(run_dir)
+
+    def test_physical_rebind_accepts_only_address_drift_on_same_topology(self):
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        self.assertTrue(
+            self.module._physical_rebind_continuity(prior, current)
+        )
+        same = dict(prior)
+        self.assertFalse(self.module._physical_rebind_continuity(prior, same))
+        wrong_bus = self.endpoint(
+            "2-2", "/dev/bus/usb/003/034", [7, 1987, 48545, 20]
+        )
+        self.assertFalse(
+            self.module._physical_rebind_continuity(prior, wrong_bus)
+        )
+        wrong_profile = dict(current)
+        wrong_profile["usb"] = {**current["usb"], "product": "foreign"}
+        self.assertFalse(
+            self.module._physical_rebind_continuity(prior, wrong_profile)
+        )
+
+    def test_existing_confirmation_requires_separate_rebind_arm_mode(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module,
+                "_ENGINE_ARM_PHYSICAL_ROLLBACK",
+            ) as original_arm, mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(
+                self.module.engine, "rollback_from_arrival"
+            ) as rollback:
+                result = self.module._arm_physical_rollback_with_rebind(run_dir)
+            self.assertEqual(
+                result["verdict"],
+                "PHYSICAL_DOWNLOAD_REENUM_BOUND_AWAITING_CONFIRMATION",
+            )
+            self.assertTrue(
+                result["confirmation"].startswith(
+                    self.module.PHYSICAL_REBIND_CONFIRM_PREFIX
+                )
+            )
+            self.assertTrue(
+                (run_dir / self.module.P0_PHYSICAL_REBIND_ARM_NAME).exists()
+            )
+            rollback.assert_not_called()
+            original_arm.assert_not_called()
+
+    def test_rebind_confirmation_dispatches_one_bound_rollback(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ):
+                armed = self.module._arm_physical_rollback_rebind(
+                    run_dir, prepared
+                )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine,
+                "identify_download",
+                return_value=current,
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(
+                self.module.engine,
+                "rollback_from_arrival",
+                return_value={"verdict": "rollback-dispatched"},
+            ) as rollback:
+                result = self.module._confirm_physical_rollback_with_rebind(
+                    run_dir, armed["confirmation"]
+                )
+            self.assertEqual(result["verdict"], "rollback-dispatched")
+            self.assertTrue(
+                (run_dir / self.module.P0_PHYSICAL_REBIND_CONFIRM_NAME).exists()
+            )
+            self.assertTrue(
+                (run_dir / self.module.P0_PHYSICAL_REBIND_ARRIVAL_NAME).exists()
+            )
+            rollback.assert_called_once_with(run_dir, prepared, current)
+
+    def test_rebind_wrong_confirmation_cannot_reach_rollback(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ):
+                self.module._arm_physical_rollback_rebind(run_dir, prepared)
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine, "identify_download"
+            ) as identify, mock.patch.object(
+                self.module.engine, "rollback_from_arrival"
+            ) as rollback:
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "confirmation differs"
+                ):
+                    self.module._confirm_physical_rollback_with_rebind(
+                        run_dir, "wrong"
+                    )
+            identify.assert_not_called()
+            rollback.assert_not_called()
+            self.assertFalse(
+                (run_dir / self.module.P0_PHYSICAL_REBIND_CONFIRM_NAME).exists()
+            )
+
+    def test_expired_rebind_confirmation_stops_before_endpoint_read(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(self.module.time, "time", return_value=100):
+                armed = self.module._arm_physical_rollback_rebind(
+                    run_dir, prepared
+                )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine, "identify_download"
+            ) as identify, mock.patch.object(
+                self.module.engine, "rollback_from_arrival"
+            ) as rollback, mock.patch.object(
+                self.module.time,
+                "time",
+                return_value=100
+                + self.module.engine.PHYSICAL_ARRIVAL_LIFETIME_SECONDS
+                + 1,
+            ):
+                with self.assertRaisesRegex(self.module.P0F1Error, "expired"):
+                    self.module._confirm_physical_rollback_with_rebind(
+                        run_dir, armed["confirmation"]
+                    )
+            identify.assert_not_called()
+            rollback.assert_not_called()
+
+    def test_rebound_endpoint_drift_stops_before_confirmation_intent(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        later = self.endpoint(
+            "2-2", "/dev/bus/usb/002/035", [7, 1990, 48546, 30]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ):
+                armed = self.module._arm_physical_rollback_rebind(
+                    run_dir, prepared
+                )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine, "identify_download", return_value=later
+            ), mock.patch.object(
+                self.module.engine, "rollback_from_arrival"
+            ) as rollback:
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "rebound Download endpoint changed"
+                ):
+                    self.module._confirm_physical_rollback_with_rebind(
+                        run_dir, armed["confirmation"]
+                    )
+            rollback.assert_not_called()
+            self.assertFalse(
+                (run_dir / self.module.P0_PHYSICAL_REBIND_CONFIRM_NAME).exists()
+            )
+
+    def test_confirmed_rebind_reporting_cut_remains_recoverable_after_expiry(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(self.module.time, "time", return_value=100):
+                armed = self.module._arm_physical_rollback_rebind(
+                    run_dir, prepared
+                )
+            arm = self.module._validate_physical_rebind_arm(run_dir, prepared)
+            self.durable_fixture(
+                run_dir / self.module.P0_PHYSICAL_REBIND_CONFIRM_NAME,
+                {
+                    "schema": self.module.P0_PHYSICAL_REBIND_CONFIRM_SCHEMA,
+                    "version": self.module.VERSION,
+                    "binding_sha256": prepared["binding_sha256"],
+                    "arm_sha256": self.module.engine.digest(arm),
+                    "confirmation_token_sha256": hashlib.sha256(
+                        armed["confirmation"].encode()
+                    ).hexdigest(),
+                    "confirmed_unix": 101,
+                    "no_replay": True,
+                    "at": "fixture",
+                },
+            )
+            after_expiry = (
+                100 + self.module.engine.PHYSICAL_ARRIVAL_LIFETIME_SECONDS + 1
+            )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine,
+                "identify_download",
+                side_effect=[current, current],
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(
+                self.module.engine,
+                "rollback_from_arrival",
+                return_value={"verdict": "reporting-cut-resumed"},
+            ) as rollback, mock.patch.object(
+                self.module.time, "time", return_value=after_expiry
+            ):
+                result = self.module._confirm_physical_rollback_with_rebind(
+                    run_dir, armed["confirmation"]
+                )
+            self.assertEqual(result["verdict"], "reporting-cut-resumed")
+            rollback.assert_called_once_with(run_dir, prepared, current)
+
+    def test_rebind_arm_reemits_same_token_without_refreshing_expiry(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(self.module.time, "time", return_value=100):
+                first = self.module._arm_physical_rollback_rebind(
+                    run_dir, prepared
+                )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module, "_ENGINE_ARM_PHYSICAL_ROLLBACK"
+            ) as original_arm, mock.patch.object(
+                self.module.engine, "identify_download"
+            ) as identify, mock.patch.object(
+                self.module.time, "time", return_value=101
+            ):
+                repeated = self.module._arm_physical_rollback_with_rebind(run_dir)
+            self.assertEqual(repeated["confirmation"], first["confirmation"])
+            original_arm.assert_not_called()
+            identify.assert_not_called()
+            expired = 100 + self.module.engine.PHYSICAL_ARRIVAL_LIFETIME_SECONDS + 1
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.time, "time", return_value=expired
+            ):
+                with self.assertRaisesRegex(self.module.P0F1Error, "arm expired"):
+                    self.module._arm_physical_rollback_with_rebind(run_dir)
+
+    def test_consumed_original_confirmation_cannot_bypass_rebind_arm(self):
+        prepared = {"binding_sha256": "1" * 64}
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module, "_ENGINE_CONFIRM_PHYSICAL_ROLLBACK"
+            ) as original_confirm, mock.patch.object(
+                self.module.engine, "identify_download"
+            ) as identify:
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "must be armed"
+                ):
+                    self.module._confirm_physical_rollback_with_rebind(
+                        run_dir, "consumed-original-confirmation"
+                    )
+            original_confirm.assert_not_called()
+            identify.assert_not_called()
+
+    def test_detected_post_confirmation_drift_is_durably_invalidated(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        later = self.endpoint(
+            "2-2", "/dev/bus/usb/002/035", [7, 1990, 48546, 30]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ):
+                armed = self.module._arm_physical_rollback_rebind(
+                    run_dir, prepared
+                )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine,
+                "identify_download",
+                side_effect=[current, later],
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(
+                self.module.engine, "rollback_from_arrival"
+            ) as rollback:
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "changed after confirmation"
+                ):
+                    self.module._confirm_physical_rollback_with_rebind(
+                        run_dir, armed["confirmation"]
+                    )
+            rollback.assert_not_called()
+            miss = self.module._validate_physical_rebind_miss(
+                run_dir,
+                prepared,
+                self.module._validate_physical_rebind_arm(run_dir, prepared),
+                self.module._validate_physical_rebind_confirmation(
+                    run_dir,
+                    prepared,
+                    self.module._validate_physical_rebind_arm(run_dir, prepared),
+                ),
+            )
+            self.assertEqual(miss["reason"], "endpoint-changed-after-confirmation")
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine, "identify_download"
+            ) as identify, mock.patch.object(
+                self.module.engine, "rollback_from_arrival"
+            ) as rollback:
+                with self.assertRaisesRegex(self.module.P0F1Error, "invalidated"):
+                    self.module._confirm_physical_rollback_with_rebind(
+                        run_dir, armed["confirmation"]
+                    )
+            identify.assert_not_called()
+            rollback.assert_not_called()
+
+    def test_all_rollback_preintent_identity_failures_are_durably_invalidated(self):
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        for message in sorted(self.module.ROLLBACK_PREINTENT_IDENTITY_ERRORS):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as temporary:
+                run_dir = Path(temporary)
+                self.durable_fixture(
+                    run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+                )
+                self.durable_fixture(
+                    run_dir / "physical-confirmation-intent.json",
+                    {"consumed": True},
+                )
+                with mock.patch.object(
+                    self.module.engine, "identify_download", return_value=current
+                ), mock.patch.object(
+                    self.module.engine,
+                    "durable_json",
+                    side_effect=self.durable_fixture,
+                ):
+                    armed = self.module._arm_physical_rollback_rebind(
+                        run_dir, prepared
+                    )
+                with mock.patch.object(
+                    self.module, "require_active"
+                ), mock.patch.object(
+                    self.module.engine, "read_prepared", return_value=prepared
+                ), mock.patch.object(
+                    self.module.engine, "require_all_transfer_processes_quiescent"
+                ), mock.patch.object(
+                    self.module.engine, "identify_download", return_value=current
+                ), mock.patch.object(
+                    self.module.engine,
+                    "durable_json",
+                    side_effect=self.durable_fixture,
+                ), mock.patch.object(
+                    self.module.engine,
+                    "rollback_from_arrival",
+                    side_effect=self.module.engine.B0F1Error(message),
+                ):
+                    with self.assertRaisesRegex(
+                        self.module.engine.B0F1Error, re.escape(message)
+                    ):
+                        self.module._confirm_physical_rollback_with_rebind(
+                            run_dir, armed["confirmation"]
+                        )
+                arm = self.module._validate_physical_rebind_arm(run_dir, prepared)
+                confirmation = self.module._validate_physical_rebind_confirmation(
+                    run_dir, prepared, arm
+                )
+                miss = self.module._validate_physical_rebind_miss(
+                    run_dir, prepared, arm, confirmation
+                )
+                self.assertEqual(
+                    miss["reason"], "identity-unproved-before-rollback-intent"
+                )
+                self.assertFalse((run_dir / "rollback-intent.json").exists())
+                with mock.patch.object(
+                    self.module, "require_active"
+                ), mock.patch.object(
+                    self.module.engine, "read_prepared", return_value=prepared
+                ), mock.patch.object(
+                    self.module.engine, "require_all_transfer_processes_quiescent"
+                ), mock.patch.object(
+                    self.module.engine, "identify_download"
+                ) as identify, mock.patch.object(
+                    self.module.engine, "rollback_from_arrival"
+                ) as rollback:
+                    with self.assertRaisesRegex(
+                        self.module.P0F1Error, "invalidated"
+                    ):
+                        self.module._confirm_physical_rollback_with_rebind(
+                            run_dir, armed["confirmation"]
+                        )
+                identify.assert_not_called()
+                rollback.assert_not_called()
+
+    def test_final_exact_identity_oserror_is_durably_invalidated(self):
+        guarded_reads = (
+            (
+                self.module._guarded_identify_download(
+                    mock.Mock(side_effect=FileNotFoundError("gone"))
+                ),
+                (),
+            ),
+            (
+                self.module._guarded_endpoint_stat(
+                    mock.Mock(side_effect=FileNotFoundError("gone"))
+                ),
+                ("/dev/bus/usb/002/034",),
+            ),
+        )
+        for guarded_read, arguments in guarded_reads:
+            with self.subTest(read=guarded_read.__name__), mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(self.module, "_require_live_transaction"):
+                with self.assertRaisesRegex(
+                    self.module.engine.B0F1Error, "identity is unproved"
+                ):
+                    guarded_read(*arguments)
+        prepared = {"binding_sha256": "1" * 64}
+        prior = self.endpoint(
+            "2-2", "/dev/bus/usb/002/032", [7, 1963, 48543, 10]
+        )
+        current = self.endpoint(
+            "2-2", "/dev/bus/usb/002/034", [7, 1987, 48545, 20]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(
+                run_dir / "physical-rollback-arrival.json", {"endpoint": prior}
+            )
+            self.durable_fixture(
+                run_dir / "physical-confirmation-intent.json", {"consumed": True}
+            )
+            with mock.patch.object(
+                self.module.engine, "identify_download", return_value=current
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ):
+                armed = self.module._arm_physical_rollback_rebind(
+                    run_dir, prepared
+                )
+            with mock.patch.object(
+                self.module, "require_active"
+            ), mock.patch.object(
+                self.module.engine, "read_prepared", return_value=prepared
+            ), mock.patch.object(
+                self.module.engine, "require_all_transfer_processes_quiescent"
+            ), mock.patch.object(
+                self.module.engine,
+                "identify_download",
+                side_effect=[current, current, FileNotFoundError("gone")],
+            ), mock.patch.object(
+                self.module.engine,
+                "durable_json",
+                side_effect=self.durable_fixture,
+            ), mock.patch.object(
+                self.module.engine, "rollback_from_arrival"
+            ) as rollback:
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "unproved before rollback intent"
+                ):
+                    self.module._confirm_physical_rollback_with_rebind(
+                        run_dir, armed["confirmation"]
+                    )
+            rollback.assert_not_called()
+            arm = self.module._validate_physical_rebind_arm(run_dir, prepared)
+            confirmation = self.module._validate_physical_rebind_confirmation(
+                run_dir, prepared, arm
+            )
+            miss = self.module._validate_physical_rebind_miss(
+                run_dir, prepared, arm, confirmation
+            )
+            self.assertEqual(
+                miss["reason"], "identity-unproved-before-rollback-intent"
+            )
+
+    def test_rebind_arm_refuses_an_existing_rollback_intent(self):
+        prepared = {"binding_sha256": "1" * 64}
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            self.durable_fixture(run_dir / "rollback-intent.json", {"attempt": 1})
+            with mock.patch.object(
+                self.module.engine, "identify_download"
+            ) as identify:
+                with self.assertRaisesRegex(
+                    self.module.P0F1Error, "already attempted"
+                ):
+                    self.module._arm_physical_rollback_rebind(run_dir, prepared)
+            identify.assert_not_called()
 
     def test_terminal_pass_requires_transfer_pid1_and_rollback_together(self):
         self.assertEqual(

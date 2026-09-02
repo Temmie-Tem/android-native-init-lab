@@ -6,7 +6,7 @@ Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
 Tier: H0 only
 
-Status: `PASS_GO_ACTIVE_ATTENDED_F1`
+Status: `H0_REVIEW_PENDING_NOT_ACTIVE`
 
 ## Outcome
 
@@ -131,9 +131,9 @@ and fresh rooted resident Android health.
 
 | File | Size | SHA-256 |
 | --- | ---: | --- |
-| P0 Odin owner | 199,315 | `79a4a50260ff8b9099ab67fcabec543ddf5222414e32bbdfd61ac98b2e51ddfc` |
-| owner activation-normalized | 199,315 | `10963c82e7bded28b4fb97353d0d53fac3525057f0fbb4d2b607a45970e72042` |
-| focused owner test | 114,692 | `b524f6fd3776aafabff66115bf3c738a1ccaeb75b00841e465e911434ad1eff0` |
+| P0 Odin owner | 222,502 | `3939d4c9866da7298980219cc1051c112c616d6bec0f16b2dd2baf4ebf1090bd` |
+| owner activation-normalized | 222,502 | `5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410` |
+| focused owner test | 145,676 | `cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741` |
 | P0 observer dormant | 16,487 | `39ea696119c104952744f3937745bc56906e53e4b8fd4bb5b7128485f8d94041` |
 | P0 observer active | 16,486 | `6e7e9c86d2bc2be412c45896fcab8af87c6f6cb2175ac574e9db3acb1bbdff69` |
 | observer activation-normalized | 16,487 | `980c354e4d31a315b0e0389255a8266d027315ec70fe22ed64204875a3a04232` |
@@ -144,18 +144,19 @@ and fresh rooted resident Android health.
 | global registry source | 53,811 | `0a112d7dd2633d3465137cdb67ed4539949a3c0c0ec90b178a3ec293735dbdc4` |
 | immutable registry activation | 21,276 | `aa50c211ee86d4b1534399c6d9fd82d4de3550856724e5788d693b012bce471b` |
 
-The current host closure validates to SHA-256
-`343bb84be37493abccf8c8e1150b97dc2aca912bdbd4702407918bb727562924`.
+The exact current host-closure digest is emitted by the dormant validator and
+is bound by the private review record rather than recursively embedded in a
+closure input.
 
 ## Validation
 
-The focused P0 owner suite passes 61/61. Core combined validation passes
-135/135, and the wider retained suite passes 165 tests with ten historical
+The focused P0 owner suite passes 74/74. Core combined validation passes
+148/148, and the wider retained suite passes 178 tests with ten historical
 TWRP skips:
 
 - P0 builder/artifact closure: 8;
 - P0 USB observer: 10;
-- P0 Odin owner: 61;
+- P0 Odin owner: 74;
 - unchanged active B0 owner: 56;
 - B0 H0 builder/closure: 10;
 - expired TWRP sibling: 12, including ten explicit historical skips; and
@@ -180,7 +181,7 @@ partial-activation and missing-live-activation-record denial, contradictory
 global-state rejection, and terminal conjunction. The historical TWRP
 sibling suite separately passes two current expiry checks and explicitly skips
 ten predecessor-closure checks. `py_compile`, host closure validation, and the
-165-test suite pass; final scoped diff validation remains part of the
+178-test suite pass; final scoped diff validation remains part of the
 review handoff.
 
 ## First independent review and correction
@@ -551,3 +552,47 @@ all recovery-partition access were zero. The active records were retained under
 `workspace/private/retired/`, and this owner is dormant while the validator is
 corrected to bind the exact prepared receipt separately from stable live
 same-session comparison. The consumed candidate is not reusable.
+
+## 2026-09-02 V2 transfer and physical-rollback re-enumeration incident
+
+The distinct V2-banner candidate was approved and consumed exactly once. Its
+Odin outcome is unknown: `candidate-result.json` records
+`ProcessCageError`, `host_process_quiescence_proved=false`, and
+`possible_partition_effect=true`. The bounded 180-second ACM observation
+returned `NO_PROOF`. These facts neither prove nor refute native PID1 and never
+permit candidate replay.
+
+The attended physical fallback then bound the sole exact Download endpoint and
+consumed the operator's exact physical confirmation. Before rollback intent,
+the same `usb:2-2` physical topology re-enumerated from USBFS address
+`/002/032` to `/002/034`. The Samsung `04e8:685d`/SM8250 profile and absent
+serial remained exact, but USBFS path, inode, and device number changed. The
+owner stopped with `physical rollback endpoint changed`. No
+`rollback-intent.json`, rollback raw capture, or rollback result exists, so the
+resident rollback attempt count remains zero. The original confirmation is
+consumed and is not replayed.
+
+The narrow recovery candidate adds one incident-only rebind chain. It accepts
+only a changed USBFS address on the same bus with the exact already-allowlisted
+topology and Download profile. The first invocation records the exact current
+endpoint and emits a new short-lived
+`S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-REENUM-CONFIRM:` token without invoking
+Odin. Copying back that exact token records one confirmation and rebound
+arrival before calling only the existing fixed resident-Magisk rollback path.
+It accepts no artifact, command, path, topology, or device-profile input and
+adds no candidate path. A wrong token, expiry before durable rebind
+confirmation, second rebind, endpoint drift, malformed predecessor, or
+existing rollback intent stops. A reporting cut after timely durable
+confirmation may resume the same exact endpoint/rollback chain after expiry
+without repeating confirmation or granting a second effect. After durable
+confirmation, every unproved or changed Download identity before rollback
+intent publishes an immutable rebind-miss receipt and blocks retry.
+
+The focused owner suite passes 74/74 and the wider retained suite passes
+178 tests with ten historical skips. The exact owner, activation-normalized,
+and focused-test identities are the current values in the closure table above.
+This recovery continuation remains
+`H0_REVIEW_PENDING_NOT_ACTIVE`: the previous live-activation receipt does not
+match the rotated owner/policy/test closure. Independent review and a fresh
+mechanical activation receipt are required before the new rebind arm may read
+the current Download endpoint or emit its confirmation token.

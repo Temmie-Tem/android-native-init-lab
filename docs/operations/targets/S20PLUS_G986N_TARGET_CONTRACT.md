@@ -1264,7 +1264,7 @@ Neither candidate nor rollback may replay.
 
 ## P0 PID1 ACM Odin boot-only F1
 
-Status: **ACTIVE - ATTENDED F1 ONLY**
+Status: **DEFINED - H0 ONLY - NOT ACTIVE**
 
 This section defines the smallest ordinary F1 successor for direct native PID1
 first light. It applies only to the operator-owned
@@ -1275,12 +1275,12 @@ owner is
 `P0_F1_ACTIVE=false`, the bound P0 observer remains
 `OBSERVER_ACTIVE=false`, and connected modes stop before ADB, USB inventory,
 Odin, reboot, or any target command. Only host validation and plan rendering
-are available. The dormant owner is 199,315 bytes at SHA-256
-`79a4a50260ff8b9099ab67fcabec543ddf5222414e32bbdfd61ac98b2e51ddfc`
+are available. The current owner is 222,502 bytes at SHA-256
+`3939d4c9866da7298980219cc1051c112c616d6bec0f16b2dd2baf4ebf1090bd`
 and activation-normalized SHA-256
-`10963c82e7bded28b4fb97353d0d53fac3525057f0fbb4d2b607a45970e72042`;
-its 114,692-byte focused test SHA-256 is
-`b524f6fd3776aafabff66115bf3c738a1ccaeb75b00841e465e911434ad1eff0`.
+`5cb67bc9f60e1576325be360b66bd8aff49d00d914f403f582e4a9324f54b410`;
+its 145,676-byte focused test SHA-256 is
+`cecd5a5d72a80bcb85c50a58ea9917a1afbe578b86e992d594a3cb10b6225741`.
 
 The owner exact-loads the currently reviewed B0 recovery owner, 224,559 bytes
 at SHA-256
@@ -1430,6 +1430,29 @@ and final health. The operator confirmation prefix is
 `S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-CONFIRM:`. Foreign ADB rows may remain but
 receive zero commands; a second matching S20+ row or identity drift stops.
 
+One retained P0 run consumed that physical confirmation and then stopped
+before rollback intent because its qualified Download endpoint re-enumerated
+from one USBFS address to another while remaining on the same allowlisted
+physical topology. The run has zero rollback attempts; its candidate remains
+consumed and `NO_PROOF`. The incident-only continuation permits no candidate,
+reboot, generic endpoint, or artifact choice. It may bind exactly one current
+sole Download endpoint only when the prior and current records have the same
+USB bus, exact physical-topology digest, exact `04e8:685d` Samsung/SM8250
+profile, and absent serial while the USBFS path/hash changed. It durably arms
+that exact endpoint and emits a fresh confirmation beginning
+`S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-REENUM-CONFIRM:`. Only that copied-back
+token may publish one rebind confirmation/arrival chain and enter the existing
+fixed resident-Magisk rollback function. Any topology/profile/bus drift,
+second rebind, expiry before durable rebind confirmation, malformed journal,
+or existing rollback intent stops. A reporting cut after timely durable
+confirmation may resume only the same exact endpoint/rollback chain after
+expiry; it neither repeats confirmation nor grants another observation or
+effect. Once rebind confirmation is durable, any absent, ambiguous, malformed,
+foreign, or changed Download identity before rollback intent durably publishes
+one rebind-miss receipt and forbids another attempt. Rollback replay remains
+forbidden. This continuation is H0 review-pending and the prior live-activation
+receipt grants it no device authority.
+
 Activation remains blocked until the exact owner, observer activation,
 focused and inherited B0 tests, this target section, common/risk/Process-v2
 interactions, physical recovery flow, and complete execution-critical closure
@@ -1493,10 +1516,11 @@ and code fences and bind exact heading/status positions plus the complete
 registry row. Every changing document has an activation-normalized receipt,
 and the mechanical record binds their equality, an exact replacement
 allowlist, and the full semantic transition; unchanged policy and tests remain
-full-byte equal. The current 61-test owner implements all corrections
-described above and passes a 135-test core plus 165-test wider
-retained suite with ten historical skips. Its host closure SHA-256 is
-`343bb84be37493abccf8c8e1150b97dc2aca912bdbd4702407918bb727562924`.
+full-byte equal. The current 74-test owner implements all corrections
+described above and passes a 148-test core plus 178-test wider
+retained suite with ten historical skips. The exact current host-closure digest
+is emitted by the dormant validator and must be bound by the private review
+record rather than recursively embedded in a closure input.
 The sixth-round corrections remain exact-byte review-pending and create no
 preparation, approval, claim, target contact, or live authority.
 
