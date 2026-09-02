@@ -69,6 +69,30 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         )
         self.assertTrue(value["d0_covered"])
         self.assertTrue(value["f1_covered"])
+        self.assertEqual(
+            value["p328_live_source_identity"],
+            {
+                "size": 363_417,
+                "sha256": "20de30c2111f356ad98163de0f117aa1c3e7ee97e1418d26cbf4243f369f2a7a",
+            },
+        )
+        self.assertEqual(
+            set(value["p328_raw_first_function_sha256"]),
+            set(self.module.P328_RAW_FIRST_FUNCTIONS),
+        )
+        self.assertTrue(value["p328_raw_finalization_precedes_receipt_parse"])
+        self.assertTrue(value["p328_candidate_observer_no_delete_or_overwrite"])
+        self.assertEqual(
+            value["p326_active_source_identity"],
+            {
+                "size": 15_223,
+                "sha256": "6357256ddca6faab28292e807e7e393c0c0fb841244fd4ce84a0c1f4643d5622",
+            },
+        )
+        self.assertEqual(
+            set(value["p326_raw_first_function_sha256"]),
+            set(self.module.P326_RAW_FIRST_FUNCTIONS),
+        )
         self.assertFalse(value["device_observation_parser_accepts_live_stream"])
         self.assertTrue(
             value[
@@ -103,6 +127,67 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
             "s22plus_fyg8_p320_d1_fresh_baseline.py:RawFirstTransport.reboot_once",
             value["function_sha256"],
         )
+
+    def test_p328_raw_first_order_and_no_clobber_contracts_reject_mutations(self):
+        name = "device_action_f1_live_v2.py"
+        source = self.source(name)
+        mutations = (
+            source.replace(
+                "                    p328_auth_observer.DEFAULT_COMMANDS,\n"
+                "                    timeout_sec=min(120.0, max(0.001, deadline - time.monotonic())),\n"
+                "                    writer=writer,\n",
+                "                    p328_auth_observer.DEFAULT_COMMANDS,\n"
+                "                    timeout_sec=min(120.0, max(0.001, deadline - time.monotonic())),\n"
+                "                    writer=None,\n",
+                1,
+            ),
+            source.replace(
+                "    lane, topology, endpoint = _p328_validate_common_receipt(prepared, value, spec)\n"
+                "    bound = _p328_bound_auth_key_identity(prepared)\n",
+                "    bound = _p328_bound_auth_key_identity(prepared)\n"
+                "    lane, topology, endpoint = _p328_validate_common_receipt(prepared, value, spec)\n",
+                1,
+            ),
+            source.replace(
+                '        cdc_acm_observer.persist_json(\n            self.run_dir / "candidate-observer.json", value\n        )\n',
+                '        cdc_acm_observer.persist_json(\n            self.run_dir / "candidate-observer.json", value\n        )\n'
+                '        self.run_dir.joinpath("candidate-observer.json").unlink()\n',
+                1,
+            ),
+        )
+        for mutation in mutations:
+            self.assertNotEqual(mutation, source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION,
+                    {name: mutation},
+                )
+
+    def test_p326_raw_first_contracts_reject_writer_and_receipt_mutations(self):
+        source_name = "s22plus_fyg8_p326_bidirectional_acm_observer.py"
+        source = self.source(source_name)
+        mutations = (
+            source.replace("        writer.write_stdout(chunk)\n", "", 1),
+            source.replace(
+                "        observer.persist_json(self.run_dir / RECEIPT_NAME, receipt)\n",
+                "        observer.persist_json(self.run_dir / RECEIPT_NAME, receipt)\n"
+                "        self.run_dir.joinpath(RECEIPT_NAME).unlink()\n",
+                1,
+            ),
+            source.replace(
+                "    try:\n        base = p325.validate_receipt(",
+                "    value = _strict_json(run_dir / RECEIPT_NAME)\n"
+                "    try:\n        base = p325.validate_receipt(",
+                1,
+            ),
+        )
+        for mutation in mutations:
+            self.assertNotEqual(mutation, source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION,
+                    {source_name: mutation},
+                )
 
     def test_d0_direct_stdout_and_nonhandle_parser_mutations_reject(self):
         raw_name = "device_action_raw_capture_v1.py"
@@ -570,18 +655,25 @@ def read_control1(adb, serial):
             )
         )
 
-    def test_p326_protocol_remains_outside_active_raw_first_boundary(self):
-        name = "s22plus_fyg8_p326_bidirectional_acm_observer.py"
-        self.assertNotIn(name, self.module.ACTIVE_FILES)
-        self.assertNotIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
-        parsed = self.module._validate_population_sources(REVALIDATION, {})
-        with self.assertRaisesRegex(
-            self.module.RawFirstAuditError,
-            "device-acquiring source bypasses the raw-first boundary: " + name,
-        ):
-            self.module._device_acquisition_sources(
-                REVALIDATION, {}, parsed
-            )
+    def test_p326_protocol_is_p328_active_raw_first_dependency(self):
+        source_name = "s22plus_fyg8_p326_bidirectional_acm_observer.py"
+        self.assertIn(source_name, self.module.ACTIVE_FILES)
+        self.assertNotIn(source_name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+        self.assertEqual(
+            self.module.EXPECTED_ACTIVE_SOURCE_SHA256[source_name],
+            self.module.P326_ACTIVE_SOURCE_IDENTITY["sha256"],
+        )
+        function_sha256 = self.module._audit_function_contracts(
+            REVALIDATION, {}
+        )
+        self.assertEqual(
+            set(
+                key
+                for key in function_sha256
+                if key.startswith(source_name + ":")
+            ),
+            set(self.module.P326_RAW_FIRST_FUNCTIONS),
+        )
 
     def test_registered_host_only_source_is_typed_and_byte_frozen(self):
         name = "s22plus_fyg8_p319_candidate_qualification.py"

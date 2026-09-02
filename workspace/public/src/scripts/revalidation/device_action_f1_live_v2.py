@@ -38,6 +38,10 @@ import s22plus_fyg8_p325_cdc_acm_guard_adapter as p325_guard_adapter
 import s22plus_fyg8_p326_bidirectional_acm_observer as p326_console_observer
 import s22plus_fyg8_p327_framed_acm_observer as p327_framed_observer
 import s22plus_fyg8_p327_framed_exec_runtime as p327_framed_runtime
+import s22plus_fyg8_p328_artifact_identity as p328_artifact_identity
+import s22plus_fyg8_p328_auth_acm_observer as p328_auth_observer
+import s22plus_fyg8_p328_auth_exec_runtime as p328_auth_runtime
+import s22plus_fyg8_p328_stock_process_v2_adapter as p328_stock_adapter
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -113,6 +117,26 @@ P327_OUTCOME_BY_PROOF_CLASS = {
     "NO_PROOF_EXPERIMENT_PRECONDITION": "p327_experiment_precondition_unproved_rollback_verified",
     "NO_PROOF_OBSERVER": "p327_observer_no_proof_rollback_verified",
 }
+P328_AUTH_KEY_PATH = p328_artifact_identity.DEFAULT_AUTH_KEY_PATH
+P328_AUTH_KEY_IDENTITY = dict(typed_evidence.P328_AUTH_EXEC_AUTH_KEY_IDENTITY)
+P328_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p328_auth_acm_receipt_v1"
+P328_MAX_RAW_BYTES = 512 * 1024
+P328_CLASSIFICATIONS = {
+    "accepted",
+    "endpoint-timeout",
+    "endpoint-ambiguous",
+    "identity-mismatch",
+    "open-failed",
+    "exclusive-failed",
+    "guard-lost",
+    "read-timeout",
+    "extra-byte",
+    "authenticated-session-error",
+}
+P328_SUCCESS_VERDICT = typed_evidence.P328_AUTH_EXEC_VERDICT
+P328_SUCCESS_OUTCOME = typed_evidence.P328_AUTH_EXEC_OUTCOME
+P328_NO_PROOF_OUTCOME = typed_evidence.P328_AUTH_EXEC_NO_PROOF_OUTCOME
+MAX_LIVE_RESULT_RECORD = core.MAX_RESULT_RECORD
 
 
 def _p323_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
@@ -277,6 +301,39 @@ def _p327_parser_failure_classification(
     }
 
 
+def _p328_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    """Retain a P328 Carrier parser fault as supplemental evidence."""
+    detail = f"{type(error).__name__}:{error}".encode("utf-8", "replace")
+    return {
+        "schema": "device_action_f1_p328_stock_error_v1",
+        "classification": "P328_STOCK_PARSER_EXCEPTION",
+        "supplemental": True,
+        "accepted": False,
+        "candidate_success": False,
+        "causal_result_allowed": False,
+        "payload_bytes": len(payload),
+        "payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "error_type": type(error).__name__,
+        "error_sha256": hashlib.sha256(detail).hexdigest(),
+    }
+
+
+def _p328_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p328_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "integrity_issue": True,
+        "integrity_issues": ["p328-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p328_stock_error": diagnostic,
+        "accepted": False,
+    }
+
+
 class F1LiveError(RuntimeError):
     pass
 
@@ -397,6 +454,13 @@ def _write_atomic(path: Path, value: Any) -> None:
         raise F1LiveError(str(exc)) from exc
 
 
+def _write_live_result(path: Path, value: Any) -> None:
+    try:
+        core._write_live_result(path, value)
+    except core.F1V2Error as exc:
+        raise F1LiveError(str(exc)) from exc
+
+
 def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
     scripts = Path(__file__).resolve().parent
     paths = {
@@ -435,12 +499,15 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p325_bundle(bundle)
         or _p327_bundle(bundle)
         or _p326_bundle(bundle)
+        or _p328_bundle(bundle)
     ):
         stock_adapter = typed_evidence.STOCK_ADAPTERS[
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p327"
+            "p328"
+            if _p328_bundle(bundle)
+            else "p327"
             if _p327_bundle(bundle)
             else "p326"
             if _p326_bundle(bundle)
@@ -487,7 +554,32 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             )
         except typed_evidence.EvidenceError as exc:
             raise F1LiveError(str(exc)) from exc
-        if _p327_bundle(bundle):
+        if _p328_bundle(bundle):
+            paths["p328_artifact_identity"] = Path(
+                p328_artifact_identity.__file__
+            ).resolve()
+            paths["p328_auth_exec_runtime"] = Path(
+                p328_auth_runtime.__file__
+            ).resolve()
+            paths["p328_auth_acm_observer"] = Path(
+                p328_auth_observer.__file__
+            ).resolve()
+            paths["p326_bidirectional_console_runtime"] = scripts / (
+                "s22plus_fyg8_p326_bidirectional_console_runtime.py"
+            )
+            paths["p324_typec_lane_binding"] = Path(
+                p324_typec_lane.__file__
+            ).resolve()
+            paths["p324_cdc_acm_observer"] = Path(
+                p324_cdc_observer.__file__
+            ).resolve()
+            paths["p325_cdc_acm_guard_adapter"] = Path(
+                p325_guard_adapter.__file__
+            ).resolve()
+            paths["p326_bidirectional_acm_observer"] = Path(
+                p326_console_observer.__file__
+            ).resolve()
+        elif _p327_bundle(bundle):
             paths["p327_framed_exec_runtime"] = Path(
                 p327_framed_runtime.__file__
             ).resolve()
@@ -569,7 +661,24 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         closure[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = (
             candidate_arrival_role
         )
-        if _p327_bundle(bundle):
+        if _p328_bundle(bundle):
+            closure["p328_auth_exec_runtime_contract_id"] = (
+                typed_evidence.P328_AUTH_EXEC_RUNTIME_CONTRACT_ID
+            )
+            closure["p328_auth_acm_observer_contract_id"] = (
+                typed_evidence.P328_AUTH_EXEC_OBSERVER_CONTRACT_ID
+            )
+            closure["p324_typec_lane_contract_id"] = p324_typec_lane.CONTRACT_ID
+            closure["p324_cdc_acm_observer_contract_id"] = (
+                p324_cdc_observer.CONTRACT_ID
+            )
+            closure["p325_cdc_acm_guard_contract_id"] = (
+                p325_guard_adapter.CONTRACT_ID
+            )
+            closure["p326_bidirectional_acm_contract_id"] = (
+                p326_console_observer.CONTRACT_ID
+            )
+        elif _p327_bundle(bundle):
             closure["p327_framed_exec_runtime_contract_id"] = (
                 typed_evidence.P327_FRAMED_EXEC_RUNTIME_CONTRACT_ID
             )
@@ -725,11 +834,16 @@ def _binding(
         "mandatory_rollback_preapproved": True,
         "recovery_requires_second_approval": False,
     }
+    if _p328_bundle(bundle):
+        # Bind only the public identity.  The credential is opened later by
+        # the live observer and is never copied into this record.
+        value["p328_auth_key_identity"] = dict(P328_AUTH_KEY_IDENTITY)
     if (
         _p324_bundle(bundle)
         or _p325_bundle(bundle)
         or _p327_bundle(bundle)
         or _p326_bundle(bundle)
+        or _p328_bundle(bundle)
     ):
         if not isinstance(p324_lane_receipt, dict):
             raise F1LiveError("P3.24 Type-C lane binding receipt is absent")
@@ -761,6 +875,7 @@ def _prepare_p324_typec_lane(
         or _p325_bundle(bundle)
         or _p327_bundle(bundle)
         or _p326_bundle(bundle)
+        or _p328_bundle(bundle)
     ):
         return None
     try:
@@ -791,6 +906,7 @@ def _p324_typec_lane_value(
         or _p325_bundle(prepared.bundle)
         or _p326_bundle(prepared.bundle)
         or _p327_bundle(prepared.bundle)
+        or _p328_bundle(prepared.bundle)
     ):
         raise F1LiveError("P3.24 Type-C lane binding requested for another run")
     path = prepared.run_dir / P324_TYPEC_LANE_NAME
@@ -942,12 +1058,113 @@ def _p327_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p328_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
+def _p328_bound_auth_key_identity(prepared: PreparedRun) -> dict[str, Any]:
+    """Return the prepared, path-free P328 key identity.
+
+    This helper deliberately reads only already-bound JSON.  The credential
+    itself is opened by :func:`_p328_read_auth_key` at session open and is
+    never consulted by receipt reopening or rollback recovery.
+    """
+    containers: list[Mapping[str, Any]] = [prepared.prepared]
+    approval = prepared.prepared.get("approval_binding")
+    if isinstance(approval, dict):
+        containers.append(approval)
+    observation = prepared.bundle.manifest.get("observation")
+    if isinstance(observation, dict):
+        acceptance = observation.get("acceptance")
+        if isinstance(acceptance, dict):
+            containers.append(acceptance)
+    candidates: list[Any] = []
+    for container in containers:
+        for key in (
+            "p328_auth_key_identity",
+            "p328_auth_key",
+            "auth_key_identity",
+            "auth_key",
+        ):
+            if key in container:
+                candidates.append(container[key])
+        for key in ("p328_auth_key_sha256", "auth_key_sha256"):
+            if key in container:
+                candidates.append({"size": 32, "sha256": container[key]})
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        if (
+            set(candidate) != {"size", "sha256"}
+            or type(candidate["size"]) is not int
+            or candidate["size"] != p328_artifact_identity.AUTH_KEY_SIZE
+            or not isinstance(candidate["sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", candidate["sha256"]) is None
+        ):
+            continue
+        return {"size": 32, "sha256": candidate["sha256"]}
+    raise F1LiveError("P3.28 prepared auth-key identity is absent")
+
+
+def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
+    """Open the one fixed key only at observer-session entry.
+
+    The returned bytes remain an in-memory argument to the P328 observer.  No
+    caller path is accepted and the public projection contains only size and
+    digest.
+    """
+    bound = _p328_bound_auth_key_identity(prepared)
+    try:
+        key = p328_artifact_identity.read_auth_key(P328_AUTH_KEY_PATH)
+        actual = p328_artifact_identity.validate_auth_key(key)
+    except p328_artifact_identity.ArtifactIdentityError as exc:
+        raise F1LiveError("P3.28 auth-key identity is unavailable") from exc
+    if actual != bound:
+        raise F1LiveError("P3.28 auth-key identity differs from preparation")
+    return key, actual["sha256"]
+
+
+P328_PROOF_FIELDS = (
+    "hmac_authenticated",
+    "pid1_authenticated_framed_exec_proof",
+    "busybox_ash_command_proof",
+    "framed_session_closed",
+    "interactive_pty_proof",
+    "caller_selected_command",
+    "command_count",
+    "max_commands",
+    "auth_key_sha256",
+    "challenge_nonce_sha256",
+)
+
+
+def _p328_proof_ok(value: Mapping[str, Any]) -> bool:
+    return (
+        value.get("hmac_authenticated") is True
+        and value.get("pid1_authenticated_framed_exec_proof") is True
+        and value.get("busybox_ash_command_proof") is True
+        and value.get("framed_session_closed") is True
+        and value.get("caller_selected_command") is True
+        and value.get("command_count") == 3
+        and value.get("max_commands") == p328_auth_runtime.MAX_COMMANDS
+    )
+
+
+def _p328_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value.get(key) for key in P328_PROOF_FIELDS}
+
+
 def _p324_lane_bundle(bundle: core.Bundle) -> bool:
     return (
         _p324_bundle(bundle)
         or _p325_bundle(bundle)
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
+        or _p328_bundle(bundle)
     )
 
 
@@ -958,6 +1175,7 @@ def _acm_primary_bundle(bundle: core.Bundle) -> bool:
         or _p325_bundle(bundle)
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
+        or _p328_bundle(bundle)
     )
 
 
@@ -993,6 +1211,10 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             typed_evidence.P327_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P327_RUN_ID,
         ),
+        (
+            typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P328_RUN_ID,
+        ),
     }:
         raise F1LiveError(
             "candidate arrival proof role requires the exact P3.23 stock binding "
@@ -1008,7 +1230,11 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             "candidate_observer"
         )
         if (
-            role == typed_evidence.CANDIDATE_FRAMED_FIXED_COMMAND_ROLE
+            role
+            in {
+                typed_evidence.CANDIDATE_FRAMED_FIXED_COMMAND_ROLE,
+                typed_evidence.CANDIDATE_AUTHENTICATED_FRAMED_EXEC_ROLE,
+            }
             and isinstance(candidate_observer, dict)
         ):
             inherited_observer = {
@@ -1779,6 +2005,8 @@ def prepare_connected(
         "f1_authorized": False,
         "live_authorized": False,
     }
+    if _p328_bundle(bundle):
+        prepared["p328_auth_key_identity"] = dict(P328_AUTH_KEY_IDENTITY)
     if p324_lane_receipt is not None:
         prepared["p324_typec_lane_binding"] = p324_lane_receipt
     candidate_arrival_role = bundle.manifest["observation"].get(
@@ -1824,6 +2052,8 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
     )
     if candidate_arrival_role is not None:
         expected_keys.add(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
+    if _p328_bundle(bundle):
+        expected_keys.add("p328_auth_key_identity")
     if _p324_lane_bundle(bundle):
         expected_keys.add("p324_typec_lane_binding")
     if set(prepared) != expected_keys:
@@ -1851,6 +2081,13 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
         )
     ):
         raise F1LiveError("prepared F1 record header mismatch")
+    if _p328_bundle(bundle) and (
+        prepared.get("p328_auth_key_identity")
+        != P328_AUTH_KEY_IDENTITY
+        or prepared.get("p328_auth_key_identity")
+        != prepared.get("approval_binding", {}).get("p328_auth_key_identity")
+    ):
+        raise F1LiveError("P3.28 prepared auth-key identity differs")
     if candidate_arrival_role is not None:
         if (
             prepared.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
@@ -2119,6 +2356,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p328 = overlay == typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID
     is_p327 = overlay == typed_evidence.P327_STOCK_OVERLAY_CONTRACT_ID
     is_p326 = overlay == typed_evidence.P326_STOCK_OVERLAY_CONTRACT_ID
     is_p325 = overlay == typed_evidence.P325_STOCK_OVERLAY_CONTRACT_ID
@@ -2127,7 +2365,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
-        typed_evidence.p327_stock_adapter
+        typed_evidence.p328_stock_adapter
+        if is_p328
+        else typed_evidence.p327_stock_adapter
         if is_p327
         else
         typed_evidence.p326_stock_adapter
@@ -2147,7 +2387,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter
     )
     label = (
-        "P3.27"
+        "P3.28"
+        if is_p328
+        else "P3.27"
         if is_p327
         else
         "P3.26"
@@ -2166,7 +2408,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p327_stock"
+        "p328_stock"
+        if is_p328
+        else "p327_stock"
         if is_p327
         else
         "p326_stock"
@@ -2185,7 +2429,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "p320_stock"
     )
     try:
-        if is_p327:
+        if is_p328:
+            proof = adapter.proof_class(classified)
+        elif is_p327:
             proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
         elif (
             (is_p323 or is_p324 or is_p325 or is_p326)
@@ -2226,7 +2472,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     if any(classified.get(name) is not False for name in required_false):
         raise F1LiveError(f"{label} stock classification exposes a causal claim")
-    acm_primary = is_p323 or is_p324 or is_p325 or is_p326 or is_p327
+    acm_primary = is_p323 or is_p324 or is_p325 or is_p326 or is_p327 or is_p328
     expected_acm_supplemental = not acm_primary
     expected_acm_required = acm_primary
     if classified.get("acm_supplemental") is not expected_acm_supplemental or classified.get(
@@ -2243,6 +2489,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P325_STOCK_ENCODER_FAILURE",
         "P326_STOCK_ENCODER_FAILURE",
         "P327_STOCK_ENCODER_FAILURE",
+        "P328_STOCK_ENCODER_FAILURE",
     } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
     result = {
@@ -2271,6 +2518,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P325_STOCK_ENCODER_FAILURE",
         "P326_STOCK_ENCODER_FAILURE",
         "P327_STOCK_ENCODER_FAILURE",
+        "P328_STOCK_ENCODER_FAILURE",
     }:
         result["producer_failure"] = True
         result["max77705_scientific_result"] = "NOT_PRODUCED"
@@ -2279,6 +2527,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    is_p328 = "p328_stock" in state
     is_p327 = "p327_stock" in state
     is_p326 = "p326_stock" in state
     is_p325 = "p325_stock" in state
@@ -2286,7 +2535,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     is_p322 = "p322_stock" in state
     is_p321 = "p321_stock" in state
     label = (
-        "P3.27"
+        "P3.28"
+        if is_p328
+        else "P3.27"
         if is_p327
         else
         "P3.26"
@@ -2303,7 +2554,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p327_stock"
+        "p328_stock"
+        if is_p328
+        else "p327_stock"
         if is_p327
         else
         "p326_stock"
@@ -2328,7 +2581,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     ):
         raise F1LiveError(f"{label} durable stock projection differs from final evidence")
     proof_key = (
-        "p327_proof_class"
+        "p328_proof_class"
+        if is_p328
+        else "p327_proof_class"
         if is_p327
         else
         "p326_proof_class"
@@ -2740,6 +2995,21 @@ class SamsungOdinBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
+        if _p328_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
+            return _p328_candidate_observer_session(
+                prepared,
+                spec,
+                lane_value=lane_value,
+                lane_receipt=lane_receipt,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         if _p327_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
@@ -3067,6 +3337,7 @@ class SamsungOdinBackend:
                     p325_guard_adapter.P325ObserverError,
                     p326_console_observer.P326ObserverError,
                     p327_framed_observer.FramedObserverError,
+                    p328_auth_observer.AuthObserverError,
                     OSError,
                 ):
                     pass
@@ -3104,6 +3375,30 @@ class SamsungOdinBackend:
                         "caller_selected_command": durable[
                             "caller_selected_command"
                         ],
+                    }
+                )
+            if _p328_bundle(prepared.bundle):
+                result.update(
+                    {
+                        "hmac_authenticated": durable["hmac_authenticated"],
+                        "pid1_authenticated_framed_exec_proof": durable[
+                            "pid1_authenticated_framed_exec_proof"
+                        ],
+                        "busybox_ash_command_proof": durable[
+                            "busybox_ash_command_proof"
+                        ],
+                        "framed_session_closed": durable[
+                            "framed_session_closed"
+                        ],
+                        "caller_selected_command": durable[
+                            "caller_selected_command"
+                        ],
+                        "command_count": durable["command_count"],
+                        "max_commands": durable["max_commands"],
+                        "auth_key_sha256": durable.get("auth_key_sha256"),
+                        "challenge_nonce_sha256": durable.get(
+                            "challenge_nonce_sha256"
+                        ),
                     }
                 )
             if _p318_bundle(prepared.bundle):
@@ -3232,7 +3527,12 @@ class SamsungOdinBackend:
         except F1LiveError as exc:
             if not _acm_primary_bundle(prepared.bundle):
                 raise
-            if _p327_bundle(prepared.bundle):
+            if _p328_bundle(prepared.bundle):
+                stock_error = _p328_stock_error(payloads[0], exc)
+                marker_result = _p328_parser_failure_classification(
+                    payloads[0], exc
+                )
+            elif _p327_bundle(prepared.bundle):
                 stock_error = _p327_stock_error(payloads[0], exc)
                 marker_result = _p327_parser_failure_classification(
                     payloads[0], exc
@@ -3280,6 +3580,7 @@ class SamsungOdinBackend:
                     or _p325_bundle(prepared.bundle)
                     or _p326_bundle(prepared.bundle)
                     or _p327_bundle(prepared.bundle)
+                    or _p328_bundle(prepared.bundle)
                 )
             )
             else None
@@ -3313,7 +3614,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p327_stock"
+                "p328_stock"
+                if _p328_bundle(prepared.bundle)
+                else "p327_stock"
                 if _p327_bundle(prepared.bundle)
                 else "p326_stock"
                 if _p326_bundle(prepared.bundle)
@@ -3331,7 +3634,9 @@ class SamsungOdinBackend:
             ] = p320_projection
         if stock_error is not None:
             key = (
-                "p327_stock_error"
+                "p328_stock_error"
+                if _p328_bundle(prepared.bundle)
+                else "p327_stock_error"
                 if _p327_bundle(prepared.bundle)
                 else "p326_stock_error"
                 if _p326_bundle(prepared.bundle)
@@ -3344,7 +3649,9 @@ class SamsungOdinBackend:
             )
             result["observer"][key] = stock_error
             result["observer"].pop(
-                "p327_stock"
+                "p328_stock"
+                if _p328_bundle(prepared.bundle)
+                else "p327_stock"
                 if _p327_bundle(prepared.bundle)
                 else "p326_stock"
                 if _p326_bundle(prepared.bundle)
@@ -3363,7 +3670,7 @@ def _live_state_path(prepared: PreparedRun) -> Path:
 
 
 def _candidate_observer_binding(prepared: PreparedRun) -> dict[str, str]:
-    return {
+    value: dict[str, str] = {
         "approval_binding_sha256": prepared.binding_sha256,
         "bundle_sha256": prepared.bundle.sha256,
         "manifest_id": prepared.bundle.manifest["manifest_id"],
@@ -3371,6 +3678,11 @@ def _candidate_observer_binding(prepared: PreparedRun) -> dict[str, str]:
             "sha256"
         ],
     }
+    if _p328_bundle(prepared.bundle):
+        value["p328_auth_key_sha256"] = _p328_bound_auth_key_identity(
+            prepared
+        )["sha256"]
+    return value
 
 
 P313_GUARD_LIFETIME_ARM = "candidate-observer-guard-lifetime-arm.json"
@@ -3517,6 +3829,9 @@ class _P327ObserverSession:
     endpoint: Any | None = None
     endpoint_classification: str | None = None
     protocol_error: str | None = None
+
+    def _raw_argv0_name(self) -> str:
+        return "tty-cdc-acm-p327"
 
     def _read_endpoint(
         self,
@@ -3672,12 +3987,12 @@ class _P327ObserverSession:
             "device_commands": False,
         }
 
-    def observe(
+    def _observe_value(
         self,
         *,
         timeout_sec: int,
         download_departure: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         if (
             type(timeout_sec) is not int
             or timeout_sec <= 0
@@ -3723,7 +4038,7 @@ class _P327ObserverSession:
             "candidate-observer",
             stdout_maximum=P327_MAX_RAW_BYTES,
             stderr_maximum=1,
-            argv0_name="tty-cdc-acm-p327",
+            argv0_name=self._raw_argv0_name(),
             stdout_name="candidate-observer.raw",
             stderr_name="candidate-observer.raw.stderr",
         )
@@ -3830,19 +4145,44 @@ class _P327ObserverSession:
             "bounded": True,
             "elapsed_sec": round(time.monotonic() - started, 6),
         }
+        return p327_value, lane_supplement
+
+    def _publish_value(
+        self,
+        value: dict[str, Any],
+        lane_supplement: dict[str, Any],
+        *,
+        label: str,
+    ) -> None:
         cdc_acm_observer.persist_json(
-            self.run_dir / "candidate-observer.json", p327_value
+            self.run_dir / "candidate-observer.json", value
         )
         # The P324 lane adapter normally emits this after its delegate's
-        # observe call.  P327 owns the framed receipt, so publish the same
-        # bounded lane supplement after the raw-first candidate receipt.
+        # observe call. Publish the same bounded lane supplement only after
+        # the final raw-first framed receipt exists.
         lane_value = dict(lane_supplement)
         lane_value["base_observer"] = _receipt(
             self.run_dir / "candidate-observer.json",
-            "P327 framed observer receipt",
+            label,
         )
         cdc_acm_observer.persist_json(
             self.run_dir / p324_cdc_observer.SUPPLEMENT_NAME, lane_value
+        )
+
+    def observe(
+        self,
+        *,
+        timeout_sec: int,
+        download_departure: dict[str, Any],
+    ) -> dict[str, Any]:
+        p327_value, lane_supplement = self._observe_value(
+            timeout_sec=timeout_sec,
+            download_departure=download_departure,
+        )
+        self._publish_value(
+            p327_value,
+            lane_supplement,
+            label="P327 framed observer receipt",
         )
         return p327_value
 
@@ -4222,6 +4562,578 @@ def _p327_validate_receipt(
     }
 
 
+@dataclass
+class _P328ObserverSession(_P327ObserverSession):
+    """P328 authentication wrapper retaining the reviewed P327 lane writer."""
+
+    auth_key: bytes = b""
+    auth_key_sha256: str = ""
+
+    def _raw_argv0_name(self) -> str:
+        return "tty-cdc-acm-p328"
+
+    def _read_endpoint(
+        self,
+        endpoint: Any,
+        deadline: float,
+        writer: raw_capture.RawCaptureWriter,
+    ) -> str:
+        path = self.base.dev_root / endpoint.tty_name
+        self.endpoint = endpoint
+        guard_healthy = self.base.guard.healthy(recheck=True)
+        if not guard_healthy or not self.base.guard.matches_node(endpoint.tty_class):
+            return "guard-lost" if not guard_healthy else "identity-mismatch"
+        try:
+            info = path.stat()
+            if (
+                not stat.S_ISCHR(info.st_mode)
+                or os.major(info.st_rdev) != endpoint.major
+                or os.minor(info.st_rdev) != endpoint.minor
+            ):
+                return "identity-mismatch"
+            descriptor = os.open(
+                path,
+                os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK | os.O_CLOEXEC,
+            )
+        except OSError:
+            return "open-failed"
+        try:
+            try:
+                fcntl.ioctl(descriptor, termios.TIOCEXCL)
+            except OSError:
+                return "exclusive-failed"
+            if not self.base.guard.healthy(recheck=True):
+                return "guard-lost"
+            try:
+                self.base._raw_tty(descriptor)
+                exchange = p328_auth_observer.exchange_commands(
+                    descriptor,
+                    self.auth_key,
+                    p328_auth_observer.DEFAULT_COMMANDS,
+                    timeout_sec=min(120.0, max(0.001, deadline - time.monotonic())),
+                    writer=writer,
+                )
+            except p328_auth_observer.AuthObserverError as exc:
+                self.protocol_error = str(exc)[:160]
+                return "authenticated-session-error"
+            except Exception as exc:  # pragma: no cover - tty fault
+                self.protocol_error = type(exc).__name__
+                return "open-failed"
+            self.exchange = exchange
+            self.trailing_rx = _p327_trailing_probe(descriptor, writer)
+            if self.trailing_rx:
+                exchange.audit.rx.extend(self.trailing_rx)
+            try:
+                proof = p328_auth_observer.validate_default_proof(exchange)
+            except p328_auth_observer.AuthObserverError as exc:
+                self.protocol_error = str(exc)[:160]
+                return "extra-byte" if self.trailing_rx else "authenticated-session-error"
+            self.proof = {
+                **proof,
+                "pid1_framed_exec_proof": proof[
+                    "pid1_authenticated_framed_exec_proof"
+                ],
+            }
+            if self.trailing_rx:
+                return "extra-byte"
+            guard_healthy = self.base.guard.healthy(recheck=True)
+            identity, repeated = cdc_acm_observer._resolve_endpoint(  # noqa: SLF001
+                endpoint.tty_class
+            )
+            topology = cdc_acm_observer.TOPOLOGY_RE.fullmatch(
+                p324_typec_lane.CANDIDATE_TOPOLOGY
+            )
+            assert topology is not None
+            if (
+                repeated.identity_sha256 != endpoint.identity_sha256
+                or not cdc_acm_observer._matches(  # noqa: SLF001
+                    self.spec, topology.group(1), identity, repeated
+                )
+                or os.fstat(descriptor).st_rdev != info.st_rdev
+            ):
+                return "identity-mismatch"
+            if not guard_healthy or not self.base.guard.matches_node(endpoint.tty_class):
+                return "guard-lost" if not guard_healthy else "identity-mismatch"
+            return "accepted"
+        finally:
+            os.close(descriptor)
+
+    def observe(
+        self,
+        *,
+        timeout_sec: int,
+        download_departure: dict[str, Any],
+    ) -> dict[str, Any]:
+        # P327 contributes only the reviewed raw-first writer, trailing probe,
+        # and lane receipt.  P328 rewrites its in-memory projection before
+        # the final receipt is published.
+        base_value, lane_supplement = super()._observe_value(
+            timeout_sec=timeout_sec,
+            download_departure=download_departure,
+        )
+        value = dict(base_value)
+        value.pop("tx_hex", None)
+        value.pop("pid1_framed_exec_proof", None)
+        exchange = self.exchange
+        audit = exchange.audit if exchange is not None else None
+        proof = dict(self.proof or {})
+        proof.pop("pid1_framed_exec_proof", None)
+        hmac_authenticated = audit is not None and audit.authenticated is True
+        challenge_seen = audit is not None and audit.challenge_seen is True
+        framed_closed = bool(
+            audit is not None
+            and audit.banner_seen
+            and audit.challenge_seen
+            and audit.ready_seen
+            and audit.done_seen
+        )
+        accepted = bool(
+            base_value.get("accepted") is True
+            and hmac_authenticated
+            and proof.get("pid1_authenticated_framed_exec_proof") is True
+            and proof.get("busybox_ash_command_proof") is True
+            and framed_closed
+            and not self.trailing_rx
+        )
+        classification = base_value["classification"]
+        if classification == "accepted" and not accepted:
+            classification = "authenticated-session-error"
+        value.update(
+            {
+                "schema": P328_OBSERVER_RECEIPT_SCHEMA,
+                "contract_id": p328_auth_observer.CONTRACT_ID,
+                "target": p328_auth_observer.TARGET,
+                "banner_hex": p328_auth_runtime.DEVICE_BANNER.hex(),
+                "challenge_seen": challenge_seen,
+                "proof": proof,
+                "auth_algorithm": "hmac-sha256",
+                "auth_tag_size": p328_auth_runtime.AUTH_TAG_SIZE,
+                "nonce_size": p328_auth_runtime.NONCE_SIZE,
+                "auth_key_sha256": self.auth_key_sha256,
+                "challenge_nonce_sha256": proof.get("challenge_nonce_sha256"),
+                "hmac_authenticated": hmac_authenticated,
+                "pid1_authenticated_framed_exec_proof": proof.get(
+                    "pid1_authenticated_framed_exec_proof"
+                )
+                is True
+                and not self.trailing_rx,
+                "busybox_ash_command_proof": proof.get(
+                    "busybox_ash_command_proof"
+                )
+                is True
+                and not self.trailing_rx,
+                "framed_session_closed": framed_closed,
+                "interactive_pty_proof": False,
+                "caller_selected_command": True,
+                "command_count": len(p328_auth_observer.DEFAULT_COMMANDS),
+                "max_commands": p328_auth_runtime.MAX_COMMANDS,
+                "exact": accepted,
+                "classification": classification,
+                "accepted": accepted,
+            }
+        )
+        self._publish_value(
+            value,
+            lane_supplement,
+            label="P328 authenticated observer receipt",
+        )
+        return value
+
+
+@contextlib.contextmanager
+def _p328_candidate_observer_session(
+    prepared: PreparedRun,
+    spec: dict[str, str],
+    *,
+    lane_value: dict[str, Any],
+    lane_receipt: dict[str, Any],
+    usb_root: Path,
+    typec_root: Path,
+) -> Iterator[_P328ObserverSession]:
+    """Arm the inherited lane only after the fixed credential is checked."""
+    if spec.get("protocol_contract") != p328_auth_observer.CONTRACT_ID:
+        raise F1LiveError("P3.28 authenticated observer contract differs")
+    key, key_sha256 = _p328_read_auth_key(prepared)
+    inherited_spec = _p327_inherited_spec(spec)
+    with p325_guard_adapter.observer_session(
+        inherited_spec,
+        prepared.private_target["topology"],
+        prepared.run_dir,
+        _candidate_observer_binding(prepared),
+        lane_value,
+        lane_receipt,
+        usb_root=usb_root,
+        typec_root=typec_root,
+    ) as inherited:
+        base = inherited.delegate.delegate
+        yield _P328ObserverSession(
+            inherited,
+            base,
+            inherited_spec,
+            prepared.run_dir,
+            lane_value,
+            lane_receipt,
+            usb_root,
+            typec_root,
+            auth_key=key,
+            auth_key_sha256=key_sha256,
+        )
+
+
+def _p328_receipt_secret_free(item: Any) -> None:
+    if isinstance(item, dict):
+        if any(
+            key in item
+            for key in (
+                "auth_key",
+                "auth_key_path",
+                "auth_key_bytes",
+                "auth_key_hex",
+                "key_path",
+                "nonce",
+                "nonce_bytes",
+                "nonce_hex",
+                "challenge_nonce",
+                "challenge_nonce_bytes",
+            )
+        ):
+            raise p328_auth_observer.AuthObserverError(
+                "P328 receipt contains credential or nonce bytes"
+            )
+        for nested in item.values():
+            _p328_receipt_secret_free(nested)
+    elif isinstance(item, list):
+        for nested in item:
+            _p328_receipt_secret_free(nested)
+
+
+def _p328_receipt_identity(item: Any, label: str) -> dict[str, Any]:
+    if (
+        not isinstance(item, dict)
+        or set(item) != {"size", "sha256"}
+        or type(item["size"]) is not int
+        or item["size"] < 0
+        or not isinstance(item["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) is None
+    ):
+        raise p328_auth_observer.AuthObserverError(
+            f"P328 {label} identity differs"
+        )
+    return item
+
+
+def _p328_validate_common_receipt(
+    prepared: PreparedRun,
+    value: dict[str, Any],
+    spec: dict[str, Any],
+) -> tuple[dict[str, Any], str, str | None]:
+    inherited_spec = _p327_inherited_spec(spec)
+    baseline = _receipt(
+        prepared.run_dir / "candidate-observer-baseline.json",
+        "P328 candidate observer baseline",
+    )
+    departure = _receipt(
+        prepared.run_dir / "candidate-observer-download-departure.json",
+        "P328 candidate observer departure",
+    )
+    guard = _receipt(
+        prepared.run_dir / "candidate-observer-guard.json",
+        "P328 candidate observer guard",
+    )
+    topology = hashlib.sha256(
+        p324_typec_lane.CANDIDATE_TOPOLOGY.removeprefix("usb:").encode()
+    ).hexdigest()
+    endpoint = value["endpoint_identity_sha256"]
+    bound = _p328_bound_auth_key_identity(prepared)
+    if (
+        value["binding"] != _candidate_observer_binding(prepared)
+        or value["spec_sha256"] != cdc_acm_observer.digest(inherited_spec)
+        or value["baseline_sha256"] != baseline["sha256"]
+        or value["download_departure_sha256"] != departure["sha256"]
+        or value["guard_sha256"] != guard["sha256"]
+        or value["topology_sha256"] != topology
+        or value["auth_key_sha256"] != bound["sha256"]
+        or value["accepted"] is True
+        and value["download_endpoint_absent"] is not True
+        or endpoint is not None
+        and (
+            not isinstance(endpoint, str)
+            or re.fullmatch(r"[0-9a-f]{64}", endpoint) is None
+        )
+    ):
+        raise p328_auth_observer.AuthObserverError(
+            "P328 retained receipt binding differs"
+        )
+
+    raw = value["raw"]
+    if not isinstance(raw, dict) or set(raw) != {
+        "path",
+        "size",
+        "sha256",
+        "capture_receipt",
+    }:
+        raise p328_auth_observer.AuthObserverError("P328 raw receipt shape differs")
+    capture = raw["capture_receipt"]
+    if not isinstance(capture, dict) or set(capture) != {"path", "size", "sha256"}:
+        raise p328_auth_observer.AuthObserverError(
+            "P328 capture receipt shape differs"
+        )
+    try:
+        raw_path = Path(raw["path"])
+        capture_path = Path(capture["path"])
+    except (TypeError, ValueError) as exc:
+        raise p328_auth_observer.AuthObserverError(
+            "P328 raw receipt paths differ"
+        ) from exc
+    expected_raw = prepared.run_dir / "candidate-observer.raw"
+    expected_capture = prepared.run_dir / "candidate-observer.capture.json"
+    if (
+        raw_path != expected_raw
+        or capture_path != expected_capture
+        or type(raw["size"]) is not int
+        or not 0 <= raw["size"] <= P328_MAX_RAW_BYTES
+        or not isinstance(raw["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", raw["sha256"]) is None
+        or type(capture["size"]) is not int
+        or not isinstance(capture["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", capture["sha256"]) is None
+    ):
+        raise p328_auth_observer.AuthObserverError("P328 raw receipt binding differs")
+    try:
+        raw_payload = raw_path.read_bytes()
+        capture_payload = capture_path.read_bytes()
+        handle = raw_capture.load_handle(capture_path)
+    except (OSError, raw_capture.RawCaptureError) as exc:
+        raise p328_auth_observer.AuthObserverError(
+            "P328 raw evidence cannot be reopened"
+        ) from exc
+    if (
+        len(raw_payload) != raw["size"]
+        or hashlib.sha256(raw_payload).hexdigest() != raw["sha256"]
+        or len(capture_payload) != capture["size"]
+        or hashlib.sha256(capture_payload).hexdigest() != capture["sha256"]
+        or handle.stdout_path != expected_raw
+        or handle.stderr_path != prepared.run_dir / "candidate-observer.raw.stderr"
+        or handle.returncode != 0
+        or handle.timed_out
+        or handle.output_exceeded
+        or handle.producer_error_type is not None
+        or raw_capture.read_stdout(handle, maximum=P328_MAX_RAW_BYTES) != raw_payload
+        or raw_capture.read_stderr(handle, maximum=1) != b""
+    ):
+        raise p328_auth_observer.AuthObserverError("P328 raw evidence changed")
+
+    tx = _p328_receipt_identity(value["tx"], "tx")
+    rx = _p328_receipt_identity(value["rx"], "rx")
+    trailing = _p328_receipt_identity(value["trailing_rx"], "trailing")
+    if (
+        rx["size"] != len(raw_payload)
+        or rx["sha256"] != hashlib.sha256(raw_payload).hexdigest()
+        or trailing["size"] != value["trailing_bytes_seen"]
+        or trailing["size"] not in {0, 1}
+        or trailing["sha256"]
+        != hashlib.sha256(
+            raw_payload[-trailing["size"] :] if trailing["size"] else b""
+        ).hexdigest()
+    ):
+        raise p328_auth_observer.AuthObserverError(
+            "P328 rx/trailing accounting differs"
+        )
+
+    lane = value["lane"]
+    if not isinstance(lane, dict):
+        raise p328_auth_observer.AuthObserverError("P328 lane receipt is absent")
+    if (
+        lane.get("source_topology") != p324_typec_lane.SOURCE_TOPOLOGY
+        or lane.get("candidate_topology") != p324_typec_lane.CANDIDATE_TOPOLOGY
+        or lane.get("selector_topology_count") != 1
+        or lane.get("opens_only_candidate_topology") is not True
+        or lane.get("device_commands") is not False
+    ):
+        raise p328_auth_observer.AuthObserverError(
+            "P328 lane topology receipt differs"
+        )
+    inventory = lane.get("end_inventory")
+    try:
+        p324_cdc_observer._validate_inventory(inventory, label="P328 reopen")  # noqa: SLF001
+        source_row = inventory["rows"][p324_typec_lane.SOURCE_TOPOLOGY]
+        candidate_row = inventory["rows"][p324_typec_lane.CANDIDATE_TOPOLOGY]
+        source_digest = hashlib.sha256(
+            p324_typec_lane.SOURCE_TOPOLOGY.removeprefix("usb:").encode()
+        ).hexdigest()
+        if (
+            source_row["topology_sha256"] != source_digest
+            or candidate_row["topology_sha256"] != topology
+            or any(
+                type(lane.get(key)) is not bool
+                for key in (
+                    "both_topologies_inventory_complete",
+                    "accepted_inventory_exact",
+                    "same_run_typec_partner_continuity",
+                    "accepted_for_p324",
+                )
+            )
+            or lane["accepted_for_p324"]
+            is not (
+                lane["accepted_inventory_exact"]
+                and lane["same_run_typec_partner_continuity"]
+            )
+        ):
+            raise p328_auth_observer.AuthObserverError(
+                "P328 lane receipt semantics differ"
+            )
+    except p328_auth_observer.AuthObserverError:
+        raise
+    except (KeyError, TypeError, AttributeError, p324_cdc_observer.P324ObserverError) as exc:
+        raise p328_auth_observer.AuthObserverError(
+            "P328 lane inventory is incomplete"
+        ) from exc
+    return lane, topology, endpoint
+
+
+def _p328_validate_receipt(
+    prepared: PreparedRun,
+    path: Path,
+    spec: dict[str, Any],
+) -> dict[str, Any]:
+    "Reopen a P328 receipt using retained hashes only; never reread its key."
+    value = _read_json(path, "P328 authenticated observer receipt")
+    expected_keys = set(
+        """
+        schema contract_id target binding spec_sha256 baseline_sha256
+        download_departure_sha256 download_endpoint_absent topology_sha256
+        endpoint_identity_sha256 guard_sha256 raw banner_hex tx rx trailing_rx
+        trailing_bytes_seen banner_seen challenge_seen ready_seen done_seen
+        proof auth_algorithm auth_tag_size nonce_size auth_key_sha256
+        challenge_nonce_sha256 hmac_authenticated
+        pid1_authenticated_framed_exec_proof busybox_ash_command_proof
+        framed_session_closed interactive_pty_proof caller_selected_command
+        command_count max_commands lane expected_size exact extra_byte
+        classification accepted bounded elapsed_sec
+        """.split()
+    )
+    if not isinstance(value, dict) or set(value) != expected_keys:
+        raise p328_auth_observer.AuthObserverError(
+            "P328 authenticated observer receipt shape differs"
+        )
+    _p328_receipt_secret_free(value)
+    classification = value["classification"]
+    accepted = value["accepted"]
+    nonce_hash = value["challenge_nonce_sha256"]
+    proof = value["proof"]
+    if (
+        value["schema"] != P328_OBSERVER_RECEIPT_SCHEMA
+        or value["contract_id"] != p328_auth_observer.CONTRACT_ID
+        or value["target"] != p328_auth_observer.TARGET
+        or value["banner_hex"] != p328_auth_runtime.DEVICE_BANNER.hex()
+        or value["expected_size"] != len(p328_auth_runtime.DEVICE_BANNER)
+        or value["auth_algorithm"] != "hmac-sha256"
+        or value["auth_tag_size"] != p328_auth_runtime.AUTH_TAG_SIZE
+        or value["nonce_size"] != p328_auth_runtime.NONCE_SIZE
+        or type(value["download_endpoint_absent"]) is not bool
+        or type(value["hmac_authenticated"]) is not bool
+        or type(value["challenge_seen"]) is not bool
+        or type(value["interactive_pty_proof"]) is not bool
+        or value["interactive_pty_proof"] is not False
+        or value["caller_selected_command"] is not True
+        or value["command_count"] != len(p328_auth_observer.DEFAULT_COMMANDS)
+        or value["max_commands"] != p328_auth_runtime.MAX_COMMANDS
+        or type(value["bounded"]) is not bool
+        or value["bounded"] is not True
+        or type(accepted) is not bool
+        or not isinstance(classification, str)
+        or classification not in P328_CLASSIFICATIONS
+        or value["exact"] is not accepted
+        or accepted is not (classification == "accepted")
+        or type(value["trailing_bytes_seen"]) is not int
+        or value["trailing_bytes_seen"] not in {0, 1}
+        or value["extra_byte"] is not (value["trailing_bytes_seen"] > 0)
+        or any(type(value[key]) is not bool for key in ("banner_seen", "ready_seen", "done_seen"))
+        or value["framed_session_closed"]
+        is not (value["banner_seen"] and value["challenge_seen"] and value["ready_seen"] and value["done_seen"])
+        or isinstance(value["elapsed_sec"], bool)
+        or not isinstance(value["elapsed_sec"], (int, float))
+        or not math.isfinite(float(value["elapsed_sec"]))
+        or not 0 <= value["elapsed_sec"] <= 600
+        or (
+            nonce_hash is not None
+            and (
+                not isinstance(nonce_hash, str)
+                or re.fullmatch(r"[0-9a-f]{64}", nonce_hash) is None
+            )
+        )
+        or not isinstance(proof, dict)
+    ):
+        raise p328_auth_observer.AuthObserverError(
+            "P328 authenticated observer receipt semantics differ"
+        )
+    lane, topology, endpoint = _p328_validate_common_receipt(prepared, value, spec)
+    bound = _p328_bound_auth_key_identity(prepared)
+    if accepted:
+        if (
+            not all(
+                value[key] is True
+                for key in (
+                    "hmac_authenticated",
+                    "pid1_authenticated_framed_exec_proof",
+                    "busybox_ash_command_proof",
+                    "framed_session_closed",
+                )
+            )
+            or nonce_hash is None
+            or value["auth_key_sha256"] != bound["sha256"]
+            or proof.get("auth_key_sha256") != bound["sha256"]
+            or proof.get("challenge_nonce_sha256") != nonce_hash
+            or proof.get("command_count") != 3
+        ):
+            raise p328_auth_observer.AuthObserverError(
+                "P328 accepted receipt lacks authenticated proof"
+            )
+    elif any(
+        type(value[key]) is not bool
+        for key in (
+            "hmac_authenticated",
+            "pid1_authenticated_framed_exec_proof",
+            "busybox_ash_command_proof",
+            "framed_session_closed",
+        )
+    ):
+        raise p328_auth_observer.AuthObserverError(
+            "P328 no-proof flags are malformed"
+        )
+    return {
+        "classification": classification,
+        "accepted": accepted,
+        "receipt_sha256": _receipt(path, "P328 authenticated observer receipt")["sha256"],
+        "valid_receipt": True,
+        "download_endpoint_absent": value["download_endpoint_absent"],
+        "endpoint_identity_sha256": endpoint,
+        "topology_sha256": value["topology_sha256"],
+        "bounded": True,
+        "source_topology_sha256": hashlib.sha256(
+            p324_typec_lane.SOURCE_TOPOLOGY.removeprefix("usb:").encode()
+        ).hexdigest(),
+        "candidate_topology_sha256": topology,
+        "both_topologies_inventory_complete": lane["both_topologies_inventory_complete"],
+        "accepted_inventory_exact": lane["accepted_inventory_exact"],
+        "same_run_typec_partner_continuity": lane["same_run_typec_partner_continuity"],
+        "accepted_for_p324": lane["accepted_for_p324"],
+        "hmac_authenticated": value["hmac_authenticated"],
+        "pid1_authenticated_framed_exec_proof": value[
+            "pid1_authenticated_framed_exec_proof"
+        ],
+        "busybox_ash_command_proof": value["busybox_ash_command_proof"],
+        "framed_session_closed": value["framed_session_closed"],
+        "interactive_pty_proof": value["interactive_pty_proof"],
+        "caller_selected_command": value["caller_selected_command"],
+        "command_count": value["command_count"],
+        "max_commands": value["max_commands"],
+        "auth_key_sha256": value["auth_key_sha256"],
+        "challenge_nonce_sha256": value["challenge_nonce_sha256"],
+        "p328_authenticated_exec": proof,
+    }
+
+
 def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     def unavailable(classification: str) -> dict[str, Any]:
         result = {
@@ -4255,6 +5167,21 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                     "caller_selected_command": False,
                 }
             )
+        if _p328_bundle(prepared.bundle):
+            result.update(
+                {
+                    "hmac_authenticated": False,
+                    "pid1_authenticated_framed_exec_proof": False,
+                    "busybox_ash_command_proof": False,
+                    "framed_session_closed": False,
+                    "interactive_pty_proof": False,
+                    "caller_selected_command": True,
+                    "command_count": 3,
+                    "max_commands": p328_auth_runtime.MAX_COMMANDS,
+                    "auth_key_sha256": None,
+                    "challenge_nonce_sha256": None,
+                }
+            )
         return result
 
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
@@ -4264,7 +5191,14 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         return unavailable("interrupted-before-receipt")
     try:
-        if _p327_bundle(prepared.bundle):
+        if _p328_bundle(prepared.bundle):
+            value = _p328_validate_receipt(
+                prepared,
+                path,
+                spec,
+            )
+            receipt_sha256 = value["receipt_sha256"]
+        elif _p327_bundle(prepared.bundle):
             value = _p327_validate_receipt(
                 prepared,
                 path,
@@ -4320,6 +5254,7 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
         p325_guard_adapter.P325ObserverError,
         p326_console_observer.P326ObserverError,
         p327_framed_observer.FramedObserverError,
+        p328_auth_observer.AuthObserverError,
         F1LiveError,
         core.F1V2Error,
     ):
@@ -4348,7 +5283,10 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                 )
             }
         )
-    if _p327_bundle(prepared.bundle):
+    if _p328_bundle(prepared.bundle):
+        result.update(_p328_proof_state(value))
+        result["p328_authenticated_exec"] = value.get("p328_authenticated_exec")
+    elif _p327_bundle(prepared.bundle):
         result.update(
             {
                 "pid1_framed_exec_proof": value.get(
@@ -4509,11 +5447,12 @@ def _candidate_arrival_proof_projection(
         return None
     durable = _reopen_candidate_observation(prepared)
     guard_release = _reopen_candidate_guard_release(prepared)
+    p328 = _p328_bundle(prepared.bundle)
     p327 = _p327_bundle(prepared.bundle)
     p326 = _p326_bundle(prepared.bundle)
     p325 = _p325_bundle(prepared.bundle)
     p324 = _p324_bundle(prepared.bundle)
-    lane_bound = p324 or p325 or p326 or p327
+    lane_bound = p324 or p325 or p326 or p327 or p328
     expected_topology = hashlib.sha256(
         (
             p324_typec_lane.CANDIDATE_TOPOLOGY
@@ -4527,7 +5466,9 @@ def _candidate_arrival_proof_projection(
         and durable["accepted"] is True
         and durable["classification"] == "accepted"
     )
-    if p327:
+    if p328:
+        observer_accepted = observer_accepted and _p328_proof_ok(durable)
+    elif p327:
         observer_accepted = (
             observer_accepted
             and durable.get("pid1_framed_exec_proof") is True
@@ -4578,7 +5519,9 @@ def _candidate_arrival_proof_projection(
     final_observer = final.get("observer") if isinstance(final, dict) else None
     if isinstance(final_observer, dict):
         key = (
-            "p327_stock"
+            "p328_stock"
+            if _p328_bundle(prepared.bundle)
+            else "p327_stock"
             if _p327_bundle(prepared.bundle)
             else "p326_stock"
             if _p326_bundle(prepared.bundle)
@@ -4606,7 +5549,9 @@ def _candidate_arrival_proof_projection(
             }
         else:
             error_key = (
-                "p327_stock_error"
+                "p328_stock_error"
+                if _p328_bundle(prepared.bundle)
+                else "p327_stock_error"
                 if _p327_bundle(prepared.bundle)
                 else "p326_stock_error"
                 if _p326_bundle(prepared.bundle)
@@ -4626,7 +5571,7 @@ def _candidate_arrival_proof_projection(
                 }
     # P3.25 already retains the complete Carrier projection in final_evidence.
     # Repeating it here makes the durable live-state record exceed MAX_RECORD.
-    if p325 or p326 or p327:
+    if p325 or p326 or p327 or p328:
         supplemental = None
     proof = all(
         (
@@ -4644,7 +5589,9 @@ def _candidate_arrival_proof_projection(
         "role": role,
         "primary_source": "candidate_observer",
         "banner_size": (
-            len(p327_framed_runtime.DEVICE_BANNER)
+            len(p328_auth_runtime.DEVICE_BANNER)
+            if p328
+            else len(p327_framed_runtime.DEVICE_BANNER)
             if p327
             else typed_evidence.P326_CONSOLE_TRANSCRIPT_SIZE
             if p326
@@ -4667,7 +5614,9 @@ def _candidate_arrival_proof_projection(
         "proof": proof,
         "supplemental_carrier": supplemental,
     }
-    if p327:
+    if p328:
+        result.update(_p328_proof_state(durable))
+    elif p327:
         result.update(
             {
                 "pid1_framed_exec_proof": durable.get(
@@ -4736,6 +5685,7 @@ def _validate_candidate_arrival_proof_state(
         or _p325_bundle(prepared.bundle)
         or _p326_bundle(prepared.bundle)
         or _p327_bundle(prepared.bundle)
+        or _p328_bundle(prepared.bundle)
     ):
         return
     expected = _candidate_arrival_proof_projection(prepared, state)
@@ -4802,7 +5752,7 @@ def _result(
         "recovery_required": recovery_required,
     }
     validate_live_result(value, prepared)
-    _write_atomic(prepared.run_dir / "live-result.json", value)
+    _write_live_result(prepared.run_dir / "live-result.json", value)
     return value
 
 
@@ -5100,7 +6050,12 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     except F1LiveError as exc:
         if not _acm_primary_bundle(prepared.bundle):
             raise
-        if _p327_bundle(prepared.bundle):
+        if _p328_bundle(prepared.bundle):
+            stock_error = _p328_stock_error(payloads[0], exc)
+            marker_result = _p328_parser_failure_classification(
+                payloads[0], exc
+            )
+        elif _p327_bundle(prepared.bundle):
             stock_error = _p327_stock_error(payloads[0], exc)
             marker_result = _p327_parser_failure_classification(
                 payloads[0], exc
@@ -5201,7 +6156,18 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.25 final stock projection changed")
     elif "p325_stock" in observer or "p325_stock_error" in observer:
         raise F1LiveError("foreign P3.25 final stock evidence")
-    if _p327_bundle(prepared.bundle):
+    if _p328_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p328_stock_error") != stock_error
+                or "p328_stock" in observer
+            ):
+                raise F1LiveError("P3.28 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p328_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.28 final stock projection changed")
+    elif _p327_bundle(prepared.bundle):
         if stock_error is not None:
             if (
                 observer.get("p327_stock_error") != stock_error
@@ -5266,6 +6232,11 @@ def _validate_candidate_observer_state(
         != guard_release["receipt_sha256"]
     ):
         raise F1LiveError("candidate observer durable state mismatch")
+    if _p328_bundle(prepared.bundle) and any(
+        state.get(key) != durable.get(key)
+        for key in P328_PROOF_FIELDS
+    ):
+        raise F1LiveError("P3.28 authenticated proof durable state mismatch")
     if _p327_bundle(prepared.bundle) and any(
         state.get(key) != durable.get(key)
         for key in (
@@ -5387,12 +6358,15 @@ def validate_live_result(
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
     if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
+        p328 = _p328_bundle(prepared.bundle)
         p327 = _p327_bundle(prepared.bundle)
         p326 = _p326_bundle(prepared.bundle)
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
         label = (
-            "P3.27"
+            "P3.28"
+            if p328
+            else "P3.27"
             if p327
             else "P3.26"
             if p326
@@ -5403,7 +6377,9 @@ def validate_live_result(
             else "P3.23"
         )
         success_verdict = (
-            typed_evidence.P327_FRAMED_EXEC_VERDICT
+            P328_SUCCESS_VERDICT
+            if p328
+            else typed_evidence.P327_FRAMED_EXEC_VERDICT
             if p327
             else
             typed_evidence.P326_CONSOLE_VERDICT
@@ -5416,7 +6392,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_VERDICT
         )
         success_outcome = (
-            typed_evidence.P327_FRAMED_EXEC_OUTCOME
+            P328_SUCCESS_OUTCOME
+            if p328
+            else typed_evidence.P327_FRAMED_EXEC_OUTCOME
             if p327
             else
             typed_evidence.P326_CONSOLE_OUTCOME
@@ -5429,7 +6407,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_OUTCOME
         )
         no_proof_outcome = (
-            typed_evidence.P327_FRAMED_EXEC_NO_PROOF_OUTCOME
+            P328_NO_PROOF_OUTCOME
+            if p328
+            else typed_evidence.P327_FRAMED_EXEC_NO_PROOF_OUTCOME
             if p327
             else
             typed_evidence.P326_CONSOLE_NO_PROOF_OUTCOME
@@ -6436,7 +7416,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     ),
                 }
             )
-            if _p327_bundle(prepared.bundle):
+            if _p328_bundle(prepared.bundle):
+                current.update(_p328_proof_state(durable))
+            elif _p327_bundle(prepared.bundle):
                 current.update(
                     {
                         "pid1_framed_exec_proof": durable[
@@ -6467,7 +7449,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     released=guard_release["released"],
                 )
                 and (
-                    not _p327_bundle(prepared.bundle)
+                    _p328_proof_ok(durable)
+                    if _p328_bundle(prepared.bundle)
+                    else not _p327_bundle(prepared.bundle)
                     or (
                         durable.get("pid1_framed_exec_proof") is True
                         and durable.get("busybox_ash_command_proof") is True
@@ -6520,7 +7504,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 ),
             )
             and (
-                not _p327_bundle(prepared.bundle)
+                _p328_proof_ok(current)
+                if _p328_bundle(prepared.bundle)
+                else not _p327_bundle(prepared.bundle)
                 or (
                     current.get("pid1_framed_exec_proof") is True
                     and current.get("busybox_ash_command_proof") is True
@@ -6548,6 +7534,7 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
 
     current = _state(prepared)
     if _acm_primary_bundle(prepared.bundle):
+        p328 = _p328_bundle(prepared.bundle)
         p327 = _p327_bundle(prepared.bundle)
         p326 = _p326_bundle(prepared.bundle)
         p325 = _p325_bundle(prepared.bundle)
@@ -6560,7 +7547,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         if isinstance(projection, dict) and projection.get("proof") is True:
             return (
                 (
-                    typed_evidence.P327_FRAMED_EXEC_VERDICT
+                    P328_SUCCESS_VERDICT
+                    if p328
+                    else typed_evidence.P327_FRAMED_EXEC_VERDICT
                     if p327
                     else
                     typed_evidence.P326_CONSOLE_VERDICT
@@ -6573,7 +7562,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
                     else typed_evidence.P323_ACM_PRIMARY_VERDICT
                 ),
                 (
-                    typed_evidence.P327_FRAMED_EXEC_OUTCOME
+                    P328_SUCCESS_OUTCOME
+                    if p328
+                    else typed_evidence.P327_FRAMED_EXEC_OUTCOME
                     if p327
                     else
                     typed_evidence.P326_CONSOLE_OUTCOME
@@ -6589,7 +7580,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         return (
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
             (
-                typed_evidence.P327_FRAMED_EXEC_NO_PROOF_OUTCOME
+                P328_NO_PROOF_OUTCOME
+                if p328
+                else typed_evidence.P327_FRAMED_EXEC_NO_PROOF_OUTCOME
                 if p327
                 else
                 typed_evidence.P326_CONSOLE_NO_PROOF_OUTCOME
@@ -6899,6 +7892,20 @@ def _finish_rollback(
                     raise F1LiveError("P3.25 final stock projection is missing")
                 current["p325_proof_class"] = projection["proof_class"]
                 current["p325_stock"] = projection
+        if _p328_bundle(prepared.bundle):
+            error = final["observer"].get("p328_stock_error")
+            projection = final["observer"].get("p328_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError(
+                        "P3.28 supplemental parser failure is malformed"
+                    )
+                current["p328_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.28 final stock projection is missing")
+                current["p328_proof_class"] = projection["proof_class"]
+                current["p328_stock"] = projection
         if _p327_bundle(prepared.bundle):
             error = final["observer"].get("p327_stock_error")
             projection = final["observer"].get("p327_stock")
@@ -7703,7 +8710,9 @@ def _finish_candidate_window(
                     ),
                 )
                 and (
-                    not _p327_bundle(prepared.bundle)
+                    _p328_proof_ok(observation)
+                    if _p328_bundle(prepared.bundle)
+                    else not _p327_bundle(prepared.bundle)
                     or (
                         observation.get("pid1_framed_exec_proof") is True
                         and observation.get("busybox_ash_command_proof") is True
@@ -7914,7 +8923,9 @@ def _execute_prepared_locked(
                         ],
                     }
                 )
-                if _p327_bundle(prepared.bundle):
+                if _p328_bundle(prepared.bundle):
+                    current.update(_p328_proof_state(durable))
+                elif _p327_bundle(prepared.bundle):
                     current.update(
                         {
                             "pid1_framed_exec_proof": durable[

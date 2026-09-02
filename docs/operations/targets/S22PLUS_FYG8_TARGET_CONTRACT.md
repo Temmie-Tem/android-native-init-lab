@@ -248,10 +248,48 @@ remain mandatory. This clause is H0-only until its exact execution-critical
 closure receives independent review and a ready declaration is published;
 neither event is a device approval.
 
-If a P327 candidate transfer occurs, the same reporting unit that confirms
-`CAMPAIGN_CLOSED` must append exactly one `s22plus-fyg8-p327` F1 closure row
-derived from that run's retained journal and result. This is post-terminal
-bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
+**P328 authenticated bounded-command successor.** P328 may reuse the exact
+P327 BusyBox payload, child timeout/output/process-group cleanup, P324/P325
+lane and tty guard, raw-first capture, Carrier supplement, and rollback
+choreography under a fresh candidate, run, preparation, and approval.  Its
+protocol change replaces the public run-ID-only OPEN with one per-session
+32-byte kernel-random challenge and HMAC-SHA256 authentication using one
+private 32-byte key.  The key may exist only in the private candidate material
+and the exact private host input; tracked files and durable results retain only
+its size and SHA-256.  A short, zero, unavailable, mismatched, or replayed
+challenge/tag fails before any child is created.  AUTH, READY, every EXEC, and
+CLOSE bind the fresh run ID, challenge, frame role, sequence, and exact command
+bytes; device comparisons are constant-time.
+
+This symmetric-key prototype authenticates possession of that private
+candidate/key pair; it does not claim hardware-backed secrecy, and anyone who
+obtains the private candidate image can recover the embedded key.  That limit
+must remain explicit in the P328 qualification report and any resident
+successor.
+
+The P328 live proof sends only `/bin/busybox id`, `/bin/busybox uname -a`, and
+the exact run-bound BusyBox echo command.  Unlike P327, those strings are not a
+device-side allowlist: the authenticated non-PTY runtime accepts one to sixteen
+printable caller-selected command payloads, each bounded by the frame, a
+15-second timeout, 128-KiB output, stdin `/dev/null`, and complete process-group
+kill/reap for the original session group.  This establishes an authenticated
+bounded command transport, not
+an interactive PTY or standing command authority.  Any other P328 live
+command, unauthenticated fallback, persistent session, resident retention,
+filesystem or security mutation, ADB/MTP substitution, selector/recovery
+change, or causal USB/Max77705 claim is outside this campaign.  P329 resident
+retention and later command use require their own activated target lane.
+
+The candidate remains a boot-only AP and exact Magisk rollback plus final
+rooted FYG8 health remain mandatory.  This clause is H0-only until the final
+execution-critical closure and this boundary change receive one independent
+review and a ready declaration is published; neither event is device approval.
+
+If a P327 or P328 candidate transfer occurs, the same reporting unit that
+confirms `CAMPAIGN_CLOSED` must append exactly one matching
+`s22plus-fyg8-p327` or `s22plus-fyg8-p328` F1 closure row derived from that
+run's retained journal and result. This is post-terminal bookkeeping, not a
+pre-execution gate; no F1 row is written before the effect.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download

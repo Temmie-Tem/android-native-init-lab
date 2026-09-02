@@ -19,20 +19,20 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "a5f66a776da3b2d086566a5f17fc2d333b605e105f3cf4fb72b25f752d25807c"
+AUDITOR_NORMALIZED_SHA256 = "8b0d4d83891e639e76a6655ad58727298811ec15b1994d5c2d9cdf51d17c497a"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260830-24-p319-prepared-runtime-bound.json"
 )
-LEGACY_UNMIGRATED_OBSERVER_COUNT = 48
+LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "f8fdbe25ea828c2f9e623a816e9c756a58a75ff2cab85b30ac0e427b42a3ff97"
+    "c481487461855a1758c7a9e1e89529aa8619101bf2b6f21ff53cad9e5bc753ec"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 130
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "b030af68d497e2eda5f84d34fe52cad61481d8294bf1f504f3b9f419a8097ea9"
+    "6adcfbe66b37a7f3501a1e5ba4a9feee08eae8bf84620d066d48c51f51918268"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "2e2cc34117c46736ab5e855ede98641cdbec14ff813fbf588bd9d5eec26c0856"
+    "7b6e7610820b9906d2b49e53117c9002c165564fe559fb1cb226d108bc4cb385"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -358,6 +358,14 @@ S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
         "sha256": "6c4ae9a981ac30523275bc261857605d4c263113ceb9a4a3e079508d408919f0",
         "exact_host_tool": True,
     },
+    "s22plus_fyg8_p328_artifact_identity.py": {
+        "owner": "s22plus-fyg8-p328",
+        "classification": "host-only-exact-artifact-tool",
+        "profile": "H0-ap-and-auth-key-identity-join",
+        "size": 11503,
+        "sha256": "e849578b1e7fcb9853ee0a07eaafb28922aa3e5f6b6f746851122f354cc00931",
+        "exact_host_tool": True,
+    },
 }
 OBSERVER_FILE_RE = re.compile(
     r"(?:s22plus|device_action)[A-Za-z0-9_]*"
@@ -399,12 +407,14 @@ ACTIVE_FILES = {
     "device_action_usb_trace_sidecar_v1.py",
     "s22plus_fyg8_p300_usb_trace_binding.py",
     "s22plus_boot_only_f1_transport.py",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py",
     "device_action_f1_live_v2.py",
 }
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
     "device_action_d0_v2.py": "b55deb12c487cc66a50008aa7b1bd587fdc1a70bfb3e01e5168fc107ff40b1ce",
-    "device_action_f1_live_v2.py": "0e68c845133fb0568b1b112884964918fbcae44b8aa0baedca1a6a9a88f7ea3d",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py": "6357256ddca6faab28292e807e7e393c0c0fb841244fd4ce84a0c1f4643d5622",
+    "device_action_f1_live_v2.py": "20de30c2111f356ad98163de0f117aa1c3e7ee97e1418d26cbf4243f369f2a7a",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
@@ -425,6 +435,33 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_odin_transition_core.py": "550ee4960cce110a2f5fbde2763971122c88a6ba225cfea800f5bf60a4e65a5b",
     "s22plus_odin_usbfs_identity.py": "caae61d64435e0fc85bb30adce9dc2bf07cf31bc4ffa033bab72dc072b5db415",
 }
+P328_LIVE_SOURCE_IDENTITY = {
+    "size": 363_417,
+    "sha256": "20de30c2111f356ad98163de0f117aa1c3e7ee97e1418d26cbf4243f369f2a7a",
+}
+P328_RAW_FIRST_FUNCTIONS = (
+    "device_action_f1_live_v2.py:_P327ObserverSession._publish_value",
+    "device_action_f1_live_v2.py:_P328ObserverSession._read_endpoint",
+    "device_action_f1_live_v2.py:_P328ObserverSession.observe",
+    "device_action_f1_live_v2.py:_p328_validate_common_receipt",
+    "device_action_f1_live_v2.py:_p328_validate_receipt",
+)
+P326_ACTIVE_SOURCE_IDENTITY = {
+    "size": 15_223,
+    "sha256": "6357256ddca6faab28292e807e7e393c0c0fb841244fd4ce84a0c1f4643d5622",
+}
+P326_RAW_FIRST_FUNCTIONS = (
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py:_read_segment",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py:_write_segment",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py:_reject_trailing",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py:_exchange",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py:_adapt",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py:P326ObserverSession.observe",
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py:validate_receipt",
+)
+RAW_CAPTURE_INJECTED_WRITER_SOURCES = frozenset(
+    {"s22plus_fyg8_p326_bidirectional_acm_observer.py"}
+)
 
 FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
     "device_action_raw_capture_v1.py": {
@@ -912,6 +949,246 @@ FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]
             ),
             ("d0._read_stable(path",),
         ),
+        "_P327ObserverSession._publish_value": (
+            (
+                "cdc_acm_observer.persist_json(",
+                'self.run_dir / "candidate-observer.json"',
+            ),
+            (
+                "_write_exclusive(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_P328ObserverSession._read_endpoint": (
+            (
+                "self.base._raw_tty(",
+                "p328_auth_observer.exchange_commands(",
+                "writer=writer,",
+                "self.exchange = exchange",
+                "self.trailing_rx = _p327_trailing_probe(",
+                "p328_auth_observer.validate_default_proof(",
+                'return "accepted"',
+            ),
+            (
+                "_write_exclusive(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_P328ObserverSession.observe": (
+            (
+                "super()._observe_value(",
+                "value = dict(base_value)",
+                "accepted = bool(",
+                '"classification": classification',
+                "self._publish_value(",
+            ),
+            (
+                "_write_exclusive(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_p328_validate_common_receipt": (
+            (
+                "raw_path.read_bytes()",
+                "capture_path.read_bytes()",
+                "raw_capture.load_handle(",
+                "raw_capture.read_stdout(handle",
+                "raw_capture.read_stderr(handle",
+                'tx = _p328_receipt_identity(value["tx"]',
+                'lane = value["lane"]',
+            ),
+            (
+                "_p328_read_auth_key(",
+                "_write_exclusive(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_p328_validate_receipt": (
+            (
+                "_read_json(",
+                "_p328_receipt_secret_free(",
+                "_p328_validate_common_receipt(",
+                "_p328_bound_auth_key_identity(",
+                "if accepted:",
+                "return {",
+            ),
+            (
+                "_p328_read_auth_key(",
+                "_write_exclusive(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+    },
+    "s22plus_fyg8_p326_bidirectional_acm_observer.py": {
+        "_read_segment": (
+            (
+                "select.select(",
+                "os.read(",
+                "writer.write_stdout(chunk)",
+                "return bytes(payload) == expected",
+            ),
+            (
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_write_segment": (
+            (
+                "select.select(",
+                "os.write(",
+                "audit.tx.extend(",
+                "return written == len(payload)",
+            ),
+            (
+                "writer.write_stdout(",
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_reject_trailing": (
+            (
+                "select.select(",
+                "os.read(",
+                "writer.write_stdout(chunk)",
+                "audit.trailing_rx.extend(chunk)",
+                "return False",
+            ),
+            (
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_exchange": (
+            (
+                "audit.banner_seen = _read_segment(",
+                "_write_segment(descriptor, runtime.HOST_PING",
+                "audit.pong_seen = _read_segment(",
+                "_write_segment(descriptor, runtime.HOST_SHELL",
+                "audit.shell_ok_seen = _read_segment(",
+                "_reject_trailing(",
+            ),
+            (
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "_adapt": (
+            (
+                "base._raw_tty(descriptor)",
+                "_exchange(descriptor, deadline, writer, audit)",
+                "observer._resolve_endpoint(",
+                "audit.endpoint_identity_sha256 = endpoint.identity_sha256",
+                'return "captured"\n        finally:',
+                "os.close(descriptor)",
+                "base._read_endpoint = read_endpoint",
+                "yield audit",
+                "base._read_endpoint = original_read",
+            ),
+            (
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "P326ObserverSession.observe": (
+            (
+                "self.delegate.observe(",
+                "tx = bytes(self.audit.tx)",
+                "_file_receipt(",
+                "observer.persist_json(",
+                "self.run_dir / RECEIPT_NAME",
+                "projected = dict(result)",
+                'projected["classification"] = "byte-mismatch"',
+                "return projected",
+            ),
+            (
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
+        "validate_receipt": (
+            (
+                "p325.validate_receipt(",
+                "_strict_json(",
+                "bytes.fromhex(",
+                "_file_receipt(",
+                "return dict(base) | {",
+            ),
+            (
+                "persist_json(",
+                ".unlink(",
+                ".remove(",
+                ".replace(",
+                ".rename(",
+                ".truncate(",
+                "write_text(",
+                "write_bytes(",
+            ),
+        ),
     },
 }
 
@@ -1087,6 +1364,127 @@ ORDERED_FUNCTION_TOKENS = {
         "arm_handle = writer.finalize(",
         "retained = raw_capture.read_stdout(",
         'retained == expected + b"\\n"',
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_P328ObserverSession._read_endpoint",
+    ): (
+        "self.base._raw_tty(",
+        "p328_auth_observer.exchange_commands(",
+        "writer=writer,",
+        "self.exchange = exchange",
+        "self.trailing_rx = _p327_trailing_probe(",
+        "p328_auth_observer.validate_default_proof(",
+        'return "accepted"',
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_P328ObserverSession.observe",
+    ): (
+        "super()._observe_value(",
+        "value = dict(base_value)",
+        "accepted = bool(",
+        '"classification": classification',
+        "self._publish_value(",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_p328_validate_common_receipt",
+    ): (
+        "raw_path.read_bytes()",
+        "capture_path.read_bytes()",
+        "raw_capture.load_handle(",
+        "raw_capture.read_stdout(handle",
+        "raw_capture.read_stderr(handle",
+        'tx = _p328_receipt_identity(value["tx"]',
+        'lane = value["lane"]',
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_p328_validate_receipt",
+    ): (
+        "_read_json(",
+        "_p328_receipt_secret_free(",
+        "_p328_validate_common_receipt(",
+        "_p328_bound_auth_key_identity(",
+        "if accepted:",
+        "return {",
+    ),
+    (
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "_read_segment",
+    ): (
+        "select.select(",
+        "os.read(",
+        "writer.write_stdout(chunk)",
+        "return bytes(payload) == expected",
+    ),
+    (
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "_write_segment",
+    ): (
+        "select.select(",
+        "os.write(",
+        "audit.tx.extend(",
+        "return written == len(payload)",
+    ),
+    (
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "_reject_trailing",
+    ): (
+        "select.select(",
+        "os.read(",
+        "writer.write_stdout(chunk)",
+        "audit.trailing_rx.extend(chunk)",
+        "return False",
+    ),
+    (
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "_exchange",
+    ): (
+        "audit.banner_seen = _read_segment(",
+        "_write_segment(descriptor, runtime.HOST_PING",
+        "audit.pong_seen = _read_segment(",
+        "_write_segment(descriptor, runtime.HOST_SHELL",
+        "audit.shell_ok_seen = _read_segment(",
+        "_reject_trailing(",
+    ),
+    (
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "_adapt",
+    ): (
+        "base._raw_tty(descriptor)",
+        "_exchange(descriptor, deadline, writer, audit)",
+        "observer._resolve_endpoint(",
+        "audit.endpoint_identity_sha256 = endpoint.identity_sha256",
+        'return "captured"\n        finally:',
+        "os.close(descriptor)",
+        "base._read_endpoint = read_endpoint",
+        "yield audit",
+        "base._read_endpoint = original_read",
+    ),
+    (
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "P326ObserverSession.observe",
+    ): (
+        "self.delegate.observe(",
+        "tx = bytes(self.audit.tx)",
+        "_file_receipt(",
+        "observer.persist_json(",
+        "self.run_dir / RECEIPT_NAME",
+        "projected = dict(result)",
+        'projected["classification"] = "byte-mismatch"',
+        "return projected",
+    ),
+    (
+        "s22plus_fyg8_p326_bidirectional_acm_observer.py",
+        "validate_receipt",
+    ): (
+        "p325.validate_receipt(",
+        "_strict_json(",
+        "bytes.fromhex(",
+        "_file_receipt(",
+        "return dict(base) | {",
     ),
 }
 
@@ -1641,7 +2039,15 @@ def _device_acquisition_sources(
         if not _uses_legacy_acquisition(text, tree):
             continue
         if name in ACTIVE_FILES:
-            if RAW_MODULE not in text:
+            # P3.26 is the one active predecessor wrapper that receives the
+            # already-owned RawCaptureWriter from the P3.24/P3.25 delegate;
+            # its exact source pin and writer/read/receipt contracts above
+            # replace a local import of the common raw module.  No other
+            # active source may use this injected-writer exception.
+            if (
+                RAW_MODULE not in text
+                and name not in RAW_CAPTURE_INJECTED_WRITER_SOURCES
+            ):
                 raise RawFirstAuditError(
                     f"active device source lacks common raw capture: {name}"
                 )
@@ -1896,6 +2302,17 @@ def audit_sources(
     for name, expected in EXPECTED_ACTIVE_SOURCE_SHA256.items():
         if source_identities[name]["sha256"] != expected:
             raise RawFirstAuditError(f"active raw-first source changed: {name}")
+    if source_identities["device_action_f1_live_v2.py"] != P328_LIVE_SOURCE_IDENTITY:
+        raise RawFirstAuditError("P3.28 live source identity differs")
+    if any(name not in function_sha256 for name in P328_RAW_FIRST_FUNCTIONS):
+        raise RawFirstAuditError("P3.28 raw-first function contract is incomplete")
+    if (
+        source_identities["s22plus_fyg8_p326_bidirectional_acm_observer.py"]
+        != P326_ACTIVE_SOURCE_IDENTITY
+    ):
+        raise RawFirstAuditError("P3.26 active observer identity differs")
+    if any(name not in function_sha256 for name in P326_RAW_FIRST_FUNCTIONS):
+        raise RawFirstAuditError("P3.26 raw-first function contract is incomplete")
 
     result = {
         "schema": SCHEMA,
@@ -1942,6 +2359,16 @@ def audit_sources(
         "d0_subprocess_candidates": d0_candidates,
         "function_sha256": function_sha256,
         "source_identities": source_identities,
+        "p328_live_source_identity": dict(P328_LIVE_SOURCE_IDENTITY),
+        "p328_raw_first_function_sha256": {
+            name: function_sha256[name] for name in P328_RAW_FIRST_FUNCTIONS
+        },
+        "p328_raw_finalization_precedes_receipt_parse": True,
+        "p328_candidate_observer_no_delete_or_overwrite": True,
+        "p326_active_source_identity": dict(P326_ACTIVE_SOURCE_IDENTITY),
+        "p326_raw_first_function_sha256": {
+            name: function_sha256[name] for name in P326_RAW_FIRST_FUNCTIONS
+        },
         "auditor_normalized_sha256": AUDITOR_NORMALIZED_SHA256,
         "auditor_bound_source_execution": True,
         "active_execution_sources_byte_frozen": True,
