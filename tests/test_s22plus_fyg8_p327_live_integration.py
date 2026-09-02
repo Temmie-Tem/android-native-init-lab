@@ -263,17 +263,56 @@ class P327LiveIntegrationTests(unittest.TestCase):
                     Path("/unused/usb"),
                     Path("/unused/typec"),
                 )
+                candidate_digest = "e" * 64
                 session._lane_supplement = lambda _accepted: {
-                    "source_topology_sha256": hashlib.sha256(
-                        b"2-1.3"
-                    ).hexdigest(),
-                    "candidate_topology_sha256": hashlib.sha256(
-                        b"3-1.3"
-                    ).hexdigest(),
+                    "schema": live.p324_cdc_observer.SCHEMA,
+                    "contract_id": live.p324_cdc_observer.CONTRACT_ID,
+                    "target": live.p324_cdc_observer.TARGET,
+                    "lane_binding": {"receipt": True},
+                    "lane_binding_sha256": "f" * 64,
+                    "arm": {"arm": True},
+                    "source_topology": live.p324_typec_lane.SOURCE_TOPOLOGY,
+                    "candidate_topology": live.p324_typec_lane.CANDIDATE_TOPOLOGY,
+                    "selector_topology_count": 1,
+                    "partner_before": {"fixture": 1},
+                    "partner_after": {"fixture": 1},
+                    "partner_poll_count": 1,
+                    "partner_continuous": True,
+                    "end_inventory": {
+                        "scan_complete": True,
+                        "all_endpoint_count": 1,
+                        "all_endpoint_identity_sha256": [candidate_digest],
+                        "foreign_candidate_like_count": 0,
+                        "foreign_candidate_like_identity_sha256": [],
+                        "rows": {
+                            live.p324_typec_lane.SOURCE_TOPOLOGY: {
+                                "topology_sha256": hashlib.sha256(
+                                    b"2-1.3"
+                                ).hexdigest(),
+                                "endpoint_count": 0,
+                                "exact_candidate_count": 0,
+                                "candidate_like_count": 0,
+                                "endpoint_identity_sha256": [],
+                                "present": False,
+                            },
+                            live.p324_typec_lane.CANDIDATE_TOPOLOGY: {
+                                "topology_sha256": hashlib.sha256(
+                                    b"3-1.3"
+                                ).hexdigest(),
+                                "endpoint_count": 1,
+                                "exact_candidate_count": 1,
+                                "candidate_like_count": 1,
+                                "endpoint_identity_sha256": [candidate_digest],
+                                "present": True,
+                            },
+                        },
+                    },
                     "both_topologies_inventory_complete": True,
                     "accepted_inventory_exact": True,
                     "same_run_typec_partner_continuity": True,
                     "accepted_for_p324": True,
+                    "opens_only_candidate_topology": True,
+                    "device_commands": False,
                 }
                 session._read_endpoint = lambda _endpoint, _deadline, writer: (
                     setattr(

@@ -4143,17 +4143,56 @@ def _p327_validate_receipt(
         raise p327_framed_observer.FramedObserverError(
             "P327 lane receipt is absent"
         )
-    required_lane = (
-        "source_topology_sha256",
-        "candidate_topology_sha256",
+    if (
+        lane.get("source_topology") != p324_typec_lane.SOURCE_TOPOLOGY
+        or lane.get("candidate_topology")
+        != p324_typec_lane.CANDIDATE_TOPOLOGY
+        or lane.get("selector_topology_count") != 1
+        or lane.get("opens_only_candidate_topology") is not True
+        or lane.get("device_commands") is not False
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 lane topology receipt differs"
+        )
+    end_inventory = lane.get("end_inventory")
+    try:
+        p324_cdc_observer._validate_inventory(end_inventory, label="P327 reopen")  # noqa: SLF001
+    except (p324_cdc_observer.P324ObserverError, TypeError, AttributeError) as exc:
+        raise p327_framed_observer.FramedObserverError(
+            "P327 lane inventory is incomplete"
+        ) from exc
+    assert isinstance(end_inventory, dict)
+    source_row = end_inventory["rows"][p324_typec_lane.SOURCE_TOPOLOGY]
+    candidate_row = end_inventory["rows"][p324_typec_lane.CANDIDATE_TOPOLOGY]
+    source_topology_sha256 = hashlib.sha256(
+        p324_typec_lane.SOURCE_TOPOLOGY.removeprefix("usb:").encode()
+    ).hexdigest()
+    candidate_topology_sha256 = hashlib.sha256(
+        p324_typec_lane.CANDIDATE_TOPOLOGY.removeprefix("usb:").encode()
+    ).hexdigest()
+    if (
+        source_row["topology_sha256"] != source_topology_sha256
+        or candidate_row["topology_sha256"] != candidate_topology_sha256
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 lane topology digest differs"
+        )
+    lane_flags = (
         "both_topologies_inventory_complete",
         "accepted_inventory_exact",
         "same_run_typec_partner_continuity",
         "accepted_for_p324",
     )
-    if any(key not in lane for key in required_lane):
+    if any(type(lane.get(key)) is not bool for key in lane_flags):
         raise p327_framed_observer.FramedObserverError(
-            "P327 lane receipt is incomplete"
+            "P327 lane flags are malformed"
+        )
+    if lane["accepted_for_p324"] is not (
+        lane["accepted_inventory_exact"]
+        and lane["same_run_typec_partner_continuity"]
+    ):
+        raise p327_framed_observer.FramedObserverError(
+            "P327 lane acceptance is inconsistent"
         )
     return {
         "classification": value["classification"],
@@ -4164,8 +4203,8 @@ def _p327_validate_receipt(
         "endpoint_identity_sha256": endpoint_identity,
         "topology_sha256": value["topology_sha256"],
         "bounded": value["bounded"],
-        "source_topology_sha256": lane["source_topology_sha256"],
-        "candidate_topology_sha256": lane["candidate_topology_sha256"],
+        "source_topology_sha256": source_topology_sha256,
+        "candidate_topology_sha256": candidate_topology_sha256,
         "both_topologies_inventory_complete": lane[
             "both_topologies_inventory_complete"
         ],
