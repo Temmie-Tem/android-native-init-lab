@@ -871,8 +871,7 @@ before/after receipts. Those bytes received a seventh exact read-only
 record before authority. The activation-neutral follow-up then returned
 `NO_GO` at 1/3/2 for caller-influenced ADB ownership, dormant-only observer
 pinning, loose test receipts, ambient negative-test state, and stale wording.
-The current correction owns a transaction-private ADB server and closed
-environment, binds both observer atoms and their 16,487/16,486-byte sizes through one normalized identity, and
+The latest correction removes the conflicting private ADB daemon and reuses B0's fixed local server through a closed environment; it retains exact-serial commands and all target/build/topology/root checks without adding handoff machinery. It binds both observer atoms and their 16,487/16,486-byte sizes through one normalized identity, and
 requires distinct dormant/active raw test terminals. A host-mount `st_dev` rotation was repaired
 H0-only after an independent 0/0/0 review without changing records or replay
 state. Later inert activation trials fixed three state-dependent checks. The first connected prepare then stopped before run allocation or target contact at the registry writer fence; the correction uses only the pinned legacy-set proof and shared-reader active-claim check, and fails closed without writer recovery. Final review remains. The current dormant owner exact-loads the B0

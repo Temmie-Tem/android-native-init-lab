@@ -257,7 +257,7 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                 sys.modules.pop(module_name, None)
 
     def test_adb_environment_ignores_caller_redirect_and_loader_poison(self):
-        socket_spec = "localabstract:s20plus-p0-pid1-" + "a" * 32
+        socket_spec = self.module.P0_ADB_SERVER_SOCKET
         poison = {
             "ADB_SERVER_SOCKET": "tcp:attacker.invalid:5037",
             "ANDROID_ADB_SERVER_ADDRESS": "attacker.invalid",
@@ -277,18 +277,20 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         self.assertEqual(environment["LC_ALL"], "C")
         self.assertEqual(environment["PATH"], "/usr/bin:/bin")
         self.assertTrue(Path(environment["HOME"]).is_absolute())
+        with self.assertRaisesRegex(self.module.P0F1Error, "socket is not fixed"):
+            self.module._closed_adb_environment("localabstract:foreign")
         source = SCRIPT.read_text("utf-8")
-        self.assertIn("kwargs[\"env\"] = ensure_adb_server()", source)
-        self.assertIn("peer_pid != process.pid", source)
-        self.assertIn("preexec_fn=lambda: _p0_adb_server_child_setup(parent_pid)", source)
+        self.assertIn("kwargs[\"env\"] = adb_client_environment()", source)
+        self.assertNotIn('"server",\n                    "nodaemon"', source)
+        self.assertNotIn("stop_adb_server", source)
 
-    def test_adb_client_and_raw_paths_share_only_the_owned_server_environment(self):
+    def test_adb_client_and_raw_paths_share_one_fixed_server_environment(self):
         calls = []
 
         class FakeProcess:
-            def __init__(self, *, server: bool):
-                self.pid = 4242 if server else 4243
-                self.returncode = None if server else 0
+            def __init__(self):
+                self.pid = 4243
+                self.returncode = 0
 
             def poll(self):
                 return self.returncode
@@ -305,13 +307,11 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
 
         def popen(argv, **kwargs):
             calls.append((list(argv), dict(kwargs)))
-            if "nodaemon" in argv:
-                return FakeProcess(server=True)
             if kwargs.get("stdout") is self.module.subprocess.PIPE:
                 raise OSError("host-only raw capture probe")
             kwargs["stdout"].write(inventory)
             kwargs["stdout"].flush()
-            return FakeProcess(server=False)
+            return FakeProcess()
 
         serial = "S20SERIAL"
         inventory = (
@@ -344,7 +344,7 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                 stderr_name="environment-probe.stderr",
             )
             self.assertEqual(handle.producer_error_type, "OSError")
-            raise self.module.P0F1Error("owned-server-environment-probe-stop")
+            raise self.module.P0F1Error("fixed-server-environment-probe-stop")
 
         poison = {
             "ADB_SERVER_SOCKET": "tcp:attacker.invalid:5037",
@@ -366,27 +366,18 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         ), mock.patch.object(
             self.module.engine, "require_guard", side_effect=guard_probe
         ), mock.patch.object(
-            self.module, "_verify_p0_adb_server_process", return_value={}
-        ), mock.patch.object(
-            self.module,
-            "_p0_adb_server_peer_credentials",
-            return_value=(4242, os.geteuid(), os.getegid()),
-        ), mock.patch.object(
-            self.module.secrets, "token_hex", return_value="b" * 32
-        ), mock.patch.object(
             self.module.subprocess, "Popen", side_effect=popen
         ), mock.patch.dict(
             os.environ, poison, clear=False
         ):
             run_dir = Path(temporary)
             with self.assertRaisesRegex(
-                self.module.P0F1Error, "owned-server-environment-probe-stop"
+                self.module.P0F1Error, "fixed-server-environment-probe-stop"
             ):
                 self.module._read_prepared_for_output(run_dir)
-        self.assertEqual(len(calls), 3)
+        self.assertEqual(len(calls), 2)
         environments = [kwargs["env"] for _argv, kwargs in calls]
         self.assertEqual(environments[0], environments[1])
-        self.assertEqual(environments[1], environments[2])
         for environment in environments:
             self.assertEqual(
                 set(environment),
@@ -394,7 +385,7 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             )
             self.assertEqual(
                 environment["ADB_SERVER_SOCKET"],
-                "localabstract:s20plus-p0-pid1-" + "b" * 32,
+                self.module.P0_ADB_SERVER_SOCKET,
             )
 
     def test_wrapper_does_not_mutate_the_ordinary_imported_b0_module(self):
@@ -2552,9 +2543,10 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
 
     def test_wrapper_has_no_direct_device_command_or_transfer_primitive(self):
         source = SCRIPT.read_text("utf-8")
-        self.assertEqual(source.count("subprocess.Popen("), 2)
+        self.assertEqual(source.count("subprocess.Popen("), 1)
         self.assertIn("env=dict(environment)", source)
-        self.assertIn("ensure_adb_server()", source)
+        self.assertIn("adb_client_environment()", source)
+        self.assertNotIn("server nodaemon", source)
         self.assertNotIn("/usr/bin/adb", source)
         self.assertNotIn("/usr/bin/odin4", source)
         self.assertNotIn("dd if=", source)

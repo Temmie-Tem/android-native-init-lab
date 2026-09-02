@@ -131,9 +131,9 @@ and fresh rooted resident Android health.
 
 | File | Size | SHA-256 |
 | --- | ---: | --- |
-| P0 Odin owner | 205,415 | `c3f0ba94392189fc245f2965dee17a154f6c40a2262068faf3adf58d147d5620` |
-| owner activation-normalized | 205,415 | `c458cf130f8e484530d5ce696038e6b9b810c5933b2da5637f0975770febf647` |
-| focused owner test | 111,345 | `0be992d9230d67f4eb8afdcbba04f9cd37c1ce76418839efb2914e6176ff8d39` |
+| P0 Odin owner | 198,791 | `3de1c262c131059e94b70060d79eeaf0ab06aaa1446a37ce4ef826df0bfb67b2` |
+| owner activation-normalized | 198,791 | `dd44d2bbc55a3f5108e3c1e0eef8647470e185a7ec808ec7f6a56f3562eff911` |
+| focused owner test | 110,942 | `94b08d001a6df27eab6a5b4db6cda3e64ec58ea0a75de5a79d6929a7667b23c6` |
 | P0 observer dormant | 16,487 | `beba2925988da55c3e210a98616c1b9392d48f5459eb5170ce5ba060eeb09830` |
 | P0 observer active | 16,486 | `a5ee9c1411701133b25c790a1d5bb9b389d3b582abf9e73955ad8b06767ee022` |
 | observer activation-normalized | 16,487 | `0ffd28fcc99e023894de940f5e6fe05b2e30bdedbfccfc86af7ddfbc5fcca6db` |
@@ -145,7 +145,7 @@ and fresh rooted resident Android health.
 | immutable registry activation | 21,276 | `aa50c211ee86d4b1534399c6d9fd82d4de3550856724e5788d693b012bce471b` |
 
 The current host closure validates to SHA-256
-`cf1914d27e90a7ea8999e5e374daf7c54556b638d8ee6c891e79aae33899b513`.
+`25533dd8c490cc2ffe834d13d89621c8a0803938884073e2c1ee04772a48b059`.
 
 ## Validation
 
@@ -373,7 +373,7 @@ accepted an arbitrary nonempty mapping, the partial-activation test depended
 on ambient state, the observer test did not require exactly one activation
 atom, and the activation prose incorrectly implied test-byte changes.
 
-The current owner starts one transaction-private pinned ADB server on an
+That correction started one transaction-private pinned ADB server on an
 internally random localabstract socket, admits only that exact executable and
 peer PID/UID/GID, and gives both structured and raw ADB paths the same closed
 five-key execution environment. It binds exact dormant/active observer hashes
@@ -486,6 +486,27 @@ against an isolated initialized registry, prove the complete namespace and
 bytes unchanged, and prove a staged-head condition remains untouched. All
 prior active records were retired before changing these bytes; fresh review
 and activation are required.
+
+## Connected private-ADB ownership stop and simplification
+
+Two later connected preparations created and then cleaned their transient
+shared guard, and stopped before candidate claim, Download intent, Odin, or
+transfer with `exact S20+ ADB inventory is absent or ambiguous`. The first had
+no S20+ endpoint. During the second, the
+ordinary server saw exact healthy `SM_G986N/y2q` alongside S22+, but it already
+held both USB interfaces, so the transaction-private P0 server could not
+enumerate either. Both attempts left only empty private run directories and no
+retained guard; the P0 candidate remains unclaimed and no device effect
+occurred.
+
+The current correction removes only the private ADB daemon lifecycle. Both
+structured and raw ADB clients use the already reviewed B0 fixed executable,
+one closed five-key environment, and the fixed local `tcp:5037` server socket.
+All device commands still require the leased exact S20+ serial, while every
+inventory, model/device/build, boot, root/Magisk, topology, and pre-effect
+revalidation remains unchanged. It never starts, stops, detaches, or rehomes an
+ADB server and introduces no new handoff mechanism. Fresh focused validation,
+one independent review, and new activation records are required.
 
 ## Activation sequence
 

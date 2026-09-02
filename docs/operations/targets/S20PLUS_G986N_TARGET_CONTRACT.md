@@ -1275,12 +1275,12 @@ owner is
 `P0_F1_ACTIVE=false`, the bound P0 observer remains
 `OBSERVER_ACTIVE=false`, and connected modes stop before ADB, USB inventory,
 Odin, reboot, or any target command. Only host validation and plan rendering
-are available. The dormant owner is 205,415 bytes at SHA-256
-`c3f0ba94392189fc245f2965dee17a154f6c40a2262068faf3adf58d147d5620`
+are available. The dormant owner is 198,791 bytes at SHA-256
+`3de1c262c131059e94b70060d79eeaf0ab06aaa1446a37ce4ef826df0bfb67b2`
 and activation-normalized SHA-256
-`c458cf130f8e484530d5ce696038e6b9b810c5933b2da5637f0975770febf647`;
-its 111,345-byte focused test SHA-256 is
-`0be992d9230d67f4eb8afdcbba04f9cd37c1ce76418839efb2914e6176ff8d39`.
+`dd44d2bbc55a3f5108e3c1e0eef8647470e185a7ec808ec7f6a56f3562eff911`;
+its 110,942-byte focused test SHA-256 is
+`94b08d001a6df27eab6a5b4db6cda3e64ec58ea0a75de5a79d6929a7667b23c6`.
 
 The owner exact-loads the currently reviewed B0 recovery owner, 224,559 bytes
 at SHA-256
@@ -1496,7 +1496,7 @@ allowlist, and the full semantic transition; unchanged policy and tests remain
 full-byte equal. The current 60-test owner implements all corrections
 described above and passes a 134-test core plus 164-test wider
 retained suite with ten historical skips. Its host closure SHA-256 is
-`cf1914d27e90a7ea8999e5e374daf7c54556b638d8ee6c891e79aae33899b513`.
+`25533dd8c490cc2ffe834d13d89621c8a0803938884073e2c1ee04772a48b059`.
 The sixth-round corrections remain exact-byte review-pending and create no
 preparation, approval, claim, target contact, or live authority.
 
@@ -1515,7 +1515,7 @@ review before its zero-finding record or mechanical activation.
 That follow-on review returned `NO_GO`, CRITICAL/MAJOR/MINOR `1/3/2`, for an
 ADB environment/server-ownership gap, dormant-only observer pinning, a loose
 review-test receipt, ambient partial-activation state, a non-unique observer
-activation atom, and inaccurate unchanged-test wording. The current owner uses
+activation atom, and inaccurate unchanged-test wording. That correction used
 one transaction-private pinned ADB server with an internal random localabstract
 socket, exact peer/process validation, and one closed environment shared by
 structured and raw ADB paths. It binds the observer's exact dormant/active pair
@@ -1596,6 +1596,22 @@ complete namespace and bytes unchanged; a second condition proves head staging
 fails closed and remains untouched. The active records were retired before
 this source change. Fresh exact review, activation records, commit, and
 connected preparation are required.
+
+Two subsequent connected preparations created and then cleaned their
+transient shared guard, and stopped before candidate claim, Download intent,
+Odin, or transfer because the private P0 ADB server saw no exact target. The
+first had no attached S20+. The second had exact healthy `SM_G986N/y2q` on the
+ordinary server, but that server already owned both attached Samsung USB
+interfaces. Both stops created only empty private run directories and retained
+no guard; no P0 claim or device effect occurred.
+
+The current correction removes the private ADB daemon lifecycle rather than
+adding a server handoff. Structured and raw ADB clients use the inherited B0
+fixed executable through one closed five-key environment and the fixed local
+`tcp:5037` socket. Target-facing commands remain exact-serial leased and retain
+all model/device/build, boot, root/Magisk, topology, inventory, and pre-effect
+revalidation. The P0 owner never starts, stops, detaches, or rehomes an ADB
+server. These bytes are H0-only until one fresh exact review and activation.
 
 ## Bounded autonomous research session
 

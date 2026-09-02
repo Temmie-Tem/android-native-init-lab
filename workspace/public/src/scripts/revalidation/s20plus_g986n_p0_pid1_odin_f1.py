@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import contextvars
-import ctypes
 import fcntl
 import hashlib
 import importlib.util
@@ -22,11 +21,7 @@ import os
 from pathlib import Path
 import pwd
 import re
-import secrets
-import signal
-import socket
 import stat
-import struct
 import subprocess
 import sys
 import tempfile
@@ -37,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "c458cf130f8e484530d5ce696038e6b9b810c5933b2da5637f0975770febf647"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "dd44d2bbc55a3f5108e3c1e0eef8647470e185a7ec808ec7f6a56f3562eff911"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -172,11 +167,7 @@ P0_SUCCESS_ENVIRONMENT = "p0-pid1-acm"
 P0_NO_PROOF_ENVIRONMENT = "p0-pid1-acm-no-proof"
 P0_ARRIVAL_TIMEOUT_SECONDS = 180
 P0_POLL_SECONDS = 0.05
-P0_ADB_SERVER_START_SECONDS = 5.0
-P0_ADB_SERVER_NAME_PREFIX = "s20plus-p0-pid1-"
-P0_ADB_SERVER_SOCKET_RE = re.compile(
-    r"localabstract:s20plus-p0-pid1-[0-9a-f]{32}"
-)
+P0_ADB_SERVER_SOCKET = "tcp:5037"
 USBFS_RE = re.compile(r"/dev/bus/usb/([0-9]{3})/([0-9]{3})")
 USB_NODE_RE = re.compile(r"[0-9]+-[0-9]+(?:\.[0-9]+)*")
 HEX64_RE = re.compile(r"[0-9a-f]{64}")
@@ -358,11 +349,8 @@ def _session_lock_identity(descriptor: int) -> tuple[int, int, int, int, int]:
 
 
 def _closed_adb_environment(socket_spec: str) -> dict[str, str]:
-    if (
-        not isinstance(socket_spec, str)
-        or P0_ADB_SERVER_SOCKET_RE.fullmatch(socket_spec) is None
-    ):
-        raise P0F1Error("P0 ADB server socket is not owner-selected")
+    if socket_spec != P0_ADB_SERVER_SOCKET:
+        raise P0F1Error("P0 ADB server socket is not fixed")
     try:
         account = pwd.getpwuid(os.geteuid())
         home = Path(account.pw_dir).absolute()
@@ -382,83 +370,6 @@ def _closed_adb_environment(socket_spec: str) -> dict[str, str]:
         "LC_ALL": "C",
         "PATH": "/usr/bin:/bin",
     }
-
-
-def _verify_p0_adb_server_process(pid: int) -> dict[str, int]:
-    if type(pid) is not int or pid <= 0:
-        raise P0F1Error("P0 ADB server PID differs")
-    _direct_receipt(engine.ADB, engine.ADB_SIZE, engine.ADB_SHA256, "P0 ADB client")
-    descriptor: int | None = None
-    try:
-        descriptor = os.open(
-            f"/proc/{pid}/exe", os.O_RDONLY | os.O_CLOEXEC
-        )
-        before = os.fstat(descriptor)
-        chunks: list[bytes] = []
-        offset = 0
-        while offset <= engine.ADB_SIZE:
-            chunk = os.pread(
-                descriptor,
-                min(1024 * 1024, engine.ADB_SIZE + 1 - offset),
-                offset,
-            )
-            if not chunk:
-                break
-            chunks.append(chunk)
-            offset += len(chunk)
-        after = os.fstat(descriptor)
-        current = engine.ADB.lstat()
-    except OSError as exc:
-        raise P0F1Error("P0 ADB server executable is unavailable") from exc
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)
-    payload = b"".join(chunks)
-    if (
-        before != after
-        or not stat.S_ISREG(after.st_mode)
-        or not after.st_mode & 0o111
-        or after.st_size != engine.ADB_SIZE
-        or len(payload) != engine.ADB_SIZE
-        or hashlib.sha256(payload).hexdigest() != engine.ADB_SHA256
-        or (after.st_dev, after.st_ino) != (current.st_dev, current.st_ino)
-    ):
-        raise P0F1Error("P0 ADB server executable identity differs")
-    return {"pid": pid, "device": after.st_dev, "inode": after.st_ino}
-
-
-def _p0_adb_server_peer_credentials(name: str) -> tuple[int, int, int]:
-    if (
-        not isinstance(name, str)
-        or not name.startswith(P0_ADB_SERVER_NAME_PREFIX)
-        or re.fullmatch(r"[a-z0-9-]+", name) is None
-    ):
-        raise P0F1Error("P0 ADB server abstract name differs")
-    if not hasattr(socket, "SO_PEERCRED"):
-        raise P0F1Error("P0 ADB server peer credentials are unavailable")
-    client = socket.socket(
-        socket.AF_UNIX,
-        socket.SOCK_STREAM | getattr(socket, "SOCK_CLOEXEC", 0),
-    )
-    try:
-        client.settimeout(0.25)
-        client.connect("\0" + name)
-        payload = client.getsockopt(
-            socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i")
-        )
-    finally:
-        client.close()
-    if len(payload) != struct.calcsize("3i"):
-        raise P0F1Error("P0 ADB server peer credential size differs")
-    return struct.unpack("3i", payload)
-
-
-def _p0_adb_server_child_setup(parent_pid: int) -> None:
-    libc = ctypes.CDLL(None, use_errno=True)
-    if libc.prctl(1, signal.SIGKILL, 0, 0, 0) != 0:
-        os._exit(126)
-    if os.getppid() != parent_pid:
-        os._exit(127)
 
 
 def _guarded_live_alias(original, label: str):
@@ -686,8 +597,6 @@ def _create_capability_system() -> dict[str, Any]:
             "lease_fd",
             "lease_identity",
             "target_serial_sha256",
-            "adb_server_process",
-            "adb_server_socket_name",
             "adb_environment",
         )
 
@@ -704,8 +613,6 @@ def _create_capability_system() -> dict[str, Any]:
             self.lease_fd = lease_fd
             self.lease_identity = lease_identity
             self.target_serial_sha256: str | None = None
-            self.adb_server_process: Any = None
-            self.adb_server_socket_name: str | None = None
             self.adb_environment: dict[str, str] | None = None
 
     class Mutation:
@@ -889,12 +796,6 @@ def _create_capability_system() -> dict[str, Any]:
         except (OSError, BlockingIOError) as exc:
             raise P0F1Error("P0 target-session lease is unavailable") from exc
         finally:
-            stop_failure: BaseException | None = None
-            if lease is not None:
-                try:
-                    stop_adb_server(lease)
-                except BaseException as exc:
-                    stop_failure = exc
             if state_token is not None:
                 live_state.reset(state_token)
             if descriptor is not None:
@@ -902,8 +803,6 @@ def _create_capability_system() -> dict[str, Any]:
                     fcntl.flock(descriptor, fcntl.LOCK_UN)
                 finally:
                     os.close(descriptor)
-            if stop_failure is not None:
-                raise P0F1Error("P0 owned ADB server cleanup failed") from stop_failure
 
     def build_entrypoint(name: str, original, active, resolve_run, reconcile):
         def replacement(*args, **kwargs):
@@ -951,93 +850,14 @@ def _create_capability_system() -> dict[str, Any]:
 
         return replacement
 
-    def verify_adb_server() -> dict[str, str]:
+    def adb_client_environment() -> dict[str, str]:
         lease = current_lease()
-        process = lease.adb_server_process
-        name = lease.adb_server_socket_name
-        environment = lease.adb_environment
-        if (
-            process is None
-            or not isinstance(name, str)
-            or not isinstance(environment, dict)
-            or process.poll() is not None
-            or environment != _closed_adb_environment("localabstract:" + name)
-        ):
-            raise P0F1Error("P0 owned ADB server is not live")
-        _verify_p0_adb_server_process(process.pid)
-        try:
-            peer_pid, peer_uid, peer_gid = _p0_adb_server_peer_credentials(name)
-        except OSError as exc:
-            raise P0F1Error("P0 owned ADB server socket is unavailable") from exc
-        if (
-            peer_pid != process.pid
-            or peer_uid != os.geteuid()
-            or peer_gid != os.getegid()
-        ):
-            raise P0F1Error("P0 owned ADB server peer provenance differs")
-        return dict(environment)
-
-    def stop_adb_server(lease: Lease) -> None:
-        process = lease.adb_server_process
-        lease.adb_server_process = None
-        lease.adb_server_socket_name = None
-        lease.adb_environment = None
-        if process is None:
-            return
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=1.0)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=1.0)
-        if process.poll() is None:
-            raise P0F1Error("P0 owned ADB server did not stop")
-
-    def ensure_adb_server() -> dict[str, str]:
-        lease = current_lease()
-        if lease.adb_server_process is not None:
-            return verify_adb_server()
-        name = P0_ADB_SERVER_NAME_PREFIX + secrets.token_hex(16)
-        socket_spec = "localabstract:" + name
-        environment = _closed_adb_environment(socket_spec)
-        parent_pid = os.getpid()
-        try:
-            process = subprocess.Popen(
-                [
-                    str(engine.ADB),
-                    "-L",
-                    socket_spec,
-                    "server",
-                    "nodaemon",
-                ],
-                executable=str(engine.ADB),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                close_fds=True,
-                cwd=str(ROOT),
-                env=dict(environment),
-                start_new_session=True,
-                preexec_fn=lambda: _p0_adb_server_child_setup(parent_pid),
-            )
-        except OSError as exc:
-            raise P0F1Error("P0 owned ADB server could not start") from exc
-        lease.adb_server_process = process
-        lease.adb_server_socket_name = name
-        lease.adb_environment = dict(environment)
-        deadline = time.monotonic() + P0_ADB_SERVER_START_SECONDS
-        while True:
-            if process.poll() is not None:
-                stop_adb_server(lease)
-                raise P0F1Error("P0 owned ADB server exited during start")
-            try:
-                return verify_adb_server()
-            except P0F1Error:
-                if time.monotonic() >= deadline:
-                    stop_adb_server(lease)
-                    raise P0F1Error("P0 owned ADB server did not become exact")
-                time.sleep(P0_POLL_SECONDS)
+        expected = _closed_adb_environment(P0_ADB_SERVER_SOCKET)
+        if lease.adb_environment is None:
+            lease.adb_environment = expected
+        elif lease.adb_environment != expected:
+            raise P0F1Error("P0 fixed ADB client environment changed")
+        return dict(lease.adb_environment)
 
     def run_bounded_adb(
         command: list[str], timeout: float, maximum: int, environment: dict[str, str]
@@ -1082,7 +902,9 @@ def _create_capability_system() -> dict[str, Any]:
             stderr = error.read(maximum + 1)
         if len(stdout) + len(stderr) > maximum:
             raise P0F1Error("P0 fixed ADB output exceeded its bound")
-        verify_adb_server()
+        current_lease()
+        if environment != adb_client_environment():
+            raise P0F1Error("P0 fixed ADB client environment differs")
         if type(process.returncode) is not int:
             raise P0F1Error("P0 fixed ADB return code differs")
         return process.returncode, stdout, stderr
@@ -1114,7 +936,7 @@ def _create_capability_system() -> dict[str, Any]:
                     raise P0F1Error("P0 ADB command is outside the fixed read closure")
             else:
                 raise P0F1Error("P0 bounded command is outside the fixed ADB closure")
-            fixed_environment = ensure_adb_server()
+            fixed_environment = adb_client_environment()
             return run_bounded_adb(command, timeout, maximum, fixed_environment)
 
         guarded.__name__ = "p0_fixed_base_bounded_command"
@@ -1331,13 +1153,9 @@ def _create_capability_system() -> dict[str, Any]:
                 ]
                 if adb_command:
                     kwargs = dict(kwargs)
-                    kwargs["env"] = ensure_adb_server()
-            try:
-                with raw_acquisition(Path(capture_dir), name):
-                    result = original(argv, capture_dir, name, **kwargs)
-            finally:
-                if adb_command:
-                    verify_adb_server()
+                    kwargs["env"] = adb_client_environment()
+            with raw_acquisition(Path(capture_dir), name):
+                result = original(argv, capture_dir, name, **kwargs)
             return result
 
         guarded.__name__ = "p0_dependency_raw_acquire_command"
