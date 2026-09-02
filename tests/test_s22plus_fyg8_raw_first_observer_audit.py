@@ -549,6 +549,40 @@ def read_control1(adb, serial):
                 ):
                     self.module.audit_sources(REVALIDATION, {name: source})
 
+    def test_recent_s20_sources_are_explicit_cross_target_members(self):
+        expected = {
+            "build_s20plus_g986n_p0_pid1_acm_h0.py",
+            "build_s20plus_g986n_recovery_adb_canary_h0.py",
+            "build_s20plus_g986n_twrp_identical_resident_write_q0_h0.py",
+            "s20plus_g986n_autonomous_public_health_adb_seccomp_v1_h0.py",
+            "s20plus_g986n_autonomous_public_health_recovery_v1.py",
+            "s20plus_g986n_autonomous_public_health_recovery_v1_finalizer_h0.py",
+            "s20plus_g986n_autonomous_public_health_runtime_v1_h0.py",
+            "s20plus_g986n_autonomous_public_health_terminal_continuity_v1_h0.py",
+            "s20plus_g986n_boot_recovery_canary_b0_f1.py",
+            "s20plus_g986n_p0_pid1_odin_f1.py",
+        }
+        self.assertTrue(expected <= self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+        self.assertTrue(
+            all(
+                self.module.S22_SCOPED_SOURCE_RE.fullmatch(name) is None
+                for name in expected
+            )
+        )
+
+    def test_p326_protocol_remains_outside_active_raw_first_boundary(self):
+        name = "s22plus_fyg8_p326_bidirectional_acm_observer.py"
+        self.assertNotIn(name, self.module.ACTIVE_FILES)
+        self.assertNotIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+        parsed = self.module._validate_population_sources(REVALIDATION, {})
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError,
+            "device-acquiring source bypasses the raw-first boundary: " + name,
+        ):
+            self.module._device_acquisition_sources(
+                REVALIDATION, {}, parsed
+            )
+
     def test_registered_host_only_source_is_typed_and_byte_frozen(self):
         name = "s22plus_fyg8_p319_candidate_qualification.py"
         self.assertNotIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
@@ -752,7 +786,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["pre_boundary_device_source_count"], 128)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "435699f97dd13913b26f8a883321d54f2bb50b11fb2a8a7195293bde2d11fb3e",
+            "2e2cc34117c46736ab5e855ede98641cdbec14ff813fbf588bd9d5eec26c0856",
         )
         self.assertEqual(
             value["p319_d1_pre_boundary_classification"],
@@ -775,17 +809,17 @@ def read_control1(adb, serial):
             "device_acquisition_detected_by_behavior_not_filename", value
         )
         self.assertEqual(value["acquisition_rule"], "process_spawn_capability_v2")
-        self.assertEqual(value["host_only_non_acquiring_source_count"], 1)
+        self.assertEqual(value["host_only_non_acquiring_source_count"], 11)
         self.assertEqual(
             value["host_only_non_acquiring_source_inventory_sha256"],
-            "341e71f4d5757778ec2cf8cd25eb949ddd357d3052905ab383ed1e0b738e6f17",
+            "e660734c3a3d3a32e6d4b58c83311ccbc77c0675e769f2c2a533e05bad9f78ba",
         )
         self.assertTrue(value["host_only_non_acquiring_sources_are_byte_frozen"])
         self.assertEqual(
-            value["host_only_non_acquiring_sources"][0]["name"],
-            "s22plus_fyg8_p319_candidate_qualification.py",
+            {item["name"] for item in value["host_only_non_acquiring_sources"]},
+            set(self.module.S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS),
         )
-        self.assertEqual(value["pre_boundary_cross_target_membership_count"], 52)
+        self.assertEqual(value["pre_boundary_cross_target_membership_count"], 63)
 
     def test_p319_d1_registered_bytes_are_frozen(self):
         name = "s22plus_fyg8_p319_d1_fresh_baseline.py"
