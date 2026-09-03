@@ -386,11 +386,37 @@ and the fixed P331 decoder finds exactly one integrity-clean, foreign-free
 is absent; it does not reuse P331 session evidence. It expires on raw identity
 drift or P332 candidate intent.
 
-If a P327, P328, P329, P330, P331, or P332 candidate transfer occurs, the same
+**P333 OPEN-entry diagnostic successor.** P333 keeps P332's exact two
+sequential authenticated P330 exchanges on one tty descriptor, fixed three
+commands, private key, endpoint settle, lane/guard, raw-first capture, Carrier
+supplement, rollback, and final-health choreography under a fresh run identity
+and distinct boot-only AP. Its only runtime delta emits the existing bounded
+diagnostic frame with stage `0` and code `0` immediately before each of the two
+out-of-line console calls. The host still sends OPEN only after the native PID1
+banner, requires stage `0` before the existing OPEN-parsed and RNG diagnostics,
+and performs no retry. Missing, malformed, or reordered stage `0` remains
+no-proof and proceeds to the mandatory rollback.
+
+P333 adds no framing, command, retry, reconnect, persistent state, interactive
+PTY, caller-selected input, file transfer, or USB/Max77705 causal claim. Exact
+Magisk rollback and final rooted FYG8 health remain mandatory. This clause is
+H0-only until its exact changed closure has independent review and a ready
+declaration; neither event is device approval.
+
+P333 D0 may treat the retained P332 rollback baseline as current-run clean only
+when the complete raw `/proc/last_kmsg` is exactly 2,097,136 bytes with SHA-256
+`455eec000b3aa14e8fca155b857910b4ed4c16285e55e390e59dcfb2f3386ab4`
+and the fixed P332 decoder finds exactly one integrity-clean, foreign-free
+`NO_PROOF_OBSERVER` record at offset 1,658,084 for consumed run
+`c332f1e0a90b5e6d7c8a9b0c1d2e3f8b`. This proves only that fresh P333 is
+absent; it reuses no P332 session evidence and expires on raw drift or P333
+candidate intent.
+
+If a P327, P328, P329, P330, P331, P332, or P333 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, or `s22plus-fyg8-p332` F1 closure
-row derived from that run's retained journal and result. This is post-terminal
+or `s22plus-fyg8-p333` row derived from that run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host

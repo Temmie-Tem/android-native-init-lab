@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 478_497,
-                "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+                "size": 490_661,
+                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
             },
         )
         self.assertEqual(
@@ -100,8 +100,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p331_live_source_identity"],
             {
-                "size": 478_497,
-                "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+                "size": 490_661,
+                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
             },
         )
         self.assertEqual(
@@ -117,8 +117,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p332_live_source_identity"],
             {
-                "size": 478_497,
-                "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+                "size": 490_661,
+                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
             },
         )
         self.assertEqual(
@@ -128,6 +128,24 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertTrue(value["p332_raw_writer_precedes_session_parser"])
         self.assertTrue(value["p332_same_fd_session_receipt_bindings"])
         self.assertTrue(value["p332_session_order_and_nonce_replay_checks"])
+        self.assertEqual(
+            value["p333_active_source_identities"],
+            self.module.P333_ACTIVE_SOURCE_IDENTITIES,
+        )
+        self.assertEqual(
+            value["p333_live_source_identity"],
+            {
+                "size": 490_661,
+                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
+            },
+        )
+        self.assertEqual(
+            set(value["p333_raw_first_function_sha256"]),
+            set(self.module.P333_RAW_FIRST_FUNCTIONS),
+        )
+        self.assertTrue(value["p333_raw_writer_precedes_session_parser"])
+        self.assertTrue(value["p333_same_fd_session_receipt_bindings"])
+        self.assertTrue(value["p333_session_order_and_nonce_replay_checks"])
         self.assertFalse(value["device_observation_parser_accepts_live_stream"])
         self.assertTrue(
             value[
@@ -292,11 +310,11 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         live_name = "device_action_f1_live_v2.py"
         live_source = self.source(live_name)
         p332_exchange = (
-            "                resident = p332_logical_resident_observer.exchange_resident(\n"
+            "                resident = self.auth_observer.exchange_resident(\n"
             "                    descriptor,\n"
             "                    self.auth_key,\n"
             "                    timeout_sec=min(\n"
-            "                        p332_logical_resident_observer.SESSION_TIMEOUT_SEC,\n"
+            "                        self.auth_observer.SESSION_TIMEOUT_SEC,\n"
             "                        max(0.001, deadline - time.monotonic()),\n"
             "                    ),\n"
             "                    writer=writer,\n"
@@ -308,13 +326,56 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                 1,
             ),
             live_source.replace(
-                "            self.proof = p332_logical_resident_observer.validate_resident_proof(\n",
+                "            self.proof = self.auth_observer.validate_resident_proof(\n",
                 "            self.proof = resident\n            # proof parser bypass\n",
                 1,
             ),
             live_source.replace(
-                "        _p332_validate_raw_session_bindings(value, proof)\n",
+                "        _p332_validate_raw_session_bindings(\n",
                 "        pass  # raw receipt rebinding removed\n",
+                1,
+            ),
+        )
+        for mutation in live_mutations:
+            self.assertNotEqual(mutation, live_source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION, {live_name: mutation}
+                )
+
+    def test_p333_raw_first_contracts_reject_writer_entry_and_proof_mutations(self):
+        observer_name = "s22plus_fyg8_p333_open_entry_diag_acm_observer.py"
+        observer_source = self.source(observer_name)
+        observer_mutations = (
+            observer_source.replace(
+                "                writer=writer,\n",
+                "                writer=None,\n",
+                1,
+            ),
+            observer_source.replace(
+                "                parse_diagnostic_frame(\n",
+                "                # entry parser removed\n",
+                1,
+            ),
+        )
+        for mutation in observer_mutations:
+            self.assertNotEqual(mutation, observer_source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION, {observer_name: mutation}
+                )
+
+        live_name = "device_action_f1_live_v2.py"
+        live_source = self.source(live_name)
+        live_mutations = (
+            live_source.replace(
+                "        entry_diagnostic=True,\n",
+                "        entry_diagnostic=False,\n",
+                1,
+            ),
+            live_source.replace(
+                "        proof_validator=typed_evidence.validate_p333_logical_resident_proof,\n",
+                "        proof_validator=typed_evidence.validate_p332_logical_resident_proof,\n",
                 1,
             ),
         )

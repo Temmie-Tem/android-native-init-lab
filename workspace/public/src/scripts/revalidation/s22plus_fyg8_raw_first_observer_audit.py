@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "5ef8720cc4ca60d1b07c66f2066dfde99beac13a84b1a9aa465474cf7a2ed3f4"
+AUDITOR_NORMALIZED_SHA256 = "980aa5617688872e6d552adece5b3807d1572e15ead13675b5d0c9db7876798e"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -28,11 +28,11 @@ DEFAULT_OUTPUT = Path(
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "93071df528914f65548a07054667811693571507bc8584baa0b6238877dc1542"
+    "890e8dd7bd93ab6a3274553926c3d4bc90cdb0fe713ea358ad7f466a15194d49"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 130
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "ec553887da60327cd53e63a04634efec0e22bfe6360ab3781e361fc6cd828c22"
+    "382382f8c38de4b025c46e168f9d01cd68857e486a54e02f5e2f6027eda3e889"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 128
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "03cdf40b1a56ef42ea62c68d21cf8bb058d1d995507e98db1b2846ebd76a61ca"
+    "6b4c98c3164b0121ead038b3c909802dc8d79874fc0b77a5d680d4f0d3e91638"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -446,6 +446,8 @@ ACTIVE_FILES = {
     "s22plus_fyg8_p331_resident_exec_runtime.py",
     "s22plus_fyg8_p332_logical_resident_acm_observer.py",
     "s22plus_fyg8_p332_logical_resident_exec_runtime.py",
+    "s22plus_fyg8_p333_open_entry_diag_acm_observer.py",
+    "s22plus_fyg8_p333_open_entry_diag_runtime.py",
     "device_action_f1_live_v2.py",
 }
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
@@ -458,7 +460,9 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p331_resident_exec_runtime.py": "b146a1b9c46fc5db520c20d8c250dcc565c9882723ba82398fb8d1cd60f69750",
     "s22plus_fyg8_p332_logical_resident_acm_observer.py": "af64b65806bf0c521c375b2db158022e0bd1b625f82862fa47769f31e1cb481f",
     "s22plus_fyg8_p332_logical_resident_exec_runtime.py": "fc4f6a98855ef4fb58c417b351ef24e91d21823e08267d83030c846a58cc1f93",
-    "device_action_f1_live_v2.py": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+    "s22plus_fyg8_p333_open_entry_diag_acm_observer.py": "fbb0f2a2c8bf3f0dded26b18de5ce83bae8202e3426a049cf2be23379e79dcf3",
+    "s22plus_fyg8_p333_open_entry_diag_runtime.py": "fb61a41719df431fc465d763eebb63e412f68c95adaa21300f20e8a603ba7397",
+    "device_action_f1_live_v2.py": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
@@ -480,8 +484,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_odin_usbfs_identity.py": "caae61d64435e0fc85bb30adce9dc2bf07cf31bc4ffa033bab72dc072b5db415",
 }
 P328_LIVE_SOURCE_IDENTITY = {
-    "size": 478_497,
-    "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+    "size": 490_661,
+    "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
 }
 P328_RAW_FIRST_FUNCTIONS = (
     "device_action_f1_live_v2.py:_P327ObserverSession._publish_value",
@@ -507,8 +511,8 @@ P331_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "59d82f28dd50d8a1e39b4b267667bb4a56310acd71667b4df96499d43cdd558d",
     },
     "device_action_f1_live_v2.py": {
-        "size": 478_497,
-        "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+        "size": 490_661,
+        "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
     },
 }
 P331_RAW_FIRST_FUNCTIONS = (
@@ -531,8 +535,8 @@ P332_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "af64b65806bf0c521c375b2db158022e0bd1b625f82862fa47769f31e1cb481f",
     },
     "device_action_f1_live_v2.py": {
-        "size": 478_497,
-        "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+        "size": 490_661,
+        "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
     },
 }
 P332_RAW_FIRST_FUNCTIONS = (
@@ -544,6 +548,27 @@ P332_RAW_FIRST_FUNCTIONS = (
     "device_action_f1_live_v2.py:_p332_nonce_from_raw_session",
     "device_action_f1_live_v2.py:_p332_validate_raw_session_bindings",
     "device_action_f1_live_v2.py:_p332_validate_receipt",
+)
+P333_ACTIVE_SOURCE_IDENTITIES = {
+    "s22plus_fyg8_p333_open_entry_diag_acm_observer.py": {
+        "size": 12_840,
+        "sha256": "fbb0f2a2c8bf3f0dded26b18de5ce83bae8202e3426a049cf2be23379e79dcf3",
+    },
+    "s22plus_fyg8_p333_open_entry_diag_runtime.py": {
+        "size": 10_991,
+        "sha256": "fb61a41719df431fc465d763eebb63e412f68c95adaa21300f20e8a603ba7397",
+    },
+    "device_action_f1_live_v2.py": {
+        "size": 490_661,
+        "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
+    },
+}
+P333_RAW_FIRST_FUNCTIONS = (
+    "s22plus_fyg8_p333_open_entry_diag_acm_observer.py:_exchange_one",
+    "s22plus_fyg8_p333_open_entry_diag_acm_observer.py:exchange_resident",
+    "device_action_f1_live_v2.py:_logical_resident_candidate_observer_session",
+    "device_action_f1_live_v2.py:_p333_candidate_observer_session",
+    "device_action_f1_live_v2.py:_p333_validate_receipt",
 )
 P326_RAW_FIRST_FUNCTIONS = (
     "s22plus_fyg8_p326_bidirectional_acm_observer.py:_read_segment",
@@ -1433,6 +1458,31 @@ FUNCTION_CONTRACTS.update(
                 (),
             ),
         },
+        "s22plus_fyg8_p333_open_entry_diag_acm_observer.py": {
+            "_exchange_one": (
+                (
+                    "original = _BASE._read_frame",
+                    "frame = original(fd, deadline, audit, raw_writer)",
+                    "parse_diagnostic_frame(",
+                    "_P332._P330.exchange_commands(",
+                    "writer=writer,",
+                    "if nonce in seen_nonces:",
+                    "seen_nonces.add(nonce)",
+                ),
+                ("writer=None", "os.close("),
+            ),
+            "exchange_resident": (
+                (
+                    "original = _P332._exchange_one",
+                    "_P332._exchange_one = _exchange_one",
+                    "_P332.exchange_resident(",
+                    "writer=writer,",
+                    "finally:",
+                    "_P332._exchange_one = original",
+                ),
+                ("os.close(", "reconnect", "source_factory"),
+            ),
+        },
     }
 )
 FUNCTION_CONTRACTS["device_action_f1_live_v2.py"].update(
@@ -1481,11 +1531,11 @@ FUNCTION_CONTRACTS["device_action_f1_live_v2.py"].update(
             (
                 "descriptor = os.open(",
                 "self.base._raw_tty(descriptor)",
-                "p332_logical_resident_observer.exchange_resident(",
+                "self.auth_observer.exchange_resident(",
                 "writer=writer,",
                 "self.resident_result = resident",
                 "_p327_trailing_probe(descriptor, writer)",
-                "p332_logical_resident_observer.validate_resident_proof(",
+                "self.auth_observer.validate_resident_proof(",
                 'return "accepted"',
             ),
             ("writer=None",),
@@ -1506,7 +1556,7 @@ FUNCTION_CONTRACTS["device_action_f1_live_v2.py"].update(
         ),
         "_p332_nonce_from_raw_session": (
             (
-                "p332_logical_resident_observer.decode_frame(",
+                "observer_module.decode_frame(",
                 "hashlib.sha256(challenge).hexdigest()",
             ),
             (),
@@ -1514,7 +1564,7 @@ FUNCTION_CONTRACTS["device_action_f1_live_v2.py"].update(
         "_p332_validate_raw_session_bindings": (
             (
                 "core._stable_read(",
-                "_p332_nonce_from_raw_session(rx_segment, index)",
+                "_p332_nonce_from_raw_session(",
                 "bytes.fromhex(encoded_tx)",
                 'value["tx"]',
                 'value["rx"]',
@@ -1525,11 +1575,48 @@ FUNCTION_CONTRACTS["device_action_f1_live_v2.py"].update(
             (
                 "value = _read_json(",
                 "_p328_receipt_secret_free(value)",
-                'typed_evidence.validate_p332_logical_resident_proof(value["proof"])',
-                "_p332_validate_raw_session_bindings(value, proof)",
+                'proof_validator(value["proof"])',
+                "_p332_validate_raw_session_bindings(",
                 "return {",
             ),
             ("_p328_read_auth_key(",),
+        ),
+    }
+)
+FUNCTION_CONTRACTS["device_action_f1_live_v2.py"].update(
+    {
+        "_logical_resident_candidate_observer_session": (
+            (
+                'if spec.get("protocol_contract") != observer_module.CONTRACT_ID:',
+                "if entry_diagnostic:",
+                "p325_guard_adapter.observer_session(",
+                "yield session_type(",
+            ),
+            (),
+        ),
+        "_p333_candidate_observer_session": (
+            (
+                "with _logical_resident_candidate_observer_session(",
+                "observer_module=p333_open_entry_observer",
+                "runtime_module=p333_open_entry_runtime",
+                "session_type=_P333ObserverSession",
+                'label="P3.33"',
+                "entry_diagnostic=True",
+                "yield session",
+            ),
+            (),
+        ),
+        "_p333_validate_receipt": (
+            (
+                "return _p332_validate_receipt(",
+                "observer_module=p333_open_entry_observer",
+                "runtime_module=p333_open_entry_runtime",
+                "receipt_schema=P333_OBSERVER_RECEIPT_SCHEMA",
+                "classifications=P333_CLASSIFICATIONS",
+                "proof_validator=typed_evidence.validate_p333_logical_resident_proof",
+                'proof_key="p333_authenticated_logical_resident"',
+            ),
+            (),
         ),
     }
 )
@@ -2001,11 +2088,11 @@ ORDERED_FUNCTION_TOKENS = {
     ): (
         "descriptor = os.open(",
         "self.base._raw_tty(descriptor)",
-        "p332_logical_resident_observer.exchange_resident(",
+        "self.auth_observer.exchange_resident(",
         "writer=writer,",
         "self.resident_result = resident",
         "self.trailing_rx = _p327_trailing_probe(descriptor, writer)",
-        "p332_logical_resident_observer.validate_resident_proof(",
+        "self.auth_observer.validate_resident_proof(",
         'return "accepted"',
     ),
     (
@@ -2025,7 +2112,7 @@ ORDERED_FUNCTION_TOKENS = {
         "_p332_validate_raw_session_bindings",
     ): (
         "core._stable_read(",
-        "_p332_nonce_from_raw_session(rx_segment, index)",
+        "_p332_nonce_from_raw_session(",
         "bytes.fromhex(encoded_tx)",
         'value["tx"]',
         'value["rx"]',
@@ -2036,9 +2123,65 @@ ORDERED_FUNCTION_TOKENS = {
     ): (
         "value = _read_json(",
         "_p328_receipt_secret_free(value)",
-        'typed_evidence.validate_p332_logical_resident_proof(value["proof"])',
-        "_p332_validate_raw_session_bindings(value, proof)",
+        'proof_validator(value["proof"])',
+        "_p332_validate_raw_session_bindings(",
         "return {",
+    ),
+    (
+        "s22plus_fyg8_p333_open_entry_diag_acm_observer.py",
+        "_exchange_one",
+    ): (
+        "original = _BASE._read_frame",
+        "frame = original(fd, deadline, audit, raw_writer)",
+        "parse_diagnostic_frame(",
+        "if nonce in seen_nonces:",
+        "_P332._P330.exchange_commands(",
+        "writer=writer,",
+        "seen_nonces.add(nonce)",
+    ),
+    (
+        "s22plus_fyg8_p333_open_entry_diag_acm_observer.py",
+        "exchange_resident",
+    ): (
+        "original = _P332._exchange_one",
+        "_P332._exchange_one = _exchange_one",
+        "_P332.exchange_resident(",
+        "writer=writer,",
+        "finally:",
+        "_P332._exchange_one = original",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_logical_resident_candidate_observer_session",
+    ): (
+        'if spec.get("protocol_contract") != observer_module.CONTRACT_ID:',
+        "if entry_diagnostic:",
+        "p325_guard_adapter.observer_session(",
+        "yield session_type(",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_p333_candidate_observer_session",
+    ): (
+        "with _logical_resident_candidate_observer_session(",
+        "observer_module=p333_open_entry_observer",
+        "runtime_module=p333_open_entry_runtime",
+        "session_type=_P333ObserverSession",
+        'label="P3.33"',
+        "entry_diagnostic=True",
+        "yield session",
+    ),
+    (
+        "device_action_f1_live_v2.py",
+        "_p333_validate_receipt",
+    ): (
+        "return _p332_validate_receipt(",
+        "observer_module=p333_open_entry_observer",
+        "runtime_module=p333_open_entry_runtime",
+        "receipt_schema=P333_OBSERVER_RECEIPT_SCHEMA",
+        "classifications=P333_CLASSIFICATIONS",
+        "proof_validator=typed_evidence.validate_p333_logical_resident_proof",
+        'proof_key="p333_authenticated_logical_resident"',
     ),
 }
 
@@ -2870,6 +3013,11 @@ def audit_sources(
             raise RawFirstAuditError(f"P3.32 active source identity differs: {name}")
     if any(name not in function_sha256 for name in P332_RAW_FIRST_FUNCTIONS):
         raise RawFirstAuditError("P3.32 raw-first function contract is incomplete")
+    for name, expected in P333_ACTIVE_SOURCE_IDENTITIES.items():
+        if source_identities.get(name) != expected:
+            raise RawFirstAuditError(f"P3.33 active source identity differs: {name}")
+    if any(name not in function_sha256 for name in P333_RAW_FIRST_FUNCTIONS):
+        raise RawFirstAuditError("P3.33 raw-first function contract is incomplete")
     if (
         source_identities["s22plus_fyg8_p326_bidirectional_acm_observer.py"]
         != P326_ACTIVE_SOURCE_IDENTITY
@@ -2952,6 +3100,19 @@ def audit_sources(
         "p332_raw_writer_precedes_session_parser": True,
         "p332_same_fd_session_receipt_bindings": True,
         "p332_session_order_and_nonce_replay_checks": True,
+        "p333_active_source_identities": {
+            name: dict(identity)
+            for name, identity in P333_ACTIVE_SOURCE_IDENTITIES.items()
+        },
+        "p333_live_source_identity": dict(
+            P333_ACTIVE_SOURCE_IDENTITIES["device_action_f1_live_v2.py"]
+        ),
+        "p333_raw_first_function_sha256": {
+            name: function_sha256[name] for name in P333_RAW_FIRST_FUNCTIONS
+        },
+        "p333_raw_writer_precedes_session_parser": True,
+        "p333_same_fd_session_receipt_bindings": True,
+        "p333_session_order_and_nonce_replay_checks": True,
         "p328_raw_finalization_precedes_receipt_parse": True,
         "p328_candidate_observer_no_delete_or_overwrite": True,
         "p326_active_source_identity": dict(P326_ACTIVE_SOURCE_IDENTITY),
