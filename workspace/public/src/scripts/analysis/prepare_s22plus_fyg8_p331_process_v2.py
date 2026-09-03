@@ -56,15 +56,15 @@ DEFAULT_ROLLBACK_AP = ROOT / (
 )
 DEFAULT_PROMOTION = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p331/"
-    "process-v2-promotion-20260903-01"
+    "process-v2-promotion-20260903-02"
 )
 DEFAULT_MANIFEST = ROOT / (
     "workspace/public/src/device-action/manifests/"
-    "s22plus_fyg8_p331_process_v2_ready_1.json"
+    "s22plus_fyg8_p331_process_v2_ready_2.json"
 )
 DEFAULT_TARGET_PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
-DEFAULT_MANIFEST_ID = "s22plus-fyg8-p331-process-v2-ready-1"
-DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p331-live-1"
+DEFAULT_MANIFEST_ID = "s22plus-fyg8-p331-process-v2-ready-2"
+DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p331-live-2"
 DEFAULT_TIMEOUT_SEC = 300
 PRIVATE_PARENT = ROOT / "workspace/private/outputs/s22plus_fyg8_p331"
 AUTH_KEY_IDENTITY = dict(evidence.P331_AUTH_EXEC_AUTH_KEY_IDENTITY)

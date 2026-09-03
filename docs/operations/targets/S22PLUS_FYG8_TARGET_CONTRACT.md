@@ -348,6 +348,16 @@ requires its own target-contract lane, recovery owner, independent review, and
 fresh authority. This clause is H0-only until its exact changed closure has
 independent review and a ready declaration; neither event is device approval.
 
+P331 D0 may treat one retained P330 baseline as current-run clean only when
+the complete raw `/proc/last_kmsg` is exactly 2,097,136 bytes with SHA-256
+`3136c504434fac224f9fb9ffe1f688d1bf73062fbb75cb0da8117a885f3e05c6`
+and the fixed P330 decoder finds exactly one integrity-clean, foreign-free
+`NO_PROOF_OBSERVER` Carrier record at offset 1,657,877 for consumed run
+`c330f1e0a90b5e6d7c8a9b0c1d2e3f0b`. This preflight exception proves only
+that the fresh P331 run is absent; it does not reuse P330 ACM proof or grant
+candidate authority. It applies only to P331, and expires on raw identity
+drift or P331 candidate intent.
+
 If a P327, P328, P329, P330, or P331 candidate transfer occurs, the same reporting
 unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`, or

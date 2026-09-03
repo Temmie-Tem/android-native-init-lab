@@ -39,19 +39,19 @@ class P331PrepareTests(unittest.TestCase):
         )
         self.assertEqual(
             prepare.DEFAULT_MANIFEST_ID,
-            "s22plus-fyg8-p331-process-v2-ready-1",
+            "s22plus-fyg8-p331-process-v2-ready-2",
         )
-        self.assertEqual(prepare.DEFAULT_LIVE_RUN_ID, "s22plus-fyg8-p331-live-1")
+        self.assertEqual(prepare.DEFAULT_LIVE_RUN_ID, "s22plus-fyg8-p331-live-2")
         self.assertEqual(
             prepare.DEFAULT_PROMOTION,
             ROOT
-            / "workspace/private/outputs/s22plus_fyg8_p331/process-v2-promotion-20260903-01",
+            / "workspace/private/outputs/s22plus_fyg8_p331/process-v2-promotion-20260903-02",
         )
         self.assertEqual(
             prepare.DEFAULT_MANIFEST,
             ROOT
             / "workspace/public/src/device-action/manifests/"
-            "s22plus_fyg8_p331_process_v2_ready_1.json",
+            "s22plus_fyg8_p331_process_v2_ready_2.json",
         )
         self.assertEqual(
             len(prepare.DEFAULT_BUILDER_OUTPUT.joinpath("result.json").read_bytes()),

@@ -128,6 +128,32 @@ class P331EvidenceCoreTests(unittest.TestCase):
             }.issubset(receipts)
         )
 
+    def test_only_exact_consumed_p330_receipt_is_a_p331_baseline(self) -> None:
+        path = ROOT / (
+            "workspace/private/runs/device-action-f1-live-v2/"
+            "p331-ready1-prepared-20260903-1/preflight/baseline-observer.bin"
+        )
+        raw = path.read_bytes()
+        self.assertEqual(
+            {"size": len(raw), "sha256": hashlib.sha256(raw).hexdigest()},
+            evidence.P331_CONSUMED_P330_BASELINE_IDENTITY,
+        )
+        baseline = evidence.classify_clean_baseline(raw, self.acceptance)
+        self.assertEqual(
+            baseline["classification"],
+            "P331_CURRENT_RUN_ABSENT_P330_PREDECESSOR_EXACT",
+        )
+        self.assertTrue(baseline["baseline_clean"])
+        self.assertEqual(baseline["exact_record_count"], 0)
+        self.assertEqual(baseline["family_count"], 1)
+        changed = bytearray(raw)
+        changed[0] ^= 1
+        with self.assertRaisesRegex(
+            evidence.EvidenceError,
+            "P3.31 predecessor baseline raw identity differs",
+        ):
+            evidence.classify_clean_baseline(bytes(changed), self.acceptance)
+
 
 if __name__ == "__main__":
     unittest.main()

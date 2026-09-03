@@ -27,7 +27,7 @@ Neither this report nor the ready manifest is live authority.
 - Candidate boot: `100663296B/026e126260e0be5ec2bdf171f40f2588556d89b9894fe07fd16a0568474c622a`.
 - Candidate static receipt: `30639B/6a895b54f47a6c939bf480e3817080e7ae28d0bb15e31925648891c198fad906`.
 - Exact rollback AP: `23367721B/d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
-- Ready manifest: `6159B/63b392299bd768198bbcb6c2bd2204dd9c4edbb977a6794f1523e874c6a55f48`.
+- Current ready-2 manifest: `6159B/d3857ebb312d3e9859169f98872596411d8c89ebd735791b92c505167c310d50`.
 - Runtime: `18203B/b146a1b9c46fc5db520c20d8c250dcc565c9882723ba82398fb8d1cd60f69750`.
 - Observer: `25273B/59d82f28dd50d8a1e39b4b267667bb4a56310acd71667b4df96499d43cdd558d`.
 - Live runner: `442942B/badee11c3308daba6dfc0bfb224c83535a28429de92522189fcda96cab71c862`.
@@ -54,7 +54,19 @@ than escaping the recovery path.
   hostile re-review returned `PASS_GO_P331_H0` with no remaining material
   blocker.
 
-No ADB, Odin, transfer or device contact occurred during this H0 unit. P3.30
+The first ready-1 D0 contacted only the exact S22+ and stopped before any
+reboot, Download request, Odin or transfer because the P331 decoder rejected
+the retained P330 record. Its immutable raw baseline is
+`2097136B/3136c504434fac224f9fb9ffe1f688d1bf73062fbb75cb0da8117a885f3e05c6`.
+The exact P330 decoder finds one integrity-clean, foreign-free
+`NO_PROOF_OBSERVER` record at offset `1657877`, with no candidate-success
+claim. A P331-only preflight exception now treats only those exact bytes and
+semantics as proof that P331 is absent. Changed bytes reject, and the exception
+expires on raw drift or candidate intent. Independent proportional review
+returned `PASS_GO_P331_PREDECESSOR_BASELINE_H0`; ready-1 remains preserved and
+ready-2 replaces it for fresh preparation.
+
+No Odin, reboot or transfer occurred during the H0/D0 preparation work. P3.30
 remains consumed and is not replayed. A successful P3.31 F1 would prove a
 reconnectable bounded authenticated channel; choosing retained boot versus a
 Magisk R1 resident install remains a separate post-result decision.
