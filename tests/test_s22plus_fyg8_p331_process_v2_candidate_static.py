@@ -24,10 +24,11 @@ class P331CandidateStaticTests(unittest.TestCase):
         cls.value = json.loads(cls.payload.decode("ascii"))
 
     def test_published_static_receipt_reopens_exactly(self) -> None:
-        self.assertEqual(static.DEFAULT_OUTPUT.name, "process-v2-candidate-static-20260903-03.json")
+        self.assertEqual(static.DEFAULT_OUTPUT.name, "process-v2-candidate-static-20260903-04.json")
         self.assertEqual(static.DEFAULT_OUTPUT.stat().st_mode & 0o777, 0o400)
-        self.assertEqual(static.identity(self.payload), {"size": 30_639, "sha256": "6a895b54f47a6c939bf480e3817080e7ae28d0bb15e31925648891c198fad906"})
+        self.assertEqual(static.identity(self.payload), {"size": 30_639, "sha256": "22c73a1a83f18b655cf90a23ddcccceb82041c2f3f1343429d05d35ea0def4dc"})
         self.assertIs(static.validate_result(self.value), self.value)
+        self.assertIs(static.validate_bound_result(self.value), self.value)
 
     def test_candidate_is_fresh_boot_only_and_rollback_is_exact(self) -> None:
         candidate = self.value["candidate"]

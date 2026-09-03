@@ -54,7 +54,7 @@ ROLLBACK_IDENTITY = {
 }
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p331/"
-    "process-v2-candidate-static-20260903-03.json"
+    "process-v2-candidate-static-20260903-04.json"
 )
 SCHEMA = "s22plus_fyg8_p331_process_v2_candidate_static_v1"
 VERDICT = "PASS_P331_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
@@ -429,6 +429,19 @@ def validate_result(value: Any) -> dict[str, Any]:
     expected = build_result()
     if type(value) is not dict or value != expected:
         raise StaticContractError("P3.31 static result does not regenerate")
+    return value
+
+
+def build_bound_result() -> dict[str, Any]:
+    """P3.31 is already key-bound; its runtime-bound view is identical."""
+
+    return build_result()
+
+
+def validate_bound_result(value: Any) -> dict[str, Any]:
+    expected = build_bound_result()
+    if type(value) is not dict or value != expected:
+        raise StaticContractError("P3.31 bound static result does not regenerate")
     return value
 
 

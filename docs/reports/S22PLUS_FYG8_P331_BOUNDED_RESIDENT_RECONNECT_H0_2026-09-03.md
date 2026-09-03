@@ -25,9 +25,9 @@ Neither this report nor the ready manifest is live authority.
 - Final build result: `46253B/39c4ae4d6c156f3cac1eed5037dd5172e5dafedf2f24238de431f4e32ceb35d4`.
 - Candidate AP A/B: `28631081B/729b33c3bad602e1d5863fa8cfa6a4bdf22f194a74d378f7417879897bf4d08d`.
 - Candidate boot: `100663296B/026e126260e0be5ec2bdf171f40f2588556d89b9894fe07fd16a0568474c622a`.
-- Candidate static receipt: `30639B/6a895b54f47a6c939bf480e3817080e7ae28d0bb15e31925648891c198fad906`.
+- Current candidate static receipt: `30639B/22c73a1a83f18b655cf90a23ddcccceb82041c2f3f1343429d05d35ea0def4dc`.
 - Exact rollback AP: `23367721B/d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
-- Current ready-2 manifest: `6159B/d3857ebb312d3e9859169f98872596411d8c89ebd735791b92c505167c310d50`.
+- Current ready-3 manifest: `6159B/7b64f82d6783ce6cdc22d14a504abba211d9992a4a09a36c874aac184ff1fca2`.
 - Runtime: `18203B/b146a1b9c46fc5db520c20d8c250dcc565c9882723ba82398fb8d1cd60f69750`.
 - Observer: `25273B/59d82f28dd50d8a1e39b4b267667bb4a56310acd71667b4df96499d43cdd558d`.
 - Live runner: `442942B/badee11c3308daba6dfc0bfb224c83535a28429de92522189fcda96cab71c862`.
@@ -65,6 +65,15 @@ semantics as proof that P331 is absent. Changed bytes reject, and the exception
 expires on raw drift or candidate intent. Independent proportional review
 returned `PASS_GO_P331_PREDECESSOR_BASELINE_H0`; ready-1 remains preserved and
 ready-2 replaces it for fresh preparation.
+
+Ready-2 D0 then passed, but its first execute invocation stopped during host
+verification because the P331 static authority did not export the common
+`validate_bound_result` entry point. No live journal, candidate intent,
+Download request, Odin invocation or transfer existed. The P331 static result
+was already key/runtime-bound, so the repair adds only an exact alias to the
+same regeneration validator. Static-04 and ready-3 were published no-clobber;
+focused `5/5` and independent review returned
+`PASS_GO_P331_STATIC_BOUND_ALIAS_H0`. The ready-2 approval is not reused.
 
 No Odin, reboot or transfer occurred during the H0/D0 preparation work. P3.30
 remains consumed and is not replayed. A successful P3.31 F1 would prove a
