@@ -94,11 +94,17 @@ transforms to 475,102 bytes and validates under the fresh P3.34 run identity
 `c334f1e0a90b5e6d7c8a9b0c1d2e3f6b`.
 
 An exact-toolchain cross-compile of that transformed source produces a static
-AArch64 ELF with no undefined symbols. Its `p328_framed_console` remains at
-address `0x408250`, size `0x858`, and its complete `objdump` disassembly is
-byte-for-byte identical to P3.33; only the outer `p318_run` grows.
+AArch64 ELF with no undefined symbols. In the final packaged A/B binary,
+`p328_framed_console` remains at address `0x408250`, size `0x858`, with the
+same 534-instruction geometry and no control-flow change. Of those instruction
+words, 525 are byte-identical. The other nine are only `ADD` immediates for
+constant addresses, each shifted by the same `0x2c` because the enlarged outer
+`p318_run` moves the later read-only data by 44 bytes; opcode, registers and
+shift are unchanged. The earlier standalone statement of complete byte
+identity did not account for these final-link address fixups. The console C
+body and protocol remain unchanged.
 
-No AP, ready manifest, D0 preparation, approval, F1 action or device contact
-exists. Packaging must carry the compiled-console equality into its retained
-result, then the complete changed closure requires independent review before
-any live preparation.
+No ready manifest, D0 preparation, approval, F1 action or device contact
+exists at this design boundary. Packaging carries the source-body identity and
+the bounded final-link relocation comparison in its focused test, then the
+complete changed closure requires independent review before live preparation.
