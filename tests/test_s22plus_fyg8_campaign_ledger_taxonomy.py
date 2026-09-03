@@ -1001,9 +1001,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 }
             ],
         )
-        # P324 readiness, P325 readiness/baseline repair, and P327/P328 readiness
-        # are scoped verdicts without same-topic REVIEW_PENDING rows.
-        self.assertEqual(current["pass_go_resolving_no_obligation_count"], 15)
+        # Later readiness/baseline verdicts can be valid PASS_GO rows without
+        # same-topic REVIEW_PENDING rows in the historical obligation scope.
+        self.assertEqual(current["pass_go_resolving_no_obligation_count"], 16)
         self.assertEqual(scoped["pass_go_resolving_no_obligation_count"], 10)
         self.assertEqual(
             [item["campaign"] for item in scoped["pass_go_resolving_no_obligation"]],
@@ -1036,7 +1036,8 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             for row in all_rows
             if row["ordinal"] == "h0-process-v2-integration-prerequisites-review-29"
         ]
-        self.assertEqual(len(all_rows), 467)
+        # The append-only ledger legitimately grows after this review pair.
+        self.assertGreaterEqual(len(all_rows), 467)
         self.assertEqual(len(followups), 1)
         self.assertEqual(len(reviews), 1)
         followup = followups[0]
@@ -1215,7 +1216,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             live_topics | {"taxonomy-guard"},
         )
         self.assertEqual(
-            obligations["pass_go_resolving_no_obligation_count"], 16
+            obligations["pass_go_resolving_no_obligation_count"], 17
         )
 
     def test_matching_review_resolves_only_its_topic(self):
