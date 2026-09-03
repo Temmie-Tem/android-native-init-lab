@@ -327,12 +327,33 @@ fresh preparation, exact approval, and attendance. This clause is H0-only
 until the changed execution-critical closure has independent review and a
 ready declaration; neither event is device approval.
 
-If a P327, P328, P329, or P330 candidate transfer occurs, the same reporting
+**P331 bounded resident-reconnect precursor.** P331 may reuse the exact P330
+endpoint, two-property settle, pre-auth diagnostics, HMAC key and framing,
+command child cleanup, Type-C lane, raw-first capture, Carrier supplement, and
+rollback under a fresh run identity and distinct boot-only AP. Its only device
+runtime extension permits exactly two authenticated sessions and one clean
+reconnect. Each session requires a fresh nonzero nonce, the unchanged HMAC
+exchange, exactly one fixed heartbeat/status command, zero exit, authenticated
+close, and no trailing byte. The host closes and reopens only the same exact
+tty between sessions; an unclean close, timeout, authentication failure,
+replayed nonce, changed endpoint, exhausted cap, or partial exchange stops
+without reconnect or command replay.
+
+This bounded two-session proof is a resident precursor only. It does not
+retain the candidate after F1, install a Magisk module, create an Android
+service, grant an interactive PTY or unrestricted shell, permit file transfer,
+or activate A90 resident authority. Exact Magisk rollback and final rooted
+FYG8 health remain mandatory. A later retained-boot or Android-resident install
+requires its own target-contract lane, recovery owner, independent review, and
+fresh authority. This clause is H0-only until its exact changed closure has
+independent review and a ready declaration; neither event is device approval.
+
+If a P327, P328, P329, P330, or P331 candidate transfer occurs, the same reporting
 unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`, or
-`s22plus-fyg8-p330` F1 closure row derived from that run's retained journal and
-result. This is post-terminal bookkeeping, not a pre-execution gate; no F1 row
-is written before the effect.
+`s22plus-fyg8-p330`, or `s22plus-fyg8-p331` F1 closure row derived from that
+run's retained journal and result. This is post-terminal bookkeeping, not a
+pre-execution gate; no F1 row is written before the effect.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download

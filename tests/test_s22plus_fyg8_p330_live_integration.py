@@ -30,6 +30,7 @@ class P330LiveIntegrationTests(unittest.TestCase):
         )
         sentinel = object()
         with (
+            mock.patch.object(live, "_p331_bundle", return_value=False),
             mock.patch.object(live, "_p329_bundle", return_value=False),
             mock.patch.object(live, "_p330_bundle", return_value=True),
             mock.patch.object(live, "_p328_bundle", return_value=True),

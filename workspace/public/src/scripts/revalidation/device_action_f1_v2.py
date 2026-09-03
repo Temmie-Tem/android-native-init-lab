@@ -385,6 +385,7 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
             typed_evidence.CANDIDATE_AUTHENTICATED_FRAMED_EXEC_ROLE,
             typed_evidence.CANDIDATE_AUTHENTICATED_SETTLED_EXEC_ROLE,
             typed_evidence.CANDIDATE_AUTHENTICATED_DIAGNOSTIC_EXEC_ROLE,
+            typed_evidence.CANDIDATE_AUTHENTICATED_RESIDENT_EXEC_ROLE,
         ):
             try:
                 cdc_acm_observer.validate_spec(observation["candidate_observer"])
@@ -438,10 +439,14 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
                 typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P330_RUN_ID,
             ),
+            (
+                typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
+                typed_evidence.P331_RUN_ID,
+            ),
         }:
             raise F1V2Error(
                 "candidate arrival proof role requires the exact P3.23 stock binding "
-                "through the exact P3.30 stock binding"
+                "through the exact P3.31 stock binding"
             )
     if manifest["final_health_profile"] != profile["health_profile_id"] or manifest["runner_version"] != RUNNER_VERSION:
         raise F1V2Error("manifest health profile or runner version mismatch")
@@ -545,6 +550,7 @@ def _overridden_candidate_sources(
         typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P319_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID,
@@ -680,6 +686,7 @@ def execution_critical_source_receipts(
                 typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID,
+                typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
             }:
                 # Stock adapters retain the P310 carrier closure while their
                 # adapter/observer bytes are bound separately below.
@@ -687,6 +694,10 @@ def execution_critical_source_receipts(
                     userspace_overlay_contract_id
                 ]
                 prefix = (
+                    "p331"
+                    if userspace_overlay_contract_id
+                    == typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID
+                    else
                     "p330"
                     if userspace_overlay_contract_id
                     == typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID
@@ -723,6 +734,7 @@ def execution_critical_source_receipts(
                     )
                 )
                 label = {
+                    "p331": "P3.31",
                     "p330": "P3.30",
                     "p329": "P3.29",
                     "p328": "P3.28",
@@ -794,10 +806,13 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources["p326_bidirectional_acm_observer"] = Path(
                         __file__
                     ).with_name("s22plus_fyg8_p326_bidirectional_acm_observer.py")
-                if prefix in {"p328", "p329", "p330"}:
+                if prefix in {"p328", "p329", "p330", "p331"}:
                     if bind_private_inputs:
                         try:
                             key_identity = (
+                                typed_evidence.p331_artifact_identity.auth_key_identity()
+                                if prefix == "p331"
+                                else
                                 typed_evidence.p330_artifact_identity.auth_key_identity()
                                 if prefix == "p330"
                                 else typed_evidence.p329_artifact_identity.auth_key_identity()
@@ -813,6 +828,9 @@ def execution_critical_source_receipts(
                             typed_evidence.P328_AUTH_EXEC_AUTH_KEY_IDENTITY
                         )
                     expected_key = (
+                        typed_evidence.P331_AUTH_EXEC_AUTH_KEY_IDENTITY
+                        if prefix == "p331"
+                        else
                         typed_evidence.P330_AUTH_EXEC_AUTH_KEY_IDENTITY
                         if prefix == "p330"
                         else typed_evidence.P329_AUTH_EXEC_AUTH_KEY_IDENTITY
@@ -822,19 +840,33 @@ def execution_critical_source_receipts(
                     if key_identity != expected_key:
                         raise F1V2Error(f"{label} fixed auth key identity differs")
                     receipts[f"{prefix}_auth_key"] = dict(key_identity)
-                    e1_latest_stage_sources[f"{prefix}_authenticated_acm_observer"] = (
-                        Path(__file__).with_name(
-                            f"s22plus_fyg8_{prefix}_auth_acm_observer.py"
+                    if prefix == "p331":
+                        e1_latest_stage_sources["p331_resident_acm_observer"] = (
+                            Path(__file__).with_name(
+                                "s22plus_fyg8_p331_resident_acm_observer.py"
+                            )
                         )
-                    )
-                    e1_latest_stage_sources[f"{prefix}_authenticated_exec_runtime"] = (
-                        Path(__file__).with_name(
-                            f"s22plus_fyg8_{prefix}_auth_exec_runtime.py"
+                        e1_latest_stage_sources["p331_resident_exec_runtime"] = (
+                            Path(__file__).with_name(
+                                "s22plus_fyg8_p331_resident_exec_runtime.py"
+                            )
                         )
-                    )
+                    else:
+                        e1_latest_stage_sources[f"{prefix}_authenticated_acm_observer"] = (
+                            Path(__file__).with_name(
+                                f"s22plus_fyg8_{prefix}_auth_acm_observer.py"
+                            )
+                        )
+                        e1_latest_stage_sources[f"{prefix}_authenticated_exec_runtime"] = (
+                            Path(__file__).with_name(
+                                f"s22plus_fyg8_{prefix}_auth_exec_runtime.py"
+                            )
+                        )
                     e1_latest_stage_sources[f"{prefix}_artifact_identity"] = (
                         Path(__file__).with_name(
-                            f"s22plus_fyg8_{prefix}_artifact_identity.py"
+                            "s22plus_fyg8_p331_artifact_identity.py"
+                            if prefix == "p331"
+                            else f"s22plus_fyg8_{prefix}_artifact_identity.py"
                         )
                     )
                 if prefix == "p327":
@@ -1386,10 +1418,39 @@ def execution_critical_source_receipts(
             typed_evidence.CANDIDATE_AUTHENTICATED_FRAMED_EXEC_ROLE,
             typed_evidence.CANDIDATE_AUTHENTICATED_SETTLED_EXEC_ROLE,
             typed_evidence.CANDIDATE_AUTHENTICATED_DIAGNOSTIC_EXEC_ROLE,
+            typed_evidence.CANDIDATE_AUTHENTICATED_RESIDENT_EXEC_ROLE,
         }:
             raise F1V2Error("candidate arrival proof role is not allowlisted")
         overlay = acceptance.get("userspace_overlay_contract_id")
-        if candidate_arrival_proof_role == typed_evidence.CANDIDATE_AUTHENTICATED_DIAGNOSTIC_EXEC_ROLE:
+        if candidate_arrival_proof_role == typed_evidence.CANDIDATE_AUTHENTICATED_RESIDENT_EXEC_ROLE:
+            if overlay != typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID:
+                raise F1V2Error("P3.31 resident role requires the P3.31 overlay")
+            for name, filename in (
+                (
+                    "p331_resident_acm_observer",
+                    "s22plus_fyg8_p331_resident_acm_observer.py",
+                ),
+                (
+                    "p331_resident_exec_runtime",
+                    "s22plus_fyg8_p331_resident_exec_runtime.py",
+                ),
+                ("p331_artifact_identity", "s22plus_fyg8_p331_artifact_identity.py"),
+            ):
+                receipts[name] = _stable_read(
+                    Path(__file__).with_name(filename).resolve(),
+                    f"P3.31 {name}",
+                )[1]
+            if bind_private_inputs:
+                try:
+                    key_identity = typed_evidence.p331_artifact_identity.auth_key_identity()
+                except Exception as exc:
+                    raise F1V2Error("P3.31 fixed auth key identity is unavailable") from exc
+            else:
+                key_identity = dict(typed_evidence.P331_AUTH_EXEC_AUTH_KEY_IDENTITY)
+            if key_identity != typed_evidence.P331_AUTH_EXEC_AUTH_KEY_IDENTITY:
+                raise F1V2Error("P3.31 fixed auth key identity differs")
+            receipts["p331_auth_key"] = dict(key_identity)
+        elif candidate_arrival_proof_role == typed_evidence.CANDIDATE_AUTHENTICATED_DIAGNOSTIC_EXEC_ROLE:
             if overlay != typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID:
                 raise F1V2Error("P3.30 diagnostic exec role requires the P3.30 overlay")
             for name, filename in (
@@ -1552,11 +1613,16 @@ def verify_candidate_source_binding(
         typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
     }:
         if verification.get("userspace_overlay_contract_id") != userspace_overlay_contract_id:
             raise F1V2Error("stock overlay selector changed")
         adapter = typed_evidence.STOCK_ADAPTERS[userspace_overlay_contract_id]
         prefix = (
+            "p331"
+            if userspace_overlay_contract_id
+            == typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID
+            else
             "p330"
             if userspace_overlay_contract_id
             == typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID
@@ -1616,8 +1682,11 @@ def verify_candidate_source_binding(
                 raise F1V2Error(
                     "p325 CDC ACM guard adapter differs from execution-critical sources"
                 )
-        if prefix in {"p328", "p329", "p330"}:
+        if prefix in {"p328", "p329", "p330", "p331"}:
             version = (
+                "P3.31"
+                if prefix == "p331"
+                else
                 "P3.30"
                 if prefix == "p330"
                 else "P3.29"
@@ -1625,12 +1694,19 @@ def verify_candidate_source_binding(
                 else "P3.28"
             )
             expected_observer = verification.get("p328_authenticated_observer_source")
-            if prefix in {"p329", "p330"}:
+            if prefix == "p331":
+                expected_observer = verification.get(
+                    "p331_resident_observer_source",
+                    verification.get("p331_authenticated_observer_source"),
+                )
+            elif prefix in {"p329", "p330"}:
                 expected_observer = verification.get("p329_authenticated_observer_source")
             if prefix == "p330":
                 expected_observer = verification.get("p330_authenticated_observer_source")
             actual_observer = execution_sources.get(
-                f"{prefix}_authenticated_acm_observer"
+                "p331_resident_acm_observer"
+                if prefix == "p331"
+                else f"{prefix}_authenticated_acm_observer"
             )
             if (
                 not isinstance(expected_observer, dict)
@@ -1644,8 +1720,15 @@ def verify_candidate_source_binding(
             expected_runtime = verification.get(
                 f"{prefix}_authenticated_runtime_source"
             )
+            if prefix == "p331":
+                expected_runtime = verification.get(
+                    "p331_resident_runtime_source",
+                    verification.get("p331_authenticated_runtime_source"),
+                )
             actual_runtime = execution_sources.get(
-                f"{prefix}_authenticated_exec_runtime"
+                "p331_resident_exec_runtime"
+                if prefix == "p331"
+                else f"{prefix}_authenticated_exec_runtime"
             )
             if (
                 not isinstance(expected_runtime, dict)
@@ -1657,6 +1740,10 @@ def verify_candidate_source_binding(
                     f"{version} authenticated runtime differs from execution-critical sources"
                 )
             expected_artifact = verification.get(f"{prefix}_artifact_identity_source")
+            if prefix == "p331":
+                expected_artifact = verification.get(
+                    "p331_artifact_identity_source"
+                )
             actual_artifact = execution_sources.get(f"{prefix}_artifact_identity")
             if (
                 not isinstance(expected_artifact, dict)
@@ -1674,6 +1761,9 @@ def verify_candidate_source_binding(
                 or set(expected_key) != {"size", "sha256"}
                 or expected_key
                 != (
+                    typed_evidence.P331_AUTH_EXEC_AUTH_KEY_IDENTITY
+                    if prefix == "p331"
+                    else
                     typed_evidence.P329_AUTH_EXEC_AUTH_KEY_IDENTITY
                     if prefix == "p329"
                     else typed_evidence.P330_AUTH_EXEC_AUTH_KEY_IDENTITY
@@ -1939,6 +2029,7 @@ def verify_candidate_observer_binding(
         typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID,
+        typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
     }
     if source_contract_id is None:
         if observer is not None:
@@ -1955,11 +2046,17 @@ def verify_candidate_observer_binding(
     if observer is None:
         if (
             acceptance.get("userspace_overlay_contract_id")
+            == typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID
+        ):
+            raise F1V2Error("P3.31 resident observer is required")
+        if (
+            acceptance.get("userspace_overlay_contract_id")
             in {
                 typed_evidence.P327_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID,
+                typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
             }
         ):
             raise F1V2Error("framed command observer is required")
@@ -1967,6 +2064,19 @@ def verify_candidate_observer_binding(
     run_id_hex = acceptance.get("run_id")
     if not isinstance(run_id_hex, str) or re.fullmatch(r"[0-9a-f]{32}", run_id_hex) is None:
         raise F1V2Error("candidate observer run ID is invalid")
+    if (
+        acceptance.get("userspace_overlay_contract_id")
+        == typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID
+    ):
+        try:
+            typed_evidence.validate_candidate_arrival_proof_role(
+                typed_evidence.CANDIDATE_AUTHENTICATED_RESIDENT_EXEC_ROLE,
+                observer,
+                expected_run_id=run_id_hex,
+            )
+        except typed_evidence.EvidenceError as exc:
+            raise F1V2Error(str(exc)) from exc
+        return
     if (
         acceptance.get("userspace_overlay_contract_id")
         == typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID

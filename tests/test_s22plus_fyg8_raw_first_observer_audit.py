@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 395_677,
-                "sha256": "9bb02951bb5515592b2d69becea4da7c022978c26b07b18582c551e9ef2aaeae",
+                "size": 442_942,
+                "sha256": "badee11c3308daba6dfc0bfb224c83535a28429de92522189fcda96cab71c862",
             },
         )
         self.assertEqual(
@@ -93,6 +93,23 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
             set(value["p326_raw_first_function_sha256"]),
             set(self.module.P326_RAW_FIRST_FUNCTIONS),
         )
+        self.assertEqual(
+            value["p331_active_source_identities"],
+            self.module.P331_ACTIVE_SOURCE_IDENTITIES,
+        )
+        self.assertEqual(
+            value["p331_live_source_identity"],
+            {
+                "size": 442_942,
+                "sha256": "badee11c3308daba6dfc0bfb224c83535a28429de92522189fcda96cab71c862",
+            },
+        )
+        self.assertEqual(
+            set(value["p331_raw_first_function_sha256"]),
+            set(self.module.P331_RAW_FIRST_FUNCTIONS),
+        )
+        self.assertTrue(value["p331_raw_writer_precedes_session_parser"])
+        self.assertTrue(value["p331_session_order_and_nonce_replay_checks"])
         self.assertFalse(value["device_observation_parser_accepts_live_stream"])
         self.assertTrue(
             value[
@@ -187,6 +204,49 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                 self.module._audit_function_contracts(
                     REVALIDATION,
                     {source_name: mutation},
+                )
+
+    def test_p331_raw_first_contracts_reject_hostile_writer_publish_and_reopen(self):
+        observer_name = "s22plus_fyg8_p331_resident_acm_observer.py"
+        observer_source = self.source(observer_name)
+        observer_mutation = observer_source.replace(
+            "                writer=writer,\n            )",
+            "                writer=None,\n            )",
+            1,
+        )
+        self.assertNotEqual(observer_mutation, observer_source)
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module._audit_function_contracts(
+                REVALIDATION, {observer_name: observer_mutation}
+            )
+
+        live_name = "device_action_f1_live_v2.py"
+        live_source = self.source(live_name)
+        live_mutations = (
+            live_source.replace(
+                "                        writer=writer,\n"
+                "                        seen_nonces=seen_nonces,\n",
+                "                        writer=None,\n"
+                "                        seen_nonces=seen_nonces,\n",
+                1,
+            ),
+            live_source.replace(
+                "            proof = p331_resident_observer.validate_resident_proof(result)\n",
+                "            proof = result\n",
+                1,
+            ),
+            live_source.replace(
+                '    value = _read_json(path, "P331 bounded resident observer receipt")\n',
+                '    value = _read_json(path, "P331 bounded resident observer receipt")\n'
+                "    _p328_read_auth_key(prepared)\n",
+                1,
+            ),
+        )
+        for mutation in live_mutations:
+            self.assertNotEqual(mutation, live_source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION, {live_name: mutation}
                 )
 
     def test_d0_direct_stdout_and_nonhandle_parser_mutations_reject(self):
@@ -878,7 +938,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["pre_boundary_device_source_count"], 128)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "8209ad06f50beb499064f29be743d0ab96e89348904e13e5d5c0a3184e0f7cd6",
+            "0d73d515688008ef870dfd771418ff9567dabff60996b74eacc6bff5a3bd419c",
         )
         self.assertEqual(
             value["p319_d1_pre_boundary_classification"],

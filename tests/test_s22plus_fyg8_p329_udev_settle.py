@@ -69,6 +69,7 @@ class P329UdevSettleTests(unittest.TestCase):
         )
         sentinel = object()
         with (
+            mock.patch.object(live, "_p331_bundle", return_value=False),
             mock.patch.object(live, "_p329_bundle", return_value=True),
             mock.patch.object(
                 live,
