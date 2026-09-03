@@ -527,6 +527,16 @@ the original budget and only with proof that no handoff intent or dispatch
 occurred. Once handoff intent exists, no observation command may be retried;
 the mandatory rollback path remains the only recovery transition.
 
+The selected S22+ contract may activate one P335 current-boot resident lease
+inside this attended observation boundary. After exact listener proof, its
+ordinary journal pauses at `OBSERVED`; that pause is not a terminal, F1 PASS,
+Android health, `RESIDENT_HEALTHY` or reboot-persistent promotion. A separate
+durable lease may issue only its predeclared named read-only actions during the
+same attended boot. `RECOVERY_DOWNLOAD` remains the sole next ordinary state
+and the exact preapproved rollback remains the sole later partition effect.
+The result and ledger closure are deferred until rollback and final healthy
+Android return, never replaced by the active lease.
+
 An attended mode cannot be created after candidate intent or applied to a
 consumed run. The selected A90 contract and its implementation closure are in
 `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`.

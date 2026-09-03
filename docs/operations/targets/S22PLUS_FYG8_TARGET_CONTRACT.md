@@ -439,11 +439,60 @@ and the fixed P333 decoder finds exactly one integrity-clean, foreign-free
 absent; it reuses no P333 session evidence and expires on raw drift or P334
 candidate intent.
 
-If a P327, P328, P329, P330, P331, P332, P333, or P334 candidate transfer occurs, the same
+**P335 attended current-boot resident lease.** A fresh exact P335 approval may
+leave the ordinary F1 journal at `OBSERVED` after one exact candidate transfer
+and the manifest-bound authenticated listener proof. Only after a separate
+no-clobber lease and guard are durably published and directory-fsynced may the
+candidate-observer guard and host session lock be released. The lease permits
+at most one attended hour and 16 named read-only actions from the immutable
+manifest during that same boot. Every action freshly revalidates the exact
+target, endpoint, topology, candidate identity, unchanged nonzero per-boot
+identity, private key receipt, catalog and recovery owner, then records one
+durable intent and one result. The reviewed host runner never accepts a caller
+command, shell fragment, path, executable or environment, and an uncertain
+intent or dispatch is never replayed. The inherited device parser can accept a
+bounded printable authenticated command and is not claimed as a device-side
+allowlist; direct use outside the named host runner has no authority.
+
+The lease is an intermediate nonterminal observation state, not
+`RESIDENT_HEALTHY`, Android health, a reboot-persistent promotion, F1 closure,
+standing authority or a new candidate. Failure or ambiguity before listener
+proof takes the ordinary immediate rollback branch. Lease expiry, operator
+stop, attendance loss, target or closure drift, unexpected reboot, listener
+failure, recovery-path loss or an uncertain action permits only the originally
+approved exact Magisk rollback. Candidate replay and a replacement artifact
+remain forbidden. The F1 result and campaign-ledger row are published only
+after exact rollback and final healthy rooted FYG8 Android return.
+
+The ordinary `OBSERVED` transition and its subsequent `candidate_boot_ready`
+event must both be durable before lease publication, preserving the order
+`OBSERVED -> candidate_boot_ready -> lease/guard`. The lease uses schema
+`s22plus_fyg8_p335_resident_lease_v1`, owns its monotonic one-hour deadline,
+and keeps a separate append-only action intent/result journal. Initial proof is
+exactly two same-FD sessions followed by one host close/reopen session. After
+that proof the listener admits at most one authenticated session for each of
+the 16 lease actions; neither the proof nor an action creates an extra retry or
+reconnect budget. Named actions exist only inside the active P335 F1 lease and
+are not independent D1 or standing authority.
+
+P335 reuses P334's authenticated S328 framing, fixed BusyBox child isolation,
+three named commands and exact rollback under a fresh run identity and distinct
+boot-only AP. It adds only two initial same-FD logical sessions, one exact host
+tty close/reopen session, a single per-boot identity shared by all sessions,
+and the low-duty listener needed for later lease actions. Expected idle or
+no-peer outcomes may return only to the wait state; protocol,
+authentication, command, child-cleanup or unexpected I/O failure parks the
+listener. P335 adds no persistent file, Android service, interactive PTY,
+file transfer, generic shell authority, package, mount, property/service
+change, reboot, unattended control or non-boot payload. This clause is H0-only
+until its complete changed execution closure receives independent review and a
+ready declaration; neither event is device approval.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, or P335 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, or `s22plus-fyg8-p334` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, or `s22plus-fyg8-p335` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
