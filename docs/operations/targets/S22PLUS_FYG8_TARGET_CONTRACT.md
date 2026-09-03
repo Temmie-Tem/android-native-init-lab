@@ -412,11 +412,39 @@ and the fixed P332 decoder finds exactly one integrity-clean, foreign-free
 absent; it reuses no P332 session evidence and expires on raw drift or P333
 candidate intent.
 
-If a P327, P328, P329, P330, P331, P332, or P333 candidate transfer occurs, the same
+**P334 first-console-return diagnostic successor.** P334 keeps P333's exact
+two sequential authenticated P330 exchanges on one tty descriptor, fixed
+three commands, private key, stage-0 diagnostics, endpoint settle, lane/guard,
+raw-first capture, Carrier supplement, rollback and final-health choreography
+under a fresh run identity and distinct boot-only AP. Its only runtime change
+captures the first outer console call's return and writes it into the existing
+post-rollback checkpoint terminal detail: `0xB000 | errno` for return `0` or
+`-1..-4094`, and `0xBFFF` when the call was not reached or the return is outside
+that domain. It adds no checkpoint generation, tty response, frame, command,
+retry, reconnect or persistent write. The detail identifies the first
+read/OPEN boundary only when the same run retains stage 0 and no later
+OPEN-parsed stage.
+
+P334 remains a bounded diagnostic rather than a retained install or standing
+session. Exact Magisk rollback and final rooted FYG8 health remain mandatory.
+This clause is H0-only until the exact changed closure receives independent
+review and a ready declaration is published; neither event is device approval.
+
+P334 D0 may treat the retained P333 rollback baseline as current-run clean only
+when complete raw `/proc/last_kmsg` is exactly 2,097,136 bytes with SHA-256
+`ce236dfaddd23c9edd5165cee871d576cb8bb106ad4dbbf508c2861162ae617d`
+and the fixed P333 decoder finds exactly one integrity-clean, foreign-free
+`NO_PROOF_OBSERVER` record at offset 1,652,363 for consumed run
+`c333f1e0a90b5e6d7c8a9b0c1d2e3f7b`. This proves only that fresh P334 is
+absent; it reuses no P333 session evidence and expires on raw drift or P334
+candidate intent.
+
+If a P327, P328, P329, P330, P331, P332, P333, or P334 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
-`s22plus-fyg8-p330`, `s22plus-fyg8-p331`, or `s22plus-fyg8-p332` F1 closure
-or `s22plus-fyg8-p333` row derived from that run's retained journal and result. This is post-terminal
+`s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
+`s22plus-fyg8-p333`, or `s22plus-fyg8-p334` F1 closure row derived from that
+run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host

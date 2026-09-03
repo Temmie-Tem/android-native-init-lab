@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 490_661,
-                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
+                "size": 502_612,
+                "sha256": "a4b0a8fe7434a7b5a4330c94b26c09693b7ec6b49521b45f2ade69c3075207c8",
             },
         )
         self.assertEqual(
@@ -100,8 +100,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p331_live_source_identity"],
             {
-                "size": 490_661,
-                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
+                "size": 502_612,
+                "sha256": "a4b0a8fe7434a7b5a4330c94b26c09693b7ec6b49521b45f2ade69c3075207c8",
             },
         )
         self.assertEqual(
@@ -117,8 +117,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p332_live_source_identity"],
             {
-                "size": 490_661,
-                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
+                "size": 502_612,
+                "sha256": "a4b0a8fe7434a7b5a4330c94b26c09693b7ec6b49521b45f2ade69c3075207c8",
             },
         )
         self.assertEqual(
@@ -135,8 +135,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p333_live_source_identity"],
             {
-                "size": 490_661,
-                "sha256": "e379df2fe2fa674ba4b03a718c32eaa868bb41143f16755cdc444c13f394a4c5",
+                "size": 502_612,
+                "sha256": "a4b0a8fe7434a7b5a4330c94b26c09693b7ec6b49521b45f2ade69c3075207c8",
             },
         )
         self.assertEqual(
@@ -146,6 +146,24 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertTrue(value["p333_raw_writer_precedes_session_parser"])
         self.assertTrue(value["p333_same_fd_session_receipt_bindings"])
         self.assertTrue(value["p333_session_order_and_nonce_replay_checks"])
+        self.assertEqual(
+            value["p334_active_source_identities"],
+            self.module.P334_ACTIVE_SOURCE_IDENTITIES,
+        )
+        self.assertEqual(
+            value["p334_live_source_identity"],
+            {
+                "size": 502_612,
+                "sha256": "a4b0a8fe7434a7b5a4330c94b26c09693b7ec6b49521b45f2ade69c3075207c8",
+            },
+        )
+        self.assertEqual(
+            set(value["p334_raw_first_function_sha256"]),
+            set(self.module.P334_RAW_FIRST_FUNCTIONS),
+        )
+        self.assertTrue(value["p334_raw_writer_precedes_session_parser"])
+        self.assertTrue(value["p334_same_fd_session_receipt_bindings"])
+        self.assertTrue(value["p334_session_order_and_nonce_replay_checks"])
         self.assertFalse(value["device_observation_parser_accepts_live_stream"])
         self.assertTrue(
             value[
@@ -376,6 +394,33 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
             live_source.replace(
                 "        proof_validator=typed_evidence.validate_p333_logical_resident_proof,\n",
                 "        proof_validator=typed_evidence.validate_p332_logical_resident_proof,\n",
+                1,
+            ),
+        )
+        for mutation in live_mutations:
+            self.assertNotEqual(mutation, live_source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION, {live_name: mutation}
+                )
+
+    def test_p334_raw_first_contracts_reject_session_and_receipt_mutations(self):
+        live_name = "device_action_f1_live_v2.py"
+        live_source = self.source(live_name)
+        live_mutations = (
+            live_source.replace(
+                "        observer_module=p334_first_read_observer,\n",
+                "        observer_module=p333_open_entry_observer,\n",
+                1,
+            ),
+            live_source.replace(
+                "        proof_validator=typed_evidence.validate_p334_logical_resident_proof,\n",
+                "        proof_validator=typed_evidence.validate_p333_logical_resident_proof,\n",
+                1,
+            ),
+            live_source.replace(
+                '            "first_console_return_checkpoint_only": True,\n',
+                '            "first_console_return_checkpoint_only": False,\n',
                 1,
             ),
         )
