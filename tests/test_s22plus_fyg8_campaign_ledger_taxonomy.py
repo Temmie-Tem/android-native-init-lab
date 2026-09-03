@@ -1003,7 +1003,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         )
         # Later readiness/baseline verdicts can be valid PASS_GO rows without
         # same-topic REVIEW_PENDING rows in the historical obligation scope.
-        self.assertEqual(current["pass_go_resolving_no_obligation_count"], 17)
+        self.assertEqual(current["pass_go_resolving_no_obligation_count"], 18)
         self.assertEqual(scoped["pass_go_resolving_no_obligation_count"], 10)
         self.assertEqual(
             [item["campaign"] for item in scoped["pass_go_resolving_no_obligation"]],
@@ -1216,7 +1216,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             live_topics | {"taxonomy-guard"},
         )
         self.assertEqual(
-            obligations["pass_go_resolving_no_obligation_count"], 18
+            obligations["pass_go_resolving_no_obligation_count"], 19
         )
 
     def test_matching_review_resolves_only_its_topic(self):
