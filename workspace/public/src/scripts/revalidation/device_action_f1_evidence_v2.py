@@ -252,6 +252,18 @@ p331_resident_exec_runtime = _load_stable_local_module(
 p331_resident_acm_observer = _load_stable_local_module(
     "s22plus_fyg8_p331_resident_acm_observer"
 )
+p332_stock_adapter = _load_stable_local_module(
+    "s22plus_fyg8_p332_stock_process_v2_adapter"
+)
+p332_artifact_identity = _load_stable_local_module(
+    "s22plus_fyg8_p332_artifact_identity"
+)
+p332_logical_resident_exec_runtime = _load_stable_local_module(
+    "s22plus_fyg8_p332_logical_resident_exec_runtime"
+)
+p332_logical_resident_acm_observer = _load_stable_local_module(
+    "s22plus_fyg8_p332_logical_resident_acm_observer"
+)
 p323_predecessor_baseline = _load_stable_local_module(
     "s22plus_fyg8_p323_p322_carrier_reanalysis"
 )
@@ -298,6 +310,9 @@ CANDIDATE_AUTHENTICATED_RESIDENT_RECONNECT_ROLE = (
 )
 CANDIDATE_AUTHENTICATED_RESIDENT_SESSION_ROLE = (
     CANDIDATE_AUTHENTICATED_RESIDENT_EXEC_ROLE
+)
+CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE = (
+    "p332_authenticated_logical_resident_same_fd_session_v1"
 )
 CANDIDATE_ARRIVAL_PROOF_SCHEMA = "device_action_f1_candidate_arrival_proof_v1"
 P323_ACM_PRIMARY_RUNTIME_CONTRACT_ID = (
@@ -478,6 +493,34 @@ P331_AUTH_EXEC_OUTCOME = (
 )
 P331_AUTH_EXEC_NO_PROOF_OUTCOME = (
     "p331_authenticated_resident_heartbeat_unproved_rollback_verified"
+)
+P332_AUTH_EXEC_RUNTIME_CONTRACT_ID = p332_logical_resident_exec_runtime.CONTRACT_ID
+P332_AUTH_EXEC_OBSERVER_CONTRACT_ID = p332_logical_resident_acm_observer.CONTRACT_ID
+P332_AUTH_EXEC_RUN_ID_HEX = p332_stock_adapter.P332_RUN_ID_HEX
+P332_AUTH_EXEC_COMMAND_COUNT = len(p332_logical_resident_exec_runtime.DEFAULT_COMMANDS)
+P332_AUTH_EXEC_MAX_FRAME_PAYLOAD = p332_logical_resident_exec_runtime.MAX_FRAME_PAYLOAD
+P332_AUTH_EXEC_FRAME_HEADER_SIZE = p332_logical_resident_exec_runtime.FRAME_HEADER_SIZE
+P332_AUTH_EXEC_MAX_COMMANDS = p332_logical_resident_exec_runtime.MAX_COMMANDS
+P332_AUTH_EXEC_COMMAND_TIMEOUT_SEC = p332_logical_resident_exec_runtime.COMMAND_TIMEOUT_SEC
+P332_AUTH_EXEC_MAX_OUTPUT_BYTES = p332_logical_resident_exec_runtime.MAX_OUTPUT_BYTES
+P332_AUTH_EXEC_AUTH_ALGORITHM = P328_AUTH_EXEC_AUTH_ALGORITHM
+P332_AUTH_EXEC_AUTH_TAG_SIZE = p332_logical_resident_exec_runtime.AUTH_TAG_SIZE
+P332_AUTH_EXEC_AUTH_KEY_SCHEMA = P328_AUTH_EXEC_AUTH_KEY_SCHEMA
+P332_AUTH_EXEC_AUTH_KEY_SIZE = p332_logical_resident_exec_runtime.AUTH_KEY_SIZE
+P332_AUTH_EXEC_AUTH_KEY_IDENTITY = dict(P331_AUTH_EXEC_AUTH_KEY_IDENTITY)
+P332_AUTH_EXEC_DIAGNOSTIC_FRAME_TYPE = p332_logical_resident_exec_runtime.DIAGNOSTIC_FRAME_TYPE
+P332_AUTH_EXEC_DIAGNOSTIC_PAYLOAD_SIZE = P330_AUTH_EXEC_DIAGNOSTIC_PAYLOAD_SIZE
+P332_AUTH_EXEC_RNG_EAGAIN_RETRY_LIMIT = p332_logical_resident_exec_runtime.RNG_EAGAIN_RETRY_LIMIT
+P332_AUTH_EXEC_SESSION_CAP = p332_logical_resident_exec_runtime.MAX_SESSIONS
+P332_AUTH_EXEC_RECONNECT_CAP = p332_logical_resident_exec_runtime.MAX_RECONNECTS
+P332_AUTH_EXEC_VERDICT = (
+    "PASS_F1_V2_P332_AUTHENTICATED_LOGICAL_RESIDENT_SAME_FD_AND_ROLLED_BACK"
+)
+P332_AUTH_EXEC_OUTCOME = (
+    "p332_authenticated_logical_resident_same_fd_rollback_verified"
+)
+P332_AUTH_EXEC_NO_PROOF_OUTCOME = (
+    "p332_authenticated_logical_resident_same_fd_unproved_rollback_verified"
 )
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
 PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
@@ -676,6 +719,8 @@ P330_STOCK_OVERLAY_CONTRACT_ID = p330_stock_adapter.OVERLAY_CONTRACT_ID
 P330_STOCK_OVERLAY_IDS = frozenset({P330_STOCK_OVERLAY_CONTRACT_ID})
 P331_STOCK_OVERLAY_CONTRACT_ID = p331_stock_adapter.OVERLAY_CONTRACT_ID
 P331_STOCK_OVERLAY_IDS = frozenset({P331_STOCK_OVERLAY_CONTRACT_ID})
+P332_STOCK_OVERLAY_CONTRACT_ID = p332_stock_adapter.OVERLAY_CONTRACT_ID
+P332_STOCK_OVERLAY_IDS = frozenset({P332_STOCK_OVERLAY_CONTRACT_ID})
 STOCK_ADAPTERS = {
     P319_STOCK_OVERLAY_CONTRACT_ID: p319_stock_adapter,
     P320_STOCK_OVERLAY_CONTRACT_ID: p320_stock_adapter,
@@ -690,6 +735,7 @@ STOCK_ADAPTERS = {
     P329_STOCK_OVERLAY_CONTRACT_ID: p329_stock_adapter,
     P330_STOCK_OVERLAY_CONTRACT_ID: p330_stock_adapter,
     P331_STOCK_OVERLAY_CONTRACT_ID: p331_stock_adapter,
+    P332_STOCK_OVERLAY_CONTRACT_ID: p332_stock_adapter,
 }
 P316_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p316_candidate_static_checker_v1"
 P316_CANDIDATE_STATIC_VERDICT = (
@@ -781,6 +827,12 @@ P331_CANDIDATE_STATIC_SCHEMA = (
 P331_CANDIDATE_STATIC_VERDICT = (
     "PASS_P331_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
 )
+P332_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p332_process_v2_candidate_static_v1"
+)
+P332_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P332_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
+)
 MAX77705_OVERLAY_CONTRACT_IDS = frozenset(
     {
         MAX77705_OVERLAY_CONTRACT_ID,
@@ -805,6 +857,7 @@ P328_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P329_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P330_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P331_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
+P332_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P319_RUN_ID = "b9cc424d0d184f5accbce94a844e817d"
 P320_RUN_ID = p320_stock_adapter.P320_STOCK_RUN_ID.hex()
 P321_RUN_ID = p321_stock_adapter.P321_RUN_ID_HEX
@@ -819,6 +872,8 @@ P329_RUN_ID = p329_stock_adapter.P329_RUN_ID_HEX
 P330_RUN_ID = p330_stock_adapter.P330_RUN_ID_HEX
 P331_RUN_ID = p331_stock_adapter.P331_RUN_ID_HEX
 P331_PREDECESSOR_RUN_ID = p331_stock_adapter.P330_PREDECESSOR_RUN_ID_HEX
+P332_RUN_ID = p332_stock_adapter.P332_RUN_ID_HEX
+P332_PREDECESSOR_RUN_ID = p332_stock_adapter.P331_PREDECESSOR_RUN_ID_HEX
 P320_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p320_process_v2_candidate_static.py"
@@ -867,6 +922,10 @@ P331_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p331_process_v2_candidate_static.py"
 )
+P332_CANDIDATE_STATIC_AUTHORITY_PATH = (
+    "workspace/public/src/scripts/analysis/"
+    "s22plus_fyg8_p332_process_v2_candidate_static.py"
+)
 P319_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p319_process_v2_candidate_static.py"
@@ -888,6 +947,7 @@ P328_TARGET = dict(P319_TARGET)
 P329_TARGET = dict(P319_TARGET)
 P330_TARGET = dict(P319_TARGET)
 P331_TARGET = dict(P330_TARGET)
+P332_TARGET = dict(P331_TARGET)
 P323_CONSUMED_P322_BASELINE_IDENTITY = {
     "size": 2_097_136,
     "sha256": "3d186a2a46cdca7eed219d6a915906322d3c2da001e7380b3a75e8b52ef7b4e2",
@@ -908,6 +968,11 @@ P331_CONSUMED_P330_BASELINE_IDENTITY = {
     "sha256": "3136c504434fac224f9fb9ffe1f688d1bf73062fbb75cb0da8117a885f3e05c6",
 }
 P331_CONSUMED_P330_RECORD_OFFSET = 1_657_877
+P332_CONSUMED_P331_BASELINE_IDENTITY = {
+    "size": 2_097_136,
+    "sha256": "f33384fbedd604deca988bfb8ac9522e492aa930f5e81a816348730a5d0e3238",
+}
+P332_CONSUMED_P331_RECORD_OFFSET = 1_767_463
 P319_EXACT_ARTIFACTS = {
     "ap_tar_md5": {
         "size": 27_279_401,
@@ -1260,7 +1325,16 @@ def _latest_stage_observation_decoder(
 ):
     if userspace_overlay_contract_id is None:
         return _latest_stage_decoder(source_contract_id, profile)
-    if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID:
+        if (
+            source_contract_id != p332_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+            or profile != p332_stock_adapter.PROFILE
+        ):
+            raise EvidenceError(
+                "P3.32 logical resident authenticated userspace observation overlay is unsupported"
+            )
+        selected = p332_stock_adapter
+    elif userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
         if (
             source_contract_id != p331_stock_adapter.PARENT_SOURCE_CONTRACT_ID
             or profile != p331_stock_adapter.PROFILE
@@ -1709,6 +1783,13 @@ def _validate_p318_overlay_contract(value: Any) -> dict[str, Any]:
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
+    if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID:
+        try:
+            return p332_stock_adapter.validate_contract(value)
+        except p332_stock_adapter.DecodeError as exc:
+            raise EvidenceError(
+                "P3.32 logical resident authenticated overlay metadata differs"
+            ) from exc
     if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
         try:
             return p331_stock_adapter.validate_contract(value)
@@ -1821,6 +1902,10 @@ def _select_e2_closure(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None = None,
 ):
+    if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID:
+        if source_contract_id != p332_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
+            raise EvidenceError("P3.32 stock parent source contract differs")
+        return p310_e2_closure.select(source_contract_id)
     if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
         if source_contract_id != p331_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
             raise EvidenceError("P3.31 stock parent source contract differs")
@@ -2771,6 +2856,8 @@ def _latest_stage_accepted_identity(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None,
 ) -> str:
+    if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID:
+        return "P332_STOCK_OBSERVER_V4_RETAINED"
     if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
         return "P331_STOCK_OBSERVER_V4_RETAINED"
     if userspace_overlay_contract_id == P330_STOCK_OVERLAY_CONTRACT_ID:
@@ -3515,6 +3602,31 @@ def _validate_p331_candidate_static(
     return value
 
 
+def _validate_p332_candidate_static_authority(
+    value: dict[str, Any],
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    return _validate_candidate_static_authority(
+        value,
+        authority_path=P332_CANDIDATE_STATIC_AUTHORITY_PATH,
+        label="P3.32",
+        maximum=P332_CANDIDATE_STATIC_MAX_BYTES,
+        runtime_bound=runtime_bound,
+    )
+
+
+def _validate_p332_candidate_static(
+    value: Any,
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise EvidenceError("P3.32 candidate-static result is not an object")
+    _validate_p332_candidate_static_authority(value, runtime_bound=runtime_bound)
+    return value
+
+
 def _p319_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
     artifacts = candidate_static["candidate"]["artifacts"]
     return {
@@ -3774,6 +3886,29 @@ def _p331_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]
         "auth_key_schema": P331_AUTH_EXEC_AUTH_KEY_SCHEMA,
         "auth_key_size": P331_AUTH_EXEC_AUTH_KEY_SIZE,
         "auth_key": dict(P331_AUTH_EXEC_AUTH_KEY_IDENTITY),
+        "auth_key_path_published": False,
+        "run_id": candidate_static["run_id"],
+        "source_contract_id": candidate_static["source_contract_id"],
+        "userspace_overlay_contract_id": candidate_static[
+            "userspace_overlay_contract_id"
+        ],
+    }
+
+
+def _p332_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
+    candidate = candidate_static["candidate"]
+    return {
+        "kind": "p332_exact_authenticated_logical_resident_same_fd_ap_v1",
+        "boot_img_lz4": candidate["a"]["boot_img_lz4"],
+        "boot_image": candidate["a"]["boot_img"],
+        "image": candidate["image"],
+        "init": candidate["init"],
+        "child": candidate["child"],
+        "busybox": candidate["busybox"],
+        "latch": P319_EXACT_ARTIFACTS["latch"],
+        "auth_key_schema": P332_AUTH_EXEC_AUTH_KEY_SCHEMA,
+        "auth_key_size": P332_AUTH_EXEC_AUTH_KEY_SIZE,
+        "auth_key": dict(P332_AUTH_EXEC_AUTH_KEY_IDENTITY),
         "auth_key_path_published": False,
         "run_id": candidate_static["run_id"],
         "source_contract_id": candidate_static["source_contract_id"],
@@ -4662,6 +4797,66 @@ def _validate_p331_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
     }
 
 
+def _validate_p332_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
+    """Validate P3.32 through the unchanged boot-only/rootfs grammar."""
+    item = _exact(
+        closure,
+        {
+            "kind",
+            "boot_img_lz4",
+            "boot_image",
+            "image",
+            "init",
+            "child",
+            "busybox",
+            "latch",
+            "auth_key_schema",
+            "auth_key_size",
+            "auth_key",
+            "auth_key_path_published",
+            "run_id",
+            "source_contract_id",
+            "userspace_overlay_contract_id",
+        },
+        "P3.32 E2 AP payload closure",
+    )
+    if (
+        item["kind"] != "p332_exact_authenticated_logical_resident_same_fd_ap_v1"
+        or item["run_id"] != P332_RUN_ID
+        or item["source_contract_id"]
+        != p332_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+        or item["userspace_overlay_contract_id"]
+        != P332_STOCK_OVERLAY_CONTRACT_ID
+        or item["auth_key_schema"] != P332_AUTH_EXEC_AUTH_KEY_SCHEMA
+        or item["auth_key_size"] != P332_AUTH_EXEC_AUTH_KEY_SIZE
+        or item["auth_key"] != P332_AUTH_EXEC_AUTH_KEY_IDENTITY
+        or item["auth_key_path_published"] is not False
+    ):
+        raise EvidenceError("P3.32 E2 AP payload header differs")
+    inherited = dict(item)
+    inherited.update(
+        {
+            "kind": "p330_exact_authenticated_diagnostic_udev_settle_ap_v1",
+            "run_id": P330_RUN_ID,
+            "source_contract_id": p330_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": P330_STOCK_OVERLAY_CONTRACT_ID,
+        }
+    )
+    verified = _validate_p330_e2_ap_payload(frame, inherited)
+    return {
+        **verified,
+        "run_id": P332_RUN_ID,
+        "source_contract_id": item["source_contract_id"],
+        "userspace_overlay_contract_id": item["userspace_overlay_contract_id"],
+        "udev_guard_settle_bounded": True,
+        "preauth_diagnostics_bounded": True,
+        "logical_sessions_bounded": True,
+        "same_tty_fd_required": True,
+        "physical_reopen_count": 0,
+        "fixed_p330_commands": True,
+    }
+
+
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
@@ -4673,6 +4868,8 @@ def validate_e2_ap_payload(
         if isinstance(closure, dict)
         else None
     )
+    if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID:
+        return _validate_p332_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
         return _validate_p331_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P330_STOCK_OVERLAY_CONTRACT_ID:
@@ -5318,6 +5515,68 @@ def validate_p331_resident_proof(value: Any) -> dict[str, Any]:
 validate_p331_resident_arrival_proof = validate_p331_resident_proof
 
 
+def p332_authenticated_logical_resident_observer_spec() -> dict[str, Any]:
+    """Return the exact P3.32 two-session, one-descriptor observer identity."""
+    value = p330_authenticated_framed_observer_spec()
+    value.update(
+        {
+            "kind": "exact_cdc_acm_authenticated_logical_resident_same_fd_session_v1",
+            "schema": p332_logical_resident_acm_observer.SCHEMA,
+            "usb_serial": "S22E3" + P332_AUTH_EXEC_RUN_ID_HEX,
+            "banner_hex": (
+                "S22PLUS-FYG8-E3:" + P332_AUTH_EXEC_RUN_ID_HEX + "\n"
+            ).encode("ascii").hex(),
+            "protocol_contract": P332_AUTH_EXEC_OBSERVER_CONTRACT_ID,
+            "commands": [
+                {
+                    "size": len(command),
+                    "sha256": hashlib.sha256(command).hexdigest(),
+                }
+                for command in p332_logical_resident_exec_runtime.DEFAULT_COMMANDS
+            ],
+            "proof_command_count": P332_AUTH_EXEC_COMMAND_COUNT,
+            "max_commands": P332_AUTH_EXEC_MAX_COMMANDS,
+            "caller_selected_command": False,
+            "auth_key_schema": P332_AUTH_EXEC_AUTH_KEY_SCHEMA,
+            "auth_key_size": P332_AUTH_EXEC_AUTH_KEY_SIZE,
+            "auth_key": dict(P332_AUTH_EXEC_AUTH_KEY_IDENTITY),
+            "diagnostic_frame_type": P332_AUTH_EXEC_DIAGNOSTIC_FRAME_TYPE,
+            "diagnostic_payload_size": P332_AUTH_EXEC_DIAGNOSTIC_PAYLOAD_SIZE,
+            "diagnostic_stages": [
+                {"stage": 1, "name": "open-parsed"},
+                {"stage": 2, "name": "rng"},
+            ],
+            "rng_eagain_retry_limit": P332_AUTH_EXEC_RNG_EAGAIN_RETRY_LIMIT,
+            "open_diagnostic_timeout_ms": 5000,
+            "rng_diagnostic_timeout_ms": 10000,
+            "partial_exchange_durable": True,
+            "session_cap": P332_AUTH_EXEC_SESSION_CAP,
+            "reconnect_cap": P332_AUTH_EXEC_RECONNECT_CAP,
+            "clean_close_required": True,
+            "fresh_distinct_nonce_hashes": True,
+            "diagnostics_per_session": True,
+            "fixed_p330_commands": True,
+            "same_tty_fd_required": True,
+            "host_tty_close_reopen": False,
+            "transport_reconnect": False,
+            "arbitrary_file_transfer": False,
+            "persistent_state": False,
+            "logical_resident_proof": True,
+        }
+    )
+    return value
+
+
+def validate_p332_logical_resident_proof(value: Any) -> dict[str, Any]:
+    try:
+        return p332_logical_resident_acm_observer.validate_proof_value(
+            value,
+            expected_auth_key_sha256=P332_AUTH_EXEC_AUTH_KEY_IDENTITY["sha256"],
+        )
+    except (ValueError, p332_logical_resident_acm_observer.AuthObserverError) as exc:
+        raise EvidenceError("P3.32 logical resident observer proof differs") from exc
+
+
 def validate_candidate_arrival_proof_role(
     value: Any,
     candidate_observer: Any = None,
@@ -5333,6 +5592,18 @@ def validate_candidate_arrival_proof_role(
     """
     if value is None:
         return None
+    if value == CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE:
+        if (
+            expected_run_id != P332_AUTH_EXEC_RUN_ID_HEX
+            or not isinstance(candidate_observer, dict)
+        ):
+            raise EvidenceError("P3.32 logical resident authenticated identity differs")
+        if not _strict_equal(
+            candidate_observer,
+            p332_authenticated_logical_resident_observer_spec(),
+        ):
+            raise EvidenceError("P3.32 logical resident authenticated observer differs")
+        return value
     if value == CANDIDATE_AUTHENTICATED_RESIDENT_EXEC_ROLE:
         if (
             expected_run_id != P331_AUTH_EXEC_RUN_ID_HEX
@@ -5653,6 +5924,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         if userspace_overlay_contract_id is not None:
             expected_keys.add("userspace_overlay_contract_id")
         if userspace_overlay_contract_id in {
+            P332_STOCK_OVERLAY_CONTRACT_ID,
             P331_STOCK_OVERLAY_CONTRACT_ID,
             P320_STOCK_OVERLAY_CONTRACT_ID,
             P321_STOCK_OVERLAY_CONTRACT_ID,
@@ -5670,6 +5942,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                 {"observer_contract", "causal_result_allowed", "candidate_success"}
             )
             if userspace_overlay_contract_id in {
+                P332_STOCK_OVERLAY_CONTRACT_ID,
                 P331_STOCK_OVERLAY_CONTRACT_ID,
                 P323_STOCK_OVERLAY_CONTRACT_ID,
                 P324_STOCK_OVERLAY_CONTRACT_ID,
@@ -5682,6 +5955,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             }:
                 expected_keys.update({"schema", "overlay_contract_id"})
             if userspace_overlay_contract_id in {
+                P332_STOCK_OVERLAY_CONTRACT_ID,
                 P331_STOCK_OVERLAY_CONTRACT_ID,
                 P328_STOCK_OVERLAY_CONTRACT_ID,
                 P329_STOCK_OVERLAY_CONTRACT_ID,
@@ -5697,10 +5971,27 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                     }
                 )
             if userspace_overlay_contract_id in {
+                P332_STOCK_OVERLAY_CONTRACT_ID,
                 P330_STOCK_OVERLAY_CONTRACT_ID,
                 P331_STOCK_OVERLAY_CONTRACT_ID,
             }:
                 expected_keys.add("preauth_diagnostics")
+            if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID:
+                expected_keys.update(
+                    {
+                        "predecessor_run_id_rejected",
+                        "predecessor_run_ids_rejected",
+                        "resident_sessions",
+                        "resident_reconnects",
+                        "logical_same_tty",
+                        "same_tty_fd",
+                        "host_tty_close_reopen",
+                        "transport_reconnect",
+                        "fixed_heartbeat_only",
+                        "fixed_p330_commands",
+                        "command_count_per_session",
+                    }
+                )
             if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
                 expected_keys.update(
                     {
@@ -5743,6 +6034,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         ):
             raise EvidenceError("E1 latest-stage acceptance identity is invalid")
         if userspace_overlay_contract_id in {
+            P332_STOCK_OVERLAY_CONTRACT_ID,
             P331_STOCK_OVERLAY_CONTRACT_ID,
             P328_STOCK_OVERLAY_CONTRACT_ID,
             P329_STOCK_OVERLAY_CONTRACT_ID,
@@ -5758,13 +6050,17 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             ):
                 raise EvidenceError("P3.28 authentication acceptance identity is invalid")
             if userspace_overlay_contract_id in {
+                P332_STOCK_OVERLAY_CONTRACT_ID,
                 P330_STOCK_OVERLAY_CONTRACT_ID,
                 P331_STOCK_OVERLAY_CONTRACT_ID,
             } and item[
                 "preauth_diagnostics"
             ] != {
                 "frame_type": (
-                    P331_AUTH_EXEC_DIAGNOSTIC_FRAME_TYPE
+                    P332_AUTH_EXEC_DIAGNOSTIC_FRAME_TYPE
+                    if userspace_overlay_contract_id
+                    == P332_STOCK_OVERLAY_CONTRACT_ID
+                    else P331_AUTH_EXEC_DIAGNOSTIC_FRAME_TYPE
                     if userspace_overlay_contract_id
                     == P331_STOCK_OVERLAY_CONTRACT_ID
                     else P330_AUTH_EXEC_DIAGNOSTIC_FRAME_TYPE
@@ -5773,11 +6069,29 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                 "eagain_only_retry": True,
             }:
                 raise EvidenceError(
-                    "P3.31 diagnostic acceptance identity is invalid"
+                    "P3.32 diagnostic acceptance identity is invalid"
+                    if userspace_overlay_contract_id
+                    == P332_STOCK_OVERLAY_CONTRACT_ID
+                    else "P3.31 diagnostic acceptance identity is invalid"
                     if userspace_overlay_contract_id
                     == P331_STOCK_OVERLAY_CONTRACT_ID
                     else "P3.30 diagnostic acceptance identity is invalid"
                 )
+            if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID and (
+                item["predecessor_run_id_rejected"] != P332_PREDECESSOR_RUN_ID
+                or item["predecessor_run_ids_rejected"]
+                != [P330_RUN_ID, P332_PREDECESSOR_RUN_ID]
+                or item["resident_sessions"] != P332_AUTH_EXEC_SESSION_CAP
+                or item["resident_reconnects"] != 0
+                or item["logical_same_tty"] is not True
+                or item["same_tty_fd"] is not True
+                or item["host_tty_close_reopen"] is not False
+                or item["transport_reconnect"] is not False
+                or item["fixed_heartbeat_only"] is not False
+                or item["fixed_p330_commands"] is not True
+                or item["command_count_per_session"] != P332_AUTH_EXEC_COMMAND_COUNT
+            ):
+                raise EvidenceError("P3.32 logical resident acceptance identity is invalid")
             if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID and (
                 item["predecessor_run_id_rejected"] != P331_PREDECESSOR_RUN_ID
                 or item["resident_sessions"] != P331_AUTH_EXEC_SESSION_CAP
@@ -5819,6 +6133,9 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                 else P331_CANDIDATE_STATIC_MAX_BYTES
                 if userspace_overlay_contract_id
                 == P331_STOCK_OVERLAY_CONTRACT_ID
+                else P332_CANDIDATE_STATIC_MAX_BYTES
+                if userspace_overlay_contract_id
+                == P332_STOCK_OVERLAY_CONTRACT_ID
                 else P328_CANDIDATE_STATIC_MAX_BYTES
                 if userspace_overlay_contract_id
                 == P328_STOCK_OVERLAY_CONTRACT_ID
@@ -5873,6 +6190,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             except p319_stock_adapter.DecodeError as exc:
                 raise EvidenceError("P3.19 stock acceptance identity is invalid") from exc
         elif userspace_overlay_contract_id in {
+            P332_STOCK_OVERLAY_CONTRACT_ID,
             P331_STOCK_OVERLAY_CONTRACT_ID,
             P320_STOCK_OVERLAY_CONTRACT_ID,
             P321_STOCK_OVERLAY_CONTRACT_ID,
@@ -5887,6 +6205,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             P330_STOCK_OVERLAY_CONTRACT_ID,
         }:
             if userspace_overlay_contract_id in {
+                P332_STOCK_OVERLAY_CONTRACT_ID,
                 P323_STOCK_OVERLAY_CONTRACT_ID,
                 P324_STOCK_OVERLAY_CONTRACT_ID,
                 P325_STOCK_OVERLAY_CONTRACT_ID,
@@ -5904,7 +6223,10 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                     != userspace_overlay_contract_id
                 ):
                     label = (
-                        "P3.31"
+                        "P3.32"
+                        if userspace_overlay_contract_id
+                        == P332_STOCK_OVERLAY_CONTRACT_ID
+                        else "P3.31"
                         if userspace_overlay_contract_id
                         == P331_STOCK_OVERLAY_CONTRACT_ID
                         else "P3.30"
@@ -5939,7 +6261,10 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
                 )
             except STOCK_ADAPTERS[userspace_overlay_contract_id].DecodeError as exc:
                 label = (
-                    "P3.31"
+                    "P3.32"
+                    if userspace_overlay_contract_id
+                    == P332_STOCK_OVERLAY_CONTRACT_ID
+                    else "P3.31"
                     if userspace_overlay_contract_id
                     == P331_STOCK_OVERLAY_CONTRACT_ID
                     else "P3.30"
@@ -6512,6 +6837,9 @@ P330_STATIC_RESULT_VERDICT = "PASS_P330_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
 P331_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p331_process_v2_run_manifest_v1"
 P331_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p331_process_v2_static_result_v1"
 P331_STATIC_RESULT_VERDICT = "PASS_P331_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
+P332_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p332_process_v2_run_manifest_v1"
+P332_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p332_process_v2_static_result_v1"
+P332_STATIC_RESULT_VERDICT = "PASS_P332_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
 
 
 def _verify_p321_stock_offline_contract(
@@ -8770,6 +9098,332 @@ def _verify_p331_stock_offline_contract(
     }
 
 
+def _verify_p332_stock_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    """Verify the fresh P3.32 same-FD logical-session package."""
+    item = validate_acceptance(acceptance)
+    if item.get("userspace_overlay_contract_id") != P332_STOCK_OVERLAY_CONTRACT_ID:
+        raise EvidenceError("P3.32 offline contract is not applicable")
+    names = {"candidate_static", "run_manifest", "static_check"}
+    if set(payloads) != names or set(receipts) != names:
+        raise EvidenceError("P3.32 promotion artifacts are incomplete")
+    for name, payload in payloads.items():
+        pin = item["contract"][name]
+        if (
+            len(payload) != pin["size"]
+            or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+            or receipts[name].get("size") != pin["size"]
+            or receipts[name].get("sha256") != pin["sha256"]
+        ):
+            raise EvidenceError(f"P3.32 offline contract {name} changed")
+
+    candidate_static = _json(payloads["candidate_static"], "P3.32 candidate-static")
+    if payloads["candidate_static"] != _canonical(candidate_static) + b"\n":
+        raise EvidenceError("P3.32 candidate-static bytes are not canonical")
+    candidate_static = _validate_p332_candidate_static(
+        candidate_static, runtime_bound=runtime_bound
+    )
+    candidate = candidate_static.get("candidate")
+    if not isinstance(candidate, dict) or not isinstance(candidate.get("a"), dict):
+        raise EvidenceError("P3.32 candidate package is incomplete")
+    candidate_ap_identity = _binary_identity(
+        {key: candidate_ap.get(key) for key in ("size", "sha256")},
+        "P3.32 candidate AP",
+    )
+    expected_member = {
+        "name": "boot.img.lz4",
+        **_binary_identity(candidate["a"].get("boot_img_lz4"), "P3.32 AP boot member"),
+    }
+    if (
+        candidate_ap_identity != candidate["a"].get("ap_tar_md5")
+        or candidate_ap.get("member") != expected_member
+        or candidate_static.get("run_id") != P332_RUN_ID
+        or candidate_static.get("predecessor_run_id") != P332_PREDECESSOR_RUN_ID
+    ):
+        raise EvidenceError("P3.32 candidate AP binding differs")
+    static_identity = {
+        "size": len(payloads["candidate_static"]),
+        "sha256": hashlib.sha256(payloads["candidate_static"]).hexdigest(),
+    }
+
+    run_manifest = _json(payloads["run_manifest"], "P3.32 run manifest")
+    expected_manifest = {
+        "schema": P332_RUN_MANIFEST_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "profile": p332_stock_adapter.PROFILE,
+        "run_id": P332_RUN_ID,
+        "decoder": p332_stock_adapter.DECODER_ID,
+        "policy_id": p332_stock_adapter.POLICY_ID,
+        "records": {
+            "long_family_hex": p332_stock_adapter.LONG_FAMILY.hex(),
+            "unsat_family_hex": p332_stock_adapter.UNSAT_FAMILY.hex(),
+            "terminal_stage": p332_stock_adapter.TERMINAL_STAGE,
+        },
+        "candidate_ap": candidate_ap_identity,
+        "candidate_static": static_identity,
+        "source_contract_id": p332_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P332_STOCK_OVERLAY_CONTRACT_ID,
+    }
+    observation_contract = run_manifest.get("observation_contract")
+    if (
+        not isinstance(observation_contract, dict)
+        or observation_contract.get("accepted_identity")
+        != "P332_STOCK_OBSERVER_V4_RETAINED"
+        or observation_contract.get("minimum_success_count") != 1
+        or observation_contract.get("clean_baseline_required") is not True
+        or observation_contract.get("runtime_values_preflighted") is not False
+        or observation_contract.get("complete_is_noncausal") is not True
+        or observation_contract.get("incomplete_result")
+        != "NO_PROOF_EXPERIMENT_PRECONDITION"
+        or observation_contract.get("receipt_result") != "NO_PROOF_OBSERVER"
+    ):
+        raise EvidenceError("P3.32 run manifest observation contract differs")
+    if any(
+        not _strict_equal(run_manifest.get(key), expected)
+        for key, expected in expected_manifest.items()
+    ) or payloads["run_manifest"] != _canonical(run_manifest):
+        raise EvidenceError("P3.32 run manifest differs from candidate-static")
+
+    run_payload = _canonical(run_manifest)
+    static_result = _json(payloads["static_check"], "P3.32 static result")
+    expected_static_header = {
+        "schema": P332_STATIC_RESULT_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "verdict": P332_STATIC_RESULT_VERDICT,
+        "profile": p332_stock_adapter.PROFILE,
+        "run_id": P332_RUN_ID,
+        "decoder": p332_stock_adapter.DECODER_ID,
+        "policy_id": p332_stock_adapter.POLICY_ID,
+        "source_contract_id": p332_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P332_STOCK_OVERLAY_CONTRACT_ID,
+        "run_binding": {
+            "canonical_manifest_size": len(run_payload),
+            "canonical_manifest_sha256": hashlib.sha256(run_payload).hexdigest(),
+            "verified": True,
+        },
+    }
+    if any(
+        not _strict_equal(static_result.get(key), expected)
+        for key, expected in expected_static_header.items()
+    ):
+        raise EvidenceError("P3.32 static result differs")
+    expected_artifacts = {
+        "ap": candidate_ap_identity,
+        "candidate_static": static_identity,
+        "boot_image": candidate["a"]["boot_img"],
+        "boot_img_lz4": candidate["a"]["boot_img_lz4"],
+        "image": candidate["image"],
+        "init": candidate["init"],
+        "child": candidate["child"],
+        "busybox": candidate["busybox"],
+        "latch": P319_EXACT_ARTIFACTS["latch"],
+    }
+    static_candidate = static_result.get("candidate")
+    if (
+        not isinstance(static_candidate, dict)
+        or static_candidate.get("artifacts") != expected_artifacts
+        or static_candidate.get("boot_only_ap") is not True
+        or static_candidate.get("independent_static_contract") is not True
+        or static_candidate.get("complete_is_noncausal") is not True
+        or static_candidate.get("runtime_values_observed") is not False
+        or static_candidate.get("verified") is not True
+    ):
+        raise EvidenceError("P3.32 static candidate projection differs")
+    safety = static_result.get("safety")
+    expected_safety = {
+        "host_only": True,
+        "device_contact": False,
+        "device_write": False,
+        "odin_invoked": False,
+        "odin_transfer": False,
+        "flash": False,
+        "partition_write": False,
+        "live_authorized": False,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+    }
+    if (
+        not isinstance(safety, dict)
+        or any(safety.get(key) is not expected for key, expected in expected_safety.items())
+        or payloads["static_check"] != _canonical(static_result)
+    ):
+        raise EvidenceError("P3.32 static safety or canonical form differs")
+
+    artifact_identity = candidate_static.get("artifact_identity")
+    key_identity = _binary_identity(
+        artifact_identity.get("auth_key")
+        if isinstance(artifact_identity, dict)
+        else None,
+        "P3.32 public auth key identity",
+    )
+    if (
+        not isinstance(artifact_identity, dict)
+        or artifact_identity.get("run_id_hex") != P332_RUN_ID
+        or artifact_identity.get("predecessor_run_id_rejected")
+        != P332_PREDECESSOR_RUN_ID
+        or artifact_identity.get("boot_only") is not True
+        or key_identity != P332_AUTH_EXEC_AUTH_KEY_IDENTITY
+        or artifact_identity.get("auth_key_path_published") is not False
+    ):
+        raise EvidenceError("P3.32 artifact identity differs")
+
+    source_closure = candidate_static.get("source_closure")
+    observer_adapter = candidate_static.get("observer_adapter")
+    if not isinstance(source_closure, dict) or not isinstance(observer_adapter, dict):
+        raise EvidenceError("P3.32 source closure is incomplete")
+    artifact_source = _artifact(
+        source_closure.get("p332_artifact_identity"),
+        "P3.32 artifact identity source",
+        maximum=2 * 1024 * 1024,
+    )
+    observer_source = _artifact(
+        observer_adapter.get("source"),
+        "P3.32 logical resident observer source",
+        maximum=2 * 1024 * 1024,
+    )
+    runtime_source = _artifact(
+        observer_adapter.get("runtime_source"),
+        "P3.32 logical resident runtime source",
+        maximum=2 * 1024 * 1024,
+    )
+    expected_paths = {
+        "artifact": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p332_artifact_identity.py",
+        "observer": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p332_logical_resident_acm_observer.py",
+        "runtime": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p332_logical_resident_exec_runtime.py",
+    }
+    if (
+        artifact_source["path"] != expected_paths["artifact"]
+        or observer_source["path"] != expected_paths["observer"]
+        or runtime_source["path"] != expected_paths["runtime"]
+    ):
+        raise EvidenceError("P3.32 execution source path differs")
+    expected_observer = {
+        "schema": p332_logical_resident_acm_observer.SCHEMA,
+        "contract_id": P332_AUTH_EXEC_OBSERVER_CONTRACT_ID,
+        "wire_magic": "S328",
+        "frame_header_size": P332_AUTH_EXEC_FRAME_HEADER_SIZE,
+        "commands": [
+            {
+                "size": len(command),
+                "sha256": hashlib.sha256(command).hexdigest(),
+            }
+            for command in p332_logical_resident_exec_runtime.DEFAULT_COMMANDS
+        ],
+        "proof_command_count": P332_AUTH_EXEC_COMMAND_COUNT,
+        "max_commands": P332_AUTH_EXEC_MAX_COMMANDS,
+        "caller_selected_command": False,
+        "command_timeout_sec": P332_AUTH_EXEC_COMMAND_TIMEOUT_SEC,
+        "max_output_bytes": P332_AUTH_EXEC_MAX_OUTPUT_BYTES,
+        "auth_algorithm": P332_AUTH_EXEC_AUTH_ALGORITHM,
+        "auth_tag_size": P332_AUTH_EXEC_AUTH_TAG_SIZE,
+        "auth_key_schema": P332_AUTH_EXEC_AUTH_KEY_SCHEMA,
+        "auth_key": key_identity,
+        "auth_key_path_published": False,
+        "per_session_random_nonce": True,
+        "fixed_heartbeat_only": False,
+        "fixed_p330_commands": True,
+        "session_cap": P332_AUTH_EXEC_SESSION_CAP,
+        "reconnect_cap": 0,
+        "host_only": True,
+        "device_contact": False,
+        "raw_rx_forwarded_before_classification": True,
+        "interactive_pty": False,
+        "same_tty_fd": True,
+        "host_tty_close_reopen": False,
+        "transport_reconnect": False,
+    }
+    if any(
+        not _strict_equal(observer_adapter.get(key), expected)
+        for key, expected in expected_observer.items()
+    ):
+        raise EvidenceError("P3.32 logical resident observer contract differs")
+    runtime_repair = candidate_static.get("runtime_repair")
+    if (
+        not isinstance(runtime_repair, dict)
+        or runtime_repair.get("contract_id") != P332_AUTH_EXEC_RUNTIME_CONTRACT_ID
+        or runtime_repair.get("run_id_hex") != P332_RUN_ID
+        or runtime_repair.get("command_policy") != "fixed_p330_commands_v1"
+        or runtime_repair.get("caller_selected_command") is not False
+        or runtime_repair.get("session_count") != P332_AUTH_EXEC_SESSION_CAP
+        or runtime_repair.get("reconnect_count") != 0
+        or runtime_repair.get("same_tty_fd") is not True
+        or runtime_repair.get("physical_reopen_count") != 0
+    ):
+        raise EvidenceError("P3.32 logical resident runtime binding differs")
+
+    source_contract = _selected_contract(
+        p332_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        p332_stock_adapter.PROFILE,
+    )
+    try:
+        _source_payloads, candidate_source_receipts = source_contract.module.source_receipts(
+            Path(__file__).resolve().parents[5]
+        )
+    except (OSError, source_contract.module.SourceContractError) as exc:
+        raise EvidenceError("P3.32 parent source receipts are unavailable") from exc
+    lineage_sources = candidate_static.get("adapter", {}).get("lineage", {}).get(
+        "sources"
+    )
+    if (
+        not isinstance(lineage_sources, dict)
+        or set(lineage_sources) != p332_stock_adapter.SOURCE_KEYS
+    ):
+        raise EvidenceError("P3.32 adapter source receipts are incomplete")
+    return {
+        "schema": "device_action_f1_p332_stock_offline_contract_v1",
+        "decoder": p332_stock_adapter.DECODER_ID,
+        "policy_id": p332_stock_adapter.POLICY_ID,
+        "profile": p332_stock_adapter.PROFILE,
+        "run_id": P332_RUN_ID,
+        "terminal_stage": p332_stock_adapter.TERMINAL_STAGE,
+        "candidate_ap_sha256": candidate_ap_identity["sha256"],
+        "candidate_static_sha256": static_identity["sha256"],
+        "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+        "candidate_static_authority": candidate_static["authority_source"],
+        "candidate_source_receipts": candidate_source_receipts,
+        "p332_adapter_source_receipts": {
+            name: _binary_identity(value, f"P3.32 adapter source {name}")
+            for name, value in lineage_sources.items()
+        },
+        "p332_logical_resident_observer_source": {
+            key: observer_source[key] for key in ("size", "sha256")
+        },
+        "p332_logical_resident_runtime_source": {
+            key: runtime_source[key] for key in ("size", "sha256")
+        },
+        "p332_artifact_identity_source": {
+            key: artifact_source[key] for key in ("size", "sha256")
+        },
+        "p332_auth_key": dict(key_identity),
+        "p332_builder_result": candidate_static["builder_result"],
+        "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+        "static_check_sha256": receipts["static_check"]["sha256"],
+        "clean_baseline_required": True,
+        "minimum_success_count": 1,
+        "source_contract_id": p332_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P332_STOCK_OVERLAY_CONTRACT_ID,
+        "ap_payload_closure": _p332_ap_payload_closure(candidate_static),
+        "runtime_values_observed": False,
+        "complete_is_noncausal": True,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+        "udev_guard_settle_bounded": True,
+        "preauth_diagnostics_bounded": True,
+        "diagnostics_non_authoritative": True,
+        "logical_sessions_bounded": True,
+        "same_tty_fd_required": True,
+        "physical_reopen_count": 0,
+        "fixed_p330_commands": True,
+        "verified": True,
+    }
+
+
 def _verify_p329_stock_offline_contract(
     acceptance: dict[str, Any],
     *,
@@ -9193,6 +9847,14 @@ def _verify_e1_latest_stage_offline_contract(
     profile = item["profile"]
     source_contract_id = item.get("source_contract_id")
     userspace_overlay_contract_id = item.get("userspace_overlay_contract_id")
+    if userspace_overlay_contract_id == P332_STOCK_OVERLAY_CONTRACT_ID:
+        return _verify_p332_stock_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=candidate_ap,
+            runtime_bound=runtime_bound,
+        )
     if userspace_overlay_contract_id == P331_STOCK_OVERLAY_CONTRACT_ID:
         return _verify_p331_stock_offline_contract(
             acceptance,
@@ -12112,6 +12774,8 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    if item.get("userspace_overlay_contract_id") == P332_STOCK_OVERLAY_CONTRACT_ID:
+        result["overlay_contract_id"] = P332_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P331_STOCK_OVERLAY_CONTRACT_ID:
         result["overlay_contract_id"] = P331_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P330_STOCK_OVERLAY_CONTRACT_ID:
@@ -12158,6 +12822,7 @@ def classify_e1_latest_stage(
         ]
         result["p319_stock"] = stock_rows
     if item.get("userspace_overlay_contract_id") in {
+        P332_STOCK_OVERLAY_CONTRACT_ID,
         P331_STOCK_OVERLAY_CONTRACT_ID,
         P320_STOCK_OVERLAY_CONTRACT_ID,
         P321_STOCK_OVERLAY_CONTRACT_ID,
@@ -12177,6 +12842,7 @@ def classify_e1_latest_stage(
         if (
             item.get("userspace_overlay_contract_id")
             in {
+                P332_STOCK_OVERLAY_CONTRACT_ID,
                 P331_STOCK_OVERLAY_CONTRACT_ID,
                 P323_STOCK_OVERLAY_CONTRACT_ID,
                 P324_STOCK_OVERLAY_CONTRACT_ID,
@@ -12189,6 +12855,7 @@ def classify_e1_latest_stage(
             }
             and decoded.get("proof_class")
             in {
+                "P332_STOCK_ENCODER_FAILURE",
                 "P331_STOCK_ENCODER_FAILURE",
                 "P323_STOCK_ENCODER_FAILURE",
                 "P324_STOCK_ENCODER_FAILURE",
@@ -12216,7 +12883,10 @@ def classify_e1_latest_stage(
         ):
             if name not in decoded:
                 label = (
-                    "P3.31"
+                    "P3.32"
+                    if item.get("userspace_overlay_contract_id")
+                    == P332_STOCK_OVERLAY_CONTRACT_ID
+                    else "P3.31"
                     if item.get("userspace_overlay_contract_id")
                     == P331_STOCK_OVERLAY_CONTRACT_ID
                     else
@@ -12246,7 +12916,10 @@ def classify_e1_latest_stage(
                 raise EvidenceError(f"{label} stock result omitted {name}")
             result[name] = decoded[name]
         stock_key = (
-            "p331_stock"
+            "p332_stock"
+            if item.get("userspace_overlay_contract_id")
+            == P332_STOCK_OVERLAY_CONTRACT_ID
+            else "p331_stock"
             if item.get("userspace_overlay_contract_id")
             == P331_STOCK_OVERLAY_CONTRACT_ID
             else
@@ -12282,6 +12955,7 @@ def classify_e1_latest_stage(
         ]
         result[stock_key] = stock_rows
         if item.get("userspace_overlay_contract_id") in {
+            P332_STOCK_OVERLAY_CONTRACT_ID,
             P331_STOCK_OVERLAY_CONTRACT_ID,
             P323_STOCK_OVERLAY_CONTRACT_ID,
             P324_STOCK_OVERLAY_CONTRACT_ID,
@@ -12309,11 +12983,13 @@ def classify_e1_latest_stage(
                 if name in decoded:
                     result[name] = decoded[name]
     if item.get("userspace_overlay_contract_id") in {
+        P332_STOCK_OVERLAY_CONTRACT_ID,
         P331_STOCK_OVERLAY_CONTRACT_ID,
         P328_STOCK_OVERLAY_CONTRACT_ID,
         P329_STOCK_OVERLAY_CONTRACT_ID,
         P330_STOCK_OVERLAY_CONTRACT_ID,
     }:
+        p332 = item.get("userspace_overlay_contract_id") == P332_STOCK_OVERLAY_CONTRACT_ID
         p331 = item.get("userspace_overlay_contract_id") == P331_STOCK_OVERLAY_CONTRACT_ID
         p330 = item.get("userspace_overlay_contract_id") == P330_STOCK_OVERLAY_CONTRACT_ID
         p329 = item.get("userspace_overlay_contract_id") == P329_STOCK_OVERLAY_CONTRACT_ID
@@ -12326,17 +13002,19 @@ def classify_e1_latest_stage(
             "auth_key_size": P328_AUTH_EXEC_AUTH_KEY_SIZE,
             "auth_key_path_published": False,
             "per_session_random_nonce": True,
-            "caller_selected_command": False if p331 else True,
+            "caller_selected_command": False if p332 or p331 else True,
             "interactive_pty": False,
         }
         for name, expected in expected_authentication.items():
             if name in decoded and decoded[name] != expected:
                 raise EvidenceError(
-                    f"P3.{31 if p331 else 30 if p330 else 29 if p329 else 28} classifier authentication field {name} differs"
+                    f"P3.{32 if p332 else 31 if p331 else 30 if p330 else 29 if p329 else 28} classifier authentication field {name} differs"
                 )
             result[name] = expected
         result["auth_key"] = dict(
-            P331_AUTH_EXEC_AUTH_KEY_IDENTITY
+            P332_AUTH_EXEC_AUTH_KEY_IDENTITY
+            if p332
+            else P331_AUTH_EXEC_AUTH_KEY_IDENTITY
             if p331
             else P330_AUTH_EXEC_AUTH_KEY_IDENTITY
             if p330
@@ -12345,7 +13023,9 @@ def classify_e1_latest_stage(
             else P328_AUTH_EXEC_AUTH_KEY_IDENTITY
         )
         result["observer_contract"] = (
-            P331_AUTH_EXEC_OBSERVER_CONTRACT_ID
+            P332_AUTH_EXEC_OBSERVER_CONTRACT_ID
+            if p332
+            else P331_AUTH_EXEC_OBSERVER_CONTRACT_ID
             if p331
             else P330_AUTH_EXEC_OBSERVER_CONTRACT_ID
             if p330
@@ -12353,7 +13033,7 @@ def classify_e1_latest_stage(
             if p329
             else P328_AUTH_EXEC_OBSERVER_CONTRACT_ID
         )
-        if p329 or p330 or p331:
+        if p329 or p330 or p331 or p332:
             result["udev_guard_settle_bounded"] = True
         if p330:
             result["preauth_diagnostics_bounded"] = True
@@ -12362,6 +13042,12 @@ def classify_e1_latest_stage(
             result["resident_sessions_bounded"] = True
             result["resident_reconnect_bounded"] = True
             result["fixed_heartbeat_only"] = True
+        if p332:
+            result["preauth_diagnostics_bounded"] = True
+            result["logical_sessions_bounded"] = True
+            result["same_tty_fd_required"] = True
+            result["physical_reopen_count"] = 0
+            result["fixed_p330_commands"] = True
     if item.get("userspace_overlay_contract_id") in {
         P303_OVERLAY_CONTRACT_ID,
         P304_OVERLAY_CONTRACT_ID,
@@ -12472,6 +13158,7 @@ def classify_clean_baseline(
         except ValueError as exc:
             overlay = item.get("userspace_overlay_contract_id")
             if overlay not in {
+                P332_STOCK_OVERLAY_CONTRACT_ID,
                 P323_STOCK_OVERLAY_CONTRACT_ID,
                 P324_STOCK_OVERLAY_CONTRACT_ID,
                 P325_STOCK_OVERLAY_CONTRACT_ID,
@@ -12482,6 +13169,53 @@ def classify_clean_baseline(
                 "size": len(payload),
                 "sha256": hashlib.sha256(payload).hexdigest(),
             }
+            if overlay == P332_STOCK_OVERLAY_CONTRACT_ID:
+                if raw_identity != P332_CONSUMED_P331_BASELINE_IDENTITY:
+                    raise EvidenceError(
+                        "P3.32 predecessor baseline raw identity differs"
+                    ) from exc
+                try:
+                    predecessor = p331_stock_adapter.classify_observation(
+                        payload,
+                        expected_profile=p331_stock_adapter.PROFILE,
+                        expected_run_id=p331_stock_adapter.P331_RUN_ID,
+                    )
+                except ValueError as predecessor_exc:
+                    raise EvidenceError(
+                        "P3.32 baseline is neither empty nor the exact consumed P3.31 receipt"
+                    ) from predecessor_exc
+                records = predecessor.get("records")
+                if (
+                    predecessor.get("classification")
+                    != "P320_STOCK_WITNESS_AMBIGUOUS_NO_PROOF"
+                    or predecessor.get("accepted") is not False
+                    or predecessor.get("integrity_issue") is not False
+                    or predecessor.get("integrity_issues") != []
+                    or predecessor.get("exact_record_count") != 1
+                    or predecessor.get("long_record_count") != 1
+                    or predecessor.get("foreign_count") != 0
+                    or predecessor.get("candidate_success") is not False
+                    or predecessor.get("proof_class") != "NO_PROOF_OBSERVER"
+                    or not isinstance(records, list)
+                    or len(records) != 1
+                    or records[0].get("observer_offset")
+                    != P332_CONSUMED_P331_RECORD_OFFSET
+                    or records[0].get("run_id")
+                    != p331_stock_adapter.P331_RUN_ID_HEX
+                    or records[0].get("slot_status") != ["valid", "valid"]
+                ):
+                    raise EvidenceError(
+                        "P3.32 predecessor baseline placement or semantics differ"
+                    )
+                return {
+                    "classification": (
+                        "P332_CURRENT_RUN_ABSENT_P331_PREDECESSOR_EXACT"
+                    ),
+                    "exact_record_count": 0,
+                    "family_count": 1,
+                    "integrity_issue": False,
+                    "baseline_clean": True,
+                }
             if overlay == P331_STOCK_OVERLAY_CONTRACT_ID:
                 if raw_identity != P331_CONSUMED_P330_BASELINE_IDENTITY:
                     raise EvidenceError(

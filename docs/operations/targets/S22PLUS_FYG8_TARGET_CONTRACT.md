@@ -358,12 +358,40 @@ that the fresh P331 run is absent; it does not reuse P330 ACM proof or grant
 candidate authority. It applies only to P331, and expires on raw identity
 drift or P331 candidate intent.
 
-If a P327, P328, P329, P330, or P331 candidate transfer occurs, the same reporting
-unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
-`s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`, or
-`s22plus-fyg8-p330`, or `s22plus-fyg8-p331` F1 closure row derived from that
-run's retained journal and result. This is post-terminal bookkeeping, not a
-pre-execution gate; no F1 row is written before the effect.
+**P332 same-FD logical-session successor.** P332 may reuse the exact P330
+authenticated three-command exchange, private key, pre-auth diagnostics,
+child cleanup, P329 endpoint settle, P324/P325 lane and guard, raw-first
+capture, Carrier supplement, rollback, and final-health choreography under a
+fresh run identity and distinct boot-only AP. Its only live runtime change is
+two sequential complete P330 exchanges on one already-open tty descriptor.
+The host opens and closes that descriptor once for the observation window;
+there is no physical close/reopen, transport reconnect, fallback, or retry.
+Session two starts only after session one returns success, both challenges
+must be fresh, and proof requires both fixed-command sessions, clean closure,
+zero trailing bytes, and exact ordered raw TX/RX binding.
+
+This is a bounded logical-residency check, not a retained install or standing
+session. It adds no persistent state, Android service, interactive PTY,
+caller-selected command, arbitrary file transfer, selector widening, or USB/
+Max77705 causal claim. Exact Magisk rollback and final rooted FYG8 health
+remain mandatory. This clause is H0-only until its exact changed closure has
+independent review and a ready declaration; neither event is device approval.
+
+P332 D0 may treat the one retained P331 baseline as current-run clean only
+when the complete raw `/proc/last_kmsg` is exactly 2,097,136 bytes with
+SHA-256 `f33384fbedd604deca988bfb8ac9522e492aa930f5e81a816348730a5d0e3238`
+and the fixed P331 decoder finds exactly one integrity-clean, foreign-free
+`NO_PROOF_OBSERVER` record at offset 1,767,463 for consumed run
+`c331f1e0a90b5e6d7c8a9b0c1d2e3f9b`. This proves only that the fresh P332 run
+is absent; it does not reuse P331 session evidence. It expires on raw identity
+drift or P332 candidate intent.
+
+If a P327, P328, P329, P330, P331, or P332 candidate transfer occurs, the same
+reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
+`s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
+`s22plus-fyg8-p330`, `s22plus-fyg8-p331`, or `s22plus-fyg8-p332` F1 closure
+row derived from that run's retained journal and result. This is post-terminal
+bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download

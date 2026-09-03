@@ -52,6 +52,9 @@ import s22plus_fyg8_p330_artifact_identity as p330_artifact_identity
 import s22plus_fyg8_p331_resident_acm_observer as p331_resident_observer
 import s22plus_fyg8_p331_resident_exec_runtime as p331_resident_runtime
 import s22plus_fyg8_p331_artifact_identity as p331_artifact_identity
+import s22plus_fyg8_p332_logical_resident_acm_observer as p332_logical_resident_observer
+import s22plus_fyg8_p332_logical_resident_exec_runtime as p332_logical_resident_runtime
+import s22plus_fyg8_p332_artifact_identity as p332_artifact_identity
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -163,6 +166,11 @@ P331_CLASSIFICATIONS = set(P330_CLASSIFICATIONS)
 P331_SUCCESS_VERDICT = typed_evidence.P331_AUTH_EXEC_VERDICT
 P331_SUCCESS_OUTCOME = typed_evidence.P331_AUTH_EXEC_OUTCOME
 P331_NO_PROOF_OUTCOME = typed_evidence.P331_AUTH_EXEC_NO_PROOF_OUTCOME
+P332_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p332_logical_resident_acm_receipt_v1"
+P332_CLASSIFICATIONS = set(P330_CLASSIFICATIONS)
+P332_SUCCESS_VERDICT = typed_evidence.P332_AUTH_EXEC_VERDICT
+P332_SUCCESS_OUTCOME = typed_evidence.P332_AUTH_EXEC_OUTCOME
+P332_NO_PROOF_OUTCOME = typed_evidence.P332_AUTH_EXEC_NO_PROOF_OUTCOME
 MAX_LIVE_RESULT_RECORD = core.MAX_RESULT_RECORD
 
 
@@ -442,6 +450,33 @@ def _p331_parser_failure_classification(
     }
 
 
+def _p332_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    value = _p328_stock_error(payload, error)
+    value.update(
+        {
+            "schema": "device_action_f1_p332_stock_error_v1",
+            "classification": "P332_STOCK_PARSER_EXCEPTION",
+        }
+    )
+    return value
+
+
+def _p332_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p332_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "integrity_issue": True,
+        "integrity_issues": ["p332-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p332_stock_error": diagnostic,
+        "accepted": False,
+    }
+
+
 class F1LiveError(RuntimeError):
     pass
 
@@ -608,12 +643,15 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p327_bundle(bundle)
         or _p326_bundle(bundle)
         or _p328_bundle(bundle)
+        or _p332_bundle(bundle)
     ):
         stock_adapter = typed_evidence.STOCK_ADAPTERS[
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p331"
+            "p332"
+            if _p332_bundle(bundle)
+            else "p331"
             if _p331_bundle(bundle)
             else "p330"
             if _p330_bundle(bundle)
@@ -670,7 +708,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             raise F1LiveError(str(exc)) from exc
         if _p328_bundle(bundle):
             auth_prefix = (
-                "p331"
+                "p332"
+                if _p332_bundle(bundle)
+                else "p331"
                 if _p331_bundle(bundle)
                 else "p330"
                 if _p330_bundle(bundle)
@@ -679,7 +719,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else "p328"
             )
             artifact_module = (
-                p331_artifact_identity
+                p332_artifact_identity
+                if _p332_bundle(bundle)
+                else p331_artifact_identity
                 if _p331_bundle(bundle)
                 else p330_artifact_identity
                 if _p330_bundle(bundle)
@@ -688,7 +730,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else p328_artifact_identity
             )
             runtime_module = (
-                p331_resident_runtime
+                p332_logical_resident_runtime
+                if _p332_bundle(bundle)
+                else p331_resident_runtime
                 if _p331_bundle(bundle)
                 else p330_auth_runtime
                 if _p330_bundle(bundle)
@@ -697,7 +741,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else p328_auth_runtime
             )
             observer_module = (
-                p331_resident_observer
+                p332_logical_resident_observer
+                if _p332_bundle(bundle)
+                else p331_resident_observer
                 if _p331_bundle(bundle)
                 else p330_auth_observer
                 if _p330_bundle(bundle)
@@ -813,7 +859,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         )
         if _p328_bundle(bundle):
             auth_prefix = (
-                "p331"
+                "p332"
+                if _p332_bundle(bundle)
+                else "p331"
                 if _p331_bundle(bundle)
                 else "p330"
                 if _p330_bundle(bundle)
@@ -822,7 +870,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else "p328"
             )
             closure[f"{auth_prefix}_auth_exec_runtime_contract_id"] = (
-                typed_evidence.P331_AUTH_EXEC_RUNTIME_CONTRACT_ID
+                typed_evidence.P332_AUTH_EXEC_RUNTIME_CONTRACT_ID
+                if _p332_bundle(bundle)
+                else typed_evidence.P331_AUTH_EXEC_RUNTIME_CONTRACT_ID
                 if _p331_bundle(bundle)
                 else typed_evidence.P330_AUTH_EXEC_RUNTIME_CONTRACT_ID
                 if _p330_bundle(bundle)
@@ -831,7 +881,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else typed_evidence.P328_AUTH_EXEC_RUNTIME_CONTRACT_ID
             )
             closure[f"{auth_prefix}_auth_acm_observer_contract_id"] = (
-                typed_evidence.P331_AUTH_EXEC_OBSERVER_CONTRACT_ID
+                typed_evidence.P332_AUTH_EXEC_OBSERVER_CONTRACT_ID
+                if _p332_bundle(bundle)
+                else typed_evidence.P331_AUTH_EXEC_OBSERVER_CONTRACT_ID
                 if _p331_bundle(bundle)
                 else typed_evidence.P330_AUTH_EXEC_OBSERVER_CONTRACT_ID
                 if _p330_bundle(bundle)
@@ -1237,6 +1289,7 @@ def _p328_bundle(bundle: core.Bundle) -> bool:
             typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P332_STOCK_OVERLAY_CONTRACT_ID,
         }
         and _candidate_arrival_proof_role(bundle) is not None
     )
@@ -1262,6 +1315,14 @@ def _p331_bundle(bundle: core.Bundle) -> bool:
     return (
         _userspace_overlay_contract_id(bundle)
         == typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
+def _p332_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P332_STOCK_OVERLAY_CONTRACT_ID
         and _candidate_arrival_proof_role(bundle) is not None
     )
 
@@ -1296,7 +1357,9 @@ def _p328_bound_auth_key_identity(prepared: PreparedRun) -> dict[str, Any]:
             if key in container:
                 candidates.append({"size": 32, "sha256": container[key]})
     artifact_module = (
-        p331_artifact_identity
+        p332_artifact_identity
+        if _p332_bundle(prepared.bundle)
+        else p331_artifact_identity
         if _p331_bundle(prepared.bundle)
         else p330_artifact_identity
         if _p330_bundle(prepared.bundle)
@@ -1328,7 +1391,9 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
     """
     bound = _p328_bound_auth_key_identity(prepared)
     artifact_module = (
-        p331_artifact_identity
+        p332_artifact_identity
+        if _p332_bundle(prepared.bundle)
+        else p331_artifact_identity
         if _p331_bundle(prepared.bundle)
         else p330_artifact_identity
         if _p330_bundle(prepared.bundle)
@@ -1349,6 +1414,7 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
         p329_artifact_identity.ArtifactIdentityError,
         p330_artifact_identity.ArtifactIdentityError,
         p331_artifact_identity.ArtifactIdentityError,
+        p332_artifact_identity.ArtifactIdentityError,
     ) as exc:
         raise F1LiveError("bound auth-key identity is unavailable") from exc
     if actual != bound:
@@ -1455,10 +1521,14 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P331_RUN_ID,
         ),
+        (
+            typed_evidence.P332_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P332_RUN_ID,
+        ),
     }:
         raise F1LiveError(
             "candidate arrival proof role requires the exact P3.23 stock binding "
-            "through the exact P3.31 stock binding"
+            "through the exact P3.32 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(
@@ -1477,6 +1547,7 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
                 typed_evidence.CANDIDATE_AUTHENTICATED_SETTLED_EXEC_ROLE,
                 typed_evidence.CANDIDATE_AUTHENTICATED_DIAGNOSTIC_EXEC_ROLE,
                 typed_evidence.CANDIDATE_AUTHENTICATED_RESIDENT_EXEC_ROLE,
+                typed_evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE,
             }
             and isinstance(candidate_observer, dict)
         ):
@@ -2599,6 +2670,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p332 = overlay == typed_evidence.P332_STOCK_OVERLAY_CONTRACT_ID
     is_p331 = overlay == typed_evidence.P331_STOCK_OVERLAY_CONTRACT_ID
     is_p330 = overlay == typed_evidence.P330_STOCK_OVERLAY_CONTRACT_ID
     is_p329 = overlay == typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID
@@ -2611,7 +2683,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
-        typed_evidence.p331_stock_adapter
+        typed_evidence.p332_stock_adapter
+        if is_p332
+        else typed_evidence.p331_stock_adapter
         if is_p331
         else typed_evidence.p330_stock_adapter
         if is_p330
@@ -2639,7 +2713,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter
     )
     label = (
-        "P3.31"
+        "P3.32"
+        if is_p332
+        else "P3.31"
         if is_p331
         else "P3.30"
         if is_p330
@@ -2666,7 +2742,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p331_stock"
+        "p332_stock"
+        if is_p332
+        else "p331_stock"
         if is_p331
         else "p330_stock"
         if is_p330
@@ -2693,7 +2771,13 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "p320_stock"
     )
     try:
-        if is_p331 or is_p330 or is_p329 or is_p328:
+        if (
+            is_p332
+            and classified.get("proof_class") == "NO_PROOF_OBSERVER"
+            and classified.get("candidate_success") is False
+        ):
+            proof = "NO_PROOF_OBSERVER"
+        elif is_p332 or is_p331 or is_p330 or is_p329 or is_p328:
             proof = adapter.proof_class(classified)
         elif is_p327:
             proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
@@ -2746,6 +2830,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         or is_p329
         or is_p330
         or is_p331
+        or is_p332
     )
     expected_acm_supplemental = not acm_primary
     expected_acm_required = acm_primary
@@ -2767,6 +2852,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P329_STOCK_ENCODER_FAILURE",
         "P330_STOCK_ENCODER_FAILURE",
         "P331_STOCK_ENCODER_FAILURE",
+        "P332_STOCK_ENCODER_FAILURE",
     } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
     result = {
@@ -2799,6 +2885,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P329_STOCK_ENCODER_FAILURE",
         "P330_STOCK_ENCODER_FAILURE",
         "P331_STOCK_ENCODER_FAILURE",
+        "P332_STOCK_ENCODER_FAILURE",
     }:
         result["producer_failure"] = True
         result["max77705_scientific_result"] = "NOT_PRODUCED"
@@ -2807,6 +2894,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    is_p332 = "p332_proof_class" in state
     is_p331 = "p331_proof_class" in state
     is_p330 = "p330_stock" in state
     is_p329 = "p329_stock" in state
@@ -2818,7 +2906,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     is_p322 = "p322_stock" in state
     is_p321 = "p321_stock" in state
     label = (
-        "P3.31"
+        "P3.32"
+        if is_p332
+        else "P3.31"
         if is_p331
         else "P3.30"
         if is_p330
@@ -2843,7 +2933,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p331_stock"
+        "p332_stock"
+        if is_p332
+        else "p331_stock"
         if is_p331
         else "p330_stock"
         if is_p330
@@ -2876,7 +2968,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     ):
         raise F1LiveError(f"{label} durable stock projection differs from final evidence")
     proof_key = (
-        "p331_proof_class"
+        "p332_proof_class"
+        if is_p332
+        else "p331_proof_class"
         if is_p331
         else "p330_proof_class"
         if is_p330
@@ -3343,6 +3437,21 @@ class SamsungOdinBackend:
                 usb_root=self.usb_root,
                 typec_root=self.typec_root,
             )
+        if _p332_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
+            return _p332_candidate_observer_session(
+                prepared,
+                spec,
+                lane_value=lane_value,
+                lane_receipt=lane_receipt,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         if _p328_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
@@ -3688,6 +3797,7 @@ class SamsungOdinBackend:
                     p328_auth_observer.AuthObserverError,
                     p330_auth_observer.AuthObserverError,
                     p331_resident_observer.AuthObserverError,
+                    p332_logical_resident_observer.AuthObserverError,
                     OSError,
                 ):
                     pass
@@ -3727,7 +3837,20 @@ class SamsungOdinBackend:
                         ],
                     }
                 )
-            if _p331_bundle(prepared.bundle):
+            if _p332_bundle(prepared.bundle):
+                result.update(_p332_proof_state(durable))
+                result.update(
+                    {
+                        "preauth_diagnostics": durable[
+                            "preauth_diagnostics"
+                        ],
+                        "rng_eagain_retries": durable[
+                            "rng_eagain_retries"
+                        ],
+                        "partial_sessions": durable["partial_sessions"],
+                    }
+                )
+            elif _p331_bundle(prepared.bundle):
                 result.update(_p331_proof_state(durable))
                 result.update(
                     {
@@ -3890,7 +4013,12 @@ class SamsungOdinBackend:
         except F1LiveError as exc:
             if not _acm_primary_bundle(prepared.bundle):
                 raise
-            if _p331_bundle(prepared.bundle):
+            if _p332_bundle(prepared.bundle):
+                stock_error = _p332_stock_error(payloads[0], exc)
+                marker_result = _p332_parser_failure_classification(
+                    payloads[0], exc
+                )
+            elif _p331_bundle(prepared.bundle):
                 stock_error = _p331_stock_error(payloads[0], exc)
                 marker_result = _p331_parser_failure_classification(
                     payloads[0], exc
@@ -3992,7 +4120,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p331_stock"
+                "p332_stock"
+                if _p332_bundle(prepared.bundle)
+                else "p331_stock"
                 if _p331_bundle(prepared.bundle)
                 else "p330_stock"
                 if _p330_bundle(prepared.bundle)
@@ -4018,7 +4148,9 @@ class SamsungOdinBackend:
             ] = p320_projection
         if stock_error is not None:
             key = (
-                "p331_stock_error"
+                "p332_stock_error"
+                if _p332_bundle(prepared.bundle)
+                else "p331_stock_error"
                 if _p331_bundle(prepared.bundle)
                 else "p330_stock_error"
                 if _p330_bundle(prepared.bundle)
@@ -4039,7 +4171,9 @@ class SamsungOdinBackend:
             )
             result["observer"][key] = stock_error
             result["observer"].pop(
-                "p331_stock"
+                "p332_stock"
+                if _p332_bundle(prepared.bundle)
+                else "p331_stock"
                 if _p331_bundle(prepared.bundle)
                 else "p330_stock"
                 if _p330_bundle(prepared.bundle)
@@ -5608,6 +5742,208 @@ class _P331ObserverSession(_P330ObserverSession):
         return value
 
 
+@dataclass
+class _P332ObserverSession(_P331ObserverSession):
+    """Run two P330 exchanges on one already-open exact tty descriptor."""
+
+    auth_observer: Any = p332_logical_resident_observer
+    auth_runtime: Any = p332_logical_resident_runtime
+    receipt_schema: str = P332_OBSERVER_RECEIPT_SCHEMA
+    receipt_label: str = "P332 same-fd logical resident observer receipt"
+
+    def _raw_argv0_name(self) -> str:
+        return "tty-cdc-acm-p332"
+
+    def _read_endpoint(
+        self,
+        endpoint: Any,
+        deadline: float,
+        writer: raw_capture.RawCaptureWriter,
+    ) -> str:
+        self.endpoint = endpoint
+        stopped = self._settle_guard_properties(endpoint, deadline)
+        if stopped is not None:
+            return stopped
+        if not self._endpoint_exact(endpoint):
+            return "identity-mismatch"
+        path = self.base.dev_root / endpoint.tty_name
+        try:
+            descriptor = os.open(
+                path,
+                os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK | os.O_CLOEXEC,
+            )
+        except OSError:
+            return "open-failed"
+        try:
+            try:
+                fcntl.ioctl(descriptor, termios.TIOCEXCL)
+            except OSError:
+                return "exclusive-failed"
+            if not self._endpoint_exact(endpoint, descriptor):
+                return "identity-mismatch"
+            self.base._raw_tty(descriptor)
+            try:
+                resident = p332_logical_resident_observer.exchange_resident(
+                    descriptor,
+                    self.auth_key,
+                    timeout_sec=min(
+                        p332_logical_resident_observer.SESSION_TIMEOUT_SEC,
+                        max(0.001, deadline - time.monotonic()),
+                    ),
+                    writer=writer,
+                )
+            except p332_logical_resident_observer.LogicalResidentObserverError as exc:
+                self.resident_result = exc.result
+                self.protocol_error = str(exc)[:160]
+                return "authenticated-session-error"
+            self.resident_result = resident
+            self.exchange = resident.sessions[-1].result
+            self.trailing_rx = _p327_trailing_probe(descriptor, writer)
+            if self.trailing_rx:
+                return "extra-byte"
+            if not self._endpoint_exact(endpoint, descriptor):
+                return "identity-mismatch"
+            try:
+                self.proof = p332_logical_resident_observer.validate_resident_proof(
+                    resident
+                )
+            except p332_logical_resident_observer.LogicalResidentObserverError as exc:
+                self.protocol_error = str(exc)[:160]
+                return "authenticated-session-error"
+            return "accepted"
+        except Exception as exc:  # pragma: no cover - tty fault
+            self.protocol_error = type(exc).__name__
+            return "open-failed"
+        finally:
+            os.close(descriptor)
+
+    def observe(
+        self,
+        *,
+        timeout_sec: int,
+        download_departure: dict[str, Any],
+    ) -> dict[str, Any]:
+        base_value, lane_supplement = super(_P331ObserverSession, self)._observe_value(
+            timeout_sec=timeout_sec,
+            download_departure=download_departure,
+        )
+        resident = self.resident_result
+        sessions = () if resident is None else resident.sessions
+        proof = dict(self.proof or {})
+        tx = b"".join(item.raw_tx for item in sessions)
+        rx = b"".join(item.raw_rx for item in sessions)
+        diagnostics = [
+            [
+                {"stage": item.stage, "code": item.code}
+                for item in session.audit.diagnostics
+            ]
+            if session.audit is not None
+            else []
+            for session in sessions
+        ]
+        retries = [
+            session.audit.rng_eagain_retries
+            if session.audit is not None
+            else None
+            for session in sessions
+        ]
+        partial = [
+            {
+                "session_index": session.index,
+                "current_stage": (
+                    session.audit.current_stage if session.audit is not None else None
+                ),
+                "failure_stage": (
+                    session.audit.failure_stage if session.audit is not None else None
+                ),
+                "failure_code": (
+                    session.audit.failure_code if session.audit is not None else None
+                ),
+                "exception_type": (
+                    session.audit.exception_type
+                    if session.audit is not None
+                    else session.error_type
+                ),
+                "exception_sha256": (
+                    session.audit.exception_sha256
+                    if session.audit is not None
+                    else None
+                ),
+            }
+            for session in sessions
+        ]
+        complete = bool(
+            resident is not None
+            and resident.complete
+            and proof.get("logical_resident_proof") is True
+            and proof.get("same_tty_fd") is True
+            and proof.get("physical_reopen_count") == 0
+            and proof.get("session_count")
+            == p332_logical_resident_runtime.MAX_SESSIONS
+            and not self.trailing_rx
+        )
+        accepted = bool(base_value.get("accepted") is True and complete)
+        classification = base_value["classification"]
+        if classification == "accepted" and not accepted:
+            classification = "authenticated-session-error"
+        value = dict(base_value)
+        value.pop("tx_hex", None)
+        value.pop("pid1_framed_exec_proof", None)
+        value.update(
+            {
+                "schema": self.receipt_schema,
+                "contract_id": self.auth_observer.CONTRACT_ID,
+                "target": self.auth_runtime.TARGET,
+                "banner_hex": self.auth_runtime.DEVICE_BANNER.hex(),
+                "tx": _p327_identity(tx),
+                "session_tx_hex": [item.raw_tx.hex() for item in sessions],
+                "rx": _p327_identity(rx),
+                "trailing_rx": _p327_identity(self.trailing_rx),
+                "trailing_bytes_seen": len(self.trailing_rx),
+                "diagnostics": diagnostics,
+                "rng_eagain_retries": retries,
+                "partial_sessions": partial,
+                "proof": proof,
+                "auth_algorithm": "hmac-sha256",
+                "auth_tag_size": self.auth_runtime.AUTH_TAG_SIZE,
+                "auth_key_sha256": self.auth_key_sha256,
+                "hmac_authenticated": complete,
+                "pid1_authenticated_framed_exec_proof": complete,
+                "busybox_ash_command_proof": complete,
+                "framed_session_closed": complete,
+                "logical_resident_proof": complete,
+                "same_tty_fd": complete,
+                "physical_reopen_count": 0,
+                "fixed_p330_commands": complete,
+                "session_count": len(sessions),
+                "successful_sessions": (
+                    0 if resident is None else resident.successful_sessions
+                ),
+                "session_cap": p332_logical_resident_runtime.MAX_SESSIONS,
+                "reconnect_count": 0,
+                "reconnect_cap": 0,
+                "commands_per_session": len(
+                    p332_logical_resident_runtime.DEFAULT_COMMANDS
+                ),
+                "command_count": len(sessions)
+                * len(p332_logical_resident_runtime.DEFAULT_COMMANDS),
+                "max_commands": self.auth_runtime.MAX_COMMANDS,
+                "interactive_pty_proof": False,
+                "caller_selected_command": False,
+                "arbitrary_file_transfer": False,
+                "persistent_state": False,
+                "expected_size": len(self.auth_runtime.DEVICE_BANNER)
+                * p332_logical_resident_runtime.MAX_SESSIONS,
+                "exact": accepted,
+                "extra_byte": bool(self.trailing_rx),
+                "classification": classification,
+                "accepted": accepted,
+            }
+        )
+        self._publish_value(value, lane_supplement, label=self.receipt_label)
+        return value
+
+
 @contextlib.contextmanager
 def _p328_candidate_observer_session(
     prepared: PreparedRun,
@@ -5821,6 +6157,83 @@ def _p331_candidate_observer_session(
     ) as inherited:
         base = inherited.delegate.delegate
         yield _P331ObserverSession(
+            inherited,
+            base,
+            inherited_spec,
+            prepared.run_dir,
+            lane_value,
+            lane_receipt,
+            usb_root,
+            typec_root,
+            auth_key=key,
+            auth_key_sha256=key_sha256,
+        )
+
+
+@contextlib.contextmanager
+def _p332_candidate_observer_session(
+    prepared: PreparedRun,
+    spec: dict[str, Any],
+    *,
+    lane_value: dict[str, Any],
+    lane_receipt: dict[str, Any],
+    usb_root: Path,
+    typec_root: Path,
+) -> Iterator[_P332ObserverSession]:
+    """Arm one exact tty for two bounded P330 logical sessions."""
+    if spec.get("protocol_contract") != p332_logical_resident_observer.CONTRACT_ID:
+        raise F1LiveError("P3.32 logical resident observer contract differs")
+    expected = {
+        "udev_guard_settle_timeout_ms": 500,
+        "udev_guard_settle_poll_ms": 25,
+        "guard_properties_required": [
+            "ID_MM_DEVICE_IGNORE=1",
+            "ID_MM_PORT_IGNORE=1",
+        ],
+        "diagnostic_frame_type": p332_logical_resident_runtime.DIAGNOSTIC_FRAME_TYPE,
+        "diagnostic_payload_size": p332_logical_resident_runtime.DIAGNOSTIC_PAYLOAD_SIZE,
+        "diagnostic_stages": [
+            {
+                "stage": p332_logical_resident_runtime.DIAGNOSTIC_STAGE_OPEN_PARSED,
+                "name": "open-parsed",
+            },
+            {
+                "stage": p332_logical_resident_runtime.DIAGNOSTIC_STAGE_RNG,
+                "name": "rng",
+            },
+        ],
+        "rng_eagain_retry_limit": p332_logical_resident_runtime.RNG_EAGAIN_RETRY_LIMIT,
+        "partial_exchange_durable": True,
+        "session_cap": p332_logical_resident_runtime.MAX_SESSIONS,
+        "reconnect_cap": 0,
+        "clean_close_required": True,
+        "fresh_distinct_nonce_hashes": True,
+        "diagnostics_per_session": True,
+        "fixed_p330_commands": True,
+        "same_tty_fd_required": True,
+        "host_tty_close_reopen": False,
+        "transport_reconnect": False,
+        "caller_selected_command": False,
+        "interactive_pty": False,
+        "arbitrary_file_transfer": False,
+        "persistent_state": False,
+    }
+    if any(spec.get(key) != value for key, value in expected.items()):
+        raise F1LiveError("P3.32 bounded logical resident contract differs")
+    key, key_sha256 = _p328_read_auth_key(prepared)
+    inherited_spec = _p327_inherited_spec(spec)
+    with p325_guard_adapter.observer_session(
+        inherited_spec,
+        prepared.private_target["topology"],
+        prepared.run_dir,
+        _candidate_observer_binding(prepared),
+        lane_value,
+        lane_receipt,
+        usb_root=usb_root,
+        typec_root=typec_root,
+    ) as inherited:
+        base = inherited.delegate.delegate
+        yield _P332ObserverSession(
             inherited,
             base,
             inherited_spec,
@@ -6449,6 +6862,83 @@ def _p331_proof_ok(value: Mapping[str, Any]) -> bool:
     )
 
 
+P332_PROOF_FIELDS = (
+    "hmac_authenticated",
+    "pid1_authenticated_framed_exec_proof",
+    "busybox_ash_command_proof",
+    "framed_session_closed",
+    "logical_resident_proof",
+    "same_tty_fd",
+    "physical_reopen_count",
+    "fixed_p330_commands",
+    "interactive_pty_proof",
+    "caller_selected_command",
+    "arbitrary_file_transfer",
+    "persistent_state",
+    "session_count",
+    "successful_sessions",
+    "session_cap",
+    "reconnect_count",
+    "reconnect_cap",
+    "commands_per_session",
+    "command_count",
+    "max_commands",
+    "auth_key_sha256",
+)
+
+
+def _p332_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value.get(key) for key in P332_PROOF_FIELDS}
+
+
+def _p332_proof_ok(value: Mapping[str, Any]) -> bool:
+    return (
+        all(
+            value.get(key) is True
+            for key in (
+                "hmac_authenticated",
+                "pid1_authenticated_framed_exec_proof",
+                "busybox_ash_command_proof",
+                "framed_session_closed",
+                "logical_resident_proof",
+                "same_tty_fd",
+                "fixed_p330_commands",
+            )
+        )
+        and value.get("physical_reopen_count") == 0
+        and value.get("interactive_pty_proof") is False
+        and value.get("caller_selected_command") is False
+        and value.get("arbitrary_file_transfer") is False
+        and value.get("persistent_state") is False
+        and all(
+            type(value.get(key)) is int
+            for key in (
+                "physical_reopen_count",
+                "session_count",
+                "successful_sessions",
+                "session_cap",
+                "reconnect_count",
+                "reconnect_cap",
+                "commands_per_session",
+                "command_count",
+                "max_commands",
+            )
+        )
+        and value.get("session_count") == p332_logical_resident_runtime.MAX_SESSIONS
+        and value.get("successful_sessions")
+        == p332_logical_resident_runtime.MAX_SESSIONS
+        and value.get("session_cap") == p332_logical_resident_runtime.MAX_SESSIONS
+        and value.get("reconnect_count") == 0
+        and value.get("reconnect_cap") == 0
+        and value.get("commands_per_session")
+        == len(p332_logical_resident_runtime.DEFAULT_COMMANDS)
+        and value.get("command_count")
+        == p332_logical_resident_runtime.MAX_SESSIONS
+        * len(p332_logical_resident_runtime.DEFAULT_COMMANDS)
+        and value.get("max_commands") == p332_logical_resident_runtime.MAX_COMMANDS
+    )
+
+
 def _p331_nonce_from_raw_session(payload: bytes, index: int) -> str:
     """Decode one retained RX slice and return its exact challenge digest."""
 
@@ -6867,6 +7357,245 @@ def _p331_validate_receipt(
         ) from exc
 
 
+def _p332_nonce_from_raw_session(payload: bytes, index: int) -> str:
+    banner = p332_logical_resident_runtime.DEVICE_BANNER
+    if not payload.startswith(banner):
+        raise p332_logical_resident_observer.AuthObserverError(
+            f"P332 logical session {index} banner differs"
+        )
+    cursor = len(banner)
+    challenge: bytes | None = None
+    while cursor < len(payload):
+        if len(payload) - cursor < p332_logical_resident_observer.HEADER.size:
+            raise p332_logical_resident_observer.AuthObserverError(
+                f"P332 logical session {index} frame is truncated"
+            )
+        header = payload[cursor : cursor + p332_logical_resident_observer.HEADER.size]
+        _magic, _version, _kind, size, _sequence, _crc = (
+            p332_logical_resident_observer.HEADER.unpack(header)
+        )
+        end = cursor + p332_logical_resident_observer.HEADER.size + size
+        if end > len(payload):
+            raise p332_logical_resident_observer.AuthObserverError(
+                f"P332 logical session {index} payload is truncated"
+            )
+        frame = p332_logical_resident_observer.decode_frame(payload[cursor:end])
+        if frame.frame_type == p332_logical_resident_runtime.FRAME_CHALLENGE:
+            if (
+                challenge is not None
+                or frame.sequence != 0
+                or len(frame.payload) != p332_logical_resident_runtime.NONCE_SIZE
+            ):
+                raise p332_logical_resident_observer.AuthObserverError(
+                    f"P332 logical session {index} challenge differs"
+                )
+            challenge = frame.payload
+        cursor = end
+    if challenge is None:
+        raise p332_logical_resident_observer.AuthObserverError(
+            f"P332 logical session {index} challenge is absent"
+        )
+    return hashlib.sha256(challenge).hexdigest()
+
+
+def _p332_validate_raw_session_bindings(
+    value: dict[str, Any], proof: dict[str, Any]
+) -> None:
+    raw = value["raw"]
+    raw_payload, _identity = core._stable_read(
+        Path(raw["path"]), "P332 logical resident raw RX", P328_MAX_RAW_BYTES
+    )
+    if _p327_identity(raw_payload) != {
+        "size": raw["size"],
+        "sha256": raw["sha256"],
+    }:
+        raise p332_logical_resident_observer.AuthObserverError(
+            "P332 logical resident raw RX changed during reopen"
+        )
+    tx_hex = value["session_tx_hex"]
+    sessions = proof["sessions"]
+    if not isinstance(tx_hex, list) or len(tx_hex) != len(sessions):
+        raise p332_logical_resident_observer.AuthObserverError(
+            "P332 logical resident TX segment count differs"
+        )
+    rx_cursor = 0
+    tx_segments: list[bytes] = []
+    for index, (row, encoded_tx) in enumerate(zip(sessions, tx_hex)):
+        rx_identity = _p328_receipt_identity(
+            row["rx"], f"P332 logical session {index} RX"
+        )
+        end = rx_cursor + rx_identity["size"]
+        rx_segment = raw_payload[rx_cursor:end]
+        if end > len(raw_payload) or _p327_identity(rx_segment) != rx_identity:
+            raise p332_logical_resident_observer.AuthObserverError(
+                f"P332 logical session {index} RX identity differs"
+            )
+        if _p332_nonce_from_raw_session(rx_segment, index) != row[
+            "challenge_nonce_sha256"
+        ]:
+            raise p332_logical_resident_observer.AuthObserverError(
+                f"P332 logical session {index} nonce digest differs"
+            )
+        if (
+            not isinstance(encoded_tx, str)
+            or len(encoded_tx) > P328_MAX_RAW_BYTES * 2
+            or re.fullmatch(r"(?:[0-9a-f]{2})*", encoded_tx) is None
+        ):
+            raise p332_logical_resident_observer.AuthObserverError(
+                f"P332 logical session {index} TX encoding differs"
+            )
+        segment = bytes.fromhex(encoded_tx)
+        if _p327_identity(segment) != row["tx"]:
+            raise p332_logical_resident_observer.AuthObserverError(
+                f"P332 logical session {index} TX identity differs"
+            )
+        tx_segments.append(segment)
+        rx_cursor = end
+    if (
+        rx_cursor != len(raw_payload)
+        or _p327_identity(b"".join(tx_segments)) != value["tx"]
+        or _p327_identity(raw_payload) != value["rx"]
+    ):
+        raise p332_logical_resident_observer.AuthObserverError(
+            "P332 logical resident ordered raw accounting differs"
+        )
+
+
+def _p332_validate_receipt(
+    prepared: PreparedRun,
+    path: Path,
+    spec: dict[str, Any],
+) -> dict[str, Any]:
+    value = _read_json(path, "P332 logical resident observer receipt")
+    expected_keys = set(
+        """
+        schema contract_id target binding spec_sha256 baseline_sha256
+        download_departure_sha256 download_endpoint_absent topology_sha256
+        endpoint_identity_sha256 guard_sha256 raw banner_hex tx session_tx_hex
+        rx trailing_rx trailing_bytes_seen banner_seen ready_seen done_seen proof
+        lane expected_size exact extra_byte classification accepted bounded elapsed_sec
+        diagnostics rng_eagain_retries partial_sessions auth_algorithm auth_tag_size
+        auth_key_sha256 hmac_authenticated pid1_authenticated_framed_exec_proof
+        busybox_ash_command_proof framed_session_closed logical_resident_proof
+        same_tty_fd physical_reopen_count fixed_p330_commands session_count
+        successful_sessions session_cap reconnect_count reconnect_cap
+        commands_per_session command_count max_commands interactive_pty_proof
+        caller_selected_command arbitrary_file_transfer persistent_state
+        """.split()
+    )
+    if not isinstance(value, dict) or set(value) != expected_keys:
+        raise p332_logical_resident_observer.AuthObserverError(
+            "P332 logical resident receipt shape differs"
+        )
+    _p328_receipt_secret_free(value)
+    classification = value["classification"]
+    accepted = value["accepted"]
+    scalar_bools = (
+        "download_endpoint_absent",
+        "banner_seen",
+        "ready_seen",
+        "done_seen",
+        "hmac_authenticated",
+        "pid1_authenticated_framed_exec_proof",
+        "busybox_ash_command_proof",
+        "framed_session_closed",
+        "logical_resident_proof",
+        "same_tty_fd",
+        "fixed_p330_commands",
+        "interactive_pty_proof",
+        "caller_selected_command",
+        "arbitrary_file_transfer",
+        "persistent_state",
+        "exact",
+        "extra_byte",
+        "accepted",
+        "bounded",
+    )
+    if (
+        value["schema"] != P332_OBSERVER_RECEIPT_SCHEMA
+        or value["contract_id"] != p332_logical_resident_observer.CONTRACT_ID
+        or value["target"] != p332_logical_resident_runtime.TARGET
+        or value["banner_hex"] != p332_logical_resident_runtime.DEVICE_BANNER.hex()
+        or value["expected_size"]
+        != len(p332_logical_resident_runtime.DEVICE_BANNER)
+        * p332_logical_resident_runtime.MAX_SESSIONS
+        or value["auth_algorithm"] != "hmac-sha256"
+        or value["auth_tag_size"] != p332_logical_resident_runtime.AUTH_TAG_SIZE
+        or any(type(value[key]) is not bool for key in scalar_bools)
+        or classification not in P332_CLASSIFICATIONS
+        or value["exact"] is not accepted
+        or accepted is not (classification == "accepted")
+        or value["bounded"] is not True
+        or type(value["physical_reopen_count"]) is not int
+        or value["physical_reopen_count"] != 0
+        or value["interactive_pty_proof"] is not False
+        or value["caller_selected_command"] is not False
+        or value["arbitrary_file_transfer"] is not False
+        or value["persistent_state"] is not False
+    ):
+        raise p332_logical_resident_observer.AuthObserverError(
+            "P332 logical resident receipt semantics differ"
+        )
+    lane, topology, endpoint = _p328_validate_common_receipt(prepared, value, spec)
+    bound = _p328_bound_auth_key_identity(prepared)
+    if value["auth_key_sha256"] != bound["sha256"]:
+        raise p332_logical_resident_observer.AuthObserverError(
+            "P332 logical resident auth-key identity differs"
+        )
+    proof: dict[str, Any] | None = None
+    try:
+        proof = typed_evidence.validate_p332_logical_resident_proof(value["proof"])
+    except typed_evidence.EvidenceError:
+        if accepted:
+            raise p332_logical_resident_observer.AuthObserverError(
+                "P332 accepted receipt lacks logical resident proof"
+            )
+    if accepted and (
+        proof is None
+        or not _p332_proof_ok(value)
+        or value["download_endpoint_absent"] is not True
+        or not all(value[key] for key in ("banner_seen", "ready_seen", "done_seen"))
+        or value["session_count"] != p332_logical_resident_runtime.MAX_SESSIONS
+        or value["successful_sessions"] != p332_logical_resident_runtime.MAX_SESSIONS
+        or value["reconnect_count"] != 0
+        or value["reconnect_cap"] != 0
+    ):
+        raise p332_logical_resident_observer.AuthObserverError(
+            "P332 logical resident proof accounting differs"
+        )
+    if proof is not None:
+        _p332_validate_raw_session_bindings(value, proof)
+    return {
+        "classification": classification,
+        "accepted": accepted,
+        "receipt_sha256": _receipt(
+            path, "P332 logical resident observer receipt"
+        )["sha256"],
+        "valid_receipt": True,
+        "download_endpoint_absent": value["download_endpoint_absent"],
+        "endpoint_identity_sha256": endpoint,
+        "topology_sha256": value["topology_sha256"],
+        "bounded": True,
+        "source_topology_sha256": hashlib.sha256(
+            p324_typec_lane.SOURCE_TOPOLOGY.removeprefix("usb:").encode()
+        ).hexdigest(),
+        "candidate_topology_sha256": topology,
+        "both_topologies_inventory_complete": lane[
+            "both_topologies_inventory_complete"
+        ],
+        "accepted_inventory_exact": lane["accepted_inventory_exact"],
+        "same_run_typec_partner_continuity": lane[
+            "same_run_typec_partner_continuity"
+        ],
+        "accepted_for_p324": lane["accepted_for_p324"],
+        **_p332_proof_state(value),
+        "preauth_diagnostics": value["diagnostics"],
+        "rng_eagain_retries": value["rng_eagain_retries"],
+        "partial_sessions": value["partial_sessions"],
+        "p332_authenticated_logical_resident": value["proof"],
+    }
+
+
 def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     def unavailable(classification: str) -> dict[str, Any]:
         result = {
@@ -6948,6 +7677,28 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                     "p331_authenticated_resident": None,
                 }
             )
+        if _p332_bundle(prepared.bundle):
+            result.update(
+                {
+                    **{key: False for key in P332_PROOF_FIELDS[:12]},
+                    "physical_reopen_count": 0,
+                    "session_count": 0,
+                    "successful_sessions": 0,
+                    "session_cap": p332_logical_resident_runtime.MAX_SESSIONS,
+                    "reconnect_count": 0,
+                    "reconnect_cap": 0,
+                    "commands_per_session": len(
+                        p332_logical_resident_runtime.DEFAULT_COMMANDS
+                    ),
+                    "command_count": 0,
+                    "max_commands": p332_logical_resident_runtime.MAX_COMMANDS,
+                    "auth_key_sha256": None,
+                    "preauth_diagnostics": [],
+                    "rng_eagain_retries": [],
+                    "partial_sessions": [],
+                    "p332_authenticated_logical_resident": None,
+                }
+            )
         return result
 
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
@@ -6957,7 +7708,10 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         return unavailable("interrupted-before-receipt")
     try:
-        if _p331_bundle(prepared.bundle):
+        if _p332_bundle(prepared.bundle):
+            value = _p332_validate_receipt(prepared, path, spec)
+            receipt_sha256 = value["receipt_sha256"]
+        elif _p331_bundle(prepared.bundle):
             value = _p331_validate_receipt(
                 prepared,
                 path,
@@ -7045,6 +7799,7 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
         p329_auth_observer.AuthObserverError,
         p330_auth_observer.AuthObserverError,
         p331_resident_observer.AuthObserverError,
+        p332_logical_resident_observer.AuthObserverError,
         F1LiveError,
         core.F1V2Error,
     ):
@@ -7073,7 +7828,19 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                 )
             }
         )
-    if _p331_bundle(prepared.bundle):
+    if _p332_bundle(prepared.bundle):
+        result.update(_p332_proof_state(value))
+        result.update(
+            {
+                "preauth_diagnostics": value["preauth_diagnostics"],
+                "rng_eagain_retries": value["rng_eagain_retries"],
+                "partial_sessions": value["partial_sessions"],
+                "p332_authenticated_logical_resident": value[
+                    "p332_authenticated_logical_resident"
+                ],
+            }
+        )
+    elif _p331_bundle(prepared.bundle):
         result.update(_p331_proof_state(value))
         result.update(
             {
@@ -7264,6 +8031,7 @@ def _candidate_arrival_proof_projection(
         return None
     durable = _reopen_candidate_observation(prepared)
     guard_release = _reopen_candidate_guard_release(prepared)
+    p332 = _p332_bundle(prepared.bundle)
     p331 = _p331_bundle(prepared.bundle)
     p330 = _p330_bundle(prepared.bundle)
     p328 = _p328_bundle(prepared.bundle)
@@ -7285,7 +8053,9 @@ def _candidate_arrival_proof_projection(
         and durable["accepted"] is True
         and durable["classification"] == "accepted"
     )
-    if p331:
+    if p332:
+        observer_accepted = observer_accepted and _p332_proof_ok(durable)
+    elif p331:
         observer_accepted = observer_accepted and _p331_proof_ok(durable)
     elif p328:
         observer_accepted = observer_accepted and _p328_proof_ok(durable)
@@ -7340,7 +8110,9 @@ def _candidate_arrival_proof_projection(
     final_observer = final.get("observer") if isinstance(final, dict) else None
     if isinstance(final_observer, dict):
         key = (
-            "p331_stock"
+            "p332_stock"
+            if p332
+            else "p331_stock"
             if p331
             else "p330_stock"
             if p330
@@ -7376,7 +8148,9 @@ def _candidate_arrival_proof_projection(
             }
         else:
             error_key = (
-                "p331_stock_error"
+                "p332_stock_error"
+                if p332
+                else "p331_stock_error"
                 if p331
                 else "p330_stock_error"
                 if p330
@@ -7422,7 +8196,10 @@ def _candidate_arrival_proof_projection(
         "role": role,
         "primary_source": "candidate_observer",
         "banner_size": (
-            len(p331_resident_runtime.DEVICE_BANNER)
+            len(p332_logical_resident_runtime.DEVICE_BANNER)
+            * p332_logical_resident_runtime.MAX_SESSIONS
+            if p332
+            else len(p331_resident_runtime.DEVICE_BANNER)
             * p331_resident_runtime.MAX_SESSIONS
             if p331
             else len(p330_auth_runtime.DEVICE_BANNER)
@@ -7452,7 +8229,9 @@ def _candidate_arrival_proof_projection(
         "proof": proof,
         "supplemental_carrier": supplemental,
     }
-    if p331:
+    if p332:
+        result.update(_p332_proof_state(durable))
+    elif p331:
         result.update(_p331_proof_state(durable))
     elif p328:
         result.update(_p328_proof_state(durable))
@@ -7898,7 +8677,12 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     except F1LiveError as exc:
         if not _acm_primary_bundle(prepared.bundle):
             raise
-        if _p331_bundle(prepared.bundle):
+        if _p332_bundle(prepared.bundle):
+            stock_error = _p332_stock_error(payloads[0], exc)
+            marker_result = _p332_parser_failure_classification(
+                payloads[0], exc
+            )
+        elif _p331_bundle(prepared.bundle):
             stock_error = _p331_stock_error(payloads[0], exc)
             marker_result = _p331_parser_failure_classification(
                 payloads[0], exc
@@ -8019,7 +8803,20 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.25 final stock projection changed")
     elif "p325_stock" in observer or "p325_stock_error" in observer:
         raise F1LiveError("foreign P3.25 final stock evidence")
-    if _p331_bundle(prepared.bundle):
+    if _p332_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p332_stock_error") != stock_error
+                or "p332_stock" in observer
+            ):
+                raise F1LiveError("P3.32 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p332_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.32 final stock projection changed")
+    elif "p332_stock" in observer or "p332_stock_error" in observer:
+        raise F1LiveError("foreign P3.32 final stock evidence")
+    elif _p331_bundle(prepared.bundle):
         if stock_error is not None:
             if (
                 observer.get("p331_stock_error") != stock_error
@@ -8032,7 +8829,7 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.31 final stock projection changed")
     elif "p331_stock" in observer or "p331_stock_error" in observer:
         raise F1LiveError("foreign P3.31 final stock evidence")
-    if _p330_bundle(prepared.bundle):
+    elif _p330_bundle(prepared.bundle):
         if stock_error is not None:
             if (
                 observer.get("p330_stock_error") != stock_error
@@ -8133,8 +8930,22 @@ def _validate_candidate_observer_state(
     if _p328_bundle(prepared.bundle) and any(
         state.get(key) != durable.get(key)
         for key in P328_PROOF_FIELDS
-    ) and not _p331_bundle(prepared.bundle):
+    ) and not (_p331_bundle(prepared.bundle) or _p332_bundle(prepared.bundle)):
         raise F1LiveError("P3.28 authenticated proof durable state mismatch")
+    if _p332_bundle(prepared.bundle) and any(
+        state.get(key) != durable.get(key)
+        for key in P332_PROOF_FIELDS
+    ):
+        raise F1LiveError("P3.32 logical resident proof durable state mismatch")
+    if _p332_bundle(prepared.bundle) and any(
+        state.get(key) != durable.get(key)
+        for key in (
+            "preauth_diagnostics",
+            "rng_eagain_retries",
+            "partial_sessions",
+        )
+    ):
+        raise F1LiveError("P3.32 logical resident audit durable state mismatch")
     if _p331_bundle(prepared.bundle) and any(
         state.get(key) != durable.get(key)
         for key in P331_PROOF_FIELDS
@@ -8279,6 +9090,7 @@ def validate_live_result(
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
     if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
+        p332 = _p332_bundle(prepared.bundle)
         p331 = _p331_bundle(prepared.bundle)
         p330 = _p330_bundle(prepared.bundle)
         p329 = _p329_bundle(prepared.bundle)
@@ -8288,7 +9100,9 @@ def validate_live_result(
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
         label = (
-            "P3.31"
+            "P3.32"
+            if p332
+            else "P3.31"
             if p331
             else "P3.30"
             if p330
@@ -8307,7 +9121,9 @@ def validate_live_result(
             else "P3.23"
         )
         success_verdict = (
-            P331_SUCCESS_VERDICT
+            P332_SUCCESS_VERDICT
+            if p332
+            else P331_SUCCESS_VERDICT
             if p331
             else P330_SUCCESS_VERDICT
             if p330
@@ -8328,7 +9144,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_VERDICT
         )
         success_outcome = (
-            P331_SUCCESS_OUTCOME
+            P332_SUCCESS_OUTCOME
+            if p332
+            else P331_SUCCESS_OUTCOME
             if p331
             else P330_SUCCESS_OUTCOME
             if p330
@@ -8349,7 +9167,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_OUTCOME
         )
         no_proof_outcome = (
-            P331_NO_PROOF_OUTCOME
+            P332_NO_PROOF_OUTCOME
+            if p332
+            else P331_NO_PROOF_OUTCOME
             if p331
             else P330_NO_PROOF_OUTCOME
             if p330
@@ -9364,7 +10184,16 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     ),
                 }
             )
-            if _p331_bundle(prepared.bundle):
+            if _p332_bundle(prepared.bundle):
+                current.update(_p332_proof_state(durable))
+                current.update(
+                    {
+                        "preauth_diagnostics": durable["preauth_diagnostics"],
+                        "rng_eagain_retries": durable["rng_eagain_retries"],
+                        "partial_sessions": durable["partial_sessions"],
+                    }
+                )
+            elif _p331_bundle(prepared.bundle):
                 current.update(_p331_proof_state(durable))
                 current.update(
                     {
@@ -9414,7 +10243,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     released=guard_release["released"],
                 )
                 and (
-                    _p331_proof_ok(durable)
+                    _p332_proof_ok(durable)
+                    if _p332_bundle(prepared.bundle)
+                    else _p331_proof_ok(durable)
                     if _p331_bundle(prepared.bundle)
                     else _p328_proof_ok(durable)
                     if _p328_bundle(prepared.bundle)
@@ -9471,7 +10302,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 ),
             )
             and (
-                _p331_proof_ok(current)
+                _p332_proof_ok(current)
+                if _p332_bundle(prepared.bundle)
+                else _p331_proof_ok(current)
                 if _p331_bundle(prepared.bundle)
                 else _p328_proof_ok(current)
                 if _p328_bundle(prepared.bundle)
@@ -9503,6 +10336,7 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
 
     current = _state(prepared)
     if _acm_primary_bundle(prepared.bundle):
+        p332 = _p332_bundle(prepared.bundle)
         p331 = _p331_bundle(prepared.bundle)
         p330 = _p330_bundle(prepared.bundle)
         p329 = _p329_bundle(prepared.bundle)
@@ -9519,7 +10353,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         if isinstance(projection, dict) and projection.get("proof") is True:
             return (
                 (
-                    P331_SUCCESS_VERDICT
+                    P332_SUCCESS_VERDICT
+                    if p332
+                    else P331_SUCCESS_VERDICT
                     if p331
                     else P330_SUCCESS_VERDICT
                     if p330
@@ -9540,7 +10376,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
                     else typed_evidence.P323_ACM_PRIMARY_VERDICT
                 ),
                 (
-                    P331_SUCCESS_OUTCOME
+                    P332_SUCCESS_OUTCOME
+                    if p332
+                    else P331_SUCCESS_OUTCOME
                     if p331
                     else P330_SUCCESS_OUTCOME
                     if p330
@@ -9564,7 +10402,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         return (
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
             (
-                P331_NO_PROOF_OUTCOME
+                P332_NO_PROOF_OUTCOME
+                if p332
+                else P331_NO_PROOF_OUTCOME
                 if p331
                 else P330_NO_PROOF_OUTCOME
                 if p330
@@ -9882,6 +10722,20 @@ def _finish_rollback(
                     raise F1LiveError("P3.25 final stock projection is missing")
                 current["p325_proof_class"] = projection["proof_class"]
                 current["p325_stock"] = projection
+        if _p332_bundle(prepared.bundle):
+            error = final["observer"].get("p332_stock_error")
+            projection = final["observer"].get("p332_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError(
+                        "P3.32 supplemental parser failure is malformed"
+                    )
+                current["p332_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.32 final stock projection is missing")
+                current["p332_proof_class"] = projection["proof_class"]
+                current["p332_stock"] = projection
         if _p331_bundle(prepared.bundle):
             error = final["observer"].get("p331_stock_error")
             projection = final["observer"].get("p331_stock")
@@ -9895,6 +10749,7 @@ def _finish_rollback(
                 if not isinstance(projection, dict):
                     raise F1LiveError("P3.31 final stock projection is missing")
                 current["p331_proof_class"] = projection["proof_class"]
+                current["p331_stock"] = projection
         if _p330_bundle(prepared.bundle):
             error = final["observer"].get("p330_stock_error")
             projection = final["observer"].get("p330_stock")
@@ -9928,6 +10783,7 @@ def _finish_rollback(
             and not _p329_bundle(prepared.bundle)
             and not _p330_bundle(prepared.bundle)
             and not _p331_bundle(prepared.bundle)
+            and not _p332_bundle(prepared.bundle)
         ):
             error = final["observer"].get("p328_stock_error")
             projection = final["observer"].get("p328_stock")
@@ -10746,7 +11602,9 @@ def _finish_candidate_window(
                     ),
                 )
                 and (
-                    _p331_proof_ok(observation)
+                    _p332_proof_ok(observation)
+                    if _p332_bundle(prepared.bundle)
+                    else _p331_proof_ok(observation)
                     if _p331_bundle(prepared.bundle)
                     else _p328_proof_ok(observation)
                     if _p328_bundle(prepared.bundle)
@@ -10961,7 +11819,22 @@ def _execute_prepared_locked(
                         ],
                     }
                 )
-                if _p331_bundle(prepared.bundle):
+                if _p332_bundle(prepared.bundle):
+                    current.update(_p332_proof_state(durable))
+                    current.update(
+                        {
+                            "preauth_diagnostics": durable[
+                                "preauth_diagnostics"
+                            ],
+                            "rng_eagain_retries": durable[
+                                "rng_eagain_retries"
+                            ],
+                            "partial_sessions": durable[
+                                "partial_sessions"
+                            ],
+                        }
+                    )
+                elif _p331_bundle(prepared.bundle):
                     current.update(_p331_proof_state(durable))
                     current.update(
                         {

@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 442_942,
-                "sha256": "badee11c3308daba6dfc0bfb224c83535a28429de92522189fcda96cab71c862",
+                "size": 478_497,
+                "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
             },
         )
         self.assertEqual(
@@ -100,8 +100,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p331_live_source_identity"],
             {
-                "size": 442_942,
-                "sha256": "badee11c3308daba6dfc0bfb224c83535a28429de92522189fcda96cab71c862",
+                "size": 478_497,
+                "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
             },
         )
         self.assertEqual(
@@ -110,6 +110,24 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         )
         self.assertTrue(value["p331_raw_writer_precedes_session_parser"])
         self.assertTrue(value["p331_session_order_and_nonce_replay_checks"])
+        self.assertEqual(
+            value["p332_active_source_identities"],
+            self.module.P332_ACTIVE_SOURCE_IDENTITIES,
+        )
+        self.assertEqual(
+            value["p332_live_source_identity"],
+            {
+                "size": 478_497,
+                "sha256": "4a236c527fc8d6125201fe13fcc59fe185eb04fcec8a84c7bea211d90febe6fb",
+            },
+        )
+        self.assertEqual(
+            set(value["p332_raw_first_function_sha256"]),
+            set(self.module.P332_RAW_FIRST_FUNCTIONS),
+        )
+        self.assertTrue(value["p332_raw_writer_precedes_session_parser"])
+        self.assertTrue(value["p332_same_fd_session_receipt_bindings"])
+        self.assertTrue(value["p332_session_order_and_nonce_replay_checks"])
         self.assertFalse(value["device_observation_parser_accepts_live_stream"])
         self.assertTrue(
             value[
@@ -239,6 +257,64 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                 '    value = _read_json(path, "P331 bounded resident observer receipt")\n',
                 '    value = _read_json(path, "P331 bounded resident observer receipt")\n'
                 "    _p328_read_auth_key(prepared)\n",
+                1,
+            ),
+        )
+        for mutation in live_mutations:
+            self.assertNotEqual(mutation, live_source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION, {live_name: mutation}
+                )
+
+    def test_p332_raw_first_contracts_reject_writer_and_receipt_mutations(self):
+        observer_name = "s22plus_fyg8_p332_logical_resident_acm_observer.py"
+        observer_source = self.source(observer_name)
+        observer_mutations = (
+            observer_source.replace(
+                "                writer=writer,\n",
+                "                writer=None,\n",
+                1,
+            ),
+            observer_source.replace(
+                "        raw_writer = _RawWriter(writer)\n",
+                "        raw_writer = _RawWriter(None)\n",
+                1,
+            ),
+        )
+        for mutation in observer_mutations:
+            self.assertNotEqual(mutation, observer_source)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(
+                    REVALIDATION, {observer_name: mutation}
+                )
+
+        live_name = "device_action_f1_live_v2.py"
+        live_source = self.source(live_name)
+        p332_exchange = (
+            "                resident = p332_logical_resident_observer.exchange_resident(\n"
+            "                    descriptor,\n"
+            "                    self.auth_key,\n"
+            "                    timeout_sec=min(\n"
+            "                        p332_logical_resident_observer.SESSION_TIMEOUT_SEC,\n"
+            "                        max(0.001, deadline - time.monotonic()),\n"
+            "                    ),\n"
+            "                    writer=writer,\n"
+        )
+        live_mutations = (
+            live_source.replace(
+                p332_exchange,
+                p332_exchange.replace("writer=writer", "writer=None"),
+                1,
+            ),
+            live_source.replace(
+                "            self.proof = p332_logical_resident_observer.validate_resident_proof(\n",
+                "            self.proof = resident\n            # proof parser bypass\n",
+                1,
+            ),
+            live_source.replace(
+                "        _p332_validate_raw_session_bindings(value, proof)\n",
+                "        pass  # raw receipt rebinding removed\n",
                 1,
             ),
         )
@@ -961,10 +1037,10 @@ def read_control1(adb, serial):
             "device_acquisition_detected_by_behavior_not_filename", value
         )
         self.assertEqual(value["acquisition_rule"], "process_spawn_capability_v2")
-        self.assertEqual(value["host_only_non_acquiring_source_count"], 15)
+        self.assertEqual(value["host_only_non_acquiring_source_count"], 16)
         self.assertEqual(
             value["host_only_non_acquiring_source_inventory_sha256"],
-            "4d8b1c1a0bdf3c9a080fbbf4a47092ac89677e084147f38eca02a5fbc7e3f30d",
+            "1f5f9c23f54572e4be722cb2ff026a19fbebf0fef8ecaccb1fbeb4242df71d03",
         )
         self.assertTrue(value["host_only_non_acquiring_sources_are_byte_frozen"])
         self.assertEqual(
