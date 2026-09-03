@@ -13896,13 +13896,24 @@ def classify_e1_latest_stage(
         item["profile"],
         item.get("userspace_overlay_contract_id"),
     )
+    decoder_errors = (selected_decoder.DecodeError,)
+    if selected_decoder in STOCK_ADAPTERS.values():
+        adapter_identity_error = getattr(
+            selected_decoder, "AdapterIdentityError", None
+        )
+        if (
+            isinstance(adapter_identity_error, type)
+            and issubclass(adapter_identity_error, ValueError)
+            and adapter_identity_error is not ValueError
+        ):
+            decoder_errors += (adapter_identity_error,)
     try:
         decoded = selected_decoder.classify_observation(
             payload,
             expected_profile=item["profile"],
             expected_run_id=bytes.fromhex(item["run_id"]),
         )
-    except selected_decoder.DecodeError as exc:
+    except decoder_errors as exc:
         raise EvidenceError(str(exc)) from exc
 
     model = selected_decoder.model
