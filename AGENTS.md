@@ -40,7 +40,7 @@ are current. An unactivated policy edit remains H0 only.
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
 | Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Resident Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
-| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 recovery retained and candidate consumed; reviewed attended native-canary R1 active |
+| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; classic-fastboot census ordinals 1/2 consumed, with ordinal 2 four-query PASS and healthy return; fastboot-boot support F1 consumed with NO_PROOF healthy return; retained-T2 TWRP-fastbootd census consumed and first staged preparation probe consumed with NO_PROOF healthy return; staged fastbootd preparation Q1 consumed with PASS healthy return; TWRP-fastbootd census Q2 consumed with NO_PROOF healthy return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 recovery retained and candidate consumed; reviewed attended native-canary R1 active |
 
 Targets, profiles, rollback identities, transports, approvals, and health evidence never transfer between registry rows. Without an exact matching contract, remain H0.
 
@@ -93,9 +93,75 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
    exact private T1 observer receipt and bytes, its sole `mtp,adb` distinction,
    and current serial continuity. T1 remains `NO_PROOF`; its evidence grants
    no T2 command before separate review and mechanical activation.
-3. Never use raw host `dd`, fastboot, partition-table actions, qdl/Sahara/
-   Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format operations,
-   or an unreviewed panic/RDX path.
+3. Never use raw host `dd`, fastboot outside the exact S20+ census and
+   boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
+   writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
+   path.
+   One narrow S20+ classic-fastboot census exception may be activated only by
+   the exact S20+ target contract. It permits the SHA-pinned official Google
+   `fastboot` tool to send exactly four fixed read-only requests, in this order:
+   `getvar product`, `getvar is-userspace`, `getvar version-bootloader`, and
+   `getvar max-download-size`. The endpoint must be the sole `18d1:d00d`
+   `ff/42/03` interface on the freshly prepared S20+ physical topology, with
+   exact serial continuity from healthy Android and an attended operator-entered
+   bootloader. An unsupported variable is evidence and is never replaced by a
+   wider query. The exception forbids `getvar all`, every caller-selected
+   variable/tool/serial/path, every download or payload phase, and every `boot`,
+   `flash`, `erase`, `reboot`, `oem`, `flashing`, `set_active`, `fetch`, lock, or
+   unlock command. Return is only the physical on-screen `START` selection
+   followed by fresh exact Android health. It grants no evidence or authority
+   for temporary boot support, another fastboot endpoint, or another target.
+   It grants no later invocation except one separately reviewed replacement
+   ordinal explicitly activated by the exact S20+ target contract. That
+   replacement must mechanically bind a pinned predecessor terminal proving
+   zero fastboot entry observation, zero query intent, fresh healthy Android
+   return, and an absent shared guard; it retains the identical four requests
+   and permits no third ordinal.
+   One narrow S20+ retained-T2 volatile-fastbootd census exception may be
+   activated only by the exact S20+ target contract. It starts in the already
+   proved retained T2 recovery and permits one fixed no-input root-ADB control
+   script to create only one volatile `ffs.fastboot` function, then mount
+   exactly one volatile FunctionFS instance named `fastboot` on the existing
+   direct `/dev/usb-ffs/fastboot` directory with fixed options, start the existing
+   `fastbootd` service, and rebind only that recovery boot's
+   configfs/FunctionFS gadget from ADB to exact
+   `18d1:4ee0` fastboot. The script may touch only volatile service, configfs,
+   FunctionFS, and `/tmp` state; it sends no partition payload, opens no block
+   device, and changes no persistent file, persistent property, package,
+   module, or recovery image. The fixed `ctl.start fastbootd` write is a
+   volatile service control. Its intent is one-shot and uncertainty never
+   replays it.
+   One distinct S20+ Q2 successor may be activated only after it mechanically
+   rederives the consumed Q1 preparation `PASS` and healthy return. Q2 receives
+   one new intent and retains the exact target, physical topology, corrected
+   create-before-mount order, volatile service/configfs/FunctionFS surface,
+   `18d1:4ee0` endpoint, four fixed read-only requests, physical return, and all
+   prohibitions of this exception. The census, first preparation probe, and Q1
+   remain consumed; they grant no replay or second Q2 invocation.
+   After exact serial/topology continuity, the SHA-pinned official Google
+   `fastboot` tool may send exactly four fixed read-only requests in this order:
+   `getvar is-userspace`, `getvar product`, `getvar version-bootloader`, and
+   `getvar max-download-size`. The first must return `yes` before any later
+   request. The exception forbids `getvar all`, `download`, `boot`, `flash`,
+   `erase`, `set_active`, `reboot`, `continue`, `fetch`, OEM, logical-partition,
+   lock/unlock, every caller-selected command/artifact/path, and every other
+   fastboot request. Return is only through attended TWRP UI or physical keys,
+   followed by fresh exact healthy Android. It grants no PID1 claim, partition
+   authority, recovery-image change, or later fastboot invocation.
+   One narrow S20+ fastboot-boot support exception may be activated only by
+   the exact S20+ target contract. It permits one SHA-pinned official Google
+   `fastboot` invocation shaped exactly as `fastboot -s <bound-serial> boot
+   <bound-resident-boot.img>`. The sole 67,108,864-byte image has SHA-256
+   `d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707418f7efc`
+   and is the previously proved healthy resident-Magisk rollback boot. A fresh
+   exact prepare and returned approval must bind the healthy Android boot,
+   same-topology classic-fastboot endpoint, image, tool, one-use intent,
+   private raw output, physical power/`START` recovery, and final Android
+   health. It permits a RAM download/boot attempt but no partition write and
+   no `flash`, `erase`, `reboot`, `getvar`, `oem`, `flashing`, `set_active`,
+   `fetch`, lock, unlock, other artifact, or second attempt. Accepted command
+   output proves only boot-command support; PID1 requires a later fresh
+   candidate and direct witness. Uncertainty never replays.
    One narrow A90 boot-control exception may be activated by the A90 target
    contract: after an exact reviewed `boot` write and readback, the fixed TWRP
    System-reboot hook may clear exactly the first 256 bytes of `misc` BCB and
@@ -160,12 +226,20 @@ Classify every action using
   patch, permission grants, arbitrary files/packages, partition payloads, or
   security/configuration changes. A target contract may also define reviewed
   cleanup or `docs/operations/targets/S22PLUS_FYG8_PREF1_AUTONOMOUS_RESEARCH_POLICY_V1.md` as `DEFINED_NOT_ACTIVE`; only that catalog may waive per-ordinal approval, never F1 or persistent mutation.
+  The exact S20+ target contract may additionally activate one attended
+  read-only classic-fastboot census ordinal delegated by permanent boundary 3. Its
+  operator-entered mode transition makes the complete census D1 even though
+  the four host requests are read-only. It grants no payload or partition
+  action and no fastboot command beyond the fixed `getvar` list.
 - **R1:** an attended exact privileged root-data transaction activated by one
   target contract outside D1/F1. It uses fixed no-input root commands for one
   pinned data-only payload in a finite surface, durable one-shot journal, and
   reviewed recovery owner. It grants no caller-supplied `su`, arbitrary module/
   path/configuration mutation, or partition payload; root grants no R1.
 - **F1:** a boot-only transfer process defined by the selected target contract.
+  The exact S20+ contract may activate the one-use non-persistent fastboot-boot
+  support probe delegated by permanent boundary 3; it grants no partition
+  write or later PID1 candidate.
 - **F2:** the single-target S20+ recovery-canary T0 exception only. It permits
   one exact recovery candidate attempt and one exact-stock recovery rollback
   attempt under the separately activated target process; it never generalizes

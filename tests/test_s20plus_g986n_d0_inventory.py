@@ -228,7 +228,7 @@ class S20PlusG986ND0InventoryTests(unittest.TestCase):
         goal = (ROOT / "GOAL_S20PLUS.md").read_text(encoding="utf-8")
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         self.assertIn(
-            "Status: **BINDING - ROUTINE D0/D1, ATTENDED ROOT-HEALTH D0, P0 ABORT, ATTENDED F1/F2, AND ATTENDED R1 ACTIVE**",
+            "Status: **BINDING - ROUTINE D0/D1, ROOT-HEALTH AND TWRP BOOT-IDENTITY D0, P0 ABORT, ATTENDED F1/F2, AND ATTENDED R1 ACTIVE; FASTBOOT CENSUS ORDINALS CONSUMED; FASTBOOT-BOOT SUPPORT F1 CONSUMED WITH NO_PROOF HEALTHY RETURN**",
             contract,
         )
         self.assertIn("s20plus_g986n_d0_inventory.py", contract)
@@ -240,7 +240,7 @@ class S20PlusG986ND0InventoryTests(unittest.TestCase):
         row = (
             "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
             "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-            "| Active exact-target routine D0/D1 including payload-free Download return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 recovery retained and candidate consumed; reviewed attended native-canary R1 active |"
+            "| Active exact-target routine D0/D1 including payload-free Download return; classic-fastboot census ordinals 1/2 consumed, with ordinal 2 four-query PASS and healthy return; fastboot-boot support F1 consumed with NO_PROOF healthy return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 recovery retained and candidate consumed; reviewed attended native-canary R1 active |"
         )
         self.assertEqual(agents.count(row), 1)
 

@@ -851,23 +851,40 @@ contract and named reports rather than this current-state goal.
 
 Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`
 
-The distinct V2 candidate was consumed by one uncertain Odin attempt and its
-180-second ACM observation was `NO_PROOF`. Two host-side recovery stops were
-resolved without candidate or rollback replay: one USBFS address
-re-enumeration and one stable-endpoint `st_ctime_ns` change.
+V2 remains consumed and its earlier result remains `NO_PROOF`. The byte-distinct
+V3 fixed the host cage-order defect, completed one proved boot-only candidate
+transfer, and reached the full 180-second ACM observation, but emitted no exact
+banner. This is again `NO_PROOF`, not a native PID1 disproof.
 
-The retained confirmation then resumed once and the fixed resident-Magisk
-`boot` rollback completed. The terminal is
-`NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`: candidate/rollback attempts are 1/1,
-rollback transfer and process quiescence are proved, resident Android is
-healthy, both replays are false, the shared guard is absent, and recovery
-partition reads/writes/transfers plus other-target commands are all zero.
-Terminal SHA-256 is
-`67a291732731e244a942b376779f4c493a8f8e61ccbee764bb84625994362005`.
+One attended physical Download entry then completed the fixed resident-Magisk
+boot rollback and exact rooted-Android final health. The terminal is
+`NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`, SHA-256
+`3e306e703a68017850b206221454c5d311fe7cc88daad62b6fb8f19b5d2f6193`.
+Candidate/rollback attempts are 1/1, both replays are false, recovery-partition
+access and other-target commands are zero, and the shared guard is absent.
+V3 is globally consumed and the P0 owner is dormant; any next PID1 candidate
+requires a new H0 design, review, activation, fresh prepare, and approval.
 
-Native PID1 remains unproved rather than disproved. The P0 owner is dormant and
-its terminal activation records are preserved under `workspace/private/retired/`;
-no further P0 device action is authorized. Any next PID1 experiment requires a
-distinct H0 candidate design and fresh review, not reuse of this candidate.
-Exact implementation identities and incident chronology remain in the target
-contract and P0 qualification report.
+## Current classic-fastboot state
+
+The attended four-`getvar` census is terminal
+`PASS_S20PLUS_G986N_FASTBOOT_GETVAR_CENSUS_RETURN_HEALTHY`: it proved a
+same-target classic bootloader endpoint (`product=kona`, `is-userspace=no`) and
+healthy Android return; both census ordinals are consumed.
+
+The one-use `fastboot boot` support probe is consumed and terminal
+`NO_PROOF_S20PLUS_G986N_FASTBOOT_BOOT_RETURNED_HEALTHY`; no replay, partition
+write, or persistent mutation occurred. Exact stock-ABL UEFI extraction and
+ARM64 disassembly now prove that classic fastboot registers only `getvar:` and
+`reboot-fastboot`. `download:` and `boot` are absent, explaining the observed
+`unknown command` before any accepted data phase. Exact stock has a fastbootd
+route. Retained T2 contains the binary and generic service bytes, but its exact
+ADB-only root USB policy removes the fastboot FunctionFS route and redirects
+fastboot requests to ADB. The detailed evidence is in
+`docs/reports/S20PLUS_G986N_FASTBOOT_BOOT_SUPPORT_F1_H0_2026-09-03.md`.
+This T2 census required a separately reviewed volatile D1 enable; it is not an
+as-is read-only entry, PID1 claim, or mutation authority.
+The fastbootd census is consumed `NO_PROOF` with healthy return and no replay.
+The first staged prep probe is consumed `NO_PROOF` after mount `ENOENT`, with
+healthy Android return and zero USB switch/fastboot/persistent/partition work.
+Q1 passed prep; Q2 is consumed `NO_PROOF` after no host fastbootd endpoint.

@@ -31,14 +31,14 @@ BASE_BOOT = n3.BASE_BOOT
 MAGISKBOOT = n3.MAGISKBOOT
 OBJDUMP = Path("/usr/bin/aarch64-linux-gnu-objdump")
 DEFAULT_OUTPUT = ROOT / (
-    "workspace/private/outputs/s20plus_g986n/p0_pid1_acm_v2"
+    "workspace/private/outputs/s20plus_g986n/p0_pid1_acm_v3"
 )
 
-SCHEMA = "s20plus_g986n_p0_pid1_acm_build_v2"
+SCHEMA = "s20plus_g986n_p0_pid1_acm_build_v3"
 VERDICT = "PASS_S20PLUS_G986N_P0_PID1_ACM_HOST_BUILT_NOT_LIVE_AUTHORIZED"
 TARGET = dict(n3.TARGET)
-PROFILE = "s20plus-g986n-p0-pid1-acm-v2"
-BANNER = b"S20PLUS_P0_PID1_ACM_V2;pid=00000001;stage=ACM_READY\n"
+PROFILE = "s20plus-g986n-p0-pid1-acm-v3"
+BANNER = b"S20PLUS_P0_PID1_ACM_V3;pid=00000001;stage=ACM_READY\n"
 USB_PRODUCT_STRING = "S20Plus-P0-PID1"
 
 BASE_BOOT_SIZE = n3.BASE_BOOT_SIZE
@@ -118,7 +118,7 @@ def source_contract() -> dict[str, Any]:
         "p0_mount_configfs()",
         "p0_create_gadget(&port)",
         "p0_open_acm(port)",
-        "S20PLUS_P0_PID1_ACM_V2;pid=00000001;stage=ACM_READY",
+        "S20PLUS_P0_PID1_ACM_V3;pid=00000001;stage=ACM_READY",
         'P0_UDC "a600000.dwc3"',
         'P0_GADGET "/config/usb_gadget/s20plus_p0"',
         '"S20Plus-P0-PID1"',

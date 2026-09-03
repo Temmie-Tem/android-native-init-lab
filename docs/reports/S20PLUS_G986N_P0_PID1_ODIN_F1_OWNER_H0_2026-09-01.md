@@ -628,3 +628,70 @@ shared guard is absent. Native PID1 remains unproved rather than disproved.
 The owner was returned to dormant and the terminal activation records were
 preserved under `workspace/private/retired/`; no further P0 device action is
 authorized.
+
+## 2026-09-03 V3 successor and pre-intent cage-order repair
+
+Read-only reconstruction of the V2 journal found a host ordering defect, not a
+kernel or PID1 result. The first candidate cage was bound at `10:27:44`, then
+the post-claim Download endpoint census ran its own caged `odin4 -l`; that
+listing's recovery finalizer correctly treated the still-pre-intent candidate
+cage as orphaned and removed it at `10:27:46`. The owner did not publish
+`candidate-intent.json` until `10:27:51`, so `execute_odin_exact` stopped on the
+already-absent cage. The durable result consequently had no attributable Odin
+capture and could not prove whether any device effect occurred. V2 remains
+consumed and is not reclassified or replayed.
+
+At this H0 review snapshot, the successor kept the same direct PID1 ACM design
+and changed only the banner to byte-distinct V3. Its first runtime syscall is
+raw `getpid`; only
+return value one reaches volatile proc/sys/devtmpfs/configfs and the exact
+52-byte ACM banner. It has no block path, persistent mount/write, reboot,
+Android, Magisk, module, storage, network, exec, clone, or panic path. The new
+boot-only AP is 25,733,161 bytes at SHA-256
+`90a25e4a946e24a469380735aff5cdf250d2b107696353839a9030870e72b67b`;
+its sole `boot.img.lz4` is 25,722,068 bytes at SHA-256
+`17cf78f5ceef3ef1a69bc829190fb2e99ff47a692702faf4a82239e8aa9fefae`,
+and decoded boot SHA-256 is
+`dd4f1d0347983ac35f7d2692ff6fc4ad89ccc1a895b948bf7c330c736f6af073`.
+
+For candidate dispatch, the endpoint census now completes first. Its finalizer
+reconciles the pre-claim cage, after which the owner allocates a new journaled
+candidate cage generation and returns only that generation to
+`candidate-intent.json` and Odin. This preserves complete pre-claim closure,
+intent-before-effect, one-shot consumption, and mandatory rollback while
+removing the impossible reference to an already-reconciled cage.
+
+The global registry also now distinguishes a synchronized host filesystem
+device-number renumber from lock replacement. Only when both writer/session
+locks move together and their activated inode, size, mode, link count, fixed
+bytes, namespace, and complete append-only chain remain exact may `st_dev`
+differ. A one-lock drift or any stable-field change still fails closed.
+
+Host validation passes 74/74 focused owner tests, 9/9 registry tests, and
+179/179 wider tests with ten historical TWRP skips. Host closure verdict is
+`PASS_P0_HOST_CLOSURE_ONLY`, digest
+`8473934c17a84a4aa827c13145ab56db692d01a0d76090780cdcaad9bc874797`.
+At this snapshot the owner and observer were dormant and all old live
+activation records remained retired. This H0 result by itself grants no
+prepare, approval, device contact, reboot, Odin invocation, candidate claim,
+transfer, or PID1 result.
+
+## 2026-09-03 V3 live terminal
+
+One earlier fresh preparation expired before candidate intent and closed
+`ABORTED_PRE_CANDIDATE_RESIDENT_HEALTHY` with candidate/rollback attempts 0/0.
+The next freshly prepared and approved run completed the byte-distinct V3
+boot-only candidate transfer and proved process quiescence. The exact ACM
+banner did not appear during the full bounded 180-second observation, so the
+claim remains `NO_PROOF`; absence of the banner does not disprove native PID1.
+
+The operator entered physical Download once. The fixed resident-Magisk boot
+rollback transfer completed and exact rooted resident Android passed final
+health. The terminal is `NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`, SHA-256
+`3e306e703a68017850b206221454c5d311fe7cc88daad62b6fb8f19b5d2f6193`.
+Candidate/rollback attempts are 1/1, both replay permissions are false,
+recovery-partition reads/writes/transfers and other-target commands are zero,
+and the shared guard is absent. V3 is globally consumed. The owner and
+observer are returned to dormant and the activation records are retained
+under `workspace/private/retired/`; this exact profile grants no further
+device action.

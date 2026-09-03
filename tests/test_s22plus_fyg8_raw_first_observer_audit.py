@@ -878,7 +878,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["pre_boundary_device_source_count"], 128)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "2e2cc34117c46736ab5e855ede98641cdbec14ff813fbf588bd9d5eec26c0856",
+            "8209ad06f50beb499064f29be743d0ab96e89348904e13e5d5c0a3184e0f7cd6",
         )
         self.assertEqual(
             value["p319_d1_pre_boundary_classification"],
@@ -901,10 +901,10 @@ def read_control1(adb, serial):
             "device_acquisition_detected_by_behavior_not_filename", value
         )
         self.assertEqual(value["acquisition_rule"], "process_spawn_capability_v2")
-        self.assertEqual(value["host_only_non_acquiring_source_count"], 11)
+        self.assertEqual(value["host_only_non_acquiring_source_count"], 15)
         self.assertEqual(
             value["host_only_non_acquiring_source_inventory_sha256"],
-            "e660734c3a3d3a32e6d4b58c83311ccbc77c0675e769f2c2a533e05bad9f78ba",
+            "4d8b1c1a0bdf3c9a080fbbf4a47092ac89677e084147f38eca02a5fbc7e3f30d",
         )
         self.assertTrue(value["host_only_non_acquiring_sources_are_byte_frozen"])
         self.assertEqual(

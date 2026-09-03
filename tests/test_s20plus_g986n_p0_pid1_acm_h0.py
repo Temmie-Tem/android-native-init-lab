@@ -275,7 +275,7 @@ class S20PlusP0Pid1AcmH0Test(unittest.TestCase):
         self.assertNotIn("svc", entry_disassembly[:first_svc])
         self.assertLessEqual(binary.stat().st_size, 16 * 1024)
         for token in (
-            "S20PLUS_P0_PID1_ACM_V2;pid=00000001;stage=ACM_READY",
+            "S20PLUS_P0_PID1_ACM_V3;pid=00000001;stage=ACM_READY",
             "S20Plus-P0-PID1",
             "a600000.dwc3",
             "/config/usb_gadget/s20plus_p0",

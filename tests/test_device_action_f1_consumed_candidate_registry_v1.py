@@ -252,6 +252,54 @@ raise SystemExit(8)
             with self.assertRaises(self.module.RegistryError):
                 self.module.validate(root)
 
+    def test_synchronized_lock_device_renumber_keeps_inode_boundary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "workspace/private").mkdir(parents=True)
+            self.module.initialize(root)
+            registry = root / "workspace/private" / self.module.REGISTRY_DIR_NAME
+            activation_path = registry / self.module.ACTIVATION_NAME
+            activation = self.module._parse_json(
+                activation_path.read_bytes(), "fixture activation"
+            )
+            current = {
+                "writer_lock_identity": self.module._lock_path_identity(
+                    registry / self.module.LOCK_NAME
+                ),
+                "session_lock_identity": self.module._lock_path_identity(
+                    registry / self.module.SESSION_LOCK_NAME
+                ),
+            }
+
+            def publish(value):
+                activation_path.chmod(0o600)
+                activation_path.write_bytes(self.module._canonical(value))
+                activation_path.chmod(0o400)
+
+            for name in current:
+                activation[name] = {
+                    **current[name],
+                    "st_dev": current[name]["st_dev"] + 1,
+                }
+            publish(activation)
+            self.assertEqual(self.module.validate(root)["record_count"], 0)
+
+            asymmetric = {
+                **activation,
+                "session_lock_identity": current["session_lock_identity"],
+            }
+            publish(asymmetric)
+            with self.assertRaises(self.module.RegistryError):
+                self.module.validate(root)
+
+            replaced = self.module._parse_json(
+                self.module._canonical(activation), "copied activation"
+            )
+            replaced["writer_lock_identity"]["st_ino"] += 1
+            publish(replaced)
+            with self.assertRaises(self.module.RegistryError):
+                self.module.validate(root)
+
     def test_lock_replacement_between_layout_check_and_open_fails_closed(self):
         for lock_name, operation in (
             (self.module.LOCK_NAME, lambda root: self.module.claim(root, self.identity())),

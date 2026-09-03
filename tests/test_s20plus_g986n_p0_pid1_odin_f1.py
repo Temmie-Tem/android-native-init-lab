@@ -559,6 +559,12 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
 
         fresh_endpoint = self.endpoint()
         fresh_endpoint["endpoint_identity"] = [1, 2, 3, 400]
+        dispatch_cage = {
+            "binding_sha256": binding,
+            "kind": "candidate",
+            "generation": 2,
+        }
+        events: list[str] = []
 
         def present(path):
             return Path(path).name in {
@@ -575,8 +581,15 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             "_validate_candidate_transfer_preflight",
             return_value=preflight,
         ), mock.patch.object(
-            self.module.engine, "identify_download", return_value=fresh_endpoint
-        ):
+            self.module.engine,
+            "identify_download",
+            side_effect=lambda: events.append("endpoint-recheck") or fresh_endpoint,
+        ), mock.patch.object(
+            self.module,
+            "_prepare_p0_process_cage",
+            side_effect=lambda *_args: events.append("dispatch-cage")
+            or (Path("/fixture/cage-2"), dispatch_cage),
+        ) as prepare_dispatch_cage:
             returned, cage = self.module._P0_PREFLIGHT_ODIN_DISPATCH(
                 Path("/fixture"),
                 "candidate",
@@ -587,7 +600,11 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                 binding,
             )
         self.assertEqual(returned, fresh_endpoint)
-        self.assertEqual(cage, preflight["process_cage"])
+        self.assertEqual(cage, dispatch_cage)
+        self.assertEqual(events, ["endpoint-recheck", "dispatch-cage"])
+        prepare_dispatch_cage.assert_called_once_with(
+            Path("/fixture"), "candidate", binding
+        )
 
     def test_positive_observation_is_strictly_bound_to_exact_p0_receipt(self):
         binding = "1" * 64

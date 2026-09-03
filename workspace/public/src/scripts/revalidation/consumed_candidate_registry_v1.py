@@ -381,11 +381,31 @@ def _validate_layout(repo_root: Path) -> tuple[Path, Path, Path, Path]:
     activation = _parse_json(activation_data, "registry activation")
     if set(activation) != {"schema", "legacy_candidates", "activation_boundary", "writer_lock_identity", "session_lock_identity"} or activation.get("schema") != ACTIVATION_SCHEMA or activation.get("activation_boundary") != "legacy-candidates-before-global-registry-v1" or not isinstance(activation.get("legacy_candidates"), list):
         raise RegistryError("registry activation identity differs")
-    for key, path in (("writer_lock_identity", lock), ("session_lock_identity", root / SESSION_LOCK_NAME)):
+    lock_paths = {
+        "writer_lock_identity": lock,
+        "session_lock_identity": root / SESSION_LOCK_NAME,
+    }
+    lock_fields = {"st_dev", "st_ino", "st_size", "mode", "nlink"}
+    expected_locks: dict[str, dict[str, int]] = {}
+    current_locks: dict[str, dict[str, int]] = {}
+    for key, path in lock_paths.items():
         expected_identity = activation.get(key)
-        if not isinstance(expected_identity, dict) or set(expected_identity) != {"st_dev", "st_ino", "st_size", "mode", "nlink"}:
+        if not isinstance(expected_identity, dict) or set(expected_identity) != lock_fields:
             raise RegistryError("registry activation lock identity differs")
-        if expected_identity != _lock_path_identity(path):
+        expected_locks[key] = expected_identity
+        current_locks[key] = _lock_path_identity(path)
+    if expected_locks != current_locks:
+        stable_fields = lock_fields - {"st_dev"}
+        synchronized_device_renumber = (
+            len({value["st_dev"] for value in expected_locks.values()}) == 1
+            and len({value["st_dev"] for value in current_locks.values()}) == 1
+            and all(
+                expected_locks[key][field] == current_locks[key][field]
+                for key in lock_paths
+                for field in stable_fields
+            )
+        )
+        if not synchronized_device_renumber:
             raise RegistryError("registry lock was replaced after activation")
     for item in activation["legacy_candidates"]:
         if not isinstance(item, dict) or set(item) != {"candidate_ap_size", "candidate_ap_sha256", "boot_member_name", "boot_member_size", "boot_member_sha256", "source_result"} or not _strict_int(item.get("candidate_ap_size")) or not _strict_int(item.get("boot_member_size")) or not SHA256_RE.fullmatch(str(item.get("candidate_ap_sha256"))) or not SHA256_RE.fullmatch(str(item.get("boot_member_sha256"))) or item.get("boot_member_name") != "boot.img.lz4" or not isinstance(item.get("source_result"), dict) or set(item["source_result"]) != {"path", "size", "sha256"}:

@@ -1,6 +1,6 @@
 # S20+ G986N Binding Target Contract
 
-Status: **BINDING - ROUTINE D0/D1, ATTENDED ROOT-HEALTH AND TWRP BOOT-IDENTITY D0, P0 ABORT, ATTENDED F1/F2, AND ATTENDED R1 ACTIVE**
+Status: **BINDING - ROUTINE D0/D1, ROOT-HEALTH, TWRP BOOT-IDENTITY D0, P0 ABORT, ATTENDED F1/F2, AND ATTENDED R1 ACTIVE; RETAINED-T2 FASTBOOTD CENSUS AND FIRST PREP PROBE CONSUMED WITH NO_PROOF HEALTHY RETURN; TWRP FASTBOOTD PREP Q1 CONSUMED WITH PASS HEALTHY RETURN; TWRP FASTBOOTD CENSUS Q2 CONSUMED WITH NO_PROOF HEALTHY RETURN; FASTBOOT CENSUS ORDINALS CONSUMED; FASTBOOT-BOOT SUPPORT F1 CONSUMED WITH NO_PROOF HEALTHY RETURN**
 
 This is the binding target contract for the operator-owned Samsung Galaxy S20+
 5G `SM-G986N` / `y2q` / `G986NKSS8IYC2`, listed in the binding target registry
@@ -34,9 +34,14 @@ action list.
 - Before every connected action, inventory all ADB rows, resolve exactly one
   `model:SM_G986N` row in state `device`, and send target commands only with its
   exact serial selector.
-- Hash every ADB serial and USB topology before durable recording. Never put a
-  raw serial, IMEI, phone number, PARTUUID, MAC address, or IP address in tracked
-  files.
+- Hash every ADB serial and USB topology before structured durable recording.
+  The sole exact raw-first classic-fastboot census, fastboot-boot support
+  probe, and any later activated retained-T2 volatile-fastbootd census below
+  may preserve their unredacted ADB/fastboot streams only inside their three
+  fixed private raw-capture namespaces;
+  those values never enter structured output, CLI output, or tracked files.
+  Never put a raw serial, IMEI, phone number, PARTUUID, MAC address, or IP
+  address in tracked files.
 - If no row, more than one matching row, an unauthorized/offline matching
   endpoint, a duplicate serial row, conflicting model/device/product metadata,
   a changed selection, or conflicting property evidence appears, stop that
@@ -377,6 +382,479 @@ A fresh direct operator request may name exactly one of these closed actions:
 | `enter-recovery` | one exact `adb reboot recovery` | dispatch only; recovery state remains pending observation |
 | `exit-download` | one exact payload-free `odin4 --reboot -d <Download endpoint>` after the attended handoff below | normal Android health required before closure |
 
+## S20+ Attended Classic-Fastboot Read-Only Census
+
+Status: **ORDINAL 1 CONSUMED ZERO-QUERY; ORDINAL 2 CONSUMED FOUR-QUERY PASS / HEALTHY RETURN**
+
+The common boundary delegates one S20+-only census of the already observed
+bootloader fastboot transport. The exact runner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_fastboot_getvar_census.py`.
+It applies only to the healthy operator-owned
+`SM-G986N/y2q/y2qksx/G986NKSS8IYC2` and receives no authority from S22+, A90,
+Download/Odin, TWRP, P0, root, an unlocked screen, or endpoint presence alone.
+
+The host tool is official Google Platform-Tools `37.0.1-15733141` at the fixed
+private path encoded by the runner: a 3,333,552-byte direct regular executable
+with SHA-256
+`a686e2c7e8dc9cf4cba0cb8a2eef05f7b2bd682c925abd032fe203215d80b618`.
+No caller may choose or replace its path, bytes, serial, command, variable,
+timeout, evidence root, or USB identity.
+
+One attended invocation begins in fresh exact healthy Android. It inventories
+all ADB rows, selects only the sole exact S20+, binds its serial and physical
+USB topology in memory, repeats its public health and inventory, and requires
+the prepared topology to be the ordinary `04e8:6860` Android role. The runner
+then announces readiness but sends no reboot or mode-transition command. The
+awake operator selects Magisk's on-screen bootloader reboot. The runner accepts
+only one same-topology endpoint with all of:
+
+- USB `18d1:d00d`, `bcdDevice=0100`, manufacturer `Google`, product `Android`;
+- exactly one `ff/42/03` interface;
+- exactly one 1024-byte bulk OUT and one 1024-byte bulk IN endpoint;
+- exact raw serial continuity with the prepared Android target; and
+- no second host fastboot interface and no remaining S20+ ADB row.
+
+Only after those predicates pass may the pinned tool send, once each and in
+order, `getvar product`, `getvar is-userspace`,
+`getvar version-bootloader`, and `getvar max-download-size`. A remote
+unsupported response is retained as evidence and never widened to `getvar all`.
+The runner revalidates the tool before every request and the exact endpoint
+after the fourth. Structured receipts retain only hashed serial/topology
+identities and redacted bounded outputs; the common raw-first module preserves
+the private ADB/fastboot streams before any parser sees them beneath
+`workspace/private/runs/s20plus-g986n-fastboot-getvar-census/`.
+
+This census has no fastboot download phase and permits no `boot`, `flash`,
+`erase`, `reboot`, `oem`, `flashing`, `set_active`, `fetch`, lock, unlock,
+partition, artifact, payload, root, shell, property, service, package, or file
+mutation. It does not prove that `fastboot boot` is implemented. After its
+terminal result the operator returns only by selecting the physical on-screen
+`START` item; the runner's finalizer must then prove fresh same-target healthy
+Android before releasing the shared action guard. Absence, ambiguity, identity
+drift, timeout, host-tool
+drift, or an unexpected response closes the invocation without another
+fastboot command. The census is one-use and retires when its durable entry
+intent is published, whether the later result is positive or failed; any later fastboot work requires a new
+separately reviewed boundary decision.
+
+Ordinal 1 published its entry intent but timed out before any fastboot endpoint,
+entry observation, query intent, or fastboot command. Its finalizer later proved
+fresh same-target healthy Android, published the exact `NO_PROOF` terminal, and
+released the shared guard. Replacement ordinal 2 is the sole permitted later
+invocation. Before claiming a new guard it must validate the immutable ordinal-1
+entry receipt and terminal by their pinned size and SHA-256, rederive zero entry
+observation and zero query intent, and require the shared guard absent. It uses
+the identical endpoint, tool, four requests, return path, and no-replay rules.
+It is consumed; its owner permits only terminal validation/re-emission. No
+third ordinal is defined.
+
+## S20+ Fastboot Boot Support Probe
+
+Status: **CONSUMED - NO_PROOF - HEALTHY RETURN; TERMINAL OWNER ONLY**
+
+The exact one-use F1 owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_fastboot_boot_support_f1.py`.
+It exists only to determine whether the already proved classic bootloader
+implements the optional RAM-only `boot` command. Independent review returned
+`PASS_GO` and mechanical activation completed for its sole invocation. That
+invocation is now consumed. The owner permits only validation/re-emission of
+its terminal; no fresh prepare, approval, fastboot command, or second attempt
+exists.
+
+Its sole payload is the direct mode-`0400` resident-Magisk rollback
+`boot.img`, exactly 67,108,864 bytes with SHA-256
+`d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707418f7efc`.
+The predecessor closure pins the prior P0 rollback transfer and healthy-rooted
+terminal, the four-query classic-fastboot census and healthy return, the
+official Google Platform-Tools fastboot binary, and the exact census helper
+source plus its raw-capture, D0 inventory, and routine-health source closure.
+The approval also binds the exact prepared ADB executable receipt; execute and
+final health must use the same bytes. Drift stops before a new guard or device
+command.
+
+For the sole invocation, `--prepare` claimed the shared S20+ guard, repeated
+raw-first exact Android
+health twice, binds the current boot and artifact closure, creates a new
+private journal, and emits one approval beginning
+`S20PLUS-G986N-FASTBOOT-BOOT-SUPPORT-F1-APPROVE:`. `--execute` accepts only
+that complete token. The binding includes the new run-directory digest, so an
+aborted run's token cannot authorize a fresh journal even when all device and
+artifact inputs are otherwise identical. Execute revalidates the same target
+and boot, then publishes a
+one-use entry intent before asking the operator to select Magisk's bootloader
+reboot. It accepts only the same-topology `18d1:d00d` `ff/42/03` endpoint and
+publishes a boot intent before exactly one command:
+
+`fastboot -s <bound-serial> boot <bound-resident-boot.img>`
+
+Before the durable entry intent, an interrupted or declined prepare owns no
+device effect. `--abort-pre-entry` validates the exact owned guard and bound
+run, accepts either an exact prepared journal or its pre-publication absence,
+requires the global consumed entry and all entry/boot/result nodes absent,
+publishes or resumes a zero-effect close receipt, and releases only that run's
+guard. It sends no device command. Once entry intent exists it is unavailable
+and only physical return plus the finalizer may close the run.
+
+The raw command streams are durable before classification. Only an exact
+return-code-zero `Booting OKAY` is `COMMAND_ACCEPTED`; an explicitly recognized
+remote unsupported reply is `UNSUPPORTED`; every other result is
+`UNCERTAIN`. No result permits replay. The lane sends no other fastboot
+command. A valid boot intent consumes one RAM payload-transfer attempt even if
+the later command result is missing; partition and persistent writes remain
+zero.
+
+After acceptance the operator waits for Android. If the phone remains in
+fastboot or the transient boot fails, the recovery path is physical `START` or
+a power cycle into the unchanged persistent resident boot. `--finalize` sends
+no fastboot command, requires the fastboot endpoint absent and a fresh same-
+target healthy Android boot, publishes supported/unsupported/`NO_PROOF`, and
+only then releases the guard. Accepted command output proves only that
+`fastboot boot` is implemented; it does not prove candidate execution, native
+PID1, or authority for the already consumed P0 image, a new image, a second
+attempt, flash, erase, unlock, or any persistent mutation. Before any final
+USB/ADB health read, the finalizer revalidates the exact census, raw-capture,
+D0 inventory, and routine-health runtime sources bound by preparation. A
+complete terminal may be re-emitted and its own leftover guard released with
+zero device contact. Any boot intent/result additionally requires the exact
+prior fastboot-entry observation; a valid entry without a boot intent may
+close only as `NO_PROOF` after healthy return.
+
+## S20+ Retained-T2 Volatile Fastbootd Census
+
+Status: **TWRP FASTBOOTD CENSUS CONSUMED - NO_PROOF RETURNED HEALTHY - TERMINAL OWNER ONLY**
+
+This is the only repaired successor to the corrected classic-fastboot report's
+fastbootd question. It applies only to the already retained exact TWRP T2 on
+the operator-owned `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`. The exact T2 root USB
+profile is deliberately ADB-only: it creates no fastboot FunctionFS route,
+never starts fastbootd, and redirects a `fastboot` property request to ADB.
+Therefore this is a combined attended D1 volatile-control and D0 read-only
+census, not an as-is read-only TWRP feature.
+
+The FunctionFS-mount-repaired terminal owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_fastbootd_census.py`,
+60,738 bytes at SHA-256
+`9e89e9fd56630d571270faa2ee9410049c4fb8b5bd9ae8800f9a9bf840ac6225`,
+with activation-normalized SHA-256
+`7ea137f132f00f6fa208b647b9374d0e844560f0010174b6445d0a9d48bdd7be`.
+`LIVE_ACTIVE=true` only for strict consumed-state refusal and terminal
+re-emission. Its 33,031-byte focused test SHA-256 is
+`f4ebe28f3114c18fa3aa8c3cd1dd4e0c652c0678a06434ebe08607b436a3036d`.
+The runner exact-binds the active TWRP boot-identity D0, T2 profile, completed
+T2 retained predecessor, classic census helper, common raw-capture module,
+S20+ inventory/health parsers, and official Google Platform-Tools fastboot.
+
+The sole invocation is consumed. No new connected invocation or enable attempt
+is authorized. The owner remains active only to validate/re-emit the exact
+terminal with zero device contact.
+For this section only, the already proved retained-T2 predecessor selects its
+sole row in ADB state `recovery` rather than the normal-Android `device` state;
+this grants no recovery ADB command outside the fixed profile below.
+It rederives the 43-node retained T2 journal and terminal SHA-256
+`da24acd3b33c78f4ed41565858e5314bb2c3a1acaf020ac06fb83fd99ab84d05`,
+selects only its hashed serial/topology in ADB state `recovery`, and rechecks
+root UID, TWRP `3.7.1_12-AstroForge_v2`, exact incremental/security fields,
+`mtp,adb`, running adbd, current boot ID, and the T2 marker. A fixed read-only
+preflight requires the existing stopped fastbootd service, direct existing
+`/dev/usb-ffs/fastboot` directory with no mount of any type, absent configfs
+`ffs.fastboot`, active sole `ffs.adb`, controller
+`a600000.dwc3`, and current `04e8:6860` recovery gadget. The read-only snapshot
+prints the actual UDC, function/link/mount states, and four configfs USB values
+before host-side exact comparison, so a mismatch is diagnosable without an
+effect intent. Host USB descriptor `0419` is not treated as proof of the
+configfs `bcdDevice` file; `0100` is written only after detaching for fastboot.
+
+After one durable no-replay enable intent, one fixed no-input root-ADB script
+requires the direct existing `/dev/usb-ffs/fastboot` directory and absent
+fastboot FunctionFS mount, mounts exactly one `functionfs` instance named
+`fastboot` there with fixed `rmode=0770,fmode=0660,uid=1000,gid=1000`, creates
+only the absent volatile configfs `ffs.fastboot` function, starts the already
+defined fastbootd service, and waits for endpoints. It then detaches only the current recovery gadget,
+leaves the adbd process untouched, replaces the validated volatile configfs
+`f1` symlink from `ffs.adb` to `ffs.fastboot`, writes exact `18d1:4ee0`,
+`bcdDevice=0100` gadget identity and the `fastboot` configuration string, and
+rebinds the same controller. Its exact
+2,044-byte preflight, 2,201-byte inner control, and 2,969-byte launch strings
+have SHA-256 values
+`ce11dd0302c3bad95d5a1be5729e65e9805259cfdeb9b09fa3c64825895418f7`,
+`5aad2d2b57b20466a687cc9e5214ec45f386f65bf094ff5388f6ae77348efc23`,
+and `48a554854395191f53d505a27498c56094d61d1b81bee29cf7330206f6abbf90`.
+The effect touches only the fixed volatile FunctionFS mount,
+recovery-boot service/configfs, and `/tmp` state. It opens no block device and changes no persistent file or persistent
+property, package, module, partition, boot image, or recovery image; its fixed
+`ctl.start fastbootd` write is a volatile service control. The unlinked adbd
+process is left untouched until physical reboot. A disconnect or
+uncertain result never replays the enable; attended physical System reboot is
+the fixed recovery path.
+
+A guard-only or prepared-only host-reporting cut before enable intent may use
+only `--abort-pre-effect`. It validates that every enable/entry/query/probe
+node and the global consumed marker are absent, publishes a zero-device-effect
+abort, and releases only its own guard. After enable intent it is unavailable;
+the finalizer validates the complete intent/result prefix, allocates a fresh raw
+capture namespace for every return attempt, and never turns malformed evidence
+into PASS or `NO_PROOF`. Direct-entry existence checks include broken symlinks;
+enable/query/probe/abort receipts use exact schemas and rederived raw-result
+hashes, and an abort receipt/guard-release cut resumes without rewriting it.
+
+Only the same raw serial and physical topology may enumerate as one
+`18d1:4ee0`, `bcdDevice=0100`, `ff/42/03` bulk fastboot endpoint. The pinned tool then sends
+exactly `getvar is-userspace`, `getvar product`,
+`getvar version-bootloader`, and `getvar max-download-size`, once each and in
+that order. The first must return `yes` before any later request. `getvar all`,
+download, boot, flash, erase, set-active, reboot, continue, fetch, OEM,
+logical-partition, lock/unlock, caller-selected variables, and every other
+fastboot request are absent. Raw streams are durable before parsing and
+structured output retains only hashed private identities.
+
+Success remains return-pending until TWRP UI or physical keys reboot System and
+fresh exact healthy Android appears with the same serial/topology, a different
+boot ID, stable foreign-device inventory, and zero commands to S22+, A90, or
+other targets. Failure after enable intent has the same physical return and
+cannot replay. The one-use consumed marker survives either outcome. A PASS
+proves only that this T2 boot exposed userspace fastbootd and answered the four
+reads; it grants no PID1, transient boot, fastboot mutation, partition, or
+future invocation authority.
+
+The consumed invocation durably armed one volatile enable attempt but observed
+no exact fastbootd entry and created zero getvar intents. The operator returned
+through TWRP System to a fresh exact healthy Android boot. Its 1,456-byte final
+result has SHA-256
+`8979538332be37879700b2f455e77eb9e12c1ed4ccc3efbdb5d7d49bde90b0a4`
+and verdict `NO_PROOF_S20PLUS_G986N_TWRP_FASTBOOTD_RETURNED_HEALTHY`.
+It records zero persistent writes, partition operations, fastboot mutation
+commands, and other-target commands. Replay is false, the consumed marker is
+retained, and the shared guard is absent.
+
+Any activation requires independent review of the common fastboot exception,
+this section, exact runner/scripts/tests/dependencies, T2 predecessor,
+volatile recovery path, raw-first behavior, and physical return. Mechanical
+activation may then change only the runner boolean, its exact full identity,
+this status/top-level status, the S20+ registry cell, focused activation
+assertions, and current GOAL wording. Until both reviews close, every connected
+mode stops before ADB, USB, fastboot, service, configfs, or device contact.
+
+## S20+ Retained-T2 Staged Fastbootd Preparation Probe
+
+Status: **CONSUMED - NO_PROOF RETURNED HEALTHY - TERMINAL OWNER ONLY**
+
+This is a distinct one-use successor to the consumed fastbootd census above.
+It does not retry that enable or attempt a USB role switch. Its sole question
+is whether exact retained T2 can synchronously reach four preparation stages
+while the existing ADB gadget remains attached: `functionfs-mounted`,
+`configfs-function-created`, `service-running`, and `endpoints-ready`.
+
+The terminal owner runner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_fastbootd_prep_probe.py`,
+41,056 bytes at SHA-256
+`60b3e72996c87eb884ade79112301a541d5af400bbed102dd1e7a46fd71703c4`,
+with activation-normalized SHA-256
+`8c52caa352779509d17e675fd544089e4e3b6ccb22cde1a6aab878e39a225b26`.
+`LIVE_ACTIVE=true` only for consumed-state refusal and terminal re-emission.
+Its 12,815-byte focused test SHA-256 is
+`b2e93d7c5070cbaf01e71f94d00823972041476b5bd6c0b4557ad1e5929389dc`.
+The fixed 1,978-byte preparation script SHA-256 is
+`11d05212679b5b2c488688393a3cc1ba7773b66e27e9821b212ff3c07c710b9a`;
+the 987-byte post-state script SHA-256 is
+`34e74bf7cbfb5185d60d28b265397873a81b41407ab44ddec49d64c5dc8e9481`.
+
+Preparation exact-binds the consumed predecessor's 1,456-byte healthy-return
+terminal SHA-256
+`8979538332be37879700b2f455e77eb9e12c1ed4ccc3efbdb5d7d49bde90b0a4`
+and 534-byte consumed marker SHA-256
+`df486135a3619871e76b891a4b4a0f8f90d1693d0b43a9cc4629c52c3f947153`,
+then rederives its strict journal with zero device contact. It requires the
+shared guard absent, the exact retained-T2 predecessor, current recovery boot,
+ADB identity, topology, fixed thirteen-field preflight, source closure, and
+one new private no-replace journal before its effect intent.
+
+After one durable no-replay intent, the selected root-ADB command synchronously
+mounts exactly the fixed volatile FunctionFS instance, creates only the absent
+volatile configfs `ffs.fastboot` function, starts only the existing fastbootd
+service, and waits at most ten seconds each for the service and `ep0/ep1/ep2`.
+It prints one ordered stage line only after each stage completes. A second
+fixed read verifies the mount, function, service, endpoints, unchanged ADB
+`f1`, absent `f2`, same UDC, `mtp,adb`, and running adbd. The same recovery boot,
+topology, identity, and foreign-device inventory must remain unchanged.
+
+The probe never detaches or writes UDC, changes VID/PID/device strings, links
+the fastboot function into the gadget, sends any fastboot command, or accesses
+a block device. USB role switches, fastboot requests, persistent writes,
+partition operations, and commands to S22+, A90, or another target are exactly
+zero. Success or any post-intent failure remains return-pending until attended
+TWRP System reboot and fresh exact healthy Android. The one-use marker survives;
+uncertainty never replays, while a complete terminal may only be re-emitted.
+
+Independent dormant review returned `PASS_GO` with zero critical, major, or
+minor findings for this section, exact runner/scripts, predecessor binding,
+raw-capture rederivation, hostile cut/guard/final tests, physical return, and
+the higher permanent FunctionFS exception. Mechanical activation changes only
+the reviewed boolean, full runner/test identities, and declared status. Each
+live invocation still requires a fresh direct attended request in retained T2.
+Activation-only independent review returned `PASS_GO` with zero findings and
+zero reviewer device contacts or writes.
+
+The sole invocation consumed its intent, then the exact shell `mount` returned
+zero with 70 stdout bytes containing an `ENOENT` diagnostic before any declared
+stage line. Classification was therefore `invalid-output`; no post-state read,
+USB switch, or fastboot command followed. Physical TWRP System return produced
+fresh exact healthy Android and terminal
+`NO_PROOF_S20PLUS_G986N_TWRP_FASTBOOTD_PREP_RETURNED_HEALTHY`. The 1,275-byte
+terminal SHA-256 is
+`ea9a201bf1bd9a093c70a3791ebf4fb1b1b4f489788bfe2660ee2c1d5372221d`;
+the 657-byte consumed marker SHA-256 is
+`b0349cb99202bb5997f196fc74db7656bf25342f068e5b955339807c0847a4c0`.
+Replay remains false and USB role switches, fastboot commands, persistent
+writes, partition operations, and other-target commands remain zero.
+
+## S20+ Retained-T2 Corrected-Order Fastbootd Preparation Q1
+
+Status: **TWRP FASTBOOTD PREP Q1 CONSUMED - PASS RETURNED HEALTHY - TERMINAL OWNER ONLY**
+
+Q1 is the sole proposed successor to the consumed first preparation probe. It
+does not alter that terminal or retry its intent. Exact T2 ramdisk inspection
+shows its own init creates `functions/ffs.fastboot` before mounting the named
+FunctionFS instance; the consumed probe used the inverse order and stopped at
+the mount with `ENOENT`. Q1 changes only those two ordered steps.
+
+The terminal owner runner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_fastbootd_prep_q1.py`,
+42,079 bytes at SHA-256
+`0f7d3c5ed460ce70ceb37aca0bc369f5ec7cb65d14695067f33c5f039a3fdc3f`,
+with activation-normalized SHA-256
+`53d297e007b2a7246a7a1c8cbecb743ec51d53ce5d64eb66789678a25e7a4bdd`.
+`LIVE_ACTIVE=true` only for consumed-state refusal and terminal re-emission.
+Its 12,985-byte focused test SHA-256 is
+`f0fe7f0e921e3238acf7793bf0ffb50c8b926a47f8c6881cdc92c236df82eccd`.
+The fixed 1,978-byte corrected preparation script SHA-256 is
+`02cea7562ec7f8b28beeec3086729322c91daff549cc7befc5320c8c86a24ffa`;
+the unchanged 987-byte post-state script SHA-256 is
+`34e74bf7cbfb5185d60d28b265397873a81b41407ab44ddec49d64c5dc8e9481`.
+
+Q1 exact-binds and host-rederives the consumed predecessor's terminal and
+marker above, its 688-byte command result at SHA-256
+`50042ef670fd700d907773eee4f046039cdb693f1127d9878049a2909d97903e`,
+and the raw return-code-zero 70-byte `ENOENT` stdout at SHA-256
+`6dd9ce2743aaca177c1194e88b0ec4e88493c72f0d59ab1496163855b926ae3a`.
+It requires the shared guard absent and repeats the same retained-T2 recovery,
+identity, topology, preflight, source, raw-first, journal, uncertainty, and
+physical-return gates.
+
+After one new durable no-replay intent, Q1 creates only the absent volatile
+configfs `ffs.fastboot` function and verifies it, mounts only the named
+FunctionFS instance with the same fixed options, starts only the existing
+fastbootd service, and waits for `ep0/ep1/ep2`. It emits the four stage lines in
+the corrected order: `configfs-function-created`, `functionfs-mounted`,
+`service-running`, `endpoints-ready`. A fixed post-read retains ADB and verifies
+the same state. It never detaches or writes UDC, changes USB identity, links the
+fastboot function, sends a fastboot command, accesses a block device, or writes
+persistent state. Any post-intent outcome requires physical TWRP System return
+and fresh exact Android health; uncertainty never replays.
+
+Independent review covered the exact predecessor incident, corrected ordering,
+common-boundary wording, runner, scripts, tests, source closure, raw ordinals,
+no-replay journal, and physical return and returned `PASS_GO` with zero
+findings after one raw-evidence publication defect was removed. Mechanical
+activation rotated only the boolean, exact full runner/test identities,
+status/registry/goal assertions, and report. Each live invocation still
+requires a fresh direct attended request in retained T2.
+Activation-only independent review returned `PASS_GO` with zero findings and
+zero reviewer device contacts or writes.
+
+The sole Q1 invocation proved all four ordered stages, retained ADB, and
+returned through attended TWRP System to fresh exact healthy Android. Its
+1,552-byte probe result SHA-256 is
+`89b1bc15c3705e5f0f8c59184b1d50afbb347cfc49f8299f9f1b87510fad8462`;
+its 1,273-byte terminal SHA-256 is
+`afdabd50be11120dafb73793c08bbb8b78e69a108a029c13134f6825ba53cc53`
+with verdict `PASS_S20PLUS_G986N_TWRP_FASTBOOTD_PREP_Q1_RETURNED_HEALTHY`.
+The 654-byte consumed marker SHA-256 is
+`360bffd3918aa5b693eef723e130009ff6199cbf3ac95add80e40d5990b68b9c`.
+Replay is false; USB role switches, fastboot commands, persistent writes,
+partition operations, and other-target commands are zero. Q1 grants no later
+preparation invocation or gadget switch.
+
+## S20+ Retained-T2 Fastbootd Census Q2
+
+Status: **TWRP FASTBOOTD CENSUS Q2 CONSUMED - NO_PROOF RETURNED HEALTHY - TERMINAL OWNER ONLY**
+
+Q2 was the sole reviewed successor permitted to use Q1's proved preparation to test
+the host-visible userspace fastboot transport. It does not replay the consumed
+census, first preparation probe, or Q1. The terminal owner runner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_twrp_fastbootd_census_q2.py`,
+63,723 bytes at SHA-256
+`6fa7e0fd0f03406b691b36287654178bf6ebcad1daaea8bc19ef13c958767a86`,
+with activation-normalized SHA-256
+`00d8853eb8d43a24424dffff5e5b5edbb9326c6cfad03b5e348a3996397ef328`.
+`LIVE_ACTIVE=true` only for consumed-state refusal and terminal re-emission.
+Its 34,011-byte focused test SHA-256 is
+`00ef3c067db164ef6cb72501051bff8956f45ff9876e4411570e783bcdc035d2`.
+
+Q2 exact-binds and host-rederives Q1's 1,273-byte final result SHA-256
+`afdabd50be11120dafb73793c08bbb8b78e69a108a029c13134f6825ba53cc53`,
+654-byte consumed marker SHA-256
+`360bffd3918aa5b693eef723e130009ff6199cbf3ac95add80e40d5990b68b9c`,
+and 42,079-byte terminal-owner runner SHA-256
+`0f7d3c5ed460ce70ceb37aca0bc369f5ec7cb65d14695067f33c5f039a3fdc3f`.
+It rejects anything other than Q1 `PASS`, `prep_proved=true`, healthy Android
+return, no replay, and zero USB switches, fastboot commands, persistent writes,
+and partition operations. Current T2 recovery must retain Q1 serial/topology
+continuity, stable other-device inventory, and a boot distinct from Q1's
+returned Android boot.
+
+The fixed 2,044-byte preflight SHA-256 is
+`ce11dd0302c3bad95d5a1be5729e65e9805259cfdeb9b09fa3c64825895418f7`.
+After a new durable one-use intent, the 2,244-byte inner control script SHA-256
+`963ddd660fbe26e383df3150cae1338958e4cf8da02980b963ae140856ab76e3`
+creates and verifies only `ffs.fastboot`, mounts only the fixed FunctionFS
+instance, starts the existing service, waits for its endpoints, then detaches
+the current recovery gadget, replaces only `f1` with the fastboot function,
+sets the fixed `18d1:4ee0` identity, and rebinds the same controller. Its
+3,015-byte fixed launch script SHA-256 is
+`a1ff270dcda78d08df4ef8b547b0d62067e7055ea4482d1c0c09120a7cf022ef`.
+
+Only the sole same-topology `18d1:4ee0`, `ff/42/03` bulk endpoint with exact
+serial continuity is accepted. The pinned official Google fastboot tool may
+then send exactly, once and in order, `getvar is-userspace`, `getvar product`,
+`getvar version-bootloader`, and `getvar max-download-size`. The first must
+return `yes`; unsupported later variables remain evidence. `getvar all`, every
+download/payload, boot, flash, erase, reboot, continue, fetch, OEM,
+logical-partition, set-active, lock/unlock, and caller-selected request are
+forbidden. Raw streams precede parsing and remain private.
+
+Success or any post-intent uncertainty is one-shot and requires attended TWRP
+or physical-key System return followed by fresh exact healthy Android. Q2
+records zero persistent writes, partition operations, mutation commands, and
+commands to S22+, A90, or another target. It proves only userspace fastbootd
+transport and the four fixed reads; it grants no PID1 claim or later fastboot
+authority.
+
+Independent review covered the new common-boundary delegation, Q1 predecessor,
+corrected control order, exact runner/scripts, raw-first acquisition, endpoint
+binding, query grammar, one-shot journal, physical return, tests, and
+cross-target isolation and returned `PASS_GO` with zero findings. Mechanical
+activation rotated only its boolean, full runner/test identities, and declared
+registry/contract/report/goal status. Each live invocation still requires a
+fresh direct attended request in retained T2.
+Activation-only independent review returned `PASS_GO` with zero findings and
+zero reviewer device contacts or writes.
+
+The sole Q2 invocation durably armed one enable attempt, then observed no
+matching fastbootd USB endpoint during the fixed 30-second window. Its failure
+hash exactly identifies the fixed endpoint-arrival timeout, not an observed
+foreign or malformed fastboot interface. No entry receipt or getvar intent was
+created. Attended TWRP System return reached fresh exact healthy Android. The
+1,465-byte terminal SHA-256 is
+`e39a663e7eace189f6fdd1e9853efec3d7b6a0a1e68d3ace91a51fd561df5ac8`
+with verdict `NO_PROOF_S20PLUS_G986N_TWRP_FASTBOOTD_Q2_RETURNED_HEALTHY`;
+the 543-byte consumed marker SHA-256 is
+`b8d620431c0b29c74abf8643776227a65b01a52748dabe5b3ba19a97199e2795`.
+Replay is false; query intents, fastboot commands, persistent writes, partition
+operations, mutation commands, and other-target commands are zero. Q2 grants
+no later switch or query invocation.
+
+## S20+ Routine Connected Action Extensions
+
 ### Download-mode normal return
 
 Status: **BINDING - ATTENDED PAYLOAD-FREE DOWNLOAD RETURN ACTIVE**
@@ -523,11 +1001,12 @@ remain undefined.
   retain only the target's public properties, CSC resolution, command counts,
   zero-effect assertions, verdict, and private result SHA-256.
 
-## Arbitrary F1 and non-routine D1 are not defined
+## Arbitrary F1 and unlisted D1 are not defined
 
-The binding section above defines six exact D1 setup/control actions and one
-exact D0 patched-AP retrieval. It does not activate or imply arbitrary D0 or
-D1. Except for the exact bootstrap F1, resident F1, boot recovery-canary B0 F1,
+The binding sections above define six exact routine D1 setup/control actions,
+one exact one-use census D1, and one exact D0 patched-AP retrieval. They do not
+activate or imply arbitrary D0 or D1. Except for the exact fastboot-boot
+support probe, bootstrap F1, resident F1, boot recovery-canary B0 F1,
 and the single recovery-canary T0 F2 section immediately below, this contract
 defines no S20+ F1/F2, arbitrary flash, non-boot partition recovery, or
 rollback capability. Any such work requires a
@@ -1476,6 +1955,50 @@ other-target commands are zero, and the shared guard is absent. This closes
 the run without proving or disproving native PID1. Its activation records were
 retired after terminal publication; the consumed candidate grants no further
 P0 action.
+
+At the V3 H0 review snapshot, the distinct successor was H0-only and did not
+reuse V2. Journal reconstruction proved the V2 `ProcessCageError` was caused by
+host ordering:
+the post-claim endpoint census reconciled the candidate cage before
+`candidate-intent.json` existed, so the transfer path later referenced an
+already-removed cage. The corrected owner performs that census first and then
+allocates a second journaled candidate cage generation for the eventual
+intent/backend. The global no-replay claim still precedes candidate intent,
+and candidate intent still precedes every possible Odin effect.
+
+V3 retains the exact 52-byte direct-PID1 ACM contract with first syscall
+`getpid == 1` and no persistent/block/reboot path. Its one-member boot AP is
+25,733,161 bytes at SHA-256
+`90a25e4a946e24a469380735aff5cdf250d2b107696353839a9030870e72b67b`;
+the member SHA-256 is
+`17cf78f5ceef3ef1a69bc829190fb2e99ff47a692702faf4a82239e8aa9fefae`,
+and decoded boot SHA-256 is
+`dd4f1d0347983ac35f7d2692ff6fc4ad89ccc1a895b948bf7c330c736f6af073`.
+The fixed resident-Magisk rollback is unchanged.
+
+The registry's activation identity now accepts only a synchronized `st_dev`
+renumber of both writer/session locks while inode, size, mode, link count,
+fixed payloads, namespace, and the complete append-only chain remain exact.
+Asymmetric device drift or any stable-field change remains a hard stop. The
+H0-reviewed unit passes 74/74 focused owner, 9/9 registry, and 179/179 wider tests
+with ten historical TWRP skips; host closure is
+`8473934c17a84a4aa827c13145ab56db692d01a0d76090780cdcaad9bc874797`.
+These H0 facts alone grant no live authority. The authoritative status and
+private activation records must show that independent review and mechanical
+activation closed, and every run still requires fresh prepare, returned
+approval, and attendance.
+
+The attended V3 run completed its one boot-only candidate transfer and proved
+candidate process quiescence, but the exact ACM banner did not appear within
+the bounded 180-second observation. The result is `NO_PROOF`, not a PID1
+disproof. The operator then entered physical Download once and the fixed
+resident-Magisk boot rollback completed. Final health is exact healthy rooted
+resident Android; the terminal is `NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY` at
+SHA-256 `3e306e703a68017850b206221454c5d311fe7cc88daad62b6fb8f19b5d2f6193`.
+Candidate/rollback attempts are 1/1, both replay permissions are false, all
+recovery-partition access and other-target command counts are zero, and the
+shared guard is absent. V3 is globally consumed, its activation records are
+retired, and this exact profile grants no further device action.
 
 A dormant-to-active transition is blocked until the exact owner, observer
 activation, focused and inherited B0 tests, this target section,
@@ -2672,3 +3195,70 @@ SHA-256 is
 The activation adds only the exact attended `exit-download` D1 action above;
 it creates no current run, approval, root, boot-image, recovery, partition, or
 F1 authority.
+
+Independent review of the attended classic-fastboot census boundary, exact
+runner, raw-first acquisition, guard and one-use journal, finalizer, tests, and
+registry transition returned `PASS_GO` with no unresolved finding on
+2026-09-02. The dormant runner was 34,571 bytes with SHA-256
+`39f9362edcff06a7b6ac8f5df1290921b250ca9bb441f28903f6b3107632652f`;
+the mechanically activated runner is 34,570 bytes with SHA-256
+`8511556d3fbefc83cd959d05b782b5ce1989c4d1987fca7081c00172c563b5db`.
+Activation changed only the live boolean, named status/registry text, and their
+test assertions. It grants one attended transition and the four fixed read-only
+`getvar` requests above, no payload or mutation command, and no S22+ or A90
+authority.
+
+Ordinal 1 then ended `NO_PROOF` after zero fastboot entry observations, zero
+query intents, and zero fastboot commands. Its healthy-return terminal is 1,511
+bytes with SHA-256
+`80d075c54a65c75f0a820eb3147dbc872c9640be68b4eaf343531fd87e139f8d`;
+the shared guard is absent and the original consumed entry remains immutable.
+Independent review of replacement ordinal 2's exact predecessor gate, runner,
+contract, tests, and registry transition returned `PASS_GO` with no unresolved
+finding on 2026-09-03. The dormant runner was 38,588 bytes with SHA-256
+`aae93d907433867a95ca25e13518c39a1d666343cf33d67f6bc7da3457396f42`;
+the mechanically activated runner is 38,587 bytes with SHA-256
+`80ab93f7e2091a5db0cedfd8d46fb2df9afaf36ceab9ca70bca6b762f535d39e`.
+Activation changes no command, endpoint, query, guard, or finalizer behavior.
+
+Ordinal 2 subsequently observed the exact classic-fastboot endpoint, completed
+all four fixed `getvar` requests, and returned through physical `START` to a
+fresh same-target healthy Android boot. Its probe result is 3,907 bytes with
+SHA-256
+`1369b7a29b2ba7c5589be0cee89a1f09a865c344d0a6dce9c99967f5e2177ba8`;
+its terminal result is 1,538 bytes with SHA-256
+`d9a0d858ee8030274f91deba3fbb2a5bedc667b93732dc43cafa451fb5a6184a`.
+The shared guard is absent, ordinal 2 remains consumed, and no third census
+authority exists. The separately reviewed one-use `fastboot boot` authority is
+defined only by its section above.
+
+Independent review of the exact dormant fastboot-boot support runner, fixed
+resident rollback image, raw-first acquisition, unique approval, one-use
+journal, physical recovery, finalizer, hostile tests, and higher-precedence
+boundaries returned `PASS_GO` with no unresolved finding on 2026-09-03. The
+dormant runner was 45,133 bytes with SHA-256
+`1b46c561cb0742d3b97ac0086588ae8e0d39d32aa96e2831e43735fa0cf7bdb1`;
+the mechanically activated runner is 45,132 bytes with SHA-256
+`e675b9941b45f663aa1512a5cfbbfd815f1883101b7b1f79d83d94ac9fdf0f76`.
+Activation changed only the live boolean, named status/registry/goal/report
+text, and their test assertions. It grants one attended RAM payload-transfer
+attempt with the fixed known-good boot image, no partition write, no second
+attempt, and no S22+ or A90 authority.
+
+The sole attended invocation observed the exact classic-fastboot endpoint and
+published its boot intent before one command. The command returned 1 with
+private raw output containing `Sending 'boot.img' ... FAILED (remote: 'unknown
+command')` followed by `fastboot: error: Command failed`. Because the reviewed
+classifier recognized only its fixed `Booting ... FAILED` unsupported grammar,
+it conservatively recorded `UNCERTAIN`; this classification is preserved and
+the attempt is never replayed. The sole allowed invocation did not establish a
+usable standard `fastboot boot` path, and no retry is authorized.
+
+Physical `START` returned the unchanged persistent resident boot to fresh
+healthy Android. The 590-byte command result SHA-256 is
+`04e77076e7b54b5b88abf2a69911aa531d8ed48413d3522b7d629edf6e43f367`;
+the 1,426-byte terminal SHA-256 is
+`97d6af22b11dddba6e515d859c08525bab1549ea49d62970f64fdb6f116cf52e`
+with verdict `NO_PROOF_S20PLUS_G986N_FASTBOOT_BOOT_RETURNED_HEALTHY`. The
+shared guard is absent. The run records one RAM payload-transfer attempt, zero
+partition writes, and zero persistent mutation; it proves no native PID1.

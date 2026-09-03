@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "03a214c68f0f2725021796ee27155378afc81dcbe381a8a8aadcaab5fbca831e"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "8f14fee1eb0159d0b8f94c540c604a03e55e6f36679d1d2702c022ad8b1d7bc6"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -75,13 +75,13 @@ OBSERVER_PATH = ROOT / (
 OBSERVER_DORMANT_SIZE = 16_479
 OBSERVER_ACTIVE_SIZE = 16_478
 OBSERVER_DORMANT_SHA256 = (
-    "98406b1cb968943f0e9cf62cd698123ecd9aa7aa3b84660838b0ff2c89ad34ab"
+    "fea73e43a2cc640784046ac91e48dc5a9271855e8304c0458fba6e25909be538"
 )
 OBSERVER_ACTIVE_SHA256 = (
-    "d9304b7b6de1d366d7aea78bc44b785a1149b9d9096ad85c21be7d2d1a1d1ce3"
+    "560879d810e4ec167fd926e49eacfb7cd77f717139242f6fc7914e8cffb8b59b"
 )
 OBSERVER_NORMALIZED_SHA256 = (
-    "214e0296c5918d9f8e8512b1617a8f7cc059db739624688382a12ccf14d8e4b1"
+    "6d885920ee969ece916a651959c654d19e66e80b5357adaba57fce84850455a1"
 )
 OBSERVER_SHA256_BY_ACTIVE = {
     False: OBSERVER_DORMANT_SHA256,
@@ -98,21 +98,21 @@ BUILDER_PATH = ROOT / (
     "build_s20plus_g986n_p0_pid1_acm_h0.py"
 )
 BUILDER_SIZE = 23_173
-BUILDER_SHA256 = "de48f3c86812ac5debb007d8d601964670244a3c5def99438460aa83e13d5545"
+BUILDER_SHA256 = "3a4a7f450fc0d6ab8f079fd49922e739d3f02c27e1e155ec94d3b19229948276"
 INIT_SOURCE_PATH = (
     ROOT / "workspace/public/src/native-init/s20plus_p0_pid1_acm_init.c"
 )
 INIT_SOURCE_SIZE = 15_549
-INIT_SOURCE_SHA256 = "16c21037094529bbce6158658f892aaa6d24412708ceae7251af4f42c4450e51"
+INIT_SOURCE_SHA256 = "8b7a61dbc9f064b2d5eab86b4a2f194c3187106d480e4f25988e6cffdc1456c3"
 
-OUTPUT_ROOT = ROOT / "workspace/private/outputs/s20plus_g986n/p0_pid1_acm_v2"
+OUTPUT_ROOT = ROOT / "workspace/private/outputs/s20plus_g986n/p0_pid1_acm_v3"
 CANDIDATE_AP = OUTPUT_ROOT / "AP.tar.md5"
 CANDIDATE_AP_SIZE = 25_733_161
-CANDIDATE_AP_SHA256 = "58479a25ae2550366d38be4fae6727eafaadcdb98567de4a00c3a1cf5c0015db"
+CANDIDATE_AP_SHA256 = "90a25e4a946e24a469380735aff5cdf250d2b107696353839a9030870e72b67b"
 CANDIDATE_MEMBER_SIZE = 25_722_068
-CANDIDATE_MEMBER_SHA256 = "c02c1ce1c963942d96de500d6caa89118424c36d211ab9aa788a85db0859c2ee"
+CANDIDATE_MEMBER_SHA256 = "17cf78f5ceef3ef1a69bc829190fb2e99ff47a692702faf4a82239e8aa9fefae"
 CANDIDATE_BOOT_SIZE = 67_108_864
-CANDIDATE_BOOT_SHA256 = "5c967babf96b8b625c4afe3edbbd473cf55042e252dacf57def8c3809fc697ff"
+CANDIDATE_BOOT_SHA256 = "dd4f1d0347983ac35f7d2692ff6fc4ad89ccc1a895b948bf7c330c736f6af073"
 
 ROLLBACK_ROOT = (
     ROOT
@@ -128,7 +128,7 @@ ROLLBACK_BOOT_SHA256 = "d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707
 
 MANIFEST = OUTPUT_ROOT / "manifest.json"
 MANIFEST_SIZE = 14_574
-MANIFEST_SHA256 = "75052fd00dd8c1b79aeec85b6dd4599bc81ccec9c0d684cfba7d6ba16b00d916"
+MANIFEST_SHA256 = "71d2b683c62066ffcdc69c2d62d4c99e3635ebc8358ed5d10927b262a59bd2b5"
 
 APPROVAL_PREFIX = "S20PLUS-G986N-P0-PID1-ODIN-F1-APPROVE:"
 PHYSICAL_CONFIRM_PREFIX = "S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-CONFIRM:"
@@ -212,8 +212,8 @@ HEX64_RE = re.compile(r"[0-9a-f]{64}")
 REGISTRY_PATH = ROOT / (
     "workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py"
 )
-REGISTRY_SIZE = 53_811
-REGISTRY_SHA256 = "0a112d7dd2633d3465137cdb67ed4539949a3c0c0ec90b178a3ec293735dbdc4"
+REGISTRY_SIZE = 54_571
+REGISTRY_SHA256 = "c87b7d81c343221742f3577735c09d9da5ffbff44d1ad1d1683b2d81061f0a8b"
 REGISTRY_ACTIVATION = (
     ROOT / "workspace/private/consumed-candidate-registry-v1/activation.json"
 )
@@ -263,7 +263,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
             "tests.test_s20plus_g986n_p0_twrp_boot_owner_h0",
             "tests.test_device_action_f1_consumed_candidate_registry_v1",
         ],
-        "tests": 178,
+        "tests": 179,
         "skipped": 10,
         "log_name": "wider.log",
     },
@@ -286,6 +286,12 @@ P0_REGISTRY_CONTRACT_CELL = (
 )
 P0_DORMANT_REGISTRY_PROCESS_CELL = (
     "Active exact-target routine D0/D1 including payload-free Download return; "
+    "classic-fastboot census ordinals 1/2 consumed, with ordinal 2 four-query "
+    "PASS and healthy return; fastboot-boot support F1 consumed with NO_PROOF "
+    "healthy return; retained-T2 TWRP-fastbootd census consumed and first staged "
+    "preparation probe consumed with NO_PROOF healthy return; staged fastbootd "
+    "preparation Q1 consumed with PASS healthy return; TWRP-fastbootd census Q2 "
+    "consumed with NO_PROOF healthy return; "
     "attended fixed root-health D0 active; attended boot-only bootstrap, resident "
     "Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 "
     "candidates consumed; TWRP T2 recovery retained and candidate consumed; "
@@ -595,7 +601,6 @@ registry = _load_exact_module(
     REGISTRY_SIZE,
     REGISTRY_SHA256,
 )
-
 
 def _deny_registry_initialization(*_args, **_kwargs):
     raise P0F1Error("P0 may not initialize or recreate the global registry")
@@ -2358,14 +2363,14 @@ def _strict_manifest() -> dict[str, Any]:
         },
         "s20plus_p0_pid1_init": {
             "size": 3_584,
-            "sha256": "2a1e7b4a1c485058c790efca6dcc4fd3df1785496795c5fda299a026f77d40ee",
+            "sha256": "48e45cb8b713e0cf458f9996b60e73b357c1e0e7f589c130aa5d5702bd139242",
         },
     }
     observer_contract = value.get("observer_contract", {}) if isinstance(value, dict) else {}
     safety = value.get("safety", {}) if isinstance(value, dict) else {}
     if (
         type(value) is not dict
-        or value.get("schema") != "s20plus_g986n_p0_pid1_acm_build_v2"
+        or value.get("schema") != "s20plus_g986n_p0_pid1_acm_build_v3"
         or value.get("target") != engine.TARGET
         or value.get("tier") != "H0"
         or value.get("live_authority") is not False
@@ -2456,7 +2461,7 @@ def _registry_identity(run_id: str, binding_sha256: str) -> dict[str, Any]:
         "target": dict(engine.TARGET),
     }
     manifest = {
-        "manifest_id": "s20plus-g986n-p0-pid1-acm-v2",
+        "manifest_id": "s20plus-g986n-p0-pid1-acm-v3",
         "run_id": run_id,
         "allowed_member": "boot.img.lz4",
         "candidate_ap": {
@@ -5060,10 +5065,18 @@ def _make_candidate_preflight_pair(original):
             run_dir, binding_sha256, endpoint
         )
         current = value["current_endpoint"]
+        # The endpoint recheck below runs the caged Odin listing.  Its
+        # post-listing reconciler correctly consumes the pre-claim candidate
+        # cage because no candidate intent exists yet.  Allocate the cage
+        # used by the actual transfer only after that recheck; otherwise the
+        # reconciler removes it before execute_odin_exact can enter it.
         live = engine.identify_download()
         if not engine.same_download_session(live, current):
             raise P0F1Error("P0 candidate endpoint changed after preclaim closure")
-        return live, value["process_cage"]
+        _cage, dispatch_cage = _prepare_p0_process_cage(
+            run_dir, "candidate", binding_sha256
+        )
+        return live, dispatch_cage
 
     stage.__name__ = "p0_stage_candidate_transfer_preflight"
     replacement.__name__ = "p0_preflight_odin_dispatch"
