@@ -330,6 +330,22 @@ class P336CommonIntegrationTests(unittest.TestCase):
         self.assertTrue(projection["acm_required_for_acceptance"])
         self.assertFalse(projection["acm_supplemental"])
 
+    def test_p336_e2_payload_dispatch_precedes_p335(self) -> None:
+        closure = {
+            "source_contract_id": evidence.p336_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": evidence.P336_STOCK_OVERLAY_CONTRACT_ID,
+        }
+        expected = {"p336": True}
+        with (
+            mock.patch.object(
+                evidence, "_validate_p336_e2_ap_payload", return_value=expected
+            ) as p336,
+            mock.patch.object(evidence, "_validate_p335_e2_ap_payload") as p335,
+        ):
+            self.assertEqual(evidence.validate_e2_ap_payload(b"fixture", closure), expected)
+        p336.assert_called_once_with(b"fixture", closure)
+        p335.assert_not_called()
+
     def test_p336_backend_dispatch_precedes_p335_and_generic_fallback(self) -> None:
         role = evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE
         manifest = {

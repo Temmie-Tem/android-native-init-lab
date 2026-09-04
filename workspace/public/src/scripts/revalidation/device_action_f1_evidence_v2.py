@@ -5604,6 +5604,8 @@ def validate_e2_ap_payload(
         if isinstance(closure, dict)
         else None
     )
+    if userspace_overlay_contract_id == P336_STOCK_OVERLAY_CONTRACT_ID:
+        return _validate_p336_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P335_STOCK_OVERLAY_CONTRACT_ID:
         return _validate_p335_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P334_STOCK_OVERLAY_CONTRACT_ID:
