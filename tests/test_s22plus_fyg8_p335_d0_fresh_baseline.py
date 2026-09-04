@@ -24,6 +24,21 @@ def load_module():
     return module
 
 
+def path_snapshot(path: Path):
+    try:
+        current = path.lstat()
+    except FileNotFoundError:
+        return None
+    return (
+        current.st_mode,
+        current.st_ino,
+        current.st_size,
+        current.st_mtime_ns,
+        current.st_ctime_ns,
+        path.read_bytes(),
+    )
+
+
 class P335D0FreshBaselineTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -94,10 +109,11 @@ class P335D0FreshBaselineTest(unittest.TestCase):
         self.assertNotIn("s22plus_fyg8_p320_d0_bound_for_p335", sys.modules)
         for name in ("s22plus_fyg8_p320_d0_fresh_baseline", "p320_stock_adapter_bound"):
             self.assertIs(sys.modules.get(name), before.get(name))
+        arm_before = path_snapshot(self.module.RUN_ARM)
         with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("device/process call")):
             with self.assertRaises(self.module.D0Error):
                 self.module.run_live("not-the-bound-approval")
-        self.assertFalse(self.module.RUN_ARM.exists())
+        self.assertEqual(path_snapshot(self.module.RUN_ARM), arm_before)
 
     def test_binding_comparison_rejects_boolean_integer_substitution(self):
         left = {"bounds": {"observer_read_count": 1}}

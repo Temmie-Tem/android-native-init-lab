@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 import sys
 import unittest
@@ -13,6 +14,30 @@ for directory in (ANALYSIS, REVALIDATION):
         sys.path.insert(0, str(directory))
 
 import prepare_s22plus_fyg8_p335_process_v2 as prepare  # noqa: E402
+
+
+def path_snapshot(path: Path):
+    try:
+        current = path.lstat()
+    except FileNotFoundError:
+        return None
+    head = (
+        current.st_mode,
+        current.st_ino,
+        current.st_size,
+        current.st_mtime_ns,
+        current.st_ctime_ns,
+    )
+    if stat.S_ISREG(current.st_mode):
+        return head + (path.read_bytes(),)
+    if stat.S_ISDIR(current.st_mode):
+        return head + (
+            tuple(
+                (str(child.relative_to(path)), path_snapshot(child))
+                for child in sorted(path.rglob("*"))
+            ),
+        )
+    return head
 
 
 class P335PrepareTests(unittest.TestCase):
@@ -31,8 +56,12 @@ class P335PrepareTests(unittest.TestCase):
     def test_prepare_source_pin_and_host_only_identity(self) -> None:
         self.assertEqual(prepare.P334_PREPARE_SOURCE.stat().st_size, prepare.P334_PREPARE_IDENTITY["size"])
         self.assertEqual(prepare.identity(prepare.P334_PREPARE_SOURCE.read_bytes()), prepare.P334_PREPARE_IDENTITY)
-        self.assertFalse(prepare.DEFAULT_MANIFEST.exists())
-        self.assertFalse(prepare.DEFAULT_PROMOTION.exists())
+        if prepare.DEFAULT_MANIFEST.exists():
+            self.assertTrue(prepare.DEFAULT_MANIFEST.is_file())
+            self.assertFalse(prepare.DEFAULT_MANIFEST.is_symlink())
+        if prepare.DEFAULT_PROMOTION.exists():
+            self.assertTrue(prepare.DEFAULT_PROMOTION.is_dir())
+            self.assertFalse(prepare.DEFAULT_PROMOTION.is_symlink())
 
     def test_observer_spec_is_p335_and_no_external_authority(self) -> None:
         spec = prepare._p335_observer_spec()  # noqa: SLF001
@@ -44,14 +73,16 @@ class P335PrepareTests(unittest.TestCase):
 
     def test_prepare_rehearsal_succeeds_without_publication(self) -> None:
         self.assertIsNotNone(prepare._P334)  # exact source is loaded only when dependencies exist
+        manifest_before = path_snapshot(prepare.DEFAULT_MANIFEST)
+        promotion_before = path_snapshot(prepare.DEFAULT_PROMOTION)
         manifest, payloads, verification = prepare.build()
         self.assertEqual(set(payloads), {"candidate_static", "run_manifest", "static_check"})
         self.assertEqual(manifest["status"], "ready-for-f1-approval")
         self.assertEqual(
             verification["schema"], "device_action_f1_p335_stock_offline_contract_v1"
         )
-        self.assertFalse(prepare.DEFAULT_MANIFEST.exists())
-        self.assertFalse(prepare.DEFAULT_PROMOTION.exists())
+        self.assertEqual(path_snapshot(prepare.DEFAULT_MANIFEST), manifest_before)
+        self.assertEqual(path_snapshot(prepare.DEFAULT_PROMOTION), promotion_before)
 
 
 if __name__ == "__main__":

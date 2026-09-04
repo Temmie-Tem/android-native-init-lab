@@ -24,6 +24,21 @@ def load_module():
     return module
 
 
+def path_snapshot(path: Path):
+    try:
+        current = path.lstat()
+    except FileNotFoundError:
+        return None
+    return (
+        current.st_mode,
+        current.st_ino,
+        current.st_size,
+        current.st_mtime_ns,
+        current.st_ctime_ns,
+        path.read_bytes(),
+    )
+
+
 class P335D1FreshBaselineTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -76,10 +91,11 @@ class P335D1FreshBaselineTest(unittest.TestCase):
             self.assertIs(sys.modules.get(name), before.get(name))
 
     def test_wrong_approval_stops_before_arm_or_device_contact(self):
+        arm_before = path_snapshot(self.module.RUN_ARM)
         with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("device/process call")):
             with self.assertRaises(self.module.D1Error):
                 self.module.run_live("not-the-bound-approval")
-        self.assertFalse(self.module.RUN_ARM.exists())
+        self.assertEqual(path_snapshot(self.module.RUN_ARM), arm_before)
 
     def test_binding_comparison_rejects_boolean_integer_substitution(self):
         left = {"bounds": {"reboot_count": 1}}
