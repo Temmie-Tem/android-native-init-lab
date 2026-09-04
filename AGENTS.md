@@ -237,6 +237,23 @@ Classify every action using
   operator-entered mode transition makes the complete census D1 even though
   the four host requests are read-only. It grants no payload or partition
   action and no fastboot command beyond the fixed `getvar` list.
+  The exact S20+ target contract may additionally activate
+  `S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1`: one attended transaction writes
+  one internally generated, fixed-grammar marker through the verified PMSG
+  character-device API into reserved RAM, requests one ordinary Android reboot,
+  and compares only that marker in one bounded first-observed-return record.
+  It requires independent review of the common/target delegation, fixed runner,
+  generated scripts, strict journal and hostile tests before activation.
+  Fresh exact target/topology/current-boot and healthy rooted Android binding,
+  a shared action interlock, and durable intent before each effect are required.
+  No caller bytes, paths, shell fragments or device numbers are accepted.
+  It grants no raw-memory/block access, partition payload, persistent file or
+  system-configuration change, log-body export, pstore deletion, module/package
+  action, recovery transition or autonomous session. An uncertain intent is
+  consumed; continuation is bounded read-only health/marker observation only.
+  Nonreturn parks for attended handling without automatic reboot or flashing.
+  Success proves only ordinary-reboot marker retention, never native PID1 or
+  Download/recovery/power-loss retention. No second trial is delegated.
 - **R1:** an attended exact privileged root-data transaction activated by one
   target contract outside D1/F1. It uses fixed no-input root commands for one
   pinned data-only payload in a finite surface, durable one-shot journal, and

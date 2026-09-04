@@ -86,6 +86,17 @@ defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
   nonautomatic, and never replay an uncertain transfer or publish. This does
   not authorize arbitrary file, directory, package, credential, configuration,
   security-state, or partition mutation.
+- `S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1` is the common-contract's
+  exact S20+ reserved-RAM diagnostic exception: one fixed-grammar, internally
+  generated PMSG marker through a verified character descriptor, one ordinary
+  reboot, and one bounded first-observed-return marker comparison. It is D1
+  only within its independently reviewed and activated target section/runner;
+  root access does not generalize it. A fresh attended request binds the entire
+  single transaction. Separate durable intents consume write and reboot even
+  without results; resumed handling permits fixed read-only health/comparison
+  only, never either effect again. No partition, raw-memory, persistent-file,
+  system-configuration, log-body-export or recovery-mode action is delegated.
+  Absence is NO_PROOF; nonreturn is HEALTH_PENDING and parks for attendance.
 - Default evidence is one result plus the canonical timeline. Do not create a
   new policy exception, one-shot authority graph, or multi-review ladder merely
   for ordinary D1 recovery.

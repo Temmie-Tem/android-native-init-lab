@@ -443,6 +443,90 @@ unlink, permission, property/service, package/module, reboot, mode transition,
 payload, raw block, debug-partition, R1 or F1 action is authorized.
 The permanent common boundaries and target isolation remain unchanged.
 
+## S20+ PMSG Warm-Reboot Marker D1
+
+Status: **DEFINED - PMSG WARM-REBOOT D1 NOT ACTIVE**
+Runner-Normalized-SHA256: `8605430e64f8aa33c7535e3707a7ca50461c29df39867bc40b3b297afb3acf33`
+
+This is the sole transaction delegated by
+`S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1` in AGENTS and the risk tiers.
+Its owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_pmsg_warm_reboot_d1.py`.
+It is dormant until one independent review closes common/target policy,
+reachable runner/helpers, generated scripts and hostile tests, followed by the
+reviewed `ACTIVE` boolean and this section's ACTIVE status flip. Normalization
+changes only that boolean. Capability review is not a live request. After
+activation, one current direct attended operator request authorizes the whole
+fixed one-marker/one-reboot transaction; no caller values or reusable session
+are accepted. Only `--render-plan`, `--connected` and `--resume` exist.
+
+The preflight reuses the six-command readiness D0 above, pinned to 24,362 bytes
+and SHA-256 `f1e61ec324b7c446ed73e14fe6318cf1a7488733b634861c6ffbbeb79001552b`.
+Its transitive health/inventory/tool identities and limits remain unchanged.
+Exactly one healthy `SM-G986N/y2q/y2qksx/G986NKSS8IYC2` is required, with stock
+Android PID1, enforcing SELinux and Magisk 30.7/30700. The private binding holds
+hashed serial/topology/current boot, normalized source, a generated 32-byte
+nonce, and observed PMSG major/minor. Caller device numbers are forbidden.
+The marker is exactly 144 ASCII bytes: newline, `S20PMSG1:`, the 64-hex digest
+of canonical binding bytes, colon, the 64-hex nonce, `:END`, newline.
+
+One fixed root writer rechecks exact root/Android/current-boot health,
+`/sys/devices/virtual/pmsg/pmsg0/dev`, and ramoops `pmsg_size=262144`.
+It opens the direct non-symlink character `/dev/pmsg0` read-only as descriptor
+3, verifies character type, rdev and link count, opens that pinned descriptor
+through `/proc/self/fd/3` for writing as descriptor 4, verifies it again, and
+uses one generated fixed `printf` invocation for the marker. No pathname is
+opened with create/truncate before its character identity is pinned. These
+kernel-owned descriptor aliases are character-device API access, never a
+transfer artifact adapter, file payload, node creation or block access.
+The writer exports only fixed root health and an exact marker-digest receipt.
+
+After an immediate same-boot public health check and a separate durable intent,
+one selected `adb reboot` requests ordinary Android reboot. Return polling is
+limited to 60 global inventories, a 180-second polling deadline, 5-second
+inventory/public calls, and 2-second intervals. An already-started bounded
+command and the fixed fresh six-command return preflight may finish after that
+deadline. Only expected absence/offline/incomplete boot can be observed again;
+identity, tool, parser or command failure stops. A different boot ID is required.
+The first publicly healthy changed return boot is pinned durably before further
+root/health preflight; it is not proof that no earlier unobserved boot occurred. No command targets S22+, A90 or other rows.
+
+On that bound return, one fixed root reader opens only
+`/sys/fs/pstore/pmsg-ramoops-0`: a direct readable regular file with one link and
+size at most 262144. It compares opened/path metadata before and after reading,
+reads at most 262145 bytes locally, and exports only full-line match count,
+size/state and transcript digest. Binary surrounding content never leaves the
+device. No directory scan, console/dmesg/last_kmsg body access, record unlink,
+mount, permission, configuration, module/package, mode transition or partition
+operation is delegated. Root write/read scripts have 30-second timeouts and
+8-KiB combined output limits. Final public health must remain on the same boot.
+
+The one fixed private `workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1/trial/`
+is globally non-reusable. A local lock and the existing routine-actions
+`active-action.json` interlock exclude overlapping device owners. Canonical
+strict JSON, direct private nodes, atomic no-replace publication, file fsync
+and directory fsync bind intent before marker, reboot and comparison dispatch.
+Write/reboot intents consume their actions even with missing results. The
+shared guard is revalidated before each effect. A foreign guard is untouched.
+`--resume` performs no marker write, reboot or return wait: it may collect fresh
+exact health and perform the first comparison only if its intent is absent.
+A consumed comparison without receipt remains unproved. A changed pinned return
+boot stops. A resume without durable arrival first records an observation gap;
+even a later exact match then remains NO_PROOF because return continuity was lost. A missing binding with no intent may close as a host zero-effect
+abort without a health claim; partial/unknown journal nodes remain a stop.
+Terminal-only resume revalidates canonical claims and releases only the owned
+guard without device contact. Private failures retain bounded capture digests,
+never raw logs or identifiers. Command counters explicitly cover that invocation.
+
+PASS requires exact one-marker match, completed write/reboot receipts, no durable
+observation gap, and healthy same-target return. Missing, overwritten, Android-consumed, ambiguous or unreadable
+records are NO_PROOF. A missing write/reboot receipt cannot prove ordinary-route
+attribution even if a later marker matches. Nonreturn is HEALTH_PENDING; it
+permits only the fixed read-only resume and attended handling under separately
+applicable authority, never automatic flashing, mode entry or effect replay.
+Success proves ordinary Android warm-reboot retention only. Native PID1,
+Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
+
 ## S20+ Routine Connected Actions
 
 Status: **BINDING - ROUTINE D1 SETUP/CONTROL ACTIVE**

@@ -894,5 +894,5 @@ Q1 passed prep; Q2 is consumed `NO_PROOF` after no host fastbootd endpoint.
 Static audit found identical ramoops geometry in both stock board overlays and
 the retained T2 artifact; PMSG retention and native PID1 execution remain unproved.
 The fixed readiness D0 is independently reviewed and active; one exact read passed
-`METADATA_READY_RETENTION_UNPROVED`. Next is a separately reviewed marker-retention
-design. Evidence: [readiness D0 report](docs/reports/S20PLUS_G986N_PSTORE_READINESS_D0_2026-09-05.md).
+`METADATA_READY_RETENTION_UNPROVED`. The one-marker/ordinary-reboot D1 owner is now
+independently reviewed `PASS_GO_NOT_ACTIVE`; see [marker H0](docs/reports/S20PLUS_G986N_PMSG_WARM_REBOOT_D1_H0_2026-09-05.md).
