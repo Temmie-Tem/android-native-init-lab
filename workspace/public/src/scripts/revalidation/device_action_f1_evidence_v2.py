@@ -17117,6 +17117,7 @@ def classify_clean_baseline(
         except ValueError as exc:
             overlay = item.get("userspace_overlay_contract_id")
             if overlay not in {
+                P338_STOCK_OVERLAY_CONTRACT_ID,
                 P334_STOCK_OVERLAY_CONTRACT_ID,
                 P333_STOCK_OVERLAY_CONTRACT_ID,
                 P332_STOCK_OVERLAY_CONTRACT_ID,
@@ -17130,6 +17131,56 @@ def classify_clean_baseline(
                 "size": len(payload),
                 "sha256": hashlib.sha256(payload).hexdigest(),
             }
+            if overlay == P338_STOCK_OVERLAY_CONTRACT_ID:
+                if raw_identity != P338_CONSUMED_P337_BASELINE_IDENTITY:
+                    raise EvidenceError(
+                        "P3.38 predecessor baseline raw identity differs"
+                    ) from exc
+                try:
+                    predecessor = p337_stock_adapter.classify_observation(
+                        payload,
+                        expected_profile=p337_stock_adapter.PROFILE,
+                        expected_run_id=p337_stock_adapter.P337_RUN_ID,
+                    )
+                except ValueError as predecessor_exc:
+                    raise EvidenceError(
+                        "P3.38 baseline is not the exact consumed P3.37 receipt"
+                    ) from predecessor_exc
+                records = predecessor.get("records")
+                if (
+                    predecessor.get("classification")
+                    != "AMBIGUOUS_INTEGRITY_FAILURE"
+                    or predecessor.get("accepted") is not False
+                    or predecessor.get("integrity_issue") is not True
+                    or predecessor.get("integrity_issues")
+                    != ["p320-stock-envelope-shape"]
+                    or predecessor.get("exact_record_count") != 1
+                    or predecessor.get("long_record_count") != 1
+                    or predecessor.get("family_count") != 1
+                    or predecessor.get("foreign_count") != 0
+                    or predecessor.get("candidate_success") is not False
+                    or predecessor.get("proof_class") != "NO_PROOF_OBSERVER"
+                    or predecessor.get("run_id") != p337_stock_adapter.P337_RUN_ID_HEX
+                    or not isinstance(records, list)
+                    or len(records) != 1
+                    or records[0].get("observer_offset")
+                    != P338_CONSUMED_P337_RECORD_OFFSET
+                    or records[0].get("run_id")
+                    != p337_stock_adapter.P337_RUN_ID_HEX
+                    or records[0].get("slot_status") != ["valid", "valid"]
+                ):
+                    raise EvidenceError(
+                        "P3.38 predecessor baseline placement or semantics differ"
+                    )
+                return {
+                    "classification": (
+                        "P338_CURRENT_RUN_ABSENT_P337_PREDECESSOR_EXACT"
+                    ),
+                    "exact_record_count": 0,
+                    "family_count": 1,
+                    "integrity_issue": False,
+                    "baseline_clean": True,
+                }
             if overlay == P334_STOCK_OVERLAY_CONTRACT_ID:
                 if raw_identity != P334_CONSUMED_P333_BASELINE_IDENTITY:
                     raise EvidenceError(

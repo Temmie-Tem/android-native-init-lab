@@ -101,6 +101,30 @@ def _proof_fixture() -> dict[str, object]:
 
 
 class P338ProcessV2Tests(unittest.TestCase):
+    def test_exact_consumed_p337_baseline_is_the_only_d0_fast_path(self) -> None:
+        acceptance = adapter.acceptance_fixture()
+        acceptance["auth_key"] = dict(
+            evidence.P338_AUTH_EXEC_AUTH_KEY_IDENTITY
+        )
+        raw = (
+            ROOT
+            / "workspace/private/runs/device-action-f1-live-v2/"
+            "p337-ready7-prepared-20260904-2/rollback-observer-2.bin"
+        ).read_bytes()
+        baseline = evidence.classify_clean_baseline(raw, acceptance)
+        self.assertEqual(
+            baseline["classification"],
+            "P338_CURRENT_RUN_ABSENT_P337_PREDECESSOR_EXACT",
+        )
+        self.assertTrue(baseline["baseline_clean"])
+        changed = bytearray(raw)
+        changed[0] ^= 1
+        with self.assertRaisesRegex(
+            evidence.EvidenceError,
+            "P3.38 predecessor baseline raw identity differs",
+        ):
+            evidence.classify_clean_baseline(bytes(changed), acceptance)
+
     def test_first_open_failure_fixture_covers_all_four_branches(self) -> None:
         encoder = p336_observer.encode_frame
         for ordinal, classification in runtime.OPEN_READ_BRANCHES.items():

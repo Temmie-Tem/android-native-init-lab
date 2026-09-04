@@ -51,14 +51,14 @@ DEFAULT_STATIC_OUTPUT = candidate_static.DEFAULT_OUTPUT
 DEFAULT_CANDIDATE_AP = DEFAULT_BUILDER_OUTPUT / "candidate-a/odin4/AP.tar.md5"
 DEFAULT_ROLLBACK_AP = ROOT / "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5"
 DEFAULT_PROMOTION = ROOT / (
-    "workspace/private/outputs/s22plus_fyg8_p338/process-v2-promotion-20260904-01"
+    "workspace/private/outputs/s22plus_fyg8_p338/process-v2-promotion-20260905-02"
 )
 DEFAULT_MANIFEST = ROOT / (
-    "workspace/public/src/device-action/manifests/s22plus_fyg8_p338_process_v2_ready_1.json"
+    "workspace/public/src/device-action/manifests/s22plus_fyg8_p338_process_v2_ready_2.json"
 )
 DEFAULT_TARGET_PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
-DEFAULT_MANIFEST_ID = "s22plus-fyg8-p338-process-v2-ready-1"
-DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p338-live-1"
+DEFAULT_MANIFEST_ID = "s22plus-fyg8-p338-process-v2-ready-2"
+DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p338-live-2"
 DEFAULT_TIMEOUT_SEC = 300
 PRIVATE_PARENT = ROOT / "workspace/private/outputs/s22plus_fyg8_p338"
 AUTH_KEY_IDENTITY = dict(evidence.P338_AUTH_EXEC_AUTH_KEY_IDENTITY)
