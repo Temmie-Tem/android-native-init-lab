@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "a49989df6031f0f6357f07efb8decaaa106868c472d5451d624b4091dab8116b"
+AUDITOR_NORMALIZED_SHA256 = "c8e9755cac81b12320c80173d62a532650761d46d0e8beef5dadbdac747cb44f"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -530,7 +530,7 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p337_open_read_diag_runtime.py": "424291646d213a979dc0b5049d72f3ce2c795a71530731cfe7c9730737f1f69b",
     "s22plus_fyg8_p338_open_read_branch_acm_observer.py": "af34d6aca1431ea328fc568c4d3cdec9ea1d1532cf3cef0260d66c902e560f1f",
     "s22plus_fyg8_p338_open_read_branch_runtime.py": "8de359d2afd4e18569d2ec0b3e097a3ac9cda7022a83043248b92adbb807ac5c",
-    "device_action_f1_live_v2.py": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+    "device_action_f1_live_v2.py": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
     "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
@@ -552,8 +552,8 @@ EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_odin_usbfs_identity.py": "caae61d64435e0fc85bb30adce9dc2bf07cf31bc4ffa033bab72dc072b5db415",
 }
 P328_LIVE_SOURCE_IDENTITY = {
-    "size": 628_516,
-    "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+    "size": 628_505,
+    "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
 }
 P328_RAW_FIRST_FUNCTIONS = (
     "device_action_f1_live_v2.py:_P327ObserverSession._publish_value",
@@ -579,8 +579,8 @@ P331_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "59d82f28dd50d8a1e39b4b267667bb4a56310acd71667b4df96499d43cdd558d",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P331_RAW_FIRST_FUNCTIONS = (
@@ -603,8 +603,8 @@ P332_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "af64b65806bf0c521c375b2db158022e0bd1b625f82862fa47769f31e1cb481f",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P332_RAW_FIRST_FUNCTIONS = (
@@ -627,8 +627,8 @@ P333_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "fb61a41719df431fc465d763eebb63e412f68c95adaa21300f20e8a603ba7397",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P333_RAW_FIRST_FUNCTIONS = (
@@ -648,8 +648,8 @@ P334_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "05d21599c95a40abc679c3e5bd7ee0447dd708f52ac0734b53902f27f434c323",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P334_RAW_FIRST_FUNCTIONS = (
@@ -667,8 +667,8 @@ P335_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "d13ed7fe6fb40f5f68e829369ef75975f53a7796722bde566b2ce7f544ee05e7",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P335_RAW_FIRST_FUNCTIONS = (
@@ -688,8 +688,8 @@ P336_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "33c943ad80422e63004ac69114d8e7b77ed53c684a611d1effe1c7be1e408e7a",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P336_RAW_FIRST_FUNCTIONS = (
@@ -709,8 +709,8 @@ P337_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "424291646d213a979dc0b5049d72f3ce2c795a71530731cfe7c9730737f1f69b",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P337_RAW_FIRST_FUNCTIONS = (
@@ -730,8 +730,8 @@ P338_ACTIVE_SOURCE_IDENTITIES = {
         "sha256": "8de359d2afd4e18569d2ec0b3e097a3ac9cda7022a83043248b92adbb807ac5c",
     },
     "device_action_f1_live_v2.py": {
-        "size": 628_516,
-        "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
+        "size": 628_505,
+        "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
     },
 }
 P338_RAW_FIRST_FUNCTIONS = (
