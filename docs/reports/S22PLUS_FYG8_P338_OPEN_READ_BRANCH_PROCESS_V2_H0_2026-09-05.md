@@ -31,7 +31,7 @@ receipt is diagnostic evidence only and cannot make the candidate successful.
 - Builder result: `61618B/c23dd514f33946a030ea72cd35230dd804e21c6435d7808e3ebc8be661cbd2a4`
 - Candidate AP A/B: `28631081B/2f6dc740d06e6b7aef65423ba167fa7ac641d6374583322206dd4a5259a6d2e8`
 - Candidate-static: `38958B/f1c63d2376d90f32ee7c69ed174b802c2c09fb19964ad6cafde39667879beb91`
-- Current ready manifest (`ready_2`): `10246B/35287aa616b266cbcceeb20990974cdf5eefea5a8e1bd0e67f51f620db7ea0a7`
+- Current ready manifest (`ready_3`): `10246B/44f192f27bc600a8cf3826075071228b6e15caeafc449b4c7bc7514e189e24d1`
 - Exact rollback AP: `23367721B/d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
 
 Candidate A and B are byte-identical and contain only `boot.img.lz4`. P3.37
@@ -88,3 +88,15 @@ review returned `PASS_GO_P338_D0_BASELINE_REPAIR_H0`. Commit `24553e0c80`
 repins the raw-first inventory to this final source. `ready_2` supersedes
 `ready_1` for new preparation. No D1, reboot, Download transition, Odin or
 partition transfer occurred during the stop or correction.
+
+The next fresh preparation proved the exact baseline repair: D0 returned
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY` with the same raw identity and
+healthy rooted FYG8 state. Preparation then stopped before publishing
+`prepared.json` because `_candidate_arrival_proof_role()`,
+`_p324_lane_bundle()` and `_acm_primary_bundle()` ended their exact membership
+sets at P3.37. Commit `09ba2854fd` adds only the P3.38 overlay/run to those
+three sets and a direct ready-bundle dispatch test; independent review returned
+`PASS_GO_P338_LIVE_MAPPING_REPAIR_H0`. Commit `713ce80058` repins the final
+live source in the raw-first audit. `ready_3` supersedes `ready_2`. This second
+stop also performed no D1, device write, reboot, Download transition, Odin or
+partition transfer.
