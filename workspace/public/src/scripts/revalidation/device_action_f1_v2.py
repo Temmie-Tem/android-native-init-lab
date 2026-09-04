@@ -2112,12 +2112,15 @@ def verify_candidate_source_binding(
                     f"{version} artifact identity differs from execution-critical sources"
                 )
             if prefix == "p336":
-                for name in (
-                    "p336_long_idle_action_source",
-                    "p336_long_idle_action_activation",
+                for expected_name, actual_name in (
+                    ("p336_long_idle_action_source", "p336_long_idle_action"),
+                    (
+                        "p336_long_idle_action_activation",
+                        "p336_long_idle_action_activation",
+                    ),
                 ):
-                    expected_action = verification.get(name)
-                    actual_action = execution_sources.get(name)
+                    expected_action = verification.get(expected_name)
+                    actual_action = execution_sources.get(actual_name)
                     if (
                         not isinstance(expected_action, dict)
                         or not isinstance(actual_action, dict)
@@ -2125,7 +2128,7 @@ def verify_candidate_source_binding(
                         != {key: expected_action.get(key) for key in ("size", "sha256")}
                     ):
                         raise F1V2Error(
-                            f"P3.36 {name} differs from execution-critical sources"
+                            f"P3.36 {expected_name} differs from execution-critical sources"
                         )
             expected_key = verification.get(f"{prefix}_auth_key")
             actual_key = execution_sources.get(f"{prefix}_auth_key")
