@@ -4516,7 +4516,12 @@ class SamsungOdinBackend:
         except F1LiveError as exc:
             if not _acm_primary_bundle(prepared.bundle):
                 raise
-            if _p335_bundle(prepared.bundle):
+            if _p336_bundle(prepared.bundle):
+                stock_error = _p336_stock_error(payloads[0], exc)
+                marker_result = _p336_parser_failure_classification(
+                    payloads[0], exc
+                )
+            elif _p335_bundle(prepared.bundle):
                 stock_error = _p335_stock_error(payloads[0], exc)
                 marker_result = _p335_parser_failure_classification(
                     payloads[0], exc
@@ -4608,6 +4613,7 @@ class SamsungOdinBackend:
                     or _p333_bundle(prepared.bundle)
                     or _p334_bundle(prepared.bundle)
                     or _p335_bundle(prepared.bundle)
+                    or _p336_bundle(prepared.bundle)
                 )
             )
             else None
@@ -4641,7 +4647,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p335_stock"
+                "p336_stock"
+                if _p336_bundle(prepared.bundle)
+                else "p335_stock"
                 if _p335_bundle(prepared.bundle)
                 else "p334_stock"
                 if _p334_bundle(prepared.bundle)
@@ -4675,7 +4683,9 @@ class SamsungOdinBackend:
             ] = p320_projection
         if stock_error is not None:
             key = (
-                "p335_stock_error"
+                "p336_stock_error"
+                if _p336_bundle(prepared.bundle)
+                else "p335_stock_error"
                 if _p335_bundle(prepared.bundle)
                 else "p334_stock_error"
                 if _p334_bundle(prepared.bundle)
@@ -4704,7 +4714,9 @@ class SamsungOdinBackend:
             )
             result["observer"][key] = stock_error
             result["observer"].pop(
-                "p335_stock"
+                "p336_stock"
+                if _p336_bundle(prepared.bundle)
+                else "p335_stock"
                 if _p335_bundle(prepared.bundle)
                 else "p334_stock"
                 if _p334_bundle(prepared.bundle)
@@ -6878,7 +6890,8 @@ class _P336ObserverSession(_P335ObserverSession):
             download_departure=download_departure,
         )
         value = dict(inherited)
-        proof = _p336_repin_proof(value.get("proof", {}))
+        inherited_proof = value.get("proof")
+        proof = _p336_repin_proof(inherited_proof) if inherited_proof else {}
         value.update(
             {
                 "schema": P336_OBSERVER_RECEIPT_SCHEMA,
@@ -10688,6 +10701,7 @@ def _validate_candidate_observer_state(
         or _p333_bundle(prepared.bundle)
         or _p334_bundle(prepared.bundle)
         or _p335_bundle(prepared.bundle)
+        or _p336_bundle(prepared.bundle)
     ) and any(
         state.get(key) != durable.get(key)
         for key in (
@@ -11983,7 +11997,19 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     ),
                 }
             )
-            if _p335_bundle(prepared.bundle):
+            if _p336_bundle(prepared.bundle):
+                current.update(_p336_proof_state(durable))
+                current.update(
+                    {
+                        "preauth_diagnostics": durable["preauth_diagnostics"],
+                        "rng_eagain_retries": durable["rng_eagain_retries"],
+                        "partial_sessions": durable["partial_sessions"],
+                        "p336_authenticated_attended_resident": durable[
+                            "p336_authenticated_attended_resident"
+                        ],
+                    }
+                )
+            elif _p335_bundle(prepared.bundle):
                 current.update(_p332_proof_state(durable))
                 current.update(
                     {
@@ -12054,7 +12080,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     released=guard_release["released"],
                 )
                 and (
-                    _p335_proof_ok(durable)
+                    _p336_proof_ok(durable)
+                    if _p336_bundle(prepared.bundle)
+                    else _p335_proof_ok(durable)
                     if _p335_bundle(prepared.bundle)
                     else _p332_proof_ok(durable)
                     if _p334_bundle(prepared.bundle) or _p333_bundle(prepared.bundle) or _p332_bundle(prepared.bundle)
@@ -12115,7 +12143,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 ),
             )
             and (
-                _p335_proof_ok(current)
+                _p336_proof_ok(current)
+                if _p336_bundle(prepared.bundle)
+                else _p335_proof_ok(current)
                 if _p335_bundle(prepared.bundle)
                 else _p332_proof_ok(current)
                 if _p334_bundle(prepared.bundle) or _p333_bundle(prepared.bundle) or _p332_bundle(prepared.bundle)
@@ -12686,6 +12716,7 @@ def _finish_rollback(
             and not _p333_bundle(prepared.bundle)
             and not _p334_bundle(prepared.bundle)
             and not _p335_bundle(prepared.bundle)
+            and not _p336_bundle(prepared.bundle)
         ):
             error = final["observer"].get("p328_stock_error")
             projection = final["observer"].get("p328_stock")
@@ -14058,7 +14089,25 @@ def _execute_prepared_locked(
                         ],
                     }
                 )
-                if _p335_bundle(prepared.bundle):
+                if _p336_bundle(prepared.bundle):
+                    current.update(_p336_proof_state(durable))
+                    current.update(
+                        {
+                            "preauth_diagnostics": durable[
+                                "preauth_diagnostics"
+                            ],
+                            "rng_eagain_retries": durable[
+                                "rng_eagain_retries"
+                            ],
+                            "partial_sessions": durable[
+                                "partial_sessions"
+                            ],
+                            "p336_authenticated_attended_resident": durable[
+                                "p336_authenticated_attended_resident"
+                            ],
+                        }
+                    )
+                elif _p335_bundle(prepared.bundle):
                     current.update(_p332_proof_state(durable))
                     current.update(
                         {

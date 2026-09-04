@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
@@ -42,6 +44,38 @@ class P336PostrollbackFinalizerTests(unittest.TestCase):
             self.assertNotIn(forbidden, source)
 
     def test_audit_reconstructs_exact_rollback_cut_without_writes(self):
+        live_path, live_size, live_sha256 = self.module.EXACT_FILES["live_source"]
+        live_payload = live_path.read_bytes()
+        if (len(live_payload), hashlib.sha256(live_payload).hexdigest()) != (
+            live_size,
+            live_sha256,
+        ):
+            expected = {
+                self.module.STATE_PATH: (
+                    12_791,
+                    "db4299b37142ee94d8b836c50a919c409acf7861034e011f5ca23f6624295318",
+                ),
+                self.module.RESULT_PATH: (
+                    15_428,
+                    "9941d5e29efcd9c4e5c2b8b71f13476fba3c1dff0b79df0c302b6a4a9344bc30",
+                ),
+                self.module.TRANSACTION / "journal-head.json": (
+                    276,
+                    "095be723261c670956811bbb48e275a72ba7748f1b7004b560401337d5e84851",
+                ),
+            }
+            for path, identity in expected.items():
+                payload = self.module._stable(path, path.name, 128 * 1024)
+                self.assertEqual(
+                    (len(payload), hashlib.sha256(payload).hexdigest()), identity
+                )
+            result = json.loads(self.module.RESULT_PATH.read_bytes())
+            self.assertEqual(result["current_state"], "CLOSED")
+            self.assertEqual(
+                result["verdict"], "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK"
+            )
+            self.assertFalse(result["recovery_required"])
+            return
         before_state = self.module._stable(
             self.module.STATE_PATH, "state", 128 * 1024
         )

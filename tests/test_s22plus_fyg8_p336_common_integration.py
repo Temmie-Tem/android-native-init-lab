@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 from pathlib import Path
@@ -319,6 +320,39 @@ class P336CommonIntegrationTests(unittest.TestCase):
             self.assertEqual(session["tx"], session["raw_tx"])
             self.assertEqual(session["rx"], session["raw_rx"])
 
+    def test_p336_partial_initial_exchange_is_a_durable_no_proof_receipt(self) -> None:
+        inherited = {
+            "proof": {},
+            "classification": "authenticated-session-error",
+            "accepted": False,
+            "p335_authenticated_attended_resident": None,
+        }
+        session = live._P336ObserverSession(
+            None,
+            None,
+            {},
+            Path("/unused/p336-partial"),
+            {},
+            {},
+            Path("/unused/usb"),
+            Path("/unused/typec"),
+        )
+        with (
+            mock.patch.object(
+                live._P335ObserverSession, "observe", return_value=inherited
+            ),
+            mock.patch.object(live._P327ObserverSession, "_publish_value"),
+        ):
+            value = session.observe(
+                timeout_sec=1,
+                download_departure={"absent": True},
+            )
+        self.assertEqual(value["proof"], {})
+        self.assertEqual(value["p336_authenticated_attended_resident"], {})
+        self.assertEqual(value["classification"], "authenticated-session-error")
+        self.assertFalse(value["accepted"])
+        self.assertNotIn("p335_authenticated_attended_resident", value)
+
     def test_p336_empty_stock_projection_is_acm_primary(self) -> None:
         classified = evidence.classify_e1_latest_stage(
             bytes(evidence.p336_stock_adapter.RAW_SIZE), self.acceptance
@@ -384,6 +418,165 @@ class P336CommonIntegrationTests(unittest.TestCase):
         self.assertEqual(diagnostic["payload_sha256"], hashlib.sha256(payload).hexdigest())
         self.assertEqual(classification["p336_stock_error"], diagnostic)
         self.assertFalse(classification["accepted"])
+
+    def test_p336_final_stock_result_never_falls_back_to_p328(self) -> None:
+        role = evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE
+        bundle = SimpleNamespace(
+            manifest={
+                "observation": {
+                    "acceptance": self.acceptance,
+                    "candidate_observer": self.observer,
+                    evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY: role,
+                }
+            }
+        )
+        prepared = SimpleNamespace(
+            bundle=bundle,
+            private_target={"serial": "fixture", "topology": "usb:3-1"},
+        )
+
+        class FinalClient:
+            def bind_raw_capture_dir(self, _destination):
+                return None
+
+            def capture(self, _serial, _source, _path):
+                return SimpleNamespace(handle=object(), receipt={"raw": True})
+
+            def one_serial(self):
+                return "fixture"
+
+            def topology(self, _serial):
+                return "usb:3-1"
+
+        backend = live.SamsungOdinBackend.__new__(live.SamsungOdinBackend)
+        backend.odin = object()
+        backend.adb = object()
+        classified = {
+            "accepted": False,
+            "exact_count": 0,
+            "family_count": 0,
+            "overlay_contract_id": evidence.P336_STOCK_OVERLAY_CONTRACT_ID,
+        }
+        projection = {"proof_class": "NO_PROOF_OBSERVER"}
+        common = (
+            mock.patch.object(live.odin_core, "list_snapshot_receipts", return_value=[]),
+            mock.patch.object(
+                live.odin_core,
+                "wait_for_no_live_endpoint",
+                return_value=SimpleNamespace(absent=True),
+            ),
+            mock.patch.object(live.d0, "adb_client_for_bundle", return_value=FinalClient()),
+            mock.patch.object(
+                backend,
+                "_wait_final_health",
+                return_value=("fixture", {"healthy": True}),
+            ),
+            mock.patch.object(live.raw_capture, "read_stdout", return_value=b"stock"),
+            mock.patch.object(live.raw_capture, "read_stderr", return_value=b""),
+            mock.patch.object(live.time, "sleep"),
+        )
+        with contextlib.ExitStack() as stack:
+            for patcher in common:
+                stack.enter_context(patcher)
+            stack.enter_context(
+                mock.patch.object(live, "classify_acceptance", return_value=classified)
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    live, "_p320_terminal_projection", return_value=projection
+                )
+            )
+            result = backend.verify_final(
+                prepared, Path("/unused/endpoints"), object(), Path("/unused/run")
+            )
+        self.assertEqual(result["observer"]["p336_stock"], projection)
+        self.assertNotIn("p328_stock", result["observer"])
+
+        error = {"schema": "device_action_f1_p336_stock_error_v1"}
+        with contextlib.ExitStack() as stack:
+            for patcher in common:
+                stack.enter_context(patcher)
+            stack.enter_context(
+                mock.patch.object(
+                    live,
+                    "classify_acceptance",
+                    side_effect=live.F1LiveError("fixture parser rejection"),
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(live, "_p336_stock_error", return_value=error)
+            )
+            stack.enter_context(
+                mock.patch.object(
+                    live,
+                    "_p336_parser_failure_classification",
+                    return_value=classified,
+                )
+            )
+            result = backend.verify_final(
+                prepared, Path("/unused/endpoints"), object(), Path("/unused/run")
+            )
+        self.assertEqual(result["observer"]["p336_stock_error"], error)
+        self.assertNotIn("p328_stock_error", result["observer"])
+
+    def test_p336_partial_audit_state_cannot_drift(self) -> None:
+        role = evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE
+        prepared = SimpleNamespace(
+            bundle=SimpleNamespace(
+                manifest={
+                    "observation": {
+                        "acceptance": self.acceptance,
+                        "candidate_observer": self.observer,
+                        evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY: role,
+                    }
+                }
+            )
+        )
+        durable = {
+            "classification": "authenticated-session-error",
+            "accepted": False,
+            "receipt_sha256": "11" * 32,
+            "download_endpoint_absent": True,
+            "preauth_diagnostics": [[{"stage": 0, "code": 0}]],
+            "rng_eagain_retries": [None],
+            "partial_sessions": [{"session_index": 0}],
+            "p336_authenticated_attended_resident": {},
+        }
+        for key in set(live.P332_PROOF_FIELDS) | set(live.P336_PROOF_FIELDS):
+            durable.setdefault(key, False)
+        guard = {
+            "status": "released",
+            "released": True,
+            "warning": None,
+            "receipt_sha256": "22" * 32,
+        }
+        state = dict(durable)
+        state.update(
+            {
+                "candidate_observer_classification": durable["classification"],
+                "candidate_observer_accepted": durable["accepted"],
+                "candidate_observer_receipt_sha256": durable["receipt_sha256"],
+                "candidate_observer_guard_release_status": guard["status"],
+                "candidate_observer_guard_released": guard["released"],
+                "candidate_observer_guard_warning": guard["warning"],
+                "candidate_observer_guard_release_receipt_sha256": guard[
+                    "receipt_sha256"
+                ],
+                "final_verified": False,
+            }
+        )
+        with (
+            mock.patch.object(
+                live, "_reopen_candidate_observation", return_value=durable
+            ),
+            mock.patch.object(
+                live, "_reopen_candidate_guard_release", return_value=guard
+            ),
+        ):
+            live._validate_candidate_observer_state(prepared, state)
+            state["partial_sessions"] = []
+            with self.assertRaisesRegex(live.F1LiveError, "audit durable state"):
+                live._validate_candidate_observer_state(prepared, state)
 
     def test_p336_common_binding_matches_action_resident_proxy(self) -> None:
         import s22plus_fyg8_p336_long_idle_action as action  # noqa: E402
