@@ -52,7 +52,7 @@ DEFAULT_STATIC_OUTPUT = candidate_static.DEFAULT_OUTPUT
 DEFAULT_CANDIDATE_AP = DEFAULT_BUILDER_OUTPUT / "candidate-a/odin4/AP.tar.md5"
 DEFAULT_ROLLBACK_AP = ROOT / "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5"
 DEFAULT_PROMOTION = ROOT / (
-    "workspace/private/outputs/s22plus_fyg8_p336/process-v2-promotion-20260904-01"
+    "workspace/private/outputs/s22plus_fyg8_p336/process-v2-promotion-20260904-02"
 )
 DEFAULT_MANIFEST = ROOT / "workspace/public/src/device-action/manifests/s22plus_fyg8_p336_process_v2_ready_1.json"
 DEFAULT_TARGET_PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"

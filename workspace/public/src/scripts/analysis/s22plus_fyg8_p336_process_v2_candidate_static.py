@@ -87,7 +87,7 @@ ROLLBACK_IDENTITY = {
 }
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p336/"
-    "process-v2-candidate-static-20260904-04.json"
+    "process-v2-candidate-static-20260904-05.json"
 )
 SCHEMA = "s22plus_fyg8_p336_process_v2_candidate_static_v1"
 VERDICT = "PASS_P336_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"

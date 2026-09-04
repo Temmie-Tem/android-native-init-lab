@@ -37,7 +37,7 @@ ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve(strict=True)
 RUN_DIR = ROOT / (
     "workspace/private/runs/device-action-f1-live-v2/"
-    "p336-ready1-prepared-20260904-1"
+    "p336-ready1-prepared-20260904-2"
 )
 LEASE_DIR = RUN_DIR / "p336-long-idle-session"
 EVIDENCE_DIR = RUN_DIR / "p336-long-idle-action-evidence"
