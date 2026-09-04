@@ -246,6 +246,23 @@ def _raw_bound(audit: ExchangeAudit) -> None:
         raise AuthObserverError("P336 preamble backlog exceeds the fixed bound")
 
 
+def _read_bounded(
+    descriptor: int,
+    size: int,
+    deadline: float,
+    audit: ExchangeAudit,
+    writer: _RawWriter,
+) -> bytes:
+    """Read one exact preamble component without crossing the byte bound."""
+    if type(size) is not int or size < 0 or len(audit.rx) + size > MAX_RESYNC_BYTES:
+        raise AuthObserverError("P336 preamble backlog exceeds the fixed bound")
+    payload = _CODEC._read_exact(  # noqa: SLF001
+        descriptor, size, deadline, audit, writer
+    )
+    _raw_bound(audit)
+    return payload
+
+
 def _read_prefix_or_frame(
     descriptor: int,
     deadline: float,
@@ -259,34 +276,26 @@ def _read_prefix_or_frame(
     audit's raw RX buffer remains the authoritative receipt.
     """
 
-    prefix = _CODEC._read_exact(  # noqa: SLF001
-        descriptor, 4, deadline, audit, writer
-    )
-    _raw_bound(audit)
+    prefix = _read_bounded(descriptor, 4, deadline, audit, writer)
     if prefix == DEVICE_BANNER[:4]:
-        rest = _CODEC._read_exact(  # noqa: SLF001
+        rest = _read_bounded(
             descriptor, len(DEVICE_BANNER) - 4, deadline, audit, writer
         )
-        _raw_bound(audit)
         banner = prefix + rest
         if banner != DEVICE_BANNER:
             raise AuthObserverError("P336 buffered banner differs")
         return "banner", banner
     if prefix != FRAME_MAGIC:
         raise AuthObserverError("P336 buffered preamble prefix is foreign")
-    rest = _CODEC._read_exact(  # noqa: SLF001
+    rest = _read_bounded(
         descriptor, HEADER.size - 4, deadline, audit, writer
     )
-    _raw_bound(audit)
     header = prefix + rest
     fields = HEADER.unpack(header)
     payload_length = fields[3]
     if type(payload_length) is not int or payload_length > runtime.MAX_FRAME_PAYLOAD:
         raise AuthObserverError("P336 buffered frame exceeds the fixed bound")
-    payload = _CODEC._read_exact(  # noqa: SLF001
-        descriptor, payload_length, deadline, audit, writer
-    )
-    _raw_bound(audit)
+    payload = _read_bounded(descriptor, payload_length, deadline, audit, writer)
     return "frame", decode_frame(header + payload)
 
 
@@ -328,9 +337,15 @@ def _consume_preambles_until_open_parsed(
                 raise AuthObserverError("P336 buffered preamble count exceeds the fixed bound")
             audit.banner_seen = True
             audit.current_stage = "resync-stage0"
-            frame = _CODEC._read_frame(  # noqa: SLF001
-                descriptor, deadline, audit, writer
+            header = _read_bounded(descriptor, HEADER.size, deadline, audit, writer)
+            fields = HEADER.unpack(header)
+            payload_length = fields[3]
+            if type(payload_length) is not int or payload_length > runtime.MAX_FRAME_PAYLOAD:
+                raise AuthObserverError("P336 buffered frame exceeds the fixed bound")
+            payload = _read_bounded(
+                descriptor, payload_length, deadline, audit, writer
             )
+            frame = decode_frame(header + payload)
             diagnostic = _P333.parse_diagnostic_frame(  # noqa: SLF001
                 frame, runtime.DIAGNOSTIC_STAGE_CONSOLE_ENTER
             )

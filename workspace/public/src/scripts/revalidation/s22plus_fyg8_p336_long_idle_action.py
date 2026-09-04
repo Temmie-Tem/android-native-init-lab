@@ -402,12 +402,160 @@ def _write_once(path: Path, payload: bytes) -> dict[str, Any]:
     return {"path": str(path.relative_to(ROOT)), **identity(payload)}
 
 
-# Reuse the finalized P335 context machinery after its globals were rebound to
-# P336.  This retains exact OBSERVED/candidate proof, endpoint/topology, key,
-# Type-C, udev, lease, and nonce-history checks without editing common live.
-_current_context = _BOUND_ACTION._current_context
-_previous_action_nonces = _BOUND_ACTION._previous_action_nonces
+# Reuse the finalized P335 context machinery only as a source of the exact
+# prepared/endpoint mechanics.  The P335 functions themselves retain their
+# P335 durable field names, owner, and run identity, so the small P336 seam
+# below performs dispatch before any endpoint is opened or OPEN is sent.
 _select_endpoint = _BOUND_ACTION._select_endpoint
+
+
+def _p336_proof_ok(value: Mapping[str, Any]) -> bool:
+    checker = getattr(live, "_p336_proof_ok", None)
+    if callable(checker):
+        return bool(checker(value))
+    proof = value.get("p336_authenticated_attended_resident")
+    return bool(
+        isinstance(proof, dict)
+        and value.get("accepted") is True
+        and value.get("session_count") == observer.MAX_SESSIONS
+        and value.get("successful_sessions") == observer.MAX_SESSIONS
+        and value.get("physical_reopen_count") == observer.PHYSICAL_REOPEN_COUNT
+        and value.get("reconnect_count") == observer.MAX_RECONNECTS
+        and value.get("reconnect_cap") == observer.MAX_RECONNECTS
+        and value.get("same_tty_fd") is True
+        and value.get("fixed_p330_commands") is True
+        and value.get("logical_resident_proof") is True
+        and value.get("per_boot_identity_required") is True
+        and proof.get("run_id_hex") == runtime.P336_RUN_ID_HEX
+        and proof.get("session_count") == observer.MAX_SESSIONS
+        and proof.get("physical_reopen_count") == observer.PHYSICAL_REOPEN_COUNT
+        and proof.get("same_boot_id") is True
+        and proof.get("descriptor_reopened") is True
+        and proof.get("listener_replays_commands") is False
+    )
+
+
+def _p336_resident_binding(
+    prepared: Any, observation: Mapping[str, Any]
+) -> dict[str, Any]:
+    binder = getattr(live, "_p336_resident_binding", None)
+    if callable(binder):
+        return binder(prepared, observation)
+    verification = prepared.bundle.receipt.get("observation_contract", {}).get(
+        "verification", {}
+    )
+    closure = verification.get("ap_payload_closure")
+    proof = observation.get("p336_authenticated_attended_resident")
+    sessions = proof.get("sessions") if isinstance(proof, dict) else None
+    if (
+        not isinstance(closure, dict)
+        or not isinstance(closure.get("boot_image"), dict)
+        or not isinstance(sessions, list)
+        or len(sessions) != observer.MAX_SESSIONS
+        or not isinstance(sessions[0], dict)
+    ):
+        raise ActionError("P3.36 resident binding inputs are incomplete")
+    topology_sha256 = observation.get("candidate_topology_sha256")
+    if type(topology_sha256) is not str:
+        raise ActionError("P3.36 resident topology binding is absent")
+    key_binder = getattr(live, "_p336_bound_auth_key_identity", None)
+    if not callable(key_binder):
+        key_binder = getattr(live, "_p328_bound_auth_key_identity", None)
+    if not callable(key_binder):
+        raise ActionError("P3.36 private key identity helper is absent")
+    key_identity = key_binder(prepared)
+    return {
+        "target": dict(resident.TARGET),
+        "topology": {"sha256": topology_sha256},
+        "candidate": {
+            "run_id": runtime.P336_RUN_ID_HEX,
+            "boot_sha256": closure["boot_image"]["sha256"],
+            "ap_sha256": prepared.bundle.manifest["candidate_ap"]["sha256"],
+        },
+        "key": dict(key_identity),
+        "catalog": resident.catalog_for(runtime.P336_RUN_ID_HEX),
+        "recovery": {
+            "kind": "magisk_boot_only",
+            "owner": P336_LEASE_OWNER,
+            "rollback_ap_sha256": prepared.bundle.manifest["rollback_ap"]["sha256"],
+        },
+        "per_boot_id": sessions[0]["boot_id_sha256"],
+    }
+
+
+def _p336_current_context() -> tuple[Any, Any, dict[str, Any], bytes, set[str]]:
+    prepared = live.load_prepared(ROOT, P336_MANIFEST, RUN_DIR)
+    journal = live.core.Journal.reopen(
+        RUN_DIR / "transaction", prepared.binding_sha256
+    )
+    state = live._state(prepared)
+    if (
+        journal.state() != "OBSERVED"
+        or state.get("candidate_classification") != "odin_transfer_completed"
+        or state.get("candidate_completed") is not True
+        or state.get("candidate_observer_accepted") is not True
+        or state.get("rollback_classification") is not None
+        or state.get("rollback_completed") is not False
+        or state.get("resident_session_active") is not True
+        or state.get("resident_rollback_required") is not False
+    ):
+        raise ActionError("P3.36 is not in the active resident state")
+    durable = live._reopen_candidate_observation(prepared)
+    if durable.get("accepted") is not True or not _p336_proof_ok(durable):
+        raise ActionError("P3.36 initial resident proof cannot be reopened")
+    binding = _p336_resident_binding(prepared, durable)
+    lease = resident.ResidentLease.open(LEASE_DIR)
+    if resident.canonical_bytes(binding) != resident.canonical_bytes(lease.binding):
+        raise ActionError("P3.36 current resident binding differs")
+    key, key_sha256 = live._p328_read_auth_key(prepared)
+    if key_sha256 != binding["key"]["sha256"]:
+        raise ActionError("P3.36 private key identity differs")
+    live._p324_typec_lane_value(prepared, revalidate=True)
+    proof = durable["p336_authenticated_attended_resident"]
+    initial = {item["challenge_nonce_sha256"] for item in proof["sessions"]}
+    if len(initial) != observer.MAX_SESSIONS:
+        raise ActionError("P3.36 initial challenge nonces are not distinct")
+    return prepared, lease, binding, key, initial
+
+
+def _p336_previous_action_nonces(lease: Any) -> set[str]:
+    values: set[str] = set()
+    for ordinal, (intent, result) in enumerate(lease.actions, 1):
+        if result is None:
+            raise ActionError("P3.36 prior action intent is unresolved")
+        path = EVIDENCE_DIR / f"action-{ordinal:02d}" / "result.json"
+        value, payload = _strict_json(
+            path, f"P3.36 action {ordinal} result", MAX_EVIDENCE_BYTES
+        )
+        if (
+            identity(payload)
+            != {"size": result["receipt_bytes"], "sha256": result["receipt_sha256"]}
+            or value.get("schema") != SCHEMA
+            or value.get("action") != intent["action"]
+            or value.get("ordinal") != ordinal
+            or value.get("classification") != "accepted"
+            or value.get("authenticated") is not True
+            or value.get("clean_close") is not True
+            or value.get("full_protocol_tuple") is not True
+            or value.get("fixed_command_count") != len(runtime.DEFAULT_COMMANDS)
+            or value.get("replay_authorized") is not False
+        ):
+            raise ActionError("P3.36 prior action receipt differs")
+        nonce = value.get("challenge_nonce_sha256")
+        if (
+            type(nonce) is not str
+            or len(nonce) != 64
+            or any(char not in "0123456789abcdef" for char in nonce)
+            or nonce == "0" * 64
+            or nonce in values
+        ):
+            raise ActionError("P3.36 prior action nonce history differs")
+        values.add(nonce)
+    return values
+
+
+_current_context = _p336_current_context
+_previous_action_nonces = _p336_previous_action_nonces
 
 
 def _exchange_full_tuple(
@@ -458,7 +606,17 @@ def _exchange_full_tuple(
             except BlockingIOError:
                 trailing = b""
             if trailing:
-                raise ActionError("P3.36 action session has trailing bytes")
+                # Preserve the completed exchange together with the byte that
+                # invalidated the clean close.  The caller has not assigned
+                # ``session`` yet at this point, so attach the full audit to
+                # the exception before the descriptor is closed.
+                session.audit.rx.extend(trailing)
+                error = ActionError("P3.36 action session has trailing bytes")
+                error.audit = session.audit
+                error.session = session
+                error.raw_tx = session.raw_tx
+                error.raw_rx = bytes(session.audit.rx)
+                raise error
         return session, session.raw_tx, session.raw_rx
     finally:
         os.close(descriptor)

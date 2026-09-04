@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import socket
 import struct
@@ -170,6 +171,8 @@ class P336Server:
             if closed.frame_type != runtime.FRAME_CLOSE or closed.sequence != 6:
                 raise AssertionError("CLOSE differs")
             self._send(runtime.FRAME_DONE, 6, observer.DONE.pack(3))
+            if self.mode == "trailing":
+                self.peer.sendall(b"X")
         except (ConnectionResetError, BrokenPipeError):
             if self.mode not in {"foreign", "truncated", "oversized-frame"}:
                 self.errors.append(RuntimeError("unexpected peer close"))
@@ -330,6 +333,148 @@ class P336LongIdleTests(unittest.TestCase):
     def test_raw_rx_preserves_exact_foreign_prefix(self):
         failure = self._failure("foreign")
         self.assertEqual(failure.raw_rx, b"NO!")
+
+    def test_pre_read_bound_rejects_without_consuming_oversized_component(self):
+        audit = observer.ExchangeAudit(
+            auth_key_sha256=hashlib.sha256(TEST_KEY).hexdigest()
+        )
+        audit.rx.extend(b"R" * (observer.MAX_RESYNC_BYTES - 1))
+        with mock.patch.object(observer._CODEC, "_read_exact") as read_exact:
+            with self.assertRaises(observer.AuthObserverError):
+                observer._read_bounded(17, 2, 10**12, audit, SimpleNamespace())
+        read_exact.assert_not_called()
+
+    def test_trailing_byte_failure_retains_completed_exchange_raw_audit(self):
+        audit = observer.ExchangeAudit(
+            auth_key_sha256=hashlib.sha256(TEST_KEY).hexdigest()
+        )
+        audit.tx.extend(observer.encode_frame(runtime.FRAME_OPEN, 0, runtime.P336_RUN_ID))
+        audit.rx.extend(b"complete")
+        audit.current_stage = "complete"
+        audit.done_seen = True
+        audit.authenticated = True
+        session = observer.LongIdleSession(
+            42, SimpleNamespace(commands=tuple(runtime.DEFAULT_COMMANDS)), audit,
+            bytes(audit.tx), bytes(audit.rx), 0,
+        )
+        result = observer.LongIdleResult(session, "accepted")
+        with (
+            mock.patch.object(action, "os", wraps=action.os) as action_os,
+            mock.patch.object(action.os, "open", return_value=42),
+            mock.patch.object(action.os, "fstat", return_value=SimpleNamespace(st_rdev=os.stat("/dev/null").st_rdev)),
+            mock.patch.object(action.os, "close") as closed,
+            mock.patch.object(action.fcntl, "ioctl"),
+            mock.patch.object(action.tty, "setraw"),
+            mock.patch.object(action.cdc, "_resolve_endpoint", return_value=(
+                {"kind": "fixture"},
+                SimpleNamespace(identity_sha256="e" * 64),
+            )),
+            mock.patch.object(action.observer, "exchange_late_action", return_value=result),
+            mock.patch.object(action.observer, "validate_late_result"),
+            mock.patch.object(action.select, "select", return_value=([42], [], [])),
+            mock.patch.object(action.os, "read", return_value=b"X"),
+        ):
+            endpoint = SimpleNamespace(
+                tty_name="null", major=os.major(os.stat("/dev/null").st_rdev),
+                minor=os.minor(os.stat("/dev/null").st_rdev),
+                tty_class="fixture", identity_sha256="e" * 64,
+            )
+            with self.assertRaises(action.ActionError) as raised:
+                action._exchange_full_tuple(
+                    endpoint, {"kind": "fixture"}, TEST_KEY,
+                    hashlib.sha256(BOOT_ID).hexdigest(), set(),
+                )
+        error = raised.exception
+        self.assertIs(error.audit, audit)
+        self.assertEqual(error.raw_rx, bytes(audit.rx))
+        self.assertTrue(error.raw_rx.endswith(b"X"))
+        self.assertTrue(error.raw_tx)
+        closed.assert_called_once_with(42)
+
+    def test_p336_context_dispatch_does_not_call_p335_context(self):
+        prepared = SimpleNamespace(
+            binding_sha256="a" * 64,
+            bundle=SimpleNamespace(
+                manifest={
+                    "candidate_ap": {"sha256": "b" * 64},
+                    "rollback_ap": {"sha256": "c" * 64},
+                },
+                receipt={
+                    "observation_contract": {
+                        "verification": {
+                            "ap_payload_closure": {
+                                "boot_image": {"sha256": "d" * 64}
+                            }
+                        }
+                    }
+                },
+            ),
+        )
+        proof = {
+            "run_id_hex": runtime.P336_RUN_ID_HEX,
+            "session_count": observer.MAX_SESSIONS,
+            "physical_reopen_count": observer.PHYSICAL_REOPEN_COUNT,
+            "same_boot_id": True,
+            "descriptor_reopened": True,
+            "listener_replays_commands": False,
+            "sessions": [
+                {"challenge_nonce_sha256": f"{index + 1:064x}"}
+                for index in range(observer.MAX_SESSIONS)
+            ],
+        }
+        durable = {
+            "accepted": True,
+            "session_count": observer.MAX_SESSIONS,
+            "successful_sessions": observer.MAX_SESSIONS,
+            "physical_reopen_count": observer.PHYSICAL_REOPEN_COUNT,
+            "reconnect_count": observer.MAX_RECONNECTS,
+            "reconnect_cap": observer.MAX_RECONNECTS,
+            "same_tty_fd": True,
+            "fixed_p330_commands": True,
+            "logical_resident_proof": True,
+            "per_boot_identity_required": True,
+            "p336_authenticated_attended_resident": proof,
+            "candidate_topology_sha256": "e" * 64,
+        }
+        class Journal:
+            def state(self):
+                return "OBSERVED"
+
+        lease = SimpleNamespace(binding={}, actions=[])
+        state = {
+            "candidate_classification": "odin_transfer_completed",
+            "candidate_completed": True,
+            "candidate_observer_accepted": True,
+            "rollback_classification": None,
+            "rollback_completed": False,
+            "resident_session_active": True,
+            "resident_rollback_required": False,
+        }
+        with (
+            mock.patch.object(action._BOUND_ACTION, "_current_context", side_effect=AssertionError("P335 context used")),
+            mock.patch.object(action.live, "load_prepared", return_value=prepared),
+            mock.patch.object(action.live.core.Journal, "reopen", return_value=Journal()),
+            mock.patch.object(action.live, "_state", return_value=state),
+            mock.patch.object(action.live, "_reopen_candidate_observation", return_value=durable),
+            mock.patch.object(action.live, "_p324_typec_lane_value"),
+            mock.patch.object(action.live, "_p328_bound_auth_key_identity", return_value={"size": 32, "sha256": "f" * 64}),
+            mock.patch.object(action.live, "_p328_read_auth_key", return_value=(TEST_KEY, "f" * 64)),
+            mock.patch.object(action.resident.ResidentLease, "open", return_value=lease),
+            mock.patch.object(
+                action,
+                "_p336_resident_binding",
+                return_value={"p336": True, "key": {"sha256": "f" * 64}},
+            ),
+        ):
+            lease.binding = {"p336": True, "key": {"sha256": "f" * 64}}
+            # The helper must stop at a P336-specific validation path before
+            # touching endpoint selection or sending any wire frame.
+            value = action._p336_current_context()
+        self.assertIs(value[0], prepared)
+        self.assertIs(value[1], lease)
+        self.assertEqual(value[2], {"p336": True, "key": {"sha256": "f" * 64}})
+        self.assertEqual(value[3], TEST_KEY)
+        self.assertEqual(len(value[4]), observer.MAX_SESSIONS)
 
     def test_runtime_fresh_identity_changes_only_fixed_command_marker(self):
         before = p335_source()
