@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import socket
+import threading
 from types import SimpleNamespace
 from unittest import mock
 import sys
@@ -166,6 +168,156 @@ class P336CommonIntegrationTests(unittest.TestCase):
         ]
         with self.assertRaises(evidence.EvidenceError):
             evidence.validate_p336_long_idle_proof(replay)
+
+    def test_p336_socket_receipt_uses_p336_codec_and_reopens_once(self) -> None:
+        observer = live._P336_INITIAL_OBSERVER
+        runtime = live.p336_long_idle_runtime
+        key = bytes(range(runtime.AUTH_KEY_SIZE))
+        boot_id = b"B" * runtime.P335_BOOT_ID_SIZE
+        initial_host, initial_peer = socket.socketpair()
+        reopened_host, reopened_peer = socket.socketpair()
+        errors: list[BaseException] = []
+
+        def receive_exact(peer: socket.socket, size: int) -> bytes:
+            value = bytearray()
+            while len(value) < size:
+                chunk = peer.recv(size - len(value))
+                if not chunk:
+                    raise RuntimeError("fixture peer EOF")
+                value.extend(chunk)
+            return bytes(value)
+
+        def receive_frame(peer: socket.socket):
+            header = receive_exact(peer, observer.HEADER.size)
+            length = observer.HEADER.unpack(header)[3]
+            return observer.decode_frame(
+                header + receive_exact(peer, length)
+            )
+
+        def send_frame(peer: socket.socket, frame_type: int, sequence: int, payload: bytes) -> None:
+            peer.sendall(observer.encode_frame(frame_type, sequence, payload))
+
+        def serve_session(peer: socket.socket, index: int) -> None:
+            peer.sendall(runtime.DEVICE_BANNER)
+            opened = receive_frame(peer)
+            self.assertEqual(
+                opened,
+                observer.Frame(runtime.FRAME_OPEN, 0, runtime.P336_RUN_ID),
+            )
+            for stage in (
+                runtime.DIAGNOSTIC_STAGE_CONSOLE_ENTER,
+                runtime.DIAGNOSTIC_STAGE_OPEN_PARSED,
+                runtime.DIAGNOSTIC_STAGE_RNG,
+            ):
+                send_frame(
+                    peer,
+                    runtime.DIAGNOSTIC_FRAME_TYPE,
+                    0,
+                    observer.DIAGNOSTIC.pack(stage, 0),
+                )
+            nonce = bytes([0x41 + index]) * runtime.NONCE_SIZE
+            send_frame(peer, runtime.FRAME_CHALLENGE, 0, nonce)
+            auth = receive_frame(peer)
+            self.assertEqual(
+                auth.payload,
+                observer.compute_open_tag(key, runtime.P336_RUN_ID, nonce),
+            )
+            send_frame(
+                peer,
+                runtime.FRAME_READY,
+                1,
+                observer.compute_ready_tag(key, runtime.P336_RUN_ID, nonce),
+            )
+            send_frame(
+                peer,
+                runtime.FRAME_BOOT_ID,
+                runtime.P335_BOOT_ID_SEQUENCE,
+                boot_id
+                + observer.compute_boot_id_tag(
+                    key, runtime.P336_RUN_ID, nonce, boot_id
+                ),
+            )
+            outputs = (
+                b"uid=0(root) gid=0(root)\n",
+                b"Linux p336 5.10 aarch64 GNU/Linux\n",
+                f"P328-NONCE {runtime.P336_RUN_ID_HEX}\n".encode("ascii"),
+            )
+            for sequence, (command, output) in enumerate(
+                zip(runtime.DEFAULT_COMMANDS, outputs), start=3
+            ):
+                request = receive_frame(peer)
+                self.assertEqual(request.frame_type, runtime.FRAME_EXEC)
+                self.assertEqual(request.sequence, sequence)
+                self.assertEqual(
+                    request.payload,
+                    observer.compute_exec_tag(
+                        key, runtime.P336_RUN_ID, nonce, sequence, command
+                    )
+                    + command,
+                )
+                send_frame(peer, runtime.FRAME_DATA, sequence, output)
+                send_frame(
+                    peer,
+                    runtime.FRAME_EXIT,
+                    sequence,
+                    observer.EXIT.pack(0, 0, 0, len(output), 1),
+                )
+            close_sequence = runtime.P335_BOOT_ID_SEQUENCE + 3 + 1
+            close = receive_frame(peer)
+            self.assertEqual(close.frame_type, runtime.FRAME_CLOSE)
+            self.assertEqual(close.sequence, close_sequence)
+            send_frame(
+                peer,
+                runtime.FRAME_DONE,
+                close_sequence,
+                observer.DONE.pack(3),
+            )
+
+        def serve() -> None:
+            try:
+                for index in range(2):
+                    serve_session(initial_peer, index)
+                serve_session(reopened_peer, 2)
+            except BaseException as exc:  # surfaced after the bounded exchange
+                errors.append(exc)
+            finally:
+                initial_peer.close()
+                reopened_peer.close()
+
+        thread = threading.Thread(target=serve)
+        thread.start()
+        try:
+            result = observer.exchange_retained(
+                initial_host,
+                key,
+                reopen=lambda: reopened_host,
+                timeout_sec=3,
+            )
+        finally:
+            initial_host.close()
+            reopened_host.close()
+            thread.join(timeout=5)
+        self.assertFalse(errors, errors)
+        self.assertTrue(result.complete)
+        self.assertEqual(result.session_count, 3)
+        self.assertEqual(result.sessions[0].descriptor, result.sessions[1].descriptor)
+        self.assertEqual(result.sessions[0].physical_reopen_index, 0)
+        self.assertEqual(result.sessions[1].physical_reopen_index, 0)
+        self.assertEqual(result.sessions[2].physical_reopen_index, 1)
+        proof = live._p336_repin_proof(observer.validate_retained_proof(result))
+        self.assertEqual(proof["schema"], evidence.p336_long_idle_acm_observer.SCHEMA)
+        self.assertEqual(proof["run_id_hex"], runtime.P336_RUN_ID_HEX)
+        self.assertEqual(proof["target"], runtime.TARGET)
+        self.assertEqual(evidence.validate_p336_long_idle_proof(proof), proof)
+        stale = dict(proof)
+        stale["run_id_hex"] = evidence.P335_RUN_ID
+        with self.assertRaises(live.F1LiveError):
+            live._p336_repin_proof(stale)
+        for session in proof["sessions"]:
+            self.assertGreater(session["tx"]["size"], 0)
+            self.assertGreater(session["rx"]["size"], 0)
+            self.assertEqual(session["tx"], session["raw_tx"])
+            self.assertEqual(session["rx"], session["raw_rx"])
 
     def test_p336_empty_stock_projection_is_acm_primary(self) -> None:
         classified = evidence.classify_e1_latest_stage(

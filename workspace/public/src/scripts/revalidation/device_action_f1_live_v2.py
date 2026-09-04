@@ -18,6 +18,7 @@ import subprocess
 import sys
 import termios
 import time
+import types
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Iterator, Mapping, Protocol
@@ -6704,6 +6705,35 @@ class _P335ObserverSession(_P334ObserverSession):
 
 def _p336_repin_proof(value: Mapping[str, Any]) -> dict[str, Any]:
     """Rebind the inherited three-session proof to the P336 wire identity."""
+    expected_commands = [
+        _p327_identity(command)
+        for command in p336_long_idle_runtime.DEFAULT_COMMANDS
+    ]
+    if (
+        type(value) is not dict
+        or value.get("schema") != p336_long_idle_observer.SCHEMA
+        or value.get("contract_id") != p336_long_idle_observer.CONTRACT_ID
+        or value.get("target") != p336_long_idle_runtime.TARGET
+        or value.get("run_id_hex") != p336_long_idle_runtime.P336_RUN_ID_HEX
+        or value.get("fixed_commands") != expected_commands
+    ):
+        raise F1LiveError("P3.36 initial proof namespace differs")
+    sessions = value.get("sessions")
+    if (
+        type(sessions) is not list
+        or len(sessions) != p336_long_idle_observer.MAX_SESSIONS
+    ):
+        raise F1LiveError("P3.36 initial proof session count differs")
+    for session in sessions:
+        commands = session.get("commands") if type(session) is dict else None
+        if type(commands) is not list or len(commands) != len(expected_commands):
+            raise F1LiveError("P3.36 initial proof command count differs")
+        for command, expected in zip(commands, expected_commands):
+            if (
+                type(command) is not dict
+                or command.get("command_sha256") != expected["sha256"]
+            ):
+                raise F1LiveError("P3.36 initial proof command identity differs")
     proof = dict(value)
     proof.update(
         {
@@ -6711,40 +6741,90 @@ def _p336_repin_proof(value: Mapping[str, Any]) -> dict[str, Any]:
             "contract_id": p336_long_idle_observer.CONTRACT_ID,
             "target": p336_long_idle_runtime.TARGET,
             "run_id_hex": p336_long_idle_runtime.P336_RUN_ID_HEX,
-            "fixed_commands": [
-                _p327_identity(command)
-                for command in p336_long_idle_runtime.DEFAULT_COMMANDS
-            ],
+            "fixed_commands": expected_commands,
         }
     )
-    sessions = []
-    for session in proof.get("sessions", []):
-        item = dict(session)
-        item["commands"] = [
-            {
-                **dict(command),
-                "command_sha256": hashlib.sha256(expected).hexdigest(),
-            }
-            for command, expected in zip(
-                item.get("commands", ()),
-                p336_long_idle_runtime.DEFAULT_COMMANDS,
-            )
-        ]
-        sessions.append(item)
-    proof["sessions"] = sessions
+    proof["sessions"] = [dict(session) for session in sessions]
     return proof
+
+
+def _p336_initial_observer_module() -> types.ModuleType:
+    """Load the retained-session codec with the exact P336 runtime binding."""
+    payload = p336_long_idle_observer._PREDECESSOR_PAYLOAD  # noqa: SLF001
+    if p336_long_idle_observer.identity(payload) != p336_long_idle_observer.SOURCE_IDENTITY:
+        raise F1LiveError("P3.36 initial observer source identity differs")
+    runtime_binding = types.ModuleType(
+        "s22plus_fyg8_p336_initial_retained_runtime"
+    )
+    runtime_binding.__dict__.update(vars(p336_long_idle_runtime))
+    # The exact P335 observer source also loads its older P332 predecessor;
+    # these compatibility bounds are not protocol inputs and keep that nested
+    # source graph intact while every wire value comes from P336 above.
+    runtime_binding.SESSION_COUNT = 2
+    runtime_binding.RECONNECT_COUNT = 1
+    runtime_binding.MAX_SESSIONS = 2
+    runtime_binding.MAX_RECONNECTS = 1
+    runtime_binding.MAX_PHYSICAL_REOPENS = 1
+    runtime_binding.PHYSICAL_REOPEN_COUNT = 1
+    runtime_binding.P335_COMMANDS_PER_SESSION = len(
+        p336_long_idle_runtime.DEFAULT_COMMANDS
+    )
+    module = types.ModuleType("s22plus_fyg8_p336_initial_retained_observer")
+    module.__file__ = str(p336_long_idle_observer.SOURCE)
+    module.__package__ = ""
+    runtime_name = "s22plus_fyg8_p335_retained_listener_runtime"
+    module_name = module.__name__
+    previous_runtime = sys.modules.get(runtime_name)
+    previous_module = sys.modules.get(module_name)
+    sys.modules[runtime_name] = runtime_binding
+    sys.modules[module_name] = module
+    try:
+        exec(  # noqa: S102
+            compile(
+                payload,
+                str(p336_long_idle_observer.SOURCE),
+                "exec",
+                dont_inherit=True,
+            ),
+            module.__dict__,
+        )
+    except Exception as exc:
+        raise F1LiveError("P3.36 initial observer source failed to load") from exc
+    finally:
+        if previous_runtime is None:
+            sys.modules.pop(runtime_name, None)
+        else:
+            sys.modules[runtime_name] = previous_runtime
+        if previous_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous_module
+    # The codec implementation is inherited byte-for-byte, but its exported
+    # receipt namespace is P336 so validation cannot silently accept P335 data.
+    module.SCHEMA = p336_long_idle_observer.SCHEMA
+    module.CONTRACT_ID = p336_long_idle_observer.CONTRACT_ID
+    if (
+        getattr(module, "runtime", None) is not runtime_binding
+        or module.DEFAULT_COMMANDS != tuple(p336_long_idle_runtime.DEFAULT_COMMANDS)
+        or module.DEVICE_BANNER != p336_long_idle_runtime.DEVICE_BANNER
+        or module.P335_RUN_ID_HEX != p336_long_idle_runtime.P336_RUN_ID_HEX
+    ):
+        raise F1LiveError("P3.36 initial observer runtime binding differs")
+    return module
+
+
+_P336_INITIAL_OBSERVER = _p336_initial_observer_module()
 
 
 @dataclass
 class _P336ObserverSession(_P335ObserverSession):
-    """P3.35's exact lease campaign with a distinct P3.36 receipt namespace."""
+    """P3.35 session shape with the exact P3.36 initial wire codec."""
 
-    # The initial resident exchange is deliberately inherited from the proved
-    # P335 device behavior.  The P336 run identity and command tuple are
-    # rebound in the serialized proof; later actions use the standalone P336
-    # long-idle codec in the resident action runner.
-    auth_observer: Any = p335_retained_observer
-    auth_runtime: Any = p335_retained_runtime
+    # Compile the proved retained-session implementation against P336's
+    # exact runtime module.  The inherited session orchestration then calls
+    # this P336-bound exchange_retained, never the imported P335 module.
+    auth_observer: Any = _P336_INITIAL_OBSERVER
+    auth_runtime: Any = p336_long_idle_runtime
     receipt_schema: str = P336_OBSERVER_RECEIPT_SCHEMA
     receipt_label: str = "P336 long-idle resident observer receipt"
     campaign_label: str = "P3.36"
