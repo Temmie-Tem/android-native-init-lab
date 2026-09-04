@@ -6,7 +6,7 @@
     "size": 28631081
   },
   "final_health_profile": "s22plus-fyg8-magisk",
-  "manifest_id": "s22plus-fyg8-p337-process-v2-ready-6",
+  "manifest_id": "s22plus-fyg8-p337-process-v2-ready-7",
   "observation": {
     "acceptance": {
       "action_retry": false,
@@ -24,17 +24,17 @@
       "command_count_per_session": 3,
       "contract": {
         "candidate_static": {
-          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-06/candidate-static.json",
+          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-07/candidate-static.json",
           "sha256": "341e25d27b2bc26722e278db5ee8dc65e1a02062e7089e4c9aaa15506af3b8a5",
           "size": 36651
         },
         "run_manifest": {
-          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-06/run-manifest.json",
+          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-07/run-manifest.json",
           "sha256": "54da44f0179177a9eb2e67abfd249ee2e576dee1e71a02b061cc02b4b9fef169",
           "size": 1035
         },
         "static_check": {
-          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-06/static-check-result.json",
+          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-07/static-check-result.json",
           "sha256": "92e8b11e617ce9a240592ca07375252b70d239e308a72c641016a41dbf7a1172",
           "size": 1940
         }
@@ -237,7 +237,7 @@
     "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
     "size": 23367721
   },
-  "run_id": "s22plus-fyg8-p337-live-6",
+  "run_id": "s22plus-fyg8-p337-live-7",
   "runner_version": "device-action-f1-v2-host-core-3",
   "schema": "device_action_f1_candidate_v2",
   "status": "ready-for-f1-approval",

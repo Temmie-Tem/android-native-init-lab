@@ -76,6 +76,30 @@ class P337ProcessV2Tests(unittest.TestCase):
                 SimpleNamespace(), Path("/unused"), {}
             )
 
+    def test_p337_arm_uses_retained_reopen_contract(self) -> None:
+        class ReachedAuthKeyLoad(Exception):
+            pass
+
+        bundle = core.verify_bundle(ROOT, prepare.DEFAULT_MANIFEST)
+        spec = bundle.manifest["observation"]["candidate_observer"]
+        session = live._p337_candidate_observer_session(  # noqa: SLF001
+            SimpleNamespace(),
+            spec,
+            lane_value={},
+            lane_receipt={},
+            usb_root=Path("/unused-usb"),
+            typec_root=Path("/unused-typec"),
+        )
+        with (
+            mock.patch.object(
+                live,
+                "_p328_read_auth_key",
+                side_effect=ReachedAuthKeyLoad,
+            ),
+            self.assertRaises(ReachedAuthKeyLoad),
+        ):
+            session.__enter__()
+
     def test_adapter_and_observer_bind_only_fresh_identity(self) -> None:
         audit = adapter.audit()
         self.assertEqual(audit["run_id"], runtime.P337_RUN_ID_HEX)

@@ -7515,7 +7515,7 @@ def _logical_resident_candidate_observer_session(
     ]
     if entry_diagnostic:
         diagnostic_stages.insert(0, {"stage": 0, "name": "console-enter"})
-    retained_reopen = label in {"P3.35", "P3.36"}
+    retained_reopen = label in {"P3.35", "P3.36", "P3.37"}
     expected = {
         "udev_guard_settle_timeout_ms": 500,
         "udev_guard_settle_poll_ms": 25,
@@ -7560,7 +7560,9 @@ def _logical_resident_candidate_observer_session(
                 "per_boot_identity_required": True,
                 "listener_wait_after_proof": True,
                 "resident_lease_schema": (
-                    P336_LEASE_SCHEMA
+                    P337_LEASE_SCHEMA
+                    if label == "P3.37"
+                    else P336_LEASE_SCHEMA
                     if label == "P3.36"
                     else p335_resident_session.SCHEMA
                 ),
