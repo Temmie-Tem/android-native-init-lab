@@ -1,15 +1,22 @@
-"""Replay retained P3.35 candidate bytes through the tracked P3.36 observer.
+"""Retained-byte unit tests for the P3.36 long-idle action resync helper.
 
-Every other P3.36 resynchronization case synthesizes its device input.  This
-module replays the exact diagnostic frames the candidate emitted during the
-consumed P3.35 run, so that the host's model of the device is pinned against
-device output rather than against itself.
+Scope, stated plainly because an earlier revision of this module overstated it:
+
+* These tests exercise `_consume_preambles_until_open_parsed`, a helper of
+  `exchange_late_action` in the P3.36 long-idle action module.
+* That path was **not** executed by the P3.36 F1 campaign.  The F1 initial
+  observation runs `exchange_retained` through `_P336ObserverSession`, and the
+  long-idle action runner was never invoked.  Nothing here reproduces,
+  explains, or constrains the P3.36 `NO_PROOF` result.
+* The value they do carry is that their device input is replayed from bytes the
+  candidate actually emitted, rather than synthesized by the fixture.
 
 Provenance of `RETAINED_STAGE_FRAMES`: the three diagnostic frames that follow
-the 49-byte banner in the retained candidate RX capture of the consumed P3.35
-run (`candidate-observer.raw`, 1,983 bytes).  They carry no private identifier:
-each is magic/version/type/length/sequence/CRC plus an 8-byte stage ordinal.
-`workspace/private/**` is untracked, so the bytes are embedded here.
+the first 49-byte banner in the retained candidate RX capture of the consumed
+P3.35 run (`candidate-observer.raw`, 1,983 bytes, three sessions).  They carry
+no private identifier: each is magic/version/type/length/sequence/CRC plus an
+8-byte stage ordinal.  `workspace/private/**` is untracked, so the bytes are
+embedded here.
 
 See `docs/reports/S22PLUS_FYG8_P336_INITIAL_SESSION_DELTA_H0_2026-09-04.md`.
 """
@@ -32,7 +39,7 @@ import s22plus_fyg8_p336_long_idle_acm_observer as observer  # noqa: E402
 import s22plus_fyg8_p336_long_idle_runtime as runtime  # noqa: E402
 
 
-# Retained device output, consumed P3.35 run, in emission order.
+# Retained device output, consumed P3.35 run, session 1, in emission order.
 RETAINED_STAGE_FRAMES = (
     bytes.fromhex("5333323801860800000000009fd64dbb0000000000000000"),
     bytes.fromhex("53333238018608000000000001d6e7770100000000000000"),
@@ -43,7 +50,7 @@ REPLAY_TIMEOUT_SEC = 0.4
 
 
 class _Writer:
-    """Minimal raw sink; the replayed path performs no host TX."""
+    """Minimal raw sink; the replayed helper performs no host TX."""
 
     def __init__(self) -> None:
         self.rx = bytearray()
@@ -56,9 +63,34 @@ class _Writer:
         self.tx += value
 
 
-class P336RetainedStreamReplayTests(unittest.TestCase):
+class P336RetainedFrameTests(unittest.TestCase):
+    """Device-frame identity, independent of any exchange path."""
+
+    def test_tracked_encoder_reproduces_retained_device_frames(self) -> None:
+        """The host frame model must match what the candidate actually emitted."""
+        for stage, retained in enumerate(RETAINED_STAGE_FRAMES):
+            with self.subTest(stage=stage):
+                encoded = observer.encode_frame(
+                    runtime.DIAGNOSTIC_FRAME_TYPE,
+                    0,
+                    observer.DIAGNOSTIC.pack(stage, 0),
+                )
+                self.assertEqual(encoded, retained)
+
+    def test_retained_frames_decode_to_a_monotonic_stage_progression(self) -> None:
+        """Within one session the candidate advances stage 0 -> 1 -> 2."""
+        stages = [
+            observer.DIAGNOSTIC.unpack(observer.decode_frame(frame).payload)[0]
+            for frame in RETAINED_STAGE_FRAMES
+        ]
+        self.assertEqual(stages, [0, 1, 2])
+        self.assertEqual(stages[1], runtime.DIAGNOSTIC_STAGE_OPEN_PARSED)
+
+
+class P336LateActionResyncReplayTests(unittest.TestCase):
+    """`exchange_late_action` helper only; not the F1 initial observation path."""
+
     def _replay(self, payload: bytes):
-        """Feed `payload` to the tracked resync loop; return (audit, writer, error)."""
         host, peer = socket.socketpair()
         self.addCleanup(host.close)
         self.addCleanup(peer.close)
@@ -80,32 +112,8 @@ class P336RetainedStreamReplayTests(unittest.TestCase):
             error = exc
         return count, audit, writer, error
 
-    def test_tracked_encoder_reproduces_retained_device_frames(self) -> None:
-        """The host frame model must match what the candidate actually emitted."""
-        for stage, retained in enumerate(RETAINED_STAGE_FRAMES):
-            with self.subTest(stage=stage):
-                encoded = observer.encode_frame(
-                    runtime.DIAGNOSTIC_FRAME_TYPE,
-                    0,
-                    observer.DIAGNOSTIC.pack(stage, 0),
-                )
-                self.assertEqual(encoded, retained)
-
-    def test_retained_frames_decode_to_a_monotonic_stage_progression(self) -> None:
-        """The device emits stages 0 -> 1 -> 2, not a repeated stage-0 preamble."""
-        stages = [
-            observer.DIAGNOSTIC.unpack(observer.decode_frame(frame).payload)[0]
-            for frame in RETAINED_STAGE_FRAMES
-        ]
-        self.assertEqual(stages, [0, 1, 2])
-        self.assertEqual(stages[1], runtime.DIAGNOSTIC_STAGE_OPEN_PARSED)
-
-    def test_real_progression_resyncs_with_exactly_one_preamble_pair(self) -> None:
-        """Banner + stage 0 + stage 1 is the real input and must complete resync.
-
-        The candidate writes its banner once per boot, so the pair count can
-        never exceed one against real firmware.
-        """
+    def test_banner_stage0_stage1_completes_resync(self) -> None:
+        """Banner then stages 0 and 1 satisfies the helper's terminator."""
         payload = (
             runtime.DEVICE_BANNER
             + RETAINED_STAGE_FRAMES[0]
@@ -117,13 +125,12 @@ class P336RetainedStreamReplayTests(unittest.TestCase):
         self.assertTrue(getattr(audit, "resync_open_parsed_seen"))
         self.assertLessEqual(count, observer.MAX_PREAMBLE_PAIRS)
 
-    def test_stage_zero_only_reproduces_the_p336_live_stall(self) -> None:
-        """Regression pin for the P3.36 no-proof run.
+    def test_banner_stage0_without_stage1_stalls_in_the_prefix_read(self) -> None:
+        """Absent the stage-1 terminator the helper waits rather than misparses.
 
-        The candidate emitted the banner and stage 0 and never emitted stage 1
-        (`OPEN_PARSED`).  The observer must be shown to stall in its next read
-        rather than to misparse: the failure is an absent device advance, not a
-        host parsing defect.
+        This characterises the helper.  It is not a model of the P3.36 F1
+        failure, which occurred on a different code path; see the module
+        docstring.
         """
         payload = runtime.DEVICE_BANNER + RETAINED_STAGE_FRAMES[0]
         count, audit, writer, error = self._replay(payload)
