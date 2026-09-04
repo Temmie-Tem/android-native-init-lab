@@ -206,7 +206,7 @@ class FakeLease:
 
 
 class P336LongIdleTests(unittest.TestCase):
-    def test_binding_is_canonical_pending_and_audit_is_host_only(self):
+    def test_binding_is_canonical_pass_go_and_audit_is_host_only(self):
         binding = action.ACTIVATION.read_bytes()
         value = json.loads(binding)
         self.assertEqual(binding, action.canonical(value))
@@ -214,7 +214,7 @@ class P336LongIdleTests(unittest.TestCase):
         self.assertEqual(checked["value"], value)
         self.assertEqual(
             value["independent_review"],
-            {"status": "review-pending", "verdict": None},
+            {"status": "pass-go", "verdict": action.REVIEW_VERDICT},
         )
         result = action.audit()
         self.assertFalse(result["device_contact"])
@@ -456,6 +456,7 @@ class P336LongIdleTests(unittest.TestCase):
             mock.patch.object(action.live.core.Journal, "reopen", return_value=Journal()),
             mock.patch.object(action.live, "_state", return_value=state),
             mock.patch.object(action.live, "_reopen_candidate_observation", return_value=durable),
+            mock.patch.object(action.live, "_p336_proof_ok", return_value=True),
             mock.patch.object(action.live, "_p324_typec_lane_value"),
             mock.patch.object(action.live, "_p328_bound_auth_key_identity", return_value={"size": 32, "sha256": "f" * 64}),
             mock.patch.object(action.live, "_p328_read_auth_key", return_value=(TEST_KEY, "f" * 64)),
@@ -544,6 +545,9 @@ class P336LongIdleTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(action.ActionError, "no replay"):
                     action.run_action("identity")
+                with self.assertRaises(action.ActionError):
+                    action.run_action("identity")
+                exchanged.assert_called_once()
             action_dir = evidence / "action-01"
             self.assertEqual((action_dir / "failure.tx.bin").read_bytes(), bytes(audit.tx))
             self.assertEqual((action_dir / "failure.rx.bin").read_bytes(), bytes(audit.rx))
@@ -551,9 +555,6 @@ class P336LongIdleTests(unittest.TestCase):
             self.assertEqual(value["failure_stage"], "resync-stage0")
             self.assertEqual(value["nested_exception_sha256"], "a" * 64)
             self.assertEqual(lease.results, ["uncertain"])
-            exchanged.assert_called_once()
-            with self.assertRaises(action.ActionError):
-                action.run_action("identity")
             exchanged.assert_called_once()
 
 
