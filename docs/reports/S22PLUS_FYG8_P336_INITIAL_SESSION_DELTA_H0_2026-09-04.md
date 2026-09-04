@@ -77,8 +77,11 @@ emitted per session, not once per boot.
 ## 2. The observed boundary
 
 The P3.36 candidate reached console entry and emitted `DIAG` stage 0. Stage 1
-(`OPEN_PARSED`) was not observed, and nothing further was received during the
-remaining ~30 seconds, after which the observer exited without error.
+(`OPEN_PARSED`) was not observed. The retained capture holds exactly those 73
+bytes for the observer's entire 30,183 ms elapsed time, after which it exited
+without error. Per-byte arrival times were not retained, so where stage 0 falls
+within that window, and therefore how long the candidate was silent after it,
+are both unknown.
 
 This is the full extent of what the retained bytes establish.
 
