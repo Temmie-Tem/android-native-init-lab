@@ -488,11 +488,38 @@ change, reboot, unattended control or non-boot payload. This clause is H0-only
 until its complete changed execution closure receives independent review and a
 ready declaration; neither event is device approval.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, or P335 candidate transfer occurs, the same
+**P336 long-idle resident resynchronization.** P335 is consumed and grants no
+P336 session or replay authority. A fresh exact P336 candidate may retain the
+same three-command, current-boot, attended lease only to repair the observed
+long-idle host reopen boundary. Its initial three-session candidate proof and
+all P335 lease, recovery, target, topology, authentication, command, time and
+action-count restrictions remain unchanged.
+
+Before a later P336 action reads a candidate preamble, the host sends exactly
+one run-bound protocol OPEN on the freshly rebound tty and then consumes a
+finite byte-bounded sequence. Before exact OPEN_PARSED, that sequence may
+contain only complete exact P336 banner plus stage-zero diagnostic preambles;
+foreign, partial, malformed, excessive or out-of-order bytes stop the action.
+This is synchronization, not a retry: only one OPEN, AUTH and command tuple may
+be sent for one durable action intent.
+
+Every P336 post-intent exit, including a parser or timeout exception, durably
+retains bounded partial TX/RX and the exact audit stage before publishing its
+successful or uncertain action result. An uncertain result immediately selects
+the existing rollback owner and never reopens the lease. The finalized action
+runner and activation identities are part of the fresh preparation/approval
+closure; no runner may be invented after candidate transfer.
+
+P336 adds no command, caller-selected shell, interactive PTY, file transfer,
+persistent state, reboot, Download request, unattended control or non-boot
+payload. This clause is H0-only until its changed execution closure receives
+independent review and a fresh ready declaration; neither is live authority.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, or P336 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, or `s22plus-fyg8-p335` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, or `s22plus-fyg8-p336` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
