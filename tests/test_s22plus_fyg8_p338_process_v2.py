@@ -242,6 +242,51 @@ class P338ProcessV2Tests(unittest.TestCase):
             shared.call_args.kwargs["additional_keys"],
         )
 
+    def test_candidate_arrival_branch_map_survives_json_roundtrip(self) -> None:
+        prepared = mock.Mock()
+        prepared.bundle = object()
+        prepared.private_target = {"topology": "usb:3-1.3"}
+        durable = {
+            "valid_receipt": True,
+            "accepted": False,
+            "classification": "authenticated-session-error",
+            "topology_sha256": "0" * 64,
+            "endpoint_identity_sha256": "1" * 64,
+            "download_endpoint_absent": True,
+            "receipt_sha256": "2" * 64,
+        }
+        bundle_predicates = {
+            f"_p{ordinal}_bundle": mock.Mock(return_value=ordinal == 338)
+            for ordinal in range(324, 339)
+        }
+        with mock.patch.multiple(
+            live,
+            _candidate_arrival_proof_role=mock.Mock(
+                return_value=evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE
+            ),
+            _reopen_candidate_observation=mock.Mock(return_value=durable),
+            _reopen_candidate_guard_release=mock.Mock(
+                return_value={"status": "released", "released": True}
+            ),
+            **bundle_predicates,
+        ):
+            projection = live._candidate_arrival_proof_projection(  # noqa: SLF001
+                prepared,
+                {
+                    "candidate_classification": "odin_transfer_completed",
+                    "candidate_completed": True,
+                    "download_endpoint_absent": True,
+                    "rollback_classification": "odin_transfer_completed",
+                    "rollback_completed": True,
+                    "final_verified": True,
+                },
+            )
+        self.assertEqual(json.loads(json.dumps(projection)), projection)
+        self.assertEqual(
+            projection["open_read_branch_ordinals"],
+            live.P338_OPEN_READ_BRANCH_ORDINALS,
+        )
+
     def test_builder_static_and_ready_manifest_are_host_only(self) -> None:
         built = builder.audit_existing()
         self.assertEqual(built["phase2"]["candidate"]["a"], built["phase2"]["candidate"]["b"])

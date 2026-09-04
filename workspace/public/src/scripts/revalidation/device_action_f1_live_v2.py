@@ -11058,7 +11058,7 @@ def _candidate_arrival_proof_projection(
                 "resident_lease_schema": P338_LEASE_SCHEMA,
                 "open_read_diagnostic": durable.get("open_read_diagnostic"),
                 "open_read_branch_ordinals": dict(
-                    p338_open_read_runtime.OPEN_READ_BRANCHES
+                    P338_OPEN_READ_BRANCH_ORDINALS
                 ),
                 "open_read_branch_count": len(
                     p338_open_read_runtime.OPEN_READ_BRANCHES
