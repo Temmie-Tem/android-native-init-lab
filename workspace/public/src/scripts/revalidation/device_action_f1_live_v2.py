@@ -1985,6 +1985,7 @@ def _p324_lane_bundle(bundle: core.Bundle) -> bool:
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
         or _p328_bundle(bundle)
+        or _p338_bundle(bundle)
         or _p337_bundle(bundle)
         or _p336_bundle(bundle)
         or _p335_bundle(bundle)
@@ -1999,6 +2000,7 @@ def _acm_primary_bundle(bundle: core.Bundle) -> bool:
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
         or _p328_bundle(bundle)
+        or _p338_bundle(bundle)
         or _p337_bundle(bundle)
         or _p336_bundle(bundle)
         or _p335_bundle(bundle)
@@ -2077,10 +2079,14 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P337_RUN_ID,
         ),
+        (
+            typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P338_RUN_ID,
+        ),
     }:
         raise F1LiveError(
             "candidate arrival proof role requires the exact P3.23 stock binding "
-            "through the exact P3.37 stock binding"
+            "through the exact P3.38 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(

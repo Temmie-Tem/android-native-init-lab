@@ -18,6 +18,7 @@ for directory in (ANALYSIS, REVALIDATION):
 
 import device_action_f1_evidence_v2 as evidence  # noqa: E402
 import device_action_f1_live_v2 as live  # noqa: E402
+import device_action_f1_v2 as core  # noqa: E402
 import prepare_s22plus_fyg8_p338_process_v2 as prepare  # noqa: E402
 import s22plus_fyg8_p336_long_idle_acm_observer as p336_observer  # noqa: E402
 import s22plus_fyg8_p337_open_read_diag_acm_observer as p337_observer  # noqa: E402
@@ -101,6 +102,15 @@ def _proof_fixture() -> dict[str, object]:
 
 
 class P338ProcessV2Tests(unittest.TestCase):
+    def test_ready_bundle_reaches_the_live_arrival_and_lane_dispatch(self) -> None:
+        bundle = core.verify_bundle(ROOT, prepare.DEFAULT_MANIFEST)
+        self.assertTrue(live._p324_lane_bundle(bundle))  # noqa: SLF001
+        self.assertTrue(live._acm_primary_bundle(bundle))  # noqa: SLF001
+        self.assertEqual(
+            live._candidate_arrival_proof_role(bundle),  # noqa: SLF001
+            evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE,
+        )
+
     def test_exact_consumed_p337_baseline_is_the_only_d0_fast_path(self) -> None:
         acceptance = adapter.acceptance_fixture()
         acceptance["auth_key"] = dict(
