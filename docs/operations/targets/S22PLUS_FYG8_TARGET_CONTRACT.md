@@ -527,11 +527,38 @@ Fresh D1/D0 baselines, independent review, preparation and attended F1 approval
 remain required; success still requires the complete intended proof and healthy
 post-rollback return.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, or P337 candidate transfer occurs, the same
+**P338 first-OPEN branch diagnostic.** P337 is consumed and grants no replay.
+P338 keeps P337's successful session, three fixed commands, 300-second
+observation, boot-only transfer, exact rollback, lease, and pre-arm label
+unchanged. Its sole delta is one existing stage-3/type-`0x86` diagnostic code
+for the first framed OPEN read: `0` header-read errno, `1` header validation,
+`2` body-read errno, or `3` CRC rejection. The original read/validation errno
+is returned unchanged; the diagnostic is best effort and never changes the
+success path. No retry, wait, command, lease, shell, reconnect, or global gate
+is added, and the branch receipt never proves candidate success or causality.
+
+P338 uses a distinct overlay, run, schemas, source closure, predecessor
+rejection, accepted/rejected receipt path, final-stock projection, and
+pre-arm lease/label. Fresh D0 preparation may use exactly one retained P337
+rollback baseline only when the complete raw `/proc/last_kmsg` is exactly
+2,097,136 bytes with SHA-256
+`64ac7a5b6666c4a21ce23effce2ec13015cdbdb985555300202ad46d8fe26a11`, and the
+current P337 adapter classifies exactly one `c337f1e0a90b5e6d7c8a9b0c1d2e3f3b`
+record at offset `1,657,825`, exact/long count `1`, foreign count `0`,
+`candidate_success=false`, proof class `NO_PROOF_OBSERVER`, and integrity issue
+`p320-stock-envelope-shape`. This exception proves only that fresh P338 is
+absent, admits no P337 replay or standing authority, and expires on raw
+identity drift or P338 candidate intent. If the fresh raw differs or rejects,
+the separately authorized attended D1 fallback remains the only route; this
+clause creates no P338 D0/D1 clone script. P338 still requires fresh
+preparation, independent review, attended approval, and healthy exact
+post-rollback return.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, or P338 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, or `s22plus-fyg8-p337` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, or `s22plus-fyg8-p338` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
