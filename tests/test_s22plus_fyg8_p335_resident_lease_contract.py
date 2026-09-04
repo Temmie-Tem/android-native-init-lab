@@ -12,6 +12,13 @@ DESIGN = (
     / "docs/reports/"
     "S22PLUS_FYG8_P335_ATTENDED_RESIDENT_SESSION_DESIGN_H0_2026-09-04.md"
 )
+RESULT_REPORT = (
+    ROOT
+    / "docs/reports/"
+    "S22PLUS_FYG8_P335_F1_ATTENDED_RESIDENT_PASS_2026-09-04.md"
+)
+GOAL = ROOT / "GOAL.md"
+LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 
 
 def compact(path: Path) -> str:
@@ -24,6 +31,9 @@ class P335ResidentLeaseContractTests(unittest.TestCase):
         cls.target = compact(TARGET)
         cls.process = compact(PROCESS)
         cls.design = compact(DESIGN)
+        cls.result_report = compact(RESULT_REPORT)
+        cls.goal = compact(GOAL)
+        cls.ledger = LEDGER.read_text(encoding="utf-8")
 
     def test_lease_is_nonterminal_and_rollback_owned(self) -> None:
         for phrase in (
@@ -86,6 +96,21 @@ class P335ResidentLeaseContractTests(unittest.TestCase):
         self.assertIn(
             "no campaign-ledger closure row is written while the lease remains active",
             self.design,
+        )
+        rows = [
+            line
+            for line in self.ledger.splitlines()
+            if "| s22plus-fyg8-p335 |" in line
+        ]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertIn("| 1 | F1 | CAMPAIGN_CLOSED | HEALTHY | PROVED | 1/1 |", row)
+        self.assertIn("PASS_F1_V2_P335_AUTHENTICATED_ATTENDED_RESIDENT_AND_ROLLED_BACK", row)
+        self.assertIn("P335 is consumed and never replayable", row)
+        self.assertIn("P3.35 is closed, healthy, consumed and never replayable", self.goal)
+        self.assertIn(
+            "Formal verdict: `PASS_F1_V2_P335_AUTHENTICATED_ATTENDED_RESIDENT_AND_ROLLED_BACK`",
+            self.result_report,
         )
 
 
