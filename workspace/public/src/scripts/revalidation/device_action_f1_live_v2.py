@@ -69,6 +69,9 @@ import s22plus_fyg8_p335_resident_session as p335_resident_session
 import s22plus_fyg8_p336_long_idle_acm_observer as p336_long_idle_observer
 import s22plus_fyg8_p336_long_idle_runtime as p336_long_idle_runtime
 import s22plus_fyg8_p336_artifact_identity as p336_artifact_identity
+import s22plus_fyg8_p337_open_read_diag_acm_observer as p337_open_read_observer
+import s22plus_fyg8_p337_open_read_diag_runtime as p337_open_read_runtime
+import s22plus_fyg8_p337_artifact_identity as p337_artifact_identity
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -206,6 +209,12 @@ P336_SUCCESS_VERDICT = typed_evidence.P336_AUTH_EXEC_VERDICT
 P336_SUCCESS_OUTCOME = typed_evidence.P336_AUTH_EXEC_OUTCOME
 P336_NO_PROOF_OUTCOME = typed_evidence.P336_AUTH_EXEC_NO_PROOF_OUTCOME
 P336_LEASE_SCHEMA = "s22plus_fyg8_p336_long_idle_lease_v1"
+P337_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p337_open_read_diagnostic_acm_receipt_v1"
+P337_CLASSIFICATIONS = set(P336_CLASSIFICATIONS)
+P337_SUCCESS_VERDICT = typed_evidence.P337_AUTH_EXEC_VERDICT
+P337_SUCCESS_OUTCOME = typed_evidence.P337_AUTH_EXEC_OUTCOME
+P337_NO_PROOF_OUTCOME = typed_evidence.P337_AUTH_EXEC_NO_PROOF_OUTCOME
+P337_LEASE_SCHEMA = "s22plus_fyg8_p337_open_read_diagnostic_lease_v1"
 MAX_LIVE_RESULT_RECORD = core.MAX_RESULT_RECORD
 
 
@@ -620,6 +629,33 @@ def _p336_parser_failure_classification(
     }
 
 
+def _p337_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    value = _p336_stock_error(payload, error)
+    value.update(
+        {
+            "schema": "device_action_f1_p337_stock_error_v1",
+            "classification": "P337_STOCK_PARSER_EXCEPTION",
+        }
+    )
+    return value
+
+
+def _p337_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p337_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "integrity_issue": True,
+        "integrity_issues": ["p337-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p337_stock_error": diagnostic,
+        "accepted": False,
+    }
+
+
 class F1LiveError(RuntimeError):
     pass
 
@@ -789,6 +825,7 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p332_bundle(bundle)
         or _p333_bundle(bundle)
         or _p334_bundle(bundle)
+        or _p337_bundle(bundle)
         or _p336_bundle(bundle)
         or _p335_bundle(bundle)
     ):
@@ -796,7 +833,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p336"
+            "p337"
+            if _p337_bundle(bundle)
+            else "p336"
             if _p336_bundle(bundle)
             else "p335"
             if _p335_bundle(bundle)
@@ -842,7 +881,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                     getattr(
                         stock_adapter,
                         "P320_OBSERVER_SOURCE",
-                        p336_long_idle_observer.__file__
+                        p337_open_read_observer.__file__
+                        if _p337_bundle(bundle)
+                        else p336_long_idle_observer.__file__
                         if _p336_bundle(bundle)
                         else stock_adapter.__file__,
                     )
@@ -869,7 +910,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             raise F1LiveError(str(exc)) from exc
         if _p328_bundle(bundle):
             auth_prefix = (
-                "p336"
+                "p337"
+                if _p337_bundle(bundle)
+                else "p336"
                 if _p336_bundle(bundle)
                 else "p335"
                 if _p335_bundle(bundle)
@@ -888,7 +931,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else "p328"
             )
             artifact_module = (
-                p336_artifact_identity
+                p337_artifact_identity
+                if _p337_bundle(bundle)
+                else p336_artifact_identity
                 if _p336_bundle(bundle)
                 else p335_artifact_identity
                 if _p335_bundle(bundle)
@@ -907,7 +952,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else p328_artifact_identity
             )
             runtime_module = (
-                p336_long_idle_runtime
+                p337_open_read_runtime
+                if _p337_bundle(bundle)
+                else p336_long_idle_runtime
                 if _p336_bundle(bundle)
                 else p335_retained_runtime
                 if _p335_bundle(bundle)
@@ -926,7 +973,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else p328_auth_runtime
             )
             observer_module = (
-                p336_long_idle_observer
+                p337_open_read_observer
+                if _p337_bundle(bundle)
+                else p336_long_idle_observer
                 if _p336_bundle(bundle)
                 else p335_retained_observer
                 if _p335_bundle(bundle)
@@ -953,7 +1002,17 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             paths[f"{auth_prefix}_auth_acm_observer"] = Path(
                 observer_module.__file__
             ).resolve()
-            if _p336_bundle(bundle):
+            if _p337_bundle(bundle):
+                paths["p337_open_read_diag_acm_observer"] = Path(
+                    p337_open_read_observer.__file__
+                ).resolve()
+                paths["p337_open_read_diag_runtime"] = Path(
+                    p337_open_read_runtime.__file__
+                ).resolve()
+                paths["p337_artifact_identity"] = Path(
+                    p337_artifact_identity.__file__
+                ).resolve()
+            elif _p336_bundle(bundle):
                 paths["p336_long_idle_acm_observer"] = Path(
                     p336_long_idle_observer.__file__
                 ).resolve()
@@ -1073,7 +1132,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         )
         if _p328_bundle(bundle):
             auth_prefix = (
-                "p336"
+                "p337"
+                if _p337_bundle(bundle)
+                else "p336"
                 if _p336_bundle(bundle)
                 else "p335"
                 if _p335_bundle(bundle)
@@ -1092,7 +1153,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else "p328"
             )
             closure[f"{auth_prefix}_auth_exec_runtime_contract_id"] = (
-                typed_evidence.P336_AUTH_EXEC_RUNTIME_CONTRACT_ID
+                typed_evidence.P337_AUTH_EXEC_RUNTIME_CONTRACT_ID
+                if _p337_bundle(bundle)
+                else typed_evidence.P336_AUTH_EXEC_RUNTIME_CONTRACT_ID
                 if _p336_bundle(bundle)
                 else typed_evidence.P335_AUTH_EXEC_RUNTIME_CONTRACT_ID
                 if _p335_bundle(bundle)
@@ -1111,7 +1174,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else typed_evidence.P328_AUTH_EXEC_RUNTIME_CONTRACT_ID
             )
             closure[f"{auth_prefix}_auth_acm_observer_contract_id"] = (
-                typed_evidence.P336_AUTH_EXEC_OBSERVER_CONTRACT_ID
+                typed_evidence.P337_AUTH_EXEC_OBSERVER_CONTRACT_ID
+                if _p337_bundle(bundle)
+                else typed_evidence.P336_AUTH_EXEC_OBSERVER_CONTRACT_ID
                 if _p336_bundle(bundle)
                 else typed_evidence.P335_AUTH_EXEC_OBSERVER_CONTRACT_ID
                 if _p335_bundle(bundle)
@@ -1139,7 +1204,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             closure["p326_bidirectional_acm_contract_id"] = (
                 p326_console_observer.CONTRACT_ID
             )
-            if _p336_bundle(bundle):
+            if _p337_bundle(bundle):
+                closure["p337_resident_lease_schema"] = P337_LEASE_SCHEMA
+            elif _p336_bundle(bundle):
                 closure["p336_resident_lease_schema"] = P336_LEASE_SCHEMA
         elif _p327_bundle(bundle):
             closure["p327_framed_exec_runtime_contract_id"] = (
@@ -1528,6 +1595,7 @@ def _p328_bundle(bundle: core.Bundle) -> bool:
     return (
         _userspace_overlay_contract_id(bundle)
         in {
+            typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P336_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P328_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P329_STOCK_OVERLAY_CONTRACT_ID,
@@ -1606,11 +1674,24 @@ def _p336_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p337_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
 def _prepared_auth_key_entry(
     bundle: core.Bundle,
 ) -> tuple[str, dict[str, Any]] | None:
     if not _p328_bundle(bundle):
         return None
+    if _p337_bundle(bundle):
+        return (
+            "p337_auth_key_identity",
+            dict(typed_evidence.P337_AUTH_EXEC_AUTH_KEY_IDENTITY),
+        )
     if _p336_bundle(bundle):
         return (
             "p336_auth_key_identity",
@@ -1676,7 +1757,9 @@ def _p328_bound_auth_key_identity(prepared: PreparedRun) -> dict[str, Any]:
             if key in container:
                 candidates.append({"size": 32, "sha256": container[key]})
     artifact_module = (
-        p336_artifact_identity
+        p337_artifact_identity
+        if _p337_bundle(prepared.bundle)
+        else p336_artifact_identity
         if _p336_bundle(prepared.bundle)
         else p335_artifact_identity
         if _p335_bundle(prepared.bundle)
@@ -1718,7 +1801,9 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
     """
     bound = _p328_bound_auth_key_identity(prepared)
     artifact_module = (
-        p336_artifact_identity
+        p337_artifact_identity
+        if _p337_bundle(prepared.bundle)
+        else p336_artifact_identity
         if _p336_bundle(prepared.bundle)
         else p335_artifact_identity
         if _p335_bundle(prepared.bundle)
@@ -1798,6 +1883,7 @@ def _p324_lane_bundle(bundle: core.Bundle) -> bool:
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
         or _p328_bundle(bundle)
+        or _p337_bundle(bundle)
         or _p336_bundle(bundle)
         or _p335_bundle(bundle)
     )
@@ -1811,6 +1897,7 @@ def _acm_primary_bundle(bundle: core.Bundle) -> bool:
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
         or _p328_bundle(bundle)
+        or _p337_bundle(bundle)
         or _p336_bundle(bundle)
         or _p335_bundle(bundle)
     )
@@ -1884,10 +1971,14 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             typed_evidence.P336_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P336_RUN_ID,
         ),
+        (
+            typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P337_RUN_ID,
+        ),
     }:
         raise F1LiveError(
             "candidate arrival proof role requires the exact P3.23 stock binding "
-            "through the exact P3.35 stock binding"
+            "through the exact P3.37 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(
@@ -3019,10 +3110,11 @@ def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
-    """Validate and retain the ABI-v4 stock projection for P320-P335."""
+    """Validate and retain the ABI-v4 stock projection for P320-P337."""
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p337 = overlay == typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID
     is_p336 = overlay == typed_evidence.P336_STOCK_OVERLAY_CONTRACT_ID
     is_p335 = overlay == typed_evidence.P335_STOCK_OVERLAY_CONTRACT_ID
     is_p334 = overlay == typed_evidence.P334_STOCK_OVERLAY_CONTRACT_ID
@@ -3040,7 +3132,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
-        typed_evidence.p336_stock_adapter
+        typed_evidence.p337_stock_adapter
+        if is_p337
+        else typed_evidence.p336_stock_adapter
         if is_p336
         else typed_evidence.p335_stock_adapter
         if is_p335
@@ -3078,7 +3172,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter
     )
     label = (
-        "P3.36"
+        "P3.37"
+        if is_p337
+        else "P3.36"
         if is_p336
         else "P3.35"
         if is_p335
@@ -3115,7 +3211,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p336_stock"
+        "p337_stock"
+        if is_p337
+        else "p336_stock"
         if is_p336
         else "p335_stock"
         if is_p335
@@ -3153,12 +3251,12 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     try:
         if (
-            (is_p336 or is_p335 or is_p334 or is_p333 or is_p332)
+            (is_p337 or is_p336 or is_p335 or is_p334 or is_p333 or is_p332)
             and classified.get("proof_class") == "NO_PROOF_OBSERVER"
             and classified.get("candidate_success") is False
         ):
             proof = "NO_PROOF_OBSERVER"
-        elif is_p336 or is_p335 or is_p334 or is_p333 or is_p332 or is_p331 or is_p330 or is_p329 or is_p328:
+        elif is_p337 or is_p336 or is_p335 or is_p334 or is_p333 or is_p332 or is_p331 or is_p330 or is_p329 or is_p328:
             proof = adapter.proof_class(classified)
         elif is_p327:
             proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
@@ -3202,7 +3300,8 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if any(classified.get(name) is not False for name in required_false):
         raise F1LiveError(f"{label} stock classification exposes a causal claim")
     acm_primary = (
-        is_p336
+        is_p337
+        or is_p336
         or is_p335
         or is_p323
         or is_p324
@@ -3242,6 +3341,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P334_STOCK_ENCODER_FAILURE",
         "P335_STOCK_ENCODER_FAILURE",
         "P336_STOCK_ENCODER_FAILURE",
+        "P337_STOCK_ENCODER_FAILURE",
     } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
     result = {
@@ -3796,6 +3896,21 @@ class SamsungOdinBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
+        if _p337_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
+            return _p337_candidate_observer_session(
+                prepared,
+                spec,
+                lane_value=lane_value,
+                lane_receipt=lane_receipt,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         if _p336_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
@@ -4268,6 +4383,7 @@ class SamsungOdinBackend:
                     p334_first_read_observer.AuthObserverError,
                     p335_retained_observer.AuthObserverError,
                     p336_long_idle_observer.AuthObserverError,
+                    p337_open_read_observer.P337ObserverBindingError,
                     OSError,
                 ):
                     pass
@@ -4308,7 +4424,8 @@ class SamsungOdinBackend:
                     }
                 )
             if (
-                _p336_bundle(prepared.bundle)
+                _p337_bundle(prepared.bundle)
+                or _p336_bundle(prepared.bundle)
                 or _p335_bundle(prepared.bundle)
                 or _p334_bundle(prepared.bundle)
                 or _p333_bundle(prepared.bundle)
@@ -4326,7 +4443,22 @@ class SamsungOdinBackend:
                         "partial_sessions": durable["partial_sessions"],
                     }
                 )
-                if _p336_bundle(prepared.bundle):
+                if _p337_bundle(prepared.bundle):
+                    result.update(_p337_proof_state(durable))
+                    result.update(
+                        {
+                            "preauth_diagnostics": durable["preauth_diagnostics"],
+                            "rng_eagain_retries": durable["rng_eagain_retries"],
+                            "partial_sessions": durable["partial_sessions"],
+                            "p337_authenticated_attended_resident": durable[
+                                "p337_authenticated_attended_resident"
+                            ],
+                            "open_read_diagnostic": durable.get(
+                                "open_read_diagnostic"
+                            ),
+                        }
+                    )
+                elif _p336_bundle(prepared.bundle):
                     result.update(_p336_proof_state(durable))
                     result.update(
                         {
@@ -4516,7 +4648,12 @@ class SamsungOdinBackend:
         except F1LiveError as exc:
             if not _acm_primary_bundle(prepared.bundle):
                 raise
-            if _p336_bundle(prepared.bundle):
+            if _p337_bundle(prepared.bundle):
+                stock_error = _p337_stock_error(payloads[0], exc)
+                marker_result = _p337_parser_failure_classification(
+                    payloads[0], exc
+                )
+            elif _p336_bundle(prepared.bundle):
                 stock_error = _p336_stock_error(payloads[0], exc)
                 marker_result = _p336_parser_failure_classification(
                     payloads[0], exc
@@ -4647,7 +4784,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p336_stock"
+                "p337_stock"
+                if _p337_bundle(prepared.bundle)
+                else "p336_stock"
                 if _p336_bundle(prepared.bundle)
                 else "p335_stock"
                 if _p335_bundle(prepared.bundle)
@@ -4683,7 +4822,9 @@ class SamsungOdinBackend:
             ] = p320_projection
         if stock_error is not None:
             key = (
-                "p336_stock_error"
+                "p337_stock_error"
+                if _p337_bundle(prepared.bundle)
+                else "p336_stock_error"
                 if _p336_bundle(prepared.bundle)
                 else "p335_stock_error"
                 if _p335_bundle(prepared.bundle)
@@ -4714,7 +4855,9 @@ class SamsungOdinBackend:
             )
             result["observer"][key] = stock_error
             result["observer"].pop(
-                "p336_stock"
+                "p337_stock"
+                if _p337_bundle(prepared.bundle)
+                else "p336_stock"
                 if _p336_bundle(prepared.bundle)
                 else "p335_stock"
                 if _p335_bundle(prepared.bundle)
@@ -6921,6 +7064,204 @@ class _P336ObserverSession(_P335ObserverSession):
         return value
 
 
+def _p337_repin_proof(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Rebind the inherited three-session proof to the P337 wire identity."""
+    expected_commands = [
+        _p327_identity(command)
+        for command in p337_open_read_runtime.DEFAULT_COMMANDS
+    ]
+    if (
+        type(value) is not dict
+        or value.get("schema") != p337_open_read_observer.SCHEMA
+        or value.get("contract_id") != p337_open_read_observer.CONTRACT_ID
+        or value.get("target") != p337_open_read_runtime.TARGET
+        or value.get("run_id_hex") != p337_open_read_runtime.P337_RUN_ID_HEX
+        or value.get("fixed_commands") != expected_commands
+    ):
+        raise F1LiveError("P3.37 initial proof namespace differs")
+    sessions = value.get("sessions")
+    if (
+        type(sessions) is not list
+        or len(sessions) != p337_open_read_observer.MAX_SESSIONS
+    ):
+        raise F1LiveError("P3.37 initial proof session count differs")
+    for session in sessions:
+        commands = session.get("commands") if type(session) is dict else None
+        if type(commands) is not list or len(commands) != len(expected_commands):
+            raise F1LiveError("P3.37 initial proof command count differs")
+        for command, expected in zip(commands, expected_commands):
+            if (
+                type(command) is not dict
+                or command.get("command_sha256") != expected["sha256"]
+            ):
+                raise F1LiveError("P3.37 initial proof command identity differs")
+    proof = dict(value)
+    proof.update(
+        {
+            "schema": p337_open_read_observer.SCHEMA,
+            "contract_id": p337_open_read_observer.CONTRACT_ID,
+            "target": p337_open_read_runtime.TARGET,
+            "run_id_hex": p337_open_read_runtime.P337_RUN_ID_HEX,
+            "fixed_commands": expected_commands,
+        }
+    )
+    proof["sessions"] = [dict(session) for session in sessions]
+    return proof
+
+
+def _p337_initial_observer_module() -> types.ModuleType:
+    """Load the retained-session codec with the exact P337 runtime binding."""
+    payload = p336_long_idle_observer._PREDECESSOR_PAYLOAD  # noqa: SLF001
+    if p336_long_idle_observer.identity(payload) != p336_long_idle_observer.SOURCE_IDENTITY:
+        raise F1LiveError("P3.37 initial observer source identity differs")
+    runtime_binding = types.ModuleType(
+        "s22plus_fyg8_p337_initial_retained_runtime"
+    )
+    runtime_binding.__dict__.update(vars(p337_open_read_runtime))
+    # The exact P335 observer source also loads its older P332 predecessor;
+    # these compatibility bounds are not protocol inputs and keep that nested
+    # source graph intact while every wire value comes from P337 above.
+    runtime_binding.SESSION_COUNT = 2
+    runtime_binding.RECONNECT_COUNT = 1
+    runtime_binding.MAX_SESSIONS = 2
+    runtime_binding.MAX_RECONNECTS = 1
+    runtime_binding.MAX_PHYSICAL_REOPENS = 1
+    runtime_binding.PHYSICAL_REOPEN_COUNT = 1
+    runtime_binding.P335_COMMANDS_PER_SESSION = len(
+        p337_open_read_runtime.DEFAULT_COMMANDS
+    )
+    module = types.ModuleType("s22plus_fyg8_p337_initial_retained_observer")
+    module.__file__ = str(p336_long_idle_observer.SOURCE)
+    module.__package__ = ""
+    runtime_name = "s22plus_fyg8_p335_retained_listener_runtime"
+    module_name = module.__name__
+    previous_runtime = sys.modules.get(runtime_name)
+    previous_module = sys.modules.get(module_name)
+    sys.modules[runtime_name] = runtime_binding
+    sys.modules[module_name] = module
+    try:
+        exec(  # noqa: S102
+            compile(
+                payload,
+                str(p336_long_idle_observer.SOURCE),
+                "exec",
+                dont_inherit=True,
+            ),
+            module.__dict__,
+        )
+    except Exception as exc:
+        raise F1LiveError("P3.37 initial observer source failed to load") from exc
+    finally:
+        if previous_runtime is None:
+            sys.modules.pop(runtime_name, None)
+        else:
+            sys.modules[runtime_name] = previous_runtime
+        if previous_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous_module
+    # The codec implementation is inherited byte-for-byte, but its exported
+    # receipt namespace is P337 so validation cannot silently accept P335 data.
+    module.SCHEMA = p337_open_read_observer.SCHEMA
+    module.CONTRACT_ID = p337_open_read_observer.CONTRACT_ID
+    if (
+        getattr(module, "runtime", None) is not runtime_binding
+        or module.DEFAULT_COMMANDS != tuple(p337_open_read_runtime.DEFAULT_COMMANDS)
+        or module.DEVICE_BANNER != p337_open_read_runtime.DEVICE_BANNER
+        or module.P335_RUN_ID_HEX != p337_open_read_runtime.P337_RUN_ID_HEX
+    ):
+        raise F1LiveError("P3.37 initial observer runtime binding differs")
+    return module
+
+
+_P337_INITIAL_OBSERVER = _p337_initial_observer_module()
+
+
+@dataclass
+class _P337ObserverSession(_P335ObserverSession):
+    """P3.35 session shape with the exact P3.37 initial wire codec."""
+
+    # Compile the proved retained-session implementation against P337's
+    # exact runtime module.  The inherited session orchestration then calls
+    # this P337-bound exchange_retained, never the imported P335 module.
+    auth_observer: Any = _P337_INITIAL_OBSERVER
+    auth_runtime: Any = p337_open_read_runtime
+    receipt_schema: str = P337_OBSERVER_RECEIPT_SCHEMA
+    receipt_label: str = "P337 open-read diagnostic resident observer receipt"
+    campaign_label: str = "P3.37"
+    proof_key: str = "p337_authenticated_attended_resident"
+    raw_argv0_name: str = "tty-cdc-acm-p337"
+
+    _captured_lane: dict[str, Any] | None = None
+
+    def _publish_value(
+        self,
+        value: dict[str, Any],
+        lane_supplement: dict[str, Any],
+        *,
+        label: str,
+    ) -> None:
+        # Parent observe() first computes its raw/partial receipt.  Hold that
+        # value until this subclass has rebound the P337 proof namespace.
+        self._captured_lane = dict(lane_supplement)
+
+    def observe(
+        self,
+        *,
+        timeout_sec: int,
+        download_departure: dict[str, Any],
+    ) -> dict[str, Any]:
+        inherited = super().observe(
+            timeout_sec=timeout_sec,
+            download_departure=download_departure,
+        )
+        value = dict(inherited)
+        inherited_proof = value.get("proof")
+        proof = _p337_repin_proof(inherited_proof) if inherited_proof else {}
+        open_read_diagnostic: dict[str, Any] | None = None
+        resident = self.resident_result
+        sessions = () if resident is None else resident.sessions
+        for session in reversed(tuple(sessions)):
+            try:
+                open_read_diagnostic = (
+                    p337_open_read_observer.parse_retained_open_read_diagnostic(
+                        session.raw_rx
+                    )
+                )
+            except p337_open_read_observer.P337ObserverBindingError:
+                continue
+            break
+        value.update(
+            {
+                "schema": P337_OBSERVER_RECEIPT_SCHEMA,
+                "contract_id": p337_open_read_observer.CONTRACT_ID,
+                "target": p337_open_read_runtime.TARGET,
+                "banner_hex": p337_open_read_runtime.DEVICE_BANNER.hex(),
+                "proof": proof,
+                "p337_authenticated_attended_resident": proof,
+                "session_cap": p337_open_read_observer.MAX_SESSIONS,
+                "reconnect_cap": p337_open_read_observer.MAX_RECONNECTS,
+                "commands_per_session": len(p337_open_read_runtime.DEFAULT_COMMANDS),
+                "command_count": len(proof.get("sessions", ()))
+                * len(p337_open_read_runtime.DEFAULT_COMMANDS),
+                "max_commands": p337_open_read_runtime.MAX_COMMANDS,
+                "expected_size": len(p337_open_read_runtime.DEVICE_BANNER)
+                * p337_open_read_observer.MAX_SESSIONS,
+                "open_read_diagnostic": open_read_diagnostic,
+                "first_open_failure_diagnostic": True,
+            }
+        )
+        value.pop("p335_authenticated_attended_resident", None)
+        lane = self._captured_lane or {}
+        _P327ObserverSession._publish_value(
+            self,
+            value,
+            lane,
+            label=self.receipt_label,
+        )
+        return value
+
+
 @contextlib.contextmanager
 def _p328_candidate_observer_session(
     prepared: PreparedRun,
@@ -7383,6 +7724,33 @@ def _p336_candidate_observer_session(
         runtime_module=p336_long_idle_runtime,
         session_type=_P336ObserverSession,
         label="P3.36",
+        entry_diagnostic=True,
+    ) as session:
+        yield session
+
+
+@contextlib.contextmanager
+def _p337_candidate_observer_session(
+    prepared: PreparedRun,
+    spec: dict[str, Any],
+    *,
+    lane_value: dict[str, Any],
+    lane_receipt: dict[str, Any],
+    usb_root: Path,
+    typec_root: Path,
+) -> Iterator[_P337ObserverSession]:
+    """Arm the P3.36 session shape with P3.37's failure diagnostic binding."""
+    with _logical_resident_candidate_observer_session(
+        prepared,
+        spec,
+        lane_value=lane_value,
+        lane_receipt=lane_receipt,
+        usb_root=usb_root,
+        typec_root=typec_root,
+        observer_module=p337_open_read_observer,
+        runtime_module=p337_open_read_runtime,
+        session_type=_P337ObserverSession,
+        label="P3.37",
         entry_diagnostic=True,
     ) as session:
         yield session
@@ -8202,6 +8570,65 @@ def _p336_proof_ok(value: Mapping[str, Any]) -> bool:
     )
 
 
+P337_PROOF_FIELDS = P336_PROOF_FIELDS + (
+    "open_read_diagnostic",
+    "first_open_failure_diagnostic",
+)
+
+
+def _p337_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value.get(key) for key in P337_PROOF_FIELDS}
+
+
+def _p337_proof_ok(value: Mapping[str, Any]) -> bool:
+    proof_value = value.get(
+        "proof", value.get("p337_authenticated_attended_resident")
+    )
+    try:
+        proof = typed_evidence.validate_p337_open_read_diagnostic_proof(
+            proof_value
+        )
+    except (typed_evidence.EvidenceError, TypeError):
+        return False
+    return (
+        all(
+            value.get(key) is True
+            for key in (
+                "hmac_authenticated",
+                "pid1_authenticated_framed_exec_proof",
+                "busybox_ash_command_proof",
+                "framed_session_closed",
+                "logical_resident_proof",
+                "same_tty_fd",
+                "fixed_p330_commands",
+                "first_open_failure_diagnostic",
+            )
+        )
+        and value.get("open_read_diagnostic") is None
+        and value.get("physical_reopen_count")
+        == p337_open_read_observer.PHYSICAL_REOPEN_COUNT
+        and value.get("interactive_pty_proof") is False
+        and value.get("caller_selected_command") is False
+        and value.get("arbitrary_file_transfer") is False
+        and value.get("persistent_state") is False
+        and value.get("session_count") == p337_open_read_observer.MAX_SESSIONS
+        and value.get("successful_sessions")
+        == p337_open_read_observer.MAX_SESSIONS
+        and value.get("session_cap") == p337_open_read_observer.MAX_SESSIONS
+        and value.get("reconnect_count") == p337_open_read_observer.MAX_RECONNECTS
+        and value.get("reconnect_cap") == p337_open_read_observer.MAX_RECONNECTS
+        and value.get("commands_per_session")
+        == len(p337_open_read_runtime.DEFAULT_COMMANDS)
+        and value.get("command_count")
+        == p337_open_read_observer.MAX_SESSIONS
+        * len(p337_open_read_runtime.DEFAULT_COMMANDS)
+        and value.get("max_commands") == p337_open_read_runtime.MAX_COMMANDS
+        and proof.get("listener_replays_commands") is False
+        and proof.get("same_boot_id") is True
+        and proof.get("descriptor_reopened") is True
+    )
+
+
 def _p336_bound_auth_key_identity(prepared: PreparedRun) -> dict[str, Any]:
     return _p328_bound_auth_key_identity(prepared)
 
@@ -8818,6 +9245,8 @@ def _p332_validate_receipt(
     expected_session_count: int | None = None,
     proof_key: str = "p332_authenticated_logical_resident",
     label: str = "P332",
+    additional_keys: frozenset[str] = frozenset(),
+    partial_reopens_allowed: bool = False,
 ) -> dict[str, Any]:
     session_count = (
         runtime_module.MAX_SESSIONS
@@ -8841,6 +9270,7 @@ def _p332_validate_receipt(
         caller_selected_command arbitrary_file_transfer persistent_state
         """.split()
     )
+    expected_keys.update(additional_keys)
     if not isinstance(value, dict) or set(value) != expected_keys:
         raise observer_module.AuthObserverError(
             f"{label} logical resident receipt shape differs"
@@ -8885,7 +9315,14 @@ def _p332_validate_receipt(
         or accepted is not (classification == "accepted")
         or value["bounded"] is not True
         or type(value["physical_reopen_count"]) is not int
-        or value["physical_reopen_count"] != expected_physical_reopens
+        or (
+            value["physical_reopen_count"] != expected_physical_reopens
+            and not (
+                partial_reopens_allowed
+                and accepted is False
+                and 0 <= value["physical_reopen_count"] <= expected_physical_reopens
+            )
+        )
         or value["interactive_pty_proof"] is not False
         or value["caller_selected_command"] is not False
         or value["arbitrary_file_transfer"] is not False
@@ -9051,6 +9488,64 @@ def _p336_validate_receipt(
     )
 
 
+def _p337_validate_receipt(
+    prepared: PreparedRun,
+    path: Path,
+    spec: dict[str, Any],
+) -> dict[str, Any]:
+    raw_value = _read_json(path, "P337 open-read diagnostic observer receipt")
+    if raw_value.get("first_open_failure_diagnostic") is not True:
+        raise p337_open_read_observer.P337ObserverBindingError(
+            "P337 diagnostic receipt binding differs"
+        )
+    diagnostic = raw_value.get("open_read_diagnostic")
+    if diagnostic is not None:
+        if (
+            type(diagnostic) is not dict
+            or set(diagnostic)
+            != {
+                "stage", "code", "classification", "raw", "frame_count",
+                "retained", "causal_result_allowed", "candidate_success",
+            }
+            or diagnostic.get("stage")
+            != p337_open_read_runtime.DIAGNOSTIC_STAGE_OPEN_READ_RESULT
+            or diagnostic.get("classification")
+            not in {"open-read-error", "open-validation-rejected"}
+            or diagnostic.get("causal_result_allowed") is not False
+            or diagnostic.get("candidate_success") is not False
+        ):
+            raise p337_open_read_observer.P337ObserverBindingError(
+                "P337 diagnostic receipt differs"
+            )
+    value = _p332_validate_receipt(
+        prepared,
+        path,
+        spec,
+        observer_module=p337_open_read_observer,
+        runtime_module=p337_open_read_runtime,
+        receipt_schema=P337_OBSERVER_RECEIPT_SCHEMA,
+        classifications=P337_CLASSIFICATIONS,
+        proof_validator=typed_evidence.validate_p337_open_read_diagnostic_proof,
+        proof_checker=_p337_proof_ok,
+        expected_physical_reopens=p337_open_read_observer.PHYSICAL_REOPEN_COUNT,
+        expected_reconnects=p337_open_read_observer.MAX_RECONNECTS,
+        expected_session_count=p337_open_read_observer.MAX_SESSIONS,
+        proof_key="p337_authenticated_attended_resident",
+        label="P337",
+        additional_keys=frozenset(
+            {"open_read_diagnostic", "first_open_failure_diagnostic"}
+        ),
+        partial_reopens_allowed=True,
+    )
+    value.update(
+        {
+            "open_read_diagnostic": diagnostic,
+            "first_open_failure_diagnostic": True,
+        }
+    )
+    return value
+
+
 def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     def unavailable(classification: str) -> dict[str, Any]:
         result = {
@@ -9072,6 +9567,29 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                     "accepted_inventory_exact": False,
                     "same_run_typec_partner_continuity": False,
                     "accepted_for_p324": False,
+                }
+            )
+        if _p337_bundle(prepared.bundle):
+            result.update(
+                {
+                    **{key: False for key in P337_PROOF_FIELDS},
+                    "open_read_diagnostic": None,
+                    "first_open_failure_diagnostic": False,
+                    "physical_reopen_count": 0,
+                    "session_count": 0,
+                    "successful_sessions": 0,
+                    "session_cap": p337_open_read_observer.MAX_SESSIONS,
+                    "reconnect_count": 0,
+                    "reconnect_cap": p337_open_read_observer.MAX_RECONNECTS,
+                    "commands_per_session": len(p337_open_read_runtime.DEFAULT_COMMANDS),
+                    "command_count": 0,
+                    "max_commands": p337_open_read_runtime.MAX_COMMANDS,
+                    "auth_key_sha256": None,
+                    "preauth_diagnostics": [],
+                    "rng_eagain_retries": [],
+                    "partial_sessions": [],
+                    "p337_authenticated_attended_resident": None,
+                    "caller_selected_command": False,
                 }
             )
         if _p336_bundle(prepared.bundle):
@@ -9253,7 +9771,10 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         return unavailable("interrupted-before-receipt")
     try:
-        if _p336_bundle(prepared.bundle):
+        if _p337_bundle(prepared.bundle):
+            value = _p337_validate_receipt(prepared, path, spec)
+            receipt_sha256 = value["receipt_sha256"]
+        elif _p336_bundle(prepared.bundle):
             value = _p336_validate_receipt(prepared, path, spec)
             receipt_sha256 = value["receipt_sha256"]
         elif _p335_bundle(prepared.bundle):
@@ -9361,6 +9882,7 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
         p334_first_read_observer.AuthObserverError,
         p335_retained_observer.AuthObserverError,
         p336_long_idle_observer.AuthObserverError,
+        p337_open_read_observer.P337ObserverBindingError,
         F1LiveError,
         core.F1V2Error,
     ):
@@ -9389,7 +9911,19 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                 )
             }
         )
-    if _p336_bundle(prepared.bundle):
+    if _p337_bundle(prepared.bundle):
+        result.update(_p337_proof_state(value))
+        result.update(
+            {
+                "preauth_diagnostics": value["preauth_diagnostics"],
+                "rng_eagain_retries": value["rng_eagain_retries"],
+                "partial_sessions": value["partial_sessions"],
+                "p337_authenticated_attended_resident": value[
+                    "p337_authenticated_attended_resident"
+                ],
+            }
+        )
+    elif _p336_bundle(prepared.bundle):
         result.update(_p336_proof_state(value))
         result.update(
             {
@@ -9642,6 +10176,7 @@ def _candidate_arrival_proof_projection(
         return None
     durable = _reopen_candidate_observation(prepared)
     guard_release = _reopen_candidate_guard_release(prepared)
+    p337 = _p337_bundle(prepared.bundle)
     p336 = _p336_bundle(prepared.bundle)
     p335 = _p335_bundle(prepared.bundle)
     p334 = _p334_bundle(prepared.bundle)
@@ -9668,7 +10203,9 @@ def _candidate_arrival_proof_projection(
         and durable["accepted"] is True
         and durable["classification"] == "accepted"
     )
-    if p336:
+    if p337:
+        observer_accepted = observer_accepted and _p337_proof_ok(durable)
+    elif p336:
         observer_accepted = observer_accepted and _p336_proof_ok(durable)
     elif p335:
         observer_accepted = observer_accepted and _p335_proof_ok(durable)
@@ -9729,7 +10266,9 @@ def _candidate_arrival_proof_projection(
     final_observer = final.get("observer") if isinstance(final, dict) else None
     if isinstance(final_observer, dict):
         key = (
-            "p336_stock"
+            "p337_stock"
+            if p337
+            else "p336_stock"
             if p336
             else "p335_stock"
             if p335
@@ -9775,7 +10314,9 @@ def _candidate_arrival_proof_projection(
             }
         else:
             error_key = (
-                "p336_stock_error"
+                "p337_stock_error"
+                if p337
+                else "p336_stock_error"
                 if p336
                 else "p335_stock_error"
                 if p335
@@ -9831,7 +10372,10 @@ def _candidate_arrival_proof_projection(
         "role": role,
         "primary_source": "candidate_observer",
         "banner_size": (
-            len(p336_long_idle_runtime.DEVICE_BANNER)
+            len(p337_open_read_runtime.DEVICE_BANNER)
+            * p337_open_read_observer.MAX_SESSIONS
+            if p337
+            else len(p336_long_idle_runtime.DEVICE_BANNER)
             * p336_long_idle_observer.MAX_SESSIONS
             if p336
             else len(p335_retained_runtime.DEVICE_BANNER)
@@ -9876,7 +10420,17 @@ def _candidate_arrival_proof_projection(
         "proof": proof,
         "supplemental_carrier": supplemental,
     }
-    if p336:
+    if p337:
+        result.update(_p337_proof_state(durable))
+        result.update(
+            {
+                "per_boot_identity_required": True,
+                "listener_wait_after_proof": True,
+                "resident_lease_schema": P337_LEASE_SCHEMA,
+                "open_read_diagnostic": durable.get("open_read_diagnostic"),
+            }
+        )
+    elif p336:
         result.update(_p336_proof_state(durable))
         result.update(
             {
@@ -10497,7 +11051,20 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.25 final stock projection changed")
     elif "p325_stock" in observer or "p325_stock_error" in observer:
         raise F1LiveError("foreign P3.25 final stock evidence")
-    if _p336_bundle(prepared.bundle):
+    if _p337_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p337_stock_error") != stock_error
+                or "p337_stock" in observer
+            ):
+                raise F1LiveError("P3.37 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p337_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.37 final stock projection changed")
+    elif "p337_stock" in observer or "p337_stock_error" in observer:
+        raise F1LiveError("foreign P3.37 final stock evidence")
+    elif _p336_bundle(prepared.bundle):
         if stock_error is not None:
             if (
                 observer.get("p336_stock_error") != stock_error
@@ -10683,6 +11250,7 @@ def _validate_candidate_observer_state(
         or _p334_bundle(prepared.bundle)
         or _p335_bundle(prepared.bundle)
         or _p336_bundle(prepared.bundle)
+        or _p337_bundle(prepared.bundle)
     ):
         raise F1LiveError("P3.28 authenticated proof durable state mismatch")
     if (
@@ -10691,6 +11259,7 @@ def _validate_candidate_observer_state(
         or _p334_bundle(prepared.bundle)
         or _p335_bundle(prepared.bundle)
         or _p336_bundle(prepared.bundle)
+        or _p337_bundle(prepared.bundle)
     ) and any(
         state.get(key) != durable.get(key)
         for key in P332_PROOF_FIELDS
@@ -10702,6 +11271,7 @@ def _validate_candidate_observer_state(
         or _p334_bundle(prepared.bundle)
         or _p335_bundle(prepared.bundle)
         or _p336_bundle(prepared.bundle)
+        or _p337_bundle(prepared.bundle)
     ) and any(
         state.get(key) != durable.get(key)
         for key in (
@@ -10723,6 +11293,14 @@ def _validate_candidate_observer_state(
         "p336_authenticated_attended_resident"
     ) != durable.get("p336_authenticated_attended_resident"):
         raise F1LiveError("P3.36 long-idle proof namespace mismatch")
+    if _p337_bundle(prepared.bundle) and any(
+        state.get(key) != durable.get(key) for key in P337_PROOF_FIELDS
+    ):
+        raise F1LiveError("P3.37 diagnostic proof durable state mismatch")
+    if _p337_bundle(prepared.bundle) and state.get(
+        "p337_authenticated_attended_resident"
+    ) != durable.get("p337_authenticated_attended_resident"):
+        raise F1LiveError("P3.37 diagnostic proof namespace mismatch")
     if _p331_bundle(prepared.bundle) and any(
         state.get(key) != durable.get(key)
         for key in P331_PROOF_FIELDS
@@ -10867,6 +11445,7 @@ def validate_live_result(
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
     if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
+        p337 = _p337_bundle(prepared.bundle)
         p336 = _p336_bundle(prepared.bundle)
         p335 = _p335_bundle(prepared.bundle)
         p334 = _p334_bundle(prepared.bundle)
@@ -10881,7 +11460,9 @@ def validate_live_result(
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
         label = (
-            "P3.36"
+            "P3.37"
+            if p337
+            else "P3.36"
             if p336
             else "P3.35"
             if p335
@@ -10910,7 +11491,9 @@ def validate_live_result(
             else "P3.23"
         )
         success_verdict = (
-            P336_SUCCESS_VERDICT
+            P337_SUCCESS_VERDICT
+            if p337
+            else P336_SUCCESS_VERDICT
             if p336
             else P335_SUCCESS_VERDICT
             if p335
@@ -10941,7 +11524,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_VERDICT
         )
         success_outcome = (
-            P336_SUCCESS_OUTCOME
+            P337_SUCCESS_OUTCOME
+            if p337
+            else P336_SUCCESS_OUTCOME
             if p336
             else P335_SUCCESS_OUTCOME
             if p335
@@ -10972,7 +11557,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_OUTCOME
         )
         no_proof_outcome = (
-            P336_NO_PROOF_OUTCOME
+            P337_NO_PROOF_OUTCOME
+            if p337
+            else P336_NO_PROOF_OUTCOME
             if p336
             else P335_NO_PROOF_OUTCOME
             if p335
@@ -11997,7 +12584,22 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     ),
                 }
             )
-            if _p336_bundle(prepared.bundle):
+            if _p337_bundle(prepared.bundle):
+                current.update(_p337_proof_state(durable))
+                current.update(
+                    {
+                        "preauth_diagnostics": durable["preauth_diagnostics"],
+                        "rng_eagain_retries": durable["rng_eagain_retries"],
+                        "partial_sessions": durable["partial_sessions"],
+                        "p337_authenticated_attended_resident": durable[
+                            "p337_authenticated_attended_resident"
+                        ],
+                        "open_read_diagnostic": durable.get(
+                            "open_read_diagnostic"
+                        ),
+                    }
+                )
+            elif _p336_bundle(prepared.bundle):
                 current.update(_p336_proof_state(durable))
                 current.update(
                     {
@@ -12080,7 +12682,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     released=guard_release["released"],
                 )
                 and (
-                    _p336_proof_ok(durable)
+                    _p337_proof_ok(durable)
+                    if _p337_bundle(prepared.bundle)
+                    else _p336_proof_ok(durable)
                     if _p336_bundle(prepared.bundle)
                     else _p335_proof_ok(durable)
                     if _p335_bundle(prepared.bundle)
@@ -12143,7 +12747,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 ),
             )
             and (
-                _p336_proof_ok(current)
+                _p337_proof_ok(current)
+                if _p337_bundle(prepared.bundle)
+                else _p336_proof_ok(current)
                 if _p336_bundle(prepared.bundle)
                 else _p335_proof_ok(current)
                 if _p335_bundle(prepared.bundle)
@@ -12181,6 +12787,7 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
 
     current = _state(prepared)
     if _acm_primary_bundle(prepared.bundle):
+        p337 = _p337_bundle(prepared.bundle)
         p336 = _p336_bundle(prepared.bundle)
         p335 = _p335_bundle(prepared.bundle)
         p334 = _p334_bundle(prepared.bundle)
@@ -12202,7 +12809,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         if isinstance(projection, dict) and projection.get("proof") is True:
             return (
                 (
-                    P336_SUCCESS_VERDICT
+                    P337_SUCCESS_VERDICT
+                    if p337
+                    else P336_SUCCESS_VERDICT
                     if p336
                     else P335_SUCCESS_VERDICT
                     if p335
@@ -12233,7 +12842,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
                     else typed_evidence.P323_ACM_PRIMARY_VERDICT
                 ),
                 (
-                    P336_SUCCESS_OUTCOME
+                    P337_SUCCESS_OUTCOME
+                    if p337
+                    else P336_SUCCESS_OUTCOME
                     if p336
                     else P335_SUCCESS_OUTCOME
                     if p335
@@ -12267,7 +12878,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         return (
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
             (
-                P336_NO_PROOF_OUTCOME
+                P337_NO_PROOF_OUTCOME
+                if p337
+                else P336_NO_PROOF_OUTCOME
                 if p336
                 else P335_NO_PROOF_OUTCOME
                 if p335
@@ -12595,6 +13208,20 @@ def _finish_rollback(
                     raise F1LiveError("P3.25 final stock projection is missing")
                 current["p325_proof_class"] = projection["proof_class"]
                 current["p325_stock"] = projection
+        if _p337_bundle(prepared.bundle):
+            error = final["observer"].get("p337_stock_error")
+            projection = final["observer"].get("p337_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError(
+                        "P3.37 supplemental parser failure is malformed"
+                    )
+                current["p337_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.37 final stock projection is missing")
+                current["p337_proof_class"] = projection["proof_class"]
+                current["p337_stock"] = projection
         if _p336_bundle(prepared.bundle):
             error = final["observer"].get("p336_stock_error")
             projection = final["observer"].get("p336_stock")
@@ -12717,6 +13344,7 @@ def _finish_rollback(
             and not _p334_bundle(prepared.bundle)
             and not _p335_bundle(prepared.bundle)
             and not _p336_bundle(prepared.bundle)
+            and not _p337_bundle(prepared.bundle)
         ):
             error = final["observer"].get("p328_stock_error")
             projection = final["observer"].get("p328_stock")
@@ -14089,7 +14717,22 @@ def _execute_prepared_locked(
                         ],
                     }
                 )
-                if _p336_bundle(prepared.bundle):
+                if _p337_bundle(prepared.bundle):
+                    current.update(_p337_proof_state(durable))
+                    current.update(
+                        {
+                            "preauth_diagnostics": durable["preauth_diagnostics"],
+                            "rng_eagain_retries": durable["rng_eagain_retries"],
+                            "partial_sessions": durable["partial_sessions"],
+                            "p337_authenticated_attended_resident": durable[
+                                "p337_authenticated_attended_resident"
+                            ],
+                            "open_read_diagnostic": durable.get(
+                                "open_read_diagnostic"
+                            ),
+                        }
+                    )
+                elif _p336_bundle(prepared.bundle):
                     current.update(_p336_proof_state(durable))
                     current.update(
                         {

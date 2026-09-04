@@ -36,6 +36,20 @@ P336_PREDECESSOR_RUN_ID_HEX = "c336f1e0a90b5e6d7c8a9b0c1d2e3f4b"
 P336_PREDECESSOR_RUN_ID = bytes.fromhex(P336_PREDECESSOR_RUN_ID_HEX)
 P337_RUN_ID_HEX = "c337f1e0a90b5e6d7c8a9b0c1d2e3f3b"
 P337_RUN_ID = bytes.fromhex(P337_RUN_ID_HEX)
+# Compatibility labels used only by the exact-loaded packaging graph.  Every
+# one resolves to the fresh P337 bytes; none accepts a predecessor identity.
+P336_RUN_ID_HEX = P337_RUN_ID_HEX
+P336_RUN_ID = P337_RUN_ID
+P335_RUN_ID_HEX = P337_RUN_ID_HEX
+P335_RUN_ID = P337_RUN_ID
+P334_RUN_ID_HEX = P337_RUN_ID_HEX
+P334_RUN_ID = P337_RUN_ID
+P333_RUN_ID_HEX = P337_RUN_ID_HEX
+P333_RUN_ID = P337_RUN_ID
+P332_RUN_ID_HEX = P337_RUN_ID_HEX
+P332_RUN_ID = P337_RUN_ID
+P328_RUN_ID_HEX = P337_RUN_ID_HEX
+P328_RUN_ID = P337_RUN_ID
 DIAGNOSTIC_STAGE_CONSOLE_ENTER = 0
 DIAGNOSTIC_STAGE_OPEN_PARSED = 1
 DIAGNOSTIC_STAGE_RNG = 2
@@ -319,6 +333,14 @@ def audit_binding() -> dict[str, Any]:
     }
 
 
+def __getattr__(name: str) -> Any:
+    """Forward unchanged ABI constants/codecs to the exact P3.36 runtime."""
+    try:
+        return getattr(predecessor, name)
+    except AttributeError as exc:
+        raise AttributeError(name) from exc
+
+
 __all__ = sorted({
     "AUTH_KEY_PLACEHOLDER", "AUTH_KEY_SIZE", "CONTRACT_ID", "DEFAULT_COMMANDS",
     "DEVICE_BANNER", "DIAGNOSTIC_FRAME_TYPE", "DIAGNOSTIC_STAGE_CONSOLE_ENTER",
@@ -328,6 +350,9 @@ __all__ = sorted({
     "P336_PREDECESSOR_RUN_ID_HEX", "P337_ARTIFACT_SOURCE",
     "P337_DEFAULT_COMMANDS", "P337_DETAIL_ANCHOR", "P337_ENTRY", "P337_HELPER",
     "P337_HELPER_TEMPLATE", "P337_RUN_ID", "P337_RUN_ID_HEX", "P337RuntimeError",
+    "P328_RUN_ID", "P328_RUN_ID_HEX", "P332_RUN_ID", "P332_RUN_ID_HEX",
+    "P333_RUN_ID", "P333_RUN_ID_HEX", "P334_RUN_ID", "P334_RUN_ID_HEX",
+    "P335_RUN_ID", "P335_RUN_ID_HEX", "P336_RUN_ID", "P336_RUN_ID_HEX",
     "PUBLISHER", "RUNTIME_KEY", "SCHEMA", "SOURCE", "SOURCE_IDENTITY", "TARGET",
     "audit_binding", "auth_key_sha256", "classify_open_read_diagnostic", "identity",
     "materialize_helper", "transform_artifacts", "transform_runtime_include",

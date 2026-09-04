@@ -1,0 +1,245 @@
+{
+  "allowed_member": "boot.img.lz4",
+  "candidate_ap": {
+    "path": "workspace/private/outputs/s22plus_fyg8_p337/stock-candidate-build-v1-20260904-06/candidate-a/odin4/AP.tar.md5",
+    "sha256": "0c1f6f231180f27376cf4b3e0ed8a84b7347cc2e5d066cf87db53d91cc239466",
+    "size": 28631081
+  },
+  "final_health_profile": "s22plus-fyg8-magisk",
+  "manifest_id": "s22plus-fyg8-p337-process-v2-ready-6",
+  "observation": {
+    "acceptance": {
+      "action_retry": false,
+      "auth_key": {
+        "sha256": "7eb6a32ca96daa9cd125b2798834f45515265a76d653ae719091d98f0a1f515b",
+        "size": 32
+      },
+      "auth_key_schema": "s22plus_fyg8_p328_auth_key_v1",
+      "auth_key_size": 32,
+      "authenticated_exec": true,
+      "authentication_required": true,
+      "candidate_success": false,
+      "causal_result_allowed": false,
+      "clean_baseline_required": true,
+      "command_count_per_session": 3,
+      "contract": {
+        "candidate_static": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-06/candidate-static.json",
+          "sha256": "341e25d27b2bc26722e278db5ee8dc65e1a02062e7089e4c9aaa15506af3b8a5",
+          "size": 36651
+        },
+        "run_manifest": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-06/run-manifest.json",
+          "sha256": "54da44f0179177a9eb2e67abfd249ee2e576dee1e71a02b061cc02b4b9fef169",
+          "size": 1035
+        },
+        "static_check": {
+          "path": "workspace/private/outputs/s22plus_fyg8_p337/process-v2-promotion-20260904-06/static-check-result.json",
+          "sha256": "92e8b11e617ce9a240592ca07375252b70d239e308a72c641016a41dbf7a1172",
+          "size": 1940
+        }
+      },
+      "decoder": "s22plus_fyg8_p337_open_read_diagnostic_v1",
+      "detail_codes": {
+        "boot_id": 50000,
+        "initial_session": 50001,
+        "listener_banner": 50002,
+        "listener_protocol": 50003
+      },
+      "entry_diagnostic_before_console": true,
+      "entry_diagnostic_stage": 0,
+      "first_open_failure_diagnostic": true,
+      "fixed_heartbeat_only": false,
+      "fixed_p330_commands": true,
+      "host_tty_close_reopen": true,
+      "initial_reconnect_count": 1,
+      "initial_session_count": 3,
+      "kind": "retained_e1_latest_stage_multiboot_after_rollback",
+      "later_action_max_preamble_pairs": 8,
+      "later_action_max_resync_bytes": 65536,
+      "later_action_open_before_resync": true,
+      "listener_wait_after_proof": true,
+      "logical_same_tty": true,
+      "long_family_hex": "53323245314c327c",
+      "long_idle_host_resync": true,
+      "minimum_success_count": 1,
+      "observer_contract": {
+        "action_retry": false,
+        "base_commit": "8348fc0085",
+        "commit": "8348fc0085",
+        "first_open_failure_diagnostic": true,
+        "id": "s22plus-fyg8-p337-open-read-diagnostic-acm-observer-v1",
+        "initial_reconnect_count": 1,
+        "initial_session_count": 3,
+        "listener_wait_after_proof": true,
+        "long_idle_host_resync": true,
+        "max_preamble_pairs": 8,
+        "max_resync_bytes": 65536,
+        "open_before_resync": true,
+        "open_read_diagnostic_stage": 3,
+        "open_read_failure_diagnostic_best_effort": true,
+        "payload_abi": 4,
+        "per_boot_identity_required": true,
+        "receipt_offset": 61,
+        "receipt_size": 15,
+        "resident_lease_schema": "s22plus_fyg8_p337_open_read_diagnostic_lease_v1",
+        "successful_wire_exchange_unchanged": true
+      },
+      "observer_contract_id": "s22plus-fyg8-p337-open-read-diagnostic-acm-observer-v1",
+      "open_read_diagnostic_stage": 3,
+      "open_read_failure_diagnostic_best_effort": true,
+      "overlay_contract_id": "s22plus-fyg8-p337-open-read-diagnostic-v1",
+      "per_boot_identity_required": true,
+      "policy_id": "fc24ba9d5e279e98a72a80b4829f0727",
+      "preauth_diagnostics": {
+        "eagain_only_retry": true,
+        "frame_type": 134,
+        "stages": [
+          "open-parsed",
+          "rng"
+        ]
+      },
+      "predecessor_run_id_rejected": "c336f1e0a90b5e6d7c8a9b0c1d2e3f4b",
+      "predecessor_run_ids_rejected": [
+        "c330f1e0a90b5e6d7c8a9b0c1d2e3f0b",
+        "c331f1e0a90b5e6d7c8a9b0c1d2e3f9b",
+        "c332f1e0a90b5e6d7c8a9b0c1d2e3f8b",
+        "c333f1e0a90b5e6d7c8a9b0c1d2e3f7b",
+        "c334f1e0a90b5e6d7c8a9b0c1d2e3f6b",
+        "c335f1e0a90b5e6d7c8a9b0c1d2e3f5b",
+        "c336f1e0a90b5e6d7c8a9b0c1d2e3f4b"
+      ],
+      "profile": "E2",
+      "resident_lease_action_cap": 16,
+      "resident_lease_duration_sec": 3600,
+      "resident_lease_schema": "s22plus_fyg8_p337_open_read_diagnostic_lease_v1",
+      "resident_reconnects": 1,
+      "resident_sessions": 3,
+      "run_id": "c337f1e0a90b5e6d7c8a9b0c1d2e3f3b",
+      "same_tty_fd": true,
+      "schema": "s22plus_fyg8_p337_stock_process_v2_adapter_v1",
+      "source": "/proc/last_kmsg",
+      "source_contract_id": "s22plus-fyg8-p310-carrier-v2-hsphy-attribution-v1",
+      "successful_wire_exchange_unchanged": true,
+      "terminal_stage": 147,
+      "transport_reconnect": true,
+      "unsat_family_hex": "533232453155327c",
+      "userspace_overlay_contract_id": "s22plus-fyg8-p337-open-read-diagnostic-v1"
+    },
+    "candidate_arrival_proof_role": "p332_authenticated_logical_resident_same_fd_session_v1",
+    "candidate_observer": {
+      "action_retry": false,
+      "arbitrary_file_transfer": false,
+      "auth_algorithm": "hmac-sha256",
+      "auth_key": {
+        "sha256": "7eb6a32ca96daa9cd125b2798834f45515265a76d653ae719091d98f0a1f515b",
+        "size": 32
+      },
+      "auth_key_path_published": false,
+      "auth_key_schema": "s22plus_fyg8_p328_auth_key_v1",
+      "auth_key_size": 32,
+      "auth_tag_size": 32,
+      "authentication_required": true,
+      "banner_hex": "533232504c55532d465947382d45333a63333337663165306139306235653664376338613962306331643265336633620a",
+      "caller_selected_command": false,
+      "clean_close_required": true,
+      "command_timeout_sec": 15,
+      "commands": [
+        {
+          "sha256": "b50e7a4f4fc2feb0fd17c9a650e84adb390bc27f893d7024cba8478269c64787",
+          "size": 15
+        },
+        {
+          "sha256": "863e2d624d1dcbcabc7d45ada8b80d72cfa399b47051e7ecec31e694661a5c2b",
+          "size": 21
+        },
+        {
+          "sha256": "7b11c6aa2edb00f02f4ccd335864859db0cc0d3634fec651380d47ce66c8f2c8",
+          "size": 61
+        }
+      ],
+      "device_contact": false,
+      "diagnostic_frame_type": 134,
+      "diagnostic_payload_size": 8,
+      "diagnostic_stages": [
+        {
+          "name": "console-enter",
+          "stage": 0
+        },
+        {
+          "name": "open-parsed",
+          "stage": 1
+        },
+        {
+          "name": "rng",
+          "stage": 2
+        }
+      ],
+      "diagnostics_per_session": true,
+      "entry_diagnostic_before_console": true,
+      "entry_diagnostic_stage": 0,
+      "fixed_p330_commands": true,
+      "frame_header_size": 16,
+      "fresh_distinct_nonce_hashes": true,
+      "guard_properties_required": [
+        "ID_MM_DEVICE_IGNORE=1",
+        "ID_MM_PORT_IGNORE=1"
+      ],
+      "host_only": true,
+      "host_tty_close_reopen": true,
+      "initial_reconnect_count": 1,
+      "initial_session_count": 3,
+      "interactive_pty": false,
+      "kind": "exact_cdc_acm_authenticated_open_read_diagnostic_resident_session_v1",
+      "later_action_max_preamble_pairs": 8,
+      "later_action_max_resync_bytes": 65536,
+      "later_action_open_before_resync": true,
+      "listener_wait_after_proof": true,
+      "logical_resident_proof": true,
+      "long_idle_host_resync": true,
+      "max_commands": 16,
+      "max_frame_payload": 1055,
+      "max_output_bytes": 131072,
+      "open_diagnostic_timeout_ms": 5000,
+      "partial_exchange_durable": true,
+      "per_boot_identity_required": true,
+      "per_session_random_nonce": true,
+      "persistent_state": false,
+      "physical_reopen_count": 1,
+      "proof_command_count": 3,
+      "protocol_contract": "s22plus-fyg8-p337-open-read-diagnostic-acm-observer-v1",
+      "raw_rx_forwarded_before_classification": true,
+      "reconnect_cap": 1,
+      "resident_lease_action_cap": 16,
+      "resident_lease_duration_sec": 3600,
+      "resident_lease_schema": "s22plus_fyg8_p337_open_read_diagnostic_lease_v1",
+      "resident_reconnects": 1,
+      "resident_sessions": 3,
+      "rng_diagnostic_timeout_ms": 10000,
+      "rng_eagain_retry_limit": 64,
+      "same_tty_fd_required": true,
+      "schema": "s22plus-fyg8-p337-open-read-diagnostic-acm-session-v1",
+      "session_cap": 3,
+      "transport_reconnect": true,
+      "udev_guard_settle_poll_ms": 25,
+      "udev_guard_settle_timeout_ms": 500,
+      "usb_driver": "cdc_acm",
+      "usb_interface_number": "00",
+      "usb_product_id": "6861",
+      "usb_serial": "S22E3c337f1e0a90b5e6d7c8a9b0c1d2e3f3b",
+      "usb_vendor_id": "04e8",
+      "wire_magic": "S328"
+    },
+    "timeout_sec": 300
+  },
+  "rollback_ap": {
+    "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+    "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
+    "size": 23367721
+  },
+  "run_id": "s22plus-fyg8-p337-live-6",
+  "runner_version": "device-action-f1-v2-host-core-3",
+  "schema": "device_action_f1_candidate_v2",
+  "status": "ready-for-f1-approval",
+  "target_profile": "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
+}

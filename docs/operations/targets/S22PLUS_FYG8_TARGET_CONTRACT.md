@@ -515,11 +515,23 @@ persistent state, reboot, Download request, unattended control or non-boot
 payload. This clause is H0-only until its changed execution closure receives
 independent review and a fresh ready declaration; neither is live authority.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, or P336 candidate transfer occurs, the same
+**P337 first-OPEN failure diagnostic.** P336 is consumed and grants no replay.
+P337 keeps its successful wire exchange, fixed three-command catalog, 300-second
+observation, boot-only transfer and exact rollback unchanged. Only when the
+first framed OPEN read fails, the device may make one best-effort existing
+type-0x86 diagnostic write at stage 3 with the bounded negative errno; a
+complete but rejected OPEN uses stage 3/code 1. The original failure is then
+returned. No retry, extra wait, command, action lease or new authority is added.
+The raw receipt remains authoritative if this best-effort diagnostic is absent.
+Fresh D1/D0 baselines, independent review, preparation and attended F1 approval
+remain required; success still requires the complete intended proof and healthy
+post-rollback return.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, or P337 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, or `s22plus-fyg8-p336` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, or `s22plus-fyg8-p337` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
