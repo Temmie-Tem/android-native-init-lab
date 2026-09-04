@@ -31,7 +31,7 @@ receipt is diagnostic evidence only and cannot make the candidate successful.
 - Builder result: `61618B/c23dd514f33946a030ea72cd35230dd804e21c6435d7808e3ebc8be661cbd2a4`
 - Candidate AP A/B: `28631081B/2f6dc740d06e6b7aef65423ba167fa7ac641d6374583322206dd4a5259a6d2e8`
 - Candidate-static: `38958B/f1c63d2376d90f32ee7c69ed174b802c2c09fb19964ad6cafde39667879beb91`
-- Ready manifest: `10246B/57925c9d7676116959bf39e641ac16f711d294fcece4464f2ff5b732639a0bfb`
+- Current ready manifest (`ready_2`): `10246B/35287aa616b266cbcceeb20990974cdf5eefea5a8e1bd0e67f51f620db7ea0a7`
 - Exact rollback AP: `23367721B/d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`
 
 Candidate A and B are byte-identical and contain only `boot.img.lz4`. P3.37
@@ -70,3 +70,21 @@ D0 preparation, a new durable run, physical attendance and the exact one-use
 F1 approval emitted for that prepared run. Success still requires the complete
 intended authenticated proof, mandatory rollback and healthy exact-target
 return.
+
+## First D0 stop and host-only correction
+
+The first connected preparation read the exact expected P3.37 rollback bytes,
+`2097136B/64ac7a5b...`, and verified healthy rooted FYG8 Android, but stopped
+0/0 at baseline classification. The target contract and constants named the
+P3.38 exception, while `classify_clean_baseline()` had not registered its
+dispatch branch. This was a host integration omission, not baseline drift and
+not a reason to reboot the device.
+
+Commit `21f338f418` adds only the missing P3.38 overlay branch. It requires the
+exact raw identity and independently reopens the sole P3.37 record, run ID,
+offset, valid slots, zero foreign count, no candidate success and
+`NO_PROOF_OBSERVER`; a one-byte mutation is rejected. Independent narrow
+review returned `PASS_GO_P338_D0_BASELINE_REPAIR_H0`. Commit `24553e0c80`
+repins the raw-first inventory to this final source. `ready_2` supersedes
+`ready_1` for new preparation. No D1, reboot, Download transition, Odin or
+partition transfer occurred during the stop or correction.
