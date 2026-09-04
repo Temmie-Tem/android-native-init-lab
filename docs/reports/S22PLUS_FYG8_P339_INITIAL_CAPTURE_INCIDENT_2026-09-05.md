@@ -140,3 +140,12 @@ regression pass; the focused initial/terminal/closure suite is now 6/6.
 No AP, static or ready bytes changed, and no F1 transaction or approval was
 created in `p340-ready1-prepared-20260905-1`. A new preparation directory is
 required; no second D1 reboot is needed.
+
+Fresh `p340-ready1-prepared-20260905-2` now passed common D0 with clean raw
+baseline `2097136B/291672d7`, preflight `3261B/18616aeb` and prepared record
+`26515B/c2e3dcf2`. The exact D1 result, binding and primitive result were
+reopened; the D0 target, topology and boot match the returned D1 values.
+`load_prepared` also passed against the current execution closure. Approval
+digest `dfde76fb` is issued for attended operator response only. No P340
+candidate/rollback transfer or F1 transaction has occurred. All current D1,
+H0 and D0 ledger rows have been reparsed; P320–P322 history is unchanged.
