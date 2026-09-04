@@ -1197,7 +1197,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["pre_boundary_device_source_count"], 128)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "d9239bfb62d778420b270d3732408f4a1940d7135d37c9f7fb2c4970d7eec632",
+            "f7905f83e31b16a1080ee058ed933abaf84ce56b61c425f8325a31e309a2ba69",
         )
         self.assertEqual(
             value["p319_d1_pre_boundary_classification"],
