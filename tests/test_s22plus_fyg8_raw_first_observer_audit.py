@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 628_332,
-                "sha256": "44f75cd7eb20690e2a1626483185534ffbcfbb325ca8e9f6b0a8e02ac16f21f8",
+                "size": 628_516,
+                "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
             },
         )
         self.assertEqual(
@@ -100,8 +100,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p331_live_source_identity"],
             {
-                "size": 628_332,
-                "sha256": "44f75cd7eb20690e2a1626483185534ffbcfbb325ca8e9f6b0a8e02ac16f21f8",
+                "size": 628_516,
+                "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
             },
         )
         self.assertEqual(
@@ -117,8 +117,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p332_live_source_identity"],
             {
-                "size": 628_332,
-                "sha256": "44f75cd7eb20690e2a1626483185534ffbcfbb325ca8e9f6b0a8e02ac16f21f8",
+                "size": 628_516,
+                "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
             },
         )
         self.assertEqual(
@@ -135,8 +135,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p333_live_source_identity"],
             {
-                "size": 628_332,
-                "sha256": "44f75cd7eb20690e2a1626483185534ffbcfbb325ca8e9f6b0a8e02ac16f21f8",
+                "size": 628_516,
+                "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
             },
         )
         self.assertEqual(
@@ -153,8 +153,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p334_live_source_identity"],
             {
-                "size": 628_332,
-                "sha256": "44f75cd7eb20690e2a1626483185534ffbcfbb325ca8e9f6b0a8e02ac16f21f8",
+                "size": 628_516,
+                "sha256": "099ddc217148cae09b2dbb97b60ec60f33236f7eae7591e7c4b70c41af672c42",
             },
         )
         self.assertEqual(
