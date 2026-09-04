@@ -424,6 +424,37 @@ class P336CommonIntegrationTests(unittest.TestCase):
         self.assertEqual(common["candidate"]["run_id"], evidence.P336_RUN_ID)
         self.assertEqual(common["recovery"]["owner"], "s22plus-fyg8-p336-long-idle")
 
+    def test_p336_prepared_auth_key_uses_p336_name_end_to_end(self) -> None:
+        role = evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE
+        bundle = SimpleNamespace(
+            manifest={
+                "observation": {
+                    "acceptance": self.acceptance,
+                    "candidate_observer": self.observer,
+                    evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY: role,
+                }
+            }
+        )
+        prepared: dict[str, object] = {"approval_binding": {}}
+        live._bind_prepared_auth_key_identity(bundle, prepared)
+        live._bind_prepared_auth_key_identity(
+            bundle, prepared["approval_binding"]
+        )
+        self.assertEqual(
+            prepared["p336_auth_key_identity"],
+            evidence.P336_AUTH_EXEC_AUTH_KEY_IDENTITY,
+        )
+        self.assertNotIn("p328_auth_key_identity", prepared)
+        live._validate_prepared_auth_key_identity(bundle, prepared)
+        prepared["p336_auth_key_identity"] = dict(
+            prepared["p336_auth_key_identity"]
+        )
+        prepared["p336_auth_key_identity"]["sha256"] = "00" * 32
+        with self.assertRaisesRegex(
+            live.F1LiveError, "prepared auth-key identity differs"
+        ):
+            live._validate_prepared_auth_key_identity(bundle, prepared)
+
     def test_closed_p336_result_uses_p336_terminal_namespace(self) -> None:
         role = evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE
         bundle = SimpleNamespace(

@@ -1297,18 +1297,9 @@ def _binding(
         "mandatory_rollback_preapproved": True,
         "recovery_requires_second_approval": False,
     }
-    if _p328_bundle(bundle):
-        # Bind only the public identity.  The credential is opened later by
-        # the live observer and is never copied into this record.
-        value[
-            "p336_auth_key_identity"
-            if _p336_bundle(bundle)
-            else "p328_auth_key_identity"
-        ] = dict(
-            typed_evidence.P336_AUTH_EXEC_AUTH_KEY_IDENTITY
-            if _p336_bundle(bundle)
-            else P328_AUTH_KEY_IDENTITY
-        )
+    # Bind only the public identity.  The credential is opened later by the
+    # live observer and is never copied into this record.
+    _bind_prepared_auth_key_identity(bundle, value)
     if (
         _p324_bundle(bundle)
         or _p325_bundle(bundle)
@@ -1613,6 +1604,44 @@ def _p336_bundle(bundle: core.Bundle) -> bool:
         == typed_evidence.P336_STOCK_OVERLAY_CONTRACT_ID
         and _candidate_arrival_proof_role(bundle) is not None
     )
+
+
+def _prepared_auth_key_entry(
+    bundle: core.Bundle,
+) -> tuple[str, dict[str, Any]] | None:
+    if not _p328_bundle(bundle):
+        return None
+    if _p336_bundle(bundle):
+        return (
+            "p336_auth_key_identity",
+            dict(typed_evidence.P336_AUTH_EXEC_AUTH_KEY_IDENTITY),
+        )
+    return "p328_auth_key_identity", dict(P328_AUTH_KEY_IDENTITY)
+
+
+def _bind_prepared_auth_key_identity(
+    bundle: core.Bundle, value: dict[str, Any]
+) -> None:
+    entry = _prepared_auth_key_entry(bundle)
+    if entry is not None:
+        name, identity = entry
+        value[name] = identity
+
+
+def _validate_prepared_auth_key_identity(
+    bundle: core.Bundle, prepared: Mapping[str, Any]
+) -> None:
+    entry = _prepared_auth_key_entry(bundle)
+    if entry is None:
+        return
+    name, identity = entry
+    approval = prepared.get("approval_binding")
+    if (
+        prepared.get(name) != identity
+        or not isinstance(approval, dict)
+        or approval.get(name) != identity
+    ):
+        raise F1LiveError("prepared auth-key identity differs")
 
 
 def _p328_bound_auth_key_identity(prepared: PreparedRun) -> dict[str, Any]:
@@ -2649,8 +2678,7 @@ def prepare_connected(
         "f1_authorized": False,
         "live_authorized": False,
     }
-    if _p328_bundle(bundle):
-        prepared["p328_auth_key_identity"] = dict(P328_AUTH_KEY_IDENTITY)
+    _bind_prepared_auth_key_identity(bundle, prepared)
     if p324_lane_receipt is not None:
         prepared["p324_typec_lane_binding"] = p324_lane_receipt
     candidate_arrival_role = bundle.manifest["observation"].get(
@@ -2696,8 +2724,9 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
     )
     if candidate_arrival_role is not None:
         expected_keys.add(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
-    if _p328_bundle(bundle):
-        expected_keys.add("p328_auth_key_identity")
+    auth_key_entry = _prepared_auth_key_entry(bundle)
+    if auth_key_entry is not None:
+        expected_keys.add(auth_key_entry[0])
     if _p324_lane_bundle(bundle):
         expected_keys.add("p324_typec_lane_binding")
     if set(prepared) != expected_keys:
@@ -2725,13 +2754,7 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
         )
     ):
         raise F1LiveError("prepared F1 record header mismatch")
-    if _p328_bundle(bundle) and (
-        prepared.get("p328_auth_key_identity")
-        != P328_AUTH_KEY_IDENTITY
-        or prepared.get("p328_auth_key_identity")
-        != prepared.get("approval_binding", {}).get("p328_auth_key_identity")
-    ):
-        raise F1LiveError("P3.28 prepared auth-key identity differs")
+    _validate_prepared_auth_key_identity(bundle, prepared)
     if candidate_arrival_role is not None:
         if (
             prepared.get(typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY)
