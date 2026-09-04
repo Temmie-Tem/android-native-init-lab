@@ -100,3 +100,13 @@ three sets and a direct ready-bundle dispatch test; independent review returned
 live source in the raw-first audit. `ready_3` supersedes `ready_2`. This second
 stop also performed no D1, device write, reboot, Download transition, Odin or
 partition transfer.
+
+A third fresh preparation against `ready_3` completed. Exact-target D0 returned
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`, reopening the healthy rooted
+FYG8 target, absent Download endpoint and reviewed P3.37 predecessor raw
+baseline `2097136B/64ac7a5b`. It published mode-0400/link-1 preflight
+`3261B/76ab20a3` and `prepared.json` `25187B/eb10244c` under
+`p338-ready3-prepared-20260905-3`, with one-use approval digest `31fab860`.
+No D1, write, reboot, Download request, Odin invocation, partition transfer or
+F1 action occurred. This preparation authorizes nothing without the exact
+fresh attended approval it emitted.
