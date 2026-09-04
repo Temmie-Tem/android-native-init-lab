@@ -476,6 +476,10 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
                 typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P339_RUN_ID,
             ),
+            (
+                typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
+                typed_evidence.P340_RUN_ID,
+            ),
         }:
             raise F1V2Error(
                 "candidate arrival proof role requires the exact P3.23 stock binding "
@@ -572,6 +576,7 @@ def _overridden_candidate_sources(
     userspace_overlay_contract_id: str | None,
 ) -> frozenset[str]:
     if userspace_overlay_contract_id in {
+        typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
@@ -716,6 +721,7 @@ def execution_critical_source_receipts(
                 }
             root = candidate_intent.repo_root()
             if userspace_overlay_contract_id in {
+                typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
@@ -743,6 +749,10 @@ def execution_critical_source_receipts(
                     userspace_overlay_contract_id
                 ]
                 prefix = (
+                    "p340"
+                    if userspace_overlay_contract_id
+                    == typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID
+                    else
                     "p339"
                     if userspace_overlay_contract_id
                     == typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID
@@ -811,6 +821,7 @@ def execution_critical_source_receipts(
                     )
                 )
                 label = {
+                    "p340": "P3.40",
                     "p339": "P3.39",
                     "p338": "P3.38",
                     "p337": "P3.37",
@@ -891,10 +902,13 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources["p326_bidirectional_acm_observer"] = Path(
                         __file__
                     ).with_name("s22plus_fyg8_p326_bidirectional_acm_observer.py")
-                if prefix in {"p328", "p329", "p330", "p331", "p332", "p333", "p334", "p335", "p336", "p337", "p338", "p339"}:
+                if prefix in {"p328", "p329", "p330", "p331", "p332", "p333", "p334", "p335", "p336", "p337", "p338", "p339", "p340"}:
                     if bind_private_inputs:
                         try:
                             key_identity = (
+                                typed_evidence.p340_artifact_identity.auth_key_identity()
+                                if prefix == "p340"
+                                else
                                 typed_evidence.p339_artifact_identity.auth_key_identity()
                                 if prefix == "p339"
                                 else typed_evidence.p338_artifact_identity.auth_key_identity()
@@ -932,6 +946,9 @@ def execution_critical_source_receipts(
                             typed_evidence.P328_AUTH_EXEC_AUTH_KEY_IDENTITY
                         )
                     expected_key = (
+                        typed_evidence.P340_AUTH_EXEC_AUTH_KEY_IDENTITY
+                        if prefix == "p340"
+                        else
                         typed_evidence.P339_AUTH_EXEC_AUTH_KEY_IDENTITY
                         if prefix == "p339"
                         else
@@ -964,7 +981,28 @@ def execution_critical_source_receipts(
                     if key_identity != expected_key:
                         raise F1V2Error(f"{label} fixed auth key identity differs")
                     receipts[f"{prefix}_auth_key"] = dict(key_identity)
-                    if prefix == "p339":
+                    if prefix == "p340":
+                        e1_latest_stage_sources["p340_open_read_branch_acm_observer"] = (
+                            Path(__file__).with_name(
+                                "s22plus_fyg8_p340_open_read_branch_acm_observer.py"
+                            )
+                        )
+                        e1_latest_stage_sources["p340_open_read_branch_runtime"] = (
+                            Path(__file__).with_name(
+                                "s22plus_fyg8_p340_open_read_branch_runtime.py"
+                            )
+                        )
+                        e1_latest_stage_sources["p340_artifact_identity"] = (
+                            Path(__file__).with_name(
+                                "s22plus_fyg8_p340_artifact_identity.py"
+                            )
+                        )
+                        e1_latest_stage_sources["p340_open_failure_capture"] = (
+                            Path(__file__).with_name(
+                                "s22plus_fyg8_open_failure_capture.py"
+                            )
+                        )
+                    elif prefix == "p339":
                         e1_latest_stage_sources["p339_open_read_branch_acm_observer"] = (
                             Path(__file__).with_name(
                                 "s22plus_fyg8_p339_open_read_branch_acm_observer.py"
@@ -1105,7 +1143,9 @@ def execution_critical_source_receipts(
                         )
                     e1_latest_stage_sources[f"{prefix}_artifact_identity"] = (
                         Path(__file__).with_name(
-                            "s22plus_fyg8_p339_artifact_identity.py"
+                            "s22plus_fyg8_p340_artifact_identity.py"
+                            if prefix == "p340"
+                            else "s22plus_fyg8_p339_artifact_identity.py"
                             if prefix == "p339"
                             else "s22plus_fyg8_p338_artifact_identity.py"
                             if prefix == "p338"
@@ -1682,6 +1722,14 @@ def execution_critical_source_receipts(
         overlay = acceptance.get("userspace_overlay_contract_id")
         if candidate_arrival_proof_role == typed_evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE:
             logical = {
+                typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID: (
+                    "p340", "P3.40",
+                    "s22plus_fyg8_p340_open_read_branch_acm_observer.py",
+                    "s22plus_fyg8_p340_open_read_branch_runtime.py",
+                    "s22plus_fyg8_p340_artifact_identity.py",
+                    typed_evidence.p340_artifact_identity,
+                    typed_evidence.P340_AUTH_EXEC_AUTH_KEY_IDENTITY,
+                ),
                 typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID: (
                     "p339", "P3.39",
                     "s22plus_fyg8_p339_open_read_branch_acm_observer.py",
@@ -1751,6 +1799,9 @@ def execution_critical_source_receipts(
                 raise F1V2Error("logical resident role requires its exact overlay")
             prefix, label, observer_name, runtime_name, artifact_name, artifact_module, expected_key = logical
             observer_key = (
+                "p340_open_read_branch_acm_observer"
+                if prefix == "p340"
+                else
                 "p339_open_read_branch_acm_observer"
                 if prefix == "p339"
                 else "p338_open_read_branch_acm_observer"
@@ -1771,6 +1822,9 @@ def execution_critical_source_receipts(
                 else "p332_logical_resident_acm_observer"
             )
             runtime_key = (
+                "p340_open_read_branch_runtime"
+                if prefix == "p340"
+                else
                 "p339_open_read_branch_runtime"
                 if prefix == "p339"
                 else "p338_open_read_branch_runtime"
@@ -2007,6 +2061,7 @@ def verify_candidate_source_binding(
                 "candidate source preimage differs from execution-critical sources"
             )
     if userspace_overlay_contract_id in {
+        typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
@@ -2032,6 +2087,10 @@ def verify_candidate_source_binding(
             raise F1V2Error("stock overlay selector changed")
         adapter = typed_evidence.STOCK_ADAPTERS[userspace_overlay_contract_id]
         prefix = (
+            "p340"
+            if userspace_overlay_contract_id
+            == typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID
+            else
             "p339"
             if userspace_overlay_contract_id
             == typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID
@@ -2121,8 +2180,11 @@ def verify_candidate_source_binding(
                 raise F1V2Error(
                     "p325 CDC ACM guard adapter differs from execution-critical sources"
                 )
-        if prefix in {"p328", "p329", "p330", "p331", "p332", "p333", "p334", "p335", "p336", "p337", "p338", "p339"}:
+        if prefix in {"p328", "p329", "p330", "p331", "p332", "p333", "p334", "p335", "p336", "p337", "p338", "p339", "p340"}:
             version = (
+                "P3.40"
+                if prefix == "p340"
+                else
                 "P3.39"
                 if prefix == "p339"
                 else "P3.38"
@@ -2150,7 +2212,11 @@ def verify_candidate_source_binding(
                 else "P3.28"
             )
             expected_observer = verification.get("p328_authenticated_observer_source")
-            if prefix == "p339":
+            if prefix == "p340":
+                expected_observer = verification.get(
+                    "p340_open_read_branch_acm_observer_source"
+                )
+            elif prefix == "p339":
                 expected_observer = verification.get(
                     "p339_open_read_branch_acm_observer_source"
                 )
@@ -2195,7 +2261,9 @@ def verify_candidate_source_binding(
             if prefix == "p330":
                 expected_observer = verification.get("p330_authenticated_observer_source")
             actual_observer = execution_sources.get(
-                "p339_open_read_branch_acm_observer"
+                "p340_open_read_branch_acm_observer"
+                if prefix == "p340"
+                else "p339_open_read_branch_acm_observer"
                 if prefix == "p339"
                 else "p338_open_read_branch_acm_observer"
                 if prefix == "p338"
@@ -2228,7 +2296,11 @@ def verify_candidate_source_binding(
             expected_runtime = verification.get(
                 f"{prefix}_authenticated_runtime_source"
             )
-            if prefix == "p339":
+            if prefix == "p340":
+                expected_runtime = verification.get(
+                    "p340_open_read_branch_runtime_source"
+                )
+            elif prefix == "p339":
                 expected_runtime = verification.get(
                     "p339_open_read_branch_runtime_source"
                 )
@@ -2269,7 +2341,9 @@ def verify_candidate_source_binding(
                     verification.get("p331_authenticated_runtime_source"),
                 )
             actual_runtime = execution_sources.get(
-                "p339_open_read_branch_runtime"
+                "p340_open_read_branch_runtime"
+                if prefix == "p340"
+                else "p339_open_read_branch_runtime"
                 if prefix == "p339"
                 else "p338_open_read_branch_runtime"
                 if prefix == "p338"
@@ -2340,6 +2414,9 @@ def verify_candidate_source_binding(
                 or set(expected_key) != {"size", "sha256"}
                 or expected_key
                 != (
+                    typed_evidence.P340_AUTH_EXEC_AUTH_KEY_IDENTITY
+                    if prefix == "p340"
+                    else
                     typed_evidence.P339_AUTH_EXEC_AUTH_KEY_IDENTITY
                     if prefix == "p339"
                     else typed_evidence.P338_AUTH_EXEC_AUTH_KEY_IDENTITY
@@ -2613,6 +2690,7 @@ def verify_candidate_observer_binding(
     source_contract_id = acceptance.get("source_contract_id")
     profile = acceptance.get("profile")
     stock_overlay = acceptance.get("userspace_overlay_contract_id") in {
+        typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
@@ -2651,6 +2729,7 @@ def verify_candidate_observer_binding(
         if (
             acceptance.get("userspace_overlay_contract_id")
             in {
+                typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
@@ -2662,10 +2741,11 @@ def verify_candidate_observer_binding(
                 typed_evidence.P334_STOCK_OVERLAY_CONTRACT_ID,
             }
         ):
-            raise F1V2Error("P3.31-P3.39 resident observer is required")
+            raise F1V2Error("P3.31-P3.40 resident observer is required")
         if (
             acceptance.get("userspace_overlay_contract_id")
             in {
+                typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
@@ -2687,6 +2767,7 @@ def verify_candidate_observer_binding(
     if not isinstance(run_id_hex, str) or re.fullmatch(r"[0-9a-f]{32}", run_id_hex) is None:
         raise F1V2Error("candidate observer run ID is invalid")
     if acceptance.get("userspace_overlay_contract_id") in {
+        typed_evidence.P340_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,

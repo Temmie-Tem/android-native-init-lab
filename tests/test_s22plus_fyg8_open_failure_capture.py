@@ -54,7 +54,8 @@ class OpenFailureCaptureTests(unittest.TestCase):
             for stage, i in zip((4, 5, 6, 7), range(0, 16, 4))
         )
 
-    def _run(self, suffix=b"", *, branch=1, patched=True, silent=False, writer=None):
+    def _run(self, suffix=b"", *, branch=1, patched=True, silent=False, writer=None,
+             return_result=False):
         module = self._module()
         original_codec = module._CODEC
         if patched:
@@ -118,7 +119,7 @@ class OpenFailureCaptureTests(unittest.TestCase):
         expected_open = module.encode_frame(module.runtime.FRAME_OPEN, 0, module.runtime.P335_RUN_ID)
         self.assertEqual(session.raw_tx, expected_open)
         self.assertEqual(sent, [expected_open])
-        return session, elapsed
+        return (result if return_result else session), elapsed
 
     def test_original_initial_path_stops_at_exact_retained_p339_97_bytes(self):
         module = self._module()

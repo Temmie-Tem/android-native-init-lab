@@ -583,11 +583,27 @@ may create a new boot before a new D0. No P339 D0/D1 clone is introduced.
 P339 still requires independent review, fresh preparation, attended F1
 approval, mandatory rollback, and healthy exact return.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, or P339 candidate transfer occurs, the same
+**P340 initial failure-capture repair.** P339 is closed and consumed, with no
+replay. P340 preserves its device success/failure behavior, fixed three-command
+catalog, HMAC, session/reopen bounds, deadlines, boot-only AP and exact rollback;
+only the candidate identity changes on the device. The host's real initial
+reader may retain at most four existing 24-byte diagnostics at stages 4–7
+after stage 3/code 1 or 4, using the same descriptor, raw writer and original
+deadline. It then returns the original failure to the rejecting parser.
+Partial, malformed or absent suffix bytes remain retained no-proof evidence.
+The fresh P340 receipt accounts for stage 0 before the stage-3 reason, without
+reinterpreting the consumed P339 result. No transmission, retry, reconnect,
+resynchronization, timeout extension, new frame or command, caller shell,
+standing authority, or new execution gate is added. P340 uses its own run,
+overlay, schemas, source closure and preparation. Existing D0/D1 baseline
+rules, independent review, fresh attended F1 approval, mandatory exact rollback
+and healthy return still apply; this creates no campaign-specific D0/D1 clone.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, or P340 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, or `s22plus-fyg8-p339` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, or `s22plus-fyg8-p340` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

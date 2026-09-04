@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -258,7 +259,9 @@ class P339ProcessV2Tests(unittest.TestCase):
 
     def test_candidate_arrival_branch_map_survives_json_roundtrip(self) -> None:
         prepared = mock.Mock()
-        prepared.bundle = object()
+        prepared.bundle = SimpleNamespace(manifest={
+            "observation": {"acceptance": adapter.acceptance_fixture()},
+        })
         prepared.private_target = {"topology": "usb:3-1.3"}
         durable = {
             "valid_receipt": True,
@@ -269,10 +272,6 @@ class P339ProcessV2Tests(unittest.TestCase):
             "download_endpoint_absent": True,
             "receipt_sha256": "2" * 64,
         }
-        bundle_predicates = {
-            f"_p{ordinal}_bundle": mock.Mock(return_value=ordinal == 339)
-            for ordinal in range(324, 340)
-        }
         with mock.patch.multiple(
             live,
             _candidate_arrival_proof_role=mock.Mock(
@@ -282,7 +281,6 @@ class P339ProcessV2Tests(unittest.TestCase):
             _reopen_candidate_guard_release=mock.Mock(
                 return_value={"status": "released", "released": True}
             ),
-            **bundle_predicates,
         ):
             projection = live._candidate_arrival_proof_projection(  # noqa: SLF001
                 prepared,

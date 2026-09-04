@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+import ast
 from pathlib import Path
 import sys
+import subprocess
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -11,6 +13,23 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "workspace/public/src/scripts/revalidation"))
 import s22plus_fyg8_p339_health_resume as resume
+
+
+def historical_finish():
+    """This fixed-run finalizer tests its named snapshot, not a moving runner."""
+    source = subprocess.run(
+        ["git", "show", "--no-ext-diff", "--no-textconv",
+         "adb2168ff4:workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py"],
+        cwd=ROOT, check=True, capture_output=True, timeout=10,
+    ).stdout
+    if resume.identity(source)["sha256"] != resume.LIVE_SHA256:
+        raise AssertionError("historical live snapshot differs")
+    tree = ast.parse(source)
+    node = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "_finish_rollback")
+    payload = b"".join(source.splitlines(keepends=True)[node.lineno - 1:node.end_lineno])
+    namespace = dict(vars(resume.live))
+    exec(compile(payload, "<historical P339 finalizer fixture>", "exec"), namespace)
+    return namespace["_finish_rollback"], payload.decode()
 
 
 class P339HealthResumeTests(unittest.TestCase):
@@ -39,6 +58,9 @@ class P339HealthResumeTests(unittest.TestCase):
         prepared = SimpleNamespace(binding_sha256="0" * 64)
         journal = SimpleNamespace(state=lambda: "OBSERVED")
         with (
+            mock.patch.object(resume.Path, "read_bytes", return_value=b"fixture"),
+            mock.patch.object(resume, "LIVE_SHA256", resume.identity(b"fixture")["sha256"]),
+            mock.patch.object(resume, "PREPARED_SHA256", resume.identity(b"fixture")["sha256"]),
             mock.patch.object(resume, "original_document_input", return_value=nullcontext()),
             mock.patch.object(resume.live, "load_prepared", return_value=prepared),
             mock.patch.object(resume.live.core, "Journal", return_value=journal),
@@ -82,8 +104,10 @@ class P339HealthResumeTests(unittest.TestCase):
             backend.endpoint_session(ROOT)
 
     def test_projection_fix_is_one_additional_p339_exclusion_and_restores(self):
-        original = resume.live._finish_rollback
-        with resume.p339_final_projection():
+        original, payload = historical_finish()
+        with mock.patch.object(resume.live, "_finish_rollback", original), \
+             mock.patch.object(resume.inspect, "getsource", return_value=payload), \
+             resume.p339_final_projection():
             repaired = resume.live._finish_rollback
             self.assertIsNot(repaired, original)
             self.assertEqual(repaired.__code__.co_names, original.__code__.co_names)
@@ -93,7 +117,7 @@ class P339HealthResumeTests(unittest.TestCase):
             import dis
             count = lambda fn: sum(i.opname == "LOAD_GLOBAL" and i.argval == "_p339_bundle" for i in dis.get_instructions(fn))
             self.assertEqual(count(repaired), count(original) + 1)
-        self.assertIs(resume.live._finish_rollback, original)
+        self.assertIsNot(resume.live._finish_rollback, repaired)
 
     def test_retained_owner_rejects_before_any_capture_read(self):
         with mock.patch.object(resume.live.raw_capture, "load_handle") as read:
@@ -102,6 +126,7 @@ class P339HealthResumeTests(unittest.TestCase):
             read.assert_not_called()
 
     def test_real_recover_entry_rebinds_final_validator_exactly_once(self):
+        original, payload = historical_finish()
         prepared = resume.live.PreparedRun(ROOT, resume.RUN, object(), {
             "manifest_id": "s22plus-fyg8-p339-process-v2-ready-2",
             "approval_binding_sha256": "0" * 64,
@@ -117,6 +142,11 @@ class P339HealthResumeTests(unittest.TestCase):
             return backend.verify_final(value, None, None, resume.RUN)
 
         with (
+            mock.patch.object(resume.Path, "read_bytes", return_value=b"fixture"),
+            mock.patch.object(resume, "LIVE_SHA256", resume.identity(b"fixture")["sha256"]),
+            mock.patch.object(resume, "PREPARED_SHA256", resume.identity(b"fixture")["sha256"]),
+            mock.patch.object(resume.live, "_finish_rollback", original),
+            mock.patch.object(resume.inspect, "getsource", return_value=payload),
             mock.patch.object(resume, "original_document_input", return_value=nullcontext()),
             mock.patch.object(resume.live, "load_prepared", return_value=prepared),
             mock.patch.object(resume.live.core, "Journal", return_value=SimpleNamespace(state=lambda: "ROLLBACK_FLASHED")),

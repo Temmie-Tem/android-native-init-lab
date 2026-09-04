@@ -102,3 +102,31 @@ Historical executable context is the unchanged common source at `5d71ad4337`:
 live runner `663927B/5b7f782919035e444686c347d8a04ed2a1764281d5bf08dac63e4545d58e340c`.
 The fixed-run helper intentionally requires that historical closure; later
 common-source updates are not authorization to reinterpret this consumed run.
+
+## P340 qualified successor
+
+Independent review returned `PASS_GO_P340_H0` for the final reachable common
+dispatch, initial collector, receipt, lease, recovery and terminal mappings.
+The P339 device success/failure protocol is unchanged; the new identity is
+`c340f1e0a90b5e6d7c8a9b0c1d2e3f0b`. Initial reader/proof/session/receipt logic
+shares the existing implementation rather than another full session clone.
+P340 counts stage 0 before stage 3; P339's consumed interpretation is preserved.
+No retry, new command, timeout extension or global census gate was added.
+
+Actual initial exchange/raw writer/publisher/parser plus normal/NO_PROOF final
+routing tests pass 5/5; evidence/core 4/4, artifact/runtime/build 9/9 and
+static/prepare 5/5 pass. No other-target or unrelated census identity enters
+the P340 execution closure. The public ready manifest is `11144B/cebf38e5`;
+static is `41150B/613e3c0b`; A/B AP is `28631081B/114523aa`, and exact rollback
+remains `23367721B/d2373bf8`. Earlier private H0 static drafts and the private
+ready copy were preserved; no consumed P339 artifact was changed.
+
+One preapproved attended D1 reused the exact P296 state machine/P320 raw
+transport with new private binding/run/raw names. It returned healthy with a
+changed boot ID and no other-target command. Linked D1 result is
+`2963B/6a87b9c8` under `workspace/private/runs/device-action-d1-p340-baseline/`;
+the exact private invocation SHA is
+`f44b5679ec73b0cf05987d282013385f892499cb00a215b403e97f5404992d20`.
+No retained-baseline exception or public D0/D1 clone was introduced. Ordinary
+fresh D0 must classify the new baseline and match this returned target/boot
+before any F1 approval code is released. No P340 F1 transfer has occurred.
