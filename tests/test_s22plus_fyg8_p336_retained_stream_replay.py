@@ -1,15 +1,21 @@
-"""Retained-byte unit tests for the P3.36 long-idle action resync helper.
+"""Retained-byte tests for the P3.36 initial observation and resync helper.
 
-Scope, stated plainly because an earlier revision of this module overstated it:
+Two scopes live here, kept separate on purpose:
 
-* These tests exercise `_consume_preambles_until_open_parsed`, a helper of
-  `exchange_late_action` in the P3.36 long-idle action module.
-* That path was **not** executed by the P3.36 F1 campaign.  The F1 initial
-  observation runs `exchange_retained` through `_P336ObserverSession`, and the
-  long-idle action runner was never invoked.  Nothing here reproduces,
-  explains, or constrains the P3.36 `NO_PROOF` result.
-* The value they do carry is that their device input is replayed from bytes the
-  candidate actually emitted, rather than synthesized by the fixture.
+* `P336InitialObserverFailureTests` drives the code path the P3.36 F1 campaign
+  actually executed: `exchange_retained` on `_P336ObserverSession.auth_observer`,
+  followed by the real receipt projection.  Its device side emits the exact
+  73 bytes the candidate emitted and then falls silent, so the fixture RX is
+  byte-identical to `candidate-observer.raw` of the consumed P3.36 run.
+* `P336RetainedFrameTests` and `P336LateActionResyncReplayTests` exercise
+  `_consume_preambles_until_open_parsed`, a helper of `exchange_late_action` in
+  the P3.36 long-idle action module.  That path was **not** executed by the F1
+  campaign; the long-idle action runner was never invoked.  Nothing in those
+  two classes reproduces, explains, or constrains the `NO_PROOF` result.
+
+Neither scope decides why the candidate stopped after stage 0.  The initial
+tests fix what the host must retain when it does, which is the one defect the
+campaign established.
 
 Provenance of `RETAINED_STAGE_FRAMES`: the three diagnostic frames that follow
 the first 49-byte banner in the retained candidate RX capture of the consumed
@@ -23,11 +29,14 @@ See `docs/reports/S22PLUS_FYG8_P336_INITIAL_SESSION_DELTA_H0_2026-09-04.md`.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import socket
 import sys
+import threading
 import time
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +44,7 @@ SCRIPTS = ROOT / "workspace/public/src/scripts/revalidation"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
+import device_action_f1_live_v2 as live  # noqa: E402
 import s22plus_fyg8_p336_long_idle_acm_observer as observer  # noqa: E402
 import s22plus_fyg8_p336_long_idle_runtime as runtime  # noqa: E402
 
@@ -47,6 +57,16 @@ RETAINED_STAGE_FRAMES = (
 )
 
 REPLAY_TIMEOUT_SEC = 0.4
+
+# `candidate-observer.raw` of the consumed P3.36 F1 run: 73 bytes, one 49-byte
+# banner followed by one stage-zero diagnostic frame, and nothing else for the
+# observer's whole 30,183 ms.  The digest is reproduced by the fixture below;
+# both operands are public (the banner carries P336_RUN_ID_HEX from the tracked
+# runtime module), so this pins the live failure without importing private
+# evidence.
+RETAINED_P336_RX_SHA256 = (
+    "19955936676751fff5e9d8643b0b5d4f8a89e27d94da57c80771ef5c1b39b5b6"
+)
 
 
 class _Writer:
@@ -61,6 +81,170 @@ class _Writer:
 
     def note_tx(self, value: bytes) -> None:
         self.tx += value
+
+
+class P336InitialObserverFailureTests(unittest.TestCase):
+    """The path the P3.36 F1 campaign executed, driven end to end.
+
+    The device side is a socketpair peer that emits the candidate's exact
+    banner and stage-zero diagnostic and then stays open and silent.  Nothing
+    is mocked between the fixture bytes and the receipt: `exchange_retained`
+    writes a real OPEN, blocks on the stage-one read, and the real projection
+    turns the failure into the durable receipt.
+    """
+
+    def _initial_observer(self):
+        return live._P336_INITIAL_OBSERVER  # noqa: SLF001
+
+    def _candidate_prefix(self) -> bytes:
+        """The exact 73 bytes the candidate emitted before falling silent."""
+        return runtime.DEVICE_BANNER + observer.encode_frame(
+            runtime.DIAGNOSTIC_FRAME_TYPE,
+            0,
+            observer.DIAGNOSTIC.pack(runtime.DIAGNOSTIC_STAGE_CONSOLE_ENTER, 0),
+        )
+
+    def _run_initial_exchange(self):
+        """Return the retained failure of one real initial exchange."""
+        auth_observer = self._initial_observer()
+        host, peer = socket.socketpair()
+        spare_host, spare_peer = socket.socketpair()
+        for sock in (host, peer, spare_host, spare_peer):
+            self.addCleanup(sock.close)
+        released = threading.Event()
+
+        def serve() -> None:
+            peer.sendall(self._candidate_prefix())
+            # Silence, not EOF: the candidate held the endpoint open.
+            released.wait(REPLAY_TIMEOUT_SEC * 8)
+
+        thread = threading.Thread(target=serve)
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(released.set)
+        with self.assertRaises(
+            auth_observer.RetainedListenerObserverError
+        ) as caught:
+            auth_observer.exchange_retained(
+                host,
+                bytes(range(runtime.AUTH_KEY_SIZE)),
+                reopen=lambda: spare_host,
+                timeout_sec=REPLAY_TIMEOUT_SEC,
+            )
+        return caught.exception
+
+    def test_fixture_rx_is_byte_identical_to_the_candidate_capture(self) -> None:
+        """The fixture replays the live bytes rather than a synthesized shape."""
+        prefix = self._candidate_prefix()
+        self.assertEqual(len(prefix), 73)
+        self.assertEqual(len(runtime.DEVICE_BANNER), 49)
+        self.assertEqual(
+            hashlib.sha256(prefix).hexdigest(), RETAINED_P336_RX_SHA256
+        )
+
+    def test_initial_exchange_retains_open_tx_rx_and_failure_stage(self) -> None:
+        """A stalled initial session must retain what it sent and received."""
+        auth_observer = self._initial_observer()
+        result = self._run_initial_exchange().result
+        self.assertEqual(result.terminal, "session-failed")
+        self.assertEqual(len(result.sessions), 1)
+        session = result.sessions[0]
+        self.assertFalse(session.authenticated)
+
+        expected_open = observer.encode_frame(
+            runtime.FRAME_OPEN, 0, runtime.P336_RUN_ID
+        )
+        self.assertEqual(len(expected_open), 32)
+        self.assertEqual(session.raw_tx, expected_open)
+        self.assertEqual(session.raw_rx, self._candidate_prefix())
+
+        audit = session.audit
+        self.assertIsNotNone(audit)
+        self.assertEqual(audit.current_stage, "open-diagnostic-read")
+        self.assertEqual(session.failure_stage, "open-diagnostic-read")
+        self.assertEqual(
+            [(item.stage, item.code) for item in audit.diagnostics],
+            [(runtime.DIAGNOSTIC_STAGE_CONSOLE_ENTER, 0)],
+        )
+        self.assertLess(
+            len(audit.diagnostics), auth_observer.MAX_SESSIONS + 1
+        )
+
+    def test_no_proof_projection_publishes_the_retained_open_tx(self) -> None:
+        """A proofless P3.36 session must still reach a published receipt.
+
+        Regression guard for the loss this campaign actually suffered: the
+        P3.36 `observe()` override used to repin the inherited proof
+        unconditionally, so an empty proof raised `F1LiveError` before
+        publication and the run recorded `interrupted-before-receipt` with no
+        TX, RX, diagnostics or partial state at all.
+        """
+        failure = self._run_initial_exchange()
+        session = live._P336ObserverSession(  # noqa: SLF001
+            None,
+            None,
+            {},
+            Path("/unused/p336-initial"),
+            {},
+            {},
+            Path("/unused/usb"),
+            Path("/unused/typec"),
+        )
+        session.resident_result = failure.result
+        session.protocol_error = str(failure)[:160]
+        session.auth_key_sha256 = "0" * 64
+        inherited = ({"classification": "authenticated-session-error", "accepted": False}, {})
+        published: list[dict[str, object]] = []
+        with (
+            mock.patch.object(
+                live._P327ObserverSession,  # noqa: SLF001
+                "_observe_value",
+                return_value=inherited,
+            ),
+            mock.patch.object(
+                live._P327ObserverSession,  # noqa: SLF001
+                "_publish_value",
+                side_effect=(
+                    lambda _self, value, _lane, *, label: published.append(value)
+                ),
+                autospec=False,
+            ),
+        ):
+            value = session.observe(
+                timeout_sec=1,
+                download_departure={"absent": True},
+            )
+
+        self.assertEqual(len(published), 1)
+        self.assertIs(published[0], value)
+        self.assertEqual(value["schema"], live.P336_OBSERVER_RECEIPT_SCHEMA)
+        self.assertEqual(value["classification"], "authenticated-session-error")
+        self.assertFalse(value["accepted"])
+        self.assertEqual(value["proof"], {})
+        self.assertEqual(value["p336_authenticated_attended_resident"], {})
+        # The withdrawn override repinned unconditionally.  Repinning an empty
+        # proof still raises, so this pins the reason publication was lost
+        # without depending on the shape of the old call site.
+        with self.assertRaises(live.F1LiveError):
+            live._p336_repin_proof({})  # noqa: SLF001
+
+        expected_open = observer.encode_frame(
+            runtime.FRAME_OPEN, 0, runtime.P336_RUN_ID
+        )
+        self.assertEqual(value["session_tx_hex"], [expected_open.hex()])
+        self.assertEqual(value["tx"]["size"], len(expected_open))
+        self.assertEqual(value["rx"]["size"], 73)
+        self.assertEqual(value["rx"]["sha256"], RETAINED_P336_RX_SHA256)
+        self.assertEqual(
+            value["diagnostics"],
+            [[{"stage": runtime.DIAGNOSTIC_STAGE_CONSOLE_ENTER, "code": 0}]],
+        )
+        self.assertEqual(len(value["partial_sessions"]), 1)
+        partial = value["partial_sessions"][0]
+        self.assertEqual(partial["session_index"], 0)
+        self.assertEqual(partial["current_stage"], "open-diagnostic-read")
+        self.assertEqual(partial["failure_stage"], "open-diagnostic-read")
+        self.assertEqual(partial["exception_type"], "TimeoutError")
 
 
 class P336RetainedFrameTests(unittest.TestCase):

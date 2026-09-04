@@ -33,6 +33,16 @@ the observed stage boundary, the evidence-retention gap, and the P3.36
 `NO_PROOF` terminal with healthy rollback. No operational code was changed by
 either revision.
 
+## Corrections to the second revision of this report
+
+The second revision described the retention gap as retention having been
+"scoped to a layer the failure never reached". Replay of the real initial path
+shows that is the wrong mechanism. The retention was present at the right
+layer and did compute; publication of the receipt aborted before it reached
+disk. Section 5 is rewritten accordingly, and the recommended next step
+narrows, because the host-side defect was already repaired in tree by
+`b2cc9b8992` fifty-four minutes after the run.
+
 ## Scope
 
 Host-only analysis of retained evidence from two consumed run directories and
@@ -109,26 +119,57 @@ between at least these:
 - OPEN was accepted and the candidate failed before emitting stage 1.
 
 Separating them requires the initial observer's OPEN TX bytes and its audit
-stage at exit. Neither exists for this run, per section 5.
+stage at exit. Neither was published for this run, for the reason established
+in section 5.
+
+Host TX alone narrows the first branch away from the other three but does not
+split them. Upstream Linux `u_serial` queues host OUT data until the gadget TTY
+side reads it, which weakens - but does not eliminate - the plain "the listener
+had not read yet, so OPEN was simply dropped" reading of branch two. That is
+upstream behaviour; no evidence here establishes that the Samsung 5.10 gadget
+serial implementation on this target is identical.
 
 No claim is made here about candidate-side listener internals, endpoint
 buffering, or the cause of the P3.36 D1 rotation stop earlier the same day.
 
-## 5. The evidence-retention gap
+## 5. Why the retained evidence was never published
 
-The P3.36 design promised to retain partial TX/RX and audit stage on every
-post-intent exit. The failure occurred in the initial observer, before any
-action intent, so nothing in that promise applied.
+The retained final result carries `partial_sessions`, `preauth_diagnostics` and
+`rng_eagain_retries` as `null`, and the terminal classification is
+`interrupted-before-receipt` - the same terminal as P3.29. The reason is not
+that the host had nothing to record.
 
-`partial_sessions`, `preauth_diagnostics` and `rng_eagain_retries` are all
-`null` in the retained final result, and the terminal classification is
-`interrupted-before-receipt` - by the definition carried in `GOAL.md`, the
-projection used when partial exchange state was not serialized. That is the
-same terminal, for the same reason, as P3.29.
+The observer child exited cleanly. Its capture record reports
+`returncode: 0`, `timed_out: false`, `producer_error_type: null` and
+`elapsed_msec: 30183`, with a 73-byte stdout. What is absent from the run
+directory is `candidate-observer.json`: the receipt file itself was never
+created, and its absence is exactly what the live runner converts into
+`interrupted-before-receipt`.
 
-The retention was scoped to a layer the failure never reached. This is the one
-defect this analysis establishes, and it is the reason section 4 is
-undecidable.
+The receipt was not written because building it raised. At the time of the run,
+`_P336ObserverSession.observe()` repinned the inherited proof unconditionally:
+
+    proof = _p336_repin_proof(value.get("proof", {}))
+
+A failed initial session carries no proof, so this repinned `{}`, and
+`_p336_repin_proof({})` raises `F1LiveError("P3.36 initial proof namespace
+differs")` - which the receipt-validation path catches and reports as
+`interrupted-before-receipt`. The full partial receipt had already been
+computed one frame below and was discarded with the exception.
+
+`b2cc9b8992`, committed at 18:09:09 KST, fifty-four minutes after the observer
+capture at 17:15:42 KST, changed that line to repin only a non-empty proof.
+The host-side defect is therefore already repaired in tree; it was repaired
+without the mechanism above being stated, and this report states it.
+
+Replay over a socketpair whose device side emits exactly the candidate's 73
+bytes and then falls silent confirms both halves. The real `exchange_retained`
+retains a 32-byte OPEN frame as TX, the exact 73-byte RX (SHA-256 identical to
+`candidate-observer.raw`), one stage-zero diagnostic, and
+`failure_stage == "open-diagnostic-read"`; the current `observe()` publishes
+those as `session_tx_hex`, `tx`, `rx`, `diagnostics` and `partial_sessions`
+rather than raising. This is pinned by
+`tests/test_s22plus_fyg8_p336_retained_stream_replay.py`.
 
 ## 6. Unaffected safety layers
 
@@ -139,12 +180,22 @@ is consumed and never replayable.
 
 ## Recommended next step
 
-One change, in the initial observer only: retain the OPEN TX bytes and the
-audit stage on every exit path, so that a pre-session failure is still a
-durable receipt and section 4 becomes decidable on the next candidate.
+The host-side change first recommended here is already in tree. What remains is
+narrow:
+
+1. Done, and required: pin the real initial path, so the loss cannot recur
+   silently. `tests/test_s22plus_fyg8_p336_retained_stream_replay.py` now drives
+   `exchange_retained` and the real receipt projection against the candidate's
+   exact bytes, and asserts the OPEN TX, the RX digest, the stage-zero
+   diagnostic, the failure stage, and that a proofless session still publishes.
+2. Recommended, device side, one value: record the outcome of the listener's
+   first `read_frame` as a diagnostic. Host TX separates only branch one of
+   section 4; this separates the remaining three. It is one ordinal, not a
+   retry, not a new frame type and not a new handshake.
 
 No protocol change, retry loop, additional device gate, or new qualification
-gate is justified by this evidence.
+gate is justified by this evidence. With the above, the next candidate can be
+prepared under the ordinary process.
 
 ## Non-authority
 
