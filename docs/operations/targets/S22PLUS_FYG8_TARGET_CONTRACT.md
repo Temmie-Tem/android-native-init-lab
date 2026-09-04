@@ -554,11 +554,37 @@ clause creates no P338 D0/D1 clone script. P338 still requires fresh
 preparation, independent review, attended approval, and healthy exact
 post-rollback return.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, or P338 candidate transfer occurs, the same
+**P339 rejected-OPEN header capture.** P338 is consumed and grants no replay.
+P339 keeps the P338 success path, three fixed commands, session/reconnect
+bounds, 300-second observation, boot-only transfer, exact rollback, lease, and
+timeouts unchanged. Stage 3 now separates header grammar (`1`) from a
+grammar-valid but semantically rejected OPEN (`4`). For only those two
+rejections, stages 4 through 7 may best-effort carry the rejected 16-byte
+header as four little-endian 32-bit words using the existing type-`0x86`,
+8-byte diagnostic payload. Partial word capture remains no-proof. No frame
+type, payload width, retry, resynchronization, drain, wait, handshake, command,
+shell, reconnect, or gate is added; the original failure is returned.
+
+P339 uses a fresh run, overlay, schemas, source closure, artifact and observer
+namespaces. Fresh D0 preparation may admit exactly the retained P338 rollback
+raw only when it is 2,097,136 bytes with SHA-256
+`321b03b24c488aa86f9cd2809dfdfdd2fa28fc8f5905183bbfe510cb1d58ab23`,
+contains the P338 run ID exactly once at byte offset `1,658,754`, contains no
+P339 run ID, and the P338 adapter reproduces
+`P320_STOCK_WITNESS_BASE_SHAPE_FAILURE`, one foreign family, zero exact/long
+records, `candidate_success=false`, `NO_PROOF_OBSERVER`, and sole integrity
+issue `foreign-or-malformed-v2-long-record`. This narrow exception proves only
+that fresh P339 is absent; it expires on raw drift or P339 candidate intent.
+If it does not match, only the already reviewed attended D1 baseline fallback
+may create a new boot before a new D0. No P339 D0/D1 clone is introduced.
+P339 still requires independent review, fresh preparation, attended F1
+approval, mandatory rollback, and healthy exact return.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, or P339 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, or `s22plus-fyg8-p338` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, or `s22plus-fyg8-p339` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

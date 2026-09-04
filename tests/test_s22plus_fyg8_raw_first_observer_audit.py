@@ -72,8 +72,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 628_505,
-                "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
+                "size": 663_927,
+                "sha256": "5b7f782919035e444686c347d8a04ed2a1764281d5bf08dac63e4545d58e340c",
             },
         )
         self.assertEqual(
@@ -100,8 +100,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p331_live_source_identity"],
             {
-                "size": 628_505,
-                "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
+                "size": 663_927,
+                "sha256": "5b7f782919035e444686c347d8a04ed2a1764281d5bf08dac63e4545d58e340c",
             },
         )
         self.assertEqual(
@@ -117,8 +117,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p332_live_source_identity"],
             {
-                "size": 628_505,
-                "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
+                "size": 663_927,
+                "sha256": "5b7f782919035e444686c347d8a04ed2a1764281d5bf08dac63e4545d58e340c",
             },
         )
         self.assertEqual(
@@ -135,8 +135,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p333_live_source_identity"],
             {
-                "size": 628_505,
-                "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
+                "size": 663_927,
+                "sha256": "5b7f782919035e444686c347d8a04ed2a1764281d5bf08dac63e4545d58e340c",
             },
         )
         self.assertEqual(
@@ -153,8 +153,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p334_live_source_identity"],
             {
-                "size": 628_505,
-                "sha256": "46c9bb52d098e1155f97f3079db6e563052d589c262539e09567ff005ab250ac",
+                "size": 663_927,
+                "sha256": "5b7f782919035e444686c347d8a04ed2a1764281d5bf08dac63e4545d58e340c",
             },
         )
         self.assertEqual(
@@ -164,7 +164,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertTrue(value["p334_raw_writer_precedes_session_parser"])
         self.assertTrue(value["p334_same_fd_session_receipt_bindings"])
         self.assertTrue(value["p334_session_order_and_nonce_replay_checks"])
-        for prefix in ("p335", "p336", "p337", "p338"):
+        for prefix in ("p335", "p336", "p337", "p338", "p339"):
             active = getattr(self.module, f"P{prefix[1:]}_ACTIVE_SOURCE_IDENTITIES")
             self.assertEqual(value[f"{prefix}_active_source_identities"], active)
             self.assertEqual(
@@ -445,7 +445,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                     REVALIDATION, {live_name: mutation}
                 )
 
-    def test_p337_p338_raw_first_contracts_reject_binding_mutations(self):
+    def test_p337_p339_raw_first_contracts_reject_binding_mutations(self):
         live_name = "device_action_f1_live_v2.py"
         live_source = self.source(live_name)
         p338_observer_start = live_source.index("class _P338ObserverSession")
@@ -486,6 +486,16 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                 "        proof_validator=typed_evidence.validate_p337_open_read_diagnostic_proof,\n",
                 1,
             ),
+            live_source.replace(
+                "        observer_module=p339_open_read_observer,\n",
+                "        observer_module=p338_open_read_observer,\n",
+                1,
+            ),
+            live_source.replace(
+                "        proof_validator=typed_evidence.validate_p339_open_read_branch_proof,\n",
+                "        proof_validator=typed_evidence.validate_p338_open_read_branch_proof,\n",
+                1,
+            ),
             p338_errno_mutation,
         )
         for mutation in live_mutations:
@@ -506,6 +516,19 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         with self.assertRaises(self.module.RawFirstAuditError):
             self.module._audit_function_contracts(
                 REVALIDATION, {observer_name: observer_mutation}
+            )
+
+        p339_name = "s22plus_fyg8_p339_open_read_branch_acm_observer.py"
+        p339_source = self.source(p339_name)
+        p339_mutation = p339_source.replace(
+            '"header_snapshot": identity(header)',
+            '"header_snapshot": identity(b"")',
+            1,
+        )
+        self.assertNotEqual(p339_mutation, p339_source)
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module._audit_function_contracts(
+                REVALIDATION, {p339_name: p339_mutation}
             )
 
     def test_d0_direct_stdout_and_nonhandle_parser_mutations_reject(self):
@@ -1197,7 +1220,7 @@ def read_control1(adb, serial):
         self.assertEqual(value["pre_boundary_device_source_count"], 128)
         self.assertEqual(
             value["pre_boundary_device_source_inventory_sha256"],
-            "f7905f83e31b16a1080ee058ed933abaf84ce56b61c425f8325a31e309a2ba69",
+            "b17a7dcff17cf54cfa6bf71ff07a6e914bc275240c13d4b08f5bf711d83c2326",
         )
         self.assertEqual(
             value["p319_d1_pre_boundary_classification"],
@@ -1220,10 +1243,10 @@ def read_control1(adb, serial):
             "device_acquisition_detected_by_behavior_not_filename", value
         )
         self.assertEqual(value["acquisition_rule"], "process_spawn_capability_v2")
-        self.assertEqual(value["host_only_non_acquiring_source_count"], 20)
+        self.assertEqual(value["host_only_non_acquiring_source_count"], 21)
         self.assertEqual(
             value["host_only_non_acquiring_source_inventory_sha256"],
-            "66ff381419698dc6f4a0ce7897c03604b42a40734956f21d40d7ee2a667099b3",
+            "7bcec0de0c8f8ab70d492671cef9804fd3e0e480b9a4dc5175e142ae05913a66",
         )
         self.assertTrue(value["host_only_non_acquiring_sources_are_byte_frozen"])
         self.assertEqual(

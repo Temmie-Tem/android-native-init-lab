@@ -75,6 +75,9 @@ import s22plus_fyg8_p337_artifact_identity as p337_artifact_identity
 import s22plus_fyg8_p338_open_read_branch_acm_observer as p338_open_read_observer
 import s22plus_fyg8_p338_open_read_branch_runtime as p338_open_read_runtime
 import s22plus_fyg8_p338_artifact_identity as p338_artifact_identity
+import s22plus_fyg8_p339_open_read_branch_acm_observer as p339_open_read_observer
+import s22plus_fyg8_p339_open_read_branch_runtime as p339_open_read_runtime
+import s22plus_fyg8_p339_artifact_identity as p339_artifact_identity
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -227,6 +230,19 @@ P338_LEASE_SCHEMA = "s22plus_fyg8_p338_open_read_branch_lease_v1"
 P338_OPEN_READ_BRANCH_ORDINALS = dict(
     typed_evidence.P338_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS
 )
+P339_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p339_open_header_capture_acm_receipt_v1"
+P339_CLASSIFICATIONS = set(P338_CLASSIFICATIONS)
+P339_SUCCESS_VERDICT = typed_evidence.P339_AUTH_EXEC_VERDICT
+P339_SUCCESS_OUTCOME = typed_evidence.P339_AUTH_EXEC_OUTCOME
+P339_NO_PROOF_OUTCOME = typed_evidence.P339_AUTH_EXEC_NO_PROOF_OUTCOME
+P339_LEASE_SCHEMA = "s22plus_fyg8_p339_open_header_capture_lease_v1"
+P339_OPEN_READ_BRANCH_ORDINALS = dict(
+    typed_evidence.P339_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS
+)
+P339_OPEN_HEADER_WORD_STAGES = list(
+    typed_evidence.P339_AUTH_EXEC_OPEN_HEADER_WORD_STAGES
+)
+P339_OPEN_HEADER_SIZE = typed_evidence.P339_AUTH_EXEC_OPEN_HEADER_SIZE
 MAX_LIVE_RESULT_RECORD = core.MAX_RESULT_RECORD
 
 
@@ -695,6 +711,33 @@ def _p338_parser_failure_classification(
     }
 
 
+def _p339_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    value = _p338_stock_error(payload, error)
+    value.update(
+        {
+            "schema": "device_action_f1_p339_stock_error_v1",
+            "classification": "P339_STOCK_PARSER_EXCEPTION",
+        }
+    )
+    return value
+
+
+def _p339_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p339_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "integrity_issue": True,
+        "integrity_issues": ["p339-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p339_stock_error": diagnostic,
+        "accepted": False,
+    }
+
+
 class F1LiveError(RuntimeError):
     pass
 
@@ -864,6 +907,7 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p332_bundle(bundle)
         or _p333_bundle(bundle)
         or _p334_bundle(bundle)
+        or _p339_bundle(bundle)
         or _p338_bundle(bundle)
         or _p337_bundle(bundle)
         or _p336_bundle(bundle)
@@ -873,7 +917,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             _userspace_overlay_contract_id(bundle)
         ]
         prefix = (
-            "p338"
+            "p339"
+            if _p339_bundle(bundle)
+            else "p338"
             if _p338_bundle(bundle)
             else
             "p337"
@@ -924,7 +970,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                     getattr(
                         stock_adapter,
                         "P320_OBSERVER_SOURCE",
-                        p338_open_read_observer.__file__
+                        p339_open_read_observer.__file__
+                        if _p339_bundle(bundle)
+                        else p338_open_read_observer.__file__
                         if _p338_bundle(bundle)
                         else
                         p337_open_read_observer.__file__
@@ -956,7 +1004,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             raise F1LiveError(str(exc)) from exc
         if _p328_bundle(bundle):
             auth_prefix = (
-                "p338"
+                "p339"
+                if _p339_bundle(bundle)
+                else "p338"
                 if _p338_bundle(bundle)
                 else
                 "p337"
@@ -980,7 +1030,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else "p328"
             )
             artifact_module = (
-                p338_artifact_identity
+                p339_artifact_identity
+                if _p339_bundle(bundle)
+                else p338_artifact_identity
                 if _p338_bundle(bundle)
                 else
                 p337_artifact_identity
@@ -1004,7 +1056,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else p328_artifact_identity
             )
             runtime_module = (
-                p338_open_read_runtime
+                p339_open_read_runtime
+                if _p339_bundle(bundle)
+                else p338_open_read_runtime
                 if _p338_bundle(bundle)
                 else
                 p337_open_read_runtime
@@ -1028,7 +1082,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else p328_auth_runtime
             )
             observer_module = (
-                p338_open_read_observer
+                p339_open_read_observer
+                if _p339_bundle(bundle)
+                else p338_open_read_observer
                 if _p338_bundle(bundle)
                 else
                 p337_open_read_observer
@@ -1060,7 +1116,17 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             paths[f"{auth_prefix}_auth_acm_observer"] = Path(
                 observer_module.__file__
             ).resolve()
-            if _p338_bundle(bundle):
+            if _p339_bundle(bundle):
+                paths["p339_open_read_branch_acm_observer"] = Path(
+                    p339_open_read_observer.__file__
+                ).resolve()
+                paths["p339_open_read_branch_runtime"] = Path(
+                    p339_open_read_runtime.__file__
+                ).resolve()
+                paths["p339_artifact_identity"] = Path(
+                    p339_artifact_identity.__file__
+                ).resolve()
+            elif _p338_bundle(bundle):
                 paths["p338_open_read_branch_acm_observer"] = Path(
                     p338_open_read_observer.__file__
                 ).resolve()
@@ -1200,7 +1266,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         )
         if _p328_bundle(bundle):
             auth_prefix = (
-                "p338"
+                "p339"
+                if _p339_bundle(bundle)
+                else "p338"
                 if _p338_bundle(bundle)
                 else
                 "p337"
@@ -1224,7 +1292,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else "p328"
             )
             closure[f"{auth_prefix}_auth_exec_runtime_contract_id"] = (
-                typed_evidence.P338_AUTH_EXEC_RUNTIME_CONTRACT_ID
+                typed_evidence.P339_AUTH_EXEC_RUNTIME_CONTRACT_ID
+                if _p339_bundle(bundle)
+                else typed_evidence.P338_AUTH_EXEC_RUNTIME_CONTRACT_ID
                 if _p338_bundle(bundle)
                 else
                 typed_evidence.P337_AUTH_EXEC_RUNTIME_CONTRACT_ID
@@ -1248,7 +1318,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 else typed_evidence.P328_AUTH_EXEC_RUNTIME_CONTRACT_ID
             )
             closure[f"{auth_prefix}_auth_acm_observer_contract_id"] = (
-                typed_evidence.P338_AUTH_EXEC_OBSERVER_CONTRACT_ID
+                typed_evidence.P339_AUTH_EXEC_OBSERVER_CONTRACT_ID
+                if _p339_bundle(bundle)
+                else typed_evidence.P338_AUTH_EXEC_OBSERVER_CONTRACT_ID
                 if _p338_bundle(bundle)
                 else
                 typed_evidence.P337_AUTH_EXEC_OBSERVER_CONTRACT_ID
@@ -1281,7 +1353,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             closure["p326_bidirectional_acm_contract_id"] = (
                 p326_console_observer.CONTRACT_ID
             )
-            if _p338_bundle(bundle):
+            if _p339_bundle(bundle):
+                closure["p339_resident_lease_schema"] = P339_LEASE_SCHEMA
+            elif _p338_bundle(bundle):
                 closure["p338_resident_lease_schema"] = P338_LEASE_SCHEMA
             elif _p337_bundle(bundle):
                 closure["p337_resident_lease_schema"] = P337_LEASE_SCHEMA
@@ -1674,6 +1748,7 @@ def _p328_bundle(bundle: core.Bundle) -> bool:
     return (
         _userspace_overlay_contract_id(bundle)
         in {
+            typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P336_STOCK_OVERLAY_CONTRACT_ID,
@@ -1770,11 +1845,24 @@ def _p338_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p339_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
 def _prepared_auth_key_entry(
     bundle: core.Bundle,
 ) -> tuple[str, dict[str, Any]] | None:
     if not _p328_bundle(bundle):
         return None
+    if _p339_bundle(bundle):
+        return (
+            "p339_auth_key_identity",
+            dict(typed_evidence.P339_AUTH_EXEC_AUTH_KEY_IDENTITY),
+        )
     if _p338_bundle(bundle):
         return (
             "p338_auth_key_identity",
@@ -1837,6 +1925,8 @@ def _p328_bound_auth_key_identity(prepared: PreparedRun) -> dict[str, Any]:
     candidates: list[Any] = []
     for container in containers:
         for key in (
+            "p339_auth_key_identity",
+            "p339_auth_key",
             "p338_auth_key_identity",
             "p338_auth_key",
             "p336_auth_key_identity",
@@ -1852,7 +1942,9 @@ def _p328_bound_auth_key_identity(prepared: PreparedRun) -> dict[str, Any]:
             if key in container:
                 candidates.append({"size": 32, "sha256": container[key]})
     artifact_module = (
-        p338_artifact_identity
+        p339_artifact_identity
+        if _p339_bundle(prepared.bundle)
+        else p338_artifact_identity
         if _p338_bundle(prepared.bundle)
         else
         p337_artifact_identity
@@ -1899,7 +1991,9 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
     """
     bound = _p328_bound_auth_key_identity(prepared)
     artifact_module = (
-        p338_artifact_identity
+        p339_artifact_identity
+        if _p339_bundle(prepared.bundle)
+        else p338_artifact_identity
         if _p338_bundle(prepared.bundle)
         else
         p337_artifact_identity
@@ -1940,6 +2034,7 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
         p334_artifact_identity.ArtifactIdentityError,
         p335_artifact_identity.ArtifactIdentityError,
         p336_artifact_identity.ArtifactIdentityError,
+        p339_artifact_identity.ArtifactIdentityError,
         p338_artifact_identity.ArtifactIdentityError,
     ) as exc:
         raise F1LiveError("bound auth-key identity is unavailable") from exc
@@ -1984,6 +2079,7 @@ def _p324_lane_bundle(bundle: core.Bundle) -> bool:
         or _p325_bundle(bundle)
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
+        or _p339_bundle(bundle)
         or _p328_bundle(bundle)
         or _p338_bundle(bundle)
         or _p337_bundle(bundle)
@@ -1999,6 +2095,7 @@ def _acm_primary_bundle(bundle: core.Bundle) -> bool:
         or _p325_bundle(bundle)
         or _p326_bundle(bundle)
         or _p327_bundle(bundle)
+        or _p339_bundle(bundle)
         or _p328_bundle(bundle)
         or _p338_bundle(bundle)
         or _p337_bundle(bundle)
@@ -2083,10 +2180,14 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
             typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P338_RUN_ID,
         ),
+        (
+            typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
+            typed_evidence.P339_RUN_ID,
+        ),
     }:
         raise F1LiveError(
             "candidate arrival proof role requires the exact P3.23 stock binding "
-            "through the exact P3.38 stock binding"
+            "through the exact P3.39 stock binding"
         )
     try:
         typed_evidence.validate_candidate_arrival_proof_role(
@@ -3218,10 +3319,11 @@ def _p319_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
-    """Validate and retain the ABI-v4 stock projection for P320-P338."""
+    """Validate and retain the ABI-v4 stock projection for P320-P339."""
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
+    is_p339 = overlay == typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID
     is_p338 = overlay == typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID
     is_p337 = overlay == typed_evidence.P337_STOCK_OVERLAY_CONTRACT_ID
     is_p336 = overlay == typed_evidence.P336_STOCK_OVERLAY_CONTRACT_ID
@@ -3241,7 +3343,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     is_p322 = overlay == typed_evidence.P322_STOCK_OVERLAY_CONTRACT_ID
     is_p321 = overlay == typed_evidence.P321_STOCK_OVERLAY_CONTRACT_ID
     adapter = (
-        typed_evidence.p338_stock_adapter
+        typed_evidence.p339_stock_adapter
+        if is_p339
+        else typed_evidence.p338_stock_adapter
         if is_p338
         else
         typed_evidence.p337_stock_adapter
@@ -3284,7 +3388,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter
     )
     label = (
-        "P3.38"
+        "P3.39"
+        if is_p339
+        else "P3.38"
         if is_p338
         else
         "P3.37"
@@ -3326,7 +3432,9 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p338_stock"
+        "p339_stock"
+        if is_p339
+        else "p338_stock"
         if is_p338
         else
         "p337_stock"
@@ -3369,12 +3477,12 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     )
     try:
         if (
-            (is_p338 or is_p337 or is_p336 or is_p335 or is_p334 or is_p333 or is_p332)
+            (is_p339 or is_p338 or is_p337 or is_p336 or is_p335 or is_p334 or is_p333 or is_p332)
             and classified.get("proof_class") == "NO_PROOF_OBSERVER"
             and classified.get("candidate_success") is False
         ):
             proof = "NO_PROOF_OBSERVER"
-        elif is_p338 or is_p337 or is_p336 or is_p335 or is_p334 or is_p333 or is_p332 or is_p331 or is_p330 or is_p329 or is_p328:
+        elif is_p339 or is_p338 or is_p337 or is_p336 or is_p335 or is_p334 or is_p333 or is_p332 or is_p331 or is_p330 or is_p329 or is_p328:
             proof = adapter.proof_class(classified)
         elif is_p327:
             proof = adapter._proof_class_for_value(classified)  # noqa: SLF001
@@ -3418,7 +3526,8 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if any(classified.get(name) is not False for name in required_false):
         raise F1LiveError(f"{label} stock classification exposes a causal claim")
     acm_primary = (
-        is_p338
+        is_p339
+        or is_p338
         or is_p337
         or is_p336
         or is_p335
@@ -3462,6 +3571,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         "P336_STOCK_ENCODER_FAILURE",
         "P337_STOCK_ENCODER_FAILURE",
         "P338_STOCK_ENCODER_FAILURE",
+        "P339_STOCK_ENCODER_FAILURE",
     } and len(stock) != 1:
         raise F1LiveError(f"{label} stock runtime projection is incomplete")
     result = {
@@ -3485,6 +3595,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         ),
     }
     if acm_primary and proof in {
+        "P339_STOCK_ENCODER_FAILURE",
         "P337_STOCK_ENCODER_FAILURE",
         "P338_STOCK_ENCODER_FAILURE",
         "P323_STOCK_ENCODER_FAILURE",
@@ -3508,6 +3619,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
+    is_p339 = "p339_stock" in state
     is_p338 = "p338_stock" in state
     is_p337 = "p337_stock" in state
     is_p334 = "p334_proof_class" in state
@@ -3524,7 +3636,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     is_p322 = "p322_stock" in state
     is_p321 = "p321_stock" in state
     label = (
-        "P3.38"
+        "P3.39"
+        if is_p339
+        else "P3.38"
         if is_p338
         else "P3.37"
         if is_p337
@@ -3560,7 +3674,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
         else "P3.20"
     )
     stock_key = (
-        "p338_stock"
+        "p339_stock"
+        if is_p339
+        else "p338_stock"
         if is_p338
         else "p337_stock"
         if is_p337
@@ -3604,7 +3720,9 @@ def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
     ):
         raise F1LiveError(f"{label} durable stock projection differs from final evidence")
     proof_key = (
-        "p338_proof_class"
+        "p339_proof_class"
+        if is_p339
+        else "p338_proof_class"
         if is_p338
         else "p337_proof_class"
         if is_p337
@@ -4035,6 +4153,21 @@ class SamsungOdinBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
+        if _p339_bundle(prepared.bundle):
+            lane_value, lane_receipt = _p324_typec_lane_value(
+                prepared,
+                revalidate=True,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
+            return _p339_candidate_observer_session(
+                prepared,
+                spec,
+                lane_value=lane_value,
+                lane_receipt=lane_receipt,
+                usb_root=self.usb_root,
+                typec_root=self.typec_root,
+            )
         if _p338_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
@@ -4050,12 +4183,7 @@ class SamsungOdinBackend:
                 usb_root=self.usb_root,
                 typec_root=self.typec_root,
             )
-        if _p338_bundle(prepared.bundle):
-            stock_error = _p338_stock_error(payloads[0], exc)
-            marker_result = _p338_parser_failure_classification(
-                payloads[0], exc
-            )
-        elif _p337_bundle(prepared.bundle):
+        if _p337_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
                 prepared,
                 revalidate=True,
@@ -4542,6 +4670,7 @@ class SamsungOdinBackend:
                     p334_first_read_observer.AuthObserverError,
                     p335_retained_observer.AuthObserverError,
                     p336_long_idle_observer.AuthObserverError,
+                    p339_open_read_observer.P339ObserverBindingError,
                     p338_open_read_observer.P338ObserverBindingError,
                     p337_open_read_observer.P337ObserverBindingError,
                     OSError,
@@ -4584,7 +4713,8 @@ class SamsungOdinBackend:
                     }
                 )
             if (
-                _p338_bundle(prepared.bundle)
+                _p339_bundle(prepared.bundle)
+                or _p338_bundle(prepared.bundle)
                 or _p337_bundle(prepared.bundle)
                 or _p336_bundle(prepared.bundle)
                 or _p335_bundle(prepared.bundle)
@@ -4604,7 +4734,32 @@ class SamsungOdinBackend:
                         "partial_sessions": durable["partial_sessions"],
                     }
                 )
-                if _p338_bundle(prepared.bundle):
+                if _p339_bundle(prepared.bundle):
+                    result.update(_p339_proof_state(durable))
+                    result.update(
+                        {
+                            "preauth_diagnostics": durable["preauth_diagnostics"],
+                            "rng_eagain_retries": durable["rng_eagain_retries"],
+                            "partial_sessions": durable["partial_sessions"],
+                            "p339_authenticated_open_read_branch_resident": durable[
+                                "p339_authenticated_open_read_branch_resident"
+                            ],
+                            "open_read_diagnostic": durable.get(
+                                "open_read_diagnostic"
+                            ),
+                            "open_read_branch_ordinals": dict(
+                                P339_OPEN_READ_BRANCH_ORDINALS
+                            ),
+                            "open_read_branch_count": len(
+                                p339_open_read_runtime.OPEN_READ_BRANCHES
+                            ),
+                            "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+                            "open_header_size": P339_OPEN_HEADER_SIZE,
+                            "open_header_capture_best_effort": True,
+                            "original_errno_returned_unchanged": True,
+                        }
+                    )
+                elif _p338_bundle(prepared.bundle):
                     result.update(_p338_proof_state(durable))
                     result.update(
                         {
@@ -4831,7 +4986,12 @@ class SamsungOdinBackend:
         except F1LiveError as exc:
             if not _acm_primary_bundle(prepared.bundle):
                 raise
-            if _p338_bundle(prepared.bundle):
+            if _p339_bundle(prepared.bundle):
+                stock_error = _p339_stock_error(payloads[0], exc)
+                marker_result = _p339_parser_failure_classification(
+                    payloads[0], exc
+                )
+            elif _p338_bundle(prepared.bundle):
                 stock_error = _p338_stock_error(payloads[0], exc)
                 marker_result = _p338_parser_failure_classification(
                     payloads[0], exc
@@ -4939,6 +5099,7 @@ class SamsungOdinBackend:
                     or _p334_bundle(prepared.bundle)
                     or _p335_bundle(prepared.bundle)
                     or _p336_bundle(prepared.bundle)
+                    or _p339_bundle(prepared.bundle)
                     or _p338_bundle(prepared.bundle)
                 )
             )
@@ -4973,7 +5134,9 @@ class SamsungOdinBackend:
             result["observer"]["p319_stock"] = p319_projection
         if p320_projection is not None:
             result["observer"][
-                "p338_stock"
+                "p339_stock"
+                if _p339_bundle(prepared.bundle)
+                else "p338_stock"
                 if _p338_bundle(prepared.bundle)
                 else "p337_stock"
                 if _p337_bundle(prepared.bundle)
@@ -5013,7 +5176,9 @@ class SamsungOdinBackend:
             ] = p320_projection
         if stock_error is not None:
             key = (
-                "p338_stock_error"
+                "p339_stock_error"
+                if _p339_bundle(prepared.bundle)
+                else "p338_stock_error"
                 if _p338_bundle(prepared.bundle)
                 else "p337_stock_error"
                 if _p337_bundle(prepared.bundle)
@@ -5048,7 +5213,9 @@ class SamsungOdinBackend:
             )
             result["observer"][key] = stock_error
             result["observer"].pop(
-                "p338_stock"
+                "p339_stock"
+                if _p339_bundle(prepared.bundle)
+                else "p338_stock"
                 if _p338_bundle(prepared.bundle)
                 else "p337_stock"
                 if _p337_bundle(prepared.bundle)
@@ -7650,6 +7817,202 @@ class _P338ObserverSession(_P337ObserverSession):
         return value
 
 
+def _p339_repin_proof(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate the P339 proof namespace before any P338 compatibility use."""
+    if type(value) is not dict:
+        raise F1LiveError("P3.39 initial proof is not an object")
+    try:
+        typed_evidence.validate_p339_open_read_branch_proof(value)
+    except (typed_evidence.EvidenceError, TypeError) as exc:
+        raise F1LiveError("P3.39 initial proof namespace differs") from exc
+    expected_commands = [
+        _p327_identity(command)
+        for command in p339_open_read_runtime.DEFAULT_COMMANDS
+    ]
+    if (
+        value.get("schema") != p339_open_read_observer.SCHEMA
+        or value.get("contract_id") != p339_open_read_observer.CONTRACT_ID
+        or value.get("target") != p339_open_read_runtime.TARGET
+        or value.get("run_id_hex") != p339_open_read_runtime.P339_RUN_ID_HEX
+        or value.get("fixed_commands") != expected_commands
+    ):
+        raise F1LiveError("P3.39 initial proof namespace differs")
+    sessions = value.get("sessions")
+    if (
+        type(sessions) is not list
+        or len(sessions) != p339_open_read_observer.MAX_SESSIONS
+    ):
+        raise F1LiveError("P3.39 initial proof session count differs")
+    for session in sessions:
+        commands = session.get("commands") if type(session) is dict else None
+        if type(commands) is not list or len(commands) != len(expected_commands):
+            raise F1LiveError("P3.39 initial proof command count differs")
+        for command, expected in zip(commands, expected_commands):
+            if (
+                type(command) is not dict
+                or command.get("command_sha256") != expected["sha256"]
+            ):
+                raise F1LiveError("P3.39 initial proof command identity differs")
+    return dict(value)
+
+
+def _p339_initial_observer_module() -> types.ModuleType:
+    """Load the retained-session codec with the exact P339 runtime binding."""
+    payload = p336_long_idle_observer._PREDECESSOR_PAYLOAD  # noqa: SLF001
+    if p336_long_idle_observer.identity(payload) != p336_long_idle_observer.SOURCE_IDENTITY:
+        raise F1LiveError("P3.39 initial observer source identity differs")
+    runtime_binding = types.ModuleType(
+        "s22plus_fyg8_p339_initial_retained_runtime"
+    )
+    runtime_binding.__dict__.update(vars(p339_open_read_runtime))
+    runtime_binding.SESSION_COUNT = 2
+    runtime_binding.RECONNECT_COUNT = 1
+    runtime_binding.MAX_SESSIONS = 2
+    runtime_binding.MAX_RECONNECTS = 1
+    runtime_binding.MAX_PHYSICAL_REOPENS = 1
+    runtime_binding.PHYSICAL_REOPEN_COUNT = 1
+    runtime_binding.P335_COMMANDS_PER_SESSION = len(
+        p339_open_read_runtime.DEFAULT_COMMANDS
+    )
+    module = types.ModuleType("s22plus_fyg8_p339_initial_retained_observer")
+    module.__file__ = str(p336_long_idle_observer.SOURCE)
+    module.__package__ = ""
+    runtime_name = "s22plus_fyg8_p335_retained_listener_runtime"
+    module_name = module.__name__
+    previous_runtime = sys.modules.get(runtime_name)
+    previous_module = sys.modules.get(module_name)
+    sys.modules[runtime_name] = runtime_binding
+    sys.modules[module_name] = module
+    try:
+        exec(  # noqa: S102
+            compile(
+                payload,
+                str(p336_long_idle_observer.SOURCE),
+                "exec",
+                dont_inherit=True,
+            ),
+            module.__dict__,
+        )
+    except Exception as exc:
+        raise F1LiveError("P3.39 initial observer source failed to load") from exc
+    finally:
+        if previous_runtime is None:
+            sys.modules.pop(runtime_name, None)
+        else:
+            sys.modules[runtime_name] = previous_runtime
+        if previous_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous_module
+    module.SCHEMA = p339_open_read_observer.SCHEMA
+    module.CONTRACT_ID = p339_open_read_observer.CONTRACT_ID
+    if (
+        getattr(module, "runtime", None) is not runtime_binding
+        or module.DEFAULT_COMMANDS != tuple(p339_open_read_runtime.DEFAULT_COMMANDS)
+        or module.DEVICE_BANNER != p339_open_read_runtime.DEVICE_BANNER
+        or module.P335_RUN_ID_HEX != p339_open_read_runtime.P339_RUN_ID_HEX
+    ):
+        raise F1LiveError("P3.39 initial observer runtime binding differs")
+    return module
+
+
+_P339_INITIAL_OBSERVER = _p339_initial_observer_module()
+
+
+@dataclass
+class _P339ObserverSession(_P338ObserverSession):
+    """P3.38 retained-session shape with the exact P3.39 branch codec."""
+
+    auth_observer: Any = _P339_INITIAL_OBSERVER
+    auth_runtime: Any = p339_open_read_runtime
+    receipt_schema: str = P339_OBSERVER_RECEIPT_SCHEMA
+    receipt_label: str = "P339 open-read branch resident observer receipt"
+    campaign_label: str = "P3.39"
+    proof_key: str = "p339_authenticated_open_read_branch_resident"
+    raw_argv0_name: str = "tty-cdc-acm-p339"
+
+    _captured_lane: dict[str, Any] | None = None
+
+    def _publish_value(
+        self,
+        value: dict[str, Any],
+        lane_supplement: dict[str, Any],
+        *,
+        label: str,
+    ) -> None:
+        self._captured_lane = dict(lane_supplement)
+
+    def observe(
+        self,
+        *,
+        timeout_sec: int,
+        download_departure: dict[str, Any],
+    ) -> dict[str, Any]:
+        # Bypass the P338 projection method: it is a compatibility adapter,
+        # while P339 must validate and retain its own exact proof namespace.
+        inherited = _P335ObserverSession.observe(
+            self,
+            timeout_sec=timeout_sec,
+            download_departure=download_departure,
+        )
+        value = dict(inherited)
+        inherited_proof = value.get("proof")
+        proof = _p339_repin_proof(inherited_proof) if inherited_proof else {}
+        open_read_diagnostic: dict[str, Any] | None = None
+        resident = self.resident_result
+        sessions = () if resident is None else resident.sessions
+        for session in reversed(tuple(sessions)):
+            try:
+                open_read_diagnostic = (
+                    p339_open_read_observer.parse_retained_open_read_branch(
+                        session.raw_rx
+                    )
+                )
+            except p339_open_read_observer.P339ObserverBindingError:
+                continue
+            break
+        value.update(
+            {
+                "schema": P339_OBSERVER_RECEIPT_SCHEMA,
+                "contract_id": p339_open_read_observer.CONTRACT_ID,
+                "target": p339_open_read_runtime.TARGET,
+                "banner_hex": p339_open_read_runtime.DEVICE_BANNER.hex(),
+                "proof": proof,
+                "p339_authenticated_open_read_branch_resident": proof,
+                "session_cap": p339_open_read_observer.MAX_SESSIONS,
+                "reconnect_cap": p339_open_read_observer.MAX_RECONNECTS,
+                "commands_per_session": len(p339_open_read_runtime.DEFAULT_COMMANDS),
+                "command_count": len(proof.get("sessions", ()))
+                * len(p339_open_read_runtime.DEFAULT_COMMANDS),
+                "max_commands": p339_open_read_runtime.MAX_COMMANDS,
+                "expected_size": len(p339_open_read_runtime.DEVICE_BANNER)
+                * p339_open_read_observer.MAX_SESSIONS,
+                "open_read_diagnostic": open_read_diagnostic,
+                "first_open_failure_diagnostic": True,
+                "open_read_branch_ordinals": dict(
+                    P339_OPEN_READ_BRANCH_ORDINALS
+                ),
+                "open_read_branch_count": len(
+                    p339_open_read_runtime.OPEN_READ_BRANCHES
+                ),
+                "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+                "open_header_size": P339_OPEN_HEADER_SIZE,
+                "open_header_capture_best_effort": True,
+                "original_errno_returned_unchanged": True,
+            }
+        )
+        value.pop("p335_authenticated_attended_resident", None)
+        value.pop("p338_authenticated_attended_resident", None)
+        lane = self._captured_lane or {}
+        _P327ObserverSession._publish_value(
+            self,
+            value,
+            lane,
+            label=self.receipt_label,
+        )
+        return value
+
+
 @contextlib.contextmanager
 def _p328_candidate_observer_session(
     prepared: PreparedRun,
@@ -7903,7 +8266,7 @@ def _logical_resident_candidate_observer_session(
     ]
     if entry_diagnostic:
         diagnostic_stages.insert(0, {"stage": 0, "name": "console-enter"})
-    retained_reopen = label in {"P3.35", "P3.36", "P3.37", "P3.38"}
+    retained_reopen = label in {"P3.35", "P3.36", "P3.37", "P3.38", "P3.39"}
     expected = {
         "udev_guard_settle_timeout_ms": 500,
         "udev_guard_settle_poll_ms": 25,
@@ -7948,7 +8311,9 @@ def _logical_resident_candidate_observer_session(
                 "per_boot_identity_required": True,
                 "listener_wait_after_proof": True,
                 "resident_lease_schema": (
-                    P338_LEASE_SCHEMA
+                    P339_LEASE_SCHEMA
+                    if label == "P3.39"
+                    else P338_LEASE_SCHEMA
                     if label == "P3.38"
                     else
                     P337_LEASE_SCHEMA
@@ -8171,6 +8536,33 @@ def _p338_candidate_observer_session(
         runtime_module=p338_open_read_runtime,
         session_type=_P338ObserverSession,
         label="P3.38",
+        entry_diagnostic=True,
+    ) as session:
+        yield session
+
+
+@contextlib.contextmanager
+def _p339_candidate_observer_session(
+    prepared: PreparedRun,
+    spec: dict[str, Any],
+    *,
+    lane_value: dict[str, Any],
+    lane_receipt: dict[str, Any],
+    usb_root: Path,
+    typec_root: Path,
+) -> Iterator[_P339ObserverSession]:
+    """Arm P3.39 with its distinct lease, proof, and branch ordinal labels."""
+    with _logical_resident_candidate_observer_session(
+        prepared,
+        spec,
+        lane_value=lane_value,
+        lane_receipt=lane_receipt,
+        usb_root=usb_root,
+        typec_root=typec_root,
+        observer_module=p339_open_read_observer,
+        runtime_module=p339_open_read_runtime,
+        session_type=_P339ObserverSession,
+        label="P3.39",
         entry_diagnostic=True,
     ) as session:
         yield session
@@ -9097,6 +9489,60 @@ def _p338_proof_ok(value: Mapping[str, Any]) -> bool:
         == p338_open_read_observer.MAX_SESSIONS
         * len(p338_open_read_runtime.DEFAULT_COMMANDS)
         and value.get("max_commands") == p338_open_read_runtime.MAX_COMMANDS
+        and proof.get("listener_replays_commands") is False
+        and proof.get("same_boot_id") is True
+        and proof.get("descriptor_reopened") is True
+    )
+
+
+P339_PROOF_FIELDS = P338_PROOF_FIELDS
+
+
+def _p339_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value.get(key) for key in P339_PROOF_FIELDS}
+
+
+def _p339_proof_ok(value: Mapping[str, Any]) -> bool:
+    proof_value = value.get(
+        "proof", value.get("p339_authenticated_open_read_branch_resident")
+    )
+    try:
+        proof = typed_evidence.validate_p339_open_read_branch_proof(proof_value)
+    except (typed_evidence.EvidenceError, TypeError):
+        return False
+    return (
+        all(
+            value.get(key) is True
+            for key in (
+                "hmac_authenticated",
+                "pid1_authenticated_framed_exec_proof",
+                "busybox_ash_command_proof",
+                "framed_session_closed",
+                "logical_resident_proof",
+                "same_tty_fd",
+                "fixed_p330_commands",
+                "first_open_failure_diagnostic",
+            )
+        )
+        and value.get("open_read_diagnostic") is None
+        and value.get("physical_reopen_count")
+        == p339_open_read_observer.PHYSICAL_REOPEN_COUNT
+        and value.get("interactive_pty_proof") is False
+        and value.get("caller_selected_command") is False
+        and value.get("arbitrary_file_transfer") is False
+        and value.get("persistent_state") is False
+        and value.get("session_count") == p339_open_read_observer.MAX_SESSIONS
+        and value.get("successful_sessions")
+        == p339_open_read_observer.MAX_SESSIONS
+        and value.get("session_cap") == p339_open_read_observer.MAX_SESSIONS
+        and value.get("reconnect_count") == p339_open_read_observer.MAX_RECONNECTS
+        and value.get("reconnect_cap") == p339_open_read_observer.MAX_RECONNECTS
+        and value.get("commands_per_session")
+        == len(p339_open_read_runtime.DEFAULT_COMMANDS)
+        and value.get("command_count")
+        == p339_open_read_observer.MAX_SESSIONS
+        * len(p339_open_read_runtime.DEFAULT_COMMANDS)
+        and value.get("max_commands") == p339_open_read_runtime.MAX_COMMANDS
         and proof.get("listener_replays_commands") is False
         and proof.get("same_boot_id") is True
         and proof.get("descriptor_reopened") is True
@@ -10108,6 +10554,146 @@ def _p338_validate_receipt(
     return value
 
 
+def _p339_validate_receipt(
+    prepared: PreparedRun,
+    path: Path,
+    spec: dict[str, Any],
+) -> dict[str, Any]:
+    """Reopen P339 receipts with their own branch and proof namespace."""
+    raw_value = _read_json(path, "P339 open-read branch observer receipt")
+    if raw_value.get("first_open_failure_diagnostic") is not True:
+        raise p339_open_read_observer.P339ObserverBindingError(
+            "P339 branch receipt binding differs"
+        )
+    diagnostic = raw_value.get("open_read_diagnostic")
+    if diagnostic is not None:
+        expected = {
+            "stage", "code", "branch_ordinal", "classification", "raw",
+            "frame_count", "retained", "causal_result_allowed", "candidate_success",
+            "reason_frame_index", "header_word_stages", "header_word_count",
+            "header_snapshot_complete", "header_snapshot_hex", "header_snapshot",
+            "header_fields", "mismatch",
+        }
+        branch = diagnostic.get("code") if type(diagnostic) is dict else None
+        word_count = diagnostic.get("header_word_count") if type(diagnostic) is dict else None
+        try:
+            header_bytes = bytes.fromhex(
+                diagnostic.get("header_snapshot_hex", "")
+                if type(diagnostic) is dict
+                else ""
+            )
+        except (TypeError, ValueError):
+            header_bytes = b""
+        capture_branch = branch in {
+            p339_open_read_runtime.OPEN_READ_BRANCH_HEADER_VALIDATION,
+            p339_open_read_runtime.OPEN_READ_BRANCH_OPEN_SEMANTIC,
+        }
+        complete = word_count == len(P339_OPEN_HEADER_WORD_STAGES)
+        if (
+            type(diagnostic) is not dict
+            or set(diagnostic) != expected
+            or diagnostic.get("stage")
+            != p339_open_read_runtime.DIAGNOSTIC_STAGE_OPEN_READ_RESULT
+            or diagnostic.get("branch_ordinal") != diagnostic.get("code")
+            or diagnostic.get("classification")
+            not in set(p339_open_read_runtime.OPEN_READ_BRANCHES.values())
+            or diagnostic.get("code") not in p339_open_read_runtime.OPEN_READ_BRANCHES
+            or diagnostic.get("causal_result_allowed") is not False
+            or diagnostic.get("candidate_success") is not False
+            or diagnostic.get("reason_frame_index") != 0
+            or diagnostic.get("header_word_stages") != P339_OPEN_HEADER_WORD_STAGES
+            or type(word_count) is not int
+            or word_count < 0
+            or word_count > len(P339_OPEN_HEADER_WORD_STAGES)
+            or diagnostic.get("frame_count") != 1 + word_count
+            or len(header_bytes) != word_count * 4
+            or diagnostic.get("header_snapshot")
+            != {
+                "size": len(header_bytes),
+                "sha256": hashlib.sha256(header_bytes).hexdigest(),
+            }
+            or diagnostic.get("header_snapshot_complete") is not complete
+            or (not capture_branch and word_count != 0)
+            or (
+                complete
+                and (
+                    len(header_bytes) != P339_OPEN_HEADER_SIZE
+                    or type(diagnostic.get("header_fields")) is not dict
+                    or diagnostic.get("mismatch") is None
+                )
+            )
+            or (
+                not complete
+                and (
+                    diagnostic.get("header_fields") is not None
+                    or diagnostic.get("mismatch") is not None
+                )
+            )
+        ):
+            raise p339_open_read_observer.P339ObserverBindingError(
+                "P339 branch diagnostic differs"
+            )
+    additional = frozenset(
+        {
+            "open_read_diagnostic",
+            "first_open_failure_diagnostic",
+            "open_read_branch_ordinals",
+            "open_read_branch_count",
+            "open_header_word_stages",
+            "open_header_size",
+            "open_header_capture_best_effort",
+            "original_errno_returned_unchanged",
+            "p339_authenticated_open_read_branch_resident",
+        }
+    )
+    value = _p332_validate_receipt(
+        prepared,
+        path,
+        spec,
+        observer_module=p339_open_read_observer,
+        runtime_module=p339_open_read_runtime,
+        receipt_schema=P339_OBSERVER_RECEIPT_SCHEMA,
+        classifications=P339_CLASSIFICATIONS,
+        proof_validator=typed_evidence.validate_p339_open_read_branch_proof,
+        proof_checker=_p339_proof_ok,
+        expected_physical_reopens=p339_open_read_observer.PHYSICAL_REOPEN_COUNT,
+        expected_reconnects=p339_open_read_observer.MAX_RECONNECTS,
+        expected_session_count=p339_open_read_observer.MAX_SESSIONS,
+        proof_key="p339_authenticated_open_read_branch_resident",
+        label="P339",
+        additional_keys=additional,
+        partial_reopens_allowed=True,
+    )
+    if (
+        raw_value.get("open_read_branch_ordinals")
+        != P339_OPEN_READ_BRANCH_ORDINALS
+        or raw_value.get("open_read_branch_count")
+        != len(p339_open_read_runtime.OPEN_READ_BRANCHES)
+        or raw_value.get("open_header_word_stages") != P339_OPEN_HEADER_WORD_STAGES
+        or raw_value.get("open_header_size") != P339_OPEN_HEADER_SIZE
+        or raw_value.get("open_header_capture_best_effort") is not True
+        or raw_value.get("original_errno_returned_unchanged") is not True
+    ):
+        raise p339_open_read_observer.P339ObserverBindingError(
+            "P339 branch contract projection differs"
+        )
+    value.update(
+        {
+            "open_read_diagnostic": diagnostic,
+            "first_open_failure_diagnostic": True,
+            "open_read_branch_ordinals": dict(
+                P339_OPEN_READ_BRANCH_ORDINALS
+            ),
+            "open_read_branch_count": len(p339_open_read_runtime.OPEN_READ_BRANCHES),
+            "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+            "open_header_size": P339_OPEN_HEADER_SIZE,
+            "open_header_capture_best_effort": True,
+            "original_errno_returned_unchanged": True,
+        }
+    )
+    return value
+
+
 def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     def unavailable(classification: str) -> dict[str, Any]:
         result = {
@@ -10129,6 +10715,41 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                     "accepted_inventory_exact": False,
                     "same_run_typec_partner_continuity": False,
                     "accepted_for_p324": False,
+                }
+            )
+        if _p339_bundle(prepared.bundle):
+            result.update(
+                {
+                    **{key: False for key in P339_PROOF_FIELDS},
+                    "open_read_diagnostic": None,
+                    "first_open_failure_diagnostic": False,
+                    "open_read_branch_ordinals": dict(
+                        P339_OPEN_READ_BRANCH_ORDINALS
+                    ),
+                    "open_read_branch_count": len(
+                        p339_open_read_runtime.OPEN_READ_BRANCHES
+                    ),
+                    "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+                    "open_header_size": P339_OPEN_HEADER_SIZE,
+                    "open_header_capture_best_effort": True,
+                    "original_errno_returned_unchanged": True,
+                    "physical_reopen_count": 0,
+                    "session_count": 0,
+                    "successful_sessions": 0,
+                    "session_cap": p339_open_read_observer.MAX_SESSIONS,
+                    "reconnect_count": 0,
+                    "reconnect_cap": p339_open_read_observer.MAX_RECONNECTS,
+                    "commands_per_session": len(
+                        p339_open_read_runtime.DEFAULT_COMMANDS
+                    ),
+                    "command_count": 0,
+                    "max_commands": p339_open_read_runtime.MAX_COMMANDS,
+                    "auth_key_sha256": None,
+                    "preauth_diagnostics": [],
+                    "rng_eagain_retries": [],
+                    "partial_sessions": [],
+                    "p339_authenticated_open_read_branch_resident": None,
+                    "caller_selected_command": False,
                 }
             )
         if _p338_bundle(prepared.bundle):
@@ -10365,7 +10986,10 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink():
         return unavailable("interrupted-before-receipt")
     try:
-        if _p338_bundle(prepared.bundle):
+        if _p339_bundle(prepared.bundle):
+            value = _p339_validate_receipt(prepared, path, spec)
+            receipt_sha256 = value["receipt_sha256"]
+        elif _p338_bundle(prepared.bundle):
             value = _p338_validate_receipt(prepared, path, spec)
             receipt_sha256 = value["receipt_sha256"]
         elif _p337_bundle(prepared.bundle):
@@ -10479,6 +11103,7 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
         p334_first_read_observer.AuthObserverError,
         p335_retained_observer.AuthObserverError,
         p336_long_idle_observer.AuthObserverError,
+        p339_open_read_observer.P339ObserverBindingError,
         p338_open_read_observer.P338ObserverBindingError,
         p337_open_read_observer.P337ObserverBindingError,
         F1LiveError,
@@ -10509,7 +11134,31 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                 )
             }
         )
-    if _p338_bundle(prepared.bundle):
+    if _p339_bundle(prepared.bundle):
+        result.update(_p339_proof_state(value))
+        result.update(
+            {
+                "preauth_diagnostics": value["preauth_diagnostics"],
+                "rng_eagain_retries": value["rng_eagain_retries"],
+                "partial_sessions": value["partial_sessions"],
+                "p339_authenticated_open_read_branch_resident": value[
+                    "p339_authenticated_open_read_branch_resident"
+                ],
+                "open_read_diagnostic": value.get("open_read_diagnostic"),
+                "first_open_failure_diagnostic": True,
+                "open_read_branch_ordinals": dict(
+                    P339_OPEN_READ_BRANCH_ORDINALS
+                ),
+                "open_read_branch_count": len(
+                    p339_open_read_runtime.OPEN_READ_BRANCHES
+                ),
+                "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+                "open_header_size": P339_OPEN_HEADER_SIZE,
+                "open_header_capture_best_effort": True,
+                "original_errno_returned_unchanged": True,
+            }
+        )
+    elif _p338_bundle(prepared.bundle):
         result.update(_p338_proof_state(value))
         result.update(
             {
@@ -10796,6 +11445,7 @@ def _candidate_arrival_proof_projection(
     durable = _reopen_candidate_observation(prepared)
     guard_release = _reopen_candidate_guard_release(prepared)
     p338 = _p338_bundle(prepared.bundle)
+    p339 = False if p338 else _p339_bundle(prepared.bundle)
     p337 = _p337_bundle(prepared.bundle)
     p336 = _p336_bundle(prepared.bundle)
     p335 = _p335_bundle(prepared.bundle)
@@ -10823,7 +11473,9 @@ def _candidate_arrival_proof_projection(
         and durable["accepted"] is True
         and durable["classification"] == "accepted"
     )
-    if p338:
+    if p339:
+        observer_accepted = observer_accepted and _p339_proof_ok(durable)
+    elif p338:
         observer_accepted = observer_accepted and _p338_proof_ok(durable)
     elif p337:
         observer_accepted = observer_accepted and _p337_proof_ok(durable)
@@ -10888,7 +11540,9 @@ def _candidate_arrival_proof_projection(
     final_observer = final.get("observer") if isinstance(final, dict) else None
     if isinstance(final_observer, dict):
         key = (
-            "p338_stock"
+            "p339_stock"
+            if p339
+            else "p338_stock"
             if p338
             else "p337_stock"
             if p337
@@ -10938,7 +11592,9 @@ def _candidate_arrival_proof_projection(
             }
         else:
             error_key = (
-                "p338_stock_error"
+                "p339_stock_error"
+                if p339
+                else "p338_stock_error"
                 if p338
                 else "p337_stock_error"
                 if p337
@@ -10980,7 +11636,7 @@ def _candidate_arrival_proof_projection(
                 }
     # P3.25 already retains the complete Carrier projection in final_evidence.
     # Repeating it here makes the durable live-state record exceed MAX_RECORD.
-    if p325 or p326 or p327 or p328:
+    if p325 or p326 or p327 or p328 or p339:
         supplemental = None
     proof = all(
         (
@@ -10998,7 +11654,10 @@ def _candidate_arrival_proof_projection(
         "role": role,
         "primary_source": "candidate_observer",
         "banner_size": (
-            len(p338_open_read_runtime.DEVICE_BANNER)
+            len(p339_open_read_runtime.DEVICE_BANNER)
+            * p339_open_read_observer.MAX_SESSIONS
+            if p339
+            else len(p338_open_read_runtime.DEVICE_BANNER)
             * p338_open_read_observer.MAX_SESSIONS
             if p338
             else len(p337_open_read_runtime.DEVICE_BANNER)
@@ -11049,7 +11708,27 @@ def _candidate_arrival_proof_projection(
         "proof": proof,
         "supplemental_carrier": supplemental,
     }
-    if p338:
+    if p339:
+        result.update(_p339_proof_state(durable))
+        result.update(
+            {
+                "per_boot_identity_required": True,
+                "listener_wait_after_proof": True,
+                "resident_lease_schema": P339_LEASE_SCHEMA,
+                "open_read_diagnostic": durable.get("open_read_diagnostic"),
+                "open_read_branch_ordinals": dict(
+                    P339_OPEN_READ_BRANCH_ORDINALS
+                ),
+                "open_read_branch_count": len(
+                    p339_open_read_runtime.OPEN_READ_BRANCHES
+                ),
+                "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+                "open_header_size": P339_OPEN_HEADER_SIZE,
+                "open_header_capture_best_effort": True,
+                "original_errno_returned_unchanged": True,
+            }
+        )
+    elif p338:
         result.update(_p338_proof_state(durable))
         result.update(
             {
@@ -11184,6 +11863,7 @@ def _validate_candidate_arrival_proof_state(
         or _p325_bundle(prepared.bundle)
         or _p326_bundle(prepared.bundle)
         or _p327_bundle(prepared.bundle)
+        or _p339_bundle(prepared.bundle)
         or _p328_bundle(prepared.bundle)
         or _p336_bundle(prepared.bundle)
         or _p335_bundle(prepared.bundle)
@@ -11551,7 +12231,12 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     except F1LiveError as exc:
         if not _acm_primary_bundle(prepared.bundle):
             raise
-        if _p338_bundle(prepared.bundle):
+        if _p339_bundle(prepared.bundle):
+            stock_error = _p339_stock_error(payloads[0], exc)
+            marker_result = _p339_parser_failure_classification(
+                payloads[0], exc
+            )
+        elif _p338_bundle(prepared.bundle):
             stock_error = _p338_stock_error(payloads[0], exc)
             marker_result = _p338_parser_failure_classification(
                 payloads[0], exc
@@ -11707,7 +12392,20 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             raise F1LiveError("P3.25 final stock projection changed")
     elif "p325_stock" in observer or "p325_stock_error" in observer:
         raise F1LiveError("foreign P3.25 final stock evidence")
-    if _p338_bundle(prepared.bundle):
+    if _p339_bundle(prepared.bundle):
+        if stock_error is not None:
+            if (
+                observer.get("p339_stock_error") != stock_error
+                or "p339_stock" in observer
+            ):
+                raise F1LiveError("P3.39 supplemental parser failure changed")
+        elif not _p319_exact_equal(
+            observer.get("p339_stock"), _p320_terminal_projection(marker_result)
+        ):
+            raise F1LiveError("P3.39 final stock projection changed")
+    elif "p339_stock" in observer or "p339_stock_error" in observer:
+        raise F1LiveError("foreign P3.39 final stock evidence")
+    elif _p338_bundle(prepared.bundle):
         if stock_error is not None:
             if (
                 observer.get("p338_stock_error") != stock_error
@@ -11920,6 +12618,7 @@ def _validate_candidate_observer_state(
         or _p335_bundle(prepared.bundle)
         or _p336_bundle(prepared.bundle)
         or _p337_bundle(prepared.bundle)
+        or _p339_bundle(prepared.bundle)
         or _p338_bundle(prepared.bundle)
     ):
         raise F1LiveError("P3.28 authenticated proof durable state mismatch")
@@ -11930,6 +12629,7 @@ def _validate_candidate_observer_state(
         or _p335_bundle(prepared.bundle)
         or _p336_bundle(prepared.bundle)
         or _p337_bundle(prepared.bundle)
+        or _p339_bundle(prepared.bundle)
         or _p338_bundle(prepared.bundle)
     ) and any(
         state.get(key) != durable.get(key)
@@ -11943,6 +12643,7 @@ def _validate_candidate_observer_state(
         or _p335_bundle(prepared.bundle)
         or _p336_bundle(prepared.bundle)
         or _p337_bundle(prepared.bundle)
+        or _p339_bundle(prepared.bundle)
         or _p338_bundle(prepared.bundle)
     ) and any(
         state.get(key) != durable.get(key)
@@ -11989,6 +12690,25 @@ def _validate_candidate_observer_state(
         or state.get("original_errno_returned_unchanged") is not True
     ):
         raise F1LiveError("P3.38 branch diagnostic state mismatch")
+    if _p339_bundle(prepared.bundle) and any(
+        state.get(key) != durable.get(key) for key in P339_PROOF_FIELDS
+    ):
+        raise F1LiveError("P3.39 open-header proof durable state mismatch")
+    if _p339_bundle(prepared.bundle) and state.get(
+        "p339_authenticated_open_read_branch_resident"
+    ) != durable.get("p339_authenticated_open_read_branch_resident"):
+        raise F1LiveError("P3.39 open-header proof namespace mismatch")
+    if _p339_bundle(prepared.bundle) and (
+        state.get("open_read_branch_ordinals")
+        != P339_OPEN_READ_BRANCH_ORDINALS
+        or state.get("open_read_branch_count")
+        != len(p339_open_read_runtime.OPEN_READ_BRANCHES)
+        or state.get("open_header_word_stages") != P339_OPEN_HEADER_WORD_STAGES
+        or state.get("open_header_size") != P339_OPEN_HEADER_SIZE
+        or state.get("open_header_capture_best_effort") is not True
+        or state.get("original_errno_returned_unchanged") is not True
+    ):
+        raise F1LiveError("P3.39 header capture state mismatch")
     if _p331_bundle(prepared.bundle) and any(
         state.get(key) != durable.get(key)
         for key in P331_PROOF_FIELDS
@@ -12133,6 +12853,7 @@ def validate_live_result(
         if names == list(core.RECOVERY_TIMELINE) and not request_cut_exact:
             raise F1LiveError("parked Download request recovery reached a terminal")
     if _acm_primary_bundle(prepared.bundle) and state.get("final_verified") is True:
+        p339 = _p339_bundle(prepared.bundle)
         p338 = _p338_bundle(prepared.bundle)
         p337 = _p337_bundle(prepared.bundle)
         p336 = _p336_bundle(prepared.bundle)
@@ -12149,7 +12870,9 @@ def validate_live_result(
         p325 = _p325_bundle(prepared.bundle)
         p324 = _p324_bundle(prepared.bundle)
         label = (
-            "P3.38"
+            "P3.39"
+            if p339
+            else "P3.38"
             if p338
             else
             "P3.37"
@@ -12183,7 +12906,9 @@ def validate_live_result(
             else "P3.23"
         )
         success_verdict = (
-            P338_SUCCESS_VERDICT
+            P339_SUCCESS_VERDICT
+            if p339
+            else P338_SUCCESS_VERDICT
             if p338
             else
             P337_SUCCESS_VERDICT
@@ -12219,7 +12944,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_VERDICT
         )
         success_outcome = (
-            P338_SUCCESS_OUTCOME
+            P339_SUCCESS_OUTCOME
+            if p339
+            else P338_SUCCESS_OUTCOME
             if p338
             else
             P337_SUCCESS_OUTCOME
@@ -12255,7 +12982,9 @@ def validate_live_result(
             else typed_evidence.P323_ACM_PRIMARY_OUTCOME
         )
         no_proof_outcome = (
-            P338_NO_PROOF_OUTCOME
+            P339_NO_PROOF_OUTCOME
+            if p339
+            else P338_NO_PROOF_OUTCOME
             if p338
             else
             P337_NO_PROOF_OUTCOME
@@ -13285,7 +14014,32 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     ),
                 }
             )
-            if _p338_bundle(prepared.bundle):
+            if _p339_bundle(prepared.bundle):
+                current.update(_p339_proof_state(durable))
+                current.update(
+                    {
+                        "preauth_diagnostics": durable["preauth_diagnostics"],
+                        "rng_eagain_retries": durable["rng_eagain_retries"],
+                        "partial_sessions": durable["partial_sessions"],
+                        "p339_authenticated_open_read_branch_resident": durable[
+                            "p339_authenticated_open_read_branch_resident"
+                        ],
+                        "open_read_diagnostic": durable.get(
+                            "open_read_diagnostic"
+                        ),
+                        "open_read_branch_ordinals": dict(
+                            P339_OPEN_READ_BRANCH_ORDINALS
+                        ),
+                        "open_read_branch_count": len(
+                            p339_open_read_runtime.OPEN_READ_BRANCHES
+                        ),
+                        "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+                        "open_header_size": P339_OPEN_HEADER_SIZE,
+                        "open_header_capture_best_effort": True,
+                        "original_errno_returned_unchanged": True,
+                    }
+                )
+            elif _p338_bundle(prepared.bundle):
                 current.update(_p338_proof_state(durable))
                 current.update(
                     {
@@ -13405,7 +14159,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                     released=guard_release["released"],
                 )
                 and (
-                    _p338_proof_ok(durable)
+                    _p339_proof_ok(durable)
+                    if _p339_bundle(prepared.bundle)
+                    else _p338_proof_ok(durable)
                     if _p338_bundle(prepared.bundle)
                     else _p337_proof_ok(durable)
                     if _p337_bundle(prepared.bundle)
@@ -13472,7 +14228,9 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 ),
             )
             and (
-                _p338_proof_ok(current)
+                _p339_proof_ok(current)
+                if _p339_bundle(prepared.bundle)
+                else _p338_proof_ok(current)
                 if _p338_bundle(prepared.bundle)
                 else _p337_proof_ok(current)
                 if _p337_bundle(prepared.bundle)
@@ -13514,6 +14272,7 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
 
     current = _state(prepared)
     if _acm_primary_bundle(prepared.bundle):
+        p339 = _p339_bundle(prepared.bundle)
         p338 = _p338_bundle(prepared.bundle)
         p337 = _p337_bundle(prepared.bundle)
         p336 = _p336_bundle(prepared.bundle)
@@ -13537,7 +14296,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         if isinstance(projection, dict) and projection.get("proof") is True:
             return (
                 (
-                    P338_SUCCESS_VERDICT
+                    P339_SUCCESS_VERDICT
+                    if p339
+                    else P338_SUCCESS_VERDICT
                     if p338
                     else P337_SUCCESS_VERDICT
                     if p337
@@ -13572,7 +14333,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
                     else typed_evidence.P323_ACM_PRIMARY_VERDICT
                 ),
                 (
-                    P338_SUCCESS_OUTCOME
+                    P339_SUCCESS_OUTCOME
+                    if p339
+                    else P338_SUCCESS_OUTCOME
                     if p338
                     else P337_SUCCESS_OUTCOME
                     if p337
@@ -13610,7 +14373,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         return (
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
             (
-                P338_NO_PROOF_OUTCOME
+                P339_NO_PROOF_OUTCOME
+                if p339
+                else P338_NO_PROOF_OUTCOME
                 if p338
                 else P337_NO_PROOF_OUTCOME
                 if p337
@@ -13942,6 +14707,20 @@ def _finish_rollback(
                     raise F1LiveError("P3.25 final stock projection is missing")
                 current["p325_proof_class"] = projection["proof_class"]
                 current["p325_stock"] = projection
+        if _p339_bundle(prepared.bundle):
+            error = final["observer"].get("p339_stock_error")
+            projection = final["observer"].get("p339_stock")
+            if error is not None:
+                if not isinstance(error, dict) or projection is not None:
+                    raise F1LiveError(
+                        "P3.39 supplemental parser failure is malformed"
+                    )
+                current["p339_stock_error"] = error
+            else:
+                if not isinstance(projection, dict):
+                    raise F1LiveError("P3.39 final stock projection is missing")
+                current["p339_proof_class"] = projection["proof_class"]
+                current["p339_stock"] = projection
         if _p338_bundle(prepared.bundle):
             error = final["observer"].get("p338_stock_error")
             projection = final["observer"].get("p338_stock")
@@ -15247,7 +16026,17 @@ def _finish_candidate_window(
                     ),
                 )
                 and (
-                    _p332_proof_ok(observation)
+                    _p339_proof_ok(observation)
+                    if _p339_bundle(prepared.bundle)
+                    else _p338_proof_ok(observation)
+                    if _p338_bundle(prepared.bundle)
+                    else _p337_proof_ok(observation)
+                    if _p337_bundle(prepared.bundle)
+                    else _p336_proof_ok(observation)
+                    if _p336_bundle(prepared.bundle)
+                    else _p335_proof_ok(observation)
+                    if _p335_bundle(prepared.bundle)
+                    else _p332_proof_ok(observation)
                     if _p334_bundle(prepared.bundle) or _p333_bundle(prepared.bundle) or _p332_bundle(prepared.bundle)
                     else _p331_proof_ok(observation)
                     if _p331_bundle(prepared.bundle)
@@ -15466,7 +16255,28 @@ def _execute_prepared_locked(
                         ],
                     }
                 )
-                if _p338_bundle(prepared.bundle):
+                if _p339_bundle(prepared.bundle):
+                    current.update(_p339_proof_state(durable))
+                    current.update(
+                        {
+                            "preauth_diagnostics": durable["preauth_diagnostics"],
+                            "rng_eagain_retries": durable["rng_eagain_retries"],
+                            "partial_sessions": durable["partial_sessions"],
+                            "p339_authenticated_open_read_branch_resident": durable[
+                                "p339_authenticated_open_read_branch_resident"
+                            ],
+                            "open_read_diagnostic": durable.get("open_read_diagnostic"),
+                            "open_read_branch_ordinals": dict(P339_OPEN_READ_BRANCH_ORDINALS),
+                            "open_read_branch_count": len(
+                                p339_open_read_runtime.OPEN_READ_BRANCHES
+                            ),
+                            "open_header_word_stages": list(P339_OPEN_HEADER_WORD_STAGES),
+                            "open_header_size": P339_OPEN_HEADER_SIZE,
+                            "open_header_capture_best_effort": True,
+                            "original_errno_returned_unchanged": True,
+                        }
+                    )
+                elif _p338_bundle(prepared.bundle):
                     current.update(_p338_proof_state(durable))
                     current.update(
                         {
