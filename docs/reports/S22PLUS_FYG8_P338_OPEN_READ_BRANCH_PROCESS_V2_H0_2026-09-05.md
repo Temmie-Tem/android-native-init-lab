@@ -110,3 +110,21 @@ baseline `2097136B/64ac7a5b`. It published mode-0400/link-1 preflight
 No D1, write, reboot, Download request, Odin invocation, partition transfer or
 F1 action occurred. This preparation authorizes nothing without the exact
 fresh attended approval it emitted.
+
+The first invocation of that approval closed before candidate intent. Fresh
+execute preflight remained healthy, but observer guard arm returned 127 with
+captured stdout `pkexec must be setuid root`. `/usr/bin/pkexec` itself was
+root-owned mode 4755 on the normal root mount; the distinction was the Codex
+executor's inherited `NoNewPrivs:1`, which prevents setuid elevation. The
+four-record journal therefore closed `ABORTED` with
+`candidate_observer_arm_failed_before_candidate`, candidate `not-attempted`,
+rollback not attempted and `recovery_required=false`. Result is mode-0400/
+link-1 `1351B/3fefd240`. No Download request, Odin invocation, transfer,
+partition action or device write occurred, and the run/approval is not reused.
+
+A new ordinary preparation run `p338-ready3-prepared-20260905-4` then passed
+the unchanged exact D0 baseline and published preflight `3261B/3325358b` plus
+mode-0400/link-1 `prepared.json` `25187B/36218e4d`. Its one-use approval digest
+is `18c992d8`. D1 remained unnecessary. Live execution must use the operator's
+normal terminal, where the host process does not inherit the Codex executor's
+`NoNewPrivs` restriction.
