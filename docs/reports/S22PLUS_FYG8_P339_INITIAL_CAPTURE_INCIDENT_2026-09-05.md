@@ -7,8 +7,12 @@ Target: `SM-S906N / g0q / S906NKSS7FYG8`.
 Run: `p339-ready2-prepared-20260905-2`, manifest `p339_process_v2_ready_2`.
 The journal and transfer receipts prove one candidate and one exact Magisk
 rollback completed, both with Odin return code zero. No second attempt exists.
-The retained state has `final_verified=false`; no `live-result.json` exists.
-This run is consumed and cannot be replayed. It is not a closed F1 PASS.
+The retained journal is now `CLOSED` with 19 records and `final_verified=true`.
+State is `16464B/2b77ef8d`, result is `19305B/aa192e54`, and
+`recovery_required=false`. Formal terminal is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` /
+`p339_authenticated_resident_open_header_capture_unproved_rollback_verified`.
+This run is consumed and cannot be replayed. It is not an F1 PASS.
 
 Candidate AP: `28631081B/80830eed6818528577e3dd5d68af79743b55a014b1dd4e2c8a3c5f54711b47d3`.
 Rollback AP: `23367721B/d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
@@ -49,10 +53,11 @@ exact header/payload size, type, sequence, CRC and word order. It then returns
 the original failure frame to the original rejecting parser. No transmission,
 OPEN retry, connection reopen, timeout extension or successful proof is added.
 
-Seven focused tests exercise the actual bound initial exchange over local
+Eight focused tests exercise the actual bound initial exchange over local
 sockets: original 97-byte cut, complete 193-byte capture for codes 1/4,
 partial/EOF and silent tails, malformed/order/CRC/size bounds, four-word cap,
-and unchanged three-session authenticated success. All pass. These are
+unchanged three-session authenticated success, and publication/reopening of
+partial bytes through the real durable raw writer. All pass. These are
 host simulations, not new device results. Independent review confirmed the
 collector's bounded scope; live integration and the receipt-index repair
 remain to be completed and reviewed before the successor is ready.
@@ -63,7 +68,37 @@ Final health originally timed out while S22+ ADB was unauthorized. One
 exact-target host-side ADB reconnect restored the same device and topology;
 the other connected Samsung device received no command. Ordinary recovery
 then stopped before device collection on a prepared bundle hash mismatch.
-The current executable-source closure equals the retained closure. The
-bundle mismatch still requires diagnosis; no preparation, journal, receipt
-or approval was rewritten to bypass it. Final health and closure remain
-pending, so a successor has no F1 readiness or authority yet.
+The executable-source closure equals the retained closure. The mismatch was
+the Process-v2 document digest carried through P300's Tier-3 materials after
+policy commit `221201e8ae`. Supplying only the exact historical document bytes
+from `965c5d5d75` in memory reproduces original bundle `313007c7`; current
+policy, preparation, approval and prior journal records are not rewritten.
+
+Existing raw-ADB sequence names collided during final health resumption. A
+reviewed fixed `health-resume-1` child preserves the earlier captures and
+retains new exact-target properties/root/partition health, two complete
+byte-identical retained logs, and final serial/topology continuity. All those
+reads completed. The subsequent finalizer incorrectly fell through to the
+P328-only projection because its exclusion list omitted P339, raising
+`P3.28 final stock projection is missing` before saving final state.
+
+The fixed-run `s22plus_fyg8_p339_health_resume.py` rederives the completed
+health from those raw handles using the original target/health/decoder
+validators. Its one-condition finalizer correction excludes P339 from that
+P328-only fallback. This reporting-cut path performs no device command,
+endpoint enumeration or transfer; candidate and rollback remain exactly 1/1.
+The rederivation audit passes with final-evidence SHA-256
+`3822ec9111be3c87107eaefc705d62a7a8b5f449caaaefe0a2f192f6164bf3ce`.
+Nine helper tests pass, including the actual recovery-entry path's single
+final-capture rebind. Independent review returned
+`PASS_GO_P339_RETAINED_HEALTH_FINALIZATION_H0` and the narrow follow-up
+`PASS_GO_P339_HEALTH_RESUME_CONTEXT_H0`. Durable closure and result publication
+completed at `2026-09-04T21:13:24Z`, with no further device command or transfer.
+The health result does not promote the candidate's failed initial exchange.
+The current F1 closure row was appended and reparsed in the canonical ledger;
+the unrelated P320-P322 historical disposition was not changed.
+
+Historical executable context is the unchanged common source at `5d71ad4337`:
+live runner `663927B/5b7f782919035e444686c347d8a04ed2a1764281d5bf08dac63e4545d58e340c`.
+The fixed-run helper intentionally requires that historical closure; later
+common-source updates are not authorization to reinterpret this consumed run.

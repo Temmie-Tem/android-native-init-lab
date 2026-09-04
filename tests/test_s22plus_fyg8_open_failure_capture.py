@@ -13,6 +13,7 @@ import socket
 import sys
 import threading
 import time
+import tempfile
 import unittest
 from unittest import mock
 
@@ -22,6 +23,7 @@ sys.path.insert(0, str(ROOT / "workspace/public/src/scripts/revalidation"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 import device_action_f1_live_v2 as live
+import device_action_raw_capture_v1 as raw_capture
 import s22plus_fyg8_open_failure_capture as capture
 import s22plus_fyg8_p339_open_read_branch_acm_observer as parser
 import test_s22plus_fyg8_p335_retained_listener_acm_observer as success_fixture
@@ -52,7 +54,7 @@ class OpenFailureCaptureTests(unittest.TestCase):
             for stage, i in zip((4, 5, 6, 7), range(0, 16, 4))
         )
 
-    def _run(self, suffix=b"", *, branch=1, patched=True, silent=False):
+    def _run(self, suffix=b"", *, branch=1, patched=True, silent=False, writer=None):
         module = self._module()
         original_codec = module._CODEC
         if patched:
@@ -87,7 +89,7 @@ class OpenFailureCaptureTests(unittest.TestCase):
                 errors.append(exc)
 
         thread = threading.Thread(target=serve)
-        sink = RawSink()
+        sink = RawSink() if writer is None else writer
         thread.start()
         start = time.monotonic()
         try:
@@ -111,7 +113,8 @@ class OpenFailureCaptureTests(unittest.TestCase):
         session = result.sessions[0]
         self.assertFalse(session.authenticated)
         self.assertEqual(session.failure_stage, "open-diagnostic-read")
-        self.assertEqual(bytes(sink.payload), session.raw_rx)
+        if isinstance(sink, RawSink):
+            self.assertEqual(bytes(sink.payload), session.raw_rx)
         expected_open = module.encode_frame(module.runtime.FRAME_OPEN, 0, module.runtime.P335_RUN_ID)
         self.assertEqual(session.raw_tx, expected_open)
         self.assertEqual(sent, [expected_open])
@@ -148,6 +151,23 @@ class OpenFailureCaptureTests(unittest.TestCase):
         session, elapsed = self._run(silent=True)
         self.assertEqual(len(session.raw_rx), 97)
         self.assertLess(elapsed, 0.8)
+
+    def test_failed_exchange_publishes_partial_bytes_with_real_raw_writer(self):
+        module = self._module()
+        suffix = self._suffix(module, b"BAD!" + bytes(range(12)))[:48]
+        with tempfile.TemporaryDirectory() as temporary:
+            writer = raw_capture.RawCaptureWriter(
+                Path(temporary), "open-failure", stdout_maximum=193,
+                stderr_maximum=64, argv0_name="local-fixture",
+            )
+            session, _ = self._run(suffix, writer=writer)
+            handle = writer.finalize(returncode=0)
+            retained = raw_capture.read_stdout(handle, maximum=193)
+            self.assertEqual(retained, session.raw_rx)
+            value = parser.parse_retained_open_read_branch(retained)
+            self.assertEqual(value["header_word_count"], 2)
+            self.assertFalse(value["header_snapshot_complete"])
+            self.assertFalse(value["candidate_success"])
 
     def test_oversized_or_bad_crc_or_out_of_order_tail_is_bounded(self):
         module = self._module()
