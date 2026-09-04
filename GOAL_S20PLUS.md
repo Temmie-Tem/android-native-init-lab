@@ -888,3 +888,11 @@ The fastbootd census is consumed `NO_PROOF` with healthy return and no replay.
 The first staged prep probe is consumed `NO_PROOF` after mount `ENOENT`, with
 healthy Android return and zero USB switch/fastboot/persistent/partition work.
 Q1 passed prep; Q2 is consumed `NO_PROOF` after no host fastbootd endpoint.
+
+## Early-boot observation H0 (2026-09-05)
+
+Static audit found identical ramoops geometry in both stock board overlays and
+the retained T2 artifact; PMSG retention and native PID1 execution remain unproved.
+Next selected experiment: a new fixed read-only pstore/PMSG readiness D0 profile,
+which is not implemented or activated. Existing consumed candidates stay consumed.
+Evidence: [early-boot observation H0 report](docs/reports/S20PLUS_G986N_EARLY_BOOT_OBSERVATION_H0_2026-09-05.md).
