@@ -1,15 +1,20 @@
 # A90 Binding Target Contract
 
-Contract-Revision: **2** (supersedes revision 1; 2026-08-03)
+Contract-Revision: **3** (supersedes revision 2; 2026-09-05)
 
 Status: **BINDING**
 
 This contract specializes `AGENTS.md` for the operator-owned Samsung Galaxy A90 5G. It is not authority for S22+, another A90, or an ambiguous USB endpoint.
 
 `GOAL_A90.md` owns the changing experimental state and next objective. This file
-alone neither arms A90 nor opens a D1/F1 campaign. Standing D0 and autonomous use
-of D1 presence modes require the active trial and live inputs. The permanent A90
-exception survives retirement but grants no authority by itself.
+alone neither arms A90 nor opens a D1/F1 campaign. The common trial is retired;
+the D0/D1 rules and exact current runner bindings below govern connected work.
+The permanent A90 exception survives retirement but grants no authority by itself.
+
+Conditional autonomous F1: **NOT ACTIVE**. AGENTS Revision 6 defines the
+delegation but does not qualify this target's automatic recovery or change its
+current runner. Existing attended F1, exact rollback and physical-recovery
+requirements remain in force until a separately reviewed exact target activation.
 
 ## Inheritance and Precedence
 
@@ -22,8 +27,8 @@ in `AGENTS.md` applies. This contract may specialize only the delegated A90
 H0/D0/D1/F1 workflow. It cannot relax boot-only payload scope, the forbidden
 raw-action list, exact target isolation, rollback availability, candidate
 no-replay, private evidence handling, or the requirement for demonstrated
-physical recovery. The active common trial controls procedural conflicts;
-otherwise the more restrictive applicable rule wins.
+physical recovery. The retired trial resolves no procedural conflict;
+the more restrictive applicable live rule wins.
 
 The following documents remain implementation references beneath this target
 contract:
@@ -32,10 +37,10 @@ contract:
 - `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`; and
 - `docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md`.
 
-They do not independently grant authority. During the common trial, their
-stricter v1 state machines are implementation compatibility constraints on
-existing runners until changed and tested; they do not narrow trial policy or
-require a campaign-level planner.
+They do not independently grant authority. Existing v1 state machines remain
+implementation constraints until changed, tested and reviewed. Use the common
+proportional-development rules for H0 work; no retired trial text waives the
+current runner's attendance, approval, budget or recovery checks.
 
 ## Target Isolation
 
@@ -80,24 +85,15 @@ the record as a confident claim.
 
 ### Tree state is re-derived, never inherited
 
-A conversation summary, prior report, memory note, or earlier turn is a
-hypothesis about the tree, never evidence about it. Before asserting what an
-A90 file contains, or that a named defect is live:
-
-1. Establish the working HEAD with `git log --oneline -3`.
-2. Establish that file's own history with `git log --oneline -5 -- <path>`.
-   An empty `git diff HEAD` proves the worktree matches HEAD; it does not
-   prove HEAD is the generation being reasoned about.
-3. Re-read the current bytes and quote that fresh output, with line numbers,
-   inside the claim.
-4. Read the consumer, not only the declaration. An emitted marker, constant,
-   or manifest string is a claim about intent; only its reader proves behavior.
-
-Establish the current generation before reasoning about design: `GOAL_A90.md`
-`## Exact Current State`, the builder `versions/` listing, and
-`git log -- GOAL_A90.md`. A line-number citation whose source was not
-re-derived is not a finding, and a defect list carried forward from an earlier
-generation is not a work item until step 3 passes.
+A conversation summary, prior report or memory note is a lead, not proof of
+the current tree. Establish the relevant generation from `GOAL_A90.md`
+`## Exact Current State` and current source before diagnosing a past failure.
+Read the actual consumer and executed path, not just an emitted marker or
+manifest declaration. Check file history when generation, provenance or cause
+is uncertain; do not repeat fixed Git-history queries or fresh quotations for
+every unchanged file. Reuse already checked context until relevant bytes change.
+Report actionable findings with their current source location and evidence.
+An old defect becomes a current work item only after that comparison.
 
 ### Instrument failure and device failure are separate terminals
 
@@ -149,11 +145,13 @@ hash, version/build, target, ordinal, process/namespace identity, or health
 value is part of a binding or predicate. A formatting difference affecting
 one of those fields is `Binding` or `Substance`, not a reason to relax.
 
-Every validator assertion carries adversarial fixtures: one record that must
-pass, and one that must fail for the stated reason. A validator whose only
-tests are happy-path is not qualified. Where a producer and a consumer encode
-the same fact, they are bound in one reviewed artifact and the built binary is
-checked against the pinned strings.
+Changed validation requires representative positive and negative cases for the
+affected state, binding and failure paths. Reuse unchanged coverage rather than
+adding a separate test for every equivalent assertion. Happy-path-only tests do
+not qualify a safety predicate. Where a producer and consumer encode the same
+fact, use one reviewed definition and verify the actual producer/consumer path.
+Existing exact byte, identity and health checks remain binding until reviewed
+changes to their implementation are qualified.
 
 ## A90 H0
 
@@ -198,8 +196,9 @@ tier.
 
 The namespaced risk label is `TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL`; historical stage names such as `STAGE_D1_CHROOT_MVP` are not risk labels.
 
-Under the active trial, the agent selects and iterates exact allowlisted D1 effects while
-the exact resident is `HEALTHY` and one presence mode below holds. Policy imposes no per-action approval or action/time budget.
+The agent selects exact allowlisted D1 effects while the resident is `HEALTHY`
+and the chosen presence mode and current runner binding below are satisfied.
+The retired trial supplies no approval or action/time-budget waiver.
 
 **Attended mode.** For a bound `RESIDENT_HEALTHY` A90 with a proved return channel, the
 operator is present and able to stop D1. Download entry is not required for D1. A90 F1 is always attended and requires physical recovery entry.
@@ -471,7 +470,7 @@ unmounts the auth tmpfs, restores moved core mounts, unmounts userdata, and
 returns native without retry. Ambiguous cleanup parks recovery.
 
 H17 installation is an ordinary attended F1 boot-only transaction with the
-exact V2321 rollback and fresh approval required by the retired-trial policy.
+exact V2321 rollback and fresh approval required by the current target contract.
 After exact H17 resident health is durable, its one persistent-server handoff
 is a separately approved attended D1 ordinal. Automatic native return is
 intentionally disabled and must not be required, inferred, or reported. The
@@ -1279,8 +1278,8 @@ and rollback regular files and SHA256 values, boot-only membership, exact
 rootfs input and work-copy disposition when applicable, an empty durable
 journal, checked flash/bridge closures, and physical recovery availability.
 
-Trial policy needs no per-candidate approval, but the existing v1 runner still
-requires one fresh `A90_F1_RESIDENT_INSTALL_V1` binding for one candidate plus
+The existing attended v1 runner requires one fresh
+`A90_F1_RESIDENT_INSTALL_V1` binding for one candidate plus
 its exact rollback. Candidate replay is forbidden: the runner must never retry
 the candidate. A proven boot write/readback followed by uncertain TWRP System
 return is parked as `CANDIDATE_RETURN_PENDING` before rollback; only the

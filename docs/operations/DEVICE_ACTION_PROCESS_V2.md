@@ -303,8 +303,8 @@ terminal and cannot be selected by an ordinary candidate manifest.
 
 ## Approval
 
-One fresh approval is collected after preflight and immediately before the
-first write-capable transition. It binds:
+For ordinary attended F1, one fresh approval is collected after preflight and
+immediately before the first write-capable transition. It binds:
 
 - exact target profile and live target evidence digest;
 - candidate and rollback AP SHA256;
@@ -315,12 +315,41 @@ first write-capable transition. It binds:
 
 That approval authorizes one candidate attempt and all necessary execution of
 the exact rollback plan. No second acknowledgement may block rollback after the
-candidate attempt begins. A changed binding requires a new preflight and new
-approval.
+candidate attempt begins. In this attended path, a changed binding requires a
+new preflight and new approval.
 
 Preflight, dry-run, and local Odin parser failures are durable run outcomes but
 not permanent one-shot consumption. A later attempt is a new run and requires a
 new approval. The process does not reactivate or reuse an old approval.
+
+### Conditional autonomous F1 sessions
+
+AGENTS Revision 6 defines this delegation but activates no target or session.
+Existing runners still require their attended approvals; never fabricate an
+attendance flag or bypass a prompt to implement this policy.
+
+A separately reviewed target activation may let one finite operator grant
+replace repeated human approvals for candidates within a bound change scope.
+The existing runner must derive each fresh candidate/rollback binding from
+that grant and validate its current target, boot, health, artifact bytes,
+observation and automatic recovery before intent. A changed binding outside
+the session scope needs new authority; a new candidate inside it needs fresh
+machine validation, not another human approval.
+
+The target must demonstrate automatic recovery when the tested component fails,
+not merely normal-mode Download entry. Known failures needing physical keys or
+cable changes are ineligible. Each effect keeps its existing journal/guard and
+one-shot boundary. Reserve bounded rollback and final-health capacity before
+candidate intent; research expiry or operator stop forbids new candidates but
+does not cancel that recovery. The agent cannot reset or renew the limits.
+Only a durably closed, healthy run can precede another candidate, and an
+unexplained transfer/recovery failure still suspends the affected experiment.
+No old claim, approval or consumed candidate is reactivated by a session.
+
+Use the existing state machine and records for this extension. Its current
+definition is policy only; target evidence, implementation and scoped review
+are required before activation. R1, F2, resident-promotion and fastboot
+exceptions keep their own exact rules and gain no authority from this section.
 
 ### Result-Contract Arming Precondition
 
@@ -615,16 +644,19 @@ candidate flash, prove the rollback AP is readable, hash-correct, single-member,
 and usable through the demonstrated Download path.
 
 If candidate Android or ADB does not appear, the bounded observation timeout
-ends and the operator physically enters Download. The runner then performs the
-exact approved rollback. It does not repair the candidate, change transport, or
-try another candidate.
+ends. In the existing attended path the operator physically enters Download;
+an activated autonomous path may instead use only its demonstrated, bound
+automatic recovery route. If that route is unavailable, park for physical
+intervention. The runner performs the exact approved rollback without a second
+approval. It does not repair the candidate, change transport, or try another
+candidate during recovery.
 
 If rollback fails after an Odin device session begins, stop experimentation and
-escalate recovery. Only a separately invoked `recover` action may consume the
-remaining attempt within the durable two-attempt bound, using the same exact
-preapproved rollback; the failed invocation does not retransmit automatically.
-Do not launch a second candidate. A stock boot cleanup path, when a target
-profile supports one, is recovery-only and cannot produce PASS.
+escalate recovery. Continue only a target-contract-defined recovery branch from
+the durable journal; never replay an uncertain transfer. A session grants no
+additional rollback attempts and does not clear a guard. Do not launch a second
+candidate. A stock boot cleanup path, when a target profile supports one, is
+recovery-only and cannot produce PASS.
 
 For A90 F1-RP, a completed two-boot resident-health closure may close the
 candidate as the new experimental baseline without invoking rollback. Before
@@ -659,9 +691,16 @@ Review the execution-critical closure only:
 - final health verifier.
 
 One independent review is enough when this closure or a hazard class changes.
-Candidate data changes require fresh validation and approval, not a repeated
-architecture review. Unreachable retired helpers and historical reports are not
+Candidate data changes require fresh validation and a binding under the
+applicable attended or activated-session approval, not a repeated architecture
+review. Unreachable retired helpers and historical reports are not
 runtime dependencies and must not enter the SHA gate.
+
+Review the activation change and its real entry/observation/rollback paths as
+one bounded unit. Preserve the stated threat model and reuse unchanged review
+coverage; a speculative new daemon or permission layer is not a prerequisite
+unless a concrete in-scope hazard needs it. Existing exact safety checks remain
+binding until their reviewed replacements are implemented and qualified.
 
 ## Migration Gate
 

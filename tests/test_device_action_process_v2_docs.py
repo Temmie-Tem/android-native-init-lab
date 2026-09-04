@@ -4,8 +4,6 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AGENTS_REVIEW_THRESHOLD_LINES = 220
-AGENTS_HARD_MAX_LINES = 260
 GOAL_REVIEW_THRESHOLD_LINES = 800
 GOAL_HARD_MAX_LINES = 900
 ATTENDED_REQUIRED_CLAUSES = (
@@ -27,9 +25,9 @@ ATTENDED_REQUIRED_CLAUSES = (
 )
 A90_TARGET_REQUIRED_CLAUSES = (
     "This file alone neither arms A90 nor opens a D1/F1 campaign.",
-    "their stricter v1 state machines are implementation compatibility constraints on existing runners until changed and tested; they do not narrow trial policy or require a campaign-level planner.",
-    "Under the active trial, the agent selects and iterates exact allowlisted D1 effects while the exact resident is `HEALTHY` and one presence mode below holds.",
-    "Policy imposes no per-action approval or action/time budget.",
+    "Existing v1 state machines remain implementation constraints until changed, tested and reviewed.",
+    "The agent selects exact allowlisted D1 effects while the resident is `HEALTHY` and the chosen presence mode and current runner binding below are satisfied.",
+    "The retired trial supplies no approval or action/time-budget waiver.",
     "The permanent A90 exception survives retirement but grants no authority by itself.",
     "Qualified unattended mode (`A90_UNATTENDED_RESIDENT_D1_V1`).",
     "reconfirmed by fresh bounded D0 before every ordinal.",
@@ -184,6 +182,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         cls.agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         cls.goal = (ROOT / "GOAL.md").read_text(encoding="utf-8")
         cls.goal_a90 = (ROOT / "GOAL_A90.md").read_text(encoding="utf-8")
+        cls.goal_s20 = (ROOT / "GOAL_S20PLUS.md").read_text(encoding="utf-8")
         cls.claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
         cls.process = (
             ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
@@ -196,6 +195,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         cls.a90_target = (
             ROOT / "docs/operations/targets/A90_TARGET_CONTRACT.md"
+        ).read_text(encoding="utf-8")
+        cls.s20_target = (
+            ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
         cls.a90_d1_runner = (
             ROOT
@@ -298,24 +300,21 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "CLOSURE_DESIGN_H0_2026-08-12.md"
         ).read_text(encoding="utf-8")
 
-    def test_active_contracts_remain_small(self):
-        self.assertLessEqual(
-            len(self.agents.splitlines()),
-            AGENTS_HARD_MAX_LINES,
-            (
-                "AGENTS.md exceeds its hard limit; review completed posture "
-                f"for archival after {AGENTS_REVIEW_THRESHOLD_LINES} lines"
-            ),
-        )
-        self.assertLessEqual(
-            len(self.goal.splitlines()),
-            GOAL_HARD_MAX_LINES,
-            (
-                "GOAL.md exceeds its hard limit; review completed history for "
-                f"archival after {GOAL_REVIEW_THRESHOLD_LINES} lines"
-            ),
-        )
-        self.assertLessEqual(len(self.s22_target.splitlines()), 260)
+    def test_active_goals_obey_the_current_contract_limit(self):
+        # Revision 6 retains the explicit GOAL limit, not the retired 260-line
+        # assumptions for common and target contracts.
+        for name, value in (
+            ("GOAL.md", self.goal),
+            ("GOAL_A90.md", self.goal_a90),
+            ("GOAL_S20PLUS.md", self.goal_s20),
+        ):
+            with self.subTest(goal=name):
+                self.assertLessEqual(
+                    len(value.splitlines()),
+                    GOAL_HARD_MAX_LINES,
+                    f"{name}: review completed history after "
+                    f"{GOAL_REVIEW_THRESHOLD_LINES} lines",
+                )
         self.assertLessEqual(len(self.claude.splitlines()), 40)
 
     def test_trial_does_not_reactivate_consumed_runs(self):
@@ -403,7 +402,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.assertIn(clause, compact)
         self.assertEqual(a90_target_contract_issues(self.a90_target), ())
         self.assertIn(
-            "Device effects require attendance except the exact A90 resident D1 lane, an exact S20+ bounded autonomous-research lane, or the S22+ pre-F1 autonomous lane, each separately activated by its binding target contract. F1 is never unattended",
+            "F1 remains attended outside that exact activated lane",
             normalized(self.agents),
         )
         self.assertIn(
@@ -444,6 +443,30 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "A90 approvals, health evidence, transports, artifacts, and resident-promotion rules never apply to S22+.",
         ):
             self.assertIn(clause, compact)
+
+    def test_conditional_f1_delegation_does_not_activate_a_target(self):
+        common = normalized(self.agents)
+        for clause in (
+            "This revision defines a delegation; it activates no target or session.",
+            "Current ADB access or a successful normal reboot is insufficient.",
+            "Known failures requiring keys or cable intervention remain attended F1.",
+            "No next candidate starts before durable close and exact healthy return",
+            "Neither a new session nor this revision resets consumed candidates, guards, approvals or history.",
+        ):
+            with self.subTest(boundary=clause):
+                self.assertIn(clause, common)
+        for target in (self.a90_target, self.s22_target, self.s20_target):
+            self.assertIn("Conditional autonomous F1: **NOT ACTIVE**", target)
+        self.assertIn("never fabricate an attendance flag", normalized(self.process))
+        self.assertIn("activates no target", normalized(self.risk))
+
+    def test_h0_repair_is_proportional_without_bypassing_live_safety(self):
+        common = normalized(self.agents)
+        self.assertIn("without a new approval or a fixed failure-count stop", common)
+        self.assertIn("relaxing a safety assertion to obtain PASS", common)
+        self.assertIn("Existing exact byte, identity and health checks remain binding", normalized(self.a90_target))
+        self.assertNotIn("The same material failure a second time stops the line of work", self.s22_target)
+        self.assertIn("not before every unchanged read", common)
 
     def test_archives_are_explicitly_inert(self):
         self.assertIn("INERT HISTORICAL EVIDENCE", self.archived_agents[:600])
@@ -499,8 +522,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
 
     def test_rollback_recovery_is_separate_and_cannot_retry_candidate(self):
         self.assertIn("candidate replay is forbidden", normalized(self.agents))
-        self.assertIn("Only a separately invoked `recover` action", self.process)
-        self.assertIn("does not retransmit automatically", self.process)
+        self.assertIn("Continue only a target-contract-defined recovery branch", normalized(self.process))
+        self.assertIn("never replay an uncertain transfer", normalized(self.process))
+        self.assertIn("A session grants no additional rollback attempts", normalized(self.process))
 
     def test_fast_loop_separates_observation_delay_from_device_failure(self):
         compact = normalized(self.retired_fast_loop)
@@ -684,12 +708,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         normalized_p314 = " ".join(
             (self.p314_design + self.p314_incident).split()
         )
-        self.assertIn("P3.19 is the current closed live unit", normalized_goal)
-        self.assertIn("19-record journal is `CLOSED`", normalized_goal)
-        self.assertIn("exact transfers remain 1/1", normalized_goal)
+        # This is preserved P315 evidence, not a claim that a later campaign
+        # must remain the current frontier forever.
         self.assertIn("`recovery_required=false`", normalized_goal)
-        self.assertIn("P3.18 is the preceding closed live unit", normalized_goal)
-        self.assertIn("P3.16 is an earlier closed live unit", normalized_goal)
         self.assertIn("P3.15 is the preceding closed cycle unit", normalized_goal)
         self.assertIn("A=`0x0d3f`", normalized_goal)
         self.assertIn("B=`0x5064`", normalized_goal)

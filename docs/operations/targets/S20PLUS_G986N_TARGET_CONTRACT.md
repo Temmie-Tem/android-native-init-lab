@@ -17,6 +17,12 @@ active only for journal validation and terminal re-emission.
 R1 activation creates no run or standing approval; each transaction still
 requires fresh exact preparation, its emitted approval, and attendance.
 
+Conditional autonomous F1: **NOT ACTIVE**. AGENTS Revision 6 defines the
+delegation but does not qualify this target's automatic recovery or change its
+current runner. Existing attended F1/F2/R1 and consumed-candidate restrictions
+remain in force until a separately reviewed exact target activation; F2 and R1
+do not inherit the conditional F1 delegation.
+
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
 firmware incremental `G986NKSS8IYC2`, and fingerprint
 `samsung/y2qksx/y2q:13/TP1A.220624.014/G986NKSS8IYC2:user/release-keys`.
@@ -54,6 +60,9 @@ action list.
 H0 includes contract and profile design, source review, offline fixtures,
 execution-tool tests, and dry runs with device access hidden. H0 grants no ADB,
 USB endpoint, Download-mode, Odin, payload, reboot, or other device authority.
+Routine host repair and validation follow AGENTS' proportional-development
+rules. Existing source/activation bindings and device-session stops remain
+mandatory; this H0 rule never changes an active flag or consumes a live action.
 
 ## S20+ D0 Onboarding Inventory
 

@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **5** (supersedes revision 4; 2026-08-31)
+Contract-Revision: **6** (supersedes revision 5; 2026-09-05)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -34,6 +34,11 @@ No document grants standing device authority unless this common contract or the
 selected target contract expressly activates it and all required live inputs
 are current. An unactivated policy edit remains H0 only.
 
+The development and review rules below govern routine H0 work across targets.
+They do not waive an existing runner check, source/artifact binding, or a
+device-session stop. Changing those mechanisms requires the scoped review
+below; a general instruction to work autonomously is not such a change.
+
 ## Binding Target Registry
 
 | Target | Current state | Binding target contract | Binding live process |
@@ -50,9 +55,10 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
 
 1. Work only on an explicitly identified operator-owned device. Device effects
    require attendance except the exact A90 resident D1 lane, an exact S20+
-   bounded autonomous-research lane, or the S22+ pre-F1 autonomous lane, each
-   separately activated by its binding target contract. F1 is never unattended,
-   and authority never transfers between targets.
+   bounded autonomous-research lane, the S22+ pre-F1 autonomous lane, or the
+   conditional boot-only F1 lane below, each separately activated by its
+   binding target contract. F1 remains attended outside that exact activated
+   lane, and authority never transfers between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
    Never send a partition image, raw block write, or flashing operation to
    recovery, vendor_boot, DTBO, vbmeta, vbmeta_system, BL, CP, CSC, super,
@@ -225,7 +231,7 @@ Classify every action using
   `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`. It never authorizes launch,
   patch, permission grants, arbitrary files/packages, partition payloads, or
   security/configuration changes. A target contract may also define reviewed
-  cleanup or `docs/operations/targets/S22PLUS_FYG8_PREF1_AUTONOMOUS_RESEARCH_POLICY_V1.md` as `DEFINED_NOT_ACTIVE`; only that catalog may waive per-ordinal approval, never F1 or persistent mutation.
+  cleanup or `docs/operations/targets/S22PLUS_FYG8_PREF1_AUTONOMOUS_RESEARCH_POLICY_V1.md` as `DEFINED_NOT_ACTIVE`; that pre-F1 catalog never grants F1 or persistent mutation. The separate conditional F1 delegation below may cover only its own bound entry, observation and rollback controls.
   The exact S20+ target contract may additionally activate one attended
   read-only classic-fastboot census ordinal delegated by permanent boundary 3. Its
   operator-entered mode transition makes the complete census D1 even though
@@ -237,6 +243,8 @@ Classify every action using
   reviewed recovery owner. It grants no caller-supplied `su`, arbitrary module/
   path/configuration mutation, or partition payload; root grants no R1.
 - **F1:** a boot-only transfer process defined by the selected target contract.
+  Attendance is the default; conditional autonomous F1 requires the separate
+  target activation below.
   The exact S20+ contract may activate the one-use non-persistent fastboot-boot
   support probe delegated by permanent boundary 3; it grants no partition
   write or later PID1 candidate.
@@ -317,10 +325,11 @@ stable absolute paths, exact size and SHA256, permitted archive membership,
 known healthy starting state, demonstrated physical recovery, a new durable
 journal, and bounded observation/final-health requirements.
 
-Outside the active trial, one fresh approval binds one candidate and recovery.
-During the trial, policy adds no per-candidate approval, although a legacy
-runner may still require its immutable compatibility binding. Once candidate
-execution begins, rollback never waits. Candidate replay is forbidden.
+Ordinary attended F1 requires one fresh approval binding one candidate and
+recovery. Only an activated conditional autonomous F1 session below may replace
+that human approval with a fresh machine-validated binding for each candidate.
+The retired trial grants no approval waiver. Once candidate execution begins,
+rollback never waits. Candidate replay is forbidden.
 
 Keep host rejection, local parser failure, device-session start, transfer
 start/completion, observation, rollback, and final health distinct. A dry run
@@ -333,6 +342,49 @@ the opened regular file after the tool returns.
 
 F1 PASS requires both the intended bounded observation and the target-specific
 healthy terminal state. Candidate boot or transfer success alone is not PASS.
+
+## Conditional Autonomous F1
+
+This revision defines a delegation; it activates no target or session.
+All current target F1 processes remain attended until their exact contract and
+runner explicitly activate this lane after one independent safety review of
+the changed execution closure and its interaction with the common boundaries.
+Existing pre-F1, resident-D1, R1, F2 and fastboot exceptions do not inherit it.
+
+- One explicit operator grant opens a finite session for one exact target,
+  candidate-change scope, runner/transport/observer, exact rollback and
+  automatic recovery route, with positive time and candidate-count limits.
+  Existing session records and journals should carry these facts; do not
+  introduce a new orchestration framework merely to express the grant.
+- Within that scope, the agent may build new candidates and perform Download
+  entry, boot-only flash, bounded tests, exact rollback and final health without
+  another human approval per step or candidate. Each candidate still requires
+  fresh artifact, current target/boot, health and recovery binding before any
+  effect. A session grant is not a caller-selected shell or transport API.
+- Eligibility requires demonstrated automatic recovery for the failure modes
+  of the allowed experiment. Current ADB access or a successful normal reboot
+  is insufficient. Recovery must remain reachable if the candidate component
+  being tested stops responding; host simulation alone is not device proof.
+  Known failures requiring keys or cable intervention remain attended F1.
+  Demonstrated physical recovery remains available as a fallback.
+- Changed scope, new hazard, target ambiguity, unhealthy starting state, or
+  lost/changed recovery prevents the next effect. Expected re-enumeration may
+  be observed only through the bound route. Unexpected control loss suspends
+  new experiments; follow only the preauthorized journal-bound recovery, and
+  park for physical intervention when automatic recovery is unavailable.
+- Reserve the current run's bounded rollback and final-health capacity before
+  candidate intent. Expiry, exhausted research budget, or operator stop blocks
+  new experiments but not that already-authorized recovery. Limits cannot be
+  renewed or reset by the agent. No next candidate starts before durable close
+  and exact healthy return; an unexplained transfer/recovery failure retains
+  the permanent stop rule even if a later health read succeeds.
+- Every effect remains one-shot at its journal boundary. Neither a new session
+  nor this revision resets consumed candidates, guards, approvals or history.
+  Existing archive, forbidden-action, privacy and rollback rules still apply.
+
+Activating a target needs its actual automatic-recovery evidence, exact runner
+implementation and focused normal/failure-path validation. Policy approval,
+capability PASS_GO, a ready manifest and this revision are not that activation.
 
 ## Evidence and Reporting
 
@@ -348,6 +400,12 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
   ambiguous result, recovery deviation, or policy change.
 - A reporting or parser failure after a proven transition must not cause that
   device transition to be repeated. Resume only from durable journal state.
+- Preserve bounded raw failure evidence before result interpretation can fail,
+  within the selected target's existing capture/privacy rules; this does not
+  expand permitted raw collection or replace a digest-only evidence boundary.
+  Record the source version and evidence location in the existing close record
+  so later audit does not depend on the moving working tree. Routine narrative
+  may be a concise commit body; do not duplicate it across per-run documents.
 
 ## Review Rules
 
@@ -356,6 +414,14 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
   ignore unreachable legacy helpers.
 - An independent `PASS_GO` qualifies a capability, not a run. Reuse it across candidates,
   campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs. Fresh qualification and any runner binding still apply.
+- Scope review to reachable execution and the stated threat model in
+  `docs/operations/DEVICE_ACTION_RISK_TIERS.md`. Out-of-model speculation does
+  not automatically create mandatory machinery. A concrete new hazard stops
+  the affected scope and changes that review scope. Do not reopen resolved
+  work without changed inputs or new evidence.
+- Track whether old findings affect the current path, are explicitly covered,
+  or belong to a retired path. Different-topic PASS is not automatic coverage;
+  unrelated historical pending counts are not a blanket gate on new work.
 - Every new non-permanent gate must name the hazard or incident class it
   blocks, its scope, objective retirement evidence, and an expiry or review
   trigger. A gate without a retirement condition must be explicitly designated
@@ -371,8 +437,33 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
   limit for any goal file.
 - Use canonical paths under `workspace/public/src/`, `workspace/private/`, and
   `docs/`. Do not recreate legacy root trees.
+- State the bounded task and completion criterion briefly. Read current bytes
+  and the actual consumer before diagnosing a past incident; consult history
+  when generation or cause is uncertain, not before every unchanged read.
+- Prefer the smallest working change and existing tools. Avoid speculative
+  frameworks and candidate-specific copies; derive repeated registration,
+  encoding and result rules from one existing declaration where practical.
+  New daemons/proxies must justify their in-scope benefit and must not break
+  the existing transport or recovery through resource contention.
 - Validate touched Python with `py_compile` and focused tests. Cross-compile
   touched C with the repository toolchain and inspect the output with `file`.
+  Exercise representative real producer/consumer and failure paths, not just
+  unrelated helpers. Use fixed fixtures and behavioral invariants; do not pin
+  growing ledger counts or the checkout's current activation state as answers.
+  Historical snapshot tests must bind their historical input.
+- Reuse successful checks and build outputs while their relevant inputs are
+  unchanged. Expand validation only for changed paths, failures or new evidence.
+  Documentation-only changes need content/link/diff checks, not image builds;
+  a contract's semantic change still needs review. Unrelated census counts and
+  other-target changes should not be execution identity. Remove accidental
+  bindings through reviewed code changes, never by bypassing current checks.
+- Keep prepare, activation, consumption, recovery and terminal prerequisites
+  distinct. A stage must not invalidate itself by creating its normal output;
+  recovery must not rerun a pre-consumption absence check. Actual target,
+  artifact, authority and no-replay checks remain mandatory at the effect.
+- Stop expanding a task once its completion criterion and relevant checks pass.
+  Put necessary validation rationale in the existing change description rather
+  than adding a separate approval or evidence layer for every correction.
 - Use scoped staging; never `git add -A` or `git add .`.
 - Run `git diff --check` before commit. Commit only after the selected bounded
   unit is validated.
@@ -380,7 +471,18 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
 
 ## Stop and Escalate
 
-Stop when evidence is ambiguous, a boundary would need to bend, recovery is not available, or the current action is not represented by the selected tier and target contract.
-Do not widen scope or retry-loop. Fall back to H0 analysis and record the blocker.
+Stop new device effects when target, effect occurrence, health, authority or
+recovery is uncertain, a boundary would need to bend, or the action is not
+represented by the selected tier and target contract. Preserve the journal;
+continue only allowed observation, H0 diagnosis and preauthorized recovery.
+An expected negative or unproved research result is not itself a safety fault;
+any next experiment still requires a closed run, exact health and its own
+current authority. Unexplained device-session failures retain boundary 7.
 
-Outside the active trial, pre-session host-only repair requires an explicit target-contract rule; otherwise stop on the first material failure.
+H0 build, parser and test failures may be repaired and rechecked within the
+same authorized task without a new approval or a fixed failure-count stop.
+Stop an approach when it repeats without new evidence, exhausts its resource
+budget, or needs a scope change. This replaces blanket first-failure and
+one-repair H0 rules; it never permits replay of a device effect, editing a
+consumed journal, relaxing a safety assertion to obtain PASS, or ignoring an
+explicitly narrower operator instruction.

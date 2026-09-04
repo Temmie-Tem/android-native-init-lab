@@ -10,6 +10,11 @@ other model, firmware, target profile, or connected device.
 target nor opens a D0/D1/F1 action. The common Fast-Loop trial is retired; it
 grants no standing D0, attended autonomy, or per-candidate approval waiver.
 
+Conditional autonomous F1: **NOT ACTIVE**. AGENTS Revision 6 defines the
+delegation but does not qualify this target's automatic recovery or change its
+current runner. The attended F1 and physical-recovery requirements below remain
+in force until a separately reviewed exact target activation.
+
 ## Inheritance and Precedence
 
 All common invariants and permanent safety boundaries in `AGENTS.md` apply.
@@ -55,10 +60,11 @@ them on a device.
   candidate identity only when the selected contract says so and the approval
   or live-binding bundle pins their exact bytes. Such a repair must prove `CHANGED_KEYS=[]`
   and cannot alter the candidate artifact.
-- Never repair repository files while Full-LTO is running. Stop the build and
-  report the proposed edit first.
+- Do not change a running Full-LTO build's bound inputs. Stop that build before
+  changing its closure; unrelated H0 work may continue without changing those
+  inputs or misrepresenting the build's source identity.
 
-### S22+ Rule 7: bounded pre-session repair
+### S22+ Rule 7: evidence-led pre-session repair
 
 A material failure is identified by its failed invariant, input/producer
 contract, and causal mechanism, not merely by exception spelling or line
@@ -67,25 +73,22 @@ number.
 Before any connected device command is sent and before a transfer tool begins
 or reports a device session:
 
-1. The first novel material host-only failure stops that invocation, preserves
-   its evidence, and permits one bounded H0 diagnosis, one scoped repair, and
-   one corrected execution of the failed bounded unit.
-2. The repair must cite the observed input or fixture, the exact changed
-   closure, and why candidate identity is preserved or invalidated. It must run
-   focused validation before the corrected execution.
-3. The same material failure a second time stops the line of work. Renaming an
-   exception, moving the failure, or changing only its representation does not
-   make it novel.
-4. Distinct novel failures receive separate signatures, but this rule never
-   authorizes retry-until-pass loops, speculative repeated builds, or a device
-   action.
-5. Every step intended for a later live window must first be exercised outside
-   that window with the real input or, when live input cannot exist yet, a
-   captured representative fixture. Do not make attended live
-   execution the first execution of host code.
+1. Preserve the failed invocation's evidence and repair the bounded host task
+   without another approval or a fixed one-repair limit. Each retry must have
+   new evidence or a relevant correction; unchanged retry loops are not progress.
+2. Record the observed input or fixture, changed closure, and whether candidate
+   identity is preserved in the existing change description. Run the relevant
+   checks before using the corrected result. Changed candidate inputs still
+   require a fresh identity and the qualification they actually affect.
+3. Stop the approach when it makes no evidence-based progress, exhausts its
+   resource budget, or needs a scope change. Do not rename the same failure to
+   evade a stop or weaken a safety assertion to obtain PASS.
+4. Before a later live window, exercise the representative actual entry,
+   producer/consumer and result paths with real input or a captured fixture.
+   Reuse that qualification while its relevant inputs remain unchanged.
 
 H0 request hashes and re-entry packets are evidence bindings, not device
-authority. Do not make them stricter than this rule by default. A particular
+authority; a host correction does not need a new packet by default. A particular
 operator authorization may deliberately impose a narrower stop condition; if
 so, that narrower text controls that invocation.
 

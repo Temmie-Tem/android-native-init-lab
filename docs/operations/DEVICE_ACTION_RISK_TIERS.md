@@ -25,6 +25,10 @@ hashing, and dry-runs with device access hidden.
 - Commands must not contact ADB, USB endpoints, Odin, serial bridges, or network
   services on the target.
 - Generated payloads remain private and do not imply flash authorization.
+- Follow AGENTS' proportional-development rules: repair host failures within
+  the same task, reuse unchanged relevant checks, and stop an approach for lack
+  of evidence-based progress or exhausted resources rather than a fixed error
+  count. This does not relax a device-session stop or an existing runner gate.
 
 ### D0 - Connected Read Only
 
@@ -56,7 +60,9 @@ defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
   while the operator is actively attending. Announce it, send it once to the
   exact target, and require a complete framed success response.
 - Require one fresh explicit operator approval for every other bounded D1
-  action.
+  action outside an expressly activated target-specific session. A conditional
+  F1 session covers only its own bound entry, observation and rollback controls;
+  it does not make unrelated D1 actions autonomous.
 - Pin the exact target/topology, use an argv allowlist, bound output and time,
   and verify the expected return state. A mode-entry dispatch remains
   `HEALTH_PENDING` until its endpoint or operator-visible state is confirmed;
@@ -97,11 +103,20 @@ F1 or persistent mutation.
 
 Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 
+Attendance and per-candidate human approval remain the default. AGENTS Revision
+6 permits a separately reviewed exact target to activate conditional autonomous
+F1: one finite operator-granted session may cover new candidates within its
+bound change scope and their automatic entry, test, rollback and final health.
+Every candidate still receives fresh machine validation and binding. Eligibility
+requires actual automatic recovery for the allowed experiment's failure modes;
+normal ADB access or host-only simulation is insufficient. This revision
+activates no target, changes no runner, and grants no F2/R1/fastboot authority.
+
 - Use the reusable process in
   `docs/operations/DEVICE_ACTION_PROCESS_V2.md`: exact artifact
   SHA256 and membership checks, full target preflight, known rollback, one fresh
-  approval, append-only journal, bounded observation, and verified
-  rollback/health.
+  candidate binding under the applicable approval, append-only journal,
+  bounded observation, and verified rollback/health.
 - The approval binds one candidate attempt and its mandatory rollback. Recovery
   must not wait for a second acknowledgement after candidate execution begins.
 - Record pre-session host failures precisely; do not permanently consume a
@@ -109,6 +124,11 @@ Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 - Do not create a candidate-specific helper, policy activation commit, or
   repeated review ladder when the runner and hazard class are unchanged.
 - Missing evidence is no-proof and never weakens rollback requirements.
+- An autonomous session retains intent-before-effect, consumed-candidate and
+  no-replay rules. Research expiry stops new work while reserved exact recovery
+  remains available. Known physical intervention, changed recovery or a new
+  hazard excludes the next effect; unexpected loss follows only preauthorized
+  recovery and parks for the operator if automatic recovery is unavailable.
 - A90 alone has a target-specific resident-promotion terminal defined by
   `A90_RESIDENT_BOOT_PROMOTION_V1.md`. It remains F1 risk: the exact rollback
   is preauthorized and mandatory after any post-attempt failure. Rollback may
