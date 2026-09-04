@@ -6,6 +6,7 @@ device or private key is used, and no protocol/parser/publisher is mocked.
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -23,6 +24,15 @@ import test_s22plus_fyg8_open_failure_capture as fixture
 
 
 class P340InitialCaptureTests(unittest.TestCase):
+    def test_actual_prepare_closure_uses_registered_carrier_exports(self):
+        manifest_path = ROOT / "workspace/public/src/device-action/manifests/s22plus_fyg8_p340_process_v2_ready_1.json"
+        bundle = SimpleNamespace(manifest=json.loads(manifest_path.read_bytes()))
+        closure = live._closure(ROOT, bundle)
+        adapter = live.typed_evidence.p340_stock_adapter
+        for key, module in (("p340_carrier_model", adapter.model), ("p340_telemetry_spec", adapter.spec)):
+            self.assertEqual(closure["sources"][key]["sha256"], hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest())
+        self.assertIn("p340_open_failure_capture", closure["sources"])
+
     def _fixture(self):
         helper = fixture.OpenFailureCaptureTests()
         helper._module = live._p340_initial_observer_module

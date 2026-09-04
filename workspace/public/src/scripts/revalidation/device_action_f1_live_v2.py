@@ -978,7 +978,7 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
         or _p335_bundle(bundle)
     ):
         stock_adapter = (
-            p340_stock_adapter
+            typed_evidence.p340_stock_adapter
             if _p340_bundle(bundle)
             else typed_evidence.STOCK_ADAPTERS[_userspace_overlay_contract_id(bundle)]
         )

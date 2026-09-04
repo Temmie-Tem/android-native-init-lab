@@ -130,3 +130,13 @@ the exact private invocation SHA is
 No retained-baseline exception or public D0/D1 clone was introduced. Ordinary
 fresh D0 must classify the new baseline and match this returned target/boot
 before any F1 approval code is released. No P340 F1 transfer has occurred.
+
+The first fresh P340 D0 passed (`3261B/9d4ed68d`, clean baseline, same D1
+returned boot), but host preparation then found a missing Carrier export:
+`_closure` selected the direct P340 import rather than the stable-loaded
+adapter on `typed_evidence`. One line now selects that registered instance.
+Independent `PASS_GO_P340_CLOSURE_IMPORT_REPAIR_H0` and the actual closure
+regression pass; the focused initial/terminal/closure suite is now 6/6.
+No AP, static or ready bytes changed, and no F1 transaction or approval was
+created in `p340-ready1-prepared-20260905-1`. A new preparation directory is
+required; no second D1 reboot is needed.
