@@ -15795,6 +15795,8 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    if item.get("userspace_overlay_contract_id") == P337_STOCK_OVERLAY_CONTRACT_ID:
+        result["overlay_contract_id"] = P337_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P336_STOCK_OVERLAY_CONTRACT_ID:
         result["overlay_contract_id"] = P336_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P335_STOCK_OVERLAY_CONTRACT_ID:
@@ -15851,6 +15853,7 @@ def classify_e1_latest_stage(
         ]
         result["p319_stock"] = stock_rows
     if item.get("userspace_overlay_contract_id") in {
+        P337_STOCK_OVERLAY_CONTRACT_ID,
         P336_STOCK_OVERLAY_CONTRACT_ID,
         P335_STOCK_OVERLAY_CONTRACT_ID,
         P334_STOCK_OVERLAY_CONTRACT_ID,
@@ -15875,6 +15878,7 @@ def classify_e1_latest_stage(
         if (
             item.get("userspace_overlay_contract_id")
             in {
+                P337_STOCK_OVERLAY_CONTRACT_ID,
                 P336_STOCK_OVERLAY_CONTRACT_ID,
                 P335_STOCK_OVERLAY_CONTRACT_ID,
                 P334_STOCK_OVERLAY_CONTRACT_ID,
@@ -15892,6 +15896,7 @@ def classify_e1_latest_stage(
             }
             and decoded.get("proof_class")
             in {
+                "P337_STOCK_ENCODER_FAILURE",
                 "P336_STOCK_ENCODER_FAILURE",
                 "P335_STOCK_ENCODER_FAILURE",
                 "P334_STOCK_ENCODER_FAILURE",
@@ -15924,7 +15929,10 @@ def classify_e1_latest_stage(
         ):
             if name not in decoded:
                 label = (
-                    "P3.36"
+                    "P3.37"
+                    if item.get("userspace_overlay_contract_id")
+                    == P337_STOCK_OVERLAY_CONTRACT_ID
+                    else "P3.36"
                     if item.get("userspace_overlay_contract_id")
                     == P336_STOCK_OVERLAY_CONTRACT_ID
                     else
@@ -15970,7 +15978,10 @@ def classify_e1_latest_stage(
                 raise EvidenceError(f"{label} stock result omitted {name}")
             result[name] = decoded[name]
         stock_key = (
-            "p336_stock"
+            "p337_stock"
+            if item.get("userspace_overlay_contract_id")
+            == P337_STOCK_OVERLAY_CONTRACT_ID
+            else "p336_stock"
             if item.get("userspace_overlay_contract_id")
             == P336_STOCK_OVERLAY_CONTRACT_ID
             else
@@ -16022,6 +16033,7 @@ def classify_e1_latest_stage(
         ]
         result[stock_key] = stock_rows
         if item.get("userspace_overlay_contract_id") in {
+            P337_STOCK_OVERLAY_CONTRACT_ID,
             P336_STOCK_OVERLAY_CONTRACT_ID,
             P335_STOCK_OVERLAY_CONTRACT_ID,
             P334_STOCK_OVERLAY_CONTRACT_ID,
@@ -16054,6 +16066,7 @@ def classify_e1_latest_stage(
                 if name in decoded:
                     result[name] = decoded[name]
     if item.get("userspace_overlay_contract_id") in {
+        P337_STOCK_OVERLAY_CONTRACT_ID,
         P336_STOCK_OVERLAY_CONTRACT_ID,
         P335_STOCK_OVERLAY_CONTRACT_ID,
         P334_STOCK_OVERLAY_CONTRACT_ID,
@@ -16064,6 +16077,7 @@ def classify_e1_latest_stage(
         P329_STOCK_OVERLAY_CONTRACT_ID,
         P330_STOCK_OVERLAY_CONTRACT_ID,
     }:
+        p337 = item.get("userspace_overlay_contract_id") == P337_STOCK_OVERLAY_CONTRACT_ID
         p336 = item.get("userspace_overlay_contract_id") == P336_STOCK_OVERLAY_CONTRACT_ID
         p335 = item.get("userspace_overlay_contract_id") == P335_STOCK_OVERLAY_CONTRACT_ID
         p334 = item.get("userspace_overlay_contract_id") == P334_STOCK_OVERLAY_CONTRACT_ID
@@ -16081,17 +16095,19 @@ def classify_e1_latest_stage(
             "auth_key_size": P328_AUTH_EXEC_AUTH_KEY_SIZE,
             "auth_key_path_published": False,
             "per_session_random_nonce": True,
-            "caller_selected_command": False if p336 or p335 or p334 or p333 or p332 or p331 else True,
+            "caller_selected_command": False if p337 or p336 or p335 or p334 or p333 or p332 or p331 else True,
             "interactive_pty": False,
         }
         for name, expected in expected_authentication.items():
             if name in decoded and decoded[name] != expected:
                 raise EvidenceError(
-                    f"P3.{35 if p335 else 34 if p334 else 33 if p333 else 32 if p332 else 31 if p331 else 30 if p330 else 29 if p329 else 28} classifier authentication field {name} differs"
+                    f"P3.{37 if p337 else 36 if p336 else 35 if p335 else 34 if p334 else 33 if p333 else 32 if p332 else 31 if p331 else 30 if p330 else 29 if p329 else 28} classifier authentication field {name} differs"
                 )
             result[name] = expected
         result["auth_key"] = dict(
-            P336_AUTH_EXEC_AUTH_KEY_IDENTITY
+            P337_AUTH_EXEC_AUTH_KEY_IDENTITY
+            if p337
+            else P336_AUTH_EXEC_AUTH_KEY_IDENTITY
             if p336
             else
             P335_AUTH_EXEC_AUTH_KEY_IDENTITY
@@ -16111,7 +16127,9 @@ def classify_e1_latest_stage(
             else P328_AUTH_EXEC_AUTH_KEY_IDENTITY
         )
         result["observer_contract"] = (
-            P336_AUTH_EXEC_OBSERVER_CONTRACT_ID
+            P337_AUTH_EXEC_OBSERVER_CONTRACT_ID
+            if p337
+            else P336_AUTH_EXEC_OBSERVER_CONTRACT_ID
             if p336
             else
             P335_AUTH_EXEC_OBSERVER_CONTRACT_ID
@@ -16130,7 +16148,7 @@ def classify_e1_latest_stage(
             if p329
             else P328_AUTH_EXEC_OBSERVER_CONTRACT_ID
         )
-        if p329 or p330 or p331 or p332 or p333 or p334 or p335 or p336:
+        if p329 or p330 or p331 or p332 or p333 or p334 or p335 or p336 or p337:
             result["udev_guard_settle_bounded"] = True
         if p330:
             result["preauth_diagnostics_bounded"] = True
@@ -16188,6 +16206,18 @@ def classify_e1_latest_stage(
             result["long_idle_host_resync"] = True
             result["later_action_open_before_resync"] = True
             result["listener_wait_after_proof"] = True
+        if p337:
+            result["preauth_diagnostics_bounded"] = True
+            result["initial_sessions_bounded"] = True
+            result["same_tty_fd_required"] = True
+            result["physical_reopen_count"] = 1
+            result["per_boot_identity_required"] = True
+            result["long_idle_host_resync"] = True
+            result["later_action_open_before_resync"] = True
+            result["listener_wait_after_proof"] = True
+            result["first_open_failure_diagnostic"] = True
+            result["open_read_diagnostic_stage"] = p337_open_read_diag_runtime.DIAGNOSTIC_STAGE_OPEN_READ_RESULT
+            result["open_read_failure_diagnostic_best_effort"] = True
     if item.get("userspace_overlay_contract_id") in {
         P303_OVERLAY_CONTRACT_ID,
         P304_OVERLAY_CONTRACT_ID,

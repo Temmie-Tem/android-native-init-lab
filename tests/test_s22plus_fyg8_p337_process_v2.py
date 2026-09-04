@@ -76,6 +76,49 @@ class P337ProcessV2Tests(unittest.TestCase):
                 SimpleNamespace(), Path("/unused"), {}
             )
 
+    def test_p337_receipt_allows_its_bound_proof_projection(self) -> None:
+        raw = {
+            "first_open_failure_diagnostic": True,
+            "open_read_diagnostic": None,
+        }
+        with (
+            mock.patch.object(live, "_read_json", return_value=raw),
+            mock.patch.object(
+                live,
+                "_p332_validate_receipt",
+                return_value={"accepted": False},
+            ) as shared,
+        ):
+            value = live._p337_validate_receipt(  # noqa: SLF001
+                SimpleNamespace(), Path("/unused"), {}
+            )
+        self.assertFalse(value["accepted"])
+        self.assertEqual(
+            shared.call_args.kwargs["additional_keys"],
+            frozenset(
+                {
+                    "open_read_diagnostic",
+                    "first_open_failure_diagnostic",
+                    "p337_authenticated_attended_resident",
+                }
+            ),
+        )
+
+    def test_p337_zero_stock_projection_keeps_p337_namespace(self) -> None:
+        acceptance = json.loads(prepare.DEFAULT_MANIFEST.read_text())["observation"][
+            "acceptance"
+        ]
+        classified = evidence.classify_e1_latest_stage(bytes(2_097_136), acceptance)
+        self.assertEqual(
+            classified["overlay_contract_id"],
+            evidence.P337_STOCK_OVERLAY_CONTRACT_ID,
+        )
+        self.assertEqual(classified["proof_class"], "NO_PROOF_OBSERVER")
+        self.assertEqual(classified["p337_stock"], [])
+        projection = live._p320_terminal_projection(classified)  # noqa: SLF001
+        self.assertEqual(projection["proof_class"], "NO_PROOF_OBSERVER")
+        self.assertFalse(projection["candidate_success"])
+
     def test_p337_arm_uses_retained_reopen_contract(self) -> None:
         class ReachedAuthKeyLoad(Exception):
             pass

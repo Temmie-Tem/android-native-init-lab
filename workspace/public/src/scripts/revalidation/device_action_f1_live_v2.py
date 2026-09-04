@@ -3365,6 +3365,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         ),
     }
     if acm_primary and proof in {
+        "P337_STOCK_ENCODER_FAILURE",
         "P323_STOCK_ENCODER_FAILURE",
         "P324_STOCK_ENCODER_FAILURE",
         "P325_STOCK_ENCODER_FAILURE",
@@ -9535,7 +9536,11 @@ def _p337_validate_receipt(
         proof_key="p337_authenticated_attended_resident",
         label="P337",
         additional_keys=frozenset(
-            {"open_read_diagnostic", "first_open_failure_diagnostic"}
+            {
+                "open_read_diagnostic",
+                "first_open_failure_diagnostic",
+                "p337_authenticated_attended_resident",
+            }
         ),
         partial_reopens_allowed=True,
     )
@@ -10907,7 +10912,12 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     except F1LiveError as exc:
         if not _acm_primary_bundle(prepared.bundle):
             raise
-        if _p336_bundle(prepared.bundle):
+        if _p337_bundle(prepared.bundle):
+            stock_error = _p337_stock_error(payloads[0], exc)
+            marker_result = _p337_parser_failure_classification(
+                payloads[0], exc
+            )
+        elif _p336_bundle(prepared.bundle):
             stock_error = _p336_stock_error(payloads[0], exc)
             marker_result = _p336_parser_failure_classification(
                 payloads[0], exc
