@@ -440,6 +440,13 @@ capability PASS_GO, a ready manifest and this revision are not that activation.
 - State the bounded task and completion criterion briefly. Read current bytes
   and the actual consumer before diagnosing a past incident; consult history
   when generation or cause is uncertain, not before every unchanged read.
+- For the selected goal, prioritize the smallest useful working capability
+  within existing safety and proof requirements. Keep functional evidence
+  independent from detailed causal analysis and optional diagnostics; do not
+  gate that capability on their completion unless needed for safe execution
+  or its stated success criterion.
+- Before an expensive build or device experiment, use already available
+  evidence and existing low-cost checks to resolve questions they can answer.
 - Prefer the smallest working change and existing tools. Avoid speculative
   frameworks and candidate-specific copies; derive repeated registration,
   encoding and result rules from one existing declaration where practical.
