@@ -371,6 +371,78 @@ new direct operator request and attendance are required for each invocation.
 No activation or invocation in this section transfers authority to S22+, A90,
 the autonomous lane, R1, or F1.
 
+## S20+ Pstore/PMSG Readiness D0
+
+Status: **BINDING - PSTORE READINESS D0 ACTIVE**
+Runner-Normalized-SHA256: `85d6da3729dbd7a9ef0e3af11fc0809103c4a32ef5cfd4348242ffa00e4e4ac7`
+Root-Script-SHA256: `71c86ff82ddc9ea01e5532f489ae4843eee2429897fbaa7584cd4f87f309950c`
+
+This separate fixed read-only capability is implemented by
+`workspace/public/src/scripts/revalidation/s20plus_g986n_pstore_readiness_d0.py`.
+It reuses the exact root-health parser, inventory and private-publication
+utilities without modifying or invoking that capability's execution owner.
+The root-health source remains 39,819 bytes at SHA-256
+`24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44`;
+its inventory helper remains 21,474 bytes at SHA-256
+`3c89eaa348ec7a3a06a3ae2a0de227c781c97238b4e8f33e62b6e0bd370eec81`.
+
+The only activation atoms for this capability are its runner's `ACTIVE`
+boolean and this section's status plus the two exact identity lines above.
+The normalized identity substitutes only that boolean. Both the collection
+owner and concrete backend recheck activation; a missing, duplicate, partial
+or drifted section stops before a device command. The existing root-health,
+P0, T2, autonomous and other-target activation states do not authorize it.
+One independent review of this section, the new runner and tests, its reused
+reachable utilities, and interaction with AGENTS and the risk tiers is required
+before mechanical activation. Review may cover the exact boolean/status flip;
+it grants no source delta or expanded action surface.
+
+After activation, one current direct attended operator request authorizes one
+invocation. This is not standing or background authority. It sends exactly
+six bounded host commands: global inventory, selected `get-devpath`, the
+existing fixed public pre-snapshot, one quoted fixed `shell su -c` metadata
+script, the identical public post-snapshot, and final global inventory.
+The pinned ADB, exact target/build/topology/current-boot continuity, enforcing
+SELinux, and root/Magisk/stock-PID1 requirements of root-health D0 remain.
+The public exec-out script is raw in host argv; the root script is quoted
+exactly once for ADB shell argument joining. Each non-root command retains
+the root-health bounds. The 5,284-byte root script has a 30-second timeout
+and an 8-KiB combined-output limit. There is no internal retry.
+
+The complete additional path and ordered field declaration is the runner's
+`HEX_READS`, `LINK_READS`, `META_READS`, `pmsg_node` and `pstore_mount` closure,
+included in the source and script hashes above and in `--render-plan`.
+It reads only fixed ramoops DT properties and module size parameters, pstore
+backend name, the fixed platform-driver link, PMSG class/device metadata,
+two watchdog state attributes, the current process's mount table, and metadata
+for the three fixed ramoops record filenames and `/proc/last_kmsg`.
+Sysfs platform links and `/proc/self` are the explicitly expected kernel-owned
+aliases; a final metadata-file symlink, special node, changed read identity,
+hardlinked record or malformed/oversized value fails closed. Each hex input
+reads at most 65 bytes and rejects more than 64. Mount input reads at most
+65,537 bytes and rejects more than 65,536. Record size is bounded metadata
+only; record contents are never opened or read. PMSG major/minor is observed
+and compared, not hardcoded or used for node creation.
+
+Results live only under
+`workspace/private/runs/s20plus-g986n-pstore-readiness-d0/` in newly allocated
+private directories. Reused atomic no-replace file/directory-fsynced publication
+writes one result or failure receipt. Serial, topology and boot ID are hashed;
+inventory, public-snapshot and root-transcript bytes are not persisted.
+Failure retains bounded output digests and the actual attempted command prefix,
+never the raw error text. Every result reports zero S22+/A90/other-target
+commands and zero device effects, writes, reboots and partition access.
+
+Missing/unreadable metadata and absent records remain explicit observations.
+An optional DT status is treated as absent only with an accessible containing
+directory. An unmounted pstore is not mounted by this reader. Successful
+collection is distinct from metadata readiness; neither proves record
+retention, native PID1 execution, recovery, F1 readiness or future access.
+No log-body extraction, PMSG/kmsg write, directory enumeration, marker, mount,
+unlink, permission, property/service, package/module, reboot, mode transition,
+payload, raw block, debug-partition, R1 or F1 action is authorized.
+The permanent common boundaries and target isolation remain unchanged.
+
 ## S20+ Routine Connected Actions
 
 Status: **BINDING - ROUTINE D1 SETUP/CONTROL ACTIVE**

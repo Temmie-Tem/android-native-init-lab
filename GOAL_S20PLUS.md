@@ -893,6 +893,6 @@ Q1 passed prep; Q2 is consumed `NO_PROOF` after no host fastbootd endpoint.
 
 Static audit found identical ramoops geometry in both stock board overlays and
 the retained T2 artifact; PMSG retention and native PID1 execution remain unproved.
-Next selected experiment: a new fixed read-only pstore/PMSG readiness D0 profile,
-which is not implemented or activated. Existing consumed candidates stay consumed.
-Evidence: [early-boot observation H0 report](docs/reports/S20PLUS_G986N_EARLY_BOOT_OBSERVATION_H0_2026-09-05.md).
+The fixed readiness D0 is independently reviewed and active; one exact read passed
+`METADATA_READY_RETENTION_UNPROVED`. Next is a separately reviewed marker-retention
+design. Evidence: [readiness D0 report](docs/reports/S20PLUS_G986N_PSTORE_READINESS_D0_2026-09-05.md).
