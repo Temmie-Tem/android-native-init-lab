@@ -36,10 +36,14 @@ out header-read errno, body-read errno and body CRC as the reported branch.
 
 Branch 1 still covers two validation sites in the current runtime: base frame
 magic/version/maximum-length validation, and the later parsed OPEN
-type/sequence/exact-length/run-ID validation. The retained evidence cannot
-choose between those two sites. No OPEN_PARSED diagnostic, challenge, HMAC,
-fixed BusyBox command, clean close, logical resident proof or general shell
-was observed. Candidate success and causal-result flags remain false.
+type/sequence/exact-length/run-ID validation. This report first stated that
+the retained evidence cannot choose between those two sites. That statement is
+withdrawn; see "Correction: branch 1 is already decided by the retained host
+TX" below.
+
+No OPEN_PARSED diagnostic, challenge, HMAC, fixed BusyBox command, clean
+close, logical resident proof or general shell was observed. Candidate success
+and causal-result flags remain false.
 
 ## Recovery and final health
 
@@ -68,11 +72,67 @@ the missing mode-0400 result. It invoked no backend, ADB, USB revalidation,
 Odin, journal transition or transfer. Commit `6dd202876b` applies the permanent
 one-line JSON-visible map fix and adds a focused roundtrip regression test.
 
+## Correction: branch 1 is already decided by the retained host TX
+
+Added 2026-09-05, host-only, after the campaign closed. This corrects two
+statements above. It changes no device evidence, no verdict and no artifact
+identity. P3.38 remains `CLOSED`, consumed and never replayable.
+
+The P3.38 observer receipt retained the host OPEN transmission, which the
+P3.36 no-proof publication path had previously dropped. It is 32 bytes:
+
+```
+53 33 32 38 | 01 | 01 | 10 00 | 00 00 00 00 | b2 fd b3 2d | <16-byte run ID>
+"S328"        ver  OPEN  len=16  seq=0         CRC           run ID
+```
+
+`encode_frame(FRAME_OPEN, 0, P338_RUN_ID)` on the tracked codec inherited by
+the P3.38 observer reproduces those 32 bytes exactly, CRC included. Checking
+them against both sites that emit ordinal 1:
+
+- base frame grammar: magic `S328`, version 1 and length 16 within
+  `P328_MAX_PAYLOAD` all pass;
+- parsed OPEN semantics: type `P328_FRAME_OPEN`, sequence 0, length equal to
+  `sizeof(p328_run_id_bytes)` and a payload equal to `p328_run_id_bytes` all
+  pass.
+
+The last of these is decided by the candidate's own output rather than by the
+host's expectation. The retained stream opens with the fresh banner
+`S22PLUS-FYG8-E3:<run ID>`, whose run ID is the hex of the same
+`k_run_id[16]` the OPEN payload carries, and the P3.38 artifact identity
+module independently requires that run ID to be present in the flashed image
+and the predecessor run ID to be absent.
+
+`p328_read_exact` returns 0 only when the requested size was fully read; a
+short read continues to loop, end of stream returns `-EIO` and expiry returns
+`-ETIMEDOUT`. There is therefore no path on which a partially filled header
+buffer reaches the grammar check as a success.
+
+Neither site can fire on the host's intact OPEN bytes, yet ordinal 1 was
+recorded. The 16 bytes the candidate consumed as a frame header were therefore
+not the header the host transmitted. This is host-side derivation from
+retained bytes, not a new device observation: the retained TX is what the host
+submitted to the endpoint, and it is not evidence of what the wire delivered.
+That gap is the finding rather than a defect in it.
+
+The surviving hypothesis is the one the P3.36 design named: data ahead of the
+host OPEN in the candidate's read stream, or a read that begins off the frame
+boundary.
+
 ## Proportional next step
 
-The next candidate should preserve the successful path and all timeouts, add
-no retry, and split branch 1 into the smallest useful subreason: base frame
-header grammar versus parsed OPEN semantic validation. Only if the semantic
-site wins should a later diagnostic distinguish type, sequence, exact length
-and run-ID. This avoids widening the protocol before the present evidence
-requires it.
+The next candidate should preserve the successful path and all timeouts and
+add no retry. It should not spend a candidate splitting branch 1 into header
+grammar versus parsed OPEN semantics; the section above already decides that
+split in favour of header grammar, and a candidate spent on it would return
+information the retained evidence holds.
+
+The useful unknown is what the candidate actually read. The smallest step is
+to retain the rejected bytes themselves: carry the 16-byte header that failed
+the grammar check, or a bounded prefix of it, in the existing branch
+diagnostic. That answers what preceded or displaced the OPEN directly. It adds
+no retry, no second OPEN, no new frame type and no approval gate; only the
+diagnostic payload width changes.
+
+This addendum grants no D0, D1, F1, device, recovery, replay or live
+authority.
