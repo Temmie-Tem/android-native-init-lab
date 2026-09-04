@@ -90,15 +90,19 @@ known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 �
 프론티어, 미증명 경계를 같은 증거 taxonomy로 비교할 수 있습니다.
 
 - **Galaxy A90 5G (`SM-A908N`)**: custom native PID 1, ACM/NCM, native Wi-Fi와
-  audio, 그리고 bounded Debian PID 1/SSH/display 결과가 있습니다. 현재
-  프론티어는 self-built kernel RTIC/MPGen closure와 isolated-Debian
-  successor입니다.
+  audio, 그리고 bounded Debian PID 1/SSH/display 결과가 있습니다. 현재 작업은
+  H41 rollback/health 종결이며 isolated-Debian 서버 작업은 일시 중지돼 있습니다.
 - **Galaxy S22+ (`SM-S906N`, FYG8)**: source-matched rebuilt kernel과 direct
-  native `/init` exec acceptance가 증명됐습니다. 현재 USB runtime
-  프론티어는 SSUSB parent → DWC3 child → UDC → transport입니다.
+  native PID 1 USB 통신이 증명됐습니다. P3.25–P3.35의 성공 run은 ACM 도달, 양방향 고정 명령,
+  인증, 제한된 다중 세션과 정상 rollback을 확립했습니다. 현재는 세션 안정성과
+  초기 OPEN 실패 수집을 다루며, 범용 interactive shell은 미증명입니다.
 - **Galaxy S20+ 5G (`SM-G986N`)**: exact onboarding, resident Magisk root,
-  attended native-canary infrastructure가 확립됐습니다. N3-U0와 autonomous
-  research infrastructure는 host-qualified 상태지만 활성화되지 않았습니다.
+  retained T2 TWRP recovery가 확립됐습니다. P0 V3 native-PID1 시도에서는 exact
+  ACM banner를 얻지 못했고 정상 Magisk rollback으로 종료했습니다. Native PID 1은
+  미증명이며 현재는 초기 부팅 관측 경로를 연구합니다.
+
+이 요약은 2026-09-05 확인한 기록 기준입니다. 기기별 페이지에서 인정된 결과의
+근거를 확인하고, 바뀌는 프론티어와 실행 요건은 각 GOAL과 target contract를 따릅니다.
 
 공용 소스는 `workspace/public/src/` 아래에 둡니다. 대상 전용 소스, 헬퍼,
 리포트, rollback identity, 안전 게이트는 명시적으로 분리합니다. 한 대상의
@@ -151,11 +155,11 @@ vendor bootloader
 
 ## 단기 로드맵
 
-S22+ FYG8에서는 source-matched rebuilt kernel의 Android boot와 direct native
-`/init` exec acceptance까지 검증됐습니다. 첫 native userspace instruction과 USB
-runtime은 아직 증명되지 않았습니다. 공용 F1 실행 구조인 Device Action Process
-v2는 재사용 어댑터로 쓰입니다. A90은 확보한 native-init/runtime 기반 위에서
-별도의 프론티어를 진행합니다.
+S22+ FYG8은 native PID 1의 USB 통신과 인증된 고정 명령 실행을 확립했으며,
+현재는 다중 세션·idle/reopen 안정성과 실패 관측을 개선합니다. 이 기능 성과와
+세부 USB/Max77705 원인 규명은 별도로 판정합니다. A90은 현재 복구 종결 이후
+isolated-Debian 서버 방향을 이어가고, S20+는 미증명 P0 결과에서 초기 부팅
+관측 경로를 보강하는 단계입니다. 공용 F1 구조는 Device Action Process v2입니다.
 
 기기별 진행 상황의 읽기 쉬운 요약은
 [`docs/devices/README.ko.md`](docs/devices/README.ko.md)에 있습니다. 자주 바뀌는
@@ -197,9 +201,8 @@ v2는 재사용 어댑터로 쓰입니다. A90은 확보한 native-init/runtime 
 - `GOAL_A90.md` — A90 frontier와 다음 bounded unit
 - `GOAL_S20PLUS.md` — S20+ frontier와 다음 bounded unit
 - `AGENTS.md` / `CLAUDE.md` — 기기 작업 절대 안전 경계와 운영 계약
-- `docs/module-map/s22plus-fyg8/subsystem-usb.md` — S22+ 현재 frontier(USB
-  gadget/UDC bring-up) 서브시스템 맵과 게이트 상태 (frontier·다음 unit 자체는
-  `GOAL.md` 기준)
+- `docs/module-map/s22plus-fyg8/subsystem-usb.md` — S22+ USB 서브시스템 연구 맵과
+  단계별 근거 (현재 frontier·다음 unit 자체는 `GOAL.md` 기준)
 - `docs/devices/README.ko.md` — 기기별 진행 상황, 확립된 결과, 미증명 경계
 - `docs/overview/PROJECT_HISTORY.ko.md` — 첫 커밋부터 현재까지의 연혁 (서술이며 증거 아님)
 
@@ -220,6 +223,10 @@ v2는 재사용 어댑터로 쓰입니다. A90은 확보한 native-init/runtime 
 
 ## 작업 규칙
 
+- 개발·검증 범위는 [`AGENTS.md`](AGENTS.md#development-and-commit-discipline)를
+  따릅니다. 확보한 자료와 관련 host 검사부터 활용하고, 변경이나 실패에 따라
+  검증을 확대합니다. 문서 수정은 보통 내용·링크·diff 검사로 충분하며,
+  독립 검토는 계약이 지정한 변경에 적용합니다.
 - 각 타깃의 known-good boot image와 검증된 복구 경로를 항상 유지한다.
 - 한 번에 하나의 boot/init 변수만 바꾼다.
 - 새 boot image는 version, source path, SHA256, 실기 관찰 결과를 기록한다.
@@ -236,9 +243,8 @@ v2는 재사용 어댑터로 쓰입니다. A90은 확보한 native-init/runtime 
   (`docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md`). 이 경계는 매 push마다
   `Repository boundary` 워크플로가 독립 checkout에서 검사한다. 이 배지는 **공개
   트리가 식별자 경계를 만족한다**는 것만 주장하며, 테스트 스위트 상태가 아니다.
-- (A90 한정) ADB 안정화는 후순위로 두고 serial/HUD/log/menu 안정화를 먼저
-  진행한다. S22+는 시리얼 콘솔이 없어 이 규칙이 적용되지 않으며, 관측은
-  타깃별 검증 채널(S22+는 retained-log/USB gate)을 따른다.
+- 제어 채널의 우선순위는 각 타깃 목표를 따릅니다. S22+도 bounded native-PID1
+  ACM 통신을 증명했지만 A90의 운영 기능이나 권한이 이전되지는 않습니다.
 
 ## 기여
 

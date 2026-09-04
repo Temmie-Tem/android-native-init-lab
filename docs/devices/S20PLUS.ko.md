@@ -13,11 +13,10 @@
 
 ## 역할
 
-S20+는 controlled-onboarding과 staged native-canary 대상입니다. A90과 달리 stock
-Android/Magisk에서 시작해, global native PID 1을 고려하기 전에 작고 recoverable한
-data-only 또는 boot-overlay experiment를 거칩니다. 별도로 설계한 bounded
-autonomous-research infrastructure도 있지만 live activation gate는 의도적으로
-닫혀 있습니다.
+S20+는 단계별 native-PID1과 recovery 연구 대상입니다. Onboarding, resident
+Magisk, retained T2 TWRP recovery를 확립했습니다. Direct-PID1 boot candidate는
+전송·rollback됐지만 native 실행은 미증명입니다. 현재는 ACM과 독립적인 초기
+부팅 증거를 확보하는 방향을 연구합니다.
 
 ## 증명된 capability
 
@@ -46,6 +45,17 @@ autonomous-research infrastructure도 있지만 live activation gate는 의도�
   Type-C/PD, extcon, Samsung notifier component가 exact stock kernel에 있음을
   확인했습니다.
 
+- **PROVED(증명됨) — retained T2 TWRP recovery.** Candidate 1회 전송으로 exact
+  root-ADB marker와 `PROVED_T2_RECOVERY_RETAINED`를 얻었습니다. Rollback은
+  0회이며 TWRP를 의도적으로 유지했습니다. 이는 recovery 증명으로, 프로젝트의
+  custom native PID 1 증명은 아닙니다.
+- **PROVED(증명됨) — P0 V3 전송과 정상 rollback.** Candidate와 resident Magisk
+  rollback이 각각 한 번 전송됐고 exact rooted-Android final health가 통과했습니다.
+  Native-PID1 결과는 여전히 `NO_PROOF`입니다.
+- **PROVED(증명됨) — bounded classic-fastboot census.** 네 고정 read-only request로
+  같은 기기의 endpoint를 식별하고 healthy Android로 복귀했습니다. Temporary boot
+  support를 증명한 것은 아닙니다.
+
 ## 부분 증명 / 관측
 
 - **observed(관측됨) — 첫 custom-boot transition은 factory reset이 필요할 수
@@ -55,7 +65,7 @@ autonomous-research infrastructure도 있지만 live activation gate는 의도�
 - **designed(설계됨), host-proved — N3-U0 ACM.** Static witness, owned configfs
   gadget, observer, attended journal, concrete backend, atomic evidence owner,
   execution integration에 focused hostile-test와 independent-review result가
-  있습니다. Integrated closure는 `PASS_GO_NOT_ACTIVE`입니다.
+  있습니다. 그 역사적 H0 closure는 `PASS_GO_NOT_ACTIVE`이며 현재 P0 결과가 아닙니다.
 - **designed(설계됨), host-proved — autonomous research policy/coordinator/public
   health.** Policy state machine, dormant coordinator, six-command public-health
   parser는 각각 범위가 제한된 H0 `PASS_GO_NOT_ACTIVE` result를 가집니다. 이들이
@@ -66,6 +76,13 @@ autonomous-research infrastructure도 있지만 live activation gate는 의도�
   finalizer는 final health를 증명하면서도 `exit_dispatch_proven=false`를
   보존했습니다.
 
+- **observed(관측됨) — P0 V3에서 exact ACM banner를 얻지 못했습니다.** 전체
+  180초 관측에서 인정된 banner가 없었습니다. Candidate가 중간 stage receipt를
+  보존하지 않았으므로 banner 부재만으로 실패 위치나 PID 1 실행 여부를 판정할 수 없습니다.
+- **designed(설계됨) — 초기 부팅 pstore/PMSG 관측.** Host 분석은 stock overlay와
+  retained T2 artifact의 ramoops geometry가 일치함을 확인했습니다. Live readability와
+  marker retention은 미증명입니다.
+
 ## 아직 증명되지 않은 것
 
 - S20+에서 global native `/init`가 PID 1로 실행되는 것.
@@ -73,26 +90,27 @@ autonomous-research infrastructure도 있지만 live activation gate는 의도�
   mandatory rollback, terminal rooted health가 하나의 attended run에서 닫히는 것.
 - Retained source/toolchain으로 reproducible stock-kernel byte identity를 만드는 것.
 - Factory-reset-dependent boot behavior의 complete cause.
-- 모든 autonomous connected authority. `RESEARCH_ACTIVE`, live authority,
-  mechanical activation, durable-evidence integration은 false 상태입니다.
-- Autonomous root profile, F1, R1. 제안된 autonomous lane은 이를 authorize하지
-  않으며 F1과 R1은 attended 상태를 유지합니다.
+- Live pstore/PMSG readiness와 필요한 복귀 경로를 거치는 retention.
+- Autonomous F1 또는 R1 operation. Exact reviewed root-health read는 attended
+  D0 capability로 존재하지만 일반 root 권한이나 자율 권한이 아닙니다.
 
 ## 현재 프론티어
 
-Native-runtime 프론티어는 N3-U0입니다. 하나의 rc file, static AArch64 ACM
-witness, owned configfs gadget, finite versioned banner를 포함하는 temporary
-resident-Magisk boot overlay입니다. Host construction과 multi-layer dormant
-execution/evidence stack은 independent review를 받았지만 모든 activation boolean은
-false 상태입니다. Physical-entry integration, target-contract activation, fresh
-preparation, fresh attended approval, live ACM observation, rollback, final health가
-여전히 필요합니다.
+2026-09-05 확인 기준으로 P0 V3는 소비됐고 owner는 dormant입니다. Terminal은
+`NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`로, candidate와 rollback 각 1회, replay
+없음, healthy rooted Android 복귀를 남겼습니다. Retained T2 recovery는 별도로
+확립된 capability입니다.
 
-병렬로 autonomous-research 프론티어는 authority가 아니라 infrastructure입니다.
-Policy, coordinator, public-health parser는 `PASS_GO_NOT_ACTIVE`입니다. Strict
-evidence owner, accounting integration, live action wiring, 추가 review, attended
-campaign opening, mechanical activation이 남아 있습니다. 이를 “autonomous research
-active”라고 설명하면 부정확합니다.
+다음 선택 방향은 고정 read-only pstore/PMSG readiness profile입니다. Static
+geometry만으로 live backend나 marker retention이 증명되지는 않습니다. 다음
+direct-PID1 candidate가 의존하기 전에 관측 채널을 확보하는 것이 목표이며,
+정확한 구현·검토·활성화 상태는 [GOAL_S20PLUS.md](../../GOAL_S20PLUS.md)를 따릅니다.
+
+Classic-fastboot census는 성공했지만 별도 boot-support probe와 fastbootd census는
+목표 runtime capability를 확립하지 못했습니다. 해당 시도들은 healthy return과 함께
+소비됐습니다. N3-U0와 초기 autonomous policy/coordinator 보고서는 보존된 H0 작업이며
+현재 live authority가 아닙니다. 각 connected action은 target contract를 따르고,
+조건부 autonomous F1은 활성화되지 않았습니다.
 
 ## 주요 milestone
 
@@ -109,25 +127,36 @@ active”라고 설명하면 부정확합니다.
 7. N3-U0 execution/evidence integration과 autonomous policy stack이 independent
    review를 받은 명시적 non-active H0 closure에 도달했습니다.
 
+8. T2가 retained TWRP/root-ADB recovery를 확립했고, classic-fastboot census가
+   bounded endpoint fact와 healthy return을 증명했습니다.
+9. P0 V3가 native PID1 증명 없이 전송·관측·정상 rollback을 완료했으며, 초기 부팅
+   관측이 다음 연구 방향입니다.
+
 ## Architecture 요약
 
 ```text
-stock Samsung Android + resident Magisk root
-  -> attended data-only native canary (N1)
-  -> temporary boot overlay + owned configfs ACM witness (N3-U0, not active)
-  -> retained pre-userspace witness
-  -> eventual global native PID 1 (unproved)
+Samsung Android + resident Magisk root
+  + retained T2 TWRP recovery
+  -> attended P0 boot-only candidate
+    -> bounded ACM observation (no exact banner in V3)
+  -> exact resident Magisk rollback + healthy Android
 
-separate lane:
-attended campaign opening
-  -> bounded autonomous public reads / control state machine
-  -> READY_FOR_ATTENDED_F1 terminal
+next observation direction (designed, not live-proved):
+fixed read-only pstore/PMSG readiness
+  -> separately qualified retention witness
+  -> better-observed native-PID1 candidate
 ```
 
-두 번째 lane은 F1과 R1 전에 멈추도록 designed(설계됨)됐으며 현재 dormant입니다.
+첫 흐름은 소비된 P0 실험 기록이며 native-PID1 성공이 아닙니다. 두 번째는 연구
+방향을 설명하며 기기 권한을 부여하지 않습니다.
 
 ## 정본 증거 링크
 
+- [Retained T2 recovery](../reports/S20PLUS_G986N_TWRP_T2_CONNECTED_OWNER_H0_2026-08-31.md)
+- [P0 V3 terminal](../reports/S20PLUS_G986N_P0_PID1_ODIN_F1_OWNER_H0_2026-09-01.md)
+- [Classic-fastboot census](../reports/S20PLUS_G986N_FASTBOOT_GETVAR_CENSUS_2026-09-03.md)
+- [Boot-support probe 한계](../reports/S20PLUS_G986N_FASTBOOT_BOOT_SUPPORT_F1_H0_2026-09-03.md)
+- [초기 부팅 관측 설계](../reports/S20PLUS_G986N_EARLY_BOOT_OBSERVATION_H0_2026-09-05.md)
 - 현재 상태: [GOAL_S20PLUS.md](../../GOAL_S20PLUS.md)
 - Binding target contract: [S20+ target contract](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md)
 - Exact onboarding: [D0 onboarding report](../reports/S20PLUS_G986N_ONBOARDING_D0_H0_2026-08-12.md)
@@ -136,5 +165,5 @@ attended campaign opening
 - N1 host closure: [native canary N1 report](../reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md)
 - USB substrate: [native USB substrate H0/D0](../reports/S20PLUS_G986N_NATIVE_USB_SUBSTRATE_H0_D0_2026-08-16.md)
 - N3-U0 construction: [ACM host build](../reports/S20PLUS_G986N_N3U0_ACM_HOST_BUILD_H0_2026-08-16.md)
-- N3-U0 current dormant integration: [evidence/execution integration](../reports/S20PLUS_G986N_N3U0_EVIDENCE_EXECUTION_INTEGRATION_H0_2026-08-20.md)
+- 역사적 N3-U0 dormant integration: [evidence/execution integration](../reports/S20PLUS_G986N_N3U0_EVIDENCE_EXECUTION_INTEGRATION_H0_2026-08-20.md)
 - Autonomous policy state: [autonomous research session H0](../reports/S20PLUS_G986N_AUTONOMOUS_RESEARCH_SESSION_H0_2026-08-21.md)

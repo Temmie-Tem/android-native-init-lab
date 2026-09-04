@@ -21,11 +21,13 @@ report를 대체하지 않으며, 해당 기록이 계속 정본입니다.
 
 ## 한눈에 보기
 
+2026-09-05 확인한 기록의 요약입니다. 이후 변동은 각 GOAL을 확인합니다.
+
 | 기기 | SoC / kernel | 확립된 결과 | 현재 프론티어 | 핵심 미증명 경계 |
 | --- | --- | --- | --- | --- |
-| [Galaxy A90 5G](A90.ko.md) (`SM-A908N`) | Qualcomm SM8150 / vendor Linux 4.14.190 | **PROVED(증명됨):** custom native PID 1, ACM/NCM, native Wi-Fi, internal-speaker 경로와 Debian PID 1/SSH/display를 각각 증명한 bounded run | public MPGen/RTIC metadata를 포함하는 stock-shaped self-built kernel을 재현하고, 향후 canary를 별도로 qualification | PID 1, final Wi-Fi, authenticated SSH, minimal `/dev`, isolation, terminal health를 동시에 닫는 하나의 persistent isolated-Debian run |
-| [Galaxy S22+](S22PLUS.ko.md) (`SM-S906N`, FYG8) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED(증명됨):** source-matched rebuilt kernel이 Android를 boot했으며, direct native candidate가 current PID 1 상태에서 받아들여진 `/init` exec에 도달 | USB chain: SSUSB parent → DWC3 child → UDC → transport. 이후 live qualification 전에 누락된 fresh baseline 확보 | 첫 native userspace instruction과 candidate-runtime SSUSB/DWC3/UDC/host transport |
-| [Galaxy S20+ 5G](S20PLUS.ko.md) (`SM-G986N`) | Qualcomm SM8250 / vendor Linux 4.19.113 | **PROVED(증명됨):** exact onboarding, boot-only Magisk bootstrap/rollback, persistent rooted Android, bounded native-canary transaction/recovery 결과 | review 이후에만 N3-U0 ACM 경로와 별도의 dormant autonomous-research infrastructure를 integration·activation | Native PID 1과 N3-U0 runtime. autonomous connected authority는 활성화되지 않음 |
+| [Galaxy A90 5G](A90.ko.md) (`SM-A908N`) | Qualcomm SM8150 / vendor Linux 4.14.190 | **PROVED(증명됨):** native PID 1, ACM/NCM, native Wi-Fi/audio와 bounded Debian PID 1/SSH/display 결과 | H41 rollback/health 종결; isolated-Debian 서버 작업 일시 중지 | 선택한 isolated-Debian architecture를 통합한 persistent run; H41 playback과 복구 종결 |
+| [Galaxy S22+](S22PLUS.ko.md) (`SM-S906N`, FYG8) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED(증명됨):** rebuilt-kernel Android boot; native-PID1 ACM, 양방향 고정 명령, 인증, bounded 다중 세션과 healthy rollback | 초기 OPEN 실패 수집과 세션 안정성 | 안정적인 long-idle/reopen, 범용 shell/persistent service, 상세 USB/Max77705 원인 |
+| [Galaxy S20+ 5G](S20PLUS.ko.md) (`SM-G986N`) | Qualcomm SM8250 / vendor Linux 4.19.113 | **PROVED(증명됨):** onboarding, resident Magisk, retained T2 TWRP, P0 V3 전송/정상 rollback | P0 V3 NO_PROOF 이후 초기 부팅 pstore/PMSG 관측 | Custom native PID 1, live 초기 부팅 retention, autonomous F1 |
 
 ## 읽는 순서
 

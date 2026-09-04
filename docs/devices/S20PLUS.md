@@ -13,11 +13,10 @@
 
 ## Role
 
-The S20+ is the controlled-onboarding and staged native-canary target. Unlike
-the A90, it starts from stock Android/Magisk and advances through small,
-recoverable data-only or boot-overlay experiments before considering global
-native PID 1. It also hosts a separately designed bounded autonomous-research
-infrastructure whose live activation gates remain intentionally closed.
+The S20+ is a staged native-PID1 and recovery research target. Onboarding,
+resident Magisk, and retained T2 TWRP recovery are established. A direct-PID1
+boot candidate has been transferred and rolled back, but native execution
+remains unproved. Current work seeks early-boot evidence independent of ACM.
 
 ## Proven capabilities
 
@@ -45,6 +44,17 @@ infrastructure whose live activation gates remain intentionally closed.
   live UDC to `a600000.dwc3` and confirms the required DWC3 MSM, configfs ACM,
   Type-C/PD, extcon, and Samsung notifier components in the exact stock kernel.
 
+- **PROVED — retained T2 TWRP recovery.** One candidate transfer produced the
+  exact root-ADB marker and `PROVED_T2_RECOVERY_RETAINED`, with zero rollback
+  transfers and TWRP intentionally retained. This is recovery proof, not
+  proof of the project's custom native PID 1.
+- **PROVED — P0 V3 transfer and healthy rollback.** Candidate and resident
+  Magisk rollback each transferred once, with exact rooted-Android final
+  health. The native-PID1 result remains `NO_PROOF`.
+- **PROVED — bounded classic-fastboot census.** Four fixed read-only requests
+  identified the same-target endpoint, followed by healthy Android return.
+  This does not prove temporary boot support.
+
 ## Partially proven / observed
 
 - **observed — first custom-boot transitions can require factory reset.** The
@@ -54,7 +64,8 @@ infrastructure whose live activation gates remain intentionally closed.
 - **designed and host-proved — N3-U0 ACM.** The static witness, owned configfs
   gadget, observer, attended journal, concrete backend, atomic evidence owner,
   and execution integration have focused hostile-test and independent-review
-  results. The integrated closure is `PASS_GO_NOT_ACTIVE`.
+  results. That historical H0 closure is `PASS_GO_NOT_ACTIVE`; it is not the
+  current P0 result.
 - **designed and host-proved — autonomous research policy/coordinator/public
   health.** The policy state machine, dormant coordinator, and six-command
   public-health parser each have scoped H0 `PASS_GO_NOT_ACTIVE` results. They
@@ -64,6 +75,13 @@ infrastructure whose live activation gates remain intentionally closed.
   proving the dispatch source in the original contract. The recovery finalizer
   therefore preserved `exit_dispatch_proven=false` while proving final health.
 
+- **observed — P0 V3 had no exact ACM banner.** The full 180-second window
+  yielded no accepted banner. The candidate did not retain intermediate stage
+  receipts, so the missing banner does not locate a failure or disprove PID 1.
+- **designed — early-boot pstore/PMSG observation.** Host analysis identified
+  matching ramoops geometry in the stock overlays and retained T2 artifact.
+  Live readability and marker retention remain unproved.
+
 ## Not yet proven
 
 - Global native `/init` running as PID 1 on the S20+.
@@ -71,27 +89,29 @@ infrastructure whose live activation gates remain intentionally closed.
   banner, mandatory rollback, and terminal rooted health in one attended run.
 - Reproducible stock-kernel byte identity from the retained source/toolchain.
 - A complete cause for the factory-reset-dependent boot behavior.
-- Any autonomous connected authority. `RESEARCH_ACTIVE`, live authority,
-  mechanical activation, and durable-evidence integration remain false.
-- Autonomous root profiles, F1, or R1. The proposed autonomous lane does not
-  authorize them; F1 and R1 remain attended.
+- Live pstore/PMSG readiness and retention across the required return path.
+- Autonomous F1 or R1 operation. Exact reviewed root-health reads exist as an
+  attended D0 capability; they are not general root or autonomous authority.
 
 ## Current frontier
 
-The native-runtime frontier is N3-U0: a temporary resident-Magisk boot overlay
-with one rc file, one static AArch64 ACM witness, one owned configfs gadget,
-and a finite versioned banner. Host construction and the multi-layer dormant
-execution/evidence stack are independently reviewed, but all activation
-booleans remain false. Physical-entry integration, target-contract activation,
-fresh preparation, fresh attended approval, live ACM observation, rollback,
-and final health are still required.
+Snapshot checked on 2026-09-05: P0 V3 is consumed and the owner is dormant.
+Its terminal is `NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`, with one candidate
+and one rollback, no replay, and healthy rooted Android return. Retained T2
+recovery remains a separate established capability.
 
-In parallel, the autonomous-research frontier is infrastructure rather than
-authority. The policy, coordinator, and public-health parser are
-`PASS_GO_NOT_ACTIVE`. A strict evidence owner, accounting integration, live
-action wiring, another review, an attended campaign opening, and mechanical
-activation remain ahead. Describing this as “autonomous research active” would
-be incorrect.
+The selected next direction is a fixed read-only pstore/PMSG readiness
+profile. Static geometry alone does not prove a live backend or retained
+markers. The goal is to establish an observation channel before another
+direct-PID1 candidate depends on it; exact implementation, review, and
+activation status belongs in [GOAL_S20PLUS.md](../../GOAL_S20PLUS.md).
+
+The classic-fastboot census succeeded, but the separate boot-support probe
+and fastbootd census did not establish their intended runtime capabilities.
+They remain consumed with healthy return. N3-U0 and the early autonomous
+policy/coordinator reports are retained H0 work, not current live authority.
+The target contract governs each named connected action; conditional
+autonomous F1 is not active.
 
 ## Major milestones
 
@@ -106,25 +126,36 @@ be incorrect.
 7. N3-U0 execution/evidence integration and the autonomous policy stack
    reached independently reviewed but explicitly non-active H0 closure.
 
+8. T2 established retained TWRP/root-ADB recovery; the classic-fastboot census
+   established its bounded endpoint facts and healthy return.
+9. P0 V3 completed transfer, observation, and healthy rollback without native
+   PID1 proof; early-boot observation is the next research direction.
+
 ## Architecture summary
 
 ```text
-stock Samsung Android + resident Magisk root
-  -> attended data-only native canary (N1)
-  -> temporary boot overlay + owned configfs ACM witness (N3-U0, not active)
-  -> retained pre-userspace witness
-  -> eventual global native PID 1 (unproved)
+Samsung Android + resident Magisk root
+  + retained T2 TWRP recovery
+  -> attended P0 boot-only candidate
+    -> bounded ACM observation (no exact banner in V3)
+  -> exact resident Magisk rollback + healthy Android
 
-separate lane:
-attended campaign opening
-  -> bounded autonomous public reads / control state machine
-  -> READY_FOR_ATTENDED_F1 terminal
+next observation direction (designed, not live-proved):
+fixed read-only pstore/PMSG readiness
+  -> separately qualified retention witness
+  -> better-observed native-PID1 candidate
 ```
 
-The second lane is designed to stop before F1 and R1. It is currently dormant.
+The first flow records the consumed P0 experiment, not native-PID1 success.
+The second describes a research direction and grants no device authority.
 
 ## Authoritative evidence links
 
+- [Retained T2 recovery](../reports/S20PLUS_G986N_TWRP_T2_CONNECTED_OWNER_H0_2026-08-31.md)
+- [P0 V3 terminal](../reports/S20PLUS_G986N_P0_PID1_ODIN_F1_OWNER_H0_2026-09-01.md)
+- [Classic-fastboot census](../reports/S20PLUS_G986N_FASTBOOT_GETVAR_CENSUS_2026-09-03.md)
+- [Boot-support probe limits](../reports/S20PLUS_G986N_FASTBOOT_BOOT_SUPPORT_F1_H0_2026-09-03.md)
+- [Early-boot observation design](../reports/S20PLUS_G986N_EARLY_BOOT_OBSERVATION_H0_2026-09-05.md)
 - Current state: [GOAL_S20PLUS.md](../../GOAL_S20PLUS.md)
 - Binding target contract: [S20+ target contract](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md)
 - Exact onboarding: [D0 onboarding report](../reports/S20PLUS_G986N_ONBOARDING_D0_H0_2026-08-12.md)
@@ -133,5 +164,5 @@ The second lane is designed to stop before F1 and R1. It is currently dormant.
 - N1 host closure: [native canary N1 report](../reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md)
 - USB substrate: [native USB substrate H0/D0](../reports/S20PLUS_G986N_NATIVE_USB_SUBSTRATE_H0_D0_2026-08-16.md)
 - N3-U0 construction: [ACM host build](../reports/S20PLUS_G986N_N3U0_ACM_HOST_BUILD_H0_2026-08-16.md)
-- N3-U0 current dormant integration: [evidence/execution integration](../reports/S20PLUS_G986N_N3U0_EVIDENCE_EXECUTION_INTEGRATION_H0_2026-08-20.md)
+- Historical N3-U0 dormant integration: [evidence/execution integration](../reports/S20PLUS_G986N_N3U0_EVIDENCE_EXECUTION_INTEGRATION_H0_2026-08-20.md)
 - Autonomous policy state: [autonomous research session H0](../reports/S20PLUS_G986N_AUTONOMOUS_RESEARCH_SESSION_H0_2026-08-21.md)

@@ -62,17 +62,20 @@ rollback identity of its own; the existing ones under
 
 ## Running the tests
 
-The suite is pure host-side and touches no device. Run it through `discover`,
-which is the supported invocation:
+The suite is pure host-side and touches no device. Use `discover` and start
+with the tests for the changed area. For example, when changing P3.35 code:
+
+```bash
+python3 -m unittest discover -s tests -p "test_s22plus_fyg8_p335*.py"
+```
+
+Choose the pattern for your change; the example is not a repository-wide gate.
+Reuse successful checks while their relevant inputs are unchanged. Expand
+coverage for shared behavior, failures, or unresolved concerns. The full suite
+is available when that scope is warranted:
 
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"
-```
-
-The full suite is large and slow; when working on one area, narrow the pattern:
-
-```bash
-python3 -m unittest discover -s tests -p "test_s22plus_fyg8_p30*.py"
 ```
 
 Before opening a pull request, confirm the repository boundary check is clean:
@@ -83,6 +86,11 @@ python3 workspace/public/src/scripts/security/repository_boundary_check.py
 
 Some tests depend on private fixtures or a cross-toolchain that are not part of
 the public tree; those are expected to be skipped or excluded rather than run.
+
+For documentation-only edits, check factual claims, links, and `git diff --check`;
+do not build images or add tests solely to restate the edited prose. Changes to
+contracts or safety semantics still require the review specified by
+[`AGENTS.md`](AGENTS.md#review-rules).
 
 ## Pull requests
 

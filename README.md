@@ -82,20 +82,27 @@ and [`docs/operations/DEVICE_ACTION_PROCESS_V2.md`](docs/operations/DEVICE_ACTIO
 
 ## Current scope
 
-Currently demonstrated on three maintainer-owned devices. The architecture and
+Research currently spans three maintainer-owned devices. The architecture and
 validation methodology are developed around device-independent boundaries where
 practical. See the [device progress guide](docs/devices/README.md) for the
 evidence-bounded overview.
 
 - **Galaxy A90 5G (`SM-A908N`)** — custom native PID 1, ACM/NCM, native Wi-Fi
-  and audio, plus bounded Debian PID 1/SSH/display results; current frontier is
-  the self-built-kernel RTIC/MPGen closure and an isolated-Debian successor.
+  and audio, plus bounded Debian PID 1/SSH/display results. The current unit is
+  H41 rollback/health closure; the isolated-Debian server work is paused.
 - **Galaxy S22+ (`SM-S906N`, FYG8)** — source-matched rebuilt kernel and direct
-  native `/init` exec acceptance are proved; current USB runtime frontier is
-  SSUSB parent → DWC3 child → UDC → transport.
+  native PID 1 USB communication are proved. Successful P3.25–P3.35 runs established ACM
+  arrival, bidirectional fixed commands, authentication, and bounded multiple
+  sessions with healthy rollback. Current work addresses session reliability
+  and initial OPEN failure capture; a general interactive shell is unproved.
 - **Galaxy S20+ 5G (`SM-G986N`)** — exact onboarding, resident Magisk root, and
-  attended native-canary infrastructure are established; N3-U0 and autonomous
-  research infrastructure remain host-qualified but not active.
+  retained T2 TWRP recovery are established. The P0 V3 native-PID1 attempt
+  ended with no exact ACM banner and healthy Magisk rollback. Native PID 1
+  remains unproved; current work investigates an early-boot observation path.
+
+This summary reflects the records checked on 2026-09-05. The device pages link
+the accepted results; each target's GOAL and contract govern its changing
+frontier and execution requirements.
 
 Target-specific source, helpers, reports, rollback identities, and safety gates
 stay explicitly separated. A result on one target never authorizes a device
@@ -113,19 +120,21 @@ action on another.
 
 ## How work is validated
 
-Changes move through bounded units: host-side implementation and validation,
-independent adversarial review, then — only where unavoidable — recovery-safe
-device validation with a pre-declared rollback. Results and their evidence are
-recorded in per-target ledgers under `docs/operations/`.
+Changes move through bounded units with an explicit completion criterion.
+Start with available evidence and focused host checks; reuse unchanged build
+and validation results. Independent review applies to the contract, execution,
+and safety changes named in [`AGENTS.md`](AGENTS.md#review-rules).
+Use device validation when the question requires it, under the selected
+target's recovery and approval rules. Results and their evidence are recorded
+in per-target ledgers under `docs/operations/`.
 
 AI coding agents, including Codex, are used for implementation and analysis
 inside those same boundaries. The contract is the authority, not the agent.
 
-The test suite is host-only and touches no device:
-
-```bash
-python3 -m unittest discover -s tests -p "test_*.py"
-```
+The test suite is host-only and touches no device. Run tests for the changed
+area first, expanding coverage when the change or a failure requires it;
+see [test guidance](CONTRIBUTING.md#running-the-tests). Documentation-only
+edits normally need content, link, and diff checks rather than image builds.
 
 One check runs continuously. The **Repository boundary** badge asserts exactly one
 thing: the public tree satisfies the identifier boundary in

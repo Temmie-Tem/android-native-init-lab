@@ -1,13 +1,18 @@
 # Android Native Init Lab - 현재 문서 인덱스
 
-이 문서 트리는 Galaxy A90 5G와 Galaxy S22+ 타깃을 함께 다룹니다.
-절대 안전 경계와 target registry는 `../AGENTS.md`에서 시작합니다.
-S22+는 `operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` 다음
-`../GOAL.md`, A90는 `operations/targets/A90_TARGET_CONTRACT.md` 다음
-`../GOAL_A90.md` 순서로 읽습니다. goal 파일은 현재 프론티어와 다음
-bounded unit을 기록할 뿐 device authority를 부여하지 않습니다. 이하
-기기별 문서와 역사적 보고서의 `A90`/`S22PLUS` 이름은 의도적으로
-유지합니다.
+이 문서 트리는 Galaxy A90 5G, Galaxy S22+, Galaxy S20+ 5G를 다룹니다.
+성과 요약은 [기기별 안내](devices/README.ko.md), 실행 규칙은
+[AGENTS.md](../AGENTS.md)에서 시작합니다.
+
+| 대상 | Binding contract | 현재 상태와 다음 작업 |
+| --- | --- | --- |
+| A90 | [A90 contract](operations/targets/A90_TARGET_CONTRACT.md) | [GOAL_A90.md](../GOAL_A90.md) |
+| S22+ FYG8 | [S22+ contract](operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md) | [GOAL.md](../GOAL.md) |
+| S20+ G986N | [S20+ contract](operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md) | [GOAL_S20PLUS.md](../GOAL_S20PLUS.md) |
+
+GOAL은 현재 프론티어를 기록하며 device authority를 부여하지 않습니다.
+아래 날짜·버전별 설명은 당시의 연구 이력입니다. 역사적 보고서 안의
+"현재", "다음", 준비·활성화 상태를 오늘의 실행 상태로 해석하지 않습니다.
 
 공통 연구 중심은 **Android vendor kernel 위에서 custom static `/init`를
 실행해 작은 native userspace/runtime을 만드는 작업**입니다.
@@ -22,18 +27,17 @@ Git 복원 후 ignored `workspace/private` 병합 범위, exact-hash 재검증,
 남은 외부 원본 22건, R4W1-B 재개 준비성은
 `reports/PRIVATE_WORKSPACE_RECOVERY_RESTORE_2026-07-19.md`에 기록합니다.
 
-상단 `docs/`는 이제 다음 흐름에 필요한 문서를 유지합니다.
+상단 진입점은 현재 목표와 확정된 성과를 안내하고, 아래 인덱스는 각 실험의
+소스·설계·결과 기록을 보존합니다. 개발과 검증 범위는 AGENTS의 비례 개발
+원칙을 따르며, [기여 안내](../CONTRIBUTING.md#running-the-tests)에 관련 검사부터
+실행하는 방법이 있습니다.
 
-1. native init 0.9.266 / v2232-service-object-fwclass-bridge baseline 고정
-2. shell/HUD/log/menu 운영 안정화
-3. 필요한 하드웨어/커널 경로만 역추적
-4. BusyBox/network/SSH 같은 서버형 확장 가능성 검토
-
-Device Action Process v2의 현재 공통 실행 구조는
-`operations/DEVICE_ACTION_PROCESS_V2.md`에서 시작합니다. F1 어댑터의
-host-only 소스 게이트 결과는
+Device Action Process v2의 공통 실행 구조는
+[실행 프로세스](operations/DEVICE_ACTION_PROCESS_V2.md)에서 확인합니다.
+2026-07-21 F1 어댑터의 host-only 게이트 결과는
 `reports/DEVICE_ACTION_PROCESS_V2_F1_ADAPTER_HOST_PASS_2026-07-21.md`에
-기록하며, production manifest와 실기기 F1 권한은 여전히 비활성입니다.
+보존합니다. 당시의 비활성 상태는 현재 모든 F1의 상태를 뜻하지 않으며,
+실행 요건은 선택한 target contract와 정확한 현재 binding을 따릅니다.
 
 S22+ FYG8 최종 후보의 preflight, 동일 경로 A/B Full-LTO, linked proof,
 boot-only 패키징, 독립 closure와 offline promotion 순서는
@@ -1556,7 +1560,10 @@ device step을 추가하지 않는다 (`../AGENTS.md`).
 - `archive/README.md` – 아카이브 인덱스
 - `archive/legacy/` – 기존 2025 방향 문서 일괄 보관
 
-## 현재 우선순위
+## 초기 native-init 완료 이력
+
+아래 목록은 당시 버전별 작업 기록입니다. 현재 우선순위는 상단의 기기별
+GOAL을 참조합니다.
 
 1. shell return code 정밀화 — v40 완료
 2. `/cache/native-init.log` 추가 — v41 완료
