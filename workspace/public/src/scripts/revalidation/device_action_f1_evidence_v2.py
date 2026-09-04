@@ -10863,7 +10863,7 @@ def _verify_p336_stock_offline_contract(
             name: _binary_identity(value, f"P3.36 adapter source {name}")
             for name, value in lineage_sources.items()
         },
-        "p336_long_idle_observer_source": {
+        "p336_long_idle_acm_observer_source": {
             key: source_values["observer"][key] for key in ("size", "sha256")
         },
         "p336_long_idle_runtime_source": {
