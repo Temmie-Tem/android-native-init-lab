@@ -905,8 +905,12 @@ at `NO_PROOF_PMSG_TRIAL_HEALTHY` and released the guard. The cause is a host
 script defect proven offline against the target's own mksh: the generated
 scripts verified their pinned descriptor through `/proc/self/fd/N`, which an
 exec'd helper resolves to itself, and mksh marks `exec`-opened descriptors
-above 2 close-on-exec. V2 uses `/proc/$$/fd/N`, is dormant at normalized SHA-256
-`afdaf08adc12f453239f20c8527ae8dba0e3432421c770e702bc0f8ae91452ce`, and awaits a
+above 2 close-on-exec. V2 uses `/proc/$$/fd/N`. Independent review returned blocking findings on its
+first draft; the corrected V2 adds a fixed write-path probe that gates the
+marker intent, removes every `PATH`-resolved helper it owns, and executes its
+complete probe/writer/reader through the target's own shell in test. It is
+dormant at normalized SHA-256
+`d51eb1b6f51adc0739b9e17053b52bbab8ca2e39d211921ebd204c02ba21c52b` and awaits a
 fresh independent review and operator request. PMSG retention across the
 ordinary warm-reboot route remains unproved, as does native PID1 execution.
 Evidence: [V1 trial failure](docs/reports/S20PLUS_G986N_PMSG_WARM_REBOOT_D1_TRIAL_FAILURE_2026-09-05.md).

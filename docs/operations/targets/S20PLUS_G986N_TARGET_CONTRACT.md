@@ -368,6 +368,22 @@ only the public prequote and rotates the render-plan description; the public
 and root scripts remain byte-identical, and the root `adb shell su -c` argument
 retains its required `shlex.quote()`.
 
+Known limitation, recorded and deliberately not repaired in place: the fixed
+`ROOT_READ_SCRIPT` reads `/proc/self/attr/current` through an external `cat`,
+so the reported `context` is that helper's SELinux context rather than the
+pinning shell's. The correct form is `/proc/$$/attr/current`, for the same
+reason the PMSG marker scripts had to stop using `/proc/self`. On this target
+no domain transition occurs between the `su -c` shell and a toybox helper, so
+every observed invocation reported `u:r:magisk:s0` and the check has never
+been wrong here. Repairing the bytes now would change this runner's pinned
+size and SHA-256, which the pstore readiness D0 pins at exactly 39,819 bytes,
+which the PMSG marker D1 pins in turn, and which the public-exec repair audit
+also pins — three active lanes and one auditor, each needing fresh review, for
+a defect with no observed effect. The repair therefore rides with the next
+version bump of this runner, as a corrected version with its own hashes rather
+than an in-place edit of consumed, pinned bytes. Historical reports that record
+the current hashes stay unmodified.
+
 The corrected active runner is 39,819 bytes at SHA-256
 `24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44`;
 its activation-normalized SHA-256 is
@@ -474,13 +490,15 @@ The permanent common boundaries and target isolation remain unchanged.
 ## S20+ PMSG Warm-Reboot Marker D1
 
 Status: **DEFINED - V1 TRIAL CONSUMED NO_PROOF HEALTHY; V2 NOT ACTIVE**
-Runner-Normalized-SHA256: `afdaf08adc12f453239f20c8527ae8dba0e3432421c770e702bc0f8ae91452ce`
+Runner-Normalized-SHA256: `d51eb1b6f51adc0739b9e17053b52bbab8ca2e39d211921ebd204c02ba21c52b`
 
 The V1 capability was activated, its single transaction was consumed, and it is
 now closed. The writer reached the PMSG descriptor stage and stopped at exit
 `65`; every preceding root/Magisk/SELinux/PID1/identity/boot predicate passed,
 no marker byte reached `/dev/pmsg0`, and no reboot, mode transition, partition
-or pstore operation occurred. Its marker intent is consumed and its fixed trial
+or pstore mutation occurred. The fixed readiness preflight did perform its
+declared bounded pstore metadata reads, which is the only pstore access this
+invocation made. Its marker intent is consumed and its fixed trial
 `workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1/trial/` is closed at
 terminal `NO_PROOF_PMSG_TRIAL_HEALTHY` with the shared guard released. That
 trial path stays globally non-reusable and V1 grants nothing further.
@@ -498,6 +516,18 @@ V2 is dormant, uses the distinct fixed trial
 `workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1-v2/`, and inherits no
 authority from V1's consumed trial. Its activation requires a fresh independent
 review and a fresh current operator request; the paragraphs below describe V2.
+
+Independent review of the first V2 draft returned blocking findings and they
+are closed here. The real write open was unproven, so V2 adds one fixed
+write-path probe that runs before any action is consumed: it performs the same
+sysfs gates and descriptor pin as the writer, opens descriptor 4 from the
+pinned descriptor, verifies it, closes both and reports
+`S20PMSG_PROBE_V1;returned=1;writable=1` without writing a byte. A marker
+intent cannot exist without that probe receipt, so a shell, procfs or driver
+incompatibility now costs no consumed marker action. The marker write itself
+carries an explicit failure exit so a write error cannot precede a receipt.
+Every helper in the scripts this runner generates is an absolute
+`/system/bin` path; nothing resolves through `PATH`.
 
 This is the sole transaction delegated by
 `S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1` in AGENTS and the risk tiers.
@@ -537,7 +567,8 @@ nonce, and observed PMSG major/minor. Caller device numbers are forbidden.
 The marker is exactly 144 ASCII bytes: newline, `S20PMSG1:`, the 64-hex digest
 of canonical binding bytes, colon, the 64-hex nonce, `:END`, newline.
 
-One fixed root writer rechecks exact root/Android/current-boot health,
+One fixed root probe and one fixed root writer each recheck exact
+root/Android/current-boot health,
 `/sys/devices/virtual/pmsg/pmsg0/dev`, and ramoops `pmsg_size=262144`.
 It opens the direct non-symlink character `/dev/pmsg0` read-only as descriptor
 3, verifies character type, rdev and link count, opens that pinned descriptor

@@ -27,7 +27,7 @@ READINESS_SHA256 = "f1e61ec324b7c446ed73e14fe6318cf1a7488733b634861c6ffbbeb79001
 WAIT_SECONDS = 180
 MAX_POLLS = 60
 RECORD_MAXIMUM = 262144
-EVENTS = frozenset({"binding", "marker-intent", "marker-result", "reboot-intent", "reboot-result", "arrival", "read-intent", "read-result", "failure", "terminal", "abort", "observation-gap"})
+EVENTS = frozenset({"binding", "probe-result", "marker-intent", "marker-result", "reboot-intent", "reboot-result", "arrival", "read-intent", "read-result", "failure", "terminal", "abort", "observation-gap"})
 
 
 class MarkerError(RuntimeError):
@@ -153,16 +153,21 @@ def health_guard(boot_sha256):
 [ "$(/system/bin/getprop ro.build.version.incremental)" = G986NKSS8IYC2 ] || exit 64
 [ "$(/system/bin/getprop sys.boot_completed)" = 1 ] || exit 64
 boot=$(/system/bin/cat /proc/sys/kernel/random/boot_id)
-boot_hash=$(printf '%s' "$boot" | /system/bin/sha256sum)
+boot_hash=$(/system/bin/printf '%s' "$boot" | /system/bin/sha256sum)
 boot_hash=${boot_hash%% *}
 """ + f'[ "$boot_hash" = {boot_sha256} ] || exit 64\n'
 
 
-def write_script(binding):
+def pin_prelude(binding):
+    """The sysfs gates and descriptor pin shared by the probe and the writer.
+
+    Every external helper is an absolute /system/bin path so nothing in a
+    root-privileged script depends on PATH resolution.
+    """
     validate_binding(binding)
     dev = f'{binding["major"]}:{binding["minor"]}'
     rdev = f'{binding["major"]:x}:{binding["minor"]:x}:1'
-    return health_guard(binding["source_boot_sha256"]) + f"""
+    return f"""
 [ "$(/system/bin/cat /sys/devices/virtual/pmsg/pmsg0/dev)" = '{dev}' ] || exit 65
 [ "$(/system/bin/cat /sys/module/ramoops/parameters/pmsg_size)" = 262144 ] || exit 65
 [ ! -L /dev/pmsg0 ] && [ -c /dev/pmsg0 ] || exit 65
@@ -178,9 +183,26 @@ exec 3< /dev/pmsg0
 exec 4> /proc/$$/fd/3
 [ -c /proc/$$/fd/4 ] || exit 65
 [ "$(/system/bin/stat -Lc '%t:%T:%h' /proc/$$/fd/4)" = '{rdev}' ] || exit 65
-printf '\\n%s\\n' '{marker_line(binding)}' >&4
+"""
+
+
+def probe_script(binding):
+    """Prove the write path on this exact boot without writing a marker byte.
+
+    Reaching the descriptor-4 verification is the whole result: the descriptor
+    is closed immediately and nothing is written to it. This runs before the
+    marker intent is published, so a shell, procfs or driver incompatibility
+    costs no consumed marker action.
+    """
+    return health_guard(binding["source_boot_sha256"]) + pin_prelude(binding) + """exec 4>&- 3<&-
+/system/bin/printf 'S20PMSG_PROBE_V1;returned=1;writable=1\\n'
+"""
+
+
+def write_script(binding):
+    return health_guard(binding["source_boot_sha256"]) + pin_prelude(binding) + f"""/system/bin/printf '\\n%s\\n' '{marker_line(binding)}' >&4 || exit 66
 exec 4>&- 3<&-
-printf 'S20PMSG_WRITE_V1;returned=1;marker_sha256={digest(marker_bytes(binding))}\\n'
+/system/bin/printf 'S20PMSG_WRITE_V1;returned=1;marker_sha256={digest(marker_bytes(binding))}\\n'
 """
 
 
@@ -190,7 +212,7 @@ def read_script(binding, boot_sha256):
         raise MarkerError("reader cannot reuse source boot")
     return health_guard(boot_sha256) + f"""
 node=/sys/fs/pstore/pmsg-ramoops-0
-finish() {{ printf 'S20PMSG_READ_V1;state=%s;matches=%s;size=%s\\n' "$1" "$2" "$3"; }}
+finish() {{ /system/bin/printf 'S20PMSG_READ_V1;state=%s;matches=%s;size=%s\\n' "$1" "$2" "$3"; }}
 [ ! -L "$node" ] || {{ finish indirect 0 0; exit 0; }}
 [ -e "$node" ] || {{ finish unavailable 0 0; exit 0; }}
 [ -f "$node" ] && [ -r "$node" ] || {{ finish unreadable 0 0; exit 0; }}
@@ -207,6 +229,14 @@ exec 3<&-
 [ "$after" = "$before" ] && [ "$(/system/bin/stat -c '%d:%i:%f:%s:%h' "$node")" = "$before" ] || {{ finish changed 0 0; exit 0; }}
 finish scanned "$matches" "$size"
 """
+
+
+def parse_probe(result):
+    expected = health.EXPECTED_ROOT_STDOUT + b"S20PMSG_PROBE_V1;returned=1;writable=1\n"
+    output = health._successful_stdout(result, label="fixed PMSG write-path probe", maximum=8192)
+    if output != expected:
+        raise MarkerError("probe receipt mismatch")
+    return {"returned": True, "writable": True, "stdout_sha256": digest(output)}
 
 
 def parse_write(result, binding):
@@ -389,6 +419,9 @@ class Device:
             self.counts["root_command_count"] += 1
         return self.capture([health.EXPECTED_ADB_PATH, "-s", self.serial, *tail], timeout, maximum)
 
+    def probe(self, binding):
+        return parse_probe(self.run(["shell", "su", "-c", shlex.quote(probe_script(binding))], 30))
+
     def write(self, binding):
         return parse_write(self.run(["shell", "su", "-c", shlex.quote(write_script(binding))], 30), binding)
 
@@ -465,6 +498,7 @@ def validate_trial(journal):
     binding = validate_binding(journal.get("binding"))
     bound = digest(canonical(binding))
     prerequisites = {
+        "marker-intent": "probe-result",
         "marker-result": "marker-intent", "reboot-intent": "marker-result",
         "reboot-result": "reboot-intent", "arrival": "reboot-intent",
         "read-intent": "arrival", "read-result": "read-intent", "observation-gap": "reboot-intent",
@@ -473,6 +507,7 @@ def validate_trial(journal):
         if journal.has(event) and not journal.has(prior):
             raise MarkerError("journal predecessor missing")
     expected = {
+        "probe-result": {"returned": True, "writable": True, "stdout_sha256": digest(health.EXPECTED_ROOT_STDOUT + b"S20PMSG_PROBE_V1;returned=1;writable=1\n")},
         "marker-intent": {"binding_sha256": bound, "script_sha256": digest(write_script(binding).encode())},
         "marker-result": {"returned": True, "stdout_sha256": digest(health.EXPECTED_ROOT_STDOUT + f'S20PMSG_WRITE_V1;returned=1;marker_sha256={digest(marker_bytes(binding))}\n'.encode()), "marker_sha256": digest(marker_bytes(binding))},
         "reboot-intent": {"binding_sha256": bound, "source_boot_sha256": binding["source_boot_sha256"]},
@@ -580,6 +615,8 @@ def execute(journal, device):
     observation = device.preflight()
     binding = make_binding(observation)
     journal.put("binding", binding)
+    # Prove the write path on this boot before any action is consumed.
+    journal.put("probe-result", device.probe(binding))
     journal.put("marker-intent", {"binding_sha256": digest(canonical(binding)), "script_sha256": digest(write_script(binding).encode())})
     journal.validate_guard()
     validate_trial(journal)

@@ -50,6 +50,11 @@ class FakeDevice:
         if self.boot != boot:
             raise M.MarkerError('boot drift')
 
+    def probe(self, binding):
+        self.calls.append('probe')
+        raw = M.health.EXPECTED_ROOT_STDOUT + b'S20PMSG_PROBE_V1;returned=1;writable=1\n'
+        return M.parse_probe((0, raw, b''))
+
     def write(self, binding):
         self.calls.append('write')
         raw = M.health.EXPECTED_ROOT_STDOUT + f'S20PMSG_WRITE_V1;returned=1;marker_sha256={M.digest(M.marker_bytes(binding))}\n'.encode()
@@ -214,7 +219,25 @@ class MarkerTests(unittest.TestCase):
                 self.assertEqual(failure['capture']['stdout_sha256'], M.digest(stdout))
                 self.assertEqual(failure['capture']['stderr_sha256'], M.digest(stderr))
                 self.assertNotIn(stdout.decode(), output.getvalue())
+                # The write-path probe runs before any action is consumed, so a
+                # device that never answers correctly costs no marker intent.
+                self.assertFalse(j.has('probe-result'))
+                self.assertFalse(j.has('marker-intent'))
+
+    def test_writer_failure_after_a_passed_probe_still_consumes_the_marker_intent(self):
+        probe = (0, M.health.EXPECTED_ROOT_STDOUT + b'S20PMSG_PROBE_V1;returned=1;writable=1\n', b'')
+        for failure in [(1, b'partial-private-write', b'private-error'), (0, b'malformed-private-response', b'')]:
+            with self.subTest(failure=failure[0]), tempfile.TemporaryDirectory() as temp, mock.patch.object(M, 'repo_root', return_value=Path(temp)), mock.patch.object(M, 'require_active'), contextlib.redirect_stdout(io.StringIO()) as output, mock.patch.object(M.health.base, 'tool_receipt', return_value=R.FakeBackend().tool_receipt()), mock.patch.object(M.ready, 'bounded_capture', side_effect=[probe, failure]):
+                device = M.Device(); device.serial = 'S20SERIAL'
+                with mock.patch.object(device, 'preflight', return_value=observation()), mock.patch.object(M, 'Device', return_value=device):
+                    self.assertEqual(M.main(['--connected']), 1)
+                j = M.Journal(Path(temp) / M.PRIVATE_ROOT / 'trial')
+                self.assertTrue(j.has('probe-result'))
                 self.assertTrue(j.has('marker-intent'))
+                self.assertFalse(j.has('marker-result'))
+                self.assertFalse(j.has('reboot-intent'))
+                self.assertEqual(j.get('failure')['capture']['stdout_sha256'], M.digest(failure[1]))
+                self.assertNotIn(failure[1].decode(), output.getvalue())
                 self.assertFalse(j.has('reboot-intent'))
 
     def test_public_return_is_durable_before_failing_full_preflight(self):
@@ -324,7 +347,7 @@ class MarkerTests(unittest.TestCase):
     def shell_fixture(self, root, script, boot=R.BOOT, sink='/dev/null'):
         _, mapping = R.ReadinessTests().shell_fixture(root)
         mapping['/dev/pmsg0'] = sink
-        for name in ('sha256sum', 'grep', 'wc'):
+        for name in ('sha256sum', 'grep', 'wc', 'printf'):
             mapping['/system/bin/' + name] = shutil.which(name)
         bootpath = root / 'boot-id'; bootpath.write_text(boot + '\n')
         mapping['/proc/sys/kernel/random/boot_id'] = str(bootpath)
