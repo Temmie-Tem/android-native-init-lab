@@ -185,3 +185,27 @@ zero exact/family markers and healthy rooted FYG8. New approval digest091f1c67
 binds the repaired closure. No extra reboot, candidate rebuild, Download or
 transfer occurred. The stored preparation reopens through normal validation;
 execution remains gated by the fresh returned approval.
+
+## Directory4 candidate and exploration: rollback pending
+
+Returned approval091f1c67 executed one candidate transfer. The initial observer
+passed its four-session/120-second idle proof and opened the bounded P343 lease;
+candidate-observer.json is35536B/3e736ef3. Journal reached OBSERVED/10 records.
+This is initial USB proof, not final F1 or named-exploration PASS.
+
+The first later action, kernel ordinal1, retained RX661B, TX369B and selected
+stdout120B but recorded uncertain after an AttributeError at stage complete.
+failure.json543B/76404455 records error hash
+`89bdd85d0820f8af7bc492188f1498605b6b445ad427c0c980a54cb034ebf4db`.
+It exactly matches "'CommandResult' object has no attribute 'signal_number'".
+The actual CommandResult defines term_signal; the action result-comprehension
+incorrectly reads item.signal_number after exchange and output publication.
+This is a host result-projection defect; the actual response bytes are retained,
+but the durable uncertain action is not relabeled or retried. Actions2–5 were
+not attempted. No source or consumed journal was changed during this run.
+
+Ordinary --recover was started immediately and is waiting for the operator's
+physical Download entry on the same cable/port. Candidate1/rollback0 at this
+checkpoint; final health and F1 closure remain pending. No F1 closure row is
+appended before the actual rollback and terminal result. The next turn must
+resume/check this recovery only, never execute the candidate again.
