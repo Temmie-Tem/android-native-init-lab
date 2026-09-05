@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "2400c168334abde65c7d6bc72c3556bc317622e2c244a84f824b2244500e2a40"
+AUDITOR_NORMALIZED_SHA256 = "8b0a9776a6f3855dce7eaf363e675011722f56427eb774e6a6938efa72fccf68"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -568,7 +568,7 @@ ACTIVE_FILES = {
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
     "s22plus_fyg8_p343_open_read_branch_acm_observer.py": "febb80cb70edd1ea115ed361fbd25b2a1127ed0f5c1d1b1743cda7f53d773ec1",
     "s22plus_fyg8_p343_open_read_branch_runtime.py": "fef7321eb857df2d9cfbc1e0fedbae7ce80c1057ca96ca59ad8edc8ffac94a86",
-    "s22plus_fyg8_p343_exploration_action.py": "92b9108cdbffbad6c8b61a88c13b74e851156c0a9551a7be0a34ff757f5affb3",
+    "s22plus_fyg8_p343_exploration_action.py": "3ef85fe538378523660e7c675c89fdf28134fa6163b57a4e994e26d6e34e5d36",
     "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
     "device_action_d0_v2.py": "b55deb12c487cc66a50008aa7b1bd587fdc1a70bfb3e01e5168fc107ff40b1ce",
     "s22plus_fyg8_p326_bidirectional_acm_observer.py": "6357256ddca6faab28292e807e7e393c0c0fb841244fd4ce84a0c1f4643d5622",

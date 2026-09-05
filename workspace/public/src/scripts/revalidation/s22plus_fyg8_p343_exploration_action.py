@@ -204,7 +204,7 @@ def _run_locked(live, prepared, action):
         tx = base._write_once(directory / 'session.tx.bin', record.raw_tx)
         output = base._write_once(directory / 'selected.stdout.bin', record.result.commands[1].output)
         commands = [{'name': name, 'command': base.identity(item.command), 'output': base.identity(item.output),
-                     'exit_code': item.exit_code, 'signal_number': item.signal_number, 'duration_ms': item.duration_ms,
+                     'exit_code': item.exit_code, 'signal_number': item.term_signal, 'duration_ms': item.duration_ms,
                      'ok': item.ok} for name,item in zip(('identity', action, 'session-nonce'), record.result.commands)]
         if tuple(item.command for item in record.result.commands) != selected:
             raise live.F1LiveError('P343 selected tuple differs')

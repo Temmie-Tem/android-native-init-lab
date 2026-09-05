@@ -31,6 +31,66 @@ def binding():
 
 
 class ExplorationIntegrationTests(unittest.TestCase):
+    def test_actual_command_results_publish_and_reopen_summary(self):
+        cases=[(name,False) for name in resident.ACTION_NAMES]+[('kernel',True)]
+        for action, publication_cut in cases:
+            with self.subTest(action=action, publication_cut=publication_cut), tempfile.TemporaryDirectory() as temporary:
+                record, base, codec, selected = self.exercise_codec(action=action)
+                self.assertFalse(hasattr(record.result.commands[1], 'signal_number'))
+                root=Path(temporary); base.ROOT=root
+                value=binding()
+                value['candidate']['run_id']=live.p343_open_read_runtime.P343_RUN_ID_HEX
+                value['catalog']=resident.catalog_for(value['candidate']['run_id'])
+                value['per_boot_id']=hashlib.sha256(record.boot_id).hexdigest()
+                lease_root=root/resident.DIRECTORY;lease_root.mkdir(mode=0o700)
+                lease=resident.ResidentLease.publish(lease_root,value,lease_fixture.observation())
+                endpoint=types.SimpleNamespace(identity_sha256='fixture',tty_class=Path('/no-device'))
+                base._select_endpoint=lambda *args:(endpoint,{'fixture':'same'})
+                real_write=base._write_once
+                def write(path,payload):
+                    if publication_cut and path.name=='result.json':
+                        raise OSError('fixture result publication failure')
+                    return real_write(path,payload)
+                base._write_once=write
+                prepared=types.SimpleNamespace(run_dir=root)
+                def exchange(*args):
+                    args[8].write_stdout(bytes(record.result.audit.rx))
+                    return record
+                with mock.patch.object(actions,'context',return_value=(lease,value,fixture.TEST_KEY,set())), \
+                     mock.patch.object(actions,'action_codec',return_value=(base,codec,selected)), \
+                     mock.patch.object(actions,'_exchange',side_effect=exchange), \
+                     mock.patch.object(live.cdc_acm_observer,'_udev_properties',return_value={
+                         'ID_MM_DEVICE_IGNORE':'1','ID_MM_PORT_IGNORE':'1','ID_USB_INTERFACE_NUM':'00'}):
+                    if publication_cut:
+                        with self.assertRaisesRegex(live.F1LiveError,'only exact rollback'):
+                            actions._run_locked(live,prepared,action)
+                    else:
+                        result=actions._run_locked(live,prepared,action)
+                if publication_cut:
+                    reopened=resident.ResidentLease.open(lease_root)
+                    self.assertTrue(reopened.snapshot()['rollback_required'])
+                    with self.assertRaises(resident.RollbackRequired):
+                        reopened.begin_action(action,value)
+                    directory=root/actions.EVIDENCE_DIRECTORY/'action-01'
+                    self.assertTrue((directory/'failure.json').exists())
+                    self.assertEqual((directory/'session.tx.bin').read_bytes(),record.raw_tx)
+                    self.assertEqual((directory/'selected.stdout.bin').read_bytes(),record.result.commands[1].output)
+                    with mock.patch.object(resident,'binding_for',return_value=value), \
+                         mock.patch.object(live,'_reopen_candidate_observation',return_value={}):
+                        self.assertFalse(resident.action_summary(live,prepared)['proved'])
+                    continue
+                self.assertEqual(result['verdict'],'PASS_P343_NAMED_READONLY_ACTION')
+                path=root/actions.EVIDENCE_DIRECTORY/'action-01/result.json'
+                published=live._read_json(path,'actual action publication')
+                self.assertEqual([c['signal_number'] for c in published['commands']],[0,0,0])
+                self.assertEqual((path.parent/'selected.stdout.bin').read_bytes(),record.result.commands[1].output)
+                self.assertEqual(resident.ResidentLease.open(lease_root).snapshot()['actions_completed'],1)
+                with mock.patch.object(resident,'binding_for',return_value=value), \
+                     mock.patch.object(live,'_reopen_candidate_observation',return_value={}):
+                    summary=resident.action_summary(live,prepared)
+                self.assertTrue(summary['proved'])
+                self.assertEqual(summary['completed_actions'],1)
+
     def test_close_summary_distinguishes_zero_ok_pending_failed_and_malformed(self):
         for case in ('zero','ok','pending','failed','malformed'):
             with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
@@ -131,10 +191,9 @@ class ExplorationIntegrationTests(unittest.TestCase):
             self.assertEqual(len(lease.actions),1)
 
     def exercise_codec(self, wrong_boot=False, action='memory'):
-        # Source-level reuse can be qualified with the consumed P342 identity
-        # on a local PTY; this fixture creates no P343 or P342 device authority.
+        # Actual P343 codec on a local PTY, with no device authority.
         facade=types.SimpleNamespace(_open_header_initial_observer_module=live._open_header_initial_observer_module,
-            p343_open_read_runtime=live.p342_open_read_runtime,p343_open_read_observer=live.p342_open_read_observer,
+            p343_open_read_runtime=live.p343_open_read_runtime,p343_open_read_observer=live.p343_open_read_observer,
             host_first_open=live.host_first_open)
         base,module,selected=actions.action_codec(facade,action,2)
         self.assertEqual(base.runtime.DEFAULT_COMMANDS,selected)
@@ -185,6 +244,7 @@ class ExplorationIntegrationTests(unittest.TestCase):
             self.assertFalse(thread.is_alive())
             if not wrong_boot:
                 self.assertEqual(errors,[])
+                return record, base, module, selected
 
     def test_actual_selected_action_authentication_and_raw_capture(self):
         for action in resident.ACTION_NAMES:

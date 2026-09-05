@@ -238,3 +238,27 @@ Canonical timeline, UTC2026-09-05:
 P343 is consumed and never replayable. Next work is the host field-name repair
 and regression through actual action-result publication before preparing any
 fresh successor. This closure changes no operating source or retained journal.
+
+## Post-closure host repair qualification
+
+The operator authorized the next repair. The action producer now reads
+CommandResult.term_signal, preserving the existing JSON signal_number field.
+No device protocol, deadline, lease rule, schema or candidate artifact changes.
+New action source SHA256 is
+`3ef85fe538378523660e7c675c89fdf28134fa6163b57a4e994e26d6e34e5d36`.
+Independent PASS_GO_P343_ACTION_RESULT_PROJECTION_REPAIR_H0 qualified it.
+
+The regression now uses actual P343 authenticated PTY CommandResult objects,
+not a fabricated publication dictionary, through _run_locked, actual raw/result
+publication, lease reopen and action_summary. All five named queries pass.
+An injected result-publication cut retains TX/stdout, records uncertain,
+prevents a subsequent action and does not produce a proved summary.
+Combined exploration/live tests15/15, current-tree raw-first audit and
+py_compile pass. The local PTY is host-only and is not device qualification.
+
+The retained action RX661B was also decoded using declared frame lengths and
+CRC: exact49B banner plus13frames, including3EXIT records with zero flags,
+exit code and termination signal. This limited reparse is not a new HMAC
+verification or a retrospective terminal upgrade. P343 remains consumed and
+NO_PROOF. This unit makes no device contact, fresh build or approval; a fresh
+successor must bind the repaired host source before another F1.
