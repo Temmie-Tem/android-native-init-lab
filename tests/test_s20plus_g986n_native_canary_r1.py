@@ -5485,6 +5485,9 @@ except SystemExit as exc:
 
     def test_policy_documents_activate_only_r1_and_keep_target_isolated(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text()
+        agents += "\n" + (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_text(encoding="utf-8")
         contract = (
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text()

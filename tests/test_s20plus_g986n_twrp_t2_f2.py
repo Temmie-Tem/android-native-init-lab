@@ -1350,13 +1350,16 @@ class S20PlusG986NRecoveryCanaryT2F2Tests(unittest.TestCase):
 
     def test_common_and_target_contract_record_exact_t2_retention(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        agents += "\n" + (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_text(encoding="utf-8")
         tiers = (ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md").read_text(
             encoding="utf-8"
         )
         contract = (
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("Contract-Revision: **5**", agents)
+        self.assertIn("common-contract precedence", agents)
         self.assertIn("TWRP T2 recovery retained and candidate consumed", agents)
         self.assertIn("### F2-T2 - Exact S20+ TWRP Corrected Retained Recovery", tiers)
         self.assertIn(

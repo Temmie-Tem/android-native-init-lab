@@ -179,7 +179,11 @@ def retired_fast_loop_authority_issues(text):
 class DeviceActionProcessV2DocsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        cls.agents_root = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        cls.device_details_bytes = (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_bytes()
+        cls.agents = cls.agents_root + "\n" + cls.device_details_bytes.decode("utf-8")
         cls.goal = (ROOT / "GOAL.md").read_text(encoding="utf-8")
         cls.goal_a90 = (ROOT / "GOAL_A90.md").read_text(encoding="utf-8")
         cls.goal_s20 = (ROOT / "GOAL_S20PLUS.md").read_text(encoding="utf-8")
@@ -299,6 +303,19 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "S22PLUS_FYG8_P317_EXPERIMENT_EXECUTABILITY_"
             "CLOSURE_DESIGN_H0_2026-08-12.md"
         ).read_text(encoding="utf-8")
+
+    def test_root_guidance_fits_default_project_instruction_budget(self):
+        # Codex defaults to a 32 KiB aggregate project-instruction budget.
+        self.assertLess(len(self.agents_root.encode("utf-8")), 32 * 1024)
+        for heading in ("## Default Research Autonomy", "## Review Rules",
+                        "## Development and Commit Discipline", "## Stop and Escalate"):
+            self.assertIn(heading, self.agents_root)
+
+    def test_root_binds_the_complete_device_details(self):
+        self.assertIn("docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md", self.agents_root)
+        digest = hashlib.sha256(self.device_details_bytes).hexdigest()
+        self.assertIn(f"`{digest}`", self.agents_root)
+        self.assertIn("same highest common-contract precedence", self.agents_root)
 
     def test_active_goals_obey_the_current_contract_limit(self):
         # Revision 6 retains the explicit GOAL limit, not the retired 260-line

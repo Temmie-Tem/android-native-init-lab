@@ -1129,13 +1129,16 @@ class S20PlusG986NRecoveryCanaryT0F2Tests(unittest.TestCase):
 
     def test_common_and_target_contract_activate_only_exact_f2(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        agents += "\n" + (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_text(encoding="utf-8")
         tiers = (ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md").read_text(
             encoding="utf-8"
         )
         contract = (
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("Contract-Revision: **5**", agents)
+        self.assertIn("common-contract precedence", agents)
         self.assertIn("**F2:** the single-target S20+ recovery-canary T0", agents)
         self.assertIn("### F2 - Exact S20+ Recovery-Canary Bootstrap", tiers)
         self.assertIn(

@@ -1484,6 +1484,9 @@ class MinimalSurfaceTest(unittest.TestCase):
     def test_exact_a90_twrp_bcb_exception_is_narrow_and_bound(self):
         digest = "3c3058563bbe775505fb5c0be8b94ae4a5e44787b5971ca17fd49e599ae7dd07"
         common = (ROOT / "AGENTS.md").read_text()
+        common += "\n" + (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_text(encoding="utf-8")
         target = (ROOT / "docs/operations/targets/A90_TARGET_CONTRACT.md").read_text()
         design = (ROOT / "docs/plans/A90_BOOT_ONLY_F1_MINIMAL_V1_DESIGN_2026-08-20.md").read_text()
         self.assertIn("first 256 bytes of `misc` BCB", common)

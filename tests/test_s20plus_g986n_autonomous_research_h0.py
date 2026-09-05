@@ -357,6 +357,9 @@ class S20PlusAutonomousResearchH0Test(unittest.TestCase):
 
     def test_policy_target_goal_and_report_preserve_pending_boundary(self):
         common = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        common += "\n" + (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_text(encoding="utf-8")
         target = (
             ROOT
             / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"

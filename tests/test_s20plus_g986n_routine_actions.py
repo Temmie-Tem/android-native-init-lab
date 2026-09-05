@@ -759,6 +759,9 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
 
     def test_documents_bind_exactly_one_active_s20_routine_row_and_preserve_other_targets(self):
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        agents += "\n" + (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_text(encoding="utf-8")
         tiers = (ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md").read_text(
             encoding="utf-8"
         )
@@ -791,12 +794,13 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
         self.assertIn(MODULE.sha256_file(SCRIPT), contract)
         self.assertIn("ROUTINE_CONNECTED_ACTIONS.md", agents)
         self.assertIn("ROUTINE_CONNECTED_ACTIONS.md", tiers)
-        row = (
-            "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
-            "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-            "| Active exact-target routine D0/D1 including payload-free Download return; classic-fastboot census ordinals 1/2 consumed, with ordinal 2 four-query PASS and healthy return; fastboot-boot support F1 consumed with NO_PROOF healthy return; attended fixed root-health D0 active; attended boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 recovery retained and candidate consumed; reviewed attended native-canary R1 active |"
-        )
-        self.assertEqual(agents.count(row), 1)
+        # Bind the target and routing, not an ever-growing history/status cell.
+        rows = [line for line in agents.splitlines() if line.startswith(
+            "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) |"
+        )]
+        self.assertEqual(len(rows), 1)
+        self.assertIn("`GOAL_S20PLUS.md`", rows[0])
+        self.assertIn("`docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md`", rows[0])
         self.assertNotIn("s20plus_g986n_routine_actions.py", s22_contract)
         self.assertNotIn("s20plus_g986n_routine_actions.py", a90_contract)
         for text in (agents, tiers, common, contract):

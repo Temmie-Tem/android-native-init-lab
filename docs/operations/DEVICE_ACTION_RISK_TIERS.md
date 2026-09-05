@@ -1,8 +1,10 @@
 # Device Action Risk Tiers
 
 This contract keeps validation effort proportional to the action. It is a
-classification rule, not blanket device authorization. `AGENTS.md`, its
-permanent boundaries, and the selected binding target contract always win.
+classification rule, not blanket device authorization. [AGENTS.md](../../AGENTS.md)
+and its SHA-pinned [common device details](DEVICE_ACTION_CONTRACT_DETAILS.md)
+share the highest common-contract precedence. Their permanent boundaries and
+the selected binding target contract always win.
 Archived target-specific policies are evidence only and grant no authority.
 
 ## Threat Model

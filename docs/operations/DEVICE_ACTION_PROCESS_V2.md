@@ -1,17 +1,19 @@
 # Device Action Process v2
 
-Status: P2.1-P2.5 complete; P2.6-P2.10 host path complete; R4W1-D exact
-candidate proof and rollback passed; R4W1-E E1 closed with rollback but no
-retained proof. No S22+ F1 run is currently authorized.
+This is the reusable ordinary boot-only process, not a current run approval.
+Current target state and activated lanes are recorded in the target contracts
+and goals selected through [AGENTS.md](../../AGENTS.md). Historical milestone
+or H0 qualification results do not establish current device authority.
 
-The A90-only resident boot-promotion v1 policy is adopted as a target-specific
-extension. Its independently reviewed H0 runner has no final connected
-manifest, approval, or device authority. It does not alter the ordinary state
-machine below or any S22+ run.
+The A90-only resident boot-promotion v1 extension does not alter the ordinary
+state machine below or any S22+ run. Its current authority and prerequisites
+remain in the A90 target contract.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
-experiments. It does not relax the permanent boundaries in `AGENTS.md`.
+experiments. It does not relax the permanent boundaries in AGENTS.md or its
+SHA-pinned [common device details](DEVICE_ACTION_CONTRACT_DETAILS.md), which
+share the highest common-contract precedence.
 
 ## Design Goals
 

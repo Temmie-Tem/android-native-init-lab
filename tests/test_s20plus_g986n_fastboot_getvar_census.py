@@ -512,6 +512,9 @@ class S20PlusFastbootGetvarCensusTests(unittest.TestCase):
             self.assertNotIn(forbidden, options)
         self.assertNotIn("--run-dir", options)
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        agents += "\n" + (
+            ROOT / "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md"
+        ).read_text(encoding="utf-8")
         contract = (
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
