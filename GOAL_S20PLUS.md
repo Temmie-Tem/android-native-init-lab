@@ -895,4 +895,4 @@ Static audit found identical ramoops geometry in both stock board overlays and
 the retained T2 artifact; PMSG retention and native PID1 execution remain unproved.
 The fixed readiness D0 is independently reviewed and active; one exact read passed
 `METADATA_READY_RETENTION_UNPROVED`. The one-marker/ordinary-reboot D1 owner is now
-independently reviewed `PASS_GO_NOT_ACTIVE`; see [marker H0](docs/reports/S20PLUS_G986N_PMSG_WARM_REBOOT_D1_H0_2026-09-05.md).
+reviewed and dormant; its Revision 7 attendance exception is documented in [marker H0](docs/reports/S20PLUS_G986N_PMSG_WARM_REBOOT_D1_H0_2026-09-05.md).

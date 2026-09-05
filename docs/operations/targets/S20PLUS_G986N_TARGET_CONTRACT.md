@@ -456,9 +456,25 @@ It is dormant until one independent review closes common/target policy,
 reachable runner/helpers, generated scripts and hostile tests, followed by the
 reviewed `ACTIVE` boolean and this section's ACTIVE status flip. Normalization
 changes only that boolean. Capability review is not a live request. After
-activation, one current direct attended operator request authorizes the whole
+activation, one current direct operator request authorizes the whole
 fixed one-marker/one-reboot transaction; no caller values or reusable session
 are accepted. Only `--render-plan`, `--connected` and `--resume` exist.
+
+AGENTS Revision 7 expressly waives physical attendance and visual confirmation
+only for this single transaction. The operator need not remain beside the
+phone or confirm its screen. Its fixed readiness/root-health preflight, return
+checks and read-only resume are included in that authorization despite the
+standalone D0 capabilities' attendance requirements. Their scripts, hashes,
+identity checks and read bounds remain unchanged; this grants no independent
+unattended D0 invocation, recurring session or other-target authority.
+Changed boot ID together with exact target/topology/build, completed Android
+boot and fixed enforcing SELinux/root/Magisk/stock-PID1 health is the machine
+criterion for observed reboot/healthy return. It is not automatic recovery
+proof. Nonreturn or failed health retains HEALTH_PENDING and the guard; the
+agent stops new effects and may use only the fixed read-only resume. Physical
+recovery requires separately authorized attended handling. No new marker,
+reboot, mode transition or flashing follows from absence or uncertainty.
+This policy amendment activates neither the runner nor a device transaction.
 
 The preflight reuses the six-command readiness D0 above, pinned to 24,362 bytes
 and SHA-256 `f1e61ec324b7c446ed73e14fe6318cf1a7488733b634861c6ffbbeb79001552b`.

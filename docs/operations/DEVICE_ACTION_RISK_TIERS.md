@@ -91,12 +91,20 @@ defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
   generated PMSG marker through a verified character descriptor, one ordinary
   reboot, and one bounded first-observed-return marker comparison. It is D1
   only within its independently reviewed and activated target section/runner;
-  root access does not generalize it. A fresh attended request binds the entire
-  single transaction. Separate durable intents consume write and reboot even
+  root access does not generalize it. Under AGENTS Revision 7, a current direct
+  operator request binds the entire single transaction without requiring
+  physical attendance or screen confirmation. The exception includes its fixed
+  readiness/root-health reads and read-only resume only within this transaction;
+  it grants no standing session or other D0/D1 attendance waiver. Reboot/return
+  verification requires changed boot ID and exact target/topology/build plus
+  completed Android boot and fixed root/Magisk/PID1/SELinux health; boot ID alone
+  is insufficient and these observations do not prove automatic recovery. Separate durable intents consume write and reboot even
   without results; resumed handling permits fixed read-only health/comparison
   only, never either effect again. No partition, raw-memory, persistent-file,
   system-configuration, log-body-export or recovery-mode action is delegated.
-  Absence is NO_PROOF; nonreturn is HEALTH_PENDING and parks for attendance.
+  Absence is NO_PROOF; nonreturn or failed health is HEALTH_PENDING, retains
+  the guard and stops new effects. Any physical recovery waits for separately
+  authorized attended handling; only the fixed read-only resume is available.
 - Default evidence is one result plus the canonical timeline. Do not create a
   new policy exception, one-shot authority graph, or multi-review ladder merely
   for ordinary D1 recovery.

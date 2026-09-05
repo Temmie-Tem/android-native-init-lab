@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **6** (supersedes revision 5; 2026-09-05)
+Contract-Revision: **7** (supersedes revision 6; 2026-09-05)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -56,7 +56,8 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
 1. Work only on an explicitly identified operator-owned device. Device effects
    require attendance except the exact A90 resident D1 lane, an exact S20+
    bounded autonomous-research lane, the S22+ pre-F1 autonomous lane, or the
-   conditional boot-only F1 lane below, each separately activated by its
+   conditional boot-only F1 lane below, or the single S20+ PMSG ordinary-reboot
+   transaction expressly delegated below, each separately activated by its
    binding target contract. F1 remains attended outside that exact activated
    lane, and authority never transfers between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
@@ -238,7 +239,7 @@ Classify every action using
   the four host requests are read-only. It grants no payload or partition
   action and no fastboot command beyond the fixed `getvar` list.
   The exact S20+ target contract may additionally activate
-  `S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1`: one attended transaction writes
+  `S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1`: one operator-authorized transaction writes
   one internally generated, fixed-grammar marker through the verified PMSG
   character-device API into reserved RAM, requests one ordinary Android reboot,
   and compares only that marker in one bounded first-observed-return record.
@@ -251,7 +252,17 @@ Classify every action using
   system-configuration change, log-body export, pstore deletion, module/package
   action, recovery transition or autonomous session. An uncertain intent is
   consumed; continuation is bounded read-only health/marker observation only.
-  Nonreturn parks for attended handling without automatic reboot or flashing.
+  After activation, a current direct operator request for this single
+  transaction permits execution without physical attendance or visual screen
+  confirmation. This is the sole PMSG attendance exception to boundary 1;
+  it grants neither standing authority nor a reusable autonomous session.
+  Reboot evidence requires a changed boot ID plus exact serial/topology/build,
+  completed Android boot, enforcing SELinux and the fixed root/Magisk/PID1
+  health checks; boot ID alone is insufficient. These checks establish observed
+  return, not automatic recovery capability. Nonreturn or failed health retains
+  HEALTH_PENDING and the shared guard: stop new effects and use only the fixed
+  read-only resume. Physical recovery, if needed, waits for separately
+  authorized attended handling; no automatic reboot or flashing is permitted.
   Success proves only ordinary-reboot marker retention, never native PID1 or
   Download/recovery/power-loss retention. No second trial is delegated.
 - **R1:** an attended exact privileged root-data transaction activated by one

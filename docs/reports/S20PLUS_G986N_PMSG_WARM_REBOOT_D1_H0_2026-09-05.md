@@ -95,3 +95,35 @@ fresh exact runtime binding.
 Private source, test, policy, validation and review evidence is retained under
 `workspace/private/work/s20plus-pmsg-warm-reboot-d1-h0-20260905-s4ll_l_z/`.
 No firmware, device logs or identifiers are included in this commit.
+
+## Revision 7 attendance amendment (2026-09-05)
+
+The operator requested a contract update because reboot and healthy return can
+be verified by the agent. This amendment supersedes the attendance wording in
+the initial H0 design above, while preserving its evidence and one-shot limits.
+It changes the common boundary 1 and PMSG delegation, the matching risk-tier
+clause, and only the S20+ PMSG target section.
+
+After the existing separate capability activation, one current direct operator
+request can authorize the single PMSG marker/ordinary-reboot transaction
+without physical attendance or visual screen confirmation. The authorization
+includes only that transaction's fixed readiness/root-health checks and
+read-only resume; standalone D0 permissions and other targets are unchanged.
+A changed boot ID alone is insufficient: exact target/topology/build, completed
+Android boot and fixed SELinux/root/Magisk/stock-PID1 health remain mandatory.
+Normal machine-observed return is not proof of automatic recovery capability.
+
+Under this exception, a nonreturn may remain unresolved until attended
+handling becomes available. Failed health or nonreturn retains HEALTH_PENDING
+and the shared guard; only the existing fixed read-only resume is available.
+There is no automatic retry, extra reboot, mode transition, flashing, repeated
+trial, or standing research session. Physical recovery still needs separately
+authorized attended handling. Marker proof, observation-gap conservatism and
+all privacy/partition limits remain unchanged.
+
+This is a policy-only change. The runner remains dormant and byte-identical to
+`4843d54512105a48096cb00d2617f67a5a5368cdcf42d5ec0cb7f3e0064a6110`;
+no device command or activation occurred. No new tests were needed for unchanged
+execution; validation checks policy consistency, links, source identity and
+repository boundaries. Independent amendment review returned
+**PASS_GO_NOT_ACTIVE**, with no blocking findings; activation remains separate.
