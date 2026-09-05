@@ -642,11 +642,55 @@ preparation and returned attended F1 approval remain required. The existing
 D1 baseline fallback is used only when needed; no new D0/D1 wrapper is created.
 This clause alone grants no live authority.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, or P342 candidate transfer occurs, the same
+**P343 named read-only exploration.** P342 is CLOSED and consumed. This fresh
+successor retains host-first OPEN, HMAC, raw capture, exact current-boot binding,
+initial four-session/120-second idle proof and boot-only Magisk rollback. It
+reuses the P335 attended current-boot lease journal in a distinct P343 namespace:
+at most one hour and sixteen later named sessions, with no renewal or replay.
+The initial proof still executes the original identity/kernel/nonce tuple.
+After that proof, `OBSERVED` and `candidate_boot_ready` must be durable before
+lease/guard publication; successful guard release is required before returning
+an active intermediate lease. This is not F1 closure or Android healthy state.
+
+Each later session executes exactly `id`, one selected query, then the run-bound
+nonce command through the existing BusyBox child. The only query names and
+bytes are `kernel` (`/bin/busybox uname -a`), `processes` (`/bin/busybox ps`),
+`mounts` (`/bin/busybox head -c 8192 /proc/mounts`), `memory`
+(`/bin/busybox head -c 4096 /proc/meminfo`), and `usb-state`
+(`/bin/busybox cat /sys/class/udc/a600000.dwc3/state`). Both host catalog and
+device sequence-4 validator use this closed list. Sequence 3 and 5 keep their
+exact identity/nonce checks; framing and HMAC are unchanged. No caller shell,
+path, executable, environment, write, package, service, mount, persistent file,
+interactive PTY, reboot or Download action is exposed by this catalog.
+
+The action runner uses the ordinary prepared manifest/run address and accepts
+only a named action. The fresh F1 execution closure binds its code, catalog,
+lease core, observer, key and recovery owner; no second activation JSON or
+per-query human approval is required within that attended exact lease.
+Target/transaction locks serialize actions with recovery. Before every effect
+the runner revalidates lease/target/topology/key, durably records one intent,
+and authenticates the unchanged per-boot ID before the first EXEC. One session
+has at most 30 seconds, clamped to remaining lease time immediately before
+OPEN; existing command/output bounds remain. Partial RX/TX and failure details
+are preserved privately. Uncertain intent, failed authentication/command,
+expiry, drift, attendance loss or operator stop permits only the already bound
+rollback. This does not establish automatic recovery if the listener fails.
+
+P343 exploration PASS requires initial proof, at least one completed named
+action and no unresolved/failed action, exact rollback and final rooted FYG8
+health. The close record derives the bounded action summary from the retained
+lease and result receipts; initial USB proof and later exploration proof remain
+separate. No action or only unproved actions yields NO_PROOF after healthy
+rollback, never replay. The current P342 trial remains consumed. P343 needs
+independent review of this changed closure, qualified artifacts, fresh ordinary
+preparation and returned attended F1 approval before execution. Until those
+steps complete this capability is H0 only.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, or P343 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, or `s22plus-fyg8-p342` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, or `s22plus-fyg8-p343` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

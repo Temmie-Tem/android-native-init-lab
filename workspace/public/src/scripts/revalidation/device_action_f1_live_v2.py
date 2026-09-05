@@ -91,10 +91,16 @@ import s22plus_fyg8_open_failure_capture as p341_open_failure_capture
 import s22plus_fyg8_host_first_open as host_first_open
 import s22plus_fyg8_idle_reuse_probe as idle_reuse_probe
 import s22plus_fyg8_p342_open_read_branch_runtime as p342_open_read_runtime
+import s22plus_fyg8_p343_open_read_branch_runtime as p343_open_read_runtime
 import s22plus_fyg8_p342_open_read_branch_acm_observer as p342_open_read_observer
+import s22plus_fyg8_p343_open_read_branch_acm_observer as p343_open_read_observer
 import s22plus_fyg8_p342_stock_process_v2_adapter as p342_stock_adapter
+import s22plus_fyg8_p343_stock_process_v2_adapter as p343_stock_adapter
 import s22plus_fyg8_p342_artifact_identity as p342_artifact_identity
+import s22plus_fyg8_p343_artifact_identity as p343_artifact_identity
 import s22plus_fyg8_open_failure_capture as p342_open_failure_capture
+import s22plus_fyg8_open_failure_capture as p343_open_failure_capture
+import s22plus_fyg8_p343_exploration_session as p343_exploration_session
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -262,15 +268,25 @@ P339_OPEN_HEADER_WORD_STAGES = list(
 P339_OPEN_HEADER_SIZE = typed_evidence.P339_AUTH_EXEC_OPEN_HEADER_SIZE
 P341_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p341_open_header_capture_acm_receipt_v1"
 P342_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p342_idle_reuse_acm_receipt_v1"
+P343_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p343_idle_reuse_acm_receipt_v1"
 P342_CLASSIFICATIONS = set(P339_CLASSIFICATIONS)
+P343_CLASSIFICATIONS = set(P339_CLASSIFICATIONS)
 P342_SUCCESS_VERDICT = "PASS_F1_V2_P342_AUTHENTICATED_IDLE_REUSE_AND_ROLLED_BACK"
+P343_SUCCESS_VERDICT = "PASS_F1_V2_P343_NAMED_EXPLORATION_AND_ROLLED_BACK"
 P342_SUCCESS_OUTCOME = "p342_authenticated_idle_reuse_rollback_verified"
+P343_SUCCESS_OUTCOME = "p343_named_exploration_rollback_verified"
 P342_NO_PROOF_OUTCOME = "p342_authenticated_idle_reuse_unproved_rollback_verified"
+P343_NO_PROOF_OUTCOME = "p343_named_exploration_unproved_rollback_verified"
 P342_LEASE_SCHEMA = "s22plus_fyg8_p342_idle_reuse_lease_v1"
+P343_LEASE_SCHEMA = p343_exploration_session.SCHEMA
 P342_OPEN_READ_BRANCH_ORDINALS = {str(k): v for k, v in p342_open_read_runtime.OPEN_READ_BRANCHES.items()}
+P343_OPEN_READ_BRANCH_ORDINALS = {str(k): v for k, v in p343_open_read_runtime.OPEN_READ_BRANCHES.items()}
 P342_OPEN_HEADER_WORD_STAGES = list(p342_open_read_runtime.OPEN_HEADER_WORD_STAGES)
+P343_OPEN_HEADER_WORD_STAGES = list(p343_open_read_runtime.OPEN_HEADER_WORD_STAGES)
 P342_OPEN_HEADER_SIZE = p342_open_read_runtime.OPEN_HEADER_SIZE
+P343_OPEN_HEADER_SIZE = p343_open_read_runtime.OPEN_HEADER_SIZE
 P342_AUTH_KEY_IDENTITY = dict(typed_evidence.P339_AUTH_EXEC_AUTH_KEY_IDENTITY)
+P343_AUTH_KEY_IDENTITY = dict(typed_evidence.P339_AUTH_EXEC_AUTH_KEY_IDENTITY)
 P340_OBSERVER_RECEIPT_SCHEMA = "s22plus_fyg8_p340_open_header_capture_acm_receipt_v1"
 P341_CLASSIFICATIONS = set(P339_CLASSIFICATIONS)
 P340_CLASSIFICATIONS = set(P339_CLASSIFICATIONS)
@@ -860,6 +876,17 @@ def _p342_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
     return value
 
 
+def _p343_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+    value = _p339_stock_error(payload, error)
+    value.update(
+        {
+            "schema": "device_action_f1_p343_stock_error_v1",
+            "classification": "P343_STOCK_PARSER_EXCEPTION",
+        }
+    )
+    return value
+
+
 def _p340_parser_failure_classification(
     payload: bytes, error: BaseException
 ) -> dict[str, Any]:
@@ -904,6 +931,22 @@ def _p342_parser_failure_classification(
         "family_count": 0,
         "foreign_count": 0,
         "p342_stock_error": diagnostic,
+        "accepted": False,
+    }
+
+
+def _p343_parser_failure_classification(
+    payload: bytes, error: BaseException
+) -> dict[str, Any]:
+    diagnostic = _p343_stock_error(payload, error)
+    return {
+        "classification": diagnostic["classification"],
+        "integrity_issue": True,
+        "integrity_issues": ["p343-stock-parser-exception"],
+        "exact_count": 0,
+        "family_count": 0,
+        "foreign_count": 0,
+        "p343_stock_error": diagnostic,
         "accepted": False,
     }
 
@@ -1322,6 +1365,16 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 paths[_host_first_variant(bundle).text('p341_host_first_open')] = Path(
                     host_first_open.__file__
                 ).resolve()
+                if _p343_bundle(bundle):
+                    paths['p343_idle_reuse_probe'] = Path(idle_reuse_probe.__file__).resolve()
+                    paths['p343_raw_carrier_parser'] = p343_stock_adapter.RAW_PARSER_SOURCE
+                    for prefix in ('p341','p342'):
+                        for suffix in ('open_read_runtime','open_read_observer','stock_adapter','artifact_identity'):
+                            paths[f'p343_parent_{prefix}_{suffix}'] = Path(globals()[prefix+'_'+suffix].__file__).resolve()
+                    for name in ('s22plus_fyg8_p343_exploration_session', 's22plus_fyg8_p343_exploration_action',
+                                 's22plus_fyg8_readonly_exploration', 's22plus_fyg8_p335_resident_session',
+                                 's22plus_fyg8_p335_resident_action'):
+                        paths['p343_' + name] = scripts / (name + '.py')
                 if _p342_bundle(bundle):
                     paths["p342_idle_reuse_probe"] = Path(idle_reuse_probe.__file__).resolve()
                     paths["p342_raw_carrier_parser"] = p342_stock_adapter.RAW_PARSER_SOURCE
@@ -1989,6 +2042,7 @@ def _p328_bundle(bundle: core.Bundle) -> bool:
         _userspace_overlay_contract_id(bundle)
         in {
             p342_stock_adapter.OVERLAY_CONTRACT_ID,
+            p343_stock_adapter.OVERLAY_CONTRACT_ID,
             p341_stock_adapter.OVERLAY_CONTRACT_ID, p340_stock_adapter.OVERLAY_CONTRACT_ID,
             typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID,
             typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID,
@@ -2119,17 +2173,32 @@ def _p342_bundle(bundle: core.Bundle) -> bool:
     )
 
 
+def _p343_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == p343_stock_adapter.OVERLAY_CONTRACT_ID
+        and _candidate_arrival_proof_role(bundle) is not None
+    )
+
+
 def _host_first_bundle(bundle: core.Bundle) -> bool:
     """Shared dispatch only; both exact run/spec identities remain separate."""
-    return _p341_bundle(bundle) or _p342_bundle(bundle)
+    return _p341_bundle(bundle) or _p342_bundle(bundle) or _p343_bundle(bundle)
+
+
+def _host_first_prefix(overlay: str) -> str:
+    if overlay == p343_stock_adapter.OVERLAY_CONTRACT_ID:
+        return 'p343'
+    if overlay == p342_stock_adapter.OVERLAY_CONTRACT_ID:
+        return 'p342'
+    return 'p341'
 
 
 def _host_first_variant(bundle: core.Bundle) -> Any:
     # The P341 default preserves legacy foreign-key rejection and constants
     # outside the guarded dispatch. This lookup itself grants no acceptance;
     # only _host_first_bundle plus ordinary exact role validation selects it.
-    prefix = ("p342" if _userspace_overlay_contract_id(bundle)
-              == p342_stock_adapter.OVERLAY_CONTRACT_ID else "p341")
+    prefix = _host_first_prefix(_userspace_overlay_contract_id(bundle))
     upper = prefix.upper()
     aliases = {
         "runtime": "_open_read_runtime", "observer": "_open_read_observer",
@@ -2437,6 +2506,7 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
     )
     if identity not in {
         (p342_stock_adapter.OVERLAY_CONTRACT_ID, p342_stock_adapter.P342_RUN_ID_HEX),
+        (p343_stock_adapter.OVERLAY_CONTRACT_ID, p343_stock_adapter.P343_RUN_ID_HEX),
         (
             p341_stock_adapter.OVERLAY_CONTRACT_ID,
             p341_stock_adapter.P341_RUN_ID_HEX,
@@ -3651,7 +3721,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
-    is_p341 = overlay in {p341_stock_adapter.OVERLAY_CONTRACT_ID, p342_stock_adapter.OVERLAY_CONTRACT_ID}
+    is_p341 = overlay in {p341_stock_adapter.OVERLAY_CONTRACT_ID, p342_stock_adapter.OVERLAY_CONTRACT_ID, p343_stock_adapter.OVERLAY_CONTRACT_ID}
     is_p340 = overlay == p340_stock_adapter.OVERLAY_CONTRACT_ID
     is_p339 = overlay == typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID
     is_p338 = overlay == typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID
@@ -3720,7 +3790,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else typed_evidence.p320_stock_adapter)
     )
     label = (
-        (("P3.42" if overlay == p342_stock_adapter.OVERLAY_CONTRACT_ID else "P3.41") if is_p341 else "P3.40"
+        (("P3." + _host_first_prefix(overlay)[2:]) if is_p341 else "P3.40"
         if is_p340
         else "P3.39"
         if is_p339
@@ -3766,7 +3836,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
         else "P3.20")
     )
     stock_key = (
-        (("p342_stock" if overlay == p342_stock_adapter.OVERLAY_CONTRACT_ID else "p341_stock") if is_p341 else "p340_stock"
+        ((_host_first_prefix(overlay) + "_stock") if is_p341 else "p340_stock"
         if is_p340
         else "p339_stock"
         if is_p339
@@ -3958,9 +4028,10 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
-    if "p341_stock" in state and "p342_stock" in state:
+    present = [prefix for prefix in ('p341','p342','p343') if prefix + '_stock' in state]
+    if len(present) > 1:
         raise F1LiveError("host-first durable projection mixes candidate namespaces")
-    prefix = "p342" if "p342_stock" in state else "p341"
+    prefix = present[0] if present else 'p341'
     is_p341 = prefix + "_stock" in state
     is_p340 = "p340_stock" in state
     is_p339 = "p339_stock" in state
@@ -8482,8 +8553,47 @@ def _p342_initial_observer_module(*, outer_deadline: float | None = None) -> typ
     return module
 
 
+def _p343_initial_observer_module(*, outer_deadline: float | None = None) -> types.ModuleType:
+    module = _open_header_initial_observer_module(
+        p343_open_read_runtime, p343_open_read_observer, "p343")
+    host_first_open.install_observer(module)
+    receipts = idle_reuse_probe.install(module, outer_deadline=outer_deadline)
+    module.SCHEMA = p343_open_read_observer.SCHEMA
+    module.CONTRACT_ID = p343_open_read_observer.CONTRACT_ID
+    original_producer = module.validate_retained_proof
+    original_parser = module.validate_proof_value
+
+    def producer(result: Any) -> dict[str, Any]:
+        proof = original_producer(result)
+        try:
+            proof["idle_reuse"] = idle_reuse_probe.validate_idle(receipts)
+        except ValueError as exc:
+            raise module.AuthObserverError("P343 idle interval is unproved") from exc
+        return proof
+
+    def parser(value: Any, **kwargs: Any) -> dict[str, Any]:
+        if type(value) is not dict or "idle_reuse" not in value:
+            raise module.AuthObserverError("P343 idle receipt is absent")
+        copied = dict(value)
+        idle = copied.pop("idle_reuse")
+        result = original_parser(copied, **kwargs)
+        try:
+            idle_reuse_probe.validate_idle([idle])
+        except ValueError as exc:
+            raise module.AuthObserverError("P343 idle receipt differs") from exc
+        return {**result, "idle_reuse": dict(idle)}
+
+    module.validate_retained_proof = producer
+    module.validate_default_proof = producer
+    module.validate_resident_proof = producer
+    module.validate_proof_value = parser
+    module.idle_receipts = receipts
+    return module
+
+
 _P339_INITIAL_OBSERVER = _p339_initial_observer_module()
 _P342_INITIAL_OBSERVER = _p342_initial_observer_module()
+_P343_INITIAL_OBSERVER = _p343_initial_observer_module()
 _P341_INITIAL_OBSERVER = _p341_initial_observer_module()
 _P340_INITIAL_OBSERVER = _p340_initial_observer_module()
 
@@ -8639,6 +8749,32 @@ class _P342ObserverSession(_P339ObserverSession):
     def _read_endpoint(self, endpoint: Any, deadline: float, writer: Any) -> str:
         # One private codec and one-use scheduler per actual observation.
         self.auth_observer = _p342_initial_observer_module(outer_deadline=deadline)
+        return super()._read_endpoint(endpoint, deadline, writer)
+
+    def _receipt_supplement(self) -> dict[str, Any]:
+        return {"idle_reuse": [dict(item) for item in getattr(self.auth_observer, "idle_receipts", ())]}
+
+
+@dataclass
+class _P343ObserverSession(_P339ObserverSession):
+    auth_observer: Any = _P343_INITIAL_OBSERVER
+    auth_runtime: Any = p343_open_read_runtime
+    branch_observer: Any = p343_open_read_observer
+    receipt_schema: str = P343_OBSERVER_RECEIPT_SCHEMA
+    receipt_label: str = "P343 bounded idle reuse observer receipt"
+    campaign_label: str = "P3.43"
+    proof_key: str = "p343_authenticated_open_read_branch_resident"
+    raw_argv0_name: str = "tty-cdc-acm-p343"
+
+    @staticmethod
+    def _repin_initial_proof(value: Mapping[str, Any]) -> dict[str, Any]:
+        return _open_header_repin_proof(value, runtime_module=p343_open_read_runtime,
+            observer_module=p343_open_read_observer,
+            proof_validator=typed_evidence.validate_p343_open_read_branch_proof)
+
+    def _read_endpoint(self, endpoint: Any, deadline: float, writer: Any) -> str:
+        # One private codec and one-use scheduler per actual observation.
+        self.auth_observer = _p343_initial_observer_module(outer_deadline=deadline)
         return super()._read_endpoint(endpoint, deadline, writer)
 
     def _receipt_supplement(self) -> dict[str, Any]:
@@ -8950,7 +9086,7 @@ def _logical_resident_candidate_observer_session(
                 "per_boot_identity_required": True,
                 "listener_wait_after_proof": True,
                 "resident_lease_schema": (
-                    (P342_LEASE_SCHEMA if label == "P3.42" else P341_LEASE_SCHEMA if label == "P3.41" else P340_LEASE_SCHEMA
+                    (P343_LEASE_SCHEMA if label == "P3.43" else P342_LEASE_SCHEMA if label == "P3.42" else P341_LEASE_SCHEMA if label == "P3.41" else P340_LEASE_SCHEMA
                     if label == "P3.40"
                     else
                     P339_LEASE_SCHEMA
@@ -9249,6 +9385,20 @@ def _p342_candidate_observer_session(
         observer_module=p342_open_read_observer,
         runtime_module=p342_open_read_runtime,
         session_type=_P342ObserverSession, label="P3.42", entry_diagnostic=True,
+    )
+
+
+def _p343_candidate_observer_session(
+    prepared: PreparedRun, spec: dict[str, Any], *,
+    lane_value: dict[str, Any], lane_receipt: dict[str, Any],
+    usb_root: Path, typec_root: Path,
+) -> ContextManager[_P343ObserverSession]:
+    return _logical_resident_candidate_observer_session(
+        prepared, spec, lane_value=lane_value, lane_receipt=lane_receipt,
+        usb_root=usb_root, typec_root=typec_root,
+        observer_module=p343_open_read_observer,
+        runtime_module=p343_open_read_runtime,
+        session_type=_P343ObserverSession, label="P3.43", entry_diagnostic=True,
     )
 
 
@@ -10247,6 +10397,7 @@ def _p339_proof_ok(value: Mapping[str, Any]) -> bool:
 
 P341_PROOF_FIELDS = P339_PROOF_FIELDS
 P342_PROOF_FIELDS = P339_PROOF_FIELDS
+P343_PROOF_FIELDS = P339_PROOF_FIELDS
 P340_PROOF_FIELDS = P339_PROOF_FIELDS
 
 
@@ -10260,6 +10411,10 @@ def _p341_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
 
 def _p342_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value.get(key) for key in P342_PROOF_FIELDS}
+
+
+def _p343_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value.get(key) for key in P343_PROOF_FIELDS}
 
 
 def _p340_proof_ok(value: Mapping[str, Any]) -> bool:
@@ -10286,6 +10441,15 @@ def _p342_proof_ok(value: Mapping[str, Any]) -> bool:
         observer_module=p342_open_read_observer,
         proof_validator=typed_evidence.validate_p342_open_read_branch_proof,
         proof_key="p342_authenticated_open_read_branch_resident",
+    )
+
+
+def _p343_proof_ok(value: Mapping[str, Any]) -> bool:
+    return _open_header_proof_ok(
+        value, runtime_module=p343_open_read_runtime,
+        observer_module=p343_open_read_observer,
+        proof_validator=typed_evidence.validate_p343_open_read_branch_proof,
+        proof_key="p343_authenticated_open_read_branch_resident",
     )
 
 
@@ -11516,6 +11680,45 @@ def _p342_validate_receipt(
             raise p342_open_read_observer.AuthObserverError("P342 accepted idle is unproved") from exc
         if not _p319_exact_equal(idle, raw_value["proof"].get("idle_reuse")):
             raise p342_open_read_observer.AuthObserverError("P342 idle proof/receipt differ")
+    value["idle_reuse"] = receipts
+    return value
+
+
+def _p343_validate_receipt(
+    prepared: PreparedRun, path: Path, spec: dict[str, Any],
+) -> dict[str, Any]:
+    value = _open_header_validate_receipt(
+        prepared, path, spec, runtime_module=p343_open_read_runtime,
+        observer_module=p343_open_read_observer,
+        receipt_schema=P343_OBSERVER_RECEIPT_SCHEMA, classifications=P343_CLASSIFICATIONS,
+        proof_validator=typed_evidence.validate_p343_open_read_branch_proof,
+        proof_checker=_p343_proof_ok,
+        proof_key="p343_authenticated_open_read_branch_resident",
+        label="P343", reason_frame_index=1, extra_keys=frozenset({"idle_reuse"}),
+    )
+    raw_value = _read_json(path, "P343 idle timing receipt")
+    receipts = raw_value.get("idle_reuse")
+    if type(receipts) is not list or len(receipts) > 1:
+        raise p343_open_read_observer.AuthObserverError("P343 idle record count differs")
+    for item in receipts:
+        if (type(item) is not dict or set(item) != {
+                "phase", "before_session_index", "requested_seconds", "elapsed_seconds",
+                "same_descriptor", "completed", "received_bytes"}
+            or item["phase"] != "same-fd-idle"
+            or type(item["before_session_index"]) is not int or item["before_session_index"] != 2
+            or type(item["requested_seconds"]) is not int or item["requested_seconds"] != 120
+            or type(item["elapsed_seconds"]) not in (int, float) or not math.isfinite(item["elapsed_seconds"])
+            or type(item["same_descriptor"]) is not bool or type(item["completed"]) is not bool
+            or type(item["received_bytes"]) is not int
+            or not 0 <= item["received_bytes"] <= idle_reuse_probe.IDLE_READ_BOUND):
+            raise p343_open_read_observer.AuthObserverError("P343 partial idle record differs")
+    if raw_value["accepted"]:
+        try:
+            idle = idle_reuse_probe.validate_idle(receipts)
+        except ValueError as exc:
+            raise p343_open_read_observer.AuthObserverError("P343 accepted idle is unproved") from exc
+        if not _p319_exact_equal(idle, raw_value["proof"].get("idle_reuse")):
+            raise p343_open_read_observer.AuthObserverError("P343 idle proof/receipt differ")
     value["idle_reuse"] = receipts
     return value
 
@@ -12901,7 +13104,7 @@ def _state(prepared: PreparedRun) -> dict[str, Any]:
 
 def _save_state(prepared: PreparedRun, value: dict[str, Any]) -> None:
     value = {**value, "schema": LIVE_STATE_SCHEMA}
-    if _p342_bundle(prepared.bundle):
+    if _p342_bundle(prepared.bundle) or _p343_bundle(prepared.bundle):
         # Four authenticated sessions plus the decoded Carrier projection
         # reach 33,084 bytes in the closed-state fixture. Reuse the existing
         # 64 KiB writer for this exact state path; all journal bounds stay put.
@@ -13116,7 +13319,8 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     observer = evidence.get("observer")
     if not isinstance(observer, dict) or observer.get("byte_identical") is not True:
         raise F1LiveError("final observer evidence is malformed")
-    foreign = "p341_" if _p342_bundle(prepared.bundle) else "p342_"
+    prefix = _host_first_prefix(_userspace_overlay_contract_id(prepared.bundle))
+    foreign = tuple(name+'_' for name in ('p341','p342','p343') if name != prefix)
     if any(key.startswith(foreign) for key in observer):
         raise F1LiveError("final host-first observer carries a foreign candidate namespace")
     health = evidence.get("health")
@@ -13635,7 +13839,8 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
 def _validate_candidate_observer_state(
     prepared: PreparedRun, state: dict[str, Any]
 ) -> None:
-    foreign = "p341_" if _p342_bundle(prepared.bundle) else "p342_"
+    prefix = _host_first_prefix(_userspace_overlay_contract_id(prepared.bundle))
+    foreign = tuple(name+'_' for name in ('p341','p342','p343') if name != prefix)
     if any(key.startswith(foreign) for key in state):
         raise F1LiveError("host-first state carries a foreign candidate namespace")
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
@@ -14130,6 +14335,11 @@ def validate_live_result(
         if not isinstance(projection, dict):
             raise F1LiveError(f"{label} candidate arrival proof is missing")
         proof = projection.get("proof") is True
+        if _p343_bundle(prepared.bundle):
+            summary = p343_exploration_session.action_summary(sys.modules[__name__], prepared)
+            if not typed_evidence._strict_equal(state.get('p343_exploration_summary'), summary):
+                raise F1LiveError('P343 exploration summary does not reopen')
+            proof = proof and summary['proved'] is True
         if proof:
             if (
                 result["verdict"] != success_verdict
@@ -15454,7 +15664,9 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
         )
         if not isinstance(projection, dict):
             projection = _candidate_arrival_proof_projection(prepared, current)
-        if isinstance(projection, dict) and projection.get("proof") is True:
+        if (isinstance(projection, dict) and projection.get("proof") is True
+            and (not _p343_bundle(prepared.bundle)
+                 or current.get('p343_exploration_summary', {}).get('proved') is True)):
             return (
                 (
                     (_host_first_variant(prepared.bundle).SUCCESS_VERDICT if p341 else P340_SUCCESS_VERDICT
@@ -16112,6 +16324,8 @@ def _finish_rollback(
                     raise F1LiveError("P3.26 final stock projection is missing")
                 current["p326_proof_class"] = projection["proof_class"]
                 current["p326_stock"] = projection
+        if _p343_bundle(prepared.bundle):
+            current['p343_exploration_summary'] = p343_exploration_session.action_summary(sys.modules[__name__], prepared)
         _save_state(prepared, current)
         journal.transition(
             "HEALTH_VERIFIED",
@@ -17294,6 +17508,7 @@ def _execute_prepared_locked(
     with backend.endpoint_session(endpoint_dir) as lease:
         p335_pending: dict[str, Any] | None = None
         p336_pending: dict[str, Any] | None = None
+        p343_pending: dict[str, Any] | None = None
         with contextlib.ExitStack() as observer_stack:
             trace_session = _P300UsbTraceSession(prepared, journal)
             # Push the failure-aware cleanup before the observer context is
@@ -17671,7 +17886,10 @@ def _execute_prepared_locked(
             if _p300_bundle(prepared.bundle):
                 trace_session.observation_durable(current)
                 trace_session.defer_stack_close = True
-            if _p336_bundle(prepared.bundle):
+            if _p343_bundle(prepared.bundle):
+                p343_pending = p343_exploration_session.before_guard_release(
+                    sys.modules[__name__], prepared, journal, candidate, observation, trace_session)
+            elif _p336_bundle(prepared.bundle):
                 p336_pending = _finish_p336_candidate_window_before_guard_release(
                     prepared,
                     journal,
@@ -17687,6 +17905,9 @@ def _execute_prepared_locked(
                     observation,
                     trace_session,
                 )
+        if p343_pending is not None:
+            return p343_exploration_session.after_guard_release(
+                sys.modules[__name__], prepared, backend, journal, endpoint_dir, lease, p343_pending)
         if p335_pending is not None:
             return _finish_p335_after_guard_release(
                 prepared,
@@ -17792,7 +18013,9 @@ def _recover_prepared_locked(
             "interrupted_before_candidate_attempt",
             False,
         )
-    if _p336_bundle(prepared.bundle) and journal.state() == "OBSERVED":
+    if _p343_bundle(prepared.bundle) and journal.state() == "OBSERVED":
+        p343_exploration_session.mark_rollback_required(sys.modules[__name__], prepared)
+    elif _p336_bundle(prepared.bundle) and journal.state() == "OBSERVED":
         _p336_mark_resident_rollback_required(prepared)
     elif _p335_bundle(prepared.bundle) and journal.state() == "OBSERVED":
         _p335_mark_resident_rollback_required(prepared)
@@ -17841,6 +18064,7 @@ def build_parser() -> argparse.ArgumentParser:
     modes.add_argument("--prepare", action="store_true")
     modes.add_argument("--execute", action="store_true")
     modes.add_argument("--recover", action="store_true")
+    modes.add_argument('--resident-action', choices=p343_exploration_session.ACTION_NAMES)
     parser.add_argument("--manifest", type=Path, default=core.DEFAULT_MANIFEST)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--approval")
@@ -17871,6 +18095,12 @@ def main(argv: list[str] | None = None) -> int:
                 root, bundle, run_dir, d0.adb_client_for_bundle(adb, bundle)
             )
             result = {**result, "run_dir": str(run_dir)}
+        elif args.resident_action is not None:
+            if args.run_dir is None or args.approval is not None:
+                raise F1LiveError('named action needs its existing run, not a new approval')
+            prepared = load_prepared(root, args.manifest, args.run_dir)
+            import s22plus_fyg8_p343_exploration_action as exploration_action
+            result = exploration_action.run_action(sys.modules[__name__], prepared, args.resident_action)
         else:
             if args.run_dir is None:
                 raise F1LiveError("execute/recover requires --run-dir")
