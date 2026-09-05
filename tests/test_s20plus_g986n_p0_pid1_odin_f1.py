@@ -95,9 +95,8 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             "observer_schema": self.module.observer.SCHEMA,
             "baseline_sha256": "3" * 64,
             "scanned": True,
-            "exact_count": 0,
-            "pending_count": 0,
-            "conflicting_count": 0,
+            "download_endpoint_count": 1,
+            "download_listing_sha256": "9" * 64,
             "at": "fixture",
         }
 
@@ -858,12 +857,10 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         self.assertFalse(departed)
         self.assertEqual(absence, 0.0)
 
-    def test_observer_terminal_inventory_publishes_counts_only(self):
-        inventory = SimpleNamespace(
-            exact=(SimpleNamespace(usb_node="1-2", identity_sha256="2" * 64),),
-            pending_identity_sha256=("6" * 64,),
-            conflicting_identity_sha256=(),
-        )
+    def test_download_terminal_inventory_publishes_counts_only(self):
+        # The ACM observer is keyed to a gadget this candidate never creates, so
+        # it would report zero on every run and answer nothing. The inventory
+        # records the Download enumeration state instead.
         captured = {}
 
         def capture(run_dir, name, value, label):
@@ -873,18 +870,48 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         with mock.patch.object(self.module, "require_active"), self.live_transaction(
             Path("/fixture")
         ), mock.patch.object(
-            self.module.observer, "scan_inventory", return_value=inventory
+            self.module.engine, "enumerate_download", return_value=(["dev-a"], "b" * 64)
         ), mock.patch.object(self.module, "_publish_p0_json", side_effect=capture):
             self.module._publish_observer_inventory(
                 Path("/fixture"), self.baseline("1" * 64)
             )
-        self.assertEqual(captured["exact_count"], 1)
-        self.assertEqual(captured["pending_count"], 1)
-        self.assertEqual(captured["conflicting_count"], 0)
         self.assertTrue(captured["scanned"])
-        # Counts only: no identity, serial or topology value may be written out.
-        self.assertNotIn("2" * 64, json.dumps(captured))
-        self.assertNotIn("6" * 64, json.dumps(captured))
+        self.assertEqual(captured["download_endpoint_count"], 1)
+        self.assertEqual(captured["download_listing_sha256"], "b" * 64)
+        # Counts and a listing digest only: no device path may be written out.
+        self.assertNotIn("dev-a", json.dumps(captured))
+
+    def test_download_terminal_inventory_records_a_failed_scan(self):
+        captured = {}
+
+        def capture(run_dir, name, value, label):
+            captured.update(value)
+            return {"name": name, "size": 1, "sha256": "3" * 64, "mode": "0400"}
+
+        with mock.patch.object(self.module, "require_active"), self.live_transaction(
+            Path("/fixture")
+        ), mock.patch.object(
+            self.module.engine, "enumerate_download", side_effect=OSError("enumeration failed")
+        ), mock.patch.object(self.module, "_publish_p0_json", side_effect=capture):
+            self.module._publish_observer_inventory(
+                Path("/fixture"), self.baseline("1" * 64)
+            )
+        self.assertFalse(captured["scanned"])
+        self.assertRegex(captured["reason_sha256"], r"^[0-9a-f]{64}$")
+
+    def test_activation_closure_binds_the_candidate_section_too(self):
+        # Flipping the machinery section alone must not activate this owner while
+        # the bound candidate's own section still reads NOT ACTIVE.
+        semantics = self.module._current_document_semantics()
+        self.assertIn("candidate_contract", semantics)
+        self.assertEqual(
+            semantics["candidate_contract"],
+            self.module.P0_DORMANT_CANDIDATE_MARKER,
+        )
+        self.assertNotEqual(
+            self.module.P0_DORMANT_CANDIDATE_MARKER,
+            self.module.P0_ACTIVE_CANDIDATE_MARKER,
+        )
 
     def test_no_proof_observation_cannot_gain_transport_authority(self):
         binding = "1" * 64
@@ -2328,6 +2355,10 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             paths["target_contract"]: (
                 "# Contract\n\n## P0 PID1 ACM Odin boot-only F1\n\n"
                 + self.module.P0_ACTIVE_CONTRACT_MARKER
+                + "\n\nBody\n\n"
+                + self.module.P0_CANDIDATE_SECTION_HEADING
+                + "\n\n"
+                + self.module.P0_ACTIVE_CANDIDATE_MARKER
                 + "\n\nBody\n"
             ),
             paths["current_goal"]: (
@@ -2356,6 +2387,10 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                 {
                     "repository_contract": self.module.P0_ACTIVE_REGISTRY_PROCESS_CELL,
                     "target_contract": self.module.P0_ACTIVE_CONTRACT_MARKER,
+                    # The bound candidate's own section is a separate activation
+                    # cell: the machinery being armed is not the candidate being
+                    # approved.
+                    "candidate_contract": self.module.P0_ACTIVE_CANDIDATE_MARKER,
                     "current_goal": self.module.P0_ACTIVE_GOAL_MARKER,
                     "qualification_report": self.module.P0_ACTIVE_REPORT_MARKER,
                 },
@@ -2415,7 +2450,11 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         hidden[paths["target_contract"]] = (
             "# Contract\n\n<!--\n## P0 PID1 ACM Odin boot-only F1\n\n"
             + self.module.P0_ACTIVE_CONTRACT_MARKER
-            + "\n-->\n\n## Other\n"
+            + "\n-->\n\n"
+            + self.module.P0_CANDIDATE_SECTION_HEADING
+            + "\n\n"
+            + self.module.P0_ACTIVE_CANDIDATE_MARKER
+            + "\n\n## Other\n"
         )
         hidden_variants.append(hidden)
         hidden = dict(active)
@@ -2483,6 +2522,10 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                     )
                 if name == "target_contract":
                     return f"\n## P0 PID1 ACM Odin boot-only F1\n\n{status}\n"
+                if name == "candidate_contract":
+                    return (
+                        f"\n{self.module.P0_CANDIDATE_SECTION_HEADING}\n\n{status}\n"
+                    )
                 if name == "current_goal":
                     return f"\n## Current P0 PID1 Odin F1 state\n\n{status}\n"
                 return f"\nTier: H0 only\n\n{status}\n\n## Outcome\n"

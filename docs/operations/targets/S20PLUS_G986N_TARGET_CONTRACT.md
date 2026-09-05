@@ -2601,7 +2601,7 @@ chain.
 
 Built by
 `workspace/public/src/scripts/revalidation/build_s20plus_g986n_p0_pid1_min_h0.py`
-at SHA-256 `7eeacf34184e31deaa571029d3cd7961fcd6f59e7d1dd78bbef1681f53a5da51`
+at SHA-256 `00c483982717e298fa99ce17f15fe010938a7506ea01077323082e298b4f81d3`
 from `workspace/public/src/native-init/s20plus_p0_pid1_min_init.c` at SHA-256
 `4fa39972eee88896f0cde837aafd19c0ddfd07eadd224f522021adb523629c8f`.
 
@@ -2626,8 +2626,16 @@ mode. That is the whole program. Its runtime surface is exactly eight syscalls:
 `getpid` for the gate, `mkdirat`, `mknodat`, `openat`, `write` and `close` for
 the banner, `nanosleep` for the park, and `reboot` for the request. The builder
 fails the build if any of `mount`, `symlinkat`, `read` or `exit_group` appears,
-or if any of nine strings the ACM candidate carried is present, so the gadget
-chain cannot silently regrow into a candidate that reaches the device.
+or if any of nine strings the ACM candidate carried is present.
+
+Those checks are defence in depth against an accidental regression, and this
+section previously described them as making a regrown gadget chain unbuildable.
+That was an over-claim and is withdrawn. The syscall scan recognises only
+immediate `mov x8, #constant` forms, so a computed or indirect number is
+invisible to it; the expected set proves presence, not that nothing else is
+invoked; and the string checks are literal byte substrings, so a constructed
+path is not caught. What binds this candidate is the artifact digest pinned
+above, not the scan.
 
 `/dev/kmsg` is a fixed 1:11 character device and needs no sysfs lookup, unlike
 the `ttyGS0` node it replaces. The banner is best effort in the strict sense:

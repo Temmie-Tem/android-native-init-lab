@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "c2ece0c9120d5b60736ca966a88805e3f76ec681d4b81f6742b0442ce1c9d5a4"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "f83338d28cfa8499f2a13e7cbcb3b97568970d291a2c9ad2d947b04a185b32f4"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -97,8 +97,8 @@ BUILDER_PATH = ROOT / (
     "workspace/public/src/scripts/revalidation/"
     "build_s20plus_g986n_p0_pid1_min_h0.py"
 )
-BUILDER_SIZE = 10_867
-BUILDER_SHA256 = "7eeacf34184e31deaa571029d3cd7961fcd6f59e7d1dd78bbef1681f53a5da51"
+BUILDER_SIZE = 11_426
+BUILDER_SHA256 = "00c483982717e298fa99ce17f15fe010938a7506ea01077323082e298b4f81d3"
 INIT_SOURCE_PATH = (
     ROOT / "workspace/public/src/native-init/s20plus_p0_pid1_min_init.c"
 )
@@ -275,7 +275,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
     },
     "focused_owner": {
         "modules": ["tests.test_s20plus_g986n_p0_pid1_odin_f1"],
-        "tests": 83,
+        "tests": 85,
         "skipped": 0,
         "log_name": "focused-owner.log",
     },
@@ -297,7 +297,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
             # silently desynchronizing while it is dormant.
             "tests.test_s20plus_g986n_activation_document_drift",
         ],
-        "tests": 214,
+        "tests": 216,
         "skipped": 10,
         "log_name": "wider.log",
     },
@@ -310,6 +310,16 @@ P0_ACTIVE_REGISTRY_MARKER = (
 )
 P0_DORMANT_REPORT_MARKER = "Status: `H0_REVIEW_PENDING_NOT_ACTIVE`"
 P0_DORMANT_CONTRACT_MARKER = "Status: **DEFINED - H0 ONLY - NOT ACTIVE**"
+# The bound candidate's own section. Activation requires both it and the
+# machinery section above to be in the same reviewed state.
+P0_CANDIDATE_SECTION_HEADING = (
+    "## S20+ P0 PID1 Minimal Download-Request F1 candidate"
+)
+P0_ACTIVE_CANDIDATE_MARKER = "Status: **ACTIVE - ATTENDED F1 ONLY**"
+P0_DORMANT_CANDIDATE_MARKER = (
+    "Status: **DEFINED - H0 ONLY - NOT ACTIVE - OWNER REBOUND AND OBSERVATION "
+    "REPLACED; REVIEW REQUIRED**"
+)
 P0_DORMANT_GOAL_MARKER = "Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`"
 P0_REGISTRY_TARGET_CELL = (
     "Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`)"
@@ -344,6 +354,11 @@ P0_POLICY_FILES = {
     "target_contract": (
         ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
     ),
+    # The bound candidate's section lives in the same document; it is a separate
+    # activation cell because it authorizes a different thing.
+    "candidate_contract": (
+        ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
+    ),
     "risk_tiers": ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md",
     "process_v2": ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md",
     "current_goal": ROOT / "GOAL_S20PLUS.md",
@@ -370,12 +385,14 @@ P0_UNCHANGED_POLICY_NAMES = frozenset({"risk_tiers", "process_v2"})
 P0_DORMANT_DOCUMENT_SEMANTICS = {
     "repository_contract": P0_DORMANT_REGISTRY_PROCESS_CELL,
     "target_contract": P0_DORMANT_CONTRACT_MARKER,
+    "candidate_contract": P0_DORMANT_CANDIDATE_MARKER,
     "current_goal": P0_DORMANT_GOAL_MARKER,
     "qualification_report": P0_DORMANT_REPORT_MARKER,
 }
 P0_ACTIVE_DOCUMENT_SEMANTICS = {
     "repository_contract": P0_ACTIVE_REGISTRY_PROCESS_CELL,
     "target_contract": P0_ACTIVE_CONTRACT_MARKER,
+    "candidate_contract": P0_ACTIVE_CANDIDATE_MARKER,
     "current_goal": P0_ACTIVE_GOAL_MARKER,
     "qualification_report": P0_ACTIVE_REPORT_MARKER,
 }
@@ -2074,6 +2091,15 @@ def _current_document_semantics(
             "## P0 PID1 ACM Odin boot-only F1",
             "target contract",
         ),
+        # The section above authorizes the F1 machinery; this one authorizes the
+        # candidate actually bound. Without it, flipping the machinery section
+        # alone would activate this owner while the candidate's own section still
+        # read NOT ACTIVE - the machinery armed for a candidate nobody approved.
+        "candidate_contract": _section_status(
+            documents["target_contract"],
+            P0_CANDIDATE_SECTION_HEADING,
+            "candidate contract section",
+        ),
         "current_goal": _section_status(
             documents["current_goal"],
             "## Current P0 PID1 Odin F1 state",
@@ -2085,28 +2111,55 @@ def _current_document_semantics(
     }
 
 
-def _normalized_activation_document(name: str, text: str, actual: str) -> bytes:
+def _activation_marker(name: str, status: str) -> tuple[str, str]:
+    """The exact document span that carries one activation cell's status."""
     if name == "repository_contract":
-        row = (
+        marker = (
             f"| {P0_REGISTRY_TARGET_CELL} | {P0_REGISTRY_GOAL_CELL} | "
-            f"{P0_REGISTRY_CONTRACT_CELL} | {actual} |"
+            f"{P0_REGISTRY_CONTRACT_CELL} | {status} |"
         )
-        replacement = row.replace(actual, P0_DOCUMENT_ACTIVATION_PLACEHOLDER)
-        marker = row
     elif name == "target_contract":
-        marker = f"\n## P0 PID1 ACM Odin boot-only F1\n\n{actual}\n"
-        replacement = marker.replace(actual, P0_DOCUMENT_ACTIVATION_PLACEHOLDER)
+        marker = f"\n## P0 PID1 ACM Odin boot-only F1\n\n{status}\n"
+    elif name == "candidate_contract":
+        marker = f"\n{P0_CANDIDATE_SECTION_HEADING}\n\n{status}\n"
     elif name == "current_goal":
-        marker = f"\n## Current P0 PID1 Odin F1 state\n\n{actual}\n"
-        replacement = marker.replace(actual, P0_DOCUMENT_ACTIVATION_PLACEHOLDER)
+        marker = f"\n## Current P0 PID1 Odin F1 state\n\n{status}\n"
     elif name == "qualification_report":
-        marker = f"\nTier: H0 only\n\n{actual}\n\n## Outcome\n"
-        replacement = marker.replace(actual, P0_DOCUMENT_ACTIVATION_PLACEHOLDER)
+        marker = f"\nTier: H0 only\n\n{status}\n\n## Outcome\n"
     else:
         raise P0F1Error("P0 activation document name differs")
-    if text.count(marker) != 1:
+    return marker, marker.replace(status, P0_DOCUMENT_ACTIVATION_PLACEHOLDER)
+
+
+def _normalized_activation_document(name: str, text: str, actual: str) -> bytes:
+    """Mask every activation cell that lives in this document, not just one.
+
+    Two cells share the target contract: the section authorizing the F1
+    machinery and the section authorizing the bound candidate. An activation
+    flips both, so masking only the cell being computed would leave the other
+    visible and the normalized form would differ between dormant and active -
+    which is exactly what the normalization exists to rule out.
+    """
+    normalized = text
+    masked = 0
+    for other in P0_DORMANT_DOCUMENT_SEMANTICS:
+        if P0_POLICY_FILES[other] != P0_POLICY_FILES[name]:
+            continue
+        for status in (
+            P0_DORMANT_DOCUMENT_SEMANTICS[other],
+            P0_ACTIVE_DOCUMENT_SEMANTICS[other],
+        ):
+            marker, replacement = _activation_marker(other, status)
+            if normalized.count(marker) == 1:
+                normalized = normalized.replace(marker, replacement, 1)
+                masked += 1
+                break
+        else:
+            raise P0F1Error(f"P0 {other} activation marker is absent or ambiguous")
+    if not masked:
         raise P0F1Error(f"P0 {name} activation marker is absent or ambiguous")
-    return text.replace(marker, replacement, 1).encode("utf-8")
+    return normalized.encode("utf-8")
+
 
 
 def _activation_document_normalized_receipts() -> dict[str, dict[str, Any]]:
@@ -4178,27 +4231,35 @@ def _publish_p0_json(
 
 
 def _publish_observer_inventory(run_dir: Path, baseline: dict[str, Any]) -> dict[str, Any]:
-    """Record what the USB observer saw when the window closed.
+    """Record the Download enumeration state when the window closed.
 
-    Three consumed candidates retained only the all-empty baseline and a verdict,
-    so whether the candidate ever appeared on USB - even partially - could not be
-    recovered afterwards. The observer already separates exact, pending and
-    conflicting identities; this publishes that terminal state on every path.
-    Counts only: no identity, serial or topology value is written out.
+    Three consumed candidates retained only an all-empty baseline and a verdict,
+    so whether the candidate ever appeared on USB could not be recovered
+    afterwards. This publishes the terminal state on every path.
+
+    It deliberately does not use the ACM observer. That observer is keyed to the
+    gadget identity of the consumed ACM candidate - vendor/product 04e8:6861,
+    product string S20Plus-P0-PID1, driver cdc_acm - which this candidate never
+    creates, so it would report zero on every V4 run and answer nothing. Download
+    mode enumerates as a different identity entirely, and that is what this lane
+    needs counted.
+
+    Counts and a listing digest only: no serial, identity or topology value is
+    written out. Enumeration in some third state - ordinary Android, say - is
+    outside what this records, and its absence here is not evidence of absence.
     """
     try:
-        inventory = observer.scan_inventory()
+        devices, listing_sha256 = engine.enumerate_download()
         value = {
             "schema": P0_INVENTORY_SCHEMA,
             "observer_schema": observer.SCHEMA,
             "baseline_sha256": observer.digest(baseline["observer_baseline"]),
             "scanned": True,
-            "exact_count": len(inventory.exact),
-            "pending_count": len(inventory.pending_identity_sha256),
-            "conflicting_count": len(inventory.conflicting_identity_sha256),
+            "download_endpoint_count": len(devices),
+            "download_listing_sha256": listing_sha256,
             "at": engine.utc_now(),
         }
-    except observer.ObserverError as exc:
+    except Exception as exc:
         value = {
             "schema": P0_INVENTORY_SCHEMA,
             "observer_schema": observer.SCHEMA,
@@ -4208,7 +4269,7 @@ def _publish_observer_inventory(run_dir: Path, baseline: dict[str, Any]) -> dict
             "at": engine.utc_now(),
         }
     return _publish_p0_json(
-        run_dir, P0_OBSERVER_INVENTORY_NAME, value, "observer terminal inventory"
+        run_dir, P0_OBSERVER_INVENTORY_NAME, value, "download terminal inventory"
     )
 
 
@@ -4407,12 +4468,15 @@ def _validate_download_arrival_record(run_dir: Path, prepared: dict[str, Any]) -
     ):
         raise P0F1Error("P0 observer terminal inventory record is malformed")
     if inventory.get("scanned"):
-        for key in ("exact_count", "pending_count", "conflicting_count"):
-            count = inventory.get(key)
-            if type(count) is not int or count < 0:
-                raise P0F1Error("P0 observer terminal inventory counts are malformed")
+        count = inventory.get("download_endpoint_count")
+        if (
+            type(count) is not int
+            or count < 0
+            or HEX64_RE.fullmatch(str(inventory.get("download_listing_sha256"))) is None
+        ):
+            raise P0F1Error("P0 download terminal inventory counts are malformed")
     elif HEX64_RE.fullmatch(str(inventory.get("reason_sha256"))) is None:
-        raise P0F1Error("P0 observer terminal inventory lacks a bounded reason")
+        raise P0F1Error("P0 download terminal inventory lacks a bounded reason")
     return arrival
 
 

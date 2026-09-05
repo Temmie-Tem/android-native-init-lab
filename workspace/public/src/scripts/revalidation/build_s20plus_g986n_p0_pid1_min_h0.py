@@ -7,11 +7,19 @@ It reuses the ACM candidate builder's proven materialisation path unchanged -
 same stock base boot, same magiskboot, same no-change repack proof, same
 boot-only AP - and replaces only the freestanding ``/init`` it installs.
 
-The candidate is a *reduction* of the consumed ACM candidate, so this builder
-proves the reduction mechanically: the compiled binary must contain the download
-request and must NOT contain any configfs, gadget, UDC or ttyGS0 string that the
-ACM candidate depended on. A candidate that quietly regained that chain would
-fail the build rather than reach the device.
+The candidate is a *reduction* of the consumed ACM candidate, and this builder
+checks that reduction: the compiled binary must contain the download request and
+must not contain any configfs, gadget, UDC or ttyGS0 string the ACM candidate
+depended on, nor any of four forbidden syscall numbers.
+
+Those are defence in depth against an accidental regression, not a proof. The
+checks are deliberate and bounded, and so are their limits: the syscall scan
+recognises only immediate `mov x8, #constant` forms, so a computed or indirect
+syscall number is invisible to it; the expected set is an allowlist of presence,
+not a proof that nothing else is invoked; and the string checks are literal byte
+substrings, so a constructed path is not caught. What actually binds a specific
+candidate is the artifact digest the owner pins, not this scan. Do not describe
+this builder as making a regrown gadget chain unbuildable - it is not.
 """
 
 from __future__ import annotations
