@@ -50,7 +50,7 @@ P345_C_FRAGMENT = CHILD_SOURCE
 P345_SOURCE = SOURCE
 SOURCE_IDENTITY = {
     "size": 21_108,
-    "sha256": "7e1d2ace855cc1c1f02f768a7a0406f58acee367f788a9ede2acec99b64820ba",
+    "sha256": "847eccc7cebd97ab3d609907289113bc058db386b141af329f92d379bceda640",
 }
 if identity(CHILD_SOURCE) != SOURCE_IDENTITY:
     raise RuntimeError("P345 child source identity differs")
@@ -109,7 +109,7 @@ CATALOG: tuple[str, ...] = (
 PROCESS_VIEW: tuple[str, ...] = ()
 FIXED_BUSYBOX_SOURCE = "/bin/busybox"
 FIXED_BUSYBOX_VIEW = "/bin/busybox"
-FIXED_ROOT_VIEW = "/tmp/p345-root"
+FIXED_ROOT_VIEW = "/dev/p345-root"
 
 FORBIDDEN_VIEW_ENTRIES: tuple[str, ...] = (
     "/proc/*/root",

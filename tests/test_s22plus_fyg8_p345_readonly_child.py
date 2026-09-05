@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import subprocess
@@ -87,6 +88,10 @@ int main(void) {
         P345_NR_OPENAT, P345_AT_FDCWD, (long)(uintptr_t)"/tmp/p345-create",
         P345_O_WRONLY | P345_O_CREAT, 0600, 0, 0);
     if (denied != -P345_EPERM) return 13;
+    long output = syscall6(P345_NR_WRITE, 2, 0, 0, 0, 0, 0);
+    if (output != 0) return 14;
+    long unsupported = syscall6(999, 0, 0, 0, 0, 0, 0);
+    if (unsupported != -P345_EPERM) return 15;
     return 0;
 }
 '''
@@ -138,6 +143,7 @@ class P345ReadonlyChildTests(unittest.TestCase):
             b"P345_NR_CAPSET",
             b"P345_PR_SET_NO_NEW_PRIVS",
             b"P345_NR_SECCOMP",
+            b"P345_CLONE_NEW_MASK",
             b"P345_SECCOMP_RET_ERRNO",
             b"P345_O_WRITE_MASK",
             b"P345_BUSYBOX_SOURCE \"/bin/busybox\"",
@@ -272,6 +278,38 @@ class P345ReadonlyChildTests(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stderr)
             description = subprocess.check_output(["file", str(object_file)], text=True)
             self.assertIn("ARM aarch64", description)
+
+    def test_all_declared_syscalls_match_aarch64_header(self):
+        compiler = shutil.which("aarch64-linux-gnu-gcc")
+        if compiler is None:
+            self.skipTest("aarch64-linux-gnu-gcc is unavailable")
+        preprocessed = subprocess.run(
+            [compiler, "-dM", "-E", "-x", "c", "-include", "asm/unistd.h", "-"],
+            input="",
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        numbers = {
+            name: int(value)
+            for name, value in re.findall(r"^#define __NR_([a-z0-9_]+) (\d+)$", preprocessed, re.MULTILINE)
+        }
+        declared = {
+            name.decode("ascii").lower(): int(value)
+            for name, value in re.findall(
+                rb"^#define P345_NR_([A-Z0-9_]+) (\d+)$",
+                child.child_source(),
+                re.MULTILINE,
+            )
+        }
+        missing = sorted(set(declared) - set(numbers))
+        self.assertEqual(missing, [])
+        mismatches = {
+            name: (value, numbers[name])
+            for name, value in declared.items()
+            if numbers[name] != value
+        }
+        self.assertEqual(mismatches, {})
 
     def test_native_busybox_ash_pipeline_substitution_and_nonzero_exit(self):
         busybox = Path("/bin/busybox")

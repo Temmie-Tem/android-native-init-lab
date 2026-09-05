@@ -34,7 +34,7 @@
 #define P345_NR_SETRLIMIT 164
 #endif
 #ifndef P345_NR_SETGROUPS
-#define P345_NR_SETGROUPS 116
+#define P345_NR_SETGROUPS 159
 #endif
 #ifndef P345_NR_SETRESUID
 #define P345_NR_SETRESUID 147
@@ -269,10 +269,10 @@
 #define P345_EPERM 1
 #endif
 
-#define P345_ROOT_TMPFS "/tmp"
-#define P345_ROOT_VIEW "/tmp/p345-root"
+#define P345_ROOT_TMPFS "/dev"
+#define P345_ROOT_VIEW "/dev/p345-root"
 #define P345_BUSYBOX_SOURCE "/bin/busybox"
-#define P345_BUSYBOX_VIEW "/tmp/p345-root/bin/busybox"
+#define P345_BUSYBOX_VIEW "/dev/p345-root/bin/busybox"
 #define P345_TMPFS_DATA "size=1048576,mode=0755"
 #define P345_TEXT_MODE 0444U
 #define P345_BUSYBOX_MODE 0555U
