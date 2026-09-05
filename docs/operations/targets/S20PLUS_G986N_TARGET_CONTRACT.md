@@ -631,13 +631,13 @@ Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 ## S20+ last_kmsg Observation D0
 
 Status: **DEFINED - LAST_KMSG OBSERVATION D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `07a46edf6220e4b3d625beb65fed0cbf4b4afde43522d6252d8845a6d58efcbd`
-Root-Script-SHA256: `34418b57dad0ac4397f2750cd56847c3301c5e6d9fa8ced91562189fbf26f07c`
+Runner-Normalized-SHA256: `9fda5e38732934a2f41fdc11294988f428191c78352e3c3a14b5740c238b3ec8`
+Root-Script-SHA256: `22c58e05b1bd16d9b2846c2f32e72ae5c45a1853c91614df83f9ef61df137441`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`9c89a3e0643d885d313131fd715b090811fb6a37b6ca0988cb3545b95c8b9011`.
+`220db09dfee35a877ded85f586787377929e1d9571b2a9cedc23cee1da2f9335`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
