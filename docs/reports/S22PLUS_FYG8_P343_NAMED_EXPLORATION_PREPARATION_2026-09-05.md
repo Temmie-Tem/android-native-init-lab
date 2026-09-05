@@ -97,3 +97,39 @@ transaction, reboot, Download request, Odin or candidate/rollback transfer
 was created. The stopped result is not reusable. The next step is one
 authorized normal-reboot D1 through the existing primitive, then fresh D0
 in a new directory; no new D0/D1 framework or candidate replay is needed.
+
+## Authorized baseline rotation and preparation-writer repair
+
+The operator explicitly approved one normal reboot, new D0 and F1 code issuance.
+At 2026-09-05T12:10:40Z the unchanged P296/P320 engine completed exactly one
+normal reboot in `device-action-d1-p343-baseline/p343-normal-reboot-20260905-1`.
+Changed boot ID, exact serial/topology, rooted FYG8 return, boot/supporting
+partition hashes and no Download endpoint passed; the attached S20+ received
+no command. Linked result is 2963B/340d49b4, primitive result 2121B/fb4312a7.
+Private invocation source is 1777B/2f45e72e; no candidate or rollback transfer.
+
+New `p343-ready1-prepared-20260905-2` D0 passed at 12:11:24Z:
+result 3261B/3a02d5cc, clean baseline 2097136B/da1405cb with zero exact/family
+markers. Preparation then failed before publishing `prepared.json` because
+the complete preparation record exceeds the old 32768-byte writer bound.
+Retained-data H0 replay through actual `prepare_connected` assembly reproduced
+34917 bytes; the old writer rejected it, and the new writer published/reopened
+it. No approval or F1 transaction was issued from this incomplete directory.
+
+Only exact P343 preparation now uses the existing 65536-byte exclusive writer;
+other campaign preparations and journals retain 32768 bytes. No schema,
+predicate, candidate byte, parser or transfer behavior changes. Independent
+`PASS_GO_P343_PREPARED_RECORD_BOUND_H0` qualified live source
+`45b45e76f383e19454cd3cb0f93b5460f67c35d046b5f5edd78168ea4743fd16`.
+Live tests 7/7 include actual canonical readback, mode0400, no-clobber,
+non-P343 rejection and greater-than-64KiB rejection before file creation.
+The current-tree raw-first audit passes after source-identity repinning.
+Fresh preparation uses directory `p343-ready1-prepared-20260905-3`; the prior
+D0 evidence is preserved and the normal reboot is not repeated.
+
+At 12:16:30Z, directory3 completed fresh D0 and prepared publication:
+prepared34917B/e77c1f69, D0result3261B/50e876b9, clean baseline2097136B/da1405cb
+with zero exact/family markers. The fresh approval digest is b35d3045.
+Current D0 boot/serial/topology match the D1 returned identity. No P343 F1
+transaction or transfer exists; only the returned exact attended approval can
+start execution. The source-only repair did not change AP or rollback bytes.

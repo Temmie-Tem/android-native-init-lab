@@ -13,6 +13,29 @@ import test_s22plus_fyg8_idle_reuse_probe as fixture
 
 
 class P343LiveTests(unittest.TestCase):
+    def test_prepared_record_bound_is_p343_only_and_no_clobber(self):
+        import stat
+        bundle = self.prepared().bundle
+        value = {"closure_fixture": "x" * 33000}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'prepared.json'
+            live._write_prepared_record(bundle, path, value)
+            self.assertEqual(live._read_json(path, 'prepared fixture'), value)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o400)
+            with self.assertRaises(FileExistsError):
+                live._write_prepared_record(bundle, path, value)
+            for campaign in ('p342', 'foreign'):
+                other = SimpleNamespace(manifest={'acceptance': {
+                    'overlay_contract_id': 's22plus-fyg8-'+campaign+'-observer-v4-carrier-v1'}})
+                denied = Path(directory) / (campaign+'.json')
+                with self.assertRaisesRegex(live.F1LiveError, 'exceeds its bound'):
+                    live._write_prepared_record(other, denied, value)
+                self.assertFalse(denied.exists())
+            oversized = Path(directory) / 'oversized.json'
+            with self.assertRaisesRegex(live.F1LiveError, 'exceeds its bound'):
+                live._write_prepared_record(bundle, oversized, {'x': 'x' * 65536})
+            self.assertFalse(oversized.exists())
+
     def test_actual_common_classifier_scopes_predecessor_projection(self):
         adapter = live.typed_evidence.p343_stock_adapter
         parser = adapter._raw_parser()

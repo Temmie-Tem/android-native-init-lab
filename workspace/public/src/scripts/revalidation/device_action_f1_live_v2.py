@@ -3387,8 +3387,19 @@ def prepare_connected(
         prepared[typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY] = (
             candidate_arrival_role
         )
-    _write_exclusive(run_dir / "prepared.json", prepared)
+    _write_prepared_record(bundle, run_dir / "prepared.json", prepared)
     return prepared
+
+
+def _write_prepared_record(bundle: core.Bundle, path: Path, value: Any) -> None:
+    # P343 adds the action/lease dependencies to the preparation closure.
+    # Only this preparation record uses the existing 64-KiB writer bound;
+    # journal records and all other campaign preparation limits stay unchanged.
+    limit = core.MAX_RESULT_RECORD if _p343_bundle(bundle) else core.MAX_RECORD
+    try:
+        core._write_exclusive_bounded(path, value, limit)
+    except core.F1V2Error as exc:
+        raise F1LiveError(str(exc)) from exc
 
 
 def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun:
