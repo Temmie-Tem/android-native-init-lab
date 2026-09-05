@@ -617,11 +617,36 @@ New identity, source closure, artifact qualification, independent review,
 fresh preparation and returned attended F1 approval are required. This clause
 grants no device authority on its own.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, or P341 candidate transfer occurs, the same
+**P342 bounded same-FD idle reuse.** P341 is closed and consumed, never replayable.
+A fresh P342 identity preserves its device listener, host-first OPEN, HMAC,
+fixed three-command tuple, 30-second per-session bound, exact endpoint guards,
+boot-only AP and mandatory Magisk rollback. The initial observer runs two
+complete same-FD sessions, waits at least 120 seconds without transmission on
+that same open descriptor, runs a third same-FD session, and closes/reopens
+once for the fourth session: twelve fixed command executions total.
+The idle phase may occupy at most 180 seconds, reserving four 30-second
+exchange windows within the existing 300-second observation bound; it never
+extends that outer bound. Unexpected idle bytes are retained and stop the
+trial rather than being drained or treated as a synchronization preamble.
+Any failure retains partial session/idle evidence and takes ordinary rollback;
+no session, command, OPEN, descriptor reopen or uncertain action is retried.
+Success requires the exact four-session proof and same-FD idle timing receipt
+bound together in the immutable candidate receipt, followed by exact rollback
+and healthy rooted FYG8 return. This activates no later-action lease, generic
+shell, interactive PTY, persistent state or autonomous mode control.
+P342's exact `live-state.json` uses the existing terminal-result 64-KiB bound
+because four sessions plus decoded supplemental state exceed 32 KiB; its
+fields and capture limits are unchanged and other journal records stay 32 KiB.
+Fresh artifact qualification, changed-closure independent review, ordinary D0
+preparation and returned attended F1 approval remain required. The existing
+D1 baseline fallback is used only when needed; no new D0/D1 wrapper is created.
+This clause alone grants no live authority.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, or P342 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, or `s22plus-fyg8-p341` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, or `s22plus-fyg8-p342` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

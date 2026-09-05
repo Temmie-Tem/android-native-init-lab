@@ -34,11 +34,15 @@ class VirtualClock:
 
 class IdleReuseTests(unittest.TestCase):
     def exercise(self, *, idle_noise=False, idle_cut=False, bad_hmac=False, reopen_failure=False,
-                 real_time=False, writer_failure=False):
-        module = live._p341_initial_observer_module()
+                 real_time=False, writer_failure=False, codec_factory=None, deadline_only=False):
         clock = VirtualClock()
-        receipts = probe.install(module) if real_time else probe.install(
-            module, clock=clock.clock, pause=clock.pause)
+        if codec_factory is not None:
+            module = codec_factory(clock)
+            receipts = module.idle_receipts
+        else:
+            module = live._p341_initial_observer_module()
+            receipts = probe.install(module) if real_time else probe.install(
+                module, clock=clock.clock, pause=clock.pause)
         helper = fixture.P335RetainedListenerObserverTests()
         source = textwrap.dedent(inspect.getsource(helper._serve_sessions))
         old = '            peer.sendall(runtime.DEVICE_BANNER)\n            opened = self._receive_frame(peer)'
@@ -60,7 +64,7 @@ class IdleReuseTests(unittest.TestCase):
                 peer.timeout = probe.IDLE_SECONDS + 30
         if idle_noise:
             clock.hook = lambda: os.write(pairs[0][0], b'unexpected-idle-bytes')
-        if idle_cut:
+        if idle_cut and not deadline_only:
             def cut():
                 raise OSError('synthetic idle observation interruption')
             clock.hook = cut
@@ -107,6 +111,8 @@ class IdleReuseTests(unittest.TestCase):
                     self.assertEqual(result.sessions[-1].raw_rx, b'unexpected-idle-bytes')
                     if not writer_failure:
                         self.assertTrue(captured.endswith(b'unexpected-idle-bytes'))
+                if deadline_only:
+                    self.assertEqual(receipts[0]['elapsed_seconds'], 30)
                 return
             result = module.exchange_retained(pairs[0][1], fixture.TEST_KEY,
                                              reopen=reopen, timeout_sec=2, writer=writer)
@@ -136,6 +142,7 @@ class IdleReuseTests(unittest.TestCase):
             # The consumed three-session P341 grammar is not silently widened.
             with self.assertRaises(live._P341_INITIAL_OBSERVER.AuthObserverError):
                 live._P341_INITIAL_OBSERVER.validate_proof_value(proof)
+            return module, result, proof, receipts
         finally:
             for _, slave in pairs:
                 pty.close(slave)

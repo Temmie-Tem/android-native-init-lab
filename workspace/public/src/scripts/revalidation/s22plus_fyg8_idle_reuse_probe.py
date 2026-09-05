@@ -1,9 +1,9 @@
-"""Dormant H0 idle/reuse qualification on a privately loaded P341 codec.
+"""Bounded idle/reuse schedule on one privately loaded host-first codec.
 
-No live registration, candidate packaging, approval or device entry point.
-Wire identity is inherited for synthetic fixtures only; consumed P341 cannot
-be flashed or contacted through this helper. A fresh successor must bind the
-schedule, timing receipt and four-session proof before live integration.
+This module has no CLI, artifact packaging or approval entry point. P342's
+ordinary runner binds its fresh wire identity, schedule, immutable timing and
+four-session proof; this helper alone grants nothing. Historical P341 wire
+identities are used only in synthetic H0 fixtures, never for candidate replay.
 """
 from __future__ import annotations
 
@@ -32,7 +32,8 @@ def _replace(source: str, old: str, new: str) -> str:
     return source.replace(old, new, 1)
 
 
-def install(module: Any, *, clock=time.monotonic, pause=time.sleep) -> list[dict]:
+def install(module: Any, *, clock=time.monotonic, pause=time.sleep,
+            outer_deadline: float | None = None) -> list[dict]:
     """Install once on an unshared codec; injected clock is for H0 tests only.
 
     Reuse the original exchange loop and raw failure handler. Idle happens
@@ -91,6 +92,8 @@ def install(module: Any, *, clock=time.monotonic, pause=time.sleep) -> list[dict
                 while True:
                     elapsed = clock() - started
                     receipt['elapsed_seconds'] = elapsed
+                    if outer_deadline is not None and clock() >= outer_deadline:
+                        raise TimeoutError('observation deadline expired during idle')
                     if elapsed < 0 or elapsed > MAX_IDLE_SECONDS:
                         raise TimeoutError('idle clock/bound exceeded')
                     # Unexpected input/EOF is retained once then stops. No drain,
@@ -104,9 +107,16 @@ def install(module: Any, *, clock=time.monotonic, pause=time.sleep) -> list[dict
                     if elapsed >= IDLE_SECONDS:
                         receipt['completed'] = True
                         break
-                    pause(min(0.25, IDLE_SECONDS - elapsed))
+                    remaining = (outer_deadline - clock()) if outer_deadline is not None else 0.25
+                    pause(min(0.25, IDLE_SECONDS - elapsed, max(0, remaining)))
             except Exception as exc:
                 module._raise_partial(exc, audit, 'same-fd-idle')
+        if outer_deadline is not None:
+            timeout_sec = min(timeout_sec, outer_deadline - clock())
+            if timeout_sec <= 0:
+                audit = module.ExchangeAudit(auth_key_sha256=hashlib.sha256(auth_key).hexdigest())
+                module._raise_partial(TimeoutError('observation deadline expired'), audit,
+                                      'observation-deadline')
         return original(descriptor, auth_key, writer, seen_nonces, expected_boot_id, timeout_sec)
 
     module._exchange_one = exchange
