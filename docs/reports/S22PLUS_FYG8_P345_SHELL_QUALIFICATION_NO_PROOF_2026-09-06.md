@@ -61,5 +61,14 @@ The source, prepared binding, CLOSED journal, live state and raw evidence stay
 unchanged. The resulting verdict remains
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
 `p345_readonly_research_shell_unproved_rollback_verified`, with
-`recovery_required=false`. This validates a proposed terminal value; it does
-not yet assert that the missing result file has been published.
+`recovery_required=false`.
+
+After independent review, terminal-only publication completed using the
+original ready2/source binding and existing no-clobber writer. The landed
+`live-result.json` is 15689B, mode0400, SHA256
+`039bcb3fad8bdea1d3336961793751e01fa6d5163e202a61c38667c832261fac`.
+It records CLOSED and the NO_PROOF verdict/outcome above. The earlier missing
+file statements describe the incident before this repair, not the final state.
+No source, journal, live state, prepared record or raw capture was rewritten;
+no device command was repeated. The legacy P328 host projection still needs
+its scoped P345 exclusion and partial-receipt regression before another run.
