@@ -1398,11 +1398,12 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                 observer_module.__file__
             ).resolve()
             if _host_first_bundle(bundle):
-                if _p345_bundle(bundle):
-                    for name, path in typed_evidence._p345_static_module().SOURCE_FILES.items():
+                if _shell_bundle(bundle):
+                    shell = _shell_definition(bundle)
+                    for name, path in typed_evidence._shell_static_module(shell.prefix).SOURCE_FILES.items():
                         paths[name] = Path(path).resolve()
-                    paths['p345_raw_carrier_parser'] = p345_stock_adapter.RAW_PARSER_SOURCE
-                    paths['p345_runtime_parent'] = Path(p345_shell_runtime.SOURCE).resolve()
+                    paths[shell.prefix + '_raw_carrier_parser'] = shell.adapter.RAW_PARSER_SOURCE
+                    paths[shell.prefix + '_runtime_parent'] = Path(shell.runtime.SOURCE).resolve()
                 paths[_host_first_variant(bundle).text('p341_open_read_branch_acm_observer')] = Path(
                     _host_first_variant(bundle).observer.__file__
                 ).resolve()
@@ -1706,7 +1707,7 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             closure["p326_bidirectional_acm_contract_id"] = (
                 p326_console_observer.CONTRACT_ID
             )
-            if _host_first_bundle(bundle) and not _p345_bundle(bundle):
+            if _host_first_bundle(bundle) and not _shell_bundle(bundle):
                 closure[_host_first_variant(bundle).text('p341_resident_lease_schema')] = _host_first_variant(bundle).LEASE_SCHEMA
             elif _p340_bundle(bundle):
                 closure["p340_resident_lease_schema"] = P340_LEASE_SCHEMA
@@ -2105,7 +2106,7 @@ def _p328_bundle(bundle: core.Bundle) -> bool:
     return (
         _userspace_overlay_contract_id(bundle)
         in {
-            p345_stock_adapter.OVERLAY_CONTRACT_ID,
+            *typed_evidence.SHELL_OVERLAYS,
             p342_stock_adapter.OVERLAY_CONTRACT_ID,
             p343_stock_adapter.OVERLAY_CONTRACT_ID,
             p344_stock_adapter.OVERLAY_CONTRACT_ID,
@@ -2257,7 +2258,18 @@ def _p344_bundle(bundle: core.Bundle) -> bool:
 
 def _host_first_bundle(bundle: core.Bundle) -> bool:
     """Shared dispatch only; both exact run/spec identities remain separate."""
-    return _p341_bundle(bundle) or _p342_bundle(bundle) or _p343_bundle(bundle) or _p344_bundle(bundle) or _p345_bundle(bundle)
+    return _p341_bundle(bundle) or _p342_bundle(bundle) or _p343_bundle(bundle) or _p344_bundle(bundle) or _shell_bundle(bundle)
+
+
+def _shell_bundle(bundle: core.Bundle) -> bool:
+    return (_userspace_overlay_contract_id(bundle) in typed_evidence.SHELL_OVERLAYS
+        and _candidate_arrival_proof_role(bundle) is not None)
+
+
+def _shell_definition(bundle: core.Bundle):
+    if not _shell_bundle(bundle):
+        raise F1LiveError("not an exact read-only-shell bundle")
+    return typed_evidence.SHELL_OVERLAYS[_userspace_overlay_contract_id(bundle)]
 
 
 def _p345_bundle(bundle: core.Bundle) -> bool:
@@ -2266,8 +2278,8 @@ def _p345_bundle(bundle: core.Bundle) -> bool:
 
 
 def _host_first_prefix(overlay: str) -> str:
-    if overlay == p345_stock_adapter.OVERLAY_CONTRACT_ID:
-        return 'p345'
+    if overlay in typed_evidence.SHELL_OVERLAYS:
+        return typed_evidence.SHELL_OVERLAYS[overlay].prefix
     if overlay == p344_stock_adapter.OVERLAY_CONTRACT_ID:
         return 'p344'
     if overlay == p343_stock_adapter.OVERLAY_CONTRACT_ID:
@@ -2298,32 +2310,31 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
     # outside the guarded dispatch. This lookup itself grants no acceptance;
     # only _host_first_bundle plus ordinary exact role validation selects it.
     prefix = _host_first_prefix(_userspace_overlay_contract_id(bundle))
-    if prefix == 'p345':
+    if prefix in typed_evidence.SHELL_VARIANTS:
+        shell = typed_evidence.SHELL_VARIANTS[prefix]
         def text(value: str) -> str:
             return value.replace('p341_authenticated_open_read_branch_resident',
-                'p345_readonly_research_shell_qualification').replace('p341', 'p345').replace(
-                'P341', 'P345').replace('P3.41', 'P3.45')
-        observer = types.SimpleNamespace(**vars(p345_shell_observer))
+                prefix + '_readonly_research_shell_qualification').replace('p341', prefix).replace(
+                'P341', prefix.upper()).replace('P3.41', 'P3.' + prefix[-2:])
+        observer = types.SimpleNamespace(**vars(shell.observer))
         observer.MAX_SESSIONS = 5
         observer.MAX_RECONNECTS = 0
         observer.PHYSICAL_REOPEN_COUNT = 0
-        observer.AuthObserverError = p345_shell_observer.QualificationError
-        return types.SimpleNamespace(runtime=p345_shell_runtime, observer=observer,
-            artifact=p345_artifact_identity, failure_capture=p345_shell_exchange,
-            adapter=typed_evidence.p345_stock_adapter,
-            AUTH_KEY_IDENTITY=dict(typed_evidence.P345_AUTH_EXEC_AUTH_KEY_IDENTITY),
-            LEASE_SCHEMA=None,
-            NO_PROOF_OUTCOME=typed_evidence.P345_AUTH_EXEC_NO_PROOF_OUTCOME,
-            SUCCESS_OUTCOME=typed_evidence.P345_AUTH_EXEC_OUTCOME,
-            SUCCESS_VERDICT=typed_evidence.P345_AUTH_EXEC_VERDICT,
-            OPEN_HEADER_SIZE=p345_shell_runtime.OPEN_HEADER_SIZE,
-            OPEN_HEADER_WORD_STAGES=list(p345_shell_runtime.OPEN_HEADER_WORD_STAGES),
-            OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in p345_shell_runtime.OPEN_READ_BRANCHES.items()},
-            PROOF_FIELDS=P345_PROOF_FIELDS, parser_failure=_p345_parser_failure_classification,
-            proof_ok=_p345_proof_ok, proof_state=_p345_proof_state,
+        observer.AuthObserverError = shell.observer.QualificationError
+        return types.SimpleNamespace(runtime=shell.runtime, observer=observer,
+            artifact=shell.artifact, failure_capture=p345_shell_exchange,
+            adapter=shell.adapter, AUTH_KEY_IDENTITY=dict(shell.auth_key), LEASE_SCHEMA=None,
+            NO_PROOF_OUTCOME=shell.AUTH_EXEC_NO_PROOF_OUTCOME,
+            SUCCESS_OUTCOME=shell.AUTH_EXEC_OUTCOME, SUCCESS_VERDICT=shell.AUTH_EXEC_VERDICT,
+            OPEN_HEADER_SIZE=shell.runtime.OPEN_HEADER_SIZE,
+            OPEN_HEADER_WORD_STAGES=list(shell.runtime.OPEN_HEADER_WORD_STAGES),
+            OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in shell.runtime.OPEN_READ_BRANCHES.items()},
+            PROOF_FIELDS=P345_PROOF_FIELDS,
+            parser_failure=lambda payload, error: _p345_parser_failure_classification(payload, error, prefix=prefix),
+            proof_ok=lambda value: _p345_proof_ok(value, prefix=prefix), proof_state=_p345_proof_state,
             session_factory=_p345_candidate_observer_session,
-            stock_error=_p345_stock_error, validate_receipt=_p345_validate_receipt,
-            text=text)
+            stock_error=lambda payload, error: _p345_stock_error(payload, error, prefix=prefix),
+            validate_receipt=_p345_validate_receipt, text=text)
     upper = prefix.upper()
     aliases = {
         "runtime": "_open_read_runtime", "observer": "_open_read_observer",
@@ -2633,7 +2644,7 @@ def _candidate_arrival_proof_role(bundle: core.Bundle) -> str | None:
         (p342_stock_adapter.OVERLAY_CONTRACT_ID, p342_stock_adapter.P342_RUN_ID_HEX),
         (p343_stock_adapter.OVERLAY_CONTRACT_ID, p343_stock_adapter.P343_RUN_ID_HEX),
         (p344_stock_adapter.OVERLAY_CONTRACT_ID, p344_stock_adapter.P344_RUN_ID_HEX),
-        (p345_stock_adapter.OVERLAY_CONTRACT_ID, p345_shell_runtime.P345_RUN_ID_HEX),
+        *((v.overlay, v.run_id) for v in typed_evidence.SHELL_VARIANTS.values()),
         (
             p341_stock_adapter.OVERLAY_CONTRACT_ID,
             p341_stock_adapter.P341_RUN_ID_HEX,
@@ -3859,7 +3870,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(classified, dict):
         raise F1LiveError("P3.20 stock classification is not an object")
     overlay = classified.get("overlay_contract_id")
-    is_p341 = overlay in {p341_stock_adapter.OVERLAY_CONTRACT_ID, p342_stock_adapter.OVERLAY_CONTRACT_ID, p343_stock_adapter.OVERLAY_CONTRACT_ID, p344_stock_adapter.OVERLAY_CONTRACT_ID, p345_stock_adapter.OVERLAY_CONTRACT_ID}
+    is_p341 = overlay in {p341_stock_adapter.OVERLAY_CONTRACT_ID, p342_stock_adapter.OVERLAY_CONTRACT_ID, p343_stock_adapter.OVERLAY_CONTRACT_ID, p344_stock_adapter.OVERLAY_CONTRACT_ID, *typed_evidence.SHELL_OVERLAYS}
     is_p340 = overlay == p340_stock_adapter.OVERLAY_CONTRACT_ID
     is_p339 = overlay == typed_evidence.P339_STOCK_OVERLAY_CONTRACT_ID
     is_p338 = overlay == typed_evidence.P338_STOCK_OVERLAY_CONTRACT_ID
@@ -4166,7 +4177,7 @@ def _p320_terminal_projection(classified: dict[str, Any]) -> dict[str, Any]:
 
 
 def _p320_durable_projection(state: dict[str, Any]) -> dict[str, Any]:
-    present = [prefix for prefix in ('p341','p342','p343','p344','p345') if prefix + '_stock' in state]
+    present = [prefix for prefix in ('p341','p342','p343','p344', *typed_evidence.SHELL_VARIANTS) if prefix + '_stock' in state]
     if len(present) > 1:
         raise F1LiveError("host-first durable projection mixes candidate namespaces")
     prefix = present[0] if present else 'p341'
@@ -5502,7 +5513,7 @@ class SamsungOdinBackend:
                         "partial_sessions": durable["partial_sessions"],
                     }
                 )
-            elif _p328_bundle(prepared.bundle) and not _p345_bundle(prepared.bundle):
+            elif _p328_bundle(prepared.bundle) and not _shell_bundle(prepared.bundle):
                 result.update(
                     {
                         "hmac_authenticated": durable["hmac_authenticated"],
@@ -8995,11 +9006,14 @@ class _P345ObserverSession(_P331ObserverSession):
     qualification: Any = None
     qualification_error: Any = None
     auth_runtime: Any = p345_shell_runtime
+    qualification_observer: Any = p345_shell_observer
+    proof_key: str = "p345_readonly_research_shell_qualification"
+    namespace: str = "p345"
     receipt_schema: str = "s22plus_fyg8_p345_shell_qualification_acm_receipt_v1"
     receipt_label: str = "P345 read-only shell qualification receipt"
 
     def _raw_argv0_name(self) -> str:
-        return "tty-cdc-acm-p345"
+        return "tty-cdc-acm-" + self.namespace
 
     def _read_endpoint(self, endpoint: Any, deadline: float, writer: Any) -> str:
         self.endpoint = endpoint
@@ -9017,8 +9031,8 @@ class _P345ObserverSession(_P331ObserverSession):
                 return "identity-mismatch"
             self.base._raw_tty(descriptor)
             codec = _open_header_initial_observer_module(
-                p345_shell_runtime, p345_shell_observer, "p345-qualification")
-            self.qualification = p345_shell_observer.qualify(
+                self.auth_runtime, self.qualification_observer, self.namespace + "-qualification")
+            self.qualification = self.qualification_observer.qualify(
                 codec, descriptor, self.auth_key, None, set(), writer,
                 deadline=deadline)
             self.proof = dict(self.qualification.receipt)
@@ -9026,7 +9040,7 @@ class _P345ObserverSession(_P331ObserverSession):
             if self.trailing_rx:
                 return "authenticated-session-error"
             return "accepted" if self._endpoint_exact(endpoint, descriptor) else "identity-mismatch"
-        except p345_shell_observer.QualificationError as exc:
+        except self.qualification_observer.QualificationError as exc:
             self.qualification_error = exc
             self.proof = dict(exc.partial_receipt)
             self.protocol_error = str(exc)[:160]
@@ -9062,15 +9076,14 @@ class _P345ObserverSession(_P331ObserverSession):
             audits.append(failed)
         complete = bool(value["accepted"] and self.qualification is not None)
         value.update(schema=self.receipt_schema,
-            contract_id=p345_shell_observer.CONTRACT_ID,
-            target=p345_shell_runtime.TARGET,
-            banner_hex=p345_shell_runtime.DEVICE_BANNER.hex(),
-            expected_size=len(p345_shell_runtime.DEVICE_BANNER) * 5,
+            contract_id=self.qualification_observer.CONTRACT_ID,
+            target=self.auth_runtime.TARGET,
+            banner_hex=self.auth_runtime.DEVICE_BANNER.hex(),
+            expected_size=len(self.auth_runtime.DEVICE_BANNER) * 5,
             session_tx_hex=[bytes(item.tx).hex() for item in audits],
             auth_key_sha256=self.auth_key_sha256,
             session_count=len(sessions), command_count=len(sessions) * 3,
             qualification_complete=complete,
-            p345_readonly_research_shell_qualification=dict(self.proof or {}),
             pid1_framed_exec_proof=complete, busybox_ash_command_proof=complete,
             framed_session_closed=complete, same_tty_fd=complete,
             later_action_lease_active=False, physical_reopen_count=0,
@@ -9080,6 +9093,7 @@ class _P345ObserverSession(_P331ObserverSession):
             rng_eagain_retries=[item.rng_eagain_retries for item in audits],
             partial_sessions=[{"current_stage": item.current_stage,
                 "failure_stage": item.failure_stage} for item in audits])
+        value[self.proof_key] = dict(self.proof or {})
         value.pop("tx_hex", None)
         self._publish_value(value, lane, label=self.receipt_label)
         return value
@@ -9095,10 +9109,10 @@ def _p345_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value.get(key) for key in P345_PROOF_FIELDS}
 
 
-def _p345_proof_ok(value: Mapping[str, Any]) -> bool:
+def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
     try:
-        typed_evidence.validate_p345_research_shell_proof(value.get("proof",
-            value.get("p345_readonly_research_shell_qualification")))
+        typed_evidence._validate_shell_proof(value.get("proof",
+            value.get(prefix + "_readonly_research_shell_qualification")), prefix)
     except (ValueError, TypeError):
         return False
     return (all(value.get(key) is True for key in P345_PROOF_FIELDS[:5])
@@ -9109,18 +9123,18 @@ def _p345_proof_ok(value: Mapping[str, Any]) -> bool:
         and value.get("caller_selected_command") is False)
 
 
-def _p345_stock_error(payload: bytes, error: BaseException) -> dict[str, Any]:
+def _p345_stock_error(payload: bytes, error: BaseException, *, prefix="p345") -> dict[str, Any]:
     value = _p339_stock_error(payload, error)
-    value.update(schema="device_action_f1_p345_stock_error_v1",
-        classification="P345_STOCK_PARSER_EXCEPTION")
+    value.update(schema=f"device_action_f1_{prefix}_stock_error_v1",
+        classification=prefix.upper() + "_STOCK_PARSER_EXCEPTION")
     return value
 
 
-def _p345_parser_failure_classification(payload: bytes, error: BaseException) -> dict[str, Any]:
-    diagnostic = _p345_stock_error(payload, error)
+def _p345_parser_failure_classification(payload: bytes, error: BaseException, *, prefix="p345") -> dict[str, Any]:
+    diagnostic = _p345_stock_error(payload, error, prefix=prefix)
     return {"classification": diagnostic["classification"], "integrity_issue": True,
-        "integrity_issues": ["p345-stock-parser-exception"], "exact_count": 0,
-        "family_count": 0, "foreign_count": 0, "p345_stock_error": diagnostic,
+        "integrity_issues": [prefix + "-stock-parser-exception"], "exact_count": 0,
+        "family_count": 0, "foreign_count": 0, prefix + "_stock_error": diagnostic,
         "candidate_success": False, "causal_result_allowed": False}
 
 
@@ -9128,8 +9142,9 @@ def _p345_parser_failure_classification(payload: bytes, error: BaseException) ->
 def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any], *,
     lane_value: dict[str, Any], lane_receipt: dict[str, Any],
     usb_root: Path, typec_root: Path) -> Iterator[_P345ObserverSession]:
-    if not _p319_exact_equal(spec, typed_evidence.p345_research_shell_observer_spec()):
-        raise F1LiveError("P345 qualification spec differs")
+    shell = _shell_definition(prepared.bundle)
+    if not _p319_exact_equal(spec, typed_evidence._shell_observer_spec(shell.prefix)):
+        raise F1LiveError("shell qualification spec differs")
     key, key_sha256 = _p328_read_auth_key(prepared)
     inherited_spec = _p327_inherited_spec(spec)
     with p325_guard_adapter.observer_session(inherited_spec,
@@ -9138,19 +9153,24 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         usb_root=usb_root, typec_root=typec_root) as inherited:
         yield _P345ObserverSession(inherited, inherited.delegate.delegate,
             inherited_spec, prepared.run_dir, lane_value, lane_receipt,
-            usb_root, typec_root, auth_key=key, auth_key_sha256=key_sha256)
+            usb_root, typec_root, auth_key=key, auth_key_sha256=key_sha256,
+            auth_runtime=shell.runtime, qualification_observer=shell.observer,
+            proof_key=shell.prefix + "_readonly_research_shell_qualification", namespace=shell.prefix,
+            receipt_schema=f"s22plus_fyg8_{shell.prefix}_shell_qualification_acm_receipt_v1",
+            receipt_label=shell.prefix.upper() + " read-only shell qualification receipt")
 
 
 def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, Any]) -> dict[str, Any]:
     """Reopen private raw sessions, then rederive the fixed qualification."""
+    shell = _shell_definition(prepared.bundle)
     def require(condition: bool, reason: str) -> None:
         if not condition:
             raise F1LiveError("P345 receipt " + reason)
     value = _read_json(path, "P345 qualification receipt")
     require(path == prepared.run_dir / "candidate-observer.json", "path differs")
-    require(value.get("schema") == _P345ObserverSession.receipt_schema
-        and value.get("contract_id") == p345_shell_observer.CONTRACT_ID
-        and value.get("target") == p345_shell_runtime.TARGET, "identity differs")
+    require(value.get("schema") == f"s22plus_fyg8_{shell.prefix}_shell_qualification_acm_receipt_v1"
+        and value.get("contract_id") == shell.observer.CONTRACT_ID
+        and value.get("target") == shell.runtime.TARGET, "identity differs")
     require(value.get("binding") == _candidate_observer_binding(prepared)
         and value.get("spec_sha256") == cdc_acm_observer.digest(_p327_inherited_spec(spec)),
         "prepared binding differs")
@@ -9190,23 +9210,23 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
     key, key_sha = _p328_read_auth_key(prepared)
     require(value.get("auth_key_sha256") == key_sha, "key identity differs")
     proof = value.get("proof")
-    require(proof == value.get("p345_readonly_research_shell_qualification"), "proof projection differs")
+    require(proof == value.get(shell.prefix + "_readonly_research_shell_qualification"), "proof projection differs")
     if value["accepted"]:
-        require(_p345_proof_ok(value) and trailing_count == 0
+        require(_p345_proof_ok(value, prefix=shell.prefix) and trailing_count == 0
             and value["download_endpoint_absent"] is True, "accepted proof incomplete")
-        codec = _open_header_initial_observer_module(p345_shell_runtime,
-            p345_shell_observer, "p345-receipt-replay")
+        codec = _open_header_initial_observer_module(shell.runtime,
+            shell.observer, "p345-receipt-replay")
         require(len(txs) == 5, "accepted TX count differs")
         offset = 0
         tx_offset = 0
         nonce_hashes = set()
         boot_hashes = set()
-        for step, row, tx in zip(p345_shell_observer.QUALIFICATION_COMMANDS, proof["sessions"], txs):
+        for step, row, tx in zip(shell.observer.QUALIFICATION_COMMANDS, proof["sessions"], txs):
             size = row["rx"]["size"]
             require(type(size) is int and 0 < size <= len(received)-offset, "session RX bound differs")
             rx = received[offset:offset+size]
-            parsed = p345_shell_observer.parse_captured_session(codec, rx, tx, key)
-            derived = p345_shell_observer.validate_session_result(parsed, step)
+            parsed = shell.observer.parse_captured_session(codec, rx, tx, key)
+            derived = shell.observer.validate_session_result(parsed, step)
             require(row["rx"] == {"offset": offset, **_p327_identity(rx)}
                 and row["tx"] == {"offset": tx_offset, **_p327_identity(tx)},
                 "session stream differs")
@@ -13435,7 +13455,7 @@ def _candidate_arrival_proof_projection(
                 "original_errno_returned_unchanged": True,
             }
         )
-        if _p345_bundle(prepared.bundle):
+        if _shell_bundle(prepared.bundle):
             result.pop("resident_lease_schema", None)
             result["listener_wait_after_proof"] = False
             result["later_action_lease_active"] = False
@@ -13864,7 +13884,7 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
     if not isinstance(observer, dict) or observer.get("byte_identical") is not True:
         raise F1LiveError("final observer evidence is malformed")
     prefix = _host_first_prefix(_userspace_overlay_contract_id(prepared.bundle))
-    foreign = tuple(name+'_' for name in ('p341','p342','p343','p344','p345') if name != prefix)
+    foreign = tuple(name+'_' for name in ('p341','p342','p343','p344', *typed_evidence.SHELL_VARIANTS) if name != prefix)
     if any(key.startswith(foreign) for key in observer):
         raise F1LiveError("final host-first observer carries a foreign candidate namespace")
     health = evidence.get("health")
@@ -14384,7 +14404,7 @@ def _validate_candidate_observer_state(
     prepared: PreparedRun, state: dict[str, Any]
 ) -> None:
     prefix = _host_first_prefix(_userspace_overlay_contract_id(prepared.bundle))
-    foreign = tuple(name+'_' for name in ('p341','p342','p343','p344','p345') if name != prefix)
+    foreign = tuple(name+'_' for name in ('p341','p342','p343','p344', *typed_evidence.SHELL_VARIANTS) if name != prefix)
     if any(key.startswith(foreign) for key in state):
         raise F1LiveError("host-first state carries a foreign candidate namespace")
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")

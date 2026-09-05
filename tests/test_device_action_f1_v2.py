@@ -318,7 +318,7 @@ class DeviceActionF1V2Test(unittest.TestCase):
             ] = self.module.typed_evidence.CANDIDATE_ARRIVAL_PROOF_ROLE
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             with self.assertRaisesRegex(
-                self.module.F1V2Error, "exact P3.23 stock binding"
+                self.module.F1V2Error, "exact versioned stock binding"
             ):
                 self.module.verify_bundle(root, manifest_path)
 

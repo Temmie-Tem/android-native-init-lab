@@ -1711,27 +1711,42 @@ P343_STOCK_OVERLAY_CONTRACT_ID = p343_stock_adapter.OVERLAY_CONTRACT_ID
 P343_STOCK_OVERLAY_IDS = frozenset({P343_STOCK_OVERLAY_CONTRACT_ID})
 P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
-p345_stock_adapter = _load_stable_local_module("s22plus_fyg8_p345_stock_process_v2_adapter")
-p345_artifact_identity = _load_stable_local_module("s22plus_fyg8_p345_artifact_identity")
-p345_research_shell_observer = _load_stable_local_module("s22plus_fyg8_p345_research_shell_observer")
-p345_research_shell_runtime = _load_stable_local_module("s22plus_fyg8_p345_research_shell_runtime")
-P345_STOCK_OVERLAY_CONTRACT_ID = p345_stock_adapter.OVERLAY_CONTRACT_ID
-P345_RUN_ID = p345_stock_adapter.P345_RUN_ID_HEX
-P345_TARGET = {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"}
-P345_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p345_process_v2_candidate_static_v1"
-P345_CANDIDATE_STATIC_VERDICT = "PASS_P345_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
-P345_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p345_process_v2_run_manifest_v1"
-P345_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p345_process_v2_static_result_v1"
-P345_STATIC_RESULT_VERDICT = "PASS_P345_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
-P345_AUTH_EXEC_AUTH_KEY_IDENTITY = dict(p345_artifact_identity.auth_key_identity())
-P345_AUTH_EXEC_VERDICT = "PASS_F1_V2_P345_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK"
-P345_AUTH_EXEC_OUTCOME = "p345_readonly_research_shell_rollback_verified"
-P345_AUTH_EXEC_NO_PROOF_OUTCOME = "p345_readonly_research_shell_unproved_rollback_verified"
-# The shared terminal owner uses this existing Carrier predicate API. Bind
-# the private P345 decoder, never a predecessor ID or a relabelled record.
-p345_stock_adapter.proof_class = p345_stock_adapter._raw_parser().proof_class
+# One declaration owns shell variants; schema/run identities never transfer.
+SHELL_VARIANTS = {}
+for _prefix in ("p345", "p346"):
+    _upper = _prefix.upper()
+    _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
+    _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
+    _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
+    _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
+    _adapter.proof_class = _adapter._raw_parser().proof_class
+    _constants = {
+        "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
+        "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
+        "TARGET": {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"},
+        "CANDIDATE_STATIC_SCHEMA": f"s22plus_fyg8_{_prefix}_process_v2_candidate_static_v1",
+        "CANDIDATE_STATIC_VERDICT": f"PASS_{_upper}_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY",
+        "RUN_MANIFEST_SCHEMA": f"s22plus_fyg8_{_prefix}_process_v2_run_manifest_v1",
+        "STATIC_RESULT_SCHEMA": f"s22plus_fyg8_{_prefix}_process_v2_static_result_v1",
+        "STATIC_RESULT_VERDICT": f"PASS_{_upper}_PROCESS_V2_STATIC_RESULT_HOST_ONLY",
+        "AUTH_EXEC_AUTH_KEY_IDENTITY": dict(_artifact.auth_key_identity()),
+        "AUTH_EXEC_VERDICT": f"PASS_F1_V2_{_upper}_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK",
+        "AUTH_EXEC_OUTCOME": f"{_prefix}_readonly_research_shell_rollback_verified",
+        "AUTH_EXEC_NO_PROOF_OUTCOME": f"{_prefix}_readonly_research_shell_unproved_rollback_verified",
+    }
+    for _key, _value in _constants.items():
+        globals()[_upper + "_" + _key] = _value
+    for _key, _module in (("stock_adapter", _adapter), ("artifact_identity", _artifact),
+                          ("research_shell_observer", _observer), ("research_shell_runtime", _runtime)):
+        globals()[_prefix + "_" + _key] = _module
+    SHELL_VARIANTS[_prefix] = types.SimpleNamespace(prefix=_prefix, adapter=_adapter,
+        artifact=_artifact, observer=_observer, runtime=_runtime,
+        overlay=_adapter.OVERLAY_CONTRACT_ID, run_id=_constants["RUN_ID"],
+        image_identity=getattr(_artifact, _upper + "_IMAGE_IDENTITY"),
+        auth_key=_constants["AUTH_EXEC_AUTH_KEY_IDENTITY"], **_constants)
+SHELL_OVERLAYS = {value.overlay: value for value in SHELL_VARIANTS.values()}
 STOCK_ADAPTERS = {
-    P345_STOCK_OVERLAY_CONTRACT_ID: p345_stock_adapter,
+    **{key: value.adapter for key, value in SHELL_OVERLAYS.items()},
     P319_STOCK_OVERLAY_CONTRACT_ID: p319_stock_adapter,
     P320_STOCK_OVERLAY_CONTRACT_ID: p320_stock_adapter,
     P321_STOCK_OVERLAY_CONTRACT_ID: p321_stock_adapter,
@@ -2533,10 +2548,11 @@ def _latest_stage_observation_decoder(
     profile: str,
     userspace_overlay_contract_id: str | None = None,
 ):
-    if userspace_overlay_contract_id == P345_STOCK_OVERLAY_CONTRACT_ID:
-        if source_contract_id != p345_stock_adapter.PARENT_SOURCE_CONTRACT_ID or profile != p345_stock_adapter.PROFILE:
-            raise EvidenceError("P345 Carrier source/profile differs")
-        return p345_stock_adapter
+    if userspace_overlay_contract_id in SHELL_OVERLAYS:
+        adapter = SHELL_OVERLAYS[userspace_overlay_contract_id].adapter
+        if source_contract_id != adapter.PARENT_SOURCE_CONTRACT_ID or profile != adapter.PROFILE:
+            raise EvidenceError("shell Carrier source/profile differs")
+        return adapter
     if userspace_overlay_contract_id is None:
         return _latest_stage_decoder(source_contract_id, profile)
     if userspace_overlay_contract_id == P344_STOCK_OVERLAY_CONTRACT_ID:
@@ -3105,9 +3121,9 @@ def _validate_p318_overlay_contract(value: Any) -> dict[str, Any]:
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
-    if userspace_overlay_contract_id == P345_STOCK_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id in SHELL_OVERLAYS:
         try:
-            return p345_stock_adapter.validate_contract(value)
+            return SHELL_OVERLAYS[userspace_overlay_contract_id].adapter.validate_contract(value)
         except ValueError as exc:
             raise EvidenceError("P345 research-shell overlay metadata differs") from exc
     if userspace_overlay_contract_id == P344_STOCK_OVERLAY_CONTRACT_ID:
@@ -7562,23 +7578,31 @@ def _validate_p344_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
     }
 
 
-def _p345_static_module():
-    # Load only when requested: the static producer itself imports the builder.
-    return _load_stable_local_module("s22plus_fyg8_p345_process_v2_candidate_static",
+def _shell_static_module(prefix):
+    if prefix not in SHELL_VARIANTS:
+        raise EvidenceError("unknown shell source variant")
+    return _load_stable_local_module(f"s22plus_fyg8_{prefix}_process_v2_candidate_static",
         directory=Path(__file__).resolve().parent.parent / "analysis")
 
 
-def p345_research_shell_observer_spec() -> dict[str, Any]:
+def _p345_static_module():
+    return _shell_static_module("p345")
+
+
+def _p346_static_module():
+    return _shell_static_module("p346")
+
+
+def _shell_observer_spec(prefix):
+    variant = SHELL_VARIANTS[prefix]
     value = p328_authenticated_framed_observer_spec()
-    value.update({"kind": "exact_cdc_acm_p345_readonly_shell_qualification_v1",
-        "schema": p345_research_shell_observer.SCHEMA,
-        "usb_serial": "S22E3" + P345_RUN_ID,
-        "banner_hex": p345_research_shell_runtime.DEVICE_BANNER.hex(),
-        "protocol_contract": p345_research_shell_observer.CONTRACT_ID,
-        "auth_key": dict(P345_AUTH_EXEC_AUTH_KEY_IDENTITY),
+    value.update({"kind": f"exact_cdc_acm_{prefix}_readonly_shell_qualification_v1",
+        "schema": variant.observer.SCHEMA, "usb_serial": "S22E3" + variant.run_id,
+        "banner_hex": variant.runtime.DEVICE_BANNER.hex(),
+        "protocol_contract": variant.observer.CONTRACT_ID, "auth_key": dict(variant.auth_key),
         "commands": [{"size": len(c), "sha256": hashlib.sha256(c).hexdigest()}
-                     for c in p345_research_shell_runtime.DEFAULT_COMMANDS],
-        "qualification_commands": p345_stock_adapter.acceptance_fixture()["qualification_commands"],
+                     for c in variant.runtime.DEFAULT_COMMANDS],
+        "qualification_commands": variant.adapter.acceptance_fixture()["qualification_commands"],
         "qualification_timeout_sec": 300, "session_cap": 5, "reconnect_cap": 0,
         "same_fd_session_count": 5, "total_session_count": 5, "total_command_count": 15,
         "physical_reopen_count": 0, "idle_seconds": 0,
@@ -7588,74 +7612,97 @@ def p345_research_shell_observer_spec() -> dict[str, Any]:
     return value
 
 
-def validate_p345_research_shell_proof(value: Any) -> dict[str, Any]:
+def p345_research_shell_observer_spec():
+    return _shell_observer_spec("p345")
+
+
+def p346_research_shell_observer_spec():
+    return _shell_observer_spec("p346")
+
+
+def _validate_shell_proof(value, prefix):
     try:
-        return p345_research_shell_observer.validate_qualification(value)
+        return SHELL_VARIANTS[prefix].observer.validate_qualification(value)
     except ValueError as exc:
-        raise EvidenceError("P345 qualification proof differs") from exc
+        raise EvidenceError(prefix + " qualification proof differs") from exc
 
 
-def _p345_ap_payload_closure(value: dict[str, Any]) -> dict[str, Any]:
+def validate_p345_research_shell_proof(value):
+    return _validate_shell_proof(value, "p345")
+
+
+def validate_p346_research_shell_proof(value):
+    return _validate_shell_proof(value, "p346")
+
+
+def _shell_ap_payload_closure(value, variant):
     candidate = value["candidate"]
-    return {"kind": "p345_exact_readonly_research_shell_ap_v1",
-        "run_id": P345_RUN_ID, "userspace_overlay_contract_id": P345_STOCK_OVERLAY_CONTRACT_ID,
-        "source_contract_id": p345_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+    return {"kind": variant.prefix + "_exact_readonly_research_shell_ap_v1",
+        "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
+        "source_contract_id": variant.adapter.PARENT_SOURCE_CONTRACT_ID,
         "boot_img_lz4": candidate["a"]["boot_img_lz4"], "boot_image": candidate["a"]["boot_img"],
         "image": candidate["image"], "init": candidate["init"], "child": candidate["child"],
         "busybox": candidate["busybox"], "latch": P319_EXACT_ARTIFACTS["latch"],
-        "auth_key": dict(P345_AUTH_EXEC_AUTH_KEY_IDENTITY)}
+        "auth_key": dict(variant.auth_key)}
 
 
-def _validate_p345_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
+def _p345_ap_payload_closure(value):
+    return _shell_ap_payload_closure(value, SHELL_VARIANTS["p345"])
+
+
+def _validate_shell_ap_payload(frame, closure, variant):
     item = _exact(closure, {"kind", "run_id", "userspace_overlay_contract_id", "source_contract_id",
-        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"}, "P345 AP closure")
-    if (item["kind"] != "p345_exact_readonly_research_shell_ap_v1" or item["run_id"] != P345_RUN_ID
-        or item["userspace_overlay_contract_id"] != P345_STOCK_OVERLAY_CONTRACT_ID
-        or item["source_contract_id"] != p345_stock_adapter.PARENT_SOURCE_CONTRACT_ID
-        or item["image"] != p345_artifact_identity.P345_IMAGE_IDENTITY
-        or item["auth_key"] != P345_AUTH_EXEC_AUTH_KEY_IDENTITY):
-        raise EvidenceError("P345 AP header differs")
+        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"}, "shell AP closure")
+    if (item["kind"] != variant.prefix + "_exact_readonly_research_shell_ap_v1"
+        or item["run_id"] != variant.run_id or item["userspace_overlay_contract_id"] != variant.overlay
+        or item["source_contract_id"] != variant.adapter.PARENT_SOURCE_CONTRACT_ID
+        or item["image"] != variant.image_identity or item["auth_key"] != variant.auth_key):
+        raise EvidenceError("shell AP header differs")
     inherited = {key: item[key] for key in ("boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch")}
     inherited.update({"kind": "p327_exact_framed_fixed_command_ap_v1", "run_id": P327_RUN_ID,
         "source_contract_id": p327_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
         "userspace_overlay_contract_id": P327_STOCK_OVERLAY_CONTRACT_ID})
     verified = _validate_p327_e2_ap_payload(frame, inherited)
-    return {**verified, "run_id": P345_RUN_ID, "userspace_overlay_contract_id": P345_STOCK_OVERLAY_CONTRACT_ID,
+    return {**verified, "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
             "read_only_child_required": True, "later_action_lease_active": False}
 
 
-def _verify_p345_stock_offline_contract(acceptance: dict[str, Any], *, payloads: dict[str, bytes],
-        receipts: dict[str, dict[str, Any]], candidate_ap: dict[str, Any], runtime_bound: bool = False) -> dict[str, Any]:
+def _validate_p345_e2_ap_payload(frame, closure):
+    return _validate_shell_ap_payload(frame, closure, SHELL_VARIANTS["p345"])
+
+
+def _verify_shell_stock_offline_contract(acceptance, *, payloads, receipts, candidate_ap, runtime_bound=False):
     item = validate_acceptance(acceptance)
-    if item.get("userspace_overlay_contract_id") != P345_STOCK_OVERLAY_CONTRACT_ID:
-        raise EvidenceError("P345 offline overlay differs")
+    variant = SHELL_OVERLAYS.get(item.get("userspace_overlay_contract_id"))
+    if variant is None:
+        raise EvidenceError("shell offline overlay differs")
     if set(payloads) != {"candidate_static", "run_manifest", "static_check"} or set(receipts) != set(payloads):
-        raise EvidenceError("P345 offline artifact set differs")
+        raise EvidenceError("shell offline artifact set differs")
     for name, payload in payloads.items():
         pin = item["contract"][name]
         actual = {"size": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
         if any(actual[key] != pin[key] or actual[key] != receipts[name].get(key) for key in actual):
-            raise EvidenceError("P345 offline artifact bytes differ: " + name)
-    values = {name: _json(payload, "P345 " + name) for name, payload in payloads.items()}
+            raise EvidenceError("shell offline artifact bytes differ: " + name)
+    values = {name: _json(payload, "shell " + name) for name, payload in payloads.items()}
     if any(_canonical(values[name]) != payload for name, payload in payloads.items()):
-        raise EvidenceError("P345 offline JSON is noncanonical")
-    static_module = _p345_static_module()
+        raise EvidenceError("shell offline JSON is noncanonical")
+    static_module = _shell_static_module(variant.prefix)
     try:
         static = static_module.validate_result(values["candidate_static"])
         run, check = static_module.promotion_payloads(static, item["contract"]["candidate_static"],
             run_id=values["run_manifest"]["promotion_run_id"])
     except (ValueError, KeyError) as exc:
-        raise EvidenceError("P345 static or promotion cannot regenerate") from exc
+        raise EvidenceError("shell static or promotion cannot regenerate") from exc
     if not _strict_equal(values["run_manifest"], run) or not _strict_equal(values["static_check"], check):
-        raise EvidenceError("P345 promotion differs")
+        raise EvidenceError("shell promotion differs")
     if any(candidate_ap.get(key) != static["candidate"]["a"]["ap_tar_md5"][key] for key in ("size", "sha256")):
-        raise EvidenceError("P345 candidate AP differs")
-    return {"schema": "device_action_f1_p345_stock_offline_contract_v1", "run_id": P345_RUN_ID,
-        "decoder": p345_stock_adapter.DECODER_ID, "policy_id": p345_stock_adapter.POLICY_ID,
-        "profile": p345_stock_adapter.PROFILE, "source_contract_id": p345_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
-        "userspace_overlay_contract_id": P345_STOCK_OVERLAY_CONTRACT_ID,
-        "source_closure": static["source_closure"], "p345_auth_key": dict(P345_AUTH_EXEC_AUTH_KEY_IDENTITY),
-        "ap_payload_closure": _p345_ap_payload_closure(static), "qualification": static["qualification"],
+        raise EvidenceError("shell candidate AP differs")
+    return {"schema": f"device_action_f1_{variant.prefix}_stock_offline_contract_v1", "run_id": variant.run_id,
+        "decoder": variant.adapter.DECODER_ID, "policy_id": variant.adapter.POLICY_ID,
+        "profile": variant.adapter.PROFILE, "source_contract_id": variant.adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": variant.overlay, "source_closure": static["source_closure"],
+        variant.prefix + "_auth_key": dict(variant.auth_key),
+        "ap_payload_closure": _shell_ap_payload_closure(static, variant), "qualification": static["qualification"],
         "candidate_success": False, "causal_result_allowed": False, "complete_is_noncausal": True,
         "host_only": True, "device_contact": False, "live_authorized": False,
         "later_action_lease_active": False, "mandatory_rollback": True, "verified": True}
@@ -7664,8 +7711,8 @@ def _verify_p345_stock_offline_contract(acceptance: dict[str, Any], *, payloads:
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
-    if isinstance(closure, dict) and closure.get("userspace_overlay_contract_id") == P345_STOCK_OVERLAY_CONTRACT_ID:
-        return _validate_p345_e2_ap_payload(frame, closure)
+    if isinstance(closure, dict) and closure.get("userspace_overlay_contract_id") in SHELL_OVERLAYS:
+        return _validate_shell_ap_payload(frame, closure, SHELL_OVERLAYS[closure["userspace_overlay_contract_id"]])
     source_contract_id = (
         closure.get("source_contract_id") if isinstance(closure, dict) else None
     )
@@ -9954,8 +10001,9 @@ def validate_candidate_arrival_proof_role(
     """
     if value is None:
         return None
-    if expected_run_id == P345_RUN_ID:
-        if value != CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE or not _strict_equal(candidate_observer, p345_research_shell_observer_spec()):
+    shell = next((v for v in SHELL_VARIANTS.values() if v.run_id == expected_run_id), None)
+    if shell is not None:
+        if value != CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE or not _strict_equal(candidate_observer, _shell_observer_spec(shell.prefix)):
             raise EvidenceError("P345 exact qualification observer role differs")
         return value
     if value == CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE:
@@ -10209,9 +10257,9 @@ def validate_candidate_arrival_proof_role(
 def validate_acceptance(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise EvidenceError("acceptance must be an object")
-    if value.get("userspace_overlay_contract_id") == P345_STOCK_OVERLAY_CONTRACT_ID:
+    if value.get("userspace_overlay_contract_id") in SHELL_OVERLAYS:
         try:
-            return p345_stock_adapter.validate_acceptance_item(value)
+            return SHELL_OVERLAYS[value["userspace_overlay_contract_id"]].adapter.validate_acceptance_item(value)
         except ValueError as exc:
             raise EvidenceError(str(exc)) from exc
     kind = value.get("kind")
@@ -20685,8 +20733,8 @@ def verify_offline_contract(
     candidate_ap: dict[str, Any],
     runtime_bound: bool = False,
 ) -> dict[str, Any]:
-    if acceptance.get("userspace_overlay_contract_id") == P345_STOCK_OVERLAY_CONTRACT_ID:
-        return _verify_p345_stock_offline_contract(acceptance, payloads=payloads,
+    if acceptance.get("userspace_overlay_contract_id") in SHELL_OVERLAYS:
+        return _verify_shell_stock_offline_contract(acceptance, payloads=payloads,
             receipts=receipts, candidate_ap=candidate_ap, runtime_bound=runtime_bound)
     if acceptance.get("kind") == E1_LATEST_STAGE_KIND:
         return _verify_e1_latest_stage_offline_contract(
@@ -21114,15 +21162,16 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
-    if item.get("userspace_overlay_contract_id") == P345_STOCK_OVERLAY_CONTRACT_ID:
-        result.update({"overlay_contract_id": P345_STOCK_OVERLAY_CONTRACT_ID,
+    if item.get("userspace_overlay_contract_id") in SHELL_OVERLAYS:
+        shell = SHELL_OVERLAYS[item["userspace_overlay_contract_id"]]
+        result.update({"overlay_contract_id": shell.overlay,
             "proof_class": decoded.get("proof_class", "NO_PROOF_OBSERVER"),
             "causal_result_allowed": False, "candidate_success": False,
             "mux_result_claimable": False, "host_silent_claimable": False,
             "acm_supplemental": False,
             "acm_primary": True, "carrier_supplemental": True,
             "acm_required_for_acceptance": True, "acm_required_for_arrival_proof": True,
-            "p345_stock": decoded.get("p345_stock", []),
+            shell.prefix + "_stock": decoded.get(shell.prefix + "_stock", []),
             "stock_result_count": decoded.get("stock_result_count", 0)})
         return result
     if item.get("userspace_overlay_contract_id") == P344_STOCK_OVERLAY_CONTRACT_ID:

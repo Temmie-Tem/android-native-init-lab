@@ -408,7 +408,7 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
             acceptance.get("run_id"),
         )
         if identity not in {
-            (typed_evidence.P345_STOCK_OVERLAY_CONTRACT_ID, typed_evidence.P345_RUN_ID),
+            *((variant.overlay, variant.run_id) for variant in typed_evidence.SHELL_VARIANTS.values()),
             (
                 typed_evidence.P323_STOCK_OVERLAY_CONTRACT_ID,
                 typed_evidence.P323_RUN_ID,
@@ -592,7 +592,7 @@ def _overridden_candidate_sources(
     userspace_overlay_contract_id: str | None,
 ) -> frozenset[str]:
     if userspace_overlay_contract_id in {
-        typed_evidence.P345_STOCK_OVERLAY_CONTRACT_ID,
+        *typed_evidence.SHELL_OVERLAYS,
         typed_evidence.P344_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P343_STOCK_OVERLAY_CONTRACT_ID,
         typed_evidence.P342_STOCK_OVERLAY_CONTRACT_ID,
@@ -658,20 +658,21 @@ def execution_critical_source_receipts(
             "regular-path transport",
         )[1],
     }
-    if acceptance.get("userspace_overlay_contract_id") == typed_evidence.P345_STOCK_OVERLAY_CONTRACT_ID:
+    if acceptance.get("userspace_overlay_contract_id") in typed_evidence.SHELL_OVERLAYS:
+        shell = typed_evidence.SHELL_OVERLAYS[acceptance["userspace_overlay_contract_id"]]
         typed_evidence.validate_acceptance(acceptance)
         if candidate_arrival_proof_role != typed_evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE:
             raise F1V2Error("P345 exact qualification role is required")
-        closure = typed_evidence._p345_static_module().source_receipts()
+        closure = typed_evidence._shell_static_module(shell.prefix).source_receipts()
         for name, item in closure.items():
             receipts[name] = _stable_read(repo_root() / item["path"], "P345 " + name)[1]
             if any(receipts[name][key] != item[key] for key in ("size", "sha256")):
                 raise F1V2Error("P345 source changed during binding")
-        key = (typed_evidence.p345_artifact_identity.auth_key_identity() if bind_private_inputs
-               else dict(typed_evidence.P345_AUTH_EXEC_AUTH_KEY_IDENTITY))
-        if key != typed_evidence.P345_AUTH_EXEC_AUTH_KEY_IDENTITY:
+        key = (shell.artifact.auth_key_identity() if bind_private_inputs
+               else dict(shell.auth_key))
+        if key != shell.auth_key:
             raise F1V2Error("P345 auth key differs")
-        receipts["p345_auth_key"] = dict(key)
+        receipts[shell.prefix + "_auth_key"] = dict(key)
         return receipts
     if acceptance.get("kind") == typed_evidence.SAME_RING_KIND:
         same_ring_sources = {
@@ -2359,14 +2360,15 @@ def verify_candidate_source_binding(
     verification: dict[str, Any],
     execution_sources: dict[str, dict[str, Any]],
 ) -> None:
-    if acceptance.get("userspace_overlay_contract_id") == typed_evidence.P345_STOCK_OVERLAY_CONTRACT_ID:
-        expected = typed_evidence._p345_static_module().source_receipts()
+    if acceptance.get("userspace_overlay_contract_id") in typed_evidence.SHELL_OVERLAYS:
+        shell = typed_evidence.SHELL_OVERLAYS[acceptance["userspace_overlay_contract_id"]]
+        expected = typed_evidence._shell_static_module(shell.prefix).source_receipts()
         if verification.get("source_closure") != expected:
             raise F1V2Error("P345 verified static source closure differs")
         for name, item in expected.items():
             if any(execution_sources.get(name, {}).get(key) != item[key] for key in ("size", "sha256")):
                 raise F1V2Error("P345 execution source differs: " + name)
-        if execution_sources.get("p345_auth_key") != typed_evidence.P345_AUTH_EXEC_AUTH_KEY_IDENTITY:
+        if execution_sources.get(shell.prefix + "_auth_key") != shell.auth_key:
             raise F1V2Error("P345 execution auth key differs")
         return
     if acceptance.get("kind") != typed_evidence.E1_LATEST_STAGE_KIND:
@@ -3220,12 +3222,13 @@ def verify_candidate_observer_binding(
     acceptance: dict[str, Any],
     observer: dict[str, Any] | None,
 ) -> None:
-    if acceptance.get("userspace_overlay_contract_id") == typed_evidence.P345_STOCK_OVERLAY_CONTRACT_ID:
+    if acceptance.get("userspace_overlay_contract_id") in typed_evidence.SHELL_OVERLAYS:
+        shell = typed_evidence.SHELL_OVERLAYS[acceptance["userspace_overlay_contract_id"]]
         try:
             typed_evidence.validate_acceptance(acceptance)
             typed_evidence.validate_candidate_arrival_proof_role(
                 typed_evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE,
-                observer, expected_run_id=typed_evidence.P345_RUN_ID)
+                observer, expected_run_id=shell.run_id)
         except typed_evidence.EvidenceError as exc:
             raise F1V2Error(str(exc)) from exc
         return

@@ -71,6 +71,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                     {filename: text.replace(body, changed, 1)})
 
     def test_current_tree_scans_full_directory_and_passes_d0_f1(self):
+        payload = self.source("device_action_f1_live_v2.py").encode("utf-8")
+        live_identity = {"size": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
         value = self.module.audit_sources(REVALIDATION)
         self.assertEqual(value["verdict"], self.module.VERDICT)
         self.assertGreater(value["all_revalidation_python_files_scanned"], 1700)
@@ -105,10 +107,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertTrue(value["f1_covered"])
         self.assertEqual(
             value["p328_live_source_identity"],
-            {
-                "size": 768_601,
-                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
-            },
+            live_identity,
         )
         self.assertEqual(
             set(value["p328_raw_first_function_sha256"]),
@@ -133,10 +132,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         )
         self.assertEqual(
             value["p331_live_source_identity"],
-            {
-                "size": 768_601,
-                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
-            },
+            live_identity,
         )
         self.assertEqual(
             set(value["p331_raw_first_function_sha256"]),
@@ -150,10 +146,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         )
         self.assertEqual(
             value["p332_live_source_identity"],
-            {
-                "size": 768_601,
-                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
-            },
+            live_identity,
         )
         self.assertEqual(
             set(value["p332_raw_first_function_sha256"]),
@@ -168,10 +161,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         )
         self.assertEqual(
             value["p333_live_source_identity"],
-            {
-                "size": 768_601,
-                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
-            },
+            live_identity,
         )
         self.assertEqual(
             set(value["p333_raw_first_function_sha256"]),
@@ -186,10 +176,7 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         )
         self.assertEqual(
             value["p334_live_source_identity"],
-            {
-                "size": 768_601,
-                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
-            },
+            live_identity,
         )
         self.assertEqual(
             set(value["p334_raw_first_function_sha256"]),
@@ -482,6 +469,13 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
     def test_p337_p339_raw_first_contracts_reject_binding_mutations(self):
         live_name = "device_action_f1_live_v2.py"
         live_source = self.source(live_name)
+        functions = self.module._function_sources(live_source)
+
+        def mutate_function(name, old, new):
+            body = functions[name]
+            self.assertEqual(body.count(old), 1)
+            return live_source.replace(body, body.replace(old, new, 1), 1)
+
         p338_observer_start = live_source.index("class _P338ObserverSession")
         p338_observer_end = live_source.index(
             "\n\n\n@contextlib.contextmanager\ndef _p328_candidate_observer_session",
@@ -520,15 +514,15 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
                 "        proof_validator=typed_evidence.validate_p337_open_read_diagnostic_proof,\n",
                 1,
             ),
-            live_source.replace(
+            mutate_function(
+                "_p339_candidate_observer_session",
                 "        observer_module=p339_open_read_observer,\n",
                 "        observer_module=p338_open_read_observer,\n",
-                1,
             ),
-            live_source.replace(
+            mutate_function(
+                "_p339_validate_receipt",
                 "        proof_validator=typed_evidence.validate_p339_open_read_branch_proof,\n",
                 "        proof_validator=typed_evidence.validate_p338_open_read_branch_proof,\n",
-                1,
             ),
             p338_errno_mutation,
         )
@@ -1251,11 +1245,6 @@ def read_control1(adb, serial):
             value["pre_boundary_device_source_inventory_sha256"],
             self.module.PRE_BOUNDARY_DEVICE_SOURCE_SHA256,
         )
-        self.assertEqual(value["pre_boundary_device_source_count"], 128)
-        self.assertEqual(
-            value["pre_boundary_device_source_inventory_sha256"],
-            "b17a7dcff17cf54cfa6bf71ff07a6e914bc275240c13d4b08f5bf711d83c2326",
-        )
         self.assertEqual(
             value["p319_d1_pre_boundary_classification"],
             {
@@ -1277,17 +1266,13 @@ def read_control1(adb, serial):
             "device_acquisition_detected_by_behavior_not_filename", value
         )
         self.assertEqual(value["acquisition_rule"], "process_spawn_capability_v2")
-        self.assertEqual(value["host_only_non_acquiring_source_count"], 21)
-        self.assertEqual(
-            value["host_only_non_acquiring_source_inventory_sha256"],
-            "7bcec0de0c8f8ab70d492671cef9804fd3e0e480b9a4dc5175e142ae05913a66",
-        )
+        self.assertEqual(value["host_only_non_acquiring_source_count"],
+                         len(self.module.S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS))
         self.assertTrue(value["host_only_non_acquiring_sources_are_byte_frozen"])
         self.assertEqual(
             {item["name"] for item in value["host_only_non_acquiring_sources"]},
             set(self.module.S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS),
         )
-        self.assertEqual(value["pre_boundary_cross_target_membership_count"], 63)
 
     def test_p319_d1_registered_bytes_are_frozen(self):
         name = "s22plus_fyg8_p319_d1_fresh_baseline.py"

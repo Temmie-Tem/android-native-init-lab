@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""P346 exact static closure using the read-only successor builder."""
+from pathlib import Path
+import hashlib
+
+TEMPLATE_SOURCE = Path(__file__).with_name('s22plus_fyg8_p345_process_v2_candidate_static.py')
+TEMPLATE_IDENTITY = {'size': 8107, 'sha256': '4537f63080f1397c2775da0557f3c2622d103fc2b284144d2a3df1623efbb3e0'}
+_template = TEMPLATE_SOURCE.read_bytes()
+if {"size": len(_template), "sha256": hashlib.sha256(_template).hexdigest()} != TEMPLATE_IDENTITY:
+    raise ValueError("P346 source template identity differs")
+_template = _template.replace(b"P345", b"P346").replace(b"p345", b"p346")
+_template = _template.replace(b"s22plus_fyg8_p346_readonly_child",
+                              b"s22plus_fyg8_p345_readonly_child")
+_template = _template.replace(b"process-v2-candidate-static-20260906-02",
+                              b"process-v2-candidate-static-20260906-01")
+# Keep CLI dispatch after registering the full executed-template closure.
+_template = _template[:_template.rindex(b'if __name__ == "__main__":')]
+exec(compile(_template, str(TEMPLATE_SOURCE) + "#p346", "exec"), globals())
+for _directory, _names in (
+    (REVALIDATION, ("research_shell_runtime", "research_shell_observer",
+                    "artifact_identity", "stock_process_v2_adapter")),
+    (Path(__file__).parent, ("stock_candidate_build", "process_v2_candidate_static")),
+):
+    for _name in _names:
+        SOURCE_FILES["p346_template_" + _name] = _directory / ("s22plus_fyg8_p345_" + _name + ".py")
+# The thin preparer itself and its executed base affect emitted addresses.
+SOURCE_FILES["p346_prepare"] = Path(__file__).with_name("prepare_s22plus_fyg8_p346_process_v2.py")
+SOURCE_FILES["p346_template_prepare"] = Path(__file__).with_name("prepare_s22plus_fyg8_p345_process_v2.py")
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -29,16 +29,18 @@ BOOT_ID = b"b" * 32
 class _ReceiptFixture:
     """Build one complete public-shape receipt from real P345 wire streams."""
 
-    def __init__(self, run_dir: Path) -> None:
+    def __init__(self, run_dir: Path, *, variant="p345") -> None:
         self.run_dir = run_dir
         self.run_dir.mkdir(parents=True)
-        self.runtime = live.p345_shell_runtime
-        self.observer = live.p345_shell_observer
+        self.variant = live.typed_evidence.SHELL_VARIANTS[variant]
+        self.runtime = self.variant.runtime
+        self.observer = self.variant.observer
         self.codec = live._open_header_initial_observer_module(  # noqa: SLF001
             self.runtime, self.observer, "p345-receipt-test"
         )
-        self.spec = live.typed_evidence.p345_research_shell_observer_spec()
+        self.spec = live.typed_evidence._shell_observer_spec(variant)
         self.prepared = self._prepared()
+        self.audits = []
         self.rx_streams: list[bytes] = []
         self.tx_streams: list[bytes] = []
         self.proof = self._qualification_proof()
@@ -49,7 +51,7 @@ class _ReceiptFixture:
         self.publish(self.value)
 
     def _prepared(self) -> live.PreparedRun:
-        acceptance = live.typed_evidence.p345_stock_adapter.acceptance_fixture()
+        acceptance = self.variant.adapter.acceptance_fixture()
         manifest = {
             "manifest_id": "p345-live-receipt-test",
             "candidate_ap": {"sha256": "a" * 64},
@@ -245,6 +247,7 @@ class _ReceiptFixture:
         for ordinal, step in enumerate(self.observer.QUALIFICATION_COMMANDS, 1):
             rx, tx = self._session(ordinal)
             parsed = self.observer.parse_captured_session(self.codec, rx, tx, KEY)
+            self.audits.append(parsed.session.audit)
             row = self.observer.validate_session_result(parsed, step)
             row["rx"]["offset"] = rx_offset
             row["tx"]["offset"] = tx_offset
@@ -381,7 +384,7 @@ class _ReceiptFixture:
             live.p324_typec_lane.CANDIDATE_TOPOLOGY
         ]
         return {
-            "schema": live._P345ObserverSession.receipt_schema,  # noqa: SLF001
+            "schema": f"s22plus_fyg8_{self.variant.prefix}_shell_qualification_acm_receipt_v1",  # noqa: SLF001
             "contract_id": self.observer.CONTRACT_ID,
             "target": self.runtime.TARGET,
             "binding": binding,
@@ -401,7 +404,12 @@ class _ReceiptFixture:
             "rx": live._p327_identity(self.payload),  # noqa: SLF001
             "auth_key_sha256": KEY_SHA256,
             "proof": self.proof,
-            "p345_readonly_research_shell_qualification": self.proof,
+            self.variant.prefix + "_readonly_research_shell_qualification": self.proof,
+            "preauth_diagnostics": [[{"stage": d.stage, "code": d.code} for d in audit.diagnostics]
+                                    for audit in self.audits],
+            "rng_eagain_retries": [audit.rng_eagain_retries for audit in self.audits],
+            "partial_sessions": [{"current_stage": audit.current_stage, "failure_stage": audit.failure_stage}
+                                 for audit in self.audits],
             "qualification_complete": True,
             "pid1_framed_exec_proof": True,
             "busybox_ash_command_proof": True,

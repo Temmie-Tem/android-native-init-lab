@@ -749,11 +749,30 @@ reviewed P345 execution closure and its published ready declaration. Without
 both matching inputs it remains H0; neither source tests nor this definition
 alone authorizes a device action or waives the fresh attended F1 approval.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, or P345 candidate transfer occurs, the same
+**P346 numeric-witness and result-projection successor.** P345 is CLOSED,
+healthy, consumed and never replayable. P346 retains its five same-descriptor
+qualification sessions, fixed read-only child view/filter, authenticated CANCEL,
+expected exit-7/timeout/cancel/pipeline outcomes, deadlines, output bounds,
+boot-only payload and mandatory exact Magisk rollback. It requests numeric
+child UID/GID separately, shares numeric parent-ID validation, stores JSON-stable
+metadata and uses its own receipt projection. Fixed P345 canary/setup/CANCEL
+markers are inherited protocol vocabulary; fresh run ID, banner, authenticated
+nonce witnesses, Image/init join, schemas and execution closure identify P346.
+No syscall, command authority, lease, reopen, retry or recovery scope is added.
+P344 remains the pinned packaging construction base; consumed P345 artifacts,
+journals and outcomes are preserved. Successor artifact validation is read-only;
+only fresh build creation publishes its new result. Independent changed-closure
+review, fresh source/artifact qualification, matching raw-first audit and ready
+bindings, ordinary D0 preparation and returned attended F1 approval remain
+required. Existing attended normal-reboot D1 may be used only when needed for
+the baseline under current operator authority; no new D0/D1 runner or baseline
+exception is introduced. This clause alone grants no device authority.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, or P346 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, or `s22plus-fyg8-p345` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, or `s22plus-fyg8-p346` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

@@ -100,7 +100,8 @@ static long p345_exec_command(int fd,uint32_t seq,const uint8_t *cmd,
 '''
 
 
-def source():
+def source(selected_runtime=runtime):
+    runtime = selected_runtime
     parser = (ROOT/'workspace/public/src/native-init/s22plus_fyg8_p318_max77705_result_parser.inc.c').read_text()
     sha = parser[parser.index('struct s22plus_max77705_runtime_sha256 {'):
                  parser.index('static int s22plus_max77705_runtime_expect(')]
@@ -126,7 +127,9 @@ int main(int argc,char **argv){
 
 
 class CJoinTests(unittest.TestCase):
+    runtime = runtime
     def test_real_c_normal_nonzero_cancel_timeout_and_next_same_fd(self):
+        runtime = self.runtime
         # Actual 15-second timeout is intentionally retained, not accelerated.
         cases = [('printf hello', 'ok', False), ('exit 7', 'command-failed', False),
                  ('printf started; /bin/busybox sleep 30', 'cancelled', True),
@@ -139,7 +142,7 @@ class CJoinTests(unittest.TestCase):
             build = subprocess.run(['cc','-x','c','-','-o',str(binary),
                 '-O2','-Wall','-Wextra','-Wno-deprecated-declarations',
                 '-Wno-unused-function','-Wno-misleading-indentation'],
-                input=source().encode(), capture_output=True, timeout=30)
+                input=source(runtime).encode(), capture_output=True, timeout=30)
             self.assertEqual(build.returncode, 0, build.stderr.decode())
             host, peer = socket.socketpair()
             host.setblocking(False); peer.setblocking(False)
