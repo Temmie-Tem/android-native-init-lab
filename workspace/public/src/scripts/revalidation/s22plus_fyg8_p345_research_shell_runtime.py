@@ -35,6 +35,8 @@ P344_RUN_ID_HEX = P344_PREDECESSOR_RUN_ID_HEX
 P344_RUN_ID = P344_PREDECESSOR_RUN_ID
 P345_RUN_ID_HEX = "c345f1e0a90b5e6d7c8a9b0c1d2e3f0a"
 P345_RUN_ID = bytes.fromhex(P345_RUN_ID_HEX)
+CONTRACT_ID = "s22plus-fyg8-p345-readonly-research-shell-runtime-v1"
+SCHEMA = CONTRACT_ID
 
 FRAME_MAGIC = predecessor.FRAME_MAGIC
 FRAME_VERSION = predecessor.FRAME_VERSION
@@ -452,6 +454,7 @@ def _exec_function(value: bytes) -> bytes:
                     cancelled = 1;
                     if (cancel_status != NULL)
                         *cancel_status = P345_CANCEL_STATUS_CONSUMED;
+                    (void)sys_kill(pid, SIGKILL);
                     (void)sys_kill(-pid, SIGKILL);
                     rc = p328_reap_after_kill(pid, &status);
                     if (rc != 0) break;
@@ -960,8 +963,8 @@ def transform_artifacts(
 def audit_binding(*, child: bytes | None = None) -> dict[str, Any]:
     available = child is not None or _AVAILABLE_CHILD_SOURCE is not None
     value = {
-        "schema": "s22plus-fyg8-p345-research-shell-runtime-v1",
-        "contract_id": "s22plus-fyg8-p345-research-shell-runtime-v1",
+        "schema": SCHEMA,
+        "contract_id": CONTRACT_ID,
         "predecessor_source": dict(SOURCE_IDENTITY),
         "predecessor_run_id": P344_PREDECESSOR_RUN_ID_HEX,
         "fresh_run_id": P345_RUN_ID_HEX,
@@ -1004,7 +1007,8 @@ __all__ = [
     "AUTH_DOMAIN_BOOT_ID", "AUTH_DOMAIN_CANCEL", "AUTH_DOMAIN_CLOSE",
     "AUTH_DOMAIN_EXEC", "AUTH_DOMAIN_OPEN", "AUTH_DOMAIN_READY",
     "AUTH_KEY_SCHEMA", "AUTH_KEY_SIZE", "AUTH_TAG_SIZE",
-    "CATALOG", "CATALOG_ACTIONS", "COMMAND_TIMEOUT_SEC", "DEFAULT_COMMANDS",
+    "CATALOG", "CATALOG_ACTIONS", "COMMAND_TIMEOUT_SEC", "CONTRACT_ID",
+    "DEFAULT_COMMANDS",
     "DEVICE_BANNER", "EXIT", "FLAG_CANCELLED", "FRAME_AUTH", "FRAME_BOOT_ID",
     "FRAME_CANCEL", "FRAME_CANCEL_ACK", "FRAME_CHALLENGE", "FRAME_CLOSE",
     "FRAME_DATA", "FRAME_DONE", "FRAME_EXEC", "FRAME_EXIT", "FRAME_MAGIC",
@@ -1019,7 +1023,7 @@ __all__ = [
     "P345_CANCEL_STATUS_NONE",
     "P345_COMMAND", "P345_DEFAULT_COMMANDS", "P345_ENTRY", "P345_HELPER",
     "P345_HELPER_TEMPLATE", "P345_RUN_ID", "P345_RUN_ID_HEX",
-    "RuntimeIdentityError", "audit_binding", "build_helper", "cancel_frame",
+    "RuntimeIdentityError", "SCHEMA", "audit_binding", "build_helper", "cancel_frame",
     "cancel_tag", "child_source", "completion_state", "decode_cancel_ack",
     "encode_cancel_frame", "encode_frame", "fixture_child_source", "identity",
     "materialize_helper", "parse_exit", "transform_artifacts",

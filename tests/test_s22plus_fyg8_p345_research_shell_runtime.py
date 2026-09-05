@@ -569,7 +569,7 @@ static const char p335_command_3[] =
     "/bin/busybox echo P328-NONCE c345f1e0a90b5e6d7c8a9b0c1d2e3f0a";
 struct timespec64 { int64_t tv_sec, tv_nsec; };
 static long ticks;
-static int partial_mode, killed;
+static int partial_mode, direct_killed, killed;
 static uint8_t cancel_input[64];
 static size_t cancel_offset, cancel_length;
 static int frame_count, frame_types[4], exit_flags, exit_code, exit_signal;
@@ -598,6 +598,7 @@ static long sys_write(int fd, const void *buffer, size_t size) {
 static long sys_clone(void) { return 42; }
 static long sys_kill(long pid, int sig) {
     (void)sig;
+    if (pid == 42) direct_killed = 1;
     if (pid < 0) killed = 1;
     return 0;
 }
@@ -711,6 +712,8 @@ int main(int argc, char **argv) {
         return result == -P260_EPROTO && frame_count == 0 ? 0 : 10;
     return result == 0
         && cancel_status == P345_CANCEL_STATUS_CONSUMED
+        && direct_killed
+        && killed
         && frame_count == 2
         && frame_types[0] == P328_FRAME_EXIT
         && frame_types[1] == P345_FRAME_CANCEL_ACK
