@@ -628,6 +628,87 @@ applicable authority, never automatic flashing, mode entry or effect replay.
 Success proves ordinary Android warm-reboot retention only. Native PID1,
 Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 
+## S20+ last_kmsg Observation D0
+
+Status: **DEFINED - LAST_KMSG OBSERVATION D0 NOT ACTIVE; REVIEW REQUIRED**
+Runner-Normalized-SHA256: `8c5d0178f50de9ca2c5db836293052ee78e8b3bfedac7d1b48905704abc208d2`
+Root-Script-SHA256: `47dfcec66a42b082d6e6a7ca4b481d710279085c9c5aeecc38c7615a8b76349f`
+
+This separate fixed read-only capability is implemented by
+`workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
+dormant at source SHA-256
+`eb5e2b8df207d84270d6682e3c0538f59b50bcdadc0692684847cdfd4a9d6fa3`.
+It reuses the exact root-health parser, inventory and private-publication
+utilities without modifying or invoking that capability's execution owner.
+The root-health source remains 39,819 bytes at SHA-256
+`24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44`;
+its inventory helper remains 21,474 bytes at SHA-256
+`3c89eaa348ec7a3a06a3ae2a0de227c781c97238b4e8f33e62b6e0bd370eec81`.
+
+The only activation atoms are the runner's `ACTIVE` boolean and this section's
+status plus the two exact identity lines above. The normalized identity
+substitutes only that boolean, so both identity lines are already final and are
+unchanged by activation. A missing, duplicate, partial or drifted section stops
+before a device command. No existing root-health, pstore-readiness, PMSG, P0,
+T2, autonomous or other-target activation state authorizes this capability.
+One independent review of this section, the runner and its tests, its reused
+reachable utilities, and interaction with AGENTS and the risk tiers is required
+before mechanical activation. Review may cover the exact boolean/status flip;
+it grants no source delta or expanded action surface.
+
+After activation, the foreground D0 authorization above or one current direct
+attended request covers each invocation. This is not background authority.
+It sends exactly six bounded host commands in the same fixed shape as the
+pstore readiness D0: global inventory, selected `get-devpath`, the existing
+fixed public pre-snapshot, one quoted fixed `shell su -c` observation script,
+the identical public post-snapshot, and final global inventory. The pinned ADB,
+exact target/build/topology/current-boot continuity, enforcing SELinux, and
+root/Magisk/stock-PID1 requirements of root-health D0 remain. The root script
+has a 60-second timeout and an 8-KiB combined-output limit, reflecting a scan of
+a multi-megabyte node rather than small metadata reads. There is no internal
+retry.
+
+The single observed path is `/proc/last_kmsg`, the Samsung sec_log window on the
+previous boot's kernel log. `CONFIG_SEC_LOG_BUF`, `CONFIG_SEC_LOG_LAST_KMSG` and
+`CONFIG_SEC_LOG_STORE_LAST_KMSG` are set in the stock 4.19.113 kernel, and the
+recorded pstore readiness D0 observed this node as a readable regular file of
+2,097,136 bytes with its content deliberately unread. No other path is read,
+and no ramoops, pstore, PMSG or `/data` path is touched by this capability.
+
+No log byte crosses the device boundary. Every predicate is a line count
+computed on the device over a scan window bounded at 4,194,304 bytes; a larger
+node is reported unscanned rather than truncated. Only node state, `stat`
+size and link count, one whole-window SHA-256, and four predicate counts are
+emitted. The complete predicate declaration is the runner's `PREDICATES`
+closure, included in the script hash above and in `--render-plan`, which
+declares `log_contents_read` false and both `log_bytes_crossing_boundary` and
+`log_bytes_retained` zero. Log text is never emitted, captured, pulled,
+persisted or published anywhere, in success or in failure.
+
+Every branch emits every declared key exactly once and in a fixed order, so a
+short, reordered or extended transcript fails closed rather than reading as a
+partial observation. A symlinked, absent, non-regular, unreadable or hardlinked
+node is an explicit observation and not an error. The parser refuses an absent
+node that reports a scan, an unscanned window that reports a digest or predicate
+hits, and any malformed count, digest or metadata value.
+
+Results live only under
+`workspace/private/runs/s20plus-g986n-last-kmsg-observation-d0/` in newly
+allocated private directories. Reused atomic no-replace file/directory-fsynced
+publication writes one result or failure receipt. Serial, topology and boot ID
+are hashed; inventory, public-snapshot and root-transcript bytes are not
+persisted. Failure retains bounded output digests, never raw error text. Every
+result reports zero S22+/A90/other-target commands and zero device effects,
+writes, reboots and partition access.
+
+A successful observation that satisfies every predicate establishes that the
+node carries a completed prior boot's kernel log including userspace `init`
+records. That is a retention and channel result only. It does not prove native
+PID1 execution, does not prove the buffer survives an Odin or Download-mode
+transition, which is a different transition from a warm reboot, and authorizes
+no candidate, marker, write, reboot, mode transition, payload, partition, R1 or
+F1 action. The permanent common boundaries and target isolation are unchanged.
+
 ## S20+ Routine Connected Actions
 
 Status: **BINDING - ROUTINE D1 SETUP/CONTROL ACTIVE**
