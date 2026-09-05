@@ -209,3 +209,32 @@ physical Download entry on the same cable/port. Candidate1/rollback0 at this
 checkpoint; final health and F1 closure remain pending. No F1 closure row is
 appended before the actual rollback and terminal result. The next turn must
 resume/check this recovery only, never execute the candidate again.
+
+## Final closure
+
+The existing recovery invocation completed the exact rollback once and verified
+rooted FYG8 Android, boot/supporting partition digests and absent Download.
+The operator subsequently confirmed Android entry. Final journal is CLOSED/19,
+state33262B/ab4e2343 and result37182B/edb77ee6; recovery_required=false.
+Formal terminal is NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK, outcome
+p343_named_exploration_unproved_rollback_verified. The action summary retains
+one uncertain kernel action, completed_actions=0, proved=false. Initial USB
+proof remains valid; the failed action is not retrospectively relabeled.
+Candidate/rollback counts are1/1 and no command/action was replayed.
+
+Canonical timeline, UTC2026-09-05:
+
+| Event | Time |
+| --- | --- |
+| live_session_start | 13:53:34.947873Z |
+| candidate_flash_start | 13:53:51.327278Z |
+| candidate_flash_done | 13:53:52.944659Z |
+| candidate_boot_ready | 13:56:20.685038Z |
+| rollback_flash_start | 14:01:47.648004Z |
+| rollback_flash_done | 14:01:49.199047Z |
+| rollback_boot_ready | 14:02:35.195478Z |
+| live_session_end | 14:02:35.217533Z |
+
+P343 is consumed and never replayable. Next work is the host field-name repair
+and regression through actual action-result publication before preparing any
+fresh successor. This closure changes no operating source or retained journal.
