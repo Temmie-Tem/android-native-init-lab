@@ -1,6 +1,6 @@
 # S22+ research shell: arbitrary syntax, bounded read-only view
 
-Status: H0 design, NOT ACTIVE. Target SM-S906N/g0q/S906NKSS7FYG8.
+Status: reviewed H0 implementation and ready2 published; fresh preparation in progress, no F1 approval or transfer yet. Target SM-S906N/g0q/S906NKSS7FYG8.
 The operator chose arbitrary shell syntax with a designed write barrier.
 This is not the existing five-query P344 authority, and P344 remains consumed.
 
@@ -168,15 +168,17 @@ transport stops qualification and selects ordinary mandatory rollback. Even
 complete qualification closes through exact rollback and healthy Android;
 it opens no resident lease, generic live CLI or standing shell authority.
 
-## Remaining integration and qualification
+## Remaining device qualification
 
-Implement the fixed child isolation and test real ash pipelines/substitutions,
-normal and nonzero exits, attempted file creation/truncation/rename, descriptor
-escape, child group escape, output flood and timeout. Then implement and test
-authenticated cancellation, including a subsequent successful command on the
-same connection. Exercise the complete producer -> publisher -> lease -> close
-summary path, not only a parser or synthetic result dictionary.
+The changed execution closure passed independent H0 review, actual local
+producer/consumer tests, immutable raw-receipt reopening and terminal projection.
+Ready2 uses the unchanged AP `28631081B/7ee59a13`; the host-only successor fixed
+an analysis-module import path found by the clean live CLI before device contact.
+No replacement runtime or AP was necessary for that repair.
 
-Only after that H0 unit and its changed-boundary review: qualify a fresh candidate,
-register the exact new shell capability, perform normal D0/D1 as required and
-obtain fresh attended F1 approval. No F1-ready or shell-activation claim exists yet.
+Fresh D0, the operator-authorized normal reboot only if the prior P344 baseline
+requires it, and a new attended F1 approval remain the preparation steps. The
+first device test must establish the real mount/chroot read-only child boundary
+and its five expected command outcomes, then exact rollback and final health.
+Host tests do not establish those device facts. There is no lease step in this
+qualification; general later research commands remain deferred.
