@@ -2,7 +2,7 @@
 
 Date: 2026-09-05. Target: `SM-G986N/y2q/y2qksx/G986NKSS8IYC2`.
 Status: **V1 TRIAL FAILED BEFORE ANY MARKER BYTE AND IS CLOSED NO_PROOF HEALTHY;
-HOST SCRIPT DEFECT PROVEN; V2 CORRECTED AFTER BLOCKING REVIEW AND DORMANT**.
+HOST SCRIPT DEFECT PROVEN; V2 DORMANT AND SHELVED, NOT ACTIVATED**.
 Device reboots, mode transitions, partition operations and
 S22+/A90/other-target commands in this trial: **0**.
 
@@ -129,8 +129,12 @@ comparison, and got it.
 V2 is implemented in the same owner file and is dormant. It changes the version
 to `s20plus-g986n-pmsg-warm-reboot-d1-v2`, moves the fixed trial to
 `workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1-v2/`, and rewrites the
-external descriptor references in both generated scripts. Nothing else in the
-journal model, bounds, privacy rules or entry points changed.
+external descriptor references in both generated scripts.
+
+The journal model did change, and this paragraph previously said it had not.
+`probe-result` was added to the event set and made a prerequisite of
+`marker-intent`, which is precisely how the probe gates the marker action.
+Bounds, privacy rules and entry points are unchanged.
 
 | Identity | Value |
 |---|---|
@@ -178,14 +182,14 @@ precede a receipt.
 `set -eu` prelude and shared health guard included — through the target's own
 mksh and toybox binaries under qemu, reusing the V1 suite's fixture for the
 device-only inputs. The reader is now dynamically executed across exact,
-duplicate, substring and missing records. Two shape guards and a new
-PATH-resolution guard run unconditionally, so a clone without the private
-extract still fails an exact `/proc/self` reversion.
+duplicate, substring and missing records. Four shape guards run unconditionally
+- the same four listed above - so a clone without the private extract still
+fails an exact `/proc/self` reversion.
 
 **PATH resolution.** The review listed `printf`, `head`, `grep` and `wc` as
 PATH-resolved. Only `printf` was: `head`, `grep`, `wc`, `stat` and `cat` were
 already absolute. Every `printf` this runner generates is now
-`/system/bin/printf`. The two remaining bare `printf` calls live in the shared
+`/system/bin/printf`. One bare `printf` remains, in the shared
 `health.ROOT_READ_SCRIPT`, whose pinned bytes are deliberately unchanged under
 the proportionality finding and are recorded in the target contract.
 
@@ -193,9 +197,35 @@ the proportionality finding and are recorded in the target contract.
 over-broad; the readiness preflight does perform its declared bounded pstore
 metadata reads. That sentence now says so.
 
-Activation still requires a fresh independent review of this corrected V2 and a
-fresh current operator request. V2 inherits no authority from V1's consumed
-trial.
+## Outcome: V2 is shelved, not activated
+
+The fresh independent review of the corrected V2 was performed and returned
+BLOCKING FINDINGS. The probe gate, journal ordering, write-failure exit and
+parser strictness were confirmed; the end-to-end test was refuted as an
+activation gate because it could skip entirely, substituted `/dev/null` for
+`/dev/pmsg0`, and did not hash-bind the shell and toybox extract, and the PATH
+guard was refuted as a finite-name regex a constructed command can evade.
+
+V2 was not corrected again. It is shelved dormant, because separate H0 work
+established that this lane was measuring the weaker of two channels:
+
+- every `/sys/fs/pstore/*-ramoops-0` record read `unavailable` while the ramoops
+  node is enabled, bound and fully configured, so the S22+ explanation of a
+  `status=disabled` device-tree node does not apply here;
+- the stock kernel sets `CONFIG_SEC_LOG_BUF` with `CONFIG_SEC_LOG_BUF_NO_CONSOLE`,
+  so Samsung takes the log through sec_log and detaches it from console drivers,
+  leaving the pstore console buffer nothing to persist;
+- `/proc/last_kmsg` is a readable regular file of 2,097,136 bytes = 2 MiB - 16,
+  matching the vendor `struct sec_log_buf` header of `magic`, `idx`, `prev_idx`
+  and `boot_cnt`.
+
+So a PMSG marker would have proved that one byte survived, through a mechanism
+this target largely leaves inert, at the cost of a consumed marker action and a
+reboot. The lane's early-boot observation was redirected accordingly; see
+`docs/plans/S20PLUS_G986N_LAST_KMSG_OBSERVATION_DESIGN_2026-09-05.md`.
+
+V2 inherits no authority from V1's consumed trial, and shelving it grants none
+either. Reviving it would require a fresh review and a fresh operator request.
 
 One observation left unchanged: the shared `health.ROOT_READ_SCRIPT` reads
 `/proc/self/attr/current` through an external `cat`, which reports that
