@@ -133,3 +133,33 @@ with zero exact/family markers. The fresh approval digest is b35d3045.
 Current D0 boot/serial/topology match the D1 returned identity. No P343 F1
 transaction or transfer exists; only the returned exact attended approval can
 start execution. The source-only repair did not change AP or rollback bytes.
+
+## Approved invocation: pre-candidate observer-arm abort
+
+The operator returned approval b35d3045. On 2026-09-05T13:44:07Z, directory3
+completed execution's Android recheck and APPROVED transition, then stopped
+while entering the candidate observer context. Journal4 is ABORTED with
+`candidate_observer_arm_failed_before_candidate` and `error_type=AttributeError`.
+The live result is 1351 bytes, SHA256
+`710c0400ca9880a7d20ad1adfa7a9bd264ee9114689e7ae67abafdb13debacc3`.
+Formal verdict is `FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD`; candidate classification
+is `not-attempted`, transfers are 0/0 and recovery_required=false. Neither
+candidate-download-request-intent nor candidate observer receipt exists.
+There was no Download request, candidate experiment or required rollback.
+Execution's initial healthy recheck is not a final-health closure.
+
+An H0 call to the actual `_p343_candidate_observer_session` with the exact
+manifest spec reproduces `AttributeError: MAX_SESSIONS` before any credential
+or guard acquisition. `_logical_resident_candidate_observer_session` omits
+`P3.43` from `retained_reopen`, selecting `runtime_module.MAX_SESSIONS`
+instead of the observer-owned constant. Its later lease-schema branch already
+handles P343, but is unreachable through this incorrect selection. The durable
+record retains only the exception type; the precise mechanism above is the
+reproducible current-source failure, not a retained traceback.
+
+This was preventable host integration/test coverage failure, not device USB
+failure. The next bounded repair is the missing retained-reopen registration
+plus a real arm-context regression and changed-source review. Preserve this
+aborted run; a repaired closure needs new preparation and a new returned
+approval, never reuse of b35d3045. No operating code was changed after abort
+in this reporting unit, and no further device command was sent.
