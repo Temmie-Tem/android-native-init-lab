@@ -1,9 +1,11 @@
-# P346 preparation: H0 qualified, D1 return health unobserved
+# P346 preparation: qualified, late healthy return and fresh D0
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8` only. The operator preapproved necessary
 D0/D1 through the next F1 approval-code issuance. F1 was not authorized or
-executed. The current stop is a device return/transport uncertainty, not an
-artifact qualification failure. No F1 approval code or prepared binding exists.
+executed. The original D1 return timeout is preserved below. Later read-only
+evidence
+proved healthy return, and fresh ordinary D0 preparation published an F1 approval
+binding. No F1 execution or additional reboot occurred.
 
 ## Qualified successor
 
@@ -105,8 +107,37 @@ S22+ transport and recorded `NO_PROOF_LATE_D0_TARGET_NOT_READY`. It issued no
 reboot or other control and did not alter the D1 stop. The attached S20+ was
 only listed in inventory; it received no command. A90 received no command.
 
-The operator was asked for the current S22+ screen state because the machine
-observer cannot establish Android return. New device effects remain stopped
-under common boundary 7 and the target's D1 stop rule. Allowed observation and
-H0 diagnosis may continue; there is no current F1 code, recovered-health claim,
-standing shell authority or permission to replay the D1 invocation.
+At that point, the operator was asked for the S22+ screen state because the
+machine observer could not establish Android return. New device effects stopped
+under common boundary 7 and the target's D1 stop rule. Only allowed observation
+and H0 diagnosis could continue; no F1 code or recovered-health claim existed.
+The consumed D1 invocation remains non-replayable.
+
+## Late healthy return and fresh preparation
+
+The operator subsequently reported that S22+ was in Android. A new bounded
+read-only observation in `workspace/private/outputs/s22plus_fyg8_p346/d1-late-d0-02`
+returned `LATE_HEALTHY_RETURN_OBSERVED`: exact rooted FYG8 health, changed boot
+ID relative to the consumed D1 start, and unchanged selected topology all passed.
+Its result is 1484 bytes, SHA-256
+`219f5b695469422be0d3ec71757df608fcbf27f3df43616ad18b61b7b5368537`.
+Operator observation and machine evidence remain separate. The original timeout,
+stop receipt and first late-observation failure are unchanged; no in-bound D1
+PASS or automatic recovery proof is inferred.
+
+With current health established, the ordinary read-only `--prepare` was run in
+fresh directory `p346-ready1-prepared-20260906-2`. It returned
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`, including admissible baseline,
+exact target and initial/final health. The D0 result is 3261 bytes, SHA-256
+`d04f2061cf9e0705bc40a2f996fe833ee06a65687f67a3235b92665bb5f5ad17`.
+The prepared record is 30216 bytes, SHA-256
+`5d6c76f7186ce03d2d0b76e35fee760f84ca4cc74bbe4e93e5ac3abef80c3063`.
+The actual `load_prepared` consumer reopened the complete source/artifact/D0
+binding successfully without device contact; all six device-effect and authority
+flags remain false.
+The full approval token remains in that private record and is supplied directly
+to the operator. Execution requires its separate returned exact attended approval,
+physical Download recovery availability and current runtime revalidation.
+
+No additional reboot, reconnect control, Download transition, Odin invocation,
+partition transfer or F1 execution occurred. A90 and S20+ received no command.

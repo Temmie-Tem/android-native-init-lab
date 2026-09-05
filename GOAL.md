@@ -24,12 +24,17 @@ geometry, boot-only AP and mandatory Magisk rollback remain unchanged. Fresh
 run ID, source/artifact qualification and matching raw-first/ready/live bindings
 are required. H0 implementation/source/artifact qualification now has independent
 PASS_GO; A/B AP `28631081B/ad6a84ef` matches and ready1 is `7135B/54dfe8f1`.
-Connected D0 stopped on retained baseline after initial exact healthy Android.
-One preapproved normal-reboot D1 command returned success, but S22+ stayed ADB
-offline through the 240-second return bound. Its one-shot stop is preserved;
-returned boot ID/health are unobserved. One later bounded read-only observation
-also found no ready S22+ transport. New device effects are stopped pending
-resolution; no prepared binding, F1 approval code or candidate transfer exists.
+Initial D0 stopped on retained baseline. One preapproved normal-reboot D1
+exceeded its 240-second return bound; its consumed stop remains preserved.
+After the operator reported Android, a later read-only observation proved fresh
+boot ID, unchanged topology and exact rooted FYG8 health. No reboot was repeated.
+Fresh preparation `p346-ready1-prepared-20260906-2` passed ordinary D0 with a
+clean baseline and published a 30216-byte prepared binding. The actual prepared
+consumer reopened it successfully and its F1 approval code was issued. F1
+execution still requires the returned exact attended approval; no candidate
+transfer occurred.
+Late health does not turn the original D1 timeout into an in-bound PASS or prove
+automatic recovery from an unresponsive experimental component.
 Report: `docs/reports/S22PLUS_FYG8_P346_PREPARATION_AND_D1_RETURN_STOP_2026-09-06.md`.
 
 Completion criterion: independently reviewed matching execution closure,
