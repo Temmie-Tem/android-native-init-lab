@@ -70,3 +70,53 @@ returned D1 evidence. The normal prepared loader reopens the complete binding;
 approval digest7bc260e6 binds this exact run and candidate/rollback. No P344
 transaction, Download request, Odin or transfer has occurred. F1 execution
 waits for the fresh returned attended approval, not another H0 gate.
+
+## F1 final result — PASS
+
+Returned approval7bc260e6 executed the candidate once. Initial observer
+35538B/b14b751a accepted four authenticated sessions/twelve commands and the
+120-second idle/reuse test. The bounded attended exploration lease then
+completed all five named actions, each identity/query/nonce and clean close.
+All result receipts were published normally; no repair or source change was
+made during execution. There were no failed or unresolved actions.
+
+| Action | Selected output bytes | Result SHA256 prefix |
+| --- | ---: | --- |
+| kernel | 120 | 3dea27c8 |
+| processes | 5169 | bf928b23 |
+| mounts | 332 | 5f441a61 |
+| memory | 1457 | 86be585f |
+| usb-state | 11 | 745fe7d1 |
+
+Outputs, RX/TX and full receipts remain in the private run's
+p344-exploration-actions/action-01 through action-05 directories. These five
+later sessions add fifteen successful fixed command executions to the initial
+twelve. The close summary reopens the exact receipts and reports
+completed_actions=5, proved=true, all status=ok.
+
+Ordinary recovery sent the exact rollback once and verified returned rooted
+FYG8 Android, exact boot/supporting partition hashes and absent Download.
+Final journal CLOSED/19, state34217B/d9029e02 and result38199B/aba403cc;
+recovery_required=false. Formal verdict:
+PASS_F1_V2_P344_NAMED_EXPLORATION_AND_ROLLED_BACK, outcome
+p344_named_exploration_rollback_verified. Candidate/rollback1/1, no replay.
+
+Canonical timeline, UTC2026-09-05 (KST2026-09-06):
+
+| Event | UTC time |
+| --- | --- |
+| live_session_start | 15:00:16.440509Z |
+| candidate_flash_start | 15:00:32.799808Z |
+| candidate_flash_done | 15:00:34.409909Z |
+| candidate_boot_ready | 15:02:47.578001Z |
+| rollback_flash_start | 15:08:40.275654Z |
+| rollback_flash_done | 15:08:41.839427Z |
+| rollback_boot_ready | 15:09:19.629087Z |
+| live_session_end | 15:09:19.649335Z |
+
+This proves bounded named read-only exploration over authenticated USB,
+including normal host result publication. It does not prove arbitrary shell,
+indefinite residency, persistent install, reboot/Download control or autonomous
+recovery. The current device has returned to Android; the candidate and lease
+are consumed and cannot be reopened for more actions. P343's historical
+NO_PROOF is unchanged.
