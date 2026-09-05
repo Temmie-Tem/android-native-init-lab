@@ -79,14 +79,20 @@ health = load_health()
 # linux_version  the window is a kernel log for this exact stock kernel
 # init_records   userspace init output reaches the buffer, so a PID1 banner is
 #                a viable carrier for the P0 lane
-# reboot_marker  the window ends in a completed shutdown, which the *current*
-#                boot's own log cannot contain, so the window is a prior boot
+# terminal_marker the window contains a boot that ended. The current boot's log
+#                cannot yet contain its own shutdown, but a ring buffer can
+#                retain a wrapped older one, so this does not identify the boot
 # sec_log_marker the Samsung sec_log path identified in the stock configuration
+# Anchored to the kernel log record prefix - an optional <N> priority and a
+# bracketed timestamp - so a userspace line that merely quotes one of these
+# strings, or a driver name containing it, is not counted. An unanchored
+# substring match cannot support any claim about which boot produced the record.
+RECORD_PREFIX = r"^(<[0-9]+>)?\[[ 0-9.]+\] "
 PREDICATES = {
-    "linux_version": r"Linux version 4\.19\.113",
-    "init_records": r" init: ",
-    "reboot_marker": r"reboot: Restarting system|reboot: Power|Power down",
-    "sec_log_marker": r"sec_log",
+    "linux_version": RECORD_PREFIX + r"Linux version 4\.19\.113",
+    "init_records": RECORD_PREFIX + r"init: ",
+    "terminal_marker": RECORD_PREFIX + r"(reboot: (Restarting system|Power)|Power down)",
+    "sec_log_marker": RECORD_PREFIX + r".*sec_log",
 }
 
 # Every branch emits every key exactly once and in this order, so a short or
@@ -105,6 +111,8 @@ meta=0:0
 bounded=no
 window=none
 recheck=none
+scanned=-1
+meta_after=0:0
 {chr(10).join(f'{key}=0' for key in PREDICATES)}
 if [ -L "$node" ]; then state=indirect
 elif [ ! -e "$node" ]; then state=unavailable
@@ -115,6 +123,11 @@ else
     meta=$(/system/bin/stat -c '%s:%h' "$node") || exit 65
     if [ "${{meta%%:*}}" -le {SCAN_MAXIMUM} ]; then
         bounded=yes
+        # A pipeline hides an upstream failure: `head` can stop short and
+        # `sha256sum` still succeeds over the partial bytes. Count what was
+        # actually read and let the host require it to equal the stat size, so a
+        # truncated read cannot become a valid digest or a zero predicate count.
+        scanned=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/wc -c) || exit 65
         window=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/sha256sum) || exit 65
 """
 SHELL_HELPERS += "".join(
@@ -122,19 +135,29 @@ SHELL_HELPERS += "".join(
     for key, pattern in PREDICATES.items()
 )
 SHELL_HELPERS += f"""        recheck=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/sha256sum) || exit 65
+        # Re-stat after the passes. A buffer that grew past the cap keeps an
+        # identical prefix digest, so the digests alone cannot see it; the size
+        # and link count can.
+        meta_after=$(/system/bin/stat -c '%s:%h' "$node") || exit 65
     fi
 fi
 emit state "$state"
 emit meta "$meta"
 emit bounded "$bounded"
+emit scanned "$scanned"
 emit window "$window"
 emit recheck "$recheck"
+emit meta_after "$meta_after"
 """
 SHELL_HELPERS += "".join(f'emit {key} "${key}"\n' for key in PREDICATES)
 
 ROOT_SCRIPT = health.ROOT_READ_SCRIPT + SHELL_HELPERS
 ROOT_ARGUMENT = shlex.quote(ROOT_SCRIPT)
-OUTPUT_KEYS = (*health.ROOT_OUTPUT_KEYS, "state", "meta", "bounded", "window", "recheck", *PREDICATES)
+OUTPUT_KEYS = (
+    *health.ROOT_OUTPUT_KEYS,
+    "state", "meta", "bounded", "scanned", "window", "recheck", "meta_after",
+    *PREDICATES,
+)
 
 
 def source_receipt() -> dict[str, Any]:
@@ -182,10 +205,11 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
     if values["bounded"] not in ("yes", "no"):
         raise ObservationError("invalid scan bound")
     facts["bounded"] = values["bounded"] == "yes"
-    if state != "regular":
-        if facts["bounded"] or values["window"] != "none":
-            raise ObservationError("absent node reported a scan")
-    elif facts["links"] != 1:
+    # The shell can only report bounded for a regular node within the cap, so any
+    # other combination is a transcript the script cannot have produced.
+    if facts["bounded"] != (state == "regular" and facts["size"] <= SCAN_MAXIMUM):
+        raise ObservationError("scan bound contradicts the observed node")
+    if state == "regular" and facts["links"] != 1:
         raise ObservationError("node is not a direct regular file")
     if facts["bounded"]:
         window = re.fullmatch(r"([0-9a-f]{64}) +-", values["window"])
@@ -196,10 +220,27 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         # digested again after the last predicate and must be unchanged.
         if values["recheck"] != values["window"]:
             raise ObservationError("scan window changed across the predicate passes")
+        # A pipeline can hide a short read: head stops early and sha256sum still
+        # succeeds. Requiring the counted bytes to equal the stat size makes a
+        # truncated pass a failure rather than a valid digest with zero hits.
+        if not re.fullmatch(r"0|[1-9][0-9]{0,9}", values["scanned"]):
+            raise ObservationError("invalid scanned byte count")
+        facts["scanned"] = int(values["scanned"])
+        if facts["scanned"] != facts["size"]:
+            raise ObservationError("scan read fewer bytes than the node reports")
+        # Identical prefix digests cannot see growth past the cap; the size can.
+        if values["meta_after"] != values["meta"]:
+            raise ObservationError("node metadata changed across the scan")
         facts["window_sha256"] = window[1]
         facts["window_stable_across_passes"] = True
-    elif values["window"] != "none" or values["recheck"] != "none":
-        raise ObservationError("unbounded scan reported a digest")
+        facts["scan_complete"] = True
+    elif (
+        values["window"] != "none"
+        or values["recheck"] != "none"
+        or values["scanned"] != "-1"
+        or values["meta_after"] != "0:0"
+    ):
+        raise ObservationError("unscanned window reported scan evidence")
     counts: dict[str, int] = {}
     for key in PREDICATES:
         if not re.fullmatch(r"0|[1-9][0-9]{0,8}", values[key]):
@@ -210,24 +251,34 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
     facts["predicate_counts"] = counts
     facts["is_kernel_log"] = counts["linux_version"] >= 1
     facts["carries_userspace_init"] = counts["init_records"] >= 1
-    facts["is_completed_prior_boot"] = counts["reboot_marker"] >= 1
-    facts["channel_proved"] = bool(
-        state == "regular" and facts["bounded"]
-        and facts["is_kernel_log"] and facts["carries_userspace_init"] and facts["is_completed_prior_boot"]
+    # An anchored terminal record is evidence that the window contains a boot
+    # that ended, which the current boot's own log cannot yet contain. It is not
+    # a proof of which boot: a ring buffer can retain a wrapped older record.
+    # The capability reports the observation; it does not assert the identity of
+    # the boot. A caller that needs that must plant its own marker.
+    facts["carries_terminal_record"] = counts["terminal_marker"] >= 1
+    facts["channel_readable"] = bool(
+        state == "regular"
+        and facts["bounded"]
+        and facts["is_kernel_log"]
+        and facts["carries_userspace_init"]
     )
     facts["size_matches_recorded_observation"] = facts["size"] == OBSERVED_SIZE
     return facts
 
 
 def channel_verdict(facts: dict[str, Any]) -> str:
-    if facts["channel_proved"]:
-        return "CHANNEL_PROVEN_PRIOR_BOOT_WITH_USERSPACE"
+    # Deliberately says only what the observation supports. The channel being
+    # readable and carrying userspace records is what makes a planted marker a
+    # viable carrier; it is not a claim about which boot the window came from.
+    if facts["channel_readable"] and facts["carries_terminal_record"]:
+        return "CHANNEL_READABLE_WITH_USERSPACE_AND_TERMINAL_RECORD"
+    if facts["channel_readable"]:
+        return "CHANNEL_READABLE_WITH_USERSPACE_NO_TERMINAL_RECORD"
     if facts["state"] != "regular":
         return "CHANNEL_ABSENT"
     if not facts["is_kernel_log"]:
         return "CHANNEL_PRESENT_NOT_A_KERNEL_LOG"
-    if not facts["is_completed_prior_boot"]:
-        return "CHANNEL_PRESENT_PRIOR_BOOT_UNPROVEN"
     return "CHANNEL_PRESENT_NO_USERSPACE_RECORDS"
 
 
@@ -371,7 +422,10 @@ def collect(recorder) -> dict[str, Any]:
         **recorder.evidence(), "device_effect_count": 0, "device_writes": False,
         "reboot_requested": False, "partition_access": False,
         "log_contents_read": False, "log_bytes_retained": 0,
-        "retention_proved": bool(facts["channel_proved"]), "native_pid1_proved": False,
+        # Readability is not retention: the window may hold a wrapped older
+        # record, so nothing here proves which boot produced it.
+        "channel_readable": bool(facts["channel_readable"]),
+        "retention_proved": False, "native_pid1_proved": False,
     }
 
 

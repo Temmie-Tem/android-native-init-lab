@@ -106,8 +106,12 @@ class ShapeTests(unittest.TestCase):
     def test_every_owned_command_position_is_absolute_or_a_shell_word(self):
         for word in command_words(owned()):
             with self.subTest(word=word):
+                # A `$`-prefixed command word is exactly the evasion this guard
+                # exists to catch (`c=${x:-printf}; "$c"`), so it is not allowed
+                # through: every command position must be literal and absolute,
+                # or a shell word.
                 self.assertTrue(
-                    word.startswith("/system/bin/") or word in SHELL_WORDS or word.startswith("$"),
+                    word.startswith("/system/bin/") or word in SHELL_WORDS,
                     f"PATH-resolved or unexpected command position: {word}",
                 )
 
@@ -134,43 +138,91 @@ class ShapeTests(unittest.TestCase):
 
 
 class ParserTests(unittest.TestCase):
+    ORDER = ("state", "meta", "bounded", "scanned", "window", "recheck", "meta_after")
+
     def transcript(self, **overrides):
         values = {"state": "regular", "meta": f"{M.OBSERVED_SIZE}:1", "bounded": "yes",
-                  "window": "a" * 64 + "  -", "recheck": "a" * 64 + "  -",
+                  "scanned": str(M.OBSERVED_SIZE), "window": "a" * 64 + "  -",
+                  "recheck": "a" * 64 + "  -", "meta_after": f"{M.OBSERVED_SIZE}:1",
                   "linux_version": "1", "init_records": "42",
-                  "reboot_marker": "1", "sec_log_marker": "3"}
+                  "terminal_marker": "1", "sec_log_marker": "3"}
         values.update(overrides)
         body = "".join(f"{k}={v}\n" for k, v in M.health.EXPECTED_ROOT_OUTPUT.items())
-        body += "".join(f"{k}={values[k]}\n" for k in ("state", "meta", "bounded", "window", "recheck", *M.PREDICATES))
+        body += "".join(f"{k}={values[k]}\n" for k in (*self.ORDER, *M.PREDICATES))
         return (0, body.encode(), b"")
 
-    def test_complete_channel_proof(self):
+    def unscanned(self, **overrides):
+        """A transcript for a node the shell never scanned."""
+        values = {"state": "unavailable", "meta": "0:0", "bounded": "no", "scanned": "-1",
+                  "window": "none", "recheck": "none", "meta_after": "0:0"}
+        values.update({k: "0" for k in M.PREDICATES})
+        values.update(overrides)
+        return self.transcript(**values)
+
+    def test_readable_channel_with_userspace_and_a_terminal_record(self):
         facts = M.parse_root(self.transcript())
-        self.assertTrue(facts["channel_proved"])
+        self.assertTrue(facts["channel_readable"])
+        self.assertTrue(facts["carries_terminal_record"])
+        self.assertTrue(facts["scan_complete"])
         self.assertTrue(facts["size_matches_recorded_observation"])
         self.assertEqual(facts["window_sha256"], "a" * 64)
         self.assertIs(facts["log_contents_emitted"], False)
-        self.assertEqual(M.channel_verdict(facts), "CHANNEL_PROVEN_PRIOR_BOOT_WITH_USERSPACE")
+        self.assertEqual(
+            M.channel_verdict(facts),
+            "CHANNEL_READABLE_WITH_USERSPACE_AND_TERMINAL_RECORD",
+        )
+
+    def test_nothing_in_the_result_claims_retention_or_a_boot_identity(self):
+        # The window may hold a wrapped older record, so readability is not
+        # retention and no verdict may name which boot produced it.
+        facts = M.parse_root(self.transcript())
+        self.assertNotIn("is_completed_prior_boot", facts)
+        self.assertNotIn("channel_proved", facts)
+        self.assertNotIn("PRIOR_BOOT", M.channel_verdict(facts))
+        self.assertNotIn("PROVEN", M.channel_verdict(facts))
 
     def test_absent_node_is_not_a_channel(self):
-        facts = M.parse_root(self.transcript(state="unavailable", meta="0:0", bounded="no", window="none",
-                                             recheck="none", linux_version="0", init_records="0",
-                                             reboot_marker="0", sec_log_marker="0"))
-        self.assertFalse(facts["channel_proved"])
+        facts = M.parse_root(self.unscanned())
+        self.assertFalse(facts["channel_readable"])
         self.assertEqual(M.channel_verdict(facts), "CHANNEL_ABSENT")
 
-    def test_prior_boot_unproven_without_a_shutdown_record(self):
-        facts = M.parse_root(self.transcript(reboot_marker="0"))
-        self.assertFalse(facts["channel_proved"])
-        self.assertEqual(M.channel_verdict(facts), "CHANNEL_PRESENT_PRIOR_BOOT_UNPROVEN")
+    def test_terminal_record_absence_is_reported_without_denying_readability(self):
+        facts = M.parse_root(self.transcript(terminal_marker="0"))
+        self.assertTrue(facts["channel_readable"])
+        self.assertFalse(facts["carries_terminal_record"])
+        self.assertEqual(
+            M.channel_verdict(facts),
+            "CHANNEL_READABLE_WITH_USERSPACE_NO_TERMINAL_RECORD",
+        )
 
     def test_userspace_absence_is_distinguished(self):
         facts = M.parse_root(self.transcript(init_records="0"))
+        self.assertFalse(facts["channel_readable"])
         self.assertEqual(M.channel_verdict(facts), "CHANNEL_PRESENT_NO_USERSPACE_RECORDS")
 
     def test_not_a_kernel_log_is_distinguished(self):
         facts = M.parse_root(self.transcript(linux_version="0"))
+        self.assertFalse(facts["channel_readable"])
         self.assertEqual(M.channel_verdict(facts), "CHANNEL_PRESENT_NOT_A_KERNEL_LOG")
+
+    def test_truncated_scan_is_refused_rather_than_counted_as_zero(self):
+        # A short read that a pipeline turned into a successful digest.
+        with self.assertRaises(M.ObservationError):
+            M.parse_root(self.transcript(scanned=str(M.OBSERVED_SIZE - 1)))
+
+    def test_growth_past_the_cap_is_refused(self):
+        with self.assertRaises(M.ObservationError):
+            M.parse_root(self.transcript(meta_after=f"{M.OBSERVED_SIZE + 4096}:1"))
+
+    def test_bound_must_follow_from_the_observed_node(self):
+        # Combinations the shell cannot produce must not parse.
+        with self.assertRaises(M.ObservationError):
+            M.parse_root(self.transcript(bounded="no", window="none", recheck="none",
+                                         scanned="-1", meta_after="0:0",
+                                         linux_version="0", init_records="0",
+                                         terminal_marker="0", sec_log_marker="0"))
+        with self.assertRaises(M.ObservationError):
+            M.parse_root(self.unscanned(state="regular", meta=f"{M.OBSERVED_SIZE}:1"))
 
     def test_inconsistent_transcripts_are_refused(self):
         cases = [
@@ -292,11 +344,15 @@ class DeviceShellTests(unittest.TestCase):
             result = self.run_device_shell(self.fixture(Path(temp)))
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = self.parsed(result)
-            self.assertTrue(facts["channel_proved"])
+            self.assertTrue(facts["channel_readable"])
+            self.assertTrue(facts["scan_complete"])
             self.assertEqual(facts["predicate_counts"]["linux_version"], 1)
             self.assertEqual(facts["predicate_counts"]["init_records"], 2)
-            self.assertEqual(facts["predicate_counts"]["reboot_marker"], 1)
-            self.assertEqual(M.channel_verdict(facts), "CHANNEL_PROVEN_PRIOR_BOOT_WITH_USERSPACE")
+            self.assertEqual(facts["predicate_counts"]["terminal_marker"], 1)
+            self.assertEqual(
+                M.channel_verdict(facts),
+                "CHANNEL_READABLE_WITH_USERSPACE_AND_TERMINAL_RECORD",
+            )
 
     def test_extended_alternation_actually_matches_under_the_target_toybox(self):
         # The portability fix: each alternative must match on its own, proving
@@ -309,7 +365,25 @@ class DeviceShellTests(unittest.TestCase):
                 body = self.KERNEL_LOG.replace(b"<5>[  600.000000] reboot: Restarting system\n", b"") + tail
                 result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(self.parsed(result)["predicate_counts"]["reboot_marker"], expected)
+                self.assertEqual(self.parsed(result)["predicate_counts"]["terminal_marker"], expected)
+
+    def test_anchoring_rejects_a_quoted_marker_in_a_userspace_record(self):
+        # An unanchored substring match would count this. The record prefix
+        # anchor is what makes the count mean "a kernel record", not "the bytes
+        # appear somewhere in the window".
+        quoted = (
+            b'<6>[   12.0] init: property_set("sys.powerctl", "reboot: Restarting system")\n'
+            b'<6>[   13.0] healthd: charger says Power down soon\n'
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            body = self.KERNEL_LOG.replace(
+                b"<5>[  600.000000] reboot: Restarting system\n", b""
+            ) + quoted
+            result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = self.parsed(result)
+            self.assertEqual(facts["predicate_counts"]["terminal_marker"], 0)
+            self.assertFalse(facts["carries_terminal_record"])
 
     def test_absent_node_still_emits_every_key(self):
         with tempfile.TemporaryDirectory() as temp:
