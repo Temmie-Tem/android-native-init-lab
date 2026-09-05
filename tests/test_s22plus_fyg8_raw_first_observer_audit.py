@@ -36,6 +36,40 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
     def source(self, name: str) -> str:
         return (REVALIDATION / name).read_text(encoding="utf-8")
 
+    def test_p345_raw_read_order_and_failed_audit_retention(self):
+        cases = (
+            ("s22plus_fyg8_research_shell_exchange.py", "exchange",
+             "writer.write_stdout(chunk)\n                audit.rx.extend(chunk)",
+             "audit.rx.extend(chunk)\n                writer.write_stdout(chunk)"),
+            ("s22plus_fyg8_p345_research_shell_observer.py", "qualify",
+             "partial_receipt=partial", "partial_receipt={}"),
+            ("s22plus_fyg8_p345_research_shell_observer.py", "qualify",
+             'audit = getattr(exc, "audit", None) or audit', "audit = None"),
+        )
+        for filename, name, old, new in cases:
+            text = self.source(filename)
+            body = self.module._function_sources(text)[name]
+            changed = body.replace(old, new, 1)
+            self.assertNotEqual(body, changed)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(REVALIDATION,
+                    {filename: text.replace(body, changed, 1)})
+
+    def test_p345_shared_publisher_and_raw_reopen_are_required(self):
+        filename = "device_action_f1_live_v2.py"
+        text = self.source(filename)
+        for name, old, new in (
+            ("_P345ObserverSession.observe", "_P327ObserverSession._observe_value(self,", "self._observe_without_raw("),
+            ("_P345ObserverSession.observe", "session_tx_hex=", "dropped_tx="),
+            ("_p345_validate_receipt", "raw_capture.read_stdout(handle, maximum=P327_MAX_RAW_BYTES)", "b''"),
+        ):
+            body = self.module._function_sources(text)[name]
+            changed = body.replace(old, new, 1)
+            self.assertNotEqual(body, changed)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(REVALIDATION,
+                    {filename: text.replace(body, changed, 1)})
+
     def test_current_tree_scans_full_directory_and_passes_d0_f1(self):
         value = self.module.audit_sources(REVALIDATION)
         self.assertEqual(value["verdict"], self.module.VERDICT)
@@ -72,8 +106,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p328_live_source_identity"],
             {
-                "size": 749_827,
-                "sha256": "9ca3eee53f548fa415907f29c3f69b06db019e2d428a3bf1527b04752f6b4b7e",
+                "size": 768_601,
+                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
             },
         )
         self.assertEqual(
@@ -100,8 +134,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p331_live_source_identity"],
             {
-                "size": 749_827,
-                "sha256": "9ca3eee53f548fa415907f29c3f69b06db019e2d428a3bf1527b04752f6b4b7e",
+                "size": 768_601,
+                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
             },
         )
         self.assertEqual(
@@ -117,8 +151,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p332_live_source_identity"],
             {
-                "size": 749_827,
-                "sha256": "9ca3eee53f548fa415907f29c3f69b06db019e2d428a3bf1527b04752f6b4b7e",
+                "size": 768_601,
+                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
             },
         )
         self.assertEqual(
@@ -135,8 +169,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p333_live_source_identity"],
             {
-                "size": 749_827,
-                "sha256": "9ca3eee53f548fa415907f29c3f69b06db019e2d428a3bf1527b04752f6b4b7e",
+                "size": 768_601,
+                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
             },
         )
         self.assertEqual(
@@ -153,8 +187,8 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertEqual(
             value["p334_live_source_identity"],
             {
-                "size": 749_827,
-                "sha256": "9ca3eee53f548fa415907f29c3f69b06db019e2d428a3bf1527b04752f6b4b7e",
+                "size": 768_601,
+                "sha256": "b9b760a669d2dbcd6192154333876fc3434715aaa8ccfabba0a3be097e9490fb",
             },
         )
         self.assertEqual(
