@@ -7,6 +7,7 @@ request, so the properties that matter are: the reduction is real and cannot
 silently regrow, the request cannot be gated behind the best-effort banner, and
 the binary is inert anywhere but as PID1.
 """
+import hashlib
 import importlib.util
 import re
 import shutil
@@ -123,6 +124,44 @@ class BuilderPolicyTests(unittest.TestCase):
         self.assertIn('"reboot_target": "download"', text)
         self.assertIn('"dwell_before_reboot": False', text)
         self.assertIn('"usb_gadget_configured": False', text)
+
+
+class ContractBindingTests(unittest.TestCase):
+    SECTION = "## S20+ P0 PID1 Minimal Download-Request F1 candidate"
+
+    def section(self):
+        text = (ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md").read_text()
+        self.assertEqual(text.count(self.SECTION + "\n"), 1)
+        return text.split(self.SECTION + "\n", 1)[1].split("\n## ", 1)[0]
+
+    def prose(self):
+        """Section with line wrapping collapsed, so a hard wrap cannot hide a claim."""
+        return " ".join(self.section().split())
+
+    def test_section_pins_the_current_source_and_builder(self):
+        # Committed inputs, so this drift guard always runs. A source or builder
+        # edit that does not re-pin the section fails here rather than reaching
+        # a reviewer as a stale identity.
+        body = self.section()
+        for path in (SOURCE, Path(V4.__file__).resolve()):
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            self.assertIn(digest, body, f"section does not pin the current {path.name}")
+
+    def test_section_is_not_active_and_declares_the_reboot(self):
+        body = self.prose()
+        self.assertIn("NOT ACTIVE", body)
+        self.assertIn("OWNER NOT REBOUND", body)
+        # The one property that differs from every previous P0 candidate must be
+        # stated in the section, not left to the manifest.
+        self.assertIn("issues a reboot syscall and requests a mode transition", body)
+        self.assertIn("mandatory resident-Magisk rollback", body)
+        self.assertIn("There is no dwell.", body)
+
+    def test_section_inherits_rather_than_restates_the_f1_machinery(self):
+        body = self.prose()
+        self.assertIn("## P0 PID1 ACM Odin boot-only F1", body)
+        self.assertIn("by reference", body)
+        self.assertIn("Only the boot partition is a payload", body)
 
 
 @unittest.skipUnless(TOOLCHAIN, "aarch64 cross toolchain or qemu-aarch64 is unavailable")

@@ -2549,6 +2549,118 @@ correction keeps exact prepared receipt binding but uses the stable
 same-session predicate for later endpoint observations. Stable
 path/inode/device/topology or descriptor drift still stops.
 
+## S20+ P0 PID1 Minimal Download-Request F1 candidate
+
+Status: **DEFINED - H0 ONLY - NOT ACTIVE - OWNER NOT REBOUND**
+
+This section defines one replacement candidate for the P0 direct-PID1 lane. It
+adds no tier, no owner, no machinery and no authority of its own. Every F1
+invariant of `## P0 PID1 ACM Odin boot-only F1` above applies unchanged and by
+reference: the same exact owner, the same Process-v2 append-only global
+no-replay registry, the same causal Android-to-Download transition, the same
+process cage and raw capture, the same intent-before-effect journal, the same
+physical Download fallback, the same mandatory resident-Magisk rollback, the
+same final rooted-Android health, and the same requirement of operator
+attendance with a fresh connected prepare and its emitted exact approval. This
+section may not be read as relaxing any of them.
+
+Only the boot partition is a payload here, as everywhere in this contract.
+
+### Why a replacement candidate
+
+Three P0 candidates are consumed and all closed `NO_PROOF`. Each completed its
+full 180-second observation window and emitted no banner. Their evidence lay at
+the end of a configfs, gadget, UDC and `ttyGS0` chain, and the ACM candidate had
+to read `/sys/class/tty/ttyGS0/dev` to learn its own node's major and minor, so
+the banner could only appear once that entire chain had bound. A silent failure
+anywhere in it is indistinguishable from `/init` never executing, which is
+precisely the observation those three runs produced. The lane does not need a
+better ACM candidate; it needs a candidate whose evidence does not depend on a
+chain.
+
+### The candidate
+
+Built by
+`workspace/public/src/scripts/revalidation/build_s20plus_g986n_p0_pid1_min_h0.py`
+at SHA-256 `d454faf9f240da2a00f4f2c0361a1d2487246ab3317331ca53af26973297b758`
+from `workspace/public/src/native-init/s20plus_p0_pid1_min_init.c` at SHA-256
+`4fa39972eee88896f0cde837aafd19c0ddfd07eadd224f522021adb523629c8f`.
+
+| Artifact | Size | SHA-256 |
+|---|---|---|
+| `s20plus_p0_pid1_min_init` | 800 | `8fb2152224089471c4a0de6462a9bc47f333eeda2f57aac992a1ad4177eb2daf` |
+| `boot.img` | 67,108,864 | `0456cec1d234c520dc39e0d6ec4919addf46ca3c051082e82e21db5d8ac91376` |
+| `boot.img.lz4` | 25,720,699 | `90c2b8ee9fb657513ba07e901f2fa5b31435cb21811ce8a4efecf77d23eac414` |
+| `AP.tar.md5` | 25,722,921 | `6b629932f4d441480fee5dd2019e5fee43790a0f1b41cf7e9c6cfefce02e7957` |
+
+The builder reuses the ACM builder's materialisation path unchanged, so the
+resident kernel, DTB, boot header, command line and partition geometry are the
+already proven ones and only ramdisk `/init` differs. The AP carries exactly one
+member, `boot.img.lz4`, and the no-change repack proof over the same base boot
+is part of the build receipt.
+
+### What the candidate does, in full
+
+As PID1 and only as PID1 - a `getpid` gate parks the binary anywhere else - it
+performs a best-effort `/dev/kmsg` banner and then requests Samsung download
+mode. That is the whole program. Its runtime surface is exactly eight syscalls:
+`getpid` for the gate, `mkdirat`, `mknodat`, `openat`, `write` and `close` for
+the banner, `nanosleep` for the park, and `reboot` for the request. The builder
+fails the build if any of `mount`, `symlinkat`, `read` or `exit_group` appears,
+or if any of nine strings the ACM candidate carried is present, so the gadget
+chain cannot silently regrow into a candidate that reaches the device.
+
+`/dev/kmsg` is a fixed 1:11 character device and needs no sysfs lookup, unlike
+the `ttyGS0` node it replaces. The banner is best effort in the strict sense:
+every result is discarded, and no branch separates it from the download request.
+A failed `mkdirat`, `mknodat`, `openat` or short `write` cannot prevent the
+request, because the request is the primary evidence and must never be reachable
+only on the banner's success path.
+
+### The one deliberate difference, declared plainly
+
+**This candidate's PID1 issues a reboot syscall and requests a mode transition
+to Download.** No previous P0 candidate did. It is stated here rather than left
+to the manifest because it is the property a reviewer must weigh.
+
+It is nonetheless bounded by what already applies. The transition is
+Android-to-Download, which this lane already performs under operator attendance
+and already recovers from; the destination is Download mode, not recovery, not
+fastboot and not a partition operation; no partition is written by the candidate;
+and the mandatory resident-Magisk rollback that candidate intent makes
+unconditional is unchanged and unaffected. If the kernel refuses the request the
+binary parks, leaving the operator's physical Download entry and that same
+rollback available - the identical recovery posture the consumed candidates had.
+
+### Observation
+
+Download-mode enumeration is the primary evidence, observed through the host
+mechanism this lane already uses and which recorded this exact target
+enumerating in Download during the consumed V3 run. It requires no gadget, no
+serial I/O, and no buffer surviving a reboot.
+
+There is no dwell. The 180-second observation window of the consumed candidates
+does not apply, and the candidate must not be given one: a dwell would add the
+only failure mode this design removes.
+
+The `/proc/last_kmsg` sec_log window may carry the banner as secondary evidence
+after the authorized rollback. It is secondary in the strict sense - no result
+of this candidate depends on it, and the separate `## S20+ last_kmsg Observation
+D0` capability that would read it is itself dormant and unreviewed.
+
+Every branch is informative, which is the property the three consumed runs
+lacked. Download arriving proves PID1 executed. Download not arriving is a
+failure with no gadget, no dwell and no chain left in it to blame.
+
+### What is still required before any device contact
+
+The P0 owner is dormant and is still bound to the consumed ACM candidate. It
+must be rebound to the artifacts above, re-pinned, and re-reviewed together with
+this section, the builder, the init source and their tests. Activation then
+requires the owner's own activation records, a fresh connected prepare, its
+emitted exact approval, and operator attendance. Nothing in this section
+activates anything, and the consumed candidates grant it no standing.
+
 ## General machine-controlled D1 status
 
 Status: **DEFINED - NOT ACTIVE**
