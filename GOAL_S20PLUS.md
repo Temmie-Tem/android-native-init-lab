@@ -894,5 +894,19 @@ Q1 passed prep; Q2 is consumed `NO_PROOF` after no host fastbootd endpoint.
 Static audit found identical ramoops geometry in both stock board overlays and
 the retained T2 artifact; PMSG retention and native PID1 execution remain unproved.
 The fixed readiness D0 is independently reviewed and active; one exact read passed
-`METADATA_READY_RETENTION_UNPROVED`. PMSG remains reviewed and dormant. Revision 8
+`METADATA_READY_RETENTION_UNPROVED`. Revision 8
 autonomy rules and fixed D0 task authorization: [contract review](docs/reports/S20PLUS_RESEARCH_AUTONOMY_CONTRACT_REVIEW_2026-09-05.md).
+
+The PMSG marker D1 was then activated at its pre-approved SHA and its single V1
+transaction was consumed. The writer stopped at exit `65` in the descriptor
+stage after every root/Magisk/SELinux/PID1/identity/boot predicate passed; no
+marker byte was written and no reboot occurred. The read-only resume closed it
+at `NO_PROOF_PMSG_TRIAL_HEALTHY` and released the guard. The cause is a host
+script defect proven offline against the target's own mksh: the generated
+scripts verified their pinned descriptor through `/proc/self/fd/N`, which an
+exec'd helper resolves to itself, and mksh marks `exec`-opened descriptors
+above 2 close-on-exec. V2 uses `/proc/$$/fd/N`, is dormant at normalized SHA-256
+`afdaf08adc12f453239f20c8527ae8dba0e3432421c770e702bc0f8ae91452ce`, and awaits a
+fresh independent review and operator request. PMSG retention across the
+ordinary warm-reboot route remains unproved, as does native PID1 execution.
+Evidence: [V1 trial failure](docs/reports/S20PLUS_G986N_PMSG_WARM_REBOOT_D1_TRIAL_FAILURE_2026-09-05.md).

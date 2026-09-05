@@ -473,8 +473,31 @@ The permanent common boundaries and target isolation remain unchanged.
 
 ## S20+ PMSG Warm-Reboot Marker D1
 
-Status: **DEFINED - PMSG WARM-REBOOT D1 NOT ACTIVE**
-Runner-Normalized-SHA256: `8605430e64f8aa33c7535e3707a7ca50461c29df39867bc40b3b297afb3acf33`
+Status: **DEFINED - V1 TRIAL CONSUMED NO_PROOF HEALTHY; V2 NOT ACTIVE**
+Runner-Normalized-SHA256: `afdaf08adc12f453239f20c8527ae8dba0e3432421c770e702bc0f8ae91452ce`
+
+The V1 capability was activated, its single transaction was consumed, and it is
+now closed. The writer reached the PMSG descriptor stage and stopped at exit
+`65`; every preceding root/Magisk/SELinux/PID1/identity/boot predicate passed,
+no marker byte reached `/dev/pmsg0`, and no reboot, mode transition, partition
+or pstore operation occurred. Its marker intent is consumed and its fixed trial
+`workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1/trial/` is closed at
+terminal `NO_PROOF_PMSG_TRIAL_HEALTHY` with the shared guard released. That
+trial path stays globally non-reusable and V1 grants nothing further.
+
+The cause was a host script defect, not a target fault: the writer and reader
+verified their pinned descriptor with an external `stat` on `/proc/self/fd/N`,
+which in an exec'd helper names that helper. The device shell reached through
+`su -c` is MirBSD KSH, which marks `exec`-opened descriptors above 2
+close-on-exec, so the check could never pass. V2 addresses the pinned
+descriptor as `/proc/$$/fd/N` instead, keeping the same pin-before-write order
+and the same character/rdev/link-count predicates. The evidence is in
+`docs/reports/S20PLUS_G986N_PMSG_WARM_REBOOT_D1_TRIAL_FAILURE_2026-09-05.md`.
+
+V2 is dormant, uses the distinct fixed trial
+`workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1-v2/`, and inherits no
+authority from V1's consumed trial. Its activation requires a fresh independent
+review and a fresh current operator request; the paragraphs below describe V2.
 
 This is the sole transaction delegated by
 `S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1` in AGENTS and the risk tiers.
@@ -518,8 +541,11 @@ One fixed root writer rechecks exact root/Android/current-boot health,
 `/sys/devices/virtual/pmsg/pmsg0/dev`, and ramoops `pmsg_size=262144`.
 It opens the direct non-symlink character `/dev/pmsg0` read-only as descriptor
 3, verifies character type, rdev and link count, opens that pinned descriptor
-through `/proc/self/fd/3` for writing as descriptor 4, verifies it again, and
-uses one generated fixed `printf` invocation for the marker. No pathname is
+through `/proc/$$/fd/3` for writing as descriptor 4, verifies it again, and
+uses one generated fixed `printf` invocation for the marker. Every descriptor
+reference names the pinning shell's own table through `/proc/$$`; `/proc/self`
+is forbidden in these generated scripts because an exec'd helper resolves it to
+itself and cannot see a close-on-exec descriptor. No pathname is
 opened with create/truncate before its character identity is pinned. These
 kernel-owned descriptor aliases are character-device API access, never a
 transfer artifact adapter, file payload, node creation or block access.
@@ -545,7 +571,7 @@ mount, permission, configuration, module/package, mode transition or partition
 operation is delegated. Root write/read scripts have 30-second timeouts and
 8-KiB combined output limits. Final public health must remain on the same boot.
 
-The one fixed private `workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1/trial/`
+The one fixed private `workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1-v2/trial/`
 is globally non-reusable. A local lock and the existing routine-actions
 `active-action.json` interlock exclude overlapping device owners. Canonical
 strict JSON, direct private nodes, atomic no-replace publication, file fsync

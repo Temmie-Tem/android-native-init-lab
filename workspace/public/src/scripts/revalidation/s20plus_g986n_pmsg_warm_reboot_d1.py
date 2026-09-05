@@ -17,10 +17,10 @@ import stat
 import time
 
 ACTIVE = False
-VERSION = "s20plus-g986n-pmsg-warm-reboot-d1-v1"
+VERSION = "s20plus-g986n-pmsg-warm-reboot-d1-v2"
 SECTION = "## S20+ PMSG Warm-Reboot Marker D1"
 DELEGATION = "S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1"
-PRIVATE_ROOT = Path("workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1")
+PRIVATE_ROOT = Path("workspace/private/runs/s20plus-g986n-pmsg-warm-reboot-d1-v2")
 SHARED_GUARD = Path("workspace/private/runs/s20plus-g986n-routine-actions/active-action.json")
 READINESS_NAME = "s20plus_g986n_pstore_readiness_d0.py"
 READINESS_SHA256 = "f1e61ec324b7c446ed73e14fe6318cf1a7488733b634861c6ffbbeb79001552b"
@@ -168,12 +168,16 @@ def write_script(binding):
 [ ! -L /dev/pmsg0 ] && [ -c /dev/pmsg0 ] || exit 65
 # Pin a read-only descriptor and verify its character identity before opening
 # that descriptor for writing. Never use a create/truncate open on the pathname.
+# Address the descriptor as /proc/$$/fd/N, never /proc/self/fd/N: the device
+# shell is mksh, which marks exec-opened descriptors above 2 close-on-exec, so
+# an exec'd helper sees neither its own nor the shell's descriptor under
+# /proc/self. $$ stays the shell's own pid inside command substitution.
 exec 3< /dev/pmsg0
-[ -c /proc/self/fd/3 ] || exit 65
-[ "$(/system/bin/stat -Lc '%t:%T:%h' /proc/self/fd/3)" = '{rdev}' ] || exit 65
-exec 4> /proc/self/fd/3
-[ -c /proc/self/fd/4 ] || exit 65
-[ "$(/system/bin/stat -Lc '%t:%T:%h' /proc/self/fd/4)" = '{rdev}' ] || exit 65
+[ -c /proc/$$/fd/3 ] || exit 65
+[ "$(/system/bin/stat -Lc '%t:%T:%h' /proc/$$/fd/3)" = '{rdev}' ] || exit 65
+exec 4> /proc/$$/fd/3
+[ -c /proc/$$/fd/4 ] || exit 65
+[ "$(/system/bin/stat -Lc '%t:%T:%h' /proc/$$/fd/4)" = '{rdev}' ] || exit 65
 printf '\\n%s\\n' '{marker_line(binding)}' >&4
 exec 4>&- 3<&-
 printf 'S20PMSG_WRITE_V1;returned=1;marker_sha256={digest(marker_bytes(binding))}\\n'
@@ -195,10 +199,10 @@ size=$(/system/bin/stat -c '%s' "$node")
 [ "$size" -le {RECORD_MAXIMUM} ] || {{ finish oversized 0 0; exit 0; }}
 [ "$(/system/bin/stat -c '%h' "$node")" = 1 ] || {{ finish indirect 0 0; exit 0; }}
 exec 3< "$node"
-[ -f /proc/self/fd/3 ] || exit 65
-[ "$(/system/bin/stat -Lc '%d:%i:%f:%s:%h' /proc/self/fd/3)" = "$before" ] || exit 65
+[ -f /proc/$$/fd/3 ] || exit 65
+[ "$(/system/bin/stat -Lc '%d:%i:%f:%s:%h' /proc/$$/fd/3)" = "$before" ] || exit 65
 matches=$(/system/bin/head -c {RECORD_MAXIMUM + 1} <&3 | /system/bin/grep -aFx '{marker_line(binding)}' | /system/bin/wc -l)
-after=$(/system/bin/stat -Lc '%d:%i:%f:%s:%h' /proc/self/fd/3)
+after=$(/system/bin/stat -Lc '%d:%i:%f:%s:%h' /proc/$$/fd/3)
 exec 3<&-
 [ "$after" = "$before" ] && [ "$(/system/bin/stat -c '%d:%i:%f:%s:%h' "$node")" = "$before" ] || {{ finish changed 0 0; exit 0; }}
 finish scanned "$matches" "$size"
