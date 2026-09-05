@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "f63603f3d0e5aa8a3f68b6a97176ad78998bf583e71e421f19186b73a980b75b"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "ab18ea5f10d723cd0e3969277ad66e0729b485f95c7167c6430f9ec63607a87d"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -270,7 +270,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
     },
     "focused_owner": {
         "modules": ["tests.test_s20plus_g986n_p0_pid1_odin_f1"],
-        "tests": 74,
+        "tests": 77,
         "skipped": 0,
         "log_name": "focused-owner.log",
     },
@@ -283,8 +283,16 @@ P0_REVIEW_TEST_REQUIREMENTS = {
             "tests.test_s20plus_g986n_boot_recovery_canary_b0_h0",
             "tests.test_s20plus_g986n_p0_twrp_boot_owner_h0",
             "tests.test_device_action_f1_consumed_candidate_registry_v1",
+            # The candidate's own suite: what proves this candidate is the
+            # minimal download-request probe it claims to be, and that the
+            # gadget chain cannot regrow into a buildable candidate.
+            "tests.test_s20plus_g986n_p0_pid1_min_v4",
+            # The activation-document drift guard: what keeps the registry cell,
+            # section headers and pinned digests this owner depends on from
+            # silently desynchronizing while it is dormant.
+            "tests.test_s20plus_g986n_activation_document_drift",
         ],
-        "tests": 179,
+        "tests": 208,
         "skipped": 10,
         "log_name": "wider.log",
     },
