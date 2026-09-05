@@ -149,3 +149,37 @@ reopened; the D0 target, topology and boot match the returned D1 values.
 digest `dfde76fb` is issued for attended operator response only. No P340
 candidate/rollback transfer or F1 transaction has occurred. All current D1,
 H0 and D0 ledger rows have been reparsed; P320–P322 history is unchanged.
+
+## P340 attended F1: diagnostic captured, recovery pending
+
+The operator returned exact approval digest `dfde76fb` and the ordinary live
+runner executed `p340-ready1-prepared-20260905-2` once. Candidate AP
+`28631081B/114523aa` completed its Odin transfer. The journal has 10 records,
+through `candidate_boot_ready`, with state `OBSERVED`. Candidate/rollback
+completed counts are 1/0; rollback has not been attempted. During the physical
+Download wait the runner stopped with `measured USB endpoint inventory failed`.
+This is a recovery-pending, consumed run, not a replayable candidate or a
+healthy closed result. Only its preapproved exact rollback may resume from
+the retained journal. No other-target command was sent.
+
+The actual initial collector retained `candidate-observer.raw`, 193 bytes,
+SHA-256 `f461d251c3e43b9e7a3398dba949f2973b04c6cb6db9cee4250a57bfb90cbda7`.
+The published `candidate-observer.json` reports a complete four-word header
+snapshot after stage 0/code 0 and stage 3/code 1 (`header-grammar`), with six
+diagnostic frames total. Rejected header hex is
+`533232504c55532d465947382d45333a` (16 bytes): the first 16 banner bytes,
+`S22PLUS-FYG8-E3:` without a line terminator. The retained host TX is instead the valid
+32-byte `S328` OPEN, SHA-256
+`dc475d45f771cd21c0929b3b408f2e96ae0d793b897e7c48afe07d6c0998fbf8`.
+This directly locates banner bytes at the device's OPEN parser; it does not
+yet attribute how they returned there. Host TTY echo before raw-mode setup
+is a hypothesis requiring execution-order inspection, not an established
+root cause. The current device code sets and reads back zero local flags.
+
+Diagnostic retention succeeded. Authentication and fixed-command sessions did
+not: `accepted=false`, `successful_sessions=0`, proof is empty, and candidate
+success/causal claims remain false. The original failed exchange was not
+retried. Final health and formal F1 closure are pending. No premature F1
+closure row was appended; the matching ledger row must land with durable
+closure. Historical preparation statements above describe their earlier
+zero-transfer stage, not the current run state.
