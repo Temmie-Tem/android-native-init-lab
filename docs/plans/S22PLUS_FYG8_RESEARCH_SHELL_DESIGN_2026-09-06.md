@@ -1,6 +1,6 @@
 # S22+ research shell: arbitrary syntax, bounded read-only view
 
-Status: reviewed H0 implementation and ready2 published; fresh preparation in progress, no F1 approval or transfer yet. Target SM-S906N/g0q/S906NKSS7FYG8.
+Status: reviewed H0 implementation and ready2 published; fresh D0 passed after one authorized baseline reboot, F1 code issued but not returned/executed. Target SM-S906N/g0q/S906NKSS7FYG8.
 The operator chose arbitrary shell syntax with a designed write barrier.
 This is not the existing five-query P344 authority, and P344 remains consumed.
 
@@ -176,8 +176,9 @@ Ready2 uses the unchanged AP `28631081B/7ee59a13`; the host-only successor fixed
 an analysis-module import path found by the clean live CLI before device contact.
 No replacement runtime or AP was necessary for that repair.
 
-Fresh D0, the operator-authorized normal reboot only if the prior P344 baseline
-requires it, and a new attended F1 approval remain the preparation steps. The
+Fresh D0 passed after the operator-authorized one normal reboot cleared the
+retained P344 baseline. That reboot is consumed; the new attended F1 code has
+been issued but not returned or executed. The
 first device test must establish the real mount/chroot read-only child boundary
 and its five expected command outcomes, then exact rollback and final health.
 Host tests do not establish those device facts. There is no lease step in this
