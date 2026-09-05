@@ -218,3 +218,38 @@ The matching F1 closure ledger row is appended from this retained journal and
 result and reparsed after publication. P320–P322 retrospective disposition is
 unchanged. P340 and its approval are consumed and never replayable; no standing
 resident or device-control authority remains.
+
+## Dormant host-first OPEN successor, H0 only
+
+`s22plus_fyg8_host_first_open.py` implements an isolated source/codec seam,
+not a P340 update or a ready successor. The host sends the existing exact OPEN
+once after its existing raw-TTY setup. The device validates that OPEN before
+emitting the existing banner, stage 0 and OPEN_PARSED. All three publisher
+preambles move into that single console seam, covering initial, same-FD and
+reopened sessions without a new frame or second OPEN.
+
+The device reader now preserves whether any OPEN byte was consumed. Empty
+idle produces no unsolicited diagnostic; partial header/body failure retains
+the flag and stops through the existing publisher guards rather than starting
+another frame. Authentication, fixed commands and read deadlines are retained.
+An OPEN_PARSED diagnostic write error is returned before nonce generation.
+The codec precondition checks echo/canonical/signal suppression; complete raw
+configuration remains the existing caller's responsibility.
+
+Focused tests pass 5/5: real PTY echo/control comparison; nonraw rejection with
+zero OPEN TX; real three-session host codec over PTYs with one OPEN/session and
+bad-HMAC rejection; compiled actual C read/validation/preamble-prefix tests for
+empty input, partial header/body, malformed grammar and valid preamble order;
+and full changed runtime compilation to an AArch64 object. Protocol peer and
+device I/O are fixtures, not hardware proof. Test authentication uses a public
+synthetic key. No device, ADB, Odin or persistent host configuration was touched.
+
+Independent review: `PASS_GO_HOST_FIRST_OPEN_H0_PROTOTYPE`, independently
+reproduced 5/5. Source SHA-256
+`87eecd54d3b4333b0eff5dda5843b89db2765d083f330d22c6c97cc83efdce27`;
+test SHA-256 `2387f45122abcbadb2f5ea8f2e499fe2fd2cd3d3db0be359583a1e74cdeca2f4`.
+The transform deliberately retains the consumed P340 identity for H0 source
+comparison only and must not be packaged or run with it. Fresh candidate
+identity/build, common and later-action integration, exact changed-closure
+review, preparation and attended F1 approval remain separate unfinished work.
+No current contract or runner dispatch was changed or activated.
