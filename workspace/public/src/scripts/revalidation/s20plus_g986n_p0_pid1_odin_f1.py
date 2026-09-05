@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "8f14fee1eb0159d0b8f94c540c604a03e55e6f36679d1d2702c022ad8b1d7bc6"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "58eff39d24eb11c7eeab3d6fac8307cb73ab2837122603d2639adeffa681d914"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -285,17 +285,22 @@ P0_REGISTRY_CONTRACT_CELL = (
     "`docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md`"
 )
 P0_DORMANT_REGISTRY_PROCESS_CELL = (
-    "Active exact-target routine D0/D1 including payload-free Download return; "
-    "classic-fastboot census ordinals 1/2 consumed, with ordinal 2 four-query "
-    "PASS and healthy return; fastboot-boot support F1 consumed with NO_PROOF "
-    "healthy return; retained-T2 TWRP-fastbootd census consumed and first staged "
-    "preparation probe consumed with NO_PROOF healthy return; staged fastbootd "
-    "preparation Q1 consumed with PASS healthy return; TWRP-fastbootd census Q2 "
-    "consumed with NO_PROOF healthy return; "
-    "attended fixed root-health D0 active; attended boot-only bootstrap, resident "
-    "Magisk, and recovery-canary B0 F1 active; recovery-canary T0 and TWRP T1 F2 "
-    "candidates consumed; TWRP T2 recovery retained and candidate consumed; "
-    "reviewed attended native-canary R1 active"
+    "Active exact-target routine D0/D1 including payload-free Download "
+    "return; classic-fastboot census ordinals 1/2 consumed, with ordinal 2 "
+    "four-query PASS and healthy return; fastboot-boot support F1 consumed "
+    "with NO_PROOF healthy return; retained-T2 TWRP-fastbootd census "
+    "consumed and first staged preparation probe consumed with NO_PROOF "
+    "healthy return; staged fastbootd preparation Q1 consumed with PASS "
+    "healthy return; TWRP-fastbootd census Q2 consumed with NO_PROOF "
+    "healthy return; attended fixed root-health D0 active; attended "
+    "boot-only bootstrap, resident Magisk, and recovery-canary B0 F1 "
+    "active; recovery-canary T0 and TWRP T1 F2 candidates consumed; TWRP T2 "
+    "recovery retained and candidate consumed; reviewed attended "
+    "native-canary R1 active; PMSG warm-reboot marker D1 V1 activated, "
+    "consumed and closed `NO_PROOF` healthy with its trial path retired, V2 "
+    "dormant and shelved after a second review returned blocking findings; "
+    "last_kmsg observation D0 defined and dormant pending its first "
+    "independent review"
 )
 P0_ACTIVE_REGISTRY_PROCESS_CELL = (
     P0_DORMANT_REGISTRY_PROCESS_CELL + "; " + P0_ACTIVE_REGISTRY_MARKER
@@ -1993,8 +1998,8 @@ def _preamble_status(text: str, label: str) -> str:
 
 def _registry_process_cell(text: str) -> str:
     lines = _semantic_markdown_lines(text, "repository registry")
-    header = "| Target | Current state | Binding target contract | Binding live process |"
-    separator = "|---|---|---|---|"
+    header = "| Target | Current state | Binding target contract | Live process |"
+    separator = "| --- | --- | --- | --- |"
     headers = [index for index, line in enumerate(lines) if line == header]
     if len(headers) != 1 or headers[0] + 1 >= len(lines):
         raise P0F1Error("P0 repository registry table is absent or ambiguous")

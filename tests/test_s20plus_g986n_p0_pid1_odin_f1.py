@@ -2146,8 +2146,8 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         paths = self.module.P0_POLICY_FILES
         active = {
             paths["repository_contract"]: (
-                "# AGENTS\n\n| Target | Current state | Binding target contract | Binding live process |\n"
-                "|---|---|---|---|\n| "
+                "# AGENTS\n\n| Target | Current state | Binding target contract | Live process |\n"
+                "| --- | --- | --- | --- |\n| "
                 + self.module.P0_REGISTRY_TARGET_CELL
                 + " | "
                 + self.module.P0_REGISTRY_GOAL_CELL
@@ -2269,8 +2269,8 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         hidden_variants.append(hidden)
         hidden = dict(active)
         hidden[paths["repository_contract"]] = (
-            "# AGENTS\n\n| Target | Current state | Binding target contract | Binding live process |\n"
-            "|---|---|---|---|\n```text\n"
+            "# AGENTS\n\n| Target | Current state | Binding target contract | Live process |\n"
+            "| --- | --- | --- | --- |\n```text\n"
             + active[paths["repository_contract"]].splitlines()[4]
             + "\n```\n"
         )
