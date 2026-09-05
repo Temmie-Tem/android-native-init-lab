@@ -81,6 +81,12 @@ if {n.name for n in _nodes} != _names:
     raise ContractError("P344 raw-adapter seam functions differ")
 _text = ast.unparse(ast.Module(body=_nodes, type_ignores=[])).replace("P344", "P345").replace("p344", "p345")
 exec(compile(_text, str(SOURCE) + "#p345-raw", "exec", dont_inherit=True), globals())
+_validate_acceptance_fields = validate_acceptance_item
+
+def validate_acceptance_item(value: Any) -> dict[str, Any]:
+    if type(value) is not dict or set(value) != set(acceptance_fixture()):
+        raise ContractError("P345 acceptance exact field set differs")
+    return _validate_acceptance_fields(value)
 
 def _contract() -> dict[str, Any]:
     return {"userspace_overlay_contract_id": OVERLAY_CONTRACT_ID, "decoder": DECODER_ID,
@@ -121,7 +127,10 @@ def bind_exact_sources(auth_key: Any = None) -> dict[str, Any]:
     # No authentication key is exposed or implicitly created by this adapter.
     parser = _raw_parser()
     value = parser.bind_exact_sources()
-    return {**_fresh(value), "sources": value["sources"],
+    return {**_fresh({}), "target": value["target"], "sources": value["sources"],
+            "parent_source_contract_id": PARENT_SOURCE_CONTRACT_ID,
+            "predecessor_run_id_rejected": P344_PREDECESSOR_RUN_ID_HEX,
+            "carrier_binding": value,
             "raw_parser_source": {"path": str(RAW_PARSER_SOURCE), **RAW_PARSER_SOURCE_IDENTITY},
             "contract": _contract(), "initial_collector": observer.audit_binding()}
 
