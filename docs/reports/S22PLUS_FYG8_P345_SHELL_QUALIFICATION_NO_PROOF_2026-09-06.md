@@ -52,3 +52,14 @@ Retained private evidence under the run directory:
 The next work is host-only diagnosis and independently reviewed minimal
 reporting repair using retained evidence. No protocol redesign, new gate,
 candidate replay or wider shell authority follows from these errors.
+
+Host-only rederivation isolated the finalizer discrepancy to two P345 metadata
+representations: integer diagnostic-map keys versus JSON string keys, and a
+header-stage tuple versus a JSON list. Changing only the isolated in-memory
+variant to the stored JSON representations passes full `validate_live_result`.
+The source, prepared binding, CLOSED journal, live state and raw evidence stay
+unchanged. The resulting verdict remains
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
+`p345_readonly_research_shell_unproved_rollback_verified`, with
+`recovery_required=false`. This validates a proposed terminal value; it does
+not yet assert that the missing result file has been published.
