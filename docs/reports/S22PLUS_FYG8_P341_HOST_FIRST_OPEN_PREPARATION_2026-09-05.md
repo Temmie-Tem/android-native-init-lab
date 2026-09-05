@@ -99,3 +99,30 @@ Its D0 boot matches the independent post-reboot D0 health receipt, and its raw
 baseline has zero exact markers and zero marker-family occurrences. The
 canonical ledger records the interrupted D1, separate healthy D0, H0 readiness
 and this preparation; P320–P322 historical disposition remains unchanged.
+
+## Attended F1 observation accepted; rollback pending
+
+The operator returned the exact `381707d5` approval and the ordinary runner
+executed the prepared P341 once. Candidate transfer completed; candidate and
+rollback completed counts are currently 1/0. The journal has 10 records through
+OBSERVED/candidate_boot_ready. During physical Download waiting, execution
+stopped with `measured USB endpoint evidence failed`. Rollback has no attempt
+yet; the same journal's preapproved exact Magisk recovery remains required.
+No candidate or fixed command may be replayed.
+
+The actual candidate receipt was published and accepted:
+
+- Receipt: `28495B/01c6663e2d7bd79b6c568b3364332d77a7c18ff85d69bbea5e34f2459ab95931`.
+- RX: `1983B/da3438a40e886db7d9b87d7f9d6a2abcbf2cd6b49cef8b445b18fe4bc5ae270f`.
+- TX: `1107B/aa322f6a69945f8e94c1207349b2267cca6b757f501c6fb0a84482d4a0591707`.
+- Three successful authenticated sessions; nine fixed commands, every exit 0.
+- Two same-FD sessions and one planned host close/reopen; same authenticated
+  per-boot identity, diagnostic order and retained-listener proof all true.
+- All three session audit stages are complete without partial exceptions.
+
+This proves the intended bounded candidate exchange worked in this run.
+It does not establish indefinite residency, later-action authority, arbitrary
+shell commands, autonomous reboot/Download or historical echo causality.
+The earlier zero-transfer preparation paragraphs are historical stages. Formal
+F1 PASS, final healthy return and the matching F1 closure ledger row remain
+pending rollback and durable close; the candidate/approval are consumed.
