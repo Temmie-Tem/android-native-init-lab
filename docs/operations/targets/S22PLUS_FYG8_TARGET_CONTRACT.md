@@ -698,11 +698,62 @@ qualified artifacts, ordinary fresh preparation and returned attended approval
 remain required. No replay, new control/shell, baseline exception or new D0/D1
 wrapper is introduced; the existing D1 fallback is used only if needed.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, or P344 candidate transfer occurs, the same
+**P345 bounded read-only shell qualification.** P344 remains
+CLOSED, consumed and never replayable. This first successor qualifies free
+ash syntax within a fixed read-only child view, not a resident lease or
+unrestricted root shell. The only live command sequence is the immutable
+five-session qualification in the reviewed P345 observer: child read/write-denial
+canary, expected nonzero exit, timeout, authenticated cancel, and successful
+pipeline/substitution afterward. Every session retains fixed parent identity
+and fresh-run nonce witnesses. It uses one exact already-bound tty descriptor,
+five distinct authenticated challenges and one unchanged authenticated per-boot
+identity; no reopen, retry, resynchronization or later caller command is allowed.
+
+The five-session limit is enforced by the reviewed host qualification path,
+not a device-side hard counter. After the fifth session the host probes for
+unexpected trailing bytes, closes its descriptor and proceeds to mandatory
+rollback without sending another command. The inherited device listener remains
+available while awaiting physical rollback; that capability grants no sixth
+session, later sender/key use, lease or standing command authority. This process
+does not claim that the device listener terminates after five sessions.
+
+Only sequence 4 enters the fixed child mount namespace. It makes mount
+propagation private, constructs a volatile tmpfs view containing only static
+BusyBox and the reviewed finite proc/sys text snapshots, remounts that view and
+BusyBox read-only, chroots, closes extra descriptors, drops groups/UID/GID and
+capabilities, applies resource limits and no_new_privs, then installs the
+reviewed inherited syscall filter. Setup failure exits before ash and retains
+a bounded error marker. No device nodes, storage mounts, proc process/fd/root
+paths, network or control channel enter the view. The parent PID1/USB owner is
+not placed inside this child restriction. Shell text validation is not the
+write barrier, and this lane makes no kernel-exploit resistance claim.
+
+S328 framing and existing authentication remain; type 5 is an authenticated
+sequence-4 CANCEL bound to current run and session challenge. EXIT followed by
+type 0x88 ACK0 proves active cancellation; ACK1 identifies already-completed
+work without repeating a device effect. A normal nonzero exit, timeout,
+truncation or cancellation is a command outcome only with proved cleanup and
+terminal framing. Missing terminal, invalid/partial cancellation, identity
+drift or transport uncertainty stops qualification. Existing 15-second child,
+128-KiB output and 300-second outer observation bounds remain. This first
+qualification requires its exact expected outcomes, not merely absence of a
+transport error, and no expected failure is relabeled successful execution.
+
+Complete qualification still requires ordinary boot-only exact Magisk rollback
+and final rooted FYG8 health. It opens no later-action lease, interactive PTY,
+persistent installation, reboot/Download shell command, autonomous recovery or
+standing shell authority. Fresh source/artifact qualification, independent
+changed-boundary review, ordinary preparation, and returned attended F1
+approval are required. This capability is active only for the exact independently
+reviewed P345 execution closure and its published ready declaration. Without
+both matching inputs it remains H0; neither source tests nor this definition
+alone authorizes a device action or waives the fresh attended F1 approval.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, or P345 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, or `s22plus-fyg8-p344` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, or `s22plus-fyg8-p345` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

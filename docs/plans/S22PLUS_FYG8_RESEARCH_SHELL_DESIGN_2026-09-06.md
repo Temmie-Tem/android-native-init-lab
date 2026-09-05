@@ -6,6 +6,35 @@ This is not the existing five-query P344 authority, and P344 remains consumed.
 
 ## Minimum useful scope
 
+### Proportional scope decision
+
+The first useful capability is arbitrary ash syntax over the existing USB
+connection, reading the fixed child view and returning a bounded result. The
+five-step first-F1 qualification is a test of that capability, not a general
+container service or an unattended research session.
+
+- Essential for this capability: the write barrier and descriptor/privilege
+  isolation; bounded child/group cleanup and output; exact target/artifact
+  binding; retained failure evidence; no uncertain replay; exact rollback and
+  final health.
+- Useful and already implemented: authenticated cancellation and a following
+  command on the same descriptor. They are tested as selected P345 features,
+  not introduced as prerequisites for every unrelated F1 experiment.
+- Deferred: PTY/job control, persistent shell state, a new daemon, full procfs,
+  networking, persistent writes, reboot/Download shell commands, long soak
+  campaigns and another kernel build merely to repeat unchanged evidence.
+
+The host's fixed five-session loop and the device's ability to accept a later
+authenticated request are distinct. Independent re-review concluded
+PASS_GO_P345_H0 under the host-bounded interpretation: the qualified host has
+no sixth sender, later CLI, lease or reconnect path and proceeds to rollback.
+The earlier NO_GO based solely on the inherited listener was withdrawn; no
+runtime alteration or replacement AP was required. The device listener remains
+available while awaiting physical rollback, but that grants no additional live
+command authority. No device-side hard counter or listener termination is
+claimed. Ready publication, fresh preparation and returned attended F1 approval
+remain required; the review itself is not device authority.
+
 Keep BusyBox ash, the authenticated framing and one host TTY connection.
 Support shell pipelines, substitutions, variables and command arguments inside
 a restricted read-only filesystem view. This means free shell syntax, not
@@ -70,9 +99,8 @@ that explicitly implemented successor contract. Malformed frames, missing
 terminal, failed cleanup or connection loss still end the session and route to
 the already bound rollback.
 
-Current code has no immediate cancel: while a command runs, the device reads
-the output pipe, not the TTY. Ctrl-C cannot be advertised as implemented.
-Implementing immediate cancellation requires a narrow authenticated cancel
+The consumed P344 code has no immediate cancel: while a command runs, the
+device reads the output pipe, not the TTY. The H0 P345 successor implements a narrow authenticated cancel
 message bound to the active command sequence, multiplexed with output reads.
 It must kill/reap the owned group, preserve partial output and publish a
 cancelled terminal before the next command. Partial/mismatched cancellation
@@ -97,7 +125,50 @@ Independent verdict: PASS_GO_RESEARCH_SHELL_CHILD_DRAIN_H0.
 This verifies control-flow bounds, not a real device sandbox or cleanup of
 descendants allowed to escape the process group.
 
-## Next implementation and qualification
+## P345 implementation and first qualification
+
+The child boundary and authenticated host/device exchange now exist as H0
+successor code. The private child view contains only BusyBox and snapshots of
+meminfo, cpuinfo, uptime, version, mounts and the exact UDC state; it does not
+provide a live process tree. Shell syntax is arbitrary inside this finite view,
+not unrestricted root control. Child setup errors retain a bounded stderr
+errno marker before exit 126; no setup failure falls through to ash.
+
+The actual C frame parser, HMAC composition, command supervisor and cleanup
+have been joined to the Python host using a local socket and real child
+processes. Normal output, nonzero exit, authenticated cancellation, the actual
+15-second timeout and a later successful command pass on one descriptor.
+That test substitutes only platform wrappers, fixed parent witnesses and child
+isolation; it is not proof of device mount/chroot or filtered BusyBox behavior.
+Separate child tests/review must establish their own coverage accurately.
+
+A host check found and repaired a cancellation-state collision: no request and
+ACK0 had both used zero, so a normal command could falsely mark its cancel ACK
+as already sent. No-request status is now 255; actual console regression covers
+normal sequence-4 EXIT followed by late CANCEL, ACK1 and sequence 5. An active
+cancel produces EXIT plus ACK0. Partial or invalid requests still stop without
+resynchronization, and existing deadline/cleanup limits remain in force.
+
+The first P345 F1 is deliberately a bounded qualification, not a later-action
+lease. Five same-descriptor sessions each retain fixed parent id and run nonce
+witnesses around the following sequence-4 command:
+
+1. Read-only child canary: non-root identity, readable uptime, rejected file
+   creation, absent probe file and exact success marker.
+2. Expected exit 7, recorded as a command outcome rather than transport loss.
+3. A command exceeding the unchanged 15-second deadline; proved cleanup.
+4. Authenticated cancellation after command start; cancelled EXIT and ACK0.
+5. Successful pipeline/substitution after the cancellation on the same FD.
+
+The outer observation stays bounded at 300 seconds. No 120-second idle or
+physical reopen is repeated here: P344 already proved the unchanged transport's
+idle path, while this candidate tests the changed shell boundary and command
+outcomes. Any missing terminal/cleanup, authentication failure or ambiguous
+transport stops qualification and selects ordinary mandatory rollback. Even
+complete qualification closes through exact rollback and healthy Android;
+it opens no resident lease, generic live CLI or standing shell authority.
+
+## Remaining integration and qualification
 
 Implement the fixed child isolation and test real ash pipelines/substitutions,
 normal and nonzero exits, attempted file creation/truncation/rename, descriptor
@@ -106,8 +177,6 @@ authenticated cancellation, including a subsequent successful command on the
 same connection. Exercise the complete producer -> publisher -> lease -> close
 summary path, not only a parser or synthetic result dictionary.
 
-Only after that H0 unit and its changed-boundary review: build a fresh candidate,
+Only after that H0 unit and its changed-boundary review: qualify a fresh candidate,
 register the exact new shell capability, perform normal D0/D1 as required and
-obtain fresh attended F1 approval. The first F1 should be one bounded script of
-successful read commands, one timeout/cancel and one subsequent command, followed
-by mandatory rollback/health. No F1-ready or shell-activation claim exists yet.
+obtain fresh attended F1 approval. No F1-ready or shell-activation claim exists yet.
