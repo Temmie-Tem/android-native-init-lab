@@ -69,3 +69,10 @@ against retained bytes and reparsed the ledger with its previous prefix intact.
 Fresh returned approval is still required before F1. Physical Download handling
 may be required for rollback; automatic recovery and indefinite residency are
 not claimed by this preparation.
+
+Final raw-first audit passed over 1909 Python files and 422 subprocess modules.
+Receipt: `workspace/private/outputs/s22plus_fyg8_p342/raw-first-current-20260905-1.json`.
+Auditor SHA256: `8d64aff30066e8e064fbb0b292116d0e703d763ed6105c52658084ce16638c63`.
+Existing census metadata was updated for the reviewed P340-P342 sources,
+the consumed P339 health helper and two explicitly separate S20 files; no
+wildcard exclusions, operational changes or device authority were added.
