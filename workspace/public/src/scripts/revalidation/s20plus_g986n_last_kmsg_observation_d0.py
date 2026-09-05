@@ -104,6 +104,7 @@ state=unavailable
 meta=0:0
 bounded=no
 window=none
+recheck=none
 {chr(10).join(f'{key}=0' for key in PREDICATES)}
 if [ -L "$node" ]; then state=indirect
 elif [ ! -e "$node" ]; then state=unavailable
@@ -120,18 +121,20 @@ SHELL_HELPERS += "".join(
     f"        {key}=$(/system/bin/head -c {SCAN_MAXIMUM} \"$node\" | /system/bin/grep -aEc {shlex.quote(pattern)}) || {key}=0\n"
     for key, pattern in PREDICATES.items()
 )
-SHELL_HELPERS += """    fi
+SHELL_HELPERS += f"""        recheck=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/sha256sum) || exit 65
+    fi
 fi
 emit state "$state"
 emit meta "$meta"
 emit bounded "$bounded"
 emit window "$window"
+emit recheck "$recheck"
 """
 SHELL_HELPERS += "".join(f'emit {key} "${key}"\n' for key in PREDICATES)
 
 ROOT_SCRIPT = health.ROOT_READ_SCRIPT + SHELL_HELPERS
 ROOT_ARGUMENT = shlex.quote(ROOT_SCRIPT)
-OUTPUT_KEYS = (*health.ROOT_OUTPUT_KEYS, "state", "meta", "bounded", "window", *PREDICATES)
+OUTPUT_KEYS = (*health.ROOT_OUTPUT_KEYS, "state", "meta", "bounded", "window", "recheck", *PREDICATES)
 
 
 def source_receipt() -> dict[str, Any]:
@@ -188,8 +191,14 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         window = re.fullmatch(r"([0-9a-f]{64}) +-", values["window"])
         if window is None:
             raise ObservationError("invalid scan window digest")
+        # The node is read once per predicate. A consuming interface would empty
+        # after the first pass and a growing one would drift, so the window is
+        # digested again after the last predicate and must be unchanged.
+        if values["recheck"] != values["window"]:
+            raise ObservationError("scan window changed across the predicate passes")
         facts["window_sha256"] = window[1]
-    elif values["window"] != "none":
+        facts["window_stable_across_passes"] = True
+    elif values["window"] != "none" or values["recheck"] != "none":
         raise ObservationError("unbounded scan reported a digest")
     counts: dict[str, int] = {}
     for key in PREDICATES:

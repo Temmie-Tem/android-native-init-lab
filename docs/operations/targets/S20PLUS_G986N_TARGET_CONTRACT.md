@@ -631,13 +631,13 @@ Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 ## S20+ last_kmsg Observation D0
 
 Status: **DEFINED - LAST_KMSG OBSERVATION D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `8c5d0178f50de9ca2c5db836293052ee78e8b3bfedac7d1b48905704abc208d2`
-Root-Script-SHA256: `47dfcec66a42b082d6e6a7ca4b481d710279085c9c5aeecc38c7615a8b76349f`
+Runner-Normalized-SHA256: `07a46edf6220e4b3d625beb65fed0cbf4b4afde43522d6252d8845a6d58efcbd`
+Root-Script-SHA256: `34418b57dad0ac4397f2750cd56847c3301c5e6d9fa8ced91562189fbf26f07c`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`eb5e2b8df207d84270d6682e3c0538f59b50bcdadc0692684847cdfd4a9d6fa3`.
+`9c89a3e0643d885d313131fd715b090811fb6a37b6ca0988cb3545b95c8b9011`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
@@ -690,7 +690,11 @@ short, reordered or extended transcript fails closed rather than reading as a
 partial observation. A symlinked, absent, non-regular, unreadable or hardlinked
 node is an explicit observation and not an error. The parser refuses an absent
 node that reports a scan, an unscanned window that reports a digest or predicate
-hits, and any malformed count, digest or metadata value.
+hits, and any malformed count, digest or metadata value. The node is read once
+per predicate, so the window is digested again after the last pass and the two
+digests must be identical: a consuming interface that empties after its first
+read, or a buffer that grows during the observation, fails closed rather than
+reporting a partial window.
 
 Results live only under
 `workspace/private/runs/s20plus-g986n-last-kmsg-observation-d0/` in newly

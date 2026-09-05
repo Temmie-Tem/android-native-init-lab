@@ -136,11 +136,12 @@ class ShapeTests(unittest.TestCase):
 class ParserTests(unittest.TestCase):
     def transcript(self, **overrides):
         values = {"state": "regular", "meta": f"{M.OBSERVED_SIZE}:1", "bounded": "yes",
-                  "window": "a" * 64 + "  -", "linux_version": "1", "init_records": "42",
+                  "window": "a" * 64 + "  -", "recheck": "a" * 64 + "  -",
+                  "linux_version": "1", "init_records": "42",
                   "reboot_marker": "1", "sec_log_marker": "3"}
         values.update(overrides)
         body = "".join(f"{k}={v}\n" for k, v in M.health.EXPECTED_ROOT_OUTPUT.items())
-        body += "".join(f"{k}={values[k]}\n" for k in ("state", "meta", "bounded", "window", *M.PREDICATES))
+        body += "".join(f"{k}={values[k]}\n" for k in ("state", "meta", "bounded", "window", "recheck", *M.PREDICATES))
         return (0, body.encode(), b"")
 
     def test_complete_channel_proof(self):
@@ -153,7 +154,8 @@ class ParserTests(unittest.TestCase):
 
     def test_absent_node_is_not_a_channel(self):
         facts = M.parse_root(self.transcript(state="unavailable", meta="0:0", bounded="no", window="none",
-                                             linux_version="0", init_records="0", reboot_marker="0", sec_log_marker="0"))
+                                             recheck="none", linux_version="0", init_records="0",
+                                             reboot_marker="0", sec_log_marker="0"))
         self.assertFalse(facts["channel_proved"])
         self.assertEqual(M.channel_verdict(facts), "CHANNEL_ABSENT")
 
@@ -174,6 +176,8 @@ class ParserTests(unittest.TestCase):
         cases = [
             {"state": "unavailable", "bounded": "yes"},          # absent node reporting a scan
             {"bounded": "no", "window": "a" * 64 + "  -"},       # unscanned window with a digest
+            {"recheck": "b" * 64 + "  -"},                       # node consumed or grew between passes
+            {"recheck": "none"},                                 # scanned window without a recheck
             {"bounded": "no", "window": "none"},                 # unscanned window with hits
             {"meta": f"{M.OBSERVED_SIZE}:2"},                    # not a direct regular file
             {"window": "zz"},                                    # malformed digest
@@ -331,6 +335,24 @@ class DeviceShellTests(unittest.TestCase):
             facts = self.parsed(result)
             self.assertFalse(facts["bounded"])
             self.assertEqual(set(facts["predicate_counts"].values()), {0})
+
+    def test_consuming_node_fails_closed(self):
+        # A node that empties after its first read - the /proc/kmsg shape - must
+        # be refused rather than reported as an empty but valid window.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            script = self.fixture(root)
+            node = root / "last_kmsg"
+            drain = root / "tools/draining-head"
+            drain.parent.mkdir(parents=True, exist_ok=True)
+            drain.write_bytes(b"#!" + str(DEVICE_SHELL).encode() + b"\n" +
+                              str(DEVICE_BIN / "head").encode() + b' "$@"\n: > ' + str(node).encode() + b"\n")
+            drain.chmod(0o755)
+            script = script.replace(str(DEVICE_BIN / "head"), str(drain))
+            result = self.run_device_shell(script)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with self.assertRaises(M.ObservationError):
+                self.parsed(result)
 
     def test_no_log_byte_ever_reaches_stdout(self):
         with tempfile.TemporaryDirectory() as temp:
