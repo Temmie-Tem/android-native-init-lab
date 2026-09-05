@@ -441,7 +441,17 @@ def classify_observation(
         )
     except Exception as exc:
         raise AdapterIdentityError(str(exc)) from exc
-    return _fresh(value)
+    result = _fresh(value)
+    # Primary arrival still comes only from the authenticated USB receipt;
+    # this decoded Carrier list is the noncausal supplemental projection.
+    result.update({
+        "acm_primary": True, "carrier_supplemental": True,
+        "acm_supplemental": False, "acm_required_for_acceptance": True,
+        "acm_required_for_arrival_proof": True,
+        "p342_stock": [row["p320_stock"]["stock"] for row in value.get("records", ())
+                       if isinstance(row, dict) and "p320_stock" in row],
+    })
+    return result
 
 
 def classify_clean_baseline(
