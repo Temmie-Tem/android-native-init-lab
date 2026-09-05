@@ -126,3 +126,55 @@ shell commands, autonomous reboot/Download or historical echo causality.
 The earlier zero-transfer preparation paragraphs are historical stages. Formal
 F1 PASS, final healthy return and the matching F1 closure ledger row remain
 pending rollback and durable close; the candidate/approval are consumed.
+
+## Final closure: PASS, rollback and rooted health verified
+
+After the operator confirmed physical Download, only the same run's ordinary
+`--recover` resumed. Exact Magisk rollback completed once and final rooted FYG8
+health passed. Candidate/rollback are 1/1, no attempt 2 exists, journal is
+CLOSED/19, and `recovery_required=false`. Other targets received no commands.
+Formal verdict is `PASS_F1_V2_P341_AUTHENTICATED_RESIDENT_OPEN_HEADER_CAPTURE_AND_ROLLED_BACK`;
+outcome is `p341_authenticated_resident_open_header_capture_rollback_verified`.
+The earlier pending paragraphs describe historical stages, not current status.
+
+The final result publisher initially failed with `P3.28 final stock projection
+changed`: after P341's own validation, a separate legacy fallback chain still
+admitted P341 through the broad P328 predicate. This was a host reporting bug,
+not a device failure or grounds for repeating recovery. A fixed private
+`workspace/private/outputs/s22plus_fyg8_p341/closed_result_reemit.py`
+(`2dacebb953e21bb9f45e4968e6149960d18ce1f922794bc2ad544b19dcabdc8b`)
+reopened the original source closure at `a0530de9c2` (live SHA
+`27adcf7325c1a8e694ff031699e661a16ec987b24003b9ddd3e89161ea1f5c41`),
+reproduced that exact error, excluded P341 from only that final P328 branch in
+memory, and passed the full result validator. Independent
+`PASS_GO_P341_CLOSED_RESULT_REEMIT_H0` preceded publication of the absent result.
+No backend, device command, recovery replay, state or journal write occurred.
+The same one-condition source repair and actual-dispatch regression preserve
+P341 validation and P328 admission; no integrity check or protocol is removed.
+Focused initial-session/final-guard tests pass 6/6 and host-first tests 5/5;
+changed sources compile and diff-check passes. Reparsing the actual appended
+ledger confirms one P341 CLOSED/HEALTHY/PROVED F1 row with transfers 1/1 and a
+byte-identical pre-existing ledger prefix. No historical gap was backfilled.
+
+Retained final state is `27152B/f7ced1b8728e731cb5419f758e5c56053e34c59adc2d7e241ede79af4868bb3b`;
+result is `30726B/6fb57a4c32e68a738480551c56a46511dc666e028e356929be7ee84fc3f9baca`
+under `workspace/private/runs/device-action-f1-live-v2/p341-ready1-prepared-20260905-1`.
+All fixed publisher input hashes remained unchanged. P341's F1 closure row is
+derived from these retained records, not from a new device experiment.
+
+Canonical timeline (UTC, copied from the closed result):
+
+| Event | Timestamp |
+|---|---|
+| live_session_start | 2026-09-05T07:50:33.892820Z |
+| candidate_flash_start | 2026-09-05T07:50:51.669818Z |
+| candidate_flash_done | 2026-09-05T07:50:53.403202Z |
+| candidate_boot_ready | 2026-09-05T07:51:05.710880Z |
+| rollback_flash_start | 2026-09-05T07:54:09.159301Z |
+| rollback_flash_done | 2026-09-05T07:54:10.689377Z |
+| rollback_boot_ready | 2026-09-05T07:54:46.139256Z |
+| live_session_end | 2026-09-05T07:54:46.160175Z |
+
+This proves the bounded three-session authenticated USB experiment plus healthy
+rollback, not indefinite residency or an active later-action lease. Candidate,
+approval and executed commands remain consumed; no replay is authorized.

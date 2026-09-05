@@ -13334,7 +13334,7 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             observer.get("p329_stock"), _p320_terminal_projection(marker_result)
         ):
             raise F1LiveError("P3.29 final stock projection changed")
-    elif _p328_bundle(prepared.bundle):
+    elif _p328_bundle(prepared.bundle) and not _p341_bundle(prepared.bundle):
         if stock_error is not None:
             if (
                 observer.get("p328_stock_error") != stock_error

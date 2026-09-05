@@ -1,5 +1,7 @@
 """P341 actual closure/terminal and PTY initial-session integration; H0 only."""
+import ast
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -18,6 +20,21 @@ import test_s22plus_fyg8_host_first_open as pty_fixture
 
 
 class P341InitialTests(unittest.TestCase):
+    def test_actual_final_validator_p328_fallback_excludes_p341(self):
+        tree = ast.parse(inspect.getsource(live._validate_final_observer))
+        branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)
+                    and ast.unparse(node.test).startswith('_p328_bundle(prepared.bundle)')
+                    and any('P3.28 final stock projection changed' in ast.unparse(item)
+                            for item in node.body)]
+        self.assertEqual(len(branches), 1)
+        condition = compile(ast.Expression(branches[0].test), '<actual-final-guard>', 'eval')
+        for campaign, expected in (('p341', False), ('p328', True)):
+            path = ROOT / ('workspace/public/src/device-action/manifests/'
+                           f's22plus_fyg8_{campaign}_process_v2_ready_1.json')
+            prepared = SimpleNamespace(bundle=SimpleNamespace(manifest=json.loads(path.read_bytes())))
+            self.assertTrue(live._p328_bundle(prepared.bundle))
+            self.assertIs(eval(condition, live.__dict__, {'prepared': prepared}), expected)
+
     def test_real_pty_initial_sessions_and_auth_rejection(self):
         test = pty_fixture.HostFirstTests()
         completed = []
