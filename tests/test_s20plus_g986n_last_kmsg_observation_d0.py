@@ -144,9 +144,9 @@ class ParserTests(unittest.TestCase):
         values = {"state": "regular", "meta": f"{M.OBSERVED_SIZE}:1", "bounded": "yes",
                   "scanned": str(M.OBSERVED_SIZE), "window": "a" * 64 + "  -",
                   "recheck": "a" * 64 + "  -", "meta_after": f"{M.OBSERVED_SIZE}:1",
-                  "linux_version": "1", "init_records": "42",
-                  "terminal_marker": "1", "sec_log_marker": "3",
-                  "candidate_banner": "0"}
+                  "lines_total": "1000", "priority_timestamp": "980",
+                  "timestamp_only": "980", "priority_only": "0",
+                  "seclog_cpu_field": "0", "no_record_prefix": "20"}
         values.update(overrides)
         body = "".join(f"{k}={v}\n" for k, v in M.health.EXPECTED_ROOT_OUTPUT.items())
         body += "".join(f"{k}={values[k]}\n" for k in (*self.ORDER, *M.PREDICATES))
@@ -160,73 +160,52 @@ class ParserTests(unittest.TestCase):
         values.update(overrides)
         return self.transcript(**values)
 
-    def test_readable_channel_with_userspace_and_a_terminal_record(self):
-        facts = M.parse_root(self.transcript())
-        self.assertTrue(facts["channel_readable"])
-        self.assertTrue(facts["carries_terminal_record"])
+    def test_dominant_shape_is_reported_not_asserted(self):
+        facts = M.parse_root(self.transcript(
+            lines_total="1000", priority_timestamp="980", timestamp_only="980",
+            priority_only="0", seclog_cpu_field="0", no_record_prefix="20",
+        ))
+        self.assertEqual(facts["shape_counts"]["lines_total"], 1000)
         self.assertTrue(facts["scan_complete"])
-        self.assertTrue(facts["size_matches_recorded_observation"])
-        self.assertEqual(facts["window_sha256"], "a" * 64)
-        self.assertIs(facts["log_contents_emitted"], False)
+        self.assertIn(facts["dominant_shape"], M.SHAPES)
         self.assertEqual(
-            M.channel_verdict(facts),
-            "CHANNEL_READABLE_WITH_USERSPACE_AND_TERMINAL_RECORD",
+            M.channel_verdict(facts), "RECORDS_DOMINANTLY_" + facts["dominant_shape"].upper()
         )
 
-    def test_nothing_in_the_result_claims_retention_or_a_boot_identity(self):
-        # The window may hold a wrapped older record, so readability is not
-        # retention and no verdict may name which boot produced it.
-        facts = M.parse_root(self.transcript())
-        self.assertNotIn("is_completed_prior_boot", facts)
-        self.assertNotIn("channel_proved", facts)
-        self.assertNotIn("PRIOR_BOOT", M.channel_verdict(facts))
-        self.assertNotIn("PROVEN", M.channel_verdict(facts))
+    def test_a_seclog_cpu_field_is_surfaced_as_its_own_verdict(self):
+        # The finding that would invalidate an anchor expecting the message
+        # immediately after the timestamp, so it outranks the shape ranking.
+        facts = M.parse_root(self.transcript(
+            lines_total="1000", priority_timestamp="990", timestamp_only="990",
+            priority_only="0", seclog_cpu_field="985", no_record_prefix="10",
+        ))
+        self.assertTrue(facts["seclog_cpu_field_present"])
+        self.assertEqual(M.channel_verdict(facts), "RECORDS_CARRY_A_SECLOG_CPU_FIELD")
 
-    def test_absent_node_is_not_a_channel(self):
+    def test_no_dominant_shape_is_itself_the_finding(self):
+        facts = M.parse_root(self.transcript(
+            lines_total="1000", priority_timestamp="100", timestamp_only="200",
+            priority_only="150", seclog_cpu_field="0", no_record_prefix="300",
+        ))
+        self.assertEqual(facts["dominant_shape"], "no-dominant-shape")
+        self.assertEqual(M.channel_verdict(facts), "RECORDS_HAVE_NO_DOMINANT_SHAPE")
+
+    def test_nothing_in_the_result_interprets_content_or_names_a_boot(self):
+        facts = M.parse_root(self.transcript())
+        for withdrawn in (
+            "channel_readable", "carries_terminal_record", "is_kernel_log",
+            "carries_candidate_banner", "is_completed_prior_boot",
+        ):
+            self.assertNotIn(withdrawn, facts)
+        verdict = M.channel_verdict(facts)
+        for word in ("PROVEN", "PRIOR_BOOT", "BANNER", "READABLE_WITH"):
+            self.assertNotIn(word, verdict)
+
+    def test_absent_node_is_reported_without_a_shape(self):
         facts = M.parse_root(self.unscanned())
-        self.assertFalse(facts["channel_readable"])
-        self.assertEqual(M.channel_verdict(facts), "CHANNEL_ABSENT")
-
-    def test_terminal_record_absence_is_reported_without_denying_readability(self):
-        facts = M.parse_root(self.transcript(terminal_marker="0"))
-        self.assertTrue(facts["channel_readable"])
-        self.assertFalse(facts["carries_terminal_record"])
-        self.assertEqual(
-            M.channel_verdict(facts),
-            "CHANNEL_READABLE_WITH_USERSPACE_NO_TERMINAL_RECORD",
-        )
-
-    def test_candidate_banner_is_the_only_predicate_that_names_a_boot(self):
-        facts = M.parse_root(self.transcript(candidate_banner="1"))
-        self.assertTrue(facts["carries_candidate_banner"])
-        self.assertEqual(facts["candidate_banner_count"], 1)
-        self.assertEqual(M.channel_verdict(facts), "CANDIDATE_BANNER_OBSERVED_EXACTLY_ONCE")
-
-    def test_repeated_candidate_banner_is_reported_not_folded_away(self):
-        # More than one banner means the window spans more than one candidate
-        # boot, which this lane never authorizes.
-        facts = M.parse_root(self.transcript(candidate_banner="2"))
-        self.assertFalse(facts["carries_candidate_banner"])
-        self.assertEqual(facts["candidate_banner_count"], 2)
-        self.assertEqual(M.channel_verdict(facts), "CANDIDATE_BANNER_REPEATED_UNEXPECTEDLY")
-
-    def test_absent_banner_does_not_claim_a_boot(self):
-        facts = M.parse_root(self.transcript())
-        self.assertFalse(facts["carries_candidate_banner"])
-        self.assertNotIn("CANDIDATE_BANNER", M.channel_verdict(facts))
-
-    def test_userspace_absence_is_distinguished(self):
-        facts = M.parse_root(self.transcript(init_records="0"))
-        self.assertFalse(facts["channel_readable"])
-        self.assertEqual(M.channel_verdict(facts), "CHANNEL_PRESENT_NO_USERSPACE_RECORDS")
-
-    def test_not_a_kernel_log_is_distinguished(self):
-        facts = M.parse_root(self.transcript(linux_version="0"))
-        self.assertFalse(facts["channel_readable"])
-        self.assertEqual(M.channel_verdict(facts), "CHANNEL_PRESENT_NOT_A_KERNEL_LOG")
+        self.assertEqual(M.channel_verdict(facts), "NODE_ABSENT_OR_UNREADABLE")
 
     def test_truncated_scan_is_refused_rather_than_counted_as_zero(self):
-        # A short read that a pipeline turned into a successful digest.
         with self.assertRaises(M.ObservationError):
             M.parse_root(self.transcript(scanned=str(M.OBSERVED_SIZE - 1)))
 
@@ -235,27 +214,20 @@ class ParserTests(unittest.TestCase):
             M.parse_root(self.transcript(meta_after=f"{M.OBSERVED_SIZE + 4096}:1"))
 
     def test_bound_must_follow_from_the_observed_node(self):
-        # Combinations the shell cannot produce must not parse.
-        with self.assertRaises(M.ObservationError):
-            M.parse_root(self.transcript(bounded="no", window="none", recheck="none",
-                                         scanned="-1", meta_after="0:0",
-                                         linux_version="0", init_records="0",
-                                         terminal_marker="0", sec_log_marker="0"))
         with self.assertRaises(M.ObservationError):
             M.parse_root(self.unscanned(state="regular", meta=f"{M.OBSERVED_SIZE}:1"))
 
     def test_inconsistent_transcripts_are_refused(self):
         cases = [
-            {"state": "unavailable", "bounded": "yes"},          # absent node reporting a scan
-            {"bounded": "no", "window": "a" * 64 + "  -"},       # unscanned window with a digest
-            {"recheck": "b" * 64 + "  -"},                       # node consumed or grew between passes
-            {"recheck": "none"},                                 # scanned window without a recheck
-            {"bounded": "no", "window": "none"},                 # unscanned window with hits
-            {"meta": f"{M.OBSERVED_SIZE}:2"},                    # not a direct regular file
-            {"window": "zz"},                                    # malformed digest
-            {"state": "elsewhere"},                              # undeclared state
-            {"linux_version": "-1"},                             # malformed count
-            {"meta": "not-metadata"},                            # malformed metadata
+            {"state": "unavailable", "bounded": "yes"},
+            {"bounded": "no", "window": "a" * 64 + "  -"},
+            {"recheck": "b" * 64 + "  -"},
+            {"recheck": "none"},
+            {"meta": f"{M.OBSERVED_SIZE}:2"},
+            {"window": "zz"},
+            {"state": "elsewhere"},
+            {"lines_total": "-1"},
+            {"meta": "not-metadata"},
         ]
         for override in cases:
             with self.subTest(**override), self.assertRaises(M.ObservationError):
@@ -359,87 +331,52 @@ class DeviceShellTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(b"MIRBSD KSH", result.stdout)
 
-    def test_complete_script_proves_the_channel_on_the_device_shell(self):
+    def test_shape_counters_measure_the_target_grep_not_the_host(self):
         with tempfile.TemporaryDirectory() as temp:
             result = self.run_device_shell(self.fixture(Path(temp)))
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = self.parsed(result)
-            self.assertTrue(facts["channel_readable"])
+            counts = facts["shape_counts"]
+            self.assertEqual(counts["lines_total"], len(self.KERNEL_LOG.splitlines()))
+            # Every line of the fixture carries a priority and a timestamp.
+            self.assertEqual(counts["priority_timestamp"], counts["lines_total"])
+            self.assertEqual(counts["no_record_prefix"], 0)
+            self.assertEqual(counts["seclog_cpu_field"], 0)
             self.assertTrue(facts["scan_complete"])
-            self.assertEqual(facts["predicate_counts"]["linux_version"], 1)
-            self.assertEqual(facts["predicate_counts"]["init_records"], 2)
-            self.assertEqual(facts["predicate_counts"]["terminal_marker"], 1)
-            self.assertEqual(
-                M.channel_verdict(facts),
-                "CHANNEL_READABLE_WITH_USERSPACE_AND_TERMINAL_RECORD",
-            )
 
-    def test_extended_alternation_actually_matches_under_the_target_toybox(self):
-        # The portability fix: each alternative must match on its own, proving
-        # -E alternation is honoured by the target's grep rather than the host's.
-        for tail, expected in ((b"<5>[ 1.0] reboot: Restarting system\n", 1),
-                               (b"<5>[ 1.0] reboot: Power down\n", 1),
-                               (b"<5>[ 1.0] Power down\n", 1),
-                               (b"<5>[ 1.0] nothing terminal here\n", 0)):
-            with self.subTest(tail=tail), tempfile.TemporaryDirectory() as temp:
-                body = self.KERNEL_LOG.replace(b"<5>[  600.000000] reboot: Restarting system\n", b"") + tail
-                result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(self.parsed(result)["predicate_counts"]["terminal_marker"], expected)
-
-    def test_candidate_banner_is_found_under_the_target_grep(self):
-        # The banner as /dev/kmsg actually renders it: a priority and timestamp
-        # prefix, then the exact string the candidate's PID1 writes.
-        planted = (
-            b"<6>[    1.234567] " + M.CANDIDATE_BANNER.encode() + b"\n"
+    def test_a_seclog_cpu_field_is_detected_under_the_target_grep(self):
+        # The measurement this capability exists for. If the real buffer looks
+        # like this, an anchor expecting the message immediately after the
+        # timestamp would silently count nothing.
+        body = (
+            b"<6>[    0.000000] [0:      swapper/0:    0] Booting Linux\n"
+            b"<5>[    0.100000] [1:            init:    1] init: first stage\n"
         )
         with tempfile.TemporaryDirectory() as temp:
-            result = self.run_device_shell(
-                self.fixture(Path(temp), node_bytes=self.KERNEL_LOG + planted)
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            facts = self.parsed(result)
-            self.assertEqual(facts["predicate_counts"]["candidate_banner"], 1)
-            self.assertTrue(facts["carries_candidate_banner"])
-            self.assertEqual(
-                M.channel_verdict(facts), "CANDIDATE_BANNER_OBSERVED_EXACTLY_ONCE"
-            )
-            # Even the banner never reaches stdout; only its count does.
-            self.assertNotIn(M.CANDIDATE_BANNER.encode(), result.stdout)
-
-    def test_quoted_candidate_banner_is_not_counted(self):
-        # The banner is the one predicate that names a boot, so an unanchored
-        # match on it would be the worst possible false positive: a userspace
-        # record quoting the string must not read as the candidate having run.
-        quoted = (
-            b'<6>[   12.0] init: starting service "log ' + M.CANDIDATE_BANNER.encode() + b'"\n'
-        )
-        with tempfile.TemporaryDirectory() as temp:
-            result = self.run_device_shell(
-                self.fixture(Path(temp), node_bytes=self.KERNEL_LOG + quoted)
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            facts = self.parsed(result)
-            self.assertEqual(facts["predicate_counts"]["candidate_banner"], 0)
-            self.assertFalse(facts["carries_candidate_banner"])
-
-    def test_anchoring_rejects_a_quoted_marker_in_a_userspace_record(self):
-        # An unanchored substring match would count this. The record prefix
-        # anchor is what makes the count mean "a kernel record", not "the bytes
-        # appear somewhere in the window".
-        quoted = (
-            b'<6>[   12.0] init: property_set("sys.powerctl", "reboot: Restarting system")\n'
-            b'<6>[   13.0] healthd: charger says Power down soon\n'
-        )
-        with tempfile.TemporaryDirectory() as temp:
-            body = self.KERNEL_LOG.replace(
-                b"<5>[  600.000000] reboot: Restarting system\n", b""
-            ) + quoted
             result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = self.parsed(result)
-            self.assertEqual(facts["predicate_counts"]["terminal_marker"], 0)
-            self.assertFalse(facts["carries_terminal_record"])
+            self.assertEqual(facts["shape_counts"]["seclog_cpu_field"], 2)
+            self.assertTrue(facts["seclog_cpu_field_present"])
+            self.assertEqual(
+                M.channel_verdict(facts), "RECORDS_CARRY_A_SECLOG_CPU_FIELD"
+            )
+
+    def test_records_without_a_prefix_are_counted_separately(self):
+        # Continuation lines and a wrapped first record have no prefix; counting
+        # them is how "the anchor would miss these" becomes visible.
+        body = (
+            b"ontinuation of a wrapped record\n"
+            b"<6>[    1.000000] a whole record\n"
+            b"    indented continuation\n"
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            counts = self.parsed(result)["shape_counts"]
+            self.assertEqual(counts["lines_total"], 3)
+            self.assertEqual(counts["no_record_prefix"], 2)
+            self.assertEqual(counts["priority_timestamp"], 1)
 
     def test_absent_node_still_emits_every_key(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -448,8 +385,8 @@ class DeviceShellTests(unittest.TestCase):
             facts = self.parsed(result)
             self.assertEqual(facts["state"], "unavailable")
             self.assertFalse(facts["bounded"])
-            self.assertEqual(set(facts["predicate_counts"].values()), {0})
-            self.assertEqual(M.channel_verdict(facts), "CHANNEL_ABSENT")
+            self.assertEqual(set(facts["shape_counts"].values()), {0})
+            self.assertEqual(M.channel_verdict(facts), "NODE_ABSENT_OR_UNREADABLE")
 
     def test_symlinked_node_is_refused_without_reading(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -464,7 +401,8 @@ class DeviceShellTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = self.parsed(result)
             self.assertFalse(facts["bounded"])
-            self.assertEqual(set(facts["predicate_counts"].values()), {0})
+            self.assertEqual(set(facts["shape_counts"].values()), {0})
+            self.assertEqual(M.channel_verdict(facts), "NODE_TOO_LARGE_TO_SCAN")
 
     def test_consuming_node_fails_closed(self):
         # A node that empties after its first read - the /proc/kmsg shape - must

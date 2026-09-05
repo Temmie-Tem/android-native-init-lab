@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixed S20+ sec_log /proc/last_kmsg channel D0. Predicates only, no log bytes."""
+"""Fixed S20+ /proc/last_kmsg record-format D0. Shape counts only, no log bytes."""
 from __future__ import annotations
 
 import argparse
@@ -18,9 +18,9 @@ import time
 from typing import Any
 
 ACTIVE = False
-VERSION = "s20plus-g986n-last-kmsg-observation-d0-v1"
+VERSION = "s20plus-g986n-last-kmsg-record-format-d0-v2"
 PRIVATE_ROOT = Path("workspace/private/runs/s20plus-g986n-last-kmsg-observation-d0")
-CONTRACT_SECTION = "## S20+ last_kmsg Observation D0"
+CONTRACT_SECTION = "## S20+ last_kmsg Record-Format D0"
 HEALTH_NAME = "s20plus_g986n_attended_root_health_d0.py"
 HEALTH_SHA256 = "24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44"
 ROOT_MAXIMUM = 8192
@@ -72,47 +72,30 @@ def load_health():
 
 health = load_health()
 
-# Each predicate is a line count over the bounded scan window. Counts and one
-# whole-window digest are the only content-derived values that ever leave the
-# device: no log text is emitted, captured, pulled or retained anywhere.
+# This capability answers exactly one question: what shape are the records in
+# this buffer? It makes no claim about their content and identifies no boot.
 #
-# linux_version  the window is a kernel log for this exact stock kernel
-# init_records   userspace init output reaches the buffer, so a PID1 banner is
-#                a viable carrier for the P0 lane
-# terminal_marker the window contains a boot that ended. The current boot's log
-#                cannot yet contain its own shutdown, but a ring buffer can
-#                retain a wrapped older one, so this does not identify the boot
-# sec_log_marker the Samsung sec_log path identified in the stock configuration
-# candidate_banner the one predicate that identifies a boot rather than
-#                describing the window. See CANDIDATE_BANNER below.
-# Anchored to the kernel log record prefix - an optional <N> priority and a
-# bracketed timestamp - so a userspace line that merely quotes one of these
-# strings, or a driver name containing it, is not counted. An unanchored
-# substring match cannot support any claim about which boot produced the record.
-RECORD_PREFIX = r"^(<[0-9]+>)?\[[ 0-9.]+\] "
-
-# A fixed literal, not a caller-supplied value and not imported from the F1
-# owner, so this capability keeps no dependency on it.
+# It exists because every predicate previously written here was a guess. No byte
+# of this node has ever been read on this target, so the record prefix was
+# inferred, and an anchor built on an inferred prefix fails in the worse
+# direction: too strict, and a real record is silently not counted.
 #
-# The other predicates describe the window; none of them can say which boot
-# produced it, because a ring buffer can retain a wrapped older record. This one
-# can. Only the P0 minimal candidate's PID1 writes this exact string to
-# /dev/kmsg, so its presence is self-authenticating: the boot that produced the
-# window ran that candidate's /init.
+# So the patterns below are candidate *shapes*, deliberately overlapping, and
+# their counts are the measurement. `seclog_cpu_field` is the one that matters
+# most: Samsung sec_log commonly emits a second bracketed cpu/comm/pid field
+# after the timestamp, and if it is present here then any anchor that expects
+# the message immediately after the timestamp is wrong.
 #
-# That is why it exists here. Download-mode arrival after a candidate transfer
-# is not causally attributable to PID1 - a bootloader fallback, a reset, an
-# operator entry or a reconnect all look identical - so the arrival cannot be
-# the proof. This string can be.
-CANDIDATE_BANNER = "S20PLUS_P0_PID1_MIN_V4;pid=00000001;stage=DOWNLOAD_REQUEST"
-
-PREDICATES = {
-    "linux_version": RECORD_PREFIX + r"Linux version 4\.19\.113",
-    "init_records": RECORD_PREFIX + r"init: ",
-    "terminal_marker": RECORD_PREFIX + r"(reboot: (Restarting system|Power)|Power down)",
-    "sec_log_marker": RECORD_PREFIX + r".*sec_log",
-    "candidate_banner": RECORD_PREFIX + re.escape(CANDIDATE_BANNER),
+# Counts only. No log text is emitted, exactly as before.
+SHAPES = {
+    "lines_total": r"^",
+    "priority_timestamp": r"^<[0-9]+>\[[ 0-9.]+\] ",
+    "timestamp_only": r"^\[[ 0-9.]+\] ",
+    "priority_only": r"^<[0-9]+>[^[]",
+    "seclog_cpu_field": r"^(<[0-9]+>)?\[[ 0-9.]+\] \[[ 0-9]+:",
+    "no_record_prefix": r"^[^<[]",
 }
+PREDICATES = SHAPES
 
 # Every branch emits every key exactly once and in this order, so a short or
 # reordered transcript is a parse failure rather than a silent partial read.
@@ -197,7 +180,7 @@ def require_active() -> None:
         raise ObservationError("missing unique last_kmsg contract")
     section = text.split(CONTRACT_SECTION + "\n", 1)[1].split("\n## ", 1)[0]
     for line in (
-        "Status: **BINDING - LAST_KMSG OBSERVATION D0 ACTIVE**",
+        "Status: **BINDING - LAST_KMSG RECORD-FORMAT D0 ACTIVE**",
         "Runner-Normalized-SHA256: `" + source_receipt()["normalized_sha256"] + "`",
         "Root-Script-SHA256: `" + digest(ROOT_SCRIPT.encode()) + "`",
     ):
@@ -267,49 +250,58 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         counts[key] = int(values[key])
     if not facts["bounded"] and any(counts.values()):
         raise ObservationError("unscanned window reported predicate hits")
-    facts["predicate_counts"] = counts
-    facts["is_kernel_log"] = counts["linux_version"] >= 1
-    facts["carries_userspace_init"] = counts["init_records"] >= 1
-    # An anchored terminal record is evidence that the window contains a boot
-    # that ended, which the current boot's own log cannot yet contain. It is not
-    # a proof of which boot: a ring buffer can retain a wrapped older record.
-    # The capability reports the observation; it does not assert the identity of
-    # the boot. A caller that needs that must plant its own marker.
-    facts["carries_terminal_record"] = counts["terminal_marker"] >= 1
-    # The only predicate that identifies the boot. Exactly one occurrence is the
-    # candidate's single banner write; more than one means the window spans more
-    # than one candidate boot, which this lane never authorizes, so it is
-    # reported rather than folded into a boolean.
-    facts["candidate_banner_count"] = counts["candidate_banner"]
-    facts["carries_candidate_banner"] = counts["candidate_banner"] == 1
-    facts["channel_readable"] = bool(
-        state == "regular"
-        and facts["bounded"]
-        and facts["is_kernel_log"]
-        and facts["carries_userspace_init"]
-    )
+    facts["shape_counts"] = counts
+    # No semantic fact is derived here. This capability reports what the records
+    # look like; it does not say what they mean, which boot produced them, or
+    # whether anything was retained. Those claims were withdrawn because every
+    # one of them rested on a record format that has never been read on this
+    # target.
+    facts["dominant_shape"] = _dominant_shape(counts)
+    facts["seclog_cpu_field_present"] = counts["seclog_cpu_field"] >= 1
     facts["size_matches_recorded_observation"] = facts["size"] == OBSERVED_SIZE
     return facts
 
 
+def _dominant_shape(counts: dict[str, int]) -> str:
+    """Which candidate prefix shape actually describes this buffer.
+
+    Reported rather than asserted: if no shape accounts for most lines, that is
+    itself the finding, and designing an anchor on any of them would be the same
+    guess this capability exists to replace.
+    """
+    total = counts["lines_total"]
+    if total == 0:
+        return "no-records"
+    ranked = sorted(
+        ((name, counts[name]) for name in SHAPES if name != "lines_total"),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    name, count = ranked[0]
+    if count * 2 <= total:
+        return "no-dominant-shape"
+    return name
+
+
 def channel_verdict(facts: dict[str, Any]) -> str:
-    # Deliberately says only what the observation supports. The channel being
-    # readable and carrying userspace records is what makes a planted marker a
-    # viable carrier; it is not a claim about which boot the window came from.
-    # The banner is the exception, and the only verdict that names a boot.
-    if facts["channel_readable"] and facts["carries_candidate_banner"]:
-        return "CANDIDATE_BANNER_OBSERVED_EXACTLY_ONCE"
-    if facts["channel_readable"] and facts["candidate_banner_count"] > 1:
-        return "CANDIDATE_BANNER_REPEATED_UNEXPECTEDLY"
-    if facts["channel_readable"] and facts["carries_terminal_record"]:
-        return "CHANNEL_READABLE_WITH_USERSPACE_AND_TERMINAL_RECORD"
-    if facts["channel_readable"]:
-        return "CHANNEL_READABLE_WITH_USERSPACE_NO_TERMINAL_RECORD"
+    """Name the measurement, never a conclusion.
+
+    Every verdict here is about the record format. None of them says the buffer
+    is retained, says which boot produced it, or says anything ran.
+    """
     if facts["state"] != "regular":
-        return "CHANNEL_ABSENT"
-    if not facts["is_kernel_log"]:
-        return "CHANNEL_PRESENT_NOT_A_KERNEL_LOG"
-    return "CHANNEL_PRESENT_NO_USERSPACE_RECORDS"
+        return "NODE_ABSENT_OR_UNREADABLE"
+    if not facts["bounded"]:
+        return "NODE_TOO_LARGE_TO_SCAN"
+    if facts["shape_counts"]["lines_total"] == 0:
+        return "SCANNED_NO_RECORDS"
+    if facts["seclog_cpu_field_present"]:
+        # The finding that would invalidate an anchor expecting the message
+        # immediately after the timestamp.
+        return "RECORDS_CARRY_A_SECLOG_CPU_FIELD"
+    if facts["dominant_shape"] == "no-dominant-shape":
+        return "RECORDS_HAVE_NO_DOMINANT_SHAPE"
+    return "RECORDS_DOMINANTLY_" + facts["dominant_shape"].upper()
 
 
 class FixedBackend:
@@ -452,10 +444,12 @@ def collect(recorder) -> dict[str, Any]:
         **recorder.evidence(), "device_effect_count": 0, "device_writes": False,
         "reboot_requested": False, "partition_access": False,
         "log_contents_read": False, "log_bytes_retained": 0,
-        # Readability is not retention: the window may hold a wrapped older
-        # record, so nothing here proves which boot produced it.
-        "channel_readable": bool(facts["channel_readable"]),
+        # This capability measures record format and nothing else. It does not
+        # establish retention, does not identify a boot, and proves nothing ran.
+        "record_format_measured": True,
+        "dominant_shape": facts["dominant_shape"],
         "retention_proved": False, "native_pid1_proved": False,
+        "boot_identified": False, "content_interpreted": False,
     }
 
 

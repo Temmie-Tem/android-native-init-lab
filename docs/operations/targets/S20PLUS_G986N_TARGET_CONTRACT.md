@@ -656,16 +656,16 @@ applicable authority, never automatic flashing, mode entry or effect replay.
 Success proves ordinary Android warm-reboot retention only. Native PID1,
 Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 
-## S20+ last_kmsg Observation D0
+## S20+ last_kmsg Record-Format D0
 
-Status: **DEFINED - LAST_KMSG OBSERVATION D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `97f0f3f031856dba287360af55778d09dde5894237fe71efbb1cbd43e56f3c16`
-Root-Script-SHA256: `619fd441210e24c781303b8607be5ae27f92df2bd0cf0dacbeab38c0c5842f88`
+Status: **DEFINED - LAST_KMSG RECORD-FORMAT D0 NOT ACTIVE; REVIEW REQUIRED**
+Runner-Normalized-SHA256: `30bccbde868447bc284aad96ffabf55549b9566fa9361f69590c2da8e2dc2bc6`
+Root-Script-SHA256: `c1da34a4394a13ba608e152ad2ef3f9b1fbba607c89d419f7b1bdd79cbb5dfe4`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`0343117f35103d19d7f3975357b41e16a8ee203e1b3e9f7662699992d5898bdf`.
+`057c4a7871d45b4c8e073126d1253215f1fbee041913799b9dfe4a667b67ea3b`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
@@ -703,34 +703,40 @@ recorded pstore readiness D0 observed this node as a readable regular file of
 2,097,136 bytes with its content deliberately unread. No other path is read,
 and no ramoops, pstore, PMSG or `/data` path is touched by this capability.
 
-No log byte crosses the device boundary. Every predicate is a line count
-computed on the device over a scan window bounded at 4,194,304 bytes; a larger
-node is reported unscanned rather than truncated. Only node state, `stat`
-size and link count, two whole-window SHA-256 values, the scanned byte count and
-five predicate counts are emitted. The complete predicate declaration is the
-runner's `PREDICATES` closure, included in the script hash above and in
-`--render-plan`, which declares `log_contents_read` false and both
-`log_bytes_crossing_boundary` and `log_bytes_retained` zero. Log text is never
-emitted, captured, pulled, persisted or published anywhere, in success or in
-failure - including the candidate banner, of which only the count is reported.
+No log byte crosses the device boundary. Only node state, `stat` size and link
+count, two whole-window SHA-256 values, the scanned byte count and six shape
+counts are emitted. Log text is never emitted, captured, pulled, persisted or
+published anywhere, in success or in failure.
 
-Every predicate is anchored to the kernel record prefix, an optional priority
-and a bracketed timestamp, so a userspace record that merely quotes one of these
-strings is not counted.
+This capability answers one question: what shape are the records in this buffer?
+It makes no claim about their content, identifies no boot, and establishes no
+retention. Its result declares `retention_proved`, `boot_identified` and
+`content_interpreted` all false.
 
-Four predicates describe the window and none of them can say which boot produced
-it, because a ring buffer can retain a wrapped older record. The fifth,
-`candidate_banner`, is the exception and the only one that identifies a boot:
-its pattern is the fixed string that the P0 minimal download-request candidate's
-PID1 writes to `/dev/kmsg`, and nothing else writes it, so its presence is
-self-authenticating.
+It was previously written with semantic predicates - a kernel version banner,
+userspace `init` records, a terminal shutdown record, and a candidate banner -
+and independent review refuted every one of them. Two reasons, both decisive.
+No byte of this node has ever been read on this target, so the record prefix
+those predicates anchored to was inferred rather than measured, and an anchor
+built on an inferred prefix fails in the worse direction: too strict, and a real
+record is silently not counted. And a banner written to `/dev/kmsg` is not an
+authenticated record - this device carries resident root, and a ring buffer can
+retain a banner from an earlier boot - so it could not identify a boot either.
 
-That predicate exists because Download-mode arrival after a candidate transfer
-is **not** causally attributable to PID1 - a bootloader fallback, a watchdog or
-PMIC reset, an operator entry or a bare reconnect all produce the same
-enumeration - so the arrival cannot be the proof and this string can be. The
-string is a fixed literal here and is not imported from the F1 owner, so this
-capability carries no dependency on it.
+What replaces them is measurement. The runner's `SHAPES` closure declares six
+deliberately overlapping candidate prefix shapes and reports how many lines match
+each: total lines, priority plus timestamp, timestamp only, priority only, a
+Samsung sec_log cpu/comm/pid field after the timestamp, and no record prefix at
+all. The last two carry the finding. A sec_log cpu field means any anchor that
+expects the message immediately after the timestamp is wrong, and it is surfaced
+as its own verdict. Lines with no prefix are continuation and wrapped records,
+which an anchor would miss. If no shape accounts for most lines, that is
+reported as its own result rather than resolved by picking one.
+
+A future capability may interpret this buffer's content. It must be designed on
+the format this one measures, and any proof of which boot produced a record must
+carry a value unique to that run rather than a fixed string this device's root
+could also write.
 
 Every branch emits every declared key exactly once and in a fixed order, so a
 short, reordered or extended transcript fails closed rather than reading as a
