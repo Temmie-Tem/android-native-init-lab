@@ -105,6 +105,33 @@ USB debugging was ADB-verified when the exact selected row was in state
 `device`, the fixed snapshot succeeds twice, and the selection remains stable.
 The one-shot result is terminal; this paragraph grants no repeat collection.
 
+## Foreground research authorization for fixed D0
+
+The current operator-authorized S20+ research task covers necessary invocations
+of these already active fixed profiles without another per-read request or
+physical attendance: Routine D0 public-property reads, Attended Root-Health D0,
+and Pstore/PMSG Readiness D0. The word `Attended` in the existing root-health
+section/status/source identifiers is retained for execution compatibility; it
+does not impose attendance within this exact foreground-task authorization.
+This section changes authorization only, not any activation flag, script,
+source hash, target/build/boot binding, transport, output bound or parser.
+
+Each invocation must answer a concrete question in that task and independently
+revalidate the exact target and required current health. The authorization ends
+when the task closes, the operator stops it or its target/scope changes. It is
+not a recurring/background monitor or the dormant autonomous campaign below.
+No automatic retry loop is permitted. A failed invocation closes; a later read
+requires an evidence-based new decision after the cause/stop state is assessed,
+not repeated operator consent solely because it is another read. An unresolved
+device-action stop remains governed by its own journal/recovery owner; these
+profiles cannot bypass that stop or a foreign guard.
+
+Only the named fixed public/privileged reads are included. Generic `su`, new
+paths/commands, writes, reboot or mode controls, firmware/payload transfer,
+R1/F1/F2 and other targets receive no authority from this section. Device-effect
+research continues under each actual activated lane and its bounded grant;
+this D0 permission neither starts nor completes autonomous-campaign activation.
+
 ## S20+ Routine D0 Public-Property Reads
 
 Status: **BINDING - ROUTINE D0 PUBLIC-PROPERTY READS ACTIVE**
@@ -114,8 +141,8 @@ The reusable routine D0 is implemented by
 separate from the consumed onboarding transaction and does not inspect,
 remove, rotate, or bypass the onboarding active-intent guard.
 
-Once activated by the review record below, a current direct operator request
-may authorize one invocation of this fixed read-only process. Each invocation:
+Once activated by the review record below, a direct operator request or the
+foreground research authorization above covers each fixed invocation. Each invocation:
 
 1. pins the same reviewed `/usr/bin/adb` canonical realpath and SHA-256;
 2. inventories all ADB rows and selects exactly one healthy
@@ -132,10 +159,10 @@ may classify Korean sales-code aliases as `KOO`, `KTC`, `SKC`, or `LUC`; no
 evidence and conflicting evidence remain explicit and must not be guessed.
 
 Routine D0 does not create an active intent because it has no device effect.
-A failed read closes that invocation but does not prohibit a later separately
-requested routine read. There is no automatic retry or loop. Reuse depends on
-this exact runner and contract remaining unchanged and on a current direct
-operator request; it is never standing background authority.
+A failed read closes that invocation; later use follows the evidence-based
+decision and stop rules in the foreground authorization above. There is no
+automatic retry or loop. Reuse requires the unchanged reviewed execution
+closure and current task/request authority; it is never background authority.
 
 The prohibitions in the onboarding D0 apply unchanged: no `su`, root, writes,
 settings or property mutation, service control, package inventory, `/efs` or
@@ -147,8 +174,9 @@ firmware-package identity, or flash readiness.
 
 Status: **BINDING - ATTENDED ROOT-HEALTH D0 ACTIVE**
 
-This is a separate target-specific capability for one attended, fixed,
-read-only root-health snapshot. It is not part of routine public-property D0,
+This is a separate target-specific capability for one fixed read-only
+root-health snapshot, under the foreground D0 authorization above or a direct
+attended request outside that task. It is not part of routine public-property D0,
 the autonomous-research session, or the active N1 R1 capability. Existing
 resident Magisk root is a precondition only and grants no generic `su`
 authority. Only the fixed read below is active; an R1 preparation, approval,
@@ -163,9 +191,9 @@ Its activation constant is `ATTENDED_ROOT_HEALTH_D0_ACTIVE = True`. Its only
 CLI modes are host-only `--render-plan` and one `--connected` entrypoint. The
 constant is repeated at the CLI, execution-owner, and backend boundaries.
 
-Under this reviewed activation,
-one fresh direct operator request may authorize exactly one invocation with
-these six bounded host commands in order:
+Under this reviewed activation, the foreground D0 authorization above or one
+direct operator request covers each invocation with these six bounded host
+commands in order:
 
 1. one global ADB inventory;
 2. one selected-target `get-devpath`;
@@ -350,7 +378,7 @@ The 423-byte raw public argv produces the exact 456-byte ADB exec service at
 SHA-256
 `8ff45512fd92c37671396cf1d0abeb5b591dd1cdf37a5ee7bbc489d9f3acdbbf`.
 This host-only rotation creates no invocation and no standing approval; a new
-direct attended request is still required before the corrected runner may
+request or foreground D0 task authorization is still required before the corrected runner may
 contact the device.
 
 The activation gates required the exact runner and hostile test identities to be frozen,
@@ -366,8 +394,8 @@ the top-level target-contract status sentence, the single S20+ `AGENTS.md`
 registry process cell, the exact test assertions, and the activation/review
 record. A partial rotation, stale identity, or an omitted authority atom would
 leave the capability inactive. Despite activation, the design request is not
-standing live authority: one
-new direct operator request and attendance are required for each invocation.
+standing live authority: every invocation requires the foreground D0
+authorization above or its own direct attended request.
 No activation or invocation in this section transfers authority to S22+, A90,
 the autonomous lane, R1, or F1.
 
@@ -397,8 +425,8 @@ reachable utilities, and interaction with AGENTS and the risk tiers is required
 before mechanical activation. Review may cover the exact boolean/status flip;
 it grants no source delta or expanded action surface.
 
-After activation, one current direct attended operator request authorizes one
-invocation. This is not standing or background authority. It sends exactly
+After activation, the foreground D0 authorization above or one current direct
+attended request covers each invocation. This is not background authority. It sends exactly
 six bounded host commands: global inventory, selected `get-devpath`, the
 existing fixed public pre-snapshot, one quoted fixed `shell su -c` metadata
 script, the identical public post-snapshot, and final global inventory.
@@ -2379,6 +2407,18 @@ correction keeps exact prepared receipt binding but uses the stable
 same-session predicate for later endpoint observations. Stable
 path/inode/device/topology or descriptor drift still stops.
 
+## General machine-controlled D1 status
+
+Status: **DEFINED - NOT ACTIVE**
+
+The reusable Revision 8 common D1 delegation is a path for future exact S20+
+capabilities, not activation of routine controls or the dormant campaign below.
+Qualify the smallest useful existing runner/action scope with its actual safe
+failure-state or recovery evidence and finite grant; unrelated historical H0
+coordinator work is not an automatic prerequisite. Existing PMSG, fastboot,
+R1/F1/F2, consumed-trial and physical-return conditions remain authoritative.
+No additional device-effect authority is established by this status section.
+
 ## Bounded autonomous research session
 
 Status: **H0 POLICY PASS_GO - NOT ACTIVE**
@@ -2442,9 +2482,9 @@ This H0 policy owner is permanently render-only and is not mechanically
 activatable. Activation requires a separate exact live coordinator with no
 caller callback, its tests/report identities, hostile cut coverage, independent
 safety review of this permanent common boundary change, and a separate
-mechanical transition of this section and that coordinator. Until then, the
-existing attended D0/D1/F1/R1 rules remain unchanged and no autonomous
-connected action exists.
+mechanical transition of this section and that coordinator. This dormant
+campaign grants no connected action; the current foreground D0 and separately
+activated lanes keep their own authority and limits.
 
 The first separate coordinator unit now exists only as the dormant H0
 journal/state-machine candidate

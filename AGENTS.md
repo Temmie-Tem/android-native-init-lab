@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **7** (supersedes revision 6; 2026-09-05)
+Contract-Revision: **8** (supersedes revision 7; 2026-09-05)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -39,6 +39,40 @@ They do not waive an existing runner check, source/artifact binding, or a
 device-session stop. Changing those mechanisms requires the scoped review
 below; a general instruction to work autonomously is not such a change.
 
+## Default Research Autonomy
+
+Within the operator-authorized research task, proceed autonomously with H0 and
+with already activated, scope-matching device capabilities. Do not ask the
+operator to repeat authorization or visually confirm a fact that the approved
+machine observer can establish. A fresh target/boot/artifact binding is a
+machine check, not by itself a request for fresh human approval. Reuse a valid
+capability review and an unexpired in-scope session grant; do not ask again at
+each internal read, observation, or already authorized recovery step.
+
+Keep four questions separate: what work the operator authorized; whether the
+operator must be physically present; whether current runtime binding passes;
+and what recovery is actually available. Machine-verifiable observation,
+safe stopping without another effect, and demonstrated automatic recovery are
+different properties. A normal reboot's changed boot ID and healthy return do
+not prove recovery if the experimental component stops responding.
+
+H0 needs no device permission. A target may expressly bind named fixed D0
+profiles to the current foreground research task without per-read requests or
+physical attendance. For device effects, use the existing activated lane and
+its limits: continue autonomously where it delegates that authority; otherwise
+complete the smallest necessary H0 implementation/review/activation work first.
+Prefer reusable reviewed capabilities over experiment-by-experiment approval
+ceremonies. Do not introduce new gates or orchestration only to restate consent.
+
+Request operator input only for missing information or authority that matters:
+a scope-changing persistent mutation, unavailable or uncertain recovery, an
+unresolved device-session stop, a required physical action, or an explicit
+lane-specific fresh approval/attendance requirement. Identify the applicable
+clause and missing condition; do not invent a generic screen-confirmation gate.
+The default does not waive boundary 1, activate dormant runners, renew budgets,
+transfer authority between targets, consume a new effect after uncertainty, or
+turn a possible rollback into an authorized and demonstrated recovery route.
+
 ## Binding Target Registry
 
 | Target | Current state | Binding target contract | Binding live process |
@@ -57,7 +91,8 @@ For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.
    require attendance except the exact A90 resident D1 lane, an exact S20+
    bounded autonomous-research lane, the S22+ pre-F1 autonomous lane, or the
    conditional boot-only F1 lane below, or the single S20+ PMSG ordinary-reboot
-   transaction expressly delegated below, each separately activated by its
+   transaction expressly delegated below, or a reviewed bounded machine-controlled
+   D1 lane defined below, each separately activated by its
    binding target contract. F1 remains attended outside that exact activated
    lane, and authority never transfers between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
@@ -290,6 +325,41 @@ Classify every action using
 
 Do not split a higher-risk action into lower-tier commands. A device-connected
 action is not H0 merely because it sends no partition payload.
+
+## Bounded Machine-Controlled D1
+
+A selected target contract may activate a reusable, independently reviewed D1
+lane without physical attendance when the allowed device states can safely
+remain stopped after failure or have an already authorized, demonstrated
+machine recovery route. Safe stopping must describe the device state and any
+time-sensitive hazard; killing the host process alone is not such evidence.
+Use existing runners and journals where practical, not a new framework merely
+to express this delegation. Activation requires the exact target/action list,
+reachable implementation, fixed observations, failure/stop or recovery evidence,
+and focused failure-path validation to close together under independent review.
+
+One explicit operator grant binds a finite scope with positive time and action
+limits. Within that unchanged, activated scope, the agent may select named
+allowlisted actions, refresh target/boot/health bindings, observe results and
+perform the bound recovery without another request at each step. The agent
+cannot expand or renew the grant. Reserve required recovery capacity before an
+effect; expiry blocks new experiments but not already authorized recovery.
+
+This delegation covers only non-partition D1 actions expressly allowed by the
+common boundaries. It permits no new persistent privileged-data write, generic
+shell/root command, configuration/security change, or partition payload. A
+separately delegated exact data operation such as PMSG keeps its own single-use
+limits. R1/F1/F2, fastboot exceptions and other existing physical-return lanes
+receive no waiver from this section. Unattended F1 still requires its actual
+failure-specific automatic-recovery evidence under Conditional Autonomous F1.
+
+Source/scope/target drift, a new hazard, exhausted limits, unhealthy starting
+state, lost recovery or unresolved session failure blocks the next effect.
+Intent-before-effect, no replay, shared guards, bounded observation, final
+health and target isolation remain mandatory. An allowed stable failure state
+may park without new effects; any required physical intervention is requested
+then, unless the reviewed failure model requires attendance before starting.
+Defining this reusable delegation activates no target or current session.
 
 ## S20+ Bounded Autonomous Research Delegation
 The S20+ target contract may activate one independently reviewed autonomous

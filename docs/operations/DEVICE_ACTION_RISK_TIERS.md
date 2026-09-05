@@ -36,6 +36,10 @@ Examples: exact target identity, boot health, sysfs/procfs reads, USB inventory,
 and `odin4 -l` when a target-specific rule permits it.
 
 - Require an unambiguous target and bounded reads/timeouts.
+- D0 does not inherently require attendance or a fresh request for each read.
+  An expressly named target profile may be authorized by the current foreground
+  research task. Keep its fixed transcript, fresh identity and privacy limits;
+  do not infer generic root access, background polling or failure retries.
 - Do not reboot, change boot mode, create device files, alter settings, or send
   a payload.
 - Record only the evidence needed for the decision. A bespoke one-shot policy,
@@ -105,6 +109,14 @@ defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
   Absence is NO_PROOF; nonreturn or failed health is HEALTH_PENDING, retains
   the guard and stops new effects. Any physical recovery waits for separately
   authorized attended handling; only the fixed read-only resume is available.
+- AGENTS Revision 8 defines a reusable bounded machine-controlled D1 lane.
+  A target may activate it only after independent review of its exact allowed
+  actions, runtime and failure paths. One finite operator grant then covers
+  in-scope steps without per-step requests or physical attendance. Safe stopping
+  concerns the device's permitted failure state, not only host-process exit;
+  time-sensitive physical recovery still requires attendance before starting.
+  No current target, dormant coordinator or unrelated D1/R1/F1/F2 process is
+  activated or relieved of its specific limits by this definition.
 - Default evidence is one result plus the canonical timeline. Do not create a
   new policy exception, one-shot authority graph, or multi-review ladder merely
   for ordinary D1 recovery.
