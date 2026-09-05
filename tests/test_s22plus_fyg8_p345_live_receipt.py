@@ -140,7 +140,7 @@ class _ReceiptFixture:
 
         if ordinal == 1:
             middle = (
-                b"uid=65534(nobody) gid=65534(nobody) groups=65534(nobody)\n"
+                b"P345-UID=65534\nP345-GID=65534\n"
                 b"123.45 678.90\n"
                 + observer.PROBE_DENIED_MARKER
                 + observer.PROBE_ABSENT_MARKER

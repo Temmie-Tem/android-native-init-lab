@@ -303,6 +303,15 @@ class P345ReadonlyChildTests(unittest.TestCase):
             )
             self.assertEqual(pipeline.returncode, 0, pipeline.stderr)
             self.assertEqual(pipeline.stdout, "ALPHA\nBETA\n<nested>\n")
+            numeric_ids = subprocess.run(
+                [str(executable), "printf 'P345-UID='; /bin/busybox id -u; "
+                 "printf 'P345-GID='; /bin/busybox id -g"],
+                capture_output=True, text=True, timeout=2,
+            )
+            self.assertEqual(numeric_ids.returncode, 0, numeric_ids.stderr)
+            self.assertEqual(numeric_ids.stderr, "")
+            self.assertEqual(numeric_ids.stdout,
+                             f"P345-UID={os.geteuid()}\nP345-GID={os.getegid()}\n")
             cwd_result = subprocess.run(
                 [str(executable), "cd /tmp && pwd"],
                 capture_output=True,

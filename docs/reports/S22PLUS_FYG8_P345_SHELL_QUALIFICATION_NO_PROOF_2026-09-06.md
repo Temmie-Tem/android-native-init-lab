@@ -72,3 +72,47 @@ file statements describe the incident before this repair, not the final state.
 No source, journal, live state, prepared record or raw capture was rewritten;
 no device command was repeated. The legacy P328 host projection still needs
 its scoped P345 exclusion and partial-receipt regression before another run.
+
+
+## H0 exchange and projection repair, 2026-09-06
+
+Current-source inspection against the preserved stream identifies the parent
+witness rejection: sequence 3 reports numeric UID/GID zero without NSS names,
+while both the exchange and semantic validator required `(root)`. The exchange
+checks that witness after sequence 5 and before sending CLOSE; this explains
+the retained complete command EXITs without a DONE. The child also reports a
+GID immediately followed by the denied supplementary-group lookup warning.
+That output would fail the previous canary regex after the parent fix.
+
+The bounded repair shares one numeric parent-ID predicate, requests child
+`id -u` and `id -g` under distinct exact numeric markers, constructs P345
+metadata with JSON string keys/lists, and excludes P345 from the incompatible
+P328 result projection. The syscall filter and device C sources are unchanged.
+Wrong/missing/duplicate numeric IDs still reject. The five expected outcomes,
+authentication, raw capture, limits, exact target and mandatory rollback checks
+remain required. Exit 126/127 classification is unchanged and outside this unit.
+
+Validation: P345 suite 43/46 passed, including actual C/Python same-descriptor
+normal, exit-7, cancellation, timeout and subsequent command execution with a
+numeric-only parent witness. The three historical stock-build reopening tests
+reject `p345-observer.py identity differs`: the consumed build pins old source
+bytes. Those pins and artifacts were preserved. Shared exchange tests passed
+8/8; child tests passed 9/9 after adding numeric BusyBox identity queries under
+the actual host-mapped seccomp filter; common F1 live tests passed 74/74.
+Touched Python compiles and scoped diff whitespace checks pass. These are host
+checks, not a fresh target isolation or five-session device proof.
+
+Independent changed-path review returned PASS for bounded H0 code repair only
+and independently passed the three P345 live-observer tests. Reviewed source
+SHA-256 values:
+
+- exchange: `ac3b47884ed29404b5afc047557486b5c90ece2e85dc799123d100a7238df2c3`;
+- P345 observer: `7d24a1ae005ef07235a45a8c24256ae3fcf1ba4972620868730318b6b51a1b12`;
+- F1 live: `26a9633fc23ee45e14f27bc41b17897ead6b4bcc65a1c184e776505734aa7915`.
+
+This changes the working H0 source closure, not the consumed P345 evidence or
+ready declaration. Historical raw-first source pins remain unchanged and will
+reject these new bytes. A successor needs its fresh identity and source/artifact
+qualification, reviewed matching audit pins and execution closure, a new ready
+declaration, ordinary preparation and attended F1 approval. No existing run is
+replayed or reclassified; no device command or other-target edit occurred.

@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import math
 import os
+import re
 import select
 import struct
 import time
@@ -20,6 +21,18 @@ AUTH_DOMAIN_CANCEL = b'S22PLUS-FYG8-P345-AUTH-CANCEL-v1'
 MAX_COMMAND = 1023
 MAX_OUTPUT = 128 * 1024
 SESSION_TIMEOUT_SEC = 30.0
+
+
+def parent_identity_valid(output):
+    """Numeric root IDs; optional NSS names are presentation only."""
+    if type(output) is not bytes:
+        return False
+    name = rb"(?:\([^()\r\n]*\))?"
+    return re.fullmatch(
+        rb"uid=0" + name + rb" gid=0" + name
+        + rb"(?: groups=[0-9]+" + name
+        + rb"(?:,[0-9]+" + name + rb")*)?\n", output
+    ) is not None
 
 
 def command_bytes(command):
@@ -190,7 +203,7 @@ def exchange(observer, descriptor, key, command, expected_boot_sha, seen_nonces,
                     elif flags&FLAG_CANCELLED:
                         raise codec.AuthObserverError('unsolicited cancellation')
                 break
-        if not results[0].output.startswith(b'uid=0(root) gid=0(root)') or not results[0].output.endswith(b'\n'):
+        if not parent_identity_valid(results[0].output):
             raise codec.AuthObserverError('parent identity witness differs')
         if results[2].output!=b'P328-NONCE '+run_id.hex().encode()+b'\n':
             raise codec.AuthObserverError('session nonce witness differs')

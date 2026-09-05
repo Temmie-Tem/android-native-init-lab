@@ -59,7 +59,7 @@ def _command_result(
 def _fake_shell_result(index: int, command: bytes) -> exchange.ShellExchange:
     if index == 1:
         middle_output = (
-            b"uid=65534(nobody) gid=65534(nobody) groups=65534(nobody)\n"
+            b"P345-UID=65534\nP345-GID=65534\n"
             b"123.45 678.90\n"
             b"ash: can't create /probe: Read-only file system\n"
             + observer.PROBE_DENIED_MARKER
@@ -126,6 +126,33 @@ class FakeWriter:
 
 
 class P345ResearchShellObserverTests(unittest.TestCase):
+    def test_numeric_parent_identity_shared_with_post_session_validation(self):
+        for output in (b"uid=0 gid=0\n", b"uid=0(root) gid=0(root) groups=0(root)\n"):
+            result = _fake_shell_result(2, observer.EXIT7_COMMAND)
+            result.session.commands[0].output = output
+            self.assertTrue(exchange.parent_identity_valid(output))
+            observer.validate_session_result(result, observer.QUALIFICATION_COMMANDS[1])
+        for output in (b"uid=1 gid=0\n", b"uid=0 gid=1\n", b"uid=00 gid=0\n",
+                       b"uid=0 gid=0", b"uid=0 gid=0evil\n", b"uid=0 gid=0\nuid=1 gid=1\n"):
+            result = _fake_shell_result(2, observer.EXIT7_COMMAND)
+            result.session.commands[0].output = output
+            self.assertFalse(exchange.parent_identity_valid(output))
+            with self.assertRaises(observer.QualificationError):
+                observer.validate_session_result(result, observer.QUALIFICATION_COMMANDS[1])
+
+    def test_numeric_canary_rejects_warning_join_and_conflicting_ids(self):
+        good = _fake_shell_result(1, observer.CANARY_COMMAND).session.commands[1].output
+        self.assertTrue(observer._canary_semantics(good)["gid_65534"])
+        for bad in (good.replace(b"P345-GID=65534\n", b"P345-GID=65534id: can't get groups\n"),
+                    good.replace(b"P345-UID=65534", b"P345-UID=0"),
+                    good + b"P345-UID=0\n",
+                    good.replace(b"P345-UID=65534\nP345-GID=65534\n",
+                                 b"uid=65534 gid=65534id: can't get groups\n")):
+            with self.assertRaises(observer.QualificationError):
+                observer._canary_semantics(bad)
+        self.assertIn(b"/bin/busybox id -u;", observer.CANARY_COMMAND)
+        self.assertIn(b"/bin/busybox id -g;", observer.CANARY_COMMAND)
+
     def test_binding_has_exact_five_session_geometry_and_no_authority(self) -> None:
         value = observer.audit_binding()
         self.assertEqual(value["session_count"], 5)

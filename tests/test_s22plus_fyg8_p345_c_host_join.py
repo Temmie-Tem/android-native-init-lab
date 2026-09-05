@@ -91,7 +91,7 @@ WITNESS = r'''
 static long p345_exec_command(int fd,uint32_t seq,const uint8_t *cmd,
  uint16_t size,const uint8_t nonce[32],uint8_t *cancel){
  if(seq==4)return native_exec(fd,seq,cmd,size,nonce,cancel);
- const char *value=seq==3?"uid=0(root) gid=0(root)\n":"P328-NONCE RUN_HEX\n";
+ const char *value=seq==3?"uid=0 gid=0\n":"P328-NONCE RUN_HEX\n";
  long rc=p328_write_frame(fd,P328_FRAME_DATA,seq,(const uint8_t*)value,strlen(value));
  if(rc)return rc;
  uint8_t out[24]={0};p328_store_le32(out+12,strlen(value));

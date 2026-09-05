@@ -1,5 +1,6 @@
 """P345 owner acquisition/publication seams; no USB or device contact."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import sys
@@ -47,6 +48,36 @@ class LiveObserverTests(unittest.TestCase):
                 for field in ('rollback_completed','final_verified','candidate_completed'):
                     bad=dict(state);bad[field]=False
                     self.assertFalse(live._candidate_arrival_proof_projection(fixture.prepared,bad)['proof'])
+
+    def test_partial_p345_observation_skips_legacy_projection_and_is_json_stable(self):
+        from test_s22plus_fyg8_p345_live_receipt import _ReceiptFixture
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = _ReceiptFixture(Path(directory) / 'run')
+            fixture.prepared.bundle.manifest['observation']['timeout_sec'] = 300
+            durable = dict(fixture.value)
+            durable.update(accepted=False, classification='authenticated-session-error',
+                receipt_sha256='a' * 64, preauth_diagnostics=[], rng_eagain_retries=[],
+                partial_sessions=[{'current_stage': 'exec-read', 'failure_stage': 'exec-read'}],
+                p345_readonly_research_shell_qualification={'proved': False, 'session_count': 0},
+                qualification_complete=False, session_count=0, command_count=0,
+                pid1_framed_exec_proof=False, busybox_ash_command_proof=False,
+                framed_session_closed=False, same_tty_fd=False)
+            self.assertNotIn('hmac_authenticated', durable)
+            backend = object.__new__(live.SamsungOdinBackend)
+            backend.odin = Path('/unused')
+            absent = types.SimpleNamespace(absent=True, timed_out=False, next_sequence=1)
+            with mock.patch.object(live.odin_core, 'list_snapshot_receipts', return_value=[]), \
+                 mock.patch.object(live.odin_core, 'wait_for_no_live_endpoint', return_value=absent), \
+                 mock.patch.object(live, '_reopen_candidate_observation', return_value=durable):
+                value = backend.observe_candidate(fixture.prepared, fixture.run_dir, None, None)
+            self.assertFalse(value['candidate_execution_proven'])
+            self.assertFalse(value['qualification_complete'])
+            self.assertEqual(value['session_count'], 0)
+            self.assertEqual(json.loads(json.dumps(value)), value)
+            variant = live._host_first_variant(fixture.prepared.bundle)
+            metadata = {'branches': variant.OPEN_READ_BRANCH_ORDINALS,
+                        'stages': variant.OPEN_HEADER_WORD_STAGES}
+            self.assertEqual(json.loads(json.dumps(metadata)), metadata)
 
     def test_actual_acquisition_retains_semantic_failure_and_closes_fd(self):
         master,slave=os.openpty()

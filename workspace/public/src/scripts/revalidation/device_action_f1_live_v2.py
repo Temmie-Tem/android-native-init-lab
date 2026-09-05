@@ -2317,8 +2317,8 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
             SUCCESS_OUTCOME=typed_evidence.P345_AUTH_EXEC_OUTCOME,
             SUCCESS_VERDICT=typed_evidence.P345_AUTH_EXEC_VERDICT,
             OPEN_HEADER_SIZE=p345_shell_runtime.OPEN_HEADER_SIZE,
-            OPEN_HEADER_WORD_STAGES=p345_shell_runtime.OPEN_HEADER_WORD_STAGES,
-            OPEN_READ_BRANCH_ORDINALS=dict(p345_shell_runtime.OPEN_READ_BRANCHES),
+            OPEN_HEADER_WORD_STAGES=list(p345_shell_runtime.OPEN_HEADER_WORD_STAGES),
+            OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in p345_shell_runtime.OPEN_READ_BRANCHES.items()},
             PROOF_FIELDS=P345_PROOF_FIELDS, parser_failure=_p345_parser_failure_classification,
             proof_ok=_p345_proof_ok, proof_state=_p345_proof_state,
             session_factory=_p345_candidate_observer_session,
@@ -5502,7 +5502,7 @@ class SamsungOdinBackend:
                         "partial_sessions": durable["partial_sessions"],
                     }
                 )
-            elif _p328_bundle(prepared.bundle):
+            elif _p328_bundle(prepared.bundle) and not _p345_bundle(prepared.bundle):
                 result.update(
                     {
                         "hmac_authenticated": durable["hmac_authenticated"],

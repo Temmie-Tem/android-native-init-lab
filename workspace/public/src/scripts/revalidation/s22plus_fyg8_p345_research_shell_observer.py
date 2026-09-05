@@ -45,7 +45,8 @@ CANCEL_MARKER = b"P345-CANCEL-MARKER\n"
 PIPELINE_MARKER = b"P345-PIPE-MARKER\n"
 
 CANARY_COMMAND = (
-    b"/bin/busybox id; /bin/busybox cat /proc/uptime; "
+    b"printf 'P345-UID='; /bin/busybox id -u; "
+    b"printf 'P345-GID='; /bin/busybox id -g; /bin/busybox cat /proc/uptime; "
     b"if ( : >/probe ); then printf 'P345-PROBE-CREATED\\n'; "
     b"else printf 'P345-PROBE-DENIED\\n'; fi; "
     b"if test ! -e /probe; then printf 'P345-PROBE-ABSENT\\n'; "
@@ -213,8 +214,8 @@ def _session_audit_checks(audit: Any) -> None:
 def _canary_semantics(output: bytes) -> dict[str, Any]:
     if type(output) is not bytes:
         raise QualificationError("P345 canary output type differs")
-    uid_seen = re.search(rb"\buid=65534(?:\([^\n)]*\))?\b", output) is not None
-    gid_seen = re.search(rb"\bgid=65534(?:\([^\n)]*\))?\b", output) is not None
+    uid_seen = re.findall(rb"(?m)^P345-UID=([^\n]*)$", output) == [b"65534"]
+    gid_seen = re.findall(rb"(?m)^P345-GID=([^\n]*)$", output) == [b"65534"]
     uptime_seen = re.search(
         rb"(?m)^[0-9]+(?:\.[0-9]+)?[ \t]+[0-9]+(?:\.[0-9]+)?[ \t]*$",
         output,
@@ -296,8 +297,7 @@ def _validate_command_results(
         first.flags == 0
         and first.exit_code == 0
         and first.term_signal == 0
-        and first.output.startswith(b"uid=0(root) gid=0(root)")
-        and first.output.endswith(b"\n")
+        and shell_exchange.parent_identity_valid(first.output)
     ):
         raise QualificationError("P345 parent identity witness differs")
     expected_nonce = b"P328-NONCE " + RUN_ID_HEX.encode("ascii") + b"\n"
