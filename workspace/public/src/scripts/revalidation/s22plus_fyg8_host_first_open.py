@@ -54,6 +54,12 @@ def helper(value: bytes) -> bytes:
     if (rc != 0) return rc;
     rc = p330_write_diagnostic(tty_fd, P330_DIAG_OPEN_PARSED, 0);
     if (rc != 0) return rc;""")
+    # All publisher preambles moved into the console, so this former
+    # banner-only retry predicate is unreachable and must not remain unused
+    # under the production -Wall -Wextra -Werror build.
+    start = value.index(b"static int p335_banner_is_waiting(")
+    end = value.index(b"\n}", start) + 2
+    value = _once(value, value[start:end], b"")
     return value
 
 

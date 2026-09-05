@@ -169,6 +169,7 @@ class HostFirstTests(unittest.TestCase):
             self.assertEqual(value.count(b's22plus_p318_banner_attempt(tty_fd);'),
                 (source / runtime.name).read_bytes().count(b's22plus_p318_banner_attempt(tty_fd);') - 2)
             command = ['/usr/bin/aarch64-linux-gnu-gcc', '-c', '-ffreestanding', '-fno-builtin',
+                '-Os', '-Wall', '-Wextra', '-Werror',
                 '-DS22PLUS_FYG8_P233_PROFILE=3', '-I', directory,
                 '-DS22PLUS_FYG8_P233_RUN_ID_BYTES={' + ','.join(str(x) for x in range(16)) + '}',
                 '-I', str(ROOT / 'workspace/public/src/native-init'),
