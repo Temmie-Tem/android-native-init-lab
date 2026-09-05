@@ -23,12 +23,12 @@ import s22plus_fyg8_p345_stock_candidate_build as candidate_build
 import s22plus_fyg8_p345_stock_process_v2_adapter as adapter
 
 DEFAULT_STATIC_OUTPUT = candidate_static.DEFAULT_OUTPUT
-DEFAULT_PROMOTION = ROOT / "workspace/private/outputs/s22plus_fyg8_p345/process-v2-promotion-20260906-01"
-DEFAULT_MANIFEST = ROOT / "workspace/public/src/device-action/manifests/s22plus_fyg8_p345_process_v2_ready_1.json"
+DEFAULT_PROMOTION = ROOT / "workspace/private/outputs/s22plus_fyg8_p345/process-v2-promotion-20260906-02"
+DEFAULT_MANIFEST = ROOT / "workspace/public/src/device-action/manifests/s22plus_fyg8_p345_process_v2_ready_2.json"
 DEFAULT_TARGET_PROFILE = ROOT / "workspace/public/src/device-action/profiles/s22plus_fyg8.json"
 DEFAULT_CANDIDATE_AP = candidate_build.DEFAULT_OUTPUT_ROOT / "candidate-a/odin4/AP.tar.md5"
-DEFAULT_MANIFEST_ID = "s22plus-fyg8-p345-process-v2-ready-1"
-DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p345-live-1"
+DEFAULT_MANIFEST_ID = "s22plus-fyg8-p345-process-v2-ready-2"
+DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p345-live-2"
 VERDICT = "PASS_P345_PROCESS_V2_READY_MANIFEST_HOST_ONLY"
 REHEARSAL_VERDICT = "PASS_P345_PROCESS_V2_PROMOTION_REHEARSAL_HOST_ONLY"
 canonical = candidate_static.canonical

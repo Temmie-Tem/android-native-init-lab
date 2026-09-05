@@ -1,5 +1,8 @@
 import copy
+import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -10,6 +13,31 @@ sys.path[:0] = [str(ROOT / "workspace/public/src/scripts/revalidation"),
 import prepare_s22plus_fyg8_p345_process_v2 as prepare
 
 class P345PreparationTests(unittest.TestCase):
+    def test_actual_live_validate_cli_without_pythonpath(self):
+        static = prepare.candidate_static.build_result()
+        before = tuple(path.exists() for path in (prepare.DEFAULT_STATIC_OUTPUT,
+            prepare.DEFAULT_PROMOTION, prepare.DEFAULT_MANIFEST))
+        with tempfile.TemporaryDirectory(prefix="p345-clean-cli-", dir=prepare.DEFAULT_PROMOTION.parent) as temporary:
+            directory = Path(temporary)
+            payloads, paths, pins = prepare._payloads(static,
+                static_path=directory / "static.json", promotion=directory)
+            for name, payload in payloads.items():
+                prepare._write(paths[name], payload, 0o400)
+            manifest = directory / "manifest.json"
+            prepare._write(manifest, prepare.canonical(prepare._manifest(static, pins)), 0o600)
+            environment = dict(os.environ)
+            environment.pop("PYTHONPATH", None)
+            environment.pop("PYTHONHOME", None)
+            completed = subprocess.run(["/usr/bin/python3", "-B",
+                str(ROOT / "workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py"),
+                "--validate", "--manifest", str(manifest)],
+                cwd=directory, env=environment, capture_output=True, timeout=90)
+            self.assertEqual(completed.returncode, 0, completed.stderr.decode(errors="replace") + completed.stdout.decode(errors="replace"))
+            value = json.loads(completed.stdout)
+            self.assertFalse(value["device_contact"])
+        self.assertEqual(before, tuple(path.exists() for path in (prepare.DEFAULT_STATIC_OUTPUT,
+            prepare.DEFAULT_PROMOTION, prepare.DEFAULT_MANIFEST)))
+
     def test_actual_full_bundle_rehearsal_does_not_publish(self):
         paths = (prepare.DEFAULT_STATIC_OUTPUT, prepare.DEFAULT_PROMOTION, prepare.DEFAULT_MANIFEST)
         before = tuple(path.exists() for path in paths)

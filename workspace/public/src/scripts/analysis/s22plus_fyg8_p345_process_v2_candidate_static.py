@@ -12,7 +12,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[5]
 REVALIDATION = ROOT / "workspace/public/src/scripts/revalidation"
-sys.path.insert(0, str(REVALIDATION))
+sys.path[:0] = [str(REVALIDATION), str(Path(__file__).resolve().parent)]
 import s22plus_fyg8_p345_artifact_identity as artifact
 import s22plus_fyg8_p345_stock_process_v2_adapter as adapter
 import s22plus_fyg8_p345_research_shell_observer as observer
@@ -24,7 +24,7 @@ CHECK_SCHEMA = "s22plus_fyg8_p345_process_v2_static_result_v1"
 CHECK_VERDICT = "PASS_P345_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
 RUN_ID = adapter.P345_RUN_ID_HEX
 TARGET = {"model": "SM-S906N", "codename": "g0q", "build": "S906NKSS7FYG8"}
-DEFAULT_OUTPUT = ROOT / "workspace/private/outputs/s22plus_fyg8_p345/process-v2-candidate-static-20260906-01.json"
+DEFAULT_OUTPUT = ROOT / "workspace/private/outputs/s22plus_fyg8_p345/process-v2-candidate-static-20260906-02.json"
 SOURCE_FILES = {
     "p345_ap_byte_verifier": REVALIDATION / "s22plus_boot_verify.py",
     "p345_ap_receipt_helper": REVALIDATION / "s22plus_fyg8_p242_e2_stock_closure.py",
