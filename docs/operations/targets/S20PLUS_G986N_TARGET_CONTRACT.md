@@ -384,6 +384,34 @@ version bump of this runner, as a corrected version with its own hashes rather
 than an in-place edit of consumed, pinned bytes. Historical reports that record
 the current hashes stay unmodified.
 
+This record previously named one site. There are three, each an independently
+pinned copy of the same root-identity preamble:
+
+| Runner | Line |
+|---|---|
+| `s20plus_g986n_attended_root_health_d0.py` | 114 |
+| `s20plus_g986n_recovery_digest_profile_h0.py` | 83 |
+| `s20plus_g986n_boot_recovery_canary_b0_f1.py` | 253 |
+
+The same reasoning applies to all three, and the second and third are no less
+consequential for being separate: `boot_recovery_canary_b0_f1` is an active F1.
+The contrast that makes this a defect rather than a style choice is inside each
+of those scripts, which read `/proc/1/attr/current` with an explicit pid and get
+that one right.
+
+`tests/test_s20plus_g986n_activation_document_drift.py` enumerates the three
+sites mechanically, so a fourth copy, or a silent repair of one but not the
+others, fails a test rather than quietly making this record false again.
+
+Recorded on the same terms, in the pstore readiness D0: its `META_READS` reads
+`pet_time` and `user_pet_enabled` under
+`/sys/bus/platform/devices/17c10000.qcom,wdt/`. That node address is an
+S22+-era one; both recorded `absent` on this target and the verdict logic
+tolerates absent, so the two facts are vacuous rather than wrong. No S20+
+evidence establishes the correct path for this SoC, so the paths are recorded
+and not guessed at, and are enumerated by the same test. Any future watchdog
+question on this target must first establish the node, not assume this address.
+
 The corrected active runner is 39,819 bytes at SHA-256
 `24f69cc5aa43c70558e3594534ee684db0a038e972d1b0db2f1b8d8446af2d44`;
 its activation-normalized SHA-256 is

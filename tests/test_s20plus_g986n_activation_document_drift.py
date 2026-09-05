@@ -161,5 +161,75 @@ class P0ActivationDocumentTests(unittest.TestCase):
         )
 
 
+class RecordedDeferralTests(unittest.TestCase):
+    """Deferred defects must stay exactly as recorded, in number and in place.
+
+    Two defects on this target are recorded rather than repaired, because
+    repairing them would disturb the only active D0 and an active F1 to fix
+    behaviour that is currently harmless here. A record is only worth deferring
+    to if it stays true, so these enumerate the sites mechanically: a new copy,
+    or a silent repair of one copy but not the others, fails here.
+    """
+
+    # `context=$(/system/bin/cat /proc/self/attr/current)` reports the exec'd
+    # helper's SELinux context, not the shell's. The same files read
+    # /proc/1/attr/current with an explicit pid, which is correct - the contrast
+    # is inside a single script. On this target no domain transition occurs for a
+    # system_file exec from the Magisk domain, so the value read is the value
+    # intended and every identity predicate in the consumed trials passed.
+    ATTR_SELF_SITES = {
+        "s20plus_g986n_attended_root_health_d0.py",
+        "s20plus_g986n_recovery_digest_profile_h0.py",
+        "s20plus_g986n_boot_recovery_canary_b0_f1.py",
+    }
+
+    def sites(self, needle):
+        found = {}
+        for path in sorted(REVALIDATION.glob("s20plus_g986n_*.py")):
+            hits = [
+                line for line in path.read_text().splitlines()
+                if needle in line and "/proc/1/attr" not in line
+            ]
+            if hits:
+                found[path.name] = len(hits)
+        return found
+
+    def test_proc_self_attr_sites_are_exactly_the_recorded_three(self):
+        found = self.sites("/proc/self/attr/current")
+        self.assertEqual(set(found), self.ATTR_SELF_SITES)
+        for name, count in found.items():
+            with self.subTest(runner=name):
+                self.assertEqual(count, 1, f"{name} grew a second copy")
+
+    def test_each_site_still_reads_pid1_context_with_an_explicit_pid(self):
+        # The contrast that makes this a defect rather than a style choice: the
+        # same scripts get pid 1 right.
+        for name in self.ATTR_SELF_SITES:
+            with self.subTest(runner=name):
+                text = (REVALIDATION / name).read_text()
+                self.assertIn("/proc/1/attr/current", text)
+
+    def test_the_deferral_is_recorded_for_every_site_not_just_one(self):
+        body = CONTRACT.read_text()
+        for name in self.ATTR_SELF_SITES:
+            with self.subTest(runner=name):
+                self.assertIn(name, body, "site is not named in the contract record")
+
+    # The readiness D0 reads two watchdog attributes under an S22+-era node
+    # address. Both recorded `absent` on this target, and the verdict logic
+    # tolerates absent, so the two facts are vacuous rather than wrong. No S20+
+    # evidence establishes the correct path, so they are recorded, not guessed.
+    VACUOUS_WATCHDOG_PATHS = (
+        "/sys/bus/platform/devices/17c10000.qcom,wdt/pet_time",
+        "/sys/bus/platform/devices/17c10000.qcom,wdt/user_pet_enabled",
+    )
+
+    def test_vacuous_watchdog_paths_are_still_the_recorded_two(self):
+        text = (REVALIDATION / "s20plus_g986n_pstore_readiness_d0.py").read_text()
+        for path in self.VACUOUS_WATCHDOG_PATHS:
+            with self.subTest(path=path):
+                self.assertEqual(text.count(path), 1)
+        self.assertIn("17c10000.qcom,wdt", CONTRACT.read_text())
+
 if __name__ == "__main__":
     unittest.main()

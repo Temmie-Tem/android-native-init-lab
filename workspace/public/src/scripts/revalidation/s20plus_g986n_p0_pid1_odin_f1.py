@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "f83338d28cfa8499f2a13e7cbcb3b97568970d291a2c9ad2d947b04a185b32f4"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "0ad87f2053a9dc66b756532ae98be7c78ebac7d5d4d1d0fa2fe66097e2aabfe7"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -297,7 +297,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
             # silently desynchronizing while it is dormant.
             "tests.test_s20plus_g986n_activation_document_drift",
         ],
-        "tests": 216,
+        "tests": 220,
         "skipped": 10,
         "log_name": "wider.log",
     },
