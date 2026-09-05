@@ -18,6 +18,22 @@ import test_s22plus_fyg8_idle_reuse_probe as fixture
 
 
 class P342LiveTests(unittest.TestCase):
+    def test_actual_common_classifier_scopes_predecessor_projection(self):
+        adapter = live.typed_evidence.p342_stock_adapter
+        parser = adapter._raw_parser()
+        manifest = ROOT / 'workspace/public/src/device-action/manifests/s22plus_fyg8_p342_process_v2_ready_1.json'
+        acceptance = json.loads(manifest.read_bytes())['observation']['acceptance']
+        empty = live.classify_acceptance(bytes(parser.RAW_SIZE), acceptance)
+        self.assertNotIn('p319_stock', empty)
+        self.assertEqual(empty['proof_class'], 'NO_PROOF_OBSERVER')
+        payload = parser._observer().encode_stock_payload_v4(parser._base_payload(state='COMPLETE'), None)
+        record = parser._carrier_record_from_envelope(parser._envelope_from_payload(payload),
+                    detail=parser.STOCK_DETAIL_COMPLETE, run_id=adapter.P342_RUN_ID)
+        value = live.classify_acceptance(bytes(parser.RAW_SIZE-len(record)) + record, acceptance)
+        self.assertNotIn('p319_stock', value)
+        self.assertEqual(value['proof_class'], 'NONCAUSAL_SUCCESS_PATH')
+        self.assertFalse(value['candidate_success'])
+
     @staticmethod
     def prepared():
         return SimpleNamespace(bundle=SimpleNamespace(manifest={'observation': {

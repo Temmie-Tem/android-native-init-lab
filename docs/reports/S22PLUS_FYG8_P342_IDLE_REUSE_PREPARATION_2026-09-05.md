@@ -1,7 +1,9 @@
 # P342 idle/reuse preparation
 
-P342 is prepared for attended F1, not yet device-proved. P341 remains CLOSED,
-healthy and consumed. No P342 candidate or rollback transfer has occurred.
+P342 is now CLOSED and healthy with
+`PASS_F1_V2_P342_AUTHENTICATED_IDLE_REUSE_AND_ROLLED_BACK`.
+Candidate and exact rollback completed once each. P342 and P341 are consumed,
+never replayable. The preparation sections below preserve their original scope.
 
 ## Experiment
 
@@ -76,3 +78,58 @@ Auditor SHA256: `8d64aff30066e8e064fbb0b292116d0e703d763ed6105c52658084ce16638c6
 Existing census metadata was updated for the reviewed P340-P342 sources,
 the consumed P339 health helper and two explicitly separate S20 files; no
 wildcard exclusions, operational changes or device authority were added.
+
+## F1 outcome and reporting-cut repair
+
+Run `p342-ready1-prepared-20260905-2` accepted four authenticated sessions and
+twelve fixed command executions. Same-FD silent idle measured 120.000105308
+seconds with zero received bytes, followed by a third same-FD session and one
+planned reopen/fourth session. This proves this bounded idle/reuse experiment,
+not indefinite stability, arbitrary shell or standing autonomous control.
+
+Candidate receipt: 35488 bytes/SHA256
+`ee91e9fa032f4eaa011578c942688a051621d92deb8f8caa64991d441c7a72be`.
+RX: 2644 bytes/SHA256
+`ce3ce11876dbfcea4077974b14ddd0399fddbf9e4fa5515ef4fd438e877fa678`.
+Both boot-only transfers completed once. Rooted FYG8 health, exact expected
+partition digests, current target continuity and two identical final logs were
+captured before a host classification exception. A P319-only stock projection
+assignment was incorrectly dedented, causing `UnboundLocalError: stock_rows`
+in the common classifier for P342. This is a host reporting defect, not a USB
+failure. Earlier tests covered adapter classification and final routing but
+missed this real common-classifier connection; the new regression exercises it.
+
+Independent `PASS_GO_P342_RETAINED_HEALTH_FINALIZER_H0` qualified the exact
+private helper `workspace/private/outputs/s22plus_fyg8_p342/finish_retained_health.py`
+(SHA256 `56142a8d7076d104aa4d5fac267f8a8f529414b6fb7d1641f6c9adf4f9144bef`).
+It reopens raw health captures 19-22, final identity 25-26, EOF logs 23-24 and
+Download-absence receipt 31; original health and final-observer validators pass.
+One exact in-memory indentation repair permits retained classification.
+The only backend method returns that retained result; no device operation is
+available. The normal post-rollback state machine completed the journal and
+result without repeating any device effect. The permanent fix is the same
+one-line indentation change. Actual common-classifier regression failed with
+the original exception before the fix; all eight focused live tests pass after.
+Supplemental Carrier remains NO_PROOF_OBSERVER, separate from the accepted USB
+primary proof. No supplemental scientific/causal result is promoted.
+
+Final state: 31802 bytes/SHA256
+`005635a19623edb9d06707be42ae2d530d58eb9af0eb3c4bf2d75d7fd7fe989b`.
+Final result: 35666 bytes/SHA256
+`0136a663965b29114221605c8da58b32b1f0a5a5f6c67c4229beabdb9581cf92`.
+Journal CLOSED/19; outcome `p342_authenticated_idle_reuse_rollback_verified`;
+`recovery_required=false`. No other target received commands.
+
+Canonical journal timeline (UTC):
+
+| Event | Time |
+| --- | --- |
+| Live start | 09:56:40.059230 |
+| Candidate transfer start / complete | 09:56:55.900575 / 09:56:57.520676 |
+| Candidate observation accepted | 09:59:11.654062 |
+| Rollback transfer start / complete | 09:59:58.386321 / 09:59:59.918138 |
+| Retained health finalized | 10:06:00.567213 |
+| Closed | 10:06:00.593288 |
+
+The last health event is reporting finalization time, not a newly issued read.
+The original private captures retain the actual acquisition timings.

@@ -19880,7 +19880,7 @@ def classify_e1_latest_stage(
             for row in decoded.get("records", ())
             if isinstance(row, dict) and "p319_stock" in row
         ]
-    result["p319_stock"] = stock_rows
+        result["p319_stock"] = stock_rows
     if item.get("userspace_overlay_contract_id") in {
         P342_STOCK_OVERLAY_CONTRACT_ID,
         P341_STOCK_OVERLAY_CONTRACT_ID,
