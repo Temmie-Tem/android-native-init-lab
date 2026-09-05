@@ -30,6 +30,9 @@
 #ifndef P345_NR_CHDIR
 #define P345_NR_CHDIR 49
 #endif
+#ifndef P345_NR_GETCWD
+#define P345_NR_GETCWD 17
+#endif
 #ifndef P345_NR_SETRLIMIT
 #define P345_NR_SETRLIMIT 164
 #endif
@@ -191,6 +194,19 @@
 #endif
 #ifndef P345_NR_PPOLL
 #define P345_NR_PPOLL 73
+#endif
+
+/* x86-64's static BusyBox uses these ABI-specific setup calls.  They are
+ * enabled only by the host smoke fixture; ARM64 has no arch_prctl and uses
+ * dup3 for the corresponding descriptor operation.  They never widen the
+ * target filter. */
+#ifdef P345_HOST_TEST_EXTRA_SYSCALLS
+#ifndef P345_NR_ARCH_PRCTL
+#define P345_NR_ARCH_PRCTL 158
+#endif
+#ifndef P345_NR_DUP2
+#define P345_NR_DUP2 33
+#endif
 #endif
 
 #ifndef P345_AUDIT_ARCH
@@ -712,7 +728,13 @@ static struct p345_sock_filter p345_filter[] = {
     P345_BPF_ALLOW_SYSCALL(P345_NR_PIPE2),
     P345_BPF_ALLOW_SYSCALL(P345_NR_DUP),
     P345_BPF_ALLOW_SYSCALL(P345_NR_DUP3),
+#ifdef P345_HOST_TEST_EXTRA_SYSCALLS
+    P345_BPF_ALLOW_SYSCALL(P345_NR_ARCH_PRCTL),
+    P345_BPF_ALLOW_SYSCALL(P345_NR_DUP2),
+#endif
     P345_BPF_ALLOW_SYSCALL(P345_NR_FCNTL),
+    P345_BPF_ALLOW_SYSCALL(P345_NR_CHDIR),
+    P345_BPF_ALLOW_SYSCALL(P345_NR_GETCWD),
     P345_BPF_ALLOW_SYSCALL(P345_NR_GETPID),
     P345_BPF_ALLOW_SYSCALL(P345_NR_GETPPID),
     P345_BPF_ALLOW_SYSCALL(P345_NR_GETUID),

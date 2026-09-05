@@ -76,23 +76,32 @@ static long sys_mount(const char *source, const char *target,
 }
 '''
 HOST_FILTER_MAIN = r'''
-int main(void) {
+int main(int argc, char **argv) {
     (void)&p345_enter_readonly_child;
-    if (p345_prctl(P345_PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) return 10;
-    if (p345_install_filter() != 0) return 11;
+    if (argc != 2) return 10;
+    if (p345_prctl(P345_PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) return 11;
+    if (p345_install_filter() != 0) return 12;
     long readable = syscall6(
         P345_NR_OPENAT, P345_AT_FDCWD, (long)(uintptr_t)"/proc/self/cmdline",
         P345_O_RDONLY, 0, 0, 0);
-    if (readable < 0) return 12;
+    if (readable < 0) return 13;
+    if (syscall6(P345_NR_CLOSE, readable, 0, 0, 0, 0, 0) != 0) return 14;
     long denied = syscall6(
         P345_NR_OPENAT, P345_AT_FDCWD, (long)(uintptr_t)"/tmp/p345-create",
         P345_O_WRONLY | P345_O_CREAT, 0600, 0, 0);
-    if (denied != -P345_EPERM) return 13;
+    if (denied != -P345_EPERM) return 15;
     long output = syscall6(P345_NR_WRITE, 2, 0, 0, 0, 0, 0);
-    if (output != 0) return 14;
+    if (output != 0) return 16;
     long unsupported = syscall6(999, 0, 0, 0, 0, 0, 0);
-    if (unsupported != -P345_EPERM) return 15;
-    return 0;
+    if (unsupported != -P345_EPERM) return 17;
+    char *const child_argv[] = {
+        (char *)"/bin/busybox", (char *)"ash", (char *)"-c", argv[1], 0,
+    };
+    char *const envp[] = {(char *)"PATH=/bin", (char *)"HOME=/", 0};
+    long exec_result = syscall6(
+        P345_NR_EXECVE, (long)(uintptr_t)"/bin/busybox",
+        (long)(uintptr_t)child_argv, (long)(uintptr_t)envp, 0, 0, 0);
+    return exec_result < 0 ? 18 : 19;
 }
 '''
 
@@ -206,8 +215,14 @@ class P345ReadonlyChildTests(unittest.TestCase):
             result = subprocess.run([str(executable)], capture_output=True, timeout=2)
             self.assertEqual(result.returncode, 0)
 
-    def test_native_seccomp_filter_rejects_write_open_flags(self):
-        """Exercise the filter itself with host syscall numbers only."""
+    def test_native_seccomp_filter_runs_busybox_and_rejects_write_open_flags(self):
+        """Run real ash under a fully remapped host copy of the filter.
+
+        ``arch_prctl`` and ``dup2`` are host-only compatibility additions for
+        x86-64 BusyBox startup; ARM64 has no arch_prctl and uses dup3.  The
+        actual target allowlist, open-flag gate, and default-deny result are
+        still exercised by this process.
+        """
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "p345_filter_fixture.c"
@@ -218,17 +233,46 @@ class P345ReadonlyChildTests(unittest.TestCase):
                 + HOST_FILTER_MAIN
             )
             executable = root / "p345_filter_fixture"
+            preprocessed = subprocess.run(
+                [
+                    "cc",
+                    "-dM",
+                    "-E",
+                    "-x",
+                    "c",
+                    "-include",
+                    "sys/syscall.h",
+                    "-",
+                ],
+                input="",
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            host_numbers = {
+                name: int(value)
+                for name, value in re.findall(
+                    r"^#define __NR_([a-z0-9_]+) (\d+)$",
+                    preprocessed,
+                    re.MULTILINE,
+                )
+            }
             definitions = [
+                "-DP345_HOST_TEST_EXTRA_SYSCALLS",
                 "-DP345_AUDIT_ARCH=0xc000003eU",
-                "-DP345_NR_SECCOMP=317",
-                "-DP345_NR_PRCTL=157",
-                "-DP345_NR_OPENAT=257",
-                "-DP345_NR_READ=0",
-                "-DP345_NR_WRITE=1",
-                "-DP345_NR_CLOSE=3",
-                "-DP345_NR_EXIT=60",
-                "-DP345_NR_EXIT_GROUP=231",
+                "-DP345_NR_ARCH_PRCTL=158",
+                "-DP345_NR_DUP2=33",
             ]
+            for name, _value in re.findall(
+                rb"^#define P345_NR_([A-Z0-9_]+) (\d+)$",
+                child.child_source(),
+                re.MULTILINE,
+            ):
+                syscall_name = name.decode("ascii").lower()
+                self.assertIn(syscall_name, host_numbers)
+                definitions.append(
+                    f"-DP345_NR_{name.decode('ascii')}={host_numbers[syscall_name]}"
+                )
             build = subprocess.run(
                 [
                     "cc",
@@ -247,8 +291,41 @@ class P345ReadonlyChildTests(unittest.TestCase):
                 text=True,
             )
             self.assertEqual(build.returncode, 0, build.stderr)
-            result = subprocess.run([str(executable)], capture_output=True, timeout=2)
-            self.assertEqual(result.returncode, 0, result.stderr.decode())
+            pipeline = subprocess.run(
+                [
+                    str(executable),
+                    "printf '%s\\n' alpha beta | tr a-z A-Z; "
+                    "printf '<%s>\\n' \"$(printf nested)\"",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            self.assertEqual(pipeline.returncode, 0, pipeline.stderr)
+            self.assertEqual(pipeline.stdout, "ALPHA\nBETA\n<nested>\n")
+            cwd_result = subprocess.run(
+                [str(executable), "cd /tmp && pwd"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            self.assertEqual(cwd_result.returncode, 0, cwd_result.stderr)
+            self.assertEqual(cwd_result.stdout, "/tmp\n")
+            failed = subprocess.run(
+                [str(executable), "false; exit $?"],
+                capture_output=True,
+                timeout=2,
+            )
+            self.assertEqual(failed.returncode, 1, failed.stderr.decode())
+            blocked = root / "blocked-by-p345-filter"
+            attempted = subprocess.run(
+                [str(executable), f": > {blocked}"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            self.assertNotEqual(attempted.returncode, 0)
+            self.assertFalse(blocked.exists())
 
     def test_arm64_object_compiles_when_toolchain_is_available(self):
         compiler = shutil.which("aarch64-linux-gnu-gcc")
@@ -301,6 +378,7 @@ class P345ReadonlyChildTests(unittest.TestCase):
                 child.child_source(),
                 re.MULTILINE,
             )
+            if name not in (b"ARCH_PRCTL", b"DUP2")
         }
         missing = sorted(set(declared) - set(numbers))
         self.assertEqual(missing, [])

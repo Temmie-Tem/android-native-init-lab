@@ -49,8 +49,8 @@ P345_CHILD_SOURCE = CHILD_SOURCE
 P345_C_FRAGMENT = CHILD_SOURCE
 P345_SOURCE = SOURCE
 SOURCE_IDENTITY = {
-    "size": 21_108,
-    "sha256": "847eccc7cebd97ab3d609907289113bc058db386b141af329f92d379bceda640",
+    "size": 21_792,
+    "sha256": "a053e6796a83767e5de97ed714080a10888e2c9a9ef99dbb06e3aabf1633ae29",
 }
 if identity(CHILD_SOURCE) != SOURCE_IDENTITY:
     raise RuntimeError("P345 child source identity differs")
@@ -166,6 +166,8 @@ ALLOWED_SYSCALL_LABELS: tuple[str, ...] = (
     "dup",
     "dup3",
     "fcntl",
+    "chdir-inside-chroot",
+    "getcwd-inside-chroot",
     "getpid",
     "getppid",
     "getuid",
