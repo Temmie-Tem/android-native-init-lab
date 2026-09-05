@@ -9051,7 +9051,7 @@ def _logical_resident_candidate_observer_session(
         "P3.37",
         "P3.38",
         "P3.39",
-        "P3.42", "P3.41", "P3.40",
+        "P3.43", "P3.42", "P3.41", "P3.40",
     }
     expected = {
         "udev_guard_settle_timeout_ms": 500,

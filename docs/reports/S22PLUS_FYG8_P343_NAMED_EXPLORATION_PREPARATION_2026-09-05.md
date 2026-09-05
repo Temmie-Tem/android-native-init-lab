@@ -163,3 +163,25 @@ plus a real arm-context regression and changed-source review. Preserve this
 aborted run; a repaired closure needs new preparation and a new returned
 approval, never reuse of b35d3045. No operating code was changed after abort
 in this reporting unit, and no further device command was sent.
+
+## Arm registration repair
+
+Following operator direction, the sole operating change adds P3.43 to the
+existing retained_reopen set. Candidate/AP, guard, authentication, session
+bounds and rollback remain unchanged. Live source is now 739087 bytes/SHA256
+`abb7e93e692aaef180babdd21294c23302a8e6a0ca81494df888cf0daccbf9e3`.
+Independent `PASS_GO_P343_ARM_REOPEN_DISPATCH_H0` found no further reachable
+arm-spec mismatch. The new regression enters the actual SamsungOdinBackend
+candidate_observer_session dispatch through the real P343 context and session
+construction; only external lane/credential/guard boundaries use fixtures.
+Wrong reopen flag, session cap and predecessor lease schema still reject
+before guard acquisition. Live/exploration tests14/14, current-tree raw-first
+audit and py_compile pass. No new reboot or artifact build is needed.
+The aborted directory3 remains untouched; fresh D0 uses directory4.
+
+At 2026-09-05T13:51:15Z fresh directory4 completed D0 and publication:
+prepared34917B/80ca0926, D0result3261B/63dcb6eb, clean baseline2097136B/da1405cb,
+zero exact/family markers and healthy rooted FYG8. New approval digest091f1c67
+binds the repaired closure. No extra reboot, candidate rebuild, Download or
+transfer occurred. The stored preparation reopens through normal validation;
+execution remains gated by the fresh returned approval.

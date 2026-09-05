@@ -13,6 +13,34 @@ import test_s22plus_fyg8_idle_reuse_probe as fixture
 
 
 class P343LiveTests(unittest.TestCase):
+    def test_actual_p343_arm_context_and_reopen_contract(self):
+        import contextlib
+        prepared = self.prepared()
+        prepared.private_target = {'topology': 'usb:1-2'}
+        prepared.run_dir = Path('/host-fixture')
+        base = SimpleNamespace()
+        inherited = SimpleNamespace(delegate=SimpleNamespace(delegate=base))
+        spec = prepared.bundle.manifest['observation']['candidate_observer']
+        backend = SimpleNamespace(usb_root=Path('/no-usb'), typec_root=Path('/no-typec'))
+        with mock.patch.object(live, '_p328_read_auth_key', return_value=(b'x'*32, 'ab'*32)), \
+             mock.patch.object(live, '_p324_typec_lane_value', return_value=({}, {})), \
+             mock.patch.object(live, '_candidate_observer_binding', return_value={}), \
+             mock.patch.object(live.p325_guard_adapter, 'observer_session',
+                               side_effect=lambda *a, **k: contextlib.nullcontext(inherited)) as guard:
+            with live.SamsungOdinBackend.candidate_observer_session(backend, prepared) as session:
+                self.assertIsInstance(session, live._P343ObserverSession)
+                self.assertIs(session.base, base)
+            guard.assert_called_once()
+            for field, wrong in [('host_tty_close_reopen', False), ('session_cap', 1),
+                                 ('resident_lease_schema', live.P342_LEASE_SCHEMA)]:
+                guard.reset_mock()
+                with self.assertRaisesRegex(live.F1LiveError, 'contract differs'):
+                    with live._p343_candidate_observer_session(prepared, {**spec, field: wrong},
+                            lane_value={}, lane_receipt={}, usb_root=Path('/no-usb'),
+                            typec_root=Path('/no-typec')):
+                        self.fail('invalid arm accepted')
+                guard.assert_not_called()
+
     def test_prepared_record_bound_is_p343_only_and_no_clobber(self):
         import stat
         bundle = self.prepared().bundle
