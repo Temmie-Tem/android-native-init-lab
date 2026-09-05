@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "ab18ea5f10d723cd0e3969277ad66e0729b485f95c7167c6430f9ec63607a87d"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "c2ece0c9120d5b60736ca966a88805e3f76ec681d4b81f6742b0442ce1c9d5a4"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -225,6 +225,11 @@ P0_SUCCESS_ENVIRONMENT = "p0-pid1-download"
 P0_NO_PROOF_ENVIRONMENT = "p0-pid1-download-no-proof"
 P0_ARRIVAL_TIMEOUT_SECONDS = 180
 P0_POLL_SECONDS = 0.05
+# An endpoint listed right after a transfer that carries its own `--reboot` may
+# simply not have gone yet, so an arrival is only an arrival once a departure
+# has held for a minimum interval.
+P0_DEPARTURE_POLL_SECONDS = 1.0
+P0_DEPARTURE_MINIMUM_SECONDS = 5.0
 P0_ADB_SERVER_SOCKET = "tcp:5037"
 USBFS_RE = re.compile(r"/dev/bus/usb/([0-9]{3})/([0-9]{3})")
 USB_NODE_RE = re.compile(r"[0-9]+-[0-9]+(?:\.[0-9]+)*")
@@ -270,7 +275,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
     },
     "focused_owner": {
         "modules": ["tests.test_s20plus_g986n_p0_pid1_odin_f1"],
-        "tests": 77,
+        "tests": 83,
         "skipped": 0,
         "log_name": "focused-owner.log",
     },
@@ -292,7 +297,7 @@ P0_REVIEW_TEST_REQUIREMENTS = {
             # silently desynchronizing while it is dormant.
             "tests.test_s20plus_g986n_activation_document_drift",
         ],
-        "tests": 208,
+        "tests": 214,
         "skipped": 10,
         "log_name": "wider.log",
     },
@@ -4207,12 +4212,46 @@ def _publish_observer_inventory(run_dir: Path, baseline: dict[str, Any]) -> dict
     )
 
 
-def _observe_p0(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
-    """Prove PID1 execution by Download-mode arrival, not by a gadget banner.
+def _await_download_departure(deadline: float) -> tuple[bool, float]:
+    """Wait for the transferred device to actually leave Download.
 
-    The candidate requests download mode from PID1 and configures no gadget, so
-    the evidence is the bootloader's own enumeration. No transport is opened and
-    none is authorized, on either path.
+    The transfer command carries its own `--reboot`, so an endpoint listed right
+    after it may simply not have gone yet. Without an observed departure, an
+    arrival is not even an arrival - it can be the same session that never left.
+    Returns whether a departure was observed and for how long absence held.
+    """
+    absent_since = None
+    while time.monotonic() < deadline:
+        try:
+            devices, _listing = engine.enumerate_download()
+        except Exception:  # a transient enumeration failure is not a departure
+            time.sleep(P0_DEPARTURE_POLL_SECONDS)
+            continue
+        if devices:
+            absent_since = None
+        elif absent_since is None:
+            absent_since = time.monotonic()
+        elif time.monotonic() - absent_since >= P0_DEPARTURE_MINIMUM_SECONDS:
+            return True, time.monotonic() - absent_since
+        time.sleep(P0_DEPARTURE_POLL_SECONDS)
+    return False, 0.0
+
+
+def _observe_p0(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
+    """Record whether the device returned to Download. This proves nothing.
+
+    An earlier design treated Download-mode arrival as proof that the
+    candidate's PID1 executed. Independent review refuted it: the transfer
+    command itself carries `--reboot`, the engine's Download identification
+    records no provenance, two Download topologies are allowlisted, and a
+    bootloader fallback, a watchdog or PMIC reset, an operator entry or a bare
+    reconnect all produce the same enumeration. A false PROVED is worse than the
+    three NO_PROOF results this lane already holds.
+
+    So this function never returns PROVED. It records an observation - departure
+    seen, arrival seen, arrival on the prepared topology - and leaves the PID1
+    question to the candidate's own banner, which only its PID1 can write and
+    which is read from the sec_log window after the authorized rollback.
     """
     require_active()
     _require_live_transaction()
@@ -4222,10 +4261,11 @@ def _observe_p0(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
         prepared["binding"]["endpoint"],
     )
     try:
+        deadline = time.monotonic() + P0_ARRIVAL_TIMEOUT_SECONDS
+        departed, absence_seconds = _await_download_departure(deadline)
         download_baseline = engine.download_baseline()
-        arrival = engine.wait_download(
-            download_baseline, timeout=P0_ARRIVAL_TIMEOUT_SECONDS
-        )
+        remaining = max(deadline - time.monotonic(), 0.0)
+        arrival = engine.wait_download(download_baseline, timeout=remaining) if remaining else None
     except Exception as exc:  # observer/engine/OS failure is a no-proof, not a crash
         _publish_observer_inventory(run_dir, baseline)
         return {
@@ -4246,6 +4286,7 @@ def _observe_p0(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
             ).hexdigest(),
             "at": engine.utc_now(),
         }
+    prepared_topology = prepared["binding"]["endpoint"].get("topology_sha256")
     arrival_receipt = _publish_p0_json(
         run_dir,
         P0_DOWNLOAD_ARRIVAL_NAME,
@@ -4254,35 +4295,26 @@ def _observe_p0(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
             "baseline_sha256": engine.digest(download_baseline),
             "endpoint_sha256": arrival.get("endpoint_sha256"),
             "topology_sha256": arrival.get("topology_sha256"),
+            # Two Download topologies are allowlisted, so an arrival on the
+            # allowlist is not necessarily an arrival on this run's endpoint.
+            "matches_prepared_topology": arrival.get("topology_sha256") == prepared_topology,
+            "departure_observed": departed,
+            "absence_seconds": round(absence_seconds, 3),
+            "attributable_to_candidate_pid1": False,
             "at": engine.utc_now(),
         },
         "download arrival",
     )
-    receipt = {
-        "schema": P0_RECEIPT_SCHEMA,
-        "observer_schema": observer.SCHEMA,
-        "baseline_sha256": observer.digest(baseline["observer_baseline"]),
-        "expected_topology_sha256": baseline["observer_baseline"][
-            "expected_topology_sha256"
-        ],
-        "download_baseline_sha256": engine.digest(download_baseline),
-        "arrival_endpoint_sha256": arrival.get("endpoint_sha256"),
-        "arrival_topology_sha256": arrival.get("topology_sha256"),
-        "download_arrival": arrival_receipt,
-        "observer_inventory": inventory_receipt,
-        "pid1_exact": True,
-        "transport_opened": False,
-        "gadget_configured": False,
-        "exact": True,
-        "accepted": True,
-    }
     return {
-        "environment": P0_SUCCESS_ENVIRONMENT,
-        # No transport is opened on this path. A download arrival proves PID1
-        # executed without any transport authority being granted at all.
+        "environment": P0_NO_PROOF_ENVIRONMENT,
         "transport_authorized": False,
-        "claim_verdict": "PROVED",
-        "p0_receipt": receipt,
+        # Never PROVED. Returning to Download is not attributable to this
+        # candidate's PID1; the banner in the sec_log window is, and it is read
+        # separately after the authorized rollback.
+        "claim_verdict": "NO_PROOF",
+        "reason_sha256": hashlib.sha256(
+            b"p0-download-arrival-observed-not-attributable"
+        ).hexdigest(),
         "at": engine.utc_now(),
     }
 
@@ -4305,59 +4337,84 @@ def observe_candidate(
     return _observe_p0(run_dir, prepared), None
 
 
-def _validate_p0_receipt(
-    value: Any,
-    baseline: dict[str, Any],
-    run_dir: Path,
-) -> dict[str, Any]:
-    expected_keys = {
+def _decode_p0_record(run_dir: Path, name: str, label: str) -> tuple[dict, dict]:
+    """Read an evidence node as a *record*, not as bytes with metadata.
+
+    Bounded, atomic, 0400 and re-read only constrains the container. A record
+    with matching outer metadata but an arbitrary body would have passed, so the
+    body is decoded, required to be a JSON object, and required to re-encode to
+    exactly the bytes on disk - which rejects any non-canonical or padded
+    encoding as well as a substituted body.
+    """
+    payload, receipt = _read_p0_json(run_dir, name, label)
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise P0F1Error(f"P0 {label} is not decodable JSON") from exc
+    if type(value) is not dict:
+        raise P0F1Error(f"P0 {label} is not a JSON object")
+    if engine.canonical_bytes(value) != payload:
+        raise P0F1Error(f"P0 {label} is not in canonical form")
+    return value, receipt
+
+
+def _validate_download_arrival_record(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
+    """Validate the arrival and inventory records as records.
+
+    The arrival is an observation, never a proof, so the record must say so: a
+    stored record that claims attribution to the candidate's PID1 is refused
+    outright rather than being read and discounted.
+    """
+    arrival, _receipt = _decode_p0_record(run_dir, P0_DOWNLOAD_ARRIVAL_NAME, "download arrival")
+    expected = {
         "schema",
-        "observer_schema",
         "baseline_sha256",
-        "expected_topology_sha256",
-        "download_baseline_sha256",
-        "arrival_endpoint_sha256",
-        "arrival_topology_sha256",
-        "download_arrival",
-        "observer_inventory",
-        "pid1_exact",
-        "transport_opened",
-        "gadget_configured",
-        "exact",
-        "accepted",
+        "endpoint_sha256",
+        "topology_sha256",
+        "matches_prepared_topology",
+        "departure_observed",
+        "absence_seconds",
+        "attributable_to_candidate_pid1",
+        "at",
     }
+    prepared_topology = prepared["binding"]["endpoint"].get("topology_sha256")
     if (
-        type(value) is not dict
-        or set(value) != expected_keys
-        or value.get("schema") != P0_RECEIPT_SCHEMA
-        or value.get("observer_schema") != observer.SCHEMA
-        or value.get("baseline_sha256")
-        != observer.digest(baseline["observer_baseline"])
-        or value.get("expected_topology_sha256")
-        != baseline["observer_baseline"]["expected_topology_sha256"]
-        or HEX64_RE.fullmatch(str(value.get("download_baseline_sha256"))) is None
-        or HEX64_RE.fullmatch(str(value.get("arrival_endpoint_sha256"))) is None
-        or HEX64_RE.fullmatch(str(value.get("arrival_topology_sha256"))) is None
-        or value.get("pid1_exact") is not True
-        # This candidate configures no gadget and opens no transport, so a
-        # receipt claiming either is not this candidate's receipt.
-        or value.get("transport_opened") is not False
-        or value.get("gadget_configured") is not False
-        or value.get("exact") is not True
-        or value.get("accepted") is not True
+        set(arrival) != expected
+        or arrival.get("schema") != P0_RECEIPT_SCHEMA
+        or HEX64_RE.fullmatch(str(arrival.get("baseline_sha256"))) is None
+        or HEX64_RE.fullmatch(str(arrival.get("endpoint_sha256"))) is None
+        or HEX64_RE.fullmatch(str(arrival.get("topology_sha256"))) is None
+        or arrival.get("matches_prepared_topology")
+        is not (arrival.get("topology_sha256") == prepared_topology)
+        or type(arrival.get("departure_observed")) is not bool
+        or not isinstance(arrival.get("absence_seconds"), (int, float))
+        or arrival.get("absence_seconds") < 0
+        # The whole point of this rework: nothing may record the arrival as
+        # attributable to the candidate's PID1.
+        or arrival.get("attributable_to_candidate_pid1") is not False
+        or not isinstance(arrival.get("at"), str)
+        or not arrival["at"]
     ):
-        raise P0F1Error("P0 PID1 download receipt is malformed")
-    _, arrival_receipt = _read_p0_json(
-        run_dir, P0_DOWNLOAD_ARRIVAL_NAME, "download arrival"
-    )
-    if value.get("download_arrival") != arrival_receipt:
-        raise P0F1Error("P0 PID1 claim is not rederived from the arrival record")
-    _, inventory_receipt = _read_p0_json(
+        raise P0F1Error("P0 download arrival record is malformed")
+    inventory, _inventory_receipt = _decode_p0_record(
         run_dir, P0_OBSERVER_INVENTORY_NAME, "observer terminal inventory"
     )
-    if value.get("observer_inventory") != inventory_receipt:
-        raise P0F1Error("P0 PID1 claim lacks its observer terminal inventory")
-    return value
+    if (
+        inventory.get("schema") != P0_INVENTORY_SCHEMA
+        or inventory.get("observer_schema") != observer.SCHEMA
+        or type(inventory.get("scanned")) is not bool
+        or not isinstance(inventory.get("at"), str)
+    ):
+        raise P0F1Error("P0 observer terminal inventory record is malformed")
+    if inventory.get("scanned"):
+        for key in ("exact_count", "pending_count", "conflicting_count"):
+            count = inventory.get(key)
+            if type(count) is not int or count < 0:
+                raise P0F1Error("P0 observer terminal inventory counts are malformed")
+    elif HEX64_RE.fullmatch(str(inventory.get("reason_sha256"))) is None:
+        raise P0F1Error("P0 observer terminal inventory lacks a bounded reason")
+    return arrival
+
 
 
 def validate_candidate_observation(
@@ -4402,22 +4459,22 @@ def validate_candidate_observation(
         prepared["binding"]["endpoint"],
     )
     if environment == P0_SUCCESS_ENVIRONMENT:
-        if (
-            set(value) != success_keys
-            # Download arrival proves PID1 without opening any transport, so a
-            # positive observation claiming transport authority is not this one.
-            or value.get("transport_authorized") is not False
-            or value.get("claim_verdict") != "PROVED"
-        ):
-            raise P0F1Error("P0 positive observation is malformed")
-        _validate_p0_receipt(value.get("p0_receipt"), baseline, run_dir)
-    elif (
+        # There is no positive P0 environment any more. Download arrival is not
+        # attributable to this candidate's PID1, so nothing this F1 observes can
+        # carry a PROVED verdict; the candidate's banner in the sec_log window
+        # does that, separately and after the authorized rollback. Refusing the
+        # environment outright means a hand-written or replayed observation
+        # cannot reintroduce the claim.
+        raise P0F1Error("P0 download observation may not claim PID1 proof")
+    if (
         set(value) != no_proof_keys
         or value.get("transport_authorized") is not False
         or value.get("claim_verdict") != "NO_PROOF"
         or HEX64_RE.fullmatch(str(value.get("reason_sha256"))) is None
     ):
         raise P0F1Error("P0 no-proof observation is malformed")
+    if os.path.lexists(run_dir / P0_DOWNLOAD_ARRIVAL_NAME):
+        _validate_download_arrival_record(run_dir, prepared)
 
 
 def _physical_rebind_continuity(

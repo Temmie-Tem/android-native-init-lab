@@ -2651,25 +2651,41 @@ unconditional is unchanged and unaffected. If the kernel refuses the request the
 binary parks, leaving the operator's physical Download entry and that same
 rollback available - the identical recovery posture the consumed candidates had.
 
-### Observation
+### Observation: this F1 cannot prove PID1, and does not claim to
 
-Download-mode enumeration is the primary evidence, observed through the host
-mechanism this lane already uses and which recorded this exact target
-enumerating in Download during the consumed V3 run. It requires no gadget, no
-serial I/O, and no buffer surviving a reboot.
+An earlier form of this section made Download-mode arrival the proof that the
+candidate's PID1 executed. Independent review refuted that and it is withdrawn.
+The transfer command carries its own `--reboot`; the engine's Download
+identification records no provenance; two Download topologies are allowlisted,
+so an arrival need not even be this run's endpoint; and a bootloader fallback, a
+watchdog or PMIC reset, an operator entry or a bare reconnect all produce the
+same enumeration. A false positive here would be worse than the three
+`NO_PROOF` results this lane already holds.
 
-There is no dwell. The 180-second observation window of the consumed candidates
-does not apply, and the candidate must not be given one: a dwell would add the
-only failure mode this design removes.
+So the observation never carries a `PROVED` verdict. The positive environment is
+refused outright by the validator, which means a hand-written or replayed
+observation cannot reintroduce the claim either. What the F1 records is an
+observation: whether a departure from Download was seen and held for a minimum
+interval, whether an arrival followed, whether that arrival was on the prepared
+topology, and explicitly that none of it is attributable to the candidate's
+PID1. Both evidence records are decoded as records - parsed, required to be JSON
+objects, and required to re-encode to exactly the bytes on disk - rather than
+accepted on bounded file metadata alone.
 
-The `/proc/last_kmsg` sec_log window may carry the banner as secondary evidence
-after the authorized rollback. It is secondary in the strict sense - no result
-of this candidate depends on it, and the separate `## S20+ last_kmsg Observation
-D0` capability that would read it is itself dormant and unreviewed.
+The proof of PID1 execution is the candidate's banner, which only its PID1
+writes, read from the `/proc/last_kmsg` sec_log window by the separate
+`## S20+ last_kmsg Observation D0` capability after the authorized rollback and
+healthy return. That capability is dormant and must be reviewed and activated
+before this F1 can produce an interpretable result at all. This is a change in
+sequencing: the banner read is not optional corroboration, it is where the
+answer comes from.
 
-Every branch is informative, which is the property the three consumed runs
-lacked. Download arriving proves PID1 executed. Download not arriving is a
-failure with no gadget, no dwell and no chain left in it to blame.
+There is no dwell. The 180-second window of the consumed candidates does not
+apply as a dwell, and the candidate must not be given one.
+
+Every branch remains informative, which is the property the three consumed runs
+lacked - but the information is now correctly attributed. An arrival says the
+device came back to Download. The banner says whose `/init` ran.
 
 ### What is still required before any device contact
 
