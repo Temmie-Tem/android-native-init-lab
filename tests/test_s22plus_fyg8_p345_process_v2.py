@@ -40,8 +40,17 @@ class P345ProcessTests(unittest.TestCase):
         result = evidence.classify_e1_latest_stage(raw, acceptance)
         self.assertEqual(result["exact_record_count"], 1)
         self.assertFalse(result["candidate_success"])
+        for flag in ("mux_result_claimable", "host_silent_claimable", "acm_supplemental"):
+            self.assertIs(result[flag], False)
         self.assertTrue(result["carrier_supplemental"])
         self.assertTrue(evidence.classify_clean_baseline(bytes(adapter.RAW_SIZE), acceptance)["baseline_clean"])
+        import device_action_f1_live_v2 as live
+        for payload, expected in ((bytes(adapter.RAW_SIZE), "NO_PROOF_OBSERVER"),
+                                  (raw, "NONCAUSAL_SUCCESS_PATH")):
+            terminal = live._p320_terminal_projection(live.classify_acceptance(payload, acceptance))
+            self.assertEqual(terminal["proof_class"], expected)
+            self.assertFalse(terminal["candidate_success"])
+            self.assertFalse(terminal["mux_result_claimable"])
         with self.assertRaises(ValueError):
             evidence.classify_clean_baseline(raw, acceptance)
 

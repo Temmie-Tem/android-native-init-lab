@@ -1727,6 +1727,9 @@ P345_AUTH_EXEC_AUTH_KEY_IDENTITY = dict(p345_artifact_identity.auth_key_identity
 P345_AUTH_EXEC_VERDICT = "PASS_F1_V2_P345_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK"
 P345_AUTH_EXEC_OUTCOME = "p345_readonly_research_shell_rollback_verified"
 P345_AUTH_EXEC_NO_PROOF_OUTCOME = "p345_readonly_research_shell_unproved_rollback_verified"
+# The shared terminal owner uses this existing Carrier predicate API. Bind
+# the private P345 decoder, never a predecessor ID or a relabelled record.
+p345_stock_adapter.proof_class = p345_stock_adapter._raw_parser().proof_class
 STOCK_ADAPTERS = {
     P345_STOCK_OVERLAY_CONTRACT_ID: p345_stock_adapter,
     P319_STOCK_OVERLAY_CONTRACT_ID: p319_stock_adapter,
@@ -21115,6 +21118,8 @@ def classify_e1_latest_stage(
         result.update({"overlay_contract_id": P345_STOCK_OVERLAY_CONTRACT_ID,
             "proof_class": decoded.get("proof_class", "NO_PROOF_OBSERVER"),
             "causal_result_allowed": False, "candidate_success": False,
+            "mux_result_claimable": False, "host_silent_claimable": False,
+            "acm_supplemental": False,
             "acm_primary": True, "carrier_supplemental": True,
             "acm_required_for_acceptance": True, "acm_required_for_arrival_proof": True,
             "p345_stock": decoded.get("p345_stock", []),
