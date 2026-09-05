@@ -2551,7 +2551,7 @@ path/inode/device/topology or descriptor drift still stops.
 
 ## S20+ P0 PID1 Minimal Download-Request F1 candidate
 
-Status: **DEFINED - H0 ONLY - NOT ACTIVE - OWNER REBOUND, OBSERVATION REPLACEMENT PENDING**
+Status: **DEFINED - H0 ONLY - NOT ACTIVE - OWNER REBOUND AND OBSERVATION REPLACED; REVIEW REQUIRED**
 
 This section defines one replacement candidate for the P0 direct-PID1 lane. It
 adds no tier, no owner, no machinery and no authority of its own. Every F1
@@ -2660,23 +2660,30 @@ requires this candidate's declarations, including `reboot_syscall` true and
 `reboot_target` `download`, so a candidate that denied the reboot or aimed it
 elsewhere fails closed.
 
-**The observation replacement is not done.** The owner still observes the ACM
-banner of the consumed candidate, which this candidate cannot emit, so as it
-stands a run would wait out the arrival window and record `NO_PROOF` even if
-PID1 executed and reached Download. That is the opposite of the property this
-candidate exists for, and it is why the status line above says the replacement
-is pending. The observation must be replaced with Download-mode arrival, using
-the engine's existing `download_baseline`, `wait_download` and
-`bind_existing_download` path, and must also publish the USB observer's terminal
-inventory so that "enumerated with an unexpected identity" and "never appeared"
-stop being indistinguishable, as they were across three consumed runs.
+The observation is replaced. The owner no longer opens a transport or reads an
+ACM banner. It takes a Download baseline, waits for Download-mode arrival within
+the bounded window, and treats that arrival as the proof that PID1 executed.
+Both evidence nodes - `p0-download-arrival.json` and
+`p0-observer-terminal-inventory.json` - are bounded canonical JSON published
+atomically at mode 0400, re-read after publication, and rederived by the
+validator, and the journal refuses an arrival record without its inventory.
 
-Until that is done this candidate must not be activated even if every other gate
-were satisfied. After it is done the owner must be re-pinned and re-reviewed
-together with this section, the builder, the init source and their tests.
-Activation then requires the owner's own activation records, a fresh connected
-prepare, its emitted exact approval, and operator attendance. Nothing in this
-section activates anything, and the consumed candidates grant it no standing.
+A positive observation now requires `transport_authorized` false, and the
+receipt requires `transport_opened` and `gadget_configured` false. Proving PID1
+grants no transport authority at all, and a receipt asserting either is refused.
+
+The observer's terminal inventory is published on every path, including the
+no-proof and error paths, recording only exact, pending and conflicting counts -
+no identity, serial or topology value. This closes the gap that made three
+consumed runs unreadable: they retained an all-empty baseline and a verdict, so
+"enumerated with an unexpected identity" and "never appeared" could not be told
+apart afterwards.
+
+What remains before any device contact: an independent review of this section,
+the owner, the builder, the init source and their tests; then the owner's own
+activation records, a fresh connected prepare, its emitted exact approval, and
+operator attendance. Nothing in this section activates anything, and the
+consumed candidates grant it no standing.
 
 ## General machine-controlled D1 status
 

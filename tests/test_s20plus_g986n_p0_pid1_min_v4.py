@@ -150,12 +150,12 @@ class ContractBindingTests(unittest.TestCase):
     def test_section_is_not_active_and_declares_the_reboot(self):
         body = self.prose()
         self.assertIn("NOT ACTIVE", body)
-        # While the owner still observes the consumed candidate's ACM banner, the
-        # section must say so: a run would otherwise record NO_PROOF even on a
-        # PID1 that executed and reached Download.
-        self.assertIn("OBSERVATION REPLACEMENT PENDING", body)
-        self.assertIn("The observation replacement is not done.", body)
-        self.assertIn("must not be activated", body)
+        self.assertIn("REVIEW REQUIRED", body)
+        # Proving PID1 by Download arrival must not be describable as granting
+        # transport authority, in the section or in the receipt.
+        self.assertIn("transport_authorized` false", body)
+        self.assertIn("grants no transport authority", body)
+        self.assertIn("published on every path", body)
         # The one property that differs from every previous P0 candidate must be
         # stated in the section, not left to the manifest.
         self.assertIn("issues a reboot syscall and requests a mode transition", body)

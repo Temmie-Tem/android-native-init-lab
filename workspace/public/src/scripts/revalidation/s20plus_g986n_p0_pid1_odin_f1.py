@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "bd87ba251a303be848a6102df5b6c51e0117cd23e1e01deae0ca14f6cea6f88d"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "f63603f3d0e5aa8a3f68b6a97176ad78998bf583e71e421f19186b73a980b75b"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -148,8 +148,18 @@ PHYSICAL_REBIND_CONFIRM_PREFIX = (
 )
 P0_BASELINE_NAME = "p0-usb-baseline.json"
 P0_BASELINE_SCHEMA = "s20plus_g986n_p0_pid1_odin_usb_baseline_v1"
-P0_RAW_BANNER_NAME = "p0-acm-banner.raw"
-P0_RECEIPT_SCHEMA = "s20plus_g986n_p0_pid1_odin_raw_receipt_v1"
+# The candidate proves PID1 execution by reaching Download, not by emitting a
+# banner over a gadget it never configures, so the evidence node is the arrival
+# record. The observer's terminal inventory is published beside it on every
+# path: three consumed runs could not answer whether the candidate appeared on
+# USB at all, because only the all-empty baseline was ever retained.
+P0_DOWNLOAD_ARRIVAL_NAME = "p0-download-arrival.json"
+P0_OBSERVER_INVENTORY_NAME = "p0-observer-terminal-inventory.json"
+P0_RECEIPT_SCHEMA = "s20plus_g986n_p0_pid1_odin_download_receipt_v1"
+P0_INVENTORY_SCHEMA = "s20plus_g986n_p0_pid1_odin_observer_inventory_v1"
+# Both evidence nodes are small bounded canonical JSON records; neither carries
+# device bytes, only digests and counts.
+P0_EVIDENCE_MAXIMUM = 8192
 P0_REGISTRY_INTENT_NAME = "p0-global-claim-intent.json"
 P0_REGISTRY_RECEIPT_NAME = "p0-global-claim.json"
 P0_REGISTRY_UNCERTAIN_NAME = "p0-global-claim-uncertain.json"
@@ -211,8 +221,8 @@ CAGE_NODE_RE = re.compile(
     r"p0-(candidate|rollback|abort-return|odin-listing)-cage-"
     r"([0-9]{4})-(prepare|bound|reconciled)\.json"
 )
-P0_SUCCESS_ENVIRONMENT = "p0-pid1-acm"
-P0_NO_PROOF_ENVIRONMENT = "p0-pid1-acm-no-proof"
+P0_SUCCESS_ENVIRONMENT = "p0-pid1-download"
+P0_NO_PROOF_ENVIRONMENT = "p0-pid1-download-no-proof"
 P0_ARRIVAL_TIMEOUT_SECONDS = 180
 P0_POLL_SECONDS = 0.05
 P0_ADB_SERVER_SOCKET = "tcp:5037"
@@ -1512,7 +1522,8 @@ P0_RUN_NODE_NAMES = frozenset(
     set(_BASE_RUN_NODE_NAMES)
     | {
         P0_BASELINE_NAME,
-        P0_RAW_BANNER_NAME,
+        P0_DOWNLOAD_ARRIVAL_NAME,
+        P0_OBSERVER_INVENTORY_NAME,
         P0_REGISTRY_INTENT_NAME,
         P0_REGISTRY_RECEIPT_NAME,
         P0_REGISTRY_UNCERTAIN_NAME,
@@ -4097,64 +4108,104 @@ def _expected_node_from_hashes(baseline: dict[str, Any]) -> str | None:
     return matches[0] if matches else None
 
 
-def _read_raw_banner(run_dir: Path) -> tuple[bytes, dict[str, Any]]:
+def _read_p0_json(run_dir: Path, name: str, label: str) -> tuple[bytes, dict[str, Any]]:
     parent_fd = _ENGINE_OPEN_DIRECT_DIRECTORY(run_dir)
     try:
         descriptor = os.open(
-            P0_RAW_BANNER_NAME,
+            name,
             os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
             dir_fd=parent_fd,
         )
         try:
             metadata = os.fstat(descriptor)
-            payload = os.read(descriptor, len(observer.BANNER) + 1)
+            payload = os.read(descriptor, P0_EVIDENCE_MAXIMUM + 1)
             if (
                 not stat.S_ISREG(metadata.st_mode)
                 or metadata.st_nlink != 1
                 or stat.S_IMODE(metadata.st_mode) != 0o400
-                or metadata.st_size != len(observer.BANNER)
+                or metadata.st_size > P0_EVIDENCE_MAXIMUM
                 or len(payload) != metadata.st_size
                 or os.read(descriptor, 1)
             ):
-                raise P0F1Error("P0 raw ACM banner evidence is indirect or changed")
+                raise P0F1Error(f"P0 {label} evidence is indirect, oversized or changed")
         finally:
             os.close(descriptor)
     except OSError as exc:
-        raise P0F1Error("P0 raw ACM banner evidence is unavailable") from exc
+        raise P0F1Error(f"P0 {label} evidence is unavailable") from exc
     finally:
         os.close(parent_fd)
     value = bytes(payload)
     return value, {
-        "name": P0_RAW_BANNER_NAME,
+        "name": name,
         "size": len(value),
         "sha256": hashlib.sha256(value).hexdigest(),
         "mode": "0400",
     }
 
 
-def _publish_raw_banner(run_dir: Path, payload: bytes) -> dict[str, Any]:
+def _publish_p0_json(
+    run_dir: Path, name: str, value: dict[str, Any], label: str
+) -> dict[str, Any]:
     require_active()
     _require_live_transaction()
-    if payload != observer.BANNER or os.path.lexists(run_dir / P0_RAW_BANNER_NAME):
-        raise P0F1Error("P0 raw ACM banner publication is not fresh and exact")
+    if os.path.lexists(run_dir / name):
+        raise P0F1Error(f"P0 {label} publication is not fresh")
+    payload = engine.canonical_bytes(value)
+    if len(payload) > P0_EVIDENCE_MAXIMUM:
+        raise P0F1Error(f"P0 {label} publication exceeds its bound")
     parent_fd = _ENGINE_OPEN_DIRECT_DIRECTORY(run_dir)
     try:
-        engine._atomic_publish_at(
-            parent_fd,
-            P0_RAW_BANNER_NAME,
-            payload,
-            0o400,
-            "P0 raw ACM banner",
-        )
+        engine._atomic_publish_at(parent_fd, name, payload, 0o400, f"P0 {label}")
     finally:
         os.close(parent_fd)
-    reopened, receipt = _read_raw_banner(run_dir)
+    reopened, receipt = _read_p0_json(run_dir, name, label)
     if reopened != payload:
-        raise P0F1Error("P0 raw ACM banner changed after publication")
+        raise P0F1Error(f"P0 {label} changed after publication")
     return receipt
 
 
+def _publish_observer_inventory(run_dir: Path, baseline: dict[str, Any]) -> dict[str, Any]:
+    """Record what the USB observer saw when the window closed.
+
+    Three consumed candidates retained only the all-empty baseline and a verdict,
+    so whether the candidate ever appeared on USB - even partially - could not be
+    recovered afterwards. The observer already separates exact, pending and
+    conflicting identities; this publishes that terminal state on every path.
+    Counts only: no identity, serial or topology value is written out.
+    """
+    try:
+        inventory = observer.scan_inventory()
+        value = {
+            "schema": P0_INVENTORY_SCHEMA,
+            "observer_schema": observer.SCHEMA,
+            "baseline_sha256": observer.digest(baseline["observer_baseline"]),
+            "scanned": True,
+            "exact_count": len(inventory.exact),
+            "pending_count": len(inventory.pending_identity_sha256),
+            "conflicting_count": len(inventory.conflicting_identity_sha256),
+            "at": engine.utc_now(),
+        }
+    except observer.ObserverError as exc:
+        value = {
+            "schema": P0_INVENTORY_SCHEMA,
+            "observer_schema": observer.SCHEMA,
+            "baseline_sha256": observer.digest(baseline["observer_baseline"]),
+            "scanned": False,
+            "reason_sha256": hashlib.sha256(str(exc).encode()).hexdigest(),
+            "at": engine.utc_now(),
+        }
+    return _publish_p0_json(
+        run_dir, P0_OBSERVER_INVENTORY_NAME, value, "observer terminal inventory"
+    )
+
+
 def _observe_p0(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
+    """Prove PID1 execution by Download-mode arrival, not by a gadget banner.
+
+    The candidate requests download mode from PID1 and configures no gadget, so
+    the evidence is the bootloader's own enumeration. No transport is opened and
+    none is authorized, on either path.
+    """
     require_active()
     _require_live_transaction()
     baseline = _validate_baseline_value(
@@ -4162,84 +4213,68 @@ def _observe_p0(run_dir: Path, prepared: dict[str, Any]) -> dict[str, Any]:
         prepared["binding_sha256"],
         prepared["binding"]["endpoint"],
     )
-    deadline = time.monotonic() + P0_ARRIVAL_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
-        try:
-            inventory = observer.scan_inventory()
-            if inventory.conflicting_identity_sha256:
-                raise P0F1Error("P0 candidate USB identity is conflicting")
-            if len(inventory.exact) > 1:
-                raise P0F1Error("P0 candidate USB endpoint is ambiguous")
-            node = _expected_node_from_hashes(baseline)
-            if node is None or inventory.pending_identity_sha256 or not inventory.exact:
-                time.sleep(P0_POLL_SECONDS)
-                continue
-            candidate = inventory.exact[0]
-            if candidate.usb_node != node:
-                raise P0F1Error("P0 candidate arrived on a foreign topology")
-            selected = observer.select_arrival(
-                baseline["observer_baseline"], node
-            )
-            descriptor = observer.open_live(selected)
-            try:
-                observer.verify_descriptor(selected, descriptor)
-                payload = observer.read_exact_banner(descriptor)
-                observer.verify_descriptor(selected, descriptor)
-                repeated = observer.select_arrival(
-                    baseline["observer_baseline"],
-                    node,
-                    usb_root=observer.USB_ROOT,
-                    tty_root=observer.TTY_ROOT,
-                )
-            finally:
-                os.close(descriptor)
-            if repeated.identity_sha256 != selected.identity_sha256:
-                raise P0F1Error("P0 endpoint changed after raw banner")
-            rdev_sha256 = observer.digest(
-                {"major": selected.major, "minor": selected.minor}
-            )
-            raw_receipt = _publish_raw_banner(run_dir, payload)
-            receipt = {
-                "schema": P0_RECEIPT_SCHEMA,
-                "observer_schema": observer.SCHEMA,
-                "baseline_sha256": observer.digest(baseline["observer_baseline"]),
-                "expected_topology_sha256": baseline["observer_baseline"][
-                    "expected_topology_sha256"
-                ],
-                "endpoint_identity_sha256": selected.identity_sha256,
-                "descriptor_rdev_sha256": rdev_sha256,
-                "endpoint_binding_sha256": observer.digest(
-                    {
-                        "endpoint_identity_sha256": selected.identity_sha256,
-                        "descriptor_rdev_sha256": rdev_sha256,
-                    }
-                ),
-                "raw_banner": raw_receipt,
-                "pid1_exact": True,
-                "tty_number_stable": False,
-                "exact": True,
-                "accepted": True,
-            }
-            return {
-                "environment": P0_SUCCESS_ENVIRONMENT,
-                "transport_authorized": True,
-                "claim_verdict": "PROVED",
-                "p0_receipt": receipt,
-                "at": engine.utc_now(),
-            }
-        except (observer.ObserverError, P0F1Error) as exc:
-            return {
-                "environment": P0_NO_PROOF_ENVIRONMENT,
-                "transport_authorized": False,
-                "claim_verdict": "NO_PROOF",
-                "reason_sha256": hashlib.sha256(str(exc).encode()).hexdigest(),
-                "at": engine.utc_now(),
-            }
+    try:
+        download_baseline = engine.download_baseline()
+        arrival = engine.wait_download(
+            download_baseline, timeout=P0_ARRIVAL_TIMEOUT_SECONDS
+        )
+    except Exception as exc:  # observer/engine/OS failure is a no-proof, not a crash
+        _publish_observer_inventory(run_dir, baseline)
+        return {
+            "environment": P0_NO_PROOF_ENVIRONMENT,
+            "transport_authorized": False,
+            "claim_verdict": "NO_PROOF",
+            "reason_sha256": hashlib.sha256(str(exc).encode()).hexdigest(),
+            "at": engine.utc_now(),
+        }
+    inventory_receipt = _publish_observer_inventory(run_dir, baseline)
+    if arrival is None:
+        return {
+            "environment": P0_NO_PROOF_ENVIRONMENT,
+            "transport_authorized": False,
+            "claim_verdict": "NO_PROOF",
+            "reason_sha256": hashlib.sha256(
+                b"bounded-p0-download-arrival-timeout"
+            ).hexdigest(),
+            "at": engine.utc_now(),
+        }
+    arrival_receipt = _publish_p0_json(
+        run_dir,
+        P0_DOWNLOAD_ARRIVAL_NAME,
+        {
+            "schema": P0_RECEIPT_SCHEMA,
+            "baseline_sha256": engine.digest(download_baseline),
+            "endpoint_sha256": arrival.get("endpoint_sha256"),
+            "topology_sha256": arrival.get("topology_sha256"),
+            "at": engine.utc_now(),
+        },
+        "download arrival",
+    )
+    receipt = {
+        "schema": P0_RECEIPT_SCHEMA,
+        "observer_schema": observer.SCHEMA,
+        "baseline_sha256": observer.digest(baseline["observer_baseline"]),
+        "expected_topology_sha256": baseline["observer_baseline"][
+            "expected_topology_sha256"
+        ],
+        "download_baseline_sha256": engine.digest(download_baseline),
+        "arrival_endpoint_sha256": arrival.get("endpoint_sha256"),
+        "arrival_topology_sha256": arrival.get("topology_sha256"),
+        "download_arrival": arrival_receipt,
+        "observer_inventory": inventory_receipt,
+        "pid1_exact": True,
+        "transport_opened": False,
+        "gadget_configured": False,
+        "exact": True,
+        "accepted": True,
+    }
     return {
-        "environment": P0_NO_PROOF_ENVIRONMENT,
+        "environment": P0_SUCCESS_ENVIRONMENT,
+        # No transport is opened on this path. A download arrival proves PID1
+        # executed without any transport authority being granted at all.
         "transport_authorized": False,
-        "claim_verdict": "NO_PROOF",
-        "reason_sha256": hashlib.sha256(b"bounded-p0-observer-timeout").hexdigest(),
+        "claim_verdict": "PROVED",
+        "p0_receipt": receipt,
         "at": engine.utc_now(),
     }
 
@@ -4272,12 +4307,14 @@ def _validate_p0_receipt(
         "observer_schema",
         "baseline_sha256",
         "expected_topology_sha256",
-        "endpoint_identity_sha256",
-        "descriptor_rdev_sha256",
-        "endpoint_binding_sha256",
-        "raw_banner",
+        "download_baseline_sha256",
+        "arrival_endpoint_sha256",
+        "arrival_topology_sha256",
+        "download_arrival",
+        "observer_inventory",
         "pid1_exact",
-        "tty_number_stable",
+        "transport_opened",
+        "gadget_configured",
         "exact",
         "accepted",
     }
@@ -4290,24 +4327,28 @@ def _validate_p0_receipt(
         != observer.digest(baseline["observer_baseline"])
         or value.get("expected_topology_sha256")
         != baseline["observer_baseline"]["expected_topology_sha256"]
-        or HEX64_RE.fullmatch(str(value.get("endpoint_identity_sha256"))) is None
-        or HEX64_RE.fullmatch(str(value.get("descriptor_rdev_sha256"))) is None
-        or value.get("endpoint_binding_sha256")
-        != observer.digest(
-            {
-                "endpoint_identity_sha256": value.get("endpoint_identity_sha256"),
-                "descriptor_rdev_sha256": value.get("descriptor_rdev_sha256"),
-            }
-        )
+        or HEX64_RE.fullmatch(str(value.get("download_baseline_sha256"))) is None
+        or HEX64_RE.fullmatch(str(value.get("arrival_endpoint_sha256"))) is None
+        or HEX64_RE.fullmatch(str(value.get("arrival_topology_sha256"))) is None
         or value.get("pid1_exact") is not True
-        or value.get("tty_number_stable") is not False
+        # This candidate configures no gadget and opens no transport, so a
+        # receipt claiming either is not this candidate's receipt.
+        or value.get("transport_opened") is not False
+        or value.get("gadget_configured") is not False
         or value.get("exact") is not True
         or value.get("accepted") is not True
     ):
-        raise P0F1Error("P0 PID1 ACM receipt is malformed")
-    raw, raw_receipt = _read_raw_banner(run_dir)
-    if raw != observer.BANNER or value.get("raw_banner") != raw_receipt:
-        raise P0F1Error("P0 PID1 claim is not rederived from raw ACM bytes")
+        raise P0F1Error("P0 PID1 download receipt is malformed")
+    _, arrival_receipt = _read_p0_json(
+        run_dir, P0_DOWNLOAD_ARRIVAL_NAME, "download arrival"
+    )
+    if value.get("download_arrival") != arrival_receipt:
+        raise P0F1Error("P0 PID1 claim is not rederived from the arrival record")
+    _, inventory_receipt = _read_p0_json(
+        run_dir, P0_OBSERVER_INVENTORY_NAME, "observer terminal inventory"
+    )
+    if value.get("observer_inventory") != inventory_receipt:
+        raise P0F1Error("P0 PID1 claim lacks its observer terminal inventory")
     return value
 
 
@@ -4355,7 +4396,9 @@ def validate_candidate_observation(
     if environment == P0_SUCCESS_ENVIRONMENT:
         if (
             set(value) != success_keys
-            or value.get("transport_authorized") is not True
+            # Download arrival proves PID1 without opening any transport, so a
+            # positive observation claiming transport authority is not this one.
+            or value.get("transport_authorized") is not False
             or value.get("claim_verdict") != "PROVED"
         ):
             raise P0F1Error("P0 positive observation is malformed")
@@ -4677,12 +4720,16 @@ def validate_namespace(run_dir: Path) -> None:
         )
     elif P0_LOCAL_PROJECTION_RELEASE_NAME in names:
         raise P0F1Error("P0 local projection release lacks global release proof")
-    if P0_RAW_BANNER_NAME in names:
-        if "candidate-observation-intent.json" not in names:
-            raise P0F1Error("P0 raw ACM evidence lacks its observation intent")
-        raw, _receipt = _read_raw_banner(run_dir)
-        if raw != observer.BANNER:
-            raise P0F1Error("P0 raw ACM evidence differs")
+    for evidence_name, evidence_label in (
+        (P0_DOWNLOAD_ARRIVAL_NAME, "download arrival"),
+        (P0_OBSERVER_INVENTORY_NAME, "observer terminal inventory"),
+    ):
+        if evidence_name in names:
+            if "candidate-observation-intent.json" not in names:
+                raise P0F1Error(f"P0 {evidence_label} lacks its observation intent")
+            _read_p0_json(run_dir, evidence_name, evidence_label)
+    if P0_DOWNLOAD_ARRIVAL_NAME in names and P0_OBSERVER_INVENTORY_NAME not in names:
+        raise P0F1Error("P0 download arrival lacks its observer terminal inventory")
     if "candidate-observation.json" in names and not baseline_present:
         raise P0F1Error("P0 observation lacks the USB baseline")
     rebind_arm = None
@@ -4882,17 +4929,15 @@ def render_plan() -> dict[str, Any]:
             "accepted_pid": 1,
         },
         "observation": {
-            "transport": "usb-cdc-acm",
+            "evidence": "download-mode-arrival",
+            "transport": None,
+            "transport_opened": False,
+            "gadget_configured": False,
             "observer_sha256": OBSERVER_SHA256,
-            "usb": {
-                "vendor": observer.USB_VENDOR,
-                "product": observer.USB_PRODUCT,
-                "manufacturer": observer.USB_MANUFACTURER,
-                "product_string": observer.USB_PRODUCT_STRING,
-                "serial_absent": True,
-            },
-            "banner_sha256": hashlib.sha256(observer.BANNER).hexdigest(),
-            "banner_size": len(observer.BANNER),
+            "observer_terminal_inventory_published": True,
+            "candidate_banner_sha256": hashlib.sha256(CANDIDATE_BANNER).hexdigest(),
+            "candidate_banner_size": len(CANDIDATE_BANNER),
+            "candidate_banner_is_secondary": True,
             "timeout_seconds": P0_ARRIVAL_TIMEOUT_SECONDS,
         },
         "rollback": {

@@ -63,19 +63,33 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             binding, endpoint, node, observer_baseline
         )
 
-    def write_raw_banner(self, run_dir: Path):
-        path = run_dir / self.module.P0_RAW_BANNER_NAME
-        path.write_bytes(self.module.observer.BANNER)
+    def write_p0_evidence(self, run_dir: Path, name: str, value: dict):
+        payload = self.module.engine.canonical_bytes(value)
+        path = run_dir / name
+        path.write_bytes(payload)
         path.chmod(0o400)
         return {
-            "name": self.module.P0_RAW_BANNER_NAME,
-            "size": len(self.module.observer.BANNER),
-            "sha256": hashlib.sha256(self.module.observer.BANNER).hexdigest(),
+            "name": name,
+            "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
             "mode": "0400",
         }
 
-    def p0_receipt(self, baseline, raw_receipt, endpoint_identity="2" * 64):
-        rdev = self.module.observer.digest({"major": 166, "minor": 7})
+    def write_download_evidence(self, run_dir: Path):
+        arrival = self.write_p0_evidence(
+            run_dir,
+            self.module.P0_DOWNLOAD_ARRIVAL_NAME,
+            {"schema": self.module.P0_RECEIPT_SCHEMA, "at": "fixture"},
+        )
+        inventory = self.write_p0_evidence(
+            run_dir,
+            self.module.P0_OBSERVER_INVENTORY_NAME,
+            {"schema": self.module.P0_INVENTORY_SCHEMA, "at": "fixture"},
+        )
+        return arrival, inventory
+
+    def p0_receipt(self, baseline, evidence, endpoint_identity="2" * 64):
+        arrival_receipt, inventory_receipt = evidence
         return {
             "schema": self.module.P0_RECEIPT_SCHEMA,
             "observer_schema": self.module.observer.SCHEMA,
@@ -85,17 +99,14 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             "expected_topology_sha256": baseline["observer_baseline"][
                 "expected_topology_sha256"
             ],
-            "endpoint_identity_sha256": endpoint_identity,
-            "descriptor_rdev_sha256": rdev,
-            "endpoint_binding_sha256": self.module.observer.digest(
-                {
-                    "endpoint_identity_sha256": endpoint_identity,
-                    "descriptor_rdev_sha256": rdev,
-                }
-            ),
-            "raw_banner": raw_receipt,
+            "download_baseline_sha256": "7" * 64,
+            "arrival_endpoint_sha256": endpoint_identity,
+            "arrival_topology_sha256": "8" * 64,
+            "download_arrival": arrival_receipt,
+            "observer_inventory": inventory_receipt,
             "pid1_exact": True,
-            "tty_number_stable": False,
+            "transport_opened": False,
+            "gadget_configured": False,
             "exact": True,
             "accepted": True,
         }
@@ -614,14 +625,14 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary)
             receipt = self.p0_receipt(
-                baseline, self.write_raw_banner(run_dir)
+                baseline, self.write_download_evidence(run_dir)
             )
             value = {
                 "schema": "s20plus_g986n_b0_candidate_observation_v1",
                 "version": self.module.VERSION,
                 "binding_sha256": binding,
                 "environment": self.module.P0_SUCCESS_ENVIRONMENT,
-                "transport_authorized": True,
+                "transport_authorized": False,
                 "claim_verdict": "PROVED",
                 "p0_receipt": receipt,
                 "at": "2026-09-01T00:00:00+00:00",
@@ -643,53 +654,88 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                     self.module.validate_candidate_observation(
                         run_dir, forged, binding, "3" * 64
                     )
-                forged_binding = json.loads(json.dumps(value))
-                forged_binding["p0_receipt"]["descriptor_rdev_sha256"] = "9" * 64
+                # A receipt claiming transport or a gadget is not this
+                # candidate's receipt, whatever else it says.
+                for field in ("transport_opened", "gadget_configured"):
+                    forged_claim = json.loads(json.dumps(value))
+                    forged_claim["p0_receipt"][field] = True
+                    with self.assertRaises(self.module.P0F1Error):
+                        self.module.validate_candidate_observation(
+                            run_dir, forged_claim, binding, "3" * 64
+                        )
+                # Transport authority may not be asserted on a proof that opened
+                # nothing.
+                forged_transport = json.loads(json.dumps(value))
+                forged_transport["transport_authorized"] = True
                 with self.assertRaises(self.module.P0F1Error):
                     self.module.validate_candidate_observation(
-                        run_dir, forged_binding, binding, "3" * 64
+                        run_dir, forged_transport, binding, "3" * 64
                     )
-                (run_dir / self.module.P0_RAW_BANNER_NAME).chmod(0o600)
+                forged_arrival = json.loads(json.dumps(value))
+                forged_arrival["p0_receipt"]["download_arrival"]["sha256"] = "9" * 64
                 with self.assertRaises(self.module.P0F1Error):
                     self.module.validate_candidate_observation(
-                        run_dir, value, binding, "3" * 64
+                        run_dir, forged_arrival, binding, "3" * 64
                     )
+                for name in (
+                    self.module.P0_DOWNLOAD_ARRIVAL_NAME,
+                    self.module.P0_OBSERVER_INVENTORY_NAME,
+                ):
+                    (run_dir / name).chmod(0o600)
+                    with self.assertRaises(self.module.P0F1Error):
+                        self.module.validate_candidate_observation(
+                            run_dir, value, binding, "3" * 64
+                        )
+                    (run_dir / name).chmod(0o400)
 
-    def test_raw_banner_publication_is_durable_no_clobber_and_reopened(self):
+    def test_evidence_publication_is_durable_no_clobber_and_reopened(self):
         with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
             self.module, "require_active"
         ), self.live_transaction():
             run_dir = Path(temporary)
-            receipt = self.module._publish_raw_banner(
-                run_dir, self.module.observer.BANNER
-            )
-            raw, reopened = self.module._read_raw_banner(run_dir)
-            self.assertEqual(raw, self.module.observer.BANNER)
-            self.assertEqual(reopened, receipt)
-            with self.assertRaisesRegex(self.module.P0F1Error, "not fresh"):
-                self.module._publish_raw_banner(
-                    run_dir, self.module.observer.BANNER
+            value = {"schema": self.module.P0_RECEIPT_SCHEMA, "at": "fixture"}
+            for name, label in (
+                (self.module.P0_DOWNLOAD_ARRIVAL_NAME, "download arrival"),
+                (self.module.P0_OBSERVER_INVENTORY_NAME, "observer terminal inventory"),
+            ):
+                receipt = self.module._publish_p0_json(run_dir, name, value, label)
+                payload, reopened = self.module._read_p0_json(run_dir, name, label)
+                self.assertEqual(payload, self.module.engine.canonical_bytes(value))
+                self.assertEqual(reopened, receipt)
+                with self.assertRaisesRegex(self.module.P0F1Error, "not fresh"):
+                    self.module._publish_p0_json(run_dir, name, value, label)
+
+    def test_oversized_evidence_publication_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            self.module, "require_active"
+        ), self.live_transaction():
+            oversized = {"schema": "x" * (self.module.P0_EVIDENCE_MAXIMUM + 1)}
+            with self.assertRaisesRegex(self.module.P0F1Error, "exceeds its bound"):
+                self.module._publish_p0_json(
+                    Path(temporary),
+                    self.module.P0_DOWNLOAD_ARRIVAL_NAME,
+                    oversized,
+                    "download arrival",
                 )
 
-    def test_live_observer_join_accepts_only_same_topology_exact_banner(self):
+    def download_observation(self, arrival, inventory_receipt=None, arrival_receipt=None):
+        """Drive _observe_p0 with a synthetic Download-arrival result."""
         binding = "1" * 64
         baseline = self.baseline(binding)
         prepared = {
             "binding_sha256": binding,
             "binding": {"endpoint": self.endpoint()},
         }
-        candidate = SimpleNamespace(
-            usb_node="1-2", identity_sha256="2" * 64, major=166, minor=7
-        )
-        inventory = SimpleNamespace(
-            exact=(candidate,),
-            pending_identity_sha256=(),
-            conflicting_identity_sha256=(),
-        )
-        raw_receipt = {
-            "name": self.module.P0_RAW_BANNER_NAME,
-            "size": len(self.module.observer.BANNER),
-            "sha256": hashlib.sha256(self.module.observer.BANNER).hexdigest(),
+        inventory_receipt = inventory_receipt or {
+            "name": self.module.P0_OBSERVER_INVENTORY_NAME,
+            "size": 1,
+            "sha256": "3" * 64,
+            "mode": "0400",
+        }
+        arrival_receipt = arrival_receipt or {
+            "name": self.module.P0_DOWNLOAD_ARRIVAL_NAME,
+            "size": 1,
+            "sha256": "4" * 64,
             "mode": "0400",
         }
         with mock.patch.object(
@@ -697,29 +743,70 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         ), self.live_transaction(Path("/fixture")), mock.patch.object(
             self.module.engine, "read_json", return_value=baseline
         ), mock.patch.object(
-            self.module.observer, "scan_inventory", return_value=inventory
+            self.module.engine, "download_baseline", return_value={"endpoint_count": 0}
         ), mock.patch.object(
-            self.module, "_expected_node_from_hashes", return_value="1-2"
+            self.module.engine, "wait_download", return_value=arrival
         ), mock.patch.object(
-            self.module.observer, "select_arrival", return_value=candidate
+            self.module, "_publish_observer_inventory", return_value=inventory_receipt
         ), mock.patch.object(
-            self.module.observer, "open_live", return_value=99
-        ), mock.patch.object(
-            self.module.observer, "verify_descriptor"
-        ) as verify, mock.patch.object(
-            self.module.observer,
-            "read_exact_banner",
-            return_value=self.module.observer.BANNER,
-        ), mock.patch.object(
-            self.module, "_publish_raw_banner", return_value=raw_receipt
-        ), mock.patch.object(self.module.os, "close") as close:
-            result = self.module._observe_p0(Path("/fixture"), prepared)
+            self.module, "_publish_p0_json", return_value=arrival_receipt
+        ):
+            return self.module._observe_p0(Path("/fixture"), prepared)
+
+    def test_download_arrival_proves_pid1_without_any_transport_authority(self):
+        arrival = {"endpoint_sha256": "2" * 64, "topology_sha256": "5" * 64}
+        result = self.download_observation(arrival)
         self.assertEqual(result["environment"], self.module.P0_SUCCESS_ENVIRONMENT)
         self.assertEqual(result["claim_verdict"], "PROVED")
-        self.assertTrue(result["transport_authorized"])
-        self.assertEqual(result["p0_receipt"]["raw_banner"], raw_receipt)
-        self.assertEqual(verify.call_count, 2)
-        close.assert_called_once_with(99)
+        # The whole point of the minimal probe: proof without opening anything.
+        self.assertFalse(result["transport_authorized"])
+        receipt = result["p0_receipt"]
+        self.assertFalse(receipt["transport_opened"])
+        self.assertFalse(receipt["gadget_configured"])
+        self.assertEqual(receipt["arrival_endpoint_sha256"], "2" * 64)
+        self.assertEqual(receipt["observer_inventory"]["name"],
+                         self.module.P0_OBSERVER_INVENTORY_NAME)
+
+    def test_absent_download_arrival_is_no_proof_and_still_records_the_inventory(self):
+        with mock.patch.object(self.module, "_publish_observer_inventory") as published:
+            published.return_value = {"name": self.module.P0_OBSERVER_INVENTORY_NAME,
+                                      "size": 1, "sha256": "3" * 64, "mode": "0400"}
+            result = self.download_observation(None, inventory_receipt=published.return_value)
+        self.assertEqual(result["environment"], self.module.P0_NO_PROOF_ENVIRONMENT)
+        self.assertEqual(result["claim_verdict"], "NO_PROOF")
+        self.assertFalse(result["transport_authorized"])
+        self.assertEqual(
+            result["reason_sha256"],
+            hashlib.sha256(b"bounded-p0-download-arrival-timeout").hexdigest(),
+        )
+
+    def test_observer_terminal_inventory_publishes_counts_only(self):
+        inventory = SimpleNamespace(
+            exact=(SimpleNamespace(usb_node="1-2", identity_sha256="2" * 64),),
+            pending_identity_sha256=("6" * 64,),
+            conflicting_identity_sha256=(),
+        )
+        captured = {}
+
+        def capture(run_dir, name, value, label):
+            captured.update(value)
+            return {"name": name, "size": 1, "sha256": "3" * 64, "mode": "0400"}
+
+        with mock.patch.object(self.module, "require_active"), self.live_transaction(
+            Path("/fixture")
+        ), mock.patch.object(
+            self.module.observer, "scan_inventory", return_value=inventory
+        ), mock.patch.object(self.module, "_publish_p0_json", side_effect=capture):
+            self.module._publish_observer_inventory(
+                Path("/fixture"), self.baseline("1" * 64)
+            )
+        self.assertEqual(captured["exact_count"], 1)
+        self.assertEqual(captured["pending_count"], 1)
+        self.assertEqual(captured["conflicting_count"], 0)
+        self.assertTrue(captured["scanned"])
+        # Counts only: no identity, serial or topology value may be written out.
+        self.assertNotIn("2" * 64, json.dumps(captured))
+        self.assertNotIn("6" * 64, json.dumps(captured))
 
     def test_no_proof_observation_cannot_gain_transport_authority(self):
         binding = "1" * 64
@@ -781,8 +868,11 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             lambda: self.module._expected_node_from_hashes({}),
             lambda: self.module._observe_p0(Path("/fixture"), prepared),
             lambda: self.module.observe_candidate(Path("/fixture"), prepared),
-            lambda: self.module._publish_raw_banner(
-                Path("/fixture"), self.module.observer.BANNER
+            lambda: self.module._publish_p0_json(
+                Path("/fixture"),
+                self.module.P0_DOWNLOAD_ARRIVAL_NAME,
+                {"schema": self.module.P0_RECEIPT_SCHEMA},
+                "download arrival",
             ),
             lambda: self.module.engine.adb_inventory(),
             lambda: self.module.engine.transfer_boot(
