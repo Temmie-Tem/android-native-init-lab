@@ -117,7 +117,7 @@ def build(*, publish: bool = False) -> dict[str, Any]:
             created = _write(paths[name], payload, 0o400) or created
         created = _write(DEFAULT_MANIFEST, canonical(manifest), 0o644) or created
         # Verify the actual final names, not just the intended temporary copy.
-        core.verify_bundle(ROOT, DEFAULT_MANIFEST)
+        checked["bundle_sha256"] = core.verify_bundle(ROOT, DEFAULT_MANIFEST).sha256
     return {"verdict": VERDICT if publish else REHEARSAL_VERDICT,
         "manifest": _receipt(DEFAULT_MANIFEST, canonical(manifest)),
         "artifacts": pins, **checked, "created": created, "published": publish,
