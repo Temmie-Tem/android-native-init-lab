@@ -11,36 +11,27 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-Prepare P346 through fresh F1 approval-code issuance. The operator authorized
-necessary S22+ D0/D1 for this preparation on 2026-09-06. F1 execution awaits a
-separate returned exact attended approval. Use ordinary D0 and, only if needed,
-the existing attended one-normal-reboot baseline primitive. No candidate replay,
-new D0/D1 framework, standing shell authority or autonomous recovery follows.
+P346 is CLOSED and consumed after the operator returned its exact F1 approval.
+Candidate `28631081B/ad6a84ef` and exact Magisk rollback `23367721B/d2373bf8`
+transferred once each. Final rooted FYG8 health, original boot/supporting hashes
+and absent Download passed. Journal CLOSED/19; formal result
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, `25665B/7d28bfa7`, with recovery not required.
 
-P346 reuses P345's fixed five-session qualification: numeric read/write-denial
-canary, exit 7, timeout, authenticated cancel and subsequent pipeline/substitution.
-The exact child view/filter, authentication, output/time limits, same-FD/no-reopen
-geometry, boot-only AP and mandatory Magisk rollback remain unchanged. Fresh
-run ID, source/artifact qualification and matching raw-first/ready/live bindings
-are required. H0 implementation/source/artifact qualification now has independent
-PASS_GO; A/B AP `28631081B/ad6a84ef` matches and ready1 is `7135B/54dfe8f1`.
-Initial D0 stopped on retained baseline. One preapproved normal-reboot D1
-exceeded its 240-second return bound; its consumed stop remains preserved.
-After the operator reported Android, a later read-only observation proved fresh
-boot ID, unchanged topology and exact rooted FYG8 health. No reboot was repeated.
-Fresh preparation `p346-ready1-prepared-20260906-2` passed ordinary D0 with a
-clean baseline and published a 30216-byte prepared binding. The actual prepared
-consumer reopened it successfully and its F1 approval code was issued. F1
-execution still requires the returned exact attended approval; no candidate
-transfer occurred.
-Late health does not turn the original D1 timeout into an in-bound PASS or prove
-automatic recovery from an unresponsive experimental component.
+The fixed read-only child canary and expected exit-7 session passed (2/5).
+Session 3 failed expected timeout-outcome validation after a complete exchange;
+authenticated cancel and post-cancel pipeline were not attempted. Raw evidence
+is preserved. This is partial functional evidence, not complete qualification.
+
+A host USB inventory failure after observation stopped the initial runner before
+rollback transfer. One ordinary journal-based recovery completed exact rollback
+without candidate or observation replay. Its precise cause remains unproved.
+The earlier baseline D1 return timeout also remains preserved; late exact healthy
+return and fresh ordinary D0 subsequently passed without repeating that reboot.
+
+The approved bounded execution is complete. Any next work is H0 diagnosis of the
+session-3 outcome and inventory failure using retained evidence. Do not replay
+P346, widen its child filter, or start another candidate under its consumed approval.
 Report: `docs/reports/S22PLUS_FYG8_P346_PREPARATION_AND_D1_RETURN_STOP_2026-09-06.md`.
-
-Completion criterion: independently reviewed matching execution closure,
-reproducible A/B boot-only artifacts, exact rollback identity, successful offline
-promotion and ready revalidation, fresh healthy exact-target D0 with admissible
-baseline, and normally reopened prepared binding plus its F1 approval code.
 
 ## Latest completed evidence
 

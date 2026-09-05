@@ -1,11 +1,12 @@
-# P346 preparation: qualified, late healthy return and fresh D0
+# P346: preparation, bounded shell NO_PROOF and healthy rollback
 
-Target: `SM-S906N/g0q/S906NKSS7FYG8` only. The operator preapproved necessary
-D0/D1 through the next F1 approval-code issuance. F1 was not authorized or
-executed. The original D1 return timeout is preserved below. Later read-only
-evidence
-proved healthy return, and fresh ordinary D0 preparation published an F1 approval
-binding. No F1 execution or additional reboot occurred.
+Target: `SM-S906N/g0q/S906NKSS7FYG8` only. Preparation first stopped on a
+normal-reboot return timeout; later read-only evidence established exact healthy
+return and fresh ordinary D0 passed. The operator then returned the exact F1
+approval. Candidate and exact Magisk rollback each transferred once, final rooted
+FYG8 health passed, and the journal closed. Formal verdict is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: two of five qualification sessions passed.
+Consumed actions and original stops remain preserved; no replay is authorized.
 
 ## Qualified successor
 
@@ -141,3 +142,58 @@ physical Download recovery availability and current runtime revalidation.
 
 No additional reboot, reconnect control, Download transition, Odin invocation,
 partition transfer or F1 execution occurred. A90 and S20+ received no command.
+
+
+## Approved F1 execution and terminal result
+
+The operator returned the exact prepared F1 approval. Ordinary `--execute`
+revalidated the current target, baseline, candidate, rollback and bound closure
+before creating its durable transaction. Candidate `28631081B/ad6a84ef` transferred
+once. The read-only canary proved numeric child UID/GID 65534, bounded proc uptime
+read, denied probe creation and probe absence. The second session proved expected
+exit 7 and subsequent parent/nonce witnesses. Both used the same descriptor and
+authenticated boot identity.
+
+Qualification stopped at session 3 (`command-timeout`) with `QualificationError`:
+expected-outcome validation did not pass. Its exchange audit reached `complete`;
+this is not evidence of a transport timeout. The two accepted sessions are partial
+functional evidence, not overall shell qualification. Sessions 4 (authenticated
+cancel) and 5 (post-cancel pipeline) were not attempted. Raw 1730-byte RX is
+retained with SHA-256
+`5650492b1ded717a6fd3b598a87daa7147692673ca8f2f86f9e821354bdde965`.
+Observer result `22794B/620a060e` preserves the failed session audit and 2/5 result.
+Detailed causal diagnosis remains H0 follow-up; no filter or parser was changed.
+
+After durable observation, host USB inventory failed with
+`measured USB endpoint inventory failed` while awaiting physical Download. The
+initial execute log remains private at `workspace/private/outputs/s22plus_fyg8_p346/f1-execute-01.log`.
+The journal was still `OBSERVED`, with no rollback transfer started. One ordinary
+`--recover` invocation resumed the preapproved rollback from this durable state;
+it did not repeat the candidate or observation. Fresh exact Download binding
+passed, exact Magisk rollback `23367721B/d2373bf8` transferred once, and final
+rooted FYG8 health, original boot/supporting hashes and absent Download passed.
+The inventory failure's precise cause is unproved; no endpoint check was bypassed.
+
+Final result is `25665B/7d28bfa7`, full SHA-256
+`7d28bfa71a61be95deb1984db706c7cf3069b47e1d131a98471b499e07747f8e`.
+Verdict: `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; outcome:
+`p346_readonly_research_shell_unproved_rollback_verified`; `recovery_required=false`.
+The journal is CLOSED with 19 records; state is `22387B/7a3a8bf9`.
+No later shell lease or standing device authority exists. A90 and S20+ received
+no command. The original D1 timeout remains a timeout despite late healthy return.
+
+Canonical timeline (UTC):
+
+- `live_session_start`: `2026-09-05T19:52:31.728829Z`
+- `candidate_flash_start`: `2026-09-05T19:52:58.331802Z`
+- `candidate_flash_done`: `2026-09-05T19:53:00.028972Z`
+- `candidate_boot_ready`: `2026-09-05T19:53:26.650945Z`
+- `rollback_flash_start`: `2026-09-05T19:55:46.884832Z`
+- `rollback_flash_done`: `2026-09-05T19:55:48.443376Z`
+- `rollback_boot_ready`: `2026-09-05T19:56:34.024653Z`
+- `live_session_end`: `2026-09-05T19:56:34.046014Z`
+
+Final H0 reopening through `load_prepared` and `validate_live_result` passed
+against the unchanged runtime closure, retained raw receipts and journal. Exactly
+one P346 F1 closure row was appended to the existing campaign ledger; its prior
+bytes were preserved and the ledger row parser passed.
