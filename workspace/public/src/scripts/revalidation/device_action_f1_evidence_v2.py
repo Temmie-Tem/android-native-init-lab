@@ -361,6 +361,18 @@ p340_open_read_branch_runtime = _load_stable_local_module(
 p340_open_read_branch_acm_observer = _load_stable_local_module(
     "s22plus_fyg8_p340_open_read_branch_acm_observer"
 )
+p341_stock_adapter = _load_stable_local_module(
+    "s22plus_fyg8_p341_stock_process_v2_adapter"
+)
+p341_artifact_identity = _load_stable_local_module(
+    "s22plus_fyg8_p341_artifact_identity"
+)
+p341_open_read_branch_runtime = _load_stable_local_module(
+    "s22plus_fyg8_p341_open_read_branch_runtime"
+)
+p341_open_read_branch_acm_observer = _load_stable_local_module(
+    "s22plus_fyg8_p341_open_read_branch_acm_observer"
+)
 # The P336 adapter intentionally keeps its exact-loaded predecessor graph
 # private.  Common evidence still needs the carrier model/shape interface for
 # normal E1 projection; expose only the immutable parser symbols, never a new
@@ -612,6 +624,68 @@ def _p340_decode_record(
 
 p340_stock_adapter.encode_fixture = _p340_encode_fixture
 p340_stock_adapter.decode_record = _p340_decode_record
+
+# P341 keeps the P340 Carrier bytes and authenticated command grammar but
+# binds a fresh host-first-OPEN namespace.  Re-export only the immutable
+# parser surface required by common evidence; the P341 adapter remains the
+# authority for its fresh contract and observer IDs.
+for _name in (
+    "model", "spec", "DecodeError", "RAW_SIZE", "LONG_FAMILY", "UNSAT_FAMILY",
+    "TERMINAL_STAGE", "source_bytes", "SOURCE_KEYS", "proof_class",
+    "_ORIGINAL_CLASSIFY_OBSERVATION", "_ORIGINAL_CLASSIFY_CLEAN_BASELINE",
+):
+    if not hasattr(p341_stock_adapter, _name) and hasattr(
+        p340_stock_adapter, _name
+    ):
+        setattr(p341_stock_adapter, _name, getattr(p340_stock_adapter, _name))
+if not hasattr(p341_stock_adapter, "DecodeError"):
+    setattr(p341_stock_adapter, "DecodeError", p340_stock_adapter.DecodeError)
+
+
+def _p341_encode_fixture(*args: Any, **kwargs: Any) -> bytes:
+    if args or kwargs:
+        raise p341_stock_adapter.DecodeError(
+            "P341 fixture arguments are not allowlisted"
+        )
+    return p341_stock_adapter.model.initialize_record(
+        p341_stock_adapter.PROFILE, p341_stock_adapter.P341_RUN_ID
+    )
+
+
+def _p341_decode_record(
+    record: bytes,
+    *,
+    expected_profile: str = p341_stock_adapter.PROFILE,
+    expected_run_id: bytes | None = None,
+) -> dict[str, Any]:
+    bound = p341_stock_adapter.P341_RUN_ID if expected_run_id is None else expected_run_id
+    if bound != p341_stock_adapter.P341_RUN_ID:
+        raise p341_stock_adapter.DecodeError("P341 Carrier run ID differs")
+    try:
+        value = p341_stock_adapter.model.decode_record(
+            record,
+            expected_profile=expected_profile,
+            expected_run_id=p341_stock_adapter.P341_RUN_ID,
+        )
+    except Exception as exc:
+        raise p341_stock_adapter.DecodeError(str(exc)) from exc
+    if not isinstance(value, dict):
+        raise p341_stock_adapter.DecodeError("P341 Carrier record is not an object")
+
+    def json_value(current: Any) -> Any:
+        if isinstance(current, bytes):
+            return {"encoding": "hex", "value": current.hex()}
+        if isinstance(current, dict):
+            return {key: json_value(child) for key, child in current.items()}
+        if isinstance(current, (list, tuple)):
+            return [json_value(child) for child in current]
+        return current
+
+    return json_value(value)
+
+
+p341_stock_adapter.encode_fixture = _p341_encode_fixture
+p341_stock_adapter.decode_record = _p341_decode_record
 p323_predecessor_baseline = _load_stable_local_module(
     "s22plus_fyg8_p323_p322_carrier_reanalysis"
 )
@@ -1121,6 +1195,45 @@ P340_AUTH_EXEC_OUTCOME = (
 P340_AUTH_EXEC_NO_PROOF_OUTCOME = (
     "p340_authenticated_resident_open_header_capture_unproved_rollback_verified"
 )
+P341_AUTH_EXEC_RUNTIME_CONTRACT_ID = p341_open_read_branch_runtime.CONTRACT_ID
+P341_AUTH_EXEC_OBSERVER_CONTRACT_ID = p341_open_read_branch_acm_observer.CONTRACT_ID
+P341_AUTH_EXEC_RUN_ID_HEX = p341_stock_adapter.P341_RUN_ID_HEX
+P341_AUTH_EXEC_COMMAND_COUNT = len(p341_open_read_branch_runtime.DEFAULT_COMMANDS)
+P341_AUTH_EXEC_MAX_FRAME_PAYLOAD = p341_open_read_branch_runtime.MAX_FRAME_PAYLOAD
+P341_AUTH_EXEC_FRAME_HEADER_SIZE = p341_open_read_branch_runtime.FRAME_HEADER_SIZE
+P341_AUTH_EXEC_MAX_COMMANDS = p341_open_read_branch_runtime.MAX_COMMANDS
+P341_AUTH_EXEC_COMMAND_TIMEOUT_SEC = p341_open_read_branch_runtime.COMMAND_TIMEOUT_SEC
+P341_AUTH_EXEC_MAX_OUTPUT_BYTES = p341_open_read_branch_runtime.MAX_OUTPUT_BYTES
+P341_AUTH_EXEC_AUTH_ALGORITHM = P340_AUTH_EXEC_AUTH_ALGORITHM
+P341_AUTH_EXEC_AUTH_TAG_SIZE = p341_open_read_branch_runtime.AUTH_TAG_SIZE
+P341_AUTH_EXEC_AUTH_KEY_SCHEMA = P340_AUTH_EXEC_AUTH_KEY_SCHEMA
+P341_AUTH_EXEC_AUTH_KEY_SIZE = p341_open_read_branch_runtime.AUTH_KEY_SIZE
+P341_AUTH_EXEC_AUTH_KEY_IDENTITY = dict(
+    p341_artifact_identity.auth_key_identity()
+)
+P341_AUTH_EXEC_DIAGNOSTIC_FRAME_TYPE = p341_open_read_branch_runtime.DIAGNOSTIC_FRAME_TYPE
+P341_AUTH_EXEC_DIAGNOSTIC_PAYLOAD_SIZE = P340_AUTH_EXEC_DIAGNOSTIC_PAYLOAD_SIZE
+P341_AUTH_EXEC_RNG_EAGAIN_RETRY_LIMIT = p341_open_read_branch_runtime.RNG_EAGAIN_RETRY_LIMIT
+P341_AUTH_EXEC_SESSION_CAP = p341_open_read_branch_acm_observer.MAX_SESSIONS
+P341_AUTH_EXEC_RECONNECT_CAP = p341_open_read_branch_acm_observer.MAX_RECONNECTS
+P341_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS = {
+    str(key): value
+    for key, value in p341_open_read_branch_runtime.OPEN_READ_BRANCHES.items()
+}
+P341_AUTH_EXEC_OPEN_READ_BRANCH_COUNT = len(P341_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS)
+P341_AUTH_EXEC_OPEN_HEADER_WORD_STAGES = list(
+    p341_open_read_branch_runtime.OPEN_HEADER_WORD_STAGES
+)
+P341_AUTH_EXEC_OPEN_HEADER_SIZE = p341_open_read_branch_runtime.OPEN_HEADER_SIZE
+P341_AUTH_EXEC_VERDICT = (
+    "PASS_F1_V2_P341_AUTHENTICATED_RESIDENT_OPEN_HEADER_CAPTURE_AND_ROLLED_BACK"
+)
+P341_AUTH_EXEC_OUTCOME = (
+    "p341_authenticated_resident_open_header_capture_rollback_verified"
+)
+P341_AUTH_EXEC_NO_PROOF_OUTCOME = (
+    "p341_authenticated_resident_open_header_capture_unproved_rollback_verified"
+)
 CHECKPOINT_DECODER = "s22plus_fyg8_r4w1e_checkpoint_v1"
 PID1_USERSPACE_DECODER = "s22plus_fyg8_r4w1e0_pid1_userspace_v1"
 SAME_RING_DECODER = "s22plus_fyg8_p219_same_ring_v1"
@@ -1336,6 +1449,8 @@ P339_STOCK_OVERLAY_CONTRACT_ID = p339_stock_adapter.OVERLAY_CONTRACT_ID
 P339_STOCK_OVERLAY_IDS = frozenset({P339_STOCK_OVERLAY_CONTRACT_ID})
 P340_STOCK_OVERLAY_CONTRACT_ID = p340_stock_adapter.OVERLAY_CONTRACT_ID
 P340_STOCK_OVERLAY_IDS = frozenset({P340_STOCK_OVERLAY_CONTRACT_ID})
+P341_STOCK_OVERLAY_CONTRACT_ID = p341_stock_adapter.OVERLAY_CONTRACT_ID
+P341_STOCK_OVERLAY_IDS = frozenset({P341_STOCK_OVERLAY_CONTRACT_ID})
 STOCK_ADAPTERS = {
     P319_STOCK_OVERLAY_CONTRACT_ID: p319_stock_adapter,
     P320_STOCK_OVERLAY_CONTRACT_ID: p320_stock_adapter,
@@ -1359,6 +1474,7 @@ STOCK_ADAPTERS = {
     P338_STOCK_OVERLAY_CONTRACT_ID: p338_stock_adapter,
     P339_STOCK_OVERLAY_CONTRACT_ID: p339_stock_adapter,
     P340_STOCK_OVERLAY_CONTRACT_ID: p340_stock_adapter,
+    P341_STOCK_OVERLAY_CONTRACT_ID: p341_stock_adapter,
 }
 P316_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p316_candidate_static_checker_v1"
 P316_CANDIDATE_STATIC_VERDICT = (
@@ -1504,6 +1620,12 @@ P340_CANDIDATE_STATIC_SCHEMA = (
 P340_CANDIDATE_STATIC_VERDICT = (
     "PASS_P340_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
 )
+P341_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p341_process_v2_candidate_static_v1"
+)
+P341_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P341_PROCESS_V2_CANDIDATE_STATIC_HOST_ONLY"
+)
 MAX77705_OVERLAY_CONTRACT_IDS = frozenset(
     {
         MAX77705_OVERLAY_CONTRACT_ID,
@@ -1537,6 +1659,7 @@ P337_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P338_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P339_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P340_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
+P341_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P319_RUN_ID = "b9cc424d0d184f5accbce94a844e817d"
 P320_RUN_ID = p320_stock_adapter.P320_STOCK_RUN_ID.hex()
 P321_RUN_ID = p321_stock_adapter.P321_RUN_ID_HEX
@@ -1569,6 +1692,8 @@ P339_RUN_ID = p339_stock_adapter.P339_RUN_ID_HEX
 P339_PREDECESSOR_RUN_ID = p339_stock_adapter.P338_PREDECESSOR_RUN_ID_HEX
 P340_RUN_ID = p340_stock_adapter.P340_RUN_ID_HEX
 P340_PREDECESSOR_RUN_ID = p340_stock_adapter.P339_PREDECESSOR_RUN_ID_HEX
+P341_RUN_ID = p341_stock_adapter.P341_RUN_ID_HEX
+P341_PREDECESSOR_RUN_ID = p341_stock_adapter.P340_PREDECESSOR_RUN_ID_HEX
 P320_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p320_process_v2_candidate_static.py"
@@ -1653,6 +1778,10 @@ P340_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p340_process_v2_candidate_static.py"
 )
+P341_CANDIDATE_STATIC_AUTHORITY_PATH = (
+    "workspace/public/src/scripts/analysis/"
+    "s22plus_fyg8_p341_process_v2_candidate_static.py"
+)
 P319_CANDIDATE_STATIC_AUTHORITY_PATH = (
     "workspace/public/src/scripts/analysis/"
     "s22plus_fyg8_p319_process_v2_candidate_static.py"
@@ -1683,6 +1812,7 @@ P337_TARGET = dict(P336_TARGET)
 P338_TARGET = dict(P337_TARGET)
 P339_TARGET = dict(P338_TARGET)
 P340_TARGET = dict(P339_TARGET)
+P341_TARGET = dict(P340_TARGET)
 P323_CONSUMED_P322_BASELINE_IDENTITY = {
     "size": 2_097_136,
     "sha256": "3d186a2a46cdca7eed219d6a915906322d3c2da001e7380b3a75e8b52ef7b4e2",
@@ -2080,7 +2210,16 @@ def _latest_stage_observation_decoder(
 ):
     if userspace_overlay_contract_id is None:
         return _latest_stage_decoder(source_contract_id, profile)
-    if userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id == P341_STOCK_OVERLAY_CONTRACT_ID:
+        if (
+            source_contract_id != p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+            or profile != p341_stock_adapter.PROFILE
+        ):
+            raise EvidenceError(
+                "P3.41 host-first open userspace observation overlay is unsupported"
+            )
+        selected = p341_stock_adapter
+    elif userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
         if (
             source_contract_id != p340_stock_adapter.PARENT_SOURCE_CONTRACT_ID
             or profile != p340_stock_adapter.PROFILE
@@ -2610,6 +2749,13 @@ def _validate_p318_overlay_contract(value: Any) -> dict[str, Any]:
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
+    if userspace_overlay_contract_id == P341_STOCK_OVERLAY_CONTRACT_ID:
+        try:
+            return p341_stock_adapter.validate_contract(value)
+        except (p341_stock_adapter.DecodeError, p341_stock_adapter.ContractError) as exc:
+            raise EvidenceError(
+                "P3.41 host-first open overlay metadata differs"
+            ) from exc
     if userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
         try:
             return p340_stock_adapter.validate_contract(value)
@@ -2785,6 +2931,10 @@ def _select_e2_closure(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None = None,
 ):
+    if userspace_overlay_contract_id == P341_STOCK_OVERLAY_CONTRACT_ID:
+        if source_contract_id != p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
+            raise EvidenceError("P3.41 stock parent source contract differs")
+        return p310_e2_closure.select(source_contract_id)
     if userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
         if source_contract_id != p340_stock_adapter.PARENT_SOURCE_CONTRACT_ID:
             raise EvidenceError("P3.40 stock parent source contract differs")
@@ -3771,6 +3921,8 @@ def _latest_stage_accepted_identity(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None,
 ) -> str:
+    if userspace_overlay_contract_id == P341_STOCK_OVERLAY_CONTRACT_ID:
+        return "P341_STOCK_OBSERVER_V4_OPEN_HEADER_CAPTURE"
     if userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
         return "P340_STOCK_OBSERVER_V4_OPEN_HEADER_CAPTURE"
     if userspace_overlay_contract_id == P339_STOCK_OVERLAY_CONTRACT_ID:
@@ -4758,6 +4910,31 @@ def _validate_p340_candidate_static(
     return value
 
 
+def _validate_p341_candidate_static_authority(
+    value: dict[str, Any],
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    return _validate_candidate_static_authority(
+        value,
+        authority_path=P341_CANDIDATE_STATIC_AUTHORITY_PATH,
+        label="P3.41",
+        maximum=P341_CANDIDATE_STATIC_MAX_BYTES,
+        runtime_bound=runtime_bound,
+    )
+
+
+def _validate_p341_candidate_static(
+    value: Any,
+    *,
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise EvidenceError("P3.41 candidate-static result is not an object")
+    _validate_p341_candidate_static_authority(value, runtime_bound=runtime_bound)
+    return value
+
+
 def _p319_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
     artifacts = candidate_static["candidate"]["artifacts"]
     return {
@@ -5224,6 +5401,29 @@ def _p340_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]
         "auth_key_schema": P340_AUTH_EXEC_AUTH_KEY_SCHEMA,
         "auth_key_size": P340_AUTH_EXEC_AUTH_KEY_SIZE,
         "auth_key": dict(P340_AUTH_EXEC_AUTH_KEY_IDENTITY),
+        "auth_key_path_published": False,
+        "run_id": candidate_static["run_id"],
+        "source_contract_id": candidate_static["source_contract_id"],
+        "userspace_overlay_contract_id": candidate_static[
+            "userspace_overlay_contract_id"
+        ],
+    }
+
+
+def _p341_ap_payload_closure(candidate_static: dict[str, Any]) -> dict[str, Any]:
+    candidate = candidate_static["candidate"]
+    return {
+        "kind": "p341_exact_authenticated_open_read_branch_ap_v1",
+        "boot_img_lz4": candidate["a"]["boot_img_lz4"],
+        "boot_image": candidate["a"]["boot_img"],
+        "image": candidate["image"],
+        "init": candidate["init"],
+        "child": candidate["child"],
+        "busybox": candidate["busybox"],
+        "latch": P319_EXACT_ARTIFACTS["latch"],
+        "auth_key_schema": P341_AUTH_EXEC_AUTH_KEY_SCHEMA,
+        "auth_key_size": P341_AUTH_EXEC_AUTH_KEY_SIZE,
+        "auth_key": dict(P341_AUTH_EXEC_AUTH_KEY_IDENTITY),
         "auth_key_path_published": False,
         "run_id": candidate_static["run_id"],
         "source_contract_id": candidate_static["source_contract_id"],
@@ -6560,6 +6760,69 @@ def _validate_p340_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
     }
 
 
+def _validate_p341_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
+    """Validate P3.41 through the exact P3.40 AP grammar and host-first ID."""
+    item = _exact(
+        closure,
+        {
+            "kind", "boot_img_lz4", "boot_image", "image", "init", "child",
+            "busybox", "latch", "auth_key_schema", "auth_key_size", "auth_key",
+            "auth_key_path_published", "run_id", "source_contract_id",
+            "userspace_overlay_contract_id",
+        },
+        "P3.41 E2 AP payload closure",
+    )
+    if (
+        item["kind"] != "p341_exact_authenticated_open_read_branch_ap_v1"
+        or item["run_id"] != P341_RUN_ID
+        or item["source_contract_id"] != p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID
+        or item["userspace_overlay_contract_id"] != P341_STOCK_OVERLAY_CONTRACT_ID
+        or item["auth_key_schema"] != P341_AUTH_EXEC_AUTH_KEY_SCHEMA
+        or item["auth_key_size"] != P341_AUTH_EXEC_AUTH_KEY_SIZE
+        or item["auth_key"] != P341_AUTH_EXEC_AUTH_KEY_IDENTITY
+        or item["auth_key_path_published"] is not False
+    ):
+        raise EvidenceError("P3.41 E2 AP payload header differs")
+    # Validate the physical boot/AP/rootfs geometry through the oldest fixed
+    # grammar.  Only the host-first closure header above is P341-specific;
+    # this avoids relabelling a P340 AP while keeping the inherited parser
+    # implementation private to the validation seam.
+    inherited = {
+        key: item[key]
+        for key in (
+            "boot_img_lz4", "boot_image", "image", "init", "child",
+            "busybox", "latch",
+        )
+    }
+    inherited.update(
+        {
+            "kind": "p327_exact_framed_fixed_command_ap_v1",
+            "run_id": P327_RUN_ID,
+            "source_contract_id": p327_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": P327_STOCK_OVERLAY_CONTRACT_ID,
+        }
+    )
+    verified = _validate_p327_e2_ap_payload(frame, inherited)
+    return {
+        **verified,
+        "run_id": P341_RUN_ID,
+        "source_contract_id": item["source_contract_id"],
+        "userspace_overlay_contract_id": item["userspace_overlay_contract_id"],
+        "first_open_failure_diagnostic": True,
+        "open_read_diagnostic_stage": 3,
+        "open_read_branch_ordinals": dict(P341_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS),
+        "open_read_branch_count": P341_AUTH_EXEC_OPEN_READ_BRANCH_COUNT,
+        "open_header_word_stages": list(P341_AUTH_EXEC_OPEN_HEADER_WORD_STAGES),
+        "open_header_size": P341_AUTH_EXEC_OPEN_HEADER_SIZE,
+        "open_header_capture_best_effort": True,
+        "host_first_open": True,
+        "banner_after_open": True,
+        "original_errno_returned_unchanged": True,
+        "retry_added": False,
+        "timeout_changed": False,
+    }
+
+
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
@@ -6571,6 +6834,8 @@ def validate_e2_ap_payload(
         if isinstance(closure, dict)
         else None
     )
+    if userspace_overlay_contract_id == P341_STOCK_OVERLAY_CONTRACT_ID:
+        return _validate_p341_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
         return _validate_p340_e2_ap_payload(frame, closure)
     if userspace_overlay_contract_id == P339_STOCK_OVERLAY_CONTRACT_ID:
@@ -8256,6 +8521,98 @@ def validate_p340_open_read_branch_proof(value: Any) -> dict[str, Any]:
     return value
 
 
+def p341_authenticated_open_read_branch_observer_spec() -> dict[str, Any]:
+    """Return the P3.41 host-first-OPEN observer contract."""
+    value = p340_authenticated_open_read_branch_observer_spec()
+    value.update(
+        {
+            "kind": "exact_cdc_acm_authenticated_host_first_open_resident_session_v1",
+            "schema": p341_open_read_branch_acm_observer.SCHEMA,
+            "usb_serial": "S22E3" + P341_AUTH_EXEC_RUN_ID_HEX,
+            "banner_hex": p341_open_read_branch_runtime.DEVICE_BANNER.hex(),
+            "protocol_contract": P341_AUTH_EXEC_OBSERVER_CONTRACT_ID,
+            "commands": [
+                {
+                    "size": len(command),
+                    "sha256": hashlib.sha256(command).hexdigest(),
+                }
+                for command in p341_open_read_branch_runtime.DEFAULT_COMMANDS
+            ],
+            "auth_key": dict(P341_AUTH_EXEC_AUTH_KEY_IDENTITY),
+            "resident_lease_schema": p341_stock_adapter.LEASE_SCHEMA,
+            "open_read_branch_ordinals": dict(
+                P341_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS
+            ),
+            "open_read_branch_count": P341_AUTH_EXEC_OPEN_READ_BRANCH_COUNT,
+            "open_header_word_stages": list(P341_AUTH_EXEC_OPEN_HEADER_WORD_STAGES),
+            "open_header_size": P341_AUTH_EXEC_OPEN_HEADER_SIZE,
+            "open_header_capture_best_effort": True,
+            "host_first_open": True,
+            "banner_after_open": True,
+            "no_unsolicited_preamble": True,
+            "original_errno_returned_unchanged": True,
+            "initial_failure_suffix_capture": True,
+            "maximum_failure_suffix_bytes": 96,
+        }
+    )
+    return value
+
+
+def validate_p341_open_read_branch_proof(value: Any) -> dict[str, Any]:
+    """Validate P3.41 proof identity before private P3.40 compatibility."""
+    if not isinstance(value, dict):
+        raise EvidenceError("P3.41 open-read branch proof is not an object")
+    # Host-first proof retains the exact bounded P340 receipt shape.  Require
+    # the fresh observer/run/commands first, then validate all session fields
+    # using an isolated P340 compatibility projection.
+    expected_commands = [
+        {
+            "size": len(command),
+            "sha256": hashlib.sha256(command).hexdigest(),
+        }
+        for command in p341_open_read_branch_runtime.DEFAULT_COMMANDS
+    ]
+    if (
+        value.get("schema") != p341_open_read_branch_acm_observer.SCHEMA
+        or value.get("contract_id") != P341_AUTH_EXEC_OBSERVER_CONTRACT_ID
+        or value.get("target") != p341_open_read_branch_runtime.TARGET
+        or value.get("run_id_hex") != P341_AUTH_EXEC_RUN_ID_HEX
+        or value.get("fixed_commands") != expected_commands
+    ):
+        raise EvidenceError("P3.41 open-read branch proof identity differs")
+    # The fresh observer may expose these as explicit proof flags; if present,
+    # they are fixed booleans and never widen the wire protocol.
+    for key in ("host_first_open", "banner_after_open", "no_unsolicited_preamble"):
+        if key in value and value[key] is not True:
+            raise EvidenceError("P3.41 host-first proof flag differs")
+    projected = copy.deepcopy(value)
+    projected["schema"] = p340_open_read_branch_acm_observer.SCHEMA
+    projected["contract_id"] = P340_AUTH_EXEC_OBSERVER_CONTRACT_ID
+    projected["target"] = p340_open_read_branch_runtime.TARGET
+    projected["run_id_hex"] = P340_AUTH_EXEC_RUN_ID_HEX
+    projected["fixed_commands"] = [
+        {
+            "size": len(command),
+            "sha256": hashlib.sha256(command).hexdigest(),
+        }
+        for command in p340_open_read_branch_runtime.DEFAULT_COMMANDS
+    ]
+    for session in projected.get("sessions", []):
+        for rendered, command in zip(
+            session.get("commands", []), p340_open_read_branch_runtime.DEFAULT_COMMANDS
+        ):
+            rendered["command_sha256"] = hashlib.sha256(command).hexdigest()
+    # Extra host-first metadata is proof-local and not accepted by the older
+    # strict compatibility validator.
+    for key in ("host_first_open", "banner_after_open", "no_unsolicited_preamble"):
+        projected.pop(key, None)
+    try:
+        validate_p340_open_read_branch_proof(projected)
+    except (EvidenceError, TypeError) as exc:
+        raise EvidenceError("P3.41 open-read branch proof differs") from exc
+    return value
+
+
 def validate_candidate_arrival_proof_role(
     value: Any,
     candidate_observer: Any = None,
@@ -8273,6 +8630,10 @@ def validate_candidate_arrival_proof_role(
         return None
     if value == CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE:
         specs = {
+            P341_AUTH_EXEC_RUN_ID_HEX: (
+                "P3.41",
+                p341_authenticated_open_read_branch_observer_spec(),
+            ),
             P340_AUTH_EXEC_RUN_ID_HEX: (
                 "P3.40",
                 p340_authenticated_open_read_branch_observer_spec(),
@@ -8618,6 +8979,33 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         userspace_overlay_contract_id = value.get(
             "userspace_overlay_contract_id"
         )
+        if userspace_overlay_contract_id == P341_STOCK_OVERLAY_CONTRACT_ID:
+            template = p341_stock_adapter.acceptance_fixture()
+            expected_keys = set(template) | {"auth_key"}
+            item = _exact(value, expected_keys, "P3.41 E1 latest-stage acceptance")
+            for key, expected in template.items():
+                if key == "contract":
+                    continue
+                if not _strict_equal(item.get(key), expected):
+                    raise EvidenceError(f"P3.41 acceptance field differs: {key}")
+            if item["auth_key"] != P341_AUTH_EXEC_AUTH_KEY_IDENTITY:
+                raise EvidenceError("P3.41 acceptance auth-key identity differs")
+            contract = _exact(
+                item["contract"],
+                {"candidate_static", "run_manifest", "static_check"},
+                "P3.41 E1 latest-stage contract",
+            )
+            for name in ("candidate_static", "run_manifest", "static_check"):
+                _artifact(
+                    contract[name],
+                    f"P3.41 E1 latest-stage {name}",
+                    maximum=(
+                        P341_CANDIDATE_STATIC_MAX_BYTES
+                        if name == "candidate_static"
+                        else DEFAULT_CONTRACT_ARTIFACT_MAX_BYTES
+                    ),
+                )
+            return item
         if userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
             template = p340_stock_adapter.acceptance_fixture()
             expected_keys = set(template) | {"auth_key"}
@@ -9839,6 +10227,9 @@ P339_STATIC_RESULT_VERDICT = "PASS_P339_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
 P340_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p340_process_v2_run_manifest_v1"
 P340_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p340_process_v2_static_result_v1"
 P340_STATIC_RESULT_VERDICT = "PASS_P340_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
+P341_RUN_MANIFEST_SCHEMA = "s22plus_fyg8_p341_process_v2_run_manifest_v1"
+P341_STATIC_RESULT_SCHEMA = "s22plus_fyg8_p341_process_v2_static_result_v1"
+P341_STATIC_RESULT_VERDICT = "PASS_P341_PROCESS_V2_STATIC_RESULT_HOST_ONLY"
 
 
 def _verify_p321_stock_offline_contract(
@@ -13560,6 +13951,361 @@ def _verify_p340_stock_offline_contract(
     }
 
 
+def _verify_p341_stock_offline_contract(
+    acceptance: dict[str, Any],
+    *,
+    payloads: dict[str, bytes],
+    receipts: dict[str, dict[str, Any]],
+    candidate_ap: dict[str, Any],
+    runtime_bound: bool = False,
+) -> dict[str, Any]:
+    """Verify the distinct P3.41 host-first OPEN static/AP/source closure."""
+    item = validate_acceptance(acceptance)
+    if item.get("userspace_overlay_contract_id") != P341_STOCK_OVERLAY_CONTRACT_ID:
+        raise EvidenceError("P3.41 offline contract is not applicable")
+    names = {"candidate_static", "run_manifest", "static_check"}
+    if set(payloads) != names or set(receipts) != names:
+        raise EvidenceError("P3.41 promotion artifacts are incomplete")
+    for name, payload in payloads.items():
+        pin = item["contract"][name]
+        actual = {
+            "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        if actual != {key: pin[key] for key in ("size", "sha256")} or actual != {
+            key: receipts[name].get(key) for key in ("size", "sha256")
+        }:
+            raise EvidenceError(f"P3.41 offline contract {name} changed")
+
+    candidate_static = _json(payloads["candidate_static"], "P3.41 candidate-static")
+    if payloads["candidate_static"] != _canonical(candidate_static):
+        raise EvidenceError("P3.41 candidate-static bytes are not canonical")
+    candidate_static = _validate_p341_candidate_static(
+        candidate_static, runtime_bound=runtime_bound
+    )
+    expected_header = {
+        "schema": P341_CANDIDATE_STATIC_SCHEMA,
+        "verdict": P341_CANDIDATE_STATIC_VERDICT,
+        "target": P341_TARGET,
+        "run_id": P341_RUN_ID,
+        "predecessor_run_id": P341_PREDECESSOR_RUN_ID,
+        "source_contract_id": p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P341_STOCK_OVERLAY_CONTRACT_ID,
+        "profile": p341_stock_adapter.PROFILE,
+    }
+    candidate = candidate_static.get("candidate")
+    candidate_ap_identity = _binary_identity(
+        {key: candidate_ap.get(key) for key in ("size", "sha256")},
+        "P3.41 candidate AP",
+    )
+    if (
+        any(
+            not _strict_equal(candidate_static.get(key), expected)
+            for key, expected in expected_header.items()
+        )
+        or not isinstance(candidate, dict)
+        or not isinstance(candidate.get("a"), dict)
+        or candidate["a"].get("ap_tar_md5") != candidate_ap_identity
+        or candidate.get("b", {}).get("ap_tar_md5") != candidate_ap_identity
+        or candidate_ap.get("member")
+        != {"name": "boot.img.lz4", **candidate["a"]["boot_img_lz4"]}
+        or candidate.get("ab_artifact_identity_equal") is not True
+        or candidate.get("boot_only") is not True
+        or candidate.get("byte_identical") is not True
+        or candidate.get("one_boot_img_lz4_member") is not True
+    ):
+        raise EvidenceError("P3.41 candidate AP binding differs")
+    static_identity = {
+        "size": len(payloads["candidate_static"]),
+        "sha256": hashlib.sha256(payloads["candidate_static"]).hexdigest(),
+    }
+
+    run_manifest = _json(payloads["run_manifest"], "P3.41 run manifest")
+    expected_manifest = {
+        "schema": P341_RUN_MANIFEST_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "profile": p341_stock_adapter.PROFILE,
+        "run_id": P341_RUN_ID,
+        "decoder": p341_stock_adapter.DECODER_ID,
+        "policy_id": p341_stock_adapter.POLICY_ID,
+        "records": {
+            "long_family_hex": p341_stock_adapter.LONG_FAMILY.hex(),
+            "unsat_family_hex": p341_stock_adapter.UNSAT_FAMILY.hex(),
+            "terminal_stage": p341_stock_adapter.TERMINAL_STAGE,
+        },
+        "candidate_ap": candidate_ap_identity,
+        "candidate_static": static_identity,
+        "source_contract_id": p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P341_STOCK_OVERLAY_CONTRACT_ID,
+    }
+    observation_contract = run_manifest.get("observation_contract")
+    if (
+        any(
+            not _strict_equal(run_manifest.get(key), expected)
+            for key, expected in expected_manifest.items()
+        )
+        or not isinstance(observation_contract, dict)
+        or observation_contract.get("accepted_identity")
+        != "P341_STOCK_OBSERVER_V4_OPEN_HEADER_CAPTURE"
+        or observation_contract.get("minimum_success_count") != 1
+        or observation_contract.get("clean_baseline_required") is not True
+        or observation_contract.get("runtime_values_preflighted") is not False
+        or observation_contract.get("complete_is_noncausal") is not True
+        or observation_contract.get("incomplete_result")
+        != "NO_PROOF_EXPERIMENT_PRECONDITION"
+        or observation_contract.get("receipt_result") != "NO_PROOF_OBSERVER"
+        or observation_contract.get("host_first_open") is not True
+        or observation_contract.get("host_open_before_banner") is not True
+        or observation_contract.get("device_banner_after_open") is not True
+        or observation_contract.get("stage_zero_after_banner") is not True
+        or observation_contract.get("open_parsed_after_stage_zero") is not True
+        or payloads["run_manifest"] != _canonical(run_manifest)
+    ):
+        raise EvidenceError("P3.41 run manifest differs")
+
+    run_payload = _canonical(run_manifest)
+    static_result = _json(payloads["static_check"], "P3.41 static result")
+    expected_static_header = {
+        "schema": P341_STATIC_RESULT_SCHEMA,
+        "target": PID1_USERSPACE_TARGET,
+        "verdict": P341_STATIC_RESULT_VERDICT,
+        "profile": p341_stock_adapter.PROFILE,
+        "run_id": P341_RUN_ID,
+        "decoder": p341_stock_adapter.DECODER_ID,
+        "policy_id": p341_stock_adapter.POLICY_ID,
+        "source_contract_id": p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P341_STOCK_OVERLAY_CONTRACT_ID,
+        "run_binding": {
+            "canonical_manifest_size": len(run_payload),
+            "canonical_manifest_sha256": hashlib.sha256(run_payload).hexdigest(),
+            "verified": True,
+        },
+    }
+    static_candidate = static_result.get("candidate")
+    safety = static_result.get("safety")
+    expected_artifacts = {
+        "ap": candidate_ap_identity,
+        "candidate_static": static_identity,
+        "boot_image": candidate["a"]["boot_img"],
+        "boot_img_lz4": candidate["a"]["boot_img_lz4"],
+        "image": candidate["image"],
+        "init": candidate["init"],
+        "child": candidate["child"],
+        "busybox": candidate["busybox"],
+        "latch": {
+            key: candidate_static["source_closure"]["latch"][key]
+            for key in ("size", "sha256")
+        },
+    }
+    if (
+        any(
+            not _strict_equal(static_result.get(key), expected)
+            for key, expected in expected_static_header.items()
+        )
+        or not isinstance(static_candidate, dict)
+        or static_candidate.get("artifacts") != expected_artifacts
+        or static_candidate.get("boot_only_ap") is not True
+        or static_candidate.get("independent_static_contract") is not True
+        or static_candidate.get("complete_is_noncausal") is not True
+        or static_candidate.get("runtime_values_observed") is not False
+        or static_candidate.get("verified") is not True
+        or not isinstance(safety, dict)
+        or any(
+            safety.get(key) is not expected
+            for key, expected in {
+                "host_only": True,
+                "device_contact": False,
+                "device_write": False,
+                "odin_invoked": False,
+                "odin_transfer": False,
+                "flash": False,
+                "partition_write": False,
+                "live_authorized": False,
+                "causal_result_allowed": False,
+                "candidate_success": False,
+            }.items()
+        )
+        or payloads["static_check"] != _canonical(static_result)
+    ):
+        raise EvidenceError("P3.41 static result differs")
+
+    source_closure = candidate_static.get("source_closure")
+    expected_source_names = {
+        "latch",
+        "p341_artifact_identity",
+        "p341_host_first_open",
+        "p341_open_failure_capture",
+        "p341_open_read_branch_acm_observer",
+        "p341_open_read_branch_runtime",
+        "p341_stock_candidate_build",
+        "p341_stock_process_v2_adapter",
+        "rollback_ap",
+    }
+    if not isinstance(source_closure, dict) or set(source_closure) != expected_source_names:
+        raise EvidenceError("P3.41 source closure is incomplete")
+    source_specs = {
+        "artifact": (
+            "p341_artifact_identity",
+            "workspace/public/src/scripts/revalidation/s22plus_fyg8_p341_artifact_identity.py",
+        ),
+        "host_first": (
+            "p341_host_first_open",
+            "workspace/public/src/scripts/revalidation/s22plus_fyg8_host_first_open.py",
+        ),
+        "observer": (
+            "p341_open_read_branch_acm_observer",
+            "workspace/public/src/scripts/revalidation/s22plus_fyg8_p341_open_read_branch_acm_observer.py",
+        ),
+        "runtime": (
+            "p341_open_read_branch_runtime",
+            "workspace/public/src/scripts/revalidation/s22plus_fyg8_p341_open_read_branch_runtime.py",
+        ),
+        "capture": (
+            "p341_open_failure_capture",
+            "workspace/public/src/scripts/revalidation/s22plus_fyg8_open_failure_capture.py",
+        ),
+        "builder": (
+            "p341_stock_candidate_build",
+            "workspace/public/src/scripts/analysis/s22plus_fyg8_p341_stock_candidate_build.py",
+        ),
+        "adapter": (
+            "p341_stock_process_v2_adapter",
+            "workspace/public/src/scripts/revalidation/s22plus_fyg8_p341_stock_process_v2_adapter.py",
+        ),
+    }
+    source_values: dict[str, dict[str, Any]] = {}
+    for name, (key, path) in source_specs.items():
+        value = _artifact(
+            source_closure.get(key), f"P3.41 {name} source", maximum=2 * 1024 * 1024
+        )
+        if value["path"] != path:
+            raise EvidenceError(f"P3.41 {name} source path differs")
+        source_values[name] = value
+    if source_values["host_first"] != {
+        "path": source_specs["host_first"][1],
+        **p341_open_read_branch_runtime.HOST_FIRST_SOURCE_IDENTITY,
+    }:
+        raise EvidenceError("P3.41 host-first source identity differs")
+    latch = _artifact(
+        source_closure["latch"], "P3.41 latch source", maximum=8 * 1024 * 1024
+    )
+    if {key: latch[key] for key in ("size", "sha256")} != P319_EXACT_ARTIFACTS["latch"]:
+        raise EvidenceError("P3.41 latch source differs")
+    rollback = _artifact(
+        source_closure["rollback_ap"], "P3.41 rollback source", maximum=64 * 1024 * 1024
+    )
+    if {key: rollback[key] for key in ("size", "sha256")} != {
+        "size": 23_367_721,
+        "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
+    }:
+        raise EvidenceError("P3.41 rollback source differs")
+
+    key_identity = _binary_identity(
+        candidate_static.get("authentication", {}).get("key"),
+        "P3.41 public auth key identity",
+    )
+    if key_identity != P341_AUTH_EXEC_AUTH_KEY_IDENTITY:
+        raise EvidenceError("P3.41 auth key identity differs")
+    source_contract = _selected_contract(
+        p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID, p341_stock_adapter.PROFILE
+    )
+    try:
+        _source_payloads, candidate_source_receipts = source_contract.module.source_receipts(
+            Path(__file__).resolve().parents[5]
+        )
+    except (OSError, source_contract.module.SourceContractError) as exc:
+        raise EvidenceError("P3.41 parent source receipts are unavailable") from exc
+    lineage_sources = candidate_static.get("adapter", {}).get("lineage", {}).get("sources")
+    if not isinstance(lineage_sources, dict) or set(lineage_sources) != p341_stock_adapter.SOURCE_KEYS:
+        raise EvidenceError("P3.41 adapter source receipts are incomplete")
+    return {
+        "schema": "device_action_f1_p341_stock_offline_contract_v1",
+        "decoder": p341_stock_adapter.DECODER_ID,
+        "policy_id": p341_stock_adapter.POLICY_ID,
+        "profile": p341_stock_adapter.PROFILE,
+        "run_id": P341_RUN_ID,
+        "terminal_stage": p341_stock_adapter.TERMINAL_STAGE,
+        "candidate_ap_sha256": candidate_ap_identity["sha256"],
+        "candidate_static_sha256": static_identity["sha256"],
+        "candidate_static_payload_sha256": receipts["candidate_static"]["sha256"],
+        "candidate_static_authority": candidate_static["authority_source"],
+        "candidate_source_receipts": candidate_source_receipts,
+        "p341_adapter_source_receipts": {
+            name: _binary_identity(value, f"P3.41 adapter source {name}")
+            for name, value in lineage_sources.items()
+        },
+        "p341_open_read_branch_acm_observer_source": {
+            key: source_values["observer"][key] for key in ("size", "sha256")
+        },
+        "p341_open_read_branch_runtime_source": {
+            key: source_values["runtime"][key] for key in ("size", "sha256")
+        },
+        "p341_artifact_identity_source": {
+            key: source_values["artifact"][key] for key in ("size", "sha256")
+        },
+        "p341_host_first_open_source": {
+            key: source_values["host_first"][key] for key in ("size", "sha256")
+        },
+        "p341_open_failure_capture_source": {
+            key: source_values["capture"][key] for key in ("size", "sha256")
+        },
+        "p341_stock_candidate_build_source": {
+            key: source_values["builder"][key] for key in ("size", "sha256")
+        },
+        "p341_stock_process_v2_adapter_source": {
+            key: source_values["adapter"][key] for key in ("size", "sha256")
+        },
+        "p341_latch_source": {
+            key: latch[key] for key in ("size", "sha256")
+        },
+        "p341_rollback_source": {
+            key: rollback[key] for key in ("size", "sha256")
+        },
+        "p341_auth_key": dict(key_identity),
+        "p341_builder_result": candidate_static["builder_result"],
+        "run_manifest_sha256": receipts["run_manifest"]["sha256"],
+        "static_check_sha256": receipts["static_check"]["sha256"],
+        "clean_baseline_required": True,
+        "minimum_success_count": 1,
+        "source_contract_id": p341_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
+        "userspace_overlay_contract_id": P341_STOCK_OVERLAY_CONTRACT_ID,
+        "ap_payload_closure": _p341_ap_payload_closure(candidate_static),
+        "runtime_values_observed": False,
+        "complete_is_noncausal": True,
+        "causal_result_allowed": False,
+        "candidate_success": False,
+        "initial_sessions_bounded": True,
+        "physical_reopen_count": p341_stock_adapter.INITIAL_RECONNECT_COUNT,
+        "per_boot_identity_required": True,
+        "first_open_failure_diagnostic": True,
+        "open_read_diagnostic_stage": 3,
+        "open_read_branch_ordinals": dict(P341_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS),
+        "open_read_branch_count": P341_AUTH_EXEC_OPEN_READ_BRANCH_COUNT,
+        "open_header_word_stages": list(P341_AUTH_EXEC_OPEN_HEADER_WORD_STAGES),
+        "open_header_size": P341_AUTH_EXEC_OPEN_HEADER_SIZE,
+        "open_header_capture_best_effort": True,
+        "initial_failure_suffix_capture": True,
+        "maximum_failure_suffix_bytes": 96,
+        "host_first_open": True,
+        "host_open_before_banner": True,
+        "device_banner_after_open": True,
+        "stage_zero_after_banner": True,
+        "open_parsed_after_stage_zero": True,
+        "no_unsolicited_device_tx": True,
+        "silent_no_peer_no_proof": True,
+        "consumed_partial_open_no_replay": True,
+        "original_errno_returned_unchanged": True,
+        "later_action_open_before_resync": True,
+        "retry_added": False,
+        "timeout_changed": False,
+        "listener_wait_after_proof": True,
+        "resident_lease_schema": p341_stock_adapter.LEASE_SCHEMA,
+        "resident_lease_duration_sec": p341_stock_adapter.LEASE_DURATION_SEC,
+        "resident_lease_action_cap": p341_stock_adapter.LEASE_ACTION_CAP,
+        "verified": True,
+    }
+
+
 def _verify_p336_stock_offline_contract(
     acceptance: dict[str, Any],
     *,
@@ -15113,6 +15859,14 @@ def _verify_e1_latest_stage_offline_contract(
     profile = item["profile"]
     source_contract_id = item.get("source_contract_id")
     userspace_overlay_contract_id = item.get("userspace_overlay_contract_id")
+    if userspace_overlay_contract_id == P341_STOCK_OVERLAY_CONTRACT_ID:
+        return _verify_p341_stock_offline_contract(
+            acceptance,
+            payloads=payloads,
+            receipts=receipts,
+            candidate_ap=candidate_ap,
+            runtime_bound=runtime_bound,
+        )
     if userspace_overlay_contract_id == P340_STOCK_OVERLAY_CONTRACT_ID:
         return _verify_p340_stock_offline_contract(
             acceptance,
@@ -18115,6 +18869,8 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    if item.get("userspace_overlay_contract_id") == P341_STOCK_OVERLAY_CONTRACT_ID:
+        result["overlay_contract_id"] = P341_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P340_STOCK_OVERLAY_CONTRACT_ID:
         result["overlay_contract_id"] = P340_STOCK_OVERLAY_CONTRACT_ID
     if item.get("userspace_overlay_contract_id") == P339_STOCK_OVERLAY_CONTRACT_ID:
@@ -18179,6 +18935,7 @@ def classify_e1_latest_stage(
         ]
         result["p319_stock"] = stock_rows
     if item.get("userspace_overlay_contract_id") in {
+        P341_STOCK_OVERLAY_CONTRACT_ID,
         P340_STOCK_OVERLAY_CONTRACT_ID,
         P339_STOCK_OVERLAY_CONTRACT_ID,
         P338_STOCK_OVERLAY_CONTRACT_ID,
@@ -18207,6 +18964,7 @@ def classify_e1_latest_stage(
         if (
             item.get("userspace_overlay_contract_id")
             in {
+                P341_STOCK_OVERLAY_CONTRACT_ID,
                 P339_STOCK_OVERLAY_CONTRACT_ID,
                 P338_STOCK_OVERLAY_CONTRACT_ID,
                 P337_STOCK_OVERLAY_CONTRACT_ID,
@@ -18227,6 +18985,7 @@ def classify_e1_latest_stage(
             }
             and decoded.get("proof_class")
             in {
+                "P341_STOCK_ENCODER_FAILURE",
                 "P340_STOCK_ENCODER_FAILURE",
                 "P339_STOCK_ENCODER_FAILURE",
                 "P338_STOCK_ENCODER_FAILURE",
@@ -18263,7 +19022,10 @@ def classify_e1_latest_stage(
         ):
             if name not in decoded:
                 label = (
-                    "P3.40"
+                    "P3.41"
+                    if item.get("userspace_overlay_contract_id")
+                    == P341_STOCK_OVERLAY_CONTRACT_ID
+                    else "P3.40"
                     if item.get("userspace_overlay_contract_id")
                     == P340_STOCK_OVERLAY_CONTRACT_ID
                     else
@@ -18322,7 +19084,10 @@ def classify_e1_latest_stage(
                 raise EvidenceError(f"{label} stock result omitted {name}")
             result[name] = decoded[name]
         stock_key = (
-            "p340_stock"
+            "p341_stock"
+            if item.get("userspace_overlay_contract_id")
+            == P341_STOCK_OVERLAY_CONTRACT_ID
+            else "p340_stock"
             if item.get("userspace_overlay_contract_id")
             == P340_STOCK_OVERLAY_CONTRACT_ID
             else
@@ -18387,6 +19152,7 @@ def classify_e1_latest_stage(
         ]
         result[stock_key] = stock_rows
         if item.get("userspace_overlay_contract_id") in {
+            P341_STOCK_OVERLAY_CONTRACT_ID,
             P340_STOCK_OVERLAY_CONTRACT_ID,
             P339_STOCK_OVERLAY_CONTRACT_ID,
             P338_STOCK_OVERLAY_CONTRACT_ID,
@@ -18423,6 +19189,7 @@ def classify_e1_latest_stage(
                 if name in decoded:
                     result[name] = decoded[name]
     if item.get("userspace_overlay_contract_id") in {
+        P341_STOCK_OVERLAY_CONTRACT_ID,
         P340_STOCK_OVERLAY_CONTRACT_ID,
         P339_STOCK_OVERLAY_CONTRACT_ID,
         P338_STOCK_OVERLAY_CONTRACT_ID,
@@ -18437,6 +19204,7 @@ def classify_e1_latest_stage(
         P329_STOCK_OVERLAY_CONTRACT_ID,
         P330_STOCK_OVERLAY_CONTRACT_ID,
     }:
+        p341 = item.get("userspace_overlay_contract_id") == P341_STOCK_OVERLAY_CONTRACT_ID
         p340 = item.get("userspace_overlay_contract_id") == P340_STOCK_OVERLAY_CONTRACT_ID
         p339 = item.get("userspace_overlay_contract_id") == P339_STOCK_OVERLAY_CONTRACT_ID
         p338 = item.get("userspace_overlay_contract_id") == P338_STOCK_OVERLAY_CONTRACT_ID
@@ -18458,17 +19226,19 @@ def classify_e1_latest_stage(
             "auth_key_size": P328_AUTH_EXEC_AUTH_KEY_SIZE,
             "auth_key_path_published": False,
             "per_session_random_nonce": True,
-            "caller_selected_command": False if p340 or p339 or p338 or p337 or p336 or p335 or p334 or p333 or p332 or p331 else True,
+            "caller_selected_command": False if p341 or p340 or p339 or p338 or p337 or p336 or p335 or p334 or p333 or p332 or p331 else True,
             "interactive_pty": False,
         }
         for name, expected in expected_authentication.items():
             if name in decoded and decoded[name] != expected:
                 raise EvidenceError(
-                    f"P3.{40 if p340 else 39 if p339 else 38 if p338 else 37 if p337 else 36 if p336 else 35 if p335 else 34 if p334 else 33 if p333 else 32 if p332 else 31 if p331 else 30 if p330 else 29 if p329 else 28} classifier authentication field {name} differs"
+                    f"P3.{41 if p341 else 40 if p340 else 39 if p339 else 38 if p338 else 37 if p337 else 36 if p336 else 35 if p335 else 34 if p334 else 33 if p333 else 32 if p332 else 31 if p331 else 30 if p330 else 29 if p329 else 28} classifier authentication field {name} differs"
                 )
             result[name] = expected
         result["auth_key"] = dict(
-            P340_AUTH_EXEC_AUTH_KEY_IDENTITY
+            P341_AUTH_EXEC_AUTH_KEY_IDENTITY
+            if p341
+            else P340_AUTH_EXEC_AUTH_KEY_IDENTITY
             if p340
             else
             P339_AUTH_EXEC_AUTH_KEY_IDENTITY
@@ -18497,7 +19267,9 @@ def classify_e1_latest_stage(
             else P328_AUTH_EXEC_AUTH_KEY_IDENTITY
         )
         result["observer_contract"] = (
-            P340_AUTH_EXEC_OBSERVER_CONTRACT_ID
+            P341_AUTH_EXEC_OBSERVER_CONTRACT_ID
+            if p341
+            else P340_AUTH_EXEC_OBSERVER_CONTRACT_ID
             if p340
             else
             P339_AUTH_EXEC_OBSERVER_CONTRACT_ID
@@ -18525,7 +19297,7 @@ def classify_e1_latest_stage(
             if p329
             else P328_AUTH_EXEC_OBSERVER_CONTRACT_ID
         )
-        if p329 or p330 or p331 or p332 or p333 or p334 or p335 or p336 or p337 or p338 or p339 or p340:
+        if p329 or p330 or p331 or p332 or p333 or p334 or p335 or p336 or p337 or p338 or p339 or p340 or p341:
             result["udev_guard_settle_bounded"] = True
         if p330:
             result["preauth_diagnostics_bounded"] = True
@@ -18628,6 +19400,32 @@ def classify_e1_latest_stage(
             result["open_header_size"] = P339_AUTH_EXEC_OPEN_HEADER_SIZE
             result["open_header_capture_best_effort"] = True
             result["original_errno_returned_unchanged"] = True
+        if p341:
+            result["preauth_diagnostics_bounded"] = True
+            result["initial_sessions_bounded"] = True
+            result["same_tty_fd_required"] = True
+            result["physical_reopen_count"] = 1
+            result["per_boot_identity_required"] = True
+            result["long_idle_host_resync"] = True
+            result["later_action_open_before_resync"] = True
+            result["listener_wait_after_proof"] = True
+            result["first_open_failure_diagnostic"] = True
+            result["open_read_diagnostic_stage"] = p341_open_read_branch_runtime.DIAGNOSTIC_STAGE_OPEN_READ_RESULT
+            result["open_read_failure_diagnostic_best_effort"] = True
+            result["open_read_branch_ordinals"] = dict(P341_AUTH_EXEC_OPEN_READ_BRANCH_ORDINALS)
+            result["open_read_branch_count"] = P341_AUTH_EXEC_OPEN_READ_BRANCH_COUNT
+            result["open_header_word_stages"] = list(P341_AUTH_EXEC_OPEN_HEADER_WORD_STAGES)
+            result["open_header_size"] = P341_AUTH_EXEC_OPEN_HEADER_SIZE
+            result["open_header_capture_best_effort"] = True
+            result["original_errno_returned_unchanged"] = True
+            result["host_first_open"] = True
+            result["host_open_before_banner"] = True
+            result["device_banner_after_open"] = True
+            result["stage_zero_after_banner"] = True
+            result["open_parsed_after_stage_zero"] = True
+            result["no_unsolicited_device_tx"] = True
+            result["silent_no_peer_no_proof"] = True
+            result["consumed_partial_open_no_replay"] = True
         if p340:
             result["preauth_diagnostics_bounded"] = True
             result["initial_sessions_bounded"] = True
