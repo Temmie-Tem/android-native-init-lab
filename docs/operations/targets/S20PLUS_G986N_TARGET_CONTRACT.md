@@ -2551,7 +2551,7 @@ path/inode/device/topology or descriptor drift still stops.
 
 ## S20+ P0 PID1 Minimal Download-Request F1 candidate
 
-Status: **DEFINED - H0 ONLY - NOT ACTIVE - OWNER NOT REBOUND**
+Status: **DEFINED - H0 ONLY - NOT ACTIVE - OWNER REBOUND, OBSERVATION REPLACEMENT PENDING**
 
 This section defines one replacement candidate for the P0 direct-PID1 lane. It
 adds no tier, no owner, no machinery and no authority of its own. Every F1
@@ -2582,7 +2582,7 @@ chain.
 
 Built by
 `workspace/public/src/scripts/revalidation/build_s20plus_g986n_p0_pid1_min_h0.py`
-at SHA-256 `d454faf9f240da2a00f4f2c0361a1d2487246ab3317331ca53af26973297b758`
+at SHA-256 `7eeacf34184e31deaa571029d3cd7961fcd6f59e7d1dd78bbef1681f53a5da51`
 from `workspace/public/src/native-init/s20plus_p0_pid1_min_init.c` at SHA-256
 `4fa39972eee88896f0cde837aafd19c0ddfd07eadd224f522021adb523629c8f`.
 
@@ -2654,12 +2654,29 @@ failure with no gadget, no dwell and no chain left in it to blame.
 
 ### What is still required before any device contact
 
-The P0 owner is dormant and is still bound to the consumed ACM candidate. It
-must be rebound to the artifacts above, re-pinned, and re-reviewed together with
-this section, the builder, the init source and their tests. Activation then
-requires the owner's own activation records, a fresh connected prepare, its
-emitted exact approval, and operator attendance. Nothing in this section
-activates anything, and the consumed candidates grant it no standing.
+The P0 owner is dormant. It is now bound to the artifacts above - builder, init
+source, AP, member, boot and manifest identities - and its manifest closure
+requires this candidate's declarations, including `reboot_syscall` true and
+`reboot_target` `download`, so a candidate that denied the reboot or aimed it
+elsewhere fails closed.
+
+**The observation replacement is not done.** The owner still observes the ACM
+banner of the consumed candidate, which this candidate cannot emit, so as it
+stands a run would wait out the arrival window and record `NO_PROOF` even if
+PID1 executed and reached Download. That is the opposite of the property this
+candidate exists for, and it is why the status line above says the replacement
+is pending. The observation must be replaced with Download-mode arrival, using
+the engine's existing `download_baseline`, `wait_download` and
+`bind_existing_download` path, and must also publish the USB observer's terminal
+inventory so that "enumerated with an unexpected identity" and "never appeared"
+stop being indistinguishable, as they were across three consumed runs.
+
+Until that is done this candidate must not be activated even if every other gate
+were satisfied. After it is done the owner must be re-pinned and re-reviewed
+together with this section, the builder, the init source and their tests.
+Activation then requires the owner's own activation records, a fresh connected
+prepare, its emitted exact approval, and operator attendance. Nothing in this
+section activates anything, and the consumed candidates grant it no standing.
 
 ## General machine-controlled D1 status
 

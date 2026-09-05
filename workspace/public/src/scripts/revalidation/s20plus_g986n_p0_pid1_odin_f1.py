@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "58eff39d24eb11c7eeab3d6fac8307cb73ab2837122603d2639adeffa681d914"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "bd87ba251a303be848a6102df5b6c51e0117cd23e1e01deae0ca14f6cea6f88d"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -95,24 +95,35 @@ OBSERVER_SIZE = OBSERVER_SIZE_BY_ACTIVE[P0_F1_ACTIVE]
 OBSERVER_SHA256 = OBSERVER_SHA256_BY_ACTIVE[P0_F1_ACTIVE]
 BUILDER_PATH = ROOT / (
     "workspace/public/src/scripts/revalidation/"
-    "build_s20plus_g986n_p0_pid1_acm_h0.py"
+    "build_s20plus_g986n_p0_pid1_min_h0.py"
 )
-BUILDER_SIZE = 23_173
-BUILDER_SHA256 = "3a4a7f450fc0d6ab8f079fd49922e739d3f02c27e1e155ec94d3b19229948276"
+BUILDER_SIZE = 10_867
+BUILDER_SHA256 = "7eeacf34184e31deaa571029d3cd7961fcd6f59e7d1dd78bbef1681f53a5da51"
 INIT_SOURCE_PATH = (
-    ROOT / "workspace/public/src/native-init/s20plus_p0_pid1_acm_init.c"
+    ROOT / "workspace/public/src/native-init/s20plus_p0_pid1_min_init.c"
 )
-INIT_SOURCE_SIZE = 15_549
-INIT_SOURCE_SHA256 = "8b7a61dbc9f064b2d5eab86b4a2f194c3187106d480e4f25988e6cffdc1456c3"
+INIT_SOURCE_SIZE = 6_481
+INIT_SOURCE_SHA256 = "4fa39972eee88896f0cde837aafd19c0ddfd07eadd224f522021adb523629c8f"
 
-OUTPUT_ROOT = ROOT / "workspace/private/outputs/s20plus_g986n/p0_pid1_acm_v3"
+OUTPUT_ROOT = ROOT / "workspace/private/outputs/s20plus_g986n/p0_pid1_min_v4"
 CANDIDATE_AP = OUTPUT_ROOT / "AP.tar.md5"
-CANDIDATE_AP_SIZE = 25_733_161
-CANDIDATE_AP_SHA256 = "90a25e4a946e24a469380735aff5cdf250d2b107696353839a9030870e72b67b"
-CANDIDATE_MEMBER_SIZE = 25_722_068
-CANDIDATE_MEMBER_SHA256 = "17cf78f5ceef3ef1a69bc829190fb2e99ff47a692702faf4a82239e8aa9fefae"
+CANDIDATE_AP_SIZE = 25_722_921
+CANDIDATE_AP_SHA256 = "6b629932f4d441480fee5dd2019e5fee43790a0f1b41cf7e9c6cfefce02e7957"
+CANDIDATE_MEMBER_SIZE = 25_720_699
+CANDIDATE_MEMBER_SHA256 = "90c2b8ee9fb657513ba07e901f2fa5b31435cb21811ce8a4efecf77d23eac414"
 CANDIDATE_BOOT_SIZE = 67_108_864
-CANDIDATE_BOOT_SHA256 = "dd4f1d0347983ac35f7d2692ff6fc4ad89ccc1a895b948bf7c330c736f6af073"
+CANDIDATE_BOOT_SHA256 = "0456cec1d234c520dc39e0d6ec4919addf46ca3c051082e82e21db5d8ac91376"
+CANDIDATE_INIT_NAME = "s20plus_p0_pid1_min_init"
+CANDIDATE_INIT_SIZE = 800
+CANDIDATE_INIT_SHA256 = (
+    "8fb2152224089471c4a0de6462a9bc47f333eeda2f57aac992a1ad4177eb2daf"
+)
+CANDIDATE_BUILD_SCHEMA = "s20plus_g986n_p0_pid1_min_build_v4"
+# The candidate's own banner. It is secondary evidence written to /dev/kmsg on a
+# best-effort path; the download request is what proves PID1 executed.
+CANDIDATE_BANNER = (
+    b"S20PLUS_P0_PID1_MIN_V4;pid=00000001;stage=DOWNLOAD_REQUEST\n"
+)
 
 ROLLBACK_ROOT = (
     ROOT
@@ -127,8 +138,8 @@ ROLLBACK_BOOT_SIZE = 67_108_864
 ROLLBACK_BOOT_SHA256 = "d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707418f7efc"
 
 MANIFEST = OUTPUT_ROOT / "manifest.json"
-MANIFEST_SIZE = 14_574
-MANIFEST_SHA256 = "71d2b683c62066ffcdc69c2d62d4c99e3635ebc8358ed5d10927b262a59bd2b5"
+MANIFEST_SIZE = 5_609
+MANIFEST_SHA256 = "9801ad6fc4329ad204253a40802de6e59c7ef8463495108c7d8bb411e1b29fa1"
 
 APPROVAL_PREFIX = "S20PLUS-G986N-P0-PID1-ODIN-F1-APPROVE:"
 PHYSICAL_CONFIRM_PREFIX = "S20PLUS-G986N-P0-PHYSICAL-ROLLBACK-CONFIRM:"
@@ -2366,30 +2377,35 @@ def _strict_manifest() -> dict[str, Any]:
             "size": CANDIDATE_MEMBER_SIZE,
             "sha256": CANDIDATE_MEMBER_SHA256,
         },
-        "s20plus_p0_pid1_init": {
-            "size": 3_584,
-            "sha256": "48e45cb8b713e0cf458f9996b60e73b357c1e0e7f589c130aa5d5702bd139242",
+        CANDIDATE_INIT_NAME: {
+            "size": CANDIDATE_INIT_SIZE,
+            "sha256": CANDIDATE_INIT_SHA256,
         },
     }
-    observer_contract = value.get("observer_contract", {}) if isinstance(value, dict) else {}
+    download_contract = value.get("download_contract", {}) if isinstance(value, dict) else {}
     safety = value.get("safety", {}) if isinstance(value, dict) else {}
     if (
         type(value) is not dict
-        or value.get("schema") != "s20plus_g986n_p0_pid1_acm_build_v3"
+        or value.get("schema") != CANDIDATE_BUILD_SCHEMA
         or value.get("target") != engine.TARGET
         or value.get("tier") != "H0"
         or value.get("live_authority") is not False
         or value.get("outputs") != outputs
-        or observer_contract.get("banner_hex") != observer.BANNER.hex()
-        or observer_contract.get("banner_sha256")
-        != hashlib.sha256(observer.BANNER).hexdigest()
-        or observer_contract.get("banner_size") != len(observer.BANNER)
-        or observer_contract.get("pid_value_derived_from_first_getpid_gate") is not True
-        or observer_contract.get("usb_vendor") != observer.USB_VENDOR
-        or observer_contract.get("usb_product") != observer.USB_PRODUCT
-        or observer_contract.get("manufacturer") != observer.USB_MANUFACTURER
-        or observer_contract.get("product_string") != observer.USB_PRODUCT_STRING
-        or observer_contract.get("serial_descriptor") is not False
+        or download_contract.get("banner_hex") != CANDIDATE_BANNER.hex()
+        or download_contract.get("banner_sha256")
+        != hashlib.sha256(CANDIDATE_BANNER).hexdigest()
+        or download_contract.get("banner_size") != len(CANDIDATE_BANNER)
+        # The banner is secondary evidence and must be declared as such, so a
+        # candidate that made the download request depend on it fails here.
+        or download_contract.get("banner_best_effort") is not True
+        or download_contract.get("pid_value_derived_from_first_getpid_gate") is not True
+        or download_contract.get("reboot_command") != "LINUX_REBOOT_CMD_RESTART2"
+        or download_contract.get("reboot_argument") != "download"
+        or download_contract.get("kmsg_major") != 1
+        or download_contract.get("kmsg_minor") != 11
+        or download_contract.get("sysfs_lookup_required") is not False
+        or download_contract.get("usb_gadget_configured") is not False
+        or download_contract.get("configfs_mounted") is not False
         or safety.get("boot_only_output") is not True
         or safety.get("global_pid1_candidate") is not True
         or safety.get("ramdisk_init_replaced") is not True
@@ -2398,7 +2414,12 @@ def _strict_manifest() -> dict[str, Any]:
         or safety.get("header_preserved") is not True
         or safety.get("block_device_access") is not False
         or safety.get("persistent_write") is not False
-        or safety.get("reboot_syscall") is not False
+        # This candidate requests download mode from PID1. The declaration is
+        # required rather than forbidden, and the target is pinned, so a
+        # candidate rebooting anywhere else fails closed here.
+        or safety.get("reboot_syscall") is not True
+        or safety.get("reboot_target") != "download"
+        or safety.get("dwell_before_reboot") is not False
         or safety.get("tar_members") != ["boot.img.lz4"]
     ):
         raise P0F1Error("P0 manifest closure differs")

@@ -17,6 +17,7 @@ fail the build rather than reach the device.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -169,12 +170,51 @@ def build(out_dir: Path) -> dict[str, Any]:
             acm.publish_file(materialized["paths"][key], out_dir / name, 0o700 if name == INIT_NAME else 0o600)
         common.fsync_directory(out_dir)
         published = {name: common.receipt(out_dir / name, f"P0 minimal published {name}") for name in PUBLISHED_FILES}
+    # The owner validates this manifest as a safety-declaration surface, so the
+    # shape follows the one it already reviews. `download_contract` replaces the
+    # ACM candidate's `observer_contract`, and `safety` declares the reboot
+    # rather than denying it.
     result = {
         "schema": SCHEMA,
         "verdict": VERDICT,
         "profile": PROFILE,
         "target": dict(acm.TARGET),
-        "banner": BANNER.decode("ascii"),
+        "tier": "H0",
+        "live_authority": False,
+        "outputs": {
+            name: {"size": published[name]["size"], "sha256": published[name]["sha256"]}
+            for name in PUBLISHED_FILES
+        },
+        "download_contract": {
+            "banner_hex": BANNER.hex(),
+            "banner_sha256": hashlib.sha256(BANNER).hexdigest(),
+            "banner_size": len(BANNER),
+            "banner_best_effort": True,
+            "pid_value_derived_from_first_getpid_gate": True,
+            "reboot_command": "LINUX_REBOOT_CMD_RESTART2",
+            "reboot_argument": "download",
+            "kmsg_major": 1,
+            "kmsg_minor": 11,
+            "sysfs_lookup_required": False,
+            "usb_gadget_configured": False,
+            "configfs_mounted": False,
+        },
+        "safety": {
+            "boot_only_output": True,
+            "global_pid1_candidate": True,
+            "ramdisk_init_replaced": True,
+            "kernel_preserved": True,
+            "dtb_preserved": True,
+            "header_preserved": True,
+            "block_device_access": False,
+            "persistent_write": False,
+            # The one deliberate difference from the ACM candidate: this probe
+            # requests download mode, and that request is its whole evidence.
+            "reboot_syscall": True,
+            "reboot_target": "download",
+            "dwell_before_reboot": False,
+            "tar_members": ["boot.img.lz4"],
+        },
         "base_boot": base,
         "magiskboot": magiskboot,
         "sources": sources,
@@ -184,31 +224,6 @@ def build(out_dir: Path) -> dict[str, Any]:
         "ap": materialized["ap"],
         "published": published,
         "reduction_of": "s20plus-g986n-p0-pid1-acm-v3",
-        "properties": {
-            "boot_only": True,
-            "kernel_unchanged": True,
-            "dtb_unchanged": True,
-            "ramdisk_init_replaced": True,
-            "global_pid1_candidate": True,
-            "android_started": False,
-            "magisk_started": False,
-            "persistent_partition_mount": False,
-            "persistent_write": False,
-            "block_device_access": False,
-            "module_insertion": False,
-            "network_function": False,
-            "storage_function": False,
-            "usb_gadget_configured": False,
-            "configfs_mounted": False,
-            # The one deliberate difference from the ACM candidate: this probe
-            # requests download mode, and that request is its whole evidence.
-            "reboot_syscall": True,
-            "reboot_target": "download",
-            "dwell_before_reboot": False,
-            "kmsg_banner_best_effort": True,
-            "odin_invoked": False,
-            "device_contact": False,
-        },
         "reproducibility": {"two_init_builds_byte_identical": True},
         "device_commands": 0,
         "adb_commands": 0,
