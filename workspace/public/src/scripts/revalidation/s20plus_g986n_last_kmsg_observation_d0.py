@@ -83,16 +83,35 @@ health = load_health()
 #                cannot yet contain its own shutdown, but a ring buffer can
 #                retain a wrapped older one, so this does not identify the boot
 # sec_log_marker the Samsung sec_log path identified in the stock configuration
+# candidate_banner the one predicate that identifies a boot rather than
+#                describing the window. See CANDIDATE_BANNER below.
 # Anchored to the kernel log record prefix - an optional <N> priority and a
 # bracketed timestamp - so a userspace line that merely quotes one of these
 # strings, or a driver name containing it, is not counted. An unanchored
 # substring match cannot support any claim about which boot produced the record.
 RECORD_PREFIX = r"^(<[0-9]+>)?\[[ 0-9.]+\] "
+
+# A fixed literal, not a caller-supplied value and not imported from the F1
+# owner, so this capability keeps no dependency on it.
+#
+# The other predicates describe the window; none of them can say which boot
+# produced it, because a ring buffer can retain a wrapped older record. This one
+# can. Only the P0 minimal candidate's PID1 writes this exact string to
+# /dev/kmsg, so its presence is self-authenticating: the boot that produced the
+# window ran that candidate's /init.
+#
+# That is why it exists here. Download-mode arrival after a candidate transfer
+# is not causally attributable to PID1 - a bootloader fallback, a reset, an
+# operator entry or a reconnect all look identical - so the arrival cannot be
+# the proof. This string can be.
+CANDIDATE_BANNER = "S20PLUS_P0_PID1_MIN_V4;pid=00000001;stage=DOWNLOAD_REQUEST"
+
 PREDICATES = {
     "linux_version": RECORD_PREFIX + r"Linux version 4\.19\.113",
     "init_records": RECORD_PREFIX + r"init: ",
     "terminal_marker": RECORD_PREFIX + r"(reboot: (Restarting system|Power)|Power down)",
     "sec_log_marker": RECORD_PREFIX + r".*sec_log",
+    "candidate_banner": RECORD_PREFIX + re.escape(CANDIDATE_BANNER),
 }
 
 # Every branch emits every key exactly once and in this order, so a short or
@@ -257,6 +276,12 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
     # The capability reports the observation; it does not assert the identity of
     # the boot. A caller that needs that must plant its own marker.
     facts["carries_terminal_record"] = counts["terminal_marker"] >= 1
+    # The only predicate that identifies the boot. Exactly one occurrence is the
+    # candidate's single banner write; more than one means the window spans more
+    # than one candidate boot, which this lane never authorizes, so it is
+    # reported rather than folded into a boolean.
+    facts["candidate_banner_count"] = counts["candidate_banner"]
+    facts["carries_candidate_banner"] = counts["candidate_banner"] == 1
     facts["channel_readable"] = bool(
         state == "regular"
         and facts["bounded"]
@@ -271,6 +296,11 @@ def channel_verdict(facts: dict[str, Any]) -> str:
     # Deliberately says only what the observation supports. The channel being
     # readable and carrying userspace records is what makes a planted marker a
     # viable carrier; it is not a claim about which boot the window came from.
+    # The banner is the exception, and the only verdict that names a boot.
+    if facts["channel_readable"] and facts["carries_candidate_banner"]:
+        return "CANDIDATE_BANNER_OBSERVED_EXACTLY_ONCE"
+    if facts["channel_readable"] and facts["candidate_banner_count"] > 1:
+        return "CANDIDATE_BANNER_REPEATED_UNEXPECTEDLY"
     if facts["channel_readable"] and facts["carries_terminal_record"]:
         return "CHANNEL_READABLE_WITH_USERSPACE_AND_TERMINAL_RECORD"
     if facts["channel_readable"]:

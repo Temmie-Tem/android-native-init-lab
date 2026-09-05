@@ -145,7 +145,8 @@ class ParserTests(unittest.TestCase):
                   "scanned": str(M.OBSERVED_SIZE), "window": "a" * 64 + "  -",
                   "recheck": "a" * 64 + "  -", "meta_after": f"{M.OBSERVED_SIZE}:1",
                   "linux_version": "1", "init_records": "42",
-                  "terminal_marker": "1", "sec_log_marker": "3"}
+                  "terminal_marker": "1", "sec_log_marker": "3",
+                  "candidate_banner": "0"}
         values.update(overrides)
         body = "".join(f"{k}={v}\n" for k, v in M.health.EXPECTED_ROOT_OUTPUT.items())
         body += "".join(f"{k}={values[k]}\n" for k in (*self.ORDER, *M.PREDICATES))
@@ -194,6 +195,25 @@ class ParserTests(unittest.TestCase):
             M.channel_verdict(facts),
             "CHANNEL_READABLE_WITH_USERSPACE_NO_TERMINAL_RECORD",
         )
+
+    def test_candidate_banner_is_the_only_predicate_that_names_a_boot(self):
+        facts = M.parse_root(self.transcript(candidate_banner="1"))
+        self.assertTrue(facts["carries_candidate_banner"])
+        self.assertEqual(facts["candidate_banner_count"], 1)
+        self.assertEqual(M.channel_verdict(facts), "CANDIDATE_BANNER_OBSERVED_EXACTLY_ONCE")
+
+    def test_repeated_candidate_banner_is_reported_not_folded_away(self):
+        # More than one banner means the window spans more than one candidate
+        # boot, which this lane never authorizes.
+        facts = M.parse_root(self.transcript(candidate_banner="2"))
+        self.assertFalse(facts["carries_candidate_banner"])
+        self.assertEqual(facts["candidate_banner_count"], 2)
+        self.assertEqual(M.channel_verdict(facts), "CANDIDATE_BANNER_REPEATED_UNEXPECTEDLY")
+
+    def test_absent_banner_does_not_claim_a_boot(self):
+        facts = M.parse_root(self.transcript())
+        self.assertFalse(facts["carries_candidate_banner"])
+        self.assertNotIn("CANDIDATE_BANNER", M.channel_verdict(facts))
 
     def test_userspace_absence_is_distinguished(self):
         facts = M.parse_root(self.transcript(init_records="0"))
@@ -366,6 +386,42 @@ class DeviceShellTests(unittest.TestCase):
                 result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(self.parsed(result)["predicate_counts"]["terminal_marker"], expected)
+
+    def test_candidate_banner_is_found_under_the_target_grep(self):
+        # The banner as /dev/kmsg actually renders it: a priority and timestamp
+        # prefix, then the exact string the candidate's PID1 writes.
+        planted = (
+            b"<6>[    1.234567] " + M.CANDIDATE_BANNER.encode() + b"\n"
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.run_device_shell(
+                self.fixture(Path(temp), node_bytes=self.KERNEL_LOG + planted)
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = self.parsed(result)
+            self.assertEqual(facts["predicate_counts"]["candidate_banner"], 1)
+            self.assertTrue(facts["carries_candidate_banner"])
+            self.assertEqual(
+                M.channel_verdict(facts), "CANDIDATE_BANNER_OBSERVED_EXACTLY_ONCE"
+            )
+            # Even the banner never reaches stdout; only its count does.
+            self.assertNotIn(M.CANDIDATE_BANNER.encode(), result.stdout)
+
+    def test_quoted_candidate_banner_is_not_counted(self):
+        # The banner is the one predicate that names a boot, so an unanchored
+        # match on it would be the worst possible false positive: a userspace
+        # record quoting the string must not read as the candidate having run.
+        quoted = (
+            b'<6>[   12.0] init: starting service "log ' + M.CANDIDATE_BANNER.encode() + b'"\n'
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.run_device_shell(
+                self.fixture(Path(temp), node_bytes=self.KERNEL_LOG + quoted)
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = self.parsed(result)
+            self.assertEqual(facts["predicate_counts"]["candidate_banner"], 0)
+            self.assertFalse(facts["carries_candidate_banner"])
 
     def test_anchoring_rejects_a_quoted_marker_in_a_userspace_record(self):
         # An unanchored substring match would count this. The record prefix

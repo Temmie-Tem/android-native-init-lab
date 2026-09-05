@@ -631,13 +631,13 @@ Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 ## S20+ last_kmsg Observation D0
 
 Status: **DEFINED - LAST_KMSG OBSERVATION D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `9fda5e38732934a2f41fdc11294988f428191c78352e3c3a14b5740c238b3ec8`
-Root-Script-SHA256: `22c58e05b1bd16d9b2846c2f32e72ae5c45a1853c91614df83f9ef61df137441`
+Runner-Normalized-SHA256: `97f0f3f031856dba287360af55778d09dde5894237fe71efbb1cbd43e56f3c16`
+Root-Script-SHA256: `619fd441210e24c781303b8607be5ae27f92df2bd0cf0dacbeab38c0c5842f88`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`220db09dfee35a877ded85f586787377929e1d9571b2a9cedc23cee1da2f9335`.
+`0343117f35103d19d7f3975357b41e16a8ee203e1b3e9f7662699992d5898bdf`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
@@ -678,12 +678,31 @@ and no ramoops, pstore, PMSG or `/data` path is touched by this capability.
 No log byte crosses the device boundary. Every predicate is a line count
 computed on the device over a scan window bounded at 4,194,304 bytes; a larger
 node is reported unscanned rather than truncated. Only node state, `stat`
-size and link count, one whole-window SHA-256, and four predicate counts are
-emitted. The complete predicate declaration is the runner's `PREDICATES`
-closure, included in the script hash above and in `--render-plan`, which
-declares `log_contents_read` false and both `log_bytes_crossing_boundary` and
-`log_bytes_retained` zero. Log text is never emitted, captured, pulled,
-persisted or published anywhere, in success or in failure.
+size and link count, two whole-window SHA-256 values, the scanned byte count and
+five predicate counts are emitted. The complete predicate declaration is the
+runner's `PREDICATES` closure, included in the script hash above and in
+`--render-plan`, which declares `log_contents_read` false and both
+`log_bytes_crossing_boundary` and `log_bytes_retained` zero. Log text is never
+emitted, captured, pulled, persisted or published anywhere, in success or in
+failure - including the candidate banner, of which only the count is reported.
+
+Every predicate is anchored to the kernel record prefix, an optional priority
+and a bracketed timestamp, so a userspace record that merely quotes one of these
+strings is not counted.
+
+Four predicates describe the window and none of them can say which boot produced
+it, because a ring buffer can retain a wrapped older record. The fifth,
+`candidate_banner`, is the exception and the only one that identifies a boot:
+its pattern is the fixed string that the P0 minimal download-request candidate's
+PID1 writes to `/dev/kmsg`, and nothing else writes it, so its presence is
+self-authenticating.
+
+That predicate exists because Download-mode arrival after a candidate transfer
+is **not** causally attributable to PID1 - a bootloader fallback, a watchdog or
+PMIC reset, an operator entry or a bare reconnect all produce the same
+enumeration - so the arrival cannot be the proof and this string can be. The
+string is a fixed literal here and is not imported from the F1 owner, so this
+capability carries no dependency on it.
 
 Every branch emits every declared key exactly once and in a fixed order, so a
 short, reordered or extended transcript fails closed rather than reading as a
