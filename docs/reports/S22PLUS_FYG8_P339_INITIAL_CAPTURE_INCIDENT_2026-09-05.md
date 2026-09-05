@@ -183,3 +183,38 @@ retried. Final health and formal F1 closure are pending. No premature F1
 closure row was appended; the matching ledger row must land with durable
 closure. Historical preparation statements above describe their earlier
 zero-transfer stage, not the current run state.
+
+## P340 recovery and closure
+
+After the operator confirmed physical Download, the unchanged ordinary runner
+resumed only `--recover` on the same prepared run. It freshly identified the
+bound rollback endpoint, completed the exact Magisk rollback once and verified
+rooted FYG8 final health. It returned normally with no host repair, candidate
+replay, second transfer attempt or other-target command.
+
+- Candidate/rollback completed: 1/1; journal CLOSED with 19 records.
+- State: `19204B/826c89583365de3f8a0e1e830b0ef64fbbac28ea2c041159ae87c025bbc09224`.
+- Result: `22241B/ed2d5d1d12f40114a4d2a1818167fc7ac9d915ae1b677e6ca65cdbf415bbd656`.
+- Observer receipt: `8384B/26d21f2af898a8e637888f1ac6265786113ad730edcda9abcbafad14fe075cf0`.
+- Formal verdict: `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`.
+- Outcome: `p340_authenticated_resident_open_header_capture_unproved_rollback_verified`.
+- `recovery_required=false`; diagnostic retention does not promote authentication.
+
+Canonical UTC timeline, directly from the result:
+
+| Event | Timestamp |
+|---|---|
+| live_session_start | 2026-09-05T06:29:36.057442Z |
+| candidate_flash_start | 2026-09-05T06:29:57.097961Z |
+| candidate_flash_done | 2026-09-05T06:29:58.865164Z |
+| candidate_boot_ready | 2026-09-05T06:30:16.489685Z |
+| rollback_flash_start | 2026-09-05T06:35:24.036017Z |
+| rollback_flash_done | 2026-09-05T06:35:25.577534Z |
+| rollback_boot_ready | 2026-09-05T06:35:59.600093Z |
+| live_session_end | 2026-09-05T06:35:59.622345Z |
+
+The earlier recovery-pending paragraph describes the interrupted stage only.
+The matching F1 closure ledger row is appended from this retained journal and
+result and reparsed after publication. P320–P322 retrospective disposition is
+unchanged. P340 and its approval are consumed and never replayable; no standing
+resident or device-control authority remains.
