@@ -20,7 +20,10 @@ passed; actual prepared/result reopening passed.
 Qualification passed 1/3 sessions. The fixed display child returned exit 1 at
 101 ms after all nine module insertion calls returned success, then failed
 opening `/sys/class/drm/card0/dev` with errno 2. No frame submission occurred.
-Probe/registration/dependency/timing cause remains unproved. USB inventory failed
+The first live probe stop remains unproved. H0 analysis now confirms missing
+S2DOS05 regulator and i2c-gpio bus providers required by the selected panel;
+module softdeps and DT named-supply/instantiation dependencies were omitted from
+the prior symbol-only graph. USB inventory failed
 during physical Download waiting; one ordinary same-journal recovery completed
 the exact rollback. Candidate and observation were never replayed.
 
@@ -28,8 +31,11 @@ The operator did not observe the screen; this is not a blank-screen claim. They
 requested a larger, white-background display after inadequate pre-run guidance.
 A pure H0 white-background layout and actual C preview are now implemented:
 550-pixel central counter, large lower green block, footer run ID. It is not in
-a flashable candidate. Runtime readiness still requires retained-evidence
-diagnosis before any qualified successor.
+a flashable candidate. All eleven DTBO definitions require the same four
+S2DOS05 rails. Exact source-body host checks and independent review confirm the
+missing prerequisite; waiting alone is insufficient. Next H0 work is provider
+initialization/compatibility and dependency assessment, then bounded readiness
+observation before a separately qualified successor.
 No new device effect is authorized by this goal. P350 is never replayable.
 Report: [P350 result and timeline](docs/reports/S22PLUS_FYG8_P350_NATIVE_DISPLAY_PREPARED_H0_2026-09-06.md).
 
