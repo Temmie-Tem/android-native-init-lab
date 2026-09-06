@@ -5,6 +5,11 @@ Scope: host source, retained artifact/configuration and metadata analysis.
 No device read, display ioctl, module load, candidate change, preparation or
 new device authority occurred. P349 remains paused and untransferred.
 
+Follow-up: [selection, exact providers, WC buffers and persistent-effect review](S22PLUS_FYG8_NATIVE_DISPLAY_FOLLOWUP_H0_2026-09-06.md).
+The initial findings below retain their original scope; the follow-up closes
+some static questions and identifies why the stock display stack is not yet
+suitable for the intended volatile witness.
+
 ## Finding
 
 **A small DRM/KMS renderer is the preferred investigation path for the current

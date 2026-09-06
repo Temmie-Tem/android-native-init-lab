@@ -53,8 +53,13 @@ distinct from the retained boot logo. [Initial display research](docs/reports/S2
 selects DRM/KMS as the preferred source-investigation path; current framebuffer
 support is disabled and the USB plan omits the vendor display module. Actual
 native display output remains unproved. This H0 work does not alter P349 or
-activate a device lane. Next: exact display provider/DT and CPU-buffer cache
-analysis, before any renderer or live experiment.
+activate a device lane. [Follow-up research](docs/reports/S22PLUS_FYG8_NATIVE_DISPLAY_FOLLOWUP_H0_2026-09-06.md)
+found the retained panel-selection parameter, checked 50 modules/2,965 imports
+against the exact Image within their declared graph, and identified a WC buffer
+route. Stock display/debug providers also have persistent-write paths, including
+probe and diagnostic-read triggers. Next: investigate a minimal display build
+that removes those paths, then requalify its closure before any renderer/live
+experiment. Neither empty `/dev` nor absent input fences resolves every trigger.
 
 ## Latest completed P348 unit
 
