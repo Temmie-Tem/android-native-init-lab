@@ -1,8 +1,9 @@
 # S22+ FYG8 P350 fixed native display preparation
 
 Date: 2026-09-06. Target: SM-S906N / g0q / S906NKSS7FYG8.
-Capability/build sections below are H0 evidence. Fresh connected D0 preparation
-subsequently passed; no Download request, transfer or display run has occurred.
+Current state: CLOSED/19 and consumed. Candidate and exact Magisk rollback
+transferred once each. Result: `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; final
+rooted FYG8 health passed. Preparation sections below are historical stages.
 
 ## Result and scope
 
@@ -134,3 +135,70 @@ transfer and live-authorization flags are false; A90/S20+ received no command.
 The fresh approval code was issued for return by the operator, who must be
 available for host authentication and physical Download recovery. No old P349
 approval is reused and no candidate intent has been recorded.
+
+## Consumed P350 result and recovery
+
+The operator returned the exact fresh approval. Candidate AP and exact Magisk
+rollback each transferred once. The initial USB/read-only session passed. The
+second authenticated session completed its framing, but the fixed display child
+returned exit 1 at 101 ms. All nine `DISPLAY_LOAD_DONE` records are present,
+followed by `DISPLAY_FAIL stage=drm-readiness errno=2`.
+
+The executed source maps that error to opening `/sys/class/drm/card0/dev`.
+It occurred before DRM node creation, DRM master, buffer allocation or any
+frame submission. Module insertion returning success is not proof of driver
+probe completion or DRM registration. Missing dependency, deferred probe,
+registration failure and timing remain unclassified; this run does not distinguish
+them. No `DISPLAY_FLIP` or `DISPLAY_DONE` record exists. The third qualification
+session was not attempted, so qualification is 1/3. The second session's final
+nonce command nevertheless returned successfully, preserving evidence of the
+parent protocol's return after the child failure.
+
+During physical Download waiting the runner stopped on `measured USB endpoint
+inventory failed`, before rollback transfer. One ordinary same-journal recovery
+resumed only the preapproved exact rollback. Rollback completed once and final
+Android/root, original boot/supporting partition hashes and absent Download
+passed. This does not change the display result into a PASS. The inventory
+failure's cause remains unproved. No candidate or display command was replayed.
+
+Actual prepared and `validate_live_result` consumers reopened the terminal
+record successfully: CLOSED/19, `recovery_required=false`, outcome
+`p350_native_display_events_unproved_rollback_verified`.
+
+| Final evidence | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Live result | 21491 | `5d10afcdcd436f37f97abc3f1165ef3dc690f4ea85f996b7f394eb26d8ef2c81` |
+| Candidate observer | 13953 | `570eefed40f2ce5f92498e240b88f0e3175efa1cef25c1cfd42538cc3a088b86` |
+| Candidate raw RX | 1626 | `661d0255951b96326a355391baa5df1af307d6f0442326650b54ca7bd61f8ebc` |
+
+The private `live-close-h0-analysis.json` replays the actual authenticated raw
+sessions and records bounded fixed display messages and command statuses. The
+prepared execution closure and the reviewed source table above preserve source
+provenance. A90/S20+ received no command.
+
+### Canonical timeline
+
+| Event | UTC |
+| --- | --- |
+| `live_session_start` | `2026-09-06T11:43:41.077920Z` |
+| `candidate_flash_start` | `2026-09-06T11:43:57.795036Z` |
+| `candidate_flash_done` | `2026-09-06T11:43:59.453592Z` |
+| `candidate_boot_ready` | `2026-09-06T11:44:11.506540Z` |
+| `rollback_flash_start` | `2026-09-06T11:46:43.001223Z` |
+| `rollback_flash_done` | `2026-09-06T11:46:44.626746Z` |
+| `rollback_boot_ready` | `2026-09-06T11:47:31.264717Z` |
+| `live_session_end` | `2026-09-06T11:47:31.286425Z` |
+
+### Operator observation and next display design
+
+The operator reported not observing the screen. Do not reinterpret that as
+unchanged or blank output. The assistant had failed to explain the intended
+position and ten-second observation interval before execution. The intended
+old layout was a dark background, two small ID rows near the top, a counter at
+22% height and a moving block around 30–36% height. Raw evidence independently
+shows this attempt stopped before painting/submission.
+
+The operator requested a clearer, larger, white-background layout. Future H0
+layout work should provide an actual preview before another experiment. It does
+not replay or modify consumed P350, prove DRM readiness, or authorize another
+transfer. No additional device effect is part of closing this run.

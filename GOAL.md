@@ -11,18 +11,25 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P350 fixed native display H0 preparation is the selected unit. Deterministic
-A/B boot packaging, three-session observer, real authenticated raw receipt
-validation, 84 live regressions and full-tree raw-first audit passed. Independent
-review returned PASS_GO for the bounded capability; final H0 ready publication
-and reopening passed. Fresh connected D0 and stored preparation reopening
-passed in `p350-ready1-prepared-20260906-1`. No reboot, Download request or
-transfer occurred; actual display/probe behavior is UNPROVED.
-The candidate AP is `30822441B/41b9272b`, with the existing exact Magisk rollback
-`23367721B/d2373bf8`. It has no later-action lease. Prepared binding is
-`28959B/1498b2fc`, D0 result `3261B/896dc03a`; the newly issued exact attended
-approval must be returned before execution. Physical recovery remains required.
-Report: [P350 fixed display preparation](docs/reports/S22PLUS_FYG8_P350_NATIVE_DISPLAY_PREPARED_H0_2026-09-06.md).
+P350 is CLOSED/19 and consumed with
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false. Candidate
+`30822441B/41b9272b` and exact Magisk rollback `23367721B/d2373bf8` transferred
+once each. Final rooted FYG8, original boot/supporting hashes and absent Download
+passed; actual prepared/result reopening passed.
+
+Qualification passed 1/3 sessions. The fixed display child returned exit 1 at
+101 ms after all nine module insertion calls returned success, then failed
+opening `/sys/class/drm/card0/dev` with errno 2. No frame submission occurred.
+Probe/registration/dependency/timing cause remains unproved. USB inventory failed
+during physical Download waiting; one ordinary same-journal recovery completed
+the exact rollback. Candidate and observation were never replayed.
+
+The operator did not observe the screen; this is not a blank-screen claim. They
+requested a larger, white-background display after inadequate pre-run guidance.
+Next bounded work is H0 visual-layout improvement and preview; runtime readiness
+requires separate retained-evidence diagnosis before any qualified successor.
+No new device effect is authorized by this goal. P350 is never replayable.
+Report: [P350 result and timeline](docs/reports/S22PLUS_FYG8_P350_NATIVE_DISPLAY_PREPARED_H0_2026-09-06.md).
 
 ## Paused P349 unit
 
