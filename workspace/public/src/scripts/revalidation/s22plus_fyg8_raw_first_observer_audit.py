@@ -19,20 +19,20 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "6ff3f546101992090ef9d1b016bc9df15206a5f8aa6372168dfb5a5122eb7b9b"
+AUDITOR_NORMALIZED_SHA256 = "7dc5b3c7cc9cb83a184e4e80d4c7779c19d1ef13b0a0989a1bf6ae9ac4de46ef"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260830-24-p319-prepared-runtime-bound.json"
 )
-LEGACY_UNMIGRATED_OBSERVER_COUNT = 48
+LEGACY_UNMIGRATED_OBSERVER_COUNT = 49
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "d4e2997cc597119e5849c97b9180875d2defe958675079d3bb9d6f6f0b0e0427"
+    "b2cc0b76a37cbf8803f9418a849b4ea20f6f72eb04c31204bf6bdfa909de48ee"
 )
-CLOSED_OBSERVER_SOURCE_COUNT = 132
+CLOSED_OBSERVER_SOURCE_COUNT = 133
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "0b46d937f74ea9f8171f82469d14f7ac08de816c0309a719cb1ab897e613f6fc"
+    "fb9f67889232ed79ae7888eeeaa3d022df502b331136530fc0c3f21dfdd9be2d"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 129
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "53d977249d8083c8ad4bb3315d24394a29b42bd418bf8a462ed7476139582cea"
+    "c28365c47ce4e6af1d704a6b053d5b3330bc17f88981af866ce8e574a46ee239"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -274,6 +274,16 @@ P319_D1_PRE_BOUNDARY_CLASSIFICATION = {
     "independent_review_required": True,
 }
 S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
+    "s22plus_fyg8_p347_stock_process_v2_adapter.py": {
+        "owner": "s22plus-fyg8-p347", "classification": "host-only-exact-artifact-tool",
+        "profile": "H0-typed-retained-byte-adapter", "size": 700,
+        "sha256": "4164a62c11f419e2675bb2a65eed8a7b0b4b2f6a2d67a4ac54a4cca97397a5e0", "exact_host_tool": True,
+    },
+    "s22plus_fyg8_p347_artifact_identity.py": {
+        "owner": "s22plus-fyg8-p347", "classification": "host-only-exact-artifact-tool",
+        "profile": "H0-ap-identity-join", "size": 2178,
+        "sha256": "e0a45f6beb220b3be2a23d89471bb27c437b41e83ca0a3dcc326f9c165987d85", "exact_host_tool": True,
+    },
     "s22plus_fyg8_p346_artifact_identity.py": {
         "owner": "s22plus-fyg8-p346", "classification": "host-only-exact-artifact-tool",
         "profile": "H0-ap-identity-join", "size": 1638,
@@ -540,6 +550,8 @@ LIVE_PARSE_MARKERS = (
 )
 
 ACTIVE_FILES = {
+    "s22plus_fyg8_p347_research_shell_runtime.py",
+    "s22plus_fyg8_p347_research_shell_observer.py",
     "s22plus_fyg8_research_shell_exchange.py",
     "s22plus_fyg8_p346_research_shell_observer.py",
     "s22plus_fyg8_p346_research_shell_runtime.py",
@@ -614,6 +626,8 @@ ACTIVE_FILES = {
     "device_action_f1_live_v2.py",
 }
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
+    "s22plus_fyg8_p347_research_shell_runtime.py": "6323898af8af5a5eb26776e38682f9851b5e9af505ef11b5c5b1b7938baaef69",
+    "s22plus_fyg8_p347_research_shell_observer.py": "a3fd9c964f3a9d40892c73c65b162340f9373c755c772957d71b66d0fe1bac0a",
     "s22plus_fyg8_p346_research_shell_observer.py": "13cc4cc1dbf953db497fbcc9c5999ef09279e26e4e211a14c2c7931f2b6d15da",
     "s22plus_fyg8_p346_research_shell_runtime.py": "e4d062fb4e8348fc969094c33668372af280e2e9bf7a222e5553aa51bdee9435",
     "s22plus_fyg8_research_shell_exchange.py": "ac3b47884ed29404b5afc047557486b5c90ece2e85dc799123d100a7238df2c3",
@@ -996,6 +1010,8 @@ P326_RAW_FIRST_FUNCTIONS = (
 RAW_CAPTURE_INJECTED_WRITER_SOURCES = frozenset(
     {
         # Exact source-bound templates execute the already audited P345 path.
+        "s22plus_fyg8_p347_research_shell_runtime.py",
+        "s22plus_fyg8_p347_research_shell_observer.py",
         "s22plus_fyg8_p346_research_shell_observer.py",
         "s22plus_fyg8_p346_research_shell_runtime.py",
         "s22plus_fyg8_research_shell_exchange.py",

@@ -197,3 +197,79 @@ Final H0 reopening through `load_prepared` and `validate_live_result` passed
 against the unchanged runtime closure, retained raw receipts and journal. Exactly
 one P346 F1 closure row was appended to the existing campaign ledger; its prior
 bytes were preserved and the ledger row parser passed.
+
+## H0 follow-up: 101-ms sleep outcome
+
+The retained candidate and host sources at `4955a431bc` explain the session-3
+outcome without a device replay. Candidate BusyBox was extracted from the
+retained `candidate-a/boot.img`, not substituted with a host binary. Its
+2,237,056-byte SHA-256 remains
+`d4e1ca8235fd5c47a7dfca5c9c60ad2243f5d17d3c43d58a7c42355f10fa2cba`.
+The candidate's retained child fragment is 21,792 bytes, SHA-256
+`a053e6796a83767e5de97ed714080a10888e2c9a9ef99dbb06e3aabf1633ae29`.
+A byte-identical public-source test snapshot now lives at
+`tests/fixtures/p346/readonly_child.inc.c`; it is not an artifact input.
+
+The actual BusyBox calls AArch64 `clock_nanosleep` (115), with
+`CLOCK_REALTIME`, flags 0 and a 30-second request. The consumed filter allows
+`nanosleep` (101), but does not allow 115, so its default returns `EPERM`.
+User-mode QEMU tracing of the exact binary, with explicit host-side strace
+`clock_nanosleep:error=EPERM` injection, reproduced immediate `exit_group(0)`
+and no applet output. A non-injected 200-ms sleep did wait and returned zero.
+This isolates the actual binary's error handling; QEMU user mode is not being
+claimed to enforce the guest seccomp filter.
+
+An independent native-host reproduction joins the real C supervisor and Python
+exchange with the historical filter, remapping only syscall numbers and the
+existing host startup compatibility entries. It reproduces the empty, early
+exit-zero result and a successful next command on the same descriptor. Mount
+namespace, UID setup and USB are not exercised by that host fixture.
+
+The retained 1,730-byte RX was independently CRC-checked and decoded. Session
+3's sequence-4 EXIT has flags 0, exit code 0, signal 0, forwarded bytes 0 and
+`duration_ms=101`. On the normal-exit path, the candidate supervisor sets `reaped` only after
+`wait4(pid, &status, WNOHANG)` returns that child PID; other wait errors propagate.
+It serializes that wait status and monotonic elapsed time after cleanup.
+Its 100-ms polling cadence explains why an immediately exiting child appears
+at about 101 ms. That number is supervisor elapsed time, not a measurement of
+successful sleeping. No wait/status or result-projection repair is supported
+by these checks. The observer correctly rejected the expected-timeout mismatch.
+The device run had no syscall trace; the causal mechanism is reproduced H0
+and matches the retained wire result, rather than a newly observed device event.
+
+The earlier C/Python tests used a stub isolation hook; the actual-filter tests
+covered pipeline, IDs, cwd, nonzero exit and write denial but omitted sleep.
+`tests/test_s22plus_fyg8_p346_sleep_diagnosis.py` closes this diagnosis gap with
+a fixed historical input. Its optional exact-binary case requires
+`P346_BUSYBOX_H0` to name the hash-verified privately extracted binary.
+Both new tests passed with that input; all nine existing child-boundary tests
+passed. Python compilation and diff whitespace checks passed.
+
+A prospective correction is retained privately at
+`workspace/private/outputs/s22plus_fyg8_p346/h0-sleep-diagnosis-20260906-01/minimal-filter-fix.patch`.
+It permits only syscall 115 with low-32-bit clock ID 0 and flags 0; other clocks
+and flags remain `EPERM`. It is not applied to production source, incorporated
+into a candidate, or an activation. The current GOAL's explicit no-widen
+constraint prompted a scope question; applying the production change awaits
+the operator's answer. No consumed source closure, artifact, manifest, approval,
+raw receipt, journal or formal result was repinned or rewritten.
+
+The prospective H0 filter passed real-filter/supervisor cases for `hello`, exit
+7, authenticated cancellation, the unchanged 15-second timeout (15,113 ms),
+and a subsequent substitution/pipeline producing `NEXT`. Retained frames were
+reopened to check those exact outputs and timeout duration. Direct negative
+controls denied a different clock, absolute/invalid flags and write/create;
+the previously allowed nanosleep still succeeded. AArch64 cross-compilation
+and `file` inspection passed. Independent review identified and resolved the
+historical-fixture binding issue, independently executed clock/flag/write/unknown
+syscall controls, and returned PASS for the proposed H0 correction only.
+This is neither full target-isolation proof nor a fresh candidate qualification.
+
+Private scripts, traces, compiled fixtures and results are under the same
+`h0-sleep-diagnosis-20260906-01` directory. The inventory failure remains outside
+this sleep-focused diagnosis and its precise cause remains unproved. No device
+command was issued to S22+, A90 or S20+; P346 remains consumed and NO_PROOF.
+
+The operator subsequently authorized the separate P347 repair and D0/D1
+preparation through F1 code issuance. See the [P347 preparation report](S22PLUS_FYG8_P347_OUTPUT_TIMING_PREPARED_2026-09-06.md).
+P346 source, artifacts, consumption and formal result were not changed.

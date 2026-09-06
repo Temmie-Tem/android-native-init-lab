@@ -168,8 +168,8 @@ class _ReceiptFixture:
             b"P328-NONCE " + runtime.P345_RUN_ID_HEX.encode("ascii") + b"\n",
         )
         for sequence, output in zip((3, 4, 5), outputs):
-            if output:
-                rx.extend(self._frame(runtime.FRAME_DATA, sequence, output))
+            for offset in range(0, len(output), 1024):
+                rx.extend(self._frame(runtime.FRAME_DATA, sequence, output[offset:offset+1024]))
             rx.extend(
                 self._frame(
                     runtime.FRAME_EXIT,
@@ -179,7 +179,7 @@ class _ReceiptFixture:
                         exit_code if sequence == 4 else 0,
                         term_signal if sequence == 4 else 0,
                         len(output),
-                        1,
+                        runtime.COMMAND_TIMEOUT_SEC * 1000 if ordinal == 3 and sequence == 4 else 1,
                     ),
                 )
             )

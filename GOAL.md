@@ -11,6 +11,24 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P347 is prepared for a fresh, separately returned F1 approval; no F1 execution
+has occurred. Output backpressure, narrow relative-clock sleep and checked
+snapshot/pipeline qualification passed H0 regression and independent PASS_GO.
+Candidate `28631081B/02c5d905` and exact Magisk rollback `23367721B/d2373bf8` are
+qualified. Runtime 3/3, successor 2/2, common/predecessor 138/138 and raw-first
+35/35 passed; P344/P345/P346 preserved build results are unchanged.
+
+The operator-authorized single ordinary D1 reboot returned healthy with a
+changed boot ID and original boot/supporting hashes. Fresh D0 preparation
+`p347-ready1-prepared-20260906-3` passed. Its prepared record is
+`31208B/4cf13344`, with 57 source entries, and actual load_prepared reopening
+passed. The approval code is private; execution requires its separate return,
+attendance/physical recovery and fresh runtime binding. No Download control,
+Odin or partition transfer occurred. A90 and S20+ received no command.
+Report: `docs/reports/S22PLUS_FYG8_P347_OUTPUT_TIMING_PREPARED_2026-09-06.md`.
+
+## Consumed P346 and diagnosis
+
 P346 is CLOSED and consumed after the operator returned its exact F1 approval.
 Candidate `28631081B/ad6a84ef` and exact Magisk rollback `23367721B/d2373bf8`
 transferred once each. Final rooted FYG8 health, original boot/supporting hashes
@@ -32,6 +50,36 @@ The approved bounded execution is complete. Any next work is H0 diagnosis of the
 session-3 outcome and inventory failure using retained evidence. Do not replay
 P346, widen its child filter, or start another candidate under its consumed approval.
 Report: `docs/reports/S22PLUS_FYG8_P346_PREPARATION_AND_D1_RETURN_STOP_2026-09-06.md`.
+
+H0 sleep diagnosis reproduced the failure: the exact candidate BusyBox calls
+`clock_nanosleep(115)`, which the consumed filter denies with `EPERM`; BusyBox
+then exits zero without waiting. The retained sequence-4 EXIT is zero/empty at
+101 ms, consistent with the supervisor's 100-ms polling. Real-filter/C-supervisor
+H0 reproduction agrees; no wait/reporting defect was found. Two new diagnosis
+tests and nine child-boundary tests passed. Historical filter input is frozen
+in `tests/fixtures/p346/readonly_child.inc.c`.
+
+A private minimal relative-CLOCK_REALTIME-only correction passed H0 normal,
+nonzero, cancel, 15-second timeout and next-pipeline tests, negative controls,
+AArch64 compilation and independent review. That diagnostic proposal was not applied to P346:
+the earlier no-widen question was subsequently resolved by the operator's
+P347 preparation request. The historical P346 source stays unchanged; the new
+version belongs only to P347. Full diagnosis evidence is in the report above.
+
+## Adjacent H0 audit
+
+The follow-up audit reproduced an additional output-integrity defect: a
+120,000-byte BusyBox awk output (below the 128-KiB cap) yielded only 65,536 bytes
+with exit 0, flags 0 and `ok`. Real-filter C/Python framing and exact candidate
+BusyBox nonblocking-pipe tests cover the mechanism. Separately, denied
+`prlimit64`/`sysinfo` queries let ulimit/uptime/free emit untrusted values with
+exit 0; usleep shares the clock_nanosleep failure. Pipeline/substitution status
+masking is a shell-semantics limitation, not a newly invented proof of failure
+in the existing fixed canary. Independent review agrees.
+
+These findings led to the separately qualified P347 successor above. The audit
+itself applied no production fix or device action and remains the causal record.
+Report: `docs/reports/S22PLUS_FYG8_P346_ADJACENT_FAILURE_AUDIT_2026-09-06.md`.
 
 ## Latest completed evidence
 

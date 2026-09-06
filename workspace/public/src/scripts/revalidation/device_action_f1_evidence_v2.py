@@ -1713,7 +1713,7 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346"):
+for _prefix in ("p345", "p346", "p347"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
@@ -7618,6 +7618,10 @@ def p345_research_shell_observer_spec():
 
 def p346_research_shell_observer_spec():
     return _shell_observer_spec("p346")
+
+
+def p347_research_shell_observer_spec():
+    return _shell_observer_spec("p347")
 
 
 def _validate_shell_proof(value, prefix):

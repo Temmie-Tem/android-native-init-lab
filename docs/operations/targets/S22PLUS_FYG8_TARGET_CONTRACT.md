@@ -768,11 +768,47 @@ required. Existing attended normal-reboot D1 may be used only when needed for
 the baseline under current operator authority; no new D0/D1 runner or baseline
 exception is introduced. This clause alone grants no device authority.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, or P346 candidate transfer occurs, the same
+**P347 output-integrity and timing successor.** P345 and P346 remain CLOSED,
+consumed and never replayable. P347 keeps their five same-descriptor sessions,
+fixed read-only child view, UID/GID/capability drops, resource limits, authenticated
+CANCEL, 15-second child and 300-second observation bounds, 128-KiB output bound,
+boot-only payload and mandatory exact Magisk rollback. Parent sequence-3/5
+identity and nonce witnesses remain fixed. It opens no later shell lease.
+
+Before child exec, P347 makes only the new output pipe's write end blocking;
+the parent read end remains nonblocking, so existing timeout/cancel/cleanup
+ownership is unchanged. An output setup failure exits 126. Sequence 4 ash
+uses pipefail; expected-denial control flow is retained and set-e is not added.
+The versioned read-only child adds only AArch64 clock_nanosleep with clock ID
+CLOCK_REALTIME and flags 0, matching the fixed BusyBox relative sleep call.
+Other clock IDs/flags and the inherited default-denied surface remain denied.
+This permits no clock setting, sysinfo, limit mutation, new filesystem view,
+process escape, network or device control. Consumed P345/P346 child sources
+are not repinned or replaced.
+
+The qualification remains exactly five sessions and fifteen commands. Canary
+snapshot/ID reads now check command status. The final session checks a nonempty
+fixed version snapshot via checked substitution, then exactly 120,000 bytes of
+bounded awk output followed by the existing pipeline marker. The observer
+requires the full expected output bytes and a timeout duration of at least
+15 seconds, including retained-receipt reopening. This qualifies the named
+snapshot reads and fixed witnesses, not arbitrary BusyBox applets' semantic
+correctness; unsupported ulimit/uptime/free remain outside this proof.
+
+P347 needs its own fresh run/banner, Image/init/AP and complete executed-source
+closure, independently reviewed implementation and raw-first path, fresh
+artifact/static/ready qualification, ordinary D0 preparation and separately
+returned attended F1 approval. Existing attended ordinary-reboot D1 may be used
+only when needed for baseline preparation under current operator authority;
+no new D0/D1 runner, baseline exception, retry, reopen, recovery deviation or
+standing authority is introduced. This capability grants no device authority
+without those matching inputs.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, or P347 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, or `s22plus-fyg8-p346` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, or `s22plus-fyg8-p347` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
