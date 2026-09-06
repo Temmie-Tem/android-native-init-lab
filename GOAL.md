@@ -26,8 +26,10 @@ the exact rollback. Candidate and observation were never replayed.
 
 The operator did not observe the screen; this is not a blank-screen claim. They
 requested a larger, white-background display after inadequate pre-run guidance.
-Next bounded work is H0 visual-layout improvement and preview; runtime readiness
-requires separate retained-evidence diagnosis before any qualified successor.
+A pure H0 white-background layout and actual C preview are now implemented:
+550-pixel central counter, large lower green block, footer run ID. It is not in
+a flashable candidate. Runtime readiness still requires retained-evidence
+diagnosis before any qualified successor.
 No new device effect is authorized by this goal. P350 is never replayable.
 Report: [P350 result and timeline](docs/reports/S22PLUS_FYG8_P350_NATIVE_DISPLAY_PREPARED_H0_2026-09-06.md).
 

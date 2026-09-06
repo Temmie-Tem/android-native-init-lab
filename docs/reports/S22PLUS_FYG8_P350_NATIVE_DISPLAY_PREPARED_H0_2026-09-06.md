@@ -202,3 +202,23 @@ The operator requested a clearer, larger, white-background layout. Future H0
 layout work should provide an actual preview before another experiment. It does
 not replay or modify consumed P350, prove DRM readiness, or authorize another
 transfer. No additional device effect is part of closing this run.
+
+### White-background layout H0 implementation
+
+Following the operator's visibility request,
+`workspace/public/src/native-init/s22plus_native_display_visible_layout_h0.c`
+implements only pure pixel generation. It is not included in consumed P350 or
+any flashable successor. The full background is white, the black central counter
+is 550 pixels tall (old counter: 60), and the green block is 180x320 pixels.
+The counter is at y=650..1199 (28–51% of screen height); the block is at
+y=1420..1739 (61–74%) and moves left to right. The run ID occupies two footer
+rows. There is no full-screen alternating flash.
+
+The optional host-only preview entry writes PPM bytes; it has no device access.
+Host and repository AArch64 compilation passed with warnings as errors, and
+`file` identified the object as AArch64 ELF. Actual C output at counters 00/05/09
+was checked for dimensions, white background and moving-block positions, then
+visually inspected. Preview:
+`workspace/private/outputs/s22-display-renderer-h0/visible-layout-preview.png`.
+The displayed sample run ID is illustrative, not an assigned future candidate.
+This layout does not resolve the consumed run's missing DRM registration.
