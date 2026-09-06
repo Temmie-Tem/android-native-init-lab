@@ -11,23 +11,29 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P348 implementation, independent capability review, A/B qualification and
-operator-preapproved D0/D1 preparation are complete. The fresh ready manifest is
-`workspace/public/src/device-action/manifests/s22plus_fyg8_p348_process_v2_ready_1.json`;
-prepared run `p348-ready1-prepared-20260906-2` reopened successfully with 67
-execution sources. The exact F1 code has been issued; execution still requires
-that returned code. No P348 transfer, F1 transaction or later shell lease exists.
+P348 is CLOSED/19 and consumed with
+`PASS_F1_V2_P348_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK`.
+Candidate `28631081B/5dde2320` and exact Magisk rollback `23367721B/d2373bf8`
+each transferred once. Six initial sessions / 18 commands, 120-second idle and
+clean reopen passed, followed by all five retained-shell acceptance actions:
+checked snapshot, exit 7, timeout, authenticated cancel and post-cancel success
+with complete 120,017-byte output. Final rooted FYG8 Android, original
+boot/supporting hashes and absent Download passed. No active native shell remains.
 
-The prepared capability has six initial sessions (five same-FD, then one clean
-reopen after 120 seconds idle), followed by at most one attended hour / 16 later
-read-only shell actions and mandatory exact Magisk rollback. P347 child/filter/
-output behavior is unchanged. Initial proof, actual later use and final Android
-health are distinct; no live P348 functional proof is claimed yet.
+**One-hour stability is UNPROVED.** The last successful later action was
+390.137 seconds after lease opening; the one-hour setting was only an upper
+bound. Recovery was requested at 453.389 seconds. Future full-hour validation
+needs a separately qualified successor with explicit timing and witness criteria;
+this consumed candidate and lease must never be replayed or renewed.
 
-D0 first stopped on retained evidence. One approved ordinary-reboot D1 returned
-healthy with a changed boot ID, then fresh D0 passed. Current last-observed state
-is healthy rooted FYG8 Android, not native shell. A90/S20+ received no command.
-Report: [P348 preparation](docs/reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md).
+Run `p348-ready1-prepared-20260906-2` has live result `42728B/97915e02`,
+recovery_required=false. Actual prepared/result reopening passed. A host command
+file mode rejection preceded any action intent; its corrected first execution
+was ordinal 1. USB identity evidence failed while awaiting physical Download,
+before rollback transfer. Same-journal recovery after operator Download entry
+completed the exact rollback once. Original failure evidence is preserved and
+its cause remains unproved. A90/S20+ received no command.
+Report: [P348 result and timeline](docs/reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md).
 
 ## Latest completed bounded unit
 

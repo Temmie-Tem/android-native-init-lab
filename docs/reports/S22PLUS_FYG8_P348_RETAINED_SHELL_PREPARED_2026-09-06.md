@@ -137,3 +137,78 @@ attended retained session. Its existing prepared run accepts
 for host-only status. SIGINT requests authenticated cancellation in the action
 owner; `--recover` ends the session through the already bound physical Download /
 exact Magisk rollback path. These interfaces do not activate themselves.
+
+
+## Consumed F1 result and recovery
+
+The operator returned the exact prepared approval. P348 is now CLOSED/19 and
+consumed, with `PASS_F1_V2_P348_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK`, outcome
+`p348_readonly_research_shell_rollback_verified`, recovery_required=false.
+The preparation status above is historical. Candidate AP `28631081B/5dde2320`
+and exact Magisk rollback `23367721B/d2373bf8` each transferred once; neither
+candidate nor observation was replayed. Final rooted FYG8 Android, original
+boot/supporting hashes and absent Download passed. Actual `load_prepared` and
+`validate_live_result` reopening passed before these documentation updates.
+
+Initial qualification completed all six sessions / 18 commands, including the
+120-second idle and clean tty reopen. The retained lease then completed all five
+reviewed acceptance roles with authenticated identity and final nonce evidence:
+
+| Ordinal / role | Actual outcome | Exit / signal / flags | Duration ms | Selected bytes |
+| --- | --- | --- | ---: | ---: |
+| 1 / checked-snapshot | ok | 0 / 0 / 0 | 101 | 22 |
+| 2 / known-nonzero | command-failed | 7 / 0 / 0 | 101 | 0 |
+| 3 / timeout | timeout | -1 / 9 / 1 | 15159 | 0 |
+| 4 / active-cancel | cancelled | -1 / 9 / 8 | 203 | 19 |
+| 5 / post-cancel-success | ok | 0 / 0 / 0 | 810 | 120017 |
+
+All five exchanges completed with continuation allowed and no pending intent.
+The nonzero, timeout and cancel outcomes are preserved as such. Cancellation
+used the existing action owner's callback, requested 0.2 seconds after its first
+middle-command poll; ACK0 was observed. The private fixed invocation is
+`workspace/private/outputs/p348/later-acceptance-20260906-1/active_cancel_invocation.py`.
+This proves authenticated cancellation, not a live UI/SIGINT interaction.
+
+**One-hour stability remains UNPROVED.** The configured hour was a maximum
+lease duration, not an executed hour-long test. The last successful action
+receipt was 390.137 seconds after lease opening (about 6 minutes 30 seconds).
+The host recorded recovery-required at 453.389 seconds (about 7 minutes 33 seconds);
+that later host timestamp is not another device-liveness witness. The operator
+questioned the early return after recovery had started. The distinction was
+clarified, without extending or reopening the consumed lease. A future full-hour
+test needs a separately qualified successor and an explicit duration/witness
+criterion compatible with expiry and its required full action window.
+
+Two stops remain preserved. The first command-file invocation rejected mode
+0644 at the host input check, before locks, intent or device contact. Correcting
+the private input to 0600 allowed its first actual execution as ordinal 1.
+During physical Download waiting, the first recovery invocation stopped with
+`OdinMeasuredEvidenceFailure`, `usbfs-identity-failed` / `UsbfsIdentityError`;
+its diagnostic says snapshot_persisted=false. No rollback transfer had started.
+The precise cause is unproved. After the operator reported Download entry,
+ordinary same-journal recovery revalidated the endpoint, transferred rollback
+once and verified final health. The original diagnostic, raw captures and failed
+invocation log remain intact; no source or safety check was changed.
+
+Private evidence root:
+`workspace/private/runs/device-action-f1-live-v2/p348-ready1-prepared-20260906-2`.
+Live result `42728B/97915e02f444568ad97f2bca203d16241642e6adc72181285589117b5aef67cf`;
+initial observer raw `125237B/10e1ba81fdd1f9cb78bb1e9b5f47b03988fd27c0c82279dfa75c775c1068a6a0`.
+Execution-critical code remains the reviewed implementation commit `647392bc3e`.
+Invocation logs are under `workspace/private/outputs/p348/`; action raw/result
+receipts remain under the run's `p348-shell-actions` and append-only lease history
+under `p348-shell-session`. No raw evidence or private identifiers are published.
+A90/S20+ received no command. No active native shell lease remains.
+
+### Canonical timeline (UTC)
+
+| Event | Timestamp |
+| --- | --- |
+| live_session_start | 2026-09-06T06:06:17.191104Z |
+| candidate_flash_start | 2026-09-06T06:06:35.160909Z |
+| candidate_flash_done | 2026-09-06T06:06:36.759741Z |
+| candidate_boot_ready | 2026-09-06T06:09:08.430248Z |
+| rollback_flash_start | 2026-09-06T06:21:21.131529Z |
+| rollback_flash_done | 2026-09-06T06:21:22.675112Z |
+| rollback_boot_ready | 2026-09-06T06:21:57.103340Z |
+| live_session_end | 2026-09-06T06:21:57.123927Z |
