@@ -15,11 +15,13 @@ P350 fixed native display H0 preparation is the selected unit. Deterministic
 A/B boot packaging, three-session observer, real authenticated raw receipt
 validation, 84 live regressions and full-tree raw-first audit passed. Independent
 review returned PASS_GO for the bounded capability; final H0 ready publication
-and reopening passed. No P350
-device command or transfer occurred; actual display/probe behavior is UNPROVED.
+and reopening passed. Fresh connected D0 and stored preparation reopening
+passed in `p350-ready1-prepared-20260906-1`. No reboot, Download request or
+transfer occurred; actual display/probe behavior is UNPROVED.
 The candidate AP is `30822441B/41b9272b`, with the existing exact Magisk rollback
-`23367721B/d2373bf8`. It has no later-action lease. Fresh attended preparation
-and approval remain required before any device effect.
+`23367721B/d2373bf8`. It has no later-action lease. Prepared binding is
+`28959B/1498b2fc`, D0 result `3261B/896dc03a`; the newly issued exact attended
+approval must be returned before execution. Physical recovery remains required.
 Report: [P350 fixed display preparation](docs/reports/S22PLUS_FYG8_P350_NATIVE_DISPLAY_PREPARED_H0_2026-09-06.md).
 
 ## Paused P349 unit

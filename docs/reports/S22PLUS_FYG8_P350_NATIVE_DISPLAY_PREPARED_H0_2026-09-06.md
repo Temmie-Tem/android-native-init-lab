@@ -1,7 +1,8 @@
 # S22+ FYG8 P350 fixed native display preparation
 
 Date: 2026-09-06. Target: SM-S906N / g0q / S906NKSS7FYG8.
-H0 only: no connected preparation, Download request, transfer or display run.
+Capability/build sections below are H0 evidence. Fresh connected D0 preparation
+subsequently passed; no Download request, transfer or display run has occurred.
 
 ## Result and scope
 
@@ -111,3 +112,25 @@ checked identities.
 | `device_action_f1_evidence_v2.py` | `35ac2e009dcf95f15a4f154693e890bef00371b0e4d6afbac59aa2334274daef` |
 | `device_action_f1_live_v2.py` | `cc8d4c67efc53b1221baeb034bcc04f53d5a64b7c2c0aaa50c28709bfcd9d536` |
 | `s22plus_fyg8_raw_first_observer_audit.py` | `2b13da3ccdcf570bd7e4fa651bc198afe09389c37f02c762f01c4ec128ab4c94` |
+
+## Fresh connected preparation
+
+The operator requested progression to the attended P350 experiment. The ordinary
+runner completed fresh D0 in `p350-ready1-prepared-20260906-1` with
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`, then published the exact target,
+current boot, topology, candidate/rollback, authentication and execution-source
+binding. Actual `load_prepared` reopening passed against the stored files.
+The 13 independently reviewed principal source identities were unchanged.
+
+Prepared record: 28,959 bytes, SHA-256
+`1498b2fce9ac004b46ec746efd86e058ba37dee698578c780e60a214fbd4070b`.
+D0 result: 3,261 bytes, SHA-256
+`896dc03a8e4cbe7bd2ad45466dc4248397fd1bac22cdc3f5cea7e0f3d7f2bd0a`.
+Both remain private under
+`workspace/private/runs/device-action-f1-live-v2/p350-ready1-prepared-20260906-1/`.
+
+This step performed bounded S22+ reads only. Reboot, Download, Odin, partition
+transfer and live-authorization flags are false; A90/S20+ received no command.
+The fresh approval code was issued for return by the operator, who must be
+available for host authentication and physical Download recovery. No old P349
+approval is reused and no candidate intent has been recorded.
