@@ -11,6 +11,22 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P357 is H0 preparation for opaque ABGR8888 ordinary-buffer magenta. The operator
+authorized investigation and D0/D1 preparation through a fresh F1 code; candidate
+execution still requires the separately returned exact code. Keep P356's WC
+allocation, stride, mode, noise/fill settings, geometry and one-commit lifetime;
+change format selection/registration and opaque alpha bytes only. Android's
+allocated RGBA buffers share pitch 4352 and expose ABGR8888 FourCC; active HWC
+scanout was not captured. This format/alpha comparison is not a cache diagnosis.
+Completion is a reviewed, qualified candidate with fresh preparation and code.
+P357 A/B packaging, actual AArch64 paint, static qualification and offline
+promotion pass. P357/P356 suites each pass 21 cases; independent review is
+PASS_GO. Fresh connected preparation is next under the operator D0/D1 grant.
+No candidate transfer has occurred.
+Report: [P357 opaque ABGR preparation](docs/reports/S22PLUS_FYG8_P357_ABGR_FRAMEBUFFER_PREPARATION_2026-09-07.md).
+
+## Consumed P356 comparison
+
 P356 is consumed and CLOSED/19, recovery_required=false. One ordinary-buffer
 magenta candidate and one exact Magisk rollback transferred; final rooted FYG8,
 original boot/supporting hashes and absent Download pass. The machine verdict
