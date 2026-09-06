@@ -906,11 +906,43 @@ qualification. Current D0 preparation, any needed already-authorized ordinary
 reboot D1, and separately returned attended F1 approval remain required. This
 clause grants no unattended use or device effect by itself.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, or P349 candidate transfer occurs, the same
+**P350 attended fixed display observation.** This is a separate boot-only
+successor; P349 remains unchanged. Keep the existing 73-module USB plan and
+indices. After authentication, one exact `P350_DISPLAY_ONCE` command may run
+the fixed packaged renderer, with its boot-local slot consumed before fork.
+It loads only the nine hash-bound display additions in their checked dependency
+order, using current primary-panel command-line parameters. No arbitrary root
+command, secondary panel, module replay/unload or later-action lease is added.
+The parent retains the existing pipe, cancellation and failure handling; only
+this command has a 60-second bound. A blocked kernel call still requires the
+ordinary attended physical Download recovery; killing a process is not recovery.
+
+The fixed child creates only the primary DRM character node under checked RAM
+`/dev`, opens DRM master, then drops to UID/GID 65534 with no capabilities. It
+uses two WC buffers and ten counter frames, reusing a buffer only after a matching
+flip-completion event. It refuses conflicting scanout and completes a disable
+before normal cleanup. Persistent storage, diagnostic sysfs, POC erase/program and arbitrary device-node
+access are outside this path. The retained automatic gamma-read sequence is
+separately reviewed; common POC and DDI-SPI implementations are excluded. The reduced module's
+existing diagnostic guards and reviewed source/config identities remain bound.
+
+Qualification is three same-descriptor authenticated sessions: a read-only USB
+witness, the fixed display command, then a read-only USB witness on the same boot.
+There is no idle/reopen campaign or repeated shell qualification. The host bound
+is 150 seconds, with 75 seconds for the display session. Machine PASS establishes
+completed DRM events and USB return; visible run-ID/counter output needs operator
+corroboration and must remain UNPROVED without it. Exact rollback and final FYG8
+health are mandatory independently of display success.
+
+P350 remains H0-only until independent execution review and fresh artifact/static
+qualification pass. Fresh connected preparation and the ordinary returned
+attended F1 approval are still required. This clause grants no device effect.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, or P350 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, or `s22plus-fyg8-p349` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, or `s22plus-fyg8-p350` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

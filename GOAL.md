@@ -11,6 +11,19 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P350 fixed native display H0 preparation is the selected unit. Deterministic
+A/B boot packaging, three-session observer, real authenticated raw receipt
+validation, 84 live regressions and full-tree raw-first audit passed. Independent
+review returned PASS_GO for the bounded capability; final H0 ready publication
+and reopening passed. No P350
+device command or transfer occurred; actual display/probe behavior is UNPROVED.
+The candidate AP is `30822441B/41b9272b`, with the existing exact Magisk rollback
+`23367721B/d2373bf8`. It has no later-action lease. Fresh attended preparation
+and approval remain required before any device effect.
+Report: [P350 fixed display preparation](docs/reports/S22PLUS_FYG8_P350_NATIVE_DISPLAY_PREPARED_H0_2026-09-06.md).
+
+## Paused P349 unit
+
 P349 device work is paused pending operator attendance. Independent capability
 review returned PASS_GO; A/B candidate, static promotion, 73 focused tests and
 raw-first audit passed. Candidate AP is `28631081B/8ff75170`; exact Magisk
@@ -66,9 +79,9 @@ isolated vendor-module Full-LTO/CFI build succeeded with known display persisten
 paths and POC/SPI implementations excluded. Final combined graph: 82 modules,
 4,391 versioned imports, zero unresolved/ambiguous/CRC-mismatched providers.
 This qualifies a host build and symbol graph, not runtime ABI, safe probe,
-transitive absence of persistence, screen output or recovery. Next: qualify the
-remaining runtime interface/initialization assumptions and minimal renderer before
-any separately reviewed attended experiment. P349 remains unchanged.
+transitive absence of persistence, screen output or recovery. The P350 unit above
+adds a qualified host renderer/packager and fixed observation sequence. Runtime
+probe and visible output remain unproved. P349 remains unchanged.
 
 ## Latest completed P348 unit
 

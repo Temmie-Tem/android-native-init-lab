@@ -2343,7 +2343,7 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
                 shell.proof_key).replace('p341', prefix).replace(
                 'P341', prefix.upper()).replace('P3.41', 'P3.' + prefix[-2:])
         observer = types.SimpleNamespace(**vars(shell.observer))
-        observer.MAX_SESSIONS = 6 if prefix in RETAINED_SHELL_OWNERS else 5
+        observer.MAX_SESSIONS = shell.observer.SESSION_COUNT
         observer.MAX_RECONNECTS = 1 if prefix in RETAINED_SHELL_OWNERS else 0
         observer.PHYSICAL_REOPEN_COUNT = 1 if prefix in RETAINED_SHELL_OWNERS else 0
         observer.AuthObserverError = shell.observer.QualificationError
@@ -9119,7 +9119,7 @@ class _P345ObserverSession(_P331ObserverSession):
             contract_id=self.qualification_observer.CONTRACT_ID,
             target=self.auth_runtime.TARGET,
             banner_hex=self.auth_runtime.DEVICE_BANNER.hex(),
-            expected_size=len(self.auth_runtime.DEVICE_BANNER) * (6 if self.namespace in RETAINED_SHELL_OWNERS else 5),
+            expected_size=len(self.auth_runtime.DEVICE_BANNER) * self.qualification_observer.SESSION_COUNT,
             session_tx_hex=[bytes(item.tx).hex() for item in audits],
             auth_key_sha256=self.auth_key_sha256,
             session_count=len(sessions), command_count=len(sessions) * 3,
@@ -9222,7 +9222,8 @@ def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
             and value.get("later_action_lease_active") is False
             and value.get("caller_selected_command") is False)
     return (all(value.get(key) is True for key in P345_PROOF_FIELDS[:5])
-        and value.get("session_count") == 5 and value.get("command_count") == 15
+        and value.get("session_count") == typed_evidence.SHELL_VARIANTS[prefix].observer.SESSION_COUNT
+        and value.get("command_count") == typed_evidence.SHELL_VARIANTS[prefix].observer.SESSION_COUNT * 3
         and type(value.get("physical_reopen_count")) is int
         and value.get("physical_reopen_count") == 0
         and value.get("later_action_lease_active") is False
@@ -9270,7 +9271,7 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
 def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, Any]) -> dict[str, Any]:
     """Reopen private raw sessions, then rederive the fixed qualification."""
     shell = _shell_definition(prepared.bundle)
-    session_count = 6 if shell.prefix in RETAINED_SHELL_OWNERS else 5
+    session_count = shell.observer.SESSION_COUNT
     def require(condition: bool, reason: str) -> None:
         if not condition:
             raise F1LiveError("P345 receipt " + reason)

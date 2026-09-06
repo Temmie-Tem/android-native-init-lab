@@ -36,6 +36,20 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
     def source(self, name: str) -> str:
         return (REVALIDATION / name).read_text(encoding="utf-8")
 
+    def test_p350_failed_audit_and_fixed_display_completion_are_required(self):
+        filename = "s22plus_fyg8_p350_research_shell_observer.py"
+        text = self.source(filename)
+        for name, old, new in (
+            ("qualify", "audit=getattr(exc,'audit',None) or audit", "audit=None"),
+            ("validate_session_result", "display_output(crtc)", "middle.output"),
+        ):
+            body = self.module._function_sources(text)[name]
+            changed = body.replace(old, new, 1)
+            self.assertNotEqual(body, changed)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(REVALIDATION,
+                    {filename: text.replace(body, changed, 1)})
+
     def test_p349_longevity_intent_and_template_closure_are_bound(self):
         filename = "s22plus_fyg8_p349_shell_session.py"
         text = self.source(filename)

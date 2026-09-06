@@ -1713,14 +1713,14 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
     _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
     _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
     _adapter.proof_class = _adapter._raw_parser().proof_class
-    _workload = "ram_workspace_research_shell" if _prefix == "p349" else "readonly_research_shell"
+    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events"}.get(_prefix, "readonly_research_shell")
     _constants = {
         "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
         "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
@@ -6532,7 +6532,7 @@ def _validate_p326_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
     }
 
 
-def _validate_p327_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
+def _validate_p327_e2_ap_payload(frame: bytes, closure: Any, *, display_assets=None) -> dict[str, Any]:
     item = _exact(
         closure,
         {
@@ -6594,6 +6594,28 @@ def _validate_p327_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
         raise EvidenceError("P3.27 E2 AP rootfs contains duplicate names")
     by_name = {entry.name: entry for entry in entries}
     expected_names = set(P319_GENERIC_ROOTFS_NAMES) | {"bin", "bin/busybox"}
+    if display_assets is not None:
+        allowed = {"s22-display", "s22-display-modules"} | {
+            "s22-display-modules/" + name for name in p350_artifact_identity.DISPLAY_MODULE_NAMES}
+        if type(display_assets) is not dict or set(display_assets) != allowed:
+            raise EvidenceError("P350 display asset inventory differs")
+        expected_names |= allowed
+        for name, pin in display_assets.items():
+            pin = _exact(pin, {"mode", "uid", "gid", "nlink", "mtime", "size", "sha256"}, "P350 display asset")
+            mode = 0o040500 if name == "s22-display-modules" else (0o100750 if name == "s22-display" else 0o100400)
+            if any(type(pin[k]) is not int or pin[k] != v for k, v in
+                   {"mode": mode, "uid": 0, "gid": 0, "nlink": 1, "mtime": 0}.items()):
+                raise EvidenceError("P350 display asset metadata differs")
+            entry = by_name.get(name)
+            binary = {k: pin[k] for k in ("size", "sha256")}
+            if name == "s22-display-modules":
+                if type(binary["size"]) is not int or binary != {"size": 0, "sha256": hashlib.sha256(b"").hexdigest()}:
+                    raise EvidenceError("P350 asset directory is not empty")
+            else:
+                binary = _binary_identity(binary, "P350 asset bytes")
+            if entry is None or e2_closure.receipt(entry.data) != binary or any(
+                    getattr(entry, k) != pin[k] for k in ("mode", "uid", "gid", "nlink", "mtime")):
+                raise EvidenceError("P350 packaged display asset differs")
     if set(by_name) != expected_names:
         raise EvidenceError("P3.27 E2 AP rootfs inventory differs")
     checks = {
@@ -7619,6 +7641,11 @@ def _shell_observer_spec(prefix):
         value.update(kind="exact_cdc_acm_p349_ram_workspace_shell_qualification_v1",
             read_only_child_required=False, ram_workspace_child_required=True,
             workspace_path="/work", workspace_bytes=8388608, workspace_inodes=256)
+    if prefix == "p350":
+        value.update(kind="exact_cdc_acm_p350_display_qualification_v1",
+            read_only_child_required=False, fixed_display_once_child=True,
+            qualification_timeout_sec=150, session_cap=3, same_fd_session_count=3,
+            total_session_count=3, total_command_count=9)
     return value
 
 
@@ -7655,13 +7682,17 @@ def validate_p346_research_shell_proof(value):
 
 def _shell_ap_payload_closure(value, variant):
     candidate = value["candidate"]
-    return {"kind": variant.prefix + "_exact_" + variant.workload + "_ap_v1",
+    result = {"kind": variant.prefix + "_exact_" + variant.workload + "_ap_v1",
         "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
         "source_contract_id": variant.adapter.PARENT_SOURCE_CONTRACT_ID,
         "boot_img_lz4": candidate["a"]["boot_img_lz4"], "boot_image": candidate["a"]["boot_img"],
         "image": candidate["image"], "init": candidate["init"], "child": candidate["child"],
         "busybox": candidate["busybox"], "latch": P319_EXACT_ARTIFACTS["latch"],
         "auth_key": dict(variant.auth_key)}
+
+    if variant.prefix == "p350":
+        result["display_assets"] = candidate["display_assets"]
+    return result
 
 
 def _p345_ap_payload_closure(value):
@@ -7670,7 +7701,7 @@ def _p345_ap_payload_closure(value):
 
 def _validate_shell_ap_payload(frame, closure, variant):
     item = _exact(closure, {"kind", "run_id", "userspace_overlay_contract_id", "source_contract_id",
-        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"}, "shell AP closure")
+        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"} | ({"display_assets"} if variant.prefix == "p350" else set()), "shell AP closure")
     if (item["kind"] != variant.prefix + "_exact_" + variant.workload + "_ap_v1"
         or item["run_id"] != variant.run_id or item["userspace_overlay_contract_id"] != variant.overlay
         or item["source_contract_id"] != variant.adapter.PARENT_SOURCE_CONTRACT_ID
@@ -7680,11 +7711,15 @@ def _validate_shell_ap_payload(frame, closure, variant):
     inherited.update({"kind": "p327_exact_framed_fixed_command_ap_v1", "run_id": P327_RUN_ID,
         "source_contract_id": p327_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
         "userspace_overlay_contract_id": P327_STOCK_OVERLAY_CONTRACT_ID})
-    verified = _validate_p327_e2_ap_payload(frame, inherited)
+    verified = _validate_p327_e2_ap_payload(frame, inherited,
+        display_assets=item["display_assets"] if variant.prefix == "p350" else None)
     result = {**verified, "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
-              "read_only_child_required": variant.prefix != "p349", "later_action_lease_active": False}
+              "read_only_child_required": variant.prefix not in ("p349", "p350"), "later_action_lease_active": False}
     if variant.prefix == "p349":
         result["ram_workspace_child_required"] = True
+    if variant.prefix == "p350":
+        result["fixed_display_once_child"] = True
+        result["display_assets"] = item["display_assets"]
     return result
 
 
