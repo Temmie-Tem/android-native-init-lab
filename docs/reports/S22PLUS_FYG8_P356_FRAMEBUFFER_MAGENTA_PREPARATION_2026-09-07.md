@@ -87,3 +87,53 @@ All reviewed inputs were reverified unchanged before connected preparation.
 The operator preapproved D0/D1 and confirmed physical availability. Connected
 preparation will follow qualification. A separately returned fresh F1 code is
 still required; no P356 device action has occurred at this H0 stage.
+
+
+## Connected preparation stop
+
+The operator preapproved D0/D1 and physical availability. First D0 in
+`p356-ready1-prepared-20260907-1` preserved the expected baseline rejection after
+initial exact rooted FYG8 health passed. The nonreusable stop result is
+`3252B/1e0507aae85828e38e55f1b7a2bee96ec3405494060af6767b9dc461e2ebfb7c`;
+complete observer is
+`2097136B/9374d5e50d50ee617b004315315e6e4e45f3a45d1badb611f596692ccbcc5f0a`.
+Actual stop-result reopening passed.
+
+The unchanged reviewed one-normal-reboot primitive passed its H0 self-test and
+sent one reboot. It then failed `normal reboot did not return healthy within
+bound` after the 240-second return window. S22+ remained ADB offline in retained
+inventories. The operator reported Android lock/home screen. No additional
+reboot, host reconnect, server restart or candidate action was sent. The D1
+start record remains intact and no normal success result was created. Do not
+create a replacement PASS or treat the operator's screen report as machine health.
+
+Host kernel evidence shows normal USB disconnect/re-enumeration, then a
+SuperSpeed reset and ADB interface error. The ADB log shows authentication
+followed by transport shutdown/write timeout at that reset. This establishes a
+correlated transport failure, not its underlying cause or a firmware diagnosis.
+The logs remain private. One later raw-first bounded host inventory again found
+only the selected S22+ offline; it sent no device command and did not establish
+late root health. A90/S20+ received no command.
+
+The current preparation is stopped and no F1 token was issued. Evidence links
+are retained in private `d1-timeout-observation.json`, SHA-256
+`408b4be48e4652ea4ef3f05850e81220bc533880c7a1a53cc2d6e0a61d4a1452`.
+P356's H0 artifact remains unconsumed; the original D1 is not replayable.
+
+## Prospective separate observability restoration
+
+A separate, forward-looking one-time scope has been defined privately: after a
+fresh explicit operator request, reconnect only the S22+ cable once on the same
+port, then use existing raw-first exact D0 identity/health readers once. There
+is no automated reconnect, reboot, transport control or F1 preparation call.
+The current topology must match the original D1 topology; failed or ambiguous
+observation stops without another reconnection. The original D1 timeout and
+missing success result stay unchanged. Health restoration does not automatically
+resume F1 preparation or retroactively qualify that D1.
+
+The plan and fixed observation helper passed independent `PASS_GO_H0_PROPOSAL`
+review, private receipt SHA-256
+`253994844639c15480b7be3378953c5dc960dbc44f6dba78ff2b5f5db8318f54`.
+The helper compiles and its reviewed source/input hashes were reverified.
+This is a reviewed proposal, not active recovery authority. No manual reconnect or observation-helper execution occurred in this unit;
+the next step is the operator's fresh explicit decision on that separate scope.

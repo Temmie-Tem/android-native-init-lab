@@ -21,11 +21,20 @@ identify cache coherency as the cause.
 
 H0 A/B build and static qualification pass. Actual AArch64 paint output matches
 all visible/padding bytes. Independent review is PASS_GO; actual offline
-promotion and P356/P355 focused suites of 21 cases each pass. The operator preapproved D0/D1 and
-confirmed physical availability; fresh F1 code issuance follows qualification
-and connected preparation. No P356 device action has occurred, and F1 execution
-still requires the separately returned exact approval. P355 remains closed and
-consumed; its source/artifacts and first failure are preserved.
+promotion and P356/P355 focused suites of 21 cases each pass. The operator
+preapproved D0/D1 and confirmed physical availability. First D0 preserved an
+expected retained-baseline stop. The one ordinary reboot was sent once but
+failed its 240-second healthy-return bound with S22+ ADB offline. The operator
+reports Android home/lock screen; one later bounded inventory still found
+offline. No fresh machine health or F1 approval code exists. Do not repeat the
+reboot or treat operator screen return as D1 PASS.
+
+Host logs show USB re-enumeration, then a reset and ADB transport failure during
+authentication; underlying cause is unproved. Original D1 start and missing
+success result are preserved. A separate one-time same-port manual USB restore
+plus bounded D0 proposal has independent H0 review, but awaits a fresh operator
+request and is not active. It grants no automatic F1 preparation resume.
+P355 remains closed/consumed; no P356 candidate transfer has occurred.
 Report: [P356 framebuffer magenta preparation](docs/reports/S22PLUS_FYG8_P356_FRAMEBUFFER_MAGENTA_PREPARATION_2026-09-07.md).
 
 ## Consumed P355 comparison
