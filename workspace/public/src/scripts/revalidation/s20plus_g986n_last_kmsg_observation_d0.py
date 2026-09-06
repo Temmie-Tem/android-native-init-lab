@@ -80,22 +80,45 @@ health = load_health()
 # inferred, and an anchor built on an inferred prefix fails in the worse
 # direction: too strict, and a real record is silently not counted.
 #
-# So the patterns below are candidate *shapes*, deliberately overlapping, and
-# their counts are the measurement. `seclog_cpu_field` is the one that matters
-# most: Samsung sec_log commonly emits a second bracketed cpu/comm/pid field
-# after the timestamp, and if it is present here then any anchor that expects
-# the message immediately after the timestamp is wrong.
+# So the patterns below are candidate *shapes* and their counts are the
+# measurement. `pri_ts_cpu`/`ts_cpu` are the ones that matter most: Samsung
+# sec_log commonly emits a second bracketed cpu/comm/pid field after the
+# timestamp, and if it is present here then any anchor that expects the message
+# immediately after the timestamp is wrong.
 #
-# Counts only. No log text is emitted, exactly as before.
+# The shapes form a PARTITION: mutually exclusive by construction and made
+# exhaustive by `unclassified`, which is counted as the complement of their
+# union rather than as a guess at what an unmatched line looks like. That is not
+# presentation. It is the integrity check. Each shape is a separate read of the
+# node, and a short read or a fallback zero on any one of them makes the counts
+# sum to less than `lines_total`, so `parse_root` rejects the transcript instead
+# of publishing an undercount. An overlapping shape set cannot do this.
+#
+# Mutual exclusion, which the partition sum depends on: `[ 0-9.]+` matches
+# neither `[` nor `]`, so the closing bracket of a timestamp field is always the
+# first `]` on the line and each pattern's parse is unique. The cpu and plain
+# variants are then separated by whether the character after `"] "` is `[`, and
+# the priority and bare variants by whether the line starts with `<`.
 SHAPES = {
-    "lines_total": r"^",
-    "priority_timestamp": r"^<[0-9]+>\[[ 0-9.]+\] ",
-    "timestamp_only": r"^\[[ 0-9.]+\] ",
-    "priority_only": r"^<[0-9]+>[^[]",
-    "seclog_cpu_field": r"^(<[0-9]+>)?\[[ 0-9.]+\] \[[ 0-9]+:",
-    "no_record_prefix": r"^[^<[]",
+    "pri_ts_cpu": r"^<[0-9]+>\[[ 0-9.]+\] \[[ 0-9]+:",
+    "pri_ts_plain": r"^<[0-9]+>\[[ 0-9.]+\] ([^[]|$)",
+    "ts_cpu": r"^\[[ 0-9.]+\] \[[ 0-9]+:",
+    "ts_plain": r"^\[[ 0-9.]+\] ([^[]|$)",
+    "pri_only": r"^<[0-9]+>([^[]|$)",
 }
-PREDICATES = SHAPES
+# Counted with `grep -v` over the union, so it is exactly "matched no shape":
+# blank lines, continuations, wrapped records and any malformed or alternate
+# bracketed prefix. The previous `^[^<[]` was not this complement - it silently
+# excluded every unrecognized line that happened to begin with `<` or `[`, which
+# is precisely the class a wrong format guess would land in.
+UNCLASSIFIED = "unclassified"
+UNCLASSIFIED_UNION = "|".join("(" + pattern + ")" for pattern in SHAPES.values())
+LINES_TOTAL = "lines_total"
+# Read order on the device. `lines_total` first, then the partition.
+PREDICATES = {LINES_TOTAL: r"^", **SHAPES, UNCLASSIFIED: UNCLASSIFIED_UNION}
+# Every shape but this one is counted by matching; `unclassified` by not
+# matching. The shell needs to know which, and nothing else varies per read.
+INVERTED = (UNCLASSIFIED,)
 
 # Every branch emits every key exactly once and in this order, so a short or
 # reordered transcript is a parse failure rather than a silent partial read.
@@ -114,6 +137,7 @@ bounded=no
 window=none
 recheck=none
 scanned=-1
+scanned_after=-1
 meta_after=0:0
 {chr(10).join(f'{key}=0' for key in PREDICATES)}
 if [ -L "$node" ]; then state=indirect
@@ -129,14 +153,25 @@ else
         # `sha256sum` still succeeds over the partial bytes. Count what was
         # actually read and let the host require it to equal the stat size, so a
         # truncated read cannot become a valid digest or a zero predicate count.
+        #
+        # One such count brackets each end of the pass sequence. A node that
+        # short-reads consistently fails both; one that short-reads only during
+        # the passes is caught by the partition sum on the host. The two digests
+        # below bracket the same sequence for a consuming or growing interface.
         scanned=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/wc -c) || exit 65
         window=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/sha256sum) || exit 65
 """
 SHELL_HELPERS += "".join(
-    f"        {key}=$(/system/bin/head -c {SCAN_MAXIMUM} \"$node\" | /system/bin/grep -aEc {shlex.quote(pattern)}) || {key}=0\n"
+    "        {key}=$(/system/bin/head -c {cap} \"$node\" | /system/bin/grep -a{flag}Ec {pattern}) || {key}=0\n".format(
+        key=key,
+        cap=SCAN_MAXIMUM,
+        flag="v" if key in INVERTED else "",
+        pattern=shlex.quote(pattern),
+    )
     for key, pattern in PREDICATES.items()
 )
 SHELL_HELPERS += f"""        recheck=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/sha256sum) || exit 65
+        scanned_after=$(/system/bin/head -c {SCAN_MAXIMUM} "$node" | /system/bin/wc -c) || exit 65
         # Re-stat after the passes. A buffer that grew past the cap keeps an
         # identical prefix digest, so the digests alone cannot see it; the size
         # and link count can.
@@ -147,6 +182,7 @@ emit state "$state"
 emit meta "$meta"
 emit bounded "$bounded"
 emit scanned "$scanned"
+emit scanned_after "$scanned_after"
 emit window "$window"
 emit recheck "$recheck"
 emit meta_after "$meta_after"
@@ -157,7 +193,7 @@ ROOT_SCRIPT = health.ROOT_READ_SCRIPT + SHELL_HELPERS
 ROOT_ARGUMENT = shlex.quote(ROOT_SCRIPT)
 OUTPUT_KEYS = (
     *health.ROOT_OUTPUT_KEYS,
-    "state", "meta", "bounded", "scanned", "window", "recheck", "meta_after",
+    "state", "meta", "bounded", "scanned", "scanned_after", "window", "recheck", "meta_after",
     *PREDICATES,
 )
 
@@ -204,6 +240,12 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         raise ObservationError("invalid node metadata")
     facts["size"] = int(meta[1])
     facts["links"] = int(meta[2])
+    # The shell only ever runs `stat` on the regular branch; every other branch
+    # emits the initial `meta=0:0`. A transcript pairing a non-regular state with
+    # real metadata is one the script cannot have produced, so it is a forged or
+    # corrupted transcript rather than an observation.
+    if state != "regular" and values["meta"] != "0:0":
+        raise ObservationError("non-regular node reported node metadata")
     if values["bounded"] not in ("yes", "no"):
         raise ObservationError("invalid scan bound")
     facts["bounded"] = values["bounded"] == "yes"
@@ -225,10 +267,14 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         # A pipeline can hide a short read: head stops early and sha256sum still
         # succeeds. Requiring the counted bytes to equal the stat size makes a
         # truncated pass a failure rather than a valid digest with zero hits.
-        if not re.fullmatch(r"0|[1-9][0-9]{0,9}", values["scanned"]):
-            raise ObservationError("invalid scanned byte count")
+        for key in ("scanned", "scanned_after"):
+            if not re.fullmatch(r"0|[1-9][0-9]{0,9}", values[key]):
+                raise ObservationError("invalid scanned byte count")
         facts["scanned"] = int(values["scanned"])
-        if facts["scanned"] != facts["size"]:
+        # One verified full read on each side of the pass sequence. Together with
+        # the partition sum below this is what makes a short read a failure
+        # rather than a quietly smaller count.
+        if facts["scanned"] != facts["size"] or int(values["scanned_after"]) != facts["size"]:
             raise ObservationError("scan read fewer bytes than the node reports")
         # Identical prefix digests cannot see growth past the cap; the size can.
         if values["meta_after"] != values["meta"]:
@@ -240,6 +286,7 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         values["window"] != "none"
         or values["recheck"] != "none"
         or values["scanned"] != "-1"
+        or values["scanned_after"] != "-1"
         or values["meta_after"] != "0:0"
     ):
         raise ObservationError("unscanned window reported scan evidence")
@@ -250,34 +297,58 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         counts[key] = int(values[key])
     if not facts["bounded"] and any(counts.values()):
         raise ObservationError("unscanned window reported predicate hits")
+    total = counts[LINES_TOTAL]
+    # The integrity check the partition exists for. Each shape is a separate read
+    # of the node, and every line falls in exactly one of them, so the counts
+    # must sum to the total. A short read on any single pass, a `|| key=0`
+    # fallback masking a read failure, or a count from a different window all
+    # break this sum. An overlapping shape set could not detect any of them.
+    partition = sum(counts[key] for key in (*SHAPES, UNCLASSIFIED))
+    if partition != total:
+        raise ObservationError("shape counts do not partition the scanned lines")
+    if any(counts[key] > total for key in PREDICATES):
+        raise ObservationError("shape count exceeds the scanned line total")
     facts["shape_counts"] = counts
+    facts["counts_partition_the_scan"] = facts["bounded"] and total > 0
     # No semantic fact is derived here. This capability reports what the records
     # look like; it does not say what they mean, which boot produced them, or
     # whether anything was retained. Those claims were withdrawn because every
     # one of them rested on a record format that has never been read on this
     # target.
-    facts["dominant_shape"] = _dominant_shape(counts)
-    facts["seclog_cpu_field_present"] = counts["seclog_cpu_field"] >= 1
+    facts["dominant_shape"] = _dominant_shape(counts, scanned=facts["bounded"])
+    # Either bracketed variant answers the question this capability was reduced
+    # to: does a cpu/comm/pid field follow the timestamp on this device.
+    facts["seclog_cpu_field_present"] = counts["pri_ts_cpu"] + counts["ts_cpu"] >= 1
+    # Derived from the partition rather than measured, so it costs no extra read
+    # of the node and cannot disagree with the members it sums.
+    facts["derived_priority_timestamp"] = counts["pri_ts_cpu"] + counts["pri_ts_plain"]
+    facts["derived_timestamp_only"] = counts["ts_cpu"] + counts["ts_plain"]
     facts["size_matches_recorded_observation"] = facts["size"] == OBSERVED_SIZE
     return facts
 
 
-def _dominant_shape(counts: dict[str, int]) -> str:
-    """Which candidate prefix shape actually describes this buffer.
+def _dominant_shape(counts: dict[str, int], scanned: bool) -> str:
+    """Which prefix shape actually describes this buffer.
 
     Reported rather than asserted: if no shape accounts for most lines, that is
     itself the finding, and designing an anchor on any of them would be the same
     guess this capability exists to replace.
+
+    Because the shapes partition the lines, a strict majority belongs to at most
+    one of them, so there is no tie for this function to resolve by declaration
+    order. `no-records` is only ever said about a window that was actually
+    scanned; an unscanned node reports that it was not scanned instead, so a zero
+    from a branch that never ran cannot read as a measured empty buffer.
     """
-    total = counts["lines_total"]
+    if not scanned:
+        return "not-scanned"
+    total = counts[LINES_TOTAL]
     if total == 0:
         return "no-records"
-    ranked = sorted(
-        ((name, counts[name]) for name in SHAPES if name != "lines_total"),
+    name, count = max(
+        ((name, counts[name]) for name in (*SHAPES, UNCLASSIFIED)),
         key=lambda item: item[1],
-        reverse=True,
     )
-    name, count = ranked[0]
     if count * 2 <= total:
         return "no-dominant-shape"
     return name
@@ -293,7 +364,7 @@ def channel_verdict(facts: dict[str, Any]) -> str:
         return "NODE_ABSENT_OR_UNREADABLE"
     if not facts["bounded"]:
         return "NODE_TOO_LARGE_TO_SCAN"
-    if facts["shape_counts"]["lines_total"] == 0:
+    if facts["shape_counts"][LINES_TOTAL] == 0:
         return "SCANNED_NO_RECORDS"
     if facts["seclog_cpu_field_present"]:
         # The finding that would invalidate an anchor expecting the message
@@ -446,7 +517,10 @@ def collect(recorder) -> dict[str, Any]:
         "log_contents_read": False, "log_bytes_retained": 0,
         # This capability measures record format and nothing else. It does not
         # establish retention, does not identify a boot, and proves nothing ran.
-        "record_format_measured": True,
+        # True only when a window was actually scanned and its lines counted, so
+        # an absent, oversized or empty node publishes a measurement it did not
+        # make rather than reporting that it made none.
+        "record_format_measured": facts["counts_partition_the_scan"],
         "dominant_shape": facts["dominant_shape"],
         "retention_proved": False, "native_pid1_proved": False,
         "boot_identified": False, "content_interpreted": False,

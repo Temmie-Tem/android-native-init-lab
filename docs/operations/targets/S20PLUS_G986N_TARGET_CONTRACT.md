@@ -659,13 +659,13 @@ Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 ## S20+ last_kmsg Record-Format D0
 
 Status: **DEFINED - LAST_KMSG RECORD-FORMAT D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `30bccbde868447bc284aad96ffabf55549b9566fa9361f69590c2da8e2dc2bc6`
-Root-Script-SHA256: `c1da34a4394a13ba608e152ad2ef3f9b1fbba607c89d419f7b1bdd79cbb5dfe4`
+Runner-Normalized-SHA256: `9de57f83722740989fdbf04e135005f7846c75cd5826cc4287f116301a0b46f9`
+Root-Script-SHA256: `bb59051b31db9cc038ff5bec9db88f31bb1f49ba7cd481c6992458be021901d2`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`057c4a7871d45b4c8e073126d1253215f1fbee041913799b9dfe4a667b67ea3b`.
+`9299fc66963d3066a9de2f750c2a01ec89e0fc77d4f61ced66801e7ededba2ce`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
@@ -704,7 +704,7 @@ recorded pstore readiness D0 observed this node as a readable regular file of
 and no ramoops, pstore, PMSG or `/data` path is touched by this capability.
 
 No log byte crosses the device boundary. Only node state, `stat` size and link
-count, two whole-window SHA-256 values, the scanned byte count and six shape
+count, two whole-window SHA-256 values, two scanned byte counts and seven shape
 counts are emitted. Log text is never emitted, captured, pulled, persisted or
 published anywhere, in success or in failure.
 
@@ -723,31 +723,70 @@ record is silently not counted. And a banner written to `/dev/kmsg` is not an
 authenticated record - this device carries resident root, and a ring buffer can
 retain a banner from an earlier boot - so it could not identify a boot either.
 
-What replaces them is measurement. The runner's `SHAPES` closure declares six
-deliberately overlapping candidate prefix shapes and reports how many lines match
-each: total lines, priority plus timestamp, timestamp only, priority only, a
-Samsung sec_log cpu/comm/pid field after the timestamp, and no record prefix at
-all. The last two carry the finding. A sec_log cpu field means any anchor that
-expects the message immediately after the timestamp is wrong, and it is surfaced
-as its own verdict. Lines with no prefix are continuation and wrapped records,
-which an anchor would miss. If no shape accounts for most lines, that is
-reported as its own result rather than resolved by picking one.
+What replaces them is measurement. The runner's `SHAPES` closure declares five
+candidate prefix shapes - priority with timestamp and a cpu field, priority with
+a plain timestamp, timestamp with a cpu field, plain timestamp, and priority
+without a timestamp - and `unclassified` counts every line matching none of
+them. Each is a separate `grep` pass over the node and every line falls in
+exactly one, so the counts must sum to the measured line total. A sec_log
+cpu/comm/pid field after the timestamp carries the finding, because it means any
+anchor expecting the message immediately after the timestamp is wrong, and it is
+surfaced as its own verdict. `unclassified` carries the rest of it: continuation
+lines, wrapped records, and any prefix neither this lane nor its earlier guesses
+anticipated. If no shape accounts for most lines, that is reported as its own
+result rather than resolved by picking one.
 
-A future capability may interpret this buffer's content. It must be designed on
-the format this one measures, and any proof of which boot produced a record must
-carry a value unique to that run rather than a fixed string this device's root
-could also write.
+That the shapes partition the lines is an integrity requirement and not a
+presentation choice. Because each pass reads the node separately, a short read,
+a `grep` failure masked by the fallback zero, or a count taken from a different
+window all make the sum disagree with the total, and the host refuses the
+transcript rather than publishing an undercount. The earlier overlapping shape
+set could not detect any of those, and its "no record prefix" counter was not
+the complement of the others: an unrecognized line beginning with `<` or `[`
+matched no shape and no complement either, so the class a wrong format guess
+lands in was the one class the measurement could not see.
+
+A future capability may interpret this buffer's content, and it must be designed
+on the format this one measures. It must also not repeat the evidence error this
+section already records. A value unique to each run establishes freshness only:
+it excludes a record retained from an earlier boot and it excludes a replay, but
+it does not authenticate origin. This device carries resident root, so once a
+run's value exists on the host, anything running as root during that boot could
+write it, and the ring would retain it exactly as it retains a real record. No
+in-band token can close that gap on a rooted device. Any future proof must
+therefore state plainly which producers its value excludes, which it does not,
+and what operational condition - not what property of the token - excludes the
+remainder.
 
 Every branch emits every declared key exactly once and in a fixed order, so a
 short, reordered or extended transcript fails closed rather than reading as a
-partial observation. A symlinked, absent, non-regular, unreadable or hardlinked
-node is an explicit observation and not an error. The parser refuses an absent
-node that reports a scan, an unscanned window that reports a digest or predicate
-hits, and any malformed count, digest or metadata value. The node is read once
-per predicate, so the window is digested again after the last pass and the two
-digests must be identical: a consuming interface that empties after its first
-read, or a buffer that grows during the observation, fails closed rather than
-reporting a partial window.
+partial observation. A symlinked, absent, non-regular or unreadable node is an
+explicit observation and not an error. A node with a link count other than one
+is an error and stops the observation: the recorded readiness D0 saw this node
+with a single link, and a second link is a different node from the reviewed one
+rather than a variation on it. The parser refuses a non-regular node that
+reports metadata, an absent node that reports a scan, an unscanned window that
+reports a digest, a byte count or predicate hits, counts that do not sum to the
+line total or that exceed it, and any malformed count, digest or metadata value.
+
+The node is read once per predicate, so the scan is bracketed on both sides. A
+verified full-length byte count is taken before the first pass and after the
+last, and the window is digested before the first and after the last; a
+consuming interface that empties after its first read, a buffer that grows during
+the observation, or a node that begins reading short partway through the passes
+fails closed rather than reporting a partial window.
+
+What the tests do and do not establish, stated because the gap is the reason
+this capability is read-only and observed. The suite executes the complete
+generated root script through the target's own mksh and toybox under
+qemu-aarch64, so the shell semantics, the regex engine and the partition
+property are measured on the target's own binaries rather than the host's. It
+does not test procfs: the node is replaced with an ordinary file, `id -u` and
+`id -g` are replaced with literal root answers, and the node is small. So
+procfs read dynamics, a multi-megabyte window, live root identity and the real
+`collect()` execution path are unestablished offline and are the reason the
+first invocation is an attended, observed read whose result is examined before
+any further use, rather than an activation that is assumed to work.
 
 Results live only under
 `workspace/private/runs/s20plus-g986n-last-kmsg-observation-d0/` in newly
@@ -758,13 +797,16 @@ persisted. Failure retains bounded output digests, never raw error text. Every
 result reports zero S22+/A90/other-target commands and zero device effects,
 writes, reboots and partition access.
 
-A successful observation that satisfies every predicate establishes that the
-node carries a completed prior boot's kernel log including userspace `init`
-records. That is a retention and channel result only. It does not prove native
-PID1 execution, does not prove the buffer survives an Odin or Download-mode
-transition, which is a different transition from a warm reboot, and authorizes
-no candidate, marker, write, reboot, mode transition, payload, partition, R1 or
-F1 action. The permanent common boundaries and target isolation are unchanged.
+A successful observation establishes the shape of the lines in this buffer and
+nothing else. It does not establish that the node carries a completed prior
+boot's kernel log, does not establish that userspace `init` records are present,
+and does not establish retention of any kind - those were the refuted claims,
+and they were removed from this section rather than weakened. It does not prove
+native PID1 execution, says nothing about whether the buffer survives an Odin or
+Download-mode transition, which is a different transition from a warm reboot,
+and authorizes no candidate, marker, write, reboot, mode transition, payload,
+partition, R1 or F1 action. The permanent common boundaries and target isolation
+are unchanged.
 
 ## S20+ Routine Connected Actions
 

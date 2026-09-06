@@ -33,11 +33,18 @@ AGENTS = ROOT / "AGENTS.md"
 
 # Every S20+ runner that pins a contract section by name. Each must still find
 # its section, and each pinned digest must equal what the runner computes now.
-SECTION_PINNED_RUNNERS = (
-    "s20plus_g986n_pstore_readiness_d0",
-    "s20plus_g986n_last_kmsg_observation_d0",
-    "s20plus_g986n_pmsg_warm_reboot_d1",
-)
+#
+# The canonical header each runner must pin, written out here rather than read
+# from the runner. Taking the header from the module under test makes the guard
+# circular: a runner re-bound to a freshly written section, with digests to
+# match, would pass every check below while the section it is supposed to pin
+# went stale. These literals are the independent anchor, so a rename has to be
+# made here - in the same change, by hand - before any of it passes.
+SECTION_PINNED_RUNNERS = {
+    "s20plus_g986n_pstore_readiness_d0": "## S20+ Pstore/PMSG Readiness D0",
+    "s20plus_g986n_last_kmsg_observation_d0": "## S20+ last_kmsg Record-Format D0",
+    "s20plus_g986n_pmsg_warm_reboot_d1": "## S20+ PMSG Warm-Reboot Marker D1",
+}
 P0_OWNER = "s20plus_g986n_p0_pid1_odin_f1"
 
 
@@ -56,9 +63,19 @@ def normalized_of(module):
     return module.normalized_source()
 
 
-def section_of(module):
-    """The contract section a runner pins, by whichever constant it uses."""
-    header = getattr(module, "CONTRACT_SECTION", None) or getattr(module, "SECTION")
+def header_of(module):
+    """The header a runner pins, by whichever constant it uses."""
+    return getattr(module, "CONTRACT_SECTION", None) or getattr(module, "SECTION")
+
+
+def section_of(name):
+    """The canonical contract section for a runner, addressed by literal.
+
+    Deliberately keyed by runner *name* and not by the module: the header comes
+    from the table above, so the section this returns is the one the repository
+    says is canonical rather than whichever one the runner currently points at.
+    """
+    header = SECTION_PINNED_RUNNERS[name]
     text = CONTRACT.read_text()
     if text.count(header + "\n") != 1:
         raise AssertionError(f"{header!r} is absent or duplicated in the contract")
@@ -66,10 +83,17 @@ def section_of(module):
 
 
 class ContractSectionPinTests(unittest.TestCase):
+    def test_every_runner_pins_the_canonical_section_header(self):
+        # The check that makes the rest of this class non-circular. A runner
+        # re-bound to a section of its own making fails here first.
+        for name, header in SECTION_PINNED_RUNNERS.items():
+            with self.subTest(runner=name):
+                self.assertEqual(header_of(load(name)), header)
+
     def test_every_pinned_section_exists_exactly_once(self):
         for name in SECTION_PINNED_RUNNERS:
             with self.subTest(runner=name):
-                self.assertTrue(section_of(load(name)).strip())
+                self.assertTrue(section_of(name).strip())
 
     def test_pinned_normalized_digest_matches_the_runner(self):
         # The exact line the runner's require_active looks for. A source edit
@@ -78,7 +102,7 @@ class ContractSectionPinTests(unittest.TestCase):
             with self.subTest(runner=name):
                 module = load(name)
                 expected = "Runner-Normalized-SHA256: `" + normalized_of(module) + "`"
-                self.assertEqual(section_of(module).splitlines().count(expected), 1)
+                self.assertEqual(section_of(name).splitlines().count(expected), 1)
 
     def test_pinned_root_script_digest_matches_the_runner(self):
         for name in SECTION_PINNED_RUNNERS:
@@ -88,7 +112,7 @@ class ContractSectionPinTests(unittest.TestCase):
                 continue
             with self.subTest(runner=name):
                 expected = "Root-Script-SHA256: `" + hashlib.sha256(script.encode()).hexdigest() + "`"
-                self.assertEqual(section_of(module).splitlines().count(expected), 1)
+                self.assertEqual(section_of(name).splitlines().count(expected), 1)
 
     def test_dormant_runners_do_not_carry_their_active_status_line(self):
         # Both activation atoms must be unset together. A section left saying
@@ -99,7 +123,7 @@ class ContractSectionPinTests(unittest.TestCase):
             if active is not False:
                 continue
             with self.subTest(runner=name):
-                for line in section_of(module).splitlines():
+                for line in section_of(name).splitlines():
                     self.assertNotRegex(
                         line, r"^Status: \*\*BINDING - .* ACTIVE\*\*$",
                         f"{name} is dormant but its section claims ACTIVE",

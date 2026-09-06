@@ -10,6 +10,7 @@ only while the runner is dormant: `test_device_shell_evidence_is_required_when_a
 makes the skip impossible to combine with activation, so the extract cannot be
 missing at the moment the capability is armed.
 """
+import ast
 import importlib.util
 import os
 from pathlib import Path
@@ -118,10 +119,15 @@ class ShapeTests(unittest.TestCase):
     def test_predicates_use_extended_regular_expressions(self):
         # BRE alternation (\|) is a GNU extension the target's toybox need not
         # implement, so every predicate must be dispatched with -E.
+        inverted = 0
         for line in owned().splitlines():
             if "grep" in line:
-                self.assertIn("/system/bin/grep -aEc ", line)
+                self.assertRegex(line, r"/system/bin/grep -av?Ec ")
                 self.assertNotIn(r"\|", line)
+                inverted += "/system/bin/grep -avEc " in line
+        # Exactly one counter is the complement of the others; if a second shape
+        # became inverted the counts would no longer partition the lines.
+        self.assertEqual(inverted, len(M.INVERTED))
 
     def test_every_output_key_is_emitted_exactly_once(self):
         emitted = re.findall(r"^emit ([a-z_]+) ", owned(), flags=re.M)
@@ -138,15 +144,20 @@ class ShapeTests(unittest.TestCase):
 
 
 class ParserTests(unittest.TestCase):
-    ORDER = ("state", "meta", "bounded", "scanned", "window", "recheck", "meta_after")
+    ORDER = ("state", "meta", "bounded", "scanned", "scanned_after",
+             "window", "recheck", "meta_after")
+    # A valid partition: the shapes sum to exactly `lines_total`. Any test that
+    # perturbs one count without rebalancing the rest is rejected by the parser,
+    # which is the point of the partition and is asserted directly below.
+    SHAPES = {"pri_ts_cpu": "0", "pri_ts_plain": "960", "ts_cpu": "0",
+              "ts_plain": "20", "pri_only": "0", "unclassified": "20"}
 
     def transcript(self, **overrides):
         values = {"state": "regular", "meta": f"{M.OBSERVED_SIZE}:1", "bounded": "yes",
-                  "scanned": str(M.OBSERVED_SIZE), "window": "a" * 64 + "  -",
+                  "scanned": str(M.OBSERVED_SIZE), "scanned_after": str(M.OBSERVED_SIZE),
+                  "window": "a" * 64 + "  -",
                   "recheck": "a" * 64 + "  -", "meta_after": f"{M.OBSERVED_SIZE}:1",
-                  "lines_total": "1000", "priority_timestamp": "980",
-                  "timestamp_only": "980", "priority_only": "0",
-                  "seclog_cpu_field": "0", "no_record_prefix": "20"}
+                  "lines_total": "1000", **self.SHAPES}
         values.update(overrides)
         body = "".join(f"{k}={v}\n" for k, v in M.health.EXPECTED_ROOT_OUTPUT.items())
         body += "".join(f"{k}={values[k]}\n" for k in (*self.ORDER, *M.PREDICATES))
@@ -155,19 +166,17 @@ class ParserTests(unittest.TestCase):
     def unscanned(self, **overrides):
         """A transcript for a node the shell never scanned."""
         values = {"state": "unavailable", "meta": "0:0", "bounded": "no", "scanned": "-1",
-                  "window": "none", "recheck": "none", "meta_after": "0:0"}
+                  "scanned_after": "-1", "window": "none", "recheck": "none",
+                  "meta_after": "0:0"}
         values.update({k: "0" for k in M.PREDICATES})
         values.update(overrides)
         return self.transcript(**values)
 
     def test_dominant_shape_is_reported_not_asserted(self):
-        facts = M.parse_root(self.transcript(
-            lines_total="1000", priority_timestamp="980", timestamp_only="980",
-            priority_only="0", seclog_cpu_field="0", no_record_prefix="20",
-        ))
-        self.assertEqual(facts["shape_counts"]["lines_total"], 1000)
+        facts = M.parse_root(self.transcript())
+        self.assertEqual(facts["shape_counts"][M.LINES_TOTAL], 1000)
         self.assertTrue(facts["scan_complete"])
-        self.assertIn(facts["dominant_shape"], M.SHAPES)
+        self.assertEqual(facts["dominant_shape"], "pri_ts_plain")
         self.assertEqual(
             M.channel_verdict(facts), "RECORDS_DOMINANTLY_" + facts["dominant_shape"].upper()
         )
@@ -176,19 +185,57 @@ class ParserTests(unittest.TestCase):
         # The finding that would invalidate an anchor expecting the message
         # immediately after the timestamp, so it outranks the shape ranking.
         facts = M.parse_root(self.transcript(
-            lines_total="1000", priority_timestamp="990", timestamp_only="990",
-            priority_only="0", seclog_cpu_field="985", no_record_prefix="10",
+            pri_ts_cpu="985", pri_ts_plain="5", ts_cpu="0", ts_plain="0",
+            pri_only="0", unclassified="10",
+        ))
+        self.assertTrue(facts["seclog_cpu_field_present"])
+        self.assertEqual(M.channel_verdict(facts), "RECORDS_CARRY_A_SECLOG_CPU_FIELD")
+
+    def test_a_bare_timestamp_cpu_field_also_counts_as_the_finding(self):
+        # The cpu field matters whether or not a priority prefix precedes it, so
+        # neither bracketed variant may be the only one that surfaces it.
+        facts = M.parse_root(self.transcript(
+            pri_ts_cpu="0", pri_ts_plain="0", ts_cpu="985", ts_plain="5",
+            pri_only="0", unclassified="10",
         ))
         self.assertTrue(facts["seclog_cpu_field_present"])
         self.assertEqual(M.channel_verdict(facts), "RECORDS_CARRY_A_SECLOG_CPU_FIELD")
 
     def test_no_dominant_shape_is_itself_the_finding(self):
         facts = M.parse_root(self.transcript(
-            lines_total="1000", priority_timestamp="100", timestamp_only="200",
-            priority_only="150", seclog_cpu_field="0", no_record_prefix="300",
+            pri_ts_cpu="0", pri_ts_plain="300", ts_cpu="0", ts_plain="250",
+            pri_only="200", unclassified="250",
         ))
         self.assertEqual(facts["dominant_shape"], "no-dominant-shape")
         self.assertEqual(M.channel_verdict(facts), "RECORDS_HAVE_NO_DOMINANT_SHAPE")
+
+    def test_counts_that_do_not_partition_the_scan_are_refused(self):
+        # The integrity check a short read or a `|| key=0` fallback trips. Each
+        # shape is a separate read of the node, so an undercount on any one of
+        # them must fail rather than publish a smaller number.
+        for shape in (*M.SHAPES, M.UNCLASSIFIED):
+            short = dict(self.SHAPES)
+            short[shape] = str(int(short[shape]) - 1) if int(short[shape]) else "1"
+            with self.subTest(shape=shape), self.assertRaises(M.ObservationError):
+                M.parse_root(self.transcript(**short))
+
+    def test_no_shape_may_exceed_the_scanned_line_total(self):
+        with self.assertRaises(M.ObservationError):
+            M.parse_root(self.transcript(lines_total="10"))
+
+    def test_an_unscanned_node_reports_no_measurement(self):
+        # A zero from a branch that never ran must not read as a measured empty
+        # buffer, and must not publish `record_format_measured`.
+        facts = M.parse_root(self.unscanned())
+        self.assertEqual(facts["dominant_shape"], "not-scanned")
+        self.assertFalse(facts["counts_partition_the_scan"])
+
+    def test_an_empty_but_scanned_window_is_distinguished_from_an_unscanned_one(self):
+        facts = M.parse_root(self.transcript(
+            lines_total="0", **{k: "0" for k in (*M.SHAPES, M.UNCLASSIFIED)}))
+        self.assertEqual(facts["dominant_shape"], "no-records")
+        self.assertEqual(M.channel_verdict(facts), "SCANNED_NO_RECORDS")
+        self.assertFalse(facts["counts_partition_the_scan"])
 
     def test_nothing_in_the_result_interprets_content_or_names_a_boot(self):
         facts = M.parse_root(self.transcript())
@@ -206,8 +253,11 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(M.channel_verdict(facts), "NODE_ABSENT_OR_UNREADABLE")
 
     def test_truncated_scan_is_refused_rather_than_counted_as_zero(self):
-        with self.assertRaises(M.ObservationError):
-            M.parse_root(self.transcript(scanned=str(M.OBSERVED_SIZE - 1)))
+        # Both brackets are load-bearing: a node that reads short only after the
+        # first pass is exactly the case the trailing count exists to catch.
+        for key in ("scanned", "scanned_after"):
+            with self.subTest(bracket=key), self.assertRaises(M.ObservationError):
+                M.parse_root(self.transcript(**{key: str(M.OBSERVED_SIZE - 1)}))
 
     def test_growth_past_the_cap_is_refused(self):
         with self.assertRaises(M.ObservationError):
@@ -228,6 +278,20 @@ class ParserTests(unittest.TestCase):
             {"state": "elsewhere"},
             {"lines_total": "-1"},
             {"meta": "not-metadata"},
+            # The shell only runs `stat` on the regular branch, so a non-regular
+            # state carrying real metadata is a transcript it cannot produce.
+            {"state": "unavailable", "meta": "1:0", "bounded": "no",
+             "scanned": "-1", "scanned_after": "-1", "window": "none",
+             "recheck": "none", "meta_after": "0:0",
+             **{k: "0" for k in M.PREDICATES}},
+            {"state": "unreadable", "meta": f"{M.OBSERVED_SIZE}:1", "bounded": "no",
+             "scanned": "-1", "scanned_after": "-1", "window": "none",
+             "recheck": "none", "meta_after": "0:0",
+             **{k: "0" for k in M.PREDICATES}},
+            # An unscanned window may not report either byte-count bracket.
+            {"state": "unavailable", "meta": "0:0", "bounded": "no", "scanned": "-1",
+             "scanned_after": "0", "window": "none", "recheck": "none",
+             "meta_after": "0:0", **{k: "0" for k in M.PREDICATES}},
         ]
         for override in cases:
             with self.subTest(**override), self.assertRaises(M.ObservationError):
@@ -248,6 +312,60 @@ class ParserTests(unittest.TestCase):
         for result in ((65, stdout, b""), (0, stdout, b"warning\n")):
             with self.assertRaises(Exception):
                 M.parse_root(result)
+
+
+class PublishedSurfaceTests(unittest.TestCase):
+    """What `collect()` actually publishes, read out of its own return statement.
+
+    The parser tests cover `facts`, but the published result is a wider dict
+    built in `collect()`, and nothing here reached it: a withdrawn claim could
+    be reintroduced at the publication layer without a single test noticing.
+    `collect()` cannot run without a device, so the return literal is read
+    structurally instead. That is weaker than executing it and is not a
+    substitute for the review of the live path, but it does bind the claim keys.
+    """
+
+    @staticmethod
+    def surface():
+        tree = ast.parse(RUNNER.read_text())
+        collect = next(n for n in ast.walk(tree)
+                       if isinstance(n, ast.FunctionDef) and n.name == "collect")
+        node = next(n.value for n in reversed(collect.body) if isinstance(n, ast.Return))
+        out = {}
+        for key, value in zip(node.keys, node.values):
+            if key is None:  # a `**recorder.evidence()` spread
+                continue
+            out[key.value] = value
+        return out
+
+    def test_every_withdrawn_claim_is_published_false(self):
+        surface = self.surface()
+        for key in ("retention_proved", "native_pid1_proved", "boot_identified",
+                    "content_interpreted", "device_writes", "reboot_requested",
+                    "partition_access", "log_contents_read"):
+            with self.subTest(key=key):
+                self.assertIn(key, surface)
+                self.assertIsInstance(surface[key], ast.Constant)
+                self.assertIs(surface[key].value, False)
+
+    def test_the_result_reports_no_device_effect_and_no_retained_bytes(self):
+        surface = self.surface()
+        for key in ("device_effect_count", "log_bytes_retained"):
+            with self.subTest(key=key):
+                self.assertEqual(surface[key].value, 0)
+
+    def test_record_format_measured_is_derived_and_never_a_literal_true(self):
+        # It said `True` unconditionally, so an absent, oversized or empty node
+        # published a measurement it had not made.
+        value = self.surface()["record_format_measured"]
+        self.assertNotIsInstance(value, ast.Constant)
+
+    def test_the_publication_names_no_withdrawn_semantic_key(self):
+        surface = self.surface()
+        for withdrawn in ("channel_readable", "carries_terminal_record", "is_kernel_log",
+                          "carries_candidate_banner", "is_completed_prior_boot",
+                          "prior_boot_confirmed", "init_records_present"):
+            self.assertNotIn(withdrawn, surface)
 
 
 class ActivationGateTests(unittest.TestCase):
@@ -337,12 +455,14 @@ class DeviceShellTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = self.parsed(result)
             counts = facts["shape_counts"]
-            self.assertEqual(counts["lines_total"], len(self.KERNEL_LOG.splitlines()))
-            # Every line of the fixture carries a priority and a timestamp.
-            self.assertEqual(counts["priority_timestamp"], counts["lines_total"])
-            self.assertEqual(counts["no_record_prefix"], 0)
-            self.assertEqual(counts["seclog_cpu_field"], 0)
+            self.assertEqual(counts[M.LINES_TOTAL], len(self.KERNEL_LOG.splitlines()))
+            # Every line of the fixture carries a priority and a timestamp and
+            # no cpu field, so one partition member holds all of them.
+            self.assertEqual(counts["pri_ts_plain"], counts[M.LINES_TOTAL])
+            self.assertEqual(counts["unclassified"], 0)
+            self.assertFalse(facts["seclog_cpu_field_present"])
             self.assertTrue(facts["scan_complete"])
+            self.assertTrue(facts["counts_partition_the_scan"])
 
     def test_a_seclog_cpu_field_is_detected_under_the_target_grep(self):
         # The measurement this capability exists for. If the real buffer looks
@@ -356,7 +476,8 @@ class DeviceShellTests(unittest.TestCase):
             result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
             self.assertEqual(result.returncode, 0, result.stderr)
             facts = self.parsed(result)
-            self.assertEqual(facts["shape_counts"]["seclog_cpu_field"], 2)
+            self.assertEqual(facts["shape_counts"]["pri_ts_cpu"], 2)
+            self.assertEqual(facts["shape_counts"]["pri_ts_plain"], 0)
             self.assertTrue(facts["seclog_cpu_field_present"])
             self.assertEqual(
                 M.channel_verdict(facts), "RECORDS_CARRY_A_SECLOG_CPU_FIELD"
@@ -374,9 +495,65 @@ class DeviceShellTests(unittest.TestCase):
             result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
             self.assertEqual(result.returncode, 0, result.stderr)
             counts = self.parsed(result)["shape_counts"]
-            self.assertEqual(counts["lines_total"], 3)
-            self.assertEqual(counts["no_record_prefix"], 2)
-            self.assertEqual(counts["priority_timestamp"], 1)
+            self.assertEqual(counts[M.LINES_TOTAL], 3)
+            self.assertEqual(counts["unclassified"], 2)
+            self.assertEqual(counts["pri_ts_plain"], 1)
+
+    def test_unmatched_lines_that_start_with_a_bracket_are_still_counted(self):
+        # The C2 defect. `^[^<[]` was not the complement of the shapes: a
+        # malformed or alternate bracketed prefix matched no shape and no
+        # "no prefix" counter either, so it vanished from the measurement and a
+        # reported majority could hide it. Under a partition it cannot.
+        body = (
+            b"<6>[    1.000000] a whole record\n"
+            b"[not a timestamp] alternate bracketed prefix\n"
+            b"<not a priority> alternate angled prefix\n"
+            b"\n"
+            b"[    2.000000]no space after the timestamp\n"
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = self.parsed(result)
+            counts = facts["shape_counts"]
+            self.assertEqual(counts[M.LINES_TOTAL], 5)
+            self.assertEqual(counts["pri_ts_plain"], 1)
+            # All four unrecognized lines land in exactly one place.
+            self.assertEqual(counts["unclassified"], 4)
+            self.assertTrue(facts["counts_partition_the_scan"])
+
+    def test_the_shapes_partition_every_line_under_the_target_grep(self):
+        # The partition is the integrity check the parser depends on, and it is
+        # a property of the target's own regex engine, not of Python's. A line
+        # counted by two shapes, or by none, would silently break the sum.
+        body = b"".join(line + b"\n" for line in (
+            b"<6>[    0.000000] [0:      swapper/0:    0] cpu field, priority",
+            b"[    0.100000] [1:            init:    1] cpu field, no priority",
+            b"<5>[    0.200000] plain record",
+            b"[    0.300000] plain record, no priority",
+            b"<4>no timestamp at all",
+            b"<4>",
+            b"[    0.400000]",
+            b"[not a timestamp] alternate",
+            b"<not a priority> alternate",
+            b"",
+            b"    indented continuation",
+            b"<6>[    0.500000] [",
+        ))
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.run_device_shell(self.fixture(Path(temp), node_bytes=body))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            counts = self.parsed(result)["shape_counts"]
+            members = [counts[name] for name in (*M.SHAPES, M.UNCLASSIFIED)]
+            self.assertEqual(counts[M.LINES_TOTAL], len(body.splitlines()))
+            # parse_root already refuses a non-partition; assert the arithmetic
+            # here too so a failure names this property rather than the parser.
+            self.assertEqual(sum(members), counts[M.LINES_TOTAL])
+            self.assertEqual(counts["pri_ts_cpu"], 1)
+            self.assertEqual(counts["ts_cpu"], 1)
+            self.assertEqual(counts["pri_ts_plain"], 1)
+            self.assertEqual(counts["ts_plain"], 1)
+            self.assertEqual(counts["pri_only"], 2)
 
     def test_absent_node_still_emits_every_key(self):
         with tempfile.TemporaryDirectory() as temp:

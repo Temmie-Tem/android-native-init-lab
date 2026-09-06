@@ -80,9 +80,22 @@ of the thing being proved, not **authenticated** as coming from it.
 
 None of the three excluded the other producers. A token only proves what
 produced it if nothing else can produce it, and on a rooted device a fixed
-string does not qualify. The standard answer - a value unique to the run,
-generated on the host at prepare time, baked into the candidate, and kept in the
-private run journal - was available from the start and was not used.
+string does not qualify.
+
+The obvious next reach is a value unique to the run - generated on the host at
+prepare time, baked into the candidate, kept only in the private run journal -
+and it was available from the start and was not used. But review was right to
+push back on how much it buys, and the correction matters more than the
+omission. A per-run value establishes **freshness**, not origin. It excludes a
+record retained from an earlier boot and it excludes a replay, which is real and
+is exactly what the three refuted channels lacked. It does not exclude the
+resident root on this device: once the value exists on the host it can be
+written by anything running as root in that boot, and the ring retains it
+identically. No in-band token closes that on a rooted device. So the remaining
+producer has to be excluded operationally - by what is running during the window
+- and any future proof has to say which producers its value excludes, which it
+does not, and what condition covers the rest. Writing "unique per run" and
+treating the question as closed would have been the same mistake one level up.
 
 ## What was actually established, and it is not nothing
 
@@ -130,13 +143,26 @@ failed at that gate with the private records already written.
 ## Where the lane is now
 
 The `/proc/last_kmsg` capability was reduced from asserting to measuring. It
-reports counts for six deliberately overlapping candidate prefix shapes and
-derives nothing: `retention_proved`, `boot_identified` and `content_interpreted`
-are all false, and no verdict names a boot or interprets content. Two shapes
-carry the finding - a Samsung sec_log cpu/comm/pid field after the timestamp
-would invalidate any anchor expecting the message immediately after it, and
-lines with no prefix at all are the continuation and wrapped records an anchor
-would miss.
+counts five candidate prefix shapes plus `unclassified`, and derives nothing:
+`retention_proved`, `boot_identified` and `content_interpreted` are all false,
+and no verdict names a boot or interprets content. A Samsung sec_log
+cpu/comm/pid field after the timestamp carries the finding, because it would
+invalidate any anchor expecting the message immediately after it; `unclassified`
+carries the rest, being the continuation and wrapped records an anchor would
+miss along with any prefix this lane did not anticipate.
+
+The shapes are a partition rather than an overlapping candidate set, and that
+is an integrity requirement, not presentation. Independent review refuted the
+first version of this capability on exactly that point: each shape is a separate
+`grep` pass over the node, so a short read or a `grep` failure masked by the
+fallback zero silently lowered one count with nothing to check it against, and
+the "no record prefix" counter was not the complement of the others - an
+unrecognized line beginning with `<` or `[` matched no shape and no complement
+either. The class a wrong format guess lands in was the one class the
+measurement could not see. Under a partition the counts must sum to the measured
+line total, and the host refuses the transcript when they do not. Verified
+against the target's own toybox `grep` under qemu across 7,475 generated lines:
+no line counted twice, no line counted zero times, sum equal to the total.
 
 That is the honest next step, because **no byte of this node has ever been read
 on this target**. Every predicate written against it so far was anchored to an
@@ -144,9 +170,11 @@ inferred format.
 
 Ordering, which changed twice and is now this:
 
-1. review and activate the record-format D0; one read establishes the format;
+1. clear the record-format D0's own review, then activate it; one read
+   establishes the format. Its first review returned blocking findings and the
+   capability stayed dormant - the measurement defects are described above;
 2. design the proof predicate on the measured format, carrying a per-run value
-   rather than a fixed string;
+   for freshness and stating explicitly what that value does not exclude;
 3. rebuild the candidate with that value, re-review the F1, then one attended
    transaction.
 
