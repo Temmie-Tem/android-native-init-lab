@@ -46,6 +46,16 @@ authentication and physical Download recovery, with fresh exact preparation and
 approval. Current work is documentation-only; A90/S20+ receive no command.
 Report: [P349 capability and preparation](docs/reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md).
 
+## Separate H0 display investigation
+
+The operator requested a visible indication that native PID1 is running,
+distinct from the retained boot logo. [Initial display research](docs/reports/S22PLUS_FYG8_NATIVE_DISPLAY_RESEARCH_H0_2026-09-06.md)
+selects DRM/KMS as the preferred source-investigation path; current framebuffer
+support is disabled and the USB plan omits the vendor display module. Actual
+native display output remains unproved. This H0 work does not alter P349 or
+activate a device lane. Next: exact display provider/DT and CPU-buffer cache
+analysis, before any renderer or live experiment.
+
 ## Latest completed P348 unit
 
 P348 is CLOSED/19 and consumed with
