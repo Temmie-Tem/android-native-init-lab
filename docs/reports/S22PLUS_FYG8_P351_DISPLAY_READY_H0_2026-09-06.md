@@ -2,7 +2,8 @@
 
 Date: 2026-09-06. Exact target: SM-S906N / g0q / S906NKSS7FYG8.
 Result: **H0 candidate, static promotion and independent capability review PASS**.
-No connected command, Download request, transfer or live run was performed.
+During H0 qualification no connected command, Download request, transfer or live
+run was performed. Later D0/D1 preparation is recorded below.
 P350 remains consumed; A90 and S20+ received no command.
 
 ## Result and scope
@@ -132,3 +133,22 @@ no `prepared.json` or F1 approval token. No reboot, Download request or transfer
 occurred. A90/S20+ received no command. An attended ordinary reboot needs its
 separate fresh D1 approval before a new D0 attempt; the failed invocation and
 its capture remain unchanged. The H0 candidate and ready declaration are unchanged.
+
+## Approved D1 and successful fresh preparation
+
+The operator explicitly approved D0/D1 through F1-code issuance. A fresh fixed
+P351 invocation reused the unchanged reviewed P296/P320 ordinary-reboot engine;
+its H0 self-test passed before one reboot. The durable result confirms changed
+boot ID, exact rooted FYG8 return, original boot/supporting hashes, absent Odin
+endpoint and no other-target commands. Linked D1 result:
+`2963B/e152cb16952dc7601ee9ea3fc126baf6c7ce0def2e0252f4b69764989e74c257`.
+The old baseline stop, predecessor journals and candidates were not changed.
+
+New preparation `p351-ready1-prepared-20260906-2` passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`. Actual `load_prepared` reopening
+verified the final stored target/boot/artifact/source binding. An exact F1 code
+was issued for approval-binding digest prefix `e47d8d4b`; the token is private.
+Candidate AP remains `30965801B/f9e2783f`, with exact rollback AP `d2373bf8`.
+No F1 execution, Download request or candidate/rollback transfer occurred.
+The user must return the binding-specific F1 code before execution. Their D0/D1
+approval does not authorize F1. Actual P351 display output remains UNPROVED.

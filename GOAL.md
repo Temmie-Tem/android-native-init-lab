@@ -15,15 +15,16 @@ P351 H0 preparation is complete: the fresh candidate integrates the three
 reviewed display providers, a bounded fresh regulator/DRM readiness witness and
 the white-background large-counter renderer. A/B packaging, complete AP/ramdisk
 reopening, static promotion and independent capability review passed. The local
-ready declaration is published; no connected preparation or F1 approval exists.
+ready declaration is published. Fresh connected preparation now passes and its
+F1 approval code has been issued; it has not been returned or executed.
 Candidate AP is `30965801B/f9e2783f`.
 
 The source-bound executable prerequisite covers all 22 applicable merged DTs,
 each with 54 required nodes. It includes device creation and driver-consumed
 relationships beyond module symbols. Actual provider binding, DRM/visible output
-and P351 recovery remain UNPROVED. The next device unit requires fresh exact
-preparation, operator attendance and the ordinary returned F1 approval. No device
-command occurred in this H0 unit; A90/S20+ remain isolated.
+and P351 recovery remain UNPROVED. After the operator approved D0/D1, one
+ordinary reboot returned healthy and fresh D0 preparation passed. F1 still
+requires the returned exact approval and attendance; A90/S20+ remain isolated.
 Report: [P351 H0 ready](docs/reports/S22PLUS_FYG8_P351_DISPLAY_READY_H0_2026-09-06.md).
 
 P351 connected preparation attempt `p351-ready1-prepared-20260906-1` stopped
@@ -34,6 +35,15 @@ No prepared binding or approval token was issued; final D0 continuity was not
 observed. No reboot, Download request or transfer occurred. The next step needs
 one separately approved attended ordinary reboot, then fresh D0 preparation;
 the stopped D0 result is never reused as success.
+
+The operator subsequently approved D0/D1 through F1-code issuance. One fresh
+P351 invocation of the unchanged P296/P320 ordinary-reboot primitive passed:
+changed boot ID, exact rooted FYG8 return and original supporting hashes.
+D1 result is `2963B/e152cb16`. New D0 in `p351-ready1-prepared-20260906-2`
+passed, and actual `load_prepared` reopening verified the stored binding.
+The approval-binding digest starts `e47d8d4b`; its exact token stays in the
+private prepared record and operator response. No Download request, F1 execute,
+candidate transfer or rollback transfer occurred. The earlier D0 stop is retained.
 
 ## Previous consumed display attempt
 
