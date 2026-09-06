@@ -1134,11 +1134,37 @@ until independent changed-closure review, exact artifact/static qualification
 and fresh connected preparation pass. The ordinary separately returned attended
 F1 approval is still required. No permanent boundary or recovery mechanism changes.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, or P355 candidate transfer occurs, the same
+**P356 attended framebuffer magenta comparison.** P355 is consumed and never
+replayable. P356 retains its exact 30HS timing, primary selection, twelve modules,
+readiness, one WC allocation, geometry, noise_layer_v1=0, one blocking atomic,
+privilege drop, one-way authenticated dispatch and 60-second bounds. Transport
+checks, closure snapshot, physical Download, exact rollback and final health are
+unchanged. The fresh literal and all run/artifact/observer namespaces are P356.
+
+The visible 1080x2340 buffer pixels become XRGB8888 magenta 0x00ff00ff; the eight
+padding pixels in each 4352-byte row stay white. The selected-plane color_fill
+property is explicitly zero in the same request, requiring the existing unique
+property lookup; absence or duplication stops before atomic. The transaction
+otherwise matches P355. No alternative source, cache-control operation, extra
+commit, retry or driver patch is introduced. The prior initial-plane FB-zero
+requirement and fresh framebuffer remain in force; this is a first-enable
+comparison, not an attempt to retain P355's old hardware state.
+
+The intended observation is full magenta and whether corruption is present.
+White/error fill, unchanged logo or an unobserved screen is not successful
+framebuffer-magenta qualification. Host dispatch is not execution or visual
+proof. Clean constant-color output does not prove arbitrary pattern correctness
+or exclude addressing/cache faults that a uniform input can hide. Corruption
+would establish failure for this ordinary-buffer input, not identify its cause.
+This capability remains H0-only until independent changed-closure review and
+exact artifact/static qualification pass, followed by fresh connected preparation
+and the separately returned attended F1 approval. No permanent boundary changes.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, or P356 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, or `s22plus-fyg8-p355` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, or `s22plus-fyg8-p356` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

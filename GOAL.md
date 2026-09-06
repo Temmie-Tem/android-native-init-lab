@@ -11,6 +11,25 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P356 is being prepared to draw full magenta through the normal memory-buffer
+path. It retains P355's 30HS mode, one WC buffer/atomic request, geometry and
+noise disable; visible pixels become 0x00ff00ff and row padding remains white.
+Hardware color_fill is explicitly zero. This compares the same intended visible
+color through normal buffering against P355's observed clean hardware fill.
+A clean constant image would not establish arbitrary pattern correctness or
+identify cache coherency as the cause.
+
+H0 A/B build and static qualification pass. Actual AArch64 paint output matches
+all visible/padding bytes. Independent review is PASS_GO; actual offline
+promotion and P356/P355 focused suites of 21 cases each pass. The operator preapproved D0/D1 and
+confirmed physical availability; fresh F1 code issuance follows qualification
+and connected preparation. No P356 device action has occurred, and F1 execution
+still requires the separately returned exact approval. P355 remains closed and
+consumed; its source/artifacts and first failure are preserved.
+Report: [P356 framebuffer magenta preparation](docs/reports/S22PLUS_FYG8_P356_FRAMEBUFFER_MAGENTA_PREPARATION_2026-09-07.md).
+
+## Consumed P355 comparison
+
 P355 is consumed and CLOSED/19, recovery_required=false. Candidate
 `30965801B/d100d9bc` and exact Magisk rollback `23367721B/d2373bf8` transferred
 once each. Final rooted FYG8, original boot/supporting hashes and absent Download
