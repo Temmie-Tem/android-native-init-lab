@@ -1,10 +1,12 @@
-# P354 explicit noise disable: H0 candidate
+# P354 explicit noise disable: same corruption, rolled back
 
 P353 produced the intended static pattern with visible corruption and was
 rolled back healthy. P354 compares one specific software difference found in
 the [exact Android firmware analysis](S22PLUS_FYG8_P353_ANDROID_DISPLAY_COMPARISON_H0_2026-09-07.md):
 explicitly setting the selected CRTC's `noise_layer_v1=0` instead of omitting it.
-This report records host qualification, not a demonstrated repair or device run.
+The later approved P354 run reproduced similar visible corruption and returned
+healthy through exact rollback. No visible improvement or causal repair was
+established. H0 qualification and the separately approved live result follow.
 
 ## Bounded change
 
@@ -134,3 +136,53 @@ prepared record owns the exact approval token; no token or private
 identifier is copied into this report. No Download request, Odin transfer,
 native display dispatch or F1 execution has occurred. Android remains the
 last verified healthy state. A separately returned F1 approval remains required.
+
+
+## Approved F1 result
+
+The operator returned the exact prepared approval. One original execute
+invocation completed one candidate transfer and one exact Magisk rollback.
+The authenticated parent prefix and full display-request write passed. Machine
+verdict is `PASS_F1_V2_P354_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`; the session
+remains deliberately unclosed and display execution/visible output remain
+UNPROVED in that machine receipt. No follow-up display command was sent.
+
+The operator reported “이전과 비슷하게 깨짐” and “똑같이 노이즈 패턴 보인다”, and supplied
+a photo. The photo shows the intended red/blue upper blocks and green lower block
+with black cross, horizontal speckles and extensive lower corruption. This is
+**no observed improvement** under the explicit-noise-disable candidate. The two
+photos were not measured pixel-for-pixel. The experiment does not directly prove
+the property's setter or hardware clear ran; no post-dispatch execution telemetry
+was collected. Do not convert this result into a hardware diagnosis, a complete
+refutation of noise-related mechanisms, or proof of correct buffer visibility.
+Photo and operator witness remain private in the run directory.
+
+Supplemental Carrier classification is `AMBIGUOUS_INTEGRITY_FAILURE`, with
+`NO_PROOF_OBSERVER`; it supplies no causal result. Its nonacceptance does not
+change the narrower authenticated dispatch observation. Final rooted FYG8,
+original boot/supporting hashes and absent Download all pass. The journal is
+CLOSED with 19 records and `recovery_required=false`. Live result is
+`22805B/ab4ff2f332604433424a23a11916a1c987e73c3d6cae8a99578c0018a4400883`.
+Actual prepared/result reopening passed. There was no recover invocation or
+candidate/rollback retransmission. Exactly one matching campaign closure row
+was appended from this journal/result.
+
+Canonical timeline, UTC:
+
+| Event | Timestamp |
+| --- | --- |
+| `live_session_start` | `2026-09-06T19:40:18.684219Z` |
+| `candidate_flash_start` | `2026-09-06T19:40:45.089196Z` |
+| `candidate_flash_done` | `2026-09-06T19:40:46.739717Z` |
+| `candidate_boot_ready` | `2026-09-06T19:41:11.063209Z` |
+| `rollback_flash_start` | `2026-09-06T19:41:50.829169Z` |
+| `rollback_flash_done` | `2026-09-06T19:41:52.364764Z` |
+| `rollback_boot_ready` | `2026-09-06T19:42:37.500686Z` |
+| `live_session_end` | `2026-09-06T19:42:37.522971Z` |
+
+The run and its approval are consumed. No active shell or further device
+authority remains; A90/S20+ were untouched. The previously assessed hardware
+magenta solid-fill path is the next proposed H0 successor, to distinguish
+buffer-fetch behavior from the remaining composition/output path. A clean
+solid-fill result would still not alone prove a cache fault. No such successor
+was built or run in this unit.

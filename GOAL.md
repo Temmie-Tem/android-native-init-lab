@@ -11,24 +11,29 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P354 implements the explicit-noise-disable comparison as a fresh H0 candidate.
-The same P353 static pattern, one WC buffer and exact 30HS timing are retained;
-one selected-CRTC `noise_layer_v1=0` property is added to the same atomic request.
-Missing/duplicate property stops before atomic; there is no alternative or retry.
-A/B userspace, renderer, boot and AP match; candidate is `30965801B/bc48a71f`.
-Focused P354 and P353 regression tests each pass 21 cases. Artifact/static
-qualification passes with 109 source inputs. Independent review is PASS_GO and
-the actual offline promotion CLI passes. Common F1 tests pass 74 cases. No
-F1 candidate or rollback transfer has occurred.
+P354 is consumed and CLOSED/19, recovery_required=false. Candidate
+`30965801B/bc48a71f` and exact Magisk rollback `23367721B/d2373bf8` transferred
+once each in the original execution, without replay or a recovery restart.
+Final rooted FYG8, original boot/supporting hashes and absent Download passed.
+The machine verdict is `PASS_F1_V2_P354_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`;
+it establishes authenticated host dispatch and rollback, not pixel fidelity.
+Live result is `22805B/ab4ff2f3`.
 
-The operator preapproved D0/D1 through code issuance and confirmed physical
-availability. First D0 preserved a retained-baseline stop. One ordinary reboot
-then passed with changed boot ID and healthy rooted FYG8 return; fresh D0 in
-`p354-ready1-prepared-20260907-2` passes with an empty retained-marker baseline.
-The prepared approval binding exists; separately returned attended F1 approval
-is still required. A90/S20+ received no command. Pixel fidelity and noise
-causality remain UNPROVED.
-Report: [P354 explicit noise disable H0](docs/reports/S22PLUS_FYG8_P354_NOISE_DISABLE_H0_2026-09-07.md).
+The same P353 pattern/buffer/30HS candidate with explicit `noise_layer_v1=0`
+showed the same corruption to the operator. The private photo again shows the
+recognizable red/blue/green/black-cross pattern, horizontal speckles and extensive
+lower-area corruption. **No visible improvement was observed.** This does not
+establish the property's runtime execution or exclude every noise-related cause;
+post-dispatch execution telemetry remains absent. Clean image quality and the
+failure mechanism remain unproved. Supplemental Carrier is ambiguous and supplies
+no causal proof. Operator/photo evidence does not promote the machine receipt.
+
+The bounded run is complete. No active shell or standing device authority
+remains. P353/P354 are never replayable; A90/S20+ received no command. A further
+comparison would use the previously qualified hardware magenta solid-fill design
+in a fresh successor to help distinguish the buffer-fetch path from remaining
+display processing. It is not implemented or authorized by this goal.
+Report: [P354 noise-disable comparison and closed result](docs/reports/S22PLUS_FYG8_P354_NOISE_DISABLE_H0_2026-09-07.md).
 
 ## Consumed P353 and H0 diagnosis
 
