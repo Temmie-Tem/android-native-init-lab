@@ -189,3 +189,39 @@ would be a separate device-connected control action, beyond this read-only unit.
 
 Private captures, upstream source copies and their digest index are under
 `workspace/private/outputs/s22plus_fyg8_p356/adb-offline-h0-20260907/`.
+
+
+## Operator reconnection and fresh preparation
+
+The operator reported completing the separately proposed manual reconnection.
+A bounded query to the existing host ADB server found the exact S22+ in `device`
+state. Kernel evidence records re-enumeration; this verifies observable return,
+not a cable-fault diagnosis or an exact physical manipulation count.
+The operator then explicitly requested health verification and assessment of
+fresh P356 preparation, with separate F1 approval still required.
+
+The unchanged reviewed one-shot D0 observer passed
+`PASS_P356_LATE_D0_HEALTH_ONLY`. Exact serial/topology, rooted FYG8, Android boot
+completion, stopped boot animation, original boot/supporting hashes and absent
+Download endpoint all passed. The private result is
+`1449B/e194e171dd7e5ad4a7f94a6ef78752585c87bbc51a9d00da84f38cc2df2d222c`.
+This closes the separate health-observation invocation. Original D1 start,
+timeout and absent success result remain unchanged; no reboot was repeated.
+
+Incident-scoped independent review returned
+`PASS_FRESH_D0_PREPARATION_SCOPE_ONLY`, receipt SHA-256
+`92aecb223d1d17b636084fac5f0725070bb52592a181d4a12e6d02c0de4f81bf`.
+Existing ordinary fresh preparation is bounded observation, explicitly permitted
+after stop and separately requested by the operator. It does not consume a D1
+PASS or authorize an effect continuation. All 104 previously reviewed execution
+inputs and eight artifacts remain unchanged; the actual host validator again
+returned `PASS_DEVICE_ACTION_F1_LIVE_V2_HOST_READY`.
+
+One fresh ordinary preparation in `p356-ready1-prepared-20260907-2` passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY` and produced `prepared.json`,
+SHA-256 `1cdbbf5ac9b75c44408379f2ecde56f2bf946fdb67b5564e454cfafe4403ab81`.
+The prepared record binds the current target, boot, baseline, artifacts and
+execution closure and emits a new separate F1 approval token. Its device-write,
+reboot, partition-transfer and F1-authority flags are all false. No P356 candidate
+has been transferred, and A90/S20+ received no command. The next action requires
+the returned exact attended F1 approval; the original failed D1 is not resumed.

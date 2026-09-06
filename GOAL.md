@@ -19,27 +19,24 @@ color through normal buffering against P355's observed clean hardware fill.
 A clean constant image would not establish arbitrary pattern correctness or
 identify cache coherency as the cause.
 
-H0 A/B build and static qualification pass. Actual AArch64 paint output matches
-all visible/padding bytes. Independent review is PASS_GO; actual offline
-promotion and P356/P355 focused suites of 21 cases each pass. The operator
-preapproved D0/D1 and confirmed physical availability. First D0 preserved an
-expected retained-baseline stop. The one ordinary reboot was sent once but
-failed its 240-second healthy-return bound with S22+ ADB offline. The operator
-reports Android home/lock screen; one later bounded inventory still found
-offline. No fresh machine health or F1 approval code exists. Do not repeat the
-reboot or treat operator screen return as D1 PASS.
+H0 A/B build and static qualification pass; actual AArch64 paint bytes and
+independent changed-closure review pass. The first D0 retained-baseline stop and
+one ordinary D1 reboot's 240-second ADB-offline timeout remain preserved. That
+D1 was not replayed or relabeled successful; its success result remains absent.
 
-Host logs show USB re-enumeration, then a reset and ADB transport failure after
-an authentication response; underlying cause is unproved. Host-only comparison
-locates missing authentication progress on the replacement transport. Cached
-USB remains configured/active; neither cable failure nor host/device software
-causation is proved. Original D1 start and missing
-success result are preserved. A separate one-time same-port manual USB restore
-plus bounded D0 proposal has independent H0 review, but awaits a fresh operator
-request and is not active. The operator held that proposal while requesting
-host-only diagnosis, now recorded in the report. It grants no automatic F1
-preparation resume.
-P355 remains closed/consumed; no P356 candidate transfer has occurred.
+The operator separately reconnected USB and authorized health verification and
+fresh preparation assessment. The reviewed one-shot late D0 passed exact rooted
+FYG8, boot/supporting hashes, Android health and topology continuity. Independent
+incident-scope review permits a new ordinary read-only preparation, not effect
+continuation. The unchanged actual H0 validator and one fresh connected D0 in
+`p356-ready1-prepared-20260907-2` pass; a new exact F1 approval token is ready.
+Prepared record SHA-256 is `1cdbbf5ac9b75c44408379f2ecde56f2bf946fdb67b5564e454cfafe4403ab81`.
+No further reboot or candidate transfer occurred. Await separate attended F1
+approval; P355 remains consumed and the original D1 is never replayable.
+
+Host evidence localizes the prior stall to ADB transport re-establishment after
+a USB reset. Physical cable failure and host/device software causation remain
+unproved; restored health does not establish the underlying cause.
 Report: [P356 framebuffer magenta preparation](docs/reports/S22PLUS_FYG8_P356_FRAMEBUFFER_MAGENTA_PREPARATION_2026-09-07.md).
 
 ## Consumed P355 comparison
