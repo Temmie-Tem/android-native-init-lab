@@ -2356,10 +2356,10 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
             OPEN_HEADER_SIZE=shell.runtime.OPEN_HEADER_SIZE,
             OPEN_HEADER_WORD_STAGES=list(shell.runtime.OPEN_HEADER_WORD_STAGES),
             OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in shell.runtime.OPEN_READ_BRANCHES.items()},
-            PROOF_FIELDS=P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
+            PROOF_FIELDS=P353_PROOF_FIELDS if prefix == "p353" else P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
             parser_failure=lambda payload, error: _p345_parser_failure_classification(payload, error, prefix=prefix),
             proof_ok=lambda value: _p345_proof_ok(value, prefix=prefix),
-            proof_state=_p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
+            proof_state=_p353_proof_state if prefix == "p353" else _p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
             session_factory=_p345_candidate_observer_session,
             stock_error=lambda payload, error: _p345_stock_error(payload, error, prefix=prefix),
             validate_receipt=_p345_validate_receipt, text=text)
@@ -9072,6 +9072,10 @@ class _P345ObserverSession(_P331ObserverSession):
             if descriptor is None:
                 raise F1LiveError("qualification descriptor ownership is missing")
             self.proof = dict(self.qualification.receipt)
+            if self.namespace == "p353":
+                # One-way request: no read, trailing probe or post-dispatch
+                # endpoint requirement. Pre-dispatch lane binding is retained.
+                return "accepted"
             self.trailing_rx = _p327_trailing_probe(descriptor, writer)
             if self.trailing_rx:
                 return "authenticated-session-error"
@@ -9090,7 +9094,14 @@ class _P345ObserverSession(_P331ObserverSession):
                     os.close(self.owned_descriptor)
                     self.owned_descriptor = None
             elif descriptor is not None:
-                os.close(descriptor)
+                if self.namespace == "p353":
+                    try:
+                        os.close(descriptor)
+                    except OSError as exc:
+                        # Dispatch cannot be undone by a host close failure.
+                        self.descriptor_close_error = type(exc).__name__
+                else:
+                    os.close(descriptor)
             sessions = (self.qualification.sessions if self.qualification is not None
                 else getattr(self.qualification_error, "completed_sessions", ()))
             audits = [item.session.audit for item in sessions]
@@ -9137,10 +9148,57 @@ class _P345ObserverSession(_P331ObserverSession):
             value.update(initial_five_same_tty_fd=complete,
                 physical_reopen_count=1 if complete else 0,
                 idle_duration_ms=(self.proof or {}).get("idle_duration_ms", 0))
+        if self.namespace == "p353":
+            value.update(command_count=2 if complete else 0,
+                pid1_framed_exec_proof=False, busybox_ash_command_proof=False,
+                framed_session_closed=False, display_request_dispatched=complete,
+                display_response_observed=False, display_execution_proved=False,
+                visible_panel_output="UNPROVED",
+                proof_scope="authenticated-host-dispatch-only",
+                descriptor_close_error=getattr(self, "descriptor_close_error", None))
         value[self.proof_key] = dict(self.proof or {})
         value.pop("tx_hex", None)
         self._publish_value(value, lane, label=self.receipt_label)
         return value
+
+
+@dataclass
+class _P353ObserverSession(_P345ObserverSession):
+    """One-way static display dispatch; lane evidence ends before the write."""
+
+    pre_dispatch_lane: Any = None
+
+    def _qualify_on_descriptor(self, codec: Any, descriptor: int, writer: Any, deadline: float) -> Any:
+        lane = super()._lane_supplement(True)
+        if lane.get("accepted_for_p324") is not True:
+            raise F1LiveError("P353 pre-dispatch lane is not exact")
+        self.pre_dispatch_lane = dict(lane,
+            observation_phase="before-static-display-dispatch",
+            post_dispatch_observation=False)
+        return super()._qualify_on_descriptor(codec, descriptor, writer, deadline)
+
+    def _lane_supplement(self, accepted: bool) -> dict[str, Any]:
+        if self.pre_dispatch_lane is not None:
+            return dict(self.pre_dispatch_lane)
+        return super()._lane_supplement(accepted)
+
+    def _publish_value(self, value: dict[str, Any], lane_supplement: dict[str, Any], *, label: str) -> None:
+        # Preserve an actual closure snapshot separately from the pre-dispatch
+        # binding. Loss/drift is not evidence that a written request was undone.
+        error = None
+        try:
+            payload = p318_topology.capture_candidate_raw(phase="candidate_end")
+        except (p318_topology.TopologyReceiptError, OSError) as exc:
+            error = type(exc).__name__
+            payload = p318_topology.raw_snapshot(phase="candidate_end",
+                capture_complete=False, endpoints=[])
+        path = self.run_dir / "p353-candidate-end.raw.json"
+        receipt = p318_topology.publish_raw(path, payload, phase="candidate_end")
+        parsed = p318_topology.parse_raw_snapshot(payload, phase="candidate_end")
+        value["p353_closure_snapshot"] = dict(path=str(path), **receipt,
+            capture_complete=parsed["capture_complete"], error_type=error,
+            continuity_proved=False, role="post-dispatch-transport-diagnostic")
+        super()._publish_value(value, lane_supplement, label=label)
 
 
 @dataclass
@@ -9188,6 +9246,14 @@ P345_PROOF_FIELDS = ("qualification_complete", "pid1_framed_exec_proof",
 
 P348_PROOF_FIELDS = P345_PROOF_FIELDS + ("initial_five_same_tty_fd", "idle_duration_ms")
 
+P353_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
+    "display_response_observed", "display_execution_proved", "visible_panel_output",
+    "proof_scope", "descriptor_close_error", "p353_closure_snapshot")
+
+
+def _p353_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value.get(key) for key in P353_PROOF_FIELDS}
+
 
 def _p348_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value.get(key) for key in P348_PROOF_FIELDS}
@@ -9211,6 +9277,21 @@ def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
             value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key)), prefix)
     except (ValueError, TypeError):
         return False
+    if prefix == "p353":
+        return (value.get("qualification_complete") is True
+            and value.get("display_request_dispatched") is True
+            and value.get("display_response_observed") is False
+            and value.get("display_execution_proved") is False
+            and value.get("visible_panel_output") == "UNPROVED"
+            and value.get("proof_scope") == "authenticated-host-dispatch-only"
+            and all(value.get(key) is False for key in
+                ("pid1_framed_exec_proof", "busybox_ash_command_proof", "framed_session_closed"))
+            and value.get("same_tty_fd") is True
+            and type(value.get("session_count")) is int and value["session_count"] == 1
+            and type(value.get("command_count")) is int and value["command_count"] == 2
+            and type(value.get("physical_reopen_count")) is int and value["physical_reopen_count"] == 0
+            and value.get("later_action_lease_active") is False
+            and value.get("caller_selected_command") is False)
     if prefix in RETAINED_SHELL_OWNERS:
         return (all(value.get(key) is True for key in P345_PROOF_FIELDS[:4])
             and value.get("same_tty_fd") is False
@@ -9258,7 +9339,8 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         prepared.private_target["topology"], prepared.run_dir,
         _candidate_observer_binding(prepared), lane_value, lane_receipt,
         usb_root=usb_root, typec_root=typec_root) as inherited:
-        session_class = _P348ObserverSession if shell.prefix in RETAINED_SHELL_OWNERS else _P345ObserverSession
+        session_class = (_P353ObserverSession if shell.prefix == "p353" else
+            _P348ObserverSession if shell.prefix in RETAINED_SHELL_OWNERS else _P345ObserverSession)
         yield session_class(inherited, inherited.delegate.delegate,
             inherited_spec, prepared.run_dir, lane_value, lane_receipt,
             usb_root, typec_root, auth_key=key, auth_key_sha256=key_sha256,
@@ -9352,6 +9434,34 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
         require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
             "session continuity differs")
     lane = value.get("lane", {})
+    if shell.prefix == "p353":
+        snapshot = value.get("p353_closure_snapshot")
+        require(type(snapshot) is dict and set(snapshot) == {"path", "size", "sha256",
+            "capture_complete", "error_type", "continuity_proved", "role"},
+            "closure snapshot fields differ")
+        snapshot_path = prepared.run_dir / "p353-candidate-end.raw.json"
+        require(snapshot["path"] == str(snapshot_path), "closure snapshot path differs")
+        snapshot_raw = p318_topology.stable_read(snapshot_path)
+        parsed_snapshot = p318_topology.parse_raw_snapshot(snapshot_raw, phase="candidate_end")
+        require({k: snapshot[k] for k in ("size", "sha256")} == _p327_identity(snapshot_raw)
+            and type(snapshot["capture_complete"]) is bool
+            and snapshot["capture_complete"] is parsed_snapshot["capture_complete"]
+            and snapshot["continuity_proved"] is False
+            and snapshot["role"] == "post-dispatch-transport-diagnostic"
+            and (snapshot["error_type"] is None or
+                (type(snapshot["error_type"]) is str and len(snapshot["error_type"]) <= 80
+                 and snapshot["capture_complete"] is False)),
+            "closure snapshot identity/status differs")
+    if shell.prefix == "p353" and value["accepted"]:
+        require(lane.get("observation_phase") == "before-static-display-dispatch"
+            and lane.get("post_dispatch_observation") is False,
+            "pre-dispatch lane scope differs")
+        require(value.get("display_request_dispatched") is True
+            and value.get("display_response_observed") is False
+            and value.get("display_execution_proved") is False
+            and value.get("visible_panel_output") == "UNPROVED"
+            and value.get("proof_scope") == "authenticated-host-dispatch-only",
+            "dispatch-only projection differs")
     require(lane.get("source_topology") == p324_typec_lane.SOURCE_TOPOLOGY
         and lane.get("candidate_topology") == p324_typec_lane.CANDIDATE_TOPOLOGY
         and lane.get("selector_topology_count") == 1

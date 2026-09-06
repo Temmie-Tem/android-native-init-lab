@@ -11,6 +11,26 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P353 implements the operator's narrowed first-frame goal: one fixed recognizable
+static image replacing the boot logo, with visual observation separate from
+manual Download entry, exact rollback and final health. It uses one buffer and
+one blocking atomic request with explicit inherited-plane handling. The host
+authenticates and dispatches once; it does not require a display response or
+post-display USB. The child retains display resources within its existing
+60-second supervised window; the parent then parks without another session.
+
+A/B construction and candidate static validation pass. Candidate AP is
+`30965801B/a4515202`. Twenty-one P353 tests and 74 common live tests pass.
+Independent review is PASS_GO and final promotion binding passes.
+Operator-authorized D1 completed one ordinary reboot with changed boot ID and
+matching rooted FYG8 return health. Fresh D0 passes with a clean baseline and
+F1 approval code issued for `p353-ready1-prepared-20260907-2`. No P353 F1 transfer
+has occurred; the separately returned token remains required. Visible output is
+UNPROVED. A90 and S20+ were untouched.
+Report: [P353 static first-frame preparation](docs/reports/S22PLUS_FYG8_P353_STATIC_FIRST_FRAME_PREPARATION_2026-09-07.md).
+
+## Consumed P352 and source investigation
+
 P352 is CLOSED/19 and consumed with
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false.
 Candidate `30965801B/6cda084d` and exact Magisk rollback `23367721B/d2373bf8`
@@ -52,10 +72,10 @@ TEST_ONLY. CRTC stage/CTL replacement provides the proposed mechanism for
 excluding the old composition; actual flush and latch remain unproved.
 Per-plane disable callbacks are not guaranteed. Nine bounded H0 cases and independent
 design review pass; ioctl success alone still does not prove visible output.
-The next unit is a fresh static-image implementation and scoped qualification,
-including resource ownership during the attended observation window and matching
-contract/observer criteria. No successor was implemented or prepared; P352's
-contract and consumed artifacts remain unchanged and no device action occurred.
+That H0 investigation led to the P353 implementation and scoped qualification
+reported above, including resource ownership during the attended observation
+window and matching contract/observer criteria. P352 consumed artifacts remain
+unchanged; the investigation itself involved no device action.
 Report: [Initial-plane source and binary investigation](docs/reports/S22PLUS_FYG8_P352_INITIAL_PLANE_INVESTIGATION_H0_2026-09-07.md).
 
 ## Consumed P351

@@ -1006,11 +1006,84 @@ H0-only until independent changed-closure review and fresh artifact/static
 qualification pass. Connected preparation and the ordinary returned attended
 F1 approval remain separate requirements. This clause grants no device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, or P352 candidate transfer occurs, the same
+**P353 attended static first-frame successor.** P352 is consumed and never
+replayable. P353 retains the exact twelve display additions, current primary
+panel inputs, fresh readiness, exact `msm_drm`/30HS timing, privilege drop and
+ordinary boot-only candidate/exact rollback machinery. Its bounded functional
+objective is the operator observing the boot logo replaced by the fixed
+red/blue upper blocks and green lower block with a large black cross. Repeated
+frames, completed display disable and post-display USB are not visual-success
+criteria. Rollback and final health are recorded separately from that observation.
+
+One fresh authenticated logical prefix verifies READY, BOOT and sequence 3's
+fixed numeric-root parent identity. Only the exact sequence-4
+`P353_DISPLAY_ONCE` HMAC request dispatches the fixed child. The host stops
+reading at that dispatch; it sends no sequence 5, CLOSE, CANCEL or later command.
+The host observer has a 60-second bound. Full request write and immutable raw
+prefix replay prove authenticated host dispatch only, not receipt/execution by
+the child, framebuffer submission or visible output. Partial write/uncertainty
+preserves raw evidence and forbids retransmission. Machine receipts keep the
+session unclosed and visual output UNPROVED. A later separately recorded operator
+visual witness may establish the narrower first-image observation without
+promoting the machine dispatch claim or overriding recovery/final-health status.
+
+Exact transport/guard/lane checks remain required before dispatch. Their captured
+scope is explicitly before the one-way action; there is no post-dispatch USB
+success requirement. The host still retains an actual immutable raw endpoint
+snapshot at candidate-observer closure, separately from that pre-dispatch proof.
+Capture failure produces the existing explicit incomplete snapshot and bounded
+error metadata; it never claims exactness or continuity. For P353's dispatch-only
+observer, this closure measurement is a transport diagnostic, not a requirement
+that USB continue responding after display dispatch. Drift or incomplete capture
+does not erase a completed host write or a separate operator visual observation.
+It does not authorize another experiment effect, retry or recovery deviation;
+ordinary preauthorized rollback still requires fresh exact Download binding.
+This specializes only the dispatch-versus-candidate-end classification below,
+not the immutable snapshot requirement or the common failure/no-replay boundary.
+The host may close its descriptor after the complete write.
+After authentication the device's fixed display branch consumes its one-shot
+slot before pipe/fork, uses the existing child/group supervisor and 60-second
+child deadline, drains local diagnostic pipe bytes without tty forwarding, and
+does not read CANCEL or write DATA/EXIT. Diagnostic text after dispatch is local
+ephemeral output and is not claimed as a captured result. After the child path
+returns, including setup failure/error/timeout, the authenticated console parks
+before generic error publication or another session/listener. No command lease,
+new daemon, replay, unattended recovery or indefinite usable runtime is granted.
+
+Before any atomic ioctl, the renderer snapshots every bounded initial plane
+ID/CRTC/FB tuple and rejects nonzero inherited FBs, foreign active CRTCs and
+unexpected connector/CRTC attachments. Zero FB alone is not a splash-ownership
+claim. In the fresh native context it explicitly handles every inherited plane
+on the selected CRTC. It validates the primary's format/routing and expected
+initial zpos/alpha/nonsecure-translation properties. It paints one linear
+XRGB8888 WC buffer and submits one complete blocking ALLOW_MODESET atomic request:
+fresh mode/active CRTC first, selected connector, selected primary FB/rectangles,
+and FB_ID=0/CRTC_ID=0 for every other inherited plane on that CRTC. There is no
+separate blanking transaction, TEST_ONLY ioctl, NONBLOCK flag, flip-event request,
+second commit or alternative-mode attempt. The real commit's kernel validation
+remains in force. Old-state duplicate mutations and any failure never permit a
+userspace retry. The CRTC/CTL replacement is the reviewed proposed removal path;
+actual hardware flush/latch and panel output require live evidence.
+
+On successful ioctl return the child retains its fd/FB/GEM/mapping during the
+attended observation window, without redraw or normal cleanup. Return zero from
+the ioctl is not visible-output proof. The operator must be available for prompt
+physical Download entry within the ordinary recovery bound; the host proceeds
+to that existing manual-return path after dispatch. Killing the child is not
+recovery, and its deadline does not replace physical recovery. Exact rollback
+and final rooted FYG8 health remain mandatory regardless of visual outcome.
+
+This capability remains H0-only until its changed renderer, runtime, prefix
+observer/replay, shared receipt/result projection and target clause receive
+independent review, exact artifact/static qualification and fresh connected
+preparation. The ordinary separately returned F1 approval is still required.
+This clause grants no device effect and changes no permanent boundary.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, or P353 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, or `s22plus-fyg8-p352` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, or `s22plus-fyg8-p353` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
