@@ -1,4 +1,4 @@
-# P353 static first-frame preparation
+# P353 static first frame: observed pattern with corruption, rolled back
 
 P353 is a fresh successor for one observable transition from the boot logo to
 a fixed static pattern: red/blue upper blocks and a green lower block with a
@@ -137,6 +137,56 @@ with a clean baseline. The fresh prepared record is retained at private run
 `0063e16b798872d87abfcac1046ba100cdc0a42b6be88f08e895a4cac818864f`;
 its D0 result SHA-256 is
 `6f5564cccfb7219e45f233ce318ac938f68a3da9b39b8f0877a15e8d71b9f647`.
-The exact approval code has been issued from that binding. F1 is not authorized
-until the operator returns it; no candidate or rollback transfer occurred.
-Visible output remains UNPROVED. A90 and S20+ received no device command.
+The exact approval code was issued from that binding and subsequently returned
+by the operator. The execution and terminal evidence follow. A90 and S20+
+received no device command.
+
+
+## Consumed execution and visual qualification
+
+The returned exact token authorized one candidate and exact rollback. Both
+transferred once in the original execute invocation; no recovery restart,
+retransmission or observation replay occurred. The run is CLOSED/19 with
+`recovery_required=false` and machine verdict
+`PASS_F1_V2_P353_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`.
+This proves authenticated host dispatch and verified rollback, not display
+execution or image quality. The retained machine result keeps those claims
+separate and is not edited to incorporate the operator witness.
+
+The operator reported seeing the red/blue/green pattern and black cross, then
+supplied a photograph and asked whether its noise was intentional. The photograph
+shows the recognizable asymmetric pattern, widespread horizontal speckles and
+severe corruption toward the lower area. The actual renderer writes uniform
+white and solid red/blue/green/black regions; it generates no noise. The narrow
+new-static-image observation is therefore supported, **with visible corruption**.
+Normal image quality, complete pixel fidelity and stable clean scanout are not
+proved. The photograph alone does not resolve scanout, memory/coherency, panel
+or camera contributions; no cause is asserted. No further device experiment
+was performed to diagnose it.
+
+The original operator statement, photograph and subsequent qualified assessment
+are retained privately as separate records. The initial witness is preserved;
+its meaning is narrowed by the photograph rather than silently replaced.
+
+Final rooted FYG8 Android, boot completion, original boot/supporting partition
+hashes and absent Download all passed. Live result is `22804B/eb437b9a`, full
+SHA-256 `eb437b9af18b77c1739f8d292ba498a05198dd6323278aadabb493c565d9b7bd`.
+The raw rollback observer reads are byte-identical, but supplemental Carrier is
+`AMBIGUOUS_INTEGRITY_FAILURE` (`P320 Carrier generations differ`). It supplies
+no causal or display-success proof and does not replace the primary dispatch
+receipt or independent visual evidence. P353 is consumed and never replayable.
+Actual prepared and closed live-result consumer reopening passed.
+No active shell or standing device authority remains.
+
+## Canonical execution timeline (UTC)
+
+| Event | Timestamp |
+| --- | --- |
+| `live_session_start` | `2026-09-06T17:53:50.875526Z` |
+| `candidate_flash_start` | `2026-09-06T17:54:09.431247Z` |
+| `candidate_flash_done` | `2026-09-06T17:54:11.040114Z` |
+| `candidate_boot_ready` | `2026-09-06T17:54:22.387534Z` |
+| `rollback_flash_start` | `2026-09-06T17:55:42.028268Z` |
+| `rollback_flash_done` | `2026-09-06T17:55:43.556362Z` |
+| `rollback_boot_ready` | `2026-09-06T17:56:18.909524Z` |
+| `live_session_end` | `2026-09-06T17:56:18.923293Z` |

@@ -11,23 +11,27 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P353 implements the operator's narrowed first-frame goal: one fixed recognizable
-static image replacing the boot logo, with visual observation separate from
-manual Download entry, exact rollback and final health. It uses one buffer and
-one blocking atomic request with explicit inherited-plane handling. The host
-authenticates and dispatches once; it does not require a display response or
-post-display USB. The child retains display resources within its existing
-60-second supervised window; the parent then parks without another session.
+P353 is consumed and CLOSED/19, recovery_required=false. Candidate
+`30965801B/a4515202` and exact Magisk rollback `23367721B/d2373bf8` transferred
+once each in the original execution, without replay or a recovery restart.
+Final rooted FYG8, original boot/supporting hashes and absent Download passed.
+The machine verdict is `PASS_F1_V2_P353_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`;
+it proves authenticated host dispatch and rollback, not pixel fidelity.
 
-A/B construction and candidate static validation pass. Candidate AP is
-`30965801B/a4515202`. Twenty-one P353 tests and 74 common live tests pass.
-Independent review is PASS_GO and final promotion binding passes.
-Operator-authorized D1 completed one ordinary reboot with changed boot ID and
-matching rooted FYG8 return health. Fresh D0 passes with a clean baseline and
-F1 approval code issued for `p353-ready1-prepared-20260907-2`. No P353 F1 transfer
-has occurred; the separately returned token remains required. Visible output is
-UNPROVED. A90 and S20+ were untouched.
-Report: [P353 static first-frame preparation](docs/reports/S22PLUS_FYG8_P353_STATIC_FIRST_FRAME_PREPARATION_2026-09-07.md).
+The operator saw the unique red/blue/green and black-cross pattern replacing
+the boot logo and supplied a photo. The photo also shows unintended horizontal
+speckles and substantial lower-area corruption. The narrow first-image
+observation is supported **with visible corruption**; clean image quality and
+its failure mechanism remain unproved. Actual paint code contains only uniform
+fills and solid regions, with no noise generation. Photo and visual statements
+are private; machine evidence was not promoted by the operator witness.
+
+Supplemental Carrier is ambiguous (`P320 Carrier generations differ`) and
+supplies no causal proof. Live result is `22804B/eb437b9a`. No active shell or
+standing device authority remains. A90 and S20+ were untouched. Any follow-up
+starts from H0 diagnosis of image corruption and requires a fresh candidate
+binding for another experiment; this goal grants no device authority.
+Report: [P353 static image and closed result](docs/reports/S22PLUS_FYG8_P353_STATIC_FIRST_FRAME_PREPARATION_2026-09-07.md).
 
 ## Consumed P352 and source investigation
 
