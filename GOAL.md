@@ -11,7 +11,7 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P355 is being prepared as a fresh hardware magenta solid-fill comparison.
+P355 is H0-qualified and connected-prepared for a hardware magenta solid-fill comparison.
 It retains P354's exact 30HS mode, original patterned WC buffer and
 noise_layer_v1=0, adding only selected-plane color_fill=0x80ff00ff to the same
 single atomic request. Missing/duplicate property stops before submission.
@@ -22,8 +22,11 @@ handling also differs in the solid-fill path.
 
 H0 A/B build and static qualification pass; P355/P354 focused tests pass 21
 cases each. Independent review is PASS_GO and actual offline promotion passes. The operator preapproved
-D0/D1 through F1 code issuance and confirmed physical availability; no P355
-connected action has occurred. Separately returned F1 approval remains required.
+D0/D1 through F1 code issuance and confirmed physical availability. First D0
+preserved a retained-baseline stop; one ordinary reboot returned healthy with a
+changed boot ID. Fresh D0 and preparation in `p355-ready1-prepared-20260907-2`
+pass. No F1 candidate transfer has occurred; separately returned F1 approval
+remains required.
 P354 remains closed and consumed. No source or artifact from that run is changed.
 Report: [P355 hardware magenta comparison](docs/reports/S22PLUS_FYG8_P355_HARDWARE_SOLID_FILL_PREPARATION_2026-09-07.md).
 

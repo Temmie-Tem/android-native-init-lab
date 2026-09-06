@@ -92,5 +92,38 @@ bundle is `db1e480252b11fbbfe18291698ef60184d01c14cabf891a1d8efea0f305892de`.
 Repository boundary, links and diff checks pass. These qualify the capability,
 not a device effect or image quality.
 The operator authorized D0/D1 through F1 code issuance and confirmed physical
-availability. No P355 connected action has yet occurred. A separately returned
-exact F1 approval is required before any candidate transfer.
+availability. The connected preparation below follows that authorization;
+a separately returned exact F1 approval is required before any candidate transfer.
+
+
+## Connected preparation
+
+Initial D0 in `p355-ready1-prepared-20260907-1` preserved a typed nonreusable
+baseline rejection after exact initial rooted FYG8/boot/supporting-health checks
+passed. The stop result is
+`3252B/06b3a008bd4f823866d488e334da79e94a497edd05161bc9bedc0f109264ab2d`;
+its complete observer is
+`2097136B/f110e49ed88c17084f3c71319630f2448475113d5c08328134e88f26dab656d2`.
+Actual stop-result reopening passed; final continuity was not claimed for that
+stopped D0. No candidate attempt or transition occurred in it.
+
+The existing hash-bound one-normal-reboot primitive passed its H0 self-test
+and ran once with fresh P355 metadata and the operator's current authority.
+Result is `PASS_P355_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`,
+`2963B/80bc06559679b467a779f5a85880a8afe66141c325ea8d895822b79e83a8be3a`.
+The boot ID changed, exact healthy Android/rooted FYG8 returned and no other
+target received a command. This is ordinary reboot return, not proof of
+unattended recovery from an experimental blocked kernel call.
+
+Fresh D0 and preparation in `p355-ready1-prepared-20260907-2` pass with a clean
+retained-marker baseline. D0 result is
+`3261B/b982d182a95913216f70d51857b8c192ac7a120101f98c04d7b0699be212ab0a`;
+complete observer is
+`2097136B/c5011c86246ca24bbf3957511acf6282ea0ec9cf500f9f1cc2cf1ef17a9c2b46`.
+Prepared record is
+`30321B/8615537f8ed2f77a019b574e87e1dbc0fdad1f0ef01a86f3f6902a6549467157`.
+Actual `load_prepared` reopening passed. The exact token remains in that
+private binding. No Download request, Odin
+transfer, display dispatch or F1 execution has occurred. A90/S20+ were untouched;
+Android is the last verified healthy state. The bounded preparation does not
+authorize candidate execution until the exact token is separately returned.
