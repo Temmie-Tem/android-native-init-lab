@@ -93,8 +93,44 @@ All 72 construction and 109 static source inputs remained unchanged at closure.
 The private H0 close record is `close.json`, SHA-256
 `8cb0f93d22060ba31fff1457a560414d4dc529c4add01d14fee582ee4fbe181f`.
 
-This unit has sent no device command and created no connected run or returned F1 approval.
+The H0 qualification above sent no device command and created no connected run
+or returned F1 approval.
 P353's consumed artifact, journal and result remain unchanged. A90/S20+ were
 untouched. The next step after H0 closure is fresh exact connected preparation
 and separately returned attended F1 approval, then one same-pattern visual
 comparison and exact rollback. This report grants no device authority.
+
+
+## Connected preparation after operator D0/D1 preapproval
+
+The operator authorized exact S22+ D0/D1 through F1 code issuance, then confirmed
+physical availability. This authorization does not include F1 execution.
+
+First D0 in `p354-ready1-prepared-20260907-1` stopped at baseline classification
+after initial exact FYG8/root/boot/supporting-health checks passed. The complete
+`2097136B/d2abc5d47ca9ab81553e4f688fbdf2abab310ee643d73916d83a04895a2998f3`
+observer was preserved. Its typed nonreusable stop is
+`3252B/2151adb2d465a22b673f2ad6669594f0476eacb3c70497e8eec55104b9c3a388`;
+actual stop-result reopening passed. No final continuity was claimed for that
+stopped D0, and no transition was repeated from it.
+
+The unchanged reviewed one-normal-reboot primitive ran once under fresh P354
+metadata after physical availability was confirmed. The source/tool pins and
+H0 primitive self-test passed. The result is
+`PASS_P354_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`,
+`2963B/da843d9ecc0688408176528627dd12e61e4044a4125af015c2c4301143a0b57d`.
+The boot ID changed, exact Android/rooted FYG8 health returned, and no other
+target received a command. This is ordinary reboot return evidence, not proof
+of automatic recovery from a blocked experimental kernel call.
+
+Fresh D0 and preparation in `p354-ready1-prepared-20260907-2` pass.
+D0 result is `3261B/88b2f8eb9911b71f38655a5a776bf4640eaeb239791fac5c07cfebed48e38be3`;
+the complete observer is
+`2097136B/c663aa6da69960b63f39f1a4a2205ca632550097b7157f95667b2826428e4e05`,
+with a clean baseline. Prepared record is
+`30321B/772e9786f2c36ddecb31dc9bc2a12c332d92a12ba9b00cdae2ea9111c3692079`.
+Actual `load_prepared` reopening passed after preparation. The private
+prepared record owns the exact approval token; no token or private
+identifier is copied into this report. No Download request, Odin transfer,
+native display dispatch or F1 execution has occurred. Android remains the
+last verified healthy state. A separately returned F1 approval remains required.

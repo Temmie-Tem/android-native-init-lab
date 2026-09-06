@@ -19,9 +19,15 @@ A/B userspace, renderer, boot and AP match; candidate is `30965801B/bc48a71f`.
 Focused P354 and P353 regression tests each pass 21 cases. Artifact/static
 qualification passes with 109 source inputs. Independent review is PASS_GO and
 the actual offline promotion CLI passes. Common F1 tests pass 74 cases. No
-connected preparation, F1 approval or device effect exists.
-Pixel fidelity and noise causality remain UNPROVED. The next live comparison
-requires fresh exact preparation and separately returned attended F1 approval.
+F1 candidate or rollback transfer has occurred.
+
+The operator preapproved D0/D1 through code issuance and confirmed physical
+availability. First D0 preserved a retained-baseline stop. One ordinary reboot
+then passed with changed boot ID and healthy rooted FYG8 return; fresh D0 in
+`p354-ready1-prepared-20260907-2` passes with an empty retained-marker baseline.
+The prepared approval binding exists; separately returned attended F1 approval
+is still required. A90/S20+ received no command. Pixel fidelity and noise
+causality remain UNPROVED.
 Report: [P354 explicit noise disable H0](docs/reports/S22PLUS_FYG8_P354_NOISE_DISABLE_H0_2026-09-07.md).
 
 ## Consumed P353 and H0 diagnosis
