@@ -134,7 +134,7 @@ the same duplicate machinery. Switching to SETCRTC therefore does not bypass
 the discovered splash bookkeeping. Historical retry and DRM-master tolerance
 were not ported. No A90 or S20+ device was contacted.
 
-## Next bounded H0 unit
+## Initial proposed H0 unit (superseded by the narrower follow-up below)
 
 Design the first display handoff around a complete initial plane snapshot and
 explicit handling of every relevant inherited attachment. Cache and report the
@@ -156,3 +156,162 @@ Private evidence is under
 It binds the inspected inputs, private source-function fixture, disassembly,
 historical A90 extracts and independent review. Original vendor sources, raw
 captures and disassembly remain private.
+
+## Follow-up: one static first frame
+
+The operator narrowed the functional objective to an observable transition from
+the boot logo to one identifiable static image. A counter sequence, buffer
+alternation, completed display disable and post-display USB response are not
+success criteria for that first-frame proof. Physical Download entry by the
+operator, exact rollback and final health remain separate run outcomes. This
+follow-up investigates that narrower design; it does not change the consumed
+P352 contract or activate a successor.
+
+### Result and proposed first submission
+
+The source supports a fresh one-buffer, one-blocking-atomic-commit design without
+a preceding userspace TEST_ONLY ioctl. It provides a concrete implementation
+direction; actual vendor validation and visible hardware output remain unproved.
+
+1. Before the first atomic request, cache the complete bounded initial
+   connector/CRTC/plane topology and relevant properties. Record each plane's
+   ID, CRTC and FB, including the exact object rejected by any guard.
+2. Bind one selected primary CRTC/connector/plane in the fresh native-driver
+   context. Reject other active CRTCs, unexpected connector attachments and
+   nonzero inherited FBs. Zero-FB attachments to the selected CRTC form the
+   explicitly handled inherited set; zero FB alone is not proof of splash
+   ownership. Do not silently ignore that set or infer it from the selected ID.
+3. Allocate and paint one ordinary WC scanout buffer, then create a fresh mode
+   blob for the already selected exact returned timing. Resolve and validate
+   all properties before submitting the atomic request.
+4. Submit the complete desired state once, with the CRTC first, then connector,
+   then every relevant plane. Include the selected plane once; explicitly
+   detach the other inherited planes in this same transaction. There is no
+   separate blank-screen transaction before drawing.
+5. Use `DRM_MODE_ATOMIC_ALLOW_MODESET` without TEST_ONLY, NONBLOCK or a requested
+   page-flip event. Preserve the submitted bytes and returned status. On error,
+   stop the display attempt without another userspace atomic request; the
+   kernel's existing internal lock-backoff behavior is not a new user retry.
+6. Keep the DRM fd, FB, GEM and mapping owned during the attended observation
+   window. The operator's observation of the unique image proves first output;
+   the run then uses physical Download entry and ordinary exact rollback.
+
+| Atomic object | Desired properties |
+| --- | --- |
+| Selected CRTC, first | Fresh `MODE_ID`, `ACTIVE=1` |
+| Selected connector | `CRTC_ID` set to selected CRTC |
+| Selected primary plane | New `FB_ID`, selected `CRTC_ID`, source origin zero, source dimensions in 16.16, destination origin zero and full 1080x2340 dimensions |
+| Each other inherited plane on that CRTC | `FB_ID=0`, `CRTC_ID=0` |
+
+No additional mandatory scalar property was found in the inspected path beyond
+the normal mode/routing/FB/rectangle set. The selected plane must still advertise
+the format and compatible CRTC. Source defaults are primary `zpos=0`, alpha 255,
+no color fill and nonsecure framebuffer translation; validate the expected
+first-boot properties rather than relying on arbitrary inherited application
+state. This is not proof that every live hardware configuration will pass.
+
+### Why TEST_ONLY is unnecessary for this proposed sequence
+
+Core `drm_atomic.c:1344–1355` calls `drm_atomic_check_only()` before the real
+driver commit. That check includes core plane/CRTC/connector validation and
+`mode_config.atomic_check`; vendor `msm_drv.c:163–180` routes to the KMS check.
+Omitting a separate TEST_ONLY ioctl therefore retains these checks while
+avoiding a separate duplicate/discard cycle before the real request. Property
+parsing can still change old splash bookkeeping even when validation fails;
+the previous failure/no-retry limitation remains.
+
+The CRTC-first order lets its duplicate clear the old masks before the connector
+and plane setters rebuild the new masks. Core `drm_atomic_uapi.c:116–162` sets
+enable from the fresh mode blob, `298–340` inserts the connector into the new
+connector mask, and `179–216` inserts the selected plane into the new plane mask.
+The source-bound fixture reproduces those attachment-mask effects. It also
+demonstrates the negative control: omitting an inherited plane can leave that
+plane's old attachment stale even though the new CRTC mask contains only the
+selected plane.
+
+### How the old image is excluded from hardware composition
+
+Explicit nulling does not guarantee a per-plane hardware disable callback here.
+The vendor duplicate has already cleared the old CRTC, and the new CRTC for an
+excluded plane is also NULL. Core `drm_atomic_helper.c:2533–2573` may skip that
+plane under the `DRM_PLANE_COMMIT_ACTIVE_ONLY` flag used by `msm_atomic.c:586–587`.
+
+The relevant hardware path is instead the CRTC blend rebuild. After state swap,
+`sde_crtc.c:1582–1653` walks the current CRTC's planes and derives stages from
+their pipe IDs. `sde_crtc.c:1839–1877` zeroes stage configuration, reconstructs
+it from that set, marks mixer flush and invokes `setup_blendstage`.
+`sde_hw_ctl.c:894–928` constructs four fresh CTL words and writes all four layer
+registers. This is a replacement of the selected mixer's composition, not an
+OR into retained hardware stage assignments. Encoder kickoff connects the
+pending configuration to flush/start (`sde_encoder.c:4086–4136`).
+
+In the same exact consumed module, disassembly confirms stage-config clearing
+before the blend-builder call, zero initialization of the four CTL words and
+four `sde_reg_write` calls. That corroborates the source operations; it does not
+prove actual flush delivery, hardware latch, pipe mapping for the missing live
+tuple or successful panel output. Splash resource release remains in the real
+complete-commit path described above.
+
+### Buffer and visible-proof details
+
+The existing linear XRGB8888 allocation can remain: 1080x2340 pixels, pitch 4352
+bytes, one buffer of 10183680 bytes. `msm_fb.c:300–317` requires a final accessed
+span of 10183648 bytes, which fits. The exact linear-layout helper accepts the
+padded pitch; `msm_gem.c:226–227` selects the WC mapping. The actual plane still
+performs framebuffer layout/address preparation, including deferred SMMU work
+when applicable (`sde_plane.c:1983–2047,781–807`); H0 does not establish that live
+mapping succeeds.
+
+A plain white screen is insufficiently specific: the vendor can force a white
+plane on error (`sde_plane.c:2790–2795`). Use a fixed recognizable multicolor
+pattern with a large static mark. The proof is that particular image replacing
+the logo, not merely any brightness or color change. It does not require a
+counter, refresh sequence or USB confirmation.
+
+Blocking is also not a display-success witness. `msm_atomic.c:699–713` waits for
+worker completion or executes the synchronous fallback, but
+`sde_kms.c:1625–1630` handles some commit-done failures internally without
+returning them as the ioctl errno. Report ioctl acceptance and operator-visible
+output separately.
+
+Resource retention needs no repeated drawing or new service. The successful
+renderer must retain its existing resources during observation instead of
+immediately returning or running the old cleanup. Closing the DRM file invokes
+`drm_fb_release` (`drm_file.c:274`, `drm_framebuffer.c:774–807`), which can remove
+an active FB through an atomic update (`1083–1116`). The existing child deadline
+must be reconciled with that observation/physical-return window when implementing
+the successor. This is not an indefinite-residency claim or a new requirement
+to prove timed display retention.
+
+### Validation and remaining work
+
+Nine new bounded H0 cases pass: four inherited masks, an omitted-plane negative
+control, real-commit wrapper reject/accept ordering, full CTL register replacement,
+and linear format/pitch/span. Host warnings-as-errors compilation, execution,
+AArch64 compilation, `file` inspection and generator `py_compile` pass. The
+fixture uses exact core setters, commit wrapper, vendor mutation blocks, CTL
+write function and linear-layout helper. Object layouts, duplicate success copy,
+mode assignment, CTL encoding and the check result are synthetic or stubbed;
+full atomic validation, SMMU, flush/latch and panel behavior are not emulated.
+
+Independent review returned `PASS_H0_DESIGN_EVIDENCE_NOT_HANDOFF_QUALIFIED` and
+confirmed the mask-to-stage-to-CTL source chain with the ACTIVE_ONLY and blocking
+return limitations above. The nine fixtures were independently checked. This
+is design evidence, not a capability PASS_GO or a successful display run.
+
+The remaining work is implementation and scoped qualification of the fresh
+static-image successor. Its contract, renderer and observer must use the newly
+agreed visual success criterion instead of P352's ten flips, completed disable
+and post-display USB requirement. That implementation must receive the required
+changed-closure review; P352's consumed authority and artifacts stay unchanged.
+No further broad source or web investigation is a prerequisite identified by
+this bounded review. Runtime topology, actual commit acceptance and visible
+transition can only be established by a later separately bound device run.
+
+Private follow-up evidence:
+`workspace/private/outputs/s22plus_fyg8_p352/static-first-frame-audit-20260907/`.
+Its `research-audit.json` is `5177B`, SHA-256
+`17dcaf17e442a33d56ef5e75881cf929d460f1ddfd83306bb30202dce8149f95`.
+Fourteen earlier inspected inputs were reverified unchanged. No production code,
+target contract, candidate, consumed record or device state changed in this
+follow-up; A90 and S20+ received no command.

@@ -39,10 +39,23 @@ disassembly also confirms that first atomic duplicate callbacks change old
 splash bookkeeping before allocation, including on a TEST_ONLY path. P352
 stopped before that path. Eight bounded source-function cases and independent
 analysis review passed; full handoff remains unqualified. Early A90 SETCRTC
-history does not bypass this S22+ atomic machinery. The next H0 unit is a
-complete initial-plane snapshot and explicit handoff design with first-commit,
-failure and TEST_ONLY sequencing qualification. No successor was implemented or
-prepared and no new device action occurred.
+history does not bypass this S22+ atomic machinery.
+
+The operator narrowed the next functional proof to the boot logo changing into
+one identifiable static image, followed by operator-entered Download and exact
+rollback. Repeated frames, completed display disable and post-display USB are
+not that visual proof's success criteria. Follow-up source and exact-module
+inspection now support one WC buffer and one blocking atomic commit, with a
+complete initial snapshot and explicit inherited-plane handling in the same
+transaction. The real commit retains internal validation without a separate
+TEST_ONLY. CRTC stage/CTL replacement provides the proposed mechanism for
+excluding the old composition; actual flush and latch remain unproved.
+Per-plane disable callbacks are not guaranteed. Nine bounded H0 cases and independent
+design review pass; ioctl success alone still does not prove visible output.
+The next unit is a fresh static-image implementation and scoped qualification,
+including resource ownership during the attended observation window and matching
+contract/observer criteria. No successor was implemented or prepared; P352's
+contract and consumed artifacts remain unchanged and no device action occurred.
 Report: [Initial-plane source and binary investigation](docs/reports/S22PLUS_FYG8_P352_INITIAL_PLANE_INVESTIGATION_H0_2026-09-07.md).
 
 ## Consumed P351
