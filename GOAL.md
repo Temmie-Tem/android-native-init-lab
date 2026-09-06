@@ -57,9 +57,12 @@ activate a device lane. [Follow-up research](docs/reports/S22PLUS_FYG8_NATIVE_DI
 found the retained panel-selection parameter, checked 50 modules/2,965 imports
 against the exact Image within their declared graph, and identified a WC buffer
 route. Stock display/debug providers also have persistent-write paths, including
-probe and diagnostic-read triggers. Next: investigate a minimal display build
-that removes those paths, then requalify its closure before any renderer/live
-experiment. Neither empty `/dev` nor absent input fences resolves every trigger.
+probe and diagnostic-read triggers. [Minimal-build research](docs/reports/S22PLUS_FYG8_NATIVE_DISPLAY_MINIMAL_BUILD_RESEARCH_H0_2026-09-06.md)
+identified paired diagnostic gates and forced make/header configuration; public
+KMS/modetest examples support renderer design but do not qualify FYG8. Next:
+implement an isolated reduced display build and requalify its combined closure.
+Build success and selected-panel POC reachability remain unproved. Neither empty
+`/dev` nor absent input fences resolves every trigger.
 
 ## Latest completed P348 unit
 
