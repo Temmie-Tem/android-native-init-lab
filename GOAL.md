@@ -24,10 +24,16 @@ inputs; the separate USB diagnostic distinction also passed review. That change
 records endpoint disappearance distinctly but adds no retry or recovery bypass.
 P351's precise USB failure cause remains UNPROVED.
 
-P352 remains H0-only: no connected preparation, candidate transfer, active shell
-or new D0/D1/F1 authority. Actual runtime mode acceptance and visible output
-remain UNPROVED. The next device phase needs fresh exact connected preparation
-and the ordinary returned attended F1 approval. P351 is never replayable.
+The operator approved D0/D1 through F1-code issuance and confirmed attendance.
+The first D0 retained the P351 family and closed with a non-reusable baseline
+stop. One ordinary D1 reboot passed with changed boot ID and exact rooted FYG8
+health; no other target was commanded. Fresh D0 and actual prepared-binding
+reopening passed in `p352-ready1-prepared-20260907-2`.
+
+P352 now awaits its ordinary returned attended F1 approval, binding digest
+prefix `b72c7fb8`. No candidate transfer or active shell exists, and D0/D1
+approval grants no F1 execution. Actual runtime mode acceptance and visible
+output remain UNPROVED. P351 is never replayable.
 Report: [P352 source-bound display H0](docs/reports/S22PLUS_FYG8_P352_SOURCE_BOUND_DISPLAY_H0_2026-09-07.md).
 
 ## Latest consumed display attempt

@@ -128,4 +128,33 @@ and the original failure records remain preserved.
 
 Private working evidence is under
 `workspace/private/outputs/s22plus_fyg8_p352/h0-work/`.
-No connected preparation or new candidate/rollback transfer has occurred.
+No connected preparation or new candidate/rollback transfer occurred in that
+H0 unit. The subsequent authorized preparation is recorded below.
+
+## Approved D0/D1 and F1-code issuance
+
+On 2026-09-07 the operator explicitly approved D0/D1 through code issuance and
+confirmed physical attendance. The first preparation stopped at the bounded
+baseline classifier: its complete retained capture contains one P351 binary
+run ID and one long family. The immutable typed stop was reopened successfully,
+is non-reusable and records no reboot, Download request or partition transfer.
+Stop receipt SHA-256:
+`c961b134b608ae02c677126a0eaf3ed6164115bb5f9756c44d92ef57ca2d34cc`.
+
+One fresh private invocation reused the unchanged reviewed P296/P320 ordinary
+reboot engine after its H0 self-test. It passed with one reboot, changed boot
+ID, healthy rooted FYG8, original boot/supporting hashes, absent Odin endpoint
+and no other-target command. Linked result is `2963B/7bf81204`; the primitive's
+durable result remains intact. No candidate or observation was replayed.
+
+Fresh preparation `p352-ready1-prepared-20260907-2` then passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY` (`3261B/300af461`). Actual
+`load_prepared` reopening passed for the stored target, boot, artifacts and
+execution closure. The prepared receipt is `30684B/b6a739e8`; its F1 binding
+digest prefix is `b72c7fb8`. The binding-specific token is issued to the operator
+and is not published here.
+
+Candidate AP remains `30965801B/6cda084d`, exact rollback `23367721B/d2373bf8`.
+F1 is not authorized or executed until the operator returns the exact token.
+No Download request or candidate/rollback transfer occurred. A90 and S20+
+received no command. Visible output remains UNPROVED.
