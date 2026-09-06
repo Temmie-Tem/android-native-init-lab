@@ -1,8 +1,10 @@
-# P352 source-bound display successor — H0
+# P352 source-bound display — closed and rolled back
 
-P351 remains CLOSED/19, consumed and NO_PROOF with verified rollback. This unit
-prepares a fresh P352 candidate; it does not repeat a device effect or grant
-connected authority. A90 and S20+ receive no command.
+P352 is CLOSED/19 and consumed with NO_PROOF and verified exact rollback.
+The operator saw only the boot logo. The renderer passed the corrected driver
+name and mode checks, then stopped at `competing-plane` before frame submission.
+Final rooted FYG8 health passed. A90 and S20+ received no command. The H0 and
+preparation sections below preserve the earlier phase-specific evidence.
 
 ## Problem and change
 
@@ -158,3 +160,79 @@ Candidate AP remains `30965801B/6cda084d`, exact rollback `23367721B/d2373bf8`.
 F1 is not authorized or executed until the operator returns the exact token.
 No Download request or candidate/rollback transfer occurred. A90 and S20+
 received no command. Visible output remains UNPROVED.
+
+
+## Approved F1 result and recovery
+
+The operator returned the exact prepared F1 token. One ordinary execute
+invocation transferred candidate and rollback once each and closed normally;
+no separate recover invocation, candidate replay, observation replay or USB
+measurement failure occurred. Current state is CLOSED with 19 journal records,
+`recovery_required=false`, verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
+`p352_native_display_events_unproved_rollback_verified`, proof class
+`NO_PROOF_OBSERVER`. Final rooted FYG8, original boot/supporting hashes and
+absent Download passed independently of candidate qualification.
+
+The actual `load_prepared`, `validate_live_result` and candidate-observation
+reopening passed. The preserved failed second session was decoded through the
+actual authenticated wire parser using its retained RX/TX bytes:
+
+- sequence 3: exit 0, 101 ms, 12 output bytes;
+- sequence 4: exit 1, flags 0, 200 ms, 3,567 output bytes;
+- sequence 5: exit 0, 101 ms, 44 output bytes.
+
+Machine qualification remains 1/3 sessions. Twelve insertion completions and
+two fresh readiness snapshots passed at elapsed 1 ms. The returned driver name
+was exactly `msm_drm`; thirteen actual modes included one exact selected 30HS
+match. The child then stopped with `DISPLAY_FAIL stage=competing-plane errno=71`
+after `initial-plane`. This is before buffer allocation, framebuffer creation,
+TEST_ONLY or frame submission. No completed flip was recorded.
+
+The predicate refuses a plane whose nonzero CRTC/FB attachment is not the
+selected plane/CRTC pair. The diagnostic records the selected objects, not the
+specific failing plane's ID/CRTC/FB tuple. Therefore its precise identity,
+owner, splash relationship and cause remain UNPROVED. Do not disable an
+unknown object, weaken the check or label this an observed panel-driver fault
+from these bytes. The operator's exact observation was that only the boot
+screen appeared and stayed there; no counter output was observed.
+
+The source/fixture correction now has live support for driver identity and
+mode selection. That partial progress does not establish a successful modeset
+or visible output. P352 is consumed and must not be replayed. This result
+qualifies no new candidate, device action or automatic recovery capability.
+
+Retained identities:
+
+| Evidence | Size / SHA-256 prefix |
+| --- | --- |
+| Live result | 21,491 / `ea7e19e6` |
+| Candidate observer | 13,953 / `f64ab19e` |
+| Immutable observer RX | 4,723 / `84162170` |
+| Candidate AP | 30,965,801 / `6cda084d` |
+| Exact rollback AP | 23,367,721 / `d2373bf8` |
+
+Run evidence remains in
+`workspace/private/runs/device-action-f1-live-v2/p352-ready1-prepared-20260907-2/`.
+The executing implementation is retained by commit `706f838121`, preparation
+record commit `f3d89c0b48`, and the stored execution closure; no candidate code
+or artifact was changed during closure. The private H0 audit records the actual
+reopened result and fixed failed-child output.
+
+Canonical timeline, UTC on 2026-09-06 (2026-09-07 in Korea):
+
+| Event | UTC |
+| --- | --- |
+| live_session_start | 15:47:52.579883 |
+| candidate_flash_start | 15:48:09.356526 |
+| candidate_flash_done | 15:48:11.008140 |
+| candidate_boot_ready | 15:48:36.605561 |
+| rollback_flash_start | 15:50:07.994774 |
+| rollback_flash_done | 15:50:09.560835 |
+| rollback_boot_ready | 15:50:43.308347 |
+| live_session_end | 15:50:43.329388 |
+
+Exactly one P352 F1 close row was appended to the canonical ledger. Its
+parser/classification, 1/1 counts and unchanged prefix passed scoped checks.
+The full taxonomy audit still fails the preexisting `pending review ordinal
+has no closed topic key` condition, identical before and after this append;
+it is not reported as a global PASS. No historical row or validator was changed.

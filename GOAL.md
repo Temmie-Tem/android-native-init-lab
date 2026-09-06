@@ -11,32 +11,28 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P352 H0 build, static qualification and ready-manifest publication passed.
-The common offline bundle was reopened successfully. The fresh candidate AP is
-`30965801B/6cda084d`, with byte-identical A/B builds and exact boot/AP joins.
-The renderer binds `msm_drm` and one exact 30HS timing; source-derived fixtures
-cover 22 applicable DT merges, thirteen nominal modes and failure cases. Both
-the original name error and the name-only repair's mode ambiguity reproduce
-before the corrected renderer completes ten host-fixture flips and disable.
+P352 is CLOSED/19 and consumed with
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false.
+Candidate `30965801B/6cda084d` and exact Magisk rollback `23367721B/d2373bf8`
+transferred once each. Final rooted FYG8, original boot/supporting hashes and
+absent Download passed. Actual prepared/result and failed-session reopening
+passed; live result is `21491B/ea7e19e6`.
 
-Independent changed-closure review returned PASS_GO over 90 execution-critical
-inputs; the separate USB diagnostic distinction also passed review. That change
-records endpoint disappearance distinctly but adds no retry or recovery bypass.
-P351's precise USB failure cause remains UNPROVED.
+Qualification passed 1/3 sessions. All twelve insertions and fresh readiness
+passed, followed by the actual `msm_drm` name, thirteen returned modes and one
+exact 30HS match. The display child exited 1 at 200 ms at `competing-plane`,
+before buffer allocation or frame submission. Its conflicting plane's exact
+ID/CRTC/FB state was not logged; do not infer its owner from the selected IDs.
+The operator observed only the retained boot logo. Visible output is UNPROVED.
 
-The operator approved D0/D1 through F1-code issuance and confirmed attendance.
-The first D0 retained the P351 family and closed with a non-reusable baseline
-stop. One ordinary D1 reboot passed with changed boot ID and exact rooted FYG8
-health; no other target was commanded. Fresh D0 and actual prepared-binding
-reopening passed in `p352-ready1-prepared-20260907-2`.
+Physical Download entry and exact rollback completed in the original execute
+invocation, without a recovery restart or repeated effect. P352 is never
+replayable. No active shell or standing device authority remains. The source,
+artifact, raw capture and journal are retained; any successor must address the
+observed initial-plane condition under a fresh binding. A90/S20+ were untouched.
+Report: [P352 closed result and timeline](docs/reports/S22PLUS_FYG8_P352_SOURCE_BOUND_DISPLAY_H0_2026-09-07.md).
 
-P352 now awaits its ordinary returned attended F1 approval, binding digest
-prefix `b72c7fb8`. No candidate transfer or active shell exists, and D0/D1
-approval grants no F1 execution. Actual runtime mode acceptance and visible
-output remain UNPROVED. P351 is never replayable.
-Report: [P352 source-bound display H0](docs/reports/S22PLUS_FYG8_P352_SOURCE_BOUND_DISPLAY_H0_2026-09-07.md).
-
-## Latest consumed display attempt
+## Consumed P351
 
 P351 is CLOSED/19 and consumed with
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false.
