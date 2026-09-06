@@ -659,13 +659,13 @@ Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 ## S20+ last_kmsg Record-Format D0
 
 Status: **DEFINED - LAST_KMSG RECORD-FORMAT D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `560f877a1f7e29e9d1d24c9a5b1233777d24ca19098fa702535fc21bea259208`
-Root-Script-SHA256: `dda54be816b701e022e603fe396b8e54c8ffd29f4ea948c649bc31bf1a4189d8`
+Runner-Normalized-SHA256: `50f2f58086318f4befe1bf82dfbb9ac1fe288458587f6f7a3dddd2878d532aaf`
+Root-Script-SHA256: `d3e7926db29571ee8a037fb0b142626230318755d6a28aac5afee69994fc51ae`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`f73cf2f899c9dcfc3f4da8094058e3936a0af7615db2e8b68d822658b22b7e18`.
+`6e304cc79b8bda773640f9c53cee5195585895280deb7579fab9a83877c67386`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
@@ -704,8 +704,8 @@ its content deliberately unread.
 
 Alongside it this capability surveys seven sibling `/proc` nodes for existence
 and metadata only - `reset_reason`, `reset_klog`, `reset_summary`,
-`reset_history`, `reset_rwc`, `store_lastkmsg` and `auto_comment` - and reads
-the content of exactly one of them, `/proc/reset_reason`, bounded to 64 bytes.
+`reset_history`, `reset_rwc`, `store_lastkmsg` and `auto_comment`. None of them
+is read.
 
 The survey exists because the node above may be the wrong channel.
 `/proc/last_kmsg` is a boot-time snapshot of an ioremapped RAM region, so its
@@ -721,12 +721,27 @@ symbols comes from a different device's public source and is a hypothesis, not
 evidence for this target; the survey is how it stops being a hypothesis, and it
 assumes nothing - every node may be absent and that is a valid result.
 
-`/proc/reset_reason` is read because a reset reason is a short code the reset
-path itself sets rather than a string any process writes, which is the property
-every refuted channel on this target lacked. It is bounded, and it is admitted
-to the record only if it matches a strict short single-line token pattern;
-anything else is published as a length, never as bytes. Nothing else is read:
-`reset_klog` and the rest contribute state, size and link count only.
+NO surveyed node's content is read. An earlier revision of this section read
+`/proc/reset_reason`, on the claim that a reset reason is a short code the reset
+path itself sets rather than a string any process writes, and is therefore the
+authenticated channel every refuted channel on this target lacked.
+
+Independent review refuted that, and it was the fourth such refutation here. A
+read-only `/proc` presentation excludes an ordinary unprivileged write and
+nothing further. A resident-root process can request or trigger a reset class,
+can write material that a reset notifier then persists, and may reach the
+backing storage; a bootloader-written or stale retained value is not excluded
+either. It is at most an untrusted reset-state observation, never proof of what
+produced it.
+
+The read bought no evidence and cost four defects: the content branch followed a
+symlink past the survey's own `indirect` verdict, command substitution spliced
+away an embedded NUL so `AA\0BB` arrived as an accepted `AABB`, the sentinel
+words `absent`, `unreadable` and `empty` collided with real content of the same
+spelling, and this section claimed no surveyed content leaves the device while
+that content did. All four are gone with the read. Presence and metadata remain,
+which `stat` alone answers, and a test now refuses any surveyed path that
+reaches a reading tool.
 
 A surveyed node's presence establishes that the kernel exposes it and nothing
 more. It does not establish retention, does not say which boot wrote it, and
@@ -745,13 +760,11 @@ pinned root-health script this runner reuses executes
 version query on the pinned root binary, it reads no user data, and it is the
 only `/data` access on any path.
 
-No log byte crosses the device boundary. From the scanned node, only its state,
-`stat` size and link count, two whole-window SHA-256 values, two scanned byte
-counts and seven shape counts are emitted. From each surveyed sibling, only its
-state, size and link count. The single exception is `/proc/reset_reason`, whose
-64-byte-bounded content is emitted and then admitted to the record only as a
-strict short single-line token, or otherwise as its length alone. Kernel log
-text is never emitted, captured, pulled, persisted or published anywhere, in
+No node's content crosses the device boundary, and there is no exception. From
+the scanned node, only its state, `stat` size and link count, two whole-window
+SHA-256 values, two scanned byte counts and seven shape counts are emitted. From
+each surveyed sibling, only its state, size and link count. No content of any
+observed path is emitted, captured, pulled, persisted or published anywhere, in
 success or in failure.
 
 This capability answers one question: what shape are the records in this buffer?
@@ -782,15 +795,28 @@ lines, wrapped records, and any prefix neither this lane nor its earlier guesses
 anticipated. If no shape accounts for most lines, that is reported as its own
 result rather than resolved by picking one.
 
-That the shapes partition the lines is an integrity requirement and not a
-presentation choice. Because each pass reads the node separately, a short read,
-a `grep` failure masked by the fallback zero, or a count taken from a different
-window all make the sum disagree with the total, and the host refuses the
-transcript rather than publishing an undercount. The earlier overlapping shape
-set could not detect any of those, and its "no record prefix" counter was not
-the complement of the others: an unrecognized line beginning with `<` or `[`
-matched no shape and no complement either, so the class a wrong format guess
-lands in was the one class the measurement could not see.
+That the shapes partition the lines matters for one reason and is bounded by
+another, and both are stated because two earlier revisions of this paragraph
+overstated it and independent review refuted both.
+
+What it buys: the complement closes the class a wrong format guess lands in. The
+earlier overlapping shape set's "no record prefix" counter was not the
+complement of the others, so an unrecognized line beginning with `<` or `[`
+matched no shape and no complement either and vanished from the measurement.
+
+What it does not buy: the sum proves the seven `grep` passes are consistent with
+each other, not that any of them read the whole node. All seven read the same
+path the same way, so a window that returns the same nonzero truncated prefix to
+every one of them satisfies the sum exactly and would publish an undercount. The
+two verified byte-count brackets do read the full length but are separate
+invocations, and nothing binds them to the `grep` reads. Binding them would
+require the count and the length to come from one read, which cannot be
+expressed here without writing node bytes to disk, which is forbidden. The
+limitation is therefore published rather than argued: the result carries
+`counts_bind_to_verified_length` false, and no shape count may be read as a
+complete measurement of the node. The same applies to the two digests, which
+agree with each other over whatever prefix they covered and prove nothing about
+its length.
 
 A future capability may interpret this buffer's content, and it must be designed
 on the format this one measures. It must also not repeat the evidence error this

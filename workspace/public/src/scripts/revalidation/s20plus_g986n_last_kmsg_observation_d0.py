@@ -61,14 +61,29 @@ SURVEY_NODES = {
     "survey_store_lastkmsg": "/proc/store_lastkmsg",
     "survey_auto_comment": "/proc/auto_comment",
 }
-# Only this one node's content is read, and only because it is the whole point:
-# a reset reason is a short code set by the reset path itself rather than a
-# string any process writes, which is the property every refuted channel lacked.
-# Bounded hard, and admitted to the record only if it matches a strict pattern.
-REASON_NODE = "/proc/reset_reason"
-REASON_MAXIMUM = 64
-REASON_PATTERN = re.compile(r"[A-Za-z0-9_.:/ -]{1,64}")
-SURVEY_STATE = re.compile(r"(absent|indirect|unexpected|unreadable|error|regular):(0|[1-9][0-9]{0,9}):([0-9]+)")
+# NO surveyed node's content is read. This is the fourth channel this lane has
+# proposed and the fourth to be refuted, and the refutation is recorded here
+# because the temptation will recur.
+#
+# The claim was that `/proc/reset_reason` is a short code set by the reset path
+# itself rather than a string any process writes, and is therefore authenticated
+# where the ACM banner, the Download arrival and the kmsg banner were merely
+# characteristic. Independent review refuted it: a read-only proc presentation
+# excludes an ordinary unprivileged write and nothing more. A resident-root
+# process can request or trigger a reset class, can write material a reset
+# notifier then persists, and may reach the backing storage; a bootloader-written
+# or stale retained value is not excluded either. It is at most an untrusted
+# reset-state observation.
+#
+# Reading it therefore bought no evidence, while the read itself introduced four
+# defects - a symlink the `-f`/`-r` branch followed past the survey's own
+# `indirect` verdict, a NUL that command substitution silently spliced away, a
+# set of sentinel words that collided with real content, and a contract claim
+# that no surveyed content leaves the device. Cost with no value, so the read is
+# gone. Presence and metadata remain, which `stat` alone answers.
+SURVEY_STATE = re.compile(
+    r"(absent|indirect|unexpected|unreadable|error|regular):(0|[1-9][0-9]{0,9}):(0|[1-9][0-9]{0,9})"
+)
 # sha256 of the empty stream, so a fully truncated digest pass cannot pass as a
 # valid window digest. Not a substitute for a length check; see parse_root.
 EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -126,12 +141,27 @@ health = load_health()
 # immediately after the timestamp is wrong.
 #
 # The shapes form a PARTITION: mutually exclusive by construction and made
-# exhaustive by `unclassified`, which is counted as the complement of their
-# union rather than as a guess at what an unmatched line looks like. That is not
-# presentation. It is the integrity check. Each shape is a separate read of the
-# node, and a short read or a fallback zero on any one of them makes the counts
-# sum to less than `lines_total`, so `parse_root` rejects the transcript instead
-# of publishing an undercount. An overlapping shape set cannot do this.
+# exhaustive by `unclassified`, counted as the complement of their union rather
+# than as a guess at what an unmatched line looks like. The complement is what
+# closes the class an unrecognized prefix would otherwise vanish into.
+#
+# What the partition sum establishes, stated exactly, because two earlier
+# revisions of this comment overstated it and independent review refuted both.
+# It establishes that the seven grep passes are MUTUALLY CONSISTENT: a short read
+# or a masked failure on ONE of them, while the others read a longer window,
+# breaks the sum and the transcript is refused.
+#
+# It does NOT establish that any of them read the whole node. All seven use the
+# same `head -c` over the same path, so a window that returns the same nonzero
+# truncated prefix to every grep satisfies the sum perfectly and publishes an
+# undercount. The two `wc -c` brackets do read the full length, but they are
+# separate invocations and nothing binds their result to the grep passes.
+#
+# Closing that would require the count and the length to come from a single read,
+# which this shell cannot express without writing node bytes to disk - which the
+# no-log-egress rule forbids. So it is not closed. It is named instead:
+# `counts_bind_to_verified_length` is published false, and no consumer may read
+# a shape count as a complete measurement of the node.
 #
 # Mutual exclusion, which the partition sum depends on: `[ 0-9.]+` matches
 # neither `[` nor `]`, so the closing bracket of a timestamp field is always the
@@ -244,18 +274,7 @@ fi
 """
     for key, path in SURVEY_NODES.items()
 )
-# The one content read, bounded to a short code. Command substitution strips
-# trailing newlines, so a one-line value cannot break the line protocol; a value
-# that is not a short single-line token fails the host pattern and is recorded as
-# unparsed with its length rather than admitted as bytes.
-SHELL_HELPERS += f"""reason=absent
-if [ -f {shlex.quote(REASON_NODE)} ] && [ -r {shlex.quote(REASON_NODE)} ]; then
-    reason=$(/system/bin/head -c {REASON_MAXIMUM} {shlex.quote(REASON_NODE)}) || reason=unreadable
-    [ -n "$reason" ] || reason=empty
-fi
-"""
 SHELL_HELPERS += "".join(f'emit {key} "${key}"\n' for key in SURVEY_NODES)
-SHELL_HELPERS += 'emit reason "$reason"\n'
 
 ROOT_SCRIPT = health.ROOT_READ_SCRIPT + SHELL_HELPERS
 ROOT_ARGUMENT = shlex.quote(ROOT_SCRIPT)
@@ -264,7 +283,6 @@ OUTPUT_KEYS = (
     "state", "meta", "bounded", "scanned", "scanned_after", "window", "recheck", "meta_after",
     *PREDICATES,
     *SURVEY_NODES,
-    "reason",
 )
 
 
@@ -356,6 +374,10 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         if facts["size"] > 0 and window[1] == EMPTY_SHA256:
             raise ObservationError("nonempty window digested as empty")
         facts["window_sha256"] = window[1]
+        # Narrowed after review: equal digests over a uniformly truncated window
+        # prove agreement between the two digest passes, not that either covered
+        # the node. Stability is therefore reported about the digested prefix,
+        # not about the window.
         facts["window_stable_across_passes"] = True
         # Deliberately narrow, because the digests cannot carry more than this.
         # What is established: the window did not change between the first and
@@ -407,6 +429,12 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         raise ObservationError("nonempty window counted no lines")
     facts["shape_counts"] = counts
     facts["counts_partition_the_scan"] = facts["bounded"] and total > 0
+    # The limit of the partition sum, published rather than argued. It proves the
+    # seven grep passes agree with each other; it does not prove any of them read
+    # the whole node, because a uniformly truncated window satisfies the sum and
+    # the two verified byte-count brackets are separate invocations that nothing
+    # binds to the grep reads.
+    facts["counts_bind_to_verified_length"] = False
     # No semantic fact is derived here. This capability reports what the records
     # look like; it does not say what they mean, which boot produced them, or
     # whether anything was retained. Those claims were withdrawn because every
@@ -422,7 +450,6 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
     facts["derived_timestamp_only"] = counts["ts_cpu"] + counts["ts_plain"]
     facts["size_matches_recorded_observation"] = facts["size"] == OBSERVED_SIZE
     facts["survey"] = _parse_survey(values)
-    facts["reset_reason"] = _parse_reason(values["reason"])
     # Named so nothing downstream can mistake presence for retention. A node
     # existing says the kernel exposes it; it says nothing about what it holds,
     # which boot wrote it, or whether anything survived a mode transition.
@@ -444,22 +471,6 @@ def _parse_survey(values: dict[str, str]) -> dict[str, Any]:
             raise ObservationError("non-regular survey node reported metadata")
         survey[path] = {"state": state, "size": size, "links": links}
     return survey
-
-
-def _parse_reason(raw: str) -> dict[str, Any]:
-    """The one content value, admitted only if it is a short single-line token.
-
-    A reset reason is a short code the reset path itself sets, so it is the first
-    candidate channel on this target that is produced by the mechanism rather
-    than written by a process. That is why it is read at all, and it is also why
-    it must not be allowed to carry arbitrary bytes into the record: anything not
-    matching the strict pattern is published as its length, never as its content.
-    """
-    if raw in ("absent", "unreadable", "empty"):
-        return {"state": raw, "value": None, "length": 0}
-    if REASON_PATTERN.fullmatch(raw):
-        return {"state": "read", "value": raw, "length": len(raw)}
-    return {"state": "unparsed", "value": None, "length": len(raw)}
 
 
 def _dominant_shape(counts: dict[str, int], scanned: bool) -> str:
