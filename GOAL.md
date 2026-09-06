@@ -11,24 +11,30 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P355 is H0-qualified and connected-prepared for a hardware magenta solid-fill comparison.
-It retains P354's exact 30HS mode, original patterned WC buffer and
-noise_layer_v1=0, adding only selected-plane color_fill=0x80ff00ff to the same
-single atomic request. Missing/duplicate property stops before submission.
-A full magenta field is the intended diagnostic observation; white, the old
-pattern or unchanged logo is not successful magenta qualification. A clean
-result would not alone prove a cache fault because internal format/scaler
-handling also differs in the solid-fill path.
+P355 is consumed and CLOSED/19, recovery_required=false. Candidate
+`30965801B/d100d9bc` and exact Magisk rollback `23367721B/d2373bf8` transferred
+once each. Final rooted FYG8, original boot/supporting hashes and absent Download
+pass. The machine verdict is `PASS_F1_V2_P355_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`;
+it proves authenticated host dispatch and rollback, not internal display state.
+Live result is `22805B/0fcd7a1e`.
 
-H0 A/B build and static qualification pass; P355/P354 focused tests pass 21
-cases each. Independent review is PASS_GO and actual offline promotion passes. The operator preapproved
-D0/D1 through F1 code issuance and confirmed physical availability. First D0
-preserved a retained-baseline stop; one ordinary reboot returned healthy with a
-changed boot ID. Fresh D0 and preparation in `p355-ready1-prepared-20260907-2`
-pass. No F1 candidate transfer has occurred; separately returned F1 approval
-remains required.
-P354 remains closed and consumed. No source or artifact from that run is changed.
-Report: [P355 hardware magenta comparison](docs/reports/S22PLUS_FYG8_P355_HARDWARE_SOLID_FILL_PREPARATION_2026-09-07.md).
+The operator reported a full magenta field with no visible corruption and
+supplied a corroborating private photo. The prior horizontal speckles and
+lower-area breakup are absent in that image. **Clean magenta was observed with the solid-fill candidate**, while P353/P354's ordinary pattern-buffer output was corrupt.
+The same 30HS mode and noise disable were retained. This narrows further H0
+investigation toward the normal buffer-fetch/format/scaler path; it does not
+alone establish a cache fault or exclude every downstream contribution, because
+solid fill also changes internal format/scaler/source geometry. Machine proof
+and operator/photo evidence remain distinct. Supplemental Carrier is ambiguous
+and supplies no causal proof.
+
+The original execute invocation stopped on measured USB endpoint inventory while
+awaiting physical Download, before rollback intent/transfer. One same-journal
+preauthorized recovery completed the exact rollback; candidate and observation
+were never replayed. The original failure is preserved and its cause remains
+unproved. No active native shell or standing device authority remains. P353,
+P354 and P355 are never replayable; A90/S20+ received no command.
+Report: [P355 clean magenta and recovered close](docs/reports/S22PLUS_FYG8_P355_HARDWARE_SOLID_FILL_PREPARATION_2026-09-07.md).
 
 ## Consumed P354 comparison
 

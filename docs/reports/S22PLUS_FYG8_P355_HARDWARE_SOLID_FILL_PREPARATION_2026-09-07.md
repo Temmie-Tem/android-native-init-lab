@@ -1,10 +1,12 @@
-# P355 hardware magenta solid-fill comparison
+# P355: clean hardware magenta observed, exact rollback completed
 
 P354 reproduced the prior speckles and lower-area corruption after adding an
 explicit noise disable. P355 changes the selected plane's pixel-source branch
 using the exact vendor driver's existing `color_fill` property. The intended
 observation is a full magenta field, followed by ordinary exact rollback and
-verified healthy FYG8 return. This is a diagnostic comparison, not a proved fix.
+verified healthy FYG8 return. The approved run later produced the clean magenta
+observation and returned healthy through same-journal rollback recovery. This is
+a diagnostic distinction, not a fix for the ordinary framebuffer path.
 
 ## Design and interpretation
 
@@ -127,3 +129,66 @@ private binding. No Download request, Odin
 transfer, display dispatch or F1 execution has occurred. A90/S20+ were untouched;
 Android is the last verified healthy state. The bounded preparation does not
 authorize candidate execution until the exact token is separately returned.
+
+
+## Approved execution and visual result
+
+The operator returned the exact prepared F1 token. Candidate AP transferred once,
+and the authenticated parent prefix plus complete display request passed.
+Machine verdict is `PASS_F1_V2_P355_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`;
+display execution/visible output remain UNPROVED in the machine receipt, and
+there was no post-dispatch display command or closed-session claim.
+
+The operator answered “전체 마젠타 단색, 깨짐 없음” and provided an evidence photo.
+The photo shows the full magenta display without P353/P354's horizontal speckle
+bands and lower-area breakup. Camera texture and brightness variation are not
+a pixel-exact color measurement. The photo and original statement are retained
+separately and privately in the run directory. This supports a bounded clean
+magenta observation, not indefinite runtime stability or a hardware-register
+measurement.
+
+The comparison distinguishes corrupt ordinary pattern-buffer output from clean
+solid-fill output at the same requested 30HS mode, with noise disable retained.
+Further H0 investigation should prioritize the normal buffer-fetch, format and
+scaler path. This does not isolate cache coherency alone: the solid-fill branch
+also changes internal format/scaler/source geometry, and ordinary FB/GEM/SMMU
+preparation can still occur. It does not prove arbitrary framebuffer output is
+correct, clear all panel conditions, or establish the root cause.
+
+## Recovery deviation and terminal state
+
+After durable candidate observation, the original execute invocation stopped
+with `measured USB endpoint inventory failed` while waiting for physical
+Download. The journal remained OBSERVED at sequence 9 with candidate complete;
+no rollback-attempt start existed. The error is emitted around measured observer
+creation/inventory validation by `s22plus_odin_transition_core.enumerate_odin`.
+The original host failure and endpoint evidence are retained. Its underlying
+cause is unproved; do not label it cable movement or a benign race by inference.
+
+One ordinary `--recover` resumed only the already authorized rollback from that
+same journal. Fresh exact Download binding passed, rollback transferred once,
+and final rooted FYG8 health, original boot/supporting hashes and absent Download
+passed. Neither the candidate nor the display request was replayed. Killing the
+child was not used as a recovery substitute.
+
+The terminal result is CLOSED/19, `recovery_required=false`,
+`22805B/0fcd7a1ef01f6e90662df3d215c5718c6f650327ae175baae071c7205fae3157`.
+Supplemental Carrier remains `AMBIGUOUS_INTEGRITY_FAILURE` / `NO_PROOF_OBSERVER`
+and supplies no causal evidence; this does not override the separate visual
+observation. The normal run and its F1 approval are consumed, with no active
+native shell or further device authority. Actual prepared/result reopening
+passed, and one matching campaign closure row was appended from this journal
+and result. A90/S20+ were untouched.
+
+Canonical timeline, UTC:
+
+| Event | Timestamp |
+| --- | --- |
+| `live_session_start` | `2026-09-06T20:08:58.567886Z` |
+| `candidate_flash_start` | `2026-09-06T20:09:15.533399Z` |
+| `candidate_flash_done` | `2026-09-06T20:09:17.151028Z` |
+| `candidate_boot_ready` | `2026-09-06T20:09:27.346063Z` |
+| `rollback_flash_start` | `2026-09-06T20:11:44.356118Z` |
+| `rollback_flash_done` | `2026-09-06T20:11:45.895227Z` |
+| `rollback_boot_ready` | `2026-09-06T20:12:19.250013Z` |
+| `live_session_end` | `2026-09-06T20:12:19.268516Z` |
