@@ -92,16 +92,17 @@ known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 �
 - **Galaxy A90 5G (`SM-A908N`)**: custom native PID 1, ACM/NCM, native Wi-Fi와
   audio, 그리고 bounded Debian PID 1/SSH/display 결과가 있습니다. 현재 작업은
   H41 rollback/health 종결이며 isolated-Debian 서버 작업은 일시 중지돼 있습니다.
-- **Galaxy S22+ (`SM-S906N`, FYG8)**: source-matched rebuilt kernel과 direct
-  native PID 1 USB 통신이 증명됐습니다. P3.25–P3.35의 성공 run은 ACM 도달, 양방향 고정 명령,
-  인증, 제한된 다중 세션과 정상 rollback을 확립했습니다. 현재는 세션 안정성과
-  초기 OPEN 실패 수집을 다루며, 범용 interactive shell은 미증명입니다.
+- **Galaxy S22+ (`SM-S906N`, FYG8)**: source-matched rebuilt kernel과 native
+  PID 1 USB 통신을 증명했습니다. P348은 제한된 읽기 전용 셸, 120초 idle/reopen,
+  이후 명령과 정상 rollback을 증명했습니다. P349 RAM 작업공간은 host 검증을
+  통과했지만 두 실행 모두 인증 단계에서 전송 전에 중단됐습니다. 현장 복귀를
+  기다리며, 실제 1시간·기기 RAM 시험과 무제한 root shell은 미증명입니다.
 - **Galaxy S20+ 5G (`SM-G986N`)**: exact onboarding, resident Magisk root,
   retained T2 TWRP recovery가 확립됐습니다. P0 V3 native-PID1 시도에서는 exact
   ACM banner를 얻지 못했고 정상 Magisk rollback으로 종료했습니다. Native PID 1은
   미증명이며 현재는 초기 부팅 관측 경로를 연구합니다.
 
-이 요약은 2026-09-05 확인한 기록 기준입니다. 기기별 페이지에서 인정된 결과의
+이 요약의 S22+ 항목은 2026-09-06, 다른 대상은 2026-09-05 확인한 기록 기준입니다. 기기별 페이지에서 인정된 결과의
 근거를 확인하고, 바뀌는 프론티어와 실행 요건은 각 GOAL과 target contract를 따릅니다.
 
 공용 소스는 `workspace/public/src/` 아래에 둡니다. 대상 전용 소스, 헬퍼,
@@ -155,8 +156,8 @@ vendor bootloader
 
 ## 단기 로드맵
 
-S22+ FYG8은 native PID 1의 USB 통신과 인증된 고정 명령 실행을 확립했으며,
-현재는 다중 세션·idle/reopen 안정성과 실패 관측을 개선합니다. 이 기능 성과와
+S22+ FYG8은 native PID 1의 USB 통신과 제한된 읽기 전용 셸 실행을 확립했습니다.
+다음 단계는 P349 RAM 작업공간과 실제 1시간 관측이며, 기기 작업은 참석 대기 중입니다. 이 기능 성과와
 세부 USB/Max77705 원인 규명은 별도로 판정합니다. A90은 현재 복구 종결 이후
 isolated-Debian 서버 방향을 이어가고, S20+는 미증명 P0 결과에서 초기 부팅
 관측 경로를 보강하는 단계입니다. 공용 F1 구조는 Device Action Process v2입니다.

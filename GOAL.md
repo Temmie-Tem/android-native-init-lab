@@ -11,7 +11,7 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P349 is prepared for separately approved attended F1. Independent capability
+P349 device work is paused pending operator attendance. Independent capability
 review returned PASS_GO; A/B candidate, static promotion, 73 focused tests and
 raw-first audit passed. Candidate AP is `28631081B/8ff75170`; exact Magisk
 rollback is `23367721B/d2373bf8`. This is a UID/GID 65534 current-boot RAM
@@ -33,12 +33,17 @@ authentication. The run is ABORTED/4 before any Download request or candidate
 attempt, with result `1351B/ca79a6d2`; actual result validation passed. No flash,
 rollback or native session occurred, and the old approval cannot be replayed.
 
-Fresh read-only preparation `p349-ready1-prepared-20260906-3` confirmed healthy
-rooted FYG8 and produced the replacement binding `43926B/87367678`, D0
-`3261B/dbd9a55c`. Its new exact approval must be returned separately; the host
-privilege authentication must complete when prompted. The candidate and source
-closure are unchanged and unconsumed. P348 remains closed/consumed; A90/S20+
-received no command. No native shell is currently active.
+Fresh preparation `p349-ready1-prepared-20260906-3` also passed D0, but its
+returned approval encountered the same host-authentication timeout. It too is
+ABORTED/4 before Download or candidate transfer; result `1351B/c1cb7925`.
+The operator then confirmed they were away and could not authenticate. Both
+approval bindings are terminated; no replacement is currently prepared.
+
+The latest execute-preflight recorded healthy rooted FYG8. No device transition
+followed it, and no native shell is active. The candidate remains untransferred;
+P348 remains closed/consumed. Resume only when the operator can complete host
+authentication and physical Download recovery, with fresh exact preparation and
+approval. Current work is documentation-only; A90/S20+ receive no command.
 Report: [P349 capability and preparation](docs/reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md).
 
 ## Latest completed P348 unit

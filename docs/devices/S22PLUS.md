@@ -14,8 +14,10 @@
 
 The S22+ is the source-matched rebuilt-kernel and direct-native-PID1 research
 target. It now has bounded native-PID1 USB communication and authenticated
-fixed-command execution without Android userspace. Current work improves
-session reliability and failure observation. Functional transport proof and
+command execution without Android userspace. P348 additionally proved bounded
+caller-selected shell commands in a read-only child view. P349 adds a
+host-qualified RAM workspace and an actual-hour witness requirement; device
+work is paused pending attendance. Functional transport proof and
 detailed USB/Max77705 causal explanations are evaluated separately.
 
 ## Proven capabilities
@@ -40,6 +42,13 @@ detailed USB/Max77705 causal explanations are evaluated separately.
   run: two on one tty descriptor and one after a planned host close/reopen,
   with nine command executions, all exiting zero, and clean session closes. Exact
   rollback and rooted FYG8 final health passed for those successful runs.
+- **PROVED — bounded read-only research shell.** P347 passed five shell
+  qualification sessions. P348 passed six initial sessions / 18 commands,
+  including a 120-second idle and clean reopen, then all five later acceptance
+  actions: checked snapshot, exit 7, timeout, authenticated cancel and
+  post-cancel output. Exact Magisk rollback and rooted FYG8 final health passed.
+  P348's last later witness was 390.137 seconds after lease opening; this does
+  not prove one hour. Both candidates are closed and consumed.
 - **PROVED — recovery-safe experiment mechanics.** Process-v2 runs distinguish
   transfer, observation, rollback, and final health and preserve candidate
   no-replay. Several later USB experiments closed safely as no-proof or
@@ -62,12 +71,15 @@ detailed USB/Max77705 causal explanations are evaluated separately.
   This did not always mean no endpoint existed: P3.23/P3.24 later localized
   host selector and tty-property defects. Their consumed no-proof results
   remain separate from P3.25's accepted native banner.
-- **observed — later session failures remain.** P3.35's later idle action was
+- **observed — historical session failures remain distinct.** P3.35's later idle action was
   uncertain before authentication or command execution. P3.36–P3.39 retained
   native banners but no successful authenticated session. P3.39 exposed a host
   collector that stopped before the additional failure diagnostics.
-- **designed — initial OPEN failure-capture successor.** P3.40 host work
-  targets the existing diagnostic stream; it is not a new live success.
+- **designed / host-qualified — P349 RAM workspace.** A/B builds, bounded
+  namespace/syscall tests and independent capability review passed for `/work`
+  (8 MiB, 256 inodes, UID/GID 65534) and fixed BusyBox script execution. Both
+  approved invocations aborted during host authentication before Download or
+  candidate transfer. No P349 native session ran.
 - **PROVED within P3.15 only — restart-side functional witnesses executed.**
   The same run refuted the clean four-outer-work model. It did not prove USB2
   pull-up at the connector, attachment, or transport.
@@ -77,10 +89,12 @@ detailed USB/Max77705 causal explanations are evaluated separately.
 
 ## Not yet proven
 
-- **unproved —** reliable long-idle/reopen behavior beyond the bounded
-  successful sessions.
-- A general interactive PTY/shell, caller-selected commands, file transfer,
-  persistent service, or autonomous F1 operation.
+- **unproved —** actual hour-long residency and reliable long-idle/reopen
+  beyond the bounded successful sessions.
+- On-device P349 RAM persistence, script execution and its timed witnesses.
+- A general interactive PTY, unrestricted root shell, general file transfer,
+  persistent service, arbitrary ELF qualification or autonomous F1 operation.
+  P348's proved caller-selected commands remain confined to its bounded view.
 - A complete causal account of the USB/Max77705 bring-up and natural
   UCSI/PMIC-GLINK role path. End-to-end transport success does not independently
   measure every intermediate driver event or resolve the supplemental Carrier.
@@ -89,16 +103,20 @@ detailed USB/Max77705 causal explanations are evaluated separately.
 
 ## Current frontier
 
-Snapshot checked on 2026-09-05: P3.35 is the accepted three-session reference;
-it does not make later candidates successful. P3.39 closed with one candidate
-and one rollback, healthy rooted FYG8 return, and `NO_PROOF`. Its capture
-retained the native banner and the header-validation failure, but missed the
-additional words needed to explain that failure.
+Snapshot checked on 2026-09-06: P348 is the latest completed read-only shell
+reference, with accepted functional evidence and healthy rollback. Its short
+observed use does not prove the one-hour lease limit.
 
-P3.40 is host work on that initial capture path. The immediate goal is usable
-failure evidence and repeatable sessions over the established ACM channel.
-The exact current preparation/review state belongs in [GOAL.md](../../GOAL.md)
-and the target contract. This page creates no execution authority or replay.
+P349 is host-qualified for a current-boot RAM workspace and an actual hour
+criterion: a 65-minute/16-action lease with same-boot witnesses issued after
+20, 40 and 60 elapsed minutes. Both prepared invocations ended ABORTED before
+candidate transfer because host authentication was not completed. The operator
+was away; device work is paused until attendance and physical recovery are
+available. Neither old approval can be reused. The latest execute-preflight
+recorded healthy rooted FYG8; no native shell is active.
+
+The exact current state belongs in [GOAL.md](../../GOAL.md) and the target
+contract. This page creates no execution authority or replay.
 
 ## Major milestones
 
@@ -116,6 +134,11 @@ and the target contract. This page creates no execution authority or replay.
 7. P3.30 proved authentication; P3.34/P3.35 established bounded multiple
    sessions with healthy rollback. Later idle/reopen failures remain separate.
 
+8. P347 qualified the isolated read-only shell; P348 proved later caller-selected
+   use and clean reopen, followed by exact healthy rollback.
+9. P349 qualified a RAM workspace on the host. Both live invocations stopped
+   before transfer; the actual-hour and on-device RAM tests await attendance.
+
 ## Architecture summary
 
 ```text
@@ -124,16 +147,19 @@ bootloader
     -> custom static /init running as PID 1
       -> vendor USB bring-up and CDC ACM
       -> authenticated bounded session
-        -> fixed BusyBox commands and framed results
+        -> bounded read-only BusyBox shell commands and framed results
       -> exact boot rollback and rooted Android health
 ```
 
-The bounded flow is supported by the linked successful runs. It is not a
-general shell or a continuously operating service, and it does not settle
+The bounded flow is supported by the linked successful runs. It is not an
+unrestricted root shell or a continuously operating service, and it does not settle
 every internal USB causal question.
 
 ## Authoritative evidence links
 
+- [Read-only shell qualification](../reports/S22PLUS_FYG8_P347_OUTPUT_TIMING_PREPARED_2026-09-06.md)
+- [Retained read-only shell result](../reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md)
+- [RAM workspace preparation and authentication stops](../reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md)
 - Native ACM arrival: [Native ACM arrival](../reports/S22PLUS_FYG8_P325_F1_ACM_PRIMARY_PASS_2026-09-02.md)
 - Bidirectional BusyBox proof: [Bidirectional BusyBox proof](../reports/S22PLUS_FYG8_P326_F1_BIDIRECTIONAL_USB_BUSYBOX_PASS_2026-09-02.md)
 - Framed fixed commands: [Framed fixed commands](../reports/S22PLUS_FYG8_P327_F1_FRAMED_EXEC_FIXED_COMMANDS_PASS_2026-09-02.md)

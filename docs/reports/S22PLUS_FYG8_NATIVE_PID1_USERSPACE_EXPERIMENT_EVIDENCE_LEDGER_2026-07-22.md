@@ -5,6 +5,17 @@ Scope: S22+ experiments that constrain kernel rebuild, PID 1, early userspace,
 retention, and USB/runtime bring-up
 Status: H0 history and acquisition index; no device authority
 
+## Later functional results (index update 2026-09-06)
+
+The dated entries below retain their original evidence scope. For later bounded
+read-only shell proof, see [P347](S22PLUS_FYG8_P347_OUTPUT_TIMING_PREPARED_2026-09-06.md)
+and [P348](S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md).
+P348's last later witness was 390.137 seconds after lease opening, not an hour.
+[P349](S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md) is host-qualified
+but has no candidate transfer or live RAM/hour result; both approved attempts
+aborted at host authentication. Current state is in [GOAL.md](../../GOAL.md),
+and actual completed transfers remain in the [campaign ledger](../operations/CAMPAIGN_LEDGER_S22PLUS.md).
+
 ## Purpose and coverage
 
 This ledger complements

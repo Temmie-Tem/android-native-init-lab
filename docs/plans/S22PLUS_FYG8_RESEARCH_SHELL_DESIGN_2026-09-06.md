@@ -1,6 +1,13 @@
 # S22+ research shell: arbitrary syntax, bounded read-only view
 
-Status: reviewed H0 implementation and ready2 published; fresh D0 passed after one authorized baseline reboot, F1 code issued but not returned/executed. Target SM-S906N/g0q/S906NKSS7FYG8.
+Status update (2026-09-06): historical P345 design, subsequently implemented
+and consumed with incomplete qualification and healthy rollback. The original
+scope below is retained; see the [P345 result](../reports/S22PLUS_FYG8_P345_SHELL_QUALIFICATION_NO_PROOF_2026-09-06.md).
+Later [P347](../reports/S22PLUS_FYG8_P347_OUTPUT_TIMING_PREPARED_2026-09-06.md)
+and [P348](../reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md)
+proved their own bounded shell capabilities. Those successes do not change
+P345's result. Current P349 state belongs in [GOAL.md](../../GOAL.md).
+Target SM-S906N/g0q/S906NKSS7FYG8 only; this plan grants no live authority.
 The operator chose arbitrary shell syntax with a designed write barrier.
 This is not the existing five-query P344 authority, and P344 remains consumed.
 

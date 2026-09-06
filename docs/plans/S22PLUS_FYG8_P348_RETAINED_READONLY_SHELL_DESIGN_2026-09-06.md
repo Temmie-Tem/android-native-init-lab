@@ -1,8 +1,13 @@
 # P348: attended retained read-only shell session
 
-Status: **H0 DESIGN ONLY — NOT IMPLEMENTED OR ACTIVATED** (2026-09-06).
+Status update (2026-09-06): **implemented, live-qualified, CLOSED and consumed**.
+The original design below is preserved as a planning snapshot. See the
+[P348 terminal report](../reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md)
+for accepted proof and its limits: the one-hour setting was a ceiling, and
+actual hour-long residency remained unproved. P349's current state is in
+[GOAL.md](../../GOAL.md). This design grants no replay or authority.
 Selected target: S22+ `SM-S906N/g0q/S906NKSS7FYG8` only.
-P348 is a proposed successor name, not an artifact, ready declaration or grant.
+In the original planning unit, P348 was a proposed successor name, not a grant.
 
 ## Objective and completion boundary
 

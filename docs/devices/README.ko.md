@@ -26,7 +26,7 @@ report를 대체하지 않으며, 해당 기록이 계속 정본입니다.
 | 기기 | SoC / kernel | 확립된 결과 | 현재 프론티어 | 핵심 미증명 경계 |
 | --- | --- | --- | --- | --- |
 | [Galaxy A90 5G](A90.ko.md) (`SM-A908N`) | Qualcomm SM8150 / vendor Linux 4.14.190 | **PROVED(증명됨):** native PID 1, ACM/NCM, native Wi-Fi/audio와 bounded Debian PID 1/SSH/display 결과 | H41 rollback/health 종결; isolated-Debian 서버 작업 일시 중지 | 선택한 isolated-Debian architecture를 통합한 persistent run; H41 playback과 복구 종결 |
-| [Galaxy S22+](S22PLUS.ko.md) (`SM-S906N`, FYG8) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED(증명됨):** rebuilt-kernel Android boot; native-PID1 ACM, 양방향 고정 명령, 인증, bounded 다중 세션과 healthy rollback | 초기 OPEN 실패 수집과 세션 안정성 | 안정적인 long-idle/reopen, 범용 shell/persistent service, 상세 USB/Max77705 원인 |
+| [Galaxy S22+](S22PLUS.ko.md) (`SM-S906N`, FYG8) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED(증명됨):** rebuilt-kernel Android boot, native-PID1 ACM, 인증된 제한적 읽기 전용 셸, 120초 reopen과 healthy rollback (P348) | P349 RAM workspace와 실제 1시간 witness는 host 검증 완료; 두 전송 전 인증 중단 후 참석 대기 | 기기 RAM/1시간 검증, 무제한 root shell/persistent service, 상세 USB/Max77705 원인 |
 | [Galaxy S20+ 5G](S20PLUS.ko.md) (`SM-G986N`) | Qualcomm SM8250 / vendor Linux 4.19.113 | **PROVED(증명됨):** onboarding, resident Magisk, retained T2 TWRP, P0 V3 전송/정상 rollback | P0 V3 NO_PROOF 이후 초기 부팅 pstore/PMSG 관측 | Custom native PID 1, live 초기 부팅 retention, autonomous F1 |
 
 ## 읽는 순서

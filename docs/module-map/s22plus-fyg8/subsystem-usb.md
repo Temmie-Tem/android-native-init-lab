@@ -1,5 +1,16 @@
 # USB Subsystem
 
+## Current functional reference (2026-09-06)
+
+[P348](../../reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md)
+proved bounded authenticated read-only shell use, a 120-second clean reopen,
+later actions and healthy rollback. This functional result does not resolve
+every intermediate driver event or the historical causal gaps below.
+[P349](../../reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md)
+adds a host-qualified RAM workspace; both approved invocations stopped before
+transfer, and actual-hour/on-device RAM proof remains absent. Follow
+[GOAL.md](../../../GOAL.md) for the attendance pause and next bounded unit.
+
 ## Status
 
 - FYG8 metadata closure: `STATIC_VERIFIED`.

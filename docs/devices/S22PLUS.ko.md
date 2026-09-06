@@ -13,8 +13,10 @@
 ## 역할
 
 S22+는 source-matched rebuilt-kernel과 direct-native-PID1 연구 대상입니다.
-Android userspace 없이 bounded native-PID1 USB 통신과 인증된 고정 명령 실행을
-확립했습니다. 현재는 세션 안정성과 실패 관측을 개선합니다. 통신 기능의 증명과
+Android userspace 없이 bounded native-PID1 USB 통신과 인증된 명령 실행을
+확립했습니다. P348은 읽기 전용 child view에서 제한된 caller-selected 셸 명령도
+증명했습니다. P349는 host 검증된 RAM 작업공간과 실제 1시간 witness 요건을
+추가했으며, 기기 작업은 참석 가능 시점까지 중지돼 있습니다. 통신 기능의 증명과
 USB/Max77705의 상세 원인 설명은 별도로 판정합니다.
 
 ## 증명된 capability
@@ -38,6 +40,13 @@ USB/Max77705의 상세 원인 설명은 별도로 판정합니다.
   tty descriptor, 세 번째는 계획된 host close/reopen 이후였으며, 명령 9회가 모두
   exit 0과 정상 세션 종료를 남겼습니다. 이 성공 run들은 exact rollback과 rooted
   FYG8 final health도 통과했습니다.
+- **PROVED(증명됨) — 제한된 읽기 전용 연구 셸.** P347은 다섯 셸 qualification
+  세션을 통과했습니다. P348은 120초 idle과 정상 reopen을 포함한 초기 6세션 /
+  18명령, 이어서 다섯 later acceptance action을 통과했습니다. 해당 action은
+  snapshot 확인, exit 7, timeout, 인증된 cancel, 취소 후 출력입니다. Exact
+  Magisk rollback과 rooted FYG8 final health도 통과했습니다. P348의 마지막
+  later witness는 lease 시작 후 390.137초로, 1시간을 증명하지 않습니다.
+  두 candidate는 모두 종료·소비됐습니다.
 - **PROVED(증명됨) — recovery-safe experiment mechanics.** Process-v2 run은
   transfer, observation, rollback, final health를 구분하고 candidate no-replay를
   보존합니다. 이후 여러 USB experiment는 candidate success를 승격하지 않은 채
@@ -61,12 +70,15 @@ USB/Max77705의 상세 원인 설명은 별도로 판정합니다.
   항상 endpoint가 없었다는 뜻은 아닙니다. P3.23/P3.24는 이후 host selector와 tty
   property 결함을 국한했습니다. 소비된 no-proof 결과는 P3.25의 인정된 native
   banner와 구분합니다.
-- **observed(관측됨) — 후속 세션 실패가 남아 있습니다.** P3.35의 늦은 idle action은
+- **observed(관측됨) — 과거 세션 실패는 별도 결과로 남습니다.** P3.35의 늦은 idle action은
   인증·명령 실행 전에 uncertain으로 끝났습니다. P3.36–P3.39는 native banner를
   보존했지만 인증된 세션 성공은 없었습니다. P3.39에서는 host collector가 추가
   실패 diagnostic을 읽기 전에 멈추는 문제가 확인됐습니다.
-- **designed(설계됨) — 초기 OPEN 실패 수집 successor.** P3.40 host 작업은 기존
-  diagnostic stream을 대상으로 하며 새로운 live 성공이 아닙니다.
+- **designed(설계됨) / host 검증 — P349 RAM 작업공간.** `/work` (8 MiB,
+  256 inode, UID/GID 65534)와 고정 BusyBox script 실행에 대해 A/B 빌드,
+  제한된 namespace/syscall 시험, 독립 capability 검토를 통과했습니다. 두 승인
+  실행은 모두 host 인증 단계에서 Download·candidate 전송 전에 중단됐습니다.
+  P349 native session은 실행되지 않았습니다.
 - **PROVED(증명됨), P3.15 내부에 한정 — restart-side functional witness가
   실행됐습니다.** 같은 run은 clean four-outer-work model을 refute했습니다. USB2
   connector pull-up, attachment, transport는 증명하지 않았습니다.
@@ -77,9 +89,12 @@ USB/Max77705의 상세 원인 설명은 별도로 판정합니다.
 
 ## 아직 증명되지 않은 것
 
-- **unproved(미증명) —** bounded 성공 세션 범위를 넘는 안정적인 long-idle/reopen.
-- 범용 interactive PTY/shell, caller-selected command, file transfer,
-  persistent service, autonomous F1 operation.
+- **unproved(미증명) —** 실제 1시간 residency와 bounded 성공 세션 범위를 넘는
+  안정적인 long-idle/reopen.
+- 기기에서의 P349 RAM 유지, script 실행과 시간별 witness.
+- 범용 interactive PTY, 무제한 root shell, 범용 file transfer, persistent
+  service, 임의 ELF qualification, autonomous F1 operation.
+  P348에서 증명된 caller-selected 명령은 제한된 view 안의 기능입니다.
 - USB/Max77705 bring-up과 natural UCSI/PMIC-GLINK role path의 완전한 원인 설명.
   End-to-end 통신 성공이 모든 중간 driver event를 독립 측정하거나 supplemental
   Carrier 문제를 해결하지는 않습니다.
@@ -88,14 +103,18 @@ USB/Max77705의 상세 원인 설명은 별도로 판정합니다.
 
 ## 현재 프론티어
 
-2026-09-05 확인 기준으로 P3.35가 인정된 세 세션 reference이며, 이후 candidate의
-성공을 보장하지는 않습니다. P3.39는 candidate·rollback 각 1회, healthy rooted
-FYG8 복귀와 `NO_PROOF`로 닫혔습니다. Native banner와 header-validation 실패는
-수집했지만, 원인을 설명하는 데 필요한 추가 word는 얻지 못했습니다.
+2026-09-06 확인 기준으로 P348이 가장 최근에 종료된 읽기 전용 셸 reference이며,
+기능 증거와 정상 rollback이 인정됐습니다. 짧은 관측 시간이 lease의 1시간 상한을
+증명하지는 않습니다.
 
-P3.40은 그 초기 수집 경로를 다루는 host 작업입니다. 직접 목표는 확립된 ACM
-채널에서 유용한 실패 증거와 반복 가능한 세션을 확보하는 것입니다. 정확한 현재
-준비·검토 상태는 [GOAL.md](../../GOAL.md)와 target contract를 따릅니다.
+P349는 현재 boot의 RAM 작업공간과 실제 1시간 요건을 host에서 검증했습니다.
+65분/16-action lease 안에서 실제 경과 20·40·60분 이후에 발행한 동일 boot
+witness를 요구합니다. 두 준비 실행은 host 인증을 완료하지 못해 candidate
+전송 전에 ABORTED로 끝났습니다. 운영자가 외출 중이어서, 참석과 물리 복구가
+가능할 때까지 기기 작업을 중지했습니다. 두 과거 승인은 재사용할 수 없습니다.
+마지막 execute-preflight는 정상 rooted FYG8을 기록했으며 활성 native shell은 없습니다.
+
+정확한 현재 상태는 [GOAL.md](../../GOAL.md)와 target contract를 따릅니다.
 이 페이지는 실행 권한이나 replay를 만들지 않습니다.
 
 ## 주요 milestone
@@ -114,6 +133,11 @@ P3.40은 그 초기 수집 경로를 다루는 host 작업입니다. 직접 목�
 7. P3.30이 인증을, P3.34/P3.35가 bounded 다중 세션과 healthy rollback을
    확립했습니다. 이후 idle/reopen 실패는 별도로 남아 있습니다.
 
+8. P347이 격리된 읽기 전용 셸을 검증했고, P348은 이후 caller-selected 사용과
+   정상 reopen, 이어진 exact healthy rollback을 증명했습니다.
+9. P349는 RAM 작업공간을 host에서 검증했습니다. 두 live invocation 모두 전송
+   전에 중단됐으며, 실제 1시간·기기 RAM 시험은 참석 가능 시점을 기다립니다.
+
 ## Architecture 요약
 
 ```text
@@ -122,15 +146,18 @@ bootloader
     -> custom static /init running as PID 1
       -> vendor USB bring-up and CDC ACM
       -> authenticated bounded session
-        -> fixed BusyBox commands and framed results
+        -> bounded read-only BusyBox shell commands and framed results
       -> exact boot rollback and rooted Android health
 ```
 
-이 bounded 흐름은 링크한 성공 run들이 뒷받침합니다. 범용 shell이나 계속 운영되는
+이 bounded 흐름은 링크한 성공 run들이 뒷받침합니다. 무제한 root shell이나 계속 운영되는
 서비스는 아니며 모든 내부 USB 원인 문제를 해결한 것도 아닙니다.
 
 ## 정본 증거 링크
 
+- [읽기 전용 셸 qualification](../reports/S22PLUS_FYG8_P347_OUTPUT_TIMING_PREPARED_2026-09-06.md)
+- [유지된 읽기 전용 셸 결과](../reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md)
+- [RAM 작업공간 준비와 인증 중단](../reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md)
 - Native ACM 도달: [Native ACM 도달](../reports/S22PLUS_FYG8_P325_F1_ACM_PRIMARY_PASS_2026-09-02.md)
 - 양방향 BusyBox 증명: [양방향 BusyBox 증명](../reports/S22PLUS_FYG8_P326_F1_BIDIRECTIONAL_USB_BUSYBOX_PASS_2026-09-02.md)
 - Framed 고정 명령: [Framed 고정 명령](../reports/S22PLUS_FYG8_P327_F1_FRAMED_EXEC_FIXED_COMMANDS_PASS_2026-09-02.md)

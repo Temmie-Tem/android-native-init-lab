@@ -90,17 +90,18 @@ evidence-bounded overview.
 - **Galaxy A90 5G (`SM-A908N`)** — custom native PID 1, ACM/NCM, native Wi-Fi
   and audio, plus bounded Debian PID 1/SSH/display results. The current unit is
   H41 rollback/health closure; the isolated-Debian server work is paused.
-- **Galaxy S22+ (`SM-S906N`, FYG8)** — source-matched rebuilt kernel and direct
-  native PID 1 USB communication are proved. Successful P3.25–P3.35 runs established ACM
-  arrival, bidirectional fixed commands, authentication, and bounded multiple
-  sessions with healthy rollback. Current work addresses session reliability
-  and initial OPEN failure capture; a general interactive shell is unproved.
+- **Galaxy S22+ (`SM-S906N`, FYG8)** — source-matched rebuilt kernel and native
+  PID 1 USB communication are proved. P348 proved a bounded read-only shell,
+  120-second idle/reopen, later commands and healthy rollback. P349's RAM
+  workspace is host-qualified, but both invocations aborted at authentication
+  before transfer. Device work awaits attendance; actual-hour/on-device RAM
+  tests and an unrestricted root shell remain unproved.
 - **Galaxy S20+ 5G (`SM-G986N`)** — exact onboarding, resident Magisk root, and
   retained T2 TWRP recovery are established. The P0 V3 native-PID1 attempt
   ended with no exact ACM banner and healthy Magisk rollback. Native PID 1
   remains unproved; current work investigates an early-boot observation path.
 
-This summary reflects the records checked on 2026-09-05. The device pages link
+The S22+ entry was checked on 2026-09-06; other entries retain their 2026-09-05 snapshot. The device pages link
 the accepted results; each target's GOAL and contract govern its changing
 frontier and execution requirements.
 

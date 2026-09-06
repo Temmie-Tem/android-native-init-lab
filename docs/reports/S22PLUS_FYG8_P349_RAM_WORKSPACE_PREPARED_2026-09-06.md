@@ -1,5 +1,10 @@
 # S22+ P349 RAM workspace preparation
 
+Current status (2026-09-06): both approved attempts ended ABORTED before
+Download or candidate transfer. Device work is paused pending operator
+attendance. No approval remains reusable and no P349 native session has run.
+The preparation sections below describe historical stages, not a current grant.
+
 The operator authorized implementation and D0/D1 preparation through fresh F1
 approval-code issuance. F1 execution still requires the separately returned
 code. This unit selects only SM-S906N / g0q / S906NKSS7FYG8; P348 remains
@@ -142,3 +147,30 @@ This new binding requires its own returned approval and successful host
 privilege authentication. Candidate bytes, execution sources and the intended
 actual-hour witness requirements remain unchanged. P349 RAM/hour proof is
 still unproved. A90/S20+ were untouched.
+
+## Second approved invocation and attendance pause
+
+The replacement approval was returned and execute-preflight again passed.
+The journal recorded live-session start at `2026-09-06T08:05:22.135344Z` and
+then `candidate_observer_arm_failed_before_candidate`, ending ABORTED/4.
+The guard capture contains no output or arm acknowledgement after 30,067 ms.
+KDE's authentication agent logged a password request and subsequent cancellation;
+polkit logged failed authentication. The operator subsequently confirmed they
+were away and could not complete authentication. This explains the unavailable
+operator response; the logs alone do not prove whether the dialog was visible.
+
+Result: `1351B/c1cb79259f9d946f95d969f04fc7d0d3268d29e892971c13437c64f27229a680`.
+The original journal and raw capture remain under
+`p349-ready1-prepared-20260906-3`; bounded host authentication logs remain
+private. No Download request, reboot, candidate/rollback transfer or native
+session occurred in either approved invocation. No guard process or runtime
+udev rule remained after cleanup. The latest execute-preflight observed healthy
+rooted FYG8; no further device read is claimed by this documentation update.
+
+Both prepared approval bindings are terminated and must not be replayed. Device
+work is paused: no third replacement binding or new code is issued while the
+operator is away. After attendance returns, use fresh exact preparation and
+approval; retain the existing host authentication and physical recovery
+requirements. The P349 candidate remains untransferred. RAM functionality and
+actual 60-minute residency remain unproved on-device, while the host-qualified
+capability and P348's separately proved bounded read-only result are unchanged.

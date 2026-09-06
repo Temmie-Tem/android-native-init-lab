@@ -1,5 +1,11 @@
 # S22+ FYG8 P348 retained read-only shell preparation
 
+Current status: **CLOSED and consumed**, with accepted bounded read-only shell
+proof and healthy rollback. Actual one-hour residency remains **UNPROVED**.
+The preparation/approval sections below are historical; the terminal result
+and timeline later in this report supersede their then-current status.
+For the subsequent P349 attendance pause, see [GOAL.md](../../GOAL.md).
+
 P348 implements the [retained-shell design](../plans/S22PLUS_FYG8_P348_RETAINED_READONLY_SHELL_DESIGN_2026-09-06.md)
 for `SM-S906N/g0q/S906NKSS7FYG8`. The operator authorized implementation and
 D0/D1 preparation through F1 approval-code issuance. F1 execution requires the
