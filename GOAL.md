@@ -26,10 +26,19 @@ behavior and rollback/final health are still UNPROVED; no F1 transfer occurred.
 
 First D0 preserved a retained-family baseline stop. One preapproved ordinary
 reboot D1 passed with changed boot ID and healthy rooted FYG8 return, then new
-D0 and preparation passed in `p349-ready1-prepared-20260906-2`. Prepared binding
-is `43926B/2035b268`, D0 `3261B/51a955d0`. The concrete F1 approval code is ready
-for the operator to return. P348 remains closed/consumed; A90/S20+ received no
-command. No native shell is currently active.
+D0 and preparation initially passed in `p349-ready1-prepared-20260906-2`.
+The returned approval then reached an observer-guard host authentication failure:
+`pkexec` supplied no arm response within 30 seconds, and polkit logged failed
+authentication. The run is ABORTED/4 before any Download request or candidate
+attempt, with result `1351B/ca79a6d2`; actual result validation passed. No flash,
+rollback or native session occurred, and the old approval cannot be replayed.
+
+Fresh read-only preparation `p349-ready1-prepared-20260906-3` confirmed healthy
+rooted FYG8 and produced the replacement binding `43926B/87367678`, D0
+`3261B/dbd9a55c`. Its new exact approval must be returned separately; the host
+privilege authentication must complete when prompted. The candidate and source
+closure are unchanged and unconsumed. P348 remains closed/consumed; A90/S20+
+received no command. No native shell is currently active.
 Report: [P349 capability and preparation](docs/reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md).
 
 ## Latest completed P348 unit

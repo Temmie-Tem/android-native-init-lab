@@ -106,3 +106,39 @@ The eleven exact later command files are prepared privately, but none has run.
 F1 will require the returned exact code and attendance through physical Download
 rollback. The actual hour, live RAM behavior and P349 final rollback/health
 remain unproved until that separate run completes.
+
+## First approved invocation: host authentication stop
+
+The operator returned the exact prepared approval. Fresh execute-preflight D0
+passed and the journal recorded live-session start at
+`2026-09-06T07:52:27.006733Z`. Before Download entry, the CDC observer's
+ModemManager guard invoked the existing `pkexec` owner. Its fixed 30-second
+arming window ended without a byte of output or an arm acknowledgement. The
+retained capture records 30,090 ms, empty stdout/stderr and a still-pending
+process return code at capture time. The caller performed its existing release
+cleanup. Subsequent host inspection found no guard process or runtime udev rule.
+
+Polkit's matching timestamp window records failed authorization for
+`org.freedesktop.policykit.exec`. The evidence establishes incomplete host
+authentication; it does not establish whether a dialog was seen or why the
+operator did not complete it. No bypass or timeout change was made.
+
+The journal terminated ABORTED/4 at `2026-09-06T07:53:07.210451Z`, with
+`candidate_attempted=false` and `candidate_observer_arm_failed_before_candidate`.
+The generic verdict is `FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD`; despite that broad
+name, no Download request or candidate attempt occurred. Result:
+`1351B/ca79a6d221bf88b3cd83e186314ee0716210aab5a05b49075cefd8fa0b41d26f`.
+Actual `load_prepared` and `validate_live_result` reopening passed. Recovery was
+not required and no rollback was sent. No campaign-closure row is appended
+because there was no candidate transfer or CAMPAIGN_CLOSED event.
+
+The original prepared run and approval remain aborted. Existing D0 authority
+was used for a fresh read-only preparation, which passed and confirmed healthy
+rooted FYG8. No additional reboot was requested. Replacement run:
+`workspace/private/runs/device-action-f1-live-v2/p349-ready1-prepared-20260906-3`.
+Prepared binding: `43926B/87367678f9960966dcf1a075f61e3da1c71460befcf4c939d866d4a2d4d7b0b2`.
+D0 result: `3261B/dbd9a55cb9e86296925b332e125ca86010b47309f404868a3f22f9cd4f2750db`.
+This new binding requires its own returned approval and successful host
+privilege authentication. Candidate bytes, execution sources and the intended
+actual-hour witness requirements remain unchanged. P349 RAM/hour proof is
+still unproved. A90/S20+ were untouched.
