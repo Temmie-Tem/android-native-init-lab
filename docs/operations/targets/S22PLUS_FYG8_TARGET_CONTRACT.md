@@ -938,11 +938,54 @@ P350 remains H0-only until independent execution review and fresh artifact/stati
 qualification pass. Fresh connected preparation and the ordinary returned
 attended F1 approval are still required. This clause grants no device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, or P350 candidate transfer occurs, the same
+**P351 attended fixed display successor.** P350 is consumed and never replayable.
+P351 keeps its three authenticated same-descriptor USB/display/USB sessions,
+60-second child bound, 75-second display-session bound, 150-second host bound,
+privilege drop, fixed DRM operations and mandatory attended physical recovery.
+Only the fresh `P351_DISPLAY_ONCE` literal selects the one-shot child; no lease,
+arbitrary root command or additional display attempt is authorized.
+
+The unchanged 73-module USB plan precedes twelve exact display additions:
+`pmic_class`, S2DOS05, the reviewed GPIO-I2C module restricted by platform ID to
+the root `i2c@50` bus, then the existing nine additions. The generic GPIO-I2C
+module is not substitutable. Its no-`reg`, pins 20/21, index 50, sole S2DOS05
+child/address and reviewed initialization properties remain exact. No
+`driver_override` write is permitted. All applicable merged DTs must pass the
+source-bound display supplier, device-creation and driver-consumed prerequisite
+closure; a symbol/CRC graph alone is insufficient.
+
+After each insertion has completed once, the child may poll for at most 15
+seconds with 200-ms intervals. It reads only the two exact driver symlinks,
+bounded cached regulator `name` attributes and primary DRM `dev` attribute;
+two further fixed display-driver symlinks are diagnostic only. Success requires
+two fresh complete snapshots of the expected bus/PMIC bindings, four unique
+panel power-regulator names and DRM `226:0`. Previous snapshots cannot fill
+missing fields. This is prerequisite observation, not proof that all probes or
+frame operations will succeed. The parent retains its total deadline and
+physical recovery ownership if a kernel call blocks.
+
+Only a failure during that post-insertion readiness phase permits one fixed
+`syslog(SYSLOG_ACTION_READ_ALL, ..., 32768)` attempt before privilege drop. It
+does not clear or consume the log and is never retried, including on error.
+The last readiness snapshot and bounded tail are emitted through the existing
+private framed capture; no raw log is tracked. Tail coverage cannot establish
+absence of earlier errors. Module-insertion and later DRM failures do not arm
+this diagnostic. This fixed exception does not authorize diagnostic sysfs,
+`READ_CLEAR`, arbitrary logs, additional module loading or new recovery actions.
+
+The renderer uses the checked white-background layout with a large counter,
+green status block and run ID. Machine qualification requires twelve ordered
+insertions, the fresh readiness record, ten completed flips, completed disable
+and same-boot USB return. Visible panel output remains UNPROVED without operator
+corroboration. P351 is H0-only until independent changed-closure review and fresh
+artifact/static qualification pass; connected preparation and the ordinary
+returned attended F1 approval remain separate requirements.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, or P351 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, or `s22plus-fyg8-p350` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, or `s22plus-fyg8-p351` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

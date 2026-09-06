@@ -11,6 +11,23 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P351 H0 preparation is complete: the fresh candidate integrates the three
+reviewed display providers, a bounded fresh regulator/DRM readiness witness and
+the white-background large-counter renderer. A/B packaging, complete AP/ramdisk
+reopening, static promotion and independent capability review passed. The local
+ready declaration is published; no connected preparation or F1 approval exists.
+Candidate AP is `30965801B/f9e2783f`.
+
+The source-bound executable prerequisite covers all 22 applicable merged DTs,
+each with 54 required nodes. It includes device creation and driver-consumed
+relationships beyond module symbols. Actual provider binding, DRM/visible output
+and P351 recovery remain UNPROVED. The next device unit requires fresh exact
+preparation, operator attendance and the ordinary returned F1 approval. No device
+command occurred in this H0 unit; A90/S20+ remain isolated.
+Report: [P351 H0 ready](docs/reports/S22PLUS_FYG8_P351_DISPLAY_READY_H0_2026-09-06.md).
+
+## Previous consumed display attempt
+
 P350 is CLOSED/19 and consumed with
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false. Candidate
 `30822441B/41b9272b` and exact Magisk rollback `23367721B/d2373bf8` transferred
@@ -30,15 +47,15 @@ the exact rollback. Candidate and observation were never replayed.
 The operator did not observe the screen; this is not a blank-screen claim. They
 requested a larger, white-background display after inadequate pre-run guidance.
 A pure H0 white-background layout and actual C preview are now implemented:
-550-pixel central counter, large lower green block, footer run ID. It is not in
-a flashable candidate. All eleven DTBO definitions require the same four
+550-pixel central counter, large lower green block, footer run ID. P351 now
+packages that layout. All eleven DTBO definitions require the same four
 S2DOS05 rails. Exact source-body host checks and independent review confirm the
 missing prerequisite; waiting alone is insufficient. Provider H0 assessment now
 passed: three additions including pmic_class, 91 imports with no CRC errors, and
 a built/reviewed i2c-gpio variant restricted to display bus i2c@50 before pinctrl.
 Stock generic GPIO-I2C would bind four buses and is not the selected artifact.
-Next H0 work is exact provider/readiness and white-renderer integration into a
-fresh successor; no boot candidate, ready manifest or device authority exists.
+P351 above completes provider/readiness and white-renderer integration in a
+fresh H0-qualified successor; this does not authorize a device effect.
 Report: [Display provider H0 assessment](docs/reports/S22PLUS_FYG8_DISPLAY_PROVIDER_ASSESSMENT_H0_2026-09-06.md).
 No new device effect is authorized by this goal. P350 is never replayable.
 Report: [P350 result and timeline](docs/reports/S22PLUS_FYG8_P350_NATIVE_DISPLAY_PREPARED_H0_2026-09-06.md).

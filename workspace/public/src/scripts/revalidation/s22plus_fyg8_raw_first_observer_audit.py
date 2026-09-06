@@ -19,7 +19,7 @@ SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
 UNPARSEABLE_POPULATION_SOURCE = "UNPARSEABLE_POPULATION_SOURCE"
-AUDITOR_NORMALIZED_SHA256 = "21bc685d863c130704894708da112434f6ff3f7d2b38d1a520787160448c8fd2"
+AUDITOR_NORMALIZED_SHA256 = "449dc10d18f0c4a21f8a3e3b3a7ab8681ee9b45f86d29c36b1228d066070ac6d"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -28,11 +28,11 @@ DEFAULT_OUTPUT = Path(
 )
 LEGACY_UNMIGRATED_OBSERVER_COUNT = 49
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "65e6f4bd0e33e025f9bcd2f42a960aa61d96bb4f1ec13c6ca87b6f27f4889870"
+    "0b0bf5f20ac07bbe1e5589d12def59fa78f66e35b438328028fa9ac1dfe174a3"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 133
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "2a59ec7cee70643f3e0f440fa5f0d10f6e384c8559272dc7e259737a9d104601"
+    "2fc32e97633fed9593891b02302e12fae791331bc436f0b1ef45e72310841c73"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -58,7 +58,7 @@ S22_SCOPED_SOURCE_RE = re.compile(
 )
 PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 129
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "d7e72bf3682dff2a438285ee15060d4027b1ee936fbb9dcacfa8f4f4c4957c89"
+    "2ad66c7a678a81585d0f16115429bab5f03f947ac6d7cfb8c120c08b8fed3e4a"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
@@ -274,6 +274,8 @@ P319_D1_PRE_BOUNDARY_CLASSIFICATION = {
     "independent_review_required": True,
 }
 S22_HOST_ONLY_NON_ACQUIRING_SOURCE_SPECS = {
+    's22plus_fyg8_p351_artifact_identity.py': {'owner': 's22plus-fyg8-p351', 'classification': 'host-only-exact-artifact-tool', 'profile': 'H0-ap-identity-join', 'size': 1025, 'sha256': 'bbdb1929de8f848efa2fd3bd04a97ca6c04f3d24aef1dced9c16f5cabfb9ae74', 'exact_host_tool': True},
+    's22plus_fyg8_p351_stock_process_v2_adapter.py': {'owner': 's22plus-fyg8-p351', 'classification': 'host-only-exact-artifact-tool', 'profile': 'H0-typed-retained-byte-adapter', 'size': 750, 'sha256': '1c0ca1c0857dcbe4b22691c92d32e0aa488a5870b9bfebc5d071aabd6606a58e', 'exact_host_tool': True},
     's22plus_fyg8_p350_artifact_identity.py': {'owner': 's22plus-fyg8-p350', 'classification': 'host-only-exact-artifact-tool', 'profile': 'H0-ap-identity-join', 'size': 1840, 'sha256': '31a96966709c41a3288e2a215a316d931b38790af0739fdbb58c8498501a11f2', 'exact_host_tool': True},
     's22plus_fyg8_p350_stock_process_v2_adapter.py': {'owner': 's22plus-fyg8-p350', 'classification': 'host-only-exact-artifact-tool', 'profile': 'H0-typed-retained-byte-adapter', 'size': 1608, 'sha256': '0efbf7bd2fd0427d88cf70254b1e1d10bd27fc11da5b30add792fdf4c78f6392', 'exact_host_tool': True},
     's22plus_fyg8_p349_stock_process_v2_adapter.py': {'owner': 's22plus-fyg8-p349', 'classification': 'host-only-exact-artifact-tool', 'profile': 'H0-typed-retained-byte-adapter', 'size': 1297, 'sha256': 'fbdf8f938aa1fa2065c22d288d08c1f9b9222c330fe771082f9c20a4d888d5ae', 'exact_host_tool': True},
@@ -556,6 +558,8 @@ LIVE_PARSE_MARKERS = (
 )
 
 ACTIVE_FILES = {
+    's22plus_fyg8_p351_research_shell_observer.py',
+    's22plus_fyg8_p351_research_shell_runtime.py',
     's22plus_fyg8_p350_research_shell_runtime.py',
     's22plus_fyg8_p350_research_shell_observer.py',
     "s22plus_fyg8_p349_research_shell_runtime.py",
@@ -643,6 +647,8 @@ ACTIVE_FILES = {
     "device_action_f1_live_v2.py",
 }
 EXPECTED_ACTIVE_SOURCE_SHA256 = {
+    's22plus_fyg8_p351_research_shell_observer.py': '9384a13dadc4302c549230faf6eb5f4c594691e0549ac10c0d98da89cbc651fd',
+    's22plus_fyg8_p351_research_shell_runtime.py': '59f333342213863f97f084f658588b40bb44060e675f09bf1c5d289367b99200',
     's22plus_fyg8_p350_research_shell_observer.py': 'c6590cd5d376a19e325fecfd729b38758a3c5f3fc8c3937cceca85e67a3cd7b6',
     's22plus_fyg8_p350_research_shell_runtime.py': '5527246e591a730ba6d4ea413e51daf18a4f481d1b8c401041c4da31d0eb8957',
     "s22plus_fyg8_p349_research_shell_runtime.py": "a2562d922d01a922c48e90957a7c06fc5bfa56131801100311c80b790851bdf9",
@@ -2790,6 +2796,12 @@ FUNCTION_CONTRACTS["s22plus_fyg8_p350_research_shell_observer.py"] = {
         "middle.duration_ms", "_base._audit_bytes(audit, 'rx')"), ("os.open(", "os.read(")),
     "validate_qualification": (("total_command_count=9", "nonce in nonces", "raw stream accounting differs",
         "display_output(crtc)", "visible_panel_output='UNPROVED'"), ("os.open(", "os.read(")),
+}
+
+FUNCTION_CONTRACTS["s22plus_fyg8_p351_research_shell_observer.py"] = {
+    "validate_readiness": (("set(value) != set(READY_FIELDS)", "type(value[k]) is not int", "15000", "152"), ("os.open(", "os.read(")),
+    "parse_readiness": (("len(matches) != 1", "validate_readiness("), ("os.open(", "os.read(")),
+    "display_output": (("validate_readiness(ready)", "range(12)", "DISPLAY_READY ready=1 complete=1 bus=1 pmic=1 rails=15 drm=1", "range(10)"), ("os.open(", "os.read(")),
 }
 
 ORDERED_FUNCTION_TOKENS = {

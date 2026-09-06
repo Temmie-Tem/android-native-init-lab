@@ -36,6 +36,31 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
     def source(self, name: str) -> str:
         return (REVALIDATION / name).read_text(encoding="utf-8")
 
+    def test_p351_readiness_and_exact_output_rules_are_required(self):
+        filename = "s22plus_fyg8_p351_research_shell_observer.py"
+        text = self.source(filename)
+        for name, old, new in (
+            ("validate_readiness", "15000", "15001"),
+            ("validate_readiness", "152", "153"),
+            ("parse_readiness", "len(matches) != 1", "False"),
+            ("display_output", "range(12)", "range(9)"),
+        ):
+            body = self.module._function_sources(text)[name]
+            changed = body.replace(old, new, 1)
+            self.assertNotEqual(body, changed)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(REVALIDATION,
+                    {filename: text.replace(body, changed, 1)})
+
+    def test_p351_host_template_bindings_are_exact(self):
+        for suffix in ("artifact_identity", "stock_process_v2_adapter"):
+            filename = "s22plus_fyg8_p351_" + suffix + ".py"
+            source = self.source(filename)
+            result = self.module._audit_host_only_non_acquiring_source(filename, source)
+            self.assertEqual(result["owner"], "s22plus-fyg8-p351")
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_host_only_non_acquiring_source(filename, source + "\n")
+
     def test_p350_failed_audit_and_fixed_display_completion_are_required(self):
         filename = "s22plus_fyg8_p350_research_shell_observer.py"
         text = self.source(filename)
