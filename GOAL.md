@@ -32,6 +32,19 @@ artifact, raw capture and journal are retained; any successor must address the
 observed initial-plane condition under a fresh binding. A90/S20+ were untouched.
 Report: [P352 closed result and timeline](docs/reports/S22PLUS_FYG8_P352_SOURCE_BOUND_DISPLAY_H0_2026-09-07.md).
 
+H0 initial-plane investigation now confirms a vendor splash producer can expose
+CRTC-nonzero/FB-zero attachments that trigger the guard; the actual failed tuple
+is still absent, so live splash causality is unproved. Exact consumed module
+disassembly also confirms that first atomic duplicate callbacks change old
+splash bookkeeping before allocation, including on a TEST_ONLY path. P352
+stopped before that path. Eight bounded source-function cases and independent
+analysis review passed; full handoff remains unqualified. Early A90 SETCRTC
+history does not bypass this S22+ atomic machinery. The next H0 unit is a
+complete initial-plane snapshot and explicit handoff design with first-commit,
+failure and TEST_ONLY sequencing qualification. No successor was implemented or
+prepared and no new device action occurred.
+Report: [Initial-plane source and binary investigation](docs/reports/S22PLUS_FYG8_P352_INITIAL_PLANE_INVESTIGATION_H0_2026-09-07.md).
+
 ## Consumed P351
 
 P351 is CLOSED/19 and consumed with

@@ -6,6 +6,11 @@ name and mode checks, then stopped at `competing-plane` before frame submission.
 Final rooted FYG8 health passed. A90 and S20+ received no command. The H0 and
 preparation sections below preserve the earlier phase-specific evidence.
 
+The subsequent [H0 initial-plane investigation](S22PLUS_FYG8_P352_INITIAL_PLANE_INVESTIGATION_H0_2026-09-07.md)
+documents the source/binary-supported splash explanation, missing live tuple,
+first-atomic bookkeeping hazard and early A90 comparison. It changes neither
+this consumed result nor device authority.
+
 ## Problem and change
 
 The consumed renderer expected `msm`, whereas the bound vendor `msm_driver`
