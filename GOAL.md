@@ -11,6 +11,19 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+Plan and design P348: an attended current-boot read-only shell session combining
+P347 shell semantics with the P344 retained-action workflow. The operator has
+authorized this H0 planning/design unit only. Its deliverable is the
+[implementation and validation design](docs/plans/S22PLUS_FYG8_P348_RETAINED_READONLY_SHELL_DESIGN_2026-09-06.md).
+Proposed limits are one hour, 16 later actions, a fresh isolated child per
+command, existing timeout/output bounds and mandatory exact Android rollback.
+Planning/design and independent design review are complete; the review's
+126/127 outcome clarification is incorporated. The next proposed unit is H0
+implementation and its focused tests/changed-closure review. This proposal is
+not implemented or activated; no P348 device authority exists.
+
+## Latest completed bounded unit
+
 P347 is CLOSED and consumed with
 `PASS_F1_V2_P347_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK`. Candidate
 `28631081B/02c5d905` and exact Magisk rollback `23367721B/d2373bf8` each transferred
