@@ -1,0 +1,60 @@
+{
+  "scope": "H0 vendor display reduction only; no device activation",
+  "files": {
+    "config/gki_waipiodisp.conf": {
+      "before_sha256": "1e95624e7492c66a2fafb7d72d7168eab94dfdadc76b892669042a451e50d2fc",
+      "after_sha256": "bf9cc72c2452a4149eee8c9502ec5a09197ae276b7fd4a557faa15c6b5fffe32",
+      "after_size": 565
+    },
+    "config/gki_waipiodispconf.h": {
+      "before_sha256": "62b5264f943093ecb36462a3327f424e61cdb436be90b01f3450895cb2cdc3ce",
+      "after_sha256": "d31139b5cc57f1772409e181be7afd5ce7002df4df725f692be7f1952c6599c1",
+      "after_size": 585
+    },
+    "msm/Kbuild": {
+      "before_sha256": "99b7d62aa136950441c0f92fda40dead5b3f1348b248b0a63821987a13336f82",
+      "after_sha256": "70d6b913f85a26f7be8ef02acbab4c5adc0f9c986f1954323ea730acaeb1e644",
+      "after_size": 9505
+    },
+    "msm/samsung/panel_common_conf.h": {
+      "before_sha256": "df4d8a9c16a637429ca56e9fa340e6418e921a09f29a3a3fb4c9344e1eb14e20",
+      "after_sha256": "41f4ba4f5037d06aca77a54bdd173a7732eb1bc7238d2f17a25ec2717affe4be",
+      "after_size": 298
+    },
+    "msm/samsung/ss_dsi_panel_common.h": {
+      "before_sha256": "5c9853ae9b90b4d90e2ce51dc738941401e24cdc3aa0198da24707ac3947ca66",
+      "after_sha256": "7c27658cf2ef027301654432974147c1898de599a7183517f3f285b486a548c2",
+      "after_size": 95124
+    },
+    "msm/samsung/ss_native_poc_disabled.c": {
+      "before_sha256": null,
+      "after_sha256": "4f432208db408f6839d1f76ab1d0e407eefd0f22295587666313b4bd507d2780",
+      "after_size": 612
+    },
+    "msm/samsung/ss_native_spi_disabled.c": {
+      "before_sha256": null,
+      "after_sha256": "4b78934619cb96a3aa370ac6a336e01a310874c9bddef5b2f77125449b4dcde4",
+      "after_size": 1080
+    },
+    "msm/samsung/ss_wrapper_common.c": {
+      "before_sha256": "bd485ac7334e259776f46e3f116fa94de788c48da8df4311167b1329f897d96d",
+      "after_sha256": "8fe4417e765e32df071fcf30264c8e8c28aac9656daa2446b6946c6d529004f8",
+      "after_size": 42237
+    },
+    "msm/sde/sde_crtc.c": {
+      "before_sha256": "089a94803c4fa7340a1d56f45d7115fc388f723e990efc7fd4f6d8628f3a6077",
+      "after_sha256": "415ca32b2c0dcf2ecb0f76f092b1b9c86557bf67257f37a2b4f2f092b3e662e8",
+      "after_size": 212730
+    },
+    "msm/sde/sde_hw_catalog.c": {
+      "before_sha256": "ce7fc77dfbd03081aec8815578f9749d3f964a5b6d9a862d9e0e54c2a684f7d7",
+      "after_sha256": "4024f730fa8f758135b2a9095e4e0d60d0a85c5b89a4ec5051acaa256a9586c5",
+      "after_size": 157398
+    },
+    "msm/sde/sde_plane.c": {
+      "before_sha256": "dcab7bb8fe675b6e04cea331553b3cebcca199083cef2b79112fad6cd304a41a",
+      "after_sha256": "50e7c7aa06138667f75ad0ae62559b66f441145e4d8f787350d5fab57af231fa",
+      "after_size": 141648
+    }
+  }
+}

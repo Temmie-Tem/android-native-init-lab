@@ -1,0 +1,5 @@
+# Isolated vendor module configuration only; never replace the running Image config.
+# CONFIG_SEC_DEBUG is not set
+# CONFIG_SEC_PARAM is not set
+# CONFIG_HDCP_QSEECOM is not set
+# CONFIG_SEC_DISPLAYPORT is not set

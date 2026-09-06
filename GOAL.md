@@ -43,7 +43,8 @@ The latest execute-preflight recorded healthy rooted FYG8. No device transition
 followed it, and no native shell is active. The candidate remains untransferred;
 P348 remains closed/consumed. Resume only when the operator can complete host
 authentication and physical Download recovery, with fresh exact preparation and
-approval. Current work is documentation-only; A90/S20+ receive no command.
+approval. P349 remains paused; separate H0 display build work is described below.
+A90/S20+ receive no command.
 Report: [P349 capability and preparation](docs/reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md).
 
 ## Separate H0 display investigation
@@ -59,10 +60,15 @@ against the exact Image within their declared graph, and identified a WC buffer
 route. Stock display/debug providers also have persistent-write paths, including
 probe and diagnostic-read triggers. [Minimal-build research](docs/reports/S22PLUS_FYG8_NATIVE_DISPLAY_MINIMAL_BUILD_RESEARCH_H0_2026-09-06.md)
 identified paired diagnostic gates and forced make/header configuration; public
-KMS/modetest examples support renderer design but do not qualify FYG8. Next:
-implement an isolated reduced display build and requalify its combined closure.
-Build success and selected-panel POC reachability remain unproved. Neither empty
-`/dev` nor absent input fences resolves every trigger.
+KMS/modetest examples support renderer design but do not qualify FYG8.
+[Consolidated H0 result](docs/reports/S22PLUS_FYG8_NATIVE_DISPLAY_CONSOLIDATED_H0_2026-09-06.md):
+isolated vendor-module Full-LTO/CFI build succeeded with known display persistence
+paths and POC/SPI implementations excluded. Final combined graph: 82 modules,
+4,391 versioned imports, zero unresolved/ambiguous/CRC-mismatched providers.
+This qualifies a host build and symbol graph, not runtime ABI, safe probe,
+transitive absence of persistence, screen output or recovery. Next: qualify the
+remaining runtime interface/initialization assumptions and minimal renderer before
+any separately reviewed attended experiment. P349 remains unchanged.
 
 ## Latest completed P348 unit
 
