@@ -33,6 +33,42 @@ ROOT_TIMEOUT = 60.0
 NODE = "/proc/last_kmsg"
 SCAN_MAXIMUM = 4194304
 OBSERVED_SIZE = 2097136
+
+# Sibling retention nodes, surveyed for existence and metadata only.
+#
+# Why they are here at all. `/proc/last_kmsg` is a boot-time vmalloc snapshot of
+# an ioremapped RAM region, so whether it survives an Odin/Download round trip
+# depends on that physical region being left alone by the bootloader - which the
+# target contract records as unproven and which kernel source cannot settle.
+#
+# The stock kernel config extracted from this device's own retained boot image
+# carries CONFIG_SEC_LOG_STORE_LAST_KMSG=y and CONFIG_SEC_USER_RESET_DEBUG=y.
+# In the Samsung debug subsystem of this era those gate, respectively, a reboot
+# notifier that writes the sec_log ring to a debug PARTITION on SYS_RESTART, and
+# a set of proc nodes that read it back from that partition. A flash-backed copy
+# does not depend on the RAM region surviving anything.
+#
+# That reading of the symbols comes from the A90 r3q tree staged in this repo,
+# which is a DIFFERENT DEVICE and is therefore a hypothesis source, not evidence
+# for this target. Nothing here assumes the nodes are present. This survey exists
+# precisely to find out, read-only, before any of it is designed against.
+SURVEY_NODES = {
+    "survey_reset_reason": "/proc/reset_reason",
+    "survey_reset_klog": "/proc/reset_klog",
+    "survey_reset_summary": "/proc/reset_summary",
+    "survey_reset_history": "/proc/reset_history",
+    "survey_reset_rwc": "/proc/reset_rwc",
+    "survey_store_lastkmsg": "/proc/store_lastkmsg",
+    "survey_auto_comment": "/proc/auto_comment",
+}
+# Only this one node's content is read, and only because it is the whole point:
+# a reset reason is a short code set by the reset path itself rather than a
+# string any process writes, which is the property every refuted channel lacked.
+# Bounded hard, and admitted to the record only if it matches a strict pattern.
+REASON_NODE = "/proc/reset_reason"
+REASON_MAXIMUM = 64
+REASON_PATTERN = re.compile(r"[A-Za-z0-9_.:/ -]{1,64}")
+SURVEY_STATE = re.compile(r"(absent|indirect|unexpected|unreadable|error|regular):(0|[1-9][0-9]{0,9}):([0-9]+)")
 # sha256 of the empty stream, so a fully truncated digest pass cannot pass as a
 # valid window digest. Not a substitute for a length check; see parse_root.
 EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -192,12 +228,43 @@ emit meta_after "$meta_after"
 """
 SHELL_HELPERS += "".join(f'emit {key} "${key}"\n' for key in PREDICATES)
 
+# The sibling survey. Metadata only, one fixed absolute path per key, and every
+# key literal so the "no branch can emit log content" guard still holds: `emit`
+# is never called with a computed key or with anything derived from a node's
+# bytes. Runs unconditionally, because whether these nodes exist is exactly the
+# question and it must be answered even when the scanned node is absent.
+SHELL_HELPERS += "".join(
+    f"""{key}=absent:0:0
+if [ -L {shlex.quote(path)} ]; then {key}=indirect:0:0
+elif [ ! -e {shlex.quote(path)} ]; then {key}=absent:0:0
+elif [ ! -f {shlex.quote(path)} ]; then {key}=unexpected:0:0
+elif [ ! -r {shlex.quote(path)} ]; then {key}=unreadable:0:0
+else {key}=regular:$(/system/bin/stat -c '%s:%h' {shlex.quote(path)}) || {key}=error:0:0
+fi
+"""
+    for key, path in SURVEY_NODES.items()
+)
+# The one content read, bounded to a short code. Command substitution strips
+# trailing newlines, so a one-line value cannot break the line protocol; a value
+# that is not a short single-line token fails the host pattern and is recorded as
+# unparsed with its length rather than admitted as bytes.
+SHELL_HELPERS += f"""reason=absent
+if [ -f {shlex.quote(REASON_NODE)} ] && [ -r {shlex.quote(REASON_NODE)} ]; then
+    reason=$(/system/bin/head -c {REASON_MAXIMUM} {shlex.quote(REASON_NODE)}) || reason=unreadable
+    [ -n "$reason" ] || reason=empty
+fi
+"""
+SHELL_HELPERS += "".join(f'emit {key} "${key}"\n' for key in SURVEY_NODES)
+SHELL_HELPERS += 'emit reason "$reason"\n'
+
 ROOT_SCRIPT = health.ROOT_READ_SCRIPT + SHELL_HELPERS
 ROOT_ARGUMENT = shlex.quote(ROOT_SCRIPT)
 OUTPUT_KEYS = (
     *health.ROOT_OUTPUT_KEYS,
     "state", "meta", "bounded", "scanned", "scanned_after", "window", "recheck", "meta_after",
     *PREDICATES,
+    *SURVEY_NODES,
+    "reason",
 )
 
 
@@ -354,7 +421,45 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
     facts["derived_priority_timestamp"] = counts["pri_ts_cpu"] + counts["pri_ts_plain"]
     facts["derived_timestamp_only"] = counts["ts_cpu"] + counts["ts_plain"]
     facts["size_matches_recorded_observation"] = facts["size"] == OBSERVED_SIZE
+    facts["survey"] = _parse_survey(values)
+    facts["reset_reason"] = _parse_reason(values["reason"])
+    # Named so nothing downstream can mistake presence for retention. A node
+    # existing says the kernel exposes it; it says nothing about what it holds,
+    # which boot wrote it, or whether anything survived a mode transition.
+    facts["survey_is_presence_only"] = True
     return facts
+
+
+def _parse_survey(values: dict[str, str]) -> dict[str, Any]:
+    """Existence and metadata for each sibling node, and nothing else."""
+    survey: dict[str, Any] = {}
+    for key, path in SURVEY_NODES.items():
+        matched = SURVEY_STATE.fullmatch(values[key])
+        if matched is None:
+            raise ObservationError("invalid survey state: " + key)
+        state, size, links = matched[1], int(matched[2]), int(matched[3])
+        # The shell only runs `stat` on the regular branch; every other branch
+        # emits the literal zeros it was initialized with.
+        if state != "regular" and (size, links) != (0, 0):
+            raise ObservationError("non-regular survey node reported metadata")
+        survey[path] = {"state": state, "size": size, "links": links}
+    return survey
+
+
+def _parse_reason(raw: str) -> dict[str, Any]:
+    """The one content value, admitted only if it is a short single-line token.
+
+    A reset reason is a short code the reset path itself sets, so it is the first
+    candidate channel on this target that is produced by the mechanism rather
+    than written by a process. That is why it is read at all, and it is also why
+    it must not be allowed to carry arbitrary bytes into the record: anything not
+    matching the strict pattern is published as its length, never as its content.
+    """
+    if raw in ("absent", "unreadable", "empty"):
+        return {"state": raw, "value": None, "length": 0}
+    if REASON_PATTERN.fullmatch(raw):
+        return {"state": "read", "value": raw, "length": len(raw)}
+    return {"state": "unparsed", "value": None, "length": len(raw)}
 
 
 def _dominant_shape(counts: dict[str, int], scanned: bool) -> str:

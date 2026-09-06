@@ -659,13 +659,13 @@ Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 ## S20+ last_kmsg Record-Format D0
 
 Status: **DEFINED - LAST_KMSG RECORD-FORMAT D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `ab22c9534a95e44d84577ca52c14d07ce6791de486739e85b0fd54654969c337`
-Root-Script-SHA256: `bb59051b31db9cc038ff5bec9db88f31bb1f49ba7cd481c6992458be021901d2`
+Runner-Normalized-SHA256: `560f877a1f7e29e9d1d24c9a5b1233777d24ca19098fa702535fc21bea259208`
+Root-Script-SHA256: `dda54be816b701e022e603fe396b8e54c8ffd29f4ea948c649bc31bf1a4189d8`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`0d00a8a979375b98444a28becd23817dd5c05cb5fbefde5c21d29a44e441c04d`.
+`f73cf2f899c9dcfc3f4da8094058e3936a0af7615db2e8b68d822658b22b7e18`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
@@ -696,14 +696,47 @@ has a 60-second timeout and an 8-KiB combined-output limit, reflecting a scan of
 a multi-megabyte node rather than small metadata reads. There is no internal
 retry.
 
-The single observed path is `/proc/last_kmsg`, the Samsung sec_log window on the
+The only scanned path is `/proc/last_kmsg`, the Samsung sec_log window on the
 previous boot's kernel log. `CONFIG_SEC_LOG_BUF`, `CONFIG_SEC_LOG_LAST_KMSG` and
 `CONFIG_SEC_LOG_STORE_LAST_KMSG` are set in the stock 4.19.113 kernel, and the
-recorded pstore readiness D0 observed this node as a readable regular file of
-2,097,136 bytes with its content deliberately unread. That size is a property
-of the boot that was observed, not a constant: `/proc/last_kmsg` is a boot-time
-snapshot whose length is the previous boot's ring index, so a short boot yields
-a short node. No ramoops, pstore or PMSG path is touched by this capability.
+recorded pstore readiness D0 observed this node as a readable regular file with
+its content deliberately unread.
+
+Alongside it this capability surveys seven sibling `/proc` nodes for existence
+and metadata only - `reset_reason`, `reset_klog`, `reset_summary`,
+`reset_history`, `reset_rwc`, `store_lastkmsg` and `auto_comment` - and reads
+the content of exactly one of them, `/proc/reset_reason`, bounded to 64 bytes.
+
+The survey exists because the node above may be the wrong channel.
+`/proc/last_kmsg` is a boot-time snapshot of an ioremapped RAM region, so its
+survival across an Odin or Download round trip depends on that physical region
+being left alone by the bootloader, which this contract records as unproven and
+which kernel source cannot settle. This device's own extracted stock kernel
+configuration carries `CONFIG_SEC_LOG_STORE_LAST_KMSG=y` and
+`CONFIG_SEC_USER_RESET_DEBUG=y`, which in the Samsung debug subsystem of this
+era gate a reboot notifier that writes the sec_log ring to a debug partition on
+`SYS_RESTART` and the proc nodes that read it back from that partition. A
+flash-backed copy would not depend on the RAM region at all. That reading of the
+symbols comes from a different device's public source and is a hypothesis, not
+evidence for this target; the survey is how it stops being a hypothesis, and it
+assumes nothing - every node may be absent and that is a valid result.
+
+`/proc/reset_reason` is read because a reset reason is a short code the reset
+path itself sets rather than a string any process writes, which is the property
+every refuted channel on this target lacked. It is bounded, and it is admitted
+to the record only if it matches a strict short single-line token pattern;
+anything else is published as a length, never as bytes. Nothing else is read:
+`reset_klog` and the rest contribute state, size and link count only.
+
+A surveyed node's presence establishes that the kernel exposes it and nothing
+more. It does not establish retention, does not say which boot wrote it, and
+does not say anything survived a mode transition. The result names this directly
+as `survey_is_presence_only`.
+
+The scanned node's recorded size of 2,097,136 bytes is a property of the boot
+that was observed, not a constant: `/proc/last_kmsg` is a boot-time snapshot
+whose length is the previous boot's ring index, so a short boot yields a short
+node. No ramoops, pstore or PMSG path is touched by this capability.
 
 One `/data` path is read, and the earlier claim that none was is withdrawn: the
 pinned root-health script this runner reuses executes
@@ -712,10 +745,14 @@ pinned root-health script this runner reuses executes
 version query on the pinned root binary, it reads no user data, and it is the
 only `/data` access on any path.
 
-No log byte crosses the device boundary. Only node state, `stat` size and link
-count, two whole-window SHA-256 values, two scanned byte counts and seven shape
-counts are emitted. Log text is never emitted, captured, pulled, persisted or
-published anywhere, in success or in failure.
+No log byte crosses the device boundary. From the scanned node, only its state,
+`stat` size and link count, two whole-window SHA-256 values, two scanned byte
+counts and seven shape counts are emitted. From each surveyed sibling, only its
+state, size and link count. The single exception is `/proc/reset_reason`, whose
+64-byte-bounded content is emitted and then admitted to the record only as a
+strict short single-line token, or otherwise as its length alone. Kernel log
+text is never emitted, captured, pulled, persisted or published anywhere, in
+success or in failure.
 
 This capability answers one question: what shape are the records in this buffer?
 It makes no claim about their content, identifies no boot, and establishes no

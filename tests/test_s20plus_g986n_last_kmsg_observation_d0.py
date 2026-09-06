@@ -159,9 +159,17 @@ class ParserTests(unittest.TestCase):
                   "window": "a" * 64 + "  -",
                   "recheck": "a" * 64 + "  -", "meta_after": f"{M.OBSERVED_SIZE}:1",
                   "lines_total": "1000", **self.SHAPES}
+        # Default survey: every sibling node absent and no reason read, so a
+        # test that does not care about the survey exercises the same
+        # "nothing is there" baseline the lane currently has evidence for.
+        values.update({k: "absent:0:0" for k in M.SURVEY_NODES})
+        values["reason"] = "absent"
         values.update(overrides)
         body = "".join(f"{k}={v}\n" for k, v in M.health.EXPECTED_ROOT_OUTPUT.items())
-        body += "".join(f"{k}={values[k]}\n" for k in (*self.ORDER, *M.PREDICATES))
+        body += "".join(
+            f"{k}={values[k]}\n"
+            for k in (*self.ORDER, *M.PREDICATES, *M.SURVEY_NODES, "reason")
+        )
         return (0, body.encode(), b"")
 
     def unscanned(self, **overrides):
@@ -219,6 +227,51 @@ class ParserTests(unittest.TestCase):
             short[shape] = str(int(short[shape]) - 1) if int(short[shape]) else "1"
             with self.subTest(shape=shape), self.assertRaises(M.ObservationError):
                 M.parse_root(self.transcript(**short))
+
+    def test_the_survey_reports_presence_only_and_never_content(self):
+        facts = M.parse_root(self.transcript(
+            survey_reset_reason="regular:3:1", survey_reset_klog="regular:262144:1"))
+        self.assertTrue(facts["survey_is_presence_only"])
+        self.assertEqual(facts["survey"]["/proc/reset_reason"],
+                         {"state": "regular", "size": 3, "links": 1})
+        self.assertEqual(facts["survey"]["/proc/reset_klog"]["size"], 262144)
+        self.assertEqual(facts["survey"]["/proc/auto_comment"]["state"], "absent")
+        # Presence must not leak into any retention or boot claim.
+        for key in ("retention_proved", "boot_identified", "content_interpreted"):
+            self.assertNotIn(key, facts)
+
+    def test_a_non_regular_survey_node_may_not_report_metadata(self):
+        for state in ("absent", "unreadable", "indirect", "unexpected"):
+            with self.subTest(state=state), self.assertRaises(M.ObservationError):
+                M.parse_root(self.transcript(survey_reset_klog=f"{state}:4096:1"))
+
+    def test_a_malformed_survey_state_is_refused(self):
+        for bad in ("regular", "regular:4096", "elsewhere:0:0", "regular:-1:1", ""):
+            with self.subTest(value=bad), self.assertRaises(M.ObservationError):
+                M.parse_root(self.transcript(survey_reset_reason=bad))
+
+    def test_a_short_reset_reason_token_is_admitted(self):
+        facts = M.parse_root(self.transcript(
+            survey_reset_reason="regular:3:1", reason="RP"))
+        self.assertEqual(facts["reset_reason"],
+                         {"state": "read", "value": "RP", "length": 2})
+
+    def test_a_reset_reason_that_is_not_a_short_token_is_never_admitted_as_bytes(self):
+        # The node is read, so it must not become a way to carry arbitrary
+        # kernel bytes into the record. Anything unexpected is a length.
+        for raw in ("\x00\x01binary", "a" * 65, "has\ttab\x7f"):
+            with self.subTest(raw=raw[:8]):
+                parsed = M._parse_reason(raw)
+                self.assertEqual(parsed["state"], "unparsed")
+                self.assertIsNone(parsed["value"])
+                self.assertEqual(parsed["length"], len(raw))
+
+    def test_absent_and_empty_reset_reason_are_distinguished(self):
+        for raw in ("absent", "unreadable", "empty"):
+            with self.subTest(raw=raw):
+                parsed = M._parse_reason(raw)
+                self.assertEqual(parsed["state"], raw)
+                self.assertIsNone(parsed["value"])
 
     def test_no_shape_may_exceed_the_scanned_line_total(self):
         with self.assertRaises(M.ObservationError):
@@ -612,6 +665,43 @@ class DeviceShellTests(unittest.TestCase):
                             f"against a {M.ROOT_TIMEOUT}s root timeout")
             # The transcript must also stay inside the output cap on real data.
             self.assertLess(len(result.stdout) + len(result.stderr), M.ROOT_MAXIMUM)
+
+    def test_the_survey_runs_under_the_target_shell_and_finds_absent_nodes(self):
+        # Nothing maps the sibling paths in the fixture, so the target shell
+        # must report every one absent and still emit every key in order.
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.run_device_shell(self.fixture(Path(temp)))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = self.parsed(result)
+            for path in M.SURVEY_NODES.values():
+                self.assertEqual(facts["survey"][path]["state"], "absent")
+            self.assertEqual(facts["reset_reason"]["state"], "absent")
+
+    def test_the_survey_reads_a_present_reset_reason_under_the_target_shell(self):
+        # The measurement this survey exists for, executed by the target's own
+        # mksh and toybox rather than the host's.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            reason = root / "reset_reason"
+            reason.write_bytes(b"RP\n")
+            klog = root / "reset_klog"
+            klog.write_bytes(b"<6>[    0.000000] stored klog\n" * 100)
+            script = self.fixture(root)
+            # The generated script carries these as bare absolute paths, since
+            # shlex.quote leaves a simple path unquoted.
+            script = script.replace("/proc/reset_reason", str(reason))
+            script = script.replace("/proc/reset_klog", str(klog))
+            result = self.run_device_shell(script)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = self.parsed(result)
+            self.assertEqual(facts["survey"][M.SURVEY_NODES["survey_reset_reason"]],
+                             {"state": "regular", "size": 3, "links": 1})
+            self.assertEqual(facts["survey"][M.SURVEY_NODES["survey_reset_klog"]]["size"],
+                             klog.stat().st_size)
+            # Command substitution strips the trailing newline, so a one-line
+            # value cannot break the line protocol.
+            self.assertEqual(facts["reset_reason"],
+                             {"state": "read", "value": "RP", "length": 2})
 
     def test_absent_node_still_emits_every_key(self):
         with tempfile.TemporaryDirectory() as temp:
