@@ -26,6 +26,15 @@ preparation, operator attendance and the ordinary returned F1 approval. No devic
 command occurred in this H0 unit; A90/S20+ remain isolated.
 Report: [P351 H0 ready](docs/reports/S22PLUS_FYG8_P351_DISPLAY_READY_H0_2026-09-06.md).
 
+P351 connected preparation attempt `p351-ready1-prepared-20260906-1` stopped
+at D0 baseline classification. Initial boot completion, root, original boot and
+supporting hashes passed, but the immutable baseline retains one P350 run ID
+(`2097136B/909ef99f`). Result: `STOP_DEVICE_ACTION_D0_V2_BASELINE_REJECTED`.
+No prepared binding or approval token was issued; final D0 continuity was not
+observed. No reboot, Download request or transfer occurred. The next step needs
+one separately approved attended ordinary reboot, then fresh D0 preparation;
+the stopped D0 result is never reused as success.
+
 ## Previous consumed display attempt
 
 P350 is CLOSED/19 and consumed with

@@ -116,3 +116,19 @@ Private evidence is under `workspace/private/outputs/s22plus_fyg8_p351/`:
 `h0-work/` prerequisites, test logs, raw-first receipt and independent review
 record. The public [ready declaration](../../workspace/public/src/device-action/manifests/s22plus_fyg8_p351_process_v2_ready_1.json)
 is preparation metadata only and grants no live authority.
+
+## First connected preparation stop
+
+After the operator requested the next preparation step, the fixed read-only D0
+ran once in `p351-ready1-prepared-20260906-1`. Initial Android boot completion,
+root and exact boot/supporting hashes passed. Its immutable observer capture
+is `2097136B/909ef99f3b8bdaba9765d435d1ac296a6c799e556fa9d833f5ae9d03f336a682`
+and contains one retained P350 binary run ID. The actual baseline decoder rejects
+that evidence family; it is not a clean P351 baseline.
+
+The runner preserved `STOP_DEVICE_ACTION_D0_V2_BASELINE_REJECTED`. This result
+is not reusable and does not establish final health/target continuity. There is
+no `prepared.json` or F1 approval token. No reboot, Download request or transfer
+occurred. A90/S20+ received no command. An attended ordinary reboot needs its
+separate fresh D1 approval before a new D0 attempt; the failed invocation and
+its capture remain unchanged. The H0 candidate and ready declaration are unchanged.
