@@ -1,0 +1,33 @@
+--- a/i2c-gpio.c
++++ b/i2c-gpio.c
+@@ -482,20 +482,18 @@
+ 	return 0;
+ }
+ 
+-#if defined(CONFIG_OF)
+-static const struct of_device_id i2c_gpio_dt_ids[] = {
+-	{ .compatible = "i2c-gpio", },
++/* Exact S22+ display bus. Match before the driver's pinctrl/probe effects. */
++static const struct platform_device_id s22_display_i2c_ids[] = {
++	{ "i2c@50", 0 },
+ 	{ /* sentinel */ }
+ };
+-
+-MODULE_DEVICE_TABLE(of, i2c_gpio_dt_ids);
+-#endif
++MODULE_DEVICE_TABLE(platform, s22_display_i2c_ids);
+ 
+ static struct platform_driver i2c_gpio_driver = {
+ 	.driver		= {
+ 		.name	= "i2c-gpio",
+-		.of_match_table	= of_match_ptr(i2c_gpio_dt_ids),
+ 	},
++	.id_table	= s22_display_i2c_ids,
+ 	.probe		= i2c_gpio_probe,
+ 	.remove		= i2c_gpio_remove,
+ };
+@@ -521,4 +519,3 @@
+ MODULE_AUTHOR("Haavard Skinnemoen (Atmel)");
+ MODULE_DESCRIPTION("Platform-independent bitbanging I2C driver");
+ MODULE_LICENSE("GPL");
+-MODULE_ALIAS("platform:i2c-gpio");

@@ -1,0 +1,12 @@
+{
+  "i2c-gpio.c": {
+    "before": {
+      "size": 14068,
+      "sha256": "0955d6949d5abf4fced9a861f6ad0b029a70c0d099a5d9ada98508fa4bc31f78"
+    },
+    "after": {
+      "size": 14070,
+      "sha256": "afecb14e03dcf5a222ddebd3ea1a3b078f596739aae4522ea8a3973a9e18e607"
+    }
+  }
+}
