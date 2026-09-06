@@ -11,39 +11,31 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P351 H0 preparation is complete: the fresh candidate integrates the three
-reviewed display providers, a bounded fresh regulator/DRM readiness witness and
-the white-background large-counter renderer. A/B packaging, complete AP/ramdisk
-reopening, static promotion and independent capability review passed. The local
-ready declaration is published. Fresh connected preparation now passes and its
-F1 approval code has been issued; it has not been returned or executed.
-Candidate AP is `30965801B/f9e2783f`.
+P351 is CLOSED/19 and consumed with
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false.
+Candidate `30965801B/f9e2783f` and exact Magisk rollback `23367721B/d2373bf8`
+transferred once each. Final rooted FYG8, original boot/supporting hashes and
+absent Download passed; actual prepared/result reopening passed.
 
-The source-bound executable prerequisite covers all 22 applicable merged DTs,
-each with 54 required nodes. It includes device creation and driver-consumed
-relationships beyond module symbols. Actual provider binding, DRM/visible output
-and P351 recovery remain UNPROVED. After the operator approved D0/D1, one
-ordinary reboot returned healthy and fresh D0 preparation passed. F1 still
-requires the returned exact approval and attendance; A90/S20+ remain isolated.
-Report: [P351 H0 ready](docs/reports/S22PLUS_FYG8_P351_DISPLAY_READY_H0_2026-09-06.md).
+Qualification passed 1/3 sessions. The authenticated display child returned
+exit 1 at 200 ms. All twelve module insertions and two fresh readiness snapshots
+passed: exact bus/PMIC bindings, four rails and DRM `226:0`, at elapsed 2 ms.
+It then failed `driver-name` with errno 71, before DRM master or frame submission.
+The bound vendor source declares `msm_drm`, while the renderer and original fake
+DRM fixture expected `msm`; a source-informed H0 fixture reproduces the failure.
+The actual returned name was not logged. Visible P351 output remains UNPROVED.
 
-P351 connected preparation attempt `p351-ready1-prepared-20260906-1` stopped
-at D0 baseline classification. Initial boot completion, root, original boot and
-supporting hashes passed, but the immutable baseline retains one P350 run ID
-(`2097136B/909ef99f`). Result: `STOP_DEVICE_ACTION_D0_V2_BASELINE_REJECTED`.
-No prepared binding or approval token was issued; final D0 continuity was not
-observed. No reboot, Download request or transfer occurred. The next step needs
-one separately approved attended ordinary reboot, then fresh D0 preparation;
-the stopped D0 result is never reused as success.
+USB endpoint evidence failed while waiting for physical Download, before
+rollback transfer. One same-journal recovery completed the exact rollback and
+final health. Candidate and observation were never replayed. The operator
+reported no normal-boot response during the candidate phase; do not promote
+that report into a precise screen-output claim.
 
-The operator subsequently approved D0/D1 through F1-code issuance. One fresh
-P351 invocation of the unchanged P296/P320 ordinary-reboot primitive passed:
-changed boot ID, exact rooted FYG8 return and original supporting hashes.
-D1 result is `2963B/e152cb16`. New D0 in `p351-ready1-prepared-20260906-2`
-passed, and actual `load_prepared` reopening verified the stored binding.
-The approval-binding digest starts `e47d8d4b`; its exact token stays in the
-private prepared record and operator response. No Download request, F1 execute,
-candidate transfer or rollback transfer occurred. The earlier D0 stop is retained.
+The bounded run is complete. No active shell or new device authority remains.
+P351 source, artifact, capture and journal bytes are preserved. Any next display
+attempt needs a fresh successor correcting the exact driver-name binding and
+its source-informed fixture; P351 is never replayable. A90/S20+ received no command.
+Report: [P351 result and timeline](docs/reports/S22PLUS_FYG8_P351_DISPLAY_READY_H0_2026-09-06.md).
 
 ## Previous consumed display attempt
 

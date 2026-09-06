@@ -1,4 +1,8 @@
-# S22+ FYG8 P351 display successor — H0 ready
+# S22+ FYG8 P351 display successor — closed and rolled back
+
+Current state: **CLOSED/19, consumed, NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK**.
+Candidate and exact rollback transferred once each; final rooted FYG8 health
+passed, recovery_required=false. The H0 history below precedes the live result.
 
 Date: 2026-09-06. Exact target: SM-S906N / g0q / S906NKSS7FYG8.
 Result: **H0 candidate, static promotion and independent capability review PASS**.
@@ -152,3 +156,69 @@ Candidate AP remains `30965801B/f9e2783f`, with exact rollback AP `d2373bf8`.
 No F1 execution, Download request or candidate/rollback transfer occurred.
 The user must return the binding-specific F1 code before execution. Their D0/D1
 approval does not authorize F1. Actual P351 display output remains UNPROVED.
+
+## Approved F1 result and recovery
+
+The operator returned the exact prepared F1 approval. Candidate AP
+`30965801B/f9e2783f` transferred once, and the first read-only USB session passed.
+The authenticated second session completed its framed exchange, but the display
+command exited 1 at 200 ms. Its 774-byte output records all twelve successful
+module insertions and this fresh readiness snapshot:
+
+```text
+DISPLAY_READY ready=1 complete=1 bus=1 pmic=1 rails=15 drm=1 mdp=1 dsi=1 elapsed_ms=2 scans=2
+DISPLAY_FAIL stage=driver-name errno=71
+```
+
+No frame was submitted. Qualification is 1/3, not a display PASS. The operator
+reported no normal-boot response during the candidate phase and did not confirm
+the intended counter display. Actual visible output remains UNPROVED.
+
+The runner stopped with `measured USB endpoint evidence failed` while awaiting
+physical Download for rollback. The error preceded any rollback transfer;
+its cause remains unproved. One ordinary `--recover` invocation used the same
+journal and preauthorized rollback after physical Download entry. It transferred
+exact Magisk AP `23367721B/d2373bf8` once and verified completed Android, root,
+original boot/supporting hashes and absent Download. No candidate, observation,
+or rollback was replayed. A90/S20+ received no command.
+
+Terminal result is `21490B/65cb93d962bbf467d9b41582928644c0be0a1b09151a8ed3020790218ecbd3f2`:
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, CLOSED/19, recovery_required=false.
+Actual `load_prepared` and `validate_live_result` passed. The immutable capture
+was reopened and the failed authenticated second session was independently
+parsed through the actual P351 codec; exit 1, 200-ms duration and fixed output
+above agree. Observer receipt is `13953B/9afa0bee`; raw capture is
+`1898B/9a1949fe`. The canonical ledger received exactly one matching F1 close row. The new
+row passed the existing row parser and terminal-attempt classification, with
+all previous ledger bytes unchanged. The broader taxonomy audit reports the
+same pre-existing pending-review ordinal error on both HEAD's ledger and the
+appended ledger; it is not claimed as PASS and no historical row was edited.
+
+### Source-derived driver-name diagnosis
+
+The consumed renderer calls DRM version and requires name `msm`. The bound
+vendor `msm_drv.c` declares its DRM driver's name as `msm_drm`, and the kernel's
+`drm_version` returns that descriptor name. The original fake-DRM fixture also
+returned `msm`, so it failed to expose this mismatch before the live run.
+A private source-informed fixture using the hash-checked vendor name reproduces
+`driver-name`/errno 71 before any frame. The candidate did not log the returned
+string itself; distinguish this source-derived diagnosis from the observed guard
+failure. No production source or consumed artifact was changed by the diagnosis.
+
+Private closure evidence is `h0-work/closed-result-audit.json` and
+`driver-name-reproduction.json`, alongside the original execute/recover logs.
+The next working change belongs to a fresh successor and must qualify the exact
+vendor name with an independently grounded fixture. P351 remains non-replayable.
+
+### Canonical timeline
+
+| Event | UTC |
+| --- | --- |
+| `live_session_start` | `2026-09-06T14:11:28.722275Z` |
+| `candidate_flash_start` | `2026-09-06T14:11:45.654151Z` |
+| `candidate_flash_done` | `2026-09-06T14:11:47.320598Z` |
+| `candidate_boot_ready` | `2026-09-06T14:12:13.250500Z` |
+| `rollback_flash_start` | `2026-09-06T14:15:12.920521Z` |
+| `rollback_flash_done` | `2026-09-06T14:15:14.483674Z` |
+| `rollback_boot_ready` | `2026-09-06T14:16:12.284761Z` |
+| `live_session_end` | `2026-09-06T14:16:12.304737Z` |
