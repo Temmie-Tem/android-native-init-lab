@@ -862,11 +862,55 @@ reboot D1 may be used only when needed for fresh baseline preparation under
 current operator authorization. No new D0/D1 profile or baseline exception is
 introduced. This clause by itself grants no device effect or later shell use.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, or P348 candidate transfer occurs, the same
+**P349 attended current-boot RAM workspace and hour witness.** P348 remains
+CLOSED and consumed. P349 retains the preceding P348 attendance, exact binding,
+locks, source closure, initial six-session/120-second reopen qualification,
+authentication, no-replay, stop, raw evidence and physical Download/Magisk
+rollback requirements. Its separate fresh candidate, schemas and journals never
+reuse a consumed lease. The only child filesystem expansion is a fixed `/work`
+bind of a parent-created tmpfs, bounded to 8 MiB and 256 inodes, owned by
+UID/GID 65534 with nosuid/nodev. Parent setup occurs once before the listener;
+the parent never traverses or processes caller-created workspace paths. A
+fresh isolated child can create/read/modify/remove files and invoke the fixed
+BusyBox interpreter on a workspace script. Files persist only within this
+candidate boot; shell variables, cwd and background jobs do not persist.
+
+The rest of the child view remains read-only: one fixed BusyBox and the six
+bounded snapshots. The inherited privilege drop, closed inherited descriptors,
+no capabilities, no_new_privs, private mount namespace and default-deny seccomp
+remain required. The target filter adds write flags on openat and mkdirat,
+unlinkat and renameat only within that isolated filesystem. No privileged
+shell, device node, network, persistent storage, mount, reboot, separate
+executable-upload API or recovery command is added. Only fixed BusyBox script
+execution is qualified; arbitrary ELF execution is unqualified. The executable
+workspace is still subject to the same privilege and syscall limits. Resource bounds remain
+15 seconds per child, 128 KiB output, 64 KiB per file, 64 MiB address space,
+16 processes and 32 descriptors. Capacity exhaustion/cleanup is host-qualified;
+that evidence is not an on-device capacity claim.
+
+The attended lease is at most 3,900 seconds with 16 later actions. Every action
+still needs its complete 30-second window before expiry. Functional PASS
+requires the ordered checked-snapshot, RAM create, cross-child modify, script
+execution, exit-7, timeout, cancel and post-cancel success roles, followed by
+20/40/60-minute workspace witnesses. The durable action intent for each timed
+witness must be issued at least 1,200/2,400/3,600 seconds after durable lease
+opening. Reopened authenticated raw frames must prove each command and the same
+device boot. Late result publication, lease duration, wall-clock scheduling or
+rollback health alone cannot prove the hour. This proves sampled residency and
+workspace retention, not continuous monitoring or arbitrary applet behavior.
+Exact rollback and final rooted FYG8 health remain separate required evidence.
+
+P349 is H0-only until its execution-critical closure and higher-precedence
+interactions pass independent review and fresh artifact/static/ready
+qualification. Current D0 preparation, any needed already-authorized ordinary
+reboot D1, and separately returned attended F1 approval remain required. This
+clause grants no unattended use or device effect by itself.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, or P349 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, or `s22plus-fyg8-p348` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, or `s22plus-fyg8-p349` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

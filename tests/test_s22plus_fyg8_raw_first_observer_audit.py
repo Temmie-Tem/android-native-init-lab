@@ -36,6 +36,19 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
     def source(self, name: str) -> str:
         return (REVALIDATION / name).read_text(encoding="utf-8")
 
+    def test_p349_longevity_intent_and_template_closure_are_bound(self):
+        filename = "s22plus_fyg8_p349_shell_session.py"
+        text = self.source(filename)
+        body = self.module._function_sources(text)["_acceptance_summary"]
+        changed = body.replace('intent["issued_elapsed_ns"]', 'result["issued_elapsed_ns"]', 1)
+        self.assertNotEqual(body, changed)
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module._audit_function_contracts(REVALIDATION,
+                {filename: text.replace(body, changed, 1)})
+        for suffix in ("shell_session", "shell_action", "research_shell_observer", "research_shell_runtime"):
+            self.assertIn("s22plus_fyg8_p349_" + suffix + ".py", self.module.ACTIVE_FILES)
+            self.assertIn("s22plus_fyg8_p348_" + suffix + ".py", self.module.ACTIVE_FILES)
+
     def test_p348_preclose_raw_byte_and_descriptor_owner_are_bound(self):
         filename = "device_action_f1_live_v2.py"
         text = self.source(filename)

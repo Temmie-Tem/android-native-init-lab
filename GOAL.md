@@ -11,6 +11,29 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P349 is prepared for separately approved attended F1. Independent capability
+review returned PASS_GO; A/B candidate, static promotion, 73 focused tests and
+raw-first audit passed. Candidate AP is `28631081B/8ff75170`; exact Magisk
+rollback is `23367721B/d2373bf8`. This is a UID/GID 65534 current-boot RAM
+workspace, not a root shell: `/work` is 8 MiB/256 inodes, with fixed BusyBox
+script execution and fresh children across actions.
+
+The 65-minute/16-action lease requires initial six-session/120-second reopen
+proof, eight ordered functional actions and 20/40/60-minute authenticated
+same-boot workspace witnesses. Durable intent timing must satisfy each actual
+elapsed threshold. Capacity tests remain host-only. Actual P349 hour/live RAM
+behavior and rollback/final health are still UNPROVED; no F1 transfer occurred.
+
+First D0 preserved a retained-family baseline stop. One preapproved ordinary
+reboot D1 passed with changed boot ID and healthy rooted FYG8 return, then new
+D0 and preparation passed in `p349-ready1-prepared-20260906-2`. Prepared binding
+is `43926B/2035b268`, D0 `3261B/51a955d0`. The concrete F1 approval code is ready
+for the operator to return. P348 remains closed/consumed; A90/S20+ received no
+command. No native shell is currently active.
+Report: [P349 capability and preparation](docs/reports/S22PLUS_FYG8_P349_RAM_WORKSPACE_PREPARED_2026-09-06.md).
+
+## Latest completed P348 unit
+
 P348 is CLOSED/19 and consumed with
 `PASS_F1_V2_P348_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK`.
 Candidate `28631081B/5dde2320` and exact Magisk rollback `23367721B/d2373bf8`

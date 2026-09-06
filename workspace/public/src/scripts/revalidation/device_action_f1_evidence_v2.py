@@ -1713,13 +1713,14 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
     _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
     _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
     _adapter.proof_class = _adapter._raw_parser().proof_class
+    _workload = "ram_workspace_research_shell" if _prefix == "p349" else "readonly_research_shell"
     _constants = {
         "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
         "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
@@ -1730,9 +1731,9 @@ for _prefix in ("p345", "p346", "p347", "p348"):
         "STATIC_RESULT_SCHEMA": f"s22plus_fyg8_{_prefix}_process_v2_static_result_v1",
         "STATIC_RESULT_VERDICT": f"PASS_{_upper}_PROCESS_V2_STATIC_RESULT_HOST_ONLY",
         "AUTH_EXEC_AUTH_KEY_IDENTITY": dict(_artifact.auth_key_identity()),
-        "AUTH_EXEC_VERDICT": f"PASS_F1_V2_{_upper}_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK",
-        "AUTH_EXEC_OUTCOME": f"{_prefix}_readonly_research_shell_rollback_verified",
-        "AUTH_EXEC_NO_PROOF_OUTCOME": f"{_prefix}_readonly_research_shell_unproved_rollback_verified",
+        "AUTH_EXEC_VERDICT": f"PASS_F1_V2_{_upper}_{_workload.upper()}_AND_ROLLED_BACK",
+        "AUTH_EXEC_OUTCOME": f"{_prefix}_{_workload}_rollback_verified",
+        "AUTH_EXEC_NO_PROOF_OUTCOME": f"{_prefix}_{_workload}_unproved_rollback_verified",
     }
     for _key, _value in _constants.items():
         globals()[_upper + "_" + _key] = _value
@@ -1740,6 +1741,8 @@ for _prefix in ("p345", "p346", "p347", "p348"):
                           ("research_shell_observer", _observer), ("research_shell_runtime", _runtime)):
         globals()[_prefix + "_" + _key] = _module
     SHELL_VARIANTS[_prefix] = types.SimpleNamespace(prefix=_prefix, adapter=_adapter,
+        workload=_workload, proof_key=_prefix + "_" + _workload + "_qualification",
+        retained_lease=_prefix in ("p348", "p349"),
         artifact=_artifact, observer=_observer, runtime=_runtime,
         overlay=_adapter.OVERLAY_CONTRACT_ID, run_id=_constants["RUN_ID"],
         image_identity=getattr(_artifact, _upper + "_IMAGE_IDENTITY"),
@@ -7609,9 +7612,13 @@ def _shell_observer_spec(prefix):
         "caller_selected_command": False, "later_action_lease_active": False,
         "host_first_open": True, "read_only_child_required": True,
         "authenticated_cancel": True, "mandatory_rollback": True})
-    if prefix == "p348":
+    if variant.retained_lease:
         value.update(session_cap=6, reconnect_cap=1, total_session_count=6,
             total_command_count=18, physical_reopen_count=1, idle_seconds=120)
+    if prefix == "p349":
+        value.update(kind="exact_cdc_acm_p349_ram_workspace_shell_qualification_v1",
+            read_only_child_required=False, ram_workspace_child_required=True,
+            workspace_path="/work", workspace_bytes=8388608, workspace_inodes=256)
     return value
 
 
@@ -7648,7 +7655,7 @@ def validate_p346_research_shell_proof(value):
 
 def _shell_ap_payload_closure(value, variant):
     candidate = value["candidate"]
-    return {"kind": variant.prefix + "_exact_readonly_research_shell_ap_v1",
+    return {"kind": variant.prefix + "_exact_" + variant.workload + "_ap_v1",
         "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
         "source_contract_id": variant.adapter.PARENT_SOURCE_CONTRACT_ID,
         "boot_img_lz4": candidate["a"]["boot_img_lz4"], "boot_image": candidate["a"]["boot_img"],
@@ -7664,7 +7671,7 @@ def _p345_ap_payload_closure(value):
 def _validate_shell_ap_payload(frame, closure, variant):
     item = _exact(closure, {"kind", "run_id", "userspace_overlay_contract_id", "source_contract_id",
         "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"}, "shell AP closure")
-    if (item["kind"] != variant.prefix + "_exact_readonly_research_shell_ap_v1"
+    if (item["kind"] != variant.prefix + "_exact_" + variant.workload + "_ap_v1"
         or item["run_id"] != variant.run_id or item["userspace_overlay_contract_id"] != variant.overlay
         or item["source_contract_id"] != variant.adapter.PARENT_SOURCE_CONTRACT_ID
         or item["image"] != variant.image_identity or item["auth_key"] != variant.auth_key):
@@ -7674,8 +7681,11 @@ def _validate_shell_ap_payload(frame, closure, variant):
         "source_contract_id": p327_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
         "userspace_overlay_contract_id": P327_STOCK_OVERLAY_CONTRACT_ID})
     verified = _validate_p327_e2_ap_payload(frame, inherited)
-    return {**verified, "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
-            "read_only_child_required": True, "later_action_lease_active": False}
+    result = {**verified, "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
+              "read_only_child_required": variant.prefix != "p349", "later_action_lease_active": False}
+    if variant.prefix == "p349":
+        result["ram_workspace_child_required"] = True
+    return result
 
 
 def _validate_p345_e2_ap_payload(frame, closure):
