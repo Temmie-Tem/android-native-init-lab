@@ -11,33 +11,28 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P356 is being prepared to draw full magenta through the normal memory-buffer
-path. It retains P355's 30HS mode, one WC buffer/atomic request, geometry and
-noise disable; visible pixels become 0x00ff00ff and row padding remains white.
-Hardware color_fill is explicitly zero. This compares the same intended visible
-color through normal buffering against P355's observed clean hardware fill.
-A clean constant image would not establish arbitrary pattern correctness or
-identify cache coherency as the cause.
+P356 is consumed and CLOSED/19, recovery_required=false. One ordinary-buffer
+magenta candidate and one exact Magisk rollback transferred; final rooted FYG8,
+original boot/supporting hashes and absent Download pass. The machine verdict
+is `PASS_F1_V2_P356_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`, proving dispatch
+and recovery, not clean visual output. Live result is `22804B/5669fe05`.
 
-H0 A/B build and static qualification pass; actual AArch64 paint bytes and
-independent changed-closure review pass. The first D0 retained-baseline stop and
-one ordinary D1 reboot's 240-second ADB-offline timeout remain preserved. That
-D1 was not replayed or relabeled successful; its success result remains absent.
+The operator and private photo show magenta with horizontal dark breaks and
+severe lower-area corruption. **Clean ordinary-buffer magenta was not achieved.**
+P355 hardware fill was clean; P353/P354 patterned buffers and P356 constant
+buffer were corrupt. A supplied Android-boot carrier-logo photo lacks the same
+conspicuous breakup. This supports H0 comparison of the native buffer/display
+setup with Android; cache, format, mapping, scaler and timing causes remain
+unproved. No next candidate or new device action is authorized by this finding.
 
-The operator separately reconnected USB and authorized health verification and
-fresh preparation assessment. The reviewed one-shot late D0 passed exact rooted
-FYG8, boot/supporting hashes, Android health and topology continuity. Independent
-incident-scope review permits a new ordinary read-only preparation, not effect
-continuation. The unchanged actual H0 validator and one fresh connected D0 in
-`p356-ready1-prepared-20260907-2` pass; a new exact F1 approval token is ready.
-Prepared record SHA-256 is `1cdbbf5ac9b75c44408379f2ecde56f2bf946fdb67b5564e454cfafe4403ab81`.
-No further reboot or candidate transfer occurred. Await separate attended F1
-approval; P355 remains consumed and the original D1 is never replayable.
-
-Host evidence localizes the prior stall to ADB transport re-establishment after
-a USB reset. Physical cable failure and host/device software causation remain
-unproved; restored health does not establish the underlying cause.
-Report: [P356 framebuffer magenta preparation](docs/reports/S22PLUS_FYG8_P356_FRAMEBUFFER_MAGENTA_PREPARATION_2026-09-07.md).
+The original execute stopped on measured USB endpoint evidence while awaiting
+physical Download after observation, before rollback intent. One same-journal
+preauthorized recovery completed exact rollback and health without candidate or
+observation replay. The error remains unexplained. The separate earlier D1
+ADB-timeout start and missing success result also remain intact; manual USB
+restoration and late health never rewrote that result. No active lease remains,
+and A90/S20+ received no command. P353 through P356 are never replayable.
+Report: [P356 framebuffer magenta result](docs/reports/S22PLUS_FYG8_P356_FRAMEBUFFER_MAGENTA_PREPARATION_2026-09-07.md).
 
 ## Consumed P355 comparison
 

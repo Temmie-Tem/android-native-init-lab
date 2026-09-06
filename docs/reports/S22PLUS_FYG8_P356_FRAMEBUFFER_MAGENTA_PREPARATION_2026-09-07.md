@@ -1,4 +1,4 @@
-# P356 framebuffer magenta comparison
+# P356: framebuffer magenta corruption observed, exact rollback completed
 
 P355 showed clean full-screen magenta using hardware solid fill, while the
 ordinary P353/P354 pattern was corrupt. P356 puts magenta in the ordinary WC
@@ -225,3 +225,61 @@ execution closure and emits a new separate F1 approval token. Its device-write,
 reboot, partition-transfer and F1-authority flags are all false. No P356 candidate
 has been transferred, and A90/S20+ received no command. The next action requires
 the returned exact attended F1 approval; the original failed D1 is not resumed.
+
+
+## Approved F1 execution and recovered close
+
+The operator returned the exact fresh prepared F1 token. Candidate AP
+`30965801B/3527224aeaf2bb9c30fdb0423984b71a9588f422fa363df2bc303c3fc22a343c`
+was transferred once; authenticated parent identity and display-request dispatch
+passed. The operator reported magenta with stripes/corruption and supplied a
+private photograph showing horizontal dark gaps that become increasingly dense
+toward the lower display. **Clean framebuffer magenta was not achieved.**
+The original photo is retained privately as
+`177019B/39f580686215b528eaa08da70e6cbdc18af1c8e3c6bb9202e4a4681ba813991a`.
+
+After observation closed, the original execute invocation stopped with
+`measured USB endpoint evidence failed` while awaiting physical Download.
+The durable journal was at OBSERVED; no rollback intent or transfer had begun.
+The error and raw endpoint evidence were preserved. One same-journal
+preauthorized `--recover` invocation completed the exact Magisk rollback
+`23367721B/d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
+Candidate transfer and observation were not replayed. The endpoint-observation
+error's cause is unproved; it is not reclassified as benign or as cable movement.
+This deviation is distinct from the earlier ordinary-D1 ADB timeout, whose
+original failure remains unchanged.
+
+Final rooted FYG8, boot completion, original boot/supporting hashes and absent
+Download all pass. The run is CLOSED/19 with recovery_required=false. Result
+`22804B/5669fe0560774de7cdf4ad6aa6c19c076a8c29c1c337e2b049347025c081ac0d`
+reports `PASS_F1_V2_P356_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`: that machine
+verdict proves dispatch and recovery, not clean image quality or internal
+display execution. No active lease or new action remains. A90/S20+ received no
+command. P356 is consumed and never replayable.
+
+The operator also supplied an Android-boot comparison photo showing the SKT 5GX
+logo on a white field without P356's conspicuous horizontal gaps/lower breakup.
+It is retained privately as
+`102782B/121b07adbaddae7fdd5805da788432fe8da86f87b6522a21f936712a5aa43760`.
+Its Android-boot context is operator-reported, not a same-instant machine binding;
+photo texture and exposure are not pixel measurements. Together with P355's
+clean hardware fill, it supports prioritizing differences in the native ordinary
+buffer path and Android display setup over a persistent panel defect. It does
+not identify a cache, format, address mapping, scaler or timing cause. No new
+experiment or device read is implied by this comparison.
+
+Canonical timeline (UTC; readiness labels retain the runner's dispatch/health
+semantics and do not promote visual proof):
+
+- `live_session_start`: `2026-09-06T21:23:44.032387Z`
+- `candidate_flash_start`: `2026-09-06T21:24:12.218627Z`
+- `candidate_flash_done`: `2026-09-06T21:24:13.855171Z`
+- `candidate_boot_ready`: `2026-09-06T21:24:38.128741Z`
+- `rollback_flash_start`: `2026-09-06T21:26:28.202610Z`
+- `rollback_flash_done`: `2026-09-06T21:26:29.738133Z`
+- `rollback_boot_ready`: `2026-09-06T21:27:00.842427Z`
+- `live_session_end`: `2026-09-06T21:27:00.862366Z`
+
+Actual prepared/result reopening passed after closure. Scoped document/link,
+private-identifier and repository boundary checks pass; execution inputs were
+unchanged, so no image rebuild or unrelated regression suite was required.
