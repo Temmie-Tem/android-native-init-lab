@@ -39,11 +39,21 @@ including row padding. Source and consumed-module checks agree on linear format,
 pitch and WC mapping; actual WC visibility and hardware state remain unproved.
 The operator confirms the corruption was visible to the naked eye. Retained
 Android underrun text is not candidate causal evidence. No root cause or repair
-is established. The next proposed discriminator is a fresh same-mode hardware
-magenta `color_fill` candidate; four exact source-function H0 cases pass, but no
-successor has been implemented, qualified or authorized. This is not a claim
-that a clean solid-fill result would prove a cache fault.
+is established. Four exact source-function H0 cases qualify the proposed
+hardware magenta `color_fill` branch as a discriminator only; a clean result
+would not by itself prove a cache fault.
 Report: [P353 image-corruption H0 analysis](docs/reports/S22PLUS_FYG8_P353_IMAGE_CORRUPTION_H0_2026-09-07.md).
+
+Subsequent web and exact FYG8 vendor-image analysis identifies a smaller first
+comparison: the shipped SDM/DRM path handles disabled noise with an explicit
+`noise_layer_v1=0`, whereas P353 omits the property. Exact library disassembly
+and three source-function cases establish the difference, not its live cause.
+Prefer a fresh same-pattern, same-30HS successor with only that explicit disable;
+the magenta discriminator remains the fallback. No successor is implemented,
+qualified or authorized. Thirty-nine firmware files, 22 DT combinations and
+historical Android 120HS/60PHS mode text were examined. The normal Android photo
+does not identify its active mode or exclude a condition-dependent physical fault.
+Report: [Android firmware display comparison](docs/reports/S22PLUS_FYG8_P353_ANDROID_DISPLAY_COMPARISON_H0_2026-09-07.md).
 
 ## Consumed P352 and source investigation
 

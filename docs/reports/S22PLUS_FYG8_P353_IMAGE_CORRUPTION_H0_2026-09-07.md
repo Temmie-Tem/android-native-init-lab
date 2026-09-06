@@ -13,6 +13,11 @@ separate normal framebuffer-fetch behavior from a hardware-generated color's
 output. This is a diagnostic proposal, not a fix, qualified successor, prepared
 candidate or device authorization. No device command occurred in this analysis.
 
+The later [exact Android firmware comparison](S22PLUS_FYG8_P353_ANDROID_DISPLAY_COMPARISON_H0_2026-09-07.md)
+identifies explicit noise disable as a smaller first comparison with the same
+pattern and mode. It prioritizes that newly supported difference; the magenta
+diagnostic below remains the fallback.
+
 ## Bound evidence and observation
 
 P353 remains consumed and CLOSED/19, with its original dispatch-only machine
