@@ -11,20 +11,24 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P347 is prepared for a fresh, separately returned F1 approval; no F1 execution
-has occurred. Output backpressure, narrow relative-clock sleep and checked
-snapshot/pipeline qualification passed H0 regression and independent PASS_GO.
-Candidate `28631081B/02c5d905` and exact Magisk rollback `23367721B/d2373bf8` are
-qualified. Runtime 3/3, successor 2/2, common/predecessor 138/138 and raw-first
-35/35 passed; P344/P345/P346 preserved build results are unchanged.
+P347 is CLOSED and consumed with
+`PASS_F1_V2_P347_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK`. Candidate
+`28631081B/02c5d905` and exact Magisk rollback `23367721B/d2373bf8` each transferred
+once. All five same-FD qualification sessions passed: numeric read-only canary,
+exit 7, 15,156-ms timeout, authenticated cancel and all 120,017 final output bytes.
+Final rooted FYG8 Android health, original boot/supporting hashes and absent
+Download passed. No later shell lease or standing command authority exists.
 
-The operator-authorized single ordinary D1 reboot returned healthy with a
-changed boot ID and original boot/supporting hashes. Fresh D0 preparation
-`p347-ready1-prepared-20260906-3` passed. Its prepared record is
-`31208B/4cf13344`, with 57 source entries, and actual load_prepared reopening
-passed. The approval code is private; execution requires its separate return,
-attendance/physical recovery and fresh runtime binding. No Download control,
-Odin or partition transfer occurred. A90 and S20+ received no command.
+Run `p347-ready1-prepared-20260906-3` is CLOSED/19, recovery_required=false;
+live result `33570B/9e2db4b7`, observer raw `124676B/20f67548`. Actual prepared/
+result reopening and append-only campaign-ledger closure passed. The first
+execute-preflight host ADB startup-stderr stop is preserved separately; it
+preceded target-specific commands and transaction creation. Candidate and
+observation were never replayed, and no recover invocation was needed.
+
+The approved bounded unit is complete. Any new candidate requires its own
+qualification, current exact binding and fresh approval; P347 is never replayable.
+A90 and S20+ received no command.
 Report: `docs/reports/S22PLUS_FYG8_P347_OUTPUT_TIMING_PREPARED_2026-09-06.md`.
 
 ## Consumed P346 and diagnosis

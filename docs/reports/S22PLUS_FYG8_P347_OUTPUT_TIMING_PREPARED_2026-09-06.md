@@ -1,9 +1,11 @@
-# P347: output/timing repair, healthy baseline and F1 preparation
+# P347: output/timing qualification PASS and healthy rollback
 
 Target: `SM-S906N/g0q/S906NKSS7FYG8` only. The operator authorized the
 identified repairs, D0/D1 preparation and issuance of a fresh F1 approval code.
-P347 is prepared; F1 execution has not occurred and requires the separately
-returned exact code. P345/P346 remain consumed with their original outcomes.
+The operator subsequently returned the exact code. P347 is now CLOSED with
+`PASS_F1_V2_P347_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK`: all five qualification
+sessions passed, candidate and exact rollback each transferred once, and final
+rooted FYG8 health passed. P345/P346 retain their original consumed outcomes.
 
 ## Implemented capability
 
@@ -139,9 +141,73 @@ The actual `load_prepared` consumer reopened its complete 57-source closure,
 artifact/target/D0 binding and approval code successfully. Its six effect and
 authority flags remain false. No F1 journal or live state was created.
 
-The code stays in the exact private prepared record and is supplied directly
-to the operator, not committed in this report. Execution still requires that
-separate returned exact approval, attendance/physical Download recovery and
-current runtime revalidation. Healthy ordinary reboot return is not a claim of
+At preparation, the code was supplied directly to the operator and kept in the
+private prepared record. It was subsequently returned for the single execution
+below and is now consumed; it grants no replay or later command authority. Healthy ordinary reboot return is not a claim of
 automatic recovery from a failed experimental listener. A90 and S20+ received
 no command. The P346 inventory incident and original NO_PROOF are unchanged.
+
+
+## Approved F1 execution and final closure
+
+The first ordinary execute invocation stopped during host adb inventory with
+the same exact successful server-start stderr notices described above. Its
+raw receipt proves return code 0 with no timeout/overflow; only version and
+inventory calls occurred, with no target-specific command or F1 transaction.
+The original log and capture were preserved. After that positively identified
+host initialization, the unchanged approved runner allocated its next ordinary
+execute-preflight directory. No source, prepared binding or approval changed;
+this was not a candidate retry.
+
+Fresh exact preflight passed, the transaction durably recorded approval, and
+candidate `28631081B/02c5d905` transferred once. The actual device qualification
+completed all five sessions on the same descriptor:
+
+| Session | Outcome | Duration | Output |
+| --- | --- | ---: | ---: |
+| Read-only canary | PASS, numeric child UID/GID and denied probe | 100 ms | 139 bytes |
+| Expected nonzero exit | exit 7, expected outcome | 101 ms | 0 bytes |
+| sleep 30 timeout | timeout flag, signal 9 | 15156 ms | 0 bytes |
+| Authenticated cancel | cancelled flag, active ACK, signal 9 | 202 ms | 19 bytes |
+| Post-cancel output/pipeline | exact complete output, exit 0 | 1012 ms | 120017 bytes |
+
+The observer is accepted with `qualification_complete=true`, five sessions and
+fifteen commands. This supplies device evidence for the repaired bounded
+runtime, not an unrestricted shell, later lease, persistent residency or
+automatic recovery. It does not claim a 30-second sleep completed: the fixed
+15-second supervisor deadline terminated it as intended.
+
+After observation, the operator entered physical Download on the existing
+connection. The original runner detected the exact rollback endpoint and
+transferred Magisk `23367721B/d2373bf8` once. Final Android/root health,
+original boot/supporting partition hashes and absent Download passed. No
+separate recover invocation, replay or extra candidate command was needed.
+
+Terminal verdict: `PASS_F1_V2_P347_READONLY_RESEARCH_SHELL_AND_ROLLED_BACK`.
+The journal is CLOSED with 19 records; `recovery_required=false` and
+`later_action_lease_active=false`.
+
+| Retained evidence | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Observer receipt | 39180 | e2a11315e55972fe97bd6595363a011bf014b03887ea0813a2a2241cae988205 |
+| Raw observer RX | 124676 | 20f675487080d9828d9852cf8b554c69d0cd4ecb94b7118252b0141f6672d466 |
+| Live result | 33570 | 9e2db4b72caf2476bce73be0c9f5464421655b86df4556f0f80338b43bd02e2f |
+| Live state | 29774 | 5670068480a52fdaad0a42091115a0771ab9a07db0aff15c2ceb5bf951dc9e8c |
+
+Canonical timeline (UTC):
+
+- `live_session_start`: `2026-09-06T03:08:20.493909Z`
+- `candidate_flash_start`: `2026-09-06T03:08:42.199297Z`
+- `candidate_flash_done`: `2026-09-06T03:08:43.807054Z`
+- `candidate_boot_ready`: `2026-09-06T03:09:28.717279Z`
+- `rollback_flash_start`: `2026-09-06T03:13:12.126976Z`
+- `rollback_flash_done`: `2026-09-06T03:13:13.660985Z`
+- `rollback_boot_ready`: `2026-09-06T03:13:48.107199Z`
+- `live_session_end`: `2026-09-06T03:13:48.125190Z`
+
+Final H0 reopening through the actual `load_prepared` and
+`validate_live_result` consumers passed against the unchanged execution closure,
+retained observation, transfer receipts, final health and journal. Exactly one
+P347 F1 CAMPAIGN_CLOSED row was appended to the existing ledger; the prior bytes
+were preserved and the complete row parser passed. A90 and S20+ received no
+command. P347 is consumed and may not be executed again.
