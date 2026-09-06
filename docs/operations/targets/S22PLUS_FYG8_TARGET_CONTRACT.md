@@ -1079,11 +1079,36 @@ independent review, exact artifact/static qualification and fresh connected
 preparation. The ordinary separately returned F1 approval is still required.
 This clause grants no device effect and changes no permanent boundary.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, or P353 candidate transfer occurs, the same
+**P354 attended explicit-noise-disable successor.** P353 is consumed and
+never replayable. P354 retains the complete P353 static-first-frame behavior,
+pattern, single WC buffer, exact 30HS mode, twelve display additions, readiness,
+privilege drop, one-way authenticated dispatch, 60-second child/host bounds,
+pre-dispatch transport evidence, separate closure snapshot and mandatory
+attended physical Download/exact rollback/final health. Its fresh literal is
+`P354_DISPLAY_ONCE`; every run/artifact/observer/receipt namespace is P354.
+
+The only display transaction delta is one additional selected-CRTC property:
+resolve exactly one `noise_layer_v1` by name and include its literal value zero
+in the same blocking atomic request, regardless of the cached property value.
+Missing or duplicate property stops before any atomic ioctl. No second request,
+alternative property, register access, mode change or retry is permitted.
+This is a comparison of explicit disable with omission, not a proved correction.
+Visible image fidelity and corruption remain separately recorded operator
+observations; authenticated dispatch or ioctl success cannot establish either.
+
+The existing property-presence check enforces this candidate's stated comparison
+and prevents an unintended unchanged P353 transaction; it is not a new general
+safety gate. Its scope ends with this candidate design and must be reconsidered
+if the comparison changes. P354 remains H0-only until independent changed-closure
+review and exact artifact/static qualification pass. Fresh connected preparation
+and the ordinary separately returned attended F1 approval are still required.
+This clause grants no device effect and changes no permanent boundary.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, or P354 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, or `s22plus-fyg8-p353` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, or `s22plus-fyg8-p354` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

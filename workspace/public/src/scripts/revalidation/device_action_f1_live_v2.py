@@ -2356,10 +2356,10 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
             OPEN_HEADER_SIZE=shell.runtime.OPEN_HEADER_SIZE,
             OPEN_HEADER_WORD_STAGES=list(shell.runtime.OPEN_HEADER_WORD_STAGES),
             OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in shell.runtime.OPEN_READ_BRANCHES.items()},
-            PROOF_FIELDS=P353_PROOF_FIELDS if prefix == "p353" else P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
+            PROOF_FIELDS=_dispatch_proof_fields(prefix) if prefix in DISPATCH_SHELL_OWNERS else P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
             parser_failure=lambda payload, error: _p345_parser_failure_classification(payload, error, prefix=prefix),
             proof_ok=lambda value: _p345_proof_ok(value, prefix=prefix),
-            proof_state=_p353_proof_state if prefix == "p353" else _p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
+            proof_state=(lambda value: _dispatch_proof_state(value, prefix)) if prefix in DISPATCH_SHELL_OWNERS else _p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
             session_factory=_p345_candidate_observer_session,
             stock_error=lambda payload, error: _p345_stock_error(payload, error, prefix=prefix),
             validate_receipt=_p345_validate_receipt, text=text)
@@ -9072,7 +9072,7 @@ class _P345ObserverSession(_P331ObserverSession):
             if descriptor is None:
                 raise F1LiveError("qualification descriptor ownership is missing")
             self.proof = dict(self.qualification.receipt)
-            if self.namespace == "p353":
+            if self.namespace in DISPATCH_SHELL_OWNERS:
                 # One-way request: no read, trailing probe or post-dispatch
                 # endpoint requirement. Pre-dispatch lane binding is retained.
                 return "accepted"
@@ -9094,7 +9094,7 @@ class _P345ObserverSession(_P331ObserverSession):
                     os.close(self.owned_descriptor)
                     self.owned_descriptor = None
             elif descriptor is not None:
-                if self.namespace == "p353":
+                if self.namespace in DISPATCH_SHELL_OWNERS:
                     try:
                         os.close(descriptor)
                     except OSError as exc:
@@ -9148,7 +9148,7 @@ class _P345ObserverSession(_P331ObserverSession):
             value.update(initial_five_same_tty_fd=complete,
                 physical_reopen_count=1 if complete else 0,
                 idle_duration_ms=(self.proof or {}).get("idle_duration_ms", 0))
-        if self.namespace == "p353":
+        if self.namespace in DISPATCH_SHELL_OWNERS:
             value.update(command_count=2 if complete else 0,
                 pid1_framed_exec_proof=False, busybox_ash_command_proof=False,
                 framed_session_closed=False, display_request_dispatched=complete,
@@ -9166,12 +9166,13 @@ class _P345ObserverSession(_P331ObserverSession):
 class _P353ObserverSession(_P345ObserverSession):
     """One-way static display dispatch; lane evidence ends before the write."""
 
+    namespace: str = "p353"
     pre_dispatch_lane: Any = None
 
     def _qualify_on_descriptor(self, codec: Any, descriptor: int, writer: Any, deadline: float) -> Any:
         lane = super()._lane_supplement(True)
         if lane.get("accepted_for_p324") is not True:
-            raise F1LiveError("P353 pre-dispatch lane is not exact")
+            raise F1LiveError(self.namespace.upper() + " pre-dispatch lane is not exact")
         self.pre_dispatch_lane = dict(lane,
             observation_phase="before-static-display-dispatch",
             post_dispatch_observation=False)
@@ -9192,10 +9193,10 @@ class _P353ObserverSession(_P345ObserverSession):
             error = type(exc).__name__
             payload = p318_topology.raw_snapshot(phase="candidate_end",
                 capture_complete=False, endpoints=[])
-        path = self.run_dir / "p353-candidate-end.raw.json"
+        path = self.run_dir / f"{self.namespace}-candidate-end.raw.json"
         receipt = p318_topology.publish_raw(path, payload, phase="candidate_end")
         parsed = p318_topology.parse_raw_snapshot(payload, phase="candidate_end")
-        value["p353_closure_snapshot"] = dict(path=str(path), **receipt,
+        value[self.namespace + "_closure_snapshot"] = dict(path=str(path), **receipt,
             capture_complete=parsed["capture_complete"], error_type=error,
             continuity_proved=False, role="post-dispatch-transport-diagnostic")
         super()._publish_value(value, lane_supplement, label=label)
@@ -9246,9 +9247,21 @@ P345_PROOF_FIELDS = ("qualification_complete", "pid1_framed_exec_proof",
 
 P348_PROOF_FIELDS = P345_PROOF_FIELDS + ("initial_five_same_tty_fd", "idle_duration_ms")
 
+DISPATCH_SHELL_OWNERS = frozenset(prefix for prefix, variant in
+    typed_evidence.SHELL_VARIANTS.items() if variant.workload == "static_display_dispatch")
+
+
 P353_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "display_response_observed", "display_execution_proved", "visible_panel_output",
     "proof_scope", "descriptor_close_error", "p353_closure_snapshot")
+
+
+def _dispatch_proof_fields(prefix: str) -> tuple[str, ...]:
+    return P353_PROOF_FIELDS[:-1] + (prefix + "_closure_snapshot",)
+
+
+def _dispatch_proof_state(value: Mapping[str, Any], prefix: str) -> dict[str, Any]:
+    return {key: value.get(key) for key in _dispatch_proof_fields(prefix)}
 
 
 def _p353_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -9277,7 +9290,7 @@ def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
             value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key)), prefix)
     except (ValueError, TypeError):
         return False
-    if prefix == "p353":
+    if prefix in DISPATCH_SHELL_OWNERS:
         return (value.get("qualification_complete") is True
             and value.get("display_request_dispatched") is True
             and value.get("display_response_observed") is False
@@ -9339,7 +9352,7 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         prepared.private_target["topology"], prepared.run_dir,
         _candidate_observer_binding(prepared), lane_value, lane_receipt,
         usb_root=usb_root, typec_root=typec_root) as inherited:
-        session_class = (_P353ObserverSession if shell.prefix == "p353" else
+        session_class = (_P353ObserverSession if shell.prefix in DISPATCH_SHELL_OWNERS else
             _P348ObserverSession if shell.prefix in RETAINED_SHELL_OWNERS else _P345ObserverSession)
         yield session_class(inherited, inherited.delegate.delegate,
             inherited_spec, prepared.run_dir, lane_value, lane_receipt,
@@ -9434,12 +9447,12 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
         require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
             "session continuity differs")
     lane = value.get("lane", {})
-    if shell.prefix == "p353":
-        snapshot = value.get("p353_closure_snapshot")
+    if shell.prefix in DISPATCH_SHELL_OWNERS:
+        snapshot = value.get(shell.prefix + "_closure_snapshot")
         require(type(snapshot) is dict and set(snapshot) == {"path", "size", "sha256",
             "capture_complete", "error_type", "continuity_proved", "role"},
             "closure snapshot fields differ")
-        snapshot_path = prepared.run_dir / "p353-candidate-end.raw.json"
+        snapshot_path = prepared.run_dir / f"{shell.prefix}-candidate-end.raw.json"
         require(snapshot["path"] == str(snapshot_path), "closure snapshot path differs")
         snapshot_raw = p318_topology.stable_read(snapshot_path)
         parsed_snapshot = p318_topology.parse_raw_snapshot(snapshot_raw, phase="candidate_end")
@@ -9452,7 +9465,7 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
                 (type(snapshot["error_type"]) is str and len(snapshot["error_type"]) <= 80
                  and snapshot["capture_complete"] is False)),
             "closure snapshot identity/status differs")
-    if shell.prefix == "p353" and value["accepted"]:
+    if shell.prefix in DISPATCH_SHELL_OWNERS and value["accepted"]:
         require(lane.get("observation_phase") == "before-static-display-dispatch"
             and lane.get("post_dispatch_observation") is False,
             "pre-dispatch lane scope differs")

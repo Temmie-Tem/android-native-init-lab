@@ -1713,14 +1713,14 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
     _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
     _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
     _adapter.proof_class = _adapter._raw_parser().proof_class
-    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch"}.get(_prefix, "readonly_research_shell")
+    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch"}.get(_prefix, "readonly_research_shell")
     _constants = {
         "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
         "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
@@ -7648,8 +7648,8 @@ def _shell_observer_spec(prefix):
             read_only_child_required=False, fixed_display_once_child=True,
             qualification_timeout_sec=150, session_cap=3, same_fd_session_count=3,
             total_session_count=3, total_command_count=9)
-    if prefix == "p353":
-        value.update(kind="exact_cdc_acm_p353_static_display_dispatch_v1",
+    if variant.workload == "static_display_dispatch":
+        value.update(kind=f"exact_cdc_acm_{prefix}_static_display_dispatch_v1",
             qualification_timeout_sec=60, session_cap=1, same_fd_session_count=1,
             total_session_count=1, total_command_count=2, authenticated_cancel=False,
             dispatch_only=True, display_response_required=False,

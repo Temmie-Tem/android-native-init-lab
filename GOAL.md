@@ -11,6 +11,21 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P354 implements the explicit-noise-disable comparison as a fresh H0 candidate.
+The same P353 static pattern, one WC buffer and exact 30HS timing are retained;
+one selected-CRTC `noise_layer_v1=0` property is added to the same atomic request.
+Missing/duplicate property stops before atomic; there is no alternative or retry.
+A/B userspace, renderer, boot and AP match; candidate is `30965801B/bc48a71f`.
+Focused P354 and P353 regression tests each pass 21 cases. Artifact/static
+qualification passes with 109 source inputs. Independent review is PASS_GO and
+the actual offline promotion CLI passes. Common F1 tests pass 74 cases. No
+connected preparation, F1 approval or device effect exists.
+Pixel fidelity and noise causality remain UNPROVED. The next live comparison
+requires fresh exact preparation and separately returned attended F1 approval.
+Report: [P354 explicit noise disable H0](docs/reports/S22PLUS_FYG8_P354_NOISE_DISABLE_H0_2026-09-07.md).
+
+## Consumed P353 and H0 diagnosis
+
 P353 is consumed and CLOSED/19, recovery_required=false. Candidate
 `30965801B/a4515202` and exact Magisk rollback `23367721B/d2373bf8` transferred
 once each in the original execution, without replay or a recovery restart.
@@ -49,8 +64,8 @@ comparison: the shipped SDM/DRM path handles disabled noise with an explicit
 `noise_layer_v1=0`, whereas P353 omits the property. Exact library disassembly
 and three source-function cases establish the difference, not its live cause.
 Prefer a fresh same-pattern, same-30HS successor with only that explicit disable;
-the magenta discriminator remains the fallback. No successor is implemented,
-qualified or authorized. Thirty-nine firmware files, 22 DT combinations and
+the magenta discriminator remains the fallback. P354 above implements this
+comparison in H0; no device effect is authorized. Thirty-nine firmware files, 22 DT combinations and
 historical Android 120HS/60PHS mode text were examined. The normal Android photo
 does not identify its active mode or exclude a condition-dependent physical fault.
 Report: [Android firmware display comparison](docs/reports/S22PLUS_FYG8_P353_ANDROID_DISPLAY_COMPARISON_H0_2026-09-07.md).
