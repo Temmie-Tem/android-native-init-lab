@@ -64,6 +64,7 @@ DIAGNOSTIC_SCHEMA = "s22plus_odin_diagnostic_failure_v1"
 DIAGNOSTIC_OBSERVATION_STAGE = "enumeration-evidence-before-snapshot"
 DIAGNOSTIC_FAILURE_CLASSES = {
     "inventory-membership-changed": "UsbfsInventoryMembershipChanged",
+    "usbfs-endpoint-departed": "UsbfsEndpointDeparture",
     "usbfs-identity-failed": "UsbfsIdentityError",
     "direct-io-failed": "OSError",
 }
@@ -607,6 +608,11 @@ def enumerate_odin(
             "UsbfsInventoryMembershipChanged",
             removed=exc.removed,
             added=exc.added,
+        ) from exc
+    except usbfs_identity.UsbfsEndpointDeparture as exc:
+        # Preserve the bounded cause without a path, retry, or weaker snapshot.
+        raise OdinMeasuredEvidenceFailure(
+            "usbfs-endpoint-departed", "UsbfsEndpointDeparture"
         ) from exc
     except usbfs_identity.UsbfsIdentityError as exc:
         raise OdinMeasuredEvidenceFailure(

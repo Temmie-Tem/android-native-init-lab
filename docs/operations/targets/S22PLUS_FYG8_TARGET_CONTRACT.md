@@ -981,11 +981,36 @@ corroboration. P351 is H0-only until independent changed-closure review and fres
 artifact/static qualification pass; connected preparation and the ordinary
 returned attended F1 approval remain separate requirements.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, or P351 candidate transfer occurs, the same
+**P352 attended source-bound display successor.** P351 is consumed and never
+replayable. P352 retains its twelve exact additions, fresh readiness observation,
+white layout, three same-descriptor sessions, one-shot slot, privilege drop,
+60/75/150-second bounds, and mandatory attended physical recovery. Only the
+fresh `P352_DISPLAY_ONCE` literal selects the fixed child. There is no later lease.
+
+The renderer requires the exact vendor DRM name `msm_drm`. It selects exactly
+one returned `1080x2340x30xcmdHS` mode with the source-derived full timing tuple
+in `s22plus_fyg8_display_kms_contract_h0.py`; absence, duplicate or changed timing
+stops the attempt. Preferred-mode metadata is retained from the returned mode.
+The distinct 30Hz PHS timing is not a fallback. TEST_ONLY, flip binding,
+competing-state refusal and completed disable requirements remain unchanged.
+
+Failures may additionally emit only bounded cached ioctl context: numeric
+operation/object identifiers, fixed requested property names, up to 31
+driver-name bytes encoded as hex and at most sixteen mode summaries. This
+performs no new device read and does not arm the readiness-only kernel-log
+diagnostic for later failures. Successful output qualification remains exact.
+
+The source-derived nominal mode fixture covers all applicable stock DT merges;
+it does not prove the runtime mode filter, panel output or recovery. P352 remains
+H0-only until independent changed-closure review and fresh artifact/static
+qualification pass. Connected preparation and the ordinary returned attended
+F1 approval remain separate requirements. This clause grants no device effect.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, or P352 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, or `s22plus-fyg8-p351` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, or `s22plus-fyg8-p352` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

@@ -11,6 +11,27 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P352 H0 build, static qualification and ready-manifest publication passed.
+The common offline bundle was reopened successfully. The fresh candidate AP is
+`30965801B/6cda084d`, with byte-identical A/B builds and exact boot/AP joins.
+The renderer binds `msm_drm` and one exact 30HS timing; source-derived fixtures
+cover 22 applicable DT merges, thirteen nominal modes and failure cases. Both
+the original name error and the name-only repair's mode ambiguity reproduce
+before the corrected renderer completes ten host-fixture flips and disable.
+
+Independent changed-closure review returned PASS_GO over 90 execution-critical
+inputs; the separate USB diagnostic distinction also passed review. That change
+records endpoint disappearance distinctly but adds no retry or recovery bypass.
+P351's precise USB failure cause remains UNPROVED.
+
+P352 remains H0-only: no connected preparation, candidate transfer, active shell
+or new D0/D1/F1 authority. Actual runtime mode acceptance and visible output
+remain UNPROVED. The next device phase needs fresh exact connected preparation
+and the ordinary returned attended F1 approval. P351 is never replayable.
+Report: [P352 source-bound display H0](docs/reports/S22PLUS_FYG8_P352_SOURCE_BOUND_DISPLAY_H0_2026-09-07.md).
+
+## Latest consumed display attempt
+
 P351 is CLOSED/19 and consumed with
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false.
 Candidate `30965801B/f9e2783f` and exact Magisk rollback `23367721B/d2373bf8`

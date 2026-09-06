@@ -1645,6 +1645,13 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
                 (USB_009,),
             ),
             (
+                module.usbfs_identity.UsbfsEndpointDeparture(USB_008),
+                "usbfs-endpoint-departed",
+                "UsbfsEndpointDeparture",
+                (),
+                (),
+            ),
+            (
                 identity_with_io_cause,
                 "usbfs-identity-failed",
                 "UsbfsIdentityError",
@@ -1671,6 +1678,52 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
                 self.assertEqual(failure.inner_exception_class, class_name)
                 self.assertEqual(failure.removed, removed)
                 self.assertEqual(failure.added, added)
+
+    def test_second_inventory_departure_stops_once_without_snapshot_or_transfer(self):
+        module = self.module
+        usb = module.usbfs_identity
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            endpoint = root / "usb/002/008"
+            endpoint.parent.mkdir(parents=True)
+            endpoint.touch()
+            inventories = []
+
+            def inventory():
+                inventories.append(1)
+                if len(inventories) == 1:
+                    return {}
+                # Exercise real inventory propagation from a direct stat ENOENT.
+                def disappear(path):
+                    with mock.patch.object(usb.os, "stat", side_effect=FileNotFoundError(2, "private")):
+                        return usb.snapshot_node(path)
+                return usb.capture_inventory(root=root / "usb", snapshotter=disappear)
+
+            observer = usb.MeasuredUsbfsIdentityObserver(inventory_reader=inventory)
+            runner = SequenceRunner([""])
+            run_dir = root / "run"
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaises(module.OdinMeasuredEvidenceFailure):
+                    module._snapshot_and_record(
+                        Path("odin4"), run_dir, 78, runner=runner,
+                        device_identity=module._default_device_identity,
+                        device_inventory=module._default_device_inventory,
+                        endpoint_observer_factory=lambda: observer,
+                        timestamp=lambda: "2026-07-24T00:00:00.000000Z",
+                        enumeration_timeout_sec=1, lease=lease,
+                    )
+            self.assertEqual(len(inventories), 2)
+            self.assertEqual(runner.index, 1)
+            diagnostics = list((run_dir / "diagnostics").glob("*.json"))
+            self.assertEqual(len(diagnostics), 1)
+            payload = json.loads(diagnostics[0].read_text())
+            self.assertEqual(payload["failure_kind"], "usbfs-endpoint-departed")
+            self.assertEqual(payload["inner_exception_class"], "UsbfsEndpointDeparture")
+            self.assertEqual((payload["removed"], payload["added"]), ([], []))
+            self.assertFalse(payload["snapshot_persisted"])
+            self.assertNotIn("private", diagnostics[0].read_text())
+            self.assertFalse((run_dir / "receipts").exists())
+            self.assertFalse((run_dir / "transaction.jsonl").exists())
 
     def test_final_evidence_failure_writes_one_unindexed_sealed_diagnostic(self):
         module = self.module

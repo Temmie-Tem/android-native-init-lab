@@ -1,0 +1,57 @@
+{
+  "inputs": {
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/dsi/dsi_display.c": {
+      "sha256": "f63285d79fbee0749c5ab8d83848551df8045ecf7e4db8eebd9fe99f074fdebb",
+      "size": 248483
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/dsi/dsi_drm.c": {
+      "sha256": "30110ea1ca86b856fc462ba78765a280929939d75f0b63657f1598840faecfdc",
+      "size": 50496
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/dsi/dsi_panel.c": {
+      "sha256": "630f95eba6952438f9faf2abb7f74164f3581bf23901711129413189135e1c44",
+      "size": 155786
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/msm_drv.c": {
+      "sha256": "848e8731f5c649a77b361acdc1b1a4e85606a4e449e3dcfc338cda50d525344b",
+      "size": 59358
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/msm_gem.c": {
+      "sha256": "c6b08c30bb8395df31645dfd77fe77cbf2cca7df114980c4ed900b9f60c6d91f",
+      "size": 35165
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/samsung/ss_dsi_panel_common.c": {
+      "sha256": "35fd86f107cfc5c928962e18058cf2bb3a99db0a9a8e9b068e3a5918c99f630c",
+      "size": 266448
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/sde/sde_connector.c": {
+      "sha256": "3c8c90f815e300d2b3b5c5ad989239d99473cef7df772dc0a67962141110b59e",
+      "size": 93554
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/sde/sde_formats.c": {
+      "sha256": "f57e8d30c4155cf4eee79d158b2300a2b6e09fa6edaa4ccf765146cc4c076742",
+      "size": 43873
+    },
+    "workspace/private/outputs/s22-display-build-h0/display-drivers/msm/sde/sde_plane.c": {
+      "sha256": "50e7c7aa06138667f75ad0ae62559b66f441145e4d8f787350d5fab57af231fa",
+      "size": 141648
+    },
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/kernel_platform/common/drivers/gpu/drm/drm_atomic_uapi.c": {
+      "sha256": "e6b585cdcc5427edd68fd2b59af22c1ebb84cd126002b3d67d4330f178c09c7a",
+      "size": 43054
+    },
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/kernel_platform/common/drivers/gpu/drm/drm_auth.c": {
+      "sha256": "9d8c04131712d0dee980dc5d53d71023d0a821b15b36674e72ca1146ec0db863",
+      "size": 11905
+    },
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/kernel_platform/common/drivers/gpu/drm/drm_ioctl.c": {
+      "sha256": "7b841dd706fe09293c6f5a422117f0a48378b7547cfc5f3f8cb30667e03cfa30",
+      "size": 32469
+    },
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/kernel_platform/common/drivers/gpu/drm/drm_modes.c": {
+      "sha256": "b223656dc16aff93a4297d9736697c728bff7844eda3e1d8353a5b9d4c1e41a2",
+      "size": 60494
+    }
+  },
+  "scope": "source-informed nominal DRM producer; runtime acceptance unproved"
+}
