@@ -136,4 +136,56 @@ review, private receipt SHA-256
 `253994844639c15480b7be3378953c5dc960dbc44f6dba78ff2b5f5db8318f54`.
 The helper compiles and its reviewed source/input hashes were reverified.
 This is a reviewed proposal, not active recovery authority. No manual reconnect or observation-helper execution occurred in this unit;
-the next step is the operator's fresh explicit decision on that separate scope.
+The operator subsequently held this physical-reconnect proposal and requested
+host-only software/transport diagnosis; it remains inactive.
+
+
+## Host-only ADB offline diagnosis
+
+At the operator's request, preserved logs were compared with the earlier return,
+and only host process state and cached USB sysfs state were read. No device
+command, reconnect, ADB server restart, reboot, tracing attachment or F1 action
+was performed. A90/S20+ received no command.
+
+The retained 05:12 return shows a transport shutdown followed by new reader and
+writer threads and another authentication response. Subsequent P356 D0 verified
+rooted health. At 05:37:11 the failed D1 likewise reached an authentication
+response; at 05:37:14 the kernel recorded a SuperSpeed reset and an ADB interface
+claim warning, alongside ADB read shutdown and write timeout. At 05:37:15 new
+reader/writer threads appeared, but the captured ADB log has no subsequent
+key-fetch/authentication-response progress. This locates the observed divergence
+at the replacement transport; it does not prove which peer stopped first.
+
+The host's cached USB identity matches the selected target. It remains configured
+and authorized at SuperSpeed, with power/control=on and runtime_status=active.
+The later kernel capture contains no additional selected-topology reset or
+disconnect after 05:37:14. These observations weaken a continuing physical
+disconnection or current runtime-suspend explanation; neither excludes a
+transient link fault. The ADB server still exists, its executable matches the
+installed 34.0.5-debian binary, and its reader threads wait in USB URB reap while
+writer threads wait on futexes. This is compatible with an idle/stalled protocol
+exchange, not proof that either daemon is healthy. Thread waits alone do not
+attribute a particular thread to S22+ or establish a deadlock.
+
+The upstream [ADB connection handling](https://android.googlesource.com/platform/packages/modules/adb/+/refs/tags/android-14.0.0_r1/adb.cpp)
+calls handle_offline during new-connection handling before returning online, so
+the INFO `offline` line alone is not an authentication-rejection verdict.
+The upstream [Linux USB backend](https://android.googlesource.com/platform/packages/modules/adb/+/refs/tags/android-14.0.0_r1/client/usb_linux.cpp)
+also maps a dead write handle to ETIMEDOUT and provides an explicit USB reset
+path. Consequently the timeout text alone does not prove a five-second stall,
+and a kernel reset line alone does not identify its initiator. The corresponding
+upstream transport Reset path logs a reset, which is absent from this capture;
+that limits support for an explicit ADB Reset call but does not exclude every
+host-initiated reset. These Android 14 upstream files are explanatory references,
+not a verified source closure for the installed Ubuntu/Debian package.
+
+Conclusion: a USB/ADB transport re-establishment stall is observed; physical
+cable failure, host backend failure and device adbd/gadget failure remain
+unproved causes. There is no evidence here of P356 candidate failure because it
+has never been transferred. Fresh machine health remains unavailable. The
+original D1 timeout stays unchanged, the manual restore proposal remains on
+hold, and no automatic preparation resume is authorized. Any diagnostic reset
+would be a separate device-connected control action, beyond this read-only unit.
+
+Private captures, upstream source copies and their digest index are under
+`workspace/private/outputs/s22plus_fyg8_p356/adb-offline-h0-20260907/`.

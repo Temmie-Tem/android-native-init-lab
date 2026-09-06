@@ -29,11 +29,16 @@ reports Android home/lock screen; one later bounded inventory still found
 offline. No fresh machine health or F1 approval code exists. Do not repeat the
 reboot or treat operator screen return as D1 PASS.
 
-Host logs show USB re-enumeration, then a reset and ADB transport failure during
-authentication; underlying cause is unproved. Original D1 start and missing
+Host logs show USB re-enumeration, then a reset and ADB transport failure after
+an authentication response; underlying cause is unproved. Host-only comparison
+locates missing authentication progress on the replacement transport. Cached
+USB remains configured/active; neither cable failure nor host/device software
+causation is proved. Original D1 start and missing
 success result are preserved. A separate one-time same-port manual USB restore
 plus bounded D0 proposal has independent H0 review, but awaits a fresh operator
-request and is not active. It grants no automatic F1 preparation resume.
+request and is not active. The operator held that proposal while requesting
+host-only diagnosis, now recorded in the report. It grants no automatic F1
+preparation resume.
 P355 remains closed/consumed; no P356 candidate transfer has occurred.
 Report: [P356 framebuffer magenta preparation](docs/reports/S22PLUS_FYG8_P356_FRAMEBUFFER_MAGENTA_PREPARATION_2026-09-07.md).
 
