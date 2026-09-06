@@ -112,6 +112,8 @@ import s22plus_fyg8_open_failure_capture as p343_open_failure_capture
 import s22plus_fyg8_open_failure_capture as p344_open_failure_capture
 import s22plus_fyg8_p343_exploration_session as p343_exploration_session
 import s22plus_fyg8_p344_exploration_session as p344_exploration_session
+import s22plus_fyg8_p348_shell_session as p348_shell_session
+import s22plus_fyg8_p348_shell_action as p348_shell_action
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -1404,6 +1406,9 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
                         paths[name] = Path(path).resolve()
                     paths[shell.prefix + '_raw_carrier_parser'] = shell.adapter.RAW_PARSER_SOURCE
                     paths[shell.prefix + '_runtime_parent'] = Path(shell.runtime.SOURCE).resolve()
+                    if shell.prefix == 'p348':
+                        paths['p348_shell_session'] = Path(p348_shell_session.__file__).resolve()
+                        paths['p348_shell_action'] = Path(p348_shell_action.__file__).resolve()
                 paths[_host_first_variant(bundle).text('p341_open_read_branch_acm_observer')] = Path(
                     _host_first_variant(bundle).observer.__file__
                 ).resolve()
@@ -1707,7 +1712,7 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             closure["p326_bidirectional_acm_contract_id"] = (
                 p326_console_observer.CONTRACT_ID
             )
-            if _host_first_bundle(bundle) and not _shell_bundle(bundle):
+            if _host_first_bundle(bundle) and (not _shell_bundle(bundle) or _p348_bundle(bundle)):
                 closure[_host_first_variant(bundle).text('p341_resident_lease_schema')] = _host_first_variant(bundle).LEASE_SCHEMA
             elif _p340_bundle(bundle):
                 closure["p340_resident_lease_schema"] = P340_LEASE_SCHEMA
@@ -2289,11 +2294,18 @@ def _host_first_prefix(overlay: str) -> str:
     return 'p341'
 
 
+def _p348_bundle(bundle: core.Bundle) -> bool:
+    return (_shell_bundle(bundle) and _shell_definition(bundle).prefix == "p348")
+
+
 def _named_exploration_bundle(bundle: core.Bundle) -> bool:
-    return _p343_bundle(bundle) or _p344_bundle(bundle)
+    """Retained-action routing; the P348 shell has a separate exact owner."""
+    return _p343_bundle(bundle) or _p344_bundle(bundle) or _p348_bundle(bundle)
 
 
 def _exploration_owner(bundle: core.Bundle) -> Any:
+    if _p348_bundle(bundle):
+        return p348_shell_session
     if _p344_bundle(bundle):
         return p344_exploration_session
     if _p343_bundle(bundle):
@@ -2317,21 +2329,23 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
                 prefix + '_readonly_research_shell_qualification').replace('p341', prefix).replace(
                 'P341', prefix.upper()).replace('P3.41', 'P3.' + prefix[-2:])
         observer = types.SimpleNamespace(**vars(shell.observer))
-        observer.MAX_SESSIONS = 5
-        observer.MAX_RECONNECTS = 0
-        observer.PHYSICAL_REOPEN_COUNT = 0
+        observer.MAX_SESSIONS = 6 if prefix == "p348" else 5
+        observer.MAX_RECONNECTS = 1 if prefix == "p348" else 0
+        observer.PHYSICAL_REOPEN_COUNT = 1 if prefix == "p348" else 0
         observer.AuthObserverError = shell.observer.QualificationError
         return types.SimpleNamespace(runtime=shell.runtime, observer=observer,
             artifact=shell.artifact, failure_capture=p345_shell_exchange,
-            adapter=shell.adapter, AUTH_KEY_IDENTITY=dict(shell.auth_key), LEASE_SCHEMA=None,
+            adapter=shell.adapter, AUTH_KEY_IDENTITY=dict(shell.auth_key),
+            LEASE_SCHEMA=p348_shell_session.SCHEMA if prefix == "p348" else None,
             NO_PROOF_OUTCOME=shell.AUTH_EXEC_NO_PROOF_OUTCOME,
             SUCCESS_OUTCOME=shell.AUTH_EXEC_OUTCOME, SUCCESS_VERDICT=shell.AUTH_EXEC_VERDICT,
             OPEN_HEADER_SIZE=shell.runtime.OPEN_HEADER_SIZE,
             OPEN_HEADER_WORD_STAGES=list(shell.runtime.OPEN_HEADER_WORD_STAGES),
             OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in shell.runtime.OPEN_READ_BRANCHES.items()},
-            PROOF_FIELDS=P345_PROOF_FIELDS,
+            PROOF_FIELDS=P348_PROOF_FIELDS if prefix == "p348" else P345_PROOF_FIELDS,
             parser_failure=lambda payload, error: _p345_parser_failure_classification(payload, error, prefix=prefix),
-            proof_ok=lambda value: _p345_proof_ok(value, prefix=prefix), proof_state=_p345_proof_state,
+            proof_ok=lambda value: _p345_proof_ok(value, prefix=prefix),
+            proof_state=_p348_proof_state if prefix == "p348" else _p345_proof_state,
             session_factory=_p345_candidate_observer_session,
             stock_error=lambda payload, error: _p345_stock_error(payload, error, prefix=prefix),
             validate_receipt=_p345_validate_receipt, text=text)
@@ -9011,6 +9025,11 @@ class _P345ObserverSession(_P331ObserverSession):
     namespace: str = "p345"
     receipt_schema: str = "s22plus_fyg8_p345_shell_qualification_acm_receipt_v1"
     receipt_label: str = "P345 read-only shell qualification receipt"
+    owned_descriptor: int | None = None
+
+    def _qualify_on_descriptor(self, codec: Any, descriptor: int, writer: Any, deadline: float) -> Any:
+        return self.qualification_observer.qualify(
+            codec, descriptor, self.auth_key, None, set(), writer, deadline=deadline)
 
     def _raw_argv0_name(self) -> str:
         return "tty-cdc-acm-" + self.namespace
@@ -9026,15 +9045,18 @@ class _P345ObserverSession(_P331ObserverSession):
         try:
             descriptor = os.open(self.base.dev_root / endpoint.tty_name,
                 os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK | os.O_CLOEXEC)
+            self.owned_descriptor = descriptor
             fcntl.ioctl(descriptor, termios.TIOCEXCL)
             if not self._endpoint_exact(endpoint, descriptor):
                 return "identity-mismatch"
             self.base._raw_tty(descriptor)
             codec = _open_header_initial_observer_module(
                 self.auth_runtime, self.qualification_observer, self.namespace + "-qualification")
-            self.qualification = self.qualification_observer.qualify(
-                codec, descriptor, self.auth_key, None, set(), writer,
-                deadline=deadline)
+            self.owned_descriptor = descriptor
+            self.qualification = self._qualify_on_descriptor(codec, descriptor, writer, deadline)
+            descriptor = self.owned_descriptor
+            if descriptor is None:
+                raise F1LiveError("qualification descriptor ownership is missing")
             self.proof = dict(self.qualification.receipt)
             self.trailing_rx = _p327_trailing_probe(descriptor, writer)
             if self.trailing_rx:
@@ -9049,7 +9071,11 @@ class _P345ObserverSession(_P331ObserverSession):
             self.protocol_error = type(exc).__name__
             return "open-failed"
         finally:
-            if descriptor is not None:
+            if self.namespace == "p348":
+                if self.owned_descriptor is not None:
+                    os.close(self.owned_descriptor)
+                    self.owned_descriptor = None
+            elif descriptor is not None:
                 os.close(descriptor)
             sessions = (self.qualification.sessions if self.qualification is not None
                 else getattr(self.qualification_error, "completed_sessions", ()))
@@ -9079,13 +9105,13 @@ class _P345ObserverSession(_P331ObserverSession):
             contract_id=self.qualification_observer.CONTRACT_ID,
             target=self.auth_runtime.TARGET,
             banner_hex=self.auth_runtime.DEVICE_BANNER.hex(),
-            expected_size=len(self.auth_runtime.DEVICE_BANNER) * 5,
+            expected_size=len(self.auth_runtime.DEVICE_BANNER) * (6 if self.namespace == "p348" else 5),
             session_tx_hex=[bytes(item.tx).hex() for item in audits],
             auth_key_sha256=self.auth_key_sha256,
             session_count=len(sessions), command_count=len(sessions) * 3,
             qualification_complete=complete,
             pid1_framed_exec_proof=complete, busybox_ash_command_proof=complete,
-            framed_session_closed=complete, same_tty_fd=complete,
+            framed_session_closed=complete, same_tty_fd=complete and self.namespace != "p348",
             later_action_lease_active=False, physical_reopen_count=0,
             protocol_error=self.protocol_error)
         value.update(preauth_diagnostics=[[{"stage": d.stage, "code": d.code}
@@ -9093,16 +9119,68 @@ class _P345ObserverSession(_P331ObserverSession):
             rng_eagain_retries=[item.rng_eagain_retries for item in audits],
             partial_sessions=[{"current_stage": item.current_stage,
                 "failure_stage": item.failure_stage} for item in audits])
+        if self.namespace == "p348":
+            value.update(initial_five_same_tty_fd=complete,
+                physical_reopen_count=1 if complete else 0,
+                idle_duration_ms=(self.proof or {}).get("idle_duration_ms", 0))
         value[self.proof_key] = dict(self.proof or {})
         value.pop("tx_hex", None)
         self._publish_value(value, lane, label=self.receipt_label)
         return value
 
 
+@dataclass
+class _P348ObserverSession(_P345ObserverSession):
+    """Six initial sessions; one deliberate exact-endpoint idle/reopen."""
+
+    def _qualify_on_descriptor(self, codec: Any, descriptor: int, writer: Any, deadline: float) -> Any:
+        def reopen_after_idle() -> int:
+            current = self.owned_descriptor
+            if current is None or not self._endpoint_exact(self.endpoint, current):
+                raise F1LiveError("P348 endpoint differs before clean close")
+            self.trailing_rx = _p327_trailing_probe(current, writer)
+            if self.trailing_rx:
+                raise F1LiveError("P348 unexpected bytes before clean close")
+            os.close(current)
+            self.owned_descriptor = None
+            idle_until = time.monotonic() + 120.0
+            if idle_until + 30.0 > deadline:
+                raise F1LiveError("P348 remaining observation cannot cover idle and session")
+            while time.monotonic() < idle_until:
+                if not self._endpoint_exact(self.endpoint):
+                    raise F1LiveError("P348 endpoint changed while closed and idle")
+                time.sleep(min(0.2, max(0.0, idle_until - time.monotonic())))
+            if not self._endpoint_exact(self.endpoint) or time.monotonic() >= deadline:
+                raise F1LiveError("P348 endpoint/deadline differs before reopen")
+            reopened = os.open(self.base.dev_root / self.endpoint.tty_name,
+                os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK | os.O_CLOEXEC)
+            self.owned_descriptor = reopened
+            fcntl.ioctl(reopened, termios.TIOCEXCL)
+            if not self._endpoint_exact(self.endpoint, reopened):
+                raise F1LiveError("P348 reopened endpoint differs")
+            self.base._raw_tty(reopened)
+            return reopened
+
+        return self.qualification_observer.qualify(codec, descriptor,
+            self.auth_key, None, set(), writer, deadline=deadline,
+            reopen_after_idle=reopen_after_idle)
+
+
 P345_PROOF_FIELDS = ("qualification_complete", "pid1_framed_exec_proof",
     "busybox_ash_command_proof", "framed_session_closed", "same_tty_fd",
     "session_count", "command_count", "physical_reopen_count",
     "later_action_lease_active", "caller_selected_command", "auth_key_sha256")
+
+
+P348_PROOF_FIELDS = P345_PROOF_FIELDS + ("initial_five_same_tty_fd", "idle_duration_ms")
+
+
+def _p348_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value.get(key) for key in P348_PROOF_FIELDS}
+
+
+def _p348_proof_ok(value: Mapping[str, Any]) -> bool:
+    return _p345_proof_ok(value, prefix="p348")
 
 
 def _p345_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -9115,6 +9193,16 @@ def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
             value.get(prefix + "_readonly_research_shell_qualification")), prefix)
     except (ValueError, TypeError):
         return False
+    if prefix == "p348":
+        return (all(value.get(key) is True for key in P345_PROOF_FIELDS[:4])
+            and value.get("same_tty_fd") is False
+            and value.get("initial_five_same_tty_fd") is True
+            and type(value.get("session_count")) is int and value["session_count"] == 6
+            and type(value.get("command_count")) is int and value["command_count"] == 18
+            and type(value.get("physical_reopen_count")) is int and value["physical_reopen_count"] == 1
+            and type(value.get("idle_duration_ms")) is int and value["idle_duration_ms"] >= 120000
+            and value.get("later_action_lease_active") is False
+            and value.get("caller_selected_command") is False)
     return (all(value.get(key) is True for key in P345_PROOF_FIELDS[:5])
         and value.get("session_count") == 5 and value.get("command_count") == 15
         and type(value.get("physical_reopen_count")) is int
@@ -9151,7 +9239,8 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         prepared.private_target["topology"], prepared.run_dir,
         _candidate_observer_binding(prepared), lane_value, lane_receipt,
         usb_root=usb_root, typec_root=typec_root) as inherited:
-        yield _P345ObserverSession(inherited, inherited.delegate.delegate,
+        session_class = _P348ObserverSession if shell.prefix == "p348" else _P345ObserverSession
+        yield session_class(inherited, inherited.delegate.delegate,
             inherited_spec, prepared.run_dir, lane_value, lane_receipt,
             usb_root, typec_root, auth_key=key, auth_key_sha256=key_sha256,
             auth_runtime=shell.runtime, qualification_observer=shell.observer,
@@ -9163,6 +9252,7 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
 def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, Any]) -> dict[str, Any]:
     """Reopen private raw sessions, then rederive the fixed qualification."""
     shell = _shell_definition(prepared.bundle)
+    session_count = 6 if shell.prefix == "p348" else 5
     def require(condition: bool, reason: str) -> None:
         if not condition:
             raise F1LiveError("P345 receipt " + reason)
@@ -9194,7 +9284,7 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
     require(value.get("raw") == {"path": str(handle.stdout_path), **_p327_identity(payload),
         "capture_receipt": _receipt(capture_path, "P345 raw capture")}, "raw identity differs")
     tx_rows = value.get("session_tx_hex")
-    require(type(tx_rows) is list and len(tx_rows) <= 5, "TX session count differs")
+    require(type(tx_rows) is list and len(tx_rows) <= session_count, "TX session count differs")
     try:
         txs = [bytes.fromhex(item) for item in tx_rows]
     except (ValueError, TypeError) as exc:
@@ -9216,7 +9306,10 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             and value["download_endpoint_absent"] is True, "accepted proof incomplete")
         codec = _open_header_initial_observer_module(shell.runtime,
             shell.observer, "p345-receipt-replay")
-        require(len(txs) == 5, "accepted TX count differs")
+        require(len(txs) == session_count, "accepted TX count differs")
+        if shell.prefix == "p348":
+            require(value.get("idle_duration_ms") == proof.get("idle_duration_ms"),
+                "idle duration projection differs")
         offset = 0
         tx_offset = 0
         nonce_hashes = set()
@@ -9237,7 +9330,7 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             boot_hashes.add(hashlib.sha256(parsed.session.audit.boot_id).hexdigest())
             offset += size
             tx_offset += len(tx)
-        require(offset == len(received) and len(nonce_hashes) == 5 and len(boot_hashes) == 1,
+        require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
             "session continuity differs")
     lane = value.get("lane", {})
     require(lane.get("source_topology") == p324_typec_lane.SOURCE_TOPOLOGY
@@ -12332,7 +12425,7 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
                         _host_first_variant(prepared.bundle).runtime.DEFAULT_COMMANDS
                     ),
                     "command_count": 0,
-                    "max_commands": _host_first_variant(prepared.bundle).runtime.MAX_COMMANDS,
+                    "max_commands": (18 if _p348_bundle(prepared.bundle) else _host_first_variant(prepared.bundle).runtime.MAX_COMMANDS),
                     "auth_key_sha256": None,
                     "preauth_diagnostics": [],
                     "rng_eagain_retries": [],
@@ -13455,7 +13548,7 @@ def _candidate_arrival_proof_projection(
                 "original_errno_returned_unchanged": True,
             }
         )
-        if _shell_bundle(prepared.bundle):
+        if _shell_bundle(prepared.bundle) and not _p348_bundle(prepared.bundle):
             result.pop("resident_lease_schema", None)
             result["listener_wait_after_proof"] = False
             result["later_action_lease_active"] = False
@@ -18629,6 +18722,8 @@ def build_parser() -> argparse.ArgumentParser:
     modes.add_argument("--execute", action="store_true")
     modes.add_argument("--recover", action="store_true")
     modes.add_argument('--resident-action', choices=p343_exploration_session.ACTION_NAMES)
+    modes.add_argument('--shell-command-file', type=Path)
+    modes.add_argument('--shell-status', action='store_true')
     parser.add_argument("--manifest", type=Path, default=core.DEFAULT_MANIFEST)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--approval")
@@ -18659,6 +18754,16 @@ def main(argv: list[str] | None = None) -> int:
                 root, bundle, run_dir, d0.adb_client_for_bundle(adb, bundle)
             )
             result = {**result, "run_dir": str(run_dir)}
+        elif args.shell_command_file is not None or args.shell_status:
+            if args.run_dir is None or args.approval is not None:
+                raise F1LiveError('shell action needs its existing run, not a new approval')
+            prepared = load_prepared(root, args.manifest, args.run_dir)
+            if not _p348_bundle(prepared.bundle):
+                raise F1LiveError('shell action requires an exact P348 retained lease')
+            if args.shell_status:
+                result = p348_shell_action.status(sys.modules[__name__], prepared)
+            else:
+                result = p348_shell_action.run_action(sys.modules[__name__], prepared, args.shell_command_file)
         elif args.resident_action is not None:
             if args.run_dir is None or args.approval is not None:
                 raise F1LiveError('named action needs its existing run, not a new approval')

@@ -804,11 +804,69 @@ no new D0/D1 runner, baseline exception, retry, reopen, recovery deviation or
 standing authority is introduced. This capability grants no device authority
 without those matching inputs.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, or P347 candidate transfer occurs, the same
+**P348 attended retained read-only shell.** P344 and P347 remain CLOSED,
+consumed and never replayable. This successor retains P347's isolated read-only
+child view, resource/UID/GID/capability restrictions, syscall filter, blocking
+output writer, pipefail, 15-second child limit and 128-KiB output cap. It adds
+an attended current-boot shell lease with at most one hour and 16 later actions.
+It does not activate an unattended session, interactive PTY, persistent install,
+writable filesystem, network, new syscall, reboot or Download shell command.
+
+Initial qualification uses the five P347 semantic cases on the fresh candidate
+and one further fixed witness after exactly one clean tty close/open and at
+least 120 seconds idle, inside the 300-second observer bound: six sessions,
+18 commands, fresh challenges and one unchanged authenticated per-boot identity.
+The first five use one descriptor; the sixth verifies clean reopen. There is no
+retry, resynchronization or extra session after uncertainty. Accepted observation,
+OBSERVED and candidate_boot_ready precede durable no-clobber lease/guard
+publication and verified observer-guard release. ACTIVE is an intermediate F1
+state, not Android health or terminal success. Publication/release failure
+permits only the already bound exact rollback.
+
+The reviewed host action runner accepts one private file containing 1–1,023
+bytes under the existing shell encoding rules, binds the exact bytes to a
+one-shot intent, and sends only the parent identity / selected isolated shell /
+fixed nonce tuple. Each action creates a fresh child; it transfers no shell
+variables, working directory or background jobs to the next action. No caller
+executable, environment, transport or recovery parameter is accepted. Under
+existing target/transaction locks it revalidates source, lease, target, topology,
+key, candidate, host clock/boot epoch and recovery owner, opens the exact tty
+once and proves unchanged authenticated device boot before EXEC. The full
+30-second session window must remain before OPEN; its deadline never exceeds
+lease expiry. Host reboot/suspend, pending intent, malformed receipt, drift,
+expiry, budget exhaustion or attendance loss blocks further actions and requires
+rollback. Neither a new invocation nor a reporting cut renews or replays work.
+
+A complete nonzero result (except 126/127), timeout, bounded truncation or
+cancel may permit another action only after valid cleanup, terminal frames and
+final nonce witness. Preserve actual outcome, flags, code, signal and output
+length; protocol completion is not command success. Codes 126/127 remain
+stop-and-recover under the inherited ambiguous exec-failure encoding. CANCEL
+is sent once by the existing descriptor owner; ACK0 and ACK1 retain their
+active/already-completed meanings. Missing or inconsistent terminal evidence
+is uncertainty, never a retry. Terminal raw/result evidence survives expiry or
+receipt failure without rewriting consumed action intent or effect history.
+
+P348 reuses the existing physical Download and exact Magisk boot-only rollback
+owner. Malformed shell evidence must not prevent that already bound recovery.
+Final capability PASS requires initial qualification, the reviewed later-action
+acceptance sequence with exact outcomes and no unresolved action, exact rollback
+and final rooted FYG8 health. Functional proof and rollback health remain separate;
+short observed use does not prove an hour of residency or arbitrary applet meaning.
+
+This capability is H0-only until its actual execution-critical closure, raw-first
+paths, host clock and retained-receipt consumers pass independent review and
+fresh artifact/static/ready qualification. Ordinary current D0 preparation and
+separately returned attended F1 approval remain mandatory. Existing ordinary
+reboot D1 may be used only when needed for fresh baseline preparation under
+current operator authorization. No new D0/D1 profile or baseline exception is
+introduced. This clause by itself grants no device effect or later shell use.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, or P348 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, or `s22plus-fyg8-p347` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, or `s22plus-fyg8-p348` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
@@ -895,6 +953,7 @@ remains forbidden.
 Routine D0/D1 evidence is proportional; F1 retains a structured result, journal,
 private raw logs, exact transfers/no-replay, rollback, canonical order, and health:
 `live_session_start -> candidate_flash_start -> candidate_flash_done -> candidate_boot_ready -> rollback_flash_start -> rollback_flash_done -> rollback_boot_ready -> live_session_end`.
+
 
 **Raw-first observer preservation.** Every S22+ D0/F1 device-observation
 subprocess output or endpoint byte stream used by a parser or classifier is bounded, no-clobber, mode-0400 and

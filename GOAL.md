@@ -11,16 +11,23 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-Plan and design P348: an attended current-boot read-only shell session combining
-P347 shell semantics with the P344 retained-action workflow. The operator has
-authorized this H0 planning/design unit only. Its deliverable is the
-[implementation and validation design](docs/plans/S22PLUS_FYG8_P348_RETAINED_READONLY_SHELL_DESIGN_2026-09-06.md).
-Proposed limits are one hour, 16 later actions, a fresh isolated child per
-command, existing timeout/output bounds and mandatory exact Android rollback.
-Planning/design and independent design review are complete; the review's
-126/127 outcome clarification is incorporated. The next proposed unit is H0
-implementation and its focused tests/changed-closure review. This proposal is
-not implemented or activated; no P348 device authority exists.
+P348 implementation, independent capability review, A/B qualification and
+operator-preapproved D0/D1 preparation are complete. The fresh ready manifest is
+`workspace/public/src/device-action/manifests/s22plus_fyg8_p348_process_v2_ready_1.json`;
+prepared run `p348-ready1-prepared-20260906-2` reopened successfully with 67
+execution sources. The exact F1 code has been issued; execution still requires
+that returned code. No P348 transfer, F1 transaction or later shell lease exists.
+
+The prepared capability has six initial sessions (five same-FD, then one clean
+reopen after 120 seconds idle), followed by at most one attended hour / 16 later
+read-only shell actions and mandatory exact Magisk rollback. P347 child/filter/
+output behavior is unchanged. Initial proof, actual later use and final Android
+health are distinct; no live P348 functional proof is claimed yet.
+
+D0 first stopped on retained evidence. One approved ordinary-reboot D1 returned
+healthy with a changed boot ID, then fresh D0 passed. Current last-observed state
+is healthy rooted FYG8 Android, not native shell. A90/S20+ received no command.
+Report: [P348 preparation](docs/reports/S22PLUS_FYG8_P348_RETAINED_SHELL_PREPARED_2026-09-06.md).
 
 ## Latest completed bounded unit
 

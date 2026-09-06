@@ -36,6 +36,21 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
     def source(self, name: str) -> str:
         return (REVALIDATION / name).read_text(encoding="utf-8")
 
+    def test_p348_preclose_raw_byte_and_descriptor_owner_are_bound(self):
+        filename = "device_action_f1_live_v2.py"
+        text = self.source(filename)
+        name = "_P348ObserverSession._qualify_on_descriptor"
+        body = self.module._function_sources(text)[name]
+        for old, new in (
+            ("self.trailing_rx = _p327_trailing_probe(current, writer)", "self.trailing_rx = b''"),
+            ("self.owned_descriptor = reopened", "self.owned_descriptor = None"),
+        ):
+            changed = body.replace(old, new, 1)
+            self.assertNotEqual(body, changed)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module._audit_function_contracts(REVALIDATION,
+                    {filename: text.replace(body, changed, 1)})
+
     def test_p345_raw_read_order_and_failed_audit_retention(self):
         cases = (
             ("s22plus_fyg8_research_shell_exchange.py", "exchange",
