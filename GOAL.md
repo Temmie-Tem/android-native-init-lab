@@ -11,6 +11,24 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P355 is being prepared as a fresh hardware magenta solid-fill comparison.
+It retains P354's exact 30HS mode, original patterned WC buffer and
+noise_layer_v1=0, adding only selected-plane color_fill=0x80ff00ff to the same
+single atomic request. Missing/duplicate property stops before submission.
+A full magenta field is the intended diagnostic observation; white, the old
+pattern or unchanged logo is not successful magenta qualification. A clean
+result would not alone prove a cache fault because internal format/scaler
+handling also differs in the solid-fill path.
+
+H0 A/B build and static qualification pass; P355/P354 focused tests pass 21
+cases each. Independent review is PASS_GO and actual offline promotion passes. The operator preapproved
+D0/D1 through F1 code issuance and confirmed physical availability; no P355
+connected action has occurred. Separately returned F1 approval remains required.
+P354 remains closed and consumed. No source or artifact from that run is changed.
+Report: [P355 hardware magenta comparison](docs/reports/S22PLUS_FYG8_P355_HARDWARE_SOLID_FILL_PREPARATION_2026-09-07.md).
+
+## Consumed P354 comparison
+
 P354 is consumed and CLOSED/19, recovery_required=false. Candidate
 `30965801B/bc48a71f` and exact Magisk rollback `23367721B/d2373bf8` transferred
 once each in the original execution, without replay or a recovery restart.
