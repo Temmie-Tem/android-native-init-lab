@@ -164,6 +164,11 @@ proved. The photograph alone does not resolve scanout, memory/coherency, panel
 or camera contributions; no cause is asserted. No further device experiment
 was performed to diagnose it.
 
+During the later host analysis the operator confirmed the same corruption was
+visible to the naked eye. The separate statement and subsequent exact-binary
+checks are documented in the
+[image-corruption H0 analysis](S22PLUS_FYG8_P353_IMAGE_CORRUPTION_H0_2026-09-07.md).
+
 The original operator statement, photograph and subsequent qualified assessment
 are retained privately as separate records. The initial witness is preserved;
 its meaning is narrowed by the photograph rather than silently replaced.

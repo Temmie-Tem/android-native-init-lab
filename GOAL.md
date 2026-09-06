@@ -33,6 +33,18 @@ starts from H0 diagnosis of image corruption and requires a fresh candidate
 binding for another experiment; this goal grants no device authority.
 Report: [P353 static image and closed result](docs/reports/S22PLUS_FYG8_P353_STATIC_FIRST_FRAME_PREPARATION_2026-09-07.md).
 
+The subsequent H0 corruption audit runs the exact consumed AArch64 renderer in
+user-mode QEMU: all 10183680 paint bytes match an independent rectangle oracle,
+including row padding. Source and consumed-module checks agree on linear format,
+pitch and WC mapping; actual WC visibility and hardware state remain unproved.
+The operator confirms the corruption was visible to the naked eye. Retained
+Android underrun text is not candidate causal evidence. No root cause or repair
+is established. The next proposed discriminator is a fresh same-mode hardware
+magenta `color_fill` candidate; four exact source-function H0 cases pass, but no
+successor has been implemented, qualified or authorized. This is not a claim
+that a clean solid-fill result would prove a cache fault.
+Report: [P353 image-corruption H0 analysis](docs/reports/S22PLUS_FYG8_P353_IMAGE_CORRUPTION_H0_2026-09-07.md).
+
 ## Consumed P352 and source investigation
 
 P352 is CLOSED/19 and consumed with
