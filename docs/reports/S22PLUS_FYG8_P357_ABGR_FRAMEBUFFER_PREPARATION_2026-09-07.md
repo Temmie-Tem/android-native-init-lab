@@ -123,3 +123,33 @@ The reviewed execution inputs/artifacts were reverified unchanged. Source syntax
 focused tests, repository boundary, document links and diff checks pass.
 This qualifies the capability only; fresh connected preparation and exact
 attended F1 approval remain separate.
+
+
+## Connected preparation
+
+The first ordinary preparation in `p357-ready1-prepared-20260907-1` preserved the
+expected retained-baseline rejection after exact initial rooted FYG8 health
+passed. Its non-reusable stop receipt is
+`3252B/65242b19e10005ff23c264a2de425e82c507700b0c230cbecc28fcdeeabe16dc`;
+actual stop-result validation passed. No candidate/Download action occurred.
+
+Under the operator's current D0/D1 preapproval, the unchanged reviewed normal
+reboot primitive was invoked once with fresh P357 reporting/authority metadata,
+the preserved stop, and the exact closed P356 final-health binding. Its H0
+self-test passed before execution. The one ordinary reboot returned with a new
+boot ID and exact rooted FYG8/original hashes/Android health. Result
+`2963B/6ee68b7f1f153edd620cd6332baa9ff15ef20480b69d51c18f27fee3e001c4b7`
+is `PASS_P357_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`; linked execution/primitive
+receipts were reverified. P356's earlier timeout is unchanged and was not retried.
+
+Fresh ordinary D0 in `p357-ready1-prepared-20260907-2` then passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`. Prepared record is
+`30321B/f052280c72305ef678d5d74052a11941c5bd9023ae20099d8a897e13b9205713`.
+It binds the current target, boot, clean baseline, candidate/rollback and source
+closure and emits the separately returned F1 token. Device-write, reboot,
+partition-transfer and F1-authority flags in that prepared record are false.
+No P357 candidate has been transferred. A90/S20+ received no command.
+
+Actual `load_prepared` reopening passed. GOAL/report changes are outside the
+prepared execution closure. Scoped content/link/privacy and diff checks pass.
+The requested preparation-through-code unit is complete; F1 remains unexecuted.

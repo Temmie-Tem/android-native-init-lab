@@ -11,7 +11,7 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P357 is H0 preparation for opaque ABGR8888 ordinary-buffer magenta. The operator
+P357 is prepared for opaque ABGR8888 ordinary-buffer magenta. The operator
 authorized investigation and D0/D1 preparation through a fresh F1 code; candidate
 execution still requires the separately returned exact code. Keep P356's WC
 allocation, stride, mode, noise/fill settings, geometry and one-commit lifetime;
@@ -21,8 +21,12 @@ scanout was not captured. This format/alpha comparison is not a cache diagnosis.
 Completion is a reviewed, qualified candidate with fresh preparation and code.
 P357 A/B packaging, actual AArch64 paint, static qualification and offline
 promotion pass. P357/P356 suites each pass 21 cases; independent review is
-PASS_GO. Fresh connected preparation is next under the operator D0/D1 grant.
-No candidate transfer has occurred.
+PASS_GO. First D0 preserved the expected baseline stop. One authorized ordinary D1
+reboot returned with changed boot ID and exact health; fresh D0 in
+`p357-ready1-prepared-20260907-2` passed and a new F1 code is ready.
+Prepared SHA-256 is `f052280c72305ef678d5d74052a11941c5bd9023ae20099d8a897e13b9205713`.
+Await the separately returned attended F1 approval. No candidate transfer has
+occurred, and P356's earlier D1 timeout remains unchanged.
 Report: [P357 opaque ABGR preparation](docs/reports/S22PLUS_FYG8_P357_ABGR_FRAMEBUFFER_PREPARATION_2026-09-07.md).
 
 ## Consumed P356 comparison
