@@ -659,13 +659,13 @@ Download/TWRP/recovery/panic/watchdog/power-loss retention remain unproved.
 ## S20+ last_kmsg Record-Format D0
 
 Status: **DEFINED - LAST_KMSG RECORD-FORMAT D0 NOT ACTIVE; REVIEW REQUIRED**
-Runner-Normalized-SHA256: `9de57f83722740989fdbf04e135005f7846c75cd5826cc4287f116301a0b46f9`
+Runner-Normalized-SHA256: `ab22c9534a95e44d84577ca52c14d07ce6791de486739e85b0fd54654969c337`
 Root-Script-SHA256: `bb59051b31db9cc038ff5bec9db88f31bb1f49ba7cd481c6992458be021901d2`
 
 This separate fixed read-only capability is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_last_kmsg_observation_d0.py`,
 dormant at source SHA-256
-`9299fc66963d3066a9de2f750c2a01ec89e0fc77d4f61ced66801e7ededba2ce`.
+`0d00a8a979375b98444a28becd23817dd5c05cb5fbefde5c21d29a44e441c04d`.
 It reuses the exact root-health parser, inventory and private-publication
 utilities without modifying or invoking that capability's execution owner.
 The root-health source remains 39,819 bytes at SHA-256
@@ -700,8 +700,17 @@ The single observed path is `/proc/last_kmsg`, the Samsung sec_log window on the
 previous boot's kernel log. `CONFIG_SEC_LOG_BUF`, `CONFIG_SEC_LOG_LAST_KMSG` and
 `CONFIG_SEC_LOG_STORE_LAST_KMSG` are set in the stock 4.19.113 kernel, and the
 recorded pstore readiness D0 observed this node as a readable regular file of
-2,097,136 bytes with its content deliberately unread. No other path is read,
-and no ramoops, pstore, PMSG or `/data` path is touched by this capability.
+2,097,136 bytes with its content deliberately unread. That size is a property
+of the boot that was observed, not a constant: `/proc/last_kmsg` is a boot-time
+snapshot whose length is the previous boot's ring index, so a short boot yields
+a short node. No ramoops, pstore or PMSG path is touched by this capability.
+
+One `/data` path is read, and the earlier claim that none was is withdrawn: the
+pinned root-health script this runner reuses executes
+`/data/adb/magisk/magisk -v` and `-V` to bind the resident Magisk version
+(`s20plus_g986n_attended_root_health_d0.py:115-116`). That is a fixed
+version query on the pinned root binary, it reads no user data, and it is the
+only `/data` access on any path.
 
 No log byte crosses the device boundary. Only node state, `stat` size and link
 count, two whole-window SHA-256 values, two scanned byte counts and seven shape
@@ -2756,13 +2765,22 @@ PID1. Both evidence records are decoded as records - parsed, required to be JSON
 objects, and required to re-encode to exactly the bytes on disk - rather than
 accepted on bounded file metadata alone.
 
-The proof of PID1 execution is the candidate's banner, which only its PID1
-writes, read from the `/proc/last_kmsg` sec_log window by the separate
-`## S20+ last_kmsg Observation D0` capability after the authorized rollback and
-healthy return. That capability is dormant and must be reviewed and activated
-before this F1 can produce an interpretable result at all. This is a change in
-sequencing: the banner read is not optional corroboration, it is where the
-answer comes from.
+THIS F1 HAS NO ESTABLISHED PROOF CHANNEL FOR PID1 EXECUTION, and that is
+recorded here rather than papered over. An earlier revision of this paragraph
+named a `## S20+ last_kmsg Observation D0` capability that does not exist, and
+claimed the candidate's `/dev/kmsg` banner was proof "which only its PID1
+writes". Both statements were wrong. The capability that does exist is
+`## S20+ last_kmsg Record-Format D0`; it counts record prefix shapes, it reads
+no banner, and it is itself still dormant pending review. And the banner claim
+was refuted: this device carries resident root, a fixed string is writable by
+anything, and a ring buffer can retain one from an earlier boot, so the banner
+is characteristic of the candidate rather than authenticated as coming from it.
+
+What this F1 can therefore return today is an observation, not a proof. It
+records whether a departure from Download was seen and held, and no path
+returns `PROVED`. Any future proof channel must be designed, reviewed and named
+here before it can be read as one, and it must state which producers its
+evidence excludes and which it does not.
 
 There is no dwell. The 180-second window of the consumed candidates does not
 apply as a dwell, and the candidate must not be given one.

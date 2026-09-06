@@ -137,10 +137,19 @@ class P0ActivationDocumentTests(unittest.TestCase):
         self.module = load(P0_OWNER)
 
     def test_registry_header_and_separator_are_present_verbatim(self):
+        # Same independence rule as the contract-section anchors above, and it
+        # was missed here when those were fixed: reading the expected header out
+        # of the owner under test makes the guard circular, so an owner re-bound
+        # to a table of its own wording would agree with itself while the real
+        # AGENTS registry drifted. These two literals ARE the canonical table.
         text = AGENTS.read_text()
         source = (REVALIDATION / (P0_OWNER + ".py")).read_text()
-        header = re.search(r'\n    header = "([^"]+)"', source)[1]
-        separator = re.search(r'\n    separator = "([^"]+)"', source)[1]
+        header = "| Target | Current state | Binding target contract | Live process |"
+        separator = "| --- | --- | --- | --- |"
+        self.assertEqual(re.search(r'\n    header = "([^"]+)"', source)[1], header,
+                         "the owner no longer pins the canonical registry header")
+        self.assertEqual(re.search(r'\n    separator = "([^"]+)"', source)[1], separator,
+                         "the owner no longer pins the canonical registry separator")
         self.assertEqual(text.count(header), 1, "registry header drifted from the owner")
         self.assertIn(separator, text, "registry separator drifted from the owner")
 

@@ -19,6 +19,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -223,6 +224,28 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(M.ObservationError):
             M.parse_root(self.transcript(lines_total="10"))
 
+    def test_an_all_zero_count_over_a_nonempty_window_is_refused(self):
+        # The case the partition sum alone cannot see: if every grep fails, each
+        # `|| key=0` fires, zero sums correctly to zero, and the result would
+        # publish SCANNED_NO_RECORDS about a node just verified to hold 2 MiB.
+        with self.assertRaises(M.ObservationError):
+            M.parse_root(self.transcript(
+                lines_total="0", **{k: "0" for k in (*M.SHAPES, M.UNCLASSIFIED)}))
+
+    def test_a_nonempty_window_digested_as_empty_is_refused(self):
+        # A digest pass is not length-checked, so total truncation would
+        # otherwise arrive as a well-formed, self-consistent digest pair.
+        empty = M.EMPTY_SHA256 + "  -"
+        with self.assertRaises(M.ObservationError):
+            M.parse_root(self.transcript(window=empty, recheck=empty))
+
+    def test_the_result_does_not_claim_the_digest_passes_were_length_checked(self):
+        # Only the byte-count passes are length-verified. The result must say so
+        # rather than let `window_stable_across_passes` be read as read-integrity.
+        facts = M.parse_root(self.transcript())
+        self.assertIs(facts["digest_passes_length_verified"], False)
+        self.assertIs(facts["window_digests_agree"], True)
+
     def test_an_unscanned_node_reports_no_measurement(self):
         # A zero from a branch that never ran must not read as a measured empty
         # buffer, and must not publish `record_format_measured`.
@@ -231,7 +254,12 @@ class ParserTests(unittest.TestCase):
         self.assertFalse(facts["counts_partition_the_scan"])
 
     def test_an_empty_but_scanned_window_is_distinguished_from_an_unscanned_one(self):
+        # A zero-length node genuinely read: size, both byte-count brackets and
+        # every count are zero together, which is consistent and is a real
+        # measurement, unlike the all-zero-count case over a nonempty window.
         facts = M.parse_root(self.transcript(
+            meta="0:1", meta_after="0:1", scanned="0", scanned_after="0",
+            window=M.EMPTY_SHA256 + "  -", recheck=M.EMPTY_SHA256 + "  -",
             lines_total="0", **{k: "0" for k in (*M.SHAPES, M.UNCLASSIFIED)}))
         self.assertEqual(facts["dominant_shape"], "no-records")
         self.assertEqual(M.channel_verdict(facts), "SCANNED_NO_RECORDS")
@@ -554,6 +582,36 @@ class DeviceShellTests(unittest.TestCase):
             self.assertEqual(counts["pri_ts_plain"], 1)
             self.assertEqual(counts["ts_plain"], 1)
             self.assertEqual(counts["pri_only"], 2)
+
+    def test_a_full_size_window_completes_all_passes_within_the_timeout(self):
+        # The claimed workload is 11 reads of a ~2 MiB node inside a 60-second
+        # root timeout, and every other shell test uses a fixture of a few
+        # hundred bytes, so the cost of the real thing was asserted and never
+        # measured. Build the recorded size and run the actual generated script.
+        #
+        # This is qemu over an ordinary file, not procfs on the phone, so it
+        # bounds the tool cost and NOT the device's read behaviour. A pass here
+        # does not establish procfs dynamics; a failure would establish that the
+        # pass count alone is already too expensive.
+        record = b"<6>[%12.6f] [0:      swapper/0:    0] sec_log fixture record\n"
+        unit = b"".join(record % (i / 1000.0) for i in range(1000))
+        body = (unit * (M.OBSERVED_SIZE // len(unit) + 1))[:M.OBSERVED_SIZE]
+        self.assertEqual(len(body), M.OBSERVED_SIZE)
+        with tempfile.TemporaryDirectory() as temp:
+            script = self.fixture(Path(temp), node_bytes=body)
+            started = time.monotonic()
+            result = self.run_device_shell(script)
+            elapsed = time.monotonic() - started
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = self.parsed(result)
+            self.assertEqual(facts["size"], M.OBSERVED_SIZE)
+            self.assertEqual(facts["scanned"], M.OBSERVED_SIZE)
+            self.assertTrue(facts["counts_partition_the_scan"])
+            self.assertLess(elapsed, M.ROOT_TIMEOUT,
+                            f"the full-size pass sequence took {elapsed:.1f}s "
+                            f"against a {M.ROOT_TIMEOUT}s root timeout")
+            # The transcript must also stay inside the output cap on real data.
+            self.assertLess(len(result.stdout) + len(result.stderr), M.ROOT_MAXIMUM)
 
     def test_absent_node_still_emits_every_key(self):
         with tempfile.TemporaryDirectory() as temp:

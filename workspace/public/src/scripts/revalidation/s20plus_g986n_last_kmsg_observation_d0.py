@@ -33,6 +33,9 @@ ROOT_TIMEOUT = 60.0
 NODE = "/proc/last_kmsg"
 SCAN_MAXIMUM = 4194304
 OBSERVED_SIZE = 2097136
+# sha256 of the empty stream, so a fully truncated digest pass cannot pass as a
+# valid window digest. Not a substitute for a length check; see parse_root.
+EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 
 class ObservationError(RuntimeError):
@@ -279,8 +282,27 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         # Identical prefix digests cannot see growth past the cap; the size can.
         if values["meta_after"] != values["meta"]:
             raise ObservationError("node metadata changed across the scan")
+        # A digest pass is not itself length-checked - `head` can stop short and
+        # `sha256sum` still succeeds - so a pair of digests that agree could in
+        # principle both cover the same truncated prefix. The total-truncation
+        # case is free to exclude and is excluded here.
+        if facts["size"] > 0 and window[1] == EMPTY_SHA256:
+            raise ObservationError("nonempty window digested as empty")
         facts["window_sha256"] = window[1]
         facts["window_stable_across_passes"] = True
+        # Deliberately narrow, because the digests cannot carry more than this.
+        # What is established: the window did not change between the first and
+        # last pass, and it did not read as empty. What is NOT established: that
+        # each digest pass read the full length, since only the byte-count passes
+        # are length-verified. A partial-but-identical pair remains possible.
+        #
+        # It is bounded, though, and that is why the observation may still stand:
+        # no published count comes from a digest pass. Every shape count comes
+        # from a grep pass, and those are covered by the partition sum and the
+        # two verified byte-count brackets. A truncated digest pair can withhold
+        # a warning; it cannot corrupt a number.
+        facts["window_digests_agree"] = True
+        facts["digest_passes_length_verified"] = False
         facts["scan_complete"] = True
     elif (
         values["window"] != "none"
@@ -308,6 +330,14 @@ def parse_root(result: tuple[int, bytes, bytes]) -> dict[str, Any]:
         raise ObservationError("shape counts do not partition the scanned lines")
     if any(counts[key] > total for key in PREDICATES):
         raise ObservationError("shape count exceeds the scanned line total")
+    # The degenerate case the sum alone cannot see. If every grep fails - a
+    # missing or broken tool, an unreadable stream - each `|| key=0` fires and
+    # the counts are all zero, which sums correctly to a zero `lines_total` and
+    # would publish SCANNED_NO_RECORDS about a node we just verified is not
+    # empty. Bytes were read, so at least one line exists under grep's line
+    # model; zero lines over a nonempty window is a failure, not a measurement.
+    if facts["bounded"] and facts["scanned"] > 0 and total == 0:
+        raise ObservationError("nonempty window counted no lines")
     facts["shape_counts"] = counts
     facts["counts_partition_the_scan"] = facts["bounded"] and total > 0
     # No semantic fact is derived here. This capability reports what the records
