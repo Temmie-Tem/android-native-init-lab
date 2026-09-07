@@ -11,13 +11,20 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P360 H0 build/static/promotion and independent PASS_GO are complete for one
-cached two-frame transition: exact
-P359 RGB/grid/edge first, then rotated regions and a large 2 after five seconds.
-Both buffers stay retained until the existing deadline or physical Download.
-The operator authorized D0/D1 preparation; F1 requires its own prepared token.
-Fresh connected preparation is the remaining bounded step.
-No P360 device effect has occurred.
+P360 two-frame preparation has passed H0 build/static/promotion, independent
+PASS_GO and fresh D0. The planned first frame is the exact P359 RGB/grid/edge;
+five seconds after its successful submission, one FB-only commit selects
+rotated regions and a large 2. Both buffers remain retained until the existing
+deadline or physical Download. Actual visible transition remains unproved.
+
+The first D0's expected baseline stop is preserved. One preapproved ordinary
+reboot returned exact rooted FYG8/original boot and supporting hashes/Android
+health; fresh D0 passed in `p360-ready1-prepared-20260907-2`. Prepared record is
+`30321B/7a1b469a`. Actual prepared-record reopening passed. No P360 candidate transfer or F1
+authorization has occurred; no active native lease exists. A90/S20+ received no
+command from this task. F1 still requires the separately returned fresh token
+and physical Download availability.
+Report: [P360 two-frame preparation](docs/reports/S22PLUS_FYG8_P360_TWO_FRAME_PREPARATION_2026-09-07.md).
 
 ## Consumed P359 pattern
 

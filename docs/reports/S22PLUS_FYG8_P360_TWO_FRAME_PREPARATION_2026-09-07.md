@@ -55,6 +55,35 @@ Private evidence is under `workspace/private/outputs/s22plus_fyg8_p360/`.
 Offline promotion passed with common_offline_verified=true. Independent final
 review passed PASS_GO with no findings; receipt SHA-256
 `5a33e2d2815b7b0ddc9d36b8c5f38b469c63c6e9c82974f3755bad998cc76cee`.
-All reviewed execution-critical and artifact identities reverify. No P360 connected
-preparation, candidate transfer or F1 effect has occurred. Unrelated S20+ changes
+All 108 reviewed execution-critical inputs and six artifact identities reverify.
+No P360 candidate transfer or F1 effect has occurred. Unrelated S20+ changes
 and the pre-existing P345 manifest remain outside this work.
+
+
+## Connected baseline preparation
+
+First D0 verified exact initial health and preserved the expected baseline
+rejection in `p360-ready1-prepared-20260907-1`. The actual bundle and strict
+stop validator passed; result
+`3252B/00ae8a834310a6a93a6df5678a5ce8df9e64ea42aa1d00381d54c9bd88132d80`.
+This non-reusable result grants no transfer or control action.
+
+Current D0/D1 preapproval was bound through fresh private metadata to the
+unchanged reviewed P341/P320/P296 one-normal-reboot primitive, the closed P359
+result and exact stop receipt. Self-test passed before the sole execution.
+The D1 result is `PASS_P360_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`,
+`2963B/77652cd7fcb48f35f6a0202c1bc4523ae5868b71b6ced3f9d16c81331b9786e1`.
+Changed boot ID, exact rooted FYG8, original boot/supporting hashes and Android
+health passed. Linked invocation/primitive receipts reverify. No retry or manual
+recovery occurred; A90/S20+ received no command from this task.
+Fresh D0 preparation in `p360-ready1-prepared-20260907-2` passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`, result
+`3261B/ebe327c2143ead9cd3bfb84435c300b3d9b25917e10ee68fa07daed236ada407`.
+Prepared record:
+`30321B/7a1b469af9f87ca6d7bdabb6e30ace81b8ae8337d94cfef5ca81edd4d75d0dca`.
+The fresh token is supplied directly to the operator and excluded from tracked
+documents. Candidate transfer, Download transition and F1 authorization remain
+absent. Actual load_prepared reopening passed and all reviewed identities remained
+unchanged. H0 was committed as `6d5a1b76e6`. The remaining attended F1 requires
+the fresh token returned separately and physical Download availability under
+the P360 target clause.
