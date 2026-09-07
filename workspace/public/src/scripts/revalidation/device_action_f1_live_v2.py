@@ -30,6 +30,7 @@ import device_action_f1_evidence_v2 as typed_evidence
 import consumed_candidate_registry_v1 as consumed_registry
 import device_action_f1_v2 as core
 import s22plus_fyg8_p363_return_host as p363_return_host
+import s22plus_fyg8_p364_return_host as p364_return_host
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
 import s22plus_fyg8_p313_guard_lifetime as p313_guard_lifetime
@@ -2362,10 +2363,10 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
             OPEN_HEADER_SIZE=shell.runtime.OPEN_HEADER_SIZE,
             OPEN_HEADER_WORD_STAGES=list(shell.runtime.OPEN_HEADER_WORD_STAGES),
             OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in shell.runtime.OPEN_READ_BRANCHES.items()},
-            PROOF_FIELDS=P363_PROOF_FIELDS if prefix in RETURN_SHELL_OWNERS else _dispatch_proof_fields(prefix) if prefix in DISPATCH_SHELL_OWNERS else P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
+            PROOF_FIELDS=_return_proof_fields(prefix) if prefix in RETURN_SHELL_OWNERS else _dispatch_proof_fields(prefix) if prefix in DISPATCH_SHELL_OWNERS else P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
             parser_failure=lambda payload, error: _p345_parser_failure_classification(payload, error, prefix=prefix),
             proof_ok=lambda value: _p345_proof_ok(value, prefix=prefix),
-            proof_state=_p363_proof_state if prefix in RETURN_SHELL_OWNERS else (lambda value: _dispatch_proof_state(value, prefix)) if prefix in DISPATCH_SHELL_OWNERS else _p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
+            proof_state=(lambda value: _p363_proof_state(value,prefix)) if prefix in RETURN_SHELL_OWNERS else (lambda value: _dispatch_proof_state(value, prefix)) if prefix in DISPATCH_SHELL_OWNERS else _p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
             session_factory=_p345_candidate_observer_session,
             stock_error=lambda payload, error: _p345_stock_error(payload, error, prefix=prefix),
             validate_receipt=_p345_validate_receipt, text=text)
@@ -9184,6 +9185,10 @@ class _P345ObserverSession(_P331ObserverSession):
                 proof_scope="submitted-swap-count-and-authenticated-control-acceptance",
                 p363_control_intent=getattr(self,"control_intent_receipt",None),
                 descriptor_close_error=getattr(self,"descriptor_close_error",None))
+        if self.namespace=="p364":
+            audit=(self.qualification.sessions[0].session.audit if self.qualification is not None
+                else getattr(self.qualification_error,"failed_audit",None))
+            value["native_progress"]=self.qualification_observer.progress_projection(audit)
         value[self.proof_key] = dict(self.proof or {})
         value.pop("tx_hex", None)
         self._publish_value(value, lane, label=self.receipt_label)
@@ -9239,7 +9244,7 @@ class _P363ObserverSession(_P345ObserverSession):
     control_intent_receipt: Any = None
 
     def _qualify_on_descriptor(self, codec: Any, descriptor: int, writer: Any, deadline: float) -> Any:
-        if p363_return_host.exists(self.run_dir):
+        if RETURN_HOSTS[self.namespace].exists(self.run_dir):
             raise F1LiveError("P363 control intent exists; display/control replay forbidden")
         def before_control(request: dict[str, Any]) -> None:
             if not self._endpoint_exact(self.endpoint, descriptor):
@@ -9250,7 +9255,7 @@ class _P363ObserverSession(_P345ObserverSession):
             self.pre_control_lane = dict(lane,
                 observation_phase="before-native-return-control",
                 post_control_observation=False)
-            self.control_intent_receipt = p363_return_host.write_intent(self.run_dir,
+            self.control_intent_receipt = RETURN_HOSTS[self.namespace].write_intent(self.run_dir,
                 binding=dict(self.base.binding), endpoint_identity_sha256=self.endpoint.identity_sha256,
                 lane=self.pre_control_lane,request=request)
         return self.qualification_observer.qualify(codec,descriptor,self.auth_key,None,
@@ -9268,10 +9273,10 @@ class _P363ObserverSession(_P345ObserverSession):
         except (p318_topology.TopologyReceiptError,OSError) as exc:
             error = type(exc).__name__
             payload = p318_topology.raw_snapshot(phase="candidate_end",capture_complete=False,endpoints=[])
-        path = self.run_dir / "p363-candidate-end.raw.json"
+        path = self.run_dir / f"{self.namespace}-candidate-end.raw.json"
         receipt = p318_topology.publish_raw(path,payload,phase="candidate_end")
         parsed = p318_topology.parse_raw_snapshot(payload,phase="candidate_end")
-        value["p363_closure_snapshot"] = dict(path=str(path),**receipt,
+        value[self.namespace+"_closure_snapshot"] = dict(path=str(path),**receipt,
             capture_complete=parsed["capture_complete"],error_type=error,
             continuity_proved=False,role="post-control-transport-diagnostic")
         super()._publish_value(value,lane_supplement,label=label)
@@ -9336,8 +9341,20 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-def _p363_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
-    return {key:value.get(key) for key in P363_PROOF_FIELDS}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host}
+
+
+def _return_host_for(prepared: PreparedRun) -> Any:
+    return RETURN_HOSTS[_shell_definition(prepared.bundle).prefix]
+
+
+def _return_proof_fields(prefix: str) -> tuple[str,...]:
+    fields=P363_PROOF_FIELDS[:-1]+(prefix+"_closure_snapshot",)
+    return fields+(("native_progress",) if prefix=="p364" else ())
+
+
+def _p363_proof_state(value: Mapping[str, Any],prefix: str="p363") -> dict[str, Any]:
+    return {key:value.get(key) for key in _return_proof_fields(prefix)}
 
 
 P353_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
@@ -9557,6 +9574,14 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             tx_offset += len(tx)
         require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
             "session continuity differs")
+    if shell.prefix=="p364":
+        codec=_open_header_initial_observer_module(shell.runtime,shell.observer,"p364-progress-replay")
+        derived=shell.observer.replay_progress(codec,received,b"".join(txs),key)
+        require(value.get("native_progress")==derived,"raw partial diagnostic progress differs")
+        if proof and "native_progress" in proof:
+            require(proof["native_progress"]==derived,"partial proof diagnostic differs")
+        if value["accepted"]:
+            require(proof["sessions"][0].get("native_progress")==derived,"qualified diagnostic differs")
     lane = value.get("lane", {})
     if shell.prefix in DISPATCH_SHELL_OWNERS | RETURN_SHELL_OWNERS:
         snapshot = value.get(shell.prefix + "_closure_snapshot")
@@ -9589,7 +9614,7 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
     if shell.prefix in RETURN_SHELL_OWNERS and value["accepted"]:
         require(lane.get("observation_phase") == "before-native-return-control"
             and lane.get("post_control_observation") is False,"pre-control lane scope differs")
-        intent,intent_receipt = p363_return_host.read_intent(prepared.run_dir,
+        intent,intent_receipt = _return_host_for(prepared).read_intent(prepared.run_dir,
             binding=_candidate_observer_binding(prepared),
             endpoint_identity_sha256=value.get("endpoint_identity_sha256"),proof=proof)
         require(value.get("p363_control_intent") == intent_receipt and intent["lane"] == lane,
@@ -16769,16 +16794,17 @@ def _native_return_bundle(bundle: core.Bundle) -> bool:
 
 
 def _p363_save_return_window(prepared: PreparedRun, value: dict[str, Any]) -> None:
-    path = prepared.run_dir / p363_return_host.WINDOW_NAME
+    return_host=_return_host_for(prepared)
+    path = prepared.run_dir / return_host.WINDOW_NAME
     _write_exclusive(path,value)
-    reopened,receipt = p363_return_host.stable_record(path)
+    reopened,receipt = return_host.stable_record(path)
     if reopened != value:
         raise F1LiveError("P363 return window did not reopen")
     intent = intent_receipt = None
-    if p363_return_host.exists(prepared.run_dir):
-        intent,intent_receipt = p363_return_host.read_intent(prepared.run_dir,
+    if return_host.exists(prepared.run_dir):
+        intent,intent_receipt = return_host.read_intent(prepared.run_dir,
             binding=_candidate_observer_binding(prepared))
-    p363_return_host.validate_window(value,binding=_candidate_observer_binding(prepared),
+    return_host.validate_window(value,binding=_candidate_observer_binding(prepared),
         intent=intent,intent_receipt=intent_receipt)
     current = _state(prepared)
     current["p363_return_window"] = dict(record=value,receipt=receipt)
@@ -16786,19 +16812,20 @@ def _p363_save_return_window(prepared: PreparedRun, value: dict[str, Any]) -> No
 
 
 def _p363_return_success(prepared: PreparedRun, current: dict[str, Any]) -> bool:
+    return_host=_return_host_for(prepared)
     if current.get("p363_return_evidence_unavailable") is not None:
         return False
     saved = current.get("p363_return_window")
     if saved is None:
         return False
-    value,receipt = p363_return_host.stable_record(prepared.run_dir/p363_return_host.WINDOW_NAME)
+    value,receipt = return_host.stable_record(prepared.run_dir/return_host.WINDOW_NAME)
     if saved != dict(record=value,receipt=receipt) or value.get("binding") != _candidate_observer_binding(prepared):
         raise F1LiveError("P363 return-window binding differs")
     intent = intent_receipt = None
-    if p363_return_host.exists(prepared.run_dir):
-        intent,intent_receipt = p363_return_host.read_intent(prepared.run_dir,
+    if return_host.exists(prepared.run_dir):
+        intent,intent_receipt = return_host.read_intent(prepared.run_dir,
             binding=_candidate_observer_binding(prepared))
-    p363_return_host.validate_window(value,binding=_candidate_observer_binding(prepared),
+    return_host.validate_window(value,binding=_candidate_observer_binding(prepared),
         intent=intent,intent_receipt=intent_receipt)
     if value.get("outcome") != "exact-download-within-control-window":
         return False
@@ -16836,7 +16863,8 @@ def _p363_wait_for_rollback(prepared: PreparedRun, backend: LiveBackend,
     No exception here tolerates USB departure or identity uncertainty. Those
     retain the existing stop and same-journal preauthorized recovery behavior.
     """
-    path = prepared.run_dir / p363_return_host.WINDOW_NAME
+    return_host=_return_host_for(prepared)
+    path = prepared.run_dir / return_host.WINDOW_NAME
     endpoint = None
     if _state(prepared).get("p363_return_evidence_unavailable") is not None:
         return _p363_record_error_recovery(prepared,backend,endpoint_dir,lease)
@@ -16844,21 +16872,21 @@ def _p363_wait_for_rollback(prepared: PreparedRun, backend: LiveBackend,
     # below are outside it and retain all original error/stop semantics.
     value = receipt = intent = intent_receipt = None
     try:
-        if p363_return_host.exists(prepared.run_dir):
-            intent,intent_receipt = p363_return_host.read_intent(prepared.run_dir,
+        if return_host.exists(prepared.run_dir):
+            intent,intent_receipt = return_host.read_intent(prepared.run_dir,
                 binding=_candidate_observer_binding(prepared))
         if path.exists() or path.is_symlink():
-            value,receipt = p363_return_host.stable_record(path)
-            p363_return_host.validate_window(value,binding=_candidate_observer_binding(prepared),
+            value,receipt = return_host.stable_record(path)
+            return_host.validate_window(value,binding=_candidate_observer_binding(prepared),
                 intent=intent,intent_receipt=intent_receipt)
-    except (p363_return_host.ReturnControlError,json.JSONDecodeError,OSError) as exc:
+    except (return_host.ReturnControlError,json.JSONDecodeError,OSError) as exc:
         return _p363_record_error_recovery(prepared,backend,endpoint_dir,lease,exc)
     if value is not None:
         current = _state(prepared)
         current["p363_return_window"] = dict(record=value,receipt=receipt)
         _save_state(prepared,current)
     else:
-        remaining = p363_return_host.remaining_window(intent) if intent is not None else 0.0
+        remaining = return_host.remaining_window(intent) if intent is not None else 0.0
         outcome = "not-requested" if intent is None else "window-expired-before-observation"
         within = False
         if remaining > 0:
@@ -16867,14 +16895,14 @@ def _p363_wait_for_rollback(prepared: PreparedRun, backend: LiveBackend,
             except DownloadWaitTimeout:
                 outcome = "software-window-timed-out"
         closed_ns = time.monotonic_ns()
-        host_boot = p363_return_host.host_boot_sha256()
+        host_boot = return_host.host_boot_sha256()
         if endpoint is not None:
             within = (intent is not None and host_boot == intent["host_boot_sha256"]
                 and intent["created_monotonic_ns"] <= closed_ns
-                <= intent["created_monotonic_ns"] + p363_return_host.SOFTWARE_WINDOW_SECONDS*1_000_000_000)
+                <= intent["created_monotonic_ns"] + return_host.SOFTWARE_WINDOW_SECONDS*1_000_000_000)
             outcome = ("exact-download-within-control-window" if within else
                 "exact-download-after-control-window")
-        value = dict(schema="s22plus_fyg8_p363_return_window_v1",
+        value = dict(schema=f"s22plus_fyg8_{_shell_definition(prepared.bundle).prefix}_return_window_v1",
             binding=_candidate_observer_binding(prepared),control_intent=intent_receipt,
             outcome=outcome,observed_within_software_deadline=within,
             closed_monotonic_ns=closed_ns,host_boot_sha256=host_boot,

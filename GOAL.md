@@ -11,6 +11,18 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P364 minimal preparation diagnostics passed A/B build, static qualification,
+15 focused tests, 24 P363 regressions and two independent scoped PASS_GO reviews.
+The bounded task continues through fresh connected preparation/F1 code issuance only. The successful P361
+renderer and P363 module/control/recovery scope remain unchanged. Fixed signed
+stage/errno witnesses distinguish preparation returns, unobserved returns,
+child creation and child exit without promoting partial progress to feature
+proof. P363 remains consumed; no P364 F1 execution is authorized. Current D0/D1
+and necessary root-read investigation permission remains scoped to this task.
+Report: [P364 preparation diagnostics](docs/reports/S22PLUS_FYG8_P364_PREPARATION_DIAGNOSTICS_2026-09-08.md).
+
+## Completed P363 post-run analysis
+
 Post-run H0 analysis and two exact root D0 metadata invocations are complete.
 The bound raw prefix replays successfully through authentication, kernel boot
 identity, parent identity and the full sequence-4 display-frame host write.

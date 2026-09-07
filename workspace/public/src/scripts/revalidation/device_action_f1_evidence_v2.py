@@ -1713,14 +1713,14 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
     _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
     _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
     _adapter.proof_class = _adapter._raw_parser().proof_class
-    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch", "p363": "native_return_control"}.get(_prefix, "readonly_research_shell")
+    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch", "p363": "native_return_control", "p364": "native_return_control"}.get(_prefix, "readonly_research_shell")
     _constants = {
         "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
         "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
@@ -7670,6 +7670,12 @@ def _shell_observer_spec(prefix):
             commands=[{"size": len(c), "sha256": hashlib.sha256(c).hexdigest()}
                 for c in (variant.runtime.DEFAULT_COMMANDS[0], variant.runtime.DISPLAY_COMMAND,
                           control.CONTROL_BODY)])
+    if prefix == 'p364':
+        value.update(authenticated_progress=True,
+            diagnostic_frame_type=control.FRAME_DIAGNOSTIC,
+            diagnostic_max_frames=control.MAX_DIAGNOSTIC_FRAMES,
+            diagnostic_payload_size=control.DIAGNOSTIC_PAYLOAD_SIZE,
+            partial_progress_raw_replay=True)
     return value
 
 

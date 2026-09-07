@@ -1359,11 +1359,50 @@ fresh artifact/static qualification, connected preparation and separately
 returned attended F1 approval. Its finite scope is one candidate and one
 mandatory exact rollback; no permanent boundary changes.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, or P363 candidate transfer occurs, the same
+**P364 attended preparation diagnostics.** P363 is consumed and never
+replayable. This fresh candidate retains the P363 module bytes/order/parameters,
+renderer bytes, one fixed Download CONTROL and mandatory exact Magisk rollback.
+It adds fixed authenticated progress before renderer creation and before the
+inherited terminal park: preparation entry/completion, each module file check,
+its finit_module call and close, exact SDAM providers, read-only debugfs mount,
+five-second registry wait, final writer binding, pipe/clock/clone and child
+exit or signal. Clone return is child creation, not renderer exec success.
+
+One fixed frame type 0x8b carries a stage ID, event, reserved zero byte, bounded
+signed return code and HMAC. A separate monotonic diagnostic ordinal is bound
+to the P364 run and authenticated session nonce; CONTROL remains sequence 5.
+At most 48 fixed-size frames are permitted. There are no per-poll records,
+paths, pointers, raw kernel data or arbitrary diagnostic payloads. Diagnostic
+writes share one absolute 60-second action-relative deadline; the existing
+registry and child bounds are unchanged and do not bound blocking kernel calls.
+
+ENTER must be fully transmitted before its operation. Any diagnostic write
+failure is sticky and stops later parent operations, allowing only resource
+cleanup for already-started work. A child already created by clone may run until
+that cleanup; a clone RETURN does not gate its exec. The original operation
+error is retained and reported before terminal park when the same channel still
+works and its diagnostic deadline has not expired. After that deadline no
+terminal errno is inferred; a child outcome may remain unobserved. Diagnostic
+transmission never retries an operation or starts another session. The progress stream ends at CONTROL consumption before ACK; its absence
+after ACK is not evidence of syscall success. Early child exit retains the
+original bounded parent CONTROL path and reports its signed exit/signal state.
+
+Signed partial progress is rederived from immutable raw RX/TX on success and
+failure. Last ENTER without RETURN means return unobserved, not proven hang.
+Partial authentication, identity and full host request-write facts remain
+separate from full candidate qualification, renderer visibility, control
+acceptance and Download arrival. No incomplete preparation enables CONTROL.
+The existing physical fallback, USB-error stops and same-journal rollback are
+unchanged; no automatic recovery is claimed. New exact source/artifact/static
+qualification, independent changed-closure review, connected preparation and
+separately returned attended F1 approval remain required. This clause alone is
+H0 and grants no device effect or standing diagnostic session.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, or P364 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, or `s22plus-fyg8-p363` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, or `s22plus-fyg8-p364` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
