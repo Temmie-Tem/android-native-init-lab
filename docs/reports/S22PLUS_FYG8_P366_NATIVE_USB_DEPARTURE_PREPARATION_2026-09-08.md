@@ -136,3 +136,21 @@ reopened ready1 manifest 5,054 bytes, SHA-256
 Bundle SHA-256:
 `f23b08424a959afacd54b69ca196f098aeee2e51bf2c6e6be97ae360c180d72f`.
 This registration created no connected run and granted no F1 authority.
+
+## Connected preparation
+
+Fresh exact-target D0 returned `PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`.
+No D1 reboot was needed. Production `load_prepared` then reopened the real
+bundle and 32,823-byte prepared record successfully; the scoped 64-KiB allowance
+also covers this actual preparation above 32 KiB. No reboot, Odin invocation or
+partition transfer occurred; F1 remains unauthorized until the fresh attended
+approval code is returned.
+
+Private run: `workspace/private/runs/device-action-f1-live-v2/p366-ready1-prepared-20260908-1/`.
+Prepared SHA-256:
+`0b1fc225d09cb11c2a29902e9db3b46128ede6e59b9bc111cc68c8daa510be85`.
+D0 result: 3,261 bytes, SHA-256
+`f49516060fa59ca37a3bb8deca49ed18008b35036c7647de41292bbf662579d2`.
+The private output `connected-prepared-reopen.json` retains the reopen summary.
+Implementation/qualification commit is `1fe09c04a5`. A90 and S20+ received no
+command from this unit. No candidate or CONTROL was replayed.

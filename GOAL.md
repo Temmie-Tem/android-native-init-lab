@@ -31,7 +31,11 @@ The current H0 successor is [P366](docs/reports/S22PLUS_FYG8_P366_NATIVE_USB_DEP
 observe the exactly bound outgoing native USB node before unchanged strict Odin
 arrival checks within the same 30-second window. P365's historical inner cause
 remains unproved. Necessary D0/D1 preparation is preauthorized; new exact F1
-approval remains separate. A90/S20+ received no command from this unit.
+approval remains separate. A/B build, static/bundle checks, independent boundary
+and artifact reviews, 22 new tests and 77 regressions passed. Fresh D0 passed
+without D1 reboot; the 32,823-byte preparation reopened against the real bundle.
+The new F1 code is ready for issuance; no P366 F1 has occurred.
+A90/S20+ received no command from this unit.
 
 P364 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
 Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class `NO_PROOF_OBSERVER`,
