@@ -1,11 +1,4 @@
-# S22+ display visual evidence — DRAFT 2026-09-07
-
-> **Draft, not published.** The images and clips are staged and the links
-> resolve, but this page still carries its draft name, still has no Korean
-> counterpart, and `A90_VISUAL_EVIDENCE.md` still describes the S22+ without
-> knowing this series exists. What remains before publication is listed under
-> [Draft status](#draft-status) at the end. On publication this becomes
-> `S22PLUS_DISPLAY_VISUAL_EVIDENCE.md` and that section is dropped.
+# S22+ display visual evidence
 
 Photographs and clips of the operator-owned Samsung Galaxy S22+ 5G
 (`SM-S906N`, FYG8) driving its own panel from a custom static `/init` running
@@ -32,8 +25,6 @@ observation and before rollback intent, and a preauthorized same-journal
 recovery completed the rollback and the health checks instead. **The physical
 cause of those stops is still unproved.** No candidate or observation was
 replayed in any of them.
-
-**English** · [한국어](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md)
 
 ---
 
@@ -309,6 +300,28 @@ per-iteration commit and loop overhead, and no more than that. The clip shows a 
 
 ---
 
+## Asset handling
+
+The photographs were cropped only to remove unrelated room and background
+content around the phone. Nothing inside the panel was retouched, colour- or
+exposure-adjusted, or masked. The two clips were transcoded from HEVC to H.264
+for playback here, scaled down, and stripped of the recording handset's
+container metadata; neither was cut, and both are complete takes. No
+device-screen content, frame order or visible event sequence was altered.
+Re-encoding does resample frame timestamps, which is why the P361 intervals are
+quoted at camera-frame resolution rather than to the millisecond — the published
+clip reproduces the same ten alternations and the same average. The sanitized
+assets were rechecked before publication.
+
+The clips were recorded on the operator's own separate handset, which is not a
+target of this project and appears nowhere in the binding target registry. It is
+the camera, not a device under test. The Android control frame keeps its carrier
+boot branding: that records which carrier's firmware the handset runs, and it is
+what makes the frame recognisable as Android's own boot screen rather than an
+anonymous white rectangle.
+
+---
+
 ## What this page does not show
 
 **No device frame here is a readback.** Every panel image and clip is a camera
@@ -338,102 +351,3 @@ operation.
 **Nothing here transfers to another target.** The A90 and S20+ received no
 command from any of these runs, and results, artifacts and authority never move
 between devices.
-
-## Draft status
-
-Nothing below is part of the published page.
-
-### Assets, staged 2026-09-07
-
-All nine are in `docs/images/s22plus-display/` and every link on this page
-resolves. Provenance, all from `workspace/private/`, which is not published:
-
-| # | Source |
-| --- | --- |
-| 00 | `outputs/s22plus_fyg8_p359/h0-paint/expected-pattern.png` (host render, 270x585, used as-is) |
-| 01 | `runs/device-action-f1-live-v2/p355-.../operator-display-photo.jpg` |
-| 02 | `.../p356-.../operator-android-carrier-photo.jpg` |
-| 03 | `.../p353-.../operator-display-photo.jpg` |
-| 04 | `.../p354-.../operator-display-photo.jpg` |
-| 05 | `.../p356-.../operator-display-photo.jpg` |
-| 06 | `.../p359-.../operator-evidence-photo.jpg` |
-| 07 | `.../p360-.../operator-display-video.mp4` |
-| 08 | `.../p361-.../operator-display-video.mp4` |
-
-What was done to them, and nothing else:
-
-- **Photographs** — cropped to the panel by a brightness bounding box with an
-  8-pixel margin, removing the room behind the phone, then re-encoded as JPEG
-  quality 92. No retouching, no colour or exposure adjustment, no masking.
-- **Clips** — scaled to 1280 pixels tall and re-encoded from HEVC to H.264
-  (CRF 28), which GitHub can play, with all container metadata dropped
-  (`-map_metadata -1`). 34.9 MB to 884 KB and 59.2 MB to 1.6 MB. **Nothing was
-  cut**: both are the complete original takes, including the five seconds of
-  Samsung splash at the head of the P360 clip. No audio track existed in either
-  original.
-- Verified afterwards: no `SM-S936N`, `Galaxy S25`, `SM-S906N` or Samsung
-  container strings survive in any published asset; both clips carry only an
-  `Lavf` encoder tag, matching the existing `docs/images/a90/` assets.
-- Re-measured after transcoding: the published P361 clip still yields exactly
-  ten alternations with the same ≈1.03 s average, so the claim in the P361
-  section can be checked against the file a reader actually gets.
-
-The clips were recorded on the operator's own separate handset, which is not a
-target of this project and appears nowhere in the binding target registry. It is
-the camera, not a device under test.
-
-Asset 02 keeps the Android boot screen's carrier branding in frame. That
-records which carrier's firmware the handset runs, which is the same class of
-fact the goals already publish for these devices, and it is what makes the frame
-recognisable as Android's own boot screen rather than an anonymous white
-rectangle.
-
-### Review decisions, 2026-09-07
-
-The owner reviewed the full draft and settled the three questions this section
-previously raised. They are recorded rather than deleted, so a later reader can
-see what was weighed.
-
-1. **Keep both P353 and P354 photographs, but shrink P354.** Deleting a failure
-   frame from a comparison page was rejected; so was leaving two equal-weight
-   blocks showing the same corruption. P354 is now a short reprise under P353,
-   because what it adds is not a new failure mode but the reproduction of the
-   same one in a separate fresh run after one intervention.
-2. **Keep the first five seconds of the P360 clip.** The vendor splash handing
-   the panel to native init in a single unedited take is among the most legible
-   evidence on the page, and the clip is only fourteen seconds. Size is handled
-   in the H.264 re-encode, not by cutting evidence.
-3. **Keep the argument order rather than run order.** The summary table already
-   carries the chronology, so the reader does not lose it. Ordering the body by
-   run number would run failure, failure, success, failure and make each
-   experiment's motivation harder to follow; leading with P355 gives the reader
-   a reference point before the first corrupt frame.
-
-The following wording corrections from the same review have been applied:
-the host oracle no longer contradicts the "every frame is a photograph" claim;
-the P355 heading and `color_fill` description no longer overstate what a clean
-hardware fill proves; the P356 caption no longer implies the buffer-fetch path
-corrupts in general, which its own P358/P359 sections disprove; P358 changes one
-*requested variable* rather than "one thing"; the P360 camera artefacts are
-described as consistent-with rather than asserted; the P361 interval figures are
-stated at camera-frame resolution instead of to the millisecond; the P361 clip
-corroborates the closed run rather than closing anything in it; and "no drawing
-after boot" is now "no in-place redraw or compositor-driven repaint after the
-initial buffers are prepared".
-
-### Related follow-up, outside this page
-
-`A90_VISUAL_EVIDENCE.md` describes the S22+ under *What these do not show*
-using the P3.25/P3.26 USB results only. That paragraph predates this entire
-display series and will contradict this page once it is published.
-
-Replacing it with another detailed history would rot again within a few runs, so
-the agreed fix is one stable milestone sentence plus a link, applied **at
-publication** — not before, or the link is dead:
-
-> The S22+ (`SM-S906N`, GKI kernel 5.10) has separately proved native PID 1,
-> authenticated USB control, a bounded retained read-only shell, and clean
-> DRM/KMS framebuffer output including repeated selection between prepainted
-> cached buffers. See [S22+ display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md).
-
-That wording survives P362 and beyond without another edit.

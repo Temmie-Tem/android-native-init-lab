@@ -20,6 +20,12 @@ host-qualified RAM workspace and an actual-hour witness requirement; device
 work is paused pending attendance. Functional transport proof and
 detailed USB/Max77705 causal explanations are evaluated separately.
 
+## Visual evidence
+
+Photographs and clips of the P353-P361 display bring-up runs, ordered as a
+comparison rather than a chronology, are on a separate page:
+[S22+ display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md).
+
 ## Proven capabilities
 
 - **PROVED — reproducible source-matched kernel build.** The rebuilt Full-LTO
