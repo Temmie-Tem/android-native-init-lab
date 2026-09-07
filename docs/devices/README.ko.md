@@ -10,8 +10,8 @@ report를 대체하지 않으며, 해당 기록이 계속 정본입니다.
 
 - **PROVED(증명됨)** — 하나의 bounded run에서 명시된 evidence contract가
   받아들였거나, 명시된 범위에 대해 재현 가능한 host-side proof가 성립한 상태.
-- **observed(관측됨)** — 직접 관측했지만 인접한 더 강한 claim을 뒷받침하기에는
-  충분하지 않은 상태.
+- **OBSERVED(관측됨)** — PROVED로 올라가지 않은 직접 관측. 등급 라벨로 쓸 때는
+  대문자 토큰을 쓰고, 일반 문장에서는 "observed"를 문법에 맞게 씁니다.
 - **designed(설계됨)** — host-side에서 구현하거나 문서화했지만, 별도 명시가
   없으면 runtime에서 증명되지 않은 상태.
 - **unproved(미증명)** — 해당 claim을 받아들일 수 있는 증거가 저장소에 없는 상태.

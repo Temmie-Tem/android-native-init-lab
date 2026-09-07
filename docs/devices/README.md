@@ -10,8 +10,8 @@ files, campaign ledgers, or run reports. Those records remain authoritative.
 
 - **PROVED** — accepted by the named evidence contract in one bounded run or
   by a reproducible host-side proof for the stated scope.
-- **observed** — directly seen, but not sufficient for the stronger claim
-  nearby.
+- **OBSERVED** — direct observation that has not been elevated to PROVED;
+  prose may use "observed" grammatically.
 - **designed** — implemented or documented host-side; not demonstrated at
   runtime unless explicitly stated.
 - **unproved** — the repository has no accepted evidence for the claim.
