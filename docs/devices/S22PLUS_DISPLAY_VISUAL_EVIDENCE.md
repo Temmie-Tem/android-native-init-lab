@@ -227,7 +227,9 @@ the painted bytes, not the scanned-out ones.
 
 ## One frame, then another
 
-**Clip** — [▶ `07-p360-two-frame-transition.mp4`](../images/s22plus-display/07-p360-two-frame-transition.mp4)
+![P360: the Samsung splash, the first native frame replacing it, then the second frame carrying the numeral 2](../images/s22plus-display/07-p360-two-frame-transition.gif)
+
+**Full clip** — [▶ `07-p360-two-frame-transition.mp4`](../images/s22plus-display/07-p360-two-frame-transition.mp4)
 
 **What it shows** — a continuous 14-second handheld recording: the Samsung
 splash with its unlocked-bootloader warning, then the first native frame
@@ -261,7 +263,9 @@ machine verdict.
 
 ## Ten swaps in a row
 
-**Clip** — [▶ `08-p361-ten-swaps.mp4`](../images/s22plus-display/08-p361-ten-swaps.mp4)
+![P361: the two retained frames alternating ten times and settling back on the first](../images/s22plus-display/08-p361-ten-swaps.gif)
+
+**Full clip** — [▶ `08-p361-ten-swaps.mp4`](../images/s22plus-display/08-p361-ten-swaps.mp4)
 
 **What it shows** — the first frame appears, then the two retained frames
 alternate ten times at roughly one second apart, and the display settles back on
@@ -282,6 +286,14 @@ the first". At camera-frame resolution the nine intervals between swaps all
 fall in the range 1.0-1.07 s, averaging ≈1.03 s, and the last frame is held
 unchanged for the remaining 4.3 s. Re-measuring the published clip reproduces
 the same ten alternations and the same average.
+
+![The eleven settled display states of P361 side by side, alternating and ending on the first frame](../images/s22plus-display/09-p361-eleven-settled-states.jpg)
+
+The eleven settled states in order: the first frame, then the state after each of
+the ten swaps. The strict alternation, the absence of a missed or repeated step,
+and the return to the first frame at the end can all be checked by eye. This
+samples the settled states for count and order inspection; it is not a
+time-proportional representation.
 
 **Why this run is different** — every earlier frame on this page rests on an
 operator's naked-eye statement. Here the observation is countable: the run's own
@@ -314,6 +326,12 @@ Re-encoding does resample frame timestamps, which is why the P361 intervals are
 quoted at camera-frame resolution rather than to the millisecond — the published
 clip reproduces the same ten alternations and the same average. The sanitized
 assets were rechecked before publication.
+
+Inline GIFs are presentation copies, resized and resampled to 5 fps. P361's
+leading boot-wait segment is omitted from its inline GIF only; **no interval
+between the repeated display transitions is removed**, and the P360 GIF is the
+full take. Event counts and timing measurements are derived from the sanitized
+full-length H.264 clips, which stay linked beside the inline media.
 
 The clips were recorded on the operator's own separate handset, which is not a
 target of this project and appears nowhere in the binding target registry. It is
