@@ -15,8 +15,11 @@
 S22+는 source-matched rebuilt-kernel과 direct-native-PID1 연구 대상입니다.
 Android userspace 없이 bounded native-PID1 USB 통신과 인증된 명령 실행을
 확립했습니다. P348은 읽기 전용 child view에서 제한된 caller-selected 셸 명령도
-증명했습니다. P349는 host 검증된 RAM 작업공간과 실제 1시간 witness 요건을
-추가했으며, 기기 작업은 참석 가능 시점까지 중지돼 있습니다. 통신 기능의 증명과
+증명했습니다. 그 이후의 작업은 네이티브 PID 1에서 패널을 직접 구동하는 쪽으로
+옮겨갔습니다. P353~P361 시리즈는 프레임버퍼 경로를 비교해 운영자가 관측한 깨끗한
+출력과 cached 버퍼의 반복 선택에 도달했고, P362~P364는 네이티브 reboot/Download
+제어로 방향을 틀었으나 그쪽은 미증명으로 남아 있습니다. P349 RAM 작업공간 단위는
+host 검증된 상태로 보류돼 있습니다. 통신 기능의 증명과
 USB/Max77705의 상세 원인 설명은 별도로 판정합니다.
 
 ## 시각 증거
@@ -109,16 +112,24 @@ P353~P361 디스플레이 브링업 런의 사진과 클립을, 시간순이 아
 
 ## 현재 프론티어
 
-2026-09-06 확인 기준으로 P348이 가장 최근에 종료된 읽기 전용 셸 reference이며,
-기능 증거와 정상 rollback이 인정됐습니다. 짧은 관측 시간이 lease의 1시간 상한을
-증명하지는 않습니다.
+2026-09-08 확인 기준입니다. 가장 최근에 완료된 디스플레이 milestone은 P353~P361
+계열입니다. 이 런들은 프레임버퍼 경로를 비교했고, 각각 인증된 dispatch와 정확한
+rollback을 **PROVED**로 닫았습니다. 반면 깨끗한 출력 자체는 운영자가 **관측**하고
+사진·클립이 보강한 것이지 readback으로 증명된 것이 아닙니다. 그중 가장 멀리 간 것이
+P361입니다. 미리 그려둔 cached 버퍼 두 개 사이를 오가는 블로킹 atomic 커밋 11회이며,
+첫 프레임으로 정착해 유지된 채 끝납니다. write-combine 버퍼는 깨지고 cached 버퍼는
+깨지지 않은 이유는 여전히 **미증명**입니다.
+[디스플레이 시각 증거](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md)를 참고하십시오.
 
-P349는 현재 boot의 RAM 작업공간과 실제 1시간 요건을 host에서 검증했습니다.
-65분/16-action lease 안에서 실제 경과 20·40·60분 이후에 발행한 동일 boot
-witness를 요구합니다. 두 준비 실행은 host 인증을 완료하지 못해 candidate
-전송 전에 ABORTED로 끝났습니다. 운영자가 외출 중이어서, 참석과 물리 복구가
-가능할 때까지 기기 작업을 중지했습니다. 두 과거 승인은 재사용할 수 없습니다.
-마지막 execute-preflight는 정상 rooted FYG8을 기록했으며 활성 native shell은 없습니다.
+P362는 host 분석과 고정 D0 모듈 census 한 번으로 닫혔습니다. P363과 P364는 네이티브
+reboot/Download 제어를 시도했고 둘 다 정상 rollback과 함께 `NO_PROOF_OBSERVER`로
+닫혔습니다. P364의 진단 채널은 인증된 진행 프레임 28개를 남긴 뒤 SDAM provider
+검사에서 EINVAL을 반환했고, 렌더러 생성과 Download 제어에는 도달하지 못했습니다.
+**네이티브 정상 reboot과 Download는 미증명으로 남아 있습니다.**
+
+P365가 현재의 구현/자격 단위이며 그에 대한 F1 실행은 승인되지 않았습니다. P349의 RAM
+작업공간과 실제 1시간 witness 단위는 host 검증된 상태로 보류돼 있고, 두 준비 실행 중
+어느 것도 candidate를 전송하지 않았습니다.
 
 정확한 현재 상태는 [GOAL.md](../../GOAL.md)와 target contract를 따릅니다.
 이 페이지는 실행 권한이나 replay를 만들지 않습니다.

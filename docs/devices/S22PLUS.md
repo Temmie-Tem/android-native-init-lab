@@ -15,9 +15,12 @@
 The S22+ is the source-matched rebuilt-kernel and direct-native-PID1 research
 target. It now has bounded native-PID1 USB communication and authenticated
 command execution without Android userspace. P348 additionally proved bounded
-caller-selected shell commands in a read-only child view. P349 adds a
-host-qualified RAM workspace and an actual-hour witness requirement; device
-work is paused pending attendance. Functional transport proof and
+caller-selected shell commands in a read-only child view. Work since then moved
+to driving the panel directly from native PID 1: the P353-P361 series compared
+framebuffer paths and culminated in operator-observed clean output and repeated
+cached-buffer selection, and P362-P364 turned to native reboot/Download control,
+which remains unproved. The P349 RAM workspace unit stays host-qualified and
+paused. Functional transport proof and
 detailed USB/Max77705 causal explanations are evaluated separately.
 
 ## Visual evidence
@@ -109,17 +112,27 @@ comparison rather than a chronology, are on a separate page:
 
 ## Current frontier
 
-Snapshot checked on 2026-09-06: P348 is the latest completed read-only shell
-reference, with accepted functional evidence and healthy rollback. Its short
-observed use does not prove the one-hour lease limit.
+Snapshot checked on 2026-09-08. The most recent completed display milestone is
+the P353-P361 line. Those runs compared framebuffer paths, and each closed with a
+machine verdict that **PROVED** authenticated dispatch and exact rollback, while
+the clean output itself is **observed** by the operator and corroborated by
+photographs and clips, not proved by readback. P361 is the furthest of them:
+eleven blocking atomic commits alternating between two prepainted cached buffers,
+ending held on the first. Why write-combine buffers corrupted and cached buffers
+did not remains **unproved**. See
+[display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md).
 
-P349 is host-qualified for a current-boot RAM workspace and an actual hour
-criterion: a 65-minute/16-action lease with same-boot witnesses issued after
-20, 40 and 60 elapsed minutes. Both prepared invocations ended ABORTED before
-candidate transfer because host authentication was not completed. The operator
-was away; device work is paused until attendance and physical recovery are
-available. Neither old approval can be reused. The latest execute-preflight
-recorded healthy rooted FYG8; no native shell is active.
+P362 closed as host analysis plus one fixed D0 module census. P363 and P364
+attempted native reboot/Download control and both closed `NO_PROOF_OBSERVER`
+with healthy rollback; P364's diagnostic channel retained 28 authenticated
+progress frames before an SDAM provider check returned EINVAL, so renderer
+creation and Download control were not reached. **Native normal reboot and
+Download remain unproved.**
+
+P365 is the current implementation/qualification unit and no F1 execution is
+authorized for it. The P349 RAM workspace and actual-hour witness unit remains
+host-qualified and paused; neither of its prepared invocations transferred a
+candidate.
 
 The exact current state belongs in [GOAL.md](../../GOAL.md) and the target
 contract. This page creates no execution authority or replay.
