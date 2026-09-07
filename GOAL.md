@@ -13,6 +13,16 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+P365 is the current implementation/qualification unit, through fresh connected
+preparation and F1 code issuance only. The operator preauthorized necessary
+D0/D1 preparation. It corrects target ARM64 directory/no-follow flags and scopes
+64-KiB preparation/state persistence to P365. Actual ARM64 syscall checks and
+success/late-failure producer-to-writer roundtrips precede candidate qualification.
+A/B build, static and real bundle verification, seven P365 test methods, 39
+predecessor regressions and both independent reviews passed.
+The P361 renderer and return protocol/module order remain fixed. No P365 F1
+execution is authorized until its separately returned fresh attended approval.
+
 P364 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
 Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class `NO_PROOF_OBSERVER`,
 recovery_required=false. Final rooted FYG8, original boot/supporting hashes,

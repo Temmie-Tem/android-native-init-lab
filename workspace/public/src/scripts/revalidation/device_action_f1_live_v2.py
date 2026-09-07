@@ -31,6 +31,7 @@ import consumed_candidate_registry_v1 as consumed_registry
 import device_action_f1_v2 as core
 import s22plus_fyg8_p363_return_host as p363_return_host
 import s22plus_fyg8_p364_return_host as p364_return_host
+import s22plus_fyg8_p365_return_host as p365_return_host
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
 import s22plus_fyg8_p313_guard_lifetime as p313_guard_lifetime
@@ -2307,6 +2308,10 @@ def _host_first_prefix(overlay: str) -> str:
     return 'p341'
 
 
+def _p365_bundle(bundle: core.Bundle) -> bool:
+    return (_shell_bundle(bundle) and _shell_definition(bundle).prefix == "p365")
+
+
 def _p348_bundle(bundle: core.Bundle) -> bool:
     return (_shell_bundle(bundle) and _shell_definition(bundle).prefix == "p348")
 
@@ -3566,9 +3571,10 @@ def prepare_connected(
 
 def _write_prepared_record(bundle: core.Bundle, path: Path, value: Any) -> None:
     # P343 adds the action/lease dependencies to the preparation closure.
-    # Only this preparation record uses the existing 64-KiB writer bound;
+    # P365 also binds its new native ABI declarations in this preparation record.
+    # Only the selected preparation record uses the existing 64-KiB writer bound;
     # journal records and all other campaign preparation limits stay unchanged.
-    limit = core.MAX_RESULT_RECORD if _named_exploration_bundle(bundle) else core.MAX_RECORD
+    limit = core.MAX_RESULT_RECORD if (_named_exploration_bundle(bundle) or _p365_bundle(bundle)) else core.MAX_RECORD
     try:
         core._write_exclusive_bounded(path, value, limit)
     except core.F1V2Error as exc:
@@ -9185,7 +9191,7 @@ class _P345ObserverSession(_P331ObserverSession):
                 proof_scope="submitted-swap-count-and-authenticated-control-acceptance",
                 p363_control_intent=getattr(self,"control_intent_receipt",None),
                 descriptor_close_error=getattr(self,"descriptor_close_error",None))
-        if self.namespace=="p364":
+        if self.namespace in DIAGNOSTIC_RETURN_OWNERS:
             audit=(self.qualification.sessions[0].session.audit if self.qualification is not None
                 else getattr(self.qualification_error,"failed_audit",None))
             value["native_progress"]=self.qualification_observer.progress_projection(audit)
@@ -9341,7 +9347,9 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host}
+DIAGNOSTIC_RETURN_OWNERS = frozenset(
+    p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.diagnostic_progress)
 
 
 def _return_host_for(prepared: PreparedRun) -> Any:
@@ -9350,7 +9358,7 @@ def _return_host_for(prepared: PreparedRun) -> Any:
 
 def _return_proof_fields(prefix: str) -> tuple[str,...]:
     fields=P363_PROOF_FIELDS[:-1]+(prefix+"_closure_snapshot",)
-    return fields+(("native_progress",) if prefix=="p364" else ())
+    return fields+(("native_progress",) if prefix in DIAGNOSTIC_RETURN_OWNERS else ())
 
 
 def _p363_proof_state(value: Mapping[str, Any],prefix: str="p363") -> dict[str, Any]:
@@ -9574,8 +9582,8 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             tx_offset += len(tx)
         require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
             "session continuity differs")
-    if shell.prefix=="p364":
-        codec=_open_header_initial_observer_module(shell.runtime,shell.observer,"p364-progress-replay")
+    if shell.prefix in DIAGNOSTIC_RETURN_OWNERS:
+        codec=_open_header_initial_observer_module(shell.runtime,shell.observer,shell.prefix+"-progress-replay")
         derived=shell.observer.replay_progress(codec,received,b"".join(txs),key)
         require(value.get("native_progress")==derived,"raw partial diagnostic progress differs")
         if proof and "native_progress" in proof:
@@ -14047,10 +14055,11 @@ def _state(prepared: PreparedRun) -> dict[str, Any]:
 
 def _save_state(prepared: PreparedRun, value: dict[str, Any]) -> None:
     value = {**value, "schema": LIVE_STATE_SCHEMA}
-    if _p342_bundle(prepared.bundle) or _named_exploration_bundle(prepared.bundle):
+    if _p342_bundle(prepared.bundle) or _named_exploration_bundle(prepared.bundle) or _p365_bundle(prepared.bundle):
         # Four authenticated sessions plus the decoded Carrier projection
         # reach 33,084 bytes in the closed-state fixture. Reuse the existing
         # 64 KiB writer for this exact state path; all journal bounds stay put.
+        # P365 signed preparation progress also exceeds 32 KiB on success.
         try:
             core._write_atomic_bounded(_live_state_path(prepared), value, core.MAX_RESULT_RECORD)
         except core.F1V2Error as exc:

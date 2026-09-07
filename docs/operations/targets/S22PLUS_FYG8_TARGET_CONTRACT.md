@@ -1398,11 +1398,26 @@ qualification, independent changed-closure review, connected preparation and
 separately returned attended F1 approval remain required. This clause alone is
 H0 and grants no device effect or standing diagnostic session.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, or P364 candidate transfer occurs, the same
+**P365 attended ABI-correct return preparation.** This fresh successor retains
+P364's fixed diagnostic grammar, module bytes/order/parameters, renderer bytes,
+CONTROL and mandatory exact Magisk rollback. It corrects only the two native
+open operands using a source-bound ARM64 declaration: directory O_DIRECTORY
+040000 and module O_NOFOLLOW 0100000. Existing same-FD metadata/hash checks and
+all preparation checks remain. Consumed P363/P364 sources and pins are unchanged.
+
+P365 prepared and live-state records use the existing 64-KiB private JSON bound;
+no other candidate, journal or general writer gains a larger allowance. Actual
+success and late-failure producer/reader/writer fixtures qualify these records.
+The prior physical fallback, diagnostic deadline limitation and no-replay rules
+remain binding. Source/artifact/static qualification, independent changed-closure
+review, connected preparation and separately returned attended F1 approval are
+required. This clause alone is H0 and grants no device effect or standing session.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, or P365 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, or `s22plus-fyg8-p364` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, or `s22plus-fyg8-p365` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

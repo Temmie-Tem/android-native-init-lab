@@ -1,0 +1,6 @@
+"""P365 corrected ARM64 successor; no device authority."""
+from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"revalidation"))
+from s22plus_fyg8_p365_namespace import load
+load(globals())
