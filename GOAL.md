@@ -11,6 +11,16 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P361 H0 build/static/promotion and independent PASS_GO are complete for ten
+sequential one-second FB-only swaps
+between P360's unchanged retained frame pair, ending with the first frame held.
+The current operator request authorizes H0 and D0/D1 preparation. The remaining step is
+fresh connected preparation; F1 remains
+separately approved. No P361 device effect has occurred. PID1 state/heartbeat HUD
+is a later step after this bounded repeated display path, not a current claim.
+
+## Consumed P360 transition
+
 P360 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
 two-frame candidate and one exact Magisk rollback transferred. The operator
 reported both frames normal and transition to the numeral 2. This qualifies the

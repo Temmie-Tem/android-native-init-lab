@@ -1267,11 +1267,35 @@ This capability remains H0-only until independent changed-closure review,
 artifact/static qualification, fresh connected preparation and separately
 returned attended F1 approval. No permanent boundary changes.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, or P360 candidate transfer occurs, the same
+**P361 attended bounded repeated-frame successor.** P360 is consumed and never
+replayable. P361 retains both unchanged prepainted CACHED ABGR8888 buffers,
+geometry/pitch, 30HS mode, modules, noise/fill zero, privilege drop, one-way
+dispatch, first blocking ALLOW_MODESET request and the existing 60-second parent
+bound. After the first successful request, exactly ten sequential iterations
+each require a successful one-second nanosleep and submit one blocking atomic
+with flags zero and only the selected primary FB_ID. They alternate the second
+and first retained FB, ending with the first. Each sleep or atomic failure
+terminates the child without further requests, fallback, cleanup or retry.
+Both user FB/GEM objects, unchanged pixel contents and mode blob remain held
+until parent termination or physical Download. No repaint or buffer reuse for
+new content occurs. Existing vendor mapping/domain/error limitations remain;
+retaining objects does not claim mappings survive unrelated domain teardown.
+
+Success requires operator-observed repeated alternation without corruption,
+freeze or unexpected order and final first-frame hold. Host dispatch and ioctl
+returns remain separate from visible evidence. Neither the pattern nor its
+counter proves PID1 health, a heartbeat, repeated redraw or a general HUD.
+Every outcome retains attended physical Download, fresh exact Magisk rollback
+binding and final rooted FYG8 health. Existing USB/session stops and recovery
+rules remain intact. H0-only until independent changed-closure review,
+artifact/static qualification, fresh connected preparation and separately
+returned attended F1 approval. No permanent boundary change.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, or P361 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, or `s22plus-fyg8-p359`, `s22plus-fyg8-p360` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, or `s22plus-fyg8-p361` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
