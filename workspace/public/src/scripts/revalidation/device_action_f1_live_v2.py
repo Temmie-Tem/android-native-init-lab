@@ -1046,6 +1046,7 @@ class Endpoint:
     device: str
     sequence: int
     identity_sha256: str
+    arrival_receipt: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -5153,6 +5154,12 @@ class SamsungOdinBackend:
             prepared.bundle.profile,
             self.usb_root,
         )
+        arrival_raw_path = None
+        if _native_return_bundle(prepared.bundle):
+            arrival_raw_path = run_dir / f"native-download-arrival-{result.next_sequence + 1:06d}.raw.json"
+            raw = p318_topology.capture_download_inventory_raw(
+                phase="rollback_download", profile=prepared.bundle.profile, usb_root=self.usb_root)
+            p318_topology.publish_raw(arrival_raw_path, raw, phase="rollback_download")
         revalidated = odin_core.revalidate_endpoint_ticket(
             self.odin,
             run_dir,
@@ -5162,13 +5169,20 @@ class SamsungOdinBackend:
             timeout_sec=ENDPOINT_REVALIDATE_SEC,
             endpoint_observer_factory=odin_core.measured_usbfs_observer,
         )
-        return Endpoint(
+        endpoint = Endpoint(
             result.ticket.device,
             result.next_sequence + 1,
             hashlib.sha256(
                 (identity["endpoint_sha256"] + revalidated["device_identity"]).encode()
             ).hexdigest(),
         )
+        if _native_return_bundle(prepared.bundle):
+            receipt = _publish_native_download_arrival(
+                prepared, run_dir, endpoint, revalidated, self.usb_root
+            )
+            endpoint = Endpoint(endpoint.device, endpoint.sequence,
+                endpoint.identity_sha256, receipt)
+        return endpoint
 
     def transfer(
         self,
@@ -16815,6 +16829,84 @@ def _native_return_bundle(bundle: core.Bundle) -> bool:
     return _shell_bundle(bundle) and _shell_definition(bundle).prefix in RETURN_SHELL_OWNERS
 
 
+def _read_native_download_arrival(prepared: PreparedRun, receipt: dict[str, Any]) -> dict[str, Any]:
+    path = Path(receipt["path"])
+    if not path.resolve().is_relative_to(prepared.run_dir.resolve()):
+        raise F1LiveError("native Download receipt is outside its run")
+    if _receipt(path, "native Download arrival") != receipt:
+        raise F1LiveError("native Download arrival receipt changed")
+    value = _read_json(path, "native Download arrival")
+    if (value.get("schema") != "s22plus_native_download_arrival_v1"
+        or value.get("binding") != _candidate_observer_binding(prepared)
+        or type(value.get("observed_monotonic_ns")) is not int
+        or value["observed_monotonic_ns"] <= 0
+        or not isinstance(value.get("host_boot_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", value["host_boot_sha256"]) is None):
+        raise F1LiveError("native Download arrival binding differs")
+    raw_path = path.with_suffix(".raw.json")
+    if value.get("raw") != _receipt(raw_path, "native Download topology"):
+        raise F1LiveError("native Download topology changed")
+    raw = p318_topology.stable_read(raw_path)
+    parsed = p318_topology.parse_raw_snapshot(raw, phase="rollback_download")
+    matches = p318_topology.matching_endpoints(raw, phase="rollback_download",
+        target_identity=_p318_download_target(prepared))
+    endpoint = value["endpoint"]
+    if (parsed["capture_complete"] is not True or len(matches) != 1
+        or matches[0]["identity"]["endpoint_node"] != endpoint["device"]
+        or matches[0]["topology"] != prepared.private_target["topology"].removeprefix("usb:")
+        or matches[0] != value.get("topology")):
+        raise F1LiveError("native Download topology is not complete and exact")
+    revalidated = value["revalidation"]
+    ticket_path = Path(revalidated["revalidation_receipt"])
+    expected_ticket = path.parent / "receipts" / f"odin-snapshot-{revalidated['revalidation_snapshot_sequence']:06d}.json"
+    snapshots = odin_core.list_snapshot_receipts(path.parent)
+    selected = [item for item in snapshots if item["path"] == str(expected_ticket)]
+    original = [item for item in snapshots if item["sequence"] == revalidated["original_snapshot_sequence"]]
+    if (ticket_path != expected_ticket or len(selected) != 1 or len(original) != 1
+        or selected[0]["live_devices"] != [endpoint["device"]]
+        or selected[0]["live_device_identities"] != [[endpoint["device"], revalidated["device_identity"]]]
+        or original[0]["live_devices"] != selected[0]["live_devices"]
+        or original[0]["live_device_identities"] != selected[0]["live_device_identities"]
+        or _receipt(ticket_path, "native Download ticket")["sha256"] != revalidated["revalidation_receipt_sha256"]
+        or revalidated["device"] != endpoint["device"]
+        or revalidated["revalidation_snapshot_sequence"] + 1 != endpoint["sequence"]
+        or hashlib.sha256((hashlib.sha256(endpoint["device"].encode()).hexdigest()
+            + revalidated["device_identity"]).encode()).hexdigest() != endpoint["identity_sha256"]):
+        raise F1LiveError("native Download ticket differs")
+    return value
+
+
+def _publish_native_download_arrival(prepared: PreparedRun, run_dir: Path,
+    endpoint: Endpoint, revalidated: dict[str, Any], usb_root: Path) -> dict[str, Any]:
+    # Acquisition-local evidence: no legacy phase history or byte-equality
+    # requirement across recovery observations of a fresh USB generation.
+    path = run_dir / f"native-download-arrival-{endpoint.sequence:06d}.json"
+    raw_path = path.with_suffix(".raw.json")
+    raw = p318_topology.stable_read(raw_path)
+    matches = p318_topology.matching_endpoints(raw, phase="rollback_download",
+        target_identity=_p318_download_target(prepared))
+    parsed = p318_topology.parse_raw_snapshot(raw, phase="rollback_download")
+    if parsed["capture_complete"] is not True or len(matches) != 1:
+        raise F1LiveError("native Download inventory is incomplete or ambiguous")
+    controller, device_path = p318_topology._controller_and_device(
+        usb_root / prepared.private_target["topology"].removeprefix("usb:"))
+    if (matches[0]["controller_path"] != controller
+        or matches[0]["usb_device_path"] != device_path):
+        raise F1LiveError("native Download controller/path differs")
+    value = dict(schema="s22plus_native_download_arrival_v1",
+        binding=_candidate_observer_binding(prepared),
+        observed_monotonic_ns=time.monotonic_ns(),
+        host_boot_sha256=_return_host_for(prepared).host_boot_sha256(),
+        endpoint=dict(device=endpoint.device, sequence=endpoint.sequence,
+            identity_sha256=endpoint.identity_sha256),
+        topology=matches[0], raw=_receipt(raw_path,"native Download topology"),
+        revalidation=revalidated)
+    _write_exclusive(path, value)
+    receipt = _receipt(path, "native Download arrival")
+    _read_native_download_arrival(prepared, receipt)
+    return receipt
+
+
 def _p363_save_return_window(prepared: PreparedRun, value: dict[str, Any]) -> None:
     return_host=_return_host_for(prepared)
     path = prepared.run_dir / return_host.WINDOW_NAME
@@ -16856,9 +16948,17 @@ def _p363_return_success(prepared: PreparedRun, current: dict[str, Any]) -> bool
         or value.get("physical_intervention") != "UNOBSERVED"
         or value.get("software_causal_attribution") != "UNPROVED"
         or value.get("observed_within_software_deadline") is not True
-        or value.get("rollback_topology_record") != _receipt(
-            _p318_phase_paths(prepared,"rollback_download")[1],"P363 exact Download phase")):
+        ):
         raise F1LiveError("P363 return-window proof differs")
+    receipt = value["rollback_topology_record"]
+    if Path(receipt["path"]).name.startswith("native-download-arrival-"):
+        arrival = _read_native_download_arrival(prepared, receipt)
+        if (arrival["host_boot_sha256"] != value["host_boot_sha256"]
+            or not intent["created_monotonic_ns"] <= arrival["observed_monotonic_ns"] <= value["closed_monotonic_ns"]):
+            raise F1LiveError("native Download arrival is outside the control window")
+    elif receipt != _receipt(_p318_phase_paths(prepared,"rollback_download")[1],
+        "P363 exact Download phase"):
+        raise F1LiveError("P363 legacy return-window proof differs")
     return True
 
 
@@ -16950,8 +17050,9 @@ def _p363_wait_for_rollback(prepared: PreparedRun, backend: LiveBackend,
             closed_monotonic_ns=closed_ns,host_boot_sha256=host_boot,
             physical_prompt_required=endpoint is None,
             physical_intervention="UNOBSERVED",software_causal_attribution="UNPROVED",
-            rollback_topology_record=_receipt(_p318_phase_paths(prepared,"rollback_download")[1],
-                "P363 exact Download phase") if endpoint is not None else None)
+            rollback_topology_record=(endpoint.arrival_receipt or _receipt(
+                _p318_phase_paths(prepared,"rollback_download")[1],
+                "P363 exact Download phase")) if endpoint is not None else None)
         _p363_save_return_window(prepared,value)
     if endpoint is not None:
         return endpoint

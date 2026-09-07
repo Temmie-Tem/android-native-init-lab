@@ -237,6 +237,18 @@ class AdbReadOnlyClient:
             self._raw_capture_dir = capture_dir
         elif self._raw_capture_dir != capture_dir:
             raise D0Error("ADB raw-capture directory changed")
+        # A resumed client shares the transaction's existing raw evidence.
+        # Reserve past both ordinary captures and root-level observer receipts,
+        # including incomplete writers; never overwrite or reuse their names.
+        ordinals = (
+            int(match.group(1))
+            for directory in (capture_dir, capture_dir.parent)
+            for entry in directory.iterdir()
+            if (match := re.match(r"^([0-9]+)-", entry.name))
+        )
+        self._raw_capture_sequence = max(
+            self._raw_capture_sequence, max(ordinals, default=-1) + 1
+        )
 
     def _capture_name(self, label: str) -> str:
         if self._raw_capture_dir is None:
