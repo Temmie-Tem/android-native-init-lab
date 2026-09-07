@@ -3,7 +3,8 @@
 The operator authorized this successor preparation and D0/D1 in the foreground
 task. P360 is consumed and closed healthy, with both clean frames and one
 transition reported by the operator. No prior candidate or observation is
-replayed. P361 F1 requires separately returned fresh prepared approval.
+replayed. At preparation completion P361 F1 required separately returned fresh approval.
+The operator subsequently returned it; the consumed result follows below.
 
 ## Capability
 
@@ -91,3 +92,50 @@ has occurred. Actual load_prepared reopening passed; all 109 reviewed execution-
 inputs and six artifact identities remained unchanged. H0 commit: `858bcbc426`.
 Attended F1 requires the separately returned fresh token and physical Download
 availability under the P361 target clause.
+
+
+## Consumed F1: observed clean repeated alternation
+
+The operator returned the exact fresh approval. One candidate and one exact
+Magisk rollback transferred. The operator reported normal repeated alternation
+and final first-pattern hold without corruption. The original statement is
+retained privately in immutable operator-visual-witness.json. This qualifies
+bounded observed repeated display; the operator did not independently specify
+an exact counted ten swaps. Pixel-exact readback, precise cadence, redraw of
+buffer contents, cache causality and PID1 heartbeat/HUD proof remain unproved.
+
+Machine verdict is
+`PASS_F1_V2_P361_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`; dispatch and rollback
+remain separate from visual evidence. Live result:
+`22803B/7c57101995aa24ee742421ed63d34667091c49b956fd33b4baec4a93d151046c`.
+
+The original execute stopped after observation and before rollback intent on
+`measured USB endpoint evidence failed`. The immutable diagnostic records
+`usbfs-endpoint-departed` / `UsbfsEndpointDeparture`, attempted snapshot 103,
+at `enumeration-evidence-before-snapshot`, snapshot_persisted=false. Its identity
+is `381B/994d233131eab08b029bb2419f456d4c54ccc0a96cddcaf08984697bb571b249`.
+The exact departed endpoint and physical cause remain unproved. No failed
+snapshot was accepted as continuity. This is retained as an execution incident,
+not relabelled as an uneventful return.
+
+One preapproved rollback-only recover invocation reopened the same durable
+OBSERVED journal, freshly bound the rollback endpoint and performed the sole
+Magisk rollback. Candidate and observation were not replayed. No selector,
+recovery rule or source closure was modified to obtain recovery. Final rooted
+FYG8, original boot/supporting hashes, Android health and absent Download passed.
+Journal CLOSED/19, recovery_required=false, no active lease. The candidate is
+consumed and never replayable; A90/S20+ received no command from this task.
+No successor F1 or standing native runtime is granted.
+
+Canonical timeline, UTC:
+
+| Event | Timestamp |
+| --- | --- |
+| live_session_start | 2026-09-07T13:10:50.239478Z |
+| candidate_flash_start | 2026-09-07T13:11:08.293976Z |
+| candidate_flash_done | 2026-09-07T13:11:09.976558Z |
+| candidate_boot_ready | 2026-09-07T13:11:34.240442Z |
+| rollback_flash_start | 2026-09-07T13:15:40.177138Z |
+| rollback_flash_done | 2026-09-07T13:15:41.737343Z |
+| rollback_boot_ready | 2026-09-07T13:16:29.520260Z |
+| live_session_end | 2026-09-07T13:16:29.541098Z |

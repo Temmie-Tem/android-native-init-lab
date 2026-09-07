@@ -11,20 +11,22 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P361 repeated-frame preparation has passed H0 build/static/promotion,
-independent PASS_GO and fresh D0. The planned sequence is the first P360 frame,
-then ten one-second waits and blocking FB-only swaps between the two unchanged
-retained buffers, ending on the first. Actual repeat display remains unproved;
-this is not yet a PID1 state/heartbeat HUD.
+P361 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
+repeated-frame candidate and one exact Magisk rollback transferred. The operator
+reported repeated alternation and final first-pattern hold normal without
+corruption. This qualifies bounded operator-observed repeated display; exact
+count/cadence, pixel readback, redraw and PID1 heartbeat/HUD remain unproved.
 
-The expected first D0 baseline stop is preserved. One preapproved ordinary
-reboot returned exact rooted FYG8/original hashes/Android health; fresh D0 passed
-in `p361-ready1-prepared-20260907-2`. Prepared record is `30321B/9fee6891`.
-Actual prepared reopening passed. No P361 candidate transfer or F1 authorization has
-occurred; no active native lease exists. A90/S20+ received no command from this
-task. F1 requires the separately returned fresh token and physical Download
-availability.
-Report: [P361 repeated-frame preparation](docs/reports/S22PLUS_FYG8_P361_REPEATED_FRAME_PREPARATION_2026-09-07.md).
+Machine verdict `PASS_F1_V2_P361_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`
+remains dispatch/rollback evidence. Live result `22803B/7c571019`. Original
+execute stopped after observation, before rollback intent, on measured USB
+endpoint evidence: snapshot103, usbfs-endpoint-departed, no snapshot persisted.
+Its physical cause remains unproved. One same-journal rollback-only recovery
+completed exact Magisk rollback and final rooted FYG8/original hashes/Android
+health/absent Download. Candidate and observation were never replayed.
+No active lease remains. A90/S20+ received no command from this task; no successor
+F1 or standing native runtime is granted.
+Report: [P361 repeated-frame result](docs/reports/S22PLUS_FYG8_P361_REPEATED_FRAME_PREPARATION_2026-09-07.md).
 
 ## Consumed P360 transition
 
