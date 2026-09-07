@@ -20,14 +20,18 @@ The operator reported changing screen output, then screen-off and automatic
 Download entry without physical intervention. This is operator observation;
 the machine's bounded Download-arrival proof remains unproved.
 
-The original execution stopped during USB inventory after CONTROL acceptance:
-a retained birth-stat capture reported a vanished device node. Same-journal
+The original execution stopped during initial USB inventory after CONTROL
+acceptance; its original inner exception/path was not retained. Same-journal
 rollback-only recovery verified exact rooted FYG8, original hashes, Android
 health and absent Download. Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`,
 recovery_required=false. The 40,414-byte live state and 45,270-byte result were
 published without a persistence repair. No candidate or CONTROL replay occurred.
 See the [P365 report](docs/reports/S22PLUS_FYG8_P365_ARM64_AND_PERSISTENCE_PREPARATION_2026-09-08.md).
-No further device experiment is active. A90/S20+ received no command from this unit.
+The current H0 successor is [P366](docs/reports/S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md): preserve initial-inventory failure classes and
+observe the exactly bound outgoing native USB node before unchanged strict Odin
+arrival checks within the same 30-second window. P365's historical inner cause
+remains unproved. Necessary D0/D1 preparation is preauthorized; new exact F1
+approval remains separate. A90/S20+ received no command from this unit.
 
 P364 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
 Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class `NO_PROOF_OBSERVER`,

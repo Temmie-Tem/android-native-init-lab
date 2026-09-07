@@ -160,10 +160,10 @@ activity and an operator-observed automatic transition, without upgrading the
 machine's missing bounded arrival evidence or establishing pixel-exact output.
 
 After observation, the original execute exited with
-`measured USB endpoint inventory failed`, before rollback intent. Retained
-snapshot 9 birth-stat evidence returned exit 1 / ENOENT for a vanished USB node;
-the snapshot was not successfully published. This identifies the immediate
-inventory failure, not an independently proved physical or kernel cause.
+`measured USB endpoint inventory failed`, before rollback intent. The original
+initial-inventory exception subtype and path were not retained; attempted
+snapshot 10 was not published by execute. Its raw directory was subsequently
+reused by recovery with distinct no-clobber capture ordinals.
 The runner stopped as required. No candidate or CONTROL was replayed.
 
 One same-journal `--recover` invocation revalidated the binding and exact
@@ -190,3 +190,19 @@ Post-run documentation diff/privacy checks passed. The full ledger taxonomy
 check fails identically before and after this row on pre-existing row 547's
 unknown evidence outcome; both private check outputs are retained. This unit
 does not relabel that unrelated historical entry.
+
+## Post-run provenance correction
+
+The first close narrative incorrectly attributed snapshot 9's birth-stat ENOENT
+to the later post-CONTROL failure. Snapshot 9 actually published a successful
+empty snapshot at 19:44:12.853170Z during the earlier post-candidate Download
+departure. Candidate observation ended at 19:44:33.804529Z. Initial raw10
+captures then completed fifteen birth-stat reads before the execute error; no
+structured diagnostic retained that error's subtype/path. File modification
+times help separate those captures from later recovery, but are not a signed
+inner-syscall trace. The actual historical inner cause remains UNPROVED.
+
+This correction changes interpretation only; raw captures, journal, prepared
+record, live state and result remain unchanged. The P366 successor addresses
+this diagnostic gap and sequences exact native departure before strict Odin
+inventory; it does not claim to have proved P365's missing inner cause.

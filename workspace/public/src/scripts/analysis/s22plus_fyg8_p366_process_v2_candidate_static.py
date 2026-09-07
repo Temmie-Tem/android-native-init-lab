@@ -1,0 +1,9 @@
+"""P366 exact native departure successor; no device authority."""
+from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"revalidation"))
+from s22plus_fyg8_p366_namespace import load
+load(globals())
+
+SOURCE_FILES.update({'native_usb_departure':ROOT/'workspace/public/src/scripts/revalidation/s22plus_native_usb_departure_v1.py'})
+if __name__=='__main__':raise SystemExit(main())

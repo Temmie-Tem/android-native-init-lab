@@ -62,6 +62,7 @@ DEFAULT_ENUM_TIMEOUT_SEC = 10.0
 INDEX_RESUME_RE = re.compile(r"transaction-resume-(\d{6})\.jsonl")
 DIAGNOSTIC_SCHEMA = "s22plus_odin_diagnostic_failure_v1"
 DIAGNOSTIC_OBSERVATION_STAGE = "enumeration-evidence-before-snapshot"
+INITIAL_INVENTORY_OBSERVATION_STAGE = "initial-inventory-before-enumeration"
 DIAGNOSTIC_FAILURE_CLASSES = {
     "inventory-membership-changed": "UsbfsInventoryMembershipChanged",
     "usbfs-endpoint-departed": "UsbfsEndpointDeparture",
@@ -79,7 +80,7 @@ class OdinEndpointArrivalRace(OdinTransitionError):
 
 
 class OdinMeasuredEvidenceFailure(OdinTransitionError):
-    """Allowlisted final-evidence failure, before any snapshot is persisted."""
+    """Allowlisted measured failure, before any snapshot is persisted."""
 
     def __init__(
         self,
@@ -88,9 +89,13 @@ class OdinMeasuredEvidenceFailure(OdinTransitionError):
         *,
         removed: tuple[str, ...] = (),
         added: tuple[str, ...] = (),
+        observation_stage: str = DIAGNOSTIC_OBSERVATION_STAGE,
     ):
         if (
             DIAGNOSTIC_FAILURE_CLASSES.get(failure_kind) != inner_exception_class
+            or observation_stage not in (
+                DIAGNOSTIC_OBSERVATION_STAGE, INITIAL_INVENTORY_OBSERVATION_STAGE
+            )
             or not isinstance(removed, tuple)
             or not isinstance(added, tuple)
             or any(not isinstance(path, str) for path in (*removed, *added))
@@ -108,7 +113,7 @@ class OdinMeasuredEvidenceFailure(OdinTransitionError):
         for path in (*removed, *added):
             usbfs_identity._validated_usbfs_coordinates(path)
         super().__init__("measured USB endpoint evidence failed")
-        self.observation_stage = DIAGNOSTIC_OBSERVATION_STAGE
+        self.observation_stage = observation_stage
         self.failure_kind = failure_kind
         self.inner_exception_class = inner_exception_class
         self.removed = removed
@@ -443,9 +448,31 @@ def enumerate_odin(
             )
         try:
             observer = _new_endpoint_observer(endpoint_observer_factory)
-            before = _validated_device_inventory(observer.inventory)
-        except (OSError, usbfs_identity.UsbfsIdentityError) as exc:
-            raise OdinTransitionError("measured USB endpoint inventory failed") from exc
+            # Keep the measured producer exception available to this stage's
+            # diagnostic classification; the legacy callback wrapper flattens I/O.
+            measured_inventory = observer.inventory()
+            before = _validated_device_inventory(lambda: measured_inventory)
+        except usbfs_identity.UsbfsEndpointDeparture as exc:
+            raise OdinMeasuredEvidenceFailure(
+                "usbfs-endpoint-departed", "UsbfsEndpointDeparture",
+                observation_stage=INITIAL_INVENTORY_OBSERVATION_STAGE,
+            ) from exc
+        except usbfs_identity.UsbfsInventoryMembershipChanged as exc:
+            raise OdinMeasuredEvidenceFailure(
+                "inventory-membership-changed", "UsbfsInventoryMembershipChanged",
+                removed=exc.removed, added=exc.added,
+                observation_stage=INITIAL_INVENTORY_OBSERVATION_STAGE,
+            ) from exc
+        except usbfs_identity.UsbfsIdentityError as exc:
+            raise OdinMeasuredEvidenceFailure(
+                "usbfs-identity-failed", "UsbfsIdentityError",
+                observation_stage=INITIAL_INVENTORY_OBSERVATION_STAGE,
+            ) from exc
+        except OSError as exc:
+            raise OdinMeasuredEvidenceFailure(
+                "direct-io-failed", "OSError",
+                observation_stage=INITIAL_INVENTORY_OBSERVATION_STAGE,
+            ) from exc
         active_identity = (
             observer.identity_or_exact_departure
             if allow_live_departure_race

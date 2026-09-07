@@ -32,6 +32,8 @@ import device_action_f1_v2 as core
 import s22plus_fyg8_p363_return_host as p363_return_host
 import s22plus_fyg8_p364_return_host as p364_return_host
 import s22plus_fyg8_p365_return_host as p365_return_host
+import s22plus_fyg8_p366_return_host as p366_return_host
+import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
 import s22plus_fyg8_p313_guard_lifetime as p313_guard_lifetime
@@ -2308,8 +2310,8 @@ def _host_first_prefix(overlay: str) -> str:
     return 'p341'
 
 
-def _p365_bundle(bundle: core.Bundle) -> bool:
-    return (_shell_bundle(bundle) and _shell_definition(bundle).prefix == "p365")
+def _large_return_record_bundle(bundle: core.Bundle) -> bool:
+    return (_shell_bundle(bundle) and _shell_definition(bundle).large_return_records)
 
 
 def _p348_bundle(bundle: core.Bundle) -> bool:
@@ -3574,7 +3576,7 @@ def _write_prepared_record(bundle: core.Bundle, path: Path, value: Any) -> None:
     # P365 also binds its new native ABI declarations in this preparation record.
     # Only the selected preparation record uses the existing 64-KiB writer bound;
     # journal records and all other campaign preparation limits stay unchanged.
-    limit = core.MAX_RESULT_RECORD if (_named_exploration_bundle(bundle) or _p365_bundle(bundle)) else core.MAX_RECORD
+    limit = core.MAX_RESULT_RECORD if (_named_exploration_bundle(bundle) or _large_return_record_bundle(bundle)) else core.MAX_RECORD
     try:
         core._write_exclusive_bounded(path, value, limit)
     except core.F1V2Error as exc:
@@ -9261,6 +9263,11 @@ class _P363ObserverSession(_P345ObserverSession):
             self.pre_control_lane = dict(lane,
                 observation_phase="before-native-return-control",
                 post_control_observation=False)
+            if self.namespace in DEPARTURE_RETURN_OWNERS:
+                self.pre_control_lane['native_usb_departure_binding'] = native_usb_departure.capture_binding(
+                    self.run_dir, endpoint=self.endpoint, binding=dict(self.base.binding), request=request)
+                if not self._endpoint_exact(self.endpoint, descriptor):
+                    raise F1LiveError('native USB endpoint changed while binding departure')
             self.control_intent_receipt = RETURN_HOSTS[self.namespace].write_intent(self.run_dir,
                 binding=dict(self.base.binding), endpoint_identity_sha256=self.endpoint.identity_sha256,
                 lane=self.pre_control_lane,request=request)
@@ -9347,7 +9354,9 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host}
+DEPARTURE_RETURN_OWNERS = frozenset(
+    p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.native_usb_departure)
 DIAGNOSTIC_RETURN_OWNERS = frozenset(
     p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.diagnostic_progress)
 
@@ -14055,7 +14064,7 @@ def _state(prepared: PreparedRun) -> dict[str, Any]:
 
 def _save_state(prepared: PreparedRun, value: dict[str, Any]) -> None:
     value = {**value, "schema": LIVE_STATE_SCHEMA}
-    if _p342_bundle(prepared.bundle) or _named_exploration_bundle(prepared.bundle) or _p365_bundle(prepared.bundle):
+    if _p342_bundle(prepared.bundle) or _named_exploration_bundle(prepared.bundle) or _large_return_record_bundle(prepared.bundle):
         # Four authenticated sessions plus the decoded Carrier projection
         # reach 33,084 bytes in the closed-state fixture. Reuse the existing
         # 64 KiB writer for this exact state path; all journal bounds stay put.
@@ -16888,6 +16897,16 @@ def _p363_wait_for_rollback(prepared: PreparedRun, backend: LiveBackend,
         if return_host.exists(prepared.run_dir):
             intent,intent_receipt = return_host.read_intent(prepared.run_dir,
                 binding=_candidate_observer_binding(prepared))
+        if _shell_definition(prepared.bundle).prefix in DEPARTURE_RETURN_OWNERS and intent is not None:
+            observation_path = prepared.run_dir / native_usb_departure.OBSERVATION_NAME
+            raw_path = prepared.run_dir / native_usb_departure.RAW_OBSERVATION_NAME
+            if observation_path.exists() or observation_path.is_symlink() or raw_path.exists() or raw_path.is_symlink():
+                try:
+                    departure_value,_ = native_usb_departure.read_observation(prepared.run_dir,intent,intent_receipt)
+                    if departure_value['status'] == 'error':
+                        raise native_usb_departure.DepartureError('previous native departure failure')
+                except native_usb_departure.DepartureError as exc:
+                    raise return_host.ReturnControlError('native departure record unavailable for software proof') from exc
         if path.exists() or path.is_symlink():
             value,receipt = return_host.stable_record(path)
             return_host.validate_window(value,binding=_candidate_observer_binding(prepared),
@@ -16903,8 +16922,18 @@ def _p363_wait_for_rollback(prepared: PreparedRun, backend: LiveBackend,
         outcome = "not-requested" if intent is None else "window-expired-before-observation"
         within = False
         if remaining > 0:
+            if _shell_definition(prepared.bundle).prefix in DEPARTURE_RETURN_OWNERS:
+                try:
+                    departed = native_usb_departure.observe_departure(prepared.run_dir, intent, intent_receipt)
+                except native_usb_departure.DepartureError as exc:
+                    raise F1LiveError('bound native USB departure observation failed') from exc
+                remaining = return_host.remaining_window(intent)
+                if not departed or remaining <= 0:
+                    remaining = 0.0
+                    outcome = 'software-window-timed-out'
             try:
-                endpoint = backend.wait_download(prepared,endpoint_dir,lease,remaining)
+                if remaining > 0:
+                    endpoint = backend.wait_download(prepared,endpoint_dir,lease,remaining)
             except DownloadWaitTimeout:
                 outcome = "software-window-timed-out"
         closed_ns = time.monotonic_ns()

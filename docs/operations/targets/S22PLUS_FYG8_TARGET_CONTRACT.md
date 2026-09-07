@@ -1413,11 +1413,38 @@ remain binding. Source/artifact/static qualification, independent changed-closur
 review, connected preparation and separately returned attended F1 approval are
 required. This clause alone is H0 and grants no device effect or standing session.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, or P365 candidate transfer occurs, the same
+**P366 attended exact native departure observation.** P365 is consumed and is
+never replayable. This successor retains P365's ARM64 flags, module bytes/order,
+renderer, diagnostic protocol, fixed CONTROL and exact Magisk rollback. Before
+CONTROL intent, the existing exact native tty/lane checks enclose capture of
+that endpoint's direct USB sysfs mapping and immutable usbfs identity. Bounded
+coordinate bytes and node observations remain private; the sealed departure
+binding is included in the intent's lane record and revalidated by its reader.
+
+After CONTROL dispatch, only that bound native usbfs node is observed until
+positive absence before beginning unchanged strict Odin arrival enumeration.
+Both observations share the original 30-second CONTROL window; no new deadline
+or CONTROL attempt is created. Exact native departure is not Download proof.
+Reused coordinates, changed immutable identity, non-ENOENT errors and unexpected
+Odin inventory failures still stop. Missing/invalid local departure records
+foreclose software-return proof while preserving the existing physical rollback
+route. Raw terminal evidence prevents observation replay after partial publication.
+
+This sequencing addresses the outgoing-node inventory race class only; P365's
+original post-CONTROL inner failure remains unproved. Initial-inventory failures
+now retain their bounded exception class and observation stage without permitting
+a retry. The sequencing condition applies only to this native-return capability;
+its review trigger is a changed endpoint lifetime, mapping, observer or return
+protocol, and retirement requires reviewed evidence that the outgoing-node race
+is absent from the replacement observation path. Fresh artifact/static checks,
+independent boundary review, connected preparation and separately returned
+attended F1 approval remain required. No unattended session is activated.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, or P366 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, or `s22plus-fyg8-p365` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, or `s22plus-fyg8-p366` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
