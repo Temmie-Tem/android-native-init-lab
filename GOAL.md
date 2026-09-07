@@ -11,13 +11,20 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P361 H0 build/static/promotion and independent PASS_GO are complete for ten
-sequential one-second FB-only swaps
-between P360's unchanged retained frame pair, ending with the first frame held.
-The current operator request authorizes H0 and D0/D1 preparation. The remaining step is
-fresh connected preparation; F1 remains
-separately approved. No P361 device effect has occurred. PID1 state/heartbeat HUD
-is a later step after this bounded repeated display path, not a current claim.
+P361 repeated-frame preparation has passed H0 build/static/promotion,
+independent PASS_GO and fresh D0. The planned sequence is the first P360 frame,
+then ten one-second waits and blocking FB-only swaps between the two unchanged
+retained buffers, ending on the first. Actual repeat display remains unproved;
+this is not yet a PID1 state/heartbeat HUD.
+
+The expected first D0 baseline stop is preserved. One preapproved ordinary
+reboot returned exact rooted FYG8/original hashes/Android health; fresh D0 passed
+in `p361-ready1-prepared-20260907-2`. Prepared record is `30321B/9fee6891`.
+Actual prepared reopening passed. No P361 candidate transfer or F1 authorization has
+occurred; no active native lease exists. A90/S20+ received no command from this
+task. F1 requires the separately returned fresh token and physical Download
+availability.
+Report: [P361 repeated-frame preparation](docs/reports/S22PLUS_FYG8_P361_REPEATED_FRAME_PREPARATION_2026-09-07.md).
 
 ## Consumed P360 transition
 
