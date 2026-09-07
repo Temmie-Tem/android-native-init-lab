@@ -19,6 +19,15 @@ nodes. A90 source illustrates native-owned reboot/recovery calls, not transferab
 Download proof. P361 has no post-display command receive path and its renderer
 lacks reboot capability. Native normal reboot and Download remain unproved.
 
+Follow-up narrowed the candidate addition to five modules: sec_reboot_cmd,
+sec_qc_rbcmd, sec_qc_qcom_reboot_reason, qcom-dload-mode and
+nvmem_qcom-spmi-sdam. Their 87-module union has 4,532 imports and zero H0
+resolution/CRC failures. Runtime probe/return remain unproved. Command-table
+registration is asynchronous; module presence alone is insufficient. The
+existing wire boot_id is a native-generated token, so a new restart qualification
+must explicitly bind kernel boot identity. Ordinary same-PID1 reboot remains
+an intentional separate control action from Download/rollback.
+
 The next bounded implementation is supervisor-owned authenticated fixed control
 plus the smallest qualified reason/provider closure, followed by separately
 approved attended reboot and Download qualifications. Normal reboot keeps the
