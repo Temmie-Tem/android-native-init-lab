@@ -127,3 +127,19 @@ published and reopened ready1 manifest 5,054 bytes, SHA-256
 Bundle SHA-256 is
 `1a81bfdda23f67a0e1495f74763cd1c8eb5bc87ccd1c895cf07d5a4b7749a122`.
 This registration created no connected run or F1 authority.
+
+## Connected preparation
+
+Fresh exact-target D0 returned `PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`.
+No D1 reboot was needed. The production `load_prepared` consumer then reopened
+the real bundle and prepared record successfully. Preparation requested no
+reboot, invoked no Odin and transferred no partition payload; F1 remains
+unauthorized until the operator returns the fresh attended approval code.
+
+Private run: `workspace/private/runs/device-action-f1-live-v2/p365-ready1-prepared-20260908-1/`.
+Prepared record: 32,539 bytes, SHA-256
+`536836f6371c87b25733f579a0d9f801a99c83a5cf9814d5fd6024ba785b23fb`.
+D0 result: 3,261 bytes, SHA-256
+`1ce5c6cb6af97f7c40fbb99b7560668fde0d46f7ec7329d33580b9b395cd1faf`.
+The reopen summary is retained in the private output directory as
+`connected-prepared-reopen.json`. A90 and S20+ received no command from this unit.

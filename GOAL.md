@@ -20,6 +20,9 @@ D0/D1 preparation. It corrects target ARM64 directory/no-follow flags and scopes
 success/late-failure producer-to-writer roundtrips precede candidate qualification.
 A/B build, static and real bundle verification, seven P365 test methods, 39
 predecessor regressions and both independent reviews passed.
+Fresh connected D0 passed without reboot; the 32,539-byte prepared record
+reopened successfully against the real bundle. The fresh F1 code is ready for
+issuance; no candidate transfer or D1 action occurred during preparation.
 The P361 renderer and return protocol/module order remain fixed. No P365 F1
 execution is authorized until its separately returned fresh attended approval.
 
