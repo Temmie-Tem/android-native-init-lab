@@ -11,26 +11,25 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P358 is prepared for the cached ABGR8888 ordinary-buffer comparison. The operator
-authorized remaining analysis and next-experiment preparation; current D0/D1
-preapproval applies when needed. A separately returned fresh F1 token is still
-required for candidate execution.
+P358 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
+ordinary-buffer candidate and one exact Magisk rollback transferred. The operator
+reported **full clean magenta**, whereas WC P356/P357 were corrupt. This is the
+first clean ordinary-buffer observation in this comparison; it supports the
+CACHED path but does not isolate cache coherency from mmap/DMA-map timing.
 
-The post-P357 source/binary/D0 analysis supports a WC-to-CACHED GEM flag comparison.
-Retain P357's bytes, geometry, mode, atomic request, privilege and recovery bounds.
-The flag also changes mmap bookkeeping and DMA-map timing, so it does not isolate
-cache causality. Live native PTE/cache/address/bandwidth/scaler/DSC state remains
-unproved; those observations require a suitable future native window and do not
-block this bounded comparison. No P358 candidate transfer has occurred.
+The machine verdict is `PASS_F1_V2_P358_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`;
+it proves dispatch and rollback, not visible output. Live result is
+`22805B/f6467449`. Original execute stopped on measured USB endpoint evidence
+while awaiting physical Download after observation, before rollback intent. One
+same-journal preauthorized recovery completed the exact rollback and final rooted
+FYG8/original hashes/Android health/absent Download checks. The initial error
+remains unexplained; candidate and observation were never replayed.
 
-A/B/static/actual AArch64 paint qualification, offline promotion and independent
-PASS_GO review are complete. Initial D0 preserved the expected baseline stop;
-one authorized normal D1 reboot returned with exact health, and fresh D0 in
-`p358-ready1-prepared-20260907-2` passed. A new F1 approval code is ready.
-Prepared SHA-256 is `32d4c08d38096ffff46511aec68122ef8b86bc57a26bf6e7501baefe3e0b5aec`.
-Await the separately returned attended F1 approval; no P358 candidate transfer
-has occurred. P357 remains consumed and healthy, with all evidence unchanged.
-Report: [P358 cached framebuffer preparation](docs/reports/S22PLUS_FYG8_P358_CACHED_FRAMEBUFFER_PREPARATION_2026-09-07.md).
+No active lease remains. P358 is never replayable; A90/S20+ received no command
+from this task. A next bounded patterned-frame comparison using CACHED is a
+possible follow-up, not an activated successor or proof of a general display
+runtime. Historical WC failure evidence and source closures remain intact.
+Report: [P358 clean cached-buffer result](docs/reports/S22PLUS_FYG8_P358_CACHED_FRAMEBUFFER_PREPARATION_2026-09-07.md).
 
 ## Consumed P357 comparison
 

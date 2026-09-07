@@ -2,8 +2,9 @@
 
 P358 compares GEM `MSM_BO_CACHED` with P357's `MSM_BO_WC`, retaining opaque
 ABGR8888 magenta and the same display request. P357 is consumed and closed with
-exact rollback/final health; its corrupt visual result is unchanged. This
-preparation does not prove the cause of that corruption or activate a device run.
+exact rollback/final health; its corrupt visual result is unchanged. P358 has now completed one separately approved F1, with operator-observed clean
+magenta and exact healthy rollback. The cause of the earlier corruption remains
+unproved.
 
 The operator authorized remaining analysis and preparation of the next
 experiment, with D0/D1 preapproval when needed. A separately returned fresh F1
@@ -86,8 +87,8 @@ also passes 21 tests. No old fixture or consumed candidate was edited.
 
 Actual static qualification is
 `48708B/cf390afe6181ade4bde97e77b643ac21dd74c5f850fa6f1cd560b01f7577164d`,
-with exact artifact/AP/ramdisk joins. Final promotion/review and connected
-preparation are recorded below when completed; no F1 candidate has transferred.
+with exact artifact/AP/ramdisk joins. Promotion/review, connected preparation and
+the later separately approved F1 are recorded below.
 
 Private evidence is under `workspace/private/outputs/s22plus_fyg8_p358/`.
 
@@ -128,10 +129,54 @@ Prepared record is
 It issues a fresh exact F1 token, excluded from tracked documents and supplied
 directly to the operator.
 Device-write, reboot, partition-transfer, live/F1 authority and Odin flags in
-that prepared record are false. No P358 candidate transfer occurred; A90/S20+
-received no command from this task. Await the separately returned attended F1
-approval. GOAL/report are outside the prepared execution closure.
+that prepared record are false. At preparation completion no P358 candidate had
+transferred, and the separate F1 approval was pending. A90/S20+ received no
+command from this task. GOAL/report are outside the prepared execution closure.
 
 Actual `load_prepared` reopening passed. Final document content/link/privacy and
-diff checks pass. The preparation-through-code unit is complete; F1 remains
-unexecuted.
+diff checks passed. The preparation-through-code unit completed before the
+separately approved F1 below.
+
+
+## Consumed F1: observed clean cached-buffer magenta
+
+After the operator returned the exact fresh approval, run
+`p358-ready1-prepared-20260907-2` transferred one candidate and one exact Magisk
+rollback. The operator explicitly reported **full clean magenta**. This is
+operator-observed clean ordinary CACHED-buffer output; no photograph was supplied
+for this run. WC P356/P357 remained corrupt in their separate retained observations.
+The comparison supports choosing the CACHED path for the next bounded display
+capability, but does not isolate cache coherency from mmap/DMA-map timing or
+other consequences of the flag. No native PTE/cache/register readback was added.
+
+The machine verdict is
+`PASS_F1_V2_P358_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`, proving authenticated
+host dispatch and rollback, not renderer completion or panel output. Live result
+is `22805B/f6467449af7e16dcbcac61b76ce078c94161273ba5f4f2fd6f79e81991c3dea5`.
+The independent private `operator-visual-witness.json` retains the visual report.
+
+The original execute stopped with `measured USB endpoint evidence failed` while
+waiting for physical Download after observation, before any rollback intent or
+transfer. Its error and raw evidence remain preserved; its cause is unproved.
+One same-journal preauthorized recovery invocation obtained the exact rollback
+endpoint and completed the sole rollback. Candidate and observation were never
+replayed, and no topology-rebind exception was used.
+
+Final rooted FYG8, original boot/supporting hashes, Android health and absent
+Download passed. The journal is CLOSED/19, recovery_required=false, with no
+active later-action lease. P358 is consumed and never replayable. A90/S20+
+received no command from this task. No successor F1 or standing native session
+is activated by this result.
+
+Canonical timeline, UTC:
+
+| Event | Timestamp |
+| --- | --- |
+| live_session_start | 2026-09-07T08:49:12.552574Z |
+| candidate_flash_start | 2026-09-07T08:49:29.693436Z |
+| candidate_flash_done | 2026-09-07T08:49:31.315356Z |
+| candidate_boot_ready | 2026-09-07T08:49:43.787356Z |
+| rollback_flash_start | 2026-09-07T08:51:35.080671Z |
+| rollback_flash_done | 2026-09-07T08:51:36.638188Z |
+| rollback_boot_ready | 2026-09-07T08:52:24.392260Z |
+| live_session_end | 2026-09-07T08:52:24.412296Z |
