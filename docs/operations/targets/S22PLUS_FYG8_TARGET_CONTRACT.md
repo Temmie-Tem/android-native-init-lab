@@ -1440,6 +1440,35 @@ is absent from the replacement observation path. Fresh artifact/static checks,
 independent boundary review, connected preparation and separately returned
 attended F1 approval remain required. No unattended session is activated.
 
+**Target-scoped post-rollback final health.** Native-return prepared source
+closures that bind `final_target_health` use the versioned
+`s22plus_target_scoped_final_health_v1` result only after the journal records
+completed exact rollback, its attempt checkpoint and validated matching AP
+transfer result. This specializes final observation only. All preflight,
+Download acquisition and pre-transfer global uniqueness checks remain unchanged.
+No candidate/CONTROL/rollback replay or new recovery route follows from it.
+
+The final observer revalidates the prepared Type-C source/companion mapping,
+exact S22+ ADB serial and topology, Android boot identity and completion, root,
+and original boot/supporting partition hashes. Complete raw Download censuses
+before and after EOF collection must show no Download on either bound lane.
+A separate-path Download endpoint is retained as foreign evidence and does not
+block final health. Incomplete census, changed target identity/controller/path,
+a bound-lane Download, changed boot or failed health remains blocking. A
+recovery-only rebind cannot silently widen these final target lanes or restore
+lost experimental continuity; a changed final mapping needs its own reviewed
+binding. No foreign device is queried, selected or disconnected by this path.
+
+The legacy `odin_endpoint_absent` field continues to mean global absence and
+is false when either retained census has foreign Download endpoints. The new
+`target_odin_endpoint_absent` field and typed `target_download_absence` evidence
+state target absence separately, with distinct ordered before/after raw
+receipts. Newly bound closures require that scope and reject downgrade to a
+legacy result. Historical closures keep their old semantics and consumed
+records are not repinned, regenerated or upgraded. Scope review is triggered
+by changes to target mapping, USB mode, recovery or final-evidence semantics.
+This H0 implementation/review grants no new connected run or device effect.
+
 If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, or P366 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,

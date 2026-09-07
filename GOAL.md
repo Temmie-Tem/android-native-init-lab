@@ -13,11 +13,13 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Post-P366 H0 repair: the real Samsung backend now emits acquisition-local
-native Download arrival evidence for its consumer; resumed ADB capture numbers
-continue above existing complete and partial records. Exact-target final
-absence was reviewed; both existing global absence checks remain unchanged.
-See the [host repair report](docs/reports/S22PLUS_FYG8_POST_P366_HOST_REPAIR_2026-09-08.md).
+Post-P366 H0 repairs now cover native Download arrival evidence, resumed raw
+capture numbering and target-scoped final health after durable exact rollback.
+New native-return source bindings record target absence and foreign Download
+endpoints separately; preflight and pre-transfer global uniqueness are
+unchanged. Historical final-result semantics remain unchanged. See the
+[target-scoped final health report](docs/reports/S22PLUS_FYG8_TARGET_SCOPED_FINAL_HEALTH_H0_2026-09-08.md)
+and the earlier [arrival/capture repair report](docs/reports/S22PLUS_FYG8_POST_P366_HOST_REPAIR_2026-09-08.md).
 No new candidate is prepared and no device action is part of this unit.
 
 P366 reporting is complete. One candidate, one CONTROL and one exact Magisk

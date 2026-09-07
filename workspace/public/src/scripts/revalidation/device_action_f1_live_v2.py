@@ -127,6 +127,7 @@ RETAINED_SHELL_OWNERS = {"p348": (p348_shell_session, p348_shell_action),
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
+import s22plus_final_target_health_v1 as target_final_health
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
@@ -1619,6 +1620,8 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             paths["p323_predecessor_baseline"] = Path(
                 typed_evidence.p323_predecessor_baseline.__file__
             ).resolve()
+    if bundle is not None and _native_return_bundle(bundle):
+        paths["final_target_health"] = Path(target_final_health.__file__).resolve()
     values = {
         name: _receipt(path.resolve(), f"execution source {name}")
         for name, path in paths.items()
@@ -5623,20 +5626,33 @@ class SamsungOdinBackend:
             "candidate_execution_proven": False,
         }
 
+    def _capture_target_final(self, prepared: PreparedRun, context: dict[str, Any], phase: str) -> tuple[dict[str, Any],dict[str, Any]]:
+        lane,_ = _p324_typec_lane_value(prepared,revalidate=True,
+            usb_root=self.usb_root,typec_root=self.typec_root)
+        receipt = target_final_health.capture(prepared.run_dir,usb_root=self.usb_root,
+            profile=prepared.bundle.profile,lane=lane,serial=prepared.private_target["serial"],context=context,phase=phase)
+        _p324_typec_lane_value(prepared,revalidate=True,
+            usb_root=self.usb_root,typec_root=self.typec_root)
+        summary = target_final_health.validate(receipt,directory=prepared.run_dir/"final-target-health",
+            profile=prepared.bundle.profile,lane=lane,serial=prepared.private_target["serial"],context=context,phase=phase)
+        return receipt,summary
+
     def _wait_final_health(
         self,
         prepared: PreparedRun,
         client: d0.AdbReadOnlyClient,
+        final_context: dict[str, Any] | None = None,
     ) -> tuple[str, dict[str, Any]]:
         deadline = time.monotonic() + ANDROID_WAIT_SEC
         last_error = "final Android not observed"
         while time.monotonic() < deadline:
             try:
-                snapshot = d0.usb_snapshot(
-                    self.usb_root, prepared.bundle.profile["target"]["download"]
-                )
-                if snapshot["download_endpoint_count"]:
-                    raise F1LiveError("Download endpoint remains during final health")
+                if final_context is None:
+                    snapshot = d0.usb_snapshot(
+                        self.usb_root, prepared.bundle.profile["target"]["download"]
+                    )
+                    if snapshot["download_endpoint_count"]:
+                        raise F1LiveError("Download endpoint remains during final health")
                 serial = client.one_serial()
                 topology = client.topology(serial)
                 if (
@@ -5653,10 +5669,18 @@ class SamsungOdinBackend:
                     True,
                     "final_health",
                 )
-                return serial, health
             except (d0.D0Error, F1LiveError, OSError) as exc:
                 last_error = str(exc)
                 time.sleep(2)
+                continue
+            # A complete Android health read precedes the target census.
+            # Binding/inventory faults are not normal Android-arrival polling.
+            if final_context is not None:
+                before,summary = self._capture_target_final(prepared,final_context,"before")
+                health["target_odin_endpoint_absent"] = True
+                health["odin_endpoint_absent"] = summary["global_odin_endpoint_absent"]
+                health["_target_download_before"] = before
+            return serial, health
         raise F1LiveError(f"final Android health wait expired: {last_error}")
 
     def verify_final(
@@ -5666,22 +5690,25 @@ class SamsungOdinBackend:
         lease: Any,
         destination: Path,
     ) -> dict[str, Any]:
-        sequence = len(odin_core.list_snapshot_receipts(run_dir))
-        absent = odin_core.wait_for_no_live_endpoint(
-            self.odin,
-            run_dir,
-            timeout_sec=DISCONNECT_WAIT_SEC,
-            lease=lease,
-            sequence_start=sequence,
-            poll_sec=0.5,
-            endpoint_observer_factory=odin_core.measured_usbfs_observer,
-            allow_live_departure=True,
-        )
-        if not absent.absent:
-            raise F1LiveError("rollback Odin endpoint did not disappear")
+        final_context = _target_final_context(prepared,observing=True)[0] if _target_final_enabled(prepared) else None
+        if final_context is None:
+            sequence = len(odin_core.list_snapshot_receipts(run_dir))
+            absent = odin_core.wait_for_no_live_endpoint(
+                self.odin,
+                run_dir,
+                timeout_sec=DISCONNECT_WAIT_SEC,
+                lease=lease,
+                sequence_start=sequence,
+                poll_sec=0.5,
+                endpoint_observer_factory=odin_core.measured_usbfs_observer,
+                allow_live_departure=True,
+            )
+            if not absent.absent:
+                raise F1LiveError("rollback Odin endpoint did not disappear")
         final_client = d0.adb_client_for_bundle(self.adb, prepared.bundle)
         final_client.bind_raw_capture_dir(destination)
-        serial, health = self._wait_final_health(prepared, final_client)
+        serial, health = self._wait_final_health(prepared, final_client, final_context)
+        target_before = health.pop("_target_download_before",None)
         acceptance = prepared.bundle.manifest["observation"]["acceptance"]
         payloads: list[bytes] = []
         receipts: list[dict[str, Any]] = []
@@ -5716,6 +5743,23 @@ class SamsungOdinBackend:
             or final_topology != prepared.private_target["topology"]
         ):
             raise F1LiveError("final target changed during observer collection")
+        target_absence = None
+        if final_context is not None:
+            properties = final_client.properties(final_serial)
+            if hashlib.sha256(properties["boot_id"].encode()).hexdigest() != health["boot_id_sha256"]:
+                raise F1LiveError("final Android boot changed during observer collection")
+            after,after_summary = self._capture_target_final(prepared,final_context,"after")
+            lane,_ = _p324_typec_lane_value(prepared)
+            before_summary = target_final_health.validate(target_before,
+                directory=prepared.run_dir/"final-target-health",profile=prepared.bundle.profile,
+                lane=lane,serial=prepared.private_target["serial"],context=final_context,phase="before")
+            global_absent = before_summary["global_odin_endpoint_absent"] and after_summary["global_odin_endpoint_absent"]
+            health["odin_endpoint_absent"] = global_absent
+            target_absence = dict(schema="s22plus_target_scoped_final_health_v1",
+                before=target_before,after=after,target_odin_endpoint_absent=True,
+                global_odin_endpoint_absent=global_absent,
+                foreign_download_before=before_summary["foreign_download_endpoints"],
+                foreign_download_after=after_summary["foreign_download_endpoints"])
         stock_error = None
         try:
             marker_result = classify_acceptance(payloads[0], acceptance)
@@ -5875,6 +5919,9 @@ class SamsungOdinBackend:
             },
             "rollback_verified": True,
         }
+        if target_absence is not None:
+            result["target_download_absence"] = target_absence
+            _validate_target_final_evidence(prepared,result)
         if p318_topology_evidence is not None:
             result["p318_candidate_topology"] = p318_topology_evidence
         if p319_projection is not None:
@@ -14287,6 +14334,50 @@ def _validate_transfer_evidence(prepared: PreparedRun, kind: str) -> dict[str, A
     return last
 
 
+def _target_final_enabled(prepared: PreparedRun) -> bool:
+    return (_native_return_bundle(prepared.bundle) and "final_target_health" in
+        prepared.prepared.get("execution_closure",{}).get("sources",{}))
+
+
+def _target_final_context(prepared: PreparedRun, *, observing: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not _target_final_enabled(prepared):
+        raise F1LiveError("target-scoped final health is not enabled for this binding")
+    journal = core.Journal(prepared.run_dir / "transaction", prepared.binding_sha256)
+    current = _state(prepared)
+    if (journal.state() not in ({"ROLLBACK_FLASHED"} if observing else {"ROLLBACK_FLASHED", "HEALTH_VERIFIED", "CLOSED"})
+        or current.get("rollback_completed") is not True):
+        raise F1LiveError("target-scoped final health requires completed rollback")
+    attempt = _reconcile_transfer_attempts(prepared,journal,"rollback",repair_orphan_start=False)
+    transfer = _validate_transfer_result(prepared,"rollback",attempt) if attempt else None
+    done = [event for event in journal.records() if event.get("kind") == "event" and event.get("action") == "rollback_flash_done"]
+    if transfer is None or transfer.get("classification") != "odin_transfer_completed" or len(done) != 1:
+        raise F1LiveError("target-scoped final health lacks durable exact rollback")
+    lane, receipt = _p324_typec_lane_value(prepared)
+    context = dict(binding=_candidate_observer_binding(prepared),lane_binding=receipt,
+        rollback=_receipt(prepared.run_dir/f"rollback-attempt-{attempt:02d}.result.json","completed rollback"),
+        rollback_completion_event_sha256=core.json_sha256(done[0]))
+    return context,lane
+
+
+def _validate_target_final_evidence(prepared: PreparedRun, evidence: dict[str, Any]) -> None:
+    scoped = evidence.get("target_download_absence")
+    if not isinstance(scoped,dict) or set(scoped) != {"schema","before","after","target_odin_endpoint_absent","global_odin_endpoint_absent","foreign_download_before","foreign_download_after"} or scoped["schema"] != "s22plus_target_scoped_final_health_v1":
+        raise F1LiveError("target-scoped final evidence shape differs")
+    context,lane = _target_final_context(prepared)
+    summaries = [target_final_health.validate(scoped[phase],
+        directory=prepared.run_dir/"final-target-health",profile=prepared.bundle.profile,
+        lane=lane,serial=prepared.private_target["serial"],context=context,phase=phase) for phase in ("before","after")]
+    global_absent = all(item["global_odin_endpoint_absent"] for item in summaries)
+    if (summaries[0]["sequence"] >= summaries[1]["sequence"]
+        or scoped["target_odin_endpoint_absent"] is not True
+        or scoped["global_odin_endpoint_absent"] is not global_absent
+        or evidence["health"].get("target_odin_endpoint_absent") is not True
+        or evidence["health"].get("odin_endpoint_absent") is not global_absent
+        or scoped["foreign_download_before"] != summaries[0]["foreign_download_endpoints"]
+        or scoped["foreign_download_after"] != summaries[1]["foreign_download_endpoints"]):
+        raise F1LiveError("target/global final absence projection differs")
+
+
 def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> None:
     evidence = state.get("final_evidence")
     if not isinstance(evidence, dict) or evidence.get("rollback_verified") is not True:
@@ -14300,6 +14391,11 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
         raise F1LiveError("final host-first observer carries a foreign candidate namespace")
     health = evidence.get("health")
     expected_health = prepared.bundle.profile["final_health"]
+    scoped_final = "target_download_absence" in evidence
+    if scoped_final != _target_final_enabled(prepared):
+        raise F1LiveError("final evidence scope does not match the prepared capability")
+    if scoped_final:
+        _validate_target_final_evidence(prepared,evidence)
     if (
         not isinstance(health, dict)
         or set(health)
@@ -14313,7 +14409,7 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
             "odin_endpoint_absent",
             "kernel_release",
             "boot_id_sha256",
-        }
+        } | ({"target_odin_endpoint_absent"} if scoped_final else set())
         or health.get("android_boot_completed") is not True
         or health.get("boot_animation_stopped") is not True
         or health.get("verified_boot_state")
@@ -14322,7 +14418,7 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
         or health.get("boot_sha256") != expected_health["boot_sha256"]
         or health.get("supporting_partition_sha256")
         != expected_health["supporting_partition_sha256"]
-        or health.get("odin_endpoint_absent") is not True
+        or (not scoped_final and health.get("odin_endpoint_absent") is not True)
         or not isinstance(health.get("kernel_release"), str)
         or not health.get("kernel_release")
         or re.fullmatch(r"[0-9a-f]{64}", str(health.get("boot_id_sha256")))
