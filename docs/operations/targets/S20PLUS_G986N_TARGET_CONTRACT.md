@@ -2199,21 +2199,28 @@ Its focused test was `48,102` bytes at SHA-256
 That activation received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0`
 and was committed as `0ae1c30792`.
 
-The active multi-ADB v2 owner is `222,832` bytes at SHA-256
+The multi-ADB v2 owner was `222,832` bytes at SHA-256
 `0246014e50b1ff509568ee019f36680694e3a87644ccca8c340767b3dd75445d`,
-with normalized SHA-256
+with reviewed normalized SHA-256
 `e2d612fc14549d0b0838ba66473b203126342362480636f3599fd9ea1548ed40`.
-Its active 54-test file is
+Its 54-test file was
 `58,443` bytes at SHA-256
 `8a7425b8d63582cda62e55a82c7e2b300990af0fe5809e7e24c5f33f33fb3741`;
-the host closure is
+the host closure was
 `4a28081b9829a8908c079aa110b9e95be20427873367808cd50e81da418502a8`.
 Those exact bytes, this contract delta, the goal delta, and the v2 review report
-received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` and become
-effective only when their complete diff is committed together. They were
-committed as `60f3f9f11a`. The revision creates no standing unattended
+received independent `PASS_GO` with HIGH/MEDIUM/LOW `0/0/0` and became
+effective only when their complete diff was committed together. They were
+committed as `60f3f9f11a`. That revision created no standing unattended
 authority. Every new run still requires fresh prepare, its exact emitted
 approval, and attendance.
+
+These identities are historical. The recovery-parser repair recorded below
+superseded them in `cf8bc38a98`, and the owner that runs today is the
+`224,559`-byte one named there. This paragraph was left in the present tense
+across that supersession and read, wrongly, as the current identity of an armed
+F1; it is corrected here without re-pinning anything, because the reviewed
+current identities were already recorded below.
 
 The first v2 run consumed its exact approval and completed one attributed
 candidate transfer. Candidate observation returned `NO_PROOF` with no ADB or

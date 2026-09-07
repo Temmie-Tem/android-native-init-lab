@@ -264,5 +264,71 @@ class RecordedDeferralTests(unittest.TestCase):
                 self.assertEqual(text.count(path), 1)
         self.assertIn("17c10000.qcom,wdt", CONTRACT.read_text())
 
+
+class ContractProseIdentityTests(unittest.TestCase):
+    """Identity claims the contract states in prose, not on a labelled line.
+
+    The section-pin guards above read `Runner-Normalized-SHA256:` and
+    `Root-Script-SHA256:` lines. The F1 identity blocks state the same kind of
+    fact as English - "the owner is N bytes at SHA-256 X" - so those guards
+    cannot see them, and one such block went stale for six days on the only
+    armed S20+ F1: `cf8bc38a98` repaired the B0 owner, wrote the repaired
+    identities into the contract, updated the runner's own
+    `EXPECTED_REVIEWED_NORMALIZED_SHA256`, and left the predecessor paragraph
+    standing in the present tense. Two present-tense blocks then named
+    different bytes as the active owner, 36 lines apart.
+
+    The invariant is about tense, because the contract already uses tense to
+    separate record from claim: a paragraph that says an artifact `was` N bytes
+    is history and is expected to name bytes that no longer exist, while one
+    that says it `is` N bytes is a live claim and must describe a file that
+    exists now. Only the second is checked.
+    """
+
+    IDENTITY_CLAIM = re.compile(
+        r"\bis\s+`([\d,]+)`\s+bytes at SHA-256\s*\n?`([0-9a-f]{64})`"
+    )
+    SEARCH_DIRS = (REVALIDATION, ROOT / "tests")
+
+    def resolve(self, size, digest):
+        """The file the claim describes, or None. Hashes only size matches."""
+        for directory in self.SEARCH_DIRS:
+            for path in directory.glob("*.py"):
+                if path.stat().st_size != size:
+                    continue
+                if hashlib.sha256(path.read_bytes()).hexdigest() == digest:
+                    return path
+        return None
+
+    def test_the_contract_states_at_least_one_present_tense_identity(self):
+        # Guards the guard: a reformat that changes the wording would otherwise
+        # make every check below vacuously pass over zero matches.
+        self.assertTrue(self.IDENTITY_CLAIM.findall(CONTRACT.read_text()))
+
+    def test_every_present_tense_byte_claim_names_a_file_that_exists(self):
+        for size, digest in self.IDENTITY_CLAIM.findall(CONTRACT.read_text()):
+            with self.subTest(size=size, sha256=digest[:12]):
+                self.assertIsNotNone(
+                    self.resolve(int(size.replace(",", "")), digest),
+                    "the contract claims these are the current bytes, but no "
+                    "runner or test file in the repository has them; either the "
+                    "paragraph is stale and belongs in the past tense, or an "
+                    "identity was re-pinned without review",
+                )
+
+    def test_the_active_b0_owner_self_pin_is_recorded_in_the_contract(self):
+        # The other half of the same drift: the runner validates itself against
+        # its own constant, so a re-pin that never reached the contract leaves
+        # the binding document unable to say which bytes were reviewed, while
+        # the capability keeps running.
+        owner = REVALIDATION / "s20plus_g986n_boot_recovery_canary_b0_f1.py"
+        pinned = re.search(
+            r'^EXPECTED_REVIEWED_NORMALIZED_SHA256 = "([0-9a-f]{64})"$',
+            owner.read_text(), re.M,
+        )
+        self.assertIsNotNone(pinned, "the active B0 F1 no longer self-pins")
+        self.assertIn("`" + pinned.group(1) + "`", CONTRACT.read_text())
+
+
 if __name__ == "__main__":
     unittest.main()
