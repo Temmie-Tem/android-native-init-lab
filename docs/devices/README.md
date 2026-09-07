@@ -21,12 +21,12 @@ combined into a new end-to-end success.
 
 ## At a glance
 
-Snapshot of records checked on 2026-09-05; follow each GOAL for later changes.
+The S22+ row was checked on 2026-09-08; the other rows retain their 2026-09-05 snapshot. Follow each GOAL for later changes.
 
 | Device | SoC / kernel | Established result | Current frontier | Important unproved boundary |
 | --- | --- | --- | --- | --- |
 | [Galaxy A90 5G](A90.md) (`SM-A908N`)<br>[visual evidence](A90_VISUAL_EVIDENCE.md) | Qualcomm SM8150 / vendor Linux 4.14.190 | **PROVED:** native PID 1, ACM/NCM, native Wi-Fi/audio, and bounded Debian PID 1/SSH/display results | H41 rollback/health closure; isolated-Debian server work paused | One persistent run integrating the selected isolated-Debian architecture; H41 playback and recovery closure |
-| [Galaxy S22+](S22PLUS.md) (`SM-S906N`, FYG8)<br>[display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED:** rebuilt-kernel Android boot, native-PID1 ACM, authenticated bounded read-only shell, 120-second reopen and healthy rollback (P348) | P349 RAM workspace and actual-hour witnesses host-qualified; awaiting attendance after two pre-transfer authentication stops | On-device RAM/hour proof, unrestricted root shell/persistent service and detailed USB/Max77705 causality |
+| [Galaxy S22+](S22PLUS.md) (`SM-S906N`, FYG8)<br>[display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED:** rebuilt-kernel Android boot, native-PID1 ACM, authenticated bounded read-only shell and healthy rollback through P348; P353-P361 **PROVED** display dispatch/rollback and **OBSERVED** clean cached-buffer output, including repeated framebuffer selection | P365 implementation/qualification after P363/P364 closed `NO_PROOF_OBSERVER`; native normal reboot and Download remain unproved | device-backed P349 hour witness, unrestricted root shell, pixel readback, the WC/CACHED corruption cause, and native normal reboot/Download |
 | [Galaxy S20+ 5G](S20PLUS.md) (`SM-G986N`) | Qualcomm SM8250 / vendor Linux 4.19.113 | **PROVED:** onboarding, resident Magisk, retained T2 TWRP, and P0 V3 transfer/healthy rollback | Early-boot pstore/PMSG observation after P0 V3 NO_PROOF | Custom native PID 1, live early-boot retention, and autonomous F1 |
 
 ## Reading order

@@ -92,17 +92,20 @@ known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 �
 - **Galaxy A90 5G (`SM-A908N`)**: custom native PID 1, ACM/NCM, native Wi-Fi와
   audio, 그리고 bounded Debian PID 1/SSH/display 결과가 있습니다. 현재 작업은
   H41 rollback/health 종결이며 isolated-Debian 서버 작업은 일시 중지돼 있습니다.
-- **Galaxy S22+ (`SM-S906N`, FYG8)**: source-matched rebuilt kernel과 native
-  PID 1 USB 통신을 증명했습니다. P348은 제한된 읽기 전용 셸, 120초 idle/reopen,
-  이후 명령과 정상 rollback을 증명했습니다. P349 RAM 작업공간은 host 검증을
-  통과했지만 두 실행 모두 인증 단계에서 전송 전에 중단됐습니다. 현장 복귀를
-  기다리며, 실제 1시간·기기 RAM 시험과 무제한 root shell은 미증명입니다.
+- **Galaxy S22+ (`SM-S906N`, FYG8)**: 인증된 native-PID1 USB 경로는 P348까지
+  제한된 읽기 전용 셸 작업을 뒷받침합니다. 이어진 P353~P361 디스플레이 시리즈는
+  cached 버퍼의 반복 framebuffer 선택에 도달했고, 깨끗한 출력은 운영자가 관측하고
+  사진·클립이 보강했습니다. 인증된 dispatch와 정확한 rollback은 그 시각 관측과
+  분리해 증명됩니다. P363과 P364는 네이티브 reboot/Download 제어로 방향을 틀었으나
+  둘 다 `NO_PROOF_OBSERVER`로 닫혔고, 그 제어 경로는 미증명으로 남아 있습니다.
+  현재 구현/자격 단위는 P365이며, P349의 RAM 작업공간·1시간 witness 단위는 host
+  검증된 상태로 보류돼 있습니다.
 - **Galaxy S20+ 5G (`SM-G986N`)**: exact onboarding, resident Magisk root,
   retained T2 TWRP recovery가 확립됐습니다. P0 V3 native-PID1 시도에서는 exact
   ACM banner를 얻지 못했고 정상 Magisk rollback으로 종료했습니다. Native PID 1은
   미증명이며 현재는 초기 부팅 관측 경로를 연구합니다.
 
-이 요약의 S22+ 항목은 2026-09-06, 다른 대상은 2026-09-05 확인한 기록 기준입니다. 기기별 페이지에서 인정된 결과의
+이 요약의 S22+ 항목은 2026-09-08, 다른 대상은 2026-09-05 확인한 기록 기준입니다. 기기별 페이지에서 인정된 결과의
 근거를 확인하고, 바뀌는 프론티어와 실행 요건은 각 GOAL과 target contract를 따릅니다.
 
 공용 소스는 `workspace/public/src/` 아래에 둡니다. 대상 전용 소스, 헬퍼,
@@ -156,8 +159,11 @@ vendor bootloader
 
 ## 단기 로드맵
 
-S22+ FYG8은 native PID 1의 USB 통신과 제한된 읽기 전용 셸 실행을 확립했습니다.
-다음 단계는 P349 RAM 작업공간과 실제 1시간 관측이며, 기기 작업은 참석 대기 중입니다. 이 기능 성과와
+S22+ FYG8은 native PID 1의 USB 통신과 제한된 읽기 전용 셸 실행을 확립했고, 이어
+P353~P361에서 cached 버퍼의 반복 framebuffer 선택까지 도달했습니다. 현재 방향은
+네이티브 정상 reboot과 Download 제어이며, P363·P364가 `NO_PROOF_OBSERVER`로 닫혀
+아직 미증명입니다. P365가 현재 구현/자격 단위이고, P349 RAM 작업공간 단위는 host
+검증된 상태로 보류돼 있습니다. 이 기능 성과와
 세부 USB/Max77705 원인 규명은 별도로 판정합니다. A90은 현재 복구 종결 이후
 isolated-Debian 서버 방향을 이어가고, S20+는 미증명 P0 결과에서 초기 부팅
 관측 경로를 보강하는 단계입니다. 공용 F1 구조는 Device Action Process v2입니다.

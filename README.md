@@ -90,18 +90,21 @@ evidence-bounded overview.
 - **Galaxy A90 5G (`SM-A908N`)** — custom native PID 1, ACM/NCM, native Wi-Fi
   and audio, plus bounded Debian PID 1/SSH/display results. The current unit is
   H41 rollback/health closure; the isolated-Debian server work is paused.
-- **Galaxy S22+ (`SM-S906N`, FYG8)** — source-matched rebuilt kernel and native
-  PID 1 USB communication are proved. P348 proved a bounded read-only shell,
-  120-second idle/reopen, later commands and healthy rollback. P349's RAM
-  workspace is host-qualified, but both invocations aborted at authentication
-  before transfer. Device work awaits attendance; actual-hour/on-device RAM
-  tests and an unrestricted root shell remain unproved.
+- **Galaxy S22+ (`SM-S906N`, FYG8)** — the authenticated native-PID1 USB path
+  now supports bounded read-only shell work through P348. The P353-P361 display
+  series then reached repeated cached-buffer framebuffer selection with clean
+  output observed by the operator and corroborated by photographs and clips;
+  authenticated dispatch and exact rollback are proved separately from the
+  visual observation. P363 and P364 moved to native reboot/Download control but
+  both closed `NO_PROOF_OBSERVER`; that control path remains unproved. P365 is
+  the current implementation/qualification unit. The P349 RAM-workspace/hour-witness
+  unit remains host-qualified and paused.
 - **Galaxy S20+ 5G (`SM-G986N`)** — exact onboarding, resident Magisk root, and
   retained T2 TWRP recovery are established. The P0 V3 native-PID1 attempt
   ended with no exact ACM banner and healthy Magisk rollback. Native PID 1
   remains unproved; current work investigates an early-boot observation path.
 
-The S22+ entry was checked on 2026-09-06; other entries retain their 2026-09-05 snapshot. The device pages link
+The S22+ entry was checked on 2026-09-08; other entries retain their 2026-09-05 snapshot. The device pages link
 the accepted results; each target's GOAL and contract govern its changing
 frontier and execution requirements.
 
