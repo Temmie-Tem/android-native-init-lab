@@ -119,3 +119,37 @@ of P366, now CLOSED/19 with NO_PROOF and verified final health; see its
 [closure record](S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md#subsequent-h0-closure-from-fresh-p367-d0).
 No P367 candidate, CONTROL or rollback has been consumed. A90 and S20+ received
 no command from this preparation; their unrelated source work is outside it.
+
+
+## Approved invocation: pre-candidate observer-arm abort
+
+The operator returned the exact fresh approval. The normal production execute
+entry revalidated the unchanged source closure and fresh connected target/health,
+then created the journal and recorded approval. The host ModemManager guard did
+not emit its arm frame within the existing 30-second bound. Its capture records
+30,114 ms, zero output bytes and returncode=null while the child was still alive;
+the writer's `timed_out=false` describes capture publication, not successful guard
+arming. The original guard owner subsequently released the failed child.
+
+The host process was observed waiting in pkexec, and the bounded polkit log
+records failed authentication at `2026-09-07T23:35:59Z`. No authentication
+completion was observed before the guard deadline; password error, dismissal or
+lack of response is not separately established. No timeout or privilege rule
+was changed. The temporary runtime udev guard rule is absent after termination.
+
+Canonical result: `FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD`, outcome
+`candidate_observer_arm_failed_before_candidate`, `ABORTED/4`,
+recovery_required=false. The journal abort timestamp is
+`2026-09-07T23:35:58.891950Z`. Result size is 1,351 bytes, SHA-256
+`c106c66438d57f1a3b6481d1f71bba7abd955cf82f6c7d999c9985e8ce0e5ba2`.
+No candidate Download request intent was created; candidate, CONTROL and
+rollback counts remain zero. No partition transfer, native observation or
+rollback health is claimed from this invocation. The successful execute-time
+Android health recheck precedes the host-only failure.
+
+Raw guard capture is retained in the exact prepared run; bounded execution and
+polkit logs are under the private P367 output root. The returned approval is
+stopped and was not replayed. A later attempt requires new preparation and
+fresh approval under Process v2, with the existing host authentication ready.
+This failed host start does not consume the candidate artifact. A90 and S20+
+received no command from this invocation.
