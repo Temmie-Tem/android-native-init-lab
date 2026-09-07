@@ -26,6 +26,8 @@ recovery completed the rollback and the health checks instead. **The physical
 cause of those stops is still unproved.** No candidate or observation was
 replayed in any of them.
 
+**English** · [한국어](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md)
+
 ---
 
 ## The whole series at a glance

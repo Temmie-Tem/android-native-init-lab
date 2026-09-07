@@ -236,7 +236,7 @@ control plane을 보존했으며 Debian은 USB/NCM 위에서 chroot된 서비스
 **다른 타겟은 단계가 다릅니다.** S22+(`SM-S906N`, GKI 커널 5.10)는 네이티브 PID 1,
 인증된 USB 제어, 한정된 유지형 읽기 전용 shell, 그리고 미리 그려둔 cached 버퍼 사이의
 반복 선택을 포함한 깨끗한 DRM/KMS 프레임버퍼 출력을 별도로 증명했습니다. 디스플레이
-증거는 자체 페이지에 있습니다: [S22+ display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md).
+증거는 자체 페이지에 있습니다: [S22+ 디스플레이 시각 증거](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md).
 S20+(`SM-G986N`)는 결정론적 PID-1 candidate는 있으나 아직 live PID-1 증명이 없습니다.
 두 타겟 모두 A90의 넓은 런타임 스택을 갖고 있지 않으며, 권한·아티팩트·증거는 타겟 간에
 전이되지 않습니다.

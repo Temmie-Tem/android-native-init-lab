@@ -19,6 +19,12 @@ Android userspace 없이 bounded native-PID1 USB 통신과 인증된 명령 실�
 추가했으며, 기기 작업은 참석 가능 시점까지 중지돼 있습니다. 통신 기능의 증명과
 USB/Max77705의 상세 원인 설명은 별도로 판정합니다.
 
+## 시각 증거
+
+P353~P361 디스플레이 브링업 런의 사진과 클립을, 시간순이 아니라 비교 논증 순서로
+배열한 별도 페이지가 있습니다:
+[S22+ 디스플레이 시각 증거](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md).
+
 ## 증명된 capability
 
 - **PROVED(증명됨) — reproducible source-matched kernel build.** Rebuilt
