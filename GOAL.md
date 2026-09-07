@@ -11,6 +11,24 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P362 reboot/Download investigation is complete at H0 plus one fixed D0 module
+census. Healthy Android contains the Samsung reboot-reason/provider modules
+missing from the P361 native plan; the current Image has a confirmed PSCI reset
+handler. Both applicable DT bases across all 11 overlays preserve enabled reboot
+nodes. A90 source illustrates native-owned reboot/recovery calls, not transferable
+Download proof. P361 has no post-display command receive path and its renderer
+lacks reboot capability. Native normal reboot and Download remain unproved.
+
+The next bounded implementation is supervisor-owned authenticated fixed control
+plus the smallest qualified reason/provider closure, followed by separately
+approved attended reboot and Download qualifications. Normal reboot keeps the
+candidate boot installed. No automatic F1 policy was activated, no production
+runtime was changed, and no new D1/F1 effect occurred. D0 preserved exact same-boot
+rooted FYG8/original hashes/Android health; A90/S20+ were not commanded.
+Report: [P362 reboot and Download analysis](docs/reports/S22PLUS_FYG8_P362_REBOOT_DOWNLOAD_PATH_ANALYSIS_2026-09-07.md).
+
+## Consumed P361 repeated display
+
 P361 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
 repeated-frame candidate and one exact Magisk rollback transferred. The operator
 reported repeated alternation and final first-pattern hold normal without
