@@ -382,12 +382,11 @@ The clips were recorded on the operator's own separate handset, which is not a
 target of this project and appears nowhere in the binding target registry. It is
 the camera, not a device under test.
 
-**One open decision.** Asset 02 shows the Android boot screen's carrier logo
-(`SKT 5G X`), which identifies the operator's mobile carrier. It is not a class
-of identifier the repository boundary forbids, and it is what makes the frame
+Asset 02 keeps the Android boot screen's carrier branding in frame. That
+records which carrier's firmware the handset runs, which is the same class of
+fact the goals already publish for these devices, and it is what makes the frame
 recognisable as Android's own boot screen rather than an anonymous white
-rectangle — masking it would weaken the control. Flagged for the owner rather
-than decided here.
+rectangle.
 
 ### Review decisions, 2026-09-07
 
