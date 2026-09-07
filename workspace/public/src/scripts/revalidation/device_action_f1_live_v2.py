@@ -14784,7 +14784,11 @@ def _validate_candidate_observer_state(
 ) -> None:
     prefix = _host_first_prefix(_userspace_overlay_contract_id(prepared.bundle))
     foreign = tuple(name+'_' for name in ('p341','p342','p343','p344', *typed_evidence.SHELL_VARIANTS) if name != prefix)
-    if any(key.startswith(foreign) for key in state):
+    shared_return_fields = frozenset({
+        'p363_control_intent', 'p363_return_window',
+        'p363_return_evidence_unavailable',
+    }) if prefix in RETURN_SHELL_OWNERS else frozenset()
+    if any(key.startswith(foreign) and key not in shared_return_fields for key in state):
         raise F1LiveError("host-first state carries a foreign candidate namespace")
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
     if spec is None:

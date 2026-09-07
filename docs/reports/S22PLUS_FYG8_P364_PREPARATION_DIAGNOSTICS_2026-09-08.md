@@ -1,13 +1,15 @@
 # S22+ FYG8 P364 preparation diagnostics
 
-## Scope and current authority
+## Result and scope
 
 P364 adds fixed authenticated preparation stage/errno evidence to the consumed
 P363 candidate design. It retains the exact P361 renderer, five stock modules,
 module order/parameters, bounded Download CONTROL, physical fallback and
-mandatory exact Magisk rollback. The current task ends at connected preparation
-and new F1 code issuance. No candidate transfer or F1 execution is authorized.
-P363 remains consumed and CLOSED/19; its original failure errno remains unproved.
+mandatory exact Magisk rollback. The operator later returned the exact prepared approval. P364 is now consumed
+and CLOSED/19 after one candidate and one exact Magisk rollback, with
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, `NO_PROOF_OBSERVER` and
+recovery_required=false. No next F1 is authorized. P363 remains consumed and
+CLOSED/19; P364 does not retrospectively prove its original failure errno.
 
 ## Changed behavior
 
@@ -86,3 +88,61 @@ binding successfully after D0. This host-only check revalidated source/artifact
 identity and raw preparation evidence without device contact. The bounded
 preparation task is complete; live diagnostics, display and Download return
 remain unproved for P364.
+
+## Approved execution and retained diagnostics
+
+The exact P364 candidate and exact Magisk rollback each completed once. The
+original execute observed physical Download entry and completed rollback and
+final health without a device recovery invocation. Rooted FYG8, original boot
+and supporting partition hashes, Android health and absent Download passed.
+The journal reached CLOSED/19 at 2026-09-07T18:16:10Z.
+
+Authentication, kernel boot identity, parent identity and the complete host
+sequence-4 display request were observed. Twenty-eight authenticated diagnostic
+frames preserve preparation entry and zero returns from the first four module
+file checks, finit_module calls and closes. Stage 30, the SDAM provider checker,
+returned -22/EINVAL; the signed terminal frame repeated -22. This localizes the
+failure to that checker, without identifying its particular inner operation.
+No fifth-module preparation, renderer creation, CONTROL intent or ACK followed.
+The software return window is `not-requested`; native Download and display
+remain unproved. Physical Download was used for the authorized exact rollback.
+These useful diagnostic facts do not upgrade the full candidate qualification.
+
+## Host terminal-publication incident and repair
+
+After verified final health and journal closure, the original terminal writer
+failed with `host-first state carries a foreign candidate namespace`. The
+P364 state legitimately retained `p363_control_intent` and `p363_return_window`
+as shared return-host field names, but the generic foreign-prefix assertion
+rejected them. The candidate and rollback were never replayed.
+
+A narrowly reviewed host repair first loaded the unchanged prepared closure,
+required its exact binding, CLOSED/19 and final-health/completion flags, and
+reproduced the original error. It then substituted only the validator with an
+exact shared-name exception for return owners. The existing CLOSED-only
+finalizer and complete result validation ran with a backend that rejects every
+action and with state writes forbidden. Dry-run and publication preserved all
+7,119 prior run files byte-for-byte, including prepared state, journal and raw
+evidence. Only the terminal result and separate private repair evidence were
+created. The final result is 32,974 bytes, SHA-256
+`8f121d45b5ae8678493d64432a4a1362c0551de81ed07b03208b6e396a59fbb5`.
+
+The independent repair review is private, SHA-256
+`477315f0d6d745c2bb52bbb8cda32a104395fcebbe1b4efacc7f3059fc563705`.
+The original execution source is retained at SHA-256
+`91869378a84d12f464e424fcaa36e07ef5b4d6b599cebc2718bb2b4277f70037`.
+The private repair source is SHA-256
+`4f254ca9231f0f3dee94e0e6d17354fffd077e0f55a86ca519e1b2be546fef75`.
+These receipts are under the existing private P364 output namespace.
+
+After terminal publication, the same reviewed correction was applied to the
+reusable validator. Only the three existing shared return-state names are
+admitted for return owners; foreign candidates and suffix lookalikes remain
+rejected, and durable receipt verification still runs. Consumed preparation,
+source pins and candidate bytes are unchanged and confer no replay authority.
+
+The production correction passed four namespace/durable-validation regression
+tests, all 24 P363 regression tests, py_compile and repository boundary/diff
+checks. The ledger taxonomy command retained an identical pre-existing failure
+before and after this appended row: `log row 547 has an unknown evidence
+outcome`. That historical taxonomy issue was not changed or claimed fixed.

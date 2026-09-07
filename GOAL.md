@@ -11,16 +11,26 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P364 preparation diagnostics are qualified and freshly prepared. Byte-identical
-A/B builds, static and real bundle verification, 15 focused tests, 24 P363
-regressions and two independent scoped PASS_GO reviews passed. Fresh exact
-connected D0 passed in `p364-ready1-prepared-20260908-1`, without reboot, device
-writes or transfer. The successful P361 renderer and P363 module/control/recovery
-scope remain unchanged. Fixed signed stage/errno witnesses distinguish preparation
-returns, unobserved returns, child creation and child exit without promoting
-partial progress to feature proof. P363 remains consumed. P364 has not executed;
-its fresh private approval token requires a separately returned attended F1
-approval. No D1 was needed. A90 and S20+ received no command from this task.
+P364 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
+Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class `NO_PROOF_OBSERVER`,
+recovery_required=false. Final rooted FYG8, original boot/supporting hashes,
+Android health and absent Download were verified. A90/S20+ received no command.
+
+The new diagnostic channel retained 28 authenticated progress frames: the first
+four module file checks/insertion/close calls returned zero, then the SDAM
+provider checker (stage 30) returned -22/EINVAL and a signed terminal repeated
+that error. The precise inner syscall remains unproved. Renderer creation and
+Download CONTROL were not reached; no visible display or native return is
+claimed. Physical Download entry enabled the exact preapproved rollback.
+
+Final result publication initially rejected the deliberately shared P363-named
+return-state fields. A reviewed CLOSED-only host repair revalidated the original
+prepared closure and raw evidence, preserved all 7,119 existing run files and
+published the terminal result without a backend action or state/journal change.
+The reusable validator now admits only the three exact shared names for native
+return owners; other foreign names remain rejected. Consumed pins are unchanged.
+No next candidate, active lease or new F1 authority exists. The next useful H0
+question is which operation inside the SDAM provider checker produced EINVAL.
 Report: [P364 preparation diagnostics](docs/reports/S22PLUS_FYG8_P364_PREPARATION_DIAGNOSTICS_2026-09-08.md).
 
 ## Completed P363 post-run analysis
