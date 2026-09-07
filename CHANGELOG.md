@@ -1,5 +1,23 @@
 # Changelog
 
+> **범위와 상태 — 2026-09-08 확인**
+>
+> 이 파일은 **A90의 boot image flash 이력만** 다루며, 마지막 항목인
+> `0.9.68 (v724)` / 2026-05-24 이후로 갱신되지 않았습니다. 그 뒤로 A90 자체는
+> `0.12.x` 대까지 진행했고, S22+와 S20+는 여기 쓰인 숫자 버전 축을 애초에
+> 쓰지 않습니다. 이 파일은 **역사 기록이며 현행 변경 기록이 아닙니다.**
+>
+> 세 대상의 정본 기록은 각 캠페인 원장과 GOAL, 그리고 [`AGENTS.md`](AGENTS.md)의
+> 타깃 레지스트리입니다.
+>
+> - S22+ — [캠페인 원장](docs/operations/CAMPAIGN_LEDGER_S22PLUS.md), [GOAL.md](GOAL.md)
+> - A90 — [캠페인 원장](docs/operations/CAMPAIGN_LEDGER_A90.md), [GOAL_A90.md](GOAL_A90.md)
+> - S20+ — [GOAL_S20PLUS.md](GOAL_S20PLUS.md)
+>
+> 아래 항목에 나오는 "현재 디바이스에 flash된 빌드", "현재 연구 사이클" 같은
+> 표현은 **그 항목을 쓰던 시점의 상태**이지 오늘의 상태가 아닙니다. 이 파일과
+> 위 정본 기록이 어긋나면 정본이 우선합니다.
+
 > 숫자 버전(`0.9.x`)은 실제 boot image flash마다 올린다. 괄호 안 `vNNN`은 그
 > 이미지를 빌드한 시점의 프로젝트 사이클 태그다. 두 축 규칙은
 > `docs/operations/VERSIONING_POLICY.md`를 따른다.
