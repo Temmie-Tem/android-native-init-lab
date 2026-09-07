@@ -19,7 +19,7 @@ Android health and absent Download were verified. A90/S20+ received no command.
 The new diagnostic channel retained 28 authenticated progress frames: the first
 four module file checks/insertion/close calls returned zero, then the SDAM
 provider checker (stage 30) returned -22/EINVAL and a signed terminal repeated
-that error. The precise inner syscall remains unproved. Renderer creation and
+that error. The diagnostic frame itself does not identify an inner syscall. Renderer creation and
 Download CONTROL were not reached; no visible display or native return is
 claimed. Physical Download entry enabled the exact preapproved rollback.
 
@@ -29,8 +29,17 @@ prepared closure and raw evidence, preserved all 7,119 existing run files and
 published the terminal result without a backend action or state/journal change.
 The reusable validator now admits only the three exact shared names for native
 return owners; other foreign names remain rejected. Consumed pins are unchanged.
-No next candidate, active lease or new F1 authority exists. The next useful H0
-question is which operation inside the SDAM provider checker produced EINVAL.
+Completed H0 analysis found an ARM64 open-flag ABI mismatch in the transferred
+binary: directory literal 0200000 means O_DIRECT, which sysfs rejects with
+EINVAL. The unchanged ARM64 function reproduces the first-open failure; changing
+only to target O_DIRECTORY=040000 makes the host fixture pass. The same old
+source passes on x86. Module literal0400000 also omitted the intended ARM64
+O_NOFOLLOW=0100000 protection; no symlink substitution was observed. Earlier
+host stubs ignored these flags. The analysis preserves the frame's lack of an
+inner-syscall witness and does not prove later preparation or display/return.
+No next candidate, active lease or new F1 authority exists. A successor requires
+target-correct directory/no-follow flags, real ARM64 behavior checks and its
+existing changed-closure review/qualification. Consumed sources remain frozen.
 Report: [P364 preparation diagnostics](docs/reports/S22PLUS_FYG8_P364_PREPARATION_DIAGNOSTICS_2026-09-08.md).
 
 ## Completed P363 post-run analysis

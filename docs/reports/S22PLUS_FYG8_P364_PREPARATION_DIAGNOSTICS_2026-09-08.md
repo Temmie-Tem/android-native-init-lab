@@ -146,3 +146,80 @@ tests, all 24 P363 regression tests, py_compile and repository boundary/diff
 checks. The ledger taxonomy command retained an identical pre-existing failure
 before and after this appended row: `log row 547 has an unknown evidence
 outcome`. That historical taxonomy issue was not changed or claimed fixed.
+
+## Post-run H0 diagnosis: ARM64 open-flag ABI mismatch
+
+The bounded analysis identified an architecture-specific defect in the actual
+P364 binary. The code supplied literal `0200000` while intending O_DIRECTORY.
+Samsung's ARM64 UAPI defines that value as O_DIRECT; O_DIRECTORY is `040000`.
+The generated directory open therefore passes `0x90000` (O_CLOEXEC | O_DIRECT)
+to ARM64 openat syscall 56. The transferred init disassembly confirms this mask
+at 0x409460 and the exact `/sys/bus/nvmem/devices` path. The syscall wrapper
+passes the flags without translation. These ELF locations are static artifact
+locations, not live addresses or KASLR evidence.
+
+The source-matched kernel's open path rejects O_DIRECT with EINVAL when the
+opened inode's address-space operations lack direct_IO. Kernfs assigns such
+operations to sysfs inodes. Thus the intended existing sysfs directory cannot
+be opened successfully with these flags. This is a confirmed compiled defect
+and reproduces the signed stage-30 failure. The live witness still reports the
+whole checker, not a separately captured inner openat return; that distinction
+is preserved.
+
+| Intended behavior | Literal used | ARM64 meaning | Correct ARM64 flag |
+| --- | --- | --- | --- |
+| Open a directory | `0200000` | O_DIRECT | O_DIRECTORY = `040000` |
+| Reject module-file symlinks | `0400000` | O_LARGEFILE in kernel UAPI | O_NOFOLLOW = `0100000` |
+
+The second mismatch affects module opens in both the original return-module
+helper and the new diagnostic module helper. Their intended O_NOFOLLOW
+protection was absent. Exact packaged module bytes and existing hashes are
+unchanged; no symlink substitution was observed. This is a real protection
+defect, not evidence that a substitution happened. The compiled module-open
+mask `0xa0000` is confirmed at 0x409a4c. These ABI findings supersede the prior
+review's incorrect interpretation of those flags, without changing the retained
+live transcript, rollback or final health.
+
+### Real-syscall host reproduction
+
+A private H0 harness extracts the exact frozen P364 provider function. Only
+its fixed sysfs path is mapped by wrappers to a private fixture; openat,
+getdents64, readlinkat and close are real syscalls. The fixture contains the two
+expected provider-link suffixes and inert regular/symlink files. No connected
+device, module insertion, reboot or production candidate change is involved.
+Static ARM64 binaries were cross-compiled and inspected with `file`, then run
+under qemu-aarch64. An x86 build provides an architecture comparison.
+
+- Unchanged ARM64 function: first openat returns -22, before any getdents call.
+- Changing only the directory flag to ARM64 O_DIRECTORY: open, directory reads,
+  both link checks and close succeed; the provider function returns zero.
+- Unchanged x86 function: returns zero, because that architecture assigns the
+  original literal to O_DIRECTORY.
+- ARM64 module-file fixture: the old literal follows a symlink; O_NOFOLLOW
+  rejects the same link with -40/ELOOP. No module is loaded in this test.
+
+The 15 earlier H0 diagnostics tests compiled for the host and stubbed module
+and NVMEM opens without checking their flags. They verified error framing and
+control-flow behavior, but could not detect this target-ABI mistake. Build and
+static source matching preserved the mistake faithfully; they did not establish
+that the numeric flags had the intended ARM64 semantics.
+
+The reproduction receipt is retained under
+`workspace/private/outputs/s22plus_fyg8_p364/provider-abi-analysis/`, SHA-256
+`28f2a1ff6f11c223010f276a86829848e3376a74781f014c7fa3a4175ee28175`.
+The report does not promote the corrected host fixture to a working live
+candidate: later preparation, renderer operation and native Download still
+require their own evidence. No successor has been built or activated. A future
+successor must use target-correct directory/no-follow constants and validate
+these real ARM64 syscall semantics before its existing review and qualification.
+Consumed P363/P364 sources, approval pins and journals remain unchanged.
+
+An independent read-only analysis confirmed both ABI defects, exact Samsung
+kernel source semantics, frozen C/init instruction identity and the init-to-AP
+to-live-transfer digest join. It reviewed the ARM64/x86/symlink reproduction
+and found no additional flag mismatch within the new return helpers. Its
+private receipt has SHA-256
+`cb50ac262c39b3f63d156144339ab6d1452b108c06d0deead9457dd0142eac07`.
+This analysis supersedes its prior flag interpretation only and grants no
+implementation or device authority. Documentation link/diff and repository
+boundary checks passed.
