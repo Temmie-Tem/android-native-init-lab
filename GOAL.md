@@ -11,17 +11,22 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-Post-P357 buffer-fetch H0 analysis is complete. Fresh bounded Android D0 found
-a dma-coherent nonsecure SDE client and qcom,system DMA-BUF allocations. All 22
-qualified DT combinations agree on coherence/no MDP memory-region. Exact native
-module/core instruction checks support investigating the WC/shmem/coherent-DMA
-cache-state handoff; the driver itself defaults dumb buffers to CACHED. No native
-PTE/cache/register readback exists, so root cause remains unproved.
+Prepare P358, the cached ABGR8888 ordinary-buffer comparison. The operator
+authorized remaining analysis and next-experiment preparation; current D0/D1
+preapproval applies when needed. A separately returned fresh F1 token is still
+required for candidate execution.
 
-The proposed next discriminator changes only GEM WC to CACHED while retaining
-P357's ABGR magenta and display settings. That flag also changes mmap bookkeeping
-and DMA-map timing; it is not a pure cache-coherency test. No new candidate or F1 action
-is activated. D0 completed with exact health; D1 was not needed.
+The post-P357 source/binary/D0 analysis supports a WC-to-CACHED GEM flag comparison.
+Retain P357's bytes, geometry, mode, atomic request, privilege and recovery bounds.
+The flag also changes mmap bookkeeping and DMA-map timing, so it does not isolate
+cache causality. Live native PTE/cache/address/bandwidth/scaler/DSC state remains
+unproved; those observations require a suitable future native window and do not
+block this bounded comparison. No new device effect has occurred for P358.
+
+A/B/static/actual AArch64 paint qualification, offline promotion and independent
+PASS_GO review are complete. Next is fresh connected preparation through a new
+F1 approval code. P357 remains consumed and
+healthy; its failure evidence and exact source closures are unchanged.
 Report: [post-P357 buffer-fetch analysis](docs/reports/S22PLUS_FYG8_POST_P357_BUFFER_FETCH_ANALYSIS_2026-09-07.md).
 
 ## Consumed P357 comparison
