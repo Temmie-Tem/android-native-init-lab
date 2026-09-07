@@ -3,10 +3,11 @@
 ## Scope and authority
 
 P365 corrects the two confirmed P364 ARM64 open-flag defects and the native-return
-state/prepared serialization capacity. The current operator authorization covers
+state/prepared serialization capacity. The preparation authorization covered
 implementation, H0 qualification, necessary D0/D1 preparation and new F1 code
-issuance only. No P365 candidate transfer is authorized until a separately
-returned fresh attended F1 approval. P363/P364 remain consumed and unchanged.
+issuance only. The operator subsequently returned the fresh attended F1 approval;
+that one-shot run is now consumed and CLOSED as recorded below. P363/P364 remain
+consumed and unchanged.
 
 The P361 renderer, five return-module bytes/order/parameters, diagnostic grammar,
 fixed CONTROL, physical fallback and exact Magisk rollback remain unchanged.
@@ -143,3 +144,49 @@ D0 result: 3,261 bytes, SHA-256
 `1ce5c6cb6af97f7c40fbb99b7560668fde0d46f7ec7329d33580b9b395cd1faf`.
 The reopen summary is retained in the private output directory as
 `connected-prepared-reopen.json`. A90 and S20+ received no command from this unit.
+
+## Consumed F1 result
+
+The operator returned the exact fresh approval. Candidate transfer completed
+once at 2026-09-07T19:44:11.821313Z. All preparation stages and clone returned:
+46 authenticated diagnostic records retained no reported failure or unreturned
+stage. The observer accepted ten swap submissions and the fixed Download
+CONTROL ACK. ACK establishes acceptance, not successful reboot by itself.
+
+The operator separately reported that the screen changed, then went off and
+entered Download automatically, without physical intervention. These two private
+observation notes preserve the original statements. They corroborate visible
+activity and an operator-observed automatic transition, without upgrading the
+machine's missing bounded arrival evidence or establishing pixel-exact output.
+
+After observation, the original execute exited with
+`measured USB endpoint inventory failed`, before rollback intent. Retained
+snapshot 9 birth-stat evidence returned exit 1 / ENOENT for a vanished USB node;
+the snapshot was not successfully published. This identifies the immediate
+inventory failure, not an independently proved physical or kernel cause.
+The runner stopped as required. No candidate or CONTROL was replayed.
+
+One same-journal `--recover` invocation revalidated the binding and exact
+Download endpoint, then transferred the approved Magisk rollback once at
+2026-09-07T19:46:05.635963Z. The original software window was not renewed;
+its retained outcome is `window-expired-before-observation`. Final rooted FYG8,
+original boot/supporting hashes, Android health and absent Download passed.
+Journal CLOSED/19 at 2026-09-07T19:46:42.562697Z, recovery_required=false.
+
+Formal verdict: `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
+`p365_native_return_control_unproved_rollback_verified`. Native preparation,
+swap submissions, CONTROL acceptance, operator observation, machine arrival
+qualification and final recovery remain distinct evidence claims.
+
+The 40,414-byte live state and 45,270-byte result passed production publication
+without repair. Result SHA-256:
+`eed6f721b6fc0d887301a3c6a784ce87734ac02392171a86f6d9eb3b3a18b5c1`.
+The execution closure is commit `3ccdae6153` with preparation reporting in
+`e2e9dc821c`; consumed source and preparation pins remain unchanged. Raw execute,
+recover, USB captures and operator statements remain private. One matching F1
+ledger row records this closure. A90/S20+ received no command; no new F1 is active.
+
+Post-run documentation diff/privacy checks passed. The full ledger taxonomy
+check fails identically before and after this row on pre-existing row 547's
+unknown evidence outcome; both private check outputs are retained. This unit
+does not relabel that unrelated historical entry.

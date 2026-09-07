@@ -13,18 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-P365 is the current implementation/qualification unit, through fresh connected
-preparation and F1 code issuance only. The operator preauthorized necessary
-D0/D1 preparation. It corrects target ARM64 directory/no-follow flags and scopes
-64-KiB preparation/state persistence to P365. Actual ARM64 syscall checks and
-success/late-failure producer-to-writer roundtrips precede candidate qualification.
-A/B build, static and real bundle verification, seven P365 test methods, 39
-predecessor regressions and both independent reviews passed.
-Fresh connected D0 passed without reboot; the 32,539-byte prepared record
-reopened successfully against the real bundle. The fresh F1 code is ready for
-issuance; no candidate transfer or D1 action occurred during preparation.
-The P361 renderer and return protocol/module order remain fixed. No P365 F1
-execution is authorized until its separately returned fresh attended approval.
+P365 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
+Its corrected ARM64 flags passed all preparation stages: 46 authenticated progress
+records, ten swap submissions and accepted Download CONTROL were retained.
+The operator reported changing screen output, then screen-off and automatic
+Download entry without physical intervention. This is operator observation;
+the machine's bounded Download-arrival proof remains unproved.
+
+The original execution stopped during USB inventory after CONTROL acceptance:
+a retained birth-stat capture reported a vanished device node. Same-journal
+rollback-only recovery verified exact rooted FYG8, original hashes, Android
+health and absent Download. Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`,
+recovery_required=false. The 40,414-byte live state and 45,270-byte result were
+published without a persistence repair. No candidate or CONTROL replay occurred.
+See the [P365 report](docs/reports/S22PLUS_FYG8_P365_ARM64_AND_PERSISTENCE_PREPARATION_2026-09-08.md).
+No further device experiment is active. A90/S20+ received no command from this unit.
 
 P364 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
 Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class `NO_PROOF_OBSERVER`,
