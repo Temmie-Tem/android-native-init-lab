@@ -154,3 +154,80 @@ D0 result: 3,261 bytes, SHA-256
 The private output `connected-prepared-reopen.json` retains the reopen summary.
 Implementation/qualification commit is `1fe09c04a5`. A90 and S20+ received no
 command from this unit. No candidate or CONTROL was replayed.
+
+## Consumed execution and recovery incident
+
+The operator returned the fresh attended approval. One candidate transfer,
+46 authenticated preparation records, ten swap submissions and one accepted
+CONTROL were retained. Exact outgoing native USB absence and strict Download
+enumeration were observed. The operator reported Download mode without physical
+intervention; no P366 display appearance is inferred from that statement.
+
+Publication then failed because the native-return consumer required a legacy
+P318 topology record that the actual Samsung backend does not emit on this
+path. The H0 fake backend had supplied that record and masked the producer /
+consumer mismatch. No missing record was synthesized into the consumed run,
+and the bounded native-return result remains unproved.
+
+The first recovery observation stopped on two live Download endpoints, before
+rollback intent. The bound S22+ paths subsequently disappeared. After the
+operator reported reconnection and removal of the other device, a separately
+reviewed private binding captured the exact, unique S22+ endpoint for recovery
+only. Physical continuity remained lost; this did not upgrade candidate proof.
+The first helper encountered the preserved old ambiguous endpoint history
+before a transfer. A reviewed V2 helper used one fixed new recovery observation
+context, preserving the original index, raw receipts and journal prefix. Fresh
+ambiguity in that context remained fatal. The exact Magisk rollback transferred
+once; its completion event is `2026-09-07T21:08:50.552132Z`.
+
+Android returned, as also reported by the operator. ADB initially remained
+offline. One bound host-side ADB reconnect restored the selected transport.
+The next health-only resume captured fresh properties, root health and two
+identical EOF outputs, but collided with an existing raw capture filename:
+a new client started its capture sequence at zero. A reviewed private health
+finalizer resumes above every existing capture ordinal, requires the fresh
+Android boot identity to match the retained EOF evidence, and revalidates those
+sealed captures. Its transfer and Download-wait methods always fail closed.
+It sends no replacement observer capture command and preserves prior raw files.
+
+Private recovery helpers, bindings, reviews and bounded test evidence are under
+`workspace/private/outputs/s22plus_fyg8_p366/`. The V2 binding SHA-256 is
+`96288164d93794d6928ed0282b48d4584fb8febacb6c772c6714ee147ed78a3a`;
+its helper SHA-256 is
+`8415ebc26c2e59622cb746a30e785b2a20bb672b8aa7206750af495c3ce9a8af`.
+The final health helper SHA-256 is
+`6230065ca84e4ef4d4fe7c142f55018fa345d8873d8885d5c1a35f99e1e7b4a7`.
+Independent reviews cover the exact recovery-only binding and final-health-only
+helper. Four V1 binding tests, three V2 history/context tests and two final
+health tests passed; the health helper also passed `py_compile`. These are
+incident-specific private recovery repairs, not a reusable production fix.
+Original execution-critical source pins and consumed evidence remain intact.
+
+The remaining H0 repair must exercise the actual Samsung backend producer with
+the native-return consumer and cover resumed raw-capture allocation. No new
+candidate, CONTROL, rollback transfer or reusable lane is authorized by this
+report. A90 and S20+ received no command from this unit.
+
+The first health finalizer stopped before fresh ADB reads because a Download
+endpoint was again present on a separate host path. Host-only census retained
+the original S22+ path in Android mode and the separate Download path. The
+unchanged global absence condition was not weakened. This attempt issued no
+partition transfer and did not close the journal.
+
+
+## Reporting disposition
+
+Reporting is complete at the operator's direction, without another device
+action or requiring another device to be disconnected. Candidate transfer and
+exact Magisk rollback each occurred once. Rollback is complete and Android
+return is observed; the subsequent host verification failure does not reverse
+that device transition. The experiment is NO_PROOF, independently of recovery.
+
+The original append-only journal has 15 records and remains
+`ROLLBACK_FLASHED`. There is no canonical `CLOSED/19` transition and no terminal
+`live-result.json`. Earlier properties/root-health captures and identical EOF
+outputs remain evidence, but are not promoted to a completed final-health PASS.
+No journal entry or structured success result is fabricated to make the report
+appear closed. The ledger records this as a host observer failure after
+completed rollback, with automated final health incomplete. Any future H0
+repair is separate from this completed reporting unit.

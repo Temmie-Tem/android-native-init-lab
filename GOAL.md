@@ -13,6 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+P366 reporting is complete. One candidate, one CONTROL and one exact Magisk
+rollback were consumed; rollback transfer completed and Android return was
+observed by the operator and host. The experiment remains NO_PROOF: the native
+return consumer required a missing legacy P318 producer record. Recovery-only
+rebinding preserved the lost physical continuity and original evidence.
+
+Automated terminal publication is incomplete: the journal remains
+ROLLBACK_FLASHED/15, with no CLOSED/19 or terminal live-result. A raw-capture
+filename collision and then a separate device's Download endpoint blocked
+final validation. This does not undo the completed rollback. Report the
+retained health evidence without claiming a full final-health PASS. At the
+operator's direction, finish reporting with no additional device action or
+request to disconnect another device. No candidate, CONTROL or rollback replay
+is permitted; no next F1 is active. See the [P366 incident report](docs/reports/S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md).
+
 P365 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
 Its corrected ARM64 flags passed all preparation stages: 46 authenticated progress
 records, ten swap submissions and accepted Download CONTROL were retained.
@@ -27,14 +42,13 @@ health and absent Download. Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`,
 recovery_required=false. The 40,414-byte live state and 45,270-byte result were
 published without a persistence repair. No candidate or CONTROL replay occurred.
 See the [P365 report](docs/reports/S22PLUS_FYG8_P365_ARM64_AND_PERSISTENCE_PREPARATION_2026-09-08.md).
-The current H0 successor is [P366](docs/reports/S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md): preserve initial-inventory failure classes and
+The consumed successor is [P366](docs/reports/S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md): preserve initial-inventory failure classes and
 observe the exactly bound outgoing native USB node before unchanged strict Odin
 arrival checks within the same 30-second window. P365's historical inner cause
-remains unproved. Necessary D0/D1 preparation is preauthorized; new exact F1
-approval remains separate. A/B build, static/bundle checks, independent boundary
+remains unproved. A/B build, static/bundle checks, independent boundary
 and artifact reviews, 22 new tests and 77 regressions passed. Fresh D0 passed
 without D1 reboot; the 32,823-byte preparation reopened against the real bundle.
-The new F1 code is ready for issuance; no P366 F1 has occurred.
+The preparation was consumed by the P366 execution described above.
 A90/S20+ received no command from this unit.
 
 P364 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
