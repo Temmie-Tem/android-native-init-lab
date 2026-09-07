@@ -11,23 +11,24 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P357 is prepared for opaque ABGR8888 ordinary-buffer magenta. The operator
-authorized investigation and D0/D1 preparation through a fresh F1 code; candidate
-execution still requires the separately returned exact code. Keep P356's WC
-allocation, stride, mode, noise/fill settings, geometry and one-commit lifetime;
-change format selection/registration and opaque alpha bytes only. Android's
-allocated RGBA buffers share pitch 4352 and expose ABGR8888 FourCC; active HWC
-scanout was not captured. This format/alpha comparison is not a cache diagnosis.
-Completion is a reviewed, qualified candidate with fresh preparation and code.
-P357 A/B packaging, actual AArch64 paint, static qualification and offline
-promotion pass. P357/P356 suites each pass 21 cases; independent review is
-PASS_GO. First D0 preserved the expected baseline stop. One authorized ordinary D1
-reboot returned with changed boot ID and exact health; fresh D0 in
-`p357-ready1-prepared-20260907-2` passed and a new F1 code is ready.
-Prepared SHA-256 is `f052280c72305ef678d5d74052a11941c5bd9023ae20099d8a897e13b9205713`.
-Await the separately returned attended F1 approval. No candidate transfer has
-occurred, and P356's earlier D1 timeout remains unchanged.
-Report: [P357 opaque ABGR preparation](docs/reports/S22PLUS_FYG8_P357_ABGR_FRAMEBUFFER_PREPARATION_2026-09-07.md).
+P357 is consumed and CLOSED/19, recovery_required=false. One opaque ABGR8888
+ordinary-buffer candidate and one exact Magisk rollback transferred. The original
+execute completed without recovery re-entry; final rooted FYG8, original
+boot/supporting hashes, Android health and absent Download passed. No active
+lease remains. P357 is never replayable; A90/S20+ received no command.
+
+The operator reported magenta with stripes/corruption. **Clean framebuffer output
+was not achieved.** The format/opaque-alpha change alone did not resolve the
+observed issue; cache, mapping, scaler, bandwidth and timing causes remain
+unproved. P355 hardware fill was clean, while P356 and P357 ordinary buffers
+were corrupt. Machine verdict
+`PASS_F1_V2_P357_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK` proves dispatch and
+recovery only. Live result is `22805B/a653d9f9`. No next experiment is activated.
+
+During recovery, byte-preserving sparse conversion of four owned P357 packaging
+intermediates reclaimed 228,515,840 bytes; space afterward was about 402 MiB.
+Retained artifacts/evidence were not deleted.
+Report: [P357 opaque ABGR result](docs/reports/S22PLUS_FYG8_P357_ABGR_FRAMEBUFFER_PREPARATION_2026-09-07.md).
 
 ## Consumed P356 comparison
 

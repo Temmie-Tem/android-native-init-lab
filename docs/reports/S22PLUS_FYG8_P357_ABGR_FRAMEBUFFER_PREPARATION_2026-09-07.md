@@ -6,8 +6,9 @@ photos lack that conspicuous pattern. These observations prioritize differences
 in normal framebuffer sourcing and display setup. They do not identify a cache,
 address, format, scaler, bandwidth or panel-timing cause.
 
-The operator authorized investigation and D0/D1 preparation through a fresh F1
-code. Actual F1 execution still requires the separately returned exact approval.
+The operator authorized investigation and D0/D1 preparation, then returned the
+exact fresh F1 approval. P357 is now consumed and CLOSED with exact rollback
+and final health. Operator-observed magenta remains striped/corrupt.
 P356 remains consumed and closed with exact rollback/final health; neither its
 candidate nor its earlier failed ordinary-D1 reboot is replayable.
 
@@ -148,8 +149,48 @@ Fresh ordinary D0 in `p357-ready1-prepared-20260907-2` then passed
 It binds the current target, boot, clean baseline, candidate/rollback and source
 closure and emits the separately returned F1 token. Device-write, reboot,
 partition-transfer and F1-authority flags in that prepared record are false.
-No P357 candidate has been transferred. A90/S20+ received no command.
+At preparation time no P357 candidate had transferred. A90/S20+ received no command.
 
 Actual `load_prepared` reopening passed. GOAL/report changes are outside the
 prepared execution closure. Scoped content/link/privacy and diff checks pass.
-The requested preparation-through-code unit is complete; F1 remains unexecuted.
+The preparation-through-code unit completed before the separately approved F1 below.
+
+
+## Consumed F1 result
+
+Run `p357-ready1-prepared-20260907-2` transferred the qualified candidate and
+the exact original Magisk rollback once each. The original execute invocation
+completed normally; no recovery re-entry, candidate replay or observation replay
+was needed. Final rooted FYG8, original boot/supporting hashes, Android health and
+absent Download passed. State is CLOSED/19, recovery_required=false, with no
+active later-action lease. A90/S20+ received no command.
+
+Machine verdict is `PASS_F1_V2_P357_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`.
+This proves authenticated dispatch and rollback, not renderer execution or clean
+panel output. Live result is
+`22805B/a653d9f940ed793921ceb81d86b3879ff1b0f0286b208fa4246d7ebc19a5792a`.
+The operator explicitly reported magenta with stripes/corruption; the private
+`operator-visual-witness.json` retains that observation. **Clean ordinary-buffer
+magenta was not achieved.** Switching from XRGB8888 to opaque ABGR8888 did not
+resolve the observed corruption. This does not isolate or eliminate cache,
+mapping, scaler, bandwidth or timing causes. No successor experiment is activated.
+
+Canonical timeline, UTC:
+
+| Event | Timestamp |
+| --- | --- |
+| live_session_start | 2026-09-07T06:35:03.777136Z |
+| candidate_flash_start | 2026-09-07T06:35:21.442753Z |
+| candidate_flash_done | 2026-09-07T06:35:23.115983Z |
+| candidate_boot_ready | 2026-09-07T06:35:34.654193Z |
+| rollback_flash_start | 2026-09-07T06:39:56.511944Z |
+| rollback_flash_done | 2026-09-07T06:39:58.121128Z |
+| rollback_boot_ready | 2026-09-07T06:40:34.519794Z |
+| live_session_end | 2026-09-07T06:40:34.539763Z |
+
+During the recovery wait the operator reported a root-disk warning. Four owned
+P357 packaging intermediate images were hole-punched only in zero regions,
+reclaiming 228,515,840 bytes. All four byte hashes, logical sizes and original
+permissions remained unchanged; original modification timestamps were restored.
+No artifact or evidence was deleted. The private compaction receipt records the
+checks. Available space afterward was about 402 MiB, so storage remains low.
