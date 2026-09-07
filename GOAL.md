@@ -11,6 +11,21 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+Post-P357 buffer-fetch H0 analysis is complete. Fresh bounded Android D0 found
+a dma-coherent nonsecure SDE client and qcom,system DMA-BUF allocations. All 22
+qualified DT combinations agree on coherence/no MDP memory-region. Exact native
+module/core instruction checks support investigating the WC/shmem/coherent-DMA
+cache-state handoff; the driver itself defaults dumb buffers to CACHED. No native
+PTE/cache/register readback exists, so root cause remains unproved.
+
+The proposed next discriminator changes only GEM WC to CACHED while retaining
+P357's ABGR magenta and display settings. That flag also changes mmap bookkeeping
+and DMA-map timing; it is not a pure cache-coherency test. No new candidate or F1 action
+is activated. D0 completed with exact health; D1 was not needed.
+Report: [post-P357 buffer-fetch analysis](docs/reports/S22PLUS_FYG8_POST_P357_BUFFER_FETCH_ANALYSIS_2026-09-07.md).
+
+## Consumed P357 comparison
+
 P357 is consumed and CLOSED/19, recovery_required=false. One opaque ABGR8888
 ordinary-buffer candidate and one exact Magisk rollback transferred. The original
 execute completed without recovery re-entry; final rooted FYG8, original
