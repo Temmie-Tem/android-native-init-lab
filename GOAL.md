@@ -11,6 +11,8 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
+
 P364 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
 Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class `NO_PROOF_OBSERVER`,
 recovery_required=false. Final rooted FYG8, original boot/supporting hashes,
