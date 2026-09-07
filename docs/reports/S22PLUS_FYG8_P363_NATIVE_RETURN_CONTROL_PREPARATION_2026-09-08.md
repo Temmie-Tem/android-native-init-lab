@@ -1,10 +1,53 @@
-# P363 native return control preparation
+# P363 native return control preparation and result
 
-Status: H0 qualified and ready manifest published. Native/module and host/
-protocol scopes each received independent PASS_GO; current named hashes match.
-Fresh connected preparation passed and produced the attended F1 token. No P363
-candidate or native control has executed. These results do not authorize F1
-execution; the operator must separately return the fresh attended approval.
+Status: consumed and CLOSED/19 after one candidate and one exact Magisk
+rollback. `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, `NO_PROOF_OBSERVER`,
+recovery_required=false. Final rooted FYG8, original boot/supporting hashes,
+Android health and absent Download passed. No native return or visible display
+proof was obtained; there is no active lease or successor F1 authority.
+
+The operator reported no pattern, only a black screen or logo. The observer
+retained a 365-byte raw stream and classified `authenticated-session-error`
+after 60.028114 seconds. No session completed, no durable CONTROL intent or ACK
+was retained, and the fixed return-window record says `not-requested`.
+The generic qualification conservatively retains control occurrence UNKNOWN;
+that is not evidence of a command acceptance or successful native Download.
+The supplemental stock witness also supplied no accepted candidate record.
+Module preparation and the precise exchange failure cause remain unproved.
+
+After observation closed, original execute stopped on measured USB endpoint
+evidence: attempted snapshot23, `usbfs-endpoint-departed`,
+`enumeration-evidence-before-snapshot`, snapshot_persisted=false. Its immutable
+diagnostic and bounded observer bytes remain private. The physical cause is
+unproved; missing endpoint evidence is not continuity proof. Durable state was
+OBSERVED with candidate completion and no rollback intent. The operator then
+confirmed physical Download entry. One ordinary same-journal rollback-only
+recovery completed exact rollback and final health without candidate, display
+or CONTROL replay. No execution-critical source was changed during recovery.
+
+The canonical UTC timeline is retained in the live result:
+
+| Event | 2026-09-07 UTC |
+| --- | --- |
+| live_session_start | 16:30:50.595394 |
+| candidate_flash_start | 16:31:08.523893 |
+| candidate_flash_done | 16:31:10.167299 |
+| candidate_boot_ready | 16:32:12.013475 |
+| rollback_flash_start | 16:34:25.088610 |
+| rollback_flash_done | 16:34:26.611141 |
+| rollback_boot_ready | 16:35:04.217299 |
+| live_session_end | 16:35:04.237433 |
+
+`candidate_boot_ready` is the journal's observation-close event; it does not
+turn the failed exchange into successful display or native control. Final
+live-result is 20,832 bytes, SHA256
+`b1d4dbe1dde8be813b6affd5ffa3b7b4c981fb4116d98f15c04650e841d42ac3`.
+The retained preparation, execution closure and final journal/result passed
+reopening with the actual consumers before reporting close. A90/S20+ received
+no command from this task.
+
+The following preparation history preserves what was qualified before the
+consumed run. It grants no replay or fresh device authority.
 
 P361 proved operator-observed repeated display and ended CLOSED/19 after exact
 Magisk rollback. P362 found the missing stock reboot-reason/provider closure.
@@ -88,15 +131,17 @@ while rooted FYG8, original boot/supporting hashes, Android health and absent
 Download were verified. This establishes current health, not bounded D1 return
 or automatic recovery. The separate private incident observation-close record
 preserves that distinction and the executed source identities. Only fresh
-H0/D0 preparation through code issuance resumes; F1 execution still requires
-separately returned attended approval and available physical Download recovery.
-No P363 candidate or native control has executed. A90/S20+ received no command.
+H0/D0 preparation through code issuance resumed at that point; F1 execution
+still required separately returned attended approval and physical recovery.
+At that preparation stage no P363 candidate or native control had executed.
+A90/S20+ received no command.
 
 Fresh preparation `p363-ready1-prepared-20260908-2` passed exact connected D0
 on the same healthy boot as the independent late observation. The first failed
 preparation remains intact and is not reused. The approval token is retained
-privately and issued to the operator; no transfer or live journal exists yet.
-The actual `load_prepared` consumer successfully reopened the final record,
+privately and issued to the operator; no transfer or live journal existed at
+that stage. The operator subsequently returned it for the consumed run above.
+The actual `load_prepared` consumer successfully reopened the prepared record,
 including its execution closure, raw D0 evidence and approval binding. All 119
 qualified source identities, six artifacts and two review receipts still match.
 

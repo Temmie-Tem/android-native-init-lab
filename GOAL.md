@@ -11,33 +11,36 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P363 H0 qualification and fresh connected preparation through an attended F1
-token are complete; no P363 candidate or native control has executed. The
-bounded unit is the retained P361 display
-with supervisor-owned authenticated Download control, five exact stock reason/
-provider modules, kernel boot identity and no-replay host intent. Early renderer
-exit leaves fixed parent control available inside the existing child deadline;
-ordinary same-PID1 restart remains an intentional H0-only mode for this candidate.
+P363 is consumed and CLOSED/19 after one candidate and one exact Magisk
+rollback. Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class
+`NO_PROOF_OBSERVER`, recovery_required=false. The operator reported no pattern,
+only a black screen or logo; repeated display and native Download remain
+unproved. The authenticated exchange ended after about 60 seconds without a
+completed session, durable CONTROL intent or ACK. Its return-window record is
+`not-requested`; no successful native return is inferred.
 
-Native/host failure checks, deterministic A/B packaging, static promotion and
-two independent changed-scope PASS_GO reviews are complete. The final source/
-artifact joins passed, and the fresh preparation passed exact D0 binding.
-The issued token still requires the operator's separate attended return
-before F1 execution. FULLDUMP initialization and the stock NVMEM error hazard
-remain explicit; physical Download/exact Magisk rollback are still required.
-No automatic recovery or standing native session is claimed. A90/S20+ remain
-outside this task's device authority.
+The original execute then stopped at USB snapshot23 with
+`usbfs-endpoint-departed` before a snapshot was published and before rollback
+intent. Physical cause remains unproved. The operator entered physical Download;
+one same-journal rollback-only recovery completed exact Magisk rollback and
+final rooted FYG8/original boot/supporting hashes/Android health/absent Download.
+The live result is 20,832 bytes, SHA256 prefix `b1d4dbe1`. Candidate, display and
+control were never replayed. No active lease, successor F1 or automatic recovery
+is authorized. A90/S20+ received no command from this task.
 
-Preparation's single ordinary-reboot D1 exceeded its 240-second healthy-return
-bound and remains STOPPED/consumed with bounded return NO_PROOF. No primitive
-result was fabricated and no reboot/reconnect/reset was retried. The operator
-later reported the Android lock/home screen. A separate D0 validated a changed
-boot identity and current rooted FYG8/original hashes/Android health, followed
-by fresh F1 preparation on that healthy boot. USB re-enumeration's physical
-cause remains UNPROVED; late health does not establish bounded D1 return or
-automatic recovery. The private incident close preserves raw failure evidence
-and source identities. Only H0/D0 preparation resumed; F1 has not executed.
-Report: [P363 native return control preparation](docs/reports/S22PLUS_FYG8_P363_NATIVE_RETURN_CONTROL_PREPARATION_2026-09-08.md).
+The completed H0 qualification remains distinct from the failed live proof.
+Its exact five stock reason/provider modules, retained ten-swap renderer and
+kernel boot identity do not establish runtime module preparation, visible
+output or native return. The FULLDUMP initialization window and stock NVMEM
+error hazard remain documented. Any follow-up begins with the preserved raw
+observer evidence and actual consumer; no next device experiment is selected.
+
+Preparation's preceding ordinary-reboot D1 also retains its separate
+240-second healthy-return timeout and STOPPED/consumed NO_PROOF result.
+Independent late D0 and fresh preparation established then-current health,
+not bounded D1 return or automatic recovery. Neither failed invocation is
+reclassified or replayable.
+Report: [P363 native return control result](docs/reports/S22PLUS_FYG8_P363_NATIVE_RETURN_CONTROL_PREPARATION_2026-09-08.md).
 
 ## Completed P362 investigation
 
