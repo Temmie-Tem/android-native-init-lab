@@ -3,9 +3,9 @@
 P367 keeps P366's native functionality and changes run/namespace identity for
 a fresh source/artifact binding. It connects the repaired Download-arrival
 producer, resumed raw-capture allocation and target-scoped final health.
-This unit is H0 only: no connected D0/D1 preparation, live approval token,
-Odin invocation or device transfer is performed. P366 remains consumed with
-its retained report-only disposition; no historical evidence is rewritten.
+The initial unit below was H0 only, with no connected preparation or device
+transfer. Subsequent authorized read-only preparation is recorded at the end.
+P366 remains consumed; original historical evidence is preserved.
 
 ## Native scope and artifacts
 
@@ -101,3 +101,21 @@ is 5054 bytes, SHA-256
 `6cdbf9863d9763671975dad49f086f6c6361ebed464173b704f8f29106790689`. Bundle SHA-256:
 `74bf9b4af2bb51dd595abfd82e17d45199adf9108bfb5e237692a1098cf60446`. No connected run directory was created;
 device contact, Odin invocation and live authorization remain false.
+
+
+## Subsequent connected preparation
+
+At the operator's request, the actual ready1 manifest completed the existing
+bounded connected D0 profile and fresh preparation, without a D1 reboot or F1
+transfer. Exact target, rooted FYG8 health, original boot/supporting hashes and
+global Download absence passed. A separate real prepared reopen also passed.
+The private preparation is 33,105 bytes, SHA-256
+`b3d524d2eb144d27abd726e860f31fa23c157bc6e74c6accdd1b5b53a201e067`,
+in run `p367-ready1-prepared-20260908-1`. The fresh approval code remains private
+and requires explicit operator return with physical attendance before F1.
+
+The same-boot D0 evidence also enabled the independently reviewed H0 closure
+of P366, now CLOSED/19 with NO_PROOF and verified final health; see its
+[closure record](S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md#subsequent-h0-closure-from-fresh-p367-d0).
+No P367 candidate, CONTROL or rollback has been consumed. A90 and S20+ received
+no command from this preparation; their unrelated source work is outside it.

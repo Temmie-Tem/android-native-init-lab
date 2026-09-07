@@ -215,7 +215,7 @@ unchanged global absence condition was not weakened. This attempt issued no
 partition transfer and did not close the journal.
 
 
-## Reporting disposition
+## Earlier reporting disposition (before subsequent H0 closure)
 
 Reporting is complete at the operator's direction, without another device
 action or requiring another device to be disconnected. Candidate transfer and
@@ -231,3 +231,46 @@ No journal entry or structured success result is fabricated to make the report
 appear closed. The ledger records this as a host observer failure after
 completed rollback, with automated final health incomplete. Any future H0
 repair is separate from this completed reporting unit.
+
+
+## Subsequent H0 closure from fresh P367 D0
+
+The operator subsequently authorized fresh connected preparation for P367.
+Its existing read-only D0 profile passed, verifying the same Android boot as
+P366's retained post-rollback properties, exact rooted FYG8, original boot and
+supporting hashes, and global Download absence. Fresh observer bytes equal
+both retained P366 EOF captures. No historical health failure is relabeled;
+this new evidence satisfies the original final-health conditions.
+
+A fixed private H0 finalizer reconstructs that evidence through the original
+parsers and terminal validators. Four changed historical source files are
+escrowed by their original exact hashes; all other source bindings remain
+checked. Independent review verified the original 3,001 files, 38 fresh input
+files, and the consumed recovery binding/approval/artifact/endpoint provenance.
+The copy rehearsal preserved all 15 original journal records and produced
+CLOSED/19 with NO_PROOF. The reviewed application then appended only the four
+terminal records, updated final state/head and published the terminal result.
+Original records, prepared/source pins and raw captures remain unchanged.
+
+Canonical close publication: `2026-09-07T23:27:57.832691Z`.
+Verdict: `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, recovery_required=false.
+The 45,265-byte live result has SHA-256
+`0c639520c2156c8a28c2a45bf6deb810445e50fe8917d15aa3ed7c210a6e9e9f`.
+Current timestamps describe final publication, not the earlier device return.
+Candidate/CONTROL/rollback counts remain one each; native arrival proof and
+lost physical continuity are not upgraded by healthy rollback.
+
+Private closure evidence resides under
+`workspace/private/outputs/s22plus_fyg8_p366/h0-close-from-p367-d0-v1/`.
+Finalizer SHA-256: `7ab877005823a0c67bfd13202c211cfed3eac55d78db512eac6d5b7d159a4ffc`;
+evidence binding SHA-256: `8cee4722f0d14ca2911d7f964dbd15f12fedb945e777b9c7ebf32282d900179d`.
+Both independent review and supplemental recovery-origin review returned
+PASS_GO. `py_compile`, copy rehearsal, original-input preservation checks and
+the exact apply passed. H0 closure issued no device command or transfer;
+P367 F1 approval remains separate. A90/S20+ received no command from this unit.
+
+Documentation links, goal length, diff checks and append-only ledger preservation
+pass. The new close row passes the existing parser with its fixed legacy prefix.
+The full historical ledger audit still fails on pre-existing log row 547's
+unknown evidence outcome; the unchanged HEAD baseline fails identically. That
+unrelated historical taxonomy issue was not repaired or counted as a PASS.

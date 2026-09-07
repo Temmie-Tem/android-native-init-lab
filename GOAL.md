@@ -16,7 +16,8 @@ Changed-path regression reference: [past failure checklist](docs/operations/S22P
 P367 H0 qualification passed: identity-only native successor, byte-identical
 A/B AP build, static validation, 216 tests and independent source/artifact review.
 The actual bundle rehearsal and H0 ready1 publication/reopen passed.
-No connected preparation or live approval token exists. The joined fixture uses
+Fresh connected D0 and preparation/reopen passed; the fresh attended F1 code is
+ready for operator return, with no P367 device effect consumed. The joined fixture uses
 real arrival/final-health producers, allows foreign Download only after rollback,
 and preserves fail-closed fixed-output behavior after an EOF-publication cut.
 See the [P367 preparation report](docs/reports/S22PLUS_FYG8_P367_HOST_PATH_PREPARATION_2026-09-08.md).
@@ -28,22 +29,23 @@ endpoints separately; preflight and pre-transfer global uniqueness are
 unchanged. Historical final-result semantics remain unchanged. See the
 [target-scoped final health report](docs/reports/S22PLUS_FYG8_TARGET_SCOPED_FINAL_HEALTH_H0_2026-09-08.md)
 and the earlier [arrival/capture repair report](docs/reports/S22PLUS_FYG8_POST_P366_HOST_REPAIR_2026-09-08.md).
-Those repairs are integrated into the P367 H0 qualification above; no device action is part of this unit.
+Those repairs are integrated into the P367 qualification above; connected preparation
+used only the existing bounded read-only D0 profile, with no D1 reboot or F1 transfer.
 
-P366 reporting is complete. One candidate, one CONTROL and one exact Magisk
-rollback were consumed; rollback transfer completed and Android return was
-observed by the operator and host. The experiment remains NO_PROOF: the native
-return consumer required a missing legacy P318 producer record. Recovery-only
-rebinding preserved the lost physical continuity and original evidence.
+P366 is now CLOSED/19 with `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` and
+recovery_required=false. One candidate, one CONTROL and one exact Magisk
+rollback remain consumed. Fresh P367 D0 verified the same Android boot, exact
+rooted FYG8/original hashes and global Download absence; its observer bytes
+match both retained P366 EOF captures. A separately reviewed H0 finalizer used
+the original source identities and terminal validators to append four close
+records and publish the result, preserving the original 15 records and raw
+captures. No device effect was replayed during closure.
 
-Automated terminal publication is incomplete: the journal remains
-ROLLBACK_FLASHED/15, with no CLOSED/19 or terminal live-result. A raw-capture
-filename collision and then a separate device's Download endpoint blocked
-final validation. This does not undo the completed rollback. Report the
-retained health evidence without claiming a full final-health PASS. At the
-operator's direction, finish reporting with no additional device action or
-request to disconnect another device. No candidate, CONTROL or rollback replay
-is permitted; no next F1 is active. See the [P366 incident report](docs/reports/S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md).
+The earlier report-only disposition and host observer failures remain history;
+closure timestamps record current publication rather than backdating recovery.
+Missing legacy P318 producer evidence and lost physical continuity remain
+unproved, independently of verified final health. No next F1 is active.
+See the [P366 incident report](docs/reports/S22PLUS_FYG8_P366_NATIVE_USB_DEPARTURE_PREPARATION_2026-09-08.md).
 
 P365 is consumed and CLOSED/19 after one candidate and one exact Magisk rollback.
 Its corrected ARM64 flags passed all preparation stages: 46 authenticated progress
