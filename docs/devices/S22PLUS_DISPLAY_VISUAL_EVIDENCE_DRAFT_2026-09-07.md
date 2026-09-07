@@ -1,11 +1,11 @@
 # S22+ display visual evidence — DRAFT 2026-09-07
 
-> **Draft, not published.** No asset has been staged yet, so every image and
-> clip link on this page is expected to be dead and the Korean counterpart does
-> not exist. The prose is here to be reviewed; the asset pipeline and the open
-> questions are listed under [Draft status](#draft-status) at the end. On
-> publication this becomes `S22PLUS_DISPLAY_VISUAL_EVIDENCE.md` and that
-> section is dropped.
+> **Draft, not published.** The images and clips are staged and the links
+> resolve, but this page still carries its draft name, still has no Korean
+> counterpart, and `A90_VISUAL_EVIDENCE.md` still describes the S22+ without
+> knowing this series exists. What remains before publication is listed under
+> [Draft status](#draft-status) at the end. On publication this becomes
+> `S22PLUS_DISPLAY_VISUAL_EVIDENCE.md` and that section is dropped.
 
 Photographs and clips of the operator-owned Samsung Galaxy S22+ 5G
 (`SM-S906N`, FYG8) driving its own panel from a custom static `/init` running
@@ -26,7 +26,12 @@ output changed.
 
 Each run below was a single attended boot-only transfer that ended in an exact
 Magisk rollback and a verified healthy rooted FYG8 return. None is replayable,
-and every one of them is closed.
+and every one of them is closed. In four of them — P355, P356, P358 and P361 —
+the original execute stopped on measured USB endpoint evidence after the
+observation and before rollback intent, and a preauthorized same-journal
+recovery completed the rollback and the health checks instead. **The physical
+cause of those stops is still unproved.** No candidate or observation was
+replayed in any of them.
 
 **English** · [한국어](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md)
 
@@ -281,8 +286,9 @@ alternations. The settled screens fall into exactly two classes that strictly
 alternate, with no missed, extra, frozen or out-of-order step, and the final
 held screen is the **first** frame — matching the designed "alternate, end on
 the first". At camera-frame resolution the nine intervals between swaps all
-fall in the range 1.0-1.04 s, averaging ≈1.03 s, and the last frame is held
-unchanged for the remaining 4.3 s.
+fall in the range 1.0-1.07 s, averaging ≈1.03 s, and the last frame is held
+unchanged for the remaining 4.3 s. Re-measuring the published clip reproduces
+the same ten alternations and the same average.
 
 **Why this run is different** — every earlier frame on this page rests on an
 operator's naked-eye statement. Here the observation is countable: the run's own
@@ -337,35 +343,51 @@ between devices.
 
 Nothing below is part of the published page.
 
-### Assets still to be staged
+### Assets, staged 2026-09-07
 
-Each path in this document has to be produced from `workspace/private/`, in
-this order, into `docs/images/s22plus-display/`:
+All nine are in `docs/images/s22plus-display/` and every link on this page
+resolves. Provenance, all from `workspace/private/`, which is not published:
 
-| # | Source under `workspace/private/` |
+| # | Source |
 | --- | --- |
-| 00 | `outputs/s22plus_fyg8_p359/h0-paint/expected-pattern.png` (host render, 270x585) |
-| 01 | `runs/device-action-f1-live-v2/p355-ready1-prepared-20260907-2/operator-display-photo.jpg` |
-| 02 | `.../p356-ready1-prepared-20260907-2/operator-android-carrier-photo.jpg` |
-| 03 | `.../p353-ready1-prepared-20260907-2/operator-display-photo.jpg` |
-| 04 | `.../p354-ready1-prepared-20260907-2/operator-display-photo.jpg` |
-| 05 | `.../p356-ready1-prepared-20260907-2/operator-display-photo.jpg` |
-| 06 | `.../p359-ready1-prepared-20260907-2/operator-evidence-photo.jpg` |
-| 07 | `.../p360-ready1-prepared-20260907-2/operator-display-video.mp4` |
-| 08 | `.../p361-ready1-prepared-20260907-2/operator-display-video.mp4` |
+| 00 | `outputs/s22plus_fyg8_p359/h0-paint/expected-pattern.png` (host render, 270x585, used as-is) |
+| 01 | `runs/device-action-f1-live-v2/p355-.../operator-display-photo.jpg` |
+| 02 | `.../p356-.../operator-android-carrier-photo.jpg` |
+| 03 | `.../p353-.../operator-display-photo.jpg` |
+| 04 | `.../p354-.../operator-display-photo.jpg` |
+| 05 | `.../p356-.../operator-display-photo.jpg` |
+| 06 | `.../p359-.../operator-evidence-photo.jpg` |
+| 07 | `.../p360-.../operator-display-video.mp4` |
+| 08 | `.../p361-.../operator-display-video.mp4` |
 
-Before any of them enters the public tree:
+What was done to them, and nothing else:
 
-- crop the room background out of the six photographs;
-- re-encode both clips from HEVC to H.264 — GitHub will not play HEVC — and
-  confirm the `Galaxy S25+` / `SM-S936N` strings in the `auth` and `smta` atoms
-  are gone with the original container;
-- re-check each frame for anything identifying in shot;
-- run `workspace/public/src/scripts/security/repository_boundary_check.py`.
+- **Photographs** — cropped to the panel by a brightness bounding box with an
+  8-pixel margin, removing the room behind the phone, then re-encoded as JPEG
+  quality 92. No retouching, no colour or exposure adjustment, no masking.
+- **Clips** — scaled to 1280 pixels tall and re-encoded from HEVC to H.264
+  (CRF 28), which GitHub can play, with all container metadata dropped
+  (`-map_metadata -1`). 34.9 MB to 884 KB and 59.2 MB to 1.6 MB. **Nothing was
+  cut**: both are the complete original takes, including the five seconds of
+  Samsung splash at the head of the P360 clip. No audio track existed in either
+  original.
+- Verified afterwards: no `SM-S936N`, `Galaxy S25`, `SM-S906N` or Samsung
+  container strings survive in any published asset; both clips carry only an
+  `Lavf` encoder tag, matching the existing `docs/images/a90/` assets.
+- Re-measured after transcoding: the published P361 clip still yields exactly
+  ten alternations with the same ≈1.03 s average, so the claim in the P361
+  section can be checked against the file a reader actually gets.
 
-The two clips were recorded on the operator's own separate handset, which is
-not a target of this project and appears nowhere in the binding target
-registry. It is the camera, not a device under test.
+The clips were recorded on the operator's own separate handset, which is not a
+target of this project and appears nowhere in the binding target registry. It is
+the camera, not a device under test.
+
+**One open decision.** Asset 02 shows the Android boot screen's carrier logo
+(`SKT 5G X`), which identifies the operator's mobile carrier. It is not a class
+of identifier the repository boundary forbids, and it is what makes the frame
+recognisable as Android's own boot screen rather than an anonymous white
+rectangle — masking it would weaken the control. Flagged for the owner rather
+than decided here.
 
 ### Review decisions, 2026-09-07
 
