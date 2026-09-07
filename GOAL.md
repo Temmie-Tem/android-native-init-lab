@@ -11,6 +11,20 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+Post-run H0 analysis and two exact root D0 metadata invocations are complete.
+The bound raw prefix replays successfully through authentication, kernel boot
+identity, parent identity and the full sequence-4 display-frame host write.
+The failure is the later readiness wait, not failed authentication. Actual C
+and the transferred init disassembly confirm that a preparation error is
+silently parked before renderer creation. Two injected errors reproduce the
+365/208-byte exchange shape and timeout; neither identifies the original errno.
+Current stock provider paths/module presence and candidate debugfs support were
+checked, with exact same-boot health before/after D0. The first failing native
+call remains unproved because no preparation-stage/error witness was retained.
+The next bounded requirement is a fixed stage/errno witness before terminal park;
+no successor runtime or F1 is activated and the renderer remains unchanged.
+Report: [P363 preparation-path analysis](docs/reports/S22PLUS_FYG8_P363_POSTRUN_PREPARATION_PATH_ANALYSIS_2026-09-08.md).
+
 P363 is consumed and CLOSED/19 after one candidate and one exact Magisk
 rollback. Verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, proof class
 `NO_PROOF_OBSERVER`, recovery_required=false. The operator reported no pattern,

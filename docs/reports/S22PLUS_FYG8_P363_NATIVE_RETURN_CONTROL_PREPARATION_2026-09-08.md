@@ -14,6 +14,10 @@ The generic qualification conservatively retains control occurrence UNKNOWN;
 that is not evidence of a command acceptance or successful native Download.
 The supplemental stock witness also supplied no accepted candidate record.
 Module preparation and the precise exchange failure cause remain unproved.
+Post-run replay subsequently verified authentication and the complete host
+display-frame write; the enclosing error label does not mean authentication
+failed. See [preparation-path analysis](S22PLUS_FYG8_P363_POSTRUN_PREPARATION_PATH_ANALYSIS_2026-09-08.md)
+for the confirmed silent-error path and its remaining causal limits.
 
 After observation closed, original execute stopped on measured USB endpoint
 evidence: attempted snapshot23, `usbfs-endpoint-departed`,
