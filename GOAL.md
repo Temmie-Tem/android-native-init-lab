@@ -11,20 +11,19 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P360 two-frame preparation has passed H0 build/static/promotion, independent
-PASS_GO and fresh D0. The planned first frame is the exact P359 RGB/grid/edge;
-five seconds after its successful submission, one FB-only commit selects
-rotated regions and a large 2. Both buffers remain retained until the existing
-deadline or physical Download. Actual visible transition remains unproved.
+P360 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
+two-frame candidate and one exact Magisk rollback transferred. The operator
+reported both frames normal and transition to the numeral 2. This qualifies the
+bounded operator-observed first-to-second transition without reported corruption;
+it does not prove pixel-exact readback, panel timing or repeated/general flips.
 
-The first D0's expected baseline stop is preserved. One preapproved ordinary
-reboot returned exact rooted FYG8/original boot and supporting hashes/Android
-health; fresh D0 passed in `p360-ready1-prepared-20260907-2`. Prepared record is
-`30321B/7a1b469a`. Actual prepared-record reopening passed. No P360 candidate transfer or F1
-authorization has occurred; no active native lease exists. A90/S20+ received no
-command from this task. F1 still requires the separately returned fresh token
-and physical Download availability.
-Report: [P360 two-frame preparation](docs/reports/S22PLUS_FYG8_P360_TWO_FRAME_PREPARATION_2026-09-07.md).
+Machine verdict `PASS_F1_V2_P360_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`
+remains dispatch/rollback evidence. Live result `22805B/7bd7c40c`; original
+execute completed without recovery re-entry. Final rooted FYG8, original boot
+and supporting hashes, Android health and absent Download passed. No active
+lease remains. Candidate and observation are never replayable. A90/S20+ received
+no command from this task; no successor F1 or standing native runtime is granted.
+Report: [P360 two-frame result](docs/reports/S22PLUS_FYG8_P360_TWO_FRAME_PREPARATION_2026-09-07.md).
 
 ## Consumed P359 pattern
 

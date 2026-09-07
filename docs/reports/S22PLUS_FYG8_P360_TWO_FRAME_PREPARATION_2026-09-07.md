@@ -2,7 +2,8 @@
 
 The operator authorized H0 preparation and D0/D1 in the current foreground task.
 P359 is consumed and closed healthy; no prior candidate or observation is
-replayed. P360 F1 requires a separately returned fresh prepared approval.
+replayed. At preparation completion P360 F1 required a separately returned fresh prepared
+approval. That approval was subsequently returned; the consumed result is below.
 
 ## Capability and evidence limits
 
@@ -50,7 +51,7 @@ All 23 focused tests, 21 P359 regression tests and compilation of 14 Python
 files passed; boundary check is clean.
 Private evidence is under `workspace/private/outputs/s22plus_fyg8_p360/`.
 
-## Preparation status
+## Status at preparation completion
 
 Offline promotion passed with common_offline_verified=true. Independent final
 review passed PASS_GO with no findings; receipt SHA-256
@@ -84,6 +85,40 @@ Prepared record:
 The fresh token is supplied directly to the operator and excluded from tracked
 documents. Candidate transfer, Download transition and F1 authorization remain
 absent. Actual load_prepared reopening passed and all reviewed identities remained
-unchanged. H0 was committed as `6d5a1b76e6`. The remaining attended F1 requires
+unchanged. H0 was committed as `6d5a1b76e6`. At preparation completion the remaining attended F1 required
 the fresh token returned separately and physical Download availability under
 the P360 target clause.
+
+
+## Consumed F1: two clean frames and one observed transition
+
+The operator returned the exact prepared approval. One candidate and one exact
+Magisk rollback transferred; the original execute completed without a recover
+invocation. The operator reported: both frames normal and transition to numeral
+2 observed. The original statement is retained privately in a separate immutable
+operator-visual-witness.json. This qualifies the bounded operator-observed
+first-to-second transition without reported corruption. It does not prove
+pixel-exact readback, exact five-second panel timing, repeated flips or a general
+display runtime, and does not isolate cache coherency from mmap/DMA-map timing.
+
+Machine verdict is
+`PASS_F1_V2_P360_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`; it remains dispatch
+and rollback evidence, separate from the visual witness. Live result:
+`22805B/7bd7c40c3009bdbbede2c517a15e2aaecfe549b17374744c5b125615f99f371b`.
+Final rooted FYG8, original boot/supporting hashes, Android health and absent
+Download passed. Journal CLOSED/19, recovery_required=false, no active lease.
+Candidate and observation are consumed and never replayable. A90/S20+ received
+no command from this task. No successor F1 or standing native runtime is granted.
+
+Canonical timeline, UTC:
+
+| Event | Timestamp |
+| --- | --- |
+| live_session_start | 2026-09-07T12:40:21.548915Z |
+| candidate_flash_start | 2026-09-07T12:40:38.979909Z |
+| candidate_flash_done | 2026-09-07T12:40:40.670450Z |
+| candidate_boot_ready | 2026-09-07T12:41:05.125856Z |
+| rollback_flash_start | 2026-09-07T12:42:43.545775Z |
+| rollback_flash_done | 2026-09-07T12:42:45.070193Z |
+| rollback_boot_ready | 2026-09-07T12:43:30.882205Z |
+| live_session_end | 2026-09-07T12:43:30.903085Z |
