@@ -96,10 +96,12 @@ known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 �
   제한된 읽기 전용 셸 작업을 뒷받침합니다. 이어진 P353~P361 디스플레이 시리즈는
   cached 버퍼의 반복 framebuffer 선택에 도달했고, 깨끗한 출력은 운영자가 관측하고
   사진·클립이 보강했습니다. 인증된 dispatch와 정확한 rollback은 그 시각 관측과
-  분리해 증명됩니다. P363과 P364는 네이티브 reboot/Download 제어로 방향을 틀었으나
-  둘 다 `NO_PROOF_OBSERVER`로 닫혔고, 그 제어 경로는 미증명으로 남아 있습니다.
-  현재 구현/자격 단위는 P365이며, P349의 RAM 작업공간·1시간 witness 단위는 host
-  검증된 상태로 보류돼 있습니다.
+  분리해 증명됩니다. P363과 P364는 네이티브 Download 제어에 닿기 전에
+  `NO_PROOF_OBSERVER`로 닫혔습니다. P365는 ARM64 준비 경로 결함을 고친 뒤 더 멀리
+  나아가, 인증된 진단이 수락된 Download CONTROL에 도달했고 운영자는 화면이 꺼진 뒤
+  물리 개입 없이 Download 모드에 도달하는 것을 관측했습니다. 다만 그 제어가 해당
+  진입을 유발하거나 완료했다는 bounded machine proof는 여전히 미증명입니다. P349의
+  RAM 작업공간·1시간 witness 단위는 host 검증된 상태로 보류돼 있습니다.
 - **Galaxy S20+ 5G (`SM-G986N`)**: exact onboarding, resident Magisk root,
   retained T2 TWRP recovery가 확립됐습니다. P0 V3 native-PID1 시도에서는 exact
   ACM banner를 얻지 못했고 정상 Magisk rollback으로 종료했습니다. Native PID 1은

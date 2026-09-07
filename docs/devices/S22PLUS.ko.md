@@ -127,9 +127,17 @@ reboot/Download 제어를 시도했고 둘 다 정상 rollback과 함께 `NO_PRO
 검사에서 EINVAL을 반환했고, 렌더러 생성과 Download 제어에는 도달하지 못했습니다.
 **네이티브 정상 reboot과 Download는 미증명으로 남아 있습니다.**
 
-P365가 현재의 구현/자격 단위이며 그에 대한 F1 실행은 승인되지 않았습니다. P349의 RAM
-작업공간과 실제 1시간 witness 단위는 host 검증된 상태로 보류돼 있고, 두 준비 실행 중
-어느 것도 candidate를 전송하지 않았습니다.
+P365도 `NO_PROOF_OBSERVER`로 닫혔지만 더 멀리 갔습니다. 수정된 ARM64 플래그가 모든
+준비 단계를 통과했고, 인증된 진행 기록 46개와 swap 제출 10회, 수락된 Download CONTROL이
+유지됐습니다. 운영자는 화면 변화 뒤 화면이 꺼지고 물리 개입 없이 Download 모드에
+도달하는 것을 **관측(OBSERVED)** 했으며, 이는 P363이나 P364가 도달한 지점보다 앞섭니다.
+다만 Download 도착과 그 인과에 대한 기계의 한정된 증명은 여전히 **미증명**입니다.
+실행은 CONTROL 수락 이후 USB 인벤토리 중 기기 노드가 사라지면서 정지했고, same-journal
+rollback 전용 복구 한 번이 정확한 rooted FYG8 상태를 되돌리고 최종 건강을 확인했습니다.
+현재 활성화된 기기 실험은 없습니다.
+
+P349의 RAM 작업공간과 실제 1시간 witness 단위는 host 검증된 상태로 보류돼 있고, 두 준비
+실행 중 어느 것도 candidate를 전송하지 않았습니다.
 
 정확한 현재 상태는 [GOAL.md](../../GOAL.md)와 target contract를 따릅니다.
 이 페이지는 실행 권한이나 replay를 만들지 않습니다.

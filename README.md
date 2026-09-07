@@ -95,10 +95,13 @@ evidence-bounded overview.
   series then reached repeated cached-buffer framebuffer selection with clean
   output observed by the operator and corroborated by photographs and clips;
   authenticated dispatch and exact rollback are proved separately from the
-  visual observation. P363 and P364 moved to native reboot/Download control but
-  both closed `NO_PROOF_OBSERVER`; that control path remains unproved. P365 is
-  the current implementation/qualification unit. The P349 RAM-workspace/hour-witness
-  unit remains host-qualified and paused.
+  visual observation. P363 and P364 closed `NO_PROOF_OBSERVER` before native
+  Download control was reached. P365 progressed further after correcting the
+  ARM64 preparation defects: authenticated diagnostics reached an accepted
+  Download CONTROL, and the operator OBSERVED screen-off followed by
+  Download-mode arrival without physical intervention. The bounded machine proof
+  that the control caused or completed that arrival remains unproved. The P349
+  RAM-workspace/hour-witness unit remains host-qualified and paused.
 - **Galaxy S20+ 5G (`SM-G986N`)** — exact onboarding, resident Magisk root, and
   retained T2 TWRP recovery are established. The P0 V3 native-PID1 attempt
   ended with no exact ACM banner and healthy Magisk rollback. Native PID 1

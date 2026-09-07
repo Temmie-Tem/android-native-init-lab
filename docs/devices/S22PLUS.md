@@ -129,8 +129,18 @@ progress frames before an SDAM provider check returned EINVAL, so renderer
 creation and Download control were not reached. **Native normal reboot and
 Download remain unproved.**
 
-P365 is the current implementation/qualification unit and no F1 execution is
-authorized for it. The P349 RAM workspace and actual-hour witness unit remains
+P365 then closed `NO_PROOF_OBSERVER` as well, but reached further: its corrected
+ARM64 flags passed every preparation stage, and 46 authenticated progress
+records, ten swap submissions and an accepted Download CONTROL were retained.
+The operator **OBSERVED** changing screen output followed by screen-off and
+arrival in Download mode without physical intervention, further than P363 or
+P364 reached. The machine's bounded Download-arrival and causal proof remain
+**unproved**. The execution stopped during post-CONTROL USB inventory after the
+device node disappeared; one same-journal rollback-only recovery then restored
+the exact rooted FYG8 state and verified final health. No device experiment is
+currently active.
+
+The P349 RAM workspace and actual-hour witness unit remains
 host-qualified and paused; neither of its prepared invocations transferred a
 candidate.
 
