@@ -11,6 +11,16 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P360 H0 build/static/promotion and independent PASS_GO are complete for one
+cached two-frame transition: exact
+P359 RGB/grid/edge first, then rotated regions and a large 2 after five seconds.
+Both buffers stay retained until the existing deadline or physical Download.
+The operator authorized D0/D1 preparation; F1 requires its own prepared token.
+Fresh connected preparation is the remaining bounded step.
+No P360 device effect has occurred.
+
+## Consumed P359 pattern
+
 P359 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
 RGB/grid/edge candidate and one exact Magisk rollback transferred. The operator
 reported the pattern and border normal without breakup and supplied a photograph

@@ -1242,11 +1242,36 @@ This capability remains H0-only until independent changed-closure review,
 exact artifact/static qualification, fresh connected preparation and separately
 returned attended F1 approval. No permanent boundary or recovery mechanism changes.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, or P359 candidate transfer occurs, the same
+**P360 attended cached two-frame successor.** P359 is consumed and never
+replayable. P360 retains its geometry, pitch, ABGR8888 CACHED allocation,
+30HS mode, modules, noise/fill zero, privilege drop, one-way dispatch,
+60-second parent deadline and attended physical Download rollback path.
+Two distinct buffers are allocated and painted before the first unchanged
+blocking ALLOW_MODESET commit. Frame one is the exact P359 RGB/grid/edge image.
+After its successful return, one successful five-second nanosleep precedes
+exactly one blocking atomic request with flags zero and only the selected
+primary plane's FB_ID changed. Frame two rotates regions to green/red/blue
+and adds a large white 2 on a black backing. Both buffers, framebuffer IDs and
+the mode blob remain retained, without repaint, reuse, cleanup or retry.
+The second buffer's DMA mapping may occur in the second commit, not allocation.
+An allocation, first commit or delay failure prevents the second request;
+a second request failure is terminal without fallback or replay.
+
+Success requires operator observation of frame one followed by frame two,
+with the expected regions, grid/border and numeral without corruption.
+Host dispatch and successful ioctl return do not prove visible transition.
+Every outcome requires physical Download, freshly bound exact Magisk rollback
+and final rooted FYG8 health. Existing vendor mapping failure limitations,
+USB/session stops, topology checks and recovery rules remain unchanged.
+This capability remains H0-only until independent changed-closure review,
+artifact/static qualification, fresh connected preparation and separately
+returned attended F1 approval. No permanent boundary changes.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, or P360 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, or `s22plus-fyg8-p359` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, or `s22plus-fyg8-p359`, `s22plus-fyg8-p360` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 
