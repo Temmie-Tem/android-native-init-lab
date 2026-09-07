@@ -1440,6 +1440,21 @@ is absent from the replacement observation path. Fresh artifact/static checks,
 independent boundary review, connected preparation and separately returned
 attended F1 approval remain required. No unattended session is activated.
 
+**P367 attended identity-only host-path qualification.** P366 is consumed and
+never replayable. P367 retains its ARM64 operands, native module bytes/order,
+renderer, fixed diagnostics, ten swap submissions, one Download CONTROL and
+mandatory exact Magisk rollback. Only run/namespace identity and its fresh
+source/artifact binding change. It uses the reviewed acquisition-local Download
+arrival receipt, resumed raw-capture numbering and target-scoped final health
+below. No missing P366 record or terminal transition is synthesized.
+
+P367 retains the reviewed 64-KiB preparation/live-state allowance, the same
+bounded native departure/CONTROL window, strict pre-transfer selection,
+physical fallback and original kernel-call recovery limitations. Fresh
+artifact/static/integration qualification and independent review are H0;
+connected preparation and separately returned attended F1 approval remain
+required. This clause creates no connected action or unattended session.
+
 **Target-scoped post-rollback final health.** Native-return prepared source
 closures that bind `final_target_health` use the versioned
 `s22plus_target_scoped_final_health_v1` result only after the journal records
@@ -1469,11 +1484,11 @@ records are not repinned, regenerated or upgraded. Scope review is triggered
 by changes to target mapping, USB mode, recovery or final-evidence semantics.
 This H0 implementation/review grants no new connected run or device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, or P366 candidate transfer occurs, the same
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, or P367 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, or `s22plus-fyg8-p366` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, or `s22plus-fyg8-p367` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

@@ -13,6 +13,14 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+P367 H0 qualification passed: identity-only native successor, byte-identical
+A/B AP build, static validation, 216 tests and independent source/artifact review.
+The actual bundle rehearsal and H0 ready1 publication/reopen passed.
+No connected preparation or live approval token exists. The joined fixture uses
+real arrival/final-health producers, allows foreign Download only after rollback,
+and preserves fail-closed fixed-output behavior after an EOF-publication cut.
+See the [P367 preparation report](docs/reports/S22PLUS_FYG8_P367_HOST_PATH_PREPARATION_2026-09-08.md).
+
 Post-P366 H0 repairs now cover native Download arrival evidence, resumed raw
 capture numbering and target-scoped final health after durable exact rollback.
 New native-return source bindings record target absence and foreign Download
@@ -20,7 +28,7 @@ endpoints separately; preflight and pre-transfer global uniqueness are
 unchanged. Historical final-result semantics remain unchanged. See the
 [target-scoped final health report](docs/reports/S22PLUS_FYG8_TARGET_SCOPED_FINAL_HEALTH_H0_2026-09-08.md)
 and the earlier [arrival/capture repair report](docs/reports/S22PLUS_FYG8_POST_P366_HOST_REPAIR_2026-09-08.md).
-No new candidate is prepared and no device action is part of this unit.
+Those repairs are integrated into the P367 H0 qualification above; no device action is part of this unit.
 
 P366 reporting is complete. One candidate, one CONTROL and one exact Magisk
 rollback were consumed; rollback transfer completed and Android return was
