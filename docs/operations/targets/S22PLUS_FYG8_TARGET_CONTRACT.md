@@ -1218,11 +1218,35 @@ This capability remains H0-only until independent changed-closure review,
 exact artifact/static qualification, fresh connected preparation and separately
 returned attended F1 approval. No permanent boundary or recovery mechanism changes.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, or P358 candidate transfer occurs, the same
+**P359 attended cached static-pattern successor.** P358 is consumed and never
+replayable. P359 retains P358's CACHED ABGR8888 allocation/mapping, 1080x2340
+geometry, 4352-byte pitch, 30HS timing, twelve display modules, readiness,
+noise_layer_v1=0, color_fill=0, privilege drop, one authenticated one-way dispatch,
+one blocking atomic request and existing 60-second bounds. The only functional
+renderer change is the pixel pattern: red upper left, blue upper right, green
+lower half, a four-pixel black grid every 120 pixels and an eight-pixel white
+visible border. Row padding stays opaque white; every visible pixel is opaque.
+No redraw, second commit, new ioctl, kernel/module change or userspace retry is
+introduced. P358's unchanged vendor DMA-map error-branch limitations still apply.
+
+Success requires the operator to observe the expected color positions, regular
+grid and complete border without breakup or displacement. Host dispatch remains
+separate from visible-output evidence and does not prove renderer completion.
+Every outcome requires physical Download, fresh exact rollback binding, exact
+Magisk rollback and final rooted FYG8 health. P358's post-dispatch endpoint-
+departure failure remains preserved with same-journal recovery and CLOSED/19;
+its physical cause is unproved. No failed snapshot is accepted as continuity,
+and no stop, selector, topology or recovery rule is changed.
+
+This capability remains H0-only until independent changed-closure review,
+exact artifact/static qualification, fresh connected preparation and separately
+returned attended F1 approval. No permanent boundary or recovery mechanism changes.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, or P359 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, or `s22plus-fyg8-p358` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, or `s22plus-fyg8-p359` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

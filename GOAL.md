@@ -11,6 +11,15 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P359 preparation is authorized with D0/D1 preapproval. The selected unit retains
+P358 CACHED settings and submits one static RGB/grid/edge pattern. Complete H0
+qualification, independent review and fresh connected preparation before issuing
+its separate attended F1 approval code. No P359 candidate transfer is authorized.
+P358 endpoint-departure diagnosis uses preserved host evidence; no snapshot or
+consumed journal is rewritten.
+
+## Consumed P358 comparison
+
 P358 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
 ordinary-buffer candidate and one exact Magisk rollback transferred. The operator
 reported **full clean magenta**, whereas WC P356/P357 were corrupt. This is the
