@@ -62,3 +62,27 @@ These are capability findings, not live diagnostic or recovery proof.
 Private build, raw tests and review receipts are retained under
 `workspace/private/outputs/s22plus_fyg8_p364/`. No private identifiers or raw
 device data are published. A90 and S20+ remain outside this task.
+
+## Connected preparation
+
+The first prepare invocation stopped in host run-directory allocation: the
+requested output directory was outside the required direct-child F1 run root.
+No run directory was allocated and no connected command occurred. Its private
+log is preserved. The corrected invocation uses the existing canonical run root;
+source, candidate and execution identity were unchanged.
+
+Fresh connected preparation `p364-ready1-prepared-20260908-1` passed exact D0
+with `PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`. The prepared record is
+32,273 bytes, SHA-256
+`82c7a65e9813ff60fa3d746a888d8bc6728e888bec27b795259a4718dab7864f`.
+It binds 72 execution sources, the source-qualified candidate, exact rollback,
+raw D0 and target continuity. No reboot, device write, Odin invocation or
+partition transfer occurred; no D1 was needed. The F1 approval token remains in
+the private prepared record and is not run authority until separately returned
+by the attended operator. No A90 or S20+ command occurred.
+
+The actual `load_prepared` execution consumer reopened the complete prepared
+binding successfully after D0. This host-only check revalidated source/artifact
+identity and raw preparation evidence without device contact. The bounded
+preparation task is complete; live diagnostics, display and Download return
+remain unproved for P364.

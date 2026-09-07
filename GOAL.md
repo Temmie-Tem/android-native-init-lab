@@ -11,14 +11,16 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P364 minimal preparation diagnostics passed A/B build, static qualification,
-15 focused tests, 24 P363 regressions and two independent scoped PASS_GO reviews.
-The bounded task continues through fresh connected preparation/F1 code issuance only. The successful P361
-renderer and P363 module/control/recovery scope remain unchanged. Fixed signed
-stage/errno witnesses distinguish preparation returns, unobserved returns,
-child creation and child exit without promoting partial progress to feature
-proof. P363 remains consumed; no P364 F1 execution is authorized. Current D0/D1
-and necessary root-read investigation permission remains scoped to this task.
+P364 preparation diagnostics are qualified and freshly prepared. Byte-identical
+A/B builds, static and real bundle verification, 15 focused tests, 24 P363
+regressions and two independent scoped PASS_GO reviews passed. Fresh exact
+connected D0 passed in `p364-ready1-prepared-20260908-1`, without reboot, device
+writes or transfer. The successful P361 renderer and P363 module/control/recovery
+scope remain unchanged. Fixed signed stage/errno witnesses distinguish preparation
+returns, unobserved returns, child creation and child exit without promoting
+partial progress to feature proof. P363 remains consumed. P364 has not executed;
+its fresh private approval token requires a separately returned attended F1
+approval. No D1 was needed. A90 and S20+ received no command from this task.
 Report: [P364 preparation diagnostics](docs/reports/S22PLUS_FYG8_P364_PREPARATION_DIAGNOSTICS_2026-09-08.md).
 
 ## Completed P363 post-run analysis
