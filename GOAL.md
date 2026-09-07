@@ -11,9 +11,9 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P363 H0 qualification is complete and its ready manifest is published. Fresh
-connected preparation through an attended F1 token remains; no P363 candidate
-or native control has executed. The bounded unit is the retained P361 display
+P363 H0 qualification and fresh connected preparation through an attended F1
+token are complete; no P363 candidate or native control has executed. The
+bounded unit is the retained P361 display
 with supervisor-owned authenticated Download control, five exact stock reason/
 provider modules, kernel boot identity and no-replay host intent. Early renderer
 exit leaves fixed parent control available inside the existing child deadline;
@@ -21,12 +21,22 @@ ordinary same-PID1 restart remains an intentional H0-only mode for this candidat
 
 Native/host failure checks, deterministic A/B packaging, static promotion and
 two independent changed-scope PASS_GO reviews are complete. The final source/
-artifact joins passed; completion now requires fresh connected binding.
-The issued token will still require the operator's separate attended return
+artifact joins passed, and the fresh preparation passed exact D0 binding.
+The issued token still requires the operator's separate attended return
 before F1 execution. FULLDUMP initialization and the stock NVMEM error hazard
 remain explicit; physical Download/exact Magisk rollback are still required.
 No automatic recovery or standing native session is claimed. A90/S20+ remain
 outside this task's device authority.
+
+Preparation's single ordinary-reboot D1 exceeded its 240-second healthy-return
+bound and remains STOPPED/consumed with bounded return NO_PROOF. No primitive
+result was fabricated and no reboot/reconnect/reset was retried. The operator
+later reported the Android lock/home screen. A separate D0 validated a changed
+boot identity and current rooted FYG8/original hashes/Android health, followed
+by fresh F1 preparation on that healthy boot. USB re-enumeration's physical
+cause remains UNPROVED; late health does not establish bounded D1 return or
+automatic recovery. The private incident close preserves raw failure evidence
+and source identities. Only H0/D0 preparation resumed; F1 has not executed.
 Report: [P363 native return control preparation](docs/reports/S22PLUS_FYG8_P363_NATIVE_RETURN_CONTROL_PREPARATION_2026-09-08.md).
 
 ## Completed P362 investigation

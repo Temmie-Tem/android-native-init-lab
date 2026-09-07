@@ -2,8 +2,9 @@
 
 Status: H0 qualified and ready manifest published. Native/module and host/
 protocol scopes each received independent PASS_GO; current named hashes match.
-Fresh connected preparation and the attended F1 token remain pending. No P363
-device effect or F1 execution is authorized by these H0 results.
+Fresh connected preparation passed and produced the attended F1 token. No P363
+candidate or native control has executed. These results do not authorize F1
+execution; the operator must separately return the fresh attended approval.
 
 P361 proved operator-observed repeated display and ended CLOSED/19 after exact
 Magisk rollback. P362 found the missing stock reboot-reason/provider closure.
@@ -71,6 +72,33 @@ captured default-output path were corrected in a fresh A/B build; final AP bytes
 match the earlier pair, with no byte-affecting candidate change. Final source
 closure pins the corrected host verifiers and policy, not historical receipts.
 These are H0 qualifications, not native Download or automatic recovery proof.
+
+Connected preparation first stopped at the retained baseline decoder, before
+any F1 effect. The existing reviewed D1 primitive then sent one authorized
+ordinary Android reboot. Its 240-second healthy-return bound expired with ADB
+offline, so that D1 is STOPPED and consumed with bounded return NO_PROOF.
+Its start record, 125 raw command captures and exception remain intact; no
+primitive result was fabricated and no reboot, reconnect or USB reset was retried.
+
+The operator subsequently reported the Android lock/home screen. Host kernel
+records show a later USB disconnect/re-enumeration; its physical cause remains
+UNPROVED. A separate read-only D0 invocation then passed, and the actual bundle/
+D0 validators reopened its raw evidence successfully. Boot identity changed,
+while rooted FYG8, original boot/supporting hashes, Android health and absent
+Download were verified. This establishes current health, not bounded D1 return
+or automatic recovery. The separate private incident observation-close record
+preserves that distinction and the executed source identities. Only fresh
+H0/D0 preparation through code issuance resumes; F1 execution still requires
+separately returned attended approval and available physical Download recovery.
+No P363 candidate or native control has executed. A90/S20+ received no command.
+
+Fresh preparation `p363-ready1-prepared-20260908-2` passed exact connected D0
+on the same healthy boot as the independent late observation. The first failed
+preparation remains intact and is not reused. The approval token is retained
+privately and issued to the operator; no transfer or live journal exists yet.
+The actual `load_prepared` consumer successfully reopened the final record,
+including its execution closure, raw D0 evidence and approval binding. All 119
+qualified source identities, six artifacts and two review receipts still match.
 
 Private artifacts and raw evidence are under
 `workspace/private/outputs/s22plus_fyg8_p363/`. No private identifier, firmware
