@@ -75,4 +75,34 @@ All 107 execution-critical inputs and seven artifact identities reverify.
 Offline promotion passes with common_offline_verified=true; ready manifest is
 `4686B/8947edafd61231cb8b2ba6bac24d83128649c07026e8170d39e7ecdba1d8d174`.
 P358 regression tests also pass 21/21, syntax checks pass for 14 Python files,
-and repository boundary/diff checks pass. Connected preparation is next.
+and repository boundary/diff checks pass. H0 was committed as `91acfd5ee9`.
+
+
+## Connected baseline preparation
+
+First D0 passed exact initial health, then preserved the expected baseline stop
+in `p359-ready1-prepared-20260907-1`. Stop result:
+`3252B/d37880f9c0b6f9bfdca48ea681c9e1895242273e2dd37d51d9015a7663d362af`.
+The actual bundle and strict stop validator accepted that failure receipt;
+it is non-reusable and no candidate or Download transition occurred.
+
+The current D0/D1 preapproval authorized one ordinary reboot through the
+unchanged reviewed P341/P320/P296 invocation. A fresh private metadata wrapper
+binds the closed P358 result, current authority and the new stop. Self-test
+passed before the sole execution. Result:
+`2963B/d13e56c8f72cc88028152a38f929d2e213803120d49cf3415aad97e7d028448a`,
+`PASS_P359_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`. The returned boot ID differs;
+exact rooted FYG8, original boot/supporting hashes and Android health passed.
+Linked invocation and primitive receipts reverify. No retry or manual recovery
+was needed; A90/S20+ received no command from this task.
+
+Fresh D0 preparation in `p359-ready1-prepared-20260907-2` passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`, result
+`3261B/edb1ddc374c511b001e5ef3aa723d166def2e828f8a913bcda238f65a4504d6e`.
+Prepared record is
+`30321B/21201b11a058711bb9958faddaa88b75805b4a52d3b7683c39ba9a61e2055a9d`.
+The fresh approval token is supplied directly to the operator and excluded from
+tracked documents. No candidate transfer, Odin invocation, Download transition
+or F1 authorization occurred. Actual `load_prepared` reopening passed.
+The remaining F1 requires separately returned exact approval and the operator's
+physical Download availability under the P359 target clause.

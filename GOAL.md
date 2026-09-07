@@ -11,12 +11,19 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P359 preparation is authorized with D0/D1 preapproval. The selected unit retains
-P358 CACHED settings and submits one static RGB/grid/edge pattern. Complete H0
-qualification, independent review and fresh connected preparation before issuing
-its separate attended F1 approval code. No P359 candidate transfer is authorized.
-P358 endpoint-departure diagnosis uses preserved host evidence; no snapshot or
-consumed journal is rewritten.
+P359 CACHED RGB/grid/edge static-frame preparation is complete through fresh
+D0 and exact F1 token issuance. A/B and full executable pixel-oracle checks,
+21 P359 tests, 21 P358 regression tests and independent PASS_GO passed.
+One approved ordinary D1 reboot returned healthy with a new boot ID; fresh D0
+passed. No P359 candidate or Download effect occurred, and F1 is not authorized.
+
+Prepared run `p359-ready1-prepared-20260907-2` is
+`30321B/21201b11`. Await the separately returned exact F1 code and attended
+physical Download availability. Do not reuse P358's consumed approval.
+P358's immutable diagnostic identifies endpoint departure during rollback wait;
+the physical cause remains unproved. Same-journal recovery and healthy closure
+were verified; no selector, stop or recovery mechanism was changed.
+Report: [P359 preparation](docs/reports/S22PLUS_FYG8_P359_CACHED_PATTERN_PREPARATION_2026-09-07.md).
 
 ## Consumed P358 comparison
 
