@@ -124,7 +124,11 @@ finalizer and complete result validation ran with a backend that rejects every
 action and with state writes forbidden. Dry-run and publication preserved all
 7,119 prior run files byte-for-byte, including prepared state, journal and raw
 evidence. Only the terminal result and separate private repair evidence were
-created. The final result is 32,974 bytes, SHA-256
+created. A later applicability audit established that the repairing
+`Journal.reopen` also replaced the same-byte journal-head index; its inode and
+timestamps were not covered by the byte-only preservation check. This was
+content-preserving host finalization, not a strictly read-only filesystem audit.
+The final result is 32,974 bytes, SHA-256
 `8f121d45b5ae8678493d64432a4a1362c0551de81ed07b03208b6e396a59fbb5`.
 
 The independent repair review is private, SHA-256
@@ -223,3 +227,8 @@ private receipt has SHA-256
 This analysis supersedes its prior flag interpretation only and grants no
 implementation or device authority. Documentation link/diff and repository
 boundary checks passed.
+
+The subsequent [historical applicability audit](S22PLUS_FYG8_P364_HISTORICAL_FAILURE_APPLICABILITY_AUDIT_2026-09-08.md)
+records that metadata distinction, reproduces a representative successful-state
+writer overflow and maps earlier fixes to the current path. No consumed evidence
+or production source was changed by that audit.

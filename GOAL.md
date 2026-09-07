@@ -26,7 +26,9 @@ claimed. Physical Download entry enabled the exact preapproved rollback.
 Final result publication initially rejected the deliberately shared P363-named
 return-state fields. A reviewed CLOSED-only host repair revalidated the original
 prepared closure and raw evidence, preserved all 7,119 existing run files and
-published the terminal result without a backend action or state/journal change.
+published the terminal result without a device action or changes to live-state
+or append-only journal-record contents. Later audit found that the repairing
+reopen replaced the same-byte journal-head index; metadata was not preserved.
 The reusable validator now admits only the three exact shared names for native
 return owners; other foreign names remain rejected. Consumed pins are unchanged.
 Completed H0 analysis found an ARM64 open-flag ABI mismatch in the transferred
@@ -41,6 +43,15 @@ No next candidate, active lease or new F1 authority exists. A successor requires
 target-correct directory/no-follow flags, real ARM64 behavior checks and its
 existing changed-closure review/qualification. Consumed sources remain frozen.
 Report: [P364 preparation diagnostics](docs/reports/S22PLUS_FYG8_P364_PREPARATION_DIAGNOSTICS_2026-09-08.md).
+
+The historical-failure applicability audit found a further current persistence
+issue: a representative state with validated success projections is 37,750 bytes
+and the actual 32-KiB state writer rejects it. This is a hybrid sizing fixture,
+not a complete successful terminal run. A successor needs success/late-failure
+producer-to-writer roundtrips and a scoped persistence correction in addition
+to the ARM64 flag repairs. Earlier pipe, timing, numeric identity and host-first
+OPEN corrections remain present.
+Report: [Historical failure applicability audit](docs/reports/S22PLUS_FYG8_P364_HISTORICAL_FAILURE_APPLICABILITY_AUDIT_2026-09-08.md).
 
 ## Completed P363 post-run analysis
 
