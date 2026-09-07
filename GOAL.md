@@ -11,19 +11,20 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-P359 CACHED RGB/grid/edge static-frame preparation is complete through fresh
-D0 and exact F1 token issuance. A/B and full executable pixel-oracle checks,
-21 P359 tests, 21 P358 regression tests and independent PASS_GO passed.
-One approved ordinary D1 reboot returned healthy with a new boot ID; fresh D0
-passed. No P359 candidate or Download effect occurred, and F1 is not authorized.
+P359 is consumed and CLOSED/19, recovery_required=false. One CACHED ABGR8888
+RGB/grid/edge candidate and one exact Magisk rollback transferred. The operator
+reported the pattern and border normal without breakup and supplied a photograph
+corroborating correct RGB positions, regular grid and white perimeter. This
+qualifies the bounded operator-observed static pattern; photographic evidence
+is not pixel-exact readback or cache-causality proof.
 
-Prepared run `p359-ready1-prepared-20260907-2` is
-`30321B/21201b11`. Await the separately returned exact F1 code and attended
-physical Download availability. Do not reuse P358's consumed approval.
-P358's immutable diagnostic identifies endpoint departure during rollback wait;
-the physical cause remains unproved. Same-journal recovery and healthy closure
-were verified; no selector, stop or recovery mechanism was changed.
-Report: [P359 preparation](docs/reports/S22PLUS_FYG8_P359_CACHED_PATTERN_PREPARATION_2026-09-07.md).
+Machine verdict `PASS_F1_V2_P359_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`
+remains dispatch/rollback evidence. Live result `22805B/686a99f7`; original execute
+completed without recovery re-entry. Final rooted FYG8, original boot/supporting
+hashes, Android health and absent Download passed. No active lease remains.
+Candidate and observation are never replayable. A90/S20+ received no command
+from this task; no successor F1 or standing native runtime is authorized.
+Report: [P359 pattern result](docs/reports/S22PLUS_FYG8_P359_CACHED_PATTERN_PREPARATION_2026-09-07.md).
 
 ## Consumed P358 comparison
 

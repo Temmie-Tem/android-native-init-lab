@@ -2,7 +2,8 @@
 
 The operator authorized the next CACHED static-pattern preparation and D0/D1.
 F1 remains separately approved after fresh preparation. P358 is consumed and
-closed healthy; it is never replayable. No P359 candidate has transferred.
+closed healthy; it is never replayable. At preparation completion no P359 candidate had transferred; the separately
+approved and now closed F1 is recorded below.
 
 ## P358 USB incident disposition
 
@@ -104,5 +105,45 @@ Prepared record is
 The fresh approval token is supplied directly to the operator and excluded from
 tracked documents. No candidate transfer, Odin invocation, Download transition
 or F1 authorization occurred. Actual `load_prepared` reopening passed.
-The remaining F1 requires separately returned exact approval and the operator's
-physical Download availability under the P359 target clause.
+At preparation completion the remaining F1 required separately returned exact
+approval and physical Download availability under the P359 target clause.
+
+
+## Consumed F1: clean cached static pattern
+
+The operator returned the exact fresh approval. One candidate and one exact
+Magisk rollback transferred; original execute completed without a recover
+invocation. Machine verdict is
+`PASS_F1_V2_P359_STATIC_DISPLAY_DISPATCH_AND_ROLLED_BACK`, proving authenticated
+host dispatch and healthy rollback, not renderer completion or panel pixels.
+Live result is `22805B/686a99f7b2837a8324b02172bde61bbbe431d7225a2cf14bb0445ccb9f8ff74e`.
+
+The operator reported the pattern and border normal without breakup, then
+supplied a photograph. Its original bytes were copied and verified privately:
+`105048B/132db3070b48b74260ad49553a569bf84ee57cd6100d3700460b5a2dd1e8be72`.
+The photo shows red upper left, blue upper right, green lower half, regular black
+grid and white perimeter, without the prior gross block corruption. This
+corroborates the operator-observed static-pattern result. It is not pixel-exact
+readback; photographic texture, rounded corners and camera cutout limit detailed
+edge interpretation. Cache coherency versus mmap/DMA timing remains unisolated.
+The original visual witness and supplemental photo receipt remain separate;
+no machine verdict or earlier evidence was rewritten.
+
+Final rooted FYG8, original boot/supporting hashes, Android health and absent
+Download passed. Journal CLOSED/19, recovery_required=false, no active lease.
+P359 candidate and observation are consumed and never replayable. A90/S20+
+received no command from this task. No standing native runtime or successor
+F1 authority follows from this result.
+
+Canonical timeline, UTC:
+
+| Event | Timestamp |
+| --- | --- |
+| live_session_start | 2026-09-07T12:10:29.686305Z |
+| candidate_flash_start | 2026-09-07T12:10:48.067333Z |
+| candidate_flash_done | 2026-09-07T12:10:49.801155Z |
+| candidate_boot_ready | 2026-09-07T12:11:00.392862Z |
+| rollback_flash_start | 2026-09-07T12:11:45.090298Z |
+| rollback_flash_done | 2026-09-07T12:11:46.663833Z |
+| rollback_boot_ready | 2026-09-07T12:12:26.036077Z |
+| live_session_end | 2026-09-07T12:12:26.056282Z |
