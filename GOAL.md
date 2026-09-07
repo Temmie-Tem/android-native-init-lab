@@ -11,7 +11,7 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
-Prepare P358, the cached ABGR8888 ordinary-buffer comparison. The operator
+P358 is prepared for the cached ABGR8888 ordinary-buffer comparison. The operator
 authorized remaining analysis and next-experiment preparation; current D0/D1
 preapproval applies when needed. A separately returned fresh F1 token is still
 required for candidate execution.
@@ -21,13 +21,16 @@ Retain P357's bytes, geometry, mode, atomic request, privilege and recovery boun
 The flag also changes mmap bookkeeping and DMA-map timing, so it does not isolate
 cache causality. Live native PTE/cache/address/bandwidth/scaler/DSC state remains
 unproved; those observations require a suitable future native window and do not
-block this bounded comparison. No new device effect has occurred for P358.
+block this bounded comparison. No P358 candidate transfer has occurred.
 
 A/B/static/actual AArch64 paint qualification, offline promotion and independent
-PASS_GO review are complete. Next is fresh connected preparation through a new
-F1 approval code. P357 remains consumed and
-healthy; its failure evidence and exact source closures are unchanged.
-Report: [post-P357 buffer-fetch analysis](docs/reports/S22PLUS_FYG8_POST_P357_BUFFER_FETCH_ANALYSIS_2026-09-07.md).
+PASS_GO review are complete. Initial D0 preserved the expected baseline stop;
+one authorized normal D1 reboot returned with exact health, and fresh D0 in
+`p358-ready1-prepared-20260907-2` passed. A new F1 approval code is ready.
+Prepared SHA-256 is `32d4c08d38096ffff46511aec68122ef8b86bc57a26bf6e7501baefe3e0b5aec`.
+Await the separately returned attended F1 approval; no P358 candidate transfer
+has occurred. P357 remains consumed and healthy, with all evidence unchanged.
+Report: [P358 cached framebuffer preparation](docs/reports/S22PLUS_FYG8_P358_CACHED_FRAMEBUFFER_PREPARATION_2026-09-07.md).
 
 ## Consumed P357 comparison
 

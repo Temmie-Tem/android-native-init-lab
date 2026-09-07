@@ -102,3 +102,36 @@ bundle `e063ec8f45081df3fc8c3e47a0d06ecc654158f5b75238dcd0502a81fb3d0b77`.
 Reviewed critical inputs and artifact hashes were reverified unchanged before
 connected preparation. Syntax, focused/regression tests and repository boundary
 checks pass. This qualifies the capability, not a device run.
+
+
+## Connected preparation
+
+First preparation in `p358-ready1-prepared-20260907-1` passed exact initial health
+then preserved the expected retained-baseline stop. The non-reusable stop receipt
+is `3252B/68d277bdd490a64ea9864f1258545be31b5121734aea86b0dd2f4f26d5356a6d`.
+Actual bundle/stop-result validation passed; no candidate/Download effect occurred.
+
+Under the current D0/D1 preapproval, the existing reviewed one-normal-reboot
+primitive was invoked once with fresh P358 metadata and the closed P357 health
+binding. Its host self-test passed. Actual result is
+`2963B/796a27333bde83c6c876d8bff9ea68307ef3ef4cbb1a753f68379e020c4bbc03`,
+`PASS_P358_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`. One reboot returned with a new
+boot ID and exact rooted FYG8/original boot and supporting hashes/Android health.
+Linked invocation and primitive receipts reverify. No retry or manual recovery
+was needed. P356's historical failure and every consumed F1 result are unchanged.
+
+Fresh D0 in `p358-ready1-prepared-20260907-2` passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`, result
+`3261B/2f54c9632a193e83276c26837bba7141d3e51925dc1916f81d098b994d8c80a7`.
+Prepared record is
+`30321B/32d4c08d38096ffff46511aec68122ef8b86bc57a26bf6e7501baefe3e0b5aec`.
+It issues a fresh exact F1 token, excluded from tracked documents and supplied
+directly to the operator.
+Device-write, reboot, partition-transfer, live/F1 authority and Odin flags in
+that prepared record are false. No P358 candidate transfer occurred; A90/S20+
+received no command from this task. Await the separately returned attended F1
+approval. GOAL/report are outside the prepared execution closure.
+
+Actual `load_prepared` reopening passed. Final document content/link/privacy and
+diff checks pass. The preparation-through-code unit is complete; F1 remains
+unexecuted.
