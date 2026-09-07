@@ -1713,14 +1713,14 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
     _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
     _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
     _adapter.proof_class = _adapter._raw_parser().proof_class
-    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch"}.get(_prefix, "readonly_research_shell")
+    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch", "p363": "native_return_control"}.get(_prefix, "readonly_research_shell")
     _constants = {
         "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
         "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
@@ -6595,10 +6595,10 @@ def _validate_p327_e2_ap_payload(frame: bytes, closure: Any, *, display_assets=N
     by_name = {entry.name: entry for entry in entries}
     expected_names = set(P319_GENERIC_ROOTFS_NAMES) | {"bin", "bin/busybox"}
     if display_assets is not None:
-        if display_variant is None or not any(display_variant is v for v in SHELL_VARIANTS.values()) or display_variant.workload not in ("native_display_events", "static_display_dispatch"):
+        if display_variant is None or not any(display_variant is v for v in SHELL_VARIANTS.values()) or display_variant.workload not in ("native_display_events", "static_display_dispatch", "native_return_control"):
             raise EvidenceError("display asset variant differs")
         allowed = {"s22-display", "s22-display-modules"} | {
-            "s22-display-modules/" + name for name in display_variant.artifact.DISPLAY_MODULE_NAMES}
+            "s22-display-modules/" + name for name in getattr(display_variant.artifact, "PACKAGED_MODULE_NAMES", display_variant.artifact.DISPLAY_MODULE_NAMES)}
         if type(display_assets) is not dict or set(display_assets) != allowed:
             raise EvidenceError("P350 display asset inventory differs")
         expected_names |= allowed
@@ -7643,7 +7643,7 @@ def _shell_observer_spec(prefix):
         value.update(kind="exact_cdc_acm_p349_ram_workspace_shell_qualification_v1",
             read_only_child_required=False, ram_workspace_child_required=True,
             workspace_path="/work", workspace_bytes=8388608, workspace_inodes=256)
-    if variant.workload in ("native_display_events", "static_display_dispatch"):
+    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control"):
         value.update(kind=f"exact_cdc_acm_{prefix}_display_qualification_v1",
             read_only_child_required=False, fixed_display_once_child=True,
             qualification_timeout_sec=150, session_cap=3, same_fd_session_count=3,
@@ -7657,6 +7657,19 @@ def _shell_observer_spec(prefix):
             proof_command_count=2, display_child_timeout_sec=60,
             commands=[{"size": len(c), "sha256": hashlib.sha256(c).hexdigest()}
                 for c in (variant.runtime.DEFAULT_COMMANDS[0], variant.runtime.DISPLAY_COMMAND)])
+    if variant.workload == "native_return_control":
+        control = variant.observer.control
+        value.update(kind=f"exact_cdc_acm_{prefix}_native_return_control_v1",
+            qualification_timeout_sec=60, session_cap=1, same_fd_session_count=1,
+            total_session_count=1, total_command_count=3, authenticated_cancel=False,
+            dispatch_only=False, display_response_required=True,
+            framed_session_close_required=False, visual_proof="operator-observation",
+            proof_command_count=3, display_child_timeout_sec=60,
+            control_mode="download", control_ack_scope="acceptance-only",
+            kernel_boot_id_semantic=control.BOOT_ID_SEMANTIC,
+            commands=[{"size": len(c), "sha256": hashlib.sha256(c).hexdigest()}
+                for c in (variant.runtime.DEFAULT_COMMANDS[0], variant.runtime.DISPLAY_COMMAND,
+                          control.CONTROL_BODY)])
     return value
 
 
@@ -7701,7 +7714,7 @@ def _shell_ap_payload_closure(value, variant):
         "busybox": candidate["busybox"], "latch": P319_EXACT_ARTIFACTS["latch"],
         "auth_key": dict(variant.auth_key)}
 
-    if variant.workload in ("native_display_events", "static_display_dispatch"):
+    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control"):
         result["display_assets"] = candidate["display_assets"]
     return result
 
@@ -7712,7 +7725,7 @@ def _p345_ap_payload_closure(value):
 
 def _validate_shell_ap_payload(frame, closure, variant):
     item = _exact(closure, {"kind", "run_id", "userspace_overlay_contract_id", "source_contract_id",
-        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"} | ({"display_assets"} if variant.workload in ("native_display_events", "static_display_dispatch") else set()), "shell AP closure")
+        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"} | ({"display_assets"} if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control") else set()), "shell AP closure")
     if (item["kind"] != variant.prefix + "_exact_" + variant.workload + "_ap_v1"
         or item["run_id"] != variant.run_id or item["userspace_overlay_contract_id"] != variant.overlay
         or item["source_contract_id"] != variant.adapter.PARENT_SOURCE_CONTRACT_ID
@@ -7723,12 +7736,12 @@ def _validate_shell_ap_payload(frame, closure, variant):
         "source_contract_id": p327_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
         "userspace_overlay_contract_id": P327_STOCK_OVERLAY_CONTRACT_ID})
     verified = _validate_p327_e2_ap_payload(frame, inherited,
-        display_assets=item["display_assets"] if variant.workload in ("native_display_events", "static_display_dispatch") else None, display_variant=variant)
+        display_assets=item["display_assets"] if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control") else None, display_variant=variant)
     result = {**verified, "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
-              "read_only_child_required": variant.prefix != "p349" and variant.workload not in ("native_display_events", "static_display_dispatch"), "later_action_lease_active": False}
+              "read_only_child_required": variant.prefix != "p349" and variant.workload not in ("native_display_events", "static_display_dispatch", "native_return_control"), "later_action_lease_active": False}
     if variant.prefix == "p349":
         result["ram_workspace_child_required"] = True
-    if variant.workload in ("native_display_events", "static_display_dispatch"):
+    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control"):
         result["fixed_display_once_child"] = True
         result["display_assets"] = item["display_assets"]
     return result

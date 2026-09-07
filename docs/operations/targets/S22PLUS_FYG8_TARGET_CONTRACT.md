@@ -1291,11 +1291,79 @@ rules remain intact. H0-only until independent changed-closure review,
 artifact/static qualification, fresh connected preparation and separately
 returned attended F1 approval. No permanent boundary change.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, or P361 candidate transfer occurs, the same
+**P363 attended native Download control.** P361 is consumed and never
+replayable. This fresh capability retains its exact ten-swap renderer, twelve
+display additions, primary-panel selection, privilege drop and mandatory exact
+Magisk rollback. It adds only the five stock modules and fixed parameters in
+`s22plus_fyg8_p363_return_spec.py`, loaded once in native PID1 before the display
+child: nvmem_qcom-spmi-sdam, sec_reboot_cmd, sec_qc_rbcmd, qcom-dload-mode
+(`download_mode=0`), then sec_qc_qcom_reboot_reason. Each regular root-owned 0400
+ramdisk file is size/hash checked and inserted from the same O_NOFOLLOW FD.
+There is no module unload or insertion retry. Before the final writer, both
+SDAM NVMEM providers must resolve to their exact stock DT nodes; dynamic
+`spmi_sdamN` numbers are not identities. A fixed read-only debugfs mount and
+bounded fresh reads of `/sys/kernel/debug/sec_reboot_cmd` allow up to five
+seconds for asynchronous command registration. The Reboot Notifier stage must
+have priority 250, a default handler and the exact download command. The final
+synchronous writer must bind the exact stock platform node. No raw NVMEM data,
+kernel pointers or arbitrary debugfs control is exposed to the host.
+
+These stock initialization effects are part of this attended experiment:
+qcom-dload-mode first requests NODUMP and disable_sdi; Samsung writer probe
+subsequently requests FULLDUMP, creating an explicit initialization window.
+A clean reboot notifier later requests NODUMP. Writer registration also writes
+the stock SEC_DEBUG_MODE reboot-reason value. Local source does not establish
+firmware persistence semantics for disable_sdi. The exact stock writer has a
+confirmed kfree(ERR_PTR) path if its reboot-time NVMEM read fails, and its
+write/readback errors do not establish successful Download. No panic, watchdog,
+EDL, dump command, RAM dump collection or alternate reboot path is authorized.
+Physical Download and exact rollback remain the demonstrated recovery route.
+
+A new authenticated same-descriptor protocol permits one fixed mode-1 Download
+CONTROL at sequence 5. Native PID1 owns the receiver and Linux RESTART2
+`download` syscall; the renderer receives no reboot capability or host command.
+READY signs module readiness, zero through ten observed swap-submission records,
+and whether the child exited before readiness. A running child requires all ten
+records; an early child exit leaves control available within the original child
+budget and reports its incomplete count. No panel-visibility claim follows from
+these records. The absolute 60-second child/control deadline begins after
+module preparation; it cannot bound a blocking module/reboot kernel operation.
+Child timeout, preparation failure or control failure retains physical recovery.
+
+The host seals an exclusive durable control intent before any CONTROL byte,
+binding run, exact native endpoint/lane, nonce, mode, sequence and kernel boot
+identity. Existing or partial intent forbids another display/control exchange.
+An unreadable or invalid local intent/window preserves its raw bytes and
+forecloses software-return proof; it does not block preauthorized physical
+Download and exact rollback. No such local-record handling tolerates USB errors.
+Native consumption precedes ACK and syscall. ACK is acceptance only; failed ACK
+write performs no syscall, while the host treats uncertainty as consumed. Any
+syscall return terminates control without retry or alternate command. BOOT-v2
+wire identity is SHA256 of the kernel's canonical lowercase UUID36 ASCII; host
+receipt identity is SHA256 of that wire digest. Per-session RNG remains separate.
+Historical random boot tokens are not reclassified. Ordinary same-PID1 restart
+is implemented for H0 checks only and is not a live mode of this candidate.
+
+After intent, one fixed 30-second host observation window precedes the physical
+Download prompt. Only an actual bounded timeout selects physical fallback;
+existing USB departure, membership, identity and topology errors remain fatal
+and retain same-journal preauthorized recovery. ACK, USB disappearance and
+Download arrival are separate evidence. Exact Download within the window plus
+accepted control and final exact rollback may qualify the machine control/
+arrival result; physical intervention remains unobserved and software causal
+attribution remains UNPROVED without the operator's separate observation.
+Neither outcome activates unattended recovery or any standing native session.
+
+This capability remains H0-only until changed-closure independent review,
+fresh artifact/static qualification, connected preparation and separately
+returned attended F1 approval. Its finite scope is one candidate and one
+mandatory exact rollback; no permanent boundary changes.
+
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, or P363 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, or `s22plus-fyg8-p361` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, or `s22plus-fyg8-p363` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

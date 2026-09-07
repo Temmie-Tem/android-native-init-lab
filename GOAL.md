@@ -11,6 +11,26 @@ This goal reports state, never device authority. The binding layers are
 
 ## Current bounded unit
 
+P363 H0 qualification is complete and its ready manifest is published. Fresh
+connected preparation through an attended F1 token remains; no P363 candidate
+or native control has executed. The bounded unit is the retained P361 display
+with supervisor-owned authenticated Download control, five exact stock reason/
+provider modules, kernel boot identity and no-replay host intent. Early renderer
+exit leaves fixed parent control available inside the existing child deadline;
+ordinary same-PID1 restart remains an intentional H0-only mode for this candidate.
+
+Native/host failure checks, deterministic A/B packaging, static promotion and
+two independent changed-scope PASS_GO reviews are complete. The final source/
+artifact joins passed; completion now requires fresh connected binding.
+The issued token will still require the operator's separate attended return
+before F1 execution. FULLDUMP initialization and the stock NVMEM error hazard
+remain explicit; physical Download/exact Magisk rollback are still required.
+No automatic recovery or standing native session is claimed. A90/S20+ remain
+outside this task's device authority.
+Report: [P363 native return control preparation](docs/reports/S22PLUS_FYG8_P363_NATIVE_RETURN_CONTROL_PREPARATION_2026-09-08.md).
+
+## Completed P362 investigation
+
 P362 reboot/Download investigation is complete at H0 plus one fixed D0 module
 census. Healthy Android contains the Samsung reboot-reason/provider modules
 missing from the P361 native plan; the current Image has a confirmed PSCI reset
@@ -28,11 +48,9 @@ existing wire boot_id is a native-generated token, so a new restart qualificatio
 must explicitly bind kernel boot identity. Ordinary same-PID1 reboot remains
 an intentional separate control action from Download/rollback.
 
-The next bounded implementation is supervisor-owned authenticated fixed control
-plus the smallest qualified reason/provider closure, followed by separately
-approved attended reboot and Download qualifications. Normal reboot keeps the
-candidate boot installed. No automatic F1 policy was activated, no production
-runtime was changed, and no new D1/F1 effect occurred. D0 preserved exact same-boot
+P362 itself changed no production runtime or automatic F1 policy and performed
+no new D1/F1 effect. Normal reboot would keep the candidate boot installed.
+Its D0 preserved exact same-boot
 rooted FYG8/original hashes/Android health; A90/S20+ were not commanded.
 Report: [P362 reboot and Download analysis](docs/reports/S22PLUS_FYG8_P362_REBOOT_DOWNLOAD_PATH_ANALYSIS_2026-09-07.md).
 
