@@ -3,8 +3,9 @@
 P370 asks whether one predeclared host tty close/reopen can retain the same
 native display child and permit freshly authenticated Download CONTROL. P369's
 fixed wait experiment is consumed and CLOSED; its approval cannot be reused.
-This preparation is H0 until a fresh exact connected preparation and separately
-returned attended F1 approval. No device effect is granted by this report.
+The preparation below was H0 until fresh exact connected preparation and
+separately returned attended F1 approval. The approved run is now CLOSED/PASS,
+as recorded below. This report itself grants no device effect.
 
 ## Bounded behavior
 
@@ -57,7 +58,7 @@ the mocked base receipt now carries the actual pre-CONTROL lane; tamper tests
 use the fixture authentication binding and temporarily make their own test file
 writable. Actual native/owner failures retain raw output and never replay a
 CONTROL or device transfer. Final validation results and artifact identities
-will be recorded after the source freeze and build.
+are recorded below.
 
 Final focused tests passed 5/5, independently repeated. Combined P370,
 P369/P368/P367, common live-runner and goal-research regressions passed 122/122.
@@ -105,12 +106,63 @@ One fixed read-only `--prepare` completed on 2026-09-09 KST in
 `PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`. Exact rooted S22+ FYG8,
 original boot/supporting hashes, completed Android/stopped boot animation and
 Download absence passed. This sent no reboot, mode-change or transfer request;
-other targets received no commands. The separately returned fresh approval and
-physical Download recovery availability remain required before any F1 effect.
+other targets received no commands. At that stage, the separately returned fresh
+approval and physical Download recovery availability were required before F1.
 
 The actual `load_prepared` consumer reopened the final published/prepared paths
 successfully. The prepared record has 34484 bytes and SHA-256
-`4d95e6d743bbf4ee170abe59f15b2c1b3fa72c77a329fb5e6ba4c93ca8805da0`. All implementation,
-qualification and connected preparation work is complete; only the separately
-returned attended F1 approval is pending. No live handoff/recovery claim follows
+`4d95e6d743bbf4ee170abe59f15b2c1b3fa72c77a329fb5e6ba4c93ca8805da0`. At preparation, all implementation,
+qualification and connected preparation work was complete; the separately
+returned attended F1 approval was the remaining requirement. No live handoff/recovery claim follows
 from H0 or D0 results.
+
+## Approved live result — 2026-09-09 KST
+
+The exact freshly returned approval was used once. Ordinary execute completed
+with `PASS_F1_V2_P370_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, CLOSED/19 and
+`recovery_required=false`; no `--recover` invocation was needed. One candidate
+and one exact Magisk rollback transferred.
+
+The observer retained two authenticated legs with distinct nonces and the same
+kernel boot identity, one completed host reopening, one session per descriptor
+and `same_tty_fd=false`. Forty-seven authenticated progress records include
+the signed three-submission/exact-wait-marker/two-second-age/unreaped-child
+checkpoint, with no child-exit record. CONTROL was accepted and exact Download
+arrived within the fixed thirty-second return window without a physical
+fallback prompt. This qualifies the one planned handoff while retaining the
+fixed-wait child; no native session remains active.
+
+Final rooted FYG8, original boot/supporting partition hashes, completed Android,
+stopped boot animation and both target/global Download absence passed. The
+operator separately reported that transition and rollback occurred without
+button or cable manipulation. That is operator observation: retained machine
+fields remain `physical_intervention=UNOBSERVED` and
+`software_causal_attribution=UNPROVED`. The narrower observer proof class,
+software Download arrival, visible pixels and display-execution fields retain
+their original NO_PROOF/UNPROVED/false values alongside the full run's PASS.
+
+There is no replay or unattended authority, arbitrary-disconnection recovery,
+client-process restart tolerance, continuous-liveness proof or kernel/PID1-stall
+recovery claim. A90 and S20+ received no commands.
+
+### Canonical timeline (UTC)
+
+| Event | Time |
+| --- | --- |
+| live_session_start | 2026-09-08T17:13:05.045561Z |
+| candidate_flash_start | 2026-09-08T17:13:26.661741Z |
+| candidate_flash_done | 2026-09-08T17:13:28.497877Z |
+| candidate_boot_ready | 2026-09-08T17:14:06.013926Z |
+| rollback_flash_start | 2026-09-08T17:14:32.437780Z |
+| rollback_flash_done | 2026-09-08T17:14:34.537249Z |
+| rollback_boot_ready | 2026-09-08T17:15:09.598854Z |
+| live_session_end | 2026-09-08T17:15:09.664412Z |
+
+Actual prepared/result reopening and journal-chain validation passed. The
+result is 49,387 bytes, SHA-256
+`44bd12f1f67dc17c1a7207b3068c44f679baabe91e56fe57e326882e94ae2f79`.
+One current F1 closure row was appended from the journal/result after checking
+its fields; every earlier ledger byte was preserved. This is current-row
+validation, not a claim that the full historical ledger parser passes.
+No candidate source, consumed journal or raw capture changed during reporting.
+The F1 owner is retired.
