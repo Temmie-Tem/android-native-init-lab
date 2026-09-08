@@ -14,14 +14,22 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
-P369 is the current preparation unit: fixed userspace wait after three
-submissions, with CONTROL readiness independent of display progress. Signed
-checkpoint facts at CONTROL acceptance distinguish the requested wait from
-missing/negative evidence without suppressing return control. The 117-test
-host batch, independent final review, A/B build and actual common manifest
-publication pass. Fresh connected D0 confirms rooted FYG8 and original hashes;
-the prepared binding awaits returned attended F1 approval. No reboot or flash
-occurred. Live wait-condition return remains UNPROVED. See the [P369 report](docs/reports/S22PLUS_FYG8_P369_DISPLAY_WAIT_PREPARATION_2026-09-08.md).
+P369 is consumed and CLOSED/19 with
+`PASS_F1_V2_P369_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
+Its 47 authenticated progress records include the requested wait checkpoint:
+three submissions, exact wait marker, at least two seconds of marker age and
+an unreaped-child sample at CONTROL. PID1 accepted CONTROL; exact Download
+arrived within thirty seconds. One candidate and one exact Magisk rollback
+transferred, followed by healthy rooted FYG8/original hashes/Android and absent
+Download. Ordinary execute completed without a recovery invocation or physical
+fallback prompt; no native session remains active.
+
+The operator separately observed transition and rollback without physical
+manipulation. This qualifies the fixed display-child wait condition, not
+continuous liveness, PID1/kernel-stall recovery or unattended F1. Frozen READY
+snapshots and narrower observer NO_PROOF/UNPROVED fields remain unchanged;
+actual wait evidence is the separate signed checkpoint. No replay authority
+remains. See the [P369 report](docs/reports/S22PLUS_FYG8_P369_DISPLAY_WAIT_PREPARATION_2026-09-08.md).
 
 P368 is consumed and CLOSED/19 with
 `PASS_F1_V2_P368_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.

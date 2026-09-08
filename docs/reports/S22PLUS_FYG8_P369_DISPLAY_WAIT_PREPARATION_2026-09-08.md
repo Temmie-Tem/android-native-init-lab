@@ -1,5 +1,11 @@
 # S22+ P369 control during a fixed display-child wait
 
+P369 is consumed and CLOSED/19 with
+`PASS_F1_V2_P369_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
+The signed wait checkpoint, subsequent bounded Download return, exact rollback
+and final rooted FYG8 health passed. The preparation history below is retained.
+
+
 P369 separates control availability from display progress. The fixed renderer
 submits three swaps, flushes its exact run-bound WAIT_ENTERED marker, and repeats
 one-second nanosleep without further rendering. PID1 sends READY after return
@@ -107,3 +113,50 @@ private D0 evidence. Prepared record: 33389 bytes, SHA-256
 `e461f9c4440f29515573e515f567900b770204f19087744c2d74a1362d27fb71`. Changed-file compile, relevant
 regressions, independent review, diff/link checks and the staged repository
 boundary check pass. This is prepared capability evidence, not live wait recovery.
+
+## Completed attended execution
+
+The operator returned the exact prepared approval. One ordinary execute
+transferred one candidate and one exact Magisk rollback, without a recovery
+invocation or physical fallback prompt. Forty-seven authenticated progress
+records include complete preparation and the signed CONTROL checkpoint:
+three submissions, exact wait marker, at least two seconds since observing it,
+and an unreaped exact-child sample. No child exit was reported. Frozen READY/ACK
+snapshots retain zero submissions; actual wait evidence belongs to the separate
+checkpoint and is not rewritten into those snapshots.
+
+CONTROL acceptance and exact Download arrival within the fixed thirty-second
+window passed. Final Android completion, root, original boot/supporting hashes
+and both target/global Download absence passed. No native session remains.
+
+| Canonical event (UTC, 2026-09-08) | Time |
+| --- | --- |
+| `live_session_start` | 14:02:11.450702Z |
+| `candidate_flash_start` | 14:02:29.358099Z |
+| `candidate_flash_done` | 14:02:31.061725Z |
+| `candidate_boot_ready` | 14:02:52.357424Z |
+| `rollback_flash_start` | 14:02:59.157803Z |
+| `rollback_flash_done` | 14:03:00.889167Z |
+| `rollback_boot_ready` | 14:03:36.977043Z |
+| `live_session_end` | 14:03:36.998213Z |
+
+The operator separately confirmed that Download transition and rollback occurred
+without button or cable manipulation. That observation remains separate from
+the machine receipt's physical-intervention UNOBSERVED and software-causal-
+attribution UNPROVED fields. The narrower observer projection also retains
+NO_PROOF_OBSERVER, software_download_arrival=UNPROVED,
+visible_panel_output=UNPROVED and display_execution_proved=false. The complete
+run's accepted CONTROL, bounded arrival and final-health PASS are distinct.
+
+This result supports return in the fixed display-child wait condition with
+one unreaped-child sample. It does not prove continuous liveness, visible pixels,
+PID1-failure recovery, blocked-kernel recovery or unattended F1. The candidate
+and CONTROL are consumed and cannot replay. A90 and S20+ received no command.
+
+Actual prepared/result reopening and journal-chain validation passed. Result:
+47,585 bytes, SHA-256
+`b5c00088eb6eeb1b30f09341076730726cdcf51cc499e312cb2bcc6a1b3658c2`.
+One current F1 closure row was appended from the journal/result after checking
+its fields; every earlier ledger byte was verified unchanged. This reporting
+step changed no candidate source, consumed journal or raw capture and performed
+no device action.
