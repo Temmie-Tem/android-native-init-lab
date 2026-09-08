@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`0b8cd46d4cc6eddf5e28749cd1e96e82dc2eb1f5f0cc88bc1a17e9dd4bb36337`.
+`78635cd38f94f2f62a491063b72a08faa0de7023a2f711565dcf8b7bf4c3351e`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -146,6 +146,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S20+ PMSG ordinary-reboot transaction | `S20PLUS_PMSG_WARM_REBOOT_D1_DELEGATION_V1` in the D1 definition; single transaction, not a reusable autonomous session. |
 | R1 persistent privileged-data experiment | [Common R1 Invariants](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#common-r1-invariants) and its exact target lane. |
 | F1 boot-only transfer | [Common F1 Invariants](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#common-f1-invariants), Process v2 and the selected target's actual process. |
+| Bounded attended F1 session | [Bounded Attended F1 Sessions](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#bounded-attended-f1-sessions); reviewed target/runner activation and a finite explicit grant; physical attendance remains required. |
 | Conditional unattended F1 | [Conditional Autonomous F1](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#conditional-autonomous-f1); actual failure-specific automatic recovery is required. |
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
 | X | Forbidden; remain H0. |

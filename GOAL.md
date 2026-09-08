@@ -13,6 +13,7 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+Bounded attended F1 sessions are **DEFINED_NOT_ACTIVE**: the reviewed contract design retains attendance and stops new experiments on unproved recovery; existing runner approvals remain mandatory. See [policy change](docs/reports/S22PLUS_FYG8_ATTENDED_F1_SESSION_POLICY_2026-09-09.md).
 
 P371's separately approved third preparation is consumed and CLOSED/19 with
 `PASS_F1_V2_P371_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.

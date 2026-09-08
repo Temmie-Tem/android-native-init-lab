@@ -324,6 +324,22 @@ Preflight, dry-run, and local Odin parser failures are durable run outcomes but
 not permanent one-shot consumption. A later attempt is a new run and requires a
 new approval. The process does not reactivate or reuse an old approval.
 
+### Bounded attended F1 sessions
+
+The common contract's `Bounded Attended F1 Sessions` delegation may replace
+repeated human approvals only after exact target and runner activation. Until
+then the ordinary approval requirements above remain mandatory. Activation
+must implement durable reservation, fresh per-run binding, journal attribution
+of the session grant, finite limits, withdrawal and terminal reconciliation.
+The session authorization path must be distinct from the ordinary exact-token
+path; never manufacture that token to represent a session grant. Recovery from
+an already consumed intent must not require an unexpired or open research grant.
+
+Physical attendance remains required. Unproved recovery for the encountered
+failure stops new experiments; only the previously authorized journal-bound
+recovery may continue when its own binding still passes. This clause grants no
+automatic recovery claim and does not alter the conditional autonomous lane.
+
 ### Conditional autonomous F1 sessions
 
 AGENTS Revision 6 defines this delegation but activates no target or session.

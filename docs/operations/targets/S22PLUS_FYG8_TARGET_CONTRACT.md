@@ -15,6 +15,17 @@ delegation but does not qualify this target's automatic recovery or change its
 current runner. The attended F1 and physical-recovery requirements below remain
 in force until a separately reviewed exact target activation.
 
+Bounded attended F1 sessions: **DEFINED_NOT_ACTIVE**. The common delegation is
+adopted as a prospective S22+ design, limited to one exact FYG8 target, at most
+three reservations/two hours, and a fixed set of reviewed READY manifests with
+pinned candidate/rollback and execution-critical identities. No session grant
+exists through this amendment. Existing per-candidate approvals below remain
+mandatory until independently reviewed runner integration and explicit target
+activation enforce the common requirements. No prior approval is repurposed.
+Unproved recovery for an encountered failure closes any future grant to new
+experiments; already authorized recovery is governed by the durable journal
+and permanent stop rules. Physical attendance remains required.
+
 ## Inheritance and Precedence
 
 All common invariants and permanent safety boundaries in `AGENTS.md` apply.

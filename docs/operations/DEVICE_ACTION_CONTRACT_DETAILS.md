@@ -352,8 +352,9 @@ known healthy starting state, demonstrated physical recovery, a new durable
 journal, and bounded observation/final-health requirements.
 
 Ordinary attended F1 requires one fresh approval binding one candidate and
-recovery. Only an activated conditional autonomous F1 session below may replace
-that human approval with a fresh machine-validated binding for each candidate.
+recovery. An activated bounded attended F1 session or conditional autonomous
+F1 session below may replace that human approval with a fresh machine-validated
+binding for each candidate within its explicit grant.
 The retired trial grants no approval waiver. Once candidate execution begins,
 rollback never waits. Candidate replay is forbidden.
 
@@ -368,6 +369,53 @@ the opened regular file after the tool returns.
 
 F1 PASS requires both the intended bounded observation and the target-specific
 healthy terminal state. Candidate boot or transfer success alone is not PASS.
+
+## Bounded Attended F1 Sessions
+
+This delegation activates no target, runner, or session. A target may adopt it
+only after independent review of its contract and reachable execution closure.
+Existing runners retain their exact per-candidate approval checks until that
+activation; a prepared approval token must never be synthesized as human consent.
+
+- One explicit operator grant binds one exact operator-owned target, a stated
+  research scope, reviewed candidate set, runner/transport/observer identities,
+  exact rollback artifact and demonstrated physical recovery route. The operator
+  remains physically present and able to perform the declared recovery action
+  throughout device effects. Attendance must come from the operator's current
+  session statement, never an agent-created flag or ordinary ADB responsiveness.
+- The initial delegation allows at most three durable attempt reservations and
+  two hours from grant creation, with smaller operator limits permitted. The
+  agent cannot renew, enlarge or reset the grant. A fresh run still checks the
+  exact target/boot, health, candidate and rollback bytes, archive membership,
+  execution closure and recovery binding before any device effect.
+- Reserve each attempt durably before Download intent; bind its grant identity,
+  ordinal and fresh candidate/rollback binding in the existing run journal.
+  A crash or partial reservation cannot free an ordinal for replay. Serialize
+  reservations through the existing target owner/lease. No next candidate starts
+  while a prior reservation lacks a reconciled durable terminal outcome.
+- Continue only after a validated closed run with the required healthy terminal,
+  no unexplained session failure and recovery still within its demonstrated
+  scope. A positively proven pre-effect host abort may consume its reservation
+  without stopping the remaining grant; it never reuses that run or its intent.
+  An expected unproved observation is not itself a safety fault, but cannot
+  stand in for missing health, recovery or terminal evidence.
+- Unproved or unavailable recovery for the encountered failure, unexpected
+  control/transfer/recovery failure, target ambiguity, or uncertain effect
+  occurrence closes the grant to new experiments immediately. Stopping is not
+  recovery proof. A later healthy read does not clear an unexplained session
+  stop. Follow only already authorized recovery from durable journal state;
+  when that route is unavailable or uncertain, park for the required physical
+  intervention or separately reviewed recovery authority. Never improvise a
+  recovery command or replay the candidate.
+- Expiry, exhaustion, withdrawal or loss of attendance blocks new experiments,
+  but does not cancel the current run's already authorized rollback and final
+  health. Reserve their capacity before candidate intent. Scope, critical
+  source or recovery changes require appropriate review and a new explicit
+  grant. No grant resets consumed candidates or unresolved device-session stops.
+
+This is attended execution. It does not establish automatic recovery or grant
+conditional unattended F1. Permanent device/evidence boundaries are unchanged;
+A90 and S20+ receive no activation through another target's adoption.
 
 ## Conditional Autonomous F1
 
