@@ -26,14 +26,21 @@ shared independent review are complete. All three READY manifests and the
 source-bound attended-session capability review are published; 142 changed-path
 tests plus two activation-gate tests passed. See the [shared H0 report](docs/reports/S22PLUS_FYG8_DISPLAY_STEP_SESSION_H0_2026-09-09.md).
 
-Fresh P372 fixed D0 preparation passed and reopened in
-`p372-ready1-prepared-20260909-1`. No session grant, reboot or candidate transfer
-has occurred. Current operator attendance is pending. The bound session permits
-three reservations/two hours, with fresh connected preparation/binding per run;
-only PASS advances the ordered catalog. Unproved recovery or unexplained device
-interruption closes the grant to new experiments while preserving already
-authorized journal-bound recovery. P373/P374 preparation follows prior healthy
-closure; no consumed candidate or prepared run is replayed.
+The attended P372/P373/P374 session is complete. Each candidate ran once,
+rolled back once and closed PASS/CLOSED19 with recovery_required=false and
+validated rooted FYG8/original hashes/Android/Download absence. P372 completed
+one fixed request; P373 completed two in order. P374 started one request but
+completed none, exited its display child with code7, and retained STATUS/CONTROL
+with the signed pending/failed state. The declared child failure is the intended
+negative display outcome. Original execute completed each run without a recover
+invocation. P372's temporary final-health ADB offline resolved within the existing
+wait; the operator separately observed Android.
+
+All three reservations are consumed and the grant is closed. No active native
+session or replay authority remains. The next bounded unit is not selected.
+Visible pixels, continuous liveness, child/kernel/PID1 stall recovery and
+unattended operation remain unproved. The shared report preserves exact results,
+source qualification, evidence limits and canonical timelines.
 
 P371's separately approved third preparation is consumed and CLOSED/19 with
 `PASS_F1_V2_P371_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.

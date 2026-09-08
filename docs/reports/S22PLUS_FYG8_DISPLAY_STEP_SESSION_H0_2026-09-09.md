@@ -1,7 +1,7 @@
-# S22+ fixed display-step session H0 qualification
+# S22+ fixed display-step qualification and attended session
 
-Target: SM-S906N/g0q/S906NKSS7FYG8. This report records host qualification;
-no new live observation, session grant or device effect is implied.
+Target: SM-S906N/g0q/S906NKSS7FYG8. The preparation below records H0 qualification. Live session results are
+recorded separately below; prospective candidates inherit no observed proof.
 
 ## Bounded behavior
 
@@ -82,10 +82,94 @@ Fresh P372 connected preparation completed in
 `p372-ready1-prepared-20260909-1` with exact rooted FYG8, original boot/supporting
 hashes, completed Android/stopped boot animation and Download absence. The
 actual prepared-record consumer reopened it. This fixed D0 read requested no
-reboot or partition transfer. No session grant or F1 candidate has started;
-current physical attendance is the remaining operator condition. P373/P374
-will receive fresh connected preparation only after the preceding experiment
-closes healthy, so a normal changed boot identity is rebound mechanically.
+reboot or partition transfer. At preparation closure, no session grant or F1
+candidate had started and current attendance remained pending. The later live
+session below records the operator confirmation and effects. P373/P374 receive
+fresh connected preparation only after the preceding experiment closes healthy,
+so a normal changed boot identity is rebound mechanically.
 
 S22+ P371 remains consumed/CLOSED with its historical proof limits. A90 and S20+
 received no commands and their unrelated changes are excluded.
+
+## Attended session: P372 closed PASS
+
+The operator confirmed current physical attendance. One finite grant opened for
+P372/P373/P374 in that order, at most three reservations/two hours. Reservation1
+executed P372 once and completed CLOSED/19 with
+`PASS_F1_V2_P372_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`.
+
+STEP1 was queued, its exact start/completion markers were observed, and both
+signed STATUS samples reported requested=started=completed=1, no pending work or
+failure, and an unreaped child. Native spacing was 2122 ms. CONTROL and exact
+Download arrival passed; one candidate and one exact rollback transferred.
+
+ADB was temporarily offline during the existing final-health wait. The operator
+observed the Android screen; ADB then became available within that same wait and
+machine checks passed rooted FYG8, original boot/supporting hashes, Android
+health and Download absence. No additional command, transport reset or recovery
+invocation was used to resolve the wait. This is not an interrupted-recovery
+exception, and does not establish visible pixels or kernel/PID1-stall recovery.
+The next ordered candidate remains eligible under the same grant.
+
+| Event (UTC) | Timestamp |
+| --- | --- |
+| live_session_start | 2026-09-08T20:27:35.952115Z |
+| candidate_flash_start | 2026-09-08T20:27:56.710272Z |
+| candidate_flash_done | 2026-09-08T20:27:58.479663Z |
+| candidate_boot_ready | 2026-09-08T20:28:28.692682Z |
+| rollback_flash_start | 2026-09-08T20:28:35.374845Z |
+| rollback_flash_done | 2026-09-08T20:28:37.048898Z |
+| rollback_boot_ready | 2026-09-08T20:33:15.727492Z |
+| live_session_end | 2026-09-08T20:33:15.748440Z |
+
+Result: 52294 bytes, SHA-256 `255275e123f8f1afbd860ef394ac8798985775c1d5bbecf37c6ac821d4389724`.
+
+## Attended session: P373 closed PASS
+
+Reservation2 completed CLOSED/19 with `PASS_F1_V2_P373_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`.
+Both fixed requests were queued, started and completed in order. Signed STATUS
+counts advanced from1 to2 over2323 ms; pending/failed were false and the child
+remained unreaped. CONTROL, exact Download, one candidate/one exact rollback
+and final rooted FYG8/original hashes/Android/Download absence passed. Original
+execute completed without recovery invocation; reservation2 is eligible.
+Result SHA-256 `f76096c66bff17da6400ea81cd2ee962c246d1fc9b86519ee6ee3ae17991508e` (52924 bytes).
+
+| Event | UTC |
+| --- | --- |
+| live_session_start | 2026-09-08T20:38:01.616680Z |
+| candidate_flash_start | 2026-09-08T20:38:21.439275Z |
+| candidate_flash_done | 2026-09-08T20:38:23.072484Z |
+| candidate_boot_ready | 2026-09-08T20:39:05.114023Z |
+| rollback_flash_start | 2026-09-08T20:39:13.115849Z |
+| rollback_flash_done | 2026-09-08T20:39:14.807906Z |
+| rollback_boot_ready | 2026-09-08T20:40:01.449561Z |
+| live_session_end | 2026-09-08T20:40:01.471519Z |
+
+## Attended session: P374 closed PASS; session complete
+
+Reservation3 completed CLOSED/19 with `PASS_F1_V2_P374_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`.
+One request was queued and started, with zero completed. Both signed STATUS
+samples report pending/failed, child reaped and exit code7, separated by2120 ms.
+This is the declared negative display outcome: STATUS and CONTROL remain usable
+after child failure. Exact Download, one candidate/one exact rollback and final
+rooted FYG8/original hashes/Android/Download absence passed. Original execute
+completed without recovery invocation. The grant closed automatically with
+`budget-consumed-or-catalog-complete`; all three reservations are consumed.
+Result SHA-256 `3e8dff1cdbc160692bea8a951a06623a8e71bee01276bf7fe283e62b3dfab9c1` (52781 bytes).
+
+| Event | UTC |
+| --- | --- |
+| live_session_start | 2026-09-08T20:45:39.823786Z |
+| candidate_flash_start | 2026-09-08T20:45:59.832249Z |
+| candidate_flash_done | 2026-09-08T20:46:01.469413Z |
+| candidate_boot_ready | 2026-09-08T20:46:43.732451Z |
+| rollback_flash_start | 2026-09-08T20:46:50.261334Z |
+| rollback_flash_done | 2026-09-08T20:46:51.943856Z |
+| rollback_boot_ready | 2026-09-08T20:47:38.721412Z |
+| live_session_end | 2026-09-08T20:47:38.743253Z |
+
+All three candidates ran once and rolled back once. No active native session
+or further grant budget remains. This proves the fixed one/two-step behavior
+and supervised declared child-exit case; visible pixels, continuous liveness,
+child/kernel/PID1 stall recovery and unattended operation remain unproved.
+A90 and S20+ received no commands from this task.
