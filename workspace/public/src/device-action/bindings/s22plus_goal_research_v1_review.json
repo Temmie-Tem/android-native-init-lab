@@ -12,23 +12,36 @@
     "Named commands are fixed bounded status/root-health reads; no caller shell/path/value or payload surface. Existing raw-first selected-target client is reused.",
     "One explicit foreground goal covers declared attended action subset only; CLI goal/attendance flags do not manufacture authority. Unattended D1, dormant preF1 catalog and F1 remain inactive under this grant.",
     "Shared pending D1 intent is authoritative before local mirror and command; process cuts retain exclusion even if local mirror is absent. Reconciliation is fixed read-only changed-healthy-boot observation and ends old grant without upgrading/replaying action.",
-    "Prospective F1 owner is published before Download intent, blocks research reboot while parked, permits only matching F1 recovery, and retires after validated terminal publication or proven preeffect abort. Migration baseline is exact current CLOSED P367, not historical-count scanning.",
     "Common change waives repeated consent only in target-activated foreground attended scope; attendance, exact target/health, intent/no replay, recovery and permanent boundaries remain.",
     "Existing consumed prepared/source/approval pins are not rewritten. Prospective changed-source F1 must use new reviewed owner path; this receipt grants no candidate execution authority.",
-    "Prospective P368 source refresh: only shared return-host registration and target P368 clause changed; no goal read/reboot action or ownership semantics changed."
+    "Prospective P369 refresh changes only shared variant routing and target P369 clause; research commands and ownership invariants unchanged. Current verified migration baseline is P368 CLOSED/19; prior receipts remain historical."
   ],
   "evidence": {
     "changed_roles": [
       "f1_owner",
       "target"
     ],
-    "delta_review_sha256": "e599dec6d8ff535d4a2a81c2737565fd7709f67491a7839ddcecf1749617d507",
-    "pending_d1_present": false,
-    "prior_review_sha256": "bd8ce7f21433d4b78ca98b1b63b7254c9dc6c7323f17343a846591e92944ef45",
-    "prospective_f1_owner_present": false,
-    "regression_log_sha256": "fb971f338ac4eb58a28a599e7282011bbf78ad9a7a6af79923d5c6384ad79482",
-    "regression_pass_count": 110,
-    "research_grants_present": false
+    "delta_review_sha256": "78f56fc85de51540e8c3effbefc4560afd0c7d8756402aa8be4399ec2ce624b6",
+    "migration": {
+      "f1_owner_present": false,
+      "final_verified": true,
+      "journal_chain_validated": true,
+      "journal_records": 19,
+      "pending_d1_present": false,
+      "recovery_required": false,
+      "research_grants_present": false,
+      "result": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/p368-ready1-prepared-20260908-1/live-result.json",
+        "sha256": "dba169964a1aaefa0efa9860d3f1ad46bfb899a0d99d1bb9511aeeed8b43060c",
+        "size": 47104
+      },
+      "rollback_completed": true,
+      "run": "p368-ready1-prepared-20260908-1",
+      "state": "CLOSED"
+    },
+    "prior_review_sha256": "58b1f148138816c0f764ba95aad7776e7d258c7cc214177332ad7ccd166a0ac0",
+    "regression_log_sha256": "e24f1ef9c1c94bda3daa4945ffab4401cc0294e1646385150419c34d38cde14f",
+    "regression_pass_count": 117
   },
   "findings": [],
   "limitations": [
@@ -37,20 +50,20 @@
     "Any source/action/target drift, closed goal or unresolved device session blocks new effects; no grant renewal by late health.",
     "Review source map excludes unrelated existing S20 AGENTS edits; root common digest was verified and those edits were not reviewed or modified."
   ],
-  "reviewed_at_utc": "2026-09-08T13:07:34.616146+00:00",
+  "reviewed_at_utc": "2026-09-08T13:55:22.346769+00:00",
   "reviewer": "independent-agent-p352-usb-review",
   "schema": "s22plus_goal_research_independent_review_v1",
   "scope": "Explicit foreground-goal named read-only D0 and attended ordinary-reboot D1; no F1 or unattended authority",
   "sources": {
     "common": "0b8cd46d4cc6eddf5e28749cd1e96e82dc2eb1f5f0cc88bc1a17e9dd4bb36337",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
-    "f1_owner": "af606a46080ed324e1038db9e013ba57c5ad955e1002e94f7ff1b12a5b9aa937",
+    "f1_owner": "5570b5c613ac6aa0eccdad209cce46a56d3233396770a782abb833d728619705",
     "policy": "961d42989ce78d5847596dc278e9115f99acb55bfa3ea5d3bf126bad6f910558",
     "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "registry": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
     "runner": "ece1fb04710f6cd8887fd0bb367b6022d9785b231029c9d8bf1973831341171b",
-    "target": "21a6190a689f27adf74166cc1b313de4d8cdab3e4f947b8b4d51ef44be1d3b76"
+    "target": "fc2cae8bbbf8a823d91cb68ca5f54f24945e0da4776342a998e968fb1b77864a"
   },
   "verdict": "PASS_GO"
 }

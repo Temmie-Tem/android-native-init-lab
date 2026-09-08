@@ -1500,6 +1500,39 @@ physical fallback and kernel-call limitations. Independent changed-closure
 review, fresh build/static qualification, connected preparation and separately
 returned attended F1 approval are required. This clause grants no device effect.
 
+**P369 attended userspace-wait return.** P368 remains consumed and never
+replayable. The fresh renderer flushes a fixed run-bound WAIT_ENTERED marker
+after its third successful submission, then repeats its existing one-second
+nanosleep without further rendering. Return modules, privilege drop, one
+Download CONTROL, exact Magisk rollback and physical recovery stay unchanged.
+
+PID1 sends control READY immediately after preparation and clone. READY/ACK
+retain a frozen zero-submission/no-observed-exit snapshot; they no longer wait
+for display completion. Bounded child-output parsing continues independently.
+The host waits a fixed ten seconds after READY, then seals and sends the one
+CONTROL regardless of display progress. The existing sixty-second outer
+budget is unchanged; elapsed host time does not renew that budget. Auth,
+transport, preparation or diagnostic-write errors retain the original stops.
+
+After authenticating and consuming CONTROL, PID1 performs one exact-child
+wait4(WNOHANG) sample and signs stage 44/event 5 before ACK. Its bounded bitfield
+reports observed submission count, exact ordered wait marker, at least two
+monotonic seconds since observing that marker, and a fresh unreaped-child
+sample. Missing or negative facts still allow ACK/Download but cannot qualify
+P369. Wait4/clock errors stop without syscall retry or an alternate reboot.
+Duplicate/out-of-order markers cannot qualify. The fixed diagnostic limit is
+49 frames, covering preparation, child status, checkpoint and terminal paths.
+
+Both live and retained qualification require exactly three submissions, the
+exact marker, its two-second minimum age, an unreaped-child sample and no
+signed child exit, then accepted CONTROL and existing exact bounded Download
+arrival, rollback and final health. An absent marker or early control remains
+NO_PROOF, not a reason to suppress recovery. This proves the fixed wait witness
+and one unreaped-child sample, not continuous liveness, visible pixels,
+blocked-driver/kernel recovery or PID1 failure recovery. Source-bound H0 tests,
+independent review, fresh qualification/preparation and returned attended F1
+approval remain required. No unattended capability or device effect is granted.
+
 **Target-scoped post-rollback final health.** Native-return prepared source
 closures that bind `final_target_health` use the versioned
 `s22plus_target_scoped_final_health_v1` result only after the journal records
@@ -1529,11 +1562,11 @@ records are not repinned, regenerated or upgraded. Scope review is triggered
 by changes to target mapping, USB mode, recovery or final-evidence semantics.
 This H0 implementation/review grants no new connected run or device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, or P368 candidate transfer occurs, the same
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, P368, or P369 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, or `s22plus-fyg8-p368` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, `s22plus-fyg8-p368`, or `s22plus-fyg8-p369` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

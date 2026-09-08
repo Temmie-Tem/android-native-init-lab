@@ -14,6 +14,15 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
+P369 is the current preparation unit: fixed userspace wait after three
+submissions, with CONTROL readiness independent of display progress. Signed
+checkpoint facts at CONTROL acceptance distinguish the requested wait from
+missing/negative evidence without suppressing return control. The 117-test
+host batch, independent final review, A/B build and actual common manifest
+publication pass. Fresh connected D0 confirms rooted FYG8 and original hashes;
+the prepared binding awaits returned attended F1 approval. No reboot or flash
+occurred. Live wait-condition return remains UNPROVED. See the [P369 report](docs/reports/S22PLUS_FYG8_P369_DISPLAY_WAIT_PREPARATION_2026-09-08.md).
+
 P368 is consumed and CLOSED/19 with
 `PASS_F1_V2_P368_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
 The fixed display child submitted three swaps and exited 7; 47 authenticated
