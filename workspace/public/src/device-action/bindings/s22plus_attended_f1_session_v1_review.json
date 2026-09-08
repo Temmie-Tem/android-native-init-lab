@@ -1,0 +1,65 @@
+{
+  "activation": "s22plus_attended_f1_session_v1",
+  "assessment": [
+    "One shared fixed protocol serves one pattern, two sequential patterns and an expected exit-7 before completion. Scenario constants cannot be selected by a live caller.",
+    "Enqueue ACK does not establish child receipt or rendering. Only exact run/ordinal/pattern start/completion markers advance work evidence; pending/failed work skips further STEP dispatch and preserves CONTROL.",
+    "One nonblocking eventfd request is outstanding at a time; no SIGPIPE path, blocking PID1 read, extra child or request replay. Exact target UAPI and real AArch64 fork/dup/exec flags and queue semantics were checked.",
+    "Authenticated STATUS and final checkpoint distinguish completion from failure. Successful and negative raw receipts rederive facts, including skipped STEP2 and deliberate child exit. Original deadline and independent CONTROL remain.",
+    "Authoritative session reservations block legacy execution even before AUTH sidecar publication. Ordered catalog, target/source/AP/rollback binding, budgets and prior-grant/ordinal checks remain durable.",
+    "Nonterminal device recovery closes research authority before recovery effects. Terminal publication repair and positively proven pre-effect abort reconciliation do not replay device effects; historical recovery does not require an active grant.",
+    "Activation remains source-gated and separate from an actual operator grant/attendance. No token is synthesized as fresh human approval; existing device/evidence boundaries remain."
+  ],
+  "candidate_reviews": [
+    {
+      "path": "workspace/private/outputs/s22plus_fyg8_p372/independent-review.json",
+      "sha256": "5fb99d895a3c700e3a732f230e26c94063f8b671c8f208344fe48576dc8cd7b1",
+      "size": 22617
+    },
+    {
+      "path": "workspace/private/outputs/s22plus_fyg8_p373/independent-review.json",
+      "sha256": "9fa841e1b42bd1b6c916910413407c8bb4e69e203b2e76b3ae753c85a13b6c08",
+      "size": 22617
+    },
+    {
+      "path": "workspace/private/outputs/s22plus_fyg8_p374/independent-review.json",
+      "sha256": "31617e6bc3b9c0f8b04172ea4f526c0325aaf2d83c89a2e0a89abecdce5d0ba2",
+      "size": 22617
+    }
+  ],
+  "device_actions_performed": false,
+  "findings": [],
+  "grant_opened": false,
+  "limits": {
+    "reservations": 3,
+    "seconds": 7200
+  },
+  "publication": "Private review receipt; parent owns any public activation publication.",
+  "review_id": "s22plus-display-step-attended-session-shared-review-2026-09-08T19:50:41.001753+00:00",
+  "reviewed_at_utc": "2026-09-08T19:50:41.001753+00:00",
+  "reviewer": "independent-agent-p352-usb-review",
+  "schema": "s22plus_attended_f1_session_independent_review_v1",
+  "scope": "Reviewed capability activation identity only; one explicit finite operator grant and actual physical attendance remain necessary.",
+  "sources": {
+    "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md": "78635cd38f94f2f62a491063b72a08faa0de7023a2f711565dcf8b7bf4c3351e",
+    "docs/operations/DEVICE_ACTION_PROCESS_V2.md": "10f8486d7013870655376cc7e5c98f5e0d67cf241d415847945fc40c7bbce096",
+    "docs/operations/targets/S22PLUS_FYG8_ATTENDED_F1_SESSION_V1.md": "7bd11f0d2613f43305aa5a02b2028efadea9c2f07d5faa1d7a04c59251b78a41",
+    "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md": "1f5eae4fcb7d4221b43cd09db83126ec836080ebcb62d6f9e92149a52bbe57df",
+    "workspace/public/src/device-action/profiles/s22plus_fyg8.json": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+    "workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
+    "workspace/public/src/scripts/revalidation/device_action_d0_v2.py": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
+    "workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py": "49e2a496eb6dd9f154bec97a01275a5f577998aad3ae7fb9154fc0856b1b21bd",
+    "workspace/public/src/scripts/revalidation/device_action_f1_v2.py": "1ab4cc6283989693b4fdfea38a712158449b39809d7e1a4997eb6b0ab443f936",
+    "workspace/public/src/scripts/revalidation/s22plus_attended_f1_session_v1.py": "58223f12dcf3a26216fde14b44f369efe2ec22864dfc8fa70fb8e7ef5386689b"
+  },
+  "tests": {
+    "changed_path_log": {
+      "path": "workspace/private/outputs/s22plus_attended_f1_session_v1/changed-path-tests.log",
+      "sha256": "a8b7ee6b0cd94cba4750573b5e2a9033aacfc7262f36e2b1d74320f4443e0d5f",
+      "size": 6191
+    },
+    "changed_path_pass_count": 142,
+    "independent_recovery_delta_pass_count": 4,
+    "independent_session_initial_pass_count": 14
+  },
+  "verdict": "PASS_GO"
+}

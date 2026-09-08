@@ -15,16 +15,35 @@ delegation but does not qualify this target's automatic recovery or change its
 current runner. The attended F1 and physical-recovery requirements below remain
 in force until a separately reviewed exact target activation.
 
-Bounded attended F1 sessions: **DEFINED_NOT_ACTIVE**. The common delegation is
-adopted as a prospective S22+ design, limited to one exact FYG8 target, at most
-three reservations/two hours, and a fixed set of reviewed READY manifests with
-pinned candidate/rollback and execution-critical identities. No session grant
-exists through this amendment. Existing per-candidate approvals below remain
-mandatory until independently reviewed runner integration and explicit target
-activation enforce the common requirements. No prior approval is repurposed.
-Unproved recovery for an encountered failure closes any future grant to new
-experiments; already authorized recovery is governed by the durable journal
-and permanent stop rules. Physical attendance remains required.
+Bounded attended F1 sessions: **REVIEW_GATED_CAPABILITY** under
+[the exact S22+ session policy](S22PLUS_FYG8_ATTENDED_F1_SESSION_V1.md).
+Its source-bound independent PASS_GO activation receipt and one explicit finite
+operator grant are both required. A grant binds at most three reservations/two
+hours and an ordered fixed catalog of reviewed READY candidates with exact
+rollback and execution identities. Physical attendance remains mandatory.
+Only the distinct session execution path may replace the fresh per-candidate
+human approvals required elsewhere in this contract with fresh machine-validated
+bindings under that grant. Legacy approvals, old manifests and consumed runs are
+not repurposed. Missing/stale review, unresolved stops or unproved recovery block
+new experiments; already authorized recovery retains its journal-bound rules.
+This amendment itself opens no grant and performs no device action.
+
+### Fixed requested display-step batch
+
+P372/P373/P374 share one reviewed bounded eventfd request protocol. P372 requests
+one fixed pattern, P373 two in order, and P374 exits its sole display child with
+status 7 after its fixed request starts and before submission completes. The
+parent never waits for child work inside the request parser; at most one request
+is pending, no arbitrary payload/path/PID/shell is accepted, and CONTROL remains
+available at a complete-frame boundary under the original sixty-second budget.
+An enqueue ACK, exact child start/completion markers, signed STATUS/checkpoint,
+child exit, Download arrival, rollback and final health are separate evidence.
+A child/IPC negative fact does not become an unexplained transport failure;
+malformed authentication/frame or unexpected USB failure retains the existing
+stop rule. Visible pixels and kernel/PID1-stall recovery remain unproved.
+Each candidate needs its own exact READY/static/artifact binding and the existing
+boot-only archive/rollback/physical recovery rules. A source review qualifies
+the shared capability, not a live run or an unattended route.
 
 ## Inheritance and Precedence
 

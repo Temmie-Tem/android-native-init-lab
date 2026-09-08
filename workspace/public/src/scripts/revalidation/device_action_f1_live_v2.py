@@ -28,6 +28,7 @@ import device_action_raw_capture_v1 as raw_capture
 import device_action_cdc_acm_observer_v1 as cdc_acm_observer
 import device_action_f1_evidence_v2 as typed_evidence
 import consumed_candidate_registry_v1 as consumed_registry
+import s22plus_attended_f1_session_v1 as attended_f1
 import device_action_f1_v2 as core
 import s22plus_fyg8_p363_return_host as p363_return_host
 import s22plus_fyg8_p364_return_host as p364_return_host
@@ -39,6 +40,12 @@ import s22plus_fyg8_p369_return_host as p369_return_host
 import s22plus_fyg8_p370_return_host as p370_return_host
 import s22plus_fyg8_p371_return_host as p371_return_host
 import s22plus_fyg8_p371_planned_handoff as p371_planned_handoff
+import s22plus_fyg8_p372_return_host as p372_return_host
+import s22plus_fyg8_p372_planned_handoff as p372_planned_handoff
+import s22plus_fyg8_p373_return_host as p373_return_host
+import s22plus_fyg8_p373_planned_handoff as p373_planned_handoff
+import s22plus_fyg8_p374_return_host as p374_return_host
+import s22plus_fyg8_p374_planned_handoff as p374_planned_handoff
 import s22plus_native_planned_handoff_v1 as planned_handoff
 import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
@@ -1156,6 +1163,7 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
     scripts = Path(__file__).resolve().parent
     paths = {
         "adapter": Path(__file__).resolve(),
+        "attended_session": Path(attended_f1.__file__).resolve(),
         "cdc_acm_observer": Path(cdc_acm_observer.__file__).resolve(),
         "raw_capture": scripts / "device_action_raw_capture_v1.py",
         "usb_trace_sidecar": Path(usb_trace_sidecar.__file__).resolve(),
@@ -9390,6 +9398,21 @@ class _P371ObserverSession(p371_planned_handoff.PlannedHandoffObserverMixin,_P36
 
 
 @dataclass
+class _P372ObserverSession(p372_planned_handoff.PlannedHandoffObserverMixin,_P363ObserverSession):
+    namespace: str = "p372"
+
+
+@dataclass
+class _P373ObserverSession(p373_planned_handoff.PlannedHandoffObserverMixin,_P363ObserverSession):
+    namespace: str = "p373"
+
+
+@dataclass
+class _P374ObserverSession(p374_planned_handoff.PlannedHandoffObserverMixin,_P363ObserverSession):
+    namespace: str = "p374"
+
+
+@dataclass
 class _P348ObserverSession(_P345ObserverSession):
     """Six initial sessions; one deliberate exact-endpoint idle/reopen."""
 
@@ -9450,8 +9473,9 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host}
-HANDOFF_HOSTS={"p370":planned_handoff,"p371":p371_planned_handoff}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host,"p372":p372_return_host,"p373":p373_return_host,"p374":p374_return_host}
+HANDOFF_HOSTS={"p370":planned_handoff,"p371":p371_planned_handoff,"p372":p372_planned_handoff,"p373":p373_planned_handoff,"p374":p374_planned_handoff}
+HANDOFF_SESSION_CLASSES={"p370":_P370ObserverSession,"p371":_P371ObserverSession,"p372":_P372ObserverSession,"p373":_P373ObserverSession,"p374":_P374ObserverSession}
 DEPARTURE_RETURN_OWNERS = frozenset(
     p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.native_usb_departure)
 DIAGNOSTIC_RETURN_OWNERS = frozenset(
@@ -9595,8 +9619,7 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         prepared.private_target["topology"], prepared.run_dir,
         _candidate_observer_binding(prepared), lane_value, lane_receipt,
         usb_root=usb_root, typec_root=typec_root) as inherited:
-        session_class = (_P371ObserverSession if shell.status_queries else
-            _P370ObserverSession if shell.planned_handoff else
+        session_class = (HANDOFF_SESSION_CLASSES[shell.prefix] if shell.planned_handoff else
             _P363ObserverSession if shell.prefix in RETURN_SHELL_OWNERS else
             _P353ObserverSession if shell.prefix in DISPATCH_SHELL_OWNERS else
             _P348ObserverSession if shell.prefix in RETAINED_SHELL_OWNERS else _P345ObserverSession)
@@ -15241,6 +15264,7 @@ def validate_live_result(
         prepared.run_dir / "transaction", prepared.binding_sha256
     )
     state = _state(prepared)
+    attended_f1.validate_journal(prepared, journal.records())
     _validate_p300_usb_trace_state(prepared, state, journal.records())
     if (
         result["schema"] != LIVE_RESULT_SCHEMA
@@ -18877,11 +18901,21 @@ def _finish_candidate_window(
 
 def _execute_prepared_locked(
     prepared: PreparedRun,
-    approval: str,
+    approval: str | None,
     backend: LiveBackend,
+    *,
+    session_authorization: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if approval != prepared.approval_token:
-        raise F1LiveError("fresh F1 approval token mismatch")
+    if session_authorization is None:
+        attended_f1.require_unreserved(prepared)
+        if approval != prepared.approval_token or os.path.lexists(prepared.run_dir / attended_f1.AUTH_FILE):
+            raise F1LiveError("fresh F1 approval token mismatch or session-reserved run")
+        authority_details: dict[str, Any] = {}
+    else:
+        if approval is not None or attended_f1.authorization(prepared) != session_authorization:
+            raise F1LiveError("session authority differs or mixed approval")
+        attended_f1.check_effect_start(prepared)
+        authority_details = attended_f1.journal_authority(prepared)
     transaction = prepared.run_dir / "transaction"
     if transaction.exists() or transaction.is_symlink():
         raise F1LiveError("prepared run already has a transaction; use recovery")
@@ -18903,6 +18937,7 @@ def _execute_prepared_locked(
         {
             "approval_binding_sha256": prepared.binding_sha256,
             "rollback_preapproved": True,
+            **authority_details,
         },
     )
     endpoint_dir = prepared.run_dir / "odin-endpoints"
@@ -18938,6 +18973,15 @@ def _execute_prepared_locked(
                     False,
                 )
             trace_session.start()
+            if session_authorization is not None:
+                try:
+                    attended_f1.check_effect_start(prepared)
+                except attended_f1.SessionError:
+                    journal.transition("ABORTED", "attended_session_ended_before_candidate",
+                                       {"candidate_attempted": False})
+                    trace_session.close()
+                    return _result(prepared, journal, "FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD",
+                                   "attended_session_ended_before_candidate", False)
             try:
                 consumed_registry.begin_f1_owner(prepared.root, prepared.run_dir, prepared.binding_sha256)
                 request_intent = {
@@ -19358,6 +19402,22 @@ def execute_prepared(
         raise F1LiveError("global target-session lease unavailable or replaced") from exc
 
 
+
+def execute_attended_session(prepared: PreparedRun, grant: Path, backend: LiveBackend,
+                             *, attended: bool) -> dict[str, Any]:
+    with consumed_registry.target_session_lease(prepared.root):
+        with odin_core.transaction_session(prepared.run_dir / "f1-session"):
+            authority = attended_f1.reserve(sys.modules[__name__], prepared, grant, attended=attended)
+            try:
+                result = _execute_prepared_locked(prepared, None, backend,
+                                                  session_authorization=authority)
+                attended_f1.finish(sys.modules[__name__], prepared, result)
+                return result
+            except Exception:
+                attended_f1.close(prepared.root, grant, "execution-interrupted-no-new-experiment")
+                raise
+
+
 def _recover_prepared_locked(
     prepared: PreparedRun,
     backend: LiveBackend,
@@ -19439,7 +19499,12 @@ def recover_prepared(
     try:
         with consumed_registry.target_session_lease(prepared.root):
             with odin_core.transaction_session(prepared.run_dir / "f1-session"):
-                return _recover_prepared_locked(prepared, backend)
+                if os.path.lexists(prepared.run_dir / attended_f1.AUTH_FILE):
+                    attended_f1.before_recovery(sys.modules[__name__], prepared)
+                result = _recover_prepared_locked(prepared, backend)
+                if os.path.lexists(prepared.run_dir / attended_f1.AUTH_FILE):
+                    attended_f1.finish(sys.modules[__name__], prepared, result)
+                return result
     except consumed_registry.RegistryError as exc:
         raise F1LiveError("global target-session lease unavailable or replaced") from exc
 
@@ -19471,6 +19536,7 @@ def build_parser() -> argparse.ArgumentParser:
     modes.add_argument("--render-plan", action="store_true")
     modes.add_argument("--prepare", action="store_true")
     modes.add_argument("--execute", action="store_true")
+    modes.add_argument("--execute-session", action="store_true")
     modes.add_argument("--recover", action="store_true")
     modes.add_argument('--resident-action', choices=p343_exploration_session.ACTION_NAMES)
     modes.add_argument('--shell-command-file', type=Path)
@@ -19478,6 +19544,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path, default=core.DEFAULT_MANIFEST)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--approval")
+    parser.add_argument("--session-grant", type=Path)
+    parser.add_argument("--attended", action="store_true")
     parser.add_argument("--adb", type=Path)
     return parser
 
@@ -19486,6 +19554,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = core.repo_root()
     try:
+        if args.execute_session:
+            if args.session_grant is None or not args.attended or args.approval is not None:
+                raise F1LiveError("session execute requires grant/current attendance and no exact-token approval")
+        elif args.session_grant is not None or args.attended:
+            raise F1LiveError("session arguments require --execute-session")
         if args.validate or args.render_plan:
             bundle = core.verify_bundle(root, args.manifest)
             result = render_plan(root, bundle)
@@ -19531,7 +19604,9 @@ def main(argv: list[str] | None = None) -> int:
             prepared = load_prepared(root, args.manifest, args.run_dir)
             adb = args.adb or d0.default_adb()
             backend = SamsungOdinBackend(root, prepared.bundle, adb)
-            if args.execute:
+            if args.execute_session:
+                result = execute_attended_session(prepared, args.session_grant, backend, attended=args.attended)
+            elif args.execute:
                 if not args.approval:
                     raise F1LiveError("execute requires --approval")
                 result = execute_prepared(prepared, args.approval, backend)
