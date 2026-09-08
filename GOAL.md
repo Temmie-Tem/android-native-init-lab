@@ -14,12 +14,12 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
-P371's first approved invocation is ABORTED/4 before Download or candidate
-transfer: guard pkexec returned 127; current host NoNewPrivs=1 supports an
-execution-environment privilege block. Exact execute-preflight was healthy;
-no candidate, rollback or native STATUS session ran. Its 135-test/source-bound
-qualification remains, but the aborted approval cannot be reused. Fresh
-preparation/approval waits for operator environment resolution. See the [P371 report](docs/reports/S22PLUS_FYG8_P371_FIXED_STATUS_PREPARATION_2026-09-09.md).
+P371's first approved invocation remains ABORTED/4 with zero transfers. The
+later app/worker/shell process chain now has NoNewPrivs=0. A second preparation
+stopped on ADB's successful daemon-start stderr; the separate third preparation
+passed exact healthy rooted FYG8/original hashes and Download absence. Existing
+135-test/source-bound qualification is reused unchanged. The third preparation
+awaits its fresh attended F1 approval; no native STATUS session has run. See the [P371 report](docs/reports/S22PLUS_FYG8_P371_FIXED_STATUS_PREPARATION_2026-09-09.md).
 
 P370 is consumed and CLOSED/19 with
 `PASS_F1_V2_P370_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.

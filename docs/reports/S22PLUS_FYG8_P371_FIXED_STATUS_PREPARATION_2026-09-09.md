@@ -165,3 +165,33 @@ unchanged 238-entry capability closure. Private review SHA-256:
 a retry, another read-only readiness check still observed `NoNewPrivs=1`. No
 second execute or fresh preparation was invoked under the unchanged block.
 The reusable H0 capability and the closed failed approval remain distinct.
+
+## Environment refresh and fresh preparation
+
+A later read-only process-chain inspection observed new ChatGPT/Codex processes
+and `NoNewPrivs=0` throughout the app, worker and shell chain. The agent changed
+no security setting and did not launch the app through an alternate privilege
+route. This establishes that the previously observed process restriction is
+absent; it is not itself a successful privileged guard-arm observation.
+
+Fresh preparation `p371-ready1-prepared-20260909-2` stopped at its first ADB
+inventory. The command returned zero but emitted the standard 77-byte daemon
+startup message on stderr, including successful daemon start. The unchanged
+strict raw-capture consumer rejected that stderr. No target-specific read,
+Download request or transfer followed, and no prepared approval was published.
+The raw first return remains intact. The daemon's reported successful start is
+new host-state evidence permitting a separate fresh D0 invocation; no parser
+assertion was relaxed and the failed preparation directory was not reused.
+
+The separate `p371-ready1-prepared-20260909-3` preparation completed with
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`: exact rooted FYG8, original
+boot/supporting hashes, completed Android/stopped boot animation and global
+Download absence passed. No reboot, Download request or partition transfer
+was requested. P370 and all prior P371 records are unchanged; the existing
+135-test/build/static/source-review evidence was reused without a rebuild.
+
+The actual prepared-record consumer reopened the third preparation successfully.
+It is 35,571 bytes, SHA-256
+`9060217d3bcfaa576419c9e7f35f7b4c6bff525cf4f82b9d4d4824096897f628`.
+The fresh attended approval is the remaining requirement. No old approval was
+reused, no live STATUS result is claimed and no device effect was replayed.
