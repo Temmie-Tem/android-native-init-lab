@@ -153,3 +153,21 @@ stopped and was not replayed. A later attempt requires new preparation and
 fresh approval under Process v2, with the existing host authentication ready.
 This failed host start does not consume the candidate artifact. A90 and S20+
 received no command from this invocation.
+
+
+## Second fresh preparation after operator retry request
+
+The operator requested another attempt. The stopped first run remains intact;
+no transaction or approval is reused. Existing source/artifact hashes are
+unchanged, and the ordinary D0-only prepare passed for fresh run
+`p367-ready1-prepared-20260908-2`. Its prepared record is 33,105 bytes, SHA-256
+`4950734389881cbccb55a4c23d04c12c2c7298cfcb4fd66b2e67ebfcab150e9f`.
+The host polkit service and KDE authentication agent are running; that process
+presence is not authentication proof. The operator was informed before the next
+window to complete any displayed host authentication promptly. The original
+30-second guard limit is unchanged. No F1 transaction has begun in this run;
+the new exact approval must be returned separately. A90/S20+ remain untouched
+by this preparation.
+
+The actual prepared reopen also passed against the common bundle verifier.
+Documentation link, goal-length and diff checks passed.

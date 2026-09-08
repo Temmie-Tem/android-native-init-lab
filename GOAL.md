@@ -18,9 +18,10 @@ A/B AP build, static validation, 216 tests and independent source/artifact revie
 The actual bundle rehearsal and H0 ready1 publication/reopen passed.
 Fresh connected D0 and preparation/reopen passed. The returned approval was
 used once, but observer guard arming failed before Download request or candidate
-transfer: ABORTED/4, recovery_required=false. The approval is stopped; any later
-run needs fresh preparation and approval. P367 candidate/CONTROL/rollback counts
-remain zero. The joined fixture uses
+transfer: ABORTED/4, recovery_required=false. That approval is stopped. At the
+operator's retry request, a second fresh D0 preparation passed; it awaits its
+separate returned F1 approval. P367 candidate/CONTROL/rollback counts remain
+zero. The joined fixture uses
 real arrival/final-health producers, allows foreign Download only after rollback,
 and preserves fail-closed fixed-output behavior after an EOF-publication cut.
 See the [P367 preparation report](docs/reports/S22PLUS_FYG8_P367_HOST_PATH_PREPARATION_2026-09-08.md).
