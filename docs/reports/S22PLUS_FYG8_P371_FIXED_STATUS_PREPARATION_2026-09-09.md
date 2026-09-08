@@ -3,8 +3,9 @@
 P371 adds two usable fixed status observations after P370's planned host
 handoff and resumed authentication. The target remains exact S22+ FYG8;
 P370 is consumed and CLOSED. The preparation below was H0. The first approved invocation subsequently
-aborted before Download or candidate transfer, as recorded below. No prior
-run or approval may be replayed.
+aborted before Download or candidate transfer. The separately prepared and
+approved third run is now CLOSED/PASS, as recorded below. No prior run or
+approval may be replayed.
 
 ## Behavior and proof boundary
 
@@ -193,5 +194,58 @@ was requested. P370 and all prior P371 records are unchanged; the existing
 The actual prepared-record consumer reopened the third preparation successfully.
 It is 35,571 bytes, SHA-256
 `9060217d3bcfaa576419c9e7f35f7b4c6bff525cf4f82b9d4d4824096897f628`.
-The fresh attended approval is the remaining requirement. No old approval was
-reused, no live STATUS result is claimed and no device effect was replayed.
+At that preparation stage the fresh attended approval was the remaining
+requirement. No old approval or device effect was replayed.
+
+## Third preparation: approved live STATUS result
+
+The exact new approval for `p371-ready1-prepared-20260909-3` was invoked once.
+Ordinary execute completed with
+`PASS_F1_V2_P371_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, CLOSED/19 and
+`recovery_required=false`. No recovery invocation or physical fallback prompt
+was needed. The privileged observer guard armed successfully in this run.
+
+Two authenticated legs retained the same kernel boot identity with distinct
+nonces and one completed planned host reopening. Both fixed STATUS responses
+reported three submissions, the exact wait marker, marker age of at least two
+seconds, an unreaped child and no reap. Their signed native elapsed values were
+0 and 2121 ms. Six counted commands completed; CONTROL followed the two queries.
+The 47 signed progress records include the same positive final wait checkpoint
+and no child-exit record.
+
+CONTROL was accepted and exact Download arrived within the fixed thirty-second
+window. One candidate and one exact Magisk rollback transferred. Final rooted
+FYG8, original boot/supporting hashes, completed Android/stopped boot animation,
+and both target/global Download absence passed. No native session remains.
+
+The first ABORTED/4 invocation and second failed cold-ADB preparation remain
+unchanged. This is the first P371 candidate effect, under its separate fresh
+binding. The successful live result proves these two fixed observations after
+planned handoff; it does not prove continuous liveness, visible pixels, arbitrary
+disconnection or kernel/PID1-stall recovery. The narrower observer proof class,
+software Download arrival and pixel/execution fields retain their original
+NO_PROOF/UNPROVED/false values. Machine physical intervention remains UNOBSERVED
+and software causal attribution remains UNPROVED. No replay or unattended
+authority follows. A90 and S20+ received no commands.
+
+### Canonical timeline (UTC)
+
+| Event | Time |
+| --- | --- |
+| live_session_start | 2026-09-08T18:21:25.994272Z |
+| candidate_flash_start | 2026-09-08T18:21:42.593457Z |
+| candidate_flash_done | 2026-09-08T18:21:44.247729Z |
+| candidate_boot_ready | 2026-09-08T18:22:12.362319Z |
+| rollback_flash_start | 2026-09-08T18:22:19.050359Z |
+| rollback_flash_done | 2026-09-08T18:22:20.764452Z |
+| rollback_boot_ready | 2026-09-08T18:22:56.623333Z |
+| live_session_end | 2026-09-08T18:22:56.647021Z |
+
+Actual prepared/result reopening and journal-chain validation passed. The
+result is 51,215 bytes, SHA-256
+`050c3ba71859105bc721981cc832e1215bebc49c43bb8a25b22f35e44f5eb2bb`.
+One current F1 closure row was appended from the journal/result after checking
+its fields; every earlier ledger byte was preserved. This validates the current
+row, not the complete historical ledger parser. No execution-critical source,
+consumed journal or raw capture was changed during reporting. The F1 owner is
+retired.

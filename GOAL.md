@@ -14,12 +14,14 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
-P371's first approved invocation remains ABORTED/4 with zero transfers. The
-later app/worker/shell process chain now has NoNewPrivs=0. A second preparation
-stopped on ADB's successful daemon-start stderr; the separate third preparation
-passed exact healthy rooted FYG8/original hashes and Download absence. Existing
-135-test/source-bound qualification is reused unchanged. The third preparation
-awaits its fresh attended F1 approval; no native STATUS session has run. See the [P371 report](docs/reports/S22PLUS_FYG8_P371_FIXED_STATUS_PREPARATION_2026-09-09.md).
+P371's separately approved third preparation is consumed and CLOSED/19 with
+`PASS_F1_V2_P371_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
+Two fixed STATUS replies after planned handoff passed, with signed native
+spacing 2121 ms and the expected unreaped-child/wait facts. CONTROL, exact
+Download, one candidate/rollback and final rooted FYG8/original hashes/Android
+health passed. No native session or replay authority remains. Earlier ABORTED/4
+and cold-ADB preparation records are preserved; no continuous-liveness/pixel/
+kernel-stall or unattended claim follows. See the [P371 report](docs/reports/S22PLUS_FYG8_P371_FIXED_STATUS_PREPARATION_2026-09-09.md).
 
 P370 is consumed and CLOSED/19 with
 `PASS_F1_V2_P370_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
