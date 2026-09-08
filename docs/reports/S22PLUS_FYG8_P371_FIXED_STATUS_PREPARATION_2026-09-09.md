@@ -2,8 +2,9 @@
 
 P371 adds two usable fixed status observations after P370's planned host
 handoff and resumed authentication. The target remains exact S22+ FYG8;
-P370 is consumed and CLOSED. This is H0 preparation, not a device effect or
-permission to replay a prior candidate.
+P370 is consumed and CLOSED. The preparation below was H0. The first approved invocation subsequently
+aborted before Download or candidate transfer, as recorded below. No prior
+run or approval may be replayed.
 
 ## Behavior and proof boundary
 
@@ -110,6 +111,57 @@ required before any P371 candidate effect.
 The actual `load_prepared` consumer reopened the published/prepared paths
 successfully. The prepared record is 35,571 bytes, SHA-256
 `28070356385965ce5977e2e43bcad5f56a24b5908e3251d081c32b7f87895460`.
-Implementation, qualification and connected preparation are complete. Only the
-separately returned attended F1 approval remains; no live STATUS claim follows
-from these H0/D0 results.
+At preparation, implementation, qualification and connected checks were
+complete, with separately returned attended F1 approval still required. These
+H0/D0 results established no live STATUS claim.
+
+## First approved invocation: pre-candidate abort
+
+The returned approval was invoked once in
+`p371-ready1-prepared-20260909-1`. The runner returned
+`FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD`, outcome
+`candidate_observer_arm_failed_before_candidate`, ABORTED/4 and
+`recovery_required=false`. There was no candidate/rollback attempt and no
+Download-request intent. No native STATUS session ran.
+
+Execute-preflight passed exact connected read-only identity, rooted FYG8,
+original boot/supporting hashes, completed Android/stopped boot animation and
+Download absence. The four journal records are preflight validation, session
+start, approval binding and abort. No post-rollback final-health check applies
+because no transition or transfer began; the latest health evidence is that
+execute-preflight, not a newly claimed final-health run.
+
+The ModemManager guard arm returned 127. Its retained stdout is the 27-byte
+message `pkexec must be setuid root` plus newline; stderr is empty. Current
+read-only host inspection found `/usr/bin/pkexec` owned by root with mode 4755,
+the root filesystem without nosuid, and the current tool execution process
+with `NoNewPrivs=1`, `Seccomp=0` and no tracer. These facts support the inference
+that the execution environment suppressed setuid privilege elevation; the
+failed pkexec child's own process-status snapshot was not captured.
+
+No permission mode, privilege policy or runner assertion was changed, and no
+alternate privilege route or retry was attempted. The source path aborts before
+F1-owner publication and Download intent; the research owner/pending/grant state
+is absent. Existing source-bound H0 qualification remains applicable to its
+unchanged inputs, but this aborted prepared run/approval cannot be reused.
+Fresh preparation and a fresh attended approval must wait until the operator
+has resolved the execution-environment restriction through its supported setup.
+No F1 campaign closure row is due because candidate transfer never occurred.
+
+Raw failure evidence and host diagnosis remain private. This incident does not
+consume the untransferred candidate artifact, establish a native STATUS result,
+or authorize a new device action. A90 and S20+ received no commands.
+
+Actual prepared/result reopening and the four-record journal-chain validation
+passed. The terminal result is 1,351 bytes, SHA-256
+`c50d95ddfb10285a50234b7cf4fa7245168ccb68b34a4576d39bd5bc5ffd2895`. Canonical UTC
+session start: `2026-09-08T17:51:22.975929Z`; journal abort:
+`2026-09-08T17:51:23.067311Z`. No flash/boot-ready/end transition was invented
+for the absent device phase.
+
+Independent incident review verified the pre-effect abort, absent owner and
+unchanged 238-entry capability closure. Private review SHA-256:
+`3d8cac85e7c7d5b1312877753892e37c46e76ec0bf0ec4e6c1e72bf5a6070cfc`. After the operator requested
+a retry, another read-only readiness check still observed `NoNewPrivs=1`. No
+second execute or fresh preparation was invoked under the unchanged block.
+The reusable H0 capability and the closed failed approval remain distinct.

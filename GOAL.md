@@ -14,12 +14,12 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
-P371 H0 implements two fixed STATUS observations after planned reauthentication,
-then the existing CONTROL and exact rollback. Signed native spacing and wait
-facts are qualified independently of CONTROL availability; no new shell or
-child restart is added. All 135 tests, independent final review, A/B/static
-and common publication passed. Fresh D0 verified healthy original FYG8; only
-the separately returned attended F1 approval remains. See the [P371 report](docs/reports/S22PLUS_FYG8_P371_FIXED_STATUS_PREPARATION_2026-09-09.md).
+P371's first approved invocation is ABORTED/4 before Download or candidate
+transfer: guard pkexec returned 127; current host NoNewPrivs=1 supports an
+execution-environment privilege block. Exact execute-preflight was healthy;
+no candidate, rollback or native STATUS session ran. Its 135-test/source-bound
+qualification remains, but the aborted approval cannot be reused. Fresh
+preparation/approval waits for operator environment resolution. See the [P371 report](docs/reports/S22PLUS_FYG8_P371_FIXED_STATUS_PREPARATION_2026-09-09.md).
 
 P370 is consumed and CLOSED/19 with
 `PASS_F1_V2_P370_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
