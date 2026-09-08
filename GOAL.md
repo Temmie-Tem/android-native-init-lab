@@ -14,15 +14,20 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
-The current H0 unit adds foreground-goal D0 and attended normal-reboot D1.
-Named root status reads reuse one explicit goal grant, and repeated attended
-ordinary reboots need no per-action consent inside that reviewed goal scope.
-Independent PASS_GO, 114 tests and the actual runtime review gate passed.
-The source-bound capability is available; no generic root
-shell, unattended D1, Download/Recovery or new F1 authority is included.
-Durable D1 intent and prospective F1 ownership prevent cross-lane takeover or
-replay after host cuts. No connected action or goal grant was opened in this
-implementation unit. See the [capability report](docs/reports/S22PLUS_FYG8_GOAL_RESEARCH_D0_D1_H0_2026-09-08.md).
+The current unit prepares P368: a fixed display-child exit 7 after three
+swap submissions, then the existing PID1 Download CONTROL and exact rollback.
+H0 generated-renderer and joined protocol/lifecycle tests pass; A/B build and
+candidate static checks, independent review and manifest publication pass.
+Fresh connected D0 verifies rooted FYG8/original hashes; the prepared binding
+awaits returned attended F1 approval. No reboot or flash occurred.
+Live child-failure recovery remains UNPROVED.
+See the [P368 report](docs/reports/S22PLUS_FYG8_P368_DISPLAY_CHILD_EXIT_PREPARATION_2026-09-08.md).
+
+The prior foreground-goal D0 and attended normal-reboot D1 implementation is
+complete. Named root reads and attended reboots reuse explicit goal scope;
+no generic root shell, unattended action or F1 follows. The P368 registration
+has a fresh independent source review; historical grants stay unchanged.
+See the [capability report](docs/reports/S22PLUS_FYG8_GOAL_RESEARCH_D0_D1_H0_2026-09-08.md).
 
 P367 is consumed and CLOSED/19 with
 `PASS_F1_V2_P367_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.

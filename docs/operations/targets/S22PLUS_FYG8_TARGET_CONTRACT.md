@@ -1477,6 +1477,29 @@ artifact/static/integration qualification and independent review are H0;
 connected preparation and separately returned attended F1 approval remain
 required. This clause creates no connected action or unattended session.
 
+**P368 attended display-child early termination.** P367 remains consumed and
+never replayable. This fresh successor keeps its native PID1, return modules,
+ARM64 operands, preparation, diagnostic protocol, one Download CONTROL and
+mandatory exact Magisk rollback. The fixed renderer calls `_exit(7)` immediately
+after flushing its third swap-submission record. It adds no host-selectable
+fault mode, command, retry or privileged operation.
+
+P368 qualification requires authenticated preparation/clone completion, signed
+stage-43 CHILD_EXIT code 7 and READY child-exited=true with exactly three
+submitted swaps, followed by accepted CONTROL and the existing exact Download
+arrival, rollback and final health. Live and retained qualification enforce the
+same witness. A different or missing fault witness remains NO_PROOF; it does
+not prevent the existing bounded CONTROL or preapproved recovery. The existing
+parent read/reap race can freeze fewer than three records; preserve that
+outcome without weakening the criterion or replaying the candidate.
+
+This validates only the deliberately exited display child if the complete live
+run passes. Pixel visibility, driver/kernel stalls, PID1 failure and unattended
+recovery remain unproved. It retains the 64-KiB records, original deadlines,
+physical fallback and kernel-call limitations. Independent changed-closure
+review, fresh build/static qualification, connected preparation and separately
+returned attended F1 approval are required. This clause grants no device effect.
+
 **Target-scoped post-rollback final health.** Native-return prepared source
 closures that bind `final_target_health` use the versioned
 `s22plus_target_scoped_final_health_v1` result only after the journal records
@@ -1506,11 +1529,11 @@ records are not repinned, regenerated or upgraded. Scope review is triggered
 by changes to target mapping, USB mode, recovery or final-evidence semantics.
 This H0 implementation/review grants no new connected run or device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, or P367 candidate transfer occurs, the same
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, or P368 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, or `s22plus-fyg8-p367` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, or `s22plus-fyg8-p368` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

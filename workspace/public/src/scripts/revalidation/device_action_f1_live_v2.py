@@ -34,6 +34,7 @@ import s22plus_fyg8_p364_return_host as p364_return_host
 import s22plus_fyg8_p365_return_host as p365_return_host
 import s22plus_fyg8_p366_return_host as p366_return_host
 import s22plus_fyg8_p367_return_host as p367_return_host
+import s22plus_fyg8_p368_return_host as p368_return_host
 import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
@@ -9416,7 +9417,7 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host}
 DEPARTURE_RETURN_OWNERS = frozenset(
     p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.native_usb_departure)
 DIAGNOSTIC_RETURN_OWNERS = frozenset(
