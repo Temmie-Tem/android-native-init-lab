@@ -1,5 +1,10 @@
 # S22+ P368 display-child exit and bounded native return
 
+P368 is consumed and CLOSED/19 with
+`PASS_F1_V2_P368_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
+The intended child exit and subsequent bounded Download return passed; exact
+rollback and final rooted FYG8 health are complete. Preparation history follows.
+
 P368 tests whether the existing native PID1 control path remains usable after
 the display child exits. The fixed renderer calls `_exit(7)` immediately after
 its third flushed swap-submission record. Module preparation, privilege drop,
@@ -98,3 +103,50 @@ The actual prepared bundle reopened successfully against the current source,
 artifact and private D0 evidence. Prepared record: 33105 bytes,
 SHA-256 `eb64b08a1ab452f71d1461f7a1bce66457f824f750c71188f8fbd7e8aa94ba10`. Source review,
 diff/link checks and the staged repository privacy boundary check passed.
+
+## Completed attended execution
+
+The operator returned the exact prepared approval. The ordinary execute ran
+once, transferring one candidate and one exact Magisk rollback. It completed
+without a recovery invocation or physical fallback prompt. Forty-seven signed
+progress records establish complete preparation and child creation, then
+CHILD_EXIT code 7. Signed READY reports three submissions and child-exited=true;
+authenticated CONTROL acceptance follows. The exact Download endpoint arrived
+within the existing 30-second window. Final Android completion, root, original
+boot/supporting hashes and both target/global Download absence passed.
+
+| Canonical event (UTC, 2026-09-08) | Time |
+| --- | --- |
+| `live_session_start` | 13:15:41.777530Z |
+| `candidate_flash_start` | 13:15:59.446712Z |
+| `candidate_flash_done` | 13:16:01.129580Z |
+| `candidate_boot_ready` | 13:16:23.973984Z |
+| `rollback_flash_start` | 13:16:31.098950Z |
+| `rollback_flash_done` | 13:16:32.783837Z |
+| `rollback_boot_ready` | 13:17:20.973340Z |
+| `live_session_end` | 13:17:20.992653Z |
+
+The operator separately confirmed seeing Download transition and rollback
+without button or cable manipulation. This is retained as operator observation;
+it does not rewrite the machine receipt's physical-intervention UNOBSERVED or
+software-causal-attribution UNPROVED fields. The original observer projection
+also retains NO_PROOF_OBSERVER, software_download_arrival=UNPROVED,
+visible_panel_output=UNPROVED and display_execution_proved=false. Those narrower
+fields are distinct from the complete run's validated CONTROL, bounded exact
+arrival and rollback/final-health PASS. No pixel or kernel-stall claim follows.
+
+The completed result supports return after this fixed display-child exit.
+PID1 failure, blocked driver/kernel calls and unattended F1 remain unqualified.
+The consumed candidate/CONTROL cannot replay; no native session remains active.
+A90 and S20+ received no command from this invocation.
+
+The actual prepared/result reopening and journal-chain validation passed.
+The terminal result is 47,104 bytes, SHA-256
+`dba169964a1aaefa0efa9860d3f1ad46bfb899a0d99d1bb9511aeeed8b43060c`.
+One matching F1 campaign closure row was appended after validating its fields
+and derivation from the current journal/result; all earlier ledger bytes were
+verified unchanged. The old full-ledger taxonomy parser rejects an existing
+row's evidence outcome (row 547 after blank-line removal); no historical parser
+PASS is claimed and no old row or validation assertion was changed.
+This reporting step changed no candidate, source binding, consumed journal or
+raw capture and performed no device action.

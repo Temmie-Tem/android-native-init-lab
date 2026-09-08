@@ -14,14 +14,20 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
-The current unit prepares P368: a fixed display-child exit 7 after three
-swap submissions, then the existing PID1 Download CONTROL and exact rollback.
-H0 generated-renderer and joined protocol/lifecycle tests pass; A/B build and
-candidate static checks, independent review and manifest publication pass.
-Fresh connected D0 verifies rooted FYG8/original hashes; the prepared binding
-awaits returned attended F1 approval. No reboot or flash occurred.
-Live child-failure recovery remains UNPROVED.
-See the [P368 report](docs/reports/S22PLUS_FYG8_P368_DISPLAY_CHILD_EXIT_PREPARATION_2026-09-08.md).
+P368 is consumed and CLOSED/19 with
+`PASS_F1_V2_P368_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
+The fixed display child submitted three swaps and exited 7; 47 authenticated
+progress records and signed READY establish the intended failure condition.
+PID1 accepted CONTROL and the exact Download endpoint arrived within 30 seconds.
+One candidate and one exact Magisk rollback transferred. Final rooted FYG8,
+Android health, original boot/supporting hashes and absent Download passed.
+Ordinary execute completed without a recovery invocation or physical prompt.
+
+The operator separately observed transition and rollback without physical
+manipulation. This supports only the tested child-exit condition; pixel output,
+PID1/kernel-stall recovery and unattended F1 remain unproved. Original narrower
+observer NO_PROOF/UNPROVED fields remain unchanged. No active native session or
+replay authority remains. See the [P368 report](docs/reports/S22PLUS_FYG8_P368_DISPLAY_CHILD_EXIT_PREPARATION_2026-09-08.md).
 
 The prior foreground-goal D0 and attended normal-reboot D1 implementation is
 complete. Named root reads and attended reboots reuse explicit goal scope;
