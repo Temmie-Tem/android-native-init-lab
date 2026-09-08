@@ -1576,6 +1576,44 @@ separately returned attended F1 approval are required. This clause grants no
 device effect, recovery after arbitrary disconnection, continuous child liveness,
 visible pixels, kernel/PID1-stall recovery or client-process restart tolerance.
 
+**P371 attended fixed STATUS observations.** P370 remains consumed and never
+replayable. The new unit retains its one planned handoff, original child and
+sixty-second budget. After resumed authentication it supports exactly two
+fixed STATUS requests, sequences 8 and 9, signed under the resumed nonce.
+Each ordinal is consumed before its response. No caller-selected command,
+path, PID, write, child restart, deadline renewal or new handoff is permitted.
+
+A response contains exactly eight signed data bytes: version, ordinal,
+submission count, existing wait/child-state flags and a 32-bit monotonic
+elapsed time since the first STATUS sample. Sampling uses the existing exact
+child wait4(WNOHANG) and clock wrappers, retaining any observed reap and child
+status diagnostic. It never consumes CONTROL or emits its terminal checkpoint.
+The first elapsed value is zero; the second is bounded by the original budget.
+
+The normal host asks STATUS once, waits two seconds and asks once more. Both
+live and retained qualification require the expected fixed wait facts in both
+responses and at least two seconds of signed native elapsed time, then the
+existing final wait checkpoint, CONTROL acceptance, exact bounded Download,
+rollback and final health. Host elapsed time alone is not interval proof.
+Authenticated negative facts or an early second sample remain NO_PROOF;
+they do not suppress CONTROL. The two observations do not prove continuous
+liveness, pixels, arbitrary disconnection or kernel/PID1-stall recovery.
+
+CONTROL sequence 10 is independently accepted at complete-frame boundaries
+after reauthentication, before either STATUS, between them or after both.
+Duplicate/out-of-order STATUS, bad authentication, syscall/clock/transport and
+partial-response failures retain the existing terminal stops without replay.
+The two authenticated legs, one reopening and six counted commands have exact
+raw ranges. Partial STATUS facts are also rederived from raw bytes on failed
+qualification; there is no new per-query intent or later command lease.
+
+H0 tests must exercise the actual producer/consumer, independent CONTROL,
+negative timing/child facts, duplicate/reordered requests and response failure.
+Independent source-bound review, fresh A/B/static/connected preparation and
+separately returned attended F1 approval remain required. Physical Download
+recovery and the exact single rollback are unchanged; this clause grants no
+device effect or unattended authority.
+
 **Target-scoped post-rollback final health.** Native-return prepared source
 closures that bind `final_target_health` use the versioned
 `s22plus_target_scoped_final_health_v1` result only after the journal records
@@ -1605,11 +1643,11 @@ records are not repinned, regenerated or upgraded. Scope review is triggered
 by changes to target mapping, USB mode, recovery or final-evidence semantics.
 This H0 implementation/review grants no new connected run or device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, P368, P369, or P370 candidate transfer occurs, the same
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, P368, P369, P370, or P371 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, `s22plus-fyg8-p368`, `s22plus-fyg8-p369`, or `s22plus-fyg8-p370` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, `s22plus-fyg8-p368`, `s22plus-fyg8-p369`, `s22plus-fyg8-p370`, or `s22plus-fyg8-p371` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

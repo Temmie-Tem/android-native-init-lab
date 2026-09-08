@@ -1,0 +1,11 @@
+"""P371 fixed STATUS observations; H0 only until separately approved."""
+from s22plus_fyg8_p371_namespace import load
+load(globals())
+
+CONTROL_SEQUENCE=10
+FRAME_STATUS=10
+FRAME_STATUS_REPLY=0x8f
+STATUS_BODY=bytes((1,0,0,0))
+STATUS_REQUEST_DOMAIN=b'S22PLUS-FYG8-P371-STATUS-v1'
+STATUS_RESPONSE_DOMAIN=b'S22PLUS-FYG8-P371-STATUS-REPLY-v1'
+STATUS_INTERVAL_SEC=2
