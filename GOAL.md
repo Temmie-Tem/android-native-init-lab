@@ -13,18 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-P367 H0 qualification passed: identity-only native successor, byte-identical
-A/B AP build, static validation, 216 tests and independent source/artifact review.
-The actual bundle rehearsal and H0 ready1 publication/reopen passed.
-Fresh connected D0 and preparation/reopen passed. The returned approval was
-used once, but observer guard arming failed before Download request or candidate
-transfer: ABORTED/4, recovery_required=false. That approval is stopped. At the
-operator's retry request, a second fresh D0 preparation passed; it awaits its
-separate returned F1 approval. P367 candidate/CONTROL/rollback counts remain
-zero. The joined fixture uses
-real arrival/final-health producers, allows foreign Download only after rollback,
-and preserves fail-closed fixed-output behavior after an EOF-publication cut.
-See the [P367 preparation report](docs/reports/S22PLUS_FYG8_P367_HOST_PATH_PREPARATION_2026-09-08.md).
+P367 is consumed and CLOSED/19 with
+`PASS_F1_V2_P367_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
+The second prepared run transferred one candidate and one exact Magisk rollback.
+It retained 46 authenticated progress records, ten submitted swaps and accepted
+Download CONTROL; the exact Download endpoint arrived within the fixed 30-second
+window. Original rooted FYG8, boot/supporting hashes, Android health and target
+Download absence passed. The normal execute completed without recovery invocation.
+
+The operator separately reported seeing automatic transition without button or
+cable intervention. This is operator observation; pixel output and software
+causal attribution are not promoted to machine proof. Historical observer-level
+NO_PROOF/UNPROVED fields remain unchanged alongside the complete run's PASS.
+The first prepared invocation remains ABORTED/4 before Download request, with
+zero transfers. Both approvals are spent/stopped; no replay or unattended lane.
+See the [P367 preparation and run report](docs/reports/S22PLUS_FYG8_P367_HOST_PATH_PREPARATION_2026-09-08.md).
 
 Post-P366 H0 repairs now cover native Download arrival evidence, resumed raw
 capture numbering and target-scoped final health after durable exact rollback.

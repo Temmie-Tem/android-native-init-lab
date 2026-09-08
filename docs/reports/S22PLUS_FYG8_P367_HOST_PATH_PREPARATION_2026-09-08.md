@@ -171,3 +171,55 @@ by this preparation.
 
 The actual prepared reopen also passed against the common bundle verifier.
 Documentation link, goal-length and diff checks passed.
+
+
+## Second approved invocation: PASS and healthy rollback
+
+The operator returned the second exact approval. The ordinary execute entry
+completed without a recovery invocation or source repair. Candidate and exact
+Magisk rollback each transferred once; the first invocation's pre-candidate
+abort remains a separate zero-transfer outcome.
+
+| Event | UTC timestamp |
+| --- | --- |
+| Execute-time preflight verified | 2026-09-08T11:30:31.154657Z |
+| Candidate transfer start | 2026-09-08T11:30:47.353817Z |
+| Candidate transfer complete | 2026-09-08T11:30:48.967076Z |
+| Bounded candidate observation closed | 2026-09-08T11:31:16.575601Z |
+| Exact rollback endpoint identified | 2026-09-08T11:31:25.010669Z |
+| Rollback transfer complete | 2026-09-08T11:31:26.689546Z |
+| Final health verified | 2026-09-08T11:32:00.855951Z |
+| Canonical close | 2026-09-08T11:32:00.919153Z |
+
+The retained evidence contains 46 authenticated progress records, completed
+preparation/clone return, ten submitted swaps and authenticated Download CONTROL
+acceptance. The acquisition-local return receipt classifies
+`exact-download-within-control-window`, with observed_within_software_deadline=true
+and physical_prompt_required=false. No candidate, CONTROL or rollback replay
+occurred. The normal final observer validated exact rooted FYG8, original boot
+and supporting hashes, completed Android boot, identical EOF observations and
+both target/global Download absence. No active later-action lease remains.
+
+Terminal verdict: `PASS_F1_V2_P367_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`.
+Outcome: `p367_native_return_control_rollback_verified`, CLOSED/19,
+recovery_required=false. The 46,578-byte live result has SHA-256
+`80716d152eab83193c1aa14560ee3426806de851f3bee038708194be2681f05c`;
+the 41,670-byte state has SHA-256
+`1e967a8cf17b41cd1da73d491491cbf5127d7f69166495f4ee4c50e71d48d191`.
+
+The operator separately answered “조작 없이 자동 전환을 봤음” to whether the
+screen was followed by Download transition without button or cable intervention.
+The private immutable observation is 847 bytes, SHA-256
+`e3ed7592fa8940bb4ae1dc10bb9352b38a1859d528e9ae1371006bc746652fdd`.
+This corroborates the operator-observed transition; it does not rewrite any
+machine receipt. The observer-level `p367_proof_class=NO_PROOF_OBSERVER`,
+`software_download_arrival=UNPROVED`, `visible_panel_output=UNPROVED` and
+`display_execution_proved=false` remain as originally produced. That narrower
+observer projection is distinct from the complete run's accepted CONTROL,
+subsequent exact bounded arrival and verified rollback terminal PASS. Pixel-exact
+readback, independently measured display execution and software causal
+attribution remain unproved. No unattended recovery or standing session follows.
+
+P367 is consumed and cannot be replayed. A90 and S20+ received no command from
+this invocation. Documentation links, append-only ledger/new-row validation and
+diff checks cover this reporting-only change; no source or artifact was changed.
