@@ -1533,6 +1533,49 @@ blocked-driver/kernel recovery or PID1 failure recovery. Source-bound H0 tests,
 independent review, fresh qualification/preparation and returned attended F1
 approval remain required. No unattended capability or device effect is granted.
 
+**P370 attended planned host handoff.** P369 remains consumed and never
+replayable. The new bounded unit retains its fixed display-child userspace
+wait, but deliberately closes/reopens the exact host tty once before CONTROL.
+This is a predeclared authenticated transition, not continuation after an
+unexplained transport error or host crash. Attended physical Download recovery,
+one candidate, one CONTROL, exact Magisk rollback and final health remain
+required; no unattended or generic reconnect capability is activated.
+
+After READY and the fixed ten-second observation, host DETACH sequence 5 is
+authenticated under the first nonce. PID1 consumes its sole handoff allowance
+before DETACH_ACK, retains the same child and control state, and pauses tty
+reads/diagnostic writes for two seconds. Child draining/reaping continues and
+any child status is deferred until reauthentication. Neither this pause nor
+host reopening resets the original sixty-second deadline. Device tty ownership
+is unchanged; EOF, EIO, ENODEV, EPIPE, authentication and deadline errors stop
+without retry, child relaunch, a second handoff or an alternate reboot.
+
+Only after complete authenticated DETACH_ACK, the guarded host owner clears
+TIOCEXCL once, closes once, polls the same exact endpoint during a minimum
+200-ms closed interval, opens once, reapplies TIOCEXCL and revalidates identity
+and tty setup. Any failure ends the exchange; uncertain close/open is never
+retried. Immutable private handoff intent and completed-reopen receipts bind
+the prepared run, endpoint, source and monotonic interval. A retained completed
+reopen reports count 1 even if subsequent authentication fails; an intent
+without completed-reopen evidence reports an unknown count, never a claimed
+zero. Both successful and failed observation receipts validate these records.
+
+Resume OPEN 6 and its challenge are authenticated by the first nonce. The
+challenge binds a fresh random nonce, the same kernel boot identity and consumed
+handoff/retained-child/unconsumed-CONTROL state. Resume AUTH/ACK 7 uses the fresh
+nonce, then the existing one-shot CONTROL is sequence 8. Retained raw evidence
+is parsed as two authenticated legs with distinct nonces and exact byte ranges;
+it never claims one continuous host descriptor. The original fixed wait
+checkpoint is still required, as are exact bounded Download arrival, rollback
+and final health. Missing wait facts remain NO_PROOF without suppressing CONTROL.
+
+H0 must exercise the actual descriptor owner, two-leg producer/consumer, failure
+cleanup and negative receipt validation before qualification. Independent
+source-bound review, fresh build/static preparation, exact connected D0 and
+separately returned attended F1 approval are required. This clause grants no
+device effect, recovery after arbitrary disconnection, continuous child liveness,
+visible pixels, kernel/PID1-stall recovery or client-process restart tolerance.
+
 **Target-scoped post-rollback final health.** Native-return prepared source
 closures that bind `final_target_health` use the versioned
 `s22plus_target_scoped_final_health_v1` result only after the journal records
@@ -1562,11 +1605,11 @@ records are not repinned, regenerated or upgraded. Scope review is triggered
 by changes to target mapping, USB mode, recovery or final-evidence semantics.
 This H0 implementation/review grants no new connected run or device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, P368, or P369 candidate transfer occurs, the same
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, P368, P369, or P370 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, `s22plus-fyg8-p368`, or `s22plus-fyg8-p369` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, `s22plus-fyg8-p368`, `s22plus-fyg8-p369`, or `s22plus-fyg8-p370` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

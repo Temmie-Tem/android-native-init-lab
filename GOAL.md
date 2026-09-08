@@ -14,6 +14,17 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 
+P370 H0 build/static qualification passed for one planned host tty close/reopen
+before Download CONTROL, retaining the same fixed-wait display child. The
+bounded protocol uses authenticated DETACH, one guarded close/open and a fresh
+nonce linked to the original session and same boot. No deadline renewal,
+unexpected-error retry, child relaunch or unattended capability is introduced.
+Actual native/host descriptor and retained-record tests passed with 122
+combined regressions; A/B boot-only packages match. Independent final source-bound review
+and common manifest publication passed. Fresh connected D0 on 2026-09-09 KST
+verified exact rooted FYG8/original hashes and Android health. Separately
+returned attended F1 approval remains required. No new D1/F1 has run. See the [P370 preparation report](docs/reports/S22PLUS_FYG8_P370_PLANNED_HANDOFF_PREPARATION_2026-09-08.md).
+
 P369 is consumed and CLOSED/19 with
 `PASS_F1_V2_P369_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
 Its 47 authenticated progress records include the requested wait checkpoint:

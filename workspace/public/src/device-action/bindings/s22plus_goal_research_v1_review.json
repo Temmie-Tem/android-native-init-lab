@@ -14,14 +14,14 @@
     "Shared pending D1 intent is authoritative before local mirror and command; process cuts retain exclusion even if local mirror is absent. Reconciliation is fixed read-only changed-healthy-boot observation and ends old grant without upgrading/replaying action.",
     "Common change waives repeated consent only in target-activated foreground attended scope; attendance, exact target/health, intent/no replay, recovery and permanent boundaries remain.",
     "Existing consumed prepared/source/approval pins are not rewritten. Prospective changed-source F1 must use new reviewed owner path; this receipt grants no candidate execution authority.",
-    "Prospective P369 refresh changes only shared variant routing and target P369 clause; research commands and ownership invariants unchanged. Current verified migration baseline is P368 CLOSED/19; prior receipts remain historical."
+    "Prospective P370 review covers the host handoff integration and target clause; goal research commands, F1 ownership exclusion and attended authorization remain unchanged. Verified migration baseline is P369 CLOSED/19; preserved prior receipts are historical."
   ],
   "evidence": {
     "changed_roles": [
       "f1_owner",
       "target"
     ],
-    "delta_review_sha256": "78f56fc85de51540e8c3effbefc4560afd0c7d8756402aa8be4399ec2ce624b6",
+    "delta_review_sha256": "6c2a50b2fc73059b330b8e0d725888f037f9fa84fd35a478979fed94b1d4c87f",
     "migration": {
       "f1_owner_present": false,
       "final_verified": true,
@@ -31,17 +31,17 @@
       "recovery_required": false,
       "research_grants_present": false,
       "result": {
-        "path": "workspace/private/runs/device-action-f1-live-v2/p368-ready1-prepared-20260908-1/live-result.json",
-        "sha256": "dba169964a1aaefa0efa9860d3f1ad46bfb899a0d99d1bb9511aeeed8b43060c",
-        "size": 47104
+        "path": "workspace/private/runs/device-action-f1-live-v2/p369-ready1-prepared-20260908-1/live-result.json",
+        "sha256": "b5c00088eb6eeb1b30f09341076730726cdcf51cc499e312cb2bcc6a1b3658c2",
+        "size": 47585
       },
       "rollback_completed": true,
-      "run": "p368-ready1-prepared-20260908-1",
+      "run": "p369-ready1-prepared-20260908-1",
       "state": "CLOSED"
     },
-    "prior_review_sha256": "58b1f148138816c0f764ba95aad7776e7d258c7cc214177332ad7ccd166a0ac0",
-    "regression_log_sha256": "e24f1ef9c1c94bda3daa4945ffab4401cc0294e1646385150419c34d38cde14f",
-    "regression_pass_count": 117
+    "prior_review_sha256": "bb6d58dd2a4c707469a6126d57324ed80a4b285bc4cc5d023ce3a7de5d64e4a2",
+    "regression_log_sha256": "5a8fbbb83b49d708e928f1996036503ae455f2d5ab53ed835fc0cbe40f3771d5",
+    "regression_pass_count": 122
   },
   "findings": [],
   "limitations": [
@@ -50,20 +50,20 @@
     "Any source/action/target drift, closed goal or unresolved device session blocks new effects; no grant renewal by late health.",
     "Review source map excludes unrelated existing S20 AGENTS edits; root common digest was verified and those edits were not reviewed or modified."
   ],
-  "reviewed_at_utc": "2026-09-08T13:55:22.346769+00:00",
+  "reviewed_at_utc": "2026-09-08T15:04:45.046807+00:00",
   "reviewer": "independent-agent-p352-usb-review",
   "schema": "s22plus_goal_research_independent_review_v1",
   "scope": "Explicit foreground-goal named read-only D0 and attended ordinary-reboot D1; no F1 or unattended authority",
   "sources": {
     "common": "0b8cd46d4cc6eddf5e28749cd1e96e82dc2eb1f5f0cc88bc1a17e9dd4bb36337",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
-    "f1_owner": "5570b5c613ac6aa0eccdad209cce46a56d3233396770a782abb833d728619705",
+    "f1_owner": "a0b0122f92367a0fb0bd4736c5ba877eb1e46149d827c3ec17b21ed771c2fb9c",
     "policy": "961d42989ce78d5847596dc278e9115f99acb55bfa3ea5d3bf126bad6f910558",
     "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "registry": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
     "runner": "ece1fb04710f6cd8887fd0bb367b6022d9785b231029c9d8bf1973831341171b",
-    "target": "fc2cae8bbbf8a823d91cb68ca5f54f24945e0da4776342a998e968fb1b77864a"
+    "target": "12df79246b8171067bc6e162016ce00ac22d03673dae657c9109f4d4847bdc26"
   },
   "verdict": "PASS_GO"
 }
