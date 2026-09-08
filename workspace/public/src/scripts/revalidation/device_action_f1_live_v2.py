@@ -14172,6 +14172,13 @@ def _result(
     }
     validate_live_result(value, prepared)
     _write_live_result(prepared.run_dir / "live-result.json", value)
+    no_request = not (prepared.run_dir / 'candidate-download-request-intent.json').exists() and not (prepared.run_dir / 'candidate-download-request-intent.json').is_symlink()
+    pre_effect_abort = (value['current_state'] == 'ABORTED'
+        and verdict == 'FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD' and no_request
+        and not list(prepared.run_dir.glob('candidate-attempt-*.start.json'))
+        and not list(prepared.run_dir.glob('rollback-attempt-*.start.json')))
+    if (value['current_state'] == 'CLOSED' or pre_effect_abort) and recovery_required is False:
+        consumed_registry.retire_f1_owner(prepared.root, prepared.run_dir, prepared.binding_sha256)
     return value
 
 
@@ -18804,6 +18811,7 @@ def _execute_prepared_locked(
     transaction = prepared.run_dir / "transaction"
     if transaction.exists() or transaction.is_symlink():
         raise F1LiveError("prepared run already has a transaction; use recovery")
+    consumed_registry.require_no_f1_owner(prepared.root)
     candidate_identity = _candidate_registry_identity(prepared)
     _preflight_candidate_global(prepared, candidate_identity)
     recheck = backend.recheck_android(
@@ -18857,6 +18865,7 @@ def _execute_prepared_locked(
                 )
             trace_session.start()
             try:
+                consumed_registry.begin_f1_owner(prepared.root, prepared.run_dir, prepared.binding_sha256)
                 request_intent = {
                     "schema": DOWNLOAD_REQUEST_INTENT_SCHEMA,
                     "candidate_identity": candidate_identity,
@@ -19301,6 +19310,11 @@ def _recover_prepared_locked(
         verdict, outcome = _closed_terminal_classification(prepared)
         return _result(prepared, journal, verdict, outcome, False)
     if journal.state() == "ABORTED":
+        result_path = prepared.run_dir / 'live-result.json'
+        if result_path.is_file() and not (prepared.run_dir / 'candidate-download-request-intent.json').exists():
+            prior = _read_json(result_path, 'pre-effect terminal result')
+            if prior.get('verdict') == 'FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD':
+                return _result(prepared, journal, prior['verdict'], prior['outcome_class'], False)
         current = _state(prepared)
         if current.get("candidate_classification") != "odin_local_parse_failure" or current.get("candidate_possible_device_session") is not False:
             raise F1LiveError("transaction is not recoverable")
@@ -19313,6 +19327,7 @@ def _recover_prepared_locked(
             "odin_local_parse_failure",
             False,
         )
+    consumed_registry.require_f1_owner(prepared.root, prepared.run_dir, prepared.binding_sha256)
     request_cut_result = _recover_download_request_cut(
         prepared, backend, journal
     )

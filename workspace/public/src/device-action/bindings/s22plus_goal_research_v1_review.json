@@ -1,0 +1,83 @@
+{
+  "actions": [
+    "health",
+    "identity",
+    "memory",
+    "mounts",
+    "normal-reboot",
+    "processes",
+    "usb-state"
+  ],
+  "assessment": [
+    "Named commands are fixed bounded status/root-health reads; no caller shell/path/value or payload surface. Existing raw-first selected-target client is reused.",
+    "One explicit foreground goal covers declared attended action subset only; CLI goal/attendance flags do not manufacture authority. Unattended D1, dormant preF1 catalog and F1 remain inactive under this grant.",
+    "Shared pending D1 intent is authoritative before local mirror and command; process cuts retain exclusion even if local mirror is absent. Reconciliation is fixed read-only changed-healthy-boot observation and ends old grant without upgrading/replaying action.",
+    "Prospective F1 owner is published before Download intent, blocks research reboot while parked, permits only matching F1 recovery, and retires after validated terminal publication or proven preeffect abort. Migration baseline is exact current CLOSED P367, not historical-count scanning.",
+    "Common change waives repeated consent only in target-activated foreground attended scope; attendance, exact target/health, intent/no replay, recovery and permanent boundaries remain.",
+    "Existing consumed prepared/source/approval pins are not rewritten. Prospective changed-source F1 must use new reviewed owner path; this receipt grants no candidate execution authority."
+  ],
+  "evidence": {
+    "common_pin_matches_root": true,
+    "focused_and_regression_pass_count": 114,
+    "historical_process_docs": "Three failures reproduced unchanged before this task; no assertion weakened and not counted as passing tests.",
+    "migration": {
+      "active_standard_s22_f1_dispatch_processes_observed": 0,
+      "current_state_crosscheck": "GOAL identifies consumed P367 CLOSED and no later F1 authority; foreground owner confirms no later S22 effects",
+      "final_verified": true,
+      "journal_chain_validated": true,
+      "journal_records": 19,
+      "live_result_sha256": "80716d152eab83193c1aa14560ee3426806de851f3bee038708194be2681f05c",
+      "pending_d1_present": false,
+      "prospective_f1_owner_present": false,
+      "recovery_required": false,
+      "research_grants_present": false,
+      "run": "p367-ready1-prepared-20260908-2",
+      "state": "CLOSED"
+    },
+    "tests": [
+      {
+        "name": "tests-research-third.log",
+        "passed": 20,
+        "sha256": "5959a29cd0f866fb322237f8a533daa91cdeebac6b0f87a2fe8c869e90eed1ba"
+      },
+      {
+        "name": "tests-live-second.log",
+        "passed": 76,
+        "sha256": "5505e16009235e17332256e659c5edd3cb5af514cbebd43ebfc39d5b89401be0"
+      },
+      {
+        "name": "tests-registry-final.log",
+        "passed": 9,
+        "sha256": "ee6c302c613c30578bee4dc059b591620392eb43b11115f8c4305c0c30fbb655"
+      },
+      {
+        "name": "tests-p367.log",
+        "passed": 9,
+        "sha256": "d8ce17a1d9c79a6240c85d7151c7d39bc9ed432968ac2a691de1929732399251"
+      }
+    ]
+  },
+  "findings": [],
+  "limitations": [
+    "H0 qualification only. No connected research action was performed by reviewer or inferred from tests.",
+    "Actual current goal authorization and physical attendance must be established by trusted foreground task owner before applicable effects.",
+    "Any source/action/target drift, closed goal or unresolved device session blocks new effects; no grant renewal by late health.",
+    "Review source map excludes unrelated existing S20 AGENTS edits; root common digest was verified and those edits were not reviewed or modified."
+  ],
+  "reviewed_at_utc": "2026-09-08T12:28:36.409668+00:00",
+  "reviewer": "independent-agent-p352-usb-review",
+  "schema": "s22plus_goal_research_independent_review_v1",
+  "scope": "Explicit foreground-goal named read-only D0 and attended ordinary-reboot D1; no F1 or unattended authority",
+  "sources": {
+    "common": "0b8cd46d4cc6eddf5e28749cd1e96e82dc2eb1f5f0cc88bc1a17e9dd4bb36337",
+    "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
+    "f1_owner": "0ee74588b23394366a1973ebd78eb5d7f768a333ead976c623d273f65df0a265",
+    "policy": "961d42989ce78d5847596dc278e9115f99acb55bfa3ea5d3bf126bad6f910558",
+    "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+    "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
+    "registry": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
+    "runner": "ece1fb04710f6cd8887fd0bb367b6022d9785b231029c9d8bf1973831341171b",
+    "target": "2a553ef1e23a5da7c26b3c2f6dfff53f1f897cd1c44e6b46a7c5a140dcf26746"
+  },
+  "verdict": "PASS_GO"
+}

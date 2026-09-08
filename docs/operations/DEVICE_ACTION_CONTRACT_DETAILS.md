@@ -180,7 +180,16 @@ Classify every action using
   no-clobber, and compare device and host hashes.
 - **D1:** attended non-partition control or an exact reviewed routine setup
   action. A current direct operator request authorizes one target-contract
-  allowlisted invocation. Routine setup is limited to one pinned
+  allowlisted invocation. A target may explicitly activate a reviewed foreground-
+  goal lane for named attended D1 actions: one direct operator goal request may
+  authorize repeated invocations inside that declared action set while the same
+  foreground goal remains open. Each effect still requires actual attendance,
+  current target/health binding, durable one-shot intent and bounded result
+  observation. Goal closure/cancellation, scope drift or unexplained failure
+  ends that grant; neither a goal string nor a CLI attendance flag creates
+  authority. This exception waives only repeated consent prompts, not attendance,
+  recovery, no-replay, or any permanent boundary. It grants no unattended D1 or
+  F1 action. Routine setup is limited to one pinned
   non-privileged Package Manager APK install or one pinned inert file staged
   no-clobber to shared user storage under
   `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`. It never authorizes launch,

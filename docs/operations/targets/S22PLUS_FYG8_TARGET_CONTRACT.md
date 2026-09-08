@@ -109,6 +109,28 @@ D0 is bounded, connected, read-only observation of the exact S22+ target.
 - With multiple attached devices, report the selected S22+ and explicitly
   confirm that the other target received no command.
 
+### Foreground-goal D0 and attended D1
+
+The [goal research capability](S22PLUS_FYG8_GOAL_RESEARCH_V1.md) specializes only
+its named ordinary-Android profiles. An explicit current S22+ research goal
+may authorize those reviewed D0 reads, including their fixed root reads,
+without per-read permission or physical attendance. Named normal-reboot D1
+may be selected within that same explicitly authorized goal while the operator
+is actually present and able to perform physical recovery. The exact review
+receipt and source checks in its owner must pass before either entry is active.
+
+This goal grant ends on closure/cancellation, scope or target drift, or an
+unexplained action failure. It cannot be renewed by the agent. No generic root
+shell, caller-selected device path, Download/Recovery transition, persistent
+privileged write or F1 follows. The dormant pre-F1 autonomous catalog and
+unattended D1/F1 status are unchanged. Existing legacy runners keep their exact
+approval checks and consumed pins; this capability does not bypass them.
+Prospective Process-v2 effects additionally publish the reviewed exact-run F1
+owner before Download intent; only same-owner recovery or validated terminal
+retirement is permitted. Research D1 refuses an unresolved owner. This is a
+cross-lane interlock, not new F1 authority; initial admission uses the reviewed
+P367 CLOSED/19 baseline without repinning historical evidence.
+
 ## S22+ D1
 
 D1 is one exact, transient, no-payload control action.

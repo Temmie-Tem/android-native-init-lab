@@ -805,8 +805,49 @@ def _assert_lock_identity(
         raise RegistryError("registry writer lock identity changed")
 
 
+RESEARCH_PENDING = Path('workspace/private/runs/s22plus-goal-research-v1/pending-d1.json')
+F1_OWNER = Path('workspace/private/runs/s22plus-goal-research-v1/f1-owner.json')
+
+
+def require_no_f1_owner(repo_root: Path) -> None:
+    path = repo_root / F1_OWNER
+    if path.exists() or path.is_symlink():
+        raise RegistryError('unresolved F1 owner; new research/control effects blocked')
+
+
+def _f1_owner_value(run_dir: Path, binding: str) -> dict[str, str]:
+    if not run_dir.is_absolute() or not SHA256_RE.fullmatch(binding):
+        raise RegistryError('invalid F1 owner identity')
+    return {'schema': 's22plus_f1_effect_owner_v1', 'run_dir': str(run_dir), 'binding_sha256': binding}
+
+
+def begin_f1_owner(repo_root: Path, run_dir: Path, binding: str) -> None:
+    """Called under the shared lease, before any Download request intent."""
+    require_no_f1_owner(repo_root)
+    path = repo_root / F1_OWNER
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _write_no_replace(path, _canonical(_f1_owner_value(run_dir, binding)), mode=0o400)
+
+
+def require_f1_owner(repo_root: Path, run_dir: Path, binding: str) -> None:
+    path = repo_root / F1_OWNER
+    value = _parse_json(_read_regular(path, 'F1 effect owner', mode=0o400, maximum=MAX_RECORD_BYTES), 'F1 effect owner')
+    if value != _f1_owner_value(run_dir, binding):
+        raise RegistryError('F1 recovery owner mismatch')
+
+
+def retire_f1_owner(repo_root: Path, run_dir: Path, binding: str) -> None:
+    """Only after validated terminal publication; absent historical close is H0."""
+    path = repo_root / F1_OWNER
+    if not path.exists() and not path.is_symlink():
+        return
+    require_f1_owner(repo_root, run_dir, binding)
+    path.unlink()
+    _fsync_dir(path.parent)
+
+
 @contextlib.contextmanager
-def target_session_lease(repo_root: Path) -> Iterator[None]:
+def target_session_lease(repo_root: Path, *, research_read_only: bool = False) -> Iterator[None]:
     """Hold the fixed target-session flock across recheck and Download use."""
 
     _validate_layout(repo_root)
@@ -818,6 +859,9 @@ def target_session_lease(repo_root: Path) -> Iterator[None]:
         _validate_layout(repo_root)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         _assert_lock_identity(path, fd, opened, SESSION_LOCK_PAYLOAD)
+        pending = repo_root / RESEARCH_PENDING
+        if (pending.exists() or pending.is_symlink()) and not research_read_only:
+            raise RegistryError('unresolved goal-research D1 intent; effects blocked')
     except BaseException as exc:
         if fd is not None:
             os.close(fd)

@@ -1525,9 +1525,50 @@ else:
             prepared.run_dir / "transaction", prepared.binding_sha256
         )
         journal.transition("APPROVED", "test", {})
+        self.module.consumed_registry.begin_f1_owner(prepared.root, prepared.run_dir, prepared.binding_sha256)
         backend = FakeBackend(self.module)
         with self.assertRaisesRegex(self.module.F1LiveError, "foreign global"):
             self.module.recover_prepared(prepared, backend)
+        self.assertEqual(backend.calls, [])
+
+    def test_f1_owner_cut_before_request_intent_retires_only_after_pre_effect_abort(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module)
+        original = self.module._write_exclusive
+        def cut(path, value):
+            if path.name == 'candidate-download-request-intent.json':
+                raise KeyboardInterrupt('host cut before request intent')
+            return original(path, value)
+        with mock.patch.object(self.module, '_write_exclusive', side_effect=cut):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(prepared, prepared.approval_token, backend)
+        registry = self.module.consumed_registry
+        self.assertTrue((prepared.root / registry.F1_OWNER).exists())
+        self.assertFalse((prepared.run_dir / 'candidate-download-request-intent.json').exists())
+        backend.calls.clear()
+        result = self.module.recover_prepared(prepared, backend)
+        self.assertEqual(result['current_state'], 'ABORTED')
+        self.assertFalse((prepared.root / registry.F1_OWNER).exists())
+        self.assertEqual(backend.calls, [])
+
+    def test_f1_closed_publication_cut_keeps_owner_until_h0_finalization(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        backend = FakeBackend(self.module)
+        original = self.module._write_live_result
+        def cut(path, value):
+            original(path, value)
+            raise KeyboardInterrupt('host cut after terminal publication')
+        with mock.patch.object(self.module, '_write_live_result', side_effect=cut):
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.execute_prepared(prepared, prepared.approval_token, backend)
+        registry = self.module.consumed_registry
+        self.assertTrue((prepared.root / registry.F1_OWNER).exists())
+        backend.calls.clear()
+        result = self.module.recover_prepared(prepared, backend)
+        self.assertEqual(result['current_state'], 'CLOSED')
+        self.assertFalse((prepared.root / registry.F1_OWNER).exists())
         self.assertEqual(backend.calls, [])
 
     def test_local_parse_failure_aborts_without_rollback(self):

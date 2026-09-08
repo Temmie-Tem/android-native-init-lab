@@ -13,6 +13,17 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+
+The current H0 unit adds foreground-goal D0 and attended normal-reboot D1.
+Named root status reads reuse one explicit goal grant, and repeated attended
+ordinary reboots need no per-action consent inside that reviewed goal scope.
+Independent PASS_GO, 114 tests and the actual runtime review gate passed.
+The source-bound capability is available; no generic root
+shell, unattended D1, Download/Recovery or new F1 authority is included.
+Durable D1 intent and prospective F1 ownership prevent cross-lane takeover or
+replay after host cuts. No connected action or goal grant was opened in this
+implementation unit. See the [capability report](docs/reports/S22PLUS_FYG8_GOAL_RESEARCH_D0_D1_H0_2026-09-08.md).
+
 P367 is consumed and CLOSED/19 with
 `PASS_F1_V2_P367_NATIVE_RETURN_CONTROL_AND_ROLLED_BACK`, recovery_required=false.
 The second prepared run transferred one candidate and one exact Magisk rollback.
