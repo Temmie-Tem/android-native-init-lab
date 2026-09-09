@@ -185,15 +185,12 @@ Codex를 포함한 AI 코딩 에이전트는 같은 경계 안에서 구현과 �
 기기 안전 경계(`/efs`·modem·RPMB·keymaster·keystore·bootloader 계열 쓰기 금지 등)는
 [`AGENTS.md`](AGENTS.md)와
 [기기 작업 계약 details](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md)가 정본입니다.
-아래는 그 계약에 더해 이 저장소에서 지키는 빌드·기록 관행입니다.
 
-- 각 타깃의 known-good boot image와 검증된 복구 경로를 항상 유지한다.
-- 한 번에 하나의 boot/init 변수만 바꾼다.
-- 새 boot image는 version, source path, SHA256, 실기 관찰 결과를 기록한다.
-- 파티션은 by-name과 `/sys/class/block/<name>/dev` 기준으로 식별하고 major/minor를
-  hardcode하지 않는다.
-- 원본 로그와 실험 산출물은 `workspace/private/`에 남기고, 공개 가능한 redacted
-  요약만 `docs/reports`, `docs/artifacts`, `workspace/public/`에 남긴다.
+그 계약에 더해, 대상을 가리지 않고 지키는 빌드·주소지정·기록 관행 다섯 가지는
+[대상 공통 엔지니어링 불변식](docs/operations/ENGINEERING_INVARIANTS.md)이 정본입니다.
+known-good 이미지와 검증된 복구 경로 유지, 인과를 규명해야 하는 런에서의 변수 격리,
+새 boot image의 provenance 기록, 파티션 by-name 주소지정, 그리고 원본 증거는 private
+공개 요약만 public이라는 원칙입니다.
 
 ## 저장소 구조
 
@@ -231,6 +228,7 @@ Codex를 포함한 AI 코딩 에이전트는 같은 경계 안에서 구현과 �
 - `docs/operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` — flash/bridge 절차
 - `docs/operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` — 운영 런북
 - `docs/operations/VERSIONING_POLICY.md` / `docs/overview/VERSIONING.md` — Run ID, native init version, build tag, helper version, SHA 축 분리 규칙
+- `docs/operations/ENGINEERING_INVARIANTS.md` — 대상 공통 빌드·주소지정·기록 불변식
 - `docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md` — 공개 트리 식별자 정리 규칙과 boundary check
 
 이력 / 인덱스:
