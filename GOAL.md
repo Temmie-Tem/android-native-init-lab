@@ -13,6 +13,14 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+Prepared candidate: **v0.1.2-rc.2 — gauge failure diagnostics** (P379).
+Bounded probe/read status, raw SMBus return, read errno and parser rejection
+records are implemented; measurement units and success criteria are unchanged.
+Final A/B/static/common bundle and independent PASS_GO completed. The exact
+`p379-ready1-prepared-20260910-1` read-only preparation and consumer reopening
+passed. Fresh attended approval remains required; no candidate effect occurred.
+See the [diagnostics report](docs/reports/S22PLUS_FYG8_GAUGE_DIAGNOSTICS_RC2_H0_2026-09-10.md).
+
 Latest candidate: **v0.1.2-rc.1 — restricted gauge telemetry HUD**, consumed.
 The attended `p378-ready1-prepared-20260909-1` run closed
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: the gauge HUD qualification failed,

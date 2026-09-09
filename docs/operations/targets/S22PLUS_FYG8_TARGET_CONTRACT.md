@@ -28,6 +28,19 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### v0.1.2-rc.2 gauge diagnostics
+
+The prospective internal P379 candidate follows [Gauge Diagnostics V1](../S22PLUS_FYG8_GAUGE_DIAGNOSTICS_V1.md).
+It retains P378's measurement reads, units and qualification, adding only a
+read-only provider status snapshot and bounded collector failure records.
+The status snapshot performs no additional I2C transactions. A diagnostic record
+is not a successful gauge measurement. This definition grants no device action.
+Independent changed-closure review, exact A/B/static qualification, fresh
+preparation, current physical attendance and fresh Process-v2 approval remain
+required. Terminal reporting adds one `s22plus-fyg8-p379` F1 closure row with
+its canonical timeline, exact rollback and final health. Consumed P378 remains
+closed and cannot be replayed.
+
 ### v0.1.2-rc.1 restricted gauge HUD
 
 The prospective internal P378 candidate follows [Gauge HUD V1](../S22PLUS_FYG8_GAUGE_HUD_V1.md).

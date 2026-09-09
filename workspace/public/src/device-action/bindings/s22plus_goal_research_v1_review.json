@@ -10,9 +10,9 @@
     "usb-state"
   ],
   "assessment": [
-    "Only f1_owner and target hashes changed; all eight actions and the other seven declared sources remain unchanged.",
-    "Independent P378 final2 review 74a90e12a8a609d1a631064fffbc4e1ce151a43dadb9b4b6d7a8c10d427fad40 explicitly covers these two source repins.",
-    "This hash refresh opens or renews no foreground grant and grants no F1 action."
+    "Only f1_owner and target hashes changed; eight actions and the other seven sources are unchanged.",
+    "P379 final2 independent review explicitly covers the two source repins.",
+    "This source refresh opens or renews no grant and grants no F1 authority."
   ],
   "evidence": {
     "changed_roles": [
@@ -20,14 +20,14 @@
       "target"
     ],
     "previous_review": {
-      "path": "workspace/private/outputs/s22plus_fyg8_p378/foreground-prior-review.json",
-      "sha256": "772a994a6262aa41f4b0d333dd957ad2b0ccb3aac4b61ed575674fd6e36d396f",
-      "size": 14857
+      "path": "workspace/private/outputs/s22plus_fyg8_p379/foreground-prior-review.json",
+      "sha256": "05ea5c06e0a30d91f308135e544ffb01aa3d4fee60dd87b10354946d57af26f5",
+      "size": 2477
     },
-    "reused_p378_review": {
-      "path": "workspace/private/outputs/s22plus_fyg8_p378/independent-review.json",
-      "sha256": "74a90e12a8a609d1a631064fffbc4e1ce151a43dadb9b4b6d7a8c10d427fad40",
-      "size": 73735
+    "reused_p379_review": {
+      "path": "workspace/private/outputs/s22plus_fyg8_p379/independent-review.json",
+      "sha256": "d082d44b14a7e3e5c9361e32aa4d1df1251be9290dcb27500eed43e67513c323",
+      "size": 77878
     },
     "unchanged_actions": 8,
     "unchanged_sources": 7
@@ -38,20 +38,20 @@
     "Fresh target and boot checks remain required per action.",
     "Historical health and consumed goals or candidates grant no replay or F1 authority."
   ],
-  "reviewed_at_utc": "2026-09-09T14:34:59.906588+00:00",
+  "reviewed_at_utc": "2026-09-09T20:58:17.798839+00:00",
   "reviewer": "independent-agent-p352-usb-review",
   "schema": "s22plus_goal_research_independent_review_v1",
-  "scope": "Unchanged foreground-goal capability; independently reviewed P378 final2 f1_owner and target source hash refresh only",
+  "scope": "Unchanged foreground-goal capability; independently reviewed P379 final2 f1_owner and target source hash refresh only",
   "sources": {
     "common": "78635cd38f94f2f62a491063b72a08faa0de7023a2f711565dcf8b7bf4c3351e",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
-    "f1_owner": "4fd5139e7cd1ddad90b0f2926110ef79d604573fda2d0b0cf0f6f735151b9eaf",
+    "f1_owner": "5c4547859840d68f8ec2b4680c59e84c39b3960c63f3177ec18e585fd9a97d65",
     "policy": "452cd135150f41e58888d29a18608c158eddfc669728cfd575a676144fbdafbd",
     "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "registry": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
     "runner": "b29948a9ae308c0103022ac6ccc6c1d08188f5073acdf81a110ffe7e7dac3851",
-    "target": "4e85b3a7fa1f99b7df625539aa4417e9c3cfdab3a0211502adb1dec0e39eabfc"
+    "target": "79cadcf9960b480193464560b80119360fbf9e2432de4f62f51f009fab6c1505"
   },
   "verdict": "PASS_GO"
 }
