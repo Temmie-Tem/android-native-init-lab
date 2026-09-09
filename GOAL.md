@@ -13,12 +13,18 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Battery-data H0 investigation is complete: current native package omits the
-Samsung provider stack; source-supported voltage/current/health candidates and
-vendor-specific unit/meaning traps are documented in the
-[battery data report](docs/reports/S22PLUS_FYG8_BATTERY_DATA_RESEARCH_2026-09-09.md).
-No new device read, module load or candidate was performed. A prospective battery
-provider needs its own dependency/probe-effect qualification; v0.1.1 stays closed.
+Current implementation: **v0.1.2-rc.1 — restricted gauge telemetry HUD**.
+Qualify an additive driver on the existing MAX77705 fuel-gauge MFD child, using
+fixed non-destructive reads for gauge SOC, voltage and signed current. Preserve
+existing MFD/PDIC/USB owners; no stock fuel-gauge initialization or charger work.
+Temperature and charging state remain unavailable unless independently supplied.
+Final A/B build, static/common bundle validation and independent `PASS_GO` are
+complete. READY and connected read-only preparation are complete for
+`p378-ready1-prepared-20260909-1`; no candidate effect has occurred.
+Fresh Process-v2 approval and current physical attendance remain required.
+See the [qualification report](docs/reports/S22PLUS_FYG8_GAUGE_HUD_V012_RC1_H0_2026-09-09.md).
+The earlier [battery report](docs/reports/S22PLUS_FYG8_BATTERY_DATA_RESEARCH_2026-09-09.md)
+now distinguishes the 73 inherited USB modules from 17 additional modules.
 
 Functional version: **v0.1.1 — system-status HUD**, mapped to successful
 v0.1.1-rc.1 / run-001 (internal P377) without rebuilding or renaming artifacts.

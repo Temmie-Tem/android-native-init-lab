@@ -7,13 +7,16 @@ new candidate, or change to the consumed v0.1.1/P377 runtime was performed.
 ## Findings
 
 The successful P377 Image contains `CONFIG_POWER_SUPPLY=y`, but no Samsung
-battery/fuelgauge/MAX77705 provider configuration entries. Its audited package
-contains 17 display/return modules and none of `sec-battery.ko`,
-`max77705-fuelgauge.ko`, `max77705_charger.ko` or `mfd_max77705.ko`.
+battery/fuelgauge/MAX77705 provider configuration entries. Its audited boot-ramdisk overlay
+contains 17 **additional** display/return modules and none of `sec-battery.ko`,
+`max77705-fuelgauge.ko` or `max77705_charger.ko`. The overlay inventory is not the
+whole runtime: the unchanged vendor ramdisk supplies the inherited 73-module USB
+prefix, which includes GENI (index 69), MFD (71) and PDIC (72).
 The vendor-module build configuration separately selects those providers as
 modules, along with `CONFIG_SEC_PD=m` and `CONFIG_QCOM_SPMI_ADC5=m`.
 Framework availability therefore does not imply that the `battery` supply exists.
-This is a concrete packaging/configuration gap consistent with native N/A;
+The battery/fuel-gauge policy driver is outside the reached module lists,
+which is consistent with native N/A;
 P377 did not retain a per-attribute failure reason, so it is not proof of the
 exact failing syscall or the sole cause of N/A.
 
@@ -111,9 +114,14 @@ Loading a provider is not equivalent to reading an already active sysfs file:
   established here; loading the entire stack merely to expose readings is not
   a qualified read-only operation.
 
-The smallest next implementation unit is a source-bound provider/dependency and
-probe-effect qualification for the desired percent/voltage/current/temperature
-path, followed by a separate fresh candidate if appropriate. Additional Android
+A follow-up audit of the frozen P377 `/init` (SHA-256
+`8cd5b95df8f4bd68887a0fb4bacfa8e1ffa65714f45d8e71d547fa0c1d4b4aaa`)
+confirmed that all 73 inherited module loads precede console entry. The existing
+MFD binary has the fuel-gauge child and address-0x36 client already compiled in.
+The prospective minimal implementation must therefore attach to that existing
+child; it must not reload the MFD, claim its parent, create a competing dummy
+client or replace PDIC. Provider/dependency and probe-effect qualification
+precedes a separate fresh candidate if appropriate. Additional Android
 attribute reads, if needed to settle ABI/unit questions, should use a reviewed
 fixed D0 profile. No broad sysfs dump, register access, or provider activation
 is necessary to complete this source investigation.

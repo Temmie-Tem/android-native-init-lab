@@ -28,6 +28,20 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### v0.1.2-rc.1 restricted gauge HUD
+
+The prospective internal P378 candidate follows [Gauge HUD V1](../S22PLUS_FYG8_GAUGE_HUD_V1.md).
+It adds one fixed reader on the existing MAX77705 fuel-gauge MFD child and
+retains the root console, collector isolation and immutable DRM lifecycle.
+The existing MFD/PDIC owners are neither reloaded nor rebound. No stock fuel-gauge
+initialization, charger control, firmware update or IRQ handler is added.
+This definition grants no device action. Independent changed-closure review,
+exact A/B/static qualification, fresh preparation, current physical attendance
+and fresh Process-v2 approval are required for its single candidate run.
+Terminal reporting requires one `s22plus-fyg8-p378` F1 closure row derived from
+its retained result/journal, canonical timeline and exact rollback/final health.
+Consumed P377 and earlier runs remain closed and cannot be replayed.
+
 ### v0.1.1-rc.1 system-status HUD
 
 The fresh internal P377 candidate follows [Status HUD V1](../S22PLUS_FYG8_STATUS_HUD_V1.md).
