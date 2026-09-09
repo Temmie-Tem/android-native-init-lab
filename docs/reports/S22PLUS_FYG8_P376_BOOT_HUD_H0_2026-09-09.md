@@ -1,9 +1,9 @@
 # S22+ P376 minimal boot HUD and root console
 
 Target: SM-S906N/g0q/S906NKSS7FYG8. P376 adds a separate text HUD child to the
-consumed P375 root-console capability. This report records H0 qualification;
-it grants no device effect or standing console. The next attended run requires
-its own exact prepared binding and approval.
+consumed P375 root-console capability. This report records H0 qualification and the completed attended run.
+P376 is now CLOSED with exact rollback/final health verified. It grants no
+further device effect or standing console.
 
 ## Result and limits
 
@@ -12,7 +12,7 @@ console READY/BUSY/BLOCKED in large white bitmap text on black. It starts after
 authenticated native console preparation, not as an unauthenticated standalone
 boot UI. The actual packaged AArch64 renderer's H0 paint entry produced both
 complete frames (20,367,360 bytes); the preview was inspected. This is host
-rendering evidence, not a physical panel observation.
+rendering evidence. The later operator observation is recorded separately below.
 
 PID1 remains the sole console owner. One separate HUD child receives fixed
 nonblocking state snapshots over a run-bound SOCK_SEQPACKET channel. Command
@@ -97,7 +97,7 @@ is published and verified at its actual final path: 8,664 bytes, SHA-256
 `354082d49a6bcbb528be3fa9851a15b85cce092fa541a78bd84310844cfe4cb7`.
 The actual common bundle SHA-256 is
 `6b8e2ce54a46bed546a2b1bd999382ae383cdad2a90b2379ab3d1bd2b4e5adc2`.
-No F1 ledger row exists before a candidate effect. No live grant exists.
+At READY publication no F1 ledger row or live grant existed.
 A90 and S20+ received no commands from this task.
 
 
@@ -109,7 +109,8 @@ The prepared record is 35,474 bytes, SHA-256
 `427cb3ae9453e1440bc87f1515c16041d2b0a82c76c09485721d883a1c7e29c8`.
 Device contact was limited to the fixed reads: device_writes, reboot_requested,
 odin_invoked, partition_transfer, f1_authorized and live_authorized are false.
-No execution transaction or candidate consumption exists. The actual prepared
+At preparation time no execution transaction or candidate consumption existed.
+The actual prepared
 consumer reopened the exact bundle, and the plan was sealed in that run.
 
 The three-command RAM-only plan is 837 bytes, SHA-256
@@ -120,7 +121,59 @@ last four diagnostic lines. This supplies approximately fifteen seconds of
 additional viewing time. Individual plan outcomes remain separate from the six
 fixed qualifications; a terminal command is not automatically a successful one.
 
-The run still requires the operator's current physical attendance and its fresh
-exact Process-v2 approval before the first write-capable transition. It cannot
-reuse the consumed P375 approval or P372-P374 session grant. No screen-visible,
-live HUD or rollback claim is made for this unexecuted candidate.
+Preparation required the operator's current physical attendance and its fresh
+exact Process-v2 approval before the first write-capable transition. The later
+run used that returned approval; P375 and P372-P374 grants were not reused.
+
+
+## Attended run and terminal health
+
+The original execute ran once and returned
+`PASS_F1_V2_P376_ROOT_CONSOLE_AND_ROLLED_BACK`, outcome
+`p376_root_console_rollback_verified`. Its journal is CLOSED with 19 records and
+`recovery_required=false`. One candidate and one exact rollback completed;
+there was no recover invocation, candidate replay or reconnect.
+
+All six fixed qualifications and all three planned commands passed. The initial
+HUD proof retains three matched frames, sequence 1 through 3, uptime 3,802 to
+5,815 ms, with two BUSY console snapshots. The late plan command confirmed more
+HUD frames after its ten-second wait and emitted `HUD_STILL_UPDATING`; its last
+retained frame is sequence 19 at uptime 21,941 ms. This is not a claim that every
+intermediate frame was retained or that liveness was continuous.
+
+In response to the attended display question, the operator reported seeing the
+NATIVE INIT text and increasing UPTIME. This is **OBSERVED** physical output,
+separate from the authenticated command/flip evidence; machine pixel proof is
+not claimed. The separate private operator record does not alter the journal,
+observer or terminal result.
+
+CONTROL acceptance, the subsequent exact Download endpoint, rollback transfer
+and final health all retain their own evidence. Final health verified rooted
+FYG8 Android, boot completion, original boot/supporting partition hashes and
+both target/global Download absence. The observer's ACK-only
+`software_download_arrival=UNPROVED` and the supplemental stock
+`p376_proof_class=NO_PROOF_OBSERVER` remain unchanged. The successful console/HUD
+qualification does not promote those fields to causal stock or kernel-stall
+recovery proof. No native console/HUD lease remains after rollback.
+
+Canonical UTC timeline:
+
+| Event | UTC |
+| --- | --- |
+| live_session_start | 2026-09-09T11:35:18.219295Z |
+| candidate_flash_start | 2026-09-09T11:35:36.040106Z |
+| candidate_flash_done | 2026-09-09T11:35:37.748012Z |
+| candidate_boot_ready | 2026-09-09T11:36:21.522981Z |
+| rollback_flash_start | 2026-09-09T11:36:28.305551Z |
+| rollback_flash_done | 2026-09-09T11:36:30.003329Z |
+| rollback_boot_ready | 2026-09-09T11:37:16.688438Z |
+| live_session_end | 2026-09-09T11:37:16.709232Z |
+
+Private retained evidence in `p376-ready1-prepared-20260909-1`:
+
+- `live-result.json`: 50,297 bytes, SHA-256 `0e0ef826569fcfc64a442e0d3f32fe9aef4be412f662f1f7c27a09531ccb9b38`.
+- `candidate-observer.json`: 44,100 bytes, SHA-256 `c62de6b7e1550548a9dc0317b38ecda6c37c06b3716930954a52f7a9d001918e`.
+- `operator-hud-observation.json`: 550 bytes, SHA-256 `e30df9deed089af1260f579c54f039d7fe21e666029a3e393b5e9486010619e9`.
+
+A90 and S20+ received no commands. Reporting-only closure; consumed execution
+inputs and machine records remain unchanged.
