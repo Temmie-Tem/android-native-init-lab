@@ -316,3 +316,73 @@ Private source/observation identities:
 | --- | ---: | --- |
 | `s22plus-rbin-android-d0-20260910-1/result.json` | 2,236 | `107210a73aa93c63aadd1d2a26c7fac4b4d2ba940c2002c16359613e7b070ca8` |
 | `s22plus-rbin-android-d0-20260910-1/source-findings.json` | 3,854 | `b7e3c36138a3ed35925005c43df1894b730924cd89a4172a2fc20975293e30d7` |
+
+## Immediate H0 reduction assessment and historical A90 calculation
+
+This follow-up used host files only. No A90, S22+ or S20+ command, wakeup,
+reboot, heap initialization, memory release or candidate effect occurred.
+Read-only source analysis need not wait for a device experiment.
+
+### A90: arithmetic established, historical kernel adjustment unresolved
+
+The [V3316 report](NATIVE_INIT_V3316_GPU_M0_SYSTEM_MONITOR_NODE_ENUM_2026-06-27.md)
+observed V3315 resident0.11.87, not a V3404 kernel experiment. Its reported
+MemTotal5504940KiB and MemAvailable5216660KiB give:
+
+`(5504940 - 5216660) / 1024 = 281.5234375 MiB`.
+
+The contemporaneous `a90_metrics.c` at report commit9d6e9253df uses precisely
+that subtraction and integer division, displaying281. Its `MB` label denotes
+1024-based units. Thus the historical report-derived arithmetic is established
+and matches the S22+ HUD formula. This does not validate comparing unadjusted
+A90281 with S22+'s reservation-adjusted254.
+
+The later `a90-phase2a-kernel.tBOMsQ/v3404.config` does contain CONFIG_RBIN=y
+and CONFIG_CMA_SIZE_MBYTES=16, but does not identify the earlier V3315 kernel.
+The two currently retained public A90 source trees contain an ION RBIN heap;
+however, their checked `fs/proc/meminfo.c` and `mm/page_alloc.c` contain no RBIN
+accounting additions. `si_meminfo()` uses totalram_pages directly. This differs
+from S22+'s explicit rbin_total addition and shows why the configuration flag
+alone cannot establish identical accounting. These public sources were not
+proved to be the kernel running in the historical V3316 observation.
+
+A search of version-named files in private runs/outputs, numeric matches in
+private logs/raw-logs/evidence, and the builder's declared V3315 boot-image
+location did not recover that exact sample's raw meminfo or kernel image.
+This was not an exhaustive search of offline archives/external media. The raw
+RBIN counters and exact historical kernel accounting remain unresolved; a later
+A90 boot would not retroactively supply the old sample. No A90 comparison or
+new A90 device action follows from these findings.
+
+### S22+: concrete reduction candidates, not yet a qualified change
+
+The source shows a real reservation path: generic reserved-memory allocation
+calls memblock_reserve regardless of CONFIG_RBIN. CONFIG_RBIN controls additional
+RBIN handling/accounting; simply disabling it does not remove the DT reservation.
+A smaller HUD number after changing accounting would not prove increased capacity.
+
+There are distinct possible H0 designs:
+
+| Candidate | Intended benefit | What remains to establish |
+| --- | --- | --- |
+| Report RBIN separately | Clearer memory accounting | No physical RAM saving is claimed |
+| Reduce or omit the boot-time RBIN reservation | Potentially increase generally allocatable RAM | Exact reservation ownership, surviving consumers and safe boot/recovery behavior |
+| Initialize the existing RBIN manager | Enable its dedicated heap/cleancache reuse and statistics | Initialization dependencies/effects; this is not release to the ordinary buddy allocator |
+| Trim retained native files or other allocations | Smaller remaining footprint | Actual lifetimes and live attribution; packed file size is not reclaimable-page evidence |
+
+The800MiB reservation is large enough to justify this investigation. No current
+result proves the entire amount can safely be returned. Starting with ownership
+and reservation setup is materially different from immediately changing live
+allocator state. A boot-only implementation would still need its own reviewed
+closure, artifact qualification and authorized device run.
+
+The actual P380 ramdisk inventory has30 regular files totaling16527132bytes
+(15.762MiB); its18 packaged module files total11648928bytes (11.109MiB), a subset
+of that inventory rather than an additional amount. These bytes cannot alone
+explain the native89.6MiB Shmem observation. Nor may we count all module file
+bytes as safely disposable or all Shmem as ramdisk contents. This narrows the
+next attribution work without claiming an exact254MiB footprint.
+
+Historical blob/source identities and bounded search scope are retained in
+`workspace/private/outputs/native-memory-accounting-h0-20260910-1/findings.json`,
+4,845 bytes, SHA-256 `567116a3c58e451cbafed67523ae4c373d64836cafff232516afcc3c1ebd9e64`.

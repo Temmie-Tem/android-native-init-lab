@@ -25,7 +25,11 @@ and does not establish absence of a leak. No replay/native lease remains; v0.1.1
 image publication deferred. Follow-up Android D0 observed RBIN800MiB with7MiB
 allocated/793MiB free/zero cached, and CmaTotal444MiB. Source verification found
 the camera-named RBIN/gen_pool/cleancache implementation; reusable alone is not
-proof of automatic reuse or safe release. See the [rc.3 close and memory report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
+proof of automatic reuse or safe release. Further H0 verified the historical
+A90 281MiB arithmetic, but not its historical kernel/RBIN accounting. Reducing
+the real S22+ reservation is a worthwhile design candidate, distinct from
+changing the HUD calculation; no release or new device run is qualified.
+See the [rc.3 close and memory report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
 
 Previous candidate: **v0.1.2-rc.2 gauge diagnostics** (P379), consumed and CLOSED/19.
 Formal result is NO_PROOF with one exact rollback and final rooted FYG8/original
