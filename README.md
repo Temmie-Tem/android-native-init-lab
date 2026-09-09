@@ -100,14 +100,20 @@ evidence-bounded overview.
   ARM64 preparation defects: authenticated diagnostics reached an accepted
   Download CONTROL, and the operator OBSERVED screen-off followed by
   Download-mode arrival without physical intervention. The bounded machine proof
-  that the control caused or completed that arrival remains unproved. The P349
+  that the control caused or completed that arrival remains unproved. P375 and
+  P376 then closed successfully, adding an authenticated root command console
+  and a minimal boot HUD painted by native PID 1; the operator OBSERVED the text
+  and an increasing uptime on the panel, and machine pixel proof is not claimed.
+  That completed scope is labelled functional version **v0.1.0**, mapped to the
+  unchanged P376 artifacts — a name for a verified bounded scope, not a resident
+  install or a claim of repeated-boot or long-running operation. The P349
   RAM-workspace/hour-witness unit remains host-qualified and paused.
 - **Galaxy S20+ 5G (`SM-G986N`)** — exact onboarding, resident Magisk root, and
   retained T2 TWRP recovery are established. The P0 V3 native-PID1 attempt
   ended with no exact ACM banner and healthy Magisk rollback. Native PID 1
   remains unproved; current work investigates an early-boot observation path.
 
-The S22+ entry was checked on 2026-09-08; other entries retain their 2026-09-05 snapshot. The device pages link
+The S22+ entry was checked on 2026-09-09; other entries retain their 2026-09-05 snapshot. The device pages link
 the accepted results; each target's GOAL and contract govern its changing
 frontier and execution requirements.
 

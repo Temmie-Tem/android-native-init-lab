@@ -21,12 +21,12 @@ report를 대체하지 않으며, 해당 기록이 계속 정본입니다.
 
 ## 한눈에 보기
 
-S22+ 행은 2026-09-08 기준이며, 나머지 행은 2026-09-05 시점 요약을 유지합니다. 이후 변동은 각 GOAL을 확인합니다.
+S22+ 행은 2026-09-09 기준이며, 나머지 행은 2026-09-05 시점 요약을 유지합니다. 이후 변동은 각 GOAL을 확인합니다.
 
 | 기기 | SoC / kernel | 확립된 결과 | 현재 프론티어 | 핵심 미증명 경계 |
 | --- | --- | --- | --- | --- |
 | [Galaxy A90 5G](A90.ko.md) (`SM-A908N`)<br>[시각 증거](A90_VISUAL_EVIDENCE.ko.md) | Qualcomm SM8150 / vendor Linux 4.14.190 | **PROVED(증명됨):** native PID 1, ACM/NCM, native Wi-Fi/audio와 bounded Debian PID 1/SSH/display 결과 | H41 rollback/health 종결; isolated-Debian 서버 작업 일시 중지 | 선택한 isolated-Debian architecture를 통합한 persistent run; H41 playback과 복구 종결 |
-| [Galaxy S22+](S22PLUS.ko.md) (`SM-S906N`, FYG8)<br>[디스플레이 시각 증거](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md)<br>[부팅 HUD 시각 증거](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.ko.md) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED(증명됨):** rebuilt-kernel Android boot, native-PID1 ACM, 인증된 제한적 읽기 전용 셸과 healthy rollback (P348까지); P353~P361은 display dispatch/rollback을 **PROVED**, 반복 framebuffer 선택을 포함한 깨끗한 cached-buffer 출력을 **OBSERVED(관측)** | P363~P365 모두 `NO_PROOF_OBSERVER`로 닫힘; P365는 수락된 Download CONTROL을 남기고 물리 개입 없는 Download 모드 도달을 **OBSERVED(관측)**, 다만 기계의 한정된 도착/인과 증명은 미증명 | 기기에서 뒷받침된 P349 1시간 witness, 무제한 root shell, pixel readback, WC/CACHED 깨짐 원인, 네이티브 정상 reboot/Download |
+| [Galaxy S22+](S22PLUS.ko.md) (`SM-S906N`, FYG8)<br>[디스플레이 시각 증거](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md)<br>[부팅 HUD 시각 증거](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.ko.md) | Qualcomm SM8450 / vendor Linux 5.10.226 | **PROVED(증명됨):** rebuilt-kernel Android boot, native-PID1 ACM, 인증된 제한적 읽기 전용 셸과 healthy rollback (P348까지); P353~P361은 display dispatch/rollback을 **PROVED**, 반복 framebuffer 선택을 포함한 깨끗한 cached-buffer 출력을 **OBSERVED(관측)**; P375~P376은 인증된 루트 명령 콘솔과 최소 부팅 HUD를 **PROVED**, 패널 위의 텍스트와 증가하는 uptime을 **OBSERVED(관측)**, 완료된 범위에 기능 버전 `v0.1.0` 부여 | P363~P365 모두 `NO_PROOF_OBSERVER`로 닫힘; P365는 수락된 Download CONTROL을 남기고 물리 개입 없는 Download 모드 도달을 **OBSERVED(관측)**, 다만 기계의 한정된 도착/인과 증명은 미증명 | 기기에서 뒷받침된 P349 1시간 witness, 무제한 root shell, pixel readback, WC/CACHED 깨짐 원인, 네이티브 정상 reboot/Download |
 | [Galaxy S20+ 5G](S20PLUS.ko.md) (`SM-G986N`) | Qualcomm SM8250 / vendor Linux 4.19.113 | **PROVED(증명됨):** onboarding, resident Magisk, retained T2 TWRP, P0 V3 전송/정상 rollback | P0 V3 NO_PROOF 이후 초기 부팅 pstore/PMSG 관측 | Custom native PID 1, live 초기 부팅 retention, autonomous F1 |
 
 ## 읽는 순서

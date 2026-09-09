@@ -100,14 +100,19 @@ known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 �
   `NO_PROOF_OBSERVER`로 닫혔습니다. P365는 ARM64 준비 경로 결함을 고친 뒤 더 멀리
   나아가, 인증된 진단이 수락된 Download CONTROL에 도달했고 운영자는 화면이 꺼진 뒤
   물리 개입 없이 Download 모드에 도달하는 것을 관측했습니다. 다만 그 제어가 해당
-  진입을 유발하거나 완료했다는 bounded machine proof는 여전히 미증명입니다. P349의
+  진입을 유발하거나 완료했다는 bounded machine proof는 여전히 미증명입니다. 이어진
+  P375와 P376은 성공으로 닫혔고, 인증된 루트 명령 콘솔과 네이티브 PID 1이 직접 그리는
+  최소 부팅 HUD를 더했습니다. 운영자는 패널에서 그 텍스트와 증가하는 uptime을
+  관측했으며, 기계적 픽셀 증명은 주장하지 않습니다. 완료된 그 범위에는 기능 버전
+  **v0.1.0**이라는 이름을 붙였고 변경되지 않은 P376 산출물에 대응시켰습니다. 검증된
+  한정 범위의 이름일 뿐, 상주 설치나 반복 부팅·장시간 운용의 주장이 아닙니다. P349의
   RAM 작업공간·1시간 witness 단위는 host 검증된 상태로 보류돼 있습니다.
 - **Galaxy S20+ 5G (`SM-G986N`)**: exact onboarding, resident Magisk root,
   retained T2 TWRP recovery가 확립됐습니다. P0 V3 native-PID1 시도에서는 exact
   ACM banner를 얻지 못했고 정상 Magisk rollback으로 종료했습니다. Native PID 1은
   미증명이며 현재는 초기 부팅 관측 경로를 연구합니다.
 
-이 요약의 S22+ 항목은 2026-09-08, 다른 대상은 2026-09-05 확인한 기록 기준입니다. 기기별 페이지에서 인정된 결과의
+이 요약의 S22+ 항목은 2026-09-09, 다른 대상은 2026-09-05 확인한 기록 기준입니다. 기기별 페이지에서 인정된 결과의
 근거를 확인하고, 바뀌는 프론티어와 실행 요건은 각 GOAL과 target contract를 따릅니다.
 
 공용 소스는 `workspace/public/src/` 아래에 둡니다. 대상 전용 소스, 헬퍼,

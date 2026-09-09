@@ -19,7 +19,9 @@ caller-selected shell commands in a read-only child view. Work since then moved
 to driving the panel directly from native PID 1: the P353-P361 series compared
 framebuffer paths and culminated in operator-observed clean output and repeated
 cached-buffer selection, and P362-P364 turned to native reboot/Download control,
-which remains unproved. The P349 RAM workspace unit stays host-qualified and
+which remains unproved. P375 and P376 then added an authenticated root command
+console and a minimal boot HUD, the scope now labelled functional version
+`v0.1.0`. The P349 RAM workspace unit stays host-qualified and
 paused. Functional transport proof and
 detailed USB/Max77705 causal explanations are evaluated separately.
 
@@ -116,7 +118,7 @@ status text and advances an uptime counter on the panel, is on its own page:
 
 ## Current frontier
 
-Snapshot checked on 2026-09-08. The most recent completed display milestone is
+Snapshot checked on 2026-09-09. The most recent completed display milestone is
 the P353-P361 line. Those runs compared framebuffer paths, and each closed with a
 machine verdict that **PROVED** authenticated dispatch and exact rollback, while
 the clean output itself is **observed** by the operator and corroborated by
@@ -141,8 +143,27 @@ arrival in Download mode without physical intervention, further than P363 or
 P364 reached. The machine's bounded Download-arrival and causal proof remain
 **unproved**. The execution stopped during post-CONTROL USB inventory after the
 device node disappeared; one same-journal rollback-only recovery then restored
-the exact rooted FYG8 state and verified final health. No device experiment is
-currently active.
+the exact rooted FYG8 state and verified final health.
+
+P375 and P376 then closed successfully. P375 gave native PID 1 an authenticated
+root command console over its CDC ACM transport; P376 added a separate text HUD
+child beside it. P376's attended run passed all six fixed qualifications and its
+three planned commands, retained three matched HUD frames and a later
+`HUD_STILL_UPDATING` confirmation, and completed one exact rollback with verified
+final health. The operator **OBSERVED** the `NATIVE INIT` text and an increasing
+uptime on the physical panel; machine pixel proof is not claimed, and the run's
+ACK-only `software_download_arrival=UNPROVED` and supplemental
+`p376_proof_class=NO_PROOF_OBSERVER` are unchanged. See
+[boot HUD visual evidence](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.md).
+
+That completed scope carries the functional version
+**`v0.1.0` — root command console and minimal boot HUD**, mapped to the
+unchanged P376 artifacts under the
+[S22+ version/candidate/run naming convention](../operations/S22PLUS_FYG8_VERSIONING.md).
+The label names a verified bounded scope. It is not a new build, a resident
+native install, or a claim of stability, repeated boot or long-running
+operation; the device is rolled back to its exact rooted FYG8 Android and the
+P376 approval is consumed. No device experiment is currently active.
 
 The P349 RAM workspace and actual-hour witness unit remains
 host-qualified and paused; neither of its prepared invocations transferred a
