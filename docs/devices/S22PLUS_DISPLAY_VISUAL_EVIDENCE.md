@@ -366,7 +366,9 @@ verified healthy rooted FYG8 return.
 select between prepainted buffers. There is **no in-place redraw or
 compositor-driven repaint after the initial buffers are prepared**, no
 compositor, no input, and no proof of general or long-running display
-operation.
+operation. P376 later adds periodically changing HUD output, but still uses
+fresh per-frame buffers rather than in-place redraw:
+[S22+ boot HUD visual evidence](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.md).
 
 **Nothing here transfers to another target.** The A90 and S20+ received no
 command from any of these runs, and results, artifacts and authority never move

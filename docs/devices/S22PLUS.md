@@ -29,6 +29,10 @@ Photographs and clips of the P353-P361 display bring-up runs, ordered as a
 comparison rather than a chronology, are on a separate page:
 [S22+ display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md).
 
+One continuous recording of the P376 run, in which native PID 1 paints its own
+status text and advances an uptime counter on the panel, is on its own page:
+[S22+ boot HUD visual evidence](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.md).
+
 ## Proven capabilities
 
 - **PROVED — reproducible source-matched kernel build.** The rebuilt Full-LTO

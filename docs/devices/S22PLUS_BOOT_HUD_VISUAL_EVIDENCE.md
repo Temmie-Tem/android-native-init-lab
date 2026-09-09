@@ -1,12 +1,4 @@
-# S22+ boot HUD visual evidence — DRAFT 2026-09-09
-
-> **Draft, not published.** The assets exist locally but are not committed yet,
-> so every image and clip link on this page is expected to be dead at this
-> commit, and the Korean counterpart does not exist. The prose is here to be
-> reviewed; asset provenance and the open questions are listed under
-> [Draft status](#draft-status) at the end. On publication this becomes
-> `S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.md`, the cross-links are added and that
-> section is dropped.
+# S22+ boot HUD visual evidence
 
 One continuous recording of the operator-owned Samsung Galaxy S22+ 5G
 (`SM-S906N`, FYG8) booting a custom static `/init` as PID 1 and painting its own
@@ -173,7 +165,7 @@ kernel-assigned time.
 ## Asset handling
 
 The stills were cropped only to remove unrelated room and background content
-around the phone. Nothing inside the panel was retouched, masked, denoised, or
+around the phone, all using the same fixed crop. Nothing inside the panel was retouched, masked, denoised, or
 colour- or exposure-adjusted. The clip was transcoded from HEVC to H.264 for
 playback here, scaled down, and stripped of the recording handset's container
 metadata; it was not cut, and it is the complete take. No device-screen content,
@@ -236,46 +228,3 @@ devices.
 - [Boot HUD capability contract](../operations/S22PLUS_FYG8_BOOT_HUD_V1.md)
 - [Root console capability contract](../operations/S22PLUS_FYG8_ROOT_CONSOLE_V1.md)
 - [S22+ target contract](../operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md)
-
----
-
-## Draft status
-
-Nothing below is part of the published page.
-
-### Assets, already produced and pending a separate commit
-
-All six are derived from one private source,
-`workspace/private/runs/device-action-f1-live-v2/p376-ready1-prepared-20260909-1/operator-hud-video.mp4`
-(31.15 s, HEVC 1714x3328, no audio track, SHA-256
-`90dc89ddcd84f07abb16438ab7c033d91e1bfc914d7f9f3ef9f526716413a906`), into
-`docs/images/s22plus-native-runtime/`. Every one applies the same background
-crop `crop=1580:3280:70:24` and `-map_metadata -1`; none touches panel content.
-
-| # | File | Derivation | Bytes |
-| --- | --- | --- | ---: |
-| 01 | `01-bootloader-unlocked-warning.jpg` | still at t=4.0 s, width 900 | 114,473 |
-| 02 | `02-not-official-software-splash.jpg` | still at t=17.0 s, width 900 | 144,047 |
-| 03 | `03-first-native-frame.jpg` | still at t=20.3 s, width 900 | 124,517 |
-| 04 | `04-uptime-filmstrip.jpg` | 12 crops at t=20.40 s +1 s, last at 31.05 s, stacked | 292,223 |
-| 05 | `05-boot-to-native-hud.gif` | from t=8.6 s, 4 fps, width 240, 32 colours | 2,508,006 |
-| 05 | `05-boot-to-native-hud.mp4` | full take, H.264 CRF 23, width 480, `-an` | 1,910,421 |
-
-Metadata was rechecked after encoding: the stills and the GIF carry no tags, and
-the MP4 retains only ffmpeg's own encoder strings.
-
-### Cross-links to add on publication
-
-- `docs/devices/S22PLUS.md` and `.ko.md` — visual evidence link beside the
-  existing display one.
-- `docs/devices/README.md` and `.ko.md` — the S22+ row.
-- `docs/devices/S22PLUS_DISPLAY_VISUAL_EVIDENCE.md` and `.ko.md` — a pointer
-  from the sibling page, which currently has none.
-
-### Open questions
-
-- Whether the sibling display page should gain a sentence noting that its
-  "no in-place redraw" limit still holds under P376, or whether the statement on
-  this page is enough.
-- Whether the machine-record section should quote the `HUD_STILL_UPDATING`
-  identifier at all, given that nothing in the imagery corresponds to it.
