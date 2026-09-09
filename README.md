@@ -174,8 +174,8 @@ fixtures and is not run in CI.
 - [`docs/README.md`](docs/README.md) — full documentation index
 - [`docs/devices/README.md`](docs/devices/README.md) — per-device progress, established results, and open boundaries
 - [`docs/overview/PROJECT_HISTORY.md`](docs/overview/PROJECT_HISTORY.md) — how the project got here, era by era (narrative; not evidence)
-- [`CHANGELOG.md`](CHANGELOG.md) — native init and boot image version history
-- [`README.ko.md`](README.ko.md) — Korean documentation, including the detailed working rules
+- [`CHANGELOG.md`](CHANGELOG.md) — historical A90 native-init and boot-image history; not the current multi-device status record
+- [`README.ko.md`](README.ko.md) — Korean counterpart. This file is the structural canonical; the Korean page follows its section skeleton and carries additional local operating detail
 
 ## Safety, scope, and ethics
 
