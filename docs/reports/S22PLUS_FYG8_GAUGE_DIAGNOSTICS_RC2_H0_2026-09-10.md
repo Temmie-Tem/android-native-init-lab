@@ -1,8 +1,10 @@
 # S22+ v0.1.2-rc.2 gauge diagnostics qualification
 
 P379 adds the diagnostics missing from the consumed P378 run. The target is
-SM-S906N/g0q/S906NKSS7FYG8. The functional version remains v0.1.1; this unit
-has performed no candidate effect and establishes no live gauge reading.
+SM-S906N/g0q/S906NKSS7FYG8. The subsequent attended run closed NO_PROOF with exact rollback and final
+healthy state. Diagnostics localized rejection at the root-model allowlist.
+The functional version remains v0.1.1; no gauge reading was established.
+Preparation-stage evidence below is retained as historical context.
 See [Gauge Diagnostics V1](../operations/S22PLUS_FYG8_GAUGE_DIAGNOSTICS_V1.md).
 
 ## Resulting behavior
@@ -85,3 +87,73 @@ Fresh exact approval and current physical attendance are required for the new
 candidate and its exact rollback/final-health transaction. H0 and ordinary
 Android preparation do not prove diagnostic output or gauge reads in native
 boot. The functional version remains v0.1.1.
+
+## P379 live close and localized cause — 2026-09-10 KST
+
+The exact approval was consumed once. Original execute completed with
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
+`p379_root_console_unproved_rollback_verified`. One candidate and one exact
+rollback completed; the read-only journal validator accepted CLOSED/19.
+`recovery_required=false`, final rooted FYG8/original hashes/Android health and
+Download absence passed. No recover invocation or replay occurred.
+
+All six fixed requests reached terminal responses, but the gauge HUD proof
+was false and all three planned commands remained unexecuted. The capture
+contains 15 matched frames, sequences 1–15, uptime 3612–17711 ms, with 14 BUSY
+frames. Memory/CPU were available; gauge data remained unavailable. The formal
+observer/session failure classification is not promoted to full console PASS.
+
+An authenticated offline replay used the complete received session and retained
+handshake-plus-command TX. It reconstructed the 6,927-byte sixth-command stdout
+and matched its original receipt exactly. Two diagnostic records were recovered:
+startup open ENOENT, then sample-read ENODEV with a successful diagnostic read.
+The second snapshot establishes:
+
+| Derived field | Value | Meaning |
+| --- | ---: | --- |
+| probe stage | 7 | Root model check rejected |
+| probe error | -19 | ENODEV from the explicit allowlist branch |
+| bound | 0 | Reader never bound |
+| read stage / attempts | 0 / 0 | No identity or measurement bus read began |
+| raw read return | -61 | Initial ENODATA sentinel |
+| latched stop | 0 | No bus-fault latch occurred |
+
+The exact target kernel's `of_property_read_string` returns EINVAL, ENODATA
+or EILSEQ on failure, not ENODEV. Thus the model string was read successfully
+and matched neither permitted Waipio string. Parent/name/address/compatible and
+parent/adapter OF checks before stage 7 passed. The later resistor, private
+parent/FG-client relationship and adapter-capability checks were not reached.
+This is a driver identity-guard rejection before I2C or unit conversion, not
+proof of a chip failure. The actual model string was not included in this
+snapshot; do not invent it. P378's earlier unlocalized record remains unchanged.
+
+The operator photograph shows unclipped rc.2/footer text, BUSY at uptime10,
+memory1053/7024 MiB, available5971 MiB, CPU0.1%, sample age0.0s, and all gauge,
+temperature and charge fields N/A. It is a separate OBSERVED physical record,
+not an exact frame/time or continuous-update proof. The original photo remains
+private; machine result and journal are unchanged. Diagnostic localization
+succeeded, but v0.1.2 remains unconfirmed. HUD image publication is deferred
+until actual gauge display is observed in rc.3, as requested by the operator.
+
+Canonical timeline (UTC):
+
+| Event | Timestamp |
+| --- | --- |
+| `live_session_start` | 2026-09-09T21:09:21.581077Z |
+| `candidate_flash_start` | 2026-09-09T21:09:40.357140Z |
+| `candidate_flash_done` | 2026-09-09T21:09:42.101982Z |
+| `candidate_boot_ready` | 2026-09-09T21:10:22.343923Z |
+| `rollback_flash_start` | 2026-09-09T21:10:30.440107Z |
+| `rollback_flash_done` | 2026-09-09T21:10:32.128388Z |
+| `rollback_boot_ready` | 2026-09-09T21:11:18.194487Z |
+| `live_session_end` | 2026-09-09T21:11:18.214999Z |
+
+Private retained evidence:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `live-result.json` | 47,142 | `bd4da81d45e8c81fd519f862519bb8d5df3505919057262f73909da3423d3450` |
+| `candidate-observer.json` | 38,066 | `349fe706bad3ddb7b3584a6cee48e481459a8eb16a739b685b6306082cfd1085` |
+| `authenticated-hud-log.bin` | 6,927 | `df120b4f3b8b3b7f4f3c0075655c3dc2a6526388ef02a72aff7e2d448f28cd92` |
+| `operator-gauge-diagnostic-photo.jpg` | 88,468 | `db577585060e5414bb665722a6800429e5702f491846e0e544b986958fe4f92b` |
+| `operator-gauge-diagnostic-observation.json` | 1,008 | `815a536f4d2a5cb89c9fff4db524c502ce7a9ba7181e8a5e761648c08826e979` |

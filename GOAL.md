@@ -13,15 +13,17 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Prepared candidate: **v0.1.2-rc.2 — gauge failure diagnostics** (P379).
-Bounded probe/read status, raw SMBus return, read errno and parser rejection
-records are implemented; measurement units and success criteria are unchanged.
-Final A/B/static/common bundle and independent PASS_GO completed. The exact
-`p379-ready1-prepared-20260910-1` read-only preparation and consumer reopening
-passed. Fresh attended approval remains required; no candidate effect occurred.
-See the [diagnostics report](docs/reports/S22PLUS_FYG8_GAUGE_DIAGNOSTICS_RC2_H0_2026-09-10.md).
+Latest candidate: **v0.1.2-rc.2 gauge diagnostics** (P379), consumed and CLOSED/19.
+Formal result is NO_PROOF with one exact rollback and final rooted FYG8/original
+health complete; no replay or native lease remains. Authenticated diagnostics
+localize root-model allowlist rejection (stage7/ENODEV), before binding or any
+I2C read. Units were not reached. Later probe checks remain untested.
+Diagnostic localization succeeded; v0.1.2 remains unconfirmed and v0.1.1 retained.
+The operator requests current model/meminfo reads, with Android versus prior
+native observations kept distinct, and HUD image publication deferred until
+rc.3 shows actual gauge data. See the [close report](docs/reports/S22PLUS_FYG8_GAUGE_DIAGNOSTICS_RC2_H0_2026-09-10.md).
 
-Latest candidate: **v0.1.2-rc.1 — restricted gauge telemetry HUD**, consumed.
+Previous candidate: **v0.1.2-rc.1 — restricted gauge telemetry HUD**, consumed.
 The attended `p378-ready1-prepared-20260909-1` run closed
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: the gauge HUD qualification failed,
 all three planned console commands remained unexecuted, and one exact rollback
