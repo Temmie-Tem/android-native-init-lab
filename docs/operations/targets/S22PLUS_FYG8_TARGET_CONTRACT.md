@@ -28,6 +28,21 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### v0.1.2-rc.3 exact model and native memory observation
+
+Internal P380 follows [Gauge Model and Memory V1](../S22PLUS_FYG8_GAUGE_MODEL_MEMORY_V1.md).
+Its provider accepts only the exact post-close Android-observed G0Q root model;
+all remaining parent/child/ABI/read guards and measurement rules are retained.
+The sixth fixed console command collects two optional bounded native memory
+snapshots on authenticated stderr while stdout keeps the gauge/HUD proof.
+Missing memory data cannot qualify or reject that functional proof. No new
+collector, device write, transport, timeout, or recovery behavior is introduced.
+Independent changed-closure review, fresh A/B/static qualification and exact
+preparation precede fresh attended Process-v2 approval. This definition grants
+no device action. P379 is consumed and cannot be replayed. Terminal reporting
+adds one `s22plus-fyg8-p380` F1 closure row, canonical timeline, exact rollback
+and final health; v0.1.2 remains unconfirmed until actual gauge qualification.
+
 ### v0.1.2-rc.2 gauge diagnostics
 
 The prospective internal P379 candidate follows [Gauge Diagnostics V1](../S22PLUS_FYG8_GAUGE_DIAGNOSTICS_V1.md).

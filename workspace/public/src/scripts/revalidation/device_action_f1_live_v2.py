@@ -56,6 +56,8 @@ import s22plus_fyg8_p378_console_owner as p378_console_owner
 import s22plus_fyg8_p378_return_host as p378_return_host
 import s22plus_fyg8_p379_console_owner as p379_console_owner
 import s22plus_fyg8_p379_return_host as p379_return_host
+import s22plus_fyg8_p380_console_owner as p380_console_owner
+import s22plus_fyg8_p380_return_host as p380_return_host
 import s22plus_native_planned_handoff_v1 as planned_handoff
 import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
@@ -9538,7 +9540,7 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host,"p372":p372_return_host,"p373":p373_return_host,"p374":p374_return_host,"p375":p375_return_host,"p376":p376_return_host,"p377":p377_return_host,"p378":p378_return_host,"p379":p379_return_host}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host,"p372":p372_return_host,"p373":p373_return_host,"p374":p374_return_host,"p375":p375_return_host,"p376":p376_return_host,"p377":p377_return_host,"p378":p378_return_host,"p379":p379_return_host,"p380":p380_return_host}
 HANDOFF_HOSTS={"p370":planned_handoff,"p371":p371_planned_handoff,"p372":p372_planned_handoff,"p373":p373_planned_handoff,"p374":p374_planned_handoff}
 HANDOFF_SESSION_CLASSES={"p370":_P370ObserverSession,"p371":_P371ObserverSession,"p372":_P372ObserverSession,"p373":_P373ObserverSession,"p374":_P374ObserverSession}
 DEPARTURE_RETURN_OWNERS = frozenset(
@@ -9557,7 +9559,7 @@ P375_PROOF_FIELDS = ("qualification_complete", "pid1_framed_exec_proof",
     "p375_closure_snapshot", "native_progress")
 
 
-ROOT_CONSOLE_PLAN_OWNERS={"p375":p375_console_owner,"p376":p376_console_owner,"p377":p377_console_owner,"p378":p378_console_owner,"p379":p379_console_owner}
+ROOT_CONSOLE_PLAN_OWNERS={"p375":p375_console_owner,"p376":p376_console_owner,"p377":p377_console_owner,"p378":p378_console_owner,"p379":p379_console_owner,"p380":p380_console_owner}
 
 
 def _root_console_proof_fields(prefix):
