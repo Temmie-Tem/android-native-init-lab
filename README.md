@@ -102,11 +102,12 @@ evidence-bounded overview.
   Download-mode arrival without physical intervention. The bounded machine proof
   that the control caused or completed that arrival remains unproved. P375 and
   P376 then closed successfully, adding an authenticated root command console
-  and a minimal boot HUD painted by native PID 1; the operator OBSERVED the text
-  and an increasing uptime on the panel, and machine pixel proof is not claimed.
-  That completed scope is labelled functional version **v0.1.0**, mapped to the
-  unchanged P376 artifacts — a name for a verified bounded scope, not a resident
-  install or a claim of repeated-boot or long-running operation. The P349
+  and a native status HUD painted by PID 1, now carrying uptime, console state,
+  memory, aggregate CPU, and battery capacity, charge and temperature. The
+  operator OBSERVED that output on the panel; machine pixel proof is not
+  claimed, and none of it is a resident install or a claim of repeated-boot or
+  long-running operation. The exact current functional version and the active
+  bounded unit are maintained in [`GOAL.md`](GOAL.md). The P349
   RAM-workspace/hour-witness unit remains host-qualified and paused.
 - **Galaxy S20+ 5G (`SM-G986N`)** — exact onboarding, resident Magisk root, and
   retained T2 TWRP recovery are established. The P0 V3 native-PID1 attempt

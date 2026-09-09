@@ -19,9 +19,8 @@ caller-selected shell commands in a read-only child view. Work since then moved
 to driving the panel directly from native PID 1: the P353-P361 series compared
 framebuffer paths and culminated in operator-observed clean output and repeated
 cached-buffer selection, and P362-P364 turned to native reboot/Download control,
-which remains unproved. P375 and P376 then added an authenticated root command
-console and a minimal boot HUD, the scope now labelled functional version
-`v0.1.0`. The P349 RAM workspace unit stays host-qualified and
+which remains unproved. Work since P375 has added an authenticated root command
+console and a native status HUD painted by PID 1. The P349 RAM workspace unit stays host-qualified and
 paused. Functional transport proof and
 detailed USB/Max77705 causal explanations are evaluated separately.
 
@@ -156,14 +155,19 @@ ACK-only `software_download_arrival=UNPROVED` and supplemental
 `p376_proof_class=NO_PROOF_OBSERVER` are unchanged. See
 [boot HUD visual evidence](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.md).
 
-That completed scope carries the functional version
-**`v0.1.0` — root command console and minimal boot HUD**, mapped to the
-unchanged P376 artifacts under the
-[S22+ version/candidate/run naming convention](../operations/S22PLUS_FYG8_VERSIONING.md).
-The label names a verified bounded scope. It is not a new build, a resident
-native install, or a claim of stability, repeated boot or long-running
-operation; the device is rolled back to its exact rooted FYG8 Android and the
-P376 approval is consumed. No device experiment is currently active.
+Work after P376 extended the HUD to fixed system-status collection — uptime,
+console state, memory used/total/available, aggregate CPU usage, and battery
+capacity, charge status and temperature — under the same immutable-buffer and
+matched-flip retirement rules. Physical display remains operator observation
+there too, and kernel/PID1-stall recovery is still not claimed.
+
+Completed scopes are named as functional versions under the
+[S22+ version/candidate/run naming convention](../operations/S22PLUS_FYG8_VERSIONING.md),
+which maps each version to unchanged artifacts and to its historical P number.
+**The exact current functional version and the active bounded unit are
+maintained in [`GOAL.md`](../../GOAL.md), not on this page.** A version name
+records a verified bounded scope; it is never a new build, a resident native
+install, or a claim of stability, repeated boot or long-running operation.
 
 The P349 RAM workspace and actual-hour witness unit remains
 host-qualified and paused; neither of its prepared invocations transferred a
