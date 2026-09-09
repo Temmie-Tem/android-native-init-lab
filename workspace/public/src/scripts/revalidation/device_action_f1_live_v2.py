@@ -46,6 +46,8 @@ import s22plus_fyg8_p373_return_host as p373_return_host
 import s22plus_fyg8_p373_planned_handoff as p373_planned_handoff
 import s22plus_fyg8_p374_return_host as p374_return_host
 import s22plus_fyg8_p374_planned_handoff as p374_planned_handoff
+import s22plus_fyg8_p375_return_host as p375_return_host
+import s22plus_fyg8_p375_console_owner as p375_console_owner
 import s22plus_native_planned_handoff_v1 as planned_handoff
 import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
@@ -2389,10 +2391,10 @@ def _host_first_variant(bundle: core.Bundle) -> Any:
             OPEN_HEADER_SIZE=shell.runtime.OPEN_HEADER_SIZE,
             OPEN_HEADER_WORD_STAGES=list(shell.runtime.OPEN_HEADER_WORD_STAGES),
             OPEN_READ_BRANCH_ORDINALS={str(k): v for k, v in shell.runtime.OPEN_READ_BRANCHES.items()},
-            PROOF_FIELDS=_return_proof_fields(prefix) if prefix in RETURN_SHELL_OWNERS else _dispatch_proof_fields(prefix) if prefix in DISPATCH_SHELL_OWNERS else P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
+            PROOF_FIELDS=P375_PROOF_FIELDS if prefix in ROOT_CONSOLE_OWNERS else _return_proof_fields(prefix) if prefix in RETURN_SHELL_OWNERS else _dispatch_proof_fields(prefix) if prefix in DISPATCH_SHELL_OWNERS else P348_PROOF_FIELDS if prefix in RETAINED_SHELL_OWNERS else P345_PROOF_FIELDS,
             parser_failure=lambda payload, error: _p345_parser_failure_classification(payload, error, prefix=prefix),
             proof_ok=lambda value: _p345_proof_ok(value, prefix=prefix),
-            proof_state=(lambda value: _p363_proof_state(value,prefix)) if prefix in RETURN_SHELL_OWNERS else (lambda value: _dispatch_proof_state(value, prefix)) if prefix in DISPATCH_SHELL_OWNERS else _p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
+            proof_state=_p375_proof_state if prefix in ROOT_CONSOLE_OWNERS else (lambda value: _p363_proof_state(value,prefix)) if prefix in RETURN_SHELL_OWNERS else (lambda value: _dispatch_proof_state(value, prefix)) if prefix in DISPATCH_SHELL_OWNERS else _p348_proof_state if prefix in RETAINED_SHELL_OWNERS else _p345_proof_state,
             session_factory=_p345_candidate_observer_session,
             stock_error=lambda payload, error: _p345_stock_error(payload, error, prefix=prefix),
             validate_receipt=_p345_validate_receipt, text=text)
@@ -4713,6 +4715,7 @@ class SamsungOdinBackend:
         adb: Path,
         usb_root: Path = DEFAULT_USB_ROOT,
         typec_root: Path = DEFAULT_TYPEC_ROOT,
+        root_console_plan: Path | None = None,
     ):
         self.root = root.resolve()
         self.bundle = bundle
@@ -4720,6 +4723,7 @@ class SamsungOdinBackend:
         self.client = d0.adb_client_for_bundle(adb, bundle)
         self.usb_root = usb_root
         self.typec_root = typec_root
+        self.root_console_plan = root_console_plan
         self.odin = core._artifact_path(
             self.root, bundle.profile["transport"]["odin"], "odin"
         )
@@ -4799,6 +4803,7 @@ class SamsungOdinBackend:
                 lane_receipt=lane_receipt,
                 usb_root=self.usb_root,
                 typec_root=self.typec_root,
+                root_console_plan=self.root_console_plan,
             )
         elif _p340_bundle(prepared.bundle):
             lane_value, lane_receipt = _p324_typec_lane_value(
@@ -6436,10 +6441,13 @@ class _P327ObserverSession:
                 time.sleep(0.05)
             if endpoint is None and classification == "endpoint-timeout" and mismatch_seen:
                 classification = "identity-mismatch"
+        raw_maximum = (self.qualification_observer.RAW_MAXIMUM
+            if getattr(self,"namespace",None) in ROOT_CONSOLE_OWNERS
+            else P327_MAX_RAW_BYTES)
         writer = raw_capture.RawCaptureWriter(
             self.run_dir,
             "candidate-observer",
-            stdout_maximum=P327_MAX_RAW_BYTES,
+            stdout_maximum=raw_maximum,
             stderr_maximum=1,
             argv0_name=self._raw_argv0_name(),
             stdout_name="candidate-observer.raw",
@@ -6460,7 +6468,7 @@ class _P327ObserverSession:
                 except (OSError, raw_capture.RawCaptureError):
                     pass
             raise
-        raw_payload = raw_capture.read_stdout(raw_handle, maximum=P327_MAX_RAW_BYTES)
+        raw_payload = raw_capture.read_stdout(raw_handle, maximum=raw_maximum)
         endpoint_identity = (
             endpoint.identity_sha256 if endpoint is not None else None
         )
@@ -9165,7 +9173,7 @@ class _P345ObserverSession(_P331ObserverSession):
             if descriptor is None:
                 raise F1LiveError("qualification descriptor ownership is missing")
             self.proof = dict(self.qualification.receipt)
-            if self.namespace in RETURN_SHELL_OWNERS:
+            if self.namespace in CONTROL_RETURN_OWNERS:
                 # Signed acceptance follows the sealed intent. Departure is
                 # expected, but arrival belongs to the existing rollback owner.
                 return "accepted"
@@ -9196,7 +9204,7 @@ class _P345ObserverSession(_P331ObserverSession):
                     os.close(self.owned_descriptor)
                     self.owned_descriptor = None
             elif descriptor is not None:
-                if self.namespace in DISPATCH_SHELL_OWNERS | RETURN_SHELL_OWNERS:
+                if self.namespace in DISPATCH_SHELL_OWNERS | CONTROL_RETURN_OWNERS:
                     try:
                         os.close(descriptor)
                     except OSError as exc:
@@ -9274,6 +9282,30 @@ class _P345ObserverSession(_P331ObserverSession):
                 proof_scope="submitted-swap-count-and-authenticated-control-acceptance",
                 p363_control_intent=getattr(self,"control_intent_receipt",None),
                 descriptor_close_error=getattr(self,"descriptor_close_error",None))
+        if self.namespace in ROOT_CONSOLE_OWNERS:
+            proof = self.proof or {}
+            ready = proof.get("root_ready") or [None] * 8
+            plan_value = getattr(self,"root_console_plan_value",None)
+            command_rows=proof.get("commands") if type(proof.get("commands")) is list else []
+            plan_rows=command_rows[len(self.qualification_observer.QUALIFICATION_COMMANDS):]
+            execution=p375_console_owner.execution_projection(plan_value,plan_rows)
+            value.update(command_count=proof.get("command_count",0),
+                request_count=proof.get("request_count",0),
+                pid1_framed_exec_proof=complete,busybox_ash_command_proof=complete,
+                framed_session_closed=False,root_console=complete,
+                root_uid=ready[6],root_gid=ready[7],
+                caller_selected_command=bool(plan_value and plan_value.get("commands")),
+                control_acceptance_observed=proof.get("control_acceptance_observed") is True,
+                control_requested_mode="download",
+                control_ack_scope="acceptance-only",software_download_arrival="UNPROVED",
+                proof_scope=self.qualification_observer.PROOF_SCOPE,
+                p375_control_intent=getattr(self,"control_intent_receipt",None),
+                p375_console_plan=getattr(self,"root_console_plan_receipt",None),
+                p375_plan_execution=execution,
+                descriptor_close_error=getattr(self,"descriptor_close_error",None))
+            if complete and execution["all_planned_terminal"] is not True:
+                value.update(accepted=False,classification="authenticated-session-error",
+                    protocol_error="root-console-plan-incomplete")
         if self.namespace in HANDOFF_RETURN_OWNERS:
             value.update(same_tty_fd=False,physical_reopen_count=(1 if getattr(self,"handoff_reopen_receipt",None) is not None
                 else None if getattr(self,"handoff_intent_receipt",None) is not None else 0),
@@ -9413,6 +9445,28 @@ class _P374ObserverSession(p374_planned_handoff.PlannedHandoffObserverMixin,_P36
 
 
 @dataclass
+class _P375ObserverSession(_P363ObserverSession):
+    """One authenticated root console and one terminal return CONTROL."""
+
+    namespace: str = "p375"
+    root_console_plan_value: Any = None
+    root_console_plan_receipt: Any = None
+
+    def _qualify_on_descriptor(self,codec,descriptor,writer,deadline):
+        self._require_control_absent()
+        if (type(self.root_console_plan_value) is not dict
+                or type(self.root_console_plan_receipt) is not dict):
+            raise F1LiveError("P375 sealed root console plan is missing")
+        return self.qualification_observer.qualify(
+            codec,descriptor,self.auth_key,None,set(),writer,deadline=deadline,
+            before_control=lambda request:self._seal_control_intent(request,descriptor),
+            evidence=self.run_dir/"p375-root-console-evidence",
+            interactive=lambda session,events,outer_deadline:
+                p375_console_owner.run(session,events,outer_deadline,
+                    self.root_console_plan_value))
+
+
+@dataclass
 class _P348ObserverSession(_P345ObserverSession):
     """Six initial sessions; one deliberate exact-endpoint idle/reopen."""
 
@@ -9465,6 +9519,9 @@ HANDOFF_RETURN_OWNERS = frozenset(p for p,v in typed_evidence.SHELL_VARIANTS.ite
 
 RETURN_SHELL_OWNERS = frozenset(prefix for prefix,variant in
     typed_evidence.SHELL_VARIANTS.items() if variant.workload == "native_return_control")
+ROOT_CONSOLE_OWNERS = frozenset(prefix for prefix,variant in
+    typed_evidence.SHELL_VARIANTS.items() if variant.root_console)
+CONTROL_RETURN_OWNERS = RETURN_SHELL_OWNERS | ROOT_CONSOLE_OWNERS
 P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "display_response_observed", "display_execution_proved", "display_submitted_swaps",
     "display_child_exited_before_ready", "visible_panel_output", "control_acceptance_observed",
@@ -9473,13 +9530,27 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host,"p372":p372_return_host,"p373":p373_return_host,"p374":p374_return_host}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host,"p372":p372_return_host,"p373":p373_return_host,"p374":p374_return_host,"p375":p375_return_host}
 HANDOFF_HOSTS={"p370":planned_handoff,"p371":p371_planned_handoff,"p372":p372_planned_handoff,"p373":p373_planned_handoff,"p374":p374_planned_handoff}
 HANDOFF_SESSION_CLASSES={"p370":_P370ObserverSession,"p371":_P371ObserverSession,"p372":_P372ObserverSession,"p373":_P373ObserverSession,"p374":_P374ObserverSession}
 DEPARTURE_RETURN_OWNERS = frozenset(
     p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.native_usb_departure)
 DIAGNOSTIC_RETURN_OWNERS = frozenset(
-    p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.diagnostic_progress)
+    p for p,v in typed_evidence.SHELL_VARIANTS.items() if v.diagnostic_progress or v.root_console)
+
+
+P375_PROOF_FIELDS = ("qualification_complete", "pid1_framed_exec_proof",
+    "busybox_ash_command_proof", "framed_session_closed", "same_tty_fd",
+    "session_count", "command_count", "request_count", "physical_reopen_count",
+    "later_action_lease_active", "caller_selected_command", "auth_key_sha256",
+    "root_console", "root_uid", "root_gid", "control_acceptance_observed",
+    "control_requested_mode", "control_ack_scope", "software_download_arrival",
+    "proof_scope", "p375_control_intent", "p375_console_plan", "p375_plan_execution",
+    "p375_closure_snapshot", "native_progress")
+
+
+def _p375_proof_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {key:value.get(key) for key in P375_PROOF_FIELDS}
 
 
 def _return_host_for(prepared: PreparedRun) -> Any:
@@ -9534,6 +9605,30 @@ def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
             value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key)), prefix)
     except (ValueError, TypeError):
         return False
+    if prefix in ROOT_CONSOLE_OWNERS:
+        proof = value.get("proof",value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key))
+        plan = value.get("p375_console_plan")
+        return (all(value.get(key) is True for key in ("qualification_complete",
+                "pid1_framed_exec_proof","busybox_ash_command_proof","same_tty_fd",
+                "root_console","control_acceptance_observed"))
+            and value.get("framed_session_closed") is False
+            and value.get("session_count") == 1
+            and value.get("command_count") == proof.get("command_count")
+            and value.get("request_count") == proof.get("request_count")
+            and value.get("physical_reopen_count") == 0
+            and value.get("later_action_lease_active") is False
+            and value.get("caller_selected_command") is
+                (type(plan) is dict and plan.get("command_count",0)>0)
+            and value.get("root_uid") == 0 and value.get("root_gid") == 0
+            and value.get("control_requested_mode") == "download"
+            and value.get("control_ack_scope") == "acceptance-only"
+            and value.get("software_download_arrival") == "UNPROVED"
+            and value.get("proof_scope") == typed_evidence.SHELL_VARIANTS[prefix].observer.PROOF_SCOPE
+            and type(value.get("p375_control_intent")) is dict
+            and type(plan) is dict
+            and type(value.get("p375_plan_execution")) is dict
+            and value["p375_plan_execution"].get("all_planned_terminal") is True
+            and type(value.get("p375_closure_snapshot")) is dict)
     if prefix in RETURN_SHELL_OWNERS:
         proof = value.get("proof",value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key))
         semantic = proof["sessions"][-1]["semantic"]
@@ -9609,8 +9704,18 @@ def _p345_parser_failure_classification(payload: bytes, error: BaseException, *,
 @contextlib.contextmanager
 def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any], *,
     lane_value: dict[str, Any], lane_receipt: dict[str, Any],
-    usb_root: Path, typec_root: Path) -> Iterator[_P345ObserverSession]:
+    usb_root: Path, typec_root: Path,
+    root_console_plan: Path | None = None) -> Iterator[_P345ObserverSession]:
     shell = _shell_definition(prepared.bundle)
+    if root_console_plan is not None and not shell.root_console:
+        raise F1LiveError("root console plan belongs only to P375")
+    plan_value = plan_receipt = None
+    if shell.root_console:
+        try:
+            plan_value,plan_receipt=p375_console_owner.seal(
+                root_console_plan,prepared.run_dir)
+        except p375_console_owner.ConsolePlanError as exc:
+            raise F1LiveError("P375 root console plan is invalid") from exc
     if not _p319_exact_equal(spec, typed_evidence._shell_observer_spec(shell.prefix)):
         raise F1LiveError("shell qualification spec differs")
     key, key_sha256 = _p328_read_auth_key(prepared)
@@ -9619,7 +9724,8 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         prepared.private_target["topology"], prepared.run_dir,
         _candidate_observer_binding(prepared), lane_value, lane_receipt,
         usb_root=usb_root, typec_root=typec_root) as inherited:
-        session_class = (HANDOFF_SESSION_CLASSES[shell.prefix] if shell.planned_handoff else
+        session_class = (_P375ObserverSession if shell.root_console else
+            HANDOFF_SESSION_CLASSES[shell.prefix] if shell.planned_handoff else
             _P363ObserverSession if shell.prefix in RETURN_SHELL_OWNERS else
             _P353ObserverSession if shell.prefix in DISPATCH_SHELL_OWNERS else
             _P348ObserverSession if shell.prefix in RETAINED_SHELL_OWNERS else _P345ObserverSession)
@@ -9629,7 +9735,10 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
             auth_runtime=shell.runtime, qualification_observer=shell.observer,
             proof_key=shell.proof_key, namespace=shell.prefix,
             receipt_schema=f"s22plus_fyg8_{shell.prefix}_shell_qualification_acm_receipt_v1",
-            receipt_label=shell.prefix.upper() + " read-only shell qualification receipt")
+            receipt_label=shell.prefix.upper() + " root console qualification receipt"
+                if shell.root_console else shell.prefix.upper() + " read-only shell qualification receipt",
+            **(dict(root_console_plan_value=plan_value,
+                    root_console_plan_receipt=plan_receipt) if shell.root_console else {}))
 
 
 def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, Any]) -> dict[str, Any]:
@@ -9658,7 +9767,8 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
         and type(value.get("download_endpoint_absent")) is bool, "status differs")
     capture_path = prepared.run_dir / "candidate-observer.capture.json"
     handle = raw_capture.load_handle(capture_path)
-    payload = raw_capture.read_stdout(handle, maximum=P327_MAX_RAW_BYTES)
+    raw_maximum=shell.observer.RAW_MAXIMUM if shell.root_console else P327_MAX_RAW_BYTES
+    payload = raw_capture.read_stdout(handle, maximum=raw_maximum)
     require(handle.stdout_path == prepared.run_dir / "candidate-observer.raw"
         and handle.stderr_path == prepared.run_dir / "candidate-observer.raw.stderr"
         and handle.returncode == 0 and not handle.timed_out and not handle.output_exceeded
@@ -9697,7 +9807,7 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             derived=shell.observer.replay_pair(codec,received,b''.join(txs),key)
             require(proof==derived,'paired raw proof differs')
             require([row['tx']['size'] for row in derived['sessions']]==[len(tx) for tx in txs],'paired TX boundaries differ')
-        else:
+        elif not shell.root_console:
             offset = 0
             tx_offset = 0
             nonce_hashes = set()
@@ -9720,6 +9830,14 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
                 tx_offset += len(tx)
             require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
                 "session continuity differs")
+    if (shell.root_console and proof
+            and proof.get("control_acceptance_observed") is True):
+        require(len(txs)==1,"root console TX stream count differs")
+        codec=_open_header_initial_observer_module(shell.runtime,shell.observer,
+            "p375-receipt-replay")
+        derived=shell.observer.replay_session(codec,received,txs[0],key,
+            partial=proof.get("proved") is not True)
+        require(proof==derived,"root console raw proof differs")
     if shell.planned_handoff:
         handoff_owner=HANDOFF_HOSTS[shell.prefix]
         try:
@@ -9750,16 +9868,21 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
         codec=_open_header_initial_observer_module(shell.runtime,shell.observer,shell.prefix+"-progress-replay")
         derived=shell.observer.replay_progress(codec,received,b"".join(txs),key)
         require(value.get("native_progress")==derived,"raw partial diagnostic progress differs")
-        if proof and "native_progress" in proof:
+        if proof and shell.root_console:
+            require(proof.get("preparation")==derived,"root console preparation proof differs")
+        elif proof and "native_progress" in proof:
             require(proof["native_progress"]==derived,"partial proof diagnostic differs")
         if value["accepted"]:
-            require((proof.get("native_progress") if shell.planned_handoff else proof["sessions"][0].get("native_progress"))==derived,"qualified diagnostic differs")
+            qualified=(proof.get("preparation") if shell.root_console
+                else proof.get("native_progress") if shell.planned_handoff
+                else proof["sessions"][0].get("native_progress"))
+            require(qualified==derived,"qualified diagnostic differs")
     if shell.status_queries and proof:
         codec=_open_header_initial_observer_module(shell.runtime,shell.observer,'p371-status-replay')
         require(proof.get('status_samples')==shell.observer.replay_status(codec,received,b''.join(txs),key),
             'raw STATUS samples differ')
     lane = value.get("lane", {})
-    if shell.prefix in DISPATCH_SHELL_OWNERS | RETURN_SHELL_OWNERS:
+    if shell.prefix in DISPATCH_SHELL_OWNERS | CONTROL_RETURN_OWNERS:
         snapshot = value.get(shell.prefix + "_closure_snapshot")
         require(type(snapshot) is dict and set(snapshot) == {"path", "size", "sha256",
             "capture_complete", "error_type", "continuity_proved", "role"},
@@ -9772,7 +9895,7 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             and type(snapshot["capture_complete"]) is bool
             and snapshot["capture_complete"] is parsed_snapshot["capture_complete"]
             and snapshot["continuity_proved"] is False
-            and snapshot["role"] == ("post-control-transport-diagnostic" if shell.prefix in RETURN_SHELL_OWNERS else "post-dispatch-transport-diagnostic")
+            and snapshot["role"] == ("post-control-transport-diagnostic" if shell.prefix in CONTROL_RETURN_OWNERS else "post-dispatch-transport-diagnostic")
             and (snapshot["error_type"] is None or
                 (type(snapshot["error_type"]) is str and len(snapshot["error_type"]) <= 80
                  and snapshot["capture_complete"] is False)),
@@ -9787,14 +9910,33 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             and value.get("visible_panel_output") == "UNPROVED"
             and value.get("proof_scope") == "authenticated-host-dispatch-only",
             "dispatch-only projection differs")
-    if shell.prefix in RETURN_SHELL_OWNERS and value["accepted"]:
+    if (shell.prefix in CONTROL_RETURN_OWNERS
+            and (value["accepted"] or (shell.root_console and proof
+                and proof.get("control_acceptance_observed") is True))):
         require(lane.get("observation_phase") == "before-native-return-control"
             and lane.get("post_control_observation") is False,"pre-control lane scope differs")
         intent,intent_receipt = _return_host_for(prepared).read_intent(prepared.run_dir,
             binding=_candidate_observer_binding(prepared),
             endpoint_identity_sha256=value.get("endpoint_identity_sha256"),proof=proof)
-        require(value.get("p363_control_intent") == intent_receipt and intent["lane"] == lane,
+        intent_key="p375_control_intent" if shell.root_console else "p363_control_intent"
+        require(value.get(intent_key) == intent_receipt and intent["lane"] == lane,
             "durable intent/lane/raw session join differs")
+        if shell.root_console:
+            plan_value,plan_receipt=p375_console_owner.seal(
+                prepared.run_dir/p375_console_owner.SEALED_NAME,prepared.run_dir)
+            stored=value.get("p375_console_plan")
+            require(stored==plan_receipt,"root console plan receipt differs")
+            require(value.get("caller_selected_command") is bool(plan_value["commands"]),
+                "root console caller-selected projection differs")
+            commands=proof.get("commands") if type(proof.get("commands")) is list else []
+            fixed=len(shell.observer.QUALIFICATION_COMMANDS)
+            try:
+                execution=p375_console_owner.execution_projection(plan_value,
+                    commands[fixed:] if len(commands)>=fixed else [])
+            except p375_console_owner.ConsolePlanError as exc:
+                raise F1LiveError("P375 raw command plan join failed") from exc
+            require(value.get("p375_plan_execution")==execution,
+                "root console plan execution projection differs")
     require(lane.get("source_topology") == p324_typec_lane.SOURCE_TOPOLOGY
         and lane.get("candidate_topology") == p324_typec_lane.CANDIDATE_TOPOLOGY
         and lane.get("selector_topology_count") == 1
@@ -15020,7 +15162,7 @@ def _validate_candidate_observer_state(
     shared_return_fields = frozenset({
         'p363_control_intent', 'p363_return_window',
         'p363_return_evidence_unavailable',
-    }) if prefix in RETURN_SHELL_OWNERS else frozenset()
+    }) if prefix in CONTROL_RETURN_OWNERS else frozenset()
     if any(key.startswith(foreign) and key not in shared_return_fields for key in state):
         raise F1LiveError("host-first state carries a foreign candidate namespace")
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
@@ -17028,7 +17170,7 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
 
 
 def _native_return_bundle(bundle: core.Bundle) -> bool:
-    return _shell_bundle(bundle) and _shell_definition(bundle).prefix in RETURN_SHELL_OWNERS
+    return _shell_bundle(bundle) and _shell_definition(bundle).prefix in CONTROL_RETURN_OWNERS
 
 
 def _read_native_download_arrival(prepared: PreparedRun, receipt: dict[str, Any]) -> dict[str, Any]:
@@ -19547,6 +19689,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-grant", type=Path)
     parser.add_argument("--attended", action="store_true")
     parser.add_argument("--adb", type=Path)
+    parser.add_argument("--root-console-plan", type=Path)
     return parser
 
 
@@ -19554,6 +19697,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = core.repo_root()
     try:
+        if args.root_console_plan is not None and not (args.execute or args.execute_session):
+            raise F1LiveError("root console plan requires a P375 execute mode")
         if args.execute_session:
             if args.session_grant is None or not args.attended or args.approval is not None:
                 raise F1LiveError("session execute requires grant/current attendance and no exact-token approval")
@@ -19602,8 +19747,13 @@ def main(argv: list[str] | None = None) -> int:
             if args.recover and args.approval is not None:
                 raise F1LiveError("recovery must not require a second approval")
             prepared = load_prepared(root, args.manifest, args.run_dir)
+            if (args.root_console_plan is not None and
+                    (not _shell_bundle(prepared.bundle)
+                     or not _shell_definition(prepared.bundle).root_console)):
+                raise F1LiveError("root console plan requires the exact P375 bundle")
             adb = args.adb or d0.default_adb()
-            backend = SamsungOdinBackend(root, prepared.bundle, adb)
+            backend = SamsungOdinBackend(root, prepared.bundle, adb,
+                root_console_plan=args.root_console_plan)
             if args.execute_session:
                 result = execute_attended_session(prepared, args.session_grant, backend, attended=args.attended)
             elif args.execute:

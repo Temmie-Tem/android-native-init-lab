@@ -287,10 +287,12 @@ class _ReceiptFixture:
         )
 
     def _write_raw_capture(self) -> None:
+        maximum=(self.observer.RAW_MAXIMUM if self.variant.root_console
+            else live.P327_MAX_RAW_BYTES)
         writer = live.raw_capture.RawCaptureWriter(
             self.run_dir,
             "candidate-observer",
-            stdout_maximum=live.P327_MAX_RAW_BYTES,
+            stdout_maximum=maximum,
             stderr_maximum=1,
             argv0_name="tty-cdc-acm-p345",
             stdout_name="candidate-observer.raw",

@@ -13,7 +13,27 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Prepare one reviewed attended batch of three fixed display-step candidates:
+Implement and qualify a new attended root command console (P375). Its changed
+closure is independently reviewed and the H0 READY declaration is published;
+no connected preparation or live grant exists yet.
+PID1 owns one persistent authenticated transport and supervises repeated root
+BusyBox `sh -c` children, separate bounded stdout/stderr, command status and
+process-group cancellation. Real proc/sys/dev and a same-boot RAM workspace
+are intended; filesystem containment and hostile-root isolation are not claims.
+STATUS and return CONTROL must remain responsive during command work and cleanup.
+Host completion required actual producer/consumer and ARM64 syscall checks, a
+reviewed candidate/host closure, and concrete preparation for the next attended
+run. Those checks passed. See the [P375 H0 report](docs/reports/S22PLUS_FYG8_P375_ROOT_CONSOLE_H0_2026-09-09.md).
+
+P375 A/B builds are byte-identical and contain only `boot.img.lz4`; candidate
+static and the published common bundle both pass. The exact closure received
+`PASS_GO` after 63 independent tests, plus the root's 33-test final rerun. The
+next step is a fresh exact-target connected D0 preparation with a pre-effect
+sealed command plan. Any candidate effect still requires current physical
+attendance and a fresh finite live grant. The P372-P374 grant is closed and
+cannot be reused.
+
+The preceding reviewed attended batch used three fixed display-step candidates:
 P372 queues one fixed pattern; P373 queues two fixed patterns in order; P374
 exits its display child after a fixed request starts, before completion. Shared
 PID1 supervision must retain CONTROL independently of child work. Queued,
@@ -37,7 +57,7 @@ invocation. P372's temporary final-health ADB offline resolved within the existi
 wait; the operator separately observed Android.
 
 All three reservations are consumed and the grant is closed. No active native
-session or replay authority remains. The next bounded unit is not selected.
+session or replay authority remains. P375 does not reuse that grant.
 Visible pixels, continuous liveness, child/kernel/PID1 stall recovery and
 unattended operation remain unproved. The shared report preserves exact results,
 source qualification, evidence limits and canonical timelines.

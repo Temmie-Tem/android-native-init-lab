@@ -1713,14 +1713,14 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
     _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
     _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
     _adapter.proof_class = _adapter._raw_parser().proof_class
-    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch", "p363": "native_return_control", "p364": "native_return_control", "p365": "native_return_control", "p366": "native_return_control", "p367": "native_return_control", "p368": "native_return_control", "p369": "native_return_control", "p370": "native_return_control", "p371": "native_return_control", "p372": "native_return_control", "p373": "native_return_control", "p374": "native_return_control"}.get(_prefix, "readonly_research_shell")
+    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch", "p363": "native_return_control", "p364": "native_return_control", "p365": "native_return_control", "p366": "native_return_control", "p367": "native_return_control", "p368": "native_return_control", "p369": "native_return_control", "p370": "native_return_control", "p371": "native_return_control", "p372": "native_return_control", "p373": "native_return_control", "p374": "native_return_control", "p375": "root_console"}.get(_prefix, "readonly_research_shell")
     _constants = {
         "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
         "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
@@ -1741,14 +1741,14 @@ for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", 
                           ("research_shell_observer", _observer), ("research_shell_runtime", _runtime)):
         globals()[_prefix + "_" + _key] = _module
     SHELL_VARIANTS[_prefix] = types.SimpleNamespace(prefix=_prefix, adapter=_adapter,
-        workload=_workload, proof_key=_prefix + "_" + _workload + "_qualification",
+        workload=_workload, root_console=_workload=="root_console", proof_key=_prefix + "_" + _workload + "_qualification",
         retained_lease=_prefix in ("p348", "p349"),
         planned_handoff=_prefix in ("p370","p371","p372","p373","p374"),
         display_steps=_prefix in ("p372","p373","p374"),
         status_queries=_prefix in ("p371","p372","p373","p374"),
         diagnostic_progress=_prefix in ("p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374"),
-        native_usb_departure=_prefix in ("p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374"),
-        large_return_records=_prefix in ("p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374"),
+        native_usb_departure=_prefix in ("p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375"),
+        large_return_records=_prefix in ("p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375"),
         artifact=_artifact, observer=_observer, runtime=_runtime,
         overlay=_adapter.OVERLAY_CONTRACT_ID, run_id=_constants["RUN_ID"],
         image_identity=getattr(_artifact, _upper + "_IMAGE_IDENTITY"),
@@ -6601,7 +6601,7 @@ def _validate_p327_e2_ap_payload(frame: bytes, closure: Any, *, display_assets=N
     by_name = {entry.name: entry for entry in entries}
     expected_names = set(P319_GENERIC_ROOTFS_NAMES) | {"bin", "bin/busybox"}
     if display_assets is not None:
-        if display_variant is None or not any(display_variant is v for v in SHELL_VARIANTS.values()) or display_variant.workload not in ("native_display_events", "static_display_dispatch", "native_return_control"):
+        if display_variant is None or not any(display_variant is v for v in SHELL_VARIANTS.values()) or display_variant.workload not in ("native_display_events", "static_display_dispatch", "native_return_control", "root_console"):
             raise EvidenceError("display asset variant differs")
         allowed = {"s22-display", "s22-display-modules"} | {
             "s22-display-modules/" + name for name in getattr(display_variant.artifact, "PACKAGED_MODULE_NAMES", display_variant.artifact.DISPLAY_MODULE_NAMES)}
@@ -7649,7 +7649,7 @@ def _shell_observer_spec(prefix):
         value.update(kind="exact_cdc_acm_p349_ram_workspace_shell_qualification_v1",
             read_only_child_required=False, ram_workspace_child_required=True,
             workspace_path="/work", workspace_bytes=8388608, workspace_inodes=256)
-    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control"):
+    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control", "root_console"):
         value.update(kind=f"exact_cdc_acm_{prefix}_display_qualification_v1",
             read_only_child_required=False, fixed_display_once_child=True,
             qualification_timeout_sec=150, session_cap=3, same_fd_session_count=3,
@@ -7700,6 +7700,25 @@ def _shell_observer_spec(prefix):
             display_exit_before_completion=audit['step_exit_before_completion'],
             step_sequences=audit['step_sequences'],step_ack_scope='queued-only',
             commands=[{'size':len(c),'sha256':hashlib.sha256(c).hexdigest()} for c in commands])
+    if variant.root_console:
+        value.update(kind=f"exact_cdc_acm_{prefix}_root_console_v1",
+            qualification_timeout_sec=600,session_cap=1,same_fd_session_count=1,
+            total_session_count=1,total_command_count=5,qualification_exec_count=5,
+            proof_command_count=5,max_commands=69,plan_command_cap=64,
+            maximum_exec_count=69,max_output_bytes=1048576,
+            command_output_frame_limit=2048,aggregate_raw_maximum=83886080,
+            session_rx_limit=83820544,control_rx_reserve_bytes=80,
+            return_reserve_sec=10,
+            fixed_display_once_child=False,read_only_child_required=False,
+            root_console=True,caller_selected_command=True,authenticated_cancel=True,
+            framed_session_close_required=False,control_mode="download",control_ack_scope="acceptance-only",
+            native_session_ms=600000,command_timeout_max_ms=300000,command_output_limit=1048576,
+            workspace_path="/s22-root-work",workspace_bytes=67108864,workspace_inodes=4096,
+            kernel_boot_id_semantic=variant.observer.control.BOOT_ID_SEMANTIC,
+            authenticated_progress=True,diagnostic_frame_type=139,diagnostic_max_frames=49,
+            diagnostic_payload_size=40,partial_progress_raw_replay=True,
+            commands=[{"size":len(step.command),"sha256":hashlib.sha256(step.command).hexdigest()}
+                for step in variant.observer.QUALIFICATION_COMMANDS])
     if variant.diagnostic_progress:
         value.update(authenticated_progress=True,
             diagnostic_frame_type=control.FRAME_DIAGNOSTIC,
@@ -7750,7 +7769,7 @@ def _shell_ap_payload_closure(value, variant):
         "busybox": candidate["busybox"], "latch": P319_EXACT_ARTIFACTS["latch"],
         "auth_key": dict(variant.auth_key)}
 
-    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control"):
+    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control", "root_console"):
         result["display_assets"] = candidate["display_assets"]
     return result
 
@@ -7761,7 +7780,7 @@ def _p345_ap_payload_closure(value):
 
 def _validate_shell_ap_payload(frame, closure, variant):
     item = _exact(closure, {"kind", "run_id", "userspace_overlay_contract_id", "source_contract_id",
-        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"} | ({"display_assets"} if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control") else set()), "shell AP closure")
+        "boot_img_lz4", "boot_image", "image", "init", "child", "busybox", "latch", "auth_key"} | ({"display_assets"} if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control", "root_console") else set()), "shell AP closure")
     if (item["kind"] != variant.prefix + "_exact_" + variant.workload + "_ap_v1"
         or item["run_id"] != variant.run_id or item["userspace_overlay_contract_id"] != variant.overlay
         or item["source_contract_id"] != variant.adapter.PARENT_SOURCE_CONTRACT_ID
@@ -7772,14 +7791,15 @@ def _validate_shell_ap_payload(frame, closure, variant):
         "source_contract_id": p327_stock_adapter.PARENT_SOURCE_CONTRACT_ID,
         "userspace_overlay_contract_id": P327_STOCK_OVERLAY_CONTRACT_ID})
     verified = _validate_p327_e2_ap_payload(frame, inherited,
-        display_assets=item["display_assets"] if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control") else None, display_variant=variant)
+        display_assets=item["display_assets"] if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control", "root_console") else None, display_variant=variant)
     result = {**verified, "run_id": variant.run_id, "userspace_overlay_contract_id": variant.overlay,
-              "read_only_child_required": variant.prefix != "p349" and variant.workload not in ("native_display_events", "static_display_dispatch", "native_return_control"), "later_action_lease_active": False}
+              "read_only_child_required": variant.prefix != "p349" and variant.workload not in ("native_display_events", "static_display_dispatch", "native_return_control", "root_console"), "later_action_lease_active": False}
     if variant.prefix == "p349":
         result["ram_workspace_child_required"] = True
-    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control"):
-        result["fixed_display_once_child"] = True
+    if variant.workload in ("native_display_events", "static_display_dispatch", "native_return_control", "root_console"):
+        result["fixed_display_once_child"] = not variant.root_console
         result["display_assets"] = item["display_assets"]
+        if variant.root_console:result["root_console"] = True
     return result
 
 

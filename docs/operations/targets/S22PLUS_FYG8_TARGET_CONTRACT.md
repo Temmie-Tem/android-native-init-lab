@@ -1644,6 +1644,58 @@ separately returned attended F1 approval remain required. Physical Download
 recovery and the exact single rollback are unchanged; this clause grants no
 device effect or unattended authority.
 
+**P375 attended root console.** P372/P373/P374 and their finite grant remain
+closed and never replayable. P375 is a fresh boot-only candidate with one
+authenticated CDC ACM transport owned by native PID1. After five fixed
+qualification commands prove numeric UID/GID 0, real `/proc`/`sys`/`dev`,
+same-boot RAM persistence, separate binary stdout/stderr, nonzero exit,
+process-group cancellation and post-cancel admission, the same transport may
+run one pre-effect sealed operator plan of at most 64 BusyBox `sh -c` commands.
+Each plan row binds exact command bytes, an absolute cwd and a 1–300,000 ms
+timeout. There is no PTY, interactive stdin, environment API, reconnect,
+listener reentry, session renewal or command replay.
+
+The parent creates `/s22-root-work` once as a 64 MiB/4,096-inode tmpfs and
+starts every command as a fresh numeric-root child in the real native mount
+view. Files may persist for that candidate boot; shell variables and cwd do
+not. This workspace is not containment. The command and cwd share the bounded
+wire payload; stdout and stderr share a 1 MiB command budget. One command may
+be active. At most 2,048 output frames are emitted per command, and the complete
+P375 observer stream has an 80 MiB raw bound. STATUS, authenticated CANCEL and CONTROL remain available while
+the parent drains output and performs nonblocking TERM/KILL/reap cleanup.
+Cancellation covers the owned process group; escaped descendants and
+uninterruptible tasks remain unproved. Unresolved cleanup blocks another EXEC
+but does not suppress CONTROL.
+
+Before each optional EXEC, the host reserves its full requested timeout, ten
+seconds for cleanup/return, the maximum command wire bytes and the CONTROL
+reply. Insufficient remaining session or raw capacity stops before that EXEC
+and records the entire unexecuted suffix. A pre-spawn failure may return an
+authenticated terminal without ACK; a complete known negative fixed or plan
+outcome stops further work when required and still proceeds to the single
+CONTROL. Unexecuted or unresolved plan rows keep the result `NO_PROOF` while
+preserving their individual disposition and separate rollback health.
+
+The optional plan is sealed into the prepared run before Download request or
+candidate transfer. Each exact command receives a durable private intent before
+its first byte is sent and one terminal result; a host cut or uncertain delivery
+forbids retransmission. The original ten-minute native deadline covers fixed
+qualification, the optional plan and terminal CONTROL. CONTROL ACK proves
+acceptance only; after it fully flushes, PID1 requests Download at most once and
+parks. Auth failure, malformed framing, transport loss, deadline expiry or
+uncertain cleanup never reopens the console or creates another attempt.
+
+Root execution does not relax the permanent partition, persistent-mutation,
+device-isolation, evidence or recovery boundaries. Commands remain limited by
+the operator-authorized experiment even though there is no command allowlist or
+per-command approval ceremony. P375 still requires independent changed-closure
+review, exact A/B artifact/static qualification, fresh connected preparation,
+an exact rollback, physical attendance and a fresh finite live grant. Console
+qualification, each command outcome, CONTROL acceptance, Download arrival,
+rollback and final rooted Android health remain separate evidence. This clause
+grants no device effect, unattended use, hostile-root isolation, kernel/PID1
+stall recovery or standing shell authority.
+
 **Target-scoped post-rollback final health.** Native-return prepared source
 closures that bind `final_target_health` use the versioned
 `s22plus_target_scoped_final_health_v1` result only after the journal records
@@ -1673,11 +1725,11 @@ records are not repinned, regenerated or upgraded. Scope review is triggered
 by changes to target mapping, USB mode, recovery or final-evidence semantics.
 This H0 implementation/review grants no new connected run or device effect.
 
-If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, P368, P369, P370, or P371 candidate transfer occurs, the same
+If a P327, P328, P329, P330, P331, P332, P333, P334, P335, P336, P337, P338, P339, P340, P341, P342, P343, P344, P345, P346, P347, P348, P349, P350, P351, P352, P353, P354, P355, P356, P357, P358, P359, P360, P361, P363, P364, P365, P366, P367, P368, P369, P370, P371, or P375 candidate transfer occurs, the same
 reporting unit that confirms `CAMPAIGN_CLOSED` must append exactly one matching
 `s22plus-fyg8-p327`, `s22plus-fyg8-p328`, `s22plus-fyg8-p329`,
 `s22plus-fyg8-p330`, `s22plus-fyg8-p331`, `s22plus-fyg8-p332`,
-`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, `s22plus-fyg8-p368`, `s22plus-fyg8-p369`, `s22plus-fyg8-p370`, or `s22plus-fyg8-p371` F1 closure row derived from that
+`s22plus-fyg8-p333`, `s22plus-fyg8-p334`, `s22plus-fyg8-p335`, `s22plus-fyg8-p336`, `s22plus-fyg8-p337`, `s22plus-fyg8-p338`, `s22plus-fyg8-p339`, `s22plus-fyg8-p340`, `s22plus-fyg8-p341`, `s22plus-fyg8-p342`, `s22plus-fyg8-p343`, `s22plus-fyg8-p344`, `s22plus-fyg8-p345`, `s22plus-fyg8-p346`, `s22plus-fyg8-p347`, `s22plus-fyg8-p348`, `s22plus-fyg8-p349`, `s22plus-fyg8-p350`, `s22plus-fyg8-p351`, `s22plus-fyg8-p352`, `s22plus-fyg8-p353`, `s22plus-fyg8-p354`, `s22plus-fyg8-p355`, `s22plus-fyg8-p356`, `s22plus-fyg8-p357`, `s22plus-fyg8-p358`, `s22plus-fyg8-p359`, `s22plus-fyg8-p360`, `s22plus-fyg8-p361`, `s22plus-fyg8-p363`, `s22plus-fyg8-p364`, `s22plus-fyg8-p365`, `s22plus-fyg8-p366`, `s22plus-fyg8-p367`, `s22plus-fyg8-p368`, `s22plus-fyg8-p369`, `s22plus-fyg8-p370`, `s22plus-fyg8-p371`, or `s22plus-fyg8-p375` F1 closure row derived from that
 run's retained journal and result. This is post-terminal
 bookkeeping, not a pre-execution gate; no F1 row is written before the effect.
 

@@ -1,0 +1,306 @@
+/* Trusted operator root console. Included after P328 framing/crypto helpers.
+ * Every tick performs bounded nonblocking I/O; only the child calls exec.
+ * ARM64 syscall numbers below must be checked against the target UAPI.
+ */
+#define RC1_EXEC 32U
+#define RC1_STATUS 33U
+#define RC1_CANCEL 34U
+#define RC1_CONTROL 35U
+#define RC1_ACK 160U
+#define RC1_OUTPUT 161U
+#define RC1_EXIT 162U
+#define RC1_STATUS_REPLY 163U
+#define RC1_CONTROL_ACK 164U
+#define RC1_FAULT 165U
+#define RC1_READY 166U
+#define RC1_QUEUE 8U
+#define RC1_WIRE (P328_HEADER_SIZE+P328_MAX_PAYLOAD)
+#define RC1_OUTPUT_LIMIT 1048576U
+#define RC1_OUTPUT_FRAME_LIMIT 2048U
+#define RC1_SESSION_MS 600000ULL
+#define RC1_TIMEOUT_MAX_MS 300000U
+#define RC1_FLAG_CANCEL 1U
+#define RC1_FLAG_TIMEOUT 2U
+#define RC1_FLAG_TRUNCATED 4U
+#define RC1_FLAG_CLEANUP 8U
+#define RC1_FLAG_SETUP 16U
+#define RC1_FLAG_CONTROL 32U
+#define RC1_FLAG_WAIT_UNKNOWN 64U
+#define RC1_FLAG_OUTPUT_INCOMPLETE 128U
+#define RC1_FLAG_EXEC_UNKNOWN 256U
+#ifndef RC1_RUN_ID_ASCII
+#error "RC1_RUN_ID_ASCII must bind the exact candidate"
+#endif
+static const volatile char rc1_run_id_ascii[]=RC1_RUN_ID_ASCII;
+struct rc1_frame {uint8_t bytes[RC1_WIRE];unsigned size,used;};
+struct rc1_state {
+    int fd,pipe[3],status,exec_errno,reaped,exec_seen,active,blocked,control;
+    long pid;
+    uint32_t next,id,last_id,ordinal,flags,total,dropped,timeout,control_seq,overload;
+    uint64_t start,command_start,cancel_start,drain_start,partial_start,control_start;
+    unsigned cancel_phase,terminal_sent,rx_used,rx_size,qhead,qcount,fault_sent;
+    uint8_t nonce[32],rx[RC1_WIRE],exec_bytes[4];unsigned exec_used;
+    struct rc1_frame queue[RC1_QUEUE];
+};
+static long rc1_now(uint64_t *out) {
+    struct timespec64 n={0};long rc=p241_clock_gettime(&n);
+    if(rc)return rc;
+    *out=(uint64_t)n.tv_sec*1000U+(uint64_t)n.tv_nsec/1000000U;
+    return 0;
+}
+static int rc1_run_id_matches(void) {
+    static const char hex[]="0123456789abcdef";
+    for(unsigned i=0;i<sizeof(p328_run_id_bytes);++i) {
+        if(rc1_run_id_ascii[2U*i]!=hex[p328_run_id_bytes[i]>>4] ||
+           rc1_run_id_ascii[2U*i+1U]!=hex[p328_run_id_bytes[i]&15U])return 0;
+    }
+    return rc1_run_id_ascii[32]==0;
+}
+static void rc1_tag(uint8_t tag[32],const uint8_t nonce[32],uint32_t seq,
+                    uint8_t type,const uint8_t *body,unsigned size) {
+    uint8_t bytes[P328_MAX_PAYLOAD];bytes[0]=type;
+    if(size)memcpy(bytes+1,body,size);
+    p328_hmac_message(tag,"S22PLUS-FYG8-ROOT-CONSOLE-v1",sizeof("S22PLUS-FYG8-ROOT-CONSOLE-v1")-1U,
+        p328_run_id_bytes,nonce,seq,1,bytes,(uint16_t)(size+1U));
+}
+static long rc1_queue(struct rc1_state *s,uint8_t type,uint32_t seq,
+                      const uint8_t *body,unsigned size) {
+    if(size+32U>P328_MAX_PAYLOAD || s->qcount==RC1_QUEUE)return -EAGAIN;
+    struct rc1_frame *f=&s->queue[(s->qhead+s->qcount)%RC1_QUEUE];
+    uint8_t *w=f->bytes;memset(w,0,P328_HEADER_SIZE);
+    w[0]='S';w[1]='3';w[2]='2';w[3]='8';w[4]=1;w[5]=type;
+    p328_store_le16(w+6,(uint16_t)(size+32U));p328_store_le32(w+8,seq);
+    if(size)memcpy(w+16,body,size);
+    rc1_tag(w+16+size,s->nonce,seq,type,body,size);
+    p328_store_le32(w+12,p328_frame_crc(w,w+16,(uint16_t)(size+32U)));
+    f->used=0;f->size=16U+size+32U;++s->qcount;return 0;
+}
+static long rc1_flush(struct rc1_state *s) {
+    if(!s->qcount)return 0;
+    struct rc1_frame *f=&s->queue[s->qhead];
+    long n=sys_write(s->fd,f->bytes+f->used,f->size-f->used);
+    if(n==-EAGAIN || n==-P260_EINTR)return 0;
+    if(n<=0 || (unsigned)n>f->size-f->used)return n<0?n:-EIO;
+    f->used+=(unsigned)n;
+    if(f->used==f->size){s->qhead=(s->qhead+1U)%RC1_QUEUE;--s->qcount;}
+    return 0;
+}
+static void rc1_close_pipes(struct rc1_state *s) {
+    for(unsigned i=0;i<3;i++)if(s->pipe[i]>=0){(void)sys_close(s->pipe[i]);s->pipe[i]=-1;}
+}
+static void rc1_signal(struct rc1_state *s,int sig) {
+    if(s->pid>0){(void)sys_kill(-s->pid,sig);if(!s->reaped)(void)sys_kill(s->pid,sig);}
+}
+static void rc1_cancel(struct rc1_state *s,uint64_t now,unsigned flag) {
+    if(!s->active)return;
+    s->flags|=flag;if(!s->cancel_phase){s->cancel_phase=1;s->cancel_start=now;rc1_signal(s,15);}
+}
+static void rc1_child_failure(int fd,long rc) {
+    uint8_t bytes[4];p328_store_le32(bytes,(uint32_t)(int32_t)rc);
+    (void)sys_write(fd,bytes,4U);sys_exit(126);
+}
+static long rc1_spawn(struct rc1_state *s,const uint8_t *body,unsigned size,uint64_t now) {
+    /* timeout_ms:u32, cwd_length:u16, cwd bytes, command bytes (no NUL). */
+    if(size<8U)return -P260_EPROTO;
+    unsigned cwd_size=(unsigned)body[4]|((unsigned)body[5]<<8);
+    uint32_t timeout=p328_load_le32(body);
+    if(!timeout || timeout>RC1_TIMEOUT_MAX_MS || cwd_size==0 || cwd_size>255U ||
+       6U+cwd_size>=size || body[6]!='/' || size-6U-cwd_size>767U)return -P260_EPROTO;
+    for(unsigned i=6;i<size;i++)if(!body[i])return -P260_EPROTO;
+    char cwd[256],command[768];memcpy(cwd,body+6,cwd_size);cwd[cwd_size]=0;
+    unsigned command_size=size-6U-cwd_size;memcpy(command,body+6+cwd_size,command_size);command[command_size]=0;
+    int pipes[3][2]={{-1,-1},{-1,-1},{-1,-1}};long rc=0;
+    for(unsigned i=0;i<3;i++) {
+        rc=sys_pipe2(pipes[i],O_CLOEXEC|O_NONBLOCK);
+        if(rc || pipes[i][0]<=2 || pipes[i][1]<=2){if(!rc)rc=-P260_EPROTO;goto fail;}
+    }
+    long pid=sys_clone();if(pid<0){rc=pid;goto fail;}
+    if(!pid) {
+        int error_fd=pipes[2][1];
+        if(p328_setsid()<0)rc1_child_failure(error_fd,-P260_EPROTO);
+        for(unsigned i=0;i<3;i++)(void)sys_close(pipes[i][0]);
+        /* pipe read and write ends have distinct open descriptions. */
+        for(unsigned i=0;i<2;i++) {
+            rc=syscall6(25,pipes[i][1],4,0,0,0,0); /* fcntl F_SETFL: child writes block */
+            if(rc<0)rc1_child_failure(error_fd,rc);
+            rc=p328_dup_to(pipes[i][1],(int)i+1);if(rc!=(long)i+1)rc1_child_failure(error_fd,rc<0?rc:-EIO);
+        }
+        long input=sys_openat("/dev/null",O_RDONLY|O_CLOEXEC,0);
+        if(input<0)rc1_child_failure(error_fd,input);
+        rc=p328_dup_to((int)input,0);if(rc!=0)rc1_child_failure(error_fd,rc);
+        /* Exact ARM64 close_range(436), flags=0: no inherited transport/key FD,
+         * including descriptors above a guessed userspace ceiling. */
+        if(error_fd>3){rc=syscall6(436,3,error_fd-1,0,0,0,0);if(rc<0)rc1_child_failure(error_fd,rc);}
+        rc=syscall6(436,error_fd+1,0xffffffffU,0,0,0,0);if(rc<0)rc1_child_failure(error_fd,rc);
+        rc=syscall6(49,(long)(uintptr_t)cwd,0,0,0,0,0); /* chdir */
+        if(rc<0)rc1_child_failure(error_fd,rc);
+        char *argv[]={"/bin/busybox","sh","-c",command,NULL};
+        char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","HOME=/","TERM=dumb",NULL};
+        rc=sys_execve("/bin/busybox",argv,env);rc1_child_failure(error_fd,rc);
+    }
+    for(unsigned i=0;i<3;i++){(void)sys_close(pipes[i][1]);s->pipe[i]=pipes[i][0];}
+    s->pid=pid;s->active=1;s->reaped=0;s->exec_seen=0;s->exec_used=0;s->exec_errno=0;
+    s->status=0;s->ordinal=0;s->flags=0;s->total=0;s->dropped=0;s->cancel_phase=0;
+    s->terminal_sent=0;s->command_start=now;s->drain_start=0;s->timeout=timeout;return 0;
+fail:
+    for(unsigned i=0;i<3;i++)for(unsigned j=0;j<2;j++)if(pipes[i][j]>=0)(void)sys_close(pipes[i][j]);
+    return rc;
+}
+static long rc1_reply_state(struct rc1_state *s,uint8_t type,uint32_t seq,unsigned disposition) {
+    uint8_t body[32]={0};p328_store_le32(body,s->id);p328_store_le32(body+4,disposition);
+    p328_store_le32(body+8,(uint32_t)s->active);p328_store_le32(body+12,(uint32_t)s->blocked);
+    p328_store_le32(body+16,s->flags);p328_store_le32(body+20,s->total);
+    p328_store_le32(body+24,s->dropped);p328_store_le32(body+28,s->last_id);
+    return rc1_queue(s,type,seq,body,sizeof(body));
+}
+static long rc1_request(struct rc1_state *s,uint64_t now) {
+    uint8_t *w=s->rx,*body=w+16,tag[32];unsigned size=s->rx_size-16U;
+    uint32_t seq=p328_load_le32(w+8);uint8_t type=w[5];
+    if(size<32U || seq!=s->next || seq==0xffffffffU ||
+       p328_load_le32(w+12)!=p328_frame_crc(w,body,(uint16_t)size))return -P260_EPROTO;
+    size-=32U;rc1_tag(tag,s->nonce,seq,type,body,size);
+    if(!p328_constant_time_equal(tag,body+size,32U))return -P260_EPROTO;
+    /* Consume before any effect; failure may never retry this request. */
+    ++s->next;
+    /* CONTROL admission lives outside the ordinary response queue. Freeze
+     * output production and drain its bounded existing frames before terminal
+     * and ACK, so ordinal accounting never overtakes queued output. */
+    if(type==RC1_CONTROL && !size) {
+        s->control=1;s->control_seq=seq;s->control_start=now;s->blocked=1;
+        rc1_cancel(s,now,RC1_FLAG_CANCEL);rc1_signal(s,9);return 0;
+    }
+    if(s->qcount>=RC1_QUEUE-1U) {
+        s->blocked=1;if(!s->overload)s->overload=seq;return 0;
+    }
+    if(type==RC1_EXEC) {
+        if(s->active || s->blocked)return rc1_reply_state(s,RC1_ACK,seq,1U);
+        s->id=seq;s->total=0;s->dropped=0;s->ordinal=0;s->flags=0;
+        long rc=rc1_spawn(s,body,size,now);
+        if(rc){s->last_id=seq;s->exec_errno=(int)rc;s->flags=RC1_FLAG_SETUP;
+            uint8_t result[28]={0};p328_store_le32(result,seq);p328_store_le32(result+4,RC1_FLAG_SETUP);
+            p328_store_le32(result+12,(uint32_t)(int32_t)rc);return rc1_queue(s,RC1_EXIT,seq,result,28U);}
+        return rc1_reply_state(s,RC1_ACK,seq,0U);
+    }
+    if(type==RC1_STATUS && !size)return rc1_reply_state(s,RC1_STATUS_REPLY,seq,0U);
+    if(type==RC1_CANCEL && size==4U) {
+        uint32_t id=p328_load_le32(body);unsigned disposition=2U;
+        if(id==s->id && s->active){rc1_cancel(s,now,RC1_FLAG_CANCEL);disposition=0U;}
+        else if(id==s->last_id && id)disposition=1U;
+        return rc1_reply_state(s,RC1_ACK,seq,disposition);
+    }
+    return -P260_EPROTO;
+}
+static long rc1_receive(struct rc1_state *s,uint64_t now) {
+    unsigned target=s->rx_size?s->rx_size:16U;
+    long n=sys_read(s->fd,s->rx+s->rx_used,target-s->rx_used);
+    if(n==-EAGAIN || n==-P260_EINTR)return 0;
+    if(n<=0 || (unsigned)n>target-s->rx_used)return n<0?n:-EIO;
+    if(!s->rx_used)s->partial_start=now;
+    s->rx_used+=(unsigned)n;
+    if(s->rx_used==16U && !s->rx_size) {
+        uint8_t *w=s->rx;unsigned size=(unsigned)w[6]|((unsigned)w[7]<<8);
+        if(w[0]!='S'||w[1]!='3'||w[2]!='2'||w[3]!='8'||w[4]!=1||size<32U||size>P328_MAX_PAYLOAD)return -P260_EPROTO;
+        s->rx_size=16U+size;
+    }
+    if(s->rx_size && s->rx_used==s->rx_size) {
+        long rc=rc1_request(s,now);s->rx_used=0;s->rx_size=0;return rc;
+    }
+    return 0;
+}
+static long rc1_child_tick(struct rc1_state *s,uint64_t now) {
+    if(!s->active)return 0;
+    if(now-s->command_start>=s->timeout)rc1_cancel(s,now,RC1_FLAG_TIMEOUT);
+    if(s->cancel_phase==1U && now-s->cancel_start>=250U){rc1_signal(s,9);s->cancel_phase=2U;}
+    for(unsigned i=0;i<2;i++)if(s->pipe[i]>=0) {
+        uint8_t body[780];long n=sys_read(s->pipe[i],body+12,768U);
+        if(n>0) {
+            if(s->total+(unsigned)n>RC1_OUTPUT_LIMIT || s->ordinal>=RC1_OUTPUT_FRAME_LIMIT ||
+               s->qcount>=RC1_QUEUE-3U) {
+                s->flags|=RC1_FLAG_TRUNCATED;
+                if(s->dropped<=0xffffffffU-(unsigned)n)s->dropped+=(unsigned)n;else s->dropped=0xffffffffU;
+            } else {
+                p328_store_le32(body,s->id);p328_store_le32(body+4,++s->ordinal);p328_store_le32(body+8,i+1U);
+                long rc=rc1_queue(s,RC1_OUTPUT,s->id,body,(unsigned)n+12U);if(rc)return rc;s->total+=(unsigned)n;
+            }
+        } else if(!n){(void)sys_close(s->pipe[i]);s->pipe[i]=-1;}
+        else if(n!=-EAGAIN && n!=-P260_EINTR)return n;
+    }
+    if(s->pipe[2]>=0) {
+        long n=sys_read(s->pipe[2],s->exec_bytes+s->exec_used,4U-s->exec_used);
+        if(n>0){s->exec_used+=(unsigned)n;if(s->exec_used==4U){s->exec_errno=(int32_t)p328_load_le32(s->exec_bytes);s->flags|=RC1_FLAG_SETUP;(void)sys_close(s->pipe[2]);s->pipe[2]=-1;s->exec_seen=1;}}
+        else if(!n){if(s->exec_used)return -P260_EPROTO;s->exec_seen=1;(void)sys_close(s->pipe[2]);s->pipe[2]=-1;}
+        else if(n!=-EAGAIN && n!=-P260_EINTR)return n;
+    }
+    if(!s->reaped) {
+        long n=sys_wait4(s->pid,&s->status,WNOHANG);
+        if(n==s->pid){s->reaped=1;s->drain_start=now;rc1_cancel(s,now,0);}
+        else if(n<0 && n!=-P260_EINTR)return n;
+    }
+    /* PID1 (or the H0 subreaper) adopts descendants. Bounded reap per tick. */
+    if(s->reaped || (s->cancel_phase && now-s->cancel_start>=2000U)) {
+        int status=0;long n=s->reaped?sys_wait4(-s->pid,&status,WNOHANG):0;
+        if(n<0 && n!=-P328_ECHILD && n!=-P260_EINTR)return n;
+        long group=sys_kill(-s->pid,0);
+        int clean=s->reaped && n==-P328_ECHILD && group==-3 && s->pipe[0]<0 && s->pipe[1]<0 && s->exec_seen;
+        if(clean || (s->cancel_phase && now-s->cancel_start>=2000U)) {
+            if(!clean){s->blocked=1;s->flags|=RC1_FLAG_CLEANUP|RC1_FLAG_OUTPUT_INCOMPLETE;}
+            if(!s->reaped){s->flags|=RC1_FLAG_WAIT_UNKNOWN;s->status=0;}
+            if(!s->exec_seen)s->flags|=RC1_FLAG_EXEC_UNKNOWN;
+            if(s->qcount>=RC1_QUEUE-1U)return 0;
+            uint8_t body[28]={0};p328_store_le32(body,s->id);p328_store_le32(body+4,s->flags);
+            p328_store_le32(body+8,(uint32_t)s->status);p328_store_le32(body+12,(uint32_t)(int32_t)s->exec_errno);
+            p328_store_le32(body+16,s->total);p328_store_le32(body+20,s->dropped);p328_store_le32(body+24,s->ordinal);
+            long rc=rc1_queue(s,RC1_EXIT,s->id,body,28U);if(rc)return rc;
+            s->terminal_sent=1;s->last_id=s->id;s->active=0;rc1_close_pipes(s);if(clean)s->pid=0;
+        }
+    }
+    return 0;
+}
+static long rc1_control_tick(struct rc1_state *s) {
+    if(s->qcount || s->control==2)return 0;
+    if(s->active) {
+        if(!s->reaped){long n=sys_wait4(s->pid,&s->status,WNOHANG);if(n==s->pid)s->reaped=1;}
+        s->flags|=RC1_FLAG_CONTROL|RC1_FLAG_CLEANUP|RC1_FLAG_OUTPUT_INCOMPLETE;
+        if(!s->reaped){s->flags|=RC1_FLAG_WAIT_UNKNOWN;s->status=0;}
+        if(!s->exec_seen)s->flags|=RC1_FLAG_EXEC_UNKNOWN;
+        uint8_t body[28]={0};p328_store_le32(body,s->id);p328_store_le32(body+4,s->flags);
+        p328_store_le32(body+8,(uint32_t)s->status);p328_store_le32(body+12,(uint32_t)(int32_t)s->exec_errno);
+        p328_store_le32(body+16,s->total);p328_store_le32(body+20,s->dropped);p328_store_le32(body+24,s->ordinal);
+        long rc=rc1_queue(s,RC1_EXIT,s->id,body,28U);if(rc)return rc;
+        s->terminal_sent=1;s->last_id=s->id;s->active=0;rc1_close_pipes(s);
+    }
+    long rc=rc1_reply_state(s,RC1_CONTROL_ACK,s->control_seq,0U);if(rc)return rc;
+    s->control=2;return 0;
+}
+/* Return 1 only after authenticated CONTROL ACK is fully flushed; caller owns
+ * the already reviewed Download syscall. Any negative result parks/stops. */
+static long rc1_console(int fd,const uint8_t nonce[32]) {
+    struct rc1_state s={0};s.fd=fd;s.next=3U;for(unsigned i=0;i<3;i++)s.pipe[i]=-1;
+    if(!rc1_run_id_matches())return -P260_EPROTO;
+    memcpy(s.nonce,nonce,32U);long rc=rc1_now(&s.start);if(rc)return rc;
+    long uid=syscall6(175,0,0,0,0,0,0),gid=syscall6(177,0,0,0,0,0,0);
+    if(uid<0 || gid<0)return -P260_EPROTO;
+    uint8_t ready[32];p328_store_le32(ready,1U);p328_store_le32(ready+4,(uint32_t)RC1_SESSION_MS);
+    p328_store_le32(ready+8,RC1_TIMEOUT_MAX_MS);p328_store_le32(ready+12,RC1_OUTPUT_LIMIT);
+    p328_store_le32(ready+16,767U);p328_store_le32(ready+20,255U);
+    p328_store_le32(ready+24,(uint32_t)uid);p328_store_le32(ready+28,(uint32_t)gid);
+    rc=rc1_queue(&s,RC1_READY,2U,ready,sizeof(ready));if(rc)return rc;
+    for(;;) {
+        uint64_t now=0;rc=rc1_now(&now);if(rc)break;
+        if(now-s.start>=RC1_SESSION_MS || (s.rx_used && now-s.partial_start>5000U)){rc=-ETIMEDOUT;break;}
+        if(!s.control){rc=rc1_receive(&s,now);if(rc)break;}
+        if(s.control){
+            if(now-s.control_start>=5000U){rc=-ETIMEDOUT;break;}
+            rc=rc1_control_tick(&s);
+        }else rc=rc1_child_tick(&s,now);
+        if(rc)break;
+        if(s.overload && !s.fault_sent && !s.control && s.qcount<RC1_QUEUE-1U) {
+            uint8_t fault[8];p328_store_le32(fault,s.overload);p328_store_le32(fault+4,1U);
+            rc=rc1_queue(&s,RC1_FAULT,s.overload,fault,8U);if(rc)break;s.fault_sent=1;
+        }
+        rc=rc1_flush(&s);if(rc)break;
+        if(s.control==2 && !s.qcount){rc1_signal(&s,9);rc1_close_pipes(&s);return 1;}
+        p282_poll_delay();
+    }
+    rc1_signal(&s,9);rc1_close_pipes(&s);return rc;
+}
