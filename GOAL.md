@@ -13,6 +13,13 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+The [v0.1.2-rc.4 design](docs/plans/S22PLUS_FYG8_V012_RC4_DESIGN_2026-09-10.md)
+selects pipe backpressure and two bounded memory observations after functional
+qualification. A private host prototype preserved both64KiB streams under a
+paused reader and retained CONTROL with an honest incomplete terminal. This is
+DESIGN_ONLY: final implementation/ARM64 integration/review/preparation are pending.
+No RAM-file deletion, RBIN/CMA change, new candidate or device authority follows.
+
 Latest candidate **v0.1.2-rc.3** (P380) is consumed and CLOSED/19 with one
 exact rollback and final rooted FYG8/original health complete. The gauge HUD
 subproof passed with three fresh SOC/voltage/current samples; overall console
