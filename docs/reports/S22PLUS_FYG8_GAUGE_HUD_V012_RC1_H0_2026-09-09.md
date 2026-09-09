@@ -1,8 +1,10 @@
 # S22+ v0.1.2-rc.1 gauge HUD qualification
 
 The bounded unit adds gauge SOC, voltage and signed current to the native HUD.
-Target: SM-S906N/g0q/S906NKSS7FYG8. No device effect has occurred in this unit.
-The functional version remains v0.1.1 until a new live result qualifies it.
+Target: SM-S906N/g0q/S906NKSS7FYG8. The subsequent attended run closed
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; exact rollback and final health passed.
+The functional version remains v0.1.1. The sections before the live close below
+retain the preparation-stage evidence and authority separation.
 The prospective design is [Gauge HUD V1](../operations/S22PLUS_FYG8_GAUGE_HUD_V1.md).
 
 ## Evidence and correction
@@ -106,3 +108,68 @@ The exact console-plan consumer reopened the sealed three-command plan:
 A host summary initially treated the D0 receipt as an embedded result; it was
 corrected by dereferencing the retained file after load/seal had succeeded.
 No connected read, preparation or device transition was repeated.
+
+## Attended live close — 2026-09-10 KST
+
+The operator supplied the exact prepared approval in response to the attendance
+condition. The original execute ran once and completed without a recover call.
+One candidate and one exact rollback completed. The journal validates as
+CLOSED/19; `recovery_required=false`, final rooted FYG8/original hashes/Android
+health and Download absence passed. A90 and S20+ received no command.
+
+The result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
+`p378_root_console_unproved_rollback_verified`. All six fixed requests were
+accepted and reached terminal responses, but the gauge HUD proof is false.
+The aggregate `qualified_command_count` is 0; none of the three planned console
+commands was executed. CONTROL acceptance remained observable. Preserve the
+observer's `authenticated-session-error`, `framed_session_closed=false` and
+`P378 root console stopped; no replay`; do not relabel it as full console PASS.
+ACK-only `software_download_arrival=UNPROVED` is also preserved separately from
+the subsequent exact Download/rollback/final-health evidence.
+
+The bounded HUD capture contains 15 matched-frame records, sequences 1–15,
+uptime 3896–18022 ms, including 14 BUSY frames. The last record has valid=3,
+so memory/CPU are valid but gauge fields are not; gauge sequence is 0.
+The new module's load index 12 has a retained LOAD_DONE marker, which establishes
+insertion return only, not a successful child probe or register read. The capture
+does not retain the fixed module sample or a probe/read error reason. Therefore
+it cannot distinguish rejected child binding, failed sampling and consumer
+rejection. No specific cause is promoted from the N/A display.
+
+The operator photograph separately shows unclipped version/status text, uptime
+10 seconds, BUSY console, memory 1052/7024 MiB, available 5972 MiB and CPU 0.3%.
+Gauge SOC, voltage, current and gauge age are all N/A, as are temperature and
+charge state. This is OBSERVED physical output; one photograph does not prove
+continuous updates, an exact machine frame or a gauge measurement. The original
+photo and separate observation record are retained privately; machine records
+and journal are unchanged. v0.1.2 is not confirmed and this consumed candidate
+cannot be replayed. Further gauge diagnosis needs its own bounded H0 preparation
+and any new device execution must satisfy the existing authority rules.
+
+Canonical timeline (UTC):
+
+| Event | Timestamp |
+| --- | --- |
+| `live_session_start` | 2026-09-09T20:15:02.879217Z |
+| `candidate_flash_start` | 2026-09-09T20:15:24.740906Z |
+| `candidate_flash_done` | 2026-09-09T20:15:26.472801Z |
+| `candidate_boot_ready` | 2026-09-09T20:15:55.237095Z |
+| `rollback_flash_start` | 2026-09-09T20:16:03.752761Z |
+| `rollback_flash_done` | 2026-09-09T20:16:05.540899Z |
+| `rollback_boot_ready` | 2026-09-09T20:16:52.174202Z |
+| `live_session_end` | 2026-09-09T20:16:52.194630Z |
+
+Retained private evidence:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `live-result.json` | 47,141 | `57591f638914c50d49f0d9514446a638da883fb9206b3a256f23b95adf0e0538` |
+| `candidate-observer.json` | 38,064 | `03881c733a2f6976eeeecbf60ee318342319e9fe3a3850b1ff1f98441d38aafb` |
+| `operator-gauge-hud-photo.jpg` | 77,239 | `35765b9a74882c886bfc0850757ed45f61dbdab82eabf2d929979f9a5b2adc65` |
+| `operator-gauge-hud-observation.json` | 1,021 | `63f352f20516048f00926aea2fb3d0d4152a42122c3ebfa2abaa1a4f92d4e99f` |
+
+Close validation: the read-only journal validator accepted the complete chain;
+new closure fields, unique append-only row, document links, goal size and diff
+checks passed. The full legacy ledger auditor stops at its existing row 547
+unknown-evidence-outcome error; the unchanged HEAD ledger reproduces the same
+error. That historical row and the auditor were not changed for this close.

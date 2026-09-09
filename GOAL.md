@@ -13,18 +13,16 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Current implementation: **v0.1.2-rc.1 — restricted gauge telemetry HUD**.
-Qualify an additive driver on the existing MAX77705 fuel-gauge MFD child, using
-fixed non-destructive reads for gauge SOC, voltage and signed current. Preserve
-existing MFD/PDIC/USB owners; no stock fuel-gauge initialization or charger work.
-Temperature and charging state remain unavailable unless independently supplied.
-Final A/B build, static/common bundle validation and independent `PASS_GO` are
-complete. READY and connected read-only preparation are complete for
-`p378-ready1-prepared-20260909-1`; no candidate effect has occurred.
-Fresh Process-v2 approval and current physical attendance remain required.
-See the [qualification report](docs/reports/S22PLUS_FYG8_GAUGE_HUD_V012_RC1_H0_2026-09-09.md).
-The earlier [battery report](docs/reports/S22PLUS_FYG8_BATTERY_DATA_RESEARCH_2026-09-09.md)
-now distinguishes the 73 inherited USB modules from 17 additional modules.
+Latest candidate: **v0.1.2-rc.1 — restricted gauge telemetry HUD**, consumed.
+The attended `p378-ready1-prepared-20260909-1` run closed
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: the gauge HUD qualification failed,
+all three planned console commands remained unexecuted, and one exact rollback
+plus final rooted FYG8/original-hash health completed. CLOSED/19,
+`recovery_required=false`; no replay or standing native lease remains.
+The photograph and retained HUD records show memory/CPU but gauge SOC, voltage,
+current and gauge age N/A. Module insertion return does not prove child binding
+or reads; the retained evidence cannot localize that failure. **v0.1.2 is not
+confirmed.** See the [run report](docs/reports/S22PLUS_FYG8_GAUGE_HUD_V012_RC1_H0_2026-09-09.md).
 
 Functional version: **v0.1.1 — system-status HUD**, mapped to successful
 v0.1.1-rc.1 / run-001 (internal P377) without rebuilding or renaming artifacts.
