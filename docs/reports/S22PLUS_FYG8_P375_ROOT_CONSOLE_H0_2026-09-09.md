@@ -1,8 +1,8 @@
 # S22+ P375 attended root console H0 qualification
 
-Target: SM-S906N/g0q/S906NKSS7FYG8. This report records host qualification,
-READY publication and a fresh connected D0 preparation. It grants no candidate
-effect or live console authority.
+Target: SM-S906N/g0q/S906NKSS7FYG8. This report records host qualification, READY publication, connected D0
+preparation and the subsequently completed attended F1 run. The run is closed
+and grants no further candidate effect or live console authority.
 
 ## Bounded capability
 
@@ -63,8 +63,8 @@ The prepared run `p375-ready1-prepared-20260909-1` passed
 the final prepared record and bundle. The prepared record is 32,986 bytes with
 SHA-256 `c9eaed8dfc33303e32f8e8245e96dc0a3a2d434ef6b763cacd876fd2a80ead2a`.
 The D0 action made device contact for bounded reads and requested no device
-write, reboot, Odin invocation or partition transfer. No run owner, journal,
-F1 authorization or live authorization exists.
+write, reboot, Odin invocation or partition transfer. At preparation time no run owner, journal,
+F1 authorization or live authorization existed.
 
 A canonical three-command private plan is sealed into the prepared run.
 It runs system identity, writes and rereads one RAM file across fresh shells,
@@ -77,3 +77,50 @@ A later F1 effect requires current physical attendance and a fresh finite grant.
 Hostile-root isolation, escaped-descendant cleanup, reconnect, continuous
 liveness, kernel/PID1-stall recovery, unattended use and standing shell authority
 remain unproved. A90 and S20+ received no commands from this task.
+
+## Attended F1 closure
+
+The operator supplied the exact prepared approval. The original execute ran once
+and returned `PASS_F1_V2_P375_ROOT_CONSOLE_AND_ROLLED_BACK`, outcome
+`p375_root_console_rollback_verified`, CLOSED with 19 journal records and
+`recovery_required=false`. One candidate and one exact rollback completed;
+there was no recover invocation, reconnect, replay or later-action lease.
+
+All five fixed qualification commands passed, including numeric root, real
+proc/sys/dev, RAM state across shells, binary stderr/nonzero exit, STATUS,
+process-group cancellation and post-cancel admission. All three sealed plan
+commands completed with exit zero: identity, RAM-file write/read and pipeline.
+The authenticated qualification reports `proved=true`, eight command terminals,
+one transport session and zero physical reopenings. CONTROL acceptance is
+proved separately from the subsequently observed exact Download rollback path.
+Final health verified rooted FYG8 Android, boot completion, original boot and
+supporting partition hashes, and target/global Download absence.
+
+Preserve the narrower evidence: the observer's `software_download_arrival`
+remains `UNPROVED` (CONTROL ACK alone proves acceptance). Supplemental stock
+projection retains `P320_STOCK_WITNESS_BASE_SHAPE_FAILURE` and
+`p375_proof_class=NO_PROOF_OBSERVER`; it does not establish stock-carrier causal
+proof. These fields are not rewritten or promoted by the successful primary
+ACM console qualification or rollback verdict. No hostile-root isolation,
+kernel/PID1-stall recovery, unattended recovery, PTY or standing shell is proved.
+
+Canonical UTC timeline:
+
+| Event | UTC |
+| --- | --- |
+| live_session_start | 2026-09-09T10:34:07.834520Z |
+| candidate_flash_start | 2026-09-09T10:34:25.196267Z |
+| candidate_flash_done | 2026-09-09T10:34:26.860006Z |
+| candidate_boot_ready | 2026-09-09T10:34:43.377501Z |
+| rollback_flash_start | 2026-09-09T10:34:50.121408Z |
+| rollback_flash_done | 2026-09-09T10:34:51.834799Z |
+| rollback_boot_ready | 2026-09-09T10:35:38.187301Z |
+| live_session_end | 2026-09-09T10:35:38.208136Z |
+
+Private evidence remains in `p375-ready1-prepared-20260909-1`:
+
+- `live-result.json`: 48,983 bytes, SHA-256 `d1a2a19d62287b05df5686e6e3394c873536c5036f778929730363c2c9c2bf2e`.
+- `candidate-observer.json`: 40,805 bytes, SHA-256 `558abf6d2b0b26be56cba425826b9e215a97f2fd9bc9d51dd83d05715db391ab`.
+
+A90 and S20+ received no commands. Reporting changes only; consumed evidence
+and execution closure remain unchanged.

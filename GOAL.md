@@ -13,26 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Implement and qualify a new attended root command console (P375). Its changed
-closure is independently reviewed, the H0 READY declaration is published and
-one fresh exact-target connected D0 preparation passes. No live grant exists.
-PID1 owns one persistent authenticated transport and supervises repeated root
-BusyBox `sh -c` children, separate bounded stdout/stderr, command status and
-process-group cancellation. Real proc/sys/dev and a same-boot RAM workspace
-are intended; filesystem containment and hostile-root isolation are not claims.
-STATUS and return CONTROL must remain responsive during command work and cleanup.
-Host completion required actual producer/consumer and ARM64 syscall checks, a
-reviewed candidate/host closure, and concrete preparation for the next attended
-run. Those checks passed. See the [P375 H0 report](docs/reports/S22PLUS_FYG8_P375_ROOT_CONSOLE_H0_2026-09-09.md).
+P375 root console implementation, independent review and one attended live run
+are complete. Run `p375-ready1-prepared-20260909-1` closed with
+`PASS_F1_V2_P375_ROOT_CONSOLE_AND_ROLLED_BACK`: five fixed qualification commands
+and three sealed plan commands passed; one candidate and one exact rollback
+completed, followed by verified rooted FYG8 Android and original partition
+hashes. The journal has 19 records, CLOSED, `recovery_required=false`.
 
-P375 A/B builds are byte-identical and contain only `boot.img.lz4`; candidate
-static and the published common bundle both pass. The exact closure received
-`PASS_GO` after 63 independent tests, plus the root's 33-test final rerun. The
-prepared run is `p375-ready1-prepared-20260909-1`. A canonical three-command
-RAM-only plan is sealed into that run: system identity, RAM-file
-write/read across fresh shells, and a pipeline check. Any candidate effect still
-requires current physical attendance and a fresh finite live grant. The
-P372-P374 grant is closed and cannot be reused.
+The proved capability is repeated root BusyBox `sh -c` execution supervised by
+native PID1 over one authenticated transport, real proc/sys/dev, same-boot RAM
+state, bounded stdout/stderr, STATUS and cancellation. CONTROL acceptance and
+observed exact Download rollback remain separate evidence. The supplemental
+stock projection remains `NO_PROOF_OBSERVER`; it provides no causal stock proof.
+No standing shell or replay authority remains. Any next run needs its own
+current binding and authority. See the [P375 report](docs/reports/S22PLUS_FYG8_P375_ROOT_CONSOLE_H0_2026-09-09.md)
+for the canonical timeline, evidence hashes and limits.
 
 The preceding reviewed attended batch used three fixed display-step candidates:
 P372 queues one fixed pattern; P373 queues two fixed patterns in order; P374
