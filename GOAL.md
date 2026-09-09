@@ -13,6 +13,17 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+Implement and qualify P376: a minimal boot HUD alongside the root console.
+Completion requires text and uptime updates, concurrent console commands,
+independent HUD-failure handling, and an attended run with exact return/rollback
+and final health. H0 implementation, A/B build, 30 capability/regression tests and 30 common
+execution tests pass. Independent review returned PASS_GO with 28 tests, and
+the exact READY manifest/common bundle are published and verified. Fresh
+connected D0 preparation passed for `p376-ready1-prepared-20260909-1`; a
+three-command RAM-only viewing/console plan is prepared. The next step requires current
+physical attendance and the fresh exact Process-v2 approval. No candidate has
+been transferred and no new live grant exists. See the [HUD report](docs/reports/S22PLUS_FYG8_P376_BOOT_HUD_H0_2026-09-09.md).
+
 P375 root console implementation, independent review and one attended live run
 are complete. Run `p375-ready1-prepared-20260909-1` closed with
 `PASS_F1_V2_P375_ROOT_CONSOLE_AND_ROLLED_BACK`: five fixed qualification commands

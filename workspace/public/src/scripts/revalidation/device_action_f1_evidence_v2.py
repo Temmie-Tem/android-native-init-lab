@@ -1713,14 +1713,14 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375", "p376"):
     _upper = _prefix.upper()
     _adapter = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_stock_process_v2_adapter")
     _artifact = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_artifact_identity")
     _observer = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_observer")
     _runtime = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_research_shell_runtime")
     _adapter.proof_class = _adapter._raw_parser().proof_class
-    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch", "p363": "native_return_control", "p364": "native_return_control", "p365": "native_return_control", "p366": "native_return_control", "p367": "native_return_control", "p368": "native_return_control", "p369": "native_return_control", "p370": "native_return_control", "p371": "native_return_control", "p372": "native_return_control", "p373": "native_return_control", "p374": "native_return_control", "p375": "root_console"}.get(_prefix, "readonly_research_shell")
+    _workload = {"p349": "ram_workspace_research_shell", "p350": "native_display_events", "p351": "native_display_events", "p352": "native_display_events", "p353": "static_display_dispatch", "p354": "static_display_dispatch", "p355": "static_display_dispatch", "p356": "static_display_dispatch", "p357": "static_display_dispatch", "p358": "static_display_dispatch", "p359": "static_display_dispatch", "p360": "static_display_dispatch", "p361": "static_display_dispatch", "p363": "native_return_control", "p364": "native_return_control", "p365": "native_return_control", "p366": "native_return_control", "p367": "native_return_control", "p368": "native_return_control", "p369": "native_return_control", "p370": "native_return_control", "p371": "native_return_control", "p372": "native_return_control", "p373": "native_return_control", "p374": "native_return_control", "p375": "root_console", "p376": "root_console"}.get(_prefix, "readonly_research_shell")
     _constants = {
         "STOCK_OVERLAY_CONTRACT_ID": _adapter.OVERLAY_CONTRACT_ID,
         "RUN_ID": getattr(_adapter, _upper + "_RUN_ID_HEX"),
@@ -1747,8 +1747,8 @@ for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", 
         display_steps=_prefix in ("p372","p373","p374"),
         status_queries=_prefix in ("p371","p372","p373","p374"),
         diagnostic_progress=_prefix in ("p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374"),
-        native_usb_departure=_prefix in ("p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375"),
-        large_return_records=_prefix in ("p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375"),
+        native_usb_departure=_prefix in ("p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375", "p376"),
+        large_return_records=_prefix in ("p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375", "p376"),
         artifact=_artifact, observer=_observer, runtime=_runtime,
         overlay=_adapter.OVERLAY_CONTRACT_ID, run_id=_constants["RUN_ID"],
         image_identity=getattr(_artifact, _upper + "_IMAGE_IDENTITY"),
@@ -7701,11 +7701,12 @@ def _shell_observer_spec(prefix):
             step_sequences=audit['step_sequences'],step_ack_scope='queued-only',
             commands=[{'size':len(c),'sha256':hashlib.sha256(c).hexdigest()} for c in commands])
     if variant.root_console:
+        fixed_count=len(variant.observer.QUALIFICATION_COMMANDS)
         value.update(kind=f"exact_cdc_acm_{prefix}_root_console_v1",
             qualification_timeout_sec=600,session_cap=1,same_fd_session_count=1,
-            total_session_count=1,total_command_count=5,qualification_exec_count=5,
-            proof_command_count=5,max_commands=69,plan_command_cap=64,
-            maximum_exec_count=69,max_output_bytes=1048576,
+            total_session_count=1,total_command_count=fixed_count,qualification_exec_count=fixed_count,
+            proof_command_count=fixed_count,max_commands=fixed_count+64,plan_command_cap=64,
+            maximum_exec_count=fixed_count+64,max_output_bytes=1048576,
             command_output_frame_limit=2048,aggregate_raw_maximum=83886080,
             session_rx_limit=83820544,control_rx_reserve_bytes=80,
             return_reserve_sec=10,

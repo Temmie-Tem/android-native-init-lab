@@ -28,6 +28,21 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### P376 boot HUD and root console
+
+P376 is a fresh reviewed-capability candidate under [Boot HUD V1](../S22PLUS_FYG8_BOOT_HUD_V1.md).
+It combines the root console with a separate PID1-supervised text HUD child,
+nonblocking bounded snapshots/diagnostics and immutable per-update DRM buffers.
+Exact matched flip events gate old-buffer retirement; any uncertainty parks the
+HUD without blocking console CONTROL or claiming kernel-stall recovery.
+P375 and prior display runs remain consumed. This clause opens no grant;
+independent changed-closure review, exact static/A-B qualification, connected
+preparation, current attendance and fresh Process-v2 approval remain required.
+HUD submissions and physical pixels are separate evidence. A P376 candidate
+transfer requires one matching `s22plus-fyg8-p376` F1 closure row at terminal
+reporting, derived from its retained result and journal, with the canonical
+timeline and exact rollback/final-health status. No row precedes the effect.
+
 ### Fixed requested display-step batch
 
 P372/P373/P374 share one reviewed bounded eventfd request protocol. P372 requests
