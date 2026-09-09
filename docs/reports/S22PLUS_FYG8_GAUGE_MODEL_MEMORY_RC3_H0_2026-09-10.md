@@ -239,3 +239,80 @@ per-stream loss, reclaimability, RSS and leak limits stated above. This review
 qualifies no fix or future device action. The private derived analysis's earlier
 truncated-stderr wording is limited here to unproved stderr completeness under
 an aggregate command-loss counter; it is not a per-stream loss trace.
+
+## RBIN follow-up: Android heap census and implementation
+
+The operator requested verification of the reusable/RBIN interpretation. One
+bounded root D0 invocation read `/dev/dma_heap` names and `/proc/meminfo` on
+exact rooted SM-S906N/g0q/FYG8 Android. Before/after identity and boot matched.
+There was no write, heap allocation/open, reboot or new native candidate; A90
+and S20+ received no command. Raw results remain private.
+
+The Android observation at 2026-09-09T22:12:52.913113+00:00 reported:
+
+| Counter | KiB | MiB |
+| --- | ---: | ---: |
+| RbinTotal | 819,200 | 800.000 |
+| RbinAlloced | 7,168 | 7.000 |
+| RbinPool | 0 | 0.000 |
+| RbinFree | 812,032 | 793.000 |
+| RbinCached | 0 | 0.000 |
+| CmaTotal | 454,656 | 444.000 |
+| CmaFree | 60,520 | 59.102 |
+| Cached | 2,636,356 | 2574.566 |
+
+Eighteen DMA heap names were listed, including `qcom,camera` and
+`qcom,camera-uncached`. The current 800 MiB RBIN split is 7 MiB allocated,
+793 MiB free, zero pool and zero cache. Therefore the roughly 2.5 GiB overall
+Cached value is not evidence of RBIN cache lending in this sample. Android
+counters do not establish the previous native boot's hidden allocation state.
+
+The full kernel worktree contains the implementation, even if a separate OSRC
+extract contains only selected directories. `HEAP_TYPE_RBIN` is3 in
+`include/linux/qcom_dma_heap_dt_constants.h`; `qcom_dma_heap.c` dispatches it to
+`add_rbin_heap()`. That function initializes the region and registers
+`qcom,camera` and `qcom,camera-uncached`. This is direct evidence of camera-named
+heap interfaces; no current allocating application or exclusive consumer was
+identified. Heap names alone cannot identify that client.
+
+The reference G0Q r07 DTS has the quoted800MiB size,1GiB expand_size,32MiB
+alignment and reusable property. Its phandle differs from the operator's
+example; phandles are local to each DT and are not a global identity. This
+source example is not presented as a fresh live DT capture. Native and Android
+RbinTotal independently observe800MiB. The actual P380 Image contains
+CONFIG_RBIN=y and CONFIG_CMA_SIZE_MBYTES=16. `expand_size` is selected by the
+boot-time DRAM-size condition in `of_reserved_mem.c`, rather than demonstrating
+on-demand growth of this8GiB device's region.
+
+The [Devicetree reserved-memory specification](https://devicetree-specification.readthedocs.io/en/latest/chapter3-devicenodes.html#reserved-memory-child-nodes)
+allows reuse while the owner can reclaim it. The property does not by itself
+instantiate an allocator or prove that reuse has occurred. In this implementation,
+`init_rbinregion()` creates a gen_pool; `init_region()` builds its free list and
+sets free-page statistics; `init_rbincache()` registers cleancache operations.
+Cache storage copies pages into region handles and adjusts RBIN free/cached
+counters. It is a dedicated RBIN/cleancache backend, not a conclusion that every
+reusable reservation automatically behaves like the standard CMA allocator.
+
+CONFIG_CMA_SIZE_MBYTES=16 specifies the default configured size; it is not the
+system-wide CMA total. The exact native and Android meminfo both report
+CmaTotal454656KiB (444MiB), including configured areas beyond that default.
+The native sample had about441MiB of that CMA total free. Counting the full
+CMA total as occupied would also be incorrect.
+
+A reserved physical region is not merely a fictitious number: without its
+management/reuse path, the region is not thereby made available to ordinary
+allocations. Native zero RBIN statistics can result from the absent provider,
+so they do not independently prove that nobody uses the entire reservation.
+The approximately254MiB result remains a reservation-adjusted accounting
+difference, not an exact runtime footprint or safe reclaimability proof.
+Consequently, neither 'nothing can be reduced' nor 'smaller than A90's281MiB'
+is established. No matching A90 measurement basis was verified, and no A90
+command was sent. No allocator initialization, reservation release or memory
+policy change is proposed as an already-qualified action by this finding.
+
+Private source/observation identities:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `s22plus-rbin-android-d0-20260910-1/result.json` | 2,236 | `107210a73aa93c63aadd1d2a26c7fac4b4d2ba940c2002c16359613e7b070ca8` |
+| `s22plus-rbin-android-d0-20260910-1/source-findings.json` | 3,854 | `b7e3c36138a3ed35925005c43df1894b730924cd89a4172a2fc20975293e30d7` |

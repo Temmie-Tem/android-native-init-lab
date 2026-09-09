@@ -22,7 +22,10 @@ Two native meminfo observations identify an 800 MiB RBIN reservation component
 in the ~1054 MiB HUD accounting difference; separating it leaves ~254 MiB,
 not reclaimed RAM. The command output loss leaves the full process census unproved
 and does not establish absence of a leak. No replay/native lease remains; v0.1.1 is retained and
-image publication deferred. See the [rc.3 close and memory report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
+image publication deferred. Follow-up Android D0 observed RBIN800MiB with7MiB
+allocated/793MiB free/zero cached, and CmaTotal444MiB. Source verification found
+the camera-named RBIN/gen_pool/cleancache implementation; reusable alone is not
+proof of automatic reuse or safe release. See the [rc.3 close and memory report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
 
 Previous candidate: **v0.1.2-rc.2 gauge diagnostics** (P379), consumed and CLOSED/19.
 Formal result is NO_PROOF with one exact rollback and final rooted FYG8/original
