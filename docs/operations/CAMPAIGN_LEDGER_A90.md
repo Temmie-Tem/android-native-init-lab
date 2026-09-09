@@ -16,6 +16,20 @@ per-action health rows do not count.
 Write a separate report only for a new capability, a new hazard class, an
 incident, or a genuinely ambiguous device-safety result.
 
+## Coverage gap: H35-H41 (unreconciled)
+
+**This ledger is incomplete.** Its last row is `2026-08-22` and it carries no
+action rows for H35, H36, H37, H38, H39, H40 or H41, although those units ran
+and are recorded in `GOAL_A90.md` and in named incident and review reports.
+The gap is not a statement that nothing happened.
+
+Rows have not been backfilled because A90 is dormant. Before any future A90 F1
+or new candidate activation, reconcile the missing H35-H41 actions from the
+retained journals and reports, or explicitly replace that requirement through
+reviewed policy. Do not infer consumption or replay state from this ledger
+alone while the gap stands. This note grants no authority; it blocks reuse of
+an incomplete record.
+
 Metrics:
 
 - information-bearing results per week: `PROVED + REFUTED`;

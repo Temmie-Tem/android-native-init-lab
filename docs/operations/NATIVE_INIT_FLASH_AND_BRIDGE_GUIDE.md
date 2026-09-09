@@ -29,10 +29,24 @@ Date: `2026-06-12`
 - known-good fallback source: `workspace/public/archive/stage3/linux_init/init_v48.c`
 - known-good fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v48.img`
 - known-good fallback boot image SHA256: `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
-- latest verified build / rollback checkpoint: `A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)`
-- latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2321_usb_clean_identity_rodata.py`
-- latest verified boot image: `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
-- latest verified boot image SHA256: `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`
+- **last proved healthy rollback checkpoint**: `A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)`
+  - builder (source identity): `workspace/public/src/scripts/revalidation/build_native_init_boot_v2321_usb_clean_identity_rodata.py`
+  - boot image: `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
+  - boot image SHA256: `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`
+  - 이 체크포인트는 롤백 대상이다. **기기에 지금 올라가 있는 것이 아니다.**
+- **last tracked parked resident**: `0.12.008 / h41-badapple-video-demo-v2`
+  - candidate SHA256: `5aa3ca852e1cd9d89a23cfd0223a64fe98e5e0e356d71dc6543da6afe6389574`
+  - H41 run-02(`a90-h41-f1-20260830-02`)가 exact H41 write/readback과 System return까지
+    갔고, 이후 V2321 rollback intent는 기록됐지만 두 번째 삼성 기기가 함께 잡혀
+    pre-effect inventory 단계에서 멈췄다. flash helper는 dispatch되지 않았고
+    **V2321 write count는 0이다.** 다른 기기를 뺀 뒤 마지막으로 확인된 A90 endpoint는
+    exact H41 Native였다.
+  - 이건 **마지막으로 관측된** 상태이지 지금 이 순간의 기기 상태에 대한 주장이 아니다.
+    현재 상태는 새 D0 없이는 단정할 수 없다.
+  - 근거: `docs/reports/A90_H41_BADAPPLE_TIMEOUT_ROLLBACK_PREFLIGHT_INCIDENT_2026-08-31.md`
+- 주의: `workspace/public/src/native-init/`는 이제 A90 전용이 아니라 다기기 공용 작업장이다
+  (262파일 중 약 절반이 S22+/S20+). A90 V2321의 source identity는 위 빌더 스크립트와
+  artifact SHA256이며, 그 디렉터리 경로 자체는 결속점이 아니다.
 - version axes: `v2321-usb-clean-identity-rodata`는 boot/init baseline tag, `a90_android_execns_probe helper-v427`은 포함된 helper marker, `V2321`은 baseline-promotion run/report 번호다. 전체 규칙은 `docs/operations/VERSIONING_POLICY.md`를 따른다.
 - deeper Wi-Fi-proven fallback boot image: `workspace/private/inputs/boot_images/boot_linux_v2237_supplicant_terminate_poll.img` (`A90 Linux init 0.9.268 (v2237-supplicant-terminate-poll)`)
 - control channel: USB CDC ACM serial bridge

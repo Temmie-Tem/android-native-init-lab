@@ -130,15 +130,15 @@ H19-H23 and H25 were retired before live use. Their exact reasons remain in the
 campaign ledger and named review reports. Retired identities, paths, artifacts,
 reviews, and evidence are never reinterpreted as a fresh successor.
 
-## Selected Bounded Unit: H41 Rollback Recovery
-H41 run-02 wrote/read back exact H41 and confirmed System return. Its manual
-Bad Apple action returned observed `RC=-110`; playback remains unproved. The
-original V2321 rollback intent/launch is consumed, but a two-Samsung pre-effect
-inventory stopped before helper dispatch, Recovery transition, or boot write.
-After the other device was disconnected, only exact H41 Native remained. A
-fixed no-candidate continuation is under review for one V2321 rollback and one
-post-menu-close health observation. Both guards remain; no rollback may run
-until current independent review and fresh exact approval.
+## Selected Bounded Unit: H41 Rollback Recovery (dormant)
+A90 is dormant. **Last tracked parked resident:** H41 `0.12.008`. **Last proved
+healthy rollback checkpoint:** V2321 `0.9.285`. Neither is the present device,
+which needs a fresh D0. Run-02's consumed V2321 rollback stopped at a
+two-Samsung pre-effect inventory with write count zero, leaving only exact H41
+Native; `RC=-110` leaves playback unproved. A no-candidate continuation is under
+review; both guards remain and no rollback runs without fresh review and exact
+approval. Resume gate: reconcile the missing H35-H41 ledger rows first; never
+read consumption or replay state from the incomplete ledger.
 
 ## Paused Isolated-Debian Architecture Unit
 
