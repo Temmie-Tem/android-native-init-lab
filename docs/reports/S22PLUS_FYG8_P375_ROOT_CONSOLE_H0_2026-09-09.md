@@ -1,8 +1,8 @@
 # S22+ P375 attended root console H0 qualification
 
-Target: SM-S906N/g0q/S906NKSS7FYG8. This report records host qualification and
-READY publication only. It grants no connected run, candidate effect or live
-console authority.
+Target: SM-S906N/g0q/S906NKSS7FYG8. This report records host qualification,
+READY publication and a fresh connected D0 preparation. It grants no candidate
+effect or live console authority.
 
 ## Bounded capability
 
@@ -56,12 +56,24 @@ is 7,745 bytes with SHA-256
 The actual final-path common bundle reopens with SHA-256
 `b5c02b127cc248111bc400dc787685f088b2e3b705d9dabb453d37e71bdf6c42`.
 
-## Remaining live conditions
+## Connected preparation
 
-P375 has no connected preparation, live grant, command intent or candidate
-effect at this close. A fresh exact-target D0 preparation must seal the optional
-operator plan and revalidate target, source, candidate, rollback, topology and
-health. A later F1 effect requires current physical attendance and a fresh finite
-grant. Hostile-root isolation, escaped-descendant cleanup, reconnect, continuous
+The prepared run `p375-ready1-prepared-20260909-1` passed
+`PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`. Its actual consumer reopened
+the final prepared record and bundle. The prepared record is 32,986 bytes with
+SHA-256 `c9eaed8dfc33303e32f8e8245e96dc0a3a2d434ef6b763cacd876fd2a80ead2a`.
+The D0 action made device contact for bounded reads and requested no device
+write, reboot, Odin invocation or partition transfer. No run owner, journal,
+F1 authorization or live authorization exists.
+
+A canonical three-command private plan is sealed into the prepared run.
+It runs system identity, writes and rereads one RAM file across fresh shells,
+then checks that file through a pipeline. Its SHA-256 is
+`6373ceb74b74962ea57e8dda791a70bdf4f73603a0e8fc73bc8dcec9720954f7`.
+The fixed five-command qualification still proves numeric root, real proc/sys/dev,
+binary stdout/stderr, nonzero exit, cancellation and post-cancel admission.
+
+A later F1 effect requires current physical attendance and a fresh finite grant.
+Hostile-root isolation, escaped-descendant cleanup, reconnect, continuous
 liveness, kernel/PID1-stall recovery, unattended use and standing shell authority
 remain unproved. A90 and S20+ received no commands from this task.
