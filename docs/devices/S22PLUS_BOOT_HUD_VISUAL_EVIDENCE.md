@@ -24,6 +24,8 @@ P376 was a single attended boot-only transfer that ended in an exact Magisk
 rollback and a verified healthy rooted FYG8 return. It is closed, and neither the
 candidate nor the observation is replayable.
 
+**English** · [한국어](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.ko.md)
+
 ---
 
 ## The boot chain in one take
