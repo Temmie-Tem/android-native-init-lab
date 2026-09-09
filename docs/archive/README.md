@@ -14,6 +14,23 @@ Historical `ACTIVE` strings and acknowledgement tokens are inert evidence.
 - `roadmaps/GOAL_PRE_PROCESS_V2_2026-07-21.md`: immutable Git blob, SHA256, and
   retrieval commands for the complete pre-v2 accumulated roadmap.
 
+## Documentation index snapshots
+
+- `documentation/DOCS_README_KO_LEGACY_2026-09-09.md`: byte-identical copy of the
+  Korean `docs/README.md` as it stood on 2026-09-09, 294,075 bytes, SHA-256
+  `57692dc1e00df1aa04c5fd377707d893f8684e1eacf5ddfdcfc32d1f2e43adfd`, taken
+  before that file was replaced by a real documentation index. It is retained
+  unmodified so anything the new index does not carry can be recovered from the
+  original rather than reconstructed.
+
+  It is inert historical evidence and grants no current authority. Two kinds of
+  content inside it are **not** current state and must not be read as such: its
+  `## 현재 기준점` section records an A90 baseline of `0.9.266
+  (v2232-service-object-fwclass-bridge)` that later A90 reports already move
+  past, and its S22+ frontier, Wi-Fi investigation and module-map sections are
+  snapshots of the day. Current state is canonical in the per-target `GOAL.md`
+  files, the device pages and the reports.
+
 `docs/archive/legacy/`에는 이번 리셋 이전의 2025 방향 문서를 그대로 보관합니다.
 
 포함 범위:
