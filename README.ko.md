@@ -209,8 +209,9 @@ known-good 이미지와 검증된 복구 경로 유지, 인과를 규명해야 �
 
 ## 주요 문서
 
-전체 문서 목록과 읽는 순서, 사이클별 리포트는 `docs/README.md`를 정식
-인덱스로 한다. 여기서는 자주 여는 진입점만 추린다.
+문서 지도와 읽는 순서, 그리고 어떤 문서가 무엇의 정본인지는
+[`docs/README.ko.md`](docs/README.ko.md)를 정식 인덱스로 한다. 여기서는 자주 여는
+진입점만 추린다.
 
 현재 상태 / 연구:
 
@@ -234,7 +235,7 @@ known-good 이미지와 검증된 복구 경로 유지, 인과를 규명해야 �
 이력 / 인덱스:
 
 - `CHANGELOG.md` — A90 native-init / boot image의 역사적 이력. 현재 다기기 상태 기록이 아님
-- `docs/README.md` — 전체 문서·리포트 인덱스
+- `docs/README.ko.md` — 문서 지도와 정본 지도
 
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.
