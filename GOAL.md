@@ -33,6 +33,11 @@ The [H0 memory source review](docs/reports/S22PLUS_FYG8_MEMORY_SOURCE_REVIEW_H0_
 prioritizes RBIN ownership and Shmem/slab attribution. The adjusted254MiB
 includes about32MiB of net availability-estimator gap; enabled diagnostic
 options alone do not prove their runtime memory cost. No settings were changed.
+Further H0 includes the vendor ramdisk: combined file data rounds to77.672MiB,
+with55.988MiB in369 module files outside the current explicit load plans.
+This is a RAM-file retention design candidate, not measured reclaimability.
+Both applicable merged DTs explain CMA444MiB across13 areas and carry kasan=off;
+final native filesystem/slab attribution and effective boot arguments remain open.
 See the [rc.3 close and memory report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
 
 Previous candidate: **v0.1.2-rc.2 gauge diagnostics** (P379), consumed and CLOSED/19.
