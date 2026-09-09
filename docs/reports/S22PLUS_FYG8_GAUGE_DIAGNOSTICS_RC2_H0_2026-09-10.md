@@ -157,3 +157,46 @@ Private retained evidence:
 | `authenticated-hud-log.bin` | 6,927 | `df120b4f3b8b3b7f4f3c0075655c3dc2a6526388ef02a72aff7e2d448f28cd92` |
 | `operator-gauge-diagnostic-photo.jpg` | 88,468 | `db577585060e5414bb665722a6800429e5702f491846e0e544b986958fe4f92b` |
 | `operator-gauge-diagnostic-observation.json` | 1,008 | `815a536f4d2a5cb89c9fff4db524c502ce7a9ba7181e8a5e761648c08826e979` |
+
+## Post-close Android D0 — actual model and memory
+
+One operator-requested bounded read of `/proc/device-tree/model` (256-byte cap)
+and `/proc/meminfo` (8192-byte cap) completed after exact SM-S906N/g0q/FYG8 and
+topology binding. Before/after identity and boot matched; Android was booted.
+Raw command results were retained before parsing. No reboot, device write or
+new F1 occurred; A90 and S20+ received no command.
+
+The observed Android root model is `Samsung G0Q PROJECT (board-id,12)`, including
+a terminating NUL in the retained raw bytes. It matches neither existing
+allowlist entry. The source comment claiming the G0Q project name is only DTBO
+metadata does not describe this observed Android root. This supplies a concrete
+rc.3 correction input; it does not retrospectively capture P379's native root
+string or prove that later probe checks or gauge measurements will pass.
+
+Current Android memory observation (KiB):
+
+| Field | Value |
+| --- | ---: |
+| MemTotal | 7394164 |
+| MemAvailable | 4476696 |
+| MemFree | 1625132 |
+| Cached | 2632684 |
+| Slab | 399320 |
+| SUnreclaim | 273052 |
+| KernelStack | 55840 |
+| PageTables | 111032 |
+| CmaTotal | 454656 |
+| CmaFree | 40448 |
+
+The HUD renderer computes `(MemTotal - MemAvailable) / 1024`, with integer
+truncation, rather than summing process RSS. This Android sample corresponds to
+2849/7220 MiB; the earlier native photograph showed 1053/7024 MiB. Different
+boot environments, total memory and sample times prevent attributing that
+earlier 1053 MiB to the current Android categories. These categories overlap
+and must not be summed as an independent decomposition. Native-time meminfo
+would be needed to assess that earlier environment.
+
+The D0 result remains private under
+`workspace/private/runs/s22plus-p379-postclose-model-memory-20260910-1/`.
+Derived result SHA-256: `715f323ed8078fdabacdb47ecd989f7e5e30ce5397ec159946cfc7b9212a8278`.
+P379's consumed result, journal and original evidence remain unchanged.

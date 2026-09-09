@@ -19,9 +19,10 @@ health complete; no replay or native lease remains. Authenticated diagnostics
 localize root-model allowlist rejection (stage7/ENODEV), before binding or any
 I2C read. Units were not reached. Later probe checks remain untested.
 Diagnostic localization succeeded; v0.1.2 remains unconfirmed and v0.1.1 retained.
-The operator requests current model/meminfo reads, with Android versus prior
-native observations kept distinct, and HUD image publication deferred until
-rc.3 shows actual gauge data. See the [close report](docs/reports/S22PLUS_FYG8_GAUGE_DIAGNOSTICS_RC2_H0_2026-09-10.md).
+Post-close bounded Android D0 observed root model `Samsung G0Q PROJECT (board-id,12)`
+and retained meminfo; Android values do not decompose the prior native 1053 MiB.
+This is the concrete rc.3 identity-check input. HUD image publication remains
+deferred until rc.3 shows actual gauge data. See the [close report](docs/reports/S22PLUS_FYG8_GAUGE_DIAGNOSTICS_RC2_H0_2026-09-10.md).
 
 Previous candidate: **v0.1.2-rc.1 — restricted gauge telemetry HUD**, consumed.
 The attended `p378-ready1-prepared-20260909-1` run closed
