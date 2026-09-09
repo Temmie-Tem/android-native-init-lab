@@ -13,6 +13,18 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+Prepare **v0.1.1-rc.1 — system-status HUD**: grid-based placement, version and
+experiment purpose, memory used/available, aggregate CPU usage, battery capacity,
+charging state and battery temperature. Keep GPU/other thermal metrics outside
+this unit. Confirm fixed data interfaces through reviewed D0, then qualify
+parsing, missing/stale values, isolated collection and combined console/HUD
+behavior on the host before one separately approved attended candidate run.
+Existing v0.1.0 artifacts and consumed records remain unchanged.
+Implementation, fixed Android D0 observation, ARM64 tests, A/B build, candidate
+static validation and promotion rehearsal passed. Independent review returned
+PASS_GO, READY is published, and connected read-only preparation passed.
+The one attended candidate run awaits its exact fresh approval and attendance. See the [status HUD report](docs/reports/S22PLUS_FYG8_STATUS_HUD_V011_RC1_H0_2026-09-09.md).
+
 Functional version: **v0.1.0 — root console and minimal HUD**, mapped to the
 unchanged P376 artifacts and completed run. New experiments use the
 [version/candidate/run naming convention](docs/operations/S22PLUS_FYG8_VERSIONING.md).

@@ -30,6 +30,7 @@ Safe parking and automatic recovery are not claimed by this attended lane.
 | `identity` | D0 | root `id` and kernel release |
 | `processes` | D0 | root PID, PPID, UID, state and process name census; no arguments/environment |
 | `memory` | D0 | root `/proc/meminfo` and `/proc/vmstat` |
+| `status-hud` | D0 | fixed bounded `/proc/meminfo`, two aggregate `/proc/stat` samples one second apart, and battery `type`, `capacity`, `status`, `temp` attributes |
 | `mounts` | D0 | root `/proc/mounts` |
 | `usb-state` | D0 | ordinary Android USB configuration/state property reads |
 | `health` | D0 | existing exact rooted FYG8 boot/supporting hash and Android-health profile |
@@ -42,6 +43,13 @@ the same boot. D1 requires the new healthy boot, exact original boot/supporting
 hashes and Download absence. The read profiles are ordinary status interfaces;
 this does not authorize arbitrary procfs/sysfs/debugfs/device-file reads.
 Raw private output can contain identifiers and remains under `workspace/private`.
+
+The status-HUD profile reads only `/sys/class/power_supply/battery/`'s four
+named attributes, with bounded text prefixes and explicit unavailable markers.
+It does not enumerate other supplies or read serials, uevent, charging controls,
+thermal zones or GPU interfaces. Android availability does not establish native
+boot availability. It loads no provider module and changes no charging setting.
+CPU sampling sleep is observation spacing, not a reboot or mode transition.
 
 No caller shell, root command text, device path, register, package, process kill,
 service restart, module operation, security/configuration mutation, panic,

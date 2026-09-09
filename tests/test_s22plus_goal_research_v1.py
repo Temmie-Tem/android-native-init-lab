@@ -92,6 +92,38 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(self.client.calls, [('shell', TARGET['serial'], m.READS['memory'][0], True)])
         self.assertFalse(self.pending().exists())
 
+    def test_status_hud_is_one_fixed_read_without_control(self):
+        self.assertEqual(self.execute('status-hud')['verdict'], 'PASS')
+        self.assertEqual(self.client.calls,
+            [('shell', TARGET['serial'], m.STATUS_HUD_READ, True)])
+        self.assertFalse(self.pending().exists())
+        self.assertNotIn('uevent', m.STATUS_HUD_READ)
+        self.assertNotIn('thermal_zone', m.STATUS_HUD_READ)
+
+    def test_status_hud_shell_retains_missing_fields_and_two_cpu_samples(self):
+        import subprocess
+        fixture = self.root / 'status-fixture'
+        fixture.mkdir()
+        files = {'/proc/meminfo': 'MemTotal: 8192 kB\nMemAvailable: 4096 kB\n',
+                 '/proc/stat': 'cpu 10 0 4 80 1 0 0 0 0 0\nintr 123\n',
+                 '/sys/class/power_supply/battery/type': 'Battery\n',
+                 '/sys/class/power_supply/battery/capacity': '73\n',
+                 '/sys/class/power_supply/battery/status': 'Charging\n',
+                 '/sys/class/power_supply/battery/temp': None}
+        command = m.STATUS_HUD_READ
+        for index, (path, value) in enumerate(files.items()):
+            destination = fixture / str(index)
+            if value is not None:
+                destination.write_text(value)
+            command = command.replace(path, str(destination))
+        result = subprocess.run(['/bin/sh', '-c', command],
+                                capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count('cpu 10 0 4 80 1 0 0 0 0 0'), 2)
+        self.assertNotIn('intr 123', result.stdout)
+        self.assertEqual(result.stdout.count('UNAVAILABLE'), 1)
+        self.assertTrue(result.stdout.endswith('STATUS_HUD_V1_END\n'))
+
     def test_unknown_action_and_missing_attendance_fail_before_client(self):
         for action in ('su -c reboot', 'normal-reboot'):
             with self.assertRaises(m.ResearchError):

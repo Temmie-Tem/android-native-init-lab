@@ -28,6 +28,20 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### v0.1.1-rc.1 system-status HUD
+
+The fresh internal P377 candidate follows [Status HUD V1](../S22PLUS_FYG8_STATUS_HUD_V1.md).
+It retains the reviewed root console and immutable DRM lifecycle and adds one
+separately owned fixed read-only metrics collector. Missing or stale samples
+cannot block the HUD, console or CONTROL. Memory/CPU freshness and battery
+availability are separate evidence. No battery provider is loaded or configured.
+This definition grants no device action. Independent changed-closure review,
+exact A/B/static qualification, fresh preparation, current physical attendance
+and fresh Process-v2 approval are required for its single candidate run.
+Terminal reporting requires one `s22plus-fyg8-p377` F1 closure row derived from
+its retained result/journal, canonical timeline and exact rollback/final health.
+Consumed P376 and earlier runs remain closed and cannot be replayed.
+
 ### P376 boot HUD and root console
 
 P376 is a fresh reviewed-capability candidate under [Boot HUD V1](../S22PLUS_FYG8_BOOT_HUD_V1.md).

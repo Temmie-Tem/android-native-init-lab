@@ -36,12 +36,23 @@ SOURCES = {
 }
 # All text is fixed. These procfs/property interfaces are ordinary status reads;
 # no arbitrary proc/sys/dev path, process argument/environment or log-body read.
+STATUS_HUD_READ = """printf 'STATUS_HUD_V1_BEGIN\\n'
+for path in /proc/meminfo /sys/class/power_supply/battery/type /sys/class/power_supply/battery/capacity /sys/class/power_supply/battery/status /sys/class/power_supply/battery/temp; do
+    printf 'FIELD %s\\n' "$path"
+    if [ -r "$path" ]; then head -c 8192 "$path" || exit 1; else printf 'UNAVAILABLE\\n'; fi
+    printf '\\nEND_FIELD\\n'
+done
+printf 'FIELD cpu_first\\n'; head -n 1 /proc/stat || exit 1; printf 'END_FIELD\\n'
+sleep 1
+printf 'FIELD cpu_second\\n'; head -n 1 /proc/stat || exit 1; printf 'END_FIELD\\n'
+printf 'STATUS_HUD_V1_END\\n'"""
 READS = {
     'identity': ('id && uname -r', True),
     'processes': ('ps -A -o PID,PPID,UID,STAT,NAME', True),
     'memory': ('cat /proc/meminfo && cat /proc/vmstat', True),
     'mounts': ('cat /proc/mounts', True),
     'usb-state': ('getprop sys.usb.state && getprop sys.usb.config', False),
+    'status-hud': (STATUS_HUD_READ, True),
 }
 ACTIONS = frozenset(READS) | {'health', 'normal-reboot'}
 RETURN_SECONDS = 360
