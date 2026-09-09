@@ -13,14 +13,18 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Prepared **v0.1.2-rc.3** (P380): exact observed G0Q root-model check and two
-optional native memory snapshots in the existing sixth console command.
-A/B/static qualification, independent final PASS_GO and READY publication passed.
-One `p380-ready1-prepared-20260910-1` connected read-only preparation passed;
-no reboot, candidate transfer or native lease occurred. Fresh attended F1
-approval remains required. See the [rc.3 preparation report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
+Latest candidate **v0.1.2-rc.3** (P380) is consumed and CLOSED/19 with one
+exact rollback and final rooted FYG8/original health complete. The gauge HUD
+subproof passed with three fresh SOC/voltage/current samples; overall console
+qualification failed on 1536 dropped output bytes (queue pressure), so all
+three planned commands stayed unexecuted. Formal NO_PROOF is preserved.
+Two native meminfo observations identify an 800 MiB RBIN reservation component
+in the ~1054 MiB HUD accounting difference; separating it leaves ~254 MiB,
+not reclaimed RAM. The command output loss leaves the full process census unproved
+and does not establish absence of a leak. No replay/native lease remains; v0.1.1 is retained and
+image publication deferred. See the [rc.3 close and memory report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
 
-Latest consumed candidate: **v0.1.2-rc.2 gauge diagnostics** (P379), consumed and CLOSED/19.
+Previous candidate: **v0.1.2-rc.2 gauge diagnostics** (P379), consumed and CLOSED/19.
 Formal result is NO_PROOF with one exact rollback and final rooted FYG8/original
 health complete; no replay or native lease remains. Authenticated diagnostics
 localize root-model allowlist rejection (stage7/ENODEV), before binding or any
