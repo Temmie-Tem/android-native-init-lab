@@ -13,19 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-Prepare **v0.1.1-rc.1 — system-status HUD**: grid-based placement, version and
-experiment purpose, memory used/available, aggregate CPU usage, battery capacity,
-charging state and battery temperature. Keep GPU/other thermal metrics outside
-this unit. Confirm fixed data interfaces through reviewed D0, then qualify
-parsing, missing/stale values, isolated collection and combined console/HUD
-behavior on the host before one separately approved attended candidate run.
-Existing v0.1.0 artifacts and consumed records remain unchanged.
-Implementation, fixed Android D0 observation, ARM64 tests, A/B build, candidate
-static validation and promotion rehearsal passed. Independent review returned
-PASS_GO, READY is published, and connected read-only preparation passed.
-The one attended candidate run awaits its exact fresh approval and attendance. See the [status HUD report](docs/reports/S22PLUS_FYG8_STATUS_HUD_V011_RC1_H0_2026-09-09.md).
+Functional version: **v0.1.1 — system-status HUD**, mapped to successful
+v0.1.1-rc.1 / run-001 (internal P377) without rebuilding or renaming artifacts.
+The attended run passed all six fixed qualifications and three planned commands,
+then one exact rollback and final rooted FYG8/original-hash health. CLOSED/19,
+`recovery_required=false`; no replay or standing native console/HUD lease remains.
 
-Functional version: **v0.1.0 — root console and minimal HUD**, mapped to the
+The operator photograph shows the grid-aligned text, memory/CPU and version/
+purpose footer without visible clipping. Physical output is OBSERVED. Memory
+and CPU are machine-qualified; battery capacity/charge/temperature show N/A and
+remain unmeasured in native boot. Supplemental stock proof stays NO_PROOF_OBSERVER.
+See the [status HUD report](docs/reports/S22PLUS_FYG8_STATUS_HUD_V011_RC1_H0_2026-09-09.md)
+for the exact artifacts, photograph metadata, canonical timeline and limits.
+This bounded unit is complete; any next candidate needs its own current authority.
+
+Previous functional version: **v0.1.0 — root console and minimal HUD**, mapped to the
 unchanged P376 artifacts and completed run. New experiments use the
 [version/candidate/run naming convention](docs/operations/S22PLUS_FYG8_VERSIONING.md).
 This mapping changes no internal identifier, consumed evidence or device authority.

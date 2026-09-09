@@ -1,9 +1,10 @@
-# S22+ v0.1.1-rc.1 system-status HUD
+# S22+ v0.1.1 system-status HUD — rc.1 / run-001
 
 Target: SM-S906N/g0q/S906NKSS7FYG8. Internal candidate P377 extends the completed
 v0.1.0/P376 root console and immutable HUD with fixed system-status collection.
-This report records H0 qualification and the separately reviewed D0 observation;
-no P377 candidate effect has occurred. Existing consumed runs remain unchanged.
+The attended rc.1/run-001 completed PASS, one exact rollback and final health.
+Version v0.1.1 maps to those identical successful rc.1 artifacts; no image was
+rebuilt or consumed record renamed. Existing consumed runs remain unchanged.
 
 ## Behavior and evidence limits
 
@@ -89,8 +90,8 @@ was published and verified at its final path: 9,010 bytes, SHA-256
 `576f2d6a49b4141570f1eb6a6c7dc3483737e01b84b571ec1719b44a40ca742d`.
 The verified bundle SHA-256 is
 `5e8486010c21fcae6d6af719e2be6046486844b8d304bee9b0e48e6c54f53592`.
-No F1 ledger row,
-standing native console/HUD lease or P377 execution authority exists.
+At publication no F1 ledger row or execution grant existed. The subsequent
+run is now consumed and closed; no standing native console/HUD lease remains.
 A90 and S20+ received no commands from this task.
 
 
@@ -108,6 +109,68 @@ or F1 authorization. It grants no standing console or candidate replay.
 The planned attended run contains the six fixed qualifications followed by
 three console commands: identity plus five seconds of viewing time, a same-boot
 RAM-file round trip, and fifteen seconds of continued HUD observation with a
-bounded final log tail. Execution still requires the exact fresh Process-v2
-approval and current physical attendance. One candidate, one exact rollback
-and final health are the intended complete run; no F1 ledger row exists yet.
+bounded final log tail. The operator supplied the exact fresh Process-v2 approval in response to the
+attendance request, and the planned run subsequently completed as recorded below.
+
+
+## Completed attended run
+
+Display ID: `s22plus-fyg8-v0.1.1-rc.1-run-001`; immutable internal run ID:
+`p377-ready1-prepared-20260909-1`.
+Result: `PASS_F1_V2_P377_ROOT_CONSOLE_AND_ROLLED_BACK`, outcome
+`p377_root_console_rollback_verified`. The original execute completed with
+CLOSED/19 and `recovery_required=false`; no recovery invocation or replay occurred.
+
+All six fixed qualifications and three sealed plan commands passed. The initial
+HUD proof contains four matched frames, sequences 1–4, uptime 3,693–6,712 ms,
+including three BUSY frames and three distinct fresh memory/CPU samples.
+The final planned command confirmed continued updates and retained a bounded
+tail through sequence 24, uptime 26,867 ms. This is retained sample evidence,
+not a claim that every intermediate frame was captured or continuously observed.
+
+The later retained samples mark memory and CPU valid (`valid=3`), with MemTotal
+7,193,460 KiB and CPU values including 0 and 2 permille. Battery capacity,
+charge and temperature validity bits are absent; their N/A display is the
+expected unavailable-data behavior, not battery measurement proof. Android D0
+battery availability must not be transferred to this native result.
+
+CONTROL acceptance, observed exact Download, one candidate transfer, one exact
+rollback and final rooted FYG8 Android/original partition hashes/Download absence
+passed as separate evidence. Supplemental stock projection remains
+`NO_PROOF_OBSERVER`; the ACK-only `software_download_arrival=UNPROVED` field is
+not promoted to causal stock or kernel-stall recovery proof.
+
+| Canonical event | UTC |
+| --- | --- |
+| Session start | 2026-09-09T13:17:13.131026Z |
+| Candidate flash start | 2026-09-09T13:17:34.497360Z |
+| Candidate flash done | 2026-09-09T13:17:36.166456Z |
+| Candidate boot ready | 2026-09-09T13:18:12.912251Z |
+| Rollback flash start | 2026-09-09T13:18:21.705258Z |
+| Rollback flash done | 2026-09-09T13:18:23.524745Z |
+| Rollback boot ready | 2026-09-09T13:19:10.246416Z |
+| Session end | 2026-09-09T13:19:10.267220Z |
+
+## Operator photograph
+
+The operator supplied a photograph during this run's closeout. It visibly shows
+NATIVE INIT, UPTIME 000010 S, CONSOLE BUSY, MEM 1052/7024 MiB, AVAILABLE 5972 MiB,
+CPU 0.0%, SAMPLE AGE 0.0 S, and the version/purpose footer, without visible text
+clipping. All three battery-related fields show N/A.
+
+Classification: OBSERVED physical output. A single operator-provided photograph
+does not establish continuous updates, exact frame sequence, capture timestamp
+or independent machine pixel proof. The original photograph was copied
+byte-for-byte into the private run; it is not committed or publicly embedded.
+The separate observation record leaves the machine result and journal unchanged.
+
+| Retained private evidence | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `live-result.json` | 50,318 | `9f6d77e4b958c7869f741fd55fc81df9e237a9d279144c3c37548bb00e98f455` |
+| `candidate-observer.json` | 44,357 | `54182165a86fc6527f7e43071e3bc44bb7c9784a5ab85388150a7e60ee720d1a` |
+| Original operator photograph | 80,400 | `5fc18426a2b1049f7dfdafde8d87f9a318f739f956203bd186549d3a6b2f4fc4` |
+| Operator observation record | 1,120 | `62247de7665c4c593d89cb00b095c14cfd9fd06d056502414b9420305614f155` |
+
+The agreed bounded status-HUD goal is complete. `v0.1.1` denotes this verified
+functional scope, including honest unavailable battery data. It does not denote
+a resident installation, long-duration operation or a new recovery capability.
