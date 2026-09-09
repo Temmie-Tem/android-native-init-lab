@@ -13,6 +13,13 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+Battery-data H0 investigation is complete: current native package omits the
+Samsung provider stack; source-supported voltage/current/health candidates and
+vendor-specific unit/meaning traps are documented in the
+[battery data report](docs/reports/S22PLUS_FYG8_BATTERY_DATA_RESEARCH_2026-09-09.md).
+No new device read, module load or candidate was performed. A prospective battery
+provider needs its own dependency/probe-effect qualification; v0.1.1 stays closed.
+
 Functional version: **v0.1.1 — system-status HUD**, mapped to successful
 v0.1.1-rc.1 / run-001 (internal P377) without rebuilding or renaming artifacts.
 The attended run passed all six fixed qualifications and three planned commands,
