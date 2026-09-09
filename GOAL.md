@@ -13,6 +13,11 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+Functional version: **v0.1.0 — root console and minimal HUD**, mapped to the
+unchanged P376 artifacts and completed run. New experiments use the
+[version/candidate/run naming convention](docs/operations/S22PLUS_FYG8_VERSIONING.md).
+This mapping changes no internal identifier, consumed evidence or device authority.
+
 P376 minimal HUD plus root console is complete. The attended run
 `p376-ready1-prepared-20260909-1` closed with
 `PASS_F1_V2_P376_ROOT_CONSOLE_AND_ROLLED_BACK`: all six fixed qualifications and
