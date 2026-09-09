@@ -29,6 +29,10 @@ proof of automatic reuse or safe release. Further H0 verified the historical
 A90 281MiB arithmetic, but not its historical kernel/RBIN accounting. Reducing
 the real S22+ reservation is a worthwhile design candidate, distinct from
 changing the HUD calculation; no release or new device run is qualified.
+The [H0 memory source review](docs/reports/S22PLUS_FYG8_MEMORY_SOURCE_REVIEW_H0_2026-09-10.md)
+prioritizes RBIN ownership and Shmem/slab attribution. The adjusted254MiB
+includes about32MiB of net availability-estimator gap; enabled diagnostic
+options alone do not prove their runtime memory cost. No settings were changed.
 See the [rc.3 close and memory report](docs/reports/S22PLUS_FYG8_GAUGE_MODEL_MEMORY_RC3_H0_2026-09-10.md).
 
 Previous candidate: **v0.1.2-rc.2 gauge diagnostics** (P379), consumed and CLOSED/19.
