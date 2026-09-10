@@ -284,7 +284,7 @@ class FakeBackend:
             "/dev/bus/usb/001/002", 1, "2" * 64
         )
 
-    def _write_transfer(self, prepared, kind, classification, attempt, prefix):
+    def _write_transfer(self, prepared, kind, classification, attempt, prefix, *, native_kinds=()):
         if classification == "odin_transfer_completed":
             stdout = (
                 b"Setup Connection\nUpload Binaries\nboot.img.lz4\n"
@@ -320,7 +320,7 @@ class FakeBackend:
         }
         item = (
             prepared.bundle.manifest["candidate_ap"]
-            if kind == "candidate"
+            if kind == "candidate" or kind in native_kinds
             else prepared.bundle.manifest["rollback_ap"]
         )
         raw_payload = handle.receipt_path.read_bytes()

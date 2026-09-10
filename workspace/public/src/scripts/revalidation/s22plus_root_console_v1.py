@@ -110,11 +110,12 @@ class Session:
     F1 owner retains journal-bound rollback; no retry/reopen method exists here.
     """
     def __init__(self, fd: int, key: bytes, run_id: bytes, nonce: bytes, evidence: Path,
-                 *, on_rx=lambda data: None, on_tx=lambda data: None):
+                 *, on_rx=lambda data: None, on_tx=lambda data: None, before_write=None):
         if os.get_blocking(fd):
             raise ValueError('owner must supply a nonblocking transport')
         self.fd, self.key, self.run_id, self.nonce = fd, key, run_id, nonce
         self.on_rx,self.on_tx=on_rx,on_tx
+        self.before_write=before_write
         self.decoder = Decoder(key, run_id, nonce)
         self.evidence = Path(evidence)
         self.evidence.mkdir(mode=0o700, parents=False, exist_ok=False)
@@ -156,10 +157,16 @@ class Session:
         self._write(self.journal, (json.dumps(value, sort_keys=True, separators=(',', ':'))+'\n').encode())
         os.fsync(self.journal)
 
+    _validate_request = staticmethod(validate_request)
+
+    @staticmethod
+    def _terminal_request(kind: int) -> bool:
+        return kind == CONTROL
+
     def send(self, kind: int, body: bytes = b'', *, timeout: float = 2) -> int:
         if self.stopped:raise ProtocolError('session stopped; replay forbidden')
         if self.ready is None:raise ProtocolError('native READY not observed')
-        validate_request(kind,body)
+        self._validate_request(kind,body)
         if self.control_sequence is not None:raise ProtocolError('CONTROL already submitted')
         if kind != CONTROL and (self.pending is not None or self.faulted):
             raise ProtocolError('normal request window unavailable')
@@ -178,11 +185,12 @@ class Session:
             self._record(dict(event='intent', sequence=seq, kind=kind,
                               body_sha256=hashlib.sha256(body).hexdigest()))
             self.sequence += 1;self.requests[seq] = kind;self.request_bodies[seq] = body
-            if kind == CONTROL:self.control_sequence=seq
+            if self._terminal_request(kind):self.control_sequence=seq
             else:self.pending=seq
             offset = 0;deadline = time.monotonic()+timeout
             while offset < len(wire):
                 if time.monotonic() >= deadline:raise TimeoutError('request delivery uncertain')
+                if self.before_write is not None:self.before_write()
                 try:n=os.write(self.fd, wire[offset:])
                 except (BlockingIOError, InterruptedError):time.sleep(.001);continue
                 if n <= 0:raise OSError('request delivery failed')
@@ -316,7 +324,7 @@ class Session:
             if fd>=0:os.close(fd);setattr(self,name,-1)
 
 
-def replay(key: bytes, run_id: bytes, nonce: bytes, rx: bytes, tx: bytes):
+def replay(key: bytes, run_id: bytes, nonce: bytes, rx: bytes, tx: bytes, *, session_class=Session):
     """Re-derive lifecycle from complete authenticated root-console streams.
 
     This has no I/O and creates no evidence files. OPEN/AUTH and preparation
@@ -325,7 +333,7 @@ def replay(key: bytes, run_id: bytes, nonce: bytes, rx: bytes, tx: bytes):
     requests=Decoder(key,run_id,nonce);responses=Decoder(key,run_id,nonce)
     outgoing=requests.feed(tx);incoming=responses.feed(rx)
     if requests.pending or responses.pending:raise ProtocolError('partial retained root frame')
-    state=Session.__new__(Session)
+    state=session_class.__new__(session_class)
     state.requests={};state.request_bodies={};state.responses=set();state.accepted=set()
     state.rejected=set();state.outputs={};state.terminals=set();state.pending=None
     state.control_sequence=None;state.faulted=False;state.finished=False;state.ready=None
@@ -334,9 +342,9 @@ def replay(key: bytes, run_id: bytes, nonce: bytes, rx: bytes, tx: bytes):
     for kind,seq,body in outgoing:
         if seq!=expected or state.control_sequence is not None:
             raise ProtocolError('retained request order or post-CONTROL request differs')
-        validate_request(kind,body);expected+=1
+        state._validate_request(kind,body);expected+=1
         state.requests[seq]=kind;state.request_bodies[seq]=body
-        if kind==CONTROL:state.control_sequence=seq
+        if state._terminal_request(kind):state.control_sequence=seq
     for kind,seq,body in incoming:state._validate(kind,seq,body)
     if not state.finished:raise ProtocolError('retained CONTROL ACK absent')
     if any(seq not in state.responses and kind!=EXEC for seq,kind in state.requests.items()):

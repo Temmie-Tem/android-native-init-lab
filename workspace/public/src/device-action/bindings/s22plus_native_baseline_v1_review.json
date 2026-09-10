@@ -1,0 +1,860 @@
+{
+  "activation": "s22plus-native-baseline-owner-v1",
+  "bundle_result": {
+    "sha256": "7a13aefeeefd212946806ecba1c967d8a01e231e246f0bad5a0dc7a14fabb8f7",
+    "size": 33958
+  },
+  "current_sources": {
+    "p385_source_0012a808232ddd44": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_boot_verify.py",
+      "sha256": "e19d604039a744d14bcdbb495951e95f86666b6927061529e440aacb4b63381d",
+      "size": 37806
+    },
+    "p385_source_018b578ce62bce88": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_usb_departure_v1.py",
+      "sha256": "6d67551508e5de8eba292133a455e7beb66454b177ef83bf3c5e8b1de47e8531",
+      "size": 14604
+    },
+    "p385_source_05c23f2435dddb7c": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p334_artifact_identity.py",
+      "sha256": "9beaccfb9c7843e1afc96d5955f125d9b30ff30652b784768e98436ffb4bca22",
+      "size": 9600
+    },
+    "p385_source_05cbe74229e99b87": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_backend_v1.py",
+      "sha256": "7ad322e2a5250ecb91059ee1ff9463503e909e87acaa815b0774419a4f483158",
+      "size": 29918
+    },
+    "p385_source_067f3e3d0a2c860e": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p332_logical_resident_acm_observer.py",
+      "sha256": "af64b65806bf0c521c375b2db158022e0bd1b625f82862fa47769f31e1cb481f",
+      "size": 30892
+    },
+    "p385_source_0a5ae944d98fc0ba": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p367_namespace.py",
+      "sha256": "0d129b4a8ac80573523470902313e28b961fb1d2234c41ba466c3cd9b017c32a",
+      "size": 4364
+    },
+    "p385_source_0b35541d950b2f22": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p333_artifact_identity.py",
+      "sha256": "a8d710a8209ce6c27ab3ab6db8910ed2721d75dbb303c6c40921a11120195735",
+      "size": 9402
+    },
+    "p385_source_0d26bcd9883c3127": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p379_artifact_identity.py",
+      "sha256": "196679310ca7d0711c63f9b944c8f0e1e9c70ab1b77cd09dc97e8ae7efa59328",
+      "size": 155
+    },
+    "p385_source_0d6bd7c9f65d32c0": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_boot_only_f1_transport.py",
+      "sha256": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
+      "size": 10937
+    },
+    "p385_source_0e12f7847101eb7d": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p326_artifact_identity.py",
+      "sha256": "e70764167ad11b3e71a9a6701a355096e461ea0155409cb24eaa1f76172ed1c3",
+      "size": 8140
+    },
+    "p385_source_10b087ce4be00b48": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p371_return_spec.py",
+      "sha256": "643f70cdccf3785bba91deda193b36896403ef100bdc26db9a7797a4342a3233",
+      "size": 359
+    },
+    "p385_source_110209d575d41988": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_console_observer_v1.py",
+      "sha256": "991f1f0207d52876a4ccbe380ac5b25ea8db91847753ce9e08d04b76ab2bf610",
+      "size": 17017
+    },
+    "p385_source_116a29c753c1a775": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p385_candidate.py",
+      "sha256": "bc8e25d04af77fb1a672ab7e13fb7b8f3276bac8036bc6c44e5eb5248d7fbc84",
+      "size": 2201
+    },
+    "p385_source_11feaab508eff364": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p345_artifact_identity.py",
+      "sha256": "db540159a31b3f82a67c91837e814aa873c74d2b373dd6eb2291bb2c107d5402",
+      "size": 4090
+    },
+    "p385_source_16bf08b05114f463": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1b_candidate_static_checker.py",
+      "sha256": "21a781332ff6b10ab096878ae58744355c6992534d04f4ec1f6a718722bcf924",
+      "size": 26153
+    },
+    "p385_source_16cc753cab3a26c5": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p383_return_spec.py",
+      "sha256": "d7645006845c276bbe51be687d0aba423a5f08eec7d0ece88c47e582fc94c4f6",
+      "size": 150
+    },
+    "p385_source_181c136497cb6230": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_source_v1.py",
+      "sha256": "e9c0f01e2182df8ed0088a3cad6ff61034f782a4ce299280058703184a1d10bf",
+      "size": 16285
+    },
+    "p385_source_18f44f5fca220322": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p323_artifact_identity.py",
+      "sha256": "22a175eb09532b3e1df785d1550883a3503a166444e96f1c5d70ae6cba2e9021",
+      "size": 10397
+    },
+    "p385_source_19eb3222cbeb339c": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p363_return_host.py",
+      "sha256": "e91f2321ce49a825e5ac04bef88044199bec5a3bb0616a47ce29145cf033c732",
+      "size": 9365
+    },
+    "p385_source_1a29a4ab9048ca28": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p319_stock_candidate_build.py",
+      "sha256": "544b03e02ce5490bb2db03a4bbdbbda806ea2bb354026162efc54b0173610058",
+      "size": 114260
+    },
+    "p385_source_1a8d663993558286": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p365_artifact_identity.py",
+      "sha256": "0d6c30f4d47463306d0aa6c24f47c85306cab5b1a842faf563f11d3acbe5f9eb",
+      "size": 120
+    },
+    "p385_source_1c7ad94dafa0fb3b": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p364_return_spec.py",
+      "sha256": "ac5f1cbca8841192795f7360edb71404769c4b11057b99276101cdd8181f6b85",
+      "size": 1126
+    },
+    "p385_source_1dcc21c7dd2cbc5a": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_memory_manifest_v1.py",
+      "sha256": "207a8bec0d6a0ba0fff8bc285acc783f6ae6497e9aca444c17cdbf0b10bc6d63",
+      "size": 3563
+    },
+    "p385_source_20f627012186e8cc": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p330_auth_acm_observer.py",
+      "sha256": "a00589310609cbab776dd99a23325644406d4d52cc0038ab34ab11ae726b3240",
+      "size": 15035
+    },
+    "p385_source_22eb6ac11fb279ea": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/display.c.in",
+      "sha256": "620dd94871310ce182f6f29da5e1cf4f237ee8d6a26ccb6e238434b2adf61eb1",
+      "size": 57035
+    },
+    "p385_source_237362fa112b696b": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p378_namespace.py",
+      "sha256": "3129557527fcb90f73023aec110fbcf1e67dd688072a84900fe76947bfaf4ec0",
+      "size": 4891
+    },
+    "p385_source_238940660e00af07": {
+      "path": "workspace/public/src/native-init/s22plus_native_display_ready_v2.inc.c",
+      "sha256": "69767b7a1b05f26a4fabb234f08de63628619c2abde1133554ddff88fe743a5d",
+      "size": 7850
+    },
+    "p385_source_258d217b4ac5c1d2": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p343_artifact_identity.py",
+      "sha256": "a7ae3cc78c12dad86d19b6b831f4af3cf1a6789d9925b75a110797ab18120226",
+      "size": 17412
+    },
+    "p385_source_267c55f33124de3c": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p350_stock_candidate_build.py",
+      "sha256": "2cc546ce347ce185a8e859a919fdf7317c2c089e2ffc6e904fc708f7f743f9a4",
+      "size": 15187
+    },
+    "p385_source_29892bdfd035af62": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p363_artifact_identity.py",
+      "sha256": "9f000606be2fee2092e91062a3f921f70e797e51f0f11c9ab7495d56b773c113",
+      "size": 588
+    },
+    "p385_source_2d5841fb51a26550": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p325_cdc_acm_guard_adapter.py",
+      "sha256": "13d4ba6ee935d5b7a73d06f0e4e7ef34b5ac567fbed89813113205f87f34a648",
+      "size": 6295
+    },
+    "p385_source_30e73260af4dbb87": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p350_artifact_identity.py",
+      "sha256": "31a96966709c41a3288e2a215a316d931b38790af0739fdbb58c8498501a11f2",
+      "size": 1840
+    },
+    "p385_source_323aa47183b54948": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_f1_evidence_v2.py",
+      "sha256": "b9ab3ecfd3c1343c7b8b435ccc5c98fdb6b67eca75da2f429668f7b6ce15cb34",
+      "size": 1036937
+    },
+    "p385_source_32ba451956c4d580": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p370_artifact_identity.py",
+      "sha256": "ed012d7e453ec833522a909cea5a86192ed8bcd19f1f819bbc70368b038ef311",
+      "size": 466
+    },
+    "p385_source_3590b68ca1000950": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p351_artifact_identity.py",
+      "sha256": "bbdb1929de8f848efa2fd3bd04a97ca6c04f3d24aef1dced9c16f5cabfb9ae74",
+      "size": 1025
+    },
+    "p385_source_38278b84505d0f51": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_owner_v1.py",
+      "sha256": "df12740bd01ba1087885e7ad2a8937436d98ffdc655ded2d6897ee8ed9d3051f",
+      "size": 62188
+    },
+    "p385_source_3a1fb77823b39938": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p363_return_spec.py",
+      "sha256": "a6627f1675969316bced75ceae27bbcfd37f2a2530580d3e12be602c5b1e3168",
+      "size": 2313
+    },
+    "p385_source_3ae11f542242c16b": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p366_namespace.py",
+      "sha256": "ff62d1d4fe5dd0027951563c4d2a91adfedc8f1ef893e67a0d46e3671372703f",
+      "size": 4350
+    },
+    "p385_source_3c300b719712ef6f": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_candidate_definition_v1.py",
+      "sha256": "dba4349d84dc92b7533d7ee3b898632ec661b388841ab9b5fed5d7326de2c9b8",
+      "size": 2752
+    },
+    "p385_source_3e79def32619af38": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p379_return_spec.py",
+      "sha256": "196679310ca7d0711c63f9b944c8f0e1e9c70ab1b77cd09dc97e8ae7efa59328",
+      "size": 155
+    },
+    "p385_source_3eac41064b511820": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p371_artifact_identity.py",
+      "sha256": "22a574a8f2c9b55eb179d2e657630ee8de9a1f70620637f689e10cd081c66eab",
+      "size": 323
+    },
+    "p385_source_417fd4772d31f734": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p333_open_entry_diag_acm_observer.py",
+      "sha256": "fbb0f2a2c8bf3f0dded26b18de5ce83bae8202e3426a049cf2be23379e79dcf3",
+      "size": 12840
+    },
+    "p385_source_421fb40b930d957b": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p310_carrier_model.py",
+      "sha256": "bc2db7b1aa1c50ac4085fc9c8c35266a51a7401acb5e193f233961edbdeacf8d",
+      "size": 24151
+    },
+    "p385_source_42c953c9fd95a418": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p364_namespace.py",
+      "sha256": "2934d814589528b0efb9c1a8c183101a953297918799dbc4f2ccfeab543d7e7f",
+      "size": 4336
+    },
+    "p385_source_44acd6ac71fa3028": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p378_return_spec.py",
+      "sha256": "df49ca0cf3cd4d65b59df5c571a3abe5af3b3f8f50364526dbd93044e3862cad",
+      "size": 153
+    },
+    "p385_source_4571748a56fde650": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+      "sha256": "cce957f57a94ede45619cf9c5470fb66aa1e395b1ed3cad51f88f4194196ad06",
+      "size": 59598
+    },
+    "p385_source_471c40cb8e5d89a4": {
+      "path": "docs/operations/DEVICE_ACTION_PROCESS_V2.md",
+      "sha256": "8983096cea7533d86d68e35c73616e3d80b5c55c4e11333854c2aaeca2b4b49b",
+      "size": 41485
+    },
+    "p385_source_483500e9ad4cf2e9": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p327_artifact_identity.py",
+      "sha256": "f228e6a8a3938dd3f14c555b4fab144b43d1fcd48c7e7647a2a34faabead2955",
+      "size": 8450
+    },
+    "p385_source_48d69e49f2a6de34": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p241_e2_static_checker.py",
+      "sha256": "1af69a698a41be5064280676d63c24ec86d6fce8775f36521d0b1befddd953f1",
+      "size": 20352
+    },
+    "p385_source_48eca1579e983b02": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/hud.inc.c.in",
+      "sha256": "e46303492d216850d96fe88a5085988771e87a0ba5d5779beefbcf7fa9ee64b8",
+      "size": 6538
+    },
+    "p385_source_4a2f153d9e5976ea": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/baseline_entry.inc.c.in",
+      "sha256": "0b10e166285102a46229294b4804c284649ec2aa1be4422a9d2953157ca48f10",
+      "size": 1111
+    },
+    "p385_source_4c586c0ddd348421": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py",
+      "sha256": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
+      "size": 25006
+    },
+    "p385_source_4c5952e14337fad1": {
+      "path": "workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py",
+      "sha256": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
+      "size": 56581
+    },
+    "p385_source_4e1971b3337a71eb": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p324_typec_lane_binding.py",
+      "sha256": "6a7642a632eb51396407b883a0106dadd9c7a7233e005f735bf003e6fff089ef",
+      "size": 16248
+    },
+    "p385_source_4e57c890694bdfa5": {
+      "path": "workspace/public/src/native-init/s22plus_gauge_diagnostics_v1.inc.c",
+      "sha256": "d2f27b0e3355d2d34d5c96b113941129551891e58530aaba24e6d61b4b911b44",
+      "size": 3503
+    },
+    "p385_source_513947b451c35033": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p331_artifact_identity.py",
+      "sha256": "1a8d328cf6dac71e907381ce225c2d47f7e5f6de4c20f846cdbf63744a2d246b",
+      "size": 8184
+    },
+    "p385_source_518e062516a54f2f": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p377_namespace.py",
+      "sha256": "a61a7ee6119b472ecf7bb947e42e8abd9435a25d2b0376245bd7fb0ffd8562ed",
+      "size": 4667
+    },
+    "p385_source_51b1c56a6b0e2d28": {
+      "path": "docs/operations/S22PLUS_NATIVE_BASELINE_V1.md",
+      "sha256": "7fa75b712fbdaa8a84dd3920f2dd56eb3bc9337205ea07058d21992b482400e7",
+      "size": 12273
+    },
+    "p385_source_566ea5c70442c82b": {
+      "path": "workspace/public/src/native-init/s22plus_native_display_load.inc.c",
+      "sha256": "ebd03fc2c9f52f8b0840679b4ccdbd3ac9101965faf52558705bf01693ad2b3e",
+      "size": 5314
+    },
+    "p385_source_5ca293ec4885366c": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p325_artifact_identity.py",
+      "sha256": "e6849bdd58b34859bf2b0415ece16a962dafdbd02471191ed3dcddd0db68b7af",
+      "size": 11002
+    },
+    "p385_source_5d09fa733003a7ff": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p378_artifact_identity.py",
+      "sha256": "6cd2b162e6cd0d2f4d0735da6d92aff7849af7db0342e410d386ce01e30b0a33",
+      "size": 233
+    },
+    "p385_source_5d77170b2e49105a": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p368_artifact_identity.py",
+      "sha256": "7393edcb1ab5c49ba7fc89231585d39f914c313dd2adb84d2e6e2c09f8a7c1e0",
+      "size": 136
+    },
+    "p385_source_6049ee5f056de141": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p375_namespace.py",
+      "sha256": "afb37cd2cdffb0d6d9a645e401f0b1c051b74b629fecbdc5a4aef41244631031",
+      "size": 1297
+    },
+    "p385_source_607585e0cdd4d2ce": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p330_artifact_identity.py",
+      "sha256": "bc85e7e88c85a9b2678586a0897e14246e1a09976b15921d5f1b414d10118a36",
+      "size": 7846
+    },
+    "p385_source_6723d75c6b5baf5a": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p380_return_spec.py",
+      "sha256": "1bc98b08abbf307bd422fc4532a09e5c00726ddbcab25100198be786b21c7162",
+      "size": 164
+    },
+    "p385_source_69823167d801eb65": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p328_auth_acm_observer.py",
+      "sha256": "2ec10d550b575f69f91f2424d9a605b5635ed9d5a853b59bb24563c85c6a9e25",
+      "size": 18326
+    },
+    "p385_source_69e0dfe8d720f414": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/protocol.inc.c.in",
+      "sha256": "b218527f1b3c98ba04095ac51b60814dea0a926821da295780cac40b4f07e752",
+      "size": 19930
+    },
+    "p385_source_6a9d534e03cb6c78": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_f1_v2.py",
+      "sha256": "b40c51abea67df97eddb4b7e1ae761548c051bdac8480168e0fff72668b60abd",
+      "size": 190073
+    },
+    "p385_source_6b351f1b849132d7": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p380_artifact_identity.py",
+      "sha256": "1bc98b08abbf307bd422fc4532a09e5c00726ddbcab25100198be786b21c7162",
+      "size": 164
+    },
+    "p385_source_6bda27ba2354fdd3": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p328_artifact_identity.py",
+      "sha256": "e849578b1e7fcb9853ee0a07eaafb28922aa3e5f6b6f746851122f354cc00931",
+      "size": 11503
+    },
+    "p385_source_7060576705b575d4": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p376_artifact_identity.py",
+      "sha256": "665a32138bc7da1ab48ed5889327d5f2363043fffffa98a6bca0984c54618306",
+      "size": 341
+    },
+    "p385_source_74210ab6fca873a2": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_attended_f1_session_v1.py",
+      "sha256": "58223f12dcf3a26216fde14b44f369efe2ec22864dfc8fa70fb8e7ef5386689b",
+      "size": 18738
+    },
+    "p385_source_74c9a5aff62cb0c2": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p370_return_spec.py",
+      "sha256": "110069791e795915cc9b4ab5eab075fc1b6405cef69ba9fcdb3339906caace7b",
+      "size": 665
+    },
+    "p385_source_74d205b768f39ea8": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p379_namespace.py",
+      "sha256": "3a284e9c6c66ad4151b6ccba81c79a02cd23af1b80f602f74c36faa2c070eeec",
+      "size": 5386
+    },
+    "p385_source_74eb7b1757cbdc94": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p385_stock_candidate_build.py",
+      "sha256": "8ad4dde64627aea338dad7397fde464a6335e4115e9da56743fd3440725962cc",
+      "size": 1663
+    },
+    "p385_source_755e8aea8d6dc557": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_candidate_artifacts_v1.py",
+      "sha256": "6a3c8ec99cb3319992eaf1a3d848f97c80269fe48beb1ac4ee768855875e077c",
+      "size": 8656
+    },
+    "p385_source_766608bd5a173b63": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p344_artifact_identity.py",
+      "sha256": "6578805fa29dd677eba383eb85ed1fcb05c3693a4ea4fbd1e89e5daf28a400a7",
+      "size": 17369
+    },
+    "p385_source_76a450a2cbd8b59b": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p371_namespace.py",
+      "sha256": "cbc1e3852352c588a8ede5435a0cb609456de936eacfea2c91115a02069567dd",
+      "size": 6953
+    },
+    "p385_source_773c74937bb38fde": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_native_candidate_static_v1.py",
+      "sha256": "ad2ec8efcd30c6d156847bfbc6ab795f8c77d1a88af142a51028299030539782",
+      "size": 9320
+    },
+    "p385_source_77d13502299ba699": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p336_long_idle_acm_observer.py",
+      "sha256": "f9882a9ae69711cdaa76edc6f754ea14e6192ae54a620b68475e438da97c1bb8",
+      "size": 33714
+    },
+    "p385_source_7948437689f86912": {
+      "path": "workspace/public/src/native-init/s22plus_native_display_diagnostic_v3.inc.c",
+      "sha256": "ffb35235ccca46e57a450db55c0fe1ff7cb34f99dd1702bcd0802de51d7e2169",
+      "size": 2264
+    },
+    "p385_source_7b5be9b072a45733": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_roundtrip_owner_v1.py",
+      "sha256": "2c09735d7bdc9c905c3c9dfb4eb92343804c0a7863a94e74c09a0b9c92c20260",
+      "size": 24161
+    },
+    "p385_source_7c9f5201b69abb8b": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p340_artifact_identity.py",
+      "sha256": "04dae7101d303a17c31ff494998df913d9f2ebde7e5582a2e703984197e4087f",
+      "size": 13027
+    },
+    "p385_source_7cd006aba884cd58": {
+      "path": "docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+      "sha256": "3211aaf51cbf745d691f8cd55514e5dbe8b222f20e4121f6865e85b5cda1d9ad",
+      "size": 27853
+    },
+    "p385_source_7d5fb391d6fb7259": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p367_artifact_identity.py",
+      "sha256": "85bf953348f9988709cb16213850187c3d3214da7b30bbd322b5c9d1839cde4c",
+      "size": 128
+    },
+    "p385_source_801099ba273eaf2a": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p339_artifact_identity.py",
+      "sha256": "bb07485760f3f564d4d044c45ea7b12afd2ff8ab29e05fb19b0be276fe1a623b",
+      "size": 10570
+    },
+    "p385_source_80c8348ecf755f20": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/console_terminal.inc.c.in",
+      "sha256": "60c2385b2ad668b959f94e4536304226bd4d0908dcf78a75bbf1c722180f6eb7",
+      "size": 209
+    },
+    "p385_source_8105aebb885cab95": {
+      "path": "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
+      "sha256": "f473cc3615361164be9dc3c51002bd70a403ecd6872291f9e88a3e1780ff789f",
+      "size": 134286
+    },
+    "p385_source_810788ab6a148da6": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p332_artifact_identity.py",
+      "sha256": "1b83ac1215bc5fafbaef44522695e87f5f4f1c558d16cfd39248e2d056c5804a",
+      "size": 13610
+    },
+    "p385_source_81f69b3fe83a2a50": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p364_artifact_identity.py",
+      "sha256": "6a3cfa2734ae77ab348290c922c3b64b961bd6cdad2fd47a1f5a4d717ad6e55d",
+      "size": 127
+    },
+    "p385_source_834adeccd35dea8d": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_observer_v1.py",
+      "sha256": "77537abab040521115d9d3516329ac2844a26fc53d36db1f884f110dcdb0694f",
+      "size": 9656
+    },
+    "p385_source_85018d49d9007f79": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p335_retained_listener_acm_observer.py",
+      "sha256": "26e2c98a7ba6a660f0c4c85b2432082303deb1b076304f20d1899ac125363281",
+      "size": 47411
+    },
+    "p385_source_85f45ac65bab925a": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/baseline_runtime.inc.c.in",
+      "sha256": "2e055f091334adbe1376ab20c13ed9662c89b6e6ea6d24ced76e406178ffcdca",
+      "size": 3480
+    },
+    "p385_source_8897a6f79ab0607c": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py",
+      "sha256": "99186034c7c7358846c4f62df28ac8cff14f71f12a546cd7becfb20e0bcbd454",
+      "size": 852030
+    },
+    "p385_source_890611329176fce7": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p335_artifact_identity.py",
+      "sha256": "82e920529bff792a554e67b19fe89a246292dae2993492abfe71f5c79b375c7c",
+      "size": 10073
+    },
+    "p385_source_896c579b73f0e73e": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p366_artifact_identity.py",
+      "sha256": "54ba594d97232425428b98e15f4dbaa2e4f1322242e6590a6228c6a823c28d06",
+      "size": 127
+    },
+    "p385_source_8a29391454a86902": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/local_display.inc.c.in",
+      "sha256": "14268281b872010aacf076d596be4d514af49165f9cc83b5795b8574114c2e00",
+      "size": 4397
+    },
+    "p385_source_8a4b269848b7a9b2": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p337_artifact_identity.py",
+      "sha256": "bc5bae5d3de6602ac108ea58e3fe8f573fc52cae5507c8106f4045bf7743bbc3",
+      "size": 9878
+    },
+    "p385_source_8b25bb1ed9a2bd5d": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p382_artifact_identity.py",
+      "sha256": "39d095ae0bb8e16e80ef79bf6341d37f4c14b835f45f5b3a7c1227ff80b7265a",
+      "size": 156
+    },
+    "p385_source_8ce046d19fe5516c": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_root_console_v1.py",
+      "sha256": "5470e8a85bb2c419ce515763479f52b6a325e4121b39ea2254b10acc14529889",
+      "size": 18947
+    },
+    "p385_source_8e48060020a14861": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p341_artifact_identity.py",
+      "sha256": "7f541c109a0eeebf4e4fb7c7afe120ae641149d7ac749e74867add754ae99a02",
+      "size": 18661
+    },
+    "p385_source_8f5f6cad189b8ad5": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p369_namespace.py",
+      "sha256": "40853ac7d73e082c848d36f3afcea029d5c4b9f801cd51b70f92ca8a46a406bb",
+      "size": 4292
+    },
+    "p385_source_90efdd899d480db1": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p329_auth_acm_observer.py",
+      "sha256": "ddcc7ab2cc8e6fd70f096b4b19606d9e9fde8355eaa9cb65534b43eb917bbe76",
+      "size": 3579
+    },
+    "p385_source_910d62cb7813e3d6": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p385_process_v2_candidate_static.py",
+      "sha256": "6d64e5b1efdcaa561b90d634cd5faba5edd13258df6cd3c1373a064c46a98718",
+      "size": 3435
+    },
+    "p385_source_9681a696acbbff01": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p376_namespace.py",
+      "sha256": "c4704b67b7a91593205e13370170415a37997378e1f887587349120382eb4c79",
+      "size": 4377
+    },
+    "p385_source_968468b1bbc78b9c": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p342_artifact_identity.py",
+      "sha256": "e1e8499f1d5227dae862ccaf2d2f5a5a9aeb437f83c5733ac147ba8ccaaacbd5",
+      "size": 17383
+    },
+    "p385_source_99d2822cc47d4c75": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p322_artifact_identity.py",
+      "sha256": "8e77653fa23f47f48980fb2eae906118239e53e763d4e9643be27a71b0749975",
+      "size": 9453
+    },
+    "p385_source_9c0541ce70731f9a": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_display_step_v1_namespace.py",
+      "sha256": "33e1686555b04844f59ad92a760d0661f0aaab3b47e5afbc159293e7be57f0bc",
+      "size": 8536
+    },
+    "p385_source_9c9d04be4663b907": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p370_namespace.py",
+      "sha256": "b94e9a538be92b642abe71bf076d14a0e3e866223b3423735a3e7f336282dbe0",
+      "size": 4643
+    },
+    "p385_source_9cdb09eb8ba58e55": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p353_artifact_identity.py",
+      "sha256": "2746cd0d42a880e3567528043391ef6b2cc9d9a4648e604276fc395bec4d7686",
+      "size": 1316
+    },
+    "p385_source_9f2cfd187a0653bc": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p336_artifact_identity.py",
+      "sha256": "0d105408b206432a6089b07515f5fb55451a11bff6ae2a30b5a346330cf169b5",
+      "size": 9709
+    },
+    "p385_source_a1373ce927548529": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/return.inc.c.in",
+      "sha256": "808f5a7afd028c56fff44cc482519496d4c8a82313dec95f2547a1f1129172e5",
+      "size": 20031
+    },
+    "p385_source_a372f8b8bcf0d34f": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p376_return_spec.py",
+      "sha256": "396aa4fcc5675063fcc711a04bcb9da26b0b62c9ddcdd38fce8d5766d1d08eb5",
+      "size": 147
+    },
+    "p385_source_a50014d4353de90d": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p324_artifact_identity.py",
+      "sha256": "a572846e7bd8c725e9449aaa07dbd22d6cb278015301a6b9a63f59bf08b8e4c6",
+      "size": 10839
+    },
+    "p385_source_a54ff182c7e8acf5": {
+      "path": "AGENTS.md",
+      "sha256": "1d279c61e2ea45cbbb889454f67ae87b70bc9c20273892d04a903aec33db624c",
+      "size": 19427
+    },
+    "p385_source_a77595f1c08d5973": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p363_namespace.py",
+      "sha256": "b4fe002fc456aa55c6061530c5c8d8088ccb337138f7461593a93da473b7d02e",
+      "size": 2710
+    },
+    "p385_source_a78ac6dacc0f9d6e": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p381_artifact_identity.py",
+      "sha256": "e30721b3def773e949c857cecfa1de33cad104dc63065f662a4a976957093d9f",
+      "size": 156
+    },
+    "p385_source_a7c25975cbb04361": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p375_artifact_identity.py",
+      "sha256": "c8356f01725a820e4f7ce0f9db85e6d36eb2187c67a8f4b6ff24aa0e1b392826",
+      "size": 904
+    },
+    "p385_source_a829c8a8ddadf14d": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_console_owner_v1.py",
+      "sha256": "ac2a67166a9c3d353a05c8b5dbbf3ee2c95345b89e68415cc07335375c4f4566",
+      "size": 10680
+    },
+    "p385_source_a831d0158e5a62fd": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_carrier_adapter_v1.py",
+      "sha256": "bf574bbacec9b9b74a7b2b7feb582f144ee544f3f1878ab65b2a76450f8af018",
+      "size": 9760
+    },
+    "p385_source_a9de20aeacd020bb": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_odin_transition_core.py",
+      "sha256": "26a5a5a446987a21165622d1e79b98505c720fea2f1460d3e05af175a62c0bf7",
+      "size": 78848
+    },
+    "p385_source_abb49d4b162c5c4d": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p377_return_spec.py",
+      "sha256": "0caa7ce1221e495bb7ead723ec1702ef1ca85e294e73241792cf086f27934389",
+      "size": 148
+    },
+    "p385_source_ad5913b4f7a65b83": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p308_telemetry_spec.py",
+      "sha256": "598ef196058d5ae02a43a6885394b84953b12b0cde3c53dfcf14d9bdf67d1d01",
+      "size": 7405
+    },
+    "p385_source_b32410dec41ca9da": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p320_observer_contract.py",
+      "sha256": "7b1330ad28712474d5c3ea0f2d4f7649c4d4da94ad7ff1cff705a3b14681cf72",
+      "size": 81705
+    },
+    "p385_source_b4faef23116f71a0": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p324_cdc_acm_observer.py",
+      "sha256": "0e4c418cc6b8c1db3d99a5dd0ca50cc59170cacbfb0e4b31dd7065b211431efb",
+      "size": 29109
+    },
+    "p385_source_b8ecd0036ace05c6": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p382_return_spec.py",
+      "sha256": "39d095ae0bb8e16e80ef79bf6341d37f4c14b835f45f5b3a7c1227ff80b7265a",
+      "size": 156
+    },
+    "p385_source_b95789d82e50e9fb": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p383_namespace.py",
+      "sha256": "96f752d1df2562fcd7d97143b7a7bbca430f823d632d525c6f8b941792226f93",
+      "size": 5285
+    },
+    "p385_source_b98949dc6acff2c1": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p380_namespace.py",
+      "sha256": "3b2c2907e751980a31c9c6aa680c5069507605e8a3d7a167adff0db65086d369",
+      "size": 5744
+    },
+    "p385_source_b9caef76460aa52e": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p334_first_read_rc_acm_observer.py",
+      "sha256": "4644eede3280c29c5619cb5b8e70a0af50b2993ab05de1df9e3f92632e860399",
+      "size": 5523
+    },
+    "p385_source_be00ee1d50683c2b": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_protocol_v1.py",
+      "sha256": "cbeb20cd19264206d360e2789b3e8e1b96f783cfad3dcb9ab58a0e5dd7be13a9",
+      "size": 13624
+    },
+    "p385_source_c721d575865bccea": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p368_return_spec.py",
+      "sha256": "7393edcb1ab5c49ba7fc89231585d39f914c313dd2adb84d2e6e2c09f8a7c1e0",
+      "size": 136
+    },
+    "p385_source_c9ff06642846e247": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p382_namespace.py",
+      "sha256": "45c44b9b947ee7631eb44d45abd654a7b1e9e88d9e5da7f36c9a609191b18794",
+      "size": 6396
+    },
+    "p385_source_ca4ff1f6bf2b24e6": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_d0_v2.py",
+      "sha256": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
+      "size": 45122
+    },
+    "p385_source_cbfab02eae8eafe3": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/local_publish.inc.c.in",
+      "sha256": "6d69c78df884076dad0109c72d57f73c6953bb740cbb556552eea44a1661be2a",
+      "size": 324
+    },
+    "p385_source_cda0a01a77e6b8ee": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p321_artifact_identity.py",
+      "sha256": "dc303ef20175a7a6cbe350328fff499ef585edfba995735a990d0891e3570055",
+      "size": 26923
+    },
+    "p385_source_d047c77dc70b9b73": {
+      "path": "workspace/public/src/native-init/s22plus_gauge_sample_v2.inc.c",
+      "sha256": "e097f97898907a8b22d7fb34aa553a0d56d8e4f1c15d7f2971b14056a6e3d153",
+      "size": 2473
+    },
+    "p385_source_d05da9b599ca1e6b": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/session.inc.c.in",
+      "sha256": "c503ca5ba1338f03afd4e4da46b3df9300e73aa4333eeb1b9f1829b3d95b12c7",
+      "size": 7980
+    },
+    "p385_source_d2740da99d8675ce": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p369_artifact_identity.py",
+      "sha256": "ace3d311cd4eb6aefbddac22dcb174eac505c9dbbc7f97a49024bbc5138853c5",
+      "size": 124
+    },
+    "p385_source_d4de700f8859cc18": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p365_return_spec.py",
+      "sha256": "0d6c30f4d47463306d0aa6c24f47c85306cab5b1a842faf563f11d3acbe5f9eb",
+      "size": 120
+    },
+    "p385_source_d5787a9fff448f5b": {
+      "path": "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md",
+      "sha256": "e7ac73a4d79a1c82afe37dd6e2962df276d2b5e53642de3bee095f370f2110d1",
+      "size": 38668
+    },
+    "p385_source_d65518b3f6f9686a": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p338_artifact_identity.py",
+      "sha256": "7be955b0c90c98bae333e2fc2d3ffb83df8f987a1b76608723e35c309bee8a88",
+      "size": 10383
+    },
+    "p385_source_d85a1a5d363cac88": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/local_entry.inc.c.in",
+      "sha256": "e803eee34b7fc1c471f959e8ae5962682a5cc91ef1f20b9bfd6966617b08d573",
+      "size": 847
+    },
+    "p385_source_dbdcc0f840ea36d4": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p384_stock_candidate_build.py",
+      "sha256": "652ab0977ca4b4609879c7b64ddcd31bcf3fc3e081f4842f057d07d187bdb1de",
+      "size": 15529
+    },
+    "p385_source_dd154f84ed22d403": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p329_artifact_identity.py",
+      "sha256": "4251bafc22db87846ddac24558d5c84a12eced56cc10cb70ee32e238cb1cf437",
+      "size": 6077
+    },
+    "p385_source_ddb738bd80383372": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_guard_v1.py",
+      "sha256": "6b5163cd98e0aa4c73bff334914b7fa8f1b2e3af9975a0312bc1550d07d2127b",
+      "size": 9050
+    },
+    "p385_source_df7c3b8f22411e66": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p381_namespace.py",
+      "sha256": "d730e8b014a4046bd4c60e1fba809bc13c6f1ec63c4e9d2b9e2843007bf21207",
+      "size": 6075
+    },
+    "p385_source_e08fc68667d99acf": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p377_artifact_identity.py",
+      "sha256": "0caa7ce1221e495bb7ead723ec1702ef1ca85e294e73241792cf086f27934389",
+      "size": 148
+    },
+    "p385_source_e11b8e9a48479733": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p368_namespace.py",
+      "sha256": "78bec337bd511613aa6f2fdb8de21fa1c36b0df521be3e6f5e2f3a6c3b73d22a",
+      "size": 3975
+    },
+    "p385_source_e2aa6b63779b19d3": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p365_namespace.py",
+      "sha256": "2f82a5c355bf57cb14fc4532246c3081073df4a761f6acb5590835ef8d857024",
+      "size": 4889
+    },
+    "p385_source_e5123cee4280d90a": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p367_return_spec.py",
+      "sha256": "85bf953348f9988709cb16213850187c3d3214da7b30bbd322b5c9d1839cde4c",
+      "size": 128
+    },
+    "p385_source_e9b3c12be38bd21d": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_health_v1.py",
+      "sha256": "3f87da168643d5b62f9f9c35278981c20a531bf88d00b510d56b85c26ac4fb09",
+      "size": 7943
+    },
+    "p385_source_ec1fbfda2ed63009": {
+      "path": "workspace/public/src/native-init/s22plus_runtime_v1/commands.inc.c.in",
+      "sha256": "384c37e52112379a34cccbd39adf6b2df1a65648bf368022a80d08cb6ba39a69",
+      "size": 15623
+    },
+    "p385_source_ec4ed68f94b38104": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p381_return_spec.py",
+      "sha256": "e30721b3def773e949c857cecfa1de33cad104dc63065f662a4a976957093d9f",
+      "size": 156
+    },
+    "p385_source_ee3b0cc081376a84": {
+      "path": "workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+      "sha256": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+      "size": 2285
+    },
+    "p385_source_eece5061db5b3d91": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p366_return_spec.py",
+      "sha256": "54ba594d97232425428b98e15f4dbaa2e4f1322242e6590a6228c6a823c28d06",
+      "size": 127
+    },
+    "p385_source_efd2e4113f805671": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_odin_usbfs_identity.py",
+      "sha256": "9266f0a4a0f10dcd4f8a7b55fa2d2079afd2a1480e310ab6667f6bf2cf491451",
+      "size": 31458
+    },
+    "p385_source_fafec69445b3443e": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p369_return_spec.py",
+      "sha256": "7a6f914d7c6acfaae58a94042172a9b1850b4aaaf5f506ddc2696267e57088eb",
+      "size": 320
+    },
+    "p385_source_fbd053ba258899de": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p383_artifact_identity.py",
+      "sha256": "d7645006845c276bbe51be687d0aba423a5f08eec7d0ece88c47e582fc94c4f6",
+      "size": 150
+    },
+    "p385_source_fccab92aec9e6b72": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p375_return_spec.py",
+      "sha256": "3271605a453a01d7292e22d778eb395e2e7f6838856cd8b809b4317e95ffe090",
+      "size": 255
+    },
+    "p385_source_fccfe195db5e4349": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_local_display_observer_v1.py",
+      "sha256": "a8bb2f38a43254b977f5578b39533099505862a16c79e805158988532fe310f7",
+      "size": 13107
+    }
+  },
+  "device_contact": false,
+  "findings": [],
+  "full_request_serialization": {
+    "h0_probe_rejected_as_approval_request": true,
+    "production_writer_reader_passed": true,
+    "sha256": "08ee777fe2ca3771532cbcc918ad4efcd1443ebf24a6a657f5273b5f908cd607",
+    "size": 165324
+  },
+  "grant_opened": false,
+  "independent_checks": [
+    "Current runtime-bound production bundle and execution closure revalidated",
+    "Actual A/B artifacts audited against all 112 native source inputs; static ARM64 ELF confirmed",
+    "Actual fixed-key reader reaches the P385 factory with matching key, namespace and observer contract",
+    "Full request rederived and reopened; exact one-MiB boundary, exclusivity and oversize rejection verified",
+    "Joined owner path and 21 publication-cut cases passed without native or Android replay",
+    "Retained guard writer/reader tests and six additional inventory/two-flag lifecycle cases passed",
+    "Common exception preserves consumed claims, ordinary paths, target isolation and explicit live authority"
+  ],
+  "limits": {
+    "android_transfers_per_operation": 1,
+    "native_authentications": 8,
+    "native_boot_ms": 900000,
+    "reservations": 3,
+    "seconds": 600
+  },
+  "native_image_admitted": false,
+  "old_approval_reuse": false,
+  "parent_validation": {
+    "boundary_regression_tests": 12,
+    "legacy_protocol_guard_tests": 27,
+    "owner_backend_tests": 11,
+    "py_compile_files": 24,
+    "retained_evidence_verified": true,
+    "sha256": "cec5220bbeb08ddd59ebafad5893a08a720455d8aa8fba1251dafd3b6e07e758",
+    "size": 1064
+  },
+  "policy_binding": {
+    "common_details_sha256": "e7ac73a4d79a1c82afe37dd6e2962df276d2b5e53642de3bee095f370f2110d1",
+    "native_baseline_policy_sha256": "7fa75b712fbdaa8a84dd3920f2dd56eb3bc9337205ea07058d21992b482400e7",
+    "reviewed_agents_sha256": "1d279c61e2ea45cbbb889454f67ae87b70bc9c20273892d04a903aec33db624c"
+  },
+  "privileged_helper_started": false,
+  "reviewer": "independent-agent-native_refactor_review",
+  "schema": "s22plus-native-baseline-capability-review-v1",
+  "scope": "Exact P385 H0 capability and common/target policy interaction",
+  "source_binding": {
+    "canonical_sha256": "113b447c4405647c2bba1c9b434a7e4a8525b4c43b610c86c7e70fa1ba4909e5",
+    "execution_sources_sha256": "ba6828edf15575fbbab05b48f1a1d4888b64c9da1eef075c99b71fe226e742fd",
+    "unchanged_after_verification": true
+  },
+  "verdict": "PASS_GO"
+}

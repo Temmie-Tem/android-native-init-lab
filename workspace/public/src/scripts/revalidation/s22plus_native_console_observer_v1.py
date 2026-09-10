@@ -31,6 +31,7 @@ EXPECTED = tuple(EXPECTED)
 
 
 class Progress:
+    expected = EXPECTED
     def __init__(self, identity):
         self.identity = identity
         self.records = []; self.failure = None; self.terminal = False
@@ -53,14 +54,14 @@ class Progress:
                 raise ValueError('native preparation terminal is not joined')
             self.terminal = True
         else:
-            if self.failure is not None or ordinal >= len(EXPECTED) or (stage, event) != EXPECTED[ordinal]:
+            if self.failure is not None or ordinal >= len(self.expected) or (stage, event) != self.expected[ordinal]:
                 raise ValueError('native preparation order differs')
             if event == 0 and code: raise ValueError('native ENTER has a return value')
             if code: self.failure = dict(stage=stage, code=code)
         self.records.append(dict(stage=stage, event=event, code=code))
 
     def ready(self):
-        return len(self.records) == len(EXPECTED) and self.failure is None
+        return len(self.records) == len(self.expected) and self.failure is None
 
     def projection(self):
         return dict(schema='s22plus-fyg8-'+self.identity.namespace+'-preparation-progress-v1',

@@ -383,6 +383,25 @@ content-keyed no-repeat boundary. V2 likewise requires independent completed
 owner qualification and a fresh finite attended approval before any effect.
 V2 policy SHA256: `6f62dbe4d53be7839e9a5f06dfcb922bc1af39545f30734d499dfe73caccff4e`.
 
+The [S22+ bounded attended native baseline V1](S22PLUS_NATIVE_BASELINE_V1.md)
+is a separate permanent-boundary exception, incorporated at common-contract
+precedence with the policy SHA256 below. Only its reviewed exact owner may end
+a qualified operation in healthy `NATIVE_CLOSED`, and only a complete live
+bootstrap qualification may admit its exact native image/physical target for
+subsequent normal baseline installation/restoration. This explicitly specializes
+ordinary content-keyed no-repeat and mandatory Android cleanup for that role.
+The original native installation claim and every role intent remain consumed;
+ordinary candidates and the closed P383/P384 exceptions are unchanged.
+At most three operation reservations/600 suspend-aware seconds are bound by one
+separately returned attended grant. Bootstrap alone has two declared native
+roles; each reservation has one shared exact Android exit/fallback role. An
+unexplained failure never authorizes another native role. Before current review,
+source-qualified preparation, attendance and a finite grant, the definition is
+H0 only. Normal reuse also requires the retained live admission proof. Boot-only
+membership, exact A recovery, source/target identity and all other-target limits
+remain permanent.
+Native baseline V1 policy SHA256: `7fa75b712fbdaa8a84dd3920f2dd56eb3bc9337205ea07058d21992b482400e7`.
+
 Keep host rejection, local parser failure, device-session start, transfer
 start/completion, observation, rollback, and final health distinct. A dry run
 or pre-session host failure is not a candidate transfer, but any changed

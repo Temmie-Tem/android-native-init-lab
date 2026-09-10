@@ -20,6 +20,7 @@ class CarrierAdapter:
     INITIAL_SESSION_COUNT = SAME_FD_SESSION_COUNT = 1
     INITIAL_RECONNECT_COUNT = IDLE_SECONDS = 0
     TOTAL_COMMANDS = 2
+    NATIVE_SOURCE_PROFILE = 'local-display-v1'
     model = parser_source.model
     spec = parser_source.spec
 
@@ -86,10 +87,11 @@ class CarrierAdapter:
             observer_contract_id=self.OBSERVER_CONTRACT_ID, payload_abi=self.P320_PAYLOAD_ABI,
             observer_receipt_size=self.OBSERVER_RECEIPT_SIZE, causal_result_allowed=False, candidate_success=False,
             runtime_behavior_unchanged=False, runtime_delta_identity_only=False, root_console=True,
-            read_only_child_required=False, initial_session_count=1, same_fd_session_count=1,
-            initial_reconnect_count=0, idle_seconds=0, later_action_lease_active=False, mandatory_rollback=True,
+            read_only_child_required=False, initial_session_count=self.INITIAL_SESSION_COUNT,
+            same_fd_session_count=self.SAME_FD_SESSION_COUNT,
+            initial_reconnect_count=self.INITIAL_RECONNECT_COUNT, idle_seconds=0, later_action_lease_active=False, mandatory_rollback=True,
             native_return_control=True, native_usb_departure_before_odin=True, software_window_renewed=False,
-            control_ack_scope='acceptance-only', local_display_profile='local-display-v1',
+            control_ack_scope='acceptance-only', local_display_profile=self.NATIVE_SOURCE_PROFILE,
             root_work_stages_61_62='cached-before-auth', arbitrary_operator_commands=False,
             automatic_recovery_proved=False, permanent_boundaries_unchanged=True)
 
@@ -99,7 +101,8 @@ class CarrierAdapter:
             userspace_overlay_contract_id=self.OVERLAY_CONTRACT_ID, observer_contract_id=self.OBSERVER_CONTRACT_ID,
             observer_contract=dict(id=self.OBSERVER_CONTRACT_ID, payload_abi=self.P320_PAYLOAD_ABI,
                                    receipt_size=self.OBSERVER_RECEIPT_SIZE),
-            initial_session_count=1, same_fd_session_count=1, initial_reconnect_count=0, idle_seconds=0,
+            initial_session_count=self.INITIAL_SESSION_COUNT, same_fd_session_count=self.SAME_FD_SESSION_COUNT,
+            initial_reconnect_count=self.INITIAL_RECONNECT_COUNT, idle_seconds=0,
             later_action_lease_active=False, mandatory_rollback=True, qualification_schema=self.observer.SCHEMA,
             qualification_commands=[dict(ordinal=s.ordinal, name=s.name, command_hex=s.command.hex(), expected_outcome='ok')
                                     for s in self.observer.QUALIFICATION_COMMANDS])
@@ -139,5 +142,6 @@ class CarrierAdapter:
     def audit(self):
         return dict(self.bind_exact_sources(), schema=self.SCHEMA,
             verdict='PASS_'+self.selected.namespace.upper()+'_STOCK_PROCESS_V2_ADAPTER_H0',
-            initial_session_count=1, initial_reconnect_count=0, total_commands=2,
+            initial_session_count=self.INITIAL_SESSION_COUNT,
+            initial_reconnect_count=self.INITIAL_RECONNECT_COUNT, total_commands=self.TOTAL_COMMANDS,
             runtime_behavior_unchanged=False, catalog_unchanged=False, later_action_lease_active=False, mandatory_rollback=True)

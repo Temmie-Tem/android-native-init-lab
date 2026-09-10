@@ -28,6 +28,33 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### Bounded attended native baseline V1
+
+The common-incorporated [native baseline V1](../S22PLUS_NATIVE_BASELINE_V1.md)
+defines the separate P385/v0.2.0-rc.3 `native-baseline-v1` owner. Its current
+independent source-bound PASS_GO activation, exact N/A artifacts, finite returned
+operator approval, physical attendance and usable exact Download recovery are
+all required before effects. H0 readiness opens no grant and admits no image.
+One grant permits at most three operation reservations and 600 seconds, including
+host suspend. Bootstrap uses one previously unconsumed N installation and one
+separately intended same-N qualification restoration. Only its complete raw
+qualification may admit that exact image/physical target for later normal roles.
+Normal baseline roles retain the original installation claim and each consumed
+role intent. Ordinary experiments and P383/P384 remain one-shot under their own
+unchanged policies; they gain no native-baseline admission by relabelling.
+
+The exact-present native-start path requires current tty guard properties, fresh
+fixed authenticated health, the retained boot identity and an unused nonce.
+Boot preparation remains once per native boot; clean DETACH is the only session
+reentry path, within eight authentications and the original 900-second lifetime.
+The original grant/boot/observation deadlines never renew on reauthentication.
+Complete same-boot reentry, last DETACH ACK, actual descriptor close and remaining
+time/admission permit `NATIVE_CLOSED`. That snapshot grants no future responsiveness
+or unattended authority. Any unexplained operation/session failure ends research
+and permits only the originally bound exact A, at most once, followed by exact
+Android health. A healthy native close and an Android close remain separate
+structured terminals; this owner does not synthesize ordinary Process-v2 `CLOSED`.
+
 ### P384 native roundtrip followup
 
 The separately common-incorporated

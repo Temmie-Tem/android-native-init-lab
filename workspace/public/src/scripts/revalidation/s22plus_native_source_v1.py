@@ -30,8 +30,10 @@ HELPER_SEPARATORS = (b"\n\n\n", b"\n", b"", b"\n", b"\n")
 AUTH_KEY_PLACEHOLDER = b"P328_AUTH_KEY_BYTES"
 CONSOLE_PROFILE = "console-v1"
 LOCAL_PROFILE = "local-display-v1"
+BASELINE_PROFILE = "native-baseline-v1"
 PROFILE_PARTS = ("console_terminal.inc.c.in", "local_display.inc.c.in",
-                 "local_entry.inc.c.in", "local_publish.inc.c.in")
+                 "local_entry.inc.c.in", "local_publish.inc.c.in",
+                 "baseline_runtime.inc.c.in", "baseline_entry.inc.c.in")
 _SLOT = re.compile(rb"@@([A-Z_]+)@@")
 _MODULE_NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*\.ko")
 
@@ -95,19 +97,24 @@ def _expand(raw: bytes, values: dict[bytes, bytes]) -> bytes:
 
 
 def profile_contract(profile: str = CONSOLE_PROFILE) -> dict:
-    if type(profile) is not str or profile not in (CONSOLE_PROFILE, LOCAL_PROFILE):
+    if type(profile) is not str or profile not in (CONSOLE_PROFILE, LOCAL_PROFILE, BASELINE_PROFILE):
         raise SourceError("unknown native lifecycle profile")
-    local = profile == LOCAL_PROFILE
-    return {"profile": profile, "live_activation": False,
+    local = profile != CONSOLE_PROFILE
+    value = {"profile": profile, "live_activation": False,
             "root_work_stages_61_62": "cached-before-auth" if local else "inline-after-auth",
             "display_frame_limit": 916 if local else 601,
             "display_state_limit": 8 if local else 2,
             "local_hud_log_limit": 1048576 if local else 262144,
             "collector_sample_limit": 601}
+    if profile == BASELINE_PROFILE:
+        value.update(native_lifetime_ms=900000, authentication_limit=8,
+                     clean_detach_required=True, preparation_scope="boot-once-cached-on-reattach")
+    return value
 
 
 def _profile_hooks(profile: str) -> dict[bytes, bytes]:
-    local = profile_contract(profile)["profile"] == LOCAL_PROFILE
+    local = profile_contract(profile)["profile"] != CONSOLE_PROFILE
+    baseline = profile == BASELINE_PROFILE
     hooks = {
         b"HUD_LOG_LIMIT": b"1048576" if local else b"262144",
         b"LOCAL_DECLARATIONS": b"static long local_pre_auth(void);\nstatic long local_write_all(int,const char *,size_t,long);\n" if local else b"",
@@ -125,7 +132,38 @@ def _profile_hooks(profile: str) -> dict[bytes, bytes]:
         b"AUTH_TERMINAL": b"    return rc;" if local else _read(TEMPLATES / "console_terminal.inc.c.in").removesuffix(b"\n"),
         b"LOCAL_ENTRY": _read(TEMPLATES / "local_entry.inc.c.in") if local else b"",
         b"WAITING_ATTRIBUTE": b"__attribute__((unused)) " if local else b"",
+        b"BASELINE_DECLARATIONS": b"",
+        b"BASELINE_REQUEST": b"",
+        b"BASELINE_CONTROL_TICK": b"",
+        b"BASELINE_CONSOLE_BUDGET": b"",
+        b"BASELINE_DETACH_COMPLETE": b"",
+        b"BASELINE_OPEN_ADMISSION": b"",
+        b"BASELINE_NONCE_CHECK": b"",
+        b"PREPARE_RETURN": b"    rc=@@NAMESPACE@@_diag_start(tty_fd,nonce);\n    if(rc==0)rc=@@NAMESPACE@@_prepare_return();",
     }
+    if baseline:
+        lifecycle = hooks[b"LOCAL_LIFECYCLE"]
+        old = b"#define LOCAL_PREAUTH_MS 120000U"
+        if lifecycle.count(old) != 1:
+            raise SourceError("baseline preauth lifetime boundary differs")
+        hooks[b"LOCAL_LIFECYCLE"] = (lifecycle.replace(old, b"#define LOCAL_PREAUTH_MS 900000U", 1)
+            + _read(TEMPLATES / "baseline_runtime.inc.c.in"))
+        hooks[b"LOCAL_ENTRY"] = _read(TEMPLATES / "baseline_entry.inc.c.in")
+        hooks[b"BASELINE_DECLARATIONS"] = (b"#define RC1_DETACH 36U\n#define RC1_DETACH_ACK 167U\n"
+            b"static long baseline_check(void);\nstatic int baseline_detach_available(void);\n")
+        hooks[b"BASELINE_REQUEST"] = (
+            b"    if(type==RC1_DETACH && !size) {\n"
+            b"        if(s->active || s->pid || s->blocked || s->qcount || s->overload ||\n"
+            b"           s->fault_sent || s->flags || s->dropped || !baseline_detach_available())return -P260_EPROTO;\n"
+            b"        s->blocked=1;s->control=3;s->control_seq=seq;s->control_start=now;\n"
+            b"        return rc1_reply_state(s,RC1_DETACH_ACK,seq,0U);\n    }\n")
+        hooks[b"BASELINE_CONTROL_TICK"] = b"    if(s->control==3)return 0;\n"
+        hooks[b"BASELINE_CONSOLE_BUDGET"] = b"        rc=baseline_check();if(rc)break;\n"
+        hooks[b"BASELINE_DETACH_COMPLETE"] = (
+            b"        if(s.control==3 && !s.qcount){rc1_close_pipes(&s);return 2;}\n")
+        hooks[b"BASELINE_OPEN_ADMISSION"] = b"    rc=baseline_admit();if(rc)return rc;\n"
+        hooks[b"BASELINE_NONCE_CHECK"] = b"    rc=baseline_nonce(nonce);if(rc)return rc;\n"
+        hooks[b"PREPARE_RETURN"] = b"    rc=baseline_prepare(tty_fd,nonce);"
     return hooks
 
 
@@ -192,7 +230,7 @@ def memory_census(modules: Iterable[MemoryModule]) -> bytes:
 def render_display(identity: Identity, modules: Iterable[MemoryModule], *, profile: str = CONSOLE_PROFILE) -> bytes:
     contract = profile_contract(profile)
     states = b'hud_console_state==0?"CONSOLE: READY":hud_console_state==1?"CONSOLE: BUSY":"CONSOLE: BLOCKED"'
-    if profile == LOCAL_PROFILE:
+    if profile != CONSOLE_PROFILE:
         labels = ("CONSOLE: READY", "CONSOLE: BUSY", "CONSOLE: BLOCKED", "WAITING FOR AUTH",
                   "AUTH FAILED", "TIME EXPIRED", "PREPARING", "RUNTIME FAILED", "CLOSING")
         states = b"((const char *const[]){" + b",".join(b'"' + x.encode() + b'"' for x in labels) + b"})[hud_console_state]"

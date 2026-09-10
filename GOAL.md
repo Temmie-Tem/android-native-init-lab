@@ -13,6 +13,17 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+The current H0 unit is [bounded attended native baseline V1](docs/operations/S22PLUS_NATIVE_BASELINE_V1.md),
+P385 / v0.2.0-rc.3: an exact qualified native image with clean DETACH and same-boot
+reauthentication, finite normal baseline restoration, and distinct healthy native
+or exact Android terminals. The current source-qualified capability, ARM64 A/B/AP
+checks, 38 final owner/protocol/legacy tests and independent common/target review
+pass with **PASS_GO**; see the [H0 qualification report](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_V1_H0_2026-09-10.md).
+No P385 device grant, installation or native admission exists. The remaining
+bootstrap live qualification needs its own separately returned finite attended
+approval; the concrete H0 proposal is limited to one reservation and 600 seconds.
+The device's last observed state remains P384's healthy Android close below.
+
 The completed follow-up is the separately incorporated
 [P384 native roundtrip V2](docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md):
 one N installation, one same-N restoration and one exact A cleanup/fallback,

@@ -45,10 +45,11 @@ def write(path, raw):
     path.chmod(0o400)
 
 
-def source_receipts():
+def source_receipts(candidate=candidate):
     paths = set(direct.source_files()) | {Path(__file__), Path(candidate.__file__), Path(artifacts.__file__),
         Path(memory.__file__), Path(packager.__file__), Path(boot.__file__)}
     paths.update(artifacts.reference_source_files())
+    paths.update(Path(path) for path in getattr(candidate, 'NATIVE_BYTE_SOURCES', ()))
     paths.update(ROOT/path for path in (
         'workspace/public/src/scripts/analysis/s22plus_fyg8_p350_stock_candidate_build.py',
         'workspace/public/src/scripts/revalidation/s22plus_fyg8_p241_e2_static_checker.py',
@@ -66,14 +67,14 @@ def reference_inputs():
     return value, sources
 
 
-def join_runtime(raw):
+def join_runtime(raw, candidate=candidate):
     match = re.findall(rb'static const uint8_t p328_auth_key\[P328_AUTH_KEY_SIZE\] = \{ ([^}]+) \};', raw)
     if len(match) != 1: raise ValueError('frozen platform key declaration differs')
     key = bytes(int(x.strip().removesuffix(b'U'), 16) for x in match[0].split(b','))
     if identity(key) != candidate.AUTH_KEY_IDENTITY: raise ValueError('frozen key identity differs')
-    joined = direct.join_platform(raw, REFERENCE_IDENTITY, key, profile=direct.LOCAL_PROFILE)
-    before = direct.materialize_helper(REFERENCE_IDENTITY, key, profile=direct.LOCAL_PROFILE)
-    after = direct.materialize_helper(candidate.IDENTITY, key, profile=direct.LOCAL_PROFILE)
+    joined = direct.join_platform(raw, REFERENCE_IDENTITY, key, profile=candidate.PROFILE)
+    before = direct.materialize_helper(REFERENCE_IDENTITY, key, profile=candidate.PROFILE)
+    after = direct.materialize_helper(candidate.IDENTITY, key, profile=candidate.PROFILE)
     if joined.count(before) != 1: raise ValueError('direct local helper join differs')
     result = joined.replace(before, after, 1)
     if REFERENCE_IDENTITY.run_id_hex.encode() in result or b'p383' in result or b'P383' in result:
@@ -147,17 +148,17 @@ def build_package(out, label, baseline, image, init, renderer, tools):
     return value
 
 
-def build_result(output_root=DEFAULT_OUTPUT_ROOT, *, audit_only=False):
-    if audit_only: return audit_existing(output_root)
+def build_result(output_root=DEFAULT_OUTPUT_ROOT, *, audit_only=False, candidate=candidate):
+    if audit_only: return audit_existing(output_root, candidate=candidate)
     out = Path(output_root).absolute()
     if out.exists() or out.is_symlink() or not out.resolve().is_relative_to((ROOT/'workspace/private').resolve()):
         raise ValueError('fresh private build output required')
-    reference, sources = reference_inputs(); pins = source_receipts()
+    reference, sources = reference_inputs(); pins = source_receipts(candidate)
     print('SOURCE_KEYS', json.dumps(sorted(pins)), flush=True)
     for name, pin in reference['toolchain_inputs'].items(): stable(Path(name), expected=pin)
     out.mkdir(mode=0o700, parents=True); write(out/'source-inputs.json', canonical(pins))
     for name, raw in sources.items():
-        write(out/'stock-sources'/name, join_runtime(raw) if name == packager.RUNTIME_INCLUDE_NAME else raw)
+        write(out/'stock-sources'/name, join_runtime(raw, candidate) if name == packager.RUNTIME_INCLUDE_NAME else raw)
     write(out/'inputs/child-source.c', stable(REFERENCE/'inputs/child-source.c', expected=packager.CHILD_SOURCE_IDENTITY))
     image, transform = candidate.artifact.transform_image(stable(REFERENCE/'inputs/fixed-Image', expected=reference['image']))
     write(out/'inputs/fixed-Image', image)
@@ -170,7 +171,7 @@ def build_result(output_root=DEFAULT_OUTPUT_ROOT, *, audit_only=False):
     tools = packager._bind_tools(); previous = packager.RUN_ID
     try:
         packager.RUN_ID = bytes.fromhex(candidate.IDENTITY.run_id_hex)
-        userspace = [packager._compile_userspace(out/'stock-sources', out/('userspace-'+label), label='p384-'+label)
+        userspace = [packager._compile_userspace(out/'stock-sources', out/('userspace-'+label), label=candidate.IDENTITY.namespace+'-'+label)
                      for label in ('a', 'b')]
     finally: packager.RUN_ID = previous
     if userspace[0] != userspace[1]: raise ValueError('native userspace A/B differs')
@@ -190,10 +191,12 @@ def build_result(output_root=DEFAULT_OUTPUT_ROOT, *, audit_only=False):
     baseline = stable(REFERENCE/'candidate-a/boot.img', expected=reference['candidate']['a']['boot_img'])
     packages = {label: build_package(out, label, baseline, image, init, renderer, tools) for label in ('a', 'b')}
     if packages['a'] != packages['b']: raise ValueError('candidate package A/B differs')
-    if source_receipts() != pins: raise ValueError('candidate sources changed during build')
+    if source_receipts(candidate) != pins: raise ValueError('candidate sources changed during build')
     for name, pin in reference['toolchain_inputs'].items(): stable(Path(name), expected=pin)
     packager._bind_tools()
-    value = dict(schema=SCHEMA, verdict=VERDICT, run_id_hex=candidate.IDENTITY.run_id_hex, target=TARGET,
+    value = dict(schema='s22plus-fyg8-'+candidate.IDENTITY.namespace+'-stock-candidate-build-v1',
+        verdict='PASS_'+candidate.IDENTITY.namespace.upper()+'_STOCK_CANDIDATE_BUILD_H0',
+        run_id_hex=candidate.IDENTITY.run_id_hex, target=TARGET,
         source_inputs=pins, source_closure={p.name: identity(stable(p)) for p in (out/'stock-sources').iterdir()},
         reference_result=REFERENCE_RESULT, configuration=identity(stable(out/'configuration.json')),
         toolchain_inputs=reference['toolchain_inputs'], tools=packager.TOOL_IDENTITIES,
@@ -202,18 +205,20 @@ def build_result(output_root=DEFAULT_OUTPUT_ROOT, *, audit_only=False):
         module_bytes=reference['module_bytes'], byte_identical=True, platform_inputs_frozen=True,
         scope=dict(tier='H0', device_contact=False, candidate_transfers=0, rollback_transfers=0, live_authorized=False))
     write(out/'result.json', canonical(value))
-    return audit_existing(out)
+    return audit_existing(out, candidate=candidate)
 
 
-def audit_existing(output_root=DEFAULT_OUTPUT_ROOT):
+def audit_existing(output_root=DEFAULT_OUTPUT_ROOT, *, candidate=candidate):
     out = Path(output_root).absolute(); value = json.loads(stable(out/'result.json'))
-    if value.get('schema') != SCHEMA or value.get('verdict') != VERDICT or value.get('run_id_hex') != candidate.IDENTITY.run_id_hex:
+    if (value.get('schema') != 's22plus-fyg8-'+candidate.IDENTITY.namespace+'-stock-candidate-build-v1'
+            or value.get('verdict') != 'PASS_'+candidate.IDENTITY.namespace.upper()+'_STOCK_CANDIDATE_BUILD_H0'
+            or value.get('run_id_hex') != candidate.IDENTITY.run_id_hex):
         raise ValueError('candidate build result identity differs')
-    if value['source_inputs'] != source_receipts() or value['reference_result'] != REFERENCE_RESULT:
+    if value['source_inputs'] != source_receipts(candidate) or value['reference_result'] != REFERENCE_RESULT:
         raise ValueError('candidate source binding differs')
     reference, sources = reference_inputs()
     for name, raw in sources.items():
-        expected = join_runtime(raw) if name == packager.RUNTIME_INCLUDE_NAME else raw
+        expected = join_runtime(raw, candidate) if name == packager.RUNTIME_INCLUDE_NAME else raw
         if stable(out/'stock-sources'/name, expected=value['source_closure'][name]) != expected:
             raise ValueError('candidate platform source join differs')
     baseline = stable(REFERENCE/'candidate-a/boot.img', expected=reference['candidate']['a']['boot_img'])

@@ -14,7 +14,7 @@
 #define RC1_CONTROL_ACK 164U
 #define RC1_FAULT 165U
 #define RC1_READY 166U
-#define RC1_QUEUE 8U
+@@BASELINE_DECLARATIONS@@#define RC1_QUEUE 8U
 #define RC1_WIRE (P328_HEADER_SIZE+P328_MAX_PAYLOAD)
 #define RC1_OUTPUT_LIMIT 1048576U
 #define RC1_OUTPUT_FRAME_LIMIT 2048U
@@ -163,7 +163,7 @@ static long rc1_request(struct rc1_state *s,uint64_t now) {
     if(!p328_constant_time_equal(tag,body+size,32U))return -P260_EPROTO;
     /* Consume before any effect; failure may never retry this request. */
     ++s->next;
-    /* CONTROL admission lives outside the ordinary response queue. Freeze
+@@BASELINE_REQUEST@@    /* CONTROL admission lives outside the ordinary response queue. Freeze
      * output production and drain its bounded existing frames before terminal
      * and ACK, so ordinal accounting never overtakes queued output. */
     if(type==RC1_CONTROL && !size) {
@@ -276,7 +276,7 @@ static long rc1_child_tick(struct rc1_state *s,uint64_t now) {
     return 0;
 }
 static long rc1_control_tick(struct rc1_state *s) {
-    if(s->qcount || s->control==2)return 0;
+@@BASELINE_CONTROL_TICK@@    if(s->qcount || s->control==2)return 0;
     if(s->active) {
         if(!s->reaped){long n=sys_wait4(s->pid,&s->status,WNOHANG);if(n==s->pid)s->reaped=1;}
         s->flags|=RC1_FLAG_CONTROL|RC1_FLAG_CLEANUP|RC1_FLAG_OUTPUT_INCOMPLETE;

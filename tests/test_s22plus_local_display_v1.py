@@ -29,8 +29,8 @@ import s22plus_root_console_v1 as wire
 
 _HUD_SOURCE = hud.source
 
-def source(runtime=None):
-    with direct_test.production_join(profile=direct.LOCAL_PROFILE):
+def source(runtime=None, *, profile=direct.LOCAL_PROFILE):
+    with direct_test.production_join(profile=profile):
         with mock.patch.object(hud, 'runtime', runtime or hud.runtime):
             value = _HUD_SOURCE()
     if runtime is not None:

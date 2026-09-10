@@ -1184,12 +1184,29 @@ def observer_session(
     usb_root: Path = Path("/sys/bus/usb/devices"),
     max_sec: int = GUARD_DEFAULT_MAX_SEC,
 ) -> Iterator[ObserverSession]:
+    baseline = capture_baseline(spec, topology, class_tty=class_tty)
+    with _bound_observer_session(spec, topology, run_dir, binding, baseline=baseline,
+            class_tty=class_tty, dev_root=dev_root, usb_root=usb_root, max_sec=max_sec) as session:
+        yield session
+
+
+@contextlib.contextmanager
+def _bound_observer_session(
+    spec: dict[str, str], topology: str, run_dir: Path, binding: dict[str, str], *,
+    baseline: dict[str, Any], class_tty: Path = Path('/sys/class/tty'),
+    dev_root: Path = Path('/dev'), usb_root: Path = Path('/sys/bus/usb/devices'),
+    max_sec: int = GUARD_DEFAULT_MAX_SEC,
+) -> Iterator[ObserverSession]:
+    """Share only guard lifetime/cleanup; the caller owns baseline semantics.
+
+    Ordinary observer_session always captures candidate absence. The reviewed
+    native-baseline owner supplies and reopens its separate exact-present schema.
+    """
     validate_spec(spec)
     max_sec = _validate_guard_max_sec(max_sec)
     release_path = run_dir / "candidate-observer-guard-release.json"
     if release_path.exists() or release_path.is_symlink():
         raise ObserverError("candidate observer guard release already exists")
-    baseline = capture_baseline(spec, topology, class_tty=class_tty)
     baseline_receipt = persist_json(run_dir / "candidate-observer-baseline.json", baseline)
     guard = ModemManagerGuard.arm(spec, topology, run_dir, max_sec=max_sec)
     try:

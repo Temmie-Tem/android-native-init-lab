@@ -1,0 +1,69 @@
+/* The native baseline has one boot-local preparation and a finite sequence of
+ * explicitly detached authentication sessions. No error resets this state. */
+#define BASELINE_AUTH_LIMIT 8U
+#define BASELINE_INFO_FRAME 140U
+#define BASELINE_INFO_SEQUENCE 768U
+static unsigned baseline_sessions,baseline_return_prepared;
+static uint64_t baseline_last_ms;
+static uint8_t baseline_nonces[BASELINE_AUTH_LIMIT][32];
+static const char baseline_info_domain[]="S22PLUS-FYG8-@@NAMESPACE_UPPER@@-BASELINE-INFO-v1";
+
+static long baseline_check(void) {
+    uint64_t now=0;long rc=rc1_now(&now);if(rc)return rc;
+    if(!local_owner() || local_display.terminal || local_display.stopped ||
+       now<local_display.start || now<baseline_last_ms)return -P260_EPROTO;
+    baseline_last_ms=now;
+    if(now-local_display.start>=LOCAL_DISPLAY_MS)return -ETIMEDOUT;
+    return 0;
+}
+static long baseline_admit(void) {
+    long rc=baseline_check();if(rc)return rc;
+    if(baseline_sessions>=BASELINE_AUTH_LIMIT)return -P260_EPROTO;
+    ++baseline_sessions;
+    return 0;
+}
+static long baseline_nonce(const uint8_t nonce[32]) {
+    if(!baseline_sessions || baseline_sessions>BASELINE_AUTH_LIMIT)return -P260_EPROTO;
+    for(unsigned i=0;i+1U<baseline_sessions;++i)
+        if(p328_constant_time_equal(nonce,baseline_nonces[i],32U))return -P260_EPROTO;
+    memcpy(baseline_nonces[baseline_sessions-1U],nonce,32U);return 0;
+}
+static int baseline_detach_available(void) {
+    return baseline_check()==0 && baseline_sessions<BASELINE_AUTH_LIMIT &&
+        baseline_return_prepared && local_display.authenticated &&
+        @@NAMESPACE@@_diagnostic.active && !@@NAMESPACE@@_diagnostic.broken &&
+        !@@NAMESPACE@@_diagnostic.terminal && !@@NAMESPACE@@_diagnostic.first_error;
+}
+static long baseline_info(int fd,const uint8_t nonce[32]) {
+    long rc=baseline_check();if(rc)return rc;
+    uint8_t payload[64]={0};uint64_t elapsed=baseline_last_ms-local_display.start;
+    p328_store_le32(payload,1U);p328_store_le32(payload+4,baseline_sessions);
+    p328_store_le32(payload+8,BASELINE_AUTH_LIMIT);
+    p328_store_le32(payload+12,baseline_return_prepared?1U:0U);
+    p328_store_le32(payload+16,(uint32_t)elapsed);
+    p328_store_le32(payload+20,(uint32_t)(elapsed>>32));
+    p328_store_le32(payload+24,LOCAL_DISPLAY_MS);
+    p328_store_le32(payload+28,0U);
+    p328_hmac_message(payload+32,baseline_info_domain,sizeof(baseline_info_domain)-1U,
+        p328_run_id_bytes,nonce,BASELINE_INFO_SEQUENCE,1,payload,32U);
+    return p328_write_frame(fd,BASELINE_INFO_FRAME,BASELINE_INFO_SEQUENCE,payload,sizeof(payload));
+}
+static long baseline_prepare(int fd,const uint8_t nonce[32]) {
+    long rc=baseline_info(fd,nonce);if(rc)return rc;
+    rc=@@NAMESPACE@@_diag_start(fd,nonce);if(rc)return rc;
+    if(baseline_return_prepared)
+        return @@NAMESPACE@@_diag_emit(64U,@@NAMESPACE_UPPER@@_DIAG_RETURN,0);
+    rc=@@NAMESPACE@@_prepare_return();
+    if(rc==0)baseline_return_prepared=1U;
+    return rc;
+}
+static long baseline_detached(void) {
+    if(!baseline_detach_available())return -P260_EPROTO;
+    /* Called only after the clean DETACH ACK was completely flushed. These
+     * per-session diagnostics may reset; boot preparation, counters and clocks
+     * above never do. Broken/terminal diagnostics cannot reach this point. */
+    memset(&@@NAMESPACE@@_diagnostic,0,sizeof(@@NAMESPACE@@_diagnostic));
+    local_display.authenticated=0;
+    local_phase(3U);local_service();
+    return baseline_check();
+}

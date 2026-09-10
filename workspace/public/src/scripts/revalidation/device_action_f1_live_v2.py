@@ -65,6 +65,7 @@ import s22plus_fyg8_p382_return_host as p382_return_host
 import s22plus_fyg8_p383_console_owner as p383_console_owner
 import s22plus_fyg8_p383_return_host as p383_return_host
 import s22plus_native_roundtrip_owner_v1 as native_roundtrip
+import s22plus_native_baseline_backend_v1 as native_baseline
 import s22plus_native_planned_handoff_v1 as planned_handoff
 import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
@@ -1066,6 +1067,7 @@ class PreparedRun:
     prepared: dict[str, Any]
     private_target: dict[str, str]
     native_parent: Path | None = None
+    native_baseline_context: dict[str, Any] | None = None
 
     @property
     def binding_sha256(self) -> str:
@@ -2624,7 +2626,7 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
     # P384's direct artifact object describes package identity, not key I/O.
     # Its prepared key is the existing fixed P328 credential; keep that strict
     # reader and compare its bytes with the independently bound P384 identity.
-    if _shell_bundle(prepared.bundle) and _shell_definition(prepared.bundle).prefix == "p384":
+    if _shell_bundle(prepared.bundle) and _shell_definition(prepared.bundle).prefix in ("p384", "p385"):
         artifact_module = p328_artifact_identity
     try:
         key_path = (
@@ -5251,14 +5253,17 @@ class SamsungOdinBackend:
     ) -> TransferOutcome:
         if kind == "native-restore":
             native_roundtrip.validate_restore_arm(sys.modules[__name__], prepared, endpoint, attempt, prefix)
+        elif kind in {"native-baseline", "baseline-android"}:
+            import s22plus_native_baseline_owner_v1 as baseline_owner
+            baseline_owner.validate_arm(sys.modules[__name__], prepared, endpoint, kind, attempt, prefix)
         elif kind not in {"candidate", "rollback"}:
             raise F1LiveError("unknown F1 transfer kind")
         item = (
             prepared.bundle.manifest["candidate_ap"]
-            if kind in {"candidate", "native-restore"}
+            if kind in {"candidate", "native-restore", "native-baseline"}
             else prepared.bundle.manifest["rollback_ap"]
         )
-        if kind != "native-restore":
+        if kind not in {"native-restore", "native-baseline", "baseline-android"}:
             journal = core.Journal.reopen(
                 prepared.run_dir / "transaction", prepared.binding_sha256
             )
@@ -5289,7 +5294,7 @@ class SamsungOdinBackend:
                 ap_size=item["size"],
                 ap_sha256=item["sha256"],
                 label=kind,
-                require_deterministic_metadata=kind in {"candidate", "native-restore"},
+                require_deterministic_metadata=kind in {"candidate", "native-restore", "native-baseline"},
                 timeout=ODIN_TIMEOUT_SEC,
                 maximum_output=MAX_ODIN_OUTPUT,
                 capture_dir=destination,
@@ -5347,8 +5352,15 @@ class SamsungOdinBackend:
         observer_session: Any,
     ) -> dict[str, Any]:
         sequence = len(odin_core.list_snapshot_receipts(run_dir))
-        initial_departure = (native_roundtrip.restoration_departure(sys.modules[__name__], prepared)
-                             if prepared.native_parent is not None else None)
+        if prepared.native_baseline_context is not None:
+            import s22plus_native_baseline_owner_v1 as baseline_owner
+            owned_departure = baseline_owner.initial_departure(sys.modules[__name__], prepared)
+            # This owner normally retains its pre-transfer Download snapshots
+            # in the same phase lease. A seed is only for an empty observer.
+            initial_departure = owned_departure if sequence == 0 else None
+        else:
+            initial_departure = (native_roundtrip.restoration_departure(sys.modules[__name__], prepared)
+                                 if prepared.native_parent is not None else None)
         absent = odin_core.wait_for_no_live_endpoint(
             self.odin,
             run_dir,
@@ -6132,6 +6144,8 @@ def _candidate_observer_binding(prepared: PreparedRun) -> dict[str, str]:
     if native_roundtrip.selected(prepared.bundle):
         value["native_arrival"] = "2" if prepared.native_parent is not None else "1"
         value["native_roundtrip_plan_sha256"] = core.json_sha256(native_roundtrip.bound_plan(prepared))
+    if prepared.native_baseline_context is not None:
+        value["native_baseline_context_sha256"] = core.json_sha256(prepared.native_baseline_context)
     return value
 
 
@@ -9215,7 +9229,8 @@ class _P345ObserverSession(_P331ObserverSession):
             if descriptor is None:
                 raise F1LiveError("qualification descriptor ownership is missing")
             self.proof = dict(self.qualification.receipt)
-            if self.namespace in CONTROL_RETURN_OWNERS:
+            if self.namespace in CONTROL_RETURN_OWNERS and not (
+                    isinstance(self, native_baseline.ObserverMixin) and self._baseline_requires_endpoint()):
                 # Signed acceptance follows the sealed intent. Departure is
                 # expected, but arrival belongs to the existing rollback owner.
                 return "accepted"
@@ -9236,7 +9251,12 @@ class _P345ObserverSession(_P331ObserverSession):
             self.protocol_error = type(exc).__name__
             return "open-failed"
         finally:
-            if self.namespace in HANDOFF_RETURN_OWNERS:
+            if isinstance(self, native_baseline.ObserverMixin):
+                try:
+                    self._baseline_final_close()
+                except Exception as exc:
+                    self.descriptor_close_error = type(exc).__name__
+            elif self.namespace in HANDOFF_RETURN_OWNERS:
                 current=self.owned_descriptor;self.owned_descriptor=None
                 if current is not None:
                     try:os.close(current)
@@ -9358,7 +9378,11 @@ class _P345ObserverSession(_P331ObserverSession):
         if self.namespace in DIAGNOSTIC_RETURN_OWNERS:
             audit=(self.qualification.sessions[0].session.audit if self.qualification is not None
                 else getattr(self.qualification_error,"failed_audit",None))
+            if isinstance(self, native_baseline.ObserverMixin) and sessions:
+                audit = sessions[0].session.audit
             value["native_progress"]=self.qualification_observer.progress_projection(audit)
+        if isinstance(self, native_baseline.ObserverMixin):
+            native_baseline.project_observation(self, value, complete)
         value[self.proof_key] = dict(self.proof or {})
         value.pop("tx_hex", None)
         self._publish_value(value, lane, label=self.receipt_label)
@@ -9522,6 +9546,11 @@ class _P375ObserverSession(_P363ObserverSession):
 
 
 @dataclass
+class _P385ObserverSession(native_baseline.ObserverMixin, _P375ObserverSession):
+    native_baseline_prepared: Any = None
+
+
+@dataclass
 class _P348ObserverSession(_P345ObserverSession):
     """Six initial sessions; one deliberate exact-endpoint idle/reopen."""
 
@@ -9680,6 +9709,8 @@ def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
             value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key)), prefix)
     except (ValueError, TypeError):
         return False
+    if typed_evidence.SHELL_VARIANTS[prefix].native_baseline:
+        return native_baseline.proof_ok(value, typed_evidence.SHELL_VARIANTS[prefix])
     if prefix in ROOT_CONSOLE_OWNERS:
         proof = value.get("proof",value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key))
         plan = value.get(prefix+"_console_plan")
@@ -9796,11 +9827,14 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         raise F1LiveError("shell qualification spec differs")
     key, key_sha256 = _p328_read_auth_key(prepared)
     inherited_spec = _p327_inherited_spec(spec)
-    with p325_guard_adapter.observer_session(inherited_spec,
+    session_guard = (lambda *args, **kwargs: native_baseline.observer_session(sys.modules[__name__], prepared, *args, **kwargs)
+        if shell.native_baseline else p325_guard_adapter.observer_session(*args, **kwargs))
+    with session_guard(inherited_spec,
         prepared.private_target["topology"], prepared.run_dir,
         _candidate_observer_binding(prepared), lane_value, lane_receipt,
         usb_root=usb_root, typec_root=typec_root) as inherited:
-        session_class = (_P375ObserverSession if shell.root_console else
+        session_class = (_P385ObserverSession if shell.native_baseline else
+            _P375ObserverSession if shell.root_console else
             HANDOFF_SESSION_CLASSES[shell.prefix] if shell.planned_handoff else
             _P363ObserverSession if shell.prefix in RETURN_SHELL_OWNERS else
             _P353ObserverSession if shell.prefix in DISPATCH_SHELL_OWNERS else
@@ -9813,6 +9847,7 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
             receipt_schema=f"s22plus_fyg8_{shell.prefix}_shell_qualification_acm_receipt_v1",
             receipt_label=shell.prefix.upper() + " root console qualification receipt"
                 if shell.root_console else shell.prefix.upper() + " read-only shell qualification receipt",
+            **(dict(native_baseline_prepared=prepared) if shell.native_baseline else {}),
             **(dict(root_console_plan_value=plan_value,
                     root_console_plan_receipt=plan_receipt,
                     native_transaction=(PreparedRun(prepared.root, prepared.native_parent or prepared.run_dir,
@@ -9827,7 +9862,8 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
 def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, Any]) -> dict[str, Any]:
     """Reopen private raw sessions, then rederive the fixed qualification."""
     shell = _shell_definition(prepared.bundle)
-    session_count = shell.observer.SESSION_COUNT
+    session_count = (native_baseline.observer.mode_sessions(native_baseline.mode(sys.modules[__name__], prepared))
+        if shell.native_baseline else shell.observer.SESSION_COUNT)
     def require(condition: bool, reason: str) -> None:
         if not condition:
             raise F1LiveError("P345 receipt " + reason)
@@ -9848,6 +9884,8 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
         "classification differs")
     require(value.get("classification") in P344_CLASSIFICATIONS
         and type(value.get("download_endpoint_absent")) is bool, "status differs")
+    if shell.native_baseline:
+        native_baseline.guard.validate_baseline(sys.modules[__name__], prepared, value)
     capture_path = prepared.run_dir / "candidate-observer.capture.json"
     handle = raw_capture.load_handle(capture_path)
     raw_maximum=shell.observer.RAW_MAXIMUM if shell.root_console else P327_MAX_RAW_BYTES
@@ -9886,7 +9924,14 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
         if shell.prefix in RETAINED_SHELL_OWNERS:
             require(value.get("idle_duration_ms") == proof.get("idle_duration_ms"),
                 "idle duration projection differs")
-        if shell.planned_handoff:
+        if shell.native_baseline:
+            derived = shell.observer.replay_session(codec, received, b''.join(txs), key,
+                mode=native_baseline.mode(sys.modules[__name__], prepared))
+            require(_p319_exact_equal(proof, derived), 'baseline raw proof differs')
+            require([row['tx']['size'] for row in derived['sessions']] == [len(tx) for tx in txs],
+                'baseline TX boundaries differ')
+            native_baseline.validate_observer_ownership(sys.modules[__name__], prepared, value, derived)
+        elif shell.planned_handoff:
             derived=shell.observer.replay_pair(codec,received,b''.join(txs),key)
             require(proof==derived,'paired raw proof differs')
             require([row['tx']['size'] for row in derived['sessions']]==[len(tx) for tx in txs],'paired TX boundaries differ')
@@ -9913,7 +9958,7 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
                 tx_offset += len(tx)
             require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
                 "session continuity differs")
-    if (shell.root_console and proof
+    if (shell.root_console and not shell.native_baseline and proof
             and proof.get("control_acceptance_observed") is True):
         require(len(txs)==1,"root console TX stream count differs")
         codec=_open_header_initial_observer_module(shell.runtime,shell.observer,
@@ -9978,7 +10023,8 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             and type(snapshot["capture_complete"]) is bool
             and snapshot["capture_complete"] is parsed_snapshot["capture_complete"]
             and snapshot["continuity_proved"] is False
-            and snapshot["role"] == ("post-control-transport-diagnostic" if shell.prefix in CONTROL_RETURN_OWNERS else "post-dispatch-transport-diagnostic")
+            and snapshot["role"] == ("baseline-transport-diagnostic" if shell.native_baseline else
+                "post-control-transport-diagnostic" if shell.prefix in CONTROL_RETURN_OWNERS else "post-dispatch-transport-diagnostic")
             and (snapshot["error_type"] is None or
                 (type(snapshot["error_type"]) is str and len(snapshot["error_type"]) <= 80
                  and snapshot["capture_complete"] is False)),
@@ -9993,7 +10039,10 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             and value.get("visible_panel_output") == "UNPROVED"
             and value.get("proof_scope") == "authenticated-host-dispatch-only",
             "dispatch-only projection differs")
+    if shell.native_baseline and value['accepted'] and proof['clean_detach_observed']:
+        native_baseline.validate_detached_plan(sys.modules[__name__], prepared, value, proof)
     if (shell.prefix in CONTROL_RETURN_OWNERS
+            and (not shell.native_baseline or proof.get('control_acceptance_observed') is True)
             and (value["accepted"] or (shell.root_console and proof
                 and proof.get("control_acceptance_observed") is True))):
         require(lane.get("observation_phase") == "before-native-return-control"
@@ -14510,11 +14559,15 @@ def _validate_transfer_result(
 ) -> dict[str, Any] | None:
     if kind == "native-restore" and (not native_roundtrip.selected(prepared.bundle) or prepared.native_parent is None):
         raise F1LiveError("native restoration receipt outside declared arrival")
+    if kind in {"native-baseline", "baseline-android"} and prepared.native_baseline_context is None:
+        raise F1LiveError("native baseline transfer receipt lacks its exact owner")
     prefix = f"{kind}-attempt-{attempt:02d}"
     result_path = prepared.run_dir / f"{prefix}.result.json"
     if not result_path.exists():
         return None
     value = _read_json(result_path, f"{kind} transfer receipt")
+    if kind in {"native-baseline", "baseline-android"} and type(value.get("attempt")) is not int:
+        raise F1LiveError("native baseline transfer attempt is not an integer")
     if value.get("schema") == "device_action_f1_transfer_failure_v2":
         if set(value) != {
             "schema",
@@ -14569,7 +14622,7 @@ def _validate_transfer_result(
     }
     item = (
         prepared.bundle.manifest["candidate_ap"]
-        if kind in {"candidate", "native-restore"}
+        if kind in {"candidate", "native-restore", "native-baseline"}
         else prepared.bundle.manifest["rollback_ap"]
     )
     expected_odin = prepared.bundle.profile["transport"]["odin"]

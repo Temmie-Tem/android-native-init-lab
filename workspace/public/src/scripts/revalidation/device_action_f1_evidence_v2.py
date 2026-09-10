@@ -1713,9 +1713,9 @@ P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375", "p376", "p377", "p378", "p379", "p380", "p381", "p382", "p383", "p384"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375", "p376", "p377", "p378", "p379", "p380", "p381", "p382", "p383", "p384", "p385"):
     _upper = _prefix.upper()
-    _direct = _load_stable_local_module("s22plus_fyg8_p384_candidate") if _prefix == "p384" else None
+    _direct = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_candidate") if _prefix in ("p384", "p385") else None
     if _direct is not None:
         _adapter, _artifact, _observer, _runtime = _direct.adapter, _direct.artifact, _direct.observer, _direct.runtime
     else:
@@ -1747,6 +1747,7 @@ for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", 
         globals()[_prefix + "_" + _key] = _module
     SHELL_VARIANTS[_prefix] = types.SimpleNamespace(prefix=_prefix, adapter=_adapter,
         workload=_workload, root_console=_workload=="root_console", local_display=_direct is not None, declaration=_direct, proof_key=_prefix + "_" + _workload + "_qualification",
+        native_baseline=_direct is not None and _direct.PROFILE == 'native-baseline-v1',
         retained_lease=_prefix in ("p348", "p349"),
         planned_handoff=_prefix in ("p370","p371","p372","p373","p374"),
         display_steps=_prefix in ("p372","p373","p374"),
@@ -7732,6 +7733,14 @@ def _shell_observer_spec(prefix):
             max_commands=2, plan_command_cap=0, caller_selected_command=False,
             qualification_exec_count=1, optional_hud_exec_count=1, control_sequences=[5, 6],
             source_profile=variant.observer.audit_binding()["source_profile"])
+    if variant.native_baseline:
+        value.update(session_cap=2, same_fd_session_count=1, total_session_count=2,
+            reconnect_cap=1, physical_reopen_count=1, total_command_count=3,
+            maximum_exec_count=3, max_commands=3, qualification_exec_count=2,
+            clean_detach_type=36, clean_detach_ack_type=167,
+            baseline_info_frame_type=140, baseline_info_payload_size=64,
+            baseline_authentication_limit=8, baseline_boot_limit_ms=900000,
+            terminal_modes=['pair-control', 'pair-detach', 'control', 'detach'])
     if variant.diagnostic_progress:
         value.update(authenticated_progress=True,
             diagnostic_frame_type=control.FRAME_DIAGNOSTIC,

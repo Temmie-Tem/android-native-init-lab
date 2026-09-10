@@ -9,6 +9,14 @@ The A90-only resident boot-promotion v1 extension does not alter the ordinary
 state machine below or any S22+ run. Its current authority and prerequisites
 remain in the A90 target contract.
 
+The common-incorporated [S22+ native baseline V1](S22PLUS_NATIVE_BASELINE_V1.md)
+uses a separate finite attended owner for admitted native baseline roles and a
+healthy `NATIVE_CLOSED` terminal. Its exact bootstrap/reuse/Android fallback
+requirements do not rename an ordinary candidate, reset a consumed claim or
+modify this ordinary state machine. It reuses the measured Download transport,
+exact tty guard, raw evidence and rooted-Android health consumers; source-bound
+independent activation and a separate returned finite grant remain mandatory.
+
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
 experiments. It does not relax the permanent boundaries in AGENTS.md or its

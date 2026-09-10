@@ -12,7 +12,7 @@
 @@CONSOLE_HUD_START@@
     for(;;) {
         uint64_t now=0;rc=rc1_now(&now);if(rc)break;
-        if(now-s.start>=RC1_SESSION_MS || (s.rx_used && now-s.partial_start>5000U)){rc=-ETIMEDOUT;break;}
+@@BASELINE_CONSOLE_BUDGET@@        if(now-s.start>=RC1_SESSION_MS || (s.rx_used && now-s.partial_start>5000U)){rc=-ETIMEDOUT;break;}
         if(!s.control){rc=rc1_receive(&s,now);if(rc)break;}
 @@CONSOLE_HUD_TICK@@
         if(s.control){
@@ -25,7 +25,7 @@
             rc=rc1_queue(&s,RC1_FAULT,s.overload,fault,8U);if(rc)break;s.fault_sent=1;
         }
         rc=rc1_flush(&s);if(rc)break;
-        if(s.control==2 && !s.qcount){@@CONSOLE_HUD_STOP@@rc1_signal(&s,9);rc1_close_pipes(&s);return 1;}
+@@BASELINE_DETACH_COMPLETE@@        if(s.control==2 && !s.qcount){@@CONSOLE_HUD_STOP@@rc1_signal(&s,9);rc1_close_pipes(&s);return 1;}
         p282_poll_delay();
     }
     @@CONSOLE_HUD_STOP@@rc1_signal(&s,9);rc1_close_pipes(&s);return rc;
@@ -89,7 +89,7 @@ static long @@FRAMED_ENTRY@@(
             (int32_t)p328_load_le32(p339_open_header + 12U));
         return -P260_EPROTO;
     }
-    *open_seen = 1U;
+@@BASELINE_OPEN_ADMISSION@@    *open_seen = 1U;
     struct s22plus_p318_banner_result banner =
         s22plus_p318_banner_attempt(tty_fd);
     if (banner.outcome != S22PLUS_P318_BANNER_WRITTEN) return -EIO;
@@ -109,7 +109,7 @@ static long @@FRAMED_ENTRY@@(
         ++rng_retries;
         p282_poll_delay();
     }
-    rc = p330_write_diagnostic(
+@@BASELINE_NONCE_CHECK@@    rc = p330_write_diagnostic(
         tty_fd, P330_DIAG_RNG, (int32_t)rng_retries);
     if (rc != 0) return rc;
     rc = p328_write_frame(
@@ -151,8 +151,7 @@ static long @@FRAMED_ENTRY@@(
         boot_payload, (uint16_t)sizeof(boot_payload));
     if (rc != 0) return rc;
 
-    rc=@@NAMESPACE@@_diag_start(tty_fd,nonce);
-    if(rc==0)rc=@@NAMESPACE@@_prepare_return();
+@@PREPARE_RETURN@@
     if(rc==0)rc=@@NAMESPACE@@_diag_enter(60U);
     if(rc==0)rc=@@NAMESPACE@@_diag_result(60U,
         (syscall6(174,0,0,0,0,0,0)==0 && syscall6(175,0,0,0,0,0,0)==0 &&
