@@ -1,11 +1,19 @@
 # S22+ native baseline Download roundtrip
 
-Status: **DESIGN_ONLY; no runner, activation, artifact selection or device grant.**
+Status: **P383 first-qualification owner implemented and independently reviewed;
+no device grant or standing native baseline.**
 
 Target: SM-S906N / g0q / S906NKSS7FYG8. This is the next proposed functional
-unit after the OBSERVED journal repair. The naming-policy example v0.2.0-rc.1
-is a prospective label; it does not register a candidate or promote v0.1.2.
-P381 remains consumed NO_PROOF, and the retained functional version is v0.1.1.
+unit after successful v0.1.2/P382 journal close. The new P383 candidate uses
+functional label v0.2.0-rc.1 and its own freshly qualified artifacts. P381 remains consumed
+NO_PROOF. The retained functional version is v0.1.2, mapped to consumed successful
+P382 artifacts; neither historic candidate may be reused as a new N installation.
+
+Implementation review found a higher-precedence omission: common F1 and the
+permanent content-keyed consumed registry prohibit the repeated N transfer.
+The [separate common exception](../operations/S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
+is independently reviewed and incorporated as a dormant capability definition.
+The prior design-only review does not cover this exception or activate the graph.
 
 ## Purpose and current gap
 
@@ -15,7 +23,7 @@ rollback could then target that exact native baseline rather than restoring
 Android after every experiment. Android remains an independently bound emergency
 fallback. Neither role is currently activated.
 
-The current [target contract](../operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md)
+The ordinary path in the [target contract](../operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md)
 requires one candidate, one exact Magisk rollback and final rooted FYG8 Android
 health. Replacing only rollback_ap would violate its terminal assumptions and
 the live runner's validators. Existing source-bound reviews and consumed run
@@ -39,10 +47,12 @@ Use an attended, finite qualification transaction with these predeclared roles:
 
 The successful initial qualification therefore needs three declared boot-only
 transfers: N installation, N restoration, A cleanup. These are distinct roles
-with separate one-shot intents, never retries of the consumed P381 candidate.
-The new lane must expressly represent repeated N bytes across those roles;
+with separate one-shot intents under that common exception, never
+retries of a consumed historic candidate.
+The common exception and new lane must expressly permit and represent repeated N bytes across those roles;
 the current one-candidate/one-rollback runner must continue rejecting that use.
-N is selected and pinned only during later implementation/qualification.
+P383 N is now A/B and statically qualified. Its exact identity and H0 results are
+recorded in the [implementation report](../reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md).
 
 This first transaction ends in Android so it does not silently establish a
 standing native session. Keeping native as the terminal baseline for later
@@ -103,8 +113,8 @@ reopening the closed console from the previous boot.
 Before device use, implement the small role-aware transition extension and
 native terminal-health profile in the existing F1 machinery. Reuse archive,
 exact target, raw evidence, no-replay and transfer validation. Review the
-changed target/process/schema/runner closure together, including higher-level
-one-candidate/one-rollback assumptions; do not relax permanent boot-only or
+changed common/target/process/schema/runner closure together, including the
+explicit same-N specialization; do not relax permanent boot-only or
 evidence boundaries. Preserve old run/schema recovery behavior.
 
 Host tests must exercise the real journal and result writer through all three

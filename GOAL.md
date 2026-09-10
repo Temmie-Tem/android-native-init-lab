@@ -35,9 +35,26 @@ Supplemental stock NO_PROOF_OBSERVER and causal software-return UNPROVED remain;
 timely exact arrival is separate evidence. No standing native lease, unattended
 recovery or native baseline adoption follows. See the [rc.5 execution report](docs/reports/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_H0_2026-09-10.md).
 
-This bounded unit is complete. The next proposed H0 unit is implementing the
-already reviewed native baseline roundtrip design under its separate scope;
-no next candidate or live authority is created here.
+The v0.1.2 bounded unit is complete. The selected **v0.2.0-rc.1 / P383**
+unit implements the first native baseline roundtrip: N installation, one same-N
+restoration after proved native health/Download, fresh second native health,
+and Android cleanup. The existing runner now has a separate bound second
+arrival and one-shot restoration delivery, retaining its original candidate
+claim and single Android fallback. The fixed native health/raw consumer and
+joined normal/cut/failure H0 checks qualify host behavior only.
+
+The [separate common exception](docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
+addresses the prior design's conflict with the permanent no-replay boundary.
+Independent changed-closure PASS_GO, identical A/B/static/READY qualification
+and corrected exact D0 preparation `p383-ready1-prepared-20260910-2` are complete.
+The first D0 succeeded but its later host binding construction failed; its
+evidence is preserved. The real rollback receipt/member reader mismatch was
+corrected and revalidated before the fresh preparation. The empty additional
+command plan and approval binding
+`938a3f15bbd75b8a03db4ba70b6339365dcd280b714219b7e9cd34e1d7008b9f`
+await fresh attended F1 approval. No P383 device effect or standing native
+baseline is claimed.
+See the [implementation report](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md).
 
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three
@@ -52,8 +69,8 @@ is implemented and independently reviewed PASS_GO: full proof input is retained,
 OBSERVED stores state/receipt hashes, and normal/cut recovery passes with the
 actual rc.4 receipt as common-path input under unchanged 32/64 KiB bounds.
 The [native baseline roundtrip design](docs/plans/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_DESIGN_2026-09-10.md)
-is DESIGN_ONLY and independently reviewed; implementation/activation follows
-completion of v0.1.2. No native rollback identity is changed. No file deletion,
+now has a bound first-qualification owner under the separate common exception;
+H0 completion does not activate a device grant. No native rollback identity is changed. No file deletion,
 RBIN/CMA change or standing native lease follows.
 See the [rc.4 report](docs/reports/S22PLUS_FYG8_OUTPUT_MEMORY_RC4_H0_2026-09-10.md).
 

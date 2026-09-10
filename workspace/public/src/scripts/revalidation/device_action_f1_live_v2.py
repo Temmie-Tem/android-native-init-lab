@@ -62,6 +62,9 @@ import s22plus_fyg8_p381_console_owner as p381_console_owner
 import s22plus_fyg8_p381_return_host as p381_return_host
 import s22plus_fyg8_p382_console_owner as p382_console_owner
 import s22plus_fyg8_p382_return_host as p382_return_host
+import s22plus_fyg8_p383_console_owner as p383_console_owner
+import s22plus_fyg8_p383_return_host as p383_return_host
+import s22plus_native_roundtrip_owner_v1 as native_roundtrip
 import s22plus_native_planned_handoff_v1 as planned_handoff
 import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
@@ -1062,6 +1065,7 @@ class PreparedRun:
     bundle: core.Bundle
     prepared: dict[str, Any]
     private_target: dict[str, str]
+    native_parent: Path | None = None
 
     @property
     def binding_sha256(self) -> str:
@@ -1952,6 +1956,8 @@ def _binding(
             "derivation": derivation,
             "derivation_sha256": p313_guard_lifetime.digest(derivation),
         }
+    if native_roundtrip.selected(bundle):
+        value["native_roundtrip"] = native_roundtrip.prepare_plan(bundle)
     return value, core.json_sha256(value)
 
 
@@ -2005,7 +2011,7 @@ def _p324_typec_lane_value(
         or _p328_bundle(prepared.bundle)
     ):
         raise F1LiveError("P3.24 Type-C lane binding requested for another run")
-    path = prepared.run_dir / P324_TYPEC_LANE_NAME
+    path = (prepared.native_parent or prepared.run_dir) / P324_TYPEC_LANE_NAME
     value = _read_json(path, "P3.24 Type-C lane binding")
     receipt = _receipt(path, "P3.24 Type-C lane binding")
     expected_receipt = prepared.prepared.get("p324_typec_lane_binding")
@@ -4468,6 +4474,8 @@ def _reconcile_transfer_attempts(
     for index, record in enumerate(checkpoints, 1):
         if record["details"] != {"attempt": index, "start": receipts[index - 1]}:
             raise F1LiveError(f"{kind} transfer checkpoint does not bind its start")
+    if native_roundtrip.selected(prepared.bundle) and len(paths) > 1:
+        raise F1LiveError("native roundtrip role has more than one intent")
     if len(paths) == len(checkpoints) + 1:
         if not repair_orphan_start:
             raise F1LiveError(f"{kind} transfer start lacks its checkpoint")
@@ -4486,7 +4494,7 @@ def _begin_transfer_attempt(
     consumed = _reconcile_transfer_attempts(
         prepared, journal, kind, repair_orphan_start=True
     )
-    if consumed >= MAX_ATTEMPTS:
+    if consumed >= (1 if native_roundtrip.selected(prepared.bundle) else MAX_ATTEMPTS):
         raise F1LiveError(f"{kind} transfer attempt bound exceeded")
     attempt = consumed + 1
     prefix = f"{kind}-attempt-{attempt:02d}"
@@ -4651,10 +4659,14 @@ def _claim_candidate_global(prepared: PreparedRun, identity: Mapping[str, Any]) 
     except consumed_registry.RegistryError as exc:
         raise F1LiveError("global candidate claim failed closed") from exc
     receipt = _persist_registry_event(prepared, "claim", event)
+    if native_roundtrip.selected(prepared.bundle):
+        native_roundtrip.consume(sys.modules[__name__], prepared)
     return {"event": event, "receipt": receipt}
 
 
 def _release_candidate_global(prepared: PreparedRun) -> dict[str, Any]:
+    if native_roundtrip.selected(prepared.bundle):
+        raise F1LiveError("P383 installation claim stays consumed")
     claim_path = _candidate_registry_receipt_path(prepared, "claim")
     if not claim_path.exists() or claim_path.is_symlink():
         raise F1LiveError("candidate global claim receipt is absent")
@@ -5230,31 +5242,34 @@ class SamsungOdinBackend:
         attempt: int,
         prefix: str,
     ) -> TransferOutcome:
-        if kind not in {"candidate", "rollback"}:
+        if kind == "native-restore":
+            native_roundtrip.validate_restore_arm(sys.modules[__name__], prepared, endpoint, attempt, prefix)
+        elif kind not in {"candidate", "rollback"}:
             raise F1LiveError("unknown F1 transfer kind")
         item = (
             prepared.bundle.manifest["candidate_ap"]
-            if kind == "candidate"
+            if kind in {"candidate", "native-restore"}
             else prepared.bundle.manifest["rollback_ap"]
         )
-        journal = core.Journal.reopen(
-            prepared.run_dir / "transaction", prepared.binding_sha256
-        )
-        consumed = _reconcile_transfer_attempts(
-            prepared, journal, kind, repair_orphan_start=False
-        )
-        start = _read_json(
-            prepared.run_dir / f"{prefix}.start.json",
-            f"{kind} transfer attempt start",
-        )
-        if (
-            consumed != attempt
-            or prefix != f"{kind}-attempt-{attempt:02d}"
-            or start.get("attempt") != attempt
-            or start.get("kind") != kind
-            or start.get("approval_binding_sha256") != prepared.binding_sha256
-        ):
-            raise F1LiveError(f"{kind} transfer attempt is not durably armed")
+        if kind != "native-restore":
+            journal = core.Journal.reopen(
+                prepared.run_dir / "transaction", prepared.binding_sha256
+            )
+            consumed = _reconcile_transfer_attempts(
+                prepared, journal, kind, repair_orphan_start=False
+            )
+            start = _read_json(
+                prepared.run_dir / f"{prefix}.start.json",
+                f"{kind} transfer attempt start",
+            )
+            if (
+                consumed != attempt
+                or prefix != f"{kind}-attempt-{attempt:02d}"
+                or start.get("attempt") != attempt
+                or start.get("kind") != kind
+                or start.get("approval_binding_sha256") != prepared.binding_sha256
+            ):
+                raise F1LiveError(f"{kind} transfer attempt is not durably armed")
         ap = core._artifact_path(self.root, item, f"{kind}_ap")
         odin = prepared.bundle.profile["transport"]["odin"]
         try:
@@ -5267,7 +5282,7 @@ class SamsungOdinBackend:
                 ap_size=item["size"],
                 ap_sha256=item["sha256"],
                 label=kind,
-                require_deterministic_metadata=kind == "candidate",
+                require_deterministic_metadata=kind in {"candidate", "native-restore"},
                 timeout=ODIN_TIMEOUT_SEC,
                 maximum_output=MAX_ODIN_OUTPUT,
                 capture_dir=destination,
@@ -6104,6 +6119,9 @@ def _candidate_observer_binding(prepared: PreparedRun) -> dict[str, str]:
             if _p340_bundle(prepared.bundle)
             else "p328_auth_key_sha256")
         ] = _p328_bound_auth_key_identity(prepared)["sha256"]
+    if native_roundtrip.selected(prepared.bundle):
+        value["native_arrival"] = "2" if prepared.native_parent is not None else "1"
+        value["native_roundtrip_plan_sha256"] = core.json_sha256(native_roundtrip.bound_plan(prepared))
     return value
 
 
@@ -9465,6 +9483,17 @@ class _P375ObserverSession(_P363ObserverSession):
     namespace: str = "p375"
     root_console_plan_value: Any = None
     root_console_plan_receipt: Any = None
+    native_previous: Any = None
+    native_transaction: Any = None
+
+    def _native_before_control(self, request, descriptor):
+        if self.namespace == "p383":
+            native_roundtrip.require_research_time(sys.modules[__name__], self.native_transaction)
+        if self.namespace == "p383" and self.native_previous is not None:
+            for field in ("kernel_boot_identity_sha256", "nonce_sha256"):
+                if request.get(field) == self.native_previous.get(field):
+                    raise F1LiveError("second native arrival freshness is unproved")
+        self._seal_control_intent(request, descriptor)
 
     def _qualify_on_descriptor(self,codec,descriptor,writer,deadline):
         self._require_control_absent()
@@ -9473,7 +9502,7 @@ class _P375ObserverSession(_P363ObserverSession):
             raise F1LiveError("P375 sealed root console plan is missing")
         return self.qualification_observer.qualify(
             codec,descriptor,self.auth_key,None,set(),writer,deadline=deadline,
-            before_control=lambda request:self._seal_control_intent(request,descriptor),
+            before_control=lambda request:self._native_before_control(request,descriptor),
             evidence=self.run_dir/(self.namespace+"-root-console-evidence"),
             interactive=lambda session,events,outer_deadline:
                 ROOT_CONSOLE_PLAN_OWNERS[self.namespace].run(session,events,outer_deadline,
@@ -9544,7 +9573,7 @@ P363_PROOF_FIELDS = P345_PROOF_FIELDS + ("display_request_dispatched",
     "descriptor_close_error", "p363_closure_snapshot")
 
 
-RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host,"p372":p372_return_host,"p373":p373_return_host,"p374":p374_return_host,"p375":p375_return_host,"p376":p376_return_host,"p377":p377_return_host,"p378":p378_return_host,"p379":p379_return_host,"p380":p380_return_host,"p381":p381_return_host,"p382":p382_return_host}
+RETURN_HOSTS = {"p363":p363_return_host,"p364":p364_return_host,"p365":p365_return_host,"p366":p366_return_host,"p367":p367_return_host,"p368":p368_return_host,"p369":p369_return_host,"p370":p370_return_host,"p371":p371_return_host,"p372":p372_return_host,"p373":p373_return_host,"p374":p374_return_host,"p375":p375_return_host,"p376":p376_return_host,"p377":p377_return_host,"p378":p378_return_host,"p379":p379_return_host,"p380":p380_return_host,"p381":p381_return_host,"p382":p382_return_host,"p383":p383_return_host}
 HANDOFF_HOSTS={"p370":planned_handoff,"p371":p371_planned_handoff,"p372":p372_planned_handoff,"p373":p373_planned_handoff,"p374":p374_planned_handoff}
 HANDOFF_SESSION_CLASSES={"p370":_P370ObserverSession,"p371":_P371ObserverSession,"p372":_P372ObserverSession,"p373":_P373ObserverSession,"p374":_P374ObserverSession}
 DEPARTURE_RETURN_OWNERS = frozenset(
@@ -9563,7 +9592,7 @@ P375_PROOF_FIELDS = ("qualification_complete", "pid1_framed_exec_proof",
     "p375_closure_snapshot", "native_progress")
 
 
-ROOT_CONSOLE_PLAN_OWNERS={"p375":p375_console_owner,"p376":p376_console_owner,"p377":p377_console_owner,"p378":p378_console_owner,"p379":p379_console_owner,"p380":p380_console_owner,"p381":p381_console_owner,"p382":p382_console_owner}
+ROOT_CONSOLE_PLAN_OWNERS={"p375":p375_console_owner,"p376":p376_console_owner,"p377":p377_console_owner,"p378":p378_console_owner,"p379":p379_console_owner,"p380":p380_console_owner,"p381":p381_console_owner,"p382":p382_console_owner,"p383":p383_console_owner}
 
 
 def _root_console_proof_fields(prefix):
@@ -9760,7 +9789,14 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
             receipt_label=shell.prefix.upper() + " root console qualification receipt"
                 if shell.root_console else shell.prefix.upper() + " read-only shell qualification receipt",
             **(dict(root_console_plan_value=plan_value,
-                    root_console_plan_receipt=plan_receipt) if shell.root_console else {}))
+                    root_console_plan_receipt=plan_receipt,
+                    native_transaction=(PreparedRun(prepared.root, prepared.native_parent or prepared.run_dir,
+                        prepared.bundle, prepared.prepared, prepared.private_target)
+                        if native_roundtrip.selected(prepared.bundle) else None),
+                    native_previous=(native_roundtrip.native_health(sys.modules[__name__],
+                        PreparedRun(prepared.root, prepared.native_parent, prepared.bundle, prepared.prepared, prepared.private_target))
+                        if native_roundtrip.selected(prepared.bundle) and prepared.native_parent is not None else None))
+               if shell.root_console else {}))
 
 
 def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, Any]) -> dict[str, Any]:
@@ -14418,6 +14454,9 @@ def _result(
         and typed_evidence.CANDIDATE_ARRIVAL_PROOF_STATE_KEY in state
     ):
         raise F1LiveError("candidate arrival proof precedes final health")
+    if native_roundtrip.selected(prepared.bundle):
+        state["native_roundtrip"] = native_roundtrip.projection(sys.modules[__name__], prepared)
+        _save_state(prepared, state)
     value = {
         "schema": LIVE_RESULT_SCHEMA,
         "adapter_version": ADAPTER_VERSION,
@@ -14447,6 +14486,8 @@ def _result(
 def _validate_transfer_result(
     prepared: PreparedRun, kind: str, attempt: int
 ) -> dict[str, Any] | None:
+    if kind == "native-restore" and (not native_roundtrip.selected(prepared.bundle) or prepared.native_parent is None):
+        raise F1LiveError("native restoration receipt outside declared arrival")
     prefix = f"{kind}-attempt-{attempt:02d}"
     result_path = prepared.run_dir / f"{prefix}.result.json"
     if not result_path.exists():
@@ -14506,7 +14547,7 @@ def _validate_transfer_result(
     }
     item = (
         prepared.bundle.manifest["candidate_ap"]
-        if kind == "candidate"
+        if kind in {"candidate", "native-restore"}
         else prepared.bundle.manifest["rollback_ap"]
     )
     expected_odin = prepared.bundle.profile["transport"]["odin"]
@@ -15683,6 +15724,11 @@ def validate_live_result(
         proof = projection.get("proof") is True
         if _native_return_bundle(prepared.bundle):
             proof = proof and _p363_return_success(prepared,state)
+        if native_roundtrip.selected(prepared.bundle):
+            summary = native_roundtrip.projection(sys.modules[__name__], prepared)
+            if not typed_evidence._strict_equal(state.get("native_roundtrip"), summary):
+                raise F1LiveError("native roundtrip summary does not reopen")
+            proof = proof and summary["proved"] is True
         if _named_exploration_bundle(prepared.bundle):
             summary = _exploration_owner(prepared.bundle).action_summary(sys.modules[__name__], prepared)
             if not typed_evidence._strict_equal(state.get(_exploration_summary_key(prepared.bundle)), summary):
@@ -15706,7 +15752,11 @@ def validate_live_result(
             or result["outcome_class"]
             != no_proof_outcome
             or journal.state() != "CLOSED"
-            or names != list(core.TIMELINE)
+            or (names != list(core.TIMELINE) and not (
+                native_roundtrip.selected(prepared.bundle)
+                and request_cut is not None and request_cut_exact
+                and candidate_classification == "not-attempted"
+                and names == list(core.RECOVERY_TIMELINE)))
             or state.get("rollback_completed") is not True
             or result["recovery_required"] is not False
         ):
@@ -16482,7 +16532,7 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
                 }
             )
             _save_state(prepared, current_before)
-    if current_before.get("candidate_classification") == "odin_local_parse_failure":
+    if current_before.get("candidate_classification") == "odin_local_parse_failure" and not native_roundtrip.selected(prepared.bundle):
         # This is the only release path.  If the registry is unavailable,
         # retain the claim and continue rollback-only; never replay or wait.
         try:
@@ -17014,6 +17064,8 @@ def _closed_terminal_classification(prepared: PreparedRun) -> tuple[str, str]:
             projection = _candidate_arrival_proof_projection(prepared, current)
         if (isinstance(projection, dict) and projection.get("proof") is True
             and (not _native_return_bundle(prepared.bundle) or _p363_return_success(prepared,current))
+            and (not native_roundtrip.selected(prepared.bundle)
+                 or native_roundtrip.projection(sys.modules[__name__], prepared)["proved"])
             and (not _named_exploration_bundle(prepared.bundle)
                  or current.get(_exploration_summary_key(prepared.bundle), {}).get('proved') is True)):
             return (
@@ -17451,7 +17503,7 @@ def _finish_rollback(
                 flush=True,
             )
         try:
-            rollback_endpoint = (_p363_wait_for_rollback(prepared,backend,endpoint_dir,lease)
+            rollback_endpoint = rollback_endpoint or (_p363_wait_for_rollback(prepared,backend,endpoint_dir,lease)
                 if _native_return_bundle(prepared.bundle) else backend.wait_download(
                     prepared,endpoint_dir,lease,ROLLBACK_WAIT_SEC))
         except P318TopologyPark as exc:
@@ -17546,7 +17598,7 @@ def _finish_rollback(
             )
             state = "ROLLBACK_FLASHED"
         else:
-            if consumed >= MAX_ATTEMPTS:
+            if consumed >= (1 if native_roundtrip.selected(prepared.bundle) else MAX_ATTEMPTS):
                 raise F1LiveError("rollback transfer attempt bound exceeded")
             try:
                 endpoint = rollback_endpoint or backend.wait_download(
@@ -19085,6 +19137,11 @@ def _finish_candidate_window(
     # while preserving the binding's end <= boot-ready ordering.  ``finalize``
     # only verifies the already sealed capture and cannot re-arm it.
     _seal_p300_before_candidate_boot_ready(trace_session, journal, proof)
+    if native_roundtrip.selected(prepared.bundle):
+        if not proof:
+            native_roundtrip.stop(sys.modules[__name__], prepared, "first-native-health-unproved")
+            raise F1LiveError("P383 native health stopped; recovery only")
+        return native_roundtrip.finish(sys.modules[__name__], prepared, backend, journal, endpoint_dir, lease)
     return _finish_rollback(
         prepared, backend, journal, endpoint_dir, lease
     )
@@ -19097,6 +19154,10 @@ def _execute_prepared_locked(
     *,
     session_authorization: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if prepared.native_parent is not None:
+        raise F1LiveError("derived native arrival is not a candidate transaction")
+    if native_roundtrip.selected(prepared.bundle):
+        native_roundtrip.preflight(sys.modules[__name__], prepared)
     if session_authorization is None:
         attended_f1.require_unreserved(prepared)
         if approval != prepared.approval_token or os.path.lexists(prepared.run_dir / attended_f1.AUTH_FILE):
@@ -19246,7 +19307,7 @@ def _execute_prepared_locked(
                 }
             )
             _save_state(prepared, current)
-            if candidate.classification == "odin_local_parse_failure":
+            if candidate.classification == "odin_local_parse_failure" and not native_roundtrip.selected(prepared.bundle):
                 # Reopen/validate the durable raw receipt before allowing the
                 # sole release exception.  Any failure leaves the global claim
                 # active and therefore forces recovery-only handling.
@@ -19278,6 +19339,9 @@ def _execute_prepared_locked(
             journal.event(
                 "candidate_flash_done", {"completed": candidate.completed}
             )
+            if native_roundtrip.selected(prepared.bundle) and not candidate.completed:
+                native_roundtrip.stop(sys.modules[__name__], prepared, "native-installation-failed-or-uncertain")
+                raise F1LiveError("P383 installation stopped; recovery only")
             observation = backend.observe_candidate(
                 prepared, endpoint_dir, lease, observer_session
             )
@@ -19613,6 +19677,8 @@ def _recover_prepared_locked(
     prepared: PreparedRun,
     backend: LiveBackend,
 ) -> dict[str, Any]:
+    if prepared.native_parent is not None:
+        raise F1LiveError("derived native arrival has no independent recovery owner")
     transaction = prepared.run_dir / "transaction"
     if not transaction.is_dir() or transaction.is_symlink():
         raise F1LiveError("recovery has no approved transaction")
@@ -19680,7 +19746,11 @@ def _recover_prepared_locked(
         _p335_mark_resident_rollback_required(prepared)
     endpoint_dir = prepared.run_dir / "odin-endpoints"
     with backend.endpoint_session(endpoint_dir) as lease:
-        return _finish_rollback(prepared, backend, journal, endpoint_dir, lease)
+        endpoint = None
+        if (native_roundtrip.selected(prepared.bundle) and journal.state() in {"OBSERVED", "RECOVERY_DOWNLOAD"}
+                and not list(prepared.run_dir.glob("rollback-attempt-*.start.json"))):
+            endpoint = native_roundtrip.recovery_endpoint(sys.modules[__name__], prepared, backend, endpoint_dir, lease)
+        return _finish_rollback(prepared, backend, journal, endpoint_dir, lease, initial_endpoint=endpoint)
 
 
 def recover_prepared(

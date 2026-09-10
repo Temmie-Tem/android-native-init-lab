@@ -254,3 +254,17 @@ SOC·전압·전류의 실제 화면 표시를 OBSERVED로 뒷받침한다. 메�
 위 대응을 위해 다시 빌드하거나 파일·소비된 기록을 개명하지 않는다. 이미지의
 rc.5 표기도 그대로이며 새 Git 태그를 생성하지 않는다. rc.1~rc.4의 NO_PROOF는
 보존한다. [실행·일반 종료·최종 건강 근거](../reports/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_H0_2026-09-10.md#attended-live-close-and-v012-confirmation).
+
+## v0.2.0-rc.1 native 베이스라인 첫 왕복 준비
+
+P383은 N 설치 → native 건강 확인 → Download → 동일 N 복원 → 새 native
+건강 확인 → Download → A 정리 복원을 기존 실행기에 연결한다. 첫 검증은
+Android 건강 확인으로 끝난다. 상주 native 베이스라인 채택은 이후 별도 범위다.
+고정 건강·중단 경로 23개와 공통 실행기 77개 테스트, 동일 A/B·정적/READY 검증,
+독립 PASS_GO를 완료했다. native 동작은 새 식별자·버전 표시 외에 P382와 같다.
+
+첫 D0는 통과했지만 이후 호스트의 rollback member 바인딩에서 실패했다.
+원래 기록을 보존하고 실제 복구 AP 형식으로 수정·검증한 뒤 새 읽기 전용
+준비 `p383-ready1-prepared-20260910-2`를 완료했다. 아직 F1 실행은 없으며,
+정확한 준비 바인딩에 대한 새 현장 승인이 필요하다. 기능 버전 v0.1.2는
+그대로 유지한다. [구현·검증·준비 기록](../reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md).
