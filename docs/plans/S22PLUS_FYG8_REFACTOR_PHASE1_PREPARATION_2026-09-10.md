@@ -1,7 +1,8 @@
 # S22+ FYG8 구조 점검과 1차 리팩토링 준비
 
-상태: **1A 구현·H0 동등성 검증·독립 PASS_GO 완료. 1B와 host arrival 수정은 미착수.**
-[1A 구현·검증 결과](../reports/S22PLUS_FYG8_NATIVE_SOURCE_REFACTOR_1A_H0_2026-09-10.md).
+상태: **1A·1B 구현·H0 검증·독립 PASS_GO 완료. host arrival 수정은 미착수.**
+[1A 구현·검증 결과](../reports/S22PLUS_FYG8_NATIVE_SOURCE_REFACTOR_1A_H0_2026-09-10.md),
+[1B 구현·검증 결과](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md).
 대상: SM-S906N / g0q / S906NKSS7FYG8.
 점검 기준: 문서 커밋 `7dfe735cfe` 시점의 현재 소스와 소비된 P383 실행 증거.
 
@@ -153,7 +154,9 @@ inventory 오류를 무시하거나 효과를 재실행하는 해결책은 배�
 | arrival 수정 | `test_s22plus_odin_transition_core.py`, `test_s22plus_odin_usbfs_identity.py`, P383 lifecycle의 실제 관측 경로에 empty-child/도중 이탈/외부 endpoint/불완전 증거 사례를 연결한다. 기존 publication cut·역할별 1회·복구 최종화를 유지한다. |
 
 이 표는 준비 시점의 검증 계획이다. 이후 완료한 1A의 실제 검증 결과는 위
-구현 보고서에 기록했으며, 1B와 arrival 검증은 아직 수행하지 않았다. Python/C 실행 코드를 바꿀 때 기존 계약의 py_compile·실제
+구현 보고서에 기록했다. 1B도 구현과 42개 H0 테스트·ARM64 A/B 구성 요소 검증을
+완료했고 독립 리뷰도 PASS_GO다. arrival 검증은 아직 수행하지 않았다.
+Python/C 실행 코드를 바꿀 때 기존 계약의 py_compile·실제
 repository toolchain 교차 컴파일·대표 생산자/소비자 검증을 적용한다. 의미 없는
 과거 수치 고정이나 mock이 생성해 준 receipt를 실제 경계 검증으로 대체하지 않는다.
 
@@ -164,5 +167,6 @@ repository toolchain 교차 컴파일·대표 생산자/소비자 검증을 적�
 
 이번 준비의 완료 기준은 구조·의존성·증거 한계·1차 경계·검증 방법을 현재 소스로
 확인해 기록하는 것이다. 준비와 후속 1A 구현·H0 검증·독립 리뷰를 완료했다.
-1B·arrival 수정과 새로운 실기 qualification은 완료되지 않았으며, P383의
-두 번째 부팅을 성공으로 승격하지 않는다.
+1B의 구현·H0 검증·독립 리뷰도 완료했다. arrival 수정과
+새로운 실기 qualification은 완료되지 않았으며, P383의 두 번째 부팅을
+성공으로 승격하지 않는다.

@@ -1,0 +1,102 @@
+/* Prospective local-display-v1. PID1 owns this state across authentication.
+ * All service is cooperative and nonblocking; kernel stalls remain outside it.
+ */
+#define LOCAL_PREAUTH_MS 120000U
+#define LOCAL_DISPLAY_MS 900000U
+#define LOCAL_TERMINAL_MS 5000U
+struct local_display_state {
+    struct hud1_state hud;
+    long owner, directory_rc, mount_rc;
+    uint64_t start;
+    unsigned started, attempted, authenticated, terminal, stopped, phase;
+};
+static struct local_display_state local_display;
+static int local_owner(void) {
+    return local_display.started && local_display.owner==1 &&
+        syscall6(172,0,0,0,0,0,0)==local_display.owner;
+}
+static void local_close(void) {
+    if(!local_owner() || local_display.stopped)return;
+    local_display.stopped=1;
+    hud1_stop(&local_display.hud);
+    /* Exact-child WNOHANG only; a signal attempt is never a reap result. */
+    uint64_t now=0;
+    if(rc1_now(&now)==0)hud1_tick(&local_display.hud,now,local_display.phase);
+    hud1_close(&local_display.hud.output);
+    hud1_close(&local_display.hud.log);
+}
+static void local_phase(unsigned phase) {
+    if(!local_owner() || local_display.stopped || phase>8U)return;
+    unsigned old=local_display.phase;
+    if(local_display.terminal && phase!=local_display.phase)return;
+    local_display.phase=phase;
+    /* Only finite lifecycle transitions force an update. Command state churn
+     * keeps the ordinary 1Hz limit. 900 periodic +16 transition frame budget. */
+    if(old!=phase && (old>=3U || phase>=3U))local_display.hud.last=0;
+}
+static void local_service(void) {
+    if(!local_owner() || local_display.stopped)return;
+    uint64_t now=0;
+    if(rc1_now(&now)!=0 || now<local_display.start){local_close();return;}
+    if(now-local_display.start>=LOCAL_DISPLAY_MS) {
+        local_phase(5U);local_display.terminal=1;
+        hud1_tick(&local_display.hud,now,local_display.phase);
+        local_close();return;
+    }
+    hud1_tick(&local_display.hud,now,local_display.phase);
+}
+static long local_pre_auth(void) {
+    if(!local_owner())return -P260_EPROTO;
+    local_service();
+    if(local_display.authenticated)return 0;
+    uint64_t now=0;long rc=rc1_now(&now);if(rc)return rc;
+    if(local_display.stopped || now<local_display.start ||
+       now-local_display.start>=LOCAL_PREAUTH_MS)return -ETIMEDOUT;
+    return 0;
+}
+static long local_begin(void) {
+    if(local_display.started)
+        return local_owner() && !local_display.attempted && !local_display.stopped?0:-P260_EPROTO;
+    long owner=syscall6(172,0,0,0,0,0,0);
+    if(owner!=1)return -P260_EPROTO;
+    local_display.owner=owner;local_display.started=1;
+    local_display.hud.input=local_display.hud.output=local_display.hud.log=-1;
+    local_display.directory_rc=local_display.mount_rc=-P260_EPROTO;
+    long rc=rc1_now(&local_display.start);if(rc){local_close();return rc;}
+    local_display.phase=6U;
+    if(syscall6(174,0,0,0,0,0,0)==0 && syscall6(175,0,0,0,0,0,0)==0 &&
+       syscall6(176,0,0,0,0,0,0)==0 && syscall6(177,0,0,0,0,0,0)==0) {
+        local_display.directory_rc=syscall6(34,-100,(long)(uintptr_t)"/s22-root-work",0700,0,0,0);
+        if(local_display.directory_rc==0)
+            local_display.mount_rc=sys_mount("tmpfs","/s22-root-work","tmpfs",6UL,
+                "size=64m,nr_inodes=4096,mode=0700");
+        if(local_display.mount_rc==0)hud1_start(&local_display.hud);
+    }
+    local_service();local_phase(3U);local_service();return 0;
+}
+static long local_write_all(int fd,const char *p,size_t size,long seconds) {
+    struct timespec64 deadline={0};long rc=p282_deadline_after(seconds,&deadline);
+    if(rc)return rc;
+    while(size) {
+        rc=local_pre_auth();if(rc)return rc;
+        long n=sys_write(fd,p,size);
+        if(n>0){if((size_t)n>size)return -EIO;p+=n;size-=(size_t)n;continue;}
+        if(n!=-EAGAIN && n!=-P260_EINTR)return n?n:-EIO;
+        if(p282_deadline_expired(&deadline))return -ETIMEDOUT;
+        p282_poll_delay();
+    }
+    return 0;
+}
+static void local_finish(unsigned phase) {
+    if(!local_owner() || local_display.stopped)return;
+    local_phase(phase);
+    local_display.terminal=1;
+    uint64_t begin=0,now=0;
+    if(rc1_now(&begin)!=0){local_close();return;}
+    do {
+        local_service();if(local_display.stopped)break;
+        p282_poll_delay();
+        if(rc1_now(&now)!=0 || now<begin)break;
+    }while(now-begin<LOCAL_TERMINAL_MS);
+    local_close();
+}

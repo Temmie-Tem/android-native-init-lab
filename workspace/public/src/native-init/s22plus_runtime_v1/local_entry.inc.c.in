@@ -1,0 +1,18 @@
+/* Exactly one authentication attempt in this boot-local lifecycle. A terminal
+ * path parks here and can never fall through to a historical listener retry. */
+static long p345_framed_console(
+    int tty_fd,const uint8_t *boot_id,uint8_t *open_seen) {
+    long rc=local_begin();
+    if(rc==0) {
+        local_display.attempted=1;
+        rc=local_authenticated_console(tty_fd,boot_id,open_seen);
+        if(rc==1) {
+            local_phase(8U);local_service();local_close();
+            @@NAMESPACE@@_diagnostic.terminal=1;
+            (void)syscall6(142,0xfee1deadUL,672274793UL,0xa1b2c3d4UL,
+                (long)(uintptr_t)"download",0,0);
+        }else local_finish(rc==-ETIMEDOUT?5U:local_display.authenticated?7U:4U);
+    }
+    for(;;)p282_poll_delay();
+    return -P260_EPROTO; /* Unreachable; freestanding compiler return contract. */
+}

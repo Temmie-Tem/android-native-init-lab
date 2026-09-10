@@ -1,4 +1,4 @@
-static long rc1_console(int fd,const uint8_t nonce[32]) {
+@@LOCAL_LIFECYCLE@@static long rc1_console(int fd,const uint8_t nonce[32]) {
     struct rc1_state s={0};s.fd=fd;s.next=3U;for(unsigned i=0;i<3;i++)s.pipe[i]=-1;
     if(!rc1_run_id_matches())return -P260_EPROTO;
     memcpy(s.nonce,nonce,32U);long rc=rc1_now(&s.start);if(rc)return rc;
@@ -9,12 +9,12 @@ static long rc1_console(int fd,const uint8_t nonce[32]) {
     p328_store_le32(ready+16,767U);p328_store_le32(ready+20,255U);
     p328_store_le32(ready+24,(uint32_t)uid);p328_store_le32(ready+28,(uint32_t)gid);
     rc=rc1_queue(&s,RC1_READY,2U,ready,sizeof(ready));if(rc)return rc;
-    struct hud1_state hud={0};hud1_start(&hud);
+@@CONSOLE_HUD_START@@
     for(;;) {
         uint64_t now=0;rc=rc1_now(&now);if(rc)break;
         if(now-s.start>=RC1_SESSION_MS || (s.rx_used && now-s.partial_start>5000U)){rc=-ETIMEDOUT;break;}
         if(!s.control){rc=rc1_receive(&s,now);if(rc)break;}
-        if(s.control)hud1_stop(&hud);else hud1_tick(&hud,now,s.blocked?2U:s.active?1U:0U);
+@@CONSOLE_HUD_TICK@@
         if(s.control){
             if(now-s.control_start>=5000U){rc=-ETIMEDOUT;break;}
             rc=rc1_control_tick(&s);
@@ -25,13 +25,13 @@ static long rc1_console(int fd,const uint8_t nonce[32]) {
             rc=rc1_queue(&s,RC1_FAULT,s.overload,fault,8U);if(rc)break;s.fault_sent=1;
         }
         rc=rc1_flush(&s);if(rc)break;
-        if(s.control==2 && !s.qcount){hud1_stop(&hud);rc1_signal(&s,9);rc1_close_pipes(&s);return 1;}
+        if(s.control==2 && !s.qcount){@@CONSOLE_HUD_STOP@@rc1_signal(&s,9);rc1_close_pipes(&s);return 1;}
         p282_poll_delay();
     }
-    hud1_stop(&hud);rc1_signal(&s,9);rc1_close_pipes(&s);return rc;
+    @@CONSOLE_HUD_STOP@@rc1_signal(&s,9);rc1_close_pipes(&s);return rc;
 }
 
-static long p345_framed_console(
+static long @@FRAMED_ENTRY@@(
     int tty_fd, const uint8_t *boot_id, uint8_t *open_seen) {
     uint8_t type = 0U;
     uint32_t sequence = 0U;
@@ -129,7 +129,7 @@ static long p345_framed_console(
     if (!p328_constant_time_equal(
         payload, expected_tag, P328_AUTH_TAG_SIZE)) return -P260_EPROTO;
 
-    p328_hmac_message(
+@@AUTHENTICATED@@    p328_hmac_message(
         expected_tag, p328_auth_domain_ready,
         sizeof(p328_auth_domain_ready) - 1U,
         p328_run_id_bytes, nonce, 0U, 0, NULL, 0U);
@@ -158,17 +158,12 @@ static long p345_framed_console(
         (syscall6(174,0,0,0,0,0,0)==0 && syscall6(175,0,0,0,0,0,0)==0 &&
          syscall6(176,0,0,0,0,0,0)==0 && syscall6(177,0,0,0,0,0,0)==0)?0:-P260_EPROTO);
     if(rc==0)rc=@@NAMESPACE@@_diag_enter(61U);
-    if(rc==0)rc=@@NAMESPACE@@_diag_result(61U,syscall6(34,-100,(long)(uintptr_t)"/s22-root-work",0700,0,0,0));
+    if(rc==0)rc=@@NAMESPACE@@_diag_result(61U,@@ROOT_DIRECTORY_RESULT@@);
     if(rc==0)rc=@@NAMESPACE@@_diag_enter(62U);
-    if(rc==0)rc=@@NAMESPACE@@_diag_result(62U,sys_mount("tmpfs","/s22-root-work","tmpfs",6UL,"size=64m,nr_inodes=4096,mode=0700"));
+    if(rc==0)rc=@@NAMESPACE@@_diag_result(62U,@@ROOT_MOUNT_RESULT@@);
     if(rc!=0)@@NAMESPACE@@_diag_finish(rc);
     if(rc==0)rc=rc1_console(tty_fd,nonce);
-    if(rc==1) {
-        @@NAMESPACE@@_diagnostic.terminal=1;
-        (void)syscall6(142,0xfee1deadUL,672274793UL,0xa1b2c3d4UL,
-            (long)(uintptr_t)"download",0,0);
-    }
-    for(;;)p282_poll_delay();
+@@AUTH_TERMINAL@@
 }
 
 
@@ -179,8 +174,9 @@ static long p335_getrandom_boot_id(uint8_t boot_id[P335_BOOT_ID_SIZE]) {
 }
 
 
-static int p335_is_waiting_error(long rc) {
+static @@WAITING_ATTRIBUTE@@int p335_is_waiting_error(long rc) {
     return rc == -EIO || rc == -ETIMEDOUT
         || rc == -S22PLUS_P318_ERRNO_EPIPE
         || rc == -ENODEV || rc == -EAGAIN || rc == -P260_EINTR;
 }
+@@LOCAL_ENTRY@@

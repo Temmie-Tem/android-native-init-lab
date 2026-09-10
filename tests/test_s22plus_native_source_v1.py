@@ -34,7 +34,7 @@ def runtime_identity(runtime):
 
 
 @contextmanager
-def production_join():
+def production_join(*, profile=direct.CONSOLE_PROFILE):
     original = join.source
 
     def source(runtime=join.runtime):
@@ -42,7 +42,7 @@ def production_join():
         facade = types.SimpleNamespace(**vars(runtime))
         # The legacy fixture asks for a test-only readonly child. This adapter
         # deliberately emits the production helper, which has no such child.
-        facade.build_helper = lambda _child=None: direct.helper_template(selected)
+        facade.build_helper = lambda _child=None: direct.helper_template(selected, profile=profile)
         text = original(facade)
         # The old test witness calls an otherwise retired native_exec helper.
         # Remove only that unused fixture function, never production C logic.

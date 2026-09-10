@@ -2,7 +2,7 @@
  * One bounded nonblocking diagnostic read and one disposable snapshot per tick.
  * Never wait for renderer/DRM cleanup; no restart and no parent DRM operations.
  */
-#define HUD1_LIMIT 262144U
+#define HUD1_LIMIT @@HUD_LOG_LIMIT@@U
 /* Exact target ARM64 fcntl UAPI, including its O_NOFOLLOW override. */
 #define HUD1_LOG_FLAGS (00000001|00000100|00000200|0100000|02000000)
 struct hud1_state {

@@ -1,0 +1,6 @@
+    if(rc==1) {
+        @@NAMESPACE@@_diagnostic.terminal=1;
+        (void)syscall6(142,0xfee1deadUL,672274793UL,0xa1b2c3d4UL,
+            (long)(uintptr_t)"download",0,0);
+    }
+    for(;;)p282_poll_delay();

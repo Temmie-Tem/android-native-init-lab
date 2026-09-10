@@ -201,7 +201,7 @@ static uint32_t p328_frame_crc(
     return p328_crc32_update(crc, payload, length);
 }
 
-static long p341_read_exact(
+@@LOCAL_DECLARATIONS@@static long p341_read_exact(
     int fd, uint8_t *output, size_t size, long timeout_sec,
     uint8_t *input_seen) {
     struct timespec64 deadline = {0};
@@ -209,14 +209,14 @@ static long p341_read_exact(
     if (rc != 0) return rc;
     size_t used = 0U;
     while (used < size) {
-        long amount = sys_read(fd, output + used, size - used);
+@@READ_SERVICE@@        long amount = sys_read(fd, output + used, size - used);
         if (amount > 0) {
             if ((size_t)amount > size - used) return -EIO;
             if (input_seen != NULL) *input_seen = 1U;
             used += (size_t)amount;
             continue;
         }
-        if (amount != -EAGAIN && amount != -P260_EINTR)
+@@READ_ABSENT_PEER@@        if (amount != -EAGAIN && amount != -P260_EINTR)
             return amount == 0 ? -EIO : amount;
         if (p282_deadline_expired(&deadline)) return -ETIMEDOUT;
         p282_poll_delay();
@@ -276,10 +276,10 @@ static long p328_write_frame(
     p328_store_le32(header + 8U, sequence);
     p328_store_le32(header + 12U, p328_frame_crc(
         header, payload, payload_length));
-    long rc = p260_write_all(
+    long rc = @@FRAME_WRITER@@(
         fd, (const char *)header, sizeof(header), 1);
     if (rc == 0 && payload_length != 0U)
-        rc = p260_write_all(
+        rc = @@FRAME_WRITER@@(
             fd, (const char *)payload, payload_length, 1);
     return rc;
 }

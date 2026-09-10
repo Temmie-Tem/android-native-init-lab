@@ -64,10 +64,9 @@ and [failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md):
 
 - HOST: diagnose and reproduce the USB inventory transition that stopped arrival2
   before authentication; no observer repair is yet implemented.
-- DISPLAY: design local HUD startup/lifetime under PID1 separately from host
-  authentication, while keeping command/CONTROL authentication. The existing
-  console-status scope is confirmed; independent boot-status display is proposed,
-  not implemented or qualified.
+- DISPLAY: `local-display-v1` now implements PID1-owned local HUD lifetime
+  before host authentication. H0 validation and independent PASS_GO are
+  complete. Existing live candidates do not adopt the profile.
 - RETURN: retain the temporary ADB offline incident with unknown cause and the
   verified recovery continuation. Second kernel/PID1 progress remains an evidence
   gap rather than a confirmed boot defect.
@@ -80,7 +79,15 @@ module plan and both P383 AP packages. Twelve direct-source tests and four
 additional backpressure checks pass. Historical generators and all 86 consumed
 prepared execution-source bindings remain unchanged; the new path is H0 only.
 The deeper platform envelope/compiler still binds the same run identity.
-Display/console lifetime separation is the next 1B unit and is not implemented.
+Display/console lifetime separation is complete as **H0 phase1B** under
+[Local Display Lifecycle V1](docs/operations/S22PLUS_FYG8_LOCAL_DISPLAY_LIFECYCLE_V1.md).
+Its explicit profile starts local ownership before boot-ID read and OPEN/AUTH at
+that boundary, with authenticated command/CONTROL semantics and bounded cleanup.
+[Implementation and H0 validation are complete](docs/reports/S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md):
+42 tests pass, including 916 renderer frames and real C backpressure; static
+ARM64 A/B component builds match. Independent review returned PASS_GO.
+No current live candidate or device capability is activated. Old HUD observation
+semantics are not automatically compatible with the new preauth states.
 The empty second-arrival observation context remains a separate host investigation
 target; its timing failure still needs reproduction. Broad F1/evidence rewrites
 and other-target changes are deferred. No device authority, consumed run or

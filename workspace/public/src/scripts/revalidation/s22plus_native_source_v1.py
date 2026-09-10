@@ -1,7 +1,7 @@
 """Direct FYG8 native sources; identity injection does not grant device authority.
 
-The five C fragments are the current production helper, including its existing
-post-authentication HUD lifetime. Historical candidate generators remain sealed.
+The default profile preserves the historical post-authentication HUD lifetime.
+The explicit local-display-v1 profile is prospective H0 and grants no live use.
 This module imports no candidate namespace and evaluates no generated Python.
 """
 from __future__ import annotations
@@ -26,8 +26,12 @@ HELPER_PARTS = (
 )
 # Preserve exact original inter-fragment spacing without blank lines at each
 # source file's EOF. These bytes are part of the generated C comparison.
-HELPER_SEPARATORS = (b"\n\n\n", b"\n", b"", b"\n", b"\n\n")
+HELPER_SEPARATORS = (b"\n\n\n", b"\n", b"", b"\n", b"\n")
 AUTH_KEY_PLACEHOLDER = b"P328_AUTH_KEY_BYTES"
+CONSOLE_PROFILE = "console-v1"
+LOCAL_PROFILE = "local-display-v1"
+PROFILE_PARTS = ("console_terminal.inc.c.in", "local_display.inc.c.in",
+                 "local_entry.inc.c.in", "local_publish.inc.c.in")
 _SLOT = re.compile(rb"@@([A-Z_]+)@@")
 _MODULE_NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*\.ko")
 
@@ -90,11 +94,50 @@ def _expand(raw: bytes, values: dict[bytes, bytes]) -> bytes:
     return result
 
 
-def helper_template(identity: Identity) -> bytes:
+def profile_contract(profile: str = CONSOLE_PROFILE) -> dict:
+    if type(profile) is not str or profile not in (CONSOLE_PROFILE, LOCAL_PROFILE):
+        raise SourceError("unknown native lifecycle profile")
+    local = profile == LOCAL_PROFILE
+    return {"profile": profile, "live_activation": False,
+            "root_work_stages_61_62": "cached-before-auth" if local else "inline-after-auth",
+            "display_frame_limit": 916 if local else 601,
+            "display_state_limit": 8 if local else 2,
+            "local_hud_log_limit": 1048576 if local else 262144,
+            "collector_sample_limit": 601}
+
+
+def _profile_hooks(profile: str) -> dict[bytes, bytes]:
+    local = profile_contract(profile)["profile"] == LOCAL_PROFILE
+    hooks = {
+        b"HUD_LOG_LIMIT": b"1048576" if local else b"262144",
+        b"LOCAL_DECLARATIONS": b"static long local_pre_auth(void);\nstatic long local_write_all(int,const char *,size_t,long);\n" if local else b"",
+        b"READ_SERVICE": b"        rc=local_pre_auth();if(rc)return rc;\n" if local else b"",
+        b"READ_ABSENT_PEER": b"        if(input_seen!=NULL && *input_seen==0U && used==0U &&\n           (amount==0 || amount==-EIO || amount==-ENODEV || amount==-S22PLUS_P318_ERRNO_EPIPE))amount=-EAGAIN;\n" if local else b"",
+        b"FRAME_WRITER": b"local_write_all" if local else b"p260_write_all",
+        b"LOCAL_LIFECYCLE": _read(TEMPLATES / "local_display.inc.c.in") if local else b"",
+        b"CONSOLE_HUD_START": b"    local_phase(0U);local_service();" if local else b"    struct hud1_state hud={0};hud1_start(&hud);",
+        b"CONSOLE_HUD_TICK": b"        local_phase(s.control?8U:s.blocked?2U:s.active?1U:0U);local_service();" if local else b"        if(s.control)hud1_stop(&hud);else hud1_tick(&hud,now,s.blocked?2U:s.active?1U:0U);",
+        b"CONSOLE_HUD_STOP": b"" if local else b"hud1_stop(&hud);",
+        b"FRAMED_ENTRY": b"local_authenticated_console" if local else b"p345_framed_console",
+        b"AUTHENTICATED": b"    rc=local_pre_auth();if(rc)return rc;\n    local_display.authenticated=1;local_phase(6U);local_service();\n" if local else b"",
+        b"ROOT_DIRECTORY_RESULT": b"local_display.directory_rc" if local else b'syscall6(34,-100,(long)(uintptr_t)"/s22-root-work",0700,0,0,0)',
+        b"ROOT_MOUNT_RESULT": b"local_display.mount_rc" if local else b'sys_mount("tmpfs","/s22-root-work","tmpfs",6UL,"size=64m,nr_inodes=4096,mode=0700")',
+        b"AUTH_TERMINAL": b"    return rc;" if local else _read(TEMPLATES / "console_terminal.inc.c.in").removesuffix(b"\n"),
+        b"LOCAL_ENTRY": _read(TEMPLATES / "local_entry.inc.c.in") if local else b"",
+        b"WAITING_ATTRIBUTE": b"__attribute__((unused)) " if local else b"",
+    }
+    return hooks
+
+
+def helper_template(identity: Identity, *, profile: str = CONSOLE_PROFILE) -> bytes:
     raw = b"".join(_read(TEMPLATES / name) + gap
                    for name, gap in zip(HELPER_PARTS, HELPER_SEPARATORS, strict=True))
     if raw.count(b"@@AUTH_KEY_BYTES@@") != 1:
         raise SourceError("authentication key slot differs")
+    hooks = _profile_hooks(profile)
+    if not set(hooks).issubset(_SLOT.findall(raw)):
+        raise SourceError("source profile slots differ")
+    raw = _SLOT.sub(lambda match: hooks.get(match[1], match[0]), raw)
     return _expand(raw, {
         b"NAMESPACE": identity.namespace.encode("ascii"),
         b"NAMESPACE_UPPER": identity.namespace.upper().encode("ascii"),
@@ -105,10 +148,10 @@ def helper_template(identity: Identity) -> bytes:
     })
 
 
-def materialize_helper(identity: Identity, auth_key: bytes) -> bytes:
+def materialize_helper(identity: Identity, auth_key: bytes, *, profile: str = CONSOLE_PROFILE) -> bytes:
     if type(auth_key) is not bytes or len(auth_key) != 32:
         raise SourceError("authentication key must be exactly 32 bytes")
-    source = helper_template(identity)
+    source = helper_template(identity, profile=profile)
     if source.count(AUTH_KEY_PLACEHOLDER) != 1:
         raise SourceError("authentication key placeholder differs")
     initializer = b", ".join(f"0x{byte:02x}U".encode("ascii") for byte in auth_key)
@@ -146,11 +189,54 @@ def memory_census(modules: Iterable[MemoryModule]) -> bytes:
     return ("\n".join(lines) + "\n").encode("ascii")
 
 
-def render_display(identity: Identity, modules: Iterable[MemoryModule]) -> bytes:
+def render_display(identity: Identity, modules: Iterable[MemoryModule], *, profile: str = CONSOLE_PROFILE) -> bytes:
+    contract = profile_contract(profile)
+    states = b'hud_console_state==0?"CONSOLE: READY":hud_console_state==1?"CONSOLE: BUSY":"CONSOLE: BLOCKED"'
+    if profile == LOCAL_PROFILE:
+        labels = ("CONSOLE: READY", "CONSOLE: BUSY", "CONSOLE: BLOCKED", "WAITING FOR AUTH",
+                  "AUTH FAILED", "TIME EXPIRED", "PREPARING", "RUNTIME FAILED", "CLOSING")
+        states = b"((const char *const[]){" + b",".join(b'"' + x.encode() + b'"' for x in labels) + b"})[hud_console_state]"
     return _expand(_read(TEMPLATES / "display.c.in"), {
         b"DISPLAY_VERSION": identity.display_version.encode("ascii"),
         b"MEMORY_CENSUS": memory_census(modules),
+        b"DISPLAY_FRAME_LIMIT": str(contract["display_frame_limit"]).encode(),
+        b"DISPLAY_STATE_LIMIT": str(contract["display_state_limit"]).encode(),
+        b"DISPLAY_STATE_TEXT": states,
     })
+
+
+def join_platform(runtime: bytes, identity: Identity, auth_key: bytes, *, profile: str) -> bytes:
+    """One explicit join to an externally bound platform envelope (H0 only).
+
+    The caller verifies the full platform source identity. No old generator is
+    imported, and local publication replaces the historical listener wholesale.
+    """
+    profile_contract(profile)
+    before = materialize_helper(identity, auth_key)
+    if runtime.count(before) != 1:
+        raise SourceError("platform production helper boundary differs")
+    result = runtime.replace(before, materialize_helper(identity, auth_key, profile=profile), 1)
+    if profile == CONSOLE_PROFILE:
+        return result
+    anchor = b"static __attribute__((noreturn)) void p319_stock_publish(int tty_fd) {\n"
+    if result.count(anchor) != 1:
+        raise SourceError("platform publication boundary differs")
+    start = result.index(anchor)
+    end = result.index(b"\n}\n", start) + 3
+    previous = result[start:end]
+    if (previous.count(b"p335_getrandom_boot_id(") != 1 or
+            not previous.endswith(b"    p290_park_after_confirmed_publication();\n}\n")):
+        raise SourceError("unsupported platform publication body")
+    result = result[:start] + _read(TEMPLATES / "local_publish.inc.c.in") + result[end:]
+    # Three legacy publication-only witnesses are now unreachable. Preserve
+    # their bodies without weakening global compiler warnings or invoking them.
+    for signature in (b"static int p320_observer_chain_ambiguous(",
+                      b"static void p319_stock_bypass_to_pair(",
+                      b"static int s22plus_max77705_p319_stock_encode("):
+        if result.count(signature) != 1:
+            raise SourceError("legacy publication witness boundary differs")
+        result = result.replace(signature, signature.replace(b"static ", b"static __attribute__((unused)) ", 1), 1)
+    return result
 
 
 def display_plan(modules: Iterable[DisplayModule]) -> bytes:
@@ -179,7 +265,7 @@ def display_plan(modules: Iterable[DisplayModule]) -> bytes:
 
 def source_files() -> tuple[Path, ...]:
     """Explicit templates plus reachable quoted C includes, never sys.modules."""
-    pending = [TEMPLATES / name for name in (*HELPER_PARTS, "display.c.in")]
+    pending = [TEMPLATES / name for name in (*HELPER_PARTS, *PROFILE_PARTS, "display.c.in")]
     files = {Path(__file__).resolve()}
     while pending:
         path = pending.pop()

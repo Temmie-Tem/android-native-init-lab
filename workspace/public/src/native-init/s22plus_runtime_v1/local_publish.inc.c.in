@@ -1,0 +1,8 @@
+static __attribute__((noreturn)) void p319_stock_publish(int tty_fd) {
+    long rc=local_begin();
+    uint8_t boot_id[P335_BOOT_ID_SIZE]={0},open_seen=0;
+    if(rc==0)rc=p335_getrandom_boot_id(boot_id);
+    if(rc==0)(void)p345_framed_console(tty_fd,boot_id,&open_seen);
+    local_finish(7U);
+    for(;;)p282_poll_delay();
+}
