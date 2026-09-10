@@ -291,3 +291,11 @@ HOST, DISPLAY and RETURN lessons without adding a new execution gate. P383 stays
 consumed, NO_PROOF and CLOSED/19 with verified Android recovery; v0.1.2 remains
 the functional version. Screen separation and host repair are not implemented
 or qualified by this documentation update.
+
+Subsequent H0 work completed the [direct-source refactor](S22PLUS_FYG8_NATIVE_SOURCE_REFACTOR_1A_H0_2026-09-10.md),
+[local display lifecycle](S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md),
+[compatible observer](S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md)
+and [completed-restoration arrival repair](S22PLUS_FYG8_RESTORATION_ARRIVAL_H0_2026-09-10.md),
+each with independent PASS_GO. The table above records the original assessment.
+These later implementations preserve this execution record and do not prove
+the historical second boot, reopen consumed authority or explain ADB offline.

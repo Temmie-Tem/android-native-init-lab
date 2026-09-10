@@ -422,6 +422,7 @@ def enumerate_odin(
     endpoint_observer_factory: EndpointObserverFactory | None = None,
     allow_live_departure_race: bool = False,
     expected_live_departure: str | None = None,
+    expected_departure_identity: str | None = None,
     allow_live_arrival_race: bool = False,
     timeout_sec: float = 10.0,
     timestamp: Callable[[], str] = live_core.utc_now,
@@ -437,6 +438,11 @@ def enumerate_odin(
         or ODIN_DEVICE_RE.fullmatch(expected_live_departure) is None
     ):
         raise OdinTransitionError("expected Odin departure binding is invalid")
+    if expected_departure_identity is not None and (
+        expected_live_departure is None or not isinstance(expected_departure_identity, str)
+        or not expected_departure_identity
+    ):
+        raise OdinTransitionError("expected Odin departure identity is invalid")
     observer: EndpointIdentityObserver | None = None
     if endpoint_observer_factory is not None:
         if (
@@ -481,6 +487,13 @@ def enumerate_odin(
     else:
         before = _validated_device_inventory(device_inventory)
         active_identity = device_identity
+    if expected_departure_identity is not None and before.get(expected_live_departure) not in (
+        None, expected_departure_identity
+    ):
+        raise OdinMeasuredEvidenceFailure(
+            "usbfs-identity-failed", "UsbfsIdentityError",
+            observation_stage=INITIAL_INVENTORY_OBSERVATION_STAGE,
+        )
     try:
         result = runner([str(odin), "-l"], timeout_sec)
     except (OSError, subprocess.SubprocessError) as exc:
@@ -1655,6 +1668,7 @@ def _snapshot_and_record(
     allow_empty_post_receipt_change: bool = False,
     allow_live_departure: bool = False,
     expected_live_departure: str | None = None,
+    expected_departure_identity: str | None = None,
 ) -> tuple[OdinSnapshot, dict[str, Any]]:
     if allow_empty_post_receipt_change and allow_live_departure:
         raise OdinTransitionError("snapshot transition policy is ambiguous")
@@ -1680,6 +1694,7 @@ def _snapshot_and_record(
             endpoint_observer_factory=effective_observer_factory,
             allow_live_departure_race=allow_live_departure,
             expected_live_departure=expected_live_departure,
+            expected_departure_identity=expected_departure_identity,
             allow_live_arrival_race=allow_empty_post_receipt_change,
             timeout_sec=enumeration_timeout_sec,
             timestamp=timestamp,
@@ -1819,6 +1834,7 @@ def wait_for_no_live_endpoint(
     device_inventory: DeviceInventory = _default_device_inventory,
     endpoint_observer_factory: EndpointObserverFactory | None = None,
     allow_live_departure: bool = False,
+    initial_departure: tuple[str, str] | None = None,
     timestamp: Callable[[], str] = live_core.utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
@@ -1834,6 +1850,17 @@ def wait_for_no_live_endpoint(
     sequence = sequence_start
     _tracker, receipts = _resume_tracker(run_dir, sequence_start, lease=lease)
     expected_live_departure = None
+    expected_departure_identity = None
+    if initial_departure is not None:
+        # The owner derives this from completed delivery and exact arrival raw
+        # evidence. It seeds only the empty child's first inventory comparison;
+        # no parent ticket, lease, generation or snapshot is imported.
+        if (not allow_live_departure or endpoint_observer_factory is None
+                or sequence_start != 0 or receipts or type(initial_departure) is not tuple
+                or len(initial_departure) != 2 or any(type(v) is not str or not v for v in initial_departure)
+                or ODIN_DEVICE_RE.fullmatch(initial_departure[0]) is None):
+            raise OdinTransitionError("initial departure requires a fresh measured child observation")
+        expected_live_departure, expected_departure_identity = initial_departure
     if allow_live_departure and receipts:
         previous_live = receipts[-1]["live_devices"]
         if len(previous_live) == 1:
@@ -1855,6 +1882,7 @@ def wait_for_no_live_endpoint(
             lease=lease,
             allow_live_departure=allow_live_departure,
             expected_live_departure=expected_live_departure,
+            expected_departure_identity=expected_departure_identity,
         )
         sequence += 1
         if len(snapshot.live_devices) > 1:
@@ -1866,6 +1894,7 @@ def wait_for_no_live_endpoint(
         if not snapshot.live_devices:
             return AbsenceResult(absent=True, next_sequence=sequence, timed_out=False)
         expected_live_departure = snapshot.live_devices[0]
+        expected_departure_identity = None
         remaining = deadline - _monotonic_now(monotonic)
         if remaining <= 0:
             return AbsenceResult(absent=False, next_sequence=sequence, timed_out=True)

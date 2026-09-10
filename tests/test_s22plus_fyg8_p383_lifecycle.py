@@ -5,6 +5,7 @@ production ownership, health parsing and the exceptional transfer arm are real.
 """
 import ast
 import contextlib
+import dataclasses
 import copy
 import hashlib
 import inspect
@@ -32,6 +33,7 @@ import s22plus_fyg8_p383_research_shell_runtime as runtime
 import s22plus_fyg8_p383_research_shell_observer as observer
 import s22plus_fyg8_p383_console_owner as owner
 import s22plus_fyg8_p383_return_host as return_host
+from test_s22plus_odin_usbfs_identity import node as usbfs_node
 
 
 def plan():
@@ -69,6 +71,19 @@ class Backend(joined.JoinedBackend):
         self.binary = binary
         self.restore = restore
 
+    def measured_inventory(self):
+        values = {}
+        for path in super().inventory():
+            bus, device = map(int, path.split('/')[-2:])
+            minor = (bus-1)*128 + device-1
+            values[path] = usbfs_node(live.odin_core.usbfs_identity, path=path,
+                st_rdev=os.makedev(189, minor), device_minor=minor, st_ino=minor+100)
+        return values
+
+    def inventory(self):
+        return {path: live.odin_core.usbfs_identity.immutable_identity(value)
+                for path, value in self.measured_inventory().items()}
+
     @contextlib.contextmanager
     def candidate_observer_session(self, prepared):
         fixture = Receipt(prepared, self.binary)
@@ -84,7 +99,16 @@ class Backend(joined.JoinedBackend):
         self.calls.append('observe')
         wait = live.odin_core.wait_for_no_live_endpoint
         def absent(*args, **kwargs):
-            kwargs.update(self.platform())
+            if prepared.native_parent is None:
+                kwargs.update(self.platform())
+            else:
+                def runner(*_):
+                    if getattr(self, 'pending_departure', False):
+                        self.source_mode('absent'); self.pending_departure = False
+                        self.race_enumerations = getattr(self, 'race_enumerations', 0)+1
+                    return types.SimpleNamespace(returncode=0, stdout=' '.join(self.inventory()), stderr='')
+                kwargs.update(runner=runner, endpoint_observer_factory=lambda:
+                    live.odin_core.usbfs_identity.MeasuredUsbfsIdentityObserver(inventory_reader=self.measured_inventory))
             return wait(*args, **kwargs)
         uuid = ('11234567' if prepared.native_parent and not getattr(self, 'same_boot', False) else '01234567')+'-89ab-4cde-8fab-0123456789ab\n'
         with mock.patch.object(live.odin_core, 'wait_for_no_live_endpoint', side_effect=absent), \
@@ -97,7 +121,10 @@ class Backend(joined.JoinedBackend):
             self.calls.append('transfer-native-restore')
             receipt = self._write_transfer(prepared, kind, self.restore, attempt, prefix)
             result = live.TransferOutcome(self.restore, self.restore == 'odin_transfer_completed', True, receipt)
-            self.source_mode('absent')
+            if getattr(self, 'arrival_race', False):
+                self.pending_departure = True
+            else:
+                self.source_mode('absent')
             self.generation += 1
             return result
         return super().transfer(prepared, endpoint, kind, destination, attempt, prefix)
@@ -167,6 +194,57 @@ class Lifecycle(unittest.TestCase):
                          ['transfer-candidate', 'transfer-native-restore', 'transfer-rollback'])
         identity = live._bound_candidate_registry_identity(prepared)
         self.assertIsNotNone(live.consumed_registry.active_claim(prepared.root, identity['candidate_key']))
+
+    def test_completed_restoration_departure_during_empty_child_first_inventory(self):
+        prepared = self.prepared(); backend = Backend(prepared, self.binary)
+        backend.arrival_race = True
+        with self.patches(prepared):
+            result = live.execute_prepared(prepared, prepared.approval_token, backend)
+            live.validate_live_result(result, prepared)
+        self.assertTrue(result['live_state']['native_roundtrip']['proved'])
+        self.assertEqual(backend.race_enumerations, 1)
+        child = live.native_roundtrip.child(live, prepared)
+        receipts = live.odin_core.list_snapshot_receipts(child.run_dir/'odin-endpoints')
+        self.assertEqual(receipts[0]['sequence'], 0)
+        self.assertEqual(receipts[0]['live_devices'], [])
+        self.assertEqual([c for c in backend.calls if c.startswith('transfer-')],
+                         ['transfer-candidate', 'transfer-native-restore', 'transfer-rollback'])
+
+    def test_restoration_departure_context_reopens_intent_delivery_result_and_parent(self):
+        for case in ('intent', 'delivery', 'result', 'raw', 'parent', 'binding'):
+            with self.subTest(case=case):
+                prepared = self.prepared(); backend = Backend(prepared, self.binary)
+                original = backend.observe_candidate; checked = []
+                def observe(current, run, lease, session):
+                    if current.native_parent is not None:
+                        seed = live.native_roundtrip.restoration_departure(live, current)
+                        self.assertEqual(len(seed), 2)
+                        if case in ('parent', 'binding'):
+                            if case == 'parent':
+                                current = dataclasses.replace(current, native_parent=prepared.run_dir/'wrong')
+                            else:
+                                current = dataclasses.replace(current, prepared={**current.prepared,
+                                    'approval_binding': {'changed': True}})
+                        else:
+                            intent = live.native_roundtrip.read_restore_intent(live, prepared)
+                            path = {'intent': current.run_dir/live.native_roundtrip.INTENT,
+                                    'delivery': current.run_dir/'native-restore-delivery.json',
+                                    'result': current.run_dir/'native-restore-attempt-01.result.json',
+                                    'raw': Path(intent['restoration_download']['path']).with_suffix('.raw.json')}[case]
+                            # Corrupt only disposable fixture evidence, never production runs.
+                            path.chmod(0o600)
+                            path.write_bytes(b'{}\n')
+                            path.chmod(0o400)
+                        with self.assertRaises((ValueError, OSError, live.F1LiveError, live.core.F1V2Error)):
+                            live.native_roundtrip.restoration_departure(live, current)
+                        checked.append(True)
+                        raise KeyboardInterrupt('fixture context rejection checked')
+                    return original(current, run, lease, session)
+                with self.patches(prepared), mock.patch.object(backend, 'observe_candidate', side_effect=observe):
+                    with self.assertRaises(KeyboardInterrupt):
+                        live.execute_prepared(prepared, prepared.approval_token, backend)
+                self.assertEqual(checked, [True])
+                self.assertEqual(backend.calls.count('transfer-native-restore'), 1)
 
     def test_publication_cuts_never_repeat_a_role(self):
         cuts = ('exception-claim', 'restore-intent-before', 'restore-intent-after',

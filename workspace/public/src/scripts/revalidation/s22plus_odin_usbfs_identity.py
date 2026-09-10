@@ -799,10 +799,10 @@ class MeasuredUsbfsIdentityObserver:
         after = self._after_inventory(allow_membership_change=True)
         if path in after:
             raise UsbfsIdentityError("usbfs departed endpoint is still present")
-        expected_paths = tuple(sorted(set(self._baseline) - {path}))
-        if tuple(sorted(after)) != expected_paths:
+        expected = {name: snapshot for name, snapshot in self._baseline.items() if name != path}
+        if tuple(sorted(after)) != tuple(sorted(expected)):
             raise UsbfsIdentityError("usbfs exact departure evidence changed")
-        return enumeration_evidence(after, after, ())
+        return enumeration_evidence(expected, after, ())
 
     def revalidate(self, evidence: dict[str, Any]) -> None:
         validate_enumeration_evidence(evidence)

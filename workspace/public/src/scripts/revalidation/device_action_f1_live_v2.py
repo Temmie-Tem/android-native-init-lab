@@ -5340,6 +5340,8 @@ class SamsungOdinBackend:
         observer_session: Any,
     ) -> dict[str, Any]:
         sequence = len(odin_core.list_snapshot_receipts(run_dir))
+        initial_departure = (native_roundtrip.restoration_departure(sys.modules[__name__], prepared)
+                             if prepared.native_parent is not None else None)
         absent = odin_core.wait_for_no_live_endpoint(
             self.odin,
             run_dir,
@@ -5349,6 +5351,7 @@ class SamsungOdinBackend:
             poll_sec=0.5,
             endpoint_observer_factory=odin_core.measured_usbfs_observer,
             allow_live_departure=True,
+            initial_departure=initial_departure,
         )
         timeout = prepared.bundle.manifest["observation"]["timeout_sec"]
         started = time.monotonic()

@@ -263,6 +263,23 @@ def validate_restore_arm(live, arrival, endpoint, attempt, prefix):
         dict(schema=SCHEMA, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')))
 
 
+def restoration_departure(live, arrival):
+    """Read the exact completed restoration's departure identity; no effect."""
+    if arrival.native_parent is None or arrival.run_dir != arrival.native_parent/ARRIVAL_DIR:
+        raise live.F1LiveError('restoration departure requires its declared child')
+    parent = replace(arrival, run_dir=arrival.native_parent, native_parent=None)
+    require_research_time(live, parent)
+    intent = read_restore_intent(live, parent)
+    delivery = live._read_json(arrival.run_dir/'native-restore-delivery.json', 'restoration delivery')
+    if delivery != dict(schema=SCHEMA, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')):
+        raise live.F1LiveError('restoration departure delivery no longer binds its intent')
+    result = live._validate_transfer_result(arrival, 'native-restore', 1)
+    if result is None or result['classification'] != 'odin_transfer_completed':
+        raise live.F1LiveError('restoration departure lacks completed transfer evidence')
+    endpoint = live._read_native_download_arrival(parent, intent['restoration_download'])
+    return endpoint['endpoint']['device'], endpoint['revalidation']['device_identity']
+
+
 def finish(live, prepared, backend, journal, endpoint_dir, lease):
     """Normal execution only: arrival 1 -> N restoration -> arrival 2 -> A."""
     require_claim(live, prepared)

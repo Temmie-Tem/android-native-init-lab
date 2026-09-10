@@ -62,8 +62,9 @@ The current follow-up is documented in the
 [structural assessment](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md#structural-coupling-and-follow-up-scope)
 and [failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md):
 
-- HOST: diagnose and reproduce the USB inventory transition that stopped arrival2
-  before authentication; no observer repair is yet implemented.
+- HOST: the empty-child USB inventory transition is reproduced and repaired in
+  H0. Exact completed-restoration context seeds the first comparison; unrelated
+  inventory changes still fail. Independent review returned PASS_GO.
 - DISPLAY: `local-display-v1` now implements PID1-owned local HUD lifetime
   before host authentication. H0 validation and independent PASS_GO are
   complete. Existing live candidates do not adopt the profile.
@@ -92,10 +93,15 @@ now implements compatible H0 observation: fixed native health first, optional
 local HUD collection, owned CONTROL and exact retained replay. Eleven new tests
 and 15 shared health/wire tests pass; independent review returned PASS_GO.
 Historical observer semantics remain unchanged.
-The empty second-arrival observation context remains a separate host investigation
-target; its timing failure still needs reproduction. Broad F1/evidence rewrites
-and other-target changes are deferred. No device authority, consumed run or
-native behavior was changed by 1A.
+The separate [host-arrival repair](docs/reports/S22PLUS_FYG8_RESTORATION_ARRIVAL_H0_2026-09-10.md)
+is implemented and independently reviewed PASS_GO, with 197 passing host tests.
+It validates the restoration's original claim/intent/delivery/complete transfer
+and exact Download identity before the child's first measured snapshot. The
+child keeps its own lease and sequence0. Remaining-node replacement is rejected.
+Current execution sources changed and require future fresh bindings; consumed
+P383 records/pins remain unchanged. The second device boot is still NO_PROOF.
+The bounded refactor follow-up is complete in H0. Broad F1/evidence rewrites,
+other-target changes and fresh live adoption remain outside this completed unit.
 
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three

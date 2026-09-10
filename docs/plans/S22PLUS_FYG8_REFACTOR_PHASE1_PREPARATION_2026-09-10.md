@@ -1,8 +1,10 @@
 # S22+ FYG8 구조 점검과 1차 리팩토링 준비
 
-상태: **1A·1B 구현·H0 검증·독립 PASS_GO 완료. host arrival 수정은 미착수.**
+상태: **1A·1B·1C와 host arrival 수정의 구현·H0 검증·독립 PASS_GO 완료.**
 [1A 구현·검증 결과](../reports/S22PLUS_FYG8_NATIVE_SOURCE_REFACTOR_1A_H0_2026-09-10.md),
-[1B 구현·검증 결과](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md).
+[1B 구현·검증 결과](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md),
+[1C 관찰기 결과](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md),
+[host arrival 수정 결과](../reports/S22PLUS_FYG8_RESTORATION_ARRIVAL_H0_2026-09-10.md).
 대상: SM-S906N / g0q / S906NKSS7FYG8.
 점검 기준: 문서 커밋 `7dfe735cfe` 시점의 현재 소스와 소비된 P383 실행 증거.
 
@@ -41,7 +43,9 @@ P382/v0.1.2 성공과 P383 NO_PROOF/CLOSED/19 및 최종 Android 건강은 유�
 - 생성된 helper **템플릿**은 68,846바이트·1,723행,
   SHA256 `2480436b9013fb4c2f59edc396f6a2f4788d7a04448eac2a1323473146b13920`.
   이는 실기 `/init` 바이너리나 최종 materialized helper의 동일성 증거가 아니다.
-- 소비된 P383 준비에 묶인 실행 소스 86개는 현재도 크기·해시가 모두 같다.
+- 준비 시점에는 소비된 P383 준비에 묶인 실행 소스 86개의 크기·해시가 모두
+  같았다. 후속 host arrival 수정은 현재 실행 소스 4개를 변경했다. 기존
+  준비·소비 기록의 pin은 그대로 보존하며, 새 사용에는 새 바인딩이 필요하다.
 
 직접 확인한 주요 소비자·검증 경로:
 [namespace 실행](../../workspace/public/src/scripts/revalidation/s22plus_fyg8_p383_namespace.py),
@@ -155,7 +159,8 @@ inventory 오류를 무시하거나 효과를 재실행하는 해결책은 배�
 
 이 표는 준비 시점의 검증 계획이다. 이후 완료한 1A의 실제 검증 결과는 위
 구현 보고서에 기록했다. 1B도 구현과 42개 H0 테스트·ARM64 A/B 구성 요소 검증을
-완료했고 독립 리뷰도 PASS_GO다. arrival 검증은 아직 수행하지 않았다.
+완료했고 독립 리뷰도 PASS_GO다. 후속 1C 관찰기는 26개, arrival 수정은
+197개 H0 테스트를 통과했으며 각각 독립 리뷰 PASS_GO를 받았다.
 Python/C 실행 코드를 바꿀 때 기존 계약의 py_compile·실제
 repository toolchain 교차 컴파일·대표 생산자/소비자 검증을 적용한다. 의미 없는
 과거 수치 고정이나 mock이 생성해 준 receipt를 실제 경계 검증으로 대체하지 않는다.
@@ -167,6 +172,6 @@ repository toolchain 교차 컴파일·대표 생산자/소비자 검증을 적�
 
 이번 준비의 완료 기준은 구조·의존성·증거 한계·1차 경계·검증 방법을 현재 소스로
 확인해 기록하는 것이다. 준비와 후속 1A 구현·H0 검증·독립 리뷰를 완료했다.
-1B의 구현·H0 검증·독립 리뷰도 완료했다. arrival 수정과
-새로운 실기 qualification은 완료되지 않았으며, P383의 두 번째 부팅을
+1B·1C와 arrival 수정의 구현·H0 검증·독립 리뷰도 완료했다.
+새로운 실기 qualification은 수행하지 않았으며, P383의 두 번째 부팅을
 성공으로 승격하지 않는다.

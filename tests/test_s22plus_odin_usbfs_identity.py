@@ -727,6 +727,7 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             (True, USB_009, {other_path: other}),
             (True, USB_008, {}),
             (True, USB_008, {other_path: other, USB_009: added}),
+            (True, USB_008, {other_path: dataclasses.replace(other, st_ino=99)}),
         )
         for allowed, expected, after in cases:
             with self.subTest(allowed=allowed, expected=expected, added=USB_009 in after):
@@ -746,6 +747,57 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
                         expected_live_departure=expected,
                     )
 
+    def test_empty_child_completed_transfer_departure_uses_own_first_snapshot(self):
+        module, core = self.module, self.core
+        before = node(module)
+        other = node(module, path='/dev/bus/usb/001/001', st_ino=55,
+                     st_rdev=os.makedev(189, 0), device_minor=0)
+        for already_absent in (False, True):
+            with self.subTest(already_absent=already_absent), tempfile.TemporaryDirectory() as temporary:
+                run = Path(temporary); calls = []
+                after = {other.path: other}
+                initial = after if already_absent else {**after, USB_008: before}
+                reader = sequence_inventory(initial, after, after)
+                factory = lambda: module.MeasuredUsbfsIdentityObserver(
+                    inventory_reader=reader)
+                def runner(*_):
+                    calls.append(True)
+                    return SimpleNamespace(returncode=0, stdout='', stderr='')
+                with core.transaction_session(run) as lease:
+                    value = core.wait_for_no_live_endpoint(Path('odin4'), run, timeout_sec=1,
+                        lease=lease, runner=runner, endpoint_observer_factory=factory,
+                        allow_live_departure=True,
+                        initial_departure=(USB_008, module.immutable_identity(before)))
+                receipts = core.list_snapshot_receipts(run)
+                self.assertTrue(value.absent); self.assertEqual(value.next_sequence, 1)
+                self.assertEqual(calls, [True]); self.assertEqual(len(receipts), 1)
+                self.assertEqual(receipts[0]['sequence'], 0)
+                self.assertEqual(receipts[0]['endpoint_transition_evidence']['inventory_paths'], [other.path])
+
+    def test_empty_child_departure_rejects_missing_seed_reuse_and_replaced_identity(self):
+        module, core = self.module, self.core
+        before = node(module)
+        for seed in (None, (USB_009, module.immutable_identity(before)), (USB_008, 'wrong')):
+            with self.subTest(seed=seed), tempfile.TemporaryDirectory() as temporary:
+                run = Path(temporary)
+                factory = lambda: module.MeasuredUsbfsIdentityObserver(
+                    inventory_reader=sequence_inventory({USB_008: before}, {}))
+                with core.transaction_session(run) as lease, self.assertRaises(core.OdinMeasuredEvidenceFailure):
+                    core.wait_for_no_live_endpoint(Path('odin4'), run, timeout_sec=1, lease=lease,
+                        runner=lambda *_: SimpleNamespace(returncode=0, stdout='', stderr=''),
+                        endpoint_observer_factory=factory, allow_live_departure=True, initial_departure=seed)
+                self.assertEqual(core.list_snapshot_receipts(run), [])
+                self.assertTrue(list(run.glob('**/*diagnostic*.json')))
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            with core.transaction_session(run) as lease:
+                snapshot = core.OdinSnapshot(timestamp_utc='2026-09-10T00:00:00.000000Z', returncode=0,
+                    raw_devices=(), live_devices=(), stale_devices=(), live_device_identities=(), stdout='', stderr='')
+                core.persist_snapshot(run, 0, snapshot, lease=lease)
+                with self.assertRaises(core.OdinTransitionError):
+                    core.wait_for_no_live_endpoint(Path('odin4'), run, timeout_sec=1, lease=lease,
+                        sequence_start=1, endpoint_observer_factory=lambda: None, allow_live_departure=True,
+                        initial_departure=(USB_008, module.immutable_identity(before)))
     def test_core_rejects_mixed_legacy_and_measured_identity_modes(self):
         core = self.core
         called = []

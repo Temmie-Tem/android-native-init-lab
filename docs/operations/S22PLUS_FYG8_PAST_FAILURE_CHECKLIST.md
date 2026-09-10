@@ -12,6 +12,13 @@
 `사후 분석`은 기록 해석의 정정을 뜻한다. 의도한 실패 조건 시험이나 단순한
 미검증 범위를 사고로 추가하지 않는다.
 
+후속 [host arrival H0 수정](../reports/S22PLUS_FYG8_RESTORATION_ARRIVAL_H0_2026-09-10.md)은
+빈 child 이력에서 전송한 정확한 endpoint가 첫 inventory 도중 사라지는 경로와
+남은 다른 node의 동일성 교체를 실제 measured observer로 검증했다. 고정 건강과
+선택 HUD를 분리한 [1C 관찰기](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md)는
+조기 실패의 raw 보존, 복귀 시간 확보, 실패 진단의 frame 오인을 검증했다.
+둘 다 H0 PASS_GO이며 소비된 실행의 결과나 실기 권한을 바꾸지 않는다.
+
 이 문서는 기존 계약·검증을 돕는 참고표다. 새 승인 단계나 독립적인 실행
 게이트를 만들지 않으며, D0/D1/F1 권한을 부여하지 않는다. 실제 권한과
 중단·복구 조건은 [AGENTS.md](../../AGENTS.md)와
