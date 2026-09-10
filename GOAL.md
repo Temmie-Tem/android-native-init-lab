@@ -35,26 +35,25 @@ Supplemental stock NO_PROOF_OBSERVER and causal software-return UNPROVED remain;
 timely exact arrival is separate evidence. No standing native lease, unattended
 recovery or native baseline adoption follows. See the [rc.5 execution report](docs/reports/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_H0_2026-09-10.md).
 
-The v0.1.2 bounded unit is complete. The selected **v0.2.0-rc.1 / P383**
-unit implements the first native baseline roundtrip: N installation, one same-N
-restoration after proved native health/Download, fresh second native health,
-and Android cleanup. The existing runner now has a separate bound second
-arrival and one-shot restoration delivery, retaining its original candidate
-claim and single Android fallback. The fixed native health/raw consumer and
-joined normal/cut/failure H0 checks qualify host behavior only.
+The v0.1.2 bounded unit is complete. The attended **v0.2.0-rc.1 / P383**
+first native-baseline roundtrip is **NO_PROOF, consumed and CLOSED/19**.
+In `p383-ready1-prepared-20260910-2`, N installation, first authenticated native
+health/idle STATUS and exact timely Download passed. The same N transferred
+once more, but the second arrival's USB inventory changed before snapshot
+publication; no second console/health/CONTROL was reached. The operator reported
+booting without a bootloop; this remains physical OBSERVED evidence.
 
-The [separate common exception](docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
-addresses the prior design's conflict with the permanent no-replay boundary.
-Independent changed-closure PASS_GO, identical A/B/static/READY qualification
-and corrected exact D0 preparation `p383-ready1-prepared-20260910-2` are complete.
-The first D0 succeeded but its later host binding construction failed; its
-evidence is preserved. The real rollback receipt/member reader mismatch was
-corrected and revalidated before the fresh preparation. The empty additional
-command plan and approval binding
-`938a3f15bbd75b8a03db4ba70b6339365dcd280b714219b7e9cd34e1d7008b9f`
-await fresh attended F1 approval. No P383 device effect or standing native
-baseline is claimed.
-See the [implementation report](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md).
+The preapproved exact A fallback transferred once. Its first 420-second final
+health wait expired with ADB offline. After the operator reported Android and
+fresh bounded enumeration found ADB online, unchanged recovery resumed from
+ROLLBACK_FLASHED without another transfer. Exact target continuity, rooted FYG8,
+original boot/supporting hashes and Download absence passed; the journal closed
+at 04:17:46.471890Z with `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` and
+`recovery_required=false`. Installation/exception claims remain consumed.
+Counts are one installation, one exceptional N restoration, one A transfer.
+Native roundtrip and supplemental stock proof remain unproved; the transient
+ADB failure's cause is not established. No standing native baseline or v0.2.0
+promotion follows. See the [execution and recovery record](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md#attended-attempt-and-final-android-health).
 
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three

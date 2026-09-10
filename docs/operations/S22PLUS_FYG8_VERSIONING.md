@@ -265,6 +265,20 @@ Android 건강 확인으로 끝난다. 상주 native 베이스라인 채택은 �
 
 첫 D0는 통과했지만 이후 호스트의 rollback member 바인딩에서 실패했다.
 원래 기록을 보존하고 실제 복구 AP 형식으로 수정·검증한 뒤 새 읽기 전용
-준비 `p383-ready1-prepared-20260910-2`를 완료했다. 아직 F1 실행은 없으며,
-정확한 준비 바인딩에 대한 새 현장 승인이 필요하다. 기능 버전 v0.1.2는
+준비 `p383-ready1-prepared-20260910-2`를 완료했다. 준비 당시에는 F1 실행
+전이었으며, 이후 정확한 바인딩의 현장 승인을 받아 아래 실행을 수행했다. 기능 버전 v0.1.2는
 그대로 유지한다. [구현·검증·준비 기록](../reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md).
+
+## v0.2.0-rc.1 실행 — 왕복 미입증·Android 복구 완료
+
+P383에서 첫 N 설치·native 건강·적시 Download 복귀와 동일 N 복원 전송은
+완료됐다. 두 번째 건강 검사 전 USB inventory 변경으로 연구를 중단했다.
+운영자의 부팅·부트루프 없음 관측은 보존하되 두 번째 인증 건강으로 승격하지
+않는다. A 복원 전송은 한 번 완료됐지만 ADB offline으로 첫 420초의 최종
+검증은 시간 초과됐다. 이후 Android 화면 관측과 새 ADB online 확인에 따라
+같은 기록에서 최종 검증만 재개했고, 정확한 기기·루트·FYG8·원본 boot와
+보조 파티션 해시·Download 부재를 확인했다. 추가 전송 없이 CLOSED/19,
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, `recovery_required=false`로 종료했다.
+전송은 N 설치·동일 N 복원·A 복원이 각각 한 번이다. ADB 일시 불통의 원인은
+미확정이며 native 왕복·보조 stock 관측은 미입증으로 남는다. 기능 버전은 v0.1.2다.
+[실행·복구 기록](../reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md#attended-attempt-and-final-android-health).
