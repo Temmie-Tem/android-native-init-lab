@@ -258,3 +258,36 @@ trace to distinguish those cases. Same-AP transfer completion and first-arrival
 success do not fill this gap. The earlier implication that the second native
 boot was healthy was unsupported; the result remains NO_PROOF with Android
 recovery independently verified.
+
+## Structural coupling and follow-up scope
+
+The original [P376 HUD contract](../operations/S22PLUS_FYG8_BOOT_HUD_V1.md#scope-and-ownership)
+explicitly scoped the display to an authenticated console's status and excluded
+a standalone boot UI. The [P376 report](S22PLUS_FYG8_P376_BOOT_HUD_H0_2026-09-09.md#result-and-limits)
+records that same scope. Reusing console supervision, snapshots, deadline and
+CONTROL cleanup is visible in the implementation; treating that reuse as the
+original designer's primary motivation would be an inference. Rendering itself
+does not require host authentication: the HUD child receives fixed local
+snapshots and does not inherit the authentication key or USB console descriptors.
+
+As the HUD became a system/boot-status display, its startup and lifetime remained
+inside the authenticated console. This is a confirmed structural coupling that
+limits boot diagnosis: host observation failure prevents starting the local
+screen as well. Reusing earlier code is not itself the defect; retaining an old
+execution dependency after the component's purpose expands is the issue here.
+This finding does not establish a second-arrival kernel boot failure.
+
+| Item | Current evidence and follow-up |
+| --- | --- |
+| HOST — second USB observation | Inventory membership changed before snapshot publication and authentication. Diagnose and exercise the actual reboot/enumeration transition before selecting a repair; a timing race is inferred, and no repair is implemented. |
+| DISPLAY — host-dependent HUD | Generated control flow confirms authentication precedes HUD startup. Proposed follow-up: let PID1 supervise local display and authenticated console separately, provide a local waiting/failure indication, and keep command execution and CONTROL authenticated. Independent startup and safe lifetime/cleanup still need design and validation. |
+| RETURN — temporary ADB offline | The first final-health wait expired; later online enumeration and exact health verification closed the same journal without another transfer. Underlying offline cause remains unproved; recovery completion is verified. |
+| Second kernel/PID1 progress | No second authenticated or kernel trace establishes the reached stage. Preserve this as an evidence gap, not a confirmed boot defect. |
+
+This update records findings and prospective work only. It changes no runtime,
+reviewed HUD contract, consumed source binding or run result. The existing
+[checklist](../operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md) incorporates the
+HOST, DISPLAY and RETURN lessons without adding a new execution gate. P383 stays
+consumed, NO_PROOF and CLOSED/19 with verified Android recovery; v0.1.2 remains
+the functional version. Screen separation and host repair are not implemented
+or qualified by this documentation update.

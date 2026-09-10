@@ -58,6 +58,22 @@ Native roundtrip and supplemental stock proof remain unproved; the transient
 ADB failure's cause is not established. No standing native baseline or v0.2.0
 promotion follows. See the [execution and recovery record](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md#attended-attempt-and-final-android-health).
 
+The current follow-up is documented in the
+[structural assessment](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md#structural-coupling-and-follow-up-scope)
+and [failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md):
+
+- HOST: diagnose and reproduce the USB inventory transition that stopped arrival2
+  before authentication; no observer repair is yet implemented.
+- DISPLAY: design local HUD startup/lifetime under PID1 separately from host
+  authentication, while keeping command/CONTROL authentication. The existing
+  console-status scope is confirmed; independent boot-status display is proposed,
+  not implemented or qualified.
+- RETURN: retain the temporary ADB offline incident with unknown cause and the
+  verified recovery continuation. Second kernel/PID1 progress remains an evidence
+  gap rather than a confirmed boot defect.
+
+This documentation unit changes no device authority, consumed run or runtime.
+
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three
 planned commands passed with zero dropped output; the operator photograph shows
