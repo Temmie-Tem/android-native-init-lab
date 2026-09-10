@@ -30,8 +30,9 @@ Photographs and clips of the P353-P361 display bring-up runs, ordered as a
 comparison rather than a chronology, are on a separate page:
 [S22+ display visual evidence](S22PLUS_DISPLAY_VISUAL_EVIDENCE.md).
 
-One continuous recording of the P376 run, in which native PID 1 paints its own
-status text and advances an uptime counter on the panel, is on its own page:
+Continuous recordings of native PID 1 painting its own status text on the panel
+— the P376 boot HUD, then the P384 gauge HUD and its transition into Download —
+are collected on their own page:
 [S22+ boot HUD visual evidence](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.md).
 
 ## Proven capabilities

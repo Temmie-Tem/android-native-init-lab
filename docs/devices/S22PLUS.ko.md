@@ -30,8 +30,9 @@ P353~P361 디스플레이 브링업 런의 사진과 클립을, 시간순이 아
 배열한 별도 페이지가 있습니다:
 [S22+ 디스플레이 시각 증거](S22PLUS_DISPLAY_VISUAL_EVIDENCE.ko.md).
 
-네이티브 PID 1이 패널에 자기 상태 텍스트를 그리고 uptime 카운터를 올리는 P376 런을
-한 번에 이어서 녹화한 영상은 자체 페이지에 있습니다:
+네이티브 PID 1이 패널에 자기 상태 텍스트를 그리는 과정을 한 번에 이어서 녹화한
+영상들은 자체 페이지에 모여 있습니다. P376 부팅 HUD, 그다음 P384 게이지 HUD와
+Download 전환입니다:
 [S22+ 부팅 HUD 시각 증거](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.ko.md).
 
 ## 증명된 capability
