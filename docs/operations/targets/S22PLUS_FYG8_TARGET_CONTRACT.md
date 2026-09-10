@@ -28,6 +28,19 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### v0.1.2-rc.4 output delivery and bounded memory observations
+
+Internal P381 follows [Output and Memory RC4 V1](../S22PLUS_FYG8_OUTPUT_MEMORY_RC4_V1.md).
+It reserves OUTPUT queue capacity before pipe reads while retaining the existing
+wire, budgets, child/control deadlines and recovery path. Six functional
+qualifications precede optional fixed read-only memory commands in the sealed
+plan. File metadata, nominal slab estimates and renderer-owned GEM bookkeeping
+do not prove reclaimability. No deletion, RBIN/CMA change or new device authority
+is introduced. Changed-closure review, fresh A/B/static qualification, exact
+preparation, attendance and fresh Process-v2 approval remain required. Consumed
+P380 cannot replay. Terminal reporting adds one `s22plus-fyg8-p381` F1 closure
+row, canonical timeline, exact rollback and final health for its own future run.
+
 ### v0.1.2-rc.3 exact model and native memory observation
 
 Internal P380 follows [Gauge Model and Memory V1](../S22PLUS_FYG8_GAUGE_MODEL_MEMORY_V1.md).
