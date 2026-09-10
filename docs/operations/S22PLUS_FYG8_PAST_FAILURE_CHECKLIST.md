@@ -29,6 +29,12 @@ P384 후속 준비에서는 실제 prepared JSON의 들여쓰기를 포함한 �
 키 읽기를 대체한 기존 테스트가 숨긴 ROUTE/HOST 연결 누락을 다룬다. 준비 기록
 재개와 수동으로 구성한 관찰기 fixture는 실제 factory 진입 검증을 대신하지 않는다.
 
+수정 뒤 별도로 승인된 [P384 V2 실제 왕복](../reports/S22PLUS_FYG8_NATIVE_ROUNDTRIP_FOLLOWUP_V2_H0_2026-09-10.md#attended-v2-roundtrip-and-terminal-reopen)은
+guard 시작, 두 native 건강 관측, 각 시간창 안의 Download 도착, Android 정리와
+최종 건강 확인까지 PASS/CLOSED로 끝났다. 저장된 원시 세션·세 역할·최종 결과를
+다시 열어 검증했다. 위 사전 누락과 이전 중단 결과는 유지하며, 물리 화면 표시와
+무인 복구는 여전히 미검증이다. 이 실행의 증거를 미래 후보에 자동 승계하지 않는다.
+
 이 문서는 기존 계약·검증을 돕는 참고표다. 새 승인 단계나 독립적인 실행
 게이트를 만들지 않으며, D0/D1/F1 권한을 부여하지 않는다. 실제 권한과
 중단·복구 조건은 [AGENTS.md](../../AGENTS.md)와

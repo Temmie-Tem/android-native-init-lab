@@ -13,30 +13,45 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-The current follow-up is the separately incorporated
+The completed follow-up is the separately incorporated
 [P384 native roundtrip V2](docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md):
 one N installation, one same-N restoration and one exact A cleanup/fallback,
 with 1,800 seconds total and two 60-second native observations.
+The attended `p384-native-roundtrip-v2-prepared-20260910-4` run is consumed and
+**CLOSED/19**, with `PASS_F1_V2_P384_ROOT_CONSOLE_AND_ROLLED_BACK` and
+`recovery_required=false`. Both authenticated native health checks pass, with
+different kernel boot identities and nonces. Both exact Download arrivals were
+observed inside their original 30-second CONTROL windows. Installation,
+exceptional same-N restoration and exact Android cleanup each transferred once;
+the original execute completed without a recovery invocation or repeated effect.
+Final exact-target rooted FYG8/original boot and supporting hashes, completed
+Android boot and Download absence pass. Terminal validation reopens both raw
+native sessions, all three role results and the final health evidence.
+
+Each arrival also returned five valid HUD frames with matched flip observations
+and fresh gauge/memory/CPU samples. Physical pixels, continuous liveness,
+pre-authentication display timing and software-causal Download attribution
+remain unproved. Supplemental stock evidence remains NO_PROOF_OBSERVER.
+This qualifies this bounded attended roundtrip, with the N installation and V2
+claims retained. It creates no standing native baseline, reusable budget,
+unattended recovery or v0.2.0 release. The device is back in healthy Android.
+
 The first approved invocation in `p384-native-roundtrip-v2-prepared-20260910-3`
 ended **ABORTED/4 before any Download request, guard arm or partition transfer**.
 Fresh execute D0 passed exact rooted FYG8/original hashes/Android health; the
 actual observer factory then raised AttributeError because P384's direct
 artifact object lacks the legacy credential-reader interface. Counts are
-0 N installation / 0 N restoration / 0 A. N and the V2 claim remain unconsumed,
-but that approval/run cannot be reused. No recovery transfer was needed.
+0 N installation / 0 N restoration / 0 A for that invocation. Its approval/run
+cannot be reused and its original result remains unchanged.
 
 H0 reproduced the actual entry failure before guard invocation. The reviewed
 host-only fix selects the existing strict fixed-key reader and retains the
 prepared P384 digest check. Actual ordinary/V2 factory construction, invalid
 key rejection and pre-effect abort/no-replay tests pass; the prior fixture had
 substituted key reading and missed this connection. All 108 candidate inputs
-and the AP remain unchanged. Fresh read-only preparation and full reopen pass
-in `p384-native-roundtrip-v2-prepared-20260910-4`, using the new source-qualified
-bundle. The actual fixed-key reader and factory entry with a fixture guard
-also pass against that real prepared input. Current exact Android health and
-clean baseline pass; the real privileged guard remains unstarted. The new
-finite approval has not yet been returned. No ordinary reboot or F1 effect
-follows from that readiness work.
+and the AP remain unchanged. Fresh read-only preparation, full reopen and the
+actual fixed-key/factory entry preceded the separately returned finite approval
+for prepared-4. Its actual privileged guard and complete execution now pass.
 
 The earlier baseline-negative D0, one ordinary-reboot STOP with later read-only
 healthy reconciliation, prepared-record size repair and actual prepared reopen

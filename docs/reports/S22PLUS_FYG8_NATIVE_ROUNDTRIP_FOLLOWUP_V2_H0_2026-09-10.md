@@ -1,7 +1,8 @@
-# S22+ P384 native roundtrip followup V2 qualification
+# S22+ P384 native roundtrip followup V2 qualification and execution
 
-Status: **first approved invocation ABORTED before Download or transfer;
-reviewed host correction and prepared-4 reopen complete; new approval pending.**
+Status: **prepared-4 PASS, consumed and CLOSED/19; two native arrivals proved,
+exact Android cleanup and final health complete. Earlier prepared-3 ABORTED
+before Download or transfer remains unchanged.**
 Target: **SM-S906N / g0q / S906NKSS7FYG8**.
 Candidate: **P384 / v0.2.0-rc.2**. This follows the completed ordinary
 [local-display adoption](S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_H0_2026-09-10.md).
@@ -420,10 +421,11 @@ Full `load_prepared`, V2 plan/claim-absence and candidate registry checks pass.
 The actual fixed private key reader matches this prepared identity; the real
 session factory also constructs successfully with that actual input and a
 fixture guard in a disposable private directory. No key bytes are published.
-`prepared-reopen.json` records
+At that preparation checkpoint, `prepared-reopen.json` records
 **PASS_P384_V2_FRESH_PREPARATION_AND_KEY_ENTRY**. The actual privileged guard
-has not started and no new F1 approval has been returned. Old prepared-3 remains
-ABORTED; prepared-4 has no transaction, and N/V2 claims remain absent.
+had not started and no new F1 approval had been returned. Old prepared-3 was
+ABORTED; prepared-4 had no transaction, and N/V2 claims were absent. The
+separately approved execution and resulting consumption are recorded below.
 
 The ledger has one new zero-transfer F1-stop row, which contributes no candidate
 attempt. Existing ledger bytes are unchanged. The full historical taxonomy
@@ -432,3 +434,109 @@ audit fails identically on HEAD and the edited ledger at the pre-existing P353
 with the retained valid historical prefix and is classified
 `PRESESSION_OR_ZERO_TRANSFER_F1_STOP`; no unrelated historical correction or
 validator change was made. Both audit results are retained privately.
+
+
+## Attended V2 roundtrip and terminal reopen
+
+The operator separately returned prepared-4's exact finite approval while the
+foreground physical-attendance confirmation remained current. Source commit
+`8166b1942a`, the reviewed execution closure, exact N/A images, current target
+binding and absent installation/V2 claims were reopened before one `--execute`
+invocation. Its fresh execute D0 passed rooted FYG8/original hashes, complete
+Android health, Download absence and a clean baseline. The actual observer
+guard then armed successfully before the sole Download request.
+
+The invocation completed **PASS_F1_V2_P384_ROOT_CONSOLE_AND_ROLLED_BACK**,
+**CLOSED/19**, with `recovery_required=false`. One N installation, one
+exceptional same-N restoration and one exact Android A cleanup completed.
+There was no `--recover` invocation, repeated CONTROL, second authentication
+within an arrival, role replay or physical-fallback prompt. The records mark
+physical intervention UNOBSERVED, rather than proving its absence.
+
+Both raw-authenticated native health commands passed the fixed root/PID1-parent/
+proc-sys-dev and lossless terminal checks, followed by fresh idle STATUS.
+Both kernel boot identity and nonce changed on the second arrival. Observation
+elapsed times were 27.493317 and 15.654757 seconds, within the two fixed
+60-second budgets. Each arrival executed the fixed health command and optional
+HUD read, then its sole CONTROL6. The separate return records prove exact
+Download arrival inside each original 30-second window. Their window-close
+records are 7.381595 and 8.245343 seconds after the respective CONTROL intent;
+these are recorded close intervals, not estimates of exact reboot latency.
+The second CONTROL intent was 63.411467 seconds after the original V2 claim,
+without renewing the 1,800-second research deadline.
+
+Each optional HUD log contains five valid frames, three fresh gauge samples,
+three fresh memory/CPU samples and a matched flip observation. Neither log
+proves physical pixels, uninterrupted liveness or pre-authentication display
+timing. Raw native health records retain `download_arrival_proved=false`;
+they do not independently observe Download. The separately validated return
+windows supply the timely exact-arrival proof. CONTROL ACK remains acceptance
+only, and software-causal attribution remains UNPROVED. Supplemental stock
+carrier evidence remains `P320_STOCK_WITNESS_BASE_SHAPE_FAILURE` /
+`NO_PROOF_OBSERVER`; it neither supplies nor replaces the ACM-native proof.
+The endpoint closure snapshots are complete with continuity unproved, and are
+not promoted into continuous USB/native-liveness evidence.
+
+Exact A cleanup returned to rooted FYG8 with the original boot and supporting
+partition hashes, completed Android boot, stopped boot animation and exact
+Download absence. The original invocation closed normally. The device is in
+healthy Android; this transaction retains no running native baseline.
+
+### Canonical timeline and linked restoration role
+
+The ordinary journal's eight events remain unchanged. The exceptional
+restoration is linked through its own immutable intent, delivery and completed
+transfer receipt; it is not counted as another ordinary candidate attempt.
+
+| Event | UTC on 2026-09-10 |
+| --- | --- |
+| `live_session_start` | `2026-09-10T11:50:28.633772Z` |
+| `candidate_flash_start` | `2026-09-10T11:50:45.699555Z` |
+| `candidate_flash_done` | `2026-09-10T11:50:47.360798Z` |
+| `candidate_boot_ready` | `2026-09-10T11:51:16.682600Z` |
+| `rollback_flash_start` | `2026-09-10T11:52:00.432107Z` |
+| `rollback_flash_done` | `2026-09-10T11:52:02.223968Z` |
+| `rollback_boot_ready` | `2026-09-10T11:52:48.586900Z` |
+| `live_session_end` | `2026-09-10T11:52:48.608832Z` |
+
+The restoration intent occurred 44.729206 seconds after the original V2 claim,
+after first health and timely Download proof. Its sole delivery and
+`odin_transfer_completed` result precede second native health. The following
+records are all relative to private run
+`p384-native-roundtrip-v2-prepared-20260910-4/`:
+
+| Record | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `execute-preflight-01/result.json` | 3,316 | `799477931482c2300a019882b366ddc5282b7a0d2135128ef61175c7d1d02c8d` |
+| `candidate-attempt-01.result.json` | 2,113 | `a26c4fe545dea55279e1e60eb7ec985a5a733c335a6fef73e89d2e72b371d252` |
+| `native-restoration/native-restore-attempt-01.result.json` | 2,200 | `4c2abe12e43f7279ee16ade0f336e4e30877f0f659d4e06ea84d298180dad3d8` |
+| `rollback-attempt-01.result.json` | 2,069 | `39eafc4b6111edb4c7c4537cf8bb818f92c5a50e509dfe8dccdd2de4134ac79c` |
+| `native-roundtrip-proof.json` | 1,603 | `f099125ead65f2cd00eed41a044106cdee9fc2279624a6cfa6f0fac488efd169` |
+| `live-state.json` | 40,773 | `9b03bd7d4edc936abd207316328123d5472993847c36247f7b25bc825fc6e66e` |
+| `live-result.json` | 45,620 | `373854de82c8a01fcd53bcbb718fe35f963a64c30556c9225f6f40fa4155781c` |
+| `transaction/journal-head.json` | 276 | `f7f1b9ddf494784c5f9ca84e20615325ec05b9f46844d79830943bbb90e52091` |
+
+After execution, unchanged `load_prepared`, `validate_live_result` and the
+roundtrip owner's retained projection reopened the current source binding,
+both authenticated raw sessions, different boot/nonce identities, all three
+role results, both return windows, the 19-record journal and final Android
+health. The projection equals the stored native-roundtrip result with
+`proved=true` and `research_stopped=false`. The permanent installation claim
+and immutable V2 claim remain consumed; the F1 owner was released after close.
+The validation receipt is private `h0-roundtrip-v2-review-3/terminal-reopen.json`
+with verdict `PASS_P384_V2_TERMINAL_RAW_REOPEN`; original stdout/stderr remains
+in that bundle's `execute.log`. No source or consumed record was rewritten.
+
+The ledger adds one `TERMINAL_DEVICE_ATTEMPT` row with ordinary counters 1/1
+and the exceptional N restoration stated separately. Its actual parser and
+attempt-inventory checks pass against the retained valid historical prefix.
+The full historical audit still fails at the same unchanged row 547 evidence
+taxonomy noted above. Document links, added-line privacy checks, diff checks
+and the repository boundary check pass. Validation did not change source,
+historical ledger rows, the prior abort result or terminal evidence hashes.
+
+This qualifies the declared bounded attended roundtrip only. Standing native
+baseline adoption, another use of N or the V2 exception, unattended operation,
+stall recovery, persistent storage and a v0.2.0 release remain outside this
+result. The older prepared-3 zero-transfer abort, earlier D0/D1 incidents and
+P383 NO_PROOF/consumed records are preserved. A90 and S20+ were untouched.
