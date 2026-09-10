@@ -1,7 +1,7 @@
 # S22+ P384 native roundtrip followup V2 qualification
 
-Status: **H0, independent PASS_GO and fresh D0/prepared reopen complete;
-separately returned finite F1 approval pending.**
+Status: **first approved invocation ABORTED before Download or transfer;
+reviewed host correction and prepared-4 reopen complete; new approval pending.**
 Target: **SM-S906N / g0q / S906NKSS7FYG8**.
 Candidate: **P384 / v0.2.0-rc.2**. This follows the completed ordinary
 [local-display adoption](S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_H0_2026-09-10.md).
@@ -245,7 +245,7 @@ pass in `h0-roundtrip-v2-review-2/`:
 | `execution-closure.json` | 44,927 | `6cf959b7c72eb5d8cde5558ce5290b95c51058ba49a73b9614214f6645ab8a8b` |
 | `result.json` | 31,003 | `378438a2ee4c6538b5775a73425b6946e7db41a8cddcad1abfea47778086282b` |
 
-## Final preparation ready; F1 remains unstarted
+## Prepared-3 readiness before the first approved invocation
 
 The fresh read-only preparation in
 `workspace/private/runs/device-action-f1-live-v2/p384-native-roundtrip-v2-prepared-20260910-3/`
@@ -282,13 +282,14 @@ H0 PASS therefore did not establish that every applicable checklist item had
 already passed. The publication repair and final actual prepare/reopen above
 close that specific gap; this accounting preserves when it was discovered.
 
-The following reconciles all eleven IDs for the V2 host/policy change. Reused
-component results apply only to unchanged inputs. A current comparison still
+The following records the reconciliation before the first approved startup;
+the later ROUTE/HOST factory gap and correction are documented below. Reused
+component results apply only to unchanged inputs. The comparison found
 finds all 108 candidate inputs unchanged and all 179 prepared execution-source
 receipts current. In particular, the measured USB core/identity, local observer,
 shared wire and direct-source generator match their cited reviewed hashes.
 
-| ID | Status for this change | Evidence and remaining limit |
+| ID | Status at initial reconciliation | Evidence and remaining limit |
 | --- | --- | --- |
 | ABI | No new ABI change; prior H0 reused | No C, numeric flag, layout, ioctl or kernel API changed in V2. The identical AP and static ARM64 A/B package checks are retained. These are not new on-device ABI execution proof. |
 | IO | Confirmed in H0; unchanged producer reused | The [local observer tests](S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md#validation) exercise production subprocess/output paths, HUD stall/read failure/output loss and budget skip. V2 tests re-exercise the production C/raw path with optional HUD success/failure/skip. No pipe or queue implementation changed. |
@@ -304,7 +305,130 @@ shared wire and direct-source generator match their cited reviewed hashes.
 
 This reconciliation adds no gate or authority and does not repeat device
 commands. The two edited documentation files are not prepared execution inputs;
-the prepared source binding remains current. The prior approval request remains
-unanswered. Any future execution still performs its existing fresh target,
+the prepared source binding remained current. The approval request was still
+unanswered at that point. Any future execution performs its existing fresh target,
 artifact, ownership and guard checks before effects; this table does not replace
 those checks or claim their future outcome.
+
+## First approved invocation: host startup abort before effects
+
+The operator returned the exact prepared-3 approval. One original `--execute`
+ran from source commit `426b124262`; that invocation was not repeated. Its
+fresh execute D0 verified exact rooted FYG8, original boot/supporting hashes,
+completed Android health, clean baseline and Download absence. The process
+had UID/EUID 1000, `NoNewPrivs=0` and `Seccomp=0` before invocation.
+
+The journal advanced to APPROVED, then **ABORTED/4** at
+`2026-09-10T09:58:12.788900Z`. Its recorded error type is `AttributeError`, outcome
+`candidate_observer_arm_failed_before_candidate`, verdict
+**FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD**, and `recovery_required=false`.
+N installation, same-N restoration and A cleanup each have null intent/result;
+Download request, guard arm, candidate claim and V2 claim are absent. Counts are
+**0 N installation / 0 N restoration / 0 A**. No native or USB boot result exists.
+The execute preflight is the latest observed health; the result's
+`final_verified=false` is retained rather than presented as post-experiment
+health proof. No recovery transfer is needed for this pre-effect abort.
+
+The actual unchanged-source terminal validator passed before the repair.
+The canonical public timeline contains only
+`live_session_start — 2026-09-10T09:58:12.735740Z`; no later transition is invented.
+All private records remain under `p384-native-roundtrip-v2-prepared-20260910-3/`.
+
+| Retained record | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `execute-preflight-01/result.json` | 3,318 | `7a2ed3cdc7ffb35a0c0207722ef28b027abcca3767801b134a072b206042f103` |
+| `live-result.json` | 1,959 | `e671928bf0824234a0daaadecca610fa911760566d558ac10102d8ce3bb931ec` |
+| `live-state.json` | 711 | `fa0113a98b1047851b731d308ba00c6690d382661dc5f66bb56d2f0e10735e5d` |
+
+### Reproduced cause and scoped correction
+
+Off-device replay of the actual `_p345_candidate_observer_session` entry with
+the retained prepared input reproduced `AttributeError: 'Artifacts' object
+has no attribute 'DEFAULT_AUTH_KEY_PATH'`. A guard-call sentinel was never
+reached. The original journal preserves only the exception type; the exact
+message/traceback is separately retained as H0 reproduction, not relabelled as
+an original live trace, in `h0-roundtrip-v2-review-2/startup-h0-reproduction.log`.
+The stopped result/claim absence and unchanged-source validation are recorded
+in that bundle's `startup-incident-validation.json`.
+
+P384's direct artifact object supplies package and key identity, while the
+shared session-entry consumer expects the legacy credential-reader interface.
+Earlier lifecycle tests substituted `_p328_read_auth_key` and constructed the
+observer fixture directly. That hid this production factory connection. The
+ROUTE/HOST checklist coverage therefore had a second concrete gap beyond the
+already corrected PERSIST size issue; neither a prepared reopen nor a fixture
+session proved the actual startup factory.
+
+The host-only correction explicitly selects the existing strict P328 reader
+for the exact P384 shell. That is the same fixed private key used by the retained
+build; its current 32-byte digest was verified equal to the prepared P384
+identity without publishing key bytes. Existing direct-path, single-link,
+0400-mode, stable-inode and exact-length checks remain, followed by the P384
+prepared digest comparison. There is no caller-supplied key path or permissive
+reader fallback. Other candidates retain their prior path. The candidate
+declaration, artifact helper, 108 build inputs and AP are unchanged.
+
+The old approval/run stays ABORTED and cannot execute again. Its absent N/V2
+claims do not make that approval reusable. A later attempt requires a fresh
+source-qualified bundle, fresh D0 and separately returned approval under the
+existing Process-v2 pre-candidate-failure rule. No ordinary reboot or new
+partition effect follows from this H0 correction.
+
+### Startup repair qualification and fresh preparation
+
+Three focused startup tests now pass through the real
+`SamsungOdinBackend.candidate_observer_session` dispatch, registered factory,
+empty-plan seal, strict credential reader and `_P375ObserverSession`
+construction. The lane and lower hardware guard are explicit fixtures. Ordinary
+and V2 construction pass; missing, wrong-mode, symlink, hardlink, short and
+wrong-digest keys all fail before guard entry. The execution-level wrong-key
+and guard-start failures terminate ABORTED with no Download request, N/V2 claim
+or transfer, and a second execute of the stopped fixture is refused.
+
+The 88 existing P328 credential/artifact and common-live regressions also pass.
+Initial new-test failures were a 33-byte fixture corrected to 32 bytes and an
+object-identity comparison against a separate import instead of the registered
+variant. Only those fixture issues were corrected; the final three entry tests
+pass. Independent review repeated all three and returned **PASS_GO** against
+live-source SHA-256
+`fedf5e5afca59865a9144f3da8ece644033402ca9a456929df0e47fc7725bf2e`.
+Touched Python compilation, diff/link and repository boundary checks pass.
+
+The separately reviewed foreground capability metadata changes only `f1_owner`;
+its other eight source roles and all eight actions remain unchanged. The prior
+review and new receipt are retained under `h0-roundtrip-v2-review-3/`. This
+refresh opens no grant and leaves the earlier ordinary-reboot goal closed.
+
+The new private `h0-roundtrip-v2-review-3/` bundle passes its actual reader and
+current source checks. All 108 candidate byte inputs still match the retained
+build. No AP, key or candidate-identity replacement occurred.
+
+| Fresh bundle record | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `review-manifest.json` | 7,091 | `4737fb2febc9ea75edc64ef6f26d908337306ed24f2be6c248af2864c0598e38` |
+| `execution-closure.json` | 44,927 | `bd2303851a5f7257bc4adda7627914ea47dc7b2dda0c8ae26b7f1513f9ca1df1` |
+| `result.json` | 31,003 | `308c6b898145e1eb6dbc55256ada432c300919838756e2094d18a1cfd0fa739e` |
+
+New connected preparation in
+`p384-native-roundtrip-v2-prepared-20260910-4` passes exact current rooted FYG8,
+original boot/supporting hashes, Android health, Download absence and clean
+baseline. Its D0 result is 3,296 bytes, SHA-256
+`b945b2f4258f99768f01561356b1a569b146df60ffc5fea8f4991b2801f53cd1`.
+The new prepared record is 56,489 bytes, SHA-256
+`cb3b40adca2122ecf810466cbf8ea0ac9560a34d088838e2163444edb364ae7c`.
+Full `load_prepared`, V2 plan/claim-absence and candidate registry checks pass.
+The actual fixed private key reader matches this prepared identity; the real
+session factory also constructs successfully with that actual input and a
+fixture guard in a disposable private directory. No key bytes are published.
+`prepared-reopen.json` records
+**PASS_P384_V2_FRESH_PREPARATION_AND_KEY_ENTRY**. The actual privileged guard
+has not started and no new F1 approval has been returned. Old prepared-3 remains
+ABORTED; prepared-4 has no transaction, and N/V2 claims remain absent.
+
+The ledger has one new zero-transfer F1-stop row, which contributes no candidate
+attempt. Existing ledger bytes are unchanged. The full historical taxonomy
+audit fails identically on HEAD and the edited ledger at the pre-existing P353
+`PROVED_DISPATCH_VISUAL_CORRUPTION` outcome. The new row passes the actual parser
+with the retained valid historical prefix and is classified
+`PRESESSION_OR_ZERO_TRANSFER_F1_STOP`; no unrelated historical correction or
+validator change was made. Both audit results are retained privately.

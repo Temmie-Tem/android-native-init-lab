@@ -2621,6 +2621,11 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
         if _p329_bundle(prepared.bundle)
         else p328_artifact_identity)
     )
+    # P384's direct artifact object describes package identity, not key I/O.
+    # Its prepared key is the existing fixed P328 credential; keep that strict
+    # reader and compare its bytes with the independently bound P384 identity.
+    if _shell_bundle(prepared.bundle) and _shell_definition(prepared.bundle).prefix == "p384":
+        artifact_module = p328_artifact_identity
     try:
         key_path = (
             P328_AUTH_KEY_PATH

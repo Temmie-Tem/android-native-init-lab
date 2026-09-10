@@ -10,24 +10,24 @@
     "usb-state"
   ],
   "assessment": [
-    "Prepared compact serialization retains all fields and the existing 65536-byte limit, no-clobber/no-follow, short-write rejection and fsync.",
-    "Eight unchanged foreground sources, eight unchanged actions and unchanged pending/F1-owner interlocks.",
-    "Preserve D0 2; fresh source-qualified bundle and fresh D0 required.",
-    "Current foreground goal remains closed. No new action grant or F1 authority."
+    "Exact P384 startup selects the existing strict fixed credential reader and retains the prepared identity comparison.",
+    "Actual factory and invalid-key/guard-start abort tests run; no candidate or V2 claim after failed startup.",
+    "Eight other foreground sources and all eight actions/interlocks are unchanged.",
+    "Old ABORTED approval and closed ordinary-reboot goal are not reused; fresh D0/approval remain required."
   ],
   "evidence": {
     "changed_roles": [
       "f1_owner"
     ],
     "independent_review": {
-      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-2/foreground-source-refresh-review.json",
-      "sha256": "ebc00de2803bdf3a9dbb6d5c798da517669e36208ab65ddf4389eccc33465922",
-      "size": 1519
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-3/foreground-source-refresh-review.json",
+      "sha256": "3c10ae352962da7bd59fc0ca9d1a4302b67c4b7f761c281aa9480a03c92b9882",
+      "size": 1620
     },
     "previous_review": {
-      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-2/foreground-prior-review.json",
-      "sha256": "b5dc3a4056724e07995c44fd7fe15f8b238de3333837066cce0cdffa8339861a",
-      "size": 2541
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-3/foreground-prior-review.json",
+      "sha256": "e2e7017426f9fb46bd77262dc4185b59c79c3bb0627674fef1075020dba463ba",
+      "size": 2582
     },
     "unchanged_actions": 8,
     "unchanged_sources": 8
@@ -38,14 +38,14 @@
     "Fresh target and boot checks remain required per action.",
     "Historical health and consumed goals or candidates grant no replay or F1 authority."
   ],
-  "reviewed_at_utc": "2026-09-10T09:20:26.230781+00:00",
+  "reviewed_at_utc": "2026-09-10T10:13:29.382643+00:00",
   "reviewer": "independent-agent-native-refactor-review",
   "schema": "s22plus_goal_research_independent_review_v1",
-  "scope": "One-role foreground-goal source refresh after reviewed prepared-record compact serialization",
+  "scope": "One-role foreground-goal source refresh after reviewed P384 startup credential-reader correction",
   "sources": {
     "common": "e79d39a44bce9f861f939de32051d25b2d6b1a4a34e2c976776669bab50d5fac",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
-    "f1_owner": "19a865b70fecf12a25657ae87494fad246d89761086f4426f917f94bf1205727",
+    "f1_owner": "fedf5e5afca59865a9144f3da8ece644033402ca9a456929df0e47fc7725bf2e",
     "policy": "452cd135150f41e58888d29a18608c158eddfc669728cfd575a676144fbdafbd",
     "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
