@@ -1,0 +1,720 @@
+/* ARM64 Linux UAPI open flags for the freestanding S22+ supervisor.
+ * arch/arm64/include/uapi/asm/fcntl.h overrides the generic/x86 values.
+ * Validate these against target headers and real ARM64 syscall behavior.
+ */
+#ifndef S22PLUS_ARM64_OPEN_FLAGS_V1_H
+#define S22PLUS_ARM64_OPEN_FLAGS_V1_H
+#define S22_ARM64_O_DIRECTORY 040000U
+#define S22_ARM64_O_NOFOLLOW 0100000U
+#endif
+
+/* P3.28 bounded framed PID1 BusyBox command session. */
+#define P328_MAGIC_0 0x53U
+#define P328_MAGIC_1 0x33U
+#define P328_MAGIC_2 0x32U
+#define P328_MAGIC_3 0x38U
+#define P328_FRAME_VERSION 1U
+#define P328_FRAME_OPEN 1U
+#define P328_FRAME_EXEC 2U
+#define P328_FRAME_CLOSE 3U
+#define P328_FRAME_READY 0x81U
+#define P328_FRAME_DATA 0x82U
+#define P328_FRAME_EXIT 0x83U
+#define P328_FRAME_DONE 0x84U
+#define P345_FRAME_CANCEL 5U
+#define P345_FRAME_CANCEL_ACK 0x88U
+#define P345_CANCEL_SEQUENCE 4U
+#define P345_CANCEL_STATUS_CONSUMED 0U
+#define P345_CANCEL_STATUS_ALREADY_COMPLETED 1U
+#define P345_CANCEL_STATUS_NONE 0xffU
+#define P345_CANCEL_PAYLOAD_SIZE P328_AUTH_TAG_SIZE
+#define P345_CANCEL_NONE 0U
+#define P345_CANCEL_PENDING 1U
+#define P345_CANCEL_VALID 2U
+#define P345_CANCELLED_FLAG 0x08U
+#define P328_HEADER_SIZE 16U
+#define P328_MAX_PAYLOAD 1055U
+#define P328_MAX_COMMAND 1023U
+#define P328_MAX_COMMANDS 16U
+#define P328_INPUT_DEADLINE_SEC 30LL
+#define P328_COMMAND_TIMEOUT_SEC 15LL
+#define P328_MAX_OUTPUT 131072U
+#define P328_FLAG_TIMEOUT 0x01U
+#define P328_FLAG_TRUNCATED 0x02U
+#define P328_FLAG_EXEC_FAILURE 0x04U
+#define P328_ECHILD 10
+#define P328_NR_SETSID 157
+
+#define p328_run_id k_run_id
+#define P328_AUTH_KEY_SIZE 32U
+#define P328_AUTH_TAG_SIZE 32U
+#define P328_NONCE_SIZE 32U
+#define P328_FRAME_AUTH 4U
+#define P328_FRAME_CHALLENGE 0x85U
+#define P330_FRAME_DIAGNOSTIC 0x86U
+#define P330_DIAG_OPEN_PARSED 1U
+#define P330_DIAG_RNG 2U
+#define P339_DIAG_OPEN_READ_BRANCH 3U
+#define P339_OPEN_READ_BRANCH_HEADER_READ_ERRNO 0U
+#define P339_OPEN_READ_BRANCH_HEADER_VALIDATION 1U
+#define P339_OPEN_READ_BRANCH_BODY_READ_ERRNO 2U
+#define P339_OPEN_READ_BRANCH_CRC 3U
+#define P339_OPEN_READ_BRANCH_OPEN_SEMANTIC 4U
+#define P339_DIAG_OPEN_HEADER_WORD_0 4U
+#define P339_DIAG_OPEN_HEADER_WORD_1 5U
+#define P339_DIAG_OPEN_HEADER_WORD_2 6U
+#define P339_DIAG_OPEN_HEADER_WORD_3 7U
+#define P330_RNG_EAGAIN_RETRY_LIMIT 64U
+#define P335_FRAME_BOOT_ID 0x87U
+#define P335_BOOT_ID_SEQUENCE 2U
+#define P335_BOOT_ID_SIZE 32U
+#define P335_COMMANDS_PER_SESSION 3U
+#define P335_DETAIL_BOOT_ID 0xc350U
+#define P335_DETAIL_INITIAL_SESSION 0xc351U
+#define P335_DETAIL_LISTENER_BANNER 0xc352U
+#define P335_DETAIL_LISTENER_PROTOCOL 0xc353U
+#define P328_NR_GETRANDOM 278
+#define P328_GRND_NONBLOCK 1U
+static const uint8_t p328_auth_key[P328_AUTH_KEY_SIZE] = { @@AUTH_KEY_BYTES@@ };
+#define p328_run_id_bytes p328_run_id
+static const char p328_auth_domain_open[] = "S22PLUS-FYG8-P328-AUTH-OPEN-v1";
+static const char p328_auth_domain_ready[] = "S22PLUS-FYG8-P328-AUTH-READY-v1";
+static const char p345_auth_domain_cancel[] = "S22PLUS-FYG8-P345-AUTH-CANCEL-v1";
+static const char p335_auth_domain_boot_id[] = "S22PLUS-FYG8-@@NAMESPACE_UPPER@@-AUTH-KERNEL-BOOT-ID-v2";
+
+static int p328_constant_time_equal(
+    const uint8_t *left, const uint8_t *right, size_t length) {
+    uint8_t difference = 0U;
+    for (size_t index = 0U; index < length; ++index)
+        difference |= (uint8_t)(left[index] ^ right[index]);
+    return difference == 0U;
+}
+
+static void p328_hmac_message(
+    uint8_t digest[P328_AUTH_TAG_SIZE],
+    const char *domain, size_t domain_length,
+    const uint8_t *run_id, const uint8_t *nonce,
+    uint32_t sequence, int include_sequence,
+    const uint8_t *command, size_t command_length) {
+    struct s22plus_max77705_runtime_sha256 inner_context;
+    struct s22plus_max77705_runtime_sha256 outer_context;
+    uint8_t inner_digest[P328_AUTH_TAG_SIZE];
+    uint8_t inner_pad[64];
+    uint8_t outer_pad[64];
+    uint8_t sequence_bytes[4];
+
+    for (size_t index = 0U; index < sizeof(inner_pad); ++index) {
+        uint8_t key_byte = index < P328_AUTH_KEY_SIZE
+            ? p328_auth_key[index] : 0U;
+        inner_pad[index] = (uint8_t)(key_byte ^ 0x36U);
+        outer_pad[index] = (uint8_t)(key_byte ^ 0x5cU);
+    }
+    s22plus_max77705_runtime_sha256_init(&inner_context);
+    s22plus_max77705_runtime_sha256_update(
+        &inner_context, inner_pad, sizeof(inner_pad));
+    s22plus_max77705_runtime_sha256_update(
+        &inner_context, (const uint8_t *)domain, domain_length);
+    s22plus_max77705_runtime_sha256_update(
+        &inner_context, run_id, sizeof(p328_run_id_bytes));
+    s22plus_max77705_runtime_sha256_update(
+        &inner_context, nonce, P328_NONCE_SIZE);
+    if (include_sequence) {
+        sequence_bytes[0] = (uint8_t)sequence;
+        sequence_bytes[1] = (uint8_t)(sequence >> 8);
+        sequence_bytes[2] = (uint8_t)(sequence >> 16);
+        sequence_bytes[3] = (uint8_t)(sequence >> 24);
+        s22plus_max77705_runtime_sha256_update(
+            &inner_context, sequence_bytes, sizeof(sequence_bytes));
+    }
+    if (command != NULL && command_length != 0U)
+        s22plus_max77705_runtime_sha256_update(
+            &inner_context, command, command_length);
+    s22plus_max77705_runtime_sha256_final(&inner_context, inner_digest);
+
+    s22plus_max77705_runtime_sha256_init(&outer_context);
+    s22plus_max77705_runtime_sha256_update(
+        &outer_context, outer_pad, sizeof(outer_pad));
+    s22plus_max77705_runtime_sha256_update(
+        &outer_context, inner_digest, sizeof(inner_digest));
+    s22plus_max77705_runtime_sha256_final(&outer_context, digest);
+    s22plus_max77705_runtime_zero(inner_pad, sizeof(inner_pad));
+    s22plus_max77705_runtime_zero(outer_pad, sizeof(outer_pad));
+    s22plus_max77705_runtime_zero(inner_digest, sizeof(inner_digest));
+    s22plus_max77705_runtime_zero(sequence_bytes, sizeof(sequence_bytes));
+}
+
+static long p328_getrandom_nonce(uint8_t nonce[P328_NONCE_SIZE]) {
+    long amount = syscall6(
+        P328_NR_GETRANDOM, (long)(uintptr_t)nonce,
+        P328_NONCE_SIZE, P328_GRND_NONBLOCK, 0, 0, 0);
+    if (amount == -EAGAIN) return -EAGAIN;
+    if (amount != (long)P328_NONCE_SIZE)
+        return amount < 0 ? amount : -EIO;
+    uint8_t nonzero = 0U;
+    for (size_t index = 0U; index < P328_NONCE_SIZE; ++index)
+        nonzero |= nonce[index];
+    return nonzero == 0U ? -EIO : 0;
+}
+
+static const char p335_command_1[] = "\x2f\x62\x69\x6e\x2f\x62\x75\x73\x79\x62\x6f\x78\x20\x69\x64";
+static const char p335_command_3[] = "\x2f\x62\x69\x6e\x2f\x62\x75\x73\x79\x62\x6f\x78\x20\x65\x63\x68\x6f\x20\x50\x33\x32\x38\x2d\x4e\x4f\x4e\x43\x45\x20@@RUN_ID_ESCAPED@@";
+static uint16_t p328_load_le16(const uint8_t *value) {
+    return (uint16_t)value[0] | ((uint16_t)value[1] << 8);
+}
+
+static uint32_t p328_load_le32(const uint8_t *value) {
+    return (uint32_t)value[0] | ((uint32_t)value[1] << 8)
+        | ((uint32_t)value[2] << 16) | ((uint32_t)value[3] << 24);
+}
+
+static void p328_store_le16(uint8_t *value, uint16_t input) {
+    value[0] = (uint8_t)input;
+    value[1] = (uint8_t)(input >> 8);
+}
+
+static void p328_store_le32(uint8_t *value, uint32_t input) {
+    value[0] = (uint8_t)input;
+    value[1] = (uint8_t)(input >> 8);
+    value[2] = (uint8_t)(input >> 16);
+    value[3] = (uint8_t)(input >> 24);
+}
+
+
+
+static uint32_t p328_crc32_update(
+    uint32_t crc, const uint8_t *data, size_t length) {
+    crc = ~crc;
+    for (size_t index = 0; index < length; ++index) {
+        crc ^= data[index];
+        for (unsigned int bit = 0; bit < 8U; ++bit) {
+            uint32_t mask = (uint32_t)-(int32_t)(crc & 1U);
+            crc = (crc >> 1) ^ (0xedb88320U & mask);
+        }
+    }
+    return ~crc;
+}
+
+static uint32_t p328_frame_crc(
+    const uint8_t header[P328_HEADER_SIZE],
+    const uint8_t *payload, size_t length) {
+    uint32_t crc = p328_crc32_update(0U, header, 12U);
+    return p328_crc32_update(crc, payload, length);
+}
+
+static long p341_read_exact(
+    int fd, uint8_t *output, size_t size, long timeout_sec,
+    uint8_t *input_seen) {
+    struct timespec64 deadline = {0};
+    long rc = p282_deadline_after(timeout_sec, &deadline);
+    if (rc != 0) return rc;
+    size_t used = 0U;
+    while (used < size) {
+        long amount = sys_read(fd, output + used, size - used);
+        if (amount > 0) {
+            if ((size_t)amount > size - used) return -EIO;
+            if (input_seen != NULL) *input_seen = 1U;
+            used += (size_t)amount;
+            continue;
+        }
+        if (amount != -EAGAIN && amount != -P260_EINTR)
+            return amount == 0 ? -EIO : amount;
+        if (p282_deadline_expired(&deadline)) return -ETIMEDOUT;
+        p282_poll_delay();
+    }
+    return 0;
+}
+
+static long p328_read_exact(
+    int fd, uint8_t *output, size_t size, long timeout_sec) {
+    return p341_read_exact(fd, output, size, timeout_sec, NULL);
+}
+
+static long p328_read_frame(
+    int fd, uint8_t *type, uint32_t *sequence,
+    uint8_t payload[P328_MAX_PAYLOAD], uint16_t *payload_length,
+    uint8_t open_header[P328_HEADER_SIZE], uint8_t *open_branch,
+    uint8_t *input_seen) {
+    uint8_t header[P328_HEADER_SIZE];
+    if (open_branch != NULL)
+        *open_branch = P339_OPEN_READ_BRANCH_HEADER_READ_ERRNO;
+    long rc = p341_read_exact(
+        fd, header, sizeof(header), P328_INPUT_DEADLINE_SEC, input_seen);
+    if (rc != 0) return rc;
+    if (open_header != NULL)
+        memcpy(open_header, header, sizeof(header));
+    uint16_t length = p328_load_le16(header + 6U);
+    if (open_branch != NULL)
+        *open_branch = P339_OPEN_READ_BRANCH_HEADER_VALIDATION;
+    if (header[0] != P328_MAGIC_0 || header[1] != P328_MAGIC_1
+        || header[2] != P328_MAGIC_2 || header[3] != P328_MAGIC_3
+        || header[4] != P328_FRAME_VERSION || length > P328_MAX_PAYLOAD)
+        return -P260_EPROTO;
+    if (open_branch != NULL)
+        *open_branch = P339_OPEN_READ_BRANCH_BODY_READ_ERRNO;
+    rc = p328_read_exact(fd, payload, length, P328_INPUT_DEADLINE_SEC);
+    if (rc != 0) return rc;
+    if (open_branch != NULL)
+        *open_branch = P339_OPEN_READ_BRANCH_CRC;
+    if (p328_frame_crc(header, payload, length)
+        != p328_load_le32(header + 12U)) return -P260_EPROTO;
+    *type = header[5];
+    *sequence = p328_load_le32(header + 8U);
+    *payload_length = length;
+    return 0;
+}
+
+static long p328_write_frame(
+    int fd, uint8_t type, uint32_t sequence,
+    const uint8_t *payload, uint16_t payload_length) {
+    if (payload_length > P328_MAX_PAYLOAD
+        || (payload_length != 0U && payload == NULL)) return -EINVAL;
+    uint8_t header[P328_HEADER_SIZE] = {
+        P328_MAGIC_0, P328_MAGIC_1, P328_MAGIC_2, P328_MAGIC_3,
+        P328_FRAME_VERSION, type,
+    };
+    p328_store_le16(header + 6U, payload_length);
+    p328_store_le32(header + 8U, sequence);
+    p328_store_le32(header + 12U, p328_frame_crc(
+        header, payload, payload_length));
+    long rc = p260_write_all(
+        fd, (const char *)header, sizeof(header), 1);
+    if (rc == 0 && payload_length != 0U)
+        rc = p260_write_all(
+            fd, (const char *)payload, payload_length, 1);
+    return rc;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * P3.45 H0 fixed read-only ash child boundary.
+ *
+ * This fragment is deliberately a no-input child setup.  The caller has
+ * already made the process group, connected stdin/stdout/stderr and closed
+ * the transport TTY.  Every operation below is fixed to this source and
+ * view; an error returns before the caller can exec BusyBox ash.
+ *
+ * The fragment is for the native-init freestanding runtime.  It uses the
+ * runtime's syscall6/sys_openat/sys_read/sys_write/sys_close/sys_mount
+ * primitives and supplies only the small syscall wrappers needed here.
+ * It is H0 design/validation material, not an F1 or device authority.
+ */
+
+#ifndef P345_NR_CLOSE_RANGE
+#define P345_NR_CLOSE_RANGE 436
+#endif
+#ifndef P345_NR_UNSHARE
+#define P345_NR_UNSHARE 97
+#endif
+#ifndef P345_NR_MKDIRAT
+#define P345_NR_MKDIRAT 34
+#endif
+#ifndef P345_NR_FCHMOD
+#define P345_NR_FCHMOD 52
+#endif
+#ifndef P345_NR_CHROOT
+#define P345_NR_CHROOT 51
+#endif
+#ifndef P345_NR_CHDIR
+#define P345_NR_CHDIR 49
+#endif
+#ifndef P345_NR_GETCWD
+#define P345_NR_GETCWD 17
+#endif
+#ifndef P345_NR_SETRLIMIT
+#define P345_NR_SETRLIMIT 164
+#endif
+#ifndef P345_NR_SETGROUPS
+#define P345_NR_SETGROUPS 159
+#endif
+#ifndef P345_NR_SETRESUID
+#define P345_NR_SETRESUID 147
+#endif
+#ifndef P345_NR_SETRESGID
+#define P345_NR_SETRESGID 149
+#endif
+#ifndef P345_NR_CAPSET
+#define P345_NR_CAPSET 91
+#endif
+#ifndef P345_NR_PRCTL
+#define P345_NR_PRCTL 167
+#endif
+#ifndef P345_NR_SECCOMP
+#define P345_NR_SECCOMP 277
+#endif
+#ifndef P345_NR_OPENAT
+#define P345_NR_OPENAT 56
+#endif
+#ifndef P345_NR_READ
+#define P345_NR_READ 63
+#endif
+#ifndef P345_NR_WRITE
+#define P345_NR_WRITE 64
+#endif
+#ifndef P345_NR_CLOSE
+#define P345_NR_CLOSE 57
+#endif
+#ifndef P345_NR_FSTAT
+#define P345_NR_FSTAT 80
+#endif
+#ifndef P345_NR_NEWFSTATAT
+#define P345_NR_NEWFSTATAT 79
+#endif
+#ifndef P345_NR_LSEEK
+#define P345_NR_LSEEK 62
+#endif
+#ifndef P345_NR_MMAP
+#define P345_NR_MMAP 222
+#endif
+#ifndef P345_NR_MUNMAP
+#define P345_NR_MUNMAP 215
+#endif
+#ifndef P345_NR_MPROTECT
+#define P345_NR_MPROTECT 226
+#endif
+#ifndef P345_NR_MREMAP
+#define P345_NR_MREMAP 216
+#endif
+#ifndef P345_NR_BRK
+#define P345_NR_BRK 214
+#endif
+#ifndef P345_NR_RT_SIGACTION
+#define P345_NR_RT_SIGACTION 134
+#endif
+#ifndef P345_NR_RT_SIGPROCMASK
+#define P345_NR_RT_SIGPROCMASK 135
+#endif
+#ifndef P345_NR_RT_SIGRETURN
+#define P345_NR_RT_SIGRETURN 139
+#endif
+#ifndef P345_NR_SIGALTSTACK
+#define P345_NR_SIGALTSTACK 132
+#endif
+#ifndef P345_NR_EXIT
+#define P345_NR_EXIT 93
+#endif
+#ifndef P345_NR_EXIT_GROUP
+#define P345_NR_EXIT_GROUP 94
+#endif
+#ifndef P345_NR_EXECVE
+#define P345_NR_EXECVE 221
+#endif
+#ifndef P345_NR_CLONE
+#define P345_NR_CLONE 220
+#endif
+#ifndef P345_NR_WAIT4
+#define P345_NR_WAIT4 260
+#endif
+#ifndef P345_NR_PIPE2
+#define P345_NR_PIPE2 59
+#endif
+#ifndef P345_NR_DUP
+#define P345_NR_DUP 23
+#endif
+#ifndef P345_NR_DUP3
+#define P345_NR_DUP3 24
+#endif
+#ifndef P345_NR_FCNTL
+#define P345_NR_FCNTL 25
+#endif
+#ifndef P345_NR_GETPID
+#define P345_NR_GETPID 172
+#endif
+#ifndef P345_NR_GETPPID
+#define P345_NR_GETPPID 173
+#endif
+#ifndef P345_NR_GETUID
+#define P345_NR_GETUID 174
+#endif
+#ifndef P345_NR_GETEUID
+#define P345_NR_GETEUID 175
+#endif
+#ifndef P345_NR_GETGID
+#define P345_NR_GETGID 176
+#endif
+#ifndef P345_NR_GETEGID
+#define P345_NR_GETEGID 177
+#endif
+#ifndef P345_NR_GETTID
+#define P345_NR_GETTID 178
+#endif
+#ifndef P345_NR_SET_TID_ADDRESS
+#define P345_NR_SET_TID_ADDRESS 96
+#endif
+#ifndef P345_NR_SET_ROBUST_LIST
+#define P345_NR_SET_ROBUST_LIST 99
+#endif
+#ifndef P345_NR_FUTEX
+#define P345_NR_FUTEX 98
+#endif
+#ifndef P345_NR_CLOCK_GETTIME
+#define P345_NR_CLOCK_GETTIME 113
+#endif
+#ifndef P345_NR_CLOCK_NANOSLEEP
+#define P345_NR_CLOCK_NANOSLEEP 115
+#endif
+#ifndef P345_NR_NANOSLEEP
+#define P345_NR_NANOSLEEP 101
+#endif
+#ifndef P345_NR_UNAME
+#define P345_NR_UNAME 160
+#endif
+#ifndef P345_NR_GETRANDOM
+#define P345_NR_GETRANDOM 278
+#endif
+#ifndef P345_NR_STATX
+#define P345_NR_STATX 291
+#endif
+#ifndef P345_NR_READLINKAT
+#define P345_NR_READLINKAT 78
+#endif
+#ifndef P345_NR_GETDENTS64
+#define P345_NR_GETDENTS64 61
+#endif
+#ifndef P345_NR_FACCESSAT
+#define P345_NR_FACCESSAT 48
+#endif
+#ifndef P345_NR_MADVISE
+#define P345_NR_MADVISE 233
+#endif
+#ifndef P345_NR_RSEQ
+#define P345_NR_RSEQ 293
+#endif
+#ifndef P345_NR_SCHED_YIELD
+#define P345_NR_SCHED_YIELD 124
+#endif
+#ifndef P345_NR_PPOLL
+#define P345_NR_PPOLL 73
+#endif
+
+/* x86-64's static BusyBox uses these ABI-specific setup calls.  They are
+ * enabled only by the host smoke fixture; ARM64 has no arch_prctl and uses
+ * dup3 for the corresponding descriptor operation.  They never widen the
+ * target filter. */
+#ifdef P345_HOST_TEST_EXTRA_SYSCALLS
+#ifndef P345_NR_ARCH_PRCTL
+#define P345_NR_ARCH_PRCTL 158
+#endif
+#ifndef P345_NR_DUP2
+#define P345_NR_DUP2 33
+#endif
+#endif
+
+#ifndef P345_AUDIT_ARCH
+#define P345_AUDIT_ARCH 0xc00000b7U
+#endif
+
+#ifndef P345_AT_FDCWD
+#define P345_AT_FDCWD (-100)
+#endif
+#ifndef P345_CLONE_NEWNS
+#define P345_CLONE_NEWNS 0x00020000UL
+#endif
+#ifndef P345_CLONE_NEW_MASK
+#define P345_CLONE_NEW_MASK 0x7e020080UL
+#endif
+#ifndef P345_O_RDONLY
+#define P345_O_RDONLY 00000000
+#endif
+#ifndef P345_O_WRONLY
+#define P345_O_WRONLY 00000001
+#endif
+#ifndef P345_O_RDWR
+#define P345_O_RDWR 00000002
+#endif
+#ifndef P345_O_CREAT
+#define P345_O_CREAT 00000100
+#endif
+#ifndef P345_O_EXCL
+#define P345_O_EXCL 00000200
+#endif
+#ifndef P345_O_TRUNC
+#define P345_O_TRUNC 00001000
+#endif
+#ifndef P345_O_APPEND
+#define P345_O_APPEND 00002000
+#endif
+#ifndef P345_O_CLOEXEC
+#define P345_O_CLOEXEC 02000000
+#endif
+#ifndef P345_O_TMPFILE
+#define P345_O_TMPFILE 020000000
+#endif
+
+#ifndef P345_MS_RDONLY
+#define P345_MS_RDONLY 1UL
+#endif
+#ifndef P345_MS_NOSUID
+#define P345_MS_NOSUID 2UL
+#endif
+#ifndef P345_MS_NODEV
+#define P345_MS_NODEV 4UL
+#endif
+#ifndef P345_MS_BIND
+#define P345_MS_BIND 4096UL
+#endif
+#ifndef P345_MS_REC
+#define P345_MS_REC 16384UL
+#endif
+#ifndef P345_MS_PRIVATE
+#define P345_MS_PRIVATE (1UL << 18)
+#endif
+#ifndef P345_MS_REMOUNT
+#define P345_MS_REMOUNT 32UL
+#endif
+
+#ifndef P345_EINTR
+#define P345_EINTR 4
+#endif
+#ifndef P345_EIO
+#define P345_EIO 5
+#endif
+#ifndef P345_EOVERFLOW
+#define P345_EOVERFLOW 75
+#endif
+#ifndef P345_EPERM
+#define P345_EPERM 1
+#endif
+
+#define P345_ROOT_TMPFS "/dev"
+#define P345_ROOT_VIEW "/dev/p345-root"
+#define P345_BUSYBOX_SOURCE "/bin/busybox"
+#define P345_BUSYBOX_VIEW "/dev/p345-root/bin/busybox"
+#define P345_TMPFS_DATA "size=1048576,mode=0755"
+#define P345_TEXT_MODE 0444U
+#define P345_BUSYBOX_MODE 0555U
+#define P345_COPY_CHUNK 1024U
+#define P345_ROOT_UID 65534U
+#define P345_ROOT_GID 65534U
+
+#define P345_MEMINFO_MAX 16384U
+#define P345_CPUINFO_MAX 16384U
+#define P345_UPTIME_MAX 128U
+#define P345_VERSION_MAX 1024U
+#define P345_MOUNTS_MAX 32768U
+#define P345_UDC_STATE_MAX 128U
+
+#define P345_RLIMIT_CPU 0U
+#define P345_RLIMIT_FSIZE 1U
+#define P345_RLIMIT_NPROC 6U
+#define P345_RLIMIT_NOFILE 7U
+#define P345_RLIMIT_AS 9U
+#define P345_CPU_SECONDS 15ULL
+#define P345_FSIZE_BYTES 65536ULL
+#define P345_MAX_PROCESSES 16ULL
+#define P345_MAX_FDS 32ULL
+#define P345_MAX_ADDRESS_SPACE (64ULL * 1024ULL * 1024ULL)
+
+#define P345_PR_SET_KEEPCAPS 8L
+#define P345_PR_SET_DUMPABLE 4L
+#define P345_PR_SET_NO_NEW_PRIVS 38L
+#define P345_SECCOMP_SET_MODE_FILTER 1L
+#define P345_LINUX_CAPABILITY_VERSION_3 0x20080522U
+
+#define P345_SECCOMP_RET_KILL_PROCESS 0x80000000U
+#define P345_SECCOMP_RET_ALLOW 0x7fff0000U
+#define P345_SECCOMP_RET_ERRNO 0x00050000U
+
+#define P345_BPF_LD_W_ABS 0x20U
+#define P345_BPF_JMP_JEQ_K 0x15U
+#define P345_BPF_JMP_JSET_K 0x45U
+#define P345_BPF_RET_K 0x06U
+#define P345_SECCOMP_ARCH_OFFSET 4U
+#define P345_SECCOMP_NR_OFFSET 0U
+#define P345_SECCOMP_ARG0_OFFSET 16U
+#define P345_SECCOMP_ARG1_OFFSET 24U
+#define P345_SECCOMP_ARG2_OFFSET 32U
+
+struct p345_rlimit {
+    uint64_t current;
+    uint64_t maximum;
+};
+
+struct p345_cap_header {
+    uint32_t version;
+    int32_t pid;
+};
+
+struct p345_cap_data {
+    uint32_t effective;
+    uint32_t permitted;
+    uint32_t inheritable;
+};
+
+struct p345_sock_filter {
+    uint16_t code;
+    uint8_t jump_true;
+    uint8_t jump_false;
+    uint32_t constant;
+};
+
+struct p345_sock_fprog {
+    uint16_t length;
+    uint16_t padding;
+    struct p345_sock_filter *filter;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#define P345_BPF_ALLOW_SYSCALL(number) \
+    {P345_BPF_JMP_JEQ_K, 0, 1, (number)}, \
+    {P345_BPF_RET_K, 0, 0, P345_SECCOMP_RET_ALLOW}
+
+#define P345_O_WRITE_MASK \
+    (P345_O_WRONLY | P345_O_RDWR | P345_O_CREAT | P345_O_TRUNC | \
+     P345_O_APPEND | P345_O_TMPFILE)
+
+
+
+
+/* Fixed no-input API.  Call only after setsid/stdio setup and tty close. */
+
+
+#undef P345_BPF_ALLOW_SYSCALL
+#undef P345_O_WRITE_MASK
+
+
+static long p328_dup_to(int source, int target) {
+    return source == target ? target : sys_dup3(source, target, 0);
+}
+
+static long p328_setsid(void) {
+    return syscall6(P328_NR_SETSID, 0, 0, 0, 0, 0, 0);
+}

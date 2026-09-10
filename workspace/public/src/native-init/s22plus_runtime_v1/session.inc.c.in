@@ -1,0 +1,186 @@
+static long rc1_console(int fd,const uint8_t nonce[32]) {
+    struct rc1_state s={0};s.fd=fd;s.next=3U;for(unsigned i=0;i<3;i++)s.pipe[i]=-1;
+    if(!rc1_run_id_matches())return -P260_EPROTO;
+    memcpy(s.nonce,nonce,32U);long rc=rc1_now(&s.start);if(rc)return rc;
+    long uid=syscall6(175,0,0,0,0,0,0),gid=syscall6(177,0,0,0,0,0,0);
+    if(uid<0 || gid<0)return -P260_EPROTO;
+    uint8_t ready[32];p328_store_le32(ready,1U);p328_store_le32(ready+4,(uint32_t)RC1_SESSION_MS);
+    p328_store_le32(ready+8,RC1_TIMEOUT_MAX_MS);p328_store_le32(ready+12,RC1_OUTPUT_LIMIT);
+    p328_store_le32(ready+16,767U);p328_store_le32(ready+20,255U);
+    p328_store_le32(ready+24,(uint32_t)uid);p328_store_le32(ready+28,(uint32_t)gid);
+    rc=rc1_queue(&s,RC1_READY,2U,ready,sizeof(ready));if(rc)return rc;
+    struct hud1_state hud={0};hud1_start(&hud);
+    for(;;) {
+        uint64_t now=0;rc=rc1_now(&now);if(rc)break;
+        if(now-s.start>=RC1_SESSION_MS || (s.rx_used && now-s.partial_start>5000U)){rc=-ETIMEDOUT;break;}
+        if(!s.control){rc=rc1_receive(&s,now);if(rc)break;}
+        if(s.control)hud1_stop(&hud);else hud1_tick(&hud,now,s.blocked?2U:s.active?1U:0U);
+        if(s.control){
+            if(now-s.control_start>=5000U){rc=-ETIMEDOUT;break;}
+            rc=rc1_control_tick(&s);
+        }else rc=rc1_child_tick(&s,now);
+        if(rc)break;
+        if(s.overload && !s.fault_sent && !s.control && s.qcount<RC1_QUEUE-1U) {
+            uint8_t fault[8];p328_store_le32(fault,s.overload);p328_store_le32(fault+4,1U);
+            rc=rc1_queue(&s,RC1_FAULT,s.overload,fault,8U);if(rc)break;s.fault_sent=1;
+        }
+        rc=rc1_flush(&s);if(rc)break;
+        if(s.control==2 && !s.qcount){hud1_stop(&hud);rc1_signal(&s,9);rc1_close_pipes(&s);return 1;}
+        p282_poll_delay();
+    }
+    hud1_stop(&hud);rc1_signal(&s,9);rc1_close_pipes(&s);return rc;
+}
+
+static long p345_framed_console(
+    int tty_fd, const uint8_t *boot_id, uint8_t *open_seen) {
+    uint8_t type = 0U;
+    uint32_t sequence = 0U;
+    uint16_t length = 0U;
+    uint8_t payload[P328_MAX_PAYLOAD];
+    uint8_t nonce[P328_NONCE_SIZE];
+    uint8_t expected_tag[P328_AUTH_TAG_SIZE];
+    if (open_seen == NULL) return -P260_EPROTO;
+    /* This flag means any consumed OPEN byte, not authentication. */
+    *open_seen = 0U;
+    uint8_t p339_open_header[P328_HEADER_SIZE] = {0};
+    uint8_t p339_open_branch =
+        P339_OPEN_READ_BRANCH_HEADER_READ_ERRNO;
+    long rc = p328_read_frame(
+        tty_fd, &type, &sequence, payload, &length,
+        p339_open_header, &p339_open_branch, open_seen);
+    if (rc != 0) {
+        if (*open_seen == 0U) return rc; /* no peer: no unsolicited TX */
+        (void)p330_write_diagnostic(
+            tty_fd, P339_DIAG_OPEN_READ_BRANCH, (int32_t)p339_open_branch);
+        if (p339_open_branch == P339_OPEN_READ_BRANCH_HEADER_VALIDATION) {
+            (void)p330_write_diagnostic(
+                tty_fd, P339_DIAG_OPEN_HEADER_WORD_0,
+                (int32_t)p328_load_le32(p339_open_header + 0U));
+            (void)p330_write_diagnostic(
+                tty_fd, P339_DIAG_OPEN_HEADER_WORD_1,
+                (int32_t)p328_load_le32(p339_open_header + 4U));
+            (void)p330_write_diagnostic(
+                tty_fd, P339_DIAG_OPEN_HEADER_WORD_2,
+                (int32_t)p328_load_le32(p339_open_header + 8U));
+            (void)p330_write_diagnostic(
+                tty_fd, P339_DIAG_OPEN_HEADER_WORD_3,
+                (int32_t)p328_load_le32(p339_open_header + 12U));
+        }
+        return rc;
+    }
+    if (type != P328_FRAME_OPEN || sequence != 0U
+        || length != sizeof(p328_run_id_bytes)
+        || !p328_constant_time_equal(
+            payload, p328_run_id_bytes, sizeof(p328_run_id_bytes))) {
+        (void)p330_write_diagnostic(
+            tty_fd, P339_DIAG_OPEN_READ_BRANCH,
+            P339_OPEN_READ_BRANCH_OPEN_SEMANTIC);
+        (void)p330_write_diagnostic(
+            tty_fd, P339_DIAG_OPEN_HEADER_WORD_0,
+            (int32_t)p328_load_le32(p339_open_header + 0U));
+        (void)p330_write_diagnostic(
+            tty_fd, P339_DIAG_OPEN_HEADER_WORD_1,
+            (int32_t)p328_load_le32(p339_open_header + 4U));
+        (void)p330_write_diagnostic(
+            tty_fd, P339_DIAG_OPEN_HEADER_WORD_2,
+            (int32_t)p328_load_le32(p339_open_header + 8U));
+        (void)p330_write_diagnostic(
+            tty_fd, P339_DIAG_OPEN_HEADER_WORD_3,
+            (int32_t)p328_load_le32(p339_open_header + 12U));
+        return -P260_EPROTO;
+    }
+    *open_seen = 1U;
+    struct s22plus_p318_banner_result banner =
+        s22plus_p318_banner_attempt(tty_fd);
+    if (banner.outcome != S22PLUS_P318_BANNER_WRITTEN) return -EIO;
+    rc = p330_write_diagnostic(tty_fd, 0U, 0);
+    if (rc != 0) return rc;
+    rc = p330_write_diagnostic(tty_fd, P330_DIAG_OPEN_PARSED, 0);
+    if (rc != 0) return rc;
+    uint32_t rng_retries = 0U;
+    for (;;) {
+        rc = p328_getrandom_nonce(nonce);
+        if (rc == 0) break;
+        if (rc != -EAGAIN || rng_retries == P330_RNG_EAGAIN_RETRY_LIMIT) {
+            (void)p330_write_diagnostic(
+                tty_fd, P330_DIAG_RNG, (int32_t)rc);
+            return rc;
+        }
+        ++rng_retries;
+        p282_poll_delay();
+    }
+    rc = p330_write_diagnostic(
+        tty_fd, P330_DIAG_RNG, (int32_t)rng_retries);
+    if (rc != 0) return rc;
+    rc = p328_write_frame(
+        tty_fd, P328_FRAME_CHALLENGE, 0U,
+        nonce, (uint16_t)sizeof(nonce));
+    if (rc != 0) return rc;
+
+    rc = p328_read_frame(
+        tty_fd, &type, &sequence, payload, &length, NULL, NULL, NULL);
+    if (rc != 0 || type != P328_FRAME_AUTH || sequence != 1U
+        || length != P328_AUTH_TAG_SIZE)
+        return rc != 0 ? rc : -P260_EPROTO;
+    p328_hmac_message(
+        expected_tag, p328_auth_domain_open,
+        sizeof(p328_auth_domain_open) - 1U,
+        p328_run_id_bytes, nonce, 0U, 0, NULL, 0U);
+    if (!p328_constant_time_equal(
+        payload, expected_tag, P328_AUTH_TAG_SIZE)) return -P260_EPROTO;
+
+    p328_hmac_message(
+        expected_tag, p328_auth_domain_ready,
+        sizeof(p328_auth_domain_ready) - 1U,
+        p328_run_id_bytes, nonce, 0U, 0, NULL, 0U);
+    rc = p328_write_frame(
+        tty_fd, P328_FRAME_READY, 1U,
+        expected_tag, P328_AUTH_TAG_SIZE);
+    if (rc != 0) return rc;
+    if (boot_id == NULL) return -P260_EPROTO;
+    uint8_t boot_payload[P335_BOOT_ID_SIZE + P328_AUTH_TAG_SIZE];
+    memcpy(boot_payload, boot_id, P335_BOOT_ID_SIZE);
+    p328_hmac_message(
+        boot_payload + P335_BOOT_ID_SIZE,
+        p335_auth_domain_boot_id,
+        sizeof(p335_auth_domain_boot_id) - 1U,
+        p328_run_id_bytes, nonce, P335_BOOT_ID_SEQUENCE, 1,
+        boot_id, P335_BOOT_ID_SIZE);
+    rc = p328_write_frame(
+        tty_fd, P335_FRAME_BOOT_ID, P335_BOOT_ID_SEQUENCE,
+        boot_payload, (uint16_t)sizeof(boot_payload));
+    if (rc != 0) return rc;
+
+    rc=@@NAMESPACE@@_diag_start(tty_fd,nonce);
+    if(rc==0)rc=@@NAMESPACE@@_prepare_return();
+    if(rc==0)rc=@@NAMESPACE@@_diag_enter(60U);
+    if(rc==0)rc=@@NAMESPACE@@_diag_result(60U,
+        (syscall6(174,0,0,0,0,0,0)==0 && syscall6(175,0,0,0,0,0,0)==0 &&
+         syscall6(176,0,0,0,0,0,0)==0 && syscall6(177,0,0,0,0,0,0)==0)?0:-P260_EPROTO);
+    if(rc==0)rc=@@NAMESPACE@@_diag_enter(61U);
+    if(rc==0)rc=@@NAMESPACE@@_diag_result(61U,syscall6(34,-100,(long)(uintptr_t)"/s22-root-work",0700,0,0,0));
+    if(rc==0)rc=@@NAMESPACE@@_diag_enter(62U);
+    if(rc==0)rc=@@NAMESPACE@@_diag_result(62U,sys_mount("tmpfs","/s22-root-work","tmpfs",6UL,"size=64m,nr_inodes=4096,mode=0700"));
+    if(rc!=0)@@NAMESPACE@@_diag_finish(rc);
+    if(rc==0)rc=rc1_console(tty_fd,nonce);
+    if(rc==1) {
+        @@NAMESPACE@@_diagnostic.terminal=1;
+        (void)syscall6(142,0xfee1deadUL,672274793UL,0xa1b2c3d4UL,
+            (long)(uintptr_t)"download",0,0);
+    }
+    for(;;)p282_poll_delay();
+}
+
+
+
+static long p335_getrandom_boot_id(uint8_t boot_id[P335_BOOT_ID_SIZE]) {
+    _Static_assert(P335_BOOT_ID_SIZE == 32U, "kernel UUID SHA256 wire size");
+    return @@NAMESPACE@@_kernel_boot_id(boot_id);
+}
+
+
+static int p335_is_waiting_error(long rc) {
+    return rc == -EIO || rc == -ETIMEDOUT
+        || rc == -S22PLUS_P318_ERRNO_EPIPE
+        || rc == -ENODEV || rc == -EAGAIN || rc == -P260_EINTR;
+}

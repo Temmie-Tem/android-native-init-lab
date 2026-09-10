@@ -1,0 +1,1028 @@
+/* H0 fixed DRM renderer. No live lane or generic display utility.
+ * Exact FYG8 vendor UAPI; CPU cached buffers, no GPU submission or input fences.
+ * A supervisor must own the overall deadline and physical recovery. Neither
+ * poll deadlines nor process signals can recover a wedged kernel modeset.
+ */
+#define _GNU_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <poll.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <time.h>
+#include <unistd.h>
+#ifndef __user
+#define __user /* UAPI sparse annotation, erased by headers_install. */
+#endif
+#include <drm.h>
+#include <drm_mode.h>
+#include <drm_fourcc.h>
+#include <msm_drm.h>
+
+#define LIMIT 128
+#define WIDTH 1080U
+#define HEIGHT 2340U
+#define PITCH (4U * ((WIDTH + 31U) & ~31U))
+#define BYTES ((size_t)PITCH * HEIGHT)
+#define FRAMES 2U
+#define PTR(x) ((__u64)(uintptr_t)(x))
+#include "s22plus_native_display_diagnostic_v3.inc.c"
+static int fd = -1;
+static const char *run_id;
+#ifdef P350_DISPLAY_VARIANT
+static void p351_failure_diagnostic(void);
+#endif
+static void fail(const char *stage) {
+    int saved_errno=errno;
+    fprintf(stderr, "DISPLAY_FAIL stage=%s errno=%d\n", stage, saved_errno);
+    errno=saved_errno; display_failure_context();
+    /* No follow-up modeset after uncertainty. Closing may itself block in the
+     * kernel: the external supervisor must retain recovery ownership. */
+#ifdef P350_DISPLAY_VARIANT
+    p351_failure_diagnostic();
+#endif
+    for(;;){struct timespec d={.tv_sec=1};(void)nanosleep(&d,NULL);}
+}
+static void require(int ok, const char *stage) {
+    if (!ok) { errno = EPROTO; fail(stage); }
+}
+static void call(unsigned long op, void *arg, const char *stage) {
+    display_diag.ioctl_op=op; display_diag.ioctl_stage=stage;
+    if (ioctl(fd, op, arg) < 0) fail(stage); /* Never replay a possible effect. */
+}
+static __attribute__((unused)) int64_t now_ms(void) {
+    struct timespec t;
+    if (clock_gettime(CLOCK_MONOTONIC, &t)) fail("clock");
+    return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+}
+struct props { uint32_t id[LIMIT]; uint64_t value[LIMIT]; uint32_t n; };
+static struct props get_props(uint32_t obj, uint32_t type) {
+    display_diag.property_object=obj;
+    struct props p = {0};
+    struct drm_mode_obj_get_properties q = {.obj_id=obj, .obj_type=type};
+    call(DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &q, "properties-count");
+    require(q.count_props && q.count_props <= LIMIT, "properties-bound");
+    p.n = q.count_props; q.props_ptr=PTR(p.id); q.prop_values_ptr=PTR(p.value);
+    call(DRM_IOCTL_MODE_OBJ_GETPROPERTIES, &q, "properties");
+    require(q.count_props == p.n, "properties-changed");
+    return p;
+}
+static uint32_t property(struct props *p, const char *name, uint64_t *value) {
+    display_diag.property_name=name;
+    uint32_t found=0;
+    for (uint32_t i=0; i<p->n; ++i) {
+        struct drm_mode_get_property q={.prop_id=p->id[i]};
+        call(DRM_IOCTL_MODE_GETPROPERTY, &q, "property-name");
+        require(memchr(q.name, 0, sizeof(q.name)) != NULL, "property-name-bound");
+        if (!strcmp(q.name,name)) {
+            require(!found, "duplicate-property"); found=q.prop_id;
+            if (value) *value=p->value[i];
+        }
+    }
+    require(found != 0, "missing-property"); return found;
+}
+struct selection { uint32_t connector, crtc, plane; struct drm_mode_modeinfo mode; };
+/* Source-derived exact cmdHS tuple; returned type/preference is retained. */
+static int exact_mode(const struct drm_mode_modeinfo *m) {
+    return m->clock==484051U && m->hdisplay==1080U && m->hsync_start==1172U && m->hsync_end==1264U && m->htotal==1356U && m->hskew==0U && m->vdisplay==2340U && m->vsync_start==11730U && m->vsync_end==11814U && m->vtotal==11899U && m->vscan==0U && m->vrefresh==30U && m->flags==0U && memchr(m->name,0,sizeof(m->name))!=NULL && !strcmp(m->name,"1080x2340x30xcmdHS");
+}
+static struct selection select_display(void) {
+    struct selection s={0};
+    uint32_t crtcs[LIMIT], connectors[LIMIT];
+    struct drm_mode_card_res r={0};
+    call(DRM_IOCTL_MODE_GETRESOURCES,&r,"resources-count");
+    display_diag.resources_crtcs=r.count_crtcs; display_diag.resources_connectors=r.count_connectors;
+    require(r.count_crtcs && r.count_crtcs<=32 && r.count_connectors && r.count_connectors<=LIMIT,"resources-bound");
+    uint32_t nc=r.count_connectors, nr=r.count_crtcs;
+    r.crtc_id_ptr=PTR(crtcs); r.connector_id_ptr=PTR(connectors);
+    /* Only retrieve arrays used here; omitted arrays have capacity zero. */
+    r.count_fbs=0; r.count_encoders=0;
+    call(DRM_IOCTL_MODE_GETRESOURCES,&r,"resources");
+    require(r.count_crtcs==nr && r.count_connectors==nc,"resources-changed");
+    uint32_t possible=0;
+    for(uint32_t i=0;i<nc;i++) {
+        struct drm_mode_get_connector c={.connector_id=connectors[i]};
+        struct drm_mode_modeinfo modes[LIMIT]; uint32_t encoders[LIMIT];
+        call(DRM_IOCTL_MODE_GETCONNECTOR,&c,"connector-count");
+        if(c.connector_type!=DRM_MODE_CONNECTOR_DSI || c.connection!=1) continue;
+        display_diag.connector=c.connector_id;
+        require(!s.connector,"multiple-dsi");
+        require(c.count_modes && c.count_modes<=LIMIT && c.count_encoders && c.count_encoders<=LIMIT,"connector-bound");
+        uint32_t nm=c.count_modes, ne=c.count_encoders;
+        c.modes_ptr=PTR(modes); c.encoders_ptr=PTR(encoders); c.count_props=0;
+        call(DRM_IOCTL_MODE_GETCONNECTOR,&c,"connector");
+        require(c.count_modes==nm && c.count_encoders==ne && c.connection==1 && c.connector_type==DRM_MODE_CONNECTOR_DSI,"connector-changed");
+        display_diag.mode_count=nm;
+        memcpy(display_diag.modes,modes,(nm<16?nm:16)*sizeof(modes[0]));
+        /* Select only the source-bound 30HS mode. No alternate mode attempt. */
+        uint32_t hz=30, matches=0;
+        for(uint32_t j=0;j<nm;j++) if(exact_mode(&modes[j])) {
+            s.mode=modes[j]; matches++;
+        }
+        display_diag.lowest_hz=hz; display_diag.matches=matches;
+        require(matches==1,"mode-selection"); s.connector=c.connector_id;
+        for(uint32_t j=0;j<ne;j++) {
+            struct drm_mode_get_encoder e={.encoder_id=encoders[j]};
+            call(DRM_IOCTL_MODE_GETENCODER,&e,"encoder"); possible|=e.possible_crtcs;
+        }
+    }
+    require(s.connector && possible,"no-dsi");
+    struct drm_mode_get_plane_res pr={0}; uint32_t planes[LIMIT];
+    call(DRM_IOCTL_MODE_GETPLANERESOURCES,&pr,"planes-count");
+    require(pr.count_planes && pr.count_planes<=LIMIT,"planes-bound");
+    uint32_t np=pr.count_planes; pr.plane_id_ptr=PTR(planes);
+    call(DRM_IOCTL_MODE_GETPLANERESOURCES,&pr,"planes");
+    require(pr.count_planes==np,"planes-changed");
+    /* Deterministic first compatible primary plane / CRTC pair. TEST_ONLY
+     * must accept this exact state; no fallback attempts after a commit. */
+    for(uint32_t i=0;i<np && !s.plane;i++) {
+        struct drm_mode_get_plane p={.plane_id=planes[i]}; uint32_t formats[LIMIT];
+        call(DRM_IOCTL_MODE_GETPLANE,&p,"plane-count");
+        require(p.count_format_types<=LIMIT,"formats-bound");
+        uint32_t nf=p.count_format_types; p.format_type_ptr=PTR(formats);
+        call(DRM_IOCTL_MODE_GETPLANE,&p,"plane");
+        require(p.count_format_types==nf,"formats-changed");
+        int supported=0; for(uint32_t j=0;j<nf;j++) supported|=(formats[j]==DRM_FORMAT_ABGR8888);
+        if(!supported) continue;
+        struct props pp=get_props(p.plane_id,DRM_MODE_OBJECT_PLANE); uint64_t type=0;
+        property(&pp,"type",&type); if(type!=1 /* stable UAPI primary-plane enum */) continue;
+        for(uint32_t j=0;j<nr;j++) if((possible&p.possible_crtcs)&(1U<<j)) {
+            s.plane=p.plane_id;s.crtc=crtcs[j];break;
+        }
+    }
+    display_diag.plane=s.plane; display_diag.crtc=s.crtc;
+    require(s.plane && s.crtc,"no-primary"); return s;
+}
+
+/* Snapshot before atomic duplicate callbacks can change inherited state. */
+static uint32_t inherited_planes[LIMIT], inherited_count;
+static void check_initial_state(struct selection s) {
+    uint32_t crtcs[LIMIT], connectors[LIMIT], planes[LIMIT];
+    struct drm_mode_card_res r={.count_crtcs=LIMIT,.count_connectors=LIMIT,
+        .crtc_id_ptr=PTR(crtcs),.connector_id_ptr=PTR(connectors)};
+    call(DRM_IOCTL_MODE_GETRESOURCES,&r,"initial-resources");
+    require(r.count_crtcs<=LIMIT && r.count_connectors<=LIMIT,"initial-resources-bound");
+    for(uint32_t i=0;i<r.count_crtcs;i++) if(crtcs[i]!=s.crtc) {
+        struct props p=get_props(crtcs[i],DRM_MODE_OBJECT_CRTC);uint64_t active=0;
+        property(&p,"ACTIVE",&active);require(!active,"competing-crtc");
+    }
+    for(uint32_t i=0;i<r.count_connectors;i++) {
+        struct props p=get_props(connectors[i],DRM_MODE_OBJECT_CONNECTOR);uint64_t crtc=0;
+        property(&p,"CRTC_ID",&crtc);
+        require(!crtc || (connectors[i]==s.connector && crtc==s.crtc),"competing-connector");
+    }
+    struct drm_mode_get_plane_res q={.count_planes=LIMIT,.plane_id_ptr=PTR(planes)};
+    call(DRM_IOCTL_MODE_GETPLANERESOURCES,&q,"initial-planes");
+    require(q.count_planes && q.count_planes<=LIMIT,"initial-planes-bound");
+    unsigned selected_seen=0;
+    inherited_count=0;
+    /* Emit the complete bounded snapshot before interpreting any attachment. */
+    struct drm_mode_get_plane snapshot[LIMIT];
+    memset(snapshot,0,sizeof(snapshot));
+    for(uint32_t i=0;i<q.count_planes;i++) {
+        require(planes[i]!=0,"initial-plane-id");
+        for(uint32_t j=0;j<i;j++)require(planes[j]!=planes[i],"initial-plane-duplicate");
+        snapshot[i].plane_id=planes[i];
+        call(DRM_IOCTL_MODE_GETPLANE,&snapshot[i],"initial-plane");
+        require(snapshot[i].plane_id==planes[i],"initial-plane-identity");
+        fprintf(stderr,"DISPLAY_INITIAL plane=%u crtc=%u fb=%u possible=%u\n",
+            snapshot[i].plane_id,snapshot[i].crtc_id,snapshot[i].fb_id,snapshot[i].possible_crtcs);
+    }
+    fflush(stderr);
+    for(uint32_t i=0;i<q.count_planes;i++) {
+        const struct drm_mode_get_plane *p=&snapshot[i];
+        require(!p->fb_id,"inherited-framebuffer");
+        require(!p->crtc_id || p->crtc_id==s.crtc,"competing-plane");
+        if(p->plane_id==s.plane)selected_seen++;
+        else if(p->crtc_id==s.crtc)inherited_planes[inherited_count++]=p->plane_id;
+    }
+    require(selected_seen==1,"initial-primary-absent");
+}
+/* Optional successful-lifecycle observations on the existing HUD log pipe. */
+static unsigned hud_mem_alloc,hud_mem_retired,hud_mem_live,hud_mem_peak,hud_mem_lines,hud_mem_disabled;
+static void hud_mem_allocated(void) {
+    ++hud_mem_alloc;++hud_mem_live;if(hud_mem_live>hud_mem_peak)hud_mem_peak=hud_mem_live;
+    if(hud_mem_alloc>601||hud_mem_live>2)hud_mem_disabled=1;
+}
+static void hud_mem_retired_one(void) {
+    if(!hud_mem_live){hud_mem_disabled=1;return;}
+    --hud_mem_live;++hud_mem_retired;
+}
+static void hud_mem_record(uint32_t sequence) {
+    if(hud_mem_disabled||hud_mem_lines>=32||hud_mem_live!=1)return;
+    struct timespec t;if(clock_gettime(CLOCK_MONOTONIC,&t)||t.tv_sec<0||t.tv_nsec<0||t.tv_nsec>=1000000000L)return;
+    if((uint64_t)t.tv_sec>(UINT64_MAX-(uint64_t)t.tv_nsec/1000000U)/1000U)return;
+    uint64_t ms=(uint64_t)t.tv_sec*1000U+(uint64_t)t.tv_nsec/1000000U;
+    char text[128];int n=snprintf(text,sizeof(text),"HUD_MEM seq=%u ms=%" PRIu64
+        " alloc=%u retired=%u live=%u peak=%u bytes=%zu\n",sequence,ms,hud_mem_alloc,hud_mem_retired,hud_mem_live,hud_mem_peak,BYTES);
+    if(n<=0||(size_t)n>=sizeof(text)){hud_mem_disabled=1;return;}
+    ++hud_mem_lines;
+    if(write(STDERR_FILENO,text,(size_t)n)!=n)hud_mem_disabled=1;
+}
+
+struct buffer { uint32_t handle, fb; uint32_t *pixels; };
+static struct buffer allocate_buffer(void) {
+    struct buffer b={0};
+    struct drm_msm_gem_new g={.size=BYTES,.flags=MSM_BO_SCANOUT|MSM_BO_CACHED};
+    call(DRM_IOCTL_MSM_GEM_NEW,&g,"cached-buffer"); b.handle=g.handle;hud_mem_allocated();
+    struct drm_mode_map_dumb m={.handle=b.handle};
+    call(DRM_IOCTL_MODE_MAP_DUMB,&m,"map-offset");
+    require(m.offset<=INT64_MAX && !(m.offset&4095),"map-offset-bound");
+    b.pixels=mmap(NULL,BYTES,PROT_READ|PROT_WRITE,MAP_SHARED,fd,(off_t)m.offset);
+    if(b.pixels==MAP_FAILED) fail("mmap");
+    struct drm_mode_fb_cmd2 f={.width=WIDTH,.height=HEIGHT,.pixel_format=DRM_FORMAT_ABGR8888};
+    f.handles[0]=b.handle;f.pitches[0]=PITCH;
+    call(DRM_IOCTL_MODE_ADDFB2,&f,"framebuffer");b.fb=f.fb_id;return b;
+}
+
+/* Opaque RGB regions, 120-pixel black grid, 8-pixel white edge/padding. */
+/* Fixed read-only system-status collector. Runs outside PID1 and DRM owner.
+ * Native provider absence is unavailable, never evidence of zero usage. */
+#include <ctype.h>
+#include <limits.h>
+#include <sys/vfs.h>
+#define STATUS_MEM 1U
+#define STATUS_CPU 2U
+#define STATUS_CAP 4U
+#define STATUS_CHARGE 8U
+#define STATUS_TEMP 16U
+#define STATUS_GAUGE_SOC 32U
+#define STATUS_GAUGE_VOLTAGE 64U
+#define STATUS_GAUGE_CURRENT 128U
+struct status_metrics {
+    uint32_t magic,sequence,valid,reserved;
+    uint64_t collected_ms,mem_total_kib,mem_available_kib;
+    uint32_t cpu_permille;
+    int32_t battery_temp_deci;
+    uint32_t battery_pct,charge;
+    uint8_t run[16];
+    uint64_t gauge_ms;
+    uint32_t gauge_sequence,gauge_soc_permille,gauge_voltage_uv;
+    int32_t gauge_current_ua;
+};
+_Static_assert(sizeof(struct status_metrics)==96,"metrics wire size");
+struct status_cpu {uint64_t field[8];int valid;};
+static int status_uint(const char **cursor,uint64_t *out) {
+    const char *p=*cursor;uint64_t n=0;
+    if(*p<'0'||*p>'9')return 0;
+    do {unsigned d=(unsigned)(*p-'0');if(n>(UINT64_MAX-d)/10)return 0;n=n*10+d;++p;}while(*p>='0'&&*p<='9');
+    *cursor=p;*out=n;return 1;
+}
+static int status_scalar(const char *p,int64_t *out) {
+    int negative=*p=='-';if(negative)++p;uint64_t n;
+    if(!status_uint(&p,&n)||n>INT64_MAX)return 0;
+    if(*p=='\n')++p;
+    if(*p)return 0;
+    *out=negative?-(int64_t)n:(int64_t)n;return 1;
+}
+static int status_memory(const char *p,struct status_metrics *m) {
+    unsigned seen=0;uint64_t values[2]={0};
+    while(*p) {
+        const char *end=strchr(p,'\n');if(!end)return 0;
+        int key=!strncmp(p,"MemTotal:",9)?0:!strncmp(p,"MemAvailable:",13)?1:-1;
+        if(key>=0) {
+            if(seen&(1U<<key))return 0;
+            seen|=1U<<key;
+            const char *q=p+(key?13:9);while(q<end&&(*q==' '||*q=='\t'))++q;
+            if(!status_uint(&q,&values[key]))return 0;
+            while(q<end&&(*q==' '||*q=='\t'))++q;
+            if(end-q!=2||memcmp(q,"kB",2))return 0;
+        }
+        p=end+1;
+    }
+    if(seen!=3||!values[0]||values[0]>(1ULL<<30)||values[1]>values[0])return 0;
+    m->mem_total_kib=values[0];m->mem_available_kib=values[1];m->valid|=STATUS_MEM;return 1;
+}
+static int status_cpu_parse(const char *p,struct status_cpu *out) {
+    struct status_cpu next={0};if(strncmp(p,"cpu ",4))return 0;p+=4;
+    for(unsigned i=0;i<8;i++) {
+        while(*p==' '||*p=='\t')++p;
+        if(!status_uint(&p,&next.field[i]))return 0;
+        if(*p!=' '&&*p!='\t'&&*p!='\n'&&*p)return 0;
+    }
+    /* guest counters, when present, are already included in user/nice. */
+    unsigned extra=0;
+    while(*p==' '||*p=='\t')++p;
+    while(*p && *p!='\n') {
+        uint64_t ignored;if(++extra>2||!status_uint(&p,&ignored))return 0;
+        while(*p==' '||*p=='\t')++p;
+    }
+    if(*p!='\n')return 0;
+    next.valid=1;*out=next;return 1;
+}
+static void status_cpu_sample(const char *text,struct status_cpu *previous,struct status_metrics *m) {
+    struct status_cpu next={0};if(!status_cpu_parse(text,&next)){previous->valid=0;return;}
+    if(previous->valid) {
+        uint64_t total=0,idle=0;int valid=1;
+        for(unsigned i=0;i<8;i++) {
+            if(next.field[i]<previous->field[i]){valid=0;break;}
+            uint64_t delta=next.field[i]-previous->field[i];
+            if(delta>UINT64_MAX-total){valid=0;break;}total+=delta;
+            if(i==3||i==4)idle+=delta;
+        }
+        if(valid&&total&&total<=UINT64_MAX/1000) {
+            m->cpu_permille=(uint32_t)((total-idle)*1000/total);m->valid|=STATUS_CPU;
+        }
+    }
+    *previous=next;
+}
+static int status_read(const char *path,char *text,size_t capacity,long filesystem) {
+    int f=open(path,O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);if(f<0)return 0;
+    struct statfs fs;int okay=0;size_t used=0;
+    if(fstatfs(f,&fs)||fs.f_type!=filesystem)goto done;
+    while(used<capacity-1) {
+        ssize_t n=read(f,text+used,capacity-1-used);
+        if(n<0)goto done;
+        if(!n){okay=1;break;}
+        used+=(size_t)n;
+    }
+    if(!okay){char extra;okay=read(f,&extra,1)==0;}
+    if(memchr(text,0,used))okay=0;
+    text[used]=0;
+done:
+    close(f);return okay;
+}
+static void status_battery(struct status_metrics *m) {
+    char text[64];int64_t value;
+    if(!status_read("/sys/class/power_supply/battery/type",text,sizeof(text),0x62656572L)||strcmp(text,"Battery\n"))return;
+    if(status_read("/sys/class/power_supply/battery/capacity",text,sizeof(text),0x62656572L)&&status_scalar(text,&value)&&value>=0&&value<=100){m->battery_pct=(uint32_t)value;m->valid|=STATUS_CAP;}
+    if(status_read("/sys/class/power_supply/battery/temp",text,sizeof(text),0x62656572L)&&status_scalar(text,&value)&&value>=-500&&value<=1500){m->battery_temp_deci=(int32_t)value;m->valid|=STATUS_TEMP;}
+    if(status_read("/sys/class/power_supply/battery/status",text,sizeof(text),0x62656572L)) {
+        const char *names[]={"Unknown\n","Charging\n","Discharging\n","Not charging\n","Full\n"};
+        for(unsigned i=0;i<5;i++)if(!strcmp(text,names[i])){m->charge=i;m->valid|=STATUS_CHARGE;break;}
+    }
+}
+#include "s22plus_gauge_sample_v2.inc.c"
+#include "s22plus_gauge_diagnostics_v1.inc.c"
+
+static int status_collect(const char *identity) {
+    uint8_t run[16];if(strlen(identity)!=32)return 126;
+    for(unsigned i=0;i<16;i++) {
+        unsigned n=0;for(unsigned j=0;j<2;j++){char c=identity[2*i+j];if(!((c>='0'&&c<='9')||(c>='a'&&c<='f')))return 126;n=n*16+(unsigned)(c<='9'?c-'0':c-'a'+10);}run[i]=(uint8_t)n;
+    }
+    struct status_cpu previous={0};
+    for(unsigned sequence=1;sequence<=601;sequence++) {
+        struct timespec stamp;if(clock_gettime(CLOCK_MONOTONIC,&stamp))return 1;
+        struct status_metrics m={.magic=0x32545353U,.sequence=sequence,.collected_ms=(uint64_t)stamp.tv_sec*1000+(uint64_t)stamp.tv_nsec/1000000};
+        memcpy(m.run,run,16);char text[8192];
+        if(status_read("/proc/meminfo",text,sizeof(text),0x9fa0L))(void)status_memory(text,&m);
+        /* /proc/stat can exceed the fixed prefix. Read only its aggregate line. */
+        int f=open("/proc/stat",O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);int valid=0;
+        if(f>=0){struct statfs fs;if(!fstatfs(f,&fs)&&fs.f_type==0x9fa0L){ssize_t n=read(f,text,sizeof(text)-1);if(n>0&&!memchr(text,0,(size_t)n)){text[n]=0;char *end=strchr(text,'\n');if(end){end[1]=0;valid=1;}}}close(f);}
+        if(valid)status_cpu_sample(text,&previous,&m);else previous.valid=0;
+        status_battery(&m);
+        char gauge_text[257];
+        struct gauge_read_result gauge_read=gauge_read_text(
+            "/sys/module/s22plus_max77705_telemetry/parameters/sample",gauge_text,sizeof(gauge_text));
+        unsigned gauge_reason=100+gauge_read.failure;
+        if(!gauge_read.failure) {
+            struct gauge_sample g;
+            gauge_reason=gauge_parse_reason(gauge_text,&g);
+            if(gauge_reason==GAUGE_PARSE_OK) {
+                struct timespec end;
+                gauge_reason=200;
+                if(!clock_gettime(CLOCK_MONOTONIC,&end)) {
+                    uint64_t current=(uint64_t)end.tv_sec*1000+(uint64_t)end.tv_nsec/1000000;
+                    gauge_reason=g.start_ms>current?201:current-g.start_ms>5000?202:0;
+                    if(!gauge_reason) {
+                        m.gauge_ms=g.start_ms;m.gauge_sequence=(uint32_t)g.sequence;
+                        m.gauge_soc_permille=(uint32_t)g.soc_permille;m.gauge_voltage_uv=(uint32_t)g.voltage_uv;m.gauge_current_ua=(int32_t)g.current_ua;
+                        m.valid|=(uint32_t)g.valid<<5;
+                        if(g.valid!=7)gauge_reason=300+(unsigned)g.valid;
+                    }
+                }
+            }
+        }
+        gauge_diag_record(sequence,gauge_reason,gauge_read,gauge_text);
+        ssize_t sent=send(STDOUT_FILENO,&m,sizeof(m),MSG_DONTWAIT|MSG_NOSIGNAL);
+        if(sent!=(ssize_t)sizeof(m)&&!(sent<0&&(errno==EAGAIN||errno==EINTR)))return 1;
+        struct timespec delay={.tv_sec=1};if(nanosleep(&delay,NULL)&&errno!=EINTR)return 1;
+    }
+    return 0;
+}
+
+/* Text-only immutable frame: exact 1080x2340 ABGR scanout, CPU paint once.
+ * Every new GEM is painted before its first scanout preparation/DMA mapping.
+ */
+static const uint8_t hud_glyphs[42][7]={
+ {14,17,19,21,25,17,14},{4,12,4,4,4,4,14},{14,17,1,2,4,8,31},
+ {30,1,1,14,1,1,30},{2,6,10,18,31,2,2},{31,16,16,30,1,1,30},
+ {14,16,16,30,17,17,14},{31,1,2,4,8,8,8},{14,17,17,14,17,17,14},
+ {14,17,17,15,1,1,14},
+ {14,17,17,31,17,17,17},{30,17,17,30,17,17,30},{14,17,16,16,16,17,14},
+ {30,17,17,17,17,17,30},{31,16,16,30,16,16,31},{31,16,16,30,16,16,16},
+ {14,17,16,23,17,17,15},{17,17,17,31,17,17,17},{14,4,4,4,4,4,14},
+ {7,2,2,2,2,18,12},{17,18,20,24,20,18,17},{16,16,16,16,16,16,31},
+ {17,27,21,21,17,17,17},{17,25,21,19,17,17,17},{14,17,17,17,17,17,14},
+ {30,17,17,30,16,16,16},{14,17,17,17,21,18,13},{30,17,17,30,20,18,17},
+ {15,16,16,14,1,1,30},{31,4,4,4,4,4,4},{17,17,17,17,17,17,14},
+ {17,17,17,17,17,10,4},{17,17,17,21,21,21,10},{17,17,10,4,10,17,17},
+ {17,17,10,4,4,4,4},{31,1,2,4,8,16,31},{0,4,4,0,4,4,0},
+ {0,0,0,0,0,6,6},{1,2,2,4,8,8,16},{17,2,4,4,8,16,17},{0,0,0,31,0,0,0},{0,4,4,31,4,4,0}
+};
+static unsigned hud_console_state;
+static void hud_text(struct buffer *b,unsigned x,unsigned y,const char *text,unsigned scale) {
+    for(unsigned i=0;text[i];i++) {
+        unsigned c=(unsigned char)text[i],index=42;
+        if(c>='a'&&c<='z')c-=32;
+        if(c>='0'&&c<='9')index=c-'0';else if(c>='A'&&c<='Z')index=10+c-'A';else if(c==':')index=36;else if(c=='.')index=37;else if(c=='/')index=38;else if(c=='%')index=39;else if(c=='-')index=40;else if(c=='+')index=41;
+        if(index==42)continue;
+        for(unsigned row=0;row<7;row++)for(unsigned column=0;column<5;column++)
+            if(hud_glyphs[index][row]&(1U<<(4-column)))
+                for(unsigned dy=0;dy<scale;dy++)for(unsigned dx=0;dx<scale;dx++) {
+                    uint64_t px=(uint64_t)x+(uint64_t)i*6*scale+column*scale+dx;
+                    uint64_t py=(uint64_t)y+row*scale+dy;
+                    if(px<WIDTH && py<HEIGHT)b->pixels[py*(PITCH/4)+px]=0xffffffffU;
+                }
+    }
+}
+static struct status_metrics hud_metrics;
+static int hud_metrics_open=1;
+static struct status_metrics hud_gauge_baseline;
+static uint64_t hud_metrics_age,hud_gauge_age;
+static unsigned hud_metrics_valid;
+static void hud_metrics_read(void) {
+    if(hud_metrics_open)for(unsigned i=0;i<32;i++) {
+        struct status_metrics next={0};ssize_t n=recv(3,&next,sizeof(next),MSG_DONTWAIT|MSG_TRUNC);
+        if(n<0&&(errno==EAGAIN||errno==EINTR))break;
+        int good=n==(ssize_t)sizeof(next)&&next.magic==0x32545353U&&!next.reserved&&
+            !(next.valid&~255U)&&next.sequence>hud_metrics.sequence&&next.sequence<=601&&
+            next.collected_ms>=hud_metrics.collected_ms&&next.collected_ms<=(uint64_t)now_ms()&&
+            (!(next.valid&STATUS_MEM)||(next.mem_total_kib&&next.mem_total_kib<=(1ULL<<30)&&next.mem_available_kib<=next.mem_total_kib))&&
+            (!(next.valid&STATUS_CPU)||next.cpu_permille<=1000)&&
+            (!(next.valid&STATUS_CAP)||next.battery_pct<=100)&&
+            (!(next.valid&STATUS_TEMP)||(next.battery_temp_deci>=-500&&next.battery_temp_deci<=1500))&&
+            (!(next.valid&STATUS_CHARGE)||next.charge<=4)&&
+            (!(next.valid&224U)||(next.gauge_sequence>0&&next.gauge_sequence<=601&&next.gauge_ms<=(uint64_t)now_ms()))&&
+            (!(next.valid&STATUS_GAUGE_SOC)||next.gauge_soc_permille<=1000)&&
+            (!(next.valid&STATUS_GAUGE_VOLTAGE)||(next.gauge_voltage_uv>=2000000&&next.gauge_voltage_uv<=5000000))&&
+            (!(next.valid&STATUS_GAUGE_CURRENT)||(next.gauge_current_ua>=-25600000&&next.gauge_current_ua<=25599218));
+        if(next.valid&224U) {
+            good=good&&
+                next.gauge_sequence>=hud_gauge_baseline.gauge_sequence&&
+                next.gauge_ms>=hud_gauge_baseline.gauge_ms;
+            if(next.gauge_sequence==hud_gauge_baseline.gauge_sequence)
+                good=good&&next.gauge_ms==hud_gauge_baseline.gauge_ms&&
+                    next.gauge_soc_permille==hud_gauge_baseline.gauge_soc_permille&&
+                    next.gauge_voltage_uv==hud_gauge_baseline.gauge_voltage_uv&&
+                    next.gauge_current_ua==hud_gauge_baseline.gauge_current_ua;
+        }
+        char hex[33];for(unsigned j=0;j<16;j++)snprintf(hex+2*j,3,"%02x",next.run[j]);
+        good=good&&!strcmp(hex,run_id);
+        if(!good||i==31){close(3);hud_metrics_open=0;memset(&hud_metrics,0,sizeof(hud_metrics));break;}
+        if(next.valid&224U)hud_gauge_baseline=next;
+        hud_metrics=next;
+    }
+    hud_metrics_age=hud_metrics.sequence?(uint64_t)now_ms()-hud_metrics.collected_ms:UINT64_MAX;
+    hud_metrics_valid=hud_metrics_age<=5000?hud_metrics.valid:0;
+    hud_gauge_age=hud_metrics.gauge_sequence?(uint64_t)now_ms()-hud_metrics.gauge_ms:UINT64_MAX;
+    if(hud_gauge_age>5000)hud_metrics_valid&=~224U;
+}
+static void paint(struct buffer *b,unsigned seconds) {
+    hud_metrics_read();
+    for(size_t i=0;i<BYTES/4;i++)b->pixels[i]=0xff000000U;
+    hud_text(b,120,120,"NATIVE INIT",8);
+    char text[64];
+    if(seconds>999999U)snprintf(text,sizeof(text),"UPTIME: OVER 999999 S");
+    else snprintf(text,sizeof(text),"UPTIME: %06u S",seconds);
+    hud_text(b,120,360,text,6);
+    hud_text(b,120,480,hud_console_state==0?"CONSOLE: READY":hud_console_state==1?"CONSOLE: BUSY":"CONSOLE: BLOCKED",6);
+    if(hud_metrics_valid&STATUS_MEM)snprintf(text,sizeof(text),"MEM: %" PRIu64 "/%" PRIu64 " MIB",(hud_metrics.mem_total_kib-hud_metrics.mem_available_kib)/1024,hud_metrics.mem_total_kib/1024);
+    else snprintf(text,sizeof(text),"MEM: N/A");
+    hud_text(b,120,720,text,6);
+    if(hud_metrics_valid&STATUS_MEM)snprintf(text,sizeof(text),"AVAILABLE: %" PRIu64 " MIB",hud_metrics.mem_available_kib/1024);
+    else snprintf(text,sizeof(text),"AVAILABLE: N/A");
+    hud_text(b,120,840,text,6);
+    if(hud_metrics_valid&STATUS_CPU)snprintf(text,sizeof(text),"CPU: %u.%u%%",hud_metrics.cpu_permille/10,hud_metrics.cpu_permille%10);
+    else snprintf(text,sizeof(text),"CPU: N/A");
+    hud_text(b,120,960,text,6);
+    if(hud_metrics_valid&STATUS_GAUGE_SOC)snprintf(text,sizeof(text),"GAUGE SOC: %u.%u%%",hud_metrics.gauge_soc_permille/10,hud_metrics.gauge_soc_permille%10);
+    else snprintf(text,sizeof(text),"GAUGE SOC: N/A");
+    hud_text(b,120,1200,text,6);
+    if(hud_metrics_valid&STATUS_GAUGE_VOLTAGE)snprintf(text,sizeof(text),"VOLTAGE: %u.%03u V",hud_metrics.gauge_voltage_uv/1000000,(hud_metrics.gauge_voltage_uv%1000000)/1000);
+    else snprintf(text,sizeof(text),"VOLTAGE: N/A");
+    hud_text(b,120,1320,text,6);
+    if(hud_metrics_valid&STATUS_GAUGE_CURRENT) {
+        int current=hud_metrics.gauge_current_ua;unsigned magnitude=(unsigned)(current<0?-current:current);
+        snprintf(text,sizeof(text),"CURRENT: %s%u.%u MA",current<0?"-":"+",magnitude/1000,(magnitude%1000)/100);
+    } else snprintf(text,sizeof(text),"CURRENT: N/A");
+    hud_text(b,120,1440,text,6);
+    if(hud_metrics_valid&STATUS_TEMP) {
+        int temp=hud_metrics.battery_temp_deci,absolute=temp<0?-temp:temp;
+        snprintf(text,sizeof(text),"BATT TEMP: %s%d.%d C",temp<0?"-":"",absolute/10,absolute%10);
+    }
+    else snprintf(text,sizeof(text),"BATT TEMP: N/A");
+    hud_text(b,120,1560,text,6);
+    const char *charge[]={"UNKNOWN","CHARGING","DISCHARGING","NOT CHARGING","FULL"};
+    snprintf(text,sizeof(text),"CHARGE: %s",hud_metrics_valid&STATUS_CHARGE?charge[hud_metrics.charge]:"N/A");
+    hud_text(b,120,1680,text,6);
+    if(!hud_metrics.sequence)snprintf(text,sizeof(text),"SAMPLE: N/A");
+    else if(hud_metrics_age>5000)snprintf(text,sizeof(text),"SAMPLE: STALE");
+    else snprintf(text,sizeof(text),"SAMPLE AGE: %" PRIu64 ".%" PRIu64 " S",hud_metrics_age/1000,(hud_metrics_age%1000)/100);
+    hud_text(b,120,1800,text,6);
+    if(!hud_metrics.gauge_sequence)snprintf(text,sizeof(text),"GAUGE AGE: N/A");
+    else if(hud_gauge_age>5000)snprintf(text,sizeof(text),"GAUGE AGE: STALE");
+    else snprintf(text,sizeof(text),"GAUGE AGE: %" PRIu64 ".%" PRIu64 " S",hud_gauge_age/1000,(hud_gauge_age%1000)/100);
+    hud_text(b,120,1920,text,6);
+    hud_text(b,120,2040,"@@DISPLAY_VERSION@@",6);
+    hud_text(b,120,2160,"GAUGE STATUS HUD",6);
+    __sync_synchronize();
+}
+struct hud_snapshot {uint32_t magic,sequence,state,reserved;uint64_t uptime_ms;uint8_t run[16];};
+_Static_assert(sizeof(struct hud_snapshot)==40,"snapshot wire size");
+static uint32_t hud_last_sequence;
+static uint64_t hud_last_uptime;
+static int hud_snapshot_read(struct hud_snapshot *value) {
+    /* recv(MSG_TRUNC) detects oversized SOCK_SEQPACKET messages. Drain a finite
+     * batch so a slow renderer paints the newest snapshot, never a history. */
+    int found=0;
+    for(unsigned i=0;i<32;i++) {
+        struct hud_snapshot next={0};ssize_t n=recv(STDIN_FILENO,&next,sizeof(next),MSG_DONTWAIT|MSG_TRUNC);
+        if(n<0 && (errno==EAGAIN || errno==EINTR))break;
+        require(n==(ssize_t)sizeof(next),"hud-snapshot-size-or-eof");
+        require(next.magic==0x31445548U && next.reserved==0 && next.state<=2 &&
+            next.sequence>hud_last_sequence && (!hud_last_sequence || next.uptime_ms>=hud_last_uptime),"hud-snapshot-order");
+        char hex[33];for(unsigned j=0;j<16;j++)snprintf(hex+2*j,3,"%02x",next.run[j]);
+        require(!strcmp(hex,run_id),"hud-snapshot-run");
+        hud_last_sequence=next.sequence;hud_last_uptime=next.uptime_ms;*value=next;found=1;
+        /* If the finite drain bound is exhausted, fail instead of painting
+         * stale backlog or taking unbounded work. Parent sends at most 1/sec. */
+        require(i<31,"hud-snapshot-backlog");
+    }
+    return found;
+}
+static struct hud_snapshot hud_wait_snapshot(void) {
+    struct hud_snapshot value={0};int64_t start=now_ms();
+    for(;;) {
+        if(hud_snapshot_read(&value))return value;
+        require(now_ms()-start<5000,"hud-parent-stale");
+        struct timespec idle={.tv_nsec=10000000};
+        if(nanosleep(&idle,NULL)<0 && errno!=EINTR)fail("hud-snapshot-wait");
+    }
+}
+static void hud_flip_event(uint64_t token,uint32_t crtc) {
+    int64_t start=now_ms();
+    for(;;) {
+        struct drm_event_vblank event={0};ssize_t n=read(fd,&event,sizeof(event));
+        if(n==(ssize_t)sizeof(event)) {
+            require(event.base.type==DRM_EVENT_FLIP_COMPLETE && event.base.length==sizeof(event) &&
+                event.user_data==token && event.crtc_id==crtc,"hud-flip-event-binding");
+            return;
+        }
+        require(n<0 && (errno==EAGAIN || errno==EINTR),"hud-flip-event-size");
+        require(now_ms()-start<3000,"hud-flip-event-timeout");
+        struct pollfd wait={.fd=fd,.events=POLLIN};int rc=poll(&wait,1,20);
+        if(rc<0 && errno!=EINTR)fail("hud-flip-poll");
+        if(rc>0)require(!(wait.revents&(POLLERR|POLLHUP|POLLNVAL)),"hud-flip-endpoint");
+    }
+}
+static void hud_retire(struct buffer *old) {
+    call(DRM_IOCTL_MODE_RMFB,&old->fb,"hud-retire-fb");
+    if(munmap(old->pixels,BYTES))fail("hud-retire-map");
+    struct drm_gem_close close={.handle=old->handle};call(DRM_IOCTL_GEM_CLOSE,&close,"hud-retire-gem");hud_mem_retired_one();
+}
+static void hud_record(const struct hud_snapshot *value) {
+    /* Evidence freshness is measured at the matched event, not before a
+     * potentially slow synchronous commit. Pixels retain paint-time state. */
+    hud_metrics_age=hud_metrics.sequence?(uint64_t)now_ms()-hud_metrics.collected_ms:UINT64_MAX;
+    hud_metrics_valid=hud_metrics_age<=5000?hud_metrics.valid:0;
+    hud_gauge_age=hud_metrics.gauge_sequence?(uint64_t)now_ms()-hud_metrics.gauge_ms:UINT64_MAX;
+    if(hud_gauge_age>5000)hud_metrics_valid&=~224U;
+    fprintf(stderr,"HUD_FRAME run=%s seq=%u uptime_ms=%" PRIu64 " state=%u metrics_seq=%u valid=%u age_ms=%" PRIu64 " mem_total=%" PRIu64 " mem_available=%" PRIu64 " cpu_permille=%u battery_pct=%u charge=%u temp_deci=%d gauge_seq=%u gauge_age_ms=%" PRIu64 " gauge_soc=%u voltage_uv=%u current_ua=%d event=matched visible=UNPROVED\n",
+        run_id,value->sequence,value->uptime_ms,value->state,hud_metrics.sequence,hud_metrics_valid,hud_metrics_age,hud_metrics.mem_total_kib,hud_metrics.mem_available_kib,hud_metrics.cpu_permille,hud_metrics.battery_pct,hud_metrics.charge,hud_metrics.battery_temp_deci,hud_metrics.gauge_sequence,hud_gauge_age,hud_metrics.gauge_soc_permille,hud_metrics.gauge_voltage_uv,hud_metrics.gauge_current_ua);fflush(stderr);
+}
+
+static void hud_single_encoder(struct selection selected) {
+    uint32_t encoder=0;struct drm_mode_get_connector conn={.connector_id=selected.connector};
+    call(DRM_IOCTL_MODE_GETCONNECTOR,&conn,"hud-encoder-count");
+    require(conn.count_encoders==1,"hud-one-connector-encoder");
+    conn.count_modes=conn.count_props=0;conn.encoders_ptr=PTR(&encoder);
+    call(DRM_IOCTL_MODE_GETCONNECTOR,&conn,"hud-encoder");
+    require(conn.count_encoders==1 && encoder,"hud-selected-encoder");
+    uint32_t ids[LIMIT];struct drm_mode_card_res resources={0};
+    call(DRM_IOCTL_MODE_GETRESOURCES,&resources,"hud-all-encoder-count");
+    require(resources.count_encoders>0 && resources.count_encoders<=LIMIT,"hud-encoder-bound");
+    uint32_t count=resources.count_encoders;
+    resources.count_crtcs=resources.count_connectors=resources.count_fbs=0;resources.encoder_id_ptr=PTR(ids);
+    call(DRM_IOCTL_MODE_GETRESOURCES,&resources,"hud-all-encoders");
+    require(resources.count_encoders==count,"hud-encoders-changed");
+    unsigned found=0;
+    for(unsigned i=0;i<count;i++) {
+        struct drm_mode_get_encoder value={.encoder_id=ids[i]};
+        call(DRM_IOCTL_MODE_GETENCODER,&value,"hud-encoder-binding");
+        if(ids[i]==encoder){found++;require(!value.crtc_id || value.crtc_id==selected.crtc,"hud-selected-crtc");}
+        else require(!value.crtc_id,"hud-foreign-encoder-active");
+    }
+    require(found==1,"hud-selected-encoder-unique");
+}
+
+static int valid_id(const char *s) {
+    if(strlen(s)!=32) return 0;
+    for(unsigned i=0;i<32;i++) if(!((s[i]>='0'&&s[i]<='9')||(s[i]>='a'&&s[i]<='f'))) return 0;
+    return 1;
+}
+#ifdef P350_DISPLAY_VARIANT
+#include "s22plus_native_display_ready_v2.inc.c"
+#endif
+
+@@MEMORY_CENSUS@@
+#define MS_GEM_BUFFER_BYTES BYTES
+/* Short-lived fixed read-only mode. No DRM operation or file-content census. */
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <sys/vfs.h>
+#include <time.h>
+#include <unistd.h>
+#include <linux/magic.h>
+
+struct ms_file {const char *name;uint64_t size;unsigned mode;};
+static const struct ms_file ms_files[]={MS_MANIFEST_ROWS};
+_Static_assert(sizeof(ms_files)/sizeof(ms_files[0])==MS_MANIFEST_COUNT,"metadata manifest count");
+struct ms_section {char data[1024];size_t used,limit;int bad;};
+struct ms_packet {char data[4096];size_t used;};
+static void ms_add(struct ms_section *s,const char *format,...) {
+    if(s->bad)return;
+    va_list args;va_start(args,format);
+    int n=vsnprintf(s->data+s->used,s->limit-s->used,format,args);va_end(args);
+    if(n<0||(size_t)n>=s->limit-s->used){s->bad=1;return;}
+    s->used+=(size_t)n;
+}
+static int ms_section_end(struct ms_packet *p,struct ms_section *s,const char *label) {
+    if(s->bad){s->used=0;s->bad=0;ms_add(s,"%s status=unavailable error=%d\n",label,EOVERFLOW);}
+    if(s->bad||s->used>sizeof(p->data)-p->used)return -1;
+    memcpy(p->data+p->used,s->data,s->used);p->used+=s->used;return 0;
+}
+static int ms_uint(const char *s,uint64_t *out) {
+    if(!*s)return 0;
+    uint64_t n=0;
+    for(;*s;s++){if(*s<'0'||*s>'9'||n>(UINT64_MAX-(unsigned)(*s-'0'))/10U)return 0;n=n*10U+(unsigned)(*s-'0');}
+    *out=n;return 1;
+}
+static int ms_mul(uint64_t a,uint64_t b,uint64_t *out) {
+    if(b&&a>UINT64_MAX/b)return 0;
+    *out=a*b;return 1;
+}
+static int ms_clock(uint64_t *out) {
+    struct timespec t;if(clock_gettime(CLOCK_MONOTONIC,&t))return errno;
+    if(t.tv_sec<0||t.tv_nsec<0||t.tv_nsec>=1000000000L||
+       (uint64_t)t.tv_sec>(UINT64_MAX-(uint64_t)t.tv_nsec/1000000U)/1000U)return ERANGE;
+    *out=(uint64_t)t.tv_sec*1000U+(uint64_t)t.tv_nsec/1000000U;return 0;
+}
+static int ms_proc_open(const char *path) {
+    int f=open(path,O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);if(f<0)return -errno;
+    struct stat st;struct statfs fs;int e=0;
+    if(fstat(f,&st)||fstatfs(f,&fs))e=errno;
+    else if(!S_ISREG(st.st_mode)||fs.f_type!=PROC_SUPER_MAGIC)e=ENODEV;
+    if(e){close(f);return -e;}return f;
+}
+/* Caller provides limit+1 bytes. Parse only after a complete EOF observation. */
+static int ms_text(const char *path,char *out,size_t limit,size_t *used) {
+    *used=0;int f=ms_proc_open(path);if(f<0)return -f;int e=0;
+    for(;;){
+        ssize_t n=read(f,out+*used,limit+1U-*used);
+        if(n<0){if(errno==EINTR)continue;e=errno;break;}
+        if(!n)break;
+        *used+=(size_t)n;if(*used>limit){e=EFBIG;break;}
+    }
+    if(close(f)&&!e)e=errno;
+    if(!e&&memchr(out,0,*used))e=EILSEQ;
+    if(!e)out[*used]=0;
+    return e;
+}
+static void ms_meminfo(struct ms_section *s) {
+    static const char *keys[]={"MemTotal","MemAvailable","MemFree","RbinTotal","RbinAlloced",
+        "RbinFree","RbinCached","RbinPool","CmaTotal","CmaFree","Shmem","Cached","Slab",
+        "SReclaimable","SUnreclaim","KernelStack","PageTables","Percpu","SwapTotal","SwapFree",
+        "HugepagePool","AnonPages"};
+    enum {COUNT=sizeof(keys)/sizeof(keys[0])};
+    uint64_t values[COUNT]={0};unsigned char seen[COUNT]={0};unsigned count=0;
+    char text[8193];size_t size=0;int e=ms_text("/proc/meminfo",text,8192,&size);
+    if(!e){
+        char *save=NULL;
+        for(char *line=strtok_r(text,"\n",&save);line;line=strtok_r(NULL,"\n",&save)) {
+            char *colon=strchr(line,':');if(!colon)continue;*colon=0;
+            for(unsigned i=0;i<COUNT;i++)if(!strcmp(line,keys[i])){
+                char *value=colon+1;while(*value==' '||*value=='\t')value++;
+                char *end=value;while(*end>='0'&&*end<='9')end++;
+                if(*end!=' '&&*end!='\t'){e=EINVAL;break;}
+                *end++=0;while(*end==' '||*end=='\t')end++;
+                if(seen[i]||strcmp(end,"kB")||!ms_uint(value,&values[i])){e=EINVAL;break;}
+                seen[i]=1;count++;
+            }
+            if(e)break;
+        }
+    }
+    if(e){ms_add(s,"MEM status=unavailable error=%d read_bytes=%zu\n",e,size);return;}
+    ms_add(s,"MEM status=%s unit=KiB read_bytes=%zu",count==COUNT?"ok":"partial",size);
+    for(unsigned i=0;i<COUNT;i++){
+        if(seen[i])ms_add(s," %s=%" PRIu64,keys[i],values[i]);
+        else ms_add(s," %s=NA",keys[i]);
+    }
+    ms_add(s,"\n");
+}
+static int ms_token_safe(const char *s) {
+    size_t n=strlen(s);if(!n||n>80)return 0;
+    for(size_t i=0;i<n;i++)if(!isalnum((unsigned char)s[i])&&!strchr("_.,:+*=-",s[i]))return 0;
+    return 1;
+}
+static void ms_cmdline(struct ms_section *s) {
+    static const char *keys[]={"kasan","kasan.stacktrace","kfence.sample_interval","page_owner",
+        "page_pinner","slub_debug","stack_depot_disable"};
+    unsigned occurrences[sizeof(keys)/sizeof(keys[0])]={0};
+    char text[8193];size_t size=0;int e=ms_text("/proc/cmdline",text,8192,&size);
+    if(e){ms_add(s,"CMD status=unavailable error=%d read_bytes=%zu\n",e,size);return;}
+    int root=0;const char *fstype="absent";unsigned index=0;char *save=NULL;
+    ms_add(s,"CMD status=ok read_bytes=%zu",size);
+    for(char *t=strtok_r(text," \t\r\n",&save);t;t=strtok_r(NULL," \t\r\n",&save)) {
+        char *eq=strchr(t,'=');size_t n=eq?(size_t)(eq-t):strlen(t);
+        if(n==4&&!memcmp(t,"root",4)){root=1;continue;}
+        if(n==10&&!memcmp(t,"rootfstype",10)){
+            fstype=eq&&!strcmp(eq+1,"tmpfs")?"tmpfs":eq&&!strcmp(eq+1,"ramfs")?"ramfs":"other";continue;
+        }
+        for(unsigned i=0;i<sizeof(keys)/sizeof(keys[0]);i++)if(strlen(keys[i])==n&&!memcmp(t,keys[i],n)){
+            occurrences[i]++;
+            if(!ms_token_safe(t)){s->bad=1;return;}
+            ms_add(s," arg%u=%s",index++,t);
+        }
+    }
+    ms_add(s," root_present=%d rootfstype=%s",root,fstype);
+    for(unsigned i=0;i<sizeof(keys)/sizeof(keys[0]);i++)ms_add(s," %s_count=%u",keys[i],occurrences[i]);
+    ms_add(s,"\n");
+}
+static int ms_directory(int parent,const char *name) {
+    int f=parent<0?open(name,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC):
+        openat(parent,name,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+    return f<0?-errno:f;
+}
+static int ms_ram(int f,struct stat *st,struct statfs *fs) {
+    if(f<0)return -f;
+    if(fstat(f,st)||fstatfs(f,fs))return errno;
+    if(!S_ISDIR(st->st_mode)||(fs->f_type!=TMPFS_MAGIC&&fs->f_type!=RAMFS_MAGIC))return ENODEV;
+    return 0;
+}
+static void ms_fs(struct ms_section *s,const char *label,int f) {
+    struct stat st;struct statfs fs;int e=ms_ram(f,&st,&fs);
+    if(e){ms_add(s,"FS name=%s status=unavailable error=%d\n",label,e);return;}
+    if(fs.f_type==RAMFS_MAGIC){ms_add(s,"FS name=%s status=ok type=ramfs accounting=unavailable\n",label);return;}
+    struct statvfs v;
+    if(fstatvfs(f,&v)){ms_add(s,"FS name=%s status=unavailable error=%d\n",label,errno);return;}
+    uint64_t unit=v.f_frsize?v.f_frsize:v.f_bsize,total,free_bytes,avail;
+    if(!unit||v.f_bfree>v.f_blocks||v.f_bavail>v.f_bfree||
+       !ms_mul(v.f_blocks,unit,&total)||!ms_mul(v.f_bfree,unit,&free_bytes)||!ms_mul(v.f_bavail,unit,&avail)){
+        ms_add(s,"FS name=%s status=unavailable error=%d\n",label,EOVERFLOW);return;
+    }
+    ms_add(s,"FS name=%s status=ok type=tmpfs total_bytes=%" PRIu64 " free_bytes=%" PRIu64
+        " avail_bytes=%" PRIu64 "\n",label,total,free_bytes,avail);
+}
+static void ms_file_totals(struct ms_section *s,int root,int modules) {
+    struct stat root_st,dir_st;struct statfs root_fs,dir_fs;
+    int e=ms_ram(root,&root_st,&root_fs);if(!e)e=ms_ram(modules,&dir_st,&dir_fs);
+    if(!e&&root_st.st_dev!=dir_st.st_dev)e=EXDEV;
+    if(e){ms_add(s,"FILES status=unavailable error=%d expected=%u\n",e,MS_MANIFEST_COUNT);return;}
+    unsigned present=0,valid=0,missing=0,mismatch=0,errors=0;uint64_t logical=0,allocated=0;
+    for(unsigned i=0;i<MS_MANIFEST_COUNT;i++){
+        struct stat st;
+        if(fstatat(modules,ms_files[i].name,&st,AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT)){
+            if(errno==ENOENT)missing++;else errors++;continue;
+        }
+        present++;
+        if(!S_ISREG(st.st_mode)||st.st_dev!=dir_st.st_dev||st.st_uid||st.st_gid||st.st_nlink!=1||
+           (st.st_mode&07777)!=ms_files[i].mode||st.st_size<0||(uint64_t)st.st_size!=ms_files[i].size||st.st_blocks<0){mismatch++;continue;}
+        uint64_t blocks;if(!ms_mul((uint64_t)st.st_blocks,512,&blocks)||
+            logical>UINT64_MAX-(uint64_t)st.st_size||allocated>UINT64_MAX-blocks){e=EOVERFLOW;break;}
+        logical+=(uint64_t)st.st_size;allocated+=blocks;valid++;
+    }
+    if(e){ms_add(s,"FILES status=unavailable error=%d expected=%u\n",e,MS_MANIFEST_COUNT);return;}
+    ms_add(s,"FILES status=%s expected=%u present=%u metadata_match=%u missing=%u mismatch=%u errors=%u"
+        " logical_bytes=%" PRIu64 " allocated_metadata_bytes=%" PRIu64 " content_verified=0\n",
+        valid==MS_MANIFEST_COUNT?"ok":"partial",MS_MANIFEST_COUNT,present,valid,missing,mismatch,errors,logical,allocated);
+}
+struct ms_cache {char name[65];uint64_t nominal,objects,pages,slabs;};
+struct ms_slab {struct ms_cache top[5];unsigned top_count,records,valid,bad;uint64_t seen[1024];};
+static int ms_cache_name(const char *s) {
+    if(!*s||strlen(s)>64)return 0;
+    for(;*s;s++)if(!isalnum((unsigned char)*s)&&!strchr("_.:-()/",*s))return 0;
+    return 1;
+}
+static int ms_slab_row(struct ms_slab *s,char *line,uint64_t page_size) {
+    if(++s->records>1024)return E2BIG;
+    char *tok[17],*save=NULL;unsigned n=0;
+    for(char *p=strtok_r(line," \t",&save);p&&n<17;p=strtok_r(NULL," \t",&save))tok[n++]=p;
+    if(n!=16||strcmp(tok[6],":")||strcmp(tok[7],"tunables")||strcmp(tok[11],":")||
+       strcmp(tok[12],"slabdata")||!ms_cache_name(tok[0])){s->bad++;return 0;}
+    uint64_t v[16]={0};
+    for(unsigned i=1;i<16;i++)if(i!=6&&i!=7&&i!=11&&i!=12&&!ms_uint(tok[i],&v[i])){s->bad++;return 0;}
+    if(v[1]>v[2]||v[13]>v[14]||!v[3]||!v[4]||!v[5]){s->bad++;return 0;}
+    uint64_t hash=1469598103934665603ULL;
+    for(const unsigned char *p=(const unsigned char *)tok[0];*p;p++){hash^=*p;hash*=1099511628211ULL;}
+    for(unsigned i=0;i<s->valid;i++)if(s->seen[i]==hash){s->bad++;return 0;}
+    struct ms_cache c={0};strcpy(c.name,tok[0]);c.pages=v[5];c.slabs=v[14];uint64_t pages;
+    if(!ms_mul(c.slabs,c.pages,&pages)||!ms_mul(pages,page_size,&c.nominal)||!ms_mul(v[2],v[3],&c.objects)||
+       c.objects>c.nominal){s->bad++;return 0;}
+    s->seen[s->valid++]=hash;
+    unsigned i=0;while(i<s->top_count&&(s->top[i].nominal>c.nominal||
+        (s->top[i].nominal==c.nominal&&strcmp(s->top[i].name,c.name)<0)))i++;
+    if(i<5){unsigned end=s->top_count<5?s->top_count++:4;for(unsigned j=end;j>i;j--)s->top[j]=s->top[j-1];s->top[i]=c;}
+    return 0;
+}
+static void ms_slabs(struct ms_section *out) {
+    int f=ms_proc_open("/proc/slabinfo");if(f<0){ms_add(out,"SLAB status=unavailable error=%d\n",-f);return;}
+    long page=sysconf(_SC_PAGESIZE);int e=page>0?0:EINVAL,header=0,too_long=0;
+    struct ms_slab s={0};char buffer[1024],line[513];size_t bytes=0,used=0;
+    while(!e){
+        size_t want=262145U-bytes;if(want>sizeof(buffer))want=sizeof(buffer);
+        ssize_t n=read(f,buffer,want);
+        if(n<0){if(errno==EINTR)continue;e=errno;break;}if(!n)break;
+        bytes+=(size_t)n;if(bytes>262144U){e=EFBIG;break;}
+        for(ssize_t i=0;i<n;i++){
+            unsigned char c=(unsigned char)buffer[i];if(!c){e=EILSEQ;break;}
+            if(c=='\n'){
+                if(too_long){s.bad++;too_long=0;used=0;continue;}
+                line[used]=0;used=0;
+                if(!header){if(strcmp(line,"slabinfo - version: 2.1")){e=EINVAL;break;}header=1;continue;}
+                if(line[0]=='#'||!line[0])continue;
+                e=ms_slab_row(&s,line,(uint64_t)page);if(e)break;
+            }else if(!too_long){if(used==512)too_long=1;else line[used++]=(char)c;}
+        }
+    }
+    if(close(f)&&!e)e=errno;
+    if(!header&&!e)e=EINVAL;
+    if(used||too_long)s.bad++;
+    ms_add(out,"SLAB status=%s error=%d read_bytes=%zu records=%u parsed=%u bad=%u page_size=%ld estimate=nominal\n",
+        e||s.bad?"partial":"ok",e,bytes,s.records,s.valid,s.bad,page);
+    for(unsigned i=0;i<s.top_count;i++)ms_add(out,"CACHE name=%s pages=%" PRIu64 " slabs=%" PRIu64
+        " nominal_bytes=%" PRIu64 " object_bytes=%" PRIu64 "\n",s.top[i].name,s.top[i].pages,s.top[i].slabs,s.top[i].nominal,s.top[i].objects);
+}
+static int ms_gem_line(char *line,uint64_t values[7]) {
+    static const char *keys[]={"seq=","ms=","alloc=","retired=","live=","peak=","bytes="};
+    char *save=NULL,*t=strtok_r(line," ",&save);if(!t||strcmp(t,"HUD_MEM"))return 0;
+    for(unsigned i=0;i<7;i++){
+        t=strtok_r(NULL," ",&save);size_t n=strlen(keys[i]);
+        if(!t||strncmp(t,keys[i],n)||!ms_uint(t+n,&values[i]))return 0;
+    }
+    if(strtok_r(NULL," ",&save)||!values[0]||values[0]>UINT32_MAX||!values[2]||values[2]>601||values[0]<values[2]||
+       values[3]+1!=values[2]||values[4]!=1||values[5]!=(values[2]==1?1U:2U)||values[6]!=MS_GEM_BUFFER_BYTES)return 0;
+    return 1;
+}
+static void ms_gem(struct ms_section *s,int work) {
+    struct stat ds;struct statfs fs;int e=ms_ram(work,&ds,&fs),f=-1;
+    if(!e){f=openat(work,"hud.log",O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK);if(f<0)e=errno;}
+    struct stat st;
+    if(!e&&(fstat(f,&st)))e=errno;
+    if(!e&&(!S_ISREG(st.st_mode)||st.st_uid||st.st_nlink!=1||(st.st_mode&0777)!=0400||st.st_dev!=ds.st_dev||st.st_size<0))e=EINVAL;
+    char data[16385];size_t got=0;off_t offset=0;uint64_t value[7]={0};int found=0,bad=0;
+    if(!e){
+        offset=st.st_size>16384?st.st_size-16384:0;size_t wanted=(size_t)(st.st_size-offset);
+        while(got<wanted){ssize_t n=pread(f,data+got,wanted-got,offset+(off_t)got);
+            if(n<0){if(errno==EINTR)continue;e=errno;break;}if(!n){e=EIO;break;}got+=(size_t)n;}
+        data[got]=0;if(memchr(data,0,got))e=EILSEQ;
+        if(!e){
+            char *p=data,*end;
+            if(offset){end=strchr(p,'\n');p=end?end+1:data+got;}
+            while((end=strchr(p,'\n'))){*end=0;
+                if(!strncmp(p,"HUD_MEM ",8)){
+                    uint64_t next[7];if(ms_gem_line(p,next)){
+                        if(found&&(next[0]<=value[0]||next[1]<value[1]))bad=1;
+                        memcpy(value,next,sizeof(value));found=1;
+                    }else bad=1;
+                }p=end+1;
+            }
+        }
+    }
+    if(f>=0&&close(f)&&!e)e=errno;
+    uint64_t now=0;int clock_error=ms_clock(&now);
+    if(e||clock_error||!found||bad||value[1]>now){ms_add(s,"GEM status=unavailable error=%d\n",e?e:clock_error?clock_error:ENODATA);return;}
+    ms_add(s,"GEM status=%s source=renderer_last_retirement seq=%" PRIu64 " age_ms=%" PRIu64
+        " allocations=%" PRIu64 " retired=%" PRIu64 " live_handles=%" PRIu64 " peak_handles=%" PRIu64
+        " requested_bytes=%" PRIu64 " physical_bytes=NA\n",now-value[1]>5000?"stale":"ok",value[0],now-value[1],value[2],value[3],value[4],value[5],value[6]);
+}
+static int memory_snapshot(const char *phase) {
+    if(strcmp(phase,"early")&&strcmp(phase,"late"))return 126;
+    uint64_t start=0,end=0;int clock_error=ms_clock(&start);struct ms_packet packet={0};
+    struct ms_section s={.limit=128};
+    ms_add(&s,"S22MEM1 BEGIN phase=%s start_ms=%" PRIu64 " clock_error=%d\n",phase,start,clock_error);
+    if(ms_section_end(&packet,&s,"BEGIN"))return 125;
+    s=(struct ms_section){.limit=1024};ms_meminfo(&s);if(ms_section_end(&packet,&s,"MEM"))return 125;
+    s=(struct ms_section){.limit=512};ms_cmdline(&s);if(ms_section_end(&packet,&s,"CMD"))return 125;
+    int root=ms_directory(-1,"/"),lib=root<0?root:ms_directory(root,"lib");
+    int modules=lib<0?lib:ms_directory(lib,"modules"),work=root<0?root:ms_directory(root,"s22-root-work");
+    if(lib>=0)close(lib);
+    s=(struct ms_section){.limit=512};ms_fs(&s,"root",root);ms_fs(&s,"modules",modules);ms_fs(&s,"work",work);
+    if(ms_section_end(&packet,&s,"FS"))return 125;
+    s=(struct ms_section){.limit=512};ms_file_totals(&s,root,modules);if(ms_section_end(&packet,&s,"FILES"))return 125;
+    s=(struct ms_section){.limit=1024};ms_slabs(&s);if(ms_section_end(&packet,&s,"SLAB"))return 125;
+    s=(struct ms_section){.limit=256};ms_gem(&s,work);if(ms_section_end(&packet,&s,"GEM"))return 125;
+    for(unsigned i=0;i<3;i++){int f=i==0?root:i==1?modules:work;if(f>=0)close(f);}
+    int end_error=ms_clock(&end);
+    s=(struct ms_section){.limit=128};ms_add(&s,"S22MEM1 END phase=%s end_ms=%" PRIu64 " clock_error=%d\n",phase,end,end_error);
+    if(ms_section_end(&packet,&s,"END"))return 125;
+    size_t sent=0;while(sent<packet.used){ssize_t n=write(STDOUT_FILENO,packet.data+sent,packet.used-sent);
+        if(n<0&&errno==EINTR)continue;
+        if(n<=0)return 125;
+        sent+=(size_t)n;}
+    return 0;
+}
+
+int main(int argc,char **argv) {
+    if(argc==3 && !strcmp(argv[1],"--memory-snapshot"))return memory_snapshot(argv[2]);
+    if(argc==3 && !strcmp(argv[1],"--collect-status"))return status_collect(argv[2]);
+    require(argc==3 && (!strcmp(argv[1],"--h0-paint") || !strcmp(argv[1],"--supervised-drm")) && valid_id(argv[2]),"arguments");
+    run_id=argv[2];
+    if(!strcmp(argv[1],"--h0-paint")) {
+        struct buffer b={.pixels=calloc(1,BYTES)};require(b.pixels!=NULL,"paint-allocation");
+        for(unsigned i=0;i<FRAMES;i++) {paint(&b,i);
+            require(fwrite(b.pixels,1,BYTES,stdout)==BYTES,"paint-output");}free(b.pixels);return 0;
+    }
+    require(getppid()==1,"supervisor-pid");
+#ifdef P350_DISPLAY_VARIANT
+    p351_prepare_driver();
+#endif
+    fd=open("/dev/dri/card0",O_RDWR|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);if(fd<0)fail("open-card0");
+    struct stat st; if(fstat(fd,&st))fail("card-stat");require(S_ISCHR(st.st_mode),"card-type");
+#ifdef P350_DISPLAY_VARIANT
+    require(st.st_rdev==makedev(226,0) && st.st_uid==0 && (st.st_mode&0777)==0600,"opened-drm-node-binding");
+#endif
+    char name[32]={0};struct drm_version v={.name_len=sizeof(name)-1,.name=name};
+    call(DRM_IOCTL_VERSION,&v,"driver-version");
+    display_diag.driver_length=v.name_len; memcpy(display_diag.driver_name,name,sizeof(display_diag.driver_name));
+    require(v.name_len==7&&!memcmp(name,"msm_drm",7),"driver-name");
+    call(DRM_IOCTL_SET_MASTER,NULL,"master");
+#ifdef P350_DISPLAY_VARIANT
+    p350_drop_privileges();
+#endif
+    struct drm_set_client_cap cap={.capability=DRM_CLIENT_CAP_ATOMIC,.value=1};
+    call(DRM_IOCTL_SET_CLIENT_CAP,&cap,"atomic-cap");
+
+    struct selection s=select_display();check_initial_state(s);hud_single_encoder(s);
+    struct hud_snapshot view=hud_wait_snapshot();hud_console_state=view.state;
+    struct buffer b=allocate_buffer();paint(&b,(unsigned)(view.uptime_ms/1000U>0xffffffffU?0xffffffffU:view.uptime_ms/1000U));
+    struct drm_mode_create_blob blob={.data=PTR(&s.mode),.length=sizeof(s.mode)};
+    call(DRM_IOCTL_MODE_CREATEPROPBLOB,&blob,"mode-blob");
+    uint32_t objects[LIMIT+3],counts[LIMIT+3],ids[15+2*LIMIT];
+    uint64_t values[15+2*LIMIT];
+    struct props rp=get_props(s.crtc,DRM_MODE_OBJECT_CRTC),
+        cp=get_props(s.connector,DRM_MODE_OBJECT_CONNECTOR),
+        pp=get_props(s.plane,DRM_MODE_OBJECT_PLANE);
+    uint64_t zpos=0,alpha=0,translation=0;
+    property(&pp,"zpos",&zpos);property(&pp,"alpha",&alpha);
+    property(&pp,"fb_translation_mode",&translation);
+    require(zpos==0 && alpha==255 && translation==0,"primary-defaults");
+    objects[0]=s.crtc;counts[0]=3;
+    ids[0]=property(&rp,"MODE_ID",NULL);values[0]=blob.blob_id;
+    ids[1]=property(&rp,"ACTIVE",NULL);values[1]=1;
+    /* Volatile property: submit zero even when its cached value is zero. */
+    ids[2]=property(&rp,"noise_layer_v1",NULL);values[2]=0;
+    objects[1]=s.connector;counts[1]=1;
+    ids[3]=property(&cp,"CRTC_ID",NULL);values[3]=s.crtc;
+    objects[2]=s.plane;counts[2]=11;
+    const char *names[10]={"FB_ID","CRTC_ID","SRC_X","SRC_Y","SRC_W","SRC_H","CRTC_X","CRTC_Y","CRTC_W","CRTC_H"};
+    const uint64_t selected[10]={b.fb,s.crtc,0,0,(uint64_t)WIDTH<<16,(uint64_t)HEIGHT<<16,0,0,WIDTH,HEIGHT};
+    for(unsigned i=0;i<10;i++){ids[4+i]=property(&pp,names[i],NULL);values[4+i]=selected[i];}
+    /* Explicit zero selects normal framebuffer sourcing. */
+    ids[14]=property(&pp,"color_fill",NULL);values[14]=0;
+    for(uint32_t i=0;i<inherited_count;i++) {
+        struct props p=get_props(inherited_planes[i],DRM_MODE_OBJECT_PLANE);
+        objects[3+i]=inherited_planes[i];counts[3+i]=2;
+        ids[15+2*i]=property(&p,"FB_ID",NULL);values[15+2*i]=0;
+        ids[16+2*i]=property(&p,"CRTC_ID",NULL);values[16+2*i]=0;
+    }
+    struct drm_mode_atomic a={.flags=DRM_MODE_ATOMIC_ALLOW_MODESET|DRM_MODE_PAGE_FLIP_EVENT,.user_data=1,
+        .count_objs=3+inherited_count,.objs_ptr=PTR(objects),.count_props_ptr=PTR(counts),
+        .props_ptr=PTR(ids),.prop_values_ptr=PTR(values)};
+    fprintf(stderr,"DISPLAY_SUBMIT run=%s crtc=%u primary=%u inherited=%u requested=framebuffer-cached-abgr-ten-swaps-v1 hardware-fill=off\n",
+        run_id,s.crtc,s.plane,inherited_count);fflush(stderr);
+    call(DRM_IOCTL_MODE_ATOMIC,&a,"static-commit");
+    hud_flip_event(1,s.crtc);hud_record(&view);hud_mem_record(view.sequence);
+    fprintf(stderr,"DISPLAY_SUBMITTED run=%s ioctl_return=0 visible=UNPROVED\n",run_id);fflush(stderr);
+    uint32_t next_object=s.plane,next_count=1,next_property=property(&pp,"FB_ID",NULL);
+    uint64_t next_value=0;
+    struct drm_mode_atomic next={.flags=DRM_MODE_PAGE_FLIP_EVENT,.count_objs=1,.objs_ptr=PTR(&next_object),
+        .count_props_ptr=PTR(&next_count),.props_ptr=PTR(&next_property),
+        .prop_values_ptr=PTR(&next_value)};
+    for(uint64_t token=2;token<=601;token++) {
+        view=hud_wait_snapshot();hud_console_state=view.state;
+        struct buffer fresh=allocate_buffer();
+        paint(&fresh,(unsigned)(view.uptime_ms/1000U>0xffffffffU?0xffffffffU:view.uptime_ms/1000U));
+        next_value=fresh.fb;next.user_data=token;
+        call(DRM_IOCTL_MODE_ATOMIC,&next,"hud-frame-commit");
+        hud_flip_event(token,s.crtc);hud_record(&view);
+        hud_retire(&b);b=fresh;hud_mem_record(view.sequence);
+    }
+    for(;;){struct timespec idle={.tv_sec=1};(void)nanosleep(&idle,NULL);}
+}

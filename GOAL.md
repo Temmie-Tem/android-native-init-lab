@@ -74,12 +74,17 @@ and [failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md):
 
 The [phase-1 refactoring preparation](docs/plans/S22PLUS_FYG8_REFACTOR_PHASE1_PREPARATION_2026-09-10.md)
 now maps the latest native generation, host observation and recovery structure.
-Its proposed order is behavior-preserving native source consolidation, then a
-separately reviewed display/console lifetime change. The empty second-arrival
-observation context is a concrete host investigation target; its timing failure
-still needs reproduction. Broad F1/evidence rewrites and other-target changes
-are deferred. This H0 assessment is complete; implementation and qualification
-remain pending. No device authority, consumed run or runtime is changed.
+[1A is implemented and independently reviewed PASS_GO](docs/reports/S22PLUS_FYG8_NATIVE_SOURCE_REFACTOR_1A_H0_2026-09-10.md):
+the direct common generator matches actual materialized C, ARM64 init/renderer,
+module plan and both P383 AP packages. Twelve direct-source tests and four
+additional backpressure checks pass. Historical generators and all 86 consumed
+prepared execution-source bindings remain unchanged; the new path is H0 only.
+The deeper platform envelope/compiler still binds the same run identity.
+Display/console lifetime separation is the next 1B unit and is not implemented.
+The empty second-arrival observation context remains a separate host investigation
+target; its timing failure still needs reproduction. Broad F1/evidence rewrites
+and other-target changes are deferred. No device authority, consumed run or
+native behavior was changed by 1A.
 
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three
