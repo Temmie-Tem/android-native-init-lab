@@ -7,6 +7,12 @@ rollback/final health complete. This report does not claim rc.4 target success.
 The [capability definition](../operations/S22PLUS_FYG8_OUTPUT_MEMORY_RC4_V1.md)
 preserves the target's fresh review, preparation and attended approval rules.
 
+The subsequent attended run is consumed and CLOSED with exact rollback/final
+health complete. All six functional qualifications and three planned commands
+passed, but a host journal-size failure interrupted the ordinary close before
+the software-return observation. The unchanged recovery path completed rollback;
+formal NO_PROOF and the successful functional observations are both preserved.
+
 ## Implemented behavior
 
 The generated PID1 reads stdout/stderr only when an OUTPUT queue credit is
@@ -136,3 +142,117 @@ attribution nor physical gauge pixels, and creates no F1 ledger row or lease.
 Touched Python compilation, focused tests, scoped content/link/diff checks and
 the repository boundary check passed. Unrelated S20+, AGENTS and old P345 work
 remain outside this unit. No push or HUD image publication was performed.
+
+## Attended run, host journal failure and recovery
+
+The fresh approval was consumed once in `p381-ready1-prepared-20260910-1`.
+The original execute process completed the candidate transfer, six functional
+qualifications and all three planned commands. The observer accepted the same
+authenticated session; every command reported zero dropped bytes. The sixth
+command retained4401bytes of HUD output with five matched frames, four BUSY
+frames and the required three fresh gauge samples. Both memory commands returned
+1908bytes, clean terminals and complete selected-source records.
+
+After CONTROL acceptance and durable observer/guard receipts, the host failed
+with `durable record exceeds its bound`. `_finish_candidate_window` passes the
+full observation to the OBSERVED journal transition; the core's32KiB record
+limit rejected it before opening the destination record. The separately durable
+observer is65,160bytes and live state36,585bytes. A64KiB observer/state allowance
+does not imply compatibility with the smaller journal. Nested qualification
+alone occupies25,871 pretty-JSON bytes in journal details; the exact rejected
+whole-record byte count was not retained and is not asserted here.
+
+Independent read-only review confirmed the existing recovery path reopens the
+authenticated observer and guard, appends compact OBSERVED details and continues
+the preauthorized exact rollback. One unchanged `--recover` completed that path.
+No production source, approval, consumed artifact or existing journal record
+was edited; the candidate and CONTROL were not replayed. The target was found
+for rollback by the existing endpoint observer. Physical intervention remains
+UNOBSERVED; the runner's fallback prompt alone is not evidence of intervention.
+
+The software-return window had expired before observation. Its durable outcome
+is `window-expired-before-observation`, so timely software return remains
+unproved. Final classification is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, outcome
+`p381_root_console_unproved_rollback_verified`. This does not erase the accepted
+six-command functional proof. The formal success predicate also requires the
+return-window proof, which is missing here. v0.1.1 remains the functional version.
+
+One candidate and one exact rollback completed. The actual journal reader
+validated CLOSED/19 and the canonical timeline; `recovery_required=false`,
+rollback completion and final rooted FYG8/original boot/supporting hashes,
+Android health and Download absence all passed. A90 and S20+ received no command.
+
+| Canonical event | UTC on2026-09-10 |
+| --- | --- |
+| live_session_start | 00:24:46.139957 |
+| candidate_flash_start | 00:25:04.145369 |
+| candidate_flash_done | 00:25:05.796720 |
+| candidate_boot_ready | 00:29:12.015995 |
+| rollback_flash_start | 00:29:14.733569 |
+| rollback_flash_done | 00:29:16.509280 |
+| rollback_boot_ready | 00:30:03.142195 |
+| live_session_end | 00:30:03.162071 |
+
+The resumed candidate_boot_ready event records recovery-time publication of
+the already durable observation. It is not the physical native boot timestamp.
+
+## Native memory observations and operator photograph
+
+The snapshots span uptime9884–9888ms and12493–12497ms. Both report240 valid slab
+records with no malformed rows, all369 expected module metadata matches and
+no missing/mismatched files. Their selected command-line tokens are
+`stack_depot_disable=on`, `kasan.stacktrace=off` and `kasan=off`; other selected
+debug tokens are absent. Token observation alone is not complete runtime-cost
+attribution.
+
+| Observation | Early | Late |
+| --- | ---: | ---: |
+| HUD total-minus-available accounting, MiB | 1052.949 | 1052.457 |
+| Accounting after subtracting800MiB RBIN component, MiB | 252.949 | 252.457 |
+| Root tmpfs used-block accounting, MiB | 77.676 | 77.676 |
+|369-file allocation metadata, MiB | 55.988 | 55.988 |
+| Shmem, MiB | 89.602 | 89.602 |
+| Slab, MiB | 65.051 | 65.172 |
+| SUnreclaim, MiB | 46.219 | 46.246 |
+| Renderer allocations / retirements / live handles |6/5/1 |9/8/1 |
+
+The module files have57,932,664 logical bytes and58,707,968 allocation-metadata
+bytes on the root RAM filesystem. This confirms retention of the named files,
+not content identity, absence of future consumers or bytes reclaimable on unlink.
+The renderer reports one owned handle and10,183,680 requested bytes after each
+successful retirement, with peak two handles. It does not prove kernel reference
+release or physical GEM backing.
+
+The nominal top slab caches are inode_cache, kmalloc-128, kernfs_node_cache,
+kmalloc-2k and dentry in both samples. They are not a ranking of unreclaimable
+caches. Root filesystem, GEM, Shmem and slab measurements overlap and must not
+be summed into an exact footprint. The2.6-second interval proves neither a leak
+nor absence of one. RBIN counters remain zero except the800MiB total; no allocator
+initialization, memory release or file deletion was performed.
+
+The operator supplied a photograph during the run. It visibly shows rc.4,
+UPTIME6s, CONSOLE BUSY, MEM1052/7024MiB, AVAILABLE5972MiB, CPU0.1%, gauge
+SOC100.0%, voltage4.336V and current+564.8mA. Battery temperature/charge are N/A;
+sample/gauge age display0.0s. This is operator-supplied physical OBSERVED evidence,
+not machine pixel proof. The original photograph is retained privately without
+editing; no public image is committed.
+
+Post-close HMAC replay of the original RX/TX matched the complete qualification
+receipt: six qualified commands, nine total commands and zero dropped bytes.
+HUD and both memory stdout streams were extracted to new private files only
+after matching their authenticated identities. The derived analysis is10,439bytes,
+SHA-256 `5529f99a79b56220c19c8a9b00033f215ceceff537b19296924d6441701b49e3`.
+Consumed source/raw/result/journal bytes were preserved.
+
+| Private evidence | Bytes | SHA-256 |
+| --- | ---: | --- |
+| live-result.json |61,356 | `ad12299d10d2d7e9b3d283c3f849599186b75a0fcba8f757319c0d256bb09049` |
+| candidate-observer.json |65,160 | `1f0443ba8b955d7f1e7a241699cfce263252d44b3ebd81fb1da5ff9dad823fab` |
+| operator-hud-photo.jpg |116,092 | `f574bd0c60e464f810156fff3e03512349b4aa34e9ab0593383deae6245e073d` |
+
+The next necessary H0 correction is the full-observation journal serialization
+path, with this actual record and the complete close/recovery consumer exercised
+under their unchanged bounds. Prior capability PASS cannot clear this new
+incident for another experiment. That correction, changed-closure review and
+fresh candidate preparation are future work; this consumed candidate cannot replay.

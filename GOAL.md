@@ -13,17 +13,20 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**v0.1.2-rc.4 / P381** now implements pipe backpressure and two bounded memory
-observations after six functional qualifications. Real pipe/ARM64, generated
-PID1/collector/HUD and optional-command replay checks passed; A/B artifacts are
-identical, official static qualification and final independent review passed.
-READY and exact read-only preparation are complete in
-`p381-ready1-prepared-20260910-1`; the actual consumer reopened preparation and
-sealed three commands. Fresh attended F1 approval remains pending. No candidate
-transfer, RAM-file deletion or RBIN/CMA change has occurred. v0.1.1 is retained.
+**v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
+rooted FYG8/original health complete. All six functional qualifications and three
+planned commands passed with zero dropped output; the operator photograph shows
+SOC/voltage/current. Two complete memory observations confirm369 files retained
+on RAM with55.988MiB allocation metadata, not reclaimability.
+The host's full OBSERVED journal record exceeded32KiB after observation. One
+unchanged recovery resumed from durable evidence without candidate/CONTROL
+replay, but timely software-return observation was missed. Formal NO_PROOF is
+preserved and v0.1.1 retained. Next H0 unit: repair journal serialization and
+qualify the actual full close/recovery path before a new candidate. No file
+deletion, RBIN/CMA change or standing native lease follows.
 See the [rc.4 report](docs/reports/S22PLUS_FYG8_OUTPUT_MEMORY_RC4_H0_2026-09-10.md).
 
-Latest candidate **v0.1.2-rc.3** (P380) is consumed and CLOSED/19 with one
+Previous candidate **v0.1.2-rc.3** (P380) is consumed and CLOSED/19 with one
 exact rollback and final rooted FYG8/original health complete. The gauge HUD
 subproof passed with three fresh SOC/voltage/current samples; overall console
 qualification failed on 1536 dropped output bytes (queue pressure), so all
