@@ -40,8 +40,11 @@ first native-baseline roundtrip is **NO_PROOF, consumed and CLOSED/19**.
 In `p383-ready1-prepared-20260910-2`, N installation, first authenticated native
 health/idle STATUS and exact timely Download passed. The same N transferred
 once more, but the second arrival's USB inventory changed before snapshot
-publication; no second console/health/CONTROL was reached. The operator reported
-booting without a bootloop; this remains physical OBSERVED evidence.
+publication; no second console/health/CONTROL was reached. The operator clarified
+that the second boot remained at the boot screen with no native display. The
+generated HUD starts only after host authentication and console entry, which
+the failed host observation never initiated. This explains absent HUD without
+proving where kernel/PID1 execution reached; second native boot remains unproved.
 
 The preapproved exact A fallback transferred once. Its first 420-second final
 health wait expired with ADB offline. After the operator reported Android and

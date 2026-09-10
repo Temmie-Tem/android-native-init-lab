@@ -180,8 +180,10 @@ node. Diagnostic size423/SHA256
 is retained in the child `odin-endpoints/diagnostics` directory with the raw
 USB identity captures. A reboot/enumeration timing overlap is an inference;
 this record does not establish a device boot failure. After the stop, the
-operator reported that the device booted and had no bootloop. That is physical
-OBSERVED evidence, not authenticated second native health.
+operator initially reported booting/no bootloop, then clarified that the second
+boot stayed at the boot screen and never showed the native screen. The clarified
+physical observation supersedes any interpretation that native boot completed;
+it does not locate the stopped execution stage.
 
 The research stop was retained. No second console open, CONTROL or N retry was
 issued. The separately preapproved recovery reidentified exact Download and
@@ -232,3 +234,27 @@ the methodology suite also retains a preexisting 54-versus-62 incident-count
 mismatch. These unrelated historical checks are not reported as passing or
 changed to qualify this run. No execution source changed during consumption or
 recovery.
+
+## Second-screen clarification and H0 control-flow diagnosis
+
+The operator clarified that arrival2 remained at the boot screen, with no native
+screen. No device action was performed for this follow-up. Reopening the current
+P383 generated helper establishes the order: OPEN/AUTH and BOOT_ID frame,
+return/root-work preparation, `rc1_console`, then `hud1_start`. The HUD is therefore
+conditional on the host opening and authenticating the console; it is not an
+autonomous pre-authentication boot witness. The source insertion is in
+`s22plus_fyg8_p376_research_shell_runtime.py`; P383 retains that order through its
+sealed predecessor projection. The current generated helper was inspected,
+not merely the predecessor text.
+
+The second host path stopped in USB inventory acquisition before opening its
+observer, and no second authenticated stream exists. Consequently the host
+failure prevented the required handshake for starting the HUD. This provides a
+concrete explanation compatible with the unchanged boot screen even if native
+PID1 had started. It does **not** prove that PID1 reached its listener, exclude
+an additional kernel/native startup failure, or establish that fixing the host
+race alone would make arrival2 healthy. There is no second-arrival kernel/PID1
+trace to distinguish those cases. Same-AP transfer completion and first-arrival
+success do not fill this gap. The earlier implication that the second native
+boot was healthy was unsupported; the result remains NO_PROOF with Android
+recovery independently verified.
