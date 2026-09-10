@@ -270,3 +270,41 @@ fresh approval token is private and has not yet been returned by the operator.
 No P384 installation, native restoration, A transfer or native qualification
 has occurred. Prepared `f1_authorized` and `live_authorized` remain false.
 The closed ordinary-reboot goal is unchanged. A90 and S20+ were untouched.
+
+## Past-failure checklist reconciliation
+
+The operator asked whether every item had been checked. The initial readiness
+report did not contain the ID-to-evidence mapping required by the
+[checklist](../operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md). More materially,
+the full actual prepared-record serialization had not been exercised before
+connected preparation; its size failure was discovered after D0 #2. Initial
+H0 PASS therefore did not establish that every applicable checklist item had
+already passed. The publication repair and final actual prepare/reopen above
+close that specific gap; this accounting preserves when it was discovered.
+
+The following reconciles all eleven IDs for the V2 host/policy change. Reused
+component results apply only to unchanged inputs. A current comparison still
+finds all 108 candidate inputs unchanged and all 179 prepared execution-source
+receipts current. In particular, the measured USB core/identity, local observer,
+shared wire and direct-source generator match their cited reviewed hashes.
+
+| ID | Status for this change | Evidence and remaining limit |
+| --- | --- | --- |
+| ABI | No new ABI change; prior H0 reused | No C, numeric flag, layout, ioctl or kernel API changed in V2. The identical AP and static ARM64 A/B package checks are retained. These are not new on-device ABI execution proof. |
+| IO | Confirmed in H0; unchanged producer reused | The [local observer tests](S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md#validation) exercise production subprocess/output paths, HUD stall/read failure/output loss and budget skip. V2 tests re-exercise the production C/raw path with optional HUD success/failure/skip. No pipe or queue implementation changed. |
+| SEMANTIC | Confirmed in H0 and applicable D0 | Fixed root/PID1-parentage/mount/idle health, first/second boot and nonce freshness, and optional HUD separation are tested. CONTROL ACK remains acceptance only. Actual D0 verifies Android identity/health; late D1 health does not upgrade the stopped return. Native P384 health still requires execution. |
+| WIRE | Confirmed in H0 | Actual generated C, authenticated live collection, retained RX/TX and the production replay/result consumers are joined. Failed health and corrupt first/second wire stop further research and preserve raw evidence. |
+| PERSIST | Initial gap; now confirmed for preparation and H0 lifecycle | The real preparation initially exceeded the bound; compact serialization now passes full actual prepare/reopen at 56,489 bytes. The 107 core/live tests cover limit/exclusive/short-write/reader failures. V2 success and late failure/cut cases use actual journal/role/result writers and recovery consumers, with fixture hardware/transport. This does not predict every future live byte stream. |
+| ROUTE | Confirmed in H0 and actual preparation | Exact V2 selector, wrong/crossed selector rejection, ordinary P384 and legacy P383 compatibility pass. Real `prepare_connected`/`load_prepared` and the sealed role plan pass; fixture N/restore/A backend records reach PASS/NO_PROOF/CLOSED and retained recovery readers. |
+| ARTIFACT | Confirmed with retained actual packages | [P384 adoption](S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_H0_2026-09-10.md#source-and-package-binding) decoded both complete actual APs, all ramdisk entries and declared Image changes. Current bundle verification rechecks exact N/A, member identities and unchanged candidate inputs. Consumed V1 pins remain intact. |
+| AUDIT | Confirmed for the invoked operations | Offline diagnostics preserve old D0 bytes and bundle identities. `load_prepared` validates retained data and reads the current lane; no journal repair was invoked in the final preparation check. The earlier D1 reconciliation is explicitly a state-changing host finalizer: it clears pending state after verified health while keeping the goal closed. No repeat device effect occurred. |
+| HOST | H0/current D0 confirmed; live guard startup unconfirmed | The [measured first-child inventory repair](S22PLUS_FYG8_RESTORATION_ARRIVAL_H0_2026-09-10.md#validation-and-review) and actual V2 fixture path pass. Current D0/ADB and host publication pass. This prepared run has not started its real privileged observer guard, so current polkit/guard readiness is not claimed. The existing execution path arms the guard before Download request/candidate transfer and aborts on failure. |
+| DISPLAY | Unchanged component H0 reused; physical display unconfirmed | The local lifecycle/observer tests cover before-auth lifetime, failed/omitted HUD and diagnostic-frame rejection; V2 uses the same candidate/display bytes. Reported flips, native health and physical pixels remain separate. P384 physical pixels and second-boot display have not been observed. |
+| RETURN | Confirmed in H0 and later Android health; native roundtrip unconfirmed | V2 tests cover restoration/A uncertainty, no replay and retained recovery. The one ordinary reboot STOP and later exact healthy reconciliation remain separate. F1's existing final-health loop handles transient D0 parse errors; the ordinary D1 early-return parser remains unfixed. Actual two-native-arrival/timely-Download/A-cleanup success is still the proposed qualification. |
+
+This reconciliation adds no gate or authority and does not repeat device
+commands. The two edited documentation files are not prepared execution inputs;
+the prepared source binding remains current. The prior approval request remains
+unanswered. Any future execution still performs its existing fresh target,
+artifact, ownership and guard checks before effects; this table does not replace
+those checks or claim their future outcome.
