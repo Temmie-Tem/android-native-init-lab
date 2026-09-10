@@ -86,8 +86,12 @@ that boundary, with authenticated command/CONTROL semantics and bounded cleanup.
 [Implementation and H0 validation are complete](docs/reports/S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md):
 42 tests pass, including 916 renderer frames and real C backpressure; static
 ARM64 A/B component builds match. Independent review returned PASS_GO.
-No current live candidate or device capability is activated. Old HUD observation
-semantics are not automatically compatible with the new preauth states.
+No current live candidate or device capability is activated. The separate
+[phase1C observer](docs/reports/S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md)
+now implements compatible H0 observation: fixed native health first, optional
+local HUD collection, owned CONTROL and exact retained replay. Eleven new tests
+and 15 shared health/wire tests pass; independent review returned PASS_GO.
+Historical observer semantics remain unchanged.
 The empty second-arrival observation context remains a separate host investigation
 target; its timing failure still needs reproduction. Broad F1/evidence rewrites
 and other-target changes are deferred. No device authority, consumed run or

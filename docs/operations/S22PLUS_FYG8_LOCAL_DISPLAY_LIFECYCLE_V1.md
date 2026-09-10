@@ -110,13 +110,14 @@ review covers changed lifecycle/protocol/profile/bootstrap interactions before
 this capability is called qualified. Live adoption requires its own fresh
 artifact/source/target binding under the existing contracts.
 
-The frozen P381 HUD observer accepts only console states0..2, so it does not
-qualify this profile's pre-authentication HUD logs. H0 checks retain its raw
-command/CONTROL results separately, exercise the actual local renderer, and use
-the current P383 fixed native-health observer for functional console evidence.
-The old observer is not relaxed or activated for this profile. A future live
-owner must explicitly select compatible observation semantics and bind this
-profile, including cached stages61/62; this unit does not supply that adoption.
+The frozen P381 HUD observer accepts only console states0..2 and remains
+unchanged. The separate [phase1C adapter](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md)
+supplies compatible H0 observation on an owner's existing source-bound IO.
+Fixed native health/idle STATUS precede optional HUD collection. A remaining
+budget check can omit HUD and proceed to owned CONTROL; display failures never
+provide health evidence. Raw replay checks the exact selected request sequence,
+and the profile records cached stages61/62. This is not a live owner activation;
+future adoption must bind the full platform/bootstrap/IO closure and artifacts.
 
 Implementation, source-bound review and H0 evidence are recorded in the
 [phase1B report](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md).
