@@ -13,6 +13,17 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**v0.1.2-rc.5 / P382** is the current bounded unit: qualify the fresh candidate
+with the repaired ordinary OBSERVED journal path, then confirm v0.1.2 only after
+its own successful attended functional/return/rollback result. Native behavior
+inherits rc.4 with fresh run/artifact identities and the rc.5 label. A/B build
+is complete; full P382 close/cut integration, static qualification and independent
+review passed. READY publication and one exact connected read-only preparation
+passed. No reboot, Download request or candidate transfer has occurred; fresh
+attended F1 approval is still required. The retained functional version is v0.1.1.
+The [rc.5 definition](docs/operations/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_V1.md)
+retains the existing attendance, fresh approval and exact recovery conditions.
+
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three
 planned commands passed with zero dropped output; the operator photograph shows
@@ -26,8 +37,8 @@ is implemented and independently reviewed PASS_GO: full proof input is retained,
 OBSERVED stores state/receipt hashes, and normal/cut recovery passes with the
 actual rc.4 receipt as common-path input under unchanged 32/64 KiB bounds.
 The [native baseline roundtrip design](docs/plans/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_DESIGN_2026-09-10.md)
-is DESIGN_ONLY and independently reviewed; implementation/activation is the next
-proposed unit. No native rollback identity is changed. No file deletion,
+is DESIGN_ONLY and independently reviewed; implementation/activation follows
+completion of v0.1.2. No native rollback identity is changed. No file deletion,
 RBIN/CMA change or standing native lease follows.
 See the [rc.4 report](docs/reports/S22PLUS_FYG8_OUTPUT_MEMORY_RC4_H0_2026-09-10.md).
 

@@ -28,6 +28,21 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### v0.1.2-rc.5 normal journal close qualification
+
+Internal P382 adopts [Journal Close RC5 V1](../S22PLUS_FYG8_JOURNAL_CLOSE_RC5_V1.md).
+It retains P381 native output/gauge/memory behavior with fresh candidate
+identities and the reviewed compact host OBSERVED journal. Existing output,
+time, transfer and recovery limits remain. Six functional qualifications,
+sealed-plan completion, normal close, timely exact software Download return,
+one exact Magisk rollback and final rooted FYG8/original health are separate
+live acceptance facts. Changed-closure review, fresh A/B/static qualification,
+exact preparation, attendance and fresh Process-v2 approval remain required.
+P381 stays consumed NO_PROOF/CLOSED; no old approval, artifact attempt or journal
+is replayed or repinned. Reporting adds one `s22plus-fyg8-p382` closure row and
+the existing canonical timeline. H0 readiness grants no effect or v0.1.2 release;
+native baseline adoption and persistent storage remain outside scope.
+
 ### v0.1.2-rc.4 output delivery and bounded memory observations
 
 Internal P381 follows [Output and Memory RC4 V1](../S22PLUS_FYG8_OUTPUT_MEMORY_RC4_V1.md).
