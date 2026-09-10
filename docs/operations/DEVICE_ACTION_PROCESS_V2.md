@@ -652,6 +652,13 @@ change, activation-deny-list change, or newly discovered replacement/race
 hazard triggers an independent review and fresh qualification. This is a
 permanent boundary for the cross-run candidate-replay hazard.
 
+The common-incorporated [S22+ native roundtrip first qualification V1](S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
+defines a separate dormant one-transaction exception. Its future distinct owner
+must retain the installation's consumed claim and authorize only its predeclared
+same-N restoration role; it cannot use ordinary candidate dispatch or claim
+release to obtain that repeat. Complete owner qualification and exact attended
+grant remain prerequisites. The existing runner and registry are unchanged.
+
 Registry capability and runner readiness are separate axes. Until the
 Download-request cut has a reviewed durable recovery state, registry
 qualification may be authoritative H0 evidence but the runner remains

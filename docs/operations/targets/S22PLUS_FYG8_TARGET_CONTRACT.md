@@ -28,6 +28,22 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### Native baseline first qualification
+
+Internal P383 / v0.2.0-rc.1 adopts the common-incorporated
+[native roundtrip first qualification V1](../S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md).
+Its exact scope is one attended N installation, one same-N restoration after
+proved first native health/Download, and one exact A cleanup/fallback. The
+source-bound independent owner/policy review, fresh A/B/static qualification,
+exact preparation and finite attended Process-v2 approval remain prerequisites.
+The fixed native health command and both arrival/CONTROL budgets are sealed
+before effects. Recovery cannot invoke restoration, repeat A or release N's
+permanent consumed claim. Terminal evidence independently reopens both native
+arrivals, restoration and A/final Android health, with one `s22plus-fyg8-p383`
+closure row and linked role timeline. No historical candidate, approval or
+consumed record is repurposed. No standing native baseline or unattended
+recovery is established; H0 readiness grants no device effect.
+
 ### v0.1.2-rc.5 normal journal close qualification
 
 Internal P382 adopts [Journal Close RC5 V1](../S22PLUS_FYG8_JOURNAL_CLOSE_RC5_V1.md).

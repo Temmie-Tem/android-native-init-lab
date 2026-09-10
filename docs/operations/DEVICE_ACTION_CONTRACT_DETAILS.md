@@ -358,6 +358,19 @@ binding for each candidate within its explicit grant.
 The retired trial grants no approval waiver. Once candidate execution begins,
 rollback never waits. Candidate replay is forbidden.
 
+The separately reviewed [S22+ native roundtrip first qualification V1](S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
+is incorporated at common-contract precedence, SHA256
+`a6017cc22041c99814e5900a65c20945d3bf3eecb750aecc387dfd895fd4e087`.
+Only its exact one-transaction S22+ FYG8 specialization may permit a second
+transfer of the same native N after proved first native health and exact
+Download arrival. It retains the original permanent consumed claim, a separate
+one-shot restoration intent and one A cleanup/fallback, with no native retry
+after a research stop. This definition is dormant until its complete owner is
+independently reviewed/qualified and its exact finite attended grant is current.
+Ordinary F1, historical candidates and every other target retain their existing
+no-replay and recovery rules. This is an explicit permanent-boundary exception,
+not a role-label bypass or a standing native-baseline lease.
+
 Keep host rejection, local parser failure, device-session start, transfer
 start/completion, observation, rollback, and final health distinct. A dry run
 or pre-session host failure is not a candidate transfer, but any changed
