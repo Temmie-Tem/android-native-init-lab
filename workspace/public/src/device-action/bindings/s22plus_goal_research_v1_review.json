@@ -10,27 +10,26 @@
     "usb-state"
   ],
   "assessment": [
-    "Only f1_owner and target hashes changed; eight actions and the other seven sources are unchanged.",
-    "P381 final independent review explicitly covers the two source repins.",
+    "Only f1_owner changed; eight actions and the other eight source roles are unchanged.",
+    "Independent compact OBSERVED journal review explicitly covers this source refresh.",
     "This source refresh opens or renews no grant and grants no F1 authority."
   ],
   "evidence": {
     "changed_roles": [
-      "f1_owner",
-      "target"
+      "f1_owner"
     ],
+    "independent_review": {
+      "path": "workspace/private/outputs/s22plus_observed_journal_20260910/independent-review.json",
+      "sha256": "aebb332e9d7eecfc8645e4dc8ee2bcb367a5d5521ef00aba0a628fa7a6cc3c6d",
+      "size": 2795
+    },
     "previous_review": {
-      "path": "workspace/private/outputs/s22plus_fyg8_p381/foreground-prior-review.json",
-      "sha256": "06a1183939def0b9515af25b93ac4157a783f99a70ca26cd6a35788722364ee1",
+      "path": "workspace/private/outputs/s22plus_observed_journal_20260910/foreground-prior-review.json",
+      "sha256": "e6fa9432b0abc8afa3b8001a61833a6d7b6b24b291cb4132570cf9194a9718f3",
       "size": 2385
     },
-    "reused_p381_review": {
-      "path": "workspace/private/outputs/s22plus_fyg8_p381/independent-review.json",
-      "sha256": "79feb43d30b221b295bdb954ebff7f12082d59995428b7555720cbe142867a02",
-      "size": 90416
-    },
     "unchanged_actions": 8,
-    "unchanged_sources": 7
+    "unchanged_sources": 8
   },
   "findings": [],
   "limitations": [
@@ -38,14 +37,14 @@
     "Fresh target and boot checks remain required per action.",
     "Historical health and consumed goals or candidates grant no replay or F1 authority."
   ],
-  "reviewed_at_utc": "2026-09-10T00:15:26.060405+00:00",
+  "reviewed_at_utc": "2026-09-10T00:59:38.250421+00:00",
   "reviewer": "independent-agent-p352-usb-review",
   "schema": "s22plus_goal_research_independent_review_v1",
-  "scope": "Unchanged foreground-goal capability; independently reviewed P381 final f1_owner and target source hash refresh only",
+  "scope": "Unchanged foreground-goal capability; independently reviewed compact OBSERVED journal f1_owner source refresh only",
   "sources": {
     "common": "78635cd38f94f2f62a491063b72a08faa0de7023a2f711565dcf8b7bf4c3351e",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
-    "f1_owner": "66d496d86e6c8db27edda702f0c50255e9aa2e899be1f80aff7ead220ba69a11",
+    "f1_owner": "a3dffc941d54f968659982b9e817f8fb413f6587f3656f4744c0a9fc5fe0ef53",
     "policy": "452cd135150f41e58888d29a18608c158eddfc669728cfd575a676144fbdafbd",
     "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",

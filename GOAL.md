@@ -21,9 +21,14 @@ on RAM with55.988MiB allocation metadata, not reclaimability.
 The host's full OBSERVED journal record exceeded32KiB after observation. One
 unchanged recovery resumed from durable evidence without candidate/CONTROL
 replay, but timely software-return observation was missed. Formal NO_PROOF is
-preserved and v0.1.1 retained. Next H0 unit: repair journal serialization and
-qualify the actual full close/recovery path before a new candidate. No file
-deletion, RBIN/CMA change or standing native lease follows.
+preserved and v0.1.1 retained. The [compact journal H0 repair](docs/reports/S22PLUS_FYG8_OBSERVED_JOURNAL_H0_2026-09-10.md)
+is implemented and independently reviewed PASS_GO: full proof input is retained,
+OBSERVED stores state/receipt hashes, and normal/cut recovery passes with the
+actual rc.4 receipt as common-path input under unchanged 32/64 KiB bounds.
+The [native baseline roundtrip design](docs/plans/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_DESIGN_2026-09-10.md)
+is DESIGN_ONLY and independently reviewed; implementation/activation is the next
+proposed unit. No native rollback identity is changed. No file deletion,
+RBIN/CMA change or standing native lease follows.
 See the [rc.4 report](docs/reports/S22PLUS_FYG8_OUTPUT_MEMORY_RC4_H0_2026-09-10.md).
 
 Previous candidate **v0.1.2-rc.3** (P380) is consumed and CLOSED/19 with one

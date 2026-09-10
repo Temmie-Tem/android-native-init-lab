@@ -18956,6 +18956,30 @@ def _p335_mark_resident_rollback_required(prepared: PreparedRun) -> None:
     _save_state(prepared, current)
 
 
+def _candidate_observation_journal_details(
+    observation: dict[str, Any], current: dict[str, Any], proof: bool
+) -> dict[str, Any]:
+    # The immutable observer receipt owns the full protocol/qualification
+    # evidence. Duplicating it here can overflow the 32 KiB journal envelope
+    # after a completed candidate transfer and delay the exact rollback.
+    details: dict[str, Any] = {"proof": proof}
+    for key in ("bounded", "download_endpoint_absent"):
+        if key in observation:
+            details[key] = observation[key]
+    for key in (
+        "candidate_observer_classification",
+        "candidate_observer_accepted",
+        "candidate_observer_receipt_sha256",
+        "candidate_observer_guard_release_status",
+        "candidate_observer_guard_released",
+        "candidate_observer_guard_warning",
+        "candidate_observer_guard_release_receipt_sha256",
+    ):
+        if key in current:
+            details[key] = current[key]
+    return details
+
+
 def _finish_candidate_window(
     prepared: PreparedRun,
     backend: LiveBackend,
@@ -18998,11 +19022,6 @@ def _finish_candidate_window(
         observation[
             "candidate_observer_guard_release_status"
         ] = guard_release["status"]
-    journal.transition(
-        "OBSERVED",
-        "bounded_candidate_observation_closed",
-        observation,
-    )
     proof = (
         candidate.completed
         and observation.get("download_endpoint_absent") is True
@@ -19051,6 +19070,13 @@ def _finish_candidate_window(
                 )
             )
         )
+    )
+    journal.transition(
+        "OBSERVED",
+        "bounded_candidate_observation_closed",
+        _candidate_observation_journal_details(
+            observation, _state(prepared), proof
+        ),
     )
     # Seal the passive trace immediately before the durable boot-ready event.
     # This keeps the capture alive through the complete bounded observation

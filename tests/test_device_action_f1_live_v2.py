@@ -710,6 +710,89 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             result["live_state"],
         )
 
+    def large_observation_evidence(self):
+        # Nested command evidence fits a 64 KiB receipt but exceeds a journal
+        # record once serialized. Keep private live receipts out of fixtures.
+        return {
+            "p381_root_console_qualification": {
+                "commands": [
+                    {"ordinal": i, "accepted": True, "diagnostic": "x" * 3900}
+                    for i in range(9)
+                ]
+            }
+        }
+
+    def test_large_observation_close_and_cut_recovery(self):
+        for cut in (None, "before-observed", "after-observed", "after-rollback"):
+            with self.subTest(cut=cut):
+                temporary, prepared = self.prepared(e3=True)
+                self.addCleanup(temporary.cleanup)
+                backend = FakeBackend(self.module)
+                original_observe = backend.observe_candidate
+                evidence = self.large_observation_evidence()
+                evidence_before = copy.deepcopy(evidence)
+
+                def observe(*args):
+                    return {**original_observe(*args), **evidence}
+
+                backend.observe_candidate = observe
+                transition = self.module.core.Journal.transition
+                original_record_hashes = {}
+
+                def cut_transition(journal, state, action, details):
+                    if state == "OBSERVED":
+                        for name in ("candidate-observer.json", "candidate-observer-guard-release.json"):
+                            original_record_hashes[name] = hashlib.sha256(
+                                (prepared.run_dir / name).read_bytes()
+                            ).hexdigest()
+                        self.assertNotIn("p381_root_console_qualification", details)
+                        self.assertEqual(details["candidate_observer_receipt_sha256"],
+                                         original_record_hashes["candidate-observer.json"])
+                        self.assertEqual(details["candidate_observer_guard_release_receipt_sha256"],
+                                         original_record_hashes["candidate-observer-guard-release.json"])
+                        self.assertIs(details["proof"], True)
+                        if cut == "before-observed":
+                            raise KeyboardInterrupt(cut)
+                    result = transition(journal, state, action, details)
+                    if (state == "OBSERVED" and cut == "after-observed") or (
+                        state == "ROLLBACK_FLASHED" and cut == "after-rollback"
+                    ):
+                        raise KeyboardInterrupt(cut)
+                    return result
+
+                # Verify the real writer rejects the old whole-body input.
+                with self.assertRaises(self.module.core.F1V2Error):
+                    self.module.core._write_exclusive(
+                        prepared.run_dir / "oversized-fixture.json", evidence
+                    )
+                self.assertFalse((prepared.run_dir / "oversized-fixture.json").exists())
+                recovery = FakeBackend(self.module)
+                with mock.patch.object(self.module.core.Journal, "transition", new=cut_transition):
+                    if cut is None:
+                        result = self.module.execute_prepared(prepared, prepared.approval_token, backend)
+                    else:
+                        with self.assertRaises(KeyboardInterrupt):
+                            self.module.execute_prepared(prepared, prepared.approval_token, backend)
+                if cut is not None:
+                    result = self.module.recover_prepared(prepared, recovery)
+                self.assertEqual(result["verdict"], "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK")
+                self.assertFalse(result["recovery_required"])
+                self.assertTrue(result["live_state"]["final_verified"])
+                calls = backend.calls + recovery.calls
+                self.assertEqual(calls.count("transfer-candidate"), 1)
+                self.assertEqual(calls.count("transfer-rollback"), 1)
+                self.assertNotIn("observe", recovery.calls)
+                journal = self.module.core.Journal.reopen(prepared.run_dir / "transaction", prepared.binding_sha256)
+                self.assertEqual(journal.state(), "CLOSED")
+                self.assertEqual(sum(r["kind"] == "transition" and r["state"] == "OBSERVED" for r in journal.records()), 1)
+                for path in journal.directory.glob("*.json"):
+                    self.assertLessEqual(path.stat().st_size, self.module.core.MAX_RECORD)
+                self.assertLessEqual((prepared.run_dir / "live-result.json").stat().st_size,
+                                     self.module.core.MAX_RESULT_RECORD)
+                for name, digest in original_record_hashes.items():
+                    self.assertEqual(hashlib.sha256((prepared.run_dir / name).read_bytes()).hexdigest(), digest)
+                self.assertEqual(evidence, evidence_before)
+
     def test_e3_all_of_verdict_matrix(self):
         cases = (
             (
