@@ -228,3 +228,29 @@ P382는 rc.4의 네이티브 기능을 유지하고 새 후보 식별자·rc.5 �
 적시 Download 복귀·정확한 롤백과 최종 건강을 모두 확인한 뒤에만 동일한
 rc.5 산출물을 v0.1.2로 확정한다. 소비된 rc.4 기록은 변경하지 않는다.
 [rc.5 구현 및 검증 기록](../reports/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_H0_2026-09-10.md).
+
+## v0.1.2 확정
+
+`v0.1.2 ↔ v0.1.2-rc.5 / run-001 ↔ P382`로 연결한다. 내부 실행 ID는
+`p382-ready1-prepared-20260910-1`이다. 2026-09-10의 참석 실행에서 고정 기능
+검증 6개와 계획 명령 3개가 출력 손실 없이 통과했다. 일반 OBSERVED 기록,
+CONTROL 시간창 안의 정확한 Download 도착, 한 번의 정확한 롤백과 최종
+rooted FYG8·원래 파티션 해시·Android 건강 확인까지 완료했다.
+원래 execute가 recover 호출 없이 PASS/CLOSED로 끝났고 승인은 소비됐다.
+
+확정 범위는 기존 root 콘솔·상태 HUD에 더한 SOC·전압·전류의 제한된 게이지
+측정과 해당 한도 내 출력 전달·정상 종료다. 운영자 사진은 rc.5 표기와
+SOC·전압·전류의 실제 화면 표시를 OBSERVED로 뒷받침한다. 메모리 관측은 회수
+가능량이나 누수 부재를 증명하지 않는다. 기계적 픽셀 증명, 커널/PID1 정지
+복구, 상주 설치 또는 무인 운전은 주장하지 않는다. 정확한 적시 Download
+도착과 별개로 기존 인과 귀속 UNPROVED·stock NO_PROOF_OBSERVER는 유지한다.
+
+| 확정 산출물 | SHA-256 |
+| --- | --- |
+| 후보 AP | `c417ab34f492ad7a50fb0950a62593c8ecb78d5925003333251b25934df514ef` |
+| `/init` | `77289e6d00167b1bb406eca705455d58669e50de7ae94ad70560a9de3284e3c1` |
+| HUD 렌더러·수집기·메모리 관측 모드 | `3b9836172e6f6b95dda2cbe056c5dc3b15ad67f4e8de1e84ec57063bf5ee66aa` |
+
+위 대응을 위해 다시 빌드하거나 파일·소비된 기록을 개명하지 않는다. 이미지의
+rc.5 표기도 그대로이며 새 Git 태그를 생성하지 않는다. rc.1~rc.4의 NO_PROOF는
+보존한다. [실행·일반 종료·최종 건강 근거](../reports/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_H0_2026-09-10.md#attended-live-close-and-v012-confirmation).

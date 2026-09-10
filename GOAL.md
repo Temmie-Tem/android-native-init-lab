@@ -13,16 +13,31 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**v0.1.2-rc.5 / P382** is the current bounded unit: qualify the fresh candidate
-with the repaired ordinary OBSERVED journal path, then confirm v0.1.2 only after
-its own successful attended functional/return/rollback result. Native behavior
-inherits rc.4 with fresh run/artifact identities and the rc.5 label. A/B build
-is complete; full P382 close/cut integration, static qualification and independent
-review passed. READY publication and one exact connected read-only preparation
-passed. No reboot, Download request or candidate transfer has occurred; fresh
-attended F1 approval is still required. The retained functional version is v0.1.1.
-The [rc.5 definition](docs/operations/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_V1.md)
-retains the existing attendance, fresh approval and exact recovery conditions.
+**Functional version v0.1.2 — gauge HUD and lossless bounded console output**
+maps to the identical successful **v0.1.2-rc.5 / run-001 / P382** artifacts.
+The attended run is consumed and CLOSED/19 with
+`PASS_F1_V2_P382_ROOT_CONSOLE_AND_ROLLED_BACK`, recovery_required=false.
+All six fixed qualifications and three planned commands passed with zero dropped
+output. The ordinary OBSERVED transition serialized to 1,100 bytes; exact
+Download arrival was observed inside the sealed CONTROL window without a
+physical fallback prompt. One candidate and one exact rollback completed,
+followed by verified rooted FYG8/original hashes/Android health and Download absence.
+Original execute completed without recover or replay.
+
+The retained AP is `c417ab34f492ad7a50fb0950a62593c8ecb78d5925003333251b25934df514ef`;
+no rebuild, artifact rename or new tag is needed for this functional mapping.
+The five matched HUD records include four BUSY frames and fresh gauge proof.
+Two complete bounded memory snapshots remain observations, not reclaimability
+or leak-absence proof. The operator photograph shows the rc.5 gauge/status HUD
+with SOC 99.9%, 4.337 V and +548.4 mA as physical OBSERVED evidence; it is not
+cryptographic frame attribution or continuous-liveness proof.
+Supplemental stock NO_PROOF_OBSERVER and causal software-return UNPROVED remain;
+timely exact arrival is separate evidence. No standing native lease, unattended
+recovery or native baseline adoption follows. See the [rc.5 execution report](docs/reports/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_H0_2026-09-10.md).
+
+This bounded unit is complete. The next proposed H0 unit is implementing the
+already reviewed native baseline roundtrip design under its separate scope;
+no next candidate or live authority is created here.
 
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three
@@ -32,7 +47,7 @@ on RAM with55.988MiB allocation metadata, not reclaimability.
 The host's full OBSERVED journal record exceeded32KiB after observation. One
 unchanged recovery resumed from durable evidence without candidate/CONTROL
 replay, but timely software-return observation was missed. Formal NO_PROOF is
-preserved and v0.1.1 retained. The [compact journal H0 repair](docs/reports/S22PLUS_FYG8_OBSERVED_JOURNAL_H0_2026-09-10.md)
+preserved; rc.4 did not confirm v0.1.2. The [compact journal H0 repair](docs/reports/S22PLUS_FYG8_OBSERVED_JOURNAL_H0_2026-09-10.md)
 is implemented and independently reviewed PASS_GO: full proof input is retained,
 OBSERVED stores state/receipt hashes, and normal/cut recovery passes with the
 actual rc.4 receipt as common-path input under unchanged 32/64 KiB bounds.
@@ -91,7 +106,7 @@ current and gauge age N/A. Module insertion return does not prove child binding
 or reads; the retained evidence cannot localize that failure. **v0.1.2 is not
 confirmed.** See the [run report](docs/reports/S22PLUS_FYG8_GAUGE_HUD_V012_RC1_H0_2026-09-09.md).
 
-Functional version: **v0.1.1 — system-status HUD**, mapped to successful
+Previous functional version: **v0.1.1 — system-status HUD**, mapped to successful
 v0.1.1-rc.1 / run-001 (internal P377) without rebuilding or renaming artifacts.
 The attended run passed all six fixed qualifications and three planned commands,
 then one exact rollback and final rooted FYG8/original-hash health. CLOSED/19,

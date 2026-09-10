@@ -3,7 +3,8 @@
 P382 is a fresh candidate under [Journal Close RC5 V1](../operations/S22PLUS_FYG8_JOURNAL_CLOSE_RC5_V1.md).
 Its purpose is to finish v0.1.2 qualification with the repaired host journal
 path before implementing the native baseline roundtrip design. P381 remains
-consumed NO_PROOF/CLOSED; the retained functional version remains v0.1.1.
+consumed NO_PROOF/CLOSED. The attended execution below has now confirmed v0.1.2
+by mapping it to the identical successful rc.5 artifacts.
 
 ## Implementation
 
@@ -127,3 +128,87 @@ Changed-path Python tests, compilation, document links, scoped diff checks and
 the repository boundary check passed. Only this candidate's files are selected
 for commit; unrelated S20+, AGENTS and old P345 work remain outside the unit.
 No push or HUD image publication was performed.
+
+## Attended live close and v0.1.2 confirmation
+
+The operator supplied the exact fresh approval for
+`p382-ready1-prepared-20260910-1` after the attendance/physical-recovery request.
+One original `--execute` completed with
+`PASS_F1_V2_P382_ROOT_CONSOLE_AND_ROLLED_BACK`, CLOSED/19 and
+recovery_required=false. Candidate and rollback each have one durable attempt;
+no recover invocation, candidate/CONTROL replay or repeated rollback occurred.
+Execution used the reviewed sources committed at `37fddaff89`, including live
+runner SHA-256 `cb318492615b6809aea37ddff689efb623271eb546f1932abade9cfa91855937`.
+
+All six fixed functional qualifications and three sealed plan commands passed.
+Every terminal reports zero dropped bytes. Expected nonzero-exit and cancellation
+qualification cases retain their original statuses and are not ordinary exit-0
+claims. The gauge/HUD command returned 4,399 stdout bytes, no stderr, and five
+matched HUD records (sequence 1–5, uptime 3,786–7,821 ms), four during BUSY work.
+The gauge predicate qualified fresh measurements. The operator subsequently
+supplied the physical photograph described below; machine pixel proof is not
+claimed.
+
+The early/late memory commands each returned 1,908 bytes, no stderr and a clean
+terminal. Both decoded records are valid/complete, at 9,843–9,847 ms and
+12,454–12,458 ms. Their observations do not establish reclaimability or absence
+of a leak and do not substitute for functional qualification.
+
+The normal OBSERVED transition is 1,100 bytes and binds the exact original
+observer and guard receipt hashes. It reached candidate_boot_ready through the
+ordinary path. The return-window record is `exact-download-within-control-window`,
+observed_within_software_deadline=true and physical_prompt_required=false.
+Physical intervention remains UNOBSERVED and software causal attribution remains
+UNPROVED; the existing ACK-only software_download_arrival and supplemental stock
+NO_PROOF_OBSERVER values are preserved. Exact timely arrival is separate proof.
+
+One exact Magisk rollback completed and final health verified rooted FYG8,
+original boot/supporting partition hashes, completed Android/stopped animation
+and both exact-target/global Download absence. A90 and S20+ received no command.
+The original execute's returned result matches the durable result, and the
+actual journal hash chain and canonical timeline validate without rewriting it.
+
+| Canonical event | UTC |
+| --- | --- |
+| live_session_start | 2026-09-10T01:45:20.062352Z |
+| candidate_flash_start | 2026-09-10T01:45:39.395413Z |
+| candidate_flash_done | 2026-09-10T01:45:41.143461Z |
+| candidate_boot_ready | 2026-09-10T01:46:02.446038Z |
+| rollback_flash_start | 2026-09-10T01:46:09.448412Z |
+| rollback_flash_done | 2026-09-10T01:46:11.142642Z |
+| rollback_boot_ready | 2026-09-10T01:46:58.079180Z |
+| live_session_end | 2026-09-10T01:46:58.094821Z |
+
+| Immutable run evidence | Bytes | SHA-256 |
+| --- | ---: | --- |
+| candidate-observer.json | 65,160 | `552b3c6f0f955c61978f9d8b9ed393c4af18dd1022caab4187b2bd7aa9c19b87` |
+| live-result.json | 61,669 | `4b7c4f43ab5dd4c65b0d41629d73edd08393bdba0da288cae901108857b436d4` |
+| p382-return-window.json | 1,473 | `ca24649ad3c5641e7ed23af87c79c3ebfefad095f66be246fc2dc56cb6f589e9` |
+
+The closed live state is 55,615 bytes; the eligible state/result limits remain
+64 KiB, and journal records remain bounded by 32 KiB. Full private raw evidence
+and the existing consumed source/artifact bindings are retained.
+
+This meets the predeclared bounded v0.1.2 criteria. The functional version maps
+to the exact AP/init/renderer hashes listed above, without rebuild, file rename
+or new tag. P381 and earlier NO_PROOF records remain unchanged. No standing
+native console, native rollback baseline, unattended or kernel-stall recovery
+capability is activated by the version confirmation.
+
+## Operator photograph
+
+The operator supplied a photograph as evidence after the successful run. Its
+original bytes are preserved without editing or public image publication in
+the exact run directory as `operator-hud-photo.jpg`: 165,245 bytes, SHA-256
+`8ead4f3e3a6e67522e19e40594df6e066e4a1febfa084dff9a47d4cfdd9e6857`.
+The private observation record is 1,163 bytes, SHA-256
+`4903df06a2ef65d22f026d9c73173ceafc5c42d8df2e587ea9b585b0e0a4601f`.
+
+The image visibly shows `V0.1.2-RC.5`, `GAUGE STATUS HUD`, uptime 7 seconds,
+CONSOLE BUSY, memory 1053/7024 MiB with 5971 MiB available, CPU 0.3%, gauge
+SOC 99.9%, voltage 4.337 V and current +548.4 mA. Battery temperature and charge
+are N/A; sample and gauge ages read 0.0 seconds. The displayed values and rc.5
+label are operator-attributed physical OBSERVED evidence. A single photograph
+does not establish cryptographic frame-to-run attribution, sensor calibration
+or continuous liveness, and it does not replace the authenticated machine
+qualification or rollback/final-health evidence.
