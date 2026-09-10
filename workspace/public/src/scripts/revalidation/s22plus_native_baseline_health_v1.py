@@ -113,6 +113,11 @@ def replay(observer, codec, rx, tx, key, *, arrival, previous=None):
                    nonce_sha256=digest(io.audit.nonce), rx_sha256=digest(rx),
                    tx_sha256=digest(tx), console_healthy=True,
                    control_acceptance_observed=True, download_arrival_proved=False)
+    return _validate_arrival(receipt, arrival, previous)
+
+
+def _validate_arrival(receipt, arrival, previous):
+    """Shared cross-boot join only; callers already authenticated their raw path."""
     if arrival == 1:
         if previous is not None:
             raise ValueError('first native arrival has no predecessor')
@@ -125,3 +130,29 @@ def replay(observer, codec, rx, tx, key, *, arrival, previous=None):
                  for field in ('kernel_boot_identity_sha256', 'nonce_sha256'))):
         raise ValueError('second native arrival freshness is unproved')
     return receipt
+
+
+def replay_local(observer, codec, rx, tx, key, *, arrival, previous=None):
+    """Local-display consumer with optional HUD, preserving legacy replay strictness.
+
+    Full raw replay validates health EXEC3/STATUS4, optional HUD5 and CONTROL5/6.
+    HUD results do not supply health. The owner separately proves transfer,
+    physical target and Download arrival under its selected scoped exception.
+    """
+    if type(arrival) is not int or arrival not in (1, 2):
+        raise ValueError('native arrival must be 1 or 2')
+    if len(rx) > wire.RAW_CAPTURE_MAXIMUM or len(tx) > 65536:
+        raise ValueError('native health raw bound exceeded')
+    if (observer.control.BOOT_ID_SEMANTIC != 'kernel-uuid-lowercase-ascii36-sha256-v2'
+            or observer.control.BOOT_RECEIPT_SEMANTIC != 'sha256-of-boot-v2-wire-digest'):
+        raise ValueError('local native boot identity semantics differ')
+    proof = observer.replay_session(codec, rx, tx, key)
+    observed = proof['local_display']
+    if (proof.get('proved') is not True or observed.get('native_health_proved') is not True
+            or observed.get('control_acceptance_observed') is not True):
+        raise ValueError('local native health and CONTROL are unproved')
+    receipt = dict(schema=SCHEMA, arrival=arrival, run_id_hex=observer.RUN_ID.hex(),
+        kernel_boot_identity_sha256=observed['kernel_boot_identity_sha256'],
+        nonce_sha256=observed['nonce_sha256'], rx_sha256=digest(rx), tx_sha256=digest(tx),
+        console_healthy=True, control_acceptance_observed=True, download_arrival_proved=False)
+    return _validate_arrival(receipt, arrival, previous)

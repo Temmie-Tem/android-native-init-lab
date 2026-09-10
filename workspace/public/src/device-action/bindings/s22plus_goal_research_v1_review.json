@@ -10,23 +10,24 @@
     "usb-state"
   ],
   "assessment": [
-    "Only f1_owner changed after the prior P383 review; eight actions and eight other source roles are unchanged.",
-    "Independent P383 correction review covers actual rollback member derivation and sealed metadata reconstruction.",
-    "This source refresh opens or renews no grant and grants no F1 authority."
+    "Prepared compact serialization retains all fields and the existing 65536-byte limit, no-clobber/no-follow, short-write rejection and fsync.",
+    "Eight unchanged foreground sources, eight unchanged actions and unchanged pending/F1-owner interlocks.",
+    "Preserve D0 2; fresh source-qualified bundle and fresh D0 required.",
+    "Current foreground goal remains closed. No new action grant or F1 authority."
   ],
   "evidence": {
     "changed_roles": [
       "f1_owner"
     ],
     "independent_review": {
-      "path": "workspace/private/outputs/s22plus_fyg8_p383/independent-review-binding-correction.json",
-      "sha256": "7baa608b661a3133c382c37e789ef310b9046bc27fc655a304da8241c955f379",
-      "size": 14606
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-2/foreground-source-refresh-review.json",
+      "sha256": "ebc00de2803bdf3a9dbb6d5c798da517669e36208ab65ddf4389eccc33465922",
+      "size": 1519
     },
     "previous_review": {
-      "path": "workspace/private/outputs/s22plus_fyg8_p383/foreground-prior-review-before-binding-fix.json",
-      "sha256": "743b6b768a96f29c0ac6c05a31821e174f1bc237159f18c21d322d29a35371c8",
-      "size": 2392
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-2/foreground-prior-review.json",
+      "sha256": "b5dc3a4056724e07995c44fd7fe15f8b238de3333837066cce0cdffa8339861a",
+      "size": 2541
     },
     "unchanged_actions": 8,
     "unchanged_sources": 8
@@ -37,20 +38,20 @@
     "Fresh target and boot checks remain required per action.",
     "Historical health and consumed goals or candidates grant no replay or F1 authority."
   ],
-  "reviewed_at_utc": "2026-09-10T03:32:43.623245+00:00",
-  "reviewer": "independent-agent-p352-usb-review",
+  "reviewed_at_utc": "2026-09-10T09:20:26.230781+00:00",
+  "reviewer": "independent-agent-native-refactor-review",
   "schema": "s22plus_goal_research_independent_review_v1",
-  "scope": "Unchanged foreground-goal capability; independently reviewed P383 host-binding correction f1_owner refresh only",
+  "scope": "One-role foreground-goal source refresh after reviewed prepared-record compact serialization",
   "sources": {
-    "common": "3267cce1f069b5885597beaca3d1266e2d1369c658afc2338cbf46e7049d1cd9",
+    "common": "e79d39a44bce9f861f939de32051d25b2d6b1a4a34e2c976776669bab50d5fac",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
-    "f1_owner": "1605a35096a74881c5fc84b83d0dd30f7f96411198cca28a703334432c83aa95",
+    "f1_owner": "19a865b70fecf12a25657ae87494fad246d89761086f4426f917f94bf1205727",
     "policy": "452cd135150f41e58888d29a18608c158eddfc669728cfd575a676144fbdafbd",
     "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "registry": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
     "runner": "b29948a9ae308c0103022ac6ccc6c1d08188f5073acdf81a110ffe7e7dac3851",
-    "target": "c40bb290a7c5a8c455c95ebbcb36a25c42566de20dd024126ed3791b1c426aa1"
+    "target": "4e3113eab170f3e9fb0871f525a473fe99db1ec475fe1df8c1b73fb540ab2d6c"
   },
   "verdict": "PASS_GO"
 }

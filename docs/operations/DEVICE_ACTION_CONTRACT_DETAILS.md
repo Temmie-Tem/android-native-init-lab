@@ -361,7 +361,7 @@ rollback never waits. Candidate replay is forbidden.
 The separately reviewed [S22+ native roundtrip first qualification V1](S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
 is incorporated at common-contract precedence, SHA256
 `a6017cc22041c99814e5900a65c20945d3bf3eecb750aecc387dfd895fd4e087`.
-Only its exact one-transaction S22+ FYG8 specialization may permit a second
+Its exact one-transaction S22+ FYG8 specialization permits only a second
 transfer of the same native N after proved first native health and exact
 Download arrival. It retains the original permanent consumed claim, a separate
 one-shot restoration intent and one A cleanup/fallback, with no native retry
@@ -370,6 +370,18 @@ independently reviewed/qualified and its exact finite attended grant is current.
 Ordinary F1, historical candidates and every other target retain their existing
 no-replay and recovery rules. This is an explicit permanent-boundary exception,
 not a role-label bypass or a standing native-baseline lease.
+
+The separately reviewed [S22+ P384 native roundtrip followup V2](S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md)
+is a distinct common-boundary exception, incorporated at common-contract
+precedence with the SHA256 declared below. Only its exact unconsumed P384
+AP/member and fixed manifest/run selection may use one N installation, one
+same-N restoration after proved first health/timely Download, and one exact
+A cleanup/fallback. It uses a separate immutable V2 claim and original finite
+deadlines. V1's policy digest, closed budget, claims and records stay unchanged.
+No record is renamed or released; ordinary F1 and all other targets retain the
+content-keyed no-repeat boundary. V2 likewise requires independent completed
+owner qualification and a fresh finite attended approval before any effect.
+V2 policy SHA256: `6f62dbe4d53be7839e9a5f06dfcb922bc1af39545f30734d499dfe73caccff4e`.
 
 Keep host rejection, local parser failure, device-session start, transfer
 start/completion, observation, rollback, and final health distinct. A dry run

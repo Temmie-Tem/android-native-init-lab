@@ -44,6 +44,8 @@ _paths.update({Path(__file__), Path(builder.__file__),
     REVALIDATION/'device_action_f1_evidence_v2.py', REVALIDATION/'s22plus_fyg8_p363_return_host.py',
     REVALIDATION/'s22plus_native_usb_departure_v1.py', REVALIDATION/'s22plus_odin_transition_core.py',
     REVALIDATION/'s22plus_odin_usbfs_identity.py', REVALIDATION/'device_action_raw_capture_v1.py',
+    REVALIDATION/'s22plus_native_roundtrip_owner_v1.py',
+    ROOT/'docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md',
     ROOT/'docs/operations/S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_V1.md',
     ROOT/'docs/operations/S22PLUS_FYG8_LOCAL_DISPLAY_LIFECYCLE_V1.md',
     ROOT/'docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md'})
@@ -96,7 +98,7 @@ def promotion_payloads(static, static_receipt, *, run_id):
             dict(common, schema=CHECK_SCHEMA, verdict=CHECK_VERDICT, promotion_run_id=run_id))
 
 
-def prepare_h0(output):
+def prepare_h0(output, *, roundtrip_followup=False):
     """Publish a fresh private review bundle and run the actual bundle reader.
 
     This does not prepare a live run, grant attendance or install a public READY
@@ -104,6 +106,7 @@ def prepare_h0(output):
     """
     import device_action_f1_v2 as core
     import device_action_f1_live_v2 as live
+    import s22plus_native_roundtrip_owner_v1 as roundtrip
     output = Path(output).absolute()
     if output.exists() or output.is_symlink() or not output.resolve().is_relative_to((ROOT/'workspace/private').resolve()):
         raise ValueError('fresh private H0 bundle output required')
@@ -126,8 +129,13 @@ def prepare_h0(output):
             candidate_observer=evidence._shell_observer_spec('p384'),
             **{evidence.CANDIDATE_ARRIVAL_PROOF_ROLE_KEY: evidence.CANDIDATE_AUTHENTICATED_LOGICAL_RESIDENT_EXEC_ROLE}),
         final_health_profile='s22plus-fyg8-magisk', runner_version=core.RUNNER_VERSION)
+    if roundtrip_followup:
+        manifest['manifest_id'] = roundtrip.FOLLOWUP_MANIFEST
+        manifest['run_id'] = 's22plus-fyg8-p384-native-roundtrip-v2-live-1'
     path = output/'review-manifest.json'; builder.write(path, canonical(manifest))
     bundle = core.verify_bundle(ROOT, path)
+    roles = roundtrip.prepare_plan(bundle) if roundtrip.selected(bundle) else None
+    if roundtrip_followup != (roles is not None): raise ValueError('H0 roundtrip selection differs')
     closure = live._closure(ROOT, bundle)
     if source_receipts() != value['source_closure']: raise ValueError('H0 execution sources changed during verification')
     builder.write(output/'execution-closure.json', canonical(closure))
@@ -135,7 +143,7 @@ def prepare_h0(output):
         manifest=receipt(path), candidate_ap=value['candidate']['a']['ap_tar_md5'],
         execution_closure=receipt(output/'execution-closure.json'),
         source_inputs=value['source_closure'], device_contact=False, live_authorized=False,
-        native_roundtrip_exception=False)
+        native_roundtrip_exception=roles is not None, native_roundtrip_plan=roles)
     builder.write(output/'result.json', canonical(result))
     return result
 
@@ -144,6 +152,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--roundtrip-followup', action='store_true')
     args = parser.parse_args()
-    result = prepare_h0(args.out)
+    result = prepare_h0(args.out, roundtrip_followup=args.roundtrip_followup)
     print(json.dumps(dict(verdict=result['verdict'], manifest=result['manifest']), sort_keys=True))

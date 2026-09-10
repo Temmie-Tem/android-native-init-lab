@@ -13,8 +13,35 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-The current H0 unit is **v0.2.0-rc.2 / P384 local-display adoption**, following
-the completed component refactor. It connects the direct local sources, fresh
+The current follow-up is the separately incorporated
+[P384 native roundtrip V2](docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md).
+It selects a fresh fixed manifest for the unchanged, unconsumed P384 AP and
+uses a distinct one-shot V2 claim. The graph is one N installation, one same-N
+restoration and one exact A cleanup/fallback, with 1,800 seconds total and two
+60-second native observations. H0 tests and independent common-boundary/code
+review pass; fresh preparation and returned attended approval remain separate.
+The first read-only V2 preparation stopped at the clean-baseline check: complete
+retained raw bytes contain a current/legacy/partial evidence family. Initial
+exact rooted FYG8/original hashes/Android health passed, but final continuity
+and health were not observed. No prepared token or F1 effect was produced.
+After the operator confirmed attendance, one ordinary reboot was issued. Its
+early return parser stopped on empty `boot_completed`; the existing read-only
+reconciliation later proved a new exact healthy Android boot, cleared pending
+state and kept the goal closed without replay or upgrading D1 success.
+A separate D0 then passed clean baseline and final health, but host preparation
+publication exceeded 64 KiB due to indentation. The reviewed compact-format
+repair retains all fields and the same limit; 107 core/live regressions pass.
+The old D0 remains immutable. Fresh source-qualified preparation and full
+reopen pass in `p384-native-roundtrip-v2-prepared-20260910-3`: exact final Android
+health and clean baseline pass, N is unconsumed, and no V2 claim/transaction or
+pending D1 exists. The prepared record is 56,489 bytes. Only the separately
+returned finite F1 approval remains pending; no second ordinary reboot or
+F1 effect is authorized by these readiness records.
+P383's V1 policy, consumed budget and NO_PROOF records are unchanged. See the
+[V2 qualification report](docs/reports/S22PLUS_FYG8_NATIVE_ROUNDTRIP_FOLLOWUP_V2_H0_2026-09-10.md).
+
+The H0 **v0.2.0-rc.2 / P384 local-display adoption** is complete after
+the component refactor. It connects the direct local sources, fresh
 candidate identity, authenticated observer and ordinary one-N/one-A F1 owner.
 ARM64 A/B init/renderer/AP builds and actual AP decoding pass. The new owner
 passes real generated-C/raw-reopen tests for optional HUD success/failure/skip,
@@ -22,9 +49,9 @@ post-observation recovery without replay and corrupt wire NO_PROOF with rollback
 Source binding includes dynamically loaded image and codec dependencies.
 See the [adoption contract](docs/operations/S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_V1.md)
 and [H0 report](docs/reports/S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_H0_2026-09-10.md).
-This candidate has no device grant, live prepared run or public READY activation.
-It does not renew P383's consumed same-N restoration exception; a future
-native-to-native experiment still requires its own reviewed scope and authority.
+That ordinary adoption opened no device grant, live prepared run or public READY
+activation. The separately selected V2 graph above does not renew P383's consumed
+same-N restoration exception and still requires its own exact approval.
 
 **Functional version v0.1.2 — gauge HUD and lossless bounded console output**
 maps to the identical successful **v0.1.2-rc.5 / run-001 / P382** artifacts.

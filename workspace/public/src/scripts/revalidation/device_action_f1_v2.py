@@ -3621,10 +3621,14 @@ def classify_odin_output(returncode: int, stdout: bytes, stderr: bytes) -> str:
     return "odin_device_session_failure_or_unknown"
 
 
-def _write_exclusive_bounded(path: Path, value: Any, limit: int) -> None:
+def _write_exclusive_bounded(path: Path, value: Any, limit: int, *, compact: bool = False) -> None:
     if type(limit) is not int or limit not in {MAX_RECORD, MAX_RESULT_RECORD}:
         raise F1V2Error("durable record bound is invalid")
-    payload = json.dumps(value, indent=2, sort_keys=True, allow_nan=False).encode() + b"\n"
+    payload = json.dumps(
+        value, indent=None if compact else 2,
+        separators=(",", ":") if compact else None,
+        sort_keys=True, allow_nan=False,
+    ).encode() + b"\n"
     if len(payload) > limit:
         raise F1V2Error("durable record exceeds its bound")
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o400)

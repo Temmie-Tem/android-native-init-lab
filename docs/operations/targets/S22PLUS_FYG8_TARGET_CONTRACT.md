@@ -28,6 +28,32 @@ not repurposed. Missing/stale review, unresolved stops or unproved recovery bloc
 new experiments; already authorized recovery retains its journal-bound rules.
 This amendment itself opens no grant and performs no device action.
 
+### P384 native roundtrip followup
+
+The separately common-incorporated
+[P384 followup V2](../S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md) selects only
+P384/v0.2.0-rc.2 with manifest ID
+`s22plus-fyg8-p384-native-roundtrip-v2-ready-1`. It reuses that exact unconsumed
+qualified AP and specializes only this selected graph to one N installation,
+one same-N restoration and one exact A cleanup/fallback. Ordinary P384 manifests
+retain the prior one-N/one-A scope. The original 1,800-second research deadline,
+two 60-second observations and independent 30-second CONTROL windows are sealed
+before effects. Both authenticated boot ID and nonce must change before second
+CONTROL. Raw native health, optional HUD, exact Download, restoration and final
+Android health remain separate evidence. A failed/uncertain research effect
+permits only the predeclared one-A recovery; no role can repeat after its intent.
+
+P383's V1 policy/claim/consumed exception and NO_PROOF result remain unchanged;
+its exact Android recovery is complete. V2 uses a separate immutable claim and
+cannot release the ordinary permanent target/content installation claim. Current
+candidate byte keys must remain identical, and changed execution/policy inputs
+require fresh source-bound qualification/preparation and independent review.
+Physical attendance, usable exact A/Download recovery and a separately returned
+finite Process-v2 approval remain mandatory. This definition opens no grant or
+device action, and establishes no standing native baseline or unattended recovery.
+Its eventual terminal report adds one `s22plus-fyg8-p384` F1 row and the linked
+three-role timeline only after effects; no row is created by H0 readiness.
+
 ### Native baseline first qualification
 
 Internal P383 / v0.2.0-rc.1 adopts the common-incorporated

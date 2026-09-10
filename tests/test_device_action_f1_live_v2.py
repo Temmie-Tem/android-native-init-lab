@@ -2906,6 +2906,67 @@ else:
             ), self.assertRaises(self.module.F1LiveError):
                 self.module.load_prepared(root, manifest_path, run_dir)
 
+    def test_large_preparation_preserves_complete_binding_and_reopens(self):
+        original = self.module._closure
+        write = self.module._write_prepared_record
+        written = []
+
+        def closure(*args, **kwargs):
+            value = original(*args, **kwargs)
+            value["sources"].update({
+                f"fixture-source-{index:04d}": {
+                    "path": f"workspace/public/src/fixture-source-{index:04d}.py",
+                    "size": 123, "sha256": "a" * 64,
+                } for index in range(280)
+            })
+            value["sha256"] = self.module.core.json_sha256(value["sources"])
+            return value
+
+        def publish(bundle, path, value):
+            self.assertGreater(len(json.dumps(value, indent=2, sort_keys=True).encode()) + 1,
+                               self.module.core.MAX_RESULT_RECORD)
+            write(bundle, path, value)
+            self.assertLessEqual(path.stat().st_size, self.module.core.MAX_RESULT_RECORD)
+            self.assertEqual(self.module._read_json(path, "large preparation"), value)
+            written.append(path.stat().st_size)
+
+        with mock.patch.object(self.module, "_closure", side_effect=closure), \
+                mock.patch.object(self.module, "_large_return_record_bundle", return_value=True), \
+                mock.patch.object(self.module, "_write_prepared_record", side_effect=publish):
+            self.test_prepare_and_reopen_bind_private_target_and_source_closure()
+        self.assertEqual(len(written), 1)
+
+    def test_compact_preparation_keeps_bound_exclusivity_and_write_failures(self):
+        core = self.module.core
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            value = {"bounded": "x" * (core.MAX_RESULT_RECORD - 15)}
+            path = folder / "prepared.json"
+            with mock.patch.object(self.module, "_named_exploration_bundle", return_value=False), \
+                    mock.patch.object(self.module, "_large_return_record_bundle", return_value=True):
+                self.module._write_prepared_record(None, path, value)
+                self.assertEqual(path.stat().st_size, core.MAX_RESULT_RECORD)
+                retained = path.read_bytes()
+                with self.assertRaises(FileExistsError):
+                    self.module._write_prepared_record(None, path, value)
+                self.assertEqual(path.read_bytes(), retained)
+                oversized = folder / "oversized.json"
+                with self.assertRaisesRegex(self.module.F1LiveError, "exceeds its bound"):
+                    self.module._write_prepared_record(None, oversized, {"bounded": value["bounded"] + "x"})
+                self.assertFalse(oversized.exists())
+                with mock.patch.object(core.os, "write", return_value=1), \
+                        self.assertRaisesRegex(self.module.F1LiveError, "short durable record write"):
+                    self.module._write_prepared_record(None, folder / "short.json", {"x": 1})
+                with self.assertRaises(ValueError):
+                    self.module._write_prepared_record(None, folder / "nan.json", {"x": float("nan")})
+            with mock.patch.object(self.module, "_named_exploration_bundle", return_value=False), \
+                    mock.patch.object(self.module, "_large_return_record_bundle", return_value=False):
+                legacy = folder / "legacy.json"
+                self.module._write_prepared_record(None, legacy, {"x": [1, 2]})
+                self.assertEqual(legacy.read_bytes(), b'{\n  "x": [\n    1,\n    2\n  ]\n}\n')
+                with self.assertRaisesRegex(self.module.F1LiveError, "exceeds its bound"):
+                    self.module._write_prepared_record(None, folder / "legacy-large.json", value)
+
     def test_run_directory_must_be_direct_private_child(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

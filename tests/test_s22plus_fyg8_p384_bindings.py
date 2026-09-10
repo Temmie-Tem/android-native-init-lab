@@ -46,7 +46,8 @@ class Bindings(unittest.TestCase):
             self.assertIn(root/relative, paths)
         self.assertTrue({root/name for name in static.builder.source_receipts()} <= paths)
         self.assertTrue({root/name for name in candidate.adapter.SOURCE_PATHS.values()} <= paths)
-        self.assertNotIn(root/'workspace/public/src/scripts/revalidation/s22plus_native_roundtrip_owner_v1.py', paths)
+        self.assertIn(root/'workspace/public/src/scripts/revalidation/s22plus_native_roundtrip_owner_v1.py', paths)
+        self.assertIn(root/'docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md', paths)
         self.assertFalse(candidate.observer.audit_binding()['live_authorized'])
 
     def test_no_operator_plan_command_is_admitted(self):

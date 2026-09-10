@@ -3617,9 +3617,11 @@ def _write_prepared_record(bundle: core.Bundle, path: Path, value: Any) -> None:
     # P365 also binds its new native ABI declarations in this preparation record.
     # Only the selected preparation record uses the existing 64-KiB writer bound;
     # journal records and all other campaign preparation limits stay unchanged.
+    # Full source closures can exceed that bound due to indentation alone.
+    # Keep every field and the byte limit; only these large preparations compact.
     limit = core.MAX_RESULT_RECORD if (_named_exploration_bundle(bundle) or _large_return_record_bundle(bundle)) else core.MAX_RECORD
     try:
-        core._write_exclusive_bounded(path, value, limit)
+        core._write_exclusive_bounded(path, value, limit, compact=limit == core.MAX_RESULT_RECORD)
     except core.F1V2Error as exc:
         raise F1LiveError(str(exc)) from exc
 
@@ -9490,9 +9492,11 @@ class _P375ObserverSession(_P363ObserverSession):
     native_transaction: Any = None
 
     def _native_before_control(self, request, descriptor):
-        if self.namespace == "p383":
+        if self.native_transaction is None and (self.namespace == "p383" or self.native_previous is not None):
+            raise F1LiveError("native CONTROL requires its selected transaction")
+        if self.native_transaction is not None:
             native_roundtrip.require_research_time(sys.modules[__name__], self.native_transaction)
-        if self.namespace == "p383" and self.native_previous is not None:
+        if self.native_previous is not None:
             for field in ("kernel_boot_identity_sha256", "nonce_sha256"):
                 if request.get(field) == self.native_previous.get(field):
                     raise F1LiveError("second native arrival freshness is unproved")

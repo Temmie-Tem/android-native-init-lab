@@ -58,6 +58,12 @@ class Receipt(_ReceiptFixture):
         session.auth_key = KEY; session.auth_key_sha256 = KEY_SHA256
         session.auth_runtime = self.runtime; session.qualification_observer = self.observer
         session.root_console_plan_value = self.plan; session.root_console_plan_receipt = self.plan_receipt
+        if live.native_roundtrip.selected(self.prepared.bundle):
+            session.native_transaction = live.PreparedRun(self.prepared.root,
+                self.prepared.native_parent or self.run_dir, self.prepared.bundle,
+                self.prepared.prepared, self.prepared.private_target)
+            session.native_previous = (live.native_roundtrip.native_health(live, session.native_transaction)
+                                       if self.prepared.native_parent is not None else None)
         session.qualification = session.qualification_error = session.protocol_error = None
         session.control_intent_receipt = session.pre_control_lane = None
         session.proof_key = self.variant.proof_key
@@ -84,7 +90,7 @@ class Receipt(_ReceiptFixture):
             except ProcessLookupError: pass
             process.communicate(timeout=3)
         result, error = session.qualification, session.qualification_error
-        if error is not None and self.case != 'hud-wire-corrupt':
+        if error is not None and self.case not in ('hud-wire-corrupt', 'bad-health', 'same-boot', 'same-nonce'):
             raise AssertionError('unexpected qualification failure') from error
         audit = result.sessions[0].session.audit if result else error.failed_audit
         self.capture_path = writer.finalize(returncode=0).receipt_path

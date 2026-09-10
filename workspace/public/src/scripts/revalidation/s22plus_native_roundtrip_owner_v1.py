@@ -1,11 +1,11 @@
-"""P383-only first native baseline qualification inside the existing F1 owner.
+"""Explicitly scoped native roundtrip qualifications in the existing F1 owner.
 
 The ordinary journal owns N installation and A cleanup. A linked immutable
 restoration record owns the single exceptional same-N delivery. Recovery never
 calls finish(), creates a new native arrival, or transmits N. No registry claim
 is released. All calls execute under the parent's existing target-session lease.
 """
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 import hashlib
 import os
@@ -23,8 +23,42 @@ STOP = 'native-roundtrip-stop.json'
 CLAIM = 'workspace/private/device-action/s22plus-native-roundtrip-first-v1.json'
 
 
+@dataclass(frozen=True)
+class Profile:
+    namespace: str
+    run_id: str
+    schema: str
+    policy: str
+    claim: str
+    arrival_seconds: int
+
+
+FIRST = Profile('p383', 'c383f1e0a90b5e6d7c8a9b0c0d2e3f0b', SCHEMA, POLICY, CLAIM, 600)
+FOLLOWUP = Profile('p384', 'c384f1e0a90b5e6d7c8a9b0c1d2e3f0b',
+    's22plus-native-roundtrip-followup-v2',
+    'docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md',
+    'workspace/private/device-action/s22plus-native-roundtrip-followup-v2.json', 60)
+FOLLOWUP_MANIFEST = 's22plus-fyg8-p384-native-roundtrip-v2-ready-1'
+FOLLOWUP_AP = dict(size=31150121, sha256='4845ee93971bafcd73042128eeeae676715de9ede4a306d15a21e9db7c5a7d5c')
+FOLLOWUP_MEMBER = dict(name='boot.img.lz4', size=31141009,
+    sha256='9ba1097d6a1b6d0f3ab774737909c426d7630c87d0e76bb00f82f737979dc802')
+FOLLOWUP_ANDROID = dict(size=23367721, sha256='d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56')
+FOLLOWUP_TARGET = dict(model='SM-S906N', device='g0q', firmware_incremental='S906NKSS7FYG8')
+
+
+def profile(bundle):
+    run_id = bundle.manifest.get('observation', {}).get('acceptance', {}).get('run_id')
+    if bundle.manifest.get('manifest_id') == FOLLOWUP_MANIFEST:
+        if run_id != FOLLOWUP.run_id:
+            raise ValueError('followup manifest requires its exact native candidate')
+        return FOLLOWUP
+    if run_id == FIRST.run_id:
+        return FIRST
+    return None
+
+
 def selected(bundle):
-    return bundle.manifest.get('observation', {}).get('acceptance', {}).get('run_id') == 'c383f1e0a90b5e6d7c8a9b0c0d2e3f0b'
+    return profile(bundle) is not None
 
 
 def android_identity(bundle):
@@ -48,6 +82,8 @@ def android_identity(bundle):
 
 def plan(bundle, android):
     """Validate the sealed A identity without post-consumption artifact reads."""
+    chosen = profile(bundle)
+    if chosen is None: raise ValueError('no native roundtrip profile was selected')
     if (type(android) is not dict or set(android) != {'path', 'size', 'sha256', 'member'}
             or core.json_sha256({k:v for k,v in android.items() if k != 'member'})
                 != core.json_sha256(bundle.receipt['rollback_ap'])):
@@ -62,13 +98,22 @@ def plan(bundle, android):
     if (bundle.receipt['candidate_ap']['sha256'] == android['sha256']
             or bundle.receipt['candidate_ap']['member']['sha256'] == android['member']['sha256']):
         raise ValueError('native candidate and Android fallback must differ')
-    return dict(schema=SCHEMA, policy=POLICY,
+    if chosen == FOLLOWUP:
+        native = bundle.receipt['candidate_ap']
+        if (core.json_sha256({k:native.get(k) for k in FOLLOWUP_AP}) != core.json_sha256(FOLLOWUP_AP)
+                or core.json_sha256(native.get('member')) != core.json_sha256(FOLLOWUP_MEMBER)
+                or core.json_sha256({k:android.get(k) for k in FOLLOWUP_ANDROID}) != core.json_sha256(FOLLOWUP_ANDROID)
+                or {k:bundle.profile.get('target',{}).get(k) for k in FOLLOWUP_TARGET} != FOLLOWUP_TARGET
+                or type(bundle.manifest['observation'].get('timeout_sec')) is not int
+                or bundle.manifest['observation']['timeout_sec'] != 60):
+            raise ValueError('followup fixed target, N/A or arrival budget differs')
+    return dict(schema=chosen.schema, policy=chosen.policy,
         roles=['native-install', 'native-restore', 'android-cleanup'],
         effect_limit_per_role=1, native_arrivals=2, control_limit_per_arrival=1,
         release_installation_claim=False, native_health_schema=health.SCHEMA,
         native_health_command_sha256=health.digest(health.COMMAND_BODY),
         native=bundle.receipt['candidate_ap'], android=android,
-        arrival_budget_seconds=600, total_research_budget_seconds=1800,
+        arrival_budget_seconds=chosen.arrival_seconds, total_research_budget_seconds=1800,
         recovery='one-exact-attended-android-fallback')
 
 
@@ -88,7 +133,7 @@ def bound_plan(prepared):
 
 def primary(live, prepared):
     if not selected(prepared.bundle) or prepared.native_parent is not None:
-        raise live.F1LiveError('roundtrip requires its primary P383 run')
+        raise live.F1LiveError('roundtrip requires its selected primary run')
     return bound_plan(prepared)
 
 
@@ -99,30 +144,31 @@ def child(live, prepared):
 
 
 def claim_value(prepared):
-    return dict(schema=SCHEMA, run_dir=str(prepared.run_dir),
+    return dict(schema=profile(prepared.bundle).schema, run_dir=str(prepared.run_dir),
                 approval_binding_sha256=prepared.binding_sha256)
 
 
 def preflight(live, prepared):
     primary(live, prepared)
-    path = prepared.root/CLAIM
+    path = prepared.root/profile(prepared.bundle).claim
     if path.exists() or path.is_symlink():
-        raise live.F1LiveError('first-roundtrip exception budget already consumed')
+        raise live.F1LiveError('selected roundtrip exception budget already consumed')
 
 
 def consume(live, prepared):
     # Called immediately before the first ordinary candidate attempt intent.
     preflight(live, prepared)
-    path = prepared.root/CLAIM
+    chosen = profile(prepared.bundle)
+    path = prepared.root/chosen.claim
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     core._write_exclusive(path, dict(claim_value(prepared),
-        host_boot_sha256=live.p383_return_host.host_boot_sha256(),
+        host_boot_sha256=live.RETURN_HOSTS[chosen.namespace].host_boot_sha256(),
         created_monotonic_ns=time.monotonic_ns()))
 
 
 def require_claim(live, prepared, *, require_owner=True):
     primary(live, prepared)
-    record = live._read_json(prepared.root/CLAIM, 'native roundtrip claim')
+    record = live._read_json(prepared.root/profile(prepared.bundle).claim, 'native roundtrip claim')
     if (set(record) != set(claim_value(prepared)) | {'host_boot_sha256', 'created_monotonic_ns'}
             or any(record.get(k) != v for k, v in claim_value(prepared).items())
             or type(record.get('created_monotonic_ns')) is not int
@@ -141,8 +187,9 @@ def require_claim(live, prepared, *, require_owner=True):
 
 def require_research_time(live, prepared):
     require_claim(live, prepared)
-    record = live._read_json(prepared.root/CLAIM, 'native roundtrip claim')
-    if (record['host_boot_sha256'] != live.p383_return_host.host_boot_sha256()
+    chosen = profile(prepared.bundle)
+    record = live._read_json(prepared.root/chosen.claim, 'native roundtrip claim')
+    if (record['host_boot_sha256'] != live.RETURN_HOSTS[chosen.namespace].host_boot_sha256()
             or not record['created_monotonic_ns'] <= time.monotonic_ns()
                 <= record['created_monotonic_ns'] + 1800 * 1_000_000_000
             or os.path.lexists(prepared.run_dir/STOP)):
@@ -152,7 +199,7 @@ def require_research_time(live, prepared):
 def stop(live, prepared, reason):
     path = prepared.run_dir/STOP
     if not path.exists() and not path.is_symlink():
-        core._write_exclusive(path, dict(schema=SCHEMA,
+        core._write_exclusive(path, dict(schema=profile(prepared.bundle).schema,
             approval_binding_sha256=prepared.binding_sha256,
             reason=reason, native_replay_forbidden=True,
             host_monotonic_ns=time.monotonic_ns()))
@@ -176,7 +223,8 @@ def native_health(live, prepared, previous=None):
     shell = live._shell_definition(prepared.bundle)
     codec = live._open_header_initial_observer_module(shell.runtime, shell.observer,
                                                      'native-roundtrip-replay')
-    return health.replay(shell.observer, codec, rx,
+    replay = health.replay_local if profile(prepared.bundle) == FOLLOWUP else health.replay
+    return replay(shell.observer, codec, rx,
         bytes.fromhex(value['session_tx_hex'][0]), key,
         arrival=2 if prepared.native_parent is not None else 1, previous=previous)
 
@@ -207,7 +255,7 @@ def restore_intent(live, prepared, endpoint, first):
     if endpoint.arrival_receipt is None:
         raise live.F1LiveError('restoration requires a current exact Download receipt')
     live._read_native_download_arrival(prepared, endpoint.arrival_receipt)
-    value = dict(schema=SCHEMA, kind='native-restore', attempt=1,
+    value = dict(schema=profile(prepared.bundle).schema, kind='native-restore', attempt=1,
         prefix='native-restore-attempt-01', approval_binding_sha256=prepared.binding_sha256,
         parent_run_dir=str(prepared.run_dir), arrival=2,
         artifact=prepared.bundle.receipt['candidate_ap'], first_native_health=first,
@@ -222,7 +270,7 @@ def restore_intent(live, prepared, endpoint, first):
 def read_restore_intent(live, parent):
     arrival = child(live, parent)
     value = live._read_json(arrival.run_dir/INTENT, 'native restoration intent')
-    expected = dict(schema=SCHEMA, kind='native-restore', attempt=1,
+    expected = dict(schema=profile(parent.bundle).schema, kind='native-restore', attempt=1,
         prefix='native-restore-attempt-01', approval_binding_sha256=parent.binding_sha256,
         parent_run_dir=str(parent.run_dir), arrival=2,
         artifact=parent.bundle.receipt['candidate_ap'],
@@ -233,7 +281,7 @@ def read_restore_intent(live, parent):
             or type(value['created_monotonic_ns']) is not int):
         raise live.F1LiveError('restoration intent no longer binds its first arrival')
     endpoint = live._read_native_download_arrival(parent, value['restoration_download'])
-    claim = live._read_json(parent.root/CLAIM, 'native roundtrip claim')
+    claim = live._read_json(parent.root/profile(parent.bundle).claim, 'native roundtrip claim')
     if (value['endpoint_identity_sha256'] != endpoint['endpoint']['identity_sha256']
             or not claim['created_monotonic_ns'] <= expected['first_download']['record']['closed_monotonic_ns']
                 <= endpoint['observed_monotonic_ns'] <= value['created_monotonic_ns']
@@ -260,7 +308,7 @@ def validate_restore_arm(live, arrival, endpoint, attempt, prefix):
         raise live.F1LiveError('native restoration durable arm differs or is consumed')
     # Invocation marker survives a cut before or during backend delivery.
     core._write_exclusive(arrival.run_dir/'native-restore-delivery.json',
-        dict(schema=SCHEMA, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')))
+        dict(schema=profile(parent.bundle).schema, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')))
 
 
 def restoration_departure(live, arrival):
@@ -271,7 +319,7 @@ def restoration_departure(live, arrival):
     require_research_time(live, parent)
     intent = read_restore_intent(live, parent)
     delivery = live._read_json(arrival.run_dir/'native-restore-delivery.json', 'restoration delivery')
-    if delivery != dict(schema=SCHEMA, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')):
+    if delivery != dict(schema=profile(parent.bundle).schema, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')):
         raise live.F1LiveError('restoration departure delivery no longer binds its intent')
     result = live._validate_transfer_result(arrival, 'native-restore', 1)
     if result is None or result['classification'] != 'odin_transfer_completed':
@@ -317,7 +365,7 @@ def finish(live, prepared, backend, journal, endpoint_dir, lease):
         stop(live, prepared, 'second-native-download-unproved')
     else:
         core._write_exclusive(prepared.run_dir/'native-roundtrip-proof.json',
-            dict(schema=SCHEMA, first=first, second=second,
+            dict(schema=profile(prepared.bundle).schema, first=first, second=second,
                  restoration=live._receipt(arrival.run_dir/'native-restore-attempt-01.result.json', 'restoration result')))
     # The arrival-2 ticket belongs to its own endpoint lease. Re-observe the
     # exact current Download under the parent's still-held lease before A.
@@ -335,7 +383,7 @@ def recovery_endpoint(live, prepared, backend, endpoint_dir, lease):
     if not completed_native:
         stop(live, prepared, 'interrupted-roundtrip-recovery-only')
     # Never reuse a cached arrival-1 endpoint after a restoration intent/cut.
-    print('P383 research stopped. Enter physical Download for the one preapproved Android fallback.',
+    print(profile(prepared.bundle).namespace.upper()+' research stopped. Enter physical Download for the one preapproved Android fallback.',
           file=live.sys.stderr, flush=True)
     return backend.wait_download(prepared, endpoint_dir, lease, live.ROLLBACK_WAIT_SEC)
 
@@ -345,7 +393,7 @@ def projection(live, prepared):
     arrival = child(live, prepared)
     role_paths = [prepared.run_dir/'candidate-attempt-01.start.json',
                   arrival.run_dir/INTENT, prepared.run_dir/'rollback-attempt-01.start.json']
-    value = dict(schema=SCHEMA, proved=False, research_stopped=os.path.lexists(prepared.run_dir/STOP),
+    value = dict(schema=profile(prepared.bundle).schema, proved=False, research_stopped=os.path.lexists(prepared.run_dir/STOP),
         role_timeline=[dict(role=role,
             intent=live._receipt(path, 'roundtrip role intent') if path.exists() else None,
             result=live._receipt(path.with_name(path.name.replace('.start.', '.result.')), 'roundtrip role result')
@@ -358,7 +406,7 @@ def projection(live, prepared):
     require_claim(live, prepared, require_owner=False)
     read_restore_intent(live, prepared)
     delivery = live._read_json(arrival.run_dir/'native-restore-delivery.json', 'restoration delivery')
-    if delivery != dict(schema=SCHEMA, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')):
+    if delivery != dict(schema=profile(prepared.bundle).schema, intent=live._receipt(arrival.run_dir/INTENT, 'restoration intent')):
         raise live.F1LiveError('restoration delivery no longer binds its intent')
     for context, kind in ((prepared, 'candidate'), (arrival, 'native-restore')):
         result = live._validate_transfer_result(context, kind, 1)
@@ -367,7 +415,7 @@ def projection(live, prepared):
     first = native_health(live, prepared)
     second = native_health(live, arrival, first)
     proof = live._read_json(proof_path, 'native roundtrip proof')
-    if (proof != dict(schema=SCHEMA, first=first, second=second,
+    if (proof != dict(schema=profile(prepared.bundle).schema, first=first, second=second,
             restoration=live._receipt(arrival.run_dir/'native-restore-attempt-01.result.json', 'restoration result'))
             or not all(live._p363_return_success(p, live._state(p)) for p in (prepared, arrival))):
         raise live.F1LiveError('native roundtrip retained proof differs')
