@@ -72,7 +72,14 @@ and [failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md):
   verified recovery continuation. Second kernel/PID1 progress remains an evidence
   gap rather than a confirmed boot defect.
 
-This documentation unit changes no device authority, consumed run or runtime.
+The [phase-1 refactoring preparation](docs/plans/S22PLUS_FYG8_REFACTOR_PHASE1_PREPARATION_2026-09-10.md)
+now maps the latest native generation, host observation and recovery structure.
+Its proposed order is behavior-preserving native source consolidation, then a
+separately reviewed display/console lifetime change. The empty second-arrival
+observation context is a concrete host investigation target; its timing failure
+still needs reproduction. Broad F1/evidence rewrites and other-target changes
+are deferred. This H0 assessment is complete; implementation and qualification
+remain pending. No device authority, consumed run or runtime is changed.
 
 **v0.1.2-rc.4 / P381** is consumed and CLOSED/19 with exact rollback and final
 rooted FYG8/original health complete. All six functional qualifications and three
