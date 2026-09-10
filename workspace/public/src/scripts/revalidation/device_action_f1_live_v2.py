@@ -9322,7 +9322,7 @@ class _P345ObserverSession(_P331ObserverSession):
             ready = proof.get("root_ready") or [None] * 8
             plan_value = getattr(self,"root_console_plan_value",None)
             command_rows=proof.get("commands") if type(proof.get("commands")) is list else []
-            plan_rows=command_rows[len(self.qualification_observer.QUALIFICATION_COMMANDS):]
+            plan_rows=_root_operator_plan_rows(self.namespace, proof)
             execution=ROOT_CONSOLE_PLAN_OWNERS[self.namespace].execution_projection(plan_value,plan_rows)
             value.update(command_count=proof.get("command_count",0),
                 request_count=proof.get("request_count",0),
@@ -9596,6 +9596,19 @@ P375_PROOF_FIELDS = ("qualification_complete", "pid1_framed_exec_proof",
 
 
 ROOT_CONSOLE_PLAN_OWNERS={"p375":p375_console_owner,"p376":p376_console_owner,"p377":p377_console_owner,"p378":p378_console_owner,"p379":p379_console_owner,"p380":p380_console_owner,"p381":p381_console_owner,"p382":p382_console_owner,"p383":p383_console_owner}
+
+for _prefix, _variant in typed_evidence.SHELL_VARIANTS.items():
+    if _variant.local_display:
+        RETURN_HOSTS[_prefix] = _variant.declaration.return_host
+        ROOT_CONSOLE_PLAN_OWNERS[_prefix] = _variant.declaration.console_owner
+
+
+def _root_operator_plan_rows(prefix, proof):
+    observer = typed_evidence.SHELL_VARIANTS[prefix].observer
+    if hasattr(observer, "operator_plan_rows"):
+        return observer.operator_plan_rows(proof)
+    rows = proof.get("commands") if type(proof.get("commands")) is list else []
+    return rows[len(observer.QUALIFICATION_COMMANDS):]
 
 
 def _root_console_proof_fields(prefix):
@@ -9990,11 +10003,8 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             require(stored==plan_receipt,"root console plan receipt differs")
             require(value.get("caller_selected_command") is bool(plan_value["commands"]),
                 "root console caller-selected projection differs")
-            commands=proof.get("commands") if type(proof.get("commands")) is list else []
-            fixed=len(shell.observer.QUALIFICATION_COMMANDS)
             try:
-                execution=owner.execution_projection(plan_value,
-                    commands[fixed:] if len(commands)>=fixed else [])
+                execution=owner.execution_projection(plan_value, _root_operator_plan_rows(shell.prefix, proof))
             except owner.ConsolePlanError as exc:
                 raise F1LiveError("P375 raw command plan join failed") from exc
             require(value.get(shell.prefix+"_plan_execution")==execution,

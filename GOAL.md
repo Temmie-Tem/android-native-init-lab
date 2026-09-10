@@ -13,6 +13,19 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+The current H0 unit is **v0.2.0-rc.2 / P384 local-display adoption**, following
+the completed component refactor. It connects the direct local sources, fresh
+candidate identity, authenticated observer and ordinary one-N/one-A F1 owner.
+ARM64 A/B init/renderer/AP builds and actual AP decoding pass. The new owner
+passes real generated-C/raw-reopen tests for optional HUD success/failure/skip,
+post-observation recovery without replay and corrupt wire NO_PROOF with rollback.
+Source binding includes dynamically loaded image and codec dependencies.
+See the [adoption contract](docs/operations/S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_V1.md)
+and [H0 report](docs/reports/S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_H0_2026-09-10.md).
+This candidate has no device grant, live prepared run or public READY activation.
+It does not renew P383's consumed same-N restoration exception; a future
+native-to-native experiment still requires its own reviewed scope and authority.
+
 **Functional version v0.1.2 — gauge HUD and lossless bounded console output**
 maps to the identical successful **v0.1.2-rc.5 / run-001 / P382** artifacts.
 The attended run is consumed and CLOSED/19 with

@@ -5,6 +5,10 @@
 [1B 구현·검증 결과](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_REFACTOR_1B_H0_2026-09-10.md),
 [1C 관찰기 결과](../reports/S22PLUS_FYG8_LOCAL_DISPLAY_OBSERVER_1C_H0_2026-09-10.md),
 [host arrival 수정 결과](../reports/S22PLUS_FYG8_RESTORATION_ARRIVAL_H0_2026-09-10.md).
+후속 P384/v0.2.0-rc.2의 후보 통합은
+[별도 H0 adoption 범위](../operations/S22PLUS_FYG8_LOCAL_DISPLAY_ADOPTION_V1.md)로
+진행했다. 준비 단계의 새 후보 미할당 조건은 그 준비 범위에 한정된다.
+새 통합도 실기 실행이나 소비된 P383 예외 재사용을 활성화하지 않는다.
 대상: SM-S906N / g0q / S906NKSS7FYG8.
 점검 기준: 문서 커밋 `7dfe735cfe` 시점의 현재 소스와 소비된 P383 실행 증거.
 
