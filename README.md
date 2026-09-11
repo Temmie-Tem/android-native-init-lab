@@ -90,6 +90,8 @@ evidence-bounded overview.
 - **Galaxy A90 5G (`SM-A908N`)** — custom native PID 1, ACM/NCM, native Wi-Fi
   and audio, plus bounded Debian PID 1/SSH/display results. The current unit is
   H41 rollback/health closure; the isolated-Debian server work is paused.
+  Memory-boundary research on its SM8150 runs as a separate derived project,
+  [soc-memory-boundary-lab](https://github.com/Temmie-Tem/soc-memory-boundary-lab).
 - **Galaxy S22+ (`SM-S906N`, FYG8)** — the authenticated native-PID1 USB path
   now supports bounded read-only shell work through P348. The P353-P361 display
   series then reached repeated cached-buffer framebuffer selection with clean

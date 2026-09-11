@@ -74,6 +74,9 @@ userspace**. 벤더 드라이버는 계속 동작하고, Android 프레임워크
 - **Galaxy A90 5G (`SM-A908N`)**: custom native PID 1, ACM/NCM, native Wi-Fi와
   audio, 그리고 bounded Debian PID 1/SSH/display 결과가 있습니다. 현재 작업은
   H41 rollback/health 종결이며 isolated-Debian 서버 작업은 일시 중지돼 있습니다.
+  이 기기 SM8150의 메모리 경계 연구는 별도 파생 프로젝트
+  [soc-memory-boundary-lab](https://github.com/Temmie-Tem/soc-memory-boundary-lab)에서
+  진행합니다.
 - **Galaxy S22+ (`SM-S906N`, FYG8)**: 인증된 native-PID1 USB 경로는 P348까지
   제한된 읽기 전용 셸 작업을 뒷받침합니다. 이어진 P353~P361 디스플레이 시리즈는
   cached 버퍼의 반복 framebuffer 선택에 도달했고, 깨끗한 출력은 운영자가 관측하고
