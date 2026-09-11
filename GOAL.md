@@ -14,17 +14,21 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 The [P385 exit / P386 F1 preparation](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md)
-has completed host preparation with current source-bound independent review.
-P385's current host review is refreshed while its historical review, 112 native
-inputs, admission and consumed installation remain intact. A fresh request
-permits only one exact Android exit reservation within 600 seconds after a
-separately returned approval. Its expired native boot selects the existing
-attended physical-Download origin; no native AUTH or installation is proposed.
-P386's ordinary thirty-minute observation is adopted in the target contract,
-and its READY manifest passed the actual offline consumer. No device contact,
-grant, operation reservation or connected P386 preparation occurred. The next
-device step needs actual attendance and the exact returned P385 request approval;
-P386 connected preparation follows exact Android closure and current health.
+has completed P385's exact attended Android exit: **ANDROID_CLOSED**, one A,
+zero N, `recovery_required=false`, F1 owner released. Final rooted FYG8/original
+partition hashes, same-boot target continuity and Download absence passed.
+The first two health attempts stopped because the owner incorrectly required
+a clean pre-candidate retained-log baseline during final recovery health.
+A narrowly reviewed final-health producer/reader repair passed twelve tests;
+fresh read-only health then closed the completed A without another transfer.
+The original request, grant, A evidence and both D0 STOP results are unchanged;
+`research_stopped=true` remains. All 472 pre-repair files were verified unchanged.
+P385's historical native qualification, admission and consumed installation
+remain intact. Its consumed host review is not repinned after this repair.
+P386's ordinary thirty-minute observation remains host-qualified; its execution
+closure excludes the repaired native-baseline owner. Connected preparation and
+its separately returned ordinary F1 approval remain pending. The stopped P385
+grant supplies no P386 authority or further native role.
 
 The [resident adoption H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md)
 unit is complete with **PASS_RESIDENT_ADOPTION_H0 / independent PASS_GO for H0 only**.

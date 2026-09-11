@@ -44,6 +44,7 @@ PHASES = {'bootstrap-first':'pair-control', 'native-start':'control', 'native-fi
           'android-start':None, 'android-exit':None}
 TRANSFER_NATIVE, TRANSFER_ANDROID = 'native-baseline', 'baseline-android'
 STOP = 'research-stop.json'
+FINAL_HEALTH_SCHEMA = 's22plus-native-baseline-android-final-health-v1'
 _READ_CACHE = ContextVar('native_baseline_read_cache', default=None)
 
 
@@ -460,12 +461,107 @@ def initial_departure(live, prepared):
 
 def android_health(live, operation, directory):
     value, _ = read(directory/'result.json')
-    live.d0.validate_result(value, operation.bundle, directory)
+    if value.get('schema') == FINAL_HEALTH_SCHEMA:
+        validate_android_final_health(live, operation, directory, value)
+    else:
+        live.d0.validate_result(value, operation.bundle, directory)
     target = value['target_evidence']['targets']
     require(len(target) == 1 and target[0]['adb_serial_sha256'] == hashlib.sha256(operation.request['target']['serial'].encode()).hexdigest()
             and target[0]['usb_topology_sha256'] == hashlib.sha256(operation.request['target']['topology'].encode()).hexdigest(),
             'baseline Android health belongs to another target')
     return value
+
+
+def final_health_target(live, operation, inventory, topology):
+    """Reopen the fixed D0 client's exact-target inventory selection."""
+    target = operation.bundle.profile['target']
+    metadata = {key+':'+re.sub(r'[^A-Za-z0-9._]', '_', target[key]) for key in ('model','device')}
+    rows = [line.split() for line in inventory.splitlines()
+            if line and not line.startswith('List of devices attached')]
+    require(all(len(row) >= 2 for row in rows), 'final health inventory row is malformed')
+    matches = [row[0] for row in rows if row[1] == 'device' and metadata <= set(row[2:])]
+    require(len(matches) == 1 and matches[0] == operation.request['target']['serial']
+            and live.d0.SERIAL_RE.fullmatch(matches[0])
+            and live.d0.DEVPATH_RE.fullmatch(topology)
+            and topology == operation.request['target']['topology'], 'final health exact target differs')
+    return len(rows)
+
+
+def final_health_summary(live, operation, directory, captures, usb):
+    """Derive health from seven fresh raw commands, with the root read bracketed."""
+    labels = ('adb-devices','adb-get-devpath','adb-read-only-shell','adb-read-only-shell',
+              'adb-devices','adb-get-devpath','adb-read-only-shell')
+    require(type(captures) is list and len(captures) == len(labels), 'final health raw bracket is incomplete')
+    texts = []; first = None
+    for index, (receipt, label) in enumerate(zip(captures, labels)):
+        path = verify_pin(operation.root, receipt)
+        match = re.fullmatch(r'([0-9]{4})-'+label+r'\.capture\.json', path.name)
+        require(path.parent == directory/'raw-adb' and match is not None, 'final health raw command/path differs')
+        ordinal = int(match.group(1))
+        if first is None: first = ordinal
+        require(ordinal == first+index, 'final health raw command order differs')
+        handle = live.d0.raw_capture.load_handle(path)
+        texts.append(live.d0.raw_capture.decode_success_stdout(handle, maximum=live.d0.MAX_TEXT_OUTPUT))
+    core._exact(usb, {'initial','final'}, 'final health USB bracket')
+    for name, snapshot in usb.items(): live.d0._validate_usb_snapshot(snapshot, 'final health USB '+name)
+    require(final_health_target(live, operation, texts[0], texts[1])
+            == final_health_target(live, operation, texts[4], texts[5]), 'final health inventory changed')
+    properties = [live.d0._parse_key_values(texts[index], live.d0.AdbReadOnlyClient.PROPERTY_FIELDS,
+                  'final Android properties') for index in (2,6)]
+    require(same(*properties), 'final Android boot/properties changed across root read')
+    root = live.d0._parse_key_values(texts[3], {'root','boot','vendor_boot','dtbo','recovery'}, 'final root health')
+    health = live.d0.validate_health(operation.bundle, properties[0], root, True, 'final_health')
+    return dict(health=health, target_evidence=live.d0._target_evidence(operation.bundle, properties[0],
+                operation.request['target']['serial'], operation.request['target']['topology']))
+
+
+def validate_android_final_health(live, operation, directory, value):
+    prepared = phase_prepared(live, operation, 'android-exit')
+    completed = completed_android_transfer(live, operation, prepared)
+    core._exact(value, {'schema','operation','phase','completed_android','host_tool','source',
+        'captures','usb','health','target_evidence'}, 'native final Android health')
+    require(value['schema'] == FINAL_HEALTH_SCHEMA and same(value['operation'], operation.receipt)
+            and same(value['phase'], pin(prepared.run_dir/'phase.json'))
+            and same(value['completed_android'], completed)
+            and directory.parent == prepared.run_dir
+            and (directory.name == 'health' or re.fullmatch(r'health-attempt-[0-9]{3}', directory.name)),
+            'final Android health operation/phase/A binding differs')
+    source = verify_pin(operation.root, value['source'])
+    require(source == directory/'host-health-source.py', 'final health source snapshot path differs')
+    live.d0._validate_host_tool(value['host_tool'])
+    expected = final_health_summary(live, operation, directory, value['captures'], value['usb'])
+    require(all(same(value[key], result) for key, result in expected.items()),
+            'final Android health cannot be rederived from raw bracket')
+    return value
+
+
+def collect_android_final_health(live, operation, backend, phase, directory, client):
+    completed = completed_android_transfer(live, operation, phase)
+    # Snapshot the repair producer used for this fresh read. Never repin the
+    # consumed request, transfer closure, failed D0 records or research stop.
+    source, _ = core._stable_read(Path(__file__), 'final health producer', core.MAX_JSON)
+    records._write_exclusive(directory/'host-health-source.py', source)
+    backend._wait_final_health(phase, client)
+    host_tool = client.receipt()
+    previous = set((directory/'raw-adb').glob('*.capture.json'))
+    download = operation.bundle.profile['target']['download']
+    usb = {'initial':live.d0.usb_snapshot(backend.usb_root, download)}
+    live.d0._validate_usb_snapshot(usb['initial'], 'final health initial USB')
+    serial = client.one_serial(); topology = client.topology(serial)
+    require(dict(serial=serial, topology=topology) == operation.request['target'], 'final health live target differs')
+    client.properties(serial)
+    client.root_health(serial)
+    final_serial = client.one_serial(); final_topology = client.topology(final_serial)
+    require(dict(serial=final_serial, topology=final_topology) == operation.request['target'], 'final health live target changed')
+    client.properties(final_serial)
+    usb['final'] = live.d0.usb_snapshot(backend.usb_root, download)
+    captures = [pin(path) for path in sorted(set((directory/'raw-adb').glob('*.capture.json'))-previous)]
+    summary = final_health_summary(live, operation, directory, captures, usb)
+    value = dict(schema=FINAL_HEALTH_SCHEMA, operation=operation.receipt, phase=pin(phase.run_dir/'phase.json'),
+        completed_android=completed, host_tool=host_tool, source=pin(directory/'host-health-source.py'),
+        captures=captures, usb=usb, **summary)
+    validate_android_final_health(live, operation, directory, value)
+    publish(directory/'result.json', value)
 
 
 def timely_return(live, prepared):
@@ -669,6 +765,7 @@ def collect_android(live, operation, backend, phase, *, final=False):
     directory = phase.run_dir/'health'
     if final:
         require(not os.path.lexists(phase.run_dir/'final-health-complete.json'), 'final Android health already complete')
+        completed_android_transfer(live, operation, phase)
         ordinal = 2
         while os.path.lexists(directory):
             directory = phase.run_dir/f'health-attempt-{ordinal:03d}'; ordinal += 1
@@ -678,13 +775,12 @@ def collect_android(live, operation, backend, phase, *, final=False):
     client = live.d0.adb_client_for_bundle(backend.adb, operation.bundle)
     client.bind_raw_capture_dir(directory)
     if final:
-        # Existing bounded rooted-Android return waiter. The full fixed D0 raw
-        # consumer below independently reopens the resulting health evidence.
-        backend._wait_final_health(phase, client)
-    require(client.one_serial() == operation.request['target']['serial']
-            and client.topology(operation.request['target']['serial']) == operation.request['target']['topology'],
-            'Android health live target differs')
-    live.d0.collect_connected(operation.bundle, directory, client, backend.usb_root)
+        collect_android_final_health(live, operation, backend, phase, directory, client)
+    else:
+        require(client.one_serial() == operation.request['target']['serial']
+                and client.topology(operation.request['target']['serial']) == operation.request['target']['topology'],
+                'Android health live target differs')
+        live.d0.collect_connected(operation.bundle, directory, client, backend.usb_root)
     result = android_health(live, operation, directory)
     if final:
         publish(phase.run_dir/'final-health-complete.json', dict(schema=SCHEMA, operation=operation.receipt,
@@ -772,8 +868,8 @@ def transfer(live, operation, backend, prepared, endpoint_dir, lease, kind):
     return outcome
 
 
-def android_terminal_value(live, operation):
-    prepared = phase_prepared(live, operation, 'android-exit')
+def completed_android_transfer(live, operation, prepared):
+    require(prepared.run_dir == operation.directory/'android-exit', 'completed A proof requires exact Android exit phase')
     result = live._validate_transfer_result(prepared, TRANSFER_ANDROID, 1)
     require(result is not None and result['classification'] == 'odin_transfer_completed', 'Android terminal lacks exact completed A')
     prefix = TRANSFER_ANDROID+'-attempt-01'
@@ -784,6 +880,12 @@ def android_terminal_value(live, operation):
     require(same(delivery, dict(schema=SCHEMA, intent=intent_pin))
             and same(intent,bound_role_value(operation,prepared,endpoint,TRANSFER_ANDROID)),
             'Android terminal role/delivery differs')
+    return pin(prepared.run_dir/(prefix+'.result.json'))
+
+
+def android_terminal_value(live, operation):
+    prepared = phase_prepared(live, operation, 'android-exit')
+    completed_android_transfer(live, operation, prepared)
     health_selector, _ = read(prepared.run_dir/'final-health-complete.json')
     core._exact(health_selector, {'schema','operation','result'}, 'baseline final health selection')
     health_path = verify_pin(operation.root, health_selector['result'])
