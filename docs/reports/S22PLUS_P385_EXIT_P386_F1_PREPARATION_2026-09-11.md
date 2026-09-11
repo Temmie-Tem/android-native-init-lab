@@ -1,6 +1,11 @@
 # S22+ P385 Android exit and P386 F1 preparation
 
-Result: **P385 ANDROID_CLOSED; recovery_required=false; research_stopped=true.**
+Latest result: **P386 preparation stopped after one ordinary reboot; separate
+late health proved healthy Android; the failed goal remains closed.**
+P386 connected preparation and F1 approval remain pending. The readiness
+correction below is independently qualified for future use only.
+
+P385 exit result: **ANDROID_CLOSED; recovery_required=false; research_stopped=true.**
 The separately returned exact approval consumed one attended Android A transfer
 and no native role. Fresh final health passed after an independently reviewed
 host repair, with no transfer replay. P386 has a READY manifest and no connected
@@ -70,6 +75,76 @@ Terminal SHA-256 is
 `h0-final-health-repair/`; `recovery-close-evidence.json` binds the final evidence.
 This close proves Android recovery health and grants no new native qualification,
 P386 execution or standing research session. A90 and S20+ received no commands.
+
+## Fresh P386 preparation and early-boot readiness correction
+
+The operator explicitly authorized a new preparation session with fixed health
+and, if needed, one attended ordinary Android reboot. The foreground capability's
+existing review had three stale references: shared F1 owner, common details and
+target contract. Independent comparison to the exact historical blobs at
+`8166b1942a` confirmed that the six other sources, eight named actions and six
+shared F1 interlock consumers were unchanged. A reviewed source refresh preceded
+the fresh goal; no old P385 grant was reused.
+
+Fresh exact Android health passed and matched the closed P385 exit's boot.
+Offline replay of its retained log under P386's acceptance rejected the evidence
+family, so the authorized ordinary reboot was needed for a new starting baseline.
+The existing goal owner sent that reboot once. The return inventory and topology
+matched the target; the last properties command succeeded with all nine fields,
+but `boot_completed` was empty while `bootanim=running`. The strict properties
+parser rejected that empty field before the existing return waiter could wait
+for boot completion. This was a parser/readiness-ordering defect; raw
+communication and the sole reboot dispatch completed successfully.
+
+The goal closed with D1 STOP and retained its pending intent. One existing
+read-only reconciliation then proved the changed boot, exact rooted FYG8/original
+hashes and Android health, and cleared pending recovery bookkeeping. Its result
+is `LATE_HEALTH_OBSERVED_GOAL_CLOSED`, with `action_proof=NOT_UPGRADED`.
+The original action remains failed and its goal remains closed. All fifty D1
+raw captures reopened successfully; there was one reboot dispatch and no second
+reboot, ADB reset, partition transfer or P386 preparation invocation.
+
+The bounded correction changes only the foreground return waiter and its policy
+description. Once exact serial/topology is online, one fixed nonroot
+`getprop sys.boot_completed` query treats successful empty/`0` as not yet ready,
+using the original 360-second deadline and one-second polling interval.
+Only `1` enters the unchanged strict property and final-health checks. Wrong
+topology, unexpected values and failed raw captures still stop. Starting D0,
+the shared property parser, root/hash criteria, intent ordering and interlocks
+are unchanged; no new action or replay path is introduced.
+
+Independent **PASS_GO, no findings** binds runner SHA-256
+`ec2d4c4af647427b68cdcf95321c26a28d7d4fcd697a62ad06d346616d53ff47`
+and policy SHA-256
+`d3d921b79cf2f4b54c4e0f36ed301d25c084038f4e8c030728647ff5c981264d`.
+All 25 tests passed in 1.885 seconds, including real raw empty/`0`/`1` progression,
+deadline exhaustion without premature health, unexpected value/transport/topology
+rejection and existing one-dispatch/interlock cases. Python compilation and diff
+checks passed. This H0 result does not upgrade the stopped live action or claim
+a second live reboot under the corrected observer.
+
+UTC publication timeline:
+
+| Time | Durable event | Meaning |
+| --- | --- | --- |
+| 2026-09-11 14:12:03.282334 | Ordinary-reboot command capture | One successful dispatch, no replay |
+| 2026-09-11 14:12:45.874363 | D1 STOP | Online early-boot properties rejected; goal closed and pending intent retained |
+| 2026-09-11 14:14:58.255784 | Read-only reconciliation result | Changed healthy boot observed; pending bookkeeping cleared; failed action not upgraded |
+
+Private evidence is under
+`workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/`.
+The used review (`c2947eaca844e9d881021dd83b3928d594415516b9e10a47f2a4d3573a888352`)
+and runner (`b29948a9ae308c0103022ac6ccc6c1d08188f5073acdf81a110ffe7e7dac3851`)
+were frozen before the correction. `d1-stop-close-evidence.json` binds the original
+grant/intent/STOP, successful raw dispatch, late health and closed goal;
+`qualification.json` binds the corrected source snapshots, review and tests.
+
+P386's 176 execution receipts still match. Its closure contains none of the
+foreground runner, policy or review files changed here, so its previous native
+and ordinary-F1 qualification remains unchanged. No F1 claim was consumed.
+The remaining connected preparation needs fresh operator continuation after
+this failed goal; its one-reboot allowance is already consumed. A90 and S20+
+received no commands.
 
 ## Host bindings prepared before the exit
 

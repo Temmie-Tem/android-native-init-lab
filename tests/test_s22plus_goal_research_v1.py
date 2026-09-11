@@ -46,6 +46,8 @@ class Client:
 
     def _shell(self, serial, command, *, root, timeout):
         self.calls.append(('shell', serial, command, root))
+        if command == 'getprop sys.boot_completed':
+            return '1'
         return 'fixture output'
 
     def _run(self, arguments, label, timeout=20):
@@ -162,6 +164,69 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(m.read(run / 'result.json')['after']['properties']['boot_id'], BOOT2)
         self.assertFalse(self.pending().exists())
 
+    def test_online_early_boot_readiness_through_real_adb_raw_consumer(self):
+        # The full properties response is invalid until the third readiness
+        # poll. This reproduces the observed successful-but-empty early boot
+        # property without relaxing the ordinary properties parser.
+        executable = self.root / 'fixture-adb'
+        counter = self.root / 'readiness-count'
+        props = self.client.properties(TARGET['serial'])
+        props['boot_id'] = BOOT2
+        health = self.client.root_health(TARGET['serial'])
+        executable.write_text(f'''#!{sys.executable}
+import sys
+from pathlib import Path
+args=sys.argv[1:];joined=' '.join(args);counter=Path({str(counter)!r})
+count=int(counter.read_text()) if counter.exists() else 0
+if args==['devices','-l']:print('List of devices attached\\nfixture-device device model:SM_S906N device:g0q')
+elif args[-1:]==['get-devpath']:print('usb:1-1')
+elif 'getprop sys.boot_completed' in joined and 'getprop ro.product.model' not in joined:
+ count+=1;counter.write_text(str(count));print(['','0','1'][min(count-1,2)])
+elif 'getprop ro.product.model' in joined:
+ props={props!r};props['boot_completed']='1' if count>=3 else ''
+ print(''.join(k+'='+v+'\\n' for k,v in props.items()),end='')
+elif 'sha256sum /dev/block/by-name/boot' in joined:print({''.join(k+'='+v+chr(10) for k,v in health.items())!r},end='')
+else:raise SystemExit(2)
+''')
+        executable.chmod(0o700)
+        client = m.d0.AdbReadOnlyClient(executable, expected_model='SM-S906N', expected_device='g0q')
+        run = self.root / 'return-raw'; run.mkdir(); client.bind_raw_capture_dir(run)
+        result = m.wait_return(client, TARGET, self.profile, BOOT1, sleep=lambda _seconds:None)
+        self.assertEqual(result['properties']['boot_id'], BOOT2)
+        self.assertTrue(result['health']['root_verified'])
+        self.assertEqual(counter.read_text(), '3')
+        outputs = []
+        for path in sorted((run/'raw-adb').glob('*.capture.json')):
+            handle = m.d0.raw_capture.load_handle(path)
+            outputs.append(m.d0.raw_capture.decode_success_stdout(handle, maximum=m.d0.MAX_TEXT_OUTPUT))
+        self.assertEqual([value for value in outputs if value in {'','0','1'}], ['', '0', '1'])
+        self.assertEqual(sum('boot_completed=1' in value for value in outputs), 2)
+
+    def test_unready_online_boot_keeps_original_deadline_without_health(self):
+        now = [0]
+        def sleep(seconds): now[0] += seconds
+        with patch.object(m, 'RETURN_SECONDS', 2), \
+                patch.object(self.client, '_shell', return_value=''), \
+                patch.object(self.client, 'properties', side_effect=AssertionError('premature health')) as props:
+            with self.assertRaisesRegex(m.ResearchError, 'bounded reboot return unproved'):
+                m.wait_return(self.client, TARGET, self.profile, BOOT1, clock=lambda:now[0], sleep=sleep)
+        props.assert_not_called()
+        self.assertEqual(now[0], 2)
+
+    def test_readiness_failure_or_wrong_topology_stops_before_health(self):
+        for value in ('unexpected', m.d0.D0Error('readiness transport failed')):
+            with self.subTest(value=type(value).__name__), \
+                    patch.object(self.client, '_shell', side_effect=value if isinstance(value, Exception) else None,
+                                 return_value=value) as ready, \
+                    patch.object(self.client, 'properties', side_effect=AssertionError('premature health')) as props:
+                with self.assertRaises((m.ResearchError,m.d0.D0Error)):
+                    m.wait_return(self.client, TARGET, self.profile, BOOT1)
+                self.assertEqual(ready.call_count, 1); props.assert_not_called()
+        with patch.object(self.client, 'topology', return_value='usb:9-9'), \
+                patch.object(self.client, '_shell') as ready, self.assertRaisesRegex(m.ResearchError, 'target drift'):
+            m.wait_return(self.client, TARGET, self.profile, BOOT1)
+        ready.assert_not_called()
+
     def test_uncertain_dispatch_blocks_effects_but_allows_readonly_lock(self):
         self.client.fail_reboot = True
         with self.assertRaises(m.d0.D0Error):
@@ -266,6 +331,9 @@ elif args == ['-s', 'fixture-device', 'reboot']:
     state.write_text(BOOT2_VALUE)
 elif len(args) == 4 and args[:3] == ['-s', 'fixture-device', 'shell']:
     command = shlex.split(args[3])[2]
+    if command == 'getprop sys.boot_completed':
+        print('1')
+        raise SystemExit(0)
     if "printf 'model='" in command:
         fields = dict(model='SM-S906N', device='g0q', bootloader='S906NKSS7FYG8', incremental='S906NKSS7FYG8', boot_completed='1', bootanim='stopped', verified_boot_state='orange', boot_id=state.read_text(), kernel_release='fixture')
     elif "printf 'root='" in command:

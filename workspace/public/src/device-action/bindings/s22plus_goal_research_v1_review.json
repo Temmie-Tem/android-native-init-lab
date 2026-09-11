@@ -10,48 +10,65 @@
     "usb-state"
   ],
   "assessment": [
-    "Exact P384 startup selects the existing strict fixed credential reader and retains the prepared identity comparison.",
-    "Actual factory and invalid-key/guard-start abort tests run; no candidate or V2 claim after failed startup.",
-    "Eight other foreground sources and all eight actions/interlocks are unchanged.",
-    "Old ABORTED approval and closed ordinary-reboot goal are not reused; fresh D0/approval remain required."
+    "Retained exact-target raw properties returned rc0/empty stderr with boot_completed empty and bootanim running.",
+    "Online return revalidates exact topology, then reads only fixed nonroot getprop sys.boot_completed.",
+    "Empty and 0 wait under the unchanged original 360-second deadline and one-second polling interval; 1 enters strict existing health.",
+    "Unexpected readiness values, malformed inventory, wrong target, failed captures and strict health failures still stop.",
+    "All 25 tests pass, including real raw readiness progression, deadline exhaustion and existing reboot/interlock coverage."
   ],
   "evidence": {
     "changed_roles": [
-      "f1_owner"
+      "policy",
+      "runner"
     ],
+    "incident": {
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/d1-stop-close-evidence.json",
+      "sha256": "9f08dff6e7a6d047825bed26d7ab3c0e7f958e562c979dc25e83e0c1dbb0c98f",
+      "size": 3063
+    },
     "independent_review": {
-      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-3/foreground-source-refresh-review.json",
-      "sha256": "3c10ae352962da7bd59fc0ca9d1a4302b67c4b7f761c281aa9480a03c92b9882",
-      "size": 1620
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/readiness-fix-independent-review.json",
+      "sha256": "75edd7731596cb4c8003660e4668545af898fba0801476cf2898b9a3a5e2f9ef",
+      "size": 3391
     },
     "previous_review": {
-      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.2/h0-roundtrip-v2-review-3/foreground-prior-review.json",
-      "sha256": "e2e7017426f9fb46bd77262dc4185b59c79c3bb0627674fef1075020dba463ba",
-      "size": 2582
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/foreground-used-review.json",
+      "sha256": "c2947eaca844e9d881021dd83b3928d594415516b9e10a47f2a4d3573a888352",
+      "size": 2983
+    },
+    "previous_runner": {
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/foreground-used-runner.py",
+      "sha256": "b29948a9ae308c0103022ac6ccc6c1d08188f5073acdf81a110ffe7e7dac3851",
+      "size": 15714
+    },
+    "tests": {
+      "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/readiness-fix-tests-final.stderr",
+      "sha256": "b6fcc7f44fb71e3cb7b1eb5ebad3ab6b90cbd451ddec28a535d0238f68e92a5c",
+      "size": 124
     },
     "unchanged_actions": 8,
-    "unchanged_sources": 8
+    "unchanged_sources": 7
   },
   "findings": [],
   "limitations": [
-    "H0 source-hash refresh only; no grant is opened, renewed or broadened.",
-    "Fresh target and boot checks remain required per action.",
-    "Historical health and consumed goals or candidates grant no replay or F1 authority."
+    "Future source-bound capability only; this review opens no grant and authorizes no device action.",
+    "The one dispatched reboot remains STOP with separately observed late health; no result promotion or replay.",
+    "The used goal remains closed; no additional reboot or failed-goal resumption is authorized."
   ],
-  "reviewed_at_utc": "2026-09-10T10:13:29.382643+00:00",
-  "reviewer": "independent-agent-native-refactor-review",
+  "reviewed_at_utc": "2026-09-11T14:22:56.014443+00:00",
+  "reviewer": "independent-agent-f1_preparation_review",
   "schema": "s22plus_goal_research_independent_review_v1",
-  "scope": "One-role foreground-goal source refresh after reviewed P384 startup credential-reader correction",
+  "scope": "Bounded successful early-boot readiness polling before unchanged strict return health",
   "sources": {
-    "common": "e79d39a44bce9f861f939de32051d25b2d6b1a4a34e2c976776669bab50d5fac",
+    "common": "e7ac73a4d79a1c82afe37dd6e2962df276d2b5e53642de3bee095f370f2110d1",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
-    "f1_owner": "fedf5e5afca59865a9144f3da8ece644033402ca9a456929df0e47fc7725bf2e",
-    "policy": "452cd135150f41e58888d29a18608c158eddfc669728cfd575a676144fbdafbd",
+    "f1_owner": "207e6205a7996d54ea40de7d6f3d7456b69229d825a87f7261909e29bb1482a8",
+    "policy": "d3d921b79cf2f4b54c4e0f36ed301d25c084038f4e8c030728647ff5c981264d",
     "profile": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "registry": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
-    "runner": "b29948a9ae308c0103022ac6ccc6c1d08188f5073acdf81a110ffe7e7dac3851",
-    "target": "4e3113eab170f3e9fb0871f525a473fe99db1ec475fe1df8c1b73fb540ab2d6c"
+    "runner": "ec2d4c4af647427b68cdcf95321c26a28d7d4fcd697a62ad06d346616d53ff47",
+    "target": "6dcf69cfb71db85a2b51b016394252d5accc346ae61e418051be5a5b8e0a9683"
   },
   "verdict": "PASS_GO"
 }

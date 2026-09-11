@@ -75,6 +75,11 @@ host interruption and blocks new ordinary F1/research effects. The observer
 waits at most 360 seconds for exact changed-boot health. Expected absent/offline
 ADB enumeration during this requested reboot is observed within that window;
 malformed/failed commands, unexpected identity or authorization state stop.
+Once the exact serial/topology is online, a successful fixed nonroot
+`getprop sys.boot_completed` read may return empty or `0` while booting; these
+values wait within the same original deadline and one-second polling interval.
+Only `1` enters the unchanged strict property and health checks. Any other
+readiness value or failed raw capture stops; readiness alone proves no health.
 Shell failures are not retried as ordinary boot settling.
 
 Normal completion publishes the result before clearing the pending marker.

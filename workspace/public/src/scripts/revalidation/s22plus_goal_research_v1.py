@@ -164,8 +164,9 @@ def wait_return(client, target, profile, old_boot, *, clock=time.monotonic, slee
     client._run = bounded_run
     try:
         while clock() < deadline:
-            # Expected offline/absence after our one reboot is the only polling
-            # exception. Failed commands, malformed inventory and wrong targets stop.
+            # Expected offline/absence and the fixed successful not-ready
+            # property below may settle after our one reboot. Failed commands,
+            # malformed inventory and wrong targets stop.
             text = client._run(['devices', '-l'], 'reboot return inventory', 10)
             rows = [line.split() for line in text.splitlines() if line and not line.startswith('List of devices attached')]
             require(all(len(row) >= 2 for row in rows), 'malformed return inventory')
@@ -175,13 +176,20 @@ def wait_return(client, target, profile, old_boot, *, clock=time.monotonic, slee
             if matches:
                 require(matches[0][1] in {'device', 'offline'}, 'unauthorized/unexpected return state')
                 if matches[0][1] == 'device':
-                    observed = observe(client, target, profile)
-                    props = observed['properties']
-                    if props['boot_completed'] == '1' and props['bootanim'] == 'stopped' and props['boot_id'] != old_boot:
-                        result = observe(client, target, profile, full=True)
-                        require(result['properties']['boot_id'] == props['boot_id'], 'boot changed during health')
-                        require(clock() <= deadline, 'return health exceeded bound')
-                        return result
+                    # ADB can be online before this property is set. Observe
+                    # that fixed readiness field within the original deadline
+                    # before invoking the unchanged strict health parser.
+                    require(client.topology(target['serial']) == target['topology'], 'target drift')
+                    ready = client._shell(target['serial'], 'getprop sys.boot_completed', root=False, timeout=20)
+                    require(ready in {'', '0', '1'}, 'unexpected boot readiness value')
+                    if ready == '1':
+                        observed = observe(client, target, profile)
+                        props = observed['properties']
+                        if props['boot_completed'] == '1' and props['bootanim'] == 'stopped' and props['boot_id'] != old_boot:
+                            result = observe(client, target, profile, full=True)
+                            require(result['properties']['boot_id'] == props['boot_id'], 'boot changed during health')
+                            require(clock() <= deadline, 'return health exceeded bound')
+                            return result
             sleep(1)
         raise ResearchError('bounded reboot return unproved; observe only, never replay')
     finally:

@@ -13,6 +13,19 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+P386's fresh connected-preparation task used **one ordinary Android reboot**.
+The D1 observer stopped when ADB was online but the successful property output
+still had empty `boot_completed` with a running boot animation. Separate fixed
+read-only reconciliation proved the changed healthy Android boot and cleared
+pending recovery bookkeeping; the original D1 STOP and closed goal remain.
+A narrow readiness correction now polls only that fixed nonroot property within
+the original deadline before strict health parsing. Independent PASS_GO and
+25 tests passed; the used source/review are preserved privately. No second
+reboot, P386 connected preparation or F1 transfer occurred. P386's 176 execution
+sources still match; further connected preparation requires fresh continuation
+after the stopped goal, with no remaining reboot allowance from this task.
+See the [preparation report](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md).
+
 The [P385 exit / P386 F1 preparation](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md)
 has completed P385's exact attended Android exit: **ANDROID_CLOSED**, one A,
 zero N, `recovery_required=false`, F1 owner released. Final rooted FYG8/original
