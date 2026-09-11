@@ -13,16 +13,30 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-The current H0 unit is [bounded attended native baseline V1](docs/operations/S22PLUS_NATIVE_BASELINE_V1.md),
+The current unit is [bounded attended native baseline V1](docs/operations/S22PLUS_NATIVE_BASELINE_V1.md),
 P385 / v0.2.0-rc.3: an exact qualified native image with clean DETACH and same-boot
 reauthentication, finite normal baseline restoration, and distinct healthy native
 or exact Android terminals. The current source-qualified capability, ARM64 A/B/AP
 checks, 38 final owner/protocol/legacy tests and independent common/target review
 pass with **PASS_GO**; see the [H0 qualification report](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_V1_H0_2026-09-10.md).
-No P385 device grant, installation or native admission exists. The remaining
-bootstrap live qualification needs its own separately returned finite attended
-approval; the concrete H0 proposal is limited to one reservation and 600 seconds.
-The device's last observed state remains P384's healthy Android close below.
+The separately approved `p385-bootstrap-20260910-1/operation-01` live bootstrap
+completed **NATIVE_CLOSED** on 2026-09-11. Its one reservation/600-second grant
+is consumed and closed. One N installation and one same-N restoration completed;
+Android A was available and was not transferred. Each boot passed two fixed
+authenticated health checks with clean descriptor detach/reopen, same-boot fresh
+nonce and cached second preparation. The boots differ. First normal Download
+return passed its original window; final clean DETACH ACK and actual close passed.
+The exact P385 image/physical target is admitted, its original installation claim
+remains consumed, and the F1 owner is released. The actual terminal/raw/admission
+readers rederive the result with `recovery_required=false` and no research stop.
+
+The device's last observed state is the healthy native snapshot at this close.
+Six authentication admissions and 893.438 seconds of original native lifetime
+remained then; this is not a current-health assertion or a renewed deadline.
+Later native-origin operations or Android exit need fresh finite authority and
+current binding. The next owner's present-native guard is H0-qualified but has
+not yet been exercised in a separate live operation. Unattended recovery,
+unlimited native service, persistent data work and a v0.2.0 release remain unproved.
 
 The completed follow-up is the separately incorporated
 [P384 native roundtrip V2](docs/operations/S22PLUS_NATIVE_ROUNDTRIP_FOLLOWUP_V2.md):
@@ -45,7 +59,8 @@ pre-authentication display timing and software-causal Download attribution
 remain unproved. Supplemental stock evidence remains NO_PROOF_OBSERVER.
 This qualifies this bounded attended roundtrip, with the N installation and V2
 claims retained. It creates no standing native baseline, reusable budget,
-unattended recovery or v0.2.0 release. The device is back in healthy Android.
+unattended recovery or v0.2.0 release. That P384 transaction returned the device
+to healthy Android before P385.
 
 The first approved invocation in `p384-native-roundtrip-v2-prepared-20260910-3`
 ended **ABORTED/4 before any Download request, guard arm or partition transfer**.
