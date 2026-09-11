@@ -55,6 +55,24 @@ and permits only the originally bound exact A, at most once, followed by exact
 Android health. A healthy native close and an Android close remain separate
 structured terminals; this owner does not synthesize ordinary Process-v2 `CLOSED`.
 
+### P386 attended resident observation
+
+The [resident adoption V1](../S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md) selects
+P386/v0.2.0-rc.4 for ordinary attended Process-v2: fresh exact rooted FYG8
+Android health, one native candidate N, four authenticated checkpoints spanning
+at least thirty minutes, one exact Android A return and final health. Each
+session is bounded by 60 seconds; observation by 2100 seconds; the existing
+guard derivation by 3000 seconds. Later checkpoints start no earlier than
+620/920/1820 seconds after the first completed descriptor close. All bounds and
+the fixed command set are bound before the candidate through the manifest and
+ordinary returned F1 approval. Clean DETACH/close permits same-boot fresh
+authentication within this observation; uncertainty stops further checkpoints
+and retains only the exact preapproved A recovery with attended physical
+Download fallback. This creates no native-baseline admission, same-N
+restoration role or native terminal. Current source-bound independent review,
+fresh artifact/static qualification, connected preparation and separately
+returned attended F1 approval remain required. This definition opens no grant.
+
 ### P384 native roundtrip followup
 
 The separately common-incorporated

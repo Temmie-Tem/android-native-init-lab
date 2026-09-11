@@ -1,13 +1,18 @@
-# S22+ resident adoption V1 — H0 preparation
+# S22+ resident adoption V1 — attended ordinary F1
 
-Status: **H0 specification; no live activation or grant.**
+Status: **REVIEW_GATED_CAPABILITY; no standing device grant.**
 Target: **SM-S906N / g0q / S906NKSS7FYG8**.
 
 The operator selected integration of the qualified
 [resident runtime](S22PLUS_NATIVE_RESIDENT_H0_V1.md) into a boot-only candidate,
 authenticated observation and the existing installation/Android-return machinery.
-This unit ends with reviewed H0 artifacts and a concrete prospective device plan.
-It performs no device contact and creates no live prepared run or grant.
+The initial H0 unit completed reviewed artifacts without device contact or a
+grant. The [binding target contract](targets/S22PLUS_FYG8_TARGET_CONTRACT.md#p386-attended-resident-observation)
+adopts the following ordinary attended observation scope. Current source-bound
+independent review and artifact/static qualification permit READY preparation;
+connected preparation and a separately returned exact ordinary F1 approval
+remain required before device effects. Physical attendance must include the
+ability to enter Download within the existing recovery bound.
 
 ## Prospective bounded operation
 
@@ -36,7 +41,8 @@ health; its separate exact A exit must close before candidate installation.
 P385's consumed evidence and image identity remain unchanged.
 The shared host changes require a current source-bound P385 capability review
 before a future exact A exit; the historical review and consumed records are
-preserved. This H0 specification does not refresh that activation binding.
+preserved. Its prospective host review/static/request binding is refreshed
+separately; neither this definition nor a READY manifest opens a P385 or P386 grant.
 
 ## Qualification and evidence
 

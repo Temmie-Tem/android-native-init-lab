@@ -1,15 +1,9 @@
 {
   "activation": "s22plus-native-baseline-owner-v1",
   "bundle_result": {
-    "sha256": "9eae0e3a287aa0c7a35e76eb2ba0882a128f2498990cc31d9ba875335d069c3a",
-    "size": 33961
+    "sha256": "7a13aefeeefd212946806ecba1c967d8a01e231e246f0bad5a0dc7a14fabb8f7",
+    "size": 33958
   },
-  "changed_sources_from_historical": [
-    "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
-    "workspace/public/src/scripts/revalidation/device_action_f1_evidence_v2.py",
-    "workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py",
-    "workspace/public/src/scripts/revalidation/device_action_f1_v2.py"
-  ],
   "current_sources": {
     "p385_source_0012a808232ddd44": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_boot_verify.py",
@@ -173,8 +167,8 @@
     },
     "p385_source_323aa47183b54948": {
       "path": "workspace/public/src/scripts/revalidation/device_action_f1_evidence_v2.py",
-      "sha256": "3e1b88bdb87341ebfac4e6b63a965595614f2432c64bf0cd0a094786bd2b7a43",
-      "size": 1037783
+      "sha256": "b9ab3ecfd3c1343c7b8b435ccc5c98fdb6b67eca75da2f429668f7b6ce15cb34",
+      "size": 1036937
     },
     "p385_source_32ba451956c4d580": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p370_artifact_identity.py",
@@ -348,8 +342,8 @@
     },
     "p385_source_6a9d534e03cb6c78": {
       "path": "workspace/public/src/scripts/revalidation/device_action_f1_v2.py",
-      "sha256": "b7b6251d118fececb066869cd343bae8f59f5b77332067c339753010d266cb4e",
-      "size": 190499
+      "sha256": "b40c51abea67df97eddb4b7e1ae761548c051bdac8480168e0fff72668b60abd",
+      "size": 190073
     },
     "p385_source_6b351f1b849132d7": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p380_artifact_identity.py",
@@ -448,8 +442,8 @@
     },
     "p385_source_8105aebb885cab95": {
       "path": "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
-      "sha256": "6dcf69cfb71db85a2b51b016394252d5accc346ae61e418051be5a5b8e0a9683",
-      "size": 135468
+      "sha256": "f473cc3615361164be9dc3c51002bd70a403ecd6872291f9e88a3e1780ff789f",
+      "size": 134286
     },
     "p385_source_810788ab6a148da6": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p332_artifact_identity.py",
@@ -478,8 +472,8 @@
     },
     "p385_source_8897a6f79ab0607c": {
       "path": "workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py",
-      "sha256": "207e6205a7996d54ea40de7d6f3d7456b69229d825a87f7261909e29bb1482a8",
-      "size": 855099
+      "sha256": "99186034c7c7358846c4f62df28ac8cff14f71f12a546cd7becfb20e0bcbd454",
+      "size": 852030
     },
     "p385_source_890611329176fce7": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p335_artifact_identity.py",
@@ -817,22 +811,18 @@
   "full_request_serialization": {
     "h0_probe_rejected_as_approval_request": true,
     "production_writer_reader_passed": true,
-    "sha256": "6fcd641261aa388abb9afc0dedecb47924ba14fd5347dd4380fe4af4b980cdd6",
-    "size": 165332
+    "sha256": "08ee777fe2ca3771532cbcc918ad4efcd1443ebf24a6a657f5273b5f908cd607",
+    "size": 165324
   },
   "grant_opened": false,
-  "historical_review": {
-    "path": "workspace/public/src/device-action/bindings/s22plus_native_baseline_v1_review_20260910_historical.json",
-    "sha256": "29a01e4a1e26cab9f49d76048da23e2e9b9267b9f13e10cffa3633c44bd90a8e",
-    "size": 41220
-  },
   "independent_checks": [
-    "All 160 static and 199 execution source receipts match current bytes",
-    "Existing P385 behavior and 112 native inputs preserved across the three shared host changes",
-    "Target adoption changes only prospective P386 ordinary observation",
-    "Exact retained native terminal, admission and original consumed installation claim rederived",
-    "Actual current static bundle and full 165332-byte H0 request writer/readback passed",
-    "Original native role qualification reused; prospective task request is one exact Android exit"
+    "Current runtime-bound production bundle and execution closure revalidated",
+    "Actual A/B artifacts audited against all 112 native source inputs; static ARM64 ELF confirmed",
+    "Actual fixed-key reader reaches the P385 factory with matching key, namespace and observer contract",
+    "Full request rederived and reopened; exact one-MiB boundary, exclusivity and oversize rejection verified",
+    "Joined owner path and 21 publication-cut cases passed without native or Android replay",
+    "Retained guard writer/reader tests and six additional inventory/two-flag lifecycle cases passed",
+    "Common exception preserves consumed claims, ordinary paths, target isolation and explicit live authority"
   ],
   "limits": {
     "android_transfers_per_operation": 1,
@@ -841,20 +831,29 @@
     "reservations": 3,
     "seconds": 600
   },
+  "native_image_admitted": false,
   "old_approval_reuse": false,
+  "parent_validation": {
+    "boundary_regression_tests": 12,
+    "legacy_protocol_guard_tests": 27,
+    "owner_backend_tests": 11,
+    "py_compile_files": 24,
+    "retained_evidence_verified": true,
+    "sha256": "cec5220bbeb08ddd59ebafad5893a08a720455d8aa8fba1251dafd3b6e07e758",
+    "size": 1064
+  },
   "policy_binding": {
     "common_details_sha256": "e7ac73a4d79a1c82afe37dd6e2962df276d2b5e53642de3bee095f370f2110d1",
     "native_baseline_policy_sha256": "7fa75b712fbdaa8a84dd3920f2dd56eb3bc9337205ea07058d21992b482400e7",
     "reviewed_agents_sha256": "1d279c61e2ea45cbbb889454f67ae87b70bc9c20273892d04a903aec33db624c"
   },
   "privileged_helper_started": false,
-  "retained_native_admission_unchanged": true,
-  "reviewer": "independent-agent-f1_preparation_review",
+  "reviewer": "independent-agent-native_refactor_review",
   "schema": "s22plus-native-baseline-capability-review-v1",
-  "scope": "Current P385 host review preserving existing native-baseline V1 capability; this task prepares exact Android exit only",
+  "scope": "Exact P385 H0 capability and common/target policy interaction",
   "source_binding": {
-    "canonical_sha256": "6ee668d0f71fe6232526031308cf86590abb2b14ed7de4951f995f1b536775a7",
-    "execution_sources_sha256": "11b30b4cdae40f2343d5c8113fbee16505e57b74a5bb34464b2b4c1a49bb2d5e",
+    "canonical_sha256": "113b447c4405647c2bba1c9b434a7e4a8525b4c43b610c86c7e70fa1ba4909e5",
+    "execution_sources_sha256": "ba6828edf15575fbbab05b48f1a1d4888b64c9da1eef075c99b71fe226e742fd",
     "unchanged_after_verification": true
   },
   "verdict": "PASS_GO"

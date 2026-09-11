@@ -13,6 +13,19 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+The [P385 exit / P386 F1 preparation](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md)
+has completed host preparation with current source-bound independent review.
+P385's current host review is refreshed while its historical review, 112 native
+inputs, admission and consumed installation remain intact. A fresh request
+permits only one exact Android exit reservation within 600 seconds after a
+separately returned approval. Its expired native boot selects the existing
+attended physical-Download origin; no native AUTH or installation is proposed.
+P386's ordinary thirty-minute observation is adopted in the target contract,
+and its READY manifest passed the actual offline consumer. No device contact,
+grant, operation reservation or connected P386 preparation occurred. The next
+device step needs actual attendance and the exact returned P385 request approval;
+P386 connected preparation follows exact Android closure and current health.
+
 The [resident adoption H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md)
 unit is complete with **PASS_RESIDENT_ADOPTION_H0 / independent PASS_GO for H0 only**.
 P386 / v0.2.0-rc.4 connects the qualified resident runtime to a deterministic
