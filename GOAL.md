@@ -13,17 +13,28 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-P386's fresh connected-preparation task used **one ordinary Android reboot**.
+P386 connected preparation is **COMPLETE, awaiting exact attended F1 approval**.
+Fresh operator continuation authorized only the remaining fixed D0 preparation.
+Exact S22+ rooted FYG8/original hashes, same-boot continuity, clean 2,097,136-byte
+retained-log baseline and Download absence passed. The actual 64,024-byte
+prepared record reopens through `load_prepared`; all 176 execution sources match
+the qualified closure, and the candidate remains unconsumed. This step performed
+no reboot, device write, Download transition or partition transfer. The next
+approved F1 unit is one P386 installation, four authenticated checkpoints over
+at least thirty minutes, one exact Android return and final health.
+
+Earlier P386 preparation used **one ordinary Android reboot**.
 The D1 observer stopped when ADB was online but the successful property output
 still had empty `boot_completed` with a running boot animation. Separate fixed
 read-only reconciliation proved the changed healthy Android boot and cleared
 pending recovery bookkeeping; the original D1 STOP and closed goal remain.
 A narrow readiness correction now polls only that fixed nonroot property within
 the original deadline before strict health parsing. Independent PASS_GO and
-25 tests passed; the used source/review are preserved privately. No second
-reboot, P386 connected preparation or F1 transfer occurred. P386's 176 execution
-sources still match; further connected preparation requires fresh continuation
-after the stopped goal, with no remaining reboot allowance from this task.
+25 tests passed; the used source/review are preserved privately. That stopped
+goal performed no second reboot, P386 connected preparation or F1 transfer.
+The later D0 preparation above used fresh operator continuation and preserved
+the closed goal, STOP and separately observed late health. Its one-reboot
+allowance remains consumed.
 See the [preparation report](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md).
 
 The [P385 exit / P386 F1 preparation](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md)
@@ -39,8 +50,8 @@ The original request, grant, A evidence and both D0 STOP results are unchanged;
 P385's historical native qualification, admission and consumed installation
 remain intact. Its consumed host review is not repinned after this repair.
 P386's ordinary thirty-minute observation remains host-qualified; its execution
-closure excludes the repaired native-baseline owner. Connected preparation and
-its separately returned ordinary F1 approval remain pending. The stopped P385
+closure excludes the repaired native-baseline owner. Connected preparation is
+complete; its separately returned ordinary F1 approval remains pending. The stopped P385
 grant supplies no P386 authority or further native role.
 
 The [resident adoption H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md)
@@ -52,8 +63,8 @@ integration, retained replay, full preparation/reopen and failure recovery pass.
 The final review binds 157 static inputs and 176 unique execution sources.
 No device contact, live activation, prepared run or grant occurred. See the
 [H0 report](docs/reports/S22PLUS_NATIVE_RESIDENT_ADOPTION_H0_2026-09-11.md).
-The prospective live step first needs P385's separate exact Android exit with
-current host binding, then fresh rooted FYG8 health and P386's own attended grant.
+The later P385 Android exit and P386 connected preparation are recorded above;
+P386's own returned attended F1 approval remains required.
 
 The completed [native resident runtime H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_H0_V1.md)
 has no normal PID1/local-service 15-minute cap, while

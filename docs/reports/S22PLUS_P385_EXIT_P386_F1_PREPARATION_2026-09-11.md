@@ -1,15 +1,16 @@
 # S22+ P385 Android exit and P386 F1 preparation
 
-Latest result: **P386 preparation stopped after one ordinary reboot; separate
-late health proved healthy Android; the failed goal remains closed.**
-P386 connected preparation and F1 approval remain pending. The readiness
-correction below is independently qualified for future use only.
+Latest result: **P386 connected preparation COMPLETE; awaiting exact attended
+F1 approval.** Fresh operator continuation authorized the remaining read-only
+preparation. Exact start health, clean baseline and all 176 source bindings
+passed; the actual prepared record reopened. No reboot or partition transfer
+occurred in this successful D0 step. The earlier failed reboot goal stays closed.
 
 P385 exit result: **ANDROID_CLOSED; recovery_required=false; research_stopped=true.**
 The separately returned exact approval consumed one attended Android A transfer
 and no native role. Fresh final health passed after an independently reviewed
-host repair, with no transfer replay. P386 has a READY manifest and no connected
-preparation or F1 approval.
+host repair, with no transfer replay. P386 has a READY manifest and a complete
+connected preparation, with no F1 approval or candidate transfer yet.
 
 The previous P385 installation has returned to exact rooted FYG8 Android.
 The native candidate/code, ordinary F1 runner and common boundaries are
@@ -142,9 +143,51 @@ grant/intent/STOP, successful raw dispatch, late health and closed goal;
 P386's 176 execution receipts still match. Its closure contains none of the
 foreground runner, policy or review files changed here, so its previous native
 and ordinary-F1 qualification remains unchanged. No F1 claim was consumed.
-The remaining connected preparation needs fresh operator continuation after
-this failed goal; its one-reboot allowance is already consumed. A90 and S20+
-received no commands.
+At that close, remaining connected preparation needed fresh operator
+continuation; the subsequent D0 step is recorded below. The failed goal's
+one-reboot allowance remains consumed. A90 and S20+ received no commands.
+
+## Completed P386 connected preparation
+
+The operator supplied fresh continuation for read-only P386 preparation.
+The existing ordinary F1 adapter verified the current artifact bundle and all
+176 frozen execution inputs, checked the bound S22+ host topology/serial, and
+performed its fixed connected D0 under the shared target-session lease.
+There was no pending D1 intent or F1 owner, and the stopped grants stayed closed.
+
+The result is `PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`: exact rooted
+FYG8/original boot and supporting hashes, stable same-boot target continuity,
+and zero Download endpoints before and after. The 2,097,136-byte retained log
+was clean, with zero evidence-family and exact-marker matches. The measured
+private target agrees with the original operator-owned S22+ binding.
+
+At **2026-09-11 14:31:24.891779 UTC**, preparation published the 64,024-byte
+`prepared.json`, SHA-256
+`3fdf662a943aca2cf0fd476d485b7847201f82ee74e50163b30d432a0ce063dd`.
+The actual `load_prepared` execution reader, D0 raw/result reader and candidate
+registry preflight all passed. D0 result SHA-256 is
+`f4f4654b080c14b8d0c8034a8621e4ad19ae682abdb596e544e8f0d2f8f1945c`
+(3,265 bytes). The execution closure remains
+`687abce17c1bad5993c762a028ea634c615bbd37b61a1796768eb8166e374600`.
+The candidate is unconsumed, no F1 owner exists, and all device-write, reboot,
+Odin, partition-transfer and F1-authorization flags remain false.
+
+The private prepared run is
+`workspace/private/runs/device-action-f1-live-v2/p386-ready1-prepared-20260911-1/`.
+Private preparation/reopen evidence and the exact approval string are under
+`workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-2/`.
+The prior D1 grant, used review/source, intent, STOP, closed goal, command evidence
+and late health still match their retained receipts. P385's terminal, completed
+record, final health and sole-A result also match; its research STOP remains.
+The unchanged H0 native/observer tests and independent review are reused.
+This documentation update changes no execution source or authority boundary.
+
+The remaining approval binds one P386 boot-only N, four authenticated checkpoints
+spanning at least thirty minutes (2,100-second observation ceiling), one exact A
+return and final Android health. Operator attendance, usable physical Download
+recovery and unchanged cable/dock/port routing remain required. Preparation is
+not that approval, and no native qualification or continuous-service claim is
+made by this D0 result. A90 and S20+ received no commands.
 
 ## Host bindings prepared before the exit
 
@@ -209,9 +252,9 @@ P386's execution closure does not include the repaired native-baseline owner.
 The actual offline `--validate` consumer passed again after the repair; its
 52,909-byte output is byte-identical to the prior preparation result, SHA-256
 `6a404bcfc6454e8630e402f4e9965a1f937ebe764eff7c1d9467117f3f0b55ee`.
-The existing READY manifest remains the prospective ordinary F1 input;
-connected preparation and its separately returned ordinary F1 approval remain
-pending. The stopped P385 grant is consumed and cannot authorize the next
+The existing READY manifest and completed connected preparation are the
+prospective ordinary F1 inputs; its separately returned ordinary F1 approval
+remains pending. The stopped P385 grant is consumed and cannot authorize the next
 experiment under [native baseline V1](../operations/S22PLUS_NATIVE_BASELINE_V1.md#native-terminal-and-android-fallback).
 Actual thirty-minute operation,
 sensor exposure, physical pixels, continuous service and stall recovery remain
