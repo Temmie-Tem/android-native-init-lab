@@ -66,6 +66,7 @@ import s22plus_fyg8_p383_console_owner as p383_console_owner
 import s22plus_fyg8_p383_return_host as p383_return_host
 import s22plus_native_roundtrip_owner_v1 as native_roundtrip
 import s22plus_native_baseline_backend_v1 as native_baseline
+import s22plus_native_resident_backend_v1 as native_resident
 import s22plus_native_planned_handoff_v1 as planned_handoff
 import s22plus_native_usb_departure_v1 as native_usb_departure
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
@@ -1659,6 +1660,19 @@ def _closure(root: Path, bundle: core.Bundle | None = None) -> dict[str, Any]:
             ).resolve()
     if bundle is not None and _native_return_bundle(bundle):
         paths["final_target_health"] = Path(target_final_health.__file__).resolve()
+    if bundle is not None and native_resident.selected(sys.modules[__name__], bundle):
+        # The resident static closure also names sources already bound above.
+        # Keep every unique file, preferring the existing semantic names over
+        # generated static aliases. This keeps full preparation within its
+        # unchanged durable bound; other profiles retain their original map.
+        static_prefix = _shell_definition(bundle).prefix + "_source_"
+        unique, seen = {}, set()
+        for name in sorted(paths, key=lambda key: key.startswith(static_prefix)):
+            path = paths[name].resolve()
+            if path not in seen:
+                unique[name] = path
+                seen.add(path)
+        paths = unique
     values = {
         name: _receipt(path.resolve(), f"execution source {name}")
         for name, path in paths.items()
@@ -1960,6 +1974,9 @@ def _binding(
         }
     if native_roundtrip.selected(bundle):
         value["native_roundtrip"] = native_roundtrip.prepare_plan(bundle)
+    resident_derivation = native_resident.guard_derivation(sys.modules[__name__], bundle)
+    if resident_derivation is not None:
+        value["resident_guard_lifetime"] = resident_derivation
     return value, core.json_sha256(value)
 
 
@@ -2626,7 +2643,7 @@ def _p328_read_auth_key(prepared: PreparedRun) -> tuple[bytes, str]:
     # P384's direct artifact object describes package identity, not key I/O.
     # Its prepared key is the existing fixed P328 credential; keep that strict
     # reader and compare its bytes with the independently bound P384 identity.
-    if _shell_bundle(prepared.bundle) and _shell_definition(prepared.bundle).prefix in ("p384", "p385"):
+    if _shell_bundle(prepared.bundle) and _shell_definition(prepared.bundle).local_display:
         artifact_module = p328_artifact_identity
     try:
         key_path = (
@@ -9251,7 +9268,12 @@ class _P345ObserverSession(_P331ObserverSession):
             self.protocol_error = type(exc).__name__
             return "open-failed"
         finally:
-            if isinstance(self, native_baseline.ObserverMixin):
+            if isinstance(self, native_resident.ObserverMixin):
+                try:
+                    self._resident_final_close()
+                except Exception as exc:
+                    self.descriptor_close_error = type(exc).__name__
+            elif isinstance(self, native_baseline.ObserverMixin):
                 try:
                     self._baseline_final_close()
                 except Exception as exc:
@@ -9378,11 +9400,13 @@ class _P345ObserverSession(_P331ObserverSession):
         if self.namespace in DIAGNOSTIC_RETURN_OWNERS:
             audit=(self.qualification.sessions[0].session.audit if self.qualification is not None
                 else getattr(self.qualification_error,"failed_audit",None))
-            if isinstance(self, native_baseline.ObserverMixin) and sessions:
+            if isinstance(self, (native_baseline.ObserverMixin, native_resident.ObserverMixin)) and sessions:
                 audit = sessions[0].session.audit
             value["native_progress"]=self.qualification_observer.progress_projection(audit)
         if isinstance(self, native_baseline.ObserverMixin):
             native_baseline.project_observation(self, value, complete)
+        if isinstance(self, native_resident.ObserverMixin):
+            native_resident.project_observation(self, value, complete)
         value[self.proof_key] = dict(self.proof or {})
         value.pop("tx_hex", None)
         self._publish_value(value, lane, label=self.receipt_label)
@@ -9551,6 +9575,11 @@ class _P385ObserverSession(native_baseline.ObserverMixin, _P375ObserverSession):
 
 
 @dataclass
+class _P386ObserverSession(native_resident.ObserverMixin, _P375ObserverSession):
+    resident_prepared: Any = None
+
+
+@dataclass
 class _P348ObserverSession(_P345ObserverSession):
     """Six initial sessions; one deliberate exact-endpoint idle/reopen."""
 
@@ -9711,6 +9740,8 @@ def _p345_proof_ok(value: Mapping[str, Any], *, prefix="p345") -> bool:
         return False
     if typed_evidence.SHELL_VARIANTS[prefix].native_baseline:
         return native_baseline.proof_ok(value, typed_evidence.SHELL_VARIANTS[prefix])
+    if typed_evidence.SHELL_VARIANTS[prefix].native_resident:
+        return native_resident.proof_ok(value, typed_evidence.SHELL_VARIANTS[prefix])
     if prefix in ROOT_CONSOLE_OWNERS:
         proof = value.get("proof",value.get(typed_evidence.SHELL_VARIANTS[prefix].proof_key))
         plan = value.get(prefix+"_console_plan")
@@ -9827,13 +9858,14 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
         raise F1LiveError("shell qualification spec differs")
     key, key_sha256 = _p328_read_auth_key(prepared)
     inherited_spec = _p327_inherited_spec(spec)
-    session_guard = (lambda *args, **kwargs: native_baseline.observer_session(sys.modules[__name__], prepared, *args, **kwargs)
+    session_guard = (lambda *args, **kwargs: native_resident.observer_session(sys.modules[__name__], prepared, *args, **kwargs)
+        if shell.native_resident else native_baseline.observer_session(sys.modules[__name__], prepared, *args, **kwargs)
         if shell.native_baseline else p325_guard_adapter.observer_session(*args, **kwargs))
     with session_guard(inherited_spec,
         prepared.private_target["topology"], prepared.run_dir,
         _candidate_observer_binding(prepared), lane_value, lane_receipt,
         usb_root=usb_root, typec_root=typec_root) as inherited:
-        session_class = (_P385ObserverSession if shell.native_baseline else
+        session_class = (_P386ObserverSession if shell.native_resident else _P385ObserverSession if shell.native_baseline else
             _P375ObserverSession if shell.root_console else
             HANDOFF_SESSION_CLASSES[shell.prefix] if shell.planned_handoff else
             _P363ObserverSession if shell.prefix in RETURN_SHELL_OWNERS else
@@ -9848,6 +9880,7 @@ def _p345_candidate_observer_session(prepared: PreparedRun, spec: dict[str, Any]
             receipt_label=shell.prefix.upper() + " root console qualification receipt"
                 if shell.root_console else shell.prefix.upper() + " read-only shell qualification receipt",
             **(dict(native_baseline_prepared=prepared) if shell.native_baseline else {}),
+            **(dict(resident_prepared=prepared) if shell.native_resident else {}),
             **(dict(root_console_plan_value=plan_value,
                     root_console_plan_receipt=plan_receipt,
                     native_transaction=(PreparedRun(prepared.root, prepared.native_parent or prepared.run_dir,
@@ -9931,6 +9964,12 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
             require([row['tx']['size'] for row in derived['sessions']] == [len(tx) for tx in txs],
                 'baseline TX boundaries differ')
             native_baseline.validate_observer_ownership(sys.modules[__name__], prepared, value, derived)
+        elif shell.native_resident:
+            derived=shell.observer.replay_session(codec,received,b''.join(txs),key)
+            require(_p319_exact_equal(proof,derived),'resident raw proof differs')
+            require([row['tx']['size'] for row in derived['sessions']]==[len(tx) for tx in txs],
+                'resident TX boundaries differ')
+            native_resident.validate_ownership(sys.modules[__name__],prepared,value,derived)
         elif shell.planned_handoff:
             derived=shell.observer.replay_pair(codec,received,b''.join(txs),key)
             require(proof==derived,'paired raw proof differs')
@@ -9958,7 +9997,12 @@ def _p345_validate_receipt(prepared: PreparedRun, path: Path, spec: dict[str, An
                 tx_offset += len(tx)
             require(offset == len(received) and len(nonce_hashes) == session_count and len(boot_hashes) == 1,
                 "session continuity differs")
-    if (shell.root_console and not shell.native_baseline and proof
+    if (shell.native_resident and not value['accepted'] and proof and proof.get('control_acceptance_observed') is True):
+        require(len(txs)==4,'resident terminal TX stream count differs')
+        codec=_open_header_initial_observer_module(shell.runtime,shell.observer,'resident-terminal-replay')
+        derived=shell.observer.replay_session(codec,received,b''.join(txs),key,partial=proof.get('proved') is not True)
+        require(_p319_exact_equal(proof,derived),'resident terminal raw proof differs')
+    if (shell.root_console and not shell.native_baseline and not shell.native_resident and proof
             and proof.get("control_acceptance_observed") is True):
         require(len(txs)==1,"root console TX stream count differs")
         codec=_open_header_initial_observer_module(shell.runtime,shell.observer,
@@ -13915,6 +13959,8 @@ def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
     try:
         value = cdc_acm_observer.read_guard_release(path, arm_path)
         receipt = _receipt(path, "candidate observer guard release")
+        if native_resident.selected(sys.modules[__name__], prepared.bundle):
+            native_resident.validate_guard_release(sys.modules[__name__], prepared)
         lifetime_paths = (
             prepared.run_dir / P313_GUARD_LIFETIME_ARM,
             prepared.run_dir / P313_GUARD_LIFETIME_RELEASE,

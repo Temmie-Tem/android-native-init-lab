@@ -373,7 +373,14 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
         ),
     }:
         raise F1V2Error("observation shape mismatch")
-    if isinstance(observation["timeout_sec"], bool) or not isinstance(observation["timeout_sec"], int) or not 1 <= observation["timeout_sec"] <= 600:
+    acceptance = observation["acceptance"]
+    resident_variant = (typed_evidence.SHELL_OVERLAYS.get(acceptance.get("userspace_overlay_contract_id"))
+        if isinstance(acceptance, dict) else None)
+    resident_timeout = (resident_variant.observer.QUALIFICATION_TIMEOUT_SEC
+        if resident_variant is not None and resident_variant.native_resident else None)
+    if (type(observation["timeout_sec"]) is not int or
+            (observation["timeout_sec"] != resident_timeout if resident_timeout is not None
+             else not 1 <= observation["timeout_sec"] <= 600)):
         raise F1V2Error("observation timeout is invalid")
     try:
         typed_evidence.validate_acceptance(observation["acceptance"])

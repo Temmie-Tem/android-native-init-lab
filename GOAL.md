@@ -13,8 +13,20 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-The current unit, [native resident runtime H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_H0_V1.md),
-is **H0 complete**: normal PID1/local services have no 15-minute cap, while
+The [resident adoption H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md)
+unit is complete with **PASS_RESIDENT_ADOPTION_H0 / independent PASS_GO for H0 only**.
+P386 / v0.2.0-rc.4 connects the qualified resident runtime to a deterministic
+boot-only AP, four authenticated checkpoints spanning thirty minutes, and the
+ordinary one-N/one-A installation/return owner. Actual AP decoding, generated-C
+integration, retained replay, full preparation/reopen and failure recovery pass.
+The final review binds 157 static inputs and 176 unique execution sources.
+No device contact, live activation, prepared run or grant occurred. See the
+[H0 report](docs/reports/S22PLUS_NATIVE_RESIDENT_ADOPTION_H0_2026-09-11.md).
+The prospective live step first needs P385's separate exact Android exit with
+current host binding, then fresh rooted FYG8 health and P386's own attended grant.
+
+The completed [native resident runtime H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_H0_V1.md)
+has no normal PID1/local-service 15-minute cap, while
 individual command sessions remain finite and uncertainty latches command
 admission stopped. Separate system/hardware workers, bounded HUD diagnostics,
 64-bit counters and CPU temperature with sensor coverage passed actual C/PTY/IPC
@@ -22,15 +34,18 @@ tests, 100,000 samples per collector, 1,001 renderer frames, accelerated day/mon
 boundaries and AArch64 A/B builds. The [H0 report](docs/reports/S22PLUS_NATIVE_RESIDENT_H0_V1_2026-09-11.md)
 preserves the distinction between these fixtures and unproved target soak,
 sensor exposure, physical display and recovery. Live resident adoption is a
-separate later reviewed capability/approval. All 160 current P385 reviewed source
-inputs, its admission and consumed grants remain unchanged; no device was contacted.
+separate later reviewed capability/approval. At that H0 close, all 160 P385 reviewed
+source inputs matched their retained identities. This adoption changes exactly
+three host inputs; all 112 native inputs remain unchanged. The original P385
+review no longer matches the current host closure and was preserved together
+with its consumed records and native artifacts. No device was contacted.
 
 The completed predecessor is [bounded attended native baseline V1](docs/operations/S22PLUS_NATIVE_BASELINE_V1.md),
 P385 / v0.2.0-rc.3: an exact qualified native image with clean DETACH and same-boot
 reauthentication, finite normal baseline restoration, and distinct healthy native
-or exact Android terminals. The current source-qualified capability, ARM64 A/B/AP
+or exact Android terminals. The then source-qualified capability, ARM64 A/B/AP
 checks, 38 final owner/protocol/legacy tests and independent common/target review
-pass with **PASS_GO**; see the [H0 qualification report](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_V1_H0_2026-09-10.md).
+passed with **PASS_GO**; see the [H0 qualification report](docs/reports/S22PLUS_FYG8_NATIVE_BASELINE_V1_H0_2026-09-10.md).
 The separately approved `p385-bootstrap-20260910-1/operation-01` live bootstrap
 completed **NATIVE_CLOSED** on 2026-09-11. Its one reservation/600-second grant
 is consumed and closed. One N installation and one same-N restoration completed;
