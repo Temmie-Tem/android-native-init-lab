@@ -55,7 +55,10 @@ def observer_session(live,prepared,*args,**kwargs):
     start=protocol.host_now_ns();boot=host_boot(live);arm=None
     try:
         with live.p325_guard_adapter.observer_session(*args,**kwargs,max_sec=derivation['max_sec']) as session:
-            if session.guard.max_sec!=derivation['max_sec'] or not session.guard.healthy():
+            # P325 wraps P324; the common base owns the actual guard, as in
+            # the ordinary observer factory's inherited.delegate.delegate.
+            guard=session.delegate.delegate.guard
+            if guard.max_sec!=derivation['max_sec'] or not guard.healthy():
                 raise live.F1LiveError('resident guard actual lifetime differs')
             record=dict(schema=SCHEMA,kind='guard',binding=live._candidate_observer_binding(prepared),
                 derivation=derivation,host_boot_sha256=boot,started_boottime_ns=start,

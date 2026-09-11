@@ -13,14 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-P386 connected preparation is **COMPLETE, awaiting exact attended F1 approval**.
-Fresh operator continuation authorized only the remaining fixed D0 preparation.
-Exact S22+ rooted FYG8/original hashes, same-boot continuity, clean 2,097,136-byte
-retained-log baseline and Download absence passed. The actual 64,024-byte
-prepared record reopens through `load_prepared`; all 176 execution sources match
-the qualified closure, and the candidate remains unconsumed. This step performed
-no reboot, device write, Download transition or partition transfer. The next
-approved F1 unit is one P386 installation, four authenticated checkpoints over
+P386 **READY2 preparation is COMPLETE, awaiting its new exact attended F1
+approval**. READY1's approved start ended `ABORTED/4` before Download or any
+candidate/rollback transfer: the resident adapter looked for its guard on the
+wrong wrapper object. Actual host guard cleanup succeeded; recovery was not
+required, and the candidate content remains unconsumed. The old run/token is
+closed and cannot resume. Its result and all original receipts are preserved.
+
+The minimal guard-owner correction passed independent PASS_GO and nine distinct
+regression tests, now using the actual P325/P324/common observer objects through
+the Samsung factory. Only one host execution source changed; all native/AP bytes
+and guard lifetime/health requirements are unchanged. New READY2 D0 passed exact
+rooted FYG8/original hashes, same-boot continuity, clean 2,097,136-byte baseline
+and Download absence. Its actual 64,030-byte prepared record and all 176 execution
+inputs reopen successfully. No additional reboot or transfer occurred. The next
+approved unit remains one P386 installation, four authenticated checkpoints over
 at least thirty minutes, one exact Android return and final health.
 
 Earlier P386 preparation used **one ordinary Android reboot**.

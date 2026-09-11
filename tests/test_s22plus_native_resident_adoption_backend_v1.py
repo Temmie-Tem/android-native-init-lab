@@ -26,6 +26,7 @@ class BackendTests(support.Fixture,unittest.TestCase):
     @contextmanager
     def owned_session(self,case='normal',fault=None,*,prepared=None):
         with self.running(case,prepared.run_dir if prepared is not None else None) as peer:
+            self.last_guard_folder=peer.folder
             fixture=_ReceiptFixture.__new__(_ReceiptFixture);fixture.run_dir=peer.folder
             fixture.variant=live.typed_evidence.SHELL_VARIANTS['p386']
             fixture.runtime=support.candidate.runtime;fixture.observer=support.candidate.observer
@@ -39,10 +40,18 @@ class BackendTests(support.Fixture,unittest.TestCase):
             lane.update(partner_before=partner,partner_after=partner)
             platform=Platform(peer.folder/'native-platform');endpoint=platform.endpoint
             path=Path(peer.name);endpoint.tty_name=path.name;endpoint.identity_sha256='e'*64
-            guard=SimpleNamespace(max_sec=0,healthy=lambda **kw:fault!='guard-loss' or peer.offset_ms==0,matches_node=lambda _:True)
-            base=SimpleNamespace(dev_root=path.parent,binding=live._candidate_observer_binding(fixture.prepared),guard=guard,_raw_tty=tty.setraw)
-            inherited=SimpleNamespace(delegate=SimpleNamespace(delegate=base),guard=guard,
-                _select=lambda:('identity-mismatch',None) if fault=='idle-endpoint' and peer.offset_ms else ('accepted',endpoint))
+            guard=SimpleNamespace(max_sec=0,healthy=lambda **kw:fault!='arm-unhealthy' and
+                (fault!='guard-loss' or peer.offset_ms==0),matches_node=lambda _:True)
+            base=live.cdc_acm_observer.ObserverSession(spec=live._p327_inherited_spec(fixture.spec),
+                topology=live.p324_typec_lane.CANDIDATE_TOPOLOGY,run_dir=peer.folder,
+                binding=live._candidate_observer_binding(fixture.prepared),baseline={},baseline_receipt={},
+                guard=guard,guard_receipt={},class_tty=path.parent,dev_root=path.parent)
+            # Use the production wrappers. Only the underlying hardware seam
+            # is synthetic; P324 deliberately exposes no top-level guard.
+            p324=live.p325_guard_adapter.p324.P324ObserverSession(base,{},peer.folder,{}, {},{}, {},partner,
+                path.parent,Path('/fixture'),Path('/fixture'))
+            p324._select=lambda:('identity-mismatch',None) if fault=='idle-endpoint' and peer.offset_ms else ('accepted',endpoint)
+            inherited=live.p325_guard_adapter.P325ObserverSession(p324,live.p325_guard_adapter.GuardProbeAudit())
             opens=[];closes=[];owned=set();real_open=os.open;real_close=os.close;real_ioctl=fcntl.ioctl
             def opening(name,flags,*args,**kwargs):
                 if Path(name)==path:
@@ -66,7 +75,7 @@ class BackendTests(support.Fixture,unittest.TestCase):
                 return not (fault=='reopen-endpoint' and len(opens)==2)
             @contextmanager
             def guard_context(*args,max_sec,**kwargs):
-                guard.max_sec=max_sec
+                guard.max_sec=max_sec-1 if fault=='arm-max-sec' else max_sec
                 live.cdc_acm_observer.persist_json(peer.folder/'candidate-observer-guard.json',dict(
                     schema=live.cdc_acm_observer.GUARD_SCHEMA,status='armed',spec_sha256='1'*64,topology_sha256='2'*64,
                     rule_sha256='3'*64,instance_sha256='5'*64,output_sha256='6'*64,raw_capture_receipt={},child_alive=True))
@@ -83,14 +92,16 @@ class BackendTests(support.Fixture,unittest.TestCase):
                     mock.patch.object(live.p325_guard_adapter,'observer_session',side_effect=guard_context),
                     mock.patch.object(live.native_usb_departure,'_snapshot',return_value=platform.snapshot),
                     mock.patch.object(live.p318_topology,'capture_candidate_raw',return_value=raw_snapshot),
+                    mock.patch.object(live,'_p324_typec_lane_value',return_value=({},{})),
                     mock.patch.object(live._P345ObserverSession,'_lane_supplement',return_value=lane),
                     mock.patch.object(backend.protocol,'host_now_ns',side_effect=lambda:real_now()+peer.offset_ms*10**6),
                     mock.patch.object(backend,'idle_wait',side_effect=idle),
                     mock.patch.object(os,'open',side_effect=opening),mock.patch.object(os,'close',side_effect=closing),
                     mock.patch.object(fcntl,'ioctl',side_effect=ioctl)):
                     stack.enter_context(patch)
-                with live._p345_candidate_observer_session(fixture.prepared,fixture.spec,lane_value={},lane_receipt={},
-                        usb_root=Path('/fixture'),typec_root=Path('/fixture')) as session:
+                adapter=live.SamsungOdinBackend.__new__(live.SamsungOdinBackend)
+                adapter.usb_root=Path('/fixture');adapter.typec_root=Path('/fixture');adapter.root_console_plan=None
+                with adapter.candidate_observer_session(fixture.prepared) as session:
                     self.assertIsInstance(session,live._P386ObserverSession)
                     session._endpoint_exact=exact;session._settle_guard_properties=lambda *_:None
                     if fault=='write-expiry':
@@ -134,6 +145,16 @@ class BackendTests(support.Fixture,unittest.TestCase):
         changed=json.loads(raw);changed['closed']=False;path.chmod(0o600);path.write_text(json.dumps(changed))
         with self.assertRaises(live.F1LiveError):backend.validate_ownership(live,fixture.prepared,value,value['proof'])
         path.write_bytes(raw);path.chmod(0o400)
+
+    def test_real_wrapper_arm_rejects_wrong_lifetime_and_unhealthy_base_guard(self):
+        for fault in ('arm-max-sec','arm-unhealthy'):
+            with self.subTest(fault=fault),self.assertRaisesRegex(live.F1LiveError,'guard actual lifetime differs'):
+                with self.owned_session(fault=fault):self.fail('invalid guard was yielded')
+            folder=self.last_guard_folder
+            release=live._read_json(folder/'candidate-observer-guard-release.json','fixture guard release')
+            self.assertTrue(release['released']);self.assertEqual(release['returncode'],0)
+            self.assertFalse((folder/backend.GUARD_ARM).exists())
+            self.assertFalse((folder/'p386-resident-auth-01.auth-intent.json').exists())
 
     def test_middle_failure_closes_only_the_current_owned_descriptor(self):
         for fault,attempted,closed in (('reopen',2,1),('exclusive',2,2),('reopen-endpoint',2,2),('close',1,1),

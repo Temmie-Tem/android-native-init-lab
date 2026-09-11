@@ -1,16 +1,90 @@
 # S22+ P385 Android exit and P386 F1 preparation
 
-Latest result: **P386 connected preparation COMPLETE; awaiting exact attended
-F1 approval.** Fresh operator continuation authorized the remaining read-only
-preparation. Exact start health, clean baseline and all 176 source bindings
-passed; the actual prepared record reopened. No reboot or partition transfer
-occurred in this successful D0 step. The earlier failed reboot goal stays closed.
+Latest result: **P386 READY2 connected preparation COMPLETE; awaiting its new
+exact attended F1 approval.** READY1's approved start ended `ABORTED/4` before
+Download or candidate transfer because of a host guard-wrapper access error.
+The narrow correction passed independent review and actual-wrapper regression;
+fresh READY2 D0 and prepared-record reopening passed. Candidate content remains
+unconsumed. The old run/token, earlier reboot STOP and closed goals are preserved.
 
 P385 exit result: **ANDROID_CLOSED; recovery_required=false; research_stopped=true.**
 The separately returned exact approval consumed one attended Android A transfer
 and no native role. Fresh final health passed after an independently reviewed
 host repair, with no transfer replay. P386 has a READY manifest and a complete
-connected preparation, with no F1 approval or candidate transfer yet.
+connected READY2 preparation, with no READY2 F1 approval or candidate transfer yet.
+
+## READY1 pre-candidate abort and qualified READY2
+
+The operator returned READY1's exact F1 approval with the required attendance
+and physical recovery context. Fresh execute D0 passed exact rooted FYG8 health
+and a clean baseline. The host observer guard armed, but resident setup raised
+`AttributeError` before the owner created a Download intent or candidate claim.
+The guard released successfully (`released=true`, return code zero).
+
+The durable result is `ABORTED/4`,
+`FAIL_F1_V2_PRE_CANDIDATE_DOWNLOAD`,
+`candidate_observer_arm_failed_before_candidate`, `recovery_required=false`,
+published at **2026-09-11 14:43:52.235714 UTC**. There were zero native
+authentications, candidate transfers and rollback transfers. The latest health
+for that run is its passing execute D0; `final_verified=false` is preserved.
+The F1 owner is absent. Candidate content was not consumed, but that ended
+run and its approval cannot be reused. Result SHA-256 is
+`2e97060a72f2eb0356f0412f605982a37c77aea0a42b21441beb1866d5b103ca`
+(1,355 bytes).
+
+The actual P325 wrapper delegates to P324, which delegates to the common
+`ObserverSession` that owns the guard. The resident adapter used `session.guard`,
+whose lookup stopped at P324. A host reproduction through the actual Samsung
+factory and production wrappers produced the same `AttributeError`.
+The previous test fixture had exposed an invented top-level guard and masked
+the mismatch. The correction accesses `session.delegate.delegate.guard`,
+matching the base already used by the ordinary observer factory. The existing
+3,000-second bound, health predicate, approval binding, arm/expiry receipts and
+cleanup order remain unchanged. No global wrapper forwarding or weaker guard
+check was introduced.
+
+Independent **PASS_GO, no findings** binds backend SHA-256
+`fba5b7689ee8ed394cbb3e92a4556c786def3af6ae2e2d170408b57e2e5c4599`.
+The final actual P325/P324/common-observer backend and lifecycle tests passed
+five cases in 79.002 seconds; four unchanged binding tests also passed, for
+nine distinct tests. They exercise four descriptor sessions and retained raw
+proof, ordinary failure recovery, and wrong-lifetime/unhealthy-guard rejection
+with cleanup. Python compilation and diff checks passed. Native code, A/B build
+inputs and the boot-only AP were unchanged and were audited in place.
+
+The fresh static bundle has 157 static and 176 execution inputs; only the
+resident backend differs. All other static fields and native artifacts match.
+The [READY2 manifest](../../workspace/public/src/device-action/manifests/s22plus_fyg8_p386_resident_30min_ready_2.json)
+changes only manifest ID, run ID and status from that fresh reviewed draft.
+Its SHA-256 is `6b9b0e364da1fd8fbf23c07564fe6ccd475b8183f39f464c2ecec605c8b6de73`.
+READY1, its static bundle and its ABORTED evidence remain unchanged.
+
+Fresh READY2 preparation used the existing fixed D0 with no reboot, Download
+request or partition transfer. Exact target/rooted FYG8/original hashes,
+same-boot continuity and zero Download endpoints before/after passed. The full
+2,097,136-byte retained log was clean with zero family and exact-marker matches.
+The actual `load_prepared`, D0 raw/result validator and unconsumed-candidate
+preflight all passed; no pending D1 or F1 owner remains.
+
+READY2 prepared publication was **2026-09-11 15:04:16.142159 UTC**:
+64,030 bytes, SHA-256
+`1824ed7bf8afc1a45839cd8aee0f0a64769678a2971079383f6bc9053fd58abd`.
+D0 result SHA-256 is
+`04a3a976a10255eed07d56ab6642821bff7d4f330f2becabe548fbf037841e73`
+(3,265 bytes). The new execution closure identity is
+`50714bc9c33f1c0c5429e1a803632b5c1b65f3ae1a3b0d8fed8a3ed6e2cb217d`.
+
+The private prepared run is
+`workspace/private/runs/device-action-f1-live-v2/p386-ready2-prepared-20260912-1/`.
+Repair, exact old-source reproduction and independent-review evidence are under
+`workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/h0-guard-wrapper-repair-20260911/`;
+the new static bundle is `h0-f1-binding-20260911-2/` beside it. Fresh preparation
+and reopening evidence are in `connected-preparation-20260912-1/`.
+Original prepared/result/execute-D0/guard-release/source and all four journal
+receipts still match. The new token binds the unchanged one-N/one-A,
+four-checkpoint observation and mandatory final Android health. It requires
+its separately returned exact approval before any candidate effect.
+A90 and S20+ received no commands; P386 native qualification remains unproved.
 
 The previous P385 installation has returned to exact rooted FYG8 Android.
 The native candidate/code, ordinary F1 runner and common boundaries are
@@ -147,7 +221,7 @@ At that close, remaining connected preparation needed fresh operator
 continuation; the subsequent D0 step is recorded below. The failed goal's
 one-reboot allowance remains consumed. A90 and S20+ received no commands.
 
-## Completed P386 connected preparation
+## Earlier READY1 connected preparation
 
 The operator supplied fresh continuation for read-only P386 preparation.
 The existing ordinary F1 adapter verified the current artifact bundle and all
@@ -182,7 +256,7 @@ record, final health and sole-A result also match; its research STOP remains.
 The unchanged H0 native/observer tests and independent review are reused.
 This documentation update changes no execution source or authority boundary.
 
-The remaining approval binds one P386 boot-only N, four authenticated checkpoints
+That preparation's approval bound one P386 boot-only N, four authenticated checkpoints
 spanning at least thirty minutes (2,100-second observation ceiling), one exact A
 return and final Android health. Operator attendance, usable physical Download
 recovery and unchanged cable/dock/port routing remain required. Preparation is
@@ -252,9 +326,10 @@ P386's execution closure does not include the repaired native-baseline owner.
 The actual offline `--validate` consumer passed again after the repair; its
 52,909-byte output is byte-identical to the prior preparation result, SHA-256
 `6a404bcfc6454e8630e402f4e9965a1f937ebe764eff7c1d9467117f3f0b55ee`.
-The existing READY manifest and completed connected preparation are the
-prospective ordinary F1 inputs; its separately returned ordinary F1 approval
-remains pending. The stopped P385 grant is consumed and cannot authorize the next
+The new READY2 manifest and completed connected preparation above are the
+prospective ordinary F1 inputs; the new separately returned ordinary F1 approval
+remains pending. READY1's approval ended with its pre-candidate abort. The stopped
+P385 grant is consumed and cannot authorize the next
 experiment under [native baseline V1](../operations/S22PLUS_NATIVE_BASELINE_V1.md#native-terminal-and-android-fallback).
 Actual thirty-minute operation,
 sensor exposure, physical pixels, continuous service and stall recovery remain
