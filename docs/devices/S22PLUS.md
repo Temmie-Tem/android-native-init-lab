@@ -118,7 +118,7 @@ are collected on their own page:
 
 ## Current frontier
 
-Snapshot checked on 2026-09-09. The most recent completed display milestone is
+Snapshot checked on 2026-09-12. The most recent completed display milestone is
 the P353-P361 line. Those runs compared framebuffer paths, and each closed with a
 machine verdict that **PROVED** authenticated dispatch and exact rollback, while
 the clean output itself is **observed** by the operator and corroborated by
@@ -132,18 +132,19 @@ P362 closed as host analysis plus one fixed D0 module census. P363 and P364
 attempted native reboot/Download control and both closed `NO_PROOF_OBSERVER`
 with healthy rollback; P364's diagnostic channel retained 28 authenticated
 progress frames before an SDAM provider check returned EINVAL, so renderer
-creation and Download control were not reached. **Native normal reboot and
-Download remain unproved.**
+creation and Download control were not reached. **Native normal reboot remains
+unproved, and at this point in the history Download had not been reached at
+all.**
 
 P365 then closed `NO_PROOF_OBSERVER` as well, but reached further: its corrected
 ARM64 flags passed every preparation stage, and 46 authenticated progress
 records, ten swap submissions and an accepted Download CONTROL were retained.
 The operator **OBSERVED** changing screen output followed by screen-off and
 arrival in Download mode without physical intervention, further than P363 or
-P364 reached. The machine's bounded Download-arrival and causal proof remain
-**unproved**. The execution stopped during post-CONTROL USB inventory after the
-device node disappeared; one same-journal rollback-only recovery then restored
-the exact rooted FYG8 state and verified final health.
+P364 reached. The machine's bounded Download-arrival and causal proof remained
+**unproved** for that run. The execution stopped during post-CONTROL USB
+inventory after the device node disappeared; one same-journal rollback-only
+recovery then restored the exact rooted FYG8 state and verified final health.
 
 P375 and P376 then closed successfully. P375 gave native PID 1 an authenticated
 root command console over its CDC ACM transport; P376 added a separate text HUD
@@ -161,6 +162,35 @@ console state, memory used/total/available, aggregate CPU usage, and battery
 capacity, charge status and temperature — under the same immutable-buffer and
 matched-flip retirement rules. Physical display remains operator observation
 there too, and kernel/PID1-stall recovery is still not claimed.
+
+P384 closed the first attended native roundtrip. One N installation reached
+authenticated native health and a timely exact Download; the same N was then
+restored, came up with a fresh kernel boot identity and a distinct nonce, passed
+authenticated health again and returned to Download a second time; one exact
+Android A cleanup and a final health check closed the run. It completed
+`PASS_F1_V2_P384_ROOT_CONSOLE_AND_ROLLED_BACK`, CLOSED/19, with
+`recovery_required=false`, and is consumed and not replayable. Its HUD carried
+live gauge values — state of charge, voltage and current — which had taken five
+candidates to confirm. Software-causal attribution for either Download arrival
+remains **UNPROVED**, and the run's records mark physical intervention
+**UNOBSERVED** rather than proving its absence. A continuous operator recording
+of the native-to-Download transition is on the
+[boot HUD visual evidence](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.md) page.
+
+P385 then established the first **admitted native baseline**. An ordinary
+candidate is one-shot: its installation claim is consumed and the same content
+cannot be reinstalled. An admitted baseline is the single reviewed exception, so
+the same image may be restored later under a separately intended role. The live
+bootstrap closed `NATIVE_CLOSED` with `recovery_required=false`, proving
+same-boot reentry across a clean DETACH and an actual descriptor close and
+reopen on each of two boots, with two successful authentications per boot. Six
+authentication slots and 893.438 seconds of the original native lifetime were
+still unused at final descriptor close. A separately approved exact Android A
+exit later returned the device to Android with verified final health. An
+admitted baseline is **not** a resident install: every session keeps the
+original eight-authentication and 900-second boot limit and ends by leaving
+native. Unlimited service, automatic stall recovery, persistent data work and a
+v0.2.0 release are not established.
 
 Completed scopes are named as functional versions under the
 [S22+ version/candidate/run naming convention](../operations/S22PLUS_FYG8_VERSIONING.md),

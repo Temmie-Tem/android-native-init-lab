@@ -119,7 +119,7 @@ Download 전환입니다:
 
 ## 현재 프론티어
 
-2026-09-09 확인 기준입니다. 가장 최근에 완료된 디스플레이 milestone은 P353~P361
+2026-09-12 확인 기준입니다. 가장 최근에 완료된 디스플레이 milestone은 P353~P361
 계열입니다. 이 런들은 프레임버퍼 경로를 비교했고, 각각 인증된 dispatch와 정확한
 rollback을 **PROVED**로 닫았습니다. 반면 깨끗한 출력 자체는 운영자가 **관측**하고
 사진·클립이 보강한 것이지 readback으로 증명된 것이 아닙니다. 그중 가장 멀리 간 것이
@@ -132,13 +132,15 @@ P362는 host 분석과 고정 D0 모듈 census 한 번으로 닫혔습니다. P3
 reboot/Download 제어를 시도했고 둘 다 정상 rollback과 함께 `NO_PROOF_OBSERVER`로
 닫혔습니다. P364의 진단 채널은 인증된 진행 프레임 28개를 남긴 뒤 SDAM provider
 검사에서 EINVAL을 반환했고, 렌더러 생성과 Download 제어에는 도달하지 못했습니다.
-**네이티브 정상 reboot과 Download는 미증명으로 남아 있습니다.**
+**네이티브 정상 reboot은 미증명으로 남아 있고, 이 시점의 이력에서는 Download에
+아예 도달하지 못했습니다.**
 
 P365도 `NO_PROOF_OBSERVER`로 닫혔지만 더 멀리 갔습니다. 수정된 ARM64 플래그가 모든
 준비 단계를 통과했고, 인증된 진행 기록 46개와 swap 제출 10회, 수락된 Download CONTROL이
 유지됐습니다. 운영자는 화면 변화 뒤 화면이 꺼지고 물리 개입 없이 Download 모드에
 도달하는 것을 **관측(OBSERVED)** 했으며, 이는 P363이나 P364가 도달한 지점보다 앞섭니다.
-다만 Download 도착과 그 인과에 대한 기계의 한정된 증명은 여전히 **미증명**입니다.
+다만 Download 도착과 그 인과에 대한 기계의 한정된 증명은 그 실행에서는 **미증명**으로
+남았습니다.
 실행은 CONTROL 수락 이후 USB 인벤토리 중 기기 노드가 사라지면서 정지했고, same-journal
 rollback 전용 복구 한 번이 정확한 rooted FYG8 상태를 되돌리고 최종 건강을 확인했습니다.
 
@@ -156,6 +158,32 @@ P376 이후의 작업은 HUD를 고정 시스템 상태 수집까지 확장했�
 메모리 used/total/available, 종합 CPU 사용률, 배터리 용량·충전 상태·온도이며, 기존의
 immutable buffer와 matched flip 회수 규칙을 그대로 따릅니다. 물리 화면은 그쪽에서도
 운영자 관측이고, 커널/PID1 정지 복구는 여전히 주장하지 않습니다.
+
+P384은 첫 입회 네이티브 왕복을 닫았습니다. N 설치 1회가 인증된 네이티브 건강과 기한 내
+정확한 Download에 도달했고, 같은 N을 복원하자 새 커널 부팅 신원과 구별되는 nonce로
+올라와 다시 인증 건강을 통과한 뒤 두 번째로 Download로 복귀했으며, 정확한 Android A
+정리 1회와 최종 건강 확인으로 실행이 닫혔습니다. 결과는
+`PASS_F1_V2_P384_ROOT_CONSOLE_AND_ROLLED_BACK`, CLOSED/19,
+`recovery_required=false`이고, 소진되어 재실행할 수 없습니다. 이 실행의 HUD는 확인까지
+후보 다섯 개가 걸린 살아 있는 게이지 값 — 충전 상태, 전압, 전류 — 을 실었습니다. 두 번의
+Download 도착 모두 software-causal attribution은 **UNPROVED(미증명)** 로 남으며, 이
+실행의 기록은 물리적 개입을 없었다고 증명하는 것이 아니라
+**UNOBSERVED(관측되지 않음)** 로 표시합니다. 네이티브에서 Download로 넘어가는 연속
+운영자 녹화는 [부팅 HUD 시각 증거](S22PLUS_BOOT_HUD_VISUAL_EVIDENCE.ko.md) 페이지에
+있습니다.
+
+P385은 이어서 첫 **admitted native baseline(승인된 네이티브 기준 이미지)** 을
+세웠습니다. 일반 candidate는 one-shot입니다. 설치 청구가 소진되면 같은 내용을 다시
+설치할 수 없습니다. admitted baseline은 검토를 거친 유일한 예외로, 같은 이미지를 나중에
+별도로 의도된 역할 아래 복원할 수 있습니다. 라이브 부트스트랩은 `NATIVE_CLOSED`,
+`recovery_required=false`로 닫혔고, 두 부팅 각각에서 clean DETACH와 실제 디스크립터
+close·reopen을 거친 same-boot 재진입을 부팅당 인증 2회 성공으로 증명했습니다. 최종
+디스크립터 close 시점에 인증 슬롯 6개와 원래 네이티브 수명 893.438초가 아직 남아
+있었습니다. 이후 별도로 승인된 정확한 Android A 종료가 기기를 검증된 최종 건강 상태의
+Android로 되돌렸습니다. admitted baseline은 상주 설치가 **아닙니다**. 모든 세션은
+원래의 8회 인증·900초 부팅 한계를 그대로 지키며 네이티브에서 빠져나오는 것으로
+끝납니다. 무제한 서비스, 자동 정지 복구, 영속 데이터 작업, v0.2.0 릴리스는 성립되지
+않았습니다.
 
 완료된 범위에는
 [S22+ 버전·후보·실행 명명 규칙](../operations/S22PLUS_FYG8_VERSIONING.md)에 따라 기능

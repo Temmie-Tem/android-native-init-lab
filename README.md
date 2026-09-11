@@ -103,7 +103,12 @@ evidence-bounded overview.
   that the control caused or completed that arrival remains unproved. P375 and
   P376 then closed successfully, adding an authenticated root command console
   and a native status HUD painted by PID 1, now carrying uptime, console state,
-  memory, aggregate CPU, and battery capacity, charge and temperature. The
+  memory, aggregate CPU, and battery capacity, charge and temperature. P384
+  then closed a complete attended native roundtrip — install, authenticated
+  health, timely exact Download, same-N restoration on a fresh kernel boot
+  identity, and exact Android cleanup — and P385 admitted the first
+  restorable native baseline, still bounded to eight authentications and 900
+  seconds per boot. The
   operator OBSERVED that output on the panel; machine pixel proof is not
   claimed, and none of it is a resident install or a claim of repeated-boot or
   long-running operation. The exact current functional version and the active
@@ -114,7 +119,7 @@ evidence-bounded overview.
   ended with no exact ACM banner and healthy Magisk rollback. Native PID 1
   remains unproved; current work investigates an early-boot observation path.
 
-The S22+ entry was checked on 2026-09-09; other entries retain their 2026-09-05 snapshot. The device pages link
+The S22+ entry was checked on 2026-09-12; other entries retain their 2026-09-05 snapshot. The device pages link
 the accepted results; each target's GOAL and contract govern its changing
 frontier and execution requirements.
 
