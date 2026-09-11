@@ -1,0 +1,120 @@
+/* Normal local service has no wall-time expiry. Command uncertainty is a
+ * separate irreversible boot-local latch; healthy telemetry cannot clear it. */
+struct local_display_state {
+    struct hud1_state hud;
+    struct resident_child abandoned_command;
+    long owner,directory_rc,mount_rc;
+    uint64_t start,last;
+    unsigned started,attempted,authenticated,terminal,stopped,phase;
+};
+static struct local_display_state local_display;
+static int local_owner(void) {
+    return local_display.started && local_display.owner==1 && syscall6(172,0,0,0,0,0,0)==1;
+}
+static void local_close(void) {
+    if(!local_owner() || local_display.stopped)return;
+    local_display.stopped=1;hud1_stop(&local_display.hud);
+}
+static void local_phase(unsigned phase) {
+    if(local_owner() && !local_display.stopped && !local_display.terminal && phase<=8U)local_display.phase=phase;
+}
+static void local_service(void) {
+    if(!local_owner())return;
+    resident_reap(&local_display.abandoned_command);
+    uint64_t now=0;
+    if(rc1_now(&now) || now<local_display.last){local_display.terminal=1;local_close();return;}
+    local_display.last=now;
+    if(!local_display.stopped)hud1_tick(&local_display.hud,now,local_display.phase);
+    else for(unsigned i=0;i<3;i++)resident_reap(&local_display.hud.child[i]);
+}
+static long local_pre_auth(void) {
+    if(!local_owner())return -P260_EPROTO;
+    local_service();return local_display.terminal || local_display.stopped?-P260_EPROTO:0;
+}
+static long local_begin(void) {
+    if(local_display.started)return local_owner() && !local_display.attempted &&
+        !local_display.terminal && !local_display.stopped?0:-P260_EPROTO;
+    long owner=syscall6(172,0,0,0,0,0,0);if(owner!=1)return -P260_EPROTO;
+    local_display.owner=owner;local_display.started=1;
+    local_display.hud.input=local_display.hud.output=local_display.hud.log=-1;
+    local_display.hud.metrics[0]=local_display.hud.metrics[1]=-1;
+    local_display.directory_rc=local_display.mount_rc=-P260_EPROTO;
+    long rc=rc1_now(&local_display.start);if(rc)return rc;
+    local_display.last=local_display.start;local_display.phase=6;
+    if(syscall6(174,0,0,0,0,0,0)==0 && syscall6(175,0,0,0,0,0,0)==0 &&
+       syscall6(176,0,0,0,0,0,0)==0 && syscall6(177,0,0,0,0,0,0)==0) {
+        local_display.directory_rc=syscall6(34,-100,(long)(uintptr_t)"/s22-root-work",0700,0,0,0);
+        if(!local_display.directory_rc)local_display.mount_rc=sys_mount("tmpfs","/s22-root-work","tmpfs",6UL,
+            "size=64m,nr_inodes=4096,mode=0700");
+        if(!local_display.mount_rc)hud1_start(&local_display.hud);
+    }
+    local_phase(3U);local_service();return 0;
+}
+static long local_write_all(int fd,const char *p,size_t size,long seconds) {
+    struct timespec64 deadline={0};long rc=p282_deadline_after(seconds,&deadline);if(rc)return rc;
+    while(size) {
+        rc=local_pre_auth();if(rc)return rc;
+        long n=sys_write(fd,p,size);
+        if(n>0){if((size_t)n>size)return -EIO;p+=n;size-=(size_t)n;continue;}
+        if(n!=-EAGAIN && n!=-P260_EINTR)return n?n:-EIO;
+        if(p282_deadline_expired(&deadline))return -ETIMEDOUT;
+        p282_poll_delay();
+    }
+    return 0;
+}
+static void resident_export_current(void) {resident_export(&local_display.hud);}
+static void resident_abandon(struct rc1_state *s) {
+    if(s->pid>0 && !s->reaped) {
+        local_display.abandoned_command.pid=s->pid;
+        local_display.abandoned_command.unknown=!!(s->flags&RC1_FLAG_WAIT_UNKNOWN);
+    }
+}
+static void local_finish(unsigned phase) {
+    local_phase(phase);local_display.terminal=1;local_service();
+}
+#define BASELINE_INFO_FRAME 140U
+#define BASELINE_INFO_SEQUENCE 768U
+static uint64_t baseline_sessions,baseline_last_ms;
+static unsigned baseline_return_prepared;
+static const char baseline_info_domain[]="S22PLUS-FYG8-@@NAMESPACE_UPPER@@-RESIDENT-INFO-v1";
+static long baseline_check(void) {
+    long rc=local_pre_auth();if(rc)return rc;
+    baseline_last_ms=local_display.last;return 0;
+}
+static long baseline_admit(void) {
+    long rc=baseline_check();if(rc)return rc;
+    if(baseline_sessions==RESIDENT_U64_MAX)return -P260_EPROTO;
+    ++baseline_sessions;return 0;
+}
+static long baseline_nonce(uint8_t nonce[32]) {
+    if(!baseline_sessions)return -P260_EPROTO;
+    /* 192 random bits plus a never-reused boot-local ordinal. No nonce table. */
+    for(unsigned i=0;i<8;i++)nonce[24+i]=(uint8_t)(baseline_sessions>>(8*i));
+    return 0;
+}
+static int baseline_detach_available(void) {
+    return baseline_check()==0 && baseline_sessions<RESIDENT_U64_MAX && baseline_return_prepared &&
+        local_display.authenticated && @@NAMESPACE@@_diagnostic.active && !@@NAMESPACE@@_diagnostic.broken &&
+        !@@NAMESPACE@@_diagnostic.terminal && !@@NAMESPACE@@_diagnostic.first_error;
+}
+static long baseline_info(int fd,const uint8_t nonce[32]) {
+    long rc=baseline_check();if(rc)return rc;
+    uint8_t payload[64]={0};uint64_t elapsed=baseline_last_ms-local_display.start;
+    p328_store_le32(payload,2U);p328_store_le32(payload+4,baseline_return_prepared?1U:0U);
+    for(unsigned i=0;i<8;i++){payload[8+i]=(uint8_t)(baseline_sessions>>(8*i));payload[16+i]=(uint8_t)(elapsed>>(8*i));}
+    /* Last eight bytes are zero: resident normal service has no wall cap. */
+    p328_hmac_message(payload+32,baseline_info_domain,sizeof(baseline_info_domain)-1U,
+        p328_run_id_bytes,nonce,BASELINE_INFO_SEQUENCE,1,payload,32U);
+    return p328_write_frame(fd,BASELINE_INFO_FRAME,BASELINE_INFO_SEQUENCE,payload,sizeof(payload));
+}
+static long baseline_prepare(int fd,const uint8_t nonce[32]) {
+    long rc=baseline_info(fd,nonce);if(rc)return rc;
+    rc=@@NAMESPACE@@_diag_start(fd,nonce);if(rc)return rc;
+    if(baseline_return_prepared)return @@NAMESPACE@@_diag_emit(64U,@@NAMESPACE_UPPER@@_DIAG_RETURN,0);
+    rc=@@NAMESPACE@@_prepare_return();if(!rc)baseline_return_prepared=1;return rc;
+}
+static long baseline_detached(void) {
+    if(!baseline_detach_available())return -P260_EPROTO;
+    memset(&@@NAMESPACE@@_diagnostic,0,sizeof(@@NAMESPACE@@_diagnostic));
+    local_display.authenticated=0;local_phase(3U);local_service();return baseline_check();
+}

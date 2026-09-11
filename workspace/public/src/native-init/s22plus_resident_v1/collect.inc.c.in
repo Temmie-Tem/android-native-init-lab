@@ -1,0 +1,94 @@
+/* Exact Waipio CPU thermal-zone names from the bound FYG8 source. Zone indices
+ * are only discovery addresses; they never determine a sensor's meaning. */
+static const char *const resident_cpu_types[]={
+    "cpu-1-0\n","cpu-1-1\n","cpu-1-2\n","cpu-1-3\n","cpu-1-4\n",
+    "cpu-1-5\n","cpu-1-6\n","cpu-1-7\n","cpu-1-8\n",
+    "cpu-0-0\n","cpu-0-1\n","cpu-0-2\n","cpu-0-3\n"
+};
+#define RESIDENT_CPU_COUNT 13U
+struct resident_cpu_map {int zone[RESIDENT_CPU_COUNT];unsigned initialized;};
+static void resident_cpu_discover(struct resident_cpu_map *map) {
+    for(unsigned i=0;i<RESIDENT_CPU_COUNT;i++)map->zone[i]=-1;
+    for(unsigned zone=0;zone<256;zone++) {
+        char path[96],type[64];snprintf(path,sizeof(path),"/sys/class/thermal/thermal_zone%u/type",zone);
+        if(!status_read(path,type,sizeof(type),0x62656572L))continue;
+        for(unsigned i=0;i<RESIDENT_CPU_COUNT;i++)if(!strcmp(type,resident_cpu_types[i]))
+            map->zone[i]=map->zone[i]==-1?(int)zone:-2; /* duplicate is unavailable */
+    }
+    map->initialized=1;
+}
+static void resident_cpu_temperature(struct resident_cpu_map *map,struct status_metrics *m) {
+    if(!map->initialized)resident_cpu_discover(map);
+    m->cpu_expected=RESIDENT_CPU_COUNT;
+    for(unsigned i=0;i<RESIDENT_CPU_COUNT;i++) {
+        if(map->zone[i]<0)continue;
+        char path[96],before[64],after[64],value[64];int64_t mc;
+        snprintf(path,sizeof(path),"/sys/class/thermal/thermal_zone%d/type",map->zone[i]);
+        if(!status_read(path,before,sizeof(before),0x62656572L) || strcmp(before,resident_cpu_types[i]))continue;
+        snprintf(path,sizeof(path),"/sys/class/thermal/thermal_zone%d/temp",map->zone[i]);
+        if(!status_read(path,value,sizeof(value),0x62656572L) || !status_scalar(value,&mc) || mc< -40000 || mc>150000)continue;
+        snprintf(path,sizeof(path),"/sys/class/thermal/thermal_zone%d/type",map->zone[i]);
+        if(!status_read(path,after,sizeof(after),0x62656572L) || strcmp(before,after))continue;
+        if(!m->cpu_mask || mc>m->cpu_temp_mc)m->cpu_temp_mc=(int32_t)mc;
+        m->cpu_mask|=1U<<i;m->valid|=STATUS_CPU_TEMP;
+    }
+}
+static int resident_clock(uint64_t *now) {
+    struct timespec t;
+    if(clock_gettime(CLOCK_BOOTTIME,&t) || t.tv_sec<0 || t.tv_nsec<0 || t.tv_nsec>=1000000000L ||
+       (uint64_t)t.tv_sec>(UINT64_MAX-(uint64_t)t.tv_nsec/1000000)/1000)return 0;
+    *now=(uint64_t)t.tv_sec*1000+(uint64_t)t.tv_nsec/1000000;return 1;
+}
+static void resident_system(struct status_cpu *previous,struct status_metrics *m) {
+    char text[8192];
+    if(status_read("/proc/meminfo",text,sizeof(text),0x9fa0L))(void)status_memory(text,m);
+    int f=open("/proc/stat",O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK),valid=0;
+    if(f>=0) {
+        struct statfs fs;
+        if(!fstatfs(f,&fs) && fs.f_type==0x9fa0L) {
+            ssize_t n=read(f,text,sizeof(text)-1);
+            if(n>0 && !memchr(text,0,(size_t)n)) {
+                text[n]=0;char *end=strchr(text,'\n');if(end){end[1]=0;valid=1;}
+            }
+        }
+        close(f);
+    }
+    if(valid)status_cpu_sample(text,previous,m);else previous->valid=0;
+}
+static void resident_hardware(struct resident_cpu_map *cpu,struct status_metrics *m) {
+    status_battery(m);
+    char text[512];struct gauge_sample gauge;
+    if(status_read("/sys/module/s22plus_max77705_telemetry/parameters/sample",text,sizeof(text),0x62656572L) &&
+       gauge_parse_reason(text,&gauge)==GAUGE_PARSE_OK) {
+        uint64_t now=0;
+        if(resident_clock(&now) && resident_age(now,gauge.start_ms,gauge.sequence)<=RESIDENT_FRESH_MS) {
+            m->gauge_ms=gauge.start_ms;m->gauge_sequence=gauge.sequence;
+            m->gauge_soc_permille=(uint32_t)gauge.soc_permille;m->gauge_voltage_uv=(uint32_t)gauge.voltage_uv;
+            m->gauge_current_ua=(int32_t)gauge.current_ua;m->valid|=(uint32_t)gauge.valid<<5;
+        }
+    }
+    resident_cpu_temperature(cpu,m);
+}
+static int status_collect(const char *identity,unsigned source) {
+    uint8_t run[16];if(strlen(identity)!=32 || source>1)return 126;
+    for(unsigned i=0;i<16;i++) {
+        unsigned n=0;
+        for(unsigned j=0;j<2;j++) {
+            char c=identity[2*i+j];if(!((c>='0'&&c<='9')||(c>='a'&&c<='f')))return 126;
+            n=n*16+(unsigned)(c<='9'?c-'0':c-'a'+10);
+        }
+        run[i]=(uint8_t)n;
+    }
+    struct status_cpu previous={0};struct resident_cpu_map cpu={0};uint64_t last=0;
+    for(uint64_t sequence=1;;sequence++) {
+        uint64_t now=0;if(!resident_clock(&now) || now<last)return 1;last=now;
+        struct status_metrics m={.magic=RESIDENT_SAMPLE_MAGIC,.source=source,.sequence=sequence,.collected_ms=now};
+        memcpy(m.run,run,16);
+        if(source)resident_hardware(&cpu,&m);else resident_system(&previous,&m);
+        ssize_t sent=send(STDOUT_FILENO,&m,sizeof(m),MSG_DONTWAIT|MSG_NOSIGNAL);
+        if(sent!=(ssize_t)sizeof(m) && !(sent<0 && (errno==EAGAIN || errno==EINTR)))return 1;
+        if(sequence==UINT64_MAX)return 1; /* no wrapping producer */
+        struct timespec delay={.tv_sec=1},remain;
+        while(nanosleep(&delay,&remain)) {if(errno!=EINTR)return 1;delay=remain;}
+    }
+}

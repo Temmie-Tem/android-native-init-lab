@@ -13,7 +13,19 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-The current unit is [bounded attended native baseline V1](docs/operations/S22PLUS_NATIVE_BASELINE_V1.md),
+The current unit, [native resident runtime H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_H0_V1.md),
+is **H0 complete**: normal PID1/local services have no 15-minute cap, while
+individual command sessions remain finite and uncertainty latches command
+admission stopped. Separate system/hardware workers, bounded HUD diagnostics,
+64-bit counters and CPU temperature with sensor coverage passed actual C/PTY/IPC
+tests, 100,000 samples per collector, 1,001 renderer frames, accelerated day/month
+boundaries and AArch64 A/B builds. The [H0 report](docs/reports/S22PLUS_NATIVE_RESIDENT_H0_V1_2026-09-11.md)
+preserves the distinction between these fixtures and unproved target soak,
+sensor exposure, physical display and recovery. Live resident adoption is a
+separate later reviewed capability/approval. All 160 current P385 reviewed source
+inputs, its admission and consumed grants remain unchanged; no device was contacted.
+
+The completed predecessor is [bounded attended native baseline V1](docs/operations/S22PLUS_NATIVE_BASELINE_V1.md),
 P385 / v0.2.0-rc.3: an exact qualified native image with clean DETACH and same-boot
 reauthentication, finite normal baseline restoration, and distinct healthy native
 or exact Android terminals. The current source-qualified capability, ARM64 A/B/AP

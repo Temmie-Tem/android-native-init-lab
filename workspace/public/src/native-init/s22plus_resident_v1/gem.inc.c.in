@@ -1,0 +1,24 @@
+/* Two live allocations at most. No writes to a buffer after first scanout.
+ * Counters are observations; any uncertainty parks the sole DRM owner. */
+static uint64_t hud_mem_alloc,hud_mem_retired;
+static unsigned hud_mem_live,hud_mem_peak;
+static uint64_t resident_diagnostic_dropped;
+static void resident_diagnostic_write(const char *line,size_t size) {
+    if(write(STDERR_FILENO,line,size)!=(ssize_t)size && resident_diagnostic_dropped<UINT64_MAX)
+        ++resident_diagnostic_dropped;
+}
+static void hud_mem_allocated(void) {
+    require(hud_mem_alloc<UINT64_MAX && hud_mem_live<2,"hud-allocation-bound");
+    ++hud_mem_alloc;++hud_mem_live;if(hud_mem_live>hud_mem_peak)hud_mem_peak=hud_mem_live;
+}
+static void hud_mem_retired_one(void) {
+    require(hud_mem_live>0 && hud_mem_retired<UINT64_MAX,"hud-retirement-bound");
+    --hud_mem_live;++hud_mem_retired;
+}
+static void hud_mem_record(uint64_t sequence) {
+    require(hud_mem_live==1,"hud-live-bound");char line[256];
+    int n=snprintf(line,sizeof(line),"HUD_MEM seq=%" PRIu64 " ms=%" PRIu64
+        " alloc=%" PRIu64 " retired=%" PRIu64 " live=%u peak=%u bytes=%zu\n",
+        sequence,(uint64_t)now_ms(),hud_mem_alloc,hud_mem_retired,hud_mem_live,hud_mem_peak,BYTES);
+    if(n>0 && (size_t)n<sizeof(line))resident_diagnostic_write(line,(size_t)n);
+}

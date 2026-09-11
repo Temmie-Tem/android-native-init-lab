@@ -1,0 +1,141 @@
+#include "s22plus_resident_v1/wire.h"
+/* PID1 alone owns three fixed child slots. There is no respawn path. */
+struct resident_child {long pid;int reaped,status,signalled,unknown;};
+struct hud1_state {
+    struct resident_child child[3];
+    int input,output,log,metrics[2],failed;
+    uint32_t state[2];
+    uint64_t sequence,last;
+    struct status_metrics sample[2],gauge_baseline;
+    struct resident_log retained;
+};
+static void hud1_close(int *fd) {if(*fd>=0)(void)sys_close(*fd);*fd=-1;}
+static void resident_reap(struct resident_child *c) {
+    if(c->pid<=0 || c->reaped || c->unknown)return;
+    long n=sys_wait4(c->pid,&c->status,WNOHANG);
+    if(n==c->pid)c->reaped=1;
+    else if(n!=0 && n!=-P260_EINTR)c->unknown=1;
+}
+static void hud1_stop(struct hud1_state *h) {
+    hud1_close(&h->input);
+    for(unsigned i=0;i<3;i++) {
+        struct resident_child *c=&h->child[i];
+        resident_reap(c);
+        if(c->pid>0 && !c->reaped && !c->unknown && !c->signalled) {
+            c->signalled=1;(void)syscall6(129,c->pid,9,0,0,0,0);
+        }
+    }
+}
+static void resident_worker(int input,int output,int error,const char *mode) {
+    if(p328_setsid()<0 || p328_dup_to(input,0)!=0 || p328_dup_to(output,1)!=1 ||
+       p328_dup_to(error,2)!=2 || syscall6(436,3,0xffffffffU,0,0,0,0)<0)sys_exit(126);
+    char *argv[]={"/s22-display",(char *)mode,(char *)rc1_run_id_ascii,NULL};
+    char *env[]={"PATH=/bin","HOME=/","TERM=dumb",NULL};
+    (void)sys_execve("/s22-display",argv,env);sys_exit(126);
+}
+static void hud1_start(struct hud1_state *h) {
+    int pair[2]={-1,-1},out[2]={-1,-1};
+    h->input=h->output=h->log=h->metrics[0]=h->metrics[1]=-1;
+    /* Existing exact ARM64 O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC. */
+    long log=sys_openat("/s22-root-work/hud.log",00000001|00000100|00000200|0100000|02000000,0400);
+    if(log>=0)h->log=(int)log;
+    long null=sys_openat("/dev/null",O_CLOEXEC,0);if(null<=2){if(null>=0)(void)sys_close((int)null);return;}
+    for(unsigned i=0;i<2;i++) {
+        long rc=syscall6(199,1,5|O_NONBLOCK|O_CLOEXEC,0,(long)(uintptr_t)pair,0,0);
+        if(rc<0)continue;
+        if(pair[0]<=2 || pair[1]<=2)goto pair_done;
+        long child=sys_clone();
+        if(!child)resident_worker((int)null,pair[1],(int)null,i?"--collect-hardware":"--collect-system");
+        if(child>0){h->child[i].pid=child;h->metrics[i]=pair[0];pair[0]=-1;h->state[i]=RS_RUNNING;}
+pair_done:
+        hud1_close(&pair[0]);hud1_close(&pair[1]);
+    }
+    if(syscall6(199,1,5|O_NONBLOCK|O_CLOEXEC,0,(long)(uintptr_t)pair,0,0)<0)goto done;
+    if(sys_pipe2(out,O_NONBLOCK|O_CLOEXEC)<0)goto done;
+    if(pair[0]<=2 || pair[1]<=2 || out[0]<=2 || out[1]<=2)goto done;
+    long child=sys_clone();
+    if(!child)resident_worker(pair[1],out[1],out[1],"--supervised-drm");
+    if(child>0){h->child[2].pid=child;h->input=pair[0];pair[0]=-1;h->output=out[0];out[0]=-1;}
+done:
+    for(unsigned i=0;i<2;i++){hud1_close(&pair[i]);hud1_close(&out[i]);}
+    (void)sys_close((int)null);
+}
+static void resident_receive(struct hud1_state *h,unsigned i,uint64_t now) {
+    if(h->metrics[i]<0)return;
+    for(unsigned turn=0;turn<8;turn++) {
+        struct status_metrics next={0};
+        long n=syscall6(207,h->metrics[i],(long)(uintptr_t)&next,sizeof(next),0x20|0x40,0,0);
+        if(n==-EAGAIN || n==-P260_EINTR)return;
+        if(n==0){h->state[i]=RS_EOF;hud1_close(&h->metrics[i]);return;}
+        struct status_metrics baseline=h->sample[i];
+        if(i){baseline.gauge_sequence=h->gauge_baseline.gauge_sequence;baseline.gauge_ms=h->gauge_baseline.gauge_ms;
+            baseline.gauge_soc_permille=h->gauge_baseline.gauge_soc_permille;
+            baseline.gauge_voltage_uv=h->gauge_baseline.gauge_voltage_uv;baseline.gauge_current_ua=h->gauge_baseline.gauge_current_ua;}
+        /* A worker may collect between the tick clock read and recv. Validate
+         * against a clock read after receipt, never the earlier tick instant. */
+        uint64_t received=0;
+        if(n!=(long)sizeof(next) || rc1_now(&received)!=0 || received<now ||
+           !resident_sample_valid(&next,&baseline,i,received,p328_run_id_bytes)) {
+            h->state[i]=RS_FAULT;hud1_close(&h->metrics[i]);return;
+        }
+        h->sample[i]=next;if(i && (next.valid&224U))h->gauge_baseline=next;
+    }
+    /* Finite work per tick; queued recent samples can drain on the next tick. */
+}
+static void hud1_tick(struct hud1_state *h,uint64_t now,unsigned state) {
+    for(unsigned i=0;i<2;i++)resident_receive(h,i,now);
+    if(h->output>=0) {
+        char data[512];long n=sys_read(h->output,data,sizeof(data));
+        if(n>0)resident_log_feed(&h->retained,data,(unsigned)n);
+        else if(!n || (n!=-EAGAIN && n!=-P260_EINTR)) {
+            resident_log_eof(&h->retained);hud1_close(&h->output);
+        }
+    }
+    for(unsigned i=0;i<3;i++) {
+        resident_reap(&h->child[i]);
+        if(i<2 && (h->state[i]==RS_RUNNING || h->state[i]==RS_EOF)) {
+            if(h->child[i].unknown)h->state[i]=RS_WAIT_UNKNOWN;
+            else if(h->child[i].reaped)h->state[i]=h->child[i].status?RS_FAULT:RS_EOF;
+        }
+    }
+    if(h->child[2].reaped || h->child[2].unknown)hud1_close(&h->input);
+    if(h->input<0 || h->failed)return;
+    if(h->sequence && (now<h->last || now-h->last<1000U))return;
+    if(h->sequence==RESIDENT_U64_MAX){h->failed=1;hud1_close(&h->input);return;}
+    h->last=now;
+    struct hud_snapshot view={.magic=RESIDENT_VIEW_MAGIC,.state=state,.sequence=++h->sequence,.uptime_ms=now};
+    memcpy(view.run,p328_run_id_bytes,16);memcpy(view.sample,h->sample,sizeof(view.sample));
+    memcpy(view.source_state,h->state,sizeof(view.source_state));
+    long n=syscall6(206,h->input,(long)(uintptr_t)&view,sizeof(view),0x4000|0x40,0,0);
+    if(n!=(long)sizeof(view) && n!=-EAGAIN && n!=-P260_EINTR){h->failed=1;hud1_close(&h->input);}
+}
+static unsigned resident_number(char *out,const char *key,uint64_t number) {
+    unsigned n=0,k=0;char digits[20];while(*key)out[n++]=*key++;
+    do{digits[k++]=(char)('0'+number%10);number/=10;}while(number);
+    while(k)out[n++]=digits[--k];
+    return n;
+}
+static void resident_export(struct hud1_state *h) {
+    if(h->log<0)return;
+    struct resident_log *r=&h->retained;char header[320];unsigned n=0;
+    n+=resident_number(header+n,"S22RLOG1 first=",r->count?r->last-r->count+1:0);
+    n+=resident_number(header+n," last=",r->last);
+    n+=resident_number(header+n," records=",r->count);
+    n+=resident_number(header+n," evicted=",r->evicted);
+    n+=resident_number(header+n," dropped=",r->dropped);
+    n+=resident_number(header+n," partial_bytes=",r->used);
+    n+=resident_number(header+n," exhausted=",r->exhausted);header[n++]='\n';
+    /* Exact fixed tmpfs descriptor; truncate first so a failed export has no
+     * stale COMPLETE footer. A new command is not spawned until this returns. */
+    if(syscall6(46,h->log,0,0,0,0,0)<0 || syscall6(62,h->log,0,0,0,0,0)<0 ||
+       sys_write(h->log,header,n)!=(long)n)goto bad;
+    for(unsigned i=0;i<r->count;i++) {
+        unsigned slot=(r->head+i)%RESIDENT_LOG_SLOTS;
+        if(sys_write(h->log,r->row[slot],r->size[slot])!=(long)r->size[slot])goto bad;
+    }
+    static const char complete[]="S22RLOG1 COMPLETE\n";
+    if(sys_write(h->log,complete,sizeof(complete)-1)!=(long)(sizeof(complete)-1))goto bad;
+    return;
+bad:
+    hud1_close(&h->log);
+}

@@ -1,0 +1,70 @@
+static struct hud_snapshot resident_view;
+static uint64_t hud_last_sequence,hud_last_uptime;
+static unsigned resident_bitcount(unsigned value) {unsigned n=0;while(value){n+=value&1U;value>>=1;}return n;}
+static const char *resident_status(unsigned index,uint64_t now) {
+    unsigned state=resident_view.source_state[index];
+    if(state!=RS_RUNNING)return (const char *const[]){"ABSENT","RUNNING","EOF","FAULT","WAIT UNKNOWN"}[state];
+    const struct status_metrics *m=&resident_view.sample[index];
+    if(!m->sequence)return "WAITING";
+    return resident_age(now,m->collected_ms,m->sequence)>RESIDENT_FRESH_MS?"STALE":"FRESH";
+}
+static void paint(struct buffer *b,uint64_t seconds) {
+    for(size_t i=0;i<BYTES/4;i++)b->pixels[i]=0xff000000U;
+    hud_text(b,120,120,"NATIVE INIT",8);char text[96];uint64_t now=(uint64_t)now_ms();
+    const struct status_metrics *s=&resident_view.sample[0],*h=&resident_view.sample[1];
+    unsigned sv=resident_valid(s,resident_view.source_state[0],now),hv=resident_valid(h,resident_view.source_state[1],now);
+    snprintf(text,sizeof(text),"UPTIME: %" PRIu64 " D %02" PRIu64 ":%02" PRIu64 ":%02" PRIu64,
+        seconds/86400,seconds/3600%24,seconds/60%60,seconds%60);hud_text(b,120,330,text,5);
+    hud_text(b,120,450,@@DISPLAY_STATE_TEXT@@,5);
+    snprintf(text,sizeof(text),"SYSTEM: %s",resident_status(0,now));hud_text(b,120,600,text,5);
+    if(sv&STATUS_MEM)snprintf(text,sizeof(text),"MEM: %" PRIu64 "/%" PRIu64 " MIB",
+        (s->mem_total_kib-s->mem_available_kib)/1024,s->mem_total_kib/1024);else snprintf(text,sizeof(text),"MEM: N/A");
+    hud_text(b,120,710,text,5);
+    if(sv&STATUS_CPU)snprintf(text,sizeof(text),"CPU: %u.%u%%",s->cpu_permille/10,s->cpu_permille%10);else snprintf(text,sizeof(text),"CPU: N/A");
+    hud_text(b,120,820,text,5);
+    snprintf(text,sizeof(text),"SENSORS: %s",resident_status(1,now));hud_text(b,120,970,text,5);
+    if(hv&STATUS_CPU_TEMP) {
+        unsigned magnitude=(unsigned)(h->cpu_temp_mc<0?-h->cpu_temp_mc:h->cpu_temp_mc);
+        snprintf(text,sizeof(text),"CPU MAX AVAIL: %s%u.%u C",h->cpu_temp_mc<0?"-":"",magnitude/1000,magnitude%1000/100);
+    }else snprintf(text,sizeof(text),"CPU TEMP: N/A");
+    hud_text(b,120,1080,text,5);
+    snprintf(text,sizeof(text),"CPU COVERAGE: %u/13",hv&STATUS_CPU_TEMP?resident_bitcount(h->cpu_mask):0);hud_text(b,120,1190,text,5);
+    if(hv&STATUS_GAUGE_SOC)snprintf(text,sizeof(text),"GAUGE SOC: %u.%u%%",h->gauge_soc_permille/10,h->gauge_soc_permille%10);else snprintf(text,sizeof(text),"GAUGE SOC: N/A");
+    hud_text(b,120,1340,text,5);
+    if(hv&STATUS_GAUGE_VOLTAGE)snprintf(text,sizeof(text),"VOLTAGE: %u.%03u V",h->gauge_voltage_uv/1000000,h->gauge_voltage_uv%1000000/1000);else snprintf(text,sizeof(text),"VOLTAGE: N/A");
+    hud_text(b,120,1450,text,5);
+    if(hv&STATUS_GAUGE_CURRENT)snprintf(text,sizeof(text),"CURRENT: %d MA",h->gauge_current_ua/1000);else snprintf(text,sizeof(text),"CURRENT: N/A");
+    hud_text(b,120,1560,text,5);
+    if(hv&STATUS_TEMP) {
+        unsigned t=(unsigned)(h->battery_temp_deci<0?-h->battery_temp_deci:h->battery_temp_deci);
+        snprintf(text,sizeof(text),"BATTERY: %s%u.%u C",h->battery_temp_deci<0?"-":"",t/10,t%10);
+    }else snprintf(text,sizeof(text),"BATTERY TEMP: N/A");
+    hud_text(b,120,1670,text,5);
+    snprintf(text,sizeof(text),"SYSTEM SAMPLE: %" PRIu64,s->sequence);hud_text(b,120,1860,text,4);
+    snprintf(text,sizeof(text),"SENSOR SAMPLE: %" PRIu64,h->sequence);hud_text(b,120,1960,text,4);
+    hud_text(b,120,2100,"@@DISPLAY_VERSION@@",5);hud_text(b,120,2200,"RESIDENT SERVICES",5);__sync_synchronize();
+}
+static int hud_snapshot_read(struct hud_snapshot *value) {
+    int found=0;
+    for(unsigned i=0;i<32;i++) {
+        struct hud_snapshot next={0};ssize_t n=recv(STDIN_FILENO,&next,sizeof(next),MSG_DONTWAIT|MSG_TRUNC);
+        if(n<0 && (errno==EAGAIN || errno==EINTR))break;
+        require(n==(ssize_t)sizeof(next),"hud-snapshot-size-or-eof");
+        require(next.magic==RESIDENT_VIEW_MAGIC && next.state<=8 && next.sequence>hud_last_sequence &&
+            next.uptime_ms>=hud_last_uptime && next.uptime_ms<=(uint64_t)now_ms(),"hud-snapshot-order");
+        char hex[33];for(unsigned j=0;j<16;j++)snprintf(hex+2*j,3,"%02x",next.run[j]);
+        require(!strcmp(hex,run_id),"hud-snapshot-run");
+        for(unsigned j=0;j<2;j++) {
+            require(next.source_state[j]<=RS_WAIT_UNKNOWN,"hud-source-state");
+            if(next.sample[j].sequence) {
+                struct status_metrics old=resident_view.sample[j];
+                if(next.sample[j].sequence==old.sequence)
+                    require(!memcmp(&next.sample[j],&old,sizeof(old)),"hud-sample-rewrite");
+                else require(resident_sample_valid(&next.sample[j],&old,j,(uint64_t)now_ms(),next.run),"hud-sample-invalid");
+            }else require(!memcmp(&next.sample[j],&(struct status_metrics){0},sizeof(next.sample[j])) &&
+                !resident_view.sample[j].sequence,"hud-sample-cleared");
+        }
+        hud_last_sequence=next.sequence;hud_last_uptime=next.uptime_ms;resident_view=next;*value=next;found=1;
+    }
+    return found;
+}

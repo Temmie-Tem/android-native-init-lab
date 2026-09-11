@@ -1,0 +1,13 @@
+static void hud_record(const struct hud_snapshot *value) {
+    uint64_t now=(uint64_t)now_ms();char line[768];
+    const struct status_metrics *s=&value->sample[0],*h=&value->sample[1];
+    int n=snprintf(line,sizeof(line),"RESIDENT_FRAME seq=%" PRIu64 " ms=%" PRIu64 " state=%u"
+        " system_seq=%" PRIu64 " system=%s system_valid=%u system_age=%" PRIu64
+        " hardware_seq=%" PRIu64 " hardware=%s hardware_valid=%u hardware_age=%" PRIu64
+        " gauge_seq=%" PRIu64 " gauge_age=%" PRIu64 " cpu_temp_mc=%d cpu_mask=%u expected=13"
+        " producer_dropped=%" PRIu64 " event=matched visible=UNPROVED\n",value->sequence,value->uptime_ms,value->state,
+        s->sequence,resident_status(0,now),resident_valid(s,value->source_state[0],now),resident_age(now,s->collected_ms,s->sequence),
+        h->sequence,resident_status(1,now),resident_valid(h,value->source_state[1],now),resident_age(now,h->collected_ms,h->sequence),
+        h->gauge_sequence,resident_age(now,h->gauge_ms,h->gauge_sequence),h->cpu_temp_mc,h->cpu_mask,resident_diagnostic_dropped);
+    if(n>0 && (size_t)n<sizeof(line))resident_diagnostic_write(line,(size_t)n);
+}
