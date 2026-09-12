@@ -44,8 +44,8 @@ static __attribute__((unused)) int resident_fixture_clock(clockid_t id,struct ti
 '''
 
 
-def native_source(selected=candidate):
-    raw=previous.native_fixture()
+def native_source(selected=candidate,*,runtime_source=source):
+    raw=previous.native_fixture(runtime_source=runtime_source)
     old,new=previous.IDENTITY,selected.IDENTITY
     # Fixture platform identity is explicit data; production helper is generated
     # by the resident composition in the inherited fixture before instrumentation.
@@ -84,11 +84,13 @@ def compile_components(cls, selected=candidate, *, render_source=source, metrics
     cls.temp=tempfile.TemporaryDirectory(prefix='s22-resident-adoption-h0-');cls.addClassCleanup(cls.temp.cleanup)
     cls.folder=Path(cls.temp.name)
     (cls.folder/'resident-fixture-clock.h').write_text(CLOCK_HEADER)
-    (cls.folder/'native.c').write_text(native_source(selected));cls.binary=cls.folder/'native'
+    (cls.folder/'native.c').write_text(native_source(selected,runtime_source=render_source));cls.binary=cls.folder/'native'
     compile_c(cls.folder/'native.c',cls.binary,'-Wno-unused-function','-Wno-unused-const-variable','-Wno-misleading-indentation')
     raw=render_source.render_display(selected.IDENTITY,previous.CENSUS)
     (cls.folder/'renderer.c').write_bytes(raw)
     renderer=previous.renderer_fixture().replace(previous.IDENTITY.run_id_hex,selected.IDENTITY.run_id_hex)
+    renderer=previous.swap(renderer,'size==304&&flags==(MSG_DONTWAIT|MSG_TRUNC)',
+        'size==sizeof(struct hud_snapshot)&&flags==(MSG_DONTWAIT|MSG_TRUNC)')
     renderer=previous.swap(renderer,'if(!strcmp(scenario,"ipc-live"))return syscall(SYS_clock_gettime,id,value);',
         'if(!strcmp(scenario,"ipc-live"))return resident_frame_clock(id,value);')
     # Apply accelerated clock jumps between frame snapshots. A real suspend

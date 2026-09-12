@@ -8,13 +8,18 @@
     },
     "source_02d90b29e9e99dcd": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py",
-      "sha256": "5fbc3b46e3e10073b60acaa916aa5b633f8cee1ae4d99e5dfd7526f901dea070",
-      "size": 6158
+      "sha256": "e93b5d8c4320f20f001550c9a187b6725fd748fcbfb9c13ced48cf539f7a4a62",
+      "size": 6817
     },
     "source_0361bd05dfb31ddf": {
       "path": "workspace/public/src/native-init/s22plus_resident_v1/hud.inc.c.in",
       "sha256": "071c2f57b54c45814fe7a62b19e9891f7a7a982cf741b558a1e0cb8c468fc566",
       "size": 7351
+    },
+    "source_03ceaedac8093b8c": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/provider-probe.inc.c.in",
+      "sha256": "2489e4b519bb583de933c8155d323e0e6a91494e899f6c8766337a41b11e43e6",
+      "size": 1746
     },
     "source_04ec23b75072a713": {
       "path": "workspace/public/src/native-init/s22plus_resident_v1/collect.inc.c.in",
@@ -136,6 +141,11 @@
       "sha256": "207a8bec0d6a0ba0fff8bc285acc783f6ae6497e9aca444c17cdbf0b10bc6d63",
       "size": 3563
     },
+    "source_1ed3dcdfc738a4fe": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_native_thermal_build_v2.py",
+      "sha256": "d174d63073ec988477652495317b6850fec64807a7eb045e69f0e8b9b7edbb2f",
+      "size": 5736
+    },
     "source_20f627012186e8cc": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p330_auth_acm_observer.py",
       "sha256": "a00589310609cbab776dd99a23325644406d4d52cc0038ab34ab11ae726b3240",
@@ -160,6 +170,11 @@
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p343_artifact_identity.py",
       "sha256": "a7ae3cc78c12dad86d19b6b831f4af3cf1a6789d9925b75a110797ab18120226",
       "size": 17412
+    },
+    "source_28ceb8b0817f3a4e": {
+      "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V2.md",
+      "sha256": "c3fe0ed2ef5dc28732abefe478e01968b5b232343e485f161fe003c8257a7022",
+      "size": 6238
     },
     "source_29892bdfd035af62": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p363_artifact_identity.py",
@@ -211,6 +226,11 @@
       "sha256": "a6627f1675969316bced75ceae27bbcfd37f2a2530580d3e12be602c5b1e3168",
       "size": 2313
     },
+    "source_3a7aa70acf768e8f": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/record.inc.c.in",
+      "sha256": "bab7ed94e2828b35bceac9c15b7d65bbbc9cba2acd67d1d88ccba1207b76187e",
+      "size": 3044
+    },
     "source_3ae11f542242c16b": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p366_namespace.py",
       "sha256": "ff62d1d4fe5dd0027951563c4d2a91adfedc8f1ef893e67a0d46e3671372703f",
@@ -250,6 +270,11 @@
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p310_carrier_model.py",
       "sha256": "bc2db7b1aa1c50ac4085fc9c8c35266a51a7401acb5e193f233961edbdeacf8d",
       "size": 24151
+    },
+    "source_4243e31b64e6129f": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/core.inc.h",
+      "sha256": "c02d0ef925355b4157a85d850893c6c9b218e09a78e5bf1b3588162b6520e3a2",
+      "size": 3238
     },
     "source_42c953c9fd95a418": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p364_namespace.py",
@@ -613,8 +638,8 @@
     },
     "source_955c4cec99261135": {
       "path": "workspace/public/src/scripts/analysis/s22plus_thermal_provider_build_h0_v1.py",
-      "sha256": "d713380ae1baa62eba6c8f57e723d4a39af99cfa2f82a13db408ed41a5def99a",
-      "size": 8438
+      "sha256": "3688dc6d2277915277dc8eb214bfe54bf5a3743076395b5a20ffdbea77422867",
+      "size": 8997
     },
     "source_9681a696acbbff01": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p376_namespace.py",
@@ -645,6 +670,11 @@
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p353_artifact_identity.py",
       "sha256": "2746cd0d42a880e3567528043391ef6b2cc9d9a4648e604276fc395bec4d7686",
       "size": 1316
+    },
+    "source_9e39712b71734983": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/provider-sample.inc.c.in",
+      "sha256": "940795ca96065a1a442365ce7ca2178734a210673830d70f129fead4c8e0d080",
+      "size": 4046
     },
     "source_9ec2c909a549daa7": {
       "path": "docs/operations/S22PLUS_NATIVE_BASELINE_V2.md",
@@ -731,6 +761,11 @@
       "sha256": "598ef196058d5ae02a43a6885394b84953b12b0cde3c53dfcf14d9bdf67d1d01",
       "size": 7405
     },
+    "source_ad855ef9084848bc": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/render.inc.c.in",
+      "sha256": "07d8ae55f97137b9398e115d3c05f04541a15f1ec9a9deb6beb61a5d83e8a66c",
+      "size": 644
+    },
     "source_ae0bcf291b7be316": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_boot_only_live_core.py",
       "sha256": "f5411d39e11e1f5e2b4ff63c0fe6c3a1874ef0dd5c33c91cbab4f736f4521af1",
@@ -740,6 +775,11 @@
       "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p320_observer_contract.py",
       "sha256": "7b1330ad28712474d5c3ea0f2d4f7649c4d4da94ad7ff1cff705a3b14681cf72",
       "size": 81705
+    },
+    "source_b35e67bacc1c446a": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/provider-map.inc.c.in",
+      "sha256": "66bf8cd24bb77d891f50087f2baf61de2285531d5dfc9c27cd74a61116856ab6",
+      "size": 1654
     },
     "source_b4faef23116f71a0": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p324_cdc_acm_observer.py",
@@ -776,6 +816,11 @@
       "sha256": "fd0ecb0d4ebdae2439f8e56b5123164ffd37579413fad3b5a2b5a62b36c6bbed",
       "size": 1145
     },
+    "source_c05c3dc867ef7e25": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/ipc-validate.inc.c.in",
+      "sha256": "d28469532b58a500766c3524c09114d77e6745056611fb8844fcf4e583c6181c",
+      "size": 1022
+    },
     "source_c721d575865bccea": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p368_return_spec.py",
       "sha256": "7393edcb1ab5c49ba7fc89231585d39f914c313dd2adb84d2e6e2c09f8a7c1e0",
@@ -808,8 +853,8 @@
     },
     "source_ce6a05f6d3ee0bae": {
       "path": "workspace/public/src/scripts/analysis/s22plus_native_thermal_build_v1.py",
-      "sha256": "812c2acfe8a6e5909b5934be45b02eabf34bd73f59bfc2bb0d422c3906b12e99",
-      "size": 15612
+      "sha256": "38800fc928e630c0791b4e6ce3b11a1b6d023977d4601a6a4d908fb56555feb8",
+      "size": 16239
     },
     "source_ced2eb308ee36fe4": {
       "path": "workspace/public/src/kernel-modules/s22plus_max77705_telemetry_v3/s22plus_max77705_telemetry.c",
@@ -906,10 +951,20 @@
       "sha256": "e6ab76d07568c89e8ce84e0a09dfb35805a6b380768875a074f1175c192d43fe",
       "size": 3817
     },
+    "source_e4aa64066d06126c": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_thermal_observer_v2.py",
+      "sha256": "5ebb18e7b3218186a299dc48efa9ab3266f4691815273a12b2b512d1484fedcb",
+      "size": 10460
+    },
     "source_e5123cee4280d90a": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p367_return_spec.py",
       "sha256": "85bf953348f9988709cb16213850187c3d3214da7b30bbd322b5c9d1839cde4c",
       "size": 128
+    },
+    "source_e7e138277e33de27": {
+      "path": "workspace/public/src/native-init/s22plus_thermal_v2/collect.inc.c.in",
+      "sha256": "14f0925860290031cc1a5910645c178009590c62c5e9cc1388125b72d1e2734a",
+      "size": 3284
     },
     "source_e96f800323f7cf80": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_native_thermal_observer_v1.py",
@@ -950,6 +1005,11 @@
       "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p386_stock_candidate_build.py",
       "sha256": "ffb481ebb4f19d78150e1a7a819b2e1782e9f4b0360544d43737ad920fdd73eb",
       "size": 10874
+    },
+    "source_f4a68055ea2faf4e": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_thermal_source_v2.py",
+      "sha256": "81d29bd87dde74523cb4bed73edba077677e3b440f3abfffa36edbe9028898f4",
+      "size": 6119
     },
     "source_fa7416face24739d": {
       "path": "docs/operations/S22PLUS_NATIVE_RESIDENT_H0_V1.md",
@@ -994,9 +1054,9 @@
       "sha256": "98bc0e8f2f902a5e587afd9fe2a0f3ed61efed65a21efe0e9acf03b8414e9565",
       "size": 31150121
     },
-    "p389": {
-      "sha256": "4fe89df2617927e058578e66e6728ec43b2bb8649a0291a87e186d5e7c4c3873",
-      "size": 31293481
+    "p390": {
+      "sha256": "5f42d3e6b2d163c2c88de78cd057962be012e915f833898e40564c136726a349",
+      "size": 31303721
     }
   },
   "policy_binding": {
@@ -1021,45 +1081,56 @@
       "size": 137159
     },
     "thermal_profile": {
+      "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V2.md",
+      "sha256": "c3fe0ed2ef5dc28732abefe478e01968b5b232343e485f161fe003c8257a7022",
+      "size": 6238
+    },
+    "thermal_v1_profile": {
       "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V1.md",
       "sha256": "20a3ae1c026b1d33c2999754e5fab97ad90d860e440b08a2e9ae71db0a608f58",
       "size": 5804
     }
   },
   "preserved": {
-    "consumed_review_sha256": "9898564ee34fdb3dc0c95105c87a92b8bf3ae96f9262732067b8836fea79ae38",
+    "consumed_review_sha256": "7622f16dd1b281837d709ec56dc9401e636d8562596d6cb9d5e087d9efa78063",
     "old_approval_reuse": false,
     "original_claims_and_journals_unchanged": true,
-    "previous_publication_sha256": "3135620b4c67d6deee947f210a45db9c1aee3eb418d2c6bfedc03c43d2a6bf1a"
+    "previous_publication_sha256": "2810a3652f7229501826b34a9975b20b9450a6eae1312e213f2e870420d392b6"
   },
   "qualification": {
     "actual_aarch64_ab_identical": true,
+    "actual_arm64_collector_and_ipc": true,
     "actual_boot_only_ap_decoding": true,
+    "actual_byte_mutations_rejected": 4,
     "actual_full_request_reader_reopened": true,
-    "artifact_mutation_tests": 3,
+    "actual_package_root": "workspace/private/outputs/s22plus-native-thermal-v2/p390/build-3",
+    "affected_tests_after_format_fix": 9,
+    "artifact_mutation_tests": 5,
     "document_links": true,
     "exact_full_N_E_source_coverage": true,
-    "expiry_during_settle": true,
-    "full_N_E_request_bytes": 368785,
-    "full_N_E_request_sha256": "df6ed65ea115be4c66cc2d5bf3a9e303f55a250956a5b0a24b7730b3d39c78eb",
+    "full_N_E_request_bytes": 378963,
+    "full_N_E_request_sha256": "cec0faddb182ed7eef1ebcb3f00f0f37540f26c1507a518ed68a1ccd3d287c13",
     "git_diff_check": true,
-    "metadata_mutations_rejected": 25,
+    "maximum_companion_bytes": 525,
+    "metadata_mutations_rejected": 34,
+    "old_new_ipc_cross_rejection": true,
     "preserved_N_native_inputs": 121,
-    "private_evidence_root": "workspace/private/outputs/s22plus-temperature-native-h0-20260913-1",
+    "private_evidence_root": "workspace/private/outputs/s22plus-native-thermal-v2-h0-20260913-1",
     "py_compile": true,
-    "regression_tests": 21,
+    "regression_tests": 35,
     "repository_boundary_check": "clean",
-    "retained_N_admission_rederived": true
+    "retained_N_admission_rederived": true,
+    "synthetic_HUD_visually_checked": true
   },
-  "reviewed_at_utc": "2026-09-12",
+  "reviewed_at_utc": "2026-09-12T19:53:02+00:00",
   "reviewer": "independent-agent-p386_terminal_review",
   "schema": "s22plus-native-baseline-capability-review-v2",
-  "scope": "Fresh P389 thermal E, unchanged admitted P387 N, exact ADC/TSENS effects, complete artifact evidence and attended N/E/N host closure",
+  "scope": "Fresh P390 CPU/GPU/SoC-DDR thermal E; unchanged admitted P387 N; actual extended IPC, diagnostics, source/artifact metadata and attended N/E/N closure",
   "source_binding": {
     "canonical_encoding": "sorted compact JSON with one trailing newline",
-    "canonical_sha256": "774282196eb07234efa1df18e4f58fe4e88320a0a876d4dbfa6614143e96aa7d",
+    "canonical_sha256": "1ae27503b63b6a43cb826864d5c27bba812a77db21f2c118ae1f386d4f090d0c",
     "publication_input": "publication",
-    "unique_execution_sources": 195
+    "unique_execution_sources": 207
   },
   "verdict": "PASS_GO"
 }

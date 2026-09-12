@@ -61,17 +61,19 @@ def build_package(out,label,baseline,image,replacements,tools):
 
 class Builder(base.Builder):
     __file__=__file__
+    source=source
+    provider_profile=None
 
     def __init__(self,declaration):
         super().__init__(declaration)
         self.DEFAULT_OUTPUT_ROOT=ROOT/('workspace/private/outputs/s22plus-native-thermal-v1/'+declaration.IDENTITY.namespace+'/build-2')
 
     def source_receipts(self):
-        paths={ROOT/name for name in super().source_receipts()}|set(source.source_files())|set(provider.source_files())|{Path(__file__)}
+        paths={ROOT/name for name in super().source_receipts()}|set(self.source.source_files())|set(provider.source_files(self.provider_profile))|{Path(__file__)}
         return {str(path.relative_to(ROOT)):packaging.identity(packaging.stable(path)) for path in sorted(paths)}
 
     def native_selection(self):
-        return dict(super().native_selection(),runtime_profile=source.profile_contract(),added_modules=list(ADDED))
+        return dict(super().native_selection(),runtime_profile=self.source.profile_contract(),added_modules=list(ADDED))
 
     def base_runtime(self,out):
         # The inherited builder validates the unmodified resident artifacts;
@@ -83,13 +85,13 @@ class Builder(base.Builder):
         if out.resolve()!=out or not out.is_relative_to(ROOT/'workspace/private/outputs'):
             raise ValueError('thermal runtime must be a direct private output')
         value=json.loads(packaging.stable(out/'result.json'))
-        resident=self.base_runtime(out);thermal=provider.audit(out/'thermal-provider')
+        resident=self.base_runtime(out);thermal=provider.audit(out/'thermal-provider',profile=self.provider_profile)
         if packaging.stable(out/'renderer-a')!=packaging.stable(out/'renderer-b'):
             raise ValueError('thermal renderer A/B differs')
         if packaging.stable(out/'inputs/s22plus_native_display_plan.h')!=self.module_plan(resident,thermal,out):
             raise ValueError('thermal fixed module plan differs')
-        census=tuple(source.resident.common.MemoryModule(*row) for row in shared.memory.manifest())
-        if packaging.stable(out/'inputs/renderer.c')!=source.render_display(self.declaration.IDENTITY,census):
+        census=tuple(self.source.resident.common.MemoryModule(*row) for row in shared.memory.manifest())
+        if packaging.stable(out/'inputs/renderer.c')!=self.source.render_display(self.declaration.IDENTITY,census):
             raise ValueError('thermal renderer source differs')
         if shared.canonical(value)!=shared.canonical(self.runtime_value(out,resident,thermal)):
             raise ValueError('thermal runtime evidence does not regenerate')
@@ -102,7 +104,7 @@ class Builder(base.Builder):
         elf=subprocess.check_output([tools['readelf'],'-W','-l',out/'renderer-a'])
         if 'ARM aarch64' not in description or 'statically linked' not in description or b'INTERP' in elf:
             raise ValueError('thermal renderer ELF differs')
-        return dict(schema='s22plus-native-thermal-runtime-v1',source_inputs=self.source_receipts(),profile=source.profile_contract(),
+        return dict(schema='s22plus-native-thermal-runtime-v1',source_inputs=self.source_receipts(),profile=self.source.profile_contract(),
             run_id_hex=self.declaration.IDENTITY.run_id_hex,resident=resident,thermal=thermal,
             renderer=packaging.identity(packaging.stable(out/'renderer-a')),file=description,ab_identical=True)
 
@@ -110,25 +112,25 @@ class Builder(base.Builder):
         plan=packaging.stable(Path(out)/'resident/inputs/s22plus_native_display_plan.h')
         match=re.findall(rb'#define P350_DISPLAY_MODULE_COUNT ([0-9]+)U',plan)
         if len(match)!=1: raise ValueError('resident module count differs')
-        count=int(match[0]);plan=source.resident.replace(plan,match[0]+b'U',str(count+len(ADDED)).encode()+b'U')
+        count=int(match[0]);plan=self.source.resident.replace(plan,match[0]+b'U',str(count+len(ADDED)).encode()+b'U')
         rows=b''.join(('    {"/s22-display-modules/'+name+'", '+str(thermal['modules'][name]['identity']['size'])+'ULL, 0},\n').encode()
             for name in provider.MODULE_ORDER)
-        return source.resident.replace(plan,b'\n};\n',b'\n'+rows+b'};\n')
+        return self.source.resident.replace(plan,b'\n};\n',b'\n'+rows+b'};\n')
 
     def build_runtime(self,out,thermal_input):
         out.mkdir(mode=0o700,parents=True)
         resident=base.resident_build.build(out/'resident',base.PROVIDER_INPUT,selected=self.declaration.IDENTITY)
-        thermal=provider.audit(thermal_input)
+        thermal=provider.audit(thermal_input,profile=self.provider_profile)
         thermal_out=out/'thermal-provider';thermal_out.mkdir(mode=0o700)
         names=['result.json','module-a.ko','module-b.ko',*('modules/'+name for name in provider.MODULE_ORDER),
             *('module-stage/'+name for name in provider.PARTS)]
         for name in names: shared.write(thermal_out/name,packaging.stable(Path(thermal_input)/name))
-        if provider.audit(thermal_out)!=thermal: raise ValueError('thermal provider reuse differs')
+        if provider.audit(thermal_out,profile=self.provider_profile)!=thermal: raise ValueError('thermal provider reuse differs')
         plan=self.module_plan(resident,thermal,out);shared.write(out/'inputs/s22plus_native_display_plan.h',plan)
-        census=tuple(source.resident.common.MemoryModule(*row) for row in shared.memory.manifest())
-        shared.write(out/'inputs/renderer.c',source.render_display(self.declaration.IDENTITY,census))
+        census=tuple(self.source.resident.common.MemoryModule(*row) for row in shared.memory.manifest())
+        shared.write(out/'inputs/renderer.c',self.source.render_display(self.declaration.IDENTITY,census))
         tools=shared.packager._bind_tools()
-        compiler=[tools['gcc'],*shared.RENDERER_FLAGS,'-I',out/'inputs','-I',shared.HEADERS,'-I',source.NATIVE,out/'inputs/renderer.c']
+        compiler=[tools['gcc'],*shared.RENDERER_FLAGS,'-I',out/'inputs','-I',shared.HEADERS,'-I',self.source.NATIVE,out/'inputs/renderer.c']
         for side in ('a','b'): shared.run([*compiler,'-o',out/('renderer-'+side)],out,out/('renderer-'+side+'.log'))
         first=packaging.identity(packaging.stable(out/'renderer-a'))
         if first!=packaging.identity(packaging.stable(out/'renderer-b')): raise ValueError('thermal renderer A/B differs')
@@ -136,12 +138,22 @@ class Builder(base.Builder):
         elf=shared.run([tools['readelf'],'-W','-l',out/'renderer-a'],out,out/'renderer-readelf.log')
         if 'ARM aarch64' not in description or 'statically linked' not in description or b'INTERP' in elf:
             raise ValueError('thermal renderer ELF differs')
+        self.build_native_init(out,resident)
         result=self.runtime_value(out,resident,thermal)
         shared.write(out/'result.json',shared.canonical(result));return self.runtime_inputs(out)
 
+    def build_native_init(self,out,resident):
+        # V1 preserves the inherited init; extended private IPC profiles must
+        # override this hook and audit their actual generated init separately.
+        pass
+
+    def init_input(self,out,runtime):
+        return out/'resident/userspace-a/init',runtime['resident']['init']
+
     def replacements(self,runtime):
         out=self.DEFAULT_OUTPUT_ROOT/'runtime';resident=runtime['resident']
-        return {'init':packaging.stable(out/'resident/userspace-a/init',expected=resident['init']),
+        init_path,init_pin=self.init_input(out,runtime)
+        return {'init':packaging.stable(init_path,expected=init_pin),
             's22-display':packaging.stable(out/'renderer-a',expected=runtime['renderer']),
             packaging.PROVIDER_MEMBER:packaging.stable(out/'resident/provider/module-a.ko',expected=resident['provider']['module']),
             **{member:packaging.stable(out/'thermal-provider/modules'/Path(member).name,
@@ -201,7 +213,7 @@ class Builder(base.Builder):
         inventory=packages['a']['inventory']
         return dict(schema='s22plus-native-thermal-build-v1',verdict='PASS_NATIVE_THERMAL_BUILD_H0',
             source_inputs=self.source_receipts(),native_selection=self.native_selection(),run_id_hex=self.declaration.IDENTITY.run_id_hex,
-            image=packaging.identity(image),image_transform=transform,init=runtime['resident']['init'],renderer=runtime['renderer'],
+            image=packaging.identity(image),image_transform=transform,init=runtime.get('init',runtime['resident']['init']),renderer=runtime['renderer'],
             provider=runtime['resident']['provider']['module'],thermal_modules=runtime['thermal']['modules'],
             child={k:inventory['s22-e1-child'][k] for k in ('size','sha256')},candidate=packages,byte_identical=True,
             scope=dict(tier='H0',device_contact=False,live_authorized=False,candidate_transfers=0,rollback_transfers=0))

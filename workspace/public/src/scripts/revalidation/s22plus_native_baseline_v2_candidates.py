@@ -18,6 +18,8 @@ import s22plus_native_carrier_adapter_v1 as carrier
 import s22plus_native_console_owner_v1 as owner
 import s22plus_native_thermal_source_v1 as thermal_source
 import s22plus_native_thermal_observer_v1 as thermal_observer
+import s22plus_native_thermal_source_v2 as thermal_source_v2
+import s22plus_native_thermal_observer_v2 as thermal_observer_v2
 
 ROOT = common.ROOT
 POLICY = 'native-baseline-v2'
@@ -63,6 +65,10 @@ DECLARATIONS = {
                        'fe8dfd63799efba54387e9071a5394a80e6758293c673d59f5f1c7bc55370f05',
                        runtime_source=thermal_source,observer_class=thermal_observer.Observer,
                        added_modules=('qcom-vadc-common.ko','qcom-spmi-adc5.ko','s22plus_thermal_telemetry.ko')),
+    'p390':declaration('p390','378ff5b2c1014c849b29c2f746c607be','v0.2.0-rc.8',
+                       '2d359b523cfe05c996c3ed2d0b1768484d4df8fef6afb9883e1be2b3b072650c',
+                       runtime_source=thermal_source_v2,observer_class=thermal_observer_v2.Observer,
+                       added_modules=('qcom-vadc-common.ko','qcom-spmi-adc5.ko','s22plus_thermal_telemetry.ko')),
 }
 
 
@@ -73,7 +79,9 @@ def static(prefix):
     from s22plus_native_baseline_v2_build import Builder, EXTRA_SOURCES
     from s22plus_native_candidate_static_v1 import CandidateStatic
     declared = DECLARATIONS[prefix]
-    if declared.THERMAL_PROFILE is not None:
+    if declared.THERMAL_PROFILE == thermal_source_v2.THERMAL_PROFILE:
+        from s22plus_native_thermal_build_v2 import Builder, EXTRA_SOURCES
+    elif declared.THERMAL_PROFILE is not None:
         from s22plus_native_thermal_build_v1 import Builder, EXTRA_SOURCES
     return CandidateStatic(declared,Builder(declared),__file__,extra_sources=EXTRA_SOURCES)
 

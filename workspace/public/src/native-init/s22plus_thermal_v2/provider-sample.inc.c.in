@@ -1,0 +1,80 @@
+static void tsens_sample(struct s22_thermal_data *sample)
+{
+    unsigned int i,ready[2]={0,0};
+    *sample=bank_state;
+    sample->map_mask=mapped_sensors;
+    sample->mask=sample->bound_mask=0;
+    memset(sample->temp_mc,0,sizeof(sample->temp_mc));
+    for(i=0;i<2;i++)if(banks[i].device) {
+        sample->bound_mask|=1U<<i;
+        sample->phase[i]=2;sample->seen[i]=1;
+        sample->enable[i]=sample->ready[i]=sample->status_valid[i]=0;
+        sample->version[i]=readl(banks[i].srot);
+        if((sample->version[i]>>28)==2U) {
+            sample->enable[i]=readl(banks[i].srot+4);sample->seen[i]|=2U;
+            if(sample->enable[i]&1U) {
+                sample->ready[i]=readl(banks[i].tm+0xe4);sample->seen[i]|=4U;
+                ready[i]=!!(sample->ready[i]&1U);
+            }
+        }
+        sample->error[i]=ready[i]?0:-ENODATA;
+    }
+    for(i=0;i<S22_THERMAL_SENSOR_COUNT;i++) {
+        const struct s22_thermal_cpu *sensor=s22_thermal_sensor(i);
+        unsigned int word;int mc;
+        if(!ready[sensor->bank] || !(sample->map_mask&(1U<<i)))continue;
+        word=readl(banks[sensor->bank].tm+0xa0+4*sensor->sensor);
+        sample->seen[sensor->bank]|=8U;
+        if(word&(1U<<21))sample->status_valid[sensor->bank]|=1U<<sensor->sensor;
+        if(s22_thermal_cpu_decode(word,&mc))continue;
+        sample->temp_mc[i]=mc;sample->mask|=1U<<i;
+    }
+}
+
+static int sample_get(char *buffer, const struct kernel_param *parameter)
+{
+    struct s22_thermal_data s={0};
+    u64 start,end;unsigned int i;int count;
+    (void)parameter;
+    if(!mutex_trylock(&thermal_lock))return -EAGAIN;
+    start=ktime_to_ms(ktime_get_boottime());
+    if(sequence==U64_MAX || (sequence && start<last_start)) {
+        count=-EOVERFLOW;goto out;
+    }
+    if(sequence && start-last_start<1000) {count=-EAGAIN;goto out;}
+    last_start=start;++sequence;
+    tsens_sample(&s);
+    if(!battery_channel && !battery_stopped)battery_bind_error=battery_bind();
+    s.battery_error=battery_stopped?battery_stopped:battery_bind_error;
+    if(battery_channel && !battery_stopped) {
+        s.battery_error=iio_read_channel_processed(battery_channel,&s.battery_uv);
+        s.battery_error=s.battery_error==IIO_VAL_INT?0:
+            s.battery_error<0?s.battery_error:-EPROTO;
+        if(!s.battery_error && s22_thermal_battery_decode(s.battery_uv,&s.battery_deci))
+            s.battery_error=-ERANGE;
+        if(s.battery_error) {battery_stopped=s.battery_error;s.battery_deci=0;}
+        else s.battery_valid=1;
+    }
+    end=ktime_to_ms(ktime_get_boottime());
+    if(end<start) {battery_stopped=-EPROTO;count=-EPROTO;goto out;}
+    s.sequence=sequence;s.start_ms=start;s.end_ms=end;
+    if(!s22_thermal_data_valid(&s)) {battery_stopped=-EPROTO;count=-EPROTO;goto out;}
+    count=scnprintf(buffer,PAGE_SIZE,
+        "S22THERM2 seq=%llu start_ms=%llu end_ms=%llu map_mask=%u mask=%u bound=%u mapped=%u"
+        " error=%d,%d phase=%u,%u seen=%u,%u version=%u,%u enable=%u,%u ready=%u,%u status_valid=%u,%u temps=",
+        s.sequence,s.start_ms,s.end_ms,s.map_mask,s.mask,s.bound_mask,s.mapped_mask,
+        s.error[0],s.error[1],s.phase[0],s.phase[1],s.seen[0],s.seen[1],s.version[0],s.version[1],
+        s.enable[0],s.enable[1],s.ready[0],s.ready[1],s.status_valid[0],s.status_valid[1]);
+    for(i=0;i<S22_THERMAL_SENSOR_COUNT;i++)
+        count+=scnprintf(buffer+count,PAGE_SIZE-count,"%s%d",i?",":"",s.temp_mc[i]);
+    count+=scnprintf(buffer+count,PAGE_SIZE-count,
+        " battery_uv=%d battery_temp_deci=%d battery_error=%d battery_valid=%u\n",
+        s.battery_uv,s.battery_deci,s.battery_error,s.battery_valid);
+    scnprintf(diagnostic,sizeof(diagnostic),
+        "S22THERMD2 seq=%llu map_mask=%u mask=%u bound=%u mapped=%u error=%d,%d phase=%u,%u seen=%u,%u\n",
+        s.sequence,s.map_mask,s.mask,s.bound_mask,s.mapped_mask,s.error[0],s.error[1],
+        s.phase[0],s.phase[1],s.seen[0],s.seen[1]);
+    if(count>=(int)S22_THERMAL_LINE_CAP) {battery_stopped=-EOVERFLOW;count=-EOVERFLOW;}
+out:
+    mutex_unlock(&thermal_lock);return count;
+}

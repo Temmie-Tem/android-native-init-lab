@@ -1,0 +1,11 @@
+    if(hv&STATUS_GPU_TEMP) {
+        int mc=s22_thermal_max(&h->thermal,13,2);unsigned t=(unsigned)(mc<0?-mc:mc);
+        snprintf(text,sizeof(text),"GPU MAX: %s%u.%u C (%u/2)",mc<0?"-":"",t/1000,t%1000/100,
+            resident_bitcount((h->thermal.mask>>13)&3U));
+    }else snprintf(text,sizeof(text),"GPU TEMP: N/A (0/2)");
+    hud_text(b,120,1280,text,5);
+    if(hv&STATUS_DDR_TEMP) {
+        int mc=h->thermal.temp_mc[15];unsigned t=(unsigned)(mc<0?-mc:mc);
+        snprintf(text,sizeof(text),"DDR REGION: %s%u.%u C",mc<0?"-":"",t/1000,t%1000/100);
+    }else snprintf(text,sizeof(text),"DDR REGION: N/A");
+    hud_text(b,120,1380,text,5);

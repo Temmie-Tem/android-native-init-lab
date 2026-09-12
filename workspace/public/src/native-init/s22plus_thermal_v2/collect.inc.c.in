@@ -1,0 +1,52 @@
+/* One exact module read, with unchanged ADC conversion pacing/fault latch. */
+struct resident_cpu_map { uint64_t sequence,start_ms; };
+static int resident_clock(uint64_t *now);
+static int thermal_u32(const char **p,const char *key,unsigned int *out) {
+    uint64_t value;
+    if(!gauge_unsigned(p,key,&value) || value>UINT32_MAX)return 0;
+    *out=(unsigned int)value;return 1;
+}
+static int thermal_i32(const char **p,const char *key,int *out) {
+    int64_t value;
+    if(!gauge_signed(p,key,&value) || value<INT32_MIN || value>INT32_MAX)return 0;
+    *out=(int)value;return 1;
+}
+static int thermal_parse(const char *p,struct s22_thermal_data *out) {
+    struct s22_thermal_data s={0};uint64_t sequence,start,end;
+    if(!gauge_unsigned(&p,"S22THERM2 seq=",&sequence) ||
+       !gauge_unsigned(&p," start_ms=",&start) || !gauge_unsigned(&p," end_ms=",&end) ||
+       !thermal_u32(&p," map_mask=",&s.map_mask) || !thermal_u32(&p," mask=",&s.mask) ||
+       !thermal_u32(&p," bound=",&s.bound_mask) || !thermal_u32(&p," mapped=",&s.mapped_mask))return 0;
+    for(unsigned i=0;i<2;i++)if(!thermal_i32(&p,i?",":" error=",&s.error[i]))return 0;
+    for(unsigned i=0;i<2;i++)if(!thermal_u32(&p,i?",":" phase=",&s.phase[i]))return 0;
+    for(unsigned i=0;i<2;i++)if(!thermal_u32(&p,i?",":" seen=",&s.seen[i]))return 0;
+    for(unsigned i=0;i<2;i++)if(!thermal_u32(&p,i?",":" version=",&s.version[i]))return 0;
+    for(unsigned i=0;i<2;i++)if(!thermal_u32(&p,i?",":" enable=",&s.enable[i]))return 0;
+    for(unsigned i=0;i<2;i++)if(!thermal_u32(&p,i?",":" ready=",&s.ready[i]))return 0;
+    for(unsigned i=0;i<2;i++)if(!thermal_u32(&p,i?",":" status_valid=",&s.status_valid[i]))return 0;
+    for(unsigned i=0;i<S22_THERMAL_SENSOR_COUNT;i++)if(!thermal_i32(&p,i?",":" temps=",&s.temp_mc[i]))return 0;
+    if(!thermal_i32(&p," battery_uv=",&s.battery_uv) ||
+       !thermal_i32(&p," battery_temp_deci=",&s.battery_deci) ||
+       !thermal_i32(&p," battery_error=",&s.battery_error) ||
+       !thermal_u32(&p," battery_valid=",&s.battery_valid) || strcmp(p,"\n"))return 0;
+    s.sequence=sequence;s.start_ms=start;s.end_ms=end;
+    if(!s22_thermal_data_valid(&s))return 0;
+    *out=s;return 1;
+}
+static void resident_cpu_temperature(struct resident_cpu_map *map,struct status_metrics *m) {
+    char text[S22_THERMAL_LINE_CAP];struct s22_thermal_data s;uint64_t now=0;
+    m->cpu_expected=13;
+    m->valid&=~(STATUS_TEMP|STATUS_CPU_TEMP|STATUS_GPU_TEMP|STATUS_DDR_TEMP);
+    m->battery_temp_deci=m->cpu_temp_mc=0;m->cpu_mask=0;
+    memset(&m->thermal,0,sizeof(m->thermal));
+    if(!status_read("/sys/module/s22plus_thermal_telemetry/parameters/sample",text,sizeof(text),0x62656572L) ||
+       !thermal_parse(text,&s) || !resident_clock(&now) || s.sequence<=map->sequence ||
+       s.start_ms<map->start_ms || s.start_ms<m->collected_ms || s.end_ms>now ||
+       resident_age(now,s.start_ms,s.sequence)>RESIDENT_FRESH_MS)return;
+    map->sequence=s.sequence;map->start_ms=s.start_ms;m->thermal=s;
+    m->cpu_mask=s.mask&8191U;m->cpu_temp_mc=s22_thermal_max(&s,0,13);
+    if(m->cpu_mask)m->valid|=STATUS_CPU_TEMP;
+    if(s.mask&24576U)m->valid|=STATUS_GPU_TEMP;
+    if(s.mask&32768U)m->valid|=STATUS_DDR_TEMP;
+    if(s.battery_valid) {m->battery_temp_deci=s.battery_deci;m->valid|=STATUS_TEMP;}
+}

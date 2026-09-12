@@ -45,37 +45,41 @@ static ssize_t metrics_send(int fd,const void *data,size_t size,int flags){
 
 class Backend(baseline.previous.Backend):
     def start_peer(self,phase):
-        self.test.current_prefix='p389' if phase=='experiment' else 'p387'
+        self.test.current_prefix=self.test.EXPERIMENT if phase=='experiment' else 'p387'
         super().start_peer(phase)
 
 
 class ThermalRoundtrip(unittest.TestCase):
+    EXPERIMENT='p389'
+    SOURCE=source
+    METRICS=staticmethod(thermal_metrics_fixture)
+    EXTRA_DOMAINS=()
     execute=baseline.OwnerV2Tests.execute
     running=baseline.OwnerV2Tests.running
     grant=baseline.OwnerV2Tests.grant
     bootstrap=baseline.OwnerV2Tests.bootstrap
 
     def exercise_native(self,**kwargs):
-        return baseline.OwnerV2Tests.exercise_native(self,observation_seconds=60 if self.current_prefix=='p389' else 5,**kwargs)
+        return baseline.OwnerV2Tests.exercise_native(self,observation_seconds=60 if self.current_prefix==self.EXPERIMENT else 5,**kwargs)
 
     @classmethod
     def setUpClass(cls):
         cls.resources={}
-        for prefix in ('p387','p389'):
+        for prefix in ('p387',cls.EXPERIMENT):
             resource=type('ThermalFixture_'+prefix,(unittest.TestCase,),{})
-            options=dict(render_source=source,metrics_transform=thermal_metrics_fixture) if prefix=='p389' else {}
+            options=dict(render_source=cls.SOURCE,metrics_transform=cls.METRICS) if prefix==cls.EXPERIMENT else {}
             support.compile_components(resource,baseline.candidates.DECLARATIONS[prefix],**options)
             cls.addClassCleanup(resource.doClassCleanups);cls.resources[prefix]=resource
         cls.binary=cls.resources['p387'].binary
 
     def fixture(self):
         with mock.patch.object(baseline,'Backend',Backend): fixture=baseline.OwnerV2Tests.fixture(self)
-        fixture.experiment_manifest=fixture.prepared.root/'p389-manifest.json'
+        fixture.experiment_manifest=fixture.prepared.root/(self.EXPERIMENT+'-manifest.json')
         # The real optional HUD admission needs 26 seconds remaining. Preserve
         # the short legacy tests; this E fixture uses the actual 60-second bound.
-        fixture.bundles['p389'].manifest['observation']['timeout_sec']=60
+        fixture.bundles[self.EXPERIMENT].manifest['observation']['timeout_sec']=60
         fixture.experiment_manifest.chmod(0o600)
-        fixture.experiment_manifest.write_text(json.dumps(fixture.bundles['p389'].manifest,sort_keys=True)+'\n')
+        fixture.experiment_manifest.write_text(json.dumps(fixture.bundles[self.EXPERIMENT].manifest,sort_keys=True)+'\n')
         fixture.experiment_manifest.chmod(0o400)
         return fixture
 
@@ -88,8 +92,9 @@ class ThermalRoundtrip(unittest.TestCase):
         proof=baseline.owner.experiment_outcome(baseline.live,operation)
         hud=proof['sessions'][-1]['hud']
         self.assertTrue(hud['cpu_temperature_observed'],hud);self.assertTrue(hud['battery_temperature_observed'],hud)
+        for domain in self.EXTRA_DOMAINS:self.assertTrue(hud[domain+'_temperature_observed'],hud)
         self.assertEqual(hud['latest']['cpu_mask'],8191);self.assertEqual(hud['latest']['battery_temp_deci'],250)
-        self.assertEqual([row.namespace for _,row in fixture.backend.raw_observers],['p387','p387','p387','p389','p387'])
+        self.assertEqual([row.namespace for _,row in fixture.backend.raw_observers],['p387','p387','p387',self.EXPERIMENT,'p387'])
         self.assertEqual(fixture.backend.calls.count('transfer-'+baseline.owner.TRANSFER_ANDROID),0)
         self.assertEqual(baseline.owner.native_terminal(baseline.live,fixture.prepared.root,operation.directory),result)
 
@@ -97,7 +102,7 @@ class ThermalRoundtrip(unittest.TestCase):
         fixture=self.fixture();prior,_=self.bootstrap(fixture)
         running=self.running
         def selected(case='normal'):
-            return running('thermal-unavailable' if self.current_prefix=='p389' else case)
+            return running('thermal-unavailable' if self.current_prefix==self.EXPERIMENT else case)
         with mock.patch.object(self,'running',side_effect=selected):
             grant=self.grant(fixture,operations=['experiment'])
             result=self.execute(fixture,grant,'experiment','native',prior)
@@ -106,6 +111,7 @@ class ThermalRoundtrip(unittest.TestCase):
         proof=baseline.owner.experiment_outcome(baseline.live,operation)
         hud=proof['sessions'][-1]['hud']
         self.assertFalse(hud['cpu_temperature_observed']);self.assertFalse(hud['battery_temperature_observed'])
+        for domain in self.EXTRA_DOMAINS:self.assertFalse(hud[domain+'_temperature_observed'])
         self.assertEqual(fixture.backend.calls.count('transfer-'+baseline.owner.TRANSFER_NATIVE),4)
         self.assertEqual(fixture.backend.calls.count('transfer-'+baseline.owner.TRANSFER_ANDROID),0)
         before=len(fixture.backend.raw_observers)
@@ -117,7 +123,7 @@ class ThermalRoundtrip(unittest.TestCase):
     def test_original_grant_expiry_during_settle_sends_no_HUD_or_normal_N(self):
         for prefix in ('p387','p388'):
             self.assertEqual(baseline.candidates.DECLARATIONS[prefix].observer.io_class.HUD_SETTLE_SECONDS,0)
-        self.assertEqual(baseline.candidates.DECLARATIONS['p389'].observer.io_class.HUD_SETTLE_SECONDS,3)
+        self.assertEqual(baseline.candidates.DECLARATIONS[self.EXPERIMENT].observer.io_class.HUD_SETTLE_SECONDS,3)
         fixture=self.fixture();prior,_=self.bootstrap(fixture)
         grant=self.grant(fixture,operations=['experiment'])
         expiry=baseline.owner.read(grant)[0]['deadline_boottime_ns']

@@ -1,0 +1,17 @@
+    if(!source || !m->thermal.sequence) {
+        const unsigned char *p=(const unsigned char *)&m->thermal;
+        for(unsigned i=0;i<sizeof(m->thermal);i++)if(p[i])return 0;
+        if(m->valid&(STATUS_GPU_TEMP|STATUS_DDR_TEMP))return 0;
+        if(source && ((m->valid&(STATUS_TEMP|STATUS_CPU_TEMP)) || m->cpu_mask ||
+           m->cpu_temp_mc || m->battery_temp_deci))return 0;
+    }else {
+        const struct s22_thermal_data *s=&m->thermal;
+        if(!s22_thermal_data_valid(s) || s->start_ms<m->collected_ms || s->end_ms>now ||
+           s->sequence<=old->thermal.sequence || s->start_ms<old->thermal.start_ms ||
+           m->cpu_mask!=(s->mask&8191U) || m->cpu_temp_mc!=s22_thermal_max(s,0,13) ||
+           m->battery_temp_deci!=s->battery_deci ||
+           !!(m->valid&STATUS_CPU_TEMP)!=!!(s->mask&8191U) ||
+           !!(m->valid&STATUS_GPU_TEMP)!=!!(s->mask&24576U) ||
+           !!(m->valid&STATUS_DDR_TEMP)!=!!(s->mask&32768U) ||
+           !!(m->valid&STATUS_TEMP)!=!!s->battery_valid)return 0;
+    }

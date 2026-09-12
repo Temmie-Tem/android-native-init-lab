@@ -27,14 +27,15 @@ def changed(value,path,replacement):
 
 @unittest.skipUnless((OUT/'result.json').is_file(),'private thermal A/B package is not present')
 class ThermalArtifacts(unittest.TestCase):
+    builder=BUILDER
     @classmethod
     def setUpClass(cls):
         cls.stack=ExitStack();cls.addClassCleanup(cls.stack.close)
         for module,name in ((build.shared,'entries'),(build.shared.boot,'decompress_lz4_frame_python'),
                             (build.shared.boot,'decompress_lz4_stream_python')):
             cls.stack.enter_context(mock.patch.object(module,name,lru_cache(maxsize=4)(getattr(module,name))))
-        cls.value=BUILDER.audit_existing()
-        cls.runtime=BUILDER.runtime_inputs()
+        cls.value=cls.builder.audit_existing()
+        cls.runtime=cls.builder.runtime_inputs()
 
     def altered_read(self,target,value):
         stable=build.packaging.stable
@@ -51,20 +52,20 @@ class ThermalArtifacts(unittest.TestCase):
             (('candidate','a','ap_structure','tar_md5'),'0'*32),(('unexpected',),True)]
         # Every mutation changes only this publication. Reuse the actual
         # previously rederived runtime while still reopening both real APs.
-        with mock.patch.object(BUILDER,'runtime_inputs',return_value=self.runtime):
+        with mock.patch.object(self.builder,'runtime_inputs',return_value=self.runtime):
             for path,replacement in mutations:
-                with self.subTest(field=path),self.altered_read(OUT/'result.json',changed(self.value,path,replacement)):
-                    with self.assertRaises(ValueError):BUILDER.audit_existing()
+                with self.subTest(field=path),self.altered_read(self.builder.DEFAULT_OUTPUT_ROOT/'result.json',changed(self.value,path,replacement)):
+                    with self.assertRaises(ValueError):self.builder.audit_existing()
 
     def test_runtime_description_and_identities_are_derived_from_actual_ELF(self):
         mutations=[(('file',),'invented ELF'),(('renderer','size'),1),(('ab_identical',),False),
             (('profile','thermal_profile'),'other-board'),(('run_id_hex',),'0'*32),(('unexpected',),True)]
         for path,replacement in mutations:
-            with self.subTest(field=path),self.altered_read(OUT/'runtime/result.json',changed(self.runtime,path,replacement)):
-                with self.assertRaises(ValueError):BUILDER.runtime_inputs()
+            with self.subTest(field=path),self.altered_read(self.builder.DEFAULT_OUTPUT_ROOT/'runtime/result.json',changed(self.runtime,path,replacement)):
+                with self.assertRaises(ValueError):self.builder.runtime_inputs()
 
     def test_provider_effect_and_source_metadata_is_rederived(self):
-        path=OUT/'runtime/thermal-provider';value=build.provider.audit(path)
+        path=self.builder.DEFAULT_OUTPUT_ROOT/'runtime/thermal-provider';value=build.provider.audit(path,profile=self.builder.provider_profile)
         read_text=Path.read_text
         for keys,replacement in [(('device_contact',),True),(('live_authorized',),True),
             (('hardware_effects','adc_configuration_writes'),False),(('limitations',),[]),
@@ -73,7 +74,7 @@ class ThermalArtifacts(unittest.TestCase):
             def read(p,*args,**kwargs):
                 return json.dumps(mutant) if p==path/'result.json' else read_text(p,*args,**kwargs)
             with self.subTest(field=keys),mock.patch.object(Path,'read_text',read):
-                with self.assertRaises(ValueError):build.provider.audit(path)
+                with self.assertRaises(ValueError):build.provider.audit(path,profile=self.builder.provider_profile)
 
 
 if __name__=='__main__':unittest.main()

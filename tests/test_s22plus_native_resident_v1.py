@@ -33,8 +33,8 @@ def swap(text, before, after):
     return source.replace(text.encode(), before.encode(), after.encode()).decode()
 
 
-def native_fixture():
-    with mock.patch.object(common, 'helper_template', side_effect=lambda identity, **kw: source.helper_template(identity)):
+def native_fixture(*,runtime_source=source):
+    with mock.patch.object(common, 'helper_template', side_effect=lambda identity, **kw: runtime_source.helper_template(identity)):
         text = baseline_test.source()
     old = common._read(common.TEMPLATES/'local_publish.inc.c.in').decode().replace(
         'for(;;)p282_poll_delay();', 'fx_park();__builtin_unreachable();')

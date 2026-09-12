@@ -13,26 +13,31 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**The thermal census H0 found and reproduced a concrete P389 CPU path defect.**
-The module and its old fixture use `/thermal-zones`, but all four retained stock
-base DTBs with the actual G0Q r12 overlay resolve `/soc/thermal-zones`. The
-unchanged provider then returns `-ENODEV` for both CPU banks; a private path-only
-correction passes 13/13 synthetic sensors. This is H0 reproduction, not a live
-errno trace or real temperature proof. The same final-input census confirms
-32 TSENS mappings, including two GPU locations and one DDR-region location,
-plus board/PMIC ADC routes. RAM-die and exact UFS-device temperature support
-remain unproved. See the [census report](docs/reports/S22PLUS_THERMAL_SENSOR_CENSUS_H0_2026-09-13.md).
-Production source, artifacts, the 195-source review and all device state remain
-unchanged. The next implementation unit is the path/fixture correction and
-diagnostic retention before qualifying CPU/GPU/DDR on a fresh E.
+**P390 thermal V2 H0 is complete with independent PASS_GO; exact F1 request
+issuance is being closed.** The new E fixes the
+provider root to `/soc/thermal-zones`, adds two GPU locations and one SoC
+DDR-region location, and retains per-sensor coverage and bank diagnostics through
+the actual provider/PID1/collector/renderer/HUD path. All four retained stock
+base-plus-r12-overlay trees supply the fixtures. This does not establish actual
+CPU/GPU/DDR temperatures or RAM-die temperature.
 
-The remaining RAM/UFS/board H0 follow-up is also complete. FYG8 already exposes
-two read-only UFS descriptor attributes for a future support check, but their
-actual values and temperature availability remain unproved. Samsung SMEM
-provides DDR identity/training data without an established temperature export.
-Board pinctrl dependencies and thermistor/PMIC fallback and clamp values are
-now documented in the same census report. These additions involved no device
-contact, execution-source change or new authority.
+The actual AArch64 A/B boot-only APs agree; 35 regression tests and five real
+artifact mutation tests pass without skips. ARM64/QEMU execution, old/new IPC
+rejection, acquisition ordering and synthetic HUD layout also pass. The 207-input
+capability has independent PASS_GO for both exact source variants. See the
+[P390 H0 report](docs/reports/S22PLUS_NATIVE_THERMAL_V2_H0_2026-09-13.md) and
+[thermal V2 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V2.md).
+
+The requested next step is one exact attended, 600-second P387 N -> P390 E ->
+P387 N approval proposal. No grant or device action has occurred in this H0 unit.
+The retained P387 terminal/admission and all 121 native inputs reopen unchanged;
+fresh target and native health binding remain future device-run checks.
+
+The completed [thermal census and follow-up](docs/reports/S22PLUS_THERMAL_SENSOR_CENSUS_H0_2026-09-13.md)
+remain separate evidence for the original CPU path defect and remaining
+RAM/UFS/board questions. Exact UFS temperature support and RAM-die temperature
+remain unproved. Additional ADC channels, UFS queries and PMIC/GPIO control are
+outside P390.
 
 ## Latest closed P389 trial
 
@@ -56,8 +61,8 @@ The retained E HUD lacks CPU-bank diagnostic fields, so it cannot directly
 distinguish probe rejection from readiness/status failure. The subsequent H0
 path-defect reproduction above is separate from that live evidence; no further
 device read or hardware-enable attempt occurred after close.
-The existing H0 qualification remains 24 passing tests and independent
-`PASS_GO` for the unchanged 195-source capability. Any future E still needs
+The historical P389 H0 qualification has 24 passing tests and independent
+`PASS_GO` for its then-current 195-source capability. Any future E still needs
 its own exact artifacts and current finite authority. A90 and S20+ were untouched.
 
 ## Baseline admission and earlier P388 roundtrip

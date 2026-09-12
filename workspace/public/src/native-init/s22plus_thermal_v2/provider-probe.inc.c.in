@@ -1,0 +1,37 @@
+static int thermal_probe(struct platform_device *pdev)
+{
+    struct resource *tm,*srot;
+    struct thermal_bank next={.device=pdev};
+    unsigned int index;u32 sensors;
+    int error=exact_root();
+    if(error)return error;
+    for(index=0;index<2;index++)
+        if(exact_node(pdev->dev.of_node,bank_paths[index]))break;
+    if(index==2)return -ENODEV;
+    mutex_lock(&thermal_lock);
+    if(banks[index].device) {mutex_unlock(&thermal_lock);return -EBUSY;}
+    clear_bank_state(index);bank_state.phase[index]=1;
+    if(of_property_read_u32(pdev->dev.of_node,"#qcom,sensors",&sensors) || sensors!=16) {
+        error=-ENODEV;goto done;
+    }
+    error=exact_cpu_map(pdev->dev.of_node,index);
+    if(error)goto done;
+    tm=platform_get_resource(pdev,IORESOURCE_MEM,0);
+    srot=platform_get_resource(pdev,IORESOURCE_MEM,1);
+    if(!tm || !srot || tm->start!=bank_tm[index] || srot->start!=bank_srot[index] ||
+       resource_size(tm)!=0x1ff || resource_size(srot)!=0x1ff ||
+       platform_get_resource(pdev,IORESOURCE_MEM,2)) {error=-ENODEV;goto done;}
+    next.tm=devm_ioremap_resource(&pdev->dev,tm);
+    if(IS_ERR(next.tm)) {error=PTR_ERR(next.tm);goto done;}
+    next.srot=devm_ioremap_resource(&pdev->dev,srot);
+    if(IS_ERR(next.srot)) {error=PTR_ERR(next.srot);goto done;}
+    bank_state.mapped_mask|=1U<<index;
+    bank_state.version[index]=readl(next.srot);bank_state.seen[index]=1;
+    if((bank_state.version[index]>>28)!=2U) {error=-ENODEV;goto done;}
+    bank_state.enable[index]=readl(next.srot+4);bank_state.seen[index]|=2U;
+    if(!(bank_state.enable[index]&1U)) {error=-ENODEV;goto done;}
+    banks[index]=next;error=0;
+done:
+    bank_error[index]=bank_state.error[index]=error;
+    mutex_unlock(&thermal_lock);return error;
+}

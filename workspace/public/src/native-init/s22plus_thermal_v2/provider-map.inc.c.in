@@ -1,0 +1,39 @@
+static unsigned int mapped_sensors;
+static struct s22_thermal_data bank_state={.error={-ENODEV,-ENODEV}};
+
+static void clear_bank_state(unsigned int index)
+{
+    mapped_sensors&=~s22_thermal_bank_mask(index);
+    bank_state.mapped_mask&=~(1U<<index);
+    bank_state.error[index]=-ENODEV;
+    bank_state.phase[index]=bank_state.seen[index]=0;
+    bank_state.version[index]=bank_state.enable[index]=bank_state.ready[index]=0;
+    bank_state.status_valid[index]=0;
+}
+
+static int exact_cpu_map(struct device_node *bank, unsigned int index)
+{
+    struct device_node *zones = of_find_node_by_path("/soc/thermal-zones");
+    unsigned int i,matched=0,cpu_expected=s22_thermal_bank_mask(index)&8191U;
+    for(i=0;zones && i<S22_THERMAL_SENSOR_COUNT;i++) {
+        const struct s22_thermal_cpu *sensor=s22_thermal_sensor(i);
+        struct device_node *zone;
+        struct of_phandle_args args;
+        int error;
+        if(sensor->bank!=index)continue;
+        zone=of_get_child_by_name(zones,sensor->name);
+        if(!zone)continue;
+        error=of_parse_phandle_with_args(zone,"thermal-sensors","#thermal-sensor-cells",0,&args);
+        if(!error) {
+            if(args.np==bank && args.args_count==1 && args.args[0]==sensor->sensor)
+                matched|=1U<<i;
+            of_node_put(args.np);
+        }
+        of_node_put(zone);
+    }
+    of_node_put(zones);
+    mapped_sensors=(mapped_sensors&~s22_thermal_bank_mask(index))|matched;
+    /* Retain the original CPU mapping requirement per bank. Optional GPU/DDR
+     * mappings cannot disable otherwise qualified CPU measurements. */
+    return (matched&cpu_expected)==cpu_expected ? 0 : -ENODEV;
+}

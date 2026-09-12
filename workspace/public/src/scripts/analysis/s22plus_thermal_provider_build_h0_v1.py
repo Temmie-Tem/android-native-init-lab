@@ -30,8 +30,14 @@ def canonical(value):
     return (json.dumps(value,sort_keys=True,indent=2,allow_nan=False)+'\n').encode()
 
 
-def source_files():
-    return (Path(__file__),*(SOURCE/name for name in PARTS))
+def source_files(profile=None):
+    return (Path(__file__),*(profile.provider_files() if profile else (SOURCE/name for name in PARTS)))
+
+
+def staged_sources(profile=None):
+    rows=profile.provider_sources() if profile else {name:(SOURCE/name).read_bytes() for name in PARTS}
+    if set(rows)!=set(PARTS):raise ValueError('thermal provider source inventory differs')
+    return rows
 
 
 def vendor_modules():
@@ -53,9 +59,9 @@ def vendor_modules():
     return selected,dict(path=str(path.relative_to(ROOT)),**expected)
 
 
-def inputs():
+def inputs(profile=None):
     base = json.loads(existing.COMMAND.read_text());kernel = Path(base['argv'][2])
-    paths = [*source_files(),Path(existing.__file__),Path(memory.__file__),Path(existing.linkage.__file__),
+    paths = [*source_files(profile),Path(existing.__file__),Path(memory.__file__),Path(existing.linkage.__file__),
         existing.COMMAND,existing.PREPARED/'.config',existing.PREPARED/'Module.symvers']
     paths += [kernel/name for name in (
         'include/linux/iio/consumer.h','include/linux/iio/types.h','include/linux/of.h',
@@ -89,8 +95,8 @@ def linkage(out):
     return result
 
 
-def result_value(pins,origin,modules):
-    return dict(schema='s22plus-thermal-provider-build-h0-v1',verdict='PASS_THERMAL_PROVIDER_BUILD_H0',
+def result_value(pins,origin,modules,profile=None):
+    result=dict(schema='s22plus-thermal-provider-build-h0-v1',verdict='PASS_THERMAL_PROVIDER_BUILD_H0',
         inputs=pins,module_order=list(MODULE_ORDER),modules=modules,stock_origin=origin,image=identity(existing.IMAGE),
         ab_identical=True,device_contact=False,live_authorized=False,
         hardware_effects=dict(tsens='fixed-register-reads-only',battery='one-stock-ADC7-conversion-per-eligible-read',
@@ -98,17 +104,19 @@ def result_value(pins,origin,modules):
         limitations=['ABI compatibility does not prove exact stock source correspondence',
             'TSENS hardware conversion age unknown','single ADC conversion is not stock five-read filtering',
             'adc-temp and adc-wpc-temp share the board channel','no live probe or temperature proof'])
+    if profile is not None:result['thermal_profile']=profile.THERMAL_PROFILE
+    return result
 
 
-def build(out):
+def build(out,*,profile=None):
     out = Path(out).absolute()
     if out.resolve() != out or not out.is_relative_to(ROOT/'workspace/private/outputs') or out.exists():
         raise ValueError('fresh direct private thermal output required')
-    pins = inputs();stock,origin = vendor_modules()
+    pins = inputs(profile);stock,origin = vendor_modules()
     if identity(existing.IMAGE)['sha256'] != existing.IMAGE_SHA: raise ValueError('exact kernel Image changed')
     out.mkdir(parents=True,mode=0o700)
     shutil.copytree(existing.PREPARED,out/'kernel-out',symlinks=True)
-    shutil.copytree(SOURCE,out/'module-stage')
+    for name,raw in staged_sources(profile).items():write(out/'module-stage'/name,raw)
     base = json.loads(existing.COMMAND.read_text());kernel = Path(base['argv'][2])
     env = dict(base['env']);env['GIT_CEILING_DIRECTORIES'] = str(out)
     argv = ['make','-C',str(kernel),f'O={out/"kernel-out"}','-j2',f'M={out/"module-stage"}']
@@ -122,13 +130,13 @@ def build(out):
     for name,raw in stock.items(): write(out/'modules'/name,raw)
     write(out/'modules'/MODULE,(out/'module-a.ko').read_bytes())
     modules = linkage(out)
-    if inputs() != pins: raise ValueError('thermal source changed during build')
-    result = result_value(pins,origin,modules)
+    if inputs(profile) != pins: raise ValueError('thermal source changed during build')
+    result = result_value(pins,origin,modules,profile)
     write(out/'result.json',canonical(result))
-    return audit(out)
+    return audit(out,profile=profile)
 
 
-def audit(out):
+def audit(out,*,profile=None):
     out = Path(out).absolute();value = json.loads((out/'result.json').read_text())
     if out.resolve()!=out or not out.is_relative_to(ROOT/'workspace/private/outputs'):
         raise ValueError('thermal provider path must be a direct private output')
@@ -137,11 +145,11 @@ def audit(out):
     if value['stock_origin'] != origin: raise ValueError('thermal stock origin differs')
     for name,raw in stock.items():
         if (out/'modules'/name).read_bytes() != raw: raise ValueError('thermal stock module changed')
-    for name in PARTS:
-        if (out/'module-stage'/name).read_bytes() != (SOURCE/name).read_bytes(): raise ValueError('thermal staged source changed')
+    for name,raw in staged_sources(profile).items():
+        if (out/'module-stage'/name).read_bytes() != raw: raise ValueError('thermal staged source changed')
     for name in ('module-a.ko','module-b.ko'):
         if (out/name).read_bytes() != (out/'modules'/MODULE).read_bytes(): raise ValueError('thermal A/B artifact changed')
-    if canonical(value)!=canonical(result_value(inputs(),origin,linkage(out))):
+    if canonical(value)!=canonical(result_value(inputs(profile),origin,linkage(out),profile)):
         raise ValueError('thermal provider evidence does not regenerate')
     return value
 

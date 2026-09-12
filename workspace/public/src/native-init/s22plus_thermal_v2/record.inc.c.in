@@ -1,0 +1,46 @@
+static int thermal_record(char *line,size_t capacity,uint64_t frame,const struct s22_thermal_data *s) {
+    int n=snprintf(line,capacity,
+        "RESIDENT_THERMAL_SAMPLE frame=%" PRIu64 " S22THERM2 seq=%llu start_ms=%llu end_ms=%llu"
+        " map_mask=%u mask=%u bound=%u mapped=%u error=%d,%d phase=%u,%u seen=%u,%u"
+        " version=%u,%u enable=%u,%u ready=%u,%u status_valid=%u,%u temps=",
+        frame,s->sequence,s->start_ms,s->end_ms,s->map_mask,s->mask,s->bound_mask,s->mapped_mask,
+        s->error[0],s->error[1],s->phase[0],s->phase[1],s->seen[0],s->seen[1],s->version[0],s->version[1],
+        s->enable[0],s->enable[1],s->ready[0],s->ready[1],s->status_valid[0],s->status_valid[1]);
+    if(n<0 || (size_t)n>=capacity)return -1;
+    for(unsigned i=0;i<S22_THERMAL_SENSOR_COUNT;i++) {
+        int next=snprintf(line+n,capacity-(size_t)n,"%s%d",i?",":"",s->temp_mc[i]);
+        if(next<0 || (size_t)next>=capacity-(size_t)n)return -1;
+        n+=next;
+    }
+    int next=snprintf(line+n,capacity-(size_t)n,
+        " battery_uv=%d battery_temp_deci=%d battery_error=%d battery_valid=%u\n",
+        s->battery_uv,s->battery_deci,s->battery_error,s->battery_valid);
+    if(next<0 || (size_t)next>=capacity-(size_t)n)return -1;
+    return n+next;
+}
+static void hud_record(const struct hud_snapshot *value) {
+    uint64_t now=(uint64_t)now_ms();char line[768],thermal[768];
+    const struct status_metrics *s=&value->sample[0],*h=&value->sample[1];
+    int bytes=0;
+    if(h->thermal.sequence) {
+        bytes=thermal_record(thermal,sizeof(thermal),value->sequence,&h->thermal);
+        if(bytes<=0) {if(resident_diagnostic_dropped!=UINT64_MAX)++resident_diagnostic_dropped;return;}
+    }
+    int n=snprintf(line,sizeof(line),"RESIDENT_THERMAL2_FRAME seq=%" PRIu64 " ms=%" PRIu64 " state=%u"
+        " system_seq=%" PRIu64 " system=%s system_valid=%u system_age=%" PRIu64
+        " hardware_seq=%" PRIu64 " hardware=%s hardware_valid=%u hardware_age=%" PRIu64
+        " gauge_seq=%" PRIu64 " gauge_age=%" PRIu64 " cpu_temp_mc=%d cpu_mask=%u expected=13"
+        " thermal_seq=%llu producer_dropped=%" PRIu64 " event=matched visible=UNPROVED\n",value->sequence,value->uptime_ms,value->state,
+        s->sequence,resident_status(0,now),resident_valid(s,value->source_state[0],now),resident_age(now,s->collected_ms,s->sequence),
+        h->sequence,resident_status(1,now),resident_valid(h,value->source_state[1],now),resident_age(now,h->collected_ms,h->sequence),
+        h->gauge_sequence,resident_age(now,h->gauge_ms,h->gauge_sequence),h->cpu_temp_mc,h->cpu_mask,
+        h->thermal.sequence,resident_diagnostic_dropped);
+    if(n<=0 || (size_t)n>=sizeof(line)) {
+        if(resident_diagnostic_dropped!=UINT64_MAX)++resident_diagnostic_dropped;
+        return;
+    }
+    /* The fixed export may evict an old companion. Only a complete exact
+     * frame/acquisition pair can establish the optional thermal observation. */
+    if(bytes)resident_diagnostic_write(thermal,(size_t)bytes);
+    resident_diagnostic_write(line,(size_t)n);
+}
