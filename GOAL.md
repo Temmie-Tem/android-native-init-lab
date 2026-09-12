@@ -13,29 +13,36 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**P390 thermal V2 H0 is complete with independent PASS_GO and an exact F1
-approval request issued.** The new E fixes the
-provider root to `/soc/thermal-zones`, adds two GPU locations and one SoC
-DDR-region location, and retains per-sensor coverage and bank diagnostics through
-the actual provider/PID1/collector/renderer/HUD path. All four retained stock
-base-plus-r12-overlay trees supply the fixtures. This does not establish actual
-CPU/GPU/DDR temperatures or RAM-die temperature.
+**P390 N -> E -> N is closed with `PASS_P390_N_E_N_NATIVE_CLOSED`; thermal
+qualification remains partial.** One P390 installation and one normal P387
+restoration completed under the exact returned 600-second request. Five
+fresh authenticated health sessions across three native boots passed; final
+DETACH/descriptor close occurred at **265.286 seconds**. Android transfers: **0**.
+The grant is closed, the owner released, and P390 is permanently consumed.
 
-The actual AArch64 A/B boot-only APs agree; 35 regression tests and five real
-artifact mutation tests pass without skips. ARM64/QEMU execution, old/new IPC
-rejection, acquisition ordering and synthetic HUD layout also pass. The 207-input
-capability has independent PASS_GO for both exact source variants. See the
-[P390 H0 report](docs/reports/S22PLUS_NATIVE_THERMAL_V2_H0_2026-09-13.md) and
-[thermal V2 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V2.md).
+The latest retained E sample proves board-ADC battery temperature **18.6 C**.
+CPU **0/13**, GPU **0/2** and SoC DDR-region **0/1** remain `NO_PROOF`; zero
+placeholders are not temperatures. This time all 16 mappings and both TSENS
+bank bindings passed. Both acquired readiness words were `8`, whose bit 0 is
+clear; the provider returned its own `-ENODATA` and read no sensor status words.
+FYG8's source-selected v2 getter uses the per-sensor VALID field without that
+extra TRDY precondition. Actual VALID bits/temperatures and the cause of the low
+TRDY bit remain unobserved. The next bounded H0 issue is that extra readiness
+gate; P390 cannot replay, and a live successor needs its own current authority.
 
-The issued request is one exact attended, 600-second P387 N -> P390 E ->
-P387 N experiment, SHA-256
+The latest healthy native snapshot is restored **P387 / v0.2.0-rc.5**, with its
+121 native inputs unchanged. Its current terminal is the closed P390 operation,
+SHA-256 `ad377de602a54ff20444da663f641f6192cc93d08b677d5930481be4a3ceb41d`;
+the earlier P389 terminal's successor is now consumed. Native close is past
+health evidence, not continuous liveness or standing authority.
+
+See the [P390 H0/live report](docs/reports/S22PLUS_NATIVE_THERMAL_V2_H0_2026-09-13.md)
+and [thermal V2 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V2.md). The
+unchanged capability retains independent PASS_GO for 207 execution inputs,
+35 regression tests plus five actual-artifact mutation tests, and actual ARM64
+IPC/A/B package qualification. The closed request SHA-256 is
 `fe000f4e0fe1099900d32d408832a396bed7cb8cc9b36d5aae71b87ca5d6f21f`.
-Its actual current reader reopens and all 221 frozen inputs remain unchanged.
-No grant or device action has occurred in this H0 unit. Live execution awaits
-the separately returned exact code and the existing attendance/recovery conditions.
-The retained P387 terminal/admission and all 121 native inputs reopen unchanged;
-fresh target and native health binding remain future device-run checks.
+No candidate, normal N role, grant or device read was repeated after close.
 
 The completed [thermal census and follow-up](docs/reports/S22PLUS_THERMAL_SENSOR_CENSUS_H0_2026-09-13.md)
 remain separate evidence for the original CPU path defect and remaining
@@ -43,7 +50,7 @@ RAM/UFS/board questions. Exact UFS temperature support and RAM-die temperature
 remain unproved. Additional ADC channels, UFS queries and PMIC/GPIO control are
 outside P390.
 
-## Latest closed P389 trial
+## Earlier closed P389 trial
 
 **P389 `N -> E -> N` is closed with `PASS_P389_N_E_N_NATIVE_CLOSED`;
 temperature support is partial.** The latest retained P389 thermal HUD reports
@@ -59,7 +66,7 @@ the original grant start, within 600 seconds. Android transfers: **0**; no
 research stop or physical fallback. The terminal rederives, the grant is closed,
 and the F1 owner is released. P389 is permanently consumed and cannot replay.
 
-The current device snapshot is healthy P387 / `v0.2.0-rc.5`, whose 121 native
+That run ended in healthy P387 / `v0.2.0-rc.5`, whose 121 native
 inputs remain unchanged. Its original temperature limitations remain expected.
 The retained E HUD lacks CPU-bank diagnostic fields, so it cannot directly
 distinguish probe rejection from readiness/status failure. The subsequent H0

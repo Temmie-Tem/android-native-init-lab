@@ -1,4 +1,9 @@
-# S22+ P390 CPU/GPU/DDR thermal V2 H0 qualification
+# S22+ P390 CPU/GPU/DDR thermal V2 H0 and live qualification
+
+Latest live result: **P390 N/E/N closed normally; thermal support is partial.**
+Battery temperature is observed at 18.6 C; CPU/GPU/DDR-region temperature remains
+`NO_PROOF`. The final section records the live evidence and the additional TRDY
+gate. The H0 sections below preserve the qualification state before that run.
 
 Target: **SM-S906N / g0q / S906NKSS7FYG8**, G0Q board revision 12.
 Scope: implement the thermal successor and prepare one exact finite F1 request.
@@ -169,3 +174,86 @@ The prior native record for that experiment is the restored P387 terminal at
 The separately returned exact approval, physical attendance, usable physical
 Download recovery and fresh machine target/native-health binding remain required
 by policy. CPU/GPU/DDR feature qualification and P390 live N/E/N remain unproved.
+
+## Live P390 experiment (2026-09-13 KST)
+
+The operator returned the exact issued code under the stated physical-attendance
+and usable Download-recovery condition. The unchanged reviewed owner opened one
+600-second grant and completed **`PASS_P390_N_E_N_NATIVE_CLOSED`**. Execution
+source commit is `f7dccff79162d30b25006f415a349e79bbf34c02`, with the exact
+working receipt and 207-source closure above. This live result supersedes only
+the H0 section's then-unproved roundtrip status; feature proof remains separate.
+
+| Phase | Authenticated health | Result |
+| --- | --- | --- |
+| Starting admitted P387 | Next ordinal 3 on its retained boot | Health and exact timely CONTROL/Download passed |
+| P390 E | Ordinals 1 and 2 on a distinct new boot | One completed E transfer, fixed health workload and timely Download passed |
+| Restored P387 | Ordinals 1 and 2 on a third boot | One completed normal N transfer, fresh health, clean reauthentication and final DETACH/descriptor close passed |
+
+All **five** health sessions passed. Final close was **265.285851829 seconds**
+after grant start, within the original 600 seconds. Native transfers: **2**;
+Android transfers: **0**. There was no research stop or physical fallback request,
+and no outstanding recovery. The terminal, admission and experiment outcome rederive;
+the grant is closed and the F1 owner is released. P390's content claim and both
+native role intents remain consumed, with no replay.
+
+The canonical journal contains `reserved`, `native-start-download-return`,
+`experiment-transfer-intent`, `experiment-transfer-result`,
+`experiment-download-return`, `native-final-transfer-intent` and
+`native-final-transfer-result`. Separate retained final close and completion
+records establish the terminal; they do not manufacture an ordinary Process-v2
+state sequence.
+
+The latest exact P387 terminal is
+`workspace/private/runs/s22plus-native-baseline-v2/p390-thermal-domains-experiment-20260913-1/operation-01/terminal.json`,
+35,051 bytes, SHA-256
+`ad377de602a54ff20444da663f641f6192cc93d08b677d5930481be4a3ceb41d`.
+Future native-origin consideration must start from that retained terminal;
+P389's previous terminal has a consumed successor link. This is a past healthy
+native snapshot with unchanged P387 byte inputs, not continuous liveness,
+automatic failure recovery or a future grant. The restored N retains its own
+original temperature limitations.
+
+### Thermal feature result and retained diagnostics
+
+The second E authentication retained ten HUD frames. The latest accepted
+sample has software acquisition sequence 9; capture is complete, with 16 older
+ring records evicted and none dropped. History and physical pixels are not
+proved. Accepted hardware/system age upper bounds are 389/429 ms; those software
+bounds do not establish TSENS hardware conversion age.
+
+| Feature | Latest accepted result |
+| --- | --- |
+| Board-ADC battery temperature | **18.6 C**, valid; processed 602,400 microvolts and conversion error 0 |
+| CPU temperature | **NO_PROOF**, coverage 0/13 |
+| GPU temperature | **NO_PROOF**, coverage 0/2 |
+| SoC DDR-region temperature | **NO_PROOF**, coverage 0/1; no RAM-die claim |
+
+Both banks report mapped/bound mask 3, and the selected mapping mask is
+`0xffff`: the CPU parent/path correction and all 16 declared joins now pass in
+the authenticated retained provider result. Both bank phases are current
+acquisition, with VERSION major 2 and ENABLE bit 0 set. Both words read at
+TM+`0xe4` are **8**, so the current provider's bit-0 readiness test is false.
+The provider itself assigns **`-ENODATA` (-61)** and skips every selected status
+read. `seen=7` includes VERSION, ENABLE and readiness, but excludes the `0x8`
+status-read flag. Therefore `status_valid=0` and all zero temperature slots
+are unread placeholders, not observed invalid status bits or 0 C measurements.
+
+The exact FYG8 source maps `qcom,tsens-v2` to `data_tsens_v2`; its
+`tsens-v2.c` operation selects `tsens.c:get_temp_tsens_valid`. That getter reads
+the per-sensor VALID field and then temperature, without the TRDY precondition
+used by P390. This identifies an extra gate in the current provider and a
+bounded next H0 review topic. It does **not** prove that removing the gate would
+yield valid temperatures: no status/VALID words were read in this acquisition,
+and the cause of the low readiness bit remains unobserved. No TSENS enable,
+calibration, threshold or IRQ write, new ADC channel, or follow-up device read
+was attempted.
+
+Private `thermal-no-proof-diagnosis.json` pins those source files and the
+authenticated observer result. `live-close-result.json` is the 5,531-byte
+structured close summary, SHA-256
+`c17a35563942a19da8628fbd5c0cf16b3af44d0fe4bb5d97f56ac8527585d0d6`.
+A first post-close host summary included the full admission object and exceeded
+the existing record bound. Its failure log is preserved; the bounded summary
+uses the admission receipt instead. No original run record, grant, command,
+transfer, observation or device transition was changed or repeated.
