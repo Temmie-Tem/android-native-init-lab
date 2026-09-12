@@ -80,13 +80,13 @@ def compile_c(*args):
     except subprocess.CalledProcessError as exc:raise AssertionError(exc.stderr) from exc
 
 
-def compile_components(cls, selected=candidate):
+def compile_components(cls, selected=candidate, *, render_source=source, metrics_transform=None):
     cls.temp=tempfile.TemporaryDirectory(prefix='s22-resident-adoption-h0-');cls.addClassCleanup(cls.temp.cleanup)
     cls.folder=Path(cls.temp.name)
     (cls.folder/'resident-fixture-clock.h').write_text(CLOCK_HEADER)
     (cls.folder/'native.c').write_text(native_source(selected));cls.binary=cls.folder/'native'
     compile_c(cls.folder/'native.c',cls.binary,'-Wno-unused-function','-Wno-unused-const-variable','-Wno-misleading-indentation')
-    raw=source.render_display(selected.IDENTITY,previous.CENSUS)
+    raw=render_source.render_display(selected.IDENTITY,previous.CENSUS)
     (cls.folder/'renderer.c').write_bytes(raw)
     renderer=previous.renderer_fixture().replace(previous.IDENTITY.run_id_hex,selected.IDENTITY.run_id_hex)
     renderer=previous.swap(renderer,'if(!strcmp(scenario,"ipc-live"))return syscall(SYS_clock_gettime,id,value);',
@@ -123,6 +123,7 @@ def compile_components(cls, selected=candidate):
         'return status_collect(argv[2],!strcmp(argv[1],"--collect-hardware"));')
     metrics=previous.swap(metrics,'#undef open\n#include "telemetry_core.h"',
         '#undef open\n#include "resident-fixture-clock.h"\n#include "telemetry_core.h"')
+    if metrics_transform is not None: metrics=metrics_transform(metrics)
     (cls.folder/'metrics.c').write_text(metrics);cls.collector=cls.folder/'collector'
     compile_c(cls.folder/'metrics.c',cls.collector)
     import device_action_f1_live_v2 as live

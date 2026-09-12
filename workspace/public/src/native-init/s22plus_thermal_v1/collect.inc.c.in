@@ -1,0 +1,49 @@
+/* Fresh software acquisition from the exact thermal module. The module does
+ * not return cached values. Keep the existing conservative collection stamp:
+ * an accepted driver acquisition must start at or after that stamp.
+ */
+struct resident_cpu_map { uint64_t sequence,start_ms; };
+struct thermal_sample {
+    uint64_t sequence,start_ms,end_ms,valid,cpu_mask;
+    int64_t cpu_mc,battery_uv,battery_deci,battery_error,cpu0_error,cpu1_error;
+};
+static int resident_clock(uint64_t *now);
+static int thermal_parse(const char *p,struct thermal_sample *out) {
+    struct thermal_sample s={0};
+    if(!gauge_unsigned(&p,"S22THERM1 seq=",&s.sequence)||
+       !gauge_unsigned(&p," start_ms=",&s.start_ms)||
+       !gauge_unsigned(&p," end_ms=",&s.end_ms)||
+       !gauge_unsigned(&p," valid=",&s.valid)||
+       !gauge_unsigned(&p," cpu_mask=",&s.cpu_mask)||
+       !gauge_signed(&p," cpu_temp_mc=",&s.cpu_mc)||
+       !gauge_signed(&p," battery_uv=",&s.battery_uv)||
+       !gauge_signed(&p," battery_temp_deci=",&s.battery_deci)||
+       !gauge_signed(&p," battery_error=",&s.battery_error)||
+       !gauge_signed(&p," cpu0_error=",&s.cpu0_error)||
+       !gauge_signed(&p," cpu1_error=",&s.cpu1_error)||strcmp(p,"\n"))return 0;
+    if(!s.sequence||s.end_ms<s.start_ms||s.valid>3||s.cpu_mask>8191||
+       s.battery_error>0||s.battery_error< -4095||s.cpu0_error>0||s.cpu0_error< -4095||
+       s.cpu1_error>0||s.cpu1_error< -4095||!!(s.valid&1)!=!!s.cpu_mask||
+       (s.cpu0_error&&(s.cpu_mask&511))||(s.cpu1_error&&(s.cpu_mask&7680)))return 0;
+    if((s.valid&1) ? s.cpu_mc< -40000||s.cpu_mc>150000 : s.cpu_mc!=0)return 0;
+    if(s.valid&2) {
+        int deci;
+        if(s.battery_error||s22_thermal_battery_decode((int)s.battery_uv,&deci)||deci!=s.battery_deci)return 0;
+    }else if(!s.battery_error)return 0;
+    *out=s;return 1;
+}
+static void resident_cpu_temperature(struct resident_cpu_map *map,struct status_metrics *m) {
+    char text[512];struct thermal_sample thermal;uint64_t now=0;
+    m->cpu_expected=13;
+    /* The existing power_supply read is not the temperature authority here. */
+    m->valid&=~STATUS_TEMP;m->battery_temp_deci=0;
+    if(!status_read("/sys/module/s22plus_thermal_telemetry/parameters/sample",text,sizeof(text),0x62656572L)||
+       !thermal_parse(text,&thermal)||!resident_clock(&now)||thermal.sequence<=map->sequence||
+       thermal.start_ms<map->start_ms||thermal.start_ms<m->collected_ms||
+       thermal.end_ms>now||resident_age(now,thermal.start_ms,thermal.sequence)>RESIDENT_FRESH_MS)return;
+    map->sequence=thermal.sequence;map->start_ms=thermal.start_ms;
+    if(thermal.valid&1) {
+        m->cpu_mask=(uint32_t)thermal.cpu_mask;m->cpu_temp_mc=(int32_t)thermal.cpu_mc;m->valid|=STATUS_CPU_TEMP;
+    }
+    if(thermal.valid&2) {m->battery_temp_deci=(int32_t)thermal.battery_deci;m->valid|=STATUS_TEMP;}
+}

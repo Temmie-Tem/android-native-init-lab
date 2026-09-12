@@ -29,7 +29,8 @@ class BackendTests(native.ProtocolTests):
     test_authentication_limit_keeps_last_slot_for_control = None
     test_nonadjacent_nonce_reuse_stops_third_authentication = None
 
-    def exercise(self, mode='pair-detach', fault=None, case='normal', *, prepared=None, external_peer=None):
+    def exercise(self, mode='pair-detach', fault=None, case='normal', *, prepared=None, external_peer=None,
+                 observation_seconds=5):
         with (self.running(case) if external_peer is None else nullcontext(external_peer)) as peer:
             fixture = _ReceiptFixture.__new__(_ReceiptFixture)
             fixture.run_dir = peer.folder if prepared is None else prepared.run_dir
@@ -156,7 +157,7 @@ class BackendTests(native.ProtocolTests):
                             session.baseline_observation_expiry_ns = live.native_baseline.protocol.host_now_ns()
                             return original_write()
                         session._baseline_write_budget = expired_write
-                    classification = session._read_endpoint(endpoint, time.monotonic()+5, writer)
+                    classification = session._read_endpoint(endpoint, time.monotonic()+observation_seconds, writer)
                     handle = writer.finalize(returncode=0)
                     fixture.capture_path = handle.receipt_path
                     fixture.payload = live.raw_capture.read_stdout(handle, maximum=fixture.observer.RAW_MAXIMUM)
@@ -173,7 +174,7 @@ class BackendTests(native.ProtocolTests):
                     raw = live.p318_topology.raw_snapshot(phase='candidate_end', capture_complete=True, endpoints=[])
                     with mock.patch.object(live._P327ObserverSession, '_observe_value', return_value=(value, selected_lane)), \
                             mock.patch.object(live.p318_topology, 'capture_candidate_raw', return_value=raw):
-                        value = session.observe(timeout_sec=5, download_departure={})
+                        value = session.observe(timeout_sec=observation_seconds, download_departure={})
                     reopened = live._p345_validate_receipt(fixture.prepared,
                         fixture.run_dir/'candidate-observer.json', fixture.spec)
                     self.assertIsNone(session.owned_descriptor)

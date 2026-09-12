@@ -70,6 +70,7 @@ class IO(console.IO):
     BOOT_LIMIT_MS = BOOT_LIMIT_MS
     SOURCE_PROFILE = source.profile_contract(source.BASELINE_PROFILE)
     HUD_BODY = display.HUD_BODY
+    HUD_SETTLE_SECONDS = 0
     decode_hud = staticmethod(display.decode_log)
 
     def __init__(self, *args, **kwargs):
@@ -231,7 +232,11 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
         session = Session(io.fd, io.key, bytes.fromhex(io.identity.run_id_hex), io.audit.nonce,
             Path(evidence), on_rx=io.capture, on_tx=io.audit.tx.extend, before_write=io.before_write)
         health.run_console_checks(session, events, deadline=min(io.deadline, time.monotonic()+29.9))
-        if hud and io.deadline-time.monotonic() >= display.HUD_ADMISSION_SECONDS:
+        if hud and io.deadline-time.monotonic() >= display.HUD_ADMISSION_SECONDS+io.HUD_SETTLE_SECONDS:
+            # Selected asynchronous collectors need a frame after startup before
+            # PID1 freezes the export at EXEC. This consumes the same deadline;
+            # the normal before-write guard still checks the grant before EXEC.
+            if io.HUD_SETTLE_SECONDS: time.sleep(io.HUD_SETTLE_SECONDS)
             seq = session.send(wire.EXEC, io.HUD_BODY)
             while seq not in session.terminals and seq not in session.rejected:
                 if time.monotonic() >= io.deadline: raise TimeoutError('baseline HUD original deadline')
