@@ -1,10 +1,15 @@
-# S22+ P391 VALID-based thermal V3 H0 qualification
+# S22+ P391 VALID-based thermal V3 H0 and live qualification
+
+Latest result: **P391 N/E/N closed normally; CPU, GPU, DDR-region and board
+battery temperatures are observed, with CPU coverage 12/13.** The live section
+below records the separately approved run. Earlier H0 sections preserve their
+qualification and issuance state before that run.
 
 Target: **SM-S906N / g0q / S906NKSS7FYG8**, G0Q board revision 12.
 Scope: qualify the fresh thermal successor and issue one exact attended F1 code.
-Device contact, grants, candidate transfers and native admission changes: **0**.
-Independent review is **PASS_GO with no outstanding findings**. The exact F1
-request is issued and revalidated; no grant has been created.
+Device contact, grants, candidate transfers and native admission changes during
+H0: **0**. Independent review is **PASS_GO with no outstanding findings**. Exact
+request issuance and revalidation completed before the separately returned code.
 
 ## Change and proof boundary
 
@@ -178,3 +183,78 @@ This report includes no target serial, live raw capture or private key.
 | PERSIST | Checked: actual 382,226-byte N/E request writer/reader and native roles; retained terminal/admission reopen. The oversized H0 wrapper summary was corrected to original-result receipts and reopened without repeating bundle validation. |
 | HOST / RETURN | Changed V3 path exercised through actual C/PTY owner. Control, grant, transfer and recovery sources are unchanged. Future physical return and device health require the separately approved run. |
 | IO / DISPLAY | No new I/O bound or drawing behavior. Acquisition/replay and failure-park paths checked; prior synthetic HUD layout remains applicable. Future physical pixels are unproved. |
+
+## Attended live qualification and close
+
+The operator separately returned the exact issued approval after the stated
+physical-attendance and usable physical-Download conditions. The unchanged
+reviewed owner opened one 600-second grant and performed one native-origin
+experiment. All 211 execution-source pins and the current review were unchanged.
+The request remained
+`156fc01de788ccdbf2a8a2fb02f6d9cf940a07c7782e3cedcc0e73ee4beb5cc7`.
+
+**`PASS_P391_N_E_N_NATIVE_CLOSED`:** one P391 E installation and one normal
+P387 N restoration completed. Five fixed authenticated health sessions passed
+across three distinct native boots. Final DETACH and actual descriptor close
+completed **291.553563933 seconds** after the original grant start. Android
+transfers: **0**. There was no research stop or physical-fallback request.
+The grant is closed, the F1 owner released, and `recovery_required` is false.
+P391 is permanently consumed and cannot replay.
+
+The current terminal is
+`workspace/private/runs/s22plus-native-baseline-v2/p391-valid-thermal-experiment-20260913-1/operation-01/terminal.json`,
+**35,052 bytes**, SHA-256
+`3baf937274fcf3965956dfa7bc4384296dcc6819dd928a7dd623d9ccdac3ecaf`.
+The actual terminal/status, experiment-outcome and admission readers rederive
+the result from retained raw/close evidence. P387's 121 native inputs and build
+selection remain unchanged. Its current healthy snapshot is P387
+`v0.2.0-rc.5`; the restored baseline retains its original temperature limitations.
+The earlier P390 terminal's successor link is now consumed. A native close is
+past health evidence, not continuous responsiveness or future authority.
+
+The second E authentication retained 11 HUD frames. Its latest frame reports:
+
+| Domain | Observed value | Coverage / source |
+| --- | ---: | --- |
+| CPU maximum | **26.3 C** | 12/13 selected locations |
+| GPU maximum | **26.3 C** | 2/2 selected locations |
+| SoC DDR-region | **26.2 C** | 1/1 selected location; not RAM-die temperature |
+| Board battery sensor | **15.3 C** | Exact shared ADC-temp/WPC channel; raw 642,495 uV, conversion error 0 |
+
+All 16 mappings and both bank bindings passed. The diagnostics retain
+TRDY **`[8,8]`**, current-acquisition phases `[2,2]`, read-presence masks
+`[15,15]`, bank errors `[0,0]`, and a temperature validity mask of **65,527**.
+The one unavailable CPU location is **`cpu-1-3`, TSENS bank 0 sensor 8**:
+its acquired VALID bit was clear. Its stored zero is a placeholder, not 0 C.
+The cause of that individual invalid state remains unproved.
+
+Thus TRDY bit 0 remained clear, as in P390, while V3's bounded per-sensor
+eligibility path produced accepted temperatures. The source-bound acquisition
+diagnostics and values are retained; this is not an independent trace of each
+MMIO instruction. No enable/configuration/polling change was made to obtain them.
+
+Latest frame 11 joins acquisition 10 at 13,781..13,782 ms. At the retained
+probe, the parser's hardware/system age upper bounds were 1,017/1,061 ms,
+inside the existing freshness bounds. Capture and latest thermal diagnostics
+are complete, with zero dropped records; complete history remains false after
+19 older records were evicted. Continuous measurement, physical pixels and
+hardware conversion age remain unproved.
+
+The canonical append-only journal has these seven actions:
+
+| Sequence | Action | Result / meaning |
+| ---: | --- | --- |
+| 1 | `reserved` | One exact operation under the original grant |
+| 2 | `native-start-download-return` | Starting N health and timely Download proved |
+| 3 | `experiment-transfer-intent` | One P391 installation intent consumed |
+| 4 | `experiment-transfer-result` | Exact P391 boot transfer completed |
+| 5 | `experiment-download-return` | Both E health authentications and timely Download proved |
+| 6 | `native-final-transfer-intent` | One prebound normal P387 restoration intent consumed |
+| 7 | `native-final-transfer-result` | Exact P387 restoration completed; final health/DETACH then qualified the native terminal |
+
+Private `live-execution-1.log`, the operation's raw/journal/close records and
+`live-close-result.json` preserve this run under the existing evidence roots.
+The bounded post-close summary references admission by receipt and successfully
+roundtrips through the actual writer/reader. No device effect was repeated for
+rederivation or reporting. All 211 source pins remain unchanged. A90 and S20+
+received no commands or changes from this execution.

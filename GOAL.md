@@ -13,36 +13,44 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**P391 / v0.2.0-rc.9 thermal V3 H0 is complete with independent PASS_GO;
-the exact F1 request is issued and revalidated.** TRDY is retained as a diagnostic;
-each selected status word supplies VALID and temperature in one bounded read. The producer,
-shared C validator and registered host observer agree on that new rule, with
-separate V3 sample/frame and private IPC identities. V2 retains its original
-interpretation. No live temperature availability is inferred from this change.
+**P391 N -> E -> N is closed with `PASS_P391_N_E_N_NATIVE_CLOSED`;
+CPU, GPU, DDR-region and board battery temperatures are observed.** One P391
+installation and one normal P387 restoration completed under the separately
+returned one-operation/600-second approval. All five authenticated health
+sessions across three distinct native boots passed. Final DETACH/descriptor
+close completed at **291.554 seconds**; Android transfers: **0**. The grant is
+closed, the F1 owner released, and P391 is permanently consumed.
 
-The real A/B native init, renderer, thermal module and boot-only package pass.
-All 32 focused V1/V2/V3 and actual C/PTY N/E/N regression tests pass. Real ARM64
-provider/collector execution and equal-size V2/V3 sample/view cross-rejection
-also pass. Six actual-artifact mutation tests and the 382,226-byte complete
-N/E request publication/reopen pass. Both exact 211-source variants have
-independent PASS_GO with no outstanding findings.
+Latest retained E temperatures are **CPU maximum 26.3 C (12/13)**, **GPU maximum
+26.3 C (2/2)**, **SoC DDR-region 26.2 C (1/1)** and **board battery sensor 15.3 C**.
+All 16 mappings and both TSENS bank bindings passed. TRDY remained `[8,8]`, but
+V3 performed the selected status reads and accepted each sensor's VALID bit and
+temperature together. `cpu-1-3` (bank 0 sensor 8) had VALID clear and remains
+unavailable; its zero placeholder is not a temperature. The cause of that
+individual invalid state remains unproved. DDR-region is not RAM-die temperature.
 
-The issued request is one attended `P387 -> P391 -> P387` experiment within
-600 seconds, with the unchanged exact Android A as failure-only recovery.
-Preparation creates no grant or device effect. The [P391 H0 report](docs/reports/S22PLUS_NATIVE_THERMAL_V3_H0_2026-09-13.md)
-and [thermal V3 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V3.md) record the
-qualification and its limits. P387 admission and the consumed P390 terminal
-reopen unchanged; P390's 138 native inputs and P387's 121 native inputs retain
-their exact bytes.
+The current healthy native snapshot is restored **P387 / v0.2.0-rc.5**, with
+its 121 native inputs and original temperature limitations unchanged. The latest
+terminal is the closed P391 operation, SHA-256
+`3baf937274fcf3965956dfa7bc4384296dcc6819dd928a7dd623d9ccdac3ecaf`;
+the earlier P390 terminal's successor is consumed. The actual terminal,
+experiment-outcome and admission readers rederive. Native close is past health
+evidence, not continuous liveness or standing authority.
 
-The 382,334-byte request SHA-256 is
+See the [P391 H0/live report](docs/reports/S22PLUS_NATIVE_THERMAL_V3_H0_2026-09-13.md)
+and [thermal V3 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V3.md). The
+qualification includes 32 regression tests, six actual-artifact mutation tests,
+real ARM64 producer/consumer and A/B package checks, plus independent PASS_GO
+for both exact 211-source variants. All execution pins remained unchanged
+through the run. The consumed request SHA-256 is
 `156fc01de788ccdbf2a8a2fb02f6d9cf940a07c7782e3cedcc0e73ee4beb5cc7`.
-The actual current request reader passes with all 225 frozen input files
-unchanged. P391 is unused, no F1 owner is present, and the new run directory
-contains only the request. Source commit: `91924d4a4d2047f3f8693867b848648b91440fc4`.
-No grant or device effect was created. Actual temperature availability and the
-live roundtrip remain unproved until the separately returned attended approval
-and fresh runtime binding required by the existing policy.
+Source commit: `91924d4a4d2047f3f8693867b848648b91440fc4`.
+
+Latest sample/frame capture is complete and fresh within the software bounds;
+complete history, hardware conversion age and physical display pixels remain
+unproved. No device transition or read was repeated for reporting. A90 and S20+
+were untouched. Any future experiment needs its own current authority and fresh
+runtime binding; this completed run cannot replay.
 
 ## Earlier closed P390 trial
 
@@ -59,19 +67,19 @@ placeholders are not temperatures. This time all 16 mappings and both TSENS
 bank bindings passed. Both acquired readiness words were `8`, whose bit 0 is
 clear; the provider returned its own `-ENODATA` and read no sensor status words.
 FYG8's source-selected v2 getter uses the per-sensor VALID field without that
-extra TRDY precondition. Actual VALID bits/temperatures and the cause of the low
-TRDY bit remain unobserved. P391 addresses that extra readiness gate in a fresh
-H0 successor; P390 cannot replay, and a live successor needs its own authority.
+extra TRDY precondition. P390 did not observe actual VALID bits/temperatures;
+the cause of the low TRDY bit remains unproved. The separately qualified P391
+successor above addresses the extra gate; P390 itself cannot replay.
 
-The latest healthy native snapshot is restored **P387 / v0.2.0-rc.5**, with its
-121 native inputs unchanged. Its current terminal is the closed P390 operation,
+At that close the healthy native snapshot was restored **P387 / v0.2.0-rc.5**,
+with 121 native inputs unchanged. Its then-current P390 terminal had
 SHA-256 `ad377de602a54ff20444da663f641f6192cc93d08b677d5930481be4a3ceb41d`;
 the earlier P389 terminal's successor is now consumed. Native close is past
 health evidence, not continuous liveness or standing authority.
 
 See the [P390 H0/live report](docs/reports/S22PLUS_NATIVE_THERMAL_V2_H0_2026-09-13.md)
-and [thermal V2 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V2.md). The
-unchanged capability retains independent PASS_GO for 207 execution inputs,
+and [thermal V2 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V2.md). Its
+pre-run H0 qualification had independent PASS_GO for 207 execution inputs,
 35 regression tests plus five actual-artifact mutation tests, and actual ARM64
 IPC/A/B package qualification. The closed request SHA-256 is
 `fe000f4e0fe1099900d32d408832a396bed7cb8cc9b36d5aae71b87ca5d6f21f`.
