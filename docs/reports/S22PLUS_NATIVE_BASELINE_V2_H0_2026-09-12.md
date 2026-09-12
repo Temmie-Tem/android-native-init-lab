@@ -137,3 +137,47 @@ live resident admission nor the complete target N/E/N loop is proved here.
 Physical pixels, uninterrupted liveness, CPU-sensor exposure and automatic
 failure recovery retain their previous uncertainty. Capability PASS_GO creates
 no device grant or unattended authority.
+
+## Approval-request preparation (2026-09-13 KST)
+
+The later operator request authorized preparation through exact F1 approval
+issuance. All 186 current working-tree inputs still matched the independently
+reviewed `f9f067806d777e2c1764a6f6481929efecc0e35290e49df31408c51043d8f738`
+variant. The same independent reviewer confirmed a new current-instance
+capability activation without source or reader changes. The instance receipt
+has SHA-256 `9898564ee34fdb3dc0c95105c87a92b8bf3ae96f9262732067b8836fea79ae38`.
+It is intentionally uncommitted; the original committed publication receipt
+(`3135620b4c67d6deee947f210a45db9c1aee3eb418d2c6bfedc03c43d2a6bf1a`)
+is preserved unchanged. The unchanged `reviewed()` accepts the new instance,
+whose exact receipt is frozen into both fresh requests. This is separately
+reviewed activation for the current task, not substitution of the private H0
+receipt or a source-check bypass.
+
+One fixed connected D0 passed through the actual raw-first reader. It matched
+the exact physical target from closed P386 before device-specific commands,
+proved rooted FYG8/original boot and supporting hashes, same-boot continuity,
+clean observer baseline, Download absence and current Type-C lane. The D0 result
+SHA-256 is `9e079f58a9dba29db90b90177f358fa5ad326c00d8a905e5d25abc5de1992e4d`.
+Both proposed native contents remain globally unconsumed. No reboot, device
+write, F1 grant, partition transfer or native admission occurred; A90/S20+
+received no commands.
+
+The current reservation reader repeats full artifact validation inside each
+grant. The final plan therefore uses two separately approved one-operation,
+600-second grants, with the second conditional on complete live N admission.
+It neither extends a grant nor changes the existing limits or validation.
+
+| Request | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `p387-bootstrap-20260912-1/request.json` | 184,662 | `6b331200b102305662c7f980eebb0a32c72a885480298caf89853483fdbc39de` |
+| `p388-experiment-20260912-1/request.json` | 360,514 | `f09fe110a107ccf94cb2143c6328be2ff3e207740946d295e5f22390b9676f0b` |
+
+Both requests are under `workspace/private/runs/s22plus-native-baseline-v2/`.
+The preserved preparation evidence is under
+`workspace/private/outputs/s22plus-native-baseline-v2-f1-preparation-20260912-1/`;
+directory dates identify the preparation's start and are not renamed at midnight.
+The actual request reader reopens both; current source, N/E/A byte, target,
+review and finite-operation bindings match. Neither request has a grant or
+consumption record. Returned exact approvals and actual physical attendance
+remain required before any F1 effect. Normal success ends at `NATIVE_CLOSED`;
+failure permits only the original exact A for that operation, at most once.

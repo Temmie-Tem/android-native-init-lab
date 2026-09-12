@@ -13,7 +13,25 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-The current unit is [resident native baseline V2 H0](docs/reports/S22PLUS_NATIVE_BASELINE_V2_H0_2026-09-12.md):
+**Two exact attended F1 approval requests are issued and await returned
+operator approvals**: P387 bootstrap from healthy Android, then P388 experiment
+and normal P387 restoration only after complete live P387 admission. Each
+request binds one operation and 600 seconds; no grant has been opened.
+Fresh exact-target D0 passed rooted FYG8/original hashes, same-boot continuity,
+clean observer baseline, Download absence and the current Type-C lane.
+No reboot, device write, partition transfer or native admission occurred.
+A90 and S20+ received no commands.
+
+The separately reviewed, intentionally uncommitted current-instance capability
+receipt binds the unchanged 186-source working-tree variant. The committed H0
+receipt is preserved; neither the reader nor unrelated S20+ work was changed.
+See the [preparation close](docs/reports/S22PLUS_NATIVE_BASELINE_V2_H0_2026-09-12.md#approval-request-preparation-2026-09-13-kst)
+for exact request identities and current local binding. Normal success ends
+at N; a failed operation retains only its original one-shot Android fallback.
+
+## Completed H0 precursor
+
+The completed [resident native baseline V2 H0](docs/reports/S22PLUS_NATIVE_BASELINE_V2_H0_2026-09-12.md) unit defines
 normal `N -> E -> N`, with Android A for explicit exit or failure fallback.
 The separate common-incorporated [V2 policy](docs/operations/S22PLUS_NATIVE_BASELINE_V2.md)
 and shared owner bind proposed P387 N and distinct globally one-shot P388 E,
@@ -23,8 +41,8 @@ host authority. **H0 capability is complete with independent PASS_GO**:
 APs, all 186 reachable execution sources, and full request/terminal reopening
 under unchanged bounds. The public review binds this unit's selected commit
 bytes; existing unrelated S20+ AGENTS changes remain outside that commit and
-make the differing local working tree fail its capability source check.
-This unit has made no device contact, grant, live bootstrap or admission.
+made the differing local working tree fail its capability source check at H0
+close. That H0 unit made no device contact, grant, live bootstrap or admission.
 The next live proof requires current matching source authority, fresh attended
 N qualification and an exact E roundtrip; it remains unproved.
 
