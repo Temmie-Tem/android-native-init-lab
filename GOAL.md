@@ -13,8 +13,8 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**P390 thermal V2 H0 is complete with independent PASS_GO; exact F1 request
-issuance is being closed.** The new E fixes the
+**P390 thermal V2 H0 is complete with independent PASS_GO and an exact F1
+approval request issued.** The new E fixes the
 provider root to `/soc/thermal-zones`, adds two GPU locations and one SoC
 DDR-region location, and retains per-sensor coverage and bank diagnostics through
 the actual provider/PID1/collector/renderer/HUD path. All four retained stock
@@ -28,8 +28,12 @@ capability has independent PASS_GO for both exact source variants. See the
 [P390 H0 report](docs/reports/S22PLUS_NATIVE_THERMAL_V2_H0_2026-09-13.md) and
 [thermal V2 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V2.md).
 
-The requested next step is one exact attended, 600-second P387 N -> P390 E ->
-P387 N approval proposal. No grant or device action has occurred in this H0 unit.
+The issued request is one exact attended, 600-second P387 N -> P390 E ->
+P387 N experiment, SHA-256
+`fe000f4e0fe1099900d32d408832a396bed7cb8cc9b36d5aae71b87ca5d6f21f`.
+Its actual current reader reopens and all 221 frozen inputs remain unchanged.
+No grant or device action has occurred in this H0 unit. Live execution awaits
+the separately returned exact code and the existing attendance/recovery conditions.
 The retained P387 terminal/admission and all 121 native inputs reopen unchanged;
 fresh target and native health binding remain future device-run checks.
 

@@ -142,3 +142,30 @@ Private evidence is under
 The actual P390 package is under
 `workspace/private/outputs/s22plus-native-thermal-v2/p390/build-3/`.
 No A90 or S20+ commands were issued, and no push occurred.
+
+## Issued finite request
+
+Source commit: `ed3138378cc9dfac2131d8d2ac454c0652636e3a`.
+The current working capability reader passes with receipt SHA-256
+`e76a85042a2373c029ec85625f663fb8ba683caf3591ab600345cd1236e93ac5`.
+The exact owner prepared
+`workspace/private/runs/s22plus-native-baseline-v2/p390-thermal-domains-experiment-20260913-1/request.json`:
+**379,071 bytes**, SHA-256
+`fe000f4e0fe1099900d32d408832a396bed7cb8cc9b36d5aae71b87ca5d6f21f`.
+It permits only **one `experiment` reservation and 600 seconds** under the
+existing V2 policy, with the exact N/E/A roles above. Preparation creates no
+grant, reservation, candidate claim or device effect.
+
+The actual `load_request(current=True)` reader reopens this request with the
+current review, sources, N/E/A files and recovery closure. All **221 frozen input
+files** retain their verified bytes. N and target equal the retained terminal,
+the host epoch matches, and that terminal has no later operation. The existing
+candidate registry's preflight passes for unused P390 content, no F1 owner is
+present, and the new run directory contains only `request.json`.
+Private `request-issuance-close-result.json` records this H0 close.
+
+The prior native record for that experiment is the restored P387 terminal at
+`workspace/private/runs/s22plus-native-baseline-v2/p389-temperature-experiment-20260913-1/operation-01/terminal.json`.
+The separately returned exact approval, physical attendance, usable physical
+Download recovery and fresh machine target/native-health binding remain required
+by policy. CPU/GPU/DDR feature qualification and P390 live N/E/N remain unproved.
