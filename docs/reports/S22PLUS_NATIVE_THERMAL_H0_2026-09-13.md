@@ -1,14 +1,14 @@
-# S22+ P389 temperatures and admitted-native roundtrip preparation
+# S22+ P389 temperatures and admitted-native roundtrip
 
-Status: **H0 qualification complete; independent PASS_GO with no findings.**
+Status: **N/E/N complete; battery temperature observed; CPU temperature NO_PROOF.**
 
 The operator requested CPU/battery temperature support and a fresh
 `native -> development -> native` test. P389 / `v0.2.0-rc.7` adds the
 [thermal profile](../operations/S22PLUS_NATIVE_THERMAL_V1.md) as a distinct E
 under the existing [native baseline V2](../operations/S22PLUS_NATIVE_BASELINE_V2.md)
-owner. P387 remains the exact admitted N. This work has made no device contact,
-opened no grant and created no new native admission. Physical attendance and a
-separately returned exact finite approval remain prerequisites to the live test.
+owner. P387 remains the exact admitted N. H0 preparation made no device contact,
+opened no grant and created no new native admission. The subsequent live section
+records the separately returned exact finite approval and attended trial.
 
 ## Diagnosis and implementation
 
@@ -113,8 +113,8 @@ and grants no authority. Its SHA-256 is
 Private evidence is under
 `workspace/private/outputs/s22plus-temperature-native-h0-20260913-1/`; the final
 P389 package is under `workspace/private/outputs/s22plus-native-thermal-v1/p389/build-2/`.
-Actual CPU/battery values, physical pixels and this new E's live N/E/N roundtrip
-remain unproved. TSENS hardware conversion age is unknown; the battery result
+At H0 close, actual CPU/battery values, physical pixels and this new E's live
+N/E/N roundtrip were unproved. TSENS hardware conversion age is unknown; the battery result
 is a single board-ADC conversion, not stock's five-read filter. Normal healthy N
 restoration and failure-only exact Android A recovery remain distinct.
 
@@ -125,7 +125,71 @@ The reviewed owner prepared the fresh private request under
 It is **368,983 bytes**, SHA-256
 `23609ee53498286084ccc01ec44db7a4dbefc7c1cff2359c0737bb538f984ee4`,
 and permits only one `experiment` reservation with a 600-second grant limit.
-Its N, E and A are the exact roles above. Preparation creates no grant; the
-separately returned approval and actual physical attendance remain pending.
+Its N, E and A are the exact roles above. Preparation created no grant; the
+separately returned approval and actual physical attendance were then required.
 The actual request reader reopens this publication, its N equals the retained
 native terminal, and all 209 frozen input files retain their validated bytes.
+
+## Live P389 experiment (2026-09-13 KST)
+
+The operator returned the exact request approval under the stated physical
+attendance/Download condition. The unchanged reviewed owner ran one experiment
+from admitted P387, installed P389 once, and restored the exact P387 normally.
+Source commit is `d946b3fdaf4072f5a9f42f9697c43337d4f4dece`; the working
+195-source identity remains `f0398218c47021381a2703a3671db5c080a7cbcd4d8b4aada6a1767e4861ffea`.
+No execution-critical bytes changed during the operation.
+
+| Phase | Signed authentication ordinals | Result |
+| --- | --- | --- |
+| Starting admitted P387 | 3 | Fresh same-boot health and timely CONTROL/Download |
+| New P389 E | 1, 2 | New boot, complete fixed health workload, HUD and timely CONTROL/Download |
+| Restored P387 N | 1, 2 | Distinct boot, fresh health, clean reentry and final DETACH/descriptor close |
+
+The canonical role order was session start, E transfer start/completion, E boot
+qualification, normal N restoration start/completion, N boot qualification and
+native session end. These are the V2 declared roles; normal N restoration is
+separate from failure-only Android A recovery. The seven original append-only
+journal events and each phase's raw/authentication/transfer/close receipts remain
+unchanged. There were **two native transfers, five authenticated health sessions
+and three distinct native boots** including the starting N. **Android transfers:
+0**. No research stop or physical fallback occurred.
+
+Final native close completed **244.293 seconds** after grant start, within the
+original 600 seconds. The actual terminal, experiment-workload and admission
+readers rederived the complete evidence graph. Completion, grant close and F1
+owner release are verified; `recovery_required=false`.
+The terminal is 35,045 bytes, SHA-256
+`5de43667d48baa8f33fe56c54c04250f8d49cdd00d41a1278502bb50ae3592ca`.
+The roundtrip verdict is **`PASS_P389_N_E_N_NATIVE_CLOSED`**.
+
+## Temperature outcome and remaining CPU uncertainty
+
+The authenticated export contains eight retained thermal frames. Its latest
+frame has fresh hardware data, battery temperature **17.3 C**
+(`battery_temp_deci=173`), and conservative hardware acquisition age at export of **979 ms**.
+The exact board-ADC battery observation passes the declared parser, table and
+freshness checks. CPU valid is absent and the 13-bit CPU coverage mask is zero:
+**0/13 sensors**, so CPU temperature is **`NO_PROOF`**. The placeholder
+`cpu_temp_mc=0` is not a measurement of 0 C. Combined CPU-and-battery temperature
+qualification therefore remains **`NO_PROOF_COMPLETE_CPU_AND_BATTERY_TEMPERATURE`**.
+
+Battery success establishes that the new thermal module produced an accepted
+sample and that the collector/thermal HUD path ran. The CPU path can withhold
+values after bank-probe rejection, failed version/enable/readiness checks, or
+invalid/out-of-range sensor status. The current `qcom,tsens-v2` match agrees with
+both exact Waipio source nodes. However, the retained HUD does not include the
+provider's bank-binding snapshot or `cpu0_error`/`cpu1_error`; this run cannot
+select the precise failing branch. No TSENS-enable write, extra device read
+or candidate replay was used to fill that evidence gap.
+
+Physical pixels, uninterrupted liveness and hardware conversion-age proof remain
+unproved. The final snapshot is the unchanged **P387 / v0.2.0-rc.5**; its original
+CPU/battery temperature limitations remain expected after the requested rollback.
+P389's content claim is permanently consumed and its grant is closed. A90 and
+S20+ received no commands.
+
+The same private evidence directory now also retains
+`operator-execution-context.json`, `live-bound-AGENTS.md`, `live-execution-1.log`,
+`live-close-rederivation.log`, `live-close-result.json` and
+`cpu-no-proof-diagnosis.json`. The structured close keeps the temperature verdict,
+normal N restoration, final native health and unused Android recovery separate.

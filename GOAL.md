@@ -13,25 +13,30 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**P389 temperature development H0 is complete with independent `PASS_GO`, no
-findings, and 24 passing tests.** The
-[thermal profile](docs/operations/S22PLUS_NATIVE_THERMAL_V1.md) adds fixed CPU
-TSENS observation and the exact board battery ADC route. Actual AArch64 A/B
-artifacts, full AP decoding and 25 metadata mutations pass. All 121 P387 native
-inputs remain unchanged; its admission rederives and joins the fresh N/E request.
-The 195-source working/publication variants are independently reviewed. See the
-[H0 report](docs/reports/S22PLUS_NATIVE_THERMAL_H0_2026-09-13.md) for exact bindings.
-No grant, device command or transfer occurred in this H0 unit. Actual temperature
-readings and the new P387/P389/P387 live test remain unproved pending the separate
-exact attended approval and fresh native health. P388 remains consumed.
+**P389 `N -> E -> N` is closed with `PASS_P389_N_E_N_NATIVE_CLOSED`;
+temperature support is partial.** The latest retained P389 thermal HUD reports
+fresh board battery temperature **17.3 C**, but CPU coverage is **0/13**:
+CPU temperature remains `NO_PROOF`, not 0 C. See the
+[thermal H0/live report](docs/reports/S22PLUS_NATIVE_THERMAL_H0_2026-09-13.md).
 
-The fresh P389 request is issued for `experiment` only, one reservation and
-600 seconds, with SHA-256
-`23609ee53498286084ccc01ec44db7a4dbefc7c1cff2359c0737bb538f984ee4`.
-It binds preserved P387 N, fresh P389 E and the existing exact Android A;
-no grant is open and the separately returned approval remains pending.
+The exact returned request `23609ee53498286084ccc01ec44db7a4dbefc7c1cff2359c0737bb538f984ee4`
+consumed one P389 E installation and one normal restoration of admitted P387 N.
+All five authenticated health sessions passed across the starting N, E and
+returned N boots. Final DETACH/descriptor close occurred 244.293 seconds after
+the original grant start, within 600 seconds. Android transfers: **0**; no
+research stop or physical fallback. The terminal rederives, the grant is closed,
+and the F1 owner is released. P389 is permanently consumed and cannot replay.
 
-## Last completed native roundtrip
+The current device snapshot is healthy P387 / `v0.2.0-rc.5`, whose 121 native
+inputs remain unchanged. Its original temperature limitations remain expected.
+The retained E HUD lacks CPU-bank diagnostic fields, so it cannot distinguish
+probe rejection from readiness/status failure. That cause remains unproved;
+no further device read or hardware-enable attempt occurred after close.
+The existing H0 qualification remains 24 passing tests and independent
+`PASS_GO` for the unchanged 195-source capability. Any future E still needs
+its own exact artifacts and current finite authority. A90 and S20+ were untouched.
+
+## Baseline admission and earlier P388 roundtrip
 
 **P387 bootstrap and the distinct P388 `N -> E -> N` roundtrip are COMPLETE:
 `PASS_P387_BOOTSTRAP_AND_P388_N_E_N_NATIVE_CLOSED`.** Both exact returned
