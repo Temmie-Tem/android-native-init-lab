@@ -1,7 +1,8 @@
 # S22+ P391 VALID-based thermal V3 H0 and live qualification
 
 Latest result: **P391 N/E/N closed normally; CPU, GPU, DDR-region and board
-battery temperatures are observed, with CPU coverage 12/13.** The live section
+battery temperatures are observed. CPU coverage was 13/13 in retained frames
+2..10 and 12/13 in the last retained frame 11.** The live section
 below records the separately approved run. Earlier H0 sections preserve their
 qualification and issuance state before that run.
 
@@ -224,9 +225,11 @@ The second E authentication retained 11 HUD frames. Its latest frame reports:
 All 16 mappings and both bank bindings passed. The diagnostics retain
 TRDY **`[8,8]`**, current-acquisition phases `[2,2]`, read-presence masks
 `[15,15]`, bank errors `[0,0]`, and a temperature validity mask of **65,527**.
-The one unavailable CPU location is **`cpu-1-3`, TSENS bank 0 sensor 8**:
-its acquired VALID bit was clear. Its stored zero is a placeholder, not 0 C.
-The cause of that individual invalid state remains unproved.
+The one unavailable CPU location in that last retained sample is **`cpu-1-3`,
+TSENS bank 0 sensor 8**: its acquired VALID bit was clear. Its stored zero is a
+placeholder, not 0 C. Earlier retained readings of the same sensor were valid;
+the photo reconciliation below records that distinction. The cause of the later
+VALID-clear state remains unproved.
 
 Thus TRDY bit 0 remained clear, as in P390, while V3's bounded per-sensor
 eligibility path produced accepted temperatures. The source-bound acquisition
@@ -258,3 +261,46 @@ The bounded post-close summary references admission by receipt and successfully
 roundtrips through the actual writer/reader. No device effect was repeated for
 rederivation or reporting. All 211 source pins remain unchanged. A90 and S20+
 received no commands or changes from this execution.
+
+## Operator photo and coverage over time
+
+The operator subsequently supplied a photo showing `v0.2.0-rc.9`, uptime 10
+seconds, system/sensor sample 8, CPU coverage 13/13, CPU maximum 26.6 C, GPU
+maximum 26.3 C, DDR-region 26.5 C and board battery 15.3 C. Those displayed
+values match retained frame 8. The initial summary described only frame 11;
+that was insufficient context for the photo and did not establish that one
+sensor was unavailable throughout the run.
+
+Host-only extraction of the retained command-5 stdout matches its already
+authenticated 9,884-byte SHA-256 receipt exactly. The unchanged V3 decoder
+reproduces the complete closed HUD proof; its strict log/sample/frame readers
+then provide the temporal comparison:
+
+| Retained frame / sensor sample | Boot time | CPU coverage | CPU maximum | `cpu-1-3` |
+| --- | ---: | ---: | ---: | --- |
+| 2..7 | 4.736..9.793 s | 13/13 throughout | 26.6..28.4 C | VALID set in every retained acquisition |
+| 8, matching the photo | 10.804 s | 13/13 | 26.6 C | VALID set, 25.6 C |
+| 9 | 11.815 s | 13/13 | 26.6 C | VALID set, 25.3 C |
+| 10 | 12.827 s | 13/13 | 26.3 C | VALID set, 25.3 C |
+| 11, the previously reported latest value | 13.838 s | 12/13 | 26.3 C | VALID clear; no accepted temperature |
+
+Frame 1 had no hardware sample and is not a sensor failure observation. Display
+`SENSOR SAMPLE` denotes the hardware worker's sequence, while thermal acquisition
+has its own sequence: frame/sample 8 joins thermal acquisition 7, and the final
+frame/sample 11 joins acquisition 10. These counters are not interchangeable.
+
+The provider resets validity for each acquisition and performs one selected
+status-word read per sensor. Consequently, one later VALID-clear word withholds
+that sensor for that acquisition; it neither latches a permanent TSENS failure
+nor reuses an earlier valid temperature. No later retained reading proves that
+this particular sensor became valid again. This capture does not establish why
+the bit changed, a persistent hardware fault, or the behavior outside the
+retained interval.
+
+The user-provided photo is additional visual evidence; this comparison uses
+its visible version, counters and values. The original observer's
+`physical_visibility=UNPROVED`,
+raw records, terminal, consumed claim and final-health result remain unchanged.
+The photo, extracted stdout and comparison are private under
+`workspace/private/outputs/s22plus-p391-photo-coverage-reconciliation-20260913-1/`.
+This reconciliation made no device contact, source change or grant.

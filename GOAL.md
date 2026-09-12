@@ -25,9 +25,12 @@ Latest retained E temperatures are **CPU maximum 26.3 C (12/13)**, **GPU maximum
 26.3 C (2/2)**, **SoC DDR-region 26.2 C (1/1)** and **board battery sensor 15.3 C**.
 All 16 mappings and both TSENS bank bindings passed. TRDY remained `[8,8]`, but
 V3 performed the selected status reads and accepted each sensor's VALID bit and
-temperature together. `cpu-1-3` (bank 0 sensor 8) had VALID clear and remains
-unavailable; its zero placeholder is not a temperature. The cause of that
-individual invalid state remains unproved. DDR-region is not RAM-die temperature.
+temperature together. Retained frames 2..10 had **13/13** CPU coverage; only the
+last retained frame 11 had `cpu-1-3` (bank 0 sensor 8) VALID clear and 12/13.
+The operator photo's sample-8 values match retained frame 8 at 10.804 seconds.
+The final zero placeholder is not a temperature or proof of a persistent sensor
+failure. Why VALID cleared at that later read remains unproved. DDR-region is
+not RAM-die temperature.
 
 The current healthy native snapshot is restored **P387 / v0.2.0-rc.5**, with
 its 121 native inputs and original temperature limitations unchanged. The latest
@@ -47,8 +50,10 @@ through the run. The consumed request SHA-256 is
 Source commit: `91924d4a4d2047f3f8693867b848648b91440fc4`.
 
 Latest sample/frame capture is complete and fresh within the software bounds;
-complete history, hardware conversion age and physical display pixels remain
-unproved. No device transition or read was repeated for reporting. A90 and S20+
+complete history and hardware conversion age remain unproved. The later operator
+photo provides a separate visual observation matching frame 8; the machine
+observer's physical-visibility flag remains unchanged. No device transition or
+read was repeated for reporting. A90 and S20+
 were untouched. Any future experiment needs its own current authority and fresh
 runtime binding; this completed run cannot replay.
 
