@@ -182,6 +182,11 @@ provider's bank-binding snapshot or `cpu0_error`/`cpu1_error`; this run cannot
 select the precise failing branch. No TSENS-enable write, extra device read
 or candidate replay was used to fill that evidence gap.
 
+The subsequent [thermal census H0](S22PLUS_THERMAL_SENSOR_CENSUS_H0_2026-09-13.md)
+reproduced a concrete parent-path defect against the actual stock DTB/board
+overlay inputs. That later source finding does not add an inner-errno trace to
+this consumed run or promote its CPU result to live temperature proof.
+
 Physical pixels, uninterrupted liveness and hardware conversion-age proof remain
 unproved. The final snapshot is the unchanged **P387 / v0.2.0-rc.5**; its original
 CPU/battery temperature limitations remain expected after the requested rollback.

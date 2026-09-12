@@ -13,6 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**The thermal census H0 found and reproduced a concrete P389 CPU path defect.**
+The module and its old fixture use `/thermal-zones`, but all four retained stock
+base DTBs with the actual G0Q r12 overlay resolve `/soc/thermal-zones`. The
+unchanged provider then returns `-ENODEV` for both CPU banks; a private path-only
+correction passes 13/13 synthetic sensors. This is H0 reproduction, not a live
+errno trace or real temperature proof. The same final-input census confirms
+32 TSENS mappings, including two GPU locations and one DDR-region location,
+plus board/PMIC ADC routes. RAM-die and exact UFS-device temperature support
+remain unproved. See the [census report](docs/reports/S22PLUS_THERMAL_SENSOR_CENSUS_H0_2026-09-13.md).
+Production source, artifacts, the 195-source review and all device state remain
+unchanged. The next implementation unit is the path/fixture correction and
+diagnostic retention before qualifying CPU/GPU/DDR on a fresh E.
+
+## Latest closed P389 trial
+
 **P389 `N -> E -> N` is closed with `PASS_P389_N_E_N_NATIVE_CLOSED`;
 temperature support is partial.** The latest retained P389 thermal HUD reports
 fresh board battery temperature **17.3 C**, but CPU coverage is **0/13**:
@@ -29,9 +44,10 @@ and the F1 owner is released. P389 is permanently consumed and cannot replay.
 
 The current device snapshot is healthy P387 / `v0.2.0-rc.5`, whose 121 native
 inputs remain unchanged. Its original temperature limitations remain expected.
-The retained E HUD lacks CPU-bank diagnostic fields, so it cannot distinguish
-probe rejection from readiness/status failure. That cause remains unproved;
-no further device read or hardware-enable attempt occurred after close.
+The retained E HUD lacks CPU-bank diagnostic fields, so it cannot directly
+distinguish probe rejection from readiness/status failure. The subsequent H0
+path-defect reproduction above is separate from that live evidence; no further
+device read or hardware-enable attempt occurred after close.
 The existing H0 qualification remains 24 passing tests and independent
 `PASS_GO` for the unchanged 195-source capability. Any future E still needs
 its own exact artifacts and current finite authority. A90 and S20+ were untouched.
