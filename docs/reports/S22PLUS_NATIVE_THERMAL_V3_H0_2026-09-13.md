@@ -3,8 +3,8 @@
 Target: **SM-S906N / g0q / S906NKSS7FYG8**, G0Q board revision 12.
 Scope: qualify the fresh thermal successor and issue one exact attended F1 code.
 Device contact, grants, candidate transfers and native admission changes: **0**.
-Independent review is **PASS_GO with no outstanding findings**. Exact request
-issuance is being closed after source publication.
+Independent review is **PASS_GO with no outstanding findings**. The exact F1
+request is issued and revalidated; no grant has been created.
 
 ## Change and proof boundary
 
@@ -116,7 +116,7 @@ compact JSON with one trailing newline has these SHA-256 identities:
 Only `AGENTS.md` differs between these variants because unrelated S20+ work
 remains outside this publication. Each exact variant must receive independent
 review. No normalization or reader bypass makes a mismatched review current.
-The new finite request will bind admitted P387 N, fresh P391 E and one shared
+The new finite request binds admitted P387 N, fresh P391 E and one shared
 exact Android A for one attended experiment within 600 seconds.
 
 The complete **382,226-byte** combined N/E H0 request passes the actual request
@@ -134,6 +134,34 @@ the actual build-1 package and the complete request above, with no outstanding
 findings. The selected publication receipt binds the published source variant;
 the separately reviewed working receipt binds the actual local AGENTS bytes.
 The latter must pass the current owner reader before exact request issuance.
+
+## Issued request
+
+Source publication is commit `91924d4a4d2047f3f8693867b848648b91440fc4`.
+The separately reviewed working receipt passes `owner.reviewed`. The actual
+`prepare_request` and `load_request(current=True)` complete successfully for:
+
+- Run: `p391-valid-thermal-experiment-20260913-1` under the private native
+  baseline V2 run root.
+- Operation: one attended `P387 -> P391 -> P387` experiment; one reservation,
+  600 seconds, one unchanged exact Android A as failure-only recovery.
+- Request: **382,334 bytes**, SHA-256
+  `156fc01de788ccdbf2a8a2fb02f6d9cf940a07c7782e3cedcc0e73ee4beb5cc7`.
+- Approval: `S22PLUS_NATIVE_BASELINE_V1_APPROVE:` followed by that request digest;
+  the existing owner retains this prefix for the V2 policy.
+
+All **225 frozen input files** match after the actual current-reader reopen.
+N and the exact private target equal the retained P390 terminal; the host epoch
+matches and its successor link is unused. The global candidate preflight finds
+P391 unused, no F1 owner is present, and the new run directory contains only
+`request.json`. Private `request-issuance-close-result.json` records this H0 close.
+No grant, reservation, content claim, native role or device contact was created.
+
+The [finite attended operation policy](../operations/S22PLUS_NATIVE_BASELINE_V2.md#finite-attended-operations)
+requires a separately returned exact approval, physical attendance and usable
+physical Download recovery before effects, followed by the owner's fresh runtime
+binding. Actual CPU/GPU/DDR/battery availability, physical display and the live
+P391 roundtrip remain unproved by this H0 qualification.
 
 Private evidence is under
 `workspace/private/outputs/s22plus-native-thermal-v3-h0-20260913-1/`; the actual

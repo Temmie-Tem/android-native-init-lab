@@ -14,7 +14,7 @@ This goal reports state, never device authority. The binding layers are
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
 **P391 / v0.2.0-rc.9 thermal V3 H0 is complete with independent PASS_GO;
-exact F1 request issuance is being closed.** TRDY is retained as a diagnostic;
+the exact F1 request is issued and revalidated.** TRDY is retained as a diagnostic;
 each selected status word supplies VALID and temperature in one bounded read. The producer,
 shared C validator and registered host observer agree on that new rule, with
 separate V3 sample/frame and private IPC identities. V2 retains its original
@@ -27,13 +27,22 @@ also pass. Six actual-artifact mutation tests and the 382,226-byte complete
 N/E request publication/reopen pass. Both exact 211-source variants have
 independent PASS_GO with no outstanding findings.
 
-The intended request is one attended `P387 -> P391 -> P387` experiment within
+The issued request is one attended `P387 -> P391 -> P387` experiment within
 600 seconds, with the unchanged exact Android A as failure-only recovery.
 Preparation creates no grant or device effect. The [P391 H0 report](docs/reports/S22PLUS_NATIVE_THERMAL_V3_H0_2026-09-13.md)
 and [thermal V3 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V3.md) record the
 qualification and its limits. P387 admission and the consumed P390 terminal
 reopen unchanged; P390's 138 native inputs and P387's 121 native inputs retain
 their exact bytes.
+
+The 382,334-byte request SHA-256 is
+`156fc01de788ccdbf2a8a2fb02f6d9cf940a07c7782e3cedcc0e73ee4beb5cc7`.
+The actual current request reader passes with all 225 frozen input files
+unchanged. P391 is unused, no F1 owner is present, and the new run directory
+contains only the request. Source commit: `91924d4a4d2047f3f8693867b848648b91440fc4`.
+No grant or device effect was created. Actual temperature availability and the
+live roundtrip remain unproved until the separately returned attended approval
+and fresh runtime binding required by the existing policy.
 
 ## Earlier closed P390 trial
 
