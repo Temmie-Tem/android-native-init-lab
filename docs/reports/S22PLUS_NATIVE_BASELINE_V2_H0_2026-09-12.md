@@ -1,6 +1,7 @@
 # S22+ resident native baseline V2 H0 qualification
 
-Status: **H0 capability complete; independent PASS_GO with no blocking findings.**
+Status: **Live bootstrap and distinct E roundtrip NATIVE_CLOSED; exact P387
+admitted; both grants closed. H0 capability has independent PASS_GO.**
 Target: **SM-S906N / g0q / S906NKSS7FYG8**.
 
 The [V2 policy](../operations/S22PLUS_NATIVE_BASELINE_V2.md) and its separate
@@ -9,7 +10,7 @@ resident baseline, a distinct one-shot experiment, then restoration of the
 same admitted baseline. Android A is the explicit exit or failure fallback.
 There was no device contact, grant, operation reservation, transfer, live
 bootstrap or admission in this H0 unit. P386's earlier thirty-minute observation
-and completed Android return remain the last live result recorded by this work.
+and completed Android return were the last live result when that H0 unit closed.
 
 ## Resulting capability
 
@@ -131,9 +132,10 @@ run, original review and approval remain untouched. Native baseline V1's policy
 bytes and common pin remain unchanged, and P385 admission/consumption is not
 relabeled as resident admission. A90 and S20+ received no commands.
 
-The next live proof is fresh attended P387 bootstrap qualification, followed by
-a separately bound distinct E roundtrip under current finite authority. Neither
-live resident admission nor the complete target N/E/N loop is proved here.
+At H0 close, the next live proof was fresh attended P387 bootstrap qualification,
+followed by a separately bound distinct E roundtrip under current finite
+authority. Neither live resident admission nor the complete target N/E/N loop
+was proved by the H0 work.
 Physical pixels, uninterrupted liveness, CPU-sensor exposure and automatic
 failure recovery retain their previous uncertainty. Capability PASS_GO creates
 no device grant or unattended authority.
@@ -176,8 +178,85 @@ Both requests are under `workspace/private/runs/s22plus-native-baseline-v2/`.
 The preserved preparation evidence is under
 `workspace/private/outputs/s22plus-native-baseline-v2-f1-preparation-20260912-1/`;
 directory dates identify the preparation's start and are not renamed at midnight.
-The actual request reader reopens both; current source, N/E/A byte, target,
-review and finite-operation bindings match. Neither request has a grant or
-consumption record. Returned exact approvals and actual physical attendance
-remain required before any F1 effect. Normal success ends at `NATIVE_CLOSED`;
+At issuance, the actual request reader reopened both; current source, N/E/A
+byte, target, review and finite-operation bindings matched. Neither request had
+a grant or consumption record. Returned exact approvals and actual physical
+attendance were still required before any F1 effect. Normal success ends at `NATIVE_CLOSED`;
 failure permits only the original exact A for that operation, at most once.
+
+## Live bootstrap and experiment roundtrip (2026-09-13 KST)
+
+The operator separately returned both exact approvals under the continuous
+attendance and physical Download condition. Markdown underscore escapes in the
+returned presentation were decoded without changing either prefix or digest.
+Execution used the unchanged reviewed owner and actual Samsung backend, with
+source commit `845924aee9d561341362c354dfb0b1ae5df8a6a5` and current working
+source set `f9f067806d777e2c1764a6f6481929efecc0e35290e49df31408c51043d8f738`.
+The 186 source bytes are retained under the H0 evidence directory's
+`working-sources-v2/`, with their exact receipt map in
+`working-review-sources-v2.json`. The current-instance review remains unchanged
+and intentionally uncommitted. No execution-critical source changed during
+either grant.
+
+P387 bootstrap installed its unconsumed N once, qualified two authentications
+with clean DETACH/reopen, joined CONTROL with exact timely Download arrival,
+then performed its one separately intended qualification restoration. The new
+N boot passed another two authentications and final DETACH/descriptor close.
+Its native admission, complete terminal, normal grant close and owner release
+were rederived before opening the second separately approved grant.
+
+The experiment reauthenticated the same admitted N boot at precisely ordinal 3
+with a new nonce. It then installed the distinct globally one-shot P388 E,
+qualified E's two-authentication fixed workload and timely CONTROL/Download,
+and restored the prebound admitted P387. The final N boot differed from both
+starting N and E and passed two fresh authentications with final DETACH/close.
+The actual terminal and experiment-outcome readers rederived the full graph.
+
+| Phase | Signed authentication ordinals | Result |
+| --- | --- | --- |
+| First P387 N | 1, 2 | Health, clean reentry and timely Download |
+| P387 qualification restoration | 1, 2 | New boot, health and native close; admission |
+| Admitted P387 departure | 3 | Same boot, fresh nonce/health and timely Download |
+| P388 E | 1, 2 | New boot, declared workload and timely Download |
+| Final P387 N | 1, 2 | New boot, health, clean reentry and native close |
+
+This proves the bounded live role graph with **four native transfers, four
+distinct native boots and nine authenticated health sessions**. All three native
+CONTROL/Download joins passed their original windows. **Android transfers: 0**;
+no physical fallback was requested. Both grants closed normally, neither run
+has a research stop, and both F1 owners were released. The two final DETACHs
+occurred 152.235 and 222.197 seconds after their respective grant starts,
+within each original 600-second bound. Each final native terminal recorded null
+service expiry and future authentication capacity under the 64-bit counter.
+
+| Canonical terminal | Bytes | SHA-256 |
+| --- | ---: | --- |
+| P387 bootstrap `NATIVE_CLOSED` | 35,016 | `a7178b0c1a87163381d260a3021a349e3b2bd2e36944fb02bc6aaf881e510c69` |
+| P388 experiment/final P387 `NATIVE_CLOSED` | 35,024 | `91b1d37d4953b781c94b93a90fde0720b0ffec2dae840f133275a051c35a6951` |
+
+P387 admission has SHA-256
+`31c390f9a4ef01c30ae1a6efa06fb781a4b2cf52913e0ef1ff84feaa886a3141`.
+Its original installation claim remains consumed; P388's separate global claim
+is also consumed and never replayable. The original request/grant/phase/raw
+records remain in their prepared run directories. The bootstrap and experiment
+retain eight and seven append-only journal events respectively.
+
+After the first owner had already published its complete canonical terminal,
+admission and completion and released ownership, an outer host-only duplicate
+summary tried to use the generic 64 KiB record writer and failed its size check.
+The original compact 35,016-byte terminal was already valid. Actual read-only
+terminal/admission/completion validation passed, and a small receipt-based host
+summary was then published. No original record was edited,
+no native command or transition repeated, and no runtime/source/limit changed.
+The second outer summary used receipts and completed normally. The initial
+host stderr remains preserved alongside the successful close rederivation.
+
+The execution evidence directory is
+`workspace/private/outputs/s22plus-native-baseline-v2-f1-execution-20260913-1/`.
+Its `operator-execution-context.json` preserves returned authority and source
+version; `live-close-result.json` records
+**`PASS_P387_BOOTSTRAP_AND_P388_N_E_N_NATIVE_CLOSED`** with exact terminal,
+admission, transfer and phase receipts. Final state is the authenticated P387
+native snapshot; it is not final Android health, uninterrupted liveness,
+physical-pixel proof, causal inner-reboot tracing or automatic failure recovery.
+No standing F1 grant remains. A90 and S20+ received no commands.

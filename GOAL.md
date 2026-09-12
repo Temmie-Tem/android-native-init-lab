@@ -13,21 +13,27 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**Two exact attended F1 approval requests are issued and await returned
-operator approvals**: P387 bootstrap from healthy Android, then P388 experiment
-and normal P387 restoration only after complete live P387 admission. Each
-request binds one operation and 600 seconds; no grant has been opened.
-Fresh exact-target D0 passed rooted FYG8/original hashes, same-boot continuity,
-clean observer baseline, Download absence and the current Type-C lane.
-No reboot, device write, partition transfer or native admission occurred.
-A90 and S20+ received no commands.
+**P387 bootstrap and the distinct P388 `N -> E -> N` roundtrip are COMPLETE:
+`PASS_P387_BOOTSTRAP_AND_P388_N_E_N_NATIVE_CLOSED`.** Both exact returned
+approvals completed within their separate one-operation/600-second grants.
+Four native transfers and nine authenticated fixed-health sessions passed
+across four native boots. P387 is admitted, P388 is permanently consumed, and
+the final P387 boot closed in `NATIVE_CLOSED` with fresh health, clean
+reauthentication and actual DETACH/descriptor close. Android transfers: **0**.
+Both grants are closed, both F1 owners are released, `recovery_required=false`,
+and neither operation has a research stop. A90 and S20+ received no commands.
 
 The separately reviewed, intentionally uncommitted current-instance capability
 receipt binds the unchanged 186-source working-tree variant. The committed H0
 receipt is preserved; neither the reader nor unrelated S20+ work was changed.
-See the [preparation close](docs/reports/S22PLUS_NATIVE_BASELINE_V2_H0_2026-09-12.md#approval-request-preparation-2026-09-13-kst)
-for exact request identities and current local binding. Normal success ends
-at N; a failed operation retains only its original one-shot Android fallback.
+See the [live qualification](docs/reports/S22PLUS_NATIVE_BASELINE_V2_H0_2026-09-12.md#live-bootstrap-and-experiment-roundtrip-2026-09-13-kst)
+for exact source, request, terminal and admission evidence. A duplicate host
+summary after the first complete native close exceeded its generic record cap;
+the original terminal/admission/completion rederived unchanged, and only a small
+host summary was written. No device transition or native role was repeated.
+The final state is a past authenticated native snapshot, not continuous-liveness
+or automatic-failure-recovery proof. Future experiments require a fresh declared
+E and current finite authority; the consumed P388 may never replay.
 
 ## Completed H0 precursor
 
@@ -43,10 +49,10 @@ under unchanged bounds. The public review binds this unit's selected commit
 bytes; existing unrelated S20+ AGENTS changes remain outside that commit and
 made the differing local working tree fail its capability source check at H0
 close. That H0 unit made no device contact, grant, live bootstrap or admission.
-The next live proof requires current matching source authority, fresh attended
-N qualification and an exact E roundtrip; it remains unproved.
+Live N qualification and the distinct E roundtrip were unproved at H0 close;
+the separately approved live results above now supply that bounded evidence.
 
-## Last completed live unit
+## Earlier ordinary F1 result
 
 P386 **READY2 is COMPLETE: `PASS_F1_V2_P386_ROOT_CONSOLE_AND_ROLLED_BACK`,
 `CLOSED/19`, `recovery_required=false`**. Its separately returned attended
