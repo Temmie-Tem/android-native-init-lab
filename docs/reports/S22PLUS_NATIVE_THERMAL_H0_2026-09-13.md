@@ -117,3 +117,15 @@ Actual CPU/battery values, physical pixels and this new E's live N/E/N roundtrip
 remain unproved. TSENS hardware conversion age is unknown; the battery result
 is a single board-ADC conversion, not stock's five-read filter. Normal healthy N
 restoration and failure-only exact Android A recovery remain distinct.
+
+## Issued finite request
+
+The reviewed owner prepared the fresh private request under
+`workspace/private/runs/s22plus-native-baseline-v2/p389-temperature-experiment-20260913-1/request.json`.
+It is **368,983 bytes**, SHA-256
+`23609ee53498286084ccc01ec44db7a4dbefc7c1cff2359c0737bb538f984ee4`,
+and permits only one `experiment` reservation with a 600-second grant limit.
+Its N, E and A are the exact roles above. Preparation creates no grant; the
+separately returned approval and actual physical attendance remain pending.
+The actual request reader reopens this publication, its N equals the retained
+native terminal, and all 209 frozen input files retain their validated bytes.

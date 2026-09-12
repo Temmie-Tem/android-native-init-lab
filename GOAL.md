@@ -25,6 +25,12 @@ No grant, device command or transfer occurred in this H0 unit. Actual temperatur
 readings and the new P387/P389/P387 live test remain unproved pending the separate
 exact attended approval and fresh native health. P388 remains consumed.
 
+The fresh P389 request is issued for `experiment` only, one reservation and
+600 seconds, with SHA-256
+`23609ee53498286084ccc01ec44db7a4dbefc7c1cff2359c0737bb538f984ee4`.
+It binds preserved P387 N, fresh P389 E and the existing exact Android A;
+no grant is open and the separately returned approval remains pending.
+
 ## Last completed native roundtrip
 
 **P387 bootstrap and the distinct P388 `N -> E -> N` roundtrip are COMPLETE:
