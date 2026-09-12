@@ -145,13 +145,22 @@ requires actual automatic recovery for the allowed experiment's failure modes;
 normal ADB access or host-only simulation is insufficient. This revision
 activates no target, changes no runner, and grants no F2/R1/fastboot authority.
 
+The common-incorporated [S22+ deferred physical native baseline V1](S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md)
+is a distinct explicit attendance/recovery-timing exception. One exact fresh
+V2 experiment request may run admitted N -> E -> N without attendance, with
+one reservation/600 seconds, current independent review and returned finite
+approval. Failure stops new effects and retains ownership for later attended
+original A recovery. Powered device activity may remain unknown; automatic
+failure recovery is not claimed. Other F1 paths retain their existing rules.
+
 - Use the reusable process in
   `docs/operations/DEVICE_ACTION_PROCESS_V2.md`: exact artifact
   SHA256 and membership checks, full target preflight, known rollback, one fresh
   candidate binding under the applicable approval, append-only journal,
   bounded observation, and verified rollback/health.
 - The approval binds one candidate attempt and its mandatory rollback. Recovery
-  must not wait for a second acknowledgement after candidate execution begins.
+  must not wait for a second acknowledgement after candidate execution begins,
+  except the named deferred-physical mode's later actual-attendance requirement.
 - Record pre-session host failures precisely; do not permanently consume a
   candidate merely because a dry-run or Odin local parser failed.
 - Do not create a candidate-specific helper, policy activation commit, or

@@ -1,5 +1,5 @@
 {
-  "activation": "native-baseline-v2",
+  "activation": "deferred-physical-v1",
   "current_sources": {
     "source_018b578ce62bce88": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_native_usb_departure_v1.py",
@@ -656,6 +656,11 @@
       "sha256": "e1e8499f1d5227dae862ccaf2d2f5a5a9aeb437f83c5733ac147ba8ccaaacbd5",
       "size": 17383
     },
+    "source_9836a284901fe95c": {
+      "path": "docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md",
+      "sha256": "6f67b4db753f5e91c226337ea3ba291affab750a3832a022a1c3c19d3f3ece16",
+      "size": 6819
+    },
     "source_99d2822cc47d4c75": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p322_artifact_identity.py",
       "sha256": "8e77653fa23f47f48980fb2eae906118239e53e763d4e9643be27a71b0749975",
@@ -1059,10 +1064,11 @@
   },
   "findings": [],
   "limits": {
-    "android_transfers_per_operation": 1,
-    "native_authentications": 18446744073709551615,
-    "native_boot_ms": null,
-    "reservations": 3,
+    "operations": [
+      "experiment"
+    ],
+    "origin": "native",
+    "reservations": 1,
     "seconds": 600
   },
   "previous_attended_review_sha256": "1dd1b6c32b640345616c6ab8fbc993cb88759e1272d01a08b028fc88ad81b65d",
@@ -1082,9 +1088,9 @@
   },
   "reviewed_at_utc": "2026-09-12T22:36:42.430465+00:00",
   "reviewer": "independent-agent-p386_terminal_review",
-  "schema": "s22plus-native-baseline-capability-review-v2",
+  "schema": "s22plus-native-baseline-deferred-recovery-review-v1",
   "scope": "Explicit deferred-physical mode and unchanged attended V2 behavior through the shared owner",
   "source_set_encoding": "sorted compact JSON plus LF",
-  "source_set_sha256": "29da1448668370dd00407a5a6ace62128a1c0712c3e8d7bd578c1f586ec741d2",
+  "source_set_sha256": "ecac38d0648439958f538a455201aab9a76b738b536b5045e114abf2e69e7187",
   "verdict": "PASS_GO"
 }

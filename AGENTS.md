@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **9** (supersedes revision 8; 2026-09-05)
+Contract-Revision: **10** (supersedes revision 9; 2026-09-13)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`5ff5005cb3ae1866a1a5420f5628ad7fcfa4b874e973e95d5cda607a7953b00d`.
+`ba8431524c6b7f8c5363645c98d65ecf4cd0c714de3be1ade89d215862e85696`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -148,6 +148,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | F1 boot-only transfer | [Common F1 Invariants](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#common-f1-invariants), Process v2 and the selected target's actual process. |
 | Bounded attended F1 session | [Bounded Attended F1 Sessions](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#bounded-attended-f1-sessions); reviewed target/runner activation and a finite explicit grant; physical attendance remains required. |
 | Conditional unattended F1 | [Conditional Autonomous F1](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#conditional-autonomous-f1); actual failure-specific automatic recovery is required. |
+| S22+ deferred physical F1 | [Exact native-baseline exception](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md); one native-origin N/E/N experiment, finite exact grant, failure stop with later attended A recovery and unknown device activity. |
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
 | X | Forbidden; remain H0. |
 

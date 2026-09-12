@@ -13,6 +13,21 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**S22+ deferred physical native-baseline mode is H0-qualified with current
+source-bound independent `PASS_GO` and activated capability receipts.** The
+operator-requested [policy change](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md)
+permits one explicitly selected native-origin N -> E -> N experiment without
+attendance, with one reservation/600 seconds and an exact returned finite grant.
+Failure stops further effects, retains ownership and leaves activity unknown
+until later attended original-A recovery. It does not claim automatic failure
+recovery. Existing absent-mode grants remain attended, and consumed runs remain
+consumed. See the [H0 change report](docs/reports/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_H0_2026-09-13.md).
+No new candidate, request, grant or device action is part of this policy work.
+All 26 selected tests passed; retained P391/P387 proof still rederives. The
+capability is ready for a future exact mode-bound grant, not already granted.
+
+## Latest closed P391 experiment
+
 **P391 N -> E -> N is closed with `PASS_P391_N_E_N_NATIVE_CLOSED`;
 CPU, GPU, DDR-region and board battery temperatures are observed.** One P391
 installation and one normal P387 restoration completed under the separately

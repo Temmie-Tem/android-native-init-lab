@@ -2,7 +2,7 @@
 
 Status: **BINDING — incorporated into AGENTS.md at common-contract precedence.**
 
-These sections retain the complete Revision 8 device boundaries, tier definitions,
+These sections retain the device boundaries, tier definitions,
 and delegations. They are not an archive, a lower-priority runbook, or an
 activation. Root AGENTS.md binds this file by SHA-256. Changes require updating
 that pin and the existing independent review; a stale root pin grants no changed
@@ -22,7 +22,8 @@ permission to perform host-only work.
    bounded autonomous-research lane, the S22+ pre-F1 autonomous lane, or the
    conditional boot-only F1 lane below, or the single S20+ PMSG ordinary-reboot
    transaction expressly delegated below, or a reviewed bounded machine-controlled
-   D1 lane defined below, each separately activated by its
+   D1 lane defined below, or the exact S22+ deferred-physical native-baseline
+   exception below, each separately activated by its
    binding target contract. F1 remains attended outside that exact activated
    lane, and authority never transfers between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
@@ -278,8 +279,9 @@ common boundaries. It permits no new persistent privileged-data write, generic
 shell/root command, configuration/security change, or partition payload. A
 separately delegated exact data operation such as PMSG keeps its own single-use
 limits. R1/F1/F2, fastboot exceptions and other existing physical-return lanes
-receive no waiver from this section. Unattended F1 still requires its actual
-failure-specific automatic-recovery evidence under Conditional Autonomous F1.
+receive no waiver from this section. Unattended F1 requires its actual
+failure-specific automatic-recovery evidence under Conditional Autonomous F1,
+except the separately incorporated S22+ deferred-physical native-baseline mode.
 
 Source/scope/target drift, a new hazard, exhausted limits, unhealthy starting
 state, lost recovery or unresolved session failure blocks the next effect.
@@ -356,7 +358,8 @@ recovery. An activated bounded attended F1 session or conditional autonomous
 F1 session below may replace that human approval with a fresh machine-validated
 binding for each candidate within its explicit grant.
 The retired trial grants no approval waiver. Once candidate execution begins,
-rollback never waits. Candidate replay is forbidden.
+rollback never waits, except under the exact S22+ deferred-physical mode below.
+Candidate replay is forbidden.
 
 The separately reviewed [S22+ native roundtrip first qualification V1](S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
 is incorporated at common-contract precedence, SHA256
@@ -418,6 +421,20 @@ separate. Current independent review, artifact qualification, exact authority
 and live N admission remain required; the definition alone is H0. V1's bytes,
 pin and consumed claims, ordinary F1 and every other target remain unchanged.
 Native baseline V2 policy SHA256: `653aba9bdd29ddf0f26487755c3a0c9ca3c1fae50bbeff8b73ebffacb4c2c8fd`.
+
+The [S22+ native baseline with deferred physical recovery V1](S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md)
+is a separate permanent-boundary exception at this same precedence. Only its
+explicit fresh `deferred-physical-v1` request may waive attendance for one
+native-origin V2 experiment, at most one reservation/600 BOOTTIME seconds.
+Its normal N -> E -> N proof, admitted N and globally one-shot E rules remain
+unchanged. Failure stops research, retains ownership and defers physical A
+recovery with unknown powered device activity until actual attendance. This
+expressly specializes boundary 1, immediate rollback and V2's attendance rule;
+it does not claim Conditional Autonomous F1's automatic-recovery qualification.
+All other boundaries, original one-shot A, no replay, exact health, current
+source-bound review and returned finite approval remain required. This policy
+definition creates no grant or device action.
+Deferred physical V1 policy SHA256: `6f67b4db753f5e91c226337ea3ba291affab750a3832a022a1c3c19d3f3ece16`.
 
 Keep host rejection, local parser failure, device-session start, transfer
 start/completion, observation, rollback, and final health distinct. A dry run

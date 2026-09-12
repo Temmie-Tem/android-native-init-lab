@@ -1,7 +1,7 @@
-"""Finite attended native-baseline owner; ordinary candidate claims stay consumed.
+"""Finite native-baseline owner; ordinary candidate claims stay consumed.
 
-Preparation is H0. Only a returned exact operator approval and actual attendance
-can open a grant. A durable operation or delivery intent is never replayed;
+Preparation is H0. Grants require returned exact approval; attendance is waived
+only by an explicit reviewed deferred-physical request. A durable intent never replays;
 restart enters recovery-only handling. The existing target lease, descriptor
 guard, measured Download observer, boot-only Odin transport and D0 reader remain
 the device-facing implementations.
@@ -44,6 +44,11 @@ V2_OPERATIONS = (*OPERATIONS, 'experiment')
 V2_POLICY = 'native-baseline-v2'
 V2_BASE = Path('workspace/private/runs/s22plus-native-baseline-v2')
 V2_REVIEW = Path('workspace/public/src/device-action/bindings/s22plus_native_baseline_v2_review.json')
+DEFERRED_MODE = 'deferred-physical-v1'
+DEFERRED_POLICY = 'docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md'
+DEFERRED_REVIEW = Path('workspace/public/src/device-action/bindings/s22plus_native_baseline_deferred_recovery_v1_review.json')
+DEFERRED_LIMITS = dict(reservations=1, seconds=600, operations=['experiment'], origin='native')
+DEFERRED_STOP = 'deferred-recovery.json'
 V2_LIMITS = dict(reservations=3, seconds=600, native_authentications=2**64-1, native_boot_ms=None,
                  android_transfers_per_operation=1)
 PHASES = {'bootstrap-first':'pair-control', 'native-start':'control', 'native-final':'pair-detach',
@@ -126,6 +131,27 @@ def v2(request):
     return request.get('policy') == V2_POLICY
 
 
+def deferred(request):
+    return request.get('execution_mode') == DEFERRED_MODE
+
+
+def validate_mode(request):
+    if 'execution_mode' not in request: return
+    require(v2(request) and deferred(request) and request['operations'] == ['experiment']
+            and type(request['reservations']) is int and request['reservations'] == 1,
+            'deferred physical mode requires one exact V2 experiment')
+
+
+def require_attendance(request, attended):
+    require(type(attended) is bool and (attended or deferred(request)),
+            'actual current operator attendance is required for this mode')
+
+
+def request_review(root, request):
+    return reviewed(root, policy=V2_POLICY, execution_mode=DEFERRED_MODE) if deferred(request) else (
+        reviewed(root, policy=V2_POLICY) if v2(request) else reviewed(root))
+
+
 def request_base(request):
     return V2_BASE if v2(request) else BASE
 
@@ -146,7 +172,7 @@ def phase_closure(operation, phase):
     return operation.request['experiment']['closure'] if phase == 'experiment' else operation.request['closure']
 
 
-def recovery_closure(live, root):
+def recovery_closure(live, root, request=None):
     """A recovery reads host/target authority, never native build inputs."""
     common = live._closure(root)
     scripts = Path(__file__).parent
@@ -158,6 +184,8 @@ def recovery_closure(live, root):
         's22plus_native_baseline_v2_candidates','s22plus_native_candidate_definition_v1')]
     paths += [root/name for name in ('AGENTS.md','docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md',
         'docs/operations/S22PLUS_NATIVE_BASELINE_V2.md','docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md',PROFILE)]
+    if request is not None and deferred(request):
+        paths += [root/DEFERRED_POLICY, root/'docs/operations/DEVICE_ACTION_RISK_TIERS.md']
     return dict(common=common,owner_and_target=[live._receipt(path,'baseline A recovery source') for path in paths])
 
 
@@ -171,18 +199,31 @@ def current_static(bundle=None):
     return static_candidate
 
 
-def reviewed(root, *, policy=None):
+def deferred_review_sources(root):
+    import s22plus_native_baseline_v2_candidates as candidates
+    sources = candidates.review_sources()
+    for name in (DEFERRED_POLICY, 'docs/operations/DEVICE_ACTION_RISK_TIERS.md'):
+        receipt = dict(pin(root/name), path=name)
+        sources['source_'+hashlib.sha256(name.encode()).hexdigest()[:16]] = receipt
+    return dict(sorted(sources.items()))
+
+
+def reviewed(root, *, policy=None, execution_mode=None):
     resident = policy == V2_POLICY
     require(policy in (None, V2_POLICY), 'unknown native baseline policy')
-    value, receipt = core.load_json(root/(V2_REVIEW if resident else REVIEW), 'native baseline capability review')
-    if resident:
+    require(execution_mode is None or resident and execution_mode == DEFERRED_MODE, 'unknown baseline execution mode')
+    value, receipt = core.load_json(root/(DEFERRED_REVIEW if execution_mode else V2_REVIEW if resident else REVIEW),
+                                    'native baseline capability review')
+    if execution_mode:
+        sources = deferred_review_sources(root)
+    elif resident:
         import s22plus_native_baseline_v2_candidates as candidates
         sources = candidates.review_sources()
     else:
         sources = current_static().source_receipts()
     require(value.get('verdict') == 'PASS_GO' and value.get('findings') == []
-            and value.get('activation') == (V2_POLICY if resident else SCHEMA)
-            and same(value.get('limits'), V2_LIMITS if resident else LIMITS),
+            and value.get('activation') == (DEFERRED_MODE if execution_mode else V2_POLICY if resident else SCHEMA)
+            and same(value.get('limits'), DEFERRED_LIMITS if execution_mode else V2_LIMITS if resident else LIMITS),
             'native baseline capability has no exact activated independent review')
     require(same(value.get('current_sources'), sources),
             'native baseline reviewed execution sources changed')
@@ -219,7 +260,7 @@ def native_identity(bundle):
 
 
 def prepare_request(live, root, output, *, manifest, target_file, operations, reservations=1, seconds=600,
-                    policy=None, experiment_manifest=None):
+                    policy=None, experiment_manifest=None, execution_mode=None):
     """Freeze a reviewable proposal without D0, a grant or an operation owner."""
     root = Path(root).resolve(); output = direct(root, output)
     require(policy in (None,V2_POLICY), 'unknown baseline policy')
@@ -231,7 +272,10 @@ def prepare_request(live, root, output, *, manifest, target_file, operations, re
     require(type(reservations) is int and 1 <= reservations <= LIMITS['reservations']
             and type(seconds) is int and 1 <= seconds <= LIMITS['seconds'], 'baseline finite limits differ')
     bundle = core.verify_bundle(root, direct(root, manifest, private=False), runtime_bound=True)
-    authority = reviewed(root, policy=policy) if policy else reviewed(root)
+    mode_request = dict(policy=policy, operations=operations, reservations=reservations)
+    if execution_mode is not None: mode_request['execution_mode'] = execution_mode
+    validate_mode(mode_request)
+    authority = request_review(root, mode_request)
     experiment = None
     require((experiment_manifest is not None) is ('experiment' in operations), 'experiment manifest/operation differs')
     if experiment_manifest is not None:
@@ -245,7 +289,7 @@ def prepare_request(live, root, output, *, manifest, target_file, operations, re
             and target['topology'] == live.p324_typec_lane.SOURCE_TOPOLOGY, 'baseline target grammar/lane differs')
     value = request_value(live, root, bundle, target=target, manifest_receipt=pin(direct(root,manifest,private=False)),
         review_receipt=authority, operations=operations, reservations=reservations, seconds=seconds,
-        policy=policy, experiment=experiment)
+        policy=policy, experiment=experiment, execution_mode=execution_mode)
     validate_native_roles(value)
     output.mkdir(parents=True, mode=0o700); core._fsync_dir(output.parent)
     receipt = publish(output/'request.json', value)
@@ -253,7 +297,7 @@ def prepare_request(live, root, output, *, manifest, target_file, operations, re
 
 
 def request_value(live, root, bundle, *, target, manifest_receipt, review_receipt, operations, reservations, seconds,
-                  closure=None, policy=None, experiment=None):
+                  closure=None, policy=None, experiment=None, execution_mode=None):
     """One request layout for real preparation and actual-size H0 serialization."""
     value = dict(schema=SCHEMA, kind='request', target=target, manifest=manifest_receipt,
         bundle=bundle_snapshot(bundle), review=review_receipt, closure=live._closure(root, bundle) if closure is None else closure,
@@ -262,7 +306,12 @@ def request_value(live, root, bundle, *, target, manifest_receipt, review_receip
         physical_attendance_required=True, recovery='one-exact-android', live_authorized=False)
     if policy is not None:
         require(policy == V2_POLICY, 'unknown baseline request policy')
-        value.update(policy=policy, experiment=experiment, recovery_closure=recovery_closure(live,root))
+        value.update(policy=policy, experiment=experiment)
+    if execution_mode is not None:
+        value.update(execution_mode=execution_mode, physical_attendance_required=False,
+                     recovery='deferred-attended-one-exact-android')
+    validate_mode(value)
+    if v2(value): value['recovery_closure'] = recovery_closure(live,root,value)
     return value
 
 
@@ -296,9 +345,12 @@ def load_request(live, root, path, *, current=False):
     require(path.is_relative_to(root/request_base(value)), 'baseline request policy/path differs')
     core._exact(value, {'schema','kind','target','manifest','bundle','review','closure','native','android',
         'operations','reservations','seconds','physical_attendance_required','recovery','live_authorized'}
-        | ({'policy','experiment','recovery_closure'} if v2(value) else set()), 'baseline request')
+        | ({'policy','experiment','recovery_closure'} if v2(value) else set())
+        | ({'execution_mode'} if 'execution_mode' in value else set()), 'baseline request')
+    validate_mode(value)
     require(value['schema'] == SCHEMA and value['kind'] == 'request' and value['live_authorized'] is False
-            and value['physical_attendance_required'] is True and value['recovery'] == 'one-exact-android',
+            and value['physical_attendance_required'] is (not deferred(value))
+            and value['recovery'] == ('deferred-attended-one-exact-android' if deferred(value) else 'one-exact-android'),
             'baseline request authority differs')
     require(type(value['reservations']) is int and 1 <= value['reservations'] <= LIMITS['reservations']
             and type(value['seconds']) is int and 1 <= value['seconds'] <= LIMITS['seconds']
@@ -309,9 +361,9 @@ def load_request(live, root, path, *, current=False):
     bundle = snapshot_bundle(value['bundle'])
     validate_native_roles(value)
     if current:
-        authority = reviewed(root,policy=V2_POLICY) if v2(value) else reviewed(root)
+        authority = request_review(root,value)
         require(same(authority, value['review']), 'baseline request review changed')
-        if v2(value): require(same(recovery_closure(live,root),value['recovery_closure']), 'baseline recovery source changed')
+        if v2(value): require(same(recovery_closure(live,root,value),value['recovery_closure']), 'baseline recovery source changed')
         fresh = core.verify_bundle(root, verify_pin(root, value['manifest']), runtime_bound=True)
         require(same(bundle_snapshot(fresh), value['bundle']) and same(live._closure(root, fresh), value['closure'])
                 and same(native_identity(fresh), value['native']) and same(roundtrip.android_identity(fresh), value['android']),
@@ -325,18 +377,19 @@ def load_request(live, root, path, *, current=False):
 
 
 def open_grant(live, root, request, approval, *, attended):
-    require(attended is True, 'actual current operator attendance is required')
     root = Path(root).resolve(); request = direct(root, request)
     with registry.target_session_lease(root):
         registry.require_no_f1_owner(root)
         value, receipt, _ = load_request(live, root, request, current=True)
+        require_attendance(value, attended)
         require(type(approval) is str and approval == APPROVAL_PREFIX+receipt['sha256'],
                 'exact returned native-baseline approval required')
         # One proposal can open one grant. Expiry never renews it.
         start = protocol.host_now_ns()
         grant = dict(schema=SCHEMA, kind='grant', request=receipt, operator_approval=approval,
-            attended=True, host_boot_sha256=host_epoch(), started_boottime_ns=start,
+            attended=attended, host_boot_sha256=host_epoch(), started_boottime_ns=start,
             deadline_boottime_ns=start+value['seconds']*10**9)
+        if deferred(value): grant['execution_mode'] = DEFERRED_MODE
         return publish(request.parent/'grant.json', grant)
 
 
@@ -345,10 +398,14 @@ def load_grant(live, root, path, *, active=False):
     require(path.name == 'grant.json', 'baseline grant path differs')
     grant, receipt = read(path)
     core._exact(grant, {'schema','kind','request','operator_approval','attended','host_boot_sha256',
-        'started_boottime_ns','deadline_boottime_ns'}, 'baseline grant')
+        'started_boottime_ns','deadline_boottime_ns'}
+        | ({'execution_mode'} if 'execution_mode' in grant else set()), 'baseline grant')
     request, request_receipt, bundle = load_request(live, root, path.parent/'request.json')
+    require(('execution_mode' in grant) is deferred(request)
+            and (not deferred(request) or grant['execution_mode'] == DEFERRED_MODE), 'baseline grant mode differs')
+    require_attendance(request, grant['attended'])
     require(grant['schema'] == SCHEMA and grant['kind'] == 'grant' and same(grant['request'], request_receipt)
-            and grant['operator_approval'] == APPROVAL_PREFIX+request_receipt['sha256'] and grant['attended'] is True,
+            and grant['operator_approval'] == APPROVAL_PREFIX+request_receipt['sha256'],
             'baseline grant authority differs')
     require(type(grant['started_boottime_ns']) is int and grant['started_boottime_ns'] > 0
             and type(grant['deadline_boottime_ns']) is int
@@ -356,7 +413,7 @@ def load_grant(live, root, path, *, active=False):
             and type(grant['host_boot_sha256']) is str and re.fullmatch('[0-9a-f]{64}', grant['host_boot_sha256']),
             'baseline grant clock binding differs')
     if active:
-        authority = reviewed(root,policy=V2_POLICY) if v2(request) else reviewed(root)
+        authority = request_review(root,request)
         require(same(authority, request['review']), 'baseline active grant review/source changed')
         require(not os.path.lexists(path.parent/'closed.json') and grant['host_boot_sha256'] == host_epoch()
                 and grant['started_boottime_ns'] <= protocol.host_now_ns() < grant['deadline_boottime_ns'],
@@ -524,7 +581,7 @@ def role_intent(live, operation, prepared, endpoint, kind):
     require(same(arrival['endpoint'], dict(device=endpoint.device, sequence=endpoint.sequence,
                 identity_sha256=endpoint.identity_sha256)), 'baseline Download ticket changed')
     if not native and v2(operation.request):
-        require(same(recovery_closure(live,operation.root),operation.request['recovery_closure'])
+        require(same(recovery_closure(live,operation.root,operation.request),operation.request['recovery_closure'])
                 and same(roundtrip.android_identity(operation.bundle),operation.request['android']),
                 'baseline exact A recovery source/artifact changed')
     else:
@@ -1166,9 +1223,10 @@ def recover(live, operation, backend, *, attended):
 
 
 def execute(live, root, grant, operation_name, origin, *, prior_native=None, attended, backend=None):
-    require(attended is True, 'current operator attendance is required throughout baseline effects')
     root = Path(root).resolve()
     with registry.target_session_lease(root):
+        _, _, request, _ = load_grant(live, root, grant)
+        require_attendance(request, attended)
         operation = reserve(live, root, grant, operation_name, origin, prior_native)
         backend = backend or live.SamsungOdinBackend(root, operation.bundle, live.d0.default_adb())
         try:
@@ -1223,6 +1281,15 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
             repaired = repair_native_terminal(live, operation)
             if repaired is not None: return repaired
             stop(operation, type(error).__name__)
+            if deferred(operation.request):
+                record = dict(schema=SCHEMA, state='PARKED', execution_mode=DEFERRED_MODE,
+                    operation=operation.receipt, recovery_required=True, native_replay_forbidden=True,
+                    attendance_required_for_recovery=True, device_activity='UNKNOWN',
+                    failure_type=type(error).__name__)
+                publish(operation.directory/DEFERRED_STOP, record)
+                print('Native research stopped; device activity is unknown. Later attended exact Android recovery is required.',
+                      file=sys.stderr, flush=True)
+                return record
             try:
                 return recover(live, operation, backend, attended=attended)
             except Exception as recovery_error:
@@ -1231,6 +1298,18 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
                     failure_type=type(error).__name__, recovery_error_type=type(recovery_error).__name__)
                 publish(operation.directory/('parked-'+uuid.uuid4().hex+'.json'), record)
                 return record
+
+
+def operation_status(live, operation):
+    """H0 only. Missing terminal cannot establish a stopped process or device."""
+    if os.path.lexists(operation.directory/'terminal.json'): return validate_terminal(live, operation)
+    if not deferred(operation.request): return dict(state='UNFINISHED')
+    stopped = os.path.lexists(operation.directory/STOP)
+    return dict(state='PARKED' if stopped else 'UNRESOLVED', execution_mode=DEFERRED_MODE,
+        operation=operation.receipt, terminal_proof_absent=True, research_stop_recorded=stopped,
+        recovery_required=True, attendance_required_for_recovery=True, native_replay_forbidden=True,
+        device_activity='UNKNOWN', process_activity='UNKNOWN',
+        attention='attended-recovery-required' if stopped else 'check-owner-process-before-recovery')
 
 
 def main(argv=None):
@@ -1243,6 +1322,7 @@ def main(argv=None):
     prepare.add_argument('--target-file', type=Path, required=True)
     prepare.add_argument('--operations', nargs='+', choices=V2_OPERATIONS, required=True)
     prepare.add_argument('--policy', choices=(V2_POLICY,))
+    prepare.add_argument('--execution-mode', choices=(DEFERRED_MODE,))
     prepare.add_argument('--experiment-manifest',type=Path)
     prepare.add_argument('--reservations', type=int, default=1); prepare.add_argument('--seconds', type=int, default=600)
     grant = sub.add_parser('grant'); grant.add_argument('--request', type=Path, required=True)
@@ -1258,7 +1338,7 @@ def main(argv=None):
     if args.command == 'prepare':
         result = prepare_request(live, root, args.out, manifest=args.manifest, target_file=args.target_file,
             operations=args.operations, reservations=args.reservations, seconds=args.seconds,
-            policy=args.policy,experiment_manifest=args.experiment_manifest)
+            policy=args.policy,experiment_manifest=args.experiment_manifest,execution_mode=args.execution_mode)
     elif args.command == 'grant': result = open_grant(live, root, args.request, args.approval, attended=args.attended)
     elif args.command == 'execute': result = execute(live, root, args.grant, args.operation, args.origin,
         prior_native=args.prior_native, attended=args.attended)
@@ -1268,7 +1348,7 @@ def main(argv=None):
             result = recover(live, operation, live.SamsungOdinBackend(root, operation.bundle, live.d0.default_adb()), attended=args.attended)
     else:
         operation = load_operation(live, root, args.operation_dir)
-        result = validate_terminal(live, operation) if os.path.lexists(operation.directory/'terminal.json') else dict(state='UNFINISHED')
+        result = operation_status(live, operation)
     print(json.dumps(result, sort_keys=True))
     return 0
 

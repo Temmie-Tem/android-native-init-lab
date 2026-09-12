@@ -2,7 +2,7 @@
 
 Status: **BINDING**
 
-This contract specializes `AGENTS.md` for the attended Samsung Galaxy S22+
+This contract specializes `AGENTS.md` for the Samsung Galaxy S22+
 FYG8 target `SM-S906N` / `g0q` / `S906NKSS7FYG8`. It is not authority for any
 other model, firmware, target profile, or connected device.
 
@@ -12,8 +12,9 @@ grants no standing D0, attended autonomy, or per-candidate approval waiver.
 
 Conditional autonomous F1: **NOT ACTIVE**. AGENTS Revision 6 defines the
 delegation but does not qualify this target's automatic recovery or change its
-current runner. The attended F1 and physical-recovery requirements below remain
-in force until a separately reviewed exact target activation.
+current runner. Attended F1 remains the default; the separate deferred-physical
+native-baseline mode below accepts later physical recovery without asserting
+automatic-recovery qualification.
 
 Bounded attended F1 sessions: **REVIEW_GATED_CAPABILITY** under
 [the exact S22+ session policy](S22PLUS_FYG8_ATTENDED_F1_SESSION_V1.md).
@@ -81,6 +82,26 @@ Missing completion never permits replay. This review-gated definition opens no
 grant, admits no image and proves no live N/E/N roundtrip. Ordinary F1, native
 baseline V1, P386's separate observation lane and all other targets retain their
 existing boundaries.
+
+### Native baseline with deferred physical recovery V1
+
+The separately common-incorporated [deferred physical V1 policy](../S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md)
+is adopted as a **REVIEW_GATED_CAPABILITY** through the shared baseline owner.
+Only a fresh exact V2 request with `execution_mode=deferred-physical-v1`, its
+distinct current source-bound independent PASS_GO, returned finite approval,
+admitted N and current N/E/A bindings activate this mode. It permits only one
+native-origin experiment and at most 600 BOOTTIME seconds. Normal N -> E -> N
+may run without attendance. Bootstrap and all absent-mode records retain their
+existing attended interpretation.
+
+Failure closes research and retains ownership; the device may remain powered
+with unknown activity pending later physical recovery. This explicitly changes
+attendance and immediate-recovery timing for that mode only. It does not prove
+automatic recovery, quiescence or reliable notification after host death. The
+only later partition effect is the original one-shot A, with actual attendance,
+exact current physical Download binding, retained recovery closure and final
+health. E/N cannot resume after a stop. Definition/review alone creates no grant,
+and the consumed live runs remain unchanged.
 
 ### P386 attended resident observation
 
@@ -2009,7 +2030,8 @@ remains forbidden.
   candidate/rollback binding, and the fresh exact approval required after
   Fast-Loop retirement. No retired trial clause waives per-candidate approval.
 - One candidate intent covers only that attempt and its exact rollback.
-  Never replay it. Once candidate execution begins, rollback does not wait.
+  Never replay it. Once candidate execution begins, rollback does not wait,
+  except in the expressly common-incorporated deferred-physical baseline mode.
 - Journal before invoking Odin and after every state transition. Recover only
   from durable journal state.
 - A host rejection or local parser failure that is positively proven to occur

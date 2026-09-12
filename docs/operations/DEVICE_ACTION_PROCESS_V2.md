@@ -17,6 +17,12 @@ modify this ordinary state machine. It reuses the measured Download transport,
 exact tty guard, raw evidence and rooted-Android health consumers; source-bound
 independent activation and a separate returned finite grant remain mandatory.
 
+The separately common-incorporated [S22+ deferred physical baseline mode](S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md)
+uses that shared baseline owner for one native-origin V2 N/E/N experiment.
+Its explicit request may waive normal attendance and defer failed-operation
+physical A recovery. Its exact mode, review and finite grant are mandatory;
+the ordinary process below retains its existing attendance and recovery rules.
+
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
 experiments. It does not relax the permanent boundaries in AGENTS.md or its
