@@ -55,6 +55,33 @@ and permits only the originally bound exact A, at most once, followed by exact
 Android health. A healthy native close and an Android close remain separate
 structured terminals; this owner does not synthesize ordinary Process-v2 `CLOSED`.
 
+### Attended resident native baseline V2
+
+The separately common-incorporated [native baseline V2](../S22PLUS_NATIVE_BASELINE_V2.md)
+selects the resident wire/runtime profile through the shared baseline owner.
+Its exact request binds N and a distinct one-shot E independently, including
+both native manifests/AP members/source/key identities and one identical exact
+Android A. A complete fresh bootstrap qualification alone admits N for normal
+reuse. The initial declarations are P387/v0.2.0-rc.5 and P388/v0.2.0-rc.6;
+P385/P386 and their consumed approvals/results are preserved.
+
+Current source-bound independent PASS_GO, exact artifacts, a separately returned
+finite attended grant and usable physical Download recovery are prerequisites
+to effects. At most three reservations/600 BOOTTIME seconds are permitted.
+Experiment starts from fresh authenticated admitted N, installs E once through
+the unchanged global content claim, then restores the prebound N only after
+E's fixed bounded health workload and exact timely CONTROL/Download. Final N
+must prove a distinct boot, health, clean reauthentication and actual final
+DETACH/descriptor close. Native service lifetime has no new ceiling; signed
+64-bit ordinals, exhaustion and finite host/session bounds remain binding.
+
+`NATIVE_CLOSED` remains a past snapshot. Any unexplained failure stops native
+roles and permits only the original shared one-shot A fallback/final health.
+Missing completion never permits replay. This review-gated definition opens no
+grant, admits no image and proves no live N/E/N roundtrip. Ordinary F1, native
+baseline V1, P386's separate observation lane and all other targets retain their
+existing boundaries.
+
 ### P386 attended resident observation
 
 The [resident adoption V1](../S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md) selects

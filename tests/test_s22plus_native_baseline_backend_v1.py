@@ -34,10 +34,10 @@ class BackendTests(native.ProtocolTests):
             fixture = _ReceiptFixture.__new__(_ReceiptFixture)
             fixture.run_dir = peer.folder if prepared is None else prepared.run_dir
             run = fixture.run_dir
-            fixture.variant = live.typed_evidence.SHELL_VARIANTS['p385']
-            fixture.runtime = native.candidate.runtime
-            fixture.observer = native.candidate.observer
-            fixture.spec = live.typed_evidence._shell_observer_spec('p385')
+            fixture.variant = live._shell_definition(prepared.bundle) if prepared is not None else live.typed_evidence.SHELL_VARIANTS['p385']
+            fixture.runtime = fixture.variant.runtime
+            fixture.observer = fixture.variant.observer
+            fixture.spec = live.typed_evidence._shell_observer_spec(fixture.variant.prefix)
             fixture.prepared = fixture._prepared() if prepared is None else prepared
             fixture._write_supporting_receipts()
             lane = fixture._lane()

@@ -24,6 +24,7 @@ def mode_sessions(mode):
 class Observer(console.Observer):
     SESSION_COUNT = 2
     PROOF_SCOPE = 'fixed-native-health-and-clean-bounded-reauthentication'
+    io_class = protocol.IO
 
     def __init__(self, identity, control):
         super().__init__(identity, control)
@@ -35,7 +36,7 @@ class Observer(console.Observer):
             name='native-health-authentication-'+str(i), command=health.COMMAND) for i in (1, 2))
 
     def IO(self, codec, key, **kwargs):
-        return protocol.IO(codec, key, self.identity, **kwargs)
+        return self.io_class(codec, key, self.identity, **kwargs)
 
     def progress_projection(self, audit):
         return getattr(audit, 'native_preparation', protocol.Progress(self.identity)).projection()
@@ -56,7 +57,7 @@ class Observer(console.Observer):
         if rows[-1]['ending'] != ending:
             raise ValueError('baseline terminal mode differs')
         if any(not row['native_health_proved'] or not row['all_commands_terminal_or_rejected']
-               or row['source_profile'] != source.profile_contract(source.BASELINE_PROFILE) for row in rows):
+               or row['source_profile'] != self.io_class.SOURCE_PROFILE for row in rows):
             raise ValueError('baseline complete health/profile is missing')
         commands = [dict(row, authentication=i+1) for i, session in enumerate(rows) for row in session['commands']]
         last = rows[-1]
@@ -69,14 +70,14 @@ class Observer(console.Observer):
             same_tty_fd=expected == 1, physical_reopen_count=expected-1, console_reentry=expected == 2,
             all_commands_terminal_or_rejected=True, qualified_command_count=expected,
             control_ack_scope='acceptance-only', native_health_proved=True,
-            remaining_authentications=protocol.AUTH_LIMIT-last['baseline_info']['authentication_ordinal'],
-            boot_elapsed_ms=last['baseline_info']['elapsed_ms'], boot_limit_ms=protocol.BOOT_LIMIT_MS,
-            physical_visibility='UNPROVED', source_profile=source.profile_contract(source.BASELINE_PROFILE))
+            remaining_authentications=self.io_class.AUTH_LIMIT-last['baseline_info']['authentication_ordinal'],
+            boot_elapsed_ms=last['baseline_info']['elapsed_ms'], boot_limit_ms=self.io_class.BOOT_LIMIT_MS,
+            physical_visibility='UNPROVED', source_profile=self.io_class.SOURCE_PROFILE)
 
     def replay_session(self, codec, rx, tx, key, *, partial=False, mode='pair-control'):
         count = mode_sessions(mode); rows = []; roffset = toffset = 0
         for _ in range(count):
-            row, received, sent = protocol.replay_one(codec, self.identity, key, rx[roffset:], tx[toffset:])
+            row, received, sent = protocol.replay_one(codec, self.identity, key, rx[roffset:], tx[toffset:], io_class=self.io_class)
             row['rx']['offset'] = roffset; row['tx']['offset'] = toffset
             rows.append(row); roffset += received; toffset += sent
         if (roffset, toffset) != (len(rx), len(tx)):
@@ -154,6 +155,6 @@ class Observer(console.Observer):
         return dict(schema=self.SCHEMA, contract_id=self.CONTRACT_ID, session_count=2,
             qualification_timeout_sec=60, root_console=True, qualified_exec_count=2,
             optional_hud_exec_count=1, interactive_commands=False, physical_reopen_count=1,
-            source_profile=source.profile_contract(source.BASELINE_PROFILE),
+            source_profile=self.io_class.SOURCE_PROFILE,
             control_sequences=[5, 6], detach_sequences=[5, 6], control_ack_scope='acceptance-only',
             raw_replay_required=True, live_authorized=False)

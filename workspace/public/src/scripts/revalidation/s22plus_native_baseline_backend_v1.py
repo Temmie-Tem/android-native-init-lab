@@ -41,6 +41,23 @@ def _name(prefix, index, suffix):
     return f'{prefix}-native-auth-{index:02d}.{suffix}.json'
 
 
+def native_expiry(qualification_observer, started, info):
+    limit = qualification_observer.io_class.BOOT_LIMIT_MS
+    if limit is None:
+        if info.get('version') != 2 or info.get('normal_service_lifetime_ms', 0) is not None:
+            raise ValueError('resident baseline lifetime profile differs')
+        return None
+    return started+(limit-info['elapsed_ms'])*10**6
+
+
+def earlier(native, observation):
+    return observation if native is None else min(native, observation)
+
+
+def within_native(expiry, timestamp):
+    return expiry is None or timestamp < expiry
+
+
 class ObserverMixin:
     @property
     def _live(self):
@@ -93,11 +110,10 @@ class ObserverMixin:
     def _baseline_before_terminal(self, request):
         live = self._live
         info = request['baseline_info']
-        expiry = (self.baseline_auth_record['started_boottime_ns']+
-                  (protocol.BOOT_LIMIT_MS-info['elapsed_ms'])*10**6)
+        expiry = native_expiry(self.qualification_observer,self.baseline_auth_record['started_boottime_ns'],info)
         previous_expiry = getattr(self, 'baseline_native_expiry_ns', None)
         self.baseline_native_expiry_ns = min(expiry, previous_expiry) if previous_expiry is not None else expiry
-        if protocol.host_now_ns() >= min(self.baseline_native_expiry_ns, self.baseline_observation_expiry_ns):
+        if protocol.host_now_ns() >= earlier(self.baseline_native_expiry_ns, self.baseline_observation_expiry_ns):
             raise live.F1LiveError('baseline original native lifetime expired')
         if self.owned_descriptor is None or not self._endpoint_exact(self.endpoint, self.owned_descriptor):
             raise live.F1LiveError('baseline exact endpoint differs before terminal request')
@@ -170,7 +186,7 @@ class ObserverMixin:
             status='closed' if error is None and release_error is None else 'close-uncertain', error=error,
             exclusivity_released=row is not None and release_error is None, release_error=release_error,
             completed_boottime_ns=closed, native_expiry_boottime_ns=expiry,
-            within_native_lifetime=bool(expiry and closed<expiry))
+            within_native_lifetime=within_native(expiry,closed))
         receipt = self._baseline_publish(_name(self.namespace,index,'close-result'),value)
         if error is not None or release_error is not None:
             raise live.F1LiveError('native descriptor close is uncertain; no retry')
@@ -206,7 +222,7 @@ class ObserverMixin:
         if not self._endpoint_exact(self.endpoint,descriptor):
             raise live.F1LiveError('baseline reopened descriptor differs')
         self.base._raw_tty(descriptor)
-        if time.monotonic()>=deadline or protocol.host_now_ns()>=min(self.baseline_native_expiry_ns, self.baseline_observation_expiry_ns):
+        if time.monotonic()>=deadline or protocol.host_now_ns()>=earlier(self.baseline_native_expiry_ns, self.baseline_observation_expiry_ns):
             raise live.F1LiveError('baseline reopening exhausted original lifetime')
         self.baseline_reopen_receipt = self._baseline_publish(_name(self.namespace,1,'reopen-result'),
             dict(schema=SCHEMA, kind='descriptor-reopen-result', intent=intent, status='reopened',
@@ -337,6 +353,8 @@ def proof_ok(value,variant):
 def validate_observer_ownership(live,prepared,value,proof):
     """Reopen physical close/reopen records against already authenticated raw."""
     prefix=live._shell_definition(prepared.bundle).prefix
+    qualification_observer=live._shell_definition(prepared.bundle).observer
+    resident=qualification_observer.io_class.BOOT_LIMIT_MS is None
     selected=mode(live,prepared)
     if value.get('accepted') is not True:
         # Partial raw/intent evidence is retained. It never admits another AUTH.
@@ -366,7 +384,8 @@ def validate_observer_ownership(live,prepared,value,proof):
         path=prepared.run_dir/_name(prefix,index,suffix)
         record = live._read_json(path,'baseline descriptor record')
         if (set(record) != keys[suffix] or record['schema'] != SCHEMA or record['kind'] != kinds[suffix]
-                or any(type(record[k]) is not int or record[k] <= 0 for k in record if k.endswith('_ns'))
+                or any(type(record[k]) is not int or record[k] <= 0 for k in record if k.endswith('_ns')
+                       and not (resident and k == 'native_expiry_boottime_ns' and record[k] is None))
                 or 'host_boot_sha256' in record and (type(record['host_boot_sha256']) is not str
                     or re.fullmatch('[0-9a-f]{64}', record['host_boot_sha256']) is None)):
             raise live.F1LiveError('baseline descriptor record fields differ')
@@ -388,13 +407,15 @@ def validate_observer_ownership(live,prepared,value,proof):
                 or auth['observation_expiry_boottime_ns'] != observation_expiry
                 or not auth['started_boottime_ns'] < observation_expiry <= auth['started_boottime_ns']+60*10**9):
             raise live.F1LiveError('baseline authentication epoch/order differs')
-        expiry=auth['started_boottime_ns']+(protocol.BOOT_LIMIT_MS-row['baseline_info']['elapsed_ms'])*10**6
-        if expiries: expiry=min(expiry,expiries[-1])
+        expiry=native_expiry(qualification_observer,auth['started_boottime_ns'],row['baseline_info'])
+        if expiries and expiry is not None: expiry=min(expiry,expiries[-1])
         if prepared.native_baseline_context is not None and prepared.native_baseline_context['phase']=='native-start':
             import s22plus_native_baseline_owner_v1 as owner
             operation=owner.load_operation(live,prepared.root,prepared.native_parent)
             prior=owner.native_terminal(live,prepared.root,Path(operation.value['prior_native']['path']).parent)
-            expiry=min(expiry,prior['native_expiry_boottime_ns'])
+            if resident:
+                if prior['native_expiry_boottime_ns'] is not None: raise live.F1LiveError('resident prior lifetime differs')
+            else: expiry=min(expiry,prior['native_expiry_boottime_ns'])
         expiries.append(expiry)
         terminal,_=read(index,'terminal-check')
         request=dict(run_id_hex=row['run_id_hex'],mode='detach' if row['ending']=='detach' else 'download',
@@ -402,7 +423,7 @@ def validate_observer_ownership(live,prepared,value,proof):
             kernel_boot_identity_sha256=row['kernel_boot_identity_sha256'],baseline_info=row['baseline_info'])
         if (terminal['binding'] != binding or terminal['authentication'] != auth_receipt
                 or terminal['host_boot_sha256'] != epoch or not live._p319_exact_equal(terminal['request'],request)
-                or not auth['started_boottime_ns'] <= terminal['created_boottime_ns'] < min(expiry,observation_expiry)):
+                or not auth['started_boottime_ns'] <= terminal['created_boottime_ns'] < earlier(expiry,observation_expiry)):
             raise live.F1LiveError('baseline terminal original clock/raw binding differs')
         if row['ending']=='detach':
             detach,detach_receipt=read(index,'detach-intent')
@@ -415,7 +436,7 @@ def validate_observer_ownership(live,prepared,value,proof):
                     or detach.get('endpoint_identity_sha256')!=endpoint
                     or detach.get('host_boot_sha256')!=auth['host_boot_sha256']
                     or detach.get('native_expiry_boottime_ns')!=expiry
-                    or not terminal['created_boottime_ns'] <= detach['created_boottime_ns'] < min(expiry,observation_expiry)):
+                    or not terminal['created_boottime_ns'] <= detach['created_boottime_ns'] < earlier(expiry,observation_expiry)):
                 raise live.F1LiveError('baseline DETACH raw/owner binding differs')
             close,close_intent=read(index,'close-intent');done,close_result=read(index,'close-result')
             if (close.get('schema')!=SCHEMA or close.get('kind')!='descriptor-close'
@@ -432,7 +453,7 @@ def validate_observer_ownership(live,prepared,value,proof):
                     or done.get('native_expiry_boottime_ns')!=expiry
                     or done.get('within_native_lifetime') is not True
                     or type(done.get('completed_boottime_ns')) is not int
-                    or not detach['created_boottime_ns']<=close['started_boottime_ns']<=done['completed_boottime_ns']<min(expiry,observation_expiry)):
+                    or not detach['created_boottime_ns']<=close['started_boottime_ns']<=done['completed_boottime_ns']<earlier(expiry,observation_expiry)):
                 raise live.F1LiveError('baseline clean descriptor close is unproved')
             if index<len(proof['sessions']):
                 opened,open_intent=read(index,'reopen-intent');ready,_=read(index,'reopen-result')
@@ -441,7 +462,7 @@ def validate_observer_ownership(live,prepared,value,proof):
                         or ready.get('schema')!=SCHEMA or ready.get('intent')!=open_intent
                         or ready.get('status')!='reopened' or ready.get('endpoint_identity_sha256')!=endpoint
                         or type(ready.get('completed_boottime_ns')) is not int
-                        or not done['completed_boottime_ns']<=opened['started_boottime_ns']<=ready['completed_boottime_ns']<expiry):
+                        or not done['completed_boottime_ns']<=opened['started_boottime_ns']<=ready['completed_boottime_ns']<earlier(expiry,observation_expiry)):
                     raise live.F1LiveError('baseline exact descriptor reattachment is unproved')
                 previous_reopen = ready['completed_boottime_ns']
         else:
@@ -454,7 +475,7 @@ def validate_observer_ownership(live,prepared,value,proof):
                     or done['error'] is not None or done['release_error'] is not None
                     or done['exclusivity_released'] is not False
                     or done['native_expiry_boottime_ns'] != expiry
-                    or done['within_native_lifetime'] is not (done['completed_boottime_ns'] < expiry)
+                    or done['within_native_lifetime'] is not within_native(expiry,done['completed_boottime_ns'])
                     or not auth['started_boottime_ns'] <= close['started_boottime_ns'] <= done['completed_boottime_ns']):
                 raise live.F1LiveError('baseline CONTROL descriptor cleanup differs')
     if {path.name for path in prepared.run_dir.glob(prefix+'-native-auth-*.json')} != read_names:

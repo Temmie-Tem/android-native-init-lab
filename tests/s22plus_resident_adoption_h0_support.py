@@ -44,9 +44,9 @@ static __attribute__((unused)) int resident_fixture_clock(clockid_t id,struct ti
 '''
 
 
-def native_source():
+def native_source(selected=candidate):
     raw=previous.native_fixture()
-    old,new=previous.IDENTITY,candidate.IDENTITY
+    old,new=previous.IDENTITY,selected.IDENTITY
     # Fixture platform identity is explicit data; production helper is generated
     # by the resident composition in the inherited fixture before instrumentation.
     for before,after in ((old.namespace,new.namespace),(old.namespace.upper(),new.namespace.upper()),
@@ -80,15 +80,15 @@ def compile_c(*args):
     except subprocess.CalledProcessError as exc:raise AssertionError(exc.stderr) from exc
 
 
-def compile_components(cls):
+def compile_components(cls, selected=candidate):
     cls.temp=tempfile.TemporaryDirectory(prefix='s22-resident-adoption-h0-');cls.addClassCleanup(cls.temp.cleanup)
     cls.folder=Path(cls.temp.name)
     (cls.folder/'resident-fixture-clock.h').write_text(CLOCK_HEADER)
-    (cls.folder/'native.c').write_text(native_source());cls.binary=cls.folder/'native'
+    (cls.folder/'native.c').write_text(native_source(selected));cls.binary=cls.folder/'native'
     compile_c(cls.folder/'native.c',cls.binary,'-Wno-unused-function','-Wno-unused-const-variable','-Wno-misleading-indentation')
-    raw=source.render_display(candidate.IDENTITY,previous.CENSUS)
+    raw=source.render_display(selected.IDENTITY,previous.CENSUS)
     (cls.folder/'renderer.c').write_bytes(raw)
-    renderer=previous.renderer_fixture().replace(previous.IDENTITY.run_id_hex,candidate.IDENTITY.run_id_hex)
+    renderer=previous.renderer_fixture().replace(previous.IDENTITY.run_id_hex,selected.IDENTITY.run_id_hex)
     renderer=previous.swap(renderer,'if(!strcmp(scenario,"ipc-live"))return syscall(SYS_clock_gettime,id,value);',
         'if(!strcmp(scenario,"ipc-live"))return resident_frame_clock(id,value);')
     # Apply accelerated clock jumps between frame snapshots. A real suspend
@@ -126,7 +126,7 @@ def compile_components(cls):
     (cls.folder/'metrics.c').write_text(metrics);cls.collector=cls.folder/'collector'
     compile_c(cls.folder/'metrics.c',cls.collector)
     import device_action_f1_live_v2 as live
-    cls.codec=live._open_header_initial_observer_module(candidate.runtime,candidate.observer,'p386-resident-h0')
+    cls.codec=live._open_header_initial_observer_module(selected.runtime,selected.observer,selected.IDENTITY.namespace+'-resident-h0')
 
 
 class Fixture:

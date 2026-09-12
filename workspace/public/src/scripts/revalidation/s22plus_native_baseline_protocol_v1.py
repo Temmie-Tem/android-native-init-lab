@@ -66,6 +66,12 @@ class Progress(console.Progress):
 
 
 class IO(console.IO):
+    AUTH_LIMIT = AUTH_LIMIT
+    BOOT_LIMIT_MS = BOOT_LIMIT_MS
+    SOURCE_PROFILE = source.profile_contract(source.BASELINE_PROFILE)
+    HUD_BODY = display.HUD_BODY
+    decode_hud = staticmethod(display.decode_log)
+
     def __init__(self, *args, **kwargs):
         self.before_write = kwargs.pop('before_write', None)
         super().__init__(*args, **kwargs)
@@ -158,10 +164,10 @@ def _projection(io, session, events, rx, tx):
     if ending not in (wire.CONTROL, DETACH): raise ValueError('baseline ending differs')
     optional = requests.pop(5, None)
     if (requests != {3: wire.EXEC, 4: wire.STATUS} or optional not in (None, wire.EXEC)
-            or optional is not None and session.request_bodies[5] != display.HUD_BODY):
+            or optional is not None and session.request_bodies[5] != io.HUD_BODY):
         raise ValueError('baseline fixed request profile differs')
     info = io.preparation.info
-    if ending == DETACH and info['authentication_ordinal'] >= AUTH_LIMIT:
+    if ending == DETACH and info['authentication_ordinal'] >= io.AUTH_LIMIT:
         raise ValueError('native terminal has no future authentication slot')
     rows = console.command_rows(session, events)
     hud_stdout = b''.join(p[12:] for k, n, p in events if (k, n) == (wire.OUTPUT, 5)
@@ -181,14 +187,14 @@ def _projection(io, session, events, rx, tx):
         all_commands_terminal_or_rejected=all(row['terminal'] is not None or row['rejected'] for row in rows),
         rx=dict(size=len(rx), sha256=health.digest(rx)), tx=dict(size=len(tx), sha256=health.digest(tx)),
         hud_requested=bool(optional), hud_acquisition_complete=hud_complete,
-        hud=display.decode_log(hud_stdout, io.identity.run_id_hex) if hud_complete else None,
-        physical_visibility='UNPROVED', source_profile=source.profile_contract(source.BASELINE_PROFILE))
+        hud=io.decode_hud(hud_stdout, io.identity.run_id_hex) if hud_complete else None,
+        physical_visibility='UNPROVED', source_profile=io.SOURCE_PROFILE)
 
 
-def replay_one(codec, identity, key, rx, tx):
+def replay_one(codec, identity, key, rx, tx, *, io_class=IO):
     if type(rx) is not bytes or type(tx) is not bytes or len(rx) > wire.RAW_CAPTURE_MAXIMUM or len(tx) > 65536:
         raise ValueError('baseline raw stream bounds differ')
-    io = IO(codec, key, identity, rx=rx, tx=tx)
+    io = io_class(codec, key, identity, rx=rx, tx=tx)
     io.handshake()
     rend = _root_end(rx, io.rpos, (wire.CONTROL_ACK, DETACH_ACK))
     tend = _root_end(tx, io.tpos, (wire.CONTROL, DETACH))
@@ -226,12 +232,12 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
             Path(evidence), on_rx=io.capture, on_tx=io.audit.tx.extend, before_write=io.before_write)
         health.run_console_checks(session, events, deadline=min(io.deadline, time.monotonic()+29.9))
         if hud and io.deadline-time.monotonic() >= display.HUD_ADMISSION_SECONDS:
-            seq = session.send(wire.EXEC, display.HUD_BODY)
+            seq = session.send(wire.EXEC, io.HUD_BODY)
             while seq not in session.terminals and seq not in session.rejected:
                 if time.monotonic() >= io.deadline: raise TimeoutError('baseline HUD original deadline')
                 events.extend(session.poll()); time.sleep(.001)
         kind, ack = (DETACH, DETACH_ACK) if ending == 'detach' else (wire.CONTROL, wire.CONTROL_ACK)
-        if ending == 'detach' and io.preparation.info['authentication_ordinal'] >= AUTH_LIMIT:
+        if ending == 'detach' and io.preparation.info['authentication_ordinal'] >= io.AUTH_LIMIT:
             raise ValueError('no native reauthentication remains after DETACH')
         request = dict(run_id_hex=io.identity.run_id_hex, mode=ending, sequence=session.sequence,
             nonce_sha256=health.digest(io.audit.nonce), kernel_boot_identity_sha256=health.digest(io.audit.boot_id),
@@ -241,7 +247,7 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
         if remaining <= 0: raise TimeoutError('baseline terminal admission expired')
         wait(ack, session.send(kind, timeout=min(2, remaining)))
         raw_rx, raw_tx = bytes(io.audit.rx), bytes(io.audit.tx)
-        value, rend, tend = replay_one(io.codec, io.identity, io.key, raw_rx, raw_tx)
+        value, rend, tend = replay_one(io.codec, io.identity, io.key, raw_rx, raw_tx, io_class=type(io))
         if (rend, tend) != (len(raw_rx), len(raw_tx)):
             raise ValueError('baseline trailing raw bytes')
         io.audit.done_seen = True; io.audit.current_stage = ending+'-accepted'

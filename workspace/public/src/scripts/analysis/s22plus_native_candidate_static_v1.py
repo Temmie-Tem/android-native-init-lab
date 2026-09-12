@@ -81,7 +81,7 @@ class CandidateStatic:
         return (dict(common, schema=self.RUN_SCHEMA, promotion_run_id=run_id),
                 dict(common, schema=self.CHECK_SCHEMA, verdict=self.CHECK_VERDICT, promotion_run_id=run_id))
 
-    def prepare_h0(self, output):
+    def prepare_h0(self, output, *, owner_policy=None):
         import device_action_f1_v2 as core
         import device_action_f1_live_v2 as live
         import device_action_f1_evidence_v2 as evidence
@@ -99,8 +99,9 @@ class CandidateStatic:
         acceptance['contract'] = {name: self.receipt(output/file) for name, file in (
             ('candidate_static','candidate-static.json'), ('run_manifest','run-manifest.json'),
             ('static_check','static-check-result.json'))}
-        manifest = dict(schema=core.MANIFEST_SCHEMA, manifest_id=f's22plus-fyg8-{self.prefix}-native-baseline-v1-ready-1',
-            run_id=f's22plus-fyg8-{self.prefix}-native-baseline-v1', status='ready-for-f1-approval',
+        lane = owner_policy or 'native-baseline-v1'
+        manifest = dict(schema=core.MANIFEST_SCHEMA, manifest_id=f's22plus-fyg8-{self.prefix}-{lane}-ready-1',
+            run_id=f's22plus-fyg8-{self.prefix}-{lane}', status='ready-for-f1-approval',
             target_profile='workspace/public/src/device-action/profiles/s22plus_fyg8.json',
             candidate_ap=self.receipt(self.builder.DEFAULT_OUTPUT_ROOT/'candidate-a/odin4/AP.tar.md5'),
             rollback_ap=self.receipt(self.ROLLBACK_AP), allowed_member='boot.img.lz4',
@@ -119,7 +120,7 @@ class CandidateStatic:
         request = owner.request_value(live, self.root, bundle,
             target={'serial':'H0_UNBOUND', 'topology':live.p324_typec_lane.SOURCE_TOPOLOGY},
             manifest_receipt=self.receipt(path), review_receipt={'H0_ONLY':'NO_AUTHORITY'},
-            operations=['bootstrap'], reservations=1, seconds=600, closure=closure)
+            operations=['bootstrap'], reservations=1, seconds=600, closure=closure,policy=owner_policy)
         # Outside the grant/request root, with no independent authority or
         # physical target binding: this is never an approval proposal.
         serialized = owner.publish(probe/'request.json', request)

@@ -402,6 +402,23 @@ membership, exact A recovery, source/target identity and all other-target limits
 remain permanent.
 Native baseline V1 policy SHA256: `7fa75b712fbdaa8a84dd3920f2dd56eb3bc9337205ea07058d21992b482400e7`.
 
+The [S22+ attended resident native baseline V2](S22PLUS_NATIVE_BASELINE_V2.md)
+is a distinct permanent-boundary exception, incorporated at this same precedence
+with the policy SHA256 below. Its exact reviewed owner may use an admitted
+resident N, one distinct globally one-shot E and the prebound admitted N normal
+restoration, with one shared exact Android A exit/fallback per operation. Live
+bootstrap qualification alone admits N; its original content claim stays
+consumed. E never inherits that exception. Normal E-to-N return requires proved
+E health/workload and exact timely Download. Uncertainty stops every further
+native role and retains only the original one-shot A recovery. At most three
+reservations/600 suspend-aware seconds and actual attendance are bound by a
+separately returned grant. The resident service has no normal lifetime ceiling;
+its signed 64-bit admission counter and finite host/session bounds remain
+separate. Current independent review, artifact qualification, exact authority
+and live N admission remain required; the definition alone is H0. V1's bytes,
+pin and consumed claims, ordinary F1 and every other target remain unchanged.
+Native baseline V2 policy SHA256: `653aba9bdd29ddf0f26487755c3a0c9ca3c1fae50bbeff8b73ebffacb4c2c8fd`.
+
 Keep host rejection, local parser failure, device-session start, transfer
 start/completion, observation, rollback, and final health distinct. A dry run
 or pre-session host failure is not a candidate transfer, but any changed

@@ -40,8 +40,14 @@ APPROVAL_PREFIX = 'S22PLUS_NATIVE_BASELINE_V1_APPROVE:'
 LIMITS = dict(reservations=3, seconds=600, native_authentications=8, native_boot_ms=900000,
               android_transfers_per_operation=1)
 OPERATIONS = ('bootstrap', 'restore', 'android-exit')
+V2_OPERATIONS = (*OPERATIONS, 'experiment')
+V2_POLICY = 'native-baseline-v2'
+V2_BASE = Path('workspace/private/runs/s22plus-native-baseline-v2')
+V2_REVIEW = Path('workspace/public/src/device-action/bindings/s22plus_native_baseline_v2_review.json')
+V2_LIMITS = dict(reservations=3, seconds=600, native_authentications=2**64-1, native_boot_ms=None,
+                 android_transfers_per_operation=1)
 PHASES = {'bootstrap-first':'pair-control', 'native-start':'control', 'native-final':'pair-detach',
-          'android-start':None, 'android-exit':None}
+          'android-start':None, 'android-exit':None, 'experiment':'pair-control'}
 TRANSFER_NATIVE, TRANSFER_ANDROID = 'native-baseline', 'baseline-android'
 STOP = 'research-stop.json'
 FINAL_HEALTH_SCHEMA = 's22plus-native-baseline-android-final-health-v1'
@@ -116,20 +122,69 @@ def host_epoch():
     return ReturnHost.host_boot_sha256()
 
 
-def current_static():
+def v2(request):
+    return request.get('policy') == V2_POLICY
+
+
+def request_base(request):
+    return V2_BASE if v2(request) else BASE
+
+
+def native_prefix(live, prepared):
+    return live._shell_definition(prepared.bundle).prefix
+
+
+def phase_native(operation, phase):
+    return operation.request['experiment']['native'] if phase == 'experiment' else operation.request['native']
+
+
+def phase_bundle(operation, phase):
+    return snapshot_bundle(operation.request['experiment']['bundle']) if phase == 'experiment' else operation.bundle
+
+
+def phase_closure(operation, phase):
+    return operation.request['experiment']['closure'] if phase == 'experiment' else operation.request['closure']
+
+
+def recovery_closure(live, root):
+    """A recovery reads host/target authority, never native build inputs."""
+    common = live._closure(root)
+    scripts = Path(__file__).parent
+    paths = [scripts/(name+'.py') for name in (
+        's22plus_native_baseline_owner_v1','s22plus_native_baseline_protocol_v1',
+        's22plus_native_console_owner_v1','s22plus_native_roundtrip_owner_v1',
+        's22plus_boot_verify',
+        's22plus_fyg8_p324_typec_lane_binding','s22plus_native_usb_departure_v1',
+        's22plus_native_baseline_v2_candidates','s22plus_native_candidate_definition_v1')]
+    paths += [root/name for name in ('AGENTS.md','docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md',
+        'docs/operations/S22PLUS_NATIVE_BASELINE_V2.md','docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md',PROFILE)]
+    return dict(common=common,owner_and_target=[live._receipt(path,'baseline A recovery source') for path in paths])
+
+
+def current_static(bundle=None):
     analysis = ROOT/'workspace/public/src/scripts/analysis'
     if str(analysis) not in sys.path: sys.path.insert(0, str(analysis))
+    if bundle is not None and bundle.manifest['observation']['acceptance']['run_id'] != 'c385f1e0a90b5e6d7c8a9b0c1d2e3f0b':
+        import s22plus_native_baseline_v2_candidates as candidates
+        return candidates.static_for(bundle)
     import s22plus_fyg8_p385_process_v2_candidate_static as static_candidate
     return static_candidate
 
 
-def reviewed(root):
-    value, receipt = core.load_json(root/REVIEW, 'native baseline capability review')
-    static_candidate = current_static()
+def reviewed(root, *, policy=None):
+    resident = policy == V2_POLICY
+    require(policy in (None, V2_POLICY), 'unknown native baseline policy')
+    value, receipt = core.load_json(root/(V2_REVIEW if resident else REVIEW), 'native baseline capability review')
+    if resident:
+        import s22plus_native_baseline_v2_candidates as candidates
+        sources = candidates.review_sources()
+    else:
+        sources = current_static().source_receipts()
     require(value.get('verdict') == 'PASS_GO' and value.get('findings') == []
-            and value.get('activation') == SCHEMA and same(value.get('limits'), LIMITS),
+            and value.get('activation') == (V2_POLICY if resident else SCHEMA)
+            and same(value.get('limits'), V2_LIMITS if resident else LIMITS),
             'native baseline capability has no exact activated independent review')
-    require(same(value.get('current_sources'), static_candidate.source_receipts()),
+    require(same(value.get('current_sources'), sources),
             'native baseline reviewed execution sources changed')
     return receipt
 
@@ -150,68 +205,122 @@ def snapshot_bundle(value):
 
 
 def native_identity(bundle):
-    static_candidate = current_static()
+    static_candidate = current_static(bundle)
     declaration = static_candidate.declaration
     require(bundle.manifest['observation']['acceptance']['run_id'] == declaration.IDENTITY.run_id_hex,
-            'native baseline requires the exact direct P385 declaration')
-    return dict(candidate=bundle.receipt['candidate_ap'], profile=protocol.source.profile_contract(protocol.source.BASELINE_PROFILE),
+            'native baseline requires an exact registered declaration')
+    profile = (protocol.IO.SOURCE_PROFILE if declaration.IDENTITY.namespace == 'p385'
+               else declaration.observer.io_class.SOURCE_PROFILE)
+    value = dict(candidate=bundle.receipt['candidate_ap'], profile=profile,
         run_id=declaration.IDENTITY.run_id_hex, auth_key=dict(declaration.artifact.auth_key_identity()),
         native_sources=static_candidate.builder.source_receipts())
+    if declaration.IDENTITY.namespace != 'p385': value['build_selection']=static_candidate.builder.native_selection()
+    return value
 
 
-def prepare_request(live, root, output, *, manifest, target_file, operations, reservations=1, seconds=600):
+def prepare_request(live, root, output, *, manifest, target_file, operations, reservations=1, seconds=600,
+                    policy=None, experiment_manifest=None):
     """Freeze a reviewable proposal without D0, a grant or an operation owner."""
     root = Path(root).resolve(); output = direct(root, output)
-    require(output.is_relative_to(root/BASE) and not os.path.lexists(output), 'fresh baseline request directory required')
-    require(type(operations) is list and 0 < len(operations) <= 3
-            and len(set(operations)) == len(operations) and all(x in OPERATIONS for x in operations),
+    require(policy in (None,V2_POLICY), 'unknown baseline policy')
+    allowed = V2_OPERATIONS if policy == V2_POLICY else OPERATIONS
+    require(output.is_relative_to(root/(V2_BASE if policy else BASE)) and not os.path.lexists(output), 'fresh baseline request directory required')
+    require(type(operations) is list and 0 < len(operations) <= len(allowed)
+            and len(set(operations)) == len(operations) and all(x in allowed for x in operations),
             'baseline operation set differs')
     require(type(reservations) is int and 1 <= reservations <= LIMITS['reservations']
             and type(seconds) is int and 1 <= seconds <= LIMITS['seconds'], 'baseline finite limits differ')
     bundle = core.verify_bundle(root, direct(root, manifest, private=False), runtime_bound=True)
-    authority = reviewed(root)
+    authority = reviewed(root, policy=policy) if policy else reviewed(root)
+    experiment = None
+    require((experiment_manifest is not None) is ('experiment' in operations), 'experiment manifest/operation differs')
+    if experiment_manifest is not None:
+        exp_path = direct(root,experiment_manifest,private=False)
+        exp_bundle = core.verify_bundle(root,exp_path,runtime_bound=True)
+        experiment = dict(manifest=pin(exp_path),bundle=bundle_snapshot(exp_bundle),
+            native=native_identity(exp_bundle),closure=live._closure(root,exp_bundle))
     target, _ = core.load_json(direct(root, target_file), 'exact baseline private target')
     core._exact(target, {'serial','topology'}, 'baseline target')
     require(type(target['serial']) is str and live.d0.SERIAL_RE.fullmatch(target['serial'])
             and target['topology'] == live.p324_typec_lane.SOURCE_TOPOLOGY, 'baseline target grammar/lane differs')
     value = request_value(live, root, bundle, target=target, manifest_receipt=pin(direct(root,manifest,private=False)),
-        review_receipt=authority, operations=operations, reservations=reservations, seconds=seconds)
+        review_receipt=authority, operations=operations, reservations=reservations, seconds=seconds,
+        policy=policy, experiment=experiment)
+    validate_native_roles(value)
     output.mkdir(parents=True, mode=0o700); core._fsync_dir(output.parent)
     receipt = publish(output/'request.json', value)
     return dict(request=receipt, approval=APPROVAL_PREFIX+receipt['sha256'], live_authorized=False)
 
 
-def request_value(live, root, bundle, *, target, manifest_receipt, review_receipt, operations, reservations, seconds, closure=None):
+def request_value(live, root, bundle, *, target, manifest_receipt, review_receipt, operations, reservations, seconds,
+                  closure=None, policy=None, experiment=None):
     """One request layout for real preparation and actual-size H0 serialization."""
-    return dict(schema=SCHEMA, kind='request', target=target, manifest=manifest_receipt,
+    value = dict(schema=SCHEMA, kind='request', target=target, manifest=manifest_receipt,
         bundle=bundle_snapshot(bundle), review=review_receipt, closure=live._closure(root, bundle) if closure is None else closure,
         native=native_identity(bundle), android=roundtrip.android_identity(bundle),
         operations=operations, reservations=reservations, seconds=seconds,
         physical_attendance_required=True, recovery='one-exact-android', live_authorized=False)
+    if policy is not None:
+        require(policy == V2_POLICY, 'unknown baseline request policy')
+        value.update(policy=policy, experiment=experiment, recovery_closure=recovery_closure(live,root))
+    return value
+
+
+def validate_native_roles(value):
+    """Close the N/E/A mapping before a grant or departure can exist."""
+    profile = value['native']['profile']['profile']
+    require(profile == ('native-resident-h0-v1' if v2(value) else protocol.source.BASELINE_PROFILE),
+            'baseline runtime profile differs from selected policy')
+    if not v2(value): return
+    frozen_a = {k:v for k,v in value['android'].items() if k != 'member'}
+    require(same(value['bundle']['receipt']['rollback_ap'],frozen_a), 'baseline frozen A receipt differs')
+    experiment = value['experiment']
+    require((experiment is not None) is ('experiment' in value['operations']), 'experiment operation has no exact bundle')
+    if experiment is None: return
+    core._exact(experiment, {'manifest','bundle','native','closure'}, 'native experiment binding')
+    bundle = snapshot_bundle(experiment['bundle'])
+    require(same(bundle.receipt['rollback_ap'],frozen_a)
+            and experiment['native']['candidate'] == bundle.receipt['candidate_ap']
+            and experiment['native']['profile']['profile'] == 'native-resident-h0-v1'
+            and experiment['native']['run_id'] != value['native']['run_id']
+            and experiment['native']['candidate']['sha256'] != value['native']['candidate']['sha256']
+            and bundle.receipt['candidate_ap']['member']['sha256'] != value['native']['candidate']['member']['sha256'],
+            'N/E must be distinct content with one identical exact Android fallback')
 
 
 def load_request(live, root, path, *, current=False):
     path = direct(root, path)
-    require(path.is_relative_to(root/BASE) and path.name == 'request.json', 'baseline request path differs')
+    require(path.name == 'request.json', 'baseline request path differs')
     value, receipt = read(path)
+    allowed = V2_OPERATIONS if v2(value) else OPERATIONS
+    require(path.is_relative_to(root/request_base(value)), 'baseline request policy/path differs')
     core._exact(value, {'schema','kind','target','manifest','bundle','review','closure','native','android',
-        'operations','reservations','seconds','physical_attendance_required','recovery','live_authorized'}, 'baseline request')
+        'operations','reservations','seconds','physical_attendance_required','recovery','live_authorized'}
+        | ({'policy','experiment','recovery_closure'} if v2(value) else set()), 'baseline request')
     require(value['schema'] == SCHEMA and value['kind'] == 'request' and value['live_authorized'] is False
             and value['physical_attendance_required'] is True and value['recovery'] == 'one-exact-android',
             'baseline request authority differs')
     require(type(value['reservations']) is int and 1 <= value['reservations'] <= LIMITS['reservations']
             and type(value['seconds']) is int and 1 <= value['seconds'] <= LIMITS['seconds']
-            and type(value['operations']) is list and 0 < len(value['operations']) <= 3
+            and type(value['operations']) is list and 0 < len(value['operations']) <= len(allowed)
             and len(set(value['operations'])) == len(value['operations'])
-            and all(x in OPERATIONS for x in value['operations']), 'baseline request limits differ')
+            and all(x in allowed for x in value['operations']), 'baseline request limits differ')
     core._exact(value['target'], {'serial','topology'}, 'baseline request target')
     bundle = snapshot_bundle(value['bundle'])
+    validate_native_roles(value)
     if current:
-        require(same(reviewed(root), value['review']), 'baseline request review changed')
+        authority = reviewed(root,policy=V2_POLICY) if v2(value) else reviewed(root)
+        require(same(authority, value['review']), 'baseline request review changed')
+        if v2(value): require(same(recovery_closure(live,root),value['recovery_closure']), 'baseline recovery source changed')
         fresh = core.verify_bundle(root, verify_pin(root, value['manifest']), runtime_bound=True)
         require(same(bundle_snapshot(fresh), value['bundle']) and same(live._closure(root, fresh), value['closure'])
                 and same(native_identity(fresh), value['native']) and same(roundtrip.android_identity(fresh), value['android']),
                 'baseline request sources or N/A artifacts changed')
+        if v2(value) and value['experiment'] is not None:
+            exp = value['experiment']
+            fresh = core.verify_bundle(root,verify_pin(root,exp['manifest']),runtime_bound=True)
+            require(same(bundle_snapshot(fresh),exp['bundle']) and same(live._closure(root,fresh),exp['closure'])
+                    and same(native_identity(fresh),exp['native']), 'experiment sources or artifact changed')
     return value, receipt, bundle
 
 
@@ -233,7 +342,7 @@ def open_grant(live, root, request, approval, *, attended):
 
 def load_grant(live, root, path, *, active=False):
     path = direct(root, path)
-    require(path.is_relative_to(root/BASE) and path.name == 'grant.json', 'baseline grant path differs')
+    require(path.name == 'grant.json', 'baseline grant path differs')
     grant, receipt = read(path)
     core._exact(grant, {'schema','kind','request','operator_approval','attended','host_boot_sha256',
         'started_boottime_ns','deadline_boottime_ns'}, 'baseline grant')
@@ -247,7 +356,8 @@ def load_grant(live, root, path, *, active=False):
             and type(grant['host_boot_sha256']) is str and re.fullmatch('[0-9a-f]{64}', grant['host_boot_sha256']),
             'baseline grant clock binding differs')
     if active:
-        require(same(reviewed(root), request['review']), 'baseline active grant review/source changed')
+        authority = reviewed(root,policy=V2_POLICY) if v2(request) else reviewed(root)
+        require(same(authority, request['review']), 'baseline active grant review/source changed')
         require(not os.path.lexists(path.parent/'closed.json') and grant['host_boot_sha256'] == host_epoch()
                 and grant['started_boottime_ns'] <= protocol.host_now_ns() < grant['deadline_boottime_ns'],
                 'baseline grant closed, expired or changed host epoch')
@@ -274,7 +384,7 @@ def load_operation(live, root, directory, *, active=False):
     core._exact(value, {'schema','kind','grant','ordinal','operation','origin','prior_native'}, 'baseline operation')
     require(value['schema'] == SCHEMA and value['kind'] == 'operation'
             and type(value['ordinal']) is int and 1 <= value['ordinal'] <= 3
-            and value['operation'] in OPERATIONS and value['origin'] in ('android','native','physical-download'),
+            and value['operation'] in V2_OPERATIONS and value['origin'] in ('android','native','physical-download'),
             'baseline operation shape differs')
     grant_path = directory.parent/'grant.json'
     require(directory.name == f"operation-{value['ordinal']:02d}", 'baseline ordinal path differs')
@@ -284,6 +394,7 @@ def load_operation(live, root, directory, *, active=False):
             and value['operation'] in request['operations'], 'baseline reservation differs')
     require((value['origin'] == 'native') is (value['prior_native'] is not None)
             and (value['operation'] != 'bootstrap' or value['origin'] == 'android')
+            and (value['operation'] != 'experiment' or v2(request) and value['origin'] == 'native')
             and (value['origin'] != 'physical-download' or value['operation'] == 'android-exit'),
             'baseline origin/operation binding differs')
     if active:
@@ -295,6 +406,8 @@ def load_operation(live, root, directory, *, active=False):
 
 def phase_prepared(live, operation, name, *, create=False):
     require(name in PHASES, 'unknown native baseline phase')
+    require(name != 'experiment' or v2(operation.request) and operation.value['operation'] == 'experiment',
+            'experiment phase is outside its exact V2 operation')
     path = operation.directory/name
     context = dict(schema=SCHEMA, operation=str(operation.directory), phase=name, mode=PHASES[name],
                    operation_sha256=operation.binding)
@@ -308,11 +421,12 @@ def phase_prepared(live, operation, name, *, create=False):
     stored, _ = read(path/'phase.json')
     require(same(stored, context), 'native baseline phase changed')
     lane_path = operation.directory/live.P324_TYPEC_LANE_NAME
-    prepared = dict(approval_binding_sha256=operation.binding, execution_closure=operation.request['closure'],
-        p328_auth_key_identity=operation.request['native']['auth_key'],
-        approval_binding=dict(p328_auth_key_identity=operation.request['native']['auth_key']),
+    native = phase_native(operation,name)
+    prepared = dict(approval_binding_sha256=operation.binding, execution_closure=phase_closure(operation,name),
+        p328_auth_key_identity=native['auth_key'],
+        approval_binding=dict(p328_auth_key_identity=native['auth_key']),
         p324_typec_lane_binding=pin(lane_path))
-    return live.PreparedRun(operation.root, path, operation.bundle, prepared,
+    return live.PreparedRun(operation.root, path, phase_bundle(operation,name), prepared,
         dict(schema=live.PRIVATE_TARGET_SCHEMA, **operation.request['target']),
         native_parent=operation.directory, native_baseline_context=context)
 
@@ -339,25 +453,28 @@ def before_native_auth(live, prepared):
 def before_native_terminal(live, prepared, request, index, expiry):
     operation = before_native_auth(live, prepared)
     phase = prepared.native_baseline_context['phase']
-    require(request['run_id_hex'] == operation.request['native']['run_id']
+    require(request['run_id_hex'] == phase_native(operation,phase)['run_id']
             and type(index) is int and index in (1,2), 'baseline native request identity differs')
     info = request['baseline_info']
     if phase == 'native-start':
         previous = native_terminal(live, operation.root, verify_pin(operation.root, operation.value['prior_native']).parent)
         row = previous['proof']['sessions'][-1]
         protocol.fresh_same_boot(row, request, seen_nonce_hashes=previous['seen_nonce_hashes'])
-        require(index == 1 and expiry <= previous['native_expiry_boottime_ns']
+        require(index == 1 and (expiry is None and previous['native_expiry_boottime_ns'] is None if v2(operation.request)
+                               else expiry <= previous['native_expiry_boottime_ns'])
                 and previous['host_boot_sha256'] == host_epoch(), 'native start original lifetime differs')
     elif index == 1:
         require(info['authentication_ordinal'] == 1 and info['preparation_cached'] is False,
                 'new baseline arrival did not start with its first authentication')
-        if phase == 'native-final':
-            prior_name = 'bootstrap-first' if operation.value['operation'] == 'bootstrap' else 'native-start'
-            if (operation.directory/prior_name/'candidate-observer.json').exists():
-                prior = observation(live, phase_prepared(live, operation, prior_name))
-                require(request['kernel_boot_identity_sha256'] != prior['proof']['kernel_boot_identity_sha256']
-                        and request['nonce_sha256'] not in [row['nonce_sha256'] for row in prior['proof']['sessions']],
-                        'baseline restoration new boot/nonce is unproved')
+        if phase in ('native-final','experiment'):
+            prior_names = ['bootstrap-first'] if operation.value['operation'] == 'bootstrap' else ['native-start']
+            if phase == 'native-final' and operation.value['operation'] == 'experiment': prior_names.append('experiment')
+            for prior_name in prior_names:
+                if (operation.directory/prior_name/'candidate-observer.json').exists():
+                    prior = observation(live, phase_prepared(live, operation, prior_name))
+                    require(request['kernel_boot_identity_sha256'] != prior['proof']['kernel_boot_identity_sha256']
+                            and request['nonce_sha256'] not in [row['nonce_sha256'] for row in prior['proof']['sessions']],
+                            'baseline restoration new boot/nonce is unproved')
 
 
 def observation(live, prepared):
@@ -400,31 +517,41 @@ def role_intent(live, operation, prepared, endpoint, kind):
     native = kind == TRANSFER_NATIVE
     name = prepared.native_baseline_context['phase']
     require(kind in (TRANSFER_NATIVE, TRANSFER_ANDROID)
-            and (name in ('bootstrap-first','native-final') if native else name == 'android-exit'),
+            and (name in ('bootstrap-first','native-final','experiment') if native else name == 'android-exit'),
             'baseline transfer phase differs')
     require(endpoint.arrival_receipt is not None, 'baseline transfer requires measured exact Download arrival')
     arrival = live._read_native_download_arrival(prepared, endpoint.arrival_receipt)
     require(same(arrival['endpoint'], dict(device=endpoint.device, sequence=endpoint.sequence,
                 identity_sha256=endpoint.identity_sha256)), 'baseline Download ticket changed')
-    require(same(live._closure(operation.root, operation.bundle), operation.request['closure']),
-            'baseline execution closure changed at transfer')
+    if not native and v2(operation.request):
+        require(same(recovery_closure(live,operation.root),operation.request['recovery_closure'])
+                and same(roundtrip.android_identity(operation.bundle),operation.request['android']),
+                'baseline exact A recovery source/artifact changed')
+    else:
+        require(same(live._closure(operation.root, prepared.bundle), phase_closure(operation,name)),
+                'baseline execution closure changed at transfer')
     if native:
-        require(same(native_identity(operation.bundle), operation.request['native']), 'baseline native image sources changed')
-        if operation.value['operation'] == 'bootstrap':
+        require(same(native_identity(prepared.bundle), phase_native(operation,name)), 'native role image sources changed')
+        if operation.value['operation'] == 'bootstrap' or name == 'experiment':
             identity = live._bound_candidate_registry_identity(primary_prepared(live, operation))
             claim = registry.active_claim(operation.root, identity['candidate_key'])
             require(claim is not None and all(claim.get(k) == v for k,v in identity.items() if k != 'schema'),
-                    'bootstrap original native installation claim is missing')
+                    'original native installation claim is missing')
         else:
             admission(live, operation.root, operation.request['native'], target=operation.request['target'])
         if name == 'bootstrap-first':
             require(operation.value['operation'] == 'bootstrap', 'only bootstrap can install an unregistered baseline')
             android_health(live, operation, operation.directory/'android-start'/'health')
+        elif name == 'experiment':
+            require(v2(operation.request) and operation.value['operation'] == 'experiment', 'experiment role is outside V2')
+            admission(live, operation.root, operation.request['native'], target=operation.request['target'])
+            timely_return(live,phase_prepared(live,operation,'native-start'))
         else:
-            require(operation.value['operation'] in ('bootstrap','restore'), 'operation cannot restore native')
+            require(operation.value['operation'] in ('bootstrap','restore','experiment'), 'operation cannot restore native')
             origin_phase = ('bootstrap-first' if operation.value['operation'] == 'bootstrap'
                             else 'native-start' if operation.value['origin'] == 'native' else 'android-start')
-            if origin_phase == 'android-start': android_health(live, operation, operation.directory/origin_phase/'health')
+            if operation.value['operation'] == 'experiment': experiment_outcome(live,operation)
+            elif origin_phase == 'android-start': android_health(live, operation, operation.directory/origin_phase/'health')
             else: timely_return(live, phase_prepared(live, operation, origin_phase))
     return bound_role_value(operation, prepared, endpoint, kind)
 
@@ -434,11 +561,13 @@ def bound_role_value(operation, prepared, endpoint, kind):
         phase=prepared.native_baseline_context['phase'],
         endpoint=dict(device=endpoint.device, sequence=endpoint.sequence, identity_sha256=endpoint.identity_sha256),
         arrival=endpoint.arrival_receipt,
-        artifact=operation.request['native']['candidate'] if kind == TRANSFER_NATIVE else operation.request['android'])
+        artifact=phase_native(operation,prepared.native_baseline_context['phase'])['candidate']
+                 if kind == TRANSFER_NATIVE else operation.request['android'])
 
 
 def primary_prepared(live, operation):
-    return live.PreparedRun(operation.root, operation.directory, operation.bundle,
+    bundle = phase_bundle(operation,'experiment') if operation.value['operation'] == 'experiment' else operation.bundle
+    return live.PreparedRun(operation.root, operation.directory, bundle,
         dict(approval_binding_sha256=operation.binding), dict(schema=live.PRIVATE_TARGET_SCHEMA, **operation.request['target']))
 
 
@@ -579,7 +708,7 @@ def timely_return(live, prepared):
             'baseline return arrival is outside original CONTROL window')
     timing, _ = read(prepared.run_dir/'native-return-boottime.json')
     index = value['proof']['session_count']
-    check, check_pin = read(prepared.run_dir/f'p385-native-auth-{index:02d}.terminal-check.json')
+    check, check_pin = read(prepared.run_dir/f'{native_prefix(live,prepared)}-native-auth-{index:02d}.terminal-check.json')
     core._exact(timing, {'schema','terminal_check','window','closed_boottime_ns'}, 'native return elapsed time')
     require(timing['schema'] == SCHEMA and same(timing['terminal_check'], check_pin)
             and same(timing['window'], pin(prepared.run_dir/host.WINDOW_NAME))
@@ -587,6 +716,27 @@ def timely_return(live, prepared):
             and check['created_boottime_ns'] <= timing['closed_boottime_ns'] <= check['created_boottime_ns']+30*10**9,
             'native normal return exceeded its suspend-aware CONTROL window')
     return window
+
+
+def experiment_outcome(live, operation):
+    """The first V2 workload is exactly two bounded fixed health authentications."""
+    require(v2(operation.request) and operation.value['operation'] == 'experiment', 'no declared experiment workload')
+    prepared = phase_prepared(live,operation,'experiment')
+    initial_departure(live,prepared)
+    timely_return(live,prepared)
+    proof = observation(live,prepared)['proof']
+    start = observation(live,phase_prepared(live,operation,'native-start'))['proof']
+    require(proof['mode'] == 'pair-control' and proof['session_count'] == 2
+            and proof['native_health_proved'] is True and proof['all_commands_terminal_or_rejected'] is True
+            and proof['sessions'][0]['baseline_info']['authentication_ordinal'] == 1
+            and proof['kernel_boot_identity_sha256'] != start['kernel_boot_identity_sha256']
+            and not {r['nonce_sha256'] for r in proof['sessions']} & {r['nonce_sha256'] for r in start['sessions']},
+            'declared experiment health workload or new boot is unproved')
+    identity = live._bound_candidate_registry_identity(primary_prepared(live,operation))
+    claim = registry.active_claim(operation.root,identity['candidate_key'])
+    require(claim is not None and all(claim.get(k) == v for k,v in identity.items() if k != 'schema'),
+            'experiment global content claim changed')
+    return proof
 
 
 @read_transaction
@@ -627,14 +777,15 @@ def native_terminal_value(live, operation):
     elif operation.value['origin'] == 'native':
         previous = phase_prepared(live, operation, 'native-start')
         timely_return(live, previous); native_proofs = [observation(live, previous)['proof']]
+        if operation.value['operation'] == 'experiment': native_proofs.append(experiment_outcome(live,operation))
     else:
         android_health(live, operation, operation.directory/'android-start'/'health')
     for previous in native_proofs:
         require(proof['kernel_boot_identity_sha256'] != previous['kernel_boot_identity_sha256']
                 and not {r['nonce_sha256'] for r in proof['sessions']} & {r['nonce_sha256'] for r in previous['sessions']},
                 'native restoration boot/nonce freshness is unproved')
-    close, _ = read(final.run_dir/'p385-native-auth-02.close-result.json')
-    auth, _ = read(final.run_dir/'p385-native-auth-02.intent.json')
+    close, _ = read(final.run_dir/(native_prefix(live,final)+'-native-auth-02.close-result.json'))
+    auth, _ = read(final.run_dir/(native_prefix(live,final)+'-native-auth-02.intent.json'))
     require(close['completed_boottime_ns'] <= operation.grant['deadline_boottime_ns']
             and auth['host_boot_sha256'] == operation.grant['host_boot_sha256'],
             'native terminal closed outside original grant')
@@ -723,6 +874,7 @@ def reserve(live, root, grant_path, operation_name, origin, prior_native=None):
             'operation outside the finite grant')
     require((origin == 'native') is (prior_native is not None)
             and (operation_name != 'bootstrap' or origin == 'android')
+            and (operation_name != 'experiment' or v2(request) and origin == 'native')
             and (origin != 'physical-download' or operation_name == 'android-exit'), 'baseline operation origin differs')
     if operation_name != 'bootstrap': admission(live, root, request['native'], target=request['target'])
     else: require(not os.path.lexists(admission_path(root, request['native'])), 'registered image cannot bootstrap again')
@@ -734,7 +886,8 @@ def reserve(live, root, grant_path, operation_name, origin, prior_native=None):
         require(same(prior_value['native'], request['native'])
                 and same(prior_value['target'], request['target'])
                 and prior_value['host_boot_sha256'] == host_epoch()
-                and protocol.host_now_ns() < prior_value['native_expiry_boottime_ns'],
+                and (prior_value['native_expiry_boottime_ns'] is None if v2(request)
+                     else protocol.host_now_ns() < prior_value['native_expiry_boottime_ns']),
                 'previous native snapshot is outside its original image/host/boot lifetime')
         require(not os.path.lexists(prior_path.parent/'next-operation.json'), 'native terminal already has a later owner')
         prior = pin(prior_path)
@@ -747,6 +900,12 @@ def reserve(live, root, grant_path, operation_name, origin, prior_native=None):
                 'prior baseline owner has not completed')
         ordinal += 1
     require(ordinal <= request['reservations'], 'baseline reservation budget exhausted')
+    if operation_name == 'experiment':
+        # A known consumed E is a host rejection before taking responsibility
+        # for the healthy N terminal. The atomic claim still occurs at dispatch.
+        candidate = live.PreparedRun(root,grant_path.parent,snapshot_bundle(request['experiment']['bundle']),
+            dict(approval_binding_sha256=gp['sha256']),dict(schema=live.PRIVATE_TARGET_SCHEMA,**request['target']))
+        registry.preflight_candidate(root,live._candidate_registry_identity(candidate))
     value = dict(schema=SCHEMA, kind='operation', grant=gp, ordinal=ordinal,
         operation=operation_name, origin=origin, prior_native=prior)
     publish(grant_path.parent/f'{ordinal:02d}-reserved.json', value)
@@ -814,7 +973,7 @@ def wait_native_return(live, operation, backend, prepared, endpoint_dir, lease):
     intent, intent_pin = host.read_intent(prepared.run_dir,
         binding=live._candidate_observer_binding(prepared), proof=value['proof'])
     index = value['proof']['session_count']
-    check, check_pin = read(prepared.run_dir/f'p385-native-auth-{index:02d}.terminal-check.json')
+    check, check_pin = read(prepared.run_dir/f'{native_prefix(live,prepared)}-native-auth-{index:02d}.terminal-check.json')
     require(host.remaining_window(intent) > 0, 'native CONTROL original window already expired')
     require(live.native_usb_departure.observe_departure(prepared.run_dir, intent, intent_pin),
             'native departure was not observed within its original window')
@@ -853,7 +1012,7 @@ def transfer(live, operation, backend, prepared, endpoint_dir, lease, kind):
                if native else live.ROLLBACK_WAIT_SEC)
     require(timeout > 0, 'baseline transfer has no remaining original time')
     endpoint = backend.wait_download(prepared, endpoint_dir, lease, timeout)
-    if native and prepared.native_baseline_context['phase'] == 'bootstrap-first':
+    if native and prepared.native_baseline_context['phase'] in ('bootstrap-first','experiment'):
         primary = primary_prepared(live, operation)
         identity = live._candidate_registry_identity(primary)
         live._claim_candidate_global(primary, identity)
@@ -946,7 +1105,7 @@ def repair_native_terminal(live, operation):
 
 def has_device_intent(operation):
     return any(operation.directory.glob('*/download-request-intent.json')) or any(
-        operation.directory.glob('*/p385-native-auth-*.intent.json')) or any(
+        operation.directory.glob('*/p*-native-auth-*.intent.json')) or any(
         operation.directory.glob('*/*-attempt-01.start.json'))
 
 
@@ -1014,7 +1173,7 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
         backend = backend or live.SamsungOdinBackend(root, operation.bundle, live.d0.default_adb())
         try:
             ensure_lane(live, operation, backend)
-            if operation_name == 'bootstrap':
+            if operation_name in ('bootstrap','experiment'):
                 primary = primary_prepared(live, operation)
                 registry.preflight_candidate(root, live._candidate_registry_identity(primary))
             if origin == 'android':
@@ -1029,8 +1188,8 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
                         observe_native(live, operation, backend, first, endpoint_dir, lease, observer_session)
                     observation(live, first)
                     wait_native_return(live, operation, backend, first, endpoint_dir, lease)
-            if operation_name == 'bootstrap':
-                first = phase_prepared(live, operation, 'bootstrap-first', create=True)
+            if operation_name in ('bootstrap','experiment'):
+                first = phase_prepared(live, operation, 'bootstrap-first' if operation_name == 'bootstrap' else 'experiment', create=True)
                 endpoint_dir = first.run_dir/'odin-endpoints'; endpoint_dir.mkdir(mode=0o700)
                 with backend.endpoint_session(endpoint_dir) as lease:
                     with backend.candidate_observer_session(first) as observer_session:
@@ -1038,6 +1197,7 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
                         observe_native(live, operation, backend, first, endpoint_dir, lease, observer_session)
                     observation(live, first)
                     wait_native_return(live, operation, backend, first, endpoint_dir, lease)
+                if operation_name == 'experiment': experiment_outcome(live,operation)
             if operation_name == 'android-exit':
                 final = phase_prepared(live, operation, 'android-exit', create=True)
                 endpoint_dir = final.run_dir/'odin-endpoints'; endpoint_dir.mkdir(mode=0o700)
@@ -1081,12 +1241,14 @@ def main(argv=None):
     prepare = sub.add_parser('prepare')
     prepare.add_argument('--out', type=Path, required=True); prepare.add_argument('--manifest', type=Path, required=True)
     prepare.add_argument('--target-file', type=Path, required=True)
-    prepare.add_argument('--operations', nargs='+', choices=OPERATIONS, required=True)
+    prepare.add_argument('--operations', nargs='+', choices=V2_OPERATIONS, required=True)
+    prepare.add_argument('--policy', choices=(V2_POLICY,))
+    prepare.add_argument('--experiment-manifest',type=Path)
     prepare.add_argument('--reservations', type=int, default=1); prepare.add_argument('--seconds', type=int, default=600)
     grant = sub.add_parser('grant'); grant.add_argument('--request', type=Path, required=True)
     grant.add_argument('--approval', required=True); grant.add_argument('--attended', action='store_true')
     run = sub.add_parser('execute'); run.add_argument('--grant', type=Path, required=True)
-    run.add_argument('--operation', choices=OPERATIONS, required=True)
+    run.add_argument('--operation', choices=V2_OPERATIONS, required=True)
     run.add_argument('--origin', choices=('android','native','physical-download'), required=True)
     run.add_argument('--prior-native', type=Path); run.add_argument('--attended', action='store_true')
     recovery = sub.add_parser('recover'); recovery.add_argument('--operation-dir', type=Path, required=True)
@@ -1095,7 +1257,8 @@ def main(argv=None):
     args = parser.parse_args(argv); root = args.root.resolve()
     if args.command == 'prepare':
         result = prepare_request(live, root, args.out, manifest=args.manifest, target_file=args.target_file,
-            operations=args.operations, reservations=args.reservations, seconds=args.seconds)
+            operations=args.operations, reservations=args.reservations, seconds=args.seconds,
+            policy=args.policy,experiment_manifest=args.experiment_manifest)
     elif args.command == 'grant': result = open_grant(live, root, args.request, args.approval, attended=args.attended)
     elif args.command == 'execute': result = execute(live, root, args.grant, args.operation, args.origin,
         prior_native=args.prior_native, attended=args.attended)

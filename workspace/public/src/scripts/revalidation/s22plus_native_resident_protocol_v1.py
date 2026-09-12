@@ -11,6 +11,7 @@ import struct
 import s22plus_native_baseline_protocol_v1 as baseline
 import s22plus_native_console_observer_v1 as console
 import s22plus_root_console_v1 as wire
+import s22plus_native_resident_source_v1 as source
 
 MAX_COUNTER = 2**64 - 1
 Session = baseline.Session
@@ -50,6 +51,10 @@ class Progress(console.Progress):
 
 
 class IO(baseline.IO):
+    AUTH_LIMIT = MAX_COUNTER
+    BOOT_LIMIT_MS = None
+    SOURCE_PROFILE = source.profile_contract()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.preparation = Progress(self.identity)

@@ -91,7 +91,7 @@ class OwnerTests(unittest.TestCase):
     def setUpClass(cls):
         native.ProtocolTests.setUpClass.__func__(cls)
 
-    def fixture(self, *, fault=None):
+    def fixture(self, *, fault=None, backend_type=Backend):
         factory = generic.DeviceActionF1LiveV2Test(); factory.module = live
         temporary, prepared = factory.prepared(); self.addCleanup(temporary.cleanup)
         variant = live.typed_evidence.SHELL_VARIANTS['p385']
@@ -107,7 +107,7 @@ class OwnerTests(unittest.TestCase):
             prepared.bundle.receipt['rollback_ap'] = pinned.receipt()
         bundle = replace(prepared.bundle, sha256=core_digest(prepared.bundle.receipt))
         prepared = replace(prepared, bundle=bundle)
-        backend = Backend(prepared, self, fault=fault); self.addCleanup(backend.stop_peer)
+        backend = backend_type(prepared, self, fault=fault); self.addCleanup(backend.stop_peer)
         closure = {'sources': {'fixture_host': {'path':str(backend.adb),'size':backend.adb.stat().st_size,
                                                'sha256':hashlib.sha256(backend.adb.read_bytes()).hexdigest()}}}
         source = prepared.root/'native-source-fixture.c'; source.write_text('/* fixture image bytes; production C peer is compiled separately */\n')

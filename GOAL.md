@@ -13,6 +13,23 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+The current unit is [resident native baseline V2 H0](docs/reports/S22PLUS_NATIVE_BASELINE_V2_H0_2026-09-12.md):
+normal `N -> E -> N`, with Android A for explicit exit or failure fallback.
+The separate common-incorporated [V2 policy](docs/operations/S22PLUS_NATIVE_BASELINE_V2.md)
+and shared owner bind proposed P387 N and distinct globally one-shot P388 E,
+resident clean reentry without a normal lifetime ceiling, and finite attended
+host authority. **H0 capability is complete with independent PASS_GO**:
+58 distinct tests, 21 publication cuts, actual identical AArch64 A/B boot-only
+APs, all 186 reachable execution sources, and full request/terminal reopening
+under unchanged bounds. The public review binds this unit's selected commit
+bytes; existing unrelated S20+ AGENTS changes remain outside that commit and
+make the differing local working tree fail its capability source check.
+This unit has made no device contact, grant, live bootstrap or admission.
+The next live proof requires current matching source authority, fresh attended
+N qualification and an exact E roundtrip; it remains unproved.
+
+## Last completed live unit
+
 P386 **READY2 is COMPLETE: `PASS_F1_V2_P386_ROOT_CONSOLE_AND_ROLLED_BACK`,
 `CLOSED/19`, `recovery_required=false`**. Its separately returned attended
 approval consumed one native installation and one exact Android return. Four

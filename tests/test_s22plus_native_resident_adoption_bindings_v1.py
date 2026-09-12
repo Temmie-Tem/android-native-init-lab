@@ -4,6 +4,7 @@ from contextlib import ExitStack
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 import unittest
 from unittest import mock
@@ -67,11 +68,12 @@ class Bindings(unittest.TestCase):
                      's22plus_native_resident_protocol_v1.py','s22plus_native_baseline_protocol_v1.py',
                      's22plus_fyg8_p328_auth_acm_observer.py','s22plus_fyg8_p363_return_host.py'):
             self.assertIn(static.REVALIDATION/name,paths)
-        # Native H0 artifacts still match their original closed input map. The
-        # host coordinator changes do not become reasons to rebuild native ELF.
+        # This consumed P386 result binds its historical source snapshot. V2
+        # extends the builder and protocol without repinning that old result.
+        snapshot='b555d6e0708fb27fbd57914000672ef0fff278f8'
         before=json.loads((static.builder.RETAINED/'result.json').read_text())['source_inputs']
         for path,pin in before.items():
-            raw=(static.ROOT/path).read_bytes()
+            raw=subprocess.check_output(['git','show',snapshot+':'+path],cwd=static.ROOT)
             self.assertEqual(dict(size=len(raw),sha256=hashlib.sha256(raw).hexdigest()),pin,path)
 
     def test_full_prepare_and_reopen_preserve_unique_sources_within_existing_bound(self):

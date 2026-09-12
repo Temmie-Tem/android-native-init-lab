@@ -1712,10 +1712,13 @@ P343_STOCK_OVERLAY_IDS = frozenset({P343_STOCK_OVERLAY_CONTRACT_ID})
 P344_STOCK_OVERLAY_CONTRACT_ID = p344_stock_adapter.OVERLAY_CONTRACT_ID
 P344_STOCK_OVERLAY_IDS = frozenset({P344_STOCK_OVERLAY_CONTRACT_ID})
 # One declaration owns shell variants; schema/run identities never transfer.
+_baseline_v2 = _load_stable_local_module('s22plus_native_baseline_v2_candidates')
 SHELL_VARIANTS = {}
-for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375", "p376", "p377", "p378", "p379", "p380", "p381", "p382", "p383", "p384", "p385", "p386"):
+for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", "p353", "p354", "p355", "p356", "p357", "p358", "p359", "p360", "p361", "p363", "p364", "p365", "p366", "p367", "p368", "p369", "p370", "p371", "p372", "p373", "p374", "p375", "p376", "p377", "p378", "p379", "p380", "p381", "p382", "p383", "p384", "p385", "p386", *_baseline_v2.DECLARATIONS):
     _upper = _prefix.upper()
     _direct = _load_stable_local_module(f"s22plus_fyg8_{_prefix}_candidate") if _prefix in ("p384", "p385", "p386") else None
+    if _prefix in _baseline_v2.DECLARATIONS: _direct = _baseline_v2.DECLARATIONS[_prefix]
+    _owner_profile = getattr(_direct,'OWNER_PROFILE',_direct.PROFILE) if _direct is not None else None
     if _direct is not None:
         _adapter, _artifact, _observer, _runtime = _direct.adapter, _direct.artifact, _direct.observer, _direct.runtime
     else:
@@ -1747,8 +1750,8 @@ for _prefix in ("p345", "p346", "p347", "p348", "p349", "p350", "p351", "p352", 
         globals()[_prefix + "_" + _key] = _module
     SHELL_VARIANTS[_prefix] = types.SimpleNamespace(prefix=_prefix, adapter=_adapter,
         workload=_workload, root_console=_workload=="root_console", local_display=_direct is not None, declaration=_direct, proof_key=_prefix + "_" + _workload + "_qualification",
-        native_baseline=_direct is not None and _direct.PROFILE == 'native-baseline-v1',
-        native_resident=_direct is not None and _direct.PROFILE == 'native-resident-h0-v1',
+        native_baseline=_owner_profile in ('native-baseline-v1','native-baseline-v2'),
+        native_resident=_owner_profile == 'native-resident-h0-v1',
         retained_lease=_prefix in ("p348", "p349"),
         planned_handoff=_prefix in ("p370","p371","p372","p373","p374"),
         display_steps=_prefix in ("p372","p373","p374"),
@@ -7621,6 +7624,8 @@ def _validate_p344_e2_ap_payload(frame: bytes, closure: Any) -> dict[str, Any]:
 def _shell_static_module(prefix):
     if prefix not in SHELL_VARIANTS:
         raise EvidenceError("unknown shell source variant")
+    if prefix in _baseline_v2.DECLARATIONS:
+        return _baseline_v2.static(prefix)
     return _load_stable_local_module(f"s22plus_fyg8_{prefix}_process_v2_candidate_static",
         directory=Path(__file__).resolve().parent.parent / "analysis")
 
@@ -7740,7 +7745,8 @@ def _shell_observer_spec(prefix):
             maximum_exec_count=3, max_commands=3, qualification_exec_count=2,
             clean_detach_type=36, clean_detach_ack_type=167,
             baseline_info_frame_type=140, baseline_info_payload_size=64,
-            baseline_authentication_limit=8, baseline_boot_limit_ms=900000,
+            baseline_authentication_limit=variant.observer.io_class.AUTH_LIMIT,
+            baseline_boot_limit_ms=variant.observer.io_class.BOOT_LIMIT_MS,
             terminal_modes=['pair-control', 'pair-detach', 'control', 'detach'])
     if variant.native_resident:
         audit=variant.observer.audit_binding()

@@ -96,7 +96,7 @@ def reuse_provider(previous, out):
     shared.write(out/'result.json',canonical(result));return result
 
 
-def build(out, provider_input=None):
+def build(out, provider_input=None, *, selected=None):
     out=Path(out).absolute()
     if out.exists() or out.is_symlink() or not out.resolve().is_relative_to((ROOT/'workspace/private/outputs').resolve()):
         raise ValueError('fresh private output required')
@@ -105,7 +105,8 @@ def build(out, provider_input=None):
     out.mkdir(mode=0o700,parents=True);shared.write(out/'source-inputs.json',canonical(inputs))
     for path,identity in reference['toolchain_inputs'].items():shared.stable(Path(path),expected=identity)
     provider=reuse_provider(provider_input,out/'provider') if provider_input else build_provider(out/'provider')
-    identity=source.common.Identity('p386',hashlib.sha256(canonical(inputs)).hexdigest()[:32],'v0.2.0-rc.4')
+    identity=selected or source.common.Identity('p386',hashlib.sha256(canonical(inputs)).hexdigest()[:32],'v0.2.0-rc.4')
+    if not isinstance(identity,source.common.Identity): raise ValueError('explicit resident build identity differs')
     runtime=sources[shared.packager.RUNTIME_INCLUDE_NAME]
     match=re.findall(rb'static const uint8_t p328_auth_key\[P328_AUTH_KEY_SIZE\] = \{ ([^}]+) \};',runtime)
     if len(match)!=1:raise ValueError('frozen key declaration differs')
