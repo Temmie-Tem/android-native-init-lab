@@ -26,6 +26,14 @@ Production source, artifacts, the 195-source review and all device state remain
 unchanged. The next implementation unit is the path/fixture correction and
 diagnostic retention before qualifying CPU/GPU/DDR on a fresh E.
 
+The remaining RAM/UFS/board H0 follow-up is also complete. FYG8 already exposes
+two read-only UFS descriptor attributes for a future support check, but their
+actual values and temperature availability remain unproved. Samsung SMEM
+provides DDR identity/training data without an established temperature export.
+Board pinctrl dependencies and thermistor/PMIC fallback and clamp values are
+now documented in the same census report. These additions involved no device
+contact, execution-source change or new authority.
+
 ## Latest closed P389 trial
 
 **P389 `N -> E -> N` is closed with `PASS_P389_N_E_N_NATIVE_CLOSED`;

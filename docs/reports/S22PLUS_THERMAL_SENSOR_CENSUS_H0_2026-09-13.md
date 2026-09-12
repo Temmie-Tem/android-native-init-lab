@@ -1,7 +1,8 @@
 # S22+ CPU path defect and SoC/GPU/memory/UFS thermal census
 
-Status: **H0 complete. Exact-input CPU path defect reproduced; 32 TSENS
-sensor mappings confirmed. New live temperatures remain unproved.**
+Status: **H0 complete, including the RAM/UFS/board follow-up. Exact-input CPU
+path defect reproduced; 32 TSENS sensor mappings confirmed. New live
+temperatures remain unproved.**
 Target: **SM-S906N / g0q / S906NKSS7FYG8**, G0Q board revision 12.
 
 This investigation follows the [closed P389 trial](S22PLUS_NATIVE_THERMAL_H0_2026-09-13.md):
@@ -142,6 +143,92 @@ Thus **UFS temperature is possible in the interface, but support by this exact
 UFS part and an available native read path remain unproved**. No UFS query,
 controller initialization or notification-enable operation occurred here.
 
+## Follow-up: remaining RAM, UFS and ADC questions
+
+The additional host investigation reused the preceding CPU reproduction and
+four merged stock trees. It inspected the remaining source paths, searched three
+retained S22+ P303 stock kernel captures for relevant part/support records, and
+checked a DRAM manufacturer's mode-register table. This was also H0 only.
+
+### UFS support can be narrowed through existing descriptor attributes
+
+The exact FYG8 `drivers/scsi/ufs/ufs-sysfs.c` already declares read-only
+`device_descriptor/specification_version` (two bytes) and
+`device_descriptor/ext_feature_sup` (four bytes). The shared helper reads the
+descriptor and formats big-endian values as hexadecimal. It brackets the read
+with runtime-PM get/put calls: a future connected read would involve controller
+activity, not merely inspecting an already captured string. All four merged
+trees identify the enabled UFS controller as `/soc/ufshc@1d84000`.
+
+These two existing attributes offer a smaller first capability check than
+backporting the upstream hwmon driver. The relevant upstream
+[descriptor bits](https://github.com/torvalds/linux/blob/v6.6/include/ufs/ufs.h)
+are LOW bit 4 (`0x10`) and HIGH bit 5 (`0x20`), combined mask `0x30` in the
+extended-feature word at descriptor offset `0x4f`. They are distinct from the
+exception-event status mask and from EXT bit 6 (`0x40`). The v6.6 probe checks
+UFS version at least `0x0300`, host temperature capability, and either basic
+notification bit before registering hwmon. A missing prerequisite explains why
+that upstream route would not register; it does not prove that every possible
+vendor temperature mechanism is absent.
+
+Neither descriptor value was recovered in the selected retained captures.
+No matched UFS part/support or LPDDR-vendor record was found by that bounded
+search; this is a search result for those three files, not an exhaustive claim
+about all private evidence. The next useful UFS observation is therefore just
+the two support attributes through an appropriate exact-target observer.
+Successful support advertisement would still leave actual READ_ATTR temperature
+availability and native integration unproved. The current admitted native
+workload provides no generic descriptor-read command, and this work did not
+create one or reopen a closed grant.
+
+### Samsung SMEM does not establish a RAM temperature export
+
+The FYG8 `drivers/samsung/debug/qcom/smem/sec_qc_smem_lpddr.c` consumer and its
+vendor0/vendor1 type definitions expose DDR manufacturer/revision/density
+information and training data such as DSF version, RCW and eye measurements.
+These are not a typed current-temperature or MR4 export. The vendor1 `ddr_stat`
+contains opaque `DDRLogs` and `DDR_STRUCT` pointers; their existence does not
+establish a temperature layout or a usable read path. No pointer was
+dereferenced and no SMEM/device memory was collected.
+
+As a manufacturer reference, the
+[Micron Y5BP automotive LPDDR5X datasheet, Rev. G, May 2025](https://www.farnell.com/datasheets/4555702.pdf)
+labels MR4 OP[4:0] as the refresh multiplier in Table 10 (page 25). Notes 8-9
+(page 27, following the continued table and notes on page 26) relate each die's
+MR4 output to package refresh requirements and identify an upper-temperature
+state. The document treats case-surface operating temperature separately.
+This supports distinguishing a thermal/refresh classification from a generic
+precise Celsius reading. It is a reference for that Micron product family,
+**not identification of the S22+'s installed RAM or its MR4 encoding**.
+The exact installed part and a documented, bounded SM8450 read mechanism remain
+the unresolved prerequisites for RAM-internal reporting. The SoC-side `ddr`
+TSENS label remains valid as a separate observation target.
+
+### Board and PMIC conversion edge cases are now identified
+
+The actual merged trees resolve AP/WF/CF thermistors to the same ADC provider,
+with separate 23-entry ADC/temperature tables. AP declares no `pinctrl-0` on
+its consumer node. WF selects PM8350 GPIO2 and CF selects PM8350 GPIO4, both
+with normal function and high-impedance bias. This is additional pin state to
+account for when selecting those channels; AP's missing consumer pinctrl does
+not make its ADC conversion effect-free. All four retained trees agree.
+
+The exact `sec_thermistor.c` conversion returns **300 (30.0 C)** when its table
+is missing, and clamps readings outside a table to its endpoint temperatures.
+The exact PM7 die scaler in `qcom-vadc-common.c` returns **-60000 or 160000
+millidegrees C** for voltages below 433700 microvolts or at/above 857300
+microvolts, respectively, with return code zero. Its voltage helper also maps
+raw codes above `0x7fff` to zero, which reaches the lower endpoint. A successful
+function return alone therefore does not distinguish an in-range reading from
+these fallback/clamp cases.
+
+These are source-confirmed conversion semantics, not observed faults in a
+live PMIC sensor. A future labelled ADC addition should preserve the selected
+table/scaler, acquisition result and range provenance instead of accepting a
+plausible number alone. P389's existing strict battery table/range treatment
+provides the relevant starting point. No stock thermistor/ADC driver was loaded,
+and no GPIO, ADC or charging setting was changed by this follow-up.
+
 ## Next bounded implementation direction
 
 First correct the CPU parent path and make the fixture derive it from the exact
@@ -171,3 +258,13 @@ stock/merged DT inspections, `tsens-census.json`, both C reproductions,
 `path-defect-reproduction.json`, actual Image configuration, public-source
 receipts, and `census-close-result.json` binding 16 local source inputs.
 These reconstructed DTs are host evidence; no fresh on-device FDT was collected.
+
+The remaining-question follow-up began at source commit
+`28a67b8fd549f5d2cb5f94a022f685ee2d6eb7aa`. Its separate private evidence is under
+`workspace/private/outputs/s22plus-thermal-followup-h0-20260913-1/`:
+`remaining-dt-routes.json`, `retained-log-search.json`, the Micron source receipt
+and visually inspected pages 25-27, and `followup-close-result.json` pinning the
+inspected local sources and reused evidence. The source PDF has 378,529 bytes
+and SHA-256 `040a32692db72a26b2c8e0aea5e3f72565c1bc27326cb564461f913467018763`.
+The new findings change the research description only; the existing reviewed
+execution closure, admitted native baseline and consumed trial remain intact.
