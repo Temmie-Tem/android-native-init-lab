@@ -13,6 +13,30 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**P391 / v0.2.0-rc.9 thermal V3 H0 is complete with independent PASS_GO;
+exact F1 request issuance is being closed.** TRDY is retained as a diagnostic;
+each selected status word supplies VALID and temperature in one bounded read. The producer,
+shared C validator and registered host observer agree on that new rule, with
+separate V3 sample/frame and private IPC identities. V2 retains its original
+interpretation. No live temperature availability is inferred from this change.
+
+The real A/B native init, renderer, thermal module and boot-only package pass.
+All 32 focused V1/V2/V3 and actual C/PTY N/E/N regression tests pass. Real ARM64
+provider/collector execution and equal-size V2/V3 sample/view cross-rejection
+also pass. Six actual-artifact mutation tests and the 382,226-byte complete
+N/E request publication/reopen pass. Both exact 211-source variants have
+independent PASS_GO with no outstanding findings.
+
+The intended request is one attended `P387 -> P391 -> P387` experiment within
+600 seconds, with the unchanged exact Android A as failure-only recovery.
+Preparation creates no grant or device effect. The [P391 H0 report](docs/reports/S22PLUS_NATIVE_THERMAL_V3_H0_2026-09-13.md)
+and [thermal V3 profile](docs/operations/S22PLUS_NATIVE_THERMAL_V3.md) record the
+qualification and its limits. P387 admission and the consumed P390 terminal
+reopen unchanged; P390's 138 native inputs and P387's 121 native inputs retain
+their exact bytes.
+
+## Earlier closed P390 trial
+
 **P390 N -> E -> N is closed with `PASS_P390_N_E_N_NATIVE_CLOSED`; thermal
 qualification remains partial.** One P390 installation and one normal P387
 restoration completed under the exact returned 600-second request. Five
@@ -27,8 +51,8 @@ bank bindings passed. Both acquired readiness words were `8`, whose bit 0 is
 clear; the provider returned its own `-ENODATA` and read no sensor status words.
 FYG8's source-selected v2 getter uses the per-sensor VALID field without that
 extra TRDY precondition. Actual VALID bits/temperatures and the cause of the low
-TRDY bit remain unobserved. The next bounded H0 issue is that extra readiness
-gate; P390 cannot replay, and a live successor needs its own current authority.
+TRDY bit remain unobserved. P391 addresses that extra readiness gate in a fresh
+H0 successor; P390 cannot replay, and a live successor needs its own authority.
 
 The latest healthy native snapshot is restored **P387 / v0.2.0-rc.5**, with its
 121 native inputs unchanged. Its current terminal is the closed P390 operation,

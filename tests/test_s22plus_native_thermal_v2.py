@@ -15,15 +15,20 @@ IDENTITY=catalog.DECLARATIONS['p390'].IDENTITY
 
 
 class ThermalV2(unittest.TestCase):
+    SOURCE=source
+    IDENTITY=IDENTITY
+    KERNEL_HARNESS=staticmethod(fixtures.kernel_harness)
+
     @classmethod
     def setUpClass(cls):
+        source=cls.SOURCE;IDENTITY=cls.IDENTITY
         cls.temp=tempfile.TemporaryDirectory(prefix='s22-thermal-v2-');cls.addClassCleanup(cls.temp.cleanup)
         cls.out=Path(cls.temp.name);cls.provider=cls.out/'provider';cls.collector=cls.out/'collector'
         for name,raw in source.provider_sources().items():(cls.out/name).write_bytes(raw)
         body='\n'.join(line for line in (cls.out/'s22plus_thermal_telemetry.c').read_text().splitlines() if not line.startswith('#include'))
         (cls.out/'provider-body.c').write_text(body)
         (cls.out/'dt-fixture.h').write_bytes(fixtures.header(fixtures.facts()))
-        (cls.out/'kernel-harness.c').write_bytes(fixtures.kernel_harness())
+        (cls.out/'kernel-harness.c').write_bytes(cls.KERNEL_HARNESS())
         flags=['cc','-O1','-Wall','-Wextra','-Werror','-fsanitize=undefined','-fno-sanitize-recover=all']
         p=subprocess.run([*flags,'-Wno-unused-variable','-I',str(cls.out),str(cls.out/'kernel-harness.c'),'-o',str(cls.provider)],capture_output=True,text=True,timeout=40)
         if p.returncode:raise AssertionError(p.stderr)

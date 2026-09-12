@@ -3,6 +3,7 @@
 Missing evicted companions are incomplete optional evidence. Conflicting
 companions are malformed; neither can establish a temperature observation.
 """
+from dataclasses import dataclass
 import re
 
 import s22plus_native_thermal_observer_v1 as previous
@@ -13,8 +14,19 @@ SENSORS=source.sensor_map()
 _ARRAYS=('error','phase','seen','version','enable','ready','status_valid','temps')
 _FIELDS=('seq','start_ms','end_ms','map_mask','mask','bound','mapped',*_ARRAYS,
          'battery_uv','battery_temp_deci','battery_error','battery_valid')
-_FRAME=re.compile(frames._FRAME.pattern.replace(b'RESIDENT_FRAME ',b'RESIDENT_THERMAL2_FRAME ')
-    .replace(b' expected=13',rb' expected=13 thermal_seq=(\d+)'))
+@dataclass(frozen=True)
+class Dialect:
+    sample_magic: str
+    frame_prefix: bytes
+    require_trdy: bool
+
+
+DIALECT=Dialect('S22THERM2',b'RESIDENT_THERMAL2_FRAME ',True)
+
+
+def frame_pattern(dialect):
+    return re.compile(frames._FRAME.pattern.replace(b'RESIDENT_FRAME ',dialect.frame_prefix)
+        .replace(b' expected=13',rb' expected=13 thermal_seq=(\d+)'))
 
 
 def _integer(text,signed=False,bits=32):
@@ -26,11 +38,11 @@ def _integer(text,signed=False,bits=32):
     return value
 
 
-def parse_sample(raw):
+def parse_sample(raw, *, dialect=DIALECT):
     if type(raw) is not bytes or len(raw)>=768 or not raw.endswith(b'\n'):
         raise ValueError('thermal sample bound/framing differs')
     words=raw[:-1].decode('ascii').split(' ')
-    if words[0]!='S22THERM2' or len(words)!=len(_FIELDS)+1:raise ValueError('thermal sample fields differ')
+    if words[0]!=dialect.sample_magic or len(words)!=len(_FIELDS)+1:raise ValueError('thermal sample fields differ')
     value={}
     for key,word in zip(_FIELDS,words[1:],strict=True):
         if not word.startswith(key+'='):raise ValueError('thermal sample order differs')
@@ -53,7 +65,8 @@ def parse_sample(raw):
                 or any(not seen&(1<<i) and s[key][bank] for i,key in enumerate(('version','enable','ready','status_valid')))):
             raise ValueError('thermal register provenance differs')
         if active and (s['error'][bank] or phase!=2 or seen!=15 or not s['bound']&(1<<bank)
-                or s['version'][bank]>>28!=2 or not s['enable'][bank]&1 or not s['ready'][bank]&1):
+                or s['version'][bank]>>28!=2 or not s['enable'][bank]&1
+                or dialect.require_trdy and not s['ready'][bank]&1):
             raise ValueError('thermal active bank differs')
     for i,(_,bank,sensor) in enumerate(SENSORS):
         if s['mask']&(1<<i):
@@ -83,29 +96,32 @@ def _maximum(sample,first,count):
     return max(values) if values else 0
 
 
-def decode_hud(raw):
+def decode_hud(raw, *, dialect=DIALECT):
     if type(raw) is not bytes or len(raw)>50000:raise ValueError('thermal HUD bound differs')
     parts=raw.split(b'\n',2);tail=b'S22RPROBE1 COMPLETE\n'
     if len(parts)!=3 or not parts[2].endswith(tail):raise ValueError('thermal HUD framing differs')
     retained=wire.decode_log(parts[2][:-len(tail)])
-    samples={};claims={};converted=[]
+    samples={};claims={};converted=[];pattern=frame_pattern(dialect)
     for row in retained['records']:
         if row.startswith((b'RESIDENT_FRAME ',b'RESIDENT_THERMAL_FRAME ')):
             raise ValueError('old HUD dialect in thermal V2')
+        if row.startswith((b'RESIDENT_THERMAL2_FRAME ',b'RESIDENT_THERMAL3_FRAME ')) and not row.startswith(dialect.frame_prefix):
+            raise ValueError('other thermal frame dialect')
         if row.startswith(b'RESIDENT_THERMAL_SAMPLE '):
-            match=re.fullmatch(rb'RESIDENT_THERMAL_SAMPLE frame=(\d+) (S22THERM2 .*\n)',row)
+            match=re.fullmatch(rb'RESIDENT_THERMAL_SAMPLE frame=(\d+) ('+
+                re.escape(dialect.sample_magic.encode())+rb' .*\n)',row)
             if not match:raise ValueError('thermal companion grammar differs')
             frame=_integer(match[1].decode(),bits=64)
             if not frame or frame in samples or frame in claims:raise ValueError('duplicate/zero/late thermal frame companion')
-            samples[frame]=parse_sample(match[2])
-        if row.startswith(b'RESIDENT_THERMAL2_FRAME '):
-            match=_FRAME.fullmatch(row)
+            samples[frame]=parse_sample(match[2],dialect=dialect)
+        if row.startswith(dialect.frame_prefix):
+            match=pattern.fullmatch(row)
             if not match:raise ValueError('thermal frame grammar differs')
             groups=match.groups();frame=int(groups[0]);thermal_sequence=int(groups[-2]);valid=int(groups[9])
             if frame in claims or thermal_sequence>(1<<64)-1 or valid&~2044:
                 raise ValueError('thermal frame fields differ')
             claims[frame]=(thermal_sequence,valid,int(groups[1]),int(groups[13]),int(groups[14]),int(groups[7]))
-            row=re.sub(rb' thermal_seq=\d+',b'',row,count=1).replace(b'RESIDENT_THERMAL2_FRAME ',b'RESIDENT_FRAME ',1)
+            row=re.sub(rb' thermal_seq=\d+',b'',row,count=1).replace(dialect.frame_prefix,b'RESIDENT_FRAME ',1)
             row=re.sub(rb' hardware_valid=\d+',b' hardware_valid='+str(valid&508).encode(),row,count=1)
         converted.append(row)
     header=parts[2].split(b'\n',1)[0]+b'\n'

@@ -8,8 +8,8 @@
     },
     "source_02d90b29e9e99dcd": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py",
-      "sha256": "e93b5d8c4320f20f001550c9a187b6725fd748fcbfb9c13ced48cf539f7a4a62",
-      "size": 6817
+      "sha256": "2b115761b809470fa9656a13f34a33596741a463dd50f7116fcd869478084cb4",
+      "size": 7476
     },
     "source_0361bd05dfb31ddf": {
       "path": "workspace/public/src/native-init/s22plus_resident_v1/hud.inc.c.in",
@@ -421,6 +421,11 @@
       "sha256": "2fce7d6d078bc1e5ff4b336996d07cbd3a96b1b9797ebaf515387b5097085415",
       "size": 2366
     },
+    "source_689c00e834d5af66": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_native_thermal_build_v3.py",
+      "sha256": "d44e66ebf8879ef199af8efb986386aee9f003f30d881408fc1a81b354393bdf",
+      "size": 1710
+    },
     "source_69823167d801eb65": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p328_auth_acm_observer.py",
       "sha256": "2ec10d550b575f69f91f2424d9a605b5635ed9d5a853b59bb24563c85c6a9e25",
@@ -671,6 +676,11 @@
       "sha256": "2746cd0d42a880e3567528043391ef6b2cc9d9a4648e604276fc395bec4d7686",
       "size": 1316
     },
+    "source_9ce6961eeb2af4da": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_thermal_observer_v3.py",
+      "sha256": "1f51558436132211d4ad5ca37f0dbc75e8eda8a8f5af44ddb85d3e3bf09107ae",
+      "size": 678
+    },
     "source_9e39712b71734983": {
       "path": "workspace/public/src/native-init/s22plus_thermal_v2/provider-sample.inc.c.in",
       "sha256": "940795ca96065a1a442365ce7ca2178734a210673830d70f129fead4c8e0d080",
@@ -851,6 +861,11 @@
       "sha256": "dc303ef20175a7a6cbe350328fff499ef585edfba995735a990d0891e3570055",
       "size": 26923
     },
+    "source_ce45a5c18c4b65c9": {
+      "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V3.md",
+      "sha256": "ec797bf8042d8e0bcf65a6ce24d9f563499de80906d1561d733925a2a92ab36d",
+      "size": 4846
+    },
     "source_ce6a05f6d3ee0bae": {
       "path": "workspace/public/src/scripts/analysis/s22plus_native_thermal_build_v1.py",
       "sha256": "38800fc928e630c0791b4e6ce3b11a1b6d023977d4601a6a4d908fb56555feb8",
@@ -953,8 +968,8 @@
     },
     "source_e4aa64066d06126c": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_native_thermal_observer_v2.py",
-      "sha256": "5ebb18e7b3218186a299dc48efa9ab3266f4691815273a12b2b512d1484fedcb",
-      "size": 10460
+      "sha256": "2c1f2e6e6a77de88f2d2fda9722126d23f9fccc3039cb5afff30698db1577c28",
+      "size": 11066
     },
     "source_e5123cee4280d90a": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p367_return_spec.py",
@@ -1000,6 +1015,11 @@
       "path": "workspace/public/src/scripts/revalidation/s22plus_odin_usbfs_identity.py",
       "sha256": "9266f0a4a0f10dcd4f8a7b55fa2d2079afd2a1480e310ab6667f6bf2cf491451",
       "size": 31458
+    },
+    "source_f3301d60b6ff11fa": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_thermal_source_v3.py",
+      "sha256": "841adac3c7b222b62216a23a17bd5a44c032a0374acd4f6ff4f21572d2bcd373",
+      "size": 3297
     },
     "source_f3680289ff9005df": {
       "path": "workspace/public/src/scripts/analysis/s22plus_fyg8_p386_stock_candidate_build.py",
@@ -1054,8 +1074,8 @@
       "sha256": "98bc0e8f2f902a5e587afd9fe2a0f3ed61efed65a21efe0e9acf03b8414e9565",
       "size": 31150121
     },
-    "p390": {
-      "sha256": "5f42d3e6b2d163c2c88de78cd057962be012e915f833898e40564c136726a349",
+    "p391": {
+      "sha256": "cfbd810dee86672744bbfcd88ec59231332f3470f4b32661a4b452597ce07690",
       "size": 31303721
     }
   },
@@ -1081,56 +1101,65 @@
       "size": 137159
     },
     "thermal_profile": {
-      "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V2.md",
-      "sha256": "c3fe0ed2ef5dc28732abefe478e01968b5b232343e485f161fe003c8257a7022",
-      "size": 6238
+      "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V3.md",
+      "sha256": "ec797bf8042d8e0bcf65a6ce24d9f563499de80906d1561d733925a2a92ab36d",
+      "size": 4846
     },
     "thermal_v1_profile": {
       "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V1.md",
       "sha256": "20a3ae1c026b1d33c2999754e5fab97ad90d860e440b08a2e9ae71db0a608f58",
       "size": 5804
+    },
+    "thermal_v2_profile": {
+      "path": "docs/operations/S22PLUS_NATIVE_THERMAL_V2.md",
+      "sha256": "c3fe0ed2ef5dc28732abefe478e01968b5b232343e485f161fe003c8257a7022",
+      "size": 6238
     }
   },
   "preserved": {
-    "consumed_review_sha256": "7622f16dd1b281837d709ec56dc9401e636d8562596d6cb9d5e087d9efa78063",
+    "consumed_review_sha256": "e76a85042a2373c029ec85625f663fb8ba683caf3591ab600345cd1236e93ac5",
     "old_approval_reuse": false,
     "original_claims_and_journals_unchanged": true,
-    "previous_publication_sha256": "2810a3652f7229501826b34a9975b20b9450a6eae1312e213f2e870420d392b6"
+    "previous_publication_sha256": "328c189efa3eb584005e1d95b5a49830697df34faf7ba8ecc11429cb322768dc"
   },
   "qualification": {
     "actual_aarch64_ab_identical": true,
-    "actual_arm64_collector_and_ipc": true,
+    "actual_arm64_provider_collector_sample_view": true,
     "actual_boot_only_ap_decoding": true,
     "actual_byte_mutations_rejected": 4,
     "actual_full_request_reader_reopened": true,
-    "actual_package_root": "workspace/private/outputs/s22plus-native-thermal-v2/p390/build-3",
-    "affected_tests_after_format_fix": 9,
-    "artifact_mutation_tests": 5,
+    "actual_package_root": "workspace/private/outputs/s22plus-native-thermal-v3/p391/build-1",
+    "artifact_mutation_tests": 6,
+    "bounded_summary_receipt_roundtrip": true,
+    "consumed_P390_default_V2_terminal_rederived": true,
     "document_links": true,
+    "equal_size_V2_V3_sample_view_rejection": true,
     "exact_full_N_E_source_coverage": true,
-    "full_N_E_request_bytes": 378963,
-    "full_N_E_request_sha256": "cec0faddb182ed7eef1ebcb3f00f0f37540f26c1507a518ed68a1ccd3d287c13",
+    "full_N_E_request_bytes": 382226,
+    "full_N_E_request_sha256": "cabf04f0f72f15c1c977c48df7b554da99101981546115ebb5ceb0fed1a1121f",
     "git_diff_check": true,
+    "layout_unchanged_prior_qualification_reused": true,
     "maximum_companion_bytes": 525,
-    "metadata_mutations_rejected": 34,
-    "old_new_ipc_cross_rejection": true,
+    "metadata_mutations_rejected": 36,
+    "one_read_per_selected_sensor": true,
     "preserved_N_native_inputs": 121,
-    "private_evidence_root": "workspace/private/outputs/s22plus-native-thermal-v2-h0-20260913-1",
+    "preserved_P390_native_inputs": 138,
+    "private_evidence_root": "workspace/private/outputs/s22plus-native-thermal-v3-h0-20260913-1",
     "py_compile": true,
-    "regression_tests": 35,
+    "regression_tests": 32,
     "repository_boundary_check": "clean",
     "retained_N_admission_rederived": true,
-    "synthetic_HUD_visually_checked": true
+    "trdy_valid_cross_cases": 6
   },
-  "reviewed_at_utc": "2026-09-12T19:53:02+00:00",
+  "reviewed_at_utc": "2026-09-12T21:13:53+00:00",
   "reviewer": "independent-agent-p386_terminal_review",
   "schema": "s22plus-native-baseline-capability-review-v2",
-  "scope": "Fresh P390 CPU/GPU/SoC-DDR thermal E; unchanged admitted P387 N; actual extended IPC, diagnostics, source/artifact metadata and attended N/E/N closure",
+  "scope": "Fresh P391 per-sensor VALID thermal E; unchanged admitted P387 N; diagnostic TRDY, V3-only sample/view dialect, current actual artifact/request consumers and attended N/E/N closure",
   "source_binding": {
     "canonical_encoding": "sorted compact JSON with one trailing newline",
-    "canonical_sha256": "1ae27503b63b6a43cb826864d5c27bba812a77db21f2c118ae1f386d4f090d0c",
+    "canonical_sha256": "5a58ce4d1f2f08d338068bfd5eeedaf119ab60d60bf97a1aa689886937c2ae3a",
     "publication_input": "publication",
-    "unique_execution_sources": 207
+    "unique_execution_sources": 211
   },
   "verdict": "PASS_GO"
 }
