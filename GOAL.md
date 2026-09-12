@@ -13,22 +13,36 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-P386 **READY2 preparation is COMPLETE, awaiting its new exact attended F1
-approval**. READY1's approved start ended `ABORTED/4` before Download or any
-candidate/rollback transfer: the resident adapter looked for its guard on the
-wrong wrapper object. Actual host guard cleanup succeeded; recovery was not
-required, and the candidate content remains unconsumed. The old run/token is
-closed and cannot resume. Its result and all original receipts are preserved.
+P386 **READY2 is COMPLETE: `PASS_F1_V2_P386_ROOT_CONSOLE_AND_ROLLED_BACK`,
+`CLOSED/19`, `recovery_required=false`**. Its separately returned attended
+approval consumed one native installation and one exact Android return. Four
+authenticated checkpoints and eight fixed commands passed across **1,825,019 ms
+(30 minutes 25.019 seconds)**. Fresh system/gauge samples advanced beyond the
+old 601-sample and 900-second limits. Final rooted FYG8, original boot/supporting
+hashes, Android readiness and Download absence passed. The exact Download return
+was inside the original CONTROL window with no physical-fallback prompt.
 
-The minimal guard-owner correction passed independent PASS_GO and nine distinct
-regression tests, now using the actual P325/P324/common observer objects through
-the Samsung factory. Only one host execution source changed; all native/AP bytes
-and guard lifetime/health requirements are unchanged. New READY2 D0 passed exact
-rooted FYG8/original hashes, same-boot continuity, clean 2,097,136-byte baseline
-and Download absence. Its actual 64,030-byte prepared record and all 176 execution
-inputs reopen successfully. No additional reboot or transfer occurred. The next
-approved unit remains one P386 installation, four authenticated checkpoints over
-at least thirty minutes, one exact Android return and final health.
+The original execute reached CLOSED but failed to publish its 67,863-byte
+indented result under the 65,536-byte cap. Independently reviewed H0 finalization
+used the unchanged original runtime and complete validator to publish the same
+data as 38,437-byte compact JSON, then retired the F1 owner. All 2,076 original
+run files retain their bytes and modes; no command, transfer, CONTROL or device
+observation was repeated. The subsequent reviewed terminal-writer correction
+keeps the same cap and journal encoding. Original preparation, source pins,
+approval, failure output and consumed candidate claim remain unchanged.
+
+CPU temperature was not observed: all four CPU sensor masks were zero. Physical
+pixels, uninterrupted liveness between checkpoints, causal software return and
+automatic failure recovery remain unproved. This ordinary F1 result creates no
+native-baseline admission, same-N restoration role or standing device grant.
+A90 and S20+ received no commands.
+
+Earlier READY1 ended `ABORTED/4` before Download or either transfer because the
+resident adapter accessed the guard through the wrong wrapper. Its guard cleanup
+succeeded; the old run/token stays closed. The minimal guard-owner correction
+passed independent PASS_GO and nine regressions before READY2 preparation and
+its separate approval. Those original records remain unchanged; the later
+READY2 installation has now consumed the candidate content.
 
 Earlier P386 preparation used **one ordinary Android reboot**.
 The D1 observer stopped when ADB was online but the successful property output
@@ -39,12 +53,12 @@ A narrow readiness correction now polls only that fixed nonroot property within
 the original deadline before strict health parsing. Independent PASS_GO and
 25 tests passed; the used source/review are preserved privately. That stopped
 goal performed no second reboot, P386 connected preparation or F1 transfer.
-The later D0 preparation above used fresh operator continuation and preserved
+Subsequent D0 preparation used fresh operator continuation and preserved
 the closed goal, STOP and separately observed late health. Its one-reboot
 allowance remains consumed.
-See the [preparation report](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md).
+See the [execution and preparation report](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md).
 
-The [P385 exit / P386 F1 preparation](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md)
+The [P385 exit / P386 resident observation](docs/reports/S22PLUS_P385_EXIT_P386_F1_PREPARATION_2026-09-11.md)
 has completed P385's exact attended Android exit: **ANDROID_CLOSED**, one A,
 zero N, `recovery_required=false`, F1 owner released. Final rooted FYG8/original
 partition hashes, same-boot target continuity and Download absence passed.
@@ -56,10 +70,9 @@ The original request, grant, A evidence and both D0 STOP results are unchanged;
 `research_stopped=true` remains. All 472 pre-repair files were verified unchanged.
 P385's historical native qualification, admission and consumed installation
 remain intact. Its consumed host review is not repinned after this repair.
-P386's ordinary thirty-minute observation remains host-qualified; its execution
-closure excludes the repaired native-baseline owner. Connected preparation is
-complete; its separately returned ordinary F1 approval remains pending. The stopped P385
-grant supplies no P386 authority or further native role.
+P386's later ordinary thirty-minute observation is complete as recorded above;
+its consumed execution closure excludes the repaired native-baseline owner.
+The stopped P385 grant supplied no P386 authority or further native role.
 
 The [resident adoption H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md)
 unit is complete with **PASS_RESIDENT_ADOPTION_H0 / independent PASS_GO for H0 only**.
@@ -68,10 +81,11 @@ boot-only AP, four authenticated checkpoints spanning thirty minutes, and the
 ordinary one-N/one-A installation/return owner. Actual AP decoding, generated-C
 integration, retained replay, full preparation/reopen and failure recovery pass.
 The final review binds 157 static inputs and 176 unique execution sources.
-No device contact, live activation, prepared run or grant occurred. See the
+No device contact, live activation, prepared run or grant occurred in that H0
+unit. See the
 [H0 report](docs/reports/S22PLUS_NATIVE_RESIDENT_ADOPTION_H0_2026-09-11.md).
-The later P385 Android exit and P386 connected preparation are recorded above;
-P386's own returned attended F1 approval remains required.
+The later P385 Android exit and separately approved P386 execution are recorded
+above; neither completed run grants another device action.
 
 The completed [native resident runtime H0 V1](docs/operations/S22PLUS_NATIVE_RESIDENT_H0_V1.md)
 has no normal PID1/local-service 15-minute cap, while

@@ -1,19 +1,141 @@
-# S22+ P385 Android exit and P386 F1 preparation
+# S22+ P385 Android exit and P386 resident observation
 
-Latest result: **P386 READY2 connected preparation COMPLETE; awaiting its new
-exact attended F1 approval.** READY1's approved start ended `ABORTED/4` before
-Download or candidate transfer because of a host guard-wrapper access error.
-The narrow correction passed independent review and actual-wrapper regression;
-fresh READY2 D0 and prepared-record reopening passed. Candidate content remains
-unconsumed. The old run/token, earlier reboot STOP and closed goals are preserved.
+Latest result: **P386 READY2 `PASS_F1_V2_P386_ROOT_CONSOLE_AND_ROLLED_BACK`,
+`CLOSED/19`, `recovery_required=false`.** One native installation, four
+authenticated checkpoints spanning **30 minutes 25.019 seconds**, eight fixed
+commands, one exact Android return and final rooted FYG8 health passed. The
+original execute failed only when publishing its oversized indented terminal
+JSON after CLOSED. Reviewed H0 finalization published the complete equivalent
+compact result and retired the F1 owner without another device command.
+READY1's zero-transfer abort, the earlier reboot STOP and closed goals remain.
 
 P385 exit result: **ANDROID_CLOSED; recovery_required=false; research_stopped=true.**
 The separately returned exact approval consumed one attended Android A transfer
 and no native role. Fresh final health passed after an independently reviewed
-host repair, with no transfer replay. P386 has a READY manifest and a complete
-connected READY2 preparation, with no READY2 F1 approval or candidate transfer yet.
+host repair, with no transfer replay. That earlier P385 exit supplied no P386
+authority; READY2 later received its own exact returned attended approval.
 
-## READY1 pre-candidate abort and qualified READY2
+## READY2 execution and terminal publication
+
+On 2026-09-12 the operator returned READY2's exact approval under the stated
+attendance, fixed cable/topology and physical Download recovery conditions.
+All 176 execution inputs still matched the prepared closure
+`50714bc9c33f1c0c5429e1a803632b5c1b65f3ae1a3b0d8fed8a3ed6e2cb217d`.
+Execution source commit was `739b225af3da1d24fb8adb0ee2d4ca3ac45ff3d1`;
+intervening reader-page commits had changed no execution input. The existing
+owner passed fresh exact Android/root/hash/clean-baseline preflight and
+transferred the native candidate once.
+
+All four sessions proved the same native boot with fresh authentication,
+fixed native health and advancing system/hardware/gauge samples. Three clean
+DETACH/descriptor-close/reopen boundaries preceded the final session's CONTROL
+request. First close to second authentication was 620.080 seconds; that second
+session closed in 6.068 seconds, within the fixed 60-second session bound.
+
+| Checkpoint | Signed elapsed (ms) | System sequence | Hardware sequence | Gauge sequence | Retained HUD frames |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0 | 5 | 5 | 4 | 5 |
+| 2 | 625,057 | 629 | 625 | 624 | 32 |
+| 3 | 925,014 | 928 | 922 | 921 | 32 |
+| 4 | 1,825,019 | 1,827 | 1,816 | 1,815 | 32 |
+
+Every checkpoint passed native health, fresh system/gauge data and the bound
+fixed commands: eight commands total, no caller plan commands. The signed span
+and final counters exceed the old 900-second/601-sample limits. Retained
+producer-drop counters were zero at the four samples. This is bounded sampled
+evidence, not a lossless lifetime trace or proof of uninterrupted operation.
+All four CPU sensor masks were zero; the zero temperature field is a missing
+value, not measured zero degrees. No CPU-temperature measurement or accuracy
+is claimed. Physical pixels and continuous liveness remain `UNPROVED`.
+
+The exact Download endpoint arrived within the original CONTROL window, with
+no physical-fallback prompt. Physical intervention remains `UNOBSERVED` and
+software-causal attribution/automatic failure recovery remain `UNPROVED`.
+One exact Android A transfer completed. At 09:42:21 UTC the original owner
+verified rooted FYG8, original boot/vendor_boot/DTBO/recovery hashes, Android
+readiness and exact-target Download absence. Supplemental stock evidence stays
+`NO_PROOF_OBSERVER` (`P320_STOCK_WITNESS_BASE_SHAPE_FAILURE`); it does not replace
+the primary authenticated native result.
+
+The canonical eight-event timeline is preserved verbatim in the terminal:
+
+| Event | 2026-09-12 UTC |
+| --- | --- |
+| `live_session_start` | 09:10:10.515875 |
+| `candidate_flash_start` | 09:10:28.729539 |
+| `candidate_flash_done` | 09:10:30.358721 |
+| `candidate_boot_ready` | 09:41:25.877426 |
+| `rollback_flash_start` | 09:41:32.634043 |
+| `rollback_flash_done` | 09:41:34.297277 |
+| `rollback_boot_ready` | 09:42:21.372549 |
+| `live_session_end` | 09:42:21.392060 |
+
+Here the canonical `candidate_boot_ready` event follows the complete bounded
+observation; it is not a measurement of initial boot latency. CLOSED was
+published at **09:42:21.411413 UTC**. The native candidate is now globally
+consumed, with one candidate and one rollback intent/transfer. No recovery CLI,
+transfer or CONTROL replay occurred. No native-baseline admission or same-N
+restoration role follows. A90 and S20+ received no commands.
+
+### Host terminal-publication incident and correction
+
+The original CLI returned 2 at 09:42:23.062298 UTC with
+`durable record exceeds its bound`. Its completed live state was 61,237 bytes;
+the validated terminal envelope added enough indented JSON to reach 67,863
+bytes, exceeding the unchanged 65,536-byte terminal cap. The result writer
+rejected before creating a terminal file. The already-CLOSED journal, verified
+health and consumed claims were unaffected, and the F1 owner remained held.
+
+H0 reconstruction through the unchanged original `load_prepared`, `_result`
+and complete result validator reproduced the writer failure and formal PASS.
+Lossless compact serialization is 38,437 bytes and passed the same original
+validator. Independent **PASS_GO, no findings** covered the exact finalizer,
+original source closure, real audit, seven publication/retirement fault tests
+and four prospective serializer tests. Those checks include existing-file
+collision and race rejection, identical terminal resumption, exact cap/+1 byte,
+nonfinite data, write/fsync failures, and no owner retirement before successful
+readback and validation.
+
+At **09:58:18 UTC**, the reviewed H0 finalizer completed exact no-replace
+publication, readback/full original validation and owner retirement under the
+existing leases. All 2,076 original run files retained their bytes and modes;
+the original 176 source inputs were still unchanged when finalization finished.
+No device backend or command ran. The original CLI failure remains recorded.
+The temporary one-run publisher stops with its owner retained if an abrupt cut
+leaves an incomplete publication requiring H0 cleanup; it grants no effect replay.
+
+Only after that close, the reviewed prospective core change enabled compact
+JSON for `live-result.json`. It passes a default-false compact option through
+the existing atomic writer and changes no field, result validation, 32-KiB
+journal bound, 64-KiB result bound or default journal/head encoding. No native
+source or image changed. Consumed preparation, approval and source pins were
+not repinned; later execution requires its own current binding.
+
+The applied core matches the reviewed prospective bytes, SHA-256
+`a28c808831e184887bd5f070abde9882f7846fbcbebe47737f38663f18738eb9`.
+All six repository regressions passed in 22.090 seconds: four serializer cases,
+the ordinary CLOSED-publication-cut lifecycle, and large-observation close with
+cuts before/after OBSERVED and after rollback. The latter two use simulated
+backends; their fixture recovery messages do not request another physical action.
+Touched Python compilation passed. These checks supplement the seven private
+publication tests and full original real-run validator; no image rebuild was
+needed for a JSON-only host change.
+
+| Preserved artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Final `live-result.json` | 38,437 | `015a5e8079a1ffc6a17132f39719c58f31f3f4d71244056129efac3402e88dfe` |
+| `live-state.json` | 61,237 | `ee98c09fb8b1f68a81f061fe1d818822e1cce4961bacf103914dec326bcfcf5d` |
+| Journal head | 276 | `411e4b6a8ed78002dd283cc3441e20f191ac4933bac8c26796e206c46c98fe1d` |
+| CLOSED record | 675 | `0298ce9f8c2ab04cc0c6ea2e36e12a8bc750bef4d8fef10aa18f6b0e2638c52e` |
+
+Execution output is private under
+`workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/f1-execution-20260912-1/`.
+The adjacent `terminal-publication-incident-20260912/` retains the used core/live
+sources, all original file receipts, reconstruction, exact finalizer, fault
+tests, source-bound review and publication result. Independent review receipt
+SHA-256 is `2a2980726e8b6438b689c5e228bedbbce8aa96414d408018fc400060474630d0`.
+
+## Historical READY1 abort and READY2 preparation
 
 The operator returned READY1's exact F1 approval with the required attendance
 and physical recovery context. Fresh execute D0 passed exact rooted FYG8 health
@@ -81,14 +203,15 @@ Repair, exact old-source reproduction and independent-review evidence are under
 the new static bundle is `h0-f1-binding-20260911-2/` beside it. Fresh preparation
 and reopening evidence are in `connected-preparation-20260912-1/`.
 Original prepared/result/execute-D0/guard-release/source and all four journal
-receipts still match. The new token binds the unchanged one-N/one-A,
-four-checkpoint observation and mandatory final Android health. It requires
-its separately returned exact approval before any candidate effect.
-A90 and S20+ received no commands; P386 native qualification remains unproved.
+receipts still match. The new token bound the unchanged one-N/one-A,
+four-checkpoint observation and mandatory final Android health. Candidate use
+required its separately returned exact approval, later received as recorded above.
+A90 and S20+ received no commands during preparation; P386 native qualification
+was then unproved. The later READY2 execution and close are recorded above.
 
-The previous P385 installation has returned to exact rooted FYG8 Android.
-The native candidate/code, ordinary F1 runner and common boundaries are
-unchanged. The native-baseline owner's final Android-health consumer is repaired
+The previous P385 installation returned to exact rooted FYG8 Android.
+The native candidate/code, ordinary F1 runner and common boundaries were
+unchanged during that exit. The native-baseline owner's final Android-health consumer was repaired
 as described below. Starting D0 and both historical STOP results stay strict.
 
 ## Android exit, health incident and closure
@@ -243,8 +366,9 @@ registry preflight all passed. D0 result SHA-256 is
 `f4f4654b080c14b8d0c8034a8621e4ad19ae682abdb596e544e8f0d2f8f1945c`
 (3,265 bytes). The execution closure remains
 `687abce17c1bad5993c762a028ea634c615bbd37b61a1796768eb8166e374600`.
-The candidate is unconsumed, no F1 owner exists, and all device-write, reboot,
-Odin, partition-transfer and F1-authorization flags remain false.
+At that preparation stage the candidate was unconsumed, no F1 owner existed,
+and all device-write, reboot, Odin, partition-transfer and F1-authorization
+flags were false.
 
 The private prepared run is
 `workspace/private/runs/device-action-f1-live-v2/p386-ready1-prepared-20260911-1/`.
@@ -326,11 +450,11 @@ P386's execution closure does not include the repaired native-baseline owner.
 The actual offline `--validate` consumer passed again after the repair; its
 52,909-byte output is byte-identical to the prior preparation result, SHA-256
 `6a404bcfc6454e8630e402f4e9965a1f937ebe764eff7c1d9467117f3f0b55ee`.
-The new READY2 manifest and completed connected preparation above are the
-prospective ordinary F1 inputs; the new separately returned ordinary F1 approval
-remains pending. READY1's approval ended with its pre-candidate abort. The stopped
-P385 grant is consumed and cannot authorize the next
+The later READY2 manifest and connected preparation became the inputs for the
+separately approved execution recorded above. Its thirty-minute authenticated
+observation, exact Android return and healthy close are complete. READY1's
+approval ended with its pre-candidate abort. The stopped P385 grant is consumed
+and cannot authorize the next
 experiment under [native baseline V1](../operations/S22PLUS_NATIVE_BASELINE_V1.md#native-terminal-and-android-fallback).
-Actual thirty-minute operation,
-sensor exposure, physical pixels, continuous service and stall recovery remain
-unproved. A90 and S20+ received no commands.
+CPU temperature, physical pixels, continuous service between samples and stall
+recovery remain unproved. A90 and S20+ received no commands.

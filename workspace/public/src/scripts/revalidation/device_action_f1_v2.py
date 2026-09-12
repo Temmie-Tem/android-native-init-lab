@@ -3652,13 +3652,13 @@ def _write_exclusive(path: Path, value: Any) -> None:
     _write_exclusive_bounded(path, value, MAX_RECORD)
 
 
-def _write_atomic_bounded(path: Path, value: Any, limit: int) -> None:
+def _write_atomic_bounded(path: Path, value: Any, limit: int, *, compact: bool = False) -> None:
     if path.is_symlink():
         raise F1V2Error("durable head cannot be a symlink")
     temporary = path.with_name(
         f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp"
     )
-    _write_exclusive_bounded(temporary, value, limit)
+    _write_exclusive_bounded(temporary, value, limit, compact=compact)
     os.replace(temporary, path)
     _fsync_dir(path.parent)
 
@@ -3668,10 +3668,10 @@ def _write_atomic(path: Path, value: Any) -> None:
 
 
 def _write_live_result(path: Path, value: Any) -> None:
-    """Publish only the canonical terminal result under the 64 KiB bound."""
+    """Publish the compact canonical terminal result under the same 64 KiB bound."""
     if path.name != "live-result.json":
         raise F1V2Error("extended durable bound is limited to live-result.json")
-    _write_atomic_bounded(path, value, MAX_RESULT_RECORD)
+    _write_atomic_bounded(path, value, MAX_RESULT_RECORD, compact=True)
 
 
 def _record_hash(record: dict[str, Any]) -> str:
