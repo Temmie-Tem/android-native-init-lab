@@ -257,3 +257,68 @@ A first post-close host summary included the full admission object and exceeded
 the existing record bound. Its failure log is preserved; the bounded summary
 uses the admission receipt instead. No original run record, grant, command,
 transfer, observation or device transition was changed or repeated.
+
+## Checklist applicability audit (2026-09-13)
+
+**The extra TRDY precondition was detectable before F1.** The live value `8`
+and the actual hardware's sensor VALID/temperature state could not be inferred
+from H0, but the mismatch between P390 and the source-selected FYG8 getter was
+already visible in the retained source. Address `0xe4` and bit 0 were correctly
+copied from the register definition. The missed step was checking whether the
+selected v2 reading operation actually requires that field before reading
+temperature. Its getter instead uses the per-sensor VALID field. This was an
+implementation and review omission, not an inherently hardware-only problem.
+
+The pre-P390 [checklist](../operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md)
+already covered target field semantics, separation of probe/binding/read,
+actual producer/consumer paths, and tests that conceal missing real behavior.
+Those principles applied here. The absence of a named TRDY example did not make
+the issue outside its scope. The update clarifies existing IDs rather than
+adding a new approval, independent execution gate or repeated blanket test.
+
+| Existing ID | Application gap and correction |
+| --- | --- |
+| ABI | Register location and bit meaning were checked, but compatible-to-variant/ops/getter selection was not followed through to the field's actual use. A defined field is not automatically a required precondition. |
+| SEMANTIC | Failure-stage retention improved and exposed the P390 stop, but the extra readiness predicate was not compared with the selected getter. Cross readiness and per-sensor validity inputs and check the intended operation, including unjustified early rejection. |
+| ROUTE | OF facts came independently from the four stock merged DTBs; MMIO state and acceptance expectations did not. Identify the provenance of each fixture dimension and compare disputed conditions with the actual source-selected consumer. |
+| PERSIST | The actual request/terminal writers had been exercised, but the new post-close summary included the entire admission object. Apply the existing actual-object writer/readback check to that summary too and reference preserved large objects by receipt. This was another application miss of an existing rule. |
+
+The initial positive MMIO fixture in
+`tests/s22plus_thermal_v2_kernel_main.c` sets TRDY to 1 and all temperature
+VALID bits to 1. Its existing `not-ready` scenario clears TRDY while leaving
+those VALID bits set. The test in `test_s22plus_native_thermal_v2.py` accepts the
+provider's unavailable record through the parser; it does not compare that
+early rejection with the FYG8 getter. Thus the test already had an informative
+input but accepted the implementation's own assumption. C execution, ARM64
+IPC checks, A/B identity and many passing cases did not establish that this
+extra hardware precondition was justified.
+
+The same readiness assumption also appears in the shared `core.inc.h` validator
+and the host thermal observer. Their agreement with the provider is not an
+independent check of that assumption. A future successor must qualify consistent
+producer/consumer semantics; deleting only the provider's branch would still
+leave those validators rejecting a valid sample with TRDY clear.
+
+A bounded H0 comparison now compiles the unchanged generated P390 provider and
+the exact retained `get_temp_tsens_valid` function with modeled register/VALID
+access. The reference temperature accessor is a counting stub; this experiment
+tests control flow, not thermometric conversion, target ABI or live hardware.
+
+| Modeled TRDY | Modeled sensor VALID | P390 selected status reads | Reference getter temperature-access calls for one sensor |
+| ---: | ---: | ---: | ---: |
+| 1 | 1 | 16 | 1 |
+| 0 | 1 | 0 | 1 |
+| 8 | 1 | 0 | 1 |
+
+The reference getter makes zero TRDY reads in all three cases. The comparison
+would have exposed the extra condition before F1. Its private sources, build
+commands and results are under
+`workspace/private/outputs/s22plus-p390-checklist-audit-20260913-1/`.
+The future bounded reader should also be checked against the opposite input
+combination, ready but VALID clear, without copying the reference driver's
+unbounded wait. Those prospective acceptance checks do not change the consumed
+P390 implementation or promote its unread status words to measurements.
+
+Only the reference checklist and this assessment are updated in this unit;
+the 207 consumed execution inputs, capability receipt, artifacts and run records
+retain their bytes. No device contact or new approval request was made.
