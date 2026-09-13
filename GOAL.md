@@ -13,6 +13,32 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**The requested resident D0 checkpoint stopped with
+`NO_PROOF_NATIVE_RESPONSE_UNRESOLVED`; local display and system sampling
+continue by operator observation.** At 2026-09-14 01:22:44 KST the exact guarded
+native tty accepted one valid 32-byte OPEN from the host. No response arrived
+in approximately 59 seconds: retained RX is zero bytes, with no AUTH, EXEC,
+CONTROL or DETACH. The aggregate capture lasted 60.465 seconds. Both current
+ModemManager protection flags and the owner-only tty-holder check passed;
+the guard released. No reboot, image transfer, recovery or native retry followed.
+
+The operator's photo shows `v0.2.0-rc.5`, uptime **18:49:06**, `SYSTEM: FRESH`,
+`SENSORS: FRESH`, system sample sequence **67,676** and sensor sequence **67,262**.
+The operator explicitly confirmed that UPTIME and SYSTEM SAMPLE keep advancing.
+This supports current local monitoring/display activity and long-duration
+resident operation. The USB response failure does not establish device-wide
+stoppage; its cause and complete interval health remain unproved. Current boot
+identity and health were not authenticated through the USB observer.
+
+The historical P391 terminal is unchanged. Its new explicit D0 successor
+intent is consumed, so the old native predecessor cannot start another F1
+operation. This failed checkpoint is not a healthy replacement terminal.
+New native effects remain stopped; H0 communication diagnosis may continue.
+See the [D0 checkpoint and operator-observation report](docs/reports/S22PLUS_NATIVE_RESIDENT_D0_2026-09-14.md).
+A90 and S20+ received no command.
+
+## Previously qualified deferred physical capability
+
 **S22+ deferred physical native-baseline mode is H0-qualified with current
 source-bound independent `PASS_GO` and activated capability receipts.** The
 operator-requested [policy change](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md)
@@ -24,9 +50,10 @@ recovery. Existing absent-mode grants remain attended, and consumed runs remain
 consumed. See the [H0 change report](docs/reports/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_H0_2026-09-13.md).
 No new candidate, request, grant or device action is part of this policy work.
 All 26 selected tests passed; retained P391/P387 proof still rederives. The
-capability is ready for a future exact mode-bound grant, not already granted.
+capability definition does not grant a trial or resolve the later native D0
+communication stop.
 
-## Latest closed P391 experiment
+## Earlier closed P391 experiment
 
 **P391 N -> E -> N is closed with `PASS_P391_N_E_N_NATIVE_CLOSED`;
 CPU, GPU, DDR-region and board battery temperatures are observed.** One P391
@@ -47,9 +74,9 @@ The final zero placeholder is not a temperature or proof of a persistent sensor
 failure. Why VALID cleared at that later read remains unproved. DDR-region is
 not RAM-die temperature.
 
-The current healthy native snapshot is restored **P387 / v0.2.0-rc.5**, with
-its 121 native inputs and original temperature limitations unchanged. The latest
-terminal is the closed P391 operation, SHA-256
+At that close, the healthy native snapshot was restored **P387 / v0.2.0-rc.5**,
+with its 121 native inputs and original temperature limitations unchanged.
+That operation terminal has SHA-256
 `3baf937274fcf3965956dfa7bc4384296dcc6819dd928a7dd623d9ccdac3ecaf`;
 the earlier P390 terminal's successor is consumed. The actual terminal,
 experiment-outcome and admission readers rederive. Native close is past health
