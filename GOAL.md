@@ -30,6 +30,13 @@ resident operation. The USB response failure does not establish device-wide
 stoppage; its cause and complete interval health remain unproved. Current boot
 identity and health were not authenticated through the USB observer.
 
+H0 follow-up found a matching native USB disconnect/re-enumeration at
+**2026-09-13 16:32:22–24 KST**. The source retains one tty handle and treats
+pre-OPEN EOF/EIO as peer absence while continuing local service. The inspected
+kernel's tty hangup behavior makes an unreopened hung-up handle the leading
+explanation. This is a source-backed hypothesis, not a live handle trace or
+proof of the disconnect cause. No device action followed this diagnosis.
+
 The historical P391 terminal is unchanged. Its new explicit D0 successor
 intent is consumed, so the old native predecessor cannot start another F1
 operation. This failed checkpoint is not a healthy replacement terminal.

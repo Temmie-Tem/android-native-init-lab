@@ -76,6 +76,44 @@ releasing the host guard, and the process exited. Guard release succeeded. There
 normal native DETACH/close receipt and no healthy native terminal. These host
 cleanup facts do not establish native responsiveness or the cause of silence.
 
+## H0 follow-up: USB disconnect and retained tty handle
+
+Host kernel history records the selected native USB connection disconnecting
+at **2026-09-13 16:32:22.262539 KST**, then enumerating again approximately
+two seconds later. The new USB identity matches the retained P387 selector.
+The reason for that disconnect is unknown; no cable, controller, host or
+power cause is assigned from this log alone.
+
+The unchanged P387 source provides a mechanism matching the later symptoms.
+The resident entry loops on the same `tty_fd`; it does not close/reopen that
+handle after disconnection. Before any OPEN byte is consumed, the read helper
+maps EOF, EIO, ENODEV and EPIPE into an absent-peer wait. Each read loop still
+calls local service, so monitoring and display can advance while this path
+remains at `WAITING FOR AUTH`.
+
+In the inspected FYG8 research kernel tree, ACM disable/data-interface reset
+calls `gserial_disconnect`, which hangs up an open gadget tty. The tty hangup
+handler replaces existing open-file operations with the hung-up operations:
+reads return EOF and writes return EIO. Reconnecting the USB function does
+not itself restore that old file handle. A bounded host-owned Linux PTY check
+also reproduced persistent EOF/read and EIO/write on a retained hung-up
+handle; it did not exercise the Samsung gadget or observe the live device.
+
+**The leading source-backed explanation is an unrecovered device tty handle
+after the recorded USB disconnect.** It explains ongoing local sampling and
+HUD updates together with no USB response. Independent review agrees with
+this mechanism and its limits. The host log is not a device-side callback or
+file-operation trace; the inspected kernel tree alone is not proof of every
+byte of the running kernel. The actual device handle state and final cause
+remain unproved. Other communication failures can also leave local services
+running. This diagnosis neither changes the raw result nor authorizes a
+handle reopen, another OPEN, a reboot or recovery.
+
+The private H0 evidence is retained under
+`workspace/private/outputs/s22plus-native-usb-liveness-h0-20260914-1/`.
+No device command, host tty event, firmware build or execution-source edit
+was performed for this follow-up.
+
 ## Retention, validation and continuation
 
 The final private evidence group is
