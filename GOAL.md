@@ -13,6 +13,24 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**The operator-approved proportional research amendment is implemented and
+H0-qualified with independent `PASS_GO`; all 46 selected tests pass.** Revision
+11 updates the common contract and S22+ contract together. One finite scope can
+admit spontaneous in-scope candidates without per-candidate human approval,
+with reviewed read-only reobservation, prospective healthy-N-return repeats,
+and explicitly selected attended or deferred physical recovery. Earlier
+consumed images and grants retain their meanings. See the
+[policy](docs/operations/S22PLUS_PROPORTIONAL_RESEARCH_V1.md) and
+[H0 report](docs/reports/S22PLUS_PROPORTIONAL_RESEARCH_H0_2026-09-14.md).
+
+The actual P391 terminal, P387 admission and all 121 P387 native inputs still
+rederive unchanged. The old D0 stop can be read by the new exact-evidence
+importer, but remains unresolved. No new grant, candidate build or physical
+device action occurred during the amendment. Capability qualification does
+not prove current USB response or authorize a new experiment by itself.
+
+## Current device observation
+
 **The requested resident D0 checkpoint stopped with
 `NO_PROOF_NATIVE_RESPONSE_UNRESOLVED`; local display and system sampling
 continue by operator observation.** At 2026-09-14 01:22:44 KST the exact guarded
@@ -40,7 +58,9 @@ proof of the disconnect cause. No device action followed this diagnosis.
 The historical P391 terminal is unchanged. Its new explicit D0 successor
 intent is consumed, so the old native predecessor cannot start another F1
 operation. This failed checkpoint is not a healthy replacement terminal.
-New native effects remain stopped; H0 communication diagnosis may continue.
+New state-changing native effects remain stopped. The reviewed fixed D0 path
+can now make a fresh bounded observation under the foreground research task;
+H0 communication diagnosis may also continue. No such new observation has run.
 See the [D0 checkpoint and operator-observation report](docs/reports/S22PLUS_NATIVE_RESIDENT_D0_2026-09-14.md).
 A90 and S20+ received no command.
 

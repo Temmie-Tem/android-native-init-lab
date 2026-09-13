@@ -49,6 +49,7 @@ DEFERRED_POLICY = 'docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.
 DEFERRED_REVIEW = Path('workspace/public/src/device-action/bindings/s22plus_native_baseline_deferred_recovery_v1_review.json')
 DEFERRED_LIMITS = dict(reservations=1, seconds=600, operations=['experiment'], origin='native')
 DEFERRED_STOP = 'deferred-recovery.json'
+RESEARCH_MODE = 'proportional-research-v1'
 V2_LIMITS = dict(reservations=3, seconds=600, native_authentications=2**64-1, native_boot_ms=None,
                  android_transfers_per_operation=1)
 PHASES = {'bootstrap-first':'pair-control', 'native-start':'control', 'native-final':'pair-detach',
@@ -135,24 +136,42 @@ def deferred(request):
     return request.get('execution_mode') == DEFERRED_MODE
 
 
+def research(request):
+    return request.get('execution_mode') == RESEARCH_MODE
+
+
+def research_owner():
+    import s22plus_native_research_scope_v1
+    return s22plus_native_research_scope_v1
+
+
+def parks_on_failure(request):
+    return deferred(request) or research(request) and not request['physical_attendance_required']
+
+
 def validate_mode(request):
     if 'execution_mode' not in request: return
+    if research(request):
+        research_owner().validate_child_shape(request)
+        return
     require(v2(request) and deferred(request) and request['operations'] == ['experiment']
             and type(request['reservations']) is int and request['reservations'] == 1,
             'deferred physical mode requires one exact V2 experiment')
 
 
 def require_attendance(request, attended):
-    require(type(attended) is bool and (attended or deferred(request)),
+    require(type(attended) is bool and (attended or parks_on_failure(request)),
             'actual current operator attendance is required for this mode')
 
 
 def request_review(root, request):
+    if research(request): return research_owner().reviewed(root)
     return reviewed(root, policy=V2_POLICY, execution_mode=DEFERRED_MODE) if deferred(request) else (
         reviewed(root, policy=V2_POLICY) if v2(request) else reviewed(root))
 
 
 def request_base(request):
+    if research(request): return research_owner().BASE
     return V2_BASE if v2(request) else BASE
 
 
@@ -174,6 +193,8 @@ def phase_closure(operation, phase):
 
 def recovery_closure(live, root, request=None):
     """A recovery reads host/target authority, never native build inputs."""
+    if request is not None and research(request):
+        return research_owner().recovery_closure(live, root)
     common = live._closure(root)
     scripts = Path(__file__).parent
     paths = [scripts/(name+'.py') for name in (
@@ -297,17 +318,23 @@ def prepare_request(live, root, output, *, manifest, target_file, operations, re
 
 
 def request_value(live, root, bundle, *, target, manifest_receipt, review_receipt, operations, reservations, seconds,
-                  closure=None, policy=None, experiment=None, execution_mode=None):
+                  closure=None, policy=None, experiment=None, execution_mode=None,
+                  research_scope=None, native_binding=None):
     """One request layout for real preparation and actual-size H0 serialization."""
     value = dict(schema=SCHEMA, kind='request', target=target, manifest=manifest_receipt,
         bundle=bundle_snapshot(bundle), review=review_receipt, closure=live._closure(root, bundle) if closure is None else closure,
-        native=native_identity(bundle), android=roundtrip.android_identity(bundle),
+        native=native_identity(bundle) if native_binding is None else native_binding, android=roundtrip.android_identity(bundle),
         operations=operations, reservations=reservations, seconds=seconds,
         physical_attendance_required=True, recovery='one-exact-android', live_authorized=False)
     if policy is not None:
         require(policy == V2_POLICY, 'unknown baseline request policy')
         value.update(policy=policy, experiment=experiment)
-    if execution_mode is not None:
+    require((native_binding is None and research_scope is None) or execution_mode == RESEARCH_MODE,
+            'retained native identity requires the proportional research owner')
+    if execution_mode == RESEARCH_MODE:
+        value.update(execution_mode=execution_mode, research_scope=research_scope)
+        research_owner().configure_child(root, value)
+    elif execution_mode is not None:
         value.update(execution_mode=execution_mode, physical_attendance_required=False,
                      recovery='deferred-attended-one-exact-android')
     validate_mode(value)
@@ -346,20 +373,25 @@ def load_request(live, root, path, *, current=False):
     core._exact(value, {'schema','kind','target','manifest','bundle','review','closure','native','android',
         'operations','reservations','seconds','physical_attendance_required','recovery','live_authorized'}
         | ({'policy','experiment','recovery_closure'} if v2(value) else set())
-        | ({'execution_mode'} if 'execution_mode' in value else set()), 'baseline request')
+        | ({'execution_mode'} if 'execution_mode' in value else set())
+        | ({'research_scope'} if research(value) else set()), 'baseline request')
     validate_mode(value)
     require(value['schema'] == SCHEMA and value['kind'] == 'request' and value['live_authorized'] is False
-            and value['physical_attendance_required'] is (not deferred(value))
-            and value['recovery'] == ('deferred-attended-one-exact-android' if deferred(value) else 'one-exact-android'),
+            and type(value['physical_attendance_required']) is bool
+            and (research(value) or value['physical_attendance_required'] is (not deferred(value)))
+            and value['recovery'] == ('deferred-attended-one-exact-android' if parks_on_failure(value) else 'one-exact-android'),
             'baseline request authority differs')
     require(type(value['reservations']) is int and 1 <= value['reservations'] <= LIMITS['reservations']
-            and type(value['seconds']) is int and 1 <= value['seconds'] <= LIMITS['seconds']
+            and type(value['seconds']) is int and 1 <= value['seconds'] <= (research_owner().MAX_SECONDS if research(value) else LIMITS['seconds'])
             and type(value['operations']) is list and 0 < len(value['operations']) <= len(allowed)
             and len(set(value['operations'])) == len(value['operations'])
             and all(x in allowed for x in value['operations']), 'baseline request limits differ')
     core._exact(value['target'], {'serial','topology'}, 'baseline request target')
     bundle = snapshot_bundle(value['bundle'])
     validate_native_roles(value)
+    if research(value):
+        research_owner().validate_child(live, root, path, value, receipt, current=current)
+        return value, receipt, bundle
     if current:
         authority = request_review(root,value)
         require(same(authority, value['review']), 'baseline request review changed')
@@ -381,6 +413,7 @@ def open_grant(live, root, request, approval, *, attended):
     with registry.target_session_lease(root):
         registry.require_no_f1_owner(root)
         value, receipt, _ = load_request(live, root, request, current=True)
+        require(not research(value), 'research children receive authority from their original scope grant')
         require_attendance(value, attended)
         require(type(approval) is str and approval == APPROVAL_PREFIX+receipt['sha256'],
                 'exact returned native-baseline approval required')
@@ -401,6 +434,9 @@ def load_grant(live, root, path, *, active=False):
         'started_boottime_ns','deadline_boottime_ns'}
         | ({'execution_mode'} if 'execution_mode' in grant else set()), 'baseline grant')
     request, request_receipt, bundle = load_request(live, root, path.parent/'request.json')
+    if research(request):
+        research_owner().validate_child_grant(live, root, path, grant, request, request_receipt, active=active)
+        return grant, receipt, request, bundle
     require(('execution_mode' in grant) is deferred(request)
             and (not deferred(request) or grant['execution_mode'] == DEFERRED_MODE), 'baseline grant mode differs')
     require_attendance(request, grant['attended'])
@@ -514,7 +550,7 @@ def before_native_terminal(live, prepared, request, index, expiry):
             and type(index) is int and index in (1,2), 'baseline native request identity differs')
     info = request['baseline_info']
     if phase == 'native-start':
-        previous = native_terminal(live, operation.root, verify_pin(operation.root, operation.value['prior_native']).parent)
+        previous = previous_native(live, operation.root, verify_pin(operation.root, operation.value['prior_native']), operation.request)
         row = previous['proof']['sessions'][-1]
         protocol.fresh_same_boot(row, request, seen_nonce_hashes=previous['seen_nonce_hashes'])
         require(index == 1 and (expiry is None and previous['native_expiry_boottime_ns'] is None if v2(operation.request)
@@ -585,15 +621,15 @@ def role_intent(live, operation, prepared, endpoint, kind):
                 and same(roundtrip.android_identity(operation.bundle),operation.request['android']),
                 'baseline exact A recovery source/artifact changed')
     else:
-        require(same(live._closure(operation.root, prepared.bundle), phase_closure(operation,name)),
+        expected_closure = (research_owner().execution_closure(live, operation.root, prepared.bundle, phase_native(operation, name))
+                            if research(operation.request) else live._closure(operation.root, prepared.bundle))
+        require(same(expected_closure, phase_closure(operation,name)),
                 'baseline execution closure changed at transfer')
     if native:
-        require(same(native_identity(prepared.bundle), phase_native(operation,name)), 'native role image sources changed')
+        if research(operation.request): research_owner().validate_phase(live, operation, prepared)
+        else: require(same(native_identity(prepared.bundle), phase_native(operation,name)), 'native role image sources changed')
         if operation.value['operation'] == 'bootstrap' or name == 'experiment':
-            identity = live._bound_candidate_registry_identity(primary_prepared(live, operation))
-            claim = registry.active_claim(operation.root, identity['candidate_key'])
-            require(claim is not None and all(claim.get(k) == v for k,v in identity.items() if k != 'schema'),
-                    'original native installation claim is missing')
+            installation_claim(live, operation)
         else:
             admission(live, operation.root, operation.request['native'], target=operation.request['target'])
         if name == 'bootstrap-first':
@@ -789,11 +825,24 @@ def experiment_outcome(live, operation):
             and proof['kernel_boot_identity_sha256'] != start['kernel_boot_identity_sha256']
             and not {r['nonce_sha256'] for r in proof['sessions']} & {r['nonce_sha256'] for r in start['sessions']},
             'declared experiment health workload or new boot is unproved')
-    identity = live._bound_candidate_registry_identity(primary_prepared(live,operation))
-    claim = registry.active_claim(operation.root,identity['candidate_key'])
-    require(claim is not None and all(claim.get(k) == v for k,v in identity.items() if k != 'schema'),
-            'experiment global content claim changed')
+    installation_claim(live, operation)
     return proof
+
+
+def installation_claim(live, operation):
+    if research(operation.request): return research_owner().installation_claim(live, operation)
+    identity = live._bound_candidate_registry_identity(primary_prepared(live, operation))
+    claim = registry.active_claim(operation.root, identity['candidate_key'])
+    require(claim is not None and all(claim.get(k) == v for k, v in identity.items() if k != 'schema'),
+            'original native installation claim is missing')
+    return claim
+
+
+def previous_native(live, root, path, request):
+    """Only the new mode admits a validated standalone observation tail."""
+    if research(request):
+        return research_owner().previous_native(live, root, Path(path))
+    return native_terminal(live, root, Path(path).parent)
 
 
 @read_transaction
@@ -939,7 +988,7 @@ def reserve(live, root, grant_path, operation_name, origin, prior_native=None):
     if prior_native is not None:
         prior_path = direct(root, prior_native)
         require(prior_path.name == 'terminal.json', 'native start needs its exact previous terminal')
-        prior_value = native_terminal(live, root, prior_path.parent)
+        prior_value = previous_native(live, root, prior_path, request)
         require(same(prior_value['native'], request['native'])
                 and same(prior_value['target'], request['target'])
                 and prior_value['host_boot_sha256'] == host_epoch()
@@ -962,7 +1011,9 @@ def reserve(live, root, grant_path, operation_name, origin, prior_native=None):
         # for the healthy N terminal. The atomic claim still occurs at dispatch.
         candidate = live.PreparedRun(root,grant_path.parent,snapshot_bundle(request['experiment']['bundle']),
             dict(approval_binding_sha256=gp['sha256']),dict(schema=live.PRIVATE_TARGET_SCHEMA,**request['target']))
-        registry.preflight_candidate(root,live._candidate_registry_identity(candidate))
+        if research(request): research_owner().candidate_preflight(live, root, request, candidate)
+        else: registry.preflight_candidate(root,live._candidate_registry_identity(candidate))
+    if research(request): research_owner().before_operation(live, root, grant_path)
     value = dict(schema=SCHEMA, kind='operation', grant=gp, ordinal=ordinal,
         operation=operation_name, origin=origin, prior_native=prior)
     publish(grant_path.parent/f'{ordinal:02d}-reserved.json', value)
@@ -1072,7 +1123,8 @@ def transfer(live, operation, backend, prepared, endpoint_dir, lease, kind):
     if native and prepared.native_baseline_context['phase'] in ('bootstrap-first','experiment'):
         primary = primary_prepared(live, operation)
         identity = live._candidate_registry_identity(primary)
-        live._claim_candidate_global(primary, identity)
+        if research(operation.request): research_owner().claim_candidate(live, operation, primary, identity)
+        else: live._claim_candidate_global(primary, identity)
     prefix = kind+'-attempt-01'
     intent = publish(prepared.run_dir/(prefix+'.start.json'), role_intent(live, operation, prepared, endpoint, kind))
     journal(operation, prepared.native_baseline_context['phase']+'-transfer-intent', intent=intent)
@@ -1139,6 +1191,7 @@ def finish(live, operation):
         require(same(read(operation.directory/'completed.json')[0], record), 'baseline completion changed')
     else: publish(operation.directory/'completed.json', record)
     registry.retire_f1_owner(operation.root, operation.directory, operation.binding)
+    if research(operation.request): research_owner().complete_operation(live, operation, terminal)
     if operation.value['ordinal'] == operation.request['reservations']:
         path = operation.directory.parent/'closed.json'
         if not os.path.lexists(path): publish(path, dict(schema=SCHEMA, reason='reservation-budget-exhausted', operation=operation.receipt))
@@ -1176,7 +1229,9 @@ def ensure_lane(live, operation, backend):
             prior = admitted['qualification']
         if prior is not None:
             previous_path = verify_pin(operation.root, prior)
-            previous, _ = read(previous_path.parent/live.P324_TYPEC_LANE_NAME)
+            previous_dir = (research_owner().previous_lane_directory(live, operation.root, previous_path)
+                            if research(operation.request) else previous_path.parent)
+            previous, _ = read(previous_dir/live.P324_TYPEC_LANE_NAME)
             live.p324_typec_lane.revalidate_binding(previous, source_topology=operation.request['target']['topology'],
                 usb_root=backend.usb_root, typec_root=backend.typec_root)
             publish(path, previous)
@@ -1233,7 +1288,8 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
             ensure_lane(live, operation, backend)
             if operation_name in ('bootstrap','experiment'):
                 primary = primary_prepared(live, operation)
-                registry.preflight_candidate(root, live._candidate_registry_identity(primary))
+                if research(operation.request): research_owner().candidate_preflight(live, root, operation.request, primary)
+                else: registry.preflight_candidate(root, live._candidate_registry_identity(primary))
             if origin == 'android':
                 first = phase_prepared(live, operation, 'android-start', create=True)
                 collect_android(live, operation, backend, first)
@@ -1281,8 +1337,8 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
             repaired = repair_native_terminal(live, operation)
             if repaired is not None: return repaired
             stop(operation, type(error).__name__)
-            if deferred(operation.request):
-                record = dict(schema=SCHEMA, state='PARKED', execution_mode=DEFERRED_MODE,
+            if parks_on_failure(operation.request):
+                record = dict(schema=SCHEMA, state='PARKED', execution_mode=operation.request['execution_mode'],
                     operation=operation.receipt, recovery_required=True, native_replay_forbidden=True,
                     attendance_required_for_recovery=True, device_activity='UNKNOWN',
                     failure_type=type(error).__name__)
@@ -1303,9 +1359,9 @@ def execute(live, root, grant, operation_name, origin, *, prior_native=None, att
 def operation_status(live, operation):
     """H0 only. Missing terminal cannot establish a stopped process or device."""
     if os.path.lexists(operation.directory/'terminal.json'): return validate_terminal(live, operation)
-    if not deferred(operation.request): return dict(state='UNFINISHED')
+    if not parks_on_failure(operation.request): return dict(state='UNFINISHED')
     stopped = os.path.lexists(operation.directory/STOP)
-    return dict(state='PARKED' if stopped else 'UNRESOLVED', execution_mode=DEFERRED_MODE,
+    return dict(state='PARKED' if stopped else 'UNRESOLVED', execution_mode=operation.request['execution_mode'],
         operation=operation.receipt, terminal_proof_absent=True, research_stop_recorded=stopped,
         recovery_required=True, attendance_required_for_recovery=True, native_replay_forbidden=True,
         device_activity='UNKNOWN', process_activity='UNKNOWN',

@@ -1,6 +1,60 @@
 {
-  "activation": "deferred-physical-v1",
+  "activation": "proportional-research-v1",
+  "constraints": {
+    "boot_only": true,
+    "deferred_physical_recovery": true,
+    "functional_change_review": "independent-byte-bound-v1",
+    "legacy_repeat_adoption": false,
+    "mutable_inputs": [
+      "workspace/public/src/native-init/s22plus_resident_v1/collect.inc.c.in",
+      "workspace/public/src/native-init/s22plus_resident_v1/render.inc.c.in"
+    ],
+    "native_observation_seconds": 60,
+    "operations": [
+      "observe",
+      "experiment",
+      "restore",
+      "android-exit"
+    ],
+    "profiles": [
+      "resident-v1",
+      "thermal-v3"
+    ],
+    "prospective_repeats": true,
+    "target": "SM-S906N/g0q/S906NKSS7FYG8"
+  },
   "current_sources": {
+    "selected_authority": {
+      "inputs": {
+        "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md": {
+          "path": "docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md",
+          "sha256": "6645fe544b0b16ff6bbc1f730557b371dd1494dd4a0e1120eaed052af03f519e",
+          "size": 44074
+        },
+        "docs/operations/DEVICE_ACTION_RISK_TIERS.md": {
+          "path": "docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+          "sha256": "ddd37a822600828eb7873a924aa156c27a86a0a1c2e9f1bdde71e3a92b95c752",
+          "size": 29738
+        },
+        "docs/operations/S22PLUS_PROPORTIONAL_RESEARCH_V1.md": {
+          "path": "docs/operations/S22PLUS_PROPORTIONAL_RESEARCH_V1.md",
+          "sha256": "f53825365303a07fb2564be431a85e9b435ae71782aff0f2b7c0f5a6afaa6993",
+          "size": 10693
+        },
+        "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md": {
+          "path": "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
+          "sha256": "505f645a8de6eb09c8bc0d6abab39896815b4004519074dfc0f7acfa75d7278c",
+          "size": 140606
+        },
+        "workspace/public/src/device-action/profiles/s22plus_fyg8.json": {
+          "path": "workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+          "sha256": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+          "size": 2285
+        }
+      },
+      "root_selected_sha256": "8b55eed24513cc5fec53d54228be392148117bf9f8164deaa8f4cc7f1de80480",
+      "schema": "s22plus-selected-authority-v1"
+    },
     "source_018b578ce62bce88": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_native_usb_departure_v1.py",
       "sha256": "6d67551508e5de8eba292133a455e7beb66454b177ef83bf3c5e8b1de47e8531",
@@ -20,11 +74,6 @@
       "path": "workspace/public/src/native-init/s22plus_thermal_v2/provider-probe.inc.c.in",
       "sha256": "2489e4b519bb583de933c8155d323e0e6a91494e899f6c8766337a41b11e43e6",
       "size": 1746
-    },
-    "source_04ec23b75072a713": {
-      "path": "workspace/public/src/native-init/s22plus_resident_v1/collect.inc.c.in",
-      "sha256": "debe216e9d22f91bd43f412b08e287c61a2353ed136a50a4b00cb5ebe38d2743",
-      "size": 5134
     },
     "source_05c23f2435dddb7c": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p334_artifact_identity.py",
@@ -656,11 +705,6 @@
       "sha256": "e1e8499f1d5227dae862ccaf2d2f5a5a9aeb437f83c5733ac147ba8ccaaacbd5",
       "size": 17383
     },
-    "source_9836a284901fe95c": {
-      "path": "docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md",
-      "sha256": "6f67b4db753f5e91c226337ea3ba291affab750a3832a022a1c3c19d3f3ece16",
-      "size": 6819
-    },
     "source_99d2822cc47d4c75": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p322_artifact_identity.py",
       "sha256": "8e77653fa23f47f48980fb2eae906118239e53e763d4e9643be27a71b0749975",
@@ -715,11 +759,6 @@
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p324_artifact_identity.py",
       "sha256": "a572846e7bd8c725e9449aaa07dbd22d6cb278015301a6b9a63f59bf08b8e4c6",
       "size": 10839
-    },
-    "source_a54ff182c7e8acf5": {
-      "path": "AGENTS.md",
-      "sha256": "b256a42c6108126500adfcbea5d9f6da88301f4f950cbba9e14af14316c9cb87",
-      "size": 20810
     },
     "source_a6725fd1537591ba": {
       "path": "workspace/public/src/native-init/s22plus_resident_v1/wire.h",
@@ -836,10 +875,20 @@
       "sha256": "d28469532b58a500766c3524c09114d77e6745056611fb8844fcf4e583c6181c",
       "size": 1022
     },
+    "source_c67a7d4c26ea38ce": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_reobservation_v1.py",
+      "sha256": "a903672fefff2b0553516359119ad4def0f1d91bdcab1b333c52c5703360b87c",
+      "size": 28302
+    },
     "source_c721d575865bccea": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p368_return_spec.py",
       "sha256": "7393edcb1ab5c49ba7fc89231585d39f914c313dd2adb84d2e6e2c09f8a7c1e0",
       "size": 136
+    },
+    "source_c772f444755712e9": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_research_scope_v1.py",
+      "sha256": "72a309c41c6e7a5ed15aed326d0ad6bb5381f6ef73a5e41c7e5f10e861b177fd",
+      "size": 46243
     },
     "source_c9ff06642846e247": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p382_namespace.py",
@@ -925,11 +974,6 @@
       "path": "workspace/public/src/scripts/revalidation/device_action_usb_trace_sidecar_v1.py",
       "sha256": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
       "size": 18137
-    },
-    "source_dc71df5b780068e6": {
-      "path": "workspace/public/src/native-init/s22plus_resident_v1/render.inc.c.in",
-      "sha256": "eb8d5befb452e5bbb3a30b90554e090d0e83886bcc3c651e9b016946e44b8339",
-      "size": 5120
     },
     "source_dca7e46d0cb647c8": {
       "path": "workspace/public/src/kernel-modules/s22plus_max77705_telemetry_v3/Makefile",
@@ -1063,16 +1107,16 @@
     }
   },
   "findings": [],
-  "limits": {
-    "operations": [
-      "experiment"
-    ],
-    "origin": "native",
-    "reservations": 1,
-    "seconds": 600
+  "functional_reference_inputs": {
+    "workspace/public/src/native-init/s22plus_resident_v1/collect.inc.c.in": {
+      "sha256": "debe216e9d22f91bd43f412b08e287c61a2353ed136a50a4b00cb5ebe38d2743",
+      "size": 5134
+    },
+    "workspace/public/src/native-init/s22plus_resident_v1/render.inc.c.in": {
+      "sha256": "eb8d5befb452e5bbb3a30b90554e090d0e83886bcc3c651e9b016946e44b8339",
+      "size": 5120
+    }
   },
-  "previous_attended_review_sha256": "a0e870b62d1d4c5e7447583f0356c838b30b956d564ce667adc6237848a95d20",
-  "previous_review_sha256": "47258d26342028f577c12520aa1f179e817d14b1725b3ee8d2c9d24b6edcad7a",
   "qualification": {
     "capability_identity_tests": 5,
     "legacy_compatibility_tests": 26,
@@ -1089,9 +1133,9 @@
   "review_source_freeze_sha256": "d68deb97c8e4facb6ced25fbebc8fbabdf076a305fb562501a5d5da60272b7ed",
   "reviewed_at_utc": "2026-09-13T18:57:47.891997+00:00",
   "reviewer": "independent-agent-p386_terminal_review",
-  "schema": "s22plus-native-baseline-deferred-recovery-review-v1",
-  "scope": "Proportional-research shared-machinery change with unchanged legacy V2/deferred semantics",
+  "schema": "s22plus-proportional-research-capability-review-v1",
+  "scope": "Task scope, exact D0 reobservation, prospective repeats, source-effect assessment and original deferred A through the shared native owner",
   "source_set_encoding": "sorted compact JSON plus LF",
-  "source_set_sha256": "52407c58e4a2c30a7f867ac4952e0f89b81f6b7a7d746f3152d315951e4d2c51",
+  "source_set_sha256": "7d4a5301b17c153289875132b61a4821737edb4d06a960780fc1dc4f12b4e86a",
   "verdict": "PASS_GO"
 }

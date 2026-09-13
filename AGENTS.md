@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **10** (supersedes revision 9; 2026-09-13)
+Contract-Revision: **11** (supersedes revision 10; 2026-09-14)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`ba8431524c6b7f8c5363645c98d65ecf4cd0c714de3be1ade89d215862e85696`.
+`6645fe544b0b16ff6bbc1f730557b371dd1494dd4a0e1120eaed052af03f519e`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -65,6 +65,13 @@ its limits: continue autonomously where it delegates that authority; otherwise
 complete the smallest necessary H0 implementation/review/activation work first.
 Prefer reusable reviewed capabilities over experiment-by-experiment approval
 ceremonies. Do not introduce new gates or orchestration only to restate consent.
+
+An adopted task scope may bind target, allowed effects and changes, recovery
+and finite budgets once, then admit spontaneous in-scope candidates through
+fresh machine validation. Do not require a human approval for each new hash
+when that scope already grants the action. Fixed read-only reobservation may
+continue after a read failure through its reviewed profile; uncertain writes,
+transfers and control actions never gain replay authority from a later read.
 
 Request operator input only for missing information or authority that matters:
 a scope-changing persistent mutation, unavailable or uncertain recovery, an
@@ -115,10 +122,12 @@ Read an exception's complete conditions before considering it applicable.
 6. Target ambiguity, unexpected archive members, forbidden partition signals,
    changed artifacts, missing rollback, inconsistent journals, or lost physical
    recovery immediately stop new device effects.
-7. An unexplained device/session/transfer failure stops the experiment.
-   Preauthorized rollback resumes only from durable journal state;
-   candidate replay is forbidden. Any other continuation must already be
-   defined by the target contract and satisfy its predeclared proof conditions.
+7. An unexplained failure stops actions whose execution or required health is
+   uncertain. Preauthorized recovery follows durable journal state; an
+   uncertain write, transfer or control never replays. Reviewed target profiles
+   may permit bounded read-only reobservation and new prospective experiments
+   after proved closure/health. Old consumed actions and narrower legacy modes
+   retain their existing meaning.
 
 ## Permanent Repository and Evidence Boundaries
 
@@ -148,6 +157,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | F1 boot-only transfer | [Common F1 Invariants](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#common-f1-invariants), Process v2 and the selected target's actual process. |
 | Bounded attended F1 session | [Bounded Attended F1 Sessions](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#bounded-attended-f1-sessions); reviewed target/runner activation and a finite explicit grant; physical attendance remains required. |
 | Conditional unattended F1 | [Conditional Autonomous F1](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#conditional-autonomous-f1); actual failure-specific automatic recovery is required. |
+| Task-scoped S22+ research | [Proportional research V1](docs/operations/S22PLUS_PROPORTIONAL_RESEARCH_V1.md); one finite scope grant, spontaneous machine-bound candidates, bounded reobservation, prospective closed-health repeats and explicit attended/deferred recovery. |
 | S22+ deferred physical F1 | [Exact native-baseline exception](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md); one native-origin N/E/N experiment, finite exact grant, failure stop with later attended A recovery and unknown device activity. |
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
 | X | Forbidden; remain H0. |
@@ -184,6 +194,12 @@ are scoped to the current action and reusable while their inputs are unchanged.
   ignore unreachable legacy helpers.
 - An independent `PASS_GO` qualifies a capability, not a run. Reuse it across candidates,
   campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs. Fresh qualification and any runner binding still apply.
+- Bind review to hazard-relevant machinery and the selected authority. Separate
+  declarative candidate data and expressly permitted functional changes from
+  that capability identity. New target/control/privilege/recovery/health semantics
+  still require review; routine in-scope candidate data needs fresh qualification,
+  not another independent review. Retained artifacts keep their original source
+  provenance rather than inheriting later development-file contents.
 - Scope review to reachable execution and the stated threat model in
   `docs/operations/DEVICE_ACTION_RISK_TIERS.md`. Out-of-model speculation does
   not automatically create mandatory machinery. A concrete new hazard stops
@@ -252,6 +268,11 @@ Stop new device effects when target, effect occurrence, health, authority or
 recovery is uncertain, a boundary would need to bend, or the action is not
 represented by the selected tier and target contract. Preserve the journal;
 continue only allowed observation, H0 diagnosis and preauthorized recovery.
+Scope the stop to the affected effects. A reviewed read-only retry must not be
+blocked merely because its previous read failed; it also must not retire a
+pending write/control/recovery owner. Fresh observation is not retroactive proof
+of the old action. A new scoped experiment still requires current health and
+the previous operation's validated closure.
 An expected negative or unproved research result is not itself a safety fault;
 any next experiment still requires a closed run, exact health and its own
 current authority. Unexplained device-session failures retain boundary 7.

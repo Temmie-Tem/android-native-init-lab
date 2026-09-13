@@ -103,6 +103,37 @@ exact current physical Download binding, retained recovery closure and final
 health. E/N cannot resume after a stop. Definition/review alone creates no grant,
 and the consumed live runs remain unchanged.
 
+### Proportional task-scoped research V1
+
+The common-incorporated [proportional research V1](../S22PLUS_PROPORTIONAL_RESEARCH_V1.md)
+is adopted as a **REVIEW_GATED_CAPABILITY** in the new
+`proportional-research-v1` mode of the shared native-baseline owner. One exact
+returned task approval binds the target, admitted N, exact A, permitted
+operation/runtime/source-change scope, finite budgets and attended/deferred
+recovery. Later in-scope E candidates receive machine-bound child requests
+without another human approval. Current independent capability review and
+fresh candidate qualification remain required.
+
+Only this mode may admit future E images for fresh repeat experiments after
+their original new-mode claim and healthy closure are proved. Historical
+consumed E images remain ineligible. New experiments require current target
+health and no unresolved F1 owner. The original one-shot A and its frozen
+recovery closure remain available after expiry; its actual execution is
+attended and never replays an uncertain transfer.
+
+The same capability adopts the fixed native D0 reobservation profile under the
+current foreground S22+ research task, without per-read approval. It permits
+fresh bounded observation after a pure D0 failure, preserving the old raw and
+checking exact target/boot/session identity. The strict legacy OPEN/RX-zero
+import is observation-only. Only the new-mode native-start reader may use a
+validated new observation tail; no read clears an unresolved F1 owner or
+replays CONTROL, E, N or A.
+
+This section expressly specializes the general D0 invocation-stop, D1
+per-action approval and V2/deferred exact-E/600-second/no-repeat clauses only
+through this new scope/observer. Existing absent-mode records, source pins,
+approvals, consumed journals and other targets retain their original meanings.
+
 ### P386 attended resident observation
 
 The [resident adoption V1](../S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md) selects
@@ -370,6 +401,9 @@ D0 is bounded, connected, read-only observation of the exact S22+ target.
   service, write sysfs, or send a payload.
 - A D0 ambiguity or unexplained failure ends that D0 invocation. It grants no
   F1 authority and does not consume or replay a candidate transfer.
+- The adopted proportional-research observer may create a fresh bounded D0
+  attempt after such a failure under its exact continuation rules. This is not
+  a replay of the failed invocation or an automatic healthy F1 terminal.
 - With multiple attached devices, report the selected S22+ and explicitly
   confirm that the other target received no command.
 

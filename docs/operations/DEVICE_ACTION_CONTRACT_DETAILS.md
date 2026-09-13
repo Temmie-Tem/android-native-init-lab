@@ -23,6 +23,7 @@ permission to perform host-only work.
    conditional boot-only F1 lane below, or the single S20+ PMSG ordinary-reboot
    transaction expressly delegated below, or a reviewed bounded machine-controlled
    D1 lane defined below, or the exact S22+ deferred-physical native-baseline
+   or proportional-research scope
    exception below, each separately activated by its
    binding target contract. F1 remains attended outside that exact activated
    lane, and authority never transfers between targets.
@@ -162,10 +163,18 @@ permission to perform host-only work.
    changed artifact, missing rollback, journal inconsistency, or lost physical
    recovery path is an immediate stop.
 7. After an unexplained failure once a device or transfer session starts, stop
-   the current experiment. The exact preauthorized rollback may resume only
-   from durable journal state; candidate replay is forbidden. Any non-rollback
-   continuation or retry must already be defined by the selected target
-   contract and satisfy its predeclared proof conditions; otherwise stop.
+   actions whose execution, repetition or required starting health is uncertain.
+   Never replay an uncertain write, transfer, reboot or CONTROL. Exact
+   preauthorized recovery resumes only from durable journal state. A reviewed
+   target observation profile may explicitly permit fresh bounded read-only
+   reobservation after a failed read, preserving its raw failure and checking
+   the actual target, transport and session state. Such a read does not repeat
+   the failed state-changing effect, retire its owner or prove recovery.
+   Prospective repeat experiments require the separately activated scope below,
+   complete prior closure and current health; historical consumed records stay
+   consumed. Other continuation must be represented by the selected target
+   contract and satisfy its proof conditions. More restrictive legacy modes
+   retain their existing stops until explicitly specialized by a new mode.
 
 ## Proportional Device Actions
 
@@ -174,6 +183,12 @@ Classify every action using
 
 - **H0:** host-only work. No device approval.
 - **D0:** connected read-only work. Exact target and bounded reads. A binding
+  target may adopt a reviewed reusable observation profile under its current
+  foreground research task, including bounded reobservation after failure.
+  Routine use needs no per-read approval or independent review while its
+  hazard-relevant inputs are unchanged. A failed observation remains NO_PROOF;
+  repeatable observation does not imply repeatable state-changing execution.
+  A binding
   target contract may additionally activate one independently reviewed,
   filename-grammar-bounded retrieval of an operator-created derived artifact
   from normal shared user storage into `workspace/private/`; it must enumerate
@@ -281,7 +296,8 @@ separately delegated exact data operation such as PMSG keeps its own single-use
 limits. R1/F1/F2, fastboot exceptions and other existing physical-return lanes
 receive no waiver from this section. Unattended F1 requires its actual
 failure-specific automatic-recovery evidence under Conditional Autonomous F1,
-except the separately incorporated S22+ deferred-physical native-baseline mode.
+except the separately incorporated S22+ deferred-physical native-baseline mode
+and the deferred option of its proportional-research scope below.
 
 Source/scope/target drift, a new hazard, exhausted limits, unhealthy starting
 state, lost recovery or unresolved session failure blocks the next effect.
@@ -356,10 +372,13 @@ journal, and bounded observation/final-health requirements.
 Ordinary attended F1 requires one fresh approval binding one candidate and
 recovery. An activated bounded attended F1 session or conditional autonomous
 F1 session below may replace that human approval with a fresh machine-validated
-binding for each candidate within its explicit grant.
+binding for each candidate within its explicit grant. The separately activated
+S22+ proportional-research scope below also permits spontaneous in-scope
+candidate selection under one original task approval.
 The retired trial grants no approval waiver. Once candidate execution begins,
-rollback never waits, except under the exact S22+ deferred-physical mode below.
-Candidate replay is forbidden.
+rollback never waits, except under the exact S22+ deferred-physical modes below.
+Uncertain candidate execution never replays. New prospective repeat operations
+are permitted only by the explicit closed-health exception below.
 
 The separately reviewed [S22+ native roundtrip first qualification V1](S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
 is incorporated at common-contract precedence, SHA256
@@ -447,6 +466,31 @@ the opened regular file after the tool returns.
 
 F1 PASS requires both the intended bounded observation and the target-specific
 healthy terminal state. Candidate boot or transfer success alone is not PASS.
+
+## Task-scoped proportional S22+ research
+
+The [S22+ proportional research V1](S22PLUS_PROPORTIONAL_RESEARCH_V1.md)
+policy is incorporated at common-contract precedence, with its bytes bound by
+the capability review, parent authority and child recovery closures. Its new
+mode permits one finite operator-approved task to select later in-scope E
+candidates and its named D1/F1 transitions without per-candidate human approval.
+Every child still binds actual verified artifacts, current reviewed machinery,
+exact target/health and its original one-shot recovery before effects.
+
+Its independently reviewed fixed D0 observer may reobserve after a pure read
+failure under the current foreground task. A successful new observation is
+separate evidence; it does not rewrite the old failure or close an unresolved
+state-changing owner. A new-mode E may become repeat-eligible only after its
+original global claim and complete healthy operation are proved. Each later
+repeat is a fresh intended operation, never a release or replay of an old
+claim. Historical consumed E images remain ineligible.
+
+The explicit deferred option accepts later attended physical A recovery
+without claiming automatic failure recovery or device quiescence. Task budgets
+replace the old one-E/600-second limit only in this new mode; protocol and
+individual effect bounds remain. Boundaries 2–6, target isolation, private
+evidence, intent-before-effect and no uncertain state-changing replay remain.
+Other targets, old approvals and absent-mode runners receive no waiver.
 
 ## Bounded Attended F1 Sessions
 

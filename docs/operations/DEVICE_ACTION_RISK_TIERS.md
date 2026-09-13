@@ -41,7 +41,10 @@ and `odin4 -l` when a target-specific rule permits it.
 - D0 does not inherently require attendance or a fresh request for each read.
   An expressly named target profile may be authorized by the current foreground
   research task. Keep its fixed transcript, fresh identity and privacy limits;
-  do not infer generic root access, background polling or failure retries.
+  do not infer generic root access or background polling. A target may adopt
+  reviewed bounded reobservation after failure, preserving the old attempt and
+  validating the new target/session state. Such a read cannot replay a failed
+  state-changing action or discharge its recovery obligation.
 - Do not reboot, change boot mode, create device files, alter settings, or send
   a payload.
 - Record only the evidence needed for the decision. A bespoke one-shot policy,
@@ -69,6 +72,10 @@ defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
   action outside an expressly activated target-specific session. A conditional
   F1 session covers only its own bound entry, observation and rollback controls;
   it does not make unrelated D1 actions autonomous.
+- The adopted S22+ proportional-research scope binds its named routine control
+  and F1 transitions once for the task. Their per-effect target, intent and
+  result checks remain; a spontaneous in-scope candidate needs no further
+  human approval. This does not authorize arbitrary standalone control commands.
 - Pin the exact target/topology, use an argv allowlist, bound output and time,
   and verify the expected return state. A mode-entry dispatch remains
   `HEALTH_PENDING` until its endpoint or operator-visible state is confirmed;
@@ -125,6 +132,9 @@ defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
 - On ambiguity or the same failure twice, stop. Do not inflate D1 into a larger
   live policy while the underlying transport remains unresolved.
 
+The new S22+ scope specializes that stop to uncertain state-changing effects:
+preserved bounded D0 diagnosis can continue, while a write/control retry cannot.
+
 A selected target contract may define a separately reviewed, mechanically
 activated pre-F1 catalog that replaces per-ordinal approval only for its exact
 finite transient descriptors. The S22+ definition is
@@ -152,6 +162,14 @@ one reservation/600 seconds, current independent review and returned finite
 approval. Failure stops new effects and retains ownership for later attended
 original A recovery. Powered device activity may remain unknown; automatic
 failure recovery is not claimed. Other F1 paths retain their existing rules.
+
+The distinct [S22+ proportional research V1](S22PLUS_PROPORTIONAL_RESEARCH_V1.md)
+mode extends only its explicit task scope: finite operator-chosen budgets,
+machine-bound spontaneous candidates, prospective repeat eligibility after
+proved healthy closure, and attended or accepted deferred physical recovery.
+It preserves historical consumed claims and prohibits uncertain effect replay.
+Its fixed D0 profile and task approval replace repeated observation/candidate
+approval ceremonies; exact per-effect verification remains mandatory.
 
 - Use the reusable process in
   `docs/operations/DEVICE_ACTION_PROCESS_V2.md`: exact artifact

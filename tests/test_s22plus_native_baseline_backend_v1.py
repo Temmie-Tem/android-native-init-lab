@@ -32,6 +32,12 @@ class BackendTests(native.ProtocolTests):
     def exercise(self, mode='pair-detach', fault=None, case='normal', *, prepared=None, external_peer=None,
                  observation_seconds=5):
         with (self.running(case) if external_peer is None else nullcontext(external_peer)) as peer:
+            endpoint_row = getattr(self, 'retained_native_endpoint', None)
+            endpoint_sha = ('e'*64 if endpoint_row is None else live.cdc_acm_observer.digest(dict(
+                tty_name=endpoint_row['identity']['tty_name'], topology=endpoint_row['topology'].removeprefix('usb:'),
+                vendor=endpoint_row['identity']['vendor'], product=endpoint_row['identity']['product_id'],
+                serial=endpoint_row['identity']['serial'], interface=endpoint_row['identity']['interface'],
+                driver=endpoint_row['identity']['driver'])))
             fixture = _ReceiptFixture.__new__(_ReceiptFixture)
             fixture.run_dir = peer.folder if prepared is None else prepared.run_dir
             run = fixture.run_dir
@@ -42,6 +48,9 @@ class BackendTests(native.ProtocolTests):
             fixture.prepared = fixture._prepared() if prepared is None else prepared
             fixture._write_supporting_receipts()
             lane = fixture._lane()
+            if endpoint_row is not None:
+                lane['end_inventory']['all_endpoint_identity_sha256'] = [endpoint_sha]
+                lane['end_inventory']['rows'][live.p324_typec_lane.CANDIDATE_TOPOLOGY]['endpoint_identity_sha256'] = [endpoint_sha]
             partner = dict(entry_dev=1,entry_ino=1,entry_ctime_ns=1,
                 target_dev=1,target_ino=1,target_ctime_ns=1,target_sha256='a'*64)
             lane.update(partner_before=partner, partner_after=partner)
@@ -71,7 +80,7 @@ class BackendTests(native.ProtocolTests):
             retained = live.native_baseline.guard.retained(live, fixture.prepared)
             if retained is not None:
                 baseline.update(schema=live.native_baseline.guard.BASELINE_SCHEMA,
-                    exact_candidate_absent=False, identity_sha256=['e'*64], retained_native=retained)
+                    exact_candidate_absent=False, identity_sha256=[endpoint_sha], retained_native=retained)
                 baseline_path.unlink(); live.cdc_acm_observer.persist_json(baseline_path, baseline)
                 arm.update(schema=live.native_baseline.guard.ARM_SCHEMA, candidate_absent_on_both=False,
                     candidate_like_absent_everywhere=False, inventory=copy.deepcopy(lane['end_inventory']), retained_native=retained)
@@ -87,7 +96,7 @@ class BackendTests(native.ProtocolTests):
             platform = PlatformFixture(run/'native-platform')
             endpoint = platform.endpoint
             endpoint.tty_name = path.name
-            endpoint.identity_sha256 = 'e'*64
+            endpoint.identity_sha256 = endpoint_sha
             opens = []; closes = []; opened_fds = set(); real_open = os.open; real_close = os.close
             real_ioctl = fcntl.ioctl
             def opening(name, flags, *args, **kwargs):
@@ -168,10 +177,12 @@ class BackendTests(native.ProtocolTests):
                     fixture.tx_streams = [bytes(a.tx) for a in audits]; fixture.proof = session.proof
                     self.assertEqual(fixture.payload, b''.join(fixture.rx_streams))
                     value = fixture._receipt_value()
+                    value['endpoint_identity_sha256'] = endpoint_sha
                     value.pop('p385_readonly_research_shell_qualification', None)
                     selected_lane = session._lane_supplement(classification == 'accepted')
                     value.update(accepted=classification == 'accepted', classification=classification, lane=selected_lane)
-                    raw = live.p318_topology.raw_snapshot(phase='candidate_end', capture_complete=True, endpoints=[])
+                    raw = live.p318_topology.raw_snapshot(phase='candidate_end', capture_complete=True,
+                        endpoints=[] if endpoint_row is None else [endpoint_row])
                     with mock.patch.object(live._P327ObserverSession, '_observe_value', return_value=(value, selected_lane)), \
                             mock.patch.object(live.p318_topology, 'capture_candidate_raw', return_value=raw):
                         value = session.observe(timeout_sec=observation_seconds, download_departure={})

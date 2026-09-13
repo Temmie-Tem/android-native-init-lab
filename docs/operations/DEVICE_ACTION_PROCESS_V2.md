@@ -29,6 +29,14 @@ experiments. It does not relax the permanent boundaries in AGENTS.md or its
 SHA-pinned [common device details](DEVICE_ACTION_CONTRACT_DETAILS.md), which
 share the highest common-contract precedence.
 
+The new common-incorporated [S22+ proportional research V1](S22PLUS_PROPORTIONAL_RESEARCH_V1.md)
+uses the same measured transport, fixed health and baseline owner through an
+explicit scope mode. Its parent authorizes a finite task and its children bind
+the actual candidates; prospective repeats retain the first global claim and
+add new operation intents after proved closure. Its standalone D0 observer
+publishes separate observation tails. These extensions do not change the
+ordinary state machine or historical record interpretation below.
+
 ## Design Goals
 
 - Keep irreversible authority small and explicit.

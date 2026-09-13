@@ -4,7 +4,9 @@ Each declaration owns one content identity. Admission and the original global
 candidate claim are independent records made only by the attended owner.
 """
 import hashlib
+import json
 from pathlib import Path
+import re
 import sys
 from types import SimpleNamespace
 
@@ -77,6 +79,62 @@ DECLARATIONS = {
                        added_modules=('qcom-vadc-common.ko','qcom-spmi-adc5.ko','s22plus_thermal_telemetry.ko')),
 }
 
+# New research candidates are data. The factory, supported runtime profiles and
+# artifact/observer machinery remain reviewed code. Historical declarations are
+# never replaced by this catalog and their original build identities stay put.
+RESEARCH_DATA = Path('workspace/public/src/device-action/manifests/s22plus_native_research_candidates_v1.json')
+RESEARCH_DATA_SCHEMA = 's22plus-native-research-candidate-data-v1'
+RESEARCH_PROFILES = {
+    'resident-v1': (source, resident.Observer, ()),
+    'thermal-v3': (thermal_source_v3, thermal_observer_v3.Observer,
+        ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
+}
+HISTORICAL_DECLARATIONS = frozenset(DECLARATIONS)
+
+
+def research_data(root=ROOT):
+    path = Path(root)/RESEARCH_DATA
+    data = path.read_bytes()
+    if len(data) > 262144 or path.is_symlink(): raise ValueError('research candidate data is indirect or oversized')
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value: raise ValueError('duplicate research candidate field')
+            value[key] = item
+        return value
+    value = json.loads(data, object_pairs_hook=unique)
+    if (type(value) is not dict or set(value) != {'schema', 'candidates'}
+            or value['schema'] != RESEARCH_DATA_SCHEMA or type(value['candidates']) is not list):
+        raise ValueError('research candidate catalog differs')
+    names, runs = set(), {d.IDENTITY.run_id_hex for name, d in DECLARATIONS.items()
+                         if name in HISTORICAL_DECLARATIONS}
+    for row in value['candidates']:
+        if (type(row) is not dict or set(row) != {'namespace', 'run_id', 'version', 'image_sha256', 'profile'}
+                or type(row['namespace']) is not str or not re.fullmatch(r'p[0-9]{3,6}', row['namespace'])
+                or int(row['namespace'][1:]) < 392 or row['namespace'] in HISTORICAL_DECLARATIONS
+                or row['namespace'] in names or type(row['run_id']) is not str
+                or not re.fullmatch(r'[0-9a-f]{32}', row['run_id']) or row['run_id'] in runs
+                or type(row['version']) is not str or not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?', row['version'])
+                or len(row['version']) > 48 or type(row['image_sha256']) is not str
+                or not re.fullmatch(r'[0-9a-f]{64}', row['image_sha256'])
+                or type(row['profile']) is not str or row['profile'] not in RESEARCH_PROFILES):
+            raise ValueError('research candidate row differs from the reviewed data grammar')
+        names.add(row['namespace']); runs.add(row['run_id'])
+    return value['candidates']
+
+
+def research_profile(declared):
+    if declared.THERMAL_PROFILE is None: return 'resident-v1'
+    if declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE: return 'thermal-v3'
+    raise ValueError('candidate runtime profile is not admitted to proportional research')
+
+
+for _row in research_data():
+    _source, _observer, _modules = RESEARCH_PROFILES[_row['profile']]
+    DECLARATIONS[_row['namespace']] = declaration(_row['namespace'], _row['run_id'],
+        _row['version'], _row['image_sha256'], runtime_source=_source,
+        observer_class=_observer, added_modules=_modules)
+
 
 def static(prefix):
     if prefix not in DECLARATIONS: raise ValueError('unknown resident baseline declaration')
@@ -94,18 +152,28 @@ def static(prefix):
     return CandidateStatic(declared,Builder(declared),__file__,extra_sources=EXTRA_SOURCES)
 
 
-def static_for(bundle):
+def declared_for(bundle):
     run_id = bundle.manifest['observation']['acceptance']['run_id']
     matches = [prefix for prefix,d in DECLARATIONS.items() if d.IDENTITY.run_id_hex == run_id]
     if len(matches) != 1: raise ValueError('bundle is outside the resident baseline catalog')
-    return static(matches[0])
+    return DECLARATIONS[matches[0]]
 
 
-def review_sources():
+def static_for(bundle):
+    return static(declared_for(bundle).IDENTITY.namespace)
+
+
+def review_sources(*, research_profiles=False):
     import device_action_f1_live_v2 as live
     sources = {}
     groups = []
+    selected_profiles = set()
     for prefix, declared in DECLARATIONS.items():
+        if research_profiles:
+            try: profile = research_profile(declared)
+            except ValueError: continue
+            if profile in selected_profiles: continue
+            selected_profiles.add(profile)
         # Source selection needs the exact declared observer route, including
         # its conditional transport and final-health readers, but no AP or
         # target binding. This object is never a prepared/live bundle.

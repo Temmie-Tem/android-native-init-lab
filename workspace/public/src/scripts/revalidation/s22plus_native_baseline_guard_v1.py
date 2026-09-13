@@ -25,7 +25,7 @@ def retained(live, prepared, *, active=False):
     owner.validate_observation_context(live, prepared)
     operation = owner.load_operation(live, prepared.root, context['operation'], active=active)
     terminal_path = owner.verify_pin(prepared.root, operation.value['prior_native'])
-    previous = owner.native_terminal(live, prepared.root, terminal_path.parent)
+    previous = owner.previous_native(live, prepared.root, terminal_path, operation.request)
     owner.require(owner.same(previous['target'], operation.request['target']),
                   'retained native guard belongs to another physical target')
     return dict(context_sha256=core.json_sha256(context), terminal=operation.value['prior_native'],

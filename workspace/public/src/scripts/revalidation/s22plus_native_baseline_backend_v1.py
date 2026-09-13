@@ -89,7 +89,7 @@ class ObserverMixin:
             import s22plus_native_baseline_owner_v1 as owner
             operation = owner.before_native_auth(live, self.native_baseline_prepared)
             if self.native_baseline_prepared.native_baseline_context['phase'] == 'native-start':
-                prior = owner.native_terminal(live, operation.root, Path(operation.value['prior_native']['path']).parent)
+                prior = owner.previous_native(live, operation.root, Path(operation.value['prior_native']['path']), operation.request)
                 self.baseline_native_expiry_ns = prior['native_expiry_boottime_ns']
         known_expiry = getattr(self, 'baseline_native_expiry_ns', None)
         if known_expiry is not None and protocol.host_now_ns() >= known_expiry:
@@ -412,7 +412,7 @@ def validate_observer_ownership(live,prepared,value,proof):
         if prepared.native_baseline_context is not None and prepared.native_baseline_context['phase']=='native-start':
             import s22plus_native_baseline_owner_v1 as owner
             operation=owner.load_operation(live,prepared.root,prepared.native_parent)
-            prior=owner.native_terminal(live,prepared.root,Path(operation.value['prior_native']['path']).parent)
+            prior=owner.previous_native(live,prepared.root,Path(operation.value['prior_native']['path']),operation.request)
             if resident:
                 if prior['native_expiry_boottime_ns'] is not None: raise live.F1LiveError('resident prior lifetime differs')
             else: expiry=min(expiry,prior['native_expiry_boottime_ns'])
