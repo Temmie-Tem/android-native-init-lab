@@ -31,9 +31,28 @@ not prove current USB response or authorize a new experiment by itself.
 
 ## Current device observation
 
+**The requested post-amendment D0 reobservation also ended
+`NO_PROOF_NATIVE_RESPONSE_UNRESOLVED` at 2026-09-14 04:06 KST.** The reviewed
+observer sent one 32-byte OPEN and received zero bytes during a **59.940-second**
+capture. No AUTH, EXEC, CONTROL, DETACH or image transfer occurred; the guard
+released. A passive check at 04:08 KST still matched the exact native USB and
+tty identity. Current uptime, temperatures and authenticated native health
+remain unverified; USB enumeration does not establish application responsiveness.
+No second attempt or recovery followed. A90 and S20+ received no command.
+
+The new failed attempt preserves the earlier D0 stop and its successor chain.
+Its structured result has SHA-256
+`b0641be6354a3fb63f7744ed8817330fbeec2c0256581ee109a43884181eaad2`;
+the reviewed source commit is `bba51ac736db530594c30416883ff00f6d27ca83`.
+Raw evidence and the close summary remain under the corresponding
+`workspace/private/runs/s22plus-native-reobservation-v1/20260914-requested-status-1/`
+and `workspace/private/outputs/s22plus-status-check-20260914-1/` directories.
+
+### Earlier checkpoint and operator observation
+
 **The requested resident D0 checkpoint stopped with
-`NO_PROOF_NATIVE_RESPONSE_UNRESOLVED`; local display and system sampling
-continue by operator observation.** At 2026-09-14 01:22:44 KST the exact guarded
+`NO_PROOF_NATIVE_RESPONSE_UNRESOLVED`; the operator observed continuing local
+display and system sampling.** At 2026-09-14 01:22:44 KST the exact guarded
 native tty accepted one valid 32-byte OPEN from the host. No response arrived
 in approximately 59 seconds: retained RX is zero bytes, with no AUTH, EXEC,
 CONTROL or DETACH. The aggregate capture lasted 60.465 seconds. Both current
@@ -59,8 +78,7 @@ The historical P391 terminal is unchanged. Its new explicit D0 successor
 intent is consumed, so the old native predecessor cannot start another F1
 operation. This failed checkpoint is not a healthy replacement terminal.
 New state-changing native effects remain stopped. The reviewed fixed D0 path
-can now make a fresh bounded observation under the foreground research task;
-H0 communication diagnosis may also continue. No such new observation has run.
+preserves both failed attempts; H0 communication diagnosis may continue.
 See the [D0 checkpoint and operator-observation report](docs/reports/S22PLUS_NATIVE_RESIDENT_D0_2026-09-14.md).
 A90 and S20+ received no command.
 
