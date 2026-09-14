@@ -164,8 +164,12 @@ def _projection(io, session, events, rx, tx):
     ending = requests.pop(max(requests))
     if ending not in (wire.CONTROL, DETACH): raise ValueError('baseline ending differs')
     optional = requests.pop(5, None)
+    extra = getattr(io, 'EXTRA_PROFILE', None)
+    if extra is not None and ending != DETACH:
+        raise ValueError('fixed storage census raw ending is not DETACH')
+    expected_body = extra.BODY if extra is not None else io.HUD_BODY
     if (requests != {3: wire.EXEC, 4: wire.STATUS} or optional not in (None, wire.EXEC)
-            or optional is not None and session.request_bodies[5] != io.HUD_BODY):
+            or optional is not None and session.request_bodies[5] != expected_body):
         raise ValueError('baseline fixed request profile differs')
     info = io.preparation.info
     if ending == DETACH and info['authentication_ordinal'] >= io.AUTH_LIMIT:
@@ -179,7 +183,7 @@ def _projection(io, session, events, rx, tx):
                          if (k, n) == (wire.EXIT, 5)), None)
     hud_complete = bool(optional and hud_terminal is not None and hud_terminal[:4] == (5, 0, 0, 0)
                         and hud_terminal[5] == 0 and not hud_stderr)
-    return dict(schema=SCHEMA, run_id_hex=io.identity.run_id_hex, native_health_proved=True,
+    result = dict(schema=SCHEMA, run_id_hex=io.identity.run_id_hex, native_health_proved=True,
         ending='detach' if ending == DETACH else 'download', terminal_sequence=session.control_sequence,
         detach_ack_observed=ending == DETACH, control_acceptance_observed=ending == wire.CONTROL,
         kernel_boot_identity_sha256=health.digest(io.audit.boot_id), nonce_sha256=health.digest(io.audit.nonce),
@@ -187,9 +191,12 @@ def _projection(io, session, events, rx, tx):
         commands=rows, request_count=len(session.requests),
         all_commands_terminal_or_rejected=all(row['terminal'] is not None or row['rejected'] for row in rows),
         rx=dict(size=len(rx), sha256=health.digest(rx)), tx=dict(size=len(tx), sha256=health.digest(tx)),
-        hud_requested=bool(optional), hud_acquisition_complete=hud_complete,
-        hud=io.decode_hud(hud_stdout, io.identity.run_id_hex) if hud_complete else None,
+        hud_requested=bool(optional) and extra is None, hud_acquisition_complete=hud_complete and extra is None,
+        hud=io.decode_hud(hud_stdout, io.identity.run_id_hex) if hud_complete and extra is None else None,
         physical_visibility='UNPROVED', source_profile=io.SOURCE_PROFILE)
+    if extra is not None:
+        result['storage_census'] = extra.project(hud_stdout, hud_stderr, hud_terminal, requested=bool(optional))
+    return result
 
 
 def replay_one(codec, identity, key, rx, tx, *, io_class=IO):
@@ -221,6 +228,9 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
     if ending not in ('detach', 'download') or not callable(before_terminal):
         raise ValueError('baseline owner ending differs')
     now=io.clock
+    extra = getattr(io, 'EXTRA_PROFILE', None)
+    if extra is not None and (hud or ending != 'detach'):
+        raise ValueError('fixed storage census requires DETACH and no HUD selection')
     if not now() < io.deadline <= now()+60:
         raise ValueError('baseline observation deadline differs')
     session = None; events = []
@@ -234,12 +244,14 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
         session = Session(io.fd, io.key, bytes.fromhex(io.identity.run_id_hex), io.audit.nonce,
             Path(evidence), on_rx=io.capture, on_tx=io.audit.tx.extend, before_write=io.before_write,clock=now)
         health.run_console_checks(session, events, deadline=min(io.deadline, now()+29.9),clock=now)
-        if hud and io.deadline-now() >= display.HUD_ADMISSION_SECONDS+io.HUD_SETTLE_SECONDS:
+        admission = extra.ADMISSION_SECONDS if extra is not None else display.HUD_ADMISSION_SECONDS
+        settle = extra.SETTLE_SECONDS if extra is not None else io.HUD_SETTLE_SECONDS
+        if (hud or extra is not None) and io.deadline-now() >= admission+settle:
             # Selected asynchronous collectors need a frame after startup before
             # PID1 freezes the export at EXEC. This consumes the same deadline;
             # the normal before-write guard still checks the grant before EXEC.
-            if io.HUD_SETTLE_SECONDS: time.sleep(io.HUD_SETTLE_SECONDS)
-            seq = session.send(wire.EXEC, io.HUD_BODY)
+            if settle: time.sleep(settle)
+            seq = session.send(wire.EXEC, extra.BODY if extra is not None else io.HUD_BODY)
             while seq not in session.terminals and seq not in session.rejected:
                 if now() >= io.deadline: raise TimeoutError('baseline HUD original deadline')
                 events.extend(session.poll()); time.sleep(.001)

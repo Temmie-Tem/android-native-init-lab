@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census')
 
 
 class ResultPublicationError(SessionError):
@@ -35,6 +35,8 @@ def steps(operation, *, reentry=False, hud=False):
     require(operation in OPERATIONS and type(reentry) is bool and type(hud) is bool,
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
+    if operation=='storage-census':
+        return (Step('native-storage','observe','N','detach'),)
     if operation=='bootstrap':
         return (
             Step('android-download','download','A'),
@@ -186,9 +188,11 @@ class Session:
             value=self.adapter.transfer(step,self.request,guard=guard,before_launch=dispatch)
         elif step.action=='observe':
             # OPEN and health retain their own attempt evidence. Operation
-            # capacity is consumed only when the first CONTROL is dispatched.
+            # capacity normally starts at CONTROL; the fixed read-only census
+            # uses one operation when its unique native attempt starts.
+            options=dict(consume_observation=self.consume) if step.name=='native-storage' else {}
             value=self.adapter.observe(step,self.request,guard=guard,
-                before_terminal=dispatch if step.ending=='download' else guard)
+                before_terminal=dispatch if step.ending=='download' else guard,**options)
         elif step.action=='health':
             value=self.adapter.android_health(step,self.request,guard=guard)
         else:
@@ -210,6 +214,8 @@ class Session:
 
     def close(self, selected_steps, *, recovered=False):
         values=self.completed(selected_steps)
+        if self.request['operation']=='storage-census' and not recovered:
+            require(self.consumed() is not None,'storage census has no original operation consumption')
         effects=[row['data'] for row in self.rows() if row['event']=='effect-intent']
         if recovered:
             require(effects and effects[-1]['role']=='A' and effects[-1]['action']=='transfer'

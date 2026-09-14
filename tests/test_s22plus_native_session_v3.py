@@ -53,10 +53,12 @@ class DeviceFixture:
         if step.role=='A' and step.name=='recover-android': self.mode='Download'
         self.assert_mode('Download'); self.effect(step,before_launch); return self.proof(step)
 
-    def observe(self,step,request,*,guard,before_terminal):
+    def observe(self,step,request,*,guard,before_terminal,consume_observation=None):
         guard(); self.assert_mode(step.role)
-        if step.name=='native-start':
-            self.on_native_attempt(); self.native_attempt=True
+        if step.name in ('native-start','native-storage'):
+            if consume_observation is not None:consume_observation()
+            else:self.on_native_attempt()
+            self.native_attempt=True
         self.actions.append('health:'+step.name)
         if self.health_failure: raise ValueError('required health not proved')
         if step.ending=='download': self.effect(step,before_terminal)
@@ -142,6 +144,33 @@ class OwnerTests(unittest.TestCase):
                 self.assertEqual(sum(action.startswith('health:') for action in device.actions),4 if reentry else 3)
                 self.assertEqual(device.actions.count('health:native-final'),1)
                 self.assertEqual([step.role for step in owner.steps('experiment',reentry=reentry,hud=True) if step.hud],['E'])
+
+    def test_storage_census_consumes_one_operation_without_a_mode_change_or_transfer(self):
+        session,device=self.operation('storage-census')
+        result=session.execute(attended=True)
+        self.assertEqual(result['state'],'NATIVE_CLOSED')
+        self.assertEqual(device.installed,[])
+        self.assertEqual(device.actions,['health:native-storage'])
+        self.assertIsNotNone(session.consumed());self.assertIsNone(self.f1)
+        self.assertFalse(session.has_effect())
+        with self.assertRaises(records.SessionError):session.execute(attended=True)
+
+    def test_storage_census_uncertain_protocol_retains_original_a_recovery(self):
+        session,device=self.operation('storage-census');device.health_failure=True
+        with self.assertRaises(ValueError):session.execute(attended=True)
+        self.assertEqual(device.installed,['A']);self.assertIsNotNone(session.consumed())
+        device.health_failure=False
+        self.assertEqual(session.recover(attended=True)['state'],'ANDROID_CLOSED')
+        self.assertEqual(device.installed,['A']);self.assertIsNone(self.f1)
+
+    def test_storage_census_capacity_is_checked_before_another_native_attempt(self):
+        for _ in range(2):
+            session,device=self.operation('storage-census')
+            self.assertEqual(session.execute(attended=True)['state'],'NATIVE_CLOSED')
+        session,device=self.operation('storage-census')
+        self.assertEqual(session.execute(attended=True)['state'],'STOPPED_BEFORE_EFFECT')
+        self.assertFalse(device.native_attempt);self.assertEqual(device.actions,[])
+        self.assertEqual(device.installed,[]);self.assertIsNone(self.f1)
 
     def test_preflight_failure_preserves_budget_and_original_deadline(self):
         before=self.grant.read_bytes()

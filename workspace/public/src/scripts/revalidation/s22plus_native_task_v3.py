@@ -92,7 +92,7 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
         'native task exceeds finite scope')
     require(type(task['operations']) is list and task['operations']
         and len(task['operations'])==len(set(task['operations']))
-        and set(task['operations'])<={'bootstrap','experiment','android-exit'}
+        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census'}
         and task['recovery_mode'] in ('attended','deferred'),'native task operations or recovery differ')
     require(all(type(task[key]) is bool for key in ('reentry','hud','usb_reconnect'))
         and (not task['usb_reconnect'] or task['reentry'] and task['recovery_mode']=='attended'),
@@ -153,11 +153,15 @@ def validate_recovery(receipt, binding, android):
 
 def prepare_task(root, output, *, native, experiment, target, installation, recovery_evidence,
                  seconds=3600, operation_budget=3, recovery_mode='attended', reentry=True,
-                 hud=False, usb_reconnect=True, admission=None, prior_terminal=None):
+                 hud=False, usb_reconnect=True, admission=None, prior_terminal=None,
+                 storage_census=False, android_exit=True):
     import s22plus_native_target_io_v3 as target_io
     from s22plus_native_adapter_v3 import image_valid
     root=Path(root).resolve(strict=True); output=private_path(root,output,exists=False)
     require(not output.exists(),'native task preparation path already exists')
+    require(type(storage_census) is bool and type(android_exit) is bool
+        and (not storage_census or admission is not None and prior_terminal is not None),
+        'storage census preparation requires an admitted N and its closed tail')
     native=read(verify(native)); experiment=read(verify(experiment)) if experiment else None
     image_valid(native,artifact_bytes=True)
     if experiment is not None: image_valid(experiment,artifact_bytes=True)
@@ -166,7 +170,8 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
         odin=read(root/PROFILE)['transport']['odin'],host_installation=installation,
         review=capability(root),recovery_evidence=recovery_evidence,
         lane=target_io.lane.capture_binding(target_io.lane.SOURCE_TOPOLOGY),
-        operations=(['bootstrap'] if admission is None else [])+(['experiment'] if experiment else [])+['android-exit'],
+        operations=(['bootstrap'] if admission is None else [])+(['experiment'] if experiment else [])
+            +(['storage-census'] if storage_census else [])+(['android-exit'] if android_exit else []),
         seconds=seconds,operation_budget=operation_budget,recovery_mode=recovery_mode,reentry=reentry,
         hud=hud,usb_reconnect=usb_reconnect,admission=admission,prior_terminal=prior_terminal,
         runtime_scope=native['runtime_sources'])
@@ -217,7 +222,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5])
     sub=parser.add_subparsers(dest='command',required=True)
-    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit'))
+    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census'))
     run.add_argument('grant',type=Path); run.add_argument('--attended',action='store_true')
     run.add_argument('--reentry',action='store_true'); run.add_argument('--hud',action='store_true')
     run.add_argument('--experiment-image',type=Path)

@@ -71,6 +71,22 @@ permission to perform host-only work.
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
    path.
+   The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
+   metadata-read exception to partition-table actions for only the exact
+   S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
+   after exact UFS-controller/LU0 ancestry, block-device identity, capacity and
+   logical-block-size checks, bracketed by matching live userdata/parent
+   geometry. It permits no write ioctl, output block operand, other-LU read,
+   userdata filesystem contents, key retrieval, partition mutation or format.
+   Because this native runtime has tmpfs `/dev`, the profile may create one
+   mode-0400 block-node alias `/dev/.s22-gpt-$$` in the existing `/dev` tmpfs,
+   with its unique shell-PID name and exact LU0 device number. Creation must
+   refuse an existing path; only that newly created alias may be removed.
+   Successful census closure includes its removal. A failed command preserves
+   an unproved cleanup result and never sends another cleanup command; this
+   RAM-only alias changes neither storage nor access privilege.
+   Complete primary/backup headers and entry arrays must fit those captures
+   and agree with their CRCs and the live geometry before metadata qualifies.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:
@@ -503,6 +519,17 @@ health/close sessions; normal N/E/N requires starting-N health/CONTROL, the
 selected E health/CONTROL and one final N health/DETACH with actual descriptor
 close. Its fixed task budget is one to three operations and 60–7200 original
 BOOTTIME seconds. A new runtime scope requires scoped independent review.
+
+`S22PLUS_NATIVE_STORAGE_CENSUS_V1` adds one fixed D0 operation on an already
+admitted N: authenticated health, the bounded LU0 metadata census above and
+DETACH with actual descriptor close. It consumes one operation when its unique
+native attempt begins, including a completed negative census. Pure host
+preflight failure remains unconsumed. Normal census execution sends no CONTROL
+or AP payload. Complete negative metadata is `NO_PROOF` independently of
+proved native health. Protocol uncertainty retains only the task's original
+attended one-shot A recovery, since the census has changed no partition.
+Neither census success nor that existing boot recovery qualifies GPT-write
+recovery. Partition writes and formatting remain forbidden.
 
 Only an explicitly granted deferred V3 task waives attendance for native-origin
 operations; it retains unknown powered device activity and later attended

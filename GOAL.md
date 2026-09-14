@@ -13,6 +13,20 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**Current task: reserve 64 GiB for native-only persistent storage while
+retaining Android.** The operator allows resetting current Android apps,
+settings and user data. The firmware PIT does not establish live LU0 capacity
+or userdata's actual end, and existing boot-only recovery does not qualify
+GPT restoration. The bounded next step is the V3 fixed metadata-only storage
+census on admitted P393. Its implementation and narrow RAM-alias/GPT-read
+exception received independent `PASS_GO`; 56 focused tests and the final
+command's 14-test rerun pass. A 600-second, one-operation census request is
+prepared with deferred physical recovery; its actual returned grant remains
+pending. No new grant, device read, partition write or format has occurred. See the
+[census H0 report](docs/reports/S22PLUS_NATIVE_STORAGE_CENSUS_H0_2026-09-15.md).
+
+## Retained native baseline
+
 **The clean V3 owner completed P393 bootstrap and P394 physical USB
 reconnect N/E/N. P393 is admitted and retained `NATIVE_CLOSED_HEALTHY`.**
 The actual attended grant covered 3600 seconds and three operations. Bootstrap

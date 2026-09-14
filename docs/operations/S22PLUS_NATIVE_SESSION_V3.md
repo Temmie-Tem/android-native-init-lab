@@ -44,6 +44,7 @@ binding and wire algorithms as small shared primitives.
 | Operation | Required sequence |
 | --- | --- |
 | Bootstrap | Healthy A → Download → fresh N → health/DETACH → fresh same-boot health/CONTROL → Download → same N → health/DETACH → fresh same-boot health/DETACH → closed native terminal and N admission |
+| Storage census (D0) | Admitted N → fresh authenticated health → fixed LU0 geometry/GPT read → DETACH and actual close → healthy native terminal with a separate census verdict |
 | N/E/N | Fresh starting-N health/CONTROL → Download → E → selected E observation/CONTROL → Download → admitted N → one fresh health/DETACH → closed native terminal |
 | Android exit | Fresh N health/CONTROL → exact Download → original A → fresh exact rooted Android health |
 | Recovery | Stop research → attended exact Download → original A at most once → fresh exact rooted Android health |
@@ -111,9 +112,48 @@ read cannot make an old terminal fresh. Admission and prior-tail consumers also
 compare the original physical target and Android A with the new task.
 The native attempt retains the shared recovery owner even before CONTROL.
 An uncertain OPEN, authentication or required-health read closes research and
-permits only the original attended one-shot A recovery; it does not charge a
-new experimental operation or authorize another native read. Pure host/Android
+permits only the original attended one-shot A recovery. Mode-changing operations
+are charged at their first mode-changing intent; a storage census is charged
+when its native attempt begins. Neither authorizes another native read after
+uncertainty. Pure host/Android
 preflight failures occur before that attempt and retain no recovery owner.
+
+## Fixed storage census
+
+`S22PLUS_NATIVE_STORAGE_CENSUS_V1` is the fixed `storage-census` operation on
+an already admitted N. The existing health session issues one additional
+authenticated EXEC and ends with DETACH, never normal CONTROL or AP transfer.
+The decoded script selects exactly one userdata node, verifies its FYG8 UFS
+controller/LU0 ancestry and block-device identity, checks 4096-byte logical
+blocks and capacity, then captures six primary and five final metadata blocks
+between matching geometry records. The command uses only input reads; it has
+no block output operand or write ioctl. It reads no userdata files or keys.
+The native runtime uses tmpfs `/dev`, so the command creates one mode-0400
+block-node alias `/dev/.s22-gpt-$$` in the existing `/dev` tmpfs using the
+verified parent's device number. Its shell-PID path must not exist. Only after
+successful creation is cleanup armed for that path; success removes it before
+the final marker. A failed command retains an unproved cleanup result and
+does not issue another command to clean up. This alias changes no storage or
+root privilege and disappears on the original-A reboot if recovery is needed.
+The `/s22-root-work` cwd stays unchanged; its `nodev` restriction is preserved.
+
+The readable fixed script and its literal gzip/base64 transport encoding are
+checked for byte equality. Encoding fits the existing 767-byte command limit;
+it grants no caller script and changes no native runtime bytes. ARM64 BusyBox
+decoding, shell syntax and exact dd input counts are validated in H0 fixtures.
+The one-command timeout is ten seconds within the original observation and
+task deadlines. If the remaining observation cannot admit it, the census is
+explicitly unproved; no deadline is extended.
+
+`PASS_METADATA_ONLY` requires the full protective MBR, primary and backup GPT
+headers/entry arrays inside the declared capture, valid CRCs, matching tables,
+nonoverlapping extents and exact userdata/sysfs agreement. Metadata and unique
+identifiers remain private. A completed negative command or malformed dataset
+is `NO_PROOF` independently of authenticated health and DETACH. Uncertain
+protocol delivery uses the existing original-A recovery and no-replay rules.
+These read bounds define this capability; a different GPT shape requires a
+reviewed read-profile change, not an inferred wider block read. No census result
+qualifies partition-write recovery or activates GPT changes or formatting.
 
 ## Effects, closure and recovery
 

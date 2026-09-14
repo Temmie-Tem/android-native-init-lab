@@ -297,7 +297,7 @@ class Adapter:
             time.sleep(.2)
         raise TimeoutError('selected native endpoint did not arrive')
 
-    def observe(self, step, request, *, guard, before_terminal):
+    def observe(self, step, request, *, guard, before_terminal, consume_observation=None):
         image=request[step.role]; self.wait_native(image,request,guard)
         context=self.context(step,request)
         if step.name=='experiment-final' and request['usb_reconnect']:
@@ -305,9 +305,13 @@ class Adapter:
         if step.name=='experiment-first' and request['usb_reconnect']:
             before=target.usb_snapshot(target.lane.CANDIDATE_TOPOLOGY,self.directory)
             publish(self.directory/'usb-reconnect-before.json',before)
+        def begin_attempt():
+            if consume_observation is not None: consume_observation()
+            self.claim_tail(request)
         return native.observe(self.folder(step.name),image,self.native_host(request),ending=step.ending,
             hud=step.hud,guard=guard,before_terminal=before_terminal,
-            before_auth=(lambda:self.claim_tail(request)) if step.name=='native-start' else None,**context)
+            before_auth=begin_attempt if step.name in ('native-start','native-storage') else None,
+            profile='storage-census' if step.name=='native-storage' else 'health',**context)
 
     def tail_claim_path(self, receipt):
         verify(receipt)
@@ -318,7 +322,10 @@ class Adapter:
         path.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
         value=dict(schema='s22plus-native-tail-attempt-v3',prior=request['prior_terminal'],
             operation=pin(self.directory/'operation.json'),boottime_ns=clock())
-        registry.begin_f1_owner(self.root,self.directory,value['operation']['sha256'])
+        if (self.root/registry.F1_OWNER).exists():
+            registry.require_f1_owner(self.root,self.directory,value['operation']['sha256'])
+        else:
+            registry.begin_f1_owner(self.root,self.directory,value['operation']['sha256'])
         receipt=publish(path,value)
         publish(self.directory/'tail-attempt.json',receipt)
 
@@ -379,7 +386,7 @@ class Adapter:
         if step.action=='transfer': return self.recover_transfer_result(step,request)
         if step.action=='observe':
             value=native.rederive(self.folder(step.name),request[step.role],ending=step.ending,hud=step.hud,
-                **self.context(step,request))
+                profile='storage-census' if step.name=='native-storage' else 'health',**self.context(step,request))
             if step.ending=='download': value['departure']=pin(self.folder(step.name)/'departure.json')
             return value
         if step.action=='health':
@@ -406,7 +413,7 @@ class Adapter:
 
     def validate_result(self, step, value, request):
         require(value==self.recover_step_result(step,request),'step result differs from original raw evidence')
-        if step.name=='native-start':
+        if step.name in ('native-start','native-storage'):
             claim=read(self.tail_claim_path(request['prior_terminal']))
             require(claim['schema']=='s22plus-native-tail-attempt-v3'
                 and claim['prior']==request['prior_terminal'] and claim['operation']==pin(self.directory/'operation.json'),
@@ -448,12 +455,15 @@ class Adapter:
 
     def terminal(self, selected, values, request, *, recovered):
         healthy_native=selected[-1].action=='observe' and selected[-1].role=='N'
-        return dict(terminal_state='NATIVE_CLOSED_HEALTHY' if healthy_native else 'ANDROID_CLOSED_HEALTHY',
+        result=dict(terminal_state='NATIVE_CLOSED_HEALTHY' if healthy_native else 'ANDROID_CLOSED_HEALTHY',
             terminal_step=selected[-1].name,terminal_result=pin(self.directory/(selected[-1].name+'.json')),
             operation=request['operation'],operation_record=pin(self.directory/'operation.json'),
             native_admitted=request['operation']=='bootstrap' and not recovered,
             usb_reconnect_proved=bool(request['usb_reconnect'] and healthy_native),
             host_configuration='VERIFIED_INSTALLED_EXTERNAL_CONFIGURATION')
+        if request['operation']=='storage-census':
+            result['storage_census_status']=values[-1]['proof']['storage_census']['status'] if healthy_native else 'NOT_COMPLETED'
+        return result
 
     def tail(self, receipt, image, task):
         terminal=read(verify(receipt))

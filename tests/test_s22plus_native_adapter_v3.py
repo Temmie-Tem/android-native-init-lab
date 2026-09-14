@@ -115,6 +115,18 @@ class AdapterTests(unittest.TestCase):
             adapter.Adapter(self.root,another).claim_tail(request)
         self.assertFalse((another/'tail-attempt.json').exists())
 
+    def test_storage_tail_claim_preserves_its_already_consumed_recovery_owner(self):
+        prior=self.private/'terminal.json';records.publish(prior,dict(fixture=True))
+        request=dict(prior_terminal=records.pin(prior))
+        operation=records.publish(self.directory/'operation.json',request)
+        adapter.registry.begin_f1_owner(self.root,self.directory,operation['sha256'])
+        self.client.claim_tail(request)
+        adapter.registry.require_f1_owner(self.root,self.directory,operation['sha256'])
+        self.assertTrue(self.client.native_attempt_started(request))
+        another=self.private/'different-operation';another.mkdir()
+        with self.assertRaises(adapter.registry.RegistryError):
+            adapter.registry.require_f1_owner(self.root,another,operation['sha256'])
+
     def test_original_a_must_still_exist_at_native_transfer_but_is_not_read_for_completed_a(self):
         step=owner.Step('install-experiment','transfer','E')
         other=self.private/'native.tar.md5';make_ap(other)

@@ -163,6 +163,23 @@ task selections. A freshly qualified E may be selected within the approved
 native source closure and remaining original budget without another per-image
 approval. V3 E content remains globally one-shot.
 
+The common `S22PLUS_NATIVE_STORAGE_CENSUS_V1` metadata-read exception is adopted
+only through the V3 `storage-census` operation on already admitted N. Its fixed
+native command binds userdata to the FYG8 `1d84000.ufshc` controller's LU0,
+checks the actual block node and 4096-byte logical blocks, and reads only the
+first six and final five blocks with a repeated geometry bracket. It retains
+one temporary mode-0400 LU0 block-node alias `/dev/.s22-gpt-$$` in `/dev` tmpfs
+only for the command, refuses a preexisting alias path and removes its own
+alias before a successful terminal marker. Failed cleanup stays unproved;
+it is never retried as another command. It retains
+all metadata privately and requires complete matching GPT CRCs/entries before
+claiming `PASS_METADATA_ONLY`. A completed negative census may still close
+healthy native after DETACH; protocol uncertainty retains original A recovery.
+It consumes one operation at the native attempt and sends no normal CONTROL
+or image payload. It cannot write GPT, format userdata, read encryption keys
+or authorize a prospective partition split. Those changes require their own
+common-boundary review and demonstrated exact restoration route.
+
 The task's one-to-three-operation, 60–7200-second grant and exact attended or
 deferred recovery choice are separately returned by the operator. Bootstrap
 and physical USB reconnect remain attended. Native-origin deferred work may

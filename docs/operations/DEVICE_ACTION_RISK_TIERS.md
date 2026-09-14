@@ -37,6 +37,15 @@ hashing, and dry-runs with device access hidden.
 Examples: exact target identity, boot health, sysfs/procfs reads, USB inventory,
 and `odin4 -l` when a target-specific rule permits it.
 
+The common-incorporated S22+ V3 `storage-census` is a fixed D0 operation on an
+admitted native baseline. It reads only matching UFS LU0 geometry and the
+declared primary/backup GPT metadata, then completes DETACH. Its existing V3
+finite grant, unique native attempt, raw evidence and original-A recovery
+rules apply. It adds no filesystem data read, GPT write or format authority.
+Its narrow common exception may create and remove one read-only block-node
+alias in the existing native tmpfs because `/dev` has no device manager. That
+RAM-only alias is not a partition write or general device-file capability.
+
 - Require an unambiguous target and bounded reads/timeouts.
 - D0 does not inherently require attendance or a fresh request for each read.
   An expressly named target profile may be authorized by the current foreground
@@ -46,7 +55,7 @@ and `odin4 -l` when a target-specific rule permits it.
   validating the new target/session state. Such a read cannot replay a failed
   state-changing action or discharge its recovery obligation.
 - Do not reboot, change boot mode, create device files, alter settings, or send
-  a payload.
+  a payload, except the fixed RAM-only alias in the common S22+ census above.
 - Record only the evidence needed for the decision. A bespoke one-shot policy,
   artifact hash graph, and independent-model review are not required unless an
   installed policy explicitly requires them.

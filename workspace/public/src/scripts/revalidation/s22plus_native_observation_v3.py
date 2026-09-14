@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import device_action_raw_capture_v1 as raw
 import s22plus_native_baseline_protocol_v1 as protocol
 import s22plus_native_thermal_observer_v3 as thermal
+import s22plus_native_storage_census_v1 as storage
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
 from s22plus_native_wire_v3 import Codec
@@ -27,6 +28,16 @@ class IO(thermal.IO):
             # health and a completed command remain independently verifiable.
             return dict(status='NO_PROOF_OPTIONAL_HUD',error_type=type(error).__name__,
                 size=len(value),sha256=digest(value))
+
+
+class StorageIO(IO):
+    EXTRA_PROFILE = storage
+    SOURCE_PROFILE = storage.SCHEMA
+
+
+def io_class(profile):
+    require(profile in ('health','storage-census'), 'unknown native observation profile')
+    return StorageIO if profile == 'storage-census' else IO
 
 
 class TransmittedBytes(bytearray):
@@ -65,7 +76,9 @@ def check_freshness(io, *, previous=None, first_boot=False, seen_nonces=(), seen
 
 
 def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
-             seen_nonces=(), seen_boots=(), require_close=True):
+             seen_nonces=(), seen_boots=(), require_close=True, profile='health'):
+    require(profile=='health' or ending=='detach' and hud is False,
+        'storage census replay may not change mode or collect HUD')
     directory=Path(directory)
     close=read(directory/'close.json')
     require(close['open']==pin(directory/'open.json'),'native descriptor close belongs to a different open')
@@ -81,6 +94,9 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
     require(attempt==reconstructed,'native aggregate differs from independent close and raw records')
     require(attempt['schema']=='s22plus-native-observation-v3' and attempt['image']==image
         and attempt['ending']==ending and attempt['hud']==hud,'native observation context differs')
+    require(opened.get('profile','health') == close.get('profile','health')
+        == attempt.get('profile','health') == profile, 'native observation profile changed')
+    selected_io=io_class(profile)
     handle=raw.load_handle(verify(attempt['raw']))
     # The two direct-source streams are RX and TX, not command stdout/stderr.
     # Preserve every producer-completion check without rejecting valid TX.
@@ -89,11 +105,11 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
     rx=raw.read_stdout(handle,maximum=console.RAW_CAPTURE_MAXIMUM)
     tx=raw.read_stderr(handle,maximum=65536)
     bound=identity(image); key=key_bytes(image); codec=Codec(bound.namespace)
-    proof,rend,tend=protocol.replay_one(codec,bound,key,rx,tx,io_class=IO)
+    proof,rend,tend=protocol.replay_one(codec,bound,key,rx,tx,io_class=selected_io)
     require((rend,tend)==(len(rx),len(tx)) and proof['native_health_proved'] is True
         and proof['ending']==ending and (not proof['hud_requested'] or hud),
         'native fixed profile or complete raw boundary differs')
-    io=IO(codec,key,bound,rx=rx,tx=tx); io.handshake()
+    io=selected_io(codec,key,bound,rx=rx,tx=tx); io.handshake()
     check_freshness(io,previous=previous,first_boot=first_boot,seen_nonces=seen_nonces,seen_boots=seen_boots)
     if require_close:
         close=attempt['acquisition']['close']
@@ -104,8 +120,12 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
 
 
 def observe(directory, image, host, *, ending, hud, guard, before_terminal,
-            previous=None, first_boot=False, seen_nonces=(), seen_boots=(), before_auth=None):
+            previous=None, first_boot=False, seen_nonces=(), seen_boots=(), before_auth=None, profile='health'):
     require(ending in ('detach','download') and type(hud) is bool,'native observation selection differs')
+    selected_io=io_class(profile)
+    require(profile=='health' or ending=='detach' and hud is False,
+        'storage census may not change mode or collect HUD')
+    extra_fields={} if profile=='health' else dict(profile=profile)
     directory=Path(directory); directory.mkdir(mode=0o700)
     bound=identity(image); key=key_bytes(image); codec=Codec(bound.namespace)
     guard()
@@ -116,11 +136,11 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
         with host.open_native(bound.run_id_hex,before_open=guard) as (fd,acquisition):
             observation_deadline_ns=clock()+59_900_000_000
             publish(directory/'open.json',dict(image=image,ending=ending,hud=hud,
-                acquisition=acquisition,boottime_ns=clock(),deadline_ns=observation_deadline_ns))
+                acquisition=acquisition,boottime_ns=clock(),deadline_ns=observation_deadline_ns,**extra_fields))
             def native_guard():
                 guard()
                 if clock()>=observation_deadline_ns: raise TimeoutError('original native BOOTTIME window expired')
-            io=IO(codec,key,bound,fd=fd,writer=writer,deadline=observation_deadline_ns/1e9,
+            io=selected_io(codec,key,bound,fd=fd,writer=writer,deadline=observation_deadline_ns/1e9,
                 clock=lambda:clock()/1e9,before_write=native_guard)
             io.audit.tx=TransmittedBytes(writer)
             if before_auth is not None: before_auth()
@@ -144,7 +164,8 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
     finally:
         closed=dict(schema='s22plus-native-observation-v3',image=image,
             ending=ending,hud=hud,acquisition=acquisition,
-            stage=io.audit.current_stage if io else 'before-open',error_type=type(error).__name__ if error else None)
+            stage=io.audit.current_stage if io else 'before-open',error_type=type(error).__name__ if error else None,
+            **extra_fields)
         close_error=None
         try:
             if acquisition is not None and (directory/'open.json').exists():
@@ -162,7 +183,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
             raise
     if error is not None: raise error
     result=rederive(directory,image,ending=ending,hud=hud,previous=previous,first_boot=first_boot,
-        seen_nonces=seen_nonces,seen_boots=seen_boots)
+        seen_nonces=seen_nonces,seen_boots=seen_boots,profile=profile)
     if ending=='download':
         departure=target_io.wait_departure(before,directory,deadline_ns=departure_deadline,guard=guard)
         publish(directory/'departure.json',departure)
