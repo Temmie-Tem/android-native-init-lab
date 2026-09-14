@@ -492,6 +492,29 @@ individual effect bounds remain. Boundaries 2–6, target isolation, private
 evidence, intent-before-effect and no uncertain state-changing replay remain.
 Other targets, old approvals and absent-mode runners receive no waiver.
 
+## S22+ native session V3
+
+The [S22+ native session V3](S22PLUS_NATIVE_SESSION_V3.md) is a separate
+common-incorporated, review-gated specialization of the proportional S22+
+research scope. Its clean owner may bootstrap one fresh N from healthy A with
+actual attendance, then select fresh in-scope E candidates and restore its
+V3-admitted N. Bootstrap requires two N installations and four authenticated
+health/close sessions; normal N/E/N requires starting-N health/CONTROL, the
+selected E health/CONTROL and one final N health/DETACH with actual descriptor
+close. Its fixed task budget is one to three operations and 60–7200 original
+BOOTTIME seconds. A new runtime scope requires scoped independent review.
+
+Only an explicitly granted deferred V3 task waives attendance for native-origin
+operations; it retains unknown powered device activity and later attended
+physical A recovery after uncertainty. This specializes boundary 1 and the
+immediate-recovery rule without claiming automatic recovery. Physical USB
+reconnect trials and bootstrap remain attended. Every normal transition retains
+timely measured departure/Download, target and artifact binding, global F1
+exclusion, original one-shot A and no uncertain replay. Historical claims,
+admissions and grants confer no V3 authority. Current independent review of
+the reachable owner, host installation and native source scope plus an actual
+returned finite grant are required; definition alone grants no device effect.
+
 ## Bounded Attended F1 Sessions
 
 This delegation activates no target, runner, or session. A target may adopt it

@@ -85,7 +85,7 @@ class IO(console.IO):
         encoded = self.codec._CODEC.encode_frame(kind,sequence,payload)
         offset = 0
         while offset < len(encoded):
-            if time.monotonic() >= self.deadline: raise TimeoutError('baseline original handshake deadline')
+            if self.clock() >= self.deadline: raise TimeoutError('baseline original handshake deadline')
             if self.before_write is not None:self.before_write()
             try: count=os.write(self.fd,encoded[offset:])
             except (BlockingIOError,InterruptedError):time.sleep(.001);continue
@@ -220,26 +220,28 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
     """One owner-bound authentication and fixed health, followed by one ending."""
     if ending not in ('detach', 'download') or not callable(before_terminal):
         raise ValueError('baseline owner ending differs')
-    if not time.monotonic() < io.deadline <= time.monotonic()+60:
+    now=io.clock
+    if not now() < io.deadline <= now()+60:
         raise ValueError('baseline observation deadline differs')
     session = None; events = []
     def wait(kind, seq):
         while not any((k, n) == (kind, seq) for k, n, _ in events):
-            if time.monotonic() >= io.deadline: raise TimeoutError('baseline original observation deadline')
+            if now() >= io.deadline: raise TimeoutError('baseline original observation deadline')
             events.extend(session.poll()); time.sleep(.001)
+        if now() >= io.deadline: raise TimeoutError('baseline terminal acknowledgement exceeded original deadline')
     try:
         io.handshake()
         session = Session(io.fd, io.key, bytes.fromhex(io.identity.run_id_hex), io.audit.nonce,
-            Path(evidence), on_rx=io.capture, on_tx=io.audit.tx.extend, before_write=io.before_write)
-        health.run_console_checks(session, events, deadline=min(io.deadline, time.monotonic()+29.9))
-        if hud and io.deadline-time.monotonic() >= display.HUD_ADMISSION_SECONDS+io.HUD_SETTLE_SECONDS:
+            Path(evidence), on_rx=io.capture, on_tx=io.audit.tx.extend, before_write=io.before_write,clock=now)
+        health.run_console_checks(session, events, deadline=min(io.deadline, now()+29.9),clock=now)
+        if hud and io.deadline-now() >= display.HUD_ADMISSION_SECONDS+io.HUD_SETTLE_SECONDS:
             # Selected asynchronous collectors need a frame after startup before
             # PID1 freezes the export at EXEC. This consumes the same deadline;
             # the normal before-write guard still checks the grant before EXEC.
             if io.HUD_SETTLE_SECONDS: time.sleep(io.HUD_SETTLE_SECONDS)
             seq = session.send(wire.EXEC, io.HUD_BODY)
             while seq not in session.terminals and seq not in session.rejected:
-                if time.monotonic() >= io.deadline: raise TimeoutError('baseline HUD original deadline')
+                if now() >= io.deadline: raise TimeoutError('baseline HUD original deadline')
                 events.extend(session.poll()); time.sleep(.001)
         kind, ack = (DETACH, DETACH_ACK) if ending == 'detach' else (wire.CONTROL, wire.CONTROL_ACK)
         if ending == 'detach' and io.preparation.info['authentication_ordinal'] >= io.AUTH_LIMIT:
@@ -248,7 +250,7 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
             nonce_sha256=health.digest(io.audit.nonce), kernel_boot_identity_sha256=health.digest(io.audit.boot_id),
             baseline_info=io.preparation.info)
         before_terminal(request)
-        remaining = io.deadline-time.monotonic()
+        remaining = io.deadline-now()
         if remaining <= 0: raise TimeoutError('baseline terminal admission expired')
         wait(ack, session.send(kind, timeout=min(2, remaining)))
         raw_rx, raw_tx = bytes(io.audit.rx), bytes(io.audit.tx)

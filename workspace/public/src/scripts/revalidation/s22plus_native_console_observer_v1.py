@@ -70,8 +70,9 @@ class Progress:
 
 class IO:
     """Existing raw-first bounded handshake over one owner-supplied descriptor."""
-    def __init__(self, codec, key, identity, *, fd=None, writer=None, deadline=None, rx=None, tx=None):
+    def __init__(self, codec, key, identity, *, fd=None, writer=None, deadline=None, rx=None, tx=None, clock=None):
         self.codec, self.key, self.identity = codec, key, identity
+        self.clock = clock or time.monotonic
         self.fd, self.writer, self.deadline = fd, writer, deadline
         self.raw_rx, self.raw_tx = rx, tx; self.rpos = self.tpos = 0
         self.audit = codec.ExchangeAudit(auth_key_sha256=health.digest(key))
@@ -89,7 +90,7 @@ class IO:
             return part
         result = bytearray()
         while len(result) < size:
-            left = self.deadline-time.monotonic()
+            left = self.deadline-self.clock()
             if left <= 0: raise TimeoutError('original native handshake deadline')
             ready, _, _ = select.select([self.fd], [], [], min(.05, left))
             if not ready: continue

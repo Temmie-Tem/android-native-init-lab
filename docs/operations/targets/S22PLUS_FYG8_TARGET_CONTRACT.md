@@ -150,6 +150,29 @@ per-action approval and V2/deferred exact-E/600-second/no-repeat clauses only
 through this new scope/observer. Existing absent-mode records, source pins,
 approvals, consumed journals and other targets retain their original meanings.
 
+### Native session V3
+
+The common-incorporated [native session V3](../S22PLUS_NATIVE_SESSION_V3.md)
+is adopted as a **REVIEW_GATED_CAPABILITY** for newly prepared V3 tasks on this
+exact target. Its clean owner uses the shared global target/F1 exclusion and
+consumed-content registry. Only its independently qualified fresh N can earn
+V3 admission through the attended two-installation/four-session bootstrap.
+Its N/E/N path uses one final authenticated N health/DETACH and actual close;
+optional E reentry, physical USB reconnect and HUD acquisition are explicit
+task selections. A freshly qualified E may be selected within the approved
+native source closure and remaining original budget without another per-image
+approval. V3 E content remains globally one-shot.
+
+The task's one-to-three-operation, 60–7200-second grant and exact attended or
+deferred recovery choice are separately returned by the operator. Bootstrap
+and physical USB reconnect remain attended. Native-origin deferred work may
+wait in unknown powered activity for later attended original A recovery; it
+does not establish automatic recovery. Uncertainty closes research, prior
+native tails cannot be retried after an authentication attempt, and an A
+dispatch is never replayed. The fixed reviewed host setup is completed before
+the grant clock opens. Historical N/E claims and admissions retain their
+original meanings and cannot substitute for V3 admission.
+
 ### P386 attended resident observation
 
 The [resident adoption V1](../S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md) selects

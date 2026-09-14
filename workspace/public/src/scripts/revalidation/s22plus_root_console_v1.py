@@ -110,12 +110,13 @@ class Session:
     F1 owner retains journal-bound rollback; no retry/reopen method exists here.
     """
     def __init__(self, fd: int, key: bytes, run_id: bytes, nonce: bytes, evidence: Path,
-                 *, on_rx=lambda data: None, on_tx=lambda data: None, before_write=None):
+                 *, on_rx=lambda data: None, on_tx=lambda data: None, before_write=None, clock=None):
         if os.get_blocking(fd):
             raise ValueError('owner must supply a nonblocking transport')
         self.fd, self.key, self.run_id, self.nonce = fd, key, run_id, nonce
         self.on_rx,self.on_tx=on_rx,on_tx
         self.before_write=before_write
+        self.clock=clock or time.monotonic
         self.decoder = Decoder(key, run_id, nonce)
         self.evidence = Path(evidence)
         self.evidence.mkdir(mode=0o700, parents=False, exist_ok=False)
@@ -187,9 +188,9 @@ class Session:
             self.sequence += 1;self.requests[seq] = kind;self.request_bodies[seq] = body
             if self._terminal_request(kind):self.control_sequence=seq
             else:self.pending=seq
-            offset = 0;deadline = time.monotonic()+timeout
+            offset = 0;deadline = self.clock()+timeout
             while offset < len(wire):
-                if time.monotonic() >= deadline:raise TimeoutError('request delivery uncertain')
+                if self.clock() >= deadline:raise TimeoutError('request delivery uncertain')
                 if self.before_write is not None:self.before_write()
                 try:n=os.write(self.fd, wire[offset:])
                 except (BlockingIOError, InterruptedError):time.sleep(.001);continue

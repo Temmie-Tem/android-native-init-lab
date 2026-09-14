@@ -6,6 +6,20 @@
       "profile": "thermal-v3-reconnect-v1",
       "run_id": "d35c5cbd32fbf177aff76de3dd616de2",
       "version": "v0.2.1"
+    },
+    {
+      "image_sha256": "d648303da3697fce2897440a316b882b7943793573ffe9a68a9135c610486e81",
+      "namespace": "p393",
+      "profile": "thermal-v3-reconnect-v1",
+      "run_id": "141bdc34c06b08a4f963c65c9d9f158f",
+      "version": "v0.2.1"
+    },
+    {
+      "image_sha256": "b97fc72c4c347d92fbbede9a6abddba6f10e2bcfba74f0c6bd7b83d3a0b3eca3",
+      "namespace": "p394",
+      "profile": "thermal-v3-reconnect-v1",
+      "run_id": "1095628f2d0cda5e874f0494de2b16d8",
+      "version": "v0.2.1"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

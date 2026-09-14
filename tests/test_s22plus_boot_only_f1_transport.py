@@ -290,6 +290,26 @@ class S22PlusBootOnlyF1TransportTest(unittest.TestCase):
             self.assertTrue(receipt["regular_path_inputs"])
             self.assertEqual((stdout, stderr), (b"ok", b""))
 
+    def test_launch_guard_runs_after_validation_and_can_prevent_process(self):
+        module = self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            odin = root/'odin4'; odin.write_bytes(b'odin'); odin.chmod(0o700)
+            ap = root/'AP.tar.md5'; size,digest = make_ap(ap)
+            args = dict(odin_size=4,odin_sha256=hashlib.sha256(b'odin').hexdigest(),
+                ap_size=size,ap_sha256=digest,label='candidate',capture_dir=root,
+                capture_name='guarded',stdout_name='guarded.out',stderr_name='guarded.err')
+            guard = mock.Mock(side_effect=TimeoutError('original grant expired'))
+            with mock.patch.object(module.raw_capture,'acquire_command') as launch:
+                with self.assertRaises(TimeoutError):
+                    module.execute_odin_boot_only(odin,ap,'/dev/bus/usb/001/002',before_launch=guard,**args)
+                guard.assert_called_once_with(); launch.assert_not_called()
+                guard.reset_mock()
+                with self.assertRaises(module.F1TransportError):
+                    module.execute_odin_boot_only(odin,ap,'/dev/bus/usb/001/002',before_launch=guard,
+                        **dict(args,ap_sha256='0'*64))
+                guard.assert_not_called(); launch.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

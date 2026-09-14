@@ -29,14 +29,15 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def run_console_checks(session, events, *, deadline):
+def run_console_checks(session, events, *, deadline, clock=None):
     """Run one fixed EXEC and a post-terminal STATUS on an already owned session.
 
     CONTROL and its durable outer intent remain with the future transaction
     owner. On any error this helper stops the session; it never retries.
     """
+    now=clock or time.monotonic
     def wait(kind, sequence):
-        while time.monotonic() < deadline:
+        while now() < deadline:
             for k, n, body in events:
                 if (k, n) == (kind, sequence):
                     return body
@@ -45,7 +46,7 @@ def run_console_checks(session, events, *, deadline):
         raise TimeoutError('native health original deadline')
 
     try:
-        if not time.monotonic() < deadline <= time.monotonic() + 30:
+        if not now() < deadline <= now() + 30:
             raise ValueError('native health budget differs')
         if session.sequence != 3 or session.requests:
             raise ValueError('native health requires a fresh declared arrival')

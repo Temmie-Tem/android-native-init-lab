@@ -31,12 +31,25 @@ transfer intent exists. The original A fallback ran once and closed
 unadmitted and unavailable for replay under these grants. Physical USB
 disconnect/reconnect qualification has not run.
 
-Current work is H0 review of the host permission setup. ModemManager is active.
-A narrowly scoped permanent native-gadget rule can avoid repeated guard-install
-authentication, but needs explicit observer support for verified external
-configuration. A private rule draft passes `udevadm verify`; no host setting or
-execution code has been changed. Grant-bounded authentication waiting is the
-smaller temporary-guard alternative. The device remains healthy Android.
+Current work is the [clean native session V3](docs/operations/S22PLUS_NATIVE_SESSION_V3.md)
+implementation, **H0 qualified with independent PASS_GO; PC setup ready**. The new owner separates fixed
+Android/native observation, host installation, immutable records and boot-only
+transport. It retains shared consumed-candidate exclusion and historical
+records while removing legacy live-owner imports from the new path. Focused
+tests cover real C/PTY authentication, holder census, descriptor close and
+interrupted publication/recovery. The concrete adapter, task/artifact binding,
+fixed host installer and common/target adoption passed their exact-source
+independent review. Fresh P393 N and P394 E, both v0.2.1 with the same
+144-file native source closure, passed ARM64 A/B build and actual AP/member
+qualification. Their H0 exports remain distinct from N admission and live
+authority. The prior exact A recovery rederives from its transfer and seven
+raw health reads. Passing runs cover 86 selected tests. The installed five-file
+PC configuration passes actual noninteractive readiness after correcting the
+installed polkit API mismatch. No device command or V3 grant has occurred;
+last verified device state is the healthy Android close above. The concrete
+attended one-hour/three-operation P393 bootstrap and P394 USB-reconnect N/E/N
+request is prepared, with HUD omitted, and awaits the actual operator grant
+and physical attendance. See the [H0 result](docs/reports/S22PLUS_NATIVE_SESSION_V3_H0_2026-09-15.md).
 
 The [validation proportionality audit](docs/reports/S22PLUS_VALIDATION_PROPORTIONALITY_AUDIT_2026-09-15.md)
 identifies host authentication inside execution deadlines and pre-effect grant

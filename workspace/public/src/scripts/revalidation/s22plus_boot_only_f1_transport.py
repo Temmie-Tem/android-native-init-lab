@@ -16,7 +16,7 @@ import re
 import stat
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 import s22plus_boot_verify as boot_verify
 import device_action_raw_capture_v1 as raw_capture
@@ -245,6 +245,7 @@ def execute_odin_boot_only(
     capture_name: str,
     stdout_name: str,
     stderr_name: str,
+    before_launch: Callable[[], None] | None = None,
 ) -> tuple[dict[str, object], raw_capture.RawCaptureHandle]:
     if not 1 <= timeout <= 600 or not 1 <= maximum_output <= 64 * 1024 * 1024:
         raise F1TransportError("invalid Odin execution bound")
@@ -265,6 +266,13 @@ def execute_odin_boot_only(
         command = build_odin_boot_only_command(odin.path, ap.path, device)
         revalidate_pinned_path(odin)
         revalidate_pinned_path(ap)
+        # A new owner may bind the final endpoint/deadline and publish its
+        # durable transfer intent here, after potentially expensive AP hashing.
+        # Legacy callers retain their existing admission and journal behavior.
+        if before_launch is not None:
+            before_launch()
+            revalidate_pinned_path(odin)
+            revalidate_pinned_path(ap)
         try:
             handle = raw_capture.acquire_command(
                 command,
