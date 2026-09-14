@@ -38,6 +38,13 @@ configuration. A private rule draft passes `udevadm verify`; no host setting or
 execution code has been changed. Grant-bounded authentication waiting is the
 smaller temporary-guard alternative. The device remains healthy Android.
 
+The [validation proportionality audit](docs/reports/S22PLUS_VALIDATION_PROPORTIONALITY_AUDIT_2026-09-15.md)
+identifies host authentication inside execution deadlines and pre-effect grant
+consumption as the first workflow corrections. Retained-log and whole-policy
+invalidation are narrower review candidates; relevant transport/ABI tests and
+effect/recovery proof remain necessary. The audit changes no runner, grant or
+host setting and does not renew P392.
+
 ## Earlier Android recovery and clean-baseline preparation
 
 The separately approved physical-Download Android exit completed
