@@ -83,6 +83,22 @@ grant, admits no image and proves no live N/E/N roundtrip. Ordinary F1, native
 baseline V1, P386's separate observation lane and all other targets retain their
 existing boundaries.
 
+### Resident idle USB reconnect V1
+
+The [idle USB reconnect profile](../S22PLUS_NATIVE_USB_RECONNECT_V1.md) is a
+**REVIEW_GATED_CAPABILITY** of the resident baseline/research owner. Its fresh
+`thermal-v3-reconnect-v1` declaration retains thermal V3 and permits fixed-node
+tty reacquisition only while waiting before any OPEN byte, initially or after
+the existing completed DETACH cleanup. Raw-mode normalization/readback,
+one-close ownership and partial-request/command terminal stops remain required.
+Boot identity, authentication ordinals, preparation and sampling persist;
+host ACK receipt, current health, grant and journal proof remain independent.
+
+This profile requires current source-bound independent review and fresh normal
+qualification before live use. It grants no reset, transfer or failure recovery,
+does not resolve an earlier unanswered D0 read, and does not admit a baseline.
+Historical P387/P391 images and consumed operations retain their meanings.
+
 ### Native baseline with deferred physical recovery V1
 
 The separately common-incorporated [deferred physical V1 policy](../S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md)

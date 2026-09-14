@@ -1,4 +1,12 @@
 {
-  "schema": "s22plus-native-research-candidate-data-v1",
-  "candidates": []
+  "candidates": [
+    {
+      "image_sha256": "00f76144f871f2596f8f67bb75bd2842b80067afe877c86cb7bec1b7301a2956",
+      "namespace": "p392",
+      "profile": "thermal-v3-reconnect-v1",
+      "run_id": "d35c5cbd32fbf177aff76de3dd616de2",
+      "version": "v0.2.1"
+    }
+  ],
+  "schema": "s22plus-native-research-candidate-data-v1"
 }

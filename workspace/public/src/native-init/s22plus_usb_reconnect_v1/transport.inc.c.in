@@ -1,0 +1,54 @@
+/* This owner receives the initial tty and never retries close, including EINTR.
+ * FYG8 gserial close may wait up to 15 seconds for queued USB output. */
+#define UR1_VTIME 5U
+#define UR1_VMIN 6U
+#define UR1_ENXIO 6L
+
+static long ur1_close(int *owned) {
+    int fd=*owned;*owned=-1;
+    return fd<0?0:sys_close(fd);
+}
+
+static long ur1_ioctl_result(long rc) {
+    return rc==-EIO || rc==-ENODEV || rc==-S22PLUS_P318_ERRNO_EPIPE?UR1_IDLE_LINK_LOST:rc;
+}
+
+static long ur1_raw(int fd) {
+    struct p260_termios value={0},check={0};
+    long rc=p260_ioctl(fd,P260_TCGETS,&value);
+    if(rc)return ur1_ioctl_result(rc);
+    value.c_iflag=0;value.c_oflag=0;value.c_lflag=0;
+    value.c_cflag&=~(P260_CSIZE|P260_PARENB);
+    value.c_cflag|=P260_CS8|P260_CREAD|P260_CLOCAL;
+    /* With VMIN=0/VTIME=0 an empty nonblocking n_tty read can return zero.
+     * Require this setting before treating zero as a disconnected tty. */
+    value.c_cc[UR1_VTIME]=0;value.c_cc[UR1_VMIN]=1;
+    rc=p260_ioctl(fd,P260_TCSETS,&value);if(rc)return ur1_ioctl_result(rc);
+    rc=p260_ioctl(fd,P260_TCGETS,&check);if(rc)return ur1_ioctl_result(rc);
+    if(check.c_iflag || check.c_oflag || check.c_lflag ||
+       (check.c_cflag&(P260_CSIZE|P260_PARENB|P260_CREAD|P260_CLOCAL))!=
+           (P260_CS8|P260_CREAD|P260_CLOCAL) ||
+       check.c_cc[UR1_VTIME]!=0 || check.c_cc[UR1_VMIN]!=1)return -EIO;
+    return 0;
+}
+
+/* 1 means the node/link is temporarily unavailable before any OPEN read.
+ * Other configuration and close faults are terminal. */
+static long ur1_open(int *owned) {
+    long fd=sys_openat("/dev/ttyGS0",O_RDWR|P260_O_NOCTTY|O_NONBLOCK|O_CLOEXEC,0);
+    if(fd<0)return fd==-ENOENT || fd==-UR1_ENXIO || fd==-ENODEV || fd==-EIO?1:fd;
+    *owned=(int)fd;
+    long rc=ur1_raw(*owned);
+    if(rc){long closed=ur1_close(owned);return closed?closed:rc==UR1_IDLE_LINK_LOST?1:rc;}
+    return 0;
+}
+
+static long ur1_retry_delay(void) {
+    struct timespec64 deadline={0};
+    long rc=p282_deadline_after(1,&deadline);if(rc)return rc;
+    do {
+        rc=local_pre_auth();if(rc)return rc;
+        p282_poll_delay();
+    }while(!p282_deadline_expired(&deadline));
+    return baseline_check();
+}

@@ -80,11 +80,13 @@ def compile_c(*args):
     except subprocess.CalledProcessError as exc:raise AssertionError(exc.stderr) from exc
 
 
-def compile_components(cls, selected=candidate, *, render_source=source, metrics_transform=None):
+def compile_components(cls, selected=candidate, *, render_source=source, metrics_transform=None, native_transform=None):
     cls.temp=tempfile.TemporaryDirectory(prefix='s22-resident-adoption-h0-');cls.addClassCleanup(cls.temp.cleanup)
     cls.folder=Path(cls.temp.name)
     (cls.folder/'resident-fixture-clock.h').write_text(CLOCK_HEADER)
-    (cls.folder/'native.c').write_text(native_source(selected,runtime_source=render_source));cls.binary=cls.folder/'native'
+    native=native_source(selected,runtime_source=render_source)
+    if native_transform is not None:native=native_transform(native)
+    (cls.folder/'native.c').write_text(native);cls.binary=cls.folder/'native'
     compile_c(cls.folder/'native.c',cls.binary,'-Wno-unused-function','-Wno-unused-const-variable','-Wno-misleading-indentation')
     raw=render_source.render_display(selected.IDENTITY,previous.CENSUS)
     (cls.folder/'renderer.c').write_bytes(raw)

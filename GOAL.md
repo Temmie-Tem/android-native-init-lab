@@ -13,6 +13,23 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
+**P392 / v0.2.1 uses rc.9's thermal V3 code baseline and implements idle USB
+tty reacquisition.** ARM64 A/B boot packages agree exactly; actual C/PTY and
+ARM64 termios/hangup checks pass. All 31 selected tests pass; source-bound
+independent review returned `PASS_GO`, with current capability receipts.
+The [profile](docs/operations/S22PLUS_NATIVE_USB_RECONNECT_V1.md) preserves
+same-boot authentication state and sampling, and never replays a consumed
+request. See the [H0 report](docs/reports/S22PLUS_NATIVE_USB_RECONNECT_H0_2026-09-14.md).
+
+No live baseline promotion, grant, recovery or installation has occurred.
+The currently unresponsive rc.5 installation first requires applicable attended
+Android recovery and verified health; future P392 live qualification remains
+separate. Existing P387/P391 artifacts, admission and consumed records retain
+their meanings. Samsung USB recovery and long-duration reliability remain
+unproved by the host tests.
+
+## Previously qualified proportional research amendment
+
 **The operator-approved proportional research amendment is implemented and
 H0-qualified with independent `PASS_GO`; all 46 selected tests pass.** Revision
 11 updates the common contract and S22+ contract together. One finite scope can

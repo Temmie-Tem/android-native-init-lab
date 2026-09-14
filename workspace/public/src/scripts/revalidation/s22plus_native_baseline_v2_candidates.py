@@ -24,6 +24,7 @@ import s22plus_native_thermal_source_v2 as thermal_source_v2
 import s22plus_native_thermal_observer_v2 as thermal_observer_v2
 import s22plus_native_thermal_source_v3 as thermal_source_v3
 import s22plus_native_thermal_observer_v3 as thermal_observer_v3
+import s22plus_native_reconnect_source_v1 as reconnect_source
 
 ROOT = common.ROOT
 POLICY = 'native-baseline-v2'
@@ -56,6 +57,7 @@ def declaration(namespace, run_id, version, image_sha256, *, runtime_source=sour
     adapter.NATIVE_SOURCE_PROFILE = runtime_source.PROFILE
     return SimpleNamespace(__file__=__file__,IDENTITY=selected,PROFILE=runtime_source.PROFILE,OWNER_PROFILE=POLICY,
         THERMAL_PROFILE=getattr(runtime_source,'THERMAL_PROFILE',None),
+        RECONNECT_PROFILE=getattr(runtime_source,'RECONNECT_PROFILE',None),
         runtime=runtime,observer=observer,artifact=artifact,adapter=adapter,
         return_host=owner.ReturnHost(selected,CONTROL),console_owner=owner.EmptyPlan(selected))
 
@@ -87,6 +89,8 @@ RESEARCH_DATA_SCHEMA = 's22plus-native-research-candidate-data-v1'
 RESEARCH_PROFILES = {
     'resident-v1': (source, resident.Observer, ()),
     'thermal-v3': (thermal_source_v3, thermal_observer_v3.Observer,
+        ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
+    'thermal-v3-reconnect-v1': (reconnect_source, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
 }
 HISTORICAL_DECLARATIONS = frozenset(DECLARATIONS)
@@ -124,6 +128,11 @@ def research_data(root=ROOT):
 
 
 def research_profile(declared):
+    if getattr(declared, 'RECONNECT_PROFILE', None) is not None:
+        if (declared.RECONNECT_PROFILE == reconnect_source.RECONNECT_PROFILE
+                and declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE):
+            return 'thermal-v3-reconnect-v1'
+        raise ValueError('unreviewed reconnect composition')
     if declared.THERMAL_PROFILE is None: return 'resident-v1'
     if declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE: return 'thermal-v3'
     raise ValueError('candidate runtime profile is not admitted to proportional research')
@@ -143,7 +152,9 @@ def static(prefix):
     from s22plus_native_baseline_v2_build import Builder, EXTRA_SOURCES
     from s22plus_native_candidate_static_v1 import CandidateStatic
     declared = DECLARATIONS[prefix]
-    if declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE:
+    if declared.RECONNECT_PROFILE == reconnect_source.RECONNECT_PROFILE:
+        from s22plus_native_reconnect_build_v1 import Builder, EXTRA_SOURCES
+    elif declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE:
         from s22plus_native_thermal_build_v3 import Builder, EXTRA_SOURCES
     elif declared.THERMAL_PROFILE == thermal_source_v2.THERMAL_PROFILE:
         from s22plus_native_thermal_build_v2 import Builder, EXTRA_SOURCES

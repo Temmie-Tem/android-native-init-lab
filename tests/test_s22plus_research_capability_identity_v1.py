@@ -54,8 +54,8 @@ class CapabilityIdentityTests(unittest.TestCase):
         before = owner.core.json_sha256(scope.review_sources())
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary)/'catalog.json'
-            path.write_text(json.dumps(dict(schema=candidates.RESEARCH_DATA_SCHEMA, candidates=[dict(
-                namespace='p392', run_id='0123456789abcdef0123456789abcdef', version='v0.2.0-rc.10',
+            path.write_text(json.dumps(dict(schema=candidates.RESEARCH_DATA_SCHEMA, candidates=[*candidates.research_data(),dict(
+                namespace='p999999', run_id='0123456789abcdef0123456789abcdef', version='v0.2.0-rc.10',
                 image_sha256='a'*64, profile='resident-v1')])) )
             code = '''from pathlib import Path
 import os, json
@@ -67,12 +67,12 @@ def read(path):
 with mock.patch.object(Path, 'read_bytes', read):
     import s22plus_native_research_scope_v1 as scope
     import device_action_f1_live_v2 as live
-    selected = scope.candidates.static('p392')
+    selected = scope.candidates.static('p999999')
     print(json.dumps(dict(sources=scope.owner.core.json_sha256(scope.review_sources()),
         namespace=selected.declaration.IDENTITY.namespace,
         run_id=selected.declaration.IDENTITY.run_id_hex,
         profile=scope.candidates.research_profile(selected.declaration),
-        routed='p392' in live.typed_evidence.SHELL_VARIANTS,
+        routed='p999999' in live.typed_evidence.SHELL_VARIANTS,
         native_inputs=len(selected.builder.source_receipts()))))
 '''
             result = subprocess.run(['python3', '-c', code], cwd=owner.ROOT, env=dict(os.environ,
@@ -80,7 +80,7 @@ with mock.patch.object(Path, 'read_bytes', read):
                 text=True, capture_output=True, timeout=60, check=True)
             value = json.loads(result.stdout)
             self.assertEqual(value['sources'], before)
-            self.assertEqual((value['namespace'], value['profile']), ('p392', 'resident-v1'))
+            self.assertEqual((value['namespace'], value['profile']), ('p999999', 'resident-v1'))
             self.assertEqual(value['run_id'], '0123456789abcdef0123456789abcdef')
             self.assertTrue(value['routed']); self.assertGreater(value['native_inputs'], 100)
 

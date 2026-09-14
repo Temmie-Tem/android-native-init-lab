@@ -1,0 +1,38 @@
+/* Only a zero-byte OPEN wait owns automatic link reacquisition. A completed
+ * DETACH returns here through the existing cleanup; any consumed OPEN or
+ * uncertain command/ACK stays terminal. Host receipt/ownership is unchanged. */
+static long p345_framed_console(
+    int tty_fd,const uint8_t *boot_id,uint8_t *open_seen) {
+    long rc=local_begin();
+    int owned=tty_fd;
+    if(rc==0) {
+        local_display.attempted=1;
+        rc=ur1_raw(owned);
+        if(rc){long closed=ur1_close(&owned);rc=closed?closed:rc==UR1_IDLE_LINK_LOST?0:rc;}
+        while(rc==0) {
+            rc=baseline_check();if(rc)break;
+            if(owned<0) {
+                rc=ur1_retry_delay();if(rc)break;
+                rc=ur1_open(&owned);
+                if(rc==1){rc=0;continue;}
+                if(rc)break;
+            }
+            rc=local_authenticated_console(owned,boot_id,open_seen);
+            if(rc==2){rc=baseline_detached();continue;}
+            if(rc==UR1_IDLE_LINK_LOST && *open_seen==0U) {
+                rc=ur1_close(&owned);continue;
+            }
+            if(rc<0 && *open_seen==0U && p335_is_waiting_error(rc) &&
+               baseline_check()==0){rc=0;continue;}
+            break;
+        }
+        if(rc==1) {
+            local_phase(8U);local_service();local_close();
+            @@NAMESPACE@@_diagnostic.terminal=1;
+            (void)syscall6(142,0xfee1deadUL,672274793UL,0xa1b2c3d4UL,
+                (long)(uintptr_t)"download",0,0);
+        }else local_finish(rc==-ETIMEDOUT?5U:local_display.authenticated?7U:4U);
+    }
+    for(;;){local_service();p282_poll_delay();}
+    return -P260_EPROTO;
+}

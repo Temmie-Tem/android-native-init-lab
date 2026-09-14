@@ -8,8 +8,8 @@
     },
     "source_02d90b29e9e99dcd": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py",
-      "sha256": "5f261cc3b2c129dfdd344647ca497b294f8fb30bbf3755278f242489f805b636",
-      "size": 11113
+      "sha256": "41536b128dd84c823b23baff2c0d7a42c27b305832cf938547825b920a3fe34d",
+      "size": 11902
     },
     "source_0361bd05dfb31ddf": {
       "path": "workspace/public/src/native-init/s22plus_resident_v1/hud.inc.c.in",
@@ -366,6 +366,11 @@
       "sha256": "ebd03fc2c9f52f8b0840679b4ccdbd3ac9101965faf52558705bf01693ad2b3e",
       "size": 5314
     },
+    "source_56c838679f52351a": {
+      "path": "docs/operations/S22PLUS_NATIVE_USB_RECONNECT_V1.md",
+      "sha256": "f531ab90c3243af55f9d7968fee7540bc60e1c7a50de9f01fa739fa7177cefa5",
+      "size": 3360
+    },
     "source_5818b2f36dff2048": {
       "path": "workspace/public/src/kernel-modules/s22plus_thermal_telemetry_v1/Makefile",
       "sha256": "b196b964c693431141d10b0995f4e608636f4b8f14f691f180e8feae15e99ed3",
@@ -553,8 +558,8 @@
     },
     "source_8105aebb885cab95": {
       "path": "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
-      "sha256": "505f645a8de6eb09c8bc0d6abab39896815b4004519074dfc0f7acfa75d7278c",
-      "size": 140606
+      "sha256": "f90cb6aa0ba2b747cadd703f9e30df38268e46c27716b6d44d63b0f7716b7fc7",
+      "size": 141576
     },
     "source_810788ab6a148da6": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p332_artifact_identity.py",
@@ -626,6 +631,11 @@
       "sha256": "7f541c109a0eeebf4e4fb7c7afe120ae641149d7ac749e74867add754ae99a02",
       "size": 18661
     },
+    "source_8e4f302275039196": {
+      "path": "workspace/public/src/native-init/s22plus_usb_reconnect_v1/transport.inc.c.in",
+      "sha256": "7c5aa0f170f5d6989c18019f395ae564a6fc97014470517c2f1553ea73906bcb",
+      "size": 2169
+    },
     "source_8e64a9b1dced6fba": {
       "path": "workspace/public/src/native-init/s22plus_resident_v1/gem.inc.c.in",
       "sha256": "8119568121df45a5cbe02413cd8e12afc73135637659bf2fa0ef7a1b280842a9",
@@ -665,6 +675,11 @@
       "path": "workspace/public/src/scripts/revalidation/s22plus_display_step_v1_namespace.py",
       "sha256": "33e1686555b04844f59ad92a760d0661f0aaab3b47e5afbc159293e7be57f0bc",
       "size": 8536
+    },
+    "source_9c6f525c92a109b0": {
+      "path": "workspace/public/src/native-init/s22plus_usb_reconnect_v1/entry.inc.c.in",
+      "sha256": "43193f5d2e49fcd00c4e719cb944a3905c502edc871668dba44ce137e32ff1f7",
+      "size": 1616
     },
     "source_9c9d04be4663b907": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p370_namespace.py",
@@ -946,6 +961,11 @@
       "sha256": "d730e8b014a4046bd4c60e1fba809bc13c6f1ec63c4e9d2b9e2843007bf21207",
       "size": 6075
     },
+    "source_e00f4b1e88a940e3": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_native_reconnect_source_v1.py",
+      "sha256": "dd0cfbf0eb715e197d6fe3181ad7837524a3b4d0ef606ca712a9d2f32bf9180f",
+      "size": 2467
+    },
     "source_e08fc68667d99acf": {
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p377_artifact_identity.py",
       "sha256": "0caa7ce1221e495bb7ead723ec1702ef1ca85e294e73241792cf086f27934389",
@@ -975,6 +995,11 @@
       "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p367_return_spec.py",
       "sha256": "85bf953348f9988709cb16213850187c3d3214da7b30bbd322b5c9d1839cde4c",
       "size": 128
+    },
+    "source_e69cd9afcb3d8b15": {
+      "path": "workspace/public/src/scripts/analysis/s22plus_native_reconnect_build_v1.py",
+      "sha256": "7e7aa467b9c3886f5e9c0cb37b1e3520babaef772c88284e9649622feabbc428",
+      "size": 1404
     },
     "source_e7e138277e33de27": {
       "path": "workspace/public/src/native-init/s22plus_thermal_v2/collect.inc.c.in",
@@ -1066,26 +1091,30 @@
     "seconds": 600
   },
   "previous_attended_review_sha256": "a0e870b62d1d4c5e7447583f0356c838b30b956d564ce667adc6237848a95d20",
-  "previous_review_sha256": "52ec753c73c2d206240c3f25488997b55f514e7a272f7cdf3ecf6522758a903e",
+  "previous_review_sha256": "6af7aa571f88cc6fa9e8adb3cddffe171b9cc77cb7bbe23048856bbb872b5fbe",
   "qualification": {
+    "actual_c_pty_transport_tests": 5,
+    "actual_c_thermal_roundtrip_tests": 5,
+    "arm64_ab_package_match": true,
     "capability_identity_tests": 5,
-    "legacy_compatibility_tests": 26,
-    "live_unattended_trial": "NOT_RUN",
-    "native_byte_inputs_unchanged": true,
+    "live_baseline_promotion": "NOT_PERFORMED",
     "native_observation_tests": 6,
-    "native_source_count": 121,
     "physical_device_commands": 0,
-    "report": "docs/reports/S22PLUS_PROPORTIONAL_RESEARCH_H0_2026-09-14.md",
+    "real_arm64_termios_hangup_tests": 1,
+    "report": "docs/reports/S22PLUS_NATIVE_USB_RECONNECT_H0_2026-09-14.md",
     "research_scope_tests": 9,
+    "retained_p387_native_inputs_unchanged": 121,
+    "retained_p391_native_inputs_unchanged": 140,
     "retained_real_native_admission_and_p391_terminal": "PASS",
-    "selected_tests_passed": 46
+    "samsung_usb_recovery": "NOT_PROVED",
+    "selected_tests_passed": 31
   },
-  "review_source_freeze_sha256": "d68deb97c8e4facb6ced25fbebc8fbabdf076a305fb562501a5d5da60272b7ed",
-  "reviewed_at_utc": "2026-09-13T18:57:47.891997+00:00",
+  "review_source_freeze_sha256": "7914ba422e99c455b81334018d9511055642095dcc0c5e3602f03948916b31e3",
+  "reviewed_at_utc": "2026-09-14T13:46:39.303623+00:00",
   "reviewer": "independent-agent-p386_terminal_review",
   "schema": "s22plus-native-baseline-capability-review-v2",
-  "scope": "Proportional-research shared-machinery change with unchanged legacy V2/deferred semantics",
+  "scope": "P392 idle USB reconnect with distinct thermal V3 profile, baseline/research activation and unchanged legacy semantics",
   "source_set_encoding": "sorted compact JSON plus LF",
-  "source_set_sha256": "c9e59a30f4d2f502773d5e0b3a68b36cb070723382664a2ffb66ba7927b85fe0",
+  "source_set_sha256": "6614dbf1c52203fe9489bb3128c95d0d6d70b65eac81d680b0da9bb4c74e0873",
   "verdict": "PASS_GO"
 }
