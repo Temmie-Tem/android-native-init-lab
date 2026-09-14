@@ -21,22 +21,41 @@ The [profile](docs/operations/S22PLUS_NATIVE_USB_RECONNECT_V1.md) preserves
 same-boot authentication state and sampling, and never replays a consumed
 request. See the [H0 report](docs/reports/S22PLUS_NATIVE_USB_RECONNECT_H0_2026-09-14.md).
 
+**P392's first actual native boot was accepted, but bootstrap is incomplete
+and Android has been restored healthy.** Two authentication sessions, three
+commands, native health and timely CONTROL/Download succeeded. Before the
+second native transfer, the host's second `pkexec` authentication prompt did
+not complete within the guard's 30-second arm window. No second native
+transfer intent exists. The original A fallback ran once and closed
+`ANDROID_CLOSED`; the grant and F1 owner are closed. P392 is now consumed,
+unadmitted and unavailable for replay under these grants. Physical USB
+disconnect/reconnect qualification has not run.
+
+Current work is H0 review of the host permission setup. ModemManager is active.
+A narrowly scoped permanent native-gadget rule can avoid repeated guard-install
+authentication, but needs explicit observer support for verified external
+configuration. A private rule draft passes `udevadm verify`; no host setting or
+execution code has been changed. Grant-bounded authentication waiting is the
+smaller temporary-guard alternative. The device remains healthy Android.
+
+## Earlier Android recovery and clean-baseline preparation
+
 The separately approved physical-Download Android exit completed
 `ANDROID_CLOSED`, with one exact original A transfer and rooted FYG8 health.
 The approved P392 bootstrap then closed `ABORTED_NO_DEVICE_EFFECT` during its
 Android D0: the complete retained log contains one valid P387 carrier record,
 so the existing clean-baseline decoder correctly rejected it. Initial Android
 health passed; no P392 Download request or transfer occurred. Both grants are
-closed and their F1 owners released. P392 remains globally unconsumed and has
-not been installed, admitted or promoted.
+closed and their F1 owners released. P392 was still unconsumed at that point;
+its subsequent single installation is recorded above.
 
 The existing attended normal-reboot profile then completed one reboot with
 changed-boot health `PASS`. Its code was unchanged; independent `PASS_GO`
 refreshed only the common/target receipt bindings and reused the unchanged
 25-test evidence. Fresh complete D0 now passes with a clean retained baseline,
 zero evidence-family markers and exact current Android health. No F1 owner or
-pending reboot remains. The separate P392 request `p392-bootstrap-20260914-2`
-is prepared for one operation/600 seconds, awaiting a new returned approval;
+pending reboot remained. The separate one-operation/600-second request
+`p392-bootstrap-20260914-2` was then approved and consumed as recorded above;
 the first grant remains closed despite its zero image transfers.
 Preparation, raw results and H0 replay are under
 `workspace/private/outputs/s22plus-v021-live-prepare-20260914-1/`.

@@ -5,6 +5,11 @@ Scope: use rc.9's thermal V3 features as the code baseline, repair idle USB tty
 reacquisition, and qualify a fresh v0.2.1 package before live baseline promotion.
 No physical device command, new grant or transfer is part of this H0 work.
 
+Latest live outcome: **first P392 native phase accepted; full bootstrap
+incomplete after a host authentication wait; original Android restored healthy.**
+P392 is consumed and not admitted. No second native transfer or physical USB
+cable-reconnect qualification occurred.
+
 ## Result and limits
 
 P392 / `v0.2.1` is implemented and its ARM64 A/B boot packages agree exactly.
@@ -12,10 +17,9 @@ All 31 selected tests pass. Independent review returned **PASS_GO**, findings
 `[]`, for frozen source set SHA-256
 `7914ba422e99c455b81334018d9511055642095dcc0c5e3602f03948916b31e3`.
 The research, V2 and deferred capability receipts bind that reviewed closure,
-including both legacy working/publication variants. The existing device
-remains at its last recorded P387 / rc.5 native installation with unanswered
-D0 observations. Neither rc.9 nor P392 has been promoted to the operational
-baseline by this change.
+including both legacy working/publication variants. At H0 close, the device
+was last recorded at P387 / rc.5 with unanswered D0 observations. Neither rc.9
+nor P392 was promoted by that H0 change; the later live outcomes follow below.
 
 The [new profile](../operations/S22PLUS_NATIVE_USB_RECONNECT_V1.md) closes a
 hung-up descriptor once and reopens the fixed tty only before any OPEN byte,
@@ -73,14 +77,16 @@ The retained P391 native terminal and P387 admission rederive; all 121 P387
 and 140 P391 native inputs, and both P391 APs, remain unchanged.
 The latest D0 stop retains SHA-256
 `b0641be6354a3fb63f7744ed8817330fbeec2c0256581ee109a43884181eaad2`.
-There is no unresolved F1 owner, but current authenticated device health is
-still unverified. H0 success cannot clear that observation failure.
+At that H0 checkpoint there was no unresolved F1 owner, but current
+authenticated device health was unverified. H0 success did not clear the old
+observation failure; later Android recovery established a new healthy state.
 
 ## Next live boundary
 
-The Android recovery and fresh baseline described below have completed.
-A new finite grant and the normal native-baseline qualification still govern
-any P392 installation; the zero-transfer first bootstrap grant stays closed.
+The Android recovery described below has completed. P392's first installation
+is now consumed and its bootstrap is incomplete; its closed grants do not
+permit replay. Resolve the host permission setup before qualifying a fresh
+successor under its own current authority.
 Same-boot live USB disconnect/reconnect evidence is required before calling
 this repair demonstrated on Samsung hardware. Long-duration reliability is
 still unproved. A90 and S20+ were untouched; old consumed images and journals
@@ -139,9 +145,64 @@ The structured D0 result has SHA-256
 `7ee4ca938738816db37cf7ebdb628c1d9e27c2ec68b9c4edbe6167c386a97ff7`.
 The rejected old snapshot and closed first bootstrap grant remain unchanged.
 
-Request `p392-bootstrap-20260914-2` is freshly prepared for one operation and
-600 seconds; no grant has opened. Its unchanged scope/artifacts produce the
-same request digest as the first proposal, but a new returned authorization is
-required for this separate request. The old approval cannot reopen its closed
-grant or silently renew the budget. P392 remains globally unconsumed and no
-native image was transferred in this live preparation.
+Request `p392-bootstrap-20260914-2` was freshly prepared for one operation and
+600 seconds. Its unchanged scope/artifacts produced the same request digest as
+the first proposal, but required a new returned authorization for that separate
+request. No old grant or budget was reopened. The operator subsequently
+returned that authorization and the following live attempt consumed P392.
+
+## Accepted first native boot, host guard wait and healthy fallback
+
+The second request completed one P392 boot-only installation. Its first native
+observer returned `accepted`, with two authenticated sessions, three commands,
+native-health proof, one host descriptor close/reopen and accepted CONTROL.
+The owner also proved timely Download return. These are first-boot capability
+observations; descriptor reopening is not physical USB cable-reconnect proof.
+
+Before the second native transfer, the next temporary ModemManager guard
+invocation produced no ARM receipt during its 30-second arm window. It produced
+zero stdout/stderr bytes and was still running at capture finalization. The
+raw capture's generic `timed_out` flag remains false; the outer guard owner
+enforces the separate arm deadline. It raised `ObserverError` at this host
+pre-transfer step. No `native-final` transfer intent exists.
+
+Timestamp-correlated local polkit evidence shows the first password dialog
+completed successfully before its guard armed at 11.409 seconds. The second
+dialog requested a password but had no authentication-completion event before
+the 30.064-second cutoff. This explains the host wait; it is not evidence of a
+P392 USB-serial failure or an invalid password.
+
+The already authorized original A fallback transferred once and verified
+exact rooted FYG8 health and Download absence. The result is `ANDROID_CLOSED`,
+`research_stopped=true`, `native_admitted=false`, terminal SHA-256
+`a031b2481af276db4045279f6097941230587ec9a3a8cf31b1c62a78a0335261`.
+The grant is closed, F1 and pending-D1 owners are absent, and the temporary
+runtime udev rule is absent. Candidate qualification and healthy rollback
+remain separate. The concise close record is
+`workspace/private/outputs/s22plus-v021-live-prepare-20260914-1/p392-consumed-close-summary.json`.
+
+## Host permission design assessment
+
+ModemManager is active on this PC. The current guard installs a scoped runtime
+udev rule using `pkexec`, then removes it after each observation phase. The
+second phase therefore requires another host authentication. Its 30-second arm
+window is distinct from the installed rule's 360-second default lifetime.
+
+Independent design assessment identifies two bounded alternatives. Allowing
+authentication to wait within the original BOOTTIME grant is the smallest
+temporary-guard code change; it must preserve legacy defaults, cancellation
+cleanup and all effect-time authority/target checks. A permanent rule limited
+to the S22+ native gadget and bound lab port is a suitable host configuration
+alternative, but needs explicit observer verification of root-owned rule bytes
+and effective device/port-ignore properties. The current helper rejects a
+same-name permanent override, so installing a file alone does not adopt it.
+No temporary-child or rule-removal receipt may be fabricated for external
+configuration. Separate privileged checks, such as a holder census, remain
+separate from guard-install authentication.
+
+A private permanent-rule draft matches the bound native port, VID/PID,
+interface and `S22E3` plus exactly 32 hexadecimal build-ID characters. It passes
+`udevadm verify`, SHA-256
+`37e00aa041d95e6d02000d245bd8b8f991233b9334fdbce4b571ab60d171bd29`.
+This is a syntax-checked proposal, not an installed or activated policy. No
+host service, security policy or execution code was changed by this assessment.
