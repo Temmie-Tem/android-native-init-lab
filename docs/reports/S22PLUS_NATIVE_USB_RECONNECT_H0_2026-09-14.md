@@ -78,10 +78,70 @@ still unverified. H0 success cannot clear that observation failure.
 
 ## Next live boundary
 
-The device must first return through the applicable attended exact Android
-recovery path and pass health verification. A fresh finite grant and the
-normal native-baseline qualification then govern any P392 installation.
+The Android recovery and fresh baseline described below have completed.
+A new finite grant and the normal native-baseline qualification still govern
+any P392 installation; the zero-transfer first bootstrap grant stays closed.
 Same-boot live USB disconnect/reconnect evidence is required before calling
 this repair demonstrated on Samsung hardware. Long-duration reliability is
 still unproved. A90 and S20+ were untouched; old consumed images and journals
 remain unchanged.
+
+## Separate live recovery and bootstrap preflight
+
+The operator entered physical Download and returned the exact separate Android
+exit and P392 bootstrap approvals. Passive endpoint/retained-lane binding and
+the original A artifact passed. The stale P387 H0 preparation was rejected
+before a grant; refreshing its host source receipts preserved every native
+artifact and its admitted native identity.
+
+The new Android-exit owner transferred the original boot-only A exactly once.
+Android USB appeared with ADB initially offline. After the operator unlocked
+Android, exact rooted FYG8 health, boot/supporting hashes and Download absence
+passed. It closed `ANDROID_CLOSED`, terminal SHA-256
+`486b43ead7991f83325eff65db5b9976404a158e83791aaa49c24abce788f0b3`.
+Its grant is closed; no native role ran during recovery.
+
+The separately opened P392 bootstrap passed initial Android health but its D0
+clean-baseline classification stopped before any Download request, Odin
+invocation or partition transfer. The complete 2,097,136-byte `/proc/last_kmsg`
+capture, SHA-256
+`abc87b4b9066386fa8061e7e6cdabde133187bb9f32d3ef4bdff6f211e18a731`,
+contains one valid P387 `S22E1L2|` carrier record and no P392 binary identity.
+H0 replay reproduces the existing decoder's current/legacy-family rejection.
+This is an expected negative baseline, not a P392 execution failure.
+
+The bootstrap reservation closed `ABORTED_NO_DEVICE_EFFECT`, terminal SHA-256
+`20753bd47749b3bb63d665b2c6831ea7c367b63792c9ae3bacc940d3fca3634f`.
+Its one-reservation grant is closed, both F1 owners are released, and P392
+remains globally unconsumed. Its rejected D0 result is not reusable. All raw
+records and the replay remain under
+`workspace/private/outputs/s22plus-v021-live-prepare-20260914-1/` and the named
+private owner runs. Normal reboot and fresh baseline observation were selected
+as the next bounded preparation; no parser exception or old-record relabelling
+was introduced.
+
+The ordinary-Android goal capability's executable inputs and eight actions
+were unchanged. Independent `PASS_GO`, findings `[]`, approved refreshing only
+its common/target source receipts, reusing the retained 25-test PASS and review
+evidence. The nine-source map has canonical sorted compact JSON plus LF SHA-256
+`10faa3674cd67fdd947374e0e2dd14e01e9c9d58aaba1d0a3b4c7d3ab45a51b1`.
+The already authorized foreground profile then dispatched one normal reboot.
+Its exact changed-boot health passed, with zero other-target commands, result
+SHA-256 `30fd60a5458679a695b41d26786816bcf145bacbc6c85b53c6c809a7bd405f52`.
+Its goal grant closed and the pending-reboot marker was retired normally.
+
+Fresh complete D0 now returns `PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY`:
+the new 2,097,136-byte observer has zero family and exact markers, a clean
+baseline, and SHA-256
+`a8e5c9ad23f2ee6d9e85aaec7f6a92e1d16434632684c0f04a5afa0d735e777c`.
+Current target/boot/Android health and the prepared target binding agree.
+The structured D0 result has SHA-256
+`7ee4ca938738816db37cf7ebdb628c1d9e27c2ec68b9c4edbe6167c386a97ff7`.
+The rejected old snapshot and closed first bootstrap grant remain unchanged.
+
+Request `p392-bootstrap-20260914-2` is freshly prepared for one operation and
+600 seconds; no grant has opened. Its unchanged scope/artifacts produce the
+same request digest as the first proposal, but a new returned authorization is
+required for this separate request. The old approval cannot reopen its closed
+grant or silently renew the budget. P392 remains globally unconsumed and no
+native image was transferred in this live preparation.

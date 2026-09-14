@@ -18,8 +18,8 @@
   ],
   "evidence": {
     "changed_roles": [
-      "policy",
-      "runner"
+      "common",
+      "target"
     ],
     "incident": {
       "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/d1-stop-close-evidence.json",
@@ -41,6 +41,13 @@
       "sha256": "b29948a9ae308c0103022ac6ccc6c1d08188f5073acdf81a110ffe7e7dac3851",
       "size": 15714
     },
+    "receipt_refresh_review": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/private/outputs/s22plus-v021-live-prepare-20260914-1/goal-research-independent-review.json",
+      "sha256": "e6b8eac9a2ccad4948cc402732a340c388db0093c641e2299680bffe35ddce0d",
+      "size": 1253
+    },
+    "reused_test_count": 25,
+    "source_set_sha256": "10faa3674cd67fdd947374e0e2dd14e01e9c9d58aaba1d0a3b4c7d3ab45a51b1",
     "tests": {
       "path": "workspace/private/outputs/s22plus-fyg8-v0.2.0-rc.4/connected-preparation-20260911-1/readiness-fix-tests-final.stderr",
       "sha256": "b6fcc7f44fb71e3cb7b1eb5ebad3ab6b90cbd451ddec28a535d0238f68e92a5c",
@@ -55,12 +62,12 @@
     "The one dispatched reboot remains STOP with separately observed late health; no result promotion or replay.",
     "The used goal remains closed; no additional reboot or failed-goal resumption is authorized."
   ],
-  "reviewed_at_utc": "2026-09-11T14:22:56.014443+00:00",
-  "reviewer": "independent-agent-f1_preparation_review",
+  "reviewed_at_utc": "2026-09-14T14:29:44.945201+00:00",
+  "reviewer": "independent-agent-p386_terminal_review",
   "schema": "s22plus_goal_research_independent_review_v1",
-  "scope": "Bounded successful early-boot readiness polling before unchanged strict return health",
+  "scope": "Receipt refresh for common/target amendments; ordinary Android D0, attended normal-reboot and pending/F1 interlocks unchanged",
   "sources": {
-    "common": "e7ac73a4d79a1c82afe37dd6e2962df276d2b5e53642de3bee095f370f2110d1",
+    "common": "6645fe544b0b16ff6bbc1f730557b371dd1494dd4a0e1120eaed052af03f519e",
     "d0": "3537ad22bd11db20ff42f4672690a4a51a4b29f00d9c830b73e17a985e4bdaa7",
     "f1_owner": "207e6205a7996d54ea40de7d6f3d7456b69229d825a87f7261909e29bb1482a8",
     "policy": "d3d921b79cf2f4b54c4e0f36ed301d25c084038f4e8c030728647ff5c981264d",
@@ -68,7 +75,7 @@
     "raw_capture": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
     "registry": "4f01198932854c695453ff88f55fb8e926f629faf97b1c8528cecc88d7e28349",
     "runner": "ec2d4c4af647427b68cdcf95321c26a28d7d4fcd697a62ad06d346616d53ff47",
-    "target": "6dcf69cfb71db85a2b51b016394252d5accc346ae61e418051be5a5b8e0a9683"
+    "target": "f90cb6aa0ba2b747cadd703f9e30df38268e46c27716b6d44d63b0f7716b7fc7"
   },
   "verdict": "PASS_GO"
 }

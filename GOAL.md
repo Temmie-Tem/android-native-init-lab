@@ -21,17 +21,27 @@ The [profile](docs/operations/S22PLUS_NATIVE_USB_RECONNECT_V1.md) preserves
 same-boot authentication state and sampling, and never replays a consumed
 request. See the [H0 report](docs/reports/S22PLUS_NATIVE_USB_RECONNECT_H0_2026-09-14.md).
 
-No live baseline promotion, grant, recovery or installation has occurred.
-The operator has entered physical Download for the last-recorded rc.5
-installation. Fresh passive USB identity and retained lane checks pass, and
-the exact Android A is verified. Separate one-reservation/600-second Android
-exit and P392 bootstrap requests are prepared, awaiting their exact returned
-approvals. P392 may start only after Android recovery and fresh health pass.
-Preparation and the old-record rejection are retained under
-`workspace/private/outputs/s22plus-v021-live-prepare-20260914-1/`; the refreshed
-P387 static record changes only host source receipts, preserving its artifacts.
-Existing P387/P391 admission and consumed records retain their meanings.
-Samsung USB recovery and long-duration reliability remain unproved by H0.
+The separately approved physical-Download Android exit completed
+`ANDROID_CLOSED`, with one exact original A transfer and rooted FYG8 health.
+The approved P392 bootstrap then closed `ABORTED_NO_DEVICE_EFFECT` during its
+Android D0: the complete retained log contains one valid P387 carrier record,
+so the existing clean-baseline decoder correctly rejected it. Initial Android
+health passed; no P392 Download request or transfer occurred. Both grants are
+closed and their F1 owners released. P392 remains globally unconsumed and has
+not been installed, admitted or promoted.
+
+The existing attended normal-reboot profile then completed one reboot with
+changed-boot health `PASS`. Its code was unchanged; independent `PASS_GO`
+refreshed only the common/target receipt bindings and reused the unchanged
+25-test evidence. Fresh complete D0 now passes with a clean retained baseline,
+zero evidence-family markers and exact current Android health. No F1 owner or
+pending reboot remains. The separate P392 request `p392-bootstrap-20260914-2`
+is prepared for one operation/600 seconds, awaiting a new returned approval;
+the first grant remains closed despite its zero image transfers.
+Preparation, raw results and H0 replay are under
+`workspace/private/outputs/s22plus-v021-live-prepare-20260914-1/`.
+Existing P387/P391 admission and consumed records retain their meanings;
+Samsung USB recovery and long-duration reliability remain unproved.
 
 ## Previously qualified proportional research amendment
 
