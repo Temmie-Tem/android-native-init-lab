@@ -106,6 +106,55 @@ frame rehashes/rebuilds everything would be false. Preserve effect-time checks;
 optimize a demonstrated duplicate computation only when it causes material
 delay, without adding a new benchmarking gate to the current task.
 
+## N -> E -> N follow-up
+
+The initial audit followed shared owner machinery but concentrated on the
+Android-origin P392 bootstrap incident. This follow-up explicitly checks the
+normal native-origin experiment. N is the admitted reference image; E is the
+experimental image. The owner's `PHASES` and `execute`, the observer's
+`mode_sessions`/`qualify`, and the protocol's `qualify_one` implement:
+
+| Phase | Actual work | Proportionality assessment |
+| --- | --- | --- |
+| Starting N | One fresh authenticated health session, then CONTROL and measured Download return | Retain current health and exact transition proof. The old native terminal alone is insufficient. |
+| E | One boot-only E transfer, two authenticated health sessions with DETACH/close/reopen between them, then CONTROL and measured Download return | New E identity/boot, health and safe departure are necessary. The second session directly tests reentry; retain it when reentry/USB behavior is the experiment, and assess reuse of prior capability evidence for unrelated routine changes. |
+| Returned N | One boot-only N transfer, two fresh authenticated health sessions with DETACH/close/reopen, then final DETACH/close | Exact restoration, new-boot health and clean closure are necessary. Repeating the whole reentry qualification on unchanged admitted N after every E is a narrowing candidate, not a demonstrated universal requirement. |
+
+Thus a normal N/E/N operation has **two image transfers, five authenticated
+health sessions, two CONTROL/Download transitions and three temporary guard
+lifecycles**. These counts exclude bootstrap. The three guard setups each use
+the privileged helper; whether each displays a password prompt depends on host
+authorization. The actual P388 roundtrip's retained report records the same
+1/2/2 authentication layout. It is historical execution evidence, not a new
+live measurement.
+
+Returning to N has a concrete purpose: it closes each experiment on a known
+reference image and gives the next experiment that same baseline. It does not
+require bootstrapping N again. Restoring N after every E is the current chosen
+experiment model, not a hardware law. Remaining on E, promoting E to N or
+chaining E images changes state ownership and recovery semantics and is absent
+from the current operation set. Such a different goal deserves a separate
+scoped design; this audit does not assume it is safer or necessary here.
+
+There is an additional coupling to remove from routine N/E/N where unnecessary:
+`qualify` automatically enables optional HUD export for the second session of
+each pair, including the restored N. `qualify_one` dispatches it when enough
+time remains. It tolerates a terminal negative/rejection without requiring a
+positive scientific result, but a dispatched HUD command that hangs consumes
+the observation deadline; export decoding can also raise during projection.
+Consequently optional diagnostics can obstruct otherwise completed core health
+and normal closure. Prefer requesting export only when the experiment needs it,
+and avoid it on routine restored-N health. Once a command has actually been
+sent, its uncertain execution cannot be ignored or replayed.
+
+The native-origin branch does **not** call the Android `collect_android`
+clean-baseline path. The P392 retained-log rejection therefore is not a normal
+N/E/N gate. Conversely, repeated privileged guard setup and mandatory pair
+sessions are directly present. The proportional scope already avoids a new
+human approval for each in-scope E and permits qualified prospective repeats;
+it retains this same N/E/N phase workload. Existing failed/consumed legacy
+operations do not gain new authority from this assessment.
+
 ## Disposition
 
 Prioritize host permission readiness and pre-effect reservation accounting.
