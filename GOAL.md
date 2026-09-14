@@ -13,43 +13,39 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**P392 / v0.2.1 uses rc.9's thermal V3 code baseline and implements idle USB
-tty reacquisition.** ARM64 A/B boot packages agree exactly; actual C/PTY and
-ARM64 termios/hangup checks pass. All 31 selected tests pass; source-bound
-independent review returned `PASS_GO`, with current capability receipts.
-The [profile](docs/operations/S22PLUS_NATIVE_USB_RECONNECT_V1.md) preserves
-same-boot authentication state and sampling, and never replays a consumed
-request. See the [H0 report](docs/reports/S22PLUS_NATIVE_USB_RECONNECT_H0_2026-09-14.md).
+**The clean V3 owner completed P393 bootstrap and P394 physical USB
+reconnect N/E/N. P393 is admitted and retained `NATIVE_CLOSED_HEALTHY`.**
+The actual attended grant covered 3600 seconds and three operations. Bootstrap
+completed two P393 installations and four authenticated health sessions.
+The following N/E/N operation completed fresh starting-N health, one P394
+installation, E health/DETACH, actual cable departure and a new USB generation,
+fresh same-boot E authentication/CONTROL, P393 restoration and one final
+health/DETACH. All eight required native health observations passed.
 
-**P392's first actual native boot was accepted, but bootstrap is incomplete
-and Android has been restored healthy.** Two authentication sessions, three
-commands, native health and timely CONTROL/Download succeeded. Before the
-second native transfer, the host's second `pkexec` authentication prompt did
-not complete within the guard's 30-second arm window. No second native
-transfer intent exists. The original A fallback ran once and closed
-`ANDROID_CLOSED`; the grant and F1 owner are closed. P392 is now consumed,
-unadmitted and unavailable for replay under these grants. Physical USB
-disconnect/reconnect qualification has not run.
+The reconnect's authenticated ordinal advanced from one to two with a fresh
+nonce and unchanged kernel boot identity. Physical departure and new USB
+arrival were observed within the original 120-second window. This qualifies
+the selected actual reconnect, not long-duration reliability or automatic
+recovery from a stalled device. HUD was not requested. Original Android A
+recovery was unnecessary; it was not exercised in this task.
 
-Current work is the [clean native session V3](docs/operations/S22PLUS_NATIVE_SESSION_V3.md)
-implementation, **H0 qualified with independent PASS_GO; PC setup ready**. The new owner separates fixed
-Android/native observation, host installation, immutable records and boot-only
-transport. It retains shared consumed-candidate exclusion and historical
-records while removing legacy live-owner imports from the new path. Focused
-tests cover real C/PTY authentication, holder census, descriptor close and
-interrupted publication/recovery. The concrete adapter, task/artifact binding,
-fixed host installer and common/target adoption passed their exact-source
-independent review. Fresh P393 N and P394 E, both v0.2.1 with the same
-144-file native source closure, passed ARM64 A/B build and actual AP/member
-qualification. Their H0 exports remain distinct from N admission and live
-authority. The prior exact A recovery rederives from its transfer and seven
-raw health reads. Passing runs cover 86 selected tests. The installed five-file
-PC configuration passes actual noninteractive readiness after correcting the
-installed polkit API mismatch. No device command or V3 grant has occurred;
-last verified device state is the healthy Android close above. The concrete
-attended one-hour/three-operation P393 bootstrap and P394 USB-reconnect N/E/N
-request is prepared, with HUD omitted, and awaits the actual operator grant
-and physical attendance. See the [H0 result](docs/reports/S22PLUS_NATIVE_SESSION_V3_H0_2026-09-15.md).
+Both operation terminals and their raw evidence rederive. The task is closed,
+two operations are consumed, the unused third operation is retired and no F1
+owner remains. P394 stays consumed; P393 retains its original V3 admission
+and final tail. A later device operation requires its own current authority.
+The five-file PC configuration remains installed as verified external
+configuration. The operator reported the missing `rc.1` display suffix;
+both qualified images display `v0.2.1`, and this presentation detail remains
+recorded without changing consumed artifacts. See the
+[live result and timeline](docs/reports/S22PLUS_NATIVE_SESSION_V3_LIVE_2026-09-15.md).
+
+The [V3 implementation](docs/operations/S22PLUS_NATIVE_SESSION_V3.md) and
+common/target adoption received exact-source independent `PASS_GO`.
+Passing H0 runs cover 86 selected tests. P393 N and P394 E share the same
+144-file native source closure and passed ARM64 A/B and AP/member
+qualification. The installed polkit API correction passed actual
+noninteractive host readiness before the grant opened. See the
+[H0 result](docs/reports/S22PLUS_NATIVE_SESSION_V3_H0_2026-09-15.md).
 
 The [validation proportionality audit](docs/reports/S22PLUS_VALIDATION_PROPORTIONALITY_AUDIT_2026-09-15.md)
 identifies host authentication inside execution deadlines and pre-effect grant
@@ -59,6 +55,16 @@ effect/recovery proof remain necessary. The audit changes no runner, grant or
 host setting and does not renew P392.
 
 ## Earlier Android recovery and clean-baseline preparation
+
+P392 / v0.2.1 implemented idle USB tty reacquisition on rc.9's thermal V3
+baseline. Its first actual boot and two authentication sessions passed, but
+the host's second `pkexec` prompt did not complete within the old guard's
+30-second arm window. No second native transfer intent exists. Original A
+fallback ran once and closed healthy Android. That grant is closed and P392
+remains consumed, unadmitted and unavailable for replay. Its physical USB
+reconnect trial never ran; the fresh P393/P394 V3 work above later qualified
+the shared runtime. See the
+[P392 H0 report](docs/reports/S22PLUS_NATIVE_USB_RECONNECT_H0_2026-09-14.md).
 
 The separately approved physical-Download Android exit completed
 `ANDROID_CLOSED`, with one exact original A transfer and rooted FYG8 health.
@@ -100,7 +106,7 @@ importer, but remains unresolved. No new grant, candidate build or physical
 device action occurred during the amendment. Capability qualification does
 not prove current USB response or authorize a new experiment by itself.
 
-## Current device observation
+## Earlier unresolved observation before Android recovery
 
 **The requested post-amendment D0 reobservation also ended
 `NO_PROOF_NATIVE_RESPONSE_UNRESOLVED` at 2026-09-14 04:06 KST.** The reviewed

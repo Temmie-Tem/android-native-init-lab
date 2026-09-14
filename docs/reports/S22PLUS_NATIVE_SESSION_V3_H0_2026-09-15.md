@@ -1,5 +1,9 @@
 # S22+ native session V3 H0 qualification
 
+This records the pre-grant H0 checkpoint. The subsequent attended bootstrap
+and physical USB reconnect results are in the
+[V3 live report](S22PLUS_NATIVE_SESSION_V3_LIVE_2026-09-15.md).
+
 The clean V3 owner implements the workflow corrections from the
 [proportionality audit](S22PLUS_VALIDATION_PROPORTIONALITY_AUDIT_2026-09-15.md).
 It has a separate live entry point and imports no legacy live owner. The
