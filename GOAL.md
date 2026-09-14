@@ -22,11 +22,16 @@ same-boot authentication state and sampling, and never replays a consumed
 request. See the [H0 report](docs/reports/S22PLUS_NATIVE_USB_RECONNECT_H0_2026-09-14.md).
 
 No live baseline promotion, grant, recovery or installation has occurred.
-The currently unresponsive rc.5 installation first requires applicable attended
-Android recovery and verified health; future P392 live qualification remains
-separate. Existing P387/P391 artifacts, admission and consumed records retain
-their meanings. Samsung USB recovery and long-duration reliability remain
-unproved by the host tests.
+The operator has entered physical Download for the last-recorded rc.5
+installation. Fresh passive USB identity and retained lane checks pass, and
+the exact Android A is verified. Separate one-reservation/600-second Android
+exit and P392 bootstrap requests are prepared, awaiting their exact returned
+approvals. P392 may start only after Android recovery and fresh health pass.
+Preparation and the old-record rejection are retained under
+`workspace/private/outputs/s22plus-v021-live-prepare-20260914-1/`; the refreshed
+P387 static record changes only host source receipts, preserving its artifacts.
+Existing P387/P391 admission and consumed records retain their meanings.
+Samsung USB recovery and long-duration reliability remain unproved by H0.
 
 ## Previously qualified proportional research amendment
 
