@@ -287,6 +287,16 @@ Classify every action using
   reaches only one effectful cleanup and renews no consumed effect or G2 authority.
   Source review, current target/health, no pending F1 owner,
   raw-first evidence and separate cleanup/final-health outcomes are required.
+  A new direct additional-cleanup request may use the incorporated policy's
+  separately reviewed `additional-known` mode, limited to its exact historical
+  extra declaration with every existing runtime exclusion. One immutable child
+  of a closed original-mode cleanup binds the complete prior effect sequence,
+  exact healthy changed-boot GPT/root/package state and a fresh finite window.
+  The policy's qualified same-boot read-only transport stop may be resolved for
+  this prospective scope under boundary 7; no uncertain effect qualifies and
+  no old verdict changes. This is separate from inventory retirement. Prior
+  journals remain effectful and immutable, a second child or additional-mode
+  descendant is forbidden, and all new effects remain attended and one-shot.
   The exact S20+ target contract may additionally activate one attended
   read-only classic-fastboot census ordinal delegated by permanent boundary 3. Its
   operator-entered mode transition makes the complete census D1 even though

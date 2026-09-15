@@ -52,6 +52,8 @@ PACKAGE=re.compile(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+')
 HISTORICAL_KEEP='docs/plans/S22PLUS_ANDROID_116_PACKAGE_ALLOWLIST_2026-07-06.txt'
 DEBUG_KEEP='docs/plans/S22PLUS_ANDROID_DEBUG_CHANNEL_REQUIRED_PACKAGES_2026-07-08.txt'
 PASS1='docs/reports/S22PLUS_ANDROID_DEBLOAT_PASS1_2026-07-06.md'
+EXTRA_REPORT='docs/reports/S22PLUS_SYSTEM_APP_EXTRA_DEBLOAT_2026-07-06.md'
+ADDITIONAL_MODE='additional-known'
 
 
 def declared_packages():
@@ -68,8 +70,21 @@ def declared_packages():
 OPTIONAL,KEEP=declared_packages()
 
 
+def additional_packages():
+    text=(Path(__file__).resolve().parents[5]/EXTRA_REPORT).read_text()
+    blocks=re.findall(r'Removed:\n\n```text\n(.*?)```',text,re.S)
+    names=tuple(name for block in blocks for name in block.strip().splitlines())
+    require(len(blocks)==4 and len(names)==38 and len(set(names))==len(names)
+        and all(PACKAGE.fullmatch(name) and name not in KEEP for name in names),
+        'historical additional-package declaration differs')
+    return names
+
+
+EXTRA_OPTIONAL=additional_packages()
+
+
 def metadata_label(name):
-    require(name in OPTIONAL,'metadata label is outside the fixed declaration')
+    require(name in OPTIONAL or name in EXTRA_OPTIONAL,'metadata label is outside the fixed declaration')
     return 'pkg-'+digest(name.encode('ascii'))
 
 
@@ -78,11 +93,12 @@ HOME=['shell','cmd','package','resolve-activity','--brief','--user','0','-a',
     'android.intent.action.MAIN','-c','android.intent.category.HOME']
 IME=['shell','settings','get','secure','default_input_method']
 USER=['shell','am','get-current-user']
+SAFE_MODE=['shell','getprop','persist.sys.safemode']
 
 
 def source_paths(root):
     return tuple(sorted(set(task_owner.source_paths(str(Path(root).resolve())))|
-        {Path(root)/POLICY,Path(__file__).resolve(),*(Path(root)/name for name in (HISTORICAL_KEEP,DEBUG_KEEP,PASS1))}))
+        {Path(root)/POLICY,Path(__file__).resolve(),*(Path(root)/name for name in (HISTORICAL_KEEP,DEBUG_KEEP,PASS1,EXTRA_REPORT))}))
 
 
 def review(root):
@@ -161,19 +177,23 @@ def package_metadata(text,row):
         ordinary_primary_user=ordinary,persistent='PERSISTENT' in flags or 'coreApp=true' in block)
 
 
-def selection(all_packages,metadata,home,ime):
+def selection(all_packages,metadata,home,ime,*,declaration=None):
+    declaration=OPTIONAL if declaration is None else declaration
     counts=Counter(row['uid'] for row in all_packages.values());selected=[];excluded={}
-    for name in OPTIONAL:
+    for name in declaration:
         if name not in all_packages:continue
-        row=metadata[name]
+        row=all_packages[name]
         reason=('required-component' if name in KEEP or name in (home,ime,'android') or row['path'].startswith('/apex/') else
-            'system-or-shared-uid' if row['uid']<10000 or counts[row['uid']]!=1 or row['shared_uid'] else
+            'system-or-shared-uid' if row['uid']<10000 or counts[row['uid']]!=1 else None)
+        if reason:excluded[name]=reason;continue
+        row=metadata[name]
+        reason=('system-or-shared-uid' if row['shared_uid'] else
             'persistent-component' if row['persistent'] else
             'customized-or-disabled-user-state' if not row['ordinary_primary_user'] else None)
         if reason:excluded[name]=reason
         else:selected.append(row)
     return dict(selected=selected,excluded=excluded,home=home,ime=ime,
-        declared_optional_count=len(OPTIONAL),installed_system_count=len(all_packages))
+        declared_optional_count=len(declaration),installed_system_count=len(all_packages))
 
 
 def saved_sources(root,directory,opened):
@@ -349,20 +369,37 @@ class Run:
     def __init__(self,root,directory,*,recovering=False):
         self.root=Path(root).resolve();self.directory=private_path(self.root,directory)
         self.opened=read(self.directory/'open.json');self.open_pin=pin(self.directory/'open.json')
-        require(set(self.opened)==OPEN_FIELDS
-            and self.opened['schema']==SCHEMA and self.opened['mode']=='minimal-management'
+        additional=self.opened.get('mode')==ADDITIONAL_MODE
+        require(set(self.opened)==OPEN_FIELDS|({'previous_cleanup'} if additional else set())
+            and self.opened['schema']==SCHEMA and self.opened['mode'] in ('minimal-management',ADDITIONAL_MODE)
             and type(self.opened['opened_ns']) is int and self.opened['opened_ns']>0
             and self.opened['deadline_ns']==self.opened['opened_ns']+900_000_000_000
             and type(self.opened['operator_statement']) is str
             and 0<len(self.opened['operator_statement'].strip())<=4096,
             'Android-minimal open differs')
         self.task=read(verify(self.opened['task']));self.journal=Journal(self.directory/'journal')
-        _,self.claim_pins,ancestors=claim_lineage(self.root,self.opened,self.open_pin)
-        self.predecessors=[]
-        for parent,receipt in ancestors:
-            require(read(verify(receipt))==inventory_no_effect_projection(self.root,parent),
-                'cleanup ancestor retirement differs')
-            self.predecessors.append(parent)
+        self.previous_cleanup=None;self.predecessors=[]
+        if additional:
+            previous=self.opened['previous_cleanup']
+            prior=private_path(self.root,Path(previous['open']['path']).parent)
+            require(previous==closed_cleanup(self.root,prior)
+                and previous['task']==self.opened['task'] and previous['closed']==self.opened['closed']
+                and not set(previous['removed'])&set(EXTRA_OPTIONAL),
+                'additional cleanup predecessor does not rederive')
+            claim=pin(prior/'additional-cleanup-claim.json')
+            require(read(verify(claim))==dict(schema=SCHEMA+'-additional-claim',previous_cleanup=previous,
+                task=self.opened['task'],closed=self.opened['closed'],open=self.open_pin),
+                'additional cleanup claim differs')
+            self.previous_cleanup=previous
+            self.claim_pins=[claim,*previous['claim_pins'],*(previous[key] for key in
+                ('open','terminal','journal_tail','source_snapshot','final'))]
+            self.predecessors=[Path(path) for path in previous['retired_preparations']]
+        else:
+            _,self.claim_pins,ancestors=claim_lineage(self.root,self.opened,self.open_pin)
+            for parent,receipt in ancestors:
+                require(read(verify(receipt))==inventory_no_effect_projection(self.root,parent),
+                    'cleanup ancestor retirement differs')
+                self.predecessors.append(parent)
         closed_task,closed=census.closed_android(self.root,self.opened['task']['path'])
         require(closed_task==self.task and closed==self.opened['closed']
             and read(verify(closed))['gpt']['status']=='RESERVED_ANDROID_REBOOT_VERIFIED',
@@ -381,11 +418,31 @@ class Run:
             'Android-minimal requires the Android32 layout')
         self.basis=dict(layout='proposed',geometry=read(verify(self.opened['closed']))['gpt']['geometry'])
 
+    def declaration(self):
+        return EXTRA_OPTIONAL if self.opened.get('mode')==ADDITIONAL_MODE else OPTIONAL
+
+    def metadata_candidates(self,listed):
+        counts=Counter(row['uid'] for row in listed.values())
+        return [name for name in self.declaration() if name in listed and
+            (self.opened.get('mode')!=ADDITIONAL_MODE or
+             (not listed[name]['path'].startswith('/apex/') and listed[name]['uid']>=10000
+              and counts[listed[name]['uid']]==1))]
+
+    def safe_mode_projection(self,folder):
+        if self.opened.get('mode')!=ADDITIONAL_MODE:return {}
+        value=raw.decode_success_stdout(raw.load_handle(Path(folder)/'safe-mode.capture.json'),maximum=16)
+        require(value in ('','0'),'additional cleanup reports Android safe mode')
+        return dict(safe_mode_property=value)
+
     def check(self,*,reserve=0):
         require(not (self.directory/'inventory-no-effect-close.json').exists(),'original inventory preparation is retired')
         for receipt in self.claim_pins:verify(receipt)
         for predecessor in self.predecessors:
             require(existing_empty_journal(self.root,predecessor),'retired preparation gained execution activity')
+        if self.previous_cleanup is not None:
+            journal=Path(self.previous_cleanup['open']['path']).parent/'journal'
+            require(journal.is_dir() and len(Journal(journal).rows())==self.previous_cleanup['journal_rows'],
+                'previous effectful cleanup gained execution activity')
         require(pin(self.directory/'open.json')==self.open_pin and host_boot()==self.opened['host_boot']
             and clock()+int(reserve*1e9)<self.deadline_ns,'Android-minimal binding or deadline changed')
         require(review(self.root)==self.opened['review'],'Android-minimal review changed')
@@ -422,10 +479,12 @@ class Run:
             require(self.text(folder,'current-user',USER).strip()=='0','primary Android user is not active')
             listed=packages(self.text(folder,'system-packages',LIST))
             self.text(folder,'home',HOME);self.text(folder,'ime',IME)
+            if self.opened.get('mode')==ADDITIONAL_MODE:
+                self.text(folder,'safe-mode',SAFE_MODE,maximum=16)
             self.text(folder,'storage-stat',
                 ['shell','su -c '+shlex.quote(gpt_android.STAT_SCRIPT)],maximum=16384)
-            for name in OPTIONAL:
-                if name in listed:self.text(folder/'packages',metadata_label(name),
+            for name in self.metadata_candidates(listed):
+                self.text(folder/'packages',metadata_label(name),
                     ['shell','dumpsys','package',name],maximum=METADATA_MAXIMUM)
         finally:after=self.health(folder/'after')
         require(before['properties']==after['properties'],'Android boot changed during package inventory')
@@ -437,15 +496,17 @@ class Run:
             maximum=METADATA_MAXIMUM if name.startswith('packages/') else 131072)
         require(texts('current-user').strip()=='0','inventory primary user differs')
         listed=packages(texts('system-packages'));home=component(texts('home'));ime=component(texts('ime'))
-        metadata={name:package_metadata(texts('packages/'+metadata_label(name)),listed[name]) for name in OPTIONAL if name in listed}
+        metadata={name:package_metadata(texts('packages/'+metadata_label(name)),listed[name])
+            for name in self.metadata_candidates(listed)}
         before=read(folder/'before/health.json');after=read(folder/'after/health.json')
         for health in (before,after):
             require(target.health_projection(health['captures'],self.task['target'],self.task['A'])==health,
                 'inventory rooted health does not rederive')
         require(before['properties']==after['properties'],'inventory boot differs')
-        return dict(schema=SCHEMA,selection=selection(listed,metadata,home,ime),
+        return dict(schema=SCHEMA,selection=selection(listed,metadata,home,ime,declaration=self.declaration()),
             storage=gpt_android.storage_stat(texts('storage-stat'),self.basis,self.sealed),
-            before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'))
+            before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'),
+            **self.safe_mode_projection(folder))
 
     def inventory_projection(self):
         value=self.inventory_raw_projection()
@@ -476,6 +537,8 @@ class Run:
             require(self.text(folder,'current-user',USER).strip()=='0','final user is not primary')
             present=packages(self.text(folder,'system-packages',LIST))
             home=component(self.text(folder,'home',HOME));ime=component(self.text(folder,'ime',IME))
+            if self.opened.get('mode')==ADDITIONAL_MODE:
+                self.text(folder,'safe-mode',SAFE_MODE,maximum=16)
             require((home,ime)==(plan['selection']['home'],plan['selection']['ime']),
                 'required home/input component changed')
             client=self.android(folder/'gpt')
@@ -502,6 +565,10 @@ class Run:
         require(before['properties']==after['properties'] and text('current-user').strip()=='0',
             'snapshot boot or primary user differs')
         present=packages(text('system-packages'));home=component(text('home'));ime=component(text('ime'))
+        if self.opened.get('mode')==ADDITIONAL_MODE:
+            baseline=packages(raw.decode_success_stdout(raw.load_handle(
+                self.directory/'inventory/system-packages.capture.json'),maximum=131072))
+            require((set(baseline)&KEEP)<=set(present),'additional cleanup lost an initially present keep package')
         require((home,ime)==(plan['selection']['home'],plan['selection']['ime']),
             'snapshot required components differ')
         census.require_shell_v2(pin(folder/'gpt/shell-features.capture.json'))
@@ -510,18 +577,14 @@ class Run:
         storage=gpt_android.storage_stat(text('storage-stat'),self.basis,self.sealed)
         return dict(schema=SCHEMA,before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'),
             remaining=[row['name'] for row in plan['selection']['selected'] if row['name'] in present],
-            home=home,ime=ime,gpt=proof,storage=storage)
+            home=home,ime=ime,gpt=proof,storage=storage,**self.safe_mode_projection(folder))
 
-    def terminal_projection(self):
-        """H0 rederivation of all selected effects, departure and final raw health."""
+    def completed_effects_projection(self,*,final_name='final'):
+        """H0 effect and changed-boot proof; never changes a terminal verdict."""
+        require(final_name in ('final','reconciliation'),'unsupported final snapshot')
         plan=self.inventory_projection();rows=self.journal.rows()
         names=[row['name'] for row in plan['selection']['selected']]
-        if not names:
-            require(not rows,'empty cleanup unexpectedly has journal actions')
-            return dict(schema=SCHEMA,status='NO_CHANGES_NEEDED',
-                terminal_state='ANDROID_CLOSED_HEALTHY',inventory=pin(self.directory/'inventory/result.json'),
-                final_health=plan['after'],removed_count=0,reboot_verified=False,
-                source_snapshot=self.opened['source_snapshot'])
+        require(names,'completed cleanup has no selected effects')
         intents=[r['data'] for r in rows if r['event']=='intent']
         require([r['key'] for r in intents]==names+['reboot'],'cleanup effect sequence is incomplete')
         initial=read(verify(plan['after']))
@@ -540,7 +603,7 @@ class Run:
                 and text('uninstall').strip()=='Success' and name not in packages(text('after-package')),
                 'uninstall raw result or post-state differs')
         before=self.snapshot_projection(self.directory/'before-reboot',plan)
-        after=self.snapshot_projection(self.directory/'final',plan)
+        after=self.snapshot_projection(self.directory/final_name,plan)
         folder=self.directory/'reboot';intent=intents[-1]
         require(intent['kind']=='reboot' and intent['detail']['departure']==pin(folder/'before.json'),
             'reboot intent does not join its original USB generation')
@@ -555,6 +618,18 @@ class Run:
         require(a['boot_id_sha256']!=b['boot_id_sha256'] and before['gpt']==after['gpt']
             and before['storage']['total_bytes']==after['storage']['total_bytes']
             and not before['remaining'] and not after['remaining'],'cleanup reboot persistence is unproved')
+        return plan,names,before,after
+
+    def terminal_projection(self):
+        """H0 rederivation of all selected effects, departure and final raw health."""
+        plan=self.inventory_projection()
+        if not plan['selection']['selected']:
+            require(not self.journal.rows(),'empty cleanup unexpectedly has journal actions')
+            return dict(schema=SCHEMA,status='NO_CHANGES_NEEDED',
+                terminal_state='ANDROID_CLOSED_HEALTHY',inventory=pin(self.directory/'inventory/result.json'),
+                final_health=plan['after'],removed_count=0,reboot_verified=False,
+                source_snapshot=self.opened['source_snapshot'])
+        plan,names,before,after=self.completed_effects_projection()
         for name,value in (('before-reboot',before),('final',after)):
             path=self.directory/name/'result.json'
             if path.exists():require(read(path)==value,'snapshot aggregate differs')
@@ -643,7 +718,62 @@ class Run:
                 source_snapshot=self.opened['source_snapshot']))
 
 
-def prepare(root,task_path,output,*,operator_statement,attended,replace_inventory=None):
+def closed_cleanup(root,directory):
+    """Prove prior effects closed without relabelling its terminal or replaying I/O."""
+    directory=private_path(root,directory)
+    require((directory/'journal').is_dir(),'previous cleanup journal is missing')
+    require(read(directory/'open.json')['mode']=='minimal-management',
+        'additional cleanup requires the original management profile')
+    run=Run(root,directory);terminal=read(directory/'terminal.json')
+    require(terminal['status'] in ('COMPLETE','INCOMPLETE'),
+        'previous cleanup has no effectful closed terminal')
+    final_name='reconciliation' if terminal['status']=='INCOMPLETE' else 'final'
+    plan,names,before,after=run.completed_effects_projection(final_name=final_name)
+    require(read(directory/'before-reboot/result.json')==before
+        and read(directory/final_name/'result.json')==after,'previous cleanup snapshot aggregate differs')
+    rows=run.journal.rows();events=['started']+['intent','complete']*(len(names)+1)
+    require([row['event'] for row in rows] in (events,events+['stopped'])
+        and rows[0]['data']==dict(inventory=pin(directory/'inventory/result.json')),
+        'previous cleanup has pending or unexplained execution activity')
+    complete=[row['data'] for row in rows if row['event']=='complete']
+    expected=[dict(key=name,capture=pin(directory/f'package-{i:03d}'/'uninstall.capture.json'),
+        post_state=pin(directory/f'package-{i:03d}'/'after-package.capture.json')) for i,name in enumerate(names)]
+    expected.append(dict(key='reboot',capture=pin(directory/'reboot/reboot.capture.json'),
+        departure=pin(directory/'reboot/departure.json')))
+    require(complete==expected,'previous cleanup completion receipts differ')
+    initial=packages(raw.decode_success_stdout(raw.load_handle(directory/'inventory/system-packages.capture.json'),maximum=131072))
+    present=packages(raw.decode_success_stdout(raw.load_handle(directory/final_name/'system-packages.capture.json'),maximum=131072))
+    require(set(initial)-set(present)==set(names) and not (set(present)-set(initial))
+        and (set(initial)&KEEP)<=(set(present)&KEEP),
+        'previous cleanup package changes or preserved components differ')
+    if terminal['status']=='INCOMPLETE':
+        require(terminal==dict(schema=SCHEMA,status='INCOMPLETE',terminal_state='ANDROID_CLOSED_HEALTHY',
+            final=pin(directory/'reconciliation/result.json'),remaining=[],cleanup_replay_permitted=False,
+            reboot_verified=False,source_snapshot=run.opened['source_snapshot']),
+            'previous read-only reconciliation terminal differs')
+        reconciliation=read(directory/'reconcile.json')
+        require(reconciliation['open']==run.open_pin and reconciliation['read_only'] is True
+            and reconciliation['deadline_ns']==reconciliation['opened_ns']+300_000_000_000
+            and [row['event'] for row in rows]==events+['stopped'],
+            'previous reconciliation does not close the stopped execution')
+        text=lambda label:raw.decode_success_stdout(raw.load_handle(
+            directory/'final/before'/(label+'.capture.json')),maximum=16384)
+        target.select_android(text('00-health'),run.task['target'])
+        require(text('01-health')==run.task['target']['topology']
+            and target.fields(text('02-health'),target.PROPERTY_FIELDS)==read(verify(after['after']))['properties']
+            and text('03-health')=='' and text('04-health')=='List of devices attached',
+            'previous stop is not the qualified same-boot transport disappearance')
+    else:
+        require(terminal==run.terminal_projection(),'previous complete terminal does not rederive')
+    return dict(schema=SCHEMA+'-closed-predecessor',open=run.open_pin,task=run.opened['task'],
+        closed=run.opened['closed'],terminal=pin(directory/'terminal.json'),
+        journal_rows=len(rows),journal_tail=pin(directory/'journal'/f'{len(rows)-1:04d}.json'),
+        source_snapshot=run.opened['source_snapshot'],final=pin(directory/final_name/'result.json'),
+        removed=names,claim_pins=run.claim_pins,
+        retired_preparations=[str(path) for path in run.predecessors])
+
+
+def prepare(root,task_path,output,*,operator_statement,attended,replace_inventory=None,after_cleanup=None):
     root=Path(root).resolve();require(attended is True and type(operator_statement) is str
         and 0<len(operator_statement.strip())<=4096,'actual minimal-Android request/attendance is required')
     qualified=review(root);task_path=private_path(root,task_path)
@@ -655,8 +785,18 @@ def prepare(root,task_path,output,*,operator_statement,attended,replace_inventor
     with registry.target_session_lease(root):
         registry.require_no_f1_owner(root)
         claim_path=task_path.parent/'android-minimal-claim.json'
-        replacement=None
-        if replace_inventory is None:
+        replacement=None;previous=None
+        if after_cleanup is not None:
+            require(replace_inventory is None,'additional cleanup cannot replace an old inventory')
+            previous=closed_cleanup(root,after_cleanup)
+            require(previous['task']==pin(task_path) and previous['closed']==closed
+                and not set(previous['removed'])&set(EXTRA_OPTIONAL),
+                'additional declaration overlaps prior effects or changes the closed task')
+            claim_path=Path(previous['open']['path']).parent/'additional-cleanup-claim.json'
+            require(not claim_path.exists(),'this cleanup already has its one additional claim')
+            replacement=dict(schema=SCHEMA+'-additional-claim',previous_cleanup=previous,
+                task=pin(task_path),closed=closed)
+        elif replace_inventory is None:
             require(not claim_path.exists(),'this closed G2 task already has a cleanup claim; use its reconciliation')
         else:
             retired_pin=pin(private_path(root,replace_inventory));retired=read(verify(retired_pin))
@@ -676,9 +816,11 @@ def prepare(root,task_path,output,*,operator_statement,attended,replace_inventor
             require(not claim_path.exists(),'the one inventory replacement is already claimed')
         output.mkdir(mode=0o700)
         snapshot=census.snapshot_current(root,output/'source-snapshot',qualified)
-        now=clock();opened=publish(output/'open.json',dict(schema=SCHEMA,mode='minimal-management',task=pin(task_path),
+        now=clock();opened=publish(output/'open.json',dict(schema=SCHEMA,
+            mode=ADDITIONAL_MODE if previous is not None else 'minimal-management',task=pin(task_path),
             closed=closed,review=qualified,operator_statement=operator_statement,host_boot=host_boot(),
-            opened_ns=now,deadline_ns=now+900_000_000_000,source_snapshot=snapshot))
+            opened_ns=now,deadline_ns=now+900_000_000_000,source_snapshot=snapshot,
+            **(dict(previous_cleanup=previous) if previous is not None else {})))
         publish(claim_path,dict(replacement,open=opened) if replacement is not None else
             dict(schema=SCHEMA+'-claim',task=pin(task_path),closed=closed,open=opened))
         run=Run(root,output);receipt=run.inventory(output/'inventory')
@@ -693,12 +835,14 @@ if __name__=='__main__':
     p=sub.add_parser('prepare');p.add_argument('task',type=Path);p.add_argument('output',type=Path)
     p.add_argument('--operator-statement',required=True);p.add_argument('--attended',action='store_true')
     p.add_argument('--replace-inventory',type=Path)
+    p.add_argument('--after-cleanup',type=Path)
     p=sub.add_parser('execute');p.add_argument('directory',type=Path);p.add_argument('--attended',action='store_true')
     p=sub.add_parser('reconcile');p.add_argument('directory',type=Path)
     p=sub.add_parser('retire-inventory');p.add_argument('directory',type=Path)
     args=parser.parse_args()
     if args.action=='prepare':print(prepare(args.root,args.task,args.output,
-        operator_statement=args.operator_statement,attended=args.attended,replace_inventory=args.replace_inventory))
+        operator_statement=args.operator_statement,attended=args.attended,replace_inventory=args.replace_inventory,
+        after_cleanup=args.after_cleanup))
     elif args.action=='execute':print(Run(args.root,args.directory).execute(attended=args.attended))
     elif args.action=='retire-inventory':print(retire_inventory(args.root,args.directory))
     else:print(Run(args.root,args.directory).reconcile())

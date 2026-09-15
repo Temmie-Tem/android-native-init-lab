@@ -251,6 +251,14 @@ child after an execution start, effect intent or other unsuccessful/uncertain ra
 command. Old records remain unchanged. The same-FYG8 Pass1 consumer-removal
 list is reused with the historical 116 keep list plus three debug packages;
 APEX, shared/service UID and persistent/default-component exclusions remain.
+After independent review, a new direct additional-cleanup request may adopt
+the policy's `additional-known` mode: only the four historical extra-report
+removal blocks, with all existing runtime exclusions. It requires the policy's
+rederived effectful closed predecessor, exact completed-effect journal, full
+healthy changed-boot state and one separate immutable child claim. The qualified
+same-boot read-only transport stop may be resolved for this prospective scope;
+its original `INCOMPLETE` terminal and unproved USB cause stay unchanged.
+No prior effect or budget is renewed, and an additional-mode run has no child.
 
 ### G2 exact reservation/Android32 resize and stock initialization
 

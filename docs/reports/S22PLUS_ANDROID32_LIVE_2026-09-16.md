@@ -232,3 +232,43 @@ the 1,093-byte reconciliation result has SHA-256
 `851ce9e329d9126cdd17128aca907952d3fa6a904ed91dfabe47f8a041e9d36c`.
 The four retired preparations, their claims/source snapshots, and all G2
 results remain unchanged. No Debian filesystem or rootfs was installed.
+
+## Prospective additional cleanup preparation
+
+The operator requested additional cleanup after reviewing the remaining scope.
+Pure H0 comparison found 321 current system-package names outside the 119-entry
+keep/debug declaration, including all 38 explicitly removed in the four
+successful batches of the [extra report](S22PLUS_SYSTEM_APP_EXTRA_DEBLOAT_2026-07-06.md).
+This comparison does not make all 321 eligible for removal. The selected new
+mode uses only those 38 historical resources/overlays/platform utilities and
+retains every existing keep, APEX, UID, persistence and user-state exclusion.
+Current retained path/UID data yields 29 preliminary candidates and nine
+exclusions; fresh complete metadata is still required for selection.
+
+The new `additional-known` mode reuses the existing effect and reconciliation
+machinery with a separate one-child claim. Its predecessor proof rederives all
+prior intents/completions and raw effects, changed-boot GPT/root/capacity and
+the exact final package set. The known read-only USB disappearance is qualified
+only when the existing healthy reconciliation matches the briefly observed
+post-reboot boot. The old `INCOMPLETE` terminal remains byte-identical. Uncertain
+effects, missing completions, changed parent activity or another additional
+child fail before device effects. The direct new request supplies foreground
+scope; effects remain attended and use a fresh finite window.
+
+The four historical data inputs are bound in the app source closure. Per-mode
+declarations flow through collection, selection and raw reconstruction. Packages
+already excluded by APEX path or system/shared UID need no metadata read.
+Additional-mode inventory and final snapshots also read `persist.sys.safemode`,
+accepting empty or zero as a limited historical health signal. Original-mode
+records and projections retain their existing meaning.
+
+All 28 focused tests pass, including real additional-package effect/terminal
+flow, the known read-only disappearance with healthy reconciliation, rejection
+of uncertain reboot despite later health, one-child ownership, changed parent
+journal rejection, the safe-mode property guard, and an unexpected keep-package
+loss stopping the batch before its planned reboot. Every additional-mode
+snapshot checks the initially present keep set using the retained census.
+Independent changed-closure review passed with no blocking findings. The app
+closure has 60 sources, with 54 V3 execution and 156 unchanged native-runtime
+sources independently checked. Fresh preparation is still required before
+this new scope's effects.

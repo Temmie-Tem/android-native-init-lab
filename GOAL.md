@@ -42,7 +42,7 @@ and [G2 policy](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
 The preceding [P397 result](docs/reports/S22PLUS_NATIVE_GPT_128G_LIVE_2026-09-15.md)
 is retained as the successor's original-layout provenance.
 
-## Current bounded unit — cleanup closed after read-only reconciliation
+## Latest cleanup — closed after read-only reconciliation
 
 The [fixed profile](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md) reused the
 same-FYG8 Pass1 removals with 119 mandatory keep/debug exclusions. Of 41
@@ -67,6 +67,31 @@ preparations and all consumed G2/cleanup records remain unchanged. The fixes
 have independent review and 22 passing focused tests. See the
 [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md) for evidence,
 capacity measurements and separate removal/final-health outcomes.
+
+## Current bounded unit — additional historical cleanup
+
+The operator explicitly requested additional cleanup. The prospective
+`additional-known` mode uses only the four successful removal blocks in the
+[same-FYG8 extra report](docs/reports/S22PLUS_SYSTEM_APP_EXTRA_DEBLOAT_2026-07-06.md):
+38 historical resources, overlays and platform utilities. Existing keep,
+APEX, system/shared-UID, persistent/default and customized-state exclusions
+remain. Retained inventory gives 29 preliminary candidates and nine exclusions;
+fresh metadata must decide the actual set.
+
+The new mode has one independent child claim and a new 900-second window after
+rederiving the complete prior effects, sole planned reboot and exact healthy
+same-post-reboot reconciliation. This qualifies prospective work under common
+boundary 7 without upgrading the old terminal or proving the USB initiating
+cause. No old action is replayed. The additional safe-mode property check is a
+reported health signal, not complete proof of all Android UI behavior.
+
+H0 implementation has 28 passing focused tests and changed-closure independent
+PASS_GO. Fresh preparation and effects are next. Completion means the newly
+selected user-0 packages are absent, one planned reboot is accounted for, and
+the final original-A/root, keep set, home/input, GPT and capacity are verified.
+Any stopped execution retains its existing bounded read-only reconciliation.
+No raw APK deletion, additional-mode descendant, GPT effect or Debian staging
+is in this unit.
 
 ## Debian direction and next storage unit
 

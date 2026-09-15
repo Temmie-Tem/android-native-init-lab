@@ -124,6 +124,7 @@ class RunTests(unittest.TestCase):
             '\n'.join(k+'='+v for k,v in dict(root='uid=0(root) gid=0(root)',
                 **self.fixture.android['partition_sha256']).items()))
         answer(['-s',serial,*minimal.USER],'0\n')
+        answer(['-s',serial,*minimal.SAFE_MODE],'\n')
         answer(['-s',serial,*minimal.HOME],HOME+'/.Home\n')
         answer(['-s',serial,*minimal.IME],IME+'/.Keyboard\n')
         answer(['-s',serial,'shell','-T','su -c '+shlex.quote(minimal.census.SCRIPT)],gpt_metadata(self.sealed))
@@ -135,6 +136,10 @@ args=sys.argv[1:]
 state=pathlib.Path(@STATE@);s=json.loads(state.read_text())
 with pathlib.Path(@LOG@).open('a') as stream:stream.write(json.dumps(args)+'\\n')
 tail=args[2:] if args[:1]==['-s'] else args
+if args==['devices','-l'] and s['fail']=='inventory-gap':
+ s['fail']=None;state.write_text(json.dumps(s));print('List of devices attached');sys.exit(0)
+if tail==['shell','su -c '+@ROOTCMD@] and s['reboots'] and s['fail']=='final-disconnect':
+ s['fail']='inventory-gap';state.write_text(json.dumps(s));sys.exit(0)
 if tail==['shell','sh -c '+@PROPERTIES@]:
  p=@PROPS@;p['boot_id']='11111111-1111-1111-1111-'+str(s['reboots']+1).zfill(12)
  print('\\n'.join(k+'='+v for k,v in p.items()));sys.exit(0)
@@ -160,7 +165,8 @@ sys.stdout.buffer.write(base64.b64decode(data))
 '''
         values=dict(STATE=str(self.state),LOG=str(self.log),PROPERTIES=shlex.quote(minimal.target.PROPERTIES),
             PROPS=self.fixture.properties,LISTING=listing(),DUMP=dump(),NAME=NAME,
-            STAT=shlex.quote(minimal.gpt_android.STAT_SCRIPT),RESPONSES=str(self.responses))
+            STAT=shlex.quote(minimal.gpt_android.STAT_SCRIPT),RESPONSES=str(self.responses),
+            ROOTCMD=shlex.quote(minimal.target.ROOT_HEALTH))
         for key,value in values.items():source=source.replace('@'+key+'@',repr(value))
         self.program.write_text(source);self.program.chmod(0o700)
         run=object.__new__(minimal.Run);self.run=run
@@ -186,6 +192,100 @@ sys.stdout.buffer.write(base64.b64decode(data))
         state=json.loads(self.state.read_text());state.update(values);self.state.write_text(json.dumps(state))
 
     def prepare(self):return self.run.inventory(self.folder/'inventory')
+
+    def bind_closed_fixture(self):
+        self.run.task['A']['ap']=records.pin(self.program)
+        task=records.publish(self.folder/'task.json',self.run.task)
+        closed=records.publish(self.folder/'closed.json',dict(gpt=dict(
+            status='RESERVED_ANDROID_REBOOT_VERIFIED',geometry=self.run.basis['geometry'])))
+        self.run.opened.update(mode='minimal-management',task=task,closed=closed,
+            source_snapshot=records.publish(self.folder/'old-source-snapshot.json',dict(fixture='source')))
+        self.run.open_pin=records.publish(self.folder/'open.json',self.run.opened)
+        self.run.claim_pins=[];self.run.predecessors=[]
+        return task,closed
+
+    def test_closed_predecessor_keeps_stopped_terminal_and_requires_known_same_boot_health(self):
+        self.bind_closed_fixture();self.prepare();self.change(fail='final-disconnect')
+        self.assertEqual(self.run.execute(attended=True)['state'],'STOPPED_RECONCILIATION_REQUIRED')
+        def same_run(*args,**kwargs):self.run.recovering=True;return self.run
+        with mock.patch.object(minimal,'Run',side_effect=same_run):
+            terminal=records.read(records.verify(self.run.reconcile()))
+            saved=(self.folder/'terminal.json').read_bytes();calls=self.log.read_bytes()
+            proof=minimal.closed_cleanup(self.root,self.folder)
+            self.assertEqual(proof['removed'],[NAME])
+            self.assertEqual(terminal['status'],'INCOMPLETE');self.assertFalse(terminal['reboot_verified'])
+            self.assertEqual((self.folder/'terminal.json').read_bytes(),saved)
+            self.assertEqual(self.log.read_bytes(),calls)
+            self.run.journal.append('intent',key='late',kind='uninstall',detail={})
+            with self.assertRaises(ValueError):minimal.closed_cleanup(self.root,self.folder)
+
+    def test_closed_predecessor_rejects_uncertain_reboot_despite_healthy_reconciliation(self):
+        self.bind_closed_fixture();self.prepare();self.change(fail='reboot')
+        self.assertEqual(self.run.execute(attended=True)['state'],'STOPPED_RECONCILIATION_REQUIRED')
+        self.change(fail=None)
+        def same_run(*args,**kwargs):self.run.recovering=True;return self.run
+        with mock.patch.object(minimal,'Run',side_effect=same_run):
+            terminal=records.read(records.verify(self.run.reconcile()))
+            self.assertEqual(terminal['terminal_state'],'ANDROID_CLOSED_HEALTHY')
+            with self.assertRaises((ValueError,OSError,minimal.raw.RawCaptureError)):
+                minimal.closed_cleanup(self.root,self.folder)
+        self.assertEqual(json.loads(self.state.read_text())['reboots'],1)
+
+    def test_additional_mode_uses_its_own_declaration_through_effect_and_terminal(self):
+        name=minimal.EXTRA_OPTIONAL[0]
+        self.program.write_text(self.program.read_text().replace(NAME,name))
+        self.run.task['adb']=records.pin(self.program);self.run.opened['mode']=minimal.ADDITIONAL_MODE
+        self.prepare();plan=self.run.inventory_projection()
+        self.assertEqual(plan['selection']['declared_optional_count'],38)
+        self.assertEqual([row['name'] for row in plan['selection']['selected']],[name])
+        result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual((result['status'],result['removed_count']),('COMPLETE',1))
+        self.assertFalse(set(minimal.EXTRA_OPTIONAL)&minimal.KEEP)
+        self.assertFalse(set(minimal.EXTRA_OPTIONAL)&set(minimal.OPTIONAL))
+
+    def test_additional_safe_mode_property_blocks_effects(self):
+        self.run.opened['mode']=minimal.ADDITIONAL_MODE
+        entries=json.loads(self.responses.read_text())
+        entries[json.dumps(['-s',self.serial,*minimal.SAFE_MODE])]=base64.b64encode(b'1\n').decode()
+        self.responses.write_text(json.dumps(entries))
+        with self.assertRaisesRegex(ValueError,'safe mode'):self.prepare()
+        self.assertFalse(self.run.journal.rows())
+        state=json.loads(self.state.read_text());self.assertEqual((state['uninstalls'],state['reboots']),(0,0))
+
+    def test_additional_missing_keep_package_stops_before_reboot(self):
+        name=minimal.EXTRA_OPTIONAL[0]
+        source=self.program.read_text().replace(repr(listing()),
+            repr(listing(name=name)+listing(name='com.android.settings',uid=1000))).replace(NAME,name)
+        self.program.write_text(source);self.run.task['adb']=records.pin(self.program)
+        self.run.opened['mode']=minimal.ADDITIONAL_MODE
+        self.prepare()
+        self.assertEqual(self.run.execute(attended=True)['state'],'STOPPED_RECONCILIATION_REQUIRED')
+        state=json.loads(self.state.read_text());self.assertEqual((state['uninstalls'],state['reboots']),(1,0))
+
+    def test_additional_prepare_has_one_child_and_rechecks_previous_journal(self):
+        task,closed=self.bind_closed_fixture();self.prepare();self.run.execute(attended=True)
+        with mock.patch.object(minimal,'Run',return_value=self.run):
+            previous=minimal.closed_cleanup(self.root,self.folder)
+        _,_,_,_,review,_=self.inventory_stop_fixture()
+        def inventory(run,folder):
+            folder.mkdir();return records.publish(folder/'result.json',dict(selection=dict(selected=[])))
+        fresh=self.root/'workspace/private/additional'
+        with mock.patch.object(minimal,'review',return_value=review), \
+                mock.patch.object(minimal.census,'closed_android',return_value=(self.run.task,closed)), \
+                mock.patch.object(minimal,'closed_cleanup',return_value=previous), \
+                mock.patch.object(minimal.Run,'inventory',new=inventory):
+            result=minimal.prepare(self.root,Path(task['path']),fresh,operator_statement='continue cleanup',
+                attended=True,after_cleanup=self.folder)
+            self.assertEqual(result['state'],'READY_FOR_FIXED_CLEANUP')
+            loaded=minimal.Run(self.root,fresh)
+            self.assertEqual(loaded.declaration(),minimal.EXTRA_OPTIONAL)
+            with self.assertRaisesRegex(ValueError,'one additional claim'):
+                minimal.prepare(self.root,Path(task['path']),self.root/'workspace/private/another',
+                    operator_statement='continue cleanup',attended=True,after_cleanup=self.folder)
+            self.run.journal.append('stopped',fixture='late activity')
+            with self.assertRaisesRegex(ValueError,'gained execution activity'):loaded.check()
+        with self.assertRaisesRegex(ValueError,'original management profile'):
+            minimal.closed_cleanup(self.root,fresh)
 
     def test_real_raw_inventory_uninstall_version_guard_and_reboot_persistence(self):
         self.prepare();self.assertEqual(self.run.inventory_projection()['selection']['selected'][0]['name'],NAME)

@@ -19,8 +19,9 @@ One new private open records the actual operator instruction, source review,
 closed G2 task and a 900-second same-host-boot limit for inventory and cleanup.
 One immutable claim in that closed G2 task binds its unique cleanup open before
 inventory. A different output directory cannot renew time or retry this task's
-cleanup. The four preparation-only cases below are the sole exceptions; after
-an execution stop only the original open's reconciliation remains available.
+cleanup in the original mode. Its four preparation-only exceptions are below;
+after an execution stop only that open's reconciliation remains available.
+The separately qualified prospective additional mode has its own section.
 
 Known preparation-only parser cases are the original rejection of canonical
 `/apex/` APK paths/framework package `android`, the successor's rejection of
@@ -88,6 +89,55 @@ user state. Settings, home, keyboard, files, networking, package/permission
 management, ADB and Magisk remain available. No wildcard or caller shell, raw
 APK removal, system partition remount, permission grant or package install is
 part of normal cleanup.
+
+## One prospective additional cleanup
+
+A new direct foreground request for additional cleanup may select the
+`additional-known` mode after independent review. Its separate declaration is
+only the 38 unique names in the four `Removed` blocks of the same-FYG8
+[extra cleanup report](../reports/S22PLUS_SYSTEM_APP_EXTRA_DEBLOAT_2026-07-06.md).
+These are historical resources, overlays and platform utilities. The report's
+later attempted GOS/SDHMS removals are excluded. The report is a fourth pinned
+data source. All keep, APEX, system/shared-UID, persistent/default-component and
+customized-user-state exclusions still apply; historical success alone does
+not select a package. Its inventory and pre/post-reboot snapshots also require
+the fixed `persist.sys.safemode` read to be empty or zero, matching the historical
+same-FYG8 healthy-state check. It adds a reported health signal for this
+platform/resource scope; it is not proof that every forced-safe-mode condition
+is excluded. Reconsider it if the signal or declaration changes.
+Old-mode declarations and evidence projections remain
+unchanged.
+Candidates already excluded by the package list's APEX path or system/shared
+UID need no metadata command; every remaining candidate requires complete fresh
+metadata before selection. This only avoids reads for packages already excluded.
+
+Entry requires an immutable effectful `minimal-management` predecessor with
+all selected uninstall results/post-states, the sole planned reboot request
+and departure, a complete changed-boot snapshot, unchanged full GPT/capacity,
+numeric original-A root, unchanged home/input and the exact expected package
+set with all initially present keep entries retained. The ordered journal must
+contain only the start and matching intent/completion pairs, optionally its
+final read-only stop. Pending or uncertain effects cannot qualify.
+
+An `INCOMPLETE` predecessor is eligible only for the qualified post-reboot
+transport-disappearance case: its final health began with the exact selector,
+lane and properties, then captured an empty successful root response and an
+empty successful device inventory. Its existing single 300-second read-only
+reconciliation must prove full healthy state on that same post-reboot boot and
+no remaining selected packages. This resolves the known read-only health stop
+for this prospective scope under common boundary 7. The original terminal,
+`reboot_verified=false`, journals and source snapshots remain unchanged, and
+the initiating USB cause remains unproved.
+
+One immutable `additional-cleanup-claim.json` under that closed predecessor
+binds its rederived closure, unchanged journal tail and the new open. It is
+separate from the no-effect inventory-retirement chain; the effectful parent
+is never required to have an empty journal. No second child or child of an
+additional-mode run is permitted. The new request and actual attendance are
+recorded once, with a fresh 900-second window and the existing single
+300-second close-only reconciliation. Prior-closure/claim drift, new parent
+journal activity or lack of fresh exact health prevents effects. The original
+request, consumed effects or later health alone do not open this follow-up.
 
 ## Effects and final proof
 
