@@ -87,10 +87,14 @@ permission to perform host-only work.
    RAM-only alias changes neither storage nor access privilege.
    Complete primary/backup headers and entry arrays must fit those captures
    and agree with their CRCs and the live geometry before metadata qualifies.
-   The separately adopted `S22PLUS_ANDROID_STORAGE_CENSUS_V1` uses the same
-   exact-controller/LU0 six-initial/five-final-block metadata read on already
-   healthy original-A Android. It uses existing block nodes, with device-number
-   verification before reading, and creates no alias or other device state.
+   The separately adopted `S22PLUS_ANDROID_STORAGE_CENSUS_V1` uses an exact
+   controller/LU0 six-initial/nine-final-block metadata read on already healthy
+   original-A Android through explicit `lu0-tail9-v2`. The observed backup
+   array begins nine blocks from the end, beyond userdata; the userdata end
+   is checked against that boundary before reading. Existing block-node device
+   numbers are verified before reading; it creates no alias or device state.
+   Historical Android tail5 and native reads keep their original bounds and
+   meanings; this change does not replay or relabel a consumed read.
    Its fixed foreground D0 transcript, source review, closed Android-return
    provenance, fresh before/after health, bounds and failure behavior are in
    [Android storage census V1](S22PLUS_ANDROID_STORAGE_CENSUS_V1.md).

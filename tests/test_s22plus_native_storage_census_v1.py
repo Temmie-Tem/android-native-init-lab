@@ -15,9 +15,9 @@ import s22plus_native_storage_census_v1 as census
 import s22plus_root_console_v1 as wire
 
 
-def fixture(*, backup_changed=False, overlap=False, count=128):
-    block=4096;total=62_500_000;first=3_726_848;last=total-6
-    table=bytearray(128*128)
+def fixture(*, backup_changed=False, overlap=False, count=128, backup_blocks=5):
+    block=4096;total=62_500_000;first=3_726_848;last=total-backup_blocks-1
+    table=bytearray(min(count,128)*128)
     def entry(index,name,start,end):
         offset=index*128
         struct.pack_into('<16s16sQQQ',table,offset,b'T'*16,(index+1).to_bytes(16,'little'),start,end,0)
@@ -25,13 +25,13 @@ def fixture(*, backup_changed=False, overlap=False, count=128):
     entry(0,'boot',265,24840)
     entry(1,'metadata',24840 if overlap else 24841,33032)
     entry(39,'userdata',first,last)
-    primary=bytearray(6*block);backup=bytearray(5*block)
+    primary=bytearray(6*block);backup=bytearray(backup_blocks*block)
     primary[510:512]=b'\x55\xaa';primary[450]=0xee
     struct.pack_into('<II',primary,454,1,total-1)
-    primary[2*block:6*block]=table
+    primary[2*block:2*block+len(table)]=table
     other=bytearray(table)
     if backup_changed:struct.pack_into('<Q',other,48,1)
-    backup[:4*block]=other
+    backup[:len(other)]=other
     def put_header(blob,offset,current,alternate,table_lba,array):
         header=bytearray(92)
         struct.pack_into('<8sIIIIQQQQ16sQIII',header,0,b'EFI PART',0x10000,92,0,0,
@@ -39,7 +39,7 @@ def fixture(*, backup_changed=False, overlap=False, count=128):
         struct.pack_into('<I',header,16,binascii.crc32(header)&0xffffffff)
         blob[offset:offset+92]=header
     put_header(primary,block,1,total-1,2,table)
-    put_header(backup,4*block,total-1,1,total-5,other)
+    put_header(backup,(backup_blocks-1)*block,total-1,1,total-backup_blocks,other)
     lines=[b'/sys/devices/platform/soc/1d84000.ufshc/host0/target0:0:0/0:0:0:0/block/sda/sda40',
         b'8:40',str(first*8).encode(),str((last-first+1)*8).encode(),b'8:0',
         str(total*8).encode(),b'4096',b'8:0']
@@ -65,6 +65,13 @@ class CensusTests(unittest.TestCase):
     def test_complete_capture_may_not_claim_an_array_outside_its_bound(self):
         with self.assertRaisesRegex(census.CensusError,'exceeds'):
             census.decode(fixture(count=129))
+
+    def test_explicit_tail9_contains_observed_44_entry_shape_without_changing_legacy_default(self):
+        value=fixture(count=44,backup_blocks=9)
+        self.assertEqual(census.decode(value,backup_blocks=9)['gpt']['entry_count'],44)
+        with self.assertRaises(census.CensusError):census.decode(value)
+        self.assertEqual(census.decode(fixture())['gpt']['entry_count'],128)
+        with self.assertRaises(census.CensusError):census.decode(value,backup_blocks=8)
 
     def test_geometry_changes_wrong_lu_wrong_sector_size_and_trailing_bytes_fail(self):
         good=fixture()

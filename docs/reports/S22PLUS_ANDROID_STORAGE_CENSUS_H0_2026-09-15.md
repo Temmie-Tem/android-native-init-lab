@@ -1,9 +1,9 @@
-# S22+ storage census result and Android successor
+# S22+ storage census and Android return
 
-The approved one-operation native census is consumed and closed:
-**metadata `NO_PROOF`, terminal `NATIVE_CLOSED_HEALTHY`**. No GPT was obtained,
-and no partition split or formatting occurred. The current 64 GiB goal still
-retains Android and allows resetting user data; it is not yet achieved.
+**The device is back in healthy original-A Android.** The native census and
+first Android tail5 census remain metadata `NO_PROOF`; the reviewed tail9
+successor is ready. No partition split or formatting occurred. The current
+64 GiB goal retains Android and allows resetting user data; it is not yet achieved.
 
 ## Actual native result
 
@@ -22,7 +22,7 @@ stdout and stderr bytes. DETACH and actual descriptor close completed.
 The execution subprocess completed in 3.824 seconds. No CONTROL, image
 transfer, module load or recovery was performed. One of one operations is
 consumed, the shared F1 owner is absent, and the old prior tail is consumed.
-The latest healthy native tail is this census terminal. Its raw result
+The healthy native tail from this census was later consumed by Android exit. Its raw result
 rederives without another device action. The original source closure and
 review bytes were copied into the task's private source snapshot before any
 successor edits.
@@ -45,20 +45,20 @@ The renderer separately inventories UFS module files in the vendor ramdisk;
 this does not mean the fixed native startup loads them. File availability and
 driver activation remain separate facts.
 
-The selected path returns through the existing reviewed original-A V3 exit,
-then uses the [fixed Android D0 profile](../operations/S22PLUS_ANDROID_STORAGE_CENSUS_V1.md)
+The selected path returned through the existing reviewed original-A V3 exit,
+then used the [fixed Android D0 profile](../operations/S22PLUS_ANDROID_STORAGE_CENSUS_V1.md)
 in a storage-capable environment. This does not add storage drivers to P393.
 The Android-return transition needs its own actual finite grant; the adopted
 foreground D0 profile needs no repeated approval after its reviewed entry
-conditions pass. No successor grant or Android device command has occurred.
+conditions pass. The completed return and read are recorded below.
 
-The new D0 uses existing Android nodes, verifies exact LU0 identity before
+The initial D0 uses existing Android nodes, verifies exact LU0 identity before
 reading, and preserves matching seven-command Android health brackets around
 one fixed 44 KiB metadata read. Failure emits a fixed stage label. Raw output,
 metadata qualification and final health remain separate. The command creates
 no node, loads no module, reads no user files or keys, and writes no partition.
 
-## H0 qualification
+## Initial Android H0 qualification
 
 Independent review of the changed common/target adoption and both 45-source
 current/publication closures returned **`PASS_GO`**. All **63 focused tests pass**, including ten new Android
@@ -79,20 +79,70 @@ Android tests passed again after that correction, retaining the 63-test run.
 
 Host shell and actual ARM64 BusyBox validate the new shell syntax; the fixed
 failure-stage trap is exercised without device paths. Actual Android Toybox
-execution is not yet observed. Its `dd status=none` option is covered by the
+execution was unobserved at initial qualification. Its `dd status=none` option is covered by the
 [AOSP Toybox tests](https://android.googlesource.com/platform/external/toybox/%2B/dc973f12b2fe4086165b8df1552f7dcb3929e8d1/tests/dd.test).
 The native image/runtime and its 144 source inputs remain unchanged.
 
-The prepared return request selects only original-A `android-exit`, 900 seconds,
+The return request selected only original-A `android-exit`, 900 seconds,
 one operation and deferred physical recovery. Its P393 admission, latest native
 tail and original A evidence rederive; the five installed host files, current
 readiness and expected native endpoint with no holder were checked without a
-device command. The actual returned transition grant is still pending. The
+device command. The actual returned transition grant was consumed once. The
 subsequent adopted Android D0 is separate foreground read authority.
+
+## Actual Android return and first D0
+
+The 900-second grant returned the device through one native CONTROL and one
+original-A transfer. Final health encountered ADB `error: closed`. The runner
+stopped for deferred attended recovery. The operator confirmed physical
+attendance; durable transfer evidence allowed health-only recovery, with no
+second transfer. Exact rooted original-A health passed. The transport failure's
+cause remains unproved.
+
+| Event | Seconds after grant open |
+| --- | ---: |
+| Native CONTROL and observation completed | 3.625 |
+| Original-A transfer completed | 13.640 |
+| Initial Android health stopped | 55.453 |
+| Attended health-only recovery completed | 301.543 |
+| Source preservation and task close | 379.322 |
+
+The task is permanently closed `ANDROID_CLOSED_HEALTHY`, with one consumed
+operation, one total A transfer and no pending F1 owner. Its original raw
+results and saved source closure rederive.
+
+The first foreground Android census completed its fixed shell-v2/Toybox
+command and fresh same-boot health brackets. Both GPT header CRCs and the
+primary entry-array CRC validate, but the backup array begins nine blocks from
+the end, outside the captured last-five-block range. The terminal correctly
+remains metadata `NO_PROOF`, `ANDROID_CLOSED_HEALTHY`. Its bytes are retained;
+H0 parsing does not invent the missing backup data.
+
+## Tail9 successor qualification
+
+The fixed `lu0-tail9-v2` profile reads six initial and nine final blocks:
+61,440 block bytes, within the existing 65,536-byte stdout bound. Before any
+block read, checked start/size reads establish that userdata ends before the
+tail range. Independent review caught lost read errors inside arithmetic
+substitution; separate checked assignments and bounded numeric validation now
+reject missing, empty, malformed and overlong fields before reading blocks.
+
+Both 45-source closures received independent `PASS_GO`; all 68 selected tests
+passed in 5.394 seconds, and four changed Python files compile. The 144 native
+source inputs are unchanged. Historical tail5/native results rederive exactly.
+The old Android-return CAP is verified through its saved source snapshot;
+current D0 source approval and its own snapshot are separate. A read-profile
+update therefore needs no repeated Android transition. The new live read has
+not yet run. No partition-write or formatting authority was added.
 
 Private native evidence is under
 `workspace/private/runs/s22plus-native-session-v3/storage-census-20260915-1/`.
 The producer diagnosis and embedded config are under the original native
 census H0 output. Android successor review/tests are under
 `workspace/private/outputs/s22plus-android-storage-census-h0-20260915-1/`.
+The actual return and first Android census are under
+`workspace/private/runs/s22plus-native-session-v3/android-storage-return-20260915-1/`
+and `workspace/private/runs/s22plus-android-storage-census-v1/census-20260915-1/`.
+Tail9 H0 evidence is under
+`workspace/private/outputs/s22plus-android-storage-tail9-h0-20260915-1/`.
 GPT modification/restoration remains unqualified. A90 and S20+ were untouched.

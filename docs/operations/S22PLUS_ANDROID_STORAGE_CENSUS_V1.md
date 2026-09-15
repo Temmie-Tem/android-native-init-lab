@@ -1,4 +1,4 @@
-# S22+ Android storage census V1
+# S22+ Android storage census: tail9 V2 and historical V1
 
 Status: **REVIEW_GATED_FIXED_FOREGROUND_D0**. The exact S22+ target adopts this
 profile only with current independent V3 capability `PASS_GO`. It is bound to
@@ -19,7 +19,11 @@ The entry point is `s22plus_native_task_v3.py android-storage`, implemented in
 `s22plus_native_android_storage_v1.py`. It requires one closed V3 task whose
 last operation proves an original-A return and exact rooted Android health.
 That original raw sequence rederives, the exact A artifact is present and
-hash-verified, and its source snapshot matches the current reviewed closure.
+hash-verified, and its historical source snapshot validates through its saved
+CAP copy. The moving CAP path is not used to reopen historical approval bytes.
+Fresh D0 execution separately requires the current reviewed capability and
+copies its exact source closure into its own private snapshot before any read.
+A reviewed D0 source change does not require another Android transition.
 The old grant is provenance only. Reaching Android still needs its own current
 transition authority; this D0 profile cannot perform that transition.
 
@@ -37,8 +41,10 @@ caller creates one new private output directory and performs this transcript:
    the exact `1d84000.ufshc` controller and LU0, and verifies the existing
    parent block node's device number before any block read. It checks 4096-byte
    logical blocks and aligned capacity. Its matching geometry brackets cover
-   only the same six initial and five final metadata blocks as the native
-   census. It creates no node, mount or file and loads no module.
+   six initial and nine final metadata blocks for explicit profile
+   `lu0-tail9-v2`. The userdata end must be at or before the first tail block
+   before reading, so a changed extent cannot make that read reach userdata.
+   It creates no node, mount or file and loads no module.
 3. Exactly one post-read seven-command health bracket runs, including after a
    failed metadata command. It must establish the same boot/properties and
    exact rooted original-A health. It never repeats metadata or a transition.
@@ -55,6 +61,19 @@ own smaller output limits and timeouts; the full D0 has a 600-second host-boot
 bound. Host restart, source change, target ambiguity or changed health stops it.
 
 ## Result and limits
+
+The first Android V1 capture proved both header CRCs and the primary array
+CRC, but its last-five-block suffix omitted the backup array. The live header
+places that array at `total_lbas - 9`, immediately beyond the userdata extent.
+The nine-block suffix is the smallest contiguous suffix containing that array
+and the backup header. Total block data is 61,440 bytes, within the unchanged
+65,536-byte raw bound. Missing backup bytes remain unproved until acquired.
+
+Historical opens with no `profile` select the original `lu0-tail5-v1` script
+and decoder. New opens explicitly select `lu0-tail9-v2`; unknown profiles are
+rejected. The shared decoder's default remains tail5 for native and historical
+callers. The consumed V1 records retain their original `NO_PROOF`, not a
+retroactively widened interpretation. No caller-selectable range is added.
 
 The existing GPT decoder requires complete CRC-valid primary/backup headers
 and tables within the fixed capture, matching entries, nonoverlapping extents,

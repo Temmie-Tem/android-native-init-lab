@@ -132,7 +132,7 @@ def geometry(lines):
         userdata_first_lba=start//8,userdata_last_lba=(start+size)//8-1)
 
 
-def header(blob, *, capture_first_lba, my_lba, alternate_lba, total_lbas):
+def header(blob, *, capture_first_lba, my_lba, alternate_lba, total_lbas, backup_blocks=BACKUP_BLOCKS):
     offset=(my_lba-capture_first_lba)*BLOCK_SIZE
     require(0<=offset and offset+BLOCK_SIZE<=len(blob), 'GPT header is outside its fixed capture')
     block=blob[offset:offset+BLOCK_SIZE]
@@ -143,7 +143,7 @@ def header(blob, *, capture_first_lba, my_lba, alternate_lba, total_lbas):
         'GPT header identity differs')
     checked=bytearray(block[:size]);checked[16:20]=b'\0'*4
     require(binascii.crc32(checked)&0xffffffff==crc, 'GPT header CRC differs')
-    require(guid!=b'\0'*16 and PRIMARY_BLOCKS<=first<=last<total_lbas-BACKUP_BLOCKS,
+    require(guid!=b'\0'*16 and PRIMARY_BLOCKS<=first<=last<total_lbas-backup_blocks,
         'GPT usable range differs')
     require(0<count<=128 and entry_size>=128 and entry_size%128==0
         and count*entry_size<=4*BLOCK_SIZE, 'GPT entry array exceeds the fixed metadata read')
@@ -164,13 +164,14 @@ def header(blob, *, capture_first_lba, my_lba, alternate_lba, total_lbas):
         entry_count=count,entry_size=entry_size,entries_sha256=sha(table)),table
 
 
-def decode(stdout):
+def decode(stdout, *, backup_blocks=BACKUP_BLOCKS):
+    require(type(backup_blocks) is int and backup_blocks in (5,9), 'unsupported fixed GPT capture profile')
     require(type(stdout) is bytes and len(stdout)<=MAX_OUTPUT and stdout.startswith(b'G0\n'),
         'census prefix or output bound differs')
     prefix=stdout[3:].split(b'\n',8)
     require(len(prefix)==9, 'initial geometry is incomplete')
     before=geometry(prefix[:8]);remaining=prefix[8]
-    primary_size=PRIMARY_BLOCKS*BLOCK_SIZE;backup_size=BACKUP_BLOCKS*BLOCK_SIZE
+    primary_size=PRIMARY_BLOCKS*BLOCK_SIZE;backup_size=backup_blocks*BLOCK_SIZE
     require(len(remaining)>=primary_size+backup_size+3, 'GPT capture is short')
     primary=remaining[:primary_size];backup=remaining[primary_size:primary_size+backup_size]
     tail=remaining[primary_size+backup_size:]
@@ -186,8 +187,8 @@ def decode(stdout):
     require(mbr_start==1 and mbr_count==min(before['total_lbas']-1,0xffffffff),
         'protective MBR capacity differs')
     total=before['total_lbas']
-    h1,t1=header(primary,capture_first_lba=0,my_lba=1,alternate_lba=total-1,total_lbas=total)
-    h2,t2=header(backup,capture_first_lba=total-BACKUP_BLOCKS,my_lba=total-1,alternate_lba=1,total_lbas=total)
+    h1,t1=header(primary,capture_first_lba=0,my_lba=1,alternate_lba=total-1,total_lbas=total,backup_blocks=backup_blocks)
+    h2,t2=header(backup,capture_first_lba=total-backup_blocks,my_lba=total-1,alternate_lba=1,total_lbas=total,backup_blocks=backup_blocks)
     require(h1==h2 and t1==t2, 'primary and backup GPT disagree')
     entries=[];guids=set();names=set()
     for index in range(h1['entry_count']):

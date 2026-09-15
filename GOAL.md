@@ -15,19 +15,19 @@ Changed-path regression reference: [past failure checklist](docs/operations/S22P
 
 **Current task: reserve 64 GiB for native-only persistent storage while
 retaining Android.** The operator allows resetting current Android apps,
-settings and user data. The firmware PIT does not establish live LU0 capacity
-or userdata's actual end, and existing boot-only recovery does not qualify
-GPT restoration. The approved native census was consumed once and closed
-metadata `NO_PROOF`, `NATIVE_CLOSED_HEALTHY`: command exit 1 with no output,
-proved health/DETACH and no image transfer. The task is closed and its latest
-terminal is the new unused native tail. P393 has no built-in Qualcomm UFS
-driver and its reviewed startup does not load UFS; this is a likely cause,
-not proof of the exact silent guard. Vendor module files remain available.
-The selected successor is the existing original-A Android return followed by
-a fixed foreground Android D0 metadata read. Its changed adoption received
-independent `PASS_GO`; all 63 focused tests and the final ten-test rerun pass.
-A 900-second, one-operation deferred original-A return is prepared and awaits
-its actual grant. No successor grant, partition write or format has occurred. See the
+settings and user data. Existing boot-only recovery does not qualify GPT
+restoration. The native census closed `NO_PROOF` with healthy DETACH; missing
+native UFS initialization is a likely cause, not the proved failed guard.
+The separately approved original-A return then completed one image transfer.
+Its first Android health query returned ADB `error: closed`; after actual
+attendance was confirmed, health alone resumed and passed. The task is closed
+`ANDROID_CLOSED_HEALTHY`, with no repeated transfer or pending F1 owner.
+The first foreground Android D0 obtained both GPT headers and the primary
+table, but omitted the backup table and remains `NO_PROOF` with final health
+proved. The observed array starts nine blocks from LU0's end. The fixed tail9
+successor received independent `PASS_GO`, and all 68 focused tests pass.
+Its pre-read extent guard excludes userdata. It is ready for one foreground
+read; no new transition grant is needed. No partition write or format has occurred. See the
 [result and Android successor](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md).
 
 ## Retained native baseline

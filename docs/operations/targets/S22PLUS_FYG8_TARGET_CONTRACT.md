@@ -186,6 +186,12 @@ for the current native-storage research task, with a current independent V3
 capability `PASS_GO`. It starts only after a closed proved original-A Android
 return, rederives that provenance and performs fresh before/after same-boot
 rooted health around one bounded metadata read through existing Android nodes.
+The live `lu0-tail9-v2` selection reads six initial and nine final blocks,
+matching the observed backup-array location after userdata; a pre-read extent
+check prevents reading userdata. Historical no-profile/tail5 records retain
+their original decoder and verdict. Current D0 source approval is separate
+from the saved source provenance of the original Android return, so a reviewed
+read-profile update does not require another mode change.
 It does not consume, renew or need a repeated prompt for an old transition
 grant. It cannot reach Android by itself, load a storage module, create a
 device node, change a partition, format or obtain encryption keys. A failed

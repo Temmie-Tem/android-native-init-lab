@@ -48,10 +48,12 @@ RAM-only alias is not a partition write or general device-file capability.
 
 The common-incorporated S22+ Android storage census is a separate fixed
 foreground D0 profile after a closed original-A return. It uses existing
-Android block nodes and the same metadata bounds between fresh same-boot
+Android block nodes and six initial/nine final metadata blocks between fresh same-boot
 health brackets. It creates no alias and performs no mode change or transfer.
 The current foreground research task authorizes this adopted read profile;
 the separate Android-return transition still needs its own V3 grant.
+The tail9 selection follows the observed backup-array location and checks
+userdata does not extend into its read range. Old tail5 results stay unchanged.
 
 - Require an unambiguous target and bounded reads/timeouts.
 - D0 does not inherently require attendance or a fresh request for each read.

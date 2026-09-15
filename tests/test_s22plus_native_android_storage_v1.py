@@ -38,18 +38,22 @@ sys.stdout.buffer.write((p/'dataset').read_bytes())
 sys.stderr.buffer.write((p/'remote-stderr').read_bytes())
 sys.exit(int((p/'remote-exit').read_text()))
 '''.replace('EXPECTED',repr(records.digest(census.SCRIPT.encode())))
-        self.tool.write_text(source);self.tool.chmod(0o700);(self.private/'dataset').write_bytes(fixture())
+        self.tool.write_text(source);self.tool.chmod(0o700)
+        (self.private/'dataset').write_bytes(fixture(count=44,backup_blocks=9))
         (self.private/'features').write_text('cmd\nshell_v2\nstat_v2\n')
         (self.private/'remote-stderr').write_bytes(b'');(self.private/'remote-exit').write_text('0')
         self.task=dict(adb=records.pin(self.tool),target=self.health.binding,A=self.health.android)
-        self.task_path=self.private/'old-task.json';records.publish(self.task_path,self.task)
         src=self.private/'fixture-source.py';src.write_text('# fixture reviewed source\n')
-        self.review=records.publish(self.private/'review.json',dict(sources=[records.pin(src)]))
+        self.review=records.publish(self.private/'review.json',dict(schema='s22plus-native-session-v3-review',
+            scope='V3_REACHABLE_CAPABILITY',verdict='PASS_GO',findings=[],sources=[records.pin(src)]))
+        self.task['review']=self.review
+        self.task_path=self.private/'old-task.json';records.publish(self.task_path,self.task)
         snap=self.private/'snapshot';snap.mkdir();rows=[]
         for original in [records.pin(src),self.review]:
             path=snap/Path(original['path']).name;path.write_bytes(Path(original['path']).read_bytes())
             rows.append(dict(original=original,snapshot=records.pin(path)))
-        manifest=records.publish(snap/'manifest.json',dict(review=self.review,sources=rows))
+        manifest=records.publish(snap/'manifest.json',dict(schema='s22plus-native-v3-source-snapshot-v1',
+            review=self.review,sources=rows))
         self.closed=records.publish(self.private/'closed.json',dict(source_snapshot=manifest))
 
     def client(self, name):
@@ -71,7 +75,7 @@ sys.exit(int((p/'remote-exit').read_text()))
 
     def test_actual_subprocess_preserves_binary_above_health_capture_bound(self):
         client=self.client('read');handle=census.command(client)
-        value=census.projection(records.pin(handle.receipt_path))
+        value=census.projection(records.pin(handle.receipt_path),profile=census.CURRENT_PROFILE)
         self.assertGreater(value['stdout']['size'],16384)
         self.assertEqual(value['status'],'PASS_METADATA_ONLY')
         self.assertFalse(value['node_creation'])
@@ -111,9 +115,36 @@ sys.exit(int((p/'remote-exit').read_text()))
         self.assertEqual(value['terminal_state'],'ANDROID_CLOSED_HEALTHY')
         self.assertEqual(value['metadata']['status'],'PASS_METADATA_ONLY')
         with mock.patch.object(census,'command',side_effect=AssertionError('H0 must not dispatch')):
-            self.assertEqual(census.rederive(output,self.task),value)
+            self.assertEqual(census.rederive(output,self.task,root=self.root),value)
         with self.assertRaisesRegex(ValueError,'already exists'):self.observe(output)
         self.assertEqual((self.private/'dispatches').read_bytes(),b'1')
+
+    def test_current_source_update_uses_saved_old_provenance_without_a_new_android_return(self):
+        original=self.review;source=self.private/'fixture-source.py';source.write_text('# reviewed successor source\n')
+        path=self.private/'review.json';temporary=self.private/'replacement.json'
+        records.publish(temporary,dict(schema='s22plus-native-session-v3-review',verdict='PASS_GO',
+            scope='V3_REACHABLE_CAPABILITY',findings=[],sources=[records.pin(source)]))
+        temporary.replace(path);self.review=records.pin(path)
+        self.assertNotEqual(self.review,original)
+        output=self.private/'source-update';value=self.observe(output)
+        opened=records.read(output/'open.json')
+        self.assertEqual(opened['source_review'],self.review)
+        self.assertEqual(self.task['review'],original)
+        self.assertNotEqual(opened['source_snapshot'],opened['android_return_source_snapshot'])
+        self.assertEqual(value['metadata']['status'],'PASS_METADATA_ONLY')
+        self.assertEqual(census.rederive(output,self.task,root=self.root),value)
+
+    def test_historical_tail5_remains_unproved_and_unknown_profile_is_rejected(self):
+        value=fixture(count=44,backup_blocks=9);fields=value[3:].split(b'\n',8)
+        head=b'G0\n'+b'\n'.join(fields[:8])+b'\n';payload=fields[8]
+        old=head+payload[:24576]+payload[24576+4*4096:]
+        folder=self.private/'old-capture';folder.mkdir()
+        handle=census.raw.publish_captured_bytes(folder,'metadata',stdout=old)
+        result=census.projection(records.pin(handle.receipt_path))
+        self.assertEqual(result['status'],'NO_PROOF')
+        self.assertEqual(result['reason'],'GPT entry array is outside its capture or overlaps its header')
+        with self.assertRaisesRegex(ValueError,'unknown Android metadata profile'):
+            census.projection(records.pin(handle.receipt_path),profile='arbitrary-range')
 
     def test_failed_metadata_gets_one_final_health_and_no_reread(self):
         (self.private/'dataset').write_bytes(b'not GPT');calls=[]
@@ -164,6 +195,29 @@ sys.exit(int((p/'remote-exit').read_text()))
         value=subprocess.run(['/bin/sh','-c',prefix+'stage=ancestry; false\n'],capture_output=True,timeout=5)
         self.assertEqual(value.returncode,1);self.assertEqual(value.stdout,b'')
         self.assertEqual(value.stderr,b'S22_GPT_STAGE=ancestry RC=1\n')
+
+    def test_tail9_guard_rejects_userdata_overlap_before_any_metadata_read(self):
+        u=self.private/'sysfs-userdata';u.mkdir();(u/'start').write_text('1000\n')
+        for size,expected in ((7928,0),(7929,1)):
+            (u/'size').write_text(str(size)+'\n')
+            script='set -eu; B=/usr/bin/busybox; s=9000; u='+shlex.quote(str(u))+'; '+census.TAIL9_GUARD+'; printf READ_PERMITTED'
+            value=subprocess.run(['/bin/sh','-c',script],capture_output=True,timeout=5)
+            self.assertEqual(value.returncode,expected)
+            self.assertEqual(value.stdout,b'READ_PERMITTED' if expected==0 else b'')
+
+    def test_tail9_guard_requires_complete_numeric_sysfs_reads(self):
+        u=self.private/'sysfs-userdata';u.mkdir()
+        for start,size in ((None,'7929'),('1000',None),('', '7929'),('1000',''),
+                ('invalid','7929'),('1000','-1'),('9'*17,'1'),('1','9'*17)):
+            with self.subTest(start=start,size=size):
+                for name,text in (('start',start),('size',size)):
+                    path=u/name
+                    if path.exists():path.unlink()
+                    if text is not None:path.write_text(text+'\n')
+                script='set -eu; B=/usr/bin/busybox; s=9000; u='+shlex.quote(str(u))+'; '+census.TAIL9_GUARD+'; printf READ_PERMITTED'
+                value=subprocess.run(['/bin/sh','-c',script],capture_output=True,timeout=5)
+                self.assertNotEqual(value.returncode,0)
+                self.assertEqual(value.stdout,b'')
 
 
 if __name__=='__main__':unittest.main()
