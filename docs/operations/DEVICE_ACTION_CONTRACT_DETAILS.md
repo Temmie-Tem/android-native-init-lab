@@ -270,13 +270,17 @@ Classify every action using
   permission change, generic package operation or F1/GPT action is delegated.
   Inventory and cleanup share 900 same-host-boot seconds; an error permits only
   one 300-second close-only read reconciliation, never renewed cleanup or a
-  repeated reboot. The incorporated policy's two known inventory-parser
+  repeated reboot. The incorporated policy's three known inventory preparation
   cases may instead use H0 no-effect retirement and one child preparation per
   retired parent, each with a fresh 900-second window under the original explicit
   foreground request. The unique immutable claim chain must preserve every
-  original claim/source and rederive successful raw reads, same-boot rooted
-  health and existing empty journals for every ancestor. Any execution start,
-  effect intent, failed/uncertain raw command, missing journal, duplicate open,
+  original claim/source and rederive same-boot rooted health and existing empty
+  journals for every ancestor. Raw reads must succeed except the acquisition
+  case's exact final host-enforced metadata stdout-limit termination. It needs
+  its explicit exceeded flag, full retained limit, host SIGTERM, empty stderr,
+  no timeout/producer fault and successful prior reads; truncated metadata
+  remains unproved. Any execution start,
+  effect intent, other failed/uncertain raw command, missing journal, duplicate open,
   second child or unsupported parser source blocks this exception. The chain
   reaches only one effectful cleanup and renews no consumed effect or G2 authority.
   Source review, current target/health, no pending F1 owner,

@@ -45,16 +45,19 @@ is retained as the successor's original-layout provenance.
 ## Current bounded unit — minimal Android cleanup
 
 The operator selected minimal management/return Android and unused optional-app
-cleanup. Two [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
-preparations captured successful raw reads but stopped at host parsing: first
-APEX/framework rows, then identical `flags`/`pkgFlags` aliases. Both retained
-same-boot rooted health and empty journals; no uninstall/reboot occurred.
+cleanup. Three [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
+preparations stopped before effects: APEX/framework parsing, identical flag
+aliases, then Reminder metadata exceeding the host's 128 KiB stdout bound.
+All retained same-boot rooted health and empty journals; no uninstall/reboot
+occurred. The third partial metadata capture remains failed/unproved.
 
-The corrections and linked no-effect retirement have independent review and
-16 passing tests. Original records remain immutable. The fixed declaration
+The parser corrections and linked no-effect retirement passed independent
+review. The metadata bound is now 1 MiB with the same timeout; all 19 focused
+tests pass. Its exact explained host-limit stop requires source-bound review.
+Original records remain immutable. The fixed declaration
 reuses same-FYG8 Pass1 evidence: 66 consumer candidates, with the historical
 116 keep packages plus three debug packages always excluded. Any ancestor
-execution, effect intent, unsuccessful raw read, missing journal or claim cycle
+execution, effect intent, other unsuccessful raw read, missing journal or claim cycle
 blocks the preparation exception. The original foreground request supplies
 scope; effects remain attended. Next are the repaired inventory, selected
 optional-package removal and final

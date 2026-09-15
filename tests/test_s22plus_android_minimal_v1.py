@@ -2,6 +2,7 @@
 import base64
 from contextlib import nullcontext
 import copy
+from dataclasses import replace
 import json
 from pathlib import Path
 import shlex
@@ -289,6 +290,28 @@ sys.stdout.buffer.write(base64.b64decode(data))
         with mock.patch.object(minimal.census,'closed_android',side_effect=ValueError('closure incomplete')):
             with self.assertRaisesRegex(ValueError,'closure incomplete'):minimal.Run(self.root,self.folder)
 
+    def test_large_complete_metadata_reaches_real_uninstall_and_terminal_projection(self):
+        self.program.write_text(self.program.read_text().replace(repr(dump()),repr('filter data\n'*18000+dump())))
+        self.run.task['adb']=records.pin(self.program)
+        self.prepare()
+        handle=minimal.raw.load_handle(self.folder/'inventory/packages'/(NAME+'.capture.json'))
+        self.assertGreater(handle.stdout['size'],131072)
+        self.assertFalse(handle.output_exceeded)
+        result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual((result['status'],result['removed_count']),('COMPLETE',1))
+
+    def test_metadata_above_fixed_limit_stops_before_effect_and_keeps_after_health(self):
+        self.program.write_text(self.program.read_text().replace(repr(dump()),
+            repr('filter data\n'*100000+dump())))
+        self.run.task['adb']=records.pin(self.program)
+        with self.assertRaises(minimal.raw.RawCaptureError):self.prepare()
+        handle=minimal.raw.load_handle(self.folder/'inventory/packages'/(NAME+'.capture.json'))
+        self.assertTrue(handle.output_exceeded)
+        self.assertEqual(handle.stdout['size'],minimal.METADATA_MAXIMUM)
+        self.assertTrue((self.folder/'inventory/after/health.json').exists())
+        self.assertFalse(self.run.journal.rows())
+        state=json.loads(self.state.read_text());self.assertEqual((state['uninstalls'],state['reboots']),(0,0))
+
     def inventory_stop_fixture(self):
         directory=self.root/'workspace/private/parser-stop';directory.mkdir()
         task_dir=self.root/'workspace/private/g2';task_dir.mkdir()
@@ -363,6 +386,34 @@ sys.stdout.buffer.write(base64.b64decode(data))
                 minimal.inventory_no_effect_projection(self.root,directory)
             records.Journal(directory/'journal').append('intent',key=NAME,kind='uninstall',detail={})
             with self.assertRaisesRegex(ValueError,'execution or reconciliation'):
+                minimal.inventory_no_effect_projection(self.root,directory)
+
+    def test_known_host_metadata_limit_retirement_does_not_accept_timeout_or_transport_failure(self):
+        directory,task,task_pin,closed,review,source_sha=self.inventory_stop_fixture()
+        inv=directory/'inventory'
+        for name,text in [('home',HOME+'/.Home\n'),('ime',IME+'/.Keyboard\n'),
+                ('storage-stat','NATIVE_PARTITION 41 96923648 401516544 native_data\nF2FS_STAT 4096 8388092 1000 2000 f2f52010\n')]:
+            minimal.raw.publish_captured_bytes(inv,name,stdout=text.encode())
+        folder=inv/'packages';folder.mkdir()
+        handle=minimal.raw.acquire_command([sys.executable,'-c',
+            "import sys,time;sys.stdout.buffer.write(b'x'*200000);sys.stdout.flush();time.sleep(30)"],
+            folder,NAME,timeout=5,stdout_maximum=131072,stderr_maximum=16384)
+        self.assertTrue(handle.output_exceeded);self.assertEqual(handle.returncode,-15)
+        with mock.patch.object(minimal,'INVENTORY_METADATA_LIMIT_SHA256',source_sha), \
+                mock.patch.object(minimal.census,'closed_android',return_value=(task,closed)):
+            value=minimal.inventory_no_effect_projection(self.root,directory)
+            self.assertEqual(value['acquisition_case'],'METADATA_STDOUT_LIMIT')
+            self.assertEqual(value['old_parser_rejected_rows'],0)
+            original=minimal.raw.load_handle
+            for changes in (dict(timed_out=True),dict(output_exceeded=False),dict(returncode=1),
+                    dict(producer_error_type='OSError')):
+                with self.subTest(changes=changes),mock.patch.object(minimal.raw,'load_handle',
+                        side_effect=lambda path:replace(handle,**changes) if Path(path)==handle.receipt_path else original(path)):
+                    with self.assertRaisesRegex(ValueError,'host stdout-limit'):
+                        minimal.inventory_no_effect_projection(self.root,directory)
+            stderr=handle.receipt_path.parent/handle.stderr['name']
+            stderr.chmod(0o600);stderr.write_bytes(b'changed');stderr.chmod(0o400)
+            with self.assertRaises(minimal.raw.RawCaptureError):
                 minimal.inventory_no_effect_projection(self.root,directory)
 
     def test_linked_claims_keep_one_child_and_reject_duplicate_opens(self):

@@ -3,7 +3,7 @@
 **P398 completed the 32 GiB userdata / 191.4580078125 GiB native layout and
 returned to rooted Android with changed-boot GPT/capacity persistence.**
 The native partition is unformatted. The G2 grant is closed; app cleanup is a
-separate foreground profile whose first two inventories stopped before effects.
+separate foreground profile whose first three inventories stopped before effects.
 A90 and S20+ were untouched.
 
 ## G2 result and canonical timeline
@@ -98,7 +98,7 @@ The corrected parser accepts one of each alias only when the sets agree;
 contradictory aliases or repeated keys still fail. Metadata captures now all
 complete before interpretation, allowing pure H0 repair from retained bytes.
 
-The reviewed retirement binds only these two known old source hashes and
+The parser retirement binds these two known old source hashes and
 rederives complete successful raw stages, full health and no execution. Each
 proved retired preparation can have one immutable child under the original
 foreground request. The chain preserves all prior claims/records and permits
@@ -121,6 +121,34 @@ retirement, and uncertain uninstall/reboot no-replay. Independent review has
 no unresolved findings. Revision 20 incorporates only this preparation/profile
 change; no G2 authority or consumed result changes.
 
-The two preparations remain private under
-`workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-{1,2}/`.
-Actual selection, removals and post-cleanup reboot/space results remain pending.
+The third preparation reached a different, explained host acquisition stop:
+Reminder's metadata exceeded the 128 KiB stdout allowance. Its failed receipt
+retains exactly 131,072 bytes, return code -15 and output-exceeded, with no
+timeout, producer fault or stderr. The raw producer detects bytes beyond its
+bound before sending SIGTERM. All earlier reads succeeded; full exact rooted
+health before/after passed on the same boot and the journal stayed empty.
+There were 25 captures, including six optional metadata captures from 41
+installed candidates. The truncated metadata remains failed/unproved.
+
+The metadata-only bound is now 1 MiB for inventory and fresh pre-effect reads,
+with the same 20-second timeout; pure projections use the same bound. Other
+read limits are unchanged. Upstream Android 15's
+[DumpHelper](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-15.0.0_r1/services/core/java/com/android/server/pm/DumpHelper.java)
+includes filter details for a named package; its `packages` command dumps all
+packages, so it is not a narrower named-package replacement.
+Revision 21 admits only this third known source's exact host-limit result to
+H0 no-effect retirement. All prior captures and health must succeed, all
+ancestor journals remain empty, and the unique child claim rules still apply.
+Timeouts, other command failures and unexplained transport errors remain stops.
+Old retirements rederive byte-identically; no overflow becomes a successful
+metadata observation and a fresh complete capture is required before selection.
+All 19 focused tests pass, including complete metadata above 128 KiB through
+uninstall/terminal reconstruction, a 1 MiB overflow stopping before effects,
+and real subprocess SIGTERM with timeout/transport-failure rejection.
+
+The three preparations remain private under
+`workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-{1,2,3}/`.
+One outer wrapper initially rejected a missing capture directory before Popen;
+the corrected invocation was the first actual third preparation. No device
+command was repeated by that H0 wrapper correction. Actual selection, removals
+and post-cleanup reboot/space results remain pending.

@@ -25,6 +25,8 @@ POLICY='docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md'
 REVIEW='workspace/public/src/device-action/bindings/s22plus_android_minimal_v1_review.json'
 INVENTORY_PARSER_V1_SHA256='ae5f052259cd98fd554addfcacf998bbd437ef1fc13c2e90c42e46f1ebf54120'
 INVENTORY_DUPLICATE_FLAGS_SHA256='9b3fcba0031232ba74096e718102a252df87e1a745e7741904227db22d9ad850'
+INVENTORY_METADATA_LIMIT_SHA256='0ebe5cf2dc5751c447354fc45676449c6f462f55a26a114fb9be528c82d30bbc'
+METADATA_MAXIMUM=1024*1024
 OPEN_FIELDS={'schema','mode','task','closed','review','operator_statement','host_boot',
     'opened_ns','deadline_ns','source_snapshot'}
 # Optional consumer apps only. Frameworks, stores, browsers, telephony, providers,
@@ -222,7 +224,7 @@ def claim_lineage(root,opened,open_pin):
 
 
 def inventory_no_effect_projection(root,directory):
-    """H0 proof of the known successful-read, android/APEX parser-only stop."""
+    """H0 proof of a reviewed preparation stop with no cleanup execution."""
     directory=private_path(root,directory);opened=read(directory/'open.json')
     require(set(opened)==OPEN_FIELDS and opened['schema']==SCHEMA and opened['mode']=='minimal-management'
         and opened['deadline_ns']==opened['opened_ns']+900_000_000_000,
@@ -236,9 +238,11 @@ def inventory_no_effect_projection(root,directory):
     snapshot=saved_sources(root,directory,opened)
     source=str(Path(root)/'workspace/public/src/scripts/revalidation/s22plus_android_minimal_v1.py')
     sources=[row['original']['sha256'] for row in snapshot['sources'] if row['original']['path']==source]
-    require(len(sources)==1 and sources[0] in (INVENTORY_PARSER_V1_SHA256,INVENTORY_DUPLICATE_FLAGS_SHA256),
-        'retirement source is not a known inventory parser')
-    metadata_stage=sources[0]==INVENTORY_DUPLICATE_FLAGS_SHA256
+    require(len(sources)==1 and sources[0] in (INVENTORY_PARSER_V1_SHA256,
+        INVENTORY_DUPLICATE_FLAGS_SHA256,INVENTORY_METADATA_LIMIT_SHA256),
+        'retirement source is not a known inventory preparation')
+    limit_stage=sources[0]==INVENTORY_METADATA_LIMIT_SHA256
+    metadata_stage=sources[0]!=INVENTORY_PARSER_V1_SHA256
     labels=('current-user','system-packages','home','ime','storage-stat') if metadata_stage else ('current-user','system-packages')
     expected={'before','after'}|({'packages'} if metadata_stage else set())|{
         name+suffix for name in labels for suffix in ('.capture.json','.stdout.bin','.stderr.bin')}
@@ -265,7 +269,7 @@ def inventory_no_effect_projection(root,directory):
         component(texts('home'));component(texts('ime'))
         gpt_android.storage_stat(texts('storage-stat'),dict(layout='proposed',
             geometry=read(verify(closed))['gpt']['geometry']),gpt.vectors(task['N']['gpt']))
-        present=[name for name in OLD_OPTIONAL if name in rows]
+        present=[name for name in (OPTIONAL if limit_stage else OLD_OPTIONAL) if name in rows]
         captured=[name for name in present if (folder/'packages'/(name+'.capture.json')).exists()]
         require(captured and captured==present[:len(captured)],'metadata captures are not a fixed inventory prefix')
         require({p.name for p in (folder/'packages').iterdir()}=={
@@ -273,13 +277,25 @@ def inventory_no_effect_projection(root,directory):
             'metadata capture directory differs')
         gaps=[]
         for name in captured:
+            if limit_stage and name==captured[-1]:
+                handle=raw.load_handle(folder/'packages'/(name+'.capture.json'))
+                require(handle.returncode==-15 and handle.output_exceeded is True
+                    and handle.timed_out is False and handle.producer_error_type is None
+                    and handle.stdout['size']==131072 and handle.stderr['size']==0,
+                    'metadata stop is not the known host stdout-limit termination')
+                raw.read_stdout(handle,maximum=131072)
+                require(raw.read_stderr(handle,maximum=16384)==b'',
+                    'metadata stdout-limit diagnostic stream is not empty')
+                continue
             text=texts('packages/'+name);package_metadata(text,rows[name])
             block=text.split('Hidden system packages:',1)[0].split('Package ['+name+']',1)[1]
-            if len(re.findall(r'^\s*(?:pkgFlags|flags)=\[([^\]]*)\]\s*$',block,re.M))==2:gaps.append(name)
-        require(gaps==captured[-1:],'metadata stop is not the first identical duplicate-flags result')
+            if not limit_stage and len(re.findall(r'^\s*(?:pkgFlags|flags)=\[([^\]]*)\]\s*$',block,re.M))==2:gaps.append(name)
+        if not limit_stage:
+            require(gaps==captured[-1:],'metadata stop is not the first identical duplicate-flags result')
         extra=dict(metadata_inputs=[pin(folder/(name+'.capture.json')) for name in labels[2:]]+
-            [pin(folder/'packages'/(name+'.capture.json')) for name in captured],
-            parser_case='IDENTICAL_FLAGS_AND_PKGFLAGS')
+            [pin(folder/'packages'/(name+'.capture.json')) for name in captured])
+        if limit_stage:extra.update(acquisition_case='METADATA_STDOUT_LIMIT',acquisition_limit_exceeded_count=1)
+        else:extra['parser_case']='IDENTICAL_FLAGS_AND_PKGFLAGS'
     else:
         gaps=[row for row in rows.values() if row['name']=='android' or row['path'].startswith('/apex/')]
         require(gaps,'known android/APEX inventory parser gap is absent')
@@ -391,14 +407,15 @@ class Run:
                 ['shell','su -c '+shlex.quote(gpt_android.STAT_SCRIPT)],maximum=16384)
             for name in OPTIONAL:
                 if name in listed:self.text(folder/'packages',name,
-                    ['shell','dumpsys','package',name])
+                    ['shell','dumpsys','package',name],maximum=METADATA_MAXIMUM)
         finally:after=self.health(folder/'after')
         require(before['properties']==after['properties'],'Android boot changed during package inventory')
         return publish(folder/'result.json',self.inventory_raw_projection(folder))
 
     def inventory_raw_projection(self,folder=None):
         folder=Path(folder) if folder is not None else self.directory/'inventory'
-        texts=lambda name:raw.decode_success_stdout(raw.load_handle(folder/(name+'.capture.json')),maximum=131072)
+        texts=lambda name:raw.decode_success_stdout(raw.load_handle(folder/(name+'.capture.json')),
+            maximum=METADATA_MAXIMUM if name.startswith('packages/') else 131072)
         require(texts('current-user').strip()=='0','inventory primary user differs')
         listed=packages(texts('system-packages'));home=component(texts('home'));ime=component(texts('ime'))
         metadata={name:package_metadata(texts('packages/'+name),listed[name]) for name in OPTIONAL if name in listed}
@@ -493,7 +510,8 @@ class Run:
             folder=self.directory/f'package-{number:03d}';name=row['name'];intent=intents[number]
             require(intent==dict(key=name,kind='uninstall',detail=dict(package=name,metadata=row)),
                 'package intent does not join selected manifest')
-            text=lambda label:raw.decode_success_stdout(raw.load_handle(folder/(label+'.capture.json')),maximum=131072)
+            text=lambda label:raw.decode_success_stdout(raw.load_handle(folder/(label+'.capture.json')),
+                maximum=METADATA_MAXIMUM if label=='before-metadata' else 131072)
             require(text('devpath').strip()==self.task['target']['topology']
                 and text('current-user').strip()=='0'
                 and target.fields(text('properties'),target.PROPERTY_FIELDS)==initial['properties'],
@@ -543,7 +561,8 @@ class Run:
                     self.same_boot(folder,initial)
                     current=packages(self.text(folder,'before-package',[*LIST,name]))
                     require(name in current and package_metadata(self.text(folder,'before-metadata',
-                        ['shell','dumpsys','package',name]),current[name])==row,'selected package changed before intent')
+                        ['shell','dumpsys','package',name],maximum=METADATA_MAXIMUM),current[name])==row,
+                        'selected package changed before intent')
                     answer=self.text(folder,'uninstall',['shell','pm','uninstall','--user','0',
                         '--versionCode',str(row['version']),name],
                         maximum=16384,before=lambda:self.intent('uninstall',package=name,metadata=row))
