@@ -508,3 +508,10 @@ Its original P396 admission and unused closed tail rederive from retained raw
 evidence; there is no F1 owner or open grant. Actual new-endpoint read-only
 qualification and a returned finite attended grant remain prerequisites to
 GPT effects. Preparation has performed no device operation.
+
+## Subsequent live result
+
+The subsequent G2 run completed the 128 GiB reservation, fresh rooted Android
+initialization and changed-boot GPT/capacity/root proof. Its health-only recovery,
+closed grant and canonical timeline are recorded in the [live report](S22PLUS_NATIVE_GPT_128G_LIVE_2026-09-15.md).
+The preparation statements above preserve their pre-execution context.
