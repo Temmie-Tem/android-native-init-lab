@@ -163,6 +163,16 @@ task selections. A freshly qualified E may be selected within the approved
 native source closure and remaining original budget without another per-image
 approval. V3 E content remains globally one-shot.
 
+The common-incorporated [native UFS V1](../S22PLUS_NATIVE_UFS_V1.md) profile is
+adopted only for the separately reviewed `thermal-v3-reconnect-ufs-v1` source
+closure and an actual finite V3 grant. It initializes eight fixed stock
+drivers with their ordinary controller/device setup and SCSI discovery;
+kernel metadata probing during discovery is distinct from the explicit LU0
+census. It adds no host partition-data writer, formatting, mount or key request.
+An attended bootstrap may be followed by an in-scope census within the same
+budget, but that census still requires actual N admission and an unused
+healthy native tail. Storage access is not modified-GPT recovery proof.
+
 The common `S22PLUS_NATIVE_STORAGE_CENSUS_V1` metadata-read exception is adopted
 only through the V3 `storage-census` operation on already admitted N. Its fixed
 native command binds userdata to the FYG8 `1d84000.ufshc` controller's LU0,

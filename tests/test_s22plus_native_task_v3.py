@@ -22,7 +22,7 @@ class TaskTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name)
 
-    def image(self):
+    def image(self,profile='thermal-v3-reconnect-v1'):
         ap=self.root/'AP.tar.md5';make_ap(ap)
         key=self.root/'key';key.write_bytes(b'k'*32)
         source=self.root/'fixture.c';source.write_text('/* fixture producer identity */\n')
@@ -31,7 +31,7 @@ class TaskTests(unittest.TestCase):
                 expected_sha256=records.digest(ap.read_bytes())) as opened:
             member=adapter.transport.boot_only_member_receipt(opened,label='fixture')
         image=dict(schema='s22plus-native-image-v3',namespace='p998',run_id_hex='1'*32,
-            profile='thermal-v3-reconnect-v1',version='v0.2.1',ap=records.pin(ap),member=member,
+            profile=profile,version='v0.2.1',ap=records.pin(ap),member=member,
             key=records.pin(key),runtime_sources=sources)
         package=dict(ap_tar_md5={k:image['ap'][k] for k in ('size','sha256')},
             boot_img_lz4={k:member[k] for k in ('size','sha256')})
@@ -39,13 +39,31 @@ class TaskTests(unittest.TestCase):
             byte_identical=True,candidate=dict(a=package,b=package),source_inputs=sources,
             run_id_hex=image['run_id_hex'],native_selection=dict(namespace=image['namespace'],
                 display_version=image['version'],auth_key={k:image['key'][k] for k in ('size','sha256')}))
+        if profile=='thermal-v3-reconnect-ufs-v1':
+            built['native_selection']['runtime_profile']=dict(storage_profile='fyg8-stock-ufs-v1')
         builder=self.root/'builder.json';records.publish(builder,built)
-        exporter=Path(adapter.__file__).resolve().parents[1]/'analysis/s22plus_native_artifact_v3_h0.py'
+        exporter=Path(adapter.__file__).resolve().parents[1]/'analysis'/(
+            's22plus_native_ufs_artifact_v1_h0.py' if profile=='thermal-v3-reconnect-ufs-v1'
+            else 's22plus_native_artifact_v3_h0.py')
         qualification=self.root/'qualification.json'
         records.publish(qualification,dict(schema='s22plus-native-artifact-qualification-v3',
             image=image,builder_result=records.pin(builder),ab_identical=True,actual_ap_join=True,
             exporter=records.pin(exporter)))
         return dict(image,qualification=records.pin(qualification))
+
+    def test_ufs_profile_requires_its_own_exporter_and_producer_profile(self):
+        image=self.image('thermal-v3-reconnect-ufs-v1');adapter.image_valid(image,artifact_bytes=True)
+        qualification=records.read(Path(image['qualification']['path']))
+        original=copy.deepcopy(qualification)
+        qualification['exporter']=records.pin(Path(adapter.__file__).resolve().parents[1]/
+            'analysis/s22plus_native_artifact_v3_h0.py')
+        bad=copy.deepcopy(image);bad['qualification']=records.publish(self.root/'wrong-exporter.json',qualification)
+        with self.assertRaisesRegex(ValueError,'actual A/B producer'):adapter.image_valid(bad)
+        built=records.read(Path(original['builder_result']['path']))
+        built['native_selection']['runtime_profile']['storage_profile']='different-initialization'
+        original['builder_result']=records.publish(self.root/'wrong-producer.json',built)
+        bad['qualification']=records.publish(self.root/'wrong-producer-qualification.json',original)
+        with self.assertRaisesRegex(ValueError,'selected initialization profile'):adapter.image_valid(bad)
 
     def test_actual_ap_receipt_is_joined_to_frozen_builder_key_member_and_source(self):
         image=self.image();adapter.image_valid(image,artifact_bytes=True)

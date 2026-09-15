@@ -30,9 +30,11 @@ def image_identity(image, binding):
 
 
 def image_valid(image, *, artifact_bytes=False):
+    exporters={'thermal-v3-reconnect-v1':'s22plus_native_artifact_v3_h0.py',
+        'thermal-v3-reconnect-ufs-v1':'s22plus_native_ufs_artifact_v1_h0.py'}
     require(set(image)=={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'} and image['schema']=='s22plus-native-image-v3'
-        and image['profile']=='thermal-v3-reconnect-v1','native image qualification schema differs')
+        and image['profile'] in exporters,'native image qualification schema differs')
     native.identity(image); native.key_bytes(image)
     qualification=read(verify(image['qualification']))
     require(qualification['schema']=='s22plus-native-artifact-qualification-v3'
@@ -41,7 +43,7 @@ def image_valid(image, *, artifact_bytes=False):
         'native artifact qualification differs')
     built=read(verify(qualification['builder_result']))
     verify(qualification['exporter'])
-    require(qualification['exporter']['path']==str(Path(__file__).resolve().parents[1]/'analysis/s22plus_native_artifact_v3_h0.py')
+    require(qualification['exporter']['path']==str(Path(__file__).resolve().parents[1]/'analysis'/exporters[image['profile']])
         and built['schema']=='s22plus-native-thermal-build-v1' and built['verdict']=='PASS_NATIVE_THERMAL_BUILD_H0'
         and built['byte_identical'] is True and built['candidate']['a']==built['candidate']['b']
         and built['source_inputs']==image['runtime_sources'] and built['run_id_hex']==image['run_id_hex']
@@ -51,6 +53,9 @@ def image_valid(image, *, artifact_bytes=False):
         and built['candidate']['a']['ap_tar_md5']=={name:image['ap'][name] for name in ('size','sha256')}
         and built['candidate']['a']['boot_img_lz4']=={name:image['member'][name] for name in ('size','sha256')},
         'native qualification does not join its actual A/B producer')
+    if image['profile']=='thermal-v3-reconnect-ufs-v1':
+        require(built['native_selection']['runtime_profile']['storage_profile']=='fyg8-stock-ufs-v1',
+            'UFS image does not contain its selected initialization profile')
     if artifact_bytes:
         with transport.pin_boot_only_ap(Path(image['ap']['path']),label='qualified native image',
                 expected_size=image['ap']['size'],expected_sha256=image['ap']['sha256']) as ap:

@@ -100,6 +100,16 @@ permission to perform host-only work.
    [Android storage census V1](S22PLUS_ANDROID_STORAGE_CENSUS_V1.md).
    It grants no mode change, module load, other-LU read, storage write or
    format, and does not reuse or renew a closed V3 transition grant.
+   Separately, the reviewed [S22+ native UFS V1](S22PLUS_NATIVE_UFS_V1.md)
+   F1 profile may initialize its eight fixed FYG8 stock drivers. This permits
+   their ordinary controller/PHY/ICE setup, UFS device attribute/feature
+   initialization, supported HPB buffer management and SCSI LU discovery, including kernel partition-metadata
+   probing of the enumerated LUs. This is not D0 or a zero-device-write claim.
+   It permits no added host partition-data write, table update, discard,
+   format, filesystem mount, caller SCSI command, RPMB data transaction or
+   key request. Only its exact target/V3 adoption, reviewed source closure and
+   actual finite F1 grant activate it. Later explicit metadata capture retains
+   its separately declared bounds; GPT mutation/restoration remains unqualified.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

@@ -29,11 +29,14 @@ existing entries share one nonzero GUID; its raw verdict is unchanged.
 Both reads closed `ANDROID_CLOSED_HEALTHY`. H0 arithmetic and independent
 review establish a proposed 159.458 GiB userdata plus 64 GiB native entry,
 preserving the other 39 entries and leaving a 988 KiB alignment gap.
-The next prerequisite is a userdata-independent native UFS access capability,
-followed by an exact restoration method for the declared write-failure cases.
-Its host preparation is in progress; no new live grant, partition write or
-format has occurred. See the
+The next prerequisite is userdata-independent native UFS access. P395 `v0.2.2`
+has matching A/B images, 75 passing tests and independent `PASS_GO`. Its
+1,800-second/two-operation attended bootstrap-plus-census request is prepared,
+with no grant opened. This qualifies the capability, not actual UFS access or
+GPT restoration. No partition write or format has occurred. See the
 [result and Android successor](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md).
+The [P395 UFS H0 report](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md)
+records its initialization scope and remaining restoration requirements.
 
 ## Retained native baseline
 

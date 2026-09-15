@@ -25,6 +25,7 @@ import s22plus_native_thermal_observer_v2 as thermal_observer_v2
 import s22plus_native_thermal_source_v3 as thermal_source_v3
 import s22plus_native_thermal_observer_v3 as thermal_observer_v3
 import s22plus_native_reconnect_source_v1 as reconnect_source
+import s22plus_native_ufs_source_v1 as ufs_source
 
 ROOT = common.ROOT
 POLICY = 'native-baseline-v2'
@@ -58,6 +59,7 @@ def declaration(namespace, run_id, version, image_sha256, *, runtime_source=sour
     return SimpleNamespace(__file__=__file__,IDENTITY=selected,PROFILE=runtime_source.PROFILE,OWNER_PROFILE=POLICY,
         THERMAL_PROFILE=getattr(runtime_source,'THERMAL_PROFILE',None),
         RECONNECT_PROFILE=getattr(runtime_source,'RECONNECT_PROFILE',None),
+        STORAGE_PROFILE=getattr(runtime_source,'STORAGE_PROFILE',None),
         runtime=runtime,observer=observer,artifact=artifact,adapter=adapter,
         return_host=owner.ReturnHost(selected,CONTROL),console_owner=owner.EmptyPlan(selected))
 
@@ -91,6 +93,8 @@ RESEARCH_PROFILES = {
     'thermal-v3': (thermal_source_v3, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     'thermal-v3-reconnect-v1': (reconnect_source, thermal_observer_v3.Observer,
+        ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
+    'thermal-v3-reconnect-ufs-v1': (ufs_source, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
 }
 HISTORICAL_DECLARATIONS = frozenset(DECLARATIONS)
@@ -128,6 +132,12 @@ def research_data(root=ROOT):
 
 
 def research_profile(declared):
+    if getattr(declared,'STORAGE_PROFILE',None) is not None:
+        if (declared.STORAGE_PROFILE==ufs_source.STORAGE_PROFILE
+                and declared.RECONNECT_PROFILE==reconnect_source.RECONNECT_PROFILE
+                and declared.THERMAL_PROFILE==thermal_source_v3.THERMAL_PROFILE):
+            return 'thermal-v3-reconnect-ufs-v1'
+        raise ValueError('unreviewed UFS composition')
     if getattr(declared, 'RECONNECT_PROFILE', None) is not None:
         if (declared.RECONNECT_PROFILE == reconnect_source.RECONNECT_PROFILE
                 and declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE):
@@ -152,7 +162,9 @@ def static(prefix):
     from s22plus_native_baseline_v2_build import Builder, EXTRA_SOURCES
     from s22plus_native_candidate_static_v1 import CandidateStatic
     declared = DECLARATIONS[prefix]
-    if declared.RECONNECT_PROFILE == reconnect_source.RECONNECT_PROFILE:
+    if declared.STORAGE_PROFILE == ufs_source.STORAGE_PROFILE:
+        from s22plus_native_ufs_build_v1 import Builder, EXTRA_SOURCES
+    elif declared.RECONNECT_PROFILE == reconnect_source.RECONNECT_PROFILE:
         from s22plus_native_reconnect_build_v1 import Builder, EXTRA_SOURCES
     elif declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE:
         from s22plus_native_thermal_build_v3 import Builder, EXTRA_SOURCES

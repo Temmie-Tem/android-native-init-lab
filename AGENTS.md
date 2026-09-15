@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **15** (supersedes revision 14; 2026-09-15)
+Contract-Revision: **16** (supersedes revision 15; 2026-09-15)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`1788a9fbdf7085d2db16b52130a664a2d2ff9c23283594af76e20a7bab127dc8`.
+`04365c65dc14abeda917ca7f5b285810f51e3ceb54f50cb4b08f0dabcbc8c50e`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -116,6 +116,8 @@ Read an exception's complete conditions before considering it applicable.
    fixed 256-byte misc-BCB hook in the details can specialize these bans.
    The fixed S22+ native and Android storage censuses may read their declared
    GPT metadata only; they grant no partition-table mutation or formatting.
+   The exact S22+ UFS F1 profile also permits its fixed driver initialization
+   and ordinary kernel discovery, without a host partition-data writer.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.

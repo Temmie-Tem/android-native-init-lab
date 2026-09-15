@@ -155,6 +155,29 @@ class AdapterTests(unittest.TestCase):
             with self.subTest(changes=changes),self.assertRaises(ValueError):
                 task.validate_grant(value,dict(grant,**changes),self.directory/'grant.json')
 
+    def test_same_task_census_requires_completed_bootstrap_admission_and_unused_tail(self):
+        directory=self.private/'task';directory.mkdir()
+        value=dict(operations=['bootstrap','storage-census'],N=self.image,A=self.image,
+            admission=None,prior_terminal=None,reentry=False,hud=False,usb_reconnect=False)
+        grant=dict(task=records.publish(directory/'task.json',value),directory=str(directory))
+        with self.assertRaisesRegex(ValueError,'no V3 admission and closed tail'):
+            self.client.prepare('storage-census',grant)
+        completed=directory/'operation-0001';completed.mkdir()
+        tail=records.publish(completed/'terminal.json',dict(terminal_state='NATIVE_CLOSED_HEALTHY'))
+        with self.assertRaisesRegex(ValueError,'no V3 admission and closed tail'):
+            self.client.prepare('storage-census',grant)
+        admission=records.publish(completed/'admission.json',dict(fixture=True))
+        with mock.patch.object(self.client,'admission') as verify_admission, \
+                mock.patch.object(self.client,'tail') as verify_tail:
+            request=self.client.prepare('storage-census',grant)
+            self.assertEqual(request['prior_terminal'],tail);self.assertEqual(request['admission'],admission)
+            verify_admission.assert_called_once_with(admission,self.image,value)
+            verify_tail.assert_called_once_with(tail,self.image,value)
+            claim=self.client.tail_claim_path(tail);claim.parent.mkdir(parents=True,exist_ok=True)
+            records.publish(claim,dict(fixture=True))
+            with self.assertRaisesRegex(ValueError,'already has an authentication attempt'):
+                self.client.prepare('storage-census',grant)
+
 
 class NativeAdapterTests(unittest.TestCase):
     @classmethod

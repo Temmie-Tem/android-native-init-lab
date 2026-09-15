@@ -28,6 +28,13 @@ and remaining budget. Every E content is globally one-shot in this V3 owner.
 The task does not authorize functional native source changes outside that
 reviewed closure. A later scope change receives its own scoped review.
 
+The separately adopted [native UFS V1](S22PLUS_NATIVE_UFS_V1.md) profile adds
+fixed stock driver initialization and ordinary UFS/SCSI discovery to a new
+reviewed boot-only runtime. It does not add a partition writer or GPT recovery
+claim. A task may prepare bootstrap plus storage census together; the latter
+still requires the actual bootstrap's rederived admission and healthy tail
+before it can prepare an observation. Original time and capacity do not reset.
+
 The task may bootstrap one fresh N and then perform its authorized N/E/N work.
 Bootstrap starts from exact healthy Android and requires attendance. An
 explicit deferred-recovery task may perform native-origin operations without

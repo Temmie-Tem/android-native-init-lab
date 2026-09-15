@@ -162,6 +162,12 @@ F1 or persistent mutation.
 
 ### F1 - Boot-Only Transfer
 
+The exact S22+ [native UFS V1](S22PLUS_NATIVE_UFS_V1.md) profile includes fixed
+stock driver initialization and ordinary UFS/SCSI discovery. Its controller
+and device-feature writes and kernel metadata probing are F1 hardware scope,
+not D0. It adds no host partition-data writer, format, mount or key request.
+Its separate common/target adoption and actual V3 grant remain required.
+
 Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 
 Attendance and per-candidate human approval remain the default. AGENTS Revision

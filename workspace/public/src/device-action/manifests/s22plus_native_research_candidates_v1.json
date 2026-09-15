@@ -20,6 +20,13 @@
       "profile": "thermal-v3-reconnect-v1",
       "run_id": "1095628f2d0cda5e874f0494de2b16d8",
       "version": "v0.2.1"
+    },
+    {
+      "image_sha256": "3e535e86f0ee6cf806b51ce790d397c789974215e13850a640182caadcaf4166",
+      "namespace": "p395",
+      "profile": "thermal-v3-reconnect-ufs-v1",
+      "run_id": "cb841bc26981ed6d45e3b0f4ab491950",
+      "version": "v0.2.2"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

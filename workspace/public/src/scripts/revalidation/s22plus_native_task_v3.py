@@ -36,8 +36,11 @@ def source_paths(root):
     require(not forbidden.intersection(path.name for path in paths),'legacy live owner is reachable from V3')
     paths.update(root/name for name in ('AGENTS.md',DETAILS,TARGET_CONTRACT,POLICY,PROFILE,
         'docs/operations/S22PLUS_ANDROID_STORAGE_CENSUS_V1.md',
+        'docs/operations/S22PLUS_NATIVE_UFS_V1.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
-        'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py'))
+        'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
+        'workspace/public/src/scripts/analysis/s22plus_native_ufs_artifact_v1_h0.py',
+        'workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py'))
     return tuple(sorted(paths))
 
 
@@ -161,8 +164,8 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
     root=Path(root).resolve(strict=True); output=private_path(root,output,exists=False)
     require(not output.exists(),'native task preparation path already exists')
     require(type(storage_census) is bool and type(android_exit) is bool
-        and (not storage_census or admission is not None and prior_terminal is not None),
-        'storage census preparation requires an admitted N and its closed tail')
+        and (not storage_census or (admission is None)==(prior_terminal is None)),
+        'storage census needs either fresh bootstrap or an admitted N and its closed tail')
     native=read(verify(native)); experiment=read(verify(experiment)) if experiment else None
     image_valid(native,artifact_bytes=True)
     if experiment is not None: image_valid(experiment,artifact_bytes=True)
