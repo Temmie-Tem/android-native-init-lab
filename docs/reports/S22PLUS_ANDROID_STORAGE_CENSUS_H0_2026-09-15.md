@@ -263,6 +263,47 @@ activation remain prerequisites. Restoration of a mixed state must repair the
 side opposite the sole valid copy first. Every Android-A fallback, including
 failure branches, must require exact original GPT confirmation first.
 
+## Prospective native writer H0
+
+The new C core accepts fixed original/proposed vectors, changes only the four
+declared blocks, and preserves every byte equal in both vectors. Apply requires
+the complete original pair. Restore selects the side opposite the sole exact
+surviving copy, checks each full readback, and never retries a failed write or
+sync. The actual private vectors passed 134 apply-write/sync faults and 260
+mixed-state restorations. Independent ARM64 testing additionally injected
+19,830 faults during restoration from those 260 states; every attempted write
+kept a surviving exact copy. Subsequent separate modeled restores returned
+the full original bytes. Those subsequent host calls are tests of the algorithm,
+not permission to retry an uncertain live restoration.
+
+The Linux binding has no caller-supplied endpoint, LBA or payload. It checks
+the existing native LU0 ancestry, userdata index/start/size, whole-disk capacity,
+logical block size and held block identity. Effects use `O_EXCL | O_DIRECT |
+O_DSYNC`, one pwrite per selected block, fsync and full direct readback. The
+exact FYG8 UAPI and kernel caller were checked: `IOCB_DSYNC` adds `REQ_FUA`,
+with the block layer using FUA or postflush according to queue capabilities.
+Failed results label their kind field as the last read, and never publish it
+as a successful final media result.
+
+Both selected tests pass in 1.101 seconds, including a compact restore-fault
+regression and actual ARM64 direct/synchronous file I/O. Unaligned reads return
+EINVAL, writes through a read-only descriptor return EBADF, and short reads
+are rejected. The test opens only sparse regular files; the live sysfs/node/
+marker path remains unexecuted. Static independent endpoint review also checks
+its predicates against the retained P396 geometry. O_EXCL is not universal
+protection from other privileged openers, so the native single-writer condition
+remains required; the tmpfs marker is per boot, while cross-boot no-replay must
+be enforced by the future durable owner.
+
+Independent core review has SHA-256
+`818178c81c8dc1052a81d7a74c8ab47ea0a273e5c928f6c3f98e97821bf51f3e`;
+endpoint source review has SHA-256
+`39080785c023ba795085d6e58269536fbcad8ab81d5c8a91cc30634dc4a8f8e9`.
+The focused-test receipt is under
+`workspace/private/outputs/s22plus-native-gpt-endpoint-h0-20260915-1/`.
+Neither C file is connected to a live builder or runner yet. This H0 work
+does not activate a GPT exception or perform a device effect.
+
 ## External repartitioning precedents checked on 2026-09-15
 
 No examined source establishes a completed userdata split on this exact
