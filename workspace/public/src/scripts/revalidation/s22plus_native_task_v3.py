@@ -35,6 +35,7 @@ def source_paths(root):
     forbidden={'device_action_f1_v2.py','device_action_f1_live_v2.py','s22plus_native_baseline_owner_v1.py'}
     require(not forbidden.intersection(path.name for path in paths),'legacy live owner is reachable from V3')
     paths.update(root/name for name in ('AGENTS.md',DETAILS,TARGET_CONTRACT,POLICY,PROFILE,
+        'docs/operations/S22PLUS_ANDROID_STORAGE_CENSUS_V1.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py'))
     return tuple(sorted(paths))
@@ -229,7 +230,14 @@ def main():
     for command in ('recover','repair-close'):
         item=sub.add_parser(command); item.add_argument('operation_directory',type=Path)
         if command=='recover': item.add_argument('--attended',action='store_true')
+    census=sub.add_parser('android-storage');census.add_argument('closed_task',type=Path)
+    census.add_argument('output',type=Path)
     args=parser.parse_args()
+    if args.command=='android-storage':
+        from s22plus_native_android_storage_v1 import observe
+        value=observe(args.root,args.closed_task,args.output)
+        print(canonical(value).decode(),end='')
+        return
     from s22plus_native_adapter_v3 import Adapter
     from s22plus_native_session_v3 import Session, prepare_operation
     if args.command=='execute':

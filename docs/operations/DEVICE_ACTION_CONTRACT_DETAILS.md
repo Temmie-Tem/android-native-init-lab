@@ -87,6 +87,15 @@ permission to perform host-only work.
    RAM-only alias changes neither storage nor access privilege.
    Complete primary/backup headers and entry arrays must fit those captures
    and agree with their CRCs and the live geometry before metadata qualifies.
+   The separately adopted `S22PLUS_ANDROID_STORAGE_CENSUS_V1` uses the same
+   exact-controller/LU0 six-initial/five-final-block metadata read on already
+   healthy original-A Android. It uses existing block nodes, with device-number
+   verification before reading, and creates no alias or other device state.
+   Its fixed foreground D0 transcript, source review, closed Android-return
+   provenance, fresh before/after health, bounds and failure behavior are in
+   [Android storage census V1](S22PLUS_ANDROID_STORAGE_CENSUS_V1.md).
+   It grants no mode change, module load, other-LU read, storage write or
+   format, and does not reuse or renew a closed V3 transition grant.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

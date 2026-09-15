@@ -9,8 +9,9 @@ The smallest missing evidence is the actual UFS LU0 geometry and original GPT.
 The new V3 `storage-census` operation implements that fixed D0 read on admitted
 P393, without a new native image, normal CONTROL or image transfer. The census
 implementation and its narrow common/target read exception received independent
-`PASS_GO` for both current and publication source closures. No new grant,
-device command, GPT write or formatting has occurred.
+`PASS_GO` for both current and publication source closures at that H0 milestone.
+The later one-shot native census closed metadata `NO_PROOF` and
+`NATIVE_CLOSED_HEALTHY`; see the [actual result and Android successor](S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md).
 
 ## Why the firmware table is insufficient
 
@@ -116,10 +117,11 @@ Private inputs and verification are under
 `workspace/private/outputs/s22plus-native-storage-census-h0-20260915-1/`.
 The firmware map is under
 `workspace/private/outputs/s22plus-fyg8-partition-survey-20260915-1/`.
-The next device step is the prepared V3 census request: 600 seconds, one
-storage-census operation, admitted P393 and deferred physical recovery.
-The old task is closed; this new task needs its actual returned finite grant.
+The original request selected 600 seconds, one storage-census operation,
+admitted P393 and deferred physical recovery. Its subsequently returned
+grant was consumed once and closed; it cannot be reused for the successor.
 Host-only preparation reverified the five installed PC files, noninteractive
 readiness and the expected USB endpoint with no tty holder. No native command
-was sent. The request selects no E, normal Android exit, HUD or USB reconnect.
+was sent during that preparation. The request selected no E, normal Android
+exit, HUD or USB reconnect.
 No A90 or S20+ command is part of this work.

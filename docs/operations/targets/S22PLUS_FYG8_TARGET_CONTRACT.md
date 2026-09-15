@@ -180,6 +180,18 @@ or image payload. It cannot write GPT, format userdata, read encryption keys
 or authorize a prospective partition split. Those changes require their own
 common-boundary review and demonstrated exact restoration route.
 
+The common `S22PLUS_ANDROID_STORAGE_CENSUS_V1` exception is adopted as the
+[fixed foreground Android D0 profile](../S22PLUS_ANDROID_STORAGE_CENSUS_V1.md)
+for the current native-storage research task, with a current independent V3
+capability `PASS_GO`. It starts only after a closed proved original-A Android
+return, rederives that provenance and performs fresh before/after same-boot
+rooted health around one bounded metadata read through existing Android nodes.
+It does not consume, renew or need a repeated prompt for an old transition
+grant. It cannot reach Android by itself, load a storage module, create a
+device node, change a partition, format or obtain encryption keys. A failed
+metadata command permits only its one fixed post-read health bracket; another
+metadata attempt is not part of that run. No background polling is adopted.
+
 The task's one-to-three-operation, 60–7200-second grant and exact attended or
 deferred recovery choice are separately returned by the operator. Bootstrap
 and physical USB reconnect remain attended. Native-origin deferred work may

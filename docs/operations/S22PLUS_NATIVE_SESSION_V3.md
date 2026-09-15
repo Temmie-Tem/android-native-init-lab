@@ -1,7 +1,9 @@
 # S22+ native session V3
 
-Status: **REVIEW_GATED_CAPABILITY**. Device authority requires a current
-independent `PASS_GO` and an actual returned finite operator grant.
+Status: **REVIEW_GATED_CAPABILITY**. Transitions and native observations require
+a current independent `PASS_GO` and an actual returned finite operator grant.
+The separately adopted [foreground Android storage D0](S22PLUS_ANDROID_STORAGE_CENSUS_V1.md)
+requires its reviewed fixed profile and healthy Android entry conditions.
 
 This clean owner is limited to `SM-S906N/g0q/S906NKSS7FYG8`. It replaces the
 live orchestration for newly prepared V3 work through the common/target
@@ -119,6 +121,11 @@ uncertainty. Pure host/Android
 preflight failures occur before that attempt and retain no recovery owner.
 
 ## Fixed storage census
+
+The separately adopted Android D0 entry reads through existing Android block
+nodes after a proved closed original-A return. It shares the GPT decoder and
+reviewed host primitives, not the old transition grant. Its exact foreground
+authority and transcript are defined in the linked Android profile above.
 
 `S22PLUS_NATIVE_STORAGE_CENSUS_V1` is the fixed `storage-census` operation on
 an already admitted N. The existing health session issues one additional

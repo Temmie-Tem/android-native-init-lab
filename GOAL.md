@@ -17,13 +17,18 @@ Changed-path regression reference: [past failure checklist](docs/operations/S22P
 retaining Android.** The operator allows resetting current Android apps,
 settings and user data. The firmware PIT does not establish live LU0 capacity
 or userdata's actual end, and existing boot-only recovery does not qualify
-GPT restoration. The bounded next step is the V3 fixed metadata-only storage
-census on admitted P393. Its implementation and narrow RAM-alias/GPT-read
-exception received independent `PASS_GO`; 56 focused tests and the final
-command's 14-test rerun pass. A 600-second, one-operation census request is
-prepared with deferred physical recovery; its actual returned grant remains
-pending. No new grant, device read, partition write or format has occurred. See the
-[census H0 report](docs/reports/S22PLUS_NATIVE_STORAGE_CENSUS_H0_2026-09-15.md).
+GPT restoration. The approved native census was consumed once and closed
+metadata `NO_PROOF`, `NATIVE_CLOSED_HEALTHY`: command exit 1 with no output,
+proved health/DETACH and no image transfer. The task is closed and its latest
+terminal is the new unused native tail. P393 has no built-in Qualcomm UFS
+driver and its reviewed startup does not load UFS; this is a likely cause,
+not proof of the exact silent guard. Vendor module files remain available.
+The selected successor is the existing original-A Android return followed by
+a fixed foreground Android D0 metadata read. Its changed adoption received
+independent `PASS_GO`; all 63 focused tests and the final ten-test rerun pass.
+A 900-second, one-operation deferred original-A return is prepared and awaits
+its actual grant. No successor grant, partition write or format has occurred. See the
+[result and Android successor](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md).
 
 ## Retained native baseline
 
