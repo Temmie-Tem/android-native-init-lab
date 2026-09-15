@@ -107,13 +107,18 @@ class Session(wire.Session):
 
     def send(self, kind, body=b'', *, timeout=2):
         if kind == DETACH and (self.pending is not None or self.faulted
-                or self.accepted-self.terminals or self.decoder.pending):
+                or self.accepted-self.terminals or self.decoder.pending
+                or getattr(self,'_last_terminal',None) != (max(self.terminals,default=0),0,0)):
             raise wire.ProtocolError('DETACH requires a complete idle session')
         return super().send(kind, body, timeout=timeout)
 
     def _validate(self, kind, seq, body):
         if kind != DETACH_ACK:
-            return super()._validate(kind, seq, body)
+            result=super()._validate(kind, seq, body)
+            if kind == wire.EXIT:
+                fields=struct.unpack('<7I',body)
+                self._last_terminal=(seq,fields[1],fields[5])
+            return result
         if (self.finished or self.ready is None or self.requests.get(seq) != DETACH
                 or seq != self.control_sequence or seq in self.responses or len(body) != 32
                 or self.faulted or self.accepted-self.terminals):
@@ -122,6 +127,7 @@ class Session(wire.Session):
         if ((disposition, active, blocked, flags, dropped) != (0, 0, 1, 0, 0)
                 or identity != last or last not in self.terminals or last not in self.accepted
                 or last != max(self.terminals) or total != self.outputs.get(last, (0, 0))[1]
+                or getattr(self,'_last_terminal',None) != (last,0,0)
                 or any(n not in self.responses for n, k in self.requests.items()
                        if k not in (wire.EXEC, DETACH))):
             raise wire.ProtocolError('DETACH lacks exact idle terminal state')

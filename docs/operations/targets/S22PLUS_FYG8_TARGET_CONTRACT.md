@@ -173,6 +173,12 @@ An attended bootstrap may be followed by an in-scope census within the same
 budget, but that census still requires actual N admission and an unused
 healthy native tail. Storage access is not modified-GPT recovery proof.
 
+Its `thermal-v3-reconnect-ufs-drain-v1` successor retains the same UFS scope
+and adds only bounded delivery of buffered console output after process-group
+settlement. Original command/session/output bounds and failed-session recovery
+remain; current independent source review and fresh qualification are required.
+Historical UFS images, admissions and consumed grants retain their identities.
+
 The common `S22PLUS_NATIVE_STORAGE_CENSUS_V1` metadata-read exception is adopted
 only through the V3 `storage-census` operation on already admitted N. Its fixed
 native command binds userdata to the FYG8 `1d84000.ufshc` controller's LU0,

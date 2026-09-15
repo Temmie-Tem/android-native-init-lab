@@ -40,6 +40,7 @@ def source_paths(root):
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_ufs_artifact_v1_h0.py',
+        'workspace/public/src/scripts/analysis/s22plus_native_output_drain_artifact_v1_h0.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py'))
     return tuple(sorted(paths))
 

@@ -1,9 +1,10 @@
 # S22+ native UFS prerequisite: P395 H0
 
-**P395 `v0.2.2` has matching A/B boot packages, 75 passing focused tests and
-independent `PASS_GO` for both host closures and its native source closure.** No P395 transfer or native
-UFS device experiment has occurred. The device last closed healthy original-A
-Android after the complete GPT capture. No partition split or format occurred.
+**P395 bootstrap passed, but its subsequent native census closed `NO_PROOF`.
+One original-A recovery transfer and final rooted Android health completed.**
+Both operations and the 1,800-second grant are permanently closed; no F1 owner
+remains. No partition split or format occurred. The original P395 artifacts
+and its 148 source inputs retain their identities.
 
 ## Bounded purpose
 
@@ -54,7 +55,7 @@ are joined by the retained package auditor. The dedicated UFS exporter
 qualifies the new profile and leaves the historical exporter bytes untouched.
 The live validator checks that exporter and the producer's UFS profile.
 
-## Validation and next execution
+## Original H0 qualification
 
 All **75 focused tests pass** in 5.419 seconds. A real static ARM64 harness
 under QEMU exercises directory/open flags, symlink/hardlink/type/size/mode and
@@ -69,18 +70,10 @@ census, consumed tails, raw observation and existing recovery/no-replay paths.
 Nine touched Python files compile. The original Android-return close and both
 Android census terminals rederive unchanged under the new host code.
 
-The prepared task is 1,800 seconds and two attended operations: the existing
-two-installation/four-authentication P395 bootstrap, then one fixed native
-storage census. No E, HUD, extra reconnect or Android-exit operation is selected.
-Census preparation remains blocked until actual N admission and an unused
-healthy tail exist. Any source review, prepared request or H0 build is not a
-returned grant; no grant has opened. Exact task binding, original A/recovery
-evidence, the five installed host files and noninteractive host readiness pass.
-The request is under
-`workspace/private/runs/s22plus-native-session-v3/p395-ufs-bootstrap-20260915-1/`.
-Host readiness is not a fresh device-health observation; the runner performs
-its fixed Android preflight when the actual grant is used.
-
+The actual returned grant covered 1,800 seconds and two attended operations:
+the existing two-installation/four-authentication bootstrap, then one fixed
+native census. Bootstrap completed both installs and all four authenticated
+health observations and published admission. The following census ran once.
 The existing native census keeps its original six-initial/five-final-block
 bounds. Its output can establish native access by comparison with saved Android
 bytes while its stricter full-GPT result remains separately `NO_PROOF`.
@@ -91,3 +84,110 @@ Private build, ABI, test and review evidence is under
 `workspace/private/outputs/s22plus-native-ufs-h0-20260915-1/`; the A/B package is
 under `workspace/private/outputs/s22plus-native-ufs-v1/p395/build-1/`.
 A90 and S20+ were untouched.
+
+## Live result, incident and recovery
+
+The census completed fresh authenticated health and accepted EXEC sequence 5.
+It returned 21 stdout frames containing 16,128 bytes, then an authenticated
+EXIT with `CLEANUP|OUTPUT_INCOMPLETE` (`0x88`), wait status zero, exec errno zero
+and dropped-byte count zero. The host transmitted DETACH sequence 6; its ACK
+is the first missing final stage. RX ends at a complete frame boundary.
+
+After the 134-byte geometry prefix, 15,994 LU0 bytes exactly match the previous
+Android capture prefix (SHA-256
+`a1889a4643bd531591184dcd21735dab24279bfb65e808690233419492415090`).
+The complete primary GPT header and 5,632-byte entry array are present and
+both CRCs validate. This is observed native UFS access. Backup bytes, final
+geometry and `END` are absent; complete census and alias cleanup are unproved.
+No complete module-insertion trace was captured. Neither the partial bytes
+nor successful native bootstrap upgrades strict GPT qualification.
+
+The packaged console polls every 100 ms and sends bounded 768-byte output
+chunks. Main-child reap starts a two-second descendant-cleanup timer; its
+old completion predicate also requires pipe EOF. Buffered output alone can
+therefore trigger `0x88`. The old H0 console fixture polls every 1 ms and
+missed this condition. The observed frame count supports this diagnosis;
+the live transcript does not expose every internal cleanup predicate.
+
+The initial recovery wait found no usable Download endpoint and sent no A.
+After the operator's physical Download action, one exact A transfer completed.
+Its first health attempt failed target/authorization binding during Android
+return. The existing health-only recovery resumed without another transfer
+and passed exact rooted FYG8 health and boot/supporting partition hashes.
+The census remains consumed and cannot be replayed.
+
+### Canonical timeline
+
+Times below are elapsed host BOOTTIME seconds from the original grant, derived
+from immutable operation journals. They include host suspend.
+
+| Elapsed seconds | Durable event |
+| ---: | --- |
+| 2.275 | Android preflight complete |
+| 17.725 / 19.231 | First P395 transfer intent / completion |
+| 44.583 / 46.816 | First-boot authenticated sessions complete |
+| 55.200 / 56.728 | Same-P395 qualification transfer intent / completion |
+| 82.132 / 83.867 | Second-boot sessions complete; native bootstrap qualified |
+| 154.742 | One native census observation starts |
+| 215.232 | Observation stops after missing DETACH ACK |
+| 215.268 | Recovery starts; initial endpoint wait has no A intent |
+| 464.131 / 465.545 | One original-A intent / transfer completion after physical action |
+| 651.264 / 653.093 | Health-only resumption / final Android health complete |
+| 742.898 | Task permanently closed, two operations consumed, no owner |
+
+Private live evidence and the frozen host source snapshot are under
+`workspace/private/runs/s22plus-native-session-v3/p395-ufs-bootstrap-20260915-1/`.
+The original source commit is `385b9797ca18721211963c0d5028ae59c0c9bfd3`.
+The operator also reported the missing `rc.1` display suffix. Consumed P395
+continues to identify as `v0.2.2`; the fresh successor declares `v0.2.2-rc.1`.
+
+## Bounded successor
+
+P396 retains UFS initialization and uses a separate console source composer.
+It distinguishes process-group settlement from buffered pipe EOF. After
+settlement, buffered output drains within the original command deadline;
+unsettled groups and explicit cancellation/timeout keep the original cleanup
+bound. Stream fairness, queue credits, byte/frame limits and CONTROL are
+unchanged. Clean completion still requires EOF. Host DETACH now rejects
+terminal flags or dropped bytes before writing; a nonzero child status with
+zero flags remains a completed negative command.
+
+This correction addresses incomplete console delivery and mismatched DETACH
+admission. Its review trigger is any change to these predicates, original
+limits or their producer/host composition. No extra live gate or new recovery
+mechanism is introduced. P396 requires actual A/B qualification, representative
+100 ms ARM64 behavior and current independent review before a fresh grant.
+It creates no GPT writer, restoration qualification or permission to reuse the
+closed P395 grant. A90 and S20+ were untouched.
+
+The successor passes **60 focused tests**: 23 producer/protocol/artifact/census
+tests in 32.416 seconds and 37 cleanup/adapter/session/target-I/O tests in
+2.448 seconds. At the actual 100 ms cadence, a static ARM64 supervisor and
+explicitly selected packaged ARM64 BusyBox reproduce the old `0x88` failure;
+the corrected composition delivers all 49,152 binary stdout bytes and stderr.
+Real pipes, process groups and socket backpressure are exercised. Separate
+coverage retains cancellation, timeout, CONTROL and background-child cleanup;
+a controlled unkillable-group fixture preserves the exact two-second failure
+stop. Kernel/USB behavior and a live P396 result remain unproved.
+
+Both actual P396 AP packages are identical, 31,303,721 bytes, SHA-256
+`41069bf384a3a19f367d58eef8616e8c916afeb2139516bda6d682dcd815888e`.
+Actual member/boot/package joins pass. Its 150 native inputs consist of the
+unchanged old 148 plus the new composer and builder. The UFS loader/renderer
+behavior is unchanged. The separate exporter leaves old qualification receipts
+valid. Nine touched Python files compile; all nine completed P395 bootstrap
+and recovery steps rederive under the updated host code without device I/O.
+Private build, tests and review inputs are under
+`workspace/private/outputs/s22plus-native-output-drain-h0-20260915-1/`.
+
+Independent review returned **`PASS_GO`** for both 49-source host closures and
+all 150 native inputs, with no blocking findings. The reviewed public and local
+root variants preserve the unrelated S20+ working changes. The fresh request
+is 1,800 seconds and two attended operations: P396 bootstrap, then one fixed
+native census after actual admission. Its exact A artifact, retained recovery
+evidence, five installed host files and noninteractive host readiness validate.
+No grant has opened and no P396 device effect has occurred. The request is at
+`workspace/private/runs/s22plus-native-session-v3/p396-drain-bootstrap-20260915-1/`.
+This is the concrete next action under the
+[V3 actual-returned-grant requirement](../operations/S22PLUS_NATIVE_SESSION_V3.md);
+it neither renews P395 nor changes the outstanding GPT-restoration requirement.

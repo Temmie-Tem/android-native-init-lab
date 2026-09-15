@@ -29,14 +29,19 @@ existing entries share one nonzero GUID; its raw verdict is unchanged.
 Both reads closed `ANDROID_CLOSED_HEALTHY`. H0 arithmetic and independent
 review establish a proposed 159.458 GiB userdata plus 64 GiB native entry,
 preserving the other 39 entries and leaving a 988 KiB alignment gap.
-The next prerequisite is userdata-independent native UFS access. P395 `v0.2.2`
-has matching A/B images, 75 passing tests and independent `PASS_GO`. Its
-1,800-second/two-operation attended bootstrap-plus-census request is prepared,
-with no grant opened. This qualifies the capability, not actual UFS access or
-GPT restoration. No partition write or format has occurred. See the
-[result and Android successor](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md).
-The [P395 UFS H0 report](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md)
-records its initialization scope and remaining restoration requirements.
+P395 bootstrap then completed two installations and four native health
+observations. Its census captured 15,994 LU0 bytes matching Android, including
+a CRC-valid primary GPT, but output ended with `0x88` and no DETACH ACK.
+Original A was restored once after physical Download action; final health
+resumed without retransmission and passed. Both operations and their grant
+are closed `ANDROID_CLOSED_HEALTHY`; no F1 owner remains. This proves partial
+native access, not complete metadata capture or GPT restoration. P396
+`v0.2.2-rc.1` passes 60 focused tests, actual A/B qualification and independent
+`PASS_GO` for bounded output draining and host DETACH eligibility. Its fresh
+1,800-second/two-operation attended request is prepared; no grant has opened.
+No partition write or format has occurred. See the
+[layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
+and [P395 incident and successor](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md).
 
 ## Retained native baseline
 

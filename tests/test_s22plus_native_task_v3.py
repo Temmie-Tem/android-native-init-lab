@@ -39,11 +39,14 @@ class TaskTests(unittest.TestCase):
             byte_identical=True,candidate=dict(a=package,b=package),source_inputs=sources,
             run_id_hex=image['run_id_hex'],native_selection=dict(namespace=image['namespace'],
                 display_version=image['version'],auth_key={k:image['key'][k] for k in ('size','sha256')}))
-        if profile=='thermal-v3-reconnect-ufs-v1':
+        if profile in ('thermal-v3-reconnect-ufs-v1','thermal-v3-reconnect-ufs-drain-v1'):
             built['native_selection']['runtime_profile']=dict(storage_profile='fyg8-stock-ufs-v1')
+        if profile=='thermal-v3-reconnect-ufs-drain-v1':
+            built['native_selection']['runtime_profile']['console_profile']='settled-output-drain-v1'
         builder=self.root/'builder.json';records.publish(builder,built)
         exporter=Path(adapter.__file__).resolve().parents[1]/'analysis'/(
-            's22plus_native_ufs_artifact_v1_h0.py' if profile=='thermal-v3-reconnect-ufs-v1'
+            's22plus_native_output_drain_artifact_v1_h0.py' if profile=='thermal-v3-reconnect-ufs-drain-v1'
+            else 's22plus_native_ufs_artifact_v1_h0.py' if profile=='thermal-v3-reconnect-ufs-v1'
             else 's22plus_native_artifact_v3_h0.py')
         qualification=self.root/'qualification.json'
         records.publish(qualification,dict(schema='s22plus-native-artifact-qualification-v3',
@@ -64,6 +67,15 @@ class TaskTests(unittest.TestCase):
         original['builder_result']=records.publish(self.root/'wrong-producer.json',built)
         bad['qualification']=records.publish(self.root/'wrong-producer-qualification.json',original)
         with self.assertRaisesRegex(ValueError,'selected initialization profile'):adapter.image_valid(bad)
+
+    def test_output_drain_profile_joins_its_actual_producer(self):
+        image=self.image('thermal-v3-reconnect-ufs-drain-v1');adapter.image_valid(image,artifact_bytes=True)
+        qualification=records.read(Path(image['qualification']['path']))
+        built=records.read(Path(qualification['builder_result']['path']))
+        built['native_selection']['runtime_profile']['console_profile']='old-output-cleanup'
+        qualification['builder_result']=records.publish(self.root/'wrong-drain-producer.json',built)
+        image['qualification']=records.publish(self.root/'wrong-drain-qualification.json',qualification)
+        with self.assertRaisesRegex(ValueError,'output drain correction'):adapter.image_valid(image)
 
     def test_actual_ap_receipt_is_joined_to_frozen_builder_key_member_and_source(self):
         image=self.image();adapter.image_valid(image,artifact_bytes=True)
