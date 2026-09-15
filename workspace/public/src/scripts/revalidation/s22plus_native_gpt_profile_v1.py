@@ -11,6 +11,7 @@ BYTES=61440
 OLD_USER=(62305271-3726848)*8
 NEW_USER=(28750592-3726848)*8
 NATIVE_SECTORS=128*1024**3//512
+ANDROID32_USER=32*1024**3//512
 LBAS=(62305272,62305279,3,1)
 SELECTIONS={'gpt-original':('observe',0,'original'),
     'gpt-proposed':('observe',0,'proposed'),'gpt-apply':('apply',1,'proposed'),
@@ -23,18 +24,42 @@ RESULT=re.compile(rb'GPT1_RESULT mode=([0-2]) status=([0-9]+) io_errno=([0-9]+) 
 EVENT=re.compile(rb'GPT1_STEP event=([1-3]) ordinal=([0-3]) lba=([0-9]{1,8})')
 
 
+def geometry(sealed,kind):
+    """Geometry is bound to each immutable vector, including recovery originals."""
+    data=sealed[kind]
+    require(type(data) is bytes and len(data)==BYTES,'sealed GPT byte count differs')
+    entry=data[8192+39*128:8192+40*128]
+    first,last=struct.unpack_from('<QQ',entry,32)
+    require(first==3726848 and last>=first,'sealed userdata extent differs')
+    native=data[8192+40*128:8192+41*128]
+    low,high=struct.unpack_from('<QQ',native,32)
+    size=0 if not any(native) else (high-low+1)*8
+    user=(last-first+1)*8
+    allowed={OLD_USER:(0,0),NEW_USER:(28750592,NATIVE_SECTORS),
+        ANDROID32_USER:(12115456,(62305024-12115456)*8)}
+    require(user in allowed and (low,size)==allowed[user]
+        and (not size or high==62305023 and low==last+1
+            and native[56:128].decode('utf-16-le').rstrip('\0')=='native_data'),
+        'sealed userdata/native geometry is not a declared layout')
+    return dict(userdata_sectors=user,native_first_lba=low,native_sectors=size)
+
+
+def transition(sealed):
+    old,new=geometry(sealed,'original'),geometry(sealed,'proposed')
+    pair=(old['userdata_sectors'],new['userdata_sectors'])
+    require(pair in ((OLD_USER,NEW_USER),(NEW_USER,ANDROID32_USER)),
+        'sealed GPT transition is not the fixed reservation or 32 GiB successor')
+    return old,new
+
+
 def vectors(binding):
     require(type(binding) is dict and set(binding)=={'proposal','regions','layout'},'GPT image binding differs')
     value=read(verify(binding['proposal']))
     require(value['schema']=='s22plus-native-gpt-layout-construction-h0-v1'
         and value['status']=='PASS_H0_EXACT_LAYOUT_CONSTRUCTION'
         and value['regions']==binding['regions'] and value['layout']==binding['layout']
-        and value['layout']['native_size_bytes']==128*1024**3
-        and value['layout']['userdata_new_size_bytes']==NEW_USER*512
-        and value['layout']['native_first_lba']==28750592
-        and value['layout']['native_last_lba']==62305023
         and [row['lba'] for row in value['changed_blocks']]==[1,3,62305272,62305279],
-        'GPT image does not join its sealed 128 GiB proposal')
+        'GPT image does not join its sealed proposal')
     require([(row['name'],row['first_lba']) for row in binding['regions']]
         ==[('primary-six',0),('backup-nine',62305271)],'GPT bound regions differ')
     result={}
@@ -42,11 +67,23 @@ def vectors(binding):
         parts=[read_bytes(verify(row[kind])) for row in binding['regions']]
         require([len(part) for part in parts]==[24576,36864],'GPT bound byte lengths differ')
         result[kind]=b''.join(parts)
+    old,new=transition(result);layout=value['layout']
+    require(layout['native_size_bytes']==new['native_sectors']*512
+        and layout['userdata_new_size_bytes']==new['userdata_sectors']*512
+        and layout['native_first_lba']==new['native_first_lba']
+        and layout['native_last_lba']==62305023,'proposal layout differs from its exact vectors')
+    if new['userdata_sectors']==ANDROID32_USER:
+        require(layout['construction']=='resize-existing-native-32g-v1'
+            and layout['predecessor_native_identity_preserved'] is True
+            and layout['userdata_original_size_bytes']==old['userdata_sectors']*512
+            and layout['native_original_size_bytes']==old['native_sectors']*512
+            and layout['native_original_first_lba']==old['native_first_lba'],
+            '32 GiB successor does not bind the current reserved predecessor')
     return result
 
 
 def f2fs_geometry(data, *, userdata_sectors=NEW_USER):
-    require(userdata_sectors in (OLD_USER,NEW_USER),'F2FS selected partition size differs')
+    require(userdata_sectors in (OLD_USER,NEW_USER,ANDROID32_USER),'F2FS selected partition size differs')
     require(len(data)==216 and data[:108]==data[108:],'F2FS geometry copies differ')
     first=data[:108]
     require(struct.unpack_from('<I',first)[0]==0xf2f52010,'F2FS magic differs')
@@ -75,9 +112,11 @@ def decode(stdout, selection, sealed):
     require((actual,status,error,close,fs_error)==(mode,0,0,0,0)
         and final==({'original':1,'proposed':2}[kind]) and writes==completed,
         'GPT command did not report a complete successful final read')
-    geometry=(NEW_USER,NATIVE_SECTORS) if selection in ('gpt-proposed','gpt-after-reset') else (OLD_USER,0)
-    require((user,native)==geometry or selection=='gpt-restore'
-        and (user,native)==(NEW_USER,NATIVE_SECTORS),'kernel partition geometry differs')
+    old,new=transition(sealed)
+    selected=new if selection in ('gpt-proposed','gpt-after-reset') else old
+    pair=lambda value:(value['userdata_sectors'],value['native_sectors'])
+    require((user,native)==pair(selected) or selection=='gpt-restore'
+        and (user,native)==pair(new),'kernel partition geometry differs')
     require(body[:BYTES]==sealed[kind],'complete GPT bytes differ from the sealed target')
     tail=body[BYTES:];filesystem=None
     if selection in AFTER_RESET:

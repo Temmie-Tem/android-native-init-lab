@@ -466,7 +466,8 @@ and stock-boot recovery are one preauthorized attended transaction.
 ### G2 - Exact S22+ GPT Reservation and Stock Initialization
 
 Only the common/target-incorporated [G2 policy](S22PLUS_NATIVE_GPT_RESERVATION_V1.md)
-permits its sealed four-block 128 GiB GPT reservation and the traced exact
+permits its sealed four-block historical 128 GiB native reservation or exact
+Android32 successor (32 GiB userdata / 191.4580078125 GiB native), and the traced exact
 FYG8 stock factory-reset effects. It is a separate high-risk transaction,
 never a collection of D0/D1 commands. Its fixed native writer, one-shot claims,
 full readbacks, original-layout recovery, physical attendance and finite grant

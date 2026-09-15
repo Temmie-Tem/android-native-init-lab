@@ -79,14 +79,18 @@ static int gpt1_native_partition(const char *parent, uint64_t user_size, uint64_
     if (n < 0 || (size_t)n >= sizeof(path)) return -1;
     struct stat st;
     *native_size = 0;
-    if (user_size == gpt1_userdata_sectors(gpt1_original)) {
-        /* This kernel still has the original partition map, including the
-         * short interval after GPT apply and before a fresh kernel boot. */
+    /* The kernel map follows its boot, not the last metadata write. The
+     * successor's original map already contains the retained native entry. */
+    const uint8_t *sealed = user_size == gpt1_userdata_sectors(gpt1_original)
+        ? gpt1_original : gpt1_proposed;
+    const uint8_t *entry = sealed + 2U * GPT1_BLOCK + 40U * 128U;
+    unsigned present = 0;
+    for (unsigned i = 0; i < 128; i++) present |= entry[i];
+    if (!present) {
         return lstat(path, &st) == -1 && errno == ENOENT ? 0 : -1;
     }
     if (lstat(path, &st) || !S_ISDIR(st.st_mode) || st.st_uid) return -1;
     uint64_t index, first;
-    const uint8_t *entry = gpt1_proposed + 2U * GPT1_BLOCK + 40U * 128U;
     uint64_t low = gpt1_little64(entry + 32), high = gpt1_little64(entry + 40);
     if (low > high || high >= GPT1_TOTAL_LBAS ||
         gpt1_number(path, "partition", &index) || index != 41 ||
@@ -98,11 +102,18 @@ static int gpt1_native_partition(const char *parent, uint64_t user_size, uint64_
         !gpt1_read_text(event, text, sizeof(text)) && strstr(text, "\nPARTNAME=native_data\n") ? 0 : -1;
 }
 
+static int gpt1_geometry_pair(uint64_t old_size, uint64_t new_size) {
+    const uint64_t stock = (GPT1_TOTAL_LBAS - 9U - 3726848ULL) * 8U;
+    const uint64_t reserved128 = (28750592ULL - 3726848ULL) * 8U;
+    const uint64_t android32 = (12115456ULL - 3726848ULL) * 8U;
+    return (old_size == stock && new_size == reserved128) ||
+           (old_size == reserved128 && new_size == android32);
+}
+
 static int gpt1_parent(char parent[PATH_MAX], dev_t *number, uint64_t *user_size, uint64_t *native_size) {
     uint64_t old_size = gpt1_userdata_sectors(gpt1_original);
     uint64_t new_size = gpt1_userdata_sectors(gpt1_proposed);
-    if (old_size != (GPT1_TOTAL_LBAS - 9U - 3726848ULL) * 8U ||
-        !new_size || new_size >= old_size) return -1;
+    if (!gpt1_geometry_pair(old_size, new_size)) return -1;
     DIR *directory = opendir("/sys/class/block");
     if (!directory) return -1;
     struct dirent *entry;

@@ -226,5 +226,92 @@ class GptOwnerTests(unittest.TestCase):
         self.assertEqual(result['layout'],'proposed');self.assertEqual(result['reboot']['status'],'NO_PROOF')
         self.assertEqual(device.reboot_count,1);self.assertEqual(device.installed,['A']);self.assertEqual(device.restore_count,0)
 
+    def setup_pending(self,*,publication_cut=False):
+        session,device=self.operation();self.through_reset(session)
+        failed=device.folder('android-initial')/'attempt-setup/before/03-health.capture.json'
+        original=device.android_health;first=[True]
+        def health(step,request,*,guard):
+            if step.name=='android-initial' and first[0]:
+                first[0]=False;failed.parent.mkdir(parents=True)
+                failed.write_text('modeled completed missing-su receipt')
+                raise android.SetupPending(records.pin(failed))
+            return original(step,request,guard=guard)
+        def missing(folder,*_):
+            if Path(folder)!=failed.parent:raise ValueError('unclassified later attempt')
+            return records.pin(failed)
+        # Actual byte classification and 32 GiB vector decoding are covered by
+        # their real producer tests; this model exercises effect/owner ordering.
+        for patch in (mock.patch.object(device,'android_health',side_effect=health),
+                mock.patch.object(android,'missing_su_setup',side_effect=missing),
+                mock.patch.object(gpt.gpt,'vectors',return_value={}),
+                mock.patch.object(gpt.gpt,'geometry',return_value=dict(userdata_sectors=gpt.gpt.ANDROID32_USER))):
+            patch.start();self.addCleanup(patch.stop)
+        if publication_cut:
+            append=session.journal.append
+            def cut(event,**data):
+                if event=='android-setup-pending':raise OSError('pending journal publication cut')
+                return append(event,**data)
+            with mock.patch.object(session.journal,'append',side_effect=cut),self.assertRaises(owner.ResultPublicationError):
+                session.resume(attended=True,operator_statement='Initial setup reported')
+            self.assertFalse(any(r['event']=='android-setup-pending' for r in session.rows()))
+            # The retained raw file must reconstruct the waiting state without
+            # reading Android again or treating the old setup report as new.
+            result=session.resume(attended=True)
+        else:result=session.resume(attended=True,operator_statement='Initial setup reported')
+        self.assertEqual(result['action'],'android-setup')
+        self.assertFalse(any(row['event']=='stopped' for row in session.rows()))
+        self.assertEqual(device.reboot_count,0);self.assertIsNotNone(self.f1)
+        return session,device,failed
+
+    def test_known_setup_pending_waits_for_new_report_then_one_remaining_reboot(self):
+        session,device,failed=self.setup_pending();before=failed.read_bytes();actions=list(device.actions)
+        self.assertEqual(session.resume(attended=True)['action'],'android-setup')
+        self.assertEqual(device.actions,actions);self.assertEqual(device.reboot_count,0)
+        result=session.resume(attended=True,operator_statement='Magisk setup now completed')
+        self.assertEqual(result['reboot']['status'],'PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT')
+        self.assertEqual((device.apply_count,device.reset_count,device.reboot_count),(1,1,1))
+        self.assertEqual(device.installed,['A']);self.assertEqual(failed.read_bytes(),before)
+        self.assertEqual(len([r for r in session.rows() if r['event']=='android-setup-reported']),1)
+
+    def test_setup_pending_cannot_renew_an_expired_original_grant(self):
+        session,device,_=self.setup_pending();actions=list(device.actions)
+        with mock.patch.object(owner,'clock',return_value=session.grant['deadline_ns']+1), \
+                self.assertRaises(ValueError):
+            session.resume(attended=True,operator_statement='Setup reported after deadline')
+        self.assertEqual(device.actions,actions);self.assertEqual(device.reboot_count,0)
+
+    def test_cut_after_raw_before_pending_journal_never_repeats_read_without_new_report(self):
+        session,device,failed=self.setup_pending(publication_cut=True)
+        self.assertTrue(failed.exists());self.assertEqual(device.reboot_count,0)
+        self.assertFalse((session.directory/'android-initial.json').exists())
+        result=session.resume(attended=True,operator_statement='Magisk setup now completed')
+        self.assertEqual(result['reboot']['status'],'PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT')
+        self.assertEqual(device.reboot_count,1);self.assertEqual(device.installed,['A'])
+
+    def test_unclassified_later_read_before_stop_publication_cannot_reopen_normal_work(self):
+        session,device,failed=self.setup_pending()
+        session.journal.append('android-setup-reported',failed_root=records.pin(failed),
+            statement='Magisk setup completed',reported_ns=records.clock())
+        (device.folder('android-initial')/'attempt-unclassified/before').mkdir(parents=True)
+        before=list(device.actions)
+        result=session.resume(attended=True)
+        self.assertEqual(result['state'],'AWAITING_GPT_RECOVERY')
+        self.assertEqual(device.actions,before);self.assertEqual(device.reboot_count,0)
+        self.assertTrue(any(r['event']=='stopped' for r in session.rows()))
+
+    def test_setup_report_publication_cut_preserves_pending_and_does_not_stop_or_read(self):
+        session,device,_=self.setup_pending();actions=list(device.actions);append=session.journal.append
+        def cut(event,**data):
+            if event=='android-setup-reported':raise OSError('setup report publication cut')
+            return append(event,**data)
+        with mock.patch.object(session.journal,'append',side_effect=cut),self.assertRaises(owner.ResultPublicationError):
+            session.resume(attended=True,operator_statement='Magisk setup now completed')
+        self.assertEqual(device.actions,actions);self.assertEqual(device.reboot_count,0)
+        self.assertFalse(any(r['event']=='stopped' for r in session.rows()))
+        self.assertEqual(session.resume(attended=True)['action'],'android-setup')
+        result=session.resume(attended=True,operator_statement='Magisk setup now completed')
+        self.assertEqual(result['reboot']['status'],'PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT')
+        self.assertEqual(device.reboot_count,1)
+
 
 if __name__=='__main__':unittest.main()

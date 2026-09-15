@@ -207,6 +207,52 @@ class Coordinator:
             step=step.name,operation_directory=str(self.session.directory),owner_retained=True,
             partition_or_control_replay_permitted=False)
 
+    def record_setup_pending(self,receipt):
+        from s22plus_native_gpt_android_v1 import missing_su_setup
+        session=self.session;session.check()
+        require(not intents(self.adapter,'android-reboot')
+            and not any(row['event']=='stopped' for row in session.rows()),
+            'Magisk setup cannot reopen stopped effects or a reboot')
+        require(gpt.geometry(gpt.vectors(session.request['N']['gpt']),'proposed')
+            ['userdata_sectors']==gpt.ANDROID32_USER,'setup pending is outside the 32 GiB successor')
+        path=verify(receipt)
+        require(path.parent.name=='before' and path.parent.parent.name.startswith('attempt-')
+            and path.parent.parent.parent==self.adapter.folder('android-initial'),
+            'setup receipt belongs elsewhere')
+        require(missing_su_setup(path.parent,self.adapter.configuration(session.request)['target'])==receipt,
+            'setup failure does not rederive')
+        _proved(self.adapter,session.request,'install-android')
+        require(android_basis(self.adapter,session.request)['layout']=='proposed',
+            'setup pending lacks initialized GPT')
+        existing=[row['data']['failed_root'] for row in session.rows() if row['event']=='android-setup-pending']
+        require(existing.count(receipt)<=1,'duplicate setup pending record')
+        if receipt not in existing:
+            try:session.journal.append('android-setup-pending',failed_root=receipt)
+            except OSError as error:raise owner.ResultPublicationError(owner.Step('android-initial','health','A')) from error
+
+    def reconstruct_setup_pending(self):
+        """Raw rc127 remains authoritative across a pending-journal publication cut."""
+        from s22plus_native_gpt_android_v1 import missing_su_setup
+        import device_action_raw_capture_v1 as raw
+        attempts=sorted(self.adapter.folder('android-initial').glob('attempt-*'))
+        if not attempts:return
+        if gpt.geometry(gpt.vectors(self.session.request['N']['gpt']),'proposed')\
+                ['userdata_sectors']!=gpt.ANDROID32_USER:return
+        step=owner.Step('android-initial','health','A')
+        try:
+            complete=self.adapter.recover_step_result(step,self.session.request)
+            self.adapter.validate_result(step,complete,self.session.request)
+        except (ValueError,OSError,KeyError,raw.RawCaptureError):pass
+        else:return complete
+        for attempt in attempts:
+            # No full successful result: every retained attempt must be the
+            # exact classified setup read. A later partial/other-error attempt
+            # cannot be skipped in favor of an older reported missing-su row.
+            try:receipt=missing_su_setup(attempt/'before',self.adapter.configuration(self.session.request)['target'])
+            except (ValueError,OSError,raw.RawCaptureError) as error:
+                raise ValueError('initial Android attempt is incomplete or not exact missing-su setup') from error
+            self.record_setup_pending(receipt)
+
     def begin_physical(self,step,*,recovery):
         session=self.session;session.check(recovery=recovery)
         folder=self.adapter.folder(step.name,create=True)
@@ -264,6 +310,22 @@ class Coordinator:
                         statement=statement,reported_ns=clock()));statement=None
                 require(read(setup)['operation']==pin(session.directory/'operation.json'),
                     'Android setup belongs to another operation')
+                if step.name=='android-initial':
+                    complete=self.reconstruct_setup_pending()
+                    if complete is not None:
+                        session.result(step,complete);continue
+                    waiting=[row['data']['failed_root'] for row in session.rows()
+                        if row['event']=='android-setup-pending']
+                    reported=[row['data']['failed_root'] for row in session.rows()
+                        if row['event']=='android-setup-reported']
+                    if waiting and waiting[-1] not in reported:
+                        if statement is None:return self.pending(step)
+                        require(type(statement) is str and 0<len(statement.strip())<=4096,
+                            'actual Magisk setup completion is required')
+                        try:session.journal.append('android-setup-reported',failed_root=waiting[-1],
+                            statement=statement,reported_ns=clock())
+                        except OSError as error:raise owner.ResultPublicationError(step) from error
+                        statement=None
             started=any(row['event']=='step-start' and row['data']['step']==step.name for row in session.rows())
             if started and step.action!='health':
                 # A reporting cut never replays an authenticated EXEC/transfer.
@@ -278,6 +340,10 @@ class Coordinator:
     def stopped(self,error,*,recovery,attended):
         if isinstance(error,owner.ResultPublicationError) or getattr(error,'protocol_completed',False):raise error
         session=self.session
+        from s22plus_native_gpt_android_v1 import SetupPending
+        if isinstance(error,SetupPending) and not recovery:
+            self.record_setup_pending(error.receipt)
+            return self.pending(owner.Step('android-initial','health','A'))
         session.journal.append('stopped',error_type=type(error).__name__,effect_intended=session.has_effect())
         if not session.has_recovery_basis():return session.close_unused()
         if not gpt_intended(self.adapter):return session._recover_android(attended=attended)

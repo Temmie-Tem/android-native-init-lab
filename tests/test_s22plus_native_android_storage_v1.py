@@ -184,6 +184,35 @@ sys.exit(int((p/'remote-exit').read_text()))
         with self.assertRaises(census.registry.RegistryError):self.observe(self.private/'blocked')
         self.assertFalse((self.private/'dispatches').exists())
 
+    def test_closed_gpt_feature_must_match_rederived_normal_or_recovered_proof(self):
+        import s22plus_native_adapter_v3 as adapters
+        import s22plus_native_session_v3 as sessions
+        for recovered in (False,True):
+            folder=self.private/('gpt-recovered' if recovered else 'gpt-normal');folder.mkdir()
+            task_path=folder/'task.json';records.publish(task_path,self.task)
+            operation=dict(task=records.pin(task_path),operation='gpt-reserve')
+            operation_pin=records.publish(folder/'operation.json',operation)
+            step='recovery-health' if recovered else 'android-final'
+            final=records.publish(folder/(step+'.json'),dict(fixture='raw-health'))
+            feature=dict(status='RESERVED_ANDROID_REBOOT_VERIFIED',geometry=dict(block_count=123))
+            terminal=dict(terminal_state='ANDROID_CLOSED_HEALTHY',research_closed=True,
+                operation_record=operation_pin,recovered=recovered,terminal_result=final,gpt=feature)
+            terminal_pin=records.publish(folder/'terminal.json',terminal)
+            close=dict(schema='s22plus-native-session-v3-task-close-v1',task=records.pin(task_path),
+                terminal_state='ANDROID_CLOSED_HEALTHY',operations=[dict(terminal=terminal_pin)],gpt=feature)
+            records.publish(folder/'closed.json',close)
+            adapter=mock.Mock();adapter.terminal.return_value=dict(gpt=feature)
+            session=mock.Mock();session.completed.return_value=[dict(fixture='validated-step')]
+            session.rows.return_value=[dict(event='effect-intent',data=dict(action='transfer',role='A',step='install-android'))]
+            with mock.patch.object(adapters,'Adapter',return_value=adapter), \
+                    mock.patch.object(sessions,'Session',return_value=session), \
+                    mock.patch.object(tasks,'android_artifact',return_value=self.task['A']):
+                self.assertEqual(census.closed_android(self.root,task_path)[0],self.task)
+                close['gpt']=dict(feature,geometry=dict(block_count=999))
+                (folder/'closed.json').unlink();records.publish(folder/'closed.json',close)
+                with self.assertRaisesRegex(ValueError,'closed GPT feature'):
+                    census.closed_android(self.root,task_path)
+
     def test_fixed_android_shell_syntax_and_failure_stage_are_observable(self):
         subprocess.run(['/bin/sh','-n','-c',census.SCRIPT],capture_output=True,check=True,timeout=5)
         root=Path(__file__).resolve().parents[1]

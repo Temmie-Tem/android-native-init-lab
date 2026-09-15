@@ -22,7 +22,7 @@ from test_s22plus_native_gpt_profile_v1 import binding
 
 
 def metadata(sealed,kind='proposed'):
-    user=profile.NEW_USER if kind=='proposed' else profile.OLD_USER
+    user=profile.geometry(sealed,kind)['userdata_sectors']
     rows=[b'/sys/devices/platform/soc/1d84000.ufshc/host0/target0:0:0/0:0:0:0/block/sda/sda40',
         b'8:40',str(3726848*8).encode(),str(user).encode(),b'8:0',str(62305280*8).encode(),b'4096',b'8:0']
     bracket=b'\n'.join(rows)+b'\n'
@@ -91,6 +91,49 @@ class AndroidTests(unittest.TestCase):
         with mock.patch.object(android.raw,'acquire_command',side_effect=AssertionError('H0 replay issued I/O')):
             self.assertEqual(value,android.rederive(self.client,step,self.request))
 
+    def successor(self):
+        folder=self.directory/'successor';folder.mkdir()
+        bound,sealed=binding(folder,android32=True)
+        self.request['N']['gpt']=bound;self.sealed=sealed
+        self.basis['geometry']['block_count']=8388604
+        self.put(self.metadata_args,metadata(sealed))
+        self.stat_text='NATIVE_PARTITION 41 96923648 401516544 native_data\nF2FS_STAT 4096 8388092 900 1000 f2f52010\n'
+        self.put(self.stat_args,self.stat_text)
+
+    def test_32g_android_and_restored_128g_native_are_derived_from_their_sealed_maps(self):
+        self.successor()
+        _,value=self.run_health()
+        self.assertEqual(value['gpt_android']['metadata']['userdata_size_bytes'],32*1024**3)
+        self.assertEqual(value['gpt_android']['storage']['total_bytes'],8388092*4096)
+        old=android.metadata(metadata(self.sealed,'original'),self.sealed,'original')
+        self.assertEqual(old['userdata_size_bytes'],102497255424)
+        text=f'NATIVE_PARTITION 41 {28750592*8} {profile.NATIVE_SECTORS} native_data\nF2FS_STAT 4096 25023228 900 1000 f2f52010\n'
+        basis=dict(layout='original',initialization='unchanged')
+        self.assertTrue(android.storage_stat(text,basis,self.sealed)['native_partition_present'])
+        with self.assertRaises(ValueError):android.storage_stat(text.replace(text.splitlines()[0],
+            'NATIVE_PARTITION absent'),basis,self.sealed)
+
+    def test_missing_su_successor_retains_completed_failure_then_new_full_health_can_pass(self):
+        self.successor()
+        args=['-s',self.fixture.binding['serial'],'shell','su -c '+shlex.quote(adapter.target.ROOT_HEALTH)]
+        saved=self.outputs[json.dumps(args)]
+        self.put(args,b'',android.SU_MISSING,127)
+        with self.assertRaises(android.SetupPending) as pending:self.run_health()
+        failed=records.verify(pending.exception.receipt)
+        self.assertTrue(failed.exists())
+        before=failed.read_bytes()
+        self.put(args,base64.b64decode(saved[0]),base64.b64decode(saved[1]),saved[2])
+        _,value=self.run_health()
+        self.assertEqual(value['gpt_android']['metadata']['status'],'PASS_EXACT_GPT')
+        self.assertEqual(failed.read_bytes(),before)
+        self.assertEqual(len(list(self.client.folder('android-initial').glob('attempt-*'))),2)
+
+    def test_other_root_failure_never_becomes_setup_pending(self):
+        self.successor()
+        args=['-s',self.fixture.binding['serial'],'shell','su -c '+shlex.quote(adapter.target.ROOT_HEALTH)]
+        self.put(args,b'',b'permission denied\n',1)
+        with self.assertRaises(android.raw.RawCaptureError):self.run_health()
+
     def test_failed_metadata_producer_preserves_both_raw_streams_and_final_health(self):
         self.put(self.metadata_args,b'partial',b'read failure',1)
         with self.assertRaises((ValueError,android.raw.RawCaptureError)):self.run_health()
@@ -120,7 +163,7 @@ class AndroidTests(unittest.TestCase):
         for text in (self.stat_text.replace('25023228','58577907'),
                 self.stat_text.replace('native_data','userdata'),self.stat_text.replace('f2f52010','ef53'),
                 self.stat_text.replace(str(profile.NATIVE_SECTORS),str(profile.NATIVE_SECTORS-8))):
-            with self.subTest(text=text),self.assertRaises(ValueError):android.storage_stat(text,self.basis)
+            with self.subTest(text=text),self.assertRaises(ValueError):android.storage_stat(text,self.basis,self.sealed)
 
     def test_reboot_compares_changed_boot_and_total_capacity_but_not_free_space(self):
         _,first=self.run_health();records.publish(self.directory/'android-initial.json',first)

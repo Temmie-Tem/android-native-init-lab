@@ -58,18 +58,26 @@ Keeping the current combined userdata/native extent gives approximately
 191.458 GiB for Debian. These sizes describe actual partitions, not Samsung's
 rounded storage-UI labels.
 
-The immediate next unit is H0 design of the new 32 GiB layout and its exact
-initialization/return path, using the closed current GPT as the starting
-state. The consumed G2 operation and its fixed original/proposed vectors do
-not authorize or implement this successor. Qualify the reduced Android
-filesystem, rooted return and reboot persistence before native filesystem use.
+P398 `v0.3.0-rc.2` now passes H0 construction of that exact successor, the
+actual ARM64 stock-formatter geometry check and byte-identical A/B image/AP
+qualification. It starts from the closed P397 GPT and preserves the existing
+native identity. The [preparation report](docs/reports/S22PLUS_ANDROID32_AND_MINIMAL_ANDROID_H0_2026-09-16.md)
+records its setup, recovery and validation scope. A fresh finite attended G2
+grant and actual new-endpoint read qualification still precede any new device
+effect. Qualify reduced Android capacity, rooted return and reboot persistence
+before native filesystem use. The consumed P397 grant cannot implement this successor.
 
 App cleanup will follow fresh package/dependency and storage inventory. Select
 unused optional apps through Android package management, preserving required
 system components, settings, connectivity, ADB and Magisk. Distinguish package
 disablement from deletion of app updates/data/cache, and measure actual `/data`
 space reclaimed; disabling a system APK does not resize its source partition.
-No package list or cleanup device effect is activated by this goal.
+The separate [fixed optional-app profile](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
+binds the existing explicit cleanup request, independent source review, one
+cleanup open per closed Android32 task and actual attendance. It follows the
+proved G2 closure and measures final capacity/root after one ordinary reboot.
+An uncertain uninstall or reboot never replays. No app inventory or cleanup
+device effect has yet occurred, and this goal grants no device authority.
 
 Prepare the Debian storage structure alongside this layout design.
 Ext4 is the first candidate: check the exact FYG8 kernel features, arm64

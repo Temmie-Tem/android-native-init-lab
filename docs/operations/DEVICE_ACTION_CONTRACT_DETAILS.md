@@ -34,7 +34,8 @@ permission to perform host-only work.
    other partition. An exact reviewed D1 action performed through normal
    Android Package Manager or shared-user-storage APIs is an OS-mediated data
    write, not a partition payload; it is permitted only within the closed
-   package/file staging rules below and never authorizes block or filesystem
+   package/file staging rules or the exact S22+ Android-minimal cleanup profile
+   below, and never authorizes block or filesystem
    access to a partition mount outside that normal API.
    One narrow S20+ recovery-canary T0 exception is activated only by the exact
    S20+ target contract under the `F2` tier below. It is limited to one
@@ -257,6 +258,20 @@ Classify every action using
   patch, permission grants, arbitrary files/packages, partition payloads, or
   security/configuration changes. A target contract may also define reviewed
   cleanup or `docs/operations/targets/S22PLUS_FYG8_PREF1_AUTONOMOUS_RESEARCH_POLICY_V1.md` as `DEFINED_NOT_ACTIVE`; that pre-F1 catalog never grants F1 or persistent mutation. The separate conditional F1 delegation below may cover only its own bound entry, observation and rollback controls.
+  The exact S22+ target may additionally adopt
+  [Android-minimal V1](S22PLUS_ANDROID_MINIMAL_V1.md) after its independent
+  source-bound review. This is a closed foreground D0/D1 Package Manager
+  cleanup exception following a proved, closed Android32 G2 result. A current
+  direct operator request to remove unused optional apps supplies scope; fresh
+  machine-derived inventory selects only the fixed optional declaration and
+  excludes required/shared-UID/system-service packages. Effects are attended,
+  primary-user-only uninstalls, each with one durable intent and no replay,
+  plus one final ordinary reboot. No raw APK/partition deletion, remount,
+  permission change, generic package operation or F1/GPT action is delegated.
+  Inventory and cleanup share 900 same-host-boot seconds; an error permits only
+  one 300-second close-only read reconciliation, never renewed cleanup or a
+  repeated reboot. Source review, current target/health, no pending F1 owner,
+  raw-first evidence and separate cleanup/final-health outcomes are required.
   The exact S20+ target contract may additionally activate one attended
   read-only classic-fastboot census ordinal delegated by permanent boundary 3. Its
   operator-entered mode transition makes the complete census D1 even though
@@ -576,9 +591,14 @@ returned finite grant are required; definition alone grants no device effect.
 
 The [exact G2 policy](S22PLUS_NATIVE_GPT_RESERVATION_V1.md) is incorporated as
 a separate review-gated exception to boundaries 2 and 3 for only the
-operator-owned `SM-S906N/g0q/S906NKSS7FYG8`. It permits the sealed 128 GiB
-reservation: entry 40 becomes 95.4580078125 GiB userdata and entry 41 becomes
-128 GiB `native_data`, preserving the other 39 entries and every other byte
+operator-owned `SM-S906N/g0q/S906NKSS7FYG8`. Its first sealed 128 GiB
+reservation (P397, consumed and closed) made entry 40 95.4580078125 GiB userdata
+and entry 41 128 GiB `native_data`. A separately reviewed exact Android32
+successor may reduce entry 40 to 32 GiB and expand entry 41 to
+191.4580078125 GiB by moving its start left to LBA 12,115,456; entry 40 ends
+at 12,115,455. That successor preserves the existing native GUID, type, name,
+attributes and end, and its restoration target is the completed P397 pair,
+never the pre-reservation stock pair. Both preserve the other 39 entries and every other byte
 outside LU0 GPT LBAs 1, 3, 62,305,272 and 62,305,279. Only the fixed reviewed
 native endpoint may write these blocks; raw host writes and arbitrary payloads
 remain forbidden. One apply and, if needed, one original-metadata restoration
@@ -613,6 +633,12 @@ After exact A and attended setup, bounded full GPT/statfs reads between rooted
 health brackets precede and follow one ordinary Android reboot. Normal closure
 requires changed Android boot, preserved exact GPT/capacity and numeric root.
 Physical reset, reboot and setup remain attended; no deferred mode is adopted.
+The Android32 initial-health missing-su result may use only the exact
+prospective setup-pending classification in the incorporated policy. It retains
+the original grant/owner and failed raw attempt, requires an actual renewed
+setup-completion report, and permits only new reads before the still-unconsumed
+ordinary reboot. P397's stop, incident completion and consumed effects remain
+unchanged. Post-reboot read failure uses the existing health-only recovery.
 
 The exact target adoption, independent review of this exception and reachable
 owner/native closure, fresh qualified N/A artifacts, usable physical recovery,

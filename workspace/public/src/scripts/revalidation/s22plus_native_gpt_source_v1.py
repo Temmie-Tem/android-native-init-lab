@@ -1,4 +1,4 @@
-"""Prospective sealed 128 GiB GPT commands over the admitted drain runtime.
+"""Prospective sealed 32 GiB Android GPT commands over the admitted drain runtime.
 
 H0 composition only. The live owner must authorize and journal each effect.
 The original/proposed metadata are private inputs, never public C literals.
@@ -6,18 +6,19 @@ The original/proposed metadata are private inputs, never public C literals.
 from pathlib import Path
 
 import s22plus_native_output_drain_source_v1 as previous
+import s22plus_native_gpt_profile_v1 as gpt
 from s22plus_native_records_v3 import read, read_bytes, require, verify
 
 resident=previous.resident
 ROOT,NATIVE,PROFILE=previous.ROOT,previous.NATIVE,previous.PROFILE
 THERMAL_PROFILE,RECONNECT_PROFILE=previous.THERMAL_PROFILE,previous.RECONNECT_PROFILE
 STORAGE_PROFILE,CONSOLE_PROFILE=previous.STORAGE_PROFILE,previous.CONSOLE_PROFILE
-GPT_PROFILE='fyg8-native-128g-gpt-v1'
+GPT_PROFILE='fyg8-native-android32-gpt-v1'
 POLICY=ROOT/'docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md'
 CORE=NATIVE/'s22plus_native_gpt_core_v1.h'
 ENDPOINT=NATIVE/'s22plus_native_gpt_io_v1.inc.c'
-PROPOSAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-native-128g-gpt-proposal-h0-20260915-1/result.json'),
-    size=3009,sha256='09d9b2601faaa81e33d674d35acb0e3824a88d128162edb1a5a11f665c2646ba')
+PROPOSAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-native-android32-gpt-proposal-h0-20260916-1/result.json'),
+    size=3760,sha256='1acf0147026ca4dcc07008ba61f32660b65c9a455dc2ee640a554acde179362c')
 SAMPLE_MAGIC,VIEW_MAGIC=previous.SAMPLE_MAGIC,previous.VIEW_MAGIC
 helper_template,materialize_helper=previous.helper_template,previous.materialize_helper
 provider_sources,provider_files=previous.provider_sources,previous.provider_files
@@ -29,21 +30,13 @@ def proposal_inputs():
     require(value['schema']=='s22plus-native-gpt-layout-construction-h0-v1'
         and value['status']=='PASS_H0_EXACT_LAYOUT_CONSTRUCTION' and value['device_effects']==0,
         'sealed GPT construction differs')
-    layout=value['layout']
-    require(layout['native_size_bytes']==128*1024**3
-        and layout['userdata_first_lba']==3726848 and layout['userdata_new_last_lba']==28750591
-        and layout['native_first_lba']==28750592 and layout['native_last_lba']==62305023
-        and layout['non_userdata_entries_preserved']==39
-        and [row['lba'] for row in value['changed_blocks']]==[1,3,62305272,62305279],
-        'sealed GPT geometry differs')
-    require([(row['name'],row['first_lba']) for row in value['regions']]
-        ==[('primary-six',0),('backup-nine',62305271)],'sealed GPT regions differ')
-    vectors={}
-    for kind in ('original','proposed'):
-        parts=[read_bytes(verify(row[kind])) for row in value['regions']]
-        require([len(part) for part in parts]==[24576,36864],'sealed GPT capture sizes differ')
-        vectors[kind]=b''.join(parts)
-    return value,vectors
+    sealed=gpt.vectors(dict(proposal=PROPOSAL,regions=value['regions'],layout=value['layout']))
+    require(value['layout']['construction']=='resize-existing-native-32g-v1'
+        and value['layout']['userdata_new_size_bytes']==32*1024**3
+        and value['layout']['userdata_first_lba']==3726848
+        and value['layout']['non_userdata_entries_preserved']==39,'sealed 32 GiB geometry differs')
+    for key in ('source_close','source_proposal','source_terminal'):verify(value[key])
+    return value,sealed
 
 
 def runtime_input_receipt():
@@ -78,8 +71,9 @@ def render_display(identity,modules):
 
 
 def profile_contract():
+    value,_=proposal_inputs()
     return dict(previous.profile_contract(),gpt_profile=GPT_PROFILE,
-        gpt_proposal_sha256=PROPOSAL['sha256'],gpt_native_size_bytes=128*1024**3,
+        gpt_proposal_sha256=PROPOSAL['sha256'],gpt_native_size_bytes=value['layout']['native_size_bytes'],
         gpt_commands=['observe','apply','restore','after-reset','after-original-reset'],gpt_caller_payload=False,
         gpt_reset_geometry_read_bytes=8192,gpt_reset_geometry_export_bytes=216,
         gpt_changed_lbas=[62305272,62305279,3,1],gpt_write_retry=False,
@@ -87,4 +81,4 @@ def profile_contract():
 
 
 def source_files():
-    return tuple(sorted(set(previous.source_files())|{Path(__file__),CORE,ENDPOINT,POLICY}))
+    return tuple(sorted(set(previous.source_files())|{Path(__file__),Path(gpt.__file__),CORE,ENDPOINT,POLICY}))

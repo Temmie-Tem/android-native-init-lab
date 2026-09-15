@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **17** (supersedes revision 16; 2026-09-15)
+Contract-Revision: **18** (supersedes revision 17; 2026-09-16)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`53e4843e3c31d1c314b0930f4b3bcdb5ef557479a146785f6dec4c929fad0f43`.
+`8a2cc8aa313520fdebf4be2dfd565932f94a9c4c5f44ab41e5bf01246b22dc56`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -167,7 +167,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | Task-scoped S22+ research | [Proportional research V1](docs/operations/S22PLUS_PROPORTIONAL_RESEARCH_V1.md); one finite scope grant, spontaneous machine-bound candidates, bounded reobservation, prospective closed-health repeats and explicit attended/deferred recovery. |
 | S22+ deferred physical F1 | [Exact native-baseline exception](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md); one native-origin N/E/N experiment, finite exact grant, failure stop with later attended A recovery and unknown device activity. |
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
-| S22+ G2 GPT reservation/reset | [Exact 128 GiB reservation](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md); independently reviewed fixed native writer and stock reset, one finite attended grant, journal-bound original-layout recovery. |
+| S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md); independently reviewed fixed native writer and stock reset, one finite attended grant, journal-bound original-layout recovery. |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

@@ -224,7 +224,22 @@ dispatch is never replayed. The fixed reviewed host setup is completed before
 the grant clock opens. Historical N/E claims and admissions retain their
 original meanings and cannot substitute for V3 admission.
 
-### G2 exact 128 GiB GPT reservation and stock initialization
+### Minimal Android package cleanup after Android32
+
+The common-incorporated [Android-minimal V1](../S22PLUS_ANDROID_MINIMAL_V1.md)
+is adopted as **REVIEW_GATED_FIXED_FOREGROUND_D0_D1** for the current explicit
+minimal management/return request only. It runs after a rederived closed
+Android32 G2 task and fresh exact rooted Android health, with no F1 owner.
+Its independently reviewed fixed optional-package declaration, primary-user
+uninstall intents, same-boot package checks, one ordinary reboot and bounded
+read-only reconciliation are the complete scope. The actual operator request
+is recorded once; no per-package approval phrase is required. Effects remain
+attended and each intent is nonreplayable. The profile cannot reopen G2, write
+GPT, format a filesystem, stage Debian, touch another target or change required
+Android/root/connectivity components. Until its source review passes, this
+adoption is H0 only.
+
+### G2 exact reservation/Android32 resize and stock initialization
 
 The common-incorporated [G2 policy](../S22PLUS_NATIVE_GPT_RESERVATION_V1.md) is
 adopted as a **REVIEW_GATED_CAPABILITY** solely through the V3 `gpt-reserve`
@@ -234,6 +249,17 @@ restoration and final rooted Android reboot verification are the complete scope.
 It specializes this target's otherwise boot-only/A-only recovery and no-format
 rules only where that common exception expressly permits; all other targets,
 old operations, deferred modes, consumed records and grants remain unchanged.
+
+P397's creation is consumed and closed. The reviewed prospective Android32
+variant starts from its completed 95.4580078125 GiB userdata / 128 GiB native
+pair and changes only userdata end and existing native start, producing
+32 GiB userdata / 191.4580078125 GiB native. Native GUID/type/name/attributes/end
+remain exact. Its original/recovery map is P397's pair, including the native
+entry, and a reset-intended restoration uses the original 95.4580078125 GiB
+userdata size. The sealed image selects this variant; no caller chooses a size.
+Fresh bootstrap starts from healthy Android A, with unchanged actual original-GPT
+read qualification. Only this prospective variant adopts the policy's exact
+missing-su setup-pending state and subsequent fresh full initial health.
 
 The task is attended, contains only optional bootstrap and one G2 operation,
 and grants at most two operations/7200 original BOOTTIME seconds. Fresh N may

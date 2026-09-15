@@ -41,6 +41,13 @@
       "profile": "thermal-v3-reconnect-ufs-drain-gpt-v1",
       "run_id": "61ced5c9323f4694babb2599d9e11c6f",
       "version": "v0.3.0-rc.1"
+    },
+    {
+      "image_sha256": "ea9c92ff2ba42d1d52a025263226a77097edcc209ca8c442794fca4500723e3c",
+      "namespace": "p398",
+      "profile": "thermal-v3-reconnect-ufs-drain-gpt-v1",
+      "run_id": "3603fa1f51f94322c426fde7ad584f98",
+      "version": "v0.3.0-rc.2"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

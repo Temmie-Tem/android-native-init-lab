@@ -128,11 +128,16 @@ def closed_android(root, task_path):
         require(len(effects)==1,'Android recovery has no unique original-A transfer')
         selected=(Step(effects[0]['step'],'transfer','A'),Step('recovery-health','health','A'))
     else:
-        require(operation['operation']=='android-exit','normal Android close is not an Android exit')
-        selected=steps('android-exit')
-    session.completed(selected)
+        require(operation['operation'] in ('android-exit','gpt-reserve'),
+            'normal Android close is not an Android exit or completed GPT operation')
+        selected=steps(operation['operation'])
+    values=session.completed(selected)
     require(terminal['terminal_result']==pin(directory/(selected[-1].name+'.json')),
         'Android terminal omits final raw health')
+    if operation['operation']=='gpt-reserve':
+        derived=adapter.terminal(selected,values,operation,recovered=terminal['recovered'])['gpt']
+        require(terminal['gpt']==derived and close['gpt']==derived,
+            'closed GPT feature does not rederive from its raw operation proof')
     require(task['A']==android_artifact(root),'closed task does not contain the exact original A')
     return task,pin(close_path)
 

@@ -66,10 +66,13 @@ def image_valid(image, *, artifact_bytes=False):
             'native image does not contain its selected output drain correction')
     if image['profile']==gpt.PROFILE:
         runtime=built['native_selection']['runtime_profile']
-        require(built['gpt']==image['gpt'] and runtime['gpt_profile']=='fyg8-native-128g-gpt-v1'
+        sealed=gpt.vectors(image['gpt']);shape=gpt.geometry(sealed,'proposed')
+        variant='fyg8-native-android32-gpt-v1' if shape['userdata_sectors']==gpt.ANDROID32_USER \
+            else 'fyg8-native-128g-gpt-v1'
+        require(built['gpt']==image['gpt'] and runtime['gpt_profile']==variant
             and runtime['gpt_proposal_sha256']==image['gpt']['proposal']['sha256']
-            and runtime['gpt_native_size_bytes']==128*1024**3,'GPT image differs from its sealed producer')
-        gpt.vectors(image['gpt'])
+            and runtime['gpt_native_size_bytes']==shape['native_sectors']*512,
+            'GPT image differs from its sealed producer')
     if artifact_bytes:
         with transport.pin_boot_only_ap(Path(image['ap']['path']),label='qualified native image',
                 expected_size=image['ap']['size'],expected_sha256=image['ap']['sha256']) as ap:

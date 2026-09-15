@@ -41,6 +41,41 @@ def joined(regions,layout,geometry):
 
 
 class LayoutTests(unittest.TestCase):
+    def test_32g_userdata_expands_existing_native_and_preserves_its_identity(self):
+        primary,backup,total,geometry=original()
+        first,_=plan.construct(primary,backup,total,native_guid=b'N'*16,native_bytes=128*1024**3)
+        current=[row['proposed'] for row in first]
+        regions,layout=plan.construct(*current,total,userdata_bytes=32*1024**3)
+        decoded=census.decode(joined(regions,layout,geometry),backup_blocks=9)
+        user,native=decoded['entries'][-2:]
+        self.assertEqual(user['size_bytes'],32*1024**3)
+        self.assertEqual(native['first_lba'],user['last_lba']+1)
+        for row,before in zip(regions,current):self.assertEqual(row['original'],before)
+        before=current[0][8192+40*128:8192+41*128]
+        after=regions[0]['proposed'][8192+40*128:8192+41*128]
+        self.assertEqual(before[:32]+before[40:],after[:32]+after[40:])
+        self.assertEqual(regions[0]['proposed'][8192:8192+39*128],current[0][8192:8192+39*128])
+        self.assertEqual([r['first_lba']+i//4096 for r in regions
+            for i in range(0,len(r['original']),4096)
+            if r['original'][i:i+4096]!=r['proposed'][i:i+4096]],[1,3,total-8,total-1])
+        self.assertTrue(layout['predecessor_native_identity_preserved'])
+        self.assertGreater(native['size_bytes'],128*1024**3)
+        # The successor inverse restores the CURRENT reservation, never the
+        # historical stock/no-native map.
+        self.assertNotEqual(b''.join(current),primary+backup)
+
+    def test_resize_rejects_missing_native_wrong_old_size_and_caller_guid(self):
+        primary,backup,total,_=original()
+        with self.assertRaises(ValueError):plan.construct(primary,backup,total,userdata_bytes=32*1024**3)
+        for n in (64,128):
+            rows,_=plan.construct(primary,backup,total,native_guid=b'N'*16,native_bytes=n*1024**3)
+            current=[r['proposed'] for r in rows]
+            for options in ({'userdata_bytes':48*1024**3},
+                    {'userdata_bytes':32*1024**3,'native_guid':b'X'*16}):
+                with self.assertRaises(ValueError):plan.construct(*current,total,**options)
+            if n==64:
+                with self.assertRaises(ValueError):plan.construct(*current,total,userdata_bytes=32*1024**3)
+
     def test_128g_reservation_preserves_originals_and_changes_only_the_same_blocks(self):
         primary,backup,total,geometry=original()
         regions,layout=plan.construct(primary,backup,total,native_guid=b'N'*16,

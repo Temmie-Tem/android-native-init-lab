@@ -8,9 +8,20 @@ specialize their ordinary boot-only, no-GPT/format and A-only recovery rules
 only through this policy. Independent source-bound review and an actual
 separately returned finite attended grant are mandatory before any effect.
 Definition/review opens no grant and renews no consumed authority.
-The intended result is 128 GiB native storage alongside freshly initialized,
-rooted Android on 95.4580078125 GiB userdata. The native entry may initially
-remain unformatted. The operator permits loss of Android apps, settings and
+Two fixed transitions are named; this is not a caller-sized partition tool:
+
+| Transition | Original userdata / native | Proposed userdata / native |
+| --- | --- | --- |
+| Historical P397 reservation, consumed and closed | Stock extent / absent | 95.4580078125 GiB / 128 GiB |
+| Prospective Android32 successor | 95.4580078125 GiB / 128 GiB | 32 GiB / 191.4580078125 GiB |
+
+For the successor, "original" always means the completed P397 pair, not the
+pre-reservation stock pair. It preserves native entry 41's GUID, type, name,
+attributes and end while moving only its start from LBA 28,750,592 to
+12,115,456. Userdata stays at LBA 3,726,848 and ends at 12,115,455. Its exact
+private proposal derives from the closed P397 rooted Android/reboot proof and
+must be freshly read back through the successor native endpoint before apply.
+The native entry remains unformatted. The operator permits loss of Android apps, settings and
 data and requires root to be retained/reestablished. The final environment is
 Android. Correct Android-reported storage capacity, unchanged GPT and numeric
 root must be checked before and after one ordinary Android reboot.
@@ -18,8 +29,10 @@ root must be checked before and after one ordinary Android reboot.
 ## Fixed metadata and recovery model
 
 Only LU0 GPT LBAs 1, 3, 62,305,272 and 62,305,279 may change, using the sealed
-original and proposed 61,440-byte private captures. The proposal changes only
-entry 40's ending LBA, unused entry 41 and their table/header CRCs. All other
+original and proposed 61,440-byte private captures. The reservation changes
+entry 40's ending LBA and creates entry 41; the Android32 successor changes
+only entry 40's end and the existing entry 41's start. Both update the matching
+table/header CRCs. All other
 39 entries, PMBR, disk identity, padding and existing duplicate GUIDs remain
 exactly original. No PIT, bootloader, fuse, EDL or unrelated partition rewrite
 is part of this design. Generic census `NO_PROOF` remains unchanged.
@@ -37,6 +50,14 @@ objects never replace the durable host target/proposal claim or effect intent.
 Effects use one aligned direct/synchronous write per selected block, a sync,
 complete readback and an exact surviving copy check. Failed or uncertain
 writes and syncs are never retried.
+
+The native and Android readers derive both userdata and native extents from
+the selected sealed pair. The successor's original/recovery map contains the
+128 GiB native entry; absence is invalid there. The short interval after apply
+uses the original kernel map, while fresh boots must publish the proposed map.
+The four-block core, write ordering and serial partial-write restoration model
+are unchanged. Restoring the successor returns P397's GPT and, after a reset
+intent, requires a distinct 95.4580078125 GiB restorative stock reset.
 
 Apply begins only from the complete original pair and writes backup array,
 backup header, primary array, primary header. Restore repairs the side opposite
@@ -65,6 +86,8 @@ bootstrap's starting health/CONTROL when its closed tail and unchanged ancestor
 source closure are bound. Two new-N installations and four healthy sessions
 still qualify the new N; the final session also reads complete original GPT.
 Only a rederived `PASS_EXACT_GPT` for that actual endpoint permits apply.
+The Android32 successor starts bootstrap from healthy original Android A;
+changed sources never relax an old native candidate's ancestor binding.
 
 | Phase | Required outcome before continuing |
 | --- | --- |
@@ -89,6 +112,18 @@ the complete GPT metadata must remain equal.
 Android must not boot the old filesystem between GPT reduction and reset.
 An Android setup requiring physical input is a real operator action.
 
+Only Android32 adopts a prospective `android-setup-pending` result when the
+first initial-health root command completes with rc127, empty stdout, and
+exact `/system/bin/sh: su: inaccessible or not found` stderr after successful
+exact-target inventory/devpath/properties. Preserve that failed raw attempt
+and append its pin. A new actual operator setup-completion statement permits
+a fresh full read attempt within the original grant, with the owner retained.
+No reboot is intended until full initial GPT/statfs/root health passes. Other
+errors still stop normal work. This neither changes P397's recorded stop nor
+reuses its separate incident completion. After a completed ordinary reboot,
+the existing health-only recovery may provide final proof without another
+reboot, native installation, A transfer or GPT effect.
+
 The exact stock recovery obtains the current block-device size with
 `BLKGETSIZE64` and reserves the fstab's final 16 KiB before userdata format.
 Its exact formatter receives the reduced block count in 4096-byte units with
@@ -103,7 +138,8 @@ cause cache formatting to be skipped. These exact stock side effects are
 covered by the common exception; no general raw param/EFS/misc access follows.
 The traced ordinary wipe contains no GPT/PIT rewrite. Recovery configuration
 declares a non-A/B build; this static fact does not prove runtime OTA state or
-all bootloader behavior. No live factory-reset result exists yet.
+all bootloader behavior. The closed P397 result proves that exact stock reset
+at 95.4580078125 GiB; Android32 must prove its new geometry and health separately.
 
 The existing exact A archive contains only patched `boot.img.lz4`. Factory
 reset does not establish post-reset root by itself: Magisk app/setup and
@@ -171,6 +207,9 @@ the original-layout recovery limits, and returns its bound approval statement.
 One structured terminal, the append-only V3 journal and bounded private raw
 evidence report proposal, initialization, Android return, reboot persistence,
 root and recovery separately. Normal completion requires all ten phases and
-`PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT`; partial/recovered outcomes cannot
+`PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT`. A health-only recovered terminal may
+separately prove that feature only when the actual initial health, sole reboot
+request/departure and fresh final health all validate; it retains `recovered=true`
+and is not relabelled normal completion. Partial or unproved results cannot
 claim the user's completed reservation/reboot goal. Consumed claims, old
 artifacts and earlier source reviews keep their original provenance.

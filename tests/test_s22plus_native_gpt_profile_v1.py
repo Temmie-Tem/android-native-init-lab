@@ -19,10 +19,15 @@ import test_s22plus_native_resident_v1 as producer
 from test_s22plus_native_gpt_v1_h0 import reference
 
 
-def binding(directory):
+def binding(directory,*,android32=False):
     before,after=reference()
     regions,geometry=layout.construct(before[:24576],before[24576:],62305280,
         native_guid=b'N'*16,native_bytes=128*1024**3)
+    if android32:
+        before=after
+        regions,geometry=layout.construct(before[:24576],before[24576:],62305280,
+            userdata_bytes=32*1024**3)
+        after=b''.join(r['proposed'] for r in regions)
     receipts=[]
     for row in regions:
         item=dict(name=row['name'],first_lba=row['first_lba'])
@@ -44,7 +49,8 @@ def output(selection,sealed,*,order=gpt.LBAS,skips=(),kernel_new=None):
                 events.append(f'GPT1_STEP event={event} ordinal={index} lba={lba}\n')
     writes=4-len(skips) if mode else 0
     new=selection in ('gpt-proposed','gpt-after-reset') if kernel_new is None else kernel_new
-    user,native=(gpt.NEW_USER,gpt.NATIVE_SECTORS) if new else (gpt.OLD_USER,0)
+    shape=gpt.geometry(sealed,'proposed' if new else 'original')
+    user,native=shape['userdata_sectors'],shape['native_sectors']
     header=''.join(events)+(f'GPT1_RESULT mode={mode} status=0 io_errno=0 close_errno=0 '
         f'writes={writes} completed={writes} skipped={len(skips)} last_read_kind={1 if kind=="original" else 2} '
         f'userdata_sectors={user} native_sectors={native} filesystem_errno=0\nGPT1_DATA bytes=61440\n')
@@ -78,6 +84,28 @@ class ProfileTests(unittest.TestCase):
         fs=gpt.decode(output('gpt-after-reset',self.sealed),'gpt-after-reset',self.sealed)['filesystem']
         self.assertEqual(fs['requested_bytes'],102497239040)
         self.assertFalse(fs['complete_filesystem_health_proved'])
+
+    def test_32g_successor_observes_present_original_native_and_restores_current_map(self):
+        folder=self.folder/'successor';folder.mkdir()
+        bound,sealed=binding(folder,android32=True)
+        image=dict(self.image,gpt=bound)
+        for selection in gpt.SELECTIONS:
+            with self.subTest(selection=selection):
+                raw=output(selection,sealed)
+                proof=gpt.Profile(image,selection).project(raw,b'',(5,0,0,0,len(raw),0,1),requested=True)
+                self.assertEqual(proof['status'],'PASS_EXACT_GPT')
+                expected=67108864 if selection in ('gpt-proposed','gpt-after-reset') else gpt.NEW_USER
+                self.assertEqual(proof['userdata_sectors'],expected)
+                self.assertGreater(proof['native_sectors'],0)
+        restored=gpt.decode(output('gpt-restore',sealed,kernel_new=True),'gpt-restore',sealed)
+        self.assertEqual(restored['final_pair'],'original')
+        self.assertEqual(restored['full_metadata']['sha256'],records.digest(self.sealed['proposed']))
+        self.assertNotEqual(restored['full_metadata']['sha256'],records.digest(self.sealed['original']))
+        for bad in (output('gpt-original',self.sealed),
+                output('gpt-original',sealed).replace(b'native_sectors=268435456',b'native_sectors=0')):
+            with self.assertRaises(ValueError):gpt.decode(bad,'gpt-original',sealed)
+        fs=gpt.decode(output('gpt-after-reset',sealed),'gpt-after-reset',sealed)['filesystem']
+        self.assertEqual(fs['requested_bytes'],32*1024**3-16384)
 
     def test_partial_media_stale_kind_wrong_geometry_and_lost_events_cannot_pass(self):
         good=output('gpt-apply',self.sealed)
