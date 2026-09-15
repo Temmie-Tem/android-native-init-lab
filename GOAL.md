@@ -85,16 +85,43 @@ The complete final raw snapshot proves changed boot, exact original-A/root,
 unchanged full GPT/capacity/home/input, and all 118 initially present system
 keep packages. The safe-mode property was empty; this is a limited reported
 signal. H0 publication reused this complete final evidence without another
-device command or reconciliation session. The additional claim is closed and
-has no child; the original cleanup terminal remains unchanged.
+device command or reconciliation session. The additional claim is closed; the original cleanup terminal remains unchanged.
+The separately reviewed prospective user-app scope below is its only successor.
 
-Smart Switch had reappeared before this run began. Current system packages are
-415 versus the original 465: 50 currently absent in total. This run itself went
+Smart Switch had reappeared before this run began. At that close, system packages
+were 415 versus the original 465: 50 absent at that observation. This run itself went
 440 -> 411 immediately -> 415 after reboot. Available space is 31,510,704,128
 bytes, 34,955,264 above its own starting observation; no causal allocation
 breakdown is proved. The 28 tests and independent source/terminal reviews passed.
 See the [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md).
 Native storage remains unformatted; no raw APK deletion or Debian staging occurred.
+
+## Latest user-app cleanup — 11 persistent removals, healthy Android
+
+The explicit YouTube/Play Store/Contacts/Clock request qualified the reviewed
+`user-apps` successor. Fresh metadata selected 15 of the 16 installed declared
+UI apps; Samsung Video was excluded for a declared shared UID. All 15 user-0
+uninstalls and immediate absent post-states succeeded, followed by one ordinary
+reboot. All 55 previously attempted names were excluded and no effect replayed.
+
+A boot-completed read during final readiness returned ADB `error: closed`.
+The sole 300-second read-only reconciliation proved healthy exact original-A
+root, changed boot, unchanged full GPT/capacity/home/input, all 117 initially
+present KEEP packages for this mode, and an empty safe-mode property. The USB
+cause remains unproved. Four selected apps were present again: My Files,
+Galaxy Store, Weather and Dictionary. The other 11, including all four apps
+explicitly named by the operator, remained absent. The result remains
+`INCOMPLETE / ANDROID_CLOSED_HEALTHY`, `reboot_verified=false`, with no replay
+or descendant. The old two terminals remain unchanged.
+
+Current system-package count is **404**, down from 415 at this run's start and
+465 before the three runs: **61 currently absent**. `/data` available space is
+31,678,308,352 bytes, 185,667,584 above this run's starting observation; a causal
+space breakdown is not proved. The 33 focused tests and independent source
+review passed. The [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md)
+records the incomplete cleanup separately from final Android health. The
+191.4580078125 GiB native partition remains unformatted; Debian staging and
+A90/S20+ effects were outside this run.
 
 ## Debian direction and next storage unit
 

@@ -349,3 +349,137 @@ Its 5,195-byte H0 publisher has SHA-256
 `ef96d44b8d2a7566a9d3222cd04b6e2bc37a8807fbfc60995d21503c8ff3e1a4`.
 The additional claim grants no descendant, replay, raw APK deletion, new GPT
 action or Debian staging. A90 and S20+ remained untouched.
+
+## User-app successor preparation
+
+The operator explicitly named YouTube, Play Store, Contacts and Clock for
+further removal. The prior optional declaration omitted several UI apps and
+excluded YouTube's ordinary explicit `enabled=1` state. The new `user-apps`
+mode adopts 31 fixed consumer names. Only Play Store is excepted from historical
+KEEP; Contacts provider, GMS/GSF, DocumentsUI and management services retain
+protection. UI-mode metadata accepts ordinary enabled states 0/1 while the old
+mode projections remain unchanged. Historical A90 UI removal evidence informed
+the declaration only; it supplies no S22 effect authority.
+
+All 55 previously attempted names from the original and additional runs are
+excluded, including any restored packages. The actual retained additional
+closure and its original ancestor rederive in H0 with device functions
+unavailable; the old incomplete terminals are unchanged. The only new child
+is typed from additional to user-apps, binds both ancestor journals/claims and
+has no descendant. The existing finite windows and attendance remain.
+A complete retained final persistence stop may close as incomplete in H0
+without adding a device read. Shared/system UIDs, APEX, persistent components,
+home/input and disabled/hidden/suspended states still cannot be selected.
+
+All 33 focused tests pass, including the new UI claim/load/second-child checks,
+both effectful-ancestor journal checks, explicit-enabled Play Store removal,
+mode-specific KEEP behavior, and incomplete H0 closure when an app reappears
+at reboot. Python compilation and the repository boundary check pass; the
+12 boundary regression tests also pass. Fresh inventory and the actual terminal
+result are recorded separately below.
+
+Independent review returned `PASS_GO` with no blocking findings and confirmed
+that both old effectful terminals remain unchanged. The live app review
+SHA-256 is `3a97691b85d8ff9761b4b8a05a083e2524180f45436ccef5216e0ba08fd6447a`
+(60 sources), and V3 is
+`d167ff39373318f7eab0e371db6d1d7478fa16c9bd78277e6026ee40fd07a6b8`
+(54 execution and 156 unchanged native sources). Both consumers accept them.
+The app source SHA-256 is
+`2e9b303949997331605e7c31c4e97a4d03f2795eba7d29a55a76f5ccba6d5871`.
+Independently checked publication reviews bind only the staged root-contract
+variant, excluding preexisting unrelated S20+ changes: app
+`7d6005d96ec19cc2f5a8afa4da16fbc56d92a2b5e45d15b7406fe81642c7c646`
+and V3 `2b46639caf1b29de902ab22111e3b41933fd6b7a7c292454eec9562420828f56`.
+These publication identities do not repin the live run.
+
+## User-app cleanup live result
+
+Fresh preparation of `p398-user-apps-20260916-1` used one new claim under the
+closed additional run, the actual user request, attendance and a 900-second
+window. Of the 31 declared names, Gmail and Duo were excluded as previously
+attempted, leaving a 29-name declaration. Sixteen were currently installed.
+Fresh metadata selected 15; Samsung Video (`com.samsung.android.video`) was
+excluded because its active metadata declared a shared UID, despite its
+list-level UID being unique in the installed-system census.
+
+All 15 user-0 uninstalls returned success and each immediate post-state proved
+absence. The complete pre-reboot snapshot had none of the selected names,
+healthy original-A root, unchanged home/input/GPT/capacity and all 117 initially
+present KEEP packages for this mode. One ordinary reboot had a successful
+request and bounded USB departure. During final readiness, the fixed
+boot-completed read `wait-080-boot` returned exit 1, empty stdout and ADB
+`error: closed` on stderr. The runner stopped with `RawCaptureError`; there was
+no final snapshot aggregate. The 34-row journal contains one start, 16 ordered
+intent/completion pairs and one stop. No effect was uncertain or replayed.
+The initiating transport cause remains unproved.
+
+The existing sole 300-second close-only reconciliation completed. Its full raw
+snapshot proves numeric UID/GID 0 with exact original-A/supporting digests,
+a changed Android boot, unchanged full GPT, 32 GiB userdata capacity and native
+extent, unchanged home/input and all 117 initial mode-specific KEEP entries.
+The safe-mode property was empty. Four selected apps were present again:
+
+| Restored after reboot | Package |
+| --- | --- |
+| Samsung My Files | `com.sec.android.app.myfiles` |
+| Galaxy Store | `com.sec.android.app.samsungapps` |
+| Samsung Weather | `com.sec.android.daemonapp` |
+| Samsung Dictionary | `com.diotek.sec.lookup.dictionary` |
+
+The exact final package-set difference is the other 11 selected apps, with no
+new package relative to this run's initial list:
+
+| Absent at final reconciliation | Package |
+| --- | --- |
+| YouTube | `com.google.android.youtube` |
+| Google Play Store | `com.android.vending` |
+| Google Maps | `com.google.android.apps.maps` |
+| Gemini | `com.google.android.apps.bard` |
+| Chrome | `com.android.chrome` |
+| Samsung Contacts UI | `com.samsung.android.app.contacts` |
+| Samsung Clock | `com.sec.android.app.clockpackage` |
+| Samsung Calendar | `com.samsung.android.calendar` |
+| Samsung Gallery | `com.sec.android.gallery3d` |
+| Samsung Camera | `com.sec.android.app.camera` |
+| Samsung Messages | `com.samsung.android.messaging` |
+
+The formal terminal is `INCOMPLETE / ANDROID_CLOSED_HEALTHY`, four remaining
+names, `cleanup_replay_permitted=false` and `reboot_verified=false`. The changed
+boot and healthy return are distinct from the failed all-removals persistence
+criterion. No causal mechanism for the four apps' return was established.
+This closed user-apps claim has no child. All earlier effects and terminals
+retain their original identities.
+
+The installed-system count went **415 -> 400 immediately -> 404 at final
+reconciliation**. Compared with the original 465-name list, exactly 61 names
+are absent and none newly present.
+
+| User-app run `/data` observation | Bytes |
+| --- | ---: |
+| Available before cleanup | 31,492,640,768 |
+| Available before reboot | 31,675,535,360 |
+| Available after reconciliation | 31,678,308,352 |
+| Free after reconciliation | 31,812,526,080 |
+| Available change | +185,667,584 |
+
+This is measured across cleanup/reboot, without causal allocation accounting.
+No system APK partition was removed or resized. The 191.4580078125 GiB native
+partition remains unformatted. No further reboot, F1/GPT operation, rootfs
+staging, A90 or S20+ effect occurred.
+
+Private evidence remains under
+`workspace/private/runs/s22plus-android-minimal-v1/p398-user-apps-20260916-1/`.
+The 33,023-byte source manifest has SHA-256
+`9616a1e7e7b752a725b68d031ddfbe483fe9d8464840ca2623275df9fea59bf5`.
+The 5,777-byte inventory result has SHA-256
+`0390779fcf770d1e7935bd18575a32c9e52a4984fc5a6a08a3e85bd0677c94d1`.
+The 1,243-byte reconciliation snapshot has SHA-256
+`3c6542db7a027b39222bbc1dd29900ea21fbfb677cda5e9c2811a7d47bdaab87`.
+The 818-byte terminal has SHA-256
+`a2015f964840127d24cc47e29a9da9e4bf59d1865c2430fa402a36f56f1436a3`.
+
+Independent terminal audit rederived all raw effects, matching journal joins,
+readiness failure and complete reconciliation with live acquisition disabled.
+It confirmed the exact 11-package difference, four remaining apps, retained
+117 KEEP entries and unchanged prior terminals. The current incomplete verdict
+and source records were preserved; no further device action was justified.

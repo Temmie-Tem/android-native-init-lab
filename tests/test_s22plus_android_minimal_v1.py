@@ -59,6 +59,30 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(minimal.component('priority=0\n'+HOME+'/.Home\n'),HOME)
         with self.assertRaises(ValueError):minimal.component('null\n')
 
+    def test_user_apps_enabled_state_and_only_store_keep_exception(self):
+        name='com.android.vending';listed=minimal.packages(listing(name=name))
+        text=dump(name=name,state='installed=true hidden=false suspended=false enabled=1')
+        old=minimal.package_metadata(text,listed[name])
+        self.assertFalse(old['ordinary_primary_user'])
+        run=object.__new__(minimal.Run);run.opened=dict(mode=minimal.USER_APPS_MODE)
+        run.effectful_predecessors=[dict(removed=['com.google.android.gm']),
+            dict(removed=['com.google.android.apps.tachyon'])]
+        current=run.parse_metadata(text,listed[name]);self.assertTrue(current['ordinary_primary_user'])
+        self.assertEqual(minimal.KEEP-run.keep_set(),{'com.android.vending'})
+        self.assertEqual(set(minimal.USER_APPS)&minimal.KEEP,{'com.android.vending'})
+        self.assertNotIn('com.google.android.gm',run.declaration())
+        self.assertNotIn('com.google.android.apps.tachyon',run.declaration())
+        self.assertEqual(minimal.selection(listed,{name:current},HOME,IME,
+            declaration=run.declaration(),keep=run.keep_set())['selected'],[current])
+        self.assertEqual(minimal.selection(listed,{name:current},HOME,IME,
+            declaration=(name,))['selected'],[])
+        for state in ('enabled=2','enabled=3','enabled=4','enabled=1 hidden=true',
+                'enabled=1 suspended=true','enabled=1 installed=false'):
+            values=dict(installed='true',hidden='false',suspended='false')
+            values.update(item.split('=') for item in state.split())
+            row=run.parse_metadata(dump(name=name,state=' '.join(k+'='+v for k,v in values.items())),listed[name])
+            self.assertFalse(row['ordinary_primary_user'])
+
     def test_framework_and_apex_rows_are_inventory_only(self):
         framework=listing(name='android',uid=1000).replace('/system/app/Optional/base.apk',
             '/system/framework/framework-res.apk')
@@ -252,6 +276,53 @@ sys.stdout.buffer.write(base64.b64decode(data))
         self.assertFalse(self.run.journal.rows())
         state=json.loads(self.state.read_text());self.assertEqual((state['uninstalls'],state['reboots']),(0,0))
 
+    def user_apps_fixture(self,*,restore=False):
+        name='com.android.vending'
+        source=self.program.read_text().replace(NAME,name).replace('enabled=0','enabled=1')
+        if restore:
+            source=source.replace("s['reboots']+=1;state.write_text(json.dumps(s))",
+                "s['reboots']+=1;s['installed']=True;state.write_text(json.dumps(s))")
+        self.program.write_text(source);self.run.task['adb']=records.pin(self.program)
+        self.run.opened['mode']=minimal.USER_APPS_MODE;self.run.effectful_predecessors=[]
+        self.prepare()
+        return name
+
+    def test_user_app_explicit_enabled_store_executes_and_closes(self):
+        name=self.user_apps_fixture()
+        result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual((result['status'],result['removed_count']),('COMPLETE',1))
+        self.assertEqual(self.run.inventory_projection()['selection']['selected'][0]['name'],name)
+
+    def test_user_app_restored_at_reboot_closes_incomplete_from_retained_raw_only(self):
+        name=self.user_apps_fixture(restore=True)
+        result=self.run.execute(attended=True)
+        self.assertEqual(result['state'],'STOPPED_RECONCILIATION_REQUIRED')
+        calls=self.log.read_bytes()
+        with mock.patch.object(self.run,'command',side_effect=AssertionError('retained close issued I/O')):
+            terminal=records.read(records.verify(self.run.reconcile()))
+        self.assertEqual(terminal['status'],'INCOMPLETE');self.assertEqual(terminal['remaining'],[name])
+        self.assertFalse(terminal['reboot_verified']);self.assertFalse((self.folder/'reconcile.json').exists())
+        self.assertEqual(self.log.read_bytes(),calls)
+        with self.assertRaises(ValueError):self.run.execute(attended=True)
+        state=json.loads(self.state.read_text());self.assertEqual((state['uninstalls'],state['reboots']),(1,1))
+        self.run.journal.append('intent',key='unexplained',kind='uninstall',detail={})
+        with self.assertRaises(ValueError):self.run.retained_partial_projection()
+
+    def test_user_apps_checks_both_effectful_ancestor_journals(self):
+        self.run.predecessors=[];self.run.claim_pins=[];self.run.effectful_predecessors=[]
+        journals=[]
+        for name in ('original','additional'):
+            folder=self.root/'workspace/private'/name;folder.mkdir()
+            opened=records.publish(folder/'open.json',dict(fixture=name))
+            journal=records.Journal(folder/'journal');journal.append('started')
+            self.run.effectful_predecessors.append(dict(open=opened,journal_rows=1))
+            journals.append(journal)
+        for journal in journals:
+            journal.append('stopped')
+            with self.assertRaisesRegex(ValueError,'gained execution activity'):
+                minimal.Run.check(self.run)
+            self.run.effectful_predecessors[journals.index(journal)]['journal_rows']=2
+
     def test_additional_missing_keep_package_stops_before_reboot(self):
         name=minimal.EXTRA_OPTIONAL[0]
         source=self.program.read_text().replace(repr(listing()),
@@ -286,6 +357,40 @@ sys.stdout.buffer.write(base64.b64decode(data))
             with self.assertRaisesRegex(ValueError,'gained execution activity'):loaded.check()
         with self.assertRaisesRegex(ValueError,'original management profile'):
             minimal.closed_cleanup(self.root,fresh)
+
+    def test_user_apps_prepare_load_binds_both_ancestors_and_has_one_typed_child(self):
+        task,closed=self.bind_closed_fixture();self.prepare();self.run.execute(attended=True)
+        with mock.patch.object(minimal,'Run',return_value=self.run):
+            original=minimal.closed_cleanup(self.root,self.folder)
+        _,_,_,_,review,_=self.inventory_stop_fixture()
+        prior=self.root/'workspace/private/additional-proof';prior.mkdir()
+        opened=records.publish(prior/'open.json',dict(mode=minimal.ADDITIONAL_MODE))
+        journal=records.Journal(prior/'journal');journal.append('started')
+        # The retained additional proof is independently tested against actual
+        # raw evidence; this fixture isolates the new prepare/load claim branch.
+        previous=dict(original,open=opened,journal_rows=1,
+            journal_tail=records.pin(prior/'journal/0000.json'),effectful_ancestors=[original])
+        def inventory(run,folder):
+            folder.mkdir();return records.publish(folder/'result.json',dict(selection=dict(selected=[])))
+        fresh=self.root/'workspace/private/user-apps'
+        with mock.patch.object(minimal,'review',return_value=review), \
+                mock.patch.object(minimal.census,'closed_android',return_value=(self.run.task,closed)), \
+                mock.patch.object(minimal,'closed_cleanup',return_value=previous) as projection, \
+                mock.patch.object(minimal.Run,'inventory',new=inventory):
+            result=minimal.prepare(self.root,Path(task['path']),fresh,operator_statement='remove UI apps',
+                attended=True,after_additional=prior)
+            self.assertEqual(result['state'],'READY_FOR_FIXED_CLEANUP')
+            loaded=minimal.Run(self.root,fresh)
+            self.assertEqual(loaded.opened['mode'],minimal.USER_APPS_MODE)
+            self.assertEqual(loaded.effectful_predecessors,[previous,original])
+            self.assertTrue((prior/'user-apps-cleanup-claim.json').is_file())
+            self.assertTrue(all(call.kwargs==dict(additional=True) for call in projection.call_args_list))
+            with self.assertRaisesRegex(ValueError,'one additional claim'):
+                minimal.prepare(self.root,Path(task['path']),self.root/'workspace/private/second-user-apps',
+                    operator_statement='remove UI apps',attended=True,after_additional=prior)
+        for wrong in (self.folder,fresh):
+            with self.assertRaisesRegex(ValueError,'original management profile'):
+                minimal.closed_cleanup(self.root,wrong,additional=True)
 
     def test_real_raw_inventory_uninstall_version_guard_and_reboot_persistence(self):
         self.prepare();self.assertEqual(self.run.inventory_projection()['selection']['selected'][0]['name'],NAME)

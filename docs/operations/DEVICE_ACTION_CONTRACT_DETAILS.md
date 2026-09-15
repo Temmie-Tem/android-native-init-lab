@@ -295,8 +295,18 @@ Classify every action using
   The policy's qualified same-boot read-only transport stop may be resolved for
   this prospective scope under boundary 7; no uncertain effect qualifies and
   no old verdict changes. This is separate from inventory retirement. Prior
-  journals remain effectful and immutable, a second child or additional-mode
-  descendant is forbidden, and all new effects remain attended and one-shot.
+  journals remain effectful and immutable, a second additional child is
+  forbidden, and all new effects remain attended and one-shot. The policy's
+  separately reviewed `user-apps` successor may follow one closed additional
+  run under the new explicit consumer-UI request. It has one immutable claim,
+  the fixed 31-name declaration minus all prior attempted names, and the same
+  finite limits. Only Play Store is excepted from historical KEEP, and ordinary
+  enabled states 0/1 are allowed only in this mode. All provider/service and
+  runtime exclusions remain. Both effectful ancestors and their journal
+  lengths/tails must rederive; the qualified retained partial additional closure
+  preserves its incomplete verdict. No uncertain effect qualifies, no previous
+  effect is renewed, and user-apps has no descendant. Complete retained final
+  health may close its persistence stop as incomplete in H0 without another read.
   The exact S20+ target contract may additionally activate one attended
   read-only classic-fastboot census ordinal delegated by permanent boundary 3. Its
   operator-entered mode transition makes the complete census D1 even though

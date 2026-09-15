@@ -132,12 +132,56 @@ the initiating USB cause remains unproved.
 One immutable `additional-cleanup-claim.json` under that closed predecessor
 binds its rederived closure, unchanged journal tail and the new open. It is
 separate from the no-effect inventory-retirement chain; the effectful parent
-is never required to have an empty journal. No second child or child of an
-additional-mode run is permitted. The new request and actual attendance are
+is never required to have an empty journal. No second additional child is
+permitted. Only the separately reviewed user-apps successor below may follow
+an additional-mode run. The new request and actual attendance are
 recorded once, with a fresh 900-second window and the existing single
 300-second close-only reconciliation. Prior-closure/claim drift, new parent
 journal activity or lack of fresh exact health prevents effects. The original
 request, consumed effects or later health alone do not open this follow-up.
+
+## One prospective user-app cleanup
+
+The operator's new request explicitly names YouTube, Google Play Store,
+Contacts and Clock as unnecessary in the management Android environment.
+After independent review, `user-apps` permits one successor to a closed
+`additional-known` run. Its fixed 31-name `USER_APPS` declaration covers
+consumer UI apps; no arbitrary package list or complement is accepted.
+The historical A90 UI removals are supporting context, not S22 authority.
+The declaration excludes every package attempted by either effectful ancestor,
+including packages restored at reboot. This does not renew previous effects.
+
+Only this mode treats ordinary primary-user `enabled=1` as eligible alongside
+`enabled=0`; hidden, suspended and disabled states remain excluded. Only
+`com.android.vending` is removed from the historical KEEP requirement for this
+mode, in both selection and final checks. GMS/GSF, Contacts provider, DocumentsUI,
+installers, permission controllers, WebView, home/input, settings, ADB/root,
+networking and debugging components retain their protections. My Files and
+Contacts UI are distinct from their retained providers. APEX, system/shared UID,
+persistent and default-component exclusions still apply. Old modes and their
+metadata projections retain their previous behavior.
+
+Entry rederives both ancestors and their completed uninstall/reboot journals.
+The additional predecessor may have its existing `INCOMPLETE` retained closure
+only when every effect succeeded, all immediate removals were observed and
+complete final raw health proves a changed boot, unchanged GPT/capacity/root,
+home/input, safe-mode signal and all initially present KEEP packages. The exact
+package-set difference must equal attempted packages minus the observed
+remaining subset. Its known independently reviewed H0 closure helper is pinned
+as historical evidence and is not executed. Neither its verdict nor any earlier
+record is changed. An uncertain effect or unrelated package loss cannot qualify.
+
+One immutable `user-apps-cleanup-claim.json` under the additional predecessor
+binds the new open and full lineage. Both effectful ancestors' journal lengths,
+tails, closure/source/claim pins are checked before every connected command;
+retired preparations retain their separate empty-journal checks. The same
+900-second foreground limit, attendance and one 300-second close-only read
+remain. This mode has no child and no preparation renewal. Fresh health and
+metadata still determine current eligibility. For this mode only, a complete
+retained final snapshot after successful effects may close a persistence stop
+in H0 as `INCOMPLETE`, with the remaining apps reported and no extra device
+read. This never permits another removal or reboot, nor promotes the result to
+`COMPLETE`. Review this scope if the declaration, exclusions or lineage changes.
 
 ## Effects and final proof
 

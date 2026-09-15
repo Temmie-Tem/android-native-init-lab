@@ -258,7 +258,17 @@ rederived effectful closed predecessor, exact completed-effect journal, full
 healthy changed-boot state and one separate immutable child claim. The qualified
 same-boot read-only transport stop may be resolved for this prospective scope;
 its original `INCOMPLETE` terminal and unproved USB cause stay unchanged.
-No prior effect or budget is renewed, and an additional-mode run has no child.
+No prior effect or budget is renewed. After its independent review, the new
+explicit consumer-UI request adopts the policy's sole `user-apps` successor
+to a closed additional-mode run. Its 31-name declaration excludes all prior
+attempted names, and only Play Store is excepted from historical KEEP. Ordinary
+enabled states 0/1 are eligible only in this mode; providers/services and all
+other runtime exclusions remain. The policy's qualified retained partial
+additional closure preserves its original verdict. Both effectful ancestors'
+pins and journal lengths/tails remain checked before every command. One child
+claim, fresh exact health, the same finite limits and attendance are required;
+user-apps cannot have a child. Its complete retained final health may close a
+persistence stop as incomplete in H0, with no additional device read.
 
 ### G2 exact reservation/Android32 resize and stock initialization
 
