@@ -56,10 +56,11 @@ health sequence. The existing read-only reconciliation proved healthy original
 A/root, unchanged home/input owners, full proposed GPT and 32 GiB capacity.
 The final boot matches the briefly observed post-reboot boot; no extra reboot
 was observed. The formal cleanup result remains `INCOMPLETE` with
-`ANDROID_CLOSED_HEALTHY`; no effect replay or additional cleanup is permitted.
+`ANDROID_CLOSED_HEALTHY`; no effect replay or further work from that claim is permitted.
 Host logs show target-port USB re-enumeration, but its initiating cause remains
-unproved. Resolve the applicable session stop before any prospective device
-effect. The operator reported Android state.
+unproved. The reviewed additional mode below subsequently qualified this exact
+read-only stop for its prospective scope; the old verdict stayed unchanged.
+The operator reported Android state.
 
 Final available space was 31,645,573,120 bytes, 55,156,736 below the pre-cleanup
 observation; no reclaimed-space gain is proved. Four earlier no-effect
@@ -68,30 +69,32 @@ have independent review and 22 passing focused tests. See the
 [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md) for evidence,
 capacity measurements and separate removal/final-health outcomes.
 
-## Current bounded unit — additional historical cleanup
+## Latest additional cleanup — 25 persistent removals, healthy Android
 
-The operator explicitly requested additional cleanup. The prospective
-`additional-known` mode uses only the four successful removal blocks in the
+The operator explicitly requested additional cleanup. The reviewed
+`additional-known` mode used only the four successful removal blocks in the
 [same-FYG8 extra report](docs/reports/S22PLUS_SYSTEM_APP_EXTRA_DEBLOAT_2026-07-06.md):
 38 historical resources, overlays and platform utilities. Existing keep,
 APEX, system/shared-UID, persistent/default and customized-state exclusions
-remain. Retained inventory gives 29 preliminary candidates and nine exclusions;
-fresh metadata must decide the actual set.
+were retained. Fresh metadata selected 29 and excluded nine. All 29 uninstalls
+and their immediate post-states succeeded, followed by one ordinary reboot.
+Four navigation overlays reappeared; 25 newly selected packages remained absent.
+The formal result is `INCOMPLETE / ANDROID_CLOSED_HEALTHY`, with no replay.
 
-The new mode has one independent child claim and a new 900-second window after
-rederiving the complete prior effects, sole planned reboot and exact healthy
-same-post-reboot reconciliation. This qualifies prospective work under common
-boundary 7 without upgrading the old terminal or proving the USB initiating
-cause. No old action is replayed. The additional safe-mode property check is a
-reported health signal, not complete proof of all Android UI behavior.
+The complete final raw snapshot proves changed boot, exact original-A/root,
+unchanged full GPT/capacity/home/input, and all 118 initially present system
+keep packages. The safe-mode property was empty; this is a limited reported
+signal. H0 publication reused this complete final evidence without another
+device command or reconciliation session. The additional claim is closed and
+has no child; the original cleanup terminal remains unchanged.
 
-H0 implementation has 28 passing focused tests and changed-closure independent
-PASS_GO. Fresh preparation and effects are next. Completion means the newly
-selected user-0 packages are absent, one planned reboot is accounted for, and
-the final original-A/root, keep set, home/input, GPT and capacity are verified.
-Any stopped execution retains its existing bounded read-only reconciliation.
-No raw APK deletion, additional-mode descendant, GPT effect or Debian staging
-is in this unit.
+Smart Switch had reappeared before this run began. Current system packages are
+415 versus the original 465: 50 currently absent in total. This run itself went
+440 -> 411 immediately -> 415 after reboot. Available space is 31,510,704,128
+bytes, 34,955,264 above its own starting observation; no causal allocation
+breakdown is proved. The 28 tests and independent source/terminal reviews passed.
+See the [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md).
+Native storage remains unformatted; no raw APK deletion or Debian staging occurred.
 
 ## Debian direction and next storage unit
 

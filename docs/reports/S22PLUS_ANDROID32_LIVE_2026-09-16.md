@@ -8,6 +8,11 @@ rooted Android after one read-only reconciliation. Its formal result remains
 `INCOMPLETE` because USB disappeared during the first final-health check.
 A90 and S20+ were untouched.
 
+The additional mode is also closed `INCOMPLETE / ANDROID_CLOSED_HEALTHY`:
+25 newly selected packages remain absent after its reboot and four navigation
+overlays reappeared. Smart Switch reappeared between the two runs, so the current
+system-package count is 415 versus the original 465, or 50 currently absent.
+
 ## G2 result and canonical timeline
 
 The actual operator returned the exact 7200-second/two-operation approval and
@@ -270,5 +275,77 @@ loss stopping the batch before its planned reboot. Every additional-mode
 snapshot checks the initially present keep set using the retained census.
 Independent changed-closure review passed with no blocking findings. The app
 closure has 60 sources, with 54 V3 execution and 156 unchanged native-runtime
-sources independently checked. Fresh preparation is still required before
-this new scope's effects.
+sources independently checked. The subsequent fresh preparation and effects
+are recorded below.
+
+## Additional cleanup live result
+
+The separately claimed additional run used source commit
+`10419a84e6730c3999ab1b2b45ed1b053d23cb1f`, the actual new operator request and
+a fresh 900-second window. Fresh metadata selected 29 of the historical 38;
+five APEX-contained packages and four other system/shared-UID packages were
+excluded. All 29 version-bound user-0 uninstalls returned success and each
+immediate post-state proved absence. No prior uninstall was replayed.
+
+One ordinary reboot had its unique intent, successful request and bounded USB
+departure. All six full health brackets across inventory, pre-reboot and final
+snapshots rederive. The final state has numeric UID/GID 0, exact original-A and
+supporting digests, changed boot, unchanged GPT and total capacity, unchanged
+home/input owners and all 118 initially present system keep packages. The
+additional safe-mode property was empty. No transport failure occurred in this
+run's final snapshot.
+
+Four selected navigation overlays were present again after reboot:
+
+- `com.android.internal.systemui.navbar.transparent`
+- `com.samsung.internal.systemui.navbar.gestural_no_hint`
+- `com.samsung.internal.systemui.navbar.sec_gestural`
+- `com.samsung.internal.systemui.navbar.sec_gestural_no_hint`
+
+Thus 25 selected removals persisted. The runner stopped on its required empty
+remaining-set assertion after publishing the complete final snapshot. Its
+62-row journal contains 30 intent/completion pairs, one start and one stop.
+The stop occurred 182.333 seconds after open. This is an observed negative
+persistence result, not an uncertain uninstall or failed Android health check.
+The re-registration mechanism was not traced; those effects were not repeated.
+
+The already complete final evidence permitted H0-only incomplete closure.
+Independent review verified the private publisher with device-acquisition and
+USB functions made unavailable. It rederived the exact raw uninstall/reboot
+results, journal joins, complete final health and package-set change before
+publishing `INCOMPLETE / ANDROID_CLOSED_HEALTHY`, four remaining names,
+`cleanup_replay_permitted=false` and conservatively `reboot_verified=false`.
+No read-only reconciliation window or additional device command was opened.
+The terminal retains the H0 publisher's source pin and original run snapshot.
+
+Smart Switch (`com.sec.android.easyMover`) was the sole package to reappear
+between the first cleanup's reconciliation and this run's initial inventory.
+The additional run therefore started with 440 system packages, reached 411
+immediately, and ended at 415. Exactly 25 names were lost during this run and
+none were newly added relative to its own start. Compared with the original
+465-name inventory, exactly 50 names are now absent. The original run's
+point-in-time 26-removal evidence and terminal remain unchanged.
+
+| Additional-run `/data` observation | Bytes |
+| --- | ---: |
+| Available before cleanup | 31,475,748,864 |
+| Available after reboot | 31,510,704,128 |
+| Free after reboot | 31,644,921,856 |
+| Available change | +34,955,264 |
+
+This is an observed change across cleanup and reboot, without causal allocation
+accounting. The 32 GiB userdata geometry and unformatted 191.4580078125 GiB native
+partition remain unchanged.
+
+Private evidence is under
+`workspace/private/runs/s22plus-android-minimal-v1/p398-additional38-20260916-1/`.
+The 33,206-byte source manifest has SHA-256
+`aa68ba81b3887e1128ab96e4cfe44ae0576532b4ff13b4a3d492e18b442ce958`.
+The 1,323-byte final snapshot has SHA-256
+`1d8904f8ff6a49dd53f9af0721daf4916e2b5937854985caa0fa9e255bdf9a7b`.
+The 1,178-byte terminal has SHA-256
+`ef114b0551a9aa43f8fea64a5195faa91ac80e7e7a3972b30ac664f8fee856a3`.
+Its 5,195-byte H0 publisher has SHA-256
+`ef96d44b8d2a7566a9d3222cd04b6e2bc37a8807fbfc60995d21503c8ff3e1a4`.
+The additional claim grants no descendant, replay, raw APK deletion, new GPT
+action or Debian staging. A90 and S20+ remained untouched.
