@@ -58,6 +58,20 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(minimal.component('priority=0\n'+HOME+'/.Home\n'),HOME)
         with self.assertRaises(ValueError):minimal.component('null\n')
 
+    def test_framework_and_apex_rows_are_inventory_only(self):
+        framework=listing(name='android',uid=1000).replace('/system/app/Optional/base.apk',
+            '/system/framework/framework-res.apk')
+        apex=listing(name='com.android.bluetooth',uid=1002).replace('/system/app/Optional/base.apk',
+            '/apex/com.android.btservices/app/Bluetooth@fixture/Bluetooth.apk')
+        rows=minimal.packages(framework+apex)
+        self.assertEqual(set(rows),{'android','com.android.bluetooth'})
+        self.assertEqual(minimal.selection(rows,{},HOME,IME)['selected'],[])
+        row=minimal.package_metadata(dump(),minimal.packages(listing())[NAME])
+        row['path']='/apex/com.fixture/app/Optional/base.apk'
+        result=minimal.selection({NAME:row},{NAME:row},HOME,IME)
+        self.assertEqual(result['selected'],[])
+        self.assertEqual(result['excluded'][NAME],'required-component')
+
 
 class RunTests(unittest.TestCase):
     def setUp(self):
@@ -226,7 +240,9 @@ sys.stdout.buffer.write(base64.b64decode(data))
         closed_pin=records.publish(self.folder/'closed.json',closed)
         task_pin=records.publish(self.folder/'task.json',self.run.task)
         original=self.folder/'original-source';original.write_text('source')
-        review=records.publish(self.folder/'review.json',dict(sources=[records.pin(original)]))
+        review=records.publish(self.folder/'review.json',dict(schema=minimal.SCHEMA+'-review',
+            verdict='PASS_GO',scope='FIXED_OPTIONAL_PRIMARY_USER_CLEANUP',findings=[],reviewer='fixture',
+            sources=[records.pin(original)]))
         base=self.folder/'source-snapshot';base.mkdir()
         rows=[]
         for number,item in enumerate([records.pin(original),review]):
@@ -254,6 +270,82 @@ sys.stdout.buffer.write(base64.b64decode(data))
             with self.assertRaisesRegex(ValueError,'outside its snapshot'):minimal.Run(self.root,self.folder)
         with mock.patch.object(minimal.census,'closed_android',side_effect=ValueError('closure incomplete')):
             with self.assertRaisesRegex(ValueError,'closure incomplete'):minimal.Run(self.root,self.folder)
+
+    def inventory_stop_fixture(self):
+        directory=self.root/'workspace/private/parser-stop';directory.mkdir()
+        task_dir=self.root/'workspace/private/g2';task_dir.mkdir()
+        task=copy.deepcopy(self.run.task)
+        task['A']['ap']=records.pin(self.program)
+        task_pin=records.publish(task_dir/'task.json',task)
+        closed=records.publish(task_dir/'closed.json',dict(gpt=dict(
+            status='RESERVED_ANDROID_REBOOT_VERIFIED',geometry=self.run.basis['geometry'])))
+        source=self.root/'workspace/public/src/scripts/revalidation/s22plus_android_minimal_v1.py'
+        source.parent.mkdir(parents=True);source.write_text('# reviewed old parser fixture\n')
+        review=records.publish(task_dir/'review.json',dict(schema=minimal.SCHEMA+'-review',verdict='PASS_GO',
+            scope='FIXED_OPTIONAL_PRIMARY_USER_CLEANUP',findings=[],reviewer='fixture',sources=[records.pin(source)]))
+        snapshot=minimal.census.snapshot_current(self.root,directory/'source-snapshot',review)
+        now=records.clock()
+        opened=records.publish(directory/'open.json',dict(schema=minimal.SCHEMA,mode='minimal-management',
+            task=task_pin,closed=closed,review=review,operator_statement='fixture cleanup',
+            host_boot=records.host_boot(),opened_ns=now,deadline_ns=now+900_000_000_000,source_snapshot=snapshot))
+        records.publish(task_dir/'android-minimal-claim.json',dict(schema=minimal.SCHEMA+'-claim',
+            task=task_pin,closed=closed,open=opened))
+        records.Journal(directory/'journal')
+        inv=directory/'inventory';inv.mkdir()
+        value=minimal.target.health_projection(self.fixture.captures(),task['target'],task['A'])
+        for name in ('before','after'):
+            (inv/name).mkdir();records.publish(inv/name/'health.json',value)
+        framework=listing(name='android',uid=1000).replace('/system/app/Optional/base.apk',
+            '/system/framework/framework-res.apk')
+        minimal.raw.publish_captured_bytes(inv,'current-user',stdout=b'0\n',stderr=b'',returncode=0)
+        minimal.raw.publish_captured_bytes(inv,'system-packages',stdout=(listing()+framework).encode(),stderr=b'',returncode=0)
+        return directory,task,task_pin,closed,review,records.pin(source)['sha256']
+
+    def test_no_effect_retirement_allows_one_claimed_successor_and_preserves_old_open(self):
+        directory,task,task_pin,closed,review,source_sha=self.inventory_stop_fixture()
+        old_open=(directory/'open.json').read_bytes()
+        old_claim=(Path(task_pin['path']).parent/'android-minimal-claim.json').read_bytes()
+        with mock.patch.object(minimal,'INVENTORY_PARSER_V1_SHA256',source_sha), \
+                mock.patch.object(minimal,'review',return_value=review), \
+                mock.patch.object(minimal.census,'closed_android',return_value=(task,closed)):
+            retired=minimal.retire_inventory(self.root,directory)
+            self.assertEqual(records.read(records.verify(retired))['cleanup_effect_intents'],0)
+            with self.assertRaisesRegex(ValueError,'preparation is retired'):
+                minimal.Run(self.root,directory).check()
+            def inventory(run,folder):
+                folder.mkdir();return records.publish(folder/'result.json',dict(selection=dict(selected=[])))
+            successor=self.root/'workspace/private/successor'
+            with mock.patch.object(minimal.Run,'inventory',new=inventory):
+                minimal.prepare(self.root,Path(task_pin['path']),successor,
+                    operator_statement='fixture cleanup',attended=True,replace_inventory=Path(retired['path']))
+                with self.assertRaisesRegex(ValueError,'replacement is already claimed'):
+                    minimal.prepare(self.root,Path(task_pin['path']),self.root/'workspace/private/third',
+                        operator_statement='fixture cleanup',attended=True,replace_inventory=Path(retired['path']))
+            self.assertEqual((directory/'open.json').read_bytes(),old_open)
+            self.assertEqual((Path(task_pin['path']).parent/'android-minimal-claim.json').read_bytes(),old_claim)
+            records.Journal(directory/'journal').append('started',fixture=True)
+            with self.assertRaisesRegex(ValueError,'execution or reconciliation'):
+                minimal.Run(self.root,successor)
+
+    def test_inventory_retirement_rejects_unsuccessful_raw_or_any_execution_start(self):
+        directory,task,task_pin,closed,review,source_sha=self.inventory_stop_fixture()
+        with mock.patch.object(minimal,'INVENTORY_PARSER_V1_SHA256',source_sha), \
+                mock.patch.object(minimal.census,'closed_android',return_value=(task,closed)):
+            minimal.inventory_no_effect_projection(self.root,directory)
+            (directory/'journal').rmdir()
+            with self.assertRaisesRegex(ValueError,'journal is missing'):
+                minimal.inventory_no_effect_projection(self.root,directory)
+            self.assertFalse((directory/'journal').exists())
+            (directory/'journal').mkdir()
+            for suffix in ('.capture.json','.stdout.bin','.stderr.bin'):
+                (directory/'inventory'/('current-user'+suffix)).unlink()
+            minimal.raw.publish_captured_bytes(directory/'inventory','current-user',
+                stdout=b'0\n',stderr=b'failed\n',returncode=1)
+            with self.assertRaises(minimal.raw.RawCaptureError):
+                minimal.inventory_no_effect_projection(self.root,directory)
+            records.Journal(directory/'journal').append('intent',key=NAME,kind='uninstall',detail={})
+            with self.assertRaisesRegex(ValueError,'execution or reconciliation'):
+                minimal.inventory_no_effect_projection(self.root,directory)
 
 
 if __name__=='__main__':unittest.main()

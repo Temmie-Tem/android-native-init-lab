@@ -21,6 +21,22 @@ One immutable claim in that closed G2 task binds its unique cleanup open before
 inventory. A different output directory cannot renew time or retry this task's
 cleanup; after a stop only the original open's reconciliation remains available.
 
+The known first-version inventory parser's rejection of canonical `/apex/`
+APK paths or the framework package `android` is a preparation-only exception.
+An H0 retirement must rederive its saved reviewed source, completed successful
+current-user/package-list captures, exact same-boot rooted health before/after,
+empty journal and absence of execution/reconciliation artifacts. It preserves
+the original open/claim and publishes one immutable no-effect inventory close.
+After the parser and this continuation are independently reviewed, the same
+explicit foreground request permits exactly one fresh 900-second preparation,
+linked by a separate immutable replacement claim to that retired preparation.
+The original can no longer execute. Any execution start or effect intent,
+unsuccessful/uncertain raw read, changed health, different request/host, or an
+existing replacement blocks this exception. No failed command is retried and
+no consumed cleanup effect or G2 budget is renewed. This exception is confined
+to that known parser source and is reviewed if its source or replacement graph
+changes; after its single replacement, ordinary stop/reconciliation rules apply.
+
 D0 reads only Package Manager's installed-system-app list, metadata of the
 fixed optional-package declaration, current primary user, default home/input
 components, fixed `/data` statfs and the existing full-GPT read. It exports no
@@ -30,7 +46,7 @@ failed input produces no uninstall plan. The selected manifest is rederived
 from retained raw inventory before effects and is not a caller package list.
 
 Candidates are limited to the runner's closed optional-app declaration. The
-manifest excludes shared UIDs, system/service UIDs below 10000, persistent or
+manifest excludes APEX/framework packages, shared UIDs, system/service UIDs below 10000, persistent or
 required components, default home/input owners and already customized/disabled
 user state. Settings, home, keyboard, files, networking, package/permission
 management, ADB and Magisk remain available. No wildcard or caller shell, raw

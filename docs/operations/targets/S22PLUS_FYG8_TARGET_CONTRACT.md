@@ -238,6 +238,11 @@ attended and each intent is nonreplayable. The profile cannot reopen G2, write
 GPT, format a filesystem, stage Debian, touch another target or change required
 Android/root/connectivity components. Until its source review passes, this
 adoption is H0 only.
+The common-incorporated known android/APEX inventory-parser preparation
+exception is adopted only with its rederived H0 no-effect retirement and one
+immutable replacement claim. It permits one fresh reviewed preparation under
+the original explicit request, never replacement after an execution start,
+effect intent or unsuccessful/uncertain raw command. Old records remain unchanged.
 
 ### G2 exact reservation/Android32 resize and stock initialization
 

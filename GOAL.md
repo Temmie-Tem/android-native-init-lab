@@ -1,85 +1,67 @@
 # Goal: S22+ Debian on native storage
 
 Build a usable Debian arm64 environment on dedicated native storage, following
-the operator's A90-style direction. The selected prospective allocation is
-32 GiB Android userdata and approximately 191.458 GiB native storage; the
-completed device layout below still has 128 GiB native storage. Start from the FYG8
+the operator's A90-style direction. The actual current allocation is **32 GiB
+Android userdata and 191.4580078125 GiB native storage**. Start from the FYG8
 vendor kernel and native hardware bring-up, retaining observable native
 control and bounded recovery while Debian execution is qualified.
 This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Latest completed unit — storage reservation
+## Latest completed unit — Android32 layout and rooted return
 
-**128 GiB native storage is reserved, and rooted Android is retained.** The
-operator-authorized G2 run reduced userdata to 95.4580078125 GiB, created the
-128 GiB `native_data` entry, preserved the other 39 entries, and initialized
-Android through the unchanged stock recovery. Native storage remains unformatted.
+P398 `v0.3.0-rc.2` completed the exact successor to P397's 128 GiB reservation.
+Two fresh native installations/four healthy sessions and an actual original-GPT
+read preceded one four-block apply. A physical restart proved the new extents;
+one stock reset produced the expected reduced F2FS geometry. Original Magisk A
+was installed once. Native storage remains unformatted.
 
-P397 `v0.3.0-rc.1` completed two-installation/four-session native admission and
-actual complete original-GPT read qualification. One apply wrote four metadata
-blocks with synchronized full readback. Fresh native boots proved the proposed
-GPT and kernel geometry both before and after the single stock factory reset.
-The existing exact Magisk A was installed once.
+Rooted Android checks before and after one ordinary reboot proved identical
+complete GPT, `/data` statfs total 34,357,624,832 bytes, a different Android boot,
+and numeric UID/GID 0 with exact original-A/supporting partition digests.
+The feature is `RESERVED_ANDROID_REBOOT_VERIFIED` with
+`PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT`; terminal is
+`ANDROID_CLOSED_HEALTHY`, `recovered=false`.
 
-Android Device Care displayed 128 GB in the operator photograph. Machine reads
-before and after the single planned ordinary Android reboot proved identical
-complete GPT, the 128 GiB native entry, `/data` statfs total 102,495,141,888 bytes,
-and numeric UID/GID 0 with exact A/supporting partition hashes.
-The final verdict is `RESERVED_ANDROID_REBOOT_VERIFIED` with
-`PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT` and `ANDROID_CLOSED_HEALTHY`.
+The 7200-second/two-operation grant closed after 896.104 seconds with both
+operations consumed and no F1 owner. There was no GPT restoration, restorative
+reset, recovery transfer or repeated A. The prospective missing-su setup
+exception was not needed. P397's consumed result and its distinct earlier
+health-only recovery remain unchanged.
 
-The initial root probe returned missing-su rc127 during operator setup. A later
-rooted health bracket passed; a setup-period boot change was observed without
-assigning its cause. A separately reviewed fixed completion entry preserved the
-original stop and sources and issued only the remaining planned checks/reboot.
-The first final-health attempt lost ADB before its root command. Existing
-health-only recovery then supplied the complete final proof. The terminal
-therefore retains `recovered=true`; neither failed read was relabelled.
+Device Care's photographed 64 GB total is a presentation observation. Actual
+32 GiB GPT and filesystem geometry are proved; measured free space was about
+31.82 decimal GB. The upstream Android sum-and-round capacity calculation is
+consistent with the label, but the exact Samsung UI call path was not traced.
+No arbitrary smaller partition size is qualified by this result.
 
-The original 7200-second/two-operation grant is closed after 3193.642 seconds,
-with both operations consumed and no F1 owner. There was no GPT restoration,
-restorative reset, extra native recovery installation or repeated A transfer.
-No standing grant or further format/partition authority remains.
+See the [live result and canonical timeline](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md),
+[H0 preparation](docs/reports/S22PLUS_ANDROID32_AND_MINIMAL_ANDROID_H0_2026-09-16.md),
+and [G2 policy](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
+The preceding [P397 result](docs/reports/S22PLUS_NATIVE_GPT_128G_LIVE_2026-09-15.md)
+is retained as the successor's original-layout provenance.
 
-See the [live result and canonical timeline](docs/reports/S22PLUS_NATIVE_GPT_128G_LIVE_2026-09-15.md),
-[layout and H0 qualification](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md),
-and [G2 scope](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
+## Current bounded unit — minimal Android cleanup
 
-## Debian direction and next bounded unit
+The operator selected minimal management/return Android and unused optional-app
+cleanup. The first [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
+read completed, but its host parser rejected 26 APEX APK rows and the framework
+package `android`. Both rooted health brackets passed on the same boot; the
+journal is empty and no uninstall/reboot occurred.
 
-The operator selected 32 GiB Android userdata for a minimal management/return
-environment, with unused apps cleaned up after Android reinitialization. The
-last retained final-health snapshot reported 2,806,255,616 bytes (about
-2.614 GiB) used in `/data`; this is an initialization-time observation, not
-qualification of a smaller filesystem or a prediction of long-term usage.
-Keeping the current combined userdata/native extent gives approximately
-191.458 GiB for Debian. These sizes describe actual partitions, not Samsung's
-rounded storage-UI labels.
+The parser correction and one no-effect preparation replacement now have
+independent source-bound review and 13 passing tests. Original evidence/claim
+remain immutable. Any execution start, effect intent, unsuccessful raw command,
+missing journal or previous replacement prevents this exception. The original
+explicit foreground request supplies scope; effects remain attended. The next
+step is the one repaired inventory, fixed optional-package removal and final
+reboot/GPT/capacity/root proof. Report actual reclaimed space and any incomplete
+cleanup separately. Settings, home/input, files, connectivity, ADB and Magisk
+are preserved. No cleanup effect is authorized by this goal itself.
 
-P398 `v0.3.0-rc.2` now passes H0 construction of that exact successor, the
-actual ARM64 stock-formatter geometry check and byte-identical A/B image/AP
-qualification. It starts from the closed P397 GPT and preserves the existing
-native identity. The [preparation report](docs/reports/S22PLUS_ANDROID32_AND_MINIMAL_ANDROID_H0_2026-09-16.md)
-records its setup, recovery and validation scope. A fresh finite attended G2
-grant and actual new-endpoint read qualification still precede any new device
-effect. Qualify reduced Android capacity, rooted return and reboot persistence
-before native filesystem use. The consumed P397 grant cannot implement this successor.
+## Debian direction and next storage unit
 
-App cleanup will follow fresh package/dependency and storage inventory. Select
-unused optional apps through Android package management, preserving required
-system components, settings, connectivity, ADB and Magisk. Distinguish package
-disablement from deletion of app updates/data/cache, and measure actual `/data`
-space reclaimed; disabling a system APK does not resize its source partition.
-The separate [fixed optional-app profile](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
-binds the existing explicit cleanup request, independent source review, one
-cleanup open per closed Android32 task and actual attendance. It follows the
-proved G2 closure and measures final capacity/root after one ordinary reboot.
-An uncertain uninstall or reboot never replays. No app inventory or cleanup
-device effect has yet occurred, and this goal grants no device authority.
-
-Prepare the Debian storage structure alongside this layout design.
 Ext4 is the first candidate: check the exact FYG8 kernel features, arm64
 formatter and mount behavior, then define one bounded format/mount/write
 experiment. Its functional criterion is a small synchronized test file that

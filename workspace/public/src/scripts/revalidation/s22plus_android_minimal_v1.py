@@ -23,6 +23,9 @@ from s22plus_native_records_v3 import (Journal,clock,digest,host_boot,pin,privat
 SCHEMA='s22plus-android-minimal-v1'
 POLICY='docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md'
 REVIEW='workspace/public/src/device-action/bindings/s22plus_android_minimal_v1_review.json'
+INVENTORY_PARSER_V1_SHA256='ae5f052259cd98fd554addfcacf998bbd437ef1fc13c2e90c42e46f1ebf54120'
+OPEN_FIELDS={'schema','mode','task','closed','review','operator_statement','host_boot',
+    'opened_ns','deadline_ns','source_snapshot'}
 # Optional consumer apps only. Frameworks, stores, browsers, telephony, providers,
 # SystemUI, settings, input, files, connectivity, GMS/WebView and root are absent.
 OPTIONAL=(
@@ -72,8 +75,8 @@ def packages(text):
         fields=line.split();require(len(fields)==3 and fields[0].startswith('package:'),
             'Package Manager list row differs')
         path,separator,name=fields[0][8:].rpartition('=')
-        require(separator and PACKAGE.fullmatch(name) and name not in rows
-            and path.startswith(('/system/','/product/','/system_ext/','/vendor/','/data/app/'))
+        require(separator and (PACKAGE.fullmatch(name) or name=='android') and name not in rows
+            and path.startswith(('/system/','/product/','/system_ext/','/vendor/','/data/app/','/apex/'))
             and Path(path).as_posix()==path and '..' not in Path(path).parts and path.endswith('.apk'),
             'Package Manager path/name differs')
         values={}
@@ -128,7 +131,7 @@ def selection(all_packages,metadata,home,ime):
     for name in OPTIONAL:
         if name not in all_packages:continue
         row=metadata[name]
-        reason=('required-component' if name in (home,ime) else
+        reason=('required-component' if name in (home,ime,'android') or row['path'].startswith('/apex/') else
             'system-or-shared-uid' if row['uid']<10000 or counts[row['uid']]!=1 or row['shared_uid'] else
             'persistent-component' if row['persistent'] else
             'customized-or-disabled-user-state' if not row['ordinary_primary_user'] else None)
@@ -136,6 +139,89 @@ def selection(all_packages,metadata,home,ime):
         else:selected.append(row)
     return dict(selected=selected,excluded=excluded,home=home,ime=ime,
         declared_optional_count=len(OPTIONAL),installed_system_count=len(all_packages))
+
+
+def saved_sources(root,directory,opened):
+    """Verify historical review through its saved bytes, not its moving path."""
+    snapshot=read(verify(opened['source_snapshot']))
+    base=private_path(root,verify(opened['source_snapshot'])).parent
+    require(base==Path(directory)/'source-snapshot'
+        and snapshot['schema']=='s22plus-native-v3-source-snapshot-v1'
+        and snapshot['review']==opened['review'],'cleanup source snapshot review differs')
+    for row in snapshot['sources']:
+        require(private_path(root,row['snapshot']['path']).is_relative_to(base),
+            'cleanup saved source is outside its snapshot')
+        verify(row['snapshot'])
+        require(all(row['snapshot'][k]==row['original'][k] for k in ('size','sha256')),
+            'cleanup preserved source bytes differ')
+    copies=[row['snapshot'] for row in snapshot['sources'] if row['original']==opened['review']]
+    require(len(copies)==1,'cleanup snapshot has no unique saved review')
+    saved=read(verify(copies[0]))
+    require(saved['schema']==SCHEMA+'-review' and saved['verdict']=='PASS_GO'
+        and saved['scope']=='FIXED_OPTIONAL_PRIMARY_USER_CLEANUP' and saved['findings']==[]
+        and [row['original'] for row in snapshot['sources']]==saved['sources']+[opened['review']],
+        'cleanup source snapshot omits reviewed sources')
+    return snapshot
+
+
+def existing_empty_journal(root,directory):
+    path=Path(directory)/'journal'
+    require(path.is_dir(),'original cleanup journal is missing')
+    path=private_path(root,path)
+    return not Journal(path).rows()
+
+
+def inventory_no_effect_projection(root,directory):
+    """H0 proof of the known successful-read, android/APEX parser-only stop."""
+    directory=private_path(root,directory);opened=read(directory/'open.json')
+    require(set(opened)==OPEN_FIELDS and opened['schema']==SCHEMA and opened['mode']=='minimal-management'
+        and opened['deadline_ns']==opened['opened_ns']+900_000_000_000,
+        'old inventory open differs')
+    require(existing_empty_journal(root,directory)
+        and {p.name for p in directory.iterdir()}<=
+            {'open.json','source-snapshot','journal','inventory','inventory-no-effect-close.json'},
+        'inventory retirement found execution or reconciliation activity')
+    folder=directory/'inventory'
+    expected={'before','after'}|{name+suffix for name in ('current-user','system-packages')
+        for suffix in ('.capture.json','.stdout.bin','.stderr.bin')}
+    require({p.name for p in folder.iterdir()}==expected,'inventory stopped outside the exact list-parser stage')
+    snapshot=saved_sources(root,directory,opened)
+    source=str(Path(root)/'workspace/public/src/scripts/revalidation/s22plus_android_minimal_v1.py')
+    require(any(row['original']['path']==source and row['original']['sha256']==INVENTORY_PARSER_V1_SHA256
+        for row in snapshot['sources']),'retirement source is not the known inventory parser')
+    task,closed=census.closed_android(root,opened['task']['path'])
+    require(read(verify(opened['task']))==task and closed==opened['closed']
+        and read(verify(closed))['gpt']['status']=='RESERVED_ANDROID_REBOOT_VERIFIED',
+        'retired inventory lacks its closed Android32 task')
+    claim=pin(Path(opened['task']['path']).parent/'android-minimal-claim.json')
+    require(read(verify(claim))==dict(schema=SCHEMA+'-claim',task=opened['task'],
+        closed=closed,open=pin(directory/'open.json')),'retired inventory is not the original claim')
+    before=read(folder/'before/health.json');after=read(folder/'after/health.json')
+    for health in (before,after):
+        require(target.health_projection(health['captures'],task['target'],task['A'])==health,
+            'retired inventory health does not rederive')
+    require(before['properties']==after['properties'],'retired inventory Android boot changed')
+    user=raw.load_handle(folder/'current-user.capture.json')
+    require(raw.decode_success_stdout(user,maximum=131072).strip()=='0','retired inventory primary user differs')
+    listed=raw.load_handle(folder/'system-packages.capture.json')
+    rows=packages(raw.decode_success_stdout(listed,maximum=131072))
+    gaps=[row for row in rows.values() if row['name']=='android' or row['path'].startswith('/apex/')]
+    require(gaps,'known android/APEX inventory parser gap is absent')
+    return dict(schema=SCHEMA+'-inventory-no-effect-close',status='RETIRED_NO_CLEANUP_EFFECTS',
+        open=pin(directory/'open.json'),claim=claim,closed=closed,source_snapshot=opened['source_snapshot'],
+        before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'),
+        current_user=pin(user.receipt_path),system_packages=pin(listed.receipt_path),
+        parsed_rows=len(rows),old_parser_rejected_rows=len(gaps),cleanup_effect_intents=0)
+
+
+def retire_inventory(root,directory):
+    root=Path(root).resolve();directory=private_path(root,directory)
+    with registry.target_session_lease(root):
+        registry.require_no_f1_owner(root);review(root)
+        value=inventory_no_effect_projection(root,directory)
+        path=directory/'inventory-no-effect-close.json'
+        if path.exists():require(read(path)==value,'inventory retirement changed');return pin(path)
+        return publish(path,value)
 
 
 class BoundedAndroid(target.Android):
@@ -152,8 +238,7 @@ class Run:
     def __init__(self,root,directory,*,recovering=False):
         self.root=Path(root).resolve();self.directory=private_path(self.root,directory)
         self.opened=read(self.directory/'open.json');self.open_pin=pin(self.directory/'open.json')
-        require(set(self.opened)=={'schema','mode','task','closed','review','operator_statement','host_boot',
-            'opened_ns','deadline_ns','source_snapshot'}
+        require(set(self.opened)==OPEN_FIELDS
             and self.opened['schema']==SCHEMA and self.opened['mode']=='minimal-management'
             and type(self.opened['opened_ns']) is int and self.opened['opened_ns']>0
             and self.opened['deadline_ns']==self.opened['opened_ns']+900_000_000_000
@@ -161,28 +246,29 @@ class Run:
             and 0<len(self.opened['operator_statement'].strip())<=4096,
             'Android-minimal open differs')
         self.task=read(verify(self.opened['task']));self.journal=Journal(self.directory/'journal')
-        claim=read(Path(self.opened['task']['path']).parent/'android-minimal-claim.json')
-        require(claim==dict(schema=SCHEMA+'-claim',task=self.opened['task'],
-            closed=self.opened['closed'],open=self.open_pin),
-            'cleanup is not the unique claimed open for this closed task')
+        primary=pin(Path(self.opened['task']['path']).parent/'android-minimal-claim.json')
+        claim=read(verify(primary));self.claim_pins=[primary];self.predecessor=None
+        if claim['open']==self.open_pin:
+            require(claim==dict(schema=SCHEMA+'-claim',task=self.opened['task'],
+                closed=self.opened['closed'],open=self.open_pin),'cleanup original claim differs')
+        else:
+            replacement=pin(Path(primary['path']).with_name('android-minimal-inventory-replacement-claim.json'))
+            value=read(verify(replacement));retired=read(verify(value['retired_inventory']))
+            self.predecessor=Path(retired['open']['path']).parent
+            require(retired==inventory_no_effect_projection(self.root,self.predecessor)
+                and value==dict(schema=SCHEMA+'-inventory-replacement-claim',original_claim=primary,
+                    retired_inventory=pin(self.predecessor/'inventory-no-effect-close.json'),
+                    task=self.opened['task'],closed=self.opened['closed'],open=self.open_pin),
+                'cleanup replacement does not join its no-effect preparation')
+            old=read(verify(retired['open']))
+            require(old['operator_statement']==self.opened['operator_statement']
+                and old['host_boot']==self.opened['host_boot'],'replacement changed its foreground request/host')
+            self.claim_pins.extend([replacement,value['retired_inventory']])
         closed_task,closed=census.closed_android(self.root,self.opened['task']['path'])
         require(closed_task==self.task and closed==self.opened['closed']
             and read(verify(closed))['gpt']['status']=='RESERVED_ANDROID_REBOOT_VERIFIED',
             'cleanup requires a rederived completed Android32 G2 task')
-        snapshot=read(verify(self.opened['source_snapshot']))
-        base=private_path(self.root,verify(self.opened['source_snapshot'])).parent
-        require(base==self.directory/'source-snapshot'
-            and snapshot['schema']=='s22plus-native-v3-source-snapshot-v1'
-            and snapshot['review']==self.opened['review'],'cleanup source snapshot review differs')
-        saved=read(verify(self.opened['review']))
-        require([row['original'] for row in snapshot['sources']]==saved['sources']+[self.opened['review']],
-            'cleanup source snapshot omits reviewed sources')
-        for row in snapshot['sources']:
-            require(private_path(self.root,row['snapshot']['path']).is_relative_to(base),
-                'cleanup saved source is outside its snapshot')
-            verify(row['snapshot'])
-            require(all(row['snapshot'][k]==row['original'][k] for k in ('size','sha256')),
-                'cleanup preserved source bytes differ')
+        saved_sources(self.root,self.directory,self.opened)
         self.recovering=recovering
         self.deadline_ns=self.opened['deadline_ns']
         if recovering:
@@ -197,6 +283,10 @@ class Run:
         self.basis=dict(layout='proposed',geometry=read(verify(self.opened['closed']))['gpt']['geometry'])
 
     def check(self,*,reserve=0):
+        require(not (self.directory/'inventory-no-effect-close.json').exists(),'original inventory preparation is retired')
+        for receipt in self.claim_pins:verify(receipt)
+        if self.predecessor is not None:
+            require(existing_empty_journal(self.root,self.predecessor),'retired preparation gained execution activity')
         require(pin(self.directory/'open.json')==self.open_pin and host_boot()==self.opened['host_boot']
             and clock()+int(reserve*1e9)<self.deadline_ns,'Android-minimal binding or deadline changed')
         require(review(self.root)==self.opened['review'],'Android-minimal review changed')
@@ -451,7 +541,7 @@ class Run:
                 source_snapshot=self.opened['source_snapshot']))
 
 
-def prepare(root,task_path,output,*,operator_statement,attended):
+def prepare(root,task_path,output,*,operator_statement,attended,replace_inventory=None):
     root=Path(root).resolve();require(attended is True and type(operator_statement) is str
         and 0<len(operator_statement.strip())<=4096,'actual minimal-Android request/attendance is required')
     qualified=review(root);task_path=private_path(root,task_path)
@@ -463,13 +553,30 @@ def prepare(root,task_path,output,*,operator_statement,attended):
     with registry.target_session_lease(root):
         registry.require_no_f1_owner(root)
         claim_path=task_path.parent/'android-minimal-claim.json'
-        require(not claim_path.exists(),'this closed G2 task already has a cleanup claim; use its reconciliation')
+        replacement=None
+        if replace_inventory is None:
+            require(not claim_path.exists(),'this closed G2 task already has a cleanup claim; use its reconciliation')
+        else:
+            retired_pin=pin(private_path(root,replace_inventory));retired=read(verify(retired_pin))
+            original=Path(retired['open']['path']).parent
+            require(Path(retired_pin['path'])==original/'inventory-no-effect-close.json'
+                and retired==inventory_no_effect_projection(root,original)
+                and retired['claim']==pin(claim_path),'replacement has no exact no-effect inventory retirement')
+            old=read(verify(retired['open']))
+            require(old['task']==pin(task_path) and old['closed']==closed
+                and old['host_boot']==host_boot() and old['operator_statement']==operator_statement,
+                'replacement changed the closed task, host or original foreground request')
+            replacement=dict(schema=SCHEMA+'-inventory-replacement-claim',original_claim=pin(claim_path),
+                retired_inventory=retired_pin,task=pin(task_path),closed=closed)
+            claim_path=task_path.parent/'android-minimal-inventory-replacement-claim.json'
+            require(not claim_path.exists(),'the one inventory replacement is already claimed')
         output.mkdir(mode=0o700)
         snapshot=census.snapshot_current(root,output/'source-snapshot',qualified)
         now=clock();opened=publish(output/'open.json',dict(schema=SCHEMA,mode='minimal-management',task=pin(task_path),
             closed=closed,review=qualified,operator_statement=operator_statement,host_boot=host_boot(),
             opened_ns=now,deadline_ns=now+900_000_000_000,source_snapshot=snapshot))
-        publish(claim_path,dict(schema=SCHEMA+'-claim',task=pin(task_path),closed=closed,open=opened))
+        publish(claim_path,dict(replacement,open=opened) if replacement is not None else
+            dict(schema=SCHEMA+'-claim',task=pin(task_path),closed=closed,open=opened))
         run=Run(root,output);receipt=run.inventory(output/'inventory')
         return dict(state='READY_FOR_FIXED_CLEANUP',inventory=receipt,
             selected_count=len(read(verify(receipt))['selection']['selected']))
@@ -481,10 +588,13 @@ if __name__=='__main__':
     sub=parser.add_subparsers(dest='action',required=True)
     p=sub.add_parser('prepare');p.add_argument('task',type=Path);p.add_argument('output',type=Path)
     p.add_argument('--operator-statement',required=True);p.add_argument('--attended',action='store_true')
+    p.add_argument('--replace-inventory',type=Path)
     p=sub.add_parser('execute');p.add_argument('directory',type=Path);p.add_argument('--attended',action='store_true')
     p=sub.add_parser('reconcile');p.add_argument('directory',type=Path)
+    p=sub.add_parser('retire-inventory');p.add_argument('directory',type=Path)
     args=parser.parse_args()
     if args.action=='prepare':print(prepare(args.root,args.task,args.output,
-        operator_statement=args.operator_statement,attended=args.attended))
+        operator_statement=args.operator_statement,attended=args.attended,replace_inventory=args.replace_inventory))
     elif args.action=='execute':print(Run(args.root,args.directory).execute(attended=args.attended))
+    elif args.action=='retire-inventory':print(retire_inventory(args.root,args.directory))
     else:print(Run(args.root,args.directory).reconcile())
