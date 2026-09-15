@@ -215,6 +215,81 @@ smaller userdata would require a separately implemented reset/format path.
 Original-A boot recovery alone cannot restore GPT, so it cannot serve as the
 unchanged fallback for a later GPT mutation.
 
+## Exact firmware consumer qualification
+
+The retained FYG8 UEFI contains `PartitionDxe`, 53,248 bytes, SHA-256
+`83796d7a9e368d4422edf7d341321ef6d31bedcdc590d7564b639a1adc74b753`.
+A private ARM64 harness maps this exact PE and its 69 relocations. The stock
+GPT validation, selection and repair code executes under `qemu-aarch64`;
+only EFI allocation/CRC, in-memory disk I/O, child publication and debug
+boundaries are fixtures. No hardware or host block endpoint is opened.
+Independent review corrected the child callback's stack-passed BlockSize to
+32 bits; fresh ABI-v2 execution retains all earlier post-byte results.
+
+The proposed serial order is backup array block, backup header, primary array
+block, primary header. All eight baseline/fault cases and 260 distinct
+per-block prefix states across forward and reverse changes were independently
+checked against raw captures, header/table CRCs, exact full 61,440-byte outputs
+and the 39 unchanged child extents. For early forward interruptions the stock
+code restores the original pair; after the backup is complete and the primary
+array changes, it restores the proposed pair. Both-valid but different tables
+select the primary. Both-invalid headers produce no GPT child publication.
+These are serial byte-prefix models, not a claim of block atomicity or recovery
+from arbitrary media corruption.
+
+Stock repair writes the destination header first, then the entry array, while
+preserving the source copy and the existing backup-array position. It can
+return success and publish children despite a failed repair write and invalid
+primary CRC. Exact bytes and I/O status must therefore determine restoration;
+the EFI return status or child count alone cannot do so. `UFSDxe` FlushBlocks
+returns success without issuing I/O, but its synchronous WriteBlocks path
+sets WRITE(10) FUA and checks request/SCSI completion. The no-op FlushBlocks
+is not evidence that these writes lack durability semantics. This agrees with
+the [Linux FUA description](https://www.kernel.org/doc/html/latest/block/writeback_cache_control.html),
+without measuring this hardware's behavior.
+
+Independent verdict: `PASS_H0_BOUNDED_STOCK_PE_MODEL`. The final review receipt
+has SHA-256
+`b05051557d5f3c66bec6fae9a06b2f23fbb44d134a7cfd718b646ed48a28c695`.
+Evidence is under
+`workspace/private/outputs/s22plus-native-gpt-firmware-h0-20260915-1/`,
+with corrected executions in `pe-harness/abi-v2/`.
+
+This supports conditional native reentry for the modeled states and removes
+the unknown GPT-copy-selection question from the remaining design work.
+Physical GPT restoration remains unobserved. The exact native writer/restore
+implementation, Linux direct/synchronous I/O binding and reviewed policy
+activation remain prerequisites. Restoration of a mixed state must repair the
+side opposite the sole valid copy first. Every Android-A fallback, including
+failure branches, must require exact original GPT confirmation first.
+
+## External repartitioning precedents checked on 2026-09-15
+
+No examined source establishes a completed userdata split on this exact
+`SM-S906N/g0q/FYG8` target. The useful primary sources are:
+
+| Source | Observed scope | Relevance and limit |
+| --- | --- | --- |
+| [OnePlus 7 TWRP DualBoot](https://github.com/Zackptg5/TWRP-DualBoot-Guac-Unified) and its [installer code](https://github.com/Zackptg5/TWRP-DualBoot-Guac-Unified/blob/master/tools/functions.sh) | The author provides userdata A/B or A/B/common layouts, formatting and manual stock-layout restoration. The repository is archived and describes Android Q testing. | A concrete Qualcomm/UFS split-data implementation; its device layout, metadata changes and recovery code do not transfer to FYG8. |
+| [Samsung Dualboot Helper](https://github.com/justin-a30/DualbootHelper), [switch script](https://github.com/justin-a30/DualbootHelper/blob/main/app/src/main/res/raw/switchb.sh) | The companion app switches GPT names across userdata and multiple system-related entries using parted. | Demonstrates a Samsung GPT-based dualboot design, but not an exact-target success or a minimal userdata-only reservation. Its XDA installation page was unavailable to the web reader. |
+| [Galaxy A22 5G repartitioner](https://github.com/SMA226B/A22X_REPART) | The author describes deleting/recreating multiple entries with sgdisk and limits testing to A226B. | Another Samsung implementation; MediaTek target and much larger mutation scope. Not an S22+ tool. |
+| [REPIT](https://github.com/Lanchon/REPIT), [J2 Prime issue 111](https://github.com/Lanchon/REPIT/issues/111) | REPIT documents device-specific resize/move and filesystem handling. A J2 Prime operator reports that their manual modified layout reverted after reboot. | Supports separate filesystem handling and post-reboot verification; the report does not establish the cause or FYG8 behavior. |
+| [Tab S8+ SM8450 Linux port](https://github.com/aaronsb/sm-x800-linux) | The author places pmOS boot/root subpartitions inside userdata. | Same SoC family, but consumes userdata for Linux rather than retaining usable Android data in a reduced outer partition. |
+
+Two research PDFs clarify evidence boundaries. The [Black Hat 2024 Samsung
+presentation](https://i.blackhat.com/BH-US-24/Presentations/BH-USA-24-Rossi-AttackingSamsung.pdf),
+page 38, separates GPT from PIT consumers for its MediaTek/LK target; it cannot
+establish Qualcomm/FYG8 compatibility. The [Sandia 2022 boot-emulation report](https://www.osti.gov/servlets/purl/1890781),
+page 17, uses gdisk for emulated disks reconstructed from physical-layout
+observations. It is not a physical repartitioning success report.
+
+The search supports the feasibility of splitting userdata and keeping the
+partition change separate from filesystem creation. It does not justify
+running another device's installer, changing the other 39 entries, or treating
+an existing Odin boot restore as GPT restoration. Original public scripts and
+PDFs were read only, with retrieval hashes retained under
+`workspace/private/outputs/s22plus-native-partition-web-h0-20260915-1/`.
+
 Private native evidence is under
 `workspace/private/runs/s22plus-native-session-v3/storage-census-20260915-1/`.
 The producer diagnosis and embedded config are under the original native
