@@ -19,13 +19,14 @@ One new private open records the actual operator instruction, source review,
 closed G2 task and a 900-second same-host-boot limit for inventory and cleanup.
 One immutable claim in that closed G2 task binds its unique cleanup open before
 inventory. A different output directory cannot renew time or retry this task's
-cleanup. The three preparation-only cases below are the sole exceptions; after
+cleanup. The four preparation-only cases below are the sole exceptions; after
 an execution stop only the original open's reconciliation remains available.
 
 Known preparation-only parser cases are the original rejection of canonical
 `/apex/` APK paths/framework package `android`, the successor's rejection of
-identical `flags`/`pkgFlags` aliases, and a later metadata capture reaching its
-128 KiB stdout limit. The runner binds the three exact old source hashes.
+identical `flags`/`pkgFlags` aliases, a metadata capture reaching its 128 KiB
+stdout limit, and a later raw-writer rejection of a mixed-case capture label
+before command launch. The runner binds the four exact old source hashes.
 An H0 retirement rederives its saved source review, same-boot rooted health
 before/after, an existing empty journal and no execution/reconciliation.
 Parser cases require a complete successful raw stage; the metadata prefix
@@ -35,6 +36,10 @@ output-exceeded, host SIGTERM return, empty stderr, no timeout and no producer
 fault. Every preceding capture must succeed. Its truncated metadata remains
 unproved and cannot form a removal plan. This explains the host-enforced
 collection stop; it does not excuse an unexplained device/transport failure.
+The prelaunch-label case requires all captured metadata to be the successful
+installed-optional prefix, its next name to be the first invalid raw label,
+and no stream/capture artifact for that pending name. The existing producer's
+validation occurs before creating files or launching the command.
 
 Each proved retired preparation may have one immutable child claim and fresh
 900-second preparation under the same explicit foreground request and host
@@ -45,7 +50,7 @@ connected command. Cycles, duplicate opens, a second child, any execution start
 or effect intent, other failed/uncertain raw reads, missing journals or changed
 health block continuation. Retired opens cannot execute. The unique chain can
 reach only one effectful cleanup; it renews no consumed effect or G2 authority.
-Only the three independently reviewed source/acquisition cases are eligible, and a
+Only the four independently reviewed source/acquisition cases are eligible, and a
 new case or changed graph needs review. Ordinary effect failures still permit
 only the fixed read-only reconciliation.
 
@@ -60,6 +65,11 @@ consumer declaration, not an exact remaining package count. All three inputs
 are in the current app source closure. All fixed metadata captures complete
 before metadata interpretation; the pure projection also works without a
 published aggregate so a parser/publication repair can use retained bytes.
+Current metadata capture labels use the full package-name SHA-256 in a fixed
+lowercase prefix; Package Manager receives the unchanged package name.
+Metadata fields are confined to the unique active `Packages:` section;
+following query/shared-user sections cannot duplicate its fields. Shared-UID
+packages remain excluded, and duplicate fields within the active package fail.
 
 D0 reads only Package Manager's installed-system-app list, metadata of the
 fixed optional-package declaration, current primary user, default home/input

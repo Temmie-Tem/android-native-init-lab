@@ -26,6 +26,7 @@ REVIEW='workspace/public/src/device-action/bindings/s22plus_android_minimal_v1_r
 INVENTORY_PARSER_V1_SHA256='ae5f052259cd98fd554addfcacf998bbd437ef1fc13c2e90c42e46f1ebf54120'
 INVENTORY_DUPLICATE_FLAGS_SHA256='9b3fcba0031232ba74096e718102a252df87e1a745e7741904227db22d9ad850'
 INVENTORY_METADATA_LIMIT_SHA256='0ebe5cf2dc5751c447354fc45676449c6f462f55a26a114fb9be528c82d30bbc'
+INVENTORY_CAPTURE_LABEL_SHA256='d299edef842c4ed502fec2730ffd5368b7c6f8be7083855f7f8201dad05db61b'
 METADATA_MAXIMUM=1024*1024
 OPEN_FIELDS={'schema','mode','task','closed','review','operator_statement','host_boot',
     'opened_ns','deadline_ns','source_snapshot'}
@@ -65,6 +66,13 @@ def declared_packages():
 
 
 OPTIONAL,KEEP=declared_packages()
+
+
+def metadata_label(name):
+    require(name in OPTIONAL,'metadata label is outside the fixed declaration')
+    return 'pkg-'+digest(name.encode('ascii'))
+
+
 LIST=['shell','cmd','package','list','packages','-s','-f','-U','--show-versioncode','--user','0']
 HOME=['shell','cmd','package','resolve-activity','--brief','--user','0','-a',
     'android.intent.action.MAIN','-c','android.intent.category.HOME']
@@ -122,6 +130,9 @@ def package_metadata(text,row):
     # An updated system app may also have a hidden factory copy. Only the
     # active Packages section owns current user state and installation bytes.
     active=text.split('Hidden system packages:',1)[0]
+    sections=re.split(r'^Packages:[ \t]*\n',active,flags=re.M)
+    require(len(sections)==2,'active Packages section is absent or duplicated')
+    active=re.split(r'^\S',sections[1],maxsplit=1,flags=re.M)[0]
     marker='Package ['+row['name']+']'
     require(active.count(marker)==1,'active package metadata is absent or ambiguous')
     block=active.split(marker,1)[1]
@@ -239,9 +250,10 @@ def inventory_no_effect_projection(root,directory):
     source=str(Path(root)/'workspace/public/src/scripts/revalidation/s22plus_android_minimal_v1.py')
     sources=[row['original']['sha256'] for row in snapshot['sources'] if row['original']['path']==source]
     require(len(sources)==1 and sources[0] in (INVENTORY_PARSER_V1_SHA256,
-        INVENTORY_DUPLICATE_FLAGS_SHA256,INVENTORY_METADATA_LIMIT_SHA256),
+        INVENTORY_DUPLICATE_FLAGS_SHA256,INVENTORY_METADATA_LIMIT_SHA256,INVENTORY_CAPTURE_LABEL_SHA256),
         'retirement source is not a known inventory preparation')
     limit_stage=sources[0]==INVENTORY_METADATA_LIMIT_SHA256
+    label_stage=sources[0]==INVENTORY_CAPTURE_LABEL_SHA256
     metadata_stage=sources[0]!=INVENTORY_PARSER_V1_SHA256
     labels=('current-user','system-packages','home','ime','storage-stat') if metadata_stage else ('current-user','system-packages')
     expected={'before','after'}|({'packages'} if metadata_stage else set())|{
@@ -265,11 +277,12 @@ def inventory_no_effect_projection(root,directory):
     rows=packages(raw.decode_success_stdout(listed,maximum=131072))
     extra={}
     if metadata_stage:
-        texts=lambda name:raw.decode_success_stdout(raw.load_handle(folder/(name+'.capture.json')),maximum=131072)
+        texts=lambda name:raw.decode_success_stdout(raw.load_handle(folder/(name+'.capture.json')),
+            maximum=METADATA_MAXIMUM if label_stage and name.startswith('packages/') else 131072)
         component(texts('home'));component(texts('ime'))
         gpt_android.storage_stat(texts('storage-stat'),dict(layout='proposed',
             geometry=read(verify(closed))['gpt']['geometry']),gpt.vectors(task['N']['gpt']))
-        present=[name for name in (OPTIONAL if limit_stage else OLD_OPTIONAL) if name in rows]
+        present=[name for name in (OPTIONAL if limit_stage or label_stage else OLD_OPTIONAL) if name in rows]
         captured=[name for name in present if (folder/'packages'/(name+'.capture.json')).exists()]
         require(captured and captured==present[:len(captured)],'metadata captures are not a fixed inventory prefix')
         require({p.name for p in (folder/'packages').iterdir()}=={
@@ -289,12 +302,18 @@ def inventory_no_effect_projection(root,directory):
                 continue
             text=texts('packages/'+name);package_metadata(text,rows[name])
             block=text.split('Hidden system packages:',1)[0].split('Package ['+name+']',1)[1]
-            if not limit_stage and len(re.findall(r'^\s*(?:pkgFlags|flags)=\[([^\]]*)\]\s*$',block,re.M))==2:gaps.append(name)
-        if not limit_stage:
+            if not (limit_stage or label_stage) and len(re.findall(r'^\s*(?:pkgFlags|flags)=\[([^\]]*)\]\s*$',block,re.M))==2:gaps.append(name)
+        if label_stage:
+            require(len(captured)<len(present) and raw.NAME_RE.fullmatch(present[len(captured)]) is None
+                and all(raw.NAME_RE.fullmatch(name) for name in captured),
+                'metadata stop is not the first invalid prelaunch capture label')
+        elif not limit_stage:
             require(gaps==captured[-1:],'metadata stop is not the first identical duplicate-flags result')
         extra=dict(metadata_inputs=[pin(folder/(name+'.capture.json')) for name in labels[2:]]+
             [pin(folder/'packages'/(name+'.capture.json')) for name in captured])
         if limit_stage:extra.update(acquisition_case='METADATA_STDOUT_LIMIT',acquisition_limit_exceeded_count=1)
+        elif label_stage:extra.update(acquisition_case='PRELAUNCH_CAPTURE_LABEL',
+            rejected_label=present[len(captured)])
         else:extra['parser_case']='IDENTICAL_FLAGS_AND_PKGFLAGS'
     else:
         gaps=[row for row in rows.values() if row['name']=='android' or row['path'].startswith('/apex/')]
@@ -406,7 +425,7 @@ class Run:
             self.text(folder,'storage-stat',
                 ['shell','su -c '+shlex.quote(gpt_android.STAT_SCRIPT)],maximum=16384)
             for name in OPTIONAL:
-                if name in listed:self.text(folder/'packages',name,
+                if name in listed:self.text(folder/'packages',metadata_label(name),
                     ['shell','dumpsys','package',name],maximum=METADATA_MAXIMUM)
         finally:after=self.health(folder/'after')
         require(before['properties']==after['properties'],'Android boot changed during package inventory')
@@ -418,7 +437,7 @@ class Run:
             maximum=METADATA_MAXIMUM if name.startswith('packages/') else 131072)
         require(texts('current-user').strip()=='0','inventory primary user differs')
         listed=packages(texts('system-packages'));home=component(texts('home'));ime=component(texts('ime'))
-        metadata={name:package_metadata(texts('packages/'+name),listed[name]) for name in OPTIONAL if name in listed}
+        metadata={name:package_metadata(texts('packages/'+metadata_label(name)),listed[name]) for name in OPTIONAL if name in listed}
         before=read(folder/'before/health.json');after=read(folder/'after/health.json')
         for health in (before,after):
             require(target.health_projection(health['captures'],self.task['target'],self.task['A'])==health,

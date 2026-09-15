@@ -85,6 +85,22 @@ class ParserTests(unittest.TestCase):
             self.assertIn(name,minimal.KEEP);self.assertNotIn(name,minimal.OPTIONAL)
         self.assertIn('com.samsung.android.aremojieditor',minimal.OPTIONAL)
 
+    def test_package_fields_are_scoped_before_shared_user_and_query_sections(self):
+        row=minimal.packages(listing())[NAME]
+        text=dump().replace('    pkgFlags=',
+            '    sharedUser=SharedUserSetting{fixture shared.uid/10123}\n    pkgFlags=')
+        text+='Queries:\n    User 0:\nShared users:\n    appId=10123\n    User 0:\n'
+        value=minimal.package_metadata(text,row)
+        self.assertTrue(value['shared_uid'])
+        self.assertEqual(minimal.selection({NAME:row},{NAME:value},HOME,IME)['excluded'][NAME],
+            'system-or-shared-uid')
+        with self.assertRaises(ValueError):
+            minimal.package_metadata(text.replace('    userId=10123\n',
+                '    userId=10123\n    appId=10123\n'),row)
+        labels=[minimal.metadata_label(name) for name in minimal.OPTIONAL]
+        self.assertEqual(len(labels),len(set(labels)))
+        self.assertTrue(all(minimal.raw.NAME_RE.fullmatch(label) for label in labels))
+
 
 class RunTests(unittest.TestCase):
     def setUp(self):
@@ -294,7 +310,7 @@ sys.stdout.buffer.write(base64.b64decode(data))
         self.program.write_text(self.program.read_text().replace(repr(dump()),repr('filter data\n'*18000+dump())))
         self.run.task['adb']=records.pin(self.program)
         self.prepare()
-        handle=minimal.raw.load_handle(self.folder/'inventory/packages'/(NAME+'.capture.json'))
+        handle=minimal.raw.load_handle(self.folder/'inventory/packages'/(minimal.metadata_label(NAME)+'.capture.json'))
         self.assertGreater(handle.stdout['size'],131072)
         self.assertFalse(handle.output_exceeded)
         result=records.read(records.verify(self.run.execute(attended=True)))
@@ -305,12 +321,44 @@ sys.stdout.buffer.write(base64.b64decode(data))
             repr('filter data\n'*100000+dump())))
         self.run.task['adb']=records.pin(self.program)
         with self.assertRaises(minimal.raw.RawCaptureError):self.prepare()
-        handle=minimal.raw.load_handle(self.folder/'inventory/packages'/(NAME+'.capture.json'))
+        handle=minimal.raw.load_handle(self.folder/'inventory/packages'/(minimal.metadata_label(NAME)+'.capture.json'))
         self.assertTrue(handle.output_exceeded)
         self.assertEqual(handle.stdout['size'],minimal.METADATA_MAXIMUM)
         self.assertTrue((self.folder/'inventory/after/health.json').exists())
         self.assertFalse(self.run.journal.rows())
         state=json.loads(self.state.read_text());self.assertEqual((state['uninstalls'],state['reboots']),(0,0))
+
+    def test_uppercase_package_identity_survives_canonical_capture_label(self):
+        name='com.sec.android.easyMover'
+        self.program.write_text(self.program.read_text().replace(NAME,name))
+        self.run.task['adb']=records.pin(self.program)
+        with mock.patch.object(minimal,'OPTIONAL',(name,)):
+            self.prepare()
+            self.assertTrue((self.folder/'inventory/packages'/(minimal.metadata_label(name)+'.capture.json')).exists())
+            result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual(result['status'],'COMPLETE')
+        calls=[json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertIn(['-s',self.serial,'shell','dumpsys','package',name],calls)
+
+    def test_prelaunch_label_retirement_requires_first_invalid_name_and_successful_prefix(self):
+        directory,task,task_pin,closed,review,source_sha=self.inventory_stop_fixture()
+        inv=directory/'inventory';bad='com.sec.android.easyMover'
+        for suffix in ('.capture.json','.stdout.bin','.stderr.bin'):
+            (inv/('system-packages'+suffix)).unlink()
+        minimal.raw.publish_captured_bytes(inv,'system-packages',stdout=(listing()+listing(name=bad,uid=10124)).encode())
+        for name,text in [('home',HOME+'/.Home\n'),('ime',IME+'/.Keyboard\n'),
+                ('storage-stat','NATIVE_PARTITION 41 96923648 401516544 native_data\nF2FS_STAT 4096 8388092 1000 2000 f2f52010\n')]:
+            minimal.raw.publish_captured_bytes(inv,name,stdout=text.encode())
+        folder=inv/'packages';folder.mkdir()
+        minimal.raw.publish_captured_bytes(folder,NAME,stdout=dump().encode())
+        with mock.patch.object(minimal,'INVENTORY_CAPTURE_LABEL_SHA256',source_sha), \
+                mock.patch.object(minimal.census,'closed_android',return_value=(task,closed)):
+            value=minimal.inventory_no_effect_projection(self.root,directory)
+            self.assertEqual(value['acquisition_case'],'PRELAUNCH_CAPTURE_LABEL')
+            self.assertEqual(value['rejected_label'],bad)
+            with mock.patch.object(minimal,'OPTIONAL',(NAME,)):
+                with self.assertRaisesRegex(ValueError,'first invalid prelaunch'):
+                    minimal.inventory_no_effect_projection(self.root,directory)
 
     def inventory_stop_fixture(self):
         directory=self.root/'workspace/private/parser-stop';directory.mkdir()

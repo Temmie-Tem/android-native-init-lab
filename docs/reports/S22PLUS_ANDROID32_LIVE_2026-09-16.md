@@ -3,7 +3,7 @@
 **P398 completed the 32 GiB userdata / 191.4580078125 GiB native layout and
 returned to rooted Android with changed-boot GPT/capacity persistence.**
 The native partition is unformatted. The G2 grant is closed; app cleanup is a
-separate foreground profile whose first three inventories stopped before effects.
+separate foreground profile whose first four inventories stopped before effects.
 A90 and S20+ were untouched.
 
 ## G2 result and canonical timeline
@@ -146,8 +146,27 @@ All 19 focused tests pass, including complete metadata above 128 KiB through
 uninstall/terminal reconstruction, a 1 MiB overflow stopping before effects,
 and real subprocess SIGTERM with timeout/transport-failure rejection.
 
-The three preparations remain private under
-`workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-{1,2,3}/`.
+The fourth preparation captured 45 successful reads, including 26 complete
+metadata records. Its next fixed candidate, `com.sec.android.easyMover`, could
+not be used as a raw capture label because the shared writer permits lowercase
+labels only. The writer rejected it before stream creation or command launch.
+Both exact rooted health brackets passed on the same boot; no execution began.
+Current labels use `pkg-` plus the full SHA-256 of the unchanged package name.
+All 66 labels are unique and accepted by the actual writer rule.
+
+H0 inspection of those retained records also found seven shared-UID packages
+whose later shared-user sections repeated `appId`/`User 0` fields. The parser
+now confines fields to the unique active `Packages:` section, preserving
+duplicate rejection within that section and exclusion of shared-UID packages.
+All 26 actual records now parse. Revision 22 adds only the exact known
+prelaunch-label case to retirement; the pending invalid name must have no
+capture/stream, every earlier read must succeed and all no-effect/health/claim
+conditions still apply. All three earlier retirement values remain unchanged.
+All 22 focused tests pass, including real uppercase-name acquisition through
+uninstall/terminal proof, section scoping and first-invalid-label retirement.
+
+The four preparations remain private under
+`workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-{1,2,3,4}/`.
 One outer wrapper initially rejected a missing capture directory before Popen;
 the corrected invocation was the first actual third preparation. No device
 command was repeated by that H0 wrapper correction. Actual selection, removals

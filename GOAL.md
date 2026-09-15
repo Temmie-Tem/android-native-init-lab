@@ -45,15 +45,18 @@ is retained as the successor's original-layout provenance.
 ## Current bounded unit — minimal Android cleanup
 
 The operator selected minimal management/return Android and unused optional-app
-cleanup. Three [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
+cleanup. Four [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
 preparations stopped before effects: APEX/framework parsing, identical flag
-aliases, then Reminder metadata exceeding the host's 128 KiB stdout bound.
+aliases, Reminder metadata exceeding the host's 128 KiB stdout bound, and
+mixed-case capture-label rejection before launch.
 All retained same-boot rooted health and empty journals; no uninstall/reboot
 occurred. The third partial metadata capture remains failed/unproved.
 
 The parser corrections and linked no-effect retirement passed independent
-review. The metadata bound is now 1 MiB with the same timeout; all 19 focused
-tests pass. Its exact explained host-limit stop requires source-bound review.
+review. The metadata bound is now 1 MiB with the same timeout; capture labels
+are canonical lowercase hashes and fields stay inside the active Packages
+section. All 22 focused tests pass. Known no-effect stops require source-bound
+review before their unique child preparation.
 Original records remain immutable. The fixed declaration
 reuses same-FYG8 Pass1 evidence: 66 consumer candidates, with the historical
 116 keep packages plus three debug packages always excluded. Any ancestor

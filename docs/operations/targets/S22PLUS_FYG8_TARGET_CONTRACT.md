@@ -238,12 +238,14 @@ attended and each intent is nonreplayable. The profile cannot reopen G2, write
 GPT, format a filesystem, stage Debian, touch another target or change required
 Android/root/connectivity components. Until its source review passes, this
 adoption is H0 only.
-The common-incorporated three known inventory preparation cases are
+The common-incorporated four known inventory preparation cases are
 adopted only with rederived H0 no-effect retirement and one immutable child
 claim per retired preparation. Every ancestor must retain its existing empty
 journal and successful same-boot raw health. The metadata acquisition case
 must prove the exact host stdout-limit termination; its truncated metadata
-remains unproved. The original foreground request
+remains unproved. The label case must prove a successful metadata prefix and
+rejection of the first invalid capture label before its command launch.
+The original foreground request
 permits fresh reviewed preparation through that unique chain, never another
 child after an execution start, effect intent or other unsuccessful/uncertain raw
 command. Old records remain unchanged. The same-FYG8 Pass1 consumer-removal
