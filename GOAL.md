@@ -42,31 +42,31 @@ and [G2 policy](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
 The preceding [P397 result](docs/reports/S22PLUS_NATIVE_GPT_128G_LIVE_2026-09-15.md)
 is retained as the successor's original-layout provenance.
 
-## Current bounded unit — minimal Android cleanup
+## Current bounded unit — cleanup closed after read-only reconciliation
 
-The operator selected minimal management/return Android and unused optional-app
-cleanup. Four [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
-preparations stopped before effects: APEX/framework parsing, identical flag
-aliases, Reminder metadata exceeding the host's 128 KiB stdout bound, and
-mixed-case capture-label rejection before launch.
-All retained same-boot rooted health and empty journals; no uninstall/reboot
-occurred. The third partial metadata capture remains failed/unproved.
+The [fixed profile](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md) reused the
+same-FYG8 Pass1 removals with 119 mandatory keep/debug exclusions. Of 41
+installed candidates, 26 passed selection and were removed from user 0;
+ten system/shared-UID and five customized/disabled states were excluded.
+All 26 immediate post-states and the final snapshot confirm absence. The
+installed system-package count is 439, not the historical 116 checkpoint.
 
-The parser corrections and linked no-effect retirement passed independent
-review. The metadata bound is now 1 MiB with the same timeout; capture labels
-are canonical lowercase hashes and fields stay inside the active Packages
-section. All 22 focused tests pass. Known no-effect stops require source-bound
-review before their unique child preparation.
-Original records remain immutable. The fixed declaration
-reuses same-FYG8 Pass1 evidence: 66 consumer candidates, with the historical
-116 keep packages plus three debug packages always excluded. Any ancestor
-execution, effect intent, other unsuccessful raw read, missing journal or claim cycle
-blocks the preparation exception. The original foreground request supplies
-scope; effects remain attended. Next are the repaired inventory, selected
-optional-package removal and final
-reboot/GPT/capacity/root proof. Report actual reclaimed space and any incomplete
-cleanup separately. Settings, home/input, files, connectivity, ADB and Magisk
-are preserved. No cleanup effect is authorized by this goal itself.
+One ordinary reboot completed, then USB disappeared during the first final
+health sequence. The existing read-only reconciliation proved healthy original
+A/root, unchanged home/input owners, full proposed GPT and 32 GiB capacity.
+The final boot matches the briefly observed post-reboot boot; no extra reboot
+was observed. The formal cleanup result remains `INCOMPLETE` with
+`ANDROID_CLOSED_HEALTHY`; no effect replay or additional cleanup is permitted.
+Host logs show target-port USB re-enumeration, but its initiating cause remains
+unproved. Resolve the applicable session stop before any prospective device
+effect. The operator reported Android state.
+
+Final available space was 31,645,573,120 bytes, 55,156,736 below the pre-cleanup
+observation; no reclaimed-space gain is proved. Four earlier no-effect
+preparations and all consumed G2/cleanup records remain unchanged. The fixes
+have independent review and 22 passing focused tests. See the
+[live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md) for evidence,
+capacity measurements and separate removal/final-health outcomes.
 
 ## Debian direction and next storage unit
 

@@ -2,8 +2,10 @@
 
 **P398 completed the 32 GiB userdata / 191.4580078125 GiB native layout and
 returned to rooted Android with changed-boot GPT/capacity persistence.**
-The native partition is unformatted. The G2 grant is closed; app cleanup is a
-separate foreground profile whose first four inventories stopped before effects.
+The native partition is unformatted. The G2 grant is closed. The separate app
+profile removed 26 optional packages for user 0 and ended with proved healthy
+rooted Android after one read-only reconciliation. Its formal result remains
+`INCOMPLETE` because USB disappeared during the first final-health check.
 A90 and S20+ were untouched.
 
 ## G2 result and canonical timeline
@@ -169,5 +171,64 @@ The four preparations remain private under
 `workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-{1,2,3,4}/`.
 One outer wrapper initially rejected a missing capture directory before Popen;
 the corrected invocation was the first actual third preparation. No device
-command was repeated by that H0 wrapper correction. Actual selection, removals
-and post-cleanup reboot/space results remain pending.
+command was repeated by that H0 wrapper correction.
+
+## Cleanup result and reconciled final health
+
+The fifth preparation captured all 41 installed candidates from the fixed 66
+names. Selection retained the 119 mandatory exclusions and rejected ten
+system/shared-UID candidates plus five customized/disabled user states.
+All 26 selected user-0 uninstalls returned success and each package was absent
+in its immediate post-state. The installed system-package list went from 465
+to 439; this is not a reconstruction of the historical 116-package checkpoint.
+Independent raw-evidence review confirms those are the only package-set
+changes: all initially present keep entries remain. Twenty-five selected names
+come from the historical successful Pass1 block; Gmail comes from the reviewed
+original optional declaration. No concrete selection/execution defect was found.
+
+One ordinary reboot was requested once and its USB departure was observed.
+The device returned with `sys.boot_completed=1`, but the first final-health
+sequence then captured an empty root response and a selector with no devices.
+The runner stopped. It issued no further uninstall, reinstall, reboot, transfer
+or GPT write. The journal contains 27 intents and 27 completions (26 removals
+and one reboot), followed by the semantic health stop.
+
+The existing 300-second read-only reconciliation completed. Both rooted health
+brackets rederive numeric UID/GID 0 and exact original-A/supporting digests.
+All selected packages remain absent. Home/input owners are unchanged, full GPT
+matches the pre-reboot proposed pair, and total filesystem capacity remains
+34,357,624,832 bytes. The final boot differs from the pre-reboot boot and exactly
+matches the briefly observed post-reboot properties; no extra reboot was
+observed. The operator subsequently reported Android state.
+
+A bounded host-kernel read around the failed health check independently shows
+the exact target port disconnecting and enumerating again. This supports a
+temporary USB re-enumeration; its initiating cause is unproved. No device read
+or effect was added for that host-log diagnosis. The interrupted result remains
+`INCOMPLETE`, `reboot_verified=false`, with `ANDROID_CLOSED_HEALTHY` and no
+remaining selected packages. Reconciliation does not relabel the original
+execution or permit replay. Any prospective device effect must first resolve
+the applicable session stop; this task supplies no new authority.
+
+| `/data` observation | Bytes |
+| --- | ---: |
+| Available before cleanup | 31,700,729,856 |
+| Available after reconciliation | 31,645,573,120 |
+| Free after reconciliation | 31,779,790,848 |
+| Available change | -55,156,736 |
+
+No reclaimed-space gain was proved. These are point-in-time measurements across
+app removal and a reboot; they do not identify which activity caused the change.
+User-scoped removal leaves factory APKs in their existing system partitions.
+
+The actual cleanup source commit is `3574a2bb7f460969a8ca099c992ca35b5cff16d7`.
+Its private run is
+`workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-5/`.
+The 32,505-byte preserved source manifest has SHA-256
+`7d372bd21440daa59fabb750fded21806cbf684254510f3e0fe4f9cab0c0d228`.
+The 692-byte terminal has SHA-256
+`a81914af3b16443a08b01a309ced1f36395d76156ad8c025e22155a534a222e5`;
+the 1,093-byte reconciliation result has SHA-256
+`851ce9e329d9126cdd17128aca907952d3fa6a904ed91dfabe47f8a041e9d36c`.
+The four retired preparations, their claims/source snapshots, and all G2
+results remain unchanged. No Debian filesystem or rootfs was installed.
