@@ -31,8 +31,10 @@ UFS access, not complete native GPT capture or GPT-restoration qualification.
 Both operations and their grant are permanently closed; no A recovery was
 needed and no F1 owner remains. The initial incorrectly labelled P396 `rc.1`
 request was retired before grant opening or device action. No partition write
-or format has occurred. The next bounded unit is exact modified-GPT recovery
-qualification. See the [layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
+or format has occurred. The exact private 64 GiB GPT proposal now passes
+independent H0 byte-construction review and four focused tests; only four
+metadata blocks differ, and the inverse restores both full original captures.
+The next bounded unit is exact modified-GPT recovery qualification. See the [layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
 and [UFS result and incident history](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md).
 
 ## Earlier native baseline qualification

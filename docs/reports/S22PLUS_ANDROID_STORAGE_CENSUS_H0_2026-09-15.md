@@ -170,11 +170,50 @@ also separates PIT upload from individual partition transfer; it does not prove
 Samsung Qualcomm restoration behavior. A retained PIT with unspecified
 userdata size is not an exact GPT restore artifact.
 
-The selected next capability is native UFS initialization with authenticated
-host control and bounded metadata reads, independent of Android userdata.
-Its dependency/build preparation is H0. It is needed for future partition use
-and a possible restoration environment, but cannot alone qualify interrupted
-GPT-write recovery. No intentional GPT corruption is proposed as a test.
+P396 subsequently qualified native UFS initialization and the complete fixed
+44 KiB census with authenticated control; its captured bytes exactly match
+the corresponding Android originals. Its independent strict metadata result
+remains `NO_PROOF`, and it adds no GPT-write recovery qualification. See the
+[native result](S22PLUS_NATIVE_UFS_H0_2026-09-15.md). No intentional GPT
+corruption is proposed as a test.
+
+## Exact 64 GiB byte construction
+
+The host-only constructor validates the original protective MBR, both GPT
+header/table CRCs, identical arrays, 44-entry shape, 40 occupied entries and
+nonoverlapping extents. It changes only userdata's ending LBA and unused entry
+41, then recomputes table/header CRCs. The new entry has a private fresh GUID,
+the existing userdata type GUID and the name `native_data`. All 39 other
+entries, header fields, disk identity, padding and original duplicate GUIDs
+are preserved. Both generated copies validate without upgrading the strict
+duplicate-GUID result.
+
+Only four 4096-byte metadata blocks differ: LBA 1, LBA 3, the backup array's
+second block and the final header. There are 61 changed bytes in each captured
+region. Replacing the generated table with the original table and recalculating
+the CRCs restores both entire original captures byte for byte. The constructor
+uses bounded private regular files and contains no device writer or formatter.
+
+Four focused tests pass: exact 64 GiB shape and four-block change set;
+preservation of duplicate GUIDs and strict rejection; inverse restoration in
+host prefix/torn-block models; and rejection of malformed originals, occupied
+slots, overlapping extents or a reused new GUID. Both Python files compile.
+Independent `PASS_H0_EXACT_LAYOUT_CONSTRUCTION` also reconstructs the actual
+private output byte for byte. This qualifies byte construction only, with
+physical restoration, execution order and GPT/PIT compatibility still unproved.
+
+The proposal result is 3004 bytes, SHA-256
+`dac9bfc854781e170444e1019a8bd0fd5ce1e22f14a9d262ca0a3b5a794631a9`;
+the independent review is 3197 bytes, SHA-256
+`ae7c05a35a7b02184dc606f757712c5abdcd767811ef3202045ced3f2eb3bb47`.
+Both are retained under
+`workspace/private/outputs/s22plus-native-64g-gpt-proposal-h0-20260915-1/`.
+
+This construction does not resize the existing Android filesystem. Reserving
+the GPT entry alone would leave its bytes untouched; using Android with the
+smaller userdata would require a separately implemented reset/format path.
+Original-A boot recovery alone cannot restore GPT, so it cannot serve as the
+unchanged fallback for a later GPT mutation.
 
 Private native evidence is under
 `workspace/private/runs/s22plus-native-session-v3/storage-census-20260915-1/`.
