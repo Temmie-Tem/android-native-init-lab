@@ -21,6 +21,7 @@ _Static_assert(sizeof(off_t) == 8, "64-bit I/O offsets required");
 
 static uint8_t gpt1_work[GPT1_BYTES] __attribute__((aligned(GPT1_BLOCK)));
 static uint8_t gpt1_expected[GPT1_BYTES] __attribute__((aligned(GPT1_BLOCK)));
+static uint8_t gpt1_f2fs[2U * GPT1_BLOCK] __attribute__((aligned(GPT1_BLOCK)));
 struct gpt1_endpoint { int descriptor, saved_errno; };
 
 static uint64_t gpt1_little64(const uint8_t *p) {
@@ -70,7 +71,34 @@ static int gpt1_number(const char *parent, const char *name, uint64_t *value) {
     return 0;
 }
 
-static int gpt1_parent(char parent[PATH_MAX], dev_t *number, uint64_t *user_size) {
+static int gpt1_native_partition(const char *parent, uint64_t user_size, uint64_t *native_size) {
+    const char *disk = strrchr(parent, '/');
+    if (!disk || strlen(++disk) != 3) return -1;
+    char path[PATH_MAX];
+    int n = snprintf(path, sizeof(path), "%s/%s41", parent, disk);
+    if (n < 0 || (size_t)n >= sizeof(path)) return -1;
+    struct stat st;
+    *native_size = 0;
+    if (user_size == gpt1_userdata_sectors(gpt1_original)) {
+        /* This kernel still has the original partition map, including the
+         * short interval after GPT apply and before a fresh kernel boot. */
+        return lstat(path, &st) == -1 && errno == ENOENT ? 0 : -1;
+    }
+    if (lstat(path, &st) || !S_ISDIR(st.st_mode) || st.st_uid) return -1;
+    uint64_t index, first;
+    const uint8_t *entry = gpt1_proposed + 2U * GPT1_BLOCK + 40U * 128U;
+    uint64_t low = gpt1_little64(entry + 32), high = gpt1_little64(entry + 40);
+    if (low > high || high >= GPT1_TOTAL_LBAS ||
+        gpt1_number(path, "partition", &index) || index != 41 ||
+        gpt1_number(path, "start", &first) || first != low * 8U ||
+        gpt1_number(path, "size", native_size) || *native_size != (high - low + 1U) * 8U) return -1;
+    char event[PATH_MAX], text[4096];
+    n = snprintf(event, sizeof(event), "%s/uevent", path);
+    return n > 0 && (size_t)n < sizeof(event) &&
+        !gpt1_read_text(event, text, sizeof(text)) && strstr(text, "\nPARTNAME=native_data\n") ? 0 : -1;
+}
+
+static int gpt1_parent(char parent[PATH_MAX], dev_t *number, uint64_t *user_size, uint64_t *native_size) {
     uint64_t old_size = gpt1_userdata_sectors(gpt1_original);
     uint64_t new_size = gpt1_userdata_sectors(gpt1_proposed);
     if (old_size != (GPT1_TOTAL_LBAS - 9U - 3726848ULL) * 8U ||
@@ -126,7 +154,7 @@ static int gpt1_parent(char parent[PATH_MAX], dev_t *number, uint64_t *user_size
     if (sscanf(text, "%4u:%7u\n%n", &ma, &mi, &consumed) != 2 || text[consumed] ||
         ma > 4095 || mi > 1048575) return -1;
     *number = makedev(ma, mi);
-    return 0;
+    return gpt1_native_partition(parent, *user_size, native_size);
 }
 
 static int gpt1_open_endpoint(dev_t number, enum gpt1_mode mode) {
@@ -210,11 +238,35 @@ static void gpt1_record(void *context, unsigned event, unsigned ordinal, uint64_
         fflush(stdout)) _exit(110); /* A lost record never permits another write. */
 }
 
-static int gpt1_entry(enum gpt1_mode mode, const char *identity) {
-    if (mode < GPT1_OBSERVE || mode > GPT1_RESTORE) return 100;
+static int gpt1_emit(enum gpt1_mode mode, enum gpt1_error status, int io_error,
+        int close_error, const struct gpt1_result *result, uint64_t user_size,
+        uint64_t native_size, int filesystem_error, int after_reset) {
+    if (printf("GPT1_RESULT mode=%u status=%u io_errno=%d close_errno=%d writes=%u completed=%u skipped=%u last_read_kind=%u userdata_sectors=%" PRIu64 " native_sectors=%" PRIu64 " filesystem_errno=%d\n",
+            (unsigned)mode, (unsigned)status, io_error, close_error,
+            result->writes_attempted, result->writes_completed, result->skipped, result->final_kind,
+            user_size, native_size, filesystem_error) < 0 || fflush(stdout)) return 110;
+    /* Partial/failed work never labels a stale read snapshot as final media. */
+    if (status || io_error || close_error || filesystem_error) return 104;
+    if (printf("GPT1_DATA bytes=%u\n", GPT1_BYTES) < 0 || fflush(stdout) ||
+        fwrite(gpt1_work, 1, GPT1_BYTES, stdout) != GPT1_BYTES || fflush(stdout)) return 110;
+    /* Export only the geometry prefix of each F2FS superblock. UUID, volume
+     * name, salts, filesystem contents and the encryption footer stay unread
+     * by the host. The aligned 8 KiB device read remains explicitly scoped. */
+    if (after_reset && (printf("GPT1_F2FS bytes=216\n") < 0 || fflush(stdout) ||
+        fwrite(gpt1_f2fs + 1024U, 1, 108U, stdout) != 108U ||
+        fwrite(gpt1_f2fs + GPT1_BLOCK + 1024U, 1, 108U, stdout) != 108U || fflush(stdout))) return 110;
+    if (puts("GPT1_END") < 0 || fflush(stdout)) return 110;
+    return 0;
+}
+
+static int gpt1_entry_full(enum gpt1_mode mode, const char *identity, int after_reset) {
+    if (mode < GPT1_OBSERVE || mode > GPT1_RESTORE ||
+        (after_reset < 0 || after_reset > 2) || (after_reset && mode != GPT1_OBSERVE)) return 100;
     if (strcmp(identity, gpt1_target_run_id) || getuid() || geteuid() || getgid() || getegid()) return 100;
-    char parent[PATH_MAX]; dev_t number; uint64_t user_size;
-    if (gpt1_parent(parent, &number, &user_size)) return 101;
+    char parent[PATH_MAX]; dev_t number; uint64_t user_size, native_size;
+    if (gpt1_parent(parent, &number, &user_size, &native_size)) return 101;
+    if (after_reset && user_size != gpt1_userdata_sectors(
+            after_reset == 1 ? gpt1_proposed : gpt1_original)) return 101;
     struct gpt1_endpoint endpoint = {.descriptor = gpt1_open_endpoint(number, mode), .saved_errno = 0};
     if (endpoint.descriptor < 0) return 102;
     struct gpt1_io io = {&endpoint, gpt1_device_read, gpt1_device_write, gpt1_device_sync, gpt1_record};
@@ -227,15 +279,20 @@ static int gpt1_entry(enum gpt1_mode mode, const char *identity) {
         status = gpt1_execute(mode, &io, gpt1_original, gpt1_proposed,
                              gpt1_work, gpt1_expected, &result);
     }
+    int filesystem_error = 0;
+    if (!status && after_reset) {
+        if (result.final_kind != (after_reset == 1 ? 2U : 1U)) filesystem_error = EPROTO;
+        else {
+            ssize_t n = pread(endpoint.descriptor, gpt1_f2fs, sizeof(gpt1_f2fs),
+                              (off_t)(3726848ULL * GPT1_BLOCK));
+            if (n != (ssize_t)sizeof(gpt1_f2fs)) filesystem_error = n < 0 ? errno : EIO;
+        }
+    }
     int close_error = close(endpoint.descriptor) ? errno : 0;
-    if (printf("GPT1_RESULT mode=%u status=%u io_errno=%d close_errno=%d writes=%u completed=%u skipped=%u last_read_kind=%u userdata_sectors=%" PRIu64 "\n",
-            (unsigned)mode, (unsigned)status, endpoint.saved_errno, close_error,
-            result.writes_attempted, result.writes_completed, result.skipped, result.final_kind, user_size) < 0 ||
-        fflush(stdout)) return 110;
-    /* Partial/failed work never labels a stale read snapshot as final media. */
-    if (status || close_error) return 104;
-    if (printf("GPT1_DATA bytes=%u\n", GPT1_BYTES) < 0 || fflush(stdout) ||
-        fwrite(gpt1_work, 1, GPT1_BYTES, stdout) != GPT1_BYTES || fflush(stdout) ||
-        puts("GPT1_END") < 0 || fflush(stdout)) return 110;
-    return 0;
+    return gpt1_emit(mode,status,endpoint.saved_errno,close_error,&result,user_size,
+        native_size,filesystem_error,after_reset);
+}
+
+static int gpt1_entry(enum gpt1_mode mode, const char *identity) {
+    return gpt1_entry_full(mode, identity, 0);
 }

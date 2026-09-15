@@ -144,6 +144,16 @@ class AdapterTests(unittest.TestCase):
         Path(self.image['ap']['path']).unlink()
         self.assertTrue(self.client.android_transfer_completed(self.request))
 
+    def test_completed_a_remains_completed_after_the_gpt_ordinary_reboot_intent(self):
+        step=owner.Step('recover-android','transfer','A')
+        with self.environment():self.client.transfer(step,self.request,guard=lambda:None,before_launch=self.dispatch(step))
+        self.request['operation']='gpt-reserve'
+        records.Journal(self.directory/'journal').append('effect-intent',step='android-reboot',action='reboot',role='A',detail={})
+        Path(self.image['ap']['path']).unlink()
+        self.assertTrue(self.client.android_transfer_completed(self.request))
+        records.Journal(self.directory/'journal').append('effect-intent',step='recover-native',action='transfer',role='N',detail={})
+        self.assertFalse(self.client.android_transfer_completed(self.request))
+
     def test_grant_cannot_expand_task_clock_capacity_or_recovery(self):
         value=dict(seconds=600,operation_budget=2,recovery_mode='attended')
         path=self.directory/'task.json'; records.publish(path,value); receipt=records.pin(path)
@@ -177,6 +187,42 @@ class AdapterTests(unittest.TestCase):
             records.publish(claim,dict(fixture=True))
             with self.assertRaisesRegex(ValueError,'already has an authentication attempt'):
                 self.client.prepare('storage-census',grant)
+
+    def test_native_bootstrap_requires_predecessor_admission_and_unattempted_tail(self):
+        directory=self.private/'task';directory.mkdir()
+        tail=records.publish(self.private/'predecessor-terminal.json',dict(fixture='old native tail'))
+        admission=records.publish(self.private/'predecessor-admission.json',dict(fixture='old N admission'))
+        start=dict(N=dict(self.image,run_id_hex='a'*32),admission=admission,prior_terminal=tail)
+        value=dict(operations=['bootstrap'],N=self.image,A=self.image,
+            admission=None,prior_terminal=None,reentry=False,hud=False,usb_reconnect=False,
+            bootstrap_start=start)
+        grant=dict(task=records.publish(directory/'task.json',value),directory=str(directory))
+        with mock.patch.object(self.client,'admission') as verify_admission, \
+                mock.patch.object(self.client,'tail') as verify_tail:
+            request=self.client.prepare('bootstrap',grant)
+            self.assertEqual(request['S'],start['N'])
+            self.assertEqual(request['prior_terminal'],tail)
+            verify_admission.assert_called_once_with(admission,start['N'],value)
+            verify_tail.assert_called_once_with(tail,start['N'],value)
+            claim=self.client.tail_claim_path(tail);claim.parent.mkdir(parents=True,exist_ok=True)
+            records.publish(claim,dict(fixture=True))
+            with self.assertRaisesRegex(ValueError,'already attempted'):self.client.prepare('bootstrap',grant)
+
+    def test_native_bootstrap_context_keeps_predecessor_tail_distinct_from_fresh_n(self):
+        predecessor=dict(run_id_hex='a'*32)
+        request=dict(operation='bootstrap',reentry=False,hud=False,N=self.image,S=predecessor,
+            prior_terminal={'fixture':'tail'})
+        prior=dict(nonce_sha256='1'*64,kernel_boot_identity_sha256='2'*64)
+        last=dict(nonce_sha256='3'*64,kernel_boot_identity_sha256='2'*64)
+        with mock.patch.object(self.client,'configuration',return_value={}), \
+                mock.patch.object(self.client,'tail',return_value=prior) as tail, \
+                mock.patch.object(self.client,'recover_step_result',return_value={'proof':last}):
+            first=self.client.context(owner.operation_steps(request)[0],request)
+            self.assertEqual(first['previous'],prior);self.assertFalse(first['first_boot'])
+            tail.assert_called_with(request['prior_terminal'],predecessor,{})
+            new=self.client.context(owner.operation_steps(request)[2],request)
+            self.assertIsNone(new['previous']);self.assertTrue(new['first_boot'])
+            self.assertEqual(new['seen_nonces'],['1'*64,'3'*64])
 
 
 class NativeAdapterTests(unittest.TestCase):

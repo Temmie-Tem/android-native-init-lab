@@ -224,6 +224,32 @@ dispatch is never replayed. The fixed reviewed host setup is completed before
 the grant clock opens. Historical N/E claims and admissions retain their
 original meanings and cannot substitute for V3 admission.
 
+### G2 exact 128 GiB GPT reservation and stock initialization
+
+The common-incorporated [G2 policy](../S22PLUS_NATIVE_GPT_RESERVATION_V1.md) is
+adopted as a **REVIEW_GATED_CAPABILITY** solely through the V3 `gpt-reserve`
+operation and `thermal-v3-reconnect-ufs-drain-gpt-v1` profile. Its exact four GPT
+blocks, stock reset side effects, fixed reads, geometry checks, original-layout
+restoration and final rooted Android reboot verification are the complete scope.
+It specializes this target's otherwise boot-only/A-only recovery and no-format
+rules only where that common exception expressly permits; all other targets,
+old operations, deferred modes, consumed records and grants remain unchanged.
+
+The task is attended, contains only optional bootstrap and one G2 operation,
+and grants at most two operations/7200 original BOOTTIME seconds. Fresh N may
+bootstrap from healthy A or a machine-bound admitted old V3 N/closed tail with
+unchanged ancestor sources. Two N installations/four healthy sessions remain
+required; final bootstrap includes the actual complete original-GPT read before
+the new endpoint can apply its sealed proposal. A negative read cannot authorize
+a write. The existing global owner remains held through physical reset/setup
+and unresolved recovery. Recovery never renews research budgets or replays an
+uncertain metadata write, physical action, CONTROL or transfer. New exact A
+dispatch after GPT requires the common policy's proved initialization/restoration
+basis. Normal completion leaves Android with unchanged GPT/capacity and proved
+numeric root after one ordinary reboot. Definition and independent review alone
+open no grant; actual finite operator approval and usable attended recovery
+remain mandatory.
+
 ### P386 attended resident observation
 
 The [resident adoption V1](../S22PLUS_NATIVE_RESIDENT_ADOPTION_V1.md) selects

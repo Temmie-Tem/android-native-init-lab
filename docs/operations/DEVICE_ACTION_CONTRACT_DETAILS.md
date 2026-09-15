@@ -67,10 +67,15 @@ permission to perform host-only work.
    exact private T1 observer receipt and bytes, its sole `mtp,adb` distinction,
    and current serial continuity. T1 remains `NO_PROOF`; its evidence grants
    no T2 command before separate review and mechanical activation.
+   The separate exact S22+ G2 exception below permits only its native GPT
+   metadata replacement and the declared ordinary stock-recovery reset effects.
+   It permits no partition-image transfer except the existing boot-only N/A
+   roles and grants no generic userdata, EFS, param or misc access.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
-   path.
+   path. Only the exact S22+ G2 exception below specializes GPT mutation and
+   ordinary stock-recovery formatting for that one target/layout transaction.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -109,7 +114,8 @@ permission to perform host-only work.
    format, filesystem mount, caller SCSI command, RPMB data transaction or
    key request. Only its exact target/V3 adoption, reviewed source closure and
    actual finite F1 grant activate it. Later explicit metadata capture retains
-   its separately declared bounds; GPT mutation/restoration remains unqualified.
+   its separately declared bounds. The UFS profile alone does not qualify or
+   authorize GPT mutation/restoration; the separate exact G2 exception is required.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:
@@ -552,7 +558,8 @@ or AP payload. Complete negative metadata is `NO_PROOF` independently of
 proved native health. Protocol uncertainty retains only the task's original
 attended one-shot A recovery, since the census has changed no partition.
 Neither census success nor that existing boot recovery qualifies GPT-write
-recovery. Partition writes and formatting remain forbidden.
+recovery. Partition writes and formatting remain forbidden outside the separate
+exact G2 exception below.
 
 Only an explicitly granted deferred V3 task waives attendance for native-origin
 operations; it retains unknown powered device activity and later attended
@@ -564,6 +571,57 @@ exclusion, original one-shot A and no uncertain replay. Historical claims,
 admissions and grants confer no V3 authority. Current independent review of
 the reachable owner, host installation and native source scope plus an actual
 returned finite grant are required; definition alone grants no device effect.
+
+## S22+ G2 fixed GPT reservation and stock initialization
+
+The [exact G2 policy](S22PLUS_NATIVE_GPT_RESERVATION_V1.md) is incorporated as
+a separate review-gated exception to boundaries 2 and 3 for only the
+operator-owned `SM-S906N/g0q/S906NKSS7FYG8`. It permits the sealed 128 GiB
+reservation: entry 40 becomes 95.4580078125 GiB userdata and entry 41 becomes
+128 GiB `native_data`, preserving the other 39 entries and every other byte
+outside LU0 GPT LBAs 1, 3, 62,305,272 and 62,305,279. Only the fixed reviewed
+native endpoint may write these blocks; raw host writes and arbitrary payloads
+remain forbidden. One apply and, if needed, one original-metadata restoration
+are separate nonreplayable roles under the same global F1 owner.
+
+The exact stock recovery may perform one ordinary candidate factory reset
+after fresh kernel discovery of the reduced layout. This expressly includes
+userdata/cache/metadata formatting, two 64-byte MDF writes at param end minus
+2048, the traced conditional UCM/post-wipe files in EFS/sec_efs, recovery cache
+log maintenance, and the 2048-byte misc BCB clear. Only those stock operations
+are permitted, with no host raw access to their destinations. If a candidate
+reset was intended and recovery restores original GPT, one distinct restorative
+stock reset at original userdata size is permitted; it does not restore erased
+user data. The native partition remains unformatted. No recovery image, PIT,
+BL/CP/CSC, super, key material, RPMB or other partition payload is permitted.
+
+This exception specializes the V3 A-only recovery rule: after a GPT intent,
+exact A is forbidden until full original GPT is restored (plus restorative
+reset geometry if required), or the reduced GPT and fresh filesystem geometry
+are proved. Recovery may install the already qualified exact N once to restore
+original metadata, using the reviewed stock PE serial-write-state model and
+attended physical Download. Once A is intended, N cannot overwrite it and A
+cannot replay. An uncertain restoration stops further effects; the owner stays
+held. Ordinary A remains boot recovery only. The declared model does not claim
+recovery from arbitrary media failure or guaranteed hardware durability.
+
+Fresh actual read-only qualification of the new native endpoint is required
+before apply. Fixed reads are full six/nine-block GPT capture, matching live
+userdata/native-entry geometry, and after reset only 216 exported F2FS geometry
+bytes from two fixed 4096-byte reads; UUIDs and filesystem data are not exported.
+After exact A and attended setup, bounded full GPT/statfs reads between rooted
+health brackets precede and follow one ordinary Android reboot. Normal closure
+requires changed Android boot, preserved exact GPT/capacity and numeric root.
+Physical reset, reboot and setup remain attended; no deferred mode is adopted.
+
+The exact target adoption, independent review of this exception and reachable
+owner/native closure, fresh qualified N/A artifacts, usable physical recovery,
+and an actual separately returned finite grant are all required. Its task is
+at most two operations (bootstrap and G2) and 7200 original BOOTTIME seconds.
+An optional bootstrap origin is an exact healthy previously admitted V3 N whose
+closed tail and unchanged ancestor source closure are machine-bound. It still
+performs two fresh-N installations and four health sessions before admission.
+No prior grant, consumed image or unactivated document grants an effect.
 
 ## Bounded Attended F1 Sessions
 

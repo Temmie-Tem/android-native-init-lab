@@ -463,11 +463,25 @@ and stock-boot recovery are one preauthorized attended transaction.
   fallback remains subject to every ordinary boot-only transport, endpoint,
   artifact, no-replay, and final-stock-health boundary.
 
+### G2 - Exact S22+ GPT Reservation and Stock Initialization
+
+Only the common/target-incorporated [G2 policy](S22PLUS_NATIVE_GPT_RESERVATION_V1.md)
+permits its sealed four-block 128 GiB GPT reservation and the traced exact
+FYG8 stock factory-reset effects. It is a separate high-risk transaction,
+never a collection of D0/D1 commands. Its fixed native writer, one-shot claims,
+full readbacks, original-layout recovery, physical attendance and finite grant
+are mandatory. Boot-only transfer transport remains unchanged; the G2 owner
+prevents Android dispatch until initialization/restoration is proved. Current
+independent boundary/owner/native review and actual read-only endpoint
+qualification precede GPT mutation. No generic partition writer, formatter,
+unattended mode or old-data restoration is authorized.
+
 ### X - Forbidden
 
 The existing forbidden partition and primitive list remains absolute except
 for the exact contract-bound S20+ T0/T1 recovery-only AP pairs and a separately
-activated exact T2 pair. In particular, no policy tier authorizes a raw block
+activated exact T2 pair and the exact S22+ G2 transaction above. Outside those
+closed exceptions, no policy tier authorizes a raw block
 write or a flashing operation to vendor_boot, DTBO,
 vbmeta, BL, CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB, keymaster,
 modem, bootloader, or any partition other than an explicitly authorized boot

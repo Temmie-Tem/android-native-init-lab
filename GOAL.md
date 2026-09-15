@@ -21,7 +21,9 @@ using the exact existing Magisk A image and verified after setup. The current
 proposal is 95.458 GiB userdata plus 128 GiB native entry, preserving the other
 39 entries and a 988 KiB alignment gap. It supersedes the historical 64 GiB
 proposal without modifying its evidence. Original duplicate GUIDs remain
-observed; strict metadata qualification is not relabelled.
+observed; strict metadata qualification is not relabelled. Final state must
+remain Android, with its reported storage capacity, GPT layout and root
+verified both before and after one ordinary Android reboot.
 
 **P396 `v0.2.2-rc.2` is admitted and retained `NATIVE_CLOSED_HEALTHY`.** Its
 actual attended bootstrap completed two installations and four authenticated
@@ -37,10 +39,11 @@ request was retired before grant opening or device action. No partition write
 or format has occurred. The historical 64 GiB construction and generic restore
 core have independent H0 qualification. The fresh 128 GiB proposal also changes
 only four metadata blocks and has independent `PASS_H0_BOUNDED_128G_DELTA`;
-seven selected tests, including actual ARM64 core and direct/synchronous
-regular-file I/O, pass. Exact-stock recovery reset effects,
-the complete owner and GPT/format policy exception remain H0 work before any
-new finite live grant. See the [layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
+seven selected tests, including actual ARM64 core/direct I/O, pass. The new
+P397 `v0.3.0-rc.1` GPT profile passes static ARM64 A/B and actual AP qualification.
+The owner, exact stock reset effects and G2 exception have independent H0 review;
+actual endpoint qualification and a fresh finite grant remain required. See the
+[layout and G2 result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
 and [UFS result and incident history](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md).
 
 ## Earlier native baseline qualification

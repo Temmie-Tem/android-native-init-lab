@@ -8,6 +8,7 @@ import device_action_raw_capture_v1 as raw
 import s22plus_native_baseline_protocol_v1 as protocol
 import s22plus_native_thermal_observer_v3 as thermal
 import s22plus_native_storage_census_v1 as storage
+import s22plus_native_gpt_profile_v1 as gpt
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
 from s22plus_native_wire_v3 import Codec
@@ -35,7 +36,14 @@ class StorageIO(IO):
     SOURCE_PROFILE = storage.SCHEMA
 
 
-def io_class(profile):
+def io_class(profile, image=None):
+    if profile in gpt.SELECTIONS:
+        require(image is not None,'GPT observation has no bound image')
+        class GptIO(IO):
+            EXTRA_PROFILE=gpt.Profile(image,profile)
+            SOURCE_PROFILE=dict(schema=gpt.SCHEMA,selection=profile,
+                proposal_sha256=image['gpt']['proposal']['sha256'])
+        return GptIO
     require(profile in ('health','storage-census'), 'unknown native observation profile')
     return StorageIO if profile == 'storage-census' else IO
 
@@ -96,7 +104,7 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
         and attempt['ending']==ending and attempt['hud']==hud,'native observation context differs')
     require(opened.get('profile','health') == close.get('profile','health')
         == attempt.get('profile','health') == profile, 'native observation profile changed')
-    selected_io=io_class(profile)
+    selected_io=io_class(profile,image)
     handle=raw.load_handle(verify(attempt['raw']))
     # The two direct-source streams are RX and TX, not command stdout/stderr.
     # Preserve every producer-completion check without rejecting valid TX.
@@ -120,9 +128,12 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
 
 
 def observe(directory, image, host, *, ending, hud, guard, before_terminal,
-            previous=None, first_boot=False, seen_nonces=(), seen_boots=(), before_auth=None, profile='health'):
+            previous=None, first_boot=False, seen_nonces=(), seen_boots=(), before_auth=None,
+            profile='health',before_extra=None):
     require(ending in ('detach','download') and type(hud) is bool,'native observation selection differs')
-    selected_io=io_class(profile)
+    selected_io=io_class(profile,image)
+    if profile in gpt.SELECTIONS and selected_io.EXTRA_PROFILE.MUTATES:
+        require(callable(before_extra),'GPT mutation has no durable owner callback')
     require(profile=='health' or ending=='detach' and hud is False,
         'storage census may not change mode or collect HUD')
     extra_fields={} if profile=='health' else dict(profile=profile)
@@ -157,8 +168,13 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
                         departure_deadline_ns=departure_deadline))
                 else:
                     before_terminal()
+            def extra(request):
+                guard()
+                check_freshness(io,previous=previous,first_boot=first_boot,
+                    seen_nonces=seen_nonces,seen_boots=seen_boots)
+                if before_extra is not None: before_extra(request)
             proof=protocol.qualify_one(io,ending=ending,evidence=directory/'console',
-                before_terminal=terminal,hud=hud)
+                before_terminal=terminal,hud=hud,before_extra=extra)
     except BaseException as caught:
         error=caught
     finally:

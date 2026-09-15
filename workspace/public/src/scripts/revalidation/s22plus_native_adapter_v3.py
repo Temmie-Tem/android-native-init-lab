@@ -11,11 +11,12 @@ import device_action_raw_capture_v1 as raw
 import s22plus_boot_only_f1_transport as transport
 import s22plus_native_host_v3 as host_module
 import s22plus_native_observation_v3 as native
+import s22plus_native_gpt_profile_v1 as gpt
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
 from s22plus_native_records_v3 import (SCHEMA, Journal, clock, digest, pin, private_path,
     publish, read, require, verify)
-from s22plus_native_session_v3 import steps
+from s22plus_native_session_v3 import steps, operation_steps
 
 AP_MAXIMUM=128*1024*1024
 
@@ -32,9 +33,12 @@ def image_identity(image, binding):
 def image_valid(image, *, artifact_bytes=False):
     exporters={'thermal-v3-reconnect-v1':'s22plus_native_artifact_v3_h0.py',
         'thermal-v3-reconnect-ufs-v1':'s22plus_native_ufs_artifact_v1_h0.py',
-        'thermal-v3-reconnect-ufs-drain-v1':'s22plus_native_output_drain_artifact_v1_h0.py'}
-    require(set(image)=={'schema','namespace','run_id_hex','profile','version','ap','member','key',
-        'qualification','runtime_sources'} and image['schema']=='s22plus-native-image-v3'
+        'thermal-v3-reconnect-ufs-drain-v1':'s22plus_native_output_drain_artifact_v1_h0.py',
+        gpt.PROFILE:'s22plus_native_gpt_artifact_v1_h0.py'}
+    keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
+        'qualification','runtime_sources'}
+    if image.get('profile')==gpt.PROFILE:keys.add('gpt')
+    require(set(image)==keys and image['schema']=='s22plus-native-image-v3'
         and image['profile'] in exporters,'native image qualification schema differs')
     native.identity(image); native.key_bytes(image)
     qualification=read(verify(image['qualification']))
@@ -54,12 +58,18 @@ def image_valid(image, *, artifact_bytes=False):
         and built['candidate']['a']['ap_tar_md5']=={name:image['ap'][name] for name in ('size','sha256')}
         and built['candidate']['a']['boot_img_lz4']=={name:image['member'][name] for name in ('size','sha256')},
         'native qualification does not join its actual A/B producer')
-    if image['profile'] in ('thermal-v3-reconnect-ufs-v1','thermal-v3-reconnect-ufs-drain-v1'):
+    if image['profile'] in ('thermal-v3-reconnect-ufs-v1','thermal-v3-reconnect-ufs-drain-v1',gpt.PROFILE):
         require(built['native_selection']['runtime_profile']['storage_profile']=='fyg8-stock-ufs-v1',
             'UFS image does not contain its selected initialization profile')
-    if image['profile']=='thermal-v3-reconnect-ufs-drain-v1':
+    if image['profile'] in ('thermal-v3-reconnect-ufs-drain-v1',gpt.PROFILE):
         require(built['native_selection']['runtime_profile']['console_profile']=='settled-output-drain-v1',
             'native image does not contain its selected output drain correction')
+    if image['profile']==gpt.PROFILE:
+        runtime=built['native_selection']['runtime_profile']
+        require(built['gpt']==image['gpt'] and runtime['gpt_profile']=='fyg8-native-128g-gpt-v1'
+            and runtime['gpt_proposal_sha256']==image['gpt']['proposal']['sha256']
+            and runtime['gpt_native_size_bytes']==128*1024**3,'GPT image differs from its sealed producer')
+        gpt.vectors(image['gpt'])
     if artifact_bytes:
         with transport.pin_boot_only_ap(Path(image['ap']['path']),label='qualified native image',
                 expected_size=image['ap']['size'],expected_sha256=image['ap']['sha256']) as ap:
@@ -84,8 +94,9 @@ class Adapter:
             require_android=not android_completed)
         grant_path=verify(request['grant']); grant=read(grant_path)
         validate_grant(task,grant,grant_path)
-        require(set(request)=={'schema','operation','reentry','hud','grant','task','N','E','A',
+        keys={'schema','operation','reentry','hud','grant','task','N','E','A',
             'admission','prior_terminal','usb_reconnect'}
+        require(set(request) in (keys,keys|{'S'})
             and request['schema']==SCHEMA and request['task']==grant['task'],
             'operation uses a different task')
         require(request['operation'] in task['operations']
@@ -93,6 +104,12 @@ class Adapter:
             'operation options exceed the original task')
         require(request['N']==task['N'] and request['A']==task['A'],
             'operation artifact selection differs from original task')
+        start=task.get('bootstrap_start') if request['operation']=='bootstrap' else None
+        if start is not None:
+            require(request.get('S')==start['N'] and request['admission']==start['admission']
+                and request['prior_terminal']==start['prior_terminal'],
+                'bootstrap predecessor differs from the original task')
+        else: require('S' not in request,'operation contains an unselected bootstrap predecessor')
         if request['operation']=='experiment':
             if not recovery and not android_completed: image_valid(request['E'])
             require(request['E']['runtime_sources']==task['runtime_scope']
@@ -130,8 +147,12 @@ class Adapter:
                 and experiment['run_id_hex']!=task['N']['run_id_hex']
                 and experiment['ap']['sha256']!=task['N']['ap']['sha256'],
                 'prepared E is outside the original runtime scope')
-        prior=None; admission=None
-        if operation!='bootstrap':
+        prior=None; admission=None; start=task.get('bootstrap_start') if operation=='bootstrap' else None
+        if start is not None:
+            admission=start['admission']; prior=start['prior_terminal']
+            self.admission(admission,start['N'],task); self.tail(prior,start['N'],task)
+            require(not self.tail_claim_path(prior).exists(),'bootstrap predecessor tail was already attempted')
+        elif operation!='bootstrap':
             admission=task['admission']
             prior=task['prior_terminal']
             for path in sorted(Path(grant['directory']).glob('operation-*/terminal.json')):
@@ -145,25 +166,32 @@ class Adapter:
             self.admission(admission,task['N'],task)
             self.tail(prior,task['N'],task)
             require(not self.tail_claim_path(prior).exists(),'prior native tail already has an authentication attempt')
-        return dict(task=grant['task'],N=task['N'],E=experiment,A=task['A'],
+        value=dict(task=grant['task'],N=task['N'],E=experiment,A=task['A'],
             admission=admission,prior_terminal=prior,usb_reconnect=bool(task['usb_reconnect'] and reentry))
+        if start is not None:value['S']=start['N']
+        return value
 
     def preflight(self, request, *, guard):
         guard(); task=self.configuration(request)
-        for image in (request['N'],request['E']):
+        for image in (request['N'],request['E'],request.get('S')):
             if image is not None: image_valid(image,artifact_bytes=True)
         with self.original_android(request): pass
         for role in (('N',) if request['operation']=='bootstrap' else ('E',) if request['operation']=='experiment' else ()):
             registry.preflight_candidate(self.root,image_identity(request[role],pin(self.directory/'operation.json')['sha256']))
         target.lane.revalidate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
-        self.native_host(request).holders(expected_run=None if request['operation']=='bootstrap' else request['N']['run_id_hex'])
+        android_start=request['operation']=='bootstrap' and request.get('S') is None
+        origin=request.get('S',request['N'])
+        self.native_host(request).holders(expected_run=None if android_start else origin['run_id_hex'])
         folder=self.folder('preflight',create=True)
-        if request['operation']=='bootstrap':
+        if android_start:
             self.android(request,folder,guard).health()
         else:
-            self.admission(request['admission'],request['N'],task); self.tail(request['prior_terminal'],request['N'],task)
+            self.admission(request['admission'],origin,task); self.tail(request['prior_terminal'],origin,task)
+        if request['operation']=='gpt-reserve':
+            from s22plus_native_gpt_session_v1 import preflight
+            preflight(self,request)
         publish(folder/'complete.json',dict(task=request['task'],host_configuration_verified=True,
-            health=pin(folder/'health.json') if request['operation']=='bootstrap' else request['prior_terminal']))
+            health=pin(folder/'health.json') if android_start else request['prior_terminal']))
 
     def android(self, request, folder, guard):
         task=self.configuration(request)
@@ -193,6 +221,30 @@ class Adapter:
         publish(folder/'result.json',result)
         return dict(action='download',result=pin(folder/'result.json'))
 
+    def android_reboot(self,step,request,*,guard,before_dispatch):
+        require(request['operation']=='gpt-reserve' and step.name=='android-reboot',
+            'ordinary Android reboot is not selected')
+        self.validate_result(next(s for s in operation_steps(request) if s.name=='android-initial'),
+            read(self.directory/'android-initial.json'),request)
+        folder=self.folder(step.name,create=True)
+        before=target.usb_snapshot(target.lane.SOURCE_TOPOLOGY,folder)
+        publish(folder/'departure-before.json',before);deadline=None
+        def dispatch():
+            nonlocal deadline
+            deadline=clock()+30_000_000_000
+            before_dispatch(dict(departure=pin(folder/'departure-before.json'),departure_deadline_ns=deadline))
+        capture=self.android(request,folder,guard).command(
+            ['-s',self.configuration(request)['target']['serial'],'reboot'],'reboot',timeout=15,before_launch=dispatch)
+        raw.require_success(capture)
+        departure=target.wait_departure(before,folder,deadline_ns=deadline,guard=guard)
+        publish(folder/'departure.json',departure)
+        value=dict(action='reboot',capture=pin(capture.receipt_path),departure=pin(folder/'departure.json'),accepted=True)
+        try:publish(folder/'result.json',value)
+        except Exception as error:
+            from s22plus_native_session_v3 import ResultPublicationError
+            raise ResultPublicationError(step) from error
+        return value
+
     def claim(self, step, request, binding):
         if step.role=='A': return
         image=request[step.role]; identity=image_identity(image,binding)
@@ -203,20 +255,29 @@ class Adapter:
             claim=read(self.directory/'claim-N.json')
             require(registry.active_claim(self.root,identity['candidate_key'])==claim['record'],
                 'bootstrap second installation has no original native claim')
-            self.validate_result(steps('bootstrap')[3],read(self.directory/'native-first-2.json'),request)
+            self.validate_result(operation_steps(request)[3],read(self.directory/'native-first-2.json'),request)
         elif step.name=='restore-native':
             self.admission(request['admission'],image,self.configuration(request))
             selected=steps('experiment',reentry=request['reentry'],hud=request['hud'])[-3]
             self.validate_result(selected,read(self.directory/(selected.name+'.json')),request)
+        elif step.name=='recover-native' and request['operation']=='gpt-reserve':
+            from s22plus_native_gpt_session_v1 import gpt_intended, intents
+            require(gpt_intended(self) and not intents(self,'gpt-restore')
+                and not any(row['action']=='transfer' and row['role']=='A' for row in intents(self)),
+                'native GPT recovery is out of order or would overwrite an intended A')
+            self.admission(request['admission'],image,self.configuration(request))
         else: require(False,'unselected native restoration')
 
     def transfer(self, step, request, *, guard, before_launch):
+        if request.get('operation')=='gpt-reserve' and step.role=='A':
+            from s22plus_native_gpt_session_v1 import android_basis
+            android_basis(self,request)
         task=self.configuration(request); artifact=request[step.role]['ap']
         base=self.folder(step.name); base.mkdir(mode=0o700,exist_ok=True)
         folder=base/('attempt-'+uuid.uuid4().hex); folder.mkdir(mode=0o700)
         endpoints=folder/'endpoints'; endpoints.mkdir(mode=0o700)
         guard()
-        if step.name=='recover-android':
+        if step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
         else:
             intents=[row for row in Journal(self.directory/'journal').rows() if row['event']=='effect-intent']
@@ -242,6 +303,7 @@ class Adapter:
             identity=target.download_identity(ticket.device)
             def launch():
                 guard()
+                if request.get('operation')=='gpt-reserve' and step.role=='A':android_basis(self,request)
                 self.native_host(request).holders()
                 target.lane.revalidate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
                 checked=transition.revalidate_endpoint_ticket(odin.path,endpoints,ticket,
@@ -285,14 +347,22 @@ class Adapter:
             completed=True)
 
     def context(self, step, request):
-        plan=steps(request['operation'],reentry=request['reentry'],hud=request['hud'])
+        plan=operation_steps(request)
+        recovery=False
+        if request['operation']=='gpt-reserve' and step not in plan:
+            from s22plus_native_gpt_session_v1 import plan_for_step
+            plan=plan_for_step(self,step,request);recovery=True
         index=plan.index(step); prior=[]
         if request['prior_terminal'] is not None:
-            prior.append(self.tail(request['prior_terminal'],request['N'],self.configuration(request)))
+            prior.append(self.tail(request['prior_terminal'],request.get('S',request['N']),self.configuration(request)))
+        if recovery:
+            for previous_step in operation_steps(request):
+                if previous_step.action=='observe' and (self.directory/(previous_step.name+'.json')).exists():
+                    prior.append(self.recover_step_result(previous_step,request)['proof'])
         for previous_step in plan[:index]:
             if previous_step.action=='observe':
                 prior.append(self.recover_step_result(previous_step,request)['proof'])
-        first=index>0 and plan[index-1].action=='transfer'
+        first=index>0 and plan[index-1].action in ('transfer','physical')
         return dict(previous=None if first else prior[-1] if prior else None,first_boot=first,
             seen_nonces=[proof['nonce_sha256'] for proof in prior],
             seen_boots=[proof['kernel_boot_identity_sha256'] for proof in prior])
@@ -306,7 +376,8 @@ class Adapter:
             time.sleep(.2)
         raise TimeoutError('selected native endpoint did not arrive')
 
-    def observe(self, step, request, *, guard, before_terminal, consume_observation=None):
+    def observe(self, step, request, *, guard, before_terminal, consume_observation=None,before_extra=None):
+        from s22plus_native_gpt_session_v1 import profile_for
         image=request[step.role]; self.wait_native(image,request,guard)
         context=self.context(step,request)
         if step.name=='experiment-final' and request['usb_reconnect']:
@@ -319,8 +390,8 @@ class Adapter:
             self.claim_tail(request)
         return native.observe(self.folder(step.name),image,self.native_host(request),ending=step.ending,
             hud=step.hud,guard=guard,before_terminal=before_terminal,
-            before_auth=begin_attempt if step.name in ('native-start','native-storage') else None,
-            profile='storage-census' if step.name=='native-storage' else 'health',**context)
+            before_auth=begin_attempt if step.name in ('native-start','native-storage','native-bootstrap-start','gpt-apply') else None,
+            profile=profile_for(step,image),before_extra=before_extra,**context)
 
     def tail_claim_path(self, receipt):
         verify(receipt)
@@ -351,10 +422,16 @@ class Adapter:
         journal=self.directory/'journal'
         if not journal.exists(): return False
         intents=[row for row in Journal(journal).rows() if row['event']=='effect-intent']
-        if not intents or intents[-1]['data']['role']!='A' or intents[-1]['data']['action']!='transfer': return False
+        if not intents:return False
+        last=intents[-1]['data']
+        if request.get('operation')=='gpt-reserve' and (last['step'],last['action'],last['role'])==('android-reboot','reboot','A'):
+            matches=[i for i,row in enumerate(intents) if row['data']['role']=='A' and row['data']['action']=='transfer']
+            if len(matches)!=1 or matches[0]+2!=len(intents):return False
+            last=intents[matches[0]]['data']
+        if last['role']!='A' or last['action']!='transfer':return False
         from s22plus_native_session_v3 import Step
         try:
-            return self.recover_transfer_result(Step(intents[-1]['data']['step'],'transfer','A'),request)['completed'] is True
+            return self.recover_transfer_result(Step(last['step'],'transfer','A'),request)['completed'] is True
         except (OSError,ValueError,raw.RawCaptureError): return False
 
     def reconnect(self, request, guard):
@@ -377,6 +454,9 @@ class Adapter:
         raise TimeoutError('selected USB reconnect did not complete')
 
     def android_health(self, step, request, *, guard):
+        if request.get('operation')=='gpt-reserve':
+            from s22plus_native_gpt_android_v1 import observe
+            return observe(self,step,request,guard=guard)
         # A later attended recovery may take a fresh D0 health attempt. Every
         # attempt retains its raw bytes, and no A transfer is repeated.
         base=self.folder(step.name)
@@ -393,23 +473,39 @@ class Adapter:
 
     def recover_step_result(self, step, request):
         if step.action=='transfer': return self.recover_transfer_result(step,request)
+        if step.action=='physical':
+            from s22plus_native_gpt_session_v1 import physical_result
+            return physical_result(self,step,request)
         if step.action=='observe':
+            from s22plus_native_gpt_session_v1 import profile_for
             value=native.rederive(self.folder(step.name),request[step.role],ending=step.ending,hud=step.hud,
-                profile='storage-census' if step.name=='native-storage' else 'health',**self.context(step,request))
+                profile=profile_for(step,request[step.role]),**self.context(step,request))
             if step.ending=='download': value['departure']=pin(self.folder(step.name)/'departure.json')
             return value
         if step.action=='health':
+            if request.get('operation')=='gpt-reserve':
+                from s22plus_native_gpt_android_v1 import rederive
+                return rederive(self,step,request)
             base=self.folder(step.name); path=base/'result.json'
             if path.exists(): return read(path)
             measured=list(base.glob('attempt-*/health.json'))
             require(len(measured)==1,'no unique completed Android health proof')
             return dict(action='health',health=pin(measured[0]))
         if step.action=='download': return dict(action='download',result=pin(self.folder(step.name)/'result.json'))
+        if step.action=='reboot':
+            folder=self.folder(step.name)
+            value=dict(action='reboot',capture=pin(folder/'reboot.capture.json'),
+                departure=pin(folder/'departure.json'),accepted=True)
+            if (folder/'result.json').exists():require(read(folder/'result.json')==value,'Android reboot aggregate differs')
+            return value
         require(False,'unknown retained step')
 
     def final_protocol_completed(self, step, request):
         folder=self.folder(step.name)
         if step.action=='health':
+            if request.get('operation')=='gpt-reserve':
+                from s22plus_native_gpt_android_v1 import final_protocol_completed
+                return final_protocol_completed(self,step,request)
             return (folder/'result.json').exists() or any(folder.glob('attempt-*/health.json'))
         path=folder/'session.capture.json'
         if not path.exists(): return False
@@ -422,11 +518,14 @@ class Adapter:
 
     def validate_result(self, step, value, request):
         require(value==self.recover_step_result(step,request),'step result differs from original raw evidence')
-        if step.name in ('native-start','native-storage'):
+        if step.name in ('native-start','native-storage','native-bootstrap-start','gpt-apply'):
             claim=read(self.tail_claim_path(request['prior_terminal']))
             require(claim['schema']=='s22plus-native-tail-attempt-v3'
                 and claim['prior']==request['prior_terminal'] and claim['operation']==pin(self.directory/'operation.json'),
                 'native-start proof has no unique original tail attempt')
+        if request.get('operation')=='gpt-reserve' and step.name in gpt.SELECTIONS:
+            from s22plus_native_gpt_session_v1 import validate_command_intent
+            validate_command_intent(self,step,value,request)
         if step.action=='health':
             health=read(verify(value['health'])); task=self.configuration(request)
             require(target.health_projection(health['captures'],task['target'],request['A'])==health,
@@ -440,6 +539,10 @@ class Adapter:
             raw.require_success(raw.load_handle(verify(result['capture'])))
             require(result['accepted'] is True,'Android Download request is unproved')
             departure=result['departure']
+        elif step.action=='reboot':
+            raw.require_success(raw.load_handle(verify(value['capture'])))
+            require(value['accepted'] is True,'ordinary Android reboot request is unproved')
+            departure=read(verify(value['departure']))
         elif step.action=='observe' and step.ending=='download': departure=read(verify(value['departure']))
         else: return
         require(departure['departed'] is True and departure['observed_ns']<departure['deadline_ns'],
@@ -453,6 +556,13 @@ class Adapter:
     def validate_sequence(self, selected, values, request):
         require(len(values)==len(selected),'native sequence incomplete')
         for step,value in zip(selected,values): self.validate_result(step,value,request)
+        if request.get('operation')=='gpt-reserve' and selected[-1].role=='A':
+            from s22plus_native_gpt_session_v1 import android_basis
+            android_basis(self,request)
+            if any(step.name=='android-reboot' for step in selected):
+                from s22plus_native_gpt_android_v1 import reboot_persistence
+                require(reboot_persistence(self,request,values[-1])['status']=='PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT',
+                    'Android reboot persistence qualification is incomplete')
         if request['usb_reconnect'] and selected[-1].role=='N':
             window=read(self.directory/'usb-reconnect-window.json')
             departure=read(self.directory/'usb-reconnect-departure.json')
@@ -472,6 +582,15 @@ class Adapter:
             host_configuration='VERIFIED_INSTALLED_EXTERNAL_CONFIGURATION')
         if request['operation']=='storage-census':
             result['storage_census_status']=values[-1]['proof']['storage_census']['status'] if healthy_native else 'NOT_COMPLETED'
+        if request['operation']=='gpt-reserve':
+            from s22plus_native_gpt_session_v1 import android_basis
+            from s22plus_native_gpt_android_v1 import reboot_persistence
+            result['gpt']=android_basis(self,request)
+            result['gpt']['android_reboot']=reboot_persistence(self,request,values[-1])
+            result['gpt']['android_storage']=values[-1]['gpt_android']['storage']
+            result['gpt']['status']=('RESERVED_ANDROID_REBOOT_VERIFIED'
+                if result['gpt']['android_reboot']['status']=='PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT'
+                else 'RESERVED_AND_ANDROID_INITIALIZED') if result['gpt']['layout']=='proposed' else 'ORIGINAL_GPT_ANDROID_RECOVERED'
         return result
 
     def tail(self, receipt, image, task):
@@ -484,7 +603,7 @@ class Adapter:
         require(original['target']==task['target'] and original['A']==task['A'],
             'closed native tail belongs to a different physical target or Android A')
         other=Adapter(self.root,Path(terminal['operation_record']['path']).parent)
-        selected=steps(operation['operation'],reentry=operation['reentry'],hud=operation['hud'])[-1]
+        selected=operation_steps(operation)[-1]
         result=read(verify(terminal['terminal_result']))
         require(terminal['terminal_step']==selected.name,'native terminal step differs')
         other.validate_result(selected,result,operation)
@@ -504,7 +623,7 @@ class Adapter:
         other=Adapter(self.root,Path(terminal['operation_record']['path']).parent)
         from s22plus_native_session_v3 import Session
         session=Session(self.root,other.directory,other)
-        session.completed(steps('bootstrap'))
+        session.completed(operation_steps(operation))
         claim=read(other.directory/'claim-N.json')
         identity=image_identity(image,pin(other.directory/'operation.json')['sha256'])
         require(registry.active_claim(self.root,identity['candidate_key'])==claim['record'],

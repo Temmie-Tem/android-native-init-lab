@@ -12,6 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'workspace/public/src/scripts/analysis'),
     str(ROOT/'workspace/public/src/scripts/revalidation')]
 import s22plus_native_gpt_layout_h0 as plan
+import s22plus_native_gpt_profile_v1 as profile
 from test_s22plus_native_gpt_layout_h0 import original
 
 TOTAL=62_305_280
@@ -56,7 +57,7 @@ CALLBACK_TEST=r'''
 static const char gpt1_target_run_id[]="h0-fixture-only";
 #include "s22plus_native_gpt_io_v1.inc.c"
 int main(int argc,char **argv) {
-    assert(argc==2);
+    assert(argc==2 || (argc==3 && !strcmp(argv[2],"apply-proof")));
     (void)gpt1_entry; /* Compiled endpoint, deliberately never called by H0. */
     assert(gpt1_userdata_sectors(gpt1_original)==(GPT1_TOTAL_LBAS-9U-3726848ULL)*8U);
     assert(gpt1_userdata_sectors(gpt1_proposed)==(28750592ULL-3726848ULL)*8U);
@@ -78,6 +79,11 @@ int main(int argc,char **argv) {
     assert(gpt1_execute(GPT1_APPLY,&io,gpt1_original,gpt1_proposed,
         gpt1_work,gpt1_expected,&r)==GPT1_OK && r.final_kind==2 && r.writes_completed==4);
     assert(!memcmp(gpt1_work,gpt1_proposed,GPT1_BYTES));
+    if(argc==3) {
+        assert(!close(f));
+        return gpt1_emit(GPT1_APPLY,GPT1_OK,0,0,&r,
+            (GPT1_TOTAL_LBAS-9U-3726848ULL)*8U,0,0,0);
+    }
     errno=0;
     assert(pread(f,gpt1_work+1,GPT1_BLOCK,0)==-1 && errno==EINVAL);
     assert(gpt1_device_write(&e,0,gpt1_original)==-1 && e.saved_errno==EPROTO);
@@ -141,6 +147,17 @@ class GptTests(unittest.TestCase):
         self.assertFalse(run.stderr)
         self.assertIn('PASS real_arm64_direct_sync_callbacks=1',run.stdout)
         self.assertIn('block_endpoint_exercised=0',run.stdout)
+
+    def test_actual_arm64_apply_output_is_consumed_by_the_live_profile_decoder(self):
+        path=self.out/'proof.sparse'
+        with path.open('xb') as stream:
+            stream.truncate(TOTAL*4096);stream.write(self.before[:24576])
+            stream.seek((TOTAL-9)*4096);stream.write(self.before[24576:])
+        run=subprocess.run(['qemu-aarch64',str(self.out/'callbacks'),str(path),'apply-proof'],
+            capture_output=True,timeout=15,check=True)
+        self.assertFalse(run.stderr)
+        value=profile.decode(run.stdout,'gpt-apply',dict(original=self.before,proposed=self.after))
+        self.assertEqual((value['status'],value['writes'],value['final_pair']),('PASS_EXACT_GPT',4,'proposed'))
 
 
 if __name__=='__main__':unittest.main()

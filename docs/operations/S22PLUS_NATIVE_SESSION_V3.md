@@ -36,7 +36,11 @@ still requires the actual bootstrap's rederived admission and healthy tail
 before it can prepare an observation. Original time and capacity do not reset.
 
 The task may bootstrap one fresh N and then perform its authorized N/E/N work.
-Bootstrap starts from exact healthy Android and requires attendance. An
+Bootstrap starts from exact healthy Android or a separately bound healthy
+admitted old V3 N with an unused closed tail and unchanged ancestor source
+closure. The latter adds fresh starting-N health/CONTROL before the same two
+new-N installations/four-session qualification; it does not readmit or replay
+the old image. Bootstrap requires attendance. An
 explicit deferred-recovery task may perform native-origin operations without
 attendance after bootstrap admission. Recovery following an uncertain native
 state requires actual attendance. Deferred mode accepts a potentially active
@@ -171,6 +175,13 @@ qualifies partition-write recovery or activates GPT changes or formatting.
 
 ## Effects, closure and recovery
 
+Only the separately common/target-adopted [G2 policy](S22PLUS_NATIVE_GPT_RESERVATION_V1.md)
+specializes this document's boot-only and A-only-recovery rules. Its attended
+`gpt-reserve` graph, exact stock resets, pre-A safety proof, one original-GPT
+restoration and final Android reboot checks replace those generic rules solely
+for that operation. It permits no E/HUD/reconnect/deferred work or extra
+operations. Every other V3 operation retains the following recovery rules.
+
 The owner publishes a durable intent immediately before each effect. The
 transport's final callback runs after AP/tool validation and rechecks the
 original grant and exact endpoint before the claim and launch intent. Once an
@@ -229,5 +240,5 @@ explicit deferred-attendance option only for this owner. Ordinary boot-only
 boundaries, exact one-shot A, target isolation and uncertainty stops remain.
 Recovery evidence is independently reopened from a completed same-target A
 transfer and fresh raw rooted Android health; a receipt or ready flag alone is
-insufficient. The next live bootstrap still requires current exact Android
-health and actual attendance.
+insufficient. The next live bootstrap requires current exact Android health or
+the explicitly selected admitted-native predecessor proof, and actual attendance.

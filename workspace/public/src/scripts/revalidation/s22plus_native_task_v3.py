@@ -37,10 +37,12 @@ def source_paths(root):
     paths.update(root/name for name in ('AGENTS.md',DETAILS,TARGET_CONTRACT,POLICY,PROFILE,
         'docs/operations/S22PLUS_ANDROID_STORAGE_CENSUS_V1.md',
         'docs/operations/S22PLUS_NATIVE_UFS_V1.md',
+        'docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_ufs_artifact_v1_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_output_drain_artifact_v1_h0.py',
+        'workspace/public/src/scripts/analysis/s22plus_native_gpt_artifact_v1_h0.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py'))
     return tuple(sorted(paths))
 
@@ -91,17 +93,24 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
     keys={'schema','target','lane','N','E','A','adb','odin','host_installation','review','recovery_evidence',
         'operations','seconds','operation_budget','recovery_mode','reentry','hud','usb_reconnect',
         'admission','prior_terminal','runtime_scope'}
-    require(set(task)==keys and task['schema']=='s22plus-native-task-v3','native task schema differs')
+    require(set(task) in (keys,keys|{'bootstrap_start'})
+        and task['schema']=='s22plus-native-task-v3','native task schema differs')
     require(type(task['seconds']) is int and 60<=task['seconds']<=7200
         and type(task['operation_budget']) is int and 1<=task['operation_budget']<=3,
         'native task exceeds finite scope')
     require(type(task['operations']) is list and task['operations']
         and len(task['operations'])==len(set(task['operations']))
-        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census'}
+        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census','gpt-reserve'}
         and task['recovery_mode'] in ('attended','deferred'),'native task operations or recovery differ')
     require(all(type(task[key]) is bool for key in ('reentry','hud','usb_reconnect'))
         and (not task['usb_reconnect'] or task['reentry'] and task['recovery_mode']=='attended'),
         'physical reconnect requires a selected attended E reentry')
+    if task['N']['profile']=='thermal-v3-reconnect-ufs-drain-gpt-v1' or 'gpt-reserve' in task['operations']:
+        require(task['N']['profile']=='thermal-v3-reconnect-ufs-drain-gpt-v1'
+            and set(task['operations'])<={'bootstrap','gpt-reserve'} and task['recovery_mode']=='attended'
+            and task['operation_budget']<=2
+            and not any(task[key] for key in ('reentry','hud','usb_reconnect')),
+            'GPT reservation requires its exact attended task scope')
     require(task['target']['topology']==target.lane.SOURCE_TOPOLOGY
         and set(task['target'])=={'serial','topology'}
         and re.fullmatch('[A-Za-z0-9._:-]{1,128}',task['target']['serial']),
@@ -111,6 +120,17 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
     if not recovery: image_valid(task['N'])
     require(task['runtime_scope']==task['N']['runtime_sources']==read(verify(task['review']))['runtime_sources'],
         'native runtime scope is not the independently reviewed source closure')
+    start=task.get('bootstrap_start')
+    if start is not None:
+        require(set(start)=={'N','admission','prior_terminal'} and 'bootstrap' in task['operations']
+            and task['admission'] is None and task['prior_terminal'] is None,
+            'bootstrap start must be a separate admitted predecessor')
+        if not recovery: image_valid(start['N'])
+        require(start['N']['run_id_hex']!=task['N']['run_id_hex']
+            and start['N']['ap']['sha256']!=task['N']['ap']['sha256']
+            and all(task['runtime_scope'].get(name)==identity
+                for name,identity in start['N']['runtime_sources'].items()),
+            'bootstrap predecessor is not an unchanged ancestor of the reviewed native scope')
     if 'experiment' in task['operations']:
         if not recovery: image_valid(task['E'])
         require(task['E']['runtime_sources']==task['runtime_scope'] and task['E']['ap']!=task['N']['ap']
@@ -136,6 +156,12 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
             and b'S22PLUS_NATIVE_SESSION_V3.md' in read_bytes(Path(root)/TARGET_CONTRACT)
             and b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/POLICY),
             'V3 is not common-incorporated and adopted by the exact target')
+        if task['N']['profile']=='thermal-v3-reconnect-ufs-drain-gpt-v1':
+            require(b'S22PLUS_NATIVE_GPT_RESERVATION_V1.md' in details
+                and b'S22PLUS_NATIVE_GPT_RESERVATION_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT)
+                and b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/
+                    'docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md'),
+                'GPT profile/exception is not common-incorporated and adopted by the exact target')
     return task
 
 
@@ -159,12 +185,12 @@ def validate_recovery(receipt, binding, android):
 def prepare_task(root, output, *, native, experiment, target, installation, recovery_evidence,
                  seconds=3600, operation_budget=3, recovery_mode='attended', reentry=True,
                  hud=False, usb_reconnect=True, admission=None, prior_terminal=None,
-                 storage_census=False, android_exit=True):
+                 storage_census=False, android_exit=True, bootstrap_start=None,gpt_reserve=False):
     import s22plus_native_target_io_v3 as target_io
     from s22plus_native_adapter_v3 import image_valid
     root=Path(root).resolve(strict=True); output=private_path(root,output,exists=False)
     require(not output.exists(),'native task preparation path already exists')
-    require(type(storage_census) is bool and type(android_exit) is bool
+    require(type(storage_census) is bool and type(android_exit) is bool and type(gpt_reserve) is bool
         and (not storage_census or (admission is None)==(prior_terminal is None)),
         'storage census needs either fresh bootstrap or an admitted N and its closed tail')
     native=read(verify(native)); experiment=read(verify(experiment)) if experiment else None
@@ -176,10 +202,12 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
         review=capability(root),recovery_evidence=recovery_evidence,
         lane=target_io.lane.capture_binding(target_io.lane.SOURCE_TOPOLOGY),
         operations=(['bootstrap'] if admission is None else [])+(['experiment'] if experiment else [])
-            +(['storage-census'] if storage_census else [])+(['android-exit'] if android_exit else []),
+            +(['storage-census'] if storage_census else [])+(['android-exit'] if android_exit else [])
+            +(['gpt-reserve'] if gpt_reserve else []),
         seconds=seconds,operation_budget=operation_budget,recovery_mode=recovery_mode,reentry=reentry,
         hud=hud,usb_reconnect=usb_reconnect,admission=admission,prior_terminal=prior_terminal,
         runtime_scope=native['runtime_sources'])
+    if bootstrap_start is not None: task['bootstrap_start']=bootstrap_start
     validate_task(root,task,live=False)
     output.mkdir(mode=0o700); receipt=publish(output/'task.json',task)
     publish(output/'proposal.json',dict(task=receipt,approval=approval_text(task,receipt),
@@ -227,13 +255,14 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5])
     sub=parser.add_subparsers(dest='command',required=True)
-    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census'))
+    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve'))
     run.add_argument('grant',type=Path); run.add_argument('--attended',action='store_true')
     run.add_argument('--reentry',action='store_true'); run.add_argument('--hud',action='store_true')
     run.add_argument('--experiment-image',type=Path)
-    for command in ('recover','repair-close'):
+    for command in ('recover','repair-close','continue'):
         item=sub.add_parser(command); item.add_argument('operation_directory',type=Path)
-        if command=='recover': item.add_argument('--attended',action='store_true')
+        if command in ('recover','continue'): item.add_argument('--attended',action='store_true')
+        if command=='continue':item.add_argument('--operator-statement')
     census=sub.add_parser('android-storage');census.add_argument('closed_task',type=Path)
     census.add_argument('output',type=Path)
     args=parser.parse_args()
@@ -251,7 +280,9 @@ def main():
         value=Session(args.root,directory,Adapter(args.root,directory)).execute(attended=args.attended)
     else:
         directory=args.operation_directory; session=Session(args.root,directory,Adapter(args.root,directory))
-        value=session.recover(attended=args.attended) if args.command=='recover' else session.repair_close()
+        value=(session.recover(attended=args.attended) if args.command=='recover' else
+            session.resume(attended=args.attended,operator_statement=args.operator_statement) if args.command=='continue'
+            else session.repair_close())
     print(canonical(value).decode(),end='')
 
 

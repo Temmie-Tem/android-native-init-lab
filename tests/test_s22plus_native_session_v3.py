@@ -55,7 +55,7 @@ class DeviceFixture:
 
     def observe(self,step,request,*,guard,before_terminal,consume_observation=None):
         guard(); self.assert_mode(step.role)
-        if step.name in ('native-start','native-storage'):
+        if step.name in ('native-start','native-storage','native-bootstrap-start'):
             if consume_observation is not None:consume_observation()
             else:self.on_native_attempt()
             self.native_attempt=True
@@ -133,6 +133,35 @@ class OwnerTests(unittest.TestCase):
         self.assertEqual(device.admitted,1); self.assertIsNone(self.f1)
         with self.assertRaises(records.SessionError): session.execute(attended=True)
         self.assertEqual(device.installed,['N','N'])
+
+    def test_native_origin_bootstrap_preserves_both_installations_and_four_new_n_healths(self):
+        device=DeviceFixture();device.mode='S'
+        with mock.patch.object(device,'prepare',return_value=dict(S={'fixture':'admitted predecessor'})):
+            directory=owner.prepare_operation(self.root,self.grant,operation='bootstrap',adapter=device)
+        session=owner.Session(self.root,directory,device)
+        device.on_native_attempt=lambda:owner.registry.begin_f1_owner(self.root,directory,session.binding)
+        result=session.execute(attended=True)
+        self.assertEqual(result['state'],'NATIVE_CLOSED');self.assertFalse(result['recovered'])
+        self.assertEqual(device.installed,['N','N']);self.assertEqual(device.admitted,1)
+        self.assertEqual(device.actions[:2],['health:native-bootstrap-start','native-bootstrap-start'])
+        self.assertEqual(sum(a.startswith('health:native-first') or a.startswith('health:native-second')
+            for a in device.actions),4)
+        self.assertNotIn('android-download',device.actions);self.assertIsNone(self.f1)
+        self.assertEqual(session.repair_close()['state'],'NATIVE_CLOSED')
+        self.assertEqual(device.installed,['N','N'])
+
+    def test_native_origin_bootstrap_auth_failure_recovers_a_without_installing_new_n(self):
+        device=DeviceFixture();device.mode='S';device.health_failure=True
+        with mock.patch.object(device,'prepare',return_value=dict(S={'fixture':'admitted predecessor'})):
+            directory=owner.prepare_operation(self.root,self.grant,operation='bootstrap',adapter=device)
+        session=owner.Session(self.root,directory,device)
+        device.on_native_attempt=lambda:owner.registry.begin_f1_owner(self.root,directory,session.binding)
+        with self.assertRaises(ValueError):session.execute(attended=True)
+        self.assertEqual(device.installed,['A']);self.assertIsNotNone(self.f1)
+        device.health_failure=False
+        self.assertEqual(session.recover(attended=True)['state'],'ANDROID_CLOSED')
+        self.assertEqual(device.installed,['A'])
+        self.assertEqual(device.actions.count('health:native-bootstrap-start'),1)
 
     def test_nen_has_one_final_n_health_and_explicit_e_only_options(self):
         for reentry in (False,True):

@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve')
 
 
 class ResultPublicationError(SessionError):
@@ -31,15 +31,21 @@ class Step:
     hud: bool = False
 
 
-def steps(operation, *, reentry=False, hud=False):
-    require(operation in OPERATIONS and type(reentry) is bool and type(hud) is bool,
+def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
+    require(operation in OPERATIONS and type(reentry) is bool and type(hud) is bool
+        and type(native_bootstrap) is bool,
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
+    require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
+    if operation=='gpt-reserve':
+        from s22plus_native_gpt_session_v1 import normal_steps
+        return normal_steps()
     if operation=='storage-census':
         return (Step('native-storage','observe','N','detach'),)
     if operation=='bootstrap':
         return (
-            Step('android-download','download','A'),
+            Step('native-bootstrap-start','observe','S','download') if native_bootstrap
+                else Step('android-download','download','A'),
             Step('install-native-first','transfer','N'),
             Step('native-first-1','observe','N','detach'),
             Step('native-first-2','observe','N','download'),
@@ -53,6 +59,11 @@ def steps(operation, *, reentry=False, hud=False):
     return start+(Step('install-experiment','transfer','E'),)+experiment+(
         Step('experiment-final','observe','E','download',hud),
         Step('restore-native','transfer','N'),Step('native-final','observe','N','detach'))
+
+
+def operation_steps(request):
+    return steps(request['operation'],reentry=request['reentry'],hud=request['hud'],
+        native_bootstrap=request.get('S') is not None)
 
 
 def live_grant(grant, *, recovery=False):
@@ -155,6 +166,9 @@ class Session:
             self.consume()
         if step.action=='transfer':
             self.adapter.claim(step,self.request,self.binding)
+        if step.name in ('gpt-apply','gpt-restore'):
+            from s22plus_native_gpt_session_v1 import claim_effect
+            claim_effect(self.adapter,step,self.request)
         return self.journal.append('effect-intent',step=step.name,action=step.action,
             role=step.role,ending=step.ending,recovery=recovery,detail=detail or {})
 
@@ -184,6 +198,8 @@ class Session:
         dispatch=lambda detail=None:self.intent(step,recovery=recovery,detail=detail)
         if step.action=='download':
             value=self.adapter.android_download(step,self.request,guard=guard,before_dispatch=dispatch)
+        elif step.action=='reboot':
+            value=self.adapter.android_reboot(step,self.request,guard=guard,before_dispatch=dispatch)
         elif step.action=='transfer':
             value=self.adapter.transfer(step,self.request,guard=guard,before_launch=dispatch)
         elif step.action=='observe':
@@ -191,6 +207,7 @@ class Session:
             # capacity normally starts at CONTROL; the fixed read-only census
             # uses one operation when its unique native attempt starts.
             options=dict(consume_observation=self.consume) if step.name=='native-storage' else {}
+            if step.name in ('gpt-apply','gpt-restore'):options['before_extra']=dispatch
             value=self.adapter.observe(step,self.request,guard=guard,
                 before_terminal=dispatch if step.ending=='download' else guard,**options)
         elif step.action=='health':
@@ -218,11 +235,15 @@ class Session:
             require(self.consumed() is not None,'storage census has no original operation consumption')
         effects=[row['data'] for row in self.rows() if row['event']=='effect-intent']
         if recovered:
-            require(effects and effects[-1]['role']=='A' and effects[-1]['action']=='transfer'
-                and effects[-1]['step']==selected_steps[0].name,'recovery terminal does not cover the latest effect')
+            covered=effects and effects[-1]['role']=='A' and effects[-1]['action']=='transfer' \
+                and effects[-1]['step']==selected_steps[0].name
+            if not covered and self.request['operation']=='gpt-reserve':
+                from s22plus_native_gpt_session_v1 import recovery_terminal_covers_effects
+                recovery_terminal_covers_effects(self.adapter,self.request,selected_steps,effects)
+            else:require(covered,'recovery terminal does not cover the latest effect')
         else:
-            expected=[step.name for step in selected_steps if step.action in ('download','transfer')
-                or step.action=='observe' and step.ending=='download']
+            expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot')
+                or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')]
             require([effect['step'] for effect in effects]==expected,
                 'normal terminal omits or differs from a durable effect')
         terminal_path=self.directory/'terminal.json'
@@ -240,13 +261,16 @@ class Session:
         return terminal
 
     def execute(self, *, attended):
+        if self.request['operation']=='gpt-reserve':
+            from s22plus_native_gpt_session_v1 import Coordinator
+            return Coordinator(self).execute(attended=attended)
         with registry.target_session_lease(self.root):
             require(not self.rows() and not self.unused(),'native operation already started; use H0 close or recovery')
             self.check()
             require(attended or self.request['operation']!='bootstrap' and self.grant['recovery_mode']=='deferred',
                 'this native operation requires actual attendance')
             registry.require_no_f1_owner(self.root)
-            plan=steps(self.request['operation'],reentry=self.request['reentry'],hud=self.request['hud'])
+            plan=operation_steps(self.request)
             try:
                 # Original raw preflight remains separate and is used only as
                 # initial health. Failures here create no F1 owner/consumption.
@@ -274,9 +298,15 @@ class Session:
             return self.close(plan)
 
     def _recover(self, *, attended):
+        if self.request['operation']=='gpt-reserve':
+            from s22plus_native_gpt_session_v1 import Coordinator
+            return Coordinator(self).recover(attended=attended)
+        return self._recover_android(attended=attended)
+
+    def _recover_android(self, *, attended):
         require(attended is True,'original A recovery requires actual attendance')
         require(not (self.directory/'terminal.json').exists(),'terminal already published; only H0 close repair remains')
-        normal=steps(self.request['operation'],reentry=self.request['reentry'],hud=self.request['hud'])
+        normal=operation_steps(self.request)
         android=[row for row in self.rows() if row['event']=='effect-intent'
             and row['data']['action']=='transfer' and row['data']['role']=='A']
         require(len(android)<=1,'multiple Android transfer intents')
@@ -322,8 +352,11 @@ class Session:
     def repair_close(self):
         """Reopen exact raw proofs only; this method performs no device action."""
         with registry.target_session_lease(self.root):
+            if self.request['operation']=='gpt-reserve':
+                from s22plus_native_gpt_session_v1 import Coordinator
+                return Coordinator(self).repair()
             if not self.has_recovery_basis(): return self.close_unused()
-            plan=steps(self.request['operation'],reentry=self.request['reentry'],hud=self.request['hud'])
+            plan=operation_steps(self.request)
             recovered=False
             android=[row for row in self.rows() if row['event']=='effect-intent'
                 and row['data']['action']=='transfer' and row['data']['role']=='A']
@@ -343,6 +376,11 @@ class Session:
                 recovered=True
             for step,value in zip(plan,values): self.result(step,value)
             return self.close(plan,recovered=recovered)
+
+    def resume(self, *, attended, operator_statement=None):
+        require(self.request['operation']=='gpt-reserve','only the phased GPT operation has an attended continuation')
+        from s22plus_native_gpt_session_v1 import Coordinator
+        return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)
 
 
 def prepare_operation(root, grant_path, *, operation, adapter, reentry=False, hud=False):

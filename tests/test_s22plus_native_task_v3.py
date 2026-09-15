@@ -109,6 +109,43 @@ class TaskTests(unittest.TestCase):
             wrong=copy.deepcopy(value);wrong['runtime_scope']={}
             with self.assertRaisesRegex(ValueError,'independently reviewed'):
                 task.validate_task(self.root,wrong)
+            bounded=copy.deepcopy(value);bounded['N']['profile']='thermal-v3-reconnect-ufs-drain-gpt-v1'
+            bounded['operations']=['bootstrap','gpt-reserve'];bounded['operation_budget']=2
+            with mock.patch.object(adapter,'image_valid'):
+                task.validate_task(self.root,bounded)
+                for change in ('third-operation','deferred','extra-operation','hud','wrong-image','bootstrap-deferred'):
+                    wrong=copy.deepcopy(bounded)
+                    if change=='third-operation':wrong['operation_budget']=3
+                    elif change=='deferred':wrong['recovery_mode']='deferred'
+                    elif change=='extra-operation':wrong['operations'].append('storage-census')
+                    elif change=='hud':wrong['hud']=True
+                    elif change=='wrong-image':wrong['N']['profile']=image['profile']
+                    else:wrong['operations']=['bootstrap'];wrong['recovery_mode']='deferred'
+                    with self.subTest(change=change),self.assertRaisesRegex(ValueError,'exact attended task scope'):
+                        task.validate_task(self.root,wrong)
+                details=b'S22PLUS_NATIVE_SESSION_V3.md S22PLUS_NATIVE_GPT_RESERVATION_V1.md'
+                for name,data in ((task.DETAILS,details),('AGENTS.md',records.digest(details).encode()),
+                        (task.TARGET_CONTRACT,details),(task.POLICY,b'Status: **REVIEW_GATED_CAPABILITY**'),
+                        ('docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md',b'Status: **H0_DESIGN_NOT_ACTIVE**')):
+                    path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+                with self.assertRaisesRegex(ValueError,'GPT profile/exception'):
+                    task.validate_task(self.root,bounded,live=True)
+                (self.root/'docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md').write_bytes(
+                    b'Status: **REVIEW_GATED_CAPABILITY**')
+                task.validate_task(self.root,bounded,live=True)
+            start=copy.deepcopy(image);start['run_id_hex']='3'*32;start['ap']['sha256']='4'*64
+            value['bootstrap_start']=dict(N=start,admission={},prior_terminal={})
+            # Artifact qualification is exercised separately above; these
+            # mutations isolate the task's reviewed ancestor boundary.
+            with mock.patch.object(adapter,'image_valid'):
+                task.validate_task(self.root,value)
+                for change in ('same-image','changed-ancestor','no-bootstrap','different-admission'):
+                    wrong=copy.deepcopy(value)
+                    if change=='same-image':wrong['bootstrap_start']['N']=image
+                    elif change=='changed-ancestor':wrong['bootstrap_start']['N']['runtime_sources']['fixture.c']['sha256']='f'*64
+                    elif change=='no-bootstrap':wrong['operations']=['storage-census']
+                    else:wrong['admission']={}
+                    with self.subTest(change=change),self.assertRaises(ValueError):task.validate_task(self.root,wrong)
 
     def test_fixed_installer_rejects_source_drift_extra_destination_and_hardlink(self):
         receipt=host.prepare_installation(self.root/'prepared',uid=os.getuid(),account=pwd.getpwuid(os.getuid()).pw_name,

@@ -201,7 +201,8 @@ def _projection(io, session, events, rx, tx):
         hud=io.decode_hud(hud_stdout, io.identity.run_id_hex) if hud_complete and extra is None else None,
         physical_visibility='UNPROVED', source_profile=io.SOURCE_PROFILE)
     if extra is not None:
-        result['storage_census'] = extra.project(hud_stdout, hud_stderr, hud_terminal, requested=bool(optional))
+        result[getattr(extra,'RESULT_KEY','storage_census')] = extra.project(
+            hud_stdout, hud_stderr, hud_terminal, requested=bool(optional))
     return result
 
 
@@ -229,12 +230,14 @@ def fresh_same_boot(previous, current, *, seen_nonce_hashes=()):
         raise ValueError('clean same-boot native reauthentication is unproved')
 
 
-def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
+def qualify_one(io, *, ending, evidence, before_terminal, hud=False, before_extra=None):
     """One owner-bound authentication and fixed health, followed by one ending."""
     if ending not in ('detach', 'download') or not callable(before_terminal):
         raise ValueError('baseline owner ending differs')
     now=io.clock
     extra = getattr(io, 'EXTRA_PROFILE', None)
+    if extra is not None and getattr(extra,'MUTATES',False) and not callable(before_extra):
+        raise ValueError('mutating fixed command has no durable pre-EXEC owner callback')
     if extra is not None and (hud or ending != 'detach'):
         raise ValueError('fixed storage census requires DETACH and no HUD selection')
     if not now() < io.deadline <= now()+60:
@@ -257,6 +260,12 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False):
             # PID1 freezes the export at EXEC. This consumes the same deadline;
             # the normal before-write guard still checks the grant before EXEC.
             if settle: time.sleep(settle)
+            if extra is not None and before_extra is not None:
+                before_extra(dict(run_id_hex=io.identity.run_id_hex,mode='fixed-extra',
+                    sequence=session.sequence,body_sha256=health.digest(extra.BODY),
+                    nonce_sha256=health.digest(io.audit.nonce),
+                    kernel_boot_identity_sha256=health.digest(io.audit.boot_id),
+                    baseline_info=io.preparation.info))
             seq = session.send(wire.EXEC, extra.BODY if extra is not None else io.HUD_BODY)
             while seq not in session.terminals and seq not in session.rejected:
                 if now() >= io.deadline: raise TimeoutError('baseline HUD original deadline')

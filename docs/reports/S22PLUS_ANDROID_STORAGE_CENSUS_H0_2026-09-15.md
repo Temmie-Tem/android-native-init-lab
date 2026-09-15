@@ -403,3 +403,108 @@ The tail9 run is under
 original GPT byte copies and the exact proposed layout are under
 `workspace/private/outputs/s22plus-native-64g-layout-h0-20260915-1/`.
 GPT modification/restoration remains unqualified. A90 and S20+ were untouched.
+
+## G2 owner, fresh Android initialization and reboot qualification
+
+The 128 GiB proposal is now connected to a separate fixed native profile and
+the existing V3 owner. This is a new reviewed capability, not a relabelling of
+the historical censuses above. Its normal result leaves rooted Android on
+95.4580078125 GiB userdata, with an unformatted 128 GiB native entry. The user
+requires the reservation, Android-reported filesystem capacity and root to
+survive an ordinary Android reboot. No GPT/format device effect has occurred
+at this H0 preparation stage.
+
+The exact unchanged FYG8 recovery image has SHA-256
+`93fac06ca79bf4b365b25a8d49902bc41aba112ea253c30880c90e314d7895d4`.
+Static review of its ordinary WipeData path found userdata/cache/metadata
+formatting, two writes to the same 64-byte MDF record at param end minus 2048,
+conditional UCM/post-wipe EFS/sec_efs file maintenance and the 2048-byte misc
+BCB clear. Cache logs can be preserved and a stock backup can skip cache
+formatting. No GPT/PIT or boot-partition write was found in the traced ordinary
+wipe; this is not a claim about every bootloader/startup path. The reviewed
+common G2 exception explicitly includes those stock side effects without
+granting arbitrary host access to those partitions.
+
+The actual ARM64 stock formatter was executed in H0 against one disposable
+sparse regular file of exactly 102,497,255,424 bytes. Its fixed Android preset
+uses 4096-byte input size units; the stock recovery subtracts the final 16 KiB
+before passing block count 25,023,740. The sandbox had no block devices or
+network and exposed only that disposable file for writes. Formatting returned
+zero, both geometry copies reported the expected block count, and the entire
+16 KiB footer sentinel remained unchanged. Allocated file space was
+125,943,808 bytes. The model file was retired after its result was retained;
+this is formatter/geometry qualification, not physical filesystem health.
+The exact kernel statfs implementation reports block count minus segment0,
+so the expected new `/data` total is 102,495,141,888 bytes. The final live
+reader derives this from the observed geometry rather than assuming free space.
+
+The fixed native command reads both complete GPT copies and live userdata/
+native-entry geometry. After stock reset it additionally reads the first two
+4096-byte userdata blocks and exports only the 108-byte geometry prefix at
+offset 1024 in each, ending before the UUID. Its actual ARM64 producer and host
+consumer were tested together, including failed filesystem reads with no DATA
+publication. `PASS_GEOMETRY_ONLY` is separate from mounted Android health.
+
+The owner holds the existing global F1 exclusion through physical restart,
+stock reset and Android/Magisk setup. Apply has a cross-run target/proposal
+claim and a durable intent before its authenticated EXEC. Every A transfer
+rechecks either proved initialized proposed GPT or complete original-GPT
+restoration, with a distinct restorative stock reset if candidate reset was
+already intended. Recovery can install exact N once to restore original GPT;
+once A is intended, neither N overwrite nor A replay is allowed. An uncertain
+original restoration stays stopped. Restoring layout does not restore erased
+user data. Unchanged prior V3 operations retain their original plans and rules.
+
+Final Android reads use the full tail9 GPT profile plus a fixed native-entry/
+statfs command, bracketed by exact same-boot numeric-root and partition health.
+Normal closure requires one journaled ordinary ADB reboot, measured departure,
+a different Android boot, identical complete GPT and reported total capacity,
+and root on both boots. Free space may change. This is the filesystem capacity
+Android reports; no Settings UI image is inferred. A stopped reboot may recover
+to healthy A with explicit `NO_PROOF` reboot persistence, which is not normal
+completion of the user's request.
+
+The new policy and reachable owner have separate independent bounded reviews.
+Sixty selected owner/profile/Android tests pass, including real subprocess/raw
+joins, intent-before-EXEC, physical phases, publication cuts, original-layout
+recovery and final reboot coverage. The final Task checks additionally reject
+budget 3, deferred/GPT bootstrap, extra operations, HUD, mismatched image and
+unadopted H0 policy. The current renderer cross-compiles to static ARM64 and
+rejects a wrong bound run ID without device access. All 150 predecessor native
+source inputs remain byte-identical; this profile adds five inputs.
+
+| Private evidence | SHA-256 |
+| --- | --- |
+| Exact stock reset review | `2cc5821c40e8c369cf7ed10676d0febe0fd5fa10ea6337484b75d1f8dfe69e0f` |
+| Stock formatter argv/size-unit addendum | `72a7aee1ec0746b0e95bef24b4a4ae1dd75eded244aa08b550064d7a1a239de2` |
+| Actual ARM64 formatter result | `6255b80d76087f0283fb3e9f2079f12f1a4d9bf88a96c52908a31791cf385d02` |
+| Native-origin bootstrap review | `6339ac6e98fac21d6207644084e977e56f3a2e1c48c797f8bc17daf3ddcae20a` |
+| Native primitives/profile review | `208ca4f00adab50b5fbab48ee648d2ab01fa7daf549a32b59ddaaa28b5ff2ded` |
+| Owner/Android review | `de392fb6c2ec8e25c6aba53b4e4b97fe679b9051070d5e5b264fbb34e45456d3` |
+| Final policy/task integration review | `720e5a0e1753cac7a9817af51fe053dc204d7e8f6ce7887e047b9a0f02b2970e` |
+| Current static ARM64 renderer check | `a7f715ca5a43b8e81112de36f5d4f6f4411670153f7ff380132fd10fb936e68b` |
+
+Stock reset evidence is under
+`workspace/private/outputs/s22plus-fyg8-stock-recovery-format-h0-20260915-1/`;
+proposal, renderer and independent reviews are under
+`workspace/private/outputs/s22plus-native-128g-gpt-proposal-h0-20260915-1/`.
+These reviews qualify their named inputs only. P397 `v0.3.0-rc.1` now passes
+the actual A/B build and image/AP exporter, with 155 native source inputs and
+byte-identical packages. Its AP is 31,354,921 bytes with SHA-256
+`abf0aae9b30951d137544e9a3506295f7bdf048d6cc7a8994306505089141235`.
+The build result at `workspace/private/outputs/s22plus-native-gpt-v1/p397/build-1/result.json`
+has SHA-256 `bcbc41eb37f871d0bf958ba640834c11b23cb7b0d68e13c872de60974b7b5d26`;
+the private exported image receipt has SHA-256
+`0ec9b219748a52a36510b8675df5bc56efba424b841461bc325985764da45849`.
+The complete independent `PASS_GO` binding covers 54 host/155 native sources
+(202 distinct files), with no unresolved findings. Its SHA-256 is
+`5c58cfed21912c41e9ed2cfedcfc476a8a980b80f5a31833ae65d48bdd67866e`;
+the detailed private review has SHA-256
+`3c71b886db61bb4b48d1eb5df05b442afde4a745be511dd006edd1aa4aaf40a1`.
+The actual capability consumer accepts those current sources. A concrete
+7200-second/two-operation attended task is prepared with SHA-256
+`a733a1c365113120fb39650bf25c4851db9cdb345865b08636110a324fc91661`.
+Its original P396 admission and unused closed tail rederive from retained raw
+evidence; there is no F1 owner or open grant. Actual new-endpoint read-only
+qualification and a returned finite attended grant remain prerequisites to
+GPT effects. Preparation has performed no device operation.

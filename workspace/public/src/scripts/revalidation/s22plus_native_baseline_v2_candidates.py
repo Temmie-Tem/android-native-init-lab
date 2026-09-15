@@ -27,6 +27,7 @@ import s22plus_native_thermal_observer_v3 as thermal_observer_v3
 import s22plus_native_reconnect_source_v1 as reconnect_source
 import s22plus_native_ufs_source_v1 as ufs_source
 import s22plus_native_output_drain_source_v1 as drain_source
+import s22plus_native_gpt_source_v1 as gpt_source
 
 ROOT = common.ROOT
 POLICY = 'native-baseline-v2'
@@ -62,6 +63,7 @@ def declaration(namespace, run_id, version, image_sha256, *, runtime_source=sour
         RECONNECT_PROFILE=getattr(runtime_source,'RECONNECT_PROFILE',None),
         STORAGE_PROFILE=getattr(runtime_source,'STORAGE_PROFILE',None),
         CONSOLE_PROFILE=getattr(runtime_source,'CONSOLE_PROFILE',None),
+        GPT_PROFILE=getattr(runtime_source,'GPT_PROFILE',None),
         runtime=runtime,observer=observer,artifact=artifact,adapter=adapter,
         return_host=owner.ReturnHost(selected,CONTROL),console_owner=owner.EmptyPlan(selected))
 
@@ -100,6 +102,8 @@ RESEARCH_PROFILES = {
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     'thermal-v3-reconnect-ufs-drain-v1': (drain_source, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
+    'thermal-v3-reconnect-ufs-drain-gpt-v1': (gpt_source, thermal_observer_v3.Observer,
+        ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
 }
 HISTORICAL_DECLARATIONS = frozenset(DECLARATIONS)
 
@@ -136,6 +140,14 @@ def research_data(root=ROOT):
 
 
 def research_profile(declared):
+    if getattr(declared,'GPT_PROFILE',None) is not None:
+        if (declared.GPT_PROFILE==gpt_source.GPT_PROFILE
+                and declared.CONSOLE_PROFILE==drain_source.CONSOLE_PROFILE
+                and declared.STORAGE_PROFILE==ufs_source.STORAGE_PROFILE
+                and declared.RECONNECT_PROFILE==reconnect_source.RECONNECT_PROFILE
+                and declared.THERMAL_PROFILE==thermal_source_v3.THERMAL_PROFILE):
+            return 'thermal-v3-reconnect-ufs-drain-gpt-v1'
+        raise ValueError('unreviewed GPT composition')
     if getattr(declared,'CONSOLE_PROFILE',None) is not None:
         if (declared.CONSOLE_PROFILE==drain_source.CONSOLE_PROFILE
                 and declared.STORAGE_PROFILE==ufs_source.STORAGE_PROFILE
@@ -173,7 +185,9 @@ def static(prefix):
     from s22plus_native_baseline_v2_build import Builder, EXTRA_SOURCES
     from s22plus_native_candidate_static_v1 import CandidateStatic
     declared = DECLARATIONS[prefix]
-    if declared.CONSOLE_PROFILE == drain_source.CONSOLE_PROFILE:
+    if declared.GPT_PROFILE == gpt_source.GPT_PROFILE:
+        from s22plus_native_gpt_build_v1 import Builder, EXTRA_SOURCES
+    elif declared.CONSOLE_PROFILE == drain_source.CONSOLE_PROFILE:
         from s22plus_native_output_drain_build_v1 import Builder, EXTRA_SOURCES
     elif declared.STORAGE_PROFILE == ufs_source.STORAGE_PROFILE:
         from s22plus_native_ufs_build_v1 import Builder, EXTRA_SOURCES
