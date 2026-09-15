@@ -36,7 +36,7 @@ Original A was restored once after physical Download action; final health
 resumed without retransmission and passed. Both operations and their grant
 are closed `ANDROID_CLOSED_HEALTHY`; no F1 owner remains. This proves partial
 native access, not complete metadata capture or GPT restoration. P396
-`v0.2.2-rc.1` passes 60 focused tests, actual A/B qualification and independent
+`v0.2.2-rc.2` passes 60 focused tests, actual A/B qualification and independent
 `PASS_GO` for bounded output draining and host DETACH eligibility. Its fresh
 1,800-second/two-operation attended request is prepared; no grant has opened.
 No partition write or format has occurred. See the

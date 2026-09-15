@@ -33,7 +33,7 @@
       "namespace": "p396",
       "profile": "thermal-v3-reconnect-ufs-drain-v1",
       "run_id": "a9b60c2691e61ed0faeca424f16f56de",
-      "version": "v0.2.2-rc.1"
+      "version": "v0.2.2-rc.2"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

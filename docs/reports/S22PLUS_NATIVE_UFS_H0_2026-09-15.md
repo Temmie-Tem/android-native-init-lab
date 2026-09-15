@@ -139,7 +139,8 @@ Private live evidence and the frozen host source snapshot are under
 `workspace/private/runs/s22plus-native-session-v3/p395-ufs-bootstrap-20260915-1/`.
 The original source commit is `385b9797ca18721211963c0d5028ae59c0c9bfd3`.
 The operator also reported the missing `rc.1` display suffix. Consumed P395
-continues to identify as `v0.2.2`; the fresh successor declares `v0.2.2-rc.1`.
+continues to identify as `v0.2.2`; its intended `rc.1` is historical. The
+output-fix successor correctly declares `v0.2.2-rc.2`.
 
 ## Bounded successor
 
@@ -171,7 +172,7 @@ a controlled unkillable-group fixture preserves the exact two-second failure
 stop. Kernel/USB behavior and a live P396 result remain unproved.
 
 Both actual P396 AP packages are identical, 31,303,721 bytes, SHA-256
-`41069bf384a3a19f367d58eef8616e8c916afeb2139516bda6d682dcd815888e`.
+`d0027e5ba54e75c2b06179746df74499b98d4ca65d29ff412211120d0ea08903`.
 Actual member/boot/package joins pass. Its 150 native inputs consist of the
 unchanged old 148 plus the new composer and builder. The UFS loader/renderer
 behavior is unchanged. The separate exporter leaves old qualification receipts
@@ -187,7 +188,18 @@ is 1,800 seconds and two attended operations: P396 bootstrap, then one fixed
 native census after actual admission. Its exact A artifact, retained recovery
 evidence, five installed host files and noninteractive host readiness validate.
 No grant has opened and no P396 device effect has occurred. The request is at
-`workspace/private/runs/s22plus-native-session-v3/p396-drain-bootstrap-20260915-1/`.
+`workspace/private/runs/s22plus-native-session-v3/p396-drain-rc2-bootstrap-20260915-1/`.
 This is the concrete next action under the
 [V3 actual-returned-grant requirement](../operations/S22PLUS_NATIVE_SESSION_V3.md);
 it neither renews P395 nor changes the outstanding GPT-restoration requirement.
+
+The initial P396 H0 package/request incorrectly repeated `rc.1`; it was
+retired before grant opening, with no device effect or candidate consumption.
+The corrected `rc.2` rebuild has byte-identical kernel and init, and each
+renderer differs only in the single version character. All 49 host and 150
+native source inputs are unchanged, so the existing tests and independent
+capability review are reused. Fresh A/B package qualification and version-byte
+evidence are under
+`workspace/private/outputs/s22plus-native-output-drain-rc2-h0-20260915-1/`;
+the immutable build directory is
+`workspace/private/outputs/s22plus-native-output-drain-v1/p396/build-rc2-1/`.
