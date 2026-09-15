@@ -12,6 +12,17 @@ import s22plus_native_records_v3 as records
 
 
 class RecordsTests(unittest.TestCase):
+    def test_large_cleanup_journal_preserves_chain_and_default_bound(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            directory=Path(folder)/'journal'
+            journal=records.Journal(directory,maximum=2052)
+            for number in range(257):journal.append('fixture',number=number)
+            self.assertEqual(len(journal.rows()),257)
+            with self.assertRaisesRegex(ValueError,'exceeds bound'):records.Journal(directory).rows()
+            with self.assertRaisesRegex(ValueError,'capacity'):records.Journal(directory,maximum=2053)
+
+
     def setUp(self):
         temporary=tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name)

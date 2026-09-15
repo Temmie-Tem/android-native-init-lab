@@ -267,8 +267,23 @@ other runtime exclusions remain. The policy's qualified retained partial
 additional closure preserves its original verdict. Both effectful ancestors'
 pins and journal lengths/tails remain checked before every command. One child
 claim, fresh exact health, the same finite limits and attendance are required;
-user-apps cannot have a child. Its complete retained final health may close a
+only the separately reviewed full-checkpoint successor below may follow
+user-apps. Its complete retained final health may close a
 persistence stop as incomplete in H0, with no additional device read.
+
+The new direct full-cleanup request adopts the policy's `checkpoint-complement`
+mode after independent review. One child of the rederived closed user-apps run
+uses the complete current user-0 APK complement of effective KEEP/default owners,
+excluding all prior attempts. The policy's historical-checkpoint specialization
+of old UID/persistent/APEX-path/non-system exclusions applies only to APKs, with
+all protected packages and exact root/health retained. The qualified prior
+readiness read stop is resolved for this prospective scope by its complete
+existing reconciliation; old records remain incomplete and unchanged.
+One 3600-second batch, bounded journal preflight, precise consumed PM outcomes,
+one ordinary reboot and at most one 300-second read-only close are the complete
+scope. Report all residuals separately from batch completion. No checkpoint
+descendant, retry, true APEX-module removal, new permission or partition effect
+is adopted.
 
 ### G2 exact reservation/Android32 resize and stock initialization
 

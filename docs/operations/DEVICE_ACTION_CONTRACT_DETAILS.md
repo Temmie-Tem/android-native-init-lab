@@ -305,8 +305,25 @@ Classify every action using
   runtime exclusions remain. Both effectful ancestors and their journal
   lengths/tails must rederive; the qualified retained partial additional closure
   preserves its incomplete verdict. No uncertain effect qualifies, no previous
-  effect is renewed, and user-apps has no descendant. Complete retained final
+  effect is renewed. Complete retained final
   health may close its persistence stop as incomplete in H0 without another read.
+  The policy's separately reviewed `checkpoint-complement` mode may follow that
+  closed user-apps run once under the new full-checkpoint request. Its declaration
+  is the complete current user-0 APK list minus effective KEEP/default components
+  and all prior attempted names. This mode adopts the historical checkpoint's
+  APK removals across ordinary system/shared UIDs, persistent flags, APKs inside
+  APEX paths and non-system apps; true APEX modules remain excluded. Hidden or
+  suspended states remain excluded; enabled states 0 through 4 are eligible.
+  Require the policy's complete protected set and exact root/health. The qualified
+  prior readiness read failure and its existing healthy reconciliation must
+  rederive; neither uncertain effects nor old verdict promotion are allowed.
+  One immutable claim binds all three effectful ancestors, 3600 seconds, a
+  preflight-sized 2052-row maximum journal and one ordinary reboot, followed if
+  needed by the existing single 300-second close-only observation. Explicit
+  complete Package Manager refusals or retained identities may continue the
+  original batch only as the policy defines; unknown failures still stop.
+  Every attempt remains consumed. There is no retry, checkpoint descendant,
+  disable fallback, global uninstall or partition/permission operation.
   The exact S20+ target contract may additionally activate one attended
   read-only classic-fastboot census ordinal delegated by permanent boundary 3. Its
   operator-entered mode transition makes the complete census D1 even though

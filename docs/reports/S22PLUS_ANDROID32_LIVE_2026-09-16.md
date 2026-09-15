@@ -483,3 +483,153 @@ readiness failure and complete reconciliation with live acquisition disabled.
 It confirmed the exact 11-package difference, four remaining apps, retained
 117 KEEP entries and unchanged prior terminals. The current incomplete verdict
 and source records were preserved; no further device action was justified.
+
+## Full checkpoint reapplication preparation
+
+The full-checkpoint request adopts the existing same-FYG8 116-package checkpoint
+with its three debug requirements and the already explicit Play Store exception.
+The new declaration covers the complete current user-0 APK inventory outside
+this protected set, excluding every name attempted by the three previous runs.
+It includes ordinary non-system apps and does not retain the consumer modes'
+blanket exclusions for shared/system UIDs, persistent flags or APKs under APEX
+paths. Actual APEX modules remain excluded. All protected packages must exist,
+except that an absent Magisk manager UI need not be installed while exact
+original-A numeric root remains healthy; any initially present manager stays
+protected. HOME/IME, hidden/suspended-state exclusions and exact per-package
+identity checks remain.
+
+The single new claim binds the rederived closed UI run and its two ancestors,
+including the exact readiness read failure and healthy existing reconciliation.
+All 70 prior attempted identities and three incomplete terminals remain
+unchanged. The new batch has 3600 seconds and one ordinary reboot. Its full
+plan is checked against the 2052-row journal capacity before any effect;
+legacy journals retain the 256-row default. Complete explicit PM refusals and
+unchanged retained-package outcomes consume their attempts and permit the rest
+of the original batch to continue. Unknown or contradictory outcomes stop.
+No effect retries, disable fallback, partition action or permission change
+are added. Both pre-reboot and final package-set differences must rederive.
+Residual packages outside KEEP are reported even when no new candidate remains.
+
+Independent review passed with 43 focused app tests, four journal/record tests,
+and two additional subprocess cases for transport-loss stop and unexpected
+package changes before reboot. Python compilation, the repository boundary
+check and its 12 regression tests passed. The app source SHA-256 is
+`d3763aaaf31a09b5df404f902eff91466adf19ac67b8e48b9ce11875289fd872`;
+the shared record source SHA-256 is
+`111611417233cd9c3a793ec754bdf9ae8b98c864d405d273083301a2e78ea0e4`.
+The app review covers 61 sources, V3 covers 54 execution sources, and all 156
+native runtime sources remain unchanged. No native image rebuild is involved.
+All-user-0 counts from this scope are distinct from the earlier system-only
+465/404 package counts.
+
+Both working capability consumers accept the full-checkpoint receipts: app
+`020aaf44c6521c791a7875c31bd91ac41d5848a0a51983daf034bdeacf2e1ffc`
+and V3 `68986beccf5968ac53042e6545f834464b8da6a1438d92bf9601597c11fcd390`.
+Independently verified publication copies bind the staged root without unrelated
+S20+ working changes: app
+`ee8a65e6636a9cd897e1e5b52e76ac499f01f09973a04dd21082713d192c8c95`
+and V3 `4c2eef79a95dd1e79e867ad51397e2418b120c087bd7cd986b4581067b956282`.
+These do not repin any live or consumed record.
+
+Fresh inventory for `p398-checkpoint-full-20260916-1` found **406 installed user-0
+APK packages**. The full 118-entry effective KEEP set, including Magisk manager,
+was present. Nine previously attempted packages remained and were excluded.
+All **279 new candidates** passed the declared metadata checks; no additional
+candidate was excluded. They include 112 declared shared-UID packages, nine
+persistent packages and 18 APKs inside APEX paths; one selected package is
+non-system. These categories can overlap. Compared with the prior system-only
+404-name list, the all-package inventory adds Magisk manager and Samsung Tips;
+none of that prior list was absent at entry. Tips is the non-system candidate.
+The initial available space was 31,671,635,968 bytes. Inventory SHA-256 is
+`f0e900e617b7ee3ad9017a8d3639858b6eb8faba90f426d964e4bdb2a4d83e32`
+(88,416 bytes). Fresh bracketed original-A root and empty safe-mode property
+were confirmed before the batch began.
+
+## Full checkpoint batch live result
+
+All **279** selected packages returned `Success` and each immediate post-state
+proved absence. No explicit refusal or retained-package outcome occurred. The
+complete pre-reboot snapshot contained exactly **127** installed user-0 APKs:
+all **118 protected entries** plus the **nine prior residuals**. The exact set
+change matched the selected 279 names; no unrelated package was lost or added.
+Root, HOME/IME, complete GPT and capacity remained healthy. The safe-mode
+property was empty. No previously attempted package was retried.
+
+The sole ordinary reboot request and bounded USB departure completed 462.513
+seconds after open. Its first final health sequence obtained the exact selector
+and physical lane. The `02-health` properties read returned exit 0 but only 15
+stdout bytes containing the model field; the other eight required properties,
+including boot ID, were absent. This truncated response does not establish a
+complete post-reboot identity. The root-health read `final/before/03-health`
+then returned exit 1, empty stdout and the ADB target-not-found diagnostic. There was
+no timeout, overflow or producer fault. No final health/result aggregate was
+published. The runner stopped at 506.490 seconds; the journal contains 562 rows:
+one start, 280 ordered intent/completion pairs and one `RawCaptureError` stop.
+All package/reboot effects had completed before this failed read. The initiating
+USB/device cause remains unproved, and no transition was repeated.
+
+The existing single 300-second read-only reconciliation opened 581.856 seconds
+after the original open and completed successfully. It proves numeric UID/GID
+0 with exact original-A/supporting digests, a changed boot, unchanged full GPT,
+32 GiB userdata and the 191.4580078125 GiB native extent, unchanged HOME/IME,
+and all 118 protected entries including Magisk manager. The safe-mode property
+was empty; this remains a limited health signal.
+
+**All 279 selected packages remained absent after reboot.** The final all-user-0
+APK count stayed **127**, with no package additions relative to the batch's
+initial 406-name list. The only names outside effective KEEP are the same nine
+previously attempted packages, excluded from this batch:
+
+| Residual | Package |
+| --- | --- |
+| Smart Switch | `com.sec.android.easyMover` |
+| My Files | `com.sec.android.app.myfiles` |
+| Galaxy Store | `com.sec.android.app.samsungapps` |
+| Weather | `com.sec.android.daemonapp` |
+| Dictionary | `com.diotek.sec.lookup.dictionary` |
+| Transparent navigation overlay | `com.android.internal.systemui.navbar.transparent` |
+| Gestural no-hint overlay | `com.samsung.internal.systemui.navbar.gestural_no_hint` |
+| Samsung gestural overlay | `com.samsung.internal.systemui.navbar.sec_gestural` |
+| Samsung gestural no-hint overlay | `com.samsung.internal.systemui.navbar.sec_gestural_no_hint` |
+
+The formal terminal remains `INCOMPLETE / ANDROID_CLOSED_HEALTHY`, with
+`remaining=[]`, all nine `remaining_outside_keep` names,
+`checkpoint_reached=false`, `cleanup_replay_permitted=false` and conservatively
+`reboot_verified=false`. Observed persistence of all new removals is separate
+from that unchanged close-only terminal verdict and the unmet exact checkpoint.
+All three earlier incomplete terminals retain their original identities.
+This closed full-checkpoint claim has no descendant.
+
+| Full-batch `/data` observation | Bytes |
+| --- | ---: |
+| Available before cleanup | 31,671,635,968 |
+| Available before reboot | 31,634,427,904 |
+| Available after reconciliation | 31,675,633,664 |
+| Free after reconciliation | 31,809,851,392 |
+| Available change from entry | +3,997,696 |
+
+These are measured allocations across cleanup/reboot, without per-package
+attribution. User-0 removal does not shrink the system APK partitions. No raw
+APK deletion, formatting, native partition write, rootfs staging, additional
+reboot, F1 transfer, A90 or S20+ effect occurred.
+
+Private evidence is under
+`workspace/private/runs/s22plus-android-minimal-v1/p398-checkpoint-full-20260916-1/`.
+The 33,923-byte source manifest has SHA-256
+`b177b1f518de7e3a0d6b0d1d1654e53507f1b83a5d447bfc4a6a45a8cbbaf238`.
+The 1,572-byte pre-reboot snapshot has SHA-256
+`5e3628c3eac3de2b1b0092e96f88a07bbe5ac4ff111260842abf47f2a68bfc6b`.
+The 1,574-byte reconciliation snapshot has SHA-256
+`d29cc363d12cde2d61214c459a179dbde74cb6c437f0b822712545fffef229e4`.
+The 1,228-byte terminal has SHA-256
+`b5187e77f70d02ce20d33c34676da839b84729d5ab003836f235cd2d71e6beb4`.
+The 27,088-byte checkpoint claim has SHA-256
+`39d16cf61921eaf9f1c6fd220a75dec0b664c33c1727c860885370165d469d18`.
+
+Independent H0 terminal audit, with live I/O disabled, rederived all 279
+identity-bound uninstall/post-state joins, the sole reboot/departure, the exact
+562-row journal, both package-set differences and the complete reconciliation.
+It confirmed all 118 KEEP entries, no new-candidate remainder, the same nine
+prior residuals, and unchanged prior terminals/source snapshots. The partial
+properties response and subsequent target-not-found failure are preserved;
+no verdict was promoted and no additional device read or effect was performed.

@@ -55,6 +55,10 @@ PASS1='docs/reports/S22PLUS_ANDROID_DEBLOAT_PASS1_2026-07-06.md'
 EXTRA_REPORT='docs/reports/S22PLUS_SYSTEM_APP_EXTRA_DEBLOAT_2026-07-06.md'
 ADDITIONAL_MODE='additional-known'
 USER_APPS_MODE='user-apps'
+CHECKPOINT_MODE='checkpoint-complement'
+CHECKPOINT_SECONDS=3600
+CHECKPOINT_JOURNAL_ROWS=2052
+CHECKPOINT_REPORT='docs/reports/S22PLUS_ANDROID_116_PACKAGE_CHECKPOINT_2026-07-06.md'
 # Explicit foreground user-app scope. Providers, installers, GMS/GSF, WebView,
 # DocumentsUI, home/input and management components are not consumer UI here.
 USER_APPS=(
@@ -100,8 +104,8 @@ def additional_packages():
 EXTRA_OPTIONAL=additional_packages()
 
 
-def metadata_label(name):
-    require(name in OPTIONAL or name in EXTRA_OPTIONAL or name in USER_APPS,'metadata label is outside the fixed declaration')
+def metadata_label(name,*,checkpoint=False):
+    require((checkpoint and PACKAGE.fullmatch(name)) or name in OPTIONAL or name in EXTRA_OPTIONAL or name in USER_APPS,'metadata label is outside the fixed declaration')
     return 'pkg-'+digest(name.encode('ascii'))
 
 
@@ -115,7 +119,7 @@ SAFE_MODE=['shell','getprop','persist.sys.safemode']
 
 def source_paths(root):
     return tuple(sorted(set(task_owner.source_paths(str(Path(root).resolve())))|
-        {Path(root)/POLICY,Path(__file__).resolve(),*(Path(root)/name for name in (HISTORICAL_KEEP,DEBUG_KEEP,PASS1,EXTRA_REPORT))}))
+        {Path(root)/POLICY,Path(__file__).resolve(),*(Path(root)/name for name in (HISTORICAL_KEEP,DEBUG_KEEP,PASS1,EXTRA_REPORT,CHECKPOINT_REPORT))}))
 
 
 def review(root):
@@ -159,7 +163,7 @@ def component(text):
     return matches[0]
 
 
-def package_metadata(text,row,*,allow_enabled=False):
+def package_metadata(text,row,*,allow_enabled=False,checkpoint=False):
     # An updated system app may also have a hidden factory copy. Only the
     # active Packages section owns current user state and installation bytes.
     active=text.split('Hidden system packages:',1)[0]
@@ -182,35 +186,99 @@ def package_metadata(text,row,*,allow_enabled=False):
         'package flags are absent, duplicated or contradictory')
     flags=flag_rows[0][1].split()
     state=one(r'^\s*User 0: (.*)$')
-    require(uid==row['uid'] and version==row['version'] and 'SYSTEM' in flags
+    require(uid==row['uid'] and version==row['version'] and (checkpoint or 'SYSTEM' in flags)
         and (row['path']==code or row['path'].startswith(code+'/')),
         'active package identity changed during inventory')
     values=dict(re.findall(r'([A-Za-z]+)=([^\s]+)',state))
     require('installed' in values and 'enabled' in values,'primary-user package state is incomplete')
+    if checkpoint:
+        require(all(len(re.findall(r'\b'+key+r'=([^\s]+)',state))==1
+            for key in ('installed','enabled','hidden','suspended'))
+            and all(values[key] in ('true','false') for key in ('installed','hidden','suspended'))
+            and values['enabled'] in ('0','1','2','3','4'),
+            'checkpoint primary-user state is incomplete or ambiguous')
     shared=bool(re.search(r'^\s*(?:sharedUser|sharedUserId)=(?!null\b)\S+',block,re.M))
-    ordinary=(values['installed']=='true' and values['enabled'] in (('0','1') if allow_enabled else ('0',))
+    ordinary=(values['installed']=='true' and values['enabled'] in (('0','1','2','3','4') if checkpoint else ('0','1') if allow_enabled else ('0',))
         and values.get('hidden','false')=='false' and values.get('suspended','false')=='false')
     return dict(**row,code_path=code,flags=sorted(flags),shared_uid=shared,
         ordinary_primary_user=ordinary,persistent='PERSISTENT' in flags or 'coreApp=true' in block)
 
 
-def selection(all_packages,metadata,home,ime,*,declaration=None,keep=KEEP):
+def selection(all_packages,metadata,home,ime,*,declaration=None,keep=KEEP,checkpoint=False):
     declaration=OPTIONAL if declaration is None else declaration
     counts=Counter(row['uid'] for row in all_packages.values());selected=[];excluded={}
     for name in declaration:
         if name not in all_packages:continue
         row=all_packages[name]
-        reason=('required-component' if name in keep or name in (home,ime,'android') or row['path'].startswith('/apex/') else
-            'system-or-shared-uid' if row['uid']<10000 or counts[row['uid']]!=1 else None)
+        reason=('required-component' if name in keep or name in (home,ime,'android') or (not checkpoint and row['path'].startswith('/apex/')) else
+            'system-or-shared-uid' if not checkpoint and (row['uid']<10000 or counts[row['uid']]!=1) else None)
         if reason:excluded[name]=reason;continue
         row=metadata[name]
-        reason=('system-or-shared-uid' if row['shared_uid'] else
-            'persistent-component' if row['persistent'] else
+        reason=('system-or-shared-uid' if not checkpoint and row['shared_uid'] else
+            'persistent-component' if not checkpoint and row['persistent'] else
             'customized-or-disabled-user-state' if not row['ordinary_primary_user'] else None)
         if reason:excluded[name]=reason
         else:selected.append(row)
     return dict(selected=selected,excluded=excluded,home=home,ime=ime,
-        declared_optional_count=len(declaration),installed_system_count=len(all_packages))
+        declared_optional_count=len(declaration),**{
+            'installed_package_count' if checkpoint else 'installed_system_count':len(all_packages)})
+
+
+EXPECTED_REFUSALS=frozenset({'DELETE_FAILED_INTERNAL_ERROR','DELETE_FAILED_USER_RESTRICTED','DELETE_FAILED_OWNER_BLOCKED'})
+
+
+def uninstall_response(handle,*,checkpoint=False):
+    if not checkpoint:
+        require(raw.decode_success_stdout(handle,maximum=16384)=='Success',
+            'Package Manager uninstall did not report success')
+        return 'SUCCESS'
+    require(not handle.timed_out and not handle.output_exceeded and handle.producer_error_type is None
+        and handle.returncode in (0,1),'uninstall producer did not complete normally')
+    out=raw.read_stdout(handle,maximum=16384).decode('ascii','strict').strip()
+    require(raw.read_stderr(handle,maximum=16384)==b'','uninstall has unexpected stderr')
+    if out=='Success':
+        require(handle.returncode==0,'success response has failing status')
+        return 'SUCCESS'
+    match=re.fullmatch(r'Failure \[([A-Z_]+)\]',out)
+    require(match is not None and match[1] in EXPECTED_REFUSALS,'uninstall response is not a declared refusal')
+    return 'REFUSED_'+match[1]
+
+
+def qualified_readiness_stop(run):
+    folder=run.directory/'final/before'
+    require((run.directory/'final').is_dir()
+        and {p.name for p in (run.directory/'final').iterdir()}=={'before'},
+        'user-app stop is outside final readiness')
+    handles={p.stem.removesuffix('.capture'):raw.load_handle(p) for p in folder.glob('*.capture.json')}
+    require(handles and {p.name for p in folder.iterdir()}=={
+        name+suffix for name in handles for suffix in ('.capture.json','.stdout.bin','.stderr.bin')},
+        'readiness stop capture set differs')
+    inventories=sorted(name for name in handles if name.endswith('-inventory'))
+    require(0<len(inventories)<=256 and inventories==[f'wait-{i:03d}-inventory' for i in range(len(inventories))],
+        'readiness inventory sequence differs')
+    expected=set(inventories);failure=None
+    for index,name in enumerate(inventories):
+        text=raw.decode_success_stdout(handles[name],maximum=16384)
+        lines=text.splitlines();require(lines and lines[0]=='List of devices attached','readiness header differs')
+        rows=[line.split() for line in lines[1:] if line.strip()]
+        require(all(len(row)>=2 for row in rows),'readiness inventory is malformed')
+        selected=[row for row in rows if row[0]==run.task['target']['serial']]
+        candidates=[row for row in rows if {'model:SM_S906N','device:g0q'}<=set(row[2:])]
+        require(len(selected)<=1 and len(candidates)<=1 and
+            (not candidates or candidates[0][0]==run.task['target']['serial']),'readiness target is ambiguous')
+        if selected and selected[0][1]=='device':
+            target.select_android(text,run.task['target']);boot=f'wait-{index:03d}-boot';expected.add(boot)
+            require(boot in handles,'readiness boot capture is missing');handle=handles[boot]
+            if index==len(inventories)-1:
+                require(handle.returncode==1 and not handle.timed_out and not handle.output_exceeded
+                    and handle.producer_error_type is None and raw.read_stdout(handle,maximum=16)==b''
+                    and raw.read_stderr(handle,maximum=16384)==b'error: closed\n',
+                    'readiness stop is not the qualified closed-read response')
+                failure=boot
+            else:
+                require(raw.decode_success_stdout(handle,maximum=16) in ('','0'),
+                    'readiness stopped after an unexpected or already-ready boot result')
+    require(failure is not None and set(handles)==expected,'readiness stop has unexpected reads')
 
 
 def saved_sources(root,directory,opened):
@@ -388,24 +456,26 @@ class Run:
         self.opened=read(self.directory/'open.json');self.open_pin=pin(self.directory/'open.json')
         additional=self.opened.get('mode')==ADDITIONAL_MODE
         user_apps=self.opened.get('mode')==USER_APPS_MODE
-        successor=additional or user_apps
+        checkpoint=self.opened.get('mode')==CHECKPOINT_MODE
+        successor=additional or user_apps or checkpoint
         require(set(self.opened)==OPEN_FIELDS|({'previous_cleanup'} if successor else set())
-            and self.opened['schema']==SCHEMA and self.opened['mode'] in ('minimal-management',ADDITIONAL_MODE,USER_APPS_MODE)
+            and self.opened['schema']==SCHEMA and self.opened['mode'] in ('minimal-management',ADDITIONAL_MODE,USER_APPS_MODE,CHECKPOINT_MODE)
             and type(self.opened['opened_ns']) is int and self.opened['opened_ns']>0
-            and self.opened['deadline_ns']==self.opened['opened_ns']+900_000_000_000
+            and self.opened['deadline_ns']==self.opened['opened_ns']+(CHECKPOINT_SECONDS if checkpoint else 900)*1_000_000_000
             and type(self.opened['operator_statement']) is str
             and 0<len(self.opened['operator_statement'].strip())<=4096,
             'Android-minimal open differs')
-        self.task=read(verify(self.opened['task']));self.journal=Journal(self.directory/'journal')
+        self.task=read(verify(self.opened['task']))
+        self.journal=Journal(self.directory/'journal',maximum=CHECKPOINT_JOURNAL_ROWS if checkpoint else 256)
         self.previous_cleanup=None;self.predecessors=[];self.effectful_predecessors=[]
         if successor:
             previous=self.opened['previous_cleanup']
             prior=private_path(self.root,Path(previous['open']['path']).parent)
-            require(previous==closed_cleanup(self.root,prior,additional=user_apps)
+            require(previous==closed_cleanup(self.root,prior,**(dict(user_apps=True) if checkpoint else dict(additional=user_apps)))
                 and previous['task']==self.opened['task'] and previous['closed']==self.opened['closed']
-                and (user_apps or not set(previous['removed'])&set(EXTRA_OPTIONAL)),
+                and (checkpoint or user_apps or not set(previous['removed'])&set(EXTRA_OPTIONAL)),
                 'additional cleanup predecessor does not rederive')
-            kind='user-apps' if user_apps else 'additional'
+            kind='checkpoint' if checkpoint else 'user-apps' if user_apps else 'additional'
             claim=pin(prior/(kind+'-cleanup-claim.json'))
             require(read(verify(claim))==dict(schema=SCHEMA+'-'+kind+'-claim',previous_cleanup=previous,
                 task=self.opened['task'],closed=self.opened['closed'],open=self.open_pin),
@@ -439,19 +509,47 @@ class Run:
             'Android-minimal requires the Android32 layout')
         self.basis=dict(layout='proposed',geometry=read(verify(self.opened['closed']))['gpt']['geometry'])
 
-    def declaration(self):
+    def checkpoint(self):
+        return self.opened.get('mode')==CHECKPOINT_MODE
+
+    def list_command(self):
+        return [arg for arg in LIST if arg!='-s'] if self.checkpoint() else LIST
+
+    def list_label(self):
+        return 'installed-packages' if self.checkpoint() else 'system-packages'
+
+    def attempted(self):
+        return {name for old in self.effectful_predecessors for name in old['removed']}
+
+    def declaration(self,listed=None):
+        if self.checkpoint():
+            if listed is None:
+                listed=packages(raw.decode_success_stdout(raw.load_handle(
+                    self.directory/'inventory'/(self.list_label()+'.capture.json')),maximum=131072))
+            return tuple(sorted(set(listed)-self.keep_set()-self.attempted()))
         if self.opened.get('mode')==USER_APPS_MODE:
-            attempted={name for old in self.effectful_predecessors for name in old['removed']}
-            return tuple(name for name in USER_APPS if name not in attempted)
+            return tuple(name for name in USER_APPS if name not in self.attempted())
         return EXTRA_OPTIONAL if self.opened.get('mode')==ADDITIONAL_MODE else OPTIONAL
 
     def keep_set(self):
-        return KEEP-{'com.android.vending'} if self.opened.get('mode')==USER_APPS_MODE else KEEP
+        return KEEP-{'com.android.vending'} if self.opened.get('mode') in (USER_APPS_MODE,CHECKPOINT_MODE) else KEEP
+
+    def require_checkpoint_keep(self,listed,home,ime):
+        if self.checkpoint():
+            # Root is proved independently. A manager APK already absent after
+            # reset need not be installed merely to remove unrelated packages.
+            required=(self.keep_set()-{'com.topjohnwu.magisk'})|{home,ime}
+            require(required<=set(listed),'checkpoint inventory lacks a required package')
 
     def parse_metadata(self,text,row):
-        return package_metadata(text,row,allow_enabled=self.opened.get('mode')==USER_APPS_MODE)
+        return package_metadata(text,row,allow_enabled=self.opened.get('mode')==USER_APPS_MODE,
+            checkpoint=self.checkpoint())
+
+    def metadata_label(self,name):
+        return metadata_label(name,checkpoint=self.checkpoint())
 
     def metadata_candidates(self,listed):
+        if self.checkpoint():return list(self.declaration(listed))
         counts=Counter(row['uid'] for row in listed.values())
         return [name for name in self.declaration() if name in listed and
             (self.opened.get('mode') not in (ADDITIONAL_MODE,USER_APPS_MODE) or
@@ -459,7 +557,7 @@ class Run:
               and counts[listed[name]['uid']]==1))]
 
     def safe_mode_projection(self,folder):
-        if self.opened.get('mode') not in (ADDITIONAL_MODE,USER_APPS_MODE):return {}
+        if self.opened.get('mode') not in (ADDITIONAL_MODE,USER_APPS_MODE,CHECKPOINT_MODE):return {}
         value=raw.decode_success_stdout(raw.load_handle(Path(folder)/'safe-mode.capture.json'),maximum=16)
         require(value in ('','0'),'additional cleanup reports Android safe mode')
         return dict(safe_mode_property=value)
@@ -507,14 +605,14 @@ class Run:
         folder=Path(folder);before=self.health(folder/'before')
         try:
             require(self.text(folder,'current-user',USER).strip()=='0','primary Android user is not active')
-            listed=packages(self.text(folder,'system-packages',LIST))
+            listed=packages(self.text(folder,self.list_label(),self.list_command()))
             self.text(folder,'home',HOME);self.text(folder,'ime',IME)
-            if self.opened.get('mode') in (ADDITIONAL_MODE,USER_APPS_MODE):
+            if self.opened.get('mode') in (ADDITIONAL_MODE,USER_APPS_MODE,CHECKPOINT_MODE):
                 self.text(folder,'safe-mode',SAFE_MODE,maximum=16)
             self.text(folder,'storage-stat',
                 ['shell','su -c '+shlex.quote(gpt_android.STAT_SCRIPT)],maximum=16384)
             for name in self.metadata_candidates(listed):
-                self.text(folder/'packages',metadata_label(name),
+                self.text(folder/'packages',self.metadata_label(name),
                     ['shell','dumpsys','package',name],maximum=METADATA_MAXIMUM)
         finally:after=self.health(folder/'after')
         require(before['properties']==after['properties'],'Android boot changed during package inventory')
@@ -525,15 +623,16 @@ class Run:
         texts=lambda name:raw.decode_success_stdout(raw.load_handle(folder/(name+'.capture.json')),
             maximum=METADATA_MAXIMUM if name.startswith('packages/') else 131072)
         require(texts('current-user').strip()=='0','inventory primary user differs')
-        listed=packages(texts('system-packages'));home=component(texts('home'));ime=component(texts('ime'))
-        metadata={name:self.parse_metadata(texts('packages/'+metadata_label(name)),listed[name])
+        listed=packages(texts(self.list_label()));home=component(texts('home'));ime=component(texts('ime'))
+        self.require_checkpoint_keep(listed,home,ime)
+        metadata={name:self.parse_metadata(texts('packages/'+self.metadata_label(name)),listed[name])
             for name in self.metadata_candidates(listed)}
         before=read(folder/'before/health.json');after=read(folder/'after/health.json')
         for health in (before,after):
             require(target.health_projection(health['captures'],self.task['target'],self.task['A'])==health,
                 'inventory rooted health does not rederive')
         require(before['properties']==after['properties'],'inventory boot differs')
-        return dict(schema=SCHEMA,selection=selection(listed,metadata,home,ime,declaration=self.declaration(),keep=self.keep_set()),
+        return dict(schema=SCHEMA,selection=selection(listed,metadata,home,ime,declaration=self.declaration(listed),keep=self.keep_set(),checkpoint=self.checkpoint()),
             storage=gpt_android.storage_stat(texts('storage-stat'),self.basis,self.sealed),
             before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'),
             **self.safe_mode_projection(folder))
@@ -565,9 +664,9 @@ class Run:
         folder=Path(folder);before=self.health(folder/'before',wait=wait)
         try:
             require(self.text(folder,'current-user',USER).strip()=='0','final user is not primary')
-            present=packages(self.text(folder,'system-packages',LIST))
+            present=packages(self.text(folder,self.list_label(),self.list_command()))
             home=component(self.text(folder,'home',HOME));ime=component(self.text(folder,'ime',IME))
-            if self.opened.get('mode') in (ADDITIONAL_MODE,USER_APPS_MODE):
+            if self.opened.get('mode') in (ADDITIONAL_MODE,USER_APPS_MODE,CHECKPOINT_MODE):
                 self.text(folder,'safe-mode',SAFE_MODE,maximum=16)
             require((home,ime)==(plan['selection']['home'],plan['selection']['ime']),
                 'required home/input component changed')
@@ -594,10 +693,11 @@ class Run:
                 'snapshot rooted health differs from raw')
         require(before['properties']==after['properties'] and text('current-user').strip()=='0',
             'snapshot boot or primary user differs')
-        present=packages(text('system-packages'));home=component(text('home'));ime=component(text('ime'))
-        if self.opened.get('mode') in (ADDITIONAL_MODE,USER_APPS_MODE):
+        present=packages(text(self.list_label()));home=component(text('home'));ime=component(text('ime'))
+        self.require_checkpoint_keep(present,home,ime)
+        if self.opened.get('mode') in (ADDITIONAL_MODE,USER_APPS_MODE,CHECKPOINT_MODE):
             baseline=packages(raw.decode_success_stdout(raw.load_handle(
-                self.directory/'inventory/system-packages.capture.json'),maximum=131072))
+                self.directory/'inventory'/(self.list_label()+'.capture.json')),maximum=131072))
             require((set(baseline)&self.keep_set())<=set(present),'additional cleanup lost an initially present keep package')
         require((home,ime)==(plan['selection']['home'],plan['selection']['ime']),
             'snapshot required components differ')
@@ -607,7 +707,23 @@ class Run:
         storage=gpt_android.storage_stat(text('storage-stat'),self.basis,self.sealed)
         return dict(schema=SCHEMA,before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'),
             remaining=[row['name'] for row in plan['selection']['selected'] if row['name'] in present],
-            home=home,ime=ime,gpt=proof,storage=storage,**self.safe_mode_projection(folder))
+            home=home,ime=ime,gpt=proof,storage=storage,**self.safe_mode_projection(folder),
+            **(dict(remaining_outside_keep=sorted(set(present)-self.keep_set()),
+                package_scope='ALL_INSTALLED_USER_0_APKS') if self.checkpoint() else {}))
+
+    def package_outcome(self,folder,row):
+        folder=Path(folder);name=row['name']
+        response=uninstall_response(raw.load_handle(folder/'uninstall.capture.json'),checkpoint=self.checkpoint())
+        present=packages(raw.decode_success_stdout(raw.load_handle(folder/'after-package.capture.json'),maximum=131072))
+        if not self.checkpoint():
+            require(response=='SUCCESS' and name not in present,'uninstall raw result or post-state differs')
+            return 'REMOVED'
+        if name in present:
+            require(present[name]=={key:row[key] for key in ('name','path','uid','version')},
+                'remaining package identity changed during uninstall')
+            return 'RETAINED_AFTER_SUCCESS' if response=='SUCCESS' else response
+        require(response=='SUCCESS','refused uninstall has an unexpected absent post-state')
+        return 'REMOVED'
 
     def completed_effects_projection(self,*,final_name='final',allow_remaining=False):
         """H0 effect and changed-boot proof; never changes a terminal verdict."""
@@ -629,9 +745,9 @@ class Run:
                 and target.fields(text('properties'),target.PROPERTY_FIELDS)==initial['properties'],
                 'uninstall lacks its same-boot physical target binding')
             current=packages(text('before-package'))
-            require(name in current and self.parse_metadata(text('before-metadata'),current[name])==row
-                and text('uninstall').strip()=='Success' and name not in packages(text('after-package')),
-                'uninstall raw result or post-state differs')
+            require(name in current and self.parse_metadata(text('before-metadata'),current[name])==row,
+                'uninstall pre-effect metadata differs')
+            self.package_outcome(folder,row)
         before=self.snapshot_projection(self.directory/'before-reboot',plan)
         after=self.snapshot_projection(self.directory/final_name,plan)
         folder=self.directory/'reboot';intent=intents[-1]
@@ -647,7 +763,7 @@ class Run:
         a=read(verify(before['after']));b=read(verify(after['after']))
         require(a['boot_id_sha256']!=b['boot_id_sha256'] and before['gpt']==after['gpt']
             and before['storage']['total_bytes']==after['storage']['total_bytes']
-            and not before['remaining'] and (allow_remaining or not after['remaining']),
+            and (self.checkpoint() or not before['remaining']) and (allow_remaining or not after['remaining']),
             'cleanup reboot persistence is unproved')
         return plan,names,before,after
 
@@ -682,15 +798,38 @@ class Run:
         plan=self.inventory_projection()
         if not plan['selection']['selected']:
             require(not self.journal.rows(),'empty cleanup unexpectedly has journal actions')
+            residual={}
+            if self.checkpoint():
+                present=packages(raw.decode_success_stdout(raw.load_handle(
+                    self.directory/'inventory'/(self.list_label()+'.capture.json')),maximum=131072))
+                outside=sorted(set(present)-self.keep_set())
+                residual=dict(remaining_outside_keep=outside,checkpoint_reached=not outside,
+                    package_scope='ALL_INSTALLED_USER_0_APKS',completion_scope='NEW_CHECKPOINT_CANDIDATES_ONLY')
             return dict(schema=SCHEMA,status='NO_CHANGES_NEEDED',
                 terminal_state='ANDROID_CLOSED_HEALTHY',inventory=pin(self.directory/'inventory/result.json'),
                 final_health=plan['after'],removed_count=0,reboot_verified=False,
-                source_snapshot=self.opened['source_snapshot'])
-        plan,names,before,after=self.completed_effects_projection()
+                source_snapshot=self.opened['source_snapshot'],**residual)
+        plan,names,before,after=self.completed_effects_projection(allow_remaining=self.checkpoint())
+        if self.checkpoint():
+            self.completed_journal(names)
+            require_expected_packages(self,self.directory/'final',names,after['remaining'])
         for name,value in (('before-reboot',before),('final',after)):
             path=self.directory/name/'result.json'
             if path.exists():require(read(path)==value,'snapshot aggregate differs')
             else:publish(path,value)
+        if self.checkpoint():
+            outcomes={row['name']:self.package_outcome(self.directory/f'package-{i:03d}',row)
+                for i,row in enumerate(plan['selection']['selected'])}
+            return dict(schema=SCHEMA,status='INCOMPLETE' if after['remaining'] else 'COMPLETE',
+                terminal_state='ANDROID_CLOSED_HEALTHY',inventory=pin(self.directory/'inventory/result.json'),
+                before_reboot=pin(self.directory/'before-reboot/result.json'),final=pin(self.directory/'final/result.json'),
+                attempted_count=len(names),removed_count=len(names)-len(after['remaining']),remaining=after['remaining'],
+                package_outcomes=outcomes,cleanup_replay_permitted=False,reboot_verified=not after['remaining'],
+                remaining_outside_keep=after['remaining_outside_keep'],
+                package_scope='ALL_INSTALLED_USER_0_APKS',
+                checkpoint_reached=not after['remaining_outside_keep'],completion_scope='NEW_CHECKPOINT_CANDIDATES_ONLY',
+                observed_available_bytes_change=after['storage']['available_bytes']-plan['storage']['available_bytes'],
+                source_snapshot=self.opened['source_snapshot'])
         return dict(schema=SCHEMA,status='COMPLETE',terminal_state='ANDROID_CLOSED_HEALTHY',
             inventory=pin(self.directory/'inventory/result.json'),
             before_reboot=pin(self.directory/'before-reboot/result.json'),final=pin(self.directory/'final/result.json'),
@@ -705,25 +844,31 @@ class Run:
             plan=self.inventory_projection();initial=read(verify(plan['after']))
             if not plan['selection']['selected']:
                 return publish(self.directory/'terminal.json',self.terminal_projection())
+            require(2*(len(plan['selection']['selected'])+1)+2<=self.journal.maximum,
+                'selected cleanup plan exceeds complete journal capacity')
             self.journal.append('started',inventory=pin(self.directory/'inventory/result.json'))
             try:
                 for number,row in enumerate(plan['selection']['selected']):
                     folder=self.directory/f'package-{number:03d}';name=row['name']
                     self.same_boot(folder,initial)
-                    current=packages(self.text(folder,'before-package',[*LIST,name]))
+                    current=packages(self.text(folder,'before-package',[*self.list_command(),name]))
                     require(name in current and self.parse_metadata(self.text(folder,'before-metadata',
                         ['shell','dumpsys','package',name],maximum=METADATA_MAXIMUM),current[name])==row,
                         'selected package changed before intent')
-                    answer=self.text(folder,'uninstall',['shell','pm','uninstall','--user','0',
+                    self.command(folder,'uninstall',['shell','pm','uninstall','--user','0',
                         '--versionCode',str(row['version']),name],
                         maximum=16384,before=lambda:self.intent('uninstall',package=name,metadata=row))
-                    require(answer.strip()=='Success','Package Manager uninstall did not report success')
-                    require(name not in packages(self.text(folder,'after-package',[*LIST,name])),
-                        'removed package remains installed for primary user')
+                    # An unknown command result stops before another connected read.
+                    uninstall_response(raw.load_handle(folder/'uninstall.capture.json'),checkpoint=self.checkpoint())
+                    self.text(folder,'after-package',[*self.list_command(),name])
+                    self.package_outcome(folder,row)
                     self.journal.append('complete',key=name,capture=pin(folder/'uninstall.capture.json'),
                         post_state=pin(folder/'after-package.capture.json'))
                 before=self.snapshot(self.directory/'before-reboot',plan)
-                require(not before['remaining'],'selected optional packages remain installed')
+                require(self.checkpoint() or not before['remaining'],'selected optional packages remain installed')
+                if self.checkpoint():
+                    require_expected_packages(self,self.directory/'before-reboot',
+                        [row['name'] for row in plan['selection']['selected']],before['remaining'])
                 folder=self.directory/'reboot';folder.mkdir(mode=0o700)
                 usb=target.usb_snapshot(target.lane.SOURCE_TOPOLOGY,folder)
                 publish(folder/'before.json',usb);deadline=min(self.deadline_ns,clock()+30_000_000_000)
@@ -737,7 +882,8 @@ class Run:
                 after=self.snapshot(self.directory/'final',plan,wait=True)
                 a=read(verify(before['after']));b=read(verify(after['after']))
                 require(a['boot_id_sha256']!=b['boot_id_sha256'] and before['gpt']==after['gpt']
-                    and before['storage']['total_bytes']==after['storage']['total_bytes'] and not after['remaining'],
+                    and before['storage']['total_bytes']==after['storage']['total_bytes']
+                    and (self.checkpoint() or not after['remaining']),
                     'post-cleanup reboot/state persistence is unproved')
             except Exception as error:
                 self.journal.append('stopped',error_type=type(error).__name__)
@@ -775,30 +921,34 @@ class Run:
             return publish(self.directory/'terminal.json',dict(schema=SCHEMA,status='INCOMPLETE',
                 terminal_state='ANDROID_CLOSED_HEALTHY',final=pin(self.directory/'reconciliation/result.json'),
                 remaining=value['remaining'],cleanup_replay_permitted=False,reboot_verified=False,
-                source_snapshot=self.opened['source_snapshot']))
+                source_snapshot=self.opened['source_snapshot'],
+                **(dict(remaining_outside_keep=value['remaining_outside_keep'],checkpoint_reached=False,
+                    package_scope='ALL_INSTALLED_USER_0_APKS',
+                    completion_scope='NEW_CHECKPOINT_CANDIDATES_ONLY') if self.checkpoint() else {})))
 
 
 def require_expected_packages(run,final_folder,names,remaining):
     initial=packages(raw.decode_success_stdout(raw.load_handle(
-        run.directory/'inventory/system-packages.capture.json'),maximum=131072))
+        run.directory/'inventory'/(run.list_label()+'.capture.json')),maximum=131072))
     present=packages(raw.decode_success_stdout(raw.load_handle(
-        Path(final_folder)/'system-packages.capture.json'),maximum=131072))
+        Path(final_folder)/(run.list_label()+'.capture.json')),maximum=131072))
     require(set(initial)-set(present)==set(names)-set(remaining)
         and not (set(present)-set(initial)) and (set(initial)&run.keep_set())<=set(present),
         'previous cleanup package changes or preserved components differ')
 
 
-def closed_cleanup(root,directory,*,additional=False):
+def closed_cleanup(root,directory,*,additional=False,user_apps=False):
     """Prove prior effects closed without relabelling its terminal or replaying I/O."""
     directory=private_path(root,directory)
     require((directory/'journal').is_dir(),'previous cleanup journal is missing')
-    require(read(directory/'open.json')['mode']==(ADDITIONAL_MODE if additional else 'minimal-management'),
+    require(not (additional and user_apps) and read(directory/'open.json')['mode']==
+        (USER_APPS_MODE if user_apps else ADDITIONAL_MODE if additional else 'minimal-management'),
         'additional cleanup requires the original management profile')
     run=Run(root,directory);terminal=read(directory/'terminal.json')
     require(terminal['status'] in ('COMPLETE','INCOMPLETE'),
         'previous cleanup has no effectful closed terminal')
     final_name='reconciliation' if terminal['status']=='INCOMPLETE' and not additional else 'final'
-    plan,names,before,after=run.completed_effects_projection(final_name=final_name,allow_remaining=additional)
+    plan,names,before,after=run.completed_effects_projection(final_name=final_name,allow_remaining=additional or user_apps)
     require(read(directory/'before-reboot/result.json')==before
         and read(directory/final_name/'result.json')==after,'previous cleanup snapshot aggregate differs')
     rows,events=run.completed_journal(names)
@@ -814,6 +964,18 @@ def closed_cleanup(root,directory,*,additional=False):
             and after['remaining'] and [row['event'] for row in rows]==events+['stopped']
             and not (directory/'reconcile.json').exists(),
             'additional predecessor partial closure differs')
+    elif terminal['status']=='INCOMPLETE' and user_apps:
+        require(terminal==dict(schema=SCHEMA,status='INCOMPLETE',terminal_state='ANDROID_CLOSED_HEALTHY',
+            final=pin(directory/'reconciliation/result.json'),remaining=after['remaining'],cleanup_replay_permitted=False,
+            reboot_verified=False,source_snapshot=run.opened['source_snapshot']),
+            'user-app predecessor read-only terminal differs')
+        reconciliation=read(directory/'reconcile.json')
+        require(reconciliation==dict(open=run.open_pin,opened_ns=reconciliation['opened_ns'],
+            deadline_ns=reconciliation['opened_ns']+300_000_000_000,read_only=True)
+            and [row['event'] for row in rows]==events+['stopped']
+            and rows[-1]['data']==dict(error_type='RawCaptureError'),
+            'user-app predecessor does not close a read-only readiness failure')
+        qualified_readiness_stop(run)
     elif terminal['status']=='INCOMPLETE':
         require(terminal==dict(schema=SCHEMA,status='INCOMPLETE',terminal_state='ANDROID_CLOSED_HEALTHY',
             final=pin(directory/'reconciliation/result.json'),remaining=[],cleanup_replay_permitted=False,
@@ -839,10 +1001,10 @@ def closed_cleanup(root,directory,*,additional=False):
         source_snapshot=run.opened['source_snapshot'],final=pin(directory/final_name/'result.json'),
         removed=names,claim_pins=run.claim_pins,
         retired_preparations=[str(path) for path in run.predecessors],
-        **(dict(effectful_ancestors=run.effectful_predecessors) if additional else {}))
+        **(dict(effectful_ancestors=run.effectful_predecessors) if additional or user_apps else {}))
 
 
-def prepare(root,task_path,output,*,operator_statement,attended,replace_inventory=None,after_cleanup=None,after_additional=None):
+def prepare(root,task_path,output,*,operator_statement,attended,replace_inventory=None,after_cleanup=None,after_additional=None,after_user_apps=None):
     root=Path(root).resolve();require(attended is True and type(operator_statement) is str
         and 0<len(operator_statement.strip())<=4096,'actual minimal-Android request/attendance is required')
     qualified=review(root);task_path=private_path(root,task_path)
@@ -855,16 +1017,18 @@ def prepare(root,task_path,output,*,operator_statement,attended,replace_inventor
         registry.require_no_f1_owner(root)
         claim_path=task_path.parent/'android-minimal-claim.json'
         replacement=None;previous=None
-        require(sum(value is not None for value in (replace_inventory,after_cleanup,after_additional))<=1,
+        require(sum(value is not None for value in (replace_inventory,after_cleanup,after_additional,after_user_apps))<=1,
             'cleanup preparation modes are mutually exclusive')
         user_apps=after_additional is not None
-        if after_cleanup is not None or user_apps:
+        checkpoint=after_user_apps is not None
+        if after_cleanup is not None or user_apps or checkpoint:
             require(replace_inventory is None,'additional cleanup cannot replace an old inventory')
-            previous=closed_cleanup(root,after_additional if user_apps else after_cleanup,additional=user_apps)
+            previous=closed_cleanup(root,after_user_apps if checkpoint else after_additional if user_apps else after_cleanup,
+                **(dict(user_apps=True) if checkpoint else dict(additional=user_apps)))
             require(previous['task']==pin(task_path) and previous['closed']==closed
-                and (user_apps or not set(previous['removed'])&set(EXTRA_OPTIONAL)),
+                and (checkpoint or user_apps or not set(previous['removed'])&set(EXTRA_OPTIONAL)),
                 'additional declaration overlaps prior effects or changes the closed task')
-            kind='user-apps' if user_apps else 'additional'
+            kind='checkpoint' if checkpoint else 'user-apps' if user_apps else 'additional'
             claim_path=Path(previous['open']['path']).parent/(kind+'-cleanup-claim.json')
             require(not claim_path.exists(),'this cleanup already has its one additional claim')
             replacement=dict(schema=SCHEMA+'-'+kind+'-claim',previous_cleanup=previous,
@@ -890,9 +1054,9 @@ def prepare(root,task_path,output,*,operator_statement,attended,replace_inventor
         output.mkdir(mode=0o700)
         snapshot=census.snapshot_current(root,output/'source-snapshot',qualified)
         now=clock();opened=publish(output/'open.json',dict(schema=SCHEMA,
-            mode=USER_APPS_MODE if user_apps else ADDITIONAL_MODE if previous is not None else 'minimal-management',task=pin(task_path),
+            mode=CHECKPOINT_MODE if checkpoint else USER_APPS_MODE if user_apps else ADDITIONAL_MODE if previous is not None else 'minimal-management',task=pin(task_path),
             closed=closed,review=qualified,operator_statement=operator_statement,host_boot=host_boot(),
-            opened_ns=now,deadline_ns=now+900_000_000_000,source_snapshot=snapshot,
+            opened_ns=now,deadline_ns=now+(CHECKPOINT_SECONDS if checkpoint else 900)*1_000_000_000,source_snapshot=snapshot,
             **(dict(previous_cleanup=previous) if previous is not None else {})))
         publish(claim_path,dict(replacement,open=opened) if replacement is not None else
             dict(schema=SCHEMA+'-claim',task=pin(task_path),closed=closed,open=opened))
@@ -910,13 +1074,14 @@ if __name__=='__main__':
     p.add_argument('--replace-inventory',type=Path)
     p.add_argument('--after-cleanup',type=Path)
     p.add_argument('--after-additional',type=Path)
+    p.add_argument('--after-user-apps',type=Path)
     p=sub.add_parser('execute');p.add_argument('directory',type=Path);p.add_argument('--attended',action='store_true')
     p=sub.add_parser('reconcile');p.add_argument('directory',type=Path)
     p=sub.add_parser('retire-inventory');p.add_argument('directory',type=Path)
     args=parser.parse_args()
     if args.action=='prepare':print(prepare(args.root,args.task,args.output,
         operator_statement=args.operator_statement,attended=args.attended,replace_inventory=args.replace_inventory,
-        after_cleanup=args.after_cleanup,after_additional=args.after_additional))
+        after_cleanup=args.after_cleanup,after_additional=args.after_additional,after_user_apps=args.after_user_apps))
     elif args.action=='execute':print(Run(args.root,args.directory).execute(attended=args.attended))
     elif args.action=='retire-inventory':print(retire_inventory(args.root,args.directory))
     else:print(Run(args.root,args.directory).reconcile())

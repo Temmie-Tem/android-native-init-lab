@@ -176,12 +176,88 @@ binds the new open and full lineage. Both effectful ancestors' journal lengths,
 tails, closure/source/claim pins are checked before every connected command;
 retired preparations retain their separate empty-journal checks. The same
 900-second foreground limit, attendance and one 300-second close-only read
-remain. This mode has no child and no preparation renewal. Fresh health and
+remain. Only the separately reviewed checkpoint successor below may follow
+this mode; it has no preparation renewal. Fresh health and
 metadata still determine current eligibility. For this mode only, a complete
 retained final snapshot after successful effects may close a persistence stop
 in H0 as `INCOMPLETE`, with the remaining apps reported and no extra device
 read. This never permits another removal or reboot, nor promotes the result to
 `COMPLETE`. Review this scope if the declaration, exclusions or lineage changes.
+
+## One full checkpoint reapplication
+
+The new direct operator request authorizes one `checkpoint-complement` batch
+under this reviewed profile. It reuses the same-FYG8
+[116-package checkpoint and reapply method](../reports/S22PLUS_ANDROID_116_PACKAGE_CHECKPOINT_2026-07-06.md),
+with the three required debug packages and the already explicit Play Store
+exception. The checkpoint report is a pinned data input. Known-bad pass4
+packages remain in KEEP. Historical instructions are evidence; this section
+and the exact reviewed runner define the new effect scope.
+
+The fixed inventory is all installed user-0 APK packages, including ordinary
+non-system APKs. No caller package list is accepted. The declaration is the
+current inventory minus effective KEEP and all 70 previously attempted names
+from the three effectful ancestors. Fresh default HOME/IME owners are excluded
+even if outside KEEP. The selected plan is frozen in the raw-derived inventory;
+newly appearing packages cannot be added during execution. Hidden/suspended or
+not-installed states remain excluded. Enabled states 0 through 4 are eligible.
+
+This adopted historical checkpoint specializes the old consumer-mode blanket
+exclusions for APKs under `/apex/`, shared/system UIDs, persistent flags and
+non-system apps. Those properties remain captured and identity-checked; they
+are not independent removal prohibitions in this mode. The `.apk` path rule
+and unique active `Packages:` metadata remain mandatory. True `.apex`/`.capex`
+modules, `--apex-only`, global uninstall and staged module operations are not
+permitted. Name, version, UID, installation path and complete active metadata
+must match again on the same target/boot immediately before each effect.
+
+Every effective KEEP entry, plus current HOME/IME, must be present before
+effects and in final snapshots, except that an already absent Magisk manager
+APK does not require installation. Exact original-A numeric root is separately
+mandatory. If the manager APK is present initially it must remain present.
+All initially present KEEP entries are checked again across the batch/reboot.
+This exception changes no raw partition, file, permission, F1 or recovery scope.
+
+The predecessor must be the closed user-apps run with all 15 exact uninstall
+results, post-states and the sole successful reboot/departure rederived. Its
+qualified readiness stop consists only of consecutive successful bounded ADB
+inventories, target-bound not-ready boot reads, and a final exit-1 boot read
+with empty stdout and exactly `error: closed` on stderr, with no timeout,
+overflow or producer fault. Its already completed single read-only reconciliation
+must prove changed-boot rooted Android, unchanged GPT/capacity/home/input,
+retained KEEP and the exact package-set difference including its remaining
+subset. This closes that read-only failure for the new prospective scope under
+boundary 7; the old incomplete verdict and unexplained cause remain unchanged.
+
+One immutable `checkpoint-cleanup-claim.json` under that predecessor binds the
+new open and all three effectful ancestors. Their original records, journal
+lengths/tails and separate no-effect preparations remain checked. This single
+batch has 3600 same-host-boot seconds for inventory and execution, one planned
+ordinary reboot and the existing sole 300-second close-only reconciliation.
+The larger finite window covers the full inventory and effect sequence; it
+does not renew any earlier budget. There is no checkpoint child or preparation
+renewal. The APK inventory is bounded to 1024 rows. Only this mode uses the
+2052-row journal capacity, and the entire selected plan plus reboot/start/stop
+must fit before its first effect. Old modes keep their 256-row limit.
+
+Each package gets one version-bound user-0 uninstall and one consumed result.
+`Success` with observed absence is a removal. `Success` with unchanged present
+identity is a retained package. The finite explicit refusals
+`DELETE_FAILED_INTERNAL_ERROR`, `DELETE_FAILED_USER_RESTRICTED` and
+`DELETE_FAILED_OWNER_BLOCKED` may continue only with a complete exit-0/1 result,
+empty stderr and an unchanged present post-state. Refusals and retained results
+are consumed attempts, not no-effect records or retry authority. Unknown text,
+inconsistent post-state, transport failure, timeout, overflow or producer fault
+stops effects. No disable, uninstall retry, reinstall or escalation follows.
+
+After the batch, a healthy same-boot snapshot permits its one planned reboot
+even if explicit refusals/retained packages remain. Complete final raw health
+closes directly as incomplete when any new selected app remains. Report every
+outside-KEEP residual, including the nine previously attempted restored apps;
+handling the new batch is distinct from reaching the historical checkpoint.
+All-user-0 counts must not be silently compared with earlier system-only counts.
+Reconsider this scope when the firmware, KEEP/debug basis, package semantics,
+refusal vocabulary, journal capacity or effect/recovery graph changes.
 
 ## Effects and final proof
 
@@ -201,7 +277,8 @@ is Android. No Download, N/A transfer, GPT write, filesystem format or rootfs
 staging is permitted by this lane.
 
 A command or reboot with an intent never replays, including after a lost
-response. An error stops further cleanup. The only automatic continuation is
+response. An error stops further cleanup; only the checkpoint mode's explicitly
+classified consumed package outcomes above continue its original batch. The only automatic continuation after an unexplained failure is
 one separately recorded close-only D0 reconciliation, bounded to 300 seconds,
 which first prefers a complete retained result and otherwise reads current
 health/state. It cannot uninstall, reinstall, reboot or renew research time.

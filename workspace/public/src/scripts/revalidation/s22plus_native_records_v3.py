@@ -132,7 +132,9 @@ def host_boot():
 
 class Journal:
     """One ordered file per event; intent survives every subsequent failure."""
-    def __init__(self, directory):
+    def __init__(self, directory, *, maximum=256):
+        require(type(maximum) is int and maximum in (256,2052),'journal capacity differs')
+        self.maximum=maximum
         self.directory=Path(directory)
         if not self.directory.exists():
             self.directory.mkdir(mode=0o700)
@@ -150,7 +152,7 @@ class Journal:
                 continue
             paths.append(path)
         paths.sort()
-        require(len(paths)<=256,'native operation journal exceeds bound')
+        require(len(paths)<=self.maximum,'native operation journal exceeds bound')
         rows=[]; previous=None
         for index,path in enumerate(paths):
             require(path.name==f'{index:04d}.json','native journal has a gap or unexpected entry')
@@ -165,7 +167,7 @@ class Journal:
 
     def append(self,event,**data):
         rows=self.rows(); index=len(rows)
-        require(index<256,'native journal full')
+        require(index<self.maximum,'native journal full')
         previous=pin(self.directory/f'{index-1:04d}.json') if index else None
         return publish(self.directory/f'{index:04d}.json',dict(schema=SCHEMA,sequence=index,
             previous=previous,boottime_ns=clock(),event=event,data=data))

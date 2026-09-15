@@ -49,6 +49,30 @@ class ParserTests(unittest.TestCase):
         self.assertNotIn('com.android.settings',minimal.OPTIONAL)
         self.assertNotIn('com.topjohnwu.magisk',minimal.OPTIONAL)
 
+    def test_checkpoint_selection_adopts_apk_checkpoint_but_never_true_apex_modules(self):
+        name='com.fixture.optional';listed=minimal.packages(listing(name=name,uid=1000))
+        text=dump(name=name,uid=1000,flags='SYSTEM PERSISTENT',state='installed=true hidden=false suspended=false enabled=3')
+        text=text.replace('    pkgFlags=', '    sharedUser=SharedUserSetting{fixture system/1000}\n    pkgFlags=')
+        row=minimal.package_metadata(text,listed[name],checkpoint=True)
+        self.assertTrue(row['ordinary_primary_user']);self.assertTrue(row['persistent']);self.assertTrue(row['shared_uid'])
+        self.assertEqual(minimal.selection(listed,{name:row},HOME,IME,declaration=(name,),checkpoint=True)['selected'],[row])
+        self.assertEqual(minimal.selection(listed,{name:row},HOME,IME,declaration=(name,))['selected'],[])
+        app=minimal.package_metadata(dump(name=name,flags='HAS_CODE'),minimal.packages(listing(name=name))[name],checkpoint=True)
+        self.assertNotIn('SYSTEM',app['flags'])
+        with self.assertRaises(ValueError):minimal.package_metadata(dump(name=name,flags='HAS_CODE'),minimal.packages(listing(name=name))[name])
+        for state in ('installed=true enabled=0','installed=true enabled=0 hidden=false',
+                'installed=true enabled=0 hidden=false suspended=false hidden=true'):
+            with self.assertRaisesRegex(ValueError,'incomplete or ambiguous'):
+                minimal.package_metadata(dump(name=name,state=state),minimal.packages(listing(name=name))[name],checkpoint=True)
+        apex=listing(name=name).replace('/system/app/Optional/base.apk','/apex/com.fixture/app/Optional/base.apk')
+        row=minimal.package_metadata(dump(name=name).replace('/system/app/Optional','/apex/com.fixture/app/Optional'),
+            minimal.packages(apex)[name],checkpoint=True)
+        self.assertEqual(minimal.selection({name:row},{name:row},HOME,IME,declaration=(name,),checkpoint=True)['selected'],[row])
+        for ending in ('.apex','.capex'):
+            with self.assertRaises(ValueError):minimal.packages(apex.replace('.apk',ending))
+        self.assertNotIn('com.android.bluetooth',minimal.USER_APPS)
+
+
     def test_metadata_identity_ambiguity_and_caller_paths_are_rejected(self):
         row=minimal.packages(listing())[NAME]
         for text in (dump(uid=10124),dump(version=2),dump()+dump(),dump(flags='HAS_CODE')):
@@ -333,6 +357,127 @@ sys.stdout.buffer.write(base64.b64decode(data))
         self.assertEqual(self.run.execute(attended=True)['state'],'STOPPED_RECONCILIATION_REQUIRED')
         state=json.loads(self.state.read_text());self.assertEqual((state['uninstalls'],state['reboots']),(1,0))
 
+
+    def checkpoint_fixture(self,first='remove',second='remove'):
+        keep=frozenset({HOME,IME,'com.topjohnwu.magisk'})
+        patch=mock.patch.object(minimal,'KEEP',keep);patch.start();self.addCleanup(patch.stop)
+        source=self.program.read_text()
+        a=source.index("if tail[:5]==['shell','cmd','package','list','packages']:")
+        b=source.index("if tail==['reboot']:",a)
+        block="""if tail[:5]==['shell','cmd','package','list','packages']:
+ print(@KEEPLIST@,end='')
+ for i,(name,value) in enumerate(s['apps'].items()):
+  if value['installed']:print(@LIST@.replace(@NAME@,name).replace('uid:10123','uid:'+str(10123+i)),end='')
+ sys.exit(0)
+if tail[:3]==['shell','dumpsys','package']:
+ name=tail[3];i=list(s['apps']).index(name)
+ print(@DUMP@.replace(@NAME@,name).replace('userId=10123','userId='+str(10123+i)),end='');sys.exit(0)
+if tail[:3]==['shell','pm','uninstall']:
+ name=tail[-1];assert tail==['shell','pm','uninstall','--user','0','--versionCode','1',name]
+ value=s['apps'][name];value['attempts']+=1
+ if value['kind'] in ('remove','transport'):value['installed']=False
+ state.write_text(json.dumps(s))
+ if value['kind']=='refusal':print('Failure [DELETE_FAILED_INTERNAL_ERROR]');sys.exit(1)
+ if value['kind']=='unknown':print('Failure [UNREVIEWED_REASON]');sys.exit(1)
+ if value['kind']=='transport':print('error: closed',file=sys.stderr);sys.exit(1)
+ print('Success');sys.exit(0)
+"""
+        values=dict(KEEPLIST=listing(name=HOME,uid=1000)+listing(name=IME,uid=1001),LIST=listing(),DUMP=dump(),NAME=NAME)
+        for key,value in values.items():block=block.replace('@'+key+'@',repr(value))
+        self.program.write_text(source[:a]+block+source[b:]);self.run.task['adb']=records.pin(self.program)
+        names=['com.fixture.first','com.fixture.second']
+        self.change(apps={name:dict(kind=kind,installed=True,attempts=0) for name,kind in zip(names,(first,second))})
+        self.run.opened['mode']=minimal.CHECKPOINT_MODE;self.run.effectful_predecessors=[]
+        self.run.journal=records.Journal(self.folder/'journal',maximum=minimal.CHECKPOINT_JOURNAL_ROWS)
+        self.prepare()
+        return names
+
+    def test_checkpoint_refusal_continues_other_apps_and_closes_partial_without_extra_reads(self):
+        first,second=self.checkpoint_fixture('refusal')
+        result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual((result['status'],result['attempted_count'],result['removed_count']),('INCOMPLETE',2,1))
+        self.assertEqual(result['remaining'],[first]);self.assertEqual(result['remaining_outside_keep'],[first])
+        self.assertEqual(result['package_outcomes'][first],'REFUSED_DELETE_FAILED_INTERNAL_ERROR')
+        self.assertEqual(result['package_outcomes'][second],'REMOVED');self.assertFalse(result['checkpoint_reached'])
+        state=json.loads(self.state.read_text());self.assertEqual([v['attempts'] for v in state['apps'].values()],[1,1])
+        self.assertEqual(state['reboots'],1)
+        calls=self.log.read_bytes()
+        self.assertEqual(records.read(records.verify(self.run.reconcile())),result)
+        self.assertEqual(self.log.read_bytes(),calls)
+        with self.assertRaises(ValueError):self.run.execute(attended=True)
+        self.assertIn('-s',minimal.LIST);self.assertNotIn('-s',self.run.list_command())
+        self.assertTrue((self.folder/'inventory/installed-packages.capture.json').exists())
+        self.assertEqual(self.run.inventory_projection()['selection']['installed_package_count'],4)
+
+    def test_checkpoint_retained_success_is_consumed_and_batch_continues(self):
+        first,second=self.checkpoint_fixture('retained')
+        result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual(result['package_outcomes'][first],'RETAINED_AFTER_SUCCESS')
+        self.assertEqual(result['package_outcomes'][second],'REMOVED')
+        self.assertEqual(result['remaining'],[first]);self.assertFalse(result['cleanup_replay_permitted'])
+
+    def test_checkpoint_unknown_result_stops_before_next_effect(self):
+        self.checkpoint_fixture('unknown')
+        self.assertEqual(self.run.execute(attended=True)['state'],'STOPPED_RECONCILIATION_REQUIRED')
+        state=json.loads(self.state.read_text());self.assertEqual([v['attempts'] for v in state['apps'].values()],[1,0])
+        self.assertEqual(state['reboots'],0)
+        self.assertFalse((self.folder/'package-000/after-package.capture.json').exists())
+
+    def test_checkpoint_prior_attempts_remain_reported_residuals_after_complete_new_batch(self):
+        first,second=self.checkpoint_fixture()
+        self.run.effectful_predecessors=[dict(removed=[first])]
+        # Rebuild only the fixture inventory aggregate from the same raw input;
+        # real runs bind lineage before collection and cannot mutate it.
+        (self.folder/'inventory/result.json').unlink()
+        records.publish(self.folder/'inventory/result.json',self.run.inventory_raw_projection())
+        result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual((result['status'],result['attempted_count'],result['removed_count']),('COMPLETE',1,1))
+        self.assertEqual(result['remaining'],[]);self.assertEqual(result['remaining_outside_keep'],[first])
+        self.assertFalse(result['checkpoint_reached'])
+        state=json.loads(self.state.read_text());self.assertEqual([v['attempts'] for v in state['apps'].values()],[0,1])
+
+    def test_checkpoint_no_new_candidates_reports_prior_residuals_without_reboot(self):
+        names=self.checkpoint_fixture()
+        self.run.effectful_predecessors=[dict(removed=names)]
+        (self.folder/'inventory/result.json').unlink()
+        records.publish(self.folder/'inventory/result.json',self.run.inventory_raw_projection())
+        result=records.read(records.verify(self.run.execute(attended=True)))
+        self.assertEqual(result['status'],'NO_CHANGES_NEEDED');self.assertFalse(result['checkpoint_reached'])
+        self.assertEqual(result['remaining_outside_keep'],names)
+        self.assertEqual(result['package_scope'],'ALL_INSTALLED_USER_0_APKS')
+        self.assertEqual(json.loads(self.state.read_text())['reboots'],0)
+
+    def test_checkpoint_unexpected_package_change_stops_before_reboot(self):
+        self.checkpoint_fixture()
+        original=minimal.require_expected_packages
+        def reject(run,folder,names,remaining):
+            if Path(folder).name=='before-reboot':raise ValueError('unrelated package appeared')
+            return original(run,folder,names,remaining)
+        with mock.patch.object(minimal,'require_expected_packages',side_effect=reject):
+            self.assertEqual(self.run.execute(attended=True)['state'],'STOPPED_RECONCILIATION_REQUIRED')
+        self.assertEqual(json.loads(self.state.read_text())['reboots'],0)
+
+    def test_qualified_ui_readiness_failure_requires_exact_complete_capture_sequence(self):
+        folder=self.folder/'final/before';folder.mkdir(parents=True)
+        minimal.raw.publish_captured_bytes(folder,'wait-000-inventory',stdout=self.fixture.inventory.encode())
+        minimal.raw.publish_captured_bytes(folder,'wait-000-boot',stdout=b'',stderr=b'error: closed\n',returncode=1)
+        minimal.qualified_readiness_stop(self.run)
+        for suffix in ('.capture.json','.stdout.bin','.stderr.bin'):(folder/('wait-000-boot'+suffix)).unlink()
+        minimal.raw.publish_captured_bytes(folder,'wait-000-boot',stdout=b'',stderr=b'error: offline\n',returncode=1)
+        with self.assertRaisesRegex(ValueError,'qualified closed-read'):minimal.qualified_readiness_stop(self.run)
+
+    def test_checkpoint_full_keep_and_journal_preflight(self):
+        self.run.opened['mode']=minimal.CHECKPOINT_MODE
+        listed=dict.fromkeys(minimal.KEEP-{'com.android.vending','com.topjohnwu.magisk'})
+        self.run.require_checkpoint_keep(listed,HOME,IME)
+        del listed['com.android.settings']
+        with self.assertRaisesRegex(ValueError,'required package'):self.run.require_checkpoint_keep(listed,HOME,IME)
+        plan=dict(selection=dict(selected=[{}]*127),after=dict(fixture='health'))
+        with mock.patch.object(self.run,'inventory_projection',return_value=plan), \
+                mock.patch.object(minimal,'verify',return_value=self.state):
+            with self.assertRaisesRegex(ValueError,'journal capacity'):self.run.execute(attended=True)
+        self.assertFalse(self.run.journal.rows())
+
     def test_additional_prepare_has_one_child_and_rechecks_previous_journal(self):
         task,closed=self.bind_closed_fixture();self.prepare();self.run.execute(attended=True)
         with mock.patch.object(minimal,'Run',return_value=self.run):
@@ -391,6 +536,39 @@ sys.stdout.buffer.write(base64.b64decode(data))
         for wrong in (self.folder,fresh):
             with self.assertRaisesRegex(ValueError,'original management profile'):
                 minimal.closed_cleanup(self.root,wrong,additional=True)
+
+    def test_checkpoint_prepare_load_binds_three_ancestors_and_one_larger_window(self):
+        task,closed=self.bind_closed_fixture();self.prepare();self.run.execute(attended=True)
+        with mock.patch.object(minimal,'Run',return_value=self.run):original=minimal.closed_cleanup(self.root,self.folder)
+        _,_,_,_,review,_=self.inventory_stop_fixture();ancestors=[original]
+        for label,mode in [('additional',minimal.ADDITIONAL_MODE),('user-apps',minimal.USER_APPS_MODE)]:
+            prior=self.root/'workspace/private'/('prior-'+label);prior.mkdir()
+            opened=records.publish(prior/'open.json',dict(mode=mode))
+            journal=records.Journal(prior/'journal');journal.append('started')
+            previous=dict(original,open=opened,journal_rows=1,journal_tail=records.pin(prior/'journal/0000.json'),
+                effectful_ancestors=ancestors[:])
+            ancestors=[previous,*ancestors]
+        def inventory(run,folder):
+            folder.mkdir();return records.publish(folder/'result.json',dict(selection=dict(selected=[])))
+        fresh=self.root/'workspace/private/checkpoint'
+        with mock.patch.object(minimal,'review',return_value=review), \
+                mock.patch.object(minimal.census,'closed_android',return_value=(self.run.task,closed)), \
+                mock.patch.object(minimal,'closed_cleanup',return_value=previous) as projection, \
+                mock.patch.object(minimal.Run,'inventory',new=inventory):
+            minimal.prepare(self.root,Path(task['path']),fresh,operator_statement='full checkpoint cleanup',
+                attended=True,after_user_apps=prior)
+            loaded=minimal.Run(self.root,fresh)
+            self.assertEqual(loaded.effectful_predecessors,ancestors)
+            self.assertEqual(loaded.opened['deadline_ns']-loaded.opened['opened_ns'],3600_000_000_000)
+            self.assertEqual(loaded.journal.maximum,2052)
+            self.assertTrue((prior/'checkpoint-cleanup-claim.json').is_file())
+            self.assertTrue(all(call.kwargs==dict(user_apps=True) for call in projection.call_args_list))
+            with self.assertRaisesRegex(ValueError,'one additional claim'):
+                minimal.prepare(self.root,Path(task['path']),self.root/'workspace/private/second-checkpoint',
+                    operator_statement='full checkpoint cleanup',attended=True,after_user_apps=prior)
+        for wrong in (self.folder,fresh):
+            with self.assertRaisesRegex(ValueError,'original management profile'):
+                minimal.closed_cleanup(self.root,wrong,user_apps=True)
 
     def test_real_raw_inventory_uninstall_version_guard_and_reboot_persistence(self):
         self.prepare();self.assertEqual(self.run.inventory_projection()['selection']['selected'][0]['name'],NAME)

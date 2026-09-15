@@ -112,16 +112,50 @@ cause remains unproved. Four selected apps were present again: My Files,
 Galaxy Store, Weather and Dictionary. The other 11, including all four apps
 explicitly named by the operator, remained absent. The result remains
 `INCOMPLETE / ANDROID_CLOSED_HEALTHY`, `reboot_verified=false`, with no replay
-or descendant. The old two terminals remain unchanged.
+or effect replay. The old two terminals remain unchanged; only the separately
+reviewed full-checkpoint successor below may follow this closed run.
 
-Current system-package count is **404**, down from 415 at this run's start and
-465 before the three runs: **61 currently absent**. `/data` available space is
+At that close, the system-only package count was **404**, down from 415 at
+that run's start and 465 before the three runs: **61 absent at that observation**. `/data` available space is
 31,678,308,352 bytes, 185,667,584 above this run's starting observation; a causal
 space breakdown is not proved. The 33 focused tests and independent source
 review passed. The [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md)
 records the incomplete cleanup separately from final Android health. The
 191.4580078125 GiB native partition remains unformatted; Debian staging and
 A90/S20+ effects were outside this run.
+
+## Latest full checkpoint cleanup — 279 persistent removals, 127 apps
+
+The complete user-0 APK census found 406 installed packages, including all 118
+protected entries. One reviewed batch selected all 279 previously unattempted
+packages outside effective KEEP; the nine restored prior attempts were excluded.
+All 279 version-bound uninstalls and immediate absent post-states succeeded.
+There were no refusals or retained-package outcomes. The pre-reboot total was
+127: the protected 118 plus the nine prior residuals. One ordinary reboot ran.
+
+The first final-health root read lost its ADB target after successful selector
+and lane reads; its preceding properties response was truncated to the model
+field and did not prove a complete post-reboot identity. The single 300-second read-only reconciliation
+proved healthy exact original-A root, changed boot, unchanged full GPT/capacity,
+HOME/IME and all 118 protected entries. Every one of the 279 new removals still
+held after reboot. Final total is **127 installed user-0 APK apps**. This includes
+Magisk manager and is not the earlier system-only census metric.
+
+The only outside-KEEP residuals are Smart Switch, My Files, Galaxy Store,
+Weather, Dictionary and four navigation overlays from earlier attempts.
+They were not retried. The formal terminal remains
+`INCOMPLETE / ANDROID_CLOSED_HEALTHY`, `reboot_verified=false`,
+`checkpoint_reached=false`; its remaining-new-candidate list is empty.
+The final read failure's initiating cause is unproved. All three earlier
+terminals and all previous effect identities remain unchanged.
+
+Available space is 31,675,633,664 bytes, 3,997,696 above this batch's initial
+observation, without causal allocation accounting. Forty-three app tests,
+four record tests, 12 boundary tests and independent source review passed.
+The [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md) records the
+full result and private evidence pins. This checkpoint claim is closed with
+no descendant or replay. Native storage remains unformatted; A90/S20+ and
+Debian staging were outside this run.
 
 ## Debian direction and next storage unit
 
