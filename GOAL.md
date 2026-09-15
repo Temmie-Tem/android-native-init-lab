@@ -15,38 +15,30 @@ Changed-path regression reference: [past failure checklist](docs/operations/S22P
 
 **Current task: reserve 64 GiB for native-only persistent storage while
 retaining Android.** The operator allows resetting current Android apps,
-settings and user data. Existing boot-only recovery does not qualify GPT
-restoration. The native census closed `NO_PROOF` with healthy DETACH; missing
-native UFS initialization is a likely cause, not the proved failed guard.
-The separately approved original-A return then completed one image transfer.
-Its first Android health query returned ADB `error: closed`; after actual
-attendance was confirmed, health alone resumed and passed. The task is closed
-`ANDROID_CLOSED_HEALTHY`, with no repeated transfer or pending F1 owner.
-The first foreground Android D0 omitted the backup table. The independently
-reviewed tail9 successor then acquired both complete GPT copies: their CRCs,
-tables and geometry agree. Strict metadata remains `NO_PROOF` because eleven
-existing entries share one nonzero GUID; its raw verdict is unchanged.
-Both reads closed `ANDROID_CLOSED_HEALTHY`. H0 arithmetic and independent
-review establish a proposed 159.458 GiB userdata plus 64 GiB native entry,
-preserving the other 39 entries and leaving a 988 KiB alignment gap.
-P395 bootstrap then completed two installations and four native health
-observations. Its census captured 15,994 LU0 bytes matching Android, including
-a CRC-valid primary GPT, but output ended with `0x88` and no DETACH ACK.
-Original A was restored once after physical Download action; final health
-resumed without retransmission and passed. Both operations and their grant
-are closed `ANDROID_CLOSED_HEALTHY`; no F1 owner remains. This proves partial
-native access, not complete metadata capture or GPT restoration. P396
-`v0.2.2-rc.2` passes 60 focused tests, actual A/B qualification and independent
-`PASS_GO` for bounded output draining and host DETACH eligibility. Its fresh
-1,800-second/two-operation attended request is prepared; no grant has opened.
-No partition write or format has occurred. See the
-[layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
-and [P395 incident and successor](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md).
+settings and user data. The complete Android GPT capture supports a proposed
+159.458 GiB userdata plus 64 GiB native entry, preserving the other 39 entries
+and leaving a 988 KiB alignment gap. Original duplicate GUIDs remain observed;
+strict metadata qualification is not relabelled.
 
-## Retained native baseline
+**P396 `v0.2.2-rc.2` is admitted and retained `NATIVE_CLOSED_HEALTHY`.** Its
+actual attended bootstrap completed two installations and four authenticated
+health sessions. The following fixed native census delivered all 44 KiB of
+its declared LU0 range, exactly matching the saved Android bytes, then closed
+with zero flags, zero dropped bytes, DETACH ACK and actual descriptor close.
+The strict GPT result remains `NO_PROOF`: the existing backup entry array lies
+outside the unchanged last-five-block read. This is complete bounded native
+UFS access, not complete native GPT capture or GPT-restoration qualification.
+Both operations and their grant are permanently closed; no A recovery was
+needed and no F1 owner remains. The initial incorrectly labelled P396 `rc.1`
+request was retired before grant opening or device action. No partition write
+or format has occurred. The next bounded unit is exact modified-GPT recovery
+qualification. See the [layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
+and [UFS result and incident history](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md).
 
-**The clean V3 owner completed P393 bootstrap and P394 physical USB
-reconnect N/E/N. P393 is admitted and retained `NATIVE_CLOSED_HEALTHY`.**
+## Earlier native baseline qualification
+
+**The earlier V3 owner completed P393 bootstrap and P394 physical USB
+reconnect N/E/N, then closed healthy native before the later Android return.**
 The actual attended grant covered 3600 seconds and three operations. Bootstrap
 completed two P393 installations and four authenticated health sessions.
 The following N/E/N operation completed fresh starting-N health, one P394

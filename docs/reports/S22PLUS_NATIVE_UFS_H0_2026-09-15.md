@@ -1,10 +1,12 @@
-# S22+ native UFS prerequisite: P395 H0
+# S22+ native UFS: P395 incident and P396 result
 
-**P395 bootstrap passed, but its subsequent native census closed `NO_PROOF`.
-One original-A recovery transfer and final rooted Android health completed.**
-Both operations and the 1,800-second grant are permanently closed; no F1 owner
-remains. No partition split or format occurred. The original P395 artifacts
-and its 148 source inputs retain their identities.
+**P396 `v0.2.2-rc.2` completed bootstrap and the full fixed native UFS read,
+then closed `NATIVE_CLOSED_HEALTHY` without Android recovery.** All 44 KiB of
+captured LU0 storage bytes match the saved Android bytes. Strict GPT remains
+`NO_PROOF` because the original backup array is outside the fixed tail-five
+range. Both operations and the grant are permanently closed, with no F1 owner.
+No partition split or format occurred. The earlier P395 failure and one-A
+recovery remain recorded below with their original evidence.
 
 ## Bounded purpose
 
@@ -85,7 +87,7 @@ Private build, ABI, test and review evidence is under
 under `workspace/private/outputs/s22plus-native-ufs-v1/p395/build-1/`.
 A90 and S20+ were untouched.
 
-## Live result, incident and recovery
+## P395 live result, incident and recovery
 
 The census completed fresh authenticated health and accepted EXEC sequence 5.
 It returned 21 stdout frames containing 16,128 bytes, then an authenticated
@@ -187,7 +189,7 @@ root variants preserve the unrelated S20+ working changes. The fresh request
 is 1,800 seconds and two attended operations: P396 bootstrap, then one fixed
 native census after actual admission. Its exact A artifact, retained recovery
 evidence, five installed host files and noninteractive host readiness validate.
-No grant has opened and no P396 device effect has occurred. The request is at
+The subsequently returned grant and completed P396 task are at
 `workspace/private/runs/s22plus-native-session-v3/p396-drain-rc2-bootstrap-20260915-1/`.
 This is the concrete next action under the
 [V3 actual-returned-grant requirement](../operations/S22PLUS_NATIVE_SESSION_V3.md);
@@ -203,3 +205,55 @@ evidence are under
 `workspace/private/outputs/s22plus-native-output-drain-rc2-h0-20260915-1/`;
 the immutable build directory is
 `workspace/private/outputs/s22plus-native-output-drain-v1/p396/build-rc2-1/`.
+
+## P396 rc.2 live result
+
+The actual 1,800-second/two-operation attended grant completed both planned
+operations. Bootstrap installed P396 twice and passed all four authenticated
+native health observations, with actual N admission. The subsequent census
+used that admission and the unused final native tail exactly once.
+
+Census EXEC sequence 5 returned 45,328 stdout bytes in 60 frames, no stderr,
+zero flags/wait status/exec errno and no dropped bytes. It includes both equal
+geometry brackets, all 45,056 declared storage bytes and the final `END`
+marker. DETACH sequence 6 was acknowledged and the descriptor actually closed.
+The fixed script's successful completion retains its alias-cleanup condition.
+The old post-reap output cutoff did not recur in this run.
+
+Both the 24,576-byte primary region and 20,480-byte final region exactly match
+the corresponding original Android capture. The primary header and entry-array
+CRCs pass. The original full Android backup table still matches that primary;
+the new native read did not capture that entire backup array. The unchanged
+canonical parser reports `GPT entry array is outside its capture or overlaps
+its header`. This remains `NO_PROOF`, separate from the proved bounded read
+and native health/close. The earlier duplicate-GUID observation is unchanged.
+
+### P396 canonical timeline
+
+Elapsed host BOOTTIME seconds from this grant, including host suspend:
+
+| Elapsed seconds | Durable event |
+| ---: | --- |
+| 14.757 | Exact Android preflight complete |
+| 30.552 / 32.103 | First P396 transfer intent / completion |
+| 45.144 / 47.399 | First-boot authenticated sessions complete |
+| 55.980 / 57.503 | Same-N qualification transfer intent / completion |
+| 82.812 / 84.674 | Second-boot sessions complete; native admission earned |
+| 109.110 / 117.485 | Fixed census observation starts / closes healthy native |
+| 233.198 | Task permanently closed, two operations consumed, no owner |
+
+Original A was not transferred. P396 remains admitted with the new healthy
+native tail; this is a past health snapshot, not automatic recovery or future
+responsiveness. The five installed host files remain verified external
+configuration. A90 and S20+ were untouched. The census does not capture a complete module-insertion syscall trace;
+the complete LU0 read is direct functional storage evidence.
+
+The immutable task close has SHA-256
+`f52e61d9b72d6f3de2f3fa84c13f184122a0b163c66fcbda9a22b159238c3b97`.
+Its source snapshot binds commit `8ed15cb14007ec4624a746256189902a4380cf03`,
+the 49 actual host inputs and capability, plus the 150 native source identities.
+The authenticated extraction and byte comparison are under that task's
+`analysis/`, with comparison receipt SHA-256
+`eecd5504af0d4962ac9871368e92a11bc4e2781f73826c8e49e88c5ce585d456`.
+Storage access removes one prerequisite; exact GPT write/restoration machinery
+and reachability for its declared interruption cases remain unqualified.
