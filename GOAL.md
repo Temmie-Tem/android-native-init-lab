@@ -1,11 +1,14 @@
-# Goal: S22+ repeatable native PID 1
+# Goal: S22+ Debian on native storage
 
-Build a repeatable FYG8 native PID1 runtime with observable behavior and bounded recovery.
+Build a usable Debian arm64 environment on the dedicated 128 GiB native
+storage, following the operator's A90-style direction. Start from the FYG8
+vendor kernel and native hardware bring-up, retaining observable native
+control and bounded recovery while Debian execution is qualified.
 This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current bounded unit — completed
+## Latest completed unit — storage reservation
 
 **128 GiB native storage is reserved, and rooted Android is retained.** The
 operator-authorized G2 run reduced userdata to 95.4580078125 GiB, created the
@@ -42,6 +45,38 @@ See the [live result and canonical timeline](docs/reports/S22PLUS_NATIVE_GPT_128
 [layout and H0 qualification](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md),
 and [G2 scope](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
 
+## Debian direction and next bounded unit
+
+The immediate next unit is H0 preparation for a filesystem on `native_data`.
+Ext4 is the first candidate: check the exact FYG8 kernel features, arm64
+formatter and mount behavior, then define one bounded format/mount/write
+experiment. Its functional criterion is a small synchronized test file that
+remains byte-identical after clean unmount and a fresh native boot, followed
+by verified rooted Android return. Only the new native partition is the
+proposed persistent-write target; no device format or mount is activated here.
+
+The subsequent milestones are prospective and separately qualified:
+
+1. Prepare a minimal Debian arm64 root filesystem on the host and prove its
+   loader and basic commands against the target ABI before device staging.
+2. Execute a bounded Debian shell/basic workload from native storage, with
+   explicit process, mount and device ownership and a proved native return.
+   A shell result alone does not prove Debian init or an independent boot.
+3. Establish Debian service startup, a qualified IP path and authenticated SSH;
+   verify persistence and cleanup/recovery across the selected reboot path.
+4. Add display/input or a desktop environment after the headless path works.
+   Full init handoff versus a supervised Debian namespace remains a later
+   S22+-specific design decision, not a prerequisite for the first shell proof.
+
+[A90's current goal](GOAL_A90.md) provides references for UFS filesystem
+identity, mounting, Debian startup and native fallback. Its isolated-Debian
+architecture and earlier separate feature observations do not constitute a
+completed integrated S22+ capability or transfer A90's device authority.
+Use [Debian's arm64 bootstrap documentation](https://www.debian.org/releases/stable/arm64/apds03.en.html)
+for base-system construction; its generic kernel/bootloader installation
+steps are not the selected FYG8 boot path. No Debian release, rootfs artifact,
+candidate, live budget or new persistent-write capability is selected yet.
+
 ## Completed history
 
 The complete previous 798-line goal, including P396 live closure, P397 H0
@@ -57,4 +92,6 @@ health, source and recovery binding. Never place an experiment over uncertain
 health or repeat an uncertain write, transfer or control. Keep raw evidence and
 identifiers private. A reporting failure permits evidence reconstruction, not
 another device transition. Functional proof, recovery and terminal health remain
-separate. No next experiment or filesystem format is selected by this goal.
+separate. The Debian direction selects preparation work only; filesystem
+formatting, rootfs staging and runtime effects require their own reviewed
+scope under the binding contracts.
