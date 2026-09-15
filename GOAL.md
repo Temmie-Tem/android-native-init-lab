@@ -1,7 +1,9 @@
 # Goal: S22+ Debian on native storage
 
-Build a usable Debian arm64 environment on the dedicated 128 GiB native
-storage, following the operator's A90-style direction. Start from the FYG8
+Build a usable Debian arm64 environment on dedicated native storage, following
+the operator's A90-style direction. The selected prospective allocation is
+32 GiB Android userdata and approximately 191.458 GiB native storage; the
+completed device layout below still has 128 GiB native storage. Start from the FYG8
 vendor kernel and native hardware bring-up, retaining observable native
 control and bounded recovery while Debian execution is qualified.
 This goal records state, never device authority. Select only the operator-owned
@@ -47,13 +49,36 @@ and [G2 scope](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
 
 ## Debian direction and next bounded unit
 
-The immediate next unit is H0 preparation for a filesystem on `native_data`.
+The operator selected 32 GiB Android userdata for a minimal management/return
+environment, with unused apps cleaned up after Android reinitialization. The
+last retained final-health snapshot reported 2,806,255,616 bytes (about
+2.614 GiB) used in `/data`; this is an initialization-time observation, not
+qualification of a smaller filesystem or a prediction of long-term usage.
+Keeping the current combined userdata/native extent gives approximately
+191.458 GiB for Debian. These sizes describe actual partitions, not Samsung's
+rounded storage-UI labels.
+
+The immediate next unit is H0 design of the new 32 GiB layout and its exact
+initialization/return path, using the closed current GPT as the starting
+state. The consumed G2 operation and its fixed original/proposed vectors do
+not authorize or implement this successor. Qualify the reduced Android
+filesystem, rooted return and reboot persistence before native filesystem use.
+
+App cleanup will follow fresh package/dependency and storage inventory. Select
+unused optional apps through Android package management, preserving required
+system components, settings, connectivity, ADB and Magisk. Distinguish package
+disablement from deletion of app updates/data/cache, and measure actual `/data`
+space reclaimed; disabling a system APK does not resize its source partition.
+No package list or cleanup device effect is activated by this goal.
+
+Prepare the Debian storage structure alongside this layout design.
 Ext4 is the first candidate: check the exact FYG8 kernel features, arm64
 formatter and mount behavior, then define one bounded format/mount/write
 experiment. Its functional criterion is a small synchronized test file that
 remains byte-identical after clean unmount and a fresh native boot, followed
-by verified rooted Android return. Only the new native partition is the
-proposed persistent-write target; no device format or mount is activated here.
+by verified rooted Android return. For this filesystem experiment, only the
+new native partition is the proposed persistent-write target; no device
+format or mount is activated here.
 
 The subsequent milestones are prospective and separately qualified:
 
