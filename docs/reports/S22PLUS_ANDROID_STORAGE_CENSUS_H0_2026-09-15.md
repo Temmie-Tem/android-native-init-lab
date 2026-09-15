@@ -1,9 +1,10 @@
 # S22+ storage census and Android return
 
-**The device is back in healthy original-A Android.** The native census and
-first Android tail5 census remain metadata `NO_PROOF`; the reviewed tail9
-successor is ready. No partition split or formatting occurred. The current
-64 GiB goal retains Android and allows resetting user data; it is not yet achieved.
+**The device is in healthy original-A Android, and both complete GPT copies
+have been captured.** Strict metadata remains `NO_PROOF` because existing
+partition GUIDs are duplicated. The numerical 64 GiB layout has independent
+review; no partition split or formatting occurred. The goal retains Android
+and allows resetting user data; it is not yet achieved.
 
 ## Actual native result
 
@@ -132,8 +133,48 @@ passed in 5.394 seconds, and four changed Python files compile. The 144 native
 source inputs are unchanged. Historical tail5/native results rederive exactly.
 The old Android-return CAP is verified through its saved source snapshot;
 current D0 source approval and its own snapshot are separate. A read-profile
-update therefore needs no repeated Android transition. The new live read has
-not yet run. No partition-write or formatting authority was added.
+update therefore needs no repeated Android transition. No partition-write or
+formatting authority was added.
+
+## Actual tail9 result and proposed layout
+
+The new foreground D0 ran once after qualification. Its 61,712-byte stdout
+contains the complete 61,440-byte block capture and matching geometry framing.
+The raw command and same-boot before/after rooted Android health passed.
+Both header CRCs and both 5,632-byte table CRCs validate; the tables are identical.
+All 40 occupied extents are nonoverlapping and userdata agrees with sysfs.
+
+Eleven existing entries share one nonzero partition GUID. The strict decoder
+therefore returns `NO_PROOF` with `GPT partition name or GUID is missing or
+ambiguous`. This result is preserved and rederives exactly. H0 analysis records
+complete observations separately; it does not relax the decoder, normalize old
+GUIDs, relabel the consumed terminal or acquire another capture.
+
+| Region | Current size | Proposed size |
+| --- | ---: | ---: |
+| Android userdata | 223.458950 GiB | 159.458008 GiB |
+| Native entry 41 | Absent | 64 GiB |
+| Alignment gap after native | Part of userdata | 988 KiB |
+
+The proposed native boundaries are 1 MiB-aligned and fit inside current
+userdata. The table has four unused entries; entry 41 is the first. The other
+39 entries retain their original bytes and extents, including their existing
+GUIDs. An independent H0 review checked the raw joins, all preservation hashes
+and the exact byte accounting. This establishes a layout proposal, not safe
+GPT mutation or boot compatibility with that proposed table.
+
+No retained target evidence establishes GPT restoration. Ordinary boot-only
+Odin/A recovery was demonstrated under the original GPT. The upstream
+[Heimdall transfer implementation](https://raw.githubusercontent.com/Benjamin-Dobell/Heimdall/master/heimdall/source/FlashAction.cpp)
+also separates PIT upload from individual partition transfer; it does not prove
+Samsung Qualcomm restoration behavior. A retained PIT with unspecified
+userdata size is not an exact GPT restore artifact.
+
+The selected next capability is native UFS initialization with authenticated
+host control and bounded metadata reads, independent of Android userdata.
+Its dependency/build preparation is H0. It is needed for future partition use
+and a possible restoration environment, but cannot alone qualify interrupted
+GPT-write recovery. No intentional GPT corruption is proposed as a test.
 
 Private native evidence is under
 `workspace/private/runs/s22plus-native-session-v3/storage-census-20260915-1/`.
@@ -145,4 +186,8 @@ The actual return and first Android census are under
 and `workspace/private/runs/s22plus-android-storage-census-v1/census-20260915-1/`.
 Tail9 H0 evidence is under
 `workspace/private/outputs/s22plus-android-storage-tail9-h0-20260915-1/`.
+The tail9 run is under
+`workspace/private/runs/s22plus-android-storage-census-v1/census-tail9-20260915-1/`;
+original GPT byte copies and the exact proposed layout are under
+`workspace/private/outputs/s22plus-native-64g-layout-h0-20260915-1/`.
 GPT modification/restoration remains unqualified. A90 and S20+ were untouched.

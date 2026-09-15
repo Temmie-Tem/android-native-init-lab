@@ -22,12 +22,17 @@ The separately approved original-A return then completed one image transfer.
 Its first Android health query returned ADB `error: closed`; after actual
 attendance was confirmed, health alone resumed and passed. The task is closed
 `ANDROID_CLOSED_HEALTHY`, with no repeated transfer or pending F1 owner.
-The first foreground Android D0 obtained both GPT headers and the primary
-table, but omitted the backup table and remains `NO_PROOF` with final health
-proved. The observed array starts nine blocks from LU0's end. The fixed tail9
-successor received independent `PASS_GO`, and all 68 focused tests pass.
-Its pre-read extent guard excludes userdata. It is ready for one foreground
-read; no new transition grant is needed. No partition write or format has occurred. See the
+The first foreground Android D0 omitted the backup table. The independently
+reviewed tail9 successor then acquired both complete GPT copies: their CRCs,
+tables and geometry agree. Strict metadata remains `NO_PROOF` because eleven
+existing entries share one nonzero GUID; its raw verdict is unchanged.
+Both reads closed `ANDROID_CLOSED_HEALTHY`. H0 arithmetic and independent
+review establish a proposed 159.458 GiB userdata plus 64 GiB native entry,
+preserving the other 39 entries and leaving a 988 KiB alignment gap.
+The next prerequisite is a userdata-independent native UFS access capability,
+followed by an exact restoration method for the declared write-failure cases.
+Its host preparation is in progress; no new live grant, partition write or
+format has occurred. See the
 [result and Android successor](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md).
 
 ## Retained native baseline
