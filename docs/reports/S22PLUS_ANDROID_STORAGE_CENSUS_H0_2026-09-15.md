@@ -1,10 +1,11 @@
 # S22+ storage census and Android return
 
-**The device is in healthy original-A Android, and both complete GPT copies
-have been captured.** Strict metadata remains `NO_PROOF` because existing
-partition GUIDs are duplicated. The numerical 64 GiB layout has independent
-review; no partition split or formatting occurred. The goal retains Android
-and allows resetting user data; it is not yet achieved.
+**The latest completed session retained admitted P396 native healthy; the
+complete original GPT copies remain available from the earlier Android read.**
+Strict metadata remains `NO_PROOF` because existing partition GUIDs are
+duplicated. The operator now selects 128 GiB native storage and fresh rooted
+Android on reduced userdata. The historical 64 GiB proposal remains unchanged.
+No partition split or formatting occurred; the goal is not yet achieved.
 
 ## Actual native result
 
@@ -136,7 +137,7 @@ current D0 source approval and its own snapshot are separate. A read-profile
 update therefore needs no repeated Android transition. No partition-write or
 formatting authority was added.
 
-## Actual tail9 result and proposed layout
+## Actual tail9 result and historical 64 GiB layout
 
 The new foreground D0 ran once after qualification. Its 61,712-byte stdout
 contains the complete 61,440-byte block capture and matching geometry framing.
@@ -214,6 +215,62 @@ the GPT entry alone would leave its bytes untouched; using Android with the
 smaller userdata would require a separately implemented reset/format path.
 Original-A boot recovery alone cannot restore GPT, so it cannot serve as the
 unchanged fallback for a later GPT mutation.
+
+## Current 128 GiB proposal and fresh Android initialization
+
+The operator superseded the 64 GiB size with 128 GiB and selected GPT reduction
+before Android initialization. The new constructor validates the historical
+source and original captures, then derives a separate private proposal:
+
+| Region | Proposed geometry or size |
+| --- | ---: |
+| Android userdata | 95.4580078125 GiB / 102,497,255,424 bytes |
+| Userdata last LBA | 28,750,591 |
+| Native entry 41 | 128 GiB / 137,438,953,472 bytes |
+| Native first / last LBA | 28,750,592 / 62,305,023 |
+| Unallocated alignment tail | 988 KiB |
+
+Logical blocks remain 4096 bytes. Both copies preserve every other entry and
+all unchanged header, padding and identity bytes; the same four metadata LBAs
+differ. The native endpoint obtains its permitted reduced userdata size from
+the sealed proposal instead of retaining the old 64 GiB geometry literal.
+The unchanged core and the updated endpoint pass seven focused tests, including
+actual ARM64 direct/synchronous regular-file I/O and faulted restoration.
+
+The fresh proposal receipt is 3009 bytes, SHA-256
+`09d9b2601faaa81e33d674d35acb0e3824a88d128162edb1a5a11f665c2646ba`,
+under `workspace/private/outputs/s22plus-native-128g-gpt-proposal-h0-20260915-1/`.
+Independent `PASS_H0_BOUNDED_128G_DELTA` has no findings; its 7054-byte receipt
+has SHA-256 `0d347ef36d6fe9fa1bc7fa747b4f25c09a892f9f68473b988b0beed0992bc88d`.
+The exact stock PE also passed all 260 newly generated prefix states with
+complete expected post-bytes and preserved child extents. The actual new
+vectors passed 134 apply faults, 260 mixed restores, 35 compact restore faults
+and six negative paths in the ARM64 core. The new construction and geometry
+binding have their own review; the unchanged core's generic review is reused.
+The endpoint remains disconnected from live runners.
+
+The desired sequence is new GPT, kernel discovery of its reduced geometry,
+fresh userdata initialization, then Android verification with the native
+extent still present. The exact stock reset consumer is under H0 review; no
+reset or format path has been activated. Patched Magisk boot and userdata are
+separate artifacts. The retained A archive contains only the exact patched
+`boot.img.lz4`; after resetting userdata, Magisk application/setup and actual
+root UID verification remain necessary. Existing apps, modules and prior
+per-application root permissions are not promised to survive.
+
+Exact stock recovery static inspection confirms current-size formatting with
+the final 16 KiB reserved. It also identifies cache/metadata formatting, two
+64-byte MDF writes at the same param end-minus-2048 offset, conditional UCM
+file changes under sec_efs, misc BCB clearing and cache recovery logs. No boot
+partition write or GPT/PIT rewrite was found in the traced ordinary wipe path.
+This bounded static conclusion does not cover every bootloader/startup path or
+prove successful reduced-size initialization. The review receipt is 16,398
+bytes, SHA-256 `2cc5821c40e8c369cf7ed10676d0febe0fd5fa10ea6337484b75d1f8dfe69e0f`.
+The exact recovery declares `ro.build.ab_update=false`; dynamic partitions
+alone do not imply virtual A/B. The separate configuration addendum has
+SHA-256 `8eab09fc1626ac2d5b145ce485a704cae9443037f6aacaebb32cc85cb75a2789`.
+Both remain private under
+`workspace/private/outputs/s22plus-fyg8-stock-recovery-format-h0-20260915-1/`.
 
 ## Exact firmware consumer qualification
 

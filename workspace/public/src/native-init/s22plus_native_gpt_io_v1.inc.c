@@ -23,6 +23,19 @@ static uint8_t gpt1_work[GPT1_BYTES] __attribute__((aligned(GPT1_BLOCK)));
 static uint8_t gpt1_expected[GPT1_BYTES] __attribute__((aligned(GPT1_BLOCK)));
 struct gpt1_endpoint { int descriptor, saved_errno; };
 
+static uint64_t gpt1_little64(const uint8_t *p) {
+    uint64_t value = 0;
+    for (unsigned i = 0; i < 8; i++) value |= (uint64_t)p[i] << (8U * i);
+    return value;
+}
+
+static uint64_t gpt1_userdata_sectors(const uint8_t *sealed) {
+    const uint8_t *entry = sealed + 2U * GPT1_BLOCK + 39U * 128U;
+    uint64_t first = gpt1_little64(entry + 32), last = gpt1_little64(entry + 40);
+    if (first != 3726848ULL || last < first || last > GPT1_TOTAL_LBAS - 10U) return 0;
+    return (last - first + 1U) * 8U;
+}
+
 static int gpt1_read_text(const char *path, char *data, size_t capacity) {
     int f = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (f < 0) return -1;
@@ -58,6 +71,10 @@ static int gpt1_number(const char *parent, const char *name, uint64_t *value) {
 }
 
 static int gpt1_parent(char parent[PATH_MAX], dev_t *number, uint64_t *user_size) {
+    uint64_t old_size = gpt1_userdata_sectors(gpt1_original);
+    uint64_t new_size = gpt1_userdata_sectors(gpt1_proposed);
+    if (old_size != (GPT1_TOTAL_LBAS - 9U - 3726848ULL) * 8U ||
+        !new_size || new_size >= old_size) return -1;
     DIR *directory = opendir("/sys/class/block");
     if (!directory) return -1;
     struct dirent *entry;
@@ -91,8 +108,7 @@ static int gpt1_parent(char parent[PATH_MAX], dev_t *number, uint64_t *user_size
         if (gpt1_number(resolved, "partition", &index) || index != 40 ||
             gpt1_number(resolved, "start", &start) || start != 3726848ULL * 8U ||
             gpt1_number(resolved, "size", user_size) ||
-            (*user_size != (62305271ULL - 3726848ULL) * 8U &&
-             *user_size != (45527808ULL - 3726848ULL) * 8U)) { ok = 0; break; }
+            (*user_size != old_size && *user_size != new_size)) { ok = 0; break; }
         char *last = strrchr(resolved, '/');
         if (!last) { ok = 0; break; }
         *last = 0;
@@ -120,7 +136,7 @@ static int gpt1_open_endpoint(dev_t number, enum gpt1_mode mode) {
     struct statfs filesystem;
     if (fstat(d, &directory) || directory.st_uid || !S_ISDIR(directory.st_mode) ||
         fstatfs(d, &filesystem) || filesystem.f_type != 0x01021994L) { close(d); return -1; }
-    const char *name = ".s22-gpt64-v1";
+    const char *name = ".s22-gpt-v1";
     mode_t permissions = mode == GPT1_OBSERVE ? 0400 : 0600;
     if (mknodat(d, name, S_IFBLK | permissions, number)) { close(d); return -1; }
     int ok = !fstatat(d, name, &node, AT_SYMLINK_NOFOLLOW) && S_ISBLK(node.st_mode) &&
@@ -150,7 +166,7 @@ static int gpt1_marker(enum gpt1_mode mode) {
     if (fstat(d, &st) || !S_ISDIR(st.st_mode) || st.st_uid || (st.st_mode & 022) ||
         fstatfs(d, &fs) || fs.f_type != 0x01021994L) { close(d); return -1; }
     char name[96];
-    int n = snprintf(name, sizeof(name), ".gpt64-%s-%s.intent", gpt1_target_run_id,
+    int n = snprintf(name, sizeof(name), ".gpt-%s-%s.intent", gpt1_target_run_id,
                      mode == GPT1_APPLY ? "apply" : "restore");
     if (n < 0 || (size_t)n >= sizeof(name)) { close(d); return -1; }
     int f = openat(d, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0400);

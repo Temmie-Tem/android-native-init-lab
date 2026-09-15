@@ -13,12 +13,15 @@ This goal reports state, never device authority. The binding layers are
 
 Changed-path regression reference: [past failure checklist](docs/operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md).
 
-**Current task: reserve 64 GiB for native-only persistent storage while
+**Current task: reserve 128 GiB for native-only persistent storage while
 retaining Android.** The operator allows resetting current Android apps,
-settings and user data. The complete Android GPT capture supports a proposed
-159.458 GiB userdata plus 64 GiB native entry, preserving the other 39 entries
-and leaving a 988 KiB alignment gap. Original duplicate GUIDs remain observed;
-strict metadata qualification is not relabelled.
+settings and user data, and selected fresh Android initialization after the
+userdata partition is reduced. Rooted Android must be retained/reestablished
+using the exact existing Magisk A image and verified after setup. The current
+proposal is 95.458 GiB userdata plus 128 GiB native entry, preserving the other
+39 entries and a 988 KiB alignment gap. It supersedes the historical 64 GiB
+proposal without modifying its evidence. Original duplicate GUIDs remain
+observed; strict metadata qualification is not relabelled.
 
 **P396 `v0.2.2-rc.2` is admitted and retained `NATIVE_CLOSED_HEALTHY`.** Its
 actual attended bootstrap completed two installations and four authenticated
@@ -31,10 +34,13 @@ UFS access, not complete native GPT capture or GPT-restoration qualification.
 Both operations and their grant are permanently closed; no A recovery was
 needed and no F1 owner remains. The initial incorrectly labelled P396 `rc.1`
 request was retired before grant opening or device action. No partition write
-or format has occurred. The exact private 64 GiB GPT proposal now passes
-independent H0 byte-construction review and four focused tests; only four
-metadata blocks differ, and the inverse restores both full original captures.
-The next bounded unit is exact modified-GPT recovery qualification. See the [layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
+or format has occurred. The historical 64 GiB construction and generic restore
+core have independent H0 qualification. The fresh 128 GiB proposal also changes
+only four metadata blocks and has independent `PASS_H0_BOUNDED_128G_DELTA`;
+seven selected tests, including actual ARM64 core and direct/synchronous
+regular-file I/O, pass. Exact-stock recovery reset effects,
+the complete owner and GPT/format policy exception remain H0 work before any
+new finite live grant. See the [layout result](docs/reports/S22PLUS_ANDROID_STORAGE_CENSUS_H0_2026-09-15.md)
 and [UFS result and incident history](docs/reports/S22PLUS_NATIVE_UFS_H0_2026-09-15.md).
 
 ## Earlier native baseline qualification

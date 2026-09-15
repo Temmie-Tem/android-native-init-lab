@@ -34,7 +34,7 @@ def reference():
         struct.pack_into('<I',blob,offset+88,binascii.crc32(table)&0xffffffff)
         struct.pack_into('<I',blob,offset+16,0)
         struct.pack_into('<I',blob,offset+16,binascii.crc32(blob[offset:offset+92])&0xffffffff)
-    regions,_=plan.construct(bytes(a),bytes(b),TOTAL,native_guid=b'N'*16)
+    regions,_=plan.construct(bytes(a),bytes(b),TOTAL,native_guid=b'N'*16,native_bytes=128*1024**3)
     return b''.join(r['original'] for r in regions),b''.join(r['proposed'] for r in regions)
 
 
@@ -58,6 +58,11 @@ static const char gpt1_target_run_id[]="h0-fixture-only";
 int main(int argc,char **argv) {
     assert(argc==2);
     (void)gpt1_entry; /* Compiled endpoint, deliberately never called by H0. */
+    assert(gpt1_userdata_sectors(gpt1_original)==(GPT1_TOTAL_LBAS-9U-3726848ULL)*8U);
+    assert(gpt1_userdata_sectors(gpt1_proposed)==(28750592ULL-3726848ULL)*8U);
+    memcpy(gpt1_work,gpt1_proposed,GPT1_BYTES);
+    memset(gpt1_work+2U*GPT1_BLOCK+39U*128U+32,0xff,16);
+    assert(!gpt1_userdata_sectors(gpt1_work));
     int flags=O_RDWR|O_DIRECT|O_DSYNC|O_CLOEXEC|O_EXCL|O_NOFOLLOW;
     int f=open(argv[1],flags);
     assert(f>=0);

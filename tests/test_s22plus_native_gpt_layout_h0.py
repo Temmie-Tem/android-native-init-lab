@@ -41,6 +41,24 @@ def joined(regions,layout,geometry):
 
 
 class LayoutTests(unittest.TestCase):
+    def test_128g_reservation_preserves_originals_and_changes_only_the_same_blocks(self):
+        primary,backup,total,geometry=original()
+        regions,layout=plan.construct(primary,backup,total,native_guid=b'N'*16,
+            native_bytes=128*1024**3)
+        decoded=census.decode(joined(regions,layout,geometry),backup_blocks=9)
+        self.assertEqual(decoded['entries'][-1]['size_bytes'],128*1024**3)
+        self.assertEqual(decoded['entries'][-1]['first_lba'],decoded['userdata']['last_lba']+1)
+        self.assertEqual(regions[0]['original'],primary)
+        self.assertEqual(regions[1]['original'],backup)
+        self.assertEqual([r['first_lba']+off//4096 for r in regions
+            for off in range(0,len(r['original']),4096)
+            if r['original'][off:off+4096]!=r['proposed'][off:off+4096]],
+            [1,3,total-8,total-1])
+        self.assertEqual(regions[0]['proposed'][8192:8192+39*128],primary[8192:8192+39*128])
+        for size in (True,0,65*1024**3,256*1024**3):
+            with self.subTest(size=size),self.assertRaises(ValueError):
+                plan.construct(primary,backup,total,native_guid=b'N'*16,native_bytes=size)
+
     def test_exact_64g_shape_and_only_four_metadata_blocks_change(self):
         primary,backup,total,geometry=original()
         regions,layout=plan.construct(primary,backup,total,native_guid=b'N'*16)

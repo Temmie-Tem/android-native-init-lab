@@ -1,4 +1,4 @@
-"""Construct private FYG8 64 GiB GPT proposal bytes; never open a block device.
+"""Construct private FYG8 64/128 GiB GPT proposal bytes; never open a block device.
 
 This preserves existing duplicate GUIDs as opaque historical data. It does not
 qualify GPT/PIT compatibility, an execution order, physical restoration or any
@@ -46,7 +46,9 @@ def replace_table(blob,table,*,first_lba,header_lba):
     return bytes(out)
 
 
-def construct(primary,backup,total_lbas,*,native_guid):
+def construct(primary,backup,total_lbas,*,native_guid,native_bytes=NATIVE_BYTES):
+    require(type(native_bytes) is int and native_bytes in (64*1024**3,128*1024**3),
+        'native reservation must be 64 or 128 GiB')
     require(type(primary) is bytes and len(primary)==6*BLOCK
         and type(backup) is bytes and len(backup)==9*BLOCK,'original metadata ranges differ')
     require(type(total_lbas) is int and 16<total_lbas<2**48,'LU0 capacity differs')
@@ -81,9 +83,9 @@ def construct(primary,backup,total_lbas,*,native_guid):
         and native_guid not in {row[16:32] for row in entries[:40]},'new GUID is zero or reused')
     user_first,user_last=extents[39]
     end_exclusive=(user_last+1)//ALIGN_BLOCKS*ALIGN_BLOCKS
-    native_first=end_exclusive-NATIVE_BYTES//BLOCK
+    native_first=end_exclusive-native_bytes//BLOCK
     require(user_first<native_first<end_exclusive and user_first%ALIGN_BLOCKS==0,
-        '64 GiB reservation leaves no aligned userdata')
+        'native reservation leaves no aligned userdata')
     changed=bytearray(table)
     struct.pack_into('<Q',changed,39*128+40,native_first-1)
     fresh=bytearray(128)
@@ -112,7 +114,7 @@ def construct(primary,backup,total_lbas,*,native_guid):
     layout=dict(userdata_first_lba=user_first,userdata_new_last_lba=native_first-1,
         userdata_new_size_bytes=(native_first-user_first)*BLOCK,native_entry_index=41,
         native_name=NAME,native_first_lba=native_first,native_last_lba=end_exclusive-1,
-        native_size_bytes=NATIVE_BYTES,unused_tail_bytes=(user_last+1-end_exclusive)*BLOCK,
+        native_size_bytes=native_bytes,unused_tail_bytes=(user_last+1-end_exclusive)*BLOCK,
         non_userdata_entries_preserved=39,original_duplicate_guids_preserved=True)
     return regions,layout
 
@@ -127,17 +129,24 @@ def regular_output(path,data):
     return pin(path)
 
 
-def prepare(layout_path,output):
+def prepare(layout_path,output,*,native_gib=64):
+    require(type(native_gib) is int and native_gib in (64,128),'native GiB differs')
     layout_path=private_path(ROOT,layout_path);source=read(layout_path)
     require(source['schema']=='s22plus-native-64g-layout-h0-v1','layout source schema differs')
     def original(key):
         receipt=source[key];path=private_path(ROOT,Path(receipt['path']))
         verify(receipt);return read_bytes(path)
     primary,backup=original('private_original_primary'),original('private_original_backup')
-    regions,layout=construct(primary,backup,source['geometry']['total_lbas'],native_guid=uuid.uuid4().bytes_le)
+    guid=uuid.uuid4().bytes_le
+    # Validate the retained 64 GiB source proposal unchanged, then derive the
+    # requested successor from the same originals without editing that record.
+    regions,layout=construct(primary,backup,source['geometry']['total_lbas'],native_guid=guid)
     for key in ('userdata_first_lba','userdata_new_last_lba','userdata_new_size_bytes','native_entry_index',
                 'native_first_lba','native_last_lba','native_size_bytes','unused_tail_bytes'):
         require(layout[key]==source['proposal'][key],'constructed layout differs from the original proposal')
+    if native_gib!=64:
+        regions,layout=construct(primary,backup,source['geometry']['total_lbas'],
+            native_guid=guid,native_bytes=native_gib*1024**3)
     output=private_path(ROOT,output,exists=False);require(not output.exists(),'H0 output already exists')
     output.mkdir(mode=0o700)
     receipts=[];blocks=[]
@@ -161,4 +170,5 @@ def prepare(layout_path,output):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('layout',type=Path);parser.add_argument('output',type=Path)
-    args=parser.parse_args();print(prepare(args.layout,args.output))
+    parser.add_argument('--native-gib',type=int,choices=(64,128),default=64)
+    args=parser.parse_args();print(prepare(args.layout,args.output,native_gib=args.native_gib))
