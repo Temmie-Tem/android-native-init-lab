@@ -3,7 +3,7 @@
 **P398 completed the 32 GiB userdata / 191.4580078125 GiB native layout and
 returned to rooted Android with changed-boot GPT/capacity persistence.**
 The native partition is unformatted. The G2 grant is closed; app cleanup is a
-separate foreground profile whose first inventory stopped before any effect.
+separate foreground profile whose first two inventories stopped before effects.
 A90 and S20+ were untouched.
 
 ## G2 result and canonical timeline
@@ -88,22 +88,39 @@ Before/after exact rooted Android health passed on the same boot, current
 user was 0 and the journal stayed empty. No app uninstall or app-profile
 reboot was intended or performed.
 
-The corrected parser includes these rows in inventory/UID accounting and
-explicitly excludes framework/APEX packages from removal. A separately reviewed
-H0 retirement proves the known original source, exact successful raw stage,
-full health and absence of execution. It preserves the old open/claim and
-permits one replacement claim/preparation under the original foreground
-request. Any execution start, effect intent, unsuccessful/uncertain raw read,
-missing journal or previous replacement rejects that exception.
+The first correction includes those rows in inventory/UID accounting and
+explicitly excludes framework/APEX packages from removal. The second inventory
+then captured identical `flags` and `pkgFlags` aliases for its first optional
+package. Both aliases contain the same flags; the host parser incorrectly
+required just one. Its 20 raw commands succeeded with empty stderr, both exact
+rooted health brackets passed on the same boot, and its journal stayed empty.
+The corrected parser accepts one of each alias only when the sets agree;
+contradictory aliases or repeated keys still fail. Metadata captures now all
+complete before interpretation, allowing pure H0 repair from retained bytes.
 
-All 13 focused app tests pass, including raw no-effect retirement, one successor,
-no replay after an uncertain uninstall/reboot, no missing-journal reconstruction,
-failed-read rejection and current-user/source/claim guards. Independent review
-has no unresolved findings. The actual retained failure rederives 465 rows,
-27 known parser rejections and zero effects. Root revision 19 incorporates
-this preparation-only correction; no GPT authority or consumed record changes.
+The reviewed retirement binds only these two known old source hashes and
+rederives complete successful raw stages, full health and no execution. Each
+proved retired preparation can have one immutable child under the original
+foreground request. The chain preserves all prior claims/records and permits
+only one effectful cleanup. Any ancestor execution start, effect intent,
+unsuccessful/uncertain read, missing journal, duplicate open or cycle blocks it.
+The first immutable retirement remains byte-identical.
 
-The first preparation remains private at
-`workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-1/`.
-Cleanup selection, removals and post-cleanup reboot/space results remain pending
-until the one repaired preparation and its reviewed execution complete.
+The operator pointed to the existing same-FYG8 cleanup evidence. The fixed
+declaration now combines its original optional names with the successful
+package block in [Pass1](S22PLUS_ANDROID_DEBLOAT_PASS1_2026-07-06.md), excluding
+the [116-package keep list](../plans/S22PLUS_ANDROID_116_PACKAGE_ALLOWLIST_2026-07-06.txt)
+and [three debug packages](../plans/S22PLUS_ANDROID_DEBUG_CHANNEL_REQUIRED_PACKAGES_2026-07-08.txt).
+This yields 66 consumer candidates with 119 mandatory exclusions. It does not
+replay the historical complement or claim an exact remaining-package count.
+All three data inputs are part of the 59-file app review closure.
+
+All 16 focused app tests pass, including alias conflicts, every historical
+keep entry, aggregate-free projection, linked claims/cycle rejection, raw
+retirement, and uncertain uninstall/reboot no-replay. Independent review has
+no unresolved findings. Revision 20 incorporates only this preparation/profile
+change; no G2 authority or consumed result changes.
+
+The two preparations remain private under
+`workspace/private/runs/s22plus-android-minimal-v1/p398-android32-20260916-{1,2}/`.
+Actual selection, removals and post-cleanup reboot/space results remain pending.

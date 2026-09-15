@@ -72,6 +72,18 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(result['selected'],[])
         self.assertEqual(result['excluded'][NAME],'required-component')
 
+    def test_equal_flag_aliases_and_historical_s22_protections(self):
+        row=minimal.packages(listing())[NAME]
+        text=dump().replace('    pkgFlags=', '    flags=[ HAS_CODE SYSTEM ]\n    pkgFlags=')
+        self.assertEqual(minimal.package_metadata(text,row),minimal.package_metadata(dump(),row))
+        for wrong in (text.replace('flags=[ HAS_CODE SYSTEM ]','flags=[ SYSTEM PERSISTENT ]'),
+                text.replace('flags=[ HAS_CODE SYSTEM ]','pkgFlags=[ HAS_CODE SYSTEM ]')):
+            with self.assertRaisesRegex(ValueError,'flags'):minimal.package_metadata(wrong,row)
+        for name in ('com.android.bluetooth','com.google.android.documentsui',
+                'com.sec.android.app.servicemodeapp','com.sec.android.RilServiceModeApp','com.sec.android.app.parser'):
+            self.assertIn(name,minimal.KEEP);self.assertNotIn(name,minimal.OPTIONAL)
+        self.assertIn('com.samsung.android.aremojieditor',minimal.OPTIONAL)
+
 
 class RunTests(unittest.TestCase):
     def setUp(self):
@@ -167,6 +179,12 @@ sys.stdout.buffer.write(base64.b64decode(data))
         calls=self.log.read_bytes();(self.folder/'terminal.json').unlink()
         with mock.patch.object(self.run,'command',side_effect=AssertionError('raw repair issued I/O')):
             self.assertEqual(records.read(records.verify(self.run.reconcile()))['status'],'COMPLETE')
+        self.assertEqual(self.log.read_bytes(),calls)
+
+    def test_inventory_projection_survives_missing_aggregate_without_io(self):
+        self.prepare();value=records.read(self.folder/'inventory/result.json')
+        (self.folder/'inventory/result.json').unlink();calls=self.log.read_bytes()
+        self.assertEqual(self.run.inventory_raw_projection(),value)
         self.assertEqual(self.log.read_bytes(),calls)
 
     def test_tampered_manifest_and_changed_package_cannot_be_uninstalled(self):
@@ -346,6 +364,29 @@ sys.stdout.buffer.write(base64.b64decode(data))
             records.Journal(directory/'journal').append('intent',key=NAME,kind='uninstall',detail={})
             with self.assertRaisesRegex(ValueError,'execution or reconciliation'):
                 minimal.inventory_no_effect_projection(self.root,directory)
+
+    def test_linked_claims_keep_one_child_and_reject_duplicate_opens(self):
+        first,task,task_pin,closed,review,source_sha=self.inventory_stop_fixture()
+        initial=records.read(first/'open.json');first_open=records.pin(first/'open.json')
+        root_claim=records.pin(Path(task_pin['path']).parent/'android-minimal-claim.json')
+        retired1=records.publish(first/'inventory-no-effect-close.json',dict(fixture='first'))
+        second=self.root/'workspace/private/second-link';second.mkdir()
+        second_open=records.publish(second/'open.json',initial)
+        child1=dict(schema=minimal.SCHEMA+'-inventory-replacement-claim',original_claim=root_claim,
+            retired_inventory=retired1,task=task_pin,closed=closed,open=second_open)
+        first_child=records.publish(minimal.child_claim_path(root_claim),child1)
+        retired2=records.publish(second/'inventory-no-effect-close.json',dict(fixture='second'))
+        third=self.root/'workspace/private/third-link';third.mkdir()
+        third_open=records.publish(third/'open.json',initial)
+        child2=records.publish(minimal.child_claim_path(first_child),dict(
+            schema=minimal.SCHEMA+'-inventory-replacement-claim',original_claim=first_child,
+            retired_inventory=retired2,task=task_pin,closed=closed,open=third_open))
+        selected,pins,ancestors=minimal.claim_lineage(self.root,initial,third_open)
+        self.assertEqual(selected,child2);self.assertEqual(len(ancestors),2)
+        self.assertEqual(minimal.child_claim_path(first_child),second/'inventory-replacement-claim.json')
+        Path(first_child['path']).unlink();records.publish(Path(first_child['path']),dict(child1,open=first_open))
+        with self.assertRaisesRegex(ValueError,'cycle or duplicate'):
+            minimal.claim_lineage(self.root,initial,third_open)
 
 
 if __name__=='__main__':unittest.main()

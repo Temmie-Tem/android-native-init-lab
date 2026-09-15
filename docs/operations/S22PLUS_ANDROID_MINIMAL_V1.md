@@ -19,23 +19,41 @@ One new private open records the actual operator instruction, source review,
 closed G2 task and a 900-second same-host-boot limit for inventory and cleanup.
 One immutable claim in that closed G2 task binds its unique cleanup open before
 inventory. A different output directory cannot renew time or retry this task's
-cleanup; after a stop only the original open's reconciliation remains available.
+cleanup. The two preparation-only cases below are the sole exceptions; after
+an execution stop only the original open's reconciliation remains available.
 
-The known first-version inventory parser's rejection of canonical `/apex/`
-APK paths or the framework package `android` is a preparation-only exception.
-An H0 retirement must rederive its saved reviewed source, completed successful
-current-user/package-list captures, exact same-boot rooted health before/after,
-empty journal and absence of execution/reconciliation artifacts. It preserves
-the original open/claim and publishes one immutable no-effect inventory close.
-After the parser and this continuation are independently reviewed, the same
-explicit foreground request permits exactly one fresh 900-second preparation,
-linked by a separate immutable replacement claim to that retired preparation.
-The original can no longer execute. Any execution start or effect intent,
-unsuccessful/uncertain raw read, changed health, different request/host, or an
-existing replacement blocks this exception. No failed command is retried and
-no consumed cleanup effect or G2 budget is renewed. This exception is confined
-to that known parser source and is reviewed if its source or replacement graph
-changes; after its single replacement, ordinary stop/reconciliation rules apply.
+Known preparation-only parser cases are the original rejection of canonical
+`/apex/` APK paths/framework package `android`, and the successor's rejection
+of identical `flags`/`pkgFlags` aliases. The runner binds the two exact old
+source hashes. An H0 retirement rederives its saved source review, complete
+successful raw stage, same-boot rooted health before/after, an existing empty
+journal and absence of execution/reconciliation artifacts. For metadata, the
+captured optional-prefix must fail only at the last identical-alias record.
+
+Each proved retired preparation may have one immutable child claim and fresh
+900-second preparation under the same explicit foreground request and host
+boot. The original root/first-child claims retain their identities; later
+children live under their retired parent. Every ancestor's retirement/source
+proof is checked on load and its existing empty journal rechecked before any
+connected command. Cycles, duplicate opens, a second child, any execution start
+or effect intent, failed/uncertain raw reads, missing journals or changed
+health block continuation. Retired opens cannot execute. The unique chain can
+reach only one effectful cleanup; it renews no consumed effect or G2 authority.
+Only the two independently reviewed source/format cases are eligible, and a
+new case or changed graph needs review. Ordinary effect failures still permit
+only the fixed read-only reconciliation.
+
+The fixed consumer declaration combines the original optional-app names with
+the successful package block from the same-FYG8
+[Pass1 report](../reports/S22PLUS_ANDROID_DEBLOAT_PASS1_2026-07-06.md).
+The historical [116-package keep list](../plans/S22PLUS_ANDROID_116_PACKAGE_ALLOWLIST_2026-07-06.txt)
+and [three-package debug overlay](../plans/S22PLUS_ANDROID_DEBUG_CHANNEL_REQUIRED_PACKAGES_2026-07-08.txt)
+are mandatory exclusions. This reuses prior evidence without executing the
+historical complement, disable, or rescue commands. The target is the reviewed
+consumer declaration, not an exact remaining package count. All three inputs
+are in the current app source closure. All fixed metadata captures complete
+before metadata interpretation; the pure projection also works without a
+published aggregate so a parser/publication repair can use retained bytes.
 
 D0 reads only Package Manager's installed-system-app list, metadata of the
 fixed optional-package declaration, current primary user, default home/input

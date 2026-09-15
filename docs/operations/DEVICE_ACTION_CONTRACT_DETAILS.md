@@ -270,14 +270,16 @@ Classify every action using
   permission change, generic package operation or F1/GPT action is delegated.
   Inventory and cleanup share 900 same-host-boot seconds; an error permits only
   one 300-second close-only read reconciliation, never renewed cleanup or a
-  repeated reboot. The known first-version android/APEX inventory-parser
-  rejection may instead use the incorporated policy's H0 no-effect retirement
-  and exactly one fresh 900-second preparation under the same explicit foreground
-  request. Complete successful raw reads, same-boot rooted health, an empty
-  execution journal, preserved original claim/source evidence and a separate
-  one-shot replacement claim are mandatory. Any execution start, effect intent,
-  failed/uncertain raw command or existing replacement forbids this exception.
-  It renews no consumed cleanup effect or G2 authority. Source review, current target/health, no pending F1 owner,
+  repeated reboot. The incorporated policy's two known inventory-parser
+  cases may instead use H0 no-effect retirement and one child preparation per
+  retired parent, each with a fresh 900-second window under the original explicit
+  foreground request. The unique immutable claim chain must preserve every
+  original claim/source and rederive successful raw reads, same-boot rooted
+  health and existing empty journals for every ancestor. Any execution start,
+  effect intent, failed/uncertain raw command, missing journal, duplicate open,
+  second child or unsupported parser source blocks this exception. The chain
+  reaches only one effectful cleanup and renews no consumed effect or G2 authority.
+  Source review, current target/health, no pending F1 owner,
   raw-first evidence and separate cleanup/final-health outcomes are required.
   The exact S20+ target contract may additionally activate one attended
   read-only classic-fastboot census ordinal delegated by permanent boundary 3. Its

@@ -45,17 +45,19 @@ is retained as the successor's original-layout provenance.
 ## Current bounded unit — minimal Android cleanup
 
 The operator selected minimal management/return Android and unused optional-app
-cleanup. The first [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
-read completed, but its host parser rejected 26 APEX APK rows and the framework
-package `android`. Both rooted health brackets passed on the same boot; the
-journal is empty and no uninstall/reboot occurred.
+cleanup. Two [fixed inventory](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md)
+preparations captured successful raw reads but stopped at host parsing: first
+APEX/framework rows, then identical `flags`/`pkgFlags` aliases. Both retained
+same-boot rooted health and empty journals; no uninstall/reboot occurred.
 
-The parser correction and one no-effect preparation replacement now have
-independent source-bound review and 13 passing tests. Original evidence/claim
-remain immutable. Any execution start, effect intent, unsuccessful raw command,
-missing journal or previous replacement prevents this exception. The original
-explicit foreground request supplies scope; effects remain attended. The next
-step is the one repaired inventory, fixed optional-package removal and final
+The corrections and linked no-effect retirement have independent review and
+16 passing tests. Original records remain immutable. The fixed declaration
+reuses same-FYG8 Pass1 evidence: 66 consumer candidates, with the historical
+116 keep packages plus three debug packages always excluded. Any ancestor
+execution, effect intent, unsuccessful raw read, missing journal or claim cycle
+blocks the preparation exception. The original foreground request supplies
+scope; effects remain attended. Next are the repaired inventory, selected
+optional-package removal and final
 reboot/GPT/capacity/root proof. Report actual reclaimed space and any incomplete
 cleanup separately. Settings, home/input, files, connectivity, ADB and Magisk
 are preserved. No cleanup effect is authorized by this goal itself.

@@ -24,11 +24,12 @@ SCHEMA='s22plus-android-minimal-v1'
 POLICY='docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md'
 REVIEW='workspace/public/src/device-action/bindings/s22plus_android_minimal_v1_review.json'
 INVENTORY_PARSER_V1_SHA256='ae5f052259cd98fd554addfcacf998bbd437ef1fc13c2e90c42e46f1ebf54120'
+INVENTORY_DUPLICATE_FLAGS_SHA256='9b3fcba0031232ba74096e718102a252df87e1a745e7741904227db22d9ad850'
 OPEN_FIELDS={'schema','mode','task','closed','review','operator_statement','host_boot',
     'opened_ns','deadline_ns','source_snapshot'}
 # Optional consumer apps only. Frameworks, stores, browsers, telephony, providers,
 # SystemUI, settings, input, files, connectivity, GMS/WebView and root are absent.
-OPTIONAL=(
+OLD_OPTIONAL=(
     'com.samsung.android.app.spage','com.samsung.android.app.tips','com.samsung.android.voc',
     'com.samsung.android.game.gamehome','com.samsung.android.game.gametools',
     'com.samsung.android.arzone','com.samsung.android.aremoji','com.samsung.android.ardrawing',
@@ -45,6 +46,23 @@ OPTIONAL=(
     'com.google.android.apps.maps',
 )
 PACKAGE=re.compile(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+')
+HISTORICAL_KEEP='docs/plans/S22PLUS_ANDROID_116_PACKAGE_ALLOWLIST_2026-07-06.txt'
+DEBUG_KEEP='docs/plans/S22PLUS_ANDROID_DEBUG_CHANNEL_REQUIRED_PACKAGES_2026-07-08.txt'
+PASS1='docs/reports/S22PLUS_ANDROID_DEBLOAT_PASS1_2026-07-06.md'
+
+
+def declared_packages():
+    root=Path(__file__).resolve().parents[5]
+    keep=set((root/HISTORICAL_KEEP).read_text().splitlines())
+    debug=(root/DEBUG_KEEP).read_text().split('Required user-0 packages:',1)[1].split('```text\n',1)[1].split('```',1)[0].splitlines()
+    prior=(root/PASS1).read_text().split('Packages:\n\n```text\n',1)[1].split('```',1)[0].splitlines()
+    require(keep and debug and prior and all(name=='android' or PACKAGE.fullmatch(name)
+        for name in (*keep,*debug,*prior)),'historical package declarations differ')
+    keep.update(debug)
+    return tuple(name for name in dict.fromkeys((*OLD_OPTIONAL,*prior)) if name not in keep),frozenset(keep)
+
+
+OPTIONAL,KEEP=declared_packages()
 LIST=['shell','cmd','package','list','packages','-s','-f','-U','--show-versioncode','--user','0']
 HOME=['shell','cmd','package','resolve-activity','--brief','--user','0','-a',
     'android.intent.action.MAIN','-c','android.intent.category.HOME']
@@ -54,7 +72,7 @@ USER=['shell','am','get-current-user']
 
 def source_paths(root):
     return tuple(sorted(set(task_owner.source_paths(str(Path(root).resolve())))|
-        {Path(root)/POLICY,Path(__file__).resolve()}))
+        {Path(root)/POLICY,Path(__file__).resolve(),*(Path(root)/name for name in (HISTORICAL_KEEP,DEBUG_KEEP,PASS1))}))
 
 
 def review(root):
@@ -112,7 +130,11 @@ def package_metadata(text,row):
     uid=int(one(r'^\s*(?:userId|appId)=([0-9]+)\s*$'))
     version=int(one(r'^\s*versionCode=([0-9]+)(?:\s.*)?$'))
     code=one(r'^\s*codePath=(\S+)\s*$')
-    flags=one(r'^\s*(?:pkgFlags|flags)=\[([^\]]*)\]\s*$').split()
+    flag_rows=re.findall(r'^\s*(pkgFlags|flags)=\[([^\]]*)\]\s*$',block,re.M)
+    require(1<=len(flag_rows)<=2 and len({key for key,_ in flag_rows})==len(flag_rows)
+        and len({tuple(sorted(value.split())) for _,value in flag_rows})==1,
+        'package flags are absent, duplicated or contradictory')
+    flags=flag_rows[0][1].split()
     state=one(r'^\s*User 0: (.*)$')
     require(uid==row['uid'] and version==row['version'] and 'SYSTEM' in flags
         and (row['path']==code or row['path'].startswith(code+'/')),
@@ -131,7 +153,7 @@ def selection(all_packages,metadata,home,ime):
     for name in OPTIONAL:
         if name not in all_packages:continue
         row=metadata[name]
-        reason=('required-component' if name in (home,ime,'android') or row['path'].startswith('/apex/') else
+        reason=('required-component' if name in KEEP or name in (home,ime,'android') or row['path'].startswith('/apex/') else
             'system-or-shared-uid' if row['uid']<10000 or counts[row['uid']]!=1 or row['shared_uid'] else
             'persistent-component' if row['persistent'] else
             'customized-or-disabled-user-state' if not row['ordinary_primary_user'] else None)
@@ -171,6 +193,34 @@ def existing_empty_journal(root,directory):
     return not Journal(path).rows()
 
 
+def child_claim_path(claim):
+    value=read(verify(claim))
+    return (Path(claim['path']).with_name('android-minimal-inventory-replacement-claim.json')
+        if value['schema']==SCHEMA+'-claim' else
+        Path(value['open']['path']).parent/'inventory-replacement-claim.json')
+
+
+def claim_lineage(root,opened,open_pin):
+    current=pin(Path(opened['task']['path']).parent/'android-minimal-claim.json')
+    value=read(verify(current));ancestors=[];pins=[current];seen=set()
+    require(value==dict(schema=SCHEMA+'-claim',task=opened['task'],closed=opened['closed'],
+        open=value['open']),'cleanup original claim differs')
+    while True:
+        identity=(value['open']['path'],value['open']['sha256'])
+        require(identity not in seen,'cleanup claim cycle or duplicate open')
+        seen.add(identity)
+        if value['open']==open_pin:return current,pins,ancestors
+        old=read(verify(value['open']));directory=private_path(root,Path(value['open']['path']).parent)
+        require(old['operator_statement']==opened['operator_statement']
+            and old['host_boot']==opened['host_boot'],'replacement changed its foreground request/host')
+        retired=pin(directory/'inventory-no-effect-close.json')
+        successor=pin(child_claim_path(current));new=read(verify(successor))
+        require(new==dict(schema=SCHEMA+'-inventory-replacement-claim',original_claim=current,
+            retired_inventory=retired,task=opened['task'],closed=opened['closed'],open=new['open']),
+            'cleanup replacement claim link differs')
+        ancestors.append((directory,retired));pins.extend([retired,successor]);current,value=successor,new
+
+
 def inventory_no_effect_projection(root,directory):
     """H0 proof of the known successful-read, android/APEX parser-only stop."""
     directory=private_path(root,directory);opened=read(directory/'open.json')
@@ -179,23 +229,27 @@ def inventory_no_effect_projection(root,directory):
         'old inventory open differs')
     require(existing_empty_journal(root,directory)
         and {p.name for p in directory.iterdir()}<=
-            {'open.json','source-snapshot','journal','inventory','inventory-no-effect-close.json'},
+            {'open.json','source-snapshot','journal','inventory','inventory-no-effect-close.json',
+             'inventory-replacement-claim.json'},
         'inventory retirement found execution or reconciliation activity')
     folder=directory/'inventory'
-    expected={'before','after'}|{name+suffix for name in ('current-user','system-packages')
-        for suffix in ('.capture.json','.stdout.bin','.stderr.bin')}
-    require({p.name for p in folder.iterdir()}==expected,'inventory stopped outside the exact list-parser stage')
     snapshot=saved_sources(root,directory,opened)
     source=str(Path(root)/'workspace/public/src/scripts/revalidation/s22plus_android_minimal_v1.py')
-    require(any(row['original']['path']==source and row['original']['sha256']==INVENTORY_PARSER_V1_SHA256
-        for row in snapshot['sources']),'retirement source is not the known inventory parser')
+    sources=[row['original']['sha256'] for row in snapshot['sources'] if row['original']['path']==source]
+    require(len(sources)==1 and sources[0] in (INVENTORY_PARSER_V1_SHA256,INVENTORY_DUPLICATE_FLAGS_SHA256),
+        'retirement source is not a known inventory parser')
+    metadata_stage=sources[0]==INVENTORY_DUPLICATE_FLAGS_SHA256
+    labels=('current-user','system-packages','home','ime','storage-stat') if metadata_stage else ('current-user','system-packages')
+    expected={'before','after'}|({'packages'} if metadata_stage else set())|{
+        name+suffix for name in labels for suffix in ('.capture.json','.stdout.bin','.stderr.bin')}
+    require({p.name for p in folder.iterdir()}==expected,'inventory stopped outside its exact parser stage')
     task,closed=census.closed_android(root,opened['task']['path'])
     require(read(verify(opened['task']))==task and closed==opened['closed']
         and read(verify(closed))['gpt']['status']=='RESERVED_ANDROID_REBOOT_VERIFIED',
         'retired inventory lacks its closed Android32 task')
-    claim=pin(Path(opened['task']['path']).parent/'android-minimal-claim.json')
-    require(read(verify(claim))==dict(schema=SCHEMA+'-claim',task=opened['task'],
-        closed=closed,open=pin(directory/'open.json')),'retired inventory is not the original claim')
+    claim,_,ancestors=claim_lineage(root,opened,pin(directory/'open.json'))
+    for parent,receipt in ancestors:
+        require(read(verify(receipt))==inventory_no_effect_projection(root,parent),'ancestor retirement differs')
     before=read(folder/'before/health.json');after=read(folder/'after/health.json')
     for health in (before,after):
         require(target.health_projection(health['captures'],task['target'],task['A'])==health,
@@ -205,13 +259,35 @@ def inventory_no_effect_projection(root,directory):
     require(raw.decode_success_stdout(user,maximum=131072).strip()=='0','retired inventory primary user differs')
     listed=raw.load_handle(folder/'system-packages.capture.json')
     rows=packages(raw.decode_success_stdout(listed,maximum=131072))
-    gaps=[row for row in rows.values() if row['name']=='android' or row['path'].startswith('/apex/')]
-    require(gaps,'known android/APEX inventory parser gap is absent')
+    extra={}
+    if metadata_stage:
+        texts=lambda name:raw.decode_success_stdout(raw.load_handle(folder/(name+'.capture.json')),maximum=131072)
+        component(texts('home'));component(texts('ime'))
+        gpt_android.storage_stat(texts('storage-stat'),dict(layout='proposed',
+            geometry=read(verify(closed))['gpt']['geometry']),gpt.vectors(task['N']['gpt']))
+        present=[name for name in OLD_OPTIONAL if name in rows]
+        captured=[name for name in present if (folder/'packages'/(name+'.capture.json')).exists()]
+        require(captured and captured==present[:len(captured)],'metadata captures are not a fixed inventory prefix')
+        require({p.name for p in (folder/'packages').iterdir()}=={
+            name+suffix for name in captured for suffix in ('.capture.json','.stdout.bin','.stderr.bin')},
+            'metadata capture directory differs')
+        gaps=[]
+        for name in captured:
+            text=texts('packages/'+name);package_metadata(text,rows[name])
+            block=text.split('Hidden system packages:',1)[0].split('Package ['+name+']',1)[1]
+            if len(re.findall(r'^\s*(?:pkgFlags|flags)=\[([^\]]*)\]\s*$',block,re.M))==2:gaps.append(name)
+        require(gaps==captured[-1:],'metadata stop is not the first identical duplicate-flags result')
+        extra=dict(metadata_inputs=[pin(folder/(name+'.capture.json')) for name in labels[2:]]+
+            [pin(folder/'packages'/(name+'.capture.json')) for name in captured],
+            parser_case='IDENTICAL_FLAGS_AND_PKGFLAGS')
+    else:
+        gaps=[row for row in rows.values() if row['name']=='android' or row['path'].startswith('/apex/')]
+        require(gaps,'known android/APEX inventory parser gap is absent')
     return dict(schema=SCHEMA+'-inventory-no-effect-close',status='RETIRED_NO_CLEANUP_EFFECTS',
         open=pin(directory/'open.json'),claim=claim,closed=closed,source_snapshot=opened['source_snapshot'],
         before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'),
         current_user=pin(user.receipt_path),system_packages=pin(listed.receipt_path),
-        parsed_rows=len(rows),old_parser_rejected_rows=len(gaps),cleanup_effect_intents=0)
+        parsed_rows=len(rows),old_parser_rejected_rows=len(gaps),cleanup_effect_intents=0,**extra)
 
 
 def retire_inventory(root,directory):
@@ -246,24 +322,12 @@ class Run:
             and 0<len(self.opened['operator_statement'].strip())<=4096,
             'Android-minimal open differs')
         self.task=read(verify(self.opened['task']));self.journal=Journal(self.directory/'journal')
-        primary=pin(Path(self.opened['task']['path']).parent/'android-minimal-claim.json')
-        claim=read(verify(primary));self.claim_pins=[primary];self.predecessor=None
-        if claim['open']==self.open_pin:
-            require(claim==dict(schema=SCHEMA+'-claim',task=self.opened['task'],
-                closed=self.opened['closed'],open=self.open_pin),'cleanup original claim differs')
-        else:
-            replacement=pin(Path(primary['path']).with_name('android-minimal-inventory-replacement-claim.json'))
-            value=read(verify(replacement));retired=read(verify(value['retired_inventory']))
-            self.predecessor=Path(retired['open']['path']).parent
-            require(retired==inventory_no_effect_projection(self.root,self.predecessor)
-                and value==dict(schema=SCHEMA+'-inventory-replacement-claim',original_claim=primary,
-                    retired_inventory=pin(self.predecessor/'inventory-no-effect-close.json'),
-                    task=self.opened['task'],closed=self.opened['closed'],open=self.open_pin),
-                'cleanup replacement does not join its no-effect preparation')
-            old=read(verify(retired['open']))
-            require(old['operator_statement']==self.opened['operator_statement']
-                and old['host_boot']==self.opened['host_boot'],'replacement changed its foreground request/host')
-            self.claim_pins.extend([replacement,value['retired_inventory']])
+        _,self.claim_pins,ancestors=claim_lineage(self.root,self.opened,self.open_pin)
+        self.predecessors=[]
+        for parent,receipt in ancestors:
+            require(read(verify(receipt))==inventory_no_effect_projection(self.root,parent),
+                'cleanup ancestor retirement differs')
+            self.predecessors.append(parent)
         closed_task,closed=census.closed_android(self.root,self.opened['task']['path'])
         require(closed_task==self.task and closed==self.opened['closed']
             and read(verify(closed))['gpt']['status']=='RESERVED_ANDROID_REBOOT_VERIFIED',
@@ -285,8 +349,8 @@ class Run:
     def check(self,*,reserve=0):
         require(not (self.directory/'inventory-no-effect-close.json').exists(),'original inventory preparation is retired')
         for receipt in self.claim_pins:verify(receipt)
-        if self.predecessor is not None:
-            require(existing_empty_journal(self.root,self.predecessor),'retired preparation gained execution activity')
+        for predecessor in self.predecessors:
+            require(existing_empty_journal(self.root,predecessor),'retired preparation gained execution activity')
         require(pin(self.directory/'open.json')==self.open_pin and host_boot()==self.opened['host_boot']
             and clock()+int(reserve*1e9)<self.deadline_ns,'Android-minimal binding or deadline changed')
         require(review(self.root)==self.opened['review'],'Android-minimal review changed')
@@ -322,34 +386,34 @@ class Run:
         try:
             require(self.text(folder,'current-user',USER).strip()=='0','primary Android user is not active')
             listed=packages(self.text(folder,'system-packages',LIST))
-            home=component(self.text(folder,'home',HOME));ime=component(self.text(folder,'ime',IME))
-            storage=gpt_android.storage_stat(self.text(folder,'storage-stat',
-                ['shell','su -c '+shlex.quote(gpt_android.STAT_SCRIPT)],maximum=16384),self.basis,self.sealed)
-            metadata={}
+            self.text(folder,'home',HOME);self.text(folder,'ime',IME)
+            self.text(folder,'storage-stat',
+                ['shell','su -c '+shlex.quote(gpt_android.STAT_SCRIPT)],maximum=16384)
             for name in OPTIONAL:
-                if name in listed:metadata[name]=package_metadata(self.text(folder/'packages',name,
-                    ['shell','dumpsys','package',name]),listed[name])
+                if name in listed:self.text(folder/'packages',name,
+                    ['shell','dumpsys','package',name])
         finally:after=self.health(folder/'after')
         require(before['properties']==after['properties'],'Android boot changed during package inventory')
-        value=dict(schema=SCHEMA,selection=selection(listed,metadata,home,ime),
-            storage=storage,before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'))
-        return publish(folder/'result.json',value)
+        return publish(folder/'result.json',self.inventory_raw_projection(folder))
 
-    def inventory_projection(self):
-        folder=self.directory/'inventory';value=read(folder/'result.json')
+    def inventory_raw_projection(self,folder=None):
+        folder=Path(folder) if folder is not None else self.directory/'inventory'
         texts=lambda name:raw.decode_success_stdout(raw.load_handle(folder/(name+'.capture.json')),maximum=131072)
         require(texts('current-user').strip()=='0','inventory primary user differs')
         listed=packages(texts('system-packages'));home=component(texts('home'));ime=component(texts('ime'))
         metadata={name:package_metadata(texts('packages/'+name),listed[name]) for name in OPTIONAL if name in listed}
-        require(value['schema']==SCHEMA and value['selection']==selection(listed,metadata,home,ime),
-            'cleanup manifest does not rederive from raw inventory')
-        require(value['storage']==gpt_android.storage_stat(texts('storage-stat'),self.basis,self.sealed),
-            'initial cleanup capacity does not rederive')
-        before=read(verify(value['before']));after=read(verify(value['after']))
+        before=read(folder/'before/health.json');after=read(folder/'after/health.json')
         for health in (before,after):
             require(target.health_projection(health['captures'],self.task['target'],self.task['A'])==health,
                 'inventory rooted health does not rederive')
         require(before['properties']==after['properties'],'inventory boot differs')
+        return dict(schema=SCHEMA,selection=selection(listed,metadata,home,ime),
+            storage=gpt_android.storage_stat(texts('storage-stat'),self.basis,self.sealed),
+            before=pin(folder/'before/health.json'),after=pin(folder/'after/health.json'))
+
+    def inventory_projection(self):
+        value=self.inventory_raw_projection()
+        require(read(self.directory/'inventory/result.json')==value,'cleanup manifest does not rederive from raw inventory')
         return value
 
     def intent(self,kind,**detail):
@@ -560,15 +624,17 @@ def prepare(root,task_path,output,*,operator_statement,attended,replace_inventor
             retired_pin=pin(private_path(root,replace_inventory));retired=read(verify(retired_pin))
             original=Path(retired['open']['path']).parent
             require(Path(retired_pin['path'])==original/'inventory-no-effect-close.json'
-                and retired==inventory_no_effect_projection(root,original)
-                and retired['claim']==pin(claim_path),'replacement has no exact no-effect inventory retirement')
+                and retired==inventory_no_effect_projection(root,original),
+                'replacement has no exact no-effect inventory retirement')
             old=read(verify(retired['open']))
             require(old['task']==pin(task_path) and old['closed']==closed
                 and old['host_boot']==host_boot() and old['operator_statement']==operator_statement,
                 'replacement changed the closed task, host or original foreground request')
-            replacement=dict(schema=SCHEMA+'-inventory-replacement-claim',original_claim=pin(claim_path),
+            parent_claim,_,_=claim_lineage(root,old,retired['open'])
+            require(retired['claim']==parent_claim,'retirement claim differs')
+            replacement=dict(schema=SCHEMA+'-inventory-replacement-claim',original_claim=parent_claim,
                 retired_inventory=retired_pin,task=pin(task_path),closed=closed)
-            claim_path=task_path.parent/'android-minimal-inventory-replacement-claim.json'
+            claim_path=child_claim_path(parent_claim)
             require(not claim_path.exists(),'the one inventory replacement is already claimed')
         output.mkdir(mode=0o700)
         snapshot=census.snapshot_current(root,output/'source-snapshot',qualified)

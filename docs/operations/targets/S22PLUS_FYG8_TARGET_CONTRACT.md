@@ -238,11 +238,15 @@ attended and each intent is nonreplayable. The profile cannot reopen G2, write
 GPT, format a filesystem, stage Debian, touch another target or change required
 Android/root/connectivity components. Until its source review passes, this
 adoption is H0 only.
-The common-incorporated known android/APEX inventory-parser preparation
-exception is adopted only with its rederived H0 no-effect retirement and one
-immutable replacement claim. It permits one fresh reviewed preparation under
-the original explicit request, never replacement after an execution start,
-effect intent or unsuccessful/uncertain raw command. Old records remain unchanged.
+The common-incorporated two known inventory-parser preparation cases are
+adopted only with rederived H0 no-effect retirement and one immutable child
+claim per retired preparation. Every ancestor must retain its existing empty
+journal and successful same-boot raw health. The original foreground request
+permits fresh reviewed preparation through that unique chain, never another
+child after an execution start, effect intent or unsuccessful/uncertain raw
+command. Old records remain unchanged. The same-FYG8 Pass1 consumer-removal
+list is reused with the historical 116 keep list plus three debug packages;
+APEX, shared/service UID and persistent/default-component exclusions remain.
 
 ### G2 exact reservation/Android32 resize and stock initialization
 

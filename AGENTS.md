@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **19** (supersedes revision 18; 2026-09-16)
+Contract-Revision: **20** (supersedes revision 19; 2026-09-16)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`7123cbf7a8c9cee4f57424bf23357e27e719df86e15e21f7bae0afa3cc868eb0`.
+`6474433298e8de47cdc31e555e47cdd8eb08c7bff7092970b88bf5e5687b698a`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
