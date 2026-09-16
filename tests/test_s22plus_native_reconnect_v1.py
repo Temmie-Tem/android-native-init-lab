@@ -186,6 +186,11 @@ class Reconnect(unittest.TestCase):
                         self.poll(session,events,lambda:any(k==wire.ACK and n==seq for k,n,_ in events))
                         self.until(lambda:(ctx.folder/'execution-count').exists())
                     else:
+                        # Reach the injected partial ACK through the current
+                        # production DETACH prerequisite: one clean terminal.
+                        seq=session.send(wire.EXEC,wire.command(b'printf RECONNECT_OK',
+                            cwd=b'/s22-root-work',timeout_ms=1000))
+                        self.poll(session,events,lambda:seq in session.terminals)
                         session.send(protocol.DETACH)
                         self.until(lambda:'tty-partial-ack' in self.marks(ctx))
                 if session:session.close()
