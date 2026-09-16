@@ -21,13 +21,40 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Latest completed unit — Android32 layout and rooted return
+## Latest completed unit — native ext4 witness and Android return
+
+The attended P399/P400 task closed on 2026-09-17. Reader P399 passed two
+installations/four authenticated sessions and the actual partition inspection.
+Initializer P400 then formatted native_data once, passed read-only fsck, mounted
+ext4, wrote and read back the fixed 4096-byte witness, synchronized and cleanly
+unmounted. Restored P399 proved a fresh native boot and read the identical
+witness through `ro,noload`, then cleanly unmounted again.
+
+The retained raw evidence separately proves initialization and fresh-boot
+witness persistence. The first Android final-health bracket failed: a completed
+ADB property read was incomplete and the following root read returned target
+not found. Original A had already transferred successfully and was not repeated.
+The existing health-only recovery obtained complete rooted health brackets,
+unchanged full GPT and `/data` statfs total 34,357,624,832 bytes.
+
+The immutable runner terminal is `ANDROID_CLOSED_HEALTHY`, `recovered=true`,
+with conservative filesystem aggregate `NO_PROOF_RECOVERED_ANDROID`. It remains
+unchanged. A separate raw-only H0 assessment records
+`PROVED_INITIALIZATION_AND_FRESH_BOOT_WITNESS`; this does not relabel the normal
+operation as complete. The grant closed after 377.523 seconds, with both
+operations consumed and no F1 owner. There was one initialization, one read-only
+verification, one original-A transfer and zero extra recovery transfers,
+reformats, repairs, GPT writes or resets. Native storage now contains this
+ext4 filesystem and witness; Debian has not been staged. See the
+[first-run report](docs/reports/S22PLUS_NATIVE_EXT4_FIRST_RUN_2026-09-17.md).
+
+## Completed Android32 layout and rooted return
 
 P398 `v0.3.0-rc.2` completed the exact successor to P397's 128 GiB reservation.
 Two fresh native installations/four healthy sessions and an actual original-GPT
 read preceded one four-block apply. A physical restart proved the new extents;
 one stock reset produced the expected reduced F2FS geometry. Original Magisk A
-was installed once. Native storage remains unformatted.
+was installed once. Native storage was unformatted at that close.
 
 Rooted Android checks before and after one ordinary reboot proved identical
 complete GPT, `/data` statfs total 34,357,624,832 bytes, a different Android boot,
@@ -106,7 +133,7 @@ were 415 versus the original 465: 50 absent at that observation. This run itself
 bytes, 34,955,264 above its own starting observation; no causal allocation
 breakdown is proved. The 28 tests and independent source/terminal reviews passed.
 See the [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md).
-Native storage remains unformatted; no raw APK deletion or Debian staging occurred.
+Native storage was unformatted at that close; no raw APK deletion or Debian staging occurred.
 
 ## Latest user-app cleanup — 11 persistent removals, healthy Android
 
@@ -133,7 +160,7 @@ that run's start and 465 before the three runs: **61 absent at that observation*
 space breakdown is not proved. The 33 focused tests and independent source
 review passed. The [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md)
 records the incomplete cleanup separately from final Android health. The
-191.4580078125 GiB native partition remains unformatted; Debian staging and
+191.4580078125 GiB native partition was unformatted at that close; Debian staging and
 A90/S20+ effects were outside this run.
 
 ## Latest full checkpoint cleanup — 279 persistent removals, 127 apps
@@ -166,7 +193,7 @@ observation, without causal allocation accounting. Forty-three app tests,
 four record tests, 12 boundary tests and independent source review passed.
 The [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md) records the
 full result and private evidence pins. This checkpoint claim is closed with
-no descendant or replay. Native storage remains unformatted; A90/S20+ and
+no descendant or replay. Native storage was unformatted at that close; A90/S20+ and
 Debian staging were outside this run.
 
 ## Selected final architecture
@@ -278,32 +305,24 @@ assumed.
 
 ## Next bounded unit and milestones
 
-**Current unit: native ext4 preparation before Debian staging.** The operator
-selected native work first on 2026-09-17. Fresh P399 `v0.3.1-rc.1` reader and
-P400 `v0.3.1-rc.2` initializer packages have byte-identical A/B builds and actual
-boot-only AP/tool joins. The pinned ARM64 e2fsprogs tools passed the exact
-205,576,470,528-byte regular-file qualification, and the fixed helper/console
-and owner fault paths passed H0 tests. The [ext4 policy](docs/operations/S22PLUS_NATIVE_EXT4_V1.md)
-binds one initialization/witness attempt, fresh-boot read-only verification and
-unchanged Android32 return. See the [H0 report](docs/reports/S22PLUS_NATIVE_EXT4_H0_2026-09-17.md).
+**Native ext4 unit closed; next is H0 matched rootfs/bootstrap preparation.**
+P399 `v0.3.1-rc.1` and P400 `v0.3.1-rc.2`, their filesystem attempt and finite
+grant are consumed. Preserve the existing filesystem and witness; do not
+reformat or replay these images to obtain a different aggregate verdict.
+The [H0 qualification](docs/reports/S22PLUS_NATIVE_EXT4_H0_2026-09-17.md) and
+live report above distinguish preparation, actual functional proof and recovery.
 
-No format or mount has run on the device. Target-kernel mount and persistence
-remain unproved; native storage remains unformatted. The prepared images and
-independent capability review do not grant a run. Before live use, require the
-named common/target exception, current review and one actual returned attended
-finite task grant. Previous G2 and cleanup actions remain consumed and closed.
-
-After the filesystem milestone, complete the Debian kernel/init/device-manager
-compatibility matrix, select a matched rootfs/init, classify minimum native
-dependencies by lifetime, and define full init handoff and post-handoff recovery.
+Complete the Debian kernel/init/device-manager compatibility matrix, select a
+matched rootfs/init, classify minimum native dependencies by lifetime, and
+define full init handoff and post-handoff recovery. Rootfs staging needs its
+own reviewed persistent-write scope; this closed grant authorizes no staging.
 
 Then qualify these bounded functional milestones in order:
 
-1. **Dedicated filesystem:** ext4 is the first candidate. Check exact kernel
-   features, formatter defaults and ARM64 behavior, then define one bounded
-   format/mount/write experiment on the new native partition only. Prove a
-   small synchronized file remains byte-identical after clean unmount and a
-   fresh native boot, followed by verified rooted Android return.
+1. **Dedicated filesystem:** actual ext4 initialization, clean mount/unmount
+   and a byte-identical 4096-byte witness after fresh native boot are proved by
+   the first run. Rooted Android return was verified through health-only
+   recovery. Preserve the distinct conservative aggregate verdict above.
 2. **Matched rootfs and bootstrap:** prepare the selected minimal Debian root,
    device configuration and boot inputs together, then stage them only through
    a separately reviewed persistent-write capability. A diagnostic shell may
@@ -319,7 +338,7 @@ Then qualify these bounded functional milestones in order:
    headless base works. Their absence does not block the earlier milestones.
 
 No Debian release, init binary or rootfs artifact is selected. The native ext4
-images above are preparation only, with no live grant. Filesystem formatting,
+images and attempt are consumed, with no remaining live grant. Filesystem formatting,
 rootfs staging, handoff and post-handoff recovery still require their exact
 reviewed scopes under the binding contracts.
 
