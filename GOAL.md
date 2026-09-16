@@ -1,10 +1,22 @@
-# Goal: S22+ Debian on native storage
+# Goal: S22+ boots into Debian with full userspace ownership
 
-Build a usable Debian arm64 environment on dedicated native storage, following
-the operator's A90-style direction. The actual current allocation is **32 GiB
-Android userdata and 191.4580078125 GiB native storage**. Start from the FYG8
-vendor kernel and native hardware bring-up, retaining observable native
-control and bounded recovery while Debian execution is qualified.
+Build a usable Debian arm64 system on dedicated storage, with Debian's init
+as **host PID 1 in the initial PID namespace** and Debian owning the running
+system's services, devices, networking, logging and shutdown. The operator
+selected this full handoff on 2026-09-16: a resident native supervisor with a
+Debian chroot or an isolated Debian child is not the product architecture.
+
+The actual allocation is **32 GiB Android userdata and 191.4580078125 GiB
+native storage**. Start with the FYG8 vendor kernel. Reduce native userspace to
+the device-specific early boot work needed to start Debian, then replace that
+bootstrap with Debian init. Do not implement a second general Linux runtime
+inside native init. Existing native capabilities are implementation inputs;
+they are not all prerequisites for Debian boot or permanent background owners.
+
+First deliver an independently booted, persistent headless Debian system with
+authenticated SSH and an ordinary package-managed service. Display/input and a
+desktop are later capabilities. Android remains a separately booted management
+and recovery environment, not a provider of the running Debian userspace.
 This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
@@ -157,37 +169,148 @@ full result and private evidence pins. This checkpoint claim is closed with
 no descendant or replay. Native storage remains unformatted; A90/S20+ and
 Debian staging were outside this run.
 
-## Debian direction and next storage unit
+## Selected final architecture
 
-Ext4 is the first candidate: check the exact FYG8 kernel features, arm64
-formatter and mount behavior, then define one bounded format/mount/write
-experiment. Its functional criterion is a small synchronized test file that
-remains byte-identical after clean unmount and a fresh native boot, followed
-by verified rooted Android return. For this filesystem experiment, only the
-new native partition is the proposed persistent-write target; no device
-format or mount is activated here.
+```text
+Samsung bootloader -> FYG8 kernel -> minimal device initramfs
+                  -> root transition and exec -> Debian host PID 1
+```
 
-The subsequent milestones are prospective and separately qualified:
+The early bootstrap identifies the exact root partition, prepares the storage
+and essential device interfaces, mounts the Debian root, and transfers the
+required mounts and console/log state. It then execs Debian init in the initial
+PID namespace. The bootstrap does not fork Debian beneath a surviving native
+PID 1, retain an independent native control plane, or leave an old-root process
+tree running beside Debian. Select the root-transition mechanism against the
+actual kernel and initramfs topology; a generic `pivot_root` assumption is not
+an implementation plan.
 
-1. Prepare a minimal Debian arm64 root filesystem on the host and prove its
-   loader and basic commands against the target ABI before device staging.
-2. Execute a bounded Debian shell/basic workload from native storage, with
-   explicit process, mount and device ownership and a proved native return.
-   A shell result alone does not prove Debian init or an independent boot.
-3. Establish Debian service startup, a qualified IP path and authenticated SSH;
-   verify persistence and cleanup/recovery across the selected reboot path.
-4. Add display/input or a desktop environment after the headless path works.
-   Full init handoff versus a supervised Debian namespace remains a later
-   S22+-specific design decision, not a prerequisite for the first shell proof.
+| Responsibility | Before handoff | After handoff |
+| --- | --- | --- |
+| Root storage and essential hardware | Minimal bootstrap loads the necessary exact modules/firmware, creates required nodes and mounts the root | Debian owns filesystem policy, device events and subsequent initialization |
+| Process and service lifecycle | Bootstrap manages only its temporary preparation processes | Debian init owns host PID 1, process reaping, service start/stop/restart and shutdown |
+| USB, networking and display | Prepare only what root access or required boot observation needs | Debian services own configuration and device access; no competing native manager |
+| Device-specific long-lived helpers | Identify their real lifetime and dependencies before choosing the handoff | Package and start them under Debian's service manager, with Debian-visible logs and explicit start/stop behavior |
+| General Linux runtime | Use standard tools where suitable; do not recreate distribution services | Debian provides libraries, accounts/authentication, DNS, time, logging and package management |
 
-[A90's current goal](GOAL_A90.md) provides references for UFS filesystem
-identity, mounting, Debian startup and native fallback. Its isolated-Debian
-architecture and earlier separate feature observations do not constitute a
-completed integrated S22+ capability or transfer A90's device authority.
+Classify each reused native component as boot-only, a Debian-managed service,
+or unnecessary for this product. A helper that cannot yet operate under Debian
+is an explicit compatibility gap, not justification for hiding a second
+supervisor or Android runtime behind the handoff. Existing kernel modules and
+firmware may remain active: root transition does not reset the kernel or
+hardware, and it does not by itself prove their later compatibility.
+
+Build the initramfs and rootfs as a matched pair with declared versions,
+paths, module/firmware dependencies, writable directories, device-manager
+behavior, init/service configuration and SSH access. Prefer moving reusable
+boot preparation into Debian's initramfs build hooks as compatibility permits.
+No requirement to eliminate initramfs or replace the FYG8 kernel is introduced.
+The steady-state rootfs should support normal Debian package and configuration
+management on the dedicated partition; its initial mount mode and exact
+persistent-write scope remain implementation and reviewed-capability work.
+
+## Kernel and rootfs compatibility
+
+Recheck the selected kernel artifact and target ABI before choosing the Debian
+release, init and device manager. The retained
+[FYG8 capability analysis](docs/reports/S22PLUS_FYG8_NATIVE_USERSPACE_BRINGUP_GAP_ANALYSIS_2026-07-22.md)
+records disabled devtmpfs, PID/user namespaces, the cgroup PID controller and
+SysV IPC. These are compatibility inputs to verify against the chosen artifact,
+not a claim that a new Debian build has passed. Host PID 1 does not require a
+new PID namespace.
+
+Debian ownership does not imply a preselected systemd implementation. Assess
+a small Debian init such as SysVinit against the existing kernel, and assess
+systemd against its exact version's kernel/device requirements. Keep missing
+kernel features explicit; do not emulate a general Linux environment inside
+native init to conceal them. Any kernel change is a separate qualified unit.
 Use [Debian's arm64 bootstrap documentation](https://www.debian.org/releases/stable/arm64/apds03.en.html)
-for base-system construction; its generic kernel/bootloader installation
-steps are not the selected FYG8 boot path. No Debian release, rootfs artifact,
-candidate, live budget or new persistent-write capability is selected yet.
+for rootfs construction and
+[initramfs-tools](https://manpages.debian.org/trixie/initramfs-tools-core/initramfs-tools.7.en.html)
+for the standard early-boot lifecycle. Their generic kernel/bootloader setup
+does not replace this target's existing boot and recovery process.
+
+The [A90 comparison](docs/plans/A90_H16_H24_ISOLATED_DEBIAN_COMPARISON_BASELINE_2026-08-14.md)
+and [firstboot audit](docs/reports/A90_H14_IMMUTABLE_FIRSTBOOT_ISOLATED_DEBIAN_MISMATCH_H0_2026-08-14.md)
+are lessons: align mount/device assumptions, authentication, service ownership
+and return behavior before integration. Do not import A90's selected native
+supervisor architecture, consumed results or device authority. HUD, display,
+boot chime and legacy SD evidence dependencies do not gate the first headless
+Debian boot.
+
+## Completion criteria for the first usable Debian system
+
+These are prospective product criteria, not newly activated device gates:
+
+1. **Actual Debian boot:** same-boot evidence identifies Debian init as host
+   PID 1, the dedicated partition as its root, and the expected rootfs build.
+   A child shell, a chroot, a namespace-local PID 1, an exec-intent marker or an
+   open port alone does not establish this outcome.
+2. **One userspace owner:** no independent native supervisor, competing device
+   manager or surviving native old-root service tree remains. Required
+   target-specific helpers have a declared Debian service owner and observable
+   lifecycle. Mounts and inherited descriptors match the handoff design.
+3. **Useful Debian runtime:** the selected standard command workload runs,
+   package installation/configuration works, and one ordinary service can be
+   started, stopped and restarted through Debian's init system. Record the
+   tested packages and limitations; do not claim all Linux software works.
+4. **Headless access:** a declared Debian-owned IP path supports authenticated
+   SSH, DNS and the selected service workload. USB networking may qualify the
+   first access path; Wi-Fi is a later capability if its dependencies are not
+   ready. Port visibility alone is not authentication or service proof.
+5. **Persistent operation:** a clean shutdown/reboot boots Debian again and
+   preserves the selected package, configuration and synchronized test data.
+   A normal boot does not depend on an interactive native shell or host daemon.
+6. **Diagnosable failure and recovery:** boot-stage records connect to Debian
+   logs, distinguish the last completed preparation stage from actual init
+   execution, and identify the service that owns a failure. Demonstrate the
+   separately authorized return/recovery path and final rooted Android health;
+   report Debian functionality, recovery and terminal health independently.
+
+Demonstrate the combined PID 1, root, ownership, SSH and workload claims in one
+identified integrated run, followed by its qualified persistence/return checks.
+Do not assemble a full-system PASS from unrelated experiments. Before Debian
+exec, a preparation failure may stop in the bootstrap under its defined
+procedure. After successful exec, the replaced native PID 1 is not available
+as an automatic fallback. Post-handoff recovery must have its own demonstrated
+reboot/physical-return route; no reverse root switch or automatic recovery is
+assumed.
+
+## Next bounded unit and milestones
+
+**Next unit: H0 design and compatibility preparation for full Debian handoff.**
+Complete a concise kernel/init/device-manager compatibility matrix, select a
+rootfs/init candidate supported by that evidence, classify the minimum native
+boot dependencies by lifetime, and define the paired initramfs/rootfs handoff
+and recovery behavior. Check the selected loader/basic commands on the host
+where useful; cross-compilation or QEMU alone does not prove target-kernel
+boot, device ownership or recovery. This unit creates no live grant or write.
+
+Then qualify these bounded functional milestones in order:
+
+1. **Dedicated filesystem:** ext4 is the first candidate. Check exact kernel
+   features, formatter defaults and ARM64 behavior, then define one bounded
+   format/mount/write experiment on the new native partition only. Prove a
+   small synchronized file remains byte-identical after clean unmount and a
+   fresh native boot, followed by verified rooted Android return.
+2. **Matched rootfs and bootstrap:** prepare the selected minimal Debian root,
+   device configuration and boot inputs together, then stage them only through
+   a separately reviewed persistent-write capability. A diagnostic shell may
+   check the ABI but does not replace the planned full handoff.
+3. **Full init handoff:** prove Debian host PID 1 and root ownership, including
+   bootstrap/helper cleanup and the post-handoff observation/recovery path.
+4. **Headless Debian operation:** qualify Debian-owned networking, authenticated
+   SSH, package management and the selected ordinary service in one run.
+5. **Persistence and normal lifecycle:** qualify Debian restart, clean shutdown,
+   fresh boot, retained data/configuration and separate Android return health.
+6. **Later hardware/product features:** add Wi-Fi if not already qualified,
+   display/input, audio or a desktop as Debian-managed capabilities after the
+   headless base works. Their absence does not block the earlier milestones.
+
+No Debian release, init binary, rootfs artifact, candidate, live budget or new
+persistent-write capability is selected by this goal edit. Filesystem formatting,
+rootfs staging, handoff and post-handoff recovery still require their exact
+reviewed scopes under the binding contracts.
 
 ## Completed history
 
