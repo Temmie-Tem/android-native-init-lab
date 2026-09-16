@@ -285,6 +285,30 @@ scope. Report all residuals separately from batch completion. No checkpoint
 descendant, retry, true APEX-module removal, new permission or partition effect
 is adopted.
 
+### Native ext4 initialization and witness V1
+
+The common-incorporated [native ext4 V1 policy](../S22PLUS_NATIVE_EXT4_V1.md)
+is adopted only as a review-gated capability for this exact target and the
+closed P398 Android32 layout. One fixed initializer E and reader N share the
+same sealed filesystem UUID, format/checker tools, full GPT and native extent.
+It permits one initialization/witness attempt on entry 41, clean unmount,
+fresh-boot read-only verification and unchanged Android32 return, only through
+the named `native-ext4` operation. No GPT write, reset, Debian rootfs stage,
+other-partition data write, repair or retry is authorized.
+
+The task contains only optional fresh reader-N bootstrap and one filesystem
+operation, at most two operations and 7200 original BOOTTIME seconds. Attendance
+and usable physical Download recovery are mandatory; deferred mode is excluded.
+Bootstrap's fourth native session qualifies the fixed partition endpoint.
+The existing owner journals the initialization claim before authenticated EXEC,
+retains every consumed attempt after failure and sends no further filesystem
+command after uncertainty. Only the exact bootloader Download endpoint permits
+the original-A recovery transfer, with final rooted Android/GPT/capacity health.
+Boot recovery does not undo filesystem writes or qualify an incomplete witness.
+Independent exception/closure review, fresh A/B artifact qualification and an
+actual returned finite grant remain necessary. This adoption grants no effect
+by itself and cannot reopen any prior G2 or cleanup run.
+
 ### G2 exact reservation/Android32 resize and stock initialization
 
 The common-incorporated [G2 policy](../S22PLUS_NATIVE_GPT_RESERVATION_V1.md) is

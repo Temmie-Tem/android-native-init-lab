@@ -18,20 +18,24 @@ EXTRA_SOURCES = base.EXTRA_SOURCES + [
 ADDED = tuple('s22-display-modules/'+name for name in provider.MODULE_ORDER)
 
 
-def check_boot(raw,baseline,image,replacements):
+def check_boot(raw,baseline,image,replacements,extra_modes=None):
+    extra_modes={} if extra_modes is None else extra_modes
     parsed,rows=shared.entries(raw);_,old=shared.entries(baseline)
-    expected_replacements={'init','s22-display',packaging.PROVIDER_MEMBER,*ADDED}
+    if set(extra_modes)&(set(old)|set(ADDED)) or any(mode not in (0o400,0o500) for mode in extra_modes.values()):
+        raise ValueError('additional immutable member metadata differs')
+    expected_replacements={'init','s22-display',packaging.PROVIDER_MEMBER,*ADDED,*extra_modes}
     if (set(replacements)!=expected_replacements or len(raw)!=len(baseline) or
-        set(rows)!=set(old)|set(ADDED) or parsed.kernel!=image):
+        set(rows)!=set(old)|set(ADDED)|set(extra_modes) or parsed.kernel!=image):
         raise ValueError('thermal boot layout/inventory differs')
     for name,row in rows.items():
-        expected=shared.row_identity(old[name]) if name in old else dict(mode=0o100400,uid=0,gid=0,nlink=1,mtime=0)
+        expected=shared.row_identity(old[name]) if name in old else dict(mode=0o100000|extra_modes.get(name,0o400),uid=0,gid=0,nlink=1,mtime=0)
         if name in replacements: expected.update(packaging.identity(replacements[name]))
         if shared.row_identity(row)!=expected: raise ValueError('thermal boot member differs: '+name)
     return {name:shared.row_identity(row) for name,row in sorted(rows.items())}
 
 
-def build_package(out,label,baseline,image,replacements,tools):
+def build_package(out,label,baseline,image,replacements,tools,extra_modes=None):
+    extra_modes={} if extra_modes is None else extra_modes
     scratch=Path(tempfile.mkdtemp(prefix='thermal-pack-'+label+'-',dir=out))
     try:
         shared.write(scratch/'base.img',baseline)
@@ -40,11 +44,11 @@ def build_package(out,label,baseline,image,replacements,tools):
         _,old=shared.entries(baseline);commands=[]
         for index,(member,raw) in enumerate(replacements.items()):
             path=scratch/('replacement-'+str(index));shared.write(path,raw)
-            mode=old[member].mode&0o7777 if member in old else 0o400
+            mode=old[member].mode&0o7777 if member in old else extra_modes.get(member,0o400)
             commands.append('add '+format(mode,'o')+' '+member+' '+str(path))
         shared.run([tools['magiskboot'],'cpio',scratch/'ramdisk.cpio',*commands],scratch,scratch/'cpio.log')
         shared.run([tools['magiskboot'],'repack',scratch/'base.img',scratch/'boot.img'],scratch,scratch/'repack.log')
-        raw=shared.stable(scratch/'boot.img');inventory=check_boot(raw,baseline,image,replacements)
+        raw=shared.stable(scratch/'boot.img');inventory=check_boot(raw,baseline,image,replacements,extra_modes)
         folder=out/('candidate-'+label);folder.mkdir(mode=0o700);shared.write(folder/'boot.img',raw)
         shared.run([tools['lz4'],'--content-size','-B6','-f','-q',folder/'boot.img',folder/'boot.img.lz4'],scratch,scratch/'lz4.log')
         (folder/'boot.img.lz4').chmod(0o400)
@@ -63,6 +67,7 @@ class Builder(base.Builder):
     __file__=__file__
     source=source
     provider_profile=None
+    extra_member_modes={}
 
     def __init__(self,declaration):
         super().__init__(declaration)
@@ -174,7 +179,7 @@ class Builder(base.Builder):
         replacements=self.replacements(runtime);self.declaration.artifact._validate_init(replacements['init'])
         baseline=packaging.stable(shared.REFERENCE/'candidate-a/boot.img',expected=reference['candidate']['a']['boot_img'])
         tools=shared.packager._bind_tools()
-        packages={side:build_package(out,side,baseline,image,replacements,tools) for side in ('a','b')}
+        packages={side:build_package(out,side,baseline,image,replacements,tools,self.extra_member_modes) for side in ('a','b')}
         if packages['a']!=packages['b']: raise ValueError('thermal boot-only AP A/B differs')
         result=self.result_value(runtime,image,transform,packages)
         if pins!=self.source_receipts(): raise ValueError('thermal source changed during package build')
@@ -192,17 +197,17 @@ class Builder(base.Builder):
         for side in ('a','b'):
             folder=out/('candidate-'+side);package=value['candidate'][side]
             raw=packaging.stable(folder/'boot.img',expected=package['boot_img'])
-            if check_boot(raw,baseline,image,replacements)!=package['inventory']: raise ValueError('thermal boot inventory differs')
+            if check_boot(raw,baseline,image,replacements,self.extra_member_modes)!=package['inventory']: raise ValueError('thermal boot inventory differs')
             standalone_frame=packaging.stable(folder/'boot.img.lz4',expected=package['boot_img_lz4'])
             inspected=self.declaration.artifact.inspect_ap(folder/'odin4/AP.tar.md5',expected_ap=package['ap_tar_md5'],
                 expected_image=image,expected_init=replacements['init'])
             frame,_=shared.artifacts.reference._INNER._parse_ap(packaging.stable(folder/'odin4/AP.tar.md5'),'thermal AP')
             decoded=shared.boot.decompress_lz4_frame_python(frame,maximum=128*1024*1024)
-            if frame!=standalone_frame or decoded!=raw or check_boot(decoded,baseline,image,replacements)!=package['inventory']:
+            if frame!=standalone_frame or decoded!=raw or check_boot(decoded,baseline,image,replacements,self.extra_member_modes)!=package['inventory']:
                 raise ValueError('thermal actual AP payload join differs')
             structure=inspected['ap_structure']
             packages[side]=dict(boot_img=packaging.identity(raw),boot_img_lz4=packaging.identity(frame),ap_tar_md5=inspected['ap'],
-                inventory=check_boot(raw,baseline,image,replacements),ap_structure=dict(
+                inventory=check_boot(raw,baseline,image,replacements,self.extra_member_modes),ap_structure=dict(
                     members=[structure['member']['name']],**{k:structure[k] for k in ('tar_md5','tar_prefix_size','trailer')}))
         if shared.canonical(value)!=shared.canonical(self.result_value(runtime,image,transform,packages)):
             raise ValueError('thermal package evidence does not regenerate')

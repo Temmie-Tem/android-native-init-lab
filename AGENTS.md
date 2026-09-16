@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **25** (supersedes revision 24; 2026-09-16)
+Contract-Revision: **26** (supersedes revision 25; 2026-09-17)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`b14b5538197a641014f7dbeaaadc1ede23d979009c925b0917af0367045a966a`.
+`06a87a54f593f3e68e389b534a980ac99fd17f296c450319796aa6887e92907f`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -109,13 +109,14 @@ Read an exception's complete conditions before considering it applicable.
    vbmeta/vbmeta_system, BL/CP/CSC, super, userdata, persist, EFS/sec_efs, RPMB,
    keymaster, modem, bootloader and other partitions remain forbidden outside
    the exact retained S20+ T0/T1/T2 recovery exceptions and the exact S22+
-   [G2 GPT reservation/reset exception](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
+   [G2 GPT reservation/reset exception](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md)
+   and [native ext4 exception](docs/operations/S22PLUS_NATIVE_EXT4_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
    qdl/Sahara/Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format,
    or unreviewed panic/RDX. Only the exact S20+ fastboot exceptions and A90
-   fixed 256-byte misc-BCB hook, and the exact S22+ G2 exception in the details
+   fixed 256-byte misc-BCB hook, and the exact S22+ G2/native ext4 exceptions in the details
    can specialize these bans.
    The fixed S22+ native and Android storage censuses may read their declared
    GPT metadata only; they grant no partition-table mutation or formatting.
@@ -168,6 +169,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ deferred physical F1 | [Exact native-baseline exception](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md); one native-origin N/E/N experiment, finite exact grant, failure stop with later attended A recovery and unknown device activity. |
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
 | S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md); independently reviewed fixed native writer and stock reset, one finite attended grant, journal-bound original-layout recovery. |
+| S22+ native ext4 | [Exact native_data filesystem and witness](docs/operations/S22PLUS_NATIVE_EXT4_V1.md); independently reviewed fixed initializer/reader, one attended finite grant, unchanged Android32 return and no replay. |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

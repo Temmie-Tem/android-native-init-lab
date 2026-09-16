@@ -62,6 +62,14 @@ binding and wire algorithms as small shared primitives.
 | Android exit | Fresh N health/CONTROL → exact Download → original A → fresh exact rooted Android health |
 | Recovery | Stop research → attended exact Download → original A at most once → fresh exact rooted Android health |
 
+The separately adopted [native ext4 V1](S22PLUS_NATIVE_EXT4_V1.md) uses a fixed
+attended N/E/N/A graph under this same owner. Its initializer and reader images
+are fixed for the task; E replacement is excluded. It adds one journaled format
+and witness attempt only on the sealed existing native_data partition, followed
+by fresh-boot read-only verification and exact Android32 return. Its two-operation
+budget, fixed EXEC deadlines and explicit filesystem exception do not extend
+other V3 profiles or a consumed GPT/reset grant.
+
 Every authentication retains its nonce, authenticated kernel boot identity,
 ordinal, fixed root health, raw RX/TX and terminal acknowledgement. DETACH
 also requires actual descriptor close. A new installed boot starts at ordinal
@@ -180,7 +188,11 @@ specializes this document's boot-only and A-only-recovery rules. Its attended
 `gpt-reserve` graph, exact stock resets, pre-A safety proof, one original-GPT
 restoration and final Android reboot checks replace those generic rules solely
 for that operation. It permits no E/HUD/reconnect/deferred work or extra
-operations. Every other V3 operation retains the following recovery rules.
+operations. Native ext4 V1 separately specializes the partition-write prohibition
+for only its sealed native_data extent; it retains original-A-only recovery,
+requires bootloader Download arrival before recovery transfer, and adds final
+unchanged-GPT/Android32 capacity proof. Every V3 operation retains the following
+no-replay rules.
 
 The owner publishes a durable intent immediately before each effect. The
 transport's final callback runs after AP/tool validation and rechecks the

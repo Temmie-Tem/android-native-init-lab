@@ -72,11 +72,16 @@ permission to perform host-only work.
    metadata replacement and the declared ordinary stock-recovery reset effects.
    It permits no partition-image transfer except the existing boot-only N/A
    roles and grants no generic userdata, EFS, param or misc access.
+   The separate exact S22+ native ext4 exception below permits one filesystem
+   initialization and fixed witness only within the retained native_data extent;
+   all image transfers remain boot only and Android32 userdata is preserved.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
    path. Only the exact S22+ G2 exception below specializes GPT mutation and
    ordinary stock-recovery formatting for that one target/layout transaction.
+   The separate exact S22+ native ext4 exception below specializes formatting,
+   filesystem reads/mounts and fixed witness writes only on its sealed entry 41.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -626,7 +631,7 @@ proved native health. Protocol uncertainty retains only the task's original
 attended one-shot A recovery, since the census has changed no partition.
 Neither census success nor that existing boot recovery qualifies GPT-write
 recovery. Partition writes and formatting remain forbidden outside the separate
-exact G2 exception below.
+exact G2 and native ext4 exceptions below.
 
 Only an explicitly granted deferred V3 task waives attendance for native-origin
 operations; it retains unknown powered device activity and later attended
@@ -700,6 +705,43 @@ An optional bootstrap origin is an exact healthy previously admitted V3 N whose
 closed tail and unchanged ancestor source closure are machine-bound. It still
 performs two fresh-N installations and four health sessions before admission.
 No prior grant, consumed image or unactivated document grants an effect.
+
+## S22+ native ext4 initialization and witness
+
+The [native ext4 V1 policy](S22PLUS_NATIVE_EXT4_V1.md) is a separate review-gated
+exception to boundaries 2 and 3 for only `SM-S906N/g0q/S906NKSS7FYG8`. It uses
+the completed P398 Android32 layout without any GPT changes: entry 40 remains
+32 GiB userdata; entry 41 native_data spans 4096-byte LBAs 12,115,456 through
+62,305,023 (205,576,470,528 bytes). Every other partition remains unchanged.
+Only the reviewed fixed native helper may format this exact partition once,
+mount it, create/read one fixed 4096-byte witness, synchronize and cleanly
+unmount. Its later fresh-boot verification is read-only with `ro,noload` and
+`e2fsck -fn`, never repair. The fixed format options exclude discard, offsets,
+external journals, population and caller-selected paths/options.
+
+It expressly permits the private RAM-only block nodes, private mount namespace,
+whole-LU read-only full GPT comparison and bounded filesystem/checker reads
+described by that policy. The whole disk is never writable. The live sysfs
+userdata/native maps and sealed GPT must agree before filesystem access.
+The ordinary ext4 journal and filesystem metadata writes remain confined to
+entry 41. There is no raw host writer, userdata reset, GPT restoration, Debian
+staging, key request or additional partition authority.
+
+This capability uses the existing V3 owner and finite attended grant, at most
+two operations and 7200 original BOOTTIME seconds: optional fresh reader-N
+bootstrap and one fixed N/E/N/A transaction. One target/partition claim and
+durable pre-EXEC intent consume initialization even on timeout or uncertainty.
+UUID/image changes cannot renew it. Unknown writers permit no further
+filesystem commands. Actual attended bootloader Download arrival precedes the
+one original-A transfer; the closed P398 Android32 return basis remains bound.
+No recovery reformat is permitted. Android return does not undo initialization
+or prove a filesystem whose result is incomplete. Final Android root health,
+unchanged full GPT and exact capacity are independently required.
+
+The exact target adoption, independent review of this exception and reachable
+owner/native closure, actual A/B artifact qualification and an explicit returned
+finite task grant are required before any effect. This is a permanent narrow
+exception, not a temporary gate or an extension of consumed G2 authority.
 
 ## Bounded Attended F1 Sessions
 

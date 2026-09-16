@@ -9,6 +9,7 @@ import s22plus_native_baseline_protocol_v1 as protocol
 import s22plus_native_thermal_observer_v3 as thermal
 import s22plus_native_storage_census_v1 as storage
 import s22plus_native_gpt_profile_v1 as gpt
+import s22plus_native_ext4_profile_v1 as fs
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
 from s22plus_native_wire_v3 import Codec
@@ -37,6 +38,12 @@ class StorageIO(IO):
 
 
 def io_class(profile, image=None):
+    if profile in fs.SELECTIONS:
+        require(image is not None, 'filesystem observation has no bound image')
+        class FilesystemIO(IO):
+            EXTRA_PROFILE=fs.Profile(image,profile)
+            SOURCE_PROFILE=dict(schema=fs.SCHEMA,selection=profile)
+        return FilesystemIO
     if profile in gpt.SELECTIONS:
         require(image is not None,'GPT observation has no bound image')
         class GptIO(IO):
@@ -132,7 +139,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
             profile='health',before_extra=None):
     require(ending in ('detach','download') and type(hud) is bool,'native observation selection differs')
     selected_io=io_class(profile,image)
-    if profile in gpt.SELECTIONS and selected_io.EXTRA_PROFILE.MUTATES:
+    if profile in (*gpt.SELECTIONS,*fs.SELECTIONS) and selected_io.EXTRA_PROFILE.MUTATES:
         require(callable(before_extra),'GPT mutation has no durable owner callback')
     require(profile=='health' or ending=='detach' and hud is False,
         'storage census may not change mode or collect HUD')
@@ -145,7 +152,8 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
     io=None; acquisition=None; proof=None; error=None; before=None; departure_deadline=None
     try:
         with host.open_native(bound.run_id_hex,before_open=guard) as (fd,acquisition):
-            observation_deadline_ns=clock()+59_900_000_000
+            seconds=selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in fs.SELECTIONS else 60
+            observation_deadline_ns=clock()+seconds*1_000_000_000-100_000_000
             publish(directory/'open.json',dict(image=image,ending=ending,hud=hud,
                 acquisition=acquisition,boottime_ns=clock(),deadline_ns=observation_deadline_ns,**extra_fields))
             def native_guard():

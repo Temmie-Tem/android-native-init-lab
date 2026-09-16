@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4')
 
 
 class ResultPublicationError(SessionError):
@@ -37,6 +37,9 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
     require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
+    if operation=='native-ext4':
+        from s22plus_native_ext4_session_v1 import normal_steps
+        return normal_steps()
     if operation=='gpt-reserve':
         from s22plus_native_gpt_session_v1 import normal_steps
         return normal_steps()
@@ -169,6 +172,9 @@ class Session:
         if step.name in ('gpt-apply','gpt-restore'):
             from s22plus_native_gpt_session_v1 import claim_effect
             claim_effect(self.adapter,step,self.request)
+        if self.request['operation']=='native-ext4' and step.name=='experiment-first':
+            from s22plus_native_ext4_session_v1 import claim_effect
+            claim_effect(self.adapter,step,self.request)
         return self.journal.append('effect-intent',step=step.name,action=step.action,
             role=step.role,ending=step.ending,recovery=recovery,detail=detail or {})
 
@@ -208,6 +214,8 @@ class Session:
             # uses one operation when its unique native attempt starts.
             options=dict(consume_observation=self.consume) if step.name=='native-storage' else {}
             if step.name in ('gpt-apply','gpt-restore'):options['before_extra']=dispatch
+            if self.request['operation']=='native-ext4' and step.name=='experiment-first':
+                options['before_extra']=dispatch
             value=self.adapter.observe(step,self.request,guard=guard,
                 before_terminal=dispatch if step.ending=='download' else guard,**options)
         elif step.action=='health':
@@ -243,7 +251,8 @@ class Session:
             else:require(covered,'recovery terminal does not cover the latest effect')
         else:
             expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot')
-                or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')]
+                or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')
+                or self.request['operation']=='native-ext4' and step.name=='experiment-first']
             require([effect['step'] for effect in effects]==expected,
                 'normal terminal omits or differs from a durable effect')
         terminal_path=self.directory/'terminal.json'
@@ -362,8 +371,9 @@ class Session:
                 and row['data']['action']=='transfer' and row['data']['role']=='A']
             require(len(android)<=1,'multiple Android transfer intents')
             try:
-                require(not android or self.request['operation']=='android-exit'
-                    and android[0]['data']['step']=='install-android','a later A intent selects recovery closure')
+                require(not android or any(s.action=='transfer' and s.role=='A' and
+                    s.name==android[0]['data']['step'] for s in plan),
+                    'a later A intent selects recovery closure')
                 values=[self.adapter.recover_step_result(step,self.request) for step in plan]
                 for step,value in zip(plan,values): self.adapter.validate_result(step,value,self.request)
                 self.adapter.validate_sequence(plan,values,self.request)

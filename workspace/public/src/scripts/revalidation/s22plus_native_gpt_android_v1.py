@@ -11,6 +11,7 @@ import uuid
 import device_action_raw_capture_v1 as raw
 import s22plus_native_android_storage_v1 as census
 import s22plus_native_gpt_profile_v1 as gpt
+import s22plus_native_ext4_profile_v1 as fs
 import s22plus_native_target_io_v3 as target
 from s22plus_native_records_v3 import clock, digest, pin, publish, read, require, verify
 
@@ -106,7 +107,10 @@ def storage_stat(text,basis,sealed):
 
 
 def projection(folder,adapter,request):
-    from s22plus_native_gpt_session_v1 import android_basis
+    if request['N'].get('profile') in fs.PROFILES:
+        from s22plus_native_ext4_session_v1 import android_basis
+    else:
+        from s22plus_native_gpt_session_v1 import android_basis
     folder=Path(folder);task=adapter.configuration(request);basis=android_basis(adapter,request)
     intent=read(folder/'read/intent.json')
     require(intent==dict(schema=SCHEMA,operation=pin(adapter.directory/'operation.json'),

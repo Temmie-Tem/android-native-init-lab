@@ -48,6 +48,20 @@
       "profile": "thermal-v3-reconnect-ufs-drain-gpt-v1",
       "run_id": "3603fa1f51f94322c426fde7ad584f98",
       "version": "v0.3.0-rc.2"
+    },
+    {
+      "image_sha256": "d510a3f83a6d48392649df325223e9847f85e2ee35989f32db0fb6abff371a3d",
+      "namespace": "p399",
+      "profile": "thermal-v3-reconnect-ufs-drain-ext4-reader-v1",
+      "run_id": "a13f589a356410e124f111d5fd0cbdb6",
+      "version": "v0.3.1-rc.1"
+    },
+    {
+      "image_sha256": "397a625a4e398e80e3b3b459656cb75ac5a8e7adbee9bb0640c848c1fd69cccd",
+      "namespace": "p400",
+      "profile": "thermal-v3-reconnect-ufs-drain-ext4-initialize-v1",
+      "run_id": "de9dd38c3c7e8427a90a03949409dfd6",
+      "version": "v0.3.1-rc.2"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

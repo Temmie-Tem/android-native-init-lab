@@ -240,7 +240,8 @@ def qualify_one(io, *, ending, evidence, before_terminal, hud=False, before_extr
         raise ValueError('mutating fixed command has no durable pre-EXEC owner callback')
     if extra is not None and (hud or ending != 'detach'):
         raise ValueError('fixed storage census requires DETACH and no HUD selection')
-    if not now() < io.deadline <= now()+60:
+    maximum=getattr(extra,'OBSERVATION_SECONDS',60) if getattr(extra,'RESULT_KEY',None)=='filesystem' else 60
+    if maximum not in (60,300) or not now() < io.deadline <= now()+maximum:
         raise ValueError('baseline observation deadline differs')
     session = None; events = []
     def wait(kind, seq):

@@ -278,13 +278,24 @@ assumed.
 
 ## Next bounded unit and milestones
 
-**Next unit: H0 design and compatibility preparation for full Debian handoff.**
-Complete a concise kernel/init/device-manager compatibility matrix, select a
-rootfs/init candidate supported by that evidence, classify the minimum native
-boot dependencies by lifetime, and define the paired initramfs/rootfs handoff
-and recovery behavior. Check the selected loader/basic commands on the host
-where useful; cross-compilation or QEMU alone does not prove target-kernel
-boot, device ownership or recovery. This unit creates no live grant or write.
+**Current unit: native ext4 preparation before Debian staging.** The operator
+selected native work first on 2026-09-17. Fresh P399 `v0.3.1-rc.1` reader and
+P400 `v0.3.1-rc.2` initializer packages have byte-identical A/B builds and actual
+boot-only AP/tool joins. The pinned ARM64 e2fsprogs tools passed the exact
+205,576,470,528-byte regular-file qualification, and the fixed helper/console
+and owner fault paths passed H0 tests. The [ext4 policy](docs/operations/S22PLUS_NATIVE_EXT4_V1.md)
+binds one initialization/witness attempt, fresh-boot read-only verification and
+unchanged Android32 return. See the [H0 report](docs/reports/S22PLUS_NATIVE_EXT4_H0_2026-09-17.md).
+
+No format or mount has run on the device. Target-kernel mount and persistence
+remain unproved; native storage remains unformatted. The prepared images and
+independent capability review do not grant a run. Before live use, require the
+named common/target exception, current review and one actual returned attended
+finite task grant. Previous G2 and cleanup actions remain consumed and closed.
+
+After the filesystem milestone, complete the Debian kernel/init/device-manager
+compatibility matrix, select a matched rootfs/init, classify minimum native
+dependencies by lifetime, and define full init handoff and post-handoff recovery.
 
 Then qualify these bounded functional milestones in order:
 
@@ -307,8 +318,8 @@ Then qualify these bounded functional milestones in order:
    display/input, audio or a desktop as Debian-managed capabilities after the
    headless base works. Their absence does not block the earlier milestones.
 
-No Debian release, init binary, rootfs artifact, candidate, live budget or new
-persistent-write capability is selected by this goal edit. Filesystem formatting,
+No Debian release, init binary or rootfs artifact is selected. The native ext4
+images above are preparation only, with no live grant. Filesystem formatting,
 rootfs staging, handoff and post-handoff recovery still require their exact
 reviewed scopes under the binding contracts.
 
