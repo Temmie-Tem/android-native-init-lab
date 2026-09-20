@@ -305,8 +305,8 @@ assumed.
 
 ## Next bounded unit and milestones
 
-**Native ext4 unit closed; H0 research completed; next is matched
-rootfs/bootstrap construction.**
+**Native ext4 unit closed; matched rootfs/bootstrap H0 construction completed;
+next is the exact target adapter and staging/recovery design review.**
 P399 `v0.3.1-rc.1` and P400 `v0.3.1-rc.2`, their filesystem attempt and finite
 grant are consumed. Preserve the existing filesystem and witness; do not
 reformat or replay these images to obtain a different aggregate verdict.
@@ -319,14 +319,23 @@ systemd, BusyBox and Linux 5.10 sources. Both devtmpfs and FHANDLE are disabled;
 Debian's SysV udev script also requires devtmpfs. The first H0 construction
 candidate is Debian 13 trixie arm64 with SysVinit and Debian BusyBox mdev's
 netlink mode. Its package availability and relevant source behavior are
-confirmed; the combined rootfs and target boot remain unproved.
+confirmed. The subsequent
+[2026-09-21 construction](docs/reports/S22PLUS_DEBIAN_BOOTSTRAP_H0_2026-09-21.md)
+produced a rootfs from 129 signature-verified packages, two byte-identical builds and a
+reproducible static ARM64 virt bootstrap. Real Linux 5.10 ARM64 VM tests prove
+PID 1/root handoff, SSH/PTY, selected service and package behavior, fresh-boot
+persistence and clean shutdown. Six rejection cases stop before handoff without
+changing their disks. Independent H0 review passed after retained corrections.
+These are virt results; target Debian boot and recovery remain unproved.
 
-Build the matched rootfs/bootstrap, resolve its package closure, and separate
-required UFS/provider initialization from the existing DRM renderer lifecycle.
-Use the actual 5.10 initramfs topology to qualify explicit mount moves and
-PID 1 exec handoff. Define post-handoff observation/recovery before live use.
-Rootfs staging needs its own reviewed persistent-write scope; the closed
-ext4 grant authorizes no staging.
+The separate 42-module prospective FYG8 storage object no longer needs a DRM
+renderer, but it is compile-only and has no target entrypoint. Next, join exact
+hardware preparation and existing GPT/partition/filesystem/witness binding to
+the handoff, and implement the report's bounded staging, Debian-owned USB/SSH
+observation and attended Android-return design. The virt bootstrap's fixed
+manifest is an H0 fixture, not a general Debian update policy. Rootfs staging
+needs its own reviewed persistent-write scope; the closed ext4 grant authorizes
+no staging. No fresh Samsung boot/AP candidate or live capability was produced.
 
 Then qualify these bounded functional milestones in order:
 
@@ -334,10 +343,10 @@ Then qualify these bounded functional milestones in order:
    and a byte-identical 4096-byte witness after fresh native boot are proved by
    the first run. Rooted Android return was verified through health-only
    recovery. Preserve the distinct conservative aggregate verdict above.
-2. **Matched rootfs and bootstrap:** prepare the selected minimal Debian root,
-   device configuration and boot inputs together, then stage them only through
-   a separately reviewed persistent-write capability. A diagnostic shell may
-   check the ABI but does not replace the planned full handoff.
+2. **Matched rootfs and bootstrap:** H0 rootfs/virt construction and validation
+   complete. Join the remaining exact device configuration and boot inputs,
+   then stage them only through a separately reviewed persistent-write
+   capability. A diagnostic shell does not replace the full handoff.
 3. **Full init handoff:** prove Debian host PID 1 and root ownership, including
    bootstrap/helper cleanup and the post-handoff observation/recovery path.
 4. **Headless Debian operation:** qualify Debian-owned networking, authenticated
@@ -348,11 +357,12 @@ Then qualify these bounded functional milestones in order:
    display/input, audio or a desktop as Debian-managed capabilities after the
    headless base works. Their absence does not block the earlier milestones.
 
-Debian 13/SysVinit/mdev is an H0 construction candidate, with no selected
-qualified init binary or rootfs artifact yet. The native ext4 images and
-attempt are consumed, with no remaining live grant. Preserve the filesystem;
-rootfs staging, handoff and post-handoff recovery require their exact reviewed
-scopes under the binding contracts.
+Debian 13/SysVinit/mdev now has selected reproducible host artifacts and scoped
+ARM64 virt proof. Samsung hardware preparation, Debian boot, hotplug/firmware,
+USB access, power/thermal behavior and post-handoff recovery remain unproved.
+The native ext4 images and attempt are consumed, with no remaining live grant.
+Preserve the filesystem; rootfs staging, target handoff and recovery require
+their exact reviewed scopes under the binding contracts.
 
 ## Completed history
 

@@ -1,0 +1,19 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          lab-log
+# Required-Start:    $local_fs mdev
+# Required-Stop:     $local_fs
+# X-Start-Before:    cron ssh
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Bounded local BusyBox system log
+### END INIT INFO
+set -eu
+case "$1" in
+ start) start-stop-daemon --start --oknodo --background --make-pidfile --pidfile /run/lab-log.pid \
+          --exec /bin/busybox -- syslogd -n -O /var/log/messages -s 128 -b 3 ;;
+ stop) start-stop-daemon --stop --retry TERM/5/KILL/1 --pidfile /run/lab-log.pid || test "$?" = 1
+       rm -f /run/lab-log.pid ;;
+ restart) "$0" stop; "$0" start ;;
+ *) exit 2 ;;
+esac

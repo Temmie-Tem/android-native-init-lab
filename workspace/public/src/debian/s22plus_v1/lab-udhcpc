@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+case "$1" in
+ deconfig) ip addr flush dev "$interface" ;;
+ bound|renew)
+  ip addr flush dev "$interface"
+  ip addr add "$ip/${mask:-24}" dev "$interface"
+  for gateway in $router; do ip route replace default via "$gateway" dev "$interface"; break; done
+  : > /etc/resolv.conf
+  for server in $dns; do printf 'nameserver %s\n' "$server" >> /etc/resolv.conf; done
+  ;;
+esac

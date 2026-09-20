@@ -1,0 +1,34 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          lab-firstboot
+# Required-Start:    $local_fs mdev
+# Required-Stop:
+# X-Start-Before:    ssh
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Persistent unique SSH host keys and boot receipt
+### END INIT INFO
+set -eu
+test "$1" = start || exit 0
+ssh-keygen -A
+mkdir -p /var/lib/lab /run/lab
+count=0
+test ! -f /var/lib/lab/boot-count || count=$(cat /var/lib/lab/boot-count)
+count=$((count + 1))
+printf '%s\n' "$count" > /var/lib/lab/boot-count
+{
+ printf 'pid1_exe=%s\n' "$(readlink /proc/1/exe)"
+ printf 'pid1_root=%s\n' "$(readlink /proc/1/root)"
+ printf 'boot_count=%s\n' "$count"
+ printf 'boot_id=%s\n' "$(cat /proc/sys/kernel/random/boot_id)"
+ printf 'selinux_enforce=%s\n' "$(cat /sys/fs/selinux/enforce 2>/dev/null || echo unavailable)"
+ printf 'root_device=%s\n' "$(stat -c %d /)"
+ printf 'pid1_root_device=%s\n' "$(stat -Lc %d /proc/1/root)"
+ printf 'pid1_fds\n'
+ ls -l /proc/1/fd
+ printf 'mounts\n'
+ cat /proc/1/mountinfo
+ printf 'processes\n'
+ ps -eo pid,ppid,comm,args
+} > /run/lab/boot-receipt
+chmod 644 /run/lab/boot-receipt

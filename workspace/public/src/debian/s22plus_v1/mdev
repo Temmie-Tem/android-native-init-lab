@@ -1,0 +1,23 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          mdev
+# Required-Start:    mountkernfs
+# Required-Stop:
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Netlink device manager for a tmpfs dev directory
+### END INIT INFO
+set -eu
+case "$1" in
+ start)
+  test -d /dev/pts
+  start-stop-daemon --start --oknodo --background --make-pidfile --pidfile /run/mdev.pid \
+    --exec /bin/busybox -- mdev -df
+  ;;
+ stop)
+  start-stop-daemon --stop --retry TERM/5/KILL/1 --pidfile /run/mdev.pid || test "$?" = 1
+  rm -f /run/mdev.pid
+  ;;
+ restart) "$0" stop; "$0" start ;;
+ *) exit 2 ;;
+esac
