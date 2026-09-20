@@ -29,6 +29,13 @@ experiments. It does not relax the permanent boundaries in AGENTS.md or its
 SHA-pinned [common device details](DEVICE_ACTION_CONTRACT_DETAILS.md), which
 share the highest common-contract precedence.
 
+The separate common-incorporated [S22+ Debian first-boot V1](S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
+reuses the measured boot-only transport, global target/consumption registry and
+fixed Android health primitives. Its explicit embedded-install/SSH/ordinary-
+reboot/physical-A sequence has a distinct reviewed owner; Debian does not
+impersonate a native CDC observer or inherit V3 admission. This exception leaves
+the ordinary process and all consumed candidate meanings unchanged.
+
 The new common-incorporated [S22+ proportional research V1](S22PLUS_PROPORTIONAL_RESEARCH_V1.md)
 uses the same measured transport, fixed health and baseline owner through an
 explicit scope mode. Its parent authorizes a finite task and its children bind
@@ -673,6 +680,17 @@ registry source change, schema/record-bound change, target-session lease
 change, activation-deny-list change, or newly discovered replacement/race
 hazard triggers an independent review and fresh qualification. This is a
 permanent boundary for the cross-run candidate-replay hazard.
+
+The 2026-09-21 host SSD relocation has one separately reviewed, exact-digest
+private attestation. It retains the original activation bytes, all existing
+claim/release bytes and the complete consumed prefix, and binds the new writer
+and target-session lock identities. The old read-only source was validated
+against its original lock inodes; old/new locks were held and both pending
+control/F1-owner states were absent during no-clobber publication. This permits
+no registry reset, release, replay or device action. Later normal appends may
+extend the retained prefix. Missing/changed provenance, prefix loss or another
+inode replacement still fail closed. Other lanes' existing source approvals
+are not automatically updated by this host repair.
 
 The common-incorporated [S22+ native roundtrip first qualification V1](S22PLUS_NATIVE_ROUNDTRIP_FIRST_QUALIFICATION_V1.md)
 defines a separate dormant one-transaction exception. Its future distinct owner

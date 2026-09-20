@@ -168,6 +168,14 @@ and device-feature writes and kernel metadata probing are F1 hardware scope,
 not D0. It adds no host partition-data writer, format, mount or key request.
 Its separate common/target adoption and actual V3 grant remain required.
 
+The separately common-incorporated [S22+ Debian first-boot V1](S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
+uses its own reviewed owner for one embedded rootfs installation and initial
+PID 1 handoff, one ordinary Debian reboot and physical original-A return. Its
+native_data filesystem lifetime is an explicit higher-risk narrow exception,
+not ordinary F1 permission or a collection of D0/D1 stages. The whole transaction
+requires its exact artifact qualification, attended finite grant and no-replay
+installation/transfer claims. It does not inherit consumed native ext4 authority.
+
 Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 
 Attendance and per-candidate human approval remain the default. AGENTS Revision

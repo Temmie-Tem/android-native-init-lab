@@ -21,8 +21,16 @@
 _Static_assert(O_DIRECTORY == 16384 && O_NOFOLLOW == 32768 && O_CLOEXEC == 524288,
                "build with the ARM64 Linux UAPI");
 
+#ifdef S22_DEBIAN_VIRT_TEST
+static int diagnostic_console = -1;
+#endif
+
 static void stop(const char *why) {
-    dprintf(2, "BOOTSTRAP_STOP stage=%s errno=%d\n", why, errno);
+    int error = errno;
+    dprintf(2, "BOOTSTRAP_STOP stage=%s errno=%d\n", why, error);
+#ifdef S22_DEBIAN_VIRT_TEST
+    if (diagnostic_console >= 0) dprintf(diagnostic_console, "BOOTSTRAP_STOP stage=%s errno=%d\n", why, error);
+#endif
     /* PID 1 must neither exit nor guess a recovery action. */
     if (getpid() != 1) _exit(1);
     for (;;) pause();
@@ -108,8 +116,8 @@ static int metadata_inside(int fd) {
         }
     }
 }
-static void verify_metadata(void) {
-    int fd = open("/rootfs.meta", O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+static void verify_metadata_path(const char *path) {
+    int fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (fd < 0) stop("metadata-open");
     pid_t pid = fork();
     if (pid < 0) stop("metadata-fork");
@@ -122,9 +130,9 @@ static void verify_metadata(void) {
         stop("root-metadata");
     }
 }
-static void verify_contents(void) {
+static void verify_contents_path(const char *path) {
     int executable = open("/bin/busybox", O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
-    int manifest = open("/rootfs.sha256", O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    int manifest = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (executable < 0 || manifest < 0) stop("content-open");
     pid_t pid = fork();
     if (pid < 0) stop("content-fork");
@@ -139,6 +147,11 @@ static void verify_contents(void) {
     if (close(executable) || close(manifest) || waitpid(pid, &status, 0) != pid ||
         !WIFEXITED(status) || WEXITSTATUS(status)) stop("root-content");
 }
+static void verify_metadata(void) { verify_metadata_path("/rootfs.meta"); }
+static void verify_contents(void) { verify_contents_path("/rootfs.sha256"); }
+#ifdef S22_DEBIAN_DEVICE
+#include "device/target.inc.c"
+#endif
 int main(void) {
     if (getpid() != 1) stop("not-pid1");
     umask(022);
@@ -146,17 +159,28 @@ int main(void) {
     directory("/dev", 0755); directory("/run", 0755); directory("/newroot", 0755);
     mount_at("proc", "/proc", "proc", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL);
     mount_at("sysfs", "/sys", "sysfs", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL);
+#ifndef S22_DEBIAN_DEVICE
     /* This validation image is deliberately bound to the virt board. */
     char compatible[17];
     read_exact("/sys/firmware/devicetree/base/compatible", compatible, sizeof(compatible));
     if (memcmp(compatible, "linux,dummy-virt", 16)) stop("not-h0-virt");
+#endif
     mount_at(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL);
     mount_at("tmpfs", "/dev", "tmpfs", MS_NOSUID, "mode=0755");
     if (mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1)) ||
         mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3))) stop("essential-nodes");
     int console = open("/dev/console", O_RDWR | O_NOCTTY | O_CLOEXEC);
+#ifdef S22_DEBIAN_DEVICE
+    /* FYG8 has no usable early userspace console; SysVinit also supports this
+     * headless fallback. Bootstrap diagnostics move to RAM after /run exists. */
+    if (console < 0) console = open("/dev/null", O_RDWR | O_CLOEXEC);
+#endif
     if (console < 0) stop("console");
     for (int fd = 0; fd < 3; ++fd) if (dup2(console, fd) < 0) stop("console-dup");
+#ifdef S22_DEBIAN_VIRT_TEST
+    diagnostic_console = fcntl(console, F_DUPFD_CLOEXEC, 3);
+    if (diagnostic_console < 0) stop("h0-diagnostic-console");
+#endif
     if (console > 2 && close(console)) stop("console-close");
     directory("/dev/pts", 0755); directory("/dev/shm", 01777);
     mount_at("devpts", "/dev/pts", "devpts", MS_NOSUID | MS_NOEXEC,
@@ -165,16 +189,25 @@ int main(void) {
         symlink("/proc/self/fd/0", "/dev/stdin") || symlink("/proc/self/fd/1", "/dev/stdout") ||
         symlink("/proc/self/fd/2", "/dev/stderr")) stop("device-links");
     mount_at("tmpfs", "/run", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755");
+#ifdef S22_DEBIAN_DEVICE
+    int log = open("/run/lab-bootstrap.log", O_WRONLY | O_CREAT | O_EXCL | O_APPEND | O_CLOEXEC, 0600);
+    if (log < 0) stop("bootstrap-log");
+    if (dup2(log, 1) < 0 || dup2(log, 2) < 0) stop("bootstrap-log-redirect");
+    if (close(log)) stop("bootstrap-log-close");
+    const char *root_device = target_prepare();
+#else
+    const char *root_device = "/dev/vda";
+#endif
     char *scan[] = {"/bin/busybox", "mdev", "-s", NULL};
     child(scan, NULL, 0);
     struct stat block;
-    if (lstat("/dev/vda", &block) || !S_ISBLK(block.st_mode)) stop("root-block");
-    int fd = open("/dev/vda", O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (lstat(root_device, &block) || !S_ISBLK(block.st_mode)) stop("root-block");
+    int fd = open(root_device, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     unsigned char uuid[16];
     if (fd < 0 || pread(fd, uuid, 16, 1024 + 0x68) != 16 ||
         memcmp(uuid, root_uuid, 16) || close(fd)) stop("root-uuid");
     /* Inspect before a writable mount: noload prevents ext4 journal replay. */
-    mount_at("/dev/vda", "/newroot", "ext4", MS_RDONLY, "noload");
+    mount_at(root_device, "/newroot", "ext4", MS_RDONLY, "noload");
     char marker[18];
     read_exact("/newroot/etc/lab-rootfs-id", marker, sizeof(marker));
     if (memcmp(marker, "S22PLUS_DEBIAN_V1\n", sizeof(marker))) stop("root-identity");
@@ -186,7 +219,7 @@ int main(void) {
     no_userspace_children();
     /* Do not carry the noload option into the writable lifetime. */
     if (umount("/newroot")) stop("preflight-unmount");
-    mount_at("/dev/vda", "/newroot", "ext4", 0, "errors=remount-ro");
+    mount_at(root_device, "/newroot", "ext4", 0, "errors=remount-ro,nodiscard");
     for (const char **p = (const char *[]){"dev", "proc", "sys", "run", NULL}; *p; ++p) {
         char source[32], target[64];
         snprintf(source, sizeof(source), "/%s", *p);
@@ -196,7 +229,13 @@ int main(void) {
         mount_at(source, target, NULL, MS_MOVE, NULL);
     }
     if (syscall(SYS_close_range, 3U, ~0U, 0)) stop("close-extra-fds");
+#ifdef S22_DEBIAN_VIRT_TEST
+    dprintf(1, "BOOTSTRAP_HANDOFF pid=1 children=0 backend=h0-virt-installer\n");
+#elif defined(S22_DEBIAN_DEVICE)
+    dprintf(1, "BOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n");
+#else
     dprintf(1, "BOOTSTRAP_HANDOFF pid=1 children=0 backend=h0-virt\n");
+#endif
     char *next[] = {"/bin/busybox", "switch_root", "/newroot", "/sbin/init", NULL};
     execv(next[0], next);
     stop("switch-root-exec");

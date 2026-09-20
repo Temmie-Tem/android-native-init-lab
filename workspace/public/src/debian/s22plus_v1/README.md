@@ -1,9 +1,11 @@
-# S22+ Debian construction prototype (H0)
+# S22+ Debian construction and first-boot preparation
 
 Debian 13 arm64, SysVinit and BusyBox mdev. This directory builds a private
 rootfs and an ARM64 **virt-only** initramfs, and separately compiles prospective
-FYG8 storage initialization. It does not create a Samsung boot/AP package,
-stage anything on a phone, or activate a device capability.
+FYG8 storage initialization. The separate `device/` producer now constructs
+an exact FYG8 boot/AP candidate with an embedded installer. All construction
+and VM commands remain H0; the separate reviewed device owner is required
+for any connected preparation or effect.
 
 The rootfs uses a named `lab` account with a supplied public key, disables
 password/root SSH login, and creates missing SSH host keys on first boot.
@@ -85,9 +87,37 @@ the target's reviewed update/identity mechanism replaces it.
 the exact retained vendor archive and prospective provider roots. It has no
 entrypoint and is not linked into the virt initramfs. It does not prove UFS
 probe/bind readiness, firmware availability, target device events, USB access,
-thermal behavior or recovery. The next target adapter must bind the existing
-GPT/partition/filesystem/witness, select the hardware providers and implement
-the separately reviewed staging, post-handoff observation and Android return.
+thermal behavior or recovery. The separate device adapter below binds the
+existing GPT/partition/filesystem/witness and implements hardware preparation,
+installation, post-handoff observation and Android return under its own review.
 
 See the [construction report](../../../../../docs/reports/S22PLUS_DEBIAN_BOOTSTRAP_H0_2026-09-21.md)
 for exact outcomes, retained failures, provenance and the prospective device plan.
+
+## Exact device candidate
+
+`device/prepare.py --output <fresh-private-directory>` consumes the retained
+rootfs and P399 hardware/kernel inputs. It generates unique private SSH/USB
+identities and an embedded compressed archive, compiles static ARM64 PID 1
+twice, and repacks the retained boot-v4 envelope twice. Source snapshots,
+archive content/metadata manifests and all actual bytes stay private.
+It performs no device command, staging, mount, formatting or activation.
+
+`device/vm_install_test.py build|qualify|negative` exercises the actual installer
+on a sparse regular-file disk with the sealed 4096-byte geometry and complete
+GPT. It substitutes virtual board discovery/module loading and Ethernet for
+FYG8 hardware. The tests perform installation, restricted SSH qualification,
+ordinary reboot/persistence and shutdown, plus six fail-closed cases. They
+never mount a host block device and do not establish Samsung hardware behavior.
+
+`s22plus_debian_artifact_v1.py` joins the actual AP, boot, kernel, modules,
+archive, manifests, keys and source snapshots to those retained raw VM results.
+Its qualification is H0 only. The explicit owner
+`s22plus_debian_first_boot_v1.py` uses `prepare`, `approve`, `execute` and
+`recover`; it refuses normal work without the source-bound independent review.
+Only the operator's actual returned finite attended statement may be passed
+to `approve`. Never reuse a VM key, invent that statement, replay a consumed
+installation or replace recovery with another candidate transfer.
+
+See the [first-device H0 report](../../../../../docs/reports/S22PLUS_DEBIAN_FIRST_BOOT_H0_2026-09-21.md)
+and [exact policy](../../../../../docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md).

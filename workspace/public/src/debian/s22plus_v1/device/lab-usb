@@ -1,0 +1,36 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          lab-usb
+# Required-Start:    $local_fs mdev
+# Required-Stop:
+# X-Start-Before:    lab-network ssh
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Exact FYG8 local NCM link owned by Debian
+### END INIT INFO
+set -eu
+test "$1" = start || exit 0
+. /etc/default/lab-usb
+test "$(uname -r)" = 5.10.226-android12-9-30958166-abS906NKSS7FYG8
+test -d /sys/class/udc/a600000.dwc3
+# Debian's existing rcS mount-configfs service owns this mount.
+test "$(findmnt -rn -o FSTYPE --target /sys/kernel/config)" = configfs
+g=/sys/kernel/config/usb_gadget/s22-debian
+test ! -e "$g"
+mkdir "$g"
+printf '0x1d6b' > "$g/idVendor"
+printf '0x0104' > "$g/idProduct"
+mkdir "$g/strings/0x409"
+printf '%s' "$serial" > "$g/strings/0x409/serialnumber"
+printf 'S22 Debian research' > "$g/strings/0x409/product"
+printf 'Linux' > "$g/strings/0x409/manufacturer"
+mkdir "$g/configs/c.1" "$g/functions/ncm.usb0"
+printf '%s' "$host_mac" > "$g/functions/ncm.usb0/host_addr"
+printf '%s' "$device_mac" > "$g/functions/ncm.usb0/dev_addr"
+ln -s "$g/functions/ncm.usb0" "$g/configs/c.1/ncm.usb0"
+# Same fixed role control as the retained platform. No native observer remains.
+printf peripheral > /sys/devices/platform/soc/a600000.ssusb/mode
+printf a600000.dwc3 > "$g/UDC"
+ip link set lo up
+ip address add "$device_address" dev usb0
+ip link set usb0 up

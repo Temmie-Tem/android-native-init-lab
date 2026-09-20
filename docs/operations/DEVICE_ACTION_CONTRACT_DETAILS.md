@@ -75,6 +75,9 @@ permission to perform host-only work.
    The separate exact S22+ native ext4 exception below permits one filesystem
    initialization and fixed witness only within the retained native_data extent;
    all image transfers remain boot only and Android32 userdata is preserved.
+   The separate exact S22+ Debian first-boot exception below permits one
+   installation into that existing native_data filesystem and its declared
+   Debian lifetime. It permits no format, repair, GPT change or Android stage.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
@@ -82,6 +85,9 @@ permission to perform host-only work.
    ordinary stock-recovery formatting for that one target/layout transaction.
    The separate exact S22+ native ext4 exception below specializes formatting,
    filesystem reads/mounts and fixed witness writes only on its sealed entry 41.
+   The separate exact S22+ Debian first-boot exception specializes only the
+   declared read-only GPT binding, native_data mounts and rootfs writes; it
+   authorizes no formatting, repair or partition-table mutation.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -742,6 +748,37 @@ The exact target adoption, independent review of this exception and reachable
 owner/native closure, actual A/B artifact qualification and an explicit returned
 finite task grant are required before any effect. This is a permanent narrow
 exception, not a temporary gate or an extension of consumed G2 authority.
+
+## S22+ Debian first installation and full PID 1 handoff
+
+The [Debian first-boot V1 policy](S22PLUS_DEBIAN_FIRST_BOOT_V1.md) is incorporated
+at this same common-contract precedence as a separate review-gated exception
+to boundaries 2 and 3, only for `SM-S906N/g0q/S906NKSS7FYG8`. One fresh boot-only
+image embeds a content-bound archive and fixed installer. It may populate only
+the existing exact native_data extent and then exec Debian SysVinit as initial
+PID 1. It preserves the complete Android32 GPT, filesystem identity and witness;
+it has no formatter, repair, GPT writer, Android staging or other-partition
+authority. Private RAM block aliases, full read-only GPT checks and the fixed
+filesystem checker have precisely the incorporated policy's scope.
+
+One attended grant binds at most 7200 original BOOTTIME seconds, one candidate
+transfer/installation, one fixed service/package workload, one ordinary Debian
+reboot, one shutdown request and one original-A restoration. A durable host
+installation claim precedes any possible candidate boot. An exclusive synced
+device start marker precedes extraction; partial/dirty state never reinstalls.
+Debian owns its declared services and local pinned-key NCM/SSH link. The policy
+explicitly admits ordinary native_data metadata/journal and declared rootfs
+writes; it does not claim a zero-write Linux lifetime.
+
+The shared target lease/F1 owner/content registry remain mandatory. A durable
+effect survives host loss; recovery journal epochs preserve earlier intents
+without renewing research. Only actual attended exact Download arrival permits
+the original-A transfer, and an A intent permits no retransmission. Recovery
+does not depend on candidate-only inputs or unexpired research time. Android
+root/partition hashes, unchanged GPT and exact Android32 capacity close the
+return separately from native filesystem integrity. This permanent narrow
+definition needs exact target adoption, independent source review, actual
+artifact qualification and an explicit returned finite grant before effects.
 
 ## Bounded Attended F1 Sessions
 

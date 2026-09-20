@@ -53,6 +53,83 @@ class ConsumedCandidateRegistryTest(unittest.TestCase):
             },
         )
 
+    def relocated_fixture(self, root):
+        module = self.module
+        (root / 'workspace/private').mkdir(parents=True)
+        module.initialize(root)
+        module.claim(root, self.identity())
+        registry = module.registry_root(root)
+        activation_bytes = (registry / module.ACTIVATION_NAME).read_bytes()
+        activation = module._parse_json(activation_bytes, 'fixture activation')
+        for name, payload in ((module.LOCK_NAME, module.LOCK_PAYLOAD),
+                              (module.SESSION_LOCK_NAME, module.SESSION_LOCK_PAYLOAD)):
+            replacement = registry / (name + '.replacement')
+            replacement.write_bytes(payload); replacement.chmod(0o600)
+            os.replace(replacement, registry / name)
+        evidence = root / 'workspace/private/migration-evidence.json'
+        evidence.write_bytes(module._canonical({'old_and_new_bytes_identical': True}))
+        evidence.chmod(0o400)
+        locks = {'writer_lock_identity': module.LOCK_NAME, 'session_lock_identity': module.SESSION_LOCK_NAME}
+        value = dict(schema='device_action_f1_registry_host_relocation_v1',
+            activation=module._identity(activation_bytes), old_locks={k: activation[k] for k in locks},
+            new_locks={k: module._lock_path_identity(registry / name) for k, name in locks.items()},
+            records_prefix=[dict(name=p.name, **module._identity(p.read_bytes()))
+                            for p in sorted((registry / module.RECORDS_NAME).iterdir())],
+            checkpoint_head=module._identity((registry / module.HEAD_NAME).read_bytes()),
+            evidence=dict(path=str(evidence), **module._identity(evidence.read_bytes())))
+        data = module._canonical(value)
+        module._write_no_replace(root / module.RELOCATION_PATH, data, mode=0o400)
+        return value, module._identity(data), activation_bytes
+
+    def test_reviewed_relocation_preserves_claims_and_allows_normal_append(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            value, receipt, original = self.relocated_fixture(root)
+            with mock.patch.object(self.module, 'RELOCATION_RECORD', receipt):
+                self.assertEqual(self.module.validate(root)['record_count'], 1)
+                with self.assertRaises(self.module.DuplicateCandidateClaim):
+                    self.module.preflight_candidate(root, self.identity())
+                with self.module.target_session_lease(root):
+                    self.module.claim(root, self.identity(profile_suffix='-after-move'))
+                self.assertEqual(self.module.validate(root)['record_count'], 2)
+                self.assertEqual((self.module.registry_root(root) / self.module.ACTIVATION_NAME).read_bytes(), original)
+
+    def test_unreviewed_relocation_receipt_cannot_authorize_inode_replacement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.relocated_fixture(root)
+            with self.assertRaisesRegex(self.module.RegistryError, 'not the exact reviewed receipt'):
+                self.module.validate(root)
+
+    def test_relocation_prefix_cannot_be_lost_even_with_a_valid_older_head(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            value, receipt, _ = self.relocated_fixture(root)
+            registry = self.module.registry_root(root)
+            (registry / self.module.RECORDS_NAME / value['records_prefix'][0]['name']).unlink()
+            self.module._write_head(registry / self.module.HEAD_NAME,
+                                    self.module._head_value(0, -1, self.module.ZERO_SHA256))
+            with mock.patch.object(self.module, 'RELOCATION_RECORD', receipt):
+                with self.assertRaises(self.module.RegistryError): self.module.validate(root)
+
+    def test_relocation_does_not_admit_another_lock_replacement_or_original_lock_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            value, receipt, _ = self.relocated_fixture(root)
+            registry = self.module.registry_root(root)
+            replacement = registry / 'new-lock'
+            replacement.write_bytes(self.module.LOCK_PAYLOAD); replacement.chmod(0o600)
+            os.replace(replacement, registry / self.module.LOCK_NAME)
+            with mock.patch.object(self.module, 'RELOCATION_RECORD', receipt):
+                with self.assertRaisesRegex(self.module.RegistryError, 'lock binding differs'):
+                    self.module.validate(root)
+                def original_identity(path):
+                    key = 'writer_lock_identity' if path.name == self.module.LOCK_NAME else 'session_lock_identity'
+                    return value['old_locks'][key]
+                with mock.patch.object(self.module, '_lock_path_identity', side_effect=original_identity):
+                    with self.assertRaisesRegex(self.module.RegistryError, 'lock binding differs'):
+                        self.module.validate(root)
+
     def test_append_chain_duplicate_and_parse_release_are_durable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

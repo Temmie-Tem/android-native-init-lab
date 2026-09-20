@@ -1,0 +1,68 @@
+#!/bin/sh
+# The root SSH key is restricted to this finite qualification vocabulary.
+set -eu
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
+case "${SSH_ORIGINAL_COMMAND:-}" in
+ health)
+  test "$(readlink /proc/1/exe)" = /usr/sbin/init
+  test "$(stat -c %d /)" = "$(stat -Lc %d /proc/1/root)"
+  # This exact target kernel has CONFIG_PID_NS disabled.
+  test ! -e /proc/1/ns/pid
+  test "$(cat /proc/1/comm)" = init
+  test "$(find /dev -xdev -type b -print)" = /dev/.s22-ext4-v1/native
+  test -f /.s22-debian-complete-v1
+  test ! -e /etc/lab-h0-virt
+  cat /etc/lab-device-id /run/lab-bootstrap.log /run/lab/boot-receipt
+  cat /proc/sys/kernel/random/boot_id
+  cat /var/lib/lab/boot-count
+  if test -f /var/lib/lab/reboot-start; then
+   printf 'reboot_source_boot='
+   cat /var/lib/lab/reboot-start
+  fi
+  service ssh status
+  service cron status
+  printf 'DEBIAN_HEALTH_PASS\n'
+  ;;
+ workload)
+  test "$(cat /var/lib/lab/boot-count)" = 1
+  # One exclusive receipt consumes this command even if any later step fails.
+  (set -C; printf 'started\n' > /var/lib/lab/workload-start)
+  sync /var/lib/lab/workload-start
+  sync -f /var/lib/lab
+  service lab-log restart
+  logger -t lab-qualification services-started
+  service cron restart
+  printf '* * * * * root /bin/sh -c "echo CRON_EXECUTED > /var/lib/lab/cron-result"\n' > /etc/cron.d/lab-qualification
+  chmod 0644 /etc/cron.d/lab-qualification
+  dpkg -i /usr/local/lib/lab-offline/hello.deb
+  test "$(hello)" = 'Hello, world!'
+  printf 'S22_DEBIAN_PERSISTENCE_V1\n' > /var/lib/lab/persistence
+  sync -f /
+  printf 'DEBIAN_WORKLOAD_DISPATCHED\n'
+  ;;
+ workload-result)
+  test "$(cat /var/lib/lab/cron-result)" = CRON_EXECUTED
+  test "$(cat /var/lib/lab/persistence)" = S22_DEBIAN_PERSISTENCE_V1
+  test "$(hello)" = 'Hello, world!'
+  test "$(dpkg-query -W -f='${Status}' hello)" = 'install ok installed'
+  grep -q 'lab-qualification.*services-started' /var/log/messages
+  printf 'DEBIAN_WORKLOAD_PASS\n'
+  ;;
+ reboot)
+  test "$(cat /var/lib/lab/boot-count)" = 1
+  test -f /var/lib/lab/persistence
+  (set -C; cat /proc/sys/kernel/random/boot_id > /var/lib/lab/reboot-start)
+  rm /etc/cron.d/lab-qualification
+  sync -f /
+  /sbin/shutdown -r now
+  printf 'DEBIAN_REBOOT_REQUEST_ACCEPTED\n'
+  ;;
+ shutdown)
+  test "$(cat /var/lib/lab/boot-count)" = 2
+  (set -C; cat /proc/sys/kernel/random/boot_id > /var/lib/lab/shutdown-start)
+  sync -f /
+  /sbin/shutdown -h now
+  printf 'DEBIAN_SHUTDOWN_REQUEST_ACCEPTED\n'
+  ;;
+ *) exit 64 ;;
+esac

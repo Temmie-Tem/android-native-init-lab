@@ -309,6 +309,31 @@ Independent exception/closure review, fresh A/B artifact qualification and an
 actual returned finite grant remain necessary. This adoption grants no effect
 by itself and cannot reopen any prior G2 or cleanup run.
 
+### Debian first installation and full PID 1 handoff V1
+
+The common-incorporated [Debian first-boot V1 policy](../S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
+is adopted as a **REVIEW_GATED_CAPABILITY** only through
+`s22plus_debian_first_boot_v1.py`. It is separate from the consumed ext4 task,
+V3 native admission and CDC CONTROL. One fresh embedded archive may install
+into the already initialized native_data filesystem, preserve its witness,
+and hand initial PID 1 to Debian. One attended 7200-second grant contains the
+single install/workload/ordinary-reboot/shutdown/physical-original-A-return
+sequence defined by the common policy. It authorizes no format, repair, GPT
+change, old-image replay, later Debian session or arbitrary root SSH command.
+
+After its independent review is current, the foreground operator request for
+this first Debian unit also admits its fixed preparation D0: the existing
+seven-command exact Android root-health bracket, shell-v2 tail-nine GPT read,
+fixed native partition/statfs observation and final same-boot health bracket.
+These named reads use the closed P399/P400 Android32 return basis, cannot mount,
+create aliases, stage files or change mode, and require no per-read human
+approval or attendance. A failed read may be reobserved through that fixed
+profile; it never resolves a pending write/control owner or grants execution.
+Actual installation still needs complete qualification, current healthy target,
+demonstrated physical recovery and the explicit attended finite grant. Original-A
+recovery remains owned after a host cut or deadline expiry; every intent stays
+consumed and Android return does not undo or qualify incomplete rootfs writes.
+
 ### G2 exact reservation/Android32 resize and stock initialization
 
 The common-incorporated [G2 policy](../S22PLUS_NATIVE_GPT_RESERVATION_V1.md) is

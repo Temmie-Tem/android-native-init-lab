@@ -282,6 +282,7 @@ static int fs1_pin_file(const char *path, uint64_t size, const uint8_t digest[32
     return fd;
 }
 
+#ifndef FS1_READONLY_BINDING_ONLY
 static int fs1_tool(struct fs1_endpoint *e, bool formatter) {
     int fd = fs1_pin_file(formatter ? fs1_formatter : fs1_checker,
         formatter ? fs1_formatter_size : fs1_checker_size,
@@ -464,3 +465,4 @@ int main(int argc, char **argv) {
     if (fflush(stdout)) return 120;
     return rc || cleanup ? 1 : 0;
 }
+#endif /* FS1_READONLY_BINDING_ONLY: no formatter or old endpoint entrypoint. */

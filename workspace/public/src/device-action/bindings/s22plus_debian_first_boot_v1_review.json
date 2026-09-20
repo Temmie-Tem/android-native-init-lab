@@ -1,0 +1,197 @@
+{
+  "capability_sources": [
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/AGENTS.md",
+      "sha256": "89f9aef00a7737941d13295cddac62100eeb4d473a13d6184ad7eab9aa297927",
+      "size": 22786
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md",
+      "sha256": "42e377b582fc8c25c7cb32d83a4086125704fa5be2c4ba648a5f6936e85e819d",
+      "size": 64536
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/DEVICE_ACTION_PROCESS_V2.md",
+      "sha256": "c80894195fde8aa2a851c74d8c9b0044bff41069aa7700f3548df570917198e2",
+      "size": 43682
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+      "sha256": "102f1d1bcbc11d58d7931fd197d8cd0e06d33d5f737f7c63f37f5dd335ebfe65",
+      "size": 32939
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md",
+      "sha256": "3e6a4c3bdd8e747df808a84bcead8acb68c9783962583010b337c230f53847c8",
+      "size": 7396
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
+      "sha256": "c5643918bf34cffeab96a8443332c34f9d85108400203649d4c1942eab0d6911",
+      "size": 156571
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/device/lab-qualify",
+      "sha256": "2cd711e2743a613d6bbfd5ad440ed080356124a8a6165cba67ce8a59a521ae1b",
+      "size": 2479
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/device/lab-usb",
+      "sha256": "6ebf6ee0c154f80f71fd7587c0458f86d97a6c6161e552e5d5309c59b6a7aeff",
+      "size": 1374
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/device/prepare.py",
+      "sha256": "92f19ffac71212e710c266c2dce4aeb7abf4e2489f9b9e85c1d0705df3bfc422",
+      "size": 22044
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/device/target.inc.c",
+      "sha256": "d10c950cbdfc67566659c74dbd459b9482ae233dd57edcd03a12993a61029a1d",
+      "size": 9672
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/device/virt-binding.inc.c",
+      "sha256": "7717ce188a238a4c46ec6fd95bddbcec4ee591c0e1ca961a0265219ff47e564c",
+      "size": 1579
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/device/vm_install_test.py",
+      "sha256": "4e57b5ccf62fb75051685549291414d11525c09c45f3fcaf896f419cf5e3540d",
+      "size": 23002
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/h0.py",
+      "sha256": "9fbd4dde9355091b4794110ebb9666313da157d64147adcfd1edb76af59422eb",
+      "size": 13712
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/debian/s22plus_v1/handoff.c",
+      "sha256": "cb5e24f701d347634e53a2f07d016272aa61e8a11d6e604b2ac845a440df95d6",
+      "size": 10829
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+      "sha256": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+      "size": 2285
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/native-init/s22plus_fyg8_max77705_result_parser.inc.c",
+      "sha256": "8c02d0e9e55aed5dcea65d0ced830ba03985886517c73774cec7f2cf9cc1da4c",
+      "size": 22556
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/native-init/s22plus_native_ext4_core_v1.h",
+      "sha256": "e326a953348ff1df9a37c9512abd3b0889102c81efb45e160cefd6d49a59ea69",
+      "size": 4968
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/native-init/s22plus_native_ext4_v1.c",
+      "sha256": "a94c4bb1bbad0dcfbeff8c7582d2b81953491bea37f68e1583cfbdcd828c7467",
+      "size": 23672
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_debian_artifact_v1.py",
+      "sha256": "612be73226d27d643f0dc3f4f501e4cd94a656ad27b849f861149648e195e840",
+      "size": 27203
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_debian_profile_v1.py",
+      "sha256": "8037c2a3bdf62d98019175158c00b1651524eff1b6f560e5340a2b489b728f06",
+      "size": 1174
+    }
+  ],
+  "findings": [],
+  "owner_sources": [
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py",
+      "sha256": "e67d75137469f0435c3b9e8780c1b81d8bd5fda2d8142e03499d09784443cead",
+      "size": 60232
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py",
+      "sha256": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
+      "size": 25006
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_boot_only_f1_transport.py",
+      "sha256": "767d236cc66d8dd27a074fe52c1a34d88bf2361f316f471d2ccc9b50c5e70d27",
+      "size": 11380
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_boot_only_live_core.py",
+      "sha256": "f5411d39e11e1f5e2b4ff63c0fe6c3a1874ef0dd5c33c91cbab4f736f4521af1",
+      "size": 12054
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_boot_verify.py",
+      "sha256": "e19d604039a744d14bcdbb495951e95f86666b6927061529e440aacb4b63381d",
+      "size": 37806
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_debian_first_boot_v1.py",
+      "sha256": "e07bbc50ee922f07d5cba2f3c246a30146e0ea7601305faf179d87d5ddc4ac8a",
+      "size": 54851
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_fyg8_p324_typec_lane_binding.py",
+      "sha256": "6a7642a632eb51396407b883a0106dadd9c7a7233e005f735bf003e6fff089ef",
+      "size": 16248
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py",
+      "sha256": "994f3aa3060ff13e54bbe504d4ce9505c32e8ecaa12cb0d6cca952a31838979d",
+      "size": 13763
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_ext4_profile_v1.py",
+      "sha256": "91b24db45ce952ac803eaf62684032955585395ddc059c2abb9f032da9111d20",
+      "size": 12267
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_gpt_android_v1.py",
+      "sha256": "feebfacc2e9a39493ad7faa4ecd2a3b74cec9634502d42be6ca7e623fc939665",
+      "size": 11486
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_gpt_profile_v1.py",
+      "sha256": "da42b79bfd1cda491d22f202d0b0b976b9a1a5ffddba0c04cb126060bedcb32c",
+      "size": 10070
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_records_v3.py",
+      "sha256": "111611417233cd9c3a793ec754bdf9ae8b98c864d405d273083301a2e78ea0e4",
+      "size": 6915
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_storage_census_v1.py",
+      "sha256": "2aefdbf8105ab30f2f05438eb086e89c27bd78adc116b7d82ad028746815a7a7",
+      "size": 12240
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_target_io_v3.py",
+      "sha256": "811248dafe96361de920930326ee5b3a96da8510aed5c0c9ec2dde14f7c4ea75",
+      "size": 12593
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_odin_transition_core.py",
+      "sha256": "26a5a5a446987a21165622d1e79b98505c720fea2f1460d3e05af175a62c0bf7",
+      "size": 78848
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_odin_usbfs_identity.py",
+      "sha256": "9266f0a4a0f10dcd4f8a7b55fa2d2079afd2a1480e310ab6667f6bf2cf491451",
+      "size": 31458
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_root_console_v1.py",
+      "sha256": "2db55b8a46137182c4879f973a368b066ce89439c55ff9a43b5bd222fce355a3",
+      "size": 18994
+    }
+  ],
+  "review_request_sha256": "ac7b27457051c0b5ed3f2f8fbb479c903ed9e10280ea448d5ec5c0bee0b8c206",
+  "reviewer": "independent debian_h0_review",
+  "schema": "s22plus-debian-first-boot-v1-review",
+  "scope": "Common exception, target adoption, exact first-install F1 owner/native closure, actual artifact, ARM64 evidence and exact host SSD registry relocation; no run grant",
+  "verdict": "PASS_GO"
+}

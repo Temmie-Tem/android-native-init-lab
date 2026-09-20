@@ -54,6 +54,11 @@ MAX_LOCK_BYTES = 256
 LOCK_PAYLOAD = b"device-action-f1-consumed-candidate-registry-v1\n"
 SESSION_LOCK_PAYLOAD = b"device-action-f1-target-session-lease-v1\n"
 ZERO_SHA256 = "0" * 64
+# One independently reviewed host-filesystem relocation. Original activation
+# and every consumed record remain immutable. This is not a general reset API.
+RELOCATION_PATH = Path('workspace/private/registry-host-relocation-20260921-v1.json')
+RELOCATION_RECORD = {'size': 10931, 'sha256': '224df3e82b8ac7c3d4d7d4611c79350bfec23da511aba960a98260bc6bfffb99'}
+RELOCATION_REQUIRED_ROOT = REPO_ROOT
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 ID_RE = re.compile(r"[a-z0-9][a-z0-9._-]{2,95}\Z")
 HEAD_TEMP_RE = re.compile(r"\.head\.json\.next-[0-9]+-[0-9]+\Z")
@@ -357,6 +362,58 @@ def _validate_lock(path: Path, expected_payload: bytes = LOCK_PAYLOAD) -> None:
         raise RegistryError("registry writer lock identity differs")
 
 
+def _same_lock_set(expected: Mapping[str, Any], current: Mapping[str, Any]) -> bool:
+    fields = {'st_dev', 'st_ino', 'st_size', 'mode', 'nlink'}
+    keys = {'writer_lock_identity', 'session_lock_identity'}
+    if set(expected) != keys or set(current) != keys:
+        return False
+    if any(not isinstance(row, dict) or set(row) != fields or
+           not all(_strict_int(v) and v >= 0 for v in row.values())
+           for rows in (expected, current) for row in rows.values()):
+        return False
+    # Linux may renumber the filesystem device after reboot; inode and all
+    # other lock attributes must still match, for both locks on the same FS.
+    return (len({v['st_dev'] for v in expected.values()}) == 1 and
+            len({v['st_dev'] for v in current.values()}) == 1 and
+            all(expected[key][field] == current[key][field]
+                for key in keys for field in fields - {'st_dev'}))
+
+
+def _validate_host_relocation(repo_root: Path, activation_data: bytes,
+                              expected: Mapping[str, Any], current: Mapping[str, Any]) -> None:
+    data = _read_regular(repo_root / RELOCATION_PATH, 'reviewed host relocation', mode=0o400, maximum=MAX_RECORD_BYTES)
+    if _identity(data) != RELOCATION_RECORD:
+        raise RegistryError('host relocation is not the exact reviewed receipt')
+    value = _parse_json(data, 'host relocation')
+    if (set(value) != {'schema', 'activation', 'old_locks', 'new_locks', 'records_prefix', 'checkpoint_head', 'evidence'} or
+        value['schema'] != 'device_action_f1_registry_host_relocation_v1' or
+        value['activation'] != _identity(activation_data) or value['old_locks'] != expected or
+        not _same_lock_set(value['new_locks'], current)):
+        raise RegistryError('host relocation activation or lock binding differs')
+    prefix = value['records_prefix']
+    if not isinstance(prefix, list) or not 1 <= len(prefix) <= MAX_RECORDS:
+        raise RegistryError('host relocation consumed prefix is absent')
+    for index, row in enumerate(prefix):
+        if (not isinstance(row, dict) or set(row) != {'name', 'size', 'sha256'} or
+            re.fullmatch(f'{index:08d}-(?:claim|release)\\.json', str(row.get('name'))) is None):
+            raise RegistryError('host relocation prefix sequence differs')
+        body = _read_regular(_fixed_root(repo_root) / RECORDS_NAME / row['name'],
+                             'retained migration prefix', mode=0o400, maximum=MAX_RECORD_BYTES)
+        if _identity(body) != {k: row[k] for k in ('size', 'sha256')}:
+            raise RegistryError('host relocation consumed prefix changed')
+    # The current head may advance normally. _scan still verifies its complete
+    # chain; the immutable prefix above can never shrink or be substituted.
+    evidence = value['evidence']
+    if not isinstance(evidence, dict) or set(evidence) != {'path', 'size', 'sha256'}:
+        raise RegistryError('host relocation evidence binding differs')
+    path = Path(evidence['path'])
+    if not path.is_absolute() or path.resolve() != path or not path.is_relative_to(Path(repo_root).resolve() / 'workspace/private'):
+        raise RegistryError('host relocation evidence leaves the private repository')
+    body = _read_regular(path, 'host relocation retained evidence', mode=0o400, maximum=MAX_RECORD_BYTES)
+    if _identity(body) != {k: evidence[k] for k in ('size', 'sha256')}:
+        raise RegistryError('host relocation retained evidence changed')
+
+
 def _validate_layout(repo_root: Path) -> tuple[Path, Path, Path, Path]:
     root, records, head, lock = _paths(repo_root)
     _direct_dir(root, "registry root", mode=0o700)
@@ -394,19 +451,11 @@ def _validate_layout(repo_root: Path) -> tuple[Path, Path, Path, Path]:
             raise RegistryError("registry activation lock identity differs")
         expected_locks[key] = expected_identity
         current_locks[key] = _lock_path_identity(path)
-    if expected_locks != current_locks:
-        stable_fields = lock_fields - {"st_dev"}
-        synchronized_device_renumber = (
-            len({value["st_dev"] for value in expected_locks.values()}) == 1
-            and len({value["st_dev"] for value in current_locks.values()}) == 1
-            and all(
-                expected_locks[key][field] == current_locks[key][field]
-                for key in lock_paths
-                for field in stable_fields
-            )
-        )
-        if not synchronized_device_renumber:
-            raise RegistryError("registry lock was replaced after activation")
+    relocation = Path(repo_root) / RELOCATION_PATH
+    if Path(repo_root).resolve() == RELOCATION_REQUIRED_ROOT or relocation.exists() or relocation.is_symlink():
+        _validate_host_relocation(repo_root, activation_data, expected_locks, current_locks)
+    elif not _same_lock_set(expected_locks, current_locks):
+        raise RegistryError("registry lock was replaced after activation")
     for item in activation["legacy_candidates"]:
         if not isinstance(item, dict) or set(item) != {"candidate_ap_size", "candidate_ap_sha256", "boot_member_name", "boot_member_size", "boot_member_sha256", "source_result"} or not _strict_int(item.get("candidate_ap_size")) or not _strict_int(item.get("boot_member_size")) or not SHA256_RE.fullmatch(str(item.get("candidate_ap_sha256"))) or not SHA256_RE.fullmatch(str(item.get("boot_member_sha256"))) or item.get("boot_member_name") != "boot.img.lz4" or not isinstance(item.get("source_result"), dict) or set(item["source_result"]) != {"path", "size", "sha256"}:
             raise RegistryError("registry legacy activation entry differs")

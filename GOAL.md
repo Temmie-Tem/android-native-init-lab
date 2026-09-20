@@ -305,8 +305,12 @@ assumed.
 
 ## Next bounded unit and milestones
 
-**Native ext4 unit closed; matched rootfs/bootstrap H0 construction completed;
-next is the exact target adapter and staging/recovery design review.**
+**Native ext4 unit closed; the P401 first-device candidate and explicit
+Debian/Android owner are constructed. Independent capability review passed,
+including the exact host SSD lock relocation. Fresh connected preparation is
+complete: 17 fixed D0 reads prove healthy rooted Android, unchanged GPT and
+Android32 capacity. The concrete attended 7200-second proposal awaits the
+operator's returned grant; no reboot, transfer or installation has occurred.**
 P399 `v0.3.1-rc.1` and P400 `v0.3.1-rc.2`, their filesystem attempt and finite
 grant are consumed. Preserve the existing filesystem and witness; do not
 reformat or replay these images to obtain a different aggregate verdict.
@@ -328,14 +332,22 @@ persistence and clean shutdown. Six rejection cases stop before handoff without
 changing their disks. Independent H0 review passed after retained corrections.
 These are virt results; target Debian boot and recovery remain unproved.
 
-The separate 42-module prospective FYG8 storage object no longer needs a DRM
-renderer, but it is compile-only and has no target entrypoint. Next, join exact
-hardware preparation and existing GPT/partition/filesystem/witness binding to
-the handoff, and implement the report's bounded staging, Debian-owned USB/SSH
-observation and attended Android-return design. The virt bootstrap's fixed
-manifest is an H0 fixture, not a general Debian update policy. Rootfs staging
-needs its own reviewed persistent-write scope; the closed ext4 grant authorizes
-no staging. No fresh Samsung boot/AP candidate or live capability was produced.
+The [first-device preparation](docs/reports/S22PLUS_DEBIAN_FIRST_BOOT_H0_2026-09-21.md)
+now provides P401 `v0.4.0-rc.1`: a byte-identical A/B boot-only candidate with
+an embedded rootfs, exact retained FYG8 kernel/platform modules and a fixed
+native ext4 installer. The real ARM64 installer fixture proves full PID 1
+handoff, local SSH/PTY, offline package/service behavior, ordinary reboot,
+persistence and shutdown. Its physical-board substitutions remain explicit.
+Six failures cover storage/archive binding and partial-install no-replay.
+
+The [separate first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
+requires the source-bound independent review, actual artifact qualification,
+current exact Android health and one returned attended grant of at most 7200
+seconds. The intended run installs once, qualifies one Debian reboot, requests
+shutdown and restores original A once through attended physical Download.
+Returning to Android preserves the Debian files and does not prove unobserved
+native filesystem integrity. The consumed ext4 grant grants none of these
+effects. Actual Samsung Debian boot and this recovery sequence remain unproved.
 
 Then qualify these bounded functional milestones in order:
 
@@ -343,10 +355,10 @@ Then qualify these bounded functional milestones in order:
    and a byte-identical 4096-byte witness after fresh native boot are proved by
    the first run. Rooted Android return was verified through health-only
    recovery. Preserve the distinct conservative aggregate verdict above.
-2. **Matched rootfs and bootstrap:** H0 rootfs/virt construction and validation
-   complete. Join the remaining exact device configuration and boot inputs,
-   then stage them only through a separately reviewed persistent-write
-   capability. A diagnostic shell does not replace the full handoff.
+2. **Matched rootfs and bootstrap:** H0 construction and the first exact FYG8
+   boot candidate are complete. Installation awaits the separately reviewed
+   persistent-write capability and actual attended grant. A diagnostic shell
+   does not replace the full handoff.
 3. **Full init handoff:** prove Debian host PID 1 and root ownership, including
    bootstrap/helper cleanup and the post-handoff observation/recovery path.
 4. **Headless Debian operation:** qualify Debian-owned networking, authenticated
