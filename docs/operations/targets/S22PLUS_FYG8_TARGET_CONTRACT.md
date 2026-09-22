@@ -334,6 +334,32 @@ reobservation after a pure read failure. They cannot mount or inspect native
 files or perform control. No experimental image is transferred until the
 operator returns the concrete finite grant.
 
+### Fixed installed-Debian userspace probe V1
+
+The common-incorporated [userspace probe V1](../S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)
+is adopted only as V3's `userspace-probe` operation. Its fresh one-shot N starts
+from healthy original A, performs one fixed protected-root execution probe and
+returns once to the same A with full Android32 health. One returned attended
+grant permits one operation and at most 1800 seconds; there is no native
+admission, E, prior tail, additional operation, reconnect or HUD.
+
+The complete root match, exact installation records/witness and partition-only
+RAM RO control precede the fixed child. Only the child's private mount may
+enable exec through a readonly bind remount. The chroot child drops UID/GID,
+groups and capabilities, closes inherited extra descriptors, enables
+no_new_privs and executes only the fixed installed shell/libc/fork/exit workload.
+The parent retains noexec; child/group settlement, bounded raw output, ordinary
+unmount and unchanged superblock/GPT are required independently of final Android
+health. No installation, repair, persistent write, service, network operation,
+PID 1 handoff or consumed-image replay is authorized.
+
+Existing V3 physical original-A recovery, same-host epoch and health-only
+continuation remain unchanged. Its separate independent source review and
+actual candidate qualification do not open a grant. The current foreground
+task adopts only the same fixed Android preparation root-health/shell-v2/GPT/
+statfs reads, with preserved-evidence reobservation after a pure read failure.
+No new experiment image transfers until the concrete finite start is returned.
+
 ### Debian first installation and full PID 1 handoff V1
 
 The common-incorporated [Debian first-boot V1 policy](../S22PLUS_DEBIAN_FIRST_BOOT_V1.md)

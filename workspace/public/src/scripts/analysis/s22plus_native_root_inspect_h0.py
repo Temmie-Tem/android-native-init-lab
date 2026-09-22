@@ -1,5 +1,6 @@
 """Build the bounded ARM64 inspector and its table from the consumed P401 tar."""
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import stat
@@ -69,10 +70,23 @@ def binding(folder, helper):
         max_hashed_bytes=512 * 1024 * 1024, kernel_partition_ro=True, persistent_writes=False)
 
 
-def build(output, run_id, *, virt=False):
+def source_files(*, userspace=False):
+    if not userspace: return SOURCE_FILES
+    import s22plus_native_userspace_probe_profile_v1 as probe
+    return (*SOURCE_FILES, Path(probe.__file__), NATIVE / 's22plus_native_userspace_probe_v1.c')
+
+
+def userspace_header():
+    import s22plus_native_userspace_probe_profile_v1 as probe
+    return ('/* Fixed reviewed installed-Debian workload. */\n'
+        'static const char up_script[]=' + json.dumps(probe.WORKLOAD.decode('ascii')) + ';\n'
+        'static const char up_expected[]=' + json.dumps(probe.EXPECTED_STDOUT.decode('ascii')) + ';\n').encode()
+
+
+def build(output, run_id, *, virt=False, userspace=False):
     output = private_path(ROOT, output, exists=False)
     require(not output.exists(), 'fresh root inspector build output required')
-    sources = [pin(path, maximum=4 * 1024 * 1024) for path in SOURCE_FILES]
+    sources = [pin(path, maximum=4 * 1024 * 1024) for path in source_files(userspace=userspace)]
     if virt:
         sources.append(pin(ROOT / 'workspace/public/src/debian/s22plus_v1/device/virt-binding.inc.c'))
     table, count, boot_count = table_bytes()
@@ -80,6 +94,7 @@ def build(output, run_id, *, virt=False):
     (output / 's22plus_native_ext4_seal_v1.h').write_bytes(fs_build.seal(profile.filesystem.BINDING, run_id, initialize=False))
     (output / 's22plus_native_root_inspect_seal_v1.h').write_bytes(header(table, count, boot_count))
     (output / 'table.bin').write_bytes(table)
+    if userspace: (output / 's22plus_native_userspace_probe_seal_v1.h').write_bytes(userspace_header())
     flags = ['-std=c11', '-static', '-Os', '-fno-ident', '-ffunction-sections', '-fdata-sections',
         '-Wl,--gc-sections', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function', '-Wno-unused-const-variable',
         '-I', output, '-I', NATIVE]
@@ -87,8 +102,9 @@ def build(output, run_id, *, virt=False):
     compiler = shutil.which('aarch64-linux-gnu-gcc')
     require(compiler is not None, 'ARM64 compiler absent')
     compiler_pin = fs_build.compiler_identity(compiler)
+    source = NATIVE / ('s22plus_native_userspace_probe_v1.c' if userspace else 's22plus_native_root_inspect_v1.c')
     for side in ('a', 'b'):
-        fs_build.run([compiler, *flags, NATIVE / 's22plus_native_root_inspect_v1.c', '-o', output / ('helper-' + side)],
+        fs_build.run([compiler, *flags, source, '-o', output / ('helper-' + side)],
             cwd=ROOT, stdout=output / ('compile-' + side + '.log'), timeout=60)
     require((output / 'helper-a').read_bytes() == (output / 'helper-b').read_bytes(), 'inspector A/B differs')
     value = dict(schema=profile.SCHEMA + '-helper-h0', source_inputs=sources, run_id_hex=run_id,
@@ -96,17 +112,29 @@ def build(output, run_id, *, virt=False):
         table=pin(output / 'table.bin'), table_count=count, boot_count=boot_count,
         helper=fs_build.tool_identity(output / 'helper-a'), ab_identical=True, compiler=compiler_pin,
         virt=virt, device_effects=0, live_authorized=False)
+    if userspace:
+        import s22plus_native_userspace_probe_profile_v1 as probe
+        probe.prior_inputs()
+        value.update(schema=probe.SCHEMA+'-helper-h0', userspace_probe=probe.execution_binding())
     require(fs_build.compiler_identity(compiler) == compiler_pin, 'inspector compiler changed')
     for receipt in sources: verify(receipt, maximum=4 * 1024 * 1024)
     return publish(output / 'result.json', value)
 
 
-def audit(folder, run_id):
+def audit(folder, run_id, *, userspace=False):
     value = read(folder / 'result.json')
-    require(value['schema'] == profile.SCHEMA + '-helper-h0' and value['virt'] is False and
+    schema = profile.SCHEMA
+    if userspace:
+        import s22plus_native_userspace_probe_profile_v1 as probe
+        schema = probe.SCHEMA
+        require(value['userspace_probe'] == probe.execution_binding() and
+            (folder / 's22plus_native_userspace_probe_seal_v1.h').read_bytes() == userspace_header(),
+            'userspace helper workload or predecessor differs')
+    else: require('userspace_probe' not in value, 'inspector contains an unselected userspace probe')
+    require(value['schema'] == schema + '-helper-h0' and value['virt'] is False and
         value['run_id_hex'] == run_id and value['artifact'] == profile.ARTIFACT and value['terminal'] == profile.TERMINAL and
         value['filesystem_binding'] == profile.filesystem.BINDING and value['ab_identical'] is True and
-        value['source_inputs'] == [pin(path, maximum=4 * 1024 * 1024) for path in SOURCE_FILES],
+        value['source_inputs'] == [pin(path, maximum=4 * 1024 * 1024) for path in source_files(userspace=userspace)],
         'inspector source or consumed comparison identity differs')
     table, count, boot_count = table_bytes()
     require(verify(value['table']).read_bytes() == table and value['table_count'] == count and value['boot_count'] == boot_count and
@@ -124,5 +152,6 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--virt', action='store_true')
+    parser.add_argument('--userspace', action='store_true')
     args = parser.parse_args()
-    print(build(args.output, args.run_id, virt=args.virt)['sha256'])
+    print(build(args.output, args.run_id, virt=args.virt, userspace=args.userspace)['sha256'])

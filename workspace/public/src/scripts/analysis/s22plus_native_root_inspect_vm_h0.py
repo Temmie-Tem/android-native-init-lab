@@ -69,6 +69,8 @@ def setup(out, helper):
         'fresh direct private VM output required')
     out.mkdir(mode=0o700)
     built = read(helper / 'result.json'); require(built['virt'] is True, 'VM requires an explicitly virtual-board helper')
+    userspace = 'userspace_probe' in built
+    member, operation = ('s22-userspace-probe', 'probe') if userspace else ('s22-root-inspect', 'inspect')
     artifact, _, _ = profile.prior_inputs(); binding = read(verify(profile.filesystem.BINDING))
     busybox = Path(artifact['rootfs']['path']).parent / 'busybox'
     init = f'''#!/bin/busybox sh
@@ -83,7 +85,7 @@ exec </dev/console >/dev/console 2>&1
 mount -t tmpfs -o nodev,nosuid,mode=0700 tmpfs /s22-root-work || exit 93
 for n in $(seq 1 100); do [ -e /sys/class/block/vda41/dev ] && break; sleep 0.1; done
 printf 'RI_VM_BEGIN\\n'
-/s22-root-inspect inspect {built['run_id_hex']}
+/{member} {operation} {built['run_id_hex']}
 result=$?
 printf 'RI_VM_EXIT status=%s\\n' "$result"
 printf 'RI_VM_RO partition=%s disk=%s userdata=%s\\n' "$(cat /sys/class/block/vda41/ro)" "$(cat /sys/class/block/vda/ro)" "$(cat /sys/class/block/vda40/ro)"
@@ -91,7 +93,7 @@ poweroff -f
 '''.encode()
     entries = [(name, stat.S_IFDIR | 0o755, b'') for name in ('bin','dev','proc','sys','s22-root-work')]
     entries += [('init', stat.S_IFREG|0o750, init), ('bin/busybox', stat.S_IFREG|0o755, busybox.read_bytes()),
-        ('s22-root-inspect',stat.S_IFREG|0o500,verify(built['helper']).read_bytes()),
+        (member,stat.S_IFREG|0o500,verify(built['helper']).read_bytes()),
         ('s22-root-inspect.table',stat.S_IFREG|0o400,verify(built['table']).read_bytes())]
     (out/'initramfs.cpio.gz').write_bytes(gzip.compress(h0.newc(entries),mtime=0))
     run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
@@ -126,6 +128,9 @@ def check_case(out, name, label=None):
         bad = folder/'changed'; bad.write_bytes(b'changed\n')
         debug(native,folder,'remove','rm /etc/lab-rootfs-id')
         debug(native,folder,'write',f'write {bad} /etc/lab-rootfs-id')
+    if name == 'unexpected-file':
+        extra = folder/'extra'; extra.write_bytes(b'')
+        debug(native,folder,'extra',f'write {extra} /etc/ld.so.preload')
     if name in ('dirty','orphan','wrong-uuid'):
         with native.open('r+b') as stream:
             stream.seek(1024); superblock = bytearray(stream.read(1024))
@@ -156,7 +161,8 @@ def check_case(out, name, label=None):
     after=fixture_tools.sparse_digest(disk); require(before==after,'read-only inspector modified the writable backing disk')
     text=raw.replace(b'\r\n',b'\n')
     require(text.count(b'RI_VM_BEGIN\n')==1 and b'reboot: Power down' in text,'VM observation or poweroff boundary missing')
-    stdout=b'\n'.join(line for line in text.splitlines() if line.startswith(b'RI1_'))+b'\n'
+    userspace = 'userspace_probe' in built
+    stdout=b'\n'.join(line for line in text.splitlines() if line.startswith((b'RI1_', b'UP1_') if userspace else (b'RI1_',)))+b'\n'
     status=re.findall(rb'^RI_VM_EXIT status=([0-9]+)$',text,re.M); require(len(status)==1,'VM helper exit missing')
     ro=re.findall(rb'^RI_VM_RO partition=([01]) disk=([01]) userdata=([01])$',text,re.M)
     require(len(ro)==1 and ro[0][1:]==(b'0',b'0'),'block RO leaked beyond native partition')
@@ -170,12 +176,20 @@ def check_case(out, name, label=None):
         result=dict(status='PASS_REJECTED_WITH_DISK_UNCHANGED')
     else:
         require(status[0]==b'0','positive inspection did not complete')
-        result=profile.decode(stdout,b'',dict(table_count=built['table_count'],boot_count=built['boot_count'],max_hashed_bytes=512*1024*1024))
+        selected = profile
+        if userspace: import s22plus_native_userspace_probe_profile_v1 as selected
+        result=selected.decode(stdout,b'',dict(table_count=built['table_count'],boot_count=built['boot_count'],max_hashed_bytes=512*1024*1024))
+        root_result = result['root_inspection'] if userspace else result
         wanted={'complete':'COMPLETE_RECORD_BOOT_INPUTS_MATCH','empty':'NO_INSTALLATION_RECORDS',
             'partial':'INCOMPLETE_INSTALLATION_RECORD','changed-file':'COMPLETE_RECORD_FILES_DIFFER',
+            'unexpected-file':'COMPLETE_RECORD_BOOT_INPUTS_MATCH',
             'dirty':'MOUNT_SKIPPED_UNCLEAN','orphan':'MOUNT_SKIPPED_UNCLEAN'}[name]
-        require(result['root_state']==wanted,'fixture state was misclassified')
-        if name=='complete': require(result['comparison']['matched']==built['table_count'],'complete archive comparison differs')
+        require(root_result['root_state']==wanted,'fixture state was misclassified')
+        if name=='complete': require(root_result['comparison']['matched']==built['table_count'],'complete archive comparison differs')
+        if userspace:
+            require(result['userspace_proved'] == (name == 'complete') and
+                (name == 'complete' or result['verdict'].startswith('SKIPPED_')),
+                'userspace execution crossed the exact-root gate')
     value=dict(case=name,scope='REAL_ARM64_VIRT_ONLY',before=before,after=after,unchanged=True,
         helper=setup_value['helper'],producer=pin(source),serial=pin(folder/'serial.stdout'),result=result,device_actions=0)
     (folder/'result.json').write_text(json.dumps(value,indent=2)+'\n')
@@ -189,7 +203,7 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--helper',type=Path)
     parser.add_argument('--label')
-    parser.add_argument('--case',choices=('complete','empty','partial','changed-file','dirty','orphan','wrong-uuid','gpt-byte','directory-checksum'))
+    parser.add_argument('--case',choices=('complete','empty','partial','changed-file','unexpected-file','dirty','orphan','wrong-uuid','gpt-byte','directory-checksum'))
     args=parser.parse_args(); out=args.output.absolute()
     if args.command=='populate': populate(out)
     elif args.command=='setup': setup(out,args.helper.absolute())

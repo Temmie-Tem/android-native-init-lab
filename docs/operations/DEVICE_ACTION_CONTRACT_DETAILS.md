@@ -683,6 +683,32 @@ actual artifact qualification and the returned grant are separate prerequisites.
 The named foreground preparation D0 is read-only Android health/GPT/statfs,
 not native_data mount or file access, and grants no experimental transfer.
 
+## S22+ fixed installed-Debian userspace probe
+
+The separately reviewed [userspace probe V1](S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)
+is adopted only through V3's `userspace-probe` operation. One returned attended
+grant permits one operation/1800 original BOOTTIME seconds: healthy A, one fresh
+probe N, fixed authenticated probe/DETACH, same-boot health/CONTROL and one
+original-A return with full rooted Android32 health. It grants no N admission,
+other operation, E, reentry option, reconnect or HUD.
+
+The fixed inspector's exact GPT/partition binding, permanent RAM block-RO
+protection, clean-only readonly mount and complete root comparison precede
+execution. Only this new profile may enable execution in a child's private
+mount namespace through a per-mount bind remount, chroot and run its fixed
+verified shell/libc/fork/exit workload with all UIDs/GIDs 65534, no capabilities,
+no_new_privs, no inherited extra descriptors and finite process/output bounds.
+The parent retains noexec and its existing ACM process-group recovery owner.
+There is no filesystem data write, repair, extraction, format, block-RO clear,
+GPT change, userdata file access, service, network operation or PID 1 handoff.
+
+Actual child output/exec/wait, complete reaping, normal unmount and unchanged
+superblock/GPT proof are independent from Android recovery. Uncertainty stops
+research and retains only V3's unchanged original one-shot A recovery. All
+prior consumed claims and grants remain consumed. Its separate source-bound
+review, actual qualification and finite grant are required; its named fixed
+foreground Android preparation D0 grants no mode change or experimental image.
+
 ## S22+ G2 fixed GPT reservation and stock initialization
 
 The [exact G2 policy](S22PLUS_NATIVE_GPT_RESERVATION_V1.md) is incorporated as

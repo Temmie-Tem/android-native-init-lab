@@ -14,6 +14,7 @@ import s22plus_native_observation_v3 as native
 import s22plus_native_gpt_profile_v1 as gpt
 import s22plus_native_ext4_profile_v1 as fs
 import s22plus_native_root_inspect_profile_v1 as inspection
+import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -39,12 +40,14 @@ def image_valid(image, *, artifact_bytes=False):
         'thermal-v3-reconnect-ufs-drain-v1':'s22plus_native_output_drain_artifact_v1_h0.py',
         gpt.PROFILE:'s22plus_native_gpt_artifact_v1_h0.py',
         inspection.PROFILE:'s22plus_native_root_inspect_artifact_v1_h0.py',
+        probe.PROFILE:'s22plus_native_userspace_probe_artifact_v1_h0.py',
         **{p:'s22plus_native_ext4_artifact_v1_h0.py' for p in fs.PROFILES}}
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'}
     if image.get('profile')==gpt.PROFILE:keys.add('gpt')
     if image.get('profile') in fs.PROFILES:keys.update(('filesystem','gpt','android_return'))
-    if image.get('profile') == inspection.PROFILE:keys.update(('root_inspection','gpt','android_return'))
+    if image.get('profile') in inspection_session.PROFILES:keys.update(('root_inspection','gpt','android_return'))
+    if image.get('profile') == probe.PROFILE:keys.add('userspace_probe')
     require(set(image)==keys and image['schema']=='s22plus-native-image-v3'
         and image['profile'] in exporters,'native image qualification schema differs')
     native.identity(image); native.key_bytes(image)
@@ -65,10 +68,10 @@ def image_valid(image, *, artifact_bytes=False):
         and built['candidate']['a']['ap_tar_md5']=={name:image['ap'][name] for name in ('size','sha256')}
         and built['candidate']['a']['boot_img_lz4']=={name:image['member'][name] for name in ('size','sha256')},
         'native qualification does not join its actual A/B producer')
-    if image['profile'] in ('thermal-v3-reconnect-ufs-v1','thermal-v3-reconnect-ufs-drain-v1',gpt.PROFILE,*fs.PROFILES,inspection.PROFILE):
+    if image['profile'] in ('thermal-v3-reconnect-ufs-v1','thermal-v3-reconnect-ufs-drain-v1',gpt.PROFILE,*fs.PROFILES,*inspection_session.PROFILES):
         require(built['native_selection']['runtime_profile']['storage_profile']=='fyg8-stock-ufs-v1',
             'UFS image does not contain its selected initialization profile')
-    if image['profile'] in ('thermal-v3-reconnect-ufs-drain-v1',gpt.PROFILE,*fs.PROFILES,inspection.PROFILE):
+    if image['profile'] in ('thermal-v3-reconnect-ufs-drain-v1',gpt.PROFILE,*fs.PROFILES,*inspection_session.PROFILES):
         require(built['native_selection']['runtime_profile']['console_profile']=='settled-output-drain-v1',
             'native image does not contain its selected output drain correction')
     if image['profile']==gpt.PROFILE:
@@ -93,18 +96,26 @@ def image_valid(image, *, artifact_bytes=False):
             require(all(inventory[member][k]==receipt[k] for k in ('size','sha256')) and
                 inventory[member]['mode']==mode and inventory[member]['uid']==inventory[member]['gid']==0,
                 'filesystem ramdisk payload does not join its fixed tool binding')
-    if image['profile'] == inspection.PROFILE:
-        binding = inspection.image_binding(image)
+    if image['profile'] in inspection_session.PROFILES:
+        selected = probe if image['profile'] == probe.PROFILE else inspection
+        binding = selected.image_binding(image)
         require(built['root_inspection'] == binding and
-            built['native_selection']['runtime_profile']['root_inspect_profile'] == image['profile'],
+            built['native_selection']['runtime_profile']['root_inspect_profile'] == inspection.PROFILE,
             'root inspector role differs from its A/B producer')
+        if selected is probe:
+            require(built['userspace_probe'] == image['userspace_probe'] and
+                built['native_selection']['runtime_profile']['userspace_probe_profile'] == probe.PROFILE and
+                built['native_selection']['runtime_profile']['userspace_probe'] == image['userspace_probe'],
+                'userspace workload differs from its A/B producer')
         inventory = built['candidate']['a']['inventory']
-        for member, receipt, mode in (('s22-root-inspect', binding['helper'], 0o100500),
+        helper = 's22-userspace-probe' if selected is probe else 's22-root-inspect'
+        for member, receipt, mode in ((helper, binding['helper'], 0o100500),
                 ('s22-root-inspect.table', binding['table'], 0o100400)):
             require(all(inventory[member][k] == receipt[k] for k in ('size', 'sha256')) and
                 inventory[member]['mode'] == mode and inventory[member]['uid'] == inventory[member]['gid'] == 0,
                 'inspection ramdisk payload differs')
-        require(not any(name in inventory for name in ('s22-fs', 's22-fs-mke2fs', 's22-fs-e2fsck', 'rootfs.tar.xz')),
+        excluded = 's22-root-inspect' if selected is probe else 's22-userspace-probe'
+        require(not any(name in inventory for name in ('s22-fs', 's22-fs-mke2fs', 's22-fs-e2fsck', 'rootfs.tar.xz', excluded)),
             'inspector image contains an unselected filesystem payload')
     if artifact_bytes:
         with transport.pin_boot_only_ap(Path(image['ap']['path']),label='qualified native image',
@@ -146,7 +157,7 @@ class Adapter:
                 and request['prior_terminal']==start['prior_terminal'],
                 'bootstrap predecessor differs from the original task')
         else: require('S' not in request,'operation contains an unselected bootstrap predecessor')
-        if request.get('operation') == inspection.OPERATION:
+        if request.get('operation') in inspection_session.OPERATIONS:
             require(request['admission'] is None and request['prior_terminal'] is None and
                 not request['reentry'] and not request['hud'] and not request['usb_reconnect'],
                 'root inspection cannot import admission or another native session')
@@ -196,7 +207,7 @@ class Adapter:
             admission=start['admission']; prior=start['prior_terminal']
             self.admission(admission,start['N'],task); self.tail(prior,start['N'],task)
             require(not self.tail_claim_path(prior).exists(),'bootstrap predecessor tail was already attempted')
-        elif operation not in ('bootstrap', inspection.OPERATION):
+        elif operation not in ('bootstrap', *inspection_session.OPERATIONS):
             admission=task['admission']
             prior=task['prior_terminal']
             for path in sorted(Path(grant['directory']).glob('operation-*/terminal.json')):
@@ -220,10 +231,10 @@ class Adapter:
         for image in (request['N'],request['E'],request.get('S')):
             if image is not None: image_valid(image,artifact_bytes=True)
         with self.original_android(request): pass
-        for role in (('N',) if request['operation'] in ('bootstrap',inspection.OPERATION) else ('E',) if request['operation'] in ('experiment','native-ext4') else ()):
+        for role in (('N',) if request['operation'] in ('bootstrap',*inspection_session.OPERATIONS) else ('E',) if request['operation'] in ('experiment','native-ext4') else ()):
             registry.preflight_candidate(self.root,image_identity(request[role],pin(self.directory/'operation.json')['sha256']))
         target.lane.revalidate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
-        android_start=request['operation'] in ('bootstrap',inspection.OPERATION) and request.get('S') is None
+        android_start=request['operation'] in ('bootstrap',*inspection_session.OPERATIONS) and request.get('S') is None
         origin=request.get('S',request['N'])
         self.native_host(request).holders(expected_run=None if android_start else origin['run_id_hex'])
         folder=self.folder('preflight',create=True)
@@ -316,7 +327,7 @@ class Adapter:
         else: require(False,'unselected native restoration')
 
     def transfer(self, step, request, *, guard, before_launch):
-        if request.get('operation') == inspection.OPERATION and step.role == 'A':
+        if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
             inspection_session.android_basis(self, request)
         if request['N'].get('profile') in fs.PROFILES and step.role=='A':
             from s22plus_native_ext4_session_v1 import android_basis as filesystem_android_basis
@@ -355,7 +366,7 @@ class Adapter:
             identity=target.download_identity(ticket.device)
             def launch():
                 guard()
-                if request.get('operation') == inspection.OPERATION and step.role == 'A':
+                if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
                     inspection_session.android_basis(self, request)
                 if request['N'].get('profile') in fs.PROFILES and step.role=='A':filesystem_android_basis(self,request)
                 if request.get('operation')=='gpt-reserve' and step.role=='A':android_basis(self,request)
@@ -447,7 +458,7 @@ class Adapter:
         return native.observe(self.folder(step.name),image,self.native_host(request),ending=step.ending,
             hud=step.hud,guard=guard,before_terminal=before_terminal,
             before_auth=begin_attempt if step.name in ('native-start','native-storage','native-bootstrap-start','gpt-apply') else None,
-            profile=inspection.SELECTION if request['operation']==inspection.OPERATION and step.name=='root-inspection'
+            profile=step.name if request['operation'] in inspection_session.OPERATIONS and step.name in (inspection.SELECTION, probe.SELECTION)
                 else filesystem_profile(step,request) or profile_for(step,image),before_extra=before_extra,**context)
 
     def tail_claim_path(self, receipt):
@@ -511,7 +522,7 @@ class Adapter:
         raise TimeoutError('selected USB reconnect did not complete')
 
     def android_health(self, step, request, *, guard):
-        if request.get('operation') in ('gpt-reserve',inspection.OPERATION) or request['N'].get('profile') in fs.PROFILES:
+        if request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES:
             from s22plus_native_gpt_android_v1 import observe
             return observe(self,step,request,guard=guard)
         # A later attended recovery may take a fresh D0 health attempt. Every
@@ -537,12 +548,12 @@ class Adapter:
             from s22plus_native_gpt_session_v1 import profile_for
             from s22plus_native_ext4_session_v1 import profile_for as filesystem_profile
             value=native.rederive(self.folder(step.name),request[step.role],ending=step.ending,hud=step.hud,
-                profile=inspection.SELECTION if request['operation']==inspection.OPERATION and step.name=='root-inspection'
+                profile=step.name if request['operation'] in inspection_session.OPERATIONS and step.name in (inspection.SELECTION, probe.SELECTION)
                     else filesystem_profile(step,request) or profile_for(step,request[step.role]),**self.context(step,request))
             if step.ending=='download': value['departure']=pin(self.folder(step.name)/'departure.json')
             return value
         if step.action=='health':
-            if request.get('operation') in ('gpt-reserve',inspection.OPERATION) or request['N'].get('profile') in fs.PROFILES:
+            if request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES:
                 from s22plus_native_gpt_android_v1 import rederive
                 return rederive(self,step,request)
             base=self.folder(step.name); path=base/'result.json'
@@ -562,7 +573,7 @@ class Adapter:
     def final_protocol_completed(self, step, request):
         folder=self.folder(step.name)
         if step.action=='health':
-            if request.get('operation') in ('gpt-reserve',inspection.OPERATION) or request['N'].get('profile') in fs.PROFILES:
+            if request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES:
                 from s22plus_native_gpt_android_v1 import final_protocol_completed
                 return final_protocol_completed(self,step,request)
             return (folder/'result.json').exists() or any(folder.glob('attempt-*/health.json'))
@@ -584,7 +595,7 @@ class Adapter:
 
     def validate_result(self, step, value, request):
         require(value==self.recover_step_result(step,request),'step result differs from original raw evidence')
-        if request.get('operation') == inspection.OPERATION:
+        if request.get('operation') in inspection_session.OPERATIONS:
             inspection_session.validate_result(self, step, value, request)
         if step.action=='observe' and request[step.role].get('profile') in fs.PROFILES:
             from s22plus_native_ext4_session_v1 import validate_result
@@ -657,9 +668,10 @@ class Adapter:
             from s22plus_native_ext4_session_v1 import terminal
             result['filesystem']=terminal(self,request,recovered=recovered)
             result['filesystem']['android_storage']=values[-1]['gpt_android']['storage']
-        if request.get('operation') == inspection.OPERATION:
-            result['root_inspection'] = inspection_session.terminal(self, request, recovered=recovered)
-            result['root_inspection']['android_storage'] = values[-1]['gpt_android']['storage']
+        if request.get('operation') in inspection_session.OPERATIONS:
+            key = inspection_session.selected(request['operation']).Profile.RESULT_KEY
+            result[key] = inspection_session.terminal(self, request, recovered=recovered)
+            result[key]['android_storage'] = values[-1]['gpt_android']['storage']
         if request['operation']=='gpt-reserve':
             from s22plus_native_gpt_session_v1 import android_basis
             from s22plus_native_gpt_android_v1 import reboot_persistence

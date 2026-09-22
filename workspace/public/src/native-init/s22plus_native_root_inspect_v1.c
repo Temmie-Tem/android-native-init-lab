@@ -288,8 +288,14 @@ static int ri_ro(struct fs1_endpoint *e, bool set) {
     return error;
 }
 
-int main(int argc, char **argv) {
-    if (argc != 3 || strcmp(argv[1],"inspect") || strcmp(argv[2],fs1_run_id) ||
+/* A separately compiled probe may add a fixed post-comparison observation.
+ * The standalone inspector never supplies that callback or permits execution.
+ */
+typedef int (*ri_observer)(int, struct fs1_endpoint *, const struct ri_counts *,
+                           const struct ri_compare *, int, int, int);
+
+static int ri_run(int argc, char **argv, const char *mode, ri_observer observe) {
+    if (argc != 3 || strcmp(argv[1],mode) || strcmp(argv[2],fs1_run_id) ||
         getuid() || geteuid() || getgid() || getegid()) return 100;
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
     char compatible[32];
@@ -359,6 +365,7 @@ int main(int argc, char **argv) {
     ri_print("RI1_COMPARE expected=%u matched=%u missing=%u metadata=%u content=%u boot_expected=%u boot_missing=%u boot_metadata=%u boot_content=%u hashed_bytes=%" PRIu64 " findings=%u\n",
              comparison.expected,comparison.matched,comparison.missing,comparison.metadata,comparison.content,
              comparison.boot_expected,comparison.boot_missing,comparison.boot_metadata,comparison.boot_content,ri_hashed_bytes,ri_reported);
+    if (observe && (error=observe(root,&e,&counts,&comparison,started,complete,witness))) goto done;
     ri_stage=9;
     if (close(root)) { root=-1; error=fs1_error(); goto done; } root=-1;
     if (umount2(ri_root,0)) { error=fs1_error(); mounted=false; goto done; }
@@ -394,3 +401,7 @@ done:
              !error&&!cleanup,ri_stage,error,cleanup,ro,clean,mount_proved,unmounted);
     return error || cleanup ? 1 : 0;
 }
+
+#ifndef S22_ROOT_INSPECT_LIBRARY
+int main(int argc, char **argv) { return ri_run(argc,argv,"inspect",NULL); }
+#endif

@@ -30,6 +30,7 @@ import s22plus_native_output_drain_source_v1 as drain_source
 import s22plus_native_gpt_source_v1 as gpt_source
 import s22plus_native_ext4_source_v1 as ext4_source
 import s22plus_native_root_inspect_source_v1 as root_inspect_source
+import s22plus_native_userspace_probe_source_v1 as userspace_source
 
 ROOT = common.ROOT
 POLICY = 'native-baseline-v2'
@@ -68,6 +69,7 @@ def declaration(namespace, run_id, version, image_sha256, *, runtime_source=sour
         GPT_PROFILE=getattr(runtime_source,'GPT_PROFILE',None),
         FILESYSTEM_PROFILE=getattr(runtime_source,'FILESYSTEM_PROFILE',None),
         ROOT_INSPECT_PROFILE=getattr(runtime_source,'ROOT_INSPECT_PROFILE',None),
+        USERSPACE_PROBE_PROFILE=getattr(runtime_source,'USERSPACE_PROBE_PROFILE',None),
         runtime=runtime,observer=observer,artifact=artifact,adapter=adapter,
         return_host=owner.ReturnHost(selected,CONTROL),console_owner=owner.EmptyPlan(selected))
 
@@ -97,6 +99,8 @@ DECLARATIONS = {
 RESEARCH_DATA = Path('workspace/public/src/device-action/manifests/s22plus_native_research_candidates_v1.json')
 RESEARCH_DATA_SCHEMA = 's22plus-native-research-candidate-data-v1'
 RESEARCH_PROFILES = {
+    userspace_source.USERSPACE_PROBE_PROFILE: (userspace_source, thermal_observer_v3.Observer,
+        ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     root_inspect_source.ROOT_INSPECT_PROFILE: (root_inspect_source, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     ext4_source.profile.READER_PROFILE: (ext4_source.READER, thermal_observer_v3.Observer,
@@ -150,6 +154,16 @@ def research_data(root=ROOT):
 
 
 def research_profile(declared):
+    if getattr(declared,'USERSPACE_PROBE_PROFILE',None) is not None:
+        if (declared.USERSPACE_PROBE_PROFILE == userspace_source.USERSPACE_PROBE_PROFILE and
+                declared.ROOT_INSPECT_PROFILE == root_inspect_source.ROOT_INSPECT_PROFILE and
+                declared.FILESYSTEM_PROFILE is None and declared.GPT_PROFILE is None and
+                declared.CONSOLE_PROFILE == drain_source.CONSOLE_PROFILE and
+                declared.STORAGE_PROFILE == ufs_source.STORAGE_PROFILE and
+                declared.RECONNECT_PROFILE == reconnect_source.RECONNECT_PROFILE and
+                declared.THERMAL_PROFILE == thermal_source_v3.THERMAL_PROFILE):
+            return declared.USERSPACE_PROBE_PROFILE
+        raise ValueError('unreviewed userspace probe composition')
     if getattr(declared,'ROOT_INSPECT_PROFILE',None) is not None:
         if (declared.ROOT_INSPECT_PROFILE == root_inspect_source.ROOT_INSPECT_PROFILE and
                 declared.FILESYSTEM_PROFILE is None and declared.GPT_PROFILE is None and
@@ -212,7 +226,9 @@ def static(prefix):
     from s22plus_native_baseline_v2_build import Builder, EXTRA_SOURCES
     from s22plus_native_candidate_static_v1 import CandidateStatic
     declared = DECLARATIONS[prefix]
-    if declared.ROOT_INSPECT_PROFILE == root_inspect_source.ROOT_INSPECT_PROFILE:
+    if declared.USERSPACE_PROBE_PROFILE == userspace_source.USERSPACE_PROBE_PROFILE:
+        from s22plus_native_userspace_probe_build_v1 import Builder, EXTRA_SOURCES
+    elif declared.ROOT_INSPECT_PROFILE == root_inspect_source.ROOT_INSPECT_PROFILE:
         from s22plus_native_root_inspect_build_v1 import Builder, EXTRA_SOURCES
     elif declared.FILESYSTEM_PROFILE in ext4_source.profile.PROFILES:
         from s22plus_native_ext4_build_v1 import Builder, EXTRA_SOURCES

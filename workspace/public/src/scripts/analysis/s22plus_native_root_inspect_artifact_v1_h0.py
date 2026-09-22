@@ -9,11 +9,13 @@ import s22plus_boot_only_f1_transport as transport
 from s22plus_native_records_v3 import pin, private_path, publish, read, require, verify
 
 
-def qualify(namespace, output, *, key_path, build_directory=None):
+def qualify(namespace, output, *, key_path, build_directory=None, userspace=False):
     import s22plus_native_baseline_v2_candidates as catalog
     import s22plus_debian_first_boot_v1 as prior_owner
     selected = catalog.DECLARATIONS[namespace]
-    require(catalog.research_profile(selected) == profile.PROFILE, 'unselected root inspector composition')
+    chosen = profile
+    if userspace: import s22plus_native_userspace_probe_profile_v1 as chosen
+    require(catalog.research_profile(selected) == chosen.PROFILE, 'unselected protected-root composition')
     builder = catalog.static(namespace).builder
     if build_directory is not None: builder.DEFAULT_OUTPUT_ROOT = private_path(ROOT, build_directory)
     built = builder.audit_existing()
@@ -23,6 +25,15 @@ def qualify(namespace, output, *, key_path, build_directory=None):
     final = verify(terminal['final_health'])
     require(read(final) == prior_owner.android_projection(final.parent, plan),
         'retained P401 Android32 closure does not rederive from its raw evidence')
+    if userspace:
+        from s22plus_native_adapter_v3 import Adapter
+        from s22plus_native_session_v3 import Session, Step
+        _, recent, _ = chosen.prior_inputs()
+        folder = Path(chosen.TERMINAL['path']).parent
+        adapter = Adapter(ROOT, folder); retained = Session(ROOT, folder, adapter)
+        retained.completed((Step('root-inspection', 'observe', 'N', 'detach'),))
+        retained.completed((Step('install-android', 'transfer', 'A'), Step('recovery-health', 'health', 'A')))
+        require(recent['operation_record'] == pin(folder / 'operation.json'), 'P402 operation receipt differs')
     key = pin(private_path(ROOT, key_path), maximum=32)
     require({k:key[k] for k in ('size', 'sha256')} == selected.artifact.auth_key_identity(),
         'inspector authentication key differs from its producer')
@@ -34,13 +45,15 @@ def qualify(namespace, output, *, key_path, build_directory=None):
     basis = dict(source_terminal=profile.TERMINAL, target=plan['target'], A=plan['A'], layout='proposed',
         geometry=plan['basis']['geometry'], total_bytes=34357624832)
     image = dict(schema='s22plus-native-image-v3', namespace=namespace, run_id_hex=selected.IDENTITY.run_id_hex,
-        profile=profile.PROFILE, version=selected.IDENTITY.display_version, ap=ap, member=member, key=key,
+        profile=chosen.PROFILE, version=selected.IDENTITY.display_version, ap=ap, member=member, key=key,
         runtime_sources=built['source_inputs'], root_inspection=built['root_inspection'],
         gpt=plan['basis']['gpt'], android_return=basis)
-    profile.image_binding(image)
+    if userspace: image['userspace_probe'] = built['userspace_probe']
+    chosen.image_binding(image)
     output = private_path(ROOT, output, exists=False)
     require(not output.exists(), 'inspector qualification output already exists'); output.mkdir(mode=0o700)
     qualification = publish(output / 'qualification.json', dict(schema='s22plus-native-artifact-qualification-v3',
         image=image, builder_result=pin(builder.DEFAULT_OUTPUT_ROOT / 'result.json'),
-        ab_identical=True, actual_ap_join=True, exporter=pin(Path(__file__))))
+        ab_identical=True, actual_ap_join=True, exporter=pin(Path(__file__).with_name(
+            's22plus_native_userspace_probe_artifact_v1_h0.py') if userspace else Path(__file__))))
     return publish(output / 'image.json', dict(image, qualification=qualification))

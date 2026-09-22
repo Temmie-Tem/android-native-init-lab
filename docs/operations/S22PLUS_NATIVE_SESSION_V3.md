@@ -81,6 +81,17 @@ return normally; uncertain execution retains the existing one-shot A recovery.
 Its separate source-bound review does not repin other capabilities or reopen
 any consumed action.
 
+The separately adopted [userspace probe V1](S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)
+uses the same single-N/A shape only as `userspace-probe`: one fresh probe N,
+one fixed protected-root child workload/DETACH, same-boot health/CONTROL and one
+original-A return. Its one-operation/1800-second attended grant earns no native
+admission. Only its declared unprivileged child may execute the verified
+installed Debian workload; the parent retains its protected noexec mount.
+Exact root closure, bounded complete child evidence, process settlement and
+ordinary cleanup precede a completed result. A synchronous completed negative
+may return normally; uncertainty retains the unchanged one-shot A recovery.
+Its separate source-bound review does not repin or renew consumed capabilities.
+
 Every authentication retains its nonce, authenticated kernel boot identity,
 ordinal, fixed root health, raw RX/TX and terminal acknowledgement. DETACH
 also requires actual descriptor close. A new installed boot starts at ordinal

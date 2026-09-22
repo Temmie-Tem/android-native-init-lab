@@ -351,13 +351,23 @@ P402's inspection/candidate claims remain consumed.**
 See the [P402 live report](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_P402_FIRST_RUN_2026-09-23.md)
 and [stage-2 qualification](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_H0_2026-09-23.md).
 
-The next bounded work is H0 selection and qualification of a fixed installed
-Debian userspace probe before another full handoff attempt. It should use the
-observed matching root without reinstalling or repairing it, and preserve the
-native observation/recovery route. Any diagnostic chroot remains an
-intermediate test, not the product architecture or proof of host PID 1.
-A fresh device candidate/effect requires its own current reviewed scope;
-the completed stage-2 start instruction grants no stage-3 execution.
+P403 `v0.4.0-rc.3` now has actual byte-identical A/B boot packages and a fixed
+installed-Debian userspace probe. Its protected complete-root check precedes
+one unprivileged chroot child running the declared shell/libc/fork/wait/exit
+workload. The parent retains native ACM control and its readonly/noexec mount;
+there is no reinstall, repair, service, network operation or PID 1 handoff.
+All 17 real ARM64 VM cases, 125 focused host checks, independent `PASS_GO` and
+17 fixed connected Android preparation reads pass. The ready task is
+`3551fdb6215347efac476b33bc62a77330a9acafddc417be8bafd51fcfe468df`.
+Fresh rooted original-A/GPT/Android32 health is proved; no new grant,
+operation, F1 owner or experimental image transfer exists. See the
+[stage-3 H0 report](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_H0_2026-09-23.md).
+
+A diagnostic chroot is an intermediate test, not the product architecture or
+proof of Debian host PID 1. The eventual P403 device scope is one attended
+operation/1800 seconds with one fresh N and one original-A return, under its
+separate reviewed profile and concrete returned start. P402's closed grant
+cannot authorize that new operation.
 
 The P402 task SHA-256 is
 `91fd7e92b087f4860739f7ef24236edb67104b9e2cd43e6f4585bbbe0cbc66ad`.

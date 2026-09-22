@@ -17,6 +17,8 @@ class Builder(previous.Builder):
     __file__ = __file__
     source = source
     extra_member_modes = {'s22-root-inspect': 0o500, 's22-root-inspect.table': 0o400}
+    userspace = False
+    helper_member = 's22-root-inspect'
 
     def __init__(self, declaration):
         super().__init__(declaration)
@@ -31,10 +33,10 @@ class Builder(previous.Builder):
 
     def build_native_init(self, out, resident):
         super().build_native_init(out, resident)
-        producer.build(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex)
+        producer.build(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex, userspace=self.userspace)
 
     def inspection_value(self, out):
-        return producer.audit(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex)
+        return producer.audit(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex, userspace=self.userspace)
 
     def runtime_value(self, out, resident, thermal):
         return dict(super().runtime_value(out, resident, thermal),
@@ -43,7 +45,7 @@ class Builder(previous.Builder):
     def replacements(self, runtime):
         rows = super().replacements(runtime)
         value = self.inspection_value(self.DEFAULT_OUTPUT_ROOT / 'runtime')
-        rows['s22-root-inspect'] = verify(value['helper']).read_bytes()
+        rows[self.helper_member] = verify(value['helper']).read_bytes()
         rows['s22-root-inspect.table'] = verify(value['table']).read_bytes()
         return rows
 
