@@ -8,10 +8,14 @@ install another rootfs. The operator requested preparation through readiness,
 with experimental-image transfer held until their start instruction. The
 operator separately allowed necessary existing device control during preparation.
 
-Preparation is complete: actual A/B artifact qualification, independent
-`PASS_GO` and 17 fixed connected Android reads passed. No grant is open and
-no new experimental image has been transferred. The current device remains
-on healthy original Android; its native filesystem has not yet been inspected.
+At preparation completion, actual A/B artifact qualification, independent
+`PASS_GO` and 17 fixed connected Android reads had passed. No grant had opened
+or experimental image transferred at that point. The operator subsequently
+returned the start instruction and P402 completed its actual protected root
+inspection and healthy Android return; see the
+[separate live result](S22PLUS_NATIVE_ROOT_INSPECTION_P402_FIRST_RUN_2026-09-23.md).
+The readiness state below is retained as preparation history; that task and
+candidate are now consumed and the grant is closed.
 
 ## Concrete bounded experiment
 
@@ -122,7 +126,7 @@ the private independent record is 3,644 bytes, SHA-256
 The separate inspector capability record is active only for its defined scope;
 it is not a finite task grant or Samsung execution proof.
 
-## Readiness and next authority
+## Preparation readiness (historical)
 
 `prepared-1` completed all 17 fixed D0 captures: rooted original-A health
 before and after shell-v2/full-GPT/statfs reads. Both brackets identify one
@@ -133,14 +137,12 @@ command was issued. No reboot or boot-mode change was needed.
 
 The prepared task SHA-256 is
 `91fd7e92b087f4860739f7ef24236edb67104b9e2cd43e6f4585bbbe0cbc66ad`.
-Its proposal binds P402, one operation, 1800 seconds, actual attendance and the
-original-A return. When the operator returns their start instruction while
-able to perform physical Download recovery if needed, the existing V3 grant
-opener and `root-inspect` command can use this prepared task. Execution repeats
-fresh health and all machine bindings; preparation age cannot replace them.
-No new grant,
-candidate claim, block RO control, native mount or experimental transfer has
-occurred in this unit. There is no pending F1 owner or prepared operation.
+Its proposal bound P402, one operation, 1800 seconds, actual attendance and the
+original-A return. At preparation close there was no grant, candidate claim,
+block RO control, native mount, experimental transfer, F1 owner or operation.
+The subsequent operator start opened that grant; execution repeated fresh
+health and machine bindings. The linked live report records consumption and
+closure. This prepared task can no longer be used for another operation.
 
 The source-bound plan and all artifacts/raw evidence remain private under
 `s22plus-debian-root-inspect-h0-20260923-1` and the P402 output. The existing

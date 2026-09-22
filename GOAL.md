@@ -21,12 +21,32 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Latest completed unit — P401 Debian attempt and healthy Android return
+## Latest completed unit — P402 root inspection and healthy Android return
+
+P402 `v0.4.0-rc.2` completed stage 2 on the actual device on 2026-09-23 KST.
+Its protected read-only mount found installation start/completion records and
+the original witness. All 8,969 expected archive entries, including all 8,175
+boot-input entries, matched with no missing, metadata or content discrepancies.
+Ordinary unmount/cleanup and unchanged superblock/GPT readback were proved.
+The inspection is `PASS_INSPECTION_COMPLETED` with
+`COMPLETE_RECORD_BOOT_INPUTS_MATCH`; it did not execute Debian or a chroot.
+
+Original A transferred once. The first final root/hash read lost the target;
+the existing health-only continuation proved rooted Android, exact partition
+hashes, unchanged full GPT and Android32 capacity. The unchanged terminal is
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, with the inspection PASS retained.
+No transfer or inspection was repeated. The one-operation grant is consumed
+and closed, and there is no F1 owner. P402's result establishes the current
+root-file observation without relabelling P401 or proving host PID 1/SSH.
+See the [live report and canonical timeline](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_P402_FIRST_RUN_2026-09-23.md).
+
+## Prior P401 Debian attempt and healthy Android return
 
 The first P401 `v0.4.0-rc.1` operation closed on 2026-09-23 KST as
 `NO_PROOF_ANDROID_CLOSED_HEALTHY`. The candidate transferred once, but the
 expected Debian NCM endpoint did not arrive within 180 seconds. Installation,
-Debian PID 1/SSH and the resulting native filesystem contents remain unproved.
+Debian PID 1/SSH and resulting native filesystem contents were unproved by
+that run. P402 separately observed the matching installed root as recorded above.
 The operator observed no boot loop and an unchanged boot screen; this does not
 establish Debian execution in the headless candidate.
 
@@ -62,8 +82,8 @@ operation as complete. The grant closed after 377.523 seconds, with both
 operations consumed and no F1 owner. There was one initialization, one read-only
 verification, one original-A transfer and zero extra recovery transfers,
 reformats, repairs, GPT writes or resets. Native storage was proved to contain
-the ext4 filesystem and witness at that historical close. P401's later possible
-rootfs writes remain unproved, as recorded above. See the
+the ext4 filesystem and witness at that historical close. P402 now separately
+proves the matching installed root, as recorded above. See the
 [first-run report](docs/reports/S22PLUS_NATIVE_EXT4_FIRST_RUN_2026-09-17.md).
 
 ## Completed Android32 layout and rooted return
@@ -323,25 +343,27 @@ assumed.
 
 ## Next bounded unit and milestones
 
-**P401's first device attempt closed with Debian proof absent and healthy
-Android restored. The next unit is stage 2: a fresh P402 native inspector will
-observe current native_data state and a protected read-only mount before any
-chroot or Debian handoff. Actual A/B artifact qualification, nine ARM64 VM
-cases, 101 focused checks and independent final `PASS_GO` are complete.
-Fresh connected preparation passed all 17 fixed Android reads with unchanged
-GPT and healthy original Android. The operator's start instruction is still
-required for the new experimental boot transfer. No live grant remains, and
-the consumed P401 candidate/installation must not be replayed.**
-See the [stage-2 preparation report](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_H0_2026-09-23.md).
+**Stage 2 is complete: P402 proved a clean protected read-only mount,
+installation records/witness, matching expected root files and ordinary
+unmount, followed by healthy original Android. Debian execution, host PID 1
+and NCM/SSH remain unproved. No live grant remains; P401's installation and
+P402's inspection/candidate claims remain consumed.**
+See the [P402 live report](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_P402_FIRST_RUN_2026-09-23.md)
+and [stage-2 qualification](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_H0_2026-09-23.md).
 
-The bounded P402 graph is one attended operation/1800 seconds, one N transfer
-and one original-A return. Exact native-partition RAM RO protection precedes
-any clean-only read-only mount; dirty state is reported without mounting.
-It observes markers, witness and the retained rootfs's metadata/content without
-installation, repair, chroot or admission as a reusable native baseline.
-The prepared task is SHA-256
-`91fd7e92b087f4860739f7ef24236edb67104b9e2cd43e6f4585bbbe0cbc66ad`;
-its grant has not opened and no experiment operation or F1 owner exists.
+The next bounded work is H0 selection and qualification of a fixed installed
+Debian userspace probe before another full handoff attempt. It should use the
+observed matching root without reinstalling or repairing it, and preserve the
+native observation/recovery route. Any diagnostic chroot remains an
+intermediate test, not the product architecture or proof of host PID 1.
+A fresh device candidate/effect requires its own current reviewed scope;
+the completed stage-2 start instruction grants no stage-3 execution.
+
+The P402 task SHA-256 is
+`91fd7e92b087f4860739f7ef24236edb67104b9e2cd43e6f4585bbbe0cbc66ad`.
+Its single operation used one N transfer, one inspector execution and one
+original-A return. Final health completed at 98.686 seconds from grant opening;
+H0 raw rederivation and explicit grant closure completed at 228.764 seconds.
 P399 `v0.3.1-rc.1` and P400 `v0.3.1-rc.2`, their filesystem attempt and finite
 grant are consumed. Preserve the existing filesystem and witness; do not
 reformat or replay these images to obtain a different aggregate verdict.
@@ -388,10 +410,11 @@ Then qualify these bounded functional milestones in order:
    the first run. Rooted Android return was verified through health-only
    recovery. Preserve the distinct conservative aggregate verdict above.
 2. **Matched rootfs and bootstrap:** H0 construction and the first exact FYG8
-   boot candidate are complete. P401 transferred once; installation completion
-   is unproved and its installation claim is consumed. Any successor needs
-   diagnosis and its own reviewed scope. A diagnostic shell does not replace
-   the full handoff.
+   boot candidate are complete. P401 transferred once and its installation claim
+   is consumed. P402 independently proved matching installed files and completion
+   records through a protected read-only mount; target Debian execution remains
+   unproved. Any successor needs its own reviewed scope. A diagnostic shell
+   does not replace the full handoff.
 3. **Full init handoff:** prove Debian host PID 1 and root ownership, including
    bootstrap/helper cleanup and the post-handoff observation/recovery path.
 4. **Headless Debian operation:** qualify Debian-owned networking, authenticated
@@ -403,8 +426,9 @@ Then qualify these bounded functional milestones in order:
    headless base works. Their absence does not block the earlier milestones.
 
 Debian 13/SysVinit/mdev now has selected reproducible host artifacts and scoped
-ARM64 virt proof. Samsung hardware preparation, Debian boot, hotplug/firmware,
-USB access, power/thermal behavior and post-handoff recovery remain unproved.
+ARM64 virt proof. P402 proves native UFS/root inspection through the existing
+ACM runtime. Debian boot, Debian-owned hotplug/firmware and USB access,
+power/thermal behavior and post-handoff recovery remain unproved.
 The native ext4 images and attempt are consumed, with no remaining live grant.
 Preserve the filesystem; rootfs staging, target handoff and recovery require
 their exact reviewed scopes under the binding contracts.
