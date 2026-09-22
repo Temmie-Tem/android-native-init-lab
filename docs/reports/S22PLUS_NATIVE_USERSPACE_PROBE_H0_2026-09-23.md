@@ -8,11 +8,14 @@ P403 `v0.4.0-rc.3` reuses that installed root and the working native UFS/ACM
 runtime. It adds one fixed unprivileged diagnostic chroot, without installing
 another rootfs, starting Debian init, changing PID 1, or exercising networking.
 
-Preparation is complete: actual A/B boot packages, the physical/virtual helper
+At the preparation close, actual A/B boot packages, the physical/virtual helper
 join, 17 real ARM64 VM cases, 125 focused host checks, independent `PASS_GO`
-and all 17 fixed connected Android reads passed. No grant has opened, new
-experiment image has transferred, or Debian command has run on the Samsung
-device during this preparation.
+and all 17 fixed connected Android reads had passed. No grant had opened, new
+experiment image had transferred, or Debian command had run on the Samsung
+device during that preparation. The subsequent separately authorized
+[P403 live run](S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md)
+proved the fixed workload and returned normally to healthy Android; its grant
+is now consumed and closed. This report retains the preceding H0/D0 evidence.
 
 ## Concrete bounded operation
 
@@ -144,14 +147,14 @@ mode change, native mount or A90/S20+ target command was issued.
 The ready task SHA-256 is
 `3551fdb6215347efac476b33bc62a77330a9acafddc417be8bafd51fcfe468df`.
 It contains only `userspace-probe`, one operation, 1800 seconds and attended
-original-A recovery. Current live task validation passes; there is no grant,
-operation or F1 owner. When the operator returns the concrete start while able
-to perform physical Download recovery, the existing grant opener can start its
-original clock and the fixed owner repeats fresh health and all machine checks.
-Preparation does not substitute for that finite attended grant.
+original-A recovery. At preparation close, live task validation passed and
+there was no grant, operation or F1 owner. The later returned concrete start
+opened the finite attended grant; the fixed owner repeated fresh health and
+all machine checks. Preparation itself did not authorize that device action.
 
 Private artifacts and raw evidence are retained under
 `s22plus-debian-userspace-probe-h0-20260923-1` and the P403 build output.
 P399/P400/P401/P402 artifacts, consumed claims, journals and terminal meanings
-remain unchanged. The next actual experiment is only this fixed diagnostic
-workload; Debian host PID 1 and headless networking remain later work.
+remain unchanged. The separately reported live experiment completed only this
+fixed diagnostic workload; Debian host PID 1 and headless networking remain
+later work. The consumed P403 candidate and closed grant cannot be replayed.

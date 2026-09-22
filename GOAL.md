@@ -21,7 +21,27 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Latest completed unit — P402 root inspection and healthy Android return
+## Latest completed unit — P403 Debian userspace and healthy Android return
+
+P403 `v0.4.0-rc.3` completed stage 3 on the actual device on 2026-09-23 KST.
+All 8,969 expected root entries matched before one fixed unprivileged chroot
+child proved installed shell/libc execution, child wait and expected exit-code
+handling. Exact stdout, empty stderr, complete setup/exec proof, actual wait
+status and settled processes establish `PROVED_FIXED_DEBIAN_USERSPACE`.
+Partition block RO, parent noexec, ordinary unmount and unchanged native
+superblock/GPT were all proved. Debian host PID 1 and networking remain unproved.
+
+The operation returned normally to original A: `ANDROID_CLOSED_HEALTHY`,
+`recovered=false`, with rooted health, exact original partition hashes,
+unchanged complete GPT and Android32 capacity. There were one N transfer, one
+probe and one A transfer; no recovery transfer or health continuation occurred.
+A transient host lock rejection preceded operation creation and any device
+command; the same grant and deadline were retained. Final health completed at
+137.185 seconds, and the grant closed after raw audit at 182.363 seconds.
+The one-operation budget is consumed and the F1 owner is absent. See the
+[live report and canonical timeline](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md).
+
+## Prior P402 root inspection and healthy Android return
 
 P402 `v0.4.0-rc.2` completed stage 2 on the actual device on 2026-09-23 KST.
 Its protected read-only mount found installation start/completion records and
@@ -343,31 +363,25 @@ assumed.
 
 ## Next bounded unit and milestones
 
-**Stage 2 is complete: P402 proved a clean protected read-only mount,
-installation records/witness, matching expected root files and ordinary
-unmount, followed by healthy original Android. Debian execution, host PID 1
-and NCM/SSH remain unproved. No live grant remains; P401's installation and
-P402's inspection/candidate claims remain consumed.**
-See the [P402 live report](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_P402_FIRST_RUN_2026-09-23.md)
-and [stage-2 qualification](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_H0_2026-09-23.md).
+**Stage 3 is complete: P403 proved the fixed installed-Debian shell/libc/
+child-exit workload after complete protected-root comparison and returned
+normally to healthy original Android. Debian host PID 1 and NCM/SSH remain
+unproved. No live grant remains; P401/P402/P403 claims remain consumed.**
+See the [P403 live report](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md)
+and [stage-3 qualification](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_H0_2026-09-23.md).
 
-P403 `v0.4.0-rc.3` now has actual byte-identical A/B boot packages and a fixed
-installed-Debian userspace probe. Its protected complete-root check precedes
-one unprivileged chroot child running the declared shell/libc/fork/wait/exit
-workload. The parent retains native ACM control and its readonly/noexec mount;
-there is no reinstall, repair, service, network operation or PID 1 handoff.
-All 17 real ARM64 VM cases, 125 focused host checks, independent `PASS_GO` and
-17 fixed connected Android preparation reads pass. The ready task is
+The next bounded unit is H0 preparation of a fresh full Debian init handoff,
+with a concrete post-handoff observation and recovery path. Use the now-proved
+installed root and fixed userspace evidence to focus on initial-PID-namespace
+handoff, minimal device setup and the required transport. A diagnostic chroot
+is an intermediate test, not the product architecture or proof of host PID 1.
+Do not reinstall or replay P401/P403. Any new live scope needs its own qualified
+candidate, independent review where required and current authority.
+
+The closed P403 task SHA-256 is
 `3551fdb6215347efac476b33bc62a77330a9acafddc417be8bafd51fcfe468df`.
-Fresh rooted original-A/GPT/Android32 health is proved; no new grant,
-operation, F1 owner or experimental image transfer exists. See the
-[stage-3 H0 report](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_H0_2026-09-23.md).
-
-A diagnostic chroot is an intermediate test, not the product architecture or
-proof of Debian host PID 1. The eventual P403 device scope is one attended
-operation/1800 seconds with one fresh N and one original-A return, under its
-separate reviewed profile and concrete returned start. P402's closed grant
-cannot authorize that new operation.
+Its one-operation/1800-second attended grant is consumed and explicitly closed;
+it grants no further installed-code execution, transfer or PID 1 handoff.
 
 The P402 task SHA-256 is
 `91fd7e92b087f4860739f7ef24236edb67104b9e2cd43e6f4585bbbe0cbc66ad`.
@@ -422,9 +436,9 @@ Then qualify these bounded functional milestones in order:
 2. **Matched rootfs and bootstrap:** H0 construction and the first exact FYG8
    boot candidate are complete. P401 transferred once and its installation claim
    is consumed. P402 independently proved matching installed files and completion
-   records through a protected read-only mount; target Debian execution remains
-   unproved. Any successor needs its own reviewed scope. A diagnostic shell
-   does not replace the full handoff.
+   records through a protected read-only mount. P403 then proved the fixed
+   installed shell/libc/child-exit workload on the target. Any successor needs
+   its own reviewed scope; the diagnostic shell does not replace full handoff.
 3. **Full init handoff:** prove Debian host PID 1 and root ownership, including
    bootstrap/helper cleanup and the post-handoff observation/recovery path.
 4. **Headless Debian operation:** qualify Debian-owned networking, authenticated
@@ -437,7 +451,8 @@ Then qualify these bounded functional milestones in order:
 
 Debian 13/SysVinit/mdev now has selected reproducible host artifacts and scoped
 ARM64 virt proof. P402 proves native UFS/root inspection through the existing
-ACM runtime. Debian boot, Debian-owned hotplug/firmware and USB access,
+ACM runtime; P403 proves its fixed installed-Debian userspace workload.
+Debian boot, Debian-owned hotplug/firmware and USB access,
 power/thermal behavior and post-handoff recovery remain unproved.
 The native ext4 images and attempt are consumed, with no remaining live grant.
 Preserve the filesystem; rootfs staging, target handoff and recovery require
