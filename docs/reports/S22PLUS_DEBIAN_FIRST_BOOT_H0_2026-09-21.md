@@ -1,5 +1,9 @@
 # S22+ first Debian installation and full handoff preparation
 
+Subsequent result: the [2026-09-23 P401 attempt](S22PLUS_DEBIAN_P401_FIRST_RUN_2026-09-23.md)
+closed with Debian proof absent and healthy Android restored. The preparation
+state below is historical; its candidate and installation claim are consumed.
+
 Date: 2026-09-21. Target: `SM-S906N/g0q/S906NKSS7FYG8`.
 Device effects at this preparation stage: **zero**.
 Independent capability review passed for the final source closure, including
