@@ -41,6 +41,26 @@ command; the same grant and deadline were retained. Final health completed at
 The one-operation budget is consumed and the F1 owner is absent. See the
 [live report and canonical timeline](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md).
 
+## Selected native return reference — P399 / v0.3.1
+
+The operator selected exact P399 `v0.3.1-rc.1` as the native return research
+baseline and mapped those unchanged bytes to functional version `v0.3.1`.
+Its boot-only AP is 33,372,201 bytes, SHA-256
+`d7f1d82d12af63a45bf9e179560ae100f76316d3543f19a02a8f35acc56ec3df`.
+P399 earned V3 admission after two installations and four authenticated
+sessions. Following P400, the restored P399 boot read the byte-identical
+witness from the protected native filesystem and closed its mount. This is
+the selected reference for the next Debian-to-native return design; see the
+[version mapping](docs/operations/S22PLUS_FYG8_VERSIONING.md)
+and [actual run](docs/reports/S22PLUS_NATIVE_EXT4_FIRST_RUN_2026-09-17.md).
+
+The old filesystem operation terminal remains `NO_PROOF_RECOVERED_ANDROID`;
+only its separately rederived initialization and fresh-boot witness are proved.
+Current device state is the later healthy original Android close. P399's
+consumed roles and old grants remain consumed. A future Debian handoff owner
+must separately bind and validate any normal P399 return, with exact current
+health and the original Android recovery available on the reviewed path.
+
 ## Prior P402 root inspection and healthy Android return
 
 P402 `v0.4.0-rc.2` completed stage 2 on the actual device on 2026-09-23 KST.
@@ -373,7 +393,9 @@ and [stage-3 qualification](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_H0_2026-
 The next bounded unit is H0 preparation of a fresh full Debian init handoff,
 with a concrete post-handoff observation and recovery path. Use the now-proved
 installed root and fixed userspace evidence to focus on initial-PID-namespace
-handoff, minimal device setup and the required transport. A diagnostic chroot
+handoff, minimal device setup and the required transport. Use the selected
+P399 native reference for normal return design and retain exact original-A
+failure recovery in that new reviewed scope. A diagnostic chroot
 is an intermediate test, not the product architecture or proof of host PID 1.
 Do not reinstall or replay P401/P403. Any new live scope needs its own qualified
 candidate, independent review where required and current authority.

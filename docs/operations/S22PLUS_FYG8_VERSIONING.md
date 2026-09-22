@@ -285,3 +285,32 @@ P383에서 첫 N 설치·native 건강·적시 Download 복귀와 동일 N 복�
 전송은 N 설치·동일 N 복원·A 복원이 각각 한 번이다. ADB 일시 불통의 원인은
 미확정이며 native 왕복·보조 stock 관측은 미입증으로 남는다. 기능 버전은 v0.1.2다.
 [실행·복구 기록](../reports/S22PLUS_FYG8_NATIVE_BASELINE_ROUNDTRIP_H0_2026-09-10.md#attended-attempt-and-final-android-health).
+
+## v0.3.1 확정 — P399 native 복귀 기준
+
+2026-09-23 운영자 선택에 따라 `v0.3.1 ↔ v0.3.1-rc.1 ↔ P399`로 연결한다.
+확정 범위는 FYG8의 **native 복귀 연구 기준 이미지**다. P399 reader의
+실제 AP 33,372,201바이트, SHA-256
+`d7f1d82d12af63a45bf9e179560ae100f76316d3543f19a02a8f35acc56ec3df`와
+Image SHA-256
+`d510a3f83a6d48392649df325223e9847f85e2ee35989f32db0fb6abff371a3d`를
+그대로 가리킨다. 새 이미지를 만들거나 기존 이미지의 `rc.1` 표기, 소비된
+후보·승인·저널을 바꾸지 않는다. P400 `rc.2` initializer는 이 복귀 기준에
+포함하지 않는다.
+
+P399 bootstrap은 두 번의 설치와 네 번의 인증 건강 검사를 완료해 정확한
+이미지의 V3 native admission과 `NATIVE_CLOSED_HEALTHY`를 얻었다. P400의
+일회성 초기화 뒤 복원된 P399는 다른 부팅에서 원래 witness를 `ro,noload`로
+읽고 정상적으로 언마운트했다. 이 범위의 근거는
+[P399/P400 실기 기록](../reports/S22PLUS_NATIVE_EXT4_FIRST_RUN_2026-09-17.md)에
+있다. 원래 Android A의 최종 건강 검사는 읽기 전용 건강 재관측 뒤 통과했다.
+
+파일시스템 작업 전체의 불변 terminal은 `recovered=true`,
+`NO_PROOF_RECOVERED_ANDROID`이며 일반 경로 완료로 바꾸지 않는다. 별도의
+retained-raw 평가는 초기화와 다른 부팅의 witness 일치를 증명한다.
+`v0.3.1`은 이 P399 기능·이미지 선택에 한정한다. 현재 기기에 P399가
+설치되어 있다거나, Debian PID 1 인계 후 복귀·장시간 응답성·자동 복구가
+증명됐다는 뜻은 아니다. 선택만으로 새 전송, 이미 소비한 P399 역할의 재생,
+종료된 grant의 갱신 또는 새 실행기의 native 복귀 경로가 승인되지는 않는다.
+후속 작업은 이 정확한 기준을 새 범위에 명시하고 그 실행·건강·복구 경로를
+별도로 검증한다.
