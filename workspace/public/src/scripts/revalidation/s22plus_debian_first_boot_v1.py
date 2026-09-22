@@ -49,8 +49,9 @@ class Journal:
     host boot may open a recovery segment anchored to the entire old tail;
     it never resets the effect history or renews the research deadline.
     """
-    def __init__(self, directory):
+    def __init__(self, directory, *, schema=SCHEMA):
         self.directory = Path(directory)
+        self.schema = schema
         self.directory.mkdir(mode=0o700, exist_ok=True)
 
     def segments(self):
@@ -67,7 +68,7 @@ class Journal:
             require(path.name == f'epoch-{index:04d}' and path.is_dir() and not path.is_symlink(),
                     'journal host-epoch sequence differs')
             metadata = read(path / 'epoch.json')
-            require(set(metadata) == {'schema', 'host_boot', 'previous'} and metadata['schema'] == SCHEMA + '-host-epoch' and
+            require(set(metadata) == {'schema', 'host_boot', 'previous'} and metadata['schema'] == self.schema + '-host-epoch' and
                     re.fullmatch('[0-9a-f]{64}', metadata['host_boot']) and metadata['previous'] == predecessor,
                     'journal host-epoch binding differs')
             require((path / 'events').is_dir() and not (path / 'events').is_symlink(), 'journal event directory is missing')
@@ -90,7 +91,7 @@ class Journal:
             path = self.directory / f'epoch-{len(segments):04d}'
             staging = self.directory / ('.epoch-' + uuid.uuid4().hex + '.tmp')
             staging.mkdir(mode=0o700)
-            publish(staging / 'epoch.json', dict(schema=SCHEMA + '-host-epoch', host_boot=host_boot(), previous=predecessor))
+            publish(staging / 'epoch.json', dict(schema=self.schema + '-host-epoch', host_boot=host_boot(), previous=predecessor))
             BaseJournal(staging / 'events')
             # The global target lease serializes writers. A published segment is
             # nonempty, so rename cannot replace an existing complete segment.

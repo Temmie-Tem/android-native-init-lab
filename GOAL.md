@@ -383,6 +383,19 @@ assumed.
 
 ## Next bounded unit and milestones
 
+**P404 installed-root handoff is H0-prepared, not activated.** The fresh
+`v0.4.0-rc.4` archive-free boot package has identical A/B bytes and a static
+ARM64 bootstrap. A real ARM64 VM booted the retained installed Debian root as
+initial PID 1, authenticated SSH health, shut down cleanly and rejected an empty
+root without installation or backing-disk writes. The exact package/VM join is
+qualified H0; see the [P404 preparation report](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P404_H0_2026-09-23.md).
+The new one-shot owner and [draft policy](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
+passed an exact-source independent H0 review. They still require a separate live
+capability review with common/target adoption and an actual finite attended
+grant. No device action occurred, and no live P404 or P399 return
+authority exists. The next bounded unit is that adoption and activation work;
+Samsung PID 1/SSH and P399 normal return can be tested only afterward.
+
 **Stage 3 is complete: P403 proved the fixed installed-Debian shell/libc/
 child-exit workload after complete protected-root comparison and returned
 normally to healthy original Android. Debian host PID 1 and NCM/SSH remain

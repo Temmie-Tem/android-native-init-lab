@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
@@ -151,6 +152,40 @@ static void verify_metadata(void) { verify_metadata_path("/rootfs.meta"); }
 static void verify_contents(void) { verify_contents_path("/rootfs.sha256"); }
 #ifdef S22_DEBIAN_DEVICE
 #include "device/target.inc.c"
+
+#ifdef S22_DEBIAN_INSTALLED_ONLY
+#include "installed-plan.h"
+static void installed_shutdown_command(void) {
+    /* The retained P401 root key permits shutdown only on boot count two.
+     * This fixed tmpfs bind supplies the same restricted command vocabulary
+     * with a count-independent orderly shutdown. The ext4 file is unchanged. */
+    int source = fs1_pin_file("/p404-lab-qualify", target_qualify_size,
+                              target_qualify_sha256, true);
+    if (source < 0) stop("installed-shutdown-source");
+    int output = open("/run/.p404-lab-qualify", O_WRONLY | O_CREAT | O_EXCL |
+                      O_CLOEXEC | O_NOFOLLOW, 0500);
+    if (output < 0) stop("installed-shutdown-copy-open");
+    unsigned long long copied = 0;
+    char buffer[4096];
+    while (copied < target_qualify_size) {
+        size_t take = sizeof(buffer);
+        if (target_qualify_size - copied < take) take = target_qualify_size - copied;
+        ssize_t got = read(source, buffer, take);
+        if (got <= 0 || write(output, buffer, got) != got)
+            stop("installed-shutdown-copy");
+        copied += got;
+    }
+    if (fsync(output) || close(output) || close(source)) stop("installed-shutdown-copy-close");
+    const char *destination = "/newroot/usr/local/sbin/lab-qualify";
+    if (mount("/run/.p404-lab-qualify", destination, NULL, MS_BIND, NULL) ||
+        mount(NULL, destination, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY |
+              MS_NOSUID | MS_NODEV, NULL)) stop("installed-shutdown-bind");
+    struct statvfs state;
+    if (statvfs(destination, &state) ||
+        (state.f_flag & (ST_RDONLY | ST_NOSUID | ST_NODEV)) !=
+             (ST_RDONLY | ST_NOSUID | ST_NODEV)) stop("installed-shutdown-bind-readback");
+}
+#endif
 #endif
 int main(void) {
     if (getpid() != 1) stop("not-pid1");
@@ -220,6 +255,9 @@ int main(void) {
     /* Do not carry the noload option into the writable lifetime. */
     if (umount("/newroot")) stop("preflight-unmount");
     mount_at(root_device, "/newroot", "ext4", 0, "errors=remount-ro,nodiscard");
+#ifdef S22_DEBIAN_INSTALLED_ONLY
+    installed_shutdown_command();
+#endif
     for (const char **p = (const char *[]){"dev", "proc", "sys", "run", NULL}; *p; ++p) {
         char source[32], target[64];
         snprintf(source, sizeof(source), "/%s", *p);

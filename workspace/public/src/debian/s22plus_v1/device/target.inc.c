@@ -120,6 +120,15 @@ static void target_install(struct fs1_endpoint *endpoint) {
     int complete = target_marker(root, ".s22-debian-complete-v1", 0);
     if (complete && !started) stop("install-complete-without-start");
     if (started && !complete) stop("install-consumed-incomplete");
+#ifdef S22_DEBIAN_INSTALLED_ONLY
+    /* A successor may use the completed P401 root, but cannot acquire a new
+     * installation intent or reach an extractor on any filesystem state. */
+    if (!complete) stop("installed-root-not-complete");
+    verify_metadata();
+    verify_contents();
+    if (close(root) || umount("/newroot")) stop("installed-root-close");
+    return;
+#else
     if (complete) {
         verify_metadata();
         verify_contents();
@@ -156,6 +165,7 @@ static void target_install(struct fs1_endpoint *endpoint) {
     if (syncfs(root) || close(root) || umount("/newroot")) stop("install-clean-unmount");
     if (fs1_read_super(endpoint, true) || fs1_gpt_exact(endpoint)) stop("install-final-binding");
     target_event("DEBIAN_INSTALL_COMPLETE");
+#endif
 }
 
 static const char *target_prepare(void) {
