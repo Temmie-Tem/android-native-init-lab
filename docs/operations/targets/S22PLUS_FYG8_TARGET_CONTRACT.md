@@ -309,6 +309,31 @@ Independent exception/closure review, fresh A/B artifact qualification and an
 actual returned finite grant remain necessary. This adoption grants no effect
 by itself and cannot reopen any prior G2 or cleanup run.
 
+### Native root inspection V1
+
+The common-incorporated [native root inspection V1](../S22PLUS_NATIVE_ROOT_INSPECT_V1.md)
+is adopted only as V3's `root-inspect` operation. A fresh one-shot inspector
+starts from healthy original A, performs one fixed authenticated native_data
+inspection and returns once to the same A with full Android32 health. It earns
+no native admission and permits no other operation, E, prior tail, reconnect
+or HUD. One returned attended grant binds one operation and at most 1800 seconds.
+
+Exact retained entry-41/GPT binding, partition-only kernel RO protection,
+clean-superblock admission and a protected read-only mount precede bounded
+marker/tree/file comparisons. Dirty state skips mount. There is no filesystem
+write, repair, archive extraction, chroot, installed-code execution, GPT change
+or read-only flag clear. P399/P400/P401 and installation claims stay consumed.
+Existing V3 original-A physical recovery and health-only continuation remain
+unchanged. This profile uses its own source-bound review record, qualified
+actual inspector bytes and current machine binding; preparation is not a grant.
+
+Its named fixed Android preparation reads are adopted for the current foreground
+task without per-read approval: healthy original-A root brackets, shell-v2,
+complete existing GPT metadata and Android32 statfs, with bounded read-only
+reobservation after a pure read failure. They cannot mount or inspect native
+files or perform control. No experimental image is transferred until the
+operator returns the concrete finite grant.
+
 ### Debian first installation and full PID 1 handoff V1
 
 The common-incorporated [Debian first-boot V1 policy](../S22PLUS_DEBIAN_FIRST_BOOT_V1.md)

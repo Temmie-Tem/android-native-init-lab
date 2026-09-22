@@ -70,6 +70,17 @@ by fresh-boot read-only verification and exact Android32 return. Its two-operati
 budget, fixed EXEC deadlines and explicit filesystem exception do not extend
 other V3 profiles or a consumed GPT/reset grant.
 
+The separately adopted [native root inspection V1](S22PLUS_NATIVE_ROOT_INSPECT_V1.md)
+adds only `root-inspect`: Android A → fresh inspector N once → health/fixed
+inspection/DETACH → same-boot health/CONTROL → A once → Android32 health.
+One attended operation lasts at most 1800 original BOOTTIME seconds. Its profile
+cannot participate in any other graph and earns no N admission. The fixed
+partition-only RAM RO control is intended before EXEC; all disk-data writes,
+chroot and installation are excluded. A complete negative inspection may
+return normally; uncertain execution retains the existing one-shot A recovery.
+Its separate source-bound review does not repin other capabilities or reopen
+any consumed action.
+
 Every authentication retains its nonce, authenticated kernel boot identity,
 ordinal, fixed root health, raw RX/TX and terminal acknowledgement. DETACH
 also requires actual descriptor close. A new installed boot starts at ordinal

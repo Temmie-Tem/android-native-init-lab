@@ -62,6 +62,13 @@
       "profile": "thermal-v3-reconnect-ufs-drain-ext4-initialize-v1",
       "run_id": "de9dd38c3c7e8427a90a03949409dfd6",
       "version": "v0.3.1-rc.2"
+    },
+    {
+      "namespace": "p402",
+      "run_id": "f80bd7e75a1a4a38bbe6c229473c8ebd",
+      "version": "v0.4.0-rc.2",
+      "image_sha256": "be2d73a2f8875b0d8ea6644fcd2c9be0dcee3a39a3ce6631d210edc45da3bfb3",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-inspect-v1"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

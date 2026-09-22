@@ -14,6 +14,7 @@ POLICY='docs/operations/S22PLUS_NATIVE_SESSION_V3.md'
 TARGET_CONTRACT='docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md'
 DETAILS='docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md'
 CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_session_v3_review.json'
+ROOT_INSPECT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_root_inspect_v1_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
     's22plus_native_host_install_v3')
@@ -39,12 +40,15 @@ def source_paths(root):
         'docs/operations/S22PLUS_NATIVE_UFS_V1.md',
         'docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md',
         'docs/operations/S22PLUS_NATIVE_EXT4_V1.md',
+        'docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_ufs_artifact_v1_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_output_drain_artifact_v1_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_gpt_artifact_v1_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_ext4_artifact_v1_h0.py',
+        'workspace/public/src/scripts/analysis/s22plus_native_root_inspect_artifact_v1_h0.py',
+        'workspace/public/src/scripts/revalidation/s22plus_native_root_inspect_prepare_v1.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py'))
     return tuple(sorted(paths))
 
@@ -61,8 +65,9 @@ def unchanged(receipt, *, maximum=2*1024*1024):
         verify(receipt,maximum=maximum); _verified[key]=current
 
 
-def capability(root, *, recovery=False):
-    path=Path(root)/CAPABILITY; result=read(path)
+def capability(root, *, recovery=False, profile=None):
+    from s22plus_native_root_inspect_profile_v1 import PROFILE as root_inspect_profile
+    path=Path(root)/(ROOT_INSPECT_CAPABILITY if profile==root_inspect_profile else CAPABILITY); result=read(path)
     require(set(result)=={'schema','verdict','scope','sources','runtime_sources','reviewer','findings'}
         and result['schema']=='s22plus-native-session-v3-review' and result['verdict']=='PASS_GO'
         and result['scope']=='V3_REACHABLE_CAPABILITY' and result['findings']==[],
@@ -102,7 +107,7 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
         'native task exceeds finite scope')
     require(type(task['operations']) is list and task['operations']
         and len(task['operations'])==len(set(task['operations']))
-        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4'}
+        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect'}
         and task['recovery_mode'] in ('attended','deferred'),'native task operations or recovery differ')
     require(all(type(task[key]) is bool for key in ('reentry','hud','usb_reconnect'))
         and (not task['usb_reconnect'] or task['reentry'] and task['recovery_mode']=='attended'),
@@ -114,6 +119,10 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
             and not any(task[key] for key in ('reentry','hud','usb_reconnect')),
             'GPT reservation requires its exact attended task scope')
     from s22plus_native_ext4_profile_v1 import PROFILES as filesystem_profiles
+    from s22plus_native_root_inspect_profile_v1 import PROFILE as root_inspect_profile
+    if task['N']['profile']==root_inspect_profile or 'root-inspect' in task['operations']:
+        from s22plus_native_root_inspect_session_v1 import validate_task as root_inspect_task
+        root_inspect_task(task, recovery=recovery)
     if task['N']['profile'] in filesystem_profiles or 'native-ext4' in task['operations']:
         from s22plus_native_ext4_session_v1 import validate_task as filesystem_task
         filesystem_task(task)
@@ -122,7 +131,7 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
         and re.fullmatch('[A-Za-z0-9._:-]{1,128}',task['target']['serial']),
         'task target identity differs')
     target.lane.validate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
-    require(task['review']==capability(root,recovery=recovery),'task capability review changed')
+    require(task['review']==capability(root,recovery=recovery,profile=task['N']['profile']),'task capability review changed')
     if not recovery: image_valid(task['N'])
     require(task['runtime_scope']==task['N']['runtime_sources']==read(verify(task['review']))['runtime_sources'],
         'native runtime scope is not the independently reviewed source closure')
@@ -173,6 +182,11 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
                 b'S22PLUS_NATIVE_EXT4_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
                 b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_NATIVE_EXT4_V1.md'),
                 'native filesystem exception is not common-incorporated and adopted by the exact target')
+        if task['N']['profile']==root_inspect_profile:
+            require(b'S22PLUS_NATIVE_ROOT_INSPECT_V1.md' in details and
+                b'S22PLUS_NATIVE_ROOT_INSPECT_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
+                b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md'),
+                'native root inspection is not common-incorporated and adopted by the exact target')
     return task
 
 
@@ -196,13 +210,13 @@ def validate_recovery(receipt, binding, android):
 def prepare_task(root, output, *, native, experiment, target, installation, recovery_evidence,
                  seconds=3600, operation_budget=3, recovery_mode='attended', reentry=True,
                  hud=False, usb_reconnect=True, admission=None, prior_terminal=None,
-                 storage_census=False, android_exit=True, bootstrap_start=None,gpt_reserve=False,native_ext4=False):
+                 storage_census=False, android_exit=True, bootstrap_start=None,gpt_reserve=False,native_ext4=False,root_inspect=False):
     import s22plus_native_target_io_v3 as target_io
     from s22plus_native_adapter_v3 import image_valid
     root=Path(root).resolve(strict=True); output=private_path(root,output,exists=False)
     require(not output.exists(),'native task preparation path already exists')
     require(type(storage_census) is bool and type(android_exit) is bool and type(gpt_reserve) is bool
-        and type(native_ext4) is bool
+        and type(native_ext4) is bool and type(root_inspect) is bool
         and (not storage_census or (admission is None)==(prior_terminal is None)),
         'storage census needs either fresh bootstrap or an admitted N and its closed tail')
     native=read(verify(native)); experiment=read(verify(experiment)) if experiment else None
@@ -211,7 +225,7 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
     task=dict(schema='s22plus-native-task-v3',target=read(verify(target)),N=native,E=experiment,
         A=android_artifact(root),adb=pin(Path('/usr/bin/adb').resolve(strict=True),maximum=32*1024*1024),
         odin=read(root/PROFILE)['transport']['odin'],host_installation=installation,
-        review=capability(root),recovery_evidence=recovery_evidence,
+        review=capability(root,profile=native['profile']),recovery_evidence=recovery_evidence,
         lane=target_io.lane.capture_binding(target_io.lane.SOURCE_TOPOLOGY),
         operations=(['bootstrap'] if admission is None else [])+(['native-ext4' if native_ext4 else 'experiment'] if experiment else [])
             +(['storage-census'] if storage_census else [])+(['android-exit'] if android_exit else [])
@@ -220,6 +234,10 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
         hud=hud,usb_reconnect=usb_reconnect,admission=admission,prior_terminal=prior_terminal,
         runtime_scope=native['runtime_sources'])
     if bootstrap_start is not None: task['bootstrap_start']=bootstrap_start
+    if root_inspect:
+        require(not experiment and not any((storage_census,android_exit,bootstrap_start,gpt_reserve,native_ext4)),
+            'root inspection cannot select another operation')
+        task['operations']=['root-inspect']
     validate_task(root,task,live=False)
     output.mkdir(mode=0o700); receipt=publish(output/'task.json',task)
     publish(output/'proposal.json',dict(task=receipt,approval=approval_text(task,receipt),
@@ -267,7 +285,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5])
     sub=parser.add_subparsers(dest='command',required=True)
-    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4'))
+    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect'))
     run.add_argument('grant',type=Path); run.add_argument('--attended',action='store_true')
     run.add_argument('--reentry',action='store_true'); run.add_argument('--hud',action='store_true')
     run.add_argument('--experiment-image',type=Path)

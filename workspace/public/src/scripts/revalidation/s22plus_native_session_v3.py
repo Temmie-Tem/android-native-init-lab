@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect')
 
 
 class ResultPublicationError(SessionError):
@@ -37,6 +37,9 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
     require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
+    if operation=='root-inspect':
+        from s22plus_native_root_inspect_session_v1 import normal_steps
+        return normal_steps()
     if operation=='native-ext4':
         from s22plus_native_ext4_session_v1 import normal_steps
         return normal_steps()
@@ -216,6 +219,8 @@ class Session:
             if step.name in ('gpt-apply','gpt-restore'):options['before_extra']=dispatch
             if self.request['operation']=='native-ext4' and step.name=='experiment-first':
                 options['before_extra']=dispatch
+            if self.request['operation']=='root-inspect' and step.name=='root-inspection':
+                options['before_extra']=dispatch
             value=self.adapter.observe(step,self.request,guard=guard,
                 before_terminal=dispatch if step.ending=='download' else guard,**options)
         elif step.action=='health':
@@ -252,7 +257,8 @@ class Session:
         else:
             expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot')
                 or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')
-                or self.request['operation']=='native-ext4' and step.name=='experiment-first']
+                or self.request['operation']=='native-ext4' and step.name=='experiment-first'
+                or self.request['operation']=='root-inspect' and step.name=='root-inspection']
             require([effect['step'] for effect in effects]==expected,
                 'normal terminal omits or differs from a durable effect')
         terminal_path=self.directory/'terminal.json'

@@ -324,9 +324,24 @@ assumed.
 ## Next bounded unit and milestones
 
 **P401's first device attempt closed with Debian proof absent and healthy
-Android restored. Next is H0 diagnosis of the retained bootstrap/USB path and
-its early-stage observation gap. No live grant remains, and the consumed
-candidate/installation must not be replayed.**
+Android restored. The next unit is stage 2: a fresh P402 native inspector will
+observe current native_data state and a protected read-only mount before any
+chroot or Debian handoff. Actual A/B artifact qualification, nine ARM64 VM
+cases, 101 focused checks and independent final `PASS_GO` are complete.
+Fresh connected preparation passed all 17 fixed Android reads with unchanged
+GPT and healthy original Android. The operator's start instruction is still
+required for the new experimental boot transfer. No live grant remains, and
+the consumed P401 candidate/installation must not be replayed.**
+See the [stage-2 preparation report](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_H0_2026-09-23.md).
+
+The bounded P402 graph is one attended operation/1800 seconds, one N transfer
+and one original-A return. Exact native-partition RAM RO protection precedes
+any clean-only read-only mount; dirty state is reported without mounting.
+It observes markers, witness and the retained rootfs's metadata/content without
+installation, repair, chroot or admission as a reusable native baseline.
+The prepared task is SHA-256
+`91fd7e92b087f4860739f7ef24236edb67104b9e2cd43e6f4585bbbe0cbc66ad`;
+its grant has not opened and no experiment operation or F1 owner exists.
 P399 `v0.3.1-rc.1` and P400 `v0.3.1-rc.2`, their filesystem attempt and finite
 grant are consumed. Preserve the existing filesystem and witness; do not
 reformat or replay these images to obtain a different aggregate verdict.

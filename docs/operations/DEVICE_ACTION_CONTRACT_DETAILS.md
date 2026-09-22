@@ -88,6 +88,11 @@ permission to perform host-only work.
    The separate exact S22+ Debian first-boot exception specializes only the
    declared read-only GPT binding, native_data mounts and rootfs writes; it
    authorizes no formatting, repair or partition-table mutation.
+   The separate [native root inspection V1](S22PLUS_NATIVE_ROOT_INSPECT_V1.md)
+   permits only exact native_data metadata/file reads and a protected read-only
+   mount. Its sole block control is partition-only `BLKROSET=1`, retained until
+   reboot; it grants no block-data write, flag clear, repair or installed-code
+   execution. All image transfers remain boot only.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -649,6 +654,34 @@ exclusion, original one-shot A and no uncertain replay. Historical claims,
 admissions and grants confer no V3 authority. Current independent review of
 the reachable owner, host installation and native source scope plus an actual
 returned finite grant are required; definition alone grants no device effect.
+
+## S22+ native root inspection
+
+The [native root inspection V1](S22PLUS_NATIVE_ROOT_INSPECT_V1.md) is adopted
+only through V3's separate `root-inspect` operation. One returned attended
+grant allows one operation and at most 1800 original BOOTTIME seconds:
+healthy original A, one fresh inspector N transfer, authenticated health and
+one fixed inspection, same-boot health/CONTROL, one original-A return and exact
+Android32 final health. The one-shot image earns no N admission and cannot
+enter bootstrap, experiment, storage census or another native role.
+
+Only entry 41 of the unchanged retained Android32 GPT may be inspected.
+Exact device/GPT binding precedes the RAM-only partition `BLKROSET=1` control;
+the authenticated control intent is durable before EXEC. Block RO readback,
+the existing clean-superblock gate, and `ro,noload,nodiscard,nodev,noexec,nosuid`
+precede bounded file-tree/marker comparisons. Dirty or recovery-needed state
+is reported without mounting. No filesystem data write, repair, extraction,
+chroot, flag clear, GPT mutation or userdata file access is authorized.
+
+The retained target-kernel error/orphan paths make block protection a permanent
+inspector invariant, including for initially clean filesystems. Failed or
+uncertain execution never retries. All previous format, install and candidate
+claims remain consumed; no negative observation releases them. V3's existing
+global exclusion, same-host-boot, attended physical Download, one-shot A and
+health-only recovery rules remain binding. Source-bound independent review,
+actual artifact qualification and the returned grant are separate prerequisites.
+The named foreground preparation D0 is read-only Android health/GPT/statfs,
+not native_data mount or file access, and grants no experimental transfer.
 
 ## S22+ G2 fixed GPT reservation and stock initialization
 

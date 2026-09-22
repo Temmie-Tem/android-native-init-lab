@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **27** (supersedes revision 26; 2026-09-21)
+Contract-Revision: **28** (supersedes revision 27; 2026-09-23)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`42e377b582fc8c25c7cb32d83a4086125704fa5be2c4ba648a5f6936e85e819d`.
+`05ac24220a31ec1b2a9974958b4b4af645d984958aa8451df88daaa8a72b7597`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -123,6 +123,9 @@ Read an exception's complete conditions before considering it applicable.
    GPT metadata only; they grant no partition-table mutation or formatting.
    The exact S22+ UFS F1 profile also permits its fixed driver initialization
    and ordinary kernel discovery, without a host partition-data writer.
+   The exact [native root inspection profile](docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md)
+   adds only partition-level RAM read-only protection and protected native_data
+   reads/mounts; it grants no filesystem data write, repair or code execution.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -172,6 +175,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md); independently reviewed fixed native writer and stock reset, one finite attended grant, journal-bound original-layout recovery. |
 | S22+ native ext4 | [Exact native_data filesystem and witness](docs/operations/S22PLUS_NATIVE_EXT4_V1.md); independently reviewed fixed initializer/reader, one attended finite grant, unchanged Android32 return and no replay. |
 | S22+ Debian first boot | [Exact native_data installation and PID 1 handoff](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md); one reviewed embedded archive, one attended finite grant, one ordinary reboot, physical original-A return and no reinstall. |
+| S22+ native root inspection | [Fixed protected read-only inspection](docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md); one fresh native boot, partition-only RAM RO control, bounded native_data observation, one original-A return, no installation or chroot. |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

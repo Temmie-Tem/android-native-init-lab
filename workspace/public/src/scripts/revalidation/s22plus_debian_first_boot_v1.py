@@ -120,7 +120,8 @@ def source_paths():
             {'s22plus_native_adapter_v3', 's22plus_native_session_v3', 's22plus_native_task_v3'},
         ('s22plus_native_android_storage_v1.py', 'observe'): {'s22plus_native_task_v3'},
         ('s22plus_native_gpt_android_v1.py', 'projection'):
-            {'s22plus_native_ext4_session_v1', 's22plus_native_gpt_session_v1'},
+            {'s22plus_native_ext4_session_v1', 's22plus_native_gpt_session_v1',
+             's22plus_native_root_inspect_session_v1'},
         ('s22plus_native_gpt_android_v1.py', 'observe'): {'s22plus_native_session_v3'},
         ('s22plus_native_gpt_android_v1.py', 'reboot_persistence'): {'s22plus_native_session_v3'},
     }
