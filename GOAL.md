@@ -21,7 +21,23 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Latest completed unit — P403 Debian userspace and healthy Android return
+## Current P404 first run and healthy Android return
+
+After a pre-process automatic approval rejection, the operator explicitly
+approved one P404 experimental boot-only transfer. The source-bound review,
+plan, finite grant and healthy Android preflight were revalidated. P404
+`v0.4.0-rc.4` transferred once; the fixed 180-second wait saw no Debian NCM
+endpoint. The terminal is `NO_PROOF_ANDROID_CLOSED_HEALTHY`: no Debian PID 1,
+SSH, shutdown or P399 normal return was observed. The operator entered
+Download and original A transferred once. A transient empty ADB inventory
+made the first final-health read fail; read-only continuation then proved a
+distinct rooted Android boot with exact original partition hashes, unchanged
+full GPT and Android32 capacity. The P404 claim and grant are consumed; the
+global F1 owner is absent. See the [first-run report and canonical timeline](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P404_FIRST_RUN_2026-09-23.md).
+The next bounded step is H0 diagnosis; do not replay P404 or infer bootstrap
+cause from missing NCM alone. A90 and S20+ remain untouched.
+
+## Prior completed unit — P403 Debian userspace and healthy Android return
 
 P403 `v0.4.0-rc.3` completed stage 3 on the actual device on 2026-09-23 KST.
 All 8,969 expected root entries matched before one fixed unprivileged chroot
@@ -383,32 +399,31 @@ assumed.
 
 ## Next bounded unit and milestones
 
-**P404 installed-root handoff is H0-prepared, not activated.** The fresh
+**P404 installed-root handoff completed H0 preparation.** The fresh
 `v0.4.0-rc.4` archive-free boot package has identical A/B bytes and a static
 ARM64 bootstrap. A real ARM64 VM booted the retained installed Debian root as
 initial PID 1, authenticated SSH health, shut down cleanly and rejected an empty
 root without installation or backing-disk writes. The exact package/VM join is
 qualified H0; see the [P404 preparation report](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P404_H0_2026-09-23.md).
-The new one-shot owner and [draft policy](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
-passed an exact-source independent H0 review. They still require a separate live
-capability review with common/target adoption and an actual finite attended
-grant. No device action occurred, and no live P404 or P399 return
-authority exists. The next bounded unit is that adoption and activation work;
-Samsung PID 1/SSH and P399 normal return can be tested only afterward.
+The new one-shot owner and [installed-boot policy](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
+passed exact-source H0 and live capability reviews. The consumed first run and
+healthy Android return are recorded at the top of this goal. Samsung PID 1/SSH
+and P399 normal return remain unproved; the next work is H0 diagnosis from
+retained evidence, not a P404 retry.
 
 **Stage 3 is complete: P403 proved the fixed installed-Debian shell/libc/
 child-exit workload after complete protected-root comparison and returned
 normally to healthy original Android. Debian host PID 1 and NCM/SSH remain
-unproved. No live grant remains; P401/P402/P403 claims remain consumed.**
+unproved. Its grant is closed; P401/P402/P403 claims remain consumed.**
 See the [P403 live report](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md)
 and [stage-3 qualification](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_H0_2026-09-23.md).
 
-The next bounded unit is H0 preparation of a fresh full Debian init handoff,
-with a concrete post-handoff observation and recovery path. Use the now-proved
+The then-next bounded unit was H0 preparation of a fresh full Debian init handoff,
+with a concrete post-handoff observation and recovery path. It used the proved
 installed root and fixed userspace evidence to focus on initial-PID-namespace
-handoff, minimal device setup and the required transport. Use the selected
-P399 native reference for normal return design and retain exact original-A
-failure recovery in that new reviewed scope. A diagnostic chroot
+handoff, minimal device setup and the required transport. It selected
+P399 as the normal-return reference and retained exact original-A
+failure recovery in that reviewed scope. A diagnostic chroot
 is an intermediate test, not the product architecture or proof of host PID 1.
 Do not reinstall or replay P401/P403. Any new live scope needs its own qualified
 candidate, independent review where required and current authority.

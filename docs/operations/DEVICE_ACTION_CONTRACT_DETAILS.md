@@ -78,6 +78,11 @@ permission to perform host-only work.
    The separate exact S22+ Debian first-boot exception below permits one
    installation into that existing native_data filesystem and its declared
    Debian lifetime. It permits no format, repair, GPT change or Android stage.
+   The separate exact S22+ installed-Debian exception below permits one fresh
+   boot of that already completed root, its declared filesystem lifetime and
+   one reviewed P399 boot-only normal restoration. It grants no installation,
+   format, repair, GPT change, Android stage or replay of prior P401/P399
+   effect intents.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
@@ -88,6 +93,10 @@ permission to perform host-only work.
    The separate exact S22+ Debian first-boot exception specializes only the
    declared read-only GPT binding, native_data mounts and rootfs writes; it
    authorizes no formatting, repair or partition-table mutation.
+   The separate installed-Debian exception specializes only protected checks,
+   native_data mount and declared Debian rootfs writes after completed-root
+   validation; it adds no formatter, repair, partition-data writer or host
+   storage-control command.
    The separate [native root inspection V1](S22PLUS_NATIVE_ROOT_INSPECT_V1.md)
    permits only exact native_data metadata/file reads and a protected read-only
    mount. Its sole block control is partition-only `BLKROSET=1`, retained until
@@ -838,6 +847,39 @@ root/partition hashes, unchanged GPT and exact Android32 capacity close the
 return separately from native filesystem integrity. This permanent narrow
 definition needs exact target adoption, independent source review, actual
 artifact qualification and an explicit returned finite grant before effects.
+
+## S22+ installed Debian PID 1 and native return
+
+The [installed Debian boot V1 policy](S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md) is
+incorporated at this same common-contract precedence as a separate narrow
+exception to boundaries 2 and 3 only for `SM-S906N/g0q/S906NKSS7FYG8`. It
+reuses the completed P401 root as a sealed input without reinstalling: one
+fresh boot-only P404 image has no root archive or installation path, verifies
+the completion markers, full retained root files and exact native_data/GPT
+identity before writable handoff to Debian SysVinit as initial PID 1. Ordinary
+ext4 metadata/journal and declared Debian root writes remain confined to entry
+41. No filesystem repair, reformat, GPT change, userdata mutation, rootfs
+replacement or other partition payload is permitted.
+
+One finite, physically attended, 3600-second BOOTTIME grant binds one P404
+transfer, bounded authenticated Debian health, one orderly shutdown request,
+one attended Download arrival and one distinct boot-only P399 `v0.3.1-rc.1`
+normal restoration. The consumed P399 admission is evidence for this exact
+normal role, not reusable authority from its old grant. A fresh authenticated
+native boot, clean read-only filesystem witness, DETACH and descriptor close
+may end in a healthy native terminal without transferring A. Failure instead
+retains one separately intended, attended original-A transfer and exact final
+Android32 rooted/GPT/partition/capacity health. There is no automatic or
+deferred physical recovery. An intended transfer/control never replays; proved
+raw completion permits only journal/report/health continuation.
+
+The global target lease, F1 owner and content registry remain mandatory.
+Candidate-only source drift and grant expiry never cancel an already-owned A
+recovery, while current recovery-critical sources and exact A/target binding
+remain required. This exception does not renew P401 installation, P399's old
+roles, or any other S22+/A90/S20+ capability. It requires exact target adoption,
+independent final source/authority `PASS_GO`, actual P404/P399/A qualification,
+current health and an operator-returned attended grant before effects.
 
 ## Bounded Attended F1 Sessions
 

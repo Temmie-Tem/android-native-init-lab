@@ -36,6 +36,12 @@ reboot/physical-A sequence has a distinct reviewed owner; Debian does not
 impersonate a native CDC observer or inherit V3 admission. This exception leaves
 the ordinary process and all consumed candidate meanings unchanged.
 
+The separately common-incorporated [S22+ installed-Debian boot V1](S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
+has its own reviewed owner for the already installed root, restricted Debian
+shutdown, P399 native normal return and original-A failure recovery. It does
+not reuse the first-boot installation claim or P399's consumed grant and it
+retains the ordinary process's no-replay transfer rule.
+
 The new common-incorporated [S22+ proportional research V1](S22PLUS_PROPORTIONAL_RESEARCH_V1.md)
 uses the same measured transport, fixed health and baseline owner through an
 explicit scope mode. Its parent authorizes a finite task and its children bind

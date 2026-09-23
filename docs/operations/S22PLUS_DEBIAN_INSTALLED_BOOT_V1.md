@@ -1,10 +1,38 @@
 # S22+ installed Debian PID 1 handoff and native return V1
 
-Status: **DRAFT_H0**. This definition opens no connected read, grant or device
-effect. It applies only to operator-owned `SM-S906N/g0q/S906NKSS7FYG8` and
-the exact Android32/native_data layout. Common incorporation, target adoption,
-independent safety review of the execution closure, actual artifact qualification,
-current health and one finite attended grant are required before any live use.
+Status: **REVIEW_GATED_CAPABILITY**. This definition alone opens no connected
+read, grant or device effect. It applies only to operator-owned
+`SM-S906N/g0q/S906NKSS7FYG8` and the exact Android32/native_data layout.
+Common incorporation, target adoption, independent source-bound `PASS_GO` of
+the final execution/authority closure, actual artifact qualification, current
+health and one finite attended grant are required before any live use. The
+earlier `PASS_H0_REVIEW_READY` receipt is host evidence, not that activation.
+
+## One attended owner
+
+Only `s22plus_debian_installed_boot_v1.py` may own this sequence. A single
+operator-returned grant binds the exact P404 candidate, retained installed
+P401 root, P399 `v0.3.1-rc.1` native return, original Android A, reviewed
+runner/transport/observer, target and physical recovery. Its original window
+is at most 3600 suspend-aware BOOTTIME seconds. Physical attendance and a
+usable exact Download-to-A route are required for effects; there is no
+deferred or automatic recovery claim. The ordered research effects are one
+Android Download entry, one fresh P404 boot transfer, one restricted Debian
+shutdown request after proved Debian health, and one P399 normal return only
+after proved shutdown departure and a fresh attended Download arrival. The
+one original-A transfer is the alternative failure recovery and is never a
+second normal experiment. An effect intent consumes its role even when its
+outcome is uncertain. Expiry stops research; it does not remove the retained
+original-A recovery owner. This grant authorizes no second Debian boot,
+ordinary reboot, package workload, credential or configuration change.
+For a host cut after Odin output, the raw capture establishes producer
+completion only together with the durable prelaunch intent, pinned invocation,
+reviewed fixed command construction and original artifact receipt. The raw
+capture alone has no full argv or independent proof of AP bytes. A proved
+transfer/control may regain only its missing result/evidence record through
+read-only reconciliation; this never resends the command or renews research
+after a stop. A healthy native terminal additionally rechecks current selected
+P404/P399 bytes, frozen native protocol sources and original raw observations.
 
 ## Installed-root selection
 

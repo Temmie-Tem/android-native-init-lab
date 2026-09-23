@@ -65,6 +65,17 @@ class InstalledBootTests(unittest.TestCase):
         self.rows.append('terminal',receipt={})
         lane.journal_state(self.rows)
 
+    def test_pre_intent_a_attendance_can_be_reaffirmed_without_a_replay(self):
+        self.rows.append('effect-intent',step='android-download',detail={})
+        self.rows.append('research-stopped',error_type='Cut',message='cut')
+        self.rows.append('physical-statement',role='A',statement='attending')
+        self.rows.append('physical-reaffirmed',role='A',statement='still attending')
+        self.rows.append('effect-intent',step='android-restore',detail={})
+        lane.journal_state(self.rows)
+        with self.assertRaises(ValueError):
+            self.rows.append('effect-intent',step='android-restore',detail={})
+            lane.journal_state(self.rows)
+
     def test_no_effect_stop_can_close_without_flash(self):
         self.rows.append('research-stopped',error_type='Cut',message='cut')
         self.rows.append('terminal',receipt={})
@@ -156,6 +167,128 @@ class InstalledBootTests(unittest.TestCase):
         with patch.object(lane.registry,'target_session_lease',lease):
             self.assertEqual(owner.close_native(),1)
         self.assertEqual(held,[])
+
+    def test_candidate_raw_completion_reconstructs_only_its_bound_result(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            attempt=base/'candidate-boot-transfer'/('attempt-'+'c'*32)
+            attempt.mkdir(parents=True)
+            artifact=dict(path=str(base/'AP.tar.md5'),size=123,sha256='a'*64)
+            odin=dict(path=str(base/'odin4'),size=456,sha256='b'*64)
+            ticket=dict(device='/dev/bus/usb/001/002')
+            command=lane.transport.build_odin_boot_only_command(
+                Path(odin['path']),Path(artifact['path']),ticket['device'])
+            invocation=lane.publish(attempt/'invocation.json',dict(
+                command=command,odin=odin,ap=artifact,ticket=ticket))
+            writer=lane.raw.RawCaptureWriter(attempt,'odin',stdout_maximum=65536,
+                stderr_maximum=16384,argv0_name='odin4')
+            writer.write_stdout(b'Setup Connection\nUpload Binaries\nboot.img.lz4\n'
+                b'100%\nClose Connection\n')
+            writer.finalize(returncode=0)
+            self.rows.append('effect-intent',step='android-download',detail={})
+            self.rows.append('effect-result',step='android-download',receipt={})
+            self.rows.append('effect-intent',step='candidate-boot',detail=dict(
+                ap=artifact,ticket=ticket,capture_directory=str(attempt),invocation=invocation))
+            owner=object.__new__(lane.Owner)
+            owner.directory=base
+            owner.journal=self.rows
+            owner.plan=dict(candidate=dict(ap=artifact),N=dict(ap={}),A=dict(ap={}),odin=odin)
+            self.assertTrue(owner.transfer_proved('candidate-boot'))
+            receipt=owner.finish_proved_transfer('candidate-boot')
+            self.assertEqual(receipt,lane.pin(base/'candidate-boot.json'))
+            self.assertTrue(lane.read(base/'candidate-boot.json')['resumed_from_original_raw'])
+            self.assertEqual(owner.finish_proved_transfer('candidate-boot'),receipt)
+            self.rows.items[3]['data']['detail']['ticket']=dict(device='/dev/bus/usb/001/003')
+            with self.assertRaises(ValueError):owner.transfer_proved('candidate-boot')
+
+    def test_shutdown_raw_and_departure_complete_without_resending_ssh(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            io=base/'debian-shutdown-io';io.mkdir()
+            endpoint=dict(interface='usb-test')
+            health=lane.publish(base/'debian-health.json',dict(endpoint=endpoint))
+            for step in ('android-download','candidate-boot'):
+                self.rows.append('effect-intent',step=step,detail={})
+                self.rows.append('effect-result',step=step,receipt={})
+            self.rows.append('observation',step='debian-health',receipt=health)
+            self.rows.append('effect-intent',step='debian-shutdown',detail=dict(health=health))
+            writer=lane.raw.RawCaptureWriter(io,'command',stdout_maximum=65536,
+                stderr_maximum=16384,argv0_name='ssh')
+            writer.write_stdout(b'DEBIAN_SHUTDOWN_REQUEST_ACCEPTED\n')
+            writer.finalize(returncode=0)
+            lane.publish(io/'departure.json',dict(endpoint=endpoint,
+                observed_boottime_ns=10,method='NCM_ENDPOINT_ABSENT'))
+            owner=object.__new__(lane.Owner)
+            owner.directory=base
+            owner.journal=self.rows
+            owner.plan=dict(link=dict(ssh_address='192.0.2.2'))
+            owner.ssh=Mock(side_effect=AssertionError('shutdown replay'))
+            receipt=owner.finish_proved_shutdown()
+            self.assertEqual(receipt,lane.pin(base/'debian-shutdown.json'))
+            self.assertIn('debian-shutdown',lane.journal_state(self.rows)[1])
+            self.assertEqual(owner.finish_proved_shutdown(),receipt)
+            owner.ssh.assert_not_called()
+
+    def test_native_detach_raw_can_publish_missing_observation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            for step in ('android-download','candidate-boot'):
+                self.rows.append('effect-intent',step=step,detail={})
+                self.rows.append('effect-result',step=step,receipt={})
+            self.rows.append('observation',step='debian-health',receipt={})
+            self.rows.append('effect-intent',step='debian-shutdown',detail={})
+            self.rows.append('effect-result',step='debian-shutdown',receipt={})
+            self.rows.append('native-return-armed',health={},shutdown={})
+            self.rows.append('physical-statement',role='P399',statement='attending')
+            self.rows.append('effect-intent',step='native-return',detail={})
+            self.rows.append('effect-result',step='native-return',receipt={})
+            self.rows.append('native-auth-intent',image={})
+            self.rows.append('native-detach-intent',image={})
+            owner=object.__new__(lane.Owner)
+            owner.directory=base
+            owner.journal=self.rows
+            owner.plan=dict(N=dict(run_id_hex='a'*32))
+            proof=dict(proof=dict(filesystem=dict(
+                status='PASS_READONLY_WITNESS_CLEAN_UNMOUNT')))
+            import s22plus_native_observation_v3 as native
+            with patch.object(native,'rederive',return_value=proof) as rederive:
+                receipt=owner.finish_proved_native_health(dict(boot_id_sha256='b'*64))
+                self.assertEqual(receipt,lane.pin(base/'native-health.json'))
+                self.assertEqual(owner.finish_proved_native_health(
+                    dict(boot_id_sha256='b'*64)),receipt)
+            self.assertEqual(rederive.call_count,2)
+            self.assertIn('native-health',lane.journal_state(self.rows)[2])
+
+    def test_zero_effect_owner_cut_closes_even_after_preintent_read(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            plan=lane.publish(base/'plan.json',dict(directory=str(base)))
+            lane.publish(base/'grant.json',dict(attended=True))
+            (base/'fresh-start').mkdir()
+            lane.publish(base/'fresh-start/result.json',dict(healthy=True))
+            (base/'android-download-io').mkdir()
+            owner=object.__new__(lane.Owner)
+            owner.directory=base
+            owner.plan_receipt=plan
+            owner.plan=dict(directory=str(base))
+            owner.grant=dict(attended=True)
+            owner.journal=self.rows
+            owner.recovery=True
+            self.rows.items.clear()  # Host cut after global owner, before journal open.
+            @contextmanager
+            def lease(_):yield
+            with patch.object(lane.registry,'target_session_lease',lease), \
+                 patch.object(lane.registry,'require_f1_owner'), \
+                 patch.object(lane.registry,'retire_f1_owner') as retire, \
+                 patch.object(lane,'validate_plan'), \
+                 patch.object(lane,'validate_grant'), \
+                 patch.object(lane.old,'android_projection',return_value=dict(healthy=True)):
+                terminal=owner.close_no_effect()
+                self.assertEqual(lane.read(lane.verify(terminal))['device_effects'],0)
+                self.assertEqual([row['event'] for row in self.rows.rows()],
+                    ['owner-opened','research-stopped','terminal'])
+                self.assertEqual(owner.close_no_effect(),terminal)
+                self.assertEqual(retire.call_count,2)
 
     def test_debian_health_rederives_from_raw_capture(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **29** (supersedes revision 28; 2026-09-23)
+Contract-Revision: **30** (supersedes revision 29; 2026-09-23)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`a0f63cc82e1f7abd4cd1754bfbad51f74bbe50c800227c6caa6d2f727e5f3351`.
+`28ab0cf838b4e4b9e722a614e843c18507bd90829e002bbd5e31f3ba2de4f804`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -111,7 +111,8 @@ Read an exception's complete conditions before considering it applicable.
    the exact retained S20+ T0/T1/T2 recovery exceptions and the exact S22+
    [G2 GPT reservation/reset exception](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md)
    and [native ext4 exception](docs/operations/S22PLUS_NATIVE_EXT4_V1.md), and
-   the separately reviewed [Debian first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md).
+   the separately reviewed [Debian first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
+   and [installed-Debian boot exception](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -178,6 +179,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md); independently reviewed fixed native writer and stock reset, one finite attended grant, journal-bound original-layout recovery. |
 | S22+ native ext4 | [Exact native_data filesystem and witness](docs/operations/S22PLUS_NATIVE_EXT4_V1.md); independently reviewed fixed initializer/reader, one attended finite grant, unchanged Android32 return and no replay. |
 | S22+ Debian first boot | [Exact native_data installation and PID 1 handoff](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md); one reviewed embedded archive, one attended finite grant, one ordinary reboot, physical original-A return and no reinstall. |
+| S22+ installed Debian boot | [Exact completed-root PID 1 and P399 return](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md); one fresh archive-free boot, one attended finite grant, restricted shutdown, P399 normal return or physical original-A recovery, no reinstall. |
 | S22+ native root inspection | [Fixed protected read-only inspection](docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md); one fresh native boot, partition-only RAM RO control, bounded native_data observation, one original-A return, no installation or chroot. |
 | S22+ fixed Debian userspace probe | [Protected-root child execution](docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md); one fresh native boot, exact root closure, one fixed unprivileged workload, one original-A return, no installation or PID 1 handoff. |
 | X | Forbidden; remain H0. |

@@ -176,6 +176,14 @@ not ordinary F1 permission or a collection of D0/D1 stages. The whole transactio
 requires its exact artifact qualification, attended finite grant and no-replay
 installation/transfer claims. It does not inherit consumed native ext4 authority.
 
+The separately common-incorporated [S22+ installed-Debian boot V1](S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
+uses a different reviewed owner for one fresh boot of the completed root,
+restricted shutdown and P399 boot-only normal return, with physical original-A
+fallback. Its native_data writable lifetime is an explicit narrow F1 exception;
+it cannot reinstall, replay P401/P399 roles or infer live authority from H0
+qualification. Exact source review, artifact qualification, attendance, a finite
+grant and one-shot transfer/control journaling are mandatory.
+
 Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 
 Attendance and per-candidate human approval remain the default. AGENTS Revision
