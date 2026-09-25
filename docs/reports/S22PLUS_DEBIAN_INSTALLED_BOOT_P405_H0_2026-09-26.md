@@ -1,5 +1,10 @@
 # S22+ P405 installed Debian successor — H0, 2026-09-26
 
+Historical preparation record: its one attended run is now consumed and closed
+`NO_PROOF_ANDROID_CLOSED_HEALTHY`. See the
+[first-run result and timeline](S22PLUS_DEBIAN_INSTALLED_BOOT_P405_FIRST_RUN_2026-09-26.md).
+Read preparation-stage statements below as the state before that grant.
+
 ## Bounded unit
 
 P405 `v0.4.0-rc.5` prepares one fresh installed-root handoff after the closed

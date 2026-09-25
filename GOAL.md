@@ -21,26 +21,27 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P405 installed-root successor preparation
+## Current P405 first run and healthy Android return
 
-P405 `v0.4.0-rc.5` has a fresh archive-free boot package, matching A/B bytes,
-ARM64 virtual installed-PID-1/SSH/shutdown proof and empty-root rejection.
-Its corrected host selector is supplemented by bounded private USB/interface
-observations. Authenticated health additionally requires this candidate's
-exact RAM bootstrap identity. Kernel, modules, installed root and physical
-P399/original-A return routes retain their existing scope.
+P405 `v0.4.0-rc.5` transferred once under the operator's concrete attended grant
+after fresh exact rooted Android32 health. No NCM endpoint arrived in 180
+seconds. All 98 bounded raw USB samples show both declared device paths absent
+at their observation times. Debian PID 1/SSH, bootstrap stage, shutdown and
+P399 normal return remain unproved; no SSH or P399 effect occurred.
 
-The [P405 H0 report](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_H0_2026-09-26.md)
-records independent actual-AP qualification, 60 focused tests and final
-63-source **PASS_GO**. The separate P405 review preserves P404's review and
-consumed evidence. The operator requested continuing through the next physical
-experiment. Fixed preparation D0 proved current rooted original Android, exact
-partition hashes, full GPT and 34,357,624,832-byte Android32 capacity. Its first
-read rejected ADB server-startup stderr; the preserved read-only reobservation
-passed. The concrete 3600-second one-candidate plan is prepared, with no grant,
-transition or candidate transfer yet. Current root cleanliness remains
-a bootstrap prerequisite before writable handoff, never inferred from Android
-return. A90/S20+ remain isolated.
+After the operator entered Download, original Android A transferred once and
+its first final-health bracket passed: distinct rooted boot ID, exact original
+partition hashes, full GPT and 34,357,624,832-byte Android32 capacity. The
+terminal is **NO_PROOF_ANDROID_CLOSED_HEALTHY**. P405 and its grant are consumed
+and closed, the F1 owner is absent, and no effect replayed. All 63 saved sources,
+transfer/health raw proof and 98 USB captures were rederived. See the
+[first-run report and timeline](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_FIRST_RUN_2026-09-26.md)
+and [H0 qualification](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_H0_2026-09-26.md).
+
+Next is H0 design for evidence before USB availability and the retained root's
+state. Android return does not prove native_data clean or unchanged. Neither
+this P405 result nor the host selector repair establishes P404's actual cause.
+A90/S20+ remain isolated.
 
 ## Prior P404 first run and healthy Android return
 
@@ -60,9 +61,9 @@ reproduced and repaired a host selector defect: an absent Android USB path
 prevented checking the other allowed Debian path. The retained P404 function
 reproduces it; the corrected selector passes regression and independent review.
 The actual P404 cause and Samsung PID 1/SSH remain unproved because unsuccessful
-endpoint observations were not retained. No device action or live activation
-occurred. Next is H0 preparation of a fresh successor with bounded USB/interface
-observation; do not replay P404. A90 and S20+ remain untouched.
+endpoint observations were not retained. That H0 audit made no device action;
+it led to the separate P405 preparation and consumed run above. P404 remains
+consumed, and A90/S20+ remain isolated.
 
 ## Prior completed unit — P403 Debian userspace and healthy Android return
 
@@ -436,10 +437,10 @@ The new one-shot owner and [installed-boot policy](docs/operations/S22PLUS_DEBIA
 passed exact-source H0 and live capability reviews. The consumed first run and
 healthy Android return are recorded at the top of this goal. Samsung PID 1/SSH
 and P399 normal return remain unproved. The retained-input H0 audit is complete:
-one host selector defect is repaired and independently reviewed, with 48 focused
-tests passing. Next is a fresh successor's H0 preparation and narrow host
-observation design, preserving current root-health and source-review conditions.
-The historical live review and consumed P404 grant are not renewed by this fix.
+one host selector defect was repaired and independently reviewed, then the fresh
+P405 successor completed H0 qualification and its one attended run. The current
+P405 result and healthy Android closure are recorded above. Next is H0 design
+for pre-USB/bootstrap and root-state evidence. Neither consumed grant is renewed.
 
 **Stage 3 is complete: P403 proved the fixed installed-Debian shell/libc/
 child-exit workload after complete protected-root comparison and returned
