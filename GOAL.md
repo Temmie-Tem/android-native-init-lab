@@ -21,7 +21,29 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P406 root-state proof and healthy Android return
+## Current P407 pre-handoff observation preparation
+
+P407 `v0.4.0-rc.7` is built as a fresh one-shot diagnostic before Debian init.
+It preserves the P405 module/UFS/root/loader preparation order while adding
+partition RAM RO, bounded child evidence and complete cleanup before a sealed
+result is returned through the native observer. It has no writable mount,
+installation or Debian PID 1 handoff. The observer adopts the existing module
+set; it cannot repeat insertion or claim old temporal witnesses.
+
+Actual A/B packages match. ARM64 VM success, dirty/checksum rejection and six
+child failure cases pass with protected storage and the required stop/cleanup
+semantics; all 87 focused tests pass. Existing P401/P405 paths remain byte
+identical. Final independent review is `PASS_GO`; fresh fixed Android preparation
+proved exact original-A health/GPT and Android32 capacity. The one-operation,
+1800-second attended task is ready for its returned finite start and original-A
+closure. No P407 grant or experimental device effect has occurred. See the
+[H0 qualification](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_H0_2026-09-26.md).
+
+Partial module failure or cleanup uncertainty still has no native observer and
+requires physical original-A recovery. Success measures only pre-handoff
+preparation; switch_root, Debian host PID 1 and NCM/SSH remain unproved.
+
+## Prior P406 root-state proof and healthy Android return
 
 P406 `v0.4.0-rc.6` completed one attended protected inspection on 2026-09-26
 KST. The retained native_data filesystem was clean, with no RECOVER flag or

@@ -12,6 +12,7 @@ import s22plus_native_gpt_profile_v1 as gpt
 import s22plus_native_ext4_profile_v1 as fs
 import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
+import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
 from s22plus_native_wire_v3 import Codec
@@ -40,9 +41,9 @@ class StorageIO(IO):
 
 
 def io_class(profile, image=None):
-    if profile in (inspection.SELECTION, probe.SELECTION):
+    if profile in (inspection.SELECTION, probe.SELECTION, preflight.SELECTION):
         require(image is not None, 'root inspection has no bound image')
-        item = probe if profile == probe.SELECTION else inspection
+        item = next(item for item in (inspection,probe,preflight) if item.SELECTION==profile)
         class RootInspectionIO(IO):
             EXTRA_PROFILE = item.Profile(image)
             SOURCE_PROFILE = dict(schema=item.SCHEMA, selection=profile)

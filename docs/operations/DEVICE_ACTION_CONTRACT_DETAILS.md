@@ -102,6 +102,10 @@ permission to perform host-only work.
    mount. Its sole block control is partition-only `BLKROSET=1`, retained until
    reboot; it grants no block-data write, flag clear, repair or installed-code
    execution. All image transfers remain boot only.
+   The separately reviewed [bootstrap preflight V1](S22PLUS_NATIVE_PREFLIGHT_V1.md)
+   permits its fixed automatic read-only preparation, partition RAM RO,
+   unprivileged loader checks and sealed-result native observer only. It adds
+   no filesystem data write, repair, installation or Debian PID 1 handoff.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -717,6 +721,30 @@ research and retains only V3's unchanged original one-shot A recovery. All
 prior consumed claims and grants remain consumed. Its separate source-bound
 review, actual qualification and finite grant are required; its named fixed
 foreground Android preparation D0 grants no mode change or experimental image.
+
+## S22+ installed-bootstrap preflight
+
+The separately reviewed [preflight V1](S22PLUS_NATIVE_PREFLIGHT_V1.md) is adopted
+only as V3's `preflight`: one returned attended grant, one operation and at most
+1800 original BOOTTIME seconds. One fresh N transfer from healthy original A
+owns and consumes the automatic fixed preparation before its first boot. One
+sealed current-boot result read, normal native health/CONTROL, one original-A
+return and full rooted Android32 health close it. There is no N admission,
+other operation, E, prior tail, optional reentry, reconnect or HUD.
+
+P405's exact 81-module preparation and protected root/checker/loader checks
+stop before writable mount or root handoff. Partition-only RAM block RO,
+clean admission, both mount protection readbacks, fixed unprivileged loader
+children, finite child/output accounting, ordinary unmount, complete FD and
+mount release and unchanged superblock/GPT are mandatory. The existing native
+observer may restart only from the same-run/current-boot sealed result and
+adopt the exact already-loaded module set; old temporal insertion witnesses
+do not apply. Incomplete modules, timeout, output overflow, unsettled children
+or cleanup uncertainty park for the unchanged attended original-A recovery.
+No filesystem write, repair, extraction, flag clear, GPT change, installed init,
+service/network startup or Debian PID 1 handoff is authorized. Earlier claims
+remain consumed. Source review, actual qualification and returned finite grant
+are separate; the named fixed Android preparation D0 changes no mode or image.
 
 ## S22+ G2 fixed GPT reservation and stock initialization
 

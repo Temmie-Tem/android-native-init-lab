@@ -9,12 +9,14 @@ import s22plus_boot_only_f1_transport as transport
 from s22plus_native_records_v3 import pin, private_path, publish, read, require, verify
 
 
-def qualify(namespace, output, *, key_path, build_directory=None, userspace=False):
+def qualify(namespace, output, *, key_path, build_directory=None, userspace=False, preflight=False):
     import s22plus_native_baseline_v2_candidates as catalog
     import s22plus_debian_first_boot_v1 as prior_owner
     selected = catalog.DECLARATIONS[namespace]
     chosen = profile
+    require(not (userspace and preflight), 'select one diagnostic role')
     if userspace: import s22plus_native_userspace_probe_profile_v1 as chosen
+    if preflight: import s22plus_native_preflight_profile_v1 as chosen
     require(catalog.research_profile(selected) == chosen.PROFILE, 'unselected protected-root composition')
     builder = catalog.static(namespace).builder
     if build_directory is not None: builder.DEFAULT_OUTPUT_ROOT = private_path(ROOT, build_directory)
@@ -46,8 +48,10 @@ def qualify(namespace, output, *, key_path, build_directory=None, userspace=Fals
         geometry=plan['basis']['geometry'], total_bytes=34357624832)
     image = dict(schema='s22plus-native-image-v3', namespace=namespace, run_id_hex=selected.IDENTITY.run_id_hex,
         profile=chosen.PROFILE, version=selected.IDENTITY.display_version, ap=ap, member=member, key=key,
-        runtime_sources=built['source_inputs'], root_inspection=built['root_inspection'],
+        runtime_sources=built['source_inputs'],
         gpt=plan['basis']['gpt'], android_return=basis)
+    if preflight:image['preflight']=built['preflight']
+    else:image['root_inspection']=built['root_inspection']
     if userspace: image['userspace_probe'] = built['userspace_probe']
     chosen.image_binding(image)
     output = private_path(ROOT, output, exists=False)
@@ -55,5 +59,6 @@ def qualify(namespace, output, *, key_path, build_directory=None, userspace=Fals
     qualification = publish(output / 'qualification.json', dict(schema='s22plus-native-artifact-qualification-v3',
         image=image, builder_result=pin(builder.DEFAULT_OUTPUT_ROOT / 'result.json'),
         ab_identical=True, actual_ap_join=True, exporter=pin(Path(__file__).with_name(
+            's22plus_native_preflight_artifact_v1_h0.py') if preflight else Path(__file__).with_name(
             's22plus_native_userspace_probe_artifact_v1_h0.py') if userspace else Path(__file__))))
     return publish(output / 'image.json', dict(image, qualification=qualification))

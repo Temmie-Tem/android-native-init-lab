@@ -11,6 +11,14 @@
 #include <sys/utsname.h>
 #include <time.h>
 #include "target-plan.h"
+#ifdef S22_DEBIAN_PREFLIGHT
+static void bp_protect(struct fs1_endpoint *);
+static void bp_module_done(unsigned);
+/* Only this variant accounts for and releases its own mounts. */
+#define TARGET_UMOUNT bp_umount
+#else
+#define TARGET_UMOUNT umount
+#endif
 
 static void target_event(const char *message) {
     dprintf(1, "%s\n", message);
@@ -21,6 +29,10 @@ static void target_event(const char *message) {
 
 static void target_child_fd(int executable, int input, int output, int jailed,
                             char *const argv[]) {
+#ifdef S22_DEBIAN_PREFLIGHT
+    if (output >= 0 || jailed) stop("unexpected-preflight-child");
+    bp_run_child(1, argv, NULL, 0, executable, input, 0);
+#else
     pid_t pid = fork();
     if (pid < 0) stop("target-fork");
     if (!pid) {
@@ -38,6 +50,7 @@ static void target_child_fd(int executable, int input, int output, int jailed,
         dprintf(2, "TARGET_CHILD_STATUS raw=%d\n", status);
         stop("target-child");
     }
+#endif
 }
 
 static void target_hash_fd(int fd, uint64_t size, const uint8_t expected[32]) {
@@ -106,11 +119,13 @@ static void target_empty_root(void) {
 }
 
 static void target_install(struct fs1_endpoint *endpoint) {
+    PREFLIGHT_STAGE(BP_CHECKER);
     int checker = fs1_pin_file("/s22-fs-e2fsck", fs1_checker_size, fs1_checker_sha256, true);
     if (checker < 0) stop("checker-binding");
     char *check[] = {"e2fsck", "-fn", (char *)fs1_node, NULL};
     target_child_fd(checker, -1, -1, 0, check);
     if (close(checker)) stop("checker-close");
+    PREFLIGHT_STAGE(BP_FIRST_ROOT);
     mount_at(fs1_node, "/newroot", "ext4", MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC,
              "noload,nodiscard");
     target_witness();
@@ -126,7 +141,7 @@ static void target_install(struct fs1_endpoint *endpoint) {
     if (!complete) stop("installed-root-not-complete");
     verify_metadata();
     verify_contents();
-    if (close(root) || umount("/newroot")) stop("installed-root-close");
+    if (close(root) || TARGET_UMOUNT("/newroot")) stop("installed-root-close");
     return;
 #else
     if (complete) {
@@ -169,6 +184,7 @@ static void target_install(struct fs1_endpoint *endpoint) {
 }
 
 static const char *target_prepare(void) {
+    PREFLIGHT_STAGE(BP_MODULES);
     struct utsname identity;
 #ifdef S22_DEBIAN_VIRT_TEST
     char compatible[17];
@@ -187,8 +203,12 @@ static const char *target_prepare(void) {
         if (fd < 0 || syscall(SYS_finit_module, fd, module->parameters, 0) || close(fd))
             stop("target-module");
         dprintf(1, "TARGET_MODULE_DONE ordinal=%u\n", i + 1U);
+#ifdef S22_DEBIAN_PREFLIGHT
+        bp_module_done(i + 1U);
+#endif
     }
 #endif
+    PREFLIGHT_STAGE(BP_ENDPOINT);
     struct fs1_endpoint endpoint = {.root_fd = -1, .file_fd = -1, .work_fd = -1, .node_fd = -1};
     struct timespec pause_time = {.tv_sec = 0, .tv_nsec = 100000000};
     int error = ENODEV;
@@ -202,9 +222,17 @@ static const char *target_prepare(void) {
     if (endpoint.node_fd < 0 || fs1_make_node(&endpoint, "lu0", endpoint.disk, 0400) ||
         fs1_make_node(&endpoint, "native", endpoint.partition, 0600) ||
         fs1_gpt_exact(&endpoint) || fs1_read_super(&endpoint, true)) stop("target-storage-binding");
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_protect(&endpoint);
+#endif
     target_install(&endpoint);
     /* No whole-disk node survives the bootstrap. The one root node is private. */
+#ifndef S22_DEBIAN_PREFLIGHT
     if (unlinkat(endpoint.node_fd, "lu0", 0) || close(endpoint.node_fd)) stop("target-node-close");
+#endif
     no_userspace_children();
     return fs1_node;
 }
+#ifdef S22_DEBIAN_PREFLIGHT
+#include "preflight.inc.c"
+#endif

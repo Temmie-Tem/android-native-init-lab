@@ -7,6 +7,7 @@ import consumed_candidate_registry_v1 as registry
 import device_action_raw_capture_v1 as raw
 import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
+import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_task_v3 as task
 import s22plus_native_adapter_v3 as adapter
 import s22plus_native_target_io_v3 as target
@@ -42,8 +43,9 @@ def projection(folder, target_binding, android, image):
 
 def prepare(directory, image_receipt):
     image = read(verify(image_receipt))
-    require(image['profile'] in (inspection.PROFILE, probe.PROFILE), 'not a protected-root candidate')
-    selected = probe if image['profile'] == probe.PROFILE else inspection
+    items=(inspection,probe,preflight)
+    require(image['profile'] in tuple(item.PROFILE for item in items), 'not a protected-root candidate')
+    selected = next(item for item in items if image['profile']==item.PROFILE)
     task.capability(ROOT, profile=selected.PROFILE)
     adapter.image_valid(image, artifact_bytes=True)
     _, _, previous = selected.prior_inputs()
@@ -78,7 +80,8 @@ def prepare(directory, image_receipt):
             receipt = task.prepare_task(ROOT, directory/'task', native=image_receipt, experiment=None,
                 target=target_receipt, installation=old_task['host_installation'], recovery_evidence=old_task['recovery_evidence'],
                 seconds=1800, operation_budget=1, recovery_mode='attended', reentry=False, hud=False,
-                usb_reconnect=False, android_exit=False, root_inspect=selected is inspection, userspace_probe=selected is probe)
+                usb_reconnect=False, android_exit=False, root_inspect=selected is inspection,
+                userspace_probe=selected is probe,preflight=selected is preflight)
             publish(directory/'ready.json', dict(schema=selected.SCHEMA+'-ready', task=receipt,
                 preparation=pin(folder/'result.json'), grant_opened=False, image_transferred=False,
                 native_filesystem_observed=False, userspace_executed=False))

@@ -334,6 +334,32 @@ reobservation after a pure read failure. They cannot mount or inspect native
 files or perform control. No experimental image is transferred until the
 operator returns the concrete finite grant.
 
+### Installed-bootstrap preflight V1
+
+The common-incorporated [preflight V1](../S22PLUS_NATIVE_PREFLIGHT_V1.md) is
+adopted only as V3's `preflight`. One returned finite attended grant permits
+one Android-origin N measurement and original-A closure, at most 1800 seconds.
+The N-transfer intent consumes the automatic boot preparation; sealed-result
+retrieval cannot initiate or repeat it. There is no native admission, E, prior
+tail, other operation, optional reentry, reconnect or HUD.
+
+The exact P405 module/root preparation stops before writable mount or handoff.
+Partition-only RAM RO, clean root admission, two protected mount readbacks,
+fixed unprivileged loader checks, bounded child accounting, ordinary unmount,
+complete mount/FD release and final superblock/GPT checks bind the result.
+Only a settled same-run/current-boot sealed record admits the native observer,
+which adopts the exact module set without reinsertion or historical temporal
+witness claims. Partial module load, timeout, overflow or uncertain cleanup
+parks for existing attended physical original-A recovery. No filesystem data
+write, repair, installation, service/network startup or Debian PID 1 handoff is
+authorized. All previous consumed runs remain consumed.
+
+Its separate independent capability review, actual image qualification and
+current machine binding do not open a grant. The foreground task adopts the
+same fixed Android root-health/shell-v2/GPT/statfs preparation reads, including
+preserved-evidence reobservation after a pure read failure. No experimental
+transfer occurs until the concrete finite start is returned.
+
 ### Fixed installed-Debian userspace probe V1
 
 The common-incorporated [userspace probe V1](../S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)

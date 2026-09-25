@@ -1,17 +1,20 @@
 """One Android-origin native inspection; no baseline admission or reuse."""
 import s22plus_native_root_inspect_profile_v1 as profile
 import s22plus_native_userspace_probe_profile_v1 as probe
+import s22plus_native_preflight_profile_v1 as preflight
 from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-PROFILES = (profile.PROFILE, probe.PROFILE)
-OPERATIONS = (profile.OPERATION, probe.OPERATION)
+ITEMS = (profile, probe, preflight)
+PROFILES = tuple(item.PROFILE for item in ITEMS)
+OPERATIONS = tuple(item.OPERATION for item in ITEMS)
+SELECTIONS = tuple(item.SELECTION for item in ITEMS)
 
 
 def selected(operation):
     require(operation in OPERATIONS, 'unknown protected-root operation')
-    return probe if operation == probe.OPERATION else profile
+    return next(item for item in ITEMS if operation == item.OPERATION)
 
 
 def normal_steps(operation=profile.OPERATION):
@@ -26,7 +29,8 @@ def normal_steps(operation=profile.OPERATION):
 
 
 def validate_task(task, *, recovery=False):
-    item = probe if task['N']['profile'] == probe.PROFILE else profile
+    require(task['N']['profile'] in PROFILES, 'unknown protected-root image')
+    item = next(item for item in ITEMS if task['N']['profile'] == item.PROFILE)
     require(task['N']['profile'] == item.PROFILE and task['operations'] == [item.OPERATION] and
         task['E'] is None and task['admission'] is None and task['prior_terminal'] is None and
         task.get('bootstrap_start') is None and task['recovery_mode'] == 'attended' and
@@ -55,11 +59,20 @@ def android_basis(adapter, request):
 def validate_result(adapter, step, value, request):
     item = selected(request['operation'])
     if step.name != item.SELECTION: return
-    status = 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
+    status = 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
     require(value['proof'][item.Profile.RESULT_KEY]['status'] == status,
         'protected-root operation did not finish with bounded raw proof')
     records = [r['data'] for r in Journal(adapter.directory / 'journal').rows()
         if r['event'] == 'effect-intent' and r['data']['step'] == step.name]
+    if item is preflight:
+        require(not records, 'read-only preflight result retrieval acquired an effect intent')
+        proof=value['proof']
+        require(proof['preflight']['kernel_boot_identity_sha256']==proof['kernel_boot_identity_sha256'],
+            'preflight record belongs to a different authenticated boot')
+        installed=[r['data'] for r in Journal(adapter.directory/'journal').rows()
+            if r['event']=='effect-intent' and r['data']['step']=='install-native-first']
+        require(len(installed)==1,'automatic preflight lacks its unique N transfer intent')
+        return
     require(len(records) == 1, 'partition RO control has no unique pre-EXEC intent')
     detail = records[0]['detail']; proof = value['proof']; fixed = item.Profile(request['N'])
     require(detail['mode'] == 'fixed-extra' and detail['sequence'] == 5 and

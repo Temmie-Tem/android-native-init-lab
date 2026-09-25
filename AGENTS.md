@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **31** (supersedes revision 30; 2026-09-26)
+Contract-Revision: **32** (supersedes revision 31; 2026-09-26)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`6d1f2ef9847606152b42de31e10692c529c384bab37b5df0bce438231a8ed9b8`.
+`22b15c3d31f0509280396410a7e47cc4517f89427b5968443bc1d5a64b7cfdbb`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -130,6 +130,9 @@ Read an exception's complete conditions before considering it applicable.
    The separate [fixed Debian userspace probe](docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)
    adds only its verified unprivileged child workload under the same partition
    protection, with no filesystem data write or PID 1 handoff.
+   The separate [bootstrap preflight](docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md)
+   adds only fixed protected preparation and unprivileged loader checks before
+   a sealed-result native observer, with no filesystem write or Debian handoff.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -182,6 +185,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ installed Debian boot | [Exact completed-root PID 1 and P399 return](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md); one fresh archive-free boot, one attended finite grant, restricted shutdown, P399 normal return or physical original-A recovery, no reinstall. |
 | S22+ native root inspection | [Fixed protected read-only inspection](docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md); one fresh native boot, partition-only RAM RO control, bounded native_data observation, one original-A return, no installation or chroot. |
 | S22+ fixed Debian userspace probe | [Protected-root child execution](docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md); one fresh native boot, exact root closure, one fixed unprivileged workload, one original-A return, no installation or PID 1 handoff. |
+| S22+ installed-bootstrap preflight | [Protected pre-handoff measurement](docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md); one automatic preparation consumed by its fresh N transfer, sealed current-boot result, one original-A return, no filesystem write or Debian handoff. |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

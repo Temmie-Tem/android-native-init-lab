@@ -18,6 +18,20 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "binding.h"
+#ifdef S22_DEBIAN_PREFLIGHT
+#include "device/preflight_record.h"
+#define BOOTSTRAP_BUSYBOX "/busybox"
+static void bp_begin(void), bp_boot_identity(void), bp_stage(unsigned);
+static void bp_mount_done(const char *), bp_loader_inputs(void);
+static void bp_before_mount(const char *);
+static int bp_umount(const char *);
+static void bp_finish(int, const char *, int);
+static void bp_run_child(unsigned, char *const [], const char *, int, int, int, int);
+#define PREFLIGHT_STAGE(value) bp_stage(value)
+#else
+#define PREFLIGHT_STAGE(value) ((void)0)
+#define BOOTSTRAP_BUSYBOX "/bin/busybox"
+#endif
 
 _Static_assert(O_DIRECTORY == 16384 && O_NOFOLLOW == 32768 && O_CLOEXEC == 524288,
                "build with the ARM64 Linux UAPI");
@@ -34,6 +48,9 @@ static void stop(const char *why) {
 #endif
     /* PID 1 must neither exit nor guess a recovery action. */
     if (getpid() != 1) _exit(1);
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_finish(0, why, error);
+#endif
     for (;;) pause();
 }
 static void directory(const char *path, mode_t mode) {
@@ -43,13 +60,22 @@ static void directory(const char *path, mode_t mode) {
 }
 static void mount_at(const char *src, const char *dst, const char *type,
                      unsigned long flags, const char *data) {
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_before_mount(dst);
+#endif
     if (mount(src, dst, type, flags, data)) stop(dst);
+#ifdef S22_DEBIAN_PREFLIGHT
+    if (!(flags & MS_PRIVATE)) bp_mount_done(dst);
+#endif
 }
 static void read_exact(const char *path, char *data, size_t n) {
     int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (fd < 0 || read(fd, data, n) != (ssize_t)n || close(fd)) stop(path);
 }
 static void child(char *const argv[], const char *cwd, int chrooted) {
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_run_child(0, argv, cwd, chrooted, -1, -1, chrooted);
+#else
     pid_t pid = fork();
     if (pid < 0) stop("fork");
     if (!pid) {
@@ -61,6 +87,7 @@ static void child(char *const argv[], const char *cwd, int chrooted) {
     int status;
     if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status))
         stop("preflight-child");
+#endif
 }
 static void no_userspace_children(void) {
     DIR *d = opendir("/proc");
@@ -120,6 +147,10 @@ static int metadata_inside(int fd) {
 static void verify_metadata_path(const char *path) {
     int fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (fd < 0) stop("metadata-open");
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_run_child(2, NULL, NULL, 0, fd, -1, 0);
+    if (close(fd)) stop("metadata-close");
+#else
     pid_t pid = fork();
     if (pid < 0) stop("metadata-fork");
     if (!pid) _exit(metadata_inside(fd));
@@ -130,11 +161,17 @@ static void verify_metadata_path(const char *path) {
         errno = EPROTO;
         stop("root-metadata");
     }
+#endif
 }
 static void verify_contents_path(const char *path) {
-    int executable = open("/bin/busybox", O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    int executable = open(BOOTSTRAP_BUSYBOX, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     int manifest = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (executable < 0 || manifest < 0) stop("content-open");
+#ifdef S22_DEBIAN_PREFLIGHT
+    char *args[] = {"busybox", "sha256sum", "-cs", "-", NULL};
+    bp_run_child(1, args, "/newroot", 1, executable, manifest, 0);
+    if (close(executable) || close(manifest)) stop("content-close");
+#else
     pid_t pid = fork();
     if (pid < 0) stop("content-fork");
     if (!pid) {
@@ -147,13 +184,14 @@ static void verify_contents_path(const char *path) {
     int status;
     if (close(executable) || close(manifest) || waitpid(pid, &status, 0) != pid ||
         !WIFEXITED(status) || WEXITSTATUS(status)) stop("root-content");
+#endif
 }
 static void verify_metadata(void) { verify_metadata_path("/rootfs.meta"); }
 static void verify_contents(void) { verify_contents_path("/rootfs.sha256"); }
 #ifdef S22_DEBIAN_DEVICE
 #include "device/target.inc.c"
 
-#ifdef S22_DEBIAN_INSTALLED_ONLY
+#if defined(S22_DEBIAN_INSTALLED_ONLY) && !defined(S22_DEBIAN_PREFLIGHT)
 #include "installed-plan.h"
 static void installed_shutdown_command(void) {
     /* The retained P401 root key permits shutdown only on boot count two.
@@ -189,10 +227,16 @@ static void installed_shutdown_command(void) {
 #endif
 int main(void) {
     if (getpid() != 1) stop("not-pid1");
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_begin();
+#endif
     umask(022);
     directory("/proc", 0555); directory("/sys", 0555);
     directory("/dev", 0755); directory("/run", 0755); directory("/newroot", 0755);
     mount_at("proc", "/proc", "proc", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL);
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_boot_identity();
+#endif
     mount_at("sysfs", "/sys", "sysfs", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL);
 #ifndef S22_DEBIAN_DEVICE
     /* This validation image is deliberately bound to the virt board. */
@@ -229,14 +273,15 @@ int main(void) {
     if (log < 0) stop("bootstrap-log");
     if (dup2(log, 1) < 0 || dup2(log, 2) < 0) stop("bootstrap-log-redirect");
     if (close(log)) stop("bootstrap-log-close");
-#ifdef S22_DEBIAN_INSTALLED_ONLY
+#if defined(S22_DEBIAN_INSTALLED_ONLY) && !defined(S22_DEBIAN_PREFLIGHT)
     dprintf(1, "%s", target_boot_identity);
 #endif
     const char *root_device = target_prepare();
 #else
     const char *root_device = "/dev/vda";
 #endif
-    char *scan[] = {"/bin/busybox", "mdev", "-s", NULL};
+    PREFLIGHT_STAGE(BP_MDEV);
+    char *scan[] = {BOOTSTRAP_BUSYBOX, "mdev", "-s", NULL};
     child(scan, NULL, 0);
     struct stat block;
     if (lstat(root_device, &block) || !S_ISBLK(block.st_mode)) stop("root-block");
@@ -245,7 +290,12 @@ int main(void) {
     if (fd < 0 || pread(fd, uuid, 16, 1024 + 0x68) != 16 ||
         memcmp(uuid, root_uuid, 16) || close(fd)) stop("root-uuid");
     /* Inspect before a writable mount: noload prevents ext4 journal replay. */
+    PREFLIGHT_STAGE(BP_SECOND_ROOT);
+#ifdef S22_DEBIAN_PREFLIGHT
+    mount_at(root_device, "/newroot", "ext4", MS_RDONLY | MS_NOSUID | MS_NODEV, "noload,nodiscard");
+#else
     mount_at(root_device, "/newroot", "ext4", MS_RDONLY, "noload");
+#endif
     char marker[18];
     read_exact("/newroot/etc/lab-rootfs-id", marker, sizeof(marker));
     if (memcmp(marker, "S22PLUS_DEBIAN_V1\n", sizeof(marker))) stop("root-identity");
@@ -253,8 +303,19 @@ int main(void) {
     verify_contents();
     char *verify[] = {"/lib/ld-linux-aarch64.so.1", "--verify", "/sbin/init", NULL};
     char *libs[] = {"/lib/ld-linux-aarch64.so.1", "--list", "/sbin/init", NULL};
-    child(verify, "/newroot", 1); child(libs, "/newroot", 1);
+#ifdef S22_DEBIAN_PREFLIGHT
+    bp_loader_inputs();
+#endif
+    PREFLIGHT_STAGE(BP_LOADER_VERIFY);
+    child(verify, "/newroot", 1);
+    PREFLIGHT_STAGE(BP_LOADER_LIST);
+    child(libs, "/newroot", 1);
     no_userspace_children();
+#ifdef S22_DEBIAN_PREFLIGHT
+    if (bp_umount("/newroot")) stop("preflight-unmount");
+    bp_stage(BP_PREFLIGHT_DONE);
+    bp_finish(1, "", 0);
+#else
     /* Do not carry the noload option into the writable lifetime. */
     if (umount("/newroot")) stop("preflight-unmount");
     mount_at(root_device, "/newroot", "ext4", 0, "errors=remount-ro,nodiscard");
@@ -280,5 +341,6 @@ int main(void) {
     char *next[] = {"/bin/busybox", "switch_root", "/newroot", "/sbin/init", NULL};
     execv(next[0], next);
     stop("switch-root-exec");
+#endif
     return 1;
 }

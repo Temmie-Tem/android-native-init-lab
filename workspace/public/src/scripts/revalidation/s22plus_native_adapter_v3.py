@@ -15,6 +15,7 @@ import s22plus_native_gpt_profile_v1 as gpt
 import s22plus_native_ext4_profile_v1 as fs
 import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
+import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -41,12 +42,14 @@ def image_valid(image, *, artifact_bytes=False):
         gpt.PROFILE:'s22plus_native_gpt_artifact_v1_h0.py',
         inspection.PROFILE:'s22plus_native_root_inspect_artifact_v1_h0.py',
         probe.PROFILE:'s22plus_native_userspace_probe_artifact_v1_h0.py',
+        preflight.PROFILE:'s22plus_native_preflight_artifact_v1_h0.py',
         **{p:'s22plus_native_ext4_artifact_v1_h0.py' for p in fs.PROFILES}}
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'}
     if image.get('profile')==gpt.PROFILE:keys.add('gpt')
     if image.get('profile') in fs.PROFILES:keys.update(('filesystem','gpt','android_return'))
-    if image.get('profile') in inspection_session.PROFILES:keys.update(('root_inspection','gpt','android_return'))
+    if image.get('profile') in (inspection.PROFILE,probe.PROFILE):keys.update(('root_inspection','gpt','android_return'))
+    if image.get('profile') == preflight.PROFILE:keys.update(('preflight','gpt','android_return'))
     if image.get('profile') == probe.PROFILE:keys.add('userspace_probe')
     require(set(image)==keys and image['schema']=='s22plus-native-image-v3'
         and image['profile'] in exporters,'native image qualification schema differs')
@@ -96,7 +99,21 @@ def image_valid(image, *, artifact_bytes=False):
             require(all(inventory[member][k]==receipt[k] for k in ('size','sha256')) and
                 inventory[member]['mode']==mode and inventory[member]['uid']==inventory[member]['gid']==0,
                 'filesystem ramdisk payload does not join its fixed tool binding')
-    if image['profile'] in inspection_session.PROFILES:
+    if image['profile'] == preflight.PROFILE:
+        binding=preflight.image_binding(image)
+        require(built['preflight']==binding and
+            built['native_selection']['runtime_profile']['preflight_profile']==preflight.PROFILE,
+            'preflight role differs from its A/B producer')
+        inventory=built['candidate']['a']['inventory']
+        for name,row in binding['members'].items():
+            require(all(inventory[name][k]==row['file'][k] for k in ('size','sha256')) and
+                inventory[name]['mode']==0o100000|row['mode'] and
+                inventory[name]['uid']==inventory[name]['gid']==0 and inventory[name]['nlink']==1,
+                'preflight ramdisk member differs')
+        require(not any(name in inventory for name in ('s22-fs','s22-fs-mke2fs','rootfs.tar.xz',
+            's22-root-inspect','s22-userspace-probe','p404-lab-qualify')),
+            'preflight image contains an unselected payload')
+    if image['profile'] in (inspection.PROFILE,probe.PROFILE):
         selected = probe if image['profile'] == probe.PROFILE else inspection
         binding = selected.image_binding(image)
         require(built['root_inspection'] == binding and
@@ -434,7 +451,9 @@ class Adapter:
             seen_boots=[proof['kernel_boot_identity_sha256'] for proof in prior])
 
     def wait_native(self, image, request, guard):
-        host=self.native_host(request); deadline=clock()+90_000_000_000
+        host=self.native_host(request)
+        seconds=300 if image['profile']==preflight.PROFILE else 90
+        deadline=clock()+seconds*1_000_000_000
         while clock()<deadline:
             guard(); endpoint=host_module.census.endpoint(host.config)
             if endpoint is not None:
@@ -458,7 +477,7 @@ class Adapter:
         return native.observe(self.folder(step.name),image,self.native_host(request),ending=step.ending,
             hud=step.hud,guard=guard,before_terminal=before_terminal,
             before_auth=begin_attempt if step.name in ('native-start','native-storage','native-bootstrap-start','gpt-apply') else None,
-            profile=step.name if request['operation'] in inspection_session.OPERATIONS and step.name in (inspection.SELECTION, probe.SELECTION)
+            profile=step.name if request['operation'] in inspection_session.OPERATIONS and step.name in inspection_session.SELECTIONS
                 else filesystem_profile(step,request) or profile_for(step,image),before_extra=before_extra,**context)
 
     def tail_claim_path(self, receipt):
@@ -548,7 +567,7 @@ class Adapter:
             from s22plus_native_gpt_session_v1 import profile_for
             from s22plus_native_ext4_session_v1 import profile_for as filesystem_profile
             value=native.rederive(self.folder(step.name),request[step.role],ending=step.ending,hud=step.hud,
-                profile=step.name if request['operation'] in inspection_session.OPERATIONS and step.name in (inspection.SELECTION, probe.SELECTION)
+                profile=step.name if request['operation'] in inspection_session.OPERATIONS and step.name in inspection_session.SELECTIONS
                     else filesystem_profile(step,request) or profile_for(step,request[step.role]),**self.context(step,request))
             if step.ending=='download': value['departure']=pin(self.folder(step.name)/'departure.json')
             return value
