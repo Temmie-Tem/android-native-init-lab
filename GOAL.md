@@ -34,8 +34,14 @@ made the first final-health read fail; read-only continuation then proved a
 distinct rooted Android boot with exact original partition hashes, unchanged
 full GPT and Android32 capacity. The P404 claim and grant are consumed; the
 global F1 owner is absent. See the [first-run report and canonical timeline](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P404_FIRST_RUN_2026-09-23.md).
-The next bounded step is H0 diagnosis; do not replay P404 or infer bootstrap
-cause from missing NCM alone. A90 and S20+ remain untouched.
+The [2026-09-26 H0 audit](docs/reports/S22PLUS_DEBIAN_P404_NCM_AUDIT_H0_2026-09-26.md)
+reproduced and repaired a host selector defect: an absent Android USB path
+prevented checking the other allowed Debian path. The retained P404 function
+reproduces it; the corrected selector passes regression and independent review.
+The actual P404 cause and Samsung PID 1/SSH remain unproved because unsuccessful
+endpoint observations were not retained. No device action or live activation
+occurred. Next is H0 preparation of a fresh successor with bounded USB/interface
+observation; do not replay P404. A90 and S20+ remain untouched.
 
 ## Prior completed unit — P403 Debian userspace and healthy Android return
 
@@ -408,8 +414,11 @@ qualified H0; see the [P404 preparation report](docs/reports/S22PLUS_DEBIAN_INST
 The new one-shot owner and [installed-boot policy](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
 passed exact-source H0 and live capability reviews. The consumed first run and
 healthy Android return are recorded at the top of this goal. Samsung PID 1/SSH
-and P399 normal return remain unproved; the next work is H0 diagnosis from
-retained evidence, not a P404 retry.
+and P399 normal return remain unproved. The retained-input H0 audit is complete:
+one host selector defect is repaired and independently reviewed, with 48 focused
+tests passing. Next is a fresh successor's H0 preparation and narrow host
+observation design, preserving current root-health and source-review conditions.
+The historical live review and consumed P404 grant are not renewed by this fix.
 
 **Stage 3 is complete: P403 proved the fixed installed-Debian shell/libc/
 child-exit workload after complete protected-root comparison and returned

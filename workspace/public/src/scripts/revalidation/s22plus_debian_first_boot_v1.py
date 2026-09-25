@@ -485,7 +485,12 @@ class Owner:
                 device = (interface / 'device').resolve(strict=True)
                 for topology in (target.lane.SOURCE_TOPOLOGY, target.lane.CANDIDATE_TOPOLOGY):
                     usb = Path('/sys/bus/usb/devices') / topology.removeprefix('usb:')
-                    parent = usb.resolve(strict=True)
+                    try:
+                        parent = usb.resolve(strict=True)
+                    except FileNotFoundError:
+                        # Android and Debian can use different bus paths. An
+                        # absent first path must not hide the second one.
+                        continue
                     if not device.is_relative_to(parent): continue
                     fields = {name: target.sysfs_field(usb, name) for name in
                         ('idVendor', 'idProduct', 'serial', 'product', 'busnum', 'devnum')}
