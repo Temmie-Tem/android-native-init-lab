@@ -72,5 +72,7 @@ exact original rooted Android health before/after, shell-v2, complete GPT and
 34,357,624,832-byte Android32 capacity. The prepared one-operation task has
 SHA-256
 `1f9be032628c9d8d72279eeb9e5db4c5c81bfa1c6b3267e3e651b7f71554aa04`.
-No P406 grant or experimental transfer has occurred. Only the concrete returned
-attended start remains; execution repeats fresh health and binding checks.
+At preparation, no P406 grant or experimental transfer had occurred; execution
+required the concrete returned attended start and repeated fresh health/binding.
+The subsequent consumed run is recorded separately in the
+[first-run report](S22PLUS_NATIVE_ROOT_STATE_P406_FIRST_RUN_2026-09-26.md).

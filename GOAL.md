@@ -21,24 +21,34 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Selected unit — P406 protected root-state observation
+## Current P406 root-state proof and healthy Android return
 
-The operator selected smaller experiments through the next real-device unit.
-P406 `v0.4.0-rc.6` is a fresh one-shot protected root inspector: observe the
-retained native_data superblock first; skip mounting dirty/recovery-needed or
-orphan-bearing state; otherwise compare the installation records, witness and
-fixed archive table. Complete this observation and exact original-A return
-before selecting a later Debian handoff experiment. No repair or installed
-code execution is part of this unit.
+P406 `v0.4.0-rc.6` completed one attended protected inspection on 2026-09-26
+KST. The retained native_data filesystem was clean, with no RECOVER flag or
+orphan head. Installation start/completion records and the original witness
+were present. All 8,969 archive entries and 8,175 boot-input entries matched
+without missing, metadata or content discrepancies. Partition block RO,
+ordinary unmount/cleanup and unchanged superblock/GPT readback were proved.
+Result: `PASS_INSPECTION_COMPLETED / COMPLETE_RECORD_BOOT_INPUTS_MATCH`.
 
-Actual A/B package qualification, four current ARM64 protected-inspection VM
-cases and 14 focused tests pass. Current source-bound independent review is
-`PASS_GO`, and fixed Android health/GPT/capacity preparation has completed.
-The concrete 1,800-second attended one-operation start remains; its grant has
-not opened and P406 has not transferred. See the
-[H0 report](docs/reports/S22PLUS_NATIVE_ROOT_STATE_P406_H0_2026-09-26.md).
-P405 remains the latest closed healthy Android state; it does not establish
-native_data health. A90/S20+ remain isolated.
+Original A transferred once through the normal native Download return. Its
+initial final-health attempt stopped on `ADB error: closed` during a readiness
+read; the existing health-only
+continuation proved a distinct rooted Android boot, exact original partition
+hashes, complete GPT and Android32 capacity. The terminal is
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, with the inspection PASS retained.
+No transfer or inspection was repeated, and no physical button intervention
+was needed.
+Final health completed at 85.167 seconds and the grant closed at 164.016 seconds.
+P406 and its budget are consumed; the F1 owner is absent. See the
+[live report and canonical timeline](docs/reports/S22PLUS_NATIVE_ROOT_STATE_P406_FIRST_RUN_2026-09-26.md)
+and [H0 qualification](docs/reports/S22PLUS_NATIVE_ROOT_STATE_P406_H0_2026-09-26.md).
+
+A currently dirty or mismatched retained root was not observed; P404/P405's
+earlier stop remains unlocated. Next is H0 design to observe the installed-boot
+bootstrap before Debian init without depending on Debian NCM/SSH. P406 did not
+execute installed Debian code or prove host PID 1/networking. A90/S20+ remain
+isolated.
 
 ## Prior P405 first run and healthy Android return
 
@@ -57,7 +67,7 @@ transfer/health raw proof and 98 USB captures were rederived. See the
 [first-run report and timeline](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_FIRST_RUN_2026-09-26.md)
 and [H0 qualification](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_H0_2026-09-26.md).
 
-The selected P406 unit observes the retained root's state. Android return does
+The later P406 unit observed the retained root's state. Android return does
 not prove native_data clean or unchanged. Neither this P405 result nor the host
 selector repair establishes P404's actual cause. A90/S20+ remain isolated.
 
@@ -138,7 +148,7 @@ the existing health-only continuation proved rooted Android, exact partition
 hashes, unchanged full GPT and Android32 capacity. The unchanged terminal is
 `ANDROID_CLOSED_HEALTHY`, `recovered=true`, with the inspection PASS retained.
 No transfer or inspection was repeated. The one-operation grant is consumed
-and closed, and there is no F1 owner. P402's result establishes the current
+and closed, and there is no F1 owner. P402's result establishes its historical
 root-file observation without relabelling P401 or proving host PID 1/SSH.
 See the [live report and canonical timeline](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_P402_FIRST_RUN_2026-09-23.md).
 
