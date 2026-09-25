@@ -50,6 +50,12 @@ bootstrap before Debian init without depending on Debian NCM/SSH. P406 did not
 execute installed Debian code or prove host PID 1/networking. A90/S20+ remain
 isolated.
 
+The [H0 switch_root source and mobile-port study](docs/reports/S22PLUS_SWITCH_ROOT_RESEARCH_H0_2026-09-26.md)
+supports separate pre-handoff and replacement-PID-1 observations. The existing
+post-exec error handler covers starting BusyBox, not failures inside the
+replacement program. This is an observed code boundary, not P405's diagnosed
+cause; the independent evidence path remains the next design question.
+
 ## Prior P405 first run and healthy Android return
 
 P405 `v0.4.0-rc.5` transferred once under the operator's concrete attended grant
