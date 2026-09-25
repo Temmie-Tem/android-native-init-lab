@@ -1,5 +1,9 @@
 # S22+ P407 pre-handoff observation — H0, 2026-09-26
 
+Historical preparation record. P407 has now been consumed and closed healthy on
+original A with no native preflight proof; see the
+[first-run result and canonical timeline](S22PLUS_NATIVE_PREFLIGHT_P407_FIRST_RUN_2026-09-26.md).
+
 ## Selected unit
 
 P407 `v0.4.0-rc.7` measures the installed-bootstrap preparation before a writable
@@ -19,8 +23,8 @@ reproduction of P405's whole preparation environment or proof of its old cause.
 The [separate preflight capability](../operations/S22PLUS_NATIVE_PREFLIGHT_V1.md)
 allows only one attended V3 `preflight`, at most 1800 seconds, and one original-A
 return. Its automatic measurement is owned by the fresh N transfer intent;
-the later result read cannot start or repeat it. This H0 result opens no grant
-and performs no device effect. All previous consumed candidates remain consumed.
+the later result read cannot start or repeat it. This H0 result opened no grant
+and performed no device effect. All previous consumed candidates remain consumed.
 
 ## Implementation and evidence boundary
 
@@ -100,6 +104,7 @@ bindings, filesystem identifiers and module/kernel artifacts remain private.
 The [independent capability review](../../workspace/public/src/device-action/bindings/s22plus_native_preflight_v1_review.json)
 is `PASS_GO`. Fresh fixed foreground D0 preparation rederived healthy original
 Android root brackets, shell-v2, exact full GPT and 34,357,624,832-byte Android32
-capacity. The concrete one-operation/1800-second task is ready; no grant or
-P407 image transfer has started. Neither readiness nor this report supplies
-the required returned finite attended start.
+capacity. That concrete one-operation/1800-second task was ready without an
+opened grant or experimental transfer. The later returned start, consumed run
+and healthy original-A closure are recorded in the linked first-run report.
+This preparation cannot authorize another transfer.

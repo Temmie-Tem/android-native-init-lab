@@ -21,27 +21,32 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P407 pre-handoff observation preparation
+## Current P407 NO_PROOF and healthy Android closure
 
-P407 `v0.4.0-rc.7` is built as a fresh one-shot diagnostic before Debian init.
-It preserves the P405 module/UFS/root/loader preparation order while adding
-partition RAM RO, bounded child evidence and complete cleanup before a sealed
-result is returned through the native observer. It has no writable mount,
-installation or Debian PID 1 handoff. The observer adopts the existing module
-set; it cannot repeat insertion or claim old temporal witnesses.
+P407 `v0.4.0-rc.7` consumed one attended operation on 2026-09-26 KST. Its fresh
+N transferred once after exact rooted Android health. The 300-second native
+endpoint wait expired before opening an authenticated observer; no sealed
+preflight record was captured. The physical bootstrap stage remains unlocated.
 
-Actual A/B packages match. ARM64 VM success, dirty/checksum rejection and six
-child failure cases pass with protected storage and the required stop/cleanup
-semantics; all 87 focused tests pass. Existing P401/P405 paths remain byte
-identical. Final independent review is `PASS_GO`; fresh fixed Android preparation
-proved exact original-A health/GPT and Android32 capacity. The one-operation,
-1800-second attended task is ready for its returned finite start and original-A
-closure. No P407 grant or experimental device effect has occurred. See the
-[H0 qualification](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_H0_2026-09-26.md).
+The recovery owner found an exact Download endpoint and transferred original A
+once. Its first final-health attempt stopped on ADB `device not found`; a
+health-only continuation proved a distinct rooted boot, exact original
+partition hashes, full GPT and Android32 capacity. Terminal:
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, with preflight **NO_PROOF**.
+Download entry's cause is not established by the retained host records; this
+does not demonstrate automatic recovery from a stalled bootstrap.
 
-Partial module failure or cleanup uncertainty still has no native observer and
-requires physical original-A recovery. Success measures only pre-handoff
-preparation; switch_root, Debian host PID 1 and NCM/SSH remain unproved.
+Final health completed at 426.472 seconds; raw audit and task closure at
+474.989 seconds. All 494 raw captures and 226 saved source copies were verified.
+The one-operation budget and image are consumed, no transfer repeated and the
+F1 owner is absent. See the [first-run result and canonical timeline](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_FIRST_RUN_2026-09-26.md)
+and [H0 qualification](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_H0_2026-09-26.md).
+
+Next is bounded H0 analysis of the initial entry-to-observer evidence path.
+Preserve P407; no replay or new device effect is authorized. P406's earlier
+clean matching-root result remains separate: P407 did not prove current
+native_data contents, root checks, partition RO, loader execution or cleanup.
+Switch_root, Debian host PID 1 and NCM/SSH remain unproved. A90/S20+ stay isolated.
 
 ## Prior P406 root-state proof and healthy Android return
 
