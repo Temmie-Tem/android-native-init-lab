@@ -295,18 +295,23 @@ class InstalledBootTests(unittest.TestCase):
             writer=lane.raw.RawCaptureWriter(Path(folder),'health',stdout_maximum=65536,
                 stderr_maximum=16384)
             run='a'*32
+            candidate=dict(namespace='p405',version='v0.4.0-rc.5',run_id='c'*32)
             body=(f'S22PLUS_FYG8_DEBIAN_V1 {run}\n'
+                f"BOOTSTRAP_CANDIDATE {candidate['namespace']} {candidate['version']} {candidate['run_id']}\n"
                 'pid1_exe=/usr/sbin/init\npid1_root=/\n'
                 'BOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n'
                 'boot_id=11111111-1111-4111-8111-111111111111\n'
                 'boot_count=3\nDEBIAN_HEALTH_PASS\n').encode()
             writer.write_stdout(body)
             handle=writer.finalize(returncode=0)
-            value=lane.installed_health_projection(handle,dict(root_run_id=run))
+            plan=dict(root_run_id=run,candidate=candidate)
+            value=lane.installed_health_projection(handle,plan)
             self.assertEqual(value['boot_count'],3)
             self.assertEqual(value['status'],'PASS_INSTALLED_DEBIAN_PID1')
             with self.assertRaises(ValueError):
-                lane.installed_health_projection(handle,dict(root_run_id='b'*32))
+                lane.installed_health_projection(handle,dict(plan,root_run_id='b'*32))
+            with self.assertRaises(ValueError):
+                lane.installed_health_projection(handle,dict(plan,candidate=dict(candidate,run_id='d'*32)))
 
 
 if __name__=='__main__':unittest.main()

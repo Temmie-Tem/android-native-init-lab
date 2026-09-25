@@ -21,7 +21,28 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P404 first run and healthy Android return
+## Current P405 installed-root successor preparation
+
+P405 `v0.4.0-rc.5` has a fresh archive-free boot package, matching A/B bytes,
+ARM64 virtual installed-PID-1/SSH/shutdown proof and empty-root rejection.
+Its corrected host selector is supplemented by bounded private USB/interface
+observations. Authenticated health additionally requires this candidate's
+exact RAM bootstrap identity. Kernel, modules, installed root and physical
+P399/original-A return routes retain their existing scope.
+
+The [P405 H0 report](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_H0_2026-09-26.md)
+records independent actual-AP qualification, 60 focused tests and final
+63-source **PASS_GO**. The separate P405 review preserves P404's review and
+consumed evidence. The operator requested continuing through the next physical
+experiment. Fixed preparation D0 proved current rooted original Android, exact
+partition hashes, full GPT and 34,357,624,832-byte Android32 capacity. Its first
+read rejected ADB server-startup stderr; the preserved read-only reobservation
+passed. The concrete 3600-second one-candidate plan is prepared, with no grant,
+transition or candidate transfer yet. Current root cleanliness remains
+a bootstrap prerequisite before writable handoff, never inferred from Android
+return. A90/S20+ remain isolated.
+
+## Prior P404 first run and healthy Android return
 
 After a pre-process automatic approval rejection, the operator explicitly
 approved one P404 experimental boot-only transfer. The source-bound review,

@@ -11,13 +11,13 @@ earlier `PASS_H0_REVIEW_READY` receipt is host evidence, not that activation.
 ## One attended owner
 
 Only `s22plus_debian_installed_boot_v1.py` may own this sequence. A single
-operator-returned grant binds the exact P404 candidate, retained installed
+operator-returned grant binds the exact P405 candidate, retained installed
 P401 root, P399 `v0.3.1-rc.1` native return, original Android A, reviewed
 runner/transport/observer, target and physical recovery. Its original window
 is at most 3600 suspend-aware BOOTTIME seconds. Physical attendance and a
 usable exact Download-to-A route are required for effects; there is no
 deferred or automatic recovery claim. The ordered research effects are one
-Android Download entry, one fresh P404 boot transfer, one restricted Debian
+Android Download entry, one fresh P405 boot transfer, one restricted Debian
 shutdown request after proved Debian health, and one P399 normal return only
 after proved shutdown departure and a fresh attended Download arrival. The
 one original-A transfer is the alternative failure recovery and is never a
@@ -32,14 +32,16 @@ capture alone has no full argv or independent proof of AP bytes. A proved
 transfer/control may regain only its missing result/evidence record through
 read-only reconciliation; this never resends the command or renews research
 after a stop. A healthy native terminal additionally rechecks current selected
-P404/P399 bytes, frozen native protocol sources and original raw observations.
+P405/P399 bytes, frozen native protocol sources and original raw observations.
 
 ## Installed-root selection
 
 The P401 installation and its exclusive claim remain consumed. P402's complete
 protected comparison and P403's fixed installed program execution establish the
 retained installation as a candidate input, not proof of PID 1 handoff. One
-fresh boot-only P404 image may select only that completed root. The bootstrap
+fresh boot-only P405 image may select only that completed root. P404 is consumed
+and its source-bound healthy original-A close must verify before preparation;
+that old close does not prove the current native filesystem. The bootstrap
 requires both exact P401 marker values, retained witness, clean ext4 identity,
 full GPT and selected file manifests before any writable root mount. A missing,
 partial, dirty or changed root stops. There is no embedded root archive,
@@ -51,7 +53,11 @@ The boot image retains the FYG8 kernel, board module order, sealed native
 partition and installed Debian root identity. Its generated ramdisk omits
 `rootfs.tar.xz`, `install.meta` and `install.sha256`. The installed-only C build
 cannot call the old extraction or installation marker path. The existing P401
-build remains byte-identical when that compile-time selection is absent.
+build remains byte-identical when that compile-time selection is absent. P405
+adds its fixed namespace/version and fresh run identity to the RAM bootstrap
+log. Authenticated Debian health must contain that exact candidate marker once,
+in addition to the existing root identity and PID 1/handoff checks. The marker
+alone is not evidence of successful handoff and creates no persistent file.
 
 After protected root validation, one fixed, hash-checked shutdown-command file
 is copied into the new `/run` tmpfs and bound read-only over the existing root's
@@ -75,6 +81,21 @@ unproved research result, not proof of a specific bootstrap failure. The first
 live unit prioritizes PID 1 and orderly return; package, cron, persistent reboot
 and later lifecycle claims keep their own future scope.
 
+During the existing 180-second NCM wait, the shared host observer may preserve
+at most 180 private samples of the two declared USB paths and their associated
+network interfaces. Each sample has at most 32 KiB of raw JSONL, with exact
+field bytes encoded as hex before interpretation. Descriptor and MAC reads
+are bounded to 512 bytes plus one overflow sentinel; interface enumeration is
+bounded to 128 names and eight associated interfaces. Unrelated interface
+identifiers and addresses are not collected. Absence, read error, missing
+interface and mismatching identity remain distinct diagnostic states. Any
+incomplete/malformed capture fails closed after preserving its bounded raw
+evidence. These limits prevent unbounded collection or a misleading success
+record; they do not authorize wider reads or endpoint acceptance. The existing
+exact endpoint selector runs independently afterward, and authenticated SSH
+health remains necessary. Neither a diagnostic match nor a host snapshot proves
+an early bootstrap stage or resolves an uncertain device effect.
+
 After proved Debian health, normal return requests orderly Debian shutdown and
 requires physical attended Download arrival. The owner rederives the retained
 P399 `v0.3.1` V3 admission and its exact boot-only AP before intending one
@@ -86,7 +107,7 @@ the new grant. A healthy close is a snapshot, not guaranteed future response.
 
 If the Debian or P399 transition is uncertain, research stops. The unchanged
 original Android A remains the one prebound attended physical recovery; an
-intended P404, P399 or A transfer never replays. A proven A transfer permits
+intended P405, P399 or A transfer never replays. A proven A transfer permits
 only read-only final-health continuation. The owner and global F1 sentinel stay
 until a rederived healthy native or Android terminal. A root filesystem that is
 dirty after an interrupted Debian run is not repaired, remounted for research

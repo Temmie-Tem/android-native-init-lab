@@ -229,6 +229,9 @@ int main(void) {
     if (log < 0) stop("bootstrap-log");
     if (dup2(log, 1) < 0 || dup2(log, 2) < 0) stop("bootstrap-log-redirect");
     if (close(log)) stop("bootstrap-log-close");
+#ifdef S22_DEBIAN_INSTALLED_ONLY
+    dprintf(1, "%s", target_boot_identity);
+#endif
     const char *root_device = target_prepare();
 #else
     const char *root_device = "/dev/vda";

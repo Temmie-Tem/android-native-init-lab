@@ -28,13 +28,15 @@ def qualify(artifact_path, vm_path, output):
     artifact_receipt = pin(artifact_path)
     artifact = read(artifact_path)
     require(artifact['schema'] == producer.SCHEMA and artifact['status'] == 'H0_BUILT_NOT_QUALIFIED'
-        and artifact['namespace'] == 'p404' and artifact['version'] == 'v0.4.0-rc.4'
+        and artifact['namespace'] == producer.NAMESPACE and artifact['version'] == producer.VERSION
         and artifact['ab_identical'] is True and artifact['device_actions'] == 0
         and artifact['grants_device_authority'] is False
         and artifact['p401_artifact'] == producer.ARTIFACT
         and artifact['p401_qualification'] == producer.QUALIFIED
         and artifact['installed_root_proof'] == producer.TERMINAL
         and artifact['installed_root_close'] == producer.CLOSED
+        and artifact['predecessor_terminal'] == producer.PREDECESSOR_TERMINAL
+        and artifact['predecessor_close'] == producer.PREDECESSOR_CLOSE
         and artifact['baseline_native'] == dict(ap=producer.P399_AP,admission=producer.P399_ADMISSION)
         and artifact['removed_members'] == ['install.meta','install.sha256','rootfs.tar.xz'],
         'P404 selected build role or predecessor differs')
@@ -62,6 +64,7 @@ def qualify(artifact_path, vm_path, output):
         entries['p404-lab-qualify'].data == script and
         all(entries[name].uid == entries[name].gid == 0 and entries[name].nlink == 1 for name in entries)
         and b'installed-root-not-complete' in init and b'BOOTSTRAP_HANDOFF' in init
+        and producer.boot_identity(artifact['run_id']).encode() in init
         and all(name not in init for name in (b'/rootfs.tar.xz',b'/install.meta',b'/install.sha256',
             b'DEBIAN_INSTALL_INTENT_DURABLE',b'DEBIAN_INSTALL_COMPLETE')),
         'P404 installed-only init or RAM command differs')
@@ -80,6 +83,7 @@ def qualify(artifact_path, vm_path, output):
     positive = read(verify(result['positive']))
     require(positive['status']=='PASS_INSTALLED_PID1_H0' and positive['no_install'] is True and
         positive['return_status']=='SHUTDOWN_COMPLETED' and
+        positive['candidate_identity']==producer.boot_identity(positive['candidate_run_id']) and
         positive['shutdown_overlay']['sha256']==artifact['shutdown_overlay']['sha256'],
         'virtual installed root or shutdown does not join physical command bytes')
     output.mkdir(mode=0o700)

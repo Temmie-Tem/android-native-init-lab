@@ -24,6 +24,7 @@ import s22plus_native_target_io_v3 as target
 import s22plus_native_android_storage_v1 as census
 import s22plus_native_gpt_android_v1 as android_storage
 import s22plus_native_gpt_profile_v1 as gpt
+import s22plus_debian_usb_observation_v1 as usb_observation
 from s22plus_native_records_v3 import (Journal as BaseJournal, canonical, clock, digest, host_boot,
     pin, private_path, publish, read, require, sync_dir, verify)
 
@@ -515,8 +516,11 @@ class Owner:
         folder = self.folder(label)
         deadline = min(self.grant['deadline_ns'], clock() + 180_000_000_000)
         found = None
+        ordinal = 0
         while clock() < deadline:
             self.guard()
+            ordinal += 1
+            usb_observation.capture(folder, ordinal, self.plan['link'])
             found = self.usb_link()
             if found: break
             time.sleep(1)

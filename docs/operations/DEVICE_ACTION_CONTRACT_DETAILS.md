@@ -854,14 +854,19 @@ The [installed Debian boot V1 policy](S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md) is
 incorporated at this same common-contract precedence as a separate narrow
 exception to boundaries 2 and 3 only for `SM-S906N/g0q/S906NKSS7FYG8`. It
 reuses the completed P401 root as a sealed input without reinstalling: one
-fresh boot-only P404 image has no root archive or installation path, verifies
+fresh boot-only P405 successor has no root archive or installation path, verifies
 the completion markers, full retained root files and exact native_data/GPT
 identity before writable handoff to Debian SysVinit as initial PID 1. Ordinary
 ext4 metadata/journal and declared Debian root writes remain confined to entry
 41. No filesystem repair, reformat, GPT change, userdata mutation, rootfs
 replacement or other partition payload is permitted.
 
-One finite, physically attended, 3600-second BOOTTIME grant binds one P404
+P404 remains consumed and closed with proved original-A health. Its result is
+not replay authority or proof of current native_data health. The P405 bootstrap
+must establish clean exact storage and the retained root before writable
+handoff; an interrupted or dirty root is never repaired by this exception.
+
+One finite, physically attended, 3600-second BOOTTIME grant binds one P405
 transfer, bounded authenticated Debian health, one orderly shutdown request,
 one attended Download arrival and one distinct boot-only P399 `v0.3.1-rc.1`
 normal restoration. The consumed P399 admission is evidence for this exact
@@ -878,7 +883,7 @@ Candidate-only source drift and grant expiry never cancel an already-owned A
 recovery, while current recovery-critical sources and exact A/target binding
 remain required. This exception does not renew P401 installation, P399's old
 roles, or any other S22+/A90/S20+ capability. It requires exact target adoption,
-independent final source/authority `PASS_GO`, actual P404/P399/A qualification,
+independent final source/authority `PASS_GO`, actual P405/P399/A qualification,
 current health and an operator-returned attended grant before effects.
 
 ## Bounded Attended F1 Sessions

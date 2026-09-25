@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import time
+import uuid
 
 HERE = Path(__file__).resolve().parent
 BASE = HERE.parent
@@ -30,8 +31,8 @@ KERNEL = ROOT / 'workspace/private/outputs/s22plus-debian-bootstrap-h0-20260921-
 QEMU = ROOT / 'workspace/private/tools/qemu-arm64-10.2.1/root'
 
 
-def initramfs(out):
-    overlay = installed_prepare.shutdown_overlay(out, VIRT)
+def initramfs(out, run_id):
+    overlay = installed_prepare.shutdown_overlay(out, VIRT, run_id=run_id)
     command = ['aarch64-linux-gnu-gcc', '-std=gnu11', '-Os', '-static', '-fno-ident',
         '-ffunction-sections', '-fdata-sections', '-Wl,--gc-sections',
         '-DS22_DEBIAN_DEVICE', '-DS22_DEBIAN_VIRT_TEST', '-I', str(out), '-I', str(VIRT),
@@ -109,7 +110,8 @@ def qualify(out):
     require(read(VIRT / 'build.json')['artifact_source'] == pin(VM_ARTIFACT / 'artifact.json'),
             'virtual installed disk belongs to another root identity')
     out.mkdir(mode=0o700)
-    init, remove = initramfs(out)
+    run_id = uuid.uuid4().hex
+    init, remove = initramfs(out, run_id)
     disk = installed_disk(out)
     before = prior_vm.sparse_digest(disk)
     vm = prior_vm.InstallVM(out, KERNEL, QEMU, VM_ARTIFACT / 'client-key')
@@ -123,6 +125,7 @@ def qualify(out):
             and body.endswith(b'DEBIAN_HEALTH_PASS\n') and
             b'pid1_exe=/usr/sbin/init\n' in body and b'pid1_root=/\n' in body and
             b'BOOTSTRAP_HANDOFF pid=1 children=0 backend=h0-virt-installer\n' in body and
+            body.count(installed_prepare.boot_identity(run_id).encode()) == 1 and
             b'DEBIAN_INSTALL_INTENT_DURABLE' not in body and b'DEBIAN_INSTALL_COMPLETE' not in body,
             'installed-only Debian PID 1 proof or no-install result differs')
         match = re.findall(rb'^boot_count=([1-9][0-9]*)$', body, re.M)
@@ -132,6 +135,7 @@ def qualify(out):
         owner.control_projection(shutdown.handle, 'shutdown', '127.0.0.1')
         require(vm.process.wait(timeout=60) == 0, 'ordinary Debian shutdown did not finish')
         h0.write_json(out / 'positive.json', dict(status='PASS_INSTALLED_PID1_H0',
+            candidate_run_id=run_id, candidate_identity=installed_prepare.boot_identity(run_id),
             boot_count=int(match[0]), installed_root_source=pin(VIRT / 'result.json'),
             init=init, before=before, health_capture=pin(result.handle.receipt_path),
             no_install=True, return_status='SHUTDOWN_COMPLETED',

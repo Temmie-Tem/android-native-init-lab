@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""H0-only P404 boot package using the installed P401 root; no archive producer."""
+"""H0-only installed-root successor; no archive producer or consumed-image reuse."""
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import stat
@@ -20,6 +21,13 @@ import s22plus_native_thermal_build_v1 as packaging
 from s22plus_native_records_v3 import pin, publish, read, require, verify
 
 SCHEMA = 's22plus-debian-installed-boot-h0-v1'
+NAMESPACE = 'p405'
+VERSION = 'v0.4.0-rc.5'
+PREDECESSOR = ROOT / 'workspace/private/outputs/s22plus-debian-installed-h0-20260923-1/live-task-1'
+PREDECESSOR_TERMINAL = dict(path=str(PREDECESSOR / 'terminal.json'), size=941,
+    sha256='88e434a4cec71bdd2471581780a195edf40d0cb90cdbd55c9d9cf3ac3579e6f3')
+PREDECESSOR_CLOSE = dict(path=str(PREDECESSOR / 'closed.json'), size=3355,
+    sha256='7a44a2063ae17b7902ce8c6b1ef0440d6b832ed27d480294669cf83947171afe')
 P401 = ROOT / 'workspace/private/outputs/s22plus-debian-device-prep-20260921-1'
 ARTIFACT = dict(path=str(P401 / 'artifact-7/artifact.json'), size=48870,
     sha256='bca7f42259a8e2f30806dfbf11ad213406f17959b9d38113cf5dca95c9ca2d17')
@@ -47,6 +55,14 @@ def source_inputs():
 
 
 def inputs():
+    previous = read(verify(PREDECESSOR_TERMINAL))
+    closed_previous = read(verify(PREDECESSOR_CLOSE))
+    require(previous['terminal_state'] == 'ANDROID_CLOSED_HEALTHY' and
+            previous['original_A_transfer_proved'] is True and previous['research_closed'] is True and
+            closed_previous['terminal'] == PREDECESSOR_TERMINAL and
+            closed_previous['f1_owner_absent'] is True and
+            closed_previous['device_effect_replays'] == 0,
+            'consumed P404 predecessor lacks its proved Android closure')
     artifact = read(verify(ARTIFACT)); qualification = read(verify(QUALIFIED))
     require(qualification['artifact'] == ARTIFACT and
             qualification['verdict'] == 'PASS_H0_READY_FOR_ATTENDED_PREPARATION' and
@@ -102,7 +118,12 @@ def shutdown_overlay_bytes():
     return source.replace(fixed, b'test "$(cat /var/lib/lab/boot-count)" -ge 1')
 
 
-def shutdown_overlay(output, old):
+def boot_identity(run_id):
+    require(re.fullmatch('[0-9a-f]{32}', run_id) is not None, 'candidate run identity differs')
+    return f'BOOTSTRAP_CANDIDATE {NAMESPACE} {VERSION} {run_id}\n'
+
+
+def shutdown_overlay(output, old, *, run_id):
     import tarfile
     source = (HERE / 'lab-qualify').read_bytes()
     with tarfile.open(old / 'rootfs.tar') as archive:
@@ -113,6 +134,7 @@ def shutdown_overlay(output, old):
     script.write_bytes(replacement)
     script.chmod(0o500)
     (output / 'installed-plan.h').write_text(
+        'static const char target_boot_identity[]=' + json.dumps(boot_identity(run_id)) + ';\n'
         f'static const unsigned long long target_qualify_size={len(replacement)}ULL;\n'
         'static const unsigned char target_qualify_sha256[]={' +
         ','.join(str(x) for x in hashlib.sha256(replacement).digest()) + '};\n')
@@ -128,7 +150,8 @@ def build(output):
     verify(original['boot'], maximum=128 * 1024 * 1024)
     output.mkdir(mode=0o700)
     selected = source_inputs()
-    overlay = shutdown_overlay(output, old)
+    run_id = uuid.uuid4().hex
+    overlay = shutdown_overlay(output, old, run_id=run_id)
     executable = compile_init(output, old)
     baseline = Path(original['boot']['path']).read_bytes()
     parsed, before = packaging.shared.entries(baseline)
@@ -169,8 +192,11 @@ def build(output):
     require((output / 'pack-a/AP.tar.md5').read_bytes() == (output / 'pack-b/AP.tar.md5').read_bytes(),
             'P404 AP A/B differs')
     for receipt in selected: verify(receipt, maximum=4 * 1024 * 1024)
-    result = dict(schema=SCHEMA, status='H0_BUILT_NOT_QUALIFIED', namespace='p404',
-        version='v0.4.0-rc.4', run_id=uuid.uuid4().hex, source_inputs=selected,
+    require(boot_identity(run_id).encode() in executable.read_bytes(),
+            'installed bootstrap omits its candidate identity')
+    result = dict(schema=SCHEMA, status='H0_BUILT_NOT_QUALIFIED', namespace=NAMESPACE,
+        version=VERSION, run_id=run_id, source_inputs=selected,
+        predecessor_terminal=PREDECESSOR_TERMINAL, predecessor_close=PREDECESSOR_CLOSE,
         p401_artifact=ARTIFACT, p401_qualification=QUALIFIED,
         installed_root_proof=TERMINAL, installed_root_close=CLOSED,
         baseline_native=dict(ap=P399_AP, admission=P399_ADMISSION),

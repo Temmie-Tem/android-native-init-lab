@@ -28,12 +28,12 @@ SCHEMA='s22plus-debian-installed-boot-v1'
 POLICY=ROOT/'docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md'
 COMMON=ROOT/'docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md'
 TARGET=ROOT/'docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md'
-REVIEW=ROOT/'workspace/public/src/device-action/bindings/s22plus_debian_installed_boot_v1_review.json'
-P404=ROOT/'workspace/private/outputs/s22plus-debian-installed-h0-20260923-1'
-ARTIFACT=dict(path=str(P404/'build-5/artifact.json'),size=4342,
-    sha256='99de9421701ee202769645ab5bdb3273fc7319f36cfe7fe064fbcaca4d67cf7b')
-QUALIFIED=dict(path=str(P404/'qualified-1/qualification.json'),size=6092,
-    sha256='d0af6c1072b4cbc0acc3733ee0b00a95417b766d15d20d3724f3b6a4ae7fb513')
+REVIEW=ROOT/'workspace/public/src/device-action/bindings/s22plus_debian_installed_boot_p405_review.json'
+SELECTED=ROOT/'workspace/private/outputs/s22plus-debian-installed-h0-20260926-1'
+ARTIFACT=dict(path=str(SELECTED/'build-1/artifact.json'),size=4844,
+    sha256='640670965fb08834f252f0c76d6f0d3bc9057537a614ca5d9a559a89cc483ed7')
+QUALIFIED=dict(path=str(SELECTED/'qualified-1/qualification.json'),size=6092,
+    sha256='8e135132db6399a6ce5fc38f6676a61b3cfc538f29656c8f04de8387f49fafb6')
 P401_PLAN=ROOT/'workspace/private/outputs/s22plus-debian-device-prep-20260921-1/p401-first-boot-run-3/plan.json'
 P399=ROOT/'workspace/private/runs/s22plus-native-session-v3/p399-p400-native-ext4-20260917-1'
 STEPS=('android-download','candidate-boot','debian-shutdown','native-return','android-restore')
@@ -138,10 +138,10 @@ def inspect_inputs():
     require(qualified['artifact']==ARTIFACT and
         qualified['verdict']=='PASS_H0_INSTALLED_BOOT_ARTIFACT_AND_ARM64_VM'
         and qualified['device_actions']==0 and artifact['grants_device_authority'] is False,
-        'P404 actual H0 qualification differs')
+        'P405 actual H0 qualification differs')
     prior,basis=old.retained_basis()
     # The exact P401 plan is retained by its consumed terminal, independent of
-    # the moving old runner and of P404's new candidate identity.
+    # the moving old runner and of P405's new candidate identity.
     terminal=read(P401_PLAN.parent/'terminal.json')
     require(terminal['plan']==pin(P401_PLAN) and
         terminal['terminal_state']=='ANDROID_CLOSED_HEALTHY' and
@@ -164,11 +164,12 @@ def plan(output):
     require(not output.exists(),'installed Debian task path already exists')
     artifact,old_plan,prior,basis,native_task=inspect_inputs()
     review=capability()
-    with transport.pin_boot_only_ap(Path(artifact['ap']['path']),label='P404 candidate',
+    with transport.pin_boot_only_ap(Path(artifact['ap']['path']),label='P405 candidate',
             expected_size=artifact['ap']['size'],expected_sha256=artifact['ap']['sha256']) as ap:
-        member=transport.boot_only_member_receipt(ap,label='P404 candidate')
+        member=transport.boot_only_member_receipt(ap,label='P405 candidate')
     plan=dict(schema=SCHEMA,directory=str(output),seconds=3600,review=review,
-        candidate=dict(ap=artifact['ap'],member=member,run_id=artifact['run_id']),
+        candidate=dict(ap=artifact['ap'],member=member,run_id=artifact['run_id'],
+            namespace=artifact['namespace'],version=artifact['version']),
         root_run_id=old_plan['candidate']['run_id'],installed_root=producer_artifact(),
         artifact=ARTIFACT,qualification=QUALIFIED,source_terminal=old.PRIOR_CLOSED,
         target=prior['target'],lane=target.lane.capture_binding(target.lane.SOURCE_TOPOLOGY),
@@ -214,7 +215,8 @@ def validate_plan(plan,*,recovery=False,static_only=False):
         return plan
     image,old_plan,prior,basis,native_task=inspect_inputs()
     require(plan['artifact']==ARTIFACT and plan['qualification']==QUALIFIED and
-        plan['candidate']==dict(ap=image['ap'],member=plan['candidate']['member'],run_id=image['run_id'])
+        plan['candidate']==dict(ap=image['ap'],member=plan['candidate']['member'],run_id=image['run_id'],
+            namespace=image['namespace'],version=image['version'])
         and plan['root_run_id']==old_plan['candidate']['run_id']
         and plan['installed_root']==producer_artifact()
         and plan['target']==prior['target'] and plan['A']==prior['A']
@@ -224,10 +226,10 @@ def validate_plan(plan,*,recovery=False,static_only=False):
         and all(plan[key]==old_plan[key] for key in ('link','network_uuid','client_key','known_hosts','nmcli','ssh','odin','adb'))
         and plan['host_installation']==native_task['host_installation'],
         'installed root or native return artifacts differ')
-    with transport.pin_boot_only_ap(Path(image['ap']['path']),label='P404 candidate',
+    with transport.pin_boot_only_ap(Path(image['ap']['path']),label='P405 candidate',
             expected_size=image['ap']['size'],expected_sha256=image['ap']['sha256']) as ap:
-        require(transport.boot_only_member_receipt(ap,label='P404 candidate')==plan['candidate']['member'],
-            'P404 AP member differs')
+        require(transport.boot_only_member_receipt(ap,label='P405 candidate')==plan['candidate']['member'],
+            'P405 AP member differs')
     target.lane.revalidate_binding(plan['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
     return plan
 
@@ -341,7 +343,11 @@ def installed_health_projection(handle,plan):
         'installed Debian health producer failed')
     output=raw.read_stdout(handle,maximum=65536)
     wanted=('S22PLUS_FYG8_DEBIAN_V1 '+plan['root_run_id']+'\n').encode()
+    candidate=plan['candidate']
+    marker=('BOOTSTRAP_CANDIDATE '+candidate['namespace']+' '+candidate['version']+' '+
+            candidate['run_id']+'\n').encode()
     require(output.startswith(wanted) and output.endswith(b'DEBIAN_HEALTH_PASS\n') and
+        output.count(marker)==1 and output.count(b'BOOTSTRAP_CANDIDATE ')==1 and
         output.count(b'pid1_exe=/usr/sbin/init\n')==1 and
         output.count(b'pid1_root=/\n')==1 and
         output.count(b'BOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n')==1 and
@@ -602,7 +608,7 @@ class Owner(old.Owner):
         claim=read(self.directory/'candidate-claim.json')
         identity=candidate_identity(self.plan,self.plan_receipt['sha256'])
         require(registry.active_claim(ROOT,identity['candidate_key'])==claim['record'],
-            'new P404 boot candidate claim differs')
+            'new P405 boot candidate claim differs')
         return health
 
     def returned_native_health(self):

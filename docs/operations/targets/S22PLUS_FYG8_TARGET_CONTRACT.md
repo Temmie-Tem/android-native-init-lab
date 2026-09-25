@@ -389,17 +389,24 @@ consumed and Android return does not undo or qualify incomplete rootfs writes.
 
 The common-incorporated [installed Debian boot V1 policy](../S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
 is adopted as a **REVIEW_GATED_CAPABILITY** only through
-`s22plus_debian_installed_boot_v1.py`. It binds one fresh P404 installed-only
+`s22plus_debian_installed_boot_v1.py`. It binds one fresh P405 installed-only
 boot candidate, the completed P401 root, and exact Android32/native_data
 identity. It cannot reopen P401's installation claim, extract an archive,
 format/repair storage, or replay P403. One returned attended 3600-second grant
-allows one Android Download entry, one P404 boot-only transfer, bounded
+allows one Android Download entry, one P405 boot-only transfer, bounded
 authenticated Debian PID 1/root health, one restricted shutdown request and,
 only after a fresh physical Download arrival, one P399 `v0.3.1-rc.1` boot-only
 normal return. Complete fresh authenticated P399 health, protected filesystem
 witness, DETACH and descriptor close may close in native mode. Failure retains
 the separately intended original-A physical return and exact rooted Android32
 health, without replay of any intended transfer.
+
+P404's consumed claim and healthy original-A close remain immutable. P405 is a
+prospective successor with a corrected host endpoint selector, bounded private
+USB observations and a candidate-specific RAM bootstrap marker. It retains the
+same installed root, fixed workload vocabulary and physical recovery; no repair
+or reinstall is added. The host diagnostics are explanatory evidence only and
+never replace the exact endpoint predicate or authenticated PID 1/root health.
 
 The current foreground request adopts only the fixed Android preparation D0
 already named for the first-boot lane above, with bounded read-only
