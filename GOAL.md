@@ -42,11 +42,28 @@ The one-operation budget and image are consumed, no transfer repeated and the
 F1 owner is absent. See the [first-run result and canonical timeline](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_FIRST_RUN_2026-09-26.md)
 and [H0 qualification](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_H0_2026-09-26.md).
 
-Next is bounded H0 analysis of the initial entry-to-observer evidence path.
-Preserve P407; no replay or new device effect is authorized. P406's earlier
-clean matching-root result remains separate: P407 did not prove current
-native_data contents, root checks, partition RO, loader execution or cleanup.
-Switch_root, Debian host PID 1 and NCM/SSH remain unproved. A90/S20+ stay isolated.
+The subsequent [H0 forensic audit](docs/reports/S22PLUS_BOOTSTRAP_FORENSICS_H0_2026-09-26.md)
+joined actual AP/ELF/kernel/module disassembly, retained host USB journals and
+P406's complete inventory. No single bootstrap defect was established. Failed
+boots show no intervening expected gadget registration; the P406 positive
+control does. P407's new Download descriptor was registered about 105 seconds
+before host recovery began, while the owner only waited. Button/reset/fallback
+attribution remains unknown; this is not automatic recovery proof.
+
+At P406, the only additional regular files were the two installation markers
+and witness; no later Debian boot files remained. Together with its clean
+superblock, this favors examining the preparation/final-RW boundary while
+retaining early-init failure or a later clean lifecycle as alternatives.
+P406/P407 kernel bytes differ only in declared identity/config spans. Actual
+ELF/ABI, DEFEX PID 1, module-order/parser and watchdog checks yielded no
+deterministic explanation. P407's own cleanup/observer entry remains unlocated.
+
+Next is bounded H0 design for a stage result before the presently silent
+cold-entry/module/cleanup boundaries, followed by a separate replacement-PID-1
+observation. Preserve P407; no replay or new device effect is authorized.
+P406's root evidence predates P407: P407 did not prove current native_data
+contents, root checks, partition RO, loader execution or cleanup. Switch_root,
+Debian host PID 1 and NCM/SSH remain unproved. A90/S20+ stay isolated.
 
 ## Prior P406 root-state proof and healthy Android return
 
