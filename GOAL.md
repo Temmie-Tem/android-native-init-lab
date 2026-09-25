@@ -21,7 +21,26 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P405 first run and healthy Android return
+## Selected unit — P406 protected root-state observation
+
+The operator selected smaller experiments through the next real-device unit.
+P406 `v0.4.0-rc.6` is a fresh one-shot protected root inspector: observe the
+retained native_data superblock first; skip mounting dirty/recovery-needed or
+orphan-bearing state; otherwise compare the installation records, witness and
+fixed archive table. Complete this observation and exact original-A return
+before selecting a later Debian handoff experiment. No repair or installed
+code execution is part of this unit.
+
+Actual A/B package qualification, four current ARM64 protected-inspection VM
+cases and 14 focused tests pass. Current source-bound independent review is
+`PASS_GO`, and fixed Android health/GPT/capacity preparation has completed.
+The concrete 1,800-second attended one-operation start remains; its grant has
+not opened and P406 has not transferred. See the
+[H0 report](docs/reports/S22PLUS_NATIVE_ROOT_STATE_P406_H0_2026-09-26.md).
+P405 remains the latest closed healthy Android state; it does not establish
+native_data health. A90/S20+ remain isolated.
+
+## Prior P405 first run and healthy Android return
 
 P405 `v0.4.0-rc.5` transferred once under the operator's concrete attended grant
 after fresh exact rooted Android32 health. No NCM endpoint arrived in 180
@@ -38,10 +57,9 @@ transfer/health raw proof and 98 USB captures were rederived. See the
 [first-run report and timeline](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_FIRST_RUN_2026-09-26.md)
 and [H0 qualification](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_H0_2026-09-26.md).
 
-Next is H0 design for evidence before USB availability and the retained root's
-state. Android return does not prove native_data clean or unchanged. Neither
-this P405 result nor the host selector repair establishes P404's actual cause.
-A90/S20+ remain isolated.
+The selected P406 unit observes the retained root's state. Android return does
+not prove native_data clean or unchanged. Neither this P405 result nor the host
+selector repair establishes P404's actual cause. A90/S20+ remain isolated.
 
 ## Prior P404 first run and healthy Android return
 

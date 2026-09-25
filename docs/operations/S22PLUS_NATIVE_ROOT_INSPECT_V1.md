@@ -27,8 +27,11 @@ The inspector profile is exclusive to this graph. There is no E, N admission,
 bootstrap, N reuse, prior native tail, reconnect, HUD selection, second
 inspection or additional operation. This does not relax V3's two-installation,
 four-session baseline admission. N is a one-shot observation image.
-The source-bound review uses `s22plus_native_root_inspect_v1_review.json`;
-other lanes' review records and all consumed artifacts retain their identities.
+The prospective P406 source-bound review uses
+`s22plus_native_root_inspect_p406_review.json`. P402's original
+`s22plus_native_root_inspect_v1_review.json`, other lanes' review records and all
+consumed artifacts retain their identities. P405's proved original-A close is
+the latest execution closure; it does not establish current native_data health.
 
 The fixed inspection includes a kernel control, so its authenticated EXEC has
 an exclusive durable intent before dispatch. The intent binds command bytes,

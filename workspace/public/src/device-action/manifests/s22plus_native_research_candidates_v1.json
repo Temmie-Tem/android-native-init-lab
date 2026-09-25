@@ -76,6 +76,13 @@
       "version": "v0.4.0-rc.3",
       "image_sha256": "3781f9e250f1fceeda3fe63d727a2f9e95744d4eb5a5967f8762395d93dbe986",
       "profile": "thermal-v3-reconnect-ufs-drain-userspace-probe-v1"
+    },
+    {
+      "namespace": "p406",
+      "run_id": "4e30b2cbe1644e1baf26fc61714a4f7c",
+      "version": "v0.4.0-rc.6",
+      "image_sha256": "7d81401a900ab4fb47a05ada4a033164e973078da0a0ce1078189dd32de3b162",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-inspect-v1"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"
