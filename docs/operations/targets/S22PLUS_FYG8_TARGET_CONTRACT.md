@@ -360,6 +360,29 @@ same fixed Android root-health/shell-v2/GPT/statfs preparation reads, including
 preserved-evidence reobservation after a pure read failure. No experimental
 transfer occurs until the concrete finite start is returned.
 
+### Streamed protected preparation V1
+
+The common-incorporated [staged preflight V1](../S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)
+is adopted only as V3's `staged-preflight`. One returned finite attended grant
+permits one fresh Android-origin N and one fixed preparation command, followed
+by original-A closure within at most 1800 seconds. Native startup and fixed
+authenticated health precede the unique pre-EXEC intent. No admission, E,
+reentry, reconnect, HUD, command retry or additional operation is admitted.
+
+Partition-only RAM RO, clean-root identity, a pinned read-only checker, full
+root closure and fixed unprivileged loader children retain the inspector and
+P403 command-group/cleanup boundaries. There is no writable mount, repair,
+installation, installed-init execution or PID 1 handoff. Streamed stage markers
+and any authenticated partial prefix are diagnostic evidence; missing final
+accounting never supplies native health, completed cleanup, recovery or replay.
+Existing V3 physical original-A recovery and health-only continuation remain.
+
+Current independent source review, actual A/B qualification and fresh machine
+binding do not open a grant. The foreground task adopts only the same fixed
+Android preparation root-health/shell-v2/GPT/statfs reads and preserved-evidence
+reobservation after a pure read failure. An experimental transfer still requires
+the returned finite attended start. All prior consumed actions remain consumed.
+
 ### Fixed installed-Debian userspace probe V1
 
 The common-incorporated [userspace probe V1](../S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)

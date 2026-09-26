@@ -9,14 +9,15 @@ import s22plus_boot_only_f1_transport as transport
 from s22plus_native_records_v3 import pin, private_path, publish, read, require, verify
 
 
-def qualify(namespace, output, *, key_path, build_directory=None, userspace=False, preflight=False):
+def qualify(namespace, output, *, key_path, build_directory=None, userspace=False, preflight=False, staged=False):
     import s22plus_native_baseline_v2_candidates as catalog
     import s22plus_debian_first_boot_v1 as prior_owner
     selected = catalog.DECLARATIONS[namespace]
     chosen = profile
-    require(not (userspace and preflight), 'select one diagnostic role')
+    require(sum((userspace,preflight,staged))<=1, 'select one diagnostic role')
     if userspace: import s22plus_native_userspace_probe_profile_v1 as chosen
     if preflight: import s22plus_native_preflight_profile_v1 as chosen
+    if staged: import s22plus_native_staged_preflight_profile_v1 as chosen
     require(catalog.research_profile(selected) == chosen.PROFILE, 'unselected protected-root composition')
     builder = catalog.static(namespace).builder
     if build_directory is not None: builder.DEFAULT_OUTPUT_ROOT = private_path(ROOT, build_directory)
@@ -53,6 +54,7 @@ def qualify(namespace, output, *, key_path, build_directory=None, userspace=Fals
     if preflight:image['preflight']=built['preflight']
     else:image['root_inspection']=built['root_inspection']
     if userspace: image['userspace_probe'] = built['userspace_probe']
+    if staged:image['staged_preflight']=built['staged_preflight']
     chosen.image_binding(image)
     output = private_path(ROOT, output, exists=False)
     require(not output.exists(), 'inspector qualification output already exists'); output.mkdir(mode=0o700)
@@ -60,5 +62,6 @@ def qualify(namespace, output, *, key_path, build_directory=None, userspace=Fals
         image=image, builder_result=pin(builder.DEFAULT_OUTPUT_ROOT / 'result.json'),
         ab_identical=True, actual_ap_join=True, exporter=pin(Path(__file__).with_name(
             's22plus_native_preflight_artifact_v1_h0.py') if preflight else Path(__file__).with_name(
-            's22plus_native_userspace_probe_artifact_v1_h0.py') if userspace else Path(__file__))))
+            's22plus_native_userspace_probe_artifact_v1_h0.py') if userspace else Path(__file__).with_name(
+            's22plus_native_staged_preflight_artifact_v1_h0.py') if staged else Path(__file__))))
     return publish(output / 'image.json', dict(image, qualification=qualification))

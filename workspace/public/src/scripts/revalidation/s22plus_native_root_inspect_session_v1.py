@@ -2,11 +2,12 @@
 import s22plus_native_root_inspect_profile_v1 as profile
 import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
+import s22plus_native_staged_preflight_profile_v1 as staged
 from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-ITEMS = (profile, probe, preflight)
+ITEMS = (profile, probe, preflight, staged)
 PROFILES = tuple(item.PROFILE for item in ITEMS)
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
@@ -15,6 +16,10 @@ SELECTIONS = tuple(item.SELECTION for item in ITEMS)
 def selected(operation):
     require(operation in OPERATIONS, 'unknown protected-root operation')
     return next(item for item in ITEMS if operation == item.OPERATION)
+
+
+def mutates_step(operation,name):
+    return operation in OPERATIONS and selected(operation).SELECTION==name and selected(operation).Profile.MUTATES
 
 
 def normal_steps(operation=profile.OPERATION):
@@ -59,7 +64,7 @@ def android_basis(adapter, request):
 def validate_result(adapter, step, value, request):
     item = selected(request['operation'])
     if step.name != item.SELECTION: return
-    status = 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
+    status = 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
     require(value['proof'][item.Profile.RESULT_KEY]['status'] == status,
         'protected-root operation did not finish with bounded raw proof')
     records = [r['data'] for r in Journal(adapter.directory / 'journal').rows()
@@ -92,5 +97,11 @@ def terminal(adapter, request, *, recovered):
         value = adapter.recover_step_result(step, request)
         validate_result(adapter, step, value, request)
     except (ValueError, OSError, KeyError, RawCaptureError) as error:
-        return dict(result, evidence_error=dict(type=type(error).__name__, message=str(error)[:512]))
+        result.update(evidence_error=dict(type=type(error).__name__, message=str(error)[:512]))
+        if item is staged:
+            from s22plus_native_staged_preflight_evidence_v1 import rederive
+            try:result['diagnostic_prefix']=rederive(adapter,request)
+            except (ValueError,OSError,KeyError,IndexError,RawCaptureError) as failure:
+                result['diagnostic_error']=dict(type=type(failure).__name__,message=str(failure)[:512])
+        return result
     return dict(result, **value['proof'][item.Profile.RESULT_KEY])

@@ -16,6 +16,7 @@ import s22plus_native_ext4_profile_v1 as fs
 import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
+import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -43,14 +44,16 @@ def image_valid(image, *, artifact_bytes=False):
         inspection.PROFILE:'s22plus_native_root_inspect_artifact_v1_h0.py',
         probe.PROFILE:'s22plus_native_userspace_probe_artifact_v1_h0.py',
         preflight.PROFILE:'s22plus_native_preflight_artifact_v1_h0.py',
+        staged.PROFILE:'s22plus_native_staged_preflight_artifact_v1_h0.py',
         **{p:'s22plus_native_ext4_artifact_v1_h0.py' for p in fs.PROFILES}}
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'}
     if image.get('profile')==gpt.PROFILE:keys.add('gpt')
     if image.get('profile') in fs.PROFILES:keys.update(('filesystem','gpt','android_return'))
-    if image.get('profile') in (inspection.PROFILE,probe.PROFILE):keys.update(('root_inspection','gpt','android_return'))
+    if image.get('profile') in (inspection.PROFILE,probe.PROFILE,staged.PROFILE):keys.update(('root_inspection','gpt','android_return'))
     if image.get('profile') == preflight.PROFILE:keys.update(('preflight','gpt','android_return'))
     if image.get('profile') == probe.PROFILE:keys.add('userspace_probe')
+    if image.get('profile') == staged.PROFILE:keys.add('staged_preflight')
     require(set(image)==keys and image['schema']=='s22plus-native-image-v3'
         and image['profile'] in exporters,'native image qualification schema differs')
     native.identity(image); native.key_bytes(image)
@@ -113,8 +116,8 @@ def image_valid(image, *, artifact_bytes=False):
         require(not any(name in inventory for name in ('s22-fs','s22-fs-mke2fs','rootfs.tar.xz',
             's22-root-inspect','s22-userspace-probe','p404-lab-qualify')),
             'preflight image contains an unselected payload')
-    if image['profile'] in (inspection.PROFILE,probe.PROFILE):
-        selected = probe if image['profile'] == probe.PROFILE else inspection
+    if image['profile'] in (inspection.PROFILE,probe.PROFILE,staged.PROFILE):
+        selected = next(item for item in (inspection,probe,staged) if item.PROFILE==image['profile'])
         binding = selected.image_binding(image)
         require(built['root_inspection'] == binding and
             built['native_selection']['runtime_profile']['root_inspect_profile'] == inspection.PROFILE,
@@ -124,15 +127,22 @@ def image_valid(image, *, artifact_bytes=False):
                 built['native_selection']['runtime_profile']['userspace_probe_profile'] == probe.PROFILE and
                 built['native_selection']['runtime_profile']['userspace_probe'] == image['userspace_probe'],
                 'userspace workload differs from its A/B producer')
+        if selected is staged:
+            require(built['staged_preflight']==image['staged_preflight'] and
+                built['native_selection']['runtime_profile']['staged_preflight_profile']==staged.PROFILE and
+                built['native_selection']['runtime_profile']['staged_preflight']==image['staged_preflight'],
+                'staged preparation differs from its A/B producer')
         inventory = built['candidate']['a']['inventory']
-        helper = 's22-userspace-probe' if selected is probe else 's22-root-inspect'
-        for member, receipt, mode in ((helper, binding['helper'], 0o100500),
-                ('s22-root-inspect.table', binding['table'], 0o100400)):
+        helper = 's22-staged-preflight' if selected is staged else 's22-userspace-probe' if selected is probe else 's22-root-inspect'
+        members=[(helper,binding['helper'],0o100500),('s22-root-inspect.table',binding['table'],0o100400)]
+        if selected is staged:members.append(('s22-fs-e2fsck',image['staged_preflight']['checker'],0o100500))
+        for member, receipt, mode in members:
             require(all(inventory[member][k] == receipt[k] for k in ('size', 'sha256')) and
                 inventory[member]['mode'] == mode and inventory[member]['uid'] == inventory[member]['gid'] == 0,
                 'inspection ramdisk payload differs')
-        excluded = 's22-root-inspect' if selected is probe else 's22-userspace-probe'
-        require(not any(name in inventory for name in ('s22-fs', 's22-fs-mke2fs', 's22-fs-e2fsck', 'rootfs.tar.xz', excluded)),
+        excluded={'s22-fs','s22-fs-mke2fs','rootfs.tar.xz','s22-root-inspect','s22-userspace-probe','s22-staged-preflight','s22-prehandoff'}-{helper}
+        if selected is not staged:excluded.add('s22-fs-e2fsck')
+        require(not any(name in inventory for name in excluded),
             'inspector image contains an unselected filesystem payload')
     if artifact_bytes:
         with transport.pin_boot_only_ap(Path(image['ap']['path']),label='qualified native image',

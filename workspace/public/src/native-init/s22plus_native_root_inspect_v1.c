@@ -27,6 +27,18 @@ static const char ri_root[] = "/s22-root-work/root-inspect-v1/root";
 static unsigned ri_stage, ri_reported;
 static uint64_t ri_hashed_bytes;
 
+/* Optional fixed-stage instrumentation for separately compiled diagnostics.
+ * The ordinary inspector/probe retain their original paths and output. */
+#ifndef RI_PROGRESS_BEGIN
+#define RI_PROGRESS_BEGIN(name) ((void)0)
+#define RI_PROGRESS_END(name) ((void)0)
+#define RI_PROGRESS_ERROR(error) ((void)0)
+#define RI_PROGRESS_CLEANUP(error) ((void)0)
+#endif
+#ifndef RI_PRE_MOUNT
+#define RI_PRE_MOUNT(endpoint) 0
+#endif
+
 struct ri_counts { unsigned entries, files, directories, links, other; uint64_t bytes; };
 struct ri_compare { unsigned expected, matched, missing, metadata, content;
                     unsigned boot_expected, boot_missing, boot_metadata, boot_content; };
@@ -311,6 +323,7 @@ static int ri_run(int argc, char **argv, const char *mode, ri_observer observe) 
     int started = 0, complete = 0, witness = 0, clean = 0;
     char inventory[65] = "none";
     ri_stage = 1;
+    RI_PROGRESS_BEGIN("setup");
     parent = open("/s22-root-work",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
     devices = open("/dev",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
     if (parent < 0 || devices < 0) { error = fs1_error(); goto done; }
@@ -325,21 +338,33 @@ static int ri_run(int argc, char **argv, const char *mode, ri_observer observe) 
     if (mkdirat(devices,".s22-ext4-v1",0700)) { error=fs1_error(); goto done; } nodes_created=true;
     e.node_fd=openat(devices,".s22-ext4-v1",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
     if (e.node_fd < 0 || unshare(CLONE_NEWNS) || mount(NULL,"/",NULL,MS_REC|MS_PRIVATE,NULL)) { error=fs1_error(); goto done; }
+    RI_PROGRESS_END("setup");
     ri_stage=2;
+    RI_PROGRESS_BEGIN("binding");
     if ((error=fs1_resolve(&e)) || (error=fs1_make_node(&e,"lu0",e.disk,0400)) ||
         (error=fs1_make_node(&e,"native",e.partition,0400)) || (error=fs1_gpt_exact(&e))) goto done;
     ri_print("RI1_BIND exact=1\n");
+    RI_PROGRESS_END("binding");
     ri_stage=3;
+    RI_PROGRESS_BEGIN("block-ro");
     if ((error=ri_ro(&e,true))) goto done;
     ro=true;
     ri_print("RI1_BLOCK_RO partition=1\n");
+    RI_PROGRESS_END("block-ro");
     ri_stage=4;
+    RI_PROGRESS_BEGIN("superblock");
     if ((error=fs1_read_super(&e,false)) || (error=ri_super_identity(e.superblock))) goto done;
     memcpy(before,e.superblock,sizeof(before)); clean=fs1_superblock(before,sizeof(before),fs1_uuid,FS1_BLOCKS);
     ri_print("RI1_SUPER clean=%d state=%u recover=%u orphan=%u\n",clean,fs1_u16(before+0x3a),
              !!(fs1_u32(before+0x60)&4U),fs1_u32(before+0xe8));
+    RI_PROGRESS_END("superblock");
     if (!clean) goto final;
+    /* A negative callback is a settled scientific stop, not an errno. */
+    int pre_mount = RI_PRE_MOUNT(&e);
+    if (pre_mount > 0) { error=pre_mount; goto done; }
+    if (pre_mount < 0) goto final;
     ri_stage=5;
+    RI_PROGRESS_BEGIN("mount");
     if (mount(fs1_node,ri_root,"ext4",MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC,"noload,nodiscard")) { error=fs1_error(); goto done; }
     mounted=true;
     root=open(ri_root,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
@@ -348,35 +373,48 @@ static int ri_run(int argc, char **argv, const char *mode, ri_observer observe) 
         (fs.f_flags&(ST_RDONLY|ST_NOSUID|ST_NODEV|ST_NOEXEC)) != (ST_RDONLY|ST_NOSUID|ST_NODEV|ST_NOEXEC) ||
         (error=ri_ro(&e,false))) { if (!error) error=EPROTO; goto done; }
     mount_proved=true; ri_print("RI1_MOUNT readonly=1 noload=1 nodev=1 noexec=1 nosuid=1\n");
+    RI_PROGRESS_END("mount");
     ri_stage=6;
+    RI_PROGRESS_BEGIN("markers");
     if ((error=ri_marker(root,e.partition,".s22-debian-start-v1",ri_install_identity,&started)) ||
         (error=ri_marker(root,e.partition,".s22-debian-complete-v1",ri_install_identity,&complete)) ||
         (error=ri_witness(root,e.partition,&witness))) goto done;
     ri_print("RI1_MARKERS start=%d complete=%d witness=%d\n",started,complete,witness);
+    RI_PROGRESS_END("markers");
     ri_stage=7;
+    RI_PROGRESS_BEGIN("inventory");
     struct s22plus_max77705_runtime_sha256 tree_hash; uint8_t tree_digest[32];
     s22plus_max77705_runtime_sha256_init(&tree_hash);
     if ((error=ri_inventory(root,e.partition,"",0,&counts,&tree_hash))) goto done;
     s22plus_max77705_runtime_sha256_final(&tree_hash,tree_digest); ri_digest(tree_digest,inventory);
     ri_print("RI1_TREE entries=%u files=%u dirs=%u links=%u other=%u bytes=%" PRIu64 " sha256=%s\n",
              counts.entries,counts.files,counts.directories,counts.links,counts.other,counts.bytes,inventory);
+    RI_PROGRESS_END("inventory");
     ri_stage=8;
+    RI_PROGRESS_BEGIN("comparison");
     if ((error=ri_compare_tree(root,e.partition,&comparison))) goto done;
     ri_print("RI1_COMPARE expected=%u matched=%u missing=%u metadata=%u content=%u boot_expected=%u boot_missing=%u boot_metadata=%u boot_content=%u hashed_bytes=%" PRIu64 " findings=%u\n",
              comparison.expected,comparison.matched,comparison.missing,comparison.metadata,comparison.content,
              comparison.boot_expected,comparison.boot_missing,comparison.boot_metadata,comparison.boot_content,ri_hashed_bytes,ri_reported);
+    RI_PROGRESS_END("comparison");
     if (observe && (error=observe(root,&e,&counts,&comparison,started,complete,witness))) goto done;
     ri_stage=9;
+    RI_PROGRESS_BEGIN("unmount");
     if (close(root)) { root=-1; error=fs1_error(); goto done; } root=-1;
     if (umount2(ri_root,0)) { error=fs1_error(); mounted=false; goto done; }
     mounted=false; unmounted=true; ri_print("RI1_UNMOUNT complete=1\n");
+    RI_PROGRESS_END("unmount");
 final:
     ri_stage=10;
+    RI_PROGRESS_BEGIN("final-binding");
     if ((error=ri_ro(&e,false)) || (error=fs1_not_mounted(e.partition)) ||
         (error=fs1_read_super(&e,false)) || memcmp(before,e.superblock,sizeof(before)) ||
         (error=fs1_gpt_exact(&e))) { if (!error) error=EPROTO; goto done; }
     ri_print("RI1_FINAL super_unchanged=1 gpt_unchanged=1 partition_ro=1\n");
+    RI_PROGRESS_END("final-binding");
 done:
+    RI_PROGRESS_ERROR(error);
+    RI_PROGRESS_BEGIN("cleanup");
     if (root >= 0 && close(root)) cleanup=fs1_error();
     /* One cleanup unmount is allowed only for a known owned mount. A failed
      * normal unmount is never tried again. No RO-clear ioctl exists. */
@@ -397,6 +435,7 @@ done:
     if (work_created && unlinkat(parent,"root-inspect-v1",AT_REMOVEDIR) && !cleanup) cleanup=fs1_error();
     if (devices >= 0 && close(devices) && !cleanup) cleanup=fs1_error();
     if (parent >= 0 && close(parent) && !cleanup) cleanup=fs1_error();
+    RI_PROGRESS_CLEANUP(cleanup);
     ri_print("RI1_RESULT complete=%u stage=%u errno=%d cleanup_errno=%d partition_ro=%u clean=%d mounted=%u unmounted=%u\n",
              !error&&!cleanup,ri_stage,error,cleanup,ro,clean,mount_proved,unmounted);
     return error || cleanup ? 1 : 0;

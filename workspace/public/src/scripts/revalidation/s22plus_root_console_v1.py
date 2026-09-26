@@ -325,6 +325,15 @@ class Session:
             if fd>=0:os.close(fd);setattr(self,name,-1)
 
 
+def _replay_state(session_class):
+    state=session_class.__new__(session_class)
+    state.requests={};state.request_bodies={};state.responses=set();state.accepted=set()
+    state.rejected=set();state.outputs={};state.terminals=set();state.pending=None
+    state.control_sequence=None;state.faulted=False;state.finished=False;state.ready=None
+    state.records=[];state._record=state.records.append
+    return state
+
+
 def replay(key: bytes, run_id: bytes, nonce: bytes, rx: bytes, tx: bytes, *, session_class=Session):
     """Re-derive lifecycle from complete authenticated root-console streams.
 
@@ -334,11 +343,7 @@ def replay(key: bytes, run_id: bytes, nonce: bytes, rx: bytes, tx: bytes, *, ses
     requests=Decoder(key,run_id,nonce);responses=Decoder(key,run_id,nonce)
     outgoing=requests.feed(tx);incoming=responses.feed(rx)
     if requests.pending or responses.pending:raise ProtocolError('partial retained root frame')
-    state=session_class.__new__(session_class)
-    state.requests={};state.request_bodies={};state.responses=set();state.accepted=set()
-    state.rejected=set();state.outputs={};state.terminals=set();state.pending=None
-    state.control_sequence=None;state.faulted=False;state.finished=False;state.ready=None
-    state.records=[];state._record=state.records.append
+    state=_replay_state(session_class)
     expected=3
     for kind,seq,body in outgoing:
         if seq!=expected or state.control_sequence is not None:
@@ -351,3 +356,40 @@ def replay(key: bytes, run_id: bytes, nonce: bytes, rx: bytes, tx: bytes, *, ses
     if any(seq not in state.responses and kind!=EXEC for seq,kind in state.requests.items()):
         raise ProtocolError('unanswered retained normal request')
     return state,incoming
+
+
+def replay_prefix(key,run_id,nonce,rx,tx,*,session_class=Session):
+    """Diagnostic only: authenticate complete frames until the first bad tail.
+
+    Never supplies the complete-session guarantees of replay(). The enclosing
+    owner must still verify OPEN/AUTH, fixed health and its unique EXEC intent.
+    """
+    if type(rx) is not bytes or type(tx) is not bytes or len(rx)>RAW_CAPTURE_MAXIMUM or len(tx)>65536:
+        raise ProtocolError('diagnostic stream bounds differ')
+    state=_replay_state(session_class);events=[];tails={};consumed={}
+    for label,raw in (('tx',tx),('rx',rx)):
+        offset=0;decoder=Decoder(key,run_id,nonce);expected=3
+        while offset<len(raw):
+            try:
+                if len(raw)-offset<16:raise ProtocolError('partial header')
+                magic,version,kind,size,seq,_=struct.unpack_from('<4sBBHII',raw,offset)
+                if magic!=b'S328' or version!=1 or not 32<=size<=MAX_PAYLOAD:
+                    raise ProtocolError('invalid header')
+                end=offset+16+size
+                if end>len(raw):raise ProtocolError('partial payload')
+                decoded=decoder.feed(raw[offset:end])
+                if len(decoded)!=1 or decoder.pending:raise ProtocolError('noncanonical frame boundary')
+                kind,seq,body=decoded[0]
+                if label=='tx':
+                    if seq!=expected or state.control_sequence is not None:raise ProtocolError('request order')
+                    state._validate_request(kind,body);expected+=1
+                    state.requests[seq]=kind;state.request_bodies[seq]=body
+                    if state._terminal_request(kind):state.control_sequence=seq
+                else:
+                    state._validate(kind,seq,body);events.append((kind,seq,body))
+                offset=end
+            except (ValueError,struct.error) as error:
+                tails[label]=dict(offset=offset,remaining=len(raw)-offset,error_type=type(error).__name__,reason=str(error)[:256])
+                break
+        consumed[label]=offset
+    return state,events,dict(valid_prefix_bytes=consumed,tails=tails,session_completion_proved=False)

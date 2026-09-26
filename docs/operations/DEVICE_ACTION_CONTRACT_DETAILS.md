@@ -106,6 +106,10 @@ permission to perform host-only work.
    permits its fixed automatic read-only preparation, partition RAM RO,
    unprivileged loader checks and sealed-result native observer only. It adds
    no filesystem data write, repair, installation or Debian PID 1 handoff.
+   The separately reviewed [streamed preparation V1](S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)
+   permits one fixed protected checker/loader command after native health,
+   with partition RAM RO and bounded stage evidence. Partial evidence grants
+   no completion, recovery or replay. No filesystem write or handoff is added.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -745,6 +749,33 @@ No filesystem write, repair, extraction, flag clear, GPT change, installed init,
 service/network startup or Debian PID 1 handoff is authorized. Earlier claims
 remain consumed. Source review, actual qualification and returned finite grant
 are separate; the named fixed Android preparation D0 changes no mode or image.
+
+## S22+ streamed protected preparation
+
+The separately reviewed [staged preflight V1](S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)
+is adopted only as V3's `staged-preflight`: one returned attended grant, one
+operation and at most 1800 original BOOTTIME seconds. Healthy original A,
+one fresh N, authenticated native health, one intended fixed EXEC, DETACH,
+same-boot CONTROL, one original-A transfer and Android32 final health form
+the complete graph. There is no admission, E, reentry, reconnect or extra probe.
+
+The root inspector's exact entry-41/GPT/RO/clean-root guards and owned cleanup
+remain. The fixed pinned `e2fsck -fn` executes before mounting; no ambient
+checker configuration or external journal is admitted. After full root
+closure, only two fixed unprivileged loader checks may use private readonly
+exec mounts. Checker/loader children have zero capabilities, no_new_privs,
+closed extra fds, fixed resource/output limits and the inherited outer ACM
+command group. No filesystem write, repair, module reload, mdev scan,
+installed-init execution, service/network startup or PID 1 handoff is added.
+
+Each stage's raw stdout is durably captured through the existing authenticated
+transport. H0 prefix rederivation may identify only received stage markers;
+it cannot turn a missing EXIT/DETACH/close or unresolved cleanup/group into
+completion, native health, recovery or a retry. Existing V3 physical original-A
+recovery and health-only continuation retain their no-replay rules. Separate
+independent review and image qualification are required before the exact
+target may activate a finite grant. Fixed preparation D0 is the unchanged
+Android root-health/shell-v2/GPT/statfs profile, with no control or transfer.
 
 ## S22+ G2 fixed GPT reservation and stock initialization
 

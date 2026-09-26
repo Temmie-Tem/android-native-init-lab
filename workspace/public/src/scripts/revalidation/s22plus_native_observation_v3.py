@@ -13,6 +13,7 @@ import s22plus_native_ext4_profile_v1 as fs
 import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
+import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
 from s22plus_native_wire_v3 import Codec
@@ -41,9 +42,9 @@ class StorageIO(IO):
 
 
 def io_class(profile, image=None):
-    if profile in (inspection.SELECTION, probe.SELECTION, preflight.SELECTION):
+    if profile in (inspection.SELECTION, probe.SELECTION, preflight.SELECTION, staged.SELECTION):
         require(image is not None, 'root inspection has no bound image')
-        item = next(item for item in (inspection,probe,preflight) if item.SELECTION==profile)
+        item = next(item for item in (inspection,probe,preflight,staged) if item.SELECTION==profile)
         class RootInspectionIO(IO):
             EXTRA_PROFILE = item.Profile(image)
             SOURCE_PROFILE = dict(schema=item.SCHEMA, selection=profile)
@@ -149,7 +150,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
             profile='health',before_extra=None):
     require(ending in ('detach','download') and type(hud) is bool,'native observation selection differs')
     selected_io=io_class(profile,image)
-    if profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
+    if profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
         require(callable(before_extra),'GPT mutation has no durable owner callback')
     require(profile=='health' or ending=='detach' and hud is False,
         'storage census may not change mode or collect HUD')
@@ -162,7 +163,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
     io=None; acquisition=None; proof=None; error=None; before=None; departure_deadline=None
     try:
         with host.open_native(bound.run_id_hex,before_open=guard) as (fd,acquisition):
-            seconds=selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION) else 60
+            seconds=selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) else 60
             observation_deadline_ns=clock()+seconds*1_000_000_000-100_000_000
             publish(directory/'open.json',dict(image=image,ending=ending,hud=hud,
                 acquisition=acquisition,boottime_ns=clock(),deadline_ns=observation_deadline_ns,**extra_fields))

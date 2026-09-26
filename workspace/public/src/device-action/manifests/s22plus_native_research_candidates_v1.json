@@ -90,6 +90,13 @@
       "run_id": "314f9d184ebb4636a9dc9e391f9a2dc3",
       "version": "v0.4.0-rc.7",
       "image_sha256": "92e365a20dfc3b000080a8245c5ff23558b00e9967e07544bd133db7149d0caf"
+    },
+    {
+      "namespace": "p408",
+      "profile": "thermal-v3-reconnect-ufs-drain-staged-preflight-v1",
+      "run_id": "32e57b0372fc443599a964ddf56178af",
+      "version": "v0.4.0-rc.8",
+      "image_sha256": "08fc4ab0b48aad80110181412833cd85e3065cf6b5a4bfca315719baf7e93fb0"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

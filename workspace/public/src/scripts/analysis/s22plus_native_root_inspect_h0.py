@@ -70,7 +70,10 @@ def binding(folder, helper):
         max_hashed_bytes=512 * 1024 * 1024, kernel_partition_ro=True, persistent_writes=False)
 
 
-def source_files(*, userspace=False):
+def source_files(*, userspace=False, staged=False):
+    if staged:
+        import s22plus_native_staged_preflight_profile_v1 as selected
+        return (*source_files(userspace=True),Path(selected.__file__),NATIVE/'s22plus_native_staged_preflight_v1.c')
     if not userspace: return SOURCE_FILES
     import s22plus_native_userspace_probe_profile_v1 as probe
     return (*SOURCE_FILES, Path(probe.__file__), NATIVE / 's22plus_native_userspace_probe_v1.c')
@@ -83,10 +86,11 @@ def userspace_header():
         'static const char up_expected[]=' + json.dumps(probe.EXPECTED_STDOUT.decode('ascii')) + ';\n').encode()
 
 
-def build(output, run_id, *, virt=False, userspace=False):
+def build(output, run_id, *, virt=False, userspace=False, staged=False):
+    require(not (userspace and staged),'select one helper workload')
     output = private_path(ROOT, output, exists=False)
     require(not output.exists(), 'fresh root inspector build output required')
-    sources = [pin(path, maximum=4 * 1024 * 1024) for path in source_files(userspace=userspace)]
+    sources = [pin(path, maximum=4 * 1024 * 1024) for path in source_files(userspace=userspace,staged=staged)]
     if virt:
         sources.append(pin(ROOT / 'workspace/public/src/debian/s22plus_v1/device/virt-binding.inc.c'))
     table, count, boot_count = table_bytes()
@@ -94,7 +98,10 @@ def build(output, run_id, *, virt=False, userspace=False):
     (output / 's22plus_native_ext4_seal_v1.h').write_bytes(fs_build.seal(profile.filesystem.BINDING, run_id, initialize=False))
     (output / 's22plus_native_root_inspect_seal_v1.h').write_bytes(header(table, count, boot_count))
     (output / 'table.bin').write_bytes(table)
-    if userspace: (output / 's22plus_native_userspace_probe_seal_v1.h').write_bytes(userspace_header())
+    if userspace or staged: (output / 's22plus_native_userspace_probe_seal_v1.h').write_bytes(userspace_header())
+    if staged:
+        import s22plus_native_staged_preflight_profile_v1 as selected
+        (output/'s22plus_native_staged_preflight_seal_v1.h').write_bytes(selected.header())
     flags = ['-std=c11', '-static', '-Os', '-fno-ident', '-ffunction-sections', '-fdata-sections',
         '-Wl,--gc-sections', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function', '-Wno-unused-const-variable',
         '-I', output, '-I', NATIVE]
@@ -103,6 +110,7 @@ def build(output, run_id, *, virt=False, userspace=False):
     require(compiler is not None, 'ARM64 compiler absent')
     compiler_pin = fs_build.compiler_identity(compiler)
     source = NATIVE / ('s22plus_native_userspace_probe_v1.c' if userspace else 's22plus_native_root_inspect_v1.c')
+    if staged:source=NATIVE/'s22plus_native_staged_preflight_v1.c'
     for side in ('a', 'b'):
         fs_build.run([compiler, *flags, source, '-o', output / ('helper-' + side)],
             cwd=ROOT, stdout=output / ('compile-' + side + '.log'), timeout=60)
@@ -116,15 +124,23 @@ def build(output, run_id, *, virt=False, userspace=False):
         import s22plus_native_userspace_probe_profile_v1 as probe
         probe.prior_inputs()
         value.update(schema=probe.SCHEMA+'-helper-h0', userspace_probe=probe.execution_binding())
+    if staged:value.update(schema=selected.SCHEMA+'-helper-h0',staged_preflight=selected.execution_binding())
     require(fs_build.compiler_identity(compiler) == compiler_pin, 'inspector compiler changed')
     for receipt in sources: verify(receipt, maximum=4 * 1024 * 1024)
     return publish(output / 'result.json', value)
 
 
-def audit(folder, run_id, *, userspace=False):
+def audit(folder, run_id, *, userspace=False, staged=False):
     value = read(folder / 'result.json')
     schema = profile.SCHEMA
-    if userspace:
+    if staged:
+        import s22plus_native_staged_preflight_profile_v1 as selected
+        schema=selected.SCHEMA
+        require(value['staged_preflight']==selected.execution_binding() and
+            (folder/'s22plus_native_staged_preflight_seal_v1.h').read_bytes()==selected.header() and
+            (folder/'s22plus_native_userspace_probe_seal_v1.h').read_bytes()==userspace_header(),
+            'staged helper grammar or retained inputs differ')
+    elif userspace:
         import s22plus_native_userspace_probe_profile_v1 as probe
         schema = probe.SCHEMA
         require(value['userspace_probe'] == probe.execution_binding() and
@@ -134,7 +150,7 @@ def audit(folder, run_id, *, userspace=False):
     require(value['schema'] == schema + '-helper-h0' and value['virt'] is False and
         value['run_id_hex'] == run_id and value['artifact'] == profile.ARTIFACT and value['terminal'] == profile.TERMINAL and
         value['filesystem_binding'] == profile.filesystem.BINDING and value['ab_identical'] is True and
-        value['source_inputs'] == [pin(path, maximum=4 * 1024 * 1024) for path in source_files(userspace=userspace)],
+        value['source_inputs'] == [pin(path, maximum=4 * 1024 * 1024) for path in source_files(userspace=userspace,staged=staged)],
         'inspector source or consumed comparison identity differs')
     table, count, boot_count = table_bytes()
     require(verify(value['table']).read_bytes() == table and value['table_count'] == count and value['boot_count'] == boot_count and

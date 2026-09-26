@@ -149,6 +149,10 @@ static void up_output(const char *name, const struct up_stream *stream) {
 }
 
 static int up_execute(int root, struct fs1_endpoint *endpoint) {
+#ifdef UP_REPEAT_FIXED
+    up_attempted=up_reaped=up_adopted=up_settled=up_proved=up_setup_stage=up_setup_errno=0;
+    up_status=up_error=0;
+#endif
     int error=0, pipes[3][2]={{-1,-1},{-1,-1},{-1,-1}};
     struct up_stream streams[3]={{.fd=-1,.maximum=UP_OUTPUT_MAX},{.fd=-1,.maximum=UP_OUTPUT_MAX},
         {.fd=-1,.maximum=2*sizeof(struct up_packet)}};
@@ -165,7 +169,13 @@ static int up_execute(int root, struct fs1_endpoint *endpoint) {
     up_attempted=1;
     pid=fork();
     if (pid<0) { error=fs1_error(); goto done; }
-    if (!pid) up_child(root,endpoint,pipes,parent,group);
+    if (!pid) {
+#ifdef UP_FIXED_CHILD
+        UP_FIXED_CHILD(root,endpoint,pipes,parent,group);
+#else
+        up_child(root,endpoint,pipes,parent,group);
+#endif
+    }
     for (unsigned i=0;i<3;++i) { (void)close(pipes[i][1]); pipes[i][1]=-1; }
     while (!error) {
         for (unsigned i=0;i<3 && !error;++i) error=up_drain(&streams[i]);
@@ -194,10 +204,16 @@ static int up_execute(int root, struct fs1_endpoint *endpoint) {
         memcpy(&first,streams[2].bytes,sizeof(first));
         memcpy(&last,streams[2].bytes+streams[2].used-sizeof(last),sizeof(last));
         up_setup_stage=last.stage; up_setup_errno=last.error;
+        bool output_matches;
+#ifdef UP_FIXED_OUTPUT
+        output_matches=UP_FIXED_OUTPUT(streams);
+#else
+        output_matches=streams[0].used==sizeof(up_expected)-1 &&
+            !memcmp(streams[0].bytes,up_expected,sizeof(up_expected)-1) && !streams[1].used;
+#endif
         if (!error && first.stage==UP_READY && !first.error && streams[2].used==sizeof(first) &&
             up_reaped && !up_adopted && up_settled && WIFEXITED(up_status) && WEXITSTATUS(up_status)==0 &&
-            streams[0].used==sizeof(up_expected)-1 && !memcmp(streams[0].bytes,up_expected,sizeof(up_expected)-1) &&
-            !streams[1].used) up_proved=1;
+            output_matches) up_proved=1;
     } else if (!error) error=EPROTO; /* no READY/failure record: exec state is unknown */
 done:
     /* On uncertainty the helper exits nonzero in the ORIGINAL command group.
@@ -232,8 +248,10 @@ static int up_observe(int root, struct fs1_endpoint *endpoint, const struct ri_c
     up_error=error; return error;
 }
 
+#ifndef S22_USERSPACE_PROBE_LIBRARY
 int main(int argc, char **argv) {
     int result=ri_run(argc,argv,"probe",up_observe);
     ri_print("UP1_RESULT complete=%u attempted=%u proved=%u error=%d\n",!result,up_attempted,up_proved&&!result,up_error);
     return result;
 }
+#endif

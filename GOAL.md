@@ -21,7 +21,32 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P407 NO_PROOF and healthy Android closure
+## Current P408 streamed preparation H0
+
+P408 `v0.4.0-rc.8` now has byte-identical boot-only A/B artifacts for a
+native-first diagnostic: bring up the existing UFS/ACM runtime, authenticate,
+then run one fixed protected checker/root/loader command. Seventeen streamed
+stages cover preparation through cleanup. Complete authenticated prefixes may
+locate an observed boundary after a failed capture, but cannot prove completed
+cleanup, health or recovery. The candidate executes no installed init and
+performs no writable-root lifetime or PID 1 handoff.
+
+Final ARM64 VM cases cover complete preparation, dirty root, checksum damage
+and metadata mismatch with unchanged writable backing disks. Nine child
+faults exercise settlement and honest negative results; 109 focused tests pass.
+The [H0 preparation report](docs/reports/S22PLUS_NATIVE_STAGED_PREFLIGHT_P408_H0_2026-09-26.md)
+records exact artifact qualification, independent review and source evidence.
+This work performs no connected D0 preparation or device action and opens no
+grant. The separate capability requires fresh machine binding and one returned
+attended grant before its single N/command/original-A operation.
+
+Current physical state is still the last proved healthy original Android
+closure below; no fresh health or native_data claim is inferred from H0.
+The next physical milestone is the fixed protected preparation. Full
+switch_root/replacement-PID-1 observation remains a subsequent bounded unit.
+All consumed candidates remain consumed; A90 and S20+ stay isolated.
+
+## Prior P407 NO_PROOF and healthy Android closure
 
 P407 `v0.4.0-rc.7` consumed one attended operation on 2026-09-26 KST. Its fresh
 N transferred once after exact rooted Android health. The 300-second native
@@ -58,9 +83,9 @@ P406/P407 kernel bytes differ only in declared identity/config spans. Actual
 ELF/ABI, DEFEX PID 1, module-order/parser and watchdog checks yielded no
 deterministic explanation. P407's own cleanup/observer entry remains unlocated.
 
-Next is bounded H0 design for a stage result before the presently silent
-cold-entry/module/cleanup boundaries, followed by a separate replacement-PID-1
-observation. Preserve P407; no replay or new device effect is authorized.
+P408 above prepares streamed measurement after established native access;
+a failure before that access remains unlocated by its stage records. Preserve
+P407; its consumed grant authorizes no replay or new device effect.
 P406's root evidence predates P407: P407 did not prove current native_data
 contents, root checks, partition RO, loader execution or cleanup. Switch_root,
 Debian host PID 1 and NCM/SSH remain unproved. A90/S20+ stay isolated.

@@ -18,6 +18,7 @@ class Builder(previous.Builder):
     source = source
     extra_member_modes = {'s22-root-inspect': 0o500, 's22-root-inspect.table': 0o400}
     userspace = False
+    staged = False
     helper_member = 's22-root-inspect'
 
     def __init__(self, declaration):
@@ -33,10 +34,10 @@ class Builder(previous.Builder):
 
     def build_native_init(self, out, resident):
         super().build_native_init(out, resident)
-        producer.build(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex, userspace=self.userspace)
+        producer.build(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex, userspace=self.userspace,staged=self.staged)
 
     def inspection_value(self, out):
-        return producer.audit(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex, userspace=self.userspace)
+        return producer.audit(out / 'root-inspector', self.declaration.IDENTITY.run_id_hex, userspace=self.userspace,staged=self.staged)
 
     def runtime_value(self, out, resident, thermal):
         return dict(super().runtime_value(out, resident, thermal),
