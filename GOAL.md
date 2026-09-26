@@ -21,7 +21,35 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P408 streamed preparation H0
+## Current P408 proved preparation and healthy Android closure
+
+P408 `v0.4.0-rc.8` completed one attended operation on 2026-09-27 KST.
+After native UFS/ACM startup and authentication, all 17 protected preparation
+stages passed: the pinned read-only checker, exact root closure, both loader
+checks, parent protection, unmount, final storage guards and cleanup.
+All 8,969 archive entries matched; ext4 was clean with RECOVER clear and no
+orphan head. Scientific result:
+`PASS_STAGED_PREFLIGHT_OBSERVED / PROVED_PROTECTED_PREPARATION`.
+
+Native CONTROL and original-A transfer completed normally. The first final
+Android-health attempt failed on ADB `device not found`; health-only recovery
+then proved a distinct rooted boot, exact original partition hashes, full GPT
+and Android32 capacity. There was exactly one N and one A transfer. Terminal:
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, without any repeated transfer.
+
+Final health completed at 115.902 seconds; raw rederivation and grant closure
+at 322.189 seconds. All 617 raw captures and 232 saved pre-effect source files
+were verified. The one-operation/1800-second grant and candidate are consumed,
+the task is explicitly closed and the F1 owner is absent. See the
+[first-run result and canonical timeline](docs/reports/S22PLUS_NATIVE_STAGED_PREFLIGHT_P408_FIRST_RUN_2026-09-27.md).
+
+This proves the fixed preparation workload after established native access.
+It does not establish P407's past failure location or Debian host PID 1.
+The next bounded milestone is direct switch_root/PID-1 handoff observation,
+with mount/device ownership and the post-handoff return path. No successor
+effect is authorized by the closed P408 grant. A90 and S20+ stay isolated.
+
+## Prior P408 streamed preparation H0
 
 P408 `v0.4.0-rc.8` now has byte-identical boot-only A/B artifacts for a
 native-first diagnostic: bring up the existing UFS/ACM runtime, authenticate,
@@ -38,16 +66,15 @@ The [H0 preparation report](docs/reports/S22PLUS_NATIVE_STAGED_PREFLIGHT_P408_H0
 records exact artifact qualification, independent review and source evidence.
 The subsequent fixed foreground D0 preparation rederived healthy rooted
 original Android, matching partition digests, complete GPT and Android32
-capacity. The concrete task is READY for one operation/1800 seconds, with SHA-256
+capacity. The concrete task was READY for one operation/1800 seconds, with SHA-256
 `f5e0ff27a99665241e129d4b6e6fe940ad998a827d5bf9a560f409582f6f6369`.
-No grant is open and no mode change or image transfer occurred. The separate
-capability still requires the returned attended start for its single
-N/command/original-A operation.
+That preparation opened no grant and performed no mode change or image
+transfer. Its later returned attended start and consumed single
+N/command/original-A operation are recorded above.
 
-The fresh preparation observes healthy original Android; it makes no new
-native_data content claim. Runtime target and health checks still apply.
-The next physical milestone is the fixed protected preparation. Full
-switch_root/replacement-PID-1 observation remains a subsequent bounded unit.
+The preparation observed healthy original Android and made no native_data
+content claim; the separate live operation above now supplies that proof.
+Full switch_root/replacement-PID-1 observation remains a subsequent bounded unit.
 All consumed candidates remain consumed; A90 and S20+ stay isolated.
 
 ## Prior P407 NO_PROOF and healthy Android closure

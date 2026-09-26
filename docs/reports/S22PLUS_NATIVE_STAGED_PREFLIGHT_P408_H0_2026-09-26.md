@@ -1,5 +1,9 @@
 # S22+ P408 streamed preparation — H0, 2026-09-26
 
+Historical preparation record. P408 subsequently completed all 17 stages and
+closed healthy on original Android; its candidate and finite grant are now
+consumed. See the [first-run result and timeline](S22PLUS_NATIVE_STAGED_PREFLIGHT_P408_FIRST_RUN_2026-09-27.md).
+
 ## Selected unit
 
 P408 `v0.4.0-rc.8` brings up the existing P406-style native UFS/ACM runtime
