@@ -123,4 +123,23 @@ repository privacy checks pass.
 The source-bound capability review binds exact saved working-tree bytes;
 unrelated pre-existing edits remain outside this selected commit. Qualification
 is complete for H0. No connected preparation, fresh health claim, task grant,
-experimental transfer or device preparation result is implied.
+experimental transfer or device preparation result is implied by H0 alone.
+
+## Subsequent fixed D0 preparation
+
+On 2026-09-26, the foreground task used the reviewed preparation helper once.
+Fresh before/after Android health brackets proved the selected rooted FYG8
+target, original boot/supporting-partition digests and same-boot continuity.
+Shell-v2, the fixed full GPT metadata read and Android32 statfs also passed;
+reported filesystem capacity was 34,357,624,832 bytes. The raw captures were
+rederived independently after publication and matched the prepared record.
+
+`prepared-1/ready.json` has SHA-256
+`4eb134bb2d5a8d394644eadf24f75daff5e714e80e047ef396b8032f0b5c768d`.
+The concrete task SHA-256 is
+`f5e0ff27a99665241e129d4b6e6fe940ad998a827d5bf9a560f409582f6f6369`:
+only `staged-preflight`, one attended operation and 1800 original seconds.
+The current source-bound review, actual candidate, retained original-A recovery
+and host setup validated. The candidate remains unconsumed, no grant is open,
+and no mode change, image transfer or native filesystem probe was performed.
+The returned finite attended start remains the next prerequisite.

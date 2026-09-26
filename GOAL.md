@@ -36,12 +36,16 @@ and metadata mismatch with unchanged writable backing disks. Nine child
 faults exercise settlement and honest negative results; 109 focused tests pass.
 The [H0 preparation report](docs/reports/S22PLUS_NATIVE_STAGED_PREFLIGHT_P408_H0_2026-09-26.md)
 records exact artifact qualification, independent review and source evidence.
-This work performs no connected D0 preparation or device action and opens no
-grant. The separate capability requires fresh machine binding and one returned
-attended grant before its single N/command/original-A operation.
+The subsequent fixed foreground D0 preparation rederived healthy rooted
+original Android, matching partition digests, complete GPT and Android32
+capacity. The concrete task is READY for one operation/1800 seconds, with SHA-256
+`f5e0ff27a99665241e129d4b6e6fe940ad998a827d5bf9a560f409582f6f6369`.
+No grant is open and no mode change or image transfer occurred. The separate
+capability still requires the returned attended start for its single
+N/command/original-A operation.
 
-Current physical state is still the last proved healthy original Android
-closure below; no fresh health or native_data claim is inferred from H0.
+The fresh preparation observes healthy original Android; it makes no new
+native_data content claim. Runtime target and health checks still apply.
 The next physical milestone is the fixed protected preparation. Full
 switch_root/replacement-PID-1 observation remains a subsequent bounded unit.
 All consumed candidates remain consumed; A90 and S20+ stay isolated.
