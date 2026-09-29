@@ -33,6 +33,7 @@ import s22plus_native_root_inspect_source_v1 as root_inspect_source
 import s22plus_native_userspace_probe_source_v1 as userspace_source
 import s22plus_native_preflight_source_v1 as preflight_source
 import s22plus_native_staged_preflight_source_v1 as staged_source
+import s22plus_switch_root_source_v1 as switch_source
 
 ROOT = common.ROOT
 POLICY = 'native-baseline-v2'
@@ -74,6 +75,7 @@ def declaration(namespace, run_id, version, image_sha256, *, runtime_source=sour
         USERSPACE_PROBE_PROFILE=getattr(runtime_source,'USERSPACE_PROBE_PROFILE',None),
         PREFLIGHT_PROFILE=getattr(runtime_source,'PREFLIGHT_PROFILE',None),
         STAGED_PREFLIGHT_PROFILE=getattr(runtime_source,'STAGED_PREFLIGHT_PROFILE',None),
+        SWITCH_ROOT_PROFILE=getattr(runtime_source,'SWITCH_ROOT_PROFILE',None),
         runtime=runtime,observer=observer,artifact=artifact,adapter=adapter,
         return_host=owner.ReturnHost(selected,CONTROL),console_owner=owner.EmptyPlan(selected))
 
@@ -103,6 +105,8 @@ DECLARATIONS = {
 RESEARCH_DATA = Path('workspace/public/src/device-action/manifests/s22plus_native_research_candidates_v1.json')
 RESEARCH_DATA_SCHEMA = 's22plus-native-research-candidate-data-v1'
 RESEARCH_PROFILES = {
+    switch_source.SWITCH_ROOT_PROFILE: (switch_source, thermal_observer_v3.Observer,
+        ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     staged_source.STAGED_PREFLIGHT_PROFILE: (staged_source, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     preflight_source.PREFLIGHT_PROFILE: (preflight_source, thermal_observer_v3.Observer,
@@ -162,6 +166,15 @@ def research_data(root=ROOT):
 
 
 def research_profile(declared):
+    if getattr(declared,'SWITCH_ROOT_PROFILE',None) is not None:
+        require_profile=declared.SWITCH_ROOT_PROFILE==switch_source.SWITCH_ROOT_PROFILE
+        original=declared.SWITCH_ROOT_PROFILE
+        # Validate the inherited preparation components through the same closed
+        # composition rules, then select the separate parent terminal role.
+        from copy import copy
+        inherited=copy(declared);inherited.SWITCH_ROOT_PROFILE=None
+        if require_profile and research_profile(inherited)==root_inspect_source.ROOT_INSPECT_PROFILE:return original
+        raise ValueError('unreviewed PID1 transition composition')
     if getattr(declared,'STAGED_PREFLIGHT_PROFILE',None) is not None:
         if (declared.STAGED_PREFLIGHT_PROFILE==staged_source.STAGED_PREFLIGHT_PROFILE and
                 declared.PREFLIGHT_PROFILE is None and declared.USERSPACE_PROBE_PROFILE is None and
@@ -255,7 +268,9 @@ def static(prefix):
     from s22plus_native_baseline_v2_build import Builder, EXTRA_SOURCES
     from s22plus_native_candidate_static_v1 import CandidateStatic
     declared = DECLARATIONS[prefix]
-    if declared.STAGED_PREFLIGHT_PROFILE == staged_source.STAGED_PREFLIGHT_PROFILE:
+    if declared.SWITCH_ROOT_PROFILE == switch_source.SWITCH_ROOT_PROFILE:
+        from s22plus_switch_root_build_v1 import Builder, EXTRA_SOURCES
+    elif declared.STAGED_PREFLIGHT_PROFILE == staged_source.STAGED_PREFLIGHT_PROFILE:
         from s22plus_native_staged_preflight_build_v1 import Builder, EXTRA_SOURCES
     elif declared.PREFLIGHT_PROFILE == preflight_source.PREFLIGHT_PROFILE:
         from s22plus_native_preflight_build_v1 import Builder, EXTRA_SOURCES

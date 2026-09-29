@@ -14,6 +14,8 @@ import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
+import s22plus_switch_root_profile_v1 as switch
+import s22plus_switch_root_protocol_v1 as switch_wire
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
 from s22plus_native_wire_v3 import Codec
@@ -42,6 +44,10 @@ class StorageIO(IO):
 
 
 def io_class(profile, image=None):
+    if profile==switch.SELECTION:
+        require(image is not None,'switch-root observation has no bound image')
+        switch.image_binding(image)
+        return IO
     if profile in (inspection.SELECTION, probe.SELECTION, preflight.SELECTION, staged.SELECTION):
         require(image is not None, 'root inspection has no bound image')
         item = next(item for item in (inspection,probe,preflight,staged) if item.SELECTION==profile)
@@ -103,7 +109,8 @@ def check_freshness(io, *, previous=None, first_boot=False, seen_nonces=(), seen
 
 def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
              seen_nonces=(), seen_boots=(), require_close=True, profile='health'):
-    require(profile=='health' or ending=='detach' and hud is False,
+    require(profile=='health' or profile==switch.SELECTION and ending=='download' and hud is False
+        or ending=='detach' and hud is False,
         'storage census replay may not change mode or collect HUD')
     directory=Path(directory)
     close=read(directory/'close.json')
@@ -131,7 +138,10 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
     rx=raw.read_stdout(handle,maximum=console.RAW_CAPTURE_MAXIMUM)
     tx=raw.read_stderr(handle,maximum=65536)
     bound=identity(image); key=key_bytes(image); codec=Codec(bound.namespace)
-    proof,rend,tend=protocol.replay_one(codec,bound,key,rx,tx,io_class=selected_io)
+    if profile==switch.SELECTION:
+        proof,rend,tend=switch_wire.replay_one(codec,bound,key,rx,tx,io_class=selected_io,
+            witness_sha256=image['switch_root']['witness']['sha256'])
+    else:proof,rend,tend=protocol.replay_one(codec,bound,key,rx,tx,io_class=selected_io)
     require((rend,tend)==(len(rx),len(tx)) and proof['native_health_proved'] is True
         and proof['ending']==ending and (not proof['hud_requested'] or hud),
         'native fixed profile or complete raw boundary differs')
@@ -145,14 +155,28 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
     return dict(proof=proof,attempt=pin(attempt_path))
 
 
+def switch_prefix(directory,image):
+    """H0-only projection; it never opens a descriptor or sends a continuation."""
+    directory=Path(directory);opened=read(directory/'open.json')
+    require(opened['image']==image and opened['profile']==switch.SELECTION and opened['ending']=='download',
+        'partial switch capture context differs')
+    handle=raw.load_handle(directory/'session.capture.json')
+    require(not handle.output_exceeded,'partial switch capture overflowed')
+    rx=raw.read_stdout(handle,maximum=switch_wire.MAXIMUM+65536);tx=raw.read_stderr(handle,maximum=65536)
+    bound=identity(image);key=key_bytes(image)
+    return switch_wire.replay_prefix(Codec(bound.namespace),bound,key,rx,tx,io_class=IO,
+        witness_sha256=image['switch_root']['witness']['sha256'])
+
+
 def observe(directory, image, host, *, ending, hud, guard, before_terminal,
             previous=None, first_boot=False, seen_nonces=(), seen_boots=(), before_auth=None,
             profile='health',before_extra=None):
     require(ending in ('detach','download') and type(hud) is bool,'native observation selection differs')
     selected_io=io_class(profile,image)
-    if profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
+    if profile==switch.SELECTION or profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
         require(callable(before_extra),'GPT mutation has no durable owner callback')
-    require(profile=='health' or ending=='detach' and hud is False,
+    require(profile=='health' or profile==switch.SELECTION and ending=='download' and hud is False
+        or ending=='detach' and hud is False,
         'storage census may not change mode or collect HUD')
     extra_fields={} if profile=='health' else dict(profile=profile)
     directory=Path(directory); directory.mkdir(mode=0o700)
@@ -163,7 +187,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
     io=None; acquisition=None; proof=None; error=None; before=None; departure_deadline=None
     try:
         with host.open_native(bound.run_id_hex,before_open=guard) as (fd,acquisition):
-            seconds=selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) else 60
+            seconds=switch.Profile.OBSERVATION_SECONDS if profile==switch.SELECTION else selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) else 60
             observation_deadline_ns=clock()+seconds*1_000_000_000-100_000_000
             publish(directory/'open.json',dict(image=image,ending=ending,hud=hud,
                 acquisition=acquisition,boottime_ns=clock(),deadline_ns=observation_deadline_ns,**extra_fields))
@@ -183,17 +207,25 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
                     before=target_io.usb_snapshot('usb:'+host.config['topology'],directory)
                     publish(directory/'departure-before.json',before)
                     departure_deadline=clock()+30_000_000_000
-                    before_terminal(dict(request=request,departure=pin(directory/'departure-before.json'),
-                        departure_deadline_ns=departure_deadline))
+                    detail=dict(request=request,departure=pin(directory/'departure-before.json'),
+                        departure_deadline_ns=departure_deadline)
+                    if profile==switch.SELECTION:
+                        publish(directory/'witness-return-intent.json',dict(detail,transition=pin(directory/'transition-intent.json')))
+                    before_terminal(detail)
                 else:
                     before_terminal()
             def extra(request):
                 guard()
                 check_freshness(io,previous=previous,first_boot=first_boot,
                     seen_nonces=seen_nonces,seen_boots=seen_boots)
+                if profile==switch.SELECTION:publish(directory/'transition-intent.json',request)
                 if before_extra is not None: before_extra(request)
-            proof=protocol.qualify_one(io,ending=ending,evidence=directory/'console',
-                before_terminal=terminal,hud=hud,before_extra=extra)
+            if profile==switch.SELECTION:
+                proof=switch_wire.qualify_one(io,evidence=directory/'console',before_terminal=terminal,
+                    before_extra=extra,witness_sha256=image['switch_root']['witness']['sha256'])
+            else:
+                proof=protocol.qualify_one(io,ending=ending,evidence=directory/'console',
+                    before_terminal=terminal,hud=hud,before_extra=extra)
     except BaseException as caught:
         error=caught
     finally:

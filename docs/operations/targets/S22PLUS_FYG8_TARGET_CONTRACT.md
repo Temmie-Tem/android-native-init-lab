@@ -383,6 +383,33 @@ Android preparation root-health/shell-v2/GPT/statfs reads and preserved-evidence
 reobservation after a pure read failure. An experimental transfer still requires
 the returned finite attended start. All prior consumed actions remain consumed.
 
+### Readonly root-transition witness V1
+
+The common-incorporated [root-transition witness V1](../S22PLUS_SWITCH_ROOT_WITNESS_V1.md)
+is adopted only as V3's `switch-root`. One returned attended grant permits
+one Android-origin fresh N, one fixed actual-PID1 terminal transition and
+one original-A closure within at most 1800 seconds. First-boot authenticated
+native health precedes the unique compound intent. The native worker slots
+settle before exact protected checker/root admission; partition RO remains
+set through readonly switch_root and a separately executed RAM witness.
+Installed init, writable root, services, NCM, installation and repair are
+excluded. There is no N admission, E, prior tail, reentry, reconnect or HUD.
+
+The witness proves actual PID1/root/executable/mounts/FDs and absence of native
+userspace. Its sole same-transport authenticated return is durably joined to
+the original intent. Acceptance, Download arrival, exact A transfer and final
+Android32 health remain separate. A reached witness may survive a later
+capture/return failure as authenticated evidence; it grants no retry. Late
+BusyBox/kernel failures retain unknown activity and existing attended physical
+original-A recovery, never a claim of automatic recovery or old-init reentry.
+
+Current independent source review, A/B artifact qualification and fixed
+Android preparation root-health/shell-v2/GPT/statfs reads do not open a grant.
+The foreground task adopts only those named preparation reads and preserved
+read-only reobservation after a pure read failure. No experimental transfer
+occurs until its concrete finite attended start is returned. All previously
+consumed grants and actions retain their original meaning.
+
 ### Fixed installed-Debian userspace probe V1
 
 The common-incorporated [userspace probe V1](../S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)

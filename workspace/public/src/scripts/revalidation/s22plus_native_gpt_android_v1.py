@@ -107,7 +107,7 @@ def storage_stat(text,basis,sealed):
 
 
 def projection(folder,adapter,request):
-    if request.get('operation') in ('root-inspect', 'userspace-probe', 'preflight', 'staged-preflight'):
+    if request.get('operation') in ('root-inspect', 'userspace-probe', 'preflight', 'staged-preflight', 'switch-root'):
         from s22plus_native_root_inspect_session_v1 import android_basis
     elif request['N'].get('profile') in fs.PROFILES:
         from s22plus_native_ext4_session_v1 import android_basis

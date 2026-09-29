@@ -92,6 +92,21 @@ ordinary cleanup precede a completed result. A synchronous completed negative
 may return normally; uncertainty retains the unchanged one-shot A recovery.
 Its separate source-bound review does not repin or renew consumed capabilities.
 
+The separately adopted [readonly root-transition witness](S22PLUS_SWITCH_ROOT_WITNESS_V1.md)
+adds only `switch-root`: one Android-origin N, authenticated first-boot health,
+one fixed actual-PID1 terminal transition, separate static post-exec witness,
+one fixed Download request and one original-A/Android32 closure. Its attended
+one-operation/1800-second grant earns no native admission. The compound intent
+precedes the transition; the sole witness-return continuation has a separate
+immutable pre-send receipt joined to that intent. This narrowly specializes
+the generic one-effect-per-step graph without adding replay or another budget.
+Departure/arrival deadlines start at that original return-request intent and
+never renew. The helper/witness share one original 300-second deadline. No
+installed init, writable filesystem lifetime, ordinary EXEC continuation,
+DETACH/reentry or physical reconnect is selected. A proved witness survives a
+later failed return only as evidence; existing physical original-A recovery
+and health-only continuation still own closure.
+
 Every authentication retains its nonce, authenticated kernel boot identity,
 ordinal, fixed root health, raw RX/TX and terminal acknowledgement. DETACH
 also requires actual descriptor close. A new installed boot starts at ordinal

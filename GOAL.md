@@ -21,7 +21,40 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P408 proved preparation and healthy Android closure
+## Current P409 readonly root-transition preparation
+
+The selected next unit is P409 `v0.4.0-rc.9`: native-first authentication,
+replacement of the actual native PID1, exact worker retirement and protected
+root checks, then fixed BusyBox switch_root into a separate static RAM witness.
+The installed root remains readonly; this unit executes no Debian init or
+installed program and starts no writable lifetime. The later Debian PID1/access
+and persistence/service units remain distinct in the
+[handoff plan](docs/plans/S22PLUS_DEBIAN_HANDOFF_EXECUTION_PLAN_2026-09-30.md).
+
+The implementation carries the same authenticated ACM descriptor through exec,
+proves the witness after replacement, and admits only its fixed Download return.
+One compound intent owns transition and return; original-A recovery and final
+Android32/GPT health keep their existing no-replay accounting. A late BusyBox
+exec error can panic PID1, so physical Download/original-A recovery is required.
+
+Real ARM64 system-QEMU proves the readonly transition and exercises 14 negative
+cases with unchanged writable backing disks. This is virtual-machine evidence,
+not Samsung handoff proof. The [P409 H0 report](docs/reports/S22PLUS_SWITCH_ROOT_P409_H0_2026-09-30.md)
+records implementation, validation, independent review and concrete preparation.
+The operator requested work through the point before the live experiment;
+preparation opens no grant and performs no flash or mode change.
+
+Final boot-only A/B qualification and independent review are **PASS_GO**.
+The fixed foreground D0 preparation rederived healthy rooted original Android,
+exact partition hashes, full GPT and Android32 capacity. An initial ADB daemon
+startup-notice read stop was preserved, then the adopted read-only reobservation
+completed in a fresh preparation directory. The concrete task is READY for
+only `switch-root`, one attended operation and 1800 seconds, with SHA-256
+`ad08d06a0f49aad51a8cc027e0b3c7d5950c7e9a3f09c6fd4dec289734fa96df`.
+No grant is open, no experimental transfer occurred and P409 is unconsumed.
+The returned finite attended start is the next prerequisite; P408 stays closed.
+
+## Prior P408 proved preparation and healthy Android closure
 
 P408 `v0.4.0-rc.8` completed one attended operation on 2026-09-27 KST.
 After native UFS/ACM startup and authentication, all 17 protected preparation
@@ -46,7 +79,7 @@ the task is explicitly closed and the F1 owner is absent. See the
 This proves the fixed preparation workload after established native access.
 It does not establish P407's past failure location or Debian host PID 1.
 The [2026-09-30 plan review](docs/plans/S22PLUS_DEBIAN_HANDOFF_EXECUTION_PLAN_2026-09-30.md)
-selects the next H0 unit: a fixed transition owned by the actual native PID 1,
+selected the next H0 unit, now implemented above: a fixed transition owned by the actual native PID 1,
 complete worker/mount/descriptor retirement, and a readonly post-switch static
 witness using the selected BusyBox. The ordinary EXEC child cannot supply that
 proof. Observation and retirement must be qualified together before a new boot.

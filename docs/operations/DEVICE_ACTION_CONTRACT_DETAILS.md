@@ -110,6 +110,10 @@ permission to perform host-only work.
    permits one fixed protected checker/loader command after native health,
    with partition RAM RO and bounded stage evidence. Partial evidence grants
    no completion, recovery or replay. No filesystem write or handoff is added.
+   The separately reviewed [readonly root-transition witness V1](S22PLUS_SWITCH_ROOT_WITNESS_V1.md)
+   permits one fixed actual-PID-1 switch_root to a pinned RAM executable under
+   the readonly native_data root. Partition-only RAM RO remains set; it adds
+   no filesystem data write, installed init execution or writable lifetime.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -776,6 +780,41 @@ recovery and health-only continuation retain their no-replay rules. Separate
 independent review and image qualification are required before the exact
 target may activate a finite grant. Fixed preparation D0 is the unchanged
 Android root-health/shell-v2/GPT/statfs profile, with no control or transfer.
+
+## S22+ readonly root-transition witness
+
+The separately reviewed [root-transition witness V1](S22PLUS_SWITCH_ROOT_WITNESS_V1.md)
+is adopted only as V3's `switch-root`: one returned attended grant, one
+operation and at most 1800 original BOOTTIME seconds. Healthy original A,
+one fresh N, authenticated first-boot native health, a fixed parent-PID1
+terminal request, readonly root transition, separate post-exec witness and
+one fixed Download/original-A return form the complete graph. There is no
+admission, E, prior tail, reconnect, reentry or additional operation.
+
+The unique pre-request compound intent consumes both the terminal transition
+and its sole fixed witness return. A separately durable continuation receipt
+binds that return to the original intent/run/boot/nonce and target departure
+snapshot. Neither partial delivery nor later observation renews any effect.
+
+The exact three native worker slots must settle before protected checker/root
+admission. Partition-only BLKROSET, clean-superblock and full root/GPT checks
+retain their no-write invariants. PID1 owns checker failure settlement itself.
+Only the pinned static BusyBox and RAM witness execute; native_data retains
+readonly/nodev/nosuid/noexec and block RO until reboot. Explicit mount moves,
+ordinary old-run/work-tmpfs unmounts, descriptor closure and sealed same-boot state
+precede the irreversible switch_root. The same ACM descriptor and gadget
+survive this readonly unit; installed Debian init and NCM are not selected.
+
+Actual post-exec PID1/root/executable/mount/FD and worker proof is distinct
+from a pre-exec marker, return acceptance and final health. Authenticated
+prefixes may preserve a reached witness but grant no replay or closure.
+BusyBox late exec/kernel failure may leave unknown activity; existing
+attended physical original-A recovery remains the only authorized fallback,
+without an automatic-recovery claim. Exact A transfer and full rooted Android32
+health retain their one-shot/health-only continuation semantics. Separate
+source review, A/B qualification and returned finite grant remain required.
+The fixed foreground Android preparation D0 performs no mode change or image
+transfer. No previous candidate, installation or task claim is reopened.
 
 ## S22+ G2 fixed GPT reservation and stock initialization
 

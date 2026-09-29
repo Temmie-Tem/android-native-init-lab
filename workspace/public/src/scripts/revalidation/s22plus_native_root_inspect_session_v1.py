@@ -3,11 +3,12 @@ import s22plus_native_root_inspect_profile_v1 as profile
 import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
+import s22plus_switch_root_profile_v1 as switch
 from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-ITEMS = (profile, probe, preflight, staged)
+ITEMS = (profile, probe, preflight, staged, switch)
 PROFILES = tuple(item.PROFILE for item in ITEMS)
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
@@ -25,6 +26,10 @@ def mutates_step(operation,name):
 def normal_steps(operation=profile.OPERATION):
     from s22plus_native_session_v3 import Step
     item = selected(operation)
+    if item is switch:
+        return (Step('android-download','download','A'),Step('install-native-first','transfer','N'),
+            Step(item.SELECTION,'observe','N','download'),Step('install-android','transfer','A'),
+            Step('android-final','health','A'))
     return (Step('android-download', 'download', 'A'),
         Step('install-native-first', 'transfer', 'N'),
         Step(item.SELECTION, 'observe', 'N', 'detach'),
@@ -64,11 +69,24 @@ def android_basis(adapter, request):
 def validate_result(adapter, step, value, request):
     item = selected(request['operation'])
     if step.name != item.SELECTION: return
-    status = 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
+    status = 'PASS_SWITCH_ROOT_WITNESS' if item is switch else 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
     require(value['proof'][item.Profile.RESULT_KEY]['status'] == status,
         'protected-root operation did not finish with bounded raw proof')
     records = [r['data'] for r in Journal(adapter.directory / 'journal').rows()
         if r['event'] == 'effect-intent' and r['data']['step'] == step.name]
+    if item is switch:
+        require(len(records)==1,'transition has no unique original compound intent')
+        detail=records[0]['detail'];proof=value['proof'];folder=adapter.folder(step.name)
+        require(detail['mode']=='fixed-pid1-transition' and detail['sequence']==5 and
+            detail['body_sha256']==digest(b'') and detail['run_id_hex']==request['N']['run_id_hex'] and
+            detail['nonce_sha256']==proof['nonce_sha256'] and
+            detail['kernel_boot_identity_sha256']==proof['kernel_boot_identity_sha256'] and
+            read(folder/'transition-intent.json')==detail,'transition does not join its original intent')
+        returned=read(folder/'witness-return-intent.json')
+        require(returned['transition']==pin(folder/'transition-intent.json') and
+            returned['request']==dict(detail,mode='switch-root-return',sequence=6) and
+            proof['switch_root']['return_accepted'] is True,'witness return is not the fixed original continuation')
+        return
     if item is preflight:
         require(not records, 'read-only preflight result retrieval acquired an effect intent')
         proof=value['proof']
@@ -101,6 +119,19 @@ def terminal(adapter, request, *, recovered):
         if item is staged:
             from s22plus_native_staged_preflight_evidence_v1 import rederive
             try:result['diagnostic_prefix']=rederive(adapter,request)
+            except (ValueError,OSError,KeyError,IndexError,RawCaptureError) as failure:
+                result['diagnostic_error']=dict(type=type(failure).__name__,message=str(failure)[:512])
+        if item is switch:
+            from s22plus_native_observation_v3 import switch_prefix
+            try:
+                prefix=switch_prefix(adapter.folder(step.name),request['N'])
+                records=[r['data'] for r in Journal(adapter.directory/'journal').rows()
+                    if r['event']=='effect-intent' and r['data']['step']==step.name]
+                require(len(records)==1 and records[0]['detail']==read(adapter.folder(step.name)/'transition-intent.json') and
+                    records[0]['detail']['nonce_sha256']==prefix['nonce_sha256'] and
+                    records[0]['detail']['kernel_boot_identity_sha256']==prefix['kernel_boot_identity_sha256'],
+                    'partial switch proof has no original compound intent')
+                result.update(prefix)
             except (ValueError,OSError,KeyError,IndexError,RawCaptureError) as failure:
                 result['diagnostic_error']=dict(type=type(failure).__name__,message=str(failure)[:512])
         return result

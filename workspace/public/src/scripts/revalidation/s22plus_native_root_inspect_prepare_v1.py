@@ -9,6 +9,7 @@ import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
+import s22plus_switch_root_profile_v1 as switch
 import s22plus_native_task_v3 as task
 import s22plus_native_adapter_v3 as adapter
 import s22plus_native_target_io_v3 as target
@@ -44,7 +45,7 @@ def projection(folder, target_binding, android, image):
 
 def prepare(directory, image_receipt):
     image = read(verify(image_receipt))
-    items=(inspection,probe,preflight,staged)
+    items=(inspection,probe,preflight,staged,switch)
     require(image['profile'] in tuple(item.PROFILE for item in items), 'not a protected-root candidate')
     selected = next(item for item in items if image['profile']==item.PROFILE)
     task.capability(ROOT, profile=selected.PROFILE)
@@ -82,7 +83,8 @@ def prepare(directory, image_receipt):
                 target=target_receipt, installation=old_task['host_installation'], recovery_evidence=old_task['recovery_evidence'],
                 seconds=1800, operation_budget=1, recovery_mode='attended', reentry=False, hud=False,
                 usb_reconnect=False, android_exit=False, root_inspect=selected is inspection,
-                userspace_probe=selected is probe,preflight=selected is preflight,staged_preflight=selected is staged)
+                userspace_probe=selected is probe,preflight=selected is preflight,staged_preflight=selected is staged,
+                switch_root=selected is switch)
             publish(directory/'ready.json', dict(schema=selected.SCHEMA+'-ready', task=receipt,
                 preparation=pin(folder/'result.json'), grant_opened=False, image_transferred=False,
                 native_filesystem_observed=False, userspace_executed=False))

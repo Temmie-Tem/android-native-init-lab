@@ -176,6 +176,9 @@ static int up_execute(int root, struct fs1_endpoint *endpoint) {
         up_child(root,endpoint,pipes,parent,group);
 #endif
     }
+#ifdef UP_REGISTER_CHILD
+    UP_REGISTER_CHILD(pid);
+#endif
     for (unsigned i=0;i<3;++i) { (void)close(pipes[i][1]); pipes[i][1]=-1; }
     while (!error) {
         for (unsigned i=0;i<3 && !error;++i) error=up_drain(&streams[i]);
@@ -216,6 +219,13 @@ static int up_execute(int root, struct fs1_endpoint *endpoint) {
             output_matches) up_proved=1;
     } else if (!error) error=EPROTO; /* no READY/failure record: exec state is unknown */
 done:
+#ifdef UP_FINISH_CHILD
+    /* A direct PID1 owner has no outer console supervisor to settle failure. */
+    if (pid > 0) {
+        int owner_error=UP_FINISH_CHILD(pid,up_reaped);
+        if (!error) error=owner_error;
+    }
+#endif
     /* On uncertainty the helper exits nonzero in the ORIGINAL command group.
      * The unchanged outer ACM supervisor kills/reaps the entire group; no
      * separate child group can escape its timeout or cancellation ownership. */

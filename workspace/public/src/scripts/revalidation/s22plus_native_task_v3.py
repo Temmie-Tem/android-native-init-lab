@@ -18,6 +18,7 @@ ROOT_INSPECT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_nat
 USERSPACE_PROBE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_userspace_probe_v1_review.json'
 PREFLIGHT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_preflight_v1_review.json'
 STAGED_PREFLIGHT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_staged_preflight_v1_review.json'
+SWITCH_ROOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_switch_root_v1_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
     's22plus_native_host_install_v3')
@@ -47,6 +48,7 @@ def source_paths(root):
         'docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md',
         'docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md',
         'docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md',
+        'docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_ufs_artifact_v1_h0.py',
@@ -57,6 +59,7 @@ def source_paths(root):
         'workspace/public/src/scripts/analysis/s22plus_native_userspace_probe_artifact_v1_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_preflight_artifact_v1_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_staged_preflight_artifact_v1_h0.py',
+        'workspace/public/src/scripts/analysis/s22plus_switch_root_artifact_v1_h0.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_root_inspect_prepare_v1.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_baseline_v2_candidates.py'))
     return tuple(sorted(paths))
@@ -79,8 +82,10 @@ def capability(root, *, recovery=False, profile=None):
     from s22plus_native_userspace_probe_profile_v1 import PROFILE as userspace_probe_profile
     from s22plus_native_preflight_profile_v1 import PROFILE as preflight_profile
     from s22plus_native_staged_preflight_profile_v1 import PROFILE as staged_profile
+    from s22plus_switch_root_profile_v1 import PROFILE as switch_profile
     review_path={root_inspect_profile:ROOT_INSPECT_CAPABILITY,userspace_probe_profile:USERSPACE_PROBE_CAPABILITY,
-        preflight_profile:PREFLIGHT_CAPABILITY,staged_profile:STAGED_PREFLIGHT_CAPABILITY}
+        preflight_profile:PREFLIGHT_CAPABILITY,staged_profile:STAGED_PREFLIGHT_CAPABILITY,
+        switch_profile:SWITCH_ROOT_CAPABILITY}
     path=Path(root)/review_path.get(profile,CAPABILITY); result=read(path)
     require(set(result)=={'schema','verdict','scope','sources','runtime_sources','reviewer','findings'}
         and result['schema']=='s22plus-native-session-v3-review' and result['verdict']=='PASS_GO'
@@ -121,7 +126,7 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
         'native task exceeds finite scope')
     require(type(task['operations']) is list and task['operations']
         and len(task['operations'])==len(set(task['operations']))
-        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight'}
+        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root'}
         and task['recovery_mode'] in ('attended','deferred'),'native task operations or recovery differ')
     require(all(type(task[key]) is bool for key in ('reentry','hud','usb_reconnect'))
         and (not task['usb_reconnect'] or task['reentry'] and task['recovery_mode']=='attended'),
@@ -137,7 +142,8 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
     from s22plus_native_userspace_probe_profile_v1 import PROFILE as userspace_probe_profile
     from s22plus_native_preflight_profile_v1 import PROFILE as preflight_profile
     from s22plus_native_staged_preflight_profile_v1 import PROFILE as staged_profile
-    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight'}:
+    from s22plus_switch_root_profile_v1 import PROFILE as switch_profile
+    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root'}:
         from s22plus_native_root_inspect_session_v1 import validate_task as root_inspect_task
         root_inspect_task(task, recovery=recovery)
     if task['N']['profile'] in filesystem_profiles or 'native-ext4' in task['operations']:
@@ -219,6 +225,11 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
                 b'S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
                 b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md'),
                 'staged preparation is not common-incorporated and adopted by the exact target')
+        if task['N']['profile']==switch_profile:
+            require(b'S22PLUS_SWITCH_ROOT_WITNESS_V1.md' in details and
+                b'S22PLUS_SWITCH_ROOT_WITNESS_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
+                b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md'),
+                'readonly PID1 transition is not common-incorporated and adopted by the exact target')
     return task
 
 
@@ -243,14 +254,14 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
                  seconds=3600, operation_budget=3, recovery_mode='attended', reentry=True,
                  hud=False, usb_reconnect=True, admission=None, prior_terminal=None,
                  storage_census=False, android_exit=True, bootstrap_start=None,gpt_reserve=False,native_ext4=False,
-                 root_inspect=False,userspace_probe=False,preflight=False,staged_preflight=False):
+                 root_inspect=False,userspace_probe=False,preflight=False,staged_preflight=False,switch_root=False):
     import s22plus_native_target_io_v3 as target_io
     from s22plus_native_adapter_v3 import image_valid
     root=Path(root).resolve(strict=True); output=private_path(root,output,exists=False)
     require(not output.exists(),'native task preparation path already exists')
     require(type(storage_census) is bool and type(android_exit) is bool and type(gpt_reserve) is bool
         and type(native_ext4) is bool and type(root_inspect) is bool and type(userspace_probe) is bool
-        and type(preflight) is bool and type(staged_preflight) is bool
+        and type(preflight) is bool and type(staged_preflight) is bool and type(switch_root) is bool
         and (not storage_census or (admission is None)==(prior_terminal is None)),
         'storage census needs either fresh bootstrap or an admitted N and its closed tail')
     native=read(verify(native)); experiment=read(verify(experiment)) if experiment else None
@@ -268,11 +279,11 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
         hud=hud,usb_reconnect=usb_reconnect,admission=admission,prior_terminal=prior_terminal,
         runtime_scope=native['runtime_sources'])
     if bootstrap_start is not None: task['bootstrap_start']=bootstrap_start
-    if root_inspect or userspace_probe or preflight or staged_preflight:
+    if root_inspect or userspace_probe or preflight or staged_preflight or switch_root:
         require(not experiment and not any((storage_census,android_exit,bootstrap_start,gpt_reserve,native_ext4)),
             'root inspection cannot select another operation')
-        require(sum((root_inspect,userspace_probe,preflight,staged_preflight))==1, 'select exactly one protected-root operation')
-        task['operations']=['staged-preflight' if staged_preflight else 'preflight' if preflight else 'userspace-probe' if userspace_probe else 'root-inspect']
+        require(sum((root_inspect,userspace_probe,preflight,staged_preflight,switch_root))==1, 'select exactly one protected-root operation')
+        task['operations']=['switch-root' if switch_root else 'staged-preflight' if staged_preflight else 'preflight' if preflight else 'userspace-probe' if userspace_probe else 'root-inspect']
     validate_task(root,task,live=False)
     output.mkdir(mode=0o700); receipt=publish(output/'task.json',task)
     publish(output/'proposal.json',dict(task=receipt,approval=approval_text(task,receipt),
@@ -320,7 +331,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5])
     sub=parser.add_subparsers(dest='command',required=True)
-    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight'))
+    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root'))
     run.add_argument('grant',type=Path); run.add_argument('--attended',action='store_true')
     run.add_argument('--reentry',action='store_true'); run.add_argument('--hud',action='store_true')
     run.add_argument('--experiment-image',type=Path)

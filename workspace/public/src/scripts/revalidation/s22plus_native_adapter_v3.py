@@ -17,6 +17,7 @@ import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
+import s22plus_switch_root_profile_v1 as switch
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -45,15 +46,17 @@ def image_valid(image, *, artifact_bytes=False):
         probe.PROFILE:'s22plus_native_userspace_probe_artifact_v1_h0.py',
         preflight.PROFILE:'s22plus_native_preflight_artifact_v1_h0.py',
         staged.PROFILE:'s22plus_native_staged_preflight_artifact_v1_h0.py',
+        switch.PROFILE:'s22plus_switch_root_artifact_v1_h0.py',
         **{p:'s22plus_native_ext4_artifact_v1_h0.py' for p in fs.PROFILES}}
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'}
     if image.get('profile')==gpt.PROFILE:keys.add('gpt')
     if image.get('profile') in fs.PROFILES:keys.update(('filesystem','gpt','android_return'))
-    if image.get('profile') in (inspection.PROFILE,probe.PROFILE,staged.PROFILE):keys.update(('root_inspection','gpt','android_return'))
+    if image.get('profile') in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE):keys.update(('root_inspection','gpt','android_return'))
     if image.get('profile') == preflight.PROFILE:keys.update(('preflight','gpt','android_return'))
     if image.get('profile') == probe.PROFILE:keys.add('userspace_probe')
     if image.get('profile') == staged.PROFILE:keys.add('staged_preflight')
+    if image.get('profile') == switch.PROFILE:keys.add('switch_root')
     require(set(image)==keys and image['schema']=='s22plus-native-image-v3'
         and image['profile'] in exporters,'native image qualification schema differs')
     native.identity(image); native.key_bytes(image)
@@ -116,8 +119,8 @@ def image_valid(image, *, artifact_bytes=False):
         require(not any(name in inventory for name in ('s22-fs','s22-fs-mke2fs','rootfs.tar.xz',
             's22-root-inspect','s22-userspace-probe','p404-lab-qualify')),
             'preflight image contains an unselected payload')
-    if image['profile'] in (inspection.PROFILE,probe.PROFILE,staged.PROFILE):
-        selected = next(item for item in (inspection,probe,staged) if item.PROFILE==image['profile'])
+    if image['profile'] in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE):
+        selected = next(item for item in (inspection,probe,staged,switch) if item.PROFILE==image['profile'])
         binding = selected.image_binding(image)
         require(built['root_inspection'] == binding and
             built['native_selection']['runtime_profile']['root_inspect_profile'] == inspection.PROFILE,
@@ -132,16 +135,24 @@ def image_valid(image, *, artifact_bytes=False):
                 built['native_selection']['runtime_profile']['staged_preflight_profile']==staged.PROFILE and
                 built['native_selection']['runtime_profile']['staged_preflight']==image['staged_preflight'],
                 'staged preparation differs from its A/B producer')
+        if selected is switch:
+            require(built['switch_root']==image['switch_root'] and
+                built['native_selection']['runtime_profile']['switch_root_profile']==switch.PROFILE,
+                'fixed PID1 transition differs from its A/B producer')
         inventory = built['candidate']['a']['inventory']
-        helper = 's22-staged-preflight' if selected is staged else 's22-userspace-probe' if selected is probe else 's22-root-inspect'
+        helper = 's22-switch-root' if selected is switch else 's22-staged-preflight' if selected is staged else 's22-userspace-probe' if selected is probe else 's22-root-inspect'
         members=[(helper,binding['helper'],0o100500),('s22-root-inspect.table',binding['table'],0o100400)]
         if selected is staged:members.append(('s22-fs-e2fsck',image['staged_preflight']['checker'],0o100500))
+        if selected is switch:
+            members.extend((member,image['switch_root'][label],0o100500) for member,label in (
+                ('s22-switch-witness','witness'),('s22-switch-busybox','busybox'),('s22-fs-e2fsck','checker')))
         for member, receipt, mode in members:
             require(all(inventory[member][k] == receipt[k] for k in ('size', 'sha256')) and
                 inventory[member]['mode'] == mode and inventory[member]['uid'] == inventory[member]['gid'] == 0,
                 'inspection ramdisk payload differs')
         excluded={'s22-fs','s22-fs-mke2fs','rootfs.tar.xz','s22-root-inspect','s22-userspace-probe','s22-staged-preflight','s22-prehandoff'}-{helper}
-        if selected is not staged:excluded.add('s22-fs-e2fsck')
+        if selected not in (staged,switch):excluded.add('s22-fs-e2fsck')
+        if selected is not switch:excluded.update(('s22-switch-root','s22-switch-witness','s22-switch-busybox'))
         require(not any(name in inventory for name in excluded),
             'inspector image contains an unselected filesystem payload')
     if artifact_bytes:
@@ -375,7 +386,10 @@ class Adapter:
                 'normal transfer has no preceding Download intent')
             # Thirty seconds for departure and ninety for Download arrival,
             # both measured from the original mode-changing intent.
-            arrival_deadline=intents[-1]['data']['detail']['departure_deadline_ns']+60_000_000_000
+            detail=intents[-1]['data']['detail']
+            if request.get('operation')==switch.OPERATION and intents[-1]['data']['step']==switch.SELECTION:
+                detail=self.switch_return_intent(request)
+            arrival_deadline=detail['departure_deadline_ns']+60_000_000_000
         require(clock()<arrival_deadline,'original Download arrival window expired')
         with transport.pin_regular_file(Path(task['odin']['path']),label='Odin enumeration',
                 expected_size=task['odin']['size'],expected_sha256=task['odin']['sha256']) as odin, \
@@ -660,9 +674,22 @@ class Adapter:
             'timely measured departure is unproved')
         intents=[row for row in Journal(self.directory/'journal').rows() if row['event']=='effect-intent'
             and row['data']['step']==step.name]
-        require(len(intents)==1 and intents[0]['data']['detail']['departure_deadline_ns']==departure['deadline_ns']
-            and read(verify(intents[0]['data']['detail']['departure']))==departure['before'],
+        require(len(intents)==1,'departure has no unique original step intent')
+        detail=intents[0]['data']['detail']
+        if request.get('operation')==switch.OPERATION and step.name==switch.SELECTION:
+            detail=self.switch_return_intent(request)
+        require(detail['departure_deadline_ns']==departure['deadline_ns']
+            and read(verify(detail['departure']))==departure['before'],
             'departure is not bound to the original transition intent')
+
+    def switch_return_intent(self,request):
+        require(request.get('operation')==switch.OPERATION,'unselected witness continuation')
+        folder=self.folder(switch.SELECTION);detail=read(folder/'witness-return-intent.json')
+        original=read(folder/'transition-intent.json')
+        require(detail['transition']==pin(folder/'transition-intent.json') and
+            detail['request']==dict(original,mode='switch-root-return',sequence=6),
+            'witness return lacks its exact original compound intent')
+        return detail
 
     def validate_sequence(self, selected, values, request):
         require(len(values)==len(selected),'native sequence incomplete')

@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root')
 
 
 class ResultPublicationError(SessionError):
@@ -37,7 +37,7 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
     require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
-    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight'):
+    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight','switch-root'):
         from s22plus_native_root_inspect_session_v1 import normal_steps
         return normal_steps(operation)
     if operation=='native-ext4':
@@ -222,8 +222,14 @@ class Session:
             from s22plus_native_root_inspect_session_v1 import mutates_step
             if mutates_step(self.request['operation'],step.name):
                 options['before_extra']=dispatch
+            # The fixed terminal transition intent includes its sole witness
+            # return. The observer durably records that exact continuation;
+            # it cannot acquire a second intent for the same compound step.
+            terminal_callback=dispatch if step.ending=='download' else guard
+            if self.request['operation']=='switch-root' and step.name=='switch-root':
+                terminal_callback=lambda detail:guard()
             value=self.adapter.observe(step,self.request,guard=guard,
-                before_terminal=dispatch if step.ending=='download' else guard,**options)
+                before_terminal=terminal_callback,**options)
         elif step.action=='health':
             value=self.adapter.android_health(step,self.request,guard=guard)
         else:

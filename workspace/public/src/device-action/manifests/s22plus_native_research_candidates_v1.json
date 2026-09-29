@@ -97,6 +97,13 @@
       "run_id": "32e57b0372fc443599a964ddf56178af",
       "version": "v0.4.0-rc.8",
       "image_sha256": "08fc4ab0b48aad80110181412833cd85e3065cf6b5a4bfca315719baf7e93fb0"
+    },
+    {
+      "namespace": "p409",
+      "run_id": "11440d7c03f69d9aa58a22b70f2f1a13",
+      "version": "v0.4.0-rc.9",
+      "image_sha256": "8a76ac6e98710589591b61c1d4dcb00ca4836aa6505b4dbaa26d8e095a7d383c",
+      "profile": "thermal-v3-reconnect-ufs-drain-switch-root-v1"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

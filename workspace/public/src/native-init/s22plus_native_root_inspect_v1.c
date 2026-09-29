@@ -45,8 +45,13 @@ struct ri_compare { unsigned expected, matched, missing, metadata, content;
 
 static void ri_print(const char *format, ...) {
     va_list args; va_start(args, format);
+#ifdef RI_PRINT_SINK
+    RI_PRINT_SINK(format, args);
+    va_end(args);
+#else
     int rc = vprintf(format, args); va_end(args);
     if (rc < 0 || fflush(stdout)) _exit(120);
+#endif
 }
 
 static void ri_digest(const uint8_t bytes[32], char out[65]) {
