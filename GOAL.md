@@ -44,9 +44,24 @@ consumed and closed; the F1 owner is absent. A90 and S20+ were untouched.
 
 The [physical-run report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P410_FIRST_RUN_2026-09-30.md)
 records 1,779 raw captures, 257 frozen source files, unchanged terminal/journal,
-the native USB reappearance and the limits of the PID1 proof. Next work is
-H0 reconstruction of the post-init interval and native return, before any
-new device candidate. The closed grant supplies no replay, repair or reinstall.
+the native USB reappearance and the limits of the PID1 proof.
+
+Post-run H0 diagnosis confirmed a blocking USB ownership defect in the exact
+P410 Image: Android configfs setup keeps the first gadget's global pointer.
+The hook unbinds native `g1`, but Debian creates a second `s22-debian` object;
+the old object's `unbind=1` blocks setup before NCM descriptor handling.
+Independent exact-Image review and 16 source control-flow cases on host/ARM64
+confirmed the mechanism. The physical run's post-hook reach and reset cause
+remain unproved. Retiring native workers does not remove the kernel watchdog
+petter, so that simple reset explanation is unsupported.
+
+The next bounded capability correction is to preserve/reconfigure the same
+first `g1` under Debian ownership and qualify the stock dispatch path and
+post-init progress. Deleting and recreating the first gadget risks a stale
+global pointer and is not a safe shortcut. This H0 analysis changed no device
+state or consumed artifact. A future run still needs its own reviewed scope
+and current root admission; the closed grant supplies no replay, repair or
+reinstall.
 
 ## Prior P410 installed-Debian handoff preparation
 
