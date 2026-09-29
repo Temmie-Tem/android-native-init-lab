@@ -30,7 +30,7 @@ FAULTS={'complete':0,'unknown-child':1,'unknown-wait':2,'fd-holes':3,'early-reap
     'checker-descendant':0,'checker-wrong-output':0}
 
 
-def setup(out,helpers,case):
+def setup(out,helpers,case,*,handoff=False):
     out=out.absolute();require(not out.exists() and out.is_relative_to(ROOT/'workspace/private/outputs'),'fresh VM output required')
     require(case in FAULTS,'unknown switch VM case');out.mkdir(mode=0o700)
     built=read(helpers/'result.json');require(built['virt'] is True,'VM needs virtual discovery helper')
@@ -43,6 +43,7 @@ def setup(out,helpers,case):
     (out/'s22plus_switch_root_vm_seal.h').write_text(producer.array('swvm_nonce',NONCE)+f'static const unsigned swvm_fault={FAULTS[case]};\n')
     vm.run(['aarch64-linux-gnu-gcc','-std=c11','-static','-Os','-ffunction-sections','-fdata-sections','-Wl,--gc-sections',
         '-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-const-variable','-DS22_ROOT_INSPECT_VIRT_TEST',
+        *(['-DS22_DEBIAN_HANDOFF_VM'] if handoff else []),
         '-I',helpers,'-I',out,'-I',producer.NATIVE,ROOT/'tests/s22plus_switch_root_vm_init.c','-o',out/'init'],out,'init-compile')
     entries=[(name,stat.S_IFDIR|0o755,b'') for name in ('bin','dev','proc','sys','run','s22-root-work','config')]
     entries += [('init',stat.S_IFREG|0o500,(out/'init').read_bytes()),
@@ -51,6 +52,10 @@ def setup(out,helpers,case):
         ('s22-switch-witness',stat.S_IFREG|0o500,verify(built['witness']).read_bytes()),
         ('s22-root-inspect.table',stat.S_IFREG|0o400,verify(built['table']).read_bytes()),
         ('s22-fs-e2fsck',stat.S_IFREG|0o500,verify(built['checker']).read_bytes())]
+    if handoff:
+        require(built['schema']=='s22plus-debian-handoff-helpers-h0-v1','VM handoff helper schema differs')
+        entries.extend(('s22-debian-'+name,stat.S_IFREG|(0o400 if name=='inittab' else 0o500),verify(row).read_bytes())
+            for name,row in built['assets'].items())
     if case=='missing-witness':entries=[r for r in entries if r[0]!='s22-switch-witness']
     if case=='noexec-witness':entries=[(name,stat.S_IFREG|0o400,data) if name=='s22-switch-witness' else (name,mode,data) for name,mode,data in entries]
     (out/'initramfs.cpio.gz').write_bytes(gzip.compress(vm.h0.newc(entries),mtime=0))
@@ -61,7 +66,8 @@ def setup(out,helpers,case):
     if case=='wrong-root':vm.debug(native,out,'wrong-root','ssv uuid 01234567-1234-1234-1234-0123456789ab')
     binding=read(verify(vm.profile.filesystem.BINDING));vm.make_disk(native,out/'disk.img',binding)
     shutil.copyfile(vm.QEMU/'usr/bin/qemu-system-aarch64',out/'qemu-system-aarch64');(out/'qemu-system-aarch64').chmod(0o500)
-    return publish(out/'setup.json',dict(schema='s22plus-switch-root-vm-v1',case=case,helpers=pin(helpers/'result.json'),
+    return publish(out/'setup.json',dict(schema='s22plus-debian-handoff-vm-v1' if handoff else
+        's22plus-switch-root-vm-v1',case=case,helpers=pin(helpers/'result.json'),
         kernel=pin(KERNEL,maximum=128*1024*1024),initramfs=pin(out/'initramfs.cpio.gz',maximum=16*1024*1024),init=pin(out/'init'),
         qemu=pin(out/'qemu-system-aarch64',maximum=128*1024*1024),sources=[pin(p) for p in
             (Path(__file__),ROOT/'tests/s22plus_switch_root_vm_init.c',parent)],device_actions=0))

@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **34** (supersedes revision 33; 2026-09-30)
+Contract-Revision: **35** (supersedes revision 34; 2026-09-30)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`662475f26c0e87d7ac44b8c83ac6d90be52667b33d03b0be516a7725c9e5e9ee`.
+`d7b880a75f226175dad4092af96be52e85700ed719df6ae11614e03fdb17cdfe`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -112,7 +112,8 @@ Read an exception's complete conditions before considering it applicable.
    [G2 GPT reservation/reset exception](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md)
    and [native ext4 exception](docs/operations/S22PLUS_NATIVE_EXT4_V1.md), and
    the separately reviewed [Debian first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
-   and [installed-Debian boot exception](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md).
+   and [installed-Debian boot exception](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md),
+   and the separate [native-first Debian handoff exception](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -140,6 +141,11 @@ Read an exception's complete conditions before considering it applicable.
    permits one fixed actual-PID-1 transition to a RAM-only static witness under
    the protected native_data root, with no filesystem data write or installed
    Debian init execution and one original-A return.
+   The separate [native-first Debian handoff](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md)
+   permits one protected exact-root admission followed by partition-only RAM
+   RO clear, normal native_data RW mount, installed init/basic SSH and fixed
+   shutdown, with attended physical original-A return. It adds no repair,
+   installation, other-partition write or replay.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -195,6 +201,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ installed-bootstrap preflight | [Protected pre-handoff measurement](docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md); one automatic preparation consumed by its fresh N transfer, sealed current-boot result, one original-A return, no filesystem write or Debian handoff. |
 | S22+ streamed protected preparation | [Native-first stage observation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md); one fixed protected checker/loader command after native health, diagnostic-only partial evidence, one original-A return, no filesystem write or Debian handoff. |
 | S22+ readonly root-transition witness | [Actual PID-1 transition and post-exec proof](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md); one native-first fixed terminal operation, worker settlement, protected root and RAM witness, one original-A return, no installed init or writable lifetime. |
+| S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md); one attended finite operation, protected admission then native_data RW/init, authenticated PID1 and same-boot SSH, fixed shutdown and physical original-A return, no reinstall or replay. |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

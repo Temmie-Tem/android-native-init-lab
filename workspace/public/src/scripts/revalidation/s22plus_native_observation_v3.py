@@ -16,6 +16,8 @@ import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
 import s22plus_switch_root_protocol_v1 as switch_wire
+import s22plus_debian_handoff_profile_v1 as handoff
+import s22plus_debian_handoff_protocol_v1 as handoff_wire
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
 from s22plus_native_wire_v3 import Codec
@@ -44,6 +46,9 @@ class StorageIO(IO):
 
 
 def io_class(profile, image=None):
+    if profile==handoff.SELECTION:
+        require(image is not None,'Debian handoff lacks image binding');handoff.image_binding(image)
+        return IO
     if profile==switch.SELECTION:
         require(image is not None,'switch-root observation has no bound image')
         switch.image_binding(image)
@@ -109,7 +114,8 @@ def check_freshness(io, *, previous=None, first_boot=False, seen_nonces=(), seen
 
 def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
              seen_nonces=(), seen_boots=(), require_close=True, profile='health'):
-    require(profile=='health' or profile==switch.SELECTION and ending=='download' and hud is False
+    require(profile=='health' or profile==handoff.SELECTION and ending=='handoff' and hud is False
+        or profile==switch.SELECTION and ending=='download' and hud is False
         or ending=='detach' and hud is False,
         'storage census replay may not change mode or collect HUD')
     directory=Path(directory)
@@ -138,7 +144,10 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
     rx=raw.read_stdout(handle,maximum=console.RAW_CAPTURE_MAXIMUM)
     tx=raw.read_stderr(handle,maximum=65536)
     bound=identity(image); key=key_bytes(image); codec=Codec(bound.namespace)
-    if profile==switch.SELECTION:
+    if profile==handoff.SELECTION:
+        proof,rend,tend=handoff_wire.replay_one(codec,bound,key,rx,tx,io_class=selected_io,selection=image['debian_handoff'])
+        require(attempt['acquisition']['local_carrier'] is True,'Debian observation did not fix local carrier')
+    elif profile==switch.SELECTION:
         proof,rend,tend=switch_wire.replay_one(codec,bound,key,rx,tx,io_class=selected_io,
             witness_sha256=image['switch_root']['witness']['sha256'])
     else:proof,rend,tend=protocol.replay_one(codec,bound,key,rx,tx,io_class=selected_io)
@@ -158,12 +167,15 @@ def rederive(directory, image, *, ending, hud, previous=None, first_boot=False,
 def switch_prefix(directory,image):
     """H0-only projection; it never opens a descriptor or sends a continuation."""
     directory=Path(directory);opened=read(directory/'open.json')
-    require(opened['image']==image and opened['profile']==switch.SELECTION and opened['ending']=='download',
+    item=handoff if image['profile']==handoff.PROFILE else switch
+    require(opened['image']==image and opened['profile']==item.SELECTION and
+        opened['ending']==('handoff' if item is handoff else 'download'),
         'partial switch capture context differs')
     handle=raw.load_handle(directory/'session.capture.json')
     require(not handle.output_exceeded,'partial switch capture overflowed')
     rx=raw.read_stdout(handle,maximum=switch_wire.MAXIMUM+65536);tx=raw.read_stderr(handle,maximum=65536)
     bound=identity(image);key=key_bytes(image)
+    if item is handoff:return handoff_wire.prefix(Codec(bound.namespace),bound,key,rx,tx,io_class=IO,selection=image['debian_handoff'])
     return switch_wire.replay_prefix(Codec(bound.namespace),bound,key,rx,tx,io_class=IO,
         witness_sha256=image['switch_root']['witness']['sha256'])
 
@@ -171,11 +183,12 @@ def switch_prefix(directory,image):
 def observe(directory, image, host, *, ending, hud, guard, before_terminal,
             previous=None, first_boot=False, seen_nonces=(), seen_boots=(), before_auth=None,
             profile='health',before_extra=None):
-    require(ending in ('detach','download') and type(hud) is bool,'native observation selection differs')
+    require(ending in ('detach','download','handoff') and type(hud) is bool,'native observation selection differs')
     selected_io=io_class(profile,image)
-    if profile==switch.SELECTION or profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
+    if profile in (switch.SELECTION,handoff.SELECTION) or profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
         require(callable(before_extra),'GPT mutation has no durable owner callback')
-    require(profile=='health' or profile==switch.SELECTION and ending=='download' and hud is False
+    require(profile=='health' and ending!='handoff' or profile==handoff.SELECTION and ending=='handoff' and hud is False
+        or profile==switch.SELECTION and ending=='download' and hud is False
         or ending=='detach' and hud is False,
         'storage census may not change mode or collect HUD')
     extra_fields={} if profile=='health' else dict(profile=profile)
@@ -186,8 +199,9 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
         stderr_maximum=65536,stdout_name='rx.bin',stderr_name='tx.bin',argv0_name='fixed-native-session-v3')
     io=None; acquisition=None; proof=None; error=None; before=None; departure_deadline=None
     try:
-        with host.open_native(bound.run_id_hex,before_open=guard) as (fd,acquisition):
-            seconds=switch.Profile.OBSERVATION_SECONDS if profile==switch.SELECTION else selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) else 60
+        options=dict(local_carrier=True) if profile==handoff.SELECTION else {}
+        with host.open_native(bound.run_id_hex,before_open=guard,**options) as (fd,acquisition):
+            seconds=switch.Profile.OBSERVATION_SECONDS if profile in (switch.SELECTION,handoff.SELECTION) else selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION) else 60
             observation_deadline_ns=clock()+seconds*1_000_000_000-100_000_000
             publish(directory/'open.json',dict(image=image,ending=ending,hud=hud,
                 acquisition=acquisition,boottime_ns=clock(),deadline_ns=observation_deadline_ns,**extra_fields))
@@ -203,7 +217,10 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
                 guard()
                 check_freshness(io,previous=previous,first_boot=first_boot,
                     seen_nonces=seen_nonces,seen_boots=seen_boots)
-                if ending=='download':
+                if ending=='handoff' and request['mode']=='debian-init-continue':
+                    detail=dict(request=request,transition=pin(directory/'transition-intent.json'))
+                    publish(directory/'debian-init-continue.json',detail);before_terminal(detail)
+                elif ending in ('download','handoff'):
                     before=target_io.usb_snapshot('usb:'+host.config['topology'],directory)
                     publish(directory/'departure-before.json',before)
                     departure_deadline=clock()+30_000_000_000
@@ -211,6 +228,9 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
                         departure_deadline_ns=departure_deadline)
                     if profile==switch.SELECTION:
                         publish(directory/'witness-return-intent.json',dict(detail,transition=pin(directory/'transition-intent.json')))
+                    if profile==handoff.SELECTION:
+                        require(request['mode']=='debian-acm-release','unselected Debian continuation')
+                        publish(directory/'debian-acm-release.json',dict(detail,transition=pin(directory/'transition-intent.json')))
                     before_terminal(detail)
                 else:
                     before_terminal()
@@ -218,9 +238,12 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
                 guard()
                 check_freshness(io,previous=previous,first_boot=first_boot,
                     seen_nonces=seen_nonces,seen_boots=seen_boots)
-                if profile==switch.SELECTION:publish(directory/'transition-intent.json',request)
+                if profile in (switch.SELECTION,handoff.SELECTION):publish(directory/'transition-intent.json',request)
                 if before_extra is not None: before_extra(request)
-            if profile==switch.SELECTION:
+            if profile==handoff.SELECTION:
+                proof=handoff_wire.qualify_one(io,evidence=directory/'console',before_terminal=terminal,
+                    before_extra=extra,selection=image['debian_handoff'])
+            elif profile==switch.SELECTION:
                 proof=switch_wire.qualify_one(io,evidence=directory/'console',before_terminal=terminal,
                     before_extra=extra,witness_sha256=image['switch_root']['witness']['sha256'])
             else:
@@ -251,7 +274,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
     if error is not None: raise error
     result=rederive(directory,image,ending=ending,hud=hud,previous=previous,first_boot=first_boot,
         seen_nonces=seen_nonces,seen_boots=seen_boots,profile=profile)
-    if ending=='download':
+    if ending in ('download','handoff'):
         departure=target_io.wait_departure(before,directory,deadline_ns=departure_deadline,guard=guard)
         publish(directory/'departure.json',departure)
         result['departure']=pin(directory/'departure.json')

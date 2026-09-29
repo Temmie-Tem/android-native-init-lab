@@ -2,6 +2,14 @@
 #define FS1_READONLY_BINDING_ONLY
 #include "s22plus_native_ext4_v1.c"
 #include "s22plus_switch_root_common_v1.inc.c"
+#ifdef S22_DEBIAN_HANDOFF
+#include "s22plus_debian_handoff_witness_v1.inc.c"
+#define SW_EXPECT_FLAGS 0
+#define SW_EXPECT_RO 0
+#else
+#define SW_EXPECT_FLAGS (ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID)
+#define SW_EXPECT_RO 1
+#endif
 
 static int sw_witness(void) {
     if(!sw.settled || !sw.root_admitted || sw.root_device==sw.old_device || !sw.root_device ||
@@ -9,11 +17,11 @@ static int sw_witness(void) {
     int error=sw_no_children();if(!error)error=sw_userspace();if(error)return error;
     struct stat st;struct statfs fs;
     if(stat("/",&st) || statfs("/",&fs) || (uint64_t)st.st_dev!=sw.root_device || fs.f_type!=0xef53 ||
-       fs.f_bsize!=4096 || (fs.f_flags&(ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID))!=(ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID))return EPROTO;
+       fs.f_bsize!=4096 || (fs.f_flags&(ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID))!=SW_EXPECT_FLAGS)return EPROTO;
     int node=open("/dev/.s22-ext4-v1/native",O_RDONLY|O_NOFOLLOW|O_CLOEXEC),ro=0;
     if(node<0)return fs1_error();
     error=fstat(node,&st) || !S_ISBLK(st.st_mode) || (uint64_t)st.st_rdev!=sw.root_device ||
-        ioctl(node,BLKROGET,&ro) || ro!=1 ? EPROTO : 0;
+        ioctl(node,BLKROGET,&ro) || ro!=SW_EXPECT_RO ? EPROTO : 0;
     if(close(node) && !error)error=fs1_error();
     if(error)return error;
     if(stat("/run/s22-witness",&st) || st.st_dev==(dev_t)sw.root_device || st.st_dev==(dev_t)sw.old_device ||
@@ -41,6 +49,11 @@ int main(int argc,char **argv) {
     sw_put32(proof,1);sw_put32(proof+4,(uint32_t)major((dev_t)sw.root_device));
     sw_put32(proof+8,(uint32_t)minor((dev_t)sw.root_device));sw_put32(proof+12,sw.mount_count);
     memcpy(proof+16,sw.boot,32);memcpy(proof+48,sw.witness_digest,32);memcpy(proof+80,sw.mount_digest,32);
-    sw_put32(proof+112,15);sw_put32(proof+116,1); /* root flags; partition RO */
-    sw_require(sw_record(SW_WITNESS,0,proof,sizeof(proof)));sw_return();
+    sw_put32(proof+112,SW_EXPECT_FLAGS);sw_put32(proof+116,SW_EXPECT_RO);
+    sw_require(sw_record(SW_WITNESS,0,proof,sizeof(proof)));
+#ifdef S22_DEBIAN_HANDOFF
+    dh_exec_init();
+#else
+    sw_return();
+#endif
 }

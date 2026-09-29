@@ -61,9 +61,11 @@ class Session(baseline.Session):
 
 
 class Records:
-    def __init__(self,key,run,nonce,boot,witness_sha256):
+    def __init__(self,key,run,nonce,boot,witness_sha256,*,root_readonly=True):
         self.key,self.run,self.nonce,self.boot=key,run,nonce,boot
         self.expected_witness=witness_sha256
+        require(type(root_readonly) is bool,'root mode is not explicit')
+        self.root_readonly=root_readonly
         self.records=[];self.logs=bytearray();self.last=0;self.proof=None;self.stop=None;self.returned=False
 
     def accept(self,frame):
@@ -90,11 +92,12 @@ class Records:
             else:
                 require(len(data)==120,'post-exec proof width differs')
                 pid,major,minor,mounts=struct.unpack('<4I',data[:16]);flags,ro=struct.unpack('<2I',data[112:])
-                require(pid==1 and (major,minor)!=(0,0) and 6<=mounts<=32 and flags==15 and ro==1 and
+                require(pid==1 and (major,minor)!=(0,0) and 6<=mounts<=32 and
+                    flags==(15 if self.root_readonly else 0) and ro==int(self.root_readonly) and
                     data[16:48]==self.boot and data[48:80].hex()==self.expected_witness and any(data[80:112]),
                     'post-exec PID/root/boot/executable/mount facts differ')
                 self.proof=dict(pid=pid,root_device=dict(major=major,minor=minor),root_type='ext4',root_flags=flags,
-                    partition_readonly=True,mount_count=mounts,mount_sha256=data[80:112].hex(),
+                    partition_readonly=self.root_readonly,mount_count=mounts,mount_sha256=data[80:112].hex(),
                     witness_sha256=data[48:80].hex(),workers_settled=True,other_userspace=0,
                     descriptor_whitelist=[0,1,2,3],same_transport=True)
             self.last=stage
@@ -103,8 +106,9 @@ class Records:
 
     def projection(self):
         return dict(status='PASS_SWITCH_ROOT_WITNESS' if self.proof is not None else 'NO_PROOF',
-            verdict='PROVED_READONLY_HOST_PID1_ROOT_TRANSITION' if self.proof is not None else 'NO_PROOF',
-            pid1_handoff_proved=self.proof is not None,debian_boot_proved=False,persistent_writes=False,
+            verdict=('PROVED_READONLY_HOST_PID1_ROOT_TRANSITION' if self.root_readonly else
+                'PROVED_WRITABLE_HOST_PID1_ROOT_TRANSITION') if self.proof is not None else 'NO_PROOF',
+            pid1_handoff_proved=self.proof is not None,debian_boot_proved=False,persistent_writes=not self.root_readonly,
             return_accepted=self.returned,proof=self.proof,stages=self.records,stop=self.stop,
             preparation_log=dict(size=len(self.logs),sha256=hashlib.sha256(self.logs).hexdigest()))
 

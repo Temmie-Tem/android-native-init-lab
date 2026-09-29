@@ -4,11 +4,12 @@ import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
+import s22plus_debian_handoff_profile_v1 as handoff
 from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-ITEMS = (profile, probe, preflight, staged, switch)
+ITEMS = (profile, probe, preflight, staged, switch, handoff)
 PROFILES = tuple(item.PROFILE for item in ITEMS)
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
@@ -26,6 +27,9 @@ def mutates_step(operation,name):
 def normal_steps(operation=profile.OPERATION):
     from s22plus_native_session_v3 import Step
     item = selected(operation)
+    if item is handoff:
+        from s22plus_debian_handoff_session_v1 import normal_steps as handoff_steps
+        return handoff_steps()
     if item is switch:
         return (Step('android-download','download','A'),Step('install-native-first','transfer','N'),
             Step(item.SELECTION,'observe','N','download'),Step('install-android','transfer','A'),
@@ -44,10 +48,13 @@ def validate_task(task, *, recovery=False):
     require(task['N']['profile'] == item.PROFILE and task['operations'] == [item.OPERATION] and
         task['E'] is None and task['admission'] is None and task['prior_terminal'] is None and
         task.get('bootstrap_start') is None and task['recovery_mode'] == 'attended' and
-        task['operation_budget'] == 1 and 60 <= task['seconds'] <= 1800 and
+        task['operation_budget'] == 1 and 60 <= task['seconds'] <= (3600 if item is handoff else 1800) and
         not any(task[k] for k in ('reentry', 'hud', 'usb_reconnect')),
         'inspector profile is restricted to one attended Android-origin operation')
     if not recovery: item.image_binding(task['N'])
+    if item is handoff:
+        from s22plus_debian_handoff_session_v1 import validate_task as handoff_task
+        handoff_task(task,recovery=recovery)
     android_basis_for_image(task['N'], task['target'], task['A'])
 
 
@@ -68,6 +75,9 @@ def android_basis(adapter, request):
 
 def validate_result(adapter, step, value, request):
     item = selected(request['operation'])
+    if item is handoff:
+        from s22plus_debian_handoff_session_v1 import validate_result as handoff_result
+        return handoff_result(adapter,step,value,request)
     if step.name != item.SELECTION: return
     status = 'PASS_SWITCH_ROOT_WITNESS' if item is switch else 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
     require(value['proof'][item.Profile.RESULT_KEY]['status'] == status,
@@ -108,6 +118,9 @@ def validate_result(adapter, step, value, request):
 def terminal(adapter, request, *, recovered):
     from s22plus_native_session_v3 import operation_steps
     item = selected(request['operation'])
+    if item is handoff:
+        from s22plus_debian_handoff_session_v1 import terminal as handoff_terminal
+        return handoff_terminal(adapter,request,recovered=recovered)
     step = next(s for s in operation_steps(request) if s.name == item.SELECTION)
     result = dict(status='NO_PROOF', normal_return=not recovered, native_admitted=False,
         chroot_proved=False, debian_boot_proved=False)

@@ -45,7 +45,10 @@ static __attribute__((noreturn)) void sw_parent_exec(struct rc1_state *s) {
   p328_run_id_bytes,s->nonce,6,1,&tail,1);
  if(memcmp(request,"S328",4)||request[4]!=1||request[5]!=38||request[6]!=32||request[7]||
   p328_load_le32(request+8)!=6||p328_load_le32(request+12)!=p328_frame_crc(request,request+16,32)||memcmp(request+16,expected,32))fx_park();
- unsigned char accepted[4]={1,0,0,0};swfx_send(s,170,6,accepted,4);fx_park();__builtin_unreachable();
+ unsigned char accepted[4]={1,0,0,0};swfx_send(s,170,6,accepted,4);
+ /* A PTY master exit can discard unread ACK bytes; keep the peer parked
+  * until the fixture owner closes it, as the production terminal does. */
+ for(;;)usleep(1000);
 }
 '''
 
@@ -61,7 +64,7 @@ class ObservationTests(unittest.TestCase):
         text=text[:start]+PEER.replace('@@NAMESPACE@@',producer.IDENTITY.namespace).encode()+text[end:]
         path.write_bytes(text)
         producer.compile_c(path,cls.binary,'-Wno-unused-function','-Wno-unused-const-variable','-Wno-misleading-indentation')
-        cls.image=dict(cls.image,switch_root=dict(witness=dict(sha256=WITNESS)))
+        cls.image=dict(cls.image,profile=profile.PROFILE,switch_root=dict(witness=dict(sha256=WITNESS)))
 
     running=base.ObservationTests.running
 

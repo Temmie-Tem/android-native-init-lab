@@ -21,38 +21,7 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P410 installed-Debian handoff preparation
-
-P410 `v0.4.0-rc.10` implements the next bounded unit under the separate
-[native-first Debian handoff policy](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md).
-The exact protected checker/root admission precedes one native_data RW mount,
-a writable post-switch RAM witness and installed init. The first synchronous
-SysVinit hook proves actual PID1 and retired native descriptors before native
-ACM retirement; Debian then owns NCM and the fixed SSH health/shutdown path.
-One compound intent owns the native phases. No reinstall, package workload,
-ordinary reboot or new generic native service is selected.
-
-Real ARM64 system-QEMU proved the installed PID1, same-boot pinned SSH, fixed
-shutdown and clean virtual ext4. Ten negative cases cover dirty/mismatched
-admission, failed hook/UDC, damaged or stale state, inherited native descriptors
-and bad/missing release. They do not start Debian services or acquire SSH; writes
-remain confined to native_data, and admission negatives leave the disk unchanged.
-This is VM proof, not a Samsung Debian-boot result.
-
-Final A/B artifact qualification and independent source-bound review are
-**PASS_GO**. Fixed foreground D0 preparation rederived rooted original Android,
-exact partition hashes, full GPT and Android32 capacity from 19 raw captures.
-The concrete task is **READY_PRELIVE_ONLY**, SHA-256
-`cd4731b594bdffddd8581d43ae1cfe35f5f2665ec8c7e307137fc82fa30aebe4`.
-The [P410 H0 report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P410_H0_2026-09-30.md)
-records 82 passing tests, eleven VM cases and the frozen source/artifact evidence.
-No P410 grant, experimental transfer or device control has occurred; its
-candidate is unclaimed and the F1 owner is absent. P409 remains consumed and
-closed healthy. The prospective live graph permits one attended operation,
-3600 seconds, one fixed shutdown, physical Download and one original-A return
-with full Android32/GPT health. It has no automatic-recovery guarantee.
-
-## Prior P409 proved readonly PID1 transition and healthy Android closure
+## Current P409 proved readonly PID1 transition and healthy Android closure
 
 P409 `v0.4.0-rc.9` completed one attended operation on 2026-09-30 KST.
 The actual native PID1 replaced itself, settled its native workers, verified
@@ -319,10 +288,7 @@ command; the same grant and deadline were retained. Final health completed at
 The one-operation budget is consumed and the F1 owner is absent. See the
 [live report and canonical timeline](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md).
 
-## Prior installed-boot return reference — P399 / v0.3.1
-
-This reference belongs to the earlier installed-boot scope. P410 instead uses
-physical Download and one original-A return under its separate scope.
+## Selected native return reference — P399 / v0.3.1
 
 The operator selected exact P399 `v0.3.1-rc.1` as the native return research
 baseline and mapped those unchanged bytes to functional version `v0.3.1`.
@@ -664,35 +630,119 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The current unit is **P410 actual installed-Debian PID1 and basic access**.
-P409 already proved the shared native-worker retirement, exact protected root,
-actual PID1 switch_root and post-exec observation on Samsung. P410 extends
-that mechanism under its separate writable scope; it is not a continuation of
-P409's consumed grant. Preparation stops before its finite attended experiment.
+**P404 installed-root handoff completed H0 preparation.** The fresh
+`v0.4.0-rc.4` archive-free boot package has identical A/B bytes and a static
+ARM64 bootstrap. A real ARM64 VM booted the retained installed Debian root as
+initial PID 1, authenticated SSH health, shut down cleanly and rejected an empty
+root without installation or backing-disk writes. The exact package/VM join is
+qualified H0; see the [P404 preparation report](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P404_H0_2026-09-23.md).
+The new one-shot owner and [installed-boot policy](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md)
+passed exact-source H0 and live capability reviews. The consumed first run and
+healthy Android return are recorded at the top of this goal. Samsung PID 1/SSH
+and P399 normal return remain unproved. The retained-input H0 audit is complete:
+one host selector defect was repaired and independently reviewed, then the fresh
+P405 successor completed H0 qualification and its one attended run. The current
+P405 result and healthy Android closure are recorded above. Next is H0 design
+for pre-USB/bootstrap and root-state evidence. Neither consumed grant is renewed.
 
-1. **Dedicated root and fixed userspace:** retained filesystem, complete root
-   comparison and the installed shell/libc workload have target proof. Preserve
-   the closed earlier results and their exact no-replay boundaries.
-2. **Actual Debian init and access:** prove installed `/sbin/init` as initial
-   PID1 before native ACM retirement, then Debian NCM and pinned same-boot SSH.
-   One fixed shutdown and physical original-A return close this bounded unit.
-3. **Persistence and ordinary service:** after that unit closes healthy, qualify
-   package-managed service behavior, retained data/configuration and ordinary
-   Debian reboot in a separately selected scope. P410 does not include them.
-4. **Later hardware/product features:** Wi-Fi, display/input, audio and desktop
-   are Debian-managed capabilities after the headless base works.
+**Stage 3 is complete: P403 proved the fixed installed-Debian shell/libc/
+child-exit workload after complete protected-root comparison and returned
+normally to healthy original Android. Debian host PID 1 and NCM/SSH remain
+unproved. Its grant is closed; P401/P402/P403 claims remain consumed.**
+See the [P403 live report](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md)
+and [stage-3 qualification](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_H0_2026-09-23.md).
 
-ARM64 virtual-machine proof does not establish Samsung USB behavior or target
-Debian boot. Root-witness proof, installed-init proof, SSH health, clean ext4,
-Android return and final operation closure remain separate facts. A forced
-return can leave native_data dirty without making Android unhealthy; future
-repair or revised root admission needs its own scope.
+The then-next bounded unit was H0 preparation of a fresh full Debian init handoff,
+with a concrete post-handoff observation and recovery path. It used the proved
+installed root and fixed userspace evidence to focus on initial-PID-namespace
+handoff, minimal device setup and the required transport. It selected
+P399 as the normal-return reference and retained exact original-A
+failure recovery in that reviewed scope. A diagnostic chroot
+is an intermediate test, not the product architecture or proof of host PID 1.
+Do not reinstall or replay P401/P403. Any new live scope needs its own qualified
+candidate, independent review where required and current authority.
+
+The closed P403 task SHA-256 is
+`3551fdb6215347efac476b33bc62a77330a9acafddc417be8bafd51fcfe468df`.
+Its one-operation/1800-second attended grant is consumed and explicitly closed;
+it grants no further installed-code execution, transfer or PID 1 handoff.
+
+The P402 task SHA-256 is
+`91fd7e92b087f4860739f7ef24236edb67104b9e2cd43e6f4585bbbe0cbc66ad`.
+Its single operation used one N transfer, one inspector execution and one
+original-A return. Final health completed at 98.686 seconds from grant opening;
+H0 raw rederivation and explicit grant closure completed at 228.764 seconds.
+P399 `v0.3.1-rc.1` and P400 `v0.3.1-rc.2`, their filesystem attempt and finite
+grant are consumed. Preserve the existing filesystem and witness; do not
+reformat or replay these images to obtain a different aggregate verdict.
+The [H0 qualification](docs/reports/S22PLUS_NATIVE_EXT4_H0_2026-09-17.md) and
+live report above distinguish preparation, actual functional proof and recovery.
+
+The [2026-09-19 research](docs/reports/S22PLUS_DEBIAN_BOOTSTRAP_RESEARCH_2026-09-19.md)
+re-extracted the actual P399 kernel config and compared official Debian,
+systemd, BusyBox and Linux 5.10 sources. Both devtmpfs and FHANDLE are disabled;
+Debian's SysV udev script also requires devtmpfs. The first H0 construction
+candidate is Debian 13 trixie arm64 with SysVinit and Debian BusyBox mdev's
+netlink mode. Its package availability and relevant source behavior are
+confirmed. The subsequent
+[2026-09-21 construction](docs/reports/S22PLUS_DEBIAN_BOOTSTRAP_H0_2026-09-21.md)
+produced a rootfs from 129 signature-verified packages, two byte-identical builds and a
+reproducible static ARM64 virt bootstrap. Real Linux 5.10 ARM64 VM tests prove
+PID 1/root handoff, SSH/PTY, selected service and package behavior, fresh-boot
+persistence and clean shutdown. Six rejection cases stop before handoff without
+changing their disks. Independent H0 review passed after retained corrections.
+These are virt results; target Debian boot and recovery remain unproved.
+
+The [first-device preparation](docs/reports/S22PLUS_DEBIAN_FIRST_BOOT_H0_2026-09-21.md)
+now provides P401 `v0.4.0-rc.1`: a byte-identical A/B boot-only candidate with
+an embedded rootfs, exact retained FYG8 kernel/platform modules and a fixed
+native ext4 installer. The real ARM64 installer fixture proves full PID 1
+handoff, local SSH/PTY, offline package/service behavior, ordinary reboot,
+persistence and shutdown. Its physical-board substitutions remain explicit.
+Six failures cover storage/archive binding and partial-install no-replay.
+
+The [separate first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
+requires the source-bound independent review, actual artifact qualification,
+current exact Android health and one returned attended grant of at most 7200
+seconds. The intended run installs once, qualifies one Debian reboot, requests
+shutdown and restores original A once through attended physical Download.
+Returning to Android does not undo possible Debian writes or prove unobserved
+native filesystem integrity. The consumed ext4 grant grants none of these
+effects. P401's actual Samsung Debian boot remains unproved; its physical
+original-A return and final Android health are now proved by the live report.
+
+Then qualify these bounded functional milestones in order:
+
+1. **Dedicated filesystem:** actual ext4 initialization, clean mount/unmount
+   and a byte-identical 4096-byte witness after fresh native boot are proved by
+   the first run. Rooted Android return was verified through health-only
+   recovery. Preserve the distinct conservative aggregate verdict above.
+2. **Matched rootfs and bootstrap:** H0 construction and the first exact FYG8
+   boot candidate are complete. P401 transferred once and its installation claim
+   is consumed. P402 independently proved matching installed files and completion
+   records through a protected read-only mount. P403 then proved the fixed
+   installed shell/libc/child-exit workload on the target. Any successor needs
+   its own reviewed scope; the diagnostic shell does not replace full handoff.
+3. **Full init handoff:** prove Debian host PID 1 and root ownership, including
+   bootstrap/helper cleanup and the post-handoff observation/recovery path.
+4. **Headless Debian operation:** qualify Debian-owned networking, authenticated
+   SSH, package management and the selected ordinary service in one run.
+5. **Persistence and normal lifecycle:** qualify Debian restart, clean shutdown,
+   fresh boot, retained data/configuration and separate Android return health.
+6. **Later hardware/product features:** add Wi-Fi if not already qualified,
+   display/input, audio or a desktop as Debian-managed capabilities after the
+   headless base works. Their absence does not block the earlier milestones.
+
+Debian 13/SysVinit/mdev now has selected reproducible host artifacts and scoped
+ARM64 virt proof. P402 proves native UFS/root inspection through the existing
+ACM runtime; P403 proves its fixed installed-Debian userspace workload.
+Debian boot, Debian-owned hotplug/firmware and USB access,
+power/thermal behavior and post-handoff recovery remain unproved.
+The native ext4 images and attempt are consumed, with no remaining live grant.
+Preserve the filesystem; rootfs staging, target handoff and recovery require
+their exact reviewed scopes under the binding contracts.
 
 ## Completed history
-
-The complete goal through P409's healthy closure, including the earlier
-construction and superseded milestone narrative, is preserved byte-for-byte in
-[the P409 closed snapshot](docs/archive/roadmaps/GOAL_THROUGH_P409_CLOSED_2026-09-30.md).
 
 The complete previous 798-line goal, including P396 live closure, P397 H0
 preparation and all earlier archive links, is preserved byte-for-byte in

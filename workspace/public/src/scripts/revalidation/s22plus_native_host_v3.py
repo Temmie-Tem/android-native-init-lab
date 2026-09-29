@@ -161,7 +161,7 @@ class NativeHost:
         return receipt
 
     @contextmanager
-    def open_native(self, run_id, *, before_open):
+    def open_native(self, run_id, *, before_open, local_carrier=False):
         before_open()
         census_before,first_receipt=self.holders(expected_run=run_id)
         endpoint=census_before['endpoint']; require(endpoint is not None,'selected native tty is absent')
@@ -174,6 +174,11 @@ class NativeHost:
                 'opened native descriptor generation differs')
             fcntl.ioctl(fd,termios.TIOCEXCL)
             tty.setraw(fd,termios.TCSANOW)
+            if local_carrier:
+                settings=termios.tcgetattr(fd);settings[2]|=termios.CLOCAL
+                termios.tcsetattr(fd,termios.TCSANOW,settings)
+                require(termios.tcgetattr(fd)[2]&termios.CLOCAL,'native close/reopen needs local carrier')
+                acquisition['local_carrier']=True
             _,second_receipt=self.holders(descriptor=fd,expected_run=run_id)
             properties=self.properties(endpoint)
             require(census.endpoint(self.config)==endpoint,'native endpoint changed before authentication')

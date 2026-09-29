@@ -9,16 +9,17 @@ import s22plus_boot_only_f1_transport as transport
 from s22plus_native_records_v3 import pin, private_path, publish, read, require, verify
 
 
-def qualify(namespace, output, *, key_path, build_directory=None, userspace=False, preflight=False, staged=False, switch_root=False):
+def qualify(namespace, output, *, key_path, build_directory=None, userspace=False, preflight=False, staged=False, switch_root=False,handoff=False):
     import s22plus_native_baseline_v2_candidates as catalog
     import s22plus_debian_first_boot_v1 as prior_owner
     selected = catalog.DECLARATIONS[namespace]
     chosen = profile
-    require(sum((userspace,preflight,staged,switch_root))<=1, 'select one diagnostic role')
+    require(sum((userspace,preflight,staged,switch_root,handoff))<=1, 'select one diagnostic role')
     if userspace: import s22plus_native_userspace_probe_profile_v1 as chosen
     if preflight: import s22plus_native_preflight_profile_v1 as chosen
     if staged: import s22plus_native_staged_preflight_profile_v1 as chosen
     if switch_root: import s22plus_switch_root_profile_v1 as chosen
+    if handoff: import s22plus_debian_handoff_profile_v1 as chosen
     require(catalog.research_profile(selected) == chosen.PROFILE, 'unselected protected-root composition')
     builder = catalog.static(namespace).builder
     if build_directory is not None: builder.DEFAULT_OUTPUT_ROOT = private_path(ROOT, build_directory)
@@ -52,17 +53,20 @@ def qualify(namespace, output, *, key_path, build_directory=None, userspace=Fals
         profile=chosen.PROFILE, version=selected.IDENTITY.display_version, ap=ap, member=member, key=key,
         runtime_sources=built['source_inputs'],
         gpt=plan['basis']['gpt'], android_return=basis)
-    if preflight:image['preflight']=built['preflight']
+    if handoff:image['root_admission']=built['root_admission']
+    elif preflight:image['preflight']=built['preflight']
     else:image['root_inspection']=built['root_inspection']
     if userspace: image['userspace_probe'] = built['userspace_probe']
     if staged:image['staged_preflight']=built['staged_preflight']
     if switch_root:image['switch_root']=built['switch_root']
+    if handoff:image['debian_handoff']=built['debian_handoff']
     chosen.image_binding(image)
     output = private_path(ROOT, output, exists=False)
     require(not output.exists(), 'inspector qualification output already exists'); output.mkdir(mode=0o700)
     qualification = publish(output / 'qualification.json', dict(schema='s22plus-native-artifact-qualification-v3',
         image=image, builder_result=pin(builder.DEFAULT_OUTPUT_ROOT / 'result.json'),
         ab_identical=True, actual_ap_join=True, exporter=pin(Path(__file__).with_name(
+            's22plus_debian_handoff_artifact_v1_h0.py') if handoff else Path(__file__).with_name(
             's22plus_switch_root_artifact_v1_h0.py') if switch_root else Path(__file__).with_name(
             's22plus_native_preflight_artifact_v1_h0.py') if preflight else Path(__file__).with_name(
             's22plus_native_userspace_probe_artifact_v1_h0.py') if userspace else Path(__file__).with_name(

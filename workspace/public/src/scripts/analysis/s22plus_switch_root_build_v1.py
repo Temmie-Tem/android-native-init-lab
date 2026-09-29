@@ -17,23 +17,25 @@ EXTRA_SOURCES=previous.EXTRA_SOURCES+[
 class Builder(previous.Builder):
     __file__=__file__
     source=source
+    producer=producer
+    profile_attribute='SWITCH_ROOT_PROFILE'
     extra_member_modes={'s22-switch-root':0o500,'s22-switch-witness':0o500,'s22-switch-busybox':0o500,
         's22-root-inspect.table':0o400,'s22-fs-e2fsck':0o500}
 
     def __init__(self,declaration):
         super().__init__(declaration)
-        require(declaration.SWITCH_ROOT_PROFILE==source.PROFILE,'unselected switch-root role')
+        require(getattr(declaration,self.profile_attribute)==self.source.PROFILE,'unselected switch-root role')
         self.DEFAULT_OUTPUT_ROOT=ROOT/('workspace/private/outputs/s22plus-switch-root-v1/'+declaration.IDENTITY.namespace+'/build-1')
 
     def source_receipts(self):
         rows=super().source_receipts()
-        for path in (*producer.source_files(),Path(__file__)):
+        for path in (*self.producer.source_files(),Path(__file__)):
             rows[str(path.relative_to(ROOT))]=packaging.identity(packaging.stable(path))
         return dict(sorted(rows.items()))
 
     def native_sources(self):
         rows=super().native_sources();name=shared.packager.RUNTIME_INCLUDE_NAME
-        rows[name]=source.upgrade_native(rows[name],self.declaration.IDENTITY)
+        rows[name]=self.source.upgrade_native(rows[name],self.declaration.IDENTITY)
         return rows
 
     def key(self):
@@ -46,9 +48,12 @@ class Builder(previous.Builder):
 
     def build_native_init(self,out,resident):
         super().build_native_init(out,resident)
-        producer.build(out/'switch-root',self.declaration.IDENTITY.run_id_hex,self.key())
+        self.producer.build(out/'switch-root',self.declaration.IDENTITY.run_id_hex,self.key(),**self.helper_options())
 
-    def helper_value(self,out):return producer.audit(out/'switch-root',self.declaration.IDENTITY.run_id_hex,self.key())
+    def helper_options(self):return {}
+
+    def helper_value(self,out):
+        return self.producer.audit(out/'switch-root',self.declaration.IDENTITY.run_id_hex,self.key(),**self.helper_options())
 
     def runtime_value(self,out,resident,thermal):
         return dict(super().runtime_value(out,resident,thermal),switch_root_helpers=self.helper_value(out))

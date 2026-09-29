@@ -92,7 +92,7 @@ static int sw_record(unsigned stage,unsigned error,const void *data,size_t size)
     ++sw.next_record;if(stage!=SW_LOG)sw_last_stage=stage;return rc;
 }
 static __attribute__((noreturn)) void sw_park(void) {
-#ifdef S22_ROOT_INSPECT_VIRT_TEST
+#if defined(S22_ROOT_INSPECT_VIRT_TEST) && !defined(S22_DEBIAN_HOOK)
     /* H0 harness termination only. The Samsung build always parks. */
     (void)syscall(SYS_reboot,LINUX_REBOOT_MAGIC1,LINUX_REBOOT_MAGIC2,LINUX_REBOOT_CMD_POWER_OFF,0);
 #endif

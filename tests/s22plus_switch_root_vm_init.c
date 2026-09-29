@@ -37,6 +37,9 @@ int main(void) {
     init_require(!mount("sysfs","/sys","sysfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL),"sys");
     init_require(!mount("tmpfs","/dev","tmpfs",MS_NOSUID,"mode=0755"),"dev");
     init_require(!mknod("/dev/null",S_IFCHR|0600,makedev(1,3)),"null");
+#ifdef S22_DEBIAN_HANDOFF_VM
+    init_require(!mknod("/dev/console",S_IFCHR|0600,makedev(5,1)),"virtual-console");
+#endif
     init_require(!mount("tmpfs","/run","tmpfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,"mode=0755"),"old-run");
     init_require(!mount("tmpfs","/s22-root-work","tmpfs",MS_NOSUID|MS_NODEV,"size=64m,mode=0700"),"work");
     init_require(!mount("configfs","/config","configfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL),"config");

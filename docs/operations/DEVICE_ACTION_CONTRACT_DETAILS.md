@@ -83,6 +83,11 @@ permission to perform host-only work.
    one reviewed P399 boot-only normal restoration. It grants no installation,
    format, repair, GPT change, Android stage or replay of prior P401/P399
    effect intents.
+   The separate [native-first Debian handoff exception](S22PLUS_DEBIAN_HANDOFF_V1.md)
+   below permits one protected admission followed by an installed-Debian
+   native_data writable lifetime, basic access and fixed shutdown, with
+   physical original-A return. It adds no install, repair, GPT mutation,
+   other-partition access or replay of any consumed predecessor.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
@@ -114,6 +119,12 @@ permission to perform host-only work.
    permits one fixed actual-PID-1 switch_root to a pinned RAM executable under
    the readonly native_data root. Partition-only RAM RO remains set; it adds
    no filesystem data write, installed init execution or writable lifetime.
+   The separately reviewed [native-first Debian handoff V1](S22PLUS_DEBIAN_HANDOFF_V1.md)
+   permits one exact-root protected admission followed by partition-only RAM
+   RO clear, a fresh normal native_data RW mount and installed Debian init,
+   basic SSH and fixed shutdown. Ordinary writes are confined to entry 41;
+   no formatter, repair, extraction, raw block-data writer or other-partition
+   write is added. Attended physical original-A recovery remains required.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -815,6 +826,40 @@ health retain their one-shot/health-only continuation semantics. Separate
 source review, A/B qualification and returned finite grant remain required.
 The fixed foreground Android preparation D0 performs no mode change or image
 transfer. No previous candidate, installation or task claim is reopened.
+
+## S22+ native-first installed-Debian handoff
+
+The separate [handoff V1 policy](S22PLUS_DEBIAN_HANDOFF_V1.md) specializes
+boundaries 2 and 3 only for exact FYG8/Android32 native_data entry 41. One
+returned attended V3 `debian-handoff` grant permits one operation and 3600
+original BOOTTIME seconds. It starts from healthy original A, installs one
+fresh archive-free N, proves native first-boot health and performs the fixed
+protected worker/checker/full-root admission before a single writable lifetime.
+
+The unique compound intent owns ordinary unmount of the protected root, one
+partition-only RO clear/readback, a fresh normal RW mount, actual PID1
+switch_root/RAM witness, installed init and native ACM retirement. The witness
+and first synchronous SysVinit hook use the original run/nonce/boot and
+300-second deadline. Fixed continuations require independently retained prior
+proof and cannot renew authority. Failed hooks park and cannot release rcS.
+Only fixed RAM overlays and device-node preparation are added; the physical
+artifact excludes VM substitutions, an installation archive and formatters.
+
+The hook proves actual installed PID1 and native-fd retirement before native
+ACM unbind. Exact NCM selection and pinned SSH must join that same kernel boot.
+Only health and one separately journaled fixed shutdown are selected. There
+is no package workload, ordinary reboot, generic remote command or N admission.
+Normal return pauses for attended physical Download under one original bounded
+continuation. Existing exact endpoint/Odin revalidation precedes one original
+A transfer and full rooted Android32/GPT health. Uncertainty never replays
+the handoff, shutdown or A. Completed A permits only remaining health reads.
+
+This permits normal Debian root/service writes only on native_data, with no
+repair, reinstall, partition-table change or access to Android data. Forced
+return may leave that filesystem dirty; Android health and NCM departure do
+not prove clean ext4. Current independent source review and A/B qualification
+are prerequisites, never live authority. All older consumed records remain
+immutable. The fixed predecessor preparation D0 remains separately bounded.
 
 ## S22+ G2 fixed GPT reservation and stock initialization
 

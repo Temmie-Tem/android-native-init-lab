@@ -15,6 +15,9 @@ static int sw_finish_child(pid_t,unsigned);
 #undef main
 #include "s22plus_switch_root_common_v1.inc.c"
 #include "s22plus_switch_root_payload_v1.h"
+#ifdef S22_DEBIAN_HANDOFF
+#include "s22plus_debian_handoff_prepare_v1.inc.c"
+#endif
 #ifndef S22_SWITCH_ROOT_FAULT
 #define S22_SWITCH_ROOT_FAULT 0
 #elif !defined(S22_ROOT_INSPECT_VIRT_TEST)
@@ -142,12 +145,20 @@ static int sw_next(int root,struct fs1_endpoint *e,const struct ri_counts *count
            (S22_SWITCH_ROOT_FAULT==1 ? MS_NOEXEC : 0),"size=8m,nr_inodes=64,mode=0700") ||
        mkdir("/s22-handoff-run/config",0700))sw_stop(fs1_error());
     sw_require(sw_copy_witness());memcpy(sw.witness_digest,sw_witness_sha256,32);
+#ifdef S22_DEBIAN_HANDOFF
+    sw_require(dh_stage_assets());
+#endif
     int busybox=fs1_pin_file("/s22-switch-busybox",sw_busybox_size,sw_busybox_sha256,true);
     if(busybox<0)sw_stop(fs1_error());
     if(close(busybox))sw_stop(fs1_error());
     sw_require(sw_record(SW_MOUNTS,0,"fixed-ram-witness",17));
     /* From this point a failure parks. It never falls through ri_run's old
      * cleanup paths after the namespace or descriptor set has changed. */
+#ifdef S22_DEBIAN_HANDOFF
+    /* Close every admission fd before ordinary unmount; never carry noload
+     * into the Debian writable lifetime through a remount. */
+    dh_activate_root(e);
+#endif
     sw_move(ri_root,"/newroot");
     sw_move("/s22-handoff-run","/newroot/run");
     sw_move("/config","/newroot/run/config");

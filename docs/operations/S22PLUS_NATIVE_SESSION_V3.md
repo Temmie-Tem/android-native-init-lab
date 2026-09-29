@@ -107,6 +107,20 @@ DETACH/reentry or physical reconnect is selected. A proved witness survives a
 later failed return only as evidence; existing physical original-A recovery
 and health-only continuation still own closure.
 
+The separately adopted [native-first Debian handoff](S22PLUS_DEBIAN_HANDOFF_V1.md)
+adds only `debian-handoff`: one Android-origin fresh N, exact protected
+admission, one native_data RW activation, actual root witness, installed init
+and first-sysinit proof before ACM/NCM transition. Its one-operation attended
+grant lasts 3600 original seconds. Fixed init/release continuations consume
+no new budget; their prior proofs and pre-send receipts join the original
+compound intent. SSH health must join that same boot; its only control is one
+separately journaled shutdown. Normal execution then pauses for physical
+Download before one original-A transfer/full Android32 health. The original
+physical continuation is at most 600 seconds within the grant; it never
+renews native authority. An expired or failed normal path selects existing
+attended original-A recovery. No legacy Debian live owner is imported, and
+completed A still selects health-only continuation.
+
 Every authentication retains its nonce, authenticated kernel boot identity,
 ordinal, fixed root health, raw RX/TX and terminal acknowledgement. DETACH
 also requires actual descriptor close. A new installed boot starts at ordinal

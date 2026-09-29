@@ -104,6 +104,13 @@
       "version": "v0.4.0-rc.9",
       "image_sha256": "8a76ac6e98710589591b61c1d4dcb00ca4836aa6505b4dbaa26d8e095a7d383c",
       "profile": "thermal-v3-reconnect-ufs-drain-switch-root-v1"
+    },
+    {
+      "namespace": "p410",
+      "run_id": "369fe7d95d21b42f7900f23fd50850e0",
+      "version": "v0.4.0-rc.10",
+      "image_sha256": "61302900131ace1affa07802e8c1754dff7c9d1072cc5f8008321eed064150a6",
+      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v1"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

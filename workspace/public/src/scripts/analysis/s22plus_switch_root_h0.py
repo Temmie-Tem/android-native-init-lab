@@ -47,11 +47,15 @@ def source_files(virt=False):
     return sorted(paths)
 
 
-def build(out,run,key,*,virt=False,fault=0,checker_fault=0):
+def build(out,run,key,*,virt=False,fault=0,checker_fault=0,debian=None):
     require(type(fault) is int and fault in (0,1,2,3) and type(checker_fault) is int and
         checker_fault in range(10) and (not fault and not checker_fault or virt),'fault requires virtual discovery')
     out=private_path(ROOT,out,exists=False);require(not out.exists(),'fresh switch build required')
-    receipts=[pin(p,maximum=4*1024*1024) for p in source_files(virt)]
+    if debian is not None:
+        import s22plus_debian_handoff_h0 as extension
+        extension.validate_options(debian,virt)
+    paths=source_files(virt) if debian is None else extension.source_files(virt)
+    receipts=[pin(p,maximum=4*1024*1024) for p in paths]
     out.mkdir(mode=0o700,parents=True)
     for row in receipts:
         copy=out/'source-snapshot'/str(Path(row['path']).relative_to(ROOT))
@@ -68,6 +72,10 @@ def build(out,run,key,*,virt=False,fault=0,checker_fault=0):
     flags=['-std=c11','-static','-Os','-fno-ident','-ffunction-sections','-fdata-sections','-Wl,--gc-sections',
         '-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-const-variable','-I',out,'-I',NATIVE]
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST']
+    if debian is not None:
+        flags+=['-DS22_DEBIAN_HANDOFF']
+        if debian['fault']:flags+=['-DS22_DEBIAN_FAULT='+str(debian['fault'])]
+        extension.prepare_headers(out,run,debian,virt)
     if fault:flags+=['-DS22_SWITCH_ROOT_FAULT='+str(fault)]
     if checker_fault:
         flags+=['-DS22_STAGED_PREFLIGHT_FAULT']
@@ -77,21 +85,26 @@ def build(out,run,key,*,virt=False,fault=0,checker_fault=0):
             'static const unsigned up_fault_timeout_ms=1000;\n'
             f'static const unsigned sp_fault_kind=1,sp_fault_mode={checker_fault};\n')
     binaries={}
-    for label,filename in (('witness','s22plus_switch_root_witness_v1.c'),('prepare','s22plus_switch_root_v1.c')):
+    units=[('witness','s22plus_switch_root_witness_v1.c'),('prepare','s22plus_switch_root_v1.c')]
+    if debian is not None:units.insert(0,('hook','s22plus_debian_handoff_hook_v1.c'))
+    for label,filename in units:
         for side in ('a','b'):
             inspection.fs_build.run([compiler,*flags,NATIVE/filename,'-o',out/(label+'-'+side)],cwd=ROOT,
                 stdout=out/(label+'-'+side+'.log'),timeout=60)
         require((out/(label+'-a')).read_bytes()==(out/(label+'-b')).read_bytes(),'switch ELF A/B differs')
         binaries[label]=inspection.fs_build.tool_identity(out/(label+'-a'))
+        if label=='hook':extension.payload_header(out,binaries[label],virt)
         if label=='witness':
             (out/'s22plus_switch_root_payload_v1.h').write_bytes(payload_header(binaries[label]))
     for row in receipts:verify(row,maximum=4*1024*1024)
     require(inspection.fs_build.compiler_identity(compiler)==compiler_pin,'ARM64 compiler changed')
-    return publish(out/'result.json',dict(schema='s22plus-switch-root-helpers-h0-v1',run_id_hex=run,
+    extras={} if debian is None else extension.result_fields(out,binaries['hook'],debian,virt)
+    return publish(out/'result.json',dict(schema='s22plus-switch-root-helpers-h0-v1' if debian is None else
+        's22plus-debian-handoff-helpers-h0-v1',run_id_hex=run,
         key_sha256=hashlib.sha256(key).hexdigest(),sources=receipts,compiler=compiler_pin,virt=virt,
         fault=fault,checker_fault=checker_fault,
         **binaries,busybox=busybox(),checker=staged.execution_binding()['checker'],table=pin(out/'table.bin'),
-        table_count=count,boot_count=boot,ab_identical=True,device_actions=0,live_authorized=False))
+        table_count=count,boot_count=boot,ab_identical=True,device_actions=0,live_authorized=False,**extras))
 
 
 def audit(out,run,key):

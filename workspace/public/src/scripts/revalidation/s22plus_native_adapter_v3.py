@@ -18,6 +18,7 @@ import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
+import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -47,6 +48,7 @@ def image_valid(image, *, artifact_bytes=False):
         preflight.PROFILE:'s22plus_native_preflight_artifact_v1_h0.py',
         staged.PROFILE:'s22plus_native_staged_preflight_artifact_v1_h0.py',
         switch.PROFILE:'s22plus_switch_root_artifact_v1_h0.py',
+        handoff.PROFILE:'s22plus_debian_handoff_artifact_v1_h0.py',
         **{p:'s22plus_native_ext4_artifact_v1_h0.py' for p in fs.PROFILES}}
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'}
@@ -57,6 +59,7 @@ def image_valid(image, *, artifact_bytes=False):
     if image.get('profile') == probe.PROFILE:keys.add('userspace_probe')
     if image.get('profile') == staged.PROFILE:keys.add('staged_preflight')
     if image.get('profile') == switch.PROFILE:keys.add('switch_root')
+    if image.get('profile') == handoff.PROFILE:keys.update(('debian_handoff','root_admission','gpt','android_return'))
     require(set(image)==keys and image['schema']=='s22plus-native-image-v3'
         and image['profile'] in exporters,'native image qualification schema differs')
     native.identity(image); native.key_bytes(image)
@@ -119,10 +122,10 @@ def image_valid(image, *, artifact_bytes=False):
         require(not any(name in inventory for name in ('s22-fs','s22-fs-mke2fs','rootfs.tar.xz',
             's22-root-inspect','s22-userspace-probe','p404-lab-qualify')),
             'preflight image contains an unselected payload')
-    if image['profile'] in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE):
-        selected = next(item for item in (inspection,probe,staged,switch) if item.PROFILE==image['profile'])
+    if image['profile'] in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE,handoff.PROFILE):
+        selected = next(item for item in (inspection,probe,staged,switch,handoff) if item.PROFILE==image['profile'])
         binding = selected.image_binding(image)
-        require(built['root_inspection'] == binding and
+        require(built['root_admission' if selected is handoff else 'root_inspection'] == binding and
             built['native_selection']['runtime_profile']['root_inspect_profile'] == inspection.PROFILE,
             'root inspector role differs from its A/B producer')
         if selected is probe:
@@ -139,20 +142,29 @@ def image_valid(image, *, artifact_bytes=False):
             require(built['switch_root']==image['switch_root'] and
                 built['native_selection']['runtime_profile']['switch_root_profile']==switch.PROFILE,
                 'fixed PID1 transition differs from its A/B producer')
+        if selected is handoff:
+            require(built['debian_handoff']==image['debian_handoff'] and
+                built['native_selection']['runtime_profile']['debian_handoff_profile']==handoff.PROFILE,
+                'Debian handoff differs from A/B producer')
         inventory = built['candidate']['a']['inventory']
-        helper = 's22-switch-root' if selected is switch else 's22-staged-preflight' if selected is staged else 's22-userspace-probe' if selected is probe else 's22-root-inspect'
+        helper = 's22-switch-root' if selected in (switch,handoff) else 's22-staged-preflight' if selected is staged else 's22-userspace-probe' if selected is probe else 's22-root-inspect'
         members=[(helper,binding['helper'],0o100500),('s22-root-inspect.table',binding['table'],0o100400)]
         if selected is staged:members.append(('s22-fs-e2fsck',image['staged_preflight']['checker'],0o100500))
-        if selected is switch:
-            members.extend((member,image['switch_root'][label],0o100500) for member,label in (
+        if selected in (switch,handoff):
+            key='debian_handoff' if selected is handoff else 'switch_root'
+            members.extend((member,image[key][label],0o100500) for member,label in (
                 ('s22-switch-witness','witness'),('s22-switch-busybox','busybox'),('s22-fs-e2fsck','checker')))
+        if selected is handoff:
+            members.extend(('s22-debian-'+name,row,0o100400 if name=='inittab' else 0o100500)
+                for name,row in image['debian_handoff']['assets'].items())
         for member, receipt, mode in members:
             require(all(inventory[member][k] == receipt[k] for k in ('size', 'sha256')) and
                 inventory[member]['mode'] == mode and inventory[member]['uid'] == inventory[member]['gid'] == 0,
                 'inspection ramdisk payload differs')
         excluded={'s22-fs','s22-fs-mke2fs','rootfs.tar.xz','s22-root-inspect','s22-userspace-probe','s22-staged-preflight','s22-prehandoff'}-{helper}
-        if selected not in (staged,switch):excluded.add('s22-fs-e2fsck')
-        if selected is not switch:excluded.update(('s22-switch-root','s22-switch-witness','s22-switch-busybox'))
+        if selected not in (staged,switch,handoff):excluded.add('s22-fs-e2fsck')
+        if selected not in (switch,handoff):excluded.update(('s22-switch-root','s22-switch-witness','s22-switch-busybox'))
+        if selected is handoff:excluded.add('s22-debian-usb')
         require(not any(name in inventory for name in excluded),
             'inspector image contains an unselected filesystem payload')
     if artifact_bytes:
@@ -380,6 +392,15 @@ class Adapter:
         guard()
         if step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
+        elif request['operation']==handoff.OPERATION and step.name=='install-android':
+            from s22plus_debian_access_v1 import Access
+            value=Access(self,request).rederive_shutdown()
+            ready=read(self.directory/'debian-return-ready.json')
+            require(ready['operation']==pin(self.directory/'operation.json') and
+                read(verify(ready['shutdown']))==value and ready['deadline_ns']<=read(verify(request['grant']))['deadline_ns'] and
+                0<ready['deadline_ns']-ready['requested_ns']<=600_000_000_000,
+                'physical Download return lacks original bounded request')
+            arrival_deadline=ready['deadline_ns']
         else:
             intents=[row for row in Journal(self.directory/'journal').rows() if row['event']=='effect-intent']
             require(intents and intents[-1]['data']['action'] in ('download','observe'),
@@ -583,6 +604,11 @@ class Adapter:
         return value
 
     def recover_step_result(self, step, request):
+        if step.action in ('debian-health','debian-shutdown'):
+            require(request['operation']==handoff.OPERATION,'unselected Debian access result')
+            from s22plus_debian_access_v1 import Access
+            access=Access(self,request)
+            return access.rederive_health() if step.action=='debian-health' else access.rederive_shutdown()
         if step.action=='transfer': return self.recover_transfer_result(step,request)
         if step.action=='physical':
             from s22plus_native_gpt_session_v1 import physical_result
@@ -593,7 +619,7 @@ class Adapter:
             value=native.rederive(self.folder(step.name),request[step.role],ending=step.ending,hud=step.hud,
                 profile=step.name if request['operation'] in inspection_session.OPERATIONS and step.name in inspection_session.SELECTIONS
                     else filesystem_profile(step,request) or profile_for(step,request[step.role]),**self.context(step,request))
-            if step.ending=='download': value['departure']=pin(self.folder(step.name)/'departure.json')
+            if step.ending in ('download','handoff'): value['departure']=pin(self.folder(step.name)/'departure.json')
             return value
         if step.action=='health':
             if request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES:

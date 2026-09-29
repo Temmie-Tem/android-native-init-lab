@@ -410,6 +410,32 @@ read-only reobservation after a pure read failure. No experimental transfer
 occurs until its concrete finite attended start is returned. All previously
 consumed grants and actions retain their original meaning.
 
+### Native-first installed-Debian handoff V1
+
+The common-incorporated [handoff V1](../S22PLUS_DEBIAN_HANDOFF_V1.md) is adopted
+only for V3's `debian-handoff`, one returned attended grant, one operation and
+3600 original BOOTTIME seconds. Healthy original A and fresh native first-boot
+health precede protected exact-root admission. Only then may the fixed parent
+operation ordinarily unmount the protected root, clear entry-41 RAM RO once,
+mount normal RW, switch root, prove its RAM witness and exec installed init.
+
+One compound intent owns the native phases and fixed continuations. The first
+synchronous SysVinit hook proves actual PID1/root and retired native fds before
+ACM retirement; a failed hook parks without allowing rcS. Exact NCM/pinned SSH
+must join the same kernel boot. Only health and one separately journaled fixed
+shutdown are admitted. Normal physical Download pauses within the original
+grant before the single original-A transfer and full Android32/GPT health.
+No package workload, reinstall, repair, ordinary reboot, N admission or generic
+command is selected. Writes are confined to the admitted Debian root on
+native_data; Android recovery is not a clean-filesystem claim.
+
+Source-bound independent review and actual A/B qualification remain required.
+Host-only readiness opens no grant and must retain fresh connected preflight
+as a later requirement. The named fixed Android preparation D0 may be used
+within foreground preparation; no previously consumed action is reopened.
+Uncertainty stops research for original attended recovery, with no repeated
+handoff/control/transfer and health-only continuation after proved A.
+
 ### Fixed installed-Debian userspace probe V1
 
 The common-incorporated [userspace probe V1](../S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)

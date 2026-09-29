@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff')
 
 
 class ResultPublicationError(SessionError):
@@ -37,7 +37,7 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
     require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
-    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight','switch-root'):
+    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff'):
         from s22plus_native_root_inspect_session_v1 import normal_steps
         return normal_steps(operation)
     if operation=='native-ext4':
@@ -226,12 +226,17 @@ class Session:
             # return. The observer durably records that exact continuation;
             # it cannot acquire a second intent for the same compound step.
             terminal_callback=dispatch if step.ending=='download' else guard
-            if self.request['operation']=='switch-root' and step.name=='switch-root':
+            if self.request['operation'] in ('switch-root','debian-handoff') and step.name==self.request['operation']:
                 terminal_callback=lambda detail:guard()
             value=self.adapter.observe(step,self.request,guard=guard,
                 before_terminal=terminal_callback,**options)
         elif step.action=='health':
             value=self.adapter.android_health(step,self.request,guard=guard)
+        elif step.action in ('debian-health','debian-shutdown'):
+            require(self.request['operation']=='debian-handoff','unselected Debian access')
+            from s22plus_debian_access_v1 import Access
+            access=Access(self.adapter,self.request)
+            value=access.health(step,guard) if step.action=='debian-health' else access.shutdown(step,guard,dispatch)
         else:
             raise SessionError('unknown native step')
         return self.result(step,value)
@@ -263,7 +268,7 @@ class Session:
                 recovery_terminal_covers_effects(self.adapter,self.request,selected_steps,effects)
             else:require(covered,'recovery terminal does not cover the latest effect')
         else:
-            expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot')
+            expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot','debian-shutdown')
                 or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')
                 or self.request['operation']=='native-ext4' and step.name=='experiment-first'
                 or mutates_step(self.request['operation'],step.name)]
@@ -284,6 +289,9 @@ class Session:
         return terminal
 
     def execute(self, *, attended):
+        if self.request['operation']=='debian-handoff':
+            from s22plus_debian_handoff_session_v1 import Coordinator
+            return Coordinator(self).execute(attended=attended)
         if self.request['operation']=='gpt-reserve':
             from s22plus_native_gpt_session_v1 import Coordinator
             return Coordinator(self).execute(attended=attended)
@@ -370,7 +378,11 @@ class Session:
 
     def recover(self, *, attended):
         with registry.target_session_lease(self.root):
-            return self._recover(attended=attended)
+            try:return self._recover(attended=attended)
+            finally:
+                if self.request['operation']=='debian-handoff':
+                    from s22plus_debian_access_v1 import cleanup
+                    cleanup(self.adapter,self.request)
 
     def repair_close(self):
         """Reopen exact raw proofs only; this method performs no device action."""
@@ -402,6 +414,9 @@ class Session:
             return self.close(plan,recovered=recovered)
 
     def resume(self, *, attended, operator_statement=None):
+        if self.request['operation']=='debian-handoff':
+            from s22plus_debian_handoff_session_v1 import Coordinator
+            return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)
         require(self.request['operation']=='gpt-reserve','only the phased GPT operation has an attended continuation')
         from s22plus_native_gpt_session_v1 import Coordinator
         return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)
