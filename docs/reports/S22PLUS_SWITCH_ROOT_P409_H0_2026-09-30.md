@@ -1,5 +1,10 @@
 # S22+ P409 readonly PID1 root transition: H0 qualification
 
+Historical preparation record. The later
+[first attended run](S22PLUS_SWITCH_ROOT_P409_FIRST_RUN_2026-09-30.md) proved the
+readonly PID1 transition and closed healthy in Android. Its task and candidate
+are now consumed; the READY statements below describe pre-experiment state.
+
 Date: 2026-09-30 KST. Target: `SM-S906N/g0q/S906NKSS7FYG8` only.
 Selected bounded unit: the first readonly transition in the
 [Debian handoff plan](../plans/S22PLUS_DEBIAN_HANDOFF_EXECUTION_PLAN_2026-09-30.md).

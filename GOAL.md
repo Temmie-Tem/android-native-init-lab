@@ -21,7 +21,33 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P409 readonly root-transition preparation
+## Current P409 proved readonly PID1 transition and healthy Android closure
+
+P409 `v0.4.0-rc.9` completed one attended operation on 2026-09-30 KST.
+The actual native PID1 replaced itself, settled its native workers, verified
+the protected installed root and used the selected BusyBox to switch_root into
+a distinct static RAM witness. Authenticated post-exec evidence proved PID1,
+readonly ext4 root and partition RO, the witness executable, seven moved mounts,
+only fd0–3, no other userspace and the same boot/ACM connection. Result:
+`PASS_SWITCH_ROOT_WITNESS / PROVED_READONLY_HOST_PID1_ROOT_TRANSITION`.
+
+The exact 8,969-entry root comparison passed. The witness's fixed Download
+return and one original-A transfer completed. A final-health ADB boot read
+failed; health-only continuation then proved rooted original Android, exact
+partition hashes, full GPT and Android32 capacity. There was one N and one A
+transfer, with no repeated effect. Terminal: `ANDROID_CLOSED_HEALTHY`,
+`recovered=true`. Final health completed at 95.495 seconds and explicit grant
+closure at 227.705 seconds; 553 raw captures and 247 saved source files were
+verified. The candidate/grant are consumed and the F1 owner is absent.
+
+The [first-run report and timeline](docs/reports/S22PLUS_SWITCH_ROOT_P409_FIRST_RUN_2026-09-30.md)
+record Samsung proof of the shared retirement/root-transition/observation
+mechanism. This run does not execute installed Debian init, start services,
+establish NCM/SSH or test writable persistence. The next bounded functional unit
+is actual Debian PID1 and basic access under its own reviewed scope. The closed
+P409 grant authorizes no successor effect; A90 and S20+ remain isolated.
+
+## Prior P409 readonly root-transition preparation
 
 The selected next unit is P409 `v0.4.0-rc.9`: native-first authentication,
 replacement of the actual native PID1, exact worker retirement and protected
@@ -51,8 +77,9 @@ startup-notice read stop was preserved, then the adopted read-only reobservation
 completed in a fresh preparation directory. The concrete task is READY for
 only `switch-root`, one attended operation and 1800 seconds, with SHA-256
 `ad08d06a0f49aad51a8cc027e0b3c7d5950c7e9a3f09c6fd4dec289734fa96df`.
-No grant is open, no experimental transfer occurred and P409 is unconsumed.
-The returned finite attended start is the next prerequisite; P408 stays closed.
+That preparation opened no grant and performed no experimental transfer.
+The subsequently returned attended start and consumed P409 operation are
+recorded above; P408 stays closed.
 
 ## Prior P408 proved preparation and healthy Android closure
 
