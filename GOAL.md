@@ -45,9 +45,18 @@ the task is explicitly closed and the F1 owner is absent. See the
 
 This proves the fixed preparation workload after established native access.
 It does not establish P407's past failure location or Debian host PID 1.
-The next bounded milestone is direct switch_root/PID-1 handoff observation,
-with mount/device ownership and the post-handoff return path. No successor
-effect is authorized by the closed P408 grant. A90 and S20+ stay isolated.
+The [2026-09-30 plan review](docs/plans/S22PLUS_DEBIAN_HANDOFF_EXECUTION_PLAN_2026-09-30.md)
+selects the next H0 unit: a fixed transition owned by the actual native PID 1,
+complete worker/mount/descriptor retirement, and a readonly post-switch static
+witness using the selected BusyBox. The ordinary EXEC child cannot supply that
+proof. Observation and retirement must be qualified together before a new boot.
+
+The default physical work is grouped into readonly transition proof, actual
+Debian PID 1/basic access, then package/service persistence and ordinary reboot.
+Internal checkpoints remain distinct within each run; merging requires proved
+observation continuity and a scope already covering the later effects. These
+are prospective units, not new candidates or grants. No successor effect is
+authorized by the closed P408 grant. A90 and S20+ stay isolated.
 
 ## Prior P408 streamed preparation H0
 
