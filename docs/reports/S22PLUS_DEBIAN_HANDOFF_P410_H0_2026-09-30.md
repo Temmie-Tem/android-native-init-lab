@@ -6,7 +6,13 @@ Bounded unit: actual installed Debian PID1 and basic access, following the
 The operator requested work through the point immediately before a physical
 experiment. This preparation opens no experimental grant or transfer.
 
-## Current result
+P410 subsequently executed once and is now consumed and closed. The
+[physical-run report](S22PLUS_DEBIAN_HANDOFF_P410_FIRST_RUN_2026-09-30.md)
+records reached installed PID1, failed NCM/SSH access, native USB reappearance
+and healthy original-Android recovery. The preparation record below retains
+its original pre-execution meaning and is no longer an unused READY task.
+
+## Preparation result
 
 P410 `v0.4.0-rc.10` implements the separate
 [native-first handoff scope](../operations/S22PLUS_DEBIAN_HANDOFF_V1.md).

@@ -21,7 +21,34 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P410 installed-Debian handoff preparation
+## Current P410 installed PID1 reached; basic access failed and Android recovered
+
+P410 `v0.4.0-rc.10` completed one attended operation on 2026-09-30 KST.
+The physical authenticated transcript proves installed Debian init as host
+PID1 under the writable native_data root: `PASS_INSTALLED_DEBIAN_PID1`.
+This is the reached init boundary, not a successful Debian service boot.
+No NCM endpoint appeared in the 180-second window and no SSH or shutdown
+command was sent. About 51 seconds into that window the same P410 native ACM
+identity reappeared. The reported advancing native screen is consistent with
+later native startup; no later authenticated boot ID or reset-cause evidence
+proves an actual reboot mechanism.
+
+Research stopped. Attended physical Download and one original-A transfer
+returned the device to `ANDROID_CLOSED_HEALTHY`, `recovered=true`. A USB read
+failed before the A intent; later final-health ADB failure required only
+health continuation. There was one N and one A transfer, with no repeated
+handoff/control. Full rooted Android, original partition hashes, GPT and
+Android32 capacity passed. Native_data cleanliness remains unknown after the
+writable lifetime. The one-operation/3600-second grant and candidate are
+consumed and closed; the F1 owner is absent. A90 and S20+ were untouched.
+
+The [physical-run report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P410_FIRST_RUN_2026-09-30.md)
+records 1,779 raw captures, 257 frozen source files, unchanged terminal/journal,
+the native USB reappearance and the limits of the PID1 proof. Next work is
+H0 reconstruction of the post-init interval and native return, before any
+new device candidate. The closed grant supplies no replay, repair or reinstall.
+
+## Prior P410 installed-Debian handoff preparation
 
 P410 `v0.4.0-rc.10` implements the next bounded unit under the separate
 [native-first Debian handoff policy](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md).
