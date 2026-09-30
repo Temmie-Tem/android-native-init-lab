@@ -19,7 +19,7 @@ USERSPACE_PROBE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_
 PREFLIGHT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_preflight_v1_review.json'
 STAGED_PREFLIGHT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_staged_preflight_v1_review.json'
 SWITCH_ROOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_switch_root_v1_review.json'
-DEBIAN_HANDOFF_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_handoff_v1_review.json'
+DEBIAN_HANDOFF_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_handoff_v2_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
     's22plus_native_host_install_v3')
@@ -51,6 +51,7 @@ def source_paths(root):
         'docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md',
         'docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md',
         'docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md',
+        'docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_ufs_artifact_v1_h0.py',
@@ -237,9 +238,9 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
                 b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md'),
                 'readonly PID1 transition is not common-incorporated and adopted by the exact target')
         if task['N']['profile']==handoff_profile:
-            require(b'S22PLUS_DEBIAN_HANDOFF_V1.md' in details and
-                b'S22PLUS_DEBIAN_HANDOFF_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
-                b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md'),
+            require(b'S22PLUS_DEBIAN_HANDOFF_V2.md' in details and
+                b'S22PLUS_DEBIAN_HANDOFF_V2.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
+                b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md'),
                 'Debian handoff is not common-incorporated and adopted by the exact target')
     return task
 
@@ -265,7 +266,8 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
                  seconds=3600, operation_budget=3, recovery_mode='attended', reentry=True,
                  hud=False, usb_reconnect=True, admission=None, prior_terminal=None,
                  storage_census=False, android_exit=True, bootstrap_start=None,gpt_reserve=False,native_ext4=False,
-                 root_inspect=False,userspace_probe=False,preflight=False,staged_preflight=False,switch_root=False,debian_handoff=False):
+                 root_inspect=False,userspace_probe=False,preflight=False,staged_preflight=False,switch_root=False,debian_handoff=False,
+                 retained_lane=None):
     import s22plus_native_target_io_v3 as target_io
     from s22plus_native_adapter_v3 import image_valid
     root=Path(root).resolve(strict=True); output=private_path(root,output,exists=False)
@@ -278,11 +280,14 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
     native=read(verify(native)); experiment=read(verify(experiment)) if experiment else None
     image_valid(native,artifact_bytes=True)
     if experiment is not None: image_valid(experiment,artifact_bytes=True)
+    if retained_lane is not None:
+        require(debian_handoff,'retained lane preparation is selected only by the H0 handoff builder')
+        target_io.lane.validate_binding(retained_lane,source_topology=target_io.lane.SOURCE_TOPOLOGY)
     task=dict(schema='s22plus-native-task-v3',target=read(verify(target)),N=native,E=experiment,
         A=android_artifact(root),adb=pin(Path('/usr/bin/adb').resolve(strict=True),maximum=32*1024*1024),
         odin=read(root/PROFILE)['transport']['odin'],host_installation=installation,
         review=capability(root,profile=native['profile']),recovery_evidence=recovery_evidence,
-        lane=target_io.lane.capture_binding(target_io.lane.SOURCE_TOPOLOGY),
+        lane=target_io.lane.capture_binding(target_io.lane.SOURCE_TOPOLOGY) if retained_lane is None else retained_lane,
         operations=(['bootstrap'] if admission is None else [])+(['native-ext4' if native_ext4 else 'experiment'] if experiment else [])
             +(['storage-census'] if storage_census else [])+(['android-exit'] if android_exit else [])
             +(['gpt-reserve'] if gpt_reserve else []),

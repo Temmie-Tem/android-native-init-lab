@@ -125,6 +125,11 @@ permission to perform host-only work.
    basic SSH and fixed shutdown. Ordinary writes are confined to entry 41;
    no formatter, repair, extraction, raw block-data writer or other-partition
    write is added. Attended physical original-A recovery remains required.
+   The separately reviewed [handoff V2 successor](S22PLUS_DEBIAN_HANDOFF_V2.md)
+   admits only its finite declared post-P410 mutable data under otherwise exact
+   clean-root checks, then Debian-owned service observation and reconfiguration
+   of the same first USB gadget. It adds no repair, reinstall, journal replay,
+   other-partition access or renewed consumed effect.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -860,6 +865,40 @@ return may leave that filesystem dirty; Android health and NCM departure do
 not prove clean ext4. Current independent source review and A/B qualification
 are prerequisites, never live authority. All older consumed records remain
 immutable. The fixed predecessor preparation D0 remains separately bounded.
+
+### Debian progress and same-gadget successor V2
+
+The separate [V2 policy](S22PLUS_DEBIAN_HANDOFF_V2.md) specializes the same
+exact FYG8/Android32/entry-41 exception for a fresh one-operation attended
+V3 grant. P410 V1 is consumed and closed; its frozen source, review and grant
+do not acquire V2 semantics. Only profile
+`thermal-v3-reconnect-ufs-drain-debian-handoff-v2` selects the successor.
+
+Protected admission keeps the exact archive except its one declared mutable
+wtmp data file, and individually checks only the V2 policy's bounded optional
+log/seed/boot-count paths. All other additions and mutations are rejected.
+Clean superblock, complete unprivileged checker, exact GPT/markers/witness and
+partition RO remain mandatory. Dirty or ambiguous roots stop before RW, with
+no repair or journal replay. The prior pristine comparison is not relabelled
+as evidence of the current root.
+
+Fixed read-only RAM overlays select sequential Debian wait children: installed
+init proof, host-retained START, actual rcS, actual runlevel 2 and thirteen
+same-boot/init/cron/sshd samples spanning 120 seconds. Native preparation and
+Debian observation retain one 300-second deadline through authenticated release
+acceptance. Started services or an uncertain later USB operation may remain
+active; failure requires the bound attended recovery. Every executed rc child has
+closed ACM/state descriptors; there is no competing native manager or respawn.
+The system crontab is temporarily empty; no package workload is selected.
+
+The existing compound intent owns all phases. Independently retained runtime
+proof precedes fixed release, final ACM close and exact UDC unbind. Debian
+then reconfigures the same original g1; it must not delete that gadget or
+create a second one. Partial transition uncertainty stops without replay.
+Same-boot pinned SSH, one fixed shutdown, original physical Download/A recovery
+and Android32 health retain their original limits. Independent changed-closure
+review and exact A/B qualification are required; H0 opens no grant and does
+not establish fresh device health or current filesystem admission.
 
 ## S22+ G2 fixed GPT reservation and stock initialization
 

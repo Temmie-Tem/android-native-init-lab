@@ -139,6 +139,10 @@ static void ri_finding(const char *path, const char *kind) {
     ri_print("RI1_FINDING path_sha256=%s kind=%s\n", hex, kind); ++ri_reported;
 }
 
+#ifdef S22_DEBIAN_HANDOFF
+#include "s22plus_debian_handoff_seal_v1.h"
+#include "s22plus_debian_handoff_root_v2.inc.c"
+#endif
 static int ri_compare_tree(int root, dev_t device, struct ri_compare *c) {
     if (ri_table_size < 12 || ri_table_size > RI_MAX_TABLE) return EINVAL;
     int fd = fs1_pin_file("/s22-root-inspect.table", ri_table_size, ri_table_sha256, false);
@@ -178,6 +182,14 @@ static int ri_compare_tree(int root, dev_t device, struct ri_compare *c) {
             if (errno == ENOENT) { ++c->missing; c->boot_missing += critical; ri_finding(path,"missing"); }
             else error = fs1_error();
         } else {
+#ifdef S22_DEBIAN_HANDOFF
+            int allowed=dh_mutable_archive(path,&st,device);
+            if(allowed) {
+                if(allowed<0)error=-allowed;else ++c->matched;
+                if(close(parent) && !error)error=fs1_error();
+                continue;
+            }
+#endif
             bool meta = st.st_dev == device && st.st_mode == mode && st.st_uid == uid && st.st_gid == gid;
             if (S_ISREG(mode)) meta = meta && st.st_size >= 0 && (uint64_t)st.st_size == size;
             if (S_ISLNK(mode) && meta) {

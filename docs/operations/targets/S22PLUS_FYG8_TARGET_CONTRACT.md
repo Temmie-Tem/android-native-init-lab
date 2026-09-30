@@ -436,6 +436,30 @@ within foreground preparation; no previously consumed action is reopened.
 Uncertainty stops research for original attended recovery, with no repeated
 handoff/control/transfer and health-only continuation after proved A.
 
+### Debian progress and same-gadget handoff V2
+
+The common-incorporated [V2 successor](../S22PLUS_DEBIAN_HANDOFF_V2.md) is
+adopted only for `thermal-v3-reconnect-ufs-drain-debian-handoff-v2`, one fresh
+Android-origin V3 `debian-handoff` operation and one finite attended grant.
+Its 3600-second grant, 300-second deadline through authenticated release acceptance, fixed
+continuations, one original-A physical return and health-only continuation
+retain the existing no-replay and exact-target conditions.
+
+Before RW, require clean ext4, complete protected checker and immutable P401
+archive comparison, with only V2's individually validated finite mutable-data
+list from P410's one writable lifetime. Unknown, dirty or partial state stops;
+no repair, reinstall, journal replay or other-partition access is added.
+Sequential Debian wait hooks prove actual rcS/runlevel progress and 120 seconds
+of same-boot init/cron/sshd liveness before USB release. The same first g1 is
+retained and reconfigured as NCM under Debian ownership. Fixed RAM overlays
+defer USB and periodic cron jobs without replacing installed files.
+
+Current independent review and actual artifact qualification must cover the
+changed authority, root admission, observer and gadget transition. H0 readiness
+does not prove current connected health or current native_data admission.
+V1/P410 remain consumed with their original frozen provenance; their catalog
+data cannot inherit the V2 builder or runtime.
+
 ### Fixed installed-Debian userspace probe V1
 
 The common-incorporated [userspace probe V1](../S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)

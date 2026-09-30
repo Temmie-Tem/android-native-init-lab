@@ -18,19 +18,29 @@ import s22plus_native_host_v3 as host_module
 PEER=previous.PEER[:previous.PEER.index(' unsigned char request[48]')].replace(
     'p328_store_le32(data+120,15);p328_store_le32(data+124,1);',
     'p328_store_le32(data+120,0);p328_store_le32(data+124,0);')+r'''
- for(unsigned phase=0;phase<2;++phase) {
-  unsigned char request[48];unsigned used=0;unsigned sequence=phase?7:6;unsigned char kind=phase?40:39;
+ for(unsigned phase=0;phase<3;++phase) {
+  unsigned char request[48];unsigned used=0;unsigned sequence=phase==0?6:phase==1?8:9;unsigned char kind=phase==0?39:phase==1?41:40;
   while(used<sizeof(request)){long n=sys_read(s->fd,request+used,sizeof(request)-used);if(n>0)used+=n;else if(n==-EAGAIN||n==-P260_EINTR)usleep(1000);else fx_park();}
   unsigned char expected[32];
   p328_hmac_message(expected,"S22PLUS-FYG8-SWITCH-ROOT-v1",sizeof("S22PLUS-FYG8-SWITCH-ROOT-v1")-1,
    p328_run_id_bytes,s->nonce,sequence,1,&kind,1);
   if(memcmp(request,"S328",4)||request[4]!=1||request[5]!=kind||request[6]!=32||request[7]||
    p328_load_le32(request+8)!=sequence||p328_load_le32(request+12)!=p328_frame_crc(request,request+16,32)||memcmp(request+16,expected,32))fx_park();
-  unsigned char accepted[4]={1,0,0,0};swfx_send(s,phase?173:171,sequence,accepted,4);
+  unsigned char accepted[4]={1,0,0,0};swfx_send(s,phase==0?171:phase==1?175:173,sequence,accepted,4);
   if(!phase) {
    unsigned char data[116]={0};p328_store_le32(data,1);p328_store_le32(data+4,8);p328_store_le32(data+8,41);
    if(@@NAMESPACE@@_kernel_boot_id(data+12))fx_park();memset(data+44,0x66,32);memset(data+76,0x77,32);
    swfx_send(s,172,7,data,sizeof(data));
+  }
+  if(phase==1) {
+   for(unsigned ordinal=0;ordinal<15;++ordinal) {
+    unsigned char data[56]={0};unsigned sample=ordinal<2?0:ordinal-2;
+    p328_store_le32(data,ordinal<3?ordinal+1:4);p328_store_le32(data+4,sample);
+    p328_store_le32(data+8,1);p328_store_le32(data+12,ordinal<2?0:3);
+    p328_store_le32(data+16,sample*10000);
+    if(@@NAMESPACE@@_kernel_boot_id(data+24))fx_park();
+    swfx_send(s,176,2000+ordinal,data,sizeof(data));
+   }
   }
  }
  for(;;)usleep(1000);
@@ -67,11 +77,13 @@ class ObservationTests(unittest.TestCase):
         with self.running() as ctx:
             intents=[];continuations=[];folder=ctx.folder/'complete'
             value=self.observe(ctx,folder,intents.append,continuations.append)
-            self.assertEqual(len(intents),1);self.assertEqual(len(continuations),2)
+            self.assertEqual(len(intents),1);self.assertEqual(len(continuations),3)
             self.assertEqual(value['proof']['ending'],'handoff');self.assertTrue(value['proof']['debian_handoff']['init_proof'])
             self.assertTrue(observation.read(folder/'close.json')['acquisition']['local_carrier'])
             self.assertEqual(continuations[0]['request']['mode'],'debian-init-continue')
-            self.assertEqual(continuations[1]['request']['mode'],'debian-acm-release')
+            self.assertEqual(continuations[1]['request']['mode'],'debian-services-start')
+            self.assertEqual(continuations[2]['request']['mode'],'debian-acm-release')
+            self.assertEqual(value['proof']['debian_handoff']['runtime_proof']['elapsed_ms'],120000)
             with mock.patch.object(profile,'image_binding'):
                 self.assertEqual(value['proof'],observation.rederive(folder,self.image,ending='handoff',hud=False,
                     first_boot=True,profile=profile.SELECTION)['proof'])
@@ -93,7 +105,7 @@ class ObservationTests(unittest.TestCase):
             tx=(folder/'tx.bin').read_bytes()
             run=bytes.fromhex(self.image['run_id_hex']);key=b'k'*32;bound=observation.identity(self.image)
             rx=(folder/'rx.bin').read_bytes();io=observation.IO(observation.Codec(bound.namespace),key,bound,rx=rx,tx=tx);io.handshake()
-            forbidden=wire.encode(key,run,io.audit.nonce,wire.RELEASE,7)
+            forbidden=wire.encode(key,run,io.audit.nonce,wire.RELEASE,wire.RELEASE_SEQUENCE)
             self.assertNotIn(forbidden,tx)
 
     def test_failed_continuation_receipt_never_transmits_init_request(self):

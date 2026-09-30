@@ -24,6 +24,30 @@ ROOT = inspection.ROOT
 PRIOR_TASK = ROOT / 'workspace/private/runs/s22plus-native-session-v3/p399-p400-native-ext4-20260917-1/task.json'
 
 
+def prepare_handoff_offline(directory,image_receipt):
+    """Concrete prelive task using retained bindings, with no device reads.
+
+    Execution still revalidates the host lane and performs the complete fresh
+    Android/native preflight. This method neither proves health nor opens a
+    grant; the unknown post-P410 native filesystem is admitted only at runtime.
+    """
+    image=read(verify(image_receipt));require(image['profile']==handoff.PROFILE,'not the current handoff successor')
+    old_task=read(PRIOR_TASK);_,_,previous=handoff.prior_inputs()
+    require(old_task['target']==previous['target'] and old_task['A']==previous['A'],'retained offline target differs')
+    task.capability(ROOT,profile=handoff.PROFILE);adapter.image_valid(image,artifact_bytes=True)
+    task.validate_recovery(old_task['recovery_evidence'],previous['target'],previous['A'])
+    directory=private_path(ROOT,directory,exists=False);require(not directory.exists(),'fresh offline preparation required')
+    directory.mkdir(mode=0o700);binding=publish(directory/'target.json',previous['target'])
+    receipt=task.prepare_task(ROOT,directory/'task',native=image_receipt,experiment=None,
+        target=binding,installation=old_task['host_installation'],recovery_evidence=old_task['recovery_evidence'],
+        seconds=3600,operation_budget=1,recovery_mode='attended',reentry=False,hud=False,
+        usb_reconnect=False,android_exit=False,debian_handoff=True,retained_lane=old_task['lane'])
+    publish(directory/'ready.json',dict(schema=handoff.SCHEMA+'-ready',status='READY_H0_PRELIVE_ONLY',task=receipt,
+        retained_binding=pin(PRIOR_TASK),fresh_connected_health=False,current_root_admitted=False,
+        grant_opened=False,image_transferred=False,device_actions=0))
+    return receipt
+
+
 def projection(folder, target_binding, android, image):
     first = read(folder / 'before/health.json'); last = read(folder / 'after/health.json')
     for value in (first, last):

@@ -66,6 +66,18 @@ class ObservationTests(unittest.TestCase):
         self.endpoint(serial='different-fixture')
         self.assertEqual(self.sample()[1]['state'], 'USB_IDENTITY_MISMATCH')
 
+    def test_exact_native_return_is_a_stop_not_endpoint_acceptance(self):
+        run='4'*32
+        self.endpoint(interface=False,idVendor='04e8',idProduct='6861',serial='S22E3'+run)
+        self.sample();handle=observation.raw.load_handle(self.output/'usb-001.capture.json')
+        self.assertTrue(observation.native_returned(handle,run))
+        self.assertFalse(observation.native_returned(handle,'5'*32))
+
+    def test_ncm_and_absence_do_not_synthesize_native_return(self):
+        self.endpoint();self.sample()
+        handle=observation.raw.load_handle(self.output/'usb-001.capture.json')
+        self.assertFalse(observation.native_returned(handle,'4'*32))
+
     def test_mac_mismatch(self):
         self.endpoint()
         (self.net / 'net0/address').write_text('different-fixture\n')

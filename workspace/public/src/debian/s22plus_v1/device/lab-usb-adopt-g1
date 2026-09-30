@@ -1,0 +1,43 @@
+#!/bin/sh
+# A one-shot RAM overlay payload, invoked only after authenticated liveness
+# and retirement of the last Debian-owned ACM descriptor. Keep the first
+# gadget object: this stock kernel retains its global android_device pointer.
+set -eu
+trap 'exec /run/s22-debian/hook park' EXIT
+test "$#" = 1 && test "$1" = start
+test -f /run/s22-debian/usb-release
+. /etc/default/lab-usb
+test "$(uname -r)" = 5.10.226-android12-9-30958166-abS906NKSS7FYG8
+test "$(findmnt -rn -o FSTYPE --target /sys/kernel/config)" = configfs
+g=/sys/kernel/config/usb_gadget/g1
+test -d "$g" && test ! -e /sys/kernel/config/usb_gadget/s22-debian
+test "$(stat -c %d:%i "$g")" = "$(stat -c %d:%i /run/config/usb_gadget/g1)"
+test "$(cat "$g/UDC")" = ''
+test "$(cat "$g/idVendor")" = 0x04e8
+test "$(cat "$g/idProduct")" = 0x6861
+test "$(readlink -f "$g/configs/b.1/acm.usb0")" = "$g/functions/acm.usb0"
+test ! -e "$g/functions/ncm.usb0"
+# Remove only the known configuration link. Neither g1 nor its device object
+# is removed, and no second configuration competes for the UDC.
+rm "$g/configs/b.1/acm.usb0"
+printf '0x1d6b' > "$g/idVendor"
+printf '0x0104' > "$g/idProduct"
+printf '0x0100' > "$g/bcdDevice"
+printf '0' > "$g/bDeviceClass"
+printf '0' > "$g/bDeviceSubClass"
+printf '0' > "$g/bDeviceProtocol"
+printf '%s' "$serial" > "$g/strings/0x409/serialnumber"
+printf 'S22 Debian research' > "$g/strings/0x409/product"
+printf 'Linux' > "$g/strings/0x409/manufacturer"
+printf 'ncm' > "$g/configs/b.1/strings/0x409/configuration"
+mkdir "$g/functions/ncm.usb0"
+printf '%s' "$host_mac" > "$g/functions/ncm.usb0/host_addr"
+printf '%s' "$device_mac" > "$g/functions/ncm.usb0/dev_addr"
+ln -s ../../functions/ncm.usb0 "$g/configs/b.1/ncm.usb0"
+printf peripheral > /sys/devices/platform/soc/a600000.ssusb/mode
+printf a600000.dwc3 > "$g/UDC"
+test "$(cat "$g/UDC")" = a600000.dwc3
+ip link set lo up
+ip address add "$device_address" dev usb0
+ip link set usb0 up
+trap - EXIT

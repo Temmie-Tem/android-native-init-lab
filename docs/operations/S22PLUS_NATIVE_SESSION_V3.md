@@ -121,6 +121,15 @@ renews native authority. An expired or failed normal path selects existing
 attended original-A recovery. No legacy Debian live owner is imported, and
 completed A still selects health-only continuation.
 
+The separately adopted [handoff V2](S22PLUS_DEBIAN_HANDOFF_V2.md) uses the same
+operation/recovery graph with a distinct runtime profile and review. It adds
+finite current-root mutable-data admission, fixed service START and sequential
+Debian progress/liveness before release, then same-first-g1 NCM ownership.
+Its original 300-second deadline through authenticated release acceptance and
+one-operation grant never renew. This does not stop already-started services
+or an uncertain later USB operation. Consumed V1 data remains historical and
+selects no V2 runtime.
+
 Every authentication retains its nonce, authenticated kernel boot identity,
 ordinal, fixed root health, raw RX/TX and terminal acknowledgement. DETACH
 also requires actual descriptor close. A new installed boot starts at ordinal

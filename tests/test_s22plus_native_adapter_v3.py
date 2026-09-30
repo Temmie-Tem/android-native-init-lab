@@ -32,7 +32,7 @@ class AdapterTests(unittest.TestCase):
                 expected_sha256=records.digest(ap.read_bytes())) as opened:
             member=adapter.transport.boot_only_member_receipt(opened,label='fixture')
         self.image=dict(ap=records.pin(ap),member=member)
-        self.request=dict(A=self.image,N=self.image,E=self.image)
+        self.request=dict(A=self.image,N=self.image,E=self.image,operation='experiment')
         self.configuration=dict(odin=records.pin(self.odin),lane={'fixture':True})
 
     def environment(self):

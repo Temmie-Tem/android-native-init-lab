@@ -1,0 +1,754 @@
+# Goal: S22+ boots into Debian with full userspace ownership
+
+Build a usable Debian arm64 system on dedicated storage, with Debian's init
+as **host PID 1 in the initial PID namespace** and Debian owning the running
+system's services, devices, networking, logging and shutdown. The operator
+selected this full handoff on 2026-09-16: a resident native supervisor with a
+Debian chroot or an isolated Debian child is not the product architecture.
+
+The actual allocation is **32 GiB Android userdata and 191.4580078125 GiB
+native storage**. Start with the FYG8 vendor kernel. Reduce native userspace to
+the device-specific early boot work needed to start Debian, then replace that
+bootstrap with Debian init. Do not implement a second general Linux runtime
+inside native init. Existing native capabilities are implementation inputs;
+they are not all prerequisites for Debian boot or permanent background owners.
+
+First deliver an independently booted, persistent headless Debian system with
+authenticated SSH and an ordinary package-managed service. Display/input and a
+desktop are later capabilities. Android remains a separately booted management
+and recovery environment, not a provider of the running Debian userspace.
+This goal records state, never device authority. Select only the operator-owned
+`SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
+A90 and S20+ remain isolated.
+
+## Current P410 installed PID1 reached; basic access failed and Android recovered
+
+P410 `v0.4.0-rc.10` completed one attended operation on 2026-09-30 KST.
+The physical authenticated transcript proves installed Debian init as host
+PID1 under the writable native_data root: `PASS_INSTALLED_DEBIAN_PID1`.
+This is the reached init boundary, not a successful Debian service boot.
+No NCM endpoint appeared in the 180-second window and no SSH or shutdown
+command was sent. About 51 seconds into that window the same P410 native ACM
+identity reappeared. The reported advancing native screen is consistent with
+later native startup; no later authenticated boot ID or reset-cause evidence
+proves an actual reboot mechanism.
+
+Research stopped. Attended physical Download and one original-A transfer
+returned the device to `ANDROID_CLOSED_HEALTHY`, `recovered=true`. A USB read
+failed before the A intent; later final-health ADB failure required only
+health continuation. There was one N and one A transfer, with no repeated
+handoff/control. Full rooted Android, original partition hashes, GPT and
+Android32 capacity passed. Native_data cleanliness remains unknown after the
+writable lifetime. The one-operation/3600-second grant and candidate are
+consumed and closed; the F1 owner is absent. A90 and S20+ were untouched.
+
+The [physical-run report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P410_FIRST_RUN_2026-09-30.md)
+records 1,779 raw captures, 257 frozen source files, unchanged terminal/journal,
+the native USB reappearance and the limits of the PID1 proof.
+
+Post-run H0 diagnosis confirmed a blocking USB ownership defect in the exact
+P410 Image: Android configfs setup keeps the first gadget's global pointer.
+The hook unbinds native `g1`, but Debian creates a second `s22-debian` object;
+the old object's `unbind=1` blocks setup before NCM descriptor handling.
+Independent exact-Image review and 16 source control-flow cases on host/ARM64
+confirmed the mechanism. The physical run's post-hook reach and reset cause
+remain unproved. Retiring native workers does not remove the kernel watchdog
+petter, so that simple reset explanation is unsupported.
+
+The next bounded capability correction is to preserve/reconfigure the same
+first `g1` under Debian ownership and qualify the stock dispatch path and
+post-init progress. Deleting and recreating the first gadget risks a stale
+global pointer and is not a safe shortcut. This H0 analysis changed no device
+state or consumed artifact. A future run still needs its own reviewed scope
+and current root admission; the closed grant supplies no replay, repair or
+reinstall.
+
+## Prior P410 installed-Debian handoff preparation
+
+P410 `v0.4.0-rc.10` implements the next bounded unit under the separate
+[native-first Debian handoff policy](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md).
+The exact protected checker/root admission precedes one native_data RW mount,
+a writable post-switch RAM witness and installed init. The first synchronous
+SysVinit hook proves actual PID1 and retired native descriptors before native
+ACM retirement; Debian then owns NCM and the fixed SSH health/shutdown path.
+One compound intent owns the native phases. No reinstall, package workload,
+ordinary reboot or new generic native service is selected.
+
+Real ARM64 system-QEMU proved the installed PID1, same-boot pinned SSH, fixed
+shutdown and clean virtual ext4. Ten negative cases cover dirty/mismatched
+admission, failed hook/UDC, damaged or stale state, inherited native descriptors
+and bad/missing release. They do not start Debian services or acquire SSH; writes
+remain confined to native_data, and admission negatives leave the disk unchanged.
+This is VM proof, not a Samsung Debian-boot result.
+
+Final A/B artifact qualification and independent source-bound review are
+**PASS_GO**. Fixed foreground D0 preparation rederived rooted original Android,
+exact partition hashes, full GPT and Android32 capacity from 19 raw captures.
+The concrete task is **READY_PRELIVE_ONLY**, SHA-256
+`cd4731b594bdffddd8581d43ae1cfe35f5f2665ec8c7e307137fc82fa30aebe4`.
+The [P410 H0 report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P410_H0_2026-09-30.md)
+records 82 passing tests, eleven VM cases and the frozen source/artifact evidence.
+No P410 grant, experimental transfer or device control has occurred; its
+candidate is unclaimed and the F1 owner is absent. P409 remains consumed and
+closed healthy. The prospective live graph permits one attended operation,
+3600 seconds, one fixed shutdown, physical Download and one original-A return
+with full Android32/GPT health. It has no automatic-recovery guarantee.
+
+## Prior P409 proved readonly PID1 transition and healthy Android closure
+
+P409 `v0.4.0-rc.9` completed one attended operation on 2026-09-30 KST.
+The actual native PID1 replaced itself, settled its native workers, verified
+the protected installed root and used the selected BusyBox to switch_root into
+a distinct static RAM witness. Authenticated post-exec evidence proved PID1,
+readonly ext4 root and partition RO, the witness executable, seven moved mounts,
+only fd0–3, no other userspace and the same boot/ACM connection. Result:
+`PASS_SWITCH_ROOT_WITNESS / PROVED_READONLY_HOST_PID1_ROOT_TRANSITION`.
+
+The exact 8,969-entry root comparison passed. The witness's fixed Download
+return and one original-A transfer completed. A final-health ADB boot read
+failed; health-only continuation then proved rooted original Android, exact
+partition hashes, full GPT and Android32 capacity. There was one N and one A
+transfer, with no repeated effect. Terminal: `ANDROID_CLOSED_HEALTHY`,
+`recovered=true`. Final health completed at 95.495 seconds and explicit grant
+closure at 227.705 seconds; 553 raw captures and 247 saved source files were
+verified. The candidate/grant are consumed and the F1 owner is absent.
+
+The [first-run report and timeline](docs/reports/S22PLUS_SWITCH_ROOT_P409_FIRST_RUN_2026-09-30.md)
+record Samsung proof of the shared retirement/root-transition/observation
+mechanism. This run does not execute installed Debian init, start services,
+establish NCM/SSH or test writable persistence. The next bounded functional unit
+is actual Debian PID1 and basic access under its own reviewed scope. The closed
+P409 grant authorizes no successor effect; A90 and S20+ remain isolated.
+
+## Prior P409 readonly root-transition preparation
+
+The selected next unit is P409 `v0.4.0-rc.9`: native-first authentication,
+replacement of the actual native PID1, exact worker retirement and protected
+root checks, then fixed BusyBox switch_root into a separate static RAM witness.
+The installed root remains readonly; this unit executes no Debian init or
+installed program and starts no writable lifetime. The later Debian PID1/access
+and persistence/service units remain distinct in the
+[handoff plan](docs/plans/S22PLUS_DEBIAN_HANDOFF_EXECUTION_PLAN_2026-09-30.md).
+
+The implementation carries the same authenticated ACM descriptor through exec,
+proves the witness after replacement, and admits only its fixed Download return.
+One compound intent owns transition and return; original-A recovery and final
+Android32/GPT health keep their existing no-replay accounting. A late BusyBox
+exec error can panic PID1, so physical Download/original-A recovery is required.
+
+Real ARM64 system-QEMU proves the readonly transition and exercises 14 negative
+cases with unchanged writable backing disks. This is virtual-machine evidence,
+not Samsung handoff proof. The [P409 H0 report](docs/reports/S22PLUS_SWITCH_ROOT_P409_H0_2026-09-30.md)
+records implementation, validation, independent review and concrete preparation.
+The operator requested work through the point before the live experiment;
+preparation opens no grant and performs no flash or mode change.
+
+Final boot-only A/B qualification and independent review are **PASS_GO**.
+The fixed foreground D0 preparation rederived healthy rooted original Android,
+exact partition hashes, full GPT and Android32 capacity. An initial ADB daemon
+startup-notice read stop was preserved, then the adopted read-only reobservation
+completed in a fresh preparation directory. The concrete task is READY for
+only `switch-root`, one attended operation and 1800 seconds, with SHA-256
+`ad08d06a0f49aad51a8cc027e0b3c7d5950c7e9a3f09c6fd4dec289734fa96df`.
+That preparation opened no grant and performed no experimental transfer.
+The subsequently returned attended start and consumed P409 operation are
+recorded above; P408 stays closed.
+
+## Prior P408 proved preparation and healthy Android closure
+
+P408 `v0.4.0-rc.8` completed one attended operation on 2026-09-27 KST.
+After native UFS/ACM startup and authentication, all 17 protected preparation
+stages passed: the pinned read-only checker, exact root closure, both loader
+checks, parent protection, unmount, final storage guards and cleanup.
+All 8,969 archive entries matched; ext4 was clean with RECOVER clear and no
+orphan head. Scientific result:
+`PASS_STAGED_PREFLIGHT_OBSERVED / PROVED_PROTECTED_PREPARATION`.
+
+Native CONTROL and original-A transfer completed normally. The first final
+Android-health attempt failed on ADB `device not found`; health-only recovery
+then proved a distinct rooted boot, exact original partition hashes, full GPT
+and Android32 capacity. There was exactly one N and one A transfer. Terminal:
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, without any repeated transfer.
+
+Final health completed at 115.902 seconds; raw rederivation and grant closure
+at 322.189 seconds. All 617 raw captures and 232 saved pre-effect source files
+were verified. The one-operation/1800-second grant and candidate are consumed,
+the task is explicitly closed and the F1 owner is absent. See the
+[first-run result and canonical timeline](docs/reports/S22PLUS_NATIVE_STAGED_PREFLIGHT_P408_FIRST_RUN_2026-09-27.md).
+
+This proves the fixed preparation workload after established native access.
+It does not establish P407's past failure location or Debian host PID 1.
+The [2026-09-30 plan review](docs/plans/S22PLUS_DEBIAN_HANDOFF_EXECUTION_PLAN_2026-09-30.md)
+selected the next H0 unit, now implemented above: a fixed transition owned by the actual native PID 1,
+complete worker/mount/descriptor retirement, and a readonly post-switch static
+witness using the selected BusyBox. The ordinary EXEC child cannot supply that
+proof. Observation and retirement must be qualified together before a new boot.
+
+The default physical work is grouped into readonly transition proof, actual
+Debian PID 1/basic access, then package/service persistence and ordinary reboot.
+Internal checkpoints remain distinct within each run; merging requires proved
+observation continuity and a scope already covering the later effects. These
+are prospective units, not new candidates or grants. No successor effect is
+authorized by the closed P408 grant. A90 and S20+ stay isolated.
+
+## Prior P408 streamed preparation H0
+
+P408 `v0.4.0-rc.8` now has byte-identical boot-only A/B artifacts for a
+native-first diagnostic: bring up the existing UFS/ACM runtime, authenticate,
+then run one fixed protected checker/root/loader command. Seventeen streamed
+stages cover preparation through cleanup. Complete authenticated prefixes may
+locate an observed boundary after a failed capture, but cannot prove completed
+cleanup, health or recovery. The candidate executes no installed init and
+performs no writable-root lifetime or PID 1 handoff.
+
+Final ARM64 VM cases cover complete preparation, dirty root, checksum damage
+and metadata mismatch with unchanged writable backing disks. Nine child
+faults exercise settlement and honest negative results; 109 focused tests pass.
+The [H0 preparation report](docs/reports/S22PLUS_NATIVE_STAGED_PREFLIGHT_P408_H0_2026-09-26.md)
+records exact artifact qualification, independent review and source evidence.
+The subsequent fixed foreground D0 preparation rederived healthy rooted
+original Android, matching partition digests, complete GPT and Android32
+capacity. The concrete task was READY for one operation/1800 seconds, with SHA-256
+`f5e0ff27a99665241e129d4b6e6fe940ad998a827d5bf9a560f409582f6f6369`.
+That preparation opened no grant and performed no mode change or image
+transfer. Its later returned attended start and consumed single
+N/command/original-A operation are recorded above.
+
+The preparation observed healthy original Android and made no native_data
+content claim; the separate live operation above now supplies that proof.
+Full switch_root/replacement-PID-1 observation remains a subsequent bounded unit.
+All consumed candidates remain consumed; A90 and S20+ stay isolated.
+
+## Prior P407 NO_PROOF and healthy Android closure
+
+P407 `v0.4.0-rc.7` consumed one attended operation on 2026-09-26 KST. Its fresh
+N transferred once after exact rooted Android health. The 300-second native
+endpoint wait expired before opening an authenticated observer; no sealed
+preflight record was captured. The physical bootstrap stage remains unlocated.
+
+The recovery owner found an exact Download endpoint and transferred original A
+once. Its first final-health attempt stopped on ADB `device not found`; a
+health-only continuation proved a distinct rooted boot, exact original
+partition hashes, full GPT and Android32 capacity. Terminal:
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, with preflight **NO_PROOF**.
+Download entry's cause is not established by the retained host records; this
+does not demonstrate automatic recovery from a stalled bootstrap.
+
+Final health completed at 426.472 seconds; raw audit and task closure at
+474.989 seconds. All 494 raw captures and 226 saved source copies were verified.
+The one-operation budget and image are consumed, no transfer repeated and the
+F1 owner is absent. See the [first-run result and canonical timeline](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_FIRST_RUN_2026-09-26.md)
+and [H0 qualification](docs/reports/S22PLUS_NATIVE_PREFLIGHT_P407_H0_2026-09-26.md).
+
+The subsequent [H0 forensic audit](docs/reports/S22PLUS_BOOTSTRAP_FORENSICS_H0_2026-09-26.md)
+joined actual AP/ELF/kernel/module disassembly, retained host USB journals and
+P406's complete inventory. No single bootstrap defect was established. Failed
+boots show no intervening expected gadget registration; the P406 positive
+control does. P407's new Download descriptor was registered about 105 seconds
+before host recovery began, while the owner only waited. Button/reset/fallback
+attribution remains unknown; this is not automatic recovery proof.
+
+At P406, the only additional regular files were the two installation markers
+and witness; no later Debian boot files remained. Together with its clean
+superblock, this favors examining the preparation/final-RW boundary while
+retaining early-init failure or a later clean lifecycle as alternatives.
+P406/P407 kernel bytes differ only in declared identity/config spans. Actual
+ELF/ABI, DEFEX PID 1, module-order/parser and watchdog checks yielded no
+deterministic explanation. P407's own cleanup/observer entry remains unlocated.
+
+P408 above prepares streamed measurement after established native access;
+a failure before that access remains unlocated by its stage records. Preserve
+P407; its consumed grant authorizes no replay or new device effect.
+P406's root evidence predates P407: P407 did not prove current native_data
+contents, root checks, partition RO, loader execution or cleanup. Switch_root,
+Debian host PID 1 and NCM/SSH remain unproved. A90/S20+ stay isolated.
+
+## Prior P406 root-state proof and healthy Android return
+
+P406 `v0.4.0-rc.6` completed one attended protected inspection on 2026-09-26
+KST. The retained native_data filesystem was clean, with no RECOVER flag or
+orphan head. Installation start/completion records and the original witness
+were present. All 8,969 archive entries and 8,175 boot-input entries matched
+without missing, metadata or content discrepancies. Partition block RO,
+ordinary unmount/cleanup and unchanged superblock/GPT readback were proved.
+Result: `PASS_INSPECTION_COMPLETED / COMPLETE_RECORD_BOOT_INPUTS_MATCH`.
+
+Original A transferred once through the normal native Download return. Its
+initial final-health attempt stopped on `ADB error: closed` during a readiness
+read; the existing health-only
+continuation proved a distinct rooted Android boot, exact original partition
+hashes, complete GPT and Android32 capacity. The terminal is
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, with the inspection PASS retained.
+No transfer or inspection was repeated, and no physical button intervention
+was needed.
+Final health completed at 85.167 seconds and the grant closed at 164.016 seconds.
+P406 and its budget are consumed; the F1 owner is absent. See the
+[live report and canonical timeline](docs/reports/S22PLUS_NATIVE_ROOT_STATE_P406_FIRST_RUN_2026-09-26.md)
+and [H0 qualification](docs/reports/S22PLUS_NATIVE_ROOT_STATE_P406_H0_2026-09-26.md).
+
+A currently dirty or mismatched retained root was not observed; P404/P405's
+earlier stop remains unlocated. Next is H0 design to observe the installed-boot
+bootstrap before Debian init without depending on Debian NCM/SSH. P406 did not
+execute installed Debian code or prove host PID 1/networking. A90/S20+ remain
+isolated.
+
+The [H0 switch_root source and mobile-port study](docs/reports/S22PLUS_SWITCH_ROOT_RESEARCH_H0_2026-09-26.md)
+supports separate pre-handoff and replacement-PID-1 observations. The existing
+post-exec error handler covers starting BusyBox, not failures inside the
+replacement program. This is an observed code boundary, not P405's diagnosed
+cause; the independent evidence path remains the next design question.
+
+## Prior P405 first run and healthy Android return
+
+P405 `v0.4.0-rc.5` transferred once under the operator's concrete attended grant
+after fresh exact rooted Android32 health. No NCM endpoint arrived in 180
+seconds. All 98 bounded raw USB samples show both declared device paths absent
+at their observation times. Debian PID 1/SSH, bootstrap stage, shutdown and
+P399 normal return remain unproved; no SSH or P399 effect occurred.
+
+After the operator entered Download, original Android A transferred once and
+its first final-health bracket passed: distinct rooted boot ID, exact original
+partition hashes, full GPT and 34,357,624,832-byte Android32 capacity. The
+terminal is **NO_PROOF_ANDROID_CLOSED_HEALTHY**. P405 and its grant are consumed
+and closed, the F1 owner is absent, and no effect replayed. All 63 saved sources,
+transfer/health raw proof and 98 USB captures were rederived. See the
+[first-run report and timeline](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_FIRST_RUN_2026-09-26.md)
+and [H0 qualification](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P405_H0_2026-09-26.md).
+
+The later P406 unit observed the retained root's state. Android return does
+not prove native_data clean or unchanged. Neither this P405 result nor the host
+selector repair establishes P404's actual cause. A90/S20+ remain isolated.
+
+## Prior P404 first run and healthy Android return
+
+After a pre-process automatic approval rejection, the operator explicitly
+approved one P404 experimental boot-only transfer. The source-bound review,
+plan, finite grant and healthy Android preflight were revalidated. P404
+`v0.4.0-rc.4` transferred once; the fixed 180-second wait saw no Debian NCM
+endpoint. The terminal is `NO_PROOF_ANDROID_CLOSED_HEALTHY`: no Debian PID 1,
+SSH, shutdown or P399 normal return was observed. The operator entered
+Download and original A transferred once. A transient empty ADB inventory
+made the first final-health read fail; read-only continuation then proved a
+distinct rooted Android boot with exact original partition hashes, unchanged
+full GPT and Android32 capacity. The P404 claim and grant are consumed; the
+global F1 owner is absent. See the [first-run report and canonical timeline](docs/reports/S22PLUS_DEBIAN_INSTALLED_BOOT_P404_FIRST_RUN_2026-09-23.md).
+The [2026-09-26 H0 audit](docs/reports/S22PLUS_DEBIAN_P404_NCM_AUDIT_H0_2026-09-26.md)
+reproduced and repaired a host selector defect: an absent Android USB path
+prevented checking the other allowed Debian path. The retained P404 function
+reproduces it; the corrected selector passes regression and independent review.
+The actual P404 cause and Samsung PID 1/SSH remain unproved because unsuccessful
+endpoint observations were not retained. That H0 audit made no device action;
+it led to the separate P405 preparation and consumed run above. P404 remains
+consumed, and A90/S20+ remain isolated.
+
+## Prior completed unit — P403 Debian userspace and healthy Android return
+
+P403 `v0.4.0-rc.3` completed stage 3 on the actual device on 2026-09-23 KST.
+All 8,969 expected root entries matched before one fixed unprivileged chroot
+child proved installed shell/libc execution, child wait and expected exit-code
+handling. Exact stdout, empty stderr, complete setup/exec proof, actual wait
+status and settled processes establish `PROVED_FIXED_DEBIAN_USERSPACE`.
+Partition block RO, parent noexec, ordinary unmount and unchanged native
+superblock/GPT were all proved. Debian host PID 1 and networking remain unproved.
+
+The operation returned normally to original A: `ANDROID_CLOSED_HEALTHY`,
+`recovered=false`, with rooted health, exact original partition hashes,
+unchanged complete GPT and Android32 capacity. There were one N transfer, one
+probe and one A transfer; no recovery transfer or health continuation occurred.
+A transient host lock rejection preceded operation creation and any device
+command; the same grant and deadline were retained. Final health completed at
+137.185 seconds, and the grant closed after raw audit at 182.363 seconds.
+The one-operation budget is consumed and the F1 owner is absent. See the
+[live report and canonical timeline](docs/reports/S22PLUS_NATIVE_USERSPACE_PROBE_P403_FIRST_RUN_2026-09-23.md).
+
+## Prior installed-boot return reference — P399 / v0.3.1
+
+This reference belongs to the earlier installed-boot scope. P410 instead uses
+physical Download and one original-A return under its separate scope.
+
+The operator selected exact P399 `v0.3.1-rc.1` as the native return research
+baseline and mapped those unchanged bytes to functional version `v0.3.1`.
+Its boot-only AP is 33,372,201 bytes, SHA-256
+`d7f1d82d12af63a45bf9e179560ae100f76316d3543f19a02a8f35acc56ec3df`.
+P399 earned V3 admission after two installations and four authenticated
+sessions. Following P400, the restored P399 boot read the byte-identical
+witness from the protected native filesystem and closed its mount. This is
+the selected reference for the next Debian-to-native return design; see the
+[version mapping](docs/operations/S22PLUS_FYG8_VERSIONING.md)
+and [actual run](docs/reports/S22PLUS_NATIVE_EXT4_FIRST_RUN_2026-09-17.md).
+
+The old filesystem operation terminal remains `NO_PROOF_RECOVERED_ANDROID`;
+only its separately rederived initialization and fresh-boot witness are proved.
+Current device state is the later healthy original Android close. P399's
+consumed roles and old grants remain consumed. A future Debian handoff owner
+must separately bind and validate any normal P399 return, with exact current
+health and the original Android recovery available on the reviewed path.
+
+## Prior P402 root inspection and healthy Android return
+
+P402 `v0.4.0-rc.2` completed stage 2 on the actual device on 2026-09-23 KST.
+Its protected read-only mount found installation start/completion records and
+the original witness. All 8,969 expected archive entries, including all 8,175
+boot-input entries, matched with no missing, metadata or content discrepancies.
+Ordinary unmount/cleanup and unchanged superblock/GPT readback were proved.
+The inspection is `PASS_INSPECTION_COMPLETED` with
+`COMPLETE_RECORD_BOOT_INPUTS_MATCH`; it did not execute Debian or a chroot.
+
+Original A transferred once. The first final root/hash read lost the target;
+the existing health-only continuation proved rooted Android, exact partition
+hashes, unchanged full GPT and Android32 capacity. The unchanged terminal is
+`ANDROID_CLOSED_HEALTHY`, `recovered=true`, with the inspection PASS retained.
+No transfer or inspection was repeated. The one-operation grant is consumed
+and closed, and there is no F1 owner. P402's result establishes its historical
+root-file observation without relabelling P401 or proving host PID 1/SSH.
+See the [live report and canonical timeline](docs/reports/S22PLUS_NATIVE_ROOT_INSPECTION_P402_FIRST_RUN_2026-09-23.md).
+
+## Prior P401 Debian attempt and healthy Android return
+
+The first P401 `v0.4.0-rc.1` operation closed on 2026-09-23 KST as
+`NO_PROOF_ANDROID_CLOSED_HEALTHY`. The candidate transferred once, but the
+expected Debian NCM endpoint did not arrive within 180 seconds. Installation,
+Debian PID 1/SSH and resulting native filesystem contents were unproved by
+that run. P402 separately observed the matching installed root as recorded above.
+The operator observed no boot loop and an unchanged boot screen; this does not
+establish Debian execution in the headless candidate.
+
+After physical Download entry, original A transferred once. A first final-health
+read lost the target between inventory and devpath; the existing health-only
+continuation then proved rooted Android, exact original partition hashes,
+unchanged GPT and Android32 capacity. No transfer was repeated. The grant closed
+after 525.267 seconds and the F1 owner is absent. Candidate/installation claims
+remain consumed; this result grants no reinstall or filesystem repair.
+See the [live report and canonical timeline](docs/reports/S22PLUS_DEBIAN_P401_FIRST_RUN_2026-09-23.md).
+
+## Completed native ext4 witness and Android return
+
+The attended P399/P400 task closed on 2026-09-17. Reader P399 passed two
+installations/four authenticated sessions and the actual partition inspection.
+Initializer P400 then formatted native_data once, passed read-only fsck, mounted
+ext4, wrote and read back the fixed 4096-byte witness, synchronized and cleanly
+unmounted. Restored P399 proved a fresh native boot and read the identical
+witness through `ro,noload`, then cleanly unmounted again.
+
+The retained raw evidence separately proves initialization and fresh-boot
+witness persistence. The first Android final-health bracket failed: a completed
+ADB property read was incomplete and the following root read returned target
+not found. Original A had already transferred successfully and was not repeated.
+The existing health-only recovery obtained complete rooted health brackets,
+unchanged full GPT and `/data` statfs total 34,357,624,832 bytes.
+
+The immutable runner terminal is `ANDROID_CLOSED_HEALTHY`, `recovered=true`,
+with conservative filesystem aggregate `NO_PROOF_RECOVERED_ANDROID`. It remains
+unchanged. A separate raw-only H0 assessment records
+`PROVED_INITIALIZATION_AND_FRESH_BOOT_WITNESS`; this does not relabel the normal
+operation as complete. The grant closed after 377.523 seconds, with both
+operations consumed and no F1 owner. There was one initialization, one read-only
+verification, one original-A transfer and zero extra recovery transfers,
+reformats, repairs, GPT writes or resets. Native storage was proved to contain
+the ext4 filesystem and witness at that historical close. P402 now separately
+proves the matching installed root, as recorded above. See the
+[first-run report](docs/reports/S22PLUS_NATIVE_EXT4_FIRST_RUN_2026-09-17.md).
+
+## Completed Android32 layout and rooted return
+
+P398 `v0.3.0-rc.2` completed the exact successor to P397's 128 GiB reservation.
+Two fresh native installations/four healthy sessions and an actual original-GPT
+read preceded one four-block apply. A physical restart proved the new extents;
+one stock reset produced the expected reduced F2FS geometry. Original Magisk A
+was installed once. Native storage was unformatted at that close.
+
+Rooted Android checks before and after one ordinary reboot proved identical
+complete GPT, `/data` statfs total 34,357,624,832 bytes, a different Android boot,
+and numeric UID/GID 0 with exact original-A/supporting partition digests.
+The feature is `RESERVED_ANDROID_REBOOT_VERIFIED` with
+`PASS_CHANGED_BOOT_GPT_CAPACITY_AND_ROOT`; terminal is
+`ANDROID_CLOSED_HEALTHY`, `recovered=false`.
+
+The 7200-second/two-operation grant closed after 896.104 seconds with both
+operations consumed and no F1 owner. There was no GPT restoration, restorative
+reset, recovery transfer or repeated A. The prospective missing-su setup
+exception was not needed. P397's consumed result and its distinct earlier
+health-only recovery remain unchanged.
+
+Device Care's photographed 64 GB total is a presentation observation. Actual
+32 GiB GPT and filesystem geometry are proved; measured free space was about
+31.82 decimal GB. The upstream Android sum-and-round capacity calculation is
+consistent with the label, but the exact Samsung UI call path was not traced.
+No arbitrary smaller partition size is qualified by this result.
+
+See the [live result and canonical timeline](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md),
+[H0 preparation](docs/reports/S22PLUS_ANDROID32_AND_MINIMAL_ANDROID_H0_2026-09-16.md),
+and [G2 policy](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md).
+The preceding [P397 result](docs/reports/S22PLUS_NATIVE_GPT_128G_LIVE_2026-09-15.md)
+is retained as the successor's original-layout provenance.
+
+## Latest cleanup — closed after read-only reconciliation
+
+The [fixed profile](docs/operations/S22PLUS_ANDROID_MINIMAL_V1.md) reused the
+same-FYG8 Pass1 removals with 119 mandatory keep/debug exclusions. Of 41
+installed candidates, 26 passed selection and were removed from user 0;
+ten system/shared-UID and five customized/disabled states were excluded.
+All 26 immediate post-states and the final snapshot confirm absence. The
+installed system-package count is 439, not the historical 116 checkpoint.
+
+One ordinary reboot completed, then USB disappeared during the first final
+health sequence. The existing read-only reconciliation proved healthy original
+A/root, unchanged home/input owners, full proposed GPT and 32 GiB capacity.
+The final boot matches the briefly observed post-reboot boot; no extra reboot
+was observed. The formal cleanup result remains `INCOMPLETE` with
+`ANDROID_CLOSED_HEALTHY`; no effect replay or further work from that claim is permitted.
+Host logs show target-port USB re-enumeration, but its initiating cause remains
+unproved. The reviewed additional mode below subsequently qualified this exact
+read-only stop for its prospective scope; the old verdict stayed unchanged.
+The operator reported Android state.
+
+Final available space was 31,645,573,120 bytes, 55,156,736 below the pre-cleanup
+observation; no reclaimed-space gain is proved. Four earlier no-effect
+preparations and all consumed G2/cleanup records remain unchanged. The fixes
+have independent review and 22 passing focused tests. See the
+[live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md) for evidence,
+capacity measurements and separate removal/final-health outcomes.
+
+## Latest additional cleanup — 25 persistent removals, healthy Android
+
+The operator explicitly requested additional cleanup. The reviewed
+`additional-known` mode used only the four successful removal blocks in the
+[same-FYG8 extra report](docs/reports/S22PLUS_SYSTEM_APP_EXTRA_DEBLOAT_2026-07-06.md):
+38 historical resources, overlays and platform utilities. Existing keep,
+APEX, system/shared-UID, persistent/default and customized-state exclusions
+were retained. Fresh metadata selected 29 and excluded nine. All 29 uninstalls
+and their immediate post-states succeeded, followed by one ordinary reboot.
+Four navigation overlays reappeared; 25 newly selected packages remained absent.
+The formal result is `INCOMPLETE / ANDROID_CLOSED_HEALTHY`, with no replay.
+
+The complete final raw snapshot proves changed boot, exact original-A/root,
+unchanged full GPT/capacity/home/input, and all 118 initially present system
+keep packages. The safe-mode property was empty; this is a limited reported
+signal. H0 publication reused this complete final evidence without another
+device command or reconciliation session. The additional claim is closed; the original cleanup terminal remains unchanged.
+The separately reviewed prospective user-app scope below is its only successor.
+
+Smart Switch had reappeared before this run began. At that close, system packages
+were 415 versus the original 465: 50 absent at that observation. This run itself went
+440 -> 411 immediately -> 415 after reboot. Available space is 31,510,704,128
+bytes, 34,955,264 above its own starting observation; no causal allocation
+breakdown is proved. The 28 tests and independent source/terminal reviews passed.
+See the [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md).
+Native storage was unformatted at that close; no raw APK deletion or Debian staging occurred.
+
+## Latest user-app cleanup — 11 persistent removals, healthy Android
+
+The explicit YouTube/Play Store/Contacts/Clock request qualified the reviewed
+`user-apps` successor. Fresh metadata selected 15 of the 16 installed declared
+UI apps; Samsung Video was excluded for a declared shared UID. All 15 user-0
+uninstalls and immediate absent post-states succeeded, followed by one ordinary
+reboot. All 55 previously attempted names were excluded and no effect replayed.
+
+A boot-completed read during final readiness returned ADB `error: closed`.
+The sole 300-second read-only reconciliation proved healthy exact original-A
+root, changed boot, unchanged full GPT/capacity/home/input, all 117 initially
+present KEEP packages for this mode, and an empty safe-mode property. The USB
+cause remains unproved. Four selected apps were present again: My Files,
+Galaxy Store, Weather and Dictionary. The other 11, including all four apps
+explicitly named by the operator, remained absent. The result remains
+`INCOMPLETE / ANDROID_CLOSED_HEALTHY`, `reboot_verified=false`, with no replay
+or effect replay. The old two terminals remain unchanged; only the separately
+reviewed full-checkpoint successor below may follow this closed run.
+
+At that close, the system-only package count was **404**, down from 415 at
+that run's start and 465 before the three runs: **61 absent at that observation**. `/data` available space is
+31,678,308,352 bytes, 185,667,584 above this run's starting observation; a causal
+space breakdown is not proved. The 33 focused tests and independent source
+review passed. The [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md)
+records the incomplete cleanup separately from final Android health. The
+191.4580078125 GiB native partition was unformatted at that close; Debian staging and
+A90/S20+ effects were outside this run.
+
+## Latest full checkpoint cleanup — 279 persistent removals, 127 apps
+
+The complete user-0 APK census found 406 installed packages, including all 118
+protected entries. One reviewed batch selected all 279 previously unattempted
+packages outside effective KEEP; the nine restored prior attempts were excluded.
+All 279 version-bound uninstalls and immediate absent post-states succeeded.
+There were no refusals or retained-package outcomes. The pre-reboot total was
+127: the protected 118 plus the nine prior residuals. One ordinary reboot ran.
+
+The first final-health root read lost its ADB target after successful selector
+and lane reads; its preceding properties response was truncated to the model
+field and did not prove a complete post-reboot identity. The single 300-second read-only reconciliation
+proved healthy exact original-A root, changed boot, unchanged full GPT/capacity,
+HOME/IME and all 118 protected entries. Every one of the 279 new removals still
+held after reboot. Final total is **127 installed user-0 APK apps**. This includes
+Magisk manager and is not the earlier system-only census metric.
+
+The only outside-KEEP residuals are Smart Switch, My Files, Galaxy Store,
+Weather, Dictionary and four navigation overlays from earlier attempts.
+They were not retried. The formal terminal remains
+`INCOMPLETE / ANDROID_CLOSED_HEALTHY`, `reboot_verified=false`,
+`checkpoint_reached=false`; its remaining-new-candidate list is empty.
+The final read failure's initiating cause is unproved. All three earlier
+terminals and all previous effect identities remain unchanged.
+
+Available space is 31,675,633,664 bytes, 3,997,696 above this batch's initial
+observation, without causal allocation accounting. Forty-three app tests,
+four record tests, 12 boundary tests and independent source review passed.
+The [live report](docs/reports/S22PLUS_ANDROID32_LIVE_2026-09-16.md) records the
+full result and private evidence pins. This checkpoint claim is closed with
+no descendant or replay. Native storage was unformatted at that close; A90/S20+ and
+Debian staging were outside this run.
+
+## Selected final architecture
+
+```text
+Samsung bootloader -> FYG8 kernel -> minimal device initramfs
+                  -> root transition and exec -> Debian host PID 1
+```
+
+The early bootstrap identifies the exact root partition, prepares the storage
+and essential device interfaces, mounts the Debian root, and transfers the
+required mounts and console/log state. It then execs Debian init in the initial
+PID namespace. The bootstrap does not fork Debian beneath a surviving native
+PID 1, retain an independent native control plane, or leave an old-root process
+tree running beside Debian. Select the root-transition mechanism against the
+actual kernel and initramfs topology; a generic `pivot_root` assumption is not
+an implementation plan.
+
+| Responsibility | Before handoff | After handoff |
+| --- | --- | --- |
+| Root storage and essential hardware | Minimal bootstrap loads the necessary exact modules/firmware, creates required nodes and mounts the root | Debian owns filesystem policy, device events and subsequent initialization |
+| Process and service lifecycle | Bootstrap manages only its temporary preparation processes | Debian init owns host PID 1, process reaping, service start/stop/restart and shutdown |
+| USB, networking and display | Prepare only what root access or required boot observation needs | Debian services own configuration and device access; no competing native manager |
+| Device-specific long-lived helpers | Identify their real lifetime and dependencies before choosing the handoff | Package and start them under Debian's service manager, with Debian-visible logs and explicit start/stop behavior |
+| General Linux runtime | Use standard tools where suitable; do not recreate distribution services | Debian provides libraries, accounts/authentication, DNS, time, logging and package management |
+
+Classify each reused native component as boot-only, a Debian-managed service,
+or unnecessary for this product. A helper that cannot yet operate under Debian
+is an explicit compatibility gap, not justification for hiding a second
+supervisor or Android runtime behind the handoff. Existing kernel modules and
+firmware may remain active: root transition does not reset the kernel or
+hardware, and it does not by itself prove their later compatibility.
+
+Build the initramfs and rootfs as a matched pair with declared versions,
+paths, module/firmware dependencies, writable directories, device-manager
+behavior, init/service configuration and SSH access. Prefer moving reusable
+boot preparation into Debian's initramfs build hooks as compatibility permits.
+No requirement to eliminate initramfs or replace the FYG8 kernel is introduced.
+The steady-state rootfs should support normal Debian package and configuration
+management on the dedicated partition; its initial mount mode and exact
+persistent-write scope remain implementation and reviewed-capability work.
+
+## Kernel and rootfs compatibility
+
+Recheck the selected kernel artifact and target ABI before choosing the Debian
+release, init and device manager. The retained
+[FYG8 capability analysis](docs/reports/S22PLUS_FYG8_NATIVE_USERSPACE_BRINGUP_GAP_ANALYSIS_2026-07-22.md)
+records disabled devtmpfs, PID/user namespaces, the cgroup PID controller and
+SysV IPC. These are compatibility inputs to verify against the chosen artifact,
+not a claim that a new Debian build has passed. Host PID 1 does not require a
+new PID namespace.
+
+Debian ownership does not imply a preselected systemd implementation. Assess
+a small Debian init such as SysVinit against the existing kernel, and assess
+systemd against its exact version's kernel/device requirements. Keep missing
+kernel features explicit; do not emulate a general Linux environment inside
+native init to conceal them. Any kernel change is a separate qualified unit.
+Use [Debian's arm64 bootstrap documentation](https://www.debian.org/releases/stable/arm64/apds03.en.html)
+for rootfs construction and
+[initramfs-tools](https://manpages.debian.org/trixie/initramfs-tools-core/initramfs-tools.7.en.html)
+for the standard early-boot lifecycle. Their generic kernel/bootloader setup
+does not replace this target's existing boot and recovery process.
+
+The [A90 comparison](docs/plans/A90_H16_H24_ISOLATED_DEBIAN_COMPARISON_BASELINE_2026-08-14.md)
+and [firstboot audit](docs/reports/A90_H14_IMMUTABLE_FIRSTBOOT_ISOLATED_DEBIAN_MISMATCH_H0_2026-08-14.md)
+are lessons: align mount/device assumptions, authentication, service ownership
+and return behavior before integration. Do not import A90's selected native
+supervisor architecture, consumed results or device authority. HUD, display,
+boot chime and legacy SD evidence dependencies do not gate the first headless
+Debian boot.
+
+## Completion criteria for the first usable Debian system
+
+These are prospective product criteria, not newly activated device gates:
+
+1. **Actual Debian boot:** same-boot evidence identifies Debian init as host
+   PID 1, the dedicated partition as its root, and the expected rootfs build.
+   A child shell, a chroot, a namespace-local PID 1, an exec-intent marker or an
+   open port alone does not establish this outcome.
+2. **One userspace owner:** no independent native supervisor, competing device
+   manager or surviving native old-root service tree remains. Required
+   target-specific helpers have a declared Debian service owner and observable
+   lifecycle. Mounts and inherited descriptors match the handoff design.
+3. **Useful Debian runtime:** the selected standard command workload runs,
+   package installation/configuration works, and one ordinary service can be
+   started, stopped and restarted through Debian's init system. Record the
+   tested packages and limitations; do not claim all Linux software works.
+4. **Headless access:** a declared Debian-owned IP path supports authenticated
+   SSH, DNS and the selected service workload. USB networking may qualify the
+   first access path; Wi-Fi is a later capability if its dependencies are not
+   ready. Port visibility alone is not authentication or service proof.
+5. **Persistent operation:** a clean shutdown/reboot boots Debian again and
+   preserves the selected package, configuration and synchronized test data.
+   A normal boot does not depend on an interactive native shell or host daemon.
+6. **Diagnosable failure and recovery:** boot-stage records connect to Debian
+   logs, distinguish the last completed preparation stage from actual init
+   execution, and identify the service that owns a failure. Demonstrate the
+   separately authorized return/recovery path and final rooted Android health;
+   report Debian functionality, recovery and terminal health independently.
+
+Demonstrate the combined PID 1, root, ownership, SSH and workload claims in one
+identified integrated run, followed by its qualified persistence/return checks.
+Do not assemble a full-system PASS from unrelated experiments. Before Debian
+exec, a preparation failure may stop in the bootstrap under its defined
+procedure. After successful exec, the replaced native PID 1 is not available
+as an automatic fallback. Post-handoff recovery must have its own demonstrated
+reboot/physical-return route; no reverse root switch or automatic recovery is
+assumed.
+
+## Next bounded unit and milestones
+
+The current unit is **P410 actual installed-Debian PID1 and basic access**.
+P409 already proved the shared native-worker retirement, exact protected root,
+actual PID1 switch_root and post-exec observation on Samsung. P410 extends
+that mechanism under its separate writable scope; it is not a continuation of
+P409's consumed grant. Preparation stops before its finite attended experiment.
+
+1. **Dedicated root and fixed userspace:** retained filesystem, complete root
+   comparison and the installed shell/libc workload have target proof. Preserve
+   the closed earlier results and their exact no-replay boundaries.
+2. **Actual Debian init and access:** prove installed `/sbin/init` as initial
+   PID1 before native ACM retirement, then Debian NCM and pinned same-boot SSH.
+   One fixed shutdown and physical original-A return close this bounded unit.
+3. **Persistence and ordinary service:** after that unit closes healthy, qualify
+   package-managed service behavior, retained data/configuration and ordinary
+   Debian reboot in a separately selected scope. P410 does not include them.
+4. **Later hardware/product features:** Wi-Fi, display/input, audio and desktop
+   are Debian-managed capabilities after the headless base works.
+
+ARM64 virtual-machine proof does not establish Samsung USB behavior or target
+Debian boot. Root-witness proof, installed-init proof, SSH health, clean ext4,
+Android return and final operation closure remain separate facts. A forced
+return can leave native_data dirty without making Android unhealthy; future
+repair or revised root admission needs its own scope.
+
+## Completed history
+
+The complete goal through P409's healthy closure, including the earlier
+construction and superseded milestone narrative, is preserved byte-for-byte in
+[the P409 closed snapshot](docs/archive/roadmaps/GOAL_THROUGH_P409_CLOSED_2026-09-30.md).
+
+The complete previous 798-line goal, including P396 live closure, P397 H0
+preparation and all earlier archive links, is preserved byte-for-byte in
+[the goal through P397 H0](docs/archive/roadmaps/GOAL_THROUGH_P397_H0_2026-09-15.md).
+Historical state is evidence only; consumed claims and private journals retain
+their identities and cannot be replayed.
+
+## Continuing boundaries
+
+Future device work requires its own current scope and exact target, artifact,
+health, source and recovery binding. Never place an experiment over uncertain
+health or repeat an uncertain write, transfer or control. Keep raw evidence and
+identifiers private. A reporting failure permits evidence reconstruction, not
+another device transition. Functional proof, recovery and terminal health remain
+separate. The Debian direction selects preparation work only; filesystem
+formatting, rootfs staging and runtime effects require their own reviewed
+scope under the binding contracts.

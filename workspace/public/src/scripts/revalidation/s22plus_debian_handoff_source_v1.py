@@ -16,7 +16,8 @@ def profile_contract():
     result['switch_root_profile']=None
     result.update(debian_handoff_profile=PROFILE,switch_root=dict(request=37,sequence=5,seconds=300,
         owner_pid=1,root_readonly=False,installed_exec=True,terminal_reentry=False,
-        init_request=39,init_sequence=6,release_request=40,release_sequence=7))
+        init_request=39,init_sequence=6,start_request=41,start_sequence=8,
+        release_request=40,release_sequence=9,runtime_seconds=120))
     return result
 
 
@@ -25,4 +26,6 @@ def source_files():
     return tuple(sorted(set(previous.source_files())|{Path(__file__),
         *(native/n for n in ('s22plus_debian_handoff_v1.h','s22plus_debian_handoff_common_v1.inc.c',
             's22plus_debian_handoff_prepare_v1.inc.c','s22plus_debian_handoff_witness_v1.inc.c',
-            's22plus_debian_handoff_hook_v1.c'))}))
+            's22plus_debian_handoff_hook_v1.c','s22plus_debian_handoff_observer_v2.inc.c',
+            's22plus_debian_handoff_root_v2.inc.c')),
+        ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-adopt-g1'}))

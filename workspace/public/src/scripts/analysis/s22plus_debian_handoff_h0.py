@@ -14,12 +14,14 @@ def source_files(virt=False):
     return sorted(set(base.source_files(virt))|{Path(__file__),Path(profile.__file__),
         *(NATIVE/n for n in ('s22plus_debian_handoff_v1.h','s22plus_debian_handoff_common_v1.inc.c',
         's22plus_debian_handoff_prepare_v1.inc.c','s22plus_debian_handoff_witness_v1.inc.c',
-        's22plus_debian_handoff_hook_v1.c'))})
+        's22plus_debian_handoff_hook_v1.c','s22plus_debian_handoff_observer_v2.inc.c',
+        's22plus_debian_handoff_root_v2.inc.c')),
+        ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-adopt-g1'})
 
 
 def validate_options(options,virt):
     require(set(options)=={'namespace','version','fault'} and type(options['fault']) is int and
-        options['fault'] in range(7) and (not options['fault'] or virt),'Debian build options differ')
+        options['fault'] in range(10) and (not options['fault'] or virt),'Debian build options differ')
 
 
 def prepare_headers(out,run,options,virt):
@@ -27,11 +29,11 @@ def prepare_headers(out,run,options,virt):
         profile.header(options['namespace'],options['version'],run,virt=virt))
     _,assets=profile.payloads(virt=virt)
     for name,data in assets.items():
-        (out/name).write_bytes(data);(out/name).chmod(0o400 if name=='inittab' else 0o500)
+        (out/name).write_bytes(data);(out/name).chmod(0o400 if name in ('inittab','crontab') else 0o500)
 
 
 def asset_rows(out,hook,virt):
-    return [('hook',hook),*((name,pin(out/name)) for name in ('inittab','qualify',*(('usb',) if virt else ())))]
+    return [('hook',hook),*((name,pin(out/name)) for name in ('inittab','qualify','defer-usb','crontab','usb'))]
 
 
 def payload_bytes(out,hook,virt):
@@ -39,7 +41,7 @@ def payload_bytes(out,hook,virt):
     text+='static const struct dh_asset dh_assets[]={\n'
     for name,row in asset_rows(out,hook,virt):
         text+='{'+json.dumps('/s22-debian-'+name)+','+json.dumps(name)+','+str(row['size'])+'ULL,'
-        text+=('0400' if name=='inittab' else '0500')+',{'+','.join(map(str,bytes.fromhex(row['sha256'])))+'}},\n'
+        text+=('0400' if name in ('inittab','crontab') else '0500')+',{'+','.join(map(str,bytes.fromhex(row['sha256'])))+'}},\n'
     return (text+'};\n').encode()
 
 

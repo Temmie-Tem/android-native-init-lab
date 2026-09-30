@@ -15,6 +15,7 @@ import s22plus_debian_access_v1 as access
 import s22plus_native_root_inspect_session_v1 as scope
 import s22plus_native_records_v3 as records
 import s22plus_native_session_v3 as owner
+import s22plus_native_baseline_v2_candidates as catalog
 
 KEY,RUN,NONCE,BOOT=predecessor.KEY,predecessor.RUN,predecessor.NONCE,predecessor.BOOT
 WITNESS=predecessor.WITNESS;INIT='66'*32;HOOK='77'*32
@@ -27,7 +28,13 @@ def transcript(*,pid=1,boot=BOOT,acm=0,state=0,init=bytes.fromhex(INIT),hook=byt
         rows.append(wire.encode(KEY,RUN,NONCE,wire.base.RECORD,1023+stage,struct.pack('<2I',stage,0)+body))
     rows+=[wire.encode(KEY,RUN,NONCE,wire.CONTINUE_ACK,6,struct.pack('<I',1)),
         wire.encode(KEY,RUN,NONCE,wire.INIT_PROOF,7,struct.pack('<3I',pid,8,41)+boot+init+hook+struct.pack('<2I',acm,state)),
-        wire.encode(KEY,RUN,NONCE,wire.RELEASE_ACK,7,struct.pack('<I',1))]
+        wire.encode(KEY,RUN,NONCE,wire.START_ACK,wire.START_SEQUENCE,struct.pack('<I',1))]
+    for ordinal in range(wire.SAMPLES+3):
+        sample=max(0,ordinal-2)
+        rows.append(wire.encode(KEY,RUN,NONCE,wire.PROGRESS,2000+ordinal,
+            struct.pack('<4IQ',ordinal+1 if ordinal<3 else 4,sample,1,0 if ordinal<2 else 3,
+                sample*wire.SAMPLE_MS)+BOOT))
+    rows.append(wire.encode(KEY,RUN,NONCE,wire.RELEASE_ACK,wire.RELEASE_SEQUENCE,struct.pack('<I',1)))
     return rows
 
 
@@ -43,6 +50,27 @@ class RecordsTests(unittest.TestCase):
         self.accept(r,rows[8:10]);self.assertIsNotNone(r.init_proof);self.assertFalse(r.released)
         self.accept(r,rows[10:]);self.assertTrue(r.released)
         self.assertFalse(r.projection()['ssh_access_proved']);self.assertFalse(r.projection()['clean_shutdown_proved'])
+        self.assertEqual(r.runtime_proof['elapsed_ms'],120000)
+
+    def test_runtime_is_not_proved_by_init_start_or_partial_progress(self):
+        r=self.reader();rows=transcript();self.accept(r,rows[:-2])
+        self.assertIsNotNone(r.init_proof);self.assertTrue(r.started);self.assertIsNone(r.runtime_proof)
+        with self.assertRaises(ValueError):r.accept(wire.frames.decode_frame(rows[-1]))
+        self.assertFalse(r.released)
+
+    def test_elapsed_boot_services_and_progress_sequence_are_required(self):
+        for change in ('early','boot','services','duplicate','skip'):
+            rows=transcript();row=wire.frames.decode_frame(rows[-2])
+            body=bytearray(wire.base.body(row,KEY,RUN,NONCE));sequence=row.sequence
+            if change=='early':body[16:24]=struct.pack('<Q',1000)
+            if change=='boot':body[-1]^=1
+            if change=='services':body[12:16]=struct.pack('<I',1)
+            if change=='duplicate':sequence-=1
+            if change=='skip':sequence+=1
+            rows[-2]=wire.encode(KEY,RUN,NONCE,wire.PROGRESS,sequence,bytes(body))
+            r=self.reader()
+            with self.assertRaises(ValueError):self.accept(r,rows)
+            self.assertIsNone(r.runtime_proof);self.assertFalse(r.released)
 
     def test_wrong_pid_boot_init_hook_or_inherited_fd_cannot_prove(self):
         for change in (dict(pid=2),dict(boot=b'x'*32),dict(init=b'x'*32),dict(hook=b'x'*32),dict(acm=1),dict(state=1)):
@@ -68,6 +96,12 @@ class RecordsTests(unittest.TestCase):
 
 
 class ScopeTests(unittest.TestCase):
+    def test_consumed_v1_declarations_cannot_select_the_v2_builder(self):
+        retired=[row for row in catalog.research_data() if row['profile'] in catalog.RETIRED_RESEARCH_PROFILES]
+        self.assertTrue(retired)
+        for row in retired:
+            with self.assertRaises(ValueError):catalog.static(row['namespace'])
+
     def test_scope_is_exact_one_attended_android_origin_and_recovery_does_not_need_ssh(self):
         task=root.ScopeTests().task();task.update(N=dict(profile=profile.PROFILE,run_id_hex='1'*32),
             seconds=3600,operations=[profile.OPERATION],debian_access=dict.fromkeys(

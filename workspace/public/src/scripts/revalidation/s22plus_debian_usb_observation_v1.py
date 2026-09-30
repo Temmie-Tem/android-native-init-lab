@@ -6,6 +6,7 @@ authenticated health checks still decide whether a connection is acceptable.
 import errno
 import json
 from pathlib import Path
+import re
 
 import device_action_raw_capture_v1 as raw
 import s22plus_native_target_io_v3 as target
@@ -117,3 +118,18 @@ def classify(handle, wanted):
     return dict(schema='s22plus-debian-usb-observation-v1', ordinal=rows[0]['ordinal'],
                 capture=pin(handle.receipt_path), paths=results,
                 diagnostic_only=True, endpoint_acceptance=False)
+
+
+def native_returned(handle, run):
+    """Reject a returned old native identity after proved ACM departure.
+
+    This never accepts an endpoint or opens it. The bounded immutable capture
+    is already preserved; an exact native return only ends the NCM wait.
+    """
+    require(re.fullmatch('[0-9a-f]{32}',run),'native return identity differs')
+    raw.require_success(handle)
+    rows=[json.loads(line) for line in raw.read_stdout(handle,maximum=MAX_CAPTURE).splitlines()]
+    require(rows[0]['kind']=='begin' and rows[-1]['kind']=='end','native return capture incomplete')
+    expected=dict(idVendor='04e8',idProduct='6861',serial='S22E3'+run)
+    return any(row['kind']=='usb' and row['errno'] is None and
+        all(_text(row['fields'][name])==value for name,value in expected.items()) for row in rows)

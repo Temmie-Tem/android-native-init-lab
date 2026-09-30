@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **35** (supersedes revision 34; 2026-09-30)
+Contract-Revision: **36** (supersedes revision 35; 2026-10-01)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`d7b880a75f226175dad4092af96be52e85700ed719df6ae11614e03fdb17cdfe`.
+`786125893d5dc577b87443409d1138ce385fd0ac7abf75b3d8ffbdcd89a55022`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -113,7 +113,8 @@ Read an exception's complete conditions before considering it applicable.
    and [native ext4 exception](docs/operations/S22PLUS_NATIVE_EXT4_V1.md), and
    the separately reviewed [Debian first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
    and [installed-Debian boot exception](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md),
-   and the separate [native-first Debian handoff exception](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md).
+   and the separate [native-first Debian handoff exception](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md)
+   and [Debian progress/same-gadget successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -146,6 +147,11 @@ Read an exception's complete conditions before considering it applicable.
    RO clear, normal native_data RW mount, installed init/basic SSH and fixed
    shutdown, with attended physical original-A return. It adds no repair,
    installation, other-partition write or replay.
+   Its separately reviewed [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md)
+   permits only its finite post-P410 mutable-data admission, sequential
+   Debian-owned progress observation and reuse of the original USB gadget.
+   Clean ext4, exact immutable-root checks and the same no-repair/write
+   boundaries remain required.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -202,6 +208,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ streamed protected preparation | [Native-first stage observation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md); one fixed protected checker/loader command after native health, diagnostic-only partial evidence, one original-A return, no filesystem write or Debian handoff. |
 | S22+ readonly root-transition witness | [Actual PID-1 transition and post-exec proof](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md); one native-first fixed terminal operation, worker settlement, protected root and RAM witness, one original-A return, no installed init or writable lifetime. |
 | S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md); one attended finite operation, protected admission then native_data RW/init, authenticated PID1 and same-boot SSH, fixed shutdown and physical original-A return, no reinstall or replay. |
+| S22+ Debian progress and same-gadget handoff | [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md); one fresh attended operation, clean protected current-root admission, finite Debian service observation before same-g1 NCM/SSH, fixed shutdown and physical original-A return; no repair or replay. |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

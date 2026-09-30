@@ -10,7 +10,7 @@ EXTRA_SOURCES=base.EXTRA_SOURCES+[
     'workspace/public/src/scripts/revalidation/s22plus_debian_handoff_source_v1.py',
     'workspace/public/src/scripts/revalidation/s22plus_debian_handoff_profile_v1.py',
     'workspace/public/src/scripts/revalidation/s22plus_debian_handoff_protocol_v1.py',
-    'docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md']
+    'docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md']
 
 
 class Builder(base.Builder):
@@ -19,7 +19,8 @@ class Builder(base.Builder):
     producer=producer
     profile_attribute='DEBIAN_HANDOFF_PROFILE'
     extra_member_modes=dict(base.Builder.extra_member_modes,**{
-        's22-debian-hook':0o500,'s22-debian-inittab':0o400,'s22-debian-qualify':0o500})
+        's22-debian-hook':0o500,'s22-debian-inittab':0o400,'s22-debian-qualify':0o500,
+        's22-debian-defer-usb':0o500,'s22-debian-crontab':0o400,'s22-debian-usb':0o500})
 
     def __init__(self,declaration):
         super().__init__(declaration)
@@ -45,7 +46,7 @@ class Builder(base.Builder):
         result['root_admission']=result.pop('root_inspection');result.pop('switch_root')
         helpers=runtime['switch_root_helpers']
         selection={name:helpers[name] for name in ('prepare','witness','busybox','checker','assets','installed_init')}
-        selection.update(seconds=300,request=37,init_request=39,release_request=40,root_readonly=False,
+        selection.update(seconds=300,request=37,init_request=39,start_request=41,release_request=40,root_readonly=False,
             installed_exec=True,persistent_writes=True,helpers_result=pin(self.DEFAULT_OUTPUT_ROOT/'runtime/switch-root/result.json'))
         result['debian_handoff']=selection
         return result

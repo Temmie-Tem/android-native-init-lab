@@ -106,6 +106,9 @@ DECLARATIONS = {
 # never replaced by this catalog and their original build identities stay put.
 RESEARCH_DATA = Path('workspace/public/src/device-action/manifests/s22plus_native_research_candidates_v1.json')
 RESEARCH_DATA_SCHEMA = 's22plus-native-research-candidate-data-v1'
+# Consumed V1 handoff data remains readable, but must never inherit the V2
+# runtime or builder. Its original source snapshot owns historical replay.
+RETIRED_RESEARCH_PROFILES=frozenset({'thermal-v3-reconnect-ufs-drain-debian-handoff-v1'})
 RESEARCH_PROFILES = {
     handoff_source.DEBIAN_HANDOFF_PROFILE: (handoff_source, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
@@ -163,7 +166,7 @@ def research_data(root=ROOT):
                 or type(row['version']) is not str or not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?', row['version'])
                 or len(row['version']) > 48 or type(row['image_sha256']) is not str
                 or not re.fullmatch(r'[0-9a-f]{64}', row['image_sha256'])
-                or type(row['profile']) is not str or row['profile'] not in RESEARCH_PROFILES):
+                or type(row['profile']) is not str or row['profile'] not in RESEARCH_PROFILES.keys()|RETIRED_RESEARCH_PROFILES):
             raise ValueError('research candidate row differs from the reviewed data grammar')
         names.add(row['namespace']); runs.add(row['run_id'])
     return value['candidates']
@@ -266,6 +269,7 @@ def research_profile(declared):
 
 
 for _row in research_data():
+    if _row['profile'] in RETIRED_RESEARCH_PROFILES:continue
     _source, _observer, _modules = RESEARCH_PROFILES[_row['profile']]
     DECLARATIONS[_row['namespace']] = declaration(_row['namespace'], _row['run_id'],
         _row['version'], _row['image_sha256'], runtime_source=_source,

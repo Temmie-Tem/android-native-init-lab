@@ -10,7 +10,10 @@ import s22plus_switch_root_protocol_v1 as base
 from s22plus_native_records_v3 import require
 
 CONTINUE,CONTINUE_ACK,INIT_PROOF,RELEASE,RELEASE_ACK=39,171,172,40,173
-MAXIMUM=base.MAXIMUM+2048
+START,START_ACK,PROGRESS=41,175,176
+START_SEQUENCE,RELEASE_SEQUENCE=8,9
+SAMPLE_MS,SAMPLES=10000,12
+MAXIMUM=base.MAXIMUM+8192
 encode,frames,health=base.encode,base.frames,base.health
 
 
@@ -18,7 +21,14 @@ class Records(base.Records):
     def __init__(self,key,run,nonce,boot,witness_sha256,init_sha256,hook_sha256):
         super().__init__(key,run,nonce,boot,witness_sha256,root_readonly=False)
         self.expected_init,self.expected_hook=init_sha256,hook_sha256
-        self.continued=self.released=False;self.init_proof=None
+        self.continued=self.started=self.released=False;self.init_proof=None;self.progress=[]
+
+    @property
+    def runtime_proof(self):
+        if len(self.progress)!=SAMPLES+3:return None
+        return dict(rcs_entered=True,rcs_completed=True,runlevel_completed=True,pid=1,
+            same_kernel_boot=True,cron_and_sshd=True,samples=SAMPLES+1,
+            elapsed_ms=self.progress[-1]['elapsed_ms'])
 
     def accept(self,frame):
         if frame.frame_type==base.RECORD and self.proof is None:return super().accept(frame)
@@ -43,13 +53,31 @@ class Records(base.Records):
             self.init_proof=dict(pid=1,root_device=self.proof['root_device'],same_kernel_boot=True,
                 init_sha256=self.expected_init,hook_sha256=self.expected_hook,inherited_acm_fds=0,inherited_state_fds=0)
             return
-        require(frame.frame_type==RELEASE_ACK and self.init_proof is not None and frame.sequence==7 and
+        if frame.frame_type==START_ACK:
+            require(self.init_proof is not None and not self.started and frame.sequence==START_SEQUENCE and
+                value==struct.pack('<I',1),'unjoined or repeated Debian service start')
+            self.started=True;return
+        if frame.frame_type==PROGRESS:
+            ordinal=len(self.progress)
+            require(self.started and ordinal<SAMPLES+3 and frame.sequence==2000+ordinal and len(value)==56,
+                'out-of-order Debian progress')
+            stage,sample,pid,services,elapsed=struct.unpack('<4IQ',value[:24])
+            expected_stage=ordinal+1 if ordinal<3 else 4
+            expected_sample=max(0,ordinal-2)
+            require(stage==expected_stage and sample==expected_sample and pid==1 and value[24:]==self.boot and
+                services==(0 if ordinal<2 else 3) and
+                (elapsed==0 if ordinal<2 else sample*SAMPLE_MS<=elapsed<=sample*SAMPLE_MS+10000) and
+                (ordinal<3 or elapsed>self.progress[-1]['elapsed_ms']),
+                'Debian progress lacks same-boot ordered service liveness')
+            self.progress.append(dict(stage=stage,sample=sample,elapsed_ms=elapsed,services=services));return
+        require(frame.frame_type==RELEASE_ACK and self.runtime_proof is not None and frame.sequence==RELEASE_SEQUENCE and
             value==struct.pack('<I',1),'unjoined ACM release acknowledgement')
         self.released=True
 
     def projection(self):
         return dict(status='PASS_INSTALLED_DEBIAN_PID1' if self.init_proof else 'NO_PROOF_DEBIAN_PID1',
             root_transition=super().projection(),init_proof=self.init_proof,continue_accepted=self.continued,
+            services_start_accepted=self.started,progress=self.progress,runtime_proof=self.runtime_proof,
             acm_release_accepted=self.released,acm_departure_proved=False,ssh_access_proved=False,
             persistent_writes=True,clean_shutdown_proved=False,stop=self.stop)
 
@@ -74,19 +102,22 @@ def prefix(codec,identity,key,rx,tx,*,io_class,selection,complete=False):
             size=frames.HEADER.unpack(rx[rend:rend+16])[3];require(size<=1023,'Debian frame too large')
             records.accept(frames.decode_frame(rx[rend:rend+16+size]));rend+=16+size
         continuation=encode(key,records.run,records.nonce,CONTINUE,6)
-        release=encode(key,records.run,records.nonce,RELEASE,7)
+        start=encode(key,records.run,records.nonce,START,START_SEQUENCE)
+        release=encode(key,records.run,records.nonce,RELEASE,RELEASE_SEQUENCE)
         transmitted=tx[tend:]
-        require((continuation+release).startswith(transmitted),'unexpected or repeated Debian continuation')
+        require((continuation+start+release).startswith(transmitted),'unexpected or repeated Debian continuation')
         require(not transmitted or records.proof is not None,'continuation precedes root proof')
-        require(len(transmitted)<=len(continuation) or records.init_proof is not None,'release precedes PID1 proof')
+        require(len(transmitted)<=len(continuation) or records.init_proof is not None,'service start precedes PID1 proof')
+        require(len(transmitted)<=len(continuation+start) or records.runtime_proof is not None,'release precedes runtime proof')
         require(not records.continued or len(transmitted)>=len(continuation),'continuation ACK lacks request')
-        require(not records.released or transmitted==continuation+release,'release ACK lacks request')
+        require(not records.started or len(transmitted)>=len(continuation+start),'start ACK lacks request')
+        require(not records.released or transmitted==continuation+start+release,'release ACK lacks request')
         if complete:require(records.released and records.stop is None,'Debian native-side handoff incomplete')
     except (ValueError,EOFError) as failure:
         if complete:raise
         error=str(failure)
     return dict(schema='s22plus-debian-handoff-observation-v1',run_id_hex=identity.run_id_hex,
-        native_health_proved=True,ending='handoff',terminal_sequence=7,
+        native_health_proved=True,ending='handoff',terminal_sequence=RELEASE_SEQUENCE,
         control_acceptance_observed=records.released,detach_ack_observed=False,
         kernel_boot_identity_sha256=health.digest(io.audit.boot_id),nonce_sha256=health.digest(io.audit.nonce),
         kernel_boot_proof=io.audit.boot_id.hex(),preparation=io.preparation.projection(),
@@ -125,8 +156,14 @@ def qualify_one(io,*,evidence,before_terminal,before_extra,selection):
         records.accept(io.frame());require(records.continued,'init continuation ACK absent')
         while records.init_proof is None:
             records.accept(io.frame());require(records.stop is None,'installed init observation stopped')
-        before_terminal(dict(request,mode='debian-acm-release',sequence=7,init_proof=records.init_proof))
-        frame=frames.decode_frame(encode(io.key,run,io.audit.nonce,RELEASE,7));io.send(frame.frame_type,frame.sequence,frame.payload)
+        before_terminal(dict(request,mode='debian-services-start',sequence=START_SEQUENCE,init_proof=records.init_proof))
+        frame=frames.decode_frame(encode(io.key,run,io.audit.nonce,START,START_SEQUENCE));io.send(frame.frame_type,frame.sequence,frame.payload)
+        records.accept(io.frame());require(records.started,'service start ACK absent')
+        while records.runtime_proof is None:
+            records.accept(io.frame());require(records.stop is None,'Debian service progress stopped')
+        before_terminal(dict(request,mode='debian-acm-release',sequence=RELEASE_SEQUENCE,
+            init_proof=records.init_proof,runtime_proof=records.runtime_proof))
+        frame=frames.decode_frame(encode(io.key,run,io.audit.nonce,RELEASE,RELEASE_SEQUENCE));io.send(frame.frame_type,frame.sequence,frame.payload)
         records.accept(io.frame());require(records.released,'ACM release ACK absent')
         rx,tx=bytes(io.audit.rx),bytes(io.audit.tx)
         value,_,_=replay_one(io.codec,io.identity,io.key,rx,tx,io_class=type(io),selection=selection)

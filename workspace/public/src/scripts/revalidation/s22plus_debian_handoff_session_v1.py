@@ -36,10 +36,13 @@ def validate_result(adapter,step,value,request):
             selected['status']=='PASS_INSTALLED_DEBIAN_PID1' and selected['continue_accepted'] is True and
             selected['acm_release_accepted'] is True,'Debian handoff proof does not join original effect')
         continued=read(folder/'debian-init-continue.json');released=read(folder/'debian-acm-release.json')
+        started=read(folder/'debian-services-start.json')
         require(continued==dict(transition=pin(folder/'transition-intent.json'),request=dict(original,
             mode='debian-init-continue',sequence=6,root_proof=selected['root_transition']['proof'])) and
+            started==dict(transition=pin(folder/'transition-intent.json'),request=dict(original,
+            mode='debian-services-start',sequence=8,init_proof=selected['init_proof'])) and
             released['transition']==pin(folder/'transition-intent.json') and released['request']==dict(original,
-            mode='debian-acm-release',sequence=7,init_proof=selected['init_proof']),
+            mode='debian-acm-release',sequence=9,init_proof=selected['init_proof'],runtime_proof=selected['runtime_proof']),
             'Debian continuation is not bound to its original proof')
         departure=read(verify(value['departure']))
         require(departure['departed'] is True and departure['before']==read(verify(released['departure'])) and
@@ -55,7 +58,7 @@ def validate_result(adapter,step,value,request):
 
 def terminal(adapter,request,*,recovered):
     from s22plus_native_observation_v3 import switch_prefix
-    result=dict(status='NO_PROOF',debian_boot_proved=False,ssh_access_proved=False,
+    result=dict(status='NO_PROOF',debian_boot_proved=False,debian_runtime_proved=False,ssh_access_proved=False,
         clean_shutdown_proved=False,normal_return=not recovered,replay_authorized=False)
     try:
         original=read(adapter.folder('debian-handoff')/'transition-intent.json')
@@ -66,6 +69,8 @@ def terminal(adapter,request,*,recovered):
         result['native_observation']=value['debian_handoff']
         if value['debian_handoff']['init_proof'] is not None:
             result.update(status='PASS_INSTALLED_DEBIAN_PID1',debian_boot_proved=True)
+        if value['debian_handoff']['runtime_proof'] is not None:
+            result.update(status='PASS_DEBIAN_RUNTIME_120S',debian_runtime_proved=True)
         healthy=access.Access(adapter,request).rederive_health()
         result.update(status='PASS_DEBIAN_PID1_AND_SSH',ssh_access_proved=True,ssh_health=healthy['health'])
     except (ValueError,OSError,KeyError,RawCaptureError) as error:

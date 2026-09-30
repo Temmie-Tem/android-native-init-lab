@@ -100,10 +100,13 @@ static int sw_copy_witness(void) {
 }
 static int sw_root_eligible(int root,struct fs1_endpoint *e,const struct ri_counts *counts,
                             const struct ri_compare *comparison,int started,int complete,int witness) {
-    struct stat st;
+    struct stat st;unsigned extra=0;
+#ifdef S22_DEBIAN_HANDOFF
+    int error=dh_root_extras(root,e->partition,&extra);if(error)return error;
+#endif
     if(started!=1 || complete!=1 || witness!=1 || comparison->expected!=ri_table_count ||
        comparison->matched!=ri_table_count || comparison->missing || comparison->metadata || comparison->content ||
-       counts->entries!=ri_table_count+4 || counts->other ||
+       counts->entries!=ri_table_count+4+extra || counts->other ||
        fstatat(root,"lost+found",&st,AT_SYMLINK_NOFOLLOW) || st.st_dev!=e->partition ||
        !S_ISDIR(st.st_mode) || (st.st_mode&07777)!=0700 || st.st_uid || st.st_gid ||
        fs1_empty_directory("/s22-root-work/root-inspect-v1/root/lost+found"))return EPROTO;

@@ -60,9 +60,8 @@ static __attribute__((noreturn)) void dh_exec_init(void) {
     for(unsigned i=0;i<sizeof(links)/sizeof(links[0]);++i)if(symlink(links[i][0],links[i][1]))sw_stop(fs1_error());
     dh_overlay("/run/s22-debian/inittab","/etc/inittab");
     dh_overlay("/run/s22-debian/qualify","/usr/local/sbin/lab-qualify");
-#ifdef S22_ROOT_INSPECT_VIRT_TEST
-    dh_overlay("/run/s22-debian/usb","/etc/init.d/lab-usb");
-#endif
+    dh_overlay("/run/s22-debian/defer-usb","/etc/init.d/lab-usb");
+    dh_overlay("/run/s22-debian/crontab","/etc/crontab");
     char log[256];int n=snprintf(log,sizeof(log),"%sBOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n",dh_boot_identity);
     if(n<=0 || n>=(int)sizeof(log))sw_stop(EOVERFLOW);
     sw_require(dh_write("/run/lab-bootstrap.log",log,(size_t)n,0400));

@@ -155,7 +155,7 @@ def image_valid(image, *, artifact_bytes=False):
             members.extend((member,image[key][label],0o100500) for member,label in (
                 ('s22-switch-witness','witness'),('s22-switch-busybox','busybox'),('s22-fs-e2fsck','checker')))
         if selected is handoff:
-            members.extend(('s22-debian-'+name,row,0o100400 if name=='inittab' else 0o100500)
+            members.extend(('s22-debian-'+name,row,0o100400 if name in ('inittab','crontab') else 0o100500)
                 for name,row in image['debian_handoff']['assets'].items())
         for member, receipt, mode in members:
             require(all(inventory[member][k] == receipt[k] for k in ('size', 'sha256')) and
@@ -164,7 +164,7 @@ def image_valid(image, *, artifact_bytes=False):
         excluded={'s22-fs','s22-fs-mke2fs','rootfs.tar.xz','s22-root-inspect','s22-userspace-probe','s22-staged-preflight','s22-prehandoff'}-{helper}
         if selected not in (staged,switch,handoff):excluded.add('s22-fs-e2fsck')
         if selected not in (switch,handoff):excluded.update(('s22-switch-root','s22-switch-witness','s22-switch-busybox'))
-        if selected is handoff:excluded.add('s22-debian-usb')
+        if selected is not handoff:excluded.add('s22-debian-usb')
         require(not any(name in inventory for name in excluded),
             'inspector image contains an unselected filesystem payload')
     if artifact_bytes:

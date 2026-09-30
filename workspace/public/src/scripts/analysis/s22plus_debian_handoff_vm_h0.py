@@ -23,8 +23,37 @@ ROOT=base.ROOT
 
 
 def setup(out,helpers,case):
-    require(case in ('complete','dirty','mismatch'),'unknown Debian VM root fixture')
-    return base.setup(out,helpers,case,handoff=True)
+    if case in ('complete','dirty','mismatch'):return base.setup(out,helpers,case,handoff=True)
+    require(case in ('post-p410','count-bad','unknown','wtmp-short','seed-short','mutable-symlink'),
+        'unknown Debian VM root fixture')
+    return base.setup(out,helpers,'complete',handoff=True,root_variant=case)
+
+
+def prepare_root_fixture(native,out,variant):
+    """Only fresh regular-file ext4 fixtures. Never a device or retained root."""
+    require(native.is_file() and not native.is_symlink() and native.parent==out and
+        out.is_relative_to(ROOT/'workspace/private/outputs'),'not an isolated VM root file')
+    operations=[('lab-dir','mkdir /var/lib/lab')]
+    data={'var/lib/lab/boot-count':b'2\n' if variant=='count-bad' else b'1\n',
+        'var/lib/urandom/random-seed':b'x'*(31 if variant=='seed-short' else 32),
+        'var/log/wtmp':bytes(399 if variant=='wtmp-short' else 400),
+        'var/log/dmesg':b'fixture dmesg\n','var/log/messages':b'fixture log\n'}
+    operations.append(('remove-wtmp','rm /var/log/wtmp'))
+    for ordinal,(path,body) in enumerate(data.items()):
+        rules=[r for r in profile.MUTABLE if r[0]==path];require(len(rules)==1,'fixture lacks declared rule')
+        rule=rules[0];payload=out/f'root-data-{ordinal}';payload.write_bytes(body)
+        operations.extend([(f'write-{ordinal}',f'write {payload} /{path}'),
+            (f'mode-{ordinal}',f'set_inode_field /{path} mode 0{rule[1]:o}'),
+            (f'gid-{ordinal}',f'set_inode_field /{path} gid {rule[2]}')])
+    if variant=='unknown':
+        payload=out/'unknown-data';payload.write_bytes(b'unknown\n')
+        operations.append(('unknown',f'write {payload} /etc/unexpected-p411'))
+    if variant=='mutable-symlink':operations.extend([
+        ('unlink-seed','rm /var/lib/urandom/random-seed'),
+        ('symlink-seed','symlink /var/lib/urandom/random-seed /etc/shadow')])
+    for label,operation in operations:base.vm.debug(native,out,'root-'+label,operation)
+    publish(out/'root-variant.json',dict(variant=variant,scope='REGULAR_FILE_H0_ONLY',
+        operations=operations,device_actions=0))
 
 
 def outside_native(path):
@@ -57,7 +86,7 @@ def ssh_command(plan,port,command):
         '-o','ConnectTimeout=1','-o','ConnectionAttempts=1','-p',str(port),'root@127.0.0.1',command]
 
 
-def inspect_after(out,*,positive,negative):
+def inspect_after(out,*,positive,negative,booted=False,initial_count=None):
     """Read an extracted regular-file partition, never a host block device."""
     source=out/'disk.img';destination=out/'native-after.ext4'
     first=base.vm.fs.FIRST_LBA*4096;end=first+base.vm.fs.SIZE_BYTES
@@ -81,12 +110,24 @@ def inspect_after(out,*,positive,negative):
         handle.producer_error_type is None,'debugfs producer failed')
     count=raw.read_stdout(handle,maximum=4096)
     diagnostic=raw.read_stderr(handle,maximum=4096)
-    require(diagnostic==b'debugfs 1.47.2 (1-Jan-2025)\n' if positive else
-        diagnostic==b'debugfs 1.47.2 (1-Jan-2025)\n/var/lib/lab/boot-count: File not found by ext2_lookup \n',
-        'VM root read did not have its expected filesystem/lookup result')
-    require(count==(b'1\n' if positive else b'') if positive or negative else True,'failed hook let rcS update boot-count')
     with destination.open('rb') as disk:disk.seek(1024);superblock=disk.read(1024)
     clean=int.from_bytes(superblock[0x3a:0x3c],'little')==1 and not int.from_bytes(superblock[0x60:0x64],'little')&4 and not any(superblock[0xe8:0xec])
+    expected=(str((initial_count or 0)+1)+'\n').encode() if positive or booted else \
+        (str(initial_count)+'\n').encode() if initial_count is not None else b''
+    found=b'debugfs 1.47.2 (1-Jan-2025)\n'
+    absent=found+b'/var/lib/lab/boot-count: File not found by ext2_lookup \n'
+    interrupted=negative and booted
+    if interrupted and not clean:
+        # Killing QEMU after a negative can leave the ordinary rc2 write in
+        # cache/journal only. Preserve that observation without claiming a
+        # committed count or weakening the positive shutdown requirement.
+        previous=(str(initial_count)+'\n').encode() if initial_count is not None else b''
+        require(diagnostic in (found,absent) and count in (b'',previous,expected) and
+            (diagnostic!=absent or not count),'unexpected interrupted VM count result')
+    else:
+        require(diagnostic==(found if expected else absent),
+            'VM root read did not have its expected filesystem/lookup result')
+        require(count==expected,'VM boot-count contradicts selected phase')
     if positive:
         require(clean,'VM normal shutdown did not clean ext4')
         checked=raw.acquire_command(['/usr/sbin/e2fsck','-fn',str(destination)],out,'fs-after',timeout=60,
@@ -94,17 +135,23 @@ def inspect_after(out,*,positive,negative):
         require(checked.returncode==0 and not checked.timed_out and not checked.output_exceeded and
             checked.producer_error_type is None and raw.read_stderr(checked,maximum=16384)==b'e2fsck 1.47.2 (1-Jan-2025)\n',
             'VM post-shutdown e2fsck producer or result failed')
-    return dict(boot_count_raw_sha256=digest(count),clean_ext4=clean)
+    return dict(boot_count_raw_sha256=digest(count),boot_count_raw_size=len(count),
+        boot_count_durability='UNPROVED_INTERRUPTED_RUNLEVEL' if interrupted else
+            'CONTROLLED_SHUTDOWN_VERIFIED' if positive else 'PRE_START_OBSERVATION',clean_ext4=clean)
 
 
 def digest(data):return hashlib.sha256(data).hexdigest()
 
 
-def run(out,key,*,negative=False,release_fault=None):
+def run(out,key,*,negative=False,release_fault=None,start_fault=None):
     setup_value=read(out/'setup.json');built=read(verify(setup_value['helpers']));case=setup_value['case']
+    variant=setup_value.get('root_variant')
+    admission_negative=case in ('dirty','mismatch') or variant not in (None,'post-p410')
     require(setup_value['schema']=='s22plus-debian-handoff-vm-v1' and built['virt'] is True and
         built['key_sha256']==protocol.health.digest(key),'VM Debian binding differs')
     require(release_fault in (None,'bad','missing') and (release_fault is None or negative),'invalid VM release fault')
+    require(start_fault in (None,'bad','missing') and (start_fault is None or negative) and
+        not (start_fault and release_fault),'invalid VM start fault')
     _,_,plan=profile.prior_inputs();plan=dict(plan,root_run_id=profile.prior_inputs()[0]['run_id'],
         candidate=dict(namespace=built['debian']['namespace'],version=built['debian']['version'],run_id=built['run_id_hex']))
     before=base.vm.fixture_tools.sparse_digest(out/'disk.img');outside=outside_native(out/'disk.img')
@@ -154,14 +201,21 @@ def run(out,key,*,negative=False,release_fault=None):
                                     records=protocol.reader(key,bytes.fromhex(built['run_id_hex']),base.NONCE,
                                         bytes.fromhex(boot[0].decode()),built)
                                 records.accept(frame)
-                                if negative and records.continued and negative_end is None:negative_end=time.monotonic()+25
+                                late_negative=release_fault is not None or built['debian']['fault'] in (2,9)
+                                if negative and (records.runtime_proof if late_negative else records.continued) and negative_end is None:
+                                    negative_end=time.monotonic()+25
                                 kind=protocol.CONTINUE if records.proof is not None and not tx else \
-                                    protocol.RELEASE if records.init_proof is not None and len(tx)==48 else None
+                                    protocol.START if records.init_proof is not None and len(tx)==48 else \
+                                    protocol.RELEASE if records.runtime_proof is not None and len(tx)==96 else None
                                 if kind:
-                                    data=protocol.encode(key,records.run,base.NONCE,kind,6 if kind==protocol.CONTINUE else 7)
+                                    sequence={protocol.CONTINUE:6,protocol.START:protocol.START_SEQUENCE,protocol.RELEASE:protocol.RELEASE_SEQUENCE}[kind]
+                                    data=protocol.encode(key,records.run,base.NONCE,kind,sequence)
+                                    if kind==protocol.START and start_fault=='missing':continue
+                                    if kind==protocol.START and start_fault=='bad':
+                                        data=protocol.encode(key,records.run,b'x'*32,kind,sequence)
                                     if kind==protocol.RELEASE and release_fault=='missing':continue
                                     if kind==protocol.RELEASE and release_fault=='bad':
-                                        data=protocol.encode(key,records.run,b'x'*32,kind,7)
+                                        data=protocol.encode(key,records.run,b'x'*32,kind,sequence)
                                     transmit.write(data);transmit.flush();os.fsync(transmit.fileno());tx.extend(data);stream.sendall(data)
                         if records and (records.released or records.stop):break
                         if negative_end is not None and time.monotonic()>=negative_end:break
@@ -192,8 +246,10 @@ def run(out,key,*,negative=False,release_fault=None):
         require(not pending,'VM handoff ended inside a frame')
         after=base.vm.fixture_tools.sparse_digest(out/'disk.img');after_outside=outside_native(out/'disk.img')
         require(outside==after_outside,'Debian VM wrote outside native_data')
-        filesystem=inspect_after(out,positive=case=='complete' and not negative,negative=negative)
-        if case in ('dirty','mismatch'):
+        filesystem=inspect_after(out,positive=not admission_negative and not negative,negative=negative,
+            booted=bool(records and records.runtime_proof) or built['debian']['fault']==8,
+            initial_count=2 if variant=='count-bad' else 1 if variant else None)
+        if admission_negative:
             require(records and records.stop and not records.proof and before==after,'admission negative wrote or proved transition')
         elif not negative:
             require(records and records.released and ssh_health and shutdown and process.returncode==0 and
@@ -201,7 +257,7 @@ def run(out,key,*,negative=False,release_fault=None):
         return publish(out/'result.json',dict(schema='s22plus-debian-handoff-vm-result-v1',setup=pin(out/'setup.json'),
             result=records.projection() if records else None,ssh_health=ssh_health,shutdown=shutdown,
             disk_changed=before!=after,outside_native_unchanged=True,negative_hook_park=negative,
-            filesystem=filesystem,release_fault=release_fault,
+            filesystem=filesystem,release_fault=release_fault,start_fault=start_fault,
             scope='REAL_ARM64_SYSVINIT_NOT_SAMSUNG_USB',device_actions=0,rx=pin(out/'rx.bin'),
             tx=dict(path=str(out/'tx.bin'),size=len(tx),sha256=digest(bytes(tx)))))
     finally:shutil.rmtree(scratch)
@@ -212,6 +268,7 @@ if __name__=='__main__':
     p.add_argument('--output',type=Path,required=True);p.add_argument('--helpers',type=Path)
     p.add_argument('--case',default='complete');p.add_argument('--key',type=Path);p.add_argument('--negative',action='store_true')
     p.add_argument('--release-fault',choices=('bad','missing'))
+    p.add_argument('--start-fault',choices=('bad','missing'))
     args=p.parse_args();out=args.output.absolute()
     print((setup(out,args.helpers.absolute(),args.case) if args.command=='setup' else
-        run(out,args.key.read_bytes(),negative=args.negative,release_fault=args.release_fault))['sha256'])
+        run(out,args.key.read_bytes(),negative=args.negative,release_fault=args.release_fault,start_fault=args.start_fault))['sha256'])

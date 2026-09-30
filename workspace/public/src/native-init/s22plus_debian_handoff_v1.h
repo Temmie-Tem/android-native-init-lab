@@ -7,6 +7,13 @@
 #define DH_RELEASE 40U
 #define DH_RELEASE_ACK 173U
 #define DH_STATE_TAG 174U
+#define DH_START 41U
+#define DH_START_ACK 175U
+#define DH_PROGRESS 176U
+#define DH_START_SEQUENCE 8U
+#define DH_RELEASE_SEQUENCE 9U
+#define DH_SAMPLE_MS 10000U
+#define DH_SAMPLES 12U
 #define DH_STATE_PATH "/run/s22-debian/state"
 #define DH_HOOK_PATH "/run/s22-debian/hook"
 struct dh_state {

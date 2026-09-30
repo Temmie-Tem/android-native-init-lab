@@ -115,7 +115,10 @@ class Access:
         found=None
         for ordinal in range(1,181):
             guard();require(clock()<deadline,'Debian NCM arrival expired')
-            usb.capture(folder,ordinal,self.plan['link']);found=endpoint(self.plan['link'])
+            captured=read(verify(usb.capture(folder,ordinal,self.plan['link'])))
+            require(not usb.native_returned(raw.load_handle(verify(captured['capture'])),
+                self.plan['candidate']['run_id']),'native endpoint returned after ACM departure')
+            found=endpoint(self.plan['link'])
             if found:break
             time.sleep(1)
         require(found is not None,'Debian NCM did not arrive')

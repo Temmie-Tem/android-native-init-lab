@@ -217,9 +217,9 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
                 guard()
                 check_freshness(io,previous=previous,first_boot=first_boot,
                     seen_nonces=seen_nonces,seen_boots=seen_boots)
-                if ending=='handoff' and request['mode']=='debian-init-continue':
+                if ending=='handoff' and request['mode'] in ('debian-init-continue','debian-services-start'):
                     detail=dict(request=request,transition=pin(directory/'transition-intent.json'))
-                    publish(directory/'debian-init-continue.json',detail);before_terminal(detail)
+                    publish(directory/(request['mode']+'.json'),detail);before_terminal(detail)
                 elif ending in ('download','handoff'):
                     before=target_io.usb_snapshot('usb:'+host.config['topology'],directory)
                     publish(directory/'departure-before.json',before)

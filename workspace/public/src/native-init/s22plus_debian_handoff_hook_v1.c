@@ -85,11 +85,15 @@ static int dh_retire_acm(void) {
     return error ? error : !strcmp(text,"\n") ? 0 : EPROTO;
 #endif
 }
+#include "s22plus_debian_handoff_observer_v2.inc.c"
 int main(int argc,char **argv) {
-    (void)argv;struct dh_state state={0};int error;
-    if(argc!=1 || getpid()<=1)dh_hook_fail(EINVAL);
+    struct dh_state state={0};int error;
+    if(argc!=2 || getpid()<=1 || (strcmp(argv[1],"init") && strcmp(argv[1],"rcs") &&
+       strcmp(argv[1],"runlevel") && strcmp(argv[1],"park")))dh_hook_fail(EINVAL);
     if((error=dh_load(&state)))dh_hook_fail(error);
     sw_last_stage=SW_WITNESS;
+    if(!strcmp(argv[1],"park"))dh_hook_fail(EIO);
+    if(strcmp(argv[1],"init"))dh_later(&state,argv[1]);
     if((error=dh_reopen()))dh_hook_fail(error);
     if(S22_DEBIAN_FAULT==1)dh_hook_fail(EPROTO);
     if((error=dh_actual_init(&state)))dh_hook_fail(error);
@@ -98,8 +102,10 @@ int main(int argc,char **argv) {
     memcpy(proof+12,sw.boot,32);memcpy(proof+44,dh_init_sha256,32);memcpy(proof+76,state.hook_sha,32);
     /* Last two fields are inherited ACM and state fd counts, both proved 0. */
     if((error=sw_send(DH_INIT_PROOF,7,proof,sizeof(proof))))dh_hook_fail(error);
-    /* Invalid release parks even in the VM: failed sysinit must block rcS. */
-    dh_request(DH_RELEASE,7,DH_RELEASE_ACK);
-    if(close(3) || (error=dh_retire_acm()))dh_hook_fail(error ? error : EIO);
+    /* Release the synchronous init barrier without retiring the gadget.
+     * Later Debian wait entries are its sole successive descriptor owners. */
+    dh_request(DH_START,DH_START_SEQUENCE,DH_START_ACK);
+    dh_claim("init-started",NULL);
+    if(close(3))dh_hook_fail(fs1_error());
     return 0;
 }
