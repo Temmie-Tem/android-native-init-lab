@@ -3,6 +3,12 @@
 Date: 2026-10-01 KST. Target: only `SM-S906N/g0q/S906NKSS7FYG8`.
 Candidate: P411 `v0.4.0-rc.11`, archive-free handoff V2.
 
+This report preserves the **historical H0 qualification snapshot**. The later
+[physical attempt](S22PLUS_DEBIAN_HANDOFF_P411_FIRST_RUN_2026-10-01.md) rejected
+native_data's journal-recovery flag before mounting or Debian execution and
+closed healthy on original Android. P411 and its finite grant are now consumed;
+the preparation statements below grant no replay or filesystem repair.
+
 ## Problem and selected correction
 
 [P410](S22PLUS_DEBIAN_HANDOFF_P410_FIRST_RUN_2026-09-30.md) proved actual

@@ -21,43 +21,50 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P411 Debian progress and same-gadget successor
+## Current P411 dirty-root rejection and healthy Android closure
 
-P411 `v0.4.0-rc.11` is the H0 successor to the consumed P410 attempt. The
-operator selected work through immediately before the physical experiment;
-this preparation performs no device-connected read, control, grant or transfer.
-The separate [V2 policy](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md) keeps
-native_data's clean protected admission and one attended compound operation.
+P411 `v0.4.0-rc.11` completed one attended attempt on 2026-10-01 KST. Fresh
+fixed Android preparation passed before its one-operation/3600-second grant.
+One N transfer and authenticated native health succeeded. Actual PID1 entry
+and worker retirement were proved, then protected root admission observed
+`clean=0 state=1 recover=1 orphan=0` on native_data.
 
-Sequential Debian-owned wait children prove installed init, actual rcS and
-runlevel 2, then sample the same boot/init/cron/sshd for at least 120 seconds.
-Only the retained full runtime proof permits final release. Debian retains and
-reconfigures the original first `g1` as NCM; it never creates a second gadget
-or deletes the first object. A fixed RAM script is hash-checked again before
-release. Same-boot pinned SSH and one fixed shutdown precede physical
-original-A return. There is no package workload or ordinary reboot in P411.
+The inspector kept partition RO, did not mount the filesystem and confirmed
+unchanged superblock/GPT before cleanup. The handoff stopped with `EPROTO`
+before writable activation or installed init. Result: **NO_PROOF Debian PID1**
+with a proved dirty-root admission rejection. No START, 120-second service
+observation, USB release, NCM, SSH or Debian shutdown occurred.
 
-Current-root admission admits only the individually bounded log/seed/count
-files produced by P410's one writable lifetime. Every other archive entry
-remains exact; unknown, dirty or partial state stops before writable activation.
-The current physical filesystem is still unknown. This scope adds no repair,
-journal replay or reinstall and does not reuse P410's consumed grant.
+The exact Download endpoint was bound and original A transferred once. A
+boot-time ADB read failed; health-only continuation then proved rooted original
+Android, all original partition hashes, GPT and Android32 capacity. Terminal:
+**ANDROID_CLOSED_HEALTHY**, `recovered=true`. There was one N and one A, with
+no repeated control/transfer. The candidate and finite grant are consumed and
+closed; the F1 owner is absent. A90 and S20+ were untouched.
 
-The final normal ARM64 system-QEMU path passed actual SysVinit/rcS/rc2,
-120-second observation, same-boot pinned SSH, fixed shutdown and clean ext4
-from the post-P410 data fixture. The final qualification has 21 selected ARM64
-VM cases, 159 passing tests, identical actual boot/AP A/B bytes and independent
-source-bound **PASS_GO** over 261 frozen files. Physical NCM and Samsung
-service liveness remain unproved.
+The [physical-run report and timeline](docs/reports/S22PLUS_DEBIAN_HANDOFF_P411_FIRST_RUN_2026-10-01.md)
+record the 1,436 operation captures, 261 frozen source files and unchanged
+terminal/journal rederivation. Native USB presence after the stop does not
+prove a new boot: ACM had not been retired, and no later authenticated boot
+identity was acquired. The host sent no new native Download command.
 
-The concrete task is **READY_H0_PRELIVE_ONLY**, SHA-256
+The native filesystem required journal recovery when observed. Android health
+does not repair it or prove its later cleanliness. P411 grants no repair,
+journal replay or reinstall. The next required work is a separately scoped
+filesystem recovery proposal and renewed protected root qualification before
+another fresh Debian handoff candidate; P411 cannot be replayed.
+
+## Prior P411 H0 qualification
+
+The [V2 policy](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md) selects sequential
+Debian-owned startup/120-second observation and retention of the first `g1`
+for NCM. The [H0 report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P411_H0_2026-10-01.md)
+retains 21 ARM64 VM cases, 159 tests, identical actual boot/AP A/B bytes and
+independent source-bound PASS_GO over 261 files. Its concrete task hash is
 `4dba33825c8cea17463266ac2e1e8b3591a45641ed68a2fb1caa5dc93f696aa9`.
-Actual offline preparation and static live-policy validation passed with all
-device/command entrypoints blocked. No grant was opened; fresh connected
-health and current root admission are explicitly false. The
-[P411 H0 report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P411_H0_2026-10-01.md)
-records artifacts, evidence reuse, failures, review and the remaining physical
-boundary. The candidate remains unclaimed and the F1 owner is absent.
+The later physical attempt above consumed that candidate and grant. Samsung
+NCM/SSH and the 120-second service interval remain unproved because admission
+stopped earlier; the H0 proof is not relabelled as a physical pass.
 
 ## Prior P410 installed PID1 reached; basic access failed and Android recovered
 
@@ -232,19 +239,23 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The current unit is **P411 Debian-owned progress and basic SSH access**.
-P410 already proved installed init as initial PID1 on Samsung. P411 preserves
-that boundary, observes real startup and liveness before release, and fixes
-the first-gadget ownership defect. Its H0 preparation stops before live work.
+The immediate prerequisite is a **separately scoped native_data recovery
+proposal and qualification**. P411 is consumed after a protected dirty-root
+rejection; its grant cannot repair the journal or authorize a successor.
+P410's installed-init proof and P411's H0 same-gadget qualification remain
+valid within their original limits.
 
-1. **Headless access:** after fresh exact health/root admission, prove rcS and
+1. **Root recovery:** qualify the smallest necessary filesystem recovery under
+   its own reviewed write scope, then re-establish clean protected root and
+   immutable-content admission. The current goal itself grants no repair.
+2. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
    runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM and
    same-boot pinned SSH. One fixed shutdown and physical original-A return
    close this prospective unit.
-2. **Persistence and ordinary service:** after that unit closes healthy,
+3. **Persistence and ordinary service:** after that unit closes healthy,
    qualify package-managed service behavior, retained data/configuration and
    ordinary Debian reboot under a separately selected scope.
-3. **Later hardware/product features:** Wi-Fi, display/input, audio and desktop
+4. **Later hardware/product features:** Wi-Fi, display/input, audio and desktop
    are Debian-managed capabilities after the headless base works.
 
 ARM64 VM proof does not establish Samsung electrical USB behavior or target
