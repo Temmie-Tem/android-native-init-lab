@@ -48,9 +48,13 @@ were revalidated in H0. A90 and S20+ were untouched.
 
 Native_data was clean before P413's writable lifetime; its cleanliness after
 the forced original-A return is now **unproved**. Android health does not
-preserve or renew P412's clean-root claim. The next bounded work is H0 analysis
-of the rcS/observer cutoff from retained evidence before selecting a fresh
-handoff change; P413 grants no replay or filesystem repair.
+preserve or renew P412's clean-root claim. The
+[retained-evidence H0 assessment](docs/reports/S22PLUS_P413_EOF_FORENSICS_H0_2026-10-03.md)
+completed without device commands or a new candidate. CLOCAL was already set;
+the verified driver behavior and exact startup scripts do not establish a
+simple ACM-close or direct rcS USB/reboot cause. The read-zero/EIO pair is
+consistent with tty hangup, but its cause remains unproved. P413 grants no
+replay or filesystem repair.
 
 ## Prior P413 prelive qualification
 
@@ -342,12 +346,13 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The immediate unit is **H0 diagnosis of P413's observation cutoff after rcS
-entry**: compare the retained authenticated stream, host tty/EOF behavior and
-the actual installed startup ordering without reopening the device session.
-Distinguish an observation failure from unproved device/service failure before
-selecting a fresh change. Any changed execution or recovery semantics need
-their normal review and qualification. P410/P413 installed-init proof and
+The retained-evidence EOF diagnosis is complete with **cause unproved**; no
+production fix was selected. The next unit is **H0 design and qualification
+of observation across the rcS close/fork/exec/wait boundary**, preserving
+service descriptor isolation, the original deadline and one-shot execution.
+It must improve discrimination without treating EOF as success or assuming
+a reconnect is safe. Any changed execution or recovery semantics need their
+normal review and qualification. P410/P413 installed-init proof and
 P411's same-gadget H0 qualification retain their separate limits; consumed
 grants authorize no successor. Current native_data cleanliness is unknown.
 
