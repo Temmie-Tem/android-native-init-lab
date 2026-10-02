@@ -21,7 +21,38 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P413 handoff ready; no execution grant
+## Current P413 installed PID1 and rcS entry; Android recovered healthy
+
+P413 `v0.4.0-rc.13` completed one attended attempt on 2026-10-03 KST.
+The [physical-run report and timeline](docs/reports/S22PLUS_DEBIAN_HANDOFF_P413_FIRST_RUN_2026-10-03.md)
+prove fresh clean-root admission and all 8,969 expected entries, one normal
+native_data RW activation, the actual PID1 writable-root witness and installed
+Debian init as PID1 in the same kernel boot. The installed-init hook proved
+zero inherited ACM/state descriptors, accepted START and recorded rcS entry.
+
+The host observation then ended with **EOFError**, after that entry record and
+before any rcS-complete/runlevel-complete or 120-second runtime proof. No
+authenticated STOP errno was received. The host sent no USB release, NCM/SSH
+request or Debian shutdown. Result: **PASS_INSTALLED_DEBIAN_PID1**, with Debian
+service progress, NCM and SSH still **NO_PROOF**. EOF does not establish a reboot,
+panic, rcS failure or its cause.
+
+The exact Download endpoint was bound and original A transferred once. A
+pre-dispatch USB endpoint read failure and a later boot-time ADB read failure
+were preserved; continuation performed only the remaining authorized recovery
+and health work. Terminal: **ANDROID_CLOSED_HEALTHY**, `recovered=true`.
+There was one N and one A, with no repeated handoff/control/transfer. The grant
+and candidate are consumed and closed; the F1 owner is absent. All 1,759 raw
+captures, 264 frozen source files and the unchanged 17-row journal/terminal
+were revalidated in H0. A90 and S20+ were untouched.
+
+Native_data was clean before P413's writable lifetime; its cleanliness after
+the forced original-A return is now **unproved**. Android health does not
+preserve or renew P412's clean-root claim. The next bounded work is H0 analysis
+of the rcS/observer cutoff from retained evidence before selecting a fresh
+handoff change; P413 grants no replay or filesystem repair.
+
+## Prior P413 prelive qualification
 
 P413 `v0.4.0-rc.13` is the fresh archive-free handoff V2 candidate after
 P412's clean-root proof. Its [prelive report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P413_PRELIVE_2026-10-03.md)
@@ -38,13 +69,10 @@ passed. The latter revalidated rooted original Android, exact Android32 GPT,
 capacity and the retained recovery binding in 19 private captures. The concrete
 task hash is `cb86591156b7004700cafb49748cf77e10f1f743ddb3dc97f147dce0fb5d725a`.
 
-P413 has **no grant, operation or transfer**. Its candidate is unclaimed and
-the F1 owner is absent. The proposed scope remains one attended operation and
-3600 seconds: current protected-root admission, Debian-owned startup and
-120-second service observation, same-gadget NCM/pinned SSH, one fixed shutdown
-and physical original-A return. The native root must still pass fresh admission
-in that boot; P412 evidence does not skip this check. No repair or reinstall is
-included. A90 and S20+ were untouched.
+That preparation opened no grant or operation and transferred no image. Its
+later one-operation/3600-second physical attempt above is now consumed. Fresh
+native-root admission remained mandatory and passed before RW. The retained
+qualification is not physical service/NCM/SSH proof or authority to replay.
 
 ## Prior P412 clean-root proof and healthy Android closure
 
@@ -72,10 +100,11 @@ and closed, with the F1 owner absent. The original failed parser log, 19-row
 journal prefix, raw captures and consumed source/review pins are preserved.
 A90 and S20+ were untouched. P412 executed no Debian init, service or SSH.
 
-The clean protected-root result removes P411's observed dirty-root blocker.
-A fresh Debian handoff still requires its own candidate, current admission,
-source binding and grant. The old P412 activation stays tied to its original
-source; the H0 closure review grants no new device action.
+That clean protected-root result removed P411's observed dirty-root blocker;
+P413 revalidated it before its later writable lifetime. It does not prove the
+filesystem clean after P413's forced return. Fresh work still needs its own
+current admission, source binding and grant. The old P412 activation stays tied
+to its original source; its H0 closure review grants no new device action.
 
 ## Prior P412 H0 qualification
 
@@ -313,11 +342,14 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P412 has completed root recovery and protected immutable-content admission.
-The next unit is **the prepared P413 Debian handoff attempt for headless access**,
-under its own returned finite attended grant and current runtime binding.
-P410's installed-init proof and P411's H0 same-gadget qualification retain
-their original limits; consumed P411/P412 grants authorize no successor.
+The immediate unit is **H0 diagnosis of P413's observation cutoff after rcS
+entry**: compare the retained authenticated stream, host tty/EOF behavior and
+the actual installed startup ordering without reopening the device session.
+Distinguish an observation failure from unproved device/service failure before
+selecting a fresh change. Any changed execution or recovery semantics need
+their normal review and qualification. P410/P413 installed-init proof and
+P411's same-gadget H0 qualification retain their separate limits; consumed
+grants authorize no successor. Current native_data cleanliness is unknown.
 
 1. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
    runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM and

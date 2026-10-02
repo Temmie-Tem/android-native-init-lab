@@ -3,6 +3,12 @@
 Date: 2026-10-03 KST. Target: only `SM-S906N/g0q/S906NKSS7FYG8`.
 Candidate: P413 `v0.4.0-rc.13`, archive-free [handoff V2](../operations/S22PLUS_DEBIAN_HANDOFF_V2.md).
 
+Historical preparation snapshot. The later
+[physical attempt](S22PLUS_DEBIAN_HANDOFF_P413_FIRST_RUN_2026-10-03.md) proved
+installed PID1 and rcS entry, then stopped on observer EOF and recovered healthy
+Android. P413 and its grant are consumed. The readiness statements below
+preserve the preparation evidence and grant no replay.
+
 ## Result and scope
 
 P413 is ready for one separately granted attended operation. Actual A/B
