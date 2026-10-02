@@ -21,7 +21,32 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P412 clean-root proof and healthy Android closure
+## Current P413 handoff ready; no execution grant
+
+P413 `v0.4.0-rc.13` is the fresh archive-free handoff V2 candidate after
+P412's clean-root proof. Its [prelive report](docs/reports/S22PLUS_DEBIAN_HANDOFF_P413_PRELIVE_2026-10-03.md)
+records identical actual A/B boot packages, static ARM64 helpers, independent
+**PASS_GO** over 264 frozen source files and 60 current focused tests.
+Exact assembly/header/asset equivalence permits reuse of P411's 21 ARM64 VM
+cases; their authenticated RX and TX records all rederive with the unchanged
+strict consumer. No new VM execution or new Debian runtime feature was needed.
+
+The corrected Android health consumer is included in a new capability record;
+the consumed P411/P412 reviews, artifacts and journals remain unchanged.
+Both guarded offline preparation and current connected fixed D0 preparation
+passed. The latter revalidated rooted original Android, exact Android32 GPT,
+capacity and the retained recovery binding in 19 private captures. The concrete
+task hash is `cb86591156b7004700cafb49748cf77e10f1f743ddb3dc97f147dce0fb5d725a`.
+
+P413 has **no grant, operation or transfer**. Its candidate is unclaimed and
+the F1 owner is absent. The proposed scope remains one attended operation and
+3600 seconds: current protected-root admission, Debian-owned startup and
+120-second service observation, same-gadget NCM/pinned SSH, one fixed shutdown
+and physical original-A return. The native root must still pass fresh admission
+in that boot; P412 evidence does not skip this check. No repair or reinstall is
+included. A90 and S20+ were untouched.
+
+## Prior P412 clean-root proof and healthy Android closure
 
 P412 `v0.4.0-rc.12` completed one attended operation on 2026-10-03 KST.
 Its [physical-run report and timeline](docs/reports/S22PLUS_NATIVE_JOURNAL_RECOVERY_P412_FIRST_RUN_2026-10-03.md)
@@ -289,8 +314,8 @@ assumed.
 ## Next bounded unit and milestones
 
 P412 has completed root recovery and protected immutable-content admission.
-The next unit is **a fresh Debian handoff candidate for headless access**,
-qualified with the corrected health consumer and its current source binding.
+The next unit is **the prepared P413 Debian handoff attempt for headless access**,
+under its own returned finite attended grant and current runtime binding.
 P410's installed-init proof and P411's H0 same-gadget qualification retain
 their original limits; consumed P411/P412 grants authorize no successor.
 

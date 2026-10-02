@@ -125,6 +125,13 @@
       "version": "v0.4.0-rc.12",
       "image_sha256": "040610335d04af803f76820f23649e93af0f5b60723afa3a0d1bf2f0fadade16",
       "profile": "thermal-v3-reconnect-ufs-drain-journal-recovery-v1"
+    },
+    {
+      "namespace": "p413",
+      "run_id": "3363b06d1b7c2fc38e7826fde286af83",
+      "version": "v0.4.0-rc.13",
+      "image_sha256": "7b3a4941540af8b73a86cf75544ace2d462c42b7ac9079bd18218afc1ab8ba4b",
+      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v2"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"
