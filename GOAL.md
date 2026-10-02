@@ -52,9 +52,15 @@ preserve or renew P412's clean-root claim. The
 [retained-evidence H0 assessment](docs/reports/S22PLUS_P413_EOF_FORENSICS_H0_2026-10-03.md)
 completed without device commands or a new candidate. CLOCAL was already set;
 the verified driver behavior and exact startup scripts do not establish a
-simple ACM-close or direct rcS USB/reboot cause. The read-zero/EIO pair is
-consistent with tty hangup, but its cause remains unproved. P413 grants no
-replay or filesystem repair.
+simple ACM-close or direct rcS USB/reboot cause. The subsequent
+[multi-angle causal analysis](docs/reports/S22PLUS_P413_CAUSAL_RESEARCH_H0_2026-10-03.md)
+joined the EOF to an actual host USB-core disconnect and a spontaneous native
+USB re-enumeration about 24.43 seconds later, before physical recovery was
+requested. This explains the tty hangup/EOF path but does not distinguish a
+same-boot USB restart from a kernel/SoC reboot. Ordinary carrier loss,
+unsupported close_range, native-userspace watchdog petting and normal runtime
+autosuspend do not supply a supported causal chain. The departure trigger
+remains unproved. P413 grants no replay or filesystem repair.
 
 ## Prior P413 prelive qualification
 
@@ -346,13 +352,17 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The retained-evidence EOF diagnosis is complete with **cause unproved**; no
-production fix was selected. The next unit is **H0 design and qualification
-of observation across the rcS close/fork/exec/wait boundary**, preserving
-service descriptor isolation, the original deadline and one-shot execution.
-It must improve discrimination without treating EOF as success or assuming
-a reconnect is safe. Any changed execution or recovery semantics need their
-normal review and qualification. P410/P413 installed-init proof and
+The expanded analysis establishes **USB departure as the EOF mechanism; its
+trigger remains unproved**. No production fix was selected. The next unit is
+**H0 design and qualification of a close-return/reopen barrier before rcS
+spawn, then parent-only observation during ordinary rcS**, preserving service
+descriptor isolation, the original deadline and one-shot execution. It must
+distinguish close/exec/wait progress and transport lifetime without treating
+EOF as success or reconnecting after uncertainty. Changed timing means a
+successful successor would not retrospectively prove P413's cause. Add broader
+script tracing only if this bounded evidence calls for it. Any changed execution
+or recovery semantics need their normal review and qualification.
+P410/P413 installed-init proof and
 P411's same-gadget H0 qualification retain their separate limits; consumed
 grants authorize no successor. Current native_data cleanliness is unknown.
 

@@ -2,6 +2,12 @@
 
 Date: 2026-10-03 KST. Target: `SM-S906N/g0q/S906NKSS7FYG8` only.
 
+Follow-up: the [expanded causal analysis](S22PLUS_P413_CAUSAL_RESEARCH_H0_2026-10-03.md)
+adds historical host-kernel evidence of actual USB-core departure and later
+spontaneous re-enumeration. It identifies the EOF mechanism while retaining
+uncertainty about the trigger. The earlier assessment below remains its
+original, narrower evidence snapshot.
+
 The retained evidence does **not establish the cause of P413's EOF**. It
 establishes an observation cutoff after the authenticated rcS-entry record,
 with host tty hangup symptoms. No production fix or new candidate is justified
