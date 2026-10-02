@@ -62,6 +62,10 @@ unsupported close_range, native-userspace watchdog petting and normal runtime
 autosuspend do not supply a supported causal chain. The departure trigger
 remains unproved. P413 grants no replay or filesystem repair.
 
+The operator reports no physical unplug/replug during the cutoff. Intermittent
+contact or electrical loss remains an unproved alternative, not an observed
+fault; absence of plug manipulation does not alone establish reboot.
+
 ## Prior P413 prelive qualification
 
 P413 `v0.4.0-rc.13` is the fresh archive-free handoff V2 candidate after

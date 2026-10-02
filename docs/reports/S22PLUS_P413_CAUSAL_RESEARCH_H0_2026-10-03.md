@@ -18,6 +18,13 @@ or cable manipulation. A new authenticated kernel boot identity was not acquired
 so same-boot UDC/PHY cycling and whole-device reboot remain distinguishable
 possibilities, not interchangeable conclusions.
 
+The operator subsequently clarified that no physical unplug/replug occurred.
+An intermittent contact fault was mentioned only as a possibility, not an
+observed event. This excludes deliberate plug manipulation by operator account;
+it does not establish uninterrupted electrical contact or prove a reboot.
+The host's disconnect message describes device removal from its USB view,
+without identifying whether the trigger was reset, link loss or contact loss.
+
 The product goal remains installed Debian as host PID1, ordinary Debian
 services, NCM, authenticated same-boot SSH and controlled shutdown. P413 proved
 installed PID1 and rcS entry; it proved neither subsequent service failure nor
