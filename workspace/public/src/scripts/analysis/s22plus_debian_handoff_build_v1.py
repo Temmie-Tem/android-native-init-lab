@@ -45,7 +45,7 @@ class Builder(base.Builder):
         result=super().result_value(runtime,image,transform,packages)
         result['root_admission']=result.pop('root_inspection');result.pop('switch_root')
         helpers=runtime['switch_root_helpers']
-        selection={name:helpers[name] for name in ('prepare','witness','busybox','checker','assets','installed_init')}
+        selection={name:helpers[name] for name in ('prepare','witness','busybox','checker','assets','installed_init','observer_revision')}
         selection.update(seconds=300,request=37,init_request=39,start_request=41,release_request=40,root_readonly=False,
             installed_exec=True,persistent_writes=True,helpers_result=pin(self.DEFAULT_OUTPUT_ROOT/'runtime/switch-root/result.json'))
         result['debian_handoff']=selection

@@ -40,7 +40,7 @@ def image_binding(image):
     require(image['profile']==PROFILE,'unselected Debian handoff image')
     root=inspection.image_binding(dict(image,profile=inspection.PROFILE,root_inspection=image['root_admission']))
     value=image['debian_handoff']
-    require(set(value)=={'prepare','witness','busybox','checker','assets','installed_init','seconds','request',
+    require(set(value)-{'observer_revision'}=={'prepare','witness','busybox','checker','assets','installed_init','seconds','request',
         'init_request','start_request','release_request','root_readonly','installed_exec','persistent_writes','helpers_result'} and
         value['seconds']==300 and value['request']==37 and value['init_request']==39 and value['release_request']==40 and
         value['start_request']==41 and value['root_readonly'] is False and value['installed_exec'] is True and value['persistent_writes'] is True and
@@ -51,6 +51,10 @@ def image_binding(image):
     require(value['installed_init']==dict(size=len(init),sha256=hashlib.sha256(init).hexdigest()),'installed init differs')
     for name,data in assets.items():require(verify(value['assets'][name]).read_bytes()==data,'RAM overlay differs')
     for name in ('prepare','witness','busybox','checker','helpers_result'):verify(value[name])
+    revision=value.get('observer_revision',2)
+    require(type(revision) is int and revision in (2,3) and
+        revision==read(verify(value['helpers_result'])).get('observer_revision',2),
+        'Debian observer revision differs from retained helpers')
     verify(value['assets']['hook'])
     previous=read(verify(PREVIOUS_CLOSE))
     require(previous['terminal_state']=='ANDROID_CLOSED_HEALTHY','P410 is not closed healthy')

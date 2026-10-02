@@ -21,7 +21,7 @@ def source_files(virt=False):
 
 def validate_options(options,virt):
     require(set(options)=={'namespace','version','fault'} and type(options['fault']) is int and
-        options['fault'] in range(10) and (not options['fault'] or virt),'Debian build options differ')
+        options['fault'] in range(15) and (not options['fault'] or virt),'Debian build options differ')
 
 
 def prepare_headers(out,run,options,virt):
@@ -51,7 +51,7 @@ def payload_header(out,hook,virt):
 
 def result_fields(out,hook,options,virt):
     init,_=profile.payloads(virt=virt)
-    return dict(debian=options,assets=dict(asset_rows(out,hook,virt)),
+    return dict(debian=options,observer_revision=3,assets=dict(asset_rows(out,hook,virt)),
         installed_init=dict(size=len(init),sha256=hashlib.sha256(init).hexdigest()))
 
 

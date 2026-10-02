@@ -49,12 +49,13 @@ PEER=previous.PEER[:previous.PEER.index(' unsigned char request[48]')].replace(
 
 
 class ObservationTests(unittest.TestCase):
+    PEER=PEER
     @classmethod
     def setUpClass(cls):
         base.ObservationTests.setUpClass.__func__(cls)
         path=cls.folder/'native.c';text=source.upgrade_native(path.read_bytes(),producer.IDENTITY)
         start=text.index(b'static __attribute__((noreturn)) void sw_parent_park');end=text.index(b'static long rc1_console(',start)
-        text=text[:start]+PEER.replace('@@NAMESPACE@@',producer.IDENTITY.namespace).encode()+text[end:];path.write_bytes(text)
+        text=text[:start]+cls.PEER.replace('@@NAMESPACE@@',producer.IDENTITY.namespace).encode()+text[end:];path.write_bytes(text)
         producer.compile_c(path,cls.binary,'-Wno-unused-function','-Wno-unused-const-variable','-Wno-misleading-indentation')
         cls.selection=dict(witness=dict(sha256='99'*32),installed_init=dict(sha256='66'*32),assets=dict(hook=dict(sha256='77'*32)))
         cls.image=dict(cls.image,profile=profile.PROFILE,debian_handoff=cls.selection)

@@ -18,19 +18,45 @@ static void dh_progress(unsigned ordinal,unsigned stage,unsigned sample,uint64_t
     memcpy(body+24,sw.boot,32);
     int error=sw_send(DH_PROGRESS,2000+ordinal,body,sizeof(body));if(error)dh_hook_fail(error);
 }
-static void dh_wait_script(const char *path,const char *argument) {
-    /* There is no open ACM or state descriptor at fork/exec. The script may
-     * start services; none can inherit our diagnostic channel. */
-    if(fcntl(3,F_GETFD)!=-1 || errno!=EBADF)dh_hook_fail(EPROTO);
+/* Revision 3: phase 1 is rcS, phase 2 is rc2. Events are before-close,
+ * reopened/verified, child-forked (not exec proof), waiting, child-exited.
+ * All elapsed values use the original deadline, never a renewed timer. */
+static unsigned dh_boundary_ordinal;
+static void dh_boundary(unsigned phase,unsigned event,pid_t child,unsigned status,uint64_t auxiliary) {
+    uint64_t now=sw_now();uint8_t body[64]={0};
+    if(dh_boundary_ordinal>=DH_BOUNDARY_MAX || now>=sw.deadline_ms ||
+       sw.deadline_ms-now>SW_TIMEOUT_MS)dh_hook_fail(ETIMEDOUT);
+    sw_put32(body,phase);sw_put32(body+4,event);sw_put32(body+8,(unsigned)child);sw_put32(body+12,status);
+    uint64_t elapsed=now-(sw.deadline_ms-SW_TIMEOUT_MS);
+    for(unsigned i=0;i<8;++i){body[16+i]=(uint8_t)(elapsed>>(8*i));body[24+i]=(uint8_t)(auxiliary>>(8*i));}
+    memcpy(body+32,sw.boot,32);
+    int error=sw_send(DH_BOUNDARY,(phase==1 ? 3000 : 3100)+dh_boundary_ordinal++,body,sizeof(body));
+    if(error)dh_hook_fail(error);
+}
+static void dh_wait_script(struct dh_state *state,unsigned phase,const char *path,const char *argument) {
+    /* The finite parent owns ACM while it waits. Before executing any script,
+     * the child closes every non-stdio descriptor and verifies fd 3 is gone. */
+    int error=sw_fd_type();if(error)dh_hook_fail(error);
     pid_t child=fork();if(child<0)dh_hook_fail(fs1_error());
     if(!child) {
+#if S22_DEBIAN_FAULT != 14
         if(syscall(SYS_close_range,3U,UINT_MAX,0U))_exit(125);
+#endif
+        if(fcntl(3,F_GETFD)!=-1 || errno!=EBADF)_exit(125);
 #if S22_DEBIAN_FAULT == 7
         if(!strcmp(path,"/etc/init.d/rcS"))_exit(23);
 #endif
+#if S22_DEBIAN_FAULT == 11
+        for(;;)pause();
+#elif S22_DEBIAN_FAULT == 12
+        path="/run/s22-debian/absent-executable";
+#elif S22_DEBIAN_FAULT == 13
+        signal(SIGTERM,SIG_DFL);kill(getpid(),SIGTERM);_exit(127);
+#endif
         char *args[]={(char *)path,(char *)argument,NULL};execv(path,args);_exit(126);
     }
-    int status;
+    dh_boundary(phase,3,child,0,0);
+    int status;uint64_t heartbeat=sw_now();
     for(;;) {
         pid_t got=waitpid(child,&status,WNOHANG);
         if(got==child)break;
@@ -38,8 +64,13 @@ static void dh_wait_script(const char *path,const char *argument) {
         if(sw_now()>=sw.deadline_ms) {
             (void)kill(child,SIGKILL);dh_hook_fail(ETIMEDOUT);
         }
+        if(sw_now()-heartbeat>=DH_SAMPLE_MS) {
+            if((error=dh_actual_init(state)))dh_hook_fail(error);
+            dh_boundary(phase,4,child,0,0);heartbeat=sw_now();
+        }
         struct timespec delay={0,10000000};if(nanosleep(&delay,NULL) && errno!=EINTR)dh_hook_fail(fs1_error());
     }
+    dh_boundary(phase,5,child,(unsigned)status,0);
     if(!WIFEXITED(status) || WEXITSTATUS(status))dh_hook_fail(ECHILD);
 }
 static int dh_service(const char *pidfile,const char *executable,uint64_t size,const uint8_t sha[32],pid_t *identity) {
@@ -77,16 +108,25 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
         dh_claim("rcs-started","init-started");
         if((error=dh_reopen()) || (error=dh_actual_init(state)))dh_hook_fail(error);
         dh_progress(0,1,0,0,0);
+        dh_boundary(1,1,0,0,0);
         if(close(3))dh_hook_fail(fs1_error());
-        dh_wait_script("/etc/init.d/rcS",NULL);
+        uint64_t closed=sw_now()-(sw.deadline_ms-SW_TIMEOUT_MS);
+#if S22_DEBIAN_FAULT == 10
+        dh_hook_fail(EIO);
+#endif
         if((error=dh_reopen()) || (error=dh_actual_init(state)))dh_hook_fail(error);
+        dh_boundary(1,2,0,0,closed);
+        dh_wait_script(state,1,"/etc/init.d/rcS",NULL);
+        if((error=dh_actual_init(state)))dh_hook_fail(error);
         dh_claim("rcs-complete","rcs-started");dh_progress(1,2,0,0,0);
         if(close(3))dh_hook_fail(fs1_error());
         _exit(0);
     }
     dh_claim("runlevel-started","rcs-complete");
-    dh_wait_script("/etc/init.d/rc","2");
     if((error=dh_reopen()) || (error=dh_actual_init(state)))dh_hook_fail(error);
+    dh_boundary(2,2,0,0,0);
+    dh_wait_script(state,2,"/etc/init.d/rc","2");
+    if((error=dh_actual_init(state)))dh_hook_fail(error);
     dh_claim("runlevel-complete","runlevel-started");
     pid_t cron=0,ssh=0;uint64_t started=sw_now();
 #if S22_DEBIAN_FAULT == 8

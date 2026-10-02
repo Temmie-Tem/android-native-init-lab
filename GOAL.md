@@ -356,19 +356,22 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The expanded analysis establishes **USB departure as the EOF mechanism; its
-trigger remains unproved**. No production fix was selected. The next unit is
-**H0 design and qualification of a close-return/reopen barrier before rcS
-spawn, then parent-only observation during ordinary rcS**, preserving service
-descriptor isolation, the original deadline and one-shot execution. It must
-distinguish close/exec/wait progress and transport lifetime without treating
-EOF as success or reconnecting after uncertainty. Changed timing means a
-successful successor would not retrospectively prove P413's cause. Add broader
-script tracing only if this bounded evidence calls for it. Any changed execution
-or recovery semantics need their normal review and qualification.
-P410/P413 installed-init proof and
-P411's same-gadget H0 qualification retain their separate limits; consumed
-grants authorize no successor. Current native_data cleanliness is unknown.
+The [P414 observer H0 unit](docs/reports/S22PLUS_DEBIAN_HANDOFF_P414_OBSERVER_H0_2026-10-03.md)
+implements a close-return/reopen barrier and parent-only ACM observation during
+ordinary rcS/rc2. Fresh revision-3 helpers preserve child descriptor isolation,
+original deadlines and one-shot execution; partial boundaries never authorize
+release or reconnect. Host and ARM64 qualification are recorded in that report.
+This is prospective instrumentation, not a demonstrated repair or causal proof
+for P413's USB departure. Existing D0/AUTH cannot provide a preparation-free
+post-loss boot-ID observation; a separate future design remains unimplemented.
+
+The next device-related unit requires a **freshly qualified complete artifact,
+exact original-A health and applicable finite authority**. Current native_data
+admission must pass at the protected boundary before any writable handoff.
+P414 H0 opens no grant and has not
+built or activated a full boot image. Native_data cleanliness after P413 remains
+unknown; neither replay nor repair is inferred. P410/P413 installed-init proof
+and P411's same-gadget H0 qualification retain their separate limits.
 
 1. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
    runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM and

@@ -102,12 +102,38 @@ The first synchronous sysinit hook independently proves the actual installed
 descriptors. After a fixed authenticated START it closes ACM and exits. It
 does not hold rcS behind the 120-second wait.
 
-The next Debian-owned wait child emits rcS entry, closes ACM, executes the
-original rcS, waits for that exact child and validates status before emitting
-completion. The runlevel-2 wait child similarly executes the original rc 2
-with no ACM or state descriptor inherited by services. The deferred lab-usb
-entry performs no gadget change. Failed wait hooks park rather than return a
-failure that SysVinit could ignore.
+Fresh helpers declare **observer revision 3** in their pinned result and image
+selection. A missing revision means the retained revision-2 protocol only;
+selection and helper revision must agree. Existing consumed artifacts and
+replay projections retain their original meaning.
+
+The next Debian-owned wait child emits rcS entry and an authenticated
+before-close boundary. It closes ACM, saves the close-return time, then reopens
+and verifies the exact ACM endpoint and actual installed init before emitting
+the reopen boundary. Only then does it fork the original rcS. The finite parent
+keeps ACM while waiting; before exec, the child performs `close_range(3, UINT_MAX,
+0)` and checks fd 3 is absent. No executed service inherits ACM or state fds.
+The runlevel-2 wait child similarly opens and verifies ACM before forking the
+original rc 2. The deferred lab-usb entry performs no gadget change.
+
+Authenticated boundary records distinguish before-close, verified reopen,
+child-forked, ten-second waiting heartbeats and the exact reaped child's raw
+wait status. Child-forked is not exec proof. Close-return timing becomes visible
+only after successful reopen and transmission; its absence cannot identify
+which operation failed. Both phases share the original 300-second deadline
+and a forty-record consumer cap, with separate ordered sequences and same-boot
+identity. Only zero child exit permits completion progress. Failed wait hooks
+park rather than return a failure that SysVinit could ignore. Timeout attempts
+to kill the direct child but does not claim all descendants stopped.
+
+The host retains raw bytes first, then bounded frame receipt metadata with
+host CLOCK_BOOTTIME, frame digest and captured-prefix length. These are receive
+upper bounds, not device execution timestamps; buffered frames may share a
+prefix length. No clock conversion to kernel printk timestamps is implied.
+This finite diagnostic addresses P413's unobserved close/startup interval;
+reassess its necessity after the first closed physical revision-3 result.
+Changed timing/descriptor lifetime means a successful successor would not
+retrospectively establish the cause of P413's USB departure.
 
 After rc2, the same fixed observer verifies actual init/boot/root and the
 pinned installed cron and sshd processes. It sends thirteen authenticated
@@ -154,6 +180,9 @@ Exercise the fixed adoption script's expected state and failure behavior.
 Negative coverage includes dirty/mismatched roots, malformed allowed data and
 unknown paths, stale state, inherited descriptors, failed startup/service,
 short or malformed liveness, absent/bad continuations and failed USB retirement.
+Revision 3 also exercises failure between close and reopen, script nonzero exit, exec failure,
+signal termination, inherited-fd rejection and the original startup timeout.
+Partial boundary evidence must never authorize release or reconnect.
 Pre-RW failures must preserve the entire regular-file fixture; all VM cases
 must preserve bytes outside native_data. Check real consumer framing, partial
 raw rederivation, intent order and no-replay recovery. Reuse unchanged P409
@@ -164,3 +193,19 @@ NCM, SSH, shutdown, filesystem state and Android return separately. A partial
 successful prefix survives a later failure without becoming full-boot PASS.
 Host-only READY means the implementation and artifact are qualified; it does
 not claim fresh connected health or current native_data admission.
+
+## Post-loss boot identity assessment
+
+The existing native D0 profile requires a completed admitted baseline, no
+unresolved F1 owner and the same boot with increasing observation ordinals.
+It cannot be reused to identify a new boot after handoff loss. Current native
+AUTH emits boot identity and immediately enters return preparation, so simply
+closing the host after identity is not a read-only branch. Revision 3 adds no
+post-loss connection or new command.
+
+A future preparation-free, identity-only receiver would need separate review
+for both native and Debian endpoint lifetimes while retaining the failure's
+original recovery owner, no-replay rule and finite budgets. It could report
+**changed authenticated boot**, **same authenticated boot**, or **no authenticated
+identity**. Timeout, USB re-enumeration and descriptor equality alone cannot
+choose between reboot and gadget reset. This assessment grants no such action.

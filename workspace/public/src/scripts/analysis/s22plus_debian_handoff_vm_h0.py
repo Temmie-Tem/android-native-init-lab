@@ -179,7 +179,7 @@ def run(out,key,*,negative=False,release_fault=None,start_fault=None):
             process=subprocess.Popen([str(x) for x in command],stdout=log,stderr=subprocess.STDOUT,
                 env=dict(os.environ,LD_LIBRARY_PATH=str(base.vm.QEMU/'usr/lib/x86_64-linux-gnu')))
             try:
-                deadline=time.monotonic()+240;negative_end=None
+                deadline=time.monotonic()+(360 if built['debian']['fault']==11 else 240);negative_end=None
                 while not endpoint.exists() and process.poll() is None and time.monotonic()<deadline:time.sleep(.02)
                 require(process.poll() is None,'VM exited before console setup')
                 with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as stream:
@@ -203,7 +203,7 @@ def run(out,key,*,negative=False,release_fault=None,start_fault=None):
                                 records.accept(frame)
                                 late_negative=release_fault is not None or built['debian']['fault'] in (2,9)
                                 if negative and (records.runtime_proof if late_negative else records.continued) and negative_end is None:
-                                    negative_end=time.monotonic()+25
+                                    negative_end=time.monotonic()+(310 if built['debian']['fault']==11 else 25)
                                 kind=protocol.CONTINUE if records.proof is not None and not tx else \
                                     protocol.START if records.init_proof is not None and len(tx)==48 else \
                                     protocol.RELEASE if records.runtime_proof is not None and len(tx)==96 else None

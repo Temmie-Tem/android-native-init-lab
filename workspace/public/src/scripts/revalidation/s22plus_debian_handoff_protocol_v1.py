@@ -6,11 +6,14 @@ generic command, writable retry, shutdown or Android return.
 import hashlib
 from pathlib import Path
 import struct
+import time
 import s22plus_switch_root_protocol_v1 as base
-from s22plus_native_records_v3 import require
+from s22plus_native_records_v3 import publish,require
 
 CONTINUE,CONTINUE_ACK,INIT_PROOF,RELEASE,RELEASE_ACK=39,171,172,40,173
 START,START_ACK,PROGRESS=41,175,176
+BOUNDARY=177
+BOUNDARY_MAX=40
 START_SEQUENCE,RELEASE_SEQUENCE=8,9
 SAMPLE_MS,SAMPLES=10000,12
 MAXIMUM=base.MAXIMUM+8192
@@ -18,10 +21,38 @@ encode,frames,health=base.encode,base.frames,base.health
 
 
 class Records(base.Records):
-    def __init__(self,key,run,nonce,boot,witness_sha256,init_sha256,hook_sha256):
+    def __init__(self,key,run,nonce,boot,witness_sha256,init_sha256,hook_sha256,*,observer_revision=2):
         super().__init__(key,run,nonce,boot,witness_sha256,root_readonly=False)
+        require(type(observer_revision) is int and observer_revision in (2,3),'unknown Debian observer revision')
+        self.observer_revision=observer_revision;self.boundaries=[]
         self.expected_init,self.expected_hook=init_sha256,hook_sha256
         self.continued=self.started=self.released=False;self.init_proof=None;self.progress=[]
+
+    def startup_complete(self,phase):
+        rows=[r for r in self.boundaries if r['phase']==phase]
+        return bool(rows and rows[-1]['event']==5 and rows[-1]['wait_status']==0)
+
+    def boundary(self,frame,value):
+        require(self.observer_revision==3 and self.started and len(self.progress) in (1,2) and
+            len(self.boundaries)<BOUNDARY_MAX and len(value)==64,'unselected or excessive startup boundary')
+        phase,event,pid,status,elapsed,closed=struct.unpack('<4I2Q',value[:32])
+        require(phase==len(self.progress) and value[32:]==self.boot and elapsed<300000 and
+            (not self.boundaries or elapsed>=self.boundaries[-1]['elapsed_ms']),
+            'startup boundary boot, phase or original deadline differs')
+        rows=[r for r in self.boundaries if r['phase']==phase]
+        require(frame.sequence==(3000 if phase==1 else 3100)+len(rows),'startup boundary sequence differs')
+        previous=rows[-1]['event'] if rows else 0
+        allowed={0:(1,) if phase==1 else (2,),1:(2,),2:(3,),3:(4,5),4:(4,5),5:()}
+        require(event in allowed[previous] and (pid==0 if event<=2 else 1<pid<=2147483647) and
+            (status==0 if event!=5 else 0<=status<=65535) and
+            (rows[-1]['elapsed_ms']<=closed<=elapsed if phase==1 and event==2 else closed==0),
+            'startup boundary ordering, close return or child identity differs')
+        if event>=4:
+            require(pid==rows[-1]['child_pid'] and
+                (event!=4 or elapsed-rows[-1]['elapsed_ms']>=SAMPLE_MS),
+                'startup wait child or heartbeat interval differs')
+        self.boundaries.append(dict(phase=phase,event=event,child_pid=pid,wait_status=status,
+            elapsed_ms=elapsed,close_return_elapsed_ms=closed))
 
     @property
     def runtime_proof(self):
@@ -57,10 +88,14 @@ class Records(base.Records):
             require(self.init_proof is not None and not self.started and frame.sequence==START_SEQUENCE and
                 value==struct.pack('<I',1),'unjoined or repeated Debian service start')
             self.started=True;return
+        if frame.frame_type==BOUNDARY:
+            self.boundary(frame,value);return
         if frame.frame_type==PROGRESS:
             ordinal=len(self.progress)
             require(self.started and ordinal<SAMPLES+3 and frame.sequence==2000+ordinal and len(value)==56,
                 'out-of-order Debian progress')
+            if self.observer_revision==3 and ordinal in (1,2):
+                require(self.startup_complete(ordinal),'startup completion lacks exact child success')
             stage,sample,pid,services,elapsed=struct.unpack('<4IQ',value[:24])
             expected_stage=ordinal+1 if ordinal<3 else 4
             expected_sample=max(0,ordinal-2)
@@ -75,16 +110,18 @@ class Records(base.Records):
         self.released=True
 
     def projection(self):
-        return dict(status='PASS_INSTALLED_DEBIAN_PID1' if self.init_proof else 'NO_PROOF_DEBIAN_PID1',
+        value=dict(status='PASS_INSTALLED_DEBIAN_PID1' if self.init_proof else 'NO_PROOF_DEBIAN_PID1',
             root_transition=super().projection(),init_proof=self.init_proof,continue_accepted=self.continued,
             services_start_accepted=self.started,progress=self.progress,runtime_proof=self.runtime_proof,
             acm_release_accepted=self.released,acm_departure_proved=False,ssh_access_proved=False,
             persistent_writes=True,clean_shutdown_proved=False,stop=self.stop)
+        if self.observer_revision==3:value.update(observer_revision=3,startup_boundaries=self.boundaries)
+        return value
 
 
 def reader(key,run,nonce,boot,selection):
     return Records(key,run,nonce,boot,selection['witness']['sha256'],selection['installed_init']['sha256'],
-        selection['assets']['hook']['sha256'])
+        selection['assets']['hook']['sha256'],observer_revision=selection.get('observer_revision',2))
 
 
 def prefix(codec,identity,key,rx,tx,*,io_class,selection,complete=False):
@@ -149,22 +186,34 @@ def qualify_one(io,*,evidence,before_terminal,before_extra,selection):
         require(len(values)==1 and values[0][:2]==(base.ACCEPTED,5),'Debian terminal admission ACK absent')
         session._validate(*values[0]);session.close();session=None
         records=reader(io.key,run,io.audit.nonce,io.audit.boot_id,selection)
+        receipts=0
+        def receive():
+            nonlocal receipts
+            frame=io.frame()  # The IO has already retained the raw bytes.
+            if records.observer_revision==3:
+                require(receipts<128,'Debian receive receipt bound exceeded')
+                publish(Path(evidence)/('debian-receive-%03d.json'%receipts),dict(
+                    clock='CLOCK_BOOTTIME',received_ns=time.clock_gettime_ns(time.CLOCK_BOOTTIME),
+                    raw_prefix_bytes=len(io.audit.rx),frame_type=frame.frame_type,sequence=frame.sequence,
+                    frame_sha256=health.digest(frames.encode_frame(frame.frame_type,frame.sequence,frame.payload))))
+                receipts+=1
+            records.accept(frame)
         while records.proof is None:
-            records.accept(io.frame());require(records.stop is None,'Debian root transition stopped')
+            receive();require(records.stop is None,'Debian root transition stopped')
         before_terminal(dict(request,mode='debian-init-continue',sequence=6,root_proof=records.proof))
         frame=frames.decode_frame(encode(io.key,run,io.audit.nonce,CONTINUE,6));io.send(frame.frame_type,frame.sequence,frame.payload)
-        records.accept(io.frame());require(records.continued,'init continuation ACK absent')
+        receive();require(records.continued,'init continuation ACK absent')
         while records.init_proof is None:
-            records.accept(io.frame());require(records.stop is None,'installed init observation stopped')
+            receive();require(records.stop is None,'installed init observation stopped')
         before_terminal(dict(request,mode='debian-services-start',sequence=START_SEQUENCE,init_proof=records.init_proof))
         frame=frames.decode_frame(encode(io.key,run,io.audit.nonce,START,START_SEQUENCE));io.send(frame.frame_type,frame.sequence,frame.payload)
-        records.accept(io.frame());require(records.started,'service start ACK absent')
+        receive();require(records.started,'service start ACK absent')
         while records.runtime_proof is None:
-            records.accept(io.frame());require(records.stop is None,'Debian service progress stopped')
+            receive();require(records.stop is None,'Debian service progress stopped')
         before_terminal(dict(request,mode='debian-acm-release',sequence=RELEASE_SEQUENCE,
             init_proof=records.init_proof,runtime_proof=records.runtime_proof))
         frame=frames.decode_frame(encode(io.key,run,io.audit.nonce,RELEASE,RELEASE_SEQUENCE));io.send(frame.frame_type,frame.sequence,frame.payload)
-        records.accept(io.frame());require(records.released,'ACM release ACK absent')
+        receive();require(records.released,'ACM release ACK absent')
         rx,tx=bytes(io.audit.rx),bytes(io.audit.tx)
         value,_,_=replay_one(io.codec,io.identity,io.key,rx,tx,io_class=type(io),selection=selection)
         io.audit.done_seen=True;io.audit.current_stage='debian-acm-release-accepted';return value
