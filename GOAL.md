@@ -21,7 +21,38 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P412 journal-recovery H0 ready
+## Current P412 clean-root proof and healthy Android closure
+
+P412 `v0.4.0-rc.12` completed one attended operation on 2026-10-03 KST.
+Its [physical-run report and timeline](docs/reports/S22PLUS_NATIVE_JOURNAL_RECOVERY_P412_FIRST_RUN_2026-10-03.md)
+record **PASS_JOURNAL_RECOVERY_OBSERVED / PROVED_CLEAN_ROOT**. Native_data changed
+from `clean=0 state=1 recover=1 orphan=0` to
+`clean=1 state=1 recover=0 orphan=0`. The strict writer recorded only its two
+successful finalization writes (5,120 bytes); no additional home-block replay
+write was observed. After partition RO restoration, `e2fsck -fn` passed and
+all 8,969 expected root entries matched within the existing mutable-data bounds.
+Protected unmount and cleanup completed.
+
+Authenticated native return and one original-A transfer completed normally.
+The final health consumer initially selected the wrong historical GPT layout
+because its operation list omitted `journal-recovery`. Both retained health
+captures actually prove the unchanged Android32 GPT, original partition
+hashes, rooted Android and expected capacity. An independently reviewed H0
+routing correction rederived those bytes and appended only the missing final
+health completion. No device command or transfer accompanied that correction.
+
+Terminal: **ANDROID_CLOSED_HEALTHY**, `recovered=false`. One N and one A were
+transferred; the one-operation/1800-second grant and candidate are consumed
+and closed, with the F1 owner absent. The original failed parser log, 19-row
+journal prefix, raw captures and consumed source/review pins are preserved.
+A90 and S20+ were untouched. P412 executed no Debian init, service or SSH.
+
+The clean protected-root result removes P411's observed dirty-root blocker.
+A fresh Debian handoff still requires its own candidate, current admission,
+source binding and grant. The old P412 activation stays tied to its original
+source; the H0 closure review grants no new device action.
+
+## Prior P412 H0 qualification
 
 P412 `v0.4.0-rc.12` is the separately scoped archive-free native_data recovery
 candidate. Its [H0 report](docs/reports/S22PLUS_NATIVE_JOURNAL_RECOVERY_P412_H0_2026-10-03.md)
@@ -34,12 +65,10 @@ source/artifact closure. Concrete offline preparation passed with device
 entrypoints disabled: **READY_H0_PRELIVE_ONLY**, candidate unclaimed and F1
 owner absent. The new capability record preserves every consumed predecessor.
 
-No device command, connected read, transfer, replay, new boot or grant occurred.
-The last physical state remains P411's healthy Android closure and dirty
-native_data observation below. P412 does not prove physical filesystem repair
-or Debian service/USB progress. Its proposed later attended one-operation
-scope is at most 1800 seconds with one original-A return; that boot restoration
-does not undo a partial native_data replay.
+That H0 unit performed no device command, connected read, transfer, replay,
+new boot or grant. P411's dirty native_data observation was its starting
+evidence. The later physical operation above consumed this candidate under
+the separate 1800-second scope; the original H0 evidence remains unchanged.
 
 ## Prior P411 dirty-root rejection and healthy Android closure
 
@@ -68,11 +97,11 @@ terminal/journal rederivation. Native USB presence after the stop does not
 prove a new boot: ACM had not been retired, and no later authenticated boot
 identity was acquired. The host sent no new native Download command.
 
-The native filesystem required journal recovery when observed. Android health
-does not repair it or prove its later cleanliness. P411 grants no repair,
-journal replay or reinstall. The next required work is a separately scoped
-filesystem recovery proposal and renewed protected root qualification before
-another fresh Debian handoff candidate; P411 cannot be replayed.
+The native filesystem required journal recovery when P411 observed it.
+P411's Android health did not repair it or prove its later cleanliness, and
+its grant authorized no repair, journal replay or reinstall. The separately
+scoped P412 operation above later proved clean protected-root admission;
+P411 itself remains consumed and cannot be replayed.
 
 ## Prior P411 H0 qualification
 
@@ -259,24 +288,20 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The immediate prerequisite is **a separately granted attended P412 native_data
-recovery attempt**; its H0 qualification and concrete offline task are ready.
-P411 is consumed after a protected dirty-root
-rejection; its grant cannot repair the journal or authorize a successor.
-P410's installed-init proof and P411's H0 same-gadget qualification remain
-valid within their original limits.
+P412 has completed root recovery and protected immutable-content admission.
+The next unit is **a fresh Debian handoff candidate for headless access**,
+qualified with the corrected health consumer and its current source binding.
+P410's installed-init proof and P411's H0 same-gadget qualification retain
+their original limits; consumed P411/P412 grants authorize no successor.
 
-1. **Root recovery:** fresh connected preparation and one attended P412 attempt
-   under its reviewed write scope, then re-establish clean protected root and
-   immutable-content admission. The current goal itself grants no repair.
-2. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
+1. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
    runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM and
    same-boot pinned SSH. One fixed shutdown and physical original-A return
    close this prospective unit.
-3. **Persistence and ordinary service:** after that unit closes healthy,
+2. **Persistence and ordinary service:** after that unit closes healthy,
    qualify package-managed service behavior, retained data/configuration and
    ordinary Debian reboot under a separately selected scope.
-4. **Later hardware/product features:** Wi-Fi, display/input, audio and desktop
+3. **Later hardware/product features:** Wi-Fi, display/input, audio and desktop
    are Debian-managed capabilities after the headless base works.
 
 ARM64 VM proof does not establish Samsung electrical USB behavior or target

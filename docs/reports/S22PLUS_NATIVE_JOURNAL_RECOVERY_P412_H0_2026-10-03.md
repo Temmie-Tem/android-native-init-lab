@@ -3,6 +3,13 @@
 Date: 2026-10-03 KST. Target: `SM-S906N/g0q/S906NKSS7FYG8` only.
 Candidate: **P412 `v0.4.0-rc.12`**.
 
+Historical H0 snapshot. The later
+[physical operation](S22PLUS_NATIVE_JOURNAL_RECOVERY_P412_FIRST_RUN_2026-10-03.md)
+consumed this candidate, proved clean protected-root admission and closed
+healthy Android. Its final health routing correction and independent H0
+closure review are recorded separately; the original source pins below remain
+unchanged and grant no further execution.
+
 ## Result and scope
 
 The new [fixed journal-recovery capability](../operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

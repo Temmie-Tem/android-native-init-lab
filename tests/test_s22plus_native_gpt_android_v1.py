@@ -16,6 +16,7 @@ import s22plus_native_gpt_profile_v1 as profile
 import s22plus_native_gpt_session_v1 as coordinator
 import s22plus_native_adapter_v3 as adapter
 import s22plus_native_session_v3 as owner
+import s22plus_native_root_inspect_session_v1 as protected
 import s22plus_native_records_v3 as records
 import test_s22plus_native_target_io_v3 as health_fixture
 from test_s22plus_native_gpt_profile_v1 import binding
@@ -112,6 +113,27 @@ class AndroidTests(unittest.TestCase):
         self.assertTrue(android.storage_stat(text,basis,self.sealed)['native_partition_present'])
         with self.assertRaises(ValueError):android.storage_stat(text.replace(text.splitlines()[0],
             'NATIVE_PARTITION absent'),basis,self.sealed)
+
+    def test_journal_recovery_uses_retained_android32_basis_and_rederives_without_io(self):
+        self.successor()
+        self.request['operation']='journal-recovery'
+        previous=dict(target=self.fixture.binding,A=self.fixture.android,
+            basis=dict(geometry=self.basis['geometry'],gpt=self.request['N']['gpt']))
+        self.request['N']['android_return']=dict(source_terminal=protected.profile.TERMINAL,
+            target=previous['target'],A=previous['A'],layout='proposed',
+            geometry=previous['basis']['geometry'],total_bytes=34357624832)
+        with mock.patch.object(protected.profile,'prior_inputs',return_value=(None,None,previous)), \
+                mock.patch.object(coordinator,'android_basis',side_effect=AssertionError('wrong GPT operation basis')):
+            step,value=self.run_health('android-final')
+            self.assertEqual(value['gpt_android']['metadata']['layout'],'proposed')
+            self.assertEqual(value['gpt_android']['storage']['total_bytes'],34357624832)
+            before=self.argvlog.read_bytes()
+            with mock.patch.object(android.raw,'acquire_command',side_effect=AssertionError('H0 issued I/O')):
+                self.assertEqual(value,android.rederive(self.client,step,self.request))
+            self.assertEqual(self.argvlog.read_bytes(),before)
+            self.put(self.metadata_args,metadata(self.sealed,'original'))
+            with self.assertRaisesRegex(ValueError,'Android complete GPT bytes differ'):
+                self.run_health('recovery-health')
 
     def test_missing_su_successor_retains_completed_failure_then_new_full_health_can_pass(self):
         self.successor()
