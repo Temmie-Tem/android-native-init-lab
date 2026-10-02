@@ -21,7 +21,27 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P411 dirty-root rejection and healthy Android closure
+## Current P412 journal-recovery H0 ready
+
+P412 `v0.4.0-rc.12` is the separately scoped archive-free native_data recovery
+candidate. Its [H0 report](docs/reports/S22PLUS_NATIVE_JOURNAL_RECOVERY_P412_H0_2026-10-03.md)
+records a byte-identical A/B boot-only package, 29 actual ARM64 tool tests,
+six final kernel-VM paths, seven child-failure VMs and 92 focused unit/C/PTY
+tests. The strict writer avoids ordinary e2fsck repair/orphan cleanup; the
+parent restores partition RO before the fixed checker and full protected
+root comparison. Independent review returned **PASS_GO** over the frozen
+source/artifact closure. Concrete offline preparation passed with device
+entrypoints disabled: **READY_H0_PRELIVE_ONLY**, candidate unclaimed and F1
+owner absent. The new capability record preserves every consumed predecessor.
+
+No device command, connected read, transfer, replay, new boot or grant occurred.
+The last physical state remains P411's healthy Android closure and dirty
+native_data observation below. P412 does not prove physical filesystem repair
+or Debian service/USB progress. Its proposed later attended one-operation
+scope is at most 1800 seconds with one original-A return; that boot restoration
+does not undo a partial native_data replay.
+
+## Prior P411 dirty-root rejection and healthy Android closure
 
 P411 `v0.4.0-rc.11` completed one attended attempt on 2026-10-01 KST. Fresh
 fixed Android preparation passed before its one-operation/3600-second grant.
@@ -239,14 +259,15 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The immediate prerequisite is a **separately scoped native_data recovery
-proposal and qualification**. P411 is consumed after a protected dirty-root
+The immediate prerequisite is **a separately granted attended P412 native_data
+recovery attempt**; its H0 qualification and concrete offline task are ready.
+P411 is consumed after a protected dirty-root
 rejection; its grant cannot repair the journal or authorize a successor.
 P410's installed-init proof and P411's H0 same-gadget qualification remain
 valid within their original limits.
 
-1. **Root recovery:** qualify the smallest necessary filesystem recovery under
-   its own reviewed write scope, then re-establish clean protected root and
+1. **Root recovery:** fresh connected preparation and one attended P412 attempt
+   under its reviewed write scope, then re-establish clean protected root and
    immutable-content admission. The current goal itself grants no repair.
 2. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
    runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM and

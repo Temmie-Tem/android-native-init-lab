@@ -118,6 +118,13 @@
       "version": "v0.4.0-rc.11",
       "image_sha256": "5e2d9f87dd86e2abb43084716a1b4eaec18d53d2c8fecdc0871c104bfa1836d4",
       "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v2"
+    },
+    {
+      "namespace": "p412",
+      "run_id": "392b215f4d329e4b0963a7b681aeb3e3",
+      "version": "v0.4.0-rc.12",
+      "image_sha256": "040610335d04af803f76820f23649e93af0f5b60723afa3a0d1bf2f0fadade16",
+      "profile": "thermal-v3-reconnect-ufs-drain-journal-recovery-v1"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

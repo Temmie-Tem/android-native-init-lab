@@ -460,6 +460,25 @@ does not prove current connected health or current native_data admission.
 V1/P410 remain consumed with their original frozen provenance; their catalog
 data cannot inherit the V2 builder or runtime.
 
+### Fixed native_data journal recovery V1
+
+The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
+is adopted only for `thermal-v3-reconnect-ufs-drain-journal-recovery-v1`, one
+fresh Android-origin `journal-recovery` operation, one returned attended
+one-operation/1800-second grant and the same original-A return. Exact current
+health, source-bound review, qualified payloads and usable physical Download
+recovery remain mandatory. H0 readiness does not open that grant.
+
+Only its pathless pinned internal-JBD2 replayer and exact successful
+finalization may write native_data. After conclusive child settlement,
+restore partition RO, run the separate `e2fsck -fn` and complete protected
+immutable-root/finite-mutable comparison. No generic fsck repair, orphan
+cleanup, formatter, reinstall, GPT mutation, installed execution or PID1
+handoff is selected. Fully observed settled negatives may use normal fixed
+return; incomplete output, timeout or I/O uncertainty selects the original
+attended physical recovery without retry. Original A does not undo partial
+native_data changes. P410/P411 and their consumed grants remain immutable.
+
 ### Fixed installed-Debian userspace probe V1
 
 The common-incorporated [userspace probe V1](../S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)

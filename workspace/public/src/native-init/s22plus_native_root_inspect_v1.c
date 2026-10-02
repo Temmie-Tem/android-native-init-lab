@@ -38,6 +38,9 @@ static uint64_t ri_hashed_bytes;
 #ifndef RI_PRE_MOUNT
 #define RI_PRE_MOUNT(endpoint) 0
 #endif
+#ifndef RI_PRE_ADMISSION
+#define RI_PRE_ADMISSION(endpoint,before,clean,ro) 0
+#endif
 
 struct ri_counts { unsigned entries, files, directories, links, other; uint64_t bytes; };
 struct ri_compare { unsigned expected, matched, missing, metadata, content;
@@ -143,6 +146,10 @@ static void ri_finding(const char *path, const char *kind) {
 #include "s22plus_debian_handoff_seal_v1.h"
 #include "s22plus_debian_handoff_root_v2.inc.c"
 #endif
+#ifdef S22_NATIVE_JOURNAL_RECOVERY
+#include "s22plus_native_journal_mutable_seal_v1.h"
+#include "s22plus_debian_handoff_root_v2.inc.c"
+#endif
 static int ri_compare_tree(int root, dev_t device, struct ri_compare *c) {
     if (ri_table_size < 12 || ri_table_size > RI_MAX_TABLE) return EINVAL;
     int fd = fs1_pin_file("/s22-root-inspect.table", ri_table_size, ri_table_sha256, false);
@@ -182,7 +189,7 @@ static int ri_compare_tree(int root, dev_t device, struct ri_compare *c) {
             if (errno == ENOENT) { ++c->missing; c->boot_missing += critical; ri_finding(path,"missing"); }
             else error = fs1_error();
         } else {
-#ifdef S22_DEBIAN_HANDOFF
+#if defined(S22_DEBIAN_HANDOFF) || defined(S22_NATIVE_JOURNAL_RECOVERY)
             int allowed=dh_mutable_archive(path,&st,device);
             if(allowed) {
                 if(allowed<0)error=-allowed;else ++c->matched;
@@ -375,6 +382,11 @@ static int ri_run(int argc, char **argv, const char *mode, ri_observer observe) 
     ri_print("RI1_SUPER clean=%d state=%u recover=%u orphan=%u\n",clean,fs1_u16(before+0x3a),
              !!(fs1_u32(before+0x60)&4U),fs1_u32(before+0xe8));
     RI_PROGRESS_END("superblock");
+    /* Only a separately sealed recovery helper defines this callback. The
+     * ordinary inspector and every consumed probe retain the no-write path. */
+    int admission = RI_PRE_ADMISSION(&e,before,&clean,&ro);
+    if (admission > 0) { error=admission; goto done; }
+    if (admission < 0) goto final;
     if (!clean) goto final;
     /* A negative callback is a settled scientific stop, not an errno. */
     int pre_mount = RI_PRE_MOUNT(&e);

@@ -18,7 +18,9 @@ _Static_assert(SYS_capget == 90, "retained ARM64 capget ABI");
 #define UP_OUTPUT_MAX 4096U
 #define UP_READY 100U
 #define UP_EXEC 101U
+#ifndef UP_TIMEOUT_MS
 #define UP_TIMEOUT_MS 30000U
+#endif
 
 #include "s22plus_native_userspace_probe_seal_v1.h"
 

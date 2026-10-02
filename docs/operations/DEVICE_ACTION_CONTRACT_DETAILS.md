@@ -88,6 +88,10 @@ permission to perform host-only work.
    native_data writable lifetime, basic access and fixed shutdown, with
    physical original-A return. It adds no install, repair, GPT mutation,
    other-partition access or replay of any consumed predecessor.
+   The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
+   permits only one sealed internal JBD2 replay and exact journal/primary
+   superblock finalization on entry 41. It adds no ordinary fsck repair,
+   reinstall, formatting, GPT mutation or other-partition payload.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
@@ -130,6 +134,13 @@ permission to perform host-only work.
    clean-root checks, then Debian-owned service observation and reconfiguration
    of the same first USB gadget. It adds no repair, reinstall, journal replay,
    other-partition access or renewed consumed effect.
+   The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
+   permits one partition-only RO clear, one pinned pathless strict JBD2 writer
+   and RO restoration after conclusive child settlement, followed by the fixed
+   read-only checker and exact root comparison. Partial writes stay consumed;
+   boot-only original-A return is not a filesystem rollback. Generic block
+   writers, ordinary repair, orphan cleanup, external journals and installed
+   execution remain forbidden.
    The reviewed `S22PLUS_NATIVE_STORAGE_CENSUS_V1` profile below is a D0
    metadata-read exception to partition-table actions for only the exact
    S22+ V3 owner. It may read LU0's primary six and final five 4096-byte blocks
@@ -831,6 +842,26 @@ health retain their one-shot/health-only continuation semantics. Separate
 source review, A/B qualification and returned finite grant remain required.
 The fixed foreground Android preparation D0 performs no mode change or image
 transfer. No previous candidate, installation or task claim is reopened.
+
+## S22+ fixed native_data journal recovery
+
+The [separate V1 policy](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md) is incorporated
+only for the exact S22+ FYG8 Android32/native_data layout. Its V3
+`journal-recovery` operation starts from fresh healthy original Android,
+consumes one fresh N and one pre-EXEC writer intent under a returned attended
+one-operation grant of at most 1800 seconds, and returns once to original A.
+
+The strict writer may replay only the validated internal journal and perform
+its exact successful finalization within entry 41. No ordinary fsck repair,
+format, installation, GPT change, Debian handoff or external journal is added.
+Conclusive child settlement, partition-only RO restoration, full read-only
+checker/root admission and unchanged surrounding layout are distinct proof
+requirements. Timeout, malformed evidence or I/O uncertainty selects attended
+physical recovery without repeating an effect. Original A does not undo
+native_data writes; partial recovery is possible and never grants a retry.
+Independent review must cover this permanent write exception, source/tool
+provenance, real ARM64 failure tests and the existing no-replay owner. H0 and
+retained bindings open no grant and prove no current device health.
 
 ## S22+ native-first installed-Debian handoff
 

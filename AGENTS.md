@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **36** (supersedes revision 35; 2026-10-01)
+Contract-Revision: **37** (supersedes revision 36; 2026-10-03)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`786125893d5dc577b87443409d1138ce385fd0ac7abf75b3d8ffbdcd89a55022`.
+`8ace05b82526b9eea8072c9f9108c76120f99b219266db135fb7e321663c2d9a`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -114,7 +114,8 @@ Read an exception's complete conditions before considering it applicable.
    the separately reviewed [Debian first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
    and [installed-Debian boot exception](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md),
    and the separate [native-first Debian handoff exception](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md)
-   and [Debian progress/same-gadget successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md).
+   and [Debian progress/same-gadget successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md),
+   and the separate [fixed native_data journal recovery exception](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -152,6 +153,10 @@ Read an exception's complete conditions before considering it applicable.
    Debian-owned progress observation and reuse of the original USB gadget.
    Clean ext4, exact immutable-root checks and the same no-repair/write
    boundaries remain required.
+   The separate [fixed journal recovery](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
+   permits one sealed native_data-only JBD2 replay and exact finalization, then
+   restored partition RO and complete protected root admission. It adds no
+   general fsck repair, formatter, GPT mutation, reinstall or Debian execution.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -209,6 +214,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ readonly root-transition witness | [Actual PID-1 transition and post-exec proof](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md); one native-first fixed terminal operation, worker settlement, protected root and RAM witness, one original-A return, no installed init or writable lifetime. |
 | S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md); one attended finite operation, protected admission then native_data RW/init, authenticated PID1 and same-boot SSH, fixed shutdown and physical original-A return, no reinstall or replay. |
 | S22+ Debian progress and same-gadget handoff | [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md); one fresh attended operation, clean protected current-root admission, finite Debian service observation before same-g1 NCM/SSH, fixed shutdown and physical original-A return; no repair or replay. |
+| S22+ fixed journal recovery | [Exact native_data replay](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md); one reviewed strict writer, fresh attended grant, protected post-check and one original-A return, no repair replay or reinstall. |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected

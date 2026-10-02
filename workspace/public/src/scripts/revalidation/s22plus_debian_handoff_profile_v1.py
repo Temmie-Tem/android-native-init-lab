@@ -110,6 +110,13 @@ ip link set usb0 up
     return init,values
 
 
+def mutable_header():
+    return ('struct dh_mutable { const char *path; unsigned mode,gid; uint64_t minimum,maximum; unsigned archive,count; };\n'+
+        'static const struct dh_mutable dh_mutable[]={\n'+''.join(
+            '{'+json.dumps(path)+f',{mode}U,{gid}U,{minimum}ULL,{maximum}ULL,{int(archive)}U,{int(count)}U'+'},\n'
+            for path,mode,gid,minimum,maximum,archive,count in MUTABLE)+'};\n')
+
+
 def header(namespace,version,run,*,virt=False):
     require(re.fullmatch(r'p[0-9]{3,6}',namespace) and
         re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?',version) and
@@ -117,10 +124,7 @@ def header(namespace,version,run,*,virt=False):
     init,assets=payloads(virt=virt);members=root_files()
     marker=f'BOOTSTRAP_CANDIDATE {namespace} {version} {run}\n'
     return ('#ifndef S22_DEBIAN_HANDOFF_SEAL_V1_H\n#define S22_DEBIAN_HANDOFF_SEAL_V1_H\n'+
-        'struct dh_mutable { const char *path; unsigned mode,gid; uint64_t minimum,maximum; unsigned archive,count; };\n'+
-        'static const struct dh_mutable dh_mutable[]={\n'+''.join(
-            '{'+json.dumps(path)+f',{mode}U,{gid}U,{minimum}ULL,{maximum}ULL,{int(archive)}U,{int(count)}U'+'},\n'
-            for path,mode,gid,minimum,maximum,archive,count in MUTABLE)+'};\n'+
+        mutable_header()+
         f'static const uint64_t dh_init_size={len(init)}ULL;\n'+
         'static const uint8_t dh_init_sha256[]={'+','.join(map(str,hashlib.sha256(init).digest()))+'};\n'+
         f'static const uint64_t dh_usb_size={len(assets["usb"])}ULL;\n'+

@@ -11,6 +11,7 @@ import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
 import s22plus_debian_handoff_profile_v1 as handoff
+import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_task_v3 as task
 import s22plus_native_adapter_v3 as adapter
 import s22plus_native_target_io_v3 as target
@@ -24,28 +25,41 @@ ROOT = inspection.ROOT
 PRIOR_TASK = ROOT / 'workspace/private/runs/s22plus-native-session-v3/p399-p400-native-ext4-20260917-1/task.json'
 
 
-def prepare_handoff_offline(directory,image_receipt):
+def prepare_offline(directory,image_receipt):
     """Concrete prelive task using retained bindings, with no device reads.
 
     Execution still revalidates the host lane and performs the complete fresh
     Android/native preflight. This method neither proves health nor opens a
     grant; the unknown post-P410 native filesystem is admitted only at runtime.
     """
-    image=read(verify(image_receipt));require(image['profile']==handoff.PROFILE,'not the current handoff successor')
-    old_task=read(PRIOR_TASK);_,_,previous=handoff.prior_inputs()
+    image=read(verify(image_receipt))
+    require(image['profile'] in (handoff.PROFILE,journal.PROFILE),'unselected offline protected-root image')
+    selected=handoff if image['profile']==handoff.PROFILE else journal
+    old_task=read(PRIOR_TASK);_,_,previous=selected.prior_inputs()
     require(old_task['target']==previous['target'] and old_task['A']==previous['A'],'retained offline target differs')
-    task.capability(ROOT,profile=handoff.PROFILE);adapter.image_valid(image,artifact_bytes=True)
+    task.capability(ROOT,profile=selected.PROFILE);adapter.image_valid(image,artifact_bytes=True)
     task.validate_recovery(old_task['recovery_evidence'],previous['target'],previous['A'])
     directory=private_path(ROOT,directory,exists=False);require(not directory.exists(),'fresh offline preparation required')
     directory.mkdir(mode=0o700);binding=publish(directory/'target.json',previous['target'])
     receipt=task.prepare_task(ROOT,directory/'task',native=image_receipt,experiment=None,
         target=binding,installation=old_task['host_installation'],recovery_evidence=old_task['recovery_evidence'],
-        seconds=3600,operation_budget=1,recovery_mode='attended',reentry=False,hud=False,
-        usb_reconnect=False,android_exit=False,debian_handoff=True,retained_lane=old_task['lane'])
-    publish(directory/'ready.json',dict(schema=handoff.SCHEMA+'-ready',status='READY_H0_PRELIVE_ONLY',task=receipt,
+        seconds=3600 if selected is handoff else 1800,operation_budget=1,recovery_mode='attended',reentry=False,hud=False,
+        usb_reconnect=False,android_exit=False,debian_handoff=selected is handoff,
+        journal_recovery=selected is journal,retained_lane=old_task['lane'])
+    publish(directory/'ready.json',dict(schema=selected.SCHEMA+'-ready',status='READY_H0_PRELIVE_ONLY',task=receipt,
         retained_binding=pin(PRIOR_TASK),fresh_connected_health=False,current_root_admitted=False,
         grant_opened=False,image_transferred=False,device_actions=0))
     return receipt
+
+
+def prepare_handoff_offline(directory,image_receipt):
+    require(read(verify(image_receipt))['profile']==handoff.PROFILE,'not a handoff image')
+    return prepare_offline(directory,image_receipt)
+
+
+def prepare_journal_offline(directory,image_receipt):
+    require(read(verify(image_receipt))['profile']==journal.PROFILE,'not a journal recovery image')
+    return prepare_offline(directory,image_receipt)
 
 
 def projection(folder, target_binding, android, image):
@@ -70,7 +84,7 @@ def projection(folder, target_binding, android, image):
 
 def prepare(directory, image_receipt):
     image = read(verify(image_receipt))
-    items=(inspection,probe,preflight,staged,switch,handoff)
+    items=(inspection,probe,preflight,staged,switch,handoff,journal)
     require(image['profile'] in tuple(item.PROFILE for item in items), 'not a protected-root candidate')
     selected = next(item for item in items if image['profile']==item.PROFILE)
     if selected is handoff:
@@ -112,7 +126,7 @@ def prepare(directory, image_receipt):
                 seconds=3600 if selected is handoff else 1800, operation_budget=1, recovery_mode='attended', reentry=False, hud=False,
                 usb_reconnect=False, android_exit=False, root_inspect=selected is inspection,
                 userspace_probe=selected is probe,preflight=selected is preflight,staged_preflight=selected is staged,
-                switch_root=selected is switch,debian_handoff=selected is handoff)
+                switch_root=selected is switch,debian_handoff=selected is handoff,journal_recovery=selected is journal)
             publish(directory/'ready.json', dict(schema=selected.SCHEMA+'-ready', task=receipt,
                 preparation=pin(folder/'result.json'), grant_opened=False, image_transferred=False,
                 native_filesystem_observed=False, userspace_executed=False))

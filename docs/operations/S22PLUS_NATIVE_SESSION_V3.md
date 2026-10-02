@@ -130,6 +130,15 @@ one-operation grant never renew. This does not stop already-started services
 or an uncertain later USB operation. Consumed V1 data remains historical and
 selects no V2 runtime.
 
+The separately adopted [fixed journal recovery](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
+adds only `journal-recovery`: healthy A, one fresh N, one original pre-EXEC
+intent for the sealed native_data JBD2 writer, restored partition RO after
+conclusive settlement, fixed read-only checker and exact protected root
+comparison, then the existing DETACH/same-boot-health/Download/original-A
+return. Its one-operation attended grant is at most 1800 seconds. Incomplete
+or I/O-uncertain outcomes select physical original-A recovery; no writer,
+control or transfer is replayed. A return does not undo filesystem writes.
+
 Every authentication retains its nonce, authenticated kernel boot identity,
 ordinal, fixed root health, raw RX/TX and terminal acknowledgement. DETACH
 also requires actual descriptor close. A new installed boot starts at ordinal

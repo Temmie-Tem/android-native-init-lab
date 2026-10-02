@@ -19,6 +19,7 @@ import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
 import s22plus_debian_handoff_profile_v1 as handoff
+import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -49,15 +50,17 @@ def image_valid(image, *, artifact_bytes=False):
         staged.PROFILE:'s22plus_native_staged_preflight_artifact_v1_h0.py',
         switch.PROFILE:'s22plus_switch_root_artifact_v1_h0.py',
         handoff.PROFILE:'s22plus_debian_handoff_artifact_v1_h0.py',
+        journal.PROFILE:'s22plus_native_journal_recovery_artifact_v1_h0.py',
         **{p:'s22plus_native_ext4_artifact_v1_h0.py' for p in fs.PROFILES}}
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'}
     if image.get('profile')==gpt.PROFILE:keys.add('gpt')
     if image.get('profile') in fs.PROFILES:keys.update(('filesystem','gpt','android_return'))
-    if image.get('profile') in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE):keys.update(('root_inspection','gpt','android_return'))
+    if image.get('profile') in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE,journal.PROFILE):keys.update(('root_inspection','gpt','android_return'))
     if image.get('profile') == preflight.PROFILE:keys.update(('preflight','gpt','android_return'))
     if image.get('profile') == probe.PROFILE:keys.add('userspace_probe')
     if image.get('profile') == staged.PROFILE:keys.add('staged_preflight')
+    if image.get('profile') == journal.PROFILE:keys.add('journal_recovery')
     if image.get('profile') == switch.PROFILE:keys.add('switch_root')
     if image.get('profile') == handoff.PROFILE:keys.update(('debian_handoff','root_admission','gpt','android_return'))
     require(set(image)==keys and image['schema']=='s22plus-native-image-v3'
@@ -122,8 +125,8 @@ def image_valid(image, *, artifact_bytes=False):
         require(not any(name in inventory for name in ('s22-fs','s22-fs-mke2fs','rootfs.tar.xz',
             's22-root-inspect','s22-userspace-probe','p404-lab-qualify')),
             'preflight image contains an unselected payload')
-    if image['profile'] in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE,handoff.PROFILE):
-        selected = next(item for item in (inspection,probe,staged,switch,handoff) if item.PROFILE==image['profile'])
+    if image['profile'] in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE,handoff.PROFILE,journal.PROFILE):
+        selected = next(item for item in (inspection,probe,staged,switch,handoff,journal) if item.PROFILE==image['profile'])
         binding = selected.image_binding(image)
         require(built['root_admission' if selected is handoff else 'root_inspection'] == binding and
             built['native_selection']['runtime_profile']['root_inspect_profile'] == inspection.PROFILE,
@@ -146,9 +149,16 @@ def image_valid(image, *, artifact_bytes=False):
             require(built['debian_handoff']==image['debian_handoff'] and
                 built['native_selection']['runtime_profile']['debian_handoff_profile']==handoff.PROFILE,
                 'Debian handoff differs from A/B producer')
+        if selected is journal:
+            require(built['journal_recovery']==image['journal_recovery'] and
+                built['native_selection']['runtime_profile']['journal_recovery_profile']==journal.PROFILE and
+                built['native_selection']['runtime_profile']['journal_recovery']==image['journal_recovery'],
+                'journal recovery differs from its A/B producer')
         inventory = built['candidate']['a']['inventory']
-        helper = 's22-switch-root' if selected in (switch,handoff) else 's22-staged-preflight' if selected is staged else 's22-userspace-probe' if selected is probe else 's22-root-inspect'
+        helper = 's22-journal-recovery' if selected is journal else 's22-switch-root' if selected in (switch,handoff) else 's22-staged-preflight' if selected is staged else 's22-userspace-probe' if selected is probe else 's22-root-inspect'
         members=[(helper,binding['helper'],0o100500),('s22-root-inspect.table',binding['table'],0o100400)]
+        if selected is journal:members.extend((name,image['journal_recovery'][key],0o100500) for name,key in
+            (('s22-fs-e2fsck','checker'),('s22-journal-replay','replayer')))
         if selected is staged:members.append(('s22-fs-e2fsck',image['staged_preflight']['checker'],0o100500))
         if selected in (switch,handoff):
             key='debian_handoff' if selected is handoff else 'switch_root'
@@ -161,10 +171,11 @@ def image_valid(image, *, artifact_bytes=False):
             require(all(inventory[member][k] == receipt[k] for k in ('size', 'sha256')) and
                 inventory[member]['mode'] == mode and inventory[member]['uid'] == inventory[member]['gid'] == 0,
                 'inspection ramdisk payload differs')
-        excluded={'s22-fs','s22-fs-mke2fs','rootfs.tar.xz','s22-root-inspect','s22-userspace-probe','s22-staged-preflight','s22-prehandoff'}-{helper}
-        if selected not in (staged,switch,handoff):excluded.add('s22-fs-e2fsck')
+        excluded={'s22-fs','s22-fs-mke2fs','rootfs.tar.xz','s22-root-inspect','s22-userspace-probe','s22-staged-preflight','s22-prehandoff','s22-journal-recovery'}-{helper}
+        if selected not in (staged,switch,handoff,journal):excluded.add('s22-fs-e2fsck')
         if selected not in (switch,handoff):excluded.update(('s22-switch-root','s22-switch-witness','s22-switch-busybox'))
         if selected is not handoff:excluded.add('s22-debian-usb')
+        if selected is not journal:excluded.add('s22-journal-replay')
         require(not any(name in inventory for name in excluded),
             'inspector image contains an unselected filesystem payload')
     if artifact_bytes:
