@@ -21,7 +21,31 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current P413 installed PID1 and rcS entry; Android recovered healthy
+## Current P415 protected evidence capture; Android returned healthy
+
+P415 `v0.4.0-rc.15` completed its one attended read-only experiment on
+2026-10-07 KST. The [physical-run report and canonical timeline](docs/reports/S22PLUS_NATIVE_ROOT_EVIDENCE_P415_FIRST_RUN_2026-10-07.md)
+record **PASS_ROOT_EVIDENCE_OBSERVED** and **ANDROID_CLOSED_HEALTHY** through
+the normal same-boot CONTROL/original-A return, with no stop or extra recovery.
+There was one N, one fixed reader command and one A; the grant and candidate
+are consumed and closed, with no F1 owner remaining.
+
+The mountless partition-protected view observed `state=1 recover=1 orphan=0`.
+Native_data therefore requires separately authorized journal recovery before
+clean-root admission. Eleven sealed legacy paths were absent from checkpointed
+home blocks, and the present wtmp was empty. No new P413 progress can be proved
+from those files. Newer records may remain only in the journal; absence does
+not negate P413's authenticated installed-PID1/rcS-entry evidence or prove
+non-execution. P415 mounted nothing, replayed nothing and made no filesystem
+write. It read 275,456 bytes in 45 calls and preserved superblock/GPT readback.
+
+Final original boot/supporting digests, root, changed Android boot and full
+Android32 GPT/capacity passed. H0 closure revalidated 588 raw captures, 251
+frozen source paths and the unchanged 18-row journal/terminal with device
+commands blocked. A90 and S20+ were untouched. Durable per-run records and
+USB-independent startup remain prospective work under their own scope.
+
+## Prior P413 installed PID1 and rcS entry; Android recovered healthy
 
 P413 `v0.4.0-rc.13` completed one attended attempt on 2026-10-03 KST.
 The [physical-run report and timeline](docs/reports/S22PLUS_DEBIAN_HANDOFF_P413_FIRST_RUN_2026-10-03.md)
@@ -46,9 +70,9 @@ and candidate are consumed and closed; the F1 owner is absent. All 1,759 raw
 captures, 264 frozen source files and the unchanged 17-row journal/terminal
 were revalidated in H0. A90 and S20+ were untouched.
 
-Native_data was clean before P413's writable lifetime; its cleanliness after
-the forced original-A return is now **unproved**. Android health does not
-preserve or renew P412's clean-root claim. The
+Native_data was clean before P413's writable lifetime. Its post-return
+cleanliness was unproved until P415 later observed RECOVER set without replay.
+Android health does not preserve or renew P412's clean-root claim. The
 [retained-evidence H0 assessment](docs/reports/S22PLUS_P413_EOF_FORENSICS_H0_2026-10-03.md)
 completed without device commands or a new candidate. CLOCAL was already set;
 the verified driver behavior and exact startup scripts do not establish a
@@ -356,21 +380,14 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P415 `v0.4.0-rc.15` is the next bounded **read-before-write evidence census**.
-The [P415 H0 report](docs/reports/S22PLUS_NATIVE_ROOT_EVIDENCE_P415_H0_2026-10-07.md)
-and [separate root-evidence policy](docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
-define one fixed mountless capture of existing native_data records under
-partition RO, followed by original-A return. Validly identified dirty home
-blocks can be read without journal replay; their absence or older contents
-never prove non-execution. This preserves P413 evidence before any future
-writable boot can rotate it. It neither admits the installed root nor repairs
-native_data. The durable receipt writer and USB-independent startup remain
-later work informed by the captured state. Actual A/B AP qualification,
-12 ARM64 cases, 96 host tests and independent PASS_GO are complete. The
-concrete offline task binds one attended operation/1800 seconds and requires
-the returned grant plus fresh runtime health; no P415 device action or grant
-has occurred.
-
+P415's protected read-before-write census is complete and closed healthy.
+The [run report](docs/reports/S22PLUS_NATIVE_ROOT_EVIDENCE_P415_FIRST_RUN_2026-10-07.md)
+preserves the observed dirty native_data and limited home-block evidence.
+The next functional improvement remains bounded durable per-run evidence and
+separation of USB reporting from startup progression. Any next writable boot
+must first address the observed RECOVER state through a separately selected
+reviewed recovery scope and fresh protected admission. P415's consumed grant
+supplies neither that recovery nor a successor boot.
 
 The [P414 observer H0 unit](docs/reports/S22PLUS_DEBIAN_HANDOFF_P414_OBSERVER_H0_2026-10-03.md)
 implements a close-return/reopen barrier and parent-only ACM observation during
@@ -395,9 +412,9 @@ The next device-related unit requires a **freshly qualified complete artifact,
 exact original-A health and applicable finite authority**. Current native_data
 admission must pass at the protected boundary before any writable handoff.
 P414 H0 opens no grant and has not
-built or activated a full boot image. Native_data cleanliness after P413 remains
-unknown; neither replay nor repair is inferred. P410/P413 installed-init proof
-and P411's same-gadget H0 qualification retain their separate limits.
+built or activated a full boot image. P415 has since observed native_data
+RECOVER set; neither journal replay nor repair is inferred from its reader grant.
+P410/P413 installed-init proof and P411's same-gadget H0 qualification retain their separate limits.
 
 1. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
    runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM and
