@@ -15,7 +15,9 @@
 _Static_assert(SYS_close_range == 436, "retained ARM64 close_range ABI");
 _Static_assert(SYS_capget == 90, "retained ARM64 capget ABI");
 
+#ifndef UP_OUTPUT_MAX
 #define UP_OUTPUT_MAX 4096U
+#endif
 #define UP_READY 100U
 #define UP_EXEC 101U
 #ifndef UP_TIMEOUT_MS

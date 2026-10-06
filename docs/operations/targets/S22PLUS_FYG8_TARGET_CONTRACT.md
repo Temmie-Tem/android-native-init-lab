@@ -334,6 +334,28 @@ reobservation after a pure read failure. They cannot mount or inspect native
 files or perform control. No experimental image is transferred until the
 operator returns the concrete finite grant.
 
+### Fixed mountless native_data evidence V1
+
+The common-incorporated [root evidence V1](../S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
+is adopted only as V3's `root-evidence` operation. A fresh one-shot reader N
+starts from exact healthy original A, performs one fixed authenticated capture
+and returns once to A with full rooted Android32/GPT/statfs health. One returned
+attended grant permits one operation and at most 1800 seconds. No other role,
+E, native admission, prior tail, reconnect or HUD is allowed.
+
+Exact retained entry-41/GPT/UUID binding and partition-only kernel RO precede
+the mountless uid/gid-65534 library reader. It reads only sealed paths, sizes
+and private suffixes; validly identified dirty home blocks may be observed
+without journal replay. There is no mount, repair, data write, installed-code
+execution, RO clear or caller-selected file. Historical claims stay consumed;
+missing home-block records never prove non-execution. This separate profile
+does not relax root-inspection's clean-only mount or digest-only boundaries.
+Its dedicated independent review and actual artifact qualification are
+required, with unchanged V3 original-A physical recovery and health-only
+continuation. Foreground fixed D0 preparation reuses only the adopted Android
+health/GPT/statfs reads. Offline preparation establishes no current health;
+execution still requires fresh exact checks and the concrete finite grant.
+
 ### Installed-bootstrap preflight V1
 
 The common-incorporated [preflight V1](../S22PLUS_NATIVE_PREFLIGHT_V1.md) is

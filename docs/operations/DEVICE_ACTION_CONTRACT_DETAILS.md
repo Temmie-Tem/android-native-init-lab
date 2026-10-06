@@ -111,6 +111,10 @@ permission to perform host-only work.
    mount. Its sole block control is partition-only `BLKROSET=1`, retained until
    reboot; it grants no block-data write, flag clear, repair or installed-code
    execution. All image transfers remain boot only.
+   The separate [mountless root evidence V1](S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
+   adds only its fixed bounded private historical-file reads under the same
+   exact partition RO protection, including a dirty home-block view without
+   mount or journal replay; it permits no filesystem data write or execution.
    The separately reviewed [bootstrap preflight V1](S22PLUS_NATIVE_PREFLIGHT_V1.md)
    permits its fixed automatic read-only preparation, partition RAM RO,
    unprivileged loader checks and sealed-result native observer only. It adds
@@ -730,6 +734,28 @@ health-only recovery rules remain binding. Source-bound independent review,
 actual artifact qualification and the returned grant are separate prerequisites.
 The named foreground preparation D0 is read-only Android health/GPT/statfs,
 not native_data mount or file access, and grants no experimental transfer.
+
+## S22+ fixed mountless native_data evidence
+
+The separately reviewed [root evidence V1](S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
+is adopted only as V3's `root-evidence` operation. One returned attended grant
+permits one Android-origin reader N and one original-A return within 1800
+original BOOTTIME seconds, with the existing exact health, endpoint, exclusion,
+one-shot intent, no-replay and physical recovery requirements. It earns no N
+admission and permits no other operation, E, reconnect or HUD.
+
+Exact entry-41/GPT binding and partition-only RAM RO protection precede a
+mountless unprivileged static reader. This separate path may read its fixed
+bounded historical files from validly identified clean or dirty native_data;
+it never mounts, replays JBD2, clears RO, writes data or executes installed code.
+The older inspector's clean-only mount and digest-only observation stay intact.
+Only the policy's sealed file list, sizes and private raw suffixes are allowed;
+no caller-selected path or arbitrary file access is introduced. A dirty home-
+block view can miss committed journal updates, so absence is never proof of
+non-execution. Acquisition, Debian runtime proof and filesystem health remain
+separate. Raw bytes remain private. Independent review, actual qualification
+and a returned finite grant are distinct prerequisites. Offline preparation
+proves no current health and grants no effect.
 
 ## S22+ fixed installed-Debian userspace probe
 

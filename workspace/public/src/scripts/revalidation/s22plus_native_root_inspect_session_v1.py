@@ -6,11 +6,12 @@ import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
 import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_journal_recovery_profile_v1 as journal
+import s22plus_native_evidence_profile_v1 as evidence
 from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-ITEMS = (profile, probe, preflight, staged, switch, handoff, journal)
+ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence)
 PROFILES = tuple(item.PROFILE for item in ITEMS)
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
@@ -80,7 +81,7 @@ def validate_result(adapter, step, value, request):
         from s22plus_debian_handoff_session_v1 import validate_result as handoff_result
         return handoff_result(adapter,step,value,request)
     if step.name != item.SELECTION: return
-    status = 'PASS_JOURNAL_RECOVERY_OBSERVED' if item is journal else 'PASS_SWITCH_ROOT_WITNESS' if item is switch else 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
+    status = 'PASS_ROOT_EVIDENCE_OBSERVED' if item is evidence else 'PASS_JOURNAL_RECOVERY_OBSERVED' if item is journal else 'PASS_SWITCH_ROOT_WITNESS' if item is switch else 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
     require(value['proof'][item.Profile.RESULT_KEY]['status'] == status,
         'protected-root operation did not finish with bounded raw proof')
     records = [r['data'] for r in Journal(adapter.directory / 'journal').rows()

@@ -9,17 +9,18 @@ import s22plus_boot_only_f1_transport as transport
 from s22plus_native_records_v3 import pin, private_path, publish, read, require, verify
 
 
-def qualify(namespace, output, *, key_path, build_directory=None, userspace=False, preflight=False, staged=False, switch_root=False,handoff=False,journal_recovery=False):
+def qualify(namespace, output, *, key_path, build_directory=None, userspace=False, preflight=False, staged=False, switch_root=False,handoff=False,journal_recovery=False,root_evidence=False):
     import s22plus_native_baseline_v2_candidates as catalog
     import s22plus_debian_first_boot_v1 as prior_owner
     selected = catalog.DECLARATIONS[namespace]
     chosen = profile
-    require(sum((userspace,preflight,staged,switch_root,handoff,journal_recovery))<=1, 'select one diagnostic role')
+    require(sum((userspace,preflight,staged,switch_root,handoff,journal_recovery,root_evidence))<=1, 'select one diagnostic role')
     if userspace: import s22plus_native_userspace_probe_profile_v1 as chosen
     if preflight: import s22plus_native_preflight_profile_v1 as chosen
     if staged: import s22plus_native_staged_preflight_profile_v1 as chosen
     if switch_root: import s22plus_switch_root_profile_v1 as chosen
     if handoff: import s22plus_debian_handoff_profile_v1 as chosen
+    if root_evidence: import s22plus_native_evidence_profile_v1 as chosen
     if journal_recovery: import s22plus_native_journal_recovery_profile_v1 as chosen
     require(catalog.research_profile(selected) == chosen.PROFILE, 'unselected protected-root composition')
     builder = catalog.static(namespace).builder
@@ -61,6 +62,7 @@ def qualify(namespace, output, *, key_path, build_directory=None, userspace=Fals
     if staged:image['staged_preflight']=built['staged_preflight']
     if switch_root:image['switch_root']=built['switch_root']
     if handoff:image['debian_handoff']=built['debian_handoff']
+    if root_evidence:image['root_evidence']=built['root_evidence']
     if journal_recovery:image['journal_recovery']=built['journal_recovery']
     chosen.image_binding(image)
     output = private_path(ROOT, output, exists=False)
@@ -68,6 +70,7 @@ def qualify(namespace, output, *, key_path, build_directory=None, userspace=Fals
     qualification = publish(output / 'qualification.json', dict(schema='s22plus-native-artifact-qualification-v3',
         image=image, builder_result=pin(builder.DEFAULT_OUTPUT_ROOT / 'result.json'),
         ab_identical=True, actual_ap_join=True, exporter=pin(Path(__file__).with_name(
+            's22plus_native_evidence_artifact_v1_h0.py') if root_evidence else Path(__file__).with_name(
             's22plus_native_journal_recovery_artifact_v1_h0.py') if journal_recovery else Path(__file__).with_name(
             's22plus_debian_handoff_artifact_v1_h0.py') if handoff else Path(__file__).with_name(
             's22plus_switch_root_artifact_v1_h0.py') if switch_root else Path(__file__).with_name(

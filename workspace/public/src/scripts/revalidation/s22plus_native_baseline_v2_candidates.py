@@ -36,6 +36,7 @@ import s22plus_native_staged_preflight_source_v1 as staged_source
 import s22plus_switch_root_source_v1 as switch_source
 import s22plus_debian_handoff_source_v1 as handoff_source
 import s22plus_native_journal_recovery_source_v1 as journal_source
+import s22plus_native_evidence_source_v1 as evidence_source
 
 ROOT = common.ROOT
 POLICY = 'native-baseline-v2'
@@ -80,6 +81,7 @@ def declaration(namespace, run_id, version, image_sha256, *, runtime_source=sour
         SWITCH_ROOT_PROFILE=getattr(runtime_source,'SWITCH_ROOT_PROFILE',None),
         DEBIAN_HANDOFF_PROFILE=getattr(runtime_source,'DEBIAN_HANDOFF_PROFILE',None),
         JOURNAL_RECOVERY_PROFILE=getattr(runtime_source,'JOURNAL_RECOVERY_PROFILE',None),
+        ROOT_EVIDENCE_PROFILE=getattr(runtime_source,'ROOT_EVIDENCE_PROFILE',None),
         runtime=runtime,observer=observer,artifact=artifact,adapter=adapter,
         return_host=owner.ReturnHost(selected,CONTROL),console_owner=owner.EmptyPlan(selected))
 
@@ -112,6 +114,8 @@ RESEARCH_DATA_SCHEMA = 's22plus-native-research-candidate-data-v1'
 # runtime or builder. Its original source snapshot owns historical replay.
 RETIRED_RESEARCH_PROFILES=frozenset({'thermal-v3-reconnect-ufs-drain-debian-handoff-v1'})
 RESEARCH_PROFILES = {
+    evidence_source.ROOT_EVIDENCE_PROFILE: (evidence_source, thermal_observer_v3.Observer,
+        ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     journal_source.JOURNAL_RECOVERY_PROFILE: (journal_source, thermal_observer_v3.Observer,
         ('qcom-vadc-common.ko', 'qcom-spmi-adc5.ko', 's22plus_thermal_telemetry.ko')),
     handoff_source.DEBIAN_HANDOFF_PROFILE: (handoff_source, thermal_observer_v3.Observer,
@@ -177,6 +181,14 @@ def research_data(root=ROOT):
 
 
 def research_profile(declared):
+    if getattr(declared,'ROOT_EVIDENCE_PROFILE',None) is not None:
+        from copy import copy
+        inherited=copy(declared);inherited.ROOT_EVIDENCE_PROFILE=None
+        if (declared.ROOT_EVIDENCE_PROFILE==evidence_source.ROOT_EVIDENCE_PROFILE and
+                declared.JOURNAL_RECOVERY_PROFILE is None and declared.DEBIAN_HANDOFF_PROFILE is None and
+                declared.SWITCH_ROOT_PROFILE is None and
+                research_profile(inherited)==root_inspect_source.ROOT_INSPECT_PROFILE):return declared.ROOT_EVIDENCE_PROFILE
+        raise ValueError('unreviewed evidence reader composition')
     if getattr(declared,'JOURNAL_RECOVERY_PROFILE',None) is not None:
         from copy import copy
         inherited=copy(declared);inherited.JOURNAL_RECOVERY_PROFILE=None
@@ -294,7 +306,9 @@ def static(prefix):
     from s22plus_native_baseline_v2_build import Builder, EXTRA_SOURCES
     from s22plus_native_candidate_static_v1 import CandidateStatic
     declared = DECLARATIONS[prefix]
-    if declared.JOURNAL_RECOVERY_PROFILE == journal_source.JOURNAL_RECOVERY_PROFILE:
+    if declared.ROOT_EVIDENCE_PROFILE == evidence_source.ROOT_EVIDENCE_PROFILE:
+        from s22plus_native_evidence_build_v1 import Builder, EXTRA_SOURCES
+    elif declared.JOURNAL_RECOVERY_PROFILE == journal_source.JOURNAL_RECOVERY_PROFILE:
         from s22plus_native_journal_recovery_build_v1 import Builder, EXTRA_SOURCES
     elif declared.DEBIAN_HANDOFF_PROFILE == handoff_source.DEBIAN_HANDOFF_PROFILE:
         from s22plus_debian_handoff_build_v1 import Builder, EXTRA_SOURCES

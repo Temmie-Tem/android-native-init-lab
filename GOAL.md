@@ -356,6 +356,22 @@ assumed.
 
 ## Next bounded unit and milestones
 
+P415 `v0.4.0-rc.15` is the next bounded **read-before-write evidence census**.
+The [P415 H0 report](docs/reports/S22PLUS_NATIVE_ROOT_EVIDENCE_P415_H0_2026-10-07.md)
+and [separate root-evidence policy](docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
+define one fixed mountless capture of existing native_data records under
+partition RO, followed by original-A return. Validly identified dirty home
+blocks can be read without journal replay; their absence or older contents
+never prove non-execution. This preserves P413 evidence before any future
+writable boot can rotate it. It neither admits the installed root nor repairs
+native_data. The durable receipt writer and USB-independent startup remain
+later work informed by the captured state. Actual A/B AP qualification,
+12 ARM64 cases, 96 host tests and independent PASS_GO are complete. The
+concrete offline task binds one attended operation/1800 seconds and requires
+the returned grant plus fresh runtime health; no P415 device action or grant
+has occurred.
+
+
 The [P414 observer H0 unit](docs/reports/S22PLUS_DEBIAN_HANDOFF_P414_OBSERVER_H0_2026-10-03.md)
 implements a close-return/reopen barrier and parent-only ACM observation during
 ordinary rcS/rc2. Fresh revision-3 helpers preserve child descriptor isolation,
