@@ -21,7 +21,7 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Current Debian-owned early boot H0 proof; physical port pending
+## Debian early boot and FYG8 preparation H0; physical qualification pending
 
 The first implementation of the [architecture proposal](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_FEASIBILITY_H0_2026-10-07.md)
 passed its [ARM64 VM experiment](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_H0_2026-10-07.md).
@@ -32,11 +32,23 @@ with entire negative fixture disks unchanged. Four final archives are identical;
 independent H0 review passed. The retained VM kernel was neither changed nor
 rebuilt, and Samsung hardware/boot/recovery remain unproved by this experiment.
 
-The next unit is H0 integration of the complete cold FYG8 platform/UFS
-preparation into Debian early userspace, with early evidence and explicit
-device/firmware ownership. Later kernel modification/build/optimization is an
-operator-requested option where a demonstrated need warrants it. This H0 result
-does not activate a candidate or change the physical consumed results below.
+The [FYG8 preparation port](docs/reports/S22PLUS_DEBIAN_FYG8_PREPARATION_H0_2026-10-07.md)
+now carries the complete retained 73-module platform sequence plus eight UFS
+modules in a Debian-built initramfs. All 3,926 imported symbol CRCs resolve
+against the fixed Image and preceding modules. A small child verifies module
+files, records each insertion attempt in bounded RAM evidence, binds exact UFS
+geometry and observes GPT/superblock under partition-only RO. It always stops
+before mounting or handing off to installed Debian. Eleven ARM64 VM scenarios
+cover clean/dirty metadata, exact rejection boundaries, no replay and the
+absent-console fallback; every copied disk is unchanged. Hardware insertion,
+firmware readiness and physical storage discovery remain unproved by H0.
+
+The next unit is to join that preparation to complete protected root admission
+and authenticated observation/recovery, followed by Debian's root transition.
+The physical P415 dirty native_data state still belongs to its separate
+reviewed recovery owner. Later kernel modification/build/optimization remains
+an operator-requested option where demonstrated need warrants it. No candidate
+is activated, and the physical consumed results below are unchanged.
 
 ## Current P415 protected evidence capture; Android returned healthy
 

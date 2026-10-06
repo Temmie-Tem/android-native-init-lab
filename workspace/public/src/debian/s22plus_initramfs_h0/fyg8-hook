@@ -1,0 +1,8 @@
+#!/bin/sh
+case "${1:-}" in prereqs) exit 0;; esac
+set -eu
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /sbin/fyg8-prepare /sbin/fyg8-prepare
+mkdir -p "$DESTDIR/lab/modules"
+cp /lab/modules/*.ko "$DESTDIR/lab/modules/"
+chmod 400 "$DESTDIR"/lab/modules/*.ko

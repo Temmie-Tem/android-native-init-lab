@@ -192,11 +192,12 @@ def inputs():
     return archive, config
 
 
-def inside(out, packages):
+def builder_tree(out, packages):
     mapping = Path('/proc/self/uid_map').read_text().split()
     require(os.getuid() == 0 and mapping[:2] != ['0', '0'],
             'mapped-root namespace required')
-    archive, config = inputs()
+    archive = regular(BASE / 'rootfs-d/rootfs.tar')
+    require(sha(archive) == ROOTFS_SHA, 'retained builder root changed')
     tree = out / 'tree'
     tree.mkdir()
     run(['tar', '-xf', archive, '-C', tree, '--exclude=./dev/*', '--exclude=dev/*'],
@@ -216,6 +217,12 @@ def inside(out, packages):
     run(['mount', '-t', 'proc', 'proc', tree / 'proc'], out / 'proc.mount.log')
     # Only the private builder tree is changed. No host package is installed.
     (tree / 'lab').mkdir()
+    return tree
+
+
+def inside(out, packages):
+    _, config = inputs()
+    tree = builder_tree(out, packages)
     for name in ('rootfs.meta', 'rootfs.sha256'):
         shutil.copyfile(BASE / 'vm-final-4' / name, tree / 'lab' / name)
     shutil.copyfile(out / 'h0-root-check', tree / 'usr/sbin/h0-root-check')
@@ -253,10 +260,14 @@ def inside(out, packages):
             require(name == 'modules.order' and '# CONFIG_MODULES is not set\n' in config.read_text(),
                     'missing module build metadata')
             (modules / name).write_text('')
+    generate_archives(out, tree, VERSION)
+
+
+def generate_archives(out, tree, version):
     settings = dict(os.environ, SOURCE_DATE_EPOCH=EPOCH, LC_ALL='C', TZ='UTC')
     for label in ('a', 'b'):
         run(['chroot', tree, '/usr/sbin/mkinitramfs', '-v', '-c', 'gzip',
-             '-o', '/lab/initramfs-' + label + '.cpio.gz', VERSION],
+             '-o', '/lab/initramfs-' + label + '.cpio.gz', version],
             out / ('mkinitramfs-' + label + '.log'), env=settings, timeout=300)
         shutil.copyfile(tree / 'lab' / ('initramfs-' + label + '.cpio.gz'),
                         out / ('initramfs-' + label + '.cpio.gz'))

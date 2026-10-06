@@ -1,0 +1,23 @@
+# Sourced from Debian /init. This H0 prototype always ends before mountroot.
+fyg8_stop()
+{
+    while :; do /bin/busybox sleep 3600; done
+}
+[ "$$" = 1 ] || fyg8_stop
+mount -t tmpfs -o nosuid,mode=0755 tmpfs /dev || fyg8_stop
+mknod -m 600 /dev/console c 5 1 || fyg8_stop
+mknod -m 666 /dev/null c 1 3 || fyg8_stop
+# FYG8 may have no registered console. No dependency on an openable console.
+if ( : </dev/console >/dev/console ) 2>/dev/null; then
+    exec </dev/console >/dev/console 2>&1
+else
+    exec </dev/null >/dev/null 2>&1
+fi
+mkdir -p /run || fyg8_stop
+mount -t tmpfs -o nodev,nosuid,noexec,mode=0755 tmpfs /run || fyg8_stop
+mkdir -m 700 /run/initramfs || fyg8_stop
+printf 'FYG8_DEBIAN_PID1 pid=%s exe=%s\n' "$$" "$(readlink /proc/1/exe)"
+/sbin/fyg8-prepare
+fyg8_status=$?
+# No mdev/udev daemon, automatic module loader, mount, handoff or reboot here.
+fyg8_stop

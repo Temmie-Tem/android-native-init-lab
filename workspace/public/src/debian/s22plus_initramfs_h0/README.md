@@ -2,9 +2,10 @@
 
 This prototype runs Debian initramfs-tools' shell `/init` as initial PID 1,
 then Debian's packaged `run-init` executes installed SysVinit. The existing
-native PID1/console runtime is not in this boot path. All disks are fresh
-private regular-file copies for QEMU `virt`; there is no device transport,
-Samsung boot package, installation or activation command.
+native PID1/console runtime is not in this boot path. The original `h0.py`/`vm.py` path uses fresh private regular-file disks for
+QEMU `virt`. The `fyg8.py` port below builds a prospective target initramfs.
+Neither path contains a device transport, Samsung boot package or activation
+command.
 
 The retained virtual Linux 5.10.226 kernel has DEVTMPFS and FHANDLE disabled.
 Its storage/network drivers are built-in virtio substitutes, not FYG8 UFS/USB.
@@ -72,3 +73,38 @@ its early evidence path. Physical root admission, recovery, USB and service
 qualification remain separate. Kernel modification was unnecessary for this
 VM result; later kernel work should address a demonstrated target need or a
 measured optimization, with its own validation.
+
+## FYG8 preparation port
+
+`fyg8.py inventory` rederives 73 retained platform modules plus eight UFS
+modules, checks symbol CRC closure against the fixed Image and preceding
+modules, and preserves private inspection evidence. `fyg8.py build` emits the
+Debian-owned initramfs containing a child preparation helper. The production
+hook always stops after GPT/protected-superblock observation; it has no root
+mount, repair, installed-init execution, USB gadget or recovery operation.
+
+```sh
+python3 workspace/public/src/debian/s22plus_initramfs_h0/fyg8.py inventory \
+  --output workspace/private/outputs/fyg8-early-example/inputs
+python3 workspace/public/src/debian/s22plus_initramfs_h0/fyg8.py build \
+  --inputs workspace/private/outputs/fyg8-early-example/inputs \
+  --packages workspace/private/outputs/debian-early-example/packages \
+  --output workspace/private/outputs/fyg8-early-example/build
+python3 workspace/public/src/debian/s22plus_initramfs_h0/fyg8_vm.py \
+  --inputs workspace/private/outputs/fyg8-early-example/inputs \
+  --build workspace/private/outputs/fyg8-early-example/build \
+  --output workspace/private/outputs/fyg8-early-example/vm
+```
+
+The VM derivative substitutes board checks, module insertion/presence and UFS
+sysfs discovery. All module file checks, real block ioctls, exact GPT and
+superblock reads and RAM evidence writes still execute on ARM64. VM-only
+terminal export and poweroff are absent from the target hook. Sparse extent
+fingerprints include every allocated byte and hole position of the writable
+regular-file disk; they are not a whole-file SHA-256.
+
+`METADATA_CLEAN` is not full root admission. RAM records are lost on reset and
+are not authenticated device evidence. Module presence is not firmware or
+driver readiness. The [FYG8 H0 report](../../../../../docs/reports/S22PLUS_DEBIAN_FYG8_PREPARATION_H0_2026-10-07.md)
+records exact scope, provenance, tests, firmware limits and the remaining
+physical work. These commands never activate a phone candidate.
