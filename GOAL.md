@@ -21,6 +21,16 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## Proposed Debian-owned early boot feasibility work
+
+The [architecture proposal](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_FEASIBILITY_H0_2026-10-07.md)
+recommends testing a Debian-configured initramfs as the first userspace, taking
+over required hardware preparation and replacing the general native runtime
+in the normal boot path. The next proposed unit is bounded H0 construction;
+it need not wait for every historical handoff diagnostic. Target feasibility,
+service operation and recovery remain separate proof obligations. This report
+does not activate a candidate or change the consumed results below.
+
 ## Current P415 protected evidence capture; Android returned healthy
 
 P415 `v0.4.0-rc.15` completed its one attended read-only experiment on
