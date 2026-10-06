@@ -1,0 +1,8 @@
+#!/bin/sh
+case "${1:-}" in prereqs) exit 0;; esac
+# A failed child exit alone would not stop Debian's run_scripts. Park on failure.
+die() { echo "DEBIAN_EARLY_H0 STOP stage=$1"; while :; do sleep 60; done; }
+[ "$rootmnt" = /newroot ] || die bottom-root
+[ -f /run/initramfs/early-boot-id ] || die missing-admission
+mount -n -o move /dev "$rootmnt/dev" || die move-dev
+printf 'DEBIAN_EARLY_H0 READY_FOR_EXEC pid1_exe=%s\n' "$(readlink /proc/1/exe)"

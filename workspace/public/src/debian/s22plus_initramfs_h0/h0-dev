@@ -1,0 +1,17 @@
+# Sourced by Debian's /init in place of its devtmpfs mount. H0 virt only.
+h0_stop()
+{
+    printf 'DEBIAN_EARLY_H0 STOP stage=%s\n' "$1"
+    while :; do sleep 60; done
+}
+[ "$$" = 1 ] || h0_stop not-pid1
+[ "$(cat /sys/firmware/devicetree/base/compatible)" = linux,dummy-virt ] || h0_stop not-virt
+mount -t tmpfs -o nosuid,mode=0755 tmpfs /dev || h0_stop dev-mount
+mknod -m 600 /dev/console c 5 1 || h0_stop console
+mknod -m 666 /dev/null c 1 3 || h0_stop null
+exec </dev/console >/dev/console 2>&1
+/bin/busybox mdev -s || h0_stop dev-scan
+[ -b /dev/vda ] || h0_stop storage-discovery
+rm -f /dev/ptmx
+ln -s pts/ptmx /dev/ptmx || h0_stop ptmx
+printf 'DEBIAN_EARLY_H0 FIRST_PID1 pid=%s exe=%s\n' "$$" "$(readlink /proc/1/exe)"

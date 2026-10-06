@@ -1,0 +1,23 @@
+# Debian initramfs BOOT=h0-boot. Sourced in PID1 after standard functions/local.
+# Only a QEMU virt vda fixture is accepted; this is not a target storage lane.
+rootmnt=/newroot
+
+mount_top() { :; }
+mount_premount() { :; }
+mount_bottom() { :; }
+mountroot()
+{
+    [ "$$" = 1 ] && [ "$ROOT" = /dev/vda ] && [ "$init" = /sbin/init ] || h0_stop boot-selection
+    mkdir -p /newroot || h0_stop root-directory
+    blockdev --setro /dev/vda || h0_stop setro
+    /sbin/h0-root-check identity || h0_stop root-identity
+    e2fsck -fn /dev/vda >/run/initramfs/root-check.log 2>&1 || h0_stop root-fsck
+    mount -t ext4 -o ro,noload /dev/vda /newroot || h0_stop root-mount
+    /sbin/h0-root-check tree || h0_stop root-tree
+    printf 'DEBIAN_EARLY_H0 ROOT_ADMITTED pid=%s\n' "$$"
+    cat /proc/sys/kernel/random/boot_id >/run/initramfs/early-boot-id || h0_stop boot-record
+    cp /proc/1/cmdline /run/initramfs/early-pid1-cmdline || h0_stop pid1-record
+    umount /newroot || h0_stop root-unmount
+    blockdev --setrw /dev/vda || h0_stop setrw
+    mount -t ext4 -o rw,errors=remount-ro,nodiscard /dev/vda /newroot || h0_stop writable-mount
+}

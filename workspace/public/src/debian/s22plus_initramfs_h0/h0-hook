@@ -1,0 +1,9 @@
+#!/bin/sh
+case "${1:-}" in prereqs) exit 0;; esac
+set -eu
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /sbin/h0-root-check /sbin/h0-root-check
+copy_exec /sbin/e2fsck
+copy_exec /sbin/blockdev
+cp /lab/rootfs.meta "$DESTDIR/rootfs.meta"
+cp /lab/rootfs.sha256 "$DESTDIR/rootfs.sha256"

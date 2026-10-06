@@ -21,15 +21,22 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Proposed Debian-owned early boot feasibility work
+## Current Debian-owned early boot H0 proof; physical port pending
 
-The [architecture proposal](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_FEASIBILITY_H0_2026-10-07.md)
-recommends testing a Debian-configured initramfs as the first userspace, taking
-over required hardware preparation and replacing the general native runtime
-in the normal boot path. The next proposed unit is bounded H0 construction;
-it need not wait for every historical handoff diagnostic. Target feasibility,
-service operation and recovery remain separate proof obligations. This report
-does not activate a candidate or change the consumed results below.
+The first implementation of the [architecture proposal](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_FEASIBILITY_H0_2026-10-07.md)
+passed its [ARM64 VM experiment](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_H0_2026-10-07.md).
+Debian's adapted shell `/init` starts as PID1 and its packaged `run-init` reaches
+installed SysVinit, same-boot SSH, ordinary shutdown and clean ext4 without the
+old native PID1 runtime. Wrong UUID and altered init are rejected before RW,
+with entire negative fixture disks unchanged. Four final archives are identical;
+independent H0 review passed. The retained VM kernel was neither changed nor
+rebuilt, and Samsung hardware/boot/recovery remain unproved by this experiment.
+
+The next unit is H0 integration of the complete cold FYG8 platform/UFS
+preparation into Debian early userspace, with early evidence and explicit
+device/firmware ownership. Later kernel modification/build/optimization is an
+operator-requested option where a demonstrated need warrants it. This H0 result
+does not activate a candidate or change the physical consumed results below.
 
 ## Current P415 protected evidence capture; Android returned healthy
 
