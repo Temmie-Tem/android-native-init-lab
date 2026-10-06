@@ -365,6 +365,16 @@ This is prospective instrumentation, not a demonstrated repair or causal proof
 for P413's USB departure. Existing D0/AUTH cannot provide a preparation-free
 post-loss boot-ID observation; a separate future design remains unimplemented.
 
+At the operator's 2026-10-07 request, future experiment design should consider
+**bounded device-local persistent evidence alongside live USB observation**,
+including recovery of those records after transport loss or reboot. The next
+S22+ H0 design should assess per-run/boot identity, verified stage records,
+checked durable writes, storage bounds and later retrieval. Review the coupling
+between USB reporting and startup progress. Missing records must not imply
+non-execution, and local service liveness must not imply external SSH success.
+This is a prospective design preference; persistent receipts are not yet
+implemented or activated and P414's existing qualification remains separate.
+
 The next device-related unit requires a **freshly qualified complete artifact,
 exact original-A health and applicable finite authority**. Current native_data
 admission must pass at the protected boundary before any writable handoff.
