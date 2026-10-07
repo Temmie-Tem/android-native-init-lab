@@ -180,7 +180,7 @@ class CaptureTests(unittest.TestCase):
             with mock.patch.object(observation.profile,'image_binding',return_value=dict(expected=EXPECTED,module_names=MODULES)),\
                     mock.patch.object(observation.secrets,'token_bytes',return_value=NONCE),mock.patch.object(observation,'publish',publish):
                 with self.assertRaisesRegex(OSError,'publication'):
-                    observation.observe(folder/'capture',dict(key=records.pin(key),run_id_hex=RUN.hex()),Host(),
+                    observation.observe(folder/'capture',dict(key=records.pin(key),run_id_hex=RUN.hex(),profile=profile.PROFILE),Host(),
                         guard=lambda:None,deadline_ns=records.clock()+1_000_000_000)
             handle=observation.raw.load_handle(folder/'capture/session.capture.json')
             self.assertEqual(observation.raw.read_stdout(handle,maximum=wire.MAXIMUM),b''.join(transcript()))

@@ -37,7 +37,7 @@ def shell_input(packages):
         return source.extractfile(member).read()
 
 
-def observer(out,inputs,packages,run,key,*,virt=False):
+def observer(out,inputs,packages,run,key,*,virt=False,usb_modules=None):
     value=fyg8.verify_inventory(inputs)
     original=(packages/'root/usr/share/initramfs-tools/init').read_bytes()
     needle=b'mount -t devtmpfs -o nosuid,mode=0755 udev /dev\n'
@@ -51,11 +51,13 @@ def observer(out,inputs,packages,run,key,*,virt=False):
     text+='static const char early_release[]='+json.dumps(fyg8.KERNEL_RELEASE)+';\n'
     text+='static const char early_model[]='+json.dumps(fyg8.MODEL)+';\n'
     text+='static const char early_serial[]='+json.dumps('S22E3'+run)+';\n'
-    text+='static const char *const early_module_names[]={'+','.join(json.dumps(m['runtime_name']) for m in value['modules'])+'};\n'
+    text+='static const char *const early_module_names[]={'+','.join(json.dumps(m['runtime_name']) for m in (usb_modules or value['modules']))+'};\n'
+    if usb_modules:text+='#define EARLY_DOMAIN "S22PLUS-FYG8-DEBIAN-USB-FIRST-v1"\n'
     (out/'early-seal.h').write_text(text)
     h0.run(['aarch64-linux-gnu-gcc','-static','-Os','-Wall','-Wextra','-Werror',
         '-Wno-unused-function','-Wno-unused-const-variable','-ffunction-sections','-fdata-sections',
         '-Wl,--gc-sections','-fno-ident','-Wl,--build-id=none',*(['-DEARLY_VM_TEST'] if virt else []),
+        *(['-DEARLY_USB_FIRST'] if usb_modules else []),
         '-I',out,'-I',fyg8.ext4.NATIVE,h0.HERE/'early-observer.c','-o',out/'early-observer'],out/'observer-compile.log')
     h0.run(['file',out/'early-observer'],out/'observer-file.log')
     return dict(shell_sha256=fyg8.digest(shell),init_sha256=fyg8.digest(init),helper_sha256=h0.sha(out/'fyg8-prepare'))

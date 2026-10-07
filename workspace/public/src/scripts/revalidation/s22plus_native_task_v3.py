@@ -23,9 +23,10 @@ DEBIAN_HANDOFF_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_d
 ROOT_EVIDENCE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_root_evidence_v1_review.json'
 JOURNAL_RECOVERY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_journal_recovery_v1_review.json'
 DEBIAN_EARLY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_early_v1_review.json'
+DEBIAN_USB_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_usb_first_v1_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
-    's22plus_native_host_install_v3')
+    's22plus_native_host_install_v3','s22plus_debian_usb_retention_v1')
 _verified={}
 
 
@@ -58,6 +59,7 @@ def source_paths(root):
         'docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md',
         'docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md',
         'docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md',
+        'docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/analysis/s22plus_native_ufs_artifact_v1_h0.py',
@@ -98,11 +100,11 @@ def capability(root, *, recovery=False, profile=None):
     from s22plus_debian_handoff_profile_v1 import PROFILE as handoff_profile
     from s22plus_native_journal_recovery_profile_v1 import PROFILE as journal_profile
     from s22plus_native_evidence_profile_v1 import PROFILE as evidence_profile
-    from s22plus_debian_early_profile_v1 import PROFILE as early_profile
+    from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile
     review_path={root_inspect_profile:ROOT_INSPECT_CAPABILITY,userspace_probe_profile:USERSPACE_PROBE_CAPABILITY,
         preflight_profile:PREFLIGHT_CAPABILITY,staged_profile:STAGED_PREFLIGHT_CAPABILITY,
         switch_profile:SWITCH_ROOT_CAPABILITY,handoff_profile:DEBIAN_HANDOFF_CAPABILITY,
-        journal_profile:JOURNAL_RECOVERY_CAPABILITY,evidence_profile:ROOT_EVIDENCE_CAPABILITY,early_profile:DEBIAN_EARLY_CAPABILITY}
+        journal_profile:JOURNAL_RECOVERY_CAPABILITY,evidence_profile:ROOT_EVIDENCE_CAPABILITY,early_profile:DEBIAN_EARLY_CAPABILITY,usb_profile:DEBIAN_USB_CAPABILITY}
     path=Path(root)/review_path.get(profile,CAPABILITY); result=read(path)
     require(set(result)=={'schema','verdict','scope','sources','runtime_sources','reviewer','findings'}
         and result['schema']=='s22plus-native-session-v3-review' and result['verdict']=='PASS_GO'
@@ -163,9 +165,9 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
     from s22plus_debian_handoff_profile_v1 import PROFILE as handoff_profile
     from s22plus_native_journal_recovery_profile_v1 import PROFILE as journal_profile
     from s22plus_native_evidence_profile_v1 import PROFILE as evidence_profile
-    from s22plus_debian_early_profile_v1 import PROFILE as early_profile
+    from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile
     require(('debian_access' in task)==(task['N']['profile']==handoff_profile),'unselected Debian access inputs')
-    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile,handoff_profile,journal_profile,evidence_profile,early_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early'}:
+    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile,handoff_profile,journal_profile,evidence_profile,early_profile,usb_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early'}:
         from s22plus_native_root_inspect_session_v1 import validate_task as root_inspect_task
         root_inspect_task(task, recovery=recovery)
     if task['N']['profile'] in filesystem_profiles or 'native-ext4' in task['operations']:

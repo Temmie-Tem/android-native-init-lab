@@ -42,7 +42,7 @@ def image_identity(image, binding):
 
 
 def image_valid(image, *, artifact_bytes=False):
-    if image.get('profile')==early.PROFILE:
+    if image.get('profile') in early.PROFILES:
         early.image_binding(image)
         if artifact_bytes:
             with transport.pin_boot_only_ap(Path(image['ap']['path']),label='Debian early image',

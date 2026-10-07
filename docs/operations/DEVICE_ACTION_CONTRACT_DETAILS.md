@@ -823,6 +823,18 @@ recovery retain the exact owner and original A. The removed native thermal
 service is not inherited as a health/safe-quiescence claim. All other targets,
 existing profiles and consumed records are unchanged.
 
+The separately reviewed [Debian USB-first V1](S22PLUS_DEBIAN_USB_FIRST_V1.md)
+is an expressly adopted sibling runtime profile under the same `debian-early`
+owner. It replaces 73+8/storage preparation with the stock `sec_log_buf`
+retention owner followed by the retained 73 platform modules, and one fixed
+USB evidence channel. Only bounded authenticated stage lines through ordinary
+printk into that existing RAM backend are added, with bounded checked ring
+readback and a fixed post-closure Android `last_kmsg` D0 read. It adds no UFS,
+block access, direct memory writer, DT/sysctl change, filesystem data write or
+native-return experiment. The same fresh finite attended grant, physical
+original-A recovery, exact health, global consumption and no-replay rules
+apply. Ring acceptance, post-return retention and PID1/USB proof stay separate.
+
 ## S22+ streamed protected preparation
 
 The separately reviewed [staged preflight V1](S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)

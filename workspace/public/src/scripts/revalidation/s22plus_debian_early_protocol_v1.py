@@ -17,20 +17,20 @@ MAXIMUM=96*1039
 LOG_MAXIMUM=65536
 
 
-def tag(key,run,nonce,kind,sequence,body=b''):
+def tag(key,run,nonce,kind,sequence,body=b'',*,domain=DOMAIN):
     require(len(key)==len(nonce)==32 and len(run)==16,'early protocol identity width differs')
-    return hmac.digest(key,DOMAIN+run+nonce+struct.pack('<IB',sequence,kind)+body,'sha256')
+    return hmac.digest(key,domain+run+nonce+struct.pack('<IB',sequence,kind)+body,'sha256')
 
 
-def request(key,run,nonce):
+def request(key,run,nonce,*,domain=DOMAIN):
     require(any(nonce),'zero challenge rejected')
-    return frames.encode_frame(REQUEST,1,nonce+tag(key,run,nonce,REQUEST,1))
+    return frames.encode_frame(REQUEST,1,nonce+tag(key,run,nonce,REQUEST,1,domain=domain))
 
 
-def payload(frame,key,run,nonce):
+def payload(frame,key,run,nonce,*,domain=DOMAIN):
     require(32<=len(frame.payload)<=800,'early frame size differs')
     body,signature=frame.payload[:-32],frame.payload[-32:]
-    require(hmac.compare_digest(signature,tag(key,run,nonce,frame.frame_type,frame.sequence,body)),
+    require(hmac.compare_digest(signature,tag(key,run,nonce,frame.frame_type,frame.sequence,body,domain=domain)),
         'early frame authentication failed')
     return body
 
@@ -99,14 +99,15 @@ def parse_log(raw,run,module_names,boot):
 
 
 class Records:
-    def __init__(self,key,run,nonce,expected,module_names):
+    def __init__(self,key,run,nonce,expected,module_names,*,domain=DOMAIN,parser=parse_log):
         self.key,self.run,self.nonce=key,run,nonce
         self.expected,self.module_names=expected,module_names
+        self.domain,self.parser=domain,parser
         self.next=2;self.proof=None;self.log=bytearray();self.complete=False
 
     def accept(self,frame):
         require(not self.complete and frame.sequence==self.next,'early frame repeated or out of order')
-        body=payload(frame,self.key,self.run,self.nonce)
+        body=payload(frame,self.key,self.run,self.nonce,domain=self.domain)
         if self.next==2:
             require(frame.frame_type==PROOF and len(body)==176,'early PID1 proof missing')
             parent,child,status,size=struct.unpack('<4I',body[:16])
@@ -123,8 +124,8 @@ class Records:
         else:
             require(frame.frame_type==END and self.proof and len(body)==32 and len(self.log)==self.proof['size'] and
                 body==self.proof['log_hash']==hashlib.sha256(self.log).digest(),'early terminal/log digest differs')
-            parsed=parse_log(bytes(self.log),self.run,self.module_names,self.proof['boot'])
-            expected_status=0 if parsed['metadata_state']=='clean' else 2 if parsed['metadata_state']=='dirty' else 1
+            parsed=self.parser(bytes(self.log),self.run,self.module_names,self.proof['boot'])
+            expected_status=2 if parsed['metadata_state']=='dirty' else 0 if parsed['preparation_complete'] else 1
             require(self.proof['helper_status']==expected_status,'process exit contradicts structured result')
             self.complete=True;self.result=dict(status='PASS_DEBIAN_EARLY_OBSERVED',debian_early_pid1=True,
                 installed_debian_pid1=False,kernel_boot_identity_sha256=self.proof['boot'].hex(),
@@ -133,13 +134,13 @@ class Records:
         self.next+=1
 
 
-def replay(rx,tx,*,key,run,expected,module_names):
+def replay(rx,tx,*,key,run,expected,module_names,domain=DOMAIN,parser=parse_log):
     require(len(tx)==80 and len(rx)<=MAXIMUM,'early transcript bound differs')
     sent=frames.decode_frame(tx)
     require(sent.frame_type==REQUEST and sent.sequence==1 and len(sent.payload)==64,'unselected early request')
     nonce=sent.payload[:32]
-    require(any(nonce) and tx==request(key,run,nonce),'early request is not authenticated')
-    records=Records(key,run,nonce,expected,module_names);offset=0
+    require(any(nonce) and tx==request(key,run,nonce,domain=domain),'early request is not authenticated')
+    records=Records(key,run,nonce,expected,module_names,domain=domain,parser=parser);offset=0
     while offset<len(rx):
         require(offset+16<=len(rx),'partial early frame header')
         size=int.from_bytes(rx[offset+6:offset+8],'little')

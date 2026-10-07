@@ -400,6 +400,16 @@ claim. Current independent review and actual A/B artifact qualification are
 required; foreground preparation reuses only the fixed root-health/shell-v2/
 GPT/statfs D0 reads. The definition opens no grant or device action.
 
+The common-incorporated [Debian USB-first V1](../S22PLUS_DEBIAN_USB_FIRST_V1.md)
+is adopted as the separate `debian-usb-first-v1` profile of that same operation.
+It carries stock `sec_log_buf` plus 73 platform modules and fixed USB evidence,
+with no UFS/storage preparation. Bounded authenticated printk stage records,
+checked current-ring readback and the fixed post-closure same-returned-boot
+Android `last_kmsg` D0 read are its entire logging scope. Its own independent
+review and qualified fresh candidate precede the returned attended grant;
+original-A recovery and every no-replay/health boundary remain unchanged.
+Post-return record proof is separate from USB and final Android health.
+
 ### Streamed protected preparation V1
 
 The common-incorporated [staged preflight V1](../S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)

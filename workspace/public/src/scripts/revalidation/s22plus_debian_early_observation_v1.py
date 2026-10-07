@@ -12,6 +12,7 @@ from s22plus_native_records_v3 import clock,pin,publish,read,require,verify
 
 def rederive(directory,image):
     directory=Path(directory);bound=profile.image_binding(image)
+    protocol=profile.wire_protocol(image)
     opened=read(directory/'open.json');closed=read(directory/'close.json')
     require(opened['image']==image and closed['open']==pin(directory/'open.json') and closed['error_type'] is None,
         'early observer context or completion differs')
@@ -31,6 +32,7 @@ def rederive(directory,image):
 def observe(directory,image,host,*,guard,deadline_ns):
     from s22plus_native_records_v3 import digest
     bound=profile.image_binding(image)
+    protocol=profile.wire_protocol(image)
     directory=Path(directory);directory.mkdir(mode=0o700)
     nonce=secrets.token_bytes(32);key=verify(image['key'],maximum=32).read_bytes();run=bytes.fromhex(image['run_id_hex'])
     tx=protocol.request(key,run,nonce);rx=bytearray();pending=bytearray();state=protocol.Records(key,run,nonce,bound['expected'],bound['module_names'])

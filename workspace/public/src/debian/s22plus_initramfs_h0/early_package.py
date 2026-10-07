@@ -30,11 +30,13 @@ def footer(image,parsed):
 def package(out,build,vm):
     out=h0.private(out,fresh=True);build=h0.private(build);vm=h0.private(vm)
     built=read(build/'build.json');tested=read(vm/'result.json')
+    usb=built['profile']==profile.USB_PROFILE
+    schema=profile.USB_SCHEMA if usb else profile.SCHEMA
     require(built['virtual'] is False and built['ab_identical'] is True and built['device_actions']==0,
         'physical initramfs build required')
     require(tested['status']=='PASS' and tested['device_actions']==0 and
         tested['build_sha256']==h0.sha(build/'build.json') and
-        [r['case'] for r in tested['cases']]==['clean','dirty','bad-auth'] and
+        [r['case'] for r in tested['cases']]==(['normal','bad-auth','logger-off','insert-error'] if usb else ['clean','dirty','bad-auth']) and
         all(r['status']=='PASS' and r['disk_before']==r['disk_after'] for r in tested['cases']),
         'actual producer/consumer VM qualification differs')
     runtime={}
@@ -78,10 +80,10 @@ def package(out,build,vm):
     ap=pin(out/'pack-a/AP.tar.md5',maximum=128*1024**2)
     with transport.pin_boot_only_ap(Path(ap['path']),label='Debian early',expected_size=ap['size'],expected_sha256=ap['sha256']) as bound:
         member=transport.boot_only_member_receipt(bound,label='Debian early')
-    artifact=publish(out/'artifact.json',dict(schema=profile.SCHEMA+'-artifact',namespace=built['namespace'],
+    artifact=publish(out/'artifact.json',dict(schema=schema+'-artifact',namespace=built['namespace'],
         version=built['version'],run_id=built['run_id'],ap=ap,member=member,key=pin(build/'key',maximum=32),
         build=pin(build/'build.json'),expected=built['measured'],runtime_sources=runtime,
-        module_names=[m['runtime_name'] for m in inventory['modules']],ab_identical=True,active=False,
+        module_names=[m['runtime_name'] for m in (built['modules'] if usb else inventory['modules'])],ab_identical=True,active=False,
         boot=pin(out/'pack-a/boot.img',maximum=128*1024**2),ramdisk_sha256=fyg8.digest(ramdisk),
         inventory=pin(inputs/'inventory.json'),vm=pin(vm/'result.json'),device_actions=0))
     _,terminal,plan=profile.prior_inputs();final=verify(terminal['final_health'])
@@ -89,9 +91,9 @@ def package(out,build,vm):
     basis=dict(source_terminal=profile.retained.TERMINAL,target=plan['target'],A=plan['A'],layout='proposed',
         geometry=plan['basis']['geometry'],total_bytes=34357624832)
     image=dict(schema='s22plus-native-image-v3',namespace=built['namespace'],version=built['version'],
-        run_id_hex=built['run_id'],profile=profile.PROFILE,ap=ap,member=member,key=pin(build/'key',maximum=32),
+        run_id_hex=built['run_id'],profile=built['profile'],ap=ap,member=member,key=pin(build/'key',maximum=32),
         runtime_sources=runtime,early_boot=artifact,gpt=plan['basis']['gpt'],android_return=basis)
-    qualification=publish(out/'qualification.json',dict(schema=profile.SCHEMA+'-qualification',
+    qualification=publish(out/'qualification.json',dict(schema=schema+'-qualification',
         status='PASS_H0_ARTIFACT_AND_VM',image=image,vm=pin(vm/'result.json'),device_actions=0))
     image['qualification']=qualification;profile.image_binding(image)
     return publish(out/'image.json',image)

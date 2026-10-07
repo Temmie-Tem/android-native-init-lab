@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **40** (supersedes revision 39; 2026-10-07)
+Contract-Revision: **41** (supersedes revision 40; 2026-10-08)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`941a8fd706f8f5287f7827e5dd0e03d5f69ec6b43e26c5f23b8689784802417b`.
+`110dde597b515b244f3edecf50e0d9fd8e19f3612bcc469cbbf248d6125362b6`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -143,6 +143,9 @@ Read an exception's complete conditions before considering it applicable.
    adds only the retained fixed platform/UFS initialization, protected GPT/
    superblock observation and one fixed ACM evidence child under Debian shell
    PID1, with attended physical original-A return and no filesystem data write.
+   Its separate [USB-first sibling](docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md)
+   permits only stock retained-RAM logging, fixed platform/ACM evidence and
+   bounded post-return log retrieval, with no UFS/storage access or data write.
    The separate [streamed preparation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)
    runs its fixed protected checker/loader work after native authentication,
    with bounded stage records, no filesystem write and no Debian handoff.
@@ -219,6 +222,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ fixed Debian userspace probe | [Protected-root child execution](docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md); one fresh native boot, exact root closure, one fixed unprivileged workload, one original-A return, no installation or PID 1 handoff. |
 | S22+ installed-bootstrap preflight | [Protected pre-handoff measurement](docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md); one automatic preparation consumed by its fresh N transfer, sealed current-boot result, one original-A return, no filesystem write or Debian handoff. |
 | S22+ Debian-owned early boot | [Fixed initial-PID1 preparation and evidence](docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md); one attended fresh boot, fixed 73+8 modules, protected metadata and one ACM result, physical original-A return, no root mount, write or installed init. |
+| S22+ Debian USB-first | [Platform/USB and retained stage evidence](docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md); stock log owner plus 73 modules, fixed ACM and bounded printk/returned-log evidence, one attended original-A return, no UFS/block access or installed init. |
 | S22+ streamed protected preparation | [Native-first stage observation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md); one fixed protected checker/loader command after native health, diagnostic-only partial evidence, one original-A return, no filesystem write or Debian handoff. |
 | S22+ readonly root-transition witness | [Actual PID-1 transition and post-exec proof](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md); one native-first fixed terminal operation, worker settlement, protected root and RAM witness, one original-A return, no installed init or writable lifetime. |
 | S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md); one attended finite operation, protected admission then native_data RW/init, authenticated PID1 and same-boot SSH, fixed shutdown and physical original-A return, no reinstall or replay. |

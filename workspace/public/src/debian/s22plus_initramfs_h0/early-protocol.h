@@ -6,7 +6,10 @@
 #define EARLY_LIMIT 65536U
 #define EARLY_CHUNK 768U
 #define EARLY_TIMEOUT 300000ULL
-static const char early_domain[]="S22PLUS-FYG8-DEBIAN-EARLY-v1";
+#ifndef EARLY_DOMAIN
+#define EARLY_DOMAIN "S22PLUS-FYG8-DEBIAN-EARLY-v1"
+#endif
+static const char early_domain[]=EARLY_DOMAIN;
 
 static void early_put32(uint8_t *p,uint32_t value) {
     for(unsigned i=0;i<4;++i)p[i]=(uint8_t)(value>>(i*8));

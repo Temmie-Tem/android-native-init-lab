@@ -13,7 +13,7 @@ from s22plus_native_records_v3 import Journal, digest, pin, read, require, verif
 
 
 ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence, early)
-PROFILES = tuple(item.PROFILE for item in ITEMS)
+PROFILES = tuple(p for item in ITEMS for p in getattr(item,'PROFILES',(item.PROFILE,)))
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
 
@@ -50,8 +50,8 @@ def normal_steps(operation=profile.OPERATION):
 
 def validate_task(task, *, recovery=False):
     require(task['N']['profile'] in PROFILES, 'unknown protected-root image')
-    item = next(item for item in ITEMS if task['N']['profile'] == item.PROFILE)
-    require(task['N']['profile'] == item.PROFILE and task['operations'] == [item.OPERATION] and
+    item = next(item for item in ITEMS if task['N']['profile'] in getattr(item,'PROFILES',(item.PROFILE,)))
+    require(task['N']['profile'] in getattr(item,'PROFILES',(item.PROFILE,)) and task['operations'] == [item.OPERATION] and
         task['E'] is None and task['admission'] is None and task['prior_terminal'] is None and
         task.get('bootstrap_start') is None and task['recovery_mode'] == 'attended' and
         task['operation_budget'] == 1 and 60 <= task['seconds'] <= (3600 if item is handoff else 1800) and

@@ -36,11 +36,11 @@ def prepare_offline(directory,image_receipt):
     """
     image=read(verify(image_receipt))
     items=(handoff,journal,evidence,early)
-    require(image['profile'] in tuple(item.PROFILE for item in items),'unselected offline protected-root image')
-    selected=next(item for item in items if image['profile']==item.PROFILE)
+    require(image['profile'] in tuple(p for item in items for p in getattr(item,'PROFILES',(item.PROFILE,))),'unselected offline protected-root image')
+    selected=next(item for item in items if image['profile'] in getattr(item,'PROFILES',(item.PROFILE,)))
     old_task=read(PRIOR_TASK);_,_,previous=selected.prior_inputs()
     require(old_task['target']==previous['target'] and old_task['A']==previous['A'],'retained offline target differs')
-    task.capability(ROOT,profile=selected.PROFILE);adapter.image_valid(image,artifact_bytes=True)
+    task.capability(ROOT,profile=image['profile']);adapter.image_valid(image,artifact_bytes=True)
     task.validate_recovery(old_task['recovery_evidence'],previous['target'],previous['A'])
     directory=private_path(ROOT,directory,exists=False);require(not directory.exists(),'fresh offline preparation required')
     directory.mkdir(mode=0o700);binding=publish(directory/'target.json',previous['target'])
@@ -88,12 +88,12 @@ def projection(folder, target_binding, android, image):
 def prepare(directory, image_receipt):
     image = read(verify(image_receipt))
     items=(inspection,probe,preflight,staged,switch,handoff,journal,evidence,early)
-    require(image['profile'] in tuple(item.PROFILE for item in items), 'not a protected-root candidate')
-    selected = next(item for item in items if image['profile']==item.PROFILE)
+    require(image['profile'] in tuple(p for item in items for p in getattr(item,'PROFILES',(item.PROFILE,))), 'not a protected-root candidate')
+    selected = next(item for item in items if image['profile'] in getattr(item,'PROFILES',(item.PROFILE,)))
     if selected is handoff:
         from s22plus_debian_access_v1 import inputs
         inputs(image['run_id_hex'])  # Host credentials/tools before connected reads.
-    task.capability(ROOT, profile=selected.PROFILE)
+    task.capability(ROOT, profile=image['profile'])
     adapter.image_valid(image, artifact_bytes=True)
     _, _, previous = selected.prior_inputs()
     old_task = read(PRIOR_TASK)
@@ -108,7 +108,7 @@ def prepare(directory, image_receipt):
     host = NativeHost(read(verify(old_task['host_installation'])), directory/'host-check')
     lane = target.lane.capture_binding(target.lane.SOURCE_TOPOLOGY)
     def guard():
-        task.capability(ROOT, profile=selected.PROFILE)
+        task.capability(ROOT, profile=image['profile'])
         registry.require_no_f1_owner(ROOT)
         target.lane.revalidate_binding(lane, source_topology=target.lane.SOURCE_TOPOLOGY)
     try:

@@ -14,7 +14,8 @@ def normal_steps():
 
 def validate_result(adapter,step,value,request):
     if step.name!=profile.SELECTION:return
-    require(value['proof']['status']=='PASS_DEBIAN_EARLY_OBSERVED' and value['proof']['debian_early_pid1'] is True and
+    expected='PASS_DEBIAN_USB_FIRST_OBSERVED' if request['N']['profile']==profile.USB_PROFILE else 'PASS_DEBIAN_EARLY_OBSERVED'
+    require(value['proof']['status']==expected and value['proof']['debian_early_pid1'] is True and
         value['proof']['installed_debian_pid1'] is False and value['proof']['root_admitted'] is False,
         'early evidence lacks its exact bounded meaning')
     intents=[row['data'] for row in Journal(adapter.directory/'journal').rows() if row['event']=='effect-intent']

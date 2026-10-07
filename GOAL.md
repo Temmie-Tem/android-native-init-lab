@@ -21,6 +21,28 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## P418 USB-first successor ready for one attended trial
+
+The operator selected a minimum Debian early-PID1/USB successor based on the
+working native USB path. [USB-first V1](docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md)
+keeps Debian shell PID1, inserts the stock retained-log owner before the known
+73 platform modules, then establishes fixed ACM without UFS or storage work.
+Its gadget attributes, raw-before-bind ordering and one `none` to `peripheral`
+transition follow the retained successful native path. New authenticated
+stage markers have bounded kernel-ring readback; post-return retention is a
+separate hardware question. Original Android remains the physical recovery.
+
+P418 `v0.5.0-rc.2` has identical A/B initramfs and boot/AP packages. Four ARM64
+VM cases passed for real PID1, printk readback and protocol with explicit
+board/module/gadget substitutions; seven ARM64 fault cases cover the actual
+record/readback bounds. Independent final source/artifact/policy review passed,
+as did 76 focused Python tests and the fixed connected Android health/GPT/
+capacity preparation. The [H0 report](docs/reports/S22PLUS_DEBIAN_USB_FIRST_P418_H0_2026-10-08.md)
+records the qualified artifacts and concrete finite proposal. No new device
+effect, grant or candidate consumption has occurred; the returned one-run
+approval and current attendance are pending. P417's consumed result and
+original-A healthy closure below remain unchanged.
+
 ## P417 early-boot trial unproved; original Android recovered healthy
 
 P417 `v0.5.0-rc.1` consumed its one attended experiment on 2026-10-08 KST.

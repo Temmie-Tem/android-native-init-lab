@@ -117,7 +117,13 @@ static int write_fixed(const char *path,const char *value) {
     if(close(fd)&&!error)error=fs1_error();
     return error;
 }
+#ifdef EARLY_USB_FIRST
+#include "usb-first-gadget.h"
+#endif
 static int gadget(void) {
+#ifdef EARLY_USB_FIRST
+    return usb_first_gadget();
+#else
 #ifdef EARLY_VM_TEST
     return 0;
 #else
@@ -148,8 +154,12 @@ static int gadget(void) {
     if(symlink("../../functions/acm.usb0","/sys/kernel/config/usb_gadget/g1/configs/c.1/acm.usb0"))return fs1_error();
     return write_fixed("/sys/devices/platform/soc/a600000.ssusb/mode","peripheral");
 #endif
+#endif
 }
 static int gadget_bind(void) {
+#ifdef EARLY_USB_FIRST
+    return usb_first_bind();
+#else
 #ifdef EARLY_VM_TEST
     return 0;
 #else
@@ -159,6 +169,7 @@ static int gadget_bind(void) {
     if(fs1_read_text("/sys/kernel/config/usb_gadget/g1/UDC",text,sizeof(text)) ||
         strcmp(text,"a600000.dwc3\n"))return EPROTO;
     return 0;
+#endif
 #endif
 }
 static int serial_open(void) {
@@ -190,6 +201,9 @@ int main(int argc,char **argv) {
     if(argc!=2 || (strcmp(argv[1],"0") && strcmp(argv[1],"1") && strcmp(argv[1],"2")))return 100;
     uint64_t start=now();if(start==UINT64_MAX)return 101;deadline=start+EARLY_TIMEOUT;
     int error=measure((unsigned)(argv[1][0]-'0'));
+#ifdef EARLY_USB_FIRST
+    if(!error && strcmp(argv[1],"0"))error=EPROTO;
+#endif
     if(!error)error=gadget();
     int fd=-1;if(!error){fd=serial_open();if(fd<0)error=EIO;}
     /* Prepare the tty before publishing UDC: no host request can enter a
@@ -199,6 +213,9 @@ int main(int argc,char **argv) {
     if(!error && dprintf(1,"EARLY_VM_WIRE_READY\n")<0)error=EIO;
 #endif
     if(!error)error=request(fd);
+#ifdef EARLY_USB_FIRST
+    if(!error)error=usb_stage(205,"REQUEST_AUTHENTICATED");
+#endif
     if(!error)error=emit(fd,EARLY_PROOF,2,proof,sizeof(proof));
     unsigned seq=3;
     for(size_t off=0;!error && off<log_size;off+=EARLY_CHUNK) {
@@ -206,6 +223,9 @@ int main(int argc,char **argv) {
         error=emit(fd,EARLY_LOG,seq++,log_bytes+off,size);
     }
     if(!error)error=emit(fd,EARLY_END,seq,proof+112,32);
+#ifdef EARLY_USB_FIRST
+    if(!error)error=usb_stage(206,"RESPONSE_SENT");
+#endif
     if(fd>=0 && close(fd)&&!error)error=EIO;
     return error?1:0;
 }
