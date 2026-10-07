@@ -44,6 +44,15 @@ under Debian-owned initial userspace. Native_data was not observed by this
 trial; P415's dirty-root evidence and the separate journal-recovery scope remain
 unchanged. Root admission and installed Debian transition remain later units.
 
+Requested same-boot Android D0 residual inspection subsequently found an empty
+mounted pstore and the active ramoops node disabled. The 2,097,136-byte
+`last_kmsg` contains long-running Android shutdown and bootloader records;
+no P417 PID1/preparation proof was recovered. The actual candidate did not load
+Samsung's `sec_log_buf` retention owner, and its own stage file was tmpfs-only.
+The operator's visible boot-log/no-observed-loop account is retained separately.
+A future native return needs a functioning retained-log producer and reader;
+changing the return environment alone does not preserve tmpfs evidence.
+
 ## Retained Debian early boot and FYG8 preparation H0
 
 The first implementation of the [architecture proposal](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_FEASIBILITY_H0_2026-10-07.md)

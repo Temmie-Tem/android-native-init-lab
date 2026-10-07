@@ -105,3 +105,46 @@ channel under Debian-owned initial userspace. A successor must address that
 observability gap with fresh H0 evidence and its own current scope. This
 consumed candidate, missing RAM evidence and healthy rollback authorize no
 repeat, persistent receipt writer, journal recovery or installed-root handoff.
+
+## Requested residual-log observation after closure
+
+The operator subsequently reported visible boot logs followed by no observed
+boot loop. This is a separate visual observation with unspecified duration;
+it neither changes the authenticated `NO_PROOF` verdict nor identifies the
+last executed kernel/userspace stage.
+
+The requested bounded D0 inspection made no reboot, mount, clear or device
+write. Exact rooted health brackets passed in the same Android boot as P417's
+completed return. `/sys/fs/pstore` reported filesystem magic `0x6165676c`
+(pstore), but had no entries. The active fixed ramoops node reported
+`disabled`, despite the kernel's compiled-in pstore support.
+
+`/proc/last_kmsg` yielded **2,097,136 bytes**, SHA-256
+`38d62ea525e4263739f2c86a490e1e8c2d231521c7aeba87b68bfff5bc47690d`.
+The printk timestamps span 76,589.600947 through 77,091.993599 seconds, with
+Android init/service activity and an explicit `reboot,download` shutdown.
+One call trace is in an Android Binder task's remoteproc/glink shutdown path;
+it is not evidence of a P417 panic. Bootloader records follow, including two
+boot-binary authentication failures explicitly allowed to continue. Those
+records do not prove entry into the candidate kernel or Debian `/init`.
+No candidate early-PID1 or preparation marker was recovered, and neither the
+candidate run identity nor the compared Android boot IDs occur in the body.
+The available trace therefore does not locate P417's observation failure.
+
+The actual P417 module inventory does not include `sec_log_buf.ko`, whose
+pinned FYG8 source owns Samsung's reserved-memory printk ring and last-kmsg
+snapshot. The helper's own stage record was instead a tmpfs file. Returning
+to a native reader instead of Android would still lose that tmpfs file;
+a useful native return route needs an independently retained record and a
+reader that preserves it. The log-producing path must be established as well
+as the return environment. No native return or logging writer was activated
+by this D0 observation.
+
+Private residual evidence is under
+`workspace/private/outputs/s22plus-p417-residual-d0-20261008-2/`, including
+17 raw captures, the reviewed capture script, result and H0 interpretation.
+Invocation 1 is retained separately: its eight successful identity/feature
+captures preceded a host parser mistake about ADB feature separators, before
+any metadata/log acquisition. The existing newline-based immutable-handle
+parser accepted that saved input. A separately reviewed fresh invocation
+completed the reads without weakening the feature or raw-preservation checks.
