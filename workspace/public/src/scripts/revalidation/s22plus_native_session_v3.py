@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early')
 
 
 class ResultPublicationError(SessionError):
@@ -37,7 +37,7 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
     require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
-    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence'):
+    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early'):
         from s22plus_native_root_inspect_session_v1 import normal_steps
         return normal_steps(operation)
     if operation=='native-ext4':
@@ -230,6 +230,9 @@ class Session:
                 terminal_callback=lambda detail:guard()
             value=self.adapter.observe(step,self.request,guard=guard,
                 before_terminal=terminal_callback,**options)
+        elif step.action=='early-evidence':
+            require(self.request['operation']=='debian-early','unselected early observation')
+            value=self.adapter.early_observe(step,self.request,guard=guard)
         elif step.action=='health':
             value=self.adapter.android_health(step,self.request,guard=guard)
         elif step.action in ('debian-health','debian-shutdown'):
@@ -289,6 +292,9 @@ class Session:
         return terminal
 
     def execute(self, *, attended):
+        if self.request['operation']=='debian-early':
+            from s22plus_debian_early_session_v1 import Coordinator
+            return Coordinator(self).execute(attended=attended)
         if self.request['operation']=='debian-handoff':
             from s22plus_debian_handoff_session_v1 import Coordinator
             return Coordinator(self).execute(attended=attended)
@@ -414,6 +420,9 @@ class Session:
             return self.close(plan,recovered=recovered)
 
     def resume(self, *, attended, operator_statement=None):
+        if self.request['operation']=='debian-early':
+            from s22plus_debian_early_session_v1 import Coordinator
+            return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)
         if self.request['operation']=='debian-handoff':
             from s22plus_debian_handoff_session_v1 import Coordinator
             return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)

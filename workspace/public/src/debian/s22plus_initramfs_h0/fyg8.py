@@ -200,10 +200,11 @@ def verify_inventory(inputs):
     return value
 
 
-def compile_helper(out, inputs, *, virt=False):
+def compile_helper(out, inputs, *, virt=False, run_id=None):
     value=verify_inventory(inputs)
     # Fixed prospective construction identity; not a live session grant.
-    run_id=hashlib.sha256((h0.sha(inputs/'inventory.json')+'fyg8-h0').encode()).hexdigest()[:32]
+    run_id=run_id or hashlib.sha256((h0.sha(inputs/'inventory.json')+'fyg8-h0').encode()).hexdigest()[:32]
+    h0.require(re.fullmatch('[0-9a-f]{32}',run_id) is not None,'invalid preparation run identity')
     (out/'s22plus_native_ext4_seal_v1.h').write_bytes(ext4.seal(filesystem.BINDING,run_id,initialize=False))
     rows=['struct fyg8_module {const char *path,*runtime,*parameters; uint64_t size; uint8_t hash[32];};',
           'static const char fyg8_release[]='+json.dumps(KERNEL_RELEASE)+';',
@@ -228,12 +229,15 @@ def compile_helper(out, inputs, *, virt=False):
     return dict(run_id=run_id,filesystem_binding=filesystem.BINDING)
 
 
-def inside(out,packages,inputs):
+def inside(out,packages,inputs,*,observed=False):
     value=verify_inventory(inputs)
     tree=h0.builder_tree(out,packages)
     shutil.copyfile(out/'fyg8-prepare',tree/'usr/sbin/fyg8-prepare')
     (tree/'usr/sbin/fyg8-prepare').chmod(0o755)
     shutil.copytree(inputs/'modules',tree/'lab/modules')
+    if observed:
+        shutil.copyfile(out/'early-observer',tree/'usr/sbin/early-observer')
+        (tree/'usr/sbin/early-observer').chmod(0o755)
     conf=tree/'etc/initramfs-tools'
     for directory in ('conf.d','hooks','scripts'):
         (conf/directory).mkdir(parents=True,exist_ok=True)
@@ -241,6 +245,13 @@ def inside(out,packages,inputs):
     (conf/'modules').write_text('')
     for source,target in [('fyg8-hook','hooks/fyg8'),('fyg8-dev','scripts/fyg8-dev')]:
         shutil.copyfile(h0.HERE/source,conf/target);(conf/target).chmod(0o755)
+    if observed:
+        source=(h0.HERE/'fyg8-dev').read_text()
+        h0.require(source.endswith('fyg8_stop\n'),'early terminal hook changed')
+        (conf/'scripts/fyg8-dev').write_text(source[:-len('fyg8_stop\n')]+
+            '/sbin/early-observer "$fyg8_status"\nfyg8_stop\n')
+        shutil.copyfile(h0.HERE/'early-hook',conf/'hooks/zzzz-early')
+        (conf/'hooks/zzzz-early').chmod(0o755)
     init=tree/'usr/share/initramfs-tools/init'
     original=init.read_text();needle='mount -t devtmpfs -o nosuid,mode=0755 udev /dev\n'
     h0.require(original.count(needle)==1,'Debian early init changed')

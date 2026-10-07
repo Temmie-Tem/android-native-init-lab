@@ -7,11 +7,12 @@ import s22plus_switch_root_profile_v1 as switch
 import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
+import s22plus_debian_early_profile_v1 as early
 from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence)
+ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence, early)
 PROFILES = tuple(item.PROFILE for item in ITEMS)
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
@@ -29,6 +30,9 @@ def mutates_step(operation,name):
 def normal_steps(operation=profile.OPERATION):
     from s22plus_native_session_v3 import Step
     item = selected(operation)
+    if item is early:
+        from s22plus_debian_early_session_v1 import normal_steps as early_steps
+        return early_steps()
     if item is handoff:
         from s22plus_debian_handoff_session_v1 import normal_steps as handoff_steps
         return handoff_steps()
@@ -77,6 +81,9 @@ def android_basis(adapter, request):
 
 def validate_result(adapter, step, value, request):
     item = selected(request['operation'])
+    if item is early:
+        from s22plus_debian_early_session_v1 import validate_result as early_result
+        return early_result(adapter,step,value,request)
     if item is handoff:
         from s22plus_debian_handoff_session_v1 import validate_result as handoff_result
         return handoff_result(adapter,step,value,request)
@@ -120,6 +127,9 @@ def validate_result(adapter, step, value, request):
 def terminal(adapter, request, *, recovered):
     from s22plus_native_session_v3 import operation_steps
     item = selected(request['operation'])
+    if item is early:
+        from s22plus_debian_early_session_v1 import terminal as early_terminal
+        return early_terminal(adapter,request,recovered=recovered)
     if item is handoff:
         from s22plus_debian_handoff_session_v1 import terminal as handoff_terminal
         return handoff_terminal(adapter,request,recovered=recovered)

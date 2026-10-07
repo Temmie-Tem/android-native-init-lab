@@ -79,11 +79,19 @@ def terminal(adapter,request,*,recovered):
 
 
 class Coordinator:
+    READY_FILE='debian-return-ready.json'
+    SUBJECT_FIELD='shutdown'
+    SUBJECT_STEP='debian-shutdown'
+
     def __init__(self,session):self.session=session
+
+    def steps(self):return normal_steps()
+
+    def cleanup(self):access.cleanup(self.session.adapter,self.session.request)
 
     def walk(self,*,allow_return):
         session=self.session
-        for step in normal_steps():
+        for step in self.steps():
             session.check()
             matches=[row for row in session.rows() if row['event']=='step-complete' and row['data']['step']==step.name]
             if matches:
@@ -91,8 +99,8 @@ class Coordinator:
                 session.adapter.validate_result(step,read(verify(matches[0]['data']['result'])),session.request);continue
             if step.name=='install-android' and not allow_return:
                 now=clock()
-                receipt=publish(session.directory/'debian-return-ready.json',dict(operation=pin(session.directory/'operation.json'),
-                    shutdown=pin(session.directory/'debian-shutdown.json'),requested_ns=now,
+                receipt=publish(session.directory/self.READY_FILE,dict(operation=pin(session.directory/'operation.json'),
+                    **{self.SUBJECT_FIELD:pin(session.directory/(self.SUBJECT_STEP+'.json'))},requested_ns=now,
                     deadline_ns=min(session.grant['deadline_ns'],now+600_000_000_000)))
                 return dict(state='AWAITING_PHYSICAL_DOWNLOAD',request=receipt,owner_retained=True,
                     next_action='Enter Download on the bound S22+; continue checks its exact endpoint before one original A transfer.')
@@ -107,7 +115,7 @@ class Coordinator:
         if isinstance(error,ResultPublicationError) or getattr(error,'protocol_completed',False):raise error
         session.journal.append('stopped',error_type=type(error).__name__,effect_intended=session.has_effect())
         if not session.has_recovery_basis():return session.close_unused()
-        access.cleanup(session.adapter,session.request)
+        self.cleanup()
         return dict(state='AWAITING_ATTENDED_RECOVERY',recovery_required=True,owner_retained=True,
             device_activity='UNKNOWN',next_action='Use the original attended Download/A recovery; no handoff or SSH control replay.')
 
@@ -115,14 +123,14 @@ class Coordinator:
         from s22plus_native_session_v3 import registry
         session=self.session
         with registry.target_session_lease(session.root):
-            require(attended is True,'installed Debian handoff requires actual attendance')
+            require(attended is True,'Debian operation requires actual attendance')
             require(not session.rows() and not session.unused(),'Debian operation already started')
             session.check();registry.require_no_f1_owner(session.root)
             try:
                 session.adapter.preflight(session.request,guard=lambda:session.check())
                 session.journal.append('preflight-complete');pending=self.walk(allow_return=False)
             except Exception as error:return self.stopped(error)
-            return pending if pending else session.close(normal_steps())
+            return pending if pending else session.close(self.steps())
 
     def resume(self,*,attended,operator_statement=None):
         from s22plus_native_session_v3 import registry
@@ -132,9 +140,9 @@ class Coordinator:
             session.check();registry.require_f1_owner(session.root,session.directory,session.binding)
             require(not any(row['event']=='stopped' for row in session.rows()) and
                 not (session.directory/'terminal.json').exists(),'Debian normal work stopped or closed')
-            pending=read(session.directory/'debian-return-ready.json')
+            pending=read(session.directory/self.READY_FILE)
             require(pending['operation']==pin(session.directory/'operation.json') and
-                pending['shutdown']==pin(session.directory/'debian-shutdown.json'),'physical return request differs')
+                pending[self.SUBJECT_FIELD]==pin(session.directory/(self.SUBJECT_STEP+'.json')),'physical return request differs')
             try:result=self.walk(allow_return=True)
             except Exception as error:return self.stopped(error)
-            require(result is None,'unexpected second physical pause');return session.close(normal_steps())
+            require(result is None,'unexpected second physical pause');return session.close(self.steps())

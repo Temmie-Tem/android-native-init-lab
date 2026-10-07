@@ -21,6 +21,7 @@ import s22plus_switch_root_profile_v1 as switch
 import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
+import s22plus_debian_early_profile_v1 as early
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -41,6 +42,14 @@ def image_identity(image, binding):
 
 
 def image_valid(image, *, artifact_bytes=False):
+    if image.get('profile')==early.PROFILE:
+        early.image_binding(image)
+        if artifact_bytes:
+            with transport.pin_boot_only_ap(Path(image['ap']['path']),label='Debian early image',
+                    expected_size=image['ap']['size'],expected_sha256=image['ap']['sha256']) as ap:
+                require(transport.boot_only_member_receipt(ap,label='Debian early')==image['member'],
+                    'qualified early boot member differs')
+        return
     exporters={'thermal-v3-reconnect-v1':'s22plus_native_artifact_v3_h0.py',
         'thermal-v3-reconnect-ufs-v1':'s22plus_native_ufs_artifact_v1_h0.py',
         'thermal-v3-reconnect-ufs-drain-v1':'s22plus_native_output_drain_artifact_v1_h0.py',
@@ -411,6 +420,10 @@ class Adapter:
         guard()
         if step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
+        elif request['operation']==early.OPERATION and step.name=='install-android':
+            from s22plus_debian_early_session_v1 import return_request
+            ready=return_request(self,request)
+            arrival_deadline=ready['deadline_ns']
         elif request['operation']==handoff.OPERATION and step.name=='install-android':
             from s22plus_debian_access_v1 import Access
             value=Access(self,request).rederive_shutdown()
@@ -525,6 +538,13 @@ class Adapter:
             time.sleep(.2)
         raise TimeoutError('selected native endpoint did not arrive')
 
+    def early_observe(self,step,request,*,guard):
+        require(request['operation']==early.OPERATION and step.name==early.SELECTION,'unselected early evidence')
+        from s22plus_debian_early_observation_v1 import observe
+        self.wait_native(request['N'],request,guard)
+        return observe(self.folder(step.name),request['N'],self.native_host(request),guard=guard,
+            deadline_ns=read(verify(request['grant']))['deadline_ns'])
+
     def observe(self, step, request, *, guard, before_terminal, consume_observation=None,before_extra=None):
         from s22plus_native_gpt_session_v1 import profile_for
         from s22plus_native_ext4_session_v1 import profile_for as filesystem_profile
@@ -623,6 +643,10 @@ class Adapter:
         return value
 
     def recover_step_result(self, step, request):
+        if step.action=='early-evidence':
+            require(request['operation']==early.OPERATION and step.name==early.SELECTION,'unselected early evidence result')
+            from s22plus_debian_early_observation_v1 import rederive
+            return rederive(self.folder(step.name),request['N'])
         if step.action in ('debian-health','debian-shutdown'):
             require(request['operation']==handoff.OPERATION,'unselected Debian access result')
             from s22plus_debian_access_v1 import Access

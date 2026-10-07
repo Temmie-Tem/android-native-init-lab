@@ -382,6 +382,24 @@ same fixed Android root-health/shell-v2/GPT/statfs preparation reads, including
 preserved-evidence reobservation after a pure read failure. No experimental
 transfer occurs until the concrete finite start is returned.
 
+### Debian-owned early boot V1
+
+The common-incorporated [Debian-owned early boot V1](../S22PLUS_DEBIAN_EARLY_BOOT_V1.md)
+is adopted only as V3's `debian-early` operation and `debian-owned-early-v1`
+profile. One fresh Android-origin boot-only candidate owns automatic 73+8
+module preparation, partition-only RO/GPT/superblock observation and one fixed
+ACM evidence child while Debian shell remains PID1. No native admission,
+console/CONTROL, NCM/SSH, root mount/RW, repair or installed init is selected.
+One returned attended 1800-second/one-operation grant binds exact artifacts,
+current health and usable physical original-A recovery. Normal and failed
+outcomes require attended physical Download and one original-A return; no
+uncertain effect replays. Actual parent identity, bounded authenticated RAM
+records, scientific preparation result and full Android32 final health remain
+separate. This profile makes no inherited thermal-service or automatic-recovery
+claim. Current independent review and actual A/B artifact qualification are
+required; foreground preparation reuses only the fixed root-health/shell-v2/
+GPT/statfs D0 reads. The definition opens no grant or device action.
+
 ### Streamed protected preparation V1
 
 The common-incorporated [staged preflight V1](../S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)

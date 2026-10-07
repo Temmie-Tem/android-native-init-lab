@@ -21,7 +21,30 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## Debian early boot and FYG8 preparation H0; physical qualification pending
+## P417 early-boot trial unproved; original Android recovered healthy
+
+P417 `v0.5.0-rc.1` consumed its one attended experiment on 2026-10-08 KST.
+The [physical report and canonical timeline](docs/reports/S22PLUS_DEBIAN_EARLY_P417_FIRST_RUN_2026-10-08.md)
+record **NO_PROOF**: after one candidate transfer, the exact early USB endpoint
+was not detected within 90 seconds, before any authenticated early snapshot.
+Debian shell PID1, module/UFS preparation and protected metadata are not proved
+on hardware. The timeout does not identify an internal stage or establish
+non-execution; no authorized post-return RAM retrieval exists for this profile.
+
+The operator entered physical Download and original A was transferred once.
+The first post-A health read lost ADB; health-only continuation completed
+without another transfer. Final state: **ANDROID_CLOSED_HEALTHY**, `recovered=true`,
+exact original boot/supporting hashes, root, new Android boot and full Android32
+GPT/capacity. N/A transfer counts are 1/1. H0 closure revalidated 564 captures,
+219 frozen source paths and the unchanged 15-row journal/terminal. The grant
+and candidate are consumed and closed; no F1 owner remains. A90/S20+ are untouched.
+
+The next bounded question is establishing a real early observation channel
+under Debian-owned initial userspace. Native_data was not observed by this
+trial; P415's dirty-root evidence and the separate journal-recovery scope remain
+unchanged. Root admission and installed Debian transition remain later units.
+
+## Retained Debian early boot and FYG8 preparation H0
 
 The first implementation of the [architecture proposal](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_FEASIBILITY_H0_2026-10-07.md)
 passed its [ARM64 VM experiment](docs/reports/S22PLUS_DEBIAN_OWNED_EARLY_BOOT_H0_2026-10-07.md).
@@ -43,12 +66,20 @@ cover clean/dirty metadata, exact rejection boundaries, no replay and the
 absent-console fallback; every copied disk is unchanged. Hardware insertion,
 firmware readiness and physical storage discovery remain unproved by H0.
 
-The next unit is to join that preparation to complete protected root admission
-and authenticated observation/recovery, followed by Debian's root transition.
+The operator requested continuation through a physical experiment. The
+[P417 preparation](docs/reports/S22PLUS_DEBIAN_EARLY_P417_H0_2026-10-07.md) adds
+authenticated early-PID1/RAM evidence and an existing V3 owner with physical
+original-A recovery. Its first prospective trial stops after protected
+GPT/superblock observation; full root admission and Debian's installed-root
+transition remain later units. Actual boot-only A/B packages, the final three
+ARM64 producer/consumer cases, 57 focused/regression tests and independent
+`PASS_GO` completed before the physical trial above. Fixed connected Android
+health/GPT/capacity preparation passed. These H0 results remain separate from
+P417's missing hardware proof.
 The physical P415 dirty native_data state still belongs to its separate
 reviewed recovery owner. Later kernel modification/build/optimization remains
-an operator-requested option where demonstrated need warrants it. No candidate
-is activated, and the physical consumed results below are unchanged.
+an operator-requested option where demonstrated need warrants it. No grant is
+open, and the physical consumed results below are unchanged.
 
 ## Current P415 protected evidence capture; Android returned healthy
 

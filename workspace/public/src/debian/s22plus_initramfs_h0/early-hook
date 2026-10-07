@@ -1,0 +1,13 @@
+#!/bin/sh
+case "${1:-}" in prereqs) exit 0;; esac
+set -eu
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /sbin/early-observer /sbin/early-observer
+# FYG8 vendor_boot contributes a nonempty /lib/modules directory. A later
+# /lib -> usr/lib cannot replace it. Keep /lib a real directory and expose
+# only Debian's required ARM64 dynamic-loader/library paths through links.
+[ "$(readlink "$DESTDIR/lib")" = usr/lib ]
+rm "$DESTDIR/lib"
+mkdir "$DESTDIR/lib"
+ln -s ../usr/lib/aarch64-linux-gnu "$DESTDIR/lib/aarch64-linux-gnu"
+ln -s ../usr/lib/ld-linux-aarch64.so.1 "$DESTDIR/lib/ld-linux-aarch64.so.1"

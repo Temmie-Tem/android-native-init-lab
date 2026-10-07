@@ -807,6 +807,22 @@ service/network startup or Debian PID 1 handoff is authorized. Earlier claims
 remain consumed. Source review, actual qualification and returned finite grant
 are separate; the named fixed Android preparation D0 changes no mode or image.
 
+## S22+ Debian-owned early boot
+
+The separately reviewed [Debian-owned early boot V1](S22PLUS_DEBIAN_EARLY_BOOT_V1.md)
+specializes initial userspace and observation ownership only for V3's exact
+`debian-early` profile. One fresh attended boot-only candidate owns the retained
+73+8 module initialization, exact GPT/superblock reads, partition-only RAM RO,
+and one fixed ACM gadget. Debian's shell remains PID1; a fixed child exports
+only authenticated bounded RAM evidence. There is no native console, CONTROL,
+N admission, E, root mount, RO clear, repair, installed init or filesystem data
+write. One returned 1800-second/one-operation grant includes mandatory attended
+physical Download, one original A and full Android32 health. No uncertainty
+permits replay; normal return's explicit physical phase and expired-work
+recovery retain the exact owner and original A. The removed native thermal
+service is not inherited as a health/safe-quiescence claim. All other targets,
+existing profiles and consumed records are unchanged.
+
 ## S22+ streamed protected preparation
 
 The separately reviewed [staged preflight V1](S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)
