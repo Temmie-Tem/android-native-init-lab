@@ -1,5 +1,11 @@
 # P418 Debian USB-first preparation
 
+Historical preparation record: the one attended P418 trial was subsequently
+consumed and closed healthy on 2026-10-09 KST. The
+[physical report](S22PLUS_DEBIAN_USB_FIRST_P418_RUN_2026-10-09.md) records missing
+USB/PID1 protocol proof and two intact authenticated post-return stage records
+within a partially damaged retained log. The ready state below grants no replay.
+
 Date: 2026-10-08 KST. Target: S22+ `SM-S906N/g0q/S906NKSS7FYG8` only.
 Status: **PASS_GO; CONNECTED_PREPARATION_PASS; AWAITING_RETURNED_ATTENDED_GRANT**.
 No candidate transfer, device write/control, new grant or consumption occurred

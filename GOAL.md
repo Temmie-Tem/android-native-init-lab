@@ -21,27 +21,33 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## P418 USB-first successor ready for one attended trial
+## P418 partial retained-stage proof; USB unproved, Android healthy
 
-The operator selected a minimum Debian early-PID1/USB successor based on the
-working native USB path. [USB-first V1](docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md)
-keeps Debian shell PID1, inserts the stock retained-log owner before the known
-73 platform modules, then establishes fixed ACM without UFS or storage work.
-Its gadget attributes, raw-before-bind ordering and one `none` to `peripheral`
-transition follow the retained successful native path. New authenticated
-stage markers have bounded kernel-ring readback; post-return retention is a
-separate hardware question. Original Android remains the physical recovery.
+P418 `v0.5.0-rc.2` consumed its one attended trial on 2026-10-09 KST.
+The [physical report and timeline](docs/reports/S22PLUS_DEBIAN_USB_FIRST_P418_RUN_2026-10-09.md)
+record no exact early USB endpoint within 90 seconds, before a challenge or
+authenticated PID1 snapshot. Scientific USB/PID1 result remains **NO_PROOF**.
+One original-A transfer and health-only continuation completed full rooted
+original-boot/supporting, changed-boot and Android32 GPT/capacity checks.
+Final state is **ANDROID_CLOSED_HEALTHY**, `recovered=true`, N/A counts 1/1.
+The grant and candidate are closed/consumed; no F1 owner remains.
 
-P418 `v0.5.0-rc.2` has identical A/B initramfs and boot/AP packages. Four ARM64
-VM cases passed for real PID1, printk readback and protocol with explicit
-board/module/gadget substitutions; seven ARM64 fault cases cover the actual
-record/readback bounds. Independent final source/artifact/policy review passed,
-as did 76 focused Python tests and the fixed connected Android health/GPT/
-capacity preparation. The [H0 report](docs/reports/S22PLUS_DEBIAN_USB_FIRST_P418_H0_2026-10-08.md)
-records the qualified artifacts and concrete finite proposal. No new device
-effect, grant or candidate consumption has occurred; the returned one-run
-approval and current attendance are pending. P417's consumed result and
-original-A healthy closure below remain unchanged.
+The fixed same-returned-boot Android D0 read recovered two intact HMAC-valid
+records: `TARGET_GUARD_OK` and the first `sec_log_buf` `MODULE_BEGIN`. This is
+**partial post-return retention proof**. Sequence 1 is damaged/interleaved
+with older Android text, so the original strict decoder STOP is preserved.
+Separate H0 analysis authenticated only exact contiguous captured bodies;
+independent review confirmed them without reconstruction or relaxed checks.
+The BEGIN record precedes both a presence check and the insertion syscall;
+it proves neither insertion completion nor a stall. Missing later records
+cannot locate the failure or establish non-execution.
+
+The next bounded functional question is progress beyond that earliest recorded
+point to a real USB channel, while accounting for damaged retained framing.
+No follow-up candidate is selected. P418 selected no UFS/block/native_data access;
+P415 remains the last native_data observation. A90/S20+ were untouched.
+The [H0 qualification](docs/reports/S22PLUS_DEBIAN_USB_FIRST_P418_H0_2026-10-08.md)
+and the physical outcomes retain separate meanings.
 
 ## P417 early-boot trial unproved; original Android recovered healthy
 
