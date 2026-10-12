@@ -21,6 +21,18 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## Selected H0 unit: P424 native log calibration
+
+The operator selected establishing the observation path before adding early
+initialization. The [P424 design](docs/reports/S22PLUS_NATIVE_LOG_CALIBRATION_P424_H0_2026-10-13.md)
+uses the already proved native carrier and authenticated USB to distinguish
+fixed-helper execution, kernel-ring acceptance and actual current Samsung
+retained-backend membership before physical original-A return. A later fixed
+read will compare the same run/boot-bound bytes after healthy closure.
+Implementation, qualification and independent review are pending; no device
+grant is open. This diagnostic reference does not change Debian initial-PID1
+ownership as the product goal. P420–P423 remain consumed/closed.
+
 ## P423 closed: no authenticated early stage; Android healthy
 
 P423 `debian-stage-probe-v1`, `v0.5.0-rc.7`, consumed its returned attended
