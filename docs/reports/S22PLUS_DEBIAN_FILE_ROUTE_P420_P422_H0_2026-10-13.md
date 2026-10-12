@@ -1,5 +1,12 @@
 # S22+ native_data consistency and USB-independent file evidence
 
+**Subsequent physical result:** P420 consumed its one attended operation on
+2026-10-13 KST and proved **PROVED_CLEAN_ROOT**, then returned original Android
+healthy. See the [physical report and timeline](S22PLUS_NATIVE_DATA_P420_RUN_2026-10-13.md).
+P421/P422 remain unconsumed and need their own grants. The preparation status
+and unopened-grant statements below describe the preceding H0/D0 milestone;
+they do not reopen P420.
+
 Status: **READY_H0_QUALIFIED; first Android D0 preparation passed**.
 Independent PASS_GO is complete. No F1 grant, control, transfer or native_data
 operation has occurred for this route.
