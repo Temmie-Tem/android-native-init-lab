@@ -21,6 +21,27 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## P419 RAM-only early USB successor ready for one attended trial
+
+The operator selected the next minimum USB experiment on 2026-10-12 KST.
+P419 `v0.5.0-rc.3` keeps Debian shell `/init` as initial PID1 and the retained
+73-module platform/USB sequence. Its explicit `ram-only` build removes the
+added `sec_log_buf` and printk readback prerequisites. Complete checked RAM
+preparation records, actual parent identity and authenticated USB evidence
+remain mandatory. No UFS/root/storage work is selected.
+
+The bounded completion criterion is real USB enumeration plus authenticated
+same-boot Debian initial-PID1/platform evidence, followed by the existing
+attended original-A return and full Android32 health. The
+[H0 preparation report](docs/reports/S22PLUS_DEBIAN_USB_RAM_P419_H0_2026-10-12.md)
+records A/B artifact qualification, five ARM64 VM cases, 80 focused tests and
+independent PASS_GO. Fresh fixed Android health/GPT/capacity preparation and
+its H0 rederivation passed in `connected-2`; the first ADB-startup-banner read
+failure is preserved. No fresh grant is open or candidate transferred.
+This mode selects no post-return retained-log reader; a failed USB path may
+leave only host observation after return. P418 records and its closed operation
+remain unchanged. A90 and S20+ are outside this work.
+
 ## P418 partial retained-stage proof; USB unproved, Android healthy
 
 P418 `v0.5.0-rc.2` consumed its one attended trial on 2026-10-09 KST.

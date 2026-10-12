@@ -12,6 +12,7 @@ import s22plus_debian_early_protocol_v1 as old
 import s22plus_debian_usb_protocol_v1 as usb
 import s22plus_debian_early_profile_v1 as profile
 import s22plus_native_root_inspect_session_v1 as scope
+import s22plus_debian_usb_retention_v1 as retention
 import test_s22plus_native_root_inspect_v1 as inspection_tests
 
 
@@ -72,6 +73,43 @@ class USBFirstEvidence(unittest.TestCase):
                 with self.subTest(key=key),self.assertRaises(ValueError):scope.validate_task(bad)
         with mock.patch.object(profile,'image_binding',side_effect=FileNotFoundError),mock.patch.object(scope,'android_basis_for_image'):
             scope.validate_task(task,recovery=True)
+
+    def test_ram_log_requires_full_platform_and_explicit_no_retention(self):
+        modules=['platform_a','platform_b']
+        events=[b'BEGIN run='+self.candidate.hex().encode()+b' boot='+self.boot+b' parent=1',b'TARGET_GUARD_OK']
+        for i,name in enumerate(modules,1):
+            events.extend(f'MODULE_{state} ordinal={i} name={name}'.encode() for state in ('BEGIN','DONE'))
+        events.extend([b'MODULE_SET_READY count=2',b'LOGGING_RAM_ONLY retention_after_reboot=not_available',
+            b'TERMINAL result=PLATFORM_READY error=0'])
+        def parse(items):
+            raw=b''.join(b'FYG8_H0 seq='+str(i).encode()+b' '+e+b'\n' for i,e in enumerate(items,1))
+            return usb.parse_log(raw,self.candidate,modules,hashlib.sha256(self.boot).digest())
+        result=parse(events)
+        self.assertEqual(result['logging_mode'],'ram-only')
+        self.assertFalse(result['logger_bound']);self.assertFalse(result['retention_after_reboot'])
+        self.assertEqual(result['module_completions'],2)
+        for changed in (events[:3]+events[4:],events[:-2]+[b'LOGGER_BOUND retention_after_reboot=unproved',events[-1]],
+                events[:-1]+[b'STORAGE_BOUND',events[-1]]):
+            with self.subTest(changed=changed),self.assertRaises(ValueError):parse(changed)
+
+    def test_logging_mode_selects_complete_vm_cases(self):
+        historical=dict(profile=profile.USB_PROFILE)
+        self.assertEqual(profile.usb_logging_mode(historical),'retained')
+        self.assertEqual(profile.vm_cases(historical),['normal','bad-auth','logger-off','insert-error'])
+        ram=dict(historical,logging_mode='ram-only')
+        self.assertEqual(profile.vm_cases(ram),['normal','bad-auth','logger-off','insert-error','ram-log-missing'])
+        with self.assertRaises(ValueError):profile.vm_cases(dict(historical,logging_mode='optional'))
+
+    def test_ram_only_candidate_cannot_invoke_retention_reader(self):
+        task=dict(N=dict(early_boot={}))
+        with mock.patch.object(retention,'private_path',side_effect=lambda root,path,**kw:Path(path)), \
+                mock.patch.object(retention,'read',side_effect=[task,{},dict(build={}),
+                    dict(profile=profile.USB_PROFILE,logging_mode='ram-only')]), \
+                mock.patch.object(retention,'verify',return_value=Path('fixture')), \
+                mock.patch.object(retention.raw,'acquire_command',side_effect=AssertionError('device call')) as acquire:
+            with self.assertRaisesRegex(ValueError,'no retained-log capture scope'):
+                retention.capture('output','task')
+            acquire.assert_not_called()
 
     def test_profile_selects_one_authentication_domain(self):
         self.assertIs(profile.wire_protocol(dict(profile=profile.USB_PROFILE)),usb)

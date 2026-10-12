@@ -9,6 +9,7 @@ SCHEMA='s22plus-debian-early-v1'
 PROFILE='debian-owned-early-v1'
 USB_PROFILE='debian-usb-first-v1'
 USB_SCHEMA='s22plus-debian-usb-first-v1'
+USB_LOGGING_MODES=('retained','ram-only')
 PROFILES=(PROFILE,USB_PROFILE)
 OPERATION='debian-early'
 SELECTION='debian-early-evidence'
@@ -20,6 +21,23 @@ ROOT=retained.ROOT
 class Profile:
     RESULT_KEY='debian_early'
     MUTATES=False  # All automatic preparation is consumed by the N transfer.
+
+
+def usb_logging_mode(built):
+    require(built['profile']==USB_PROFILE,'not a USB-only build')
+    # Frozen P418 builds predate this explicit field and always use retention.
+    mode=built.get('logging_mode','retained')
+    require(mode in USB_LOGGING_MODES,'unknown USB logging mode')
+    return mode
+
+
+def vm_cases(built):
+    if built['profile']==USB_PROFILE:
+        cases=['normal','bad-auth','logger-off','insert-error']
+        if usb_logging_mode(built)=='ram-only':cases.append('ram-log-missing')
+        return cases
+    require(built['profile']==PROFILE,'unselected early VM profile')
+    return ['clean','dirty','bad-auth']
 
 
 def image_binding(image):
@@ -63,15 +81,17 @@ def image_binding(image):
     expected_names=[r['runtime_name'] for r in inventory['modules']]
     if usb:
         require(inventory['platform_count']==73 and len(expected_names)==81,'USB retained platform differs')
-        expected_names=['sec_log_buf',*expected_names[:73]]
+        logging_mode=usb_logging_mode(built)
+        expected_names=(['sec_log_buf'] if logging_mode=='retained' else [])+expected_names[:73]
         require([m['runtime_name'] for m in built['modules']]==expected_names,'USB built module declaration differs')
-    require(len(artifact['module_names'])==(74 if usb else 81) and len(set(artifact['module_names']))==len(artifact['module_names']) and
+    require(len(artifact['module_names'])==len(expected_names) and len(set(artifact['module_names']))==len(artifact['module_names']) and
         artifact['module_names']==expected_names and
         all(re.fullmatch('[A-Za-z0-9_]+',v) for v in artifact['module_names']), 'early module plan differs')
     tested=read(verify(artifact['vm']))
     require(tested['status']=='PASS' and tested['device_actions']==0 and tested['build_sha256']==artifact['build']['sha256'] and
-        [r['case'] for r in tested['cases']]==(['normal','bad-auth','logger-off','insert-error'] if usb else ['clean','dirty','bad-auth']) and
+        [r['case'] for r in tested['cases']]==vm_cases(built) and
         all(r['status']=='PASS' and r['device_actions']==0 and r['run_id']==image['run_id_hex'] and
+            (not usb or r.get('logging_mode','retained')==usb_logging_mode(built)) and
             r['disk_before']==r['disk_after'] and r['expected']['shell_sha256']==artifact['expected']['shell_sha256'] and
             r['expected']['init_sha256']==artifact['expected']['init_sha256'] for r in tested['cases']),
         'early actual producer/consumer qualification differs')

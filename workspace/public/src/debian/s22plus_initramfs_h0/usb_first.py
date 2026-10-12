@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""H0 Debian shell PID1 / fixed platform / retained printk / USB-only build."""
+"""H0 Debian shell PID1 / fixed platform / bounded RAM or retained USB evidence."""
 import argparse
 import difflib
 import json
@@ -15,16 +15,20 @@ import early
 import fyg8
 import h0
 from s22plus_native_records_v3 import pin
+import s22plus_debian_early_profile_v1 as profile_api
 
-NAMESPACE='p418'
-VERSION='v0.5.0-rc.2'
+NAMESPACE='p419'
+VERSION='v0.5.0-rc.3'
 PROFILE='debian-usb-first-v1'
 LOGGER=dict(name='sec_log_buf.ko',runtime_name='sec_log_buf',parameters='',size=76688,
     sha256='b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61')
 
 
-def modules(inputs):
+def modules(inputs,logging_mode='ram-only'):
+    h0.require(logging_mode in profile_api.USB_LOGGING_MODES,'unknown USB logging mode')
     value=fyg8.verify_inventory(inputs)
+    platform=value['modules'][:value['platform_count']]
+    if logging_mode=='ram-only':return platform,None
     vendor=fyg8.memory.vendor
     raw=fyg8.memory.base.stable(h0.ROOT/vendor.DEFAULT_VENDOR_RAMDISK,
         dict(size=vendor.EXPECTED_VENDOR_RAMDISK_SIZE,sha256=vendor.EXPECTED_VENDOR_RAMDISK_SHA256))
@@ -32,12 +36,13 @@ def modules(inputs):
     matches=[e for e in entries if e.name=='lib/modules/'+LOGGER['name']]
     h0.require(len(matches)==1 and len(matches[0].data)==LOGGER['size'] and
         fyg8.digest(matches[0].data)==LOGGER['sha256'],'stock logger bytes differ')
-    return [LOGGER,*value['modules'][:value['platform_count']]],matches[0].data
+    return [LOGGER,*platform],matches[0].data
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,logging_mode='ram-only'):
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
-    h0.verify_packages(packages,out);selected,logger=modules(inputs)
+    h0.verify_packages(packages,out);selected,logger=modules(inputs,logging_mode)
+    ram_only=logging_mode=='ram-only'
     run=run or uuid.uuid4().hex;key=key or secrets.token_bytes(32)
     h0.require(re.fullmatch('[0-9a-f]{32}',run) and len(key)==32,'USB identity differs')
     (out/'key').write_bytes(key);(out/'key').chmod(0o400)
@@ -55,23 +60,30 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True):
     gates=re.findall(r'"(/sys/[^"\n]+)"',plan);h0.require(len(gates)==12,'retained gate set differs')
     (out/'usb-first-gates.h').write_text('static const char *const usb_gates_paths[]={'+
         ','.join(json.dumps(v) for v in gates)+'};\n')
-    (out/LOGGER['name']).write_bytes(logger)
-    providers=fyg8.linkage._image_provider_map((inputs/'fixed-Image').read_bytes(),fyg8.linkage.IMAGE_SECTION_LAYOUT)
-    raw=fyg8.capture(['modprobe','--dump-modversions',out/LOGGER['name']],out/'logger-imports.txt')
-    imports={symbol:fyg8.linkage._norm_crc(crc) for crc,symbol in [line.split() for line in raw.splitlines()]}
-    h0.require(len(imports)==71 and all(providers.get(s)==c for s,c in imports.items()),'logger/kernel ABI differs')
+    if not ram_only:
+        (out/LOGGER['name']).write_bytes(logger)
+        providers=fyg8.linkage._image_provider_map((inputs/'fixed-Image').read_bytes(),fyg8.linkage.IMAGE_SECTION_LAYOUT)
+        raw=fyg8.capture(['modprobe','--dump-modversions',out/LOGGER['name']],out/'logger-imports.txt')
+        imports={symbol:fyg8.linkage._norm_crc(crc) for crc,symbol in [line.split() for line in raw.splitlines()]}
+        h0.require(len(imports)==71 and all(providers.get(s)==c for s,c in imports.items()),'logger/kernel ABI differs')
     h0.run(['aarch64-linux-gnu-gcc','-static','-Os','-Wall','-Wextra','-Werror',
         '-Wno-unused-function','-Wno-unused-const-variable','-ffunction-sections','-fdata-sections',
         '-Wl,--gc-sections','-fno-ident','-Wl,--build-id=none',*(['-DFYG8_VM_TEST'] if virt else []),
+        *(['-DFYG8_USB_RAM_ONLY'] if ram_only else []),
         '-I',out,'-I',fyg8.ext4.NATIVE,h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'compile.log')
     h0.run(['file',out/'fyg8-prepare'],out/'file.log')
     symbols=subprocess.check_output(['aarch64-linux-gnu-nm',out/'fyg8-prepare']);(out/'symbols.txt').write_bytes(symbols)
     h0.require(not any(re.search(rb'\b'+name+rb'$',symbols,re.M) for name in
         (b'storage',b'fs1_gpt_exact',b'fs1_read_super',b'fs1_open_block',b'ioctl',b'mount',b'execve',b'reboot')),
         'USB-only preparation contains storage/control linkage')
-    measured=early.observer(out,inputs,packages,run,key,virt=virt,usb_modules=selected)
+    measured=early.observer(out,inputs,packages,run,key,virt=virt,usb_modules=selected,usb_ram_only=ram_only)
+    if ram_only:
+        for name in ('fyg8-prepare','early-observer'):
+            binary=(out/name).read_bytes()
+            h0.require(b'/dev/kmsg' not in binary and b'/proc/last_kmsg' not in binary and b'sec_log_buf' not in binary,
+                'RAM-only executable retains a logger path')
     result=dict(namespace=NAMESPACE,version=VERSION,profile=PROFILE,run_id=run,virtual=virt,
-        inputs=str(inputs),packages=str(packages),modules=selected,measured=measured)
+        inputs=str(inputs),packages=str(packages),modules=selected,measured=measured,logging_mode=logging_mode)
     h0.publish(out/'request.json',result);return result
 
 
@@ -86,7 +98,7 @@ def snapshot(out):
 
 def inside(out):
     request=json.loads((out/'request.json').read_text());inputs=h0.private(request['inputs'])
-    packages=h0.private(request['packages']);selected,logger=modules(inputs)
+    packages=h0.private(request['packages']);mode=profile_api.usb_logging_mode(request);selected,logger=modules(inputs,mode)
     h0.require(selected==request['modules'],'USB module declaration changed')
     tree=h0.builder_tree(out,packages)
     for name in ('fyg8-prepare','early-observer'):
@@ -101,8 +113,9 @@ def inside(out):
     for name,dest in (('fyg8-hook','hooks/fyg8'),('early-hook','hooks/zzzz-early')):
         shutil.copyfile(h0.HERE/name,conf/dest);(conf/dest).chmod(0o755)
     dev=(h0.HERE/'fyg8-dev').read_text();h0.require(dev.endswith('fyg8_stop\n'),'terminal hook changed')
-    dev=dev.replace('mknod -m 666 /dev/null c 1 3 || fyg8_stop\n',
-        'mknod -m 666 /dev/null c 1 3 || fyg8_stop\nmknod -m 600 /dev/kmsg c 1 11 || fyg8_stop\n')
+    if mode=='retained':
+        dev=dev.replace('mknod -m 666 /dev/null c 1 3 || fyg8_stop\n',
+            'mknod -m 666 /dev/null c 1 3 || fyg8_stop\nmknod -m 600 /dev/kmsg c 1 11 || fyg8_stop\n')
     dev=dev[:-len('fyg8_stop\n')]+'/sbin/early-observer "$fyg8_status"\nfyg8_stop\n'
     (conf/'scripts/fyg8-dev').write_text(dev);(conf/'scripts/fyg8-dev').chmod(0o755)
     init=tree/'usr/share/initramfs-tools/init';original=init.read_text()
@@ -115,9 +128,9 @@ def inside(out):
     h0.generate_archives(out,tree,fyg8.KERNEL_RELEASE)
 
 
-def build(out,inputs,packages):
+def build(out,inputs,packages,*,logging_mode='ram-only'):
     out=h0.private(out,fresh=True);sources=snapshot(out)
-    request=prepare(out,inputs,packages,fresh=False)
+    request=prepare(out,inputs,packages,fresh=False,logging_mode=logging_mode)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
         sys.executable,__file__,'inside','--output',out],out/'namespace-build.log',timeout=700)
     h0.require(h0.sha(out/'initramfs-a.cpio.gz')==h0.sha(out/'initramfs-b.cpio.gz'),'USB A/B archive differs')
@@ -146,6 +159,7 @@ def build(out,inputs,packages):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('build','inside'))
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--inputs',type=Path);parser.add_argument('--packages',type=Path)
+    parser.add_argument('--logging-mode',choices=profile_api.USB_LOGGING_MODES,default='ram-only')
     args=parser.parse_args()
-    if args.action=='build':build(args.output,args.inputs,args.packages)
+    if args.action=='build':build(args.output,args.inputs,args.packages,logging_mode=args.logging_mode)
     else:inside(h0.private(args.output))

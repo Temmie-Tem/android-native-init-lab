@@ -1,11 +1,19 @@
 /* The effectful subset of retained P399 p260/p282 USB bring-up. Trace and
  * register observers are not required to obtain an authenticated reply. */
+#ifndef EARLY_USB_RAM_ONLY
 #define USB_RETAINED_PROTOCOL_EXTERNAL
 #include "usb-first-retained.h"
+#endif
 #include "usb-first-gates.h"
 static int usb_stage(unsigned ordinal,const char *name) {
+#ifdef EARLY_USB_RAM_ONLY
+    /* This mode exports the sealed RAM preparation log through authenticated
+     * USB. Optional printk diagnostics are absent, not silently accepted. */
+    (void)ordinal;(void)name;return 0;
+#else
     char line[96];int n=snprintf(line,sizeof(line),"USBSTAGE %s\n",name);
     return n<=0 || (size_t)n>=sizeof(line)?EOVERFLOW:usb_retained(ordinal,line,(size_t)n);
+#endif
 }
 static int usb_expect(const char *path,const char *wanted) {
     char text[160];int error=fs1_read_text(path,text,sizeof(text));if(error)return error;

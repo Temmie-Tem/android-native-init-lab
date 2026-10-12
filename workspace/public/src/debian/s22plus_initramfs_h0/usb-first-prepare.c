@@ -34,8 +34,12 @@ int main(int argc,char **argv) {
     if(!error){boot[36]=0;error=record("BEGIN run=%s boot=%s parent=1",fs1_run_id,boot);}
     if(!error)error=record("TARGET_GUARD_OK");
     if(!error)error=modules();
+#ifdef FYG8_USB_RAM_ONLY
+    if(!error)error=record("LOGGING_RAM_ONLY retention_after_reboot=not_available");
+#else
     if(!error)error=logger_bound();
     if(!error)error=record("LOGGER_BOUND retention_after_reboot=unproved");
+#endif
     int logged=record("TERMINAL result=%s error=%d",error?"REJECTED":"PLATFORM_READY",error);
     if(close(events)&&!error)error=EIO;
     return error || logged ? 1 : 0;

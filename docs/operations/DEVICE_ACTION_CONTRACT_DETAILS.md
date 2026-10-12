@@ -825,9 +825,12 @@ existing profiles and consumed records are unchanged.
 
 The separately reviewed [Debian USB-first V1](S22PLUS_DEBIAN_USB_FIRST_V1.md)
 is an expressly adopted sibling runtime profile under the same `debian-early`
-owner. It replaces 73+8/storage preparation with the stock `sec_log_buf`
-retention owner followed by the retained 73 platform modules, and one fixed
-USB evidence channel. Only bounded authenticated stage lines through ordinary
+owner. It replaces 73+8/storage preparation with the retained 73 platform
+modules and one fixed USB evidence channel. A build-declared `ram-only` subset
+uses mandatory checked RAM preparation records and authenticated USB retrieval;
+it adds no logger module, printk dependency or post-return `last_kmsg` capture.
+The `retained` variant adds the stock `sec_log_buf` retention owner before the
+same module sequence. Only bounded authenticated stage lines through ordinary
 printk into that existing RAM backend are added, with bounded checked ring
 readback and a fixed post-closure Android `last_kmsg` D0 read. It adds no UFS,
 block access, direct memory writer, DT/sysctl change, filesystem data write or

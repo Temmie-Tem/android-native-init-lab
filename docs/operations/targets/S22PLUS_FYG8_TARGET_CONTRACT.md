@@ -402,8 +402,11 @@ GPT/statfs D0 reads. The definition opens no grant or device action.
 
 The common-incorporated [Debian USB-first V1](../S22PLUS_DEBIAN_USB_FIRST_V1.md)
 is adopted as the separate `debian-usb-first-v1` profile of that same operation.
-It carries stock `sec_log_buf` plus 73 platform modules and fixed USB evidence,
-with no UFS/storage preparation. Bounded authenticated printk stage records,
+Its build selects either `ram-only` evidence with exactly the 73 platform
+modules, or `retained` evidence with stock `sec_log_buf` added first. Both keep
+complete authenticated RAM preparation evidence and fixed USB proof, with no
+UFS/storage preparation. RAM-only mode has no printk/last_kmsg dependency or
+post-return capture scope. For retained mode, bounded authenticated printk stage records,
 checked current-ring readback and the fixed post-closure same-returned-boot
 Android `last_kmsg` D0 read are its entire logging scope. Its own independent
 review and qualified fresh candidate precede the returned attended grant;

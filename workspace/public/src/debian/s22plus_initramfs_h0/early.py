@@ -37,8 +37,9 @@ def shell_input(packages):
         return source.extractfile(member).read()
 
 
-def observer(out,inputs,packages,run,key,*,virt=False,usb_modules=None):
+def observer(out,inputs,packages,run,key,*,virt=False,usb_modules=None,usb_ram_only=False):
     value=fyg8.verify_inventory(inputs)
+    h0.require(not usb_ram_only or usb_modules,'RAM-only mode requires the USB-only plan')
     original=(packages/'root/usr/share/initramfs-tools/init').read_bytes()
     needle=b'mount -t devtmpfs -o nosuid,mode=0755 udev /dev\n'
     h0.require(original.count(needle)==1,'Debian early init changed')
@@ -58,6 +59,7 @@ def observer(out,inputs,packages,run,key,*,virt=False,usb_modules=None):
         '-Wno-unused-function','-Wno-unused-const-variable','-ffunction-sections','-fdata-sections',
         '-Wl,--gc-sections','-fno-ident','-Wl,--build-id=none',*(['-DEARLY_VM_TEST'] if virt else []),
         *(['-DEARLY_USB_FIRST'] if usb_modules else []),
+        *(['-DEARLY_USB_RAM_ONLY'] if usb_ram_only else []),
         '-I',out,'-I',fyg8.ext4.NATIVE,h0.HERE/'early-observer.c','-o',out/'early-observer'],out/'observer-compile.log')
     h0.run(['file',out/'early-observer'],out/'observer-file.log')
     return dict(shell_sha256=fyg8.digest(shell),init_sha256=fyg8.digest(init),helper_sha256=h0.sha(out/'fyg8-prepare'))

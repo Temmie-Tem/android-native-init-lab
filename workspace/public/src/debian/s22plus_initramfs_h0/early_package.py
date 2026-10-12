@@ -36,8 +36,9 @@ def package(out,build,vm):
         'physical initramfs build required')
     require(tested['status']=='PASS' and tested['device_actions']==0 and
         tested['build_sha256']==h0.sha(build/'build.json') and
-        [r['case'] for r in tested['cases']]==(['normal','bad-auth','logger-off','insert-error'] if usb else ['clean','dirty','bad-auth']) and
-        all(r['status']=='PASS' and r['disk_before']==r['disk_after'] for r in tested['cases']),
+        [r['case'] for r in tested['cases']]==profile.vm_cases(built) and
+        all(r['status']=='PASS' and r['disk_before']==r['disk_after'] and
+            (not usb or r.get('logging_mode','retained')==profile.usb_logging_mode(built)) for r in tested['cases']),
         'actual producer/consumer VM qualification differs')
     runtime={}
     for row in built['source_inputs']:

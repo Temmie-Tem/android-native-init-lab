@@ -16,6 +16,9 @@ def capture(directory,task_directory):
     root=profile.ROOT;directory=private_path(root,directory,exists=False)
     task_directory=private_path(root,task_directory)
     task=read(task_directory/'task.json');closed=read(task_directory/'closed.json')
+    artifact=read(verify(task['N']['early_boot']))
+    require(profile.usb_logging_mode(read(verify(artifact['build'])))=='retained',
+        'RAM-only USB candidate has no retained-log capture scope')
     require(closed['task']==pin(task_directory/'task.json') and
         task['N']['profile']==profile.USB_PROFILE and task['operations']==[profile.OPERATION] and
         closed['terminal_state']=='ANDROID_CLOSED_HEALTHY' and closed['consumed_operations']==1,

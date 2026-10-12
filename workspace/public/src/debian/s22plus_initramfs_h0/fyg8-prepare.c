@@ -14,7 +14,7 @@
 #include <sys/utsname.h>
 #include <time.h>
 #include "fyg8-plan.h"
-#ifdef FYG8_USB_FIRST
+#if defined(FYG8_USB_FIRST) && !defined(FYG8_USB_RAM_ONLY)
 #include "usb-first-retained.h"
 #endif
 
@@ -38,7 +38,7 @@ static int record(const char *format, ...) {
     /* No later effect follows a short/failed evidence write. Do not retry. */
     if (write(events, line, (size_t)n) != n || fsync(events)) return EIO;
     event_bytes += (unsigned)n;
-#ifdef FYG8_USB_FIRST
+#if defined(FYG8_USB_FIRST) && !defined(FYG8_USB_RAM_ONLY)
     return usb_retained(sequence,line,(size_t)n);
 #else
     return 0;
@@ -122,7 +122,7 @@ static int modules(void) {
         if (!error) error=insert(fd,m->parameters);
         if (close(fd) && !error) error=fs1_error();
         if (!error && module_present(i)!=1) error=ENODEV;
-#ifdef FYG8_USB_FIRST
+#if defined(FYG8_USB_FIRST) && !defined(FYG8_USB_RAM_ONLY)
         if (!error && i==0) error=logger_bound();
 #endif
         if (error) return error;  /* Including EEXIST: no reinsertion/replay. */

@@ -6,7 +6,7 @@ This sibling of [Debian-owned early boot V1](S22PLUS_DEBIAN_EARLY_BOOT_V1.md)
 uses the same V3 `debian-early` operation and physical-original-A recovery
 owner, with the distinct `debian-usb-first-v1` runtime profile and source-bound
 review. Only `SM-S906N/g0q/S906NKSS7FYG8` and the retained Android32 target are
-selected. P417 and every historical grant remain consumed; this definition
+selected. P417/P418 and every historical grant remain consumed; this definition
 opens no grant. The original profile's metadata predicate is unchanged.
 
 ## Finite operation and recovery
@@ -32,9 +32,22 @@ is inherited. A kernel/module syscall can outlive a userspace deadline.
 ## USB before storage
 
 Debian's packaged shell `/init` remains PID1 and starts two fixed children
-sequentially. The first verifies all module files, inserts the exact stock
-`sec_log_buf` module, proves its matching platform driver bound, then loads the
-retained 73-module platform order. Every insertion has one checked intent and
+sequentially. The artifact fixes its logging mode at build time; this is not a
+runtime fallback or a relaxed interpretation of a failed retained log.
+The `ram-only` mode, first selected by P419, verifies and loads exactly the
+retained 73-module platform order. It excludes the added `sec_log_buf` module,
+logger binding and every `/dev/kmsg` write/readback from both children. Checked
+bounded RAM preparation records remain mandatory, and the complete log must
+authenticate through USB. USB stage printk diagnostics are absent in this mode.
+It makes no post-return retention claim and selects no post-return `last_kmsg`
+capture. Losing USB can leave no retrievable stage evidence after physical
+return; that limitation is accepted for this bounded dependency-isolation step.
+
+The separately declared `retained` mode preserves P418's exact stock
+`sec_log_buf` first insertion and matching driver binding before the same 73
+platform modules. Historical builds without a mode field mean `retained` only.
+Neither mode permits skipping a platform module or its checks after failure.
+Every insertion has one checked intent and
 completion record; EEXIST/error stops without retry/unload. The eight UFS
 modules are absent from the candidate's fixed module directory. There is no
 UFS initialization, block alias, GPT/superblock read, BLKROSET, root admission,
@@ -54,11 +67,15 @@ The existing research VID/PID and `S22E3` plus fresh run identity preserve the
 reviewed host endpoint/holder checks. The protocol uses the distinct
 `S22PLUS-FYG8-DEBIAN-USB-FIRST-v1` HMAC domain. Actual parent executable,
 command line, `/init`, helper and kernel boot identity must match the built
-archive and complete RAM log. `PASS_DEBIAN_USB_FIRST_OBSERVED` establishes
+archive and complete RAM log, including the selected mode's exact completion
+record. `PASS_DEBIAN_USB_FIRST_OBSERVED` establishes
 Debian early PID1/platform/USB evidence only. It says nothing about native_data
 state or installed Debian, and is not a reboot-retention verdict.
 
 ## Bounded retained stage evidence
+
+This section applies only to a build declared `retained`; the post-return
+reader rejects a `ram-only` candidate before any connected read.
 
 The stock logger uses its existing reserved-memory region and strategy 3
 vendor printk hooks; there is no new physical-memory writer, mapping, region,
@@ -90,12 +107,16 @@ physical return. No native-return candidate is selected by this profile.
 
 ## Qualification
 
-Independent review covers this adoption, changed reachable producer/consumer,
-stock logger ABI and probe semantics, bounded printk readback, actual combined
+Independent review covers the selected mode, changed reachable producer/consumer,
+actual combined
 vendor/Debian archive, USB sequence, existing V3 no-replay/recovery integration
-and fixed post-return D0. ARM64 VM cases execute actual Debian PID1, logging
-readback and HMAC frames with board/module/gadget substitutions disclosed;
-normal, invalid-HMAC, logger-off and failed-insertion cases are required.
+and evidence scope. Retained mode additionally covers stock logger ABI/probe,
+bounded printk readback and fixed post-return D0. ARM64 VM cases execute actual
+Debian PID1, RAM logs and HMAC frames with board/module/gadget substitutions
+disclosed. Both modes require normal, invalid-HMAC, logger-off and failed-insertion
+cases. For `ram-only`, logger-off must still produce authenticated complete
+platform/PID1 evidence without a `/dev/kmsg` node, and a missing RAM log must
+prevent USB publication. For `retained`, logger-off must stop preparation.
 H0 results do not prove Samsung hardware, retention or recovery.
 
 Actual A/B boot/AP qualification and a current source-bound capability review

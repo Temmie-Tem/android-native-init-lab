@@ -28,13 +28,17 @@ def parse_log(raw,run,module_names,boot):
     expected=[events[0],b'TARGET_GUARD_OK']
     for ordinal,name in enumerate(module_names,1):
         expected.extend(f'MODULE_{state} ordinal={ordinal} name={name}'.encode() for state in ('BEGIN','DONE'))
+    require(module_names and ('sec_log_buf' not in module_names or module_names[0]=='sec_log_buf'),
+        'USB logger position differs')
+    retained=module_names[0]=='sec_log_buf'
     expected.extend([f'MODULE_SET_READY count={len(module_names)}'.encode(),
-        b'LOGGER_BOUND retention_after_reboot=unproved',b'TERMINAL result=PLATFORM_READY error=0'])
-    require(events==expected,'USB result lacks exact platform/logger completion or contains storage work')
+        b'LOGGER_BOUND retention_after_reboot=unproved' if retained else b'LOGGING_RAM_ONLY retention_after_reboot=not_available',
+        b'TERMINAL result=PLATFORM_READY error=0'])
+    require(events==expected,'USB result lacks exact platform/logging completion or contains storage work')
     return dict(preparation_complete=True,metadata_state='not_observed',helper_error=0,events=len(events),
         module_attempts=len(module_names),module_completions=len(module_names),root_admitted=False,
         partition_readonly=False,filesystem_mounted=False,persistent_writes=False,storage_accessed=False,
-        logger_bound=True,retention_after_reboot=False)
+        logger_bound=retained,retention_after_reboot=False,logging_mode='retained' if retained else 'ram-only')
 
 
 def replay(rx,tx,*,key,run,expected,module_names):
