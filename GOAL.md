@@ -21,6 +21,22 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## P423 logger-only early observation selected for H0
+
+The operator requested analysis and preparation of a minimum observation
+before P421's file-creation prerequisites. The
+[design and qualification report](docs/reports/S22PLUS_DEBIAN_EARLY_STAGE_P423_H0_2026-10-13.md)
+selects Debian shell PID1, minimal RAM setup and one stock `sec_log_buf`
+module, with zero platform-prefix modules and no USB/UFS/storage work.
+Short authenticated records will distinguish parent identity, pre-insertion,
+returned insertion, logger binding and terminal progress after original-A
+return. P421's actual stopping point remains unknown.
+
+The bounded H0 unit is implementation, actual A/B/ARM64 qualification,
+independent review and offline task preparation. No device action is selected.
+P420–P422 stay consumed; the earlier qualified capabilities are references,
+not authority to replay. Initial shell/RAM failures may still leave no record.
+
 ## P422 retrieval closed: no P421 file; Android healthy
 
 P422 `v0.5.0-rc.6` consumed its own returned attended reader grant on
