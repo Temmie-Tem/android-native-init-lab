@@ -19,6 +19,7 @@ import s22plus_switch_root_protocol_v1 as switch_wire
 import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
+import s22plus_native_log_profile_v1 as calibration
 import s22plus_debian_handoff_protocol_v1 as handoff_wire
 import s22plus_root_console_v1 as console
 import s22plus_native_target_io_v3 as target_io
@@ -55,9 +56,9 @@ def io_class(profile, image=None):
         require(image is not None,'switch-root observation has no bound image')
         switch.image_binding(image)
         return IO
-    if profile in (inspection.SELECTION, probe.SELECTION, preflight.SELECTION, staged.SELECTION, journal.SELECTION, evidence.SELECTION):
+    if profile in (inspection.SELECTION, probe.SELECTION, preflight.SELECTION, staged.SELECTION, journal.SELECTION, evidence.SELECTION, calibration.SELECTION):
         require(image is not None, 'root inspection has no bound image')
-        item = next(item for item in (inspection,probe,preflight,staged,journal,evidence) if item.SELECTION==profile)
+        item = next(item for item in (inspection,probe,preflight,staged,journal,evidence,calibration) if item.SELECTION==profile)
         class RootInspectionIO(IO):
             EXTRA_PROFILE = item.Profile(image)
             SOURCE_PROFILE = dict(schema=item.SCHEMA, selection=profile)
@@ -187,7 +188,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
             profile='health',before_extra=None):
     require(ending in ('detach','download','handoff') and type(hud) is bool,'native observation selection differs')
     selected_io=io_class(profile,image)
-    if profile in (switch.SELECTION,handoff.SELECTION) or profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION,journal.SELECTION,evidence.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
+    if profile in (switch.SELECTION,handoff.SELECTION) or profile in (*gpt.SELECTIONS,*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION,journal.SELECTION,evidence.SELECTION,calibration.SELECTION) and selected_io.EXTRA_PROFILE.MUTATES:
         require(callable(before_extra),'GPT mutation has no durable owner callback')
     require(profile=='health' and ending!='handoff' or profile==handoff.SELECTION and ending=='handoff' and hud is False
         or profile==switch.SELECTION and ending=='download' and hud is False
@@ -203,7 +204,7 @@ def observe(directory, image, host, *, ending, hud, guard, before_terminal,
     try:
         options=dict(local_carrier=True) if profile==handoff.SELECTION else {}
         with host.open_native(bound.run_id_hex,before_open=guard,**options) as (fd,acquisition):
-            seconds=switch.Profile.OBSERVATION_SECONDS if profile in (switch.SELECTION,handoff.SELECTION) else selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION,journal.SELECTION,evidence.SELECTION) else 60
+            seconds=switch.Profile.OBSERVATION_SECONDS if profile in (switch.SELECTION,handoff.SELECTION) else selected_io.EXTRA_PROFILE.OBSERVATION_SECONDS if profile in (*fs.SELECTIONS,inspection.SELECTION,probe.SELECTION,staged.SELECTION,journal.SELECTION,evidence.SELECTION,calibration.SELECTION) else 60
             observation_deadline_ns=clock()+seconds*1_000_000_000-100_000_000
             publish(directory/'open.json',dict(image=image,ending=ending,hud=hud,
                 acquisition=acquisition,boottime_ns=clock(),deadline_ns=observation_deadline_ns,**extra_fields))

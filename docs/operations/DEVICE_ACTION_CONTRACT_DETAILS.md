@@ -96,6 +96,10 @@ permission to perform host-only work.
    narrows stock retained-RAM observation to one logger module and measured
    early parent/stage records, with no USB/platform/UFS/storage work, direct
    RAM mapping or block-backed data write; original-A return remains attended and physical.
+   The separate [native log calibration](S22PLUS_NATIVE_LOG_CALIBRATION_V1.md)
+   adds one fixed root-child stock logger and bounded current/returned retained
+   evidence on the retained native carrier, with only RAM node/marker writes,
+   no partition command or filesystem data write, and physical original-A return.
    The separate [Debian early file pilot](S22PLUS_DEBIAN_FILE_PILOT_V1.md)
    permits only its fixed bounded native_data directory/file writes and ordinary
    ext4 metadata after fresh clean protected admission, with no installed code,
@@ -860,6 +864,22 @@ the fixed same-returned-Android-boot bounded `last_kmsg` D0 reader is adopted.
 Complete/partial/rejected/absent record meanings and current-ring/retention/
 Android health stay distinct. Independent review and actual qualification
 precede a concrete grant; offline preparation remains H0 only.
+
+## S22+ native retained-log calibration
+
+The separately reviewed [native calibration V1](S22PLUS_NATIVE_LOG_CALIBRATION_V1.md)
+is adopted only as `thermal-v3-reconnect-ufs-drain-log-calibration-v1` under V3's
+`log-calibrate` operation. One returned attended 1800-second/one-operation grant
+binds one fresh N on the retained native UFS/drain carrier, one authenticated
+fixed root child, one absent-before-call stock logger insertion, two bounded
+markers and one physical original-A return with full Android32 health. The
+child's exclusive checked RAM character alias and stock reserved-RAM markers
+are its only additional writes. Current-ring acceptance, current-backend
+membership, same-returned-Android-boot bounded `last_kmsg` D0 evidence and
+Android recovery stay separate. No storage command, mount, persistent data
+write, Debian execution, normal native CONTROL return or replay is adopted.
+The original owner preserves failure stops and one-shot physical recovery;
+independent review and A/B/ARM64 qualification precede any concrete grant.
 
 ## S22+ Debian early file pilot
 

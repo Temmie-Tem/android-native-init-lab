@@ -21,6 +21,7 @@ import s22plus_switch_root_profile_v1 as switch
 import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
+import s22plus_native_log_profile_v1 as calibration
 import s22plus_debian_early_profile_v1 as early
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
@@ -50,7 +51,8 @@ def image_valid(image, *, artifact_bytes=False):
                 require(transport.boot_only_member_receipt(ap,label='Debian early')==image['member'],
                     'qualified early boot member differs')
         return
-    exporters={'thermal-v3-reconnect-v1':'s22plus_native_artifact_v3_h0.py',
+    exporters={calibration.PROFILE:'s22plus_native_log_artifact_v1_h0.py',
+        'thermal-v3-reconnect-v1':'s22plus_native_artifact_v3_h0.py',
         'thermal-v3-reconnect-ufs-v1':'s22plus_native_ufs_artifact_v1_h0.py',
         'thermal-v3-reconnect-ufs-drain-v1':'s22plus_native_output_drain_artifact_v1_h0.py',
         gpt.PROFILE:'s22plus_native_gpt_artifact_v1_h0.py',
@@ -65,6 +67,7 @@ def image_valid(image, *, artifact_bytes=False):
         **{p:'s22plus_native_ext4_artifact_v1_h0.py' for p in fs.PROFILES}}
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key',
         'qualification','runtime_sources'}
+    if image.get('profile')==calibration.PROFILE:keys.update(('log_calibration','gpt','android_return'))
     if image.get('profile')==gpt.PROFILE:keys.add('gpt')
     if image.get('profile') in fs.PROFILES:keys.update(('filesystem','gpt','android_return'))
     if image.get('profile') in (inspection.PROFILE,probe.PROFILE,staged.PROFILE,switch.PROFILE,journal.PROFILE,evidence.PROFILE):keys.update(('root_inspection','gpt','android_return'))
@@ -123,6 +126,22 @@ def image_valid(image, *, artifact_bytes=False):
             require(all(inventory[member][k]==receipt[k] for k in ('size','sha256')) and
                 inventory[member]['mode']==mode and inventory[member]['uid']==inventory[member]['gid']==0,
                 'filesystem ramdisk payload does not join its fixed tool binding')
+    if image['profile']==calibration.PROFILE:
+        binding=calibration.image_binding(image)
+        require(built['log_calibration']==binding and
+            built['native_selection']['runtime_profile']['log_calibration_profile']==calibration.PROFILE and
+            built['native_selection']['runtime_profile']['log_calibration_logger']==calibration.LOGGER,
+            'calibration role differs from its A/B producer')
+        inventory=built['candidate']['a']['inventory']
+        for member,receipt,mode in (('s22-log-calibration',binding['helper'],0o100500),
+                ('s22-log-module.ko',binding['module'],0o100400)):
+            require(all(inventory[member][k]==receipt[k] for k in ('size','sha256')) and
+                inventory[member]['mode']==mode and inventory[member]['uid']==inventory[member]['gid']==0 and
+                inventory[member]['nlink']==1,'calibration ramdisk member differs')
+        require(not any(name in inventory for name in ('s22-fs','s22-fs-mke2fs','s22-fs-e2fsck','rootfs.tar.xz',
+            's22-root-inspect','s22-root-inspect.table','s22-userspace-probe','s22-staged-preflight','s22-prehandoff',
+            's22-journal-recovery','s22-root-evidence','s22-switch-root','s22-switch-witness','s22-journal-replay','s22-debian-usb')),
+            'calibration contains an unselected storage or Debian workload')
     if image['profile'] == preflight.PROFILE:
         binding=preflight.image_binding(image)
         require(built['preflight']==binding and
@@ -422,6 +441,10 @@ class Adapter:
         guard()
         if step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
+        elif request['operation']==calibration.OPERATION and step.name=='install-android':
+            from s22plus_native_log_session_v1 import return_request
+            ready=return_request(self,request)
+            arrival_deadline=ready['deadline_ns']
         elif request['operation']==early.OPERATION and step.name=='install-android':
             from s22plus_debian_early_session_v1 import return_request
             ready=return_request(self,request)

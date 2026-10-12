@@ -429,6 +429,22 @@ point or non-execution. Current source review and actual A/B/ARM64 qualification
 precede a concrete grant. Offline preparation performs no device observation
 and claims no fresh health; this definition itself opens no grant.
 
+### Native retained-log calibration V1
+
+The common-incorporated [native calibration V1](../S22PLUS_NATIVE_LOG_CALIBRATION_V1.md)
+is adopted only for `thermal-v3-reconnect-ufs-drain-log-calibration-v1` and V3
+operation `log-calibrate`. Current source-bound review, actual A/B/ARM64
+qualification and one returned attended 1800-second/one-operation grant bind
+one fresh N, one fixed authenticated root-child stock logger and two bounded
+RAM markers on the retained native UFS/drain carrier. No storage command,
+filesystem data write, Debian execution or normal native CONTROL return is
+selected. Physical Download, one original A and full Android32 health preserve
+the same journal owner, original deadlines and no replay. After healthy closure,
+the fixed bounded D0 read may compare exact live backend frames on the same
+returned Android boot. Ring acceptance, backend membership, retention and
+recovery health are separate proof; absence grants no effect. Offline readiness
+claims no fresh health and opens no grant.
+
 ### Debian early file pilot V1
 
 The common-incorporated [file pilot V1](../S22PLUS_DEBIAN_FILE_PILOT_V1.md)

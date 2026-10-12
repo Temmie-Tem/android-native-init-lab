@@ -8,11 +8,12 @@ import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
 import s22plus_debian_early_profile_v1 as early
+import s22plus_native_log_profile_v1 as calibration
 from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence, early)
+ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence, early, calibration)
 PROFILES = tuple(p for item in ITEMS for p in getattr(item,'PROFILES',(item.PROFILE,)))
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
@@ -30,6 +31,9 @@ def mutates_step(operation,name):
 def normal_steps(operation=profile.OPERATION):
     from s22plus_native_session_v3 import Step
     item = selected(operation)
+    if item is calibration:
+        from s22plus_native_log_session_v1 import normal_steps as log_steps
+        return log_steps()
     if item is early:
         from s22plus_debian_early_session_v1 import normal_steps as early_steps
         return early_steps()
@@ -58,6 +62,8 @@ def validate_task(task, *, recovery=False):
         not any(task[k] for k in ('reentry', 'hud', 'usb_reconnect')),
         'inspector profile is restricted to one attended Android-origin operation')
     if not recovery: item.image_binding(task['N'])
+    if item is calibration:
+        require(task['seconds']==1800,'log calibration requires its exact 1800-second grant')
     if item is early and task['N']['profile'] in early.WINDOW_PROFILES:
         require(task['seconds']==1800,'early host window requires its exact 1800-second grant')
     if item is handoff:
@@ -90,7 +96,7 @@ def validate_result(adapter, step, value, request):
         from s22plus_debian_handoff_session_v1 import validate_result as handoff_result
         return handoff_result(adapter,step,value,request)
     if step.name != item.SELECTION: return
-    status = 'PASS_ROOT_EVIDENCE_OBSERVED' if item is evidence else 'PASS_JOURNAL_RECOVERY_OBSERVED' if item is journal else 'PASS_SWITCH_ROOT_WITNESS' if item is switch else 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
+    status = 'PASS_LOG_CALIBRATION_OBSERVED' if item is calibration else 'PASS_ROOT_EVIDENCE_OBSERVED' if item is evidence else 'PASS_JOURNAL_RECOVERY_OBSERVED' if item is journal else 'PASS_SWITCH_ROOT_WITNESS' if item is switch else 'PASS_STAGED_PREFLIGHT_OBSERVED' if item is staged else 'PASS_PREFLIGHT_OBSERVED' if item is preflight else 'PASS_PROBE_COMPLETED' if item is probe else 'PASS_INSPECTION_COMPLETED'
     require(value['proof'][item.Profile.RESULT_KEY]['status'] == status,
         'protected-root operation did not finish with bounded raw proof')
     records = [r['data'] for r in Journal(adapter.directory / 'journal').rows()
@@ -124,6 +130,14 @@ def validate_result(adapter, step, value, request):
         detail['nonce_sha256'] == proof['nonce_sha256'] and
         detail['kernel_boot_identity_sha256'] == proof['kernel_boot_identity_sha256'],
         'inspection does not join its original kernel RO control intent')
+    if item is calibration:
+        require(proof['log_calibration']['kernel_boot_identity_sha256']==proof['kernel_boot_identity_sha256'],
+            'calibration belongs to a different authenticated native boot')
+        transfers=[r['data'] for r in Journal(adapter.directory/'journal').rows()
+            if r['event']=='effect-intent' and r['data']['step']=='install-native-first']
+        require(len(transfers)==1 and transfers[0]['role']=='N' and transfers[0]['action']=='transfer',
+            'calibration has no unique fresh native transfer intent')
+
 
 
 def terminal(adapter, request, *, recovered):
