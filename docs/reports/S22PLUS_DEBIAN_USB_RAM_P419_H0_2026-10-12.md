@@ -1,5 +1,11 @@
 # P419 Debian early USB with mandatory RAM evidence
 
+Historical preparation record: the one attended trial was consumed and closed
+healthy on 2026-10-12 KST. The
+[physical report and timeline](S22PLUS_DEBIAN_USB_RAM_P419_RUN_2026-10-12.md)
+record USB/PID1 **NO_PROOF**, one candidate and one original-A transfer, and full
+Android final health. The ready state below grants no replay.
+
 Date: 2026-10-12 KST. Target: S22+ `SM-S906N/g0q/S906NKSS7FYG8` only.
 Status: **PASS_GO; CONNECTED_PREPARATION_PASS; AWAITING_RETURNED_ATTENDED_GRANT**.
 No candidate transfer or new grant.
