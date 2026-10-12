@@ -9,6 +9,7 @@ POLICY='docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md'
 WINDOW_SECONDS=360
 TRANSFER_SECONDS=240
 RETURN_SECONDS=600
+PENDING='AWAITING_OFFLINE_FILE_RECORD'
 CASES=('normal','dirty','wrong-uuid','existing-record','insert-error','ram-log-missing',
     'short-write','file-sync-error','parent-sync-error','unmount-error','late-ro-clear','checker-timeout')
 PARTIAL_WRITES=('short-write','file-sync-error','parent-sync-error','unmount-error')

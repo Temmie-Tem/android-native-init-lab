@@ -20,8 +20,7 @@ import s22plus_debian_early_profile_v1 as profile_api
 NAMESPACE='p419'
 VERSION='v0.5.0-rc.3'
 PROFILE='debian-usb-first-v1'
-LOGGER=dict(name='sec_log_buf.ko',runtime_name='sec_log_buf',parameters='',size=76688,
-    sha256='b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61')
+LOGGER=profile_api.LOGGER
 
 
 def modules(inputs,logging_mode='ram-only'):

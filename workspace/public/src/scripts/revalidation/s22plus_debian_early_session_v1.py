@@ -14,10 +14,10 @@ def normal_steps():
 
 def validate_result(adapter,step,value,request):
     if step.name!=profile.SELECTION:return
-    if request['N']['profile']==profile.FILE_PROFILE:
+    if request['N']['profile'] in profile.WINDOW_PROFILES:
         from s22plus_debian_file_window_v1 import rederive
-        require(value==rederive(adapter,request) and value['proof']['status']=='AWAITING_OFFLINE_FILE_RECORD',
-            'file window was promoted to live execution proof')
+        require(value==rederive(adapter,request) and value['proof']['status']==profile.window_profile(request['N']).PENDING,
+            'host window was promoted to live execution proof')
     else:
         expected='PASS_DEBIAN_USB_FIRST_OBSERVED' if request['N']['profile']==profile.USB_PROFILE else 'PASS_DEBIAN_EARLY_OBSERVED'
         require(value['proof']['status']==expected and value['proof']['debian_early_pid1'] is True and

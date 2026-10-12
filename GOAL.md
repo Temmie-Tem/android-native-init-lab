@@ -21,21 +21,32 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## P423 logger-only early observation selected for H0
+## P423 logger-only early observation is H0 ready
 
-The operator requested analysis and preparation of a minimum observation
-before P421's file-creation prerequisites. The
-[design and qualification report](docs/reports/S22PLUS_DEBIAN_EARLY_STAGE_P423_H0_2026-10-13.md)
-selects Debian shell PID1, minimal RAM setup and one stock `sec_log_buf`
-module, with zero platform-prefix modules and no USB/UFS/storage work.
-Short authenticated records will distinguish parent identity, pre-insertion,
-returned insertion, logger binding and terminal progress after original-A
-return. P421's actual stopping point remains unknown.
+The requested minimum pre-file observation is prepared as P423
+`debian-stage-probe-v1`, `v0.5.0-rc.7`. The
+[qualification report](docs/reports/S22PLUS_DEBIAN_EARLY_STAGE_P423_H0_2026-10-13.md)
+records Debian shell PID1, minimal RAM setup and one stock `sec_log_buf`
+module, with zero platform-prefix modules and no USB/UFS/block-backed work.
+Short authenticated frames distinguish measured parent/initial image/helper,
+next module call, returned insertion, logger binding and terminal emission.
+The design was committed before implementation; P421's stopping point is
+still unknown.
 
-The bounded H0 unit is implementation, actual A/B/ARM64 qualification,
-independent review and offline task preparation. No device action is selected.
-P420–P422 stay consumed; the earlier qualified capabilities are references,
-not authority to replay. Initial shell/RAM failures may still leave no record.
+Actual A/B boot/AP qualification, six ARM64 cases, ten actual-producer record
+negatives, four malformed-artifact rejections and 109 focused tests passed.
+Independent review returned **PASS_GO**. The concrete offline task passed
+policy/artifact revalidation with subprocess/device acquisition blocked:
+**READY_H0_PRELIVE_ONLY**, no grant, no fresh connected-health claim, no F1 owner.
+No device read, control or transfer occurred. A90 and S20+ remain untouched.
+
+The prospective operation uses a 90-second host opportunity window, attended
+physical original-A return and then the fixed same-returned-boot `last_kmsg`
+reader. Actual execution still requires its own returned attended grant and
+fresh machine binding. Eight valid records would prove the emitted early
+milestones, not the final readback, helper return, parking, platform/storage,
+installed Debian or SSH. Missing records still cannot locate an earlier
+failure or prove non-execution. P420–P422 stay consumed and closed.
 
 ## P422 retrieval closed: no P421 file; Android healthy
 

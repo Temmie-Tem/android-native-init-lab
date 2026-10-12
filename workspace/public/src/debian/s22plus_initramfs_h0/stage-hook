@@ -1,0 +1,9 @@
+#!/bin/sh
+case "${1:-}" in prereqs) exit 0;; esac
+set -eu
+# Retain the already qualified compatibility with vendor_boot's /lib/modules.
+[ "$(readlink "$DESTDIR/lib")" = usr/lib ]
+rm "$DESTDIR/lib"
+mkdir "$DESTDIR/lib"
+ln -s ../usr/lib/aarch64-linux-gnu "$DESTDIR/lib/aarch64-linux-gnu"
+ln -s ../usr/lib/ld-linux-aarch64.so.1 "$DESTDIR/lib/ld-linux-aarch64.so.1"

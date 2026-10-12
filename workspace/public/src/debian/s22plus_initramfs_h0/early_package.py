@@ -32,8 +32,10 @@ def package(out,build,vm):
     built=read(build/'build.json');tested=read(vm/'result.json')
     usb=built['profile']==profile.USB_PROFILE
     file_pilot=built['profile']==profile.FILE_PROFILE
+    stage=built['profile']==profile.STAGE_PROFILE
+    from s22plus_debian_stage_profile_v1 import SCHEMA as stage_schema,vm_results as stage_vm_results
     from s22plus_debian_file_profile_v1 import SCHEMA as file_schema,vm_results
-    schema=file_schema if file_pilot else profile.USB_SCHEMA if usb else profile.SCHEMA
+    schema=stage_schema if stage else file_schema if file_pilot else profile.USB_SCHEMA if usb else profile.SCHEMA
     require(built['virtual'] is False and built['ab_identical'] is True and built['device_actions']==0,
         'physical initramfs build required')
     require(tested['status']=='PASS' and tested['device_actions']==0 and
@@ -43,6 +45,7 @@ def package(out,build,vm):
             (not usb or r.get('logging_mode','retained')==profile.usb_logging_mode(built)) for r in tested['cases']),
         'actual producer/consumer VM qualification differs')
     if file_pilot:vm_results(tested,dict(built,key=pin(build/'key',maximum=32)))
+    if stage:stage_vm_results(tested,dict(built,key=pin(build/'key',maximum=32)))
     runtime={}
     for row in built['source_inputs']:
         relative=Path(row['path'])
@@ -87,7 +90,7 @@ def package(out,build,vm):
     artifact=publish(out/'artifact.json',dict(schema=schema+'-artifact',namespace=built['namespace'],
         version=built['version'],run_id=built['run_id'],ap=ap,member=member,key=pin(build/'key',maximum=32),
         build=pin(build/'build.json'),expected=built['measured'],runtime_sources=runtime,
-        module_names=[m['runtime_name'] for m in (built['modules'] if usb else inventory['modules'])],ab_identical=True,active=False,
+        module_names=[m['runtime_name'] for m in (built['modules'] if usb or stage else inventory['modules'])],ab_identical=True,active=False,
         boot=pin(out/'pack-a/boot.img',maximum=128*1024**2),ramdisk_sha256=fyg8.digest(ramdisk),
         inventory=pin(inputs/'inventory.json'),vm=pin(vm/'result.json'),device_actions=0))
     _,terminal,plan=profile.prior_inputs();final=verify(terminal['final_health'])

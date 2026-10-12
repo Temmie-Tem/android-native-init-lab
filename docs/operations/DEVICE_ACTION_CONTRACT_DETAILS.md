@@ -92,6 +92,10 @@ permission to perform host-only work.
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
    reinstall, formatting, GPT mutation or other-partition payload.
+   The separate [Debian logger-only stage probe](S22PLUS_DEBIAN_STAGE_PROBE_V1.md)
+   narrows stock retained-RAM observation to one logger module and measured
+   early parent/stage records, with no USB/platform/UFS/storage work, direct
+   RAM mapping or block-backed data write; original-A return remains attended and physical.
    The separate [Debian early file pilot](S22PLUS_DEBIAN_FILE_PILOT_V1.md)
    permits only its fixed bounded native_data directory/file writes and ordinary
    ext4 metadata after fresh clean protected admission, with no installed code,
@@ -841,6 +845,21 @@ block access, direct memory writer, DT/sysctl change, filesystem data write or
 native-return experiment. The same fresh finite attended grant, physical
 original-A recovery, exact health, global consumption and no-replay rules
 apply. Ring acceptance, post-return retention and PID1/USB proof stay separate.
+
+## S22+ Debian logger-only early stages
+
+The separately reviewed [stage probe V1](S22PLUS_DEBIAN_STAGE_PROBE_V1.md)
+is adopted only as `debian-stage-probe-v1` under V3's `debian-early` owner.
+One returned attended 1800-second/one-operation grant consumes one fresh N,
+one stock logger insertion, bounded measured-parent/printk stages and one
+physical original-A return with full Android32 health. The fixed 90-second
+host window proves no execution. No platform/USB/UFS or block-backed filesystem work,
+new reserved-memory writer, panic, installed init or recovery retry is added.
+The stock logger uses its existing region/hooks. After healthy closure, only
+the fixed same-returned-Android-boot bounded `last_kmsg` D0 reader is adopted.
+Complete/partial/rejected/absent record meanings and current-ring/retention/
+Android health stay distinct. Independent review and actual qualification
+precede a concrete grant; offline preparation remains H0 only.
 
 ## S22+ Debian early file pilot
 

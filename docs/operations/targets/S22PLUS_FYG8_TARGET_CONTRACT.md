@@ -413,6 +413,22 @@ review and qualified fresh candidate precede the returned attended grant;
 original-A recovery and every no-replay/health boundary remain unchanged.
 Post-return record proof is separate from USB and final Android health.
 
+### Debian logger-only early stage probe V1
+
+The common-incorporated [stage probe V1](../S22PLUS_DEBIAN_STAGE_PROBE_V1.md)
+is adopted only for `debian-stage-probe-v1` under the existing `debian-early`
+operation. One returned attended 1800-second/one-operation grant binds a fresh
+N, measured Debian parent, one stock `sec_log_buf` insertion and bounded
+short authenticated stage frames. There are zero platform-prefix/UFS modules
+and no USB, block-backed filesystem or installed-init work. The fixed 90-second host
+window proves no execution; physical Download, one original A and full
+Android32 health retain their original deadlines and no-replay owner.
+Only after healthy closure may the fixed same-returned-Android-boot bounded
+`last_kmsg` D0 capture run. Incomplete records and absence never prove a stop
+point or non-execution. Current source review and actual A/B/ARM64 qualification
+precede a concrete grant. Offline preparation performs no device observation
+and claims no fresh health; this definition itself opens no grant.
+
 ### Debian early file pilot V1
 
 The common-incorporated [file pilot V1](../S22PLUS_DEBIAN_FILE_PILOT_V1.md)

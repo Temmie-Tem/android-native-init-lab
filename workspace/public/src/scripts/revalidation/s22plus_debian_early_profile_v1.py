@@ -10,8 +10,12 @@ PROFILE='debian-owned-early-v1'
 USB_PROFILE='debian-usb-first-v1'
 USB_SCHEMA='s22plus-debian-usb-first-v1'
 FILE_PROFILE='debian-file-pilot-v1'
+STAGE_PROFILE='debian-stage-probe-v1'
+LOGGER=dict(name='sec_log_buf.ko',runtime_name='sec_log_buf',parameters='',size=76688,
+    sha256='b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61')
 USB_LOGGING_MODES=('retained','ram-only')
-PROFILES=(PROFILE,USB_PROFILE,FILE_PROFILE)
+PROFILES=(PROFILE,USB_PROFILE,FILE_PROFILE,STAGE_PROFILE)
+WINDOW_PROFILES=(FILE_PROFILE,STAGE_PROFILE)
 OPERATION='debian-early'
 SELECTION='debian-early-evidence'
 POLICY='docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md'
@@ -33,6 +37,9 @@ def usb_logging_mode(built):
 
 
 def vm_cases(built):
+    if built['profile']==STAGE_PROFILE:
+        from s22plus_debian_stage_profile_v1 import CASES
+        return list(CASES)
     if built['profile']==FILE_PROFILE:
         from s22plus_debian_file_profile_v1 import CASES
         return list(CASES)
@@ -45,6 +52,9 @@ def vm_cases(built):
 
 
 def image_binding(image):
+    if image.get('profile')==STAGE_PROFILE:
+        from s22plus_debian_stage_profile_v1 import image_binding as stage_binding
+        return stage_binding(image)
     if image.get('profile')==FILE_PROFILE:
         from s22plus_debian_file_profile_v1 import image_binding as file_binding
         return file_binding(image)
@@ -103,6 +113,19 @@ def image_binding(image):
             r['expected']['init_sha256']==artifact['expected']['init_sha256'] for r in tested['cases']),
         'early actual producer/consumer qualification differs')
     return artifact
+
+
+def window_profile(image):
+    if image['profile']==FILE_PROFILE:
+        import s22plus_debian_file_profile_v1 as selected
+    elif image['profile']==STAGE_PROFILE:
+        import s22plus_debian_stage_profile_v1 as selected
+    else:raise ValueError('profile has no fixed host opportunity window')
+    return selected
+
+
+def before_window_transfer(image,grant,now):
+    window_profile(image).before_transfer(grant,now)
 
 
 def wire_protocol(image):
