@@ -21,6 +21,38 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## P420–P422 file evidence route qualified; first task ready
+
+The operator selected native_data consistency first, then initial-Debian-PID1
+file logging and retrieval of the same run after Android recovery on
+2026-10-12 KST. The bounded route is P420 strict native_data recovery/check,
+P421 `debian-file-pilot-v1`, then P422's separate sealed mountless reader.
+Each is a fresh operation with its own original-A closure; no old candidate
+or consumed grant is reused. P415 remains the last physical filesystem
+observation (`state=1`, `recover=1`, `orphan=0`), so current consistency is
+unknown until the first operation proves it. An ineligible recovery result
+stops advancement without widening the existing root predicate.
+
+P421 keeps Debian shell `/init` as initial PID1, reuses the 73+8 fixed module
+plan, requires fresh complete clean-root admission, then creates one exclusive
+run-bound file of at most 16 KiB. It needs no gadget or USB challenge. Checked
+file/parent sync and one normal unmount are required; the final persistent
+record is explicitly before unmount. Original Android return is physical.
+After its healthy closure, P422 reads that exact file without mounting or
+replaying a journal. H0 analysis joins the two closed operations and verifies
+the file's run, source, boot and chained authentication from raw captured bytes.
+Missing records do not prove non-execution, and Android health does not prove
+native_data cleanliness. Records cannot exist before storage/root admission.
+
+The [preparation report](docs/reports/S22PLUS_DEBIAN_FILE_ROUTE_P420_P422_H0_2026-10-13.md)
+records actual A/B qualification, 12 file-route and six strict-recovery ARM64
+cases, 110 focused tests and independent PASS_GO. The first P420 task's fixed
+Android D0 preparation passed and all 17 captures rederive: original-A
+health, same boot, Android32 GPT and capacity match. P421/P422 have concrete
+offline preparations, with fresh runtime health still required. No F1 grant,
+control, transfer or native_data operation has occurred for this route.
+A90 and S20+ remain untouched.
+
 ## P419 RAM-only trial closed healthy; USB still unproved
 
 The operator selected the next minimum USB experiment on 2026-10-12 KST.
@@ -50,8 +82,8 @@ failure is preserved. Physical closure revalidated 560 raw captures and 227
 frozen source paths without device commands or journal changes.
 This mode selected no post-return retained-log reader, and its RAM records
 were not recovered. Removing the added logging prerequisites alone did not
-establish USB; the internal failure location remains unknown. No successor is
-selected. P418 records are unchanged and P415 remains the last native_data
+establish USB; the internal failure location remains unknown. At closure no
+successor was selected. P418 records are unchanged and P415 remains the last native_data
 observation. A90 and S20+ were untouched.
 
 ## P418 partial retained-stage proof; USB unproved, Android healthy

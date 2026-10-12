@@ -9,8 +9,9 @@ SCHEMA='s22plus-debian-early-v1'
 PROFILE='debian-owned-early-v1'
 USB_PROFILE='debian-usb-first-v1'
 USB_SCHEMA='s22plus-debian-usb-first-v1'
+FILE_PROFILE='debian-file-pilot-v1'
 USB_LOGGING_MODES=('retained','ram-only')
-PROFILES=(PROFILE,USB_PROFILE)
+PROFILES=(PROFILE,USB_PROFILE,FILE_PROFILE)
 OPERATION='debian-early'
 SELECTION='debian-early-evidence'
 POLICY='docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md'
@@ -32,6 +33,9 @@ def usb_logging_mode(built):
 
 
 def vm_cases(built):
+    if built['profile']==FILE_PROFILE:
+        from s22plus_debian_file_profile_v1 import CASES
+        return list(CASES)
     if built['profile']==USB_PROFILE:
         cases=['normal','bad-auth','logger-off','insert-error']
         if usb_logging_mode(built)=='ram-only':cases.append('ram-log-missing')
@@ -41,6 +45,9 @@ def vm_cases(built):
 
 
 def image_binding(image):
+    if image.get('profile')==FILE_PROFILE:
+        from s22plus_debian_file_profile_v1 import image_binding as file_binding
+        return file_binding(image)
     usb=image.get('profile')==USB_PROFILE
     schema=USB_SCHEMA if usb else SCHEMA
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key','qualification',
@@ -99,7 +106,7 @@ def image_binding(image):
 
 
 def wire_protocol(image):
-    require(image['profile'] in PROFILES,'unselected early protocol')
+    require(image['profile'] in (PROFILE,USB_PROFILE),'file pilot has no USB protocol')
     if image['profile']==USB_PROFILE:
         import s22plus_debian_usb_protocol_v1 as selected
     else:

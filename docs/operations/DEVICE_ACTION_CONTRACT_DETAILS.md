@@ -92,6 +92,10 @@ permission to perform host-only work.
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
    reinstall, formatting, GPT mutation or other-partition payload.
+   The separate [Debian early file pilot](S22PLUS_DEBIAN_FILE_PILOT_V1.md)
+   permits only its fixed bounded native_data directory/file writes and ordinary
+   ext4 metadata after fresh clean protected admission, with no installed code,
+   replay, repair, format, GPT change or other-partition write.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
@@ -837,6 +841,28 @@ block access, direct memory writer, DT/sysctl change, filesystem data write or
 native-return experiment. The same fresh finite attended grant, physical
 original-A recovery, exact health, global consumption and no-replay rules
 apply. Ring acceptance, post-return retention and PID1/USB proof stay separate.
+
+## S22+ Debian early file pilot
+
+The separately reviewed [file pilot V1](S22PLUS_DEBIAN_FILE_PILOT_V1.md)
+specializes boundaries 2 and 3 only for `debian-file-pilot-v1`, using V3's
+existing attended `debian-early` owner. One fresh N transfer consumes its fixed
+73+8 module initialization, clean protected checker/root admission, one
+native_data-only RO clear/RW mount, conditional fixed `var/lib/lab` directory
+and one exclusive run-bound evidence file of at most 16384 bytes, including
+ordinary ext4 metadata/journal writes. Checked file/parent synchronization,
+one ordinary unmount and post-unmount partition RO/GPT/clean checks retain
+separate completion facts. Debian shell stays initial PID1; there is no gadget,
+USB request, installed-code execution, replay, repair or other-partition write.
+New RO-clear, RW-mount, directory and file effects in the persistent-write
+phase require kernel BOOTTIME below 300 seconds. A fixed host
+window 360 seconds after the original N completion grants only the declared
+physical-return phase, with offline proof pending and device activity unknown.
+One returned 1800-second/one-operation attended grant, one original A, full
+Android32 health and all existing no-replay/physical-recovery rules remain.
+Prior consistency recovery and later mountless-file retrieval are separate
+reviewed owners; neither is silently included in this pilot. All other target
+and boundary conditions remain unchanged.
 
 ## S22+ streamed protected preparation
 

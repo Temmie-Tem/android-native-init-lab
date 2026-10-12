@@ -229,7 +229,20 @@ def compile_helper(out, inputs, *, virt=False, run_id=None):
     return dict(run_id=run_id,filesystem_binding=filesystem.BINDING)
 
 
-def inside(out,packages,inputs,*,observed=False):
+def file_script():
+    return '''[ "$fyg8_status" = 0 ] || fyg8_stop
+mkdir -m 700 /s22-root-work || fyg8_stop
+mount -t tmpfs -o nodev,nosuid,noexec,mode=0700 tmpfs /s22-root-work || fyg8_stop
+umask 077
+set -C
+/sbin/file-log >/run/initramfs/file-admission 2>&1
+file_status=$?
+fyg8_stop
+'''
+
+
+def inside(out,packages,inputs,*,observed=False,file_pilot=False):
+    h0.require(not (observed and file_pilot),"select one early observer")
     value=verify_inventory(inputs)
     tree=h0.builder_tree(out,packages)
     shutil.copyfile(out/'fyg8-prepare',tree/'usr/sbin/fyg8-prepare')
@@ -238,6 +251,9 @@ def inside(out,packages,inputs,*,observed=False):
     if observed:
         shutil.copyfile(out/'early-observer',tree/'usr/sbin/early-observer')
         (tree/'usr/sbin/early-observer').chmod(0o755)
+    if file_pilot:
+        for source,target in (('file-log','usr/sbin/file-log'),('s22-fs-e2fsck','s22-fs-e2fsck'),('table.bin','s22-root-inspect.table')):
+            shutil.copyfile(out/source,tree/target);(tree/target).chmod(0o400 if source=='table.bin' else 0o500)
     conf=tree/'etc/initramfs-tools'
     for directory in ('conf.d','hooks','scripts'):
         (conf/directory).mkdir(parents=True,exist_ok=True)
@@ -252,6 +268,12 @@ def inside(out,packages,inputs,*,observed=False):
             '/sbin/early-observer "$fyg8_status"\nfyg8_stop\n')
         shutil.copyfile(h0.HERE/'early-hook',conf/'hooks/zzzz-early')
         (conf/'hooks/zzzz-early').chmod(0o755)
+    if file_pilot:
+        source=(h0.HERE/'fyg8-dev').read_text()
+        h0.require(source.endswith('fyg8_stop\n'),'early terminal hook changed')
+        (conf/'scripts/fyg8-dev').write_text(source[:-len('fyg8_stop\n')]+file_script())
+        shutil.copyfile(h0.HERE/'file-hook',conf/'hooks/zzzz-file')
+        (conf/'hooks/zzzz-file').chmod(0o755)
     init=tree/'usr/share/initramfs-tools/init'
     original=init.read_text();needle='mount -t devtmpfs -o nosuid,mode=0755 udev /dev\n'
     h0.require(original.count(needle)==1,'Debian early init changed')

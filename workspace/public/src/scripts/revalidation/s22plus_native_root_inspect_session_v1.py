@@ -58,6 +58,8 @@ def validate_task(task, *, recovery=False):
         not any(task[k] for k in ('reentry', 'hud', 'usb_reconnect')),
         'inspector profile is restricted to one attended Android-origin operation')
     if not recovery: item.image_binding(task['N'])
+    if item is early and task['N']['profile']==early.FILE_PROFILE:
+        require(task['seconds']==1800,'file pilot requires its exact 1800-second grant')
     if item is handoff:
         from s22plus_debian_handoff_session_v1 import validate_task as handoff_task
         handoff_task(task,recovery=recovery)

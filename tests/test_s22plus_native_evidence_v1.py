@@ -1,6 +1,8 @@
 """Bounded home-block records, strict negatives and one-shot recovery."""
 import hashlib
+from pathlib import Path
 import struct
+import sys
 import unittest
 from unittest import mock
 import test_s22plus_native_root_inspect_v1 as root
@@ -8,6 +10,9 @@ import test_s22plus_native_session_v3 as harness
 import s22plus_native_evidence_profile_v1 as profile
 import s22plus_native_root_inspect_session_v1 as protected
 import s22plus_native_session_v3 as owner
+import s22plus_native_baseline_v2_candidates as candidates
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'workspace/public/src/scripts/analysis'))
+import s22plus_native_evidence_build_v1 as builder
 
 BINDING=dict(record_run=None)
 
@@ -105,6 +110,24 @@ class EvidenceTests(unittest.TestCase):
 
 
 class ScopeTests(unittest.TestCase):
+    def test_sealed_record_selection_reaches_helper_and_image(self):
+        run='a'*32
+        declared=candidates.declaration('p999','b'*32,'v1.0.0','c'*64,
+            runtime_source=candidates.evidence_source,evidence_run=run)
+        image=builder.Builder(declared)
+        self.assertEqual(image.native_selection()['runtime_profile']['root_evidence']['record_run'],run)
+        with mock.patch.object(builder.previous.Builder,'runtime_value',return_value={}):
+            self.assertEqual(image.runtime_value(Path('/fixture'),{}, {})['profile']['root_evidence']['record_run'],run)
+        with mock.patch.object(builder.previous.previous.Builder,'build_native_init'), \
+                mock.patch.object(builder.producer,'build') as build, \
+                mock.patch.object(builder.producer,'audit') as audit:
+            image.build_native_init(Path('/fixture'),False);image.inspection_value(Path('/fixture'))
+            self.assertEqual(build.call_args.kwargs['record_run'],run)
+            self.assertEqual(audit.call_args.kwargs['record_run'],run)
+        for kwargs in (dict(evidence_run='../etc/shadow',runtime_source=candidates.evidence_source),
+                dict(evidence_run=run,runtime_source=candidates.journal_source)):
+            with self.assertRaises(ValueError):candidates.declaration('p999','b'*32,'v1.0.0','c'*64,**kwargs)
+
     def test_one_attended_reader_and_original_a_only(self):
         task=root.ScopeTests().task();task['N']['profile']=profile.PROFILE;task['operations']=[profile.OPERATION]
         with mock.patch.object(profile,'image_binding'),mock.patch.object(protected,'android_basis_for_image'):

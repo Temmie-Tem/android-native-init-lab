@@ -31,15 +31,18 @@ def package(out,build,vm):
     out=h0.private(out,fresh=True);build=h0.private(build);vm=h0.private(vm)
     built=read(build/'build.json');tested=read(vm/'result.json')
     usb=built['profile']==profile.USB_PROFILE
-    schema=profile.USB_SCHEMA if usb else profile.SCHEMA
+    file_pilot=built['profile']==profile.FILE_PROFILE
+    from s22plus_debian_file_profile_v1 import SCHEMA as file_schema,vm_results
+    schema=file_schema if file_pilot else profile.USB_SCHEMA if usb else profile.SCHEMA
     require(built['virtual'] is False and built['ab_identical'] is True and built['device_actions']==0,
         'physical initramfs build required')
     require(tested['status']=='PASS' and tested['device_actions']==0 and
         tested['build_sha256']==h0.sha(build/'build.json') and
         [r['case'] for r in tested['cases']]==profile.vm_cases(built) and
-        all(r['status']=='PASS' and r['disk_before']==r['disk_after'] and
+        all(r['status']=='PASS' and (file_pilot or r['disk_before']==r['disk_after']) and
             (not usb or r.get('logging_mode','retained')==profile.usb_logging_mode(built)) for r in tested['cases']),
         'actual producer/consumer VM qualification differs')
+    if file_pilot:vm_results(tested,dict(built,key=pin(build/'key',maximum=32)))
     runtime={}
     for row in built['source_inputs']:
         relative=Path(row['path'])

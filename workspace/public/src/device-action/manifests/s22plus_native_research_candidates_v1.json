@@ -139,6 +139,21 @@
       "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
       "run_id": "d7ed48b3d20dab3be4f26951a926ca52",
       "version": "v0.4.0-rc.15"
+    },
+    {
+      "image_sha256": "a5698b865f26ed90d60a626fcd75245c696d03383a92a22dfbbdef92172a22d0",
+      "namespace": "p420",
+      "profile": "thermal-v3-reconnect-ufs-drain-journal-recovery-v1",
+      "run_id": "bb078726e0f5aa4d2fa248162a63dfd5",
+      "version": "v0.5.0-rc.4"
+    },
+    {
+      "evidence_run": "d628cb4b07814b9bbd34d87d986b7378",
+      "image_sha256": "19d26f527012d138c9499bf9827fc48ee654accef649fa7449ce19e180bb12f8",
+      "namespace": "p422",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
+      "run_id": "b3707bf9449829ba363ad0e93b114668",
+      "version": "v0.5.0-rc.6"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

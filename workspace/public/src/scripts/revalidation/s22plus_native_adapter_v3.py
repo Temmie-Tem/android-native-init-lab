@@ -306,6 +306,9 @@ class Adapter:
 
     def preflight(self, request, *, guard):
         guard(); task=self.configuration(request)
+        if request['N']['profile']==early.FILE_PROFILE:
+            from s22plus_debian_file_profile_v1 import before_transfer
+            before_transfer(read(verify(request['grant'])),clock())
         for image in (request['N'],request['E'],request.get('S')):
             if image is not None: image_valid(image,artifact_bytes=True)
         with self.original_android(request): pass
@@ -460,6 +463,9 @@ class Adapter:
             identity=target.download_identity(ticket.device)
             def launch():
                 guard()
+                if request['N']['profile']==early.FILE_PROFILE and step.role=='N':
+                    from s22plus_debian_file_profile_v1 import before_transfer
+                    before_transfer(read(verify(request['grant'])),clock())
                 if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
                     inspection_session.android_basis(self, request)
                 if request['N'].get('profile') in fs.PROFILES and step.role=='A':filesystem_android_basis(self,request)
@@ -480,6 +486,8 @@ class Adapter:
                 guard()
                 transport.revalidate_pinned_path(android)
                 require(clock()<arrival_deadline,'original Download deadline expired during intent publication')
+                if request['N']['profile']==early.FILE_PROFILE and step.role=='N':
+                    before_transfer(read(verify(request['grant'])),clock())
             receipt,handle=transport.execute_odin_boot_only(odin.path,Path(artifact['path']),ticket.device,
                 odin_size=task['odin']['size'],odin_sha256=task['odin']['sha256'],
                 ap_size=artifact['size'],ap_sha256=artifact['sha256'],label=step.role,
@@ -540,6 +548,9 @@ class Adapter:
 
     def early_observe(self,step,request,*,guard):
         require(request['operation']==early.OPERATION and step.name==early.SELECTION,'unselected early evidence')
+        if request['N']['profile']==early.FILE_PROFILE:
+            from s22plus_debian_file_window_v1 import observe as file_window
+            return file_window(self,request,guard=guard)
         from s22plus_debian_early_observation_v1 import observe
         self.wait_native(request['N'],request,guard)
         return observe(self.folder(step.name),request['N'],self.native_host(request),guard=guard,
@@ -645,6 +656,9 @@ class Adapter:
     def recover_step_result(self, step, request):
         if step.action=='early-evidence':
             require(request['operation']==early.OPERATION and step.name==early.SELECTION,'unselected early evidence result')
+            if request['N']['profile']==early.FILE_PROFILE:
+                from s22plus_debian_file_window_v1 import rederive as file_window
+                return file_window(self,request)
             from s22plus_debian_early_observation_v1 import rederive
             return rederive(self.folder(step.name),request['N'])
         if step.action in ('debian-health','debian-shutdown'):

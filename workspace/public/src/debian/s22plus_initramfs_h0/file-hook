@@ -1,0 +1,14 @@
+#!/bin/sh
+case "${1:-}" in prereqs) exit 0;; esac
+set -eu
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /sbin/file-log /sbin/file-log
+copy_exec /s22-fs-e2fsck /s22-fs-e2fsck
+cp /s22-root-inspect.table "$DESTDIR/s22-root-inspect.table"
+chmod 400 "$DESTDIR/s22-root-inspect.table"
+# Same vendor_boot /lib compatibility as the qualified early artifact.
+[ "$(readlink "$DESTDIR/lib")" = usr/lib ]
+rm "$DESTDIR/lib"
+mkdir "$DESTDIR/lib"
+ln -s ../usr/lib/aarch64-linux-gnu "$DESTDIR/lib/aarch64-linux-gnu"
+ln -s ../usr/lib/ld-linux-aarch64.so.1 "$DESTDIR/lib/ld-linux-aarch64.so.1"

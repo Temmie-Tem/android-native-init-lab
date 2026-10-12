@@ -83,7 +83,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True):
 def snapshot(out):
     sources=fyg8.snapshot(out)
     extra=[]
-    for name in ('early-protocol.h','early-hook','fyg8-dev','fyg8-hook'):
+    for name in ('early-protocol.h','early-measure.h','early-hook','fyg8-dev','fyg8-hook'):
         path=h0.HERE/name;dest=out/'source-snapshot'/path.relative_to(h0.ROOT)
         dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(path.read_bytes())
         extra.append(dict(path=str(path.relative_to(h0.ROOT)),sha256=h0.sha(dest)))

@@ -138,6 +138,10 @@ static int rj_admit(struct fs1_endpoint *e,uint8_t before[1024],int *clean,bool 
     s22plus_max77705_runtime_sha256_update(&hash,before,1024);s22plus_max77705_runtime_sha256_final(&hash,digest);
     ri_digest(digest,hex);ri_print("JR1_BEFORE sha256=%s\n",hex);
     if(*clean) {ri_print("JR1_SKIP clean=1\n");return 0;}
+#ifdef S22_JOURNAL_CLEAN_ONLY
+    /* The separately compiled file pilot has no replay admission. */
+    (void)e;(void)ro;rj_stopped=1;ri_print("JR1_SKIP clean=0\n");return -1;
+#else
     if(fs1_u16(before+0x3a)!=1 || !(fs1_u32(before+0x60)&4U) || fs1_u32(before+0xe8)) {
         rj_stopped=1;ri_print("JR1_SKIP clean=0\n");return -1;
     }
@@ -165,6 +169,7 @@ static int rj_admit(struct fs1_endpoint *e,uint8_t before[1024],int *clean,bool 
              fs1_u16(before+0x3a),!!(fs1_u32(before+0x60)&4U),fs1_u32(before+0xe8));
     if(!rj_writer_complete || !*clean) {rj_stopped=1;return -1;}
     return 0;
+#endif
 }
 
 static int rj_checker(struct fs1_endpoint *e) {

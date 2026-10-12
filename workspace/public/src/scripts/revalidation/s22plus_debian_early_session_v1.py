@@ -14,10 +14,15 @@ def normal_steps():
 
 def validate_result(adapter,step,value,request):
     if step.name!=profile.SELECTION:return
-    expected='PASS_DEBIAN_USB_FIRST_OBSERVED' if request['N']['profile']==profile.USB_PROFILE else 'PASS_DEBIAN_EARLY_OBSERVED'
-    require(value['proof']['status']==expected and value['proof']['debian_early_pid1'] is True and
-        value['proof']['installed_debian_pid1'] is False and value['proof']['root_admitted'] is False,
-        'early evidence lacks its exact bounded meaning')
+    if request['N']['profile']==profile.FILE_PROFILE:
+        from s22plus_debian_file_window_v1 import rederive
+        require(value==rederive(adapter,request) and value['proof']['status']=='AWAITING_OFFLINE_FILE_RECORD',
+            'file window was promoted to live execution proof')
+    else:
+        expected='PASS_DEBIAN_USB_FIRST_OBSERVED' if request['N']['profile']==profile.USB_PROFILE else 'PASS_DEBIAN_EARLY_OBSERVED'
+        require(value['proof']['status']==expected and value['proof']['debian_early_pid1'] is True and
+            value['proof']['installed_debian_pid1'] is False and value['proof']['root_admitted'] is False,
+            'early evidence lacks its exact bounded meaning')
     intents=[row['data'] for row in Journal(adapter.directory/'journal').rows() if row['event']=='effect-intent']
     require(sum(row['step']=='install-native-first' and row['action']=='transfer' and row['role']=='N' for row in intents)==1,
         'automatic preparation has no unique candidate transfer intent')

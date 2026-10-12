@@ -15,15 +15,20 @@ from s22plus_native_records_v3 import pin,private_path,publish,read,require,veri
 
 ROOT=vm.ROOT
 SEED=ROOT/'workspace/private/outputs/s22plus-debian-handoff-p414-h0-20261003-1/vm-positive/native-after.ext4'
-CASES=('clean','dirty','journal-only','missing','symlink','hardlink','oversize','directory-checksum','inode-checksum','group-descriptor-checksum','wrong-uuid','gpt-byte')
+CASES=('clean','dirty','journal-only','missing','symlink','hardlink','oversize','directory-checksum','inode-checksum','group-descriptor-checksum','wrong-uuid','gpt-byte','durable')
 
 
-def setup(out,helper,case):
+def setup(out,helper,case,*,seed=None):
     out=private_path(ROOT,out,exists=False);helper=private_path(ROOT,helper)
     require(not out.exists() and case in CASES,'fresh selected evidence fixture required')
     built=read(helper/'result.json');require(built['virt'] is True,'VM helper lacks virtual discovery')
+    if case=='durable':
+        require(seed is not None and built['root_evidence']['record_run'] is not None,'sealed durable fixture absent')
+        seed=private_path(ROOT,seed);require(seed.is_file() and not seed.is_symlink(),'not a regular private VM seed')
+    else:
+        require(seed is None,'custom seed requires durable fixture');seed=SEED
     out.mkdir(mode=0o700,parents=True);native=out/'native.ext4'
-    vm.run(['cp','--reflink=auto','--sparse=always',SEED,native],out,'copy-root')
+    vm.run(['cp','--reflink=auto','--sparse=always',seed,native],out,'copy-root')
     if case in ('missing','symlink','hardlink'):
         vm.debug(native,out,'remove-count','rm /var/lib/lab/boot-count')
         if case=='symlink':vm.debug(native,out,'symlink','symlink /var/lib/lab/boot-count /etc/shadow')
@@ -100,7 +105,8 @@ poweroff -f
     return publish(out/'setup.json',dict(schema='s22plus-native-evidence-vm-h0-v1',case=case,
         helper=pin(helper/'result.json'),kernel=pin(handoff.base.KERNEL,maximum=128*1024*1024),
         qemu=pin(qemu,maximum=128*1024*1024),initramfs=pin(out/'initramfs.cpio.gz',maximum=16*1024*1024),
-        source=pin(Path(__file__)),device_actions=0))
+        source=pin(Path(__file__)),seed=dict(path=str(seed),size=seed.stat().st_size,
+            sparse_digest=vm.fixture_tools.sparse_digest(seed)),device_actions=0))
 
 
 def run(out):
@@ -132,7 +138,13 @@ def run(out):
         expected={'missing':'ABSENT_IN_HOME_VIEW','symlink':'METADATA_REJECTED','hardlink':'METADATA_REJECTED',
             'oversize':'OVERSIZE','directory-checksum':'READ_ERROR','inode-checksum':'READ_ERROR','group-descriptor-checksum':'READ_ERROR'}.get(case,'READ')
         require(first['status']==expected,'fixture file status differs')
-        if expected=='READ':require(first['raw_hex']==b'2\n'.hex() and first['size']==2,'reader did not preserve checkpointed count')
+        if expected=='READ':require(first['raw_hex']==(b'1\n' if case=='durable' else b'2\n').hex() and
+            first['size']==2,'reader did not preserve checkpointed count')
+        if case=='durable':
+            last=proof['files'][-1]
+            require(last['path']=='var/lib/lab/s22-evidence-'+built['root_evidence']['record_run'] and
+                last['status']=='READ' and len(bytes.fromhex(last['raw_hex']))==last['size'],
+                'sealed durable file was not fully read')
         require(proof['source_view_clean']==(case not in ('dirty','journal-only')),'dirty view was relabelled clean')
         require(not proof['mounted'] and not proof['persistent_writes'],'reader gained mutation/mount claim')
     return publish(out/'result.json',dict(schema='s22plus-native-evidence-vm-result-h0-v1',setup=pin(out/'setup.json'),

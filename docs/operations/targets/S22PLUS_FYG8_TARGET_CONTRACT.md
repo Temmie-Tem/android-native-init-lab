@@ -413,6 +413,25 @@ review and qualified fresh candidate precede the returned attended grant;
 original-A recovery and every no-replay/health boundary remain unchanged.
 Post-return record proof is separate from USB and final Android health.
 
+### Debian early file pilot V1
+
+The common-incorporated [file pilot V1](../S22PLUS_DEBIAN_FILE_PILOT_V1.md)
+is adopted only for `debian-file-pilot-v1` under the existing `debian-early`
+operation. Fresh clean checker/full-root admission precedes native_data-only
+RW, conditional fixed `var/lib/lab` and one exclusive run-bound file bounded
+at 16384 bytes, with checked synchronization and one unmount/RO restoration.
+The retained 73+8 module preparation and actual Debian shell PID1 need no USB
+challenge, gadget or installed init. The original N intent consumes all writes.
+A 360-second host window is an opportunity only, with offline evidence pending
+and activity unknown; physical Download, one original A and full Android32
+health remain mandatory within the returned attended 1800-second/one-operation
+grant. New RO-clear, RW-mount, directory and file effects in the persistent-write
+phase require kernel BOOTTIME below 300 seconds. No replay,
+repair, overwrite, reinstall or other-partition write is admitted. Initial
+strict recovery and later exact mountless retrieval have separate owners and
+grants. Current source review and actual A/B/ARM64 qualification precede any
+returned start. Preparation reuses only the existing fixed Android D0 reads.
+
 ### Streamed protected preparation V1
 
 The common-incorporated [staged preflight V1](../S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)

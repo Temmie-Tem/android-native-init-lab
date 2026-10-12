@@ -29,11 +29,22 @@ class Builder(previous.Builder):
         rows[str(Path(__file__).relative_to(ROOT))]=packaging.identity(packaging.stable(Path(__file__)))
         return dict(sorted(rows.items()))
 
+    def native_selection(self):
+        return dict(super().native_selection(),runtime_profile=source.profile_contract(
+            record_run=self.declaration.ROOT_EVIDENCE_RUN))
+
+    def runtime_value(self,out,resident,thermal):
+        return dict(super().runtime_value(out,resident,thermal),profile=source.profile_contract(
+            record_run=self.declaration.ROOT_EVIDENCE_RUN))
+
     def build_native_init(self,out,resident):
         previous.previous.Builder.build_native_init(self,out,resident)
-        producer.build(out/'root-inspector',self.declaration.IDENTITY.run_id_hex)
+        producer.build(out/'root-inspector',self.declaration.IDENTITY.run_id_hex,
+            record_run=self.declaration.ROOT_EVIDENCE_RUN)
 
-    def inspection_value(self,out):return producer.audit(out/'root-inspector',self.declaration.IDENTITY.run_id_hex)
+    def inspection_value(self,out):return producer.audit(out/'root-inspector',self.declaration.IDENTITY.run_id_hex,
+        record_run=self.declaration.ROOT_EVIDENCE_RUN)
 
     def result_value(self,runtime,image,transform,packages):
-        return dict(super().result_value(runtime,image,transform,packages),root_evidence=producer.evidence_binding(None))
+        return dict(super().result_value(runtime,image,transform,packages),
+            root_evidence=producer.evidence_binding(self.declaration.ROOT_EVIDENCE_RUN))

@@ -77,6 +77,9 @@ SHA-256 and size plus only the following bounded suffix where authorized:
 
 The optional run is one 32-character lowercase hexadecimal identity sealed at
 build time; it cannot be selected by the host command. P415 does not select it.
+Prospective catalog data may carry `evidence_run` only for this reader profile;
+the declaration, generated helper, complete image and image selection must all
+bind the same value. Omitting it preserves the original fixed P415 selection.
 This read definition grants no writer or local receipt creation. File status
 is READ, ABSENT_IN_HOME_VIEW, READ_ERROR, METADATA_REJECTED or OVERSIZE; a failed
 file emits no raw bytes or successful digest. Raw contents and identifiers
