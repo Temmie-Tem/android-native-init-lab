@@ -1,6 +1,13 @@
 # S22+ P421 file pilot consumed; original Android healthy
 
-Status: **AWAITING_OFFLINE_FILE_RECORD; ANDROID_CLOSED_HEALTHY**.
+Original closure status: **AWAITING_OFFLINE_FILE_RECORD; ANDROID_CLOSED_HEALTHY**.
+
+**Subsequent retrieval:** the separately authorized P422 reader completed and
+found the exact P421 file **ABSENT_IN_HOME_VIEW** in a clean superblock view.
+The H0 collector returned **NO_AUTHENTICATED_FILE**, and P422 returned Android
+healthy. See the [retrieval report](S22PLUS_DEBIAN_FILE_P422_RETRIEVAL_2026-10-13.md).
+The original P421 journal, terminal and close record remain unchanged; the
+pending-file discussion below records what was known at its own closure.
 
 The operator returned the exact P421 attended 1800-second/one-operation grant
 on 2026-10-13 KST, after P420's

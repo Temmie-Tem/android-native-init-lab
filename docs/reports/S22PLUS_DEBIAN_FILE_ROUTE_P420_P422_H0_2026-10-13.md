@@ -4,10 +4,13 @@
 2026-10-13 KST and proved **PROVED_CLEAN_ROOT**, then returned original Android
 healthy. See the [physical report and timeline](S22PLUS_NATIVE_DATA_P420_RUN_2026-10-13.md).
 P421 then consumed its separate file-pilot operation and returned Android
-healthy, with [same-run file evidence still pending](S22PLUS_DEBIAN_FILE_P421_RUN_2026-10-13.md).
-P422 remains unconsumed and needs its own grant. The preparation status
-and unopened-grant statements below describe the preceding H0/D0 milestone;
-they do not reopen P420 or P421.
+healthy, with [file evidence pending at its own closure](S22PLUS_DEBIAN_FILE_P421_RUN_2026-10-13.md).
+P422 subsequently consumed its separate reader grant: the exact P421 file was
+absent in a clean superblock view, the collector returned **NO_AUTHENTICATED_FILE**,
+and Android returned healthy. See the [retrieval report](S22PLUS_DEBIAN_FILE_P422_RETRIEVAL_2026-10-13.md).
+All three candidates are consumed and closed. The preparation status and
+unopened-grant statements below describe the preceding H0/D0 milestone;
+they do not reopen any operation.
 
 Status: **READY_H0_QUALIFIED; first Android D0 preparation passed**.
 Independent PASS_GO is complete. No F1 grant, control, transfer or native_data

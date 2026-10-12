@@ -21,28 +21,36 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## P421 closed healthy; same-run file evidence awaits P422
+## P422 retrieval closed: no P421 file; Android healthy
 
-P421 `v0.5.0-rc.5` consumed its returned attended file-pilot grant on
-2026-10-13 KST. One candidate transfer and the original 360-second host window
-completed. The operator then entered physical Download; one original-A
-transfer and a health-only continuation after one failed ADB read proved
-**ANDROID_CLOSED_HEALTHY**, `recovered=true`, N/A counts 1/1. The grant and
-candidate are closed/consumed, with no F1 owner remaining.
+P422 `v0.5.0-rc.6` consumed its own returned attended reader grant on
+2026-10-13 KST. The fixed mountless reader completed, reporting
+**PASS_ROOT_EVIDENCE_OBSERVED** with `state=1/recover=0/orphan=0`, partition RO,
+no mount/replay/write, and a successfully settled child. P421's exact sealed
+file was **ABSENT_IN_HOME_VIEW**. The reviewed collector joined both closed
+operations and returned **NO_AUTHENTICATED_FILE**. See the
+[retrieval report](docs/reports/S22PLUS_DEBIAN_FILE_P422_RETRIEVAL_2026-10-13.md).
 
-The [physical report](docs/reports/S22PLUS_DEBIAN_FILE_P421_RUN_2026-10-13.md)
-keeps the scientific result **AWAITING_OFFLINE_FILE_RECORD**. This profile
-made no live USB acquisition: the time window does not prove module progress,
-Debian PID1, file creation, unmount or current native_data consistency. P420's
-clean-root proof predates this potentially writing boot. P421 must never be
-repeated because a file is absent or unavailable.
+One normal authenticated Download return and one original-A transfer passed
+full root/original-artifact, changed-boot and Android32/GPT health:
+**ANDROID_CLOSED_HEALTHY**, `research_closed=true`, `recovered=false` (normal
+return, no fallback). N/A counts are 1/1, with no failed raw acquisition or
+retry. H0 closure checked 646 raw captures, 261 frozen source paths and the
+unchanged 18-row journal. The grant/candidate are closed/consumed; no F1 owner
+remains. A90 and S20+ remain untouched.
 
-H0 closure rederived 820 raw captures and 244 frozen source paths without
-device commands or journal changes. The next bounded unit is the already
-qualified P422 mountless reader, sealed to P421's exact run, followed by its
-own original-A closure and H0 raw-file authentication. P422 is unconsumed and
-requires its own returned attended grant and fresh binding. A90 and S20+
-remain untouched.
+The clean superblock view is later than P421, but is not full root admission,
+P421 unmount proof or evidence of its stopping point. Missing records never
+prove non-execution. P421's early Debian PID1, preparation and file write remain
+unproved; it must not be repeated. Its original
+[window and physical-return report](docs/reports/S22PLUS_DEBIAN_FILE_P421_RUN_2026-10-13.md)
+retains the historical `AWAITING_OFFLINE_FILE_RECORD` close result. P422's later
+collector supplies the separate final file verdict without rewriting that run.
+
+P420–P422 are all closed. The next useful question is H0 analysis of bounded
+evidence before the writer's storage-admission prerequisite. No successor
+candidate or device action is selected; the full Debian/SSH objective remains
+unachieved.
 
 ## P420 proved clean native_data and returned Android healthy
 
@@ -83,8 +91,9 @@ records actual A/B qualification, 12 file-route and six strict-recovery ARM64
 cases, 110 focused tests and independent PASS_GO. P420 closure additionally
 rederived 578 raw captures and 263 frozen source paths without device commands
 or journal changes. P421 subsequently consumed its separate grant as recorded
-above. P422 retains its concrete offline preparation and still needs its own
-returned attended grant and fresh runtime binding. A90 and S20+ remain untouched.
+above. P422 subsequently consumed its separate grant and closed with the
+absent-file result and healthy Android return recorded at the top. All three
+candidates remain consumed. A90 and S20+ remain untouched.
 
 ## P419 RAM-only trial closed healthy; USB still unproved
 
