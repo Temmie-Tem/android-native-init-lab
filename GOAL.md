@@ -21,6 +21,29 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## P421 closed healthy; same-run file evidence awaits P422
+
+P421 `v0.5.0-rc.5` consumed its returned attended file-pilot grant on
+2026-10-13 KST. One candidate transfer and the original 360-second host window
+completed. The operator then entered physical Download; one original-A
+transfer and a health-only continuation after one failed ADB read proved
+**ANDROID_CLOSED_HEALTHY**, `recovered=true`, N/A counts 1/1. The grant and
+candidate are closed/consumed, with no F1 owner remaining.
+
+The [physical report](docs/reports/S22PLUS_DEBIAN_FILE_P421_RUN_2026-10-13.md)
+keeps the scientific result **AWAITING_OFFLINE_FILE_RECORD**. This profile
+made no live USB acquisition: the time window does not prove module progress,
+Debian PID1, file creation, unmount or current native_data consistency. P420's
+clean-root proof predates this potentially writing boot. P421 must never be
+repeated because a file is absent or unavailable.
+
+H0 closure rederived 820 raw captures and 244 frozen source paths without
+device commands or journal changes. The next bounded unit is the already
+qualified P422 mountless reader, sealed to P421's exact run, followed by its
+own original-A closure and H0 raw-file authentication. P422 is unconsumed and
+requires its own returned attended grant and fresh binding. A90 and S20+
+remain untouched.
+
 ## P420 proved clean native_data and returned Android healthy
 
 The operator selected native_data consistency first, then initial-Debian-PID1
@@ -41,8 +64,8 @@ Android-final ADB read lost the target; health-only continuation then proved
 full original boot/root, changed-boot and Android32 GPT/capacity health without
 another transfer. Terminal: **ANDROID_CLOSED_HEALTHY**, `recovered=true`,
 N/A counts 1/1. The candidate and grant are consumed/closed, with no F1 owner.
-P420 is now the latest native_data observation. This establishes the first
-route prerequisite; it does not prove P421 file retention or Debian boot.
+P420 established the first route prerequisite. Its filesystem observation
+predates P421 and does not prove P421 file retention or Debian boot.
 
 P421 keeps Debian shell `/init` as initial PID1, reuses the 73+8 fixed module
 plan, requires fresh complete clean-root admission, then creates one exclusive
@@ -59,9 +82,9 @@ The [preparation report](docs/reports/S22PLUS_DEBIAN_FILE_ROUTE_P420_P422_H0_202
 records actual A/B qualification, 12 file-route and six strict-recovery ARM64
 cases, 110 focused tests and independent PASS_GO. P420 closure additionally
 rederived 578 raw captures and 263 frozen source paths without device commands
-or journal changes. P421/P422 remain unconsumed with concrete offline
-preparations; each still needs its own returned attended grant and fresh
-runtime binding. A90 and S20+ remain untouched.
+or journal changes. P421 subsequently consumed its separate grant as recorded
+above. P422 retains its concrete offline preparation and still needs its own
+returned attended grant and fresh runtime binding. A90 and S20+ remain untouched.
 
 ## P419 RAM-only trial closed healthy; USB still unproved
 
