@@ -38,6 +38,40 @@ behavior and storage state remain unresolved by this probe. No PID1, logger
 insertion, terminal stage, helper return, parking, installed Debian or SSH
 success is claimed. No record was reconstructed or synthesized.
 
+## Subsequent H0 diagnosis: the observation path is still unqualified physically
+
+The retained sample contains 13004 line-anchored kernel-style timestamps, all
+between 3134.996643 and 3523.267090 seconds (about 52–59 minutes), together
+with Android process/subsystem names. P423's candidate-transfer completion to
+the original-A transfer intent spans only 119.133 host seconds. The sample is
+therefore consistent with older Android log content, not an established P423
+boot transcript. This is an inference about the retained content; the exact
+old boot and the candidate's failure point remain unidentified.
+
+The source order explains an observation blind spot. RAM setup, target checks,
+the first checked current-ring write, parent identity and executable hashes
+precede loading the stock retention module. Failure in those steps can stop
+the helper before its diagnostic bytes have a demonstrated post-return path.
+The shell then parks, and its console fallback redirects output to `/dev/null`.
+The pinned logger source confirms that logger probe first copies the previous
+retained log, then imports the current early ring and installs the logging hook.
+Readable `last_kmsg` after Android return cannot replace proof of that sequence
+in the candidate boot.
+
+Existing ARM64 fixtures demonstrate this distinction without another build or
+device run: actual parent-image mismatch produces `CHILD_ENTERED`/`REJECTED`
+with zero module calls; disabled ring publication produces no frame and zero
+module calls. The VM observes serial/current-ring output and substitutes the
+Samsung module/binding operation. It does not test post-return retention on
+this phone. These different paths can therefore yield the same physical
+absent-record outcome; neither fixture identifies which occurred in P423.
+
+The immediate diagnostic need is a separately established earliest observation
+path, followed by incremental early-boot checks. Another large userspace or
+storage change would not resolve this ambiguity by itself. This finding
+selects no successor or device action. `p423-diagnosis-h0-1.json` preserves the
+raw/source/fixture joins; all consumed evidence and execution code are unchanged.
+
 ## Execution, physical return and health continuation
 
 Fresh original-A health, exact target/source/artifact/recovery bindings and

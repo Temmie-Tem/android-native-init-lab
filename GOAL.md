@@ -52,6 +52,15 @@ P421's stopping point remains unknown. P420–P423 are closed; no successor
 candidate or additional device action is selected. Full Debian/SSH ownership
 remains unachieved.
 
+Subsequent H0 inspection found only 52–59-minute kernel-style timestamps and
+Android process text in the retained sample, while P423's candidate interval
+was about 119 seconds. Older Android content is the supported interpretation,
+not a proved P423 transcript. The physical report records the remaining blind
+spot: several early checks can stop before the retention module is loaded,
+whereas the VM observes serial output with Samsung module operations substituted.
+An independently established earliest observation path is needed to separate
+these cases; the exact failure stage remains unknown.
+
 ## P422 retrieval closed: no P421 file; Android healthy
 
 P422 `v0.5.0-rc.6` consumed its own returned attended reader grant on
