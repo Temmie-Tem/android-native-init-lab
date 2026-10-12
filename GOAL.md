@@ -21,32 +21,36 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## P423 logger-only early observation is H0 ready
+## P423 closed: no authenticated early stage; Android healthy
 
-The requested minimum pre-file observation is prepared as P423
-`debian-stage-probe-v1`, `v0.5.0-rc.7`. The
-[qualification report](docs/reports/S22PLUS_DEBIAN_EARLY_STAGE_P423_H0_2026-10-13.md)
-records Debian shell PID1, minimal RAM setup and one stock `sec_log_buf`
-module, with zero platform-prefix modules and no USB/UFS/block-backed work.
-Short authenticated frames distinguish measured parent/initial image/helper,
-next module call, returned insertion, logger binding and terminal emission.
-The design was committed before implementation; P421's stopping point is
-still unknown.
+P423 `debian-stage-probe-v1`, `v0.5.0-rc.7`, consumed its returned attended
+1800-second/one-operation grant on 2026-10-13 KST. Fresh original-A health and
+the qualified source/artifact/recovery bindings passed. One candidate transfer
+and the original 90-second host window completed. The operator entered
+physical Download, and one original-A transfer completed. See the
+[physical report](docs/reports/S22PLUS_DEBIAN_EARLY_STAGE_P423_RUN_2026-10-13.md).
 
-Actual A/B boot/AP qualification, six ARM64 cases, ten actual-producer record
-negatives, four malformed-artifact rejections and 109 focused tests passed.
-Independent review returned **PASS_GO**. The concrete offline task passed
-policy/artifact revalidation with subprocess/device acquisition blocked:
-**READY_H0_PRELIVE_ONLY**, no grant, no fresh connected-health claim, no F1 owner.
-No device read, control or transfer occurred. A90 and S20+ remain untouched.
+The first post-return ADB health read stopped with `error: closed`. The existing
+health-only continuation then proved original boot/root, changed Android boot
+and Android32/GPT health without another transfer: **ANDROID_CLOSED_HEALTHY**,
+`recovered=true`, `research_closed=true`. N/A counts are 1/1. The candidate and
+grant are consumed/closed, and no F1 owner remains. A90 and S20+ are untouched.
 
-The prospective operation uses a 90-second host opportunity window, attended
-physical original-A return and then the fixed same-returned-boot `last_kmsg`
-reader. Actual execution still requires its own returned attended grant and
-fresh machine binding. Eight valid records would prove the emitted early
-milestones, not the final readback, helper return, parking, platform/storage,
-installed Debian or SSH. Missing records still cannot locate an earlier
-failure or prove non-execution. P420–P422 stay consumed and closed.
+After closure, the fixed same-returned-Android-boot `last_kmsg` D0 read succeeded
+with 2097136 raw bytes and healthy before/after brackets. The reviewed decoder
+and process-blocked H0 rederivation returned **NO_AUTHENTICATED_STAGE**:
+zero records, damaged candidates or foreign frames, and no `S22STG1` prefix.
+Readable retained RAM does not establish that P423's boot was retained.
+Debian early PID1, logger insertion/binding and completion remain unproved.
+Absence cannot locate a stopping point, prove non-execution or permit replay.
+
+The [H0 qualification report](docs/reports/S22PLUS_DEBIAN_EARLY_STAGE_P423_H0_2026-10-13.md)
+preserves the six ARM64 cases, A/B artifacts, 109 tests and independent
+**PASS_GO**. That capability evidence does not replace physical proof. P423
+selected only one stock logger and no platform/USB/UFS/block-backed workload.
+P421's stopping point remains unknown. P420–P423 are closed; no successor
+candidate or additional device action is selected. Full Debian/SSH ownership
+remains unachieved.
 
 ## P422 retrieval closed: no P421 file; Android healthy
 
@@ -74,10 +78,8 @@ unproved; it must not be repeated. Its original
 retains the historical `AWAITING_OFFLINE_FILE_RECORD` close result. P422's later
 collector supplies the separate final file verdict without rewriting that run.
 
-P420–P422 are all closed. The next useful question is H0 analysis of bounded
-evidence before the writer's storage-admission prerequisite. No successor
-candidate or device action is selected; the full Debian/SSH objective remains
-unachieved.
+P420–P422 are all closed. This result motivated P423's bounded early-stage
+observation above; it did not authorize a replay or locate the writer's failure.
 
 ## P420 proved clean native_data and returned Android healthy
 

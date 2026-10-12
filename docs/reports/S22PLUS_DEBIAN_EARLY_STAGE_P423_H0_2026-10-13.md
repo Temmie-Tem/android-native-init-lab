@@ -1,6 +1,13 @@
 # S22+ P423: observe Debian early boot before file creation
 
-Status: **READY_H0_PRELIVE_ONLY; independent PASS_GO**.
+Original H0 status: **READY_H0_PRELIVE_ONLY; independent PASS_GO**.
+
+**Subsequent physical operation:** P423 consumed its separate returned grant
+and closed **ANDROID_CLOSED_HEALTHY** after one N and one original-A transfer.
+The post-closure retained-log reader returned **NO_AUTHENTICATED_STAGE**.
+See the [physical report](S22PLUS_DEBIAN_EARLY_STAGE_P423_RUN_2026-10-13.md).
+The qualification discussion below preserves the state before that execution;
+its artifacts, review, consumed journal and original window verdict are unchanged.
 
 Implementation, qualification and a concrete offline task are complete.
 No device read, control, transfer or grant was performed/opened. Current
