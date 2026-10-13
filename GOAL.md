@@ -39,17 +39,28 @@ SSH, controlled shutdown and durable records. P425's physical trial is now
 consumed and closed as described below; full physical Debian/SSH ownership
 remains unproved. A90 and S20+ are untouched by this unit.
 
-## P426 selected: checked file evidence before USB clients
+## P426/P427 closed: file absent; UFS preparation prefix; Android healthy
 
-The operator requested a USB-independent filesystem log and continuation through
-physical execution and recovery. The [P426 design](docs/reports/S22PLUS_DEBIAN_FILE_FIRST_P426_H0_2026-10-13.md)
-records storage preparation and clean protected root admission before the
-remaining GENI/I2C/Max77705 clients, with synchronized per-client records and a
-separate later mountless retrieval. Actual A/B packages, 14 writer and four
-reader ARM64 VM cases, 190 focused tests and independent `PASS_GO` now qualify
-both prospective capabilities. Offline task preparation is complete; each fresh
-physical operation still requires its returned attended finite grant and current
-health. P425 remains consumed and closed.
+The [physical report](docs/reports/S22PLUS_DEBIAN_FILE_FIRST_P426_P427_RUN_2026-10-13.md)
+records one P426 storage-first trial and one separately bound P427 mountless
+reader, each under its returned attended 1800-second/one-operation grant.
+N/A counts are 1/1 for each; both are **ANDROID_CLOSED_HEALTHY** and consumed.
+Each preserved one post-A ADB device-not-found read, then completed health only
+without repeating a transfer. No F1 owner remains; A90 and S20+ were untouched.
+
+P426's returned-boot RAM capture authenticated 156 records: 75 completed
+modules, last `ufshcd_crypto_qti`, followed by `ufs_qcom` BEGIN. This is partial
+preparation evidence, not an exact stop/cause or full storage/initial-PID1 proof.
+P427 completed its fixed partition-RO read without mount, replay or data write.
+The superblock view was clean (`state=1`, `recover=0`, `orphan=0`); the sealed
+P426 file was `ABSENT_IN_HOME_VIEW`. The joined result is **NO_AUTHENTICATED_FILE**.
+File absence does not prove non-execution or authorize a replay. Physical
+filesystem logging, installed Debian services and SSH remain unproved.
+
+The [H0 qualification](docs/reports/S22PLUS_DEBIAN_FILE_FIRST_P426_H0_2026-10-13.md)
+retains A/B artifacts, 14 writer/four reader ARM64 VM cases, 190 tests and
+independent `PASS_GO`. Any successor needs a fresh bounded selection; diagnosis
+must distinguish module return, storage admission, recording and retention.
 
 ## P425 closed: logger/providers proved; USB unproved; Android healthy
 
@@ -710,10 +721,10 @@ assumed.
 
 The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
 sets the next development priorities. These are objectives, not new device
-admission gates or authority. Correct the fixed logger binding observation in
-H0, retaining exact target identity and distinguishing its individual failure
-conditions. Compare the actual cold module/provider/driver/USB effect sequence
-with the proved native preparation before assembling a successor; matching
+admission gates or authority. P425 physically proved the corrected logger and
+provider barrier. P426/P427 leave the file outcome unproved, with authenticated
+progress through the last UFS module's BEGIN. Compare that cold preparation
+boundary with the proved native path before selecting a successor; matching
 module lists and VM substitutions do not prove full hardware equivalence.
 
 Keep Debian shell as the initial userspace owner and use fixed temporary

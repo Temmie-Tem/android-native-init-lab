@@ -1,6 +1,9 @@
 # S22+ P426: persist preparation evidence before USB clients
 
-Status: **PASS_GO_READY_FOR_FRESH_ATTENDED_GRANTS**. No grant or transfer yet.
+Status: **H0_QUALIFIED_PHYSICAL_CANDIDATES_CONSUMED**. The historical H0 results
+below are unchanged. [P426/P427 physical closure](S22PLUS_DEBIAN_FILE_FIRST_P426_P427_RUN_2026-10-13.md)
+completed both original-A returns healthy; the sealed file was absent and the
+joined result was `NO_AUTHENTICATED_FILE`. Neither candidate or grant may replay.
 
 The operator selected USB-independent checked filesystem records and continuation
 through a fresh physical trial, original-A recovery and evidence retrieval.
