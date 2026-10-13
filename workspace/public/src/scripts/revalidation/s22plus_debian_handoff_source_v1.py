@@ -2,6 +2,7 @@
 from pathlib import Path
 import s22plus_switch_root_source_v1 as previous
 from s22plus_debian_handoff_profile_v1 import PROFILE
+import s22plus_debian_evidence_v1 as evidence
 
 ROOT=previous.ROOT
 DEBIAN_HANDOFF_PROFILE=PROFILE
@@ -17,15 +18,17 @@ def profile_contract():
     result.update(debian_handoff_profile=PROFILE,switch_root=dict(request=37,sequence=5,seconds=300,
         owner_pid=1,root_readonly=False,installed_exec=True,terminal_reentry=False,
         init_request=39,init_sequence=6,start_request=41,start_sequence=8,
-        release_request=40,release_sequence=9,runtime_seconds=120))
+        release_request=40,release_sequence=9,runtime_seconds=120,observer_revision=4,
+        durable_record_maximum=evidence.MAXIMUM,report_milliseconds=evidence.REPORT_MS,
+        report_disabled_state='authenticated-local-chain',reopen_after_report_loss=False))
     return result
 
 
 def source_files():
     native=ROOT/'workspace/public/src/native-init'
-    return tuple(sorted(set(previous.source_files())|{Path(__file__),
+    return tuple(sorted(set(previous.source_files())|{Path(__file__),Path(evidence.__file__),
         *(native/n for n in ('s22plus_debian_handoff_v1.h','s22plus_debian_handoff_common_v1.inc.c',
             's22plus_debian_handoff_prepare_v1.inc.c','s22plus_debian_handoff_witness_v1.inc.c',
             's22plus_debian_handoff_hook_v1.c','s22plus_debian_handoff_observer_v2.inc.c',
-            's22plus_debian_handoff_root_v2.inc.c')),
+            's22plus_debian_handoff_root_v2.inc.c','s22plus_debian_evidence_v1.inc.c')),
         ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-adopt-g1'}))

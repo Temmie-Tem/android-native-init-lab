@@ -2,7 +2,9 @@
  * reserved-memory mapping, disk writer, panic, console reader or replay. */
 #ifndef USB_RETAINED_PROTOCOL_EXTERNAL
 #include "usb-first-key.h"
+#ifndef EARLY_DOMAIN
 #define EARLY_DOMAIN "S22PLUS-FYG8-DEBIAN-USB-FIRST-v1"
+#endif
 #include "early-protocol.h"
 #endif
 static int usb_retained(unsigned sequence,const char *event,size_t size) {

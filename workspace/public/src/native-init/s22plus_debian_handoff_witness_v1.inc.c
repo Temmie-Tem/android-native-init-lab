@@ -87,5 +87,6 @@ static __attribute__((noreturn)) void dh_exec_init(void) {
     if(leaked!=4)sw_stop(EPROTO);
 #endif
     char *args[]={"/sbin/init",NULL};char *env[]={"PATH=/usr/sbin:/usr/bin:/sbin:/bin","LC_ALL=C",NULL};
+    if(sw_now()>=sw.deadline_ms)sw_stop(ETIMEDOUT);
     execve("/sbin/init",args,env);sw_stop(fs1_error());
 }

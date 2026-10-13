@@ -1,7 +1,9 @@
 /* Child of Debian /init: fixed ACM evidence exporter. No CONTROL, shell,
  * filesystem mount or installed-code execution. Configfs is its only mount. */
+#ifndef EARLY_OBSERVER_LIBRARY
 #define FS1_READONLY_BINDING_ONLY
 #include "s22plus_native_ext4_v1.c"
+#endif
 #include <poll.h>
 #include <termios.h>
 #include <time.h>
@@ -139,6 +141,7 @@ static int serial_open(void) {
     if(tcsetattr(fd,TCSANOW,&tty)){close(fd);return -1;}
     return fd;
 }
+#ifndef EARLY_OBSERVER_LIBRARY
 int main(int argc,char **argv) {
     if(argc!=2 || (strcmp(argv[1],"0") && strcmp(argv[1],"1") && strcmp(argv[1],"2")))return 100;
     uint64_t start=now();if(start==UINT64_MAX)return 101;deadline=start+EARLY_TIMEOUT;
@@ -171,3 +174,4 @@ int main(int argc,char **argv) {
     if(fd>=0 && close(fd)&&!error)error=EIO;
     return error?1:0;
 }
+#endif

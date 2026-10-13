@@ -558,11 +558,46 @@ of same-boot init/cron/sshd liveness before USB release. The same first g1 is
 retained and reconfigured as NCM under Debian ownership. Fixed RAM overlays
 defer USB and periodic cron jobs without replacing installed files.
 
+Fresh independently reviewed revision-4 helpers may use V2's fixed exclusive
+per-run native_data record and checked shared chain. Only a known reporting
+I/O loss after durable authenticated START may continue the same bounded
+startup/service observation with ACM permanently disabled, then park for the
+bound attended return. No reopen, release, gadget change or shutdown follows
+that branch. Required identity/storage/child/service/deadline checks retain
+their fatal behavior. Pre-RW tree bounds are unchanged; historical local
+records, host receipts, SSH and recovery remain separate evidence.
+
 Current independent review and actual artifact qualification must cover the
 changed authority, root admission, observer and gadget transition. H0 readiness
 does not prove current connected health or current native_data admission.
 V1/P410 remain consumed with their original frozen provenance; their catalog
 data cannot inherit the V2 builder or runtime.
+
+### Debian-owned integrated boot V1
+
+The common-incorporated [integrated boot V1](../S22PLUS_DEBIAN_INTEGRATED_V1.md)
+is adopted only for `debian-integrated-v1`, V3 `debian-integrated`, one returned
+attended one-operation/3600-second grant, one fresh N and one physical original
+A. The measured initial Debian shell, exact platform/provider/USB preparation,
+eight UFS modules and temporary PID1 entry use a distinct authenticated compound
+start recorded before its first wire write. No native admission, old worker
+settlement or prior boot identity is inferred.
+
+Complete current clean-root admission precedes the sole RO clear/RW mount and
+installed SysVinit. The original device deadline covers fixed rcS/runlevel-2
+children and 120-second service observation. Exact revision-4 bounded records
+and the policy's reporting-only loss behavior apply; failed identity, storage,
+child, service or deadline checks still park. Complete live proof permits
+same-g1 NCM and same-boot pinned SSH health, then one fixed shutdown. This adds
+no installation, repair, replay, unbounded command or other-partition write.
+
+Fresh qualification and independent review cover this composed runtime and
+host owner. The previous protected-preparation fixed D0 may establish original
+Android32 health within foreground preparation; it is not native_data admission.
+Physical attendance and usable Download/original-A recovery remain mandatory.
+A stalled kernel syscall has no claimed automatic recovery. After one proved
+A, only remaining health/closure may continue. Original records and consumed
+candidates retain their provenance; old capabilities are not repinned.
 
 ### Fixed native_data journal recovery V1
 

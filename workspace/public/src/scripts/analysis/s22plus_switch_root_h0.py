@@ -98,7 +98,7 @@ def build(out,run,key,*,virt=False,fault=0,checker_fault=0,debian=None):
             (out/'s22plus_switch_root_payload_v1.h').write_bytes(payload_header(binaries[label]))
     for row in receipts:verify(row,maximum=4*1024*1024)
     require(inspection.fs_build.compiler_identity(compiler)==compiler_pin,'ARM64 compiler changed')
-    extras={} if debian is None else extension.result_fields(out,binaries['hook'],debian,virt)
+    extras={} if debian is None else extension.result_fields(out,binaries['hook'],debian,virt,run)
     return publish(out/'result.json',dict(schema='s22plus-switch-root-helpers-h0-v1' if debian is None else
         's22plus-debian-handoff-helpers-h0-v1',run_id_hex=run,
         key_sha256=hashlib.sha256(key).hexdigest(),sources=receipts,compiler=compiler_pin,virt=virt,

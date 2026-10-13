@@ -11,17 +11,17 @@ ROOT,NATIVE=base.ROOT,base.NATIVE
 
 
 def source_files(virt=False):
-    return sorted(set(base.source_files(virt))|{Path(__file__),Path(profile.__file__),
+    return sorted(set(base.source_files(virt))|{Path(__file__),Path(profile.__file__),Path(profile.evidence.__file__),
         *(NATIVE/n for n in ('s22plus_debian_handoff_v1.h','s22plus_debian_handoff_common_v1.inc.c',
         's22plus_debian_handoff_prepare_v1.inc.c','s22plus_debian_handoff_witness_v1.inc.c',
         's22plus_debian_handoff_hook_v1.c','s22plus_debian_handoff_observer_v2.inc.c',
-        's22plus_debian_handoff_root_v2.inc.c')),
+        's22plus_debian_handoff_root_v2.inc.c','s22plus_debian_evidence_v1.inc.c')),
         ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-adopt-g1'})
 
 
 def validate_options(options,virt):
     require(set(options)=={'namespace','version','fault'} and type(options['fault']) is int and
-        options['fault'] in range(15) and (not options['fault'] or virt),'Debian build options differ')
+        options['fault'] in range(32) and (not options['fault'] or virt),'Debian build options differ')
 
 
 def prepare_headers(out,run,options,virt):
@@ -49,10 +49,10 @@ def payload_header(out,hook,virt):
     (out/'s22plus_debian_handoff_payload_v1.h').write_bytes(payload_bytes(out,hook,virt))
 
 
-def result_fields(out,hook,options,virt):
+def result_fields(out,hook,options,virt,run):
     init,_=profile.payloads(virt=virt)
-    return dict(debian=options,observer_revision=3,assets=dict(asset_rows(out,hook,virt)),
-        installed_init=dict(size=len(init),sha256=hashlib.sha256(init).hexdigest()))
+    return dict(debian=options,observer_revision=4,durable_evidence=profile.evidence.binding(run),
+        assets=dict(asset_rows(out,hook,virt)),installed_init=dict(size=len(init),sha256=hashlib.sha256(init).hexdigest()))
 
 
 def build(out,run,key,*,namespace,version,virt=False,fault=0):
@@ -85,7 +85,7 @@ def audit(out,run,key,*,namespace,version):
     require(all((out/name).read_bytes()==data for name,data in generated.items()),'Debian generated header differs')
     _,assets=profile.payloads()
     require(all(verify(value['assets'][name]).read_bytes()==data for name,data in assets.items()) and
-        all(value[k]==v for k,v in result_fields(out,value['hook'],options,False).items()),'Debian RAM asset differs')
+        all(value[k]==v for k,v in result_fields(out,value['hook'],options,False,run).items()),'Debian RAM asset differs')
     return value
 
 

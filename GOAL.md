@@ -32,8 +32,14 @@ failure without that logger path means it is not a complete causal explanation.
 The operator selected execution-code correction and one integrated candidate.
 The [P425 H0 implementation record](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_H0_2026-10-13.md)
 owns binding correction, actual hardware-effect parity and Debian initial PID1
-through installed init/services/SSH. Implementation and qualification are in
-progress; no device grant is opened.
+through installed init/services/SSH. P425 `v0.6.0-rc.1` is now
+**READY_H0_PRELIVE_ONLY** with independent **PASS_GO**: 160 focused tests,
+reproducible boot-only artifacts, nine integrated ARM64 VM cases and four
+current revision-4 failure cases pass. The normal VM proves 120-second service
+liveness, same-boot SSH, controlled shutdown and durable records. One offline
+task is prepared with process/device acquisition blocked. No grant is open and
+the candidate is unconsumed; physical platform/UFS/USB and full Debian/SSH
+ownership remain unproved. A90 and S20+ are untouched by this unit.
 
 ## P424 closed: authenticated PRE retained; Android healthy
 
@@ -54,8 +60,8 @@ pair calibration, earliest Debian PID1 and historical P421/P423 execution
 remain unproved. H0 inspection found that the helper expects device name
 `soc:samsung,kernel_log_buf`, while the returned log names the driver probe's
 device `8.samsung,kernel_log_buf`. The aggregate check does not identify its
-failing predicate; correcting/qualifying this observer is the smallest useful
-H0 successor. No new candidate or run grant is prepared.
+failing predicate. P425 above corrects and qualifies that predicate as part of
+the integrated successor; the consumed P424 result retains its original meaning.
 
 Physical return encountered a USB inventory change before A dispatch. Existing
 attended recovery then transferred A once. A subsequent `error: closed` health

@@ -21,9 +21,10 @@ encode,frames,health=base.encode,base.frames,base.health
 
 
 class Records(base.Records):
-    def __init__(self,key,run,nonce,boot,witness_sha256,init_sha256,hook_sha256,*,observer_revision=2):
-        super().__init__(key,run,nonce,boot,witness_sha256,root_readonly=False)
-        require(type(observer_revision) is int and observer_revision in (2,3),'unknown Debian observer revision')
+    def __init__(self,key,run,nonce,boot,witness_sha256,init_sha256,hook_sha256,*,observer_revision=2,
+                 settlement='three-workers-reaped'):
+        super().__init__(key,run,nonce,boot,witness_sha256,root_readonly=False,settlement=settlement)
+        require(type(observer_revision) is int and observer_revision in (2,3,4),'unknown Debian observer revision')
         self.observer_revision=observer_revision;self.boundaries=[]
         self.expected_init,self.expected_hook=init_sha256,hook_sha256
         self.continued=self.started=self.released=False;self.init_proof=None;self.progress=[]
@@ -33,7 +34,7 @@ class Records(base.Records):
         return bool(rows and rows[-1]['event']==5 and rows[-1]['wait_status']==0)
 
     def boundary(self,frame,value):
-        require(self.observer_revision==3 and self.started and len(self.progress) in (1,2) and
+        require(self.observer_revision>=3 and self.started and len(self.progress) in (1,2) and
             len(self.boundaries)<BOUNDARY_MAX and len(value)==64,'unselected or excessive startup boundary')
         phase,event,pid,status,elapsed,closed=struct.unpack('<4I2Q',value[:32])
         require(phase==len(self.progress) and value[32:]==self.boot and elapsed<300000 and
@@ -94,7 +95,7 @@ class Records(base.Records):
             ordinal=len(self.progress)
             require(self.started and ordinal<SAMPLES+3 and frame.sequence==2000+ordinal and len(value)==56,
                 'out-of-order Debian progress')
-            if self.observer_revision==3 and ordinal in (1,2):
+            if self.observer_revision>=3 and ordinal in (1,2):
                 require(self.startup_complete(ordinal),'startup completion lacks exact child success')
             stage,sample,pid,services,elapsed=struct.unpack('<4IQ',value[:24])
             expected_stage=ordinal+1 if ordinal<3 else 4
@@ -115,13 +116,14 @@ class Records(base.Records):
             services_start_accepted=self.started,progress=self.progress,runtime_proof=self.runtime_proof,
             acm_release_accepted=self.released,acm_departure_proved=False,ssh_access_proved=False,
             persistent_writes=True,clean_shutdown_proved=False,stop=self.stop)
-        if self.observer_revision==3:value.update(observer_revision=3,startup_boundaries=self.boundaries)
+        if self.observer_revision>=3:value.update(observer_revision=self.observer_revision,startup_boundaries=self.boundaries)
         return value
 
 
 def reader(key,run,nonce,boot,selection):
     return Records(key,run,nonce,boot,selection['witness']['sha256'],selection['installed_init']['sha256'],
-        selection['assets']['hook']['sha256'],observer_revision=selection.get('observer_revision',2))
+        selection['assets']['hook']['sha256'],observer_revision=selection.get('observer_revision',2),
+        settlement=selection.get('settlement','three-workers-reaped'))
 
 
 def prefix(codec,identity,key,rx,tx,*,io_class,selection,complete=False):
@@ -190,7 +192,7 @@ def qualify_one(io,*,evidence,before_terminal,before_extra,selection):
         def receive():
             nonlocal receipts
             frame=io.frame()  # The IO has already retained the raw bytes.
-            if records.observer_revision==3:
+            if records.observer_revision>=3:
                 require(receipts<128,'Debian receive receipt bound exceeded')
                 publish(Path(evidence)/('debian-receive-%03d.json'%receipts),dict(
                     clock='CLOCK_BOOTTIME',received_ns=time.clock_gettime_ns(time.CLOCK_BOOTTIME),

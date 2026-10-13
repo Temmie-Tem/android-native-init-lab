@@ -9,6 +9,7 @@ import tarfile
 import s22plus_native_root_inspect_profile_v1 as inspection
 import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
+import s22plus_debian_evidence_v1 as evidence
 from s22plus_native_records_v3 import read,require,verify
 
 ROOT=inspection.ROOT
@@ -40,7 +41,7 @@ def image_binding(image):
     require(image['profile']==PROFILE,'unselected Debian handoff image')
     root=inspection.image_binding(dict(image,profile=inspection.PROFILE,root_inspection=image['root_admission']))
     value=image['debian_handoff']
-    require(set(value)-{'observer_revision'}=={'prepare','witness','busybox','checker','assets','installed_init','seconds','request',
+    require(set(value)-{'observer_revision','durable_evidence'}=={'prepare','witness','busybox','checker','assets','installed_init','seconds','request',
         'init_request','start_request','release_request','root_readonly','installed_exec','persistent_writes','helpers_result'} and
         value['seconds']==300 and value['request']==37 and value['init_request']==39 and value['release_request']==40 and
         value['start_request']==41 and value['root_readonly'] is False and value['installed_exec'] is True and value['persistent_writes'] is True and
@@ -52,9 +53,11 @@ def image_binding(image):
     for name,data in assets.items():require(verify(value['assets'][name]).read_bytes()==data,'RAM overlay differs')
     for name in ('prepare','witness','busybox','checker','helpers_result'):verify(value[name])
     revision=value.get('observer_revision',2)
-    require(type(revision) is int and revision in (2,3) and
+    require(type(revision) is int and revision in (2,3,4) and
         revision==read(verify(value['helpers_result'])).get('observer_revision',2),
         'Debian observer revision differs from retained helpers')
+    require(value.get('durable_evidence')==(evidence.binding(image['run_id_hex']) if revision==4 else None),
+        'durable evidence scope differs from observer revision')
     verify(value['assets']['hook'])
     previous=read(verify(PREVIOUS_CLOSE))
     require(previous['terminal_state']=='ANDROID_CLOSED_HEALTHY','P410 is not closed healthy')
@@ -128,7 +131,7 @@ def header(namespace,version,run,*,virt=False):
     init,assets=payloads(virt=virt);members=root_files()
     marker=f'BOOTSTRAP_CANDIDATE {namespace} {version} {run}\n'
     return ('#ifndef S22_DEBIAN_HANDOFF_SEAL_V1_H\n#define S22_DEBIAN_HANDOFF_SEAL_V1_H\n'+
-        mutable_header()+
+        mutable_header()+evidence.seal(run).decode()+
         f'static const uint64_t dh_init_size={len(init)}ULL;\n'+
         'static const uint8_t dh_init_sha256[]={'+','.join(map(str,hashlib.sha256(init).digest()))+'};\n'+
         f'static const uint64_t dh_usb_size={len(assets["usb"])}ULL;\n'+

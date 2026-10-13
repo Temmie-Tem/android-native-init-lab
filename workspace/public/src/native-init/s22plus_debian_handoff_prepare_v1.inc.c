@@ -29,9 +29,12 @@ static void dh_activate_root(struct fs1_endpoint *e) {
     if(fd<0)sw_stop(fs1_error());
     /* The compound host intent owns this sole RO-clear and writable mount.
      * Any failure parks; no cleanup branch clears/remounts/retries again. */
+    if(sw_now()>=sw.deadline_ms)sw_stop(ETIMEDOUT);
     if(ioctl(fd,BLKROSET,&value) || ioctl(fd,BLKROGET,&actual) || actual)sw_stop(fs1_error());
     uint64_t ro=1;sw_require(fs1_number(e->sys_partition,"ro",&ro));if(ro)sw_stop(EPROTO);
-    if(close(fd) || mount(fs1_node,ri_root,"ext4",0,"errors=remount-ro,nodiscard"))sw_stop(fs1_error());
+    if(close(fd))sw_stop(fs1_error());
+    if(sw_now()>=sw.deadline_ms)sw_stop(ETIMEDOUT);
+    if(mount(fs1_node,ri_root,"ext4",0,"errors=remount-ro,nodiscard"))sw_stop(fs1_error());
     struct stat st;struct statfs fs;
     if(stat(ri_root,&st) || statfs(ri_root,&fs) || st.st_dev!=e->partition || fs.f_type!=0xef53 ||
        (fs.f_flags&(ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID)))sw_stop(EPROTO);

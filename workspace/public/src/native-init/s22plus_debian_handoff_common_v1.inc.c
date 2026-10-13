@@ -5,13 +5,16 @@
 #elif !defined(S22_ROOT_INSPECT_VIRT_TEST)
 #error "Debian fault injection requires virtual discovery"
 #endif
-static void dh_request(unsigned kind,unsigned sequence,unsigned ack) {
-    uint8_t frame[48],tag[32];sw_require(sw_bytes(3,frame,sizeof(frame),0));
+static int dh_auth_request(unsigned kind,unsigned sequence) {
+    uint8_t frame[48],tag[32];int error=sw_bytes(3,frame,sizeof(frame),0);if(error)return error;
     if(memcmp(frame,"S328",4) || frame[4]!=1 || frame[5]!=kind || frame[6]!=32 || frame[7] ||
-       fs1_u32(frame+8)!=sequence || fs1_u32(frame+12)!=~sw_crc(frame+16,32,sw_crc(frame,12,~0U)))sw_stop(EPROTO);
+       fs1_u32(frame+8)!=sequence || fs1_u32(frame+12)!=~sw_crc(frame+16,32,sw_crc(frame,12,~0U)))return EPROTO;
     sw_tag(tag,kind,sequence,NULL,0);
     unsigned different=0;for(unsigned i=0;i<32;++i)different|=tag[i]^frame[16+i];
-    if(different)sw_stop(EPROTO);
+    return different ? EPROTO : 0;
+}
+static void dh_request(unsigned kind,unsigned sequence,unsigned ack) {
+    sw_require(dh_auth_request(kind,sequence));
     uint32_t accepted=1;sw_require(sw_send(ack,sequence,&accepted,sizeof(accepted)));
 }
 static int dh_pin_init(void) {

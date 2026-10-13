@@ -6,16 +6,14 @@ static int logger_bound(void);
 #define main unused_metadata_main
 #include "fyg8-prepare.c"
 #undef main
+#include "s22plus_fyg8_logger_binding_v1.h"
 
 static int logger_bound(void) {
 #ifdef FYG8_VM_TEST
     return 0;
 #else
-    struct stat st;
-    if(lstat("/sys/bus/platform/drivers/samsung,kernel_log_buf/soc:samsung,kernel_log_buf",&st) ||
-        !S_ISLNK(st.st_mode) || st.st_uid)return ENODEV;
-    if(lstat("/proc/last_kmsg",&st) || !S_ISREG(st.st_mode) || st.st_uid)return ENODEV;
-    return 0;
+    unsigned phase;
+    return s22_logger_probe(S22_LOGGER_NEED_LAST,&phase);
 #endif
 }
 

@@ -44,7 +44,10 @@ class BoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.accept(self.reader(),old.transcript())
         legacy=old.RecordsTests().reader()
         with self.assertRaises(ValueError):self.accept(legacy,transcript())
-        for revision in (True,1,4,'3'):
+        current=wire.Records(old.KEY,old.RUN,old.NONCE,old.BOOT,old.WITNESS,old.INIT,old.HOOK,observer_revision=4)
+        self.accept(current,transcript());self.assertTrue(current.released)
+        self.assertEqual(current.projection()['observer_revision'],4)
+        for revision in (True,1,5,'3'):
             with self.assertRaises(ValueError):
                 wire.Records(old.KEY,old.RUN,old.NONCE,old.BOOT,old.WITNESS,old.INIT,old.HOOK,observer_revision=revision)
 

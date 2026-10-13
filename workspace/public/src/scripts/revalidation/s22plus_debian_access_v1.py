@@ -17,10 +17,12 @@ from s22plus_native_records_v3 import clock,digest,pin,publish,read,require,veri
 def inputs(run):
     from s22plus_native_root_inspect_profile_v1 import prior_inputs
     artifact,_,previous=prior_inputs()
-    value={name:previous[name] for name in ('link','client_key','known_hosts','ssh')}
-    for name in ('client_key','known_hosts','ssh'):verify(value[name],maximum=32*1024*1024)
-    # nmcli belongs to this host preparation, not the historical rootfs. Pin
-    # its current fixed path now; a later change rejects the immutable task.
+    value={name:previous[name] for name in ('link','client_key','known_hosts')}
+    for name in ('client_key','known_hosts'):verify(value[name],maximum=32*1024*1024)
+    # Host executables belong to this fresh preparation. The retained root's
+    # keys stay immutable; its historical host-package version is not a target
+    # identity. A later change to either executable rejects the immutable task.
+    value['ssh']=pin(Path('/usr/bin/ssh').resolve(strict=True),maximum=32*1024*1024)
     value['nmcli']=pin(Path('/usr/bin/nmcli').resolve(strict=True),maximum=32*1024*1024)
     return dict(value,root_run_id=artifact['run_id'],
         network_uuid=str(uuid.uuid5(uuid.UUID(hex=run),'s22-debian-handoff-v1')))
@@ -103,7 +105,15 @@ class Access:
         if before is not None:before()
         return raw.acquire_command(args,folder,label,timeout=20,stdout_maximum=65536,stderr_maximum=16384)
 
+    def handoff_receipt(self):
+        step='debian-integrated' if self.request['operation']=='debian-integrated' else 'debian-handoff'
+        name='session.capture.json' if step=='debian-integrated' else 'attempt.json'
+        return pin(self.adapter.folder(step)/name)
+
     def handoff(self):
+        if self.request['operation']=='debian-integrated':
+            from s22plus_debian_integrated_observation_v1 import rederive as integrated
+            return integrated(self.adapter.folder('debian-integrated'),self.request['N'])['proof']
         from s22plus_native_observation_v3 import rederive
         return rederive(self.adapter.folder('debian-handoff'),self.request['N'],ending='handoff',hud=False,
             first_boot=True,profile='debian-handoff')['proof']
@@ -111,7 +121,7 @@ class Access:
     def health(self,step,guard):
         proof=self.handoff();folder=self.adapter.folder(step.name,create=True)
         deadline=min(self.grant['deadline_ns'],clock()+180_000_000_000)
-        publish(folder/'window.json',dict(opened_ns=clock(),deadline_ns=deadline,handoff=pin(self.adapter.folder('debian-handoff')/'attempt.json')))
+        publish(folder/'window.json',dict(opened_ns=clock(),deadline_ns=deadline,handoff=self.handoff_receipt()))
         found=None
         for ordinal in range(1,181):
             guard();require(clock()<deadline,'Debian NCM arrival expired')
@@ -202,6 +212,7 @@ class Access:
         require(health_projection(raw.load_handle(verify(value['health']['capture'])),self.plan,
             boot_sha256=proof['kernel_boot_proof'])==value['health'],'Debian health raw proof differs')
         window=read(verify(value['window']))
+        require(window['handoff']==self.handoff_receipt(),'SSH window belongs to another handoff')
         require(window['opened_ns']<value['observed_ns']<window['deadline_ns'] and
             window['deadline_ns']<=self.grant['deadline_ns'],'Debian health did not finish in its original window')
         found=read(verify(value['endpoint']))

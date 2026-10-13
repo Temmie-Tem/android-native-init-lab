@@ -151,6 +151,9 @@ static int sw_next(int root,struct fs1_endpoint *e,const struct ri_counts *count
 #ifdef S22_DEBIAN_HANDOFF
     sw_require(dh_stage_assets());
 #endif
+#ifdef SW_STAGE_ADDITIONAL_RAM
+    sw_require(SW_STAGE_ADDITIONAL_RAM());
+#endif
     int busybox=fs1_pin_file("/s22-switch-busybox",sw_busybox_size,sw_busybox_sha256,true);
     if(busybox<0)sw_stop(fs1_error());
     if(close(busybox))sw_stop(fs1_error());
@@ -185,6 +188,7 @@ static int sw_next(int root,struct fs1_endpoint *e,const struct ri_counts *count
     char *env[]={"PATH=/usr/sbin:/usr/bin:/sbin:/bin","LC_ALL=C",NULL};
     execve("/s22-switch-busybox",args,env);sw_stop(fs1_error());
 }
+#ifndef S22_SWITCH_ROOT_LIBRARY
 int main(int argc,char **argv) {
     (void)argv;
     if(getpid()!=1)return 111;
@@ -199,3 +203,4 @@ int main(int argc,char **argv) {
      * An empty successful inspector result cannot imply a root transition. */
     sw_stop(result ? EIO : EPROTO);
 }
+#endif

@@ -16,9 +16,11 @@ static void dh_progress(unsigned ordinal,unsigned stage,unsigned sample,uint64_t
     sw_put32(body+8,1);sw_put32(body+12,services);
     for(unsigned i=0;i<8;++i)body[16+i]=(uint8_t)(elapsed>>(8*i));
     memcpy(body+24,sw.boot,32);
-    int error=sw_send(DH_PROGRESS,2000+ordinal,body,sizeof(body));if(error)dh_hook_fail(error);
+    int error=de_event(DE_PROGRESS,stage,sample,elapsed,services,0);if(error)dh_hook_fail(error);
+    error=dh_report(DH_PROGRESS,2000+ordinal,body,sizeof(body));if(error)dh_hook_fail(error);
 }
-/* Revision 3: phase 1 is rcS, phase 2 is rc2. Events are before-close,
+/* Revision 4 retains the revision-3 wire boundaries; local records also bind
+ * disabled reporting. Revision 3: phase 1 is rcS, phase 2 is rc2. Events are before-close,
  * reopened/verified, child-forked (not exec proof), waiting, child-exited.
  * All elapsed values use the original deadline, never a renewed timer. */
 static unsigned dh_boundary_ordinal;
@@ -30,13 +32,17 @@ static void dh_boundary(unsigned phase,unsigned event,pid_t child,unsigned statu
     uint64_t elapsed=now-(sw.deadline_ms-SW_TIMEOUT_MS);
     for(unsigned i=0;i<8;++i){body[16+i]=(uint8_t)(elapsed>>(8*i));body[24+i]=(uint8_t)(auxiliary>>(8*i));}
     memcpy(body+32,sw.boot,32);
-    int error=sw_send(DH_BOUNDARY,(phase==1 ? 3000 : 3100)+dh_boundary_ordinal++,body,sizeof(body));
+    int error=de_event(DE_BOUNDARY,phase,event,(unsigned)child,status,auxiliary);if(error)dh_hook_fail(error);
+    error=dh_report(DH_BOUNDARY,(phase==1 ? 3000 : 3100)+dh_boundary_ordinal++,body,sizeof(body));
     if(error)dh_hook_fail(error);
 }
 static void dh_wait_script(struct dh_state *state,unsigned phase,const char *path,const char *argument) {
     /* The finite parent owns ACM while it waits. Before executing any script,
      * the child closes every non-stdio descriptor and verifies fd 3 is gone. */
-    int error=sw_fd_type();if(error)dh_hook_fail(error);
+    int error=0;
+    if(de.off) {if(fcntl(3,F_GETFD)!=-1 || errno!=EBADF)dh_hook_fail(EPROTO);}
+    else if((error=sw_fd_type()))dh_hook_fail(error);
+    if((error=de_time()))dh_hook_fail(error);
     pid_t child=fork();if(child<0)dh_hook_fail(fs1_error());
     if(!child) {
 #if S22_DEBIAN_FAULT != 14
@@ -53,6 +59,7 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
 #elif S22_DEBIAN_FAULT == 13
         signal(SIGTERM,SIG_DFL);kill(getpid(),SIGTERM);_exit(127);
 #endif
+        if(sw_now()>=sw.deadline_ms)_exit(124);
         char *args[]={(char *)path,(char *)argument,NULL};execv(path,args);_exit(126);
     }
     dh_boundary(phase,3,child,0,0);
@@ -106,24 +113,24 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
     int error;
     if(!strcmp(mode,"rcs")) {
         dh_claim("rcs-started","init-started");
-        if((error=dh_reopen()) || (error=dh_actual_init(state)))dh_hook_fail(error);
+        if((error=dh_actual_init(state)) || (error=dh_reporting_open()))dh_hook_fail(error);
         dh_progress(0,1,0,0,0);
         dh_boundary(1,1,0,0,0);
-        if(close(3))dh_hook_fail(fs1_error());
-        uint64_t closed=sw_now()-(sw.deadline_ms-SW_TIMEOUT_MS);
+        if((error=dh_reporting_close()))dh_hook_fail(error);
+        uint64_t closed=de.off ? 0 : sw_now()-(sw.deadline_ms-SW_TIMEOUT_MS);
 #if S22_DEBIAN_FAULT == 10
         dh_hook_fail(EIO);
 #endif
-        if((error=dh_reopen()) || (error=dh_actual_init(state)))dh_hook_fail(error);
-        dh_boundary(1,2,0,0,closed);
+        if((error=dh_actual_init(state)) || (error=dh_reporting_open()))dh_hook_fail(error);
+        dh_boundary(1,2,0,0,de.off ? 0 : closed);
         dh_wait_script(state,1,"/etc/init.d/rcS",NULL);
         if((error=dh_actual_init(state)))dh_hook_fail(error);
         dh_claim("rcs-complete","rcs-started");dh_progress(1,2,0,0,0);
-        if(close(3))dh_hook_fail(fs1_error());
+        if((error=dh_reporting_close()))dh_hook_fail(error);
         _exit(0);
     }
     dh_claim("runlevel-started","rcs-complete");
-    if((error=dh_reopen()) || (error=dh_actual_init(state)))dh_hook_fail(error);
+    if((error=dh_actual_init(state)) || (error=dh_reporting_open()))dh_hook_fail(error);
     dh_boundary(2,2,0,0,0);
     dh_wait_script(state,2,"/etc/init.d/rc","2");
     if((error=dh_actual_init(state)))dh_hook_fail(error);
@@ -148,6 +155,14 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
             dh_hook_fail(error ? error : EPROTO);
         dh_progress(2+sample,sample ? 4 : 3,sample,sw_now()-started,3);
     }
+    if((error=de_event(DE_COMPLETE,0,0,0,0,0)))dh_hook_fail(error);
+    if(de.off) {
+#ifdef S22_ROOT_INSPECT_VIRT_TEST
+        dprintf(2,"DHVM_LOCAL_COMPLETE reporting=0\n");
+#endif
+        /* No RELEASE read, reopen, gadget operation or additional local work. */
+        for(;;){struct timespec delay={1,0};(void)nanosleep(&delay,NULL);}
+    }
     /* Recheck the fixed RAM executable after the ordinary service startup. */
 #if S22_DEBIAN_FAULT == 9
     int changed=open("/run/s22-debian/usb",O_WRONLY|O_NOFOLLOW|O_CLOEXEC);
@@ -157,7 +172,11 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
     struct statfs usb_fs;
     if(usb<0 || fstatfs(usb,&usb_fs) || usb_fs.f_type!=0x01021994L)dh_hook_fail(EPROTO);
     if(close(usb))dh_hook_fail(fs1_error());
-    dh_request(DH_RELEASE,DH_RELEASE_SEQUENCE,DH_RELEASE_ACK);
+    if((error=dh_auth_request(DH_RELEASE,DH_RELEASE_SEQUENCE)) ||
+       (error=de_event(DE_RELEASE,0,0,DH_RELEASE_SEQUENCE,0,0)))dh_hook_fail(error);
+    uint32_t accepted=1;uint64_t end=sw_now()+DE_REPORT_MS;if(end>sw.deadline_ms)end=sw.deadline_ms;
+    /* RELEASE acknowledgement remains mandatory; loss cannot retire ACM. */
+    if((error=sw_send_until(DH_RELEASE_ACK,DH_RELEASE_SEQUENCE,&accepted,sizeof(accepted),end)))dh_hook_fail(error);
     dh_claim("usb-release","runlevel-complete");
     if(close(3) || (error=dh_retire_acm()))dh_hook_fail(error ? error : EIO);
     /* One fixed RAM script adopts the same original gadget after unbind.

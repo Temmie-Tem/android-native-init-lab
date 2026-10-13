@@ -56,7 +56,7 @@ class Records(common.Records):
         if self.complete:self.result['status']='PASS_DEBIAN_USB_FIRST_OBSERVED'
 
 
-def retained(raw,*,key,run,boot=None):
+def retained(raw,*,key,run,boot=None,domain=DOMAIN):
     """Extract only authenticated current-run stage records from bounded last_kmsg.
 
     Partial/absent records stay partial/absent; they never negate execution.
@@ -71,7 +71,7 @@ def retained(raw,*,key,run,boot=None):
         require(re.fullmatch(rb'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',match[2]),'retained boot syntax differs')
         seq=int(match[3]);require(1<=seq<=256 and seq not in seen,'retained sequence duplicate/out of range')
         nonce=hashlib.sha256(match[2]).digest()
-        require(hmac.compare_digest(bytes.fromhex(match[4].decode()),common.tag(key,run,nonce,240,seq,match[5],domain=DOMAIN)),
+        require(hmac.compare_digest(bytes.fromhex(match[4].decode()),common.tag(key,run,nonce,240,seq,match[5],domain=domain)),
             'retained marker authentication failed')
         require((boot is None or nonce.hex()==boot) and (observed_boot is None or observed_boot==match[2]),'mixed retained boots')
         if result:require(seq>result[-1]['sequence'],'retained stage order reversed')

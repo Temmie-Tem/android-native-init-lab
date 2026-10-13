@@ -4,6 +4,7 @@ import s22plus_native_userspace_probe_profile_v1 as probe
 import s22plus_native_preflight_profile_v1 as preflight
 import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
+import s22plus_debian_integrated_profile_v1 as integrated
 import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
@@ -13,7 +14,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import Journal, digest, pin, read, require, verify
 
 
-ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence, early, calibration)
+ITEMS = (profile, probe, preflight, staged, switch, handoff, journal, evidence, early, calibration, integrated)
 PROFILES = tuple(p for item in ITEMS for p in getattr(item,'PROFILES',(item.PROFILE,)))
 OPERATIONS = tuple(item.OPERATION for item in ITEMS)
 SELECTIONS = tuple(item.SELECTION for item in ITEMS)
@@ -37,6 +38,9 @@ def normal_steps(operation=profile.OPERATION):
     if item is early:
         from s22plus_debian_early_session_v1 import normal_steps as early_steps
         return early_steps()
+    if item is integrated:
+        from s22plus_debian_integrated_session_v1 import normal_steps as integrated_steps
+        return integrated_steps()
     if item is handoff:
         from s22plus_debian_handoff_session_v1 import normal_steps as handoff_steps
         return handoff_steps()
@@ -58,7 +62,7 @@ def validate_task(task, *, recovery=False):
     require(task['N']['profile'] in getattr(item,'PROFILES',(item.PROFILE,)) and task['operations'] == [item.OPERATION] and
         task['E'] is None and task['admission'] is None and task['prior_terminal'] is None and
         task.get('bootstrap_start') is None and task['recovery_mode'] == 'attended' and
-        task['operation_budget'] == 1 and 60 <= task['seconds'] <= (3600 if item is handoff else 1800) and
+        task['operation_budget'] == 1 and 60 <= task['seconds'] <= (3600 if item in (handoff,integrated) else 1800) and
         not any(task[k] for k in ('reentry', 'hud', 'usb_reconnect')),
         'inspector profile is restricted to one attended Android-origin operation')
     if not recovery: item.image_binding(task['N'])
@@ -66,7 +70,7 @@ def validate_task(task, *, recovery=False):
         require(task['seconds']==1800,'log calibration requires its exact 1800-second grant')
     if item is early and task['N']['profile'] in early.WINDOW_PROFILES:
         require(task['seconds']==1800,'early host window requires its exact 1800-second grant')
-    if item is handoff:
+    if item in (handoff,integrated):
         from s22plus_debian_handoff_session_v1 import validate_task as handoff_task
         handoff_task(task,recovery=recovery)
     android_basis_for_image(task['N'], task['target'], task['A'])
@@ -92,6 +96,9 @@ def validate_result(adapter, step, value, request):
     if item is early:
         from s22plus_debian_early_session_v1 import validate_result as early_result
         return early_result(adapter,step,value,request)
+    if item is integrated:
+        from s22plus_debian_integrated_session_v1 import validate_result as integrated_result
+        return integrated_result(adapter,step,value,request)
     if item is handoff:
         from s22plus_debian_handoff_session_v1 import validate_result as handoff_result
         return handoff_result(adapter,step,value,request)
@@ -146,6 +153,9 @@ def terminal(adapter, request, *, recovered):
     if item is early:
         from s22plus_debian_early_session_v1 import terminal as early_terminal
         return early_terminal(adapter,request,recovered=recovered)
+    if item is integrated:
+        from s22plus_debian_integrated_session_v1 import terminal as integrated_terminal
+        return integrated_terminal(adapter,request,recovered=recovered)
     if item is handoff:
         from s22plus_debian_handoff_session_v1 import terminal as handoff_terminal
         return handoff_terminal(adapter,request,recovered=recovered)

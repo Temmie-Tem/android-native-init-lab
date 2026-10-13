@@ -5,11 +5,18 @@
 #include "s22plus_native_ext4_v1.c"
 #include "s22plus_switch_root_common_v1.inc.c"
 #include "s22plus_debian_handoff_common_v1.inc.c"
+#include "s22plus_debian_evidence_v1.inc.c"
 static __attribute__((noreturn)) void dh_hook_fail(int error) {
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
     dprintf(2,"DHVM_HOOK_PARK errno=%d\n",error);
 #endif
-    if(sw.deadline_ms && !sw_broken)(void)sw_record(SW_STOP,error>0 && error<4096 ? error : EPROTO,&sw_last_stage,sizeof(sw_last_stage));
+    unsigned reason=error>0 && error<4096 ? (unsigned)error : EPROTO;
+    if(de_loaded && !de_failed && !de.stopped)(void)de_event(DE_STOP,0,0,reason,SW_WITNESS,0);
+    if(sw.deadline_ms && !sw_broken && !de.off && !sw_fd_type()) {
+        uint8_t body[12];sw_put32(body,SW_STOP);sw_put32(body+4,reason);sw_put32(body+8,sw_last_stage);
+        uint64_t end=sw_now()+DE_REPORT_MS;if(end>sw.deadline_ms)end=sw.deadline_ms;
+        (void)sw_send_until(SW_RECORD,1024+sw.next_record,body,sizeof(body),end);
+    }
     for(;;){struct timespec pause={1,0};(void)nanosleep(&pause,NULL);}
 }
 static int dh_load(struct dh_state *state) {
@@ -29,22 +36,78 @@ static int dh_load(struct dh_state *state) {
     unsigned difference=0;for(unsigned i=0;i<32;++i)difference|=tag[i]^state->tag[i];
     return difference ? EPROTO : 0;
 }
+static int dh_open_failed;
 static int dh_reopen(void) {
+    dh_open_failed=0;
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
+    dprintf(2,"DHVM_REPORT_OPEN phase=%u\n",de_mode);
+    if((S22_DEBIAN_FAULT==25 && de_mode==2) || (S22_DEBIAN_FAULT==29 && de_mode==1 && de.progress==1))
+        {dh_open_failed=1;return ENOENT;}
+    if(S22_DEBIAN_FAULT==30 && de_mode==1)return EPROTO;
     const char *path="/dev/sw-tty";
 #else
     const char *path="/dev/ttyGS0";
 #endif
-    int fd=open(path,O_RDWR|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW|O_CLOEXEC);if(fd<0)return fs1_error();
+    int fd=open(path,O_RDWR|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW|O_CLOEXEC);
+    if(fd<0){dh_open_failed=1;return fs1_error();}
     struct stat st;struct termios tty,readback;
-    if(fstat(fd,&st) || !S_ISCHR(st.st_mode) || (uint64_t)st.st_rdev!=sw.tty_device || tcgetattr(fd,&tty))return EPROTO;
+    if(fstat(fd,&st) || !S_ISCHR(st.st_mode) || (uint64_t)st.st_rdev!=sw.tty_device || tcgetattr(fd,&tty))
+        {(void)close(fd);return EPROTO;}
     cfmakeraw(&tty);tty.c_cc[VMIN]=1;tty.c_cc[VTIME]=0;
     if(tcsetattr(fd,TCSANOW,&tty) || tcgetattr(fd,&readback) ||
        tty.c_iflag!=readback.c_iflag || tty.c_oflag!=readback.c_oflag || tty.c_cflag!=readback.c_cflag ||
-       tty.c_lflag!=readback.c_lflag || readback.c_cc[VMIN]!=1 || readback.c_cc[VTIME])return EPROTO;
-    if(fd!=3){if(dup2(fd,3)!=3 || close(fd))return fs1_error();}
+       tty.c_lflag!=readback.c_lflag || readback.c_cc[VMIN]!=1 || readback.c_cc[VTIME])
+        {(void)close(fd);return EPROTO;}
+    if(fd!=3){
+        if(dup2(fd,3)!=3){int error=fs1_error();(void)close(fd);return error;}
+        if(close(fd))return fs1_error();
+    }
     if(fcntl(3,F_SETFD,0))return fs1_error();
     return sw_fd_type();
+}
+/* Only known reporting I/O loss after durable START may disable reporting.
+ * Descriptor identity, termios and close failures are never optional. */
+static int dh_reporting_open(void) {
+    if(de.off)return 0;
+    int error=de_time();if(error)return error;
+    error=dh_reopen();
+    if(error)sw_broken=1; /* A failed open/identity check cannot report on fd 3. */
+    if(error && dh_open_failed && de.started) {
+        return de_report_lost(error,0,0);
+    }
+    return error;
+}
+static int dh_reporting_close(void) {
+    if(de.off)return 0;
+    int error=close(3) ? fs1_error() : 0;
+#if defined(S22_ROOT_INSPECT_VIRT_TEST) && S22_DEBIAN_FAULT == 27
+    if(!error)error=EIO;
+#endif
+    if(error)sw_broken=1;
+    return error;
+}
+static int dh_report(unsigned kind,unsigned sequence,const void *body,size_t size) {
+    if(de.off)return 0;
+    int error=sw_fd_type();if(error)return error;
+    uint64_t end=sw_now()+DE_REPORT_MS;if(end>sw.deadline_ms)end=sw.deadline_ms;
+#ifdef S22_ROOT_INSPECT_VIRT_TEST
+    dprintf(2,"DHVM_REPORT_SEND phase=%u kind=%u sequence=%u\n",de_mode,kind,sequence);
+    int lost=(S22_DEBIAN_FAULT==20 && kind==DH_INIT_PROOF) ||
+        (S22_DEBIAN_FAULT==21 && kind==DH_START_ACK) ||
+        (S22_DEBIAN_FAULT==22 && kind==DH_PROGRESS && sequence==2000) ||
+        (S22_DEBIAN_FAULT==23 && kind==DH_BOUNDARY && sequence==3000) ||
+        (S22_DEBIAN_FAULT==24 && kind==DH_PROGRESS && sequence==2001) ||
+        (S22_DEBIAN_FAULT==26 && kind==DH_PROGRESS && sequence==2003);
+    error=lost ? EPIPE : sw_send_until(kind,sequence,body,size,end);
+#else
+    error=sw_send_until(kind,sequence,body,size,end);
+#endif
+    if(!error)return 0;
+    if(!de.started || !de_transport_error(error))return error;
+    int stored=de_report_lost(error,kind,sequence);
+    /* This descriptor is retired exactly once. No future hook reopens it. */
+    int closed=close(3) ? fs1_error() : 0;
+    return stored ? stored : closed;
 }
 static int dh_actual_init(struct dh_state *state) {
     struct stat st,root,exe;struct statfs fs;
@@ -93,19 +156,30 @@ int main(int argc,char **argv) {
     if((error=dh_load(&state)))dh_hook_fail(error);
     sw_last_stage=SW_WITNESS;
     if(!strcmp(argv[1],"park"))dh_hook_fail(EIO);
-    if(strcmp(argv[1],"init"))dh_later(&state,argv[1]);
-    if((error=dh_reopen()))dh_hook_fail(error);
+    if(strcmp(argv[1],"init")) {
+        de_mode=!strcmp(argv[1],"rcs") ? 1 : 2;
+        if((error=de_load(&state)) || !de.started || de.stopped || de.complete)dh_hook_fail(error ? error : EPROTO);
+        dh_later(&state,argv[1]);
+    }
     if(S22_DEBIAN_FAULT==1)dh_hook_fail(EPROTO);
     if((error=dh_actual_init(&state)))dh_hook_fail(error);
+    if((error=de_begin(&state)) || (error=de_event(DE_INIT,0,0,1,0,0)))dh_hook_fail(error);
+#if defined(S22_ROOT_INSPECT_VIRT_TEST) && S22_DEBIAN_FAULT == 31
+    if((error=de_begin(&state)))dh_hook_fail(error);
+#endif
+    if((error=dh_reporting_open()))dh_hook_fail(error);
     uint8_t proof[116]={0};sw_put32(proof,1);sw_put32(proof+4,(uint32_t)major((dev_t)sw.root_device));
     sw_put32(proof+8,(uint32_t)minor((dev_t)sw.root_device));
     memcpy(proof+12,sw.boot,32);memcpy(proof+44,dh_init_sha256,32);memcpy(proof+76,state.hook_sha,32);
     /* Last two fields are inherited ACM and state fd counts, both proved 0. */
-    if((error=sw_send(DH_INIT_PROOF,7,proof,sizeof(proof))))dh_hook_fail(error);
+    if((error=dh_report(DH_INIT_PROOF,7,proof,sizeof(proof))))dh_hook_fail(error);
     /* Release the synchronous init barrier without retiring the gadget.
      * Later Debian wait entries are its sole successive descriptor owners. */
-    dh_request(DH_START,DH_START_SEQUENCE,DH_START_ACK);
+    if((error=dh_auth_request(DH_START,DH_START_SEQUENCE)))dh_hook_fail(error);
+    if((error=de_event(DE_START,0,0,DH_START_SEQUENCE,0,0)))dh_hook_fail(error);
+    uint32_t accepted=1;
+    if((error=dh_report(DH_START_ACK,DH_START_SEQUENCE,&accepted,sizeof(accepted))))dh_hook_fail(error);
     dh_claim("init-started",NULL);
-    if(close(3))dh_hook_fail(fs1_error());
+    if((error=dh_reporting_close()))dh_hook_fail(error);
     return 0;
 }

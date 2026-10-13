@@ -23,6 +23,7 @@ import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
 import s22plus_native_log_profile_v1 as calibration
 import s22plus_debian_early_profile_v1 as early
+import s22plus_debian_integrated_profile_v1 as integrated
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -43,9 +44,13 @@ def image_identity(image, binding):
 
 
 def image_valid(image, *, artifact_bytes=False):
-    if image.get('profile') in early.PROFILES:
-        early.image_binding(image)
+    if image.get('profile') in (*early.PROFILES,integrated.PROFILE):
+        selected=integrated if image['profile']==integrated.PROFILE else early
+        bound=selected.image_binding(image)
         if artifact_bytes:
+            if selected is integrated:
+                integrated.archive_binding(image,bound)
+                return
             with transport.pin_boot_only_ap(Path(image['ap']['path']),label='Debian early image',
                     expected_size=image['ap']['size'],expected_sha256=image['ap']['sha256']) as ap:
                 require(transport.boot_only_member_receipt(ap,label='Debian early')==image['member'],
@@ -449,7 +454,7 @@ class Adapter:
             from s22plus_debian_early_session_v1 import return_request
             ready=return_request(self,request)
             arrival_deadline=ready['deadline_ns']
-        elif request['operation']==handoff.OPERATION and step.name=='install-android':
+        elif request['operation'] in (handoff.OPERATION,integrated.OPERATION) and step.name=='install-android':
             from s22plus_debian_access_v1 import Access
             value=Access(self,request).rederive_shutdown()
             ready=read(self.directory/'debian-return-ready.json')
@@ -577,6 +582,13 @@ class Adapter:
         return observe(self.folder(step.name),request['N'],self.native_host(request),guard=guard,
             deadline_ns=read(verify(request['grant']))['deadline_ns'])
 
+    def integrated_observe(self,step,request,*,guard,before_start):
+        require(request['operation']==integrated.OPERATION and step.name==integrated.SELECTION,'unselected integrated start')
+        from s22plus_debian_integrated_observation_v1 import observe
+        self.wait_native(request['N'],request,guard)
+        return observe(self.folder(step.name),request['N'],self.native_host(request),guard=guard,before_start=before_start,
+            deadline_ns=read(verify(request['grant']))['deadline_ns'])
+
     def observe(self, step, request, *, guard, before_terminal, consume_observation=None,before_extra=None):
         from s22plus_native_gpt_session_v1 import profile_for
         from s22plus_native_ext4_session_v1 import profile_for as filesystem_profile
@@ -675,6 +687,10 @@ class Adapter:
         return value
 
     def recover_step_result(self, step, request):
+        if step.action=='integrated-start':
+            require(request['operation']==integrated.OPERATION and step.name==integrated.SELECTION,'unselected integrated result')
+            from s22plus_debian_integrated_observation_v1 import rederive
+            return rederive(self.folder(step.name),request['N'])
         if step.action=='early-evidence':
             require(request['operation']==early.OPERATION and step.name==early.SELECTION,'unselected early evidence result')
             if request['N']['profile'] in early.WINDOW_PROFILES:
@@ -683,7 +699,7 @@ class Adapter:
             from s22plus_debian_early_observation_v1 import rederive
             return rederive(self.folder(step.name),request['N'])
         if step.action in ('debian-health','debian-shutdown'):
-            require(request['operation']==handoff.OPERATION,'unselected Debian access result')
+            require(request['operation'] in (handoff.OPERATION,integrated.OPERATION),'unselected Debian access result')
             from s22plus_debian_access_v1 import Access
             access=Access(self,request)
             return access.rederive_health() if step.action=='debian-health' else access.rederive_shutdown()

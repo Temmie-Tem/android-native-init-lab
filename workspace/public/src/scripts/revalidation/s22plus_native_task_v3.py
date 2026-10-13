@@ -26,6 +26,7 @@ DEBIAN_EARLY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_deb
 DEBIAN_USB_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_usb_first_v1_review.json'
 DEBIAN_FILE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_file_pilot_v1_review.json'
 DEBIAN_STAGE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_stage_probe_v1_review.json'
+DEBIAN_INTEGRATED_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_integrated_v1_review.json'
 LOG_CALIBRATION_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_log_calibration_v1_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
@@ -59,6 +60,7 @@ def source_paths(root):
         'docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md',
         'docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md',
         'docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md',
+        'docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md',
         'docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md',
         'docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md',
         'docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md',
@@ -104,12 +106,13 @@ def capability(root, *, recovery=False, profile=None):
     from s22plus_native_preflight_profile_v1 import PROFILE as preflight_profile
     from s22plus_native_staged_preflight_profile_v1 import PROFILE as staged_profile
     from s22plus_switch_root_profile_v1 import PROFILE as switch_profile
+    from s22plus_debian_integrated_profile_v1 import PROFILE as integrated_profile
     from s22plus_debian_handoff_profile_v1 import PROFILE as handoff_profile
     from s22plus_native_journal_recovery_profile_v1 import PROFILE as journal_profile
     from s22plus_native_evidence_profile_v1 import PROFILE as evidence_profile
     from s22plus_native_log_profile_v1 import PROFILE as log_profile
     from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile, FILE_PROFILE as file_profile, STAGE_PROFILE as stage_profile
-    review_path={log_profile:LOG_CALIBRATION_CAPABILITY,root_inspect_profile:ROOT_INSPECT_CAPABILITY,userspace_probe_profile:USERSPACE_PROBE_CAPABILITY,
+    review_path={integrated_profile:DEBIAN_INTEGRATED_CAPABILITY,log_profile:LOG_CALIBRATION_CAPABILITY,root_inspect_profile:ROOT_INSPECT_CAPABILITY,userspace_probe_profile:USERSPACE_PROBE_CAPABILITY,
         preflight_profile:PREFLIGHT_CAPABILITY,staged_profile:STAGED_PREFLIGHT_CAPABILITY,
         switch_profile:SWITCH_ROOT_CAPABILITY,handoff_profile:DEBIAN_HANDOFF_CAPABILITY,
         journal_profile:JOURNAL_RECOVERY_CAPABILITY,evidence_profile:ROOT_EVIDENCE_CAPABILITY,early_profile:DEBIAN_EARLY_CAPABILITY,usb_profile:DEBIAN_USB_CAPABILITY,file_profile:DEBIAN_FILE_CAPABILITY,stage_profile:DEBIAN_STAGE_CAPABILITY}
@@ -153,7 +156,7 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
         'native task exceeds finite scope')
     require(type(task['operations']) is list and task['operations']
         and len(task['operations'])==len(set(task['operations']))
-        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate'}
+        and set(task['operations'])<={'bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated'}
         and task['recovery_mode'] in ('attended','deferred'),'native task operations or recovery differ')
     require(all(type(task[key]) is bool for key in ('reentry','hud','usb_reconnect'))
         and (not task['usb_reconnect'] or task['reentry'] and task['recovery_mode']=='attended'),
@@ -170,13 +173,14 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
     from s22plus_native_preflight_profile_v1 import PROFILE as preflight_profile
     from s22plus_native_staged_preflight_profile_v1 import PROFILE as staged_profile
     from s22plus_switch_root_profile_v1 import PROFILE as switch_profile
+    from s22plus_debian_integrated_profile_v1 import PROFILE as integrated_profile
     from s22plus_debian_handoff_profile_v1 import PROFILE as handoff_profile
     from s22plus_native_journal_recovery_profile_v1 import PROFILE as journal_profile
     from s22plus_native_evidence_profile_v1 import PROFILE as evidence_profile
     from s22plus_native_log_profile_v1 import PROFILE as log_profile
     from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile, FILE_PROFILE as file_profile, STAGE_PROFILE as stage_profile
-    require(('debian_access' in task)==(task['N']['profile']==handoff_profile),'unselected Debian access inputs')
-    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile,handoff_profile,journal_profile,evidence_profile,early_profile,usb_profile,file_profile,stage_profile,log_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate'}:
+    require(('debian_access' in task)==(task['N']['profile'] in (handoff_profile,integrated_profile)),'unselected Debian access inputs')
+    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile,handoff_profile,journal_profile,evidence_profile,early_profile,usb_profile,file_profile,stage_profile,log_profile,integrated_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated'}:
         from s22plus_native_root_inspect_session_v1 import validate_task as root_inspect_task
         root_inspect_task(task, recovery=recovery)
     if task['N']['profile'] in filesystem_profiles or 'native-ext4' in task['operations']:
@@ -290,6 +294,11 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
                 b'S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
                 b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md'),
                 'journal recovery is not common-incorporated and adopted by the exact target')
+        if task['N']['profile']==integrated_profile:
+            require(b'S22PLUS_DEBIAN_INTEGRATED_V1.md' in details and
+                b'S22PLUS_DEBIAN_INTEGRATED_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
+                b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md'),
+                'integrated Debian is not common-incorporated and adopted by the exact target')
         if task['N']['profile']==handoff_profile:
             require(b'S22PLUS_DEBIAN_HANDOFF_V2.md' in details and
                 b'S22PLUS_DEBIAN_HANDOFF_V2.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
@@ -319,7 +328,7 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
                  seconds=3600, operation_budget=3, recovery_mode='attended', reentry=True,
                  hud=False, usb_reconnect=True, admission=None, prior_terminal=None,
                  storage_census=False, android_exit=True, bootstrap_start=None,gpt_reserve=False,native_ext4=False,
-                 root_inspect=False,userspace_probe=False,preflight=False,staged_preflight=False,switch_root=False,debian_handoff=False,journal_recovery=False,root_evidence=False,debian_early=False,log_calibration=False,
+                 root_inspect=False,userspace_probe=False,preflight=False,staged_preflight=False,switch_root=False,debian_handoff=False,journal_recovery=False,root_evidence=False,debian_early=False,log_calibration=False,debian_integrated=False,
                  retained_lane=None):
     import s22plus_native_target_io_v3 as target_io
     from s22plus_native_adapter_v3 import image_valid
@@ -327,14 +336,14 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
     require(not output.exists(),'native task preparation path already exists')
     require(type(storage_census) is bool and type(android_exit) is bool and type(gpt_reserve) is bool
         and type(native_ext4) is bool and type(root_inspect) is bool and type(userspace_probe) is bool
-        and type(preflight) is bool and type(staged_preflight) is bool and type(switch_root) is bool and type(debian_handoff) is bool and type(journal_recovery) is bool and type(root_evidence) is bool and type(debian_early) is bool and type(log_calibration) is bool
+        and type(preflight) is bool and type(staged_preflight) is bool and type(switch_root) is bool and type(debian_handoff) is bool and type(journal_recovery) is bool and type(root_evidence) is bool and type(debian_early) is bool and type(log_calibration) is bool and type(debian_integrated) is bool
         and (not storage_census or (admission is None)==(prior_terminal is None)),
         'storage census needs either fresh bootstrap or an admitted N and its closed tail')
     native=read(verify(native)); experiment=read(verify(experiment)) if experiment else None
     image_valid(native,artifact_bytes=True)
     if experiment is not None: image_valid(experiment,artifact_bytes=True)
     if retained_lane is not None:
-        require(debian_handoff or journal_recovery or root_evidence or debian_early or log_calibration,'retained lane preparation needs its selected H0 builder')
+        require(debian_handoff or journal_recovery or root_evidence or debian_early or log_calibration or debian_integrated,'retained lane preparation needs its selected H0 builder')
         target_io.lane.validate_binding(retained_lane,source_topology=target_io.lane.SOURCE_TOPOLOGY)
     task=dict(schema='s22plus-native-task-v3',target=read(verify(target)),N=native,E=experiment,
         A=android_artifact(root),adb=pin(Path('/usr/bin/adb').resolve(strict=True),maximum=32*1024*1024),
@@ -348,12 +357,12 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
         hud=hud,usb_reconnect=usb_reconnect,admission=admission,prior_terminal=prior_terminal,
         runtime_scope=native['runtime_sources'])
     if bootstrap_start is not None: task['bootstrap_start']=bootstrap_start
-    if root_inspect or userspace_probe or preflight or staged_preflight or switch_root or debian_handoff or journal_recovery or root_evidence or debian_early or log_calibration:
+    if root_inspect or userspace_probe or preflight or staged_preflight or switch_root or debian_handoff or journal_recovery or root_evidence or debian_early or log_calibration or debian_integrated:
         require(not experiment and not any((storage_census,android_exit,bootstrap_start,gpt_reserve,native_ext4)),
             'root inspection cannot select another operation')
-        require(sum((root_inspect,userspace_probe,preflight,staged_preflight,switch_root,debian_handoff,journal_recovery,root_evidence,debian_early,log_calibration))==1, 'select exactly one protected-root operation')
-        task['operations']=['log-calibrate' if log_calibration else 'debian-early' if debian_early else 'root-evidence' if root_evidence else 'journal-recovery' if journal_recovery else 'debian-handoff' if debian_handoff else 'switch-root' if switch_root else 'staged-preflight' if staged_preflight else 'preflight' if preflight else 'userspace-probe' if userspace_probe else 'root-inspect']
-        if debian_handoff:
+        require(sum((root_inspect,userspace_probe,preflight,staged_preflight,switch_root,debian_handoff,journal_recovery,root_evidence,debian_early,log_calibration,debian_integrated))==1, 'select exactly one protected-root operation')
+        task['operations']=['debian-integrated' if debian_integrated else 'log-calibrate' if log_calibration else 'debian-early' if debian_early else 'root-evidence' if root_evidence else 'journal-recovery' if journal_recovery else 'debian-handoff' if debian_handoff else 'switch-root' if switch_root else 'staged-preflight' if staged_preflight else 'preflight' if preflight else 'userspace-probe' if userspace_probe else 'root-inspect']
+        if debian_handoff or debian_integrated:
             from s22plus_debian_access_v1 import inputs
             task['debian_access']=inputs(native['run_id_hex'])
     validate_task(root,task,live=False)
@@ -403,7 +412,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5])
     sub=parser.add_subparsers(dest='command',required=True)
-    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate'))
+    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated'))
     run.add_argument('grant',type=Path); run.add_argument('--attended',action='store_true')
     run.add_argument('--reentry',action='store_true'); run.add_argument('--hud',action='store_true')
     run.add_argument('--experiment-image',type=Path)

@@ -36,10 +36,11 @@ static int sw_boot(uint8_t out[32]) {
     }
     sw_hash(value,36,out); return 0;
 }
-static int sw_bytes(int fd,void *buffer,size_t count,int output) {
+static int sw_bytes_until(int fd,void *buffer,size_t count,int output,uint64_t deadline) {
+    if(!deadline || deadline>sw.deadline_ms)return EINVAL;
     uint8_t *p=buffer;
     while (count) {
-        if (sw_now()>=sw.deadline_ms) return ETIMEDOUT;
+        if (sw_now()>=deadline) return ETIMEDOUT;
         ssize_t n=output ? write(fd,p,count) : read(fd,p,count);
         if (n>0) { p+=n;count-=(size_t)n;continue; }
         if (n<0 && (errno==EINTR || errno==EAGAIN)) {
@@ -50,6 +51,9 @@ static int sw_bytes(int fd,void *buffer,size_t count,int output) {
         return n ? fs1_error() : EIO;
     }
     return 0;
+}
+static int sw_bytes(int fd,void *buffer,size_t count,int output) {
+    return sw_bytes_until(fd,buffer,count,output,sw.deadline_ms);
 }
 static uint32_t sw_crc(const uint8_t *p,size_t length,uint32_t crc) {
     for (size_t i=0;i<length;++i) {
@@ -77,13 +81,16 @@ static void sw_tag(uint8_t out[32],unsigned kind,uint32_t sequence,const uint8_t
     s22plus_max77705_runtime_sha256_update(&hash,inner,sizeof(inner));
     s22plus_max77705_runtime_sha256_final(&hash,out);
 }
-static int sw_send(unsigned kind,uint32_t sequence,const void *data,size_t size) {
+static int sw_send_until(unsigned kind,uint32_t sequence,const void *data,size_t size,uint64_t deadline) {
     if (sw_broken || size>991) return EPROTO;
     uint8_t frame[1039]={ 'S','3','2','8',1,(uint8_t)kind };
     frame[6]=(uint8_t)(size+32);frame[7]=(uint8_t)((size+32)>>8);sw_put32(frame+8,sequence);
     memcpy(frame+16,data,size);sw_tag(frame+16+size,kind,sequence,data,size);
     sw_put32(frame+12,~sw_crc(frame+16,size+32,sw_crc(frame,12,~0U)));
-    int error=sw_bytes(3,frame,size+48,1);if(error)sw_broken=1;return error;
+    int error=sw_bytes_until(3,frame,size+48,1,deadline);if(error)sw_broken=1;return error;
+}
+static int sw_send(unsigned kind,uint32_t sequence,const void *data,size_t size) {
+    return sw_send_until(kind,sequence,data,size,sw.deadline_ms);
 }
 static int sw_record(unsigned stage,unsigned error,const void *data,size_t size) {
     if (sw.next_record>=SW_MAX_RECORDS || size>983 || error>4095) return EOVERFLOW;

@@ -61,11 +61,13 @@ class Session(baseline.Session):
 
 
 class Records:
-    def __init__(self,key,run,nonce,boot,witness_sha256,*,root_readonly=True):
+    def __init__(self,key,run,nonce,boot,witness_sha256,*,root_readonly=True,settlement='three-workers-reaped'):
         self.key,self.run,self.nonce,self.boot=key,run,nonce,boot
         self.expected_witness=witness_sha256
         require(type(root_readonly) is bool,'root mode is not explicit')
         self.root_readonly=root_readonly
+        require(settlement in ('three-workers-reaped','early-children-settled'),'unknown initial userspace settlement')
+        self.settlement=settlement
         self.records=[];self.logs=bytearray();self.last=0;self.proof=None;self.stop=None;self.returned=False
 
     def accept(self,frame):
@@ -88,7 +90,7 @@ class Records:
             self.stop=dict(errno=error,last_stage=self.last)
         else:
             require(stage==self.last+1 and error==0 and stage<=8,'switch stage skipped, repeated or failed')
-            if stage<8:require(data==LABELS[stage],'switch stage payload differs')
+            if stage<8:require(data==(self.settlement.encode() if stage==2 else LABELS[stage]),'switch stage payload differs')
             else:
                 require(len(data)==120,'post-exec proof width differs')
                 pid,major,minor,mounts=struct.unpack('<4I',data[:16]);flags,ro=struct.unpack('<2I',data[112:])

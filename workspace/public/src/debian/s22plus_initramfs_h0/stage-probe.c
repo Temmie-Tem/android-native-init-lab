@@ -8,6 +8,7 @@
 #include "stage-seal.h"
 #define EARLY_DOMAIN "S22PLUS-FYG8-DEBIAN-STAGE-v1"
 #include "early-protocol.h"
+#include "s22plus_fyg8_logger_binding_v1.h"
 
 _Static_assert(SYS_finit_module==273,"ARM64 module syscall");
 static uint8_t stage_boot[16];
@@ -164,13 +165,12 @@ static int binding(void) {
 #ifdef STAGE_VM_TEST
     return fault==3 ? ENODEV : 0;
 #else
-    struct stat st;
     /* Read-only probe settlement only. No reinsertion, ioctl or repair. */
     for(unsigned i=0;i<200;++i) {
         int error=deadline();if(error)return error;
-        if(!lstat("/sys/module/sec_log_buf",&st) && S_ISDIR(st.st_mode) && !st.st_uid &&
-            !lstat("/sys/bus/platform/drivers/samsung,kernel_log_buf/soc:samsung,kernel_log_buf",&st) &&
-            S_ISLNK(st.st_mode) && !st.st_uid && !lstat("/proc/last_kmsg",&st) && S_ISREG(st.st_mode) && !st.st_uid)return 0;
+        unsigned phase;error=s22_logger_probe(S22_LOGGER_NEED_LAST,&phase);
+        if(!error)return 0;
+        if(error!=ENOENT)return error;
         struct timespec delay={0,10000000};if(nanosleep(&delay,NULL))return fs1_error();
     }
     return ENODEV;

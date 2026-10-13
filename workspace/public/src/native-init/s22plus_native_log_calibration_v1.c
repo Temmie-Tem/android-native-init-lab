@@ -21,6 +21,7 @@
 #include "log-calibration-seal.h"
 #define EARLY_DOMAIN "S22PLUS-FYG8-NATIVE-LOG-CAL-v1"
 #include "early-protocol.h"
+#include "s22plus_fyg8_logger_binding_v1.h"
 
 _Static_assert(SYS_finit_module==273 && O_DIRECTORY==040000 && O_NOFOLLOW==0100000,
                "exact ARM64 syscall/path ABI");
@@ -93,10 +94,10 @@ static int logger_bind(void){
 #ifdef LC_VM
     return fault==2?ENODEV:0;
 #else
-    for(unsigned i=0;i<200;++i){struct stat s;int e=deadline();if(e)return e;
-        if(!lstat("/sys/module/sec_log_buf",&s)&&S_ISDIR(s.st_mode)&&!s.st_uid&&
-           !lstat("/sys/bus/platform/drivers/samsung,kernel_log_buf/soc:samsung,kernel_log_buf",&s)&&S_ISLNK(s.st_mode)&&!s.st_uid&&
-           !lstat("/proc/ap_klog",&s)&&S_ISREG(s.st_mode)&&!s.st_uid)return 0;
+    for(unsigned i=0;i<200;++i){unsigned phase;int e=deadline();if(e)return e;
+        e=s22_logger_probe(S22_LOGGER_NEED_AP,&phase);
+        if(!e)return 0;
+        if(e!=ENOENT)return e;
         struct timespec delay={0,10000000};if(nanosleep(&delay,NULL))return err();}return ENODEV;
 #endif
 }

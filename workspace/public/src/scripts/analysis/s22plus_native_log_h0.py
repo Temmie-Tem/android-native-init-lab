@@ -21,7 +21,8 @@ LOGGER=early.LOGGER
 RELEASE='5.10.226-android12-9-30958166-abS906NKSS7FYG8'
 MODEL='Samsung G0Q PROJECT (board-id,12)'
 SOURCE_FILES=(Path(__file__),NATIVE/'s22plus_native_log_calibration_v1.c',
-    NATIVE/'s22plus_fyg8_max77705_result_parser.inc.c',PROTOCOL)
+    NATIVE/'s22plus_fyg8_max77705_result_parser.inc.c',
+    NATIVE/'s22plus_fyg8_logger_binding_v1.h',PROTOCOL)
 FLAGS=('-std=c11','-static','-Os','-fno-ident','-ffunction-sections','-fdata-sections',
     '-Wl,--gc-sections','-Wl,--build-id=none','-Wall','-Wextra','-Werror',
     '-Wno-unused-function','-Wno-unused-const-variable')

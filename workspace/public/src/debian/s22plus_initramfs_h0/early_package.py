@@ -27,36 +27,8 @@ def footer(image,parsed):
     return {k:value[k] for k in ('version_major','version_minor','vbmeta_size','vbmeta_sha256')}
 
 
-def package(out,build,vm):
-    out=h0.private(out,fresh=True);build=h0.private(build);vm=h0.private(vm)
-    built=read(build/'build.json');tested=read(vm/'result.json')
-    usb=built['profile']==profile.USB_PROFILE
-    file_pilot=built['profile']==profile.FILE_PROFILE
-    stage=built['profile']==profile.STAGE_PROFILE
-    from s22plus_debian_stage_profile_v1 import SCHEMA as stage_schema,vm_results as stage_vm_results
-    from s22plus_debian_file_profile_v1 import SCHEMA as file_schema,vm_results
-    schema=stage_schema if stage else file_schema if file_pilot else profile.USB_SCHEMA if usb else profile.SCHEMA
-    require(built['virtual'] is False and built['ab_identical'] is True and built['device_actions']==0,
-        'physical initramfs build required')
-    require(tested['status']=='PASS' and tested['device_actions']==0 and
-        tested['build_sha256']==h0.sha(build/'build.json') and
-        [r['case'] for r in tested['cases']]==profile.vm_cases(built) and
-        all(r['status']=='PASS' and (file_pilot or r['disk_before']==r['disk_after']) and
-            (not usb or r.get('logging_mode','retained')==profile.usb_logging_mode(built)) for r in tested['cases']),
-        'actual producer/consumer VM qualification differs')
-    if file_pilot:vm_results(tested,dict(built,key=pin(build/'key',maximum=32)))
-    if stage:stage_vm_results(tested,dict(built,key=pin(build/'key',maximum=32)))
-    runtime={}
-    for row in built['source_inputs']:
-        relative=Path(row['path'])
-        require(not relative.is_absolute() and '..' not in relative.parts and
-            relative.is_relative_to('workspace/public/src'),'build source path differs')
-        path=h0.ROOT/relative;receipt=pin(path,maximum=4*1024**2)
-        require(receipt['sha256']==row['sha256'],'build source changed')
-        runtime[row['path']]=dict(size=path.stat().st_size,sha256=row['sha256'])
-    for row in tested['source_inputs']:
-        require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'VM source changed')
-    inputs=h0.private(built['inputs']);inventory=fyg8.verify_inventory(inputs)
+def package_archive(out,built):
+    """Retained boot carrier with only exact Debian ramdisk replacement."""
     previous=read(verify(fyg8.retained.RETAINED_RESULT))
     baseline=fyg8.retained.RETAINED/'candidate-a/boot.img'
     expected=previous['candidate']['a']['boot_img']
@@ -87,11 +59,45 @@ def package(out,build,vm):
     ap=pin(out/'pack-a/AP.tar.md5',maximum=128*1024**2)
     with transport.pin_boot_only_ap(Path(ap['path']),label='Debian early',expected_size=ap['size'],expected_sha256=ap['sha256']) as bound:
         member=transport.boot_only_member_receipt(bound,label='Debian early')
+    return ap,member,pin(out/'pack-a/boot.img',maximum=128*1024**2),fyg8.digest(ramdisk)
+
+
+def package(out,build,vm):
+    out=h0.private(out,fresh=True);build=h0.private(build);vm=h0.private(vm)
+    built=read(build/'build.json');tested=read(vm/'result.json')
+    usb=built['profile']==profile.USB_PROFILE
+    file_pilot=built['profile']==profile.FILE_PROFILE
+    stage=built['profile']==profile.STAGE_PROFILE
+    from s22plus_debian_stage_profile_v1 import SCHEMA as stage_schema,vm_results as stage_vm_results
+    from s22plus_debian_file_profile_v1 import SCHEMA as file_schema,vm_results
+    schema=stage_schema if stage else file_schema if file_pilot else profile.USB_SCHEMA if usb else profile.SCHEMA
+    require(built['virtual'] is False and built['ab_identical'] is True and built['device_actions']==0,
+        'physical initramfs build required')
+    require(tested['status']=='PASS' and tested['device_actions']==0 and
+        tested['build_sha256']==h0.sha(build/'build.json') and
+        [r['case'] for r in tested['cases']]==profile.vm_cases(built) and
+        all(r['status']=='PASS' and (file_pilot or r['disk_before']==r['disk_after']) and
+            (not usb or r.get('logging_mode','retained')==profile.usb_logging_mode(built)) for r in tested['cases']),
+        'actual producer/consumer VM qualification differs')
+    if file_pilot:vm_results(tested,dict(built,key=pin(build/'key',maximum=32)))
+    if stage:stage_vm_results(tested,dict(built,key=pin(build/'key',maximum=32)))
+    runtime={}
+    for row in built['source_inputs']:
+        relative=Path(row['path'])
+        require(not relative.is_absolute() and '..' not in relative.parts and
+            relative.is_relative_to('workspace/public/src'),'build source path differs')
+        path=h0.ROOT/relative;receipt=pin(path,maximum=4*1024**2)
+        require(receipt['sha256']==row['sha256'],'build source changed')
+        runtime[row['path']]=dict(size=path.stat().st_size,sha256=row['sha256'])
+    for row in tested['source_inputs']:
+        require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'VM source changed')
+    inputs=h0.private(built['inputs']);inventory=fyg8.verify_inventory(inputs)
+    ap,member,boot,ramdisk_sha256=package_archive(out,built)
     artifact=publish(out/'artifact.json',dict(schema=schema+'-artifact',namespace=built['namespace'],
         version=built['version'],run_id=built['run_id'],ap=ap,member=member,key=pin(build/'key',maximum=32),
         build=pin(build/'build.json'),expected=built['measured'],runtime_sources=runtime,
         module_names=[m['runtime_name'] for m in (built['modules'] if usb or stage else inventory['modules'])],ab_identical=True,active=False,
-        boot=pin(out/'pack-a/boot.img',maximum=128*1024**2),ramdisk_sha256=fyg8.digest(ramdisk),
+        boot=boot,ramdisk_sha256=ramdisk_sha256,
         inventory=pin(inputs/'inventory.json'),vm=pin(vm/'result.json'),device_actions=0))
     _,terminal,plan=profile.prior_inputs();final=verify(terminal['final_health'])
     require(read(final)==prior_owner.android_projection(final.parent,plan),'retained Android32 return does not rederive')

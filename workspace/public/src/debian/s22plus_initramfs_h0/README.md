@@ -108,3 +108,30 @@ are not authenticated device evidence. Module presence is not firmware or
 driver readiness. The [FYG8 H0 report](../../../../../docs/reports/S22PLUS_DEBIAN_FYG8_PREPARATION_H0_2026-10-07.md)
 records exact scope, provenance, tests, firmware limits and the remaining
 physical work. These commands never activate a phone candidate.
+
+## Integrated initial boot and installed services
+
+`integrated.py build` constructs the separate `debian-integrated-v1` candidate.
+Debian `/init` runs the fixed platform and parent-measurement children, then
+execs the temporary PID1 transition entry. Stock logger readiness uses the
+observed `8.samsung,kernel_log_buf` binding. A fixed intermediate SPMI provider
+barrier precedes client insertion, and raw ACM is published before the eight
+UFS modules. Complete protected current-root admission precedes the sole
+native_data RW mount and installed SysVinit.
+
+`integrated_vm.py --build … --output …` runs actual Debian startup, root checks,
+child settlement, 120-second services, same-boot pinned SSH and controlled
+shutdown on private regular-file disks. It substitutes Samsung module, board,
+provider, UFS discovery, USB and network hardware. Rejected module, parent,
+descriptor, authentication and root cases must preserve the disk exactly.
+`integrated_package.py --build … --vm … --output …` packages the unchanged
+retained kernel with that qualified initramfs and checks actual boot/AP joins.
+
+The distinct first wire request is an effectful compound start with a durable
+host intent. It is never an early read-only retry. Fixed continuations and SSH
+shutdown remain bound to the existing V3 journal and original physical-return
+owner. Checked bounded local service records can survive classified reporting
+loss after START, but do not prove USB receipt or SSH. Neither H0 output nor a
+passing VM opens a phone grant. See the
+[integrated policy](../../../../../docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md)
+and [P425 report](../../../../../docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_H0_2026-10-13.md).

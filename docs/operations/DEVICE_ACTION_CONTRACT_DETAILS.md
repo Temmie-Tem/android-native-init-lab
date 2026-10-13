@@ -88,6 +88,12 @@ permission to perform host-only work.
    native_data writable lifetime, basic access and fixed shutdown, with
    physical original-A return. It adds no install, repair, GPT mutation,
    other-partition access or replay of any consumed predecessor.
+   The separate [Debian-owned integrated boot exception](S22PLUS_DEBIAN_INTEGRATED_V1.md)
+   permits its measured Debian initial PID1, fixed platform/USB/UFS preparation,
+   complete protected root admission and one native_data writable installed-init
+   lifetime with bounded service evidence, same-boot SSH and fixed shutdown.
+   All transfers remain boot only, with physical original-A return and no repair,
+   installation, GPT change, other-partition write or consumed-action replay.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -150,6 +156,11 @@ permission to perform host-only work.
    clean-root checks, then Debian-owned service observation and reconfiguration
    of the same first USB gadget. It adds no repair, reinstall, journal replay,
    other-partition access or renewed consumed effect.
+   The separately reviewed [Debian-owned integrated boot V1](S22PLUS_DEBIAN_INTEGRATED_V1.md)
+   specializes only the exact fixed preparation, protected current-root checks,
+   one partition RAM RO clear/RW mount, installed PID1/service lifetime and
+   bounded local records on native_data. Its authenticated compound start,
+   fixed continuations and same-g1 access cannot replay after uncertainty.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -985,6 +996,45 @@ Independent review must cover this permanent write exception, source/tool
 provenance, real ARM64 failure tests and the existing no-replay owner. H0 and
 retained bindings open no grant and prove no current device health.
 
+## S22+ Debian-owned integrated initial boot and services
+
+The separately reviewed [integrated boot V1](S22PLUS_DEBIAN_INTEGRATED_V1.md)
+is incorporated only for `SM-S906N/g0q/S906NKSS7FYG8`, V3 operation
+`debian-integrated` and profile `debian-integrated-v1`. It specializes boundaries
+2 and 3 for one fresh boot-only N, one returned attended one-operation/3600-second
+grant and one physical original-A return. No prior lane or consumed grant
+selects this composition.
+
+Debian shell is initial PID1. Fixed sequential children measure its actual
+identity and prepare stock logger plus retained platform modules; the exact
+pre-client SPMI provider barrier precedes consumer insertion. One temporary
+PID1 entry owns the first raw ACM gadget, then one durably journaled and
+separately authenticated compound start owns the eight UFS modules, complete
+clean protected root admission, child/FD settlement, one native_data RAM RO
+clear and fresh RW mount, root transition, installed SysVinit and fixed
+rcS/runlevel-2/service continuations. No old native worker or native admission
+is inferred. Display modules and native thermal workers are absent; this
+composition claims no physical readiness, quiescence or automatic recovery.
+
+The exact V2 immutable-root and individually bounded mutable-data comparison
+remains mandatory before RW; no repair, replay, formatter, reinstall, archive
+extraction or other-partition access is added. One original 300-second device
+deadline includes 13 liveness samples over at least 120 seconds. Revision-4
+bounded authenticated records and checked synchronization are adopted exactly
+as defined in the integrated policy. Only its classified reporting I/O loss
+after durable START may continue the already-authorized fixed service work
+with ACM permanently disabled; all other required failures park. That branch
+permits no reopen, RELEASE, gadget change or SSH.
+
+Complete live runtime proof permits release of ACM and reconfiguration of the
+same first g1 for pinned same-boot NCM/SSH health, then one separately journaled
+fixed shutdown. Physical Download and one original A close normal or failed
+outcomes, with no transfer replay and health-only continuation after proved A.
+Userspace deadlines cannot recover a kernel stall. Initial, installed-PID1,
+service, SSH, local record and final Android health proofs remain separate.
+Only the already bounded same-returned-Android-boot retained-log D0 retrieval
+is available after healthy closure. H0 qualification opens no grant.
+
 ## S22+ native-first installed-Debian handoff
 
 The separate [handoff V1 policy](S22PLUS_DEBIAN_HANDOFF_V1.md) specializes
@@ -1043,6 +1093,20 @@ acceptance. Started services or an uncertain later USB operation may remain
 active; failure requires the bound attended recovery. Every executed rc child has
 closed ACM/state descriptors; there is no competing native manager or respawn.
 The system crontab is temporarily empty; no package workload is selected.
+
+For fresh reviewed revision-4 helpers only, V2 additionally permits one
+exclusive bounded per-run evidence file and its fixed parent on native_data
+after protected admission. Checked durable START precedes its ACK. A known
+reporting I/O loss after START may disable ACM permanently for the remaining
+fixed startup/service observation under the same deadline. The authenticated
+local chain must record the loss before continuation; subsequent hooks cannot
+reopen/send, receive RELEASE, change USB or request shutdown. They finish the
+bounded local observation and park for the bound attended physical recovery.
+Storage, identity, authentication, close, child/service and deadline faults
+remain fatal. Exact paths, 15,616-byte bound, error classes, checked sync and
+no-replay limits are in V2. This specializes only reporting failure behavior
+inside that already-owned operation; it leaves pre-RW admission unchanged and
+grants no persistent-file retrieval action or authority for a later boot.
 
 The existing compound intent owns all phases. Independently retained runtime
 proof precedes fixed release, final ACM close and exact UDC unbind. Debian

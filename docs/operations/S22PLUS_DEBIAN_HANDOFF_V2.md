@@ -102,10 +102,57 @@ The first synchronous sysinit hook independently proves the actual installed
 descriptors. After a fixed authenticated START it closes ACM and exits. It
 does not hold rcS behind the 120-second wait.
 
-Fresh helpers declare **observer revision 3** in their pinned result and image
+Fresh helpers declare **observer revision 4** in their pinned result and image
 selection. A missing revision means the retained revision-2 protocol only;
 selection and helper revision must agree. Existing consumed artifacts and
 replay projections retain their original meaning.
+
+Revision 4 retains revision-3 wire framing and adds the following prospective
+local-record specialization. Its changed closure requires independent review;
+neither this document nor that review activates a candidate or supplies a grant.
+The synchronous init hook creates exactly one root-owned 0600 single-link file
+`/var/lib/lab/s22-evidence-<sealed-run-id>` on the admitted native_data root,
+using exclusive creation and descriptor-relative no-symlink traversal. The
+optional parent `var/lib/lab` is 0755 root-owned on the same device. It never
+overwrites, removes, repairs or reuses an existing record file. These are
+post-admission runtime writes only: the pre-RW tree and mutable-data bounds
+above remain unchanged and do not admit historical record files implicitly.
+
+The authenticated 256-byte header binds the qualified run, actual kernel boot,
+nonce, original deadline, root device and init/hook hashes. Up to 120 chained
+128-byte records bound total storage to 15,616 bytes. Header and parent sync
+precede init proof; a checked START append precedes START ACK. Each append
+revalidates the whole chain and inode/metadata, writes once, checks file sync
+and readback, then closes its descriptors before child execution. Directory
+creation/sync, short writes, sync, identity or close failures park without
+retry. Check the original deadline immediately before each new mutation or
+child creation; already-admitted writes may finish sync/close after expiry,
+but this is not authority for another record, report, child or USB operation.
+
+Only after a valid authenticated START is durably recorded may a known USB
+reporting I/O loss cease to block the already-authorized fixed rcS/rc2 and
+120-second observation. Each optional send is capped at 500 milliseconds and
+the original remaining deadline. Only ENOENT/EIO/ENODEV/ENXIO on the expected
+open, or EIO/ENODEV/ENXIO/EPIPE/ECONNRESET/ETIMEDOUT on the matching expected
+send, qualifies. Endpoint, termios, close, authentication, child, service,
+local-record or deadline failures still park. Before continuing, append and
+sync REPORT_LOST with the exact phase/operation/sequence, then close the
+original descriptor once. This authenticated chain is the shared disabled
+state: all subsequent hooks load it before opening ACM, and never reopen,
+send, read RELEASE or alter the gadget after report loss. They record the
+remaining authorized facts and COMPLETE, then park. Already-started services
+may remain active until the separately bound attended physical return; local
+completion neither triggers recovery nor proves SSH or clean shutdown.
+
+Records distinguish verified facts from intent: fork is not exec proof,
+child exit is raw reaped status, and skipped reopen is not verified ACM.
+Local RELEASE means an authenticated request was received, not that its ACK
+or gadget transition succeeded. Retrieval uses only a separately selected
+sealed bounded reader operation. Authenticated historical prefixes remain
+partial evidence after a torn tail; missing records are not non-execution
+proof, and neither records nor later reads authorize replay or retire the
+original recovery owner. Local history, host receipt and external access
+are separate claims.
 
 The next Debian-owned wait child emits rcS entry and an authenticated
 before-close boundary. It closes ACM, saves the close-return time, then reopens
@@ -145,7 +192,7 @@ vocabulary. The 120-second interval addresses the P410 post-init/native-return
 incident; reassess this diagnostic interval after the first closed physical
 V2 result and retire it when equivalent Debian-owned progress evidence exists.
 
-Only after the host durably retains the complete runtime proof can its fixed
+On the still-connected path, only after the host durably retains the complete runtime proof can its fixed
 release request be transmitted. Before accepting release, the observer
 rechecks the fixed RAM USB script's generated size and SHA-256. It closes ACM, unbinds the exact
 original `g1` and checks empty UDC. A fixed RAM script reconfigures that same
@@ -183,6 +230,12 @@ short or malformed liveness, absent/bad continuations and failed USB retirement.
 Revision 3 also exercises failure between close and reopen, script nonzero exit, exec failure,
 signal termination, inherited-fd rejection and the original startup timeout.
 Partial boundary evidence must never authorize release or reconnect.
+Revision 4 also exercises pre-START loss, post-START ACK/boundary/progress/open
+loss, storage short-write/sync failures, endpoint/close faults and deadline
+expiry. Actual ARM64 execution must show complete bounded local service proof
+after qualified report loss, no later ACM open/send/release, and no SSH access;
+critical failures must park. Compare authenticated local records with raw wire
+prefixes, and preserve interrupted VM files before recovering a private copy.
 Pre-RW failures must preserve the entire regular-file fixture; all VM cases
 must preserve bytes outside native_data. Check real consumer framing, partial
 raw rederivation, intent order and no-replay recovery. Reuse unchanged P409

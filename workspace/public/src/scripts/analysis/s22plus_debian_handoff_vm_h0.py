@@ -116,14 +116,17 @@ def inspect_after(out,*,positive,negative,booted=False,initial_count=None):
         (str(initial_count)+'\n').encode() if initial_count is not None else b''
     found=b'debugfs 1.47.2 (1-Jan-2025)\n'
     absent=found+b'/var/lib/lab/boot-count: File not found by ext2_lookup \n'
-    interrupted=negative and booted
+    interrupted=negative
+    home_unreadable=(found+str(destination).encode()+
+        b': Block bitmap checksum does not match bitmap while reading allocation bitmaps\ncat: Filesystem not open\n',
+        found+b'/var/lib/lab/boot-count: Ext2 inode is not a directory \n')
     if interrupted and not clean:
-        # Killing QEMU after a negative can leave the ordinary rc2 write in
-        # cache/journal only. Preserve that observation without claiming a
-        # committed count or weakening the positive shutdown requirement.
+        # Killing QEMU can interrupt either the new evidence writer or rc2.
+        # Home metadata can be inconsistent until journal replay on a copy;
+        # retain this failed read without claiming absence or a boot count.
         previous=(str(initial_count)+'\n').encode() if initial_count is not None else b''
-        require(diagnostic in (found,absent) and count in (b'',previous,expected) and
-            (diagnostic!=absent or not count),'unexpected interrupted VM count result')
+        require(diagnostic in (found,absent,*home_unreadable) and count in (b'',previous,expected) and
+            (diagnostic==found or not count),'unexpected interrupted VM count result')
     else:
         require(diagnostic==(found if expected else absent),
             'VM root read did not have its expected filesystem/lookup result')
@@ -136,17 +139,58 @@ def inspect_after(out,*,positive,negative,booted=False,initial_count=None):
             checked.producer_error_type is None and raw.read_stderr(checked,maximum=16384)==b'e2fsck 1.47.2 (1-Jan-2025)\n',
             'VM post-shutdown e2fsck producer or result failed')
     return dict(boot_count_raw_sha256=digest(count),boot_count_raw_size=len(count),
-        boot_count_durability='UNPROVED_INTERRUPTED_RUNLEVEL' if interrupted else
-            'CONTROLLED_SHUTDOWN_VERIFIED' if positive else 'PRE_START_OBSERVATION',clean_ext4=clean)
+        boot_count_durability='UNPROVED_INTERRUPTED_WRITABLE_LIFETIME' if interrupted else
+            'CONTROLLED_SHUTDOWN_VERIFIED' if positive else 'PRE_START_OBSERVATION',clean_ext4=clean,
+        home_view_readable=diagnostic not in home_unreadable)
 
 
 def digest(data):return hashlib.sha256(data).hexdigest()
+
+
+def durable_after(out,built,key,records,*,local_only):
+    """Recover only a private regular-file VM copy, preserving the crash image."""
+    native=out/'native-after.ext4';copy=out/'native-evidence.ext4'
+    require(native.is_file() and not native.is_symlink() and
+        native.is_relative_to(ROOT/'workspace/private/outputs'),'not a private VM file')
+    copied=raw.acquire_command(['/usr/bin/cp','--reflink=auto','--sparse=always',str(native),str(copy)],
+        out,'evidence-copy',timeout=60,stdout_maximum=4096,stderr_maximum=4096)
+    raw.require_success(copied)
+    replay=raw.acquire_command(['/usr/sbin/e2fsck','-p','-E','journal_only',str(copy)],out,
+        'evidence-copy-journal',timeout=60,stdout_maximum=16384,stderr_maximum=4096)
+    require(replay.returncode in (0,1) and not replay.timed_out and not replay.output_exceeded and
+        replay.producer_error_type is None,'private VM journal recovery failed')
+    capture=raw.acquire_command(['/usr/sbin/debugfs','-R',
+        'cat '+profile.evidence.binding(built['run_id_hex'])['path'],str(copy)],out,
+        'durable-record',timeout=20,stdout_maximum=profile.evidence.MAXIMUM,stderr_maximum=4096)
+    require(capture.returncode==0 and not capture.timed_out and not capture.output_exceeded and
+        capture.producer_error_type is None and
+        raw.read_stderr(capture,maximum=4096)==b'debugfs 1.47.2 (1-Jan-2025)\n',
+        'VM durable file retrieval failed')
+    expected=dict(run_id_hex=built['run_id_hex'],boot=records.boot.hex(),
+        nonce_sha256=digest(base.NONCE),key_sha256=digest(key),
+        init_sha256=built['installed_init']['sha256'],hook_sha256=built['hook']['sha256'],
+        root_device=records.projection()['root_transition']['proof']['root_device'])
+    proof=profile.evidence.decode(raw.read_stdout(capture,maximum=profile.evidence.MAXIMUM),key,expected)
+    require(proof['local_runtime_proved'] and proof['report_disabled']==local_only and
+        proof['release_authenticated']==(not local_only),'local VM durable result differs')
+    serial=(out/'serial.log').read_bytes()
+    if local_only:
+        require(serial.count(b'DHVM_REPORT_DISABLED ')==1 and
+            b'DHVM_LOCAL_COMPLETE reporting=0' in serial and b'DHVM_HOOK_PARK' not in serial,
+            'local completion or sticky reporting state differs')
+        after=serial.split(b'DHVM_REPORT_DISABLED ',1)[1]
+        require(b'DHVM_REPORT_OPEN' not in after and b'DHVM_REPORT_SEND' not in after,
+            'hook retried reporting after durable disable')
+    return publish(out/'durable-proof.json',dict(expected=expected,proof=proof,
+        recovered_private_copy=True,source=pin(out/'durable-record.capture.json'),device_actions=0))
 
 
 def run(out,key,*,negative=False,release_fault=None,start_fault=None):
     setup_value=read(out/'setup.json');built=read(verify(setup_value['helpers']));case=setup_value['case']
     variant=setup_value.get('root_variant')
     admission_negative=case in ('dirty','mismatch') or variant not in (None,'post-p410')
+    local_only=built['debian']['fault'] in (21,22,23,24,25,26,29)
+    require(not local_only or negative,'report-loss VM requires negative host outcome')
     require(setup_value['schema']=='s22plus-debian-handoff-vm-v1' and built['virt'] is True and
         built['key_sha256']==protocol.health.digest(key),'VM Debian binding differs')
     require(release_fault in (None,'bad','missing') and (release_fault is None or negative),'invalid VM release fault')
@@ -202,7 +246,7 @@ def run(out,key,*,negative=False,release_fault=None,start_fault=None):
                                         bytes.fromhex(boot[0].decode()),built)
                                 records.accept(frame)
                                 late_negative=release_fault is not None or built['debian']['fault'] in (2,9)
-                                if negative and (records.runtime_proof if late_negative else records.continued) and negative_end is None:
+                                if negative and not local_only and (records.runtime_proof if late_negative else records.continued) and negative_end is None:
                                     negative_end=time.monotonic()+(310 if built['debian']['fault']==11 else 25)
                                 kind=protocol.CONTINUE if records.proof is not None and not tx else \
                                     protocol.START if records.init_proof is not None and len(tx)==48 else \
@@ -218,6 +262,7 @@ def run(out,key,*,negative=False,release_fault=None,start_fault=None):
                                         data=protocol.encode(key,records.run,b'x'*32,kind,sequence)
                                     transmit.write(data);transmit.flush();os.fsync(transmit.fileno());tx.extend(data);stream.sendall(data)
                         if records and (records.released or records.stop):break
+                        if local_only and b'DHVM_LOCAL_COMPLETE reporting=0' in (out/'serial.log').read_bytes():break
                         if negative_end is not None and time.monotonic()>=negative_end:break
                         if process.poll() is not None:break
                     if records and records.released and not negative:
@@ -247,17 +292,26 @@ def run(out,key,*,negative=False,release_fault=None,start_fault=None):
         after=base.vm.fixture_tools.sparse_digest(out/'disk.img');after_outside=outside_native(out/'disk.img')
         require(outside==after_outside,'Debian VM wrote outside native_data')
         filesystem=inspect_after(out,positive=not admission_negative and not negative,negative=negative,
-            booted=bool(records and records.runtime_proof) or built['debian']['fault']==8,
+            booted=local_only or bool(records and records.runtime_proof) or built['debian']['fault']==8,
             initial_count=2 if variant=='count-bad' else 1 if variant else None)
         if admission_negative:
             require(records and records.stop and not records.proof and before==after,'admission negative wrote or proved transition')
         elif not negative:
             require(records and records.released and ssh_health and shutdown and process.returncode==0 and
                 b'reboot: Power down' in (out/'serial.log').read_bytes(),'VM actual Debian boot and shutdown unproved')
+        durable=durable_after(out,built,key,records,local_only=local_only) if local_only or not negative and not admission_negative else None
+        if local_only:
+            require(records and not records.released and not records.runtime_proof and len(tx)==96,
+                'report loss was promoted to host runtime/release proof')
+        if negative and built['debian']['fault'] in (7,8,12,14,15,16,17,18,19,20,27,28,30,31):
+            require(b'DHVM_HOOK_PARK errno=' in (out/'serial.log').read_bytes() and
+                records and not records.runtime_proof and not records.released,
+                'required-failure VM lacks explicit park or advanced to release')
         return publish(out/'result.json',dict(schema='s22plus-debian-handoff-vm-result-v1',setup=pin(out/'setup.json'),
             result=records.projection() if records else None,ssh_health=ssh_health,shutdown=shutdown,
-            disk_changed=before!=after,outside_native_unchanged=True,negative_hook_park=negative,
-            filesystem=filesystem,release_fault=release_fault,start_fault=start_fault,
+            disk_changed=before!=after,outside_native_unchanged=True,negative_hook_park=negative and not local_only,
+            local_observer_complete_park=local_only,
+            filesystem=filesystem,release_fault=release_fault,start_fault=start_fault,durable=durable,
             scope='REAL_ARM64_SYSVINIT_NOT_SAMSUNG_USB',device_actions=0,rx=pin(out/'rx.bin'),
             tx=dict(path=str(out/'tx.bin'),size=len(tx),sha256=digest(bytes(tx)))))
     finally:shutil.rmtree(scratch)
