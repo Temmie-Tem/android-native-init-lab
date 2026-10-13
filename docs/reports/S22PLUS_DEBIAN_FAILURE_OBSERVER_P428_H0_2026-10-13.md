@@ -1,6 +1,6 @@
 # S22+ P428 H0: distinguish work failure, evidence failure and child outcome
 
-Status: **DESIGN_SELECTED_H0_ONLY**. No new device authority or physical run.
+Status: **PASS_GO_H0_ONLY**. No new device authority or physical run.
 P426/P427 remain consumed and closed healthy. This unit implements and tests
 production-present failure observation, using the existing S22+ checklist.
 
@@ -65,7 +65,7 @@ The prospective file surface remains the existing clean-only native_data run
 file, bounds and one-shot cleanup. This H0 unit adds no journal replay, repair,
 module retry, installed Debian execution or recovery mechanism.
 
-## Checklist application before implementation
+## Checklist application and qualification
 
 Use the existing [checklist](../operations/S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md)
 for every S22+ change, selecting only applicable rows and recording evidence in
@@ -74,15 +74,15 @@ is created. Update the existing rows for this observed omission.
 
 | ID | Initial disposition and required evidence |
 | --- | --- |
-| ABI | Pending: actual ARM64 fork/wait, atomic snapshot, time and signal behavior; correct target constants. |
-| IO | Pending: failed/short evidence I/O, readback failure, bounded output and stalled worker; no pipe dependency. |
-| SEMANTIC | Pending: distinct syscall, cleanup, log and wait facts; no inference of cancellation or descendant settlement. |
-| WIRE | Pending: actual C authenticated diagnostic bytes through kernel-log capture and real decoder; missing/torn/foreign records rejected or explicitly partial. |
-| PERSIST | Pending: production recording path after failure; preserved raw bytes before decoding; RAM/returned/file proof meanings remain separate. |
-| ROUTE | Pending: physical and VM initramfs include the same wrapper/diagnostic route; no VM-only semantic terminal is accepted. |
-| ARTIFACT | Pending: actual physical/virtual counterpart sources, generated seals, CPIO and static ARM64 binaries. |
-| AUDIT | Confirmed: current source matches frozen P426 inputs; exact raw prefixes and actual packaged shell were read without device contact. |
-| HOST | Applicable only to H0 producer/collector execution; connected host machinery is unchanged and not qualified anew here. |
+| ABI | Confirmed in H0: retained FYG8 UAPI constants and ARM64 compiler assertions; actual ARM64 shared atomics, fork/wait, signals and time behavior. Samsung blocked-kernel behavior remains unproved. |
+| IO | Confirmed in H0: primary write/sync/readback errors, file short write and sync, parent sync, interrupted wait/sleep and finite pending-worker observation; no output pipe. |
+| SEMANTIC | Confirmed in H0: immediate module return/errno differs from evidence failure; exact exit/signal/wait outcome; coherent tuples and explicit log-return validity. No cancellation, descendant or cleanup inference. |
+| WIRE | Confirmed in H0: real C kernel-log bytes, raw serial preservation and real decoders in 18 cases; absent/torn/foreign input and missing START do not create a successful worker result. |
+| PERSIST | Confirmed in H0: saved raw reopened; separate ARM64 mountless reader retrieves and verifies the actual version-3 file. Physical post-return retention remains unconfirmed. |
+| ROUTE | Confirmed: prospective physical CPIO and ARM64 VM use the same observer source; diagnostic VM adds only poweroff at the shell park. It emits no VM semantic terminal or RO footer. |
+| ARTIFACT | Confirmed: deterministic A/B physical initramfs, 204 frozen source paths, generated seals, static ARM64 helpers and 82 actual module files joined to CPIO. No AP transfer candidate or device activation is produced. |
+| AUDIT | Confirmed: current P426 consumer and frozen sources were compared with raw evidence before diagnosis. Its root cause remains unresolved. |
+| HOST | Confirmed for H0 only: bounded VM timeout preserves raw before decoding; simulated disks remain private regular files. Existing connected host machinery is unchanged and gains no qualification here. |
 | DISPLAY | Not applicable: no display change or display-based inference. |
 | RETURN | Preserved: P426/P427 closure and no-replay remain unchanged; no new physical recovery claim. |
 
@@ -92,3 +92,78 @@ complete path. Tests may substitute Samsung discovery/module effects for ARM64
 virt and inject declared failures. They must not manufacture missing production
 status records. Independent review covers this changed observer/ancestry scope
 and the checklist's real producer-to-consumer evidence.
+
+## Implemented result
+
+The prospective identity is P428 / `v0.7.0-rc.1` /
+`debian-failure-observer-v1`. It has a separate authenticated domain and
+version-3 file magic; old decoders reject the new file. Diagnostic-off builds
+retain their old formats, direct-parent rule and collapsed primary EIO behavior.
+Consumed artifacts, source snapshots, approvals and review tips are untouched.
+
+Both helpers measure the exact initial Debian shell, `/init` and PID1 command
+line before forking. The file worker additionally retains its existing helper
+and RAM-log measurements. The one-level worker ancestry is explicit. Each
+helper has one shared anonymous RAM object with lock-free 32-bit atomic fields,
+a generation check and a separate parent stop flag. Result/value/validity tuples
+are published together; a killed odd-generation writer yields an explicitly
+unstable snapshot. The first instrumented work/evidence error remains sticky even if the
+terminal logging attempt succeeds or fails differently.
+
+Each parent publishes at most START and one terminal record through the existing
+checked kernel-log write/readback primitive. A terminal is independently
+authenticated; missing START does not discard it. Missing or malformed terminal
+records leave that helper UNKNOWN. A measured successful worker exit does not
+prove another helper, checker descendants, filesystem unmount, post-return
+retention or recovery. A pre-call phase means only that the call was armed.
+
+The fixed absolute 300-second BOOTTIME ceiling is checked by the worker before
+later module/storage effects. Clock failure is separate from deadline expiry.
+A pending or observer-error parent parks and cannot release the shell to the
+next helper. Parent-death setup includes the identity race check; this does not
+claim that SIGKILL cancels an uninterruptible kernel call or cleans up descendants.
+
+## Validation evidence
+
+Private evidence is under
+`workspace/private/outputs/s22plus-debian-failure-observer-p428-h0-20261013-1/`.
+`build-2/build.json` freezes the final producer construction and actual A/B CPIO
+joins. Both executables are static AArch64 ELF. `vm-1/result.json` contains 18
+real ARM64 cases with preserved serial bytes, independent diagnostic decoding,
+primary-log decoding and before/after virtual-disk checks:
+
+- normal completion and interrupted observation;
+- module errno, failed BEGIN, failed DONE, RAM sync and kernel readback error;
+- unexpected exit, signal, pending worker and late return;
+- parent death, lost parent diagnostic and unstable shared snapshot;
+- short file write, file sync, parent sync and unmount error.
+
+The late-return case additionally verifies the authenticated production primary
+log: exactly one module BEGIN/return and terminal `REJECTED/error=110`, with no
+subsequent module attempt. A lost parent diagnostic remains missing even if the
+independent writer later produces its own records. No VM footer substitutes for
+these observations. Declared failure injection and board/module substitution are
+VM-only; they do not establish Samsung driver or retained-RAM behavior.
+
+`vm-1/normal/reader-boot/result.json` and `file-proof.json` join the real writer
+with a separate ARM64 mountless-reader boot and the explicit version-3 decoder.
+The recovered file proves authenticated pre-unmount progress under the measured
+initial Debian PID1 ancestry; its original no-USB/no-unmount-return proof limits
+remain intact. `focused-tests.log` records 71 passing protocol/owner regression
+tests. Touched Python passed `py_compile`; scoped repository-boundary, content, link and diff checks pass.
+
+Independent review requested corrections to atomic tuple publication, logging
+return validity, early ancestor measurement, clock-error classification, late
+return verification, parent-sync evidence and distinct artifact identity. These
+were incorporated before the final qualification. Its final disposition is
+**PASS_GO for this H0 observer construction and validation only**.
+
+The independent reviewer redecoded all 18 raw diagnostic/primary streams,
+checked actual physical and VM CPIO members, current virtual-disk digests and
+204 physical / 224 VM source paths, and independently reopened the version-3
+file with old-version rejection. The reviewed build receipt is
+`5f794a74798b98d0a288125bd740863c8f07f78164f57f76623039b0f5491d92`;
+the VM-suite receipt is
+`94be816ba153f40dfceeb3b4df5d183e9d72078b4aeb778a395fed03d4abd1f2`.
+This review activates no F1 owner, grant or physical candidate. No device action
+occurred; A90, S20+ and all 46 pre-existing dirty paths remain untouched.

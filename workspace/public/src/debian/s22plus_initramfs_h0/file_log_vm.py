@@ -26,10 +26,12 @@ import s22plus_debian_file_first_protocol_v1 as first_protocol
 
 def prepare(out,build,case):
     out.mkdir(mode=0o700);built=read(build/'build.json')
-    first=built['profile']==first_profile.PROFILE
+    diagnostic=built.get('diagnostic',False)
+    first=diagnostic or built['profile']==first_profile.PROFILE
     selection=build_api.prepare(out/'helper',Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=(build/'key').read_bytes(),virt=True,
-        fault=case if case in build_api.file_log_faults.NAMES else None,storage_first=first)
+        fault=case if case in build_api.file_log_faults.NAMES else None,storage_first=first,diagnostic=diagnostic,
+        diagnostic_fault=case if diagnostic and case in __import__('failure_faults').NAMES else None)
     entries=list(fyg8.debian_entries(build/'initramfs-a.cpio.gz'))
     for i,e in enumerate(entries):
         if e.name in ('usr/sbin/fyg8-prepare','usr/sbin/file-log'):
@@ -45,6 +47,7 @@ def prepare(out,build,case):
     printf 'FILE_VM_MOUNTS_END\\n'
     poweroff -f
     while :; do /bin/busybox sleep 3600; done'''
+            if diagnostic:stop='    poweroff -f\n    while :; do /bin/busybox sleep 3600; done'
             needle='    while :; do /bin/busybox sleep 3600; done'
             h0.require(source.count(needle)==1,'file stop function differs')
             source=source.replace(needle,stop)

@@ -39,12 +39,15 @@ SSH, controlled shutdown and durable records. P425's physical trial is now
 consumed and closed as described below; full physical Debian/SSH ownership
 remains unproved. A90 and S20+ are untouched by this unit.
 
-## P428 selected: production failure observation, H0 only
+## P428 H0: production failure observer qualified and reviewed
 
-The operator requested separating work, logging and child-outcome failures and
-checking the existing checklist on every change. The [P428 design](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_H0_2026-10-13.md)
-selects bounded in-helper supervision and production-present diagnostic records,
-with actual ARM64 fault paths and independent review. No new device run is selected.
+The [P428 report](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_H0_2026-10-13.md)
+records production-present observation of module return/errno, evidence failure,
+worker exit/signal and deadline-time noncollection. Actual ARM64 tests use the
+same diagnostic source as the prospective physical initramfs; 18 fault/normal
+cases and separate version-3 file retrieval pass, with independent H0 PASS_GO.
+The existing failure checklist is now explicit S22+ development guidance.
+This H0 unit activates no device owner, opens no grant and does not replay P426.
 
 ## P426/P427 closed: file absent; UFS preparation prefix; Android healthy
 

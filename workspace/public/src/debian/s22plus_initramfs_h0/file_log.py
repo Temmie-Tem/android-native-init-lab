@@ -15,6 +15,7 @@ import fyg8
 import h0
 import s22plus_native_journal_recovery_h0 as admission
 import s22plus_debian_file_protocol_v1 as protocol
+import s22plus_debian_failure_protocol_v1 as diagnostic_protocol
 from s22plus_native_records_v3 import pin,verify
 
 NAMESPACE='p421'
@@ -22,7 +23,8 @@ VERSION='v0.5.0-rc.5'
 PROFILE='debian-file-pilot-v1'
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None):
+    h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
     sources=snapshot(out) if storage_first and fresh else None
     h0.verify_packages(packages,out);inventory=fyg8.verify_inventory(inputs)
@@ -33,9 +35,16 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     # Reuse the exact inventory/header generator. This first compile is H0;
     # the module-only helper below is the sole helper included in the image.
     modules=inventory['modules']
+    if diagnostic:
+        original=(packages/'root/usr/share/initramfs-tools/init').read_bytes()
+        needle=b'mount -t devtmpfs -o nosuid,mode=0755 udev /dev\n'
+        h0.require(original.count(needle)==1,'diagnostic init adaptation differs')
+        initial=original.replace(needle,b'. /scripts/fyg8-dev\n')
+        (out/'observer-seal.h').write_text(early.array('early_shell_hash',bytes.fromhex(fyg8.digest(early.shell_input(packages))))+
+            early.array('early_init_hash',bytes.fromhex(fyg8.digest(initial))))
     if storage_first:
         import file_first
-        modules=file_first.prepare_modules(out,inputs,inventory,run,key,virt)
+        modules=file_first.prepare_modules(out,inputs,inventory,run,key,virt,diagnostic=diagnostic,diagnostic_fault=diagnostic_fault)
     else:fyg8.compile_helper(out,inputs,run_id=run,virt=virt)
     flags=['aarch64-linux-gnu-gcc','-static','-Os','-Wall','-Wextra','-Werror',
         '-Wno-unused-function','-Wno-unused-const-variable','-ffunction-sections','-fdata-sections',
@@ -59,22 +68,24 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     if storage_first:
         import s22plus_debian_file_first_plan_v1 as first
         text+='static const uint64_t early_helper_size='+str((out/'fyg8-prepare').stat().st_size)+'ULL;\n'
-    text+='#define EARLY_DOMAIN '+json.dumps((first.DOMAIN if storage_first else protocol.DOMAIN).decode())+'\n'
+    text+='#define EARLY_DOMAIN '+json.dumps(('S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else (first.DOMAIN if storage_first else protocol.DOMAIN).decode()))+'\n'
     (out/'early-seal.h').write_text(text)
     source,extra=file_log_faults.source(out,h0.HERE/'file-log.c',fault) if fault else (h0.HERE/'file-log.c',[])
     h0.run([*flags,*(['-DS22_ROOT_INSPECT_VIRT_TEST'] if virt else []),
-        *(['-DFL_STORAGE_FIRST'] if storage_first else []),*extra,
+        *(['-DFL_STORAGE_FIRST'] if storage_first else []),*(['-DS22_FAILURE_OBSERVER'] if diagnostic else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')
     for name in ('fyg8-prepare','file-log'):
         h0.run(['file',out/name],out/(name+'-file.log'))
         raw=(out/name).read_bytes()
         h0.require(not any(p in raw for p in (*(() if storage_first else (b'/dev/kmsg',b'/proc/last_kmsg')),b'/s22-journal-replay',
             b'/dev/ttyGS',b'/config/usb_gadget',b'/sbin/init')),'file pilot contains an excluded execution path')
-    result=dict(namespace=first.NAMESPACE if storage_first else NAMESPACE,version=first.VERSION if storage_first else VERSION,
-        profile=first.PROFILE if storage_first else PROFILE,run_id=run,virtual=virt,
+    result=dict(namespace='p428' if diagnostic else first.NAMESPACE if storage_first else NAMESPACE,
+        version='v0.7.0-rc.1' if diagnostic else first.VERSION if storage_first else VERSION,
+        profile='debian-failure-observer-v1' if diagnostic else first.PROFILE if storage_first else PROFILE,run_id=run,virtual=virt,
         inputs=str(inputs),packages=str(packages),modules=modules,measured=measured,fault=fault,
         admission=dict(table_count=generated['count'],boot_count=generated['boot'],
             checker=pin(out/'s22-fs-e2fsck'),table=pin(out/'table.bin')))
+    if diagnostic:result.update(diagnostic=True,diagnostic_fault=diagnostic_fault)
     if storage_first:
         if sources is None:sources=json.loads((out/'source-inputs.json').read_text())
         for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'file preparation source changed')
@@ -96,9 +107,9 @@ def snapshot(out):
     rows=sorted(rows.values(),key=lambda r:r['path']);h0.publish(out/'source-inputs.json',rows);return rows
 
 
-def build(out,inputs,packages,*,run=None,key=None,storage_first=False):
+def build(out,inputs,packages,*,run=None,key=None,storage_first=False,diagnostic=False):
     out=h0.private(out,fresh=True);sources=snapshot(out)
-    request=prepare(out,inputs,packages,fresh=False,run=run,key=key,storage_first=storage_first)
+    request=prepare(out,inputs,packages,fresh=False,run=run,key=key,storage_first=storage_first,diagnostic=diagnostic)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
         sys.executable,__file__,'inside','--output',out,*(['--storage-first'] if storage_first else [])],out/'namespace-build.log',timeout=700)
     h0.require(h0.sha(out/'initramfs-a.cpio.gz')==h0.sha(out/'initramfs-b.cpio.gz'),'file A/B archive differs')
@@ -118,7 +129,7 @@ def build(out,inputs,packages,*,run=None,key=None,storage_first=False):
     h0.require({n for n in rows if n.startswith('lab/modules/')}=={'lab/modules/'+m['name'] for m in request['modules']},
         'unexpected embedded module')
     for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'file source changed during build')
-    h0.publish(out/'build.json',dict(schema='s22plus-debian-file-first-h0-v1' if storage_first else 's22plus-debian-file-pilot-h0-v1',status='H0_INITRAMFS_BUILT',
+    h0.publish(out/'build.json',dict(schema='s22plus-debian-failure-observer-h0-v1' if diagnostic else 's22plus-debian-file-first-h0-v1' if storage_first else 's22plus-debian-file-pilot-h0-v1',status='H0_INITRAMFS_BUILT',
         **request,initramfs=pin(out/'initramfs-a.cpio.gz',maximum=16*1024**2),helper=pin(out/'fyg8-prepare'),
         writer=pin(out/'file-log'),ab_identical=True,source_inputs=sources,device_actions=0,active=False,
         headers={p.name:pin(p) for p in sorted(out.glob('*.h'))}))
@@ -128,9 +139,9 @@ def build(out,inputs,packages,*,run=None,key=None,storage_first=False):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=('build','inside','prepare'))
     for name in ('output','inputs','packages'):p.add_argument('--'+name,type=Path,required=name=='output')
-    p.add_argument('--virt',action='store_true');p.add_argument('--storage-first',action='store_true');a=p.parse_args()
-    if a.action=='build':build(a.output,a.inputs,a.packages,storage_first=a.storage_first)
-    elif a.action=='prepare':prepare(a.output,a.inputs,a.packages,virt=a.virt,storage_first=a.storage_first)
+    p.add_argument('--virt',action='store_true');p.add_argument('--storage-first',action='store_true');p.add_argument('--diagnostic',action='store_true');a=p.parse_args()
+    if a.action=='build':build(a.output,a.inputs,a.packages,storage_first=a.storage_first,diagnostic=a.diagnostic)
+    elif a.action=='prepare':prepare(a.output,a.inputs,a.packages,virt=a.virt,storage_first=a.storage_first,diagnostic=a.diagnostic)
     else:
         request=json.loads((a.output/'request.json').read_text())
         fyg8.inside(a.output,Path(request['packages']),Path(request['inputs']),file_pilot=True,storage_first=a.storage_first)

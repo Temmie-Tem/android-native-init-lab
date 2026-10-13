@@ -60,13 +60,22 @@ static int di_modules(unsigned begin,unsigned end) {
         if(close(fd))return fs1_error();
     }
     for(unsigned i=begin;i<end;++i) {
+        int guard=fo_guard();if(guard)return guard;
+        fo_module(i+1);
         const struct fyg8_module *m=fyg8_modules+i;
         int fd=fs1_pin_file(m->path,m->size,m->hash,false);if(fd<0)return fs1_error();
         int error=record("MODULE_BEGIN ordinal=%u name=%s",i+1,m->runtime);
         if(!error && module_present(i)!=0)error=EEXIST;
-        if(!error)error=insert(fd,m->parameters);
-        if(close(fd) && !error)error=fs1_error();
-        if(!error && module_present(i)!=1)error=ENODEV;
+        if(!error)error=fo_guard();
+        if(!error){fo_phase(FO_CALL_ARMED);error=insert(fd,m->parameters);}
+        fo_phase(FO_CLOSE);
+        int closed=close(fd),close_error=closed?fs1_error():0;
+        fo_close(close_error);
+        if(!error)error=close_error;
+        if(!error) {
+            fo_phase(FO_PRESENCE_CHECK);int present=module_present(i),pe=present==1?0:ENODEV;
+            fo_presence(present,pe);error=pe;
+        }
         if(!error && !strcmp(m->runtime,"sec_log_buf")) {
             error=logger_bound();
             int logged=record("LOGGER_BIND phase=%u error=%d",di_logger_phase,error);

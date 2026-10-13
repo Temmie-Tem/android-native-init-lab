@@ -3,9 +3,9 @@
 #include "integrated-prepare.c"
 #include "file-first-plan.h"
 
-int main(int argc,char **argv) {
+static int ff_work(int argc,char **argv) {
     (void)argv;
-    if(argc!=1 || getpid()==1 || getppid()!=1 || getuid() || geteuid() || getgid() || getegid())return 100;
+    if(argc!=1 || getpid()==1 || !fo_parent_ok() || getuid() || geteuid() || getgid() || getegid())return 100;
     umask(077);int error=target();if(error)return 104;
     int dir=open("/run/initramfs",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
     struct stat st;struct statfs fs;
@@ -15,10 +15,30 @@ int main(int argc,char **argv) {
     if(events<0 || close(dir))return 108;
     char boot[38];error=fs1_read_text("/proc/sys/kernel/random/boot_id",boot,sizeof(boot));
     if(!error && (strlen(boot)!=37 || boot[36]!='\n'))error=EPROTO;
-    if(!error){boot[36]=0;error=record("BEGIN run=%s boot=%s parent=1",fs1_run_id,boot);}
+    if(!error){boot[36]=0;error=record("BEGIN run=%s boot=%s parent=%s",fs1_run_id,boot,
+#ifdef S22_FAILURE_OBSERVER
+        "supervised"
+#else
+        "1"
+#endif
+        );}
     if(!error)error=record("TARGET_GUARD_OK");
     if(!error)error=di_modules(0,FF_STORAGE_COUNT);
+    fo_failure(FO_MODULE,error);
     int logged=record("TERMINAL result=%s error=%d",error?"REJECTED":"STORAGE_READY",error);
-    if(close(events) && !error)error=fs1_error();
+    fo_log_begin(FO_EVENT_CLOSE);int closed=close(events),ce=closed?fs1_error():0;
+    fo_log_result(FO_EVENT_CLOSE,ce);if(!error)error=ce;
     return error || logged ? 1 : 0;
+}
+
+#ifdef S22_FAILURE_OBSERVER
+#include "observer-seal.h"
+#endif
+#include "failure-observer.h"
+int main(int argc,char **argv) {
+#ifdef S22_FAILURE_OBSERVER
+    return fo_supervise(1,ff_work,argc,argv);
+#else
+    return ff_work(argc,argv);
+#endif
 }

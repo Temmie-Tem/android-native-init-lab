@@ -13,6 +13,7 @@
 #include <sys/syscall.h>
 #include <sys/utsname.h>
 #include <time.h>
+#include "failure-state.h"
 #include "fyg8-plan.h"
 #if defined(FYG8_USB_FIRST) && !defined(FYG8_USB_RAM_ONLY)
 #include "usb-first-retained.h"
@@ -36,10 +37,26 @@ static int record(const char *format, ...) {
     n += more; line[n++] = '\n';
     if (event_bytes + (unsigned)n > 65536) return EOVERFLOW;
     /* No later effect follows a short/failed evidence write. Do not retry. */
-    if (write(events, line, (size_t)n) != n || fsync(events)) return EIO;
+    fo_log_begin(FO_RAM_WRITE);
+    ssize_t written=write(events,line,(size_t)n);int error=written==n?0:written<0?fs1_error():EIO;
+    fo_log_result(FO_RAM_WRITE,error);if(error)return
+#ifdef S22_FAILURE_OBSERVER
+        error;
+#else
+        EIO;
+#endif
+    fo_log_begin(FO_RAM_SYNC);
+    error=fsync(events)?fs1_error():0;
+    fo_log_result(FO_RAM_SYNC,error);if(error)return
+#ifdef S22_FAILURE_OBSERVER
+        error;
+#else
+        EIO;
+#endif
     event_bytes += (unsigned)n;
 #if defined(FYG8_USB_FIRST) && !defined(FYG8_USB_RAM_ONLY)
-    return usb_retained(sequence,line,(size_t)n);
+    fo_log_begin(FO_KERNEL);
+    error=usb_retained(sequence,line,(size_t)n);fo_log_result(FO_KERNEL,error);return error;
 #else
     return 0;
 #endif
@@ -95,11 +112,12 @@ static int module_present(unsigned i) {
 static int insert(int fd, const char *parameters) {
 #ifdef FYG8_VM_TEST
     (void)fd; (void)parameters;
-    if (fault==1) return EIO;
-    if (fault==2) return EEXIST;
-    ++fake_insertions; return 0;
+    int error=fault==1?EIO:fault==2?EEXIST:0;
+    if(!error)++fake_insertions;
+    fo_call(error?-1:0,error);return error;
 #else
-    return syscall(SYS_finit_module,fd,parameters,0) ? fs1_error() : 0;
+    long rc=syscall(SYS_finit_module,fd,parameters,0);int error=rc?fs1_error():0;
+    fo_call(rc,error);return error;
 #endif
 }
 

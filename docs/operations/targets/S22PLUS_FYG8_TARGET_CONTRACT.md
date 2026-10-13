@@ -10,6 +10,14 @@ other model, firmware, target profile, or connected device.
 target nor opens a D0/D1/F1 action. The common Fast-Loop trial is retired; it
 grants no standing D0, attended autonomy, or per-candidate approval waiver.
 
+For each S22+ change, consult the existing
+[past-failure checklist](../S22PLUS_FYG8_PAST_FAILURE_CHECKLIST.md) before an
+expensive build or device experiment. Select the rows applicable to the actual
+changed producer/consumer path and record confirmed, unconfirmed or inapplicable
+findings in the existing report or change description. Reuse unchanged checks.
+This is development guidance, not a new approval step, authority grant or blanket
+block on work because an unrelated historical failure exists.
+
 Conditional autonomous F1: **NOT ACTIVE**. AGENTS Revision 6 defines the
 delegation but does not qualify this target's automatic recovery or change its
 current runner. Attended F1 remains the default; the separate deferred-physical

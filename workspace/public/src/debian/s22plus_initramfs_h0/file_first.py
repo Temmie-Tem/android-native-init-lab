@@ -8,7 +8,7 @@ import usb_first
 import s22plus_debian_file_first_plan_v1 as plan
 
 
-def prepare_modules(out,inputs,inventory,run,key,virt):
+def prepare_modules(out,inputs,inventory,run,key,virt,diagnostic=False,diagnostic_fault=None):
     _,logger=usb_first.modules(inputs,'retained')
     modules=plan.modules(inventory,usb_first.LOGGER)
     (out/usb_first.LOGGER['name']).write_bytes(logger)
@@ -51,10 +51,16 @@ def prepare_modules(out,inputs,inventory,run,key,virt):
         loaded.add(row['runtime_name']);audit.append(dict(name=row['runtime_name'],imports=len(imports),dependencies=sorted(wanted)))
     h0.publish(out/'module-order-audit.json',audit)
     includes=['-I',out,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE,
-        '-DEARLY_DOMAIN='+json.dumps(plan.DOMAIN.decode())]
+        '-DEARLY_DOMAIN='+json.dumps(('S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else plan.DOMAIN.decode()))]
+    if diagnostic:includes+=['-DS22_FAILURE_OBSERVER']
     if virt:includes+=['-DFYG8_VM_TEST','-DEARLY_VM_TEST']
+    source=h0.HERE/'file-first-prepare.c'
+    if diagnostic_fault:
+        import failure_faults
+        h0.require(virt and diagnostic,'diagnostic faults require virtual diagnostic build')
+        source=failure_faults.source(out,source,diagnostic_fault)
     for side in 'ab':
-        h0.run(['aarch64-linux-gnu-gcc',*integrated.FLAGS,*includes,h0.HERE/'file-first-prepare.c',
+        h0.run(['aarch64-linux-gnu-gcc',*integrated.FLAGS,*includes,source,
             '-o',out/('fyg8-prepare-'+side)],out/('module-compile-'+side+'.log'))
     h0.require((out/'fyg8-prepare-a').read_bytes()==(out/'fyg8-prepare-b').read_bytes(),'storage helper A/B differs')
     (out/'fyg8-prepare').write_bytes((out/'fyg8-prepare-a').read_bytes())

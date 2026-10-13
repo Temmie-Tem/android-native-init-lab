@@ -14,6 +14,7 @@ static int fl_finish_child(pid_t,unsigned);
 #include "early-protocol.h"
 static uint8_t log_bytes[EARLY_LIMIT],proof[176];
 static size_t log_size;
+#include "failure-state.h"
 #include "early-measure.h"
 
 #define FL_MAXIMUM 16384U
@@ -23,9 +24,15 @@ static size_t log_size;
 #include "file-first-plan.h"
 #define FL_RECORDS (2U+FF_CLIENT_COUNT*2U)
 #define FL_PHASES FF_CLIENT_COUNT
+#ifdef S22_FAILURE_OBSERVER
+#define FL_MAGIC "S22FL03\0"
+#define FL_RECORD_MAGIC "S22FLR3\0"
+#define FL_VERSION 3U
+#else
 #define FL_MAGIC "S22FL02\0"
 #define FL_RECORD_MAGIC "S22FLR2\0"
 #define FL_VERSION 2U
+#endif
 #define FL_ACCESS O_RDWR
 #else
 #define FL_RECORDS 8U
@@ -76,6 +83,7 @@ static int fl_finish_child(pid_t pid,unsigned reaped) {
     fl_checker_pid=0;fl_unsettled=0;return 0;
 }
 static int fl_time(void) {
+    int guard=fo_guard();if(guard)return guard;
     uint64_t n=fl_now();return n<fl_origin || n>=300000 ? ETIMEDOUT:0;
 }
 static void fl_u64(uint8_t *p,uint64_t n) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(n>>(i*8));}
@@ -104,7 +112,10 @@ static int fl_parent(int root,dev_t device) {
         }
         int next=error?-1:openat(fd,parts[i],O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
         if(!error)error=next<0?fs1_error():fl_directory(next,device);
-        if(!error && made && (fsync(fd) || fsync(next)))error=fs1_error();
+        if(!error && made) {
+            fo_log_begin(FO_PARENT_SYNC);error=fsync(fd)?fs1_error():0;fo_log_result(FO_PARENT_SYNC,error);
+            if(!error){fo_log_begin(FO_PARENT_SYNC);error=fsync(next)?fs1_error():0;fo_log_result(FO_PARENT_SYNC,error);}
+        }
         if(close(fd) && !error)error=fs1_error();
         if(error){if(next>=0)(void)close(next);errno=error;return -1;}
         fd=next;
@@ -115,13 +126,35 @@ static int fl_parent(int root,dev_t device) {
 static int fl_write(int fd,const void *data,size_t length) {
     int error=fl_time();if(error)return error;
     if(length>FL_MAXIMUM-fl_bytes)return EOVERFLOW;
-    if(write(fd,data,length)!=(ssize_t)length || fsync(fd))return EIO;
+    fo_log_begin(FO_FILE_WRITE);
+    ssize_t amount=write(fd,data,length);error=amount==(ssize_t)length?0:amount<0?fs1_error():EIO;
+    fo_log_result(FO_FILE_WRITE,error);if(error)return
+#ifdef S22_FAILURE_OBSERVER
+        error;
+#else
+        EIO;
+#endif
+    fo_log_begin(FO_FILE_SYNC);error=fsync(fd)?fs1_error():0;
+    fo_log_result(FO_FILE_SYNC,error);if(error)return
+#ifdef S22_FAILURE_OBSERVER
+        error;
+#else
+        EIO;
+#endif
 #ifdef FL_STORAGE_FIRST
     uint8_t checked[1024];size_t at=0;
     while(at<length) {
         size_t n=length-at;if(n>sizeof(checked))n=sizeof(checked);
-        if(pread(fd,checked,n,(off_t)fl_bytes+(off_t)at)!=(ssize_t)n ||
-            memcmp(checked,(const uint8_t *)data+at,n))return EIO;
+        fo_log_begin(FO_FILE_READ);
+        ssize_t amount=pread(fd,checked,n,(off_t)fl_bytes+(off_t)at);
+        error=amount!=(ssize_t)n?(amount<0?fs1_error():EIO):
+            memcmp(checked,(const uint8_t *)data+at,n)?EIO:0;
+        fo_log_result(FO_FILE_READ,error);if(error)return
+#ifdef S22_FAILURE_OBSERVER
+        error;
+#else
+        EIO;
+#endif
         at+=n;
     }
 #endif
@@ -148,7 +181,7 @@ static int fl_file(int root,dev_t device) {
     int error=fd<0?fs1_error():0;struct stat st;
     if(!error && (fstat(fd,&st) || st.st_dev!=device || st.st_mode!=(S_IFREG|0600) ||
         st.st_uid || st.st_gid || st.st_nlink!=1 || st.st_size))error=EPROTO;
-    if(!error && fsync(parent))error=fs1_error();
+    if(!error){fo_log_begin(FO_PARENT_SYNC);error=fsync(parent)?fs1_error():0;fo_log_result(FO_PARENT_SYNC,error);}
     uint8_t header[FL_HEADER]={0};memcpy(header,FL_MAGIC,8);
     early_put32(header+8,FL_VERSION);early_put32(header+12,FL_HEADER);memcpy(header+16,early_run,16);
     memcpy(header+32,proof,sizeof(proof));fl_u64(header+208,fl_origin);
@@ -172,11 +205,16 @@ static int fl_file(int root,dev_t device) {
         if(!error && observed)error=observed;
     }
     if(!error)error=fl_record(fd,4,0,0); /* Last in-file fact precedes unmount. */
-    if(fd>=0 && close(fd) && !error)error=fs1_error();
-    if(close(parent) && !error)error=fs1_error();
+    if(fd>=0) {
+        fo_log_begin(FO_FILE_CLOSE);int ce=close(fd)?fs1_error():0;fo_log_result(FO_FILE_CLOSE,ce);
+        if(!error)error=ce;
+    }
+    fo_log_begin(FO_FILE_CLOSE);int ce=close(parent)?fs1_error():0;fo_log_result(FO_FILE_CLOSE,ce);
+    if(!error)error=ce;
     return error;
 }
 static int fl_write_mount(void) {
+    fo_phase(FO_WRITABLE);
     struct fs1_endpoint e=fl_endpoint;e.node_fd=-1;e.node_created=e.disk_created=0;
     int error=0,root=-1;bool nodes=false,directory=false,mounted=false;
     if(fl_time() || mkdir("/dev/.s22-ext4-v1",0700))return EIO;
@@ -196,10 +234,11 @@ static int fl_write_mount(void) {
     if(close(root) && !error)error=fs1_error();
     root=-1;
 done:
+    fo_phase(FO_CLEANUP);
     if(root>=0 && close(root) && !error)error=fs1_error();
     /* Attempt each owned unmount once; never restore RO over an uncertain mount. */
     if(mounted) {
-        if(umount2(fl_root,0)){if(!error)error=fs1_error();goto leave;}
+        if(umount2(fl_root,0)){int ce=fs1_error();fo_failure(FO_CLEANUP,ce);if(!error)error=ce;goto leave;}
         mounted=false;
     }
     if(e.node_fd>=0 && e.node_created) {
@@ -208,7 +247,7 @@ done:
         if(!cleanup)cleanup=fs1_read_super(&e,false);
         if(!cleanup && !fs1_superblock(e.superblock,1024,fs1_uuid,FS1_BLOCKS))cleanup=EPROTO;
         if(!cleanup)cleanup=fs1_gpt_exact(&e);
-        if(!error)error=cleanup;
+        fo_failure(FO_CLEANUP,cleanup);if(!error)error=cleanup;
     }
 leave:
     if(e.node_created && unlinkat(e.node_fd,"native",0) && !error)error=fs1_error();
@@ -218,13 +257,15 @@ leave:
     if(directory && !mounted && rmdir(fl_root) && !error)error=fs1_error();
     return error;
 }
-int main(int argc,char **argv) {
+static int fl_work(int argc,char **argv) {
     (void)argv;if(argc!=1)return 100;
     fl_origin=fl_now();if(fl_origin==UINT64_MAX || fl_time())return 101;
-    int error=measure(0);
+    fo_phase(FO_MEASURE);int error=measure(0);
+    fo_failure(FO_MEASURE,error);
     if(error || log_size>FL_MAXIMUM-FL_HEADER-FL_RECORDS*FL_RECORD)return 102;
     if(fl_time())return 102;
     char *arguments[]={"file-admission","recover-journal",(char *)fs1_run_id,NULL};
+    fo_phase(FO_ADMISSION);
     int result=ri_run(3,arguments,"recover-journal",fl_admission);
     if(rj_held>=0 && close(rj_held))result=1;
     rj_held=-1;
@@ -232,10 +273,19 @@ int main(int argc,char **argv) {
      * never advances to a writable mount or gets reported as settled. */
     if(fl_unsettled)for(;;)pause();
     if(result || !fl_admitted || !rj_checker_complete || rj_attempted || rj_stopped)return 103;
-    error=fl_write_mount();
+    error=fl_write_mount();fo_failure(FO_WRITABLE,error);
 #if defined(FL_STORAGE_FIRST) && defined(S22_ROOT_INSPECT_VIRT_TEST)
     dprintf(1,"FILE_VM_CLIENTS inserted=%u\n",fl_test_inserted);
 #endif
     dprintf(1,"FILE_PILOT result=%s error=%d records=%u bytes=%u\n",error?"REJECTED":"CLOSED",error,fl_sequence,fl_bytes);
     return error?1:0;
+}
+
+#include "failure-observer.h"
+int main(int argc,char **argv) {
+#ifdef S22_FAILURE_OBSERVER
+    return fo_supervise(2,fl_work,argc,argv);
+#else
+    return fl_work(argc,argv);
+#endif
 }

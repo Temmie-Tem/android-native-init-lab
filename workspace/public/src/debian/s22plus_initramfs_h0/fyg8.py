@@ -341,7 +341,7 @@ def build(out,packages,inputs):
 
 def snapshot(out):
     paths={p for p in h0.HERE.iterdir() if p.is_file() and p.suffix in ('.py','.c')}
-    paths.update(h0.HERE/name for name in ('fyg8-dev','fyg8-hook'))
+    paths.update(h0.HERE/name for name in ('fyg8-dev','fyg8-hook','failure-state.h','checked-kmsg.h'))
     paths.update(h0.ROOT/'workspace/public/src/native-init'/name for name in
         ('s22plus_native_ext4_v1.c','s22plus_native_ext4_core_v1.h',
          's22plus_fyg8_max77705_result_parser.inc.c','s22plus_fyg8_logger_binding_v1.h'))

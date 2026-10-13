@@ -7,11 +7,11 @@ import s22plus_debian_file_protocol_v1 as retained
 HEADER,RECORD,MAXIMUM=retained.HEADER,retained.RECORD,retained.MAXIMUM
 
 
-def parse_log(raw,run,module_names,boot):
+def parse_log(raw,run,module_names,boot,*,supervised=False):
     require(len(module_names)==STORAGE_COUNT+len(CLIENTS) and
         tuple(module_names[STORAGE_COUNT:])==CLIENTS and module_names[0]=='sec_log_buf',
         'storage-first module declaration differs')
-    rows=preparation.events(raw,run,boot,start=1);expected=rows[:1]+[b'TARGET_GUARD_OK']
+    rows=preparation.events(raw,run,boot,start=1,supervised=supervised);expected=rows[:1]+[b'TARGET_GUARD_OK']
     for ordinal,name in enumerate(module_names[:STORAGE_COUNT],1):
         expected.append(f'MODULE_BEGIN ordinal={ordinal} name={name}'.encode())
         if name=='sec_log_buf':expected.append(b'LOGGER_BIND phase=0 error=0')

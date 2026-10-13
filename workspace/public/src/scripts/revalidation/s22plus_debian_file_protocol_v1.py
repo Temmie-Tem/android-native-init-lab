@@ -11,11 +11,14 @@ DOMAIN=b'S22PLUS-FYG8-DEBIAN-FILE-PILOT-v1'
 HEADER,RECORD,RECORDS,MAXIMUM=256,128,8,16384
 
 
-def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first=False):
+def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first=False,diagnostic=False):
     domain=DOMAIN;version=1;magic=b'S22FL01\0';record_magic=b'S22FLR1\0';count=RECORDS;phases=3
     if storage_first:
         import s22plus_debian_file_first_protocol_v1 as first
         domain=first.DOMAIN;version=2;magic=b'S22FL02\0';record_magic=b'S22FLR2\0';phases=len(first.CLIENTS);count=2+2*phases
+    require(not diagnostic or storage_first,'diagnostic file requires storage-first')
+    if diagnostic:
+        domain=b'S22PLUS-FYG8-DEBIAN-FAILURE-v1';version=3;magic=b'S22FL03\0';record_magic=b'S22FLR3\0'
     require(type(data) is bytes and HEADER<=len(data)<=MAXIMUM and len(key)==32 and len(run)==16,
         'file evidence size or identity differs')
     header=data[:HEADER];proof=header[32:208];boot=proof[16:48]
@@ -31,7 +34,7 @@ def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first
     log=data[HEADER:HEADER+length]
     require(len(log)==length and hashlib.sha256(log).digest()==proof[112:144],
         'file preparation bytes are missing or changed')
-    parsed=(first.parse_log if storage_first else preparation.parse_log)(log,run,module_names,boot)
+    parsed=(first.parse_log if storage_first else preparation.parse_log)(log,run,module_names,boot,**(dict(supervised=True) if diagnostic else {}))
     # That shared parser describes the imported module-only phase, not this
     # later file writer. Its storage/persistence fields must not be exported.
     previous=header[224:];position=HEADER+length;rows=[];last_ms=0;failure=None
@@ -66,6 +69,7 @@ def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first
         pre_unmount_complete=complete,unmount_return_proved=False,clean_filesystem_proved=False,
         live_usb_proved=False,nonexecution_proved=False,replay_authorized=False,
         raw=dict(size=len(data),sha256=hashlib.sha256(data).hexdigest()))
+    if diagnostic:result.update(schema='s22plus-debian-diagnostic-file-v1',pid1_ancestry='fixed-supervisor-child')
     if storage_first:
         result.update(preparation_module_completions=parsed['module_completions'],
             client_attempt_records=sum(r['kind']==2 for r in rows),

@@ -19,14 +19,14 @@ frames=early.frames
 def request(key,run,nonce):return early.request(key,run,nonce,domain=DOMAIN)
 
 
-def events(raw,run,boot,*,start):
+def events(raw,run,boot,*,start,supervised=False):
     require(type(raw) is bytes and 0<len(raw)<=65536 and raw.endswith(b'\n'),'integrated RAM log truncated')
     rows=[]
     for ordinal,line in enumerate(raw.splitlines(),start):
         parsed=re.fullmatch(rb'FYG8_H0 seq=([1-9][0-9]*) ([\x20-\x7e]{1,350})',line)
         require(parsed and ordinal<=256 and int(parsed[1])==ordinal,'integrated RAM sequence/grammar differs')
         rows.append(parsed[2])
-    first=re.fullmatch(rb'BEGIN run=([0-9a-f]{32}) boot=([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}) parent=1',rows[0])
+    first=re.fullmatch(rb'BEGIN run=([0-9a-f]{32}) boot=([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}) parent='+ (b'supervised' if supervised else b'1'),rows[0])
     require(first and first[1]==run.hex().encode() and hashlib.sha256(first[2]).digest()==boot,
         'integrated RAM boot/run differs')
     return rows
