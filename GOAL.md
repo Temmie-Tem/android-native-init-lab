@@ -21,6 +21,18 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
+## Current synthesis and functional priority
+
+The [October 13 integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
+separates the proved installed-PID1/rcS-entry boundary of P410/P413 from the
+later Debian-owned cold preparation path. Services, NCM and same-boot SSH
+remain the functional gap. P418/P423/P424 share a concrete binding-name
+false-negative capability, reproduced from their frozen predicates; P419's
+failure without that logger path means it is not a complete causal explanation.
+The selected next unit is H0 correction and integration design using existing
+evidence, with Debian-owned initial userspace retained as the direction.
+No successor image or device grant is prepared.
+
 ## P424 closed: authenticated PRE retained; Android healthy
 
 The operator selected establishing the observation path before adding early
@@ -658,51 +670,46 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P415's protected read-before-write census is complete and closed healthy.
-The [run report](docs/reports/S22PLUS_NATIVE_ROOT_EVIDENCE_P415_FIRST_RUN_2026-10-07.md)
-preserves the observed dirty native_data and limited home-block evidence.
-The next functional improvement remains bounded durable per-run evidence and
-separation of USB reporting from startup progression. Any next writable boot
-must first address the observed RECOVER state through a separately selected
-reviewed recovery scope and fresh protected admission. P415's consumed grant
-supplies neither that recovery nor a successor boot.
+The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
+sets the next development priorities. These are objectives, not new device
+admission gates or authority. Correct the fixed logger binding observation in
+H0, retaining exact target identity and distinguishing its individual failure
+conditions. Compare the actual cold module/provider/driver/USB effect sequence
+with the proved native preparation before assembling a successor; matching
+module lists and VM substitutions do not prove full hardware equivalence.
 
-The [P414 observer H0 unit](docs/reports/S22PLUS_DEBIAN_HANDOFF_P414_OBSERVER_H0_2026-10-03.md)
-implements a close-return/reopen barrier and parent-only ACM observation during
-ordinary rcS/rc2. Fresh revision-3 helpers preserve child descriptor isolation,
-original deadlines and one-shot execution; partial boundaries never authorize
-release or reconnect. Host and ARM64 qualification are recorded in that report.
-This is prospective instrumentation, not a demonstrated repair or causal proof
-for P413's USB departure. Existing D0/AUTH cannot provide a preparation-free
-post-loss boot-ID observation; a separate future design remains unimplemented.
+Keep Debian shell as the initial userspace owner and use fixed temporary
+helpers for necessary platform work. Reuse the existing root-transition,
+installed-init and same-first-gadget work. The
+[P414 observer](docs/reports/S22PLUS_DEBIAN_HANDOFF_P414_OBSERVER_H0_2026-10-03.md)
+already has H0 qualification for startup boundaries and child completion; it
+is not a physical repair claim. Separate startup progress from USB reporting
+and combine bounded early retained evidence with any separately admitted
+post-storage records. P421/P422's absent file and P424's retained PRE preserve
+their distinct limits; a new logging framework is not itself the product.
 
-At the operator's 2026-10-07 request, future experiment design should consider
-**bounded device-local persistent evidence alongside live USB observation**,
-including recovery of those records after transport loss or reboot. The next
-S22+ H0 design should assess per-run/boot identity, verified stage records,
-checked durable writes, storage bounds and later retrieval. Review the coupling
-between USB reporting and startup progress. Missing records must not imply
-non-execution, and local service liveness must not imply external SSH success.
-This is a prospective design preference; persistent receipts are not yet
-implemented or activated and P414's existing qualification remains separate.
+P420 proved full clean-root admission. P422 later observed a clean superblock
+and no P421 file, without repeating the full root comparison. P423/P424 selected
+no native_data work. Do not assume that P415's older dirty state still requires
+repair, or that P422 establishes complete present root integrity. The next
+writable operation must pass fresh protected root admission under its actual
+scope; only its findings determine whether separate recovery is needed.
 
-The next device-related unit requires a **freshly qualified complete artifact,
-exact original-A health and applicable finite authority**. Current native_data
-admission must pass at the protected boundary before any writable handoff.
-P414 H0 opens no grant and has not
-built or activated a full boot image. P415 has since observed native_data
-RECOVER set; neither journal replay nor repair is inferred from its reader grant.
-P410/P413 installed-init proof and P411's same-gadget H0 qualification retain their separate limits.
+1. **Integrated headless access:** qualify one complete Debian-owned boot path
+   through platform preparation, protected root admission, installed PID1,
+   rcS/runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM
+   and same-boot pinned SSH. Include useful bounded observations in that path
+   without turning each record into a separate whole-device milestone. Close
+   through the selected fixed shutdown and original-A return/health procedure.
+2. **Persistence and ordinary service:** after healthy closure, qualify
+   package-managed service behavior, retained data/configuration and ordinary
+   Debian reboot under the applicable separate scope.
+3. **Later hardware:** Wi-Fi, display/input, audio and desktop follow the
+   usable headless Debian base.
 
-1. **Headless access:** with a fresh candidate and exact health/root admission, prove rcS and
-   runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM and
-   same-boot pinned SSH. One fixed shutdown and physical original-A return
-   close this prospective unit.
-2. **Persistence and ordinary service:** after that unit closes healthy,
-   qualify package-managed service behavior, retained data/configuration and
-   ordinary Debian reboot under a separately selected scope.
-3. **Later hardware/product features:** Wi-Fi, display/input, audio and desktop
-   are Debian-managed capabilities after the headless base works.
+A future physical unit still requires a freshly qualified complete artifact,
+current source-bound review, exact original-A health and applicable finite
+authority, with its original recovery owner. No historical grant is reused.
 
 ARM64 VM proof does not establish Samsung electrical USB behavior or target
 service liveness. Installed-init proof, runtime progress, SSH, clean ext4 and
