@@ -47,7 +47,8 @@ worker exit/signal and deadline-time noncollection. Actual ARM64 tests use the
 same diagnostic source as the prospective physical initramfs; 18 fault/normal
 cases and separate version-3 file retrieval pass, with independent H0 PASS_GO.
 The existing failure checklist is now explicit S22+ development guidance.
-This H0 unit activates no device owner, opens no grant and does not replay P426.
+The operator now selected [attended device preparation and retrieval](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_DEVICE_H0_2026-10-13.md).
+H0 review alone opens no grant; P426 stays consumed.
 
 ## P426/P427 closed: file absent; UFS preparation prefix; Android healthy
 
