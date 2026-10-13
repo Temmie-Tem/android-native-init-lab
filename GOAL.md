@@ -29,9 +29,11 @@ later Debian-owned cold preparation path. Services, NCM and same-boot SSH
 remain the functional gap. P418/P423/P424 share a concrete binding-name
 false-negative capability, reproduced from their frozen predicates; P419's
 failure without that logger path means it is not a complete causal explanation.
-The selected next unit is H0 correction and integration design using existing
-evidence, with Debian-owned initial userspace retained as the direction.
-No successor image or device grant is prepared.
+The operator selected execution-code correction and one integrated candidate.
+The [P425 H0 implementation record](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_H0_2026-10-13.md)
+owns binding correction, actual hardware-effect parity and Debian initial PID1
+through installed init/services/SSH. Implementation and qualification are in
+progress; no device grant is opened.
 
 ## P424 closed: authenticated PRE retained; Android healthy
 
