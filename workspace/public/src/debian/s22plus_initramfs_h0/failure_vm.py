@@ -11,9 +11,10 @@ import file_log
 import failure_faults
 import h0
 import s22plus_debian_failure_protocol_v1 as protocol
+import s22plus_debian_failure_profile_v1 as profile
 from s22plus_native_records_v3 import pin,read
 
-CASES=('normal','insert-error',*failure_faults.NAMES,'short-write','file-sync-error','parent-sync-error','unmount-error')
+CASES=profile.CASES
 
 
 def run(out,build,case):
@@ -49,49 +50,13 @@ def run(out,build,case):
     after=fixture.fixture_tools.sparse_digest(out/'disk.img')
     outside_after=vm.disk_tools.outside_native(out/'disk.img')
     h0.require(outside==outside_after,'diagnostic VM changed outside native_data')
-    terminal={r['helper']:r for r in proof['records'] if r['sequence']==2}
-    prep=terminal.get(1);writer=terminal.get(2)
-    expected_unknown=case in ('lost-diagnostic','parent-death')
-    if expected_unknown:
-        # Lost preparation diagnostics can coexist with independent writer
-        # evidence. Parent death cannot authorize the next helper.
-        h0.require(prep is None,'lost parent channel manufactured a terminal')
-        if case=='parent-death':h0.require(writer is None and before==after,'dead parent advanced file writer')
-    else:
-        h0.require(prep is not None,'real preparation diagnostic terminal missing')
-        fields=prep['fields']
-        if case in ('normal','interrupted','short-write','file-sync-error','parent-sync-error','unmount-error'):
-            h0.require(prep['semantic_success'] and writer is not None,'normal preparation did not reach measured writer')
-            if case in ('normal','interrupted'):h0.require(writer['semantic_success'],'normal writer not semantically complete')
-            else:
-                h0.require(not writer['semantic_success'] and writer['fields']['result']==1,'writer fault lost its outcome')
-                if case=='parent-sync-error':h0.require(writer['fields']['first_log_failure_stage']==7 and
-                    writer['fields']['first_log_failure_errno']==5,'parent synchronization failure lost')
-        else:
-            h0.require(writer is None and before==after,'failed preparation advanced file writer')
-            h0.require(not prep['semantic_success'],'negative preparation is successful')
-            if case=='insert-error':h0.require(fields['call_returned']==1 and fields['call_rc']==-1 and
-                fields['call_errno']==5 and fields['call_returns']==1,'module errno lost')
-            elif case in ('begin-log','ram-sync'):h0.require(fields['call_returns']==0 and
-                fields['first_log_failure_errno']==5,'failed BEGIN evidence reached insertion')
-            elif case in ('done-log','kernel-readback'):h0.require(fields['call_returns']==1 and
-                fields['call_returned']==1 and fields['call_rc']==0 and fields['call_errno']==0 and
-                fields['first_log_failure_errno'] in (5,110),'evidence failure misclassified as module failure')
-            elif case=='worker-exit':h0.require(prep['exit_code']==77 and not fields['semantic_done'],'unexpected exit treated as completion')
-            elif case=='worker-signal':h0.require(prep['signal']==15,'signal outcome lost')
-            elif case=='unstable':h0.require(not prep['stable'] and fields is None and prep['signal']==15,'torn state asserted')
-            elif case in ('pending','late-return'):h0.require(timed_out and
-                prep['observation']=='WORKER_NOT_COLLECTED_AT_DEADLINE' and fields['phase']==3 and
-                fields['call_returned']==0,'pending call gained returned/cancelled proof')
-    if case=='late-return':
-        events=[r['event'].split(' ',2)[2] for r in primary['records']]
-        h0.require(sum(e.startswith('MODULE_BEGIN ') for e in events)==1 and
-            sum(e.startswith('MODULE_DONE ') for e in events)==1 and
-            events[-1]=='TERMINAL result=REJECTED error=110','late return performed later module effects')
-    value=dict(status='PASS',case=case,scope='ARM64_VIRT_NOT_SAMSUNG',device_actions=0,
+    value=dict(status='PASS',case=case,run_id=selection['run_id'],expected=selection['measured'],scope='ARM64_VIRT_NOT_SAMSUNG',device_actions=0,
         raw=pin(out/'serial.log'),proof=proof,primary=primary,helper_request=pin(out/'helper/request.json'),
         initramfs=pin(out/'initramfs.cpio.gz',maximum=32*1024**2),host_exit=code,host_timeout=timed_out,
         disk_before=before,disk_after=after,outside_before=outside,outside_after=outside_after)
+    profile.validate_case(value,dict(selection,key=pin(build/'key',maximum=32)))
+    if case in ('normal',*profile.PARTIAL_WRITES,'module-error'):
+        value['file_retrieval']=vm.retrieve(out,selection,build,complete=case=='normal')
     h0.publish(out/'result.json',value);print(case,'PASS',flush=True);return value
 
 
@@ -105,4 +70,4 @@ if __name__=='__main__':
         sources=file_log.snapshot(out)
         results=[run(out/case,build,case) for case in CASES]
         for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'source changed during VM suite')
-        h0.publish(out/'result.json',dict(status='PASS',cases=results,source_inputs=sources,device_actions=0))
+        h0.publish(out/'result.json',dict(status='PASS',cases=results,source_inputs=sources,build_sha256=h0.sha(build/'build.json'),device_actions=0))

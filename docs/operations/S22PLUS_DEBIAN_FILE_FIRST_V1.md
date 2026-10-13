@@ -69,6 +69,37 @@ partition RO restoration and clean/GPT checks retain separate outcomes. No
 remount is allowed to add a later success record. No overwriting, rotation,
 journal replay, repair, reinstall or other-partition write is admitted.
 
+## Fixed supervised diagnostic variant
+
+The separately reviewed `debian-failure-observer-v1` variant retains every
+storage/file/module/deadline/return boundary above. For this variant only, each
+of the two existing helpers contains one fixed supervisor and one forked worker
+running that same executable's fixed function. Both supervisors measure the
+exact initial Debian shell and init before fork; workers validate their known
+supervisor. Anonymous shared RAM and exact-child wait replace the old direct-
+child/no-extra-child restriction only for this closed observer structure.
+There is no selectable command, general IPC, descriptor handoff or new service.
+
+Stable atomic snapshots separate immediate module return/errno, subsequent
+close/presence, primary evidence result and worker outcome. At most two bounded
+independent authenticated `S22DIAG1` records per helper use the existing checked
+kernel-log carrier. Worker primary-evidence failure still stops later module/file
+work; the parent may then publish its bounded diagnostic. Loss of that optional
+parent diagnostic alone adds no new gate. Missing or unstable evidence remains UNKNOWN. A call-armed
+record is not syscall-entry proof. Exit/reap does not prove checker descendants,
+filesystem cleanup or recovery. Parent-death signaling does not establish
+cancellation of an uninterruptible kernel call. At the original absolute
+300-second bound the supervisor parks before releasing the shell to another
+helper; the worker rejects later module/storage effects if it returns late.
+
+The persistent layout differs only by version-3 magic/domain and explicit
+supervised ancestry. The same 256-byte header, bounded preparation log and
+14 chained records fit the unchanged 16 KiB maximum. No new persistent record,
+replay, repair or post-unmount remount is permitted. Returned-boot D0 decodes
+both primary and diagnostic record kinds from the same fixed raw capture before
+a separate exact-run mountless reader. Each retained observation, pre-unmount
+file history and current Android health remains a separate fact.
+
 ## Host owner and later evidence
 
 One returned attended 1800-second/one-operation grant, one fresh N intent, the

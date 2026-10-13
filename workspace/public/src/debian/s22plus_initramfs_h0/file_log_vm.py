@@ -47,7 +47,9 @@ def prepare(out,build,case):
     printf 'FILE_VM_MOUNTS_END\\n'
     poweroff -f
     while :; do /bin/busybox sleep 3600; done'''
-            if diagnostic:stop='    poweroff -f\n    while :; do /bin/busybox sleep 3600; done'
+            if diagnostic:stop='''    [ -f /run/initramfs/file-admission ] && /bin/busybox head -c 65536 /run/initramfs/file-admission
+    poweroff -f
+    while :; do /bin/busybox sleep 3600; done'''
             needle='    while :; do /bin/busybox sleep 3600; done'
             h0.require(source.count(needle)==1,'file stop function differs')
             source=source.replace(needle,stop)
@@ -128,7 +130,9 @@ print('PASS: separate ARM64 mountless reader boot')
     data=bytes.fromhex(row['raw_hex']);(out/'recovered-record.bin').write_bytes(data)
     arguments=dict(key=(build/'key').read_bytes(),run=bytes.fromhex(selection['run_id']),
         expected=selection['measured'],module_names=[m['runtime_name'] for m in selection['modules']])
-    decoder=first_protocol if selection['profile']==first_profile.PROFILE else protocol
+    if selection.get('diagnostic'):
+        import s22plus_debian_failure_profile_v1 as decoder
+    else:decoder=first_protocol if selection['profile']==first_profile.PROFILE else protocol
     if complete:
         proof=decoder.decode(data,**arguments)
         h0.require(proof['pre_unmount_complete'] and proof['debian_early_pid1'] and

@@ -66,7 +66,7 @@ def validate_task(task, *, recovery=False):
         not any(task[k] for k in ('reentry', 'hud', 'usb_reconnect')),
         'inspector profile is restricted to one attended Android-origin operation')
     if not recovery:
-        if item is early and task['N']['profile']==early.FILE_FIRST_PROFILE:
+        if item is early and task['N']['profile'] in early.CHECKED_FILE_PROFILES:
             from s22plus_native_adapter_v3 import image_valid
             image_valid(task['N'])
         else:item.image_binding(task['N'])

@@ -46,12 +46,12 @@ def image_identity(image, binding):
 def image_valid(image, *, artifact_bytes=False):
     if image.get('profile') in (*early.PROFILES,integrated.PROFILE):
         selected=integrated if image['profile']==integrated.PROFILE else early
-        if image['profile']==early.FILE_FIRST_PROFILE:
+        if image['profile'] in early.CHECKED_FILE_PROFILES:
             from s22plus_debian_file_qualification_v1 import binding
             bound=binding(image,selected.image_binding)
         else:bound=selected.image_binding(image)
         if artifact_bytes:
-            if selected is integrated or image['profile']==early.FILE_FIRST_PROFILE:
+            if selected is integrated or image['profile'] in early.CHECKED_FILE_PROFILES:
                 integrated.archive_binding(image,bound)
                 return
             with transport.pin_boot_only_ap(Path(image['ap']['path']),label='Debian early image',

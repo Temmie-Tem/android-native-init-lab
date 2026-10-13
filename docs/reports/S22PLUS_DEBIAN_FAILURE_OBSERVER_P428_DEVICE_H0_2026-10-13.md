@@ -1,6 +1,6 @@
 # S22+ P428: connect reviewed failure evidence to the attended device owner
 
-Status: **DESIGN_SELECTED_H0_ONLY**. The operator requested continuation through
+Status: **PASS_GO_READY_AWAITING_ATTENDED_GRANTS**. The operator requested continuation through
 the physical experiment. This selects preparation, the reviewed attended writer
 operation, original-A closure, same-returned-boot RAM retrieval and the separate
 exact-file reader with its own original-A closure. A fresh returned lane grant
@@ -64,3 +64,107 @@ host route and actual artifacts as one unit. The already reviewed observer does
 not require a second unrelated redesign. A90, S20+ and pre-existing unrelated
 working changes are outside this unit. No device effect is selected until its
 actual lane conditions are satisfied.
+
+
+## Implemented owner and evidence route
+
+The new profile uses the existing attended file owner and its fixed budgets.
+`early_package` qualifies the actual boot-only AP against the physical archive
+and supervised VM counterpart. Both task and adapter validators use the existing
+metadata-invalidated file qualification cache; current device, grant, source and
+recovery checks remain live. No second device controller was introduced.
+
+The retained-log consumer captures raw bytes first, then independently decodes
+primary `S22USB1` and diagnostic `S22DIAG1` channels. A malformed channel does
+not discard valid evidence from the other. Authenticated boot mismatches prevent
+joined claims. The later exact-file reader selects the version-3 decoder and
+retains the same pre-unmount-only proof limits. P429 is a fresh reader declaration;
+P427 and its consumed review, artifact and journal remain unchanged.
+
+Qualification now explicitly joins the physical and VM shell/init identities,
+actual archive hardlink-backed shell bytes, helper/module bytes and source
+closures. Same-run/key VM captures from different boots cannot be combined,
+including a recovered file from another VM case. Early file I/O failures must
+show zero later client calls; the third-client error stops remaining clients.
+The checker timeout requires the actual C producer's bounded settlement log.
+Its VM transport copies that log before poweroff; synthetic terminal/RO footers
+remain excluded from diagnostic proof.
+
+The first 26-case VM run and four exact-reader cases completed. Independent
+review identified three qualification gaps in identity/boot joins and checker
+settlement transport; all are repaired before the final source freeze. The
+final VM rerun passes all 26 cases, including the actual checker settlement. The physical writer bytes, two helpers,
+module set, run/key and both archives are unchanged by these host-only repairs,
+so the four reader cases retain their original provenance and applicability.
+The focused suite passes 227 tests. An older transport fixture now declares its
+non-window native profile; no production validation was weakened.
+
+The frozen execution closure contains 131 host inputs, 205 physical writer
+inputs and 165 reader inputs. Actual binaries are static AArch64 ELF. All raw
+captures, private candidate identities, source snapshots and generated inputs
+remain in the existing private output area. Current documentation and code
+changes preserve 44 unrelated pre-existing files byte-for-byte; shared root
+and candidate-catalog commits include only this unit's revision/pin and P429
+entry. The working tree keeps the earlier S20 and catalog changes separate.
+
+
+## Final artifact qualification
+
+| Check | Result |
+| --- | --- |
+| Physical writer A/B and actual boot-only AP | PASS; exact archive, shell/init, helpers, 82 modules and carrier joins |
+| Final ARM64 producer/consumer cases | 26 PASS; 225 unchanged VM source inputs |
+| Separate exact-run reader | Four PASS; durable, dirty, journal-only and wrong-UUID cases; disk unchanged |
+| Focused host/format/owner/return tests | 227 PASS |
+| Actual-package coherent negatives | 12 rejected, including cross-boot channel/file substitutions |
+| Touched Python, static AArch64 binaries, diff and scoped privacy/links | PASS |
+| Fresh connected preparation | Both exact tasks READY; original-A/root/Android32/GPT/statfs checks PASS |
+| Live execution | Not started; returned attended grants remain pending |
+
+The final normal case authenticates both production channels and a complete
+version-3 pre-unmount file through the later mountless reader. Error cases keep
+module, evidence, worker and cleanup outcomes distinct. The outcome still makes
+no Samsung storage readiness, retained-carrier survival or physical PID1 claim.
+
+
+Both complete actual packages pass the process/device-blocked audit. Twelve
+coherently rejoined negative qualifications are rejected: virtual physical
+build, extra module, foreign VM run, different compiled helper, changed helper
+source, swapped AP, swapped outer boot, wrong ramdisk, promoted client failure,
+other shell, mixed channel boots and a recovered file from another boot.
+The existing qualification cache measures 8.008 seconds cold and about 0.014
+seconds warm in this audit. Cached artifact validation does not cache device,
+grant, recovery or current execution-source state.
+
+The mixed-channel package negative is also repeated after rederiving both
+channel projections from the mixed raw stream. It reaches and fails the exact
+authenticated-boot equality check. The earlier raw-projection mismatch rejection
+is retained separately; it is not substituted for this targeted coverage.
+
+
+## Independent review and activation
+
+The independent review returns **PASS_GO**, with no unresolved findings, for
+this writer, P429 reader, actual artifacts, reachable owner and common/target
+specialization. It independently rederives all 26 VM raw/disk outcomes, seven
+later-reader boots, the actual writer's 421 CPIO entries/82 modules and the
+reader's 50 entries/four generated headers, as well as all 227 focused tests.
+All 545 observed private qualification reads are covered by the existing
+606-receipt cache dependency set. Its own warm timing is about 0.013 seconds.
+
+The new prospective review tips bind the frozen 131 host sources and exact
+205/165 runtime closures. Earlier review tips remain unchanged. This qualifies
+the capability only; actual current health, candidate consumption, physical
+attendance and returned finite grants remain separate. The private review
+receipt has SHA-256
+`1312165cc39a80310e751cde5355fde1acf9117808e0e190f0f4947952f00550`.
+
+
+Both prepared tasks now pass the existing foreground read-only Android health,
+shell-v2, GPT and capacity brackets, with no grant, mode change or image transfer.
+The writer and reader each retain one 1800-second operation. The reader grant
+will open only after writer closure and same-returned-boot RAM capture; its clock
+is not started during the writer. Each dispatch still repeats the complete fresh
+preflight. Required operator input is the two exact returned task approvals and
+current attendance with usable physical Download recovery. Original-A recovery
+once a candidate starts requires no second authorization.

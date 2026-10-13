@@ -7,6 +7,7 @@ import consumed_candidate_registry_v1 as registry
 import s22plus_debian_file_profile_v1 as profile
 import s22plus_debian_file_protocol_v1 as protocol
 import s22plus_debian_file_first_profile_v1 as first_profile
+import s22plus_debian_failure_profile_v1 as failure_profile
 import s22plus_debian_file_first_protocol_v1 as first_protocol
 import s22plus_native_evidence_profile_v1 as evidence
 import s22plus_native_target_io_v3 as target
@@ -63,9 +64,9 @@ def recover(directory,writer_directory,reader_directory):
     directory=private_path(ROOT,directory,exists=False)
     require(not directory.exists(),'fresh file projection output required')
     writer_profile=read(private_path(ROOT,writer_directory)/'operation.json')['N']['profile']
-    require(writer_profile in (profile.PROFILE,first_profile.PROFILE),'unselected early file writer')
-    selected_profile=first_profile if writer_profile==first_profile.PROFILE else profile
-    selected_protocol=first_protocol if writer_profile==first_profile.PROFILE else protocol
+    require(writer_profile in (profile.PROFILE,first_profile.PROFILE,failure_profile.PROFILE),'unselected early file writer')
+    selected_profile=failure_profile if writer_profile==failure_profile.PROFILE else first_profile if writer_profile==first_profile.PROFILE else profile
+    selected_protocol=failure_profile if writer_profile==failure_profile.PROFILE else first_protocol if writer_profile==first_profile.PROFILE else protocol
     writer=closed_operation(writer_directory,writer_profile)
     reader=closed_operation(reader_directory,evidence.PROFILE)
     image=writer['request']['N'];artifact=selected_profile.image_binding(image)

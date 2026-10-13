@@ -38,7 +38,7 @@ static int fixture_path(int fd,int directory) {
     bodies={
         'readback-error':'''static ssize_t fixture_pread(int fd,void *p,size_t n,off_t offset) {
     ssize_t got=pread(fd,p,n,offset);
-    if(fixture_path(fd,0) && got==128 && !memcmp(p,"S22FLR2",7) && ((unsigned char *)p)[12]==2)
+    if(fixture_path(fd,0) && got==128 && (!memcmp(p,"S22FLR2",7) || !memcmp(p,"S22FLR3",7)) && ((unsigned char *)p)[12]==2)
         ((unsigned char *)p)[0]^=1;
     return got;
 }

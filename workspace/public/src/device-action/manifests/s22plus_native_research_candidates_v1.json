@@ -169,6 +169,14 @@
       "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
       "run_id": "6a787b87c7b44ace884c6ce924c0aeea",
       "version": "v0.6.0-rc.3"
+    },
+    {
+      "namespace": "p429",
+      "run_id": "41fbe1492e9642c0b0aa488e679df545",
+      "version": "v0.7.0-rc.2",
+      "image_sha256": "afebf738b9baff253c7c71d6a00568e0d8165183564dd8e503e324513bdc965a",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
+      "evidence_run": "fb24854c36814a05b457eeba39b9d6bc"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

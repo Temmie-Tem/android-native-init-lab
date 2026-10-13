@@ -920,8 +920,8 @@ and boundary conditions remain unchanged.
 ## S22+ Debian storage-first file evidence
 
 The separately reviewed [storage-first sibling](S22PLUS_DEBIAN_FILE_FIRST_V1.md)
-specializes boundaries 2 and 3 only for `debian-file-first-v1` under the existing
-attended early-file owner. It retains every file-pilot lifecycle, exact target,
+specializes boundaries 2 and 3 only for `debian-file-first-v1` and its fixed
+`debian-failure-observer-v1` variant under the existing attended early-file owner. It retains every file-pilot lifecycle, exact target,
 clean full-root admission, 16 KiB exclusive-file, absolute deadline, one-shot
 cleanup and physical-return limit. Its sole preparation change is stock logger
 plus the retained 67-module prefix, then the existing eight UFS modules, then
@@ -931,6 +931,12 @@ write, synchronization and readback before each later effect. Stock retained-RAM
 logging and same-returned-boot bounded retrieval reuse the integrated logging
 mechanism. No gadget, host challenge, installed code, replay, repair or additional
 partition write is authorized. Separate reader and recovery owners remain separate.
+The same policy separately adopts `debian-failure-observer-v1`: only its fixed
+per-helper supervisor/worker pair, anonymous shared RAM, bounded authenticated
+kernel-log outcomes and version-3 supervised file evidence are added. All
+storage surfaces, original deadlines, physical recovery, separate-reader and
+no-replay limits remain unchanged. Missing/reaped/pending worker records add no
+cancellation, descendant-settlement, cleanup or recovery proof.
 
 ## S22+ streamed protected preparation
 

@@ -23,14 +23,23 @@ def validate_adoption(root,details):
         b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/POLICY),'storage-first adoption absent')
 
 
-def virtual_artifact(row,built,sources):
+def virtual_artifact(row,built,sources,*,diagnostic=False):
+    selected=PROFILE
+    if diagnostic:
+        import s22plus_debian_failure_profile_v1 as variant
+        selected=variant.PROFILE
     helper=read(verify(row['helper_request']));construction=helper['construction']
-    require(helper['virtual'] is True and helper['profile']==PROFILE and helper['run_id']==built['run_id'] and
+    require(all(row['expected'][key]==built['measured'][key] for key in ('shell_sha256','init_sha256')),
+        'virtual shell or initial owner differs from physical candidate')
+    require(helper['virtual'] is True and helper['profile']==selected and helper['run_id']==built['run_id'] and
         helper['modules']==built['modules'] and helper['measured']==row['expected'] and
         helper['fault']==(row['case'] if row['case'] in ('short-write','file-sync-error','parent-sync-error',
             'unmount-error','late-ro-clear','checker-timeout','readback-error') else None) and
         helper['measured']['helper_sha256']==construction['helper']['sha256'],
         'virtual file helper identity differs')
+    if diagnostic:
+        require(helper.get('diagnostic') is True and helper.get('diagnostic_fault')==(row['case'] if row['case'] in variant.FAULT_CASES else None),'virtual diagnostic selection differs')
+        for receipt in construction.get('fault_sources',[]):verify(receipt)
     physical={r['path']:r['sha256'] for r in built['source_inputs']}
     virtual={r['path']:r['sha256'] for r in construction['source_inputs']}
     require(all(virtual.get(name)==digest==sources.get(name) for name,digest in physical.items()) and
@@ -42,12 +51,16 @@ def virtual_artifact(row,built,sources):
         require(decoder.eof and len(member)<=128*1024**2 and len(members)<2,'virtual gzip member differs')
         members.append(member);compressed=decoder.unused_data
     require(len(members)==2,'virtual vendor/owner archive count differs')
-    entries={e.name:e for e in boot.parse_newc(members[1])}
+    parsed=boot.parse_newc(members[1]);entries={e.name:e for e in parsed}
+    require(len(parsed)==len(entries),'virtual archive has duplicate members')
     for name,key in (('usr/sbin/fyg8-prepare','helper'),('usr/sbin/file-log','writer')):
         require(entries[name].data==verify(construction[key],maximum=4*1024**2).read_bytes(),
             'VM archive does not contain its exact compiled helper')
     require(hashlib.sha256(entries['init'].data).hexdigest()==built['measured']['init_sha256'],
         'VM changed Debian initial owner')
+    shell=entries['usr/bin/sh'];bodies=[e.data for e in parsed if e.inode==shell.inode and e.file_type=='regular' and e.data]
+    require(len(bodies)==1 and hashlib.sha256(bodies[0]).hexdigest()==built['measured']['shell_sha256'],
+        'VM changed Debian shell')
     expected={'lab/modules/'+m['name']:m for m in built['modules']}
     require({n for n in entries if n.startswith('lab/modules/')}==set(expected),'virtual module set differs')
     for name,m in expected.items():

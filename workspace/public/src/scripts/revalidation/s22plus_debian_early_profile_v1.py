@@ -11,12 +11,14 @@ USB_PROFILE='debian-usb-first-v1'
 USB_SCHEMA='s22plus-debian-usb-first-v1'
 FILE_PROFILE='debian-file-pilot-v1'
 FILE_FIRST_PROFILE='debian-file-first-v1'
+FAILURE_PROFILE='debian-failure-observer-v1'
 STAGE_PROFILE='debian-stage-probe-v1'
 LOGGER=dict(name='sec_log_buf.ko',runtime_name='sec_log_buf',parameters='',size=76688,
     sha256='b4751eb8243a2bce4cd2f7b5f157f8429b295798dc310e23e861648906d24b61')
 USB_LOGGING_MODES=('retained','ram-only')
-PROFILES=(PROFILE,USB_PROFILE,FILE_PROFILE,FILE_FIRST_PROFILE,STAGE_PROFILE)
-WINDOW_PROFILES=(FILE_PROFILE,FILE_FIRST_PROFILE,STAGE_PROFILE)
+PROFILES=(PROFILE,USB_PROFILE,FILE_PROFILE,FILE_FIRST_PROFILE,FAILURE_PROFILE,STAGE_PROFILE)
+WINDOW_PROFILES=(FILE_PROFILE,FILE_FIRST_PROFILE,FAILURE_PROFILE,STAGE_PROFILE)
+CHECKED_FILE_PROFILES=(FILE_FIRST_PROFILE,FAILURE_PROFILE)
 OPERATION='debian-early'
 SELECTION='debian-early-evidence'
 POLICY='docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md'
@@ -38,6 +40,9 @@ def usb_logging_mode(built):
 
 
 def vm_cases(built):
+    if built['profile']==FAILURE_PROFILE:
+        from s22plus_debian_failure_profile_v1 import CASES
+        return list(CASES)
     if built['profile']==FILE_FIRST_PROFILE:
         from s22plus_debian_file_first_profile_v1 import CASES
         return list(CASES)
@@ -56,6 +61,9 @@ def vm_cases(built):
 
 
 def image_binding(image):
+    if image.get('profile')==FAILURE_PROFILE:
+        from s22plus_debian_failure_profile_v1 import image_binding as failure_binding
+        return failure_binding(image)
     if image.get('profile')==FILE_FIRST_PROFILE:
         from s22plus_debian_file_first_profile_v1 import image_binding as first_binding
         return first_binding(image)
@@ -123,7 +131,9 @@ def image_binding(image):
 
 
 def window_profile(image):
-    if image['profile']==FILE_FIRST_PROFILE:
+    if image['profile']==FAILURE_PROFILE:
+        import s22plus_debian_failure_profile_v1 as selected
+    elif image['profile']==FILE_FIRST_PROFILE:
         import s22plus_debian_file_first_profile_v1 as selected
     elif image['profile']==FILE_PROFILE:
         import s22plus_debian_file_profile_v1 as selected

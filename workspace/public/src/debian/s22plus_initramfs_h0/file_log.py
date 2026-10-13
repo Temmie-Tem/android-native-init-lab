@@ -8,12 +8,12 @@ import secrets
 import shutil
 import sys
 import uuid
-import file_log_faults
 
 import early
 import fyg8
 import h0
 import s22plus_native_journal_recovery_h0 as admission
+import file_log_faults
 import s22plus_debian_file_protocol_v1 as protocol
 import s22plus_debian_failure_protocol_v1 as diagnostic_protocol
 from s22plus_native_records_v3 import pin,verify
@@ -91,6 +91,8 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
         for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'file preparation source changed')
         result['construction']=dict(source_inputs=sources,helper=pin(out/'fyg8-prepare'),writer=pin(out/'file-log'),
             headers={p.name:pin(p) for p in sorted(out.glob('*.h'))})
+        if diagnostic and diagnostic_fault:
+            result['construction']['fault_sources']=[pin(p) for p in sorted((out/'diagnostic-fault').iterdir()) if p.is_file()]
     h0.publish(out/'request.json',result);return result
 
 

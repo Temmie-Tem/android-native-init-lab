@@ -70,11 +70,13 @@ def vm_results(tested,built,*,storage_first=False):
             row['proof']['status']=='PASS_REJECTED_WITHOUT_DISK_CHANGE','negative file pilot changed disk')
 
 
-def image_binding(image,*,storage_first=False):
+def image_binding(image,*,storage_first=False,diagnostic=False):
     selected=PROFILE;schema=SCHEMA
     if storage_first:
         import s22plus_debian_file_first_profile_v1 as first
         from s22plus_debian_early_profile_v1 import LOGGER
+        if diagnostic:
+            import s22plus_debian_failure_profile_v1 as first
         selected=first.PROFILE;schema=first.SCHEMA
     keys={'schema','namespace','run_id_hex','profile','version','ap','member','key','qualification',
         'runtime_sources','early_boot','gpt','android_return'}
@@ -96,7 +98,7 @@ def image_binding(image,*,storage_first=False):
         'file artifact does not join image')
     built=read(verify(artifact['build']));inventory=read(verify(artifact['inventory']))
     expected=first.plan.modules(inventory,LOGGER) if storage_first else inventory['modules']
-    require(built['schema']==('s22plus-debian-file-first-h0-v1' if storage_first else 's22plus-debian-file-pilot-h0-v1') and built['virtual'] is False and built['fault'] is None and
+    require(built['schema']==('s22plus-debian-failure-observer-h0-v1' if diagnostic else 's22plus-debian-file-first-h0-v1' if storage_first else 's22plus-debian-file-pilot-h0-v1') and built['virtual'] is False and built['fault'] is None and
         built['profile']==selected and built['namespace']==image['namespace'] and built['version']==image['version'] and
         built['run_id']==image['run_id_hex'] and built['measured']==artifact['expected'] and
         built['ab_identical'] is True and built['active'] is False and built['device_actions']==0 and
@@ -106,11 +108,13 @@ def image_binding(image,*,storage_first=False):
         built['helper']['sha256']==built['measured']['helper_sha256'] and
         {r['path']:r['sha256'] for r in built['source_inputs']}==
         {key:row['sha256'] for key,row in image['runtime_sources'].items()},'file build source/module binding differs')
+    if diagnostic:require(built.get('diagnostic') is True and built.get('diagnostic_fault') is None,'physical observer fault flag differs')
     for field in ('helper','writer'):verify(built[field],maximum=4*1024**2)
     for receipt in built['headers'].values():verify(receipt)
     for field in ('checker','table'):verify(built['admission'][field])
     verify(built['initramfs'],maximum=16*1024**2)
     tested=read(verify(artifact['vm']))
     require(tested['build_sha256']==artifact['build']['sha256'],'file VM tested another build')
-    vm_results(tested,dict(built,key=image['key']),storage_first=storage_first)
+    if diagnostic:first.vm_results(tested,dict(built,key=image['key']))
+    else:vm_results(tested,dict(built,key=image['key']),storage_first=storage_first)
     return artifact

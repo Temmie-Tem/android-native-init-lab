@@ -49,7 +49,8 @@ def _state(receipts):
 
 
 def binding(image,validator):
-    require(image.get('profile')=='debian-file-first-v1','cache is restricted to file-first qualification')
+    from s22plus_debian_early_profile_v1 import CHECKED_FILE_PROFILES
+    require(image.get('profile') in CHECKED_FILE_PROFILES,'cache is restricted to checked file qualification')
     key=hashlib.sha256(json.dumps(image,sort_keys=True,separators=(',',':')).encode()).digest()
     previous=_cache.get(key)
     if previous is not None:

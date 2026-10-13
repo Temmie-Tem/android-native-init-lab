@@ -475,8 +475,8 @@ returned start. Preparation reuses only the existing fixed Android D0 reads.
 ### Debian storage-first file evidence V1
 
 The common-incorporated [storage-first sibling](../S22PLUS_DEBIAN_FILE_FIRST_V1.md)
-is adopted only for `debian-file-first-v1` under the existing `debian-early`
-owner, its exact attended 1800-second grant and one-operation lifecycle. The
+is adopted only for `debian-file-first-v1` and its fixed
+`debian-failure-observer-v1` variant under the existing `debian-early` owner, its exact attended 1800-second grant and one-operation lifecycle. The
 fixed logger/prefix68+UFS8 preparation precedes clean complete root admission
 and one exclusive checked file; its header/log/READY and each BEGIN must be
 synchronized and read back before the next of six exact client insertions.
@@ -484,6 +484,11 @@ The unchanged 16 KiB, absolute 300-second write, one mount/unmount, physical
 original-A return, no-replay and separate-reader limits apply. Fixed stock RAM
 retention and same-returned-boot retrieval complement the file. No gadget,
 USB request, installed init, service or new recovery path is adopted.
+The policy's separately reviewed `debian-failure-observer-v1` variant adopts
+only the fixed supervised helper structure, bounded RAM outcome records and
+version-3 file format. It uses this same attended owner and limits. A current
+independent source-bound variant review and fresh complete artifact qualification
+are required; its H0 review alone opens no grant or physical candidate.
 
 ### Streamed protected preparation V1
 

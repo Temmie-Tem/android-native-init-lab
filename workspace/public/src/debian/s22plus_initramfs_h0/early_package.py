@@ -66,13 +66,15 @@ def package(out,build,vm):
     out=h0.private(out,fresh=True);build=h0.private(build);vm=h0.private(vm)
     built=read(build/'build.json');tested=read(vm/'result.json')
     usb=built['profile']==profile.USB_PROFILE
-    file_first=built['profile']==profile.FILE_FIRST_PROFILE
-    file_pilot=built['profile'] in (profile.FILE_PROFILE,profile.FILE_FIRST_PROFILE)
+    file_first=built['profile'] in profile.CHECKED_FILE_PROFILES
+    file_pilot=built['profile'] in (profile.FILE_PROFILE,*profile.CHECKED_FILE_PROFILES)
     stage=built['profile']==profile.STAGE_PROFILE
     from s22plus_debian_stage_profile_v1 import SCHEMA as stage_schema,vm_results as stage_vm_results
     from s22plus_debian_file_profile_v1 import SCHEMA as file_schema,vm_results
     if file_first:
         from s22plus_debian_file_first_profile_v1 import SCHEMA as file_schema,vm_results
+    if built['profile']==profile.FAILURE_PROFILE:
+        from s22plus_debian_failure_profile_v1 import SCHEMA as file_schema,vm_results
     schema=stage_schema if stage else file_schema if file_pilot else profile.USB_SCHEMA if usb else profile.SCHEMA
     require(built['virtual'] is False and built['ab_identical'] is True and built['device_actions']==0,
         'physical initramfs build required')

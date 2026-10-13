@@ -31,7 +31,7 @@ class AdapterTests(unittest.TestCase):
         with adapter.transport.pin_boot_only_ap(ap,label='fixture',expected_size=ap.stat().st_size,
                 expected_sha256=records.digest(ap.read_bytes())) as opened:
             member=adapter.transport.boot_only_member_receipt(opened,label='fixture')
-        self.image=dict(ap=records.pin(ap),member=member)
+        self.image=dict(ap=records.pin(ap),member=member,profile='thermal-v3-reconnect-ufs-drain-v1')
         self.request=dict(A=self.image,N=self.image,E=self.image,operation='experiment')
         self.configuration=dict(odin=records.pin(self.odin),lane={'fixture':True})
 

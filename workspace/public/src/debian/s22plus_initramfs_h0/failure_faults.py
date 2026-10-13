@@ -2,8 +2,7 @@
 from pathlib import Path
 import json
 
-NAMES=('begin-log','done-log','ram-sync','kernel-readback','worker-exit','worker-signal',
-    'pending','late-return','parent-death','lost-diagnostic','unstable','interrupted')
+from s22plus_debian_failure_profile_v1 import FAULT_CASES as NAMES
 
 
 def source(out,original,fault):

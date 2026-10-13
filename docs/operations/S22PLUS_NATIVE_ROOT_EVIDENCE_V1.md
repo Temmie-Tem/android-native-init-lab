@@ -117,8 +117,9 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P427 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p427_review.json`.
-The earlier `s22plus_native_root_evidence_v1_review.json` and all retained
+native_data, or transfers an image. The current prospective P429 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p429_review.json`.
+The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
+`s22plus_native_root_evidence_p427_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review, renew a consumed reader or change the fixed read surface.
