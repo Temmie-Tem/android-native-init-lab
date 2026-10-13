@@ -39,6 +39,15 @@ SSH, controlled shutdown and durable records. P425's physical trial is now
 consumed and closed as described below; full physical Debian/SSH ownership
 remains unproved. A90 and S20+ are untouched by this unit.
 
+## P426 selected: checked file evidence before USB clients
+
+The operator requested a USB-independent filesystem log and continuation through
+physical execution and recovery. The [P426 design](docs/reports/S22PLUS_DEBIAN_FILE_FIRST_P426_H0_2026-10-13.md)
+records storage preparation and clean protected root admission before the
+remaining GENI/I2C/Max77705 clients, with synchronized per-client records and a
+separate later mountless retrieval. Implementation, qualification and independent
+review precede any fresh device grant. P425 remains consumed and closed.
+
 ## P425 closed: logger/providers proved; USB unproved; Android healthy
 
 P425 `v0.6.0-rc.1` consumed its returned attended 3600-second/one-operation
