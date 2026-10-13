@@ -2,6 +2,11 @@
 
 Status: **READY_H0_PRELIVE_ONLY**
 
+Historical H0 status. The later [physical P425 trial](S22PLUS_DEBIAN_INTEGRATED_P425_RUN_2026-10-13.md)
+consumed this candidate and closed with partial retained preparation evidence,
+USB/services/SSH unproved and healthy original Android recovery. The H0
+qualification below retains its original meaning and grants no replay.
+
 The operator requested execution-code correction and qualification of a complete
 Debian-owned initial boot through installed init, services and SSH. This report
 recorded the structural design in commit `175123203a` before changing the integrated runtime.

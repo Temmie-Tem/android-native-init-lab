@@ -32,14 +32,32 @@ failure without that logger path means it is not a complete causal explanation.
 The operator selected execution-code correction and one integrated candidate.
 The [P425 H0 implementation record](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_H0_2026-10-13.md)
 owns binding correction, actual hardware-effect parity and Debian initial PID1
-through installed init/services/SSH. P425 `v0.6.0-rc.1` is now
-**READY_H0_PRELIVE_ONLY** with independent **PASS_GO**: 160 focused tests,
-reproducible boot-only artifacts, nine integrated ARM64 VM cases and four
-current revision-4 failure cases pass. The normal VM proves 120-second service
-liveness, same-boot SSH, controlled shutdown and durable records. One offline
-task is prepared with process/device acquisition blocked. No grant is open and
-the candidate is unconsumed; physical platform/UFS/USB and full Debian/SSH
-ownership remain unproved. A90 and S20+ are untouched by this unit.
+through installed init/services/SSH. Its H0 qualification retains independent
+**PASS_GO**, 160 focused tests, nine integrated ARM64 VM cases and four current
+revision-4 failure cases. The normal VM proves 120-second services, same-boot
+SSH, controlled shutdown and durable records. P425's physical trial is now
+consumed and closed as described below; full physical Debian/SSH ownership
+remains unproved. A90 and S20+ are untouched by this unit.
+
+## P425 closed: logger/providers proved; USB unproved; Android healthy
+
+P425 `v0.6.0-rc.1` consumed its returned attended 3600-second/one-operation
+grant on 2026-10-13 KST. The [physical report](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_RUN_2026-10-13.md)
+records one N transfer, 90 seconds without the expected USB endpoint, no sent
+integrated-start request and one physical original-A recovery. A pre-dispatch
+Download wait ended with a host deadline-tail error; A still transferred only
+once. A preserved `error: closed` health read was followed by health-only
+continuation. Final original boot/root, changed-boot and Android32/GPT health
+pass: **ANDROID_CLOSED_HEALTHY**, `recovered=true`, `research_closed=true`.
+
+The same-returned-boot D0 captured 2,097,136 bytes. The full parser stopped on
+marker authentication, but H0 strict rederivation of unchanged raw spans proved
+146 ordered same-boot records: logger binding `phase=0 error=0`, module stages
+through `gpi` completion, the provider barrier `mask=7`, and `i2c_msm_geni` BEGIN.
+This is **PARTIAL_AUTHENTICATED_EARLY_PREPARATION**; it does not locate the exact
+stop or prove initial-parent measurement, installed PID1, services, SSH or clean
+Debian shutdown. The logger correction has physical positive evidence.
+The grant/candidate are closed/consumed, N/A counts are 1/1 and no F1 owner remains.
 
 ## P424 closed: authenticated PRE retained; Android healthy
 
