@@ -2,6 +2,12 @@
 
 Status: **READY_H0_PRELIVE_ONLY; independent PASS_GO; no device authority**.
 
+This records the completed H0 preparation. P424 subsequently consumed its own
+returned grant and closed Android healthy; the
+[physical report](S22PLUS_NATIVE_LOG_CALIBRATION_P424_RUN_2026-10-13.md)
+records one retained authenticated PRE and incomplete full calibration.
+The readiness and no-grant statements below describe the earlier H0 unit.
+
 The operator selected an independently established earliest observation path
 before extending Debian initialization. P423 is consumed and closed healthy;
 its [subsequent H0 diagnosis](S22PLUS_DEBIAN_EARLY_STAGE_P423_RUN_2026-10-13.md)

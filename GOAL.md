@@ -21,24 +21,41 @@ This goal records state, never device authority. Select only the operator-owned
 `SM-S906N/g0q/S906NKSS7FYG8` through `AGENTS.md` and its binding target contract.
 A90 and S20+ remain isolated.
 
-## P424 ready: native log calibration
+## P424 closed: authenticated PRE retained; Android healthy
 
 The operator selected establishing the observation path before adding early
-initialization. The [P424 design](docs/reports/S22PLUS_NATIVE_LOG_CALIBRATION_P424_H0_2026-10-13.md)
-uses the already proved native carrier and authenticated USB to distinguish
-fixed-helper execution, kernel-ring acceptance and actual current Samsung
-retained-backend membership before physical original-A return. A later fixed
-read will compare the same run/boot-bound bytes after healthy closure.
-Implementation, actual A/B/ARM64 qualification and independent **PASS_GO**
-are complete. The exact offline task is **READY_H0_PRELIVE_ONLY**. Nine ARM64 cases,
-108 focused tests and six malformed-qualification cases pass. The native
-carrier remains unchanged after namespace/run normalization; only its fixed
-stock-logger child is added. No device grant is open. This diagnostic reference
-does not change Debian initial-PID1 ownership as the product goal.
-P420–P423 remain consumed/closed. The prepared task hash is
-`f30a9216aa6e29059f468ee2f640f8fea5aa3b57cdf9b3282516834b659b6563`;
-its returned attended 1800-second/one-operation grant remains required. No
-connected action or fresh health claim occurred during this H0 unit.
+initialization. P424 `v0.5.0-rc.8` consumed its returned attended
+1800-second/one-operation grant on 2026-10-13 KST. The
+[physical report](docs/reports/S22PLUS_NATIVE_LOG_CALIBRATION_P424_RUN_2026-10-13.md)
+records authenticated native/helper execution, PRE kernel-ring readback and
+one successful stock module syscall return. The fixed binding conjunction
+returned stage 4 `ENODEV`; no POST or current `/proc/ap_klog` read followed.
+The settled live result is **CALIBRATION_NEGATIVE**.
+
+After healthy original-A closure, the fixed same-returned-boot D0 read acquired
+2097136 bytes and found the exact authenticated PRE once, with zero damaged
+or foreign frames: **PARTIAL_NATIVE_LOG_RETENTION**. One native-origin marker
+therefore survived the tested physical return. Complete live/backend/returned
+pair calibration, earliest Debian PID1 and historical P421/P423 execution
+remain unproved. H0 inspection found that the helper expects device name
+`soc:samsung,kernel_log_buf`, while the returned log names the driver probe's
+device `8.samsung,kernel_log_buf`. The aggregate check does not identify its
+failing predicate; correcting/qualifying this observer is the smallest useful
+H0 successor. No new candidate or run grant is prepared.
+
+Physical return encountered a USB inventory change before A dispatch. Existing
+attended recovery then transferred A once. A subsequent `error: closed` health
+read was preserved, and health-only continuation passed original boot/root,
+changed-boot and Android32/GPT checks: **ANDROID_CLOSED_HEALTHY**,
+`recovered=true`, `research_closed=true`. N/A counts are 1/1; no F1 owner
+remains. H0 closure rederived 676 captures and 264 frozen sources without
+changing the 18-row journal. The grant and candidate are consumed/closed.
+
+The [H0 report](docs/reports/S22PLUS_NATIVE_LOG_CALIBRATION_P424_H0_2026-10-13.md)
+retains nine ARM64 cases, 108 focused tests, six malformed-qualification
+rejections and independent **PASS_GO**. P420–P424 are closed. This diagnostic
+carrier does not change Debian initial-PID1 ownership as the product goal.
+A90 and S20+ were untouched; full Debian/SSH ownership remains unachieved.
 
 ## P423 closed: no authenticated early stage; Android healthy
 
@@ -67,8 +84,9 @@ The [H0 qualification report](docs/reports/S22PLUS_DEBIAN_EARLY_STAGE_P423_H0_20
 preserves the six ARM64 cases, A/B artifacts, 109 tests and independent
 **PASS_GO**. That capability evidence does not replace physical proof. P423
 selected only one stock logger and no platform/USB/UFS/block-backed workload.
-P421's stopping point remains unknown. P420–P423 are closed. P424 calibration is the selected H0 successor above;
-it has no device grant. Full Debian/SSH ownership remains unachieved.
+P421's stopping point remains unknown. P424's subsequent native calibration is
+recorded above; it does not establish P423 execution. Full Debian/SSH ownership
+remains unachieved.
 
 Subsequent H0 inspection found only 52–59-minute kernel-style timestamps and
 Android process text in the retained sample, while P423's candidate interval
