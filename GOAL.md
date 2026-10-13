@@ -45,8 +45,11 @@ The operator requested a USB-independent filesystem log and continuation through
 physical execution and recovery. The [P426 design](docs/reports/S22PLUS_DEBIAN_FILE_FIRST_P426_H0_2026-10-13.md)
 records storage preparation and clean protected root admission before the
 remaining GENI/I2C/Max77705 clients, with synchronized per-client records and a
-separate later mountless retrieval. Implementation, qualification and independent
-review precede any fresh device grant. P425 remains consumed and closed.
+separate later mountless retrieval. Actual A/B packages, 14 writer and four
+reader ARM64 VM cases, 190 focused tests and independent `PASS_GO` now qualify
+both prospective capabilities. Offline task preparation is complete; each fresh
+physical operation still requires its returned attended finite grant and current
+health. P425 remains consumed and closed.
 
 ## P425 closed: logger/providers proved; USB unproved; Android healthy
 

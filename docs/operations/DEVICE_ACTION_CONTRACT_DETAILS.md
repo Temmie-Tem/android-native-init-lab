@@ -110,6 +110,9 @@ permission to perform host-only work.
    permits only its fixed bounded native_data directory/file writes and ordinary
    ext4 metadata after fresh clean protected admission, with no installed code,
    replay, repair, format, GPT change or other-partition write.
+   The separate [storage-first file sibling](S22PLUS_DEBIAN_FILE_FIRST_V1.md)
+   retains that exact file/write surface, with storage before the last six
+   platform clients and checked records before their fixed insertion calls.
 3. Never use raw host `dd`, fastboot outside the exact S20+ census and
    boot-support exceptions below, partition-table actions, qdl/Sahara/Firehose, RAM dump, EUD/UART
    writes, fuse/QFPROM actions, format operations, or an unreviewed panic/RDX
@@ -913,6 +916,21 @@ Android32 health and all existing no-replay/physical-recovery rules remain.
 Prior consistency recovery and later mountless-file retrieval are separate
 reviewed owners; neither is silently included in this pilot. All other target
 and boundary conditions remain unchanged.
+
+## S22+ Debian storage-first file evidence
+
+The separately reviewed [storage-first sibling](S22PLUS_DEBIAN_FILE_FIRST_V1.md)
+specializes boundaries 2 and 3 only for `debian-file-first-v1` under the existing
+attended early-file owner. It retains every file-pilot lifecycle, exact target,
+clean full-root admission, 16 KiB exclusive-file, absolute deadline, one-shot
+cleanup and physical-return limit. Its sole preparation change is stock logger
+plus the retained 67-module prefix, then the existing eight UFS modules, then
+protected admission and checked file header/log/READY before the six remaining
+fixed module insertions. Version-2 chained BEGIN/result records require checked
+write, synchronization and readback before each later effect. Stock retained-RAM
+logging and same-returned-boot bounded retrieval reuse the integrated logging
+mechanism. No gadget, host challenge, installed code, replay, repair or additional
+partition write is authorized. Separate reader and recovery owners remain separate.
 
 ## S22+ streamed protected preparation
 

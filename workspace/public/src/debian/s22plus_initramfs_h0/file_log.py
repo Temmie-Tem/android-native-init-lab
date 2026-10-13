@@ -22,8 +22,9 @@ VERSION='v0.5.0-rc.5'
 PROFILE='debian-file-pilot-v1'
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False):
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
+    sources=snapshot(out) if storage_first and fresh else None
     h0.verify_packages(packages,out);inventory=fyg8.verify_inventory(inputs)
     run=run or uuid.uuid4().hex;key=key or secrets.token_bytes(32)
     h0.require(re.fullmatch('[0-9a-f]{32}',run) and len(key)==32,'file pilot identity differs')
@@ -31,12 +32,17 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     (out/'key').write_bytes(key);(out/'key').chmod(0o400)
     # Reuse the exact inventory/header generator. This first compile is H0;
     # the module-only helper below is the sole helper included in the image.
-    fyg8.compile_helper(out,inputs,run_id=run,virt=virt)
+    modules=inventory['modules']
+    if storage_first:
+        import file_first
+        modules=file_first.prepare_modules(out,inputs,inventory,run,key,virt)
+    else:fyg8.compile_helper(out,inputs,run_id=run,virt=virt)
     flags=['aarch64-linux-gnu-gcc','-static','-Os','-Wall','-Wextra','-Werror',
         '-Wno-unused-function','-Wno-unused-const-variable','-ffunction-sections','-fdata-sections',
         '-Wl,--gc-sections','-fno-ident','-Wl,--build-id=none','-I',out,'-I',fyg8.ext4.NATIVE]
-    h0.run([*flags,'-DFYG8_USB_RAM_ONLY',*(['-DFYG8_VM_TEST'] if virt else []),
-        h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
+    if not storage_first:
+        h0.run([*flags,'-DFYG8_USB_RAM_ONLY',*(['-DFYG8_VM_TEST'] if virt else []),
+            h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
     generated=admission.headers(run)
     for name,data in generated['headers'].items():(out/name).write_bytes(data)
     (out/'table.bin').write_bytes(generated['table'])
@@ -50,26 +56,39 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     text=early.array('early_key',key)+early.array('early_run',bytes.fromhex(run))
     for name,field in (('early_shell_hash','shell_sha256'),('early_init_hash','init_sha256'),('early_helper_hash','helper_sha256')):
         text+=early.array(name,bytes.fromhex(measured[field]))
-    text+='#define EARLY_DOMAIN '+json.dumps(protocol.DOMAIN.decode())+'\n'
+    if storage_first:
+        import s22plus_debian_file_first_plan_v1 as first
+        text+='static const uint64_t early_helper_size='+str((out/'fyg8-prepare').stat().st_size)+'ULL;\n'
+    text+='#define EARLY_DOMAIN '+json.dumps((first.DOMAIN if storage_first else protocol.DOMAIN).decode())+'\n'
     (out/'early-seal.h').write_text(text)
     source,extra=file_log_faults.source(out,h0.HERE/'file-log.c',fault) if fault else (h0.HERE/'file-log.c',[])
-    h0.run([*flags,*(['-DS22_ROOT_INSPECT_VIRT_TEST'] if virt else []),*extra,
+    h0.run([*flags,*(['-DS22_ROOT_INSPECT_VIRT_TEST'] if virt else []),
+        *(['-DFL_STORAGE_FIRST'] if storage_first else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')
     for name in ('fyg8-prepare','file-log'):
         h0.run(['file',out/name],out/(name+'-file.log'))
         raw=(out/name).read_bytes()
-        h0.require(not any(p in raw for p in (b'/dev/kmsg',b'/proc/last_kmsg',b'/s22-journal-replay',
+        h0.require(not any(p in raw for p in (*(() if storage_first else (b'/dev/kmsg',b'/proc/last_kmsg')),b'/s22-journal-replay',
             b'/dev/ttyGS',b'/config/usb_gadget',b'/sbin/init')),'file pilot contains an excluded execution path')
-    result=dict(namespace=NAMESPACE,version=VERSION,profile=PROFILE,run_id=run,virtual=virt,
-        inputs=str(inputs),packages=str(packages),modules=inventory['modules'],measured=measured,fault=fault,
+    result=dict(namespace=first.NAMESPACE if storage_first else NAMESPACE,version=first.VERSION if storage_first else VERSION,
+        profile=first.PROFILE if storage_first else PROFILE,run_id=run,virtual=virt,
+        inputs=str(inputs),packages=str(packages),modules=modules,measured=measured,fault=fault,
         admission=dict(table_count=generated['count'],boot_count=generated['boot'],
             checker=pin(out/'s22-fs-e2fsck'),table=pin(out/'table.bin')))
+    if storage_first:
+        if sources is None:sources=json.loads((out/'source-inputs.json').read_text())
+        for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'file preparation source changed')
+        result['construction']=dict(source_inputs=sources,helper=pin(out/'fyg8-prepare'),writer=pin(out/'file-log'),
+            headers={p.name:pin(p) for p in sorted(out.glob('*.h'))})
     h0.publish(out/'request.json',result);return result
 
 
 def snapshot(out):
+    import file_first
+    import s22plus_debian_file_first_protocol_v1
+    import s22plus_debian_file_first_profile_v1
     rows={r['path']:r for r in early.snapshot(out)}
-    paths=set(admission.source_files())|{h0.HERE/'file-hook',Path(protocol.__file__)}
+    paths=set(admission.source_files())|{h0.HERE/'file-hook',Path(protocol.__file__)}|set(h0.HERE.glob('*.h'))
     for path in sorted(paths):
         dest=out/'source-snapshot'/path.relative_to(h0.ROOT)
         dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(path.read_bytes())
@@ -77,11 +96,11 @@ def snapshot(out):
     rows=sorted(rows.values(),key=lambda r:r['path']);h0.publish(out/'source-inputs.json',rows);return rows
 
 
-def build(out,inputs,packages,*,run=None,key=None):
+def build(out,inputs,packages,*,run=None,key=None,storage_first=False):
     out=h0.private(out,fresh=True);sources=snapshot(out)
-    request=prepare(out,inputs,packages,fresh=False,run=run,key=key)
+    request=prepare(out,inputs,packages,fresh=False,run=run,key=key,storage_first=storage_first)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
-        sys.executable,__file__,'inside','--output',out],out/'namespace-build.log',timeout=700)
+        sys.executable,__file__,'inside','--output',out,*(['--storage-first'] if storage_first else [])],out/'namespace-build.log',timeout=700)
     h0.require(h0.sha(out/'initramfs-a.cpio.gz')==h0.sha(out/'initramfs-b.cpio.gz'),'file A/B archive differs')
     entries=fyg8.debian_entries(out/'initramfs-a.cpio.gz');rows={e.name:e for e in entries}
     h0.require(len(rows)==len(entries) and rows['lib'].file_type=='directory','archive/vendor collision')
@@ -99,7 +118,7 @@ def build(out,inputs,packages,*,run=None,key=None):
     h0.require({n for n in rows if n.startswith('lab/modules/')}=={'lab/modules/'+m['name'] for m in request['modules']},
         'unexpected embedded module')
     for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'file source changed during build')
-    h0.publish(out/'build.json',dict(schema='s22plus-debian-file-pilot-h0-v1',status='H0_INITRAMFS_BUILT',
+    h0.publish(out/'build.json',dict(schema='s22plus-debian-file-first-h0-v1' if storage_first else 's22plus-debian-file-pilot-h0-v1',status='H0_INITRAMFS_BUILT',
         **request,initramfs=pin(out/'initramfs-a.cpio.gz',maximum=16*1024**2),helper=pin(out/'fyg8-prepare'),
         writer=pin(out/'file-log'),ab_identical=True,source_inputs=sources,device_actions=0,active=False,
         headers={p.name:pin(p) for p in sorted(out.glob('*.h'))}))
@@ -109,9 +128,9 @@ def build(out,inputs,packages,*,run=None,key=None):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=('build','inside','prepare'))
     for name in ('output','inputs','packages'):p.add_argument('--'+name,type=Path,required=name=='output')
-    p.add_argument('--virt',action='store_true');a=p.parse_args()
-    if a.action=='build':build(a.output,a.inputs,a.packages)
-    elif a.action=='prepare':prepare(a.output,a.inputs,a.packages,virt=a.virt)
+    p.add_argument('--virt',action='store_true');p.add_argument('--storage-first',action='store_true');a=p.parse_args()
+    if a.action=='build':build(a.output,a.inputs,a.packages,storage_first=a.storage_first)
+    elif a.action=='prepare':prepare(a.output,a.inputs,a.packages,virt=a.virt,storage_first=a.storage_first)
     else:
         request=json.loads((a.output/'request.json').read_text())
-        fyg8.inside(a.output,Path(request['packages']),Path(request['inputs']),file_pilot=True)
+        fyg8.inside(a.output,Path(request['packages']),Path(request['inputs']),file_pilot=True,storage_first=a.storage_first)

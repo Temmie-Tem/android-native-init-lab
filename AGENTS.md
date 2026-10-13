@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **46** (supersedes revision 45; 2026-10-13)
+Contract-Revision: **47** (supersedes revision 46; 2026-10-13)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`19bac75039c1c7b65434e814df5eea57ec4d0df4bfcd72f3134f40acab28f824`.
+`516cb6438aedf85c22852ce307df43f6319e835c04e7ba28bf3f36a8cdcffa6e`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -117,6 +117,7 @@ Read an exception's complete conditions before considering it applicable.
    and [Debian progress/same-gadget successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md),
    and the separate [fixed native_data journal recovery exception](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    and [Debian early file pilot exception](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md)
+   and [Debian storage-first file exception](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md)
    and [Debian-owned integrated boot exception](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
@@ -161,6 +162,9 @@ Read an exception's complete conditions before considering it applicable.
    permits fixed bounded native_data file/directory writes after fresh clean
    protected admission, checked synchronization and unmount, with no USB
    prerequisite, installed init, replay, repair or other-partition write.
+   The separately reviewed [storage-first file sibling](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md)
+   moves fixed UFS preparation and checked run-file records before the last six
+   platform clients, retaining clean admission, bounded writes and physical return.
    The separate [streamed preparation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)
    runs its fixed protected checker/loader work after native authentication,
    with bounded stage records, no filesystem write and no Debian handoff.
@@ -246,6 +250,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ Debian logger-only stages | [Early retained-stage probe](docs/operations/S22PLUS_DEBIAN_STAGE_PROBE_V1.md); one stock logger, measured parent and bounded records, fixed host window, attended original-A return and post-return retrieval; no platform/USB/UFS/storage work. |
 | S22+ native log calibration | [Live/backend/returned marker join](docs/operations/S22PLUS_NATIVE_LOG_CALIBRATION_V1.md); one fixed stock-logger child on retained native UFS/drain, bounded RAM markers/current backend, physical original A and post-closure D0; no storage command or data write. |
 | S22+ Debian early file pilot | [USB-independent fixed file evidence](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md); fresh clean admission, one bounded exclusive native_data file and fixed parent, checked sync/unmount/RO, one attended original-A return; later retrieval is a separate owner. |
+| S22+ Debian storage-first file evidence | [Checked records before clients](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md); logger/prefix68+UFS8, clean protected admission, one bounded run file with synchronized records before six fixed clients, physical original-A return and separate retrieval. |
 | S22+ streamed protected preparation | [Native-first stage observation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md); one fixed protected checker/loader command after native health, diagnostic-only partial evidence, one original-A return, no filesystem write or Debian handoff. |
 | S22+ readonly root-transition witness | [Actual PID-1 transition and post-exec proof](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md); one native-first fixed terminal operation, worker settlement, protected root and RAM witness, one original-A return, no installed init or writable lifetime. |
 | S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md); one attended finite operation, protected admission then native_data RW/init, authenticated PID1 and same-boot SSH, fixed shutdown and physical original-A return, no reinstall or replay. |

@@ -20,11 +20,12 @@ PREFLIGHT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native
 STAGED_PREFLIGHT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_staged_preflight_v1_review.json'
 SWITCH_ROOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_switch_root_v1_review.json'
 DEBIAN_HANDOFF_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_handoff_p413_review.json'
-ROOT_EVIDENCE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_root_evidence_v1_review.json'
+ROOT_EVIDENCE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_root_evidence_p427_review.json'
 JOURNAL_RECOVERY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_journal_recovery_v1_review.json'
 DEBIAN_EARLY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_early_v1_review.json'
 DEBIAN_USB_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_usb_first_v1_review.json'
 DEBIAN_FILE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_file_pilot_v1_review.json'
+DEBIAN_FILE_FIRST_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_file_first_v1_review.json'
 DEBIAN_STAGE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_stage_probe_v1_review.json'
 DEBIAN_INTEGRATED_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_integrated_v1_review.json'
 LOG_CALIBRATION_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_log_calibration_v1_review.json'
@@ -66,6 +67,7 @@ def source_paths(root):
         'docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md',
         'docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md',
         'docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md',
+        'docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md',
         'docs/operations/S22PLUS_DEBIAN_STAGE_PROBE_V1.md',
         'docs/operations/S22PLUS_NATIVE_LOG_CALIBRATION_V1.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md','docs/operations/DEVICE_ACTION_PROCESS_V2.md',
@@ -111,11 +113,12 @@ def capability(root, *, recovery=False, profile=None):
     from s22plus_native_journal_recovery_profile_v1 import PROFILE as journal_profile
     from s22plus_native_evidence_profile_v1 import PROFILE as evidence_profile
     from s22plus_native_log_profile_v1 import PROFILE as log_profile
-    from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile, FILE_PROFILE as file_profile, STAGE_PROFILE as stage_profile
+    from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile, FILE_PROFILE as file_profile, FILE_FIRST_PROFILE as file_first_profile, STAGE_PROFILE as stage_profile
     review_path={integrated_profile:DEBIAN_INTEGRATED_CAPABILITY,log_profile:LOG_CALIBRATION_CAPABILITY,root_inspect_profile:ROOT_INSPECT_CAPABILITY,userspace_probe_profile:USERSPACE_PROBE_CAPABILITY,
         preflight_profile:PREFLIGHT_CAPABILITY,staged_profile:STAGED_PREFLIGHT_CAPABILITY,
         switch_profile:SWITCH_ROOT_CAPABILITY,handoff_profile:DEBIAN_HANDOFF_CAPABILITY,
         journal_profile:JOURNAL_RECOVERY_CAPABILITY,evidence_profile:ROOT_EVIDENCE_CAPABILITY,early_profile:DEBIAN_EARLY_CAPABILITY,usb_profile:DEBIAN_USB_CAPABILITY,file_profile:DEBIAN_FILE_CAPABILITY,stage_profile:DEBIAN_STAGE_CAPABILITY}
+    review_path[file_first_profile]=DEBIAN_FILE_FIRST_CAPABILITY
     path=Path(root)/review_path.get(profile,CAPABILITY); result=read(path)
     require(set(result)=={'schema','verdict','scope','sources','runtime_sources','reviewer','findings'}
         and result['schema']=='s22plus-native-session-v3-review' and result['verdict']=='PASS_GO'
@@ -178,9 +181,9 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
     from s22plus_native_journal_recovery_profile_v1 import PROFILE as journal_profile
     from s22plus_native_evidence_profile_v1 import PROFILE as evidence_profile
     from s22plus_native_log_profile_v1 import PROFILE as log_profile
-    from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile, FILE_PROFILE as file_profile, STAGE_PROFILE as stage_profile
+    from s22plus_debian_early_profile_v1 import PROFILE as early_profile, USB_PROFILE as usb_profile, FILE_PROFILE as file_profile, FILE_FIRST_PROFILE as file_first_profile, STAGE_PROFILE as stage_profile
     require(('debian_access' in task)==(task['N']['profile'] in (handoff_profile,integrated_profile)),'unselected Debian access inputs')
-    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile,handoff_profile,journal_profile,evidence_profile,early_profile,usb_profile,file_profile,stage_profile,log_profile,integrated_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated'}:
+    if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile,handoff_profile,journal_profile,evidence_profile,early_profile,usb_profile,file_profile,file_first_profile,stage_profile,log_profile,integrated_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated'}:
         from s22plus_native_root_inspect_session_v1 import validate_task as root_inspect_task
         root_inspect_task(task, recovery=recovery)
     if task['N']['profile'] in filesystem_profiles or 'native-ext4' in task['operations']:
@@ -242,6 +245,9 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
             validate_adoption(root,details)
         if task['N']['profile']==file_profile:
             from s22plus_debian_file_profile_v1 import validate_adoption
+            validate_adoption(root,details)
+        if task['N']['profile']==file_first_profile:
+            from s22plus_debian_file_first_profile_v1 import validate_adoption
             validate_adoption(root,details)
         if task['N']['profile']==early_profile:
             require(b'S22PLUS_DEBIAN_EARLY_BOOT_V1.md' in details and

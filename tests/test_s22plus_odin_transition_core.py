@@ -187,6 +187,18 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertNotIn("endpoint_transition_evidence", records[0])
 
+    def test_wait_deadline_tail_never_dispatches_invalid_raw_timeout(self):
+        module=self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir=Path(temporary)
+            with module.transaction_session(run_dir) as lease, mock.patch.object(module,'_snapshot_and_record') as acquire:
+                result=module.wait_for_single_live_endpoint(Path('odin4'),run_dir,
+                    timeout_sec=0.05,lease=lease,monotonic=lambda:10.0)
+            self.assertTrue(result.timed_out)
+            self.assertIsNone(result.ticket)
+            self.assertEqual(result.next_sequence,0)
+            acquire.assert_not_called()
+
     def test_wait_assigns_generation_after_stale_then_live(self):
         clock = FakeClock()
         outputs = ["/dev/bus/usb/002/007", "/dev/bus/usb/002/008"]

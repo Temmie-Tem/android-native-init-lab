@@ -241,13 +241,18 @@ fyg8_stop
 '''
 
 
-def inside(out,packages,inputs,*,observed=False,file_pilot=False):
+def inside(out,packages,inputs,*,observed=False,file_pilot=False,storage_first=False):
     h0.require(not (observed and file_pilot),"select one early observer")
+    h0.require(not storage_first or file_pilot,'storage-first requires fixed file writer')
     value=verify_inventory(inputs)
     tree=h0.builder_tree(out,packages)
     shutil.copyfile(out/'fyg8-prepare',tree/'usr/sbin/fyg8-prepare')
     (tree/'usr/sbin/fyg8-prepare').chmod(0o755)
     shutil.copytree(inputs/'modules',tree/'lab/modules')
+    if storage_first:
+        import usb_first
+        target=tree/'lab/modules'/usb_first.LOGGER['name']
+        target.write_bytes((out/usb_first.LOGGER['name']).read_bytes());target.chmod(0o400)
     if observed:
         shutil.copyfile(out/'early-observer',tree/'usr/sbin/early-observer')
         (tree/'usr/sbin/early-observer').chmod(0o755)
@@ -271,6 +276,10 @@ def inside(out,packages,inputs,*,observed=False,file_pilot=False):
     if file_pilot:
         source=(h0.HERE/'fyg8-dev').read_text()
         h0.require(source.endswith('fyg8_stop\n'),'early terminal hook changed')
+        if storage_first:
+            anchor='mknod -m 666 /dev/null c 1 3 || fyg8_stop\n'
+            h0.require(source.count(anchor)==1,'storage-first RAM device hook changed')
+            source=source.replace(anchor,anchor+'mknod -m 600 /dev/kmsg c 1 11 || fyg8_stop\n')
         (conf/'scripts/fyg8-dev').write_text(source[:-len('fyg8_stop\n')]+file_script())
         shutil.copyfile(h0.HERE/'file-hook',conf/'hooks/zzzz-file')
         (conf/'hooks/zzzz-file').chmod(0o755)

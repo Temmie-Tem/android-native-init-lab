@@ -65,7 +65,11 @@ def validate_task(task, *, recovery=False):
         task['operation_budget'] == 1 and 60 <= task['seconds'] <= (3600 if item in (handoff,integrated) else 1800) and
         not any(task[k] for k in ('reentry', 'hud', 'usb_reconnect')),
         'inspector profile is restricted to one attended Android-origin operation')
-    if not recovery: item.image_binding(task['N'])
+    if not recovery:
+        if item is early and task['N']['profile']==early.FILE_FIRST_PROFILE:
+            from s22plus_native_adapter_v3 import image_valid
+            image_valid(task['N'])
+        else:item.image_binding(task['N'])
     if item is calibration:
         require(task['seconds']==1800,'log calibration requires its exact 1800-second grant')
     if item is early and task['N']['profile'] in early.WINDOW_PROFILES:

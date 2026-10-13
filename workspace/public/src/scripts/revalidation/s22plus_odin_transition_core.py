@@ -1776,7 +1776,9 @@ def wait_for_single_live_endpoint(
     tracker, _receipts = _resume_tracker(run_dir, sequence_start, lease=lease)
     while True:
         remaining = deadline - _monotonic_now(monotonic)
-        if remaining <= 0:
+        # The raw producer accepts at least 100 ms. Do not start a census
+        # that cannot fit the original deadline; this is not endpoint absence.
+        if remaining < 0.1:
             return WaitResult(ticket=None, next_sequence=sequence, timed_out=True)
         try:
             snapshot, record = _snapshot_and_record(

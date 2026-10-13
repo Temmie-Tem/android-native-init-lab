@@ -11,6 +11,8 @@ import s22plus_debian_early_profile_v1 as profile
 import s22plus_debian_usb_protocol_v1 as protocol
 import s22plus_native_log_profile_v1 as calibration
 import s22plus_debian_integrated_profile_v1 as integrated
+import s22plus_debian_file_first_profile_v1 as file_first
+import s22plus_debian_file_first_protocol_v1 as file_protocol
 from s22plus_native_records_v3 import pin,private_path,publish,read,require,verify
 
 
@@ -92,13 +94,15 @@ def integrated_projection(directory,task_directory):
     from s22plus_debian_file_retrieval_v1 import closed_operation
     directory=private_path(profile.ROOT,directory);task_directory=private_path(profile.ROOT,task_directory)
     task=read(task_directory/'task.json');closed=read(task_directory/'closed.json')
+    selected=file_first if task['N']['profile']==file_first.PROFILE else integrated
     outcome=read(verify(closed['current_android_terminal']))
-    bound=closed_operation(Path(verify(outcome['operation_record'])).parent,integrated.PROFILE)
+    bound=closed_operation(Path(verify(outcome['operation_record'])).parent,selected.PROFILE)
     require(bound['task']==task and bound['closed']==pin(task_directory/'closed.json'),'integrated closed owner differs')
-    integrated.image_binding(task['N'])
+    selected.image_binding(task['N'])
     returned=read(verify(read(verify(outcome['terminal_result']))['health']))
     started=read(directory/'started.json')
-    require(started['schema']=='s22plus-integrated-retention-d0-v1' and started['task']==pin(task_directory/'task.json') and
+    schema='s22plus-file-first-retention-d0-v1' if selected is file_first else 's22plus-integrated-retention-d0-v1'
+    require(started['schema']==schema and started['task']==pin(task_directory/'task.json') and
         started['closed']==pin(task_directory/'closed.json') and started['device_effects']==0,'integrated D0 binding differs')
     first=read(directory/'before/health.json');last=read(directory/'after/health.json')
     for health in (first,last):
@@ -109,8 +113,9 @@ def integrated_projection(directory,task_directory):
     handle=raw.load_handle(directory/'last-kmsg.capture.json');raw.require_success(handle)
     boot=outcome.get('debian_integrated',{}).get('observation',{}).get('kernel_boot_proof')
     result=protocol.retained(raw.read_stdout(handle,maximum=4*1024**2),key=verify(task['N']['key'],maximum=32).read_bytes(),
-        run=bytes.fromhex(task['N']['run_id_hex']),boot=boot,domain=integrated.protocol.DOMAIN)
-    result.update(provenance='POST_INTEGRATED_PHYSICAL_ORIGINAL_A_RETURN_LAST_KMSG',
+        run=bytes.fromhex(task['N']['run_id_hex']),boot=boot,
+        domain=file_protocol.DOMAIN if selected is file_first else integrated.protocol.DOMAIN)
+    result.update(provenance='POST_FILE_FIRST_PHYSICAL_ORIGINAL_A_RETURN_LAST_KMSG' if selected is file_first else 'POST_INTEGRATED_PHYSICAL_ORIGINAL_A_RETURN_LAST_KMSG',
         retained_any_stage=bool(result['records']),debian_early_pid1=False,installed_debian_pid1=False,
         stopped_at_last_record=False,replay_authorized=False,device_effects=0,same_returned_android_boot=True,
         before=pin(directory/'before/health.json'),after=pin(directory/'after/health.json'),
@@ -124,11 +129,12 @@ def capture(directory,task_directory):
     task=read(task_directory/'task.json');closed=read(task_directory/'closed.json')
     calibration_selected=task['N'].get('profile')==calibration.PROFILE
     integrated_selected=task['N'].get('profile')==integrated.PROFILE
+    first_selected=task['N'].get('profile')==file_first.PROFILE
     artifact=integrated.image_binding(task['N']) if integrated_selected else calibration.image_binding(task['N']) if calibration_selected else read(verify(task['N']['early_boot']))
     stage=task['N'].get('profile')==profile.STAGE_PROFILE
-    if stage or calibration_selected or integrated_selected:
+    if stage or calibration_selected or integrated_selected or first_selected:
         from s22plus_debian_file_retrieval_v1 import closed_operation
-        if stage:artifact=profile.image_binding(task['N'])
+        if stage or first_selected:artifact=profile.image_binding(task['N'])
         outcome=read(verify(closed['current_android_terminal']))
         bound=closed_operation(Path(verify(outcome['operation_record'])).parent,task['N']['profile'])
         require(bound['task']==task and bound['closed']==pin(task_directory/'closed.json'),'stage closed owner differs')
@@ -136,7 +142,7 @@ def capture(directory,task_directory):
         require(profile.usb_logging_mode(read(verify(artifact['build'])))=='retained',
             'RAM-only USB candidate has no retained-log capture scope')
     require(closed['task']==pin(task_directory/'task.json') and
-        task['N'].get('profile') in (profile.USB_PROFILE,profile.STAGE_PROFILE,calibration.PROFILE,integrated.PROFILE) and
+        task['N'].get('profile') in (profile.USB_PROFILE,profile.STAGE_PROFILE,calibration.PROFILE,integrated.PROFILE,file_first.PROFILE) and
         task['operations']==[integrated.OPERATION if integrated_selected else calibration.OPERATION if calibration_selected else profile.OPERATION] and
         closed['terminal_state']=='ANDROID_CLOSED_HEALTHY' and closed['consumed_operations']==1,
         'USB trial is not closed healthy')
@@ -153,7 +159,7 @@ def capture(directory,task_directory):
         registry.require_no_f1_owner(root)
     try:
         with registry.target_session_lease(root):
-            guard();publish(directory/'started.json',dict(schema='s22plus-integrated-retention-d0-v1' if integrated_selected else 's22plus-native-log-retention-d0-v1' if calibration_selected else 's22plus-stage-retention-d0-v1' if stage else 's22plus-usb-retention-d0-v1',source=pin(Path(__file__)),
+            guard();publish(directory/'started.json',dict(schema='s22plus-file-first-retention-d0-v1' if first_selected else 's22plus-integrated-retention-d0-v1' if integrated_selected else 's22plus-native-log-retention-d0-v1' if calibration_selected else 's22plus-stage-retention-d0-v1' if stage else 's22plus-usb-retention-d0-v1',source=pin(Path(__file__)),
                 task=pin(task_directory/'task.json'),closed=pin(task_directory/'closed.json'),device_effects=0))
             first=target.Android(tool,task['target'],task['A'],directory/'before',guard=guard).health()
             require(first['boot_id_sha256']==returned['boot_id_sha256'],'Android changed since candidate return')
@@ -168,7 +174,7 @@ def capture(directory,task_directory):
             last=target.Android(tool,task['target'],task['A'],directory/'after',guard=guard).health()
             require(first['properties']==last['properties'] and first['boot_id_sha256']==last['boot_id_sha256'],
                 'Android changed during fixed retention read')
-            if integrated_selected:return publish(directory/'result.json',integrated_projection(directory,task_directory))
+            if integrated_selected or first_selected:return publish(directory/'result.json',integrated_projection(directory,task_directory))
             if calibration_selected:return publish(directory/'result.json',log_projection(directory,task_directory))
             if stage:return publish(directory/'result.json',stage_projection(directory,task_directory))
             boot=outcome.get('debian_early',{}).get('kernel_boot_identity_sha256')

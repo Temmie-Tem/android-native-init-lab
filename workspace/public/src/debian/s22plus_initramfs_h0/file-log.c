@@ -19,7 +19,22 @@ static size_t log_size;
 #define FL_MAXIMUM 16384U
 #define FL_HEADER 256U
 #define FL_RECORD 128U
+#ifdef FL_STORAGE_FIRST
+#include "file-first-plan.h"
+#define FL_RECORDS (2U+FF_CLIENT_COUNT*2U)
+#define FL_PHASES FF_CLIENT_COUNT
+#define FL_MAGIC "S22FL02\0"
+#define FL_RECORD_MAGIC "S22FLR2\0"
+#define FL_VERSION 2U
+#define FL_ACCESS O_RDWR
+#else
 #define FL_RECORDS 8U
+#define FL_PHASES 3U
+#define FL_MAGIC "S22FL01\0"
+#define FL_RECORD_MAGIC "S22FLR1\0"
+#define FL_VERSION 1U
+#define FL_ACCESS O_WRONLY
+#endif
 static const char fl_root[]="/s22-root-work/file-root";
 static struct fs1_endpoint fl_endpoint;
 static int fl_admitted;
@@ -101,39 +116,58 @@ static int fl_write(int fd,const void *data,size_t length) {
     int error=fl_time();if(error)return error;
     if(length>FL_MAXIMUM-fl_bytes)return EOVERFLOW;
     if(write(fd,data,length)!=(ssize_t)length || fsync(fd))return EIO;
+#ifdef FL_STORAGE_FIRST
+    uint8_t checked[1024];size_t at=0;
+    while(at<length) {
+        size_t n=length-at;if(n>sizeof(checked))n=sizeof(checked);
+        if(pread(fd,checked,n,(off_t)fl_bytes+(off_t)at)!=(ssize_t)n ||
+            memcmp(checked,(const uint8_t *)data+at,n))return EIO;
+        at+=n;
+    }
+#endif
     fl_bytes+=(unsigned)length;return fl_time();
 }
 static int fl_record(int fd,unsigned kind,unsigned phase,int error_code) {
     if(fl_sequence>=FL_RECORDS)return EOVERFLOW;
     uint64_t n=fl_now();if(n<fl_origin || n-fl_origin>=300000)return ETIMEDOUT;
-    uint8_t raw[FL_RECORD]={0};memcpy(raw,"S22FLR1\0",8);
+    uint8_t raw[FL_RECORD]={0};memcpy(raw,FL_RECORD_MAGIC,8);
     early_put32(raw+8,fl_sequence);early_put32(raw+12,kind);fl_u64(raw+16,n-fl_origin);
     early_put32(raw+24,phase);early_put32(raw+28,(uint32_t)error_code);
     memcpy(raw+64,fl_previous,32);early_tag(raw+96,proof+16,kind,fl_sequence,raw,96);
     int error=fl_write(fd,raw,sizeof(raw));if(error)return error;
     memcpy(fl_previous,raw+96,32);++fl_sequence;return 0;
 }
+#ifdef FL_STORAGE_FIRST
+#include "file-first-clients.h"
+#endif
 static int fl_file(int root,dev_t device) {
     int parent=fl_parent(root,device);if(parent<0)return fs1_error();
     char name[64];snprintf(name,sizeof(name),"s22-evidence-%s",fs1_run_id);
     int late=fl_time();if(late){(void)close(parent);return late;}
-    int fd=openat(parent,name,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC,0600);
+    int fd=openat(parent,name,FL_ACCESS|O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC,0600);
     int error=fd<0?fs1_error():0;struct stat st;
     if(!error && (fstat(fd,&st) || st.st_dev!=device || st.st_mode!=(S_IFREG|0600) ||
         st.st_uid || st.st_gid || st.st_nlink!=1 || st.st_size))error=EPROTO;
     if(!error && fsync(parent))error=fs1_error();
-    uint8_t header[FL_HEADER]={0};memcpy(header,"S22FL01\0",8);
-    early_put32(header+8,1);early_put32(header+12,FL_HEADER);memcpy(header+16,early_run,16);
+    uint8_t header[FL_HEADER]={0};memcpy(header,FL_MAGIC,8);
+    early_put32(header+8,FL_VERSION);early_put32(header+12,FL_HEADER);memcpy(header+16,early_run,16);
     memcpy(header+32,proof,sizeof(proof));fl_u64(header+208,fl_origin);
     early_tag(header+224,proof+16,0,0,header,224);
     if(!error)error=fl_write(fd,header,sizeof(header));
     if(!error)error=fl_write(fd,log_bytes,log_size);
     memcpy(fl_previous,header+224,32);
     if(!error)error=fl_record(fd,1,0,0); /* Header and imported preparation synced. */
-    for(unsigned phase=1;phase<=3 && !error;++phase) {
+#ifdef FL_STORAGE_FIRST
+    if(!error)error=fl_clients_check();
+#endif
+    for(unsigned phase=1;phase<=FL_PHASES && !error;++phase) {
         error=fl_record(fd,2,phase,0);
+#ifdef FL_STORAGE_FIRST
+        int observed=error ? error : fl_client(phase);
+#else
         /* Fixed probe, no installed code and no USB prerequisite. */
         int observed=getppid()==1?0:EPROTO;
+#endif
         if(!error)error=fl_record(fd,3,phase,observed);
         if(!error && observed)error=observed;
     }
@@ -199,6 +233,9 @@ int main(int argc,char **argv) {
     if(fl_unsettled)for(;;)pause();
     if(result || !fl_admitted || !rj_checker_complete || rj_attempted || rj_stopped)return 103;
     error=fl_write_mount();
+#if defined(FL_STORAGE_FIRST) && defined(S22_ROOT_INSPECT_VIRT_TEST)
+    dprintf(1,"FILE_VM_CLIENTS inserted=%u\n",fl_test_inserted);
+#endif
     dprintf(1,"FILE_PILOT result=%s error=%d records=%u bytes=%u\n",error?"REJECTED":"CLOSED",error,fl_sequence,fl_bytes);
     return error?1:0;
 }

@@ -159,10 +159,13 @@ class FileWindow(unittest.TestCase):
 
 
 class FileRetrieval(unittest.TestCase):
-    def project(self,data,*,wrong_run=False):
-        fixture=FileRecords();temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+    def project(self,data,*,wrong_run=False,fixture=None,storage_first=False):
+        fixture=fixture or FileRecords();temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
         root=Path(temporary.name);output=root/'projection';reader_path=root/'reader';reader_path.mkdir()
         key=root/'key';key.write_bytes(fixture.key)
+        writer_path=root/'writer';writer_path.mkdir()
+        selected_profile=retrieval.first_profile if storage_first else retrieval.profile
+        records.publish(writer_path/'operation.json',dict(N=dict(profile=selected_profile.PROFILE)))
         records.publish(reader_path/(retrieval.evidence.SELECTION+'.json'),dict(fixed_reader_result=True))
         selected=dict(path='var/lib/lab/s22-evidence-'+fixture.candidate.hex(),status='READ',raw_hex=data.hex())
         acquired=dict(files=[selected],source_view_clean=True)
@@ -178,7 +181,7 @@ class FileRetrieval(unittest.TestCase):
         step=retrieval.Step(retrieval.evidence.SELECTION,'observe','N')
         with mock.patch.object(retrieval,'private_path',side_effect=lambda base,p,**kw:Path(p)),\
                 mock.patch.object(retrieval,'closed_operation',side_effect=[writer,reader]),\
-                mock.patch.object(retrieval.profile,'image_binding',return_value=artifact),\
+                mock.patch.object(selected_profile,'image_binding',return_value=artifact),\
                 mock.patch.object(retrieval,'operation_steps',return_value=(step,)):
             if wrong_run:
                 with self.assertRaises(ValueError):retrieval.recover(output,root/'writer',reader_path)

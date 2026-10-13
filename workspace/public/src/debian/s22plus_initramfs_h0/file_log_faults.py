@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-NAMES=('short-write','file-sync-error','parent-sync-error','unmount-error','late-ro-clear','checker-timeout')
+NAMES=('short-write','file-sync-error','parent-sync-error','unmount-error','late-ro-clear','checker-timeout','readback-error')
 
 
 def source(out,original,fault):
@@ -36,6 +36,14 @@ static int fixture_path(int fd,int directory) {
 }
 '''
     bodies={
+        'readback-error':'''static ssize_t fixture_pread(int fd,void *p,size_t n,off_t offset) {
+    ssize_t got=pread(fd,p,n,offset);
+    if(fixture_path(fd,0) && got==128 && !memcmp(p,"S22FLR2",7) && ((unsigned char *)p)[12]==2)
+        ((unsigned char *)p)[0]^=1;
+    return got;
+}
+#define pread fixture_pread
+''',
         'short-write':'''static unsigned fixture_writes;
 static ssize_t fixture_write(int fd,const void *p,size_t n) {
     if(fixture_path(fd,0) && ++fixture_writes==4)return write(fd,p,n-1);

@@ -6,6 +6,8 @@ from pathlib import Path
 import consumed_candidate_registry_v1 as registry
 import s22plus_debian_file_profile_v1 as profile
 import s22plus_debian_file_protocol_v1 as protocol
+import s22plus_debian_file_first_profile_v1 as first_profile
+import s22plus_debian_file_first_protocol_v1 as first_protocol
 import s22plus_native_evidence_profile_v1 as evidence
 import s22plus_native_target_io_v3 as target
 from s22plus_native_adapter_v3 import Adapter,image_identity
@@ -60,9 +62,13 @@ def recover(directory,writer_directory,reader_directory):
     """Only existing raw captures are consumed. No transition or journal edit."""
     directory=private_path(ROOT,directory,exists=False)
     require(not directory.exists(),'fresh file projection output required')
-    writer=closed_operation(writer_directory,profile.PROFILE)
+    writer_profile=read(private_path(ROOT,writer_directory)/'operation.json')['N']['profile']
+    require(writer_profile in (profile.PROFILE,first_profile.PROFILE),'unselected early file writer')
+    selected_profile=first_profile if writer_profile==first_profile.PROFILE else profile
+    selected_protocol=first_protocol if writer_profile==first_profile.PROFILE else protocol
+    writer=closed_operation(writer_directory,writer_profile)
     reader=closed_operation(reader_directory,evidence.PROFILE)
-    image=writer['request']['N'];artifact=profile.image_binding(image)
+    image=writer['request']['N'];artifact=selected_profile.image_binding(image)
     require(writer['task']['target']==reader['task']['target'] and writer['task']['A']==reader['task']['A'] and
         reader['request']['N']['root_evidence']['record_run']==image['run_id_hex'] and
         reader['request']['N']['run_id_hex']!=image['run_id_hex'],
@@ -91,10 +97,10 @@ def recover(directory,writer_directory,reader_directory):
     arguments=dict(key=verify(image['key'],maximum=32).read_bytes(),run=bytes.fromhex(image['run_id_hex']),
         expected=artifact['expected'],module_names=artifact['module_names'])
     strict_error=None
-    try:proof=protocol.decode(data,**arguments)
+    try:proof=selected_protocol.decode(data,**arguments)
     except ValueError as error:
         strict_error=str(error)
-        try:proof=protocol.decode(data,**arguments,allow_prefix=True)
+        try:proof=selected_protocol.decode(data,**arguments,allow_prefix=True)
         except ValueError as failure:
             return publish(directory/'result.json',dict(context,status='NO_AUTHENTICATED_FILE',raw=raw,
                 strict_error=strict_error,prefix_error=str(failure)))

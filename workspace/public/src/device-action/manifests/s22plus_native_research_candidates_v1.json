@@ -64,74 +64,74 @@
       "version": "v0.3.1-rc.2"
     },
     {
-      "namespace": "p402",
-      "run_id": "f80bd7e75a1a4a38bbe6c229473c8ebd",
-      "version": "v0.4.0-rc.2",
       "image_sha256": "be2d73a2f8875b0d8ea6644fcd2c9be0dcee3a39a3ce6631d210edc45da3bfb3",
-      "profile": "thermal-v3-reconnect-ufs-drain-root-inspect-v1"
+      "namespace": "p402",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-inspect-v1",
+      "run_id": "f80bd7e75a1a4a38bbe6c229473c8ebd",
+      "version": "v0.4.0-rc.2"
     },
     {
-      "namespace": "p403",
-      "run_id": "10b8e0a0f8684692ae4a36a936bd5f32",
-      "version": "v0.4.0-rc.3",
       "image_sha256": "3781f9e250f1fceeda3fe63d727a2f9e95744d4eb5a5967f8762395d93dbe986",
-      "profile": "thermal-v3-reconnect-ufs-drain-userspace-probe-v1"
+      "namespace": "p403",
+      "profile": "thermal-v3-reconnect-ufs-drain-userspace-probe-v1",
+      "run_id": "10b8e0a0f8684692ae4a36a936bd5f32",
+      "version": "v0.4.0-rc.3"
     },
     {
-      "namespace": "p406",
-      "run_id": "4e30b2cbe1644e1baf26fc61714a4f7c",
-      "version": "v0.4.0-rc.6",
       "image_sha256": "7d81401a900ab4fb47a05ada4a033164e973078da0a0ce1078189dd32de3b162",
-      "profile": "thermal-v3-reconnect-ufs-drain-root-inspect-v1"
+      "namespace": "p406",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-inspect-v1",
+      "run_id": "4e30b2cbe1644e1baf26fc61714a4f7c",
+      "version": "v0.4.0-rc.6"
     },
     {
+      "image_sha256": "92e365a20dfc3b000080a8245c5ff23558b00e9967e07544bd133db7149d0caf",
       "namespace": "p407",
       "profile": "thermal-v3-reconnect-ufs-drain-prehandoff-v1",
       "run_id": "314f9d184ebb4636a9dc9e391f9a2dc3",
-      "version": "v0.4.0-rc.7",
-      "image_sha256": "92e365a20dfc3b000080a8245c5ff23558b00e9967e07544bd133db7149d0caf"
+      "version": "v0.4.0-rc.7"
     },
     {
+      "image_sha256": "08fc4ab0b48aad80110181412833cd85e3065cf6b5a4bfca315719baf7e93fb0",
       "namespace": "p408",
       "profile": "thermal-v3-reconnect-ufs-drain-staged-preflight-v1",
       "run_id": "32e57b0372fc443599a964ddf56178af",
-      "version": "v0.4.0-rc.8",
-      "image_sha256": "08fc4ab0b48aad80110181412833cd85e3065cf6b5a4bfca315719baf7e93fb0"
+      "version": "v0.4.0-rc.8"
     },
     {
-      "namespace": "p409",
-      "run_id": "11440d7c03f69d9aa58a22b70f2f1a13",
-      "version": "v0.4.0-rc.9",
       "image_sha256": "8a76ac6e98710589591b61c1d4dcb00ca4836aa6505b4dbaa26d8e095a7d383c",
-      "profile": "thermal-v3-reconnect-ufs-drain-switch-root-v1"
+      "namespace": "p409",
+      "profile": "thermal-v3-reconnect-ufs-drain-switch-root-v1",
+      "run_id": "11440d7c03f69d9aa58a22b70f2f1a13",
+      "version": "v0.4.0-rc.9"
     },
     {
-      "namespace": "p410",
-      "run_id": "369fe7d95d21b42f7900f23fd50850e0",
-      "version": "v0.4.0-rc.10",
       "image_sha256": "61302900131ace1affa07802e8c1754dff7c9d1072cc5f8008321eed064150a6",
-      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v1"
+      "namespace": "p410",
+      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v1",
+      "run_id": "369fe7d95d21b42f7900f23fd50850e0",
+      "version": "v0.4.0-rc.10"
     },
     {
-      "namespace": "p411",
-      "run_id": "40889322eb2f24ecfd14a0a57fa418d8",
-      "version": "v0.4.0-rc.11",
       "image_sha256": "5e2d9f87dd86e2abb43084716a1b4eaec18d53d2c8fecdc0871c104bfa1836d4",
-      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v2"
+      "namespace": "p411",
+      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v2",
+      "run_id": "40889322eb2f24ecfd14a0a57fa418d8",
+      "version": "v0.4.0-rc.11"
     },
     {
-      "namespace": "p412",
-      "run_id": "392b215f4d329e4b0963a7b681aeb3e3",
-      "version": "v0.4.0-rc.12",
       "image_sha256": "040610335d04af803f76820f23649e93af0f5b60723afa3a0d1bf2f0fadade16",
-      "profile": "thermal-v3-reconnect-ufs-drain-journal-recovery-v1"
+      "namespace": "p412",
+      "profile": "thermal-v3-reconnect-ufs-drain-journal-recovery-v1",
+      "run_id": "392b215f4d329e4b0963a7b681aeb3e3",
+      "version": "v0.4.0-rc.12"
     },
     {
-      "namespace": "p413",
-      "run_id": "3363b06d1b7c2fc38e7826fde286af83",
-      "version": "v0.4.0-rc.13",
       "image_sha256": "7b3a4941540af8b73a86cf75544ace2d462c42b7ac9079bd18218afc1ab8ba4b",
-      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v2"
+      "namespace": "p413",
+      "profile": "thermal-v3-reconnect-ufs-drain-debian-handoff-v2",
+      "run_id": "3363b06d1b7c2fc38e7826fde286af83",
+      "version": "v0.4.0-rc.13"
     },
     {
       "image_sha256": "7d6cf6d9cf2c5dd007ce0f3118186fb7c5c1903f8b58cb2814682325483daf98",
@@ -161,6 +161,14 @@
       "profile": "thermal-v3-reconnect-ufs-drain-log-calibration-v1",
       "run_id": "1f2800aaac4c4fcc9013a9b5e91d90a4",
       "version": "v0.5.0-rc.8"
+    },
+    {
+      "evidence_run": "44434b22e05c43e996877ccaeb777a25",
+      "image_sha256": "c05812c7a96dd1ed09c8a0920e8b30109aa194349e562cc7da1efcd333d9054f",
+      "namespace": "p427",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
+      "run_id": "6a787b87c7b44ace884c6ce924c0aeea",
+      "version": "v0.6.0-rc.3"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"

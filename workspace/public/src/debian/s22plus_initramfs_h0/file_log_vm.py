@@ -20,13 +20,16 @@ import s22plus_debian_file_protocol_v1 as protocol
 from s22plus_native_records_v3 import pin,read,verify
 
 from s22plus_debian_file_profile_v1 import CASES,PARTIAL_WRITES
+import s22plus_debian_file_first_profile_v1 as first_profile
+import s22plus_debian_file_first_protocol_v1 as first_protocol
 
 
 def prepare(out,build,case):
     out.mkdir(mode=0o700);built=read(build/'build.json')
+    first=built['profile']==first_profile.PROFILE
     selection=build_api.prepare(out/'helper',Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=(build/'key').read_bytes(),virt=True,
-        fault=case if case in build_api.file_log_faults.NAMES else None)
+        fault=case if case in build_api.file_log_faults.NAMES else None,storage_first=first)
     entries=list(fyg8.debian_entries(build/'initramfs-a.cpio.gz'))
     for i,e in enumerate(entries):
         if e.name in ('usr/sbin/fyg8-prepare','usr/sbin/file-log'):
@@ -50,6 +53,10 @@ def prepare(out,build,case):
     model=entries[0]
     entries.append(replace(model,name='lab/fault',encoded_name='lab/fault',inode=max(e.inode for e in entries)+1,
         mode=stat.S_IFREG|0o400,nlink=1,data=b'insert-error\n' if case=='insert-error' else b'none\n'))
+    if first:
+        for name,data in (('lab/integrated-fault',b'none\n'),('lab/client-fault',b'module-error\n' if case=='module-error' else b'none\n')):
+            entries.append(replace(model,name=name,encoded_name=name,inode=max(e.inode for e in entries)+1,
+                mode=stat.S_IFREG|0o400,nlink=1,data=data))
     vendor=fyg8.memory.vendor
     raw=fyg8.memory.base.stable(h0.ROOT/vendor.DEFAULT_VENDOR_RAMDISK,
         dict(size=vendor.EXPECTED_VENDOR_RAMDISK_SIZE,sha256=vendor.EXPECTED_VENDOR_RAMDISK_SHA256))
@@ -118,19 +125,21 @@ print('PASS: separate ARM64 mountless reader boot')
     data=bytes.fromhex(row['raw_hex']);(out/'recovered-record.bin').write_bytes(data)
     arguments=dict(key=(build/'key').read_bytes(),run=bytes.fromhex(selection['run_id']),
         expected=selection['measured'],module_names=[m['runtime_name'] for m in selection['modules']])
+    decoder=first_protocol if selection['profile']==first_profile.PROFILE else protocol
     if complete:
-        proof=protocol.decode(data,**arguments)
+        proof=decoder.decode(data,**arguments)
         h0.require(proof['pre_unmount_complete'] and proof['debian_early_pid1'] and
             not proof['live_usb_proved'] and not proof['unmount_return_proved'],'file proof meaning differs')
     else:
-        try:proof=protocol.decode(data,**arguments,allow_prefix=True)
+        try:proof=decoder.decode(data,**arguments,allow_prefix=True)
         except ValueError as error:proof=dict(status='NO_AUTHENTICATED_FILE_PREFIX',error=str(error))
     h0.publish(out/'file-proof.json',proof)
     return dict(proof=proof,retrieval=pin(out/'reader-boot/result.json'),seed=str(seed),reader_run=reader_run)
 
 
 def run(out,build,case):
-    h0.require(case in CASES,'unknown file VM case')
+    first=read(build/'build.json')['profile']==first_profile.PROFILE
+    h0.require(case in (first_profile.CASES if first else CASES),'unknown file VM case')
     selection=prepare(out,build,case);vm=archive.fixture
     before=vm.fixture_tools.sparse_digest(out/'disk.img');outside=disk_tools.outside_native(out/'disk.img')
     h0.publish(out/'disk-before.json',dict(digest=before,outside=outside))
@@ -149,17 +158,27 @@ def run(out,build,case):
         'VM completion, no-USB scope or mount cleanup differs')
     if case=='normal':
         h0.require(b'FILE_VM_TERMINAL prepare=0 writer=0\n' in raw and
-            b'FILE_PILOT result=CLOSED error=0 records=8 ' in raw and
+            (b'FILE_PILOT result=CLOSED error=0 records=14 ' if first else b'FILE_PILOT result=CLOSED error=0 records=8 ') in raw and
             b'FILE_VM_RO partition=1 disk=0 userdata=0\n' in raw,'file writer did not close cleanly')
         proof=retrieve(out,selection,build)
-    elif case in PARTIAL_WRITES:
+        if first:h0.require(b'FILE_VM_CLIENTS inserted=6\n' in raw,'normal VM did not perform six calls')
+    elif first and case=='module-error':
+        h0.require(b'FILE_PILOT result=REJECTED error=5 records=7 ' in raw and
+            b'FILE_VM_CLIENTS inserted=2\n' in raw,'failed client was skipped or retried')
+        proof=retrieve(out,selection,build,complete=False)
+        h0.require(proof['proof']['client_error']==dict(name='i2c_msm_geni',error=5) and
+            proof['proof']['client_return_records']==2 and not proof['proof']['pre_unmount_complete'],
+            'client failure prefix lost its exact result')
+    elif case in (first_profile.PARTIAL_WRITES if first else PARTIAL_WRITES):
         h0.require(b'FILE_VM_TERMINAL prepare=0 writer=1\n' in raw and
             b'FILE_PILOT result=REJECTED ' in raw and b'FILE_PILOT result=CLOSED' not in raw,
             'I/O fault reached successful writer completion')
         recovered=retrieve(out,selection,build,complete=False)
+        if first and case!='unmount-error':h0.require(b'FILE_VM_CLIENTS inserted=0\n' in raw,
+            'failed BEGIN/header synchronization reached a module call')
         if case=='short-write':h0.require(len(recovered['proof']['records'])==1 and recovered['proof']['tail_error'],
             'short write was retried or torn tail accepted')
-        elif case=='file-sync-error':h0.require(len(recovered['proof']['records'])==2 and
+        elif case in ('file-sync-error','readback-error'):h0.require(len(recovered['proof']['records'])==2 and
             not recovered['proof']['pre_unmount_complete'],'failed sync advanced later records')
         elif case=='parent-sync-error':h0.require(recovered['proof']['status']=='NO_AUTHENTICATED_FILE_PREFIX',
             'failed parent sync continued writing')
@@ -181,12 +200,14 @@ def run(out,build,case):
     value=dict(case=case,status='PASS',run_id=selection['run_id'],expected=selection['measured'],proof=proof,
         disk_before=before,disk_after=after,outside_before=outside,outside_after=outside_after,
         raw=pin(out/'serial.log'),device_actions=0,scope='ARM64_VIRT_NOT_SAMSUNG')
+    if first:value.update(helper_request=pin(out/'helper/request.json'),initramfs=pin(out/'initramfs.cpio.gz',maximum=32*1024**2))
     h0.publish(out/'result.json',value);print(case,'PASS',flush=True);return value
 
 
 def suite(out,build):
     out=h0.private(out,fresh=True);build=h0.private(build);sources=build_api.snapshot(out)
-    results=[run(out/case,build,case) for case in CASES]
+    first=read(build/'build.json')['profile']==first_profile.PROFILE
+    results=[run(out/case,build,case) for case in (first_profile.CASES if first else CASES)]
     for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'file VM source changed')
     h0.publish(out/'result.json',dict(status='PASS',cases=results,build_sha256=h0.sha(build/'build.json'),
         source_inputs=sources,device_actions=0))
@@ -195,6 +216,6 @@ def suite(out,build):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('output','build'):p.add_argument('--'+name,type=Path,required=True)
-    p.add_argument('--case',choices=CASES);a=p.parse_args()
+    p.add_argument('--case',choices=first_profile.CASES);a=p.parse_args()
     if a.case:run(h0.private(a.output),h0.private(a.build),a.case)
     else:suite(a.output,a.build)

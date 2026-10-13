@@ -1,7 +1,9 @@
 /* Fixed children of initial Debian /init and its temporary PID1 entry.
  * Platform preparation precedes USB; UFS follows the one USB publication.
  * No block read/write, root mount, control command or resident daemon. */
+#ifndef EARLY_DOMAIN
 #define EARLY_DOMAIN "S22PLUS-FYG8-DEBIAN-INTEGRATED-v1"
+#endif
 #define FYG8_USB_FIRST
 static int logger_bound(void);
 #define main di_unused_metadata_main
@@ -76,6 +78,7 @@ static int di_modules(unsigned begin,unsigned end) {
     }
     return 0;
 }
+#ifndef DI_PREPARE_LIBRARY
 int main(int argc,char **argv) {
     if(argc!=2 || (strcmp(argv[1],"platform") && strcmp(argv[1],"ufs")) ||
        getpid()==1 || getppid()!=1 || getuid() || geteuid() || getgid() || getegid())return 100;
@@ -106,3 +109,4 @@ int main(int argc,char **argv) {
     if(close(events) && !error)error=fs1_error();
     return error || logged ? 1 : 0;
 }
+#endif
