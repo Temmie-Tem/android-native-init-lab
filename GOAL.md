@@ -39,15 +39,15 @@ SSH, controlled shutdown and durable records. P425's physical trial is now
 consumed and closed as described below; full physical Debian/SSH ownership
 remains unproved. A90 and S20+ are untouched by this unit.
 
-## P428/P429: supervised file experiment qualified for attended preparation
+## P428/P429 closed: no authenticated records; Android healthy
 
-The [P428 observer](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_H0_2026-10-13.md)
-now has a [reviewed device owner and exact P429 reader](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_DEVICE_H0_2026-10-13.md).
-Independent capability **PASS_GO**, 26 actual ARM64 cases, four reader cases and
-227 focused tests pass. Separate primary/diagnostic channels and version-3 file
-records distinguish evidenced outcomes without claiming absence or cancellation.
-Both tasks pass fresh Android D0 preparation and await returned attended grants;
-no P428/P429 mode change or transfer has started. P426/P427 stay consumed.
+The [physical report](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_P429_RUN_2026-10-15.md)
+records two consumed attended operations, each with one N and one original A.
+Both are **ANDROID_CLOSED_HEALTHY**; post-A ADB failures required health only.
+P428's same-returned-boot RAM capture contains no authenticated primary or
+worker diagnostic. P429's clean mountless view has no exact P428 file.
+Internal execution, initial Debian PID1, failure cause and persistence remain
+unproved; absence grants no replay. The prior H0 PASS_GO remains capability only.
 
 ## P426/P427 closed: file absent; UFS preparation prefix; Android healthy
 

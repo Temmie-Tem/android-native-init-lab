@@ -1,10 +1,15 @@
 # S22+ P428: connect reviewed failure evidence to the attended device owner
 
-Status: **PASS_GO_READY_AWAITING_ATTENDED_GRANTS**. The operator requested continuation through
+Status: **CONSUMED_CLOSED_HEALTHY; H0_PASS_GO_RETAINED**. The operator requested continuation through
 the physical experiment. This selects preparation, the reviewed attended writer
 operation, original-A closure, same-returned-boot RAM retrieval and the separate
 exact-file reader with its own original-A closure. A fresh returned lane grant
 and physical attendance remain prerequisites of each existing device owner.
+
+The [October 15 physical report](S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_P429_RUN_2026-10-15.md)
+closes both P428/P429 operations: one N/A each, final Android healthy, no
+authenticated P428 RAM outcome and no exact run file in P429's clean read view.
+The preparation facts below are historical; both returned grants are consumed.
 
 ## Bounded result
 
@@ -118,8 +123,8 @@ entry. The working tree keeps the earlier S20 and catalog changes separate.
 | Focused host/format/owner/return tests | 227 PASS |
 | Actual-package coherent negatives | 12 rejected, including cross-boot channel/file substitutions |
 | Touched Python, static AArch64 binaries, diff and scoped privacy/links | PASS |
-| Fresh connected preparation | Both exact tasks READY; original-A/root/Android32/GPT/statfs checks PASS |
-| Live execution | Not started; returned attended grants remain pending |
+| Connected preparation at H0 close | Both exact tasks READY; original-A/root/Android32/GPT/statfs checks PASS |
+| Execution at H0 close | Not started then; both later physical operations are now consumed |
 
 The final normal case authenticates both production channels and a complete
 version-3 pre-unmount file through the later mountless reader. Error cases keep
@@ -160,11 +165,11 @@ receipt has SHA-256
 `1312165cc39a80310e751cde5355fde1acf9117808e0e190f0f4947952f00550`.
 
 
-Both prepared tasks now pass the existing foreground read-only Android health,
-shell-v2, GPT and capacity brackets, with no grant, mode change or image transfer.
-The writer and reader each retain one 1800-second operation. The reader grant
-will open only after writer closure and same-returned-boot RAM capture; its clock
-is not started during the writer. Each dispatch still repeats the complete fresh
-preflight. Required operator input is the two exact returned task approvals and
-current attendance with usable physical Download recovery. Original-A recovery
-once a candidate starts requires no second authorization.
+At preparation close, both tasks passed the existing foreground read-only
+Android health, shell-v2, GPT and capacity brackets without opening a grant or
+transferring an image. The prepared sequence retained one 1800-second operation
+for each task, with fresh dispatch preflight and the reader clock beginning only
+after writer closure and same-returned-boot RAM capture. The operator later
+returned both attended approvals; the linked physical report owns consumption,
+actual evidence and final recovery. No second authorization blocked original-A
+recovery after either candidate started.
