@@ -23,6 +23,9 @@ import s22plus_native_root_inspect_vm_h0 as fixture
 import s22plus_native_staged_preflight_vm_h0 as previous
 
 KERNEL=h0.PRIVATE/'outputs/s22plus-switch-root-h0-20260930-1/kernel-build/arch/arm64/boot/Image'
+# The physical FYG8 kernel passes these operands to /init. Force them past
+# the generic VM kernel's own bootconfig handling with the argument separator.
+KERNEL_COMMAND_LINE='console=ttyAMA0 rdinit=/init panic=1 -- bootconfig nohyp_uart'
 CASES=('clean','dirty','wrong-uuid','gpt-byte','module-byte','module-symlink',
        'insert-error','existing','ro-error','existing-record','no-console')
 
@@ -99,7 +102,7 @@ def check(out,build,helper,case,binding):
     h0.publish(out/'disk-before.json',before)
     command=[fixture.QEMU/'usr/bin/qemu-system-aarch64','-machine','virt','-cpu','cortex-a76','-smp','2','-m','512',
         '-nic','none','-display','none','-monitor','none','-serial','stdio','-no-reboot','-kernel',h0.regular(KERNEL),
-        '-initrd',out/'initramfs.cpio.gz','-append','console=ttyAMA0 rdinit=/init panic=1',
+        '-initrd',out/'initramfs.cpio.gz','-append',KERNEL_COMMAND_LINE,
         '-drive',f'if=none,id=root,file={disk},format=raw',
         '-device','virtio-blk-device,drive=root,logical_block_size=4096,physical_block_size=4096']
     h0.publish(out/'command.json',[str(x) for x in command])

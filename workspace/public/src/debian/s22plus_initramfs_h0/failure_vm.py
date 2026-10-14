@@ -26,7 +26,7 @@ def run(out,build,case):
     outside=vm.disk_tools.outside_native(out/'disk.img')
     command=[fixture.QEMU/'usr/bin/qemu-system-aarch64','-machine','virt','-cpu','cortex-a76','-smp','2','-m','768',
         '-nic','none','-display','none','-monitor','none','-serial','stdio','-no-reboot','-kernel',vm.archive.KERNEL,
-        '-initrd',out/'initramfs.cpio.gz','-append','console=ttyAMA0 rdinit=/init panic=1',
+        '-initrd',out/'initramfs.cpio.gz','-append',vm.archive.KERNEL_COMMAND_LINE,
         '-drive',f'if=none,id=root,file={out}/disk.img,format=raw',
         '-device','virtio-blk-device,drive=root,logical_block_size=4096,physical_block_size=4096']
     h0.publish(out/'command.json',list(map(str,command)))

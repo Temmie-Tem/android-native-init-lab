@@ -106,7 +106,7 @@ def run(out,build,helper,case):
         '-display','none','-monitor','none','-serial',f'file:{out}/serial.log','-no-reboot',
         '-chardev',f'socket,id=di,path={endpoint},server=on,wait=off','-device','virtio-serial-device',
         '-device','virtconsole,chardev=di','-kernel',h0.regular(vm.KERNEL),'-initrd',out/'initramfs.cpio.gz',
-        '-append','console=ttyAMA0 rdinit=/init panic=1','-drive',f'if=none,id=root,file={out}/disk.img,format=raw',
+        '-append',vm.KERNEL_COMMAND_LINE,'-drive',f'if=none,id=root,file={out}/disk.img,format=raw',
         '-device','virtio-blk-device,drive=root,logical_block_size=4096,physical_block_size=4096']
     publish(out/'command.json',[str(v) for v in command]);rx=bytearray();tx=bytearray();pending=bytearray()
     process=None;ssh_health=shutdown=None;sent_initial=False;sent=set();deadline=time.monotonic()+360

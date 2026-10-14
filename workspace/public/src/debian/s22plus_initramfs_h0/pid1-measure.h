@@ -1,6 +1,14 @@
 /* Shared exact initial Debian PID1 measurement, including supervised workers. */
 #ifndef S22_PID1_MEASURE_H
 #define S22_PID1_MEASURE_H
+static int pid1_cmdline_matches(const char *cmdline,ssize_t length) {
+    static const char minimal[]="/bin/sh\0/init\0";
+    /* FYG8 passes these two operands to /init; binfmt_script preserves them.
+     * Compare the entire NUL-separated tuple, never an arbitrary suffix. */
+    static const char fyg8[]="/bin/sh\0/init\0bootconfig\0nohyp_uart\0";
+    return (length==(ssize_t)sizeof(minimal)-1 && !memcmp(cmdline,minimal,sizeof(minimal)-1)) ||
+        (length==(ssize_t)sizeof(fyg8)-1 && !memcmp(cmdline,fyg8,sizeof(fyg8)-1));
+}
 static int file_hash(const char *path,uint64_t maximum,uint8_t hash[32]) {
     int fd=open(path,O_RDONLY|O_CLOEXEC); /* /proc/1/exe is an intended proc link. */
     if(fd<0)return fs1_error();
@@ -30,8 +38,7 @@ static int measure_pid1(uint8_t shell[32],uint8_t init[32]) {
     int fd=open("/proc/1/cmdline",O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
     if(fd<0)return fs1_error();
     n=read(fd,cmdline,sizeof(cmdline));int closed=close(fd);
-    static const char wanted[]="/bin/sh\0/init\0";
-    if(n!=(ssize_t)sizeof(wanted)-1 || closed || memcmp(cmdline,wanted,sizeof(wanted)-1))return EPROTO;
+    if(closed || !pid1_cmdline_matches(cmdline,n))return EPROTO;
     int error=file_hash("/proc/1/exe",4*1024*1024,shell);
     if(!error)error=file_hash("/init",65536,init);
     return error?error:memcmp(shell,early_shell_hash,32) || memcmp(init,early_init_hash,32)?EPROTO:0;

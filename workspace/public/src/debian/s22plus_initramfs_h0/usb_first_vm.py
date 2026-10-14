@@ -65,7 +65,7 @@ def run(out,build,case):
         '-nic','none','-display','none','-monitor','none','-serial',f'file:{out}/serial.log','-no-reboot',
         '-chardev',f'socket,id=early,path={endpoint},server=on,wait=off','-device','virtio-serial-device',
         '-device','virtconsole,chardev=early','-kernel',h0.regular(vm.KERNEL),
-        '-initrd',out/'initramfs.cpio.gz','-append','console=ttyAMA0 rdinit=/init panic=1',
+        '-initrd',out/'initramfs.cpio.gz','-append',vm.KERNEL_COMMAND_LINE,
         '-drive',f'if=none,id=sentinel,file={out}/disk.img,format=raw','-device','virtio-blk-device,drive=sentinel']
     h0.publish(out/'command.json',[str(x) for x in command]);rx=bytearray();nonce=bytes(range(1,33))
     key=(build/'key').read_bytes();run_id=bytes.fromhex(selection['run_id']);tx=protocol.request(key,run_id,nonce)
