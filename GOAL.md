@@ -27,8 +27,7 @@ The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_20
 retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.
 [P425 H0](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_H0_2026-10-13.md) retains its
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
-P430 now proves the Debian-owned storage-first preparation below. Installed
-services, NCM and same-boot SSH remain the physical functional gap.
+P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
 ## P432 selected: autonomous Debian startup and local service evidence
 
