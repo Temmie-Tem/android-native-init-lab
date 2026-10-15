@@ -39,18 +39,18 @@ SSH, controlled shutdown and durable records. P425's physical trial is now
 consumed and closed as described below; full physical Debian/SSH ownership
 remains unproved. A90 and S20+ are untouched by this unit.
 
-## P430/P431 ready: corrected entry and exact file retrieval
+## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
-The [successor preparation](docs/reports/S22PLUS_DEBIAN_ARGV_SUCCESSOR_P430_H0_2026-10-15.md)
-records actual A/B packages, 26 writer/four reader ARM64 cases and independent
-PASS_GO. Both exact offline tasks await fresh returned attended grants.
-No device action or current-health claim is made.
-The [adversarial audit](docs/reports/S22PLUS_P428_ADVERSARIAL_ROOT_CAUSE_AUDIT_2026-10-15.md)
-proves the old early argument rejection; P428's physical exit remains unknown.
-P428/P429 are consumed and **ANDROID_CLOSED_HEALTHY**, each with one N/A pair;
-their [physical report](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_P429_RUN_2026-10-15.md)
-retains zero authenticated RAM records and no exact file in a clean read view.
-Old artifacts/reviews stay pinned. Absent evidence grants no replay.
+The [physical report](docs/reports/S22PLUS_DEBIAN_P430_P431_PERSISTED_EARLY_PID1_RUN_2026-10-16.md)
+records **PASS_PERSISTED_EARLY_PID1_PRE_UNMOUNT**: measured Debian initial PID1,
+76 preparation modules, six later client returns and all 14 chained records in
+a 10,972-byte file retrieved after Android recovery. RAM and file join the same
+writer boot. The later mountless read is clean; writer unmount return remains
+unproved. Both operations are consumed and **ANDROID_CLOSED_HEALTHY**, each
+with one N/A pair and no remaining F1 owner. A90 and S20+ were untouched.
+Next is installed Debian init/services/SSH using this proved early preparation
+and persistent-evidence path, with fresh qualification and matching authority.
+P428/P429 remain consumed and closed healthy; their absent evidence grants no replay.
 
 ## P426/P427 closed: file absent; UFS preparation prefix; Android healthy
 
