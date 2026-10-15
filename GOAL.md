@@ -48,8 +48,8 @@ a 10,972-byte file retrieved after Android recovery. RAM and file join the same
 writer boot. The later mountless read is clean; writer unmount return remains
 unproved. Both operations are consumed and **ANDROID_CLOSED_HEALTHY**, each
 with one N/A pair and no remaining F1 owner. A90 and S20+ were untouched.
-Next is installed Debian init/services/SSH using this proved early preparation
-and persistent-evidence path, with fresh qualification and matching authority.
+The [boot-flow audit](docs/reports/S22PLUS_DEBIAN_BOOT_FLOW_CODE_AUDIT_2026-10-16.md) maps the next autonomous Debian path.
+Resolve evidence-file admission and coupled host gates before qualifying installed init/services/SSH.
 P428/P429 remain consumed and closed healthy; their absent evidence grants no replay.
 
 ## P426/P427 closed: file absent; UFS preparation prefix; Android healthy
