@@ -30,6 +30,7 @@ def prepare(out,build,case):
     first=diagnostic or built['profile']==first_profile.PROFILE
     selection=build_api.prepare(out/'helper',Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=(build/'key').read_bytes(),virt=True,
+        namespace=built['namespace'],version=built['version'],
         fault=case if case in build_api.file_log_faults.NAMES else None,storage_first=first,diagnostic=diagnostic,
         diagnostic_fault=case if diagnostic and case in __import__('failure_faults').NAMES else None)
     entries=list(fyg8.debian_entries(build/'initramfs-a.cpio.gz'))

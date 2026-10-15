@@ -39,18 +39,18 @@ SSH, controlled shutdown and durable records. P425's physical trial is now
 consumed and closed as described below; full physical Debian/SSH ownership
 remains unproved. A90 and S20+ are untouched by this unit.
 
-## P428/P429 closed; initial-argument defect reproduced and corrected in H0
+## P430/P431 ready: corrected entry and exact file retrieval
 
-The [physical report](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_P429_RUN_2026-10-15.md)
-records two consumed attended operations, each with one N and one original A.
-Both are **ANDROID_CLOSED_HEALTHY**; post-A ADB failures required health only.
-P428's same-returned-boot RAM capture contains no authenticated primary or
-worker diagnostic. P429's clean mountless view has no exact P428 file.
+The [successor preparation](docs/reports/S22PLUS_DEBIAN_ARGV_SUCCESSOR_P430_H0_2026-10-15.md)
+records actual A/B packages, 26 writer/four reader ARM64 cases and independent
+PASS_GO. Both exact offline tasks await fresh returned attended grants.
+No device action or current-health claim is made.
 The [adversarial audit](docs/reports/S22PLUS_P428_ADVERSARIAL_ROOT_CAUSE_AUDIT_2026-10-15.md)
-reproduces an exact-helper defect: observed FYG8 init arguments were rejected
-before the retained logger. H0 fixes the closed argument set and VM coverage;
-P428's physical exit/cause remains unproved. Old reviews/artifacts stay pinned;
-the changed source has no new physical candidate or authority. No replay.
+proves the old early argument rejection; P428's physical exit remains unknown.
+P428/P429 are consumed and **ANDROID_CLOSED_HEALTHY**, each with one N/A pair;
+their [physical report](docs/reports/S22PLUS_DEBIAN_FAILURE_OBSERVER_P428_P429_RUN_2026-10-15.md)
+retains zero authenticated RAM records and no exact file in a clean read view.
+Old artifacts/reviews stay pinned. Absent evidence grants no replay.
 
 ## P426/P427 closed: file absent; UFS preparation prefix; Android healthy
 

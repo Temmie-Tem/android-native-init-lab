@@ -23,8 +23,17 @@ VERSION='v0.5.0-rc.5'
 PROFILE='debian-file-pilot-v1'
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None):
+def validate_identity(namespace,version):
+    h0.require((namespace is None)==(version is None),'candidate namespace/version must be supplied together')
+    h0.require(namespace is None or isinstance(namespace,str) and re.fullmatch(r'p[0-9]{3,6}',namespace),
+        'file candidate namespace differs')
+    h0.require(version is None or isinstance(version,str) and re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+',version),
+        'file candidate version differs')
+
+
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None):
     h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
+    validate_identity(namespace,version)
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
     sources=snapshot(out) if storage_first and fresh else None
     h0.verify_packages(packages,out);inventory=fyg8.verify_inventory(inputs)
@@ -85,6 +94,8 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
         inputs=str(inputs),packages=str(packages),modules=modules,measured=measured,fault=fault,
         admission=dict(table_count=generated['count'],boot_count=generated['boot'],
             checker=pin(out/'s22-fs-e2fsck'),table=pin(out/'table.bin')))
+    if namespace is not None:result['namespace']=namespace
+    if version is not None:result['version']=version
     if diagnostic:result.update(diagnostic=True,diagnostic_fault=diagnostic_fault)
     if storage_first:
         if sources is None:sources=json.loads((out/'source-inputs.json').read_text())
@@ -109,9 +120,11 @@ def snapshot(out):
     rows=sorted(rows.values(),key=lambda r:r['path']);h0.publish(out/'source-inputs.json',rows);return rows
 
 
-def build(out,inputs,packages,*,run=None,key=None,storage_first=False,diagnostic=False):
+def build(out,inputs,packages,*,run=None,key=None,storage_first=False,diagnostic=False,namespace=None,version=None):
+    validate_identity(namespace,version)
     out=h0.private(out,fresh=True);sources=snapshot(out)
-    request=prepare(out,inputs,packages,fresh=False,run=run,key=key,storage_first=storage_first,diagnostic=diagnostic)
+    request=prepare(out,inputs,packages,fresh=False,run=run,key=key,storage_first=storage_first,diagnostic=diagnostic,
+        namespace=namespace,version=version)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
         sys.executable,__file__,'inside','--output',out,*(['--storage-first'] if storage_first else [])],out/'namespace-build.log',timeout=700)
     h0.require(h0.sha(out/'initramfs-a.cpio.gz')==h0.sha(out/'initramfs-b.cpio.gz'),'file A/B archive differs')
@@ -141,9 +154,10 @@ def build(out,inputs,packages,*,run=None,key=None,storage_first=False,diagnostic
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=('build','inside','prepare'))
     for name in ('output','inputs','packages'):p.add_argument('--'+name,type=Path,required=name=='output')
+    p.add_argument('--namespace');p.add_argument('--version')
     p.add_argument('--virt',action='store_true');p.add_argument('--storage-first',action='store_true');p.add_argument('--diagnostic',action='store_true');a=p.parse_args()
-    if a.action=='build':build(a.output,a.inputs,a.packages,storage_first=a.storage_first,diagnostic=a.diagnostic)
-    elif a.action=='prepare':prepare(a.output,a.inputs,a.packages,virt=a.virt,storage_first=a.storage_first,diagnostic=a.diagnostic)
+    if a.action=='build':build(a.output,a.inputs,a.packages,storage_first=a.storage_first,diagnostic=a.diagnostic,namespace=a.namespace,version=a.version)
+    elif a.action=='prepare':prepare(a.output,a.inputs,a.packages,virt=a.virt,storage_first=a.storage_first,diagnostic=a.diagnostic,namespace=a.namespace,version=a.version)
     else:
         request=json.loads((a.output/'request.json').read_text())
         fyg8.inside(a.output,Path(request['packages']),Path(request['inputs']),file_pilot=True,storage_first=a.storage_first)
