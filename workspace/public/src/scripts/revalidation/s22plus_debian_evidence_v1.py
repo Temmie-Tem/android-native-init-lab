@@ -33,19 +33,22 @@ def seal(run):
         'static const char dh_evidence_name[]="'+value['path'].rsplit('/',1)[1]+'";\n').encode()
 
 
-def tag(key,body):return hmac.new(key,DOMAIN+body,hashlib.sha256).digest()
+def tag(key,body,*,autoboot=False):
+    domain=b'S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1' if autoboot else DOMAIN
+    return hmac.new(key,domain+body,hashlib.sha256).digest()
 
 
 class Chain:
-    def __init__(self,first_tag):
+    def __init__(self,first_tag,*,autoboot=False):
         self.tag=first_tag;self.rows=[];self.started=False;self.off=False;self.complete=False
         self.released=False;self.stopped=False;self.progress=[];self.boundaries=[];self.elapsed=0
+        self.autoboot=autoboot
 
     def append(self,raw,key):
         require(len(raw)==RECORD and raw[:8]==b'S22DER1\0','durable record framing differs')
         seq,kind,elapsed,phase,event,a,b,c,flags,reserved=struct.unpack_from('<IIQIIQQQII',raw,8)
         require(seq==len(self.rows)<RECORDS and not reserved and flags==int(self.off) and not self.stopped and
-            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96])),
+            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot)),
             'durable record sequence, deadline, state or authentication differs')
         row=dict(sequence=seq,kind=kind,name=NAMES[kind-1] if kind in range(1,9) else 'UNKNOWN',
             elapsed_ms=elapsed,phase=phase,event=event,a=a,b=b,c=c,report_disabled=bool(flags))
@@ -55,6 +58,7 @@ class Chain:
             require(seq==1 and not self.started and (phase,event,a,b,c)==(0,0,8,0,0),'durable START is out of order')
             self.started=True
         elif kind==REPORT_LOST:
+            require(not self.autoboot,'automatic record cannot claim transport loss')
             require(self.started and not self.off and not self.released and phase<=2 and not event,
                 'durable reporting loss phase differs')
             last=self.rows[-1]
@@ -102,13 +106,14 @@ class Chain:
             if event>=4:
                 require(a==prior[-1]['a'] and (event!=4 or elapsed-prior[-1]['elapsed_ms']>=10000),
                     'local wait child or sample timing differs')
-            row['reporting_reopened']=event==2 and not self.off
+            row['reporting_reopened']=event==2 and not self.off and not self.autoboot
             self.boundaries.append(row)
         elif kind==COMPLETE:
             require(self.started and not self.complete and len(self.progress)==15 and (phase,event,a,b,c)==(0,0,0,0,0),
                 'durable local completion precedes full service proof')
             self.complete=True
         elif kind==RELEASE:
+            require(not self.autoboot,'automatic record cannot claim host release')
             require(self.complete and not self.off and not self.released and (phase,event,a,b,c)==(0,0,9,0,0),
                 'durable release lacks ordered host-authorized boundary')
             self.released=True
@@ -119,7 +124,7 @@ class Chain:
         self.tag=raw[96:];self.elapsed=elapsed;self.rows.append(row)
 
 
-def decode(data,key,expected,*,allow_prefix=False):
+def decode(data,key,expected,*,allow_prefix=False,autoboot=False):
     """Expected identity comes from the retained qualified image/authenticated run.
 
     A valid historical prefix can survive a later malformed/torn tail. It
@@ -130,22 +135,23 @@ def decode(data,key,expected,*,allow_prefix=False):
         'durable file size or key differs')
     h=data[:HEADER]
     require(h[:8]==b'S22DE01\0' and struct.unpack_from('<II',h,8)==(1,HEADER) and
-        struct.unpack_from('<4I',h,112)==(4,RECORD,RECORDS,MAXIMUM) and not any(h[200:224]) and
-        hmac.compare_digest(h[224:],tag(key,h[:224])),'durable header authentication or shape differs')
+        struct.unpack_from('<4I',h,112)==(5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and not any(h[200:224]) and
+        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot)),'durable header authentication or shape differs')
     origin,deadline=struct.unpack_from('<QQ',h,96);device=struct.unpack_from('<Q',h,192)[0]
     require(deadline>=300000 and deadline-origin==300000 and h[16:32].hex()==expected['run_id_hex'] and
         h[32:64].hex()==expected['boot'] and hashlib.sha256(h[64:96]).hexdigest()==expected['nonce_sha256'] and
         h[128:160].hex()==expected['init_sha256'] and h[160:192].hex()==expected['hook_sha256'] and
         device==os.makedev(expected['root_device']['major'],expected['root_device']['minor']),
         'durable identity does not join retained run/boot/init/root')
-    chain=Chain(h[224:]);error=None;pos=HEADER
+    require(not autoboot or (origin,deadline)==(0,300000),'automatic deadline was renewed')
+    chain=Chain(h[224:],autoboot=autoboot);error=None;pos=HEADER
     while pos<len(data):
         try:chain.append(data[pos:pos+RECORD],key)
         except ValueError as failure:
             if not allow_prefix:raise
             error=str(failure);break
         pos+=RECORD
-    return dict(schema='s22plus-debian-durable-projection-v1',status='AUTHENTICATED_PREFIX_ONLY' if error else 'AUTHENTICATED_HISTORY',
+    result=dict(schema='s22plus-debian-durable-projection-v1',status='AUTHENTICATED_PREFIX_ONLY' if error else 'AUTHENTICATED_HISTORY',
         run_id_hex=expected['run_id_hex'],boot=expected['boot'],origin_ms=origin,deadline_ms=deadline,
         records=chain.rows,valid_prefix_bytes=pos,complete_framing=error is None,tail_error=error,
         local_init_observed=bool(chain.rows),start_authenticated=chain.started,report_disabled=chain.off,
@@ -153,3 +159,7 @@ def decode(data,key,expected,*,allow_prefix=False):
         local_runtime_proved=chain.complete,release_authenticated=chain.released,required_check_stopped=chain.stopped,
         host_receipt_proved=False,ssh_access_proved=False,clean_shutdown_proved=False,replay_authorized=False,
         raw=dict(size=len(data),sha256=hashlib.sha256(data).hexdigest()))
+    if autoboot:
+        result.update(schema='s22plus-debian-autoboot-durable-projection-v1',automatic_start=chain.started,
+            start_authenticated=False,release_authenticated=False)
+    return result

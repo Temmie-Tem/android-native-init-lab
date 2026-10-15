@@ -26,10 +26,25 @@ static int dh_root_extras(int root,dev_t device,unsigned *extra) {
         else {
             error=dh_mutable_stat(rule,&st,device);
             if(!error && rule->count) {
-                int fd=openat(parent,leaf,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);char count[3];
+                int fd=openat(parent,leaf,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
+#ifdef S22_DEBIAN_AUTOBOOT
+                char count[8]={0};
+#else
+                char count[3];
+#endif
                 if(fd<0)error=fs1_error();
                 else {
+#ifdef S22_DEBIAN_AUTOBOOT
+                    ssize_t n=read(fd,count,sizeof(count));unsigned value=0;
+                    if(n<2 || n>6 || count[n-1]!='\n' || count[0]<'1' || count[0]>'9')error=EPROTO;
+                    for(ssize_t j=0;!error && j<n-1;++j) {
+                        if(count[j]<'0' || count[j]>'9')error=EPROTO;
+                        else value=value*10+(unsigned)(count[j]-'0');
+                    }
+                    if(!error && (!value || value>=100000))error=EPROTO;
+#else
                     if(read(fd,count,sizeof(count))!=2 || memcmp(count,"1\n",2))error=EPROTO;
+#endif
                     if(close(fd) && !error)error=fs1_error();
                 }
             }
@@ -38,5 +53,16 @@ static int dh_root_extras(int root,dev_t device,unsigned *extra) {
         if(close(parent) && !error)error=fs1_error();
         if(error)return error;
     }
+#ifdef S22_DEBIAN_AUTOBOOT
+    /* The historical row is already hash/metadata checked by ri_compare.
+     * Its single-link property is additional to the archive table format. */
+    char leaf[NAME_MAX+1];int parent=ri_parent(root,device,ab_history_path,leaf);
+    if(parent<0)return fs1_error();
+    struct stat historical;
+    int error=fstatat(parent,leaf,&historical,AT_SYMLINK_NOFOLLOW) ||
+        historical.st_dev!=device || !S_ISREG(historical.st_mode) || historical.st_nlink!=1 ? EPROTO : 0;
+    if(close(parent) && !error)error=fs1_error();
+    if(error)return error;
+#endif
     return 0;
 }

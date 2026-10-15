@@ -11,7 +11,7 @@ DOMAIN=b'S22PLUS-FYG8-DEBIAN-FILE-PILOT-v1'
 HEADER,RECORD,RECORDS,MAXIMUM=256,128,8,16384
 
 
-def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first=False,diagnostic=False):
+def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first=False,diagnostic=False,autoboot=False):
     domain=DOMAIN;version=1;magic=b'S22FL01\0';record_magic=b'S22FLR1\0';count=RECORDS;phases=3
     if storage_first:
         import s22plus_debian_file_first_protocol_v1 as first
@@ -19,6 +19,9 @@ def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first
     require(not diagnostic or storage_first,'diagnostic file requires storage-first')
     if diagnostic:
         domain=b'S22PLUS-FYG8-DEBIAN-FAILURE-v1';version=3;magic=b'S22FL03\0';record_magic=b'S22FLR3\0'
+    if autoboot:
+        from s22plus_debian_autoboot_profile_v1 import DOMAIN as domain
+        require(diagnostic and storage_first,'automatic early record requires supervised storage-first')
     require(type(data) is bytes and HEADER<=len(data)<=MAXIMUM and len(key)==32 and len(run)==16,
         'file evidence size or identity differs')
     header=data[:HEADER];proof=header[32:208];boot=proof[16:48]
@@ -70,6 +73,7 @@ def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first
         live_usb_proved=False,nonexecution_proved=False,replay_authorized=False,
         raw=dict(size=len(data),sha256=hashlib.sha256(data).hexdigest()))
     if diagnostic:result.update(schema='s22plus-debian-diagnostic-file-v1',pid1_ancestry='fixed-supervisor-child')
+    if autoboot:result.update(schema='s22plus-debian-autoboot-early-file-v1',automatic_start=True)
     if storage_first:
         result.update(preparation_module_completions=parsed['module_completions'],
             client_attempt_records=sum(r['kind']==2 for r in rows),

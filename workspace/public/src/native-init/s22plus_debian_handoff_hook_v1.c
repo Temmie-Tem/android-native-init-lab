@@ -12,11 +12,13 @@ static __attribute__((noreturn)) void dh_hook_fail(int error) {
 #endif
     unsigned reason=error>0 && error<4096 ? (unsigned)error : EPROTO;
     if(de_loaded && !de_failed && !de.stopped)(void)de_event(DE_STOP,0,0,reason,SW_WITNESS,0);
+#ifndef S22_DEBIAN_AUTOBOOT
     if(sw.deadline_ms && !sw_broken && !de.off && !sw_fd_type()) {
         uint8_t body[12];sw_put32(body,SW_STOP);sw_put32(body+4,reason);sw_put32(body+8,sw_last_stage);
         uint64_t end=sw_now()+DE_REPORT_MS;if(end>sw.deadline_ms)end=sw.deadline_ms;
         (void)sw_send_until(SW_RECORD,1024+sw.next_record,body,sizeof(body),end);
     }
+#endif
     for(;;){struct timespec pause={1,0};(void)nanosleep(&pause,NULL);}
 }
 static int dh_load(struct dh_state *state) {
@@ -36,6 +38,7 @@ static int dh_load(struct dh_state *state) {
     unsigned difference=0;for(unsigned i=0;i<32;++i)difference|=tag[i]^state->tag[i];
     return difference ? EPROTO : 0;
 }
+#ifndef S22_DEBIAN_AUTOBOOT
 static int dh_open_failed;
 static int dh_reopen(void) {
     dh_open_failed=0;
@@ -109,6 +112,18 @@ static int dh_report(unsigned kind,unsigned sequence,const void *body,size_t siz
     int closed=close(3) ? fs1_error() : 0;
     return stored ? stored : closed;
 }
+#else
+/* Automatic startup has no transport descriptor, open, close or host request.
+ * Absence is checked explicitly; local de_event remains mandatory. */
+static int dh_reporting_open(void) {
+    int error=de_time();if(error)return error;
+    return fcntl(3,F_GETFD)==-1 && errno==EBADF ? 0 : EPROTO;
+}
+static int dh_reporting_close(void) {return dh_reporting_open();}
+static int dh_report(unsigned kind,unsigned sequence,const void *body,size_t size) {
+    (void)kind;(void)sequence;(void)body;(void)size;return dh_reporting_open();
+}
+#endif
 static int dh_actual_init(struct dh_state *state) {
     struct stat st,root,exe;struct statfs fs;
     if(getpid()<=1 || getuid() || geteuid() || getgid() || getegid() ||
@@ -126,11 +141,19 @@ static int dh_actual_init(struct dh_state *state) {
         errno=0;struct dirent *entry=readdir(d);if(!entry){if(errno)error=errno;break;}
         if(entry->d_name[0]=='.')continue;
         if(++count>64){error=EOVERFLOW;break;}
-        if(fstatat(dirfd(d),entry->d_name,&st,0) || (S_ISCHR(st.st_mode) && (uint64_t)st.st_rdev==sw.tty_device))
+        if(fstatat(dirfd(d),entry->d_name,&st,0)
+#ifndef S22_DEBIAN_AUTOBOOT
+           || (S_ISCHR(st.st_mode) && (uint64_t)st.st_rdev==sw.tty_device)
+#endif
+           )
             {error=EPROTO;break;}
         char path[256];ssize_t n=readlinkat(dirfd(d),entry->d_name,path,sizeof(path)-1);
         if(n<0 || n>=(ssize_t)sizeof(path)-1){error=EPROTO;break;}path[n]=0;
-        if(strstr(path,"s22-switch-state") || !strcmp(path,DH_STATE_PATH)){error=EPROTO;break;}
+        if(strstr(path,"s22-switch-state") ||
+#ifdef S22_DEBIAN_AUTOBOOT
+           strstr(path,"s22-autoboot-trace") ||
+#endif
+           !strcmp(path,DH_STATE_PATH)){error=EPROTO;break;}
     }
     if(closedir(d) && !error)error=fs1_error();
     return error;
@@ -175,7 +198,9 @@ int main(int argc,char **argv) {
     if((error=dh_report(DH_INIT_PROOF,7,proof,sizeof(proof))))dh_hook_fail(error);
     /* Release the synchronous init barrier without retiring the gadget.
      * Later Debian wait entries are its sole successive descriptor owners. */
+#ifndef S22_DEBIAN_AUTOBOOT
     if((error=dh_auth_request(DH_START,DH_START_SEQUENCE)))dh_hook_fail(error);
+#endif
     if((error=de_event(DE_START,0,0,DH_START_SEQUENCE,0,0)))dh_hook_fail(error);
     uint32_t accepted=1;
     if((error=dh_report(DH_START_ACK,DH_START_SEQUENCE,&accepted,sizeof(accepted))))dh_hook_fail(error);

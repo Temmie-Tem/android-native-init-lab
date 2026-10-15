@@ -42,7 +42,21 @@ static void dh_overlay(const char *source,const char *target) {
        mount(NULL,target,NULL,MS_REMOUNT|MS_BIND|MS_RDONLY|MS_NOSUID|MS_NODEV,NULL))sw_stop(EPROTO);
 }
 static __attribute__((noreturn)) void dh_exec_init(void) {
+#ifndef S22_DEBIAN_AUTOBOOT
     dh_request(DH_CONTINUE,6,DH_CONTINUE_ACK);
+#else
+    /* Seal the completed RAM trace before copying it to the new root's /run.
+     * A memfd carried across exec held no old-root or old-/run mount open. */
+    sw_require(sw_fd_type());
+    struct stat trace;uint8_t trace_bytes[262144],trace_hash[32];
+    if(fcntl(3,F_ADD_SEALS,SW_MEMFD_SEALS) || fstat(3,&trace) || !trace.st_size ||
+       trace.st_size<0 || (uint64_t)trace.st_size>sizeof(trace_bytes) ||
+       pread(3,trace_bytes,(size_t)trace.st_size,0)!=trace.st_size)sw_stop(EIO);
+    sw_require(dh_write("/run/s22-debian/transition",trace_bytes,(size_t)trace.st_size,0400));
+    sw_hash(trace_bytes,(size_t)trace.st_size,trace_hash);
+    int trace_copy=fs1_pin_file("/run/s22-debian/transition",(uint64_t)trace.st_size,trace_hash,false);
+    if(trace_copy<0 || close(trace_copy))sw_stop(EIO);
+#endif
     sw_require(dh_pin_init());sw_require(sw_no_children());sw_require(sw_userspace());
     if(mount(NULL,"/run",NULL,MS_REMOUNT|MS_NOSUID|MS_NODEV,"size=32m,nr_inodes=4096,mode=0755") ||
        chmod("/run",0755))sw_stop(fs1_error());
@@ -62,7 +76,13 @@ static __attribute__((noreturn)) void dh_exec_init(void) {
     dh_overlay("/run/s22-debian/qualify","/usr/local/sbin/lab-qualify");
     dh_overlay("/run/s22-debian/defer-usb","/etc/init.d/lab-usb");
     dh_overlay("/run/s22-debian/crontab","/etc/crontab");
-    char log[256];int n=snprintf(log,sizeof(log),"%sBOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n",dh_boot_identity);
+    char log[256];int n=snprintf(log,sizeof(log),
+#ifdef S22_DEBIAN_AUTOBOOT
+        "%sBOOTSTRAP_AUTOBOOT pid=1 children=0 backend=s22plus-fyg8\n",
+#else
+        "%sBOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n",
+#endif
+        dh_boot_identity);
     if(n<=0 || n>=(int)sizeof(log))sw_stop(EOVERFLOW);
     sw_require(dh_write("/run/lab-bootstrap.log",log,(size_t)n,0400));
     struct dh_state state={.native=sw};memcpy(state.hook_sha,dh_assets[0].digest,32);

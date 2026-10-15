@@ -28,7 +28,7 @@ def inputs(run):
         network_uuid=str(uuid.uuid5(uuid.UUID(hex=run),'s22-debian-handoff-v1')))
 
 
-def health_projection(handle,plan,*,boot_sha256):
+def health_projection(handle,plan,*,boot_sha256,autoboot=False):
     raw.require_success(handle)
     require(not raw.read_stderr(handle,maximum=16384),'Debian health has diagnostics')
     output=raw.read_stdout(handle,maximum=65536);candidate=plan['candidate']
@@ -36,7 +36,8 @@ def health_projection(handle,plan,*,boot_sha256):
     require(output.startswith(('S22PLUS_FYG8_DEBIAN_V1 '+plan['root_run_id']+'\n').encode()) and
         output.endswith(b'DEBIAN_HEALTH_PASS\n') and output.count(marker)==output.count(b'BOOTSTRAP_CANDIDATE ')==1 and
         output.count(b'pid1_exe=/usr/sbin/init\n')==output.count(b'pid1_root=/\n')==1 and
-        output.count(b'BOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n')==1 and
+        output.count(b'BOOTSTRAP_AUTOBOOT pid=1 children=0 backend=s22plus-fyg8\n' if autoboot else
+            b'BOOTSTRAP_HANDOFF pid=1 children=0 backend=s22plus-fyg8\n')==1 and
         b'DEBIAN_INSTALL_INTENT_DURABLE' not in output and b'DEBIAN_INSTALL_COMPLETE' not in output,
         'Debian SSH root/PID1/candidate identity differs')
     boots=re.findall(rb'^boot_id=([0-9a-f-]{36})$',output,re.M)
@@ -92,8 +93,9 @@ class Access:
             stdout_maximum=16384,stderr_maximum=16384,env=dict(os.environ,LC_ALL='C',LANG='C'))
         raw.require_success(handle);return pin(handle.receipt_path)
 
-    def ssh(self,command,folder,label,found,guard,*,before=None):
-        require(command in ('health','shutdown'),'SSH command outside fixed handoff scope')
+    def ssh(self,command,folder,label,found,guard,*,before=None,deadline_ns=None):
+        require(command in ('health','shutdown') or
+            command=='evidence' and self.request['operation']=='debian-autoboot','SSH command outside fixed scope')
         guard();require(endpoint(self.plan['link'])==found,'SSH endpoint changed')
         for name in ('ssh','client_key','known_hosts'):verify(self.plan[name],maximum=32*1024*1024)
         args=[self.plan['ssh']['path'],'-F','/dev/null','-i',self.plan['client_key']['path'],
@@ -103,7 +105,21 @@ class Access:
             '-o','ServerAliveInterval=5','-o','ServerAliveCountMax=1',
             '-b',self.plan['link']['host_address'].split('/')[0],'root@'+self.plan['link']['ssh_address'],command]
         if before is not None:before()
-        return raw.acquire_command(args,folder,label,timeout=20,stdout_maximum=65536,stderr_maximum=16384)
+        timeout=20 if deadline_ns is None else min(20,(deadline_ns-clock())/1_000_000_000)
+        require(timeout>0,'SSH read window expired')
+        return raw.acquire_command(args,folder,label,timeout=timeout,
+            stdout_maximum=400000 if command=='evidence' else 65536,stderr_maximum=16384)
+
+    def configure_link(self,folder,found,guard):
+        connection=self.plan['network_uuid']
+        publish(folder/'network-intent.json',dict(uuid=connection,endpoint=found))
+        self.host(['connection','add','save','no','type','ethernet','con-name','s22-debian-'+self.plan['candidate']['run_id'],
+            'ifname',found['interface'],'connection.uuid',connection,'connection.autoconnect','no',
+            '802-3-ethernet.mac-address',self.plan['link']['host_mac'],'ipv4.method','manual',
+            'ipv4.addresses',self.plan['link']['host_address'],'ipv4.never-default','yes','ipv6.method','disabled'],folder,'network-create')
+        guard();require(endpoint(self.plan['link'])==found,'NCM changed before activation')
+        self.host(['connection','up','uuid',connection,'ifname',found['interface']],folder,'network-up')
+        require(endpoint(self.plan['link'])==found,'NCM changed during activation')
 
     def handoff_receipt(self):
         step='debian-integrated' if self.request['operation']=='debian-integrated' else 'debian-handoff'
@@ -133,15 +149,7 @@ class Access:
             time.sleep(1)
         require(found is not None,'Debian NCM did not arrive')
         publish(folder/'endpoint.json',found)
-        connection=self.plan['network_uuid']
-        publish(folder/'network-intent.json',dict(uuid=connection,endpoint=found))
-        self.host(['connection','add','save','no','type','ethernet','con-name','s22-debian-'+self.plan['candidate']['run_id'],
-            'ifname',found['interface'],'connection.uuid',connection,'connection.autoconnect','no',
-            '802-3-ethernet.mac-address',self.plan['link']['host_mac'],'ipv4.method','manual',
-            'ipv4.addresses',self.plan['link']['host_address'],'ipv4.never-default','yes','ipv6.method','disabled'],folder,'network-create')
-        guard();require(endpoint(self.plan['link'])==found,'NCM changed before activation')
-        self.host(['connection','up','uuid',connection,'ifname',found['interface']],folder,'network-up')
-        require(endpoint(self.plan['link'])==found,'NCM changed during activation')
+        self.configure_link(folder,found,guard)
         for ordinal in range(1,181):
             guard();require(clock()<deadline,'Debian SSH health expired')
             handle=self.ssh('health',folder,f'health-{ordinal:03d}',found,guard)
@@ -240,3 +248,10 @@ def cleanup(adapter,request):
     try:return Access(adapter,request).cleanup()
     except (ValueError,OSError,KeyError,TypeError,raw.RawCaptureError) as error:
         return dict(status='HOST_CLEANUP_UNPROVED',error_type=type(error).__name__,original_A_recovery_blocked=False)
+
+
+def access_for(adapter,request):
+    if request['operation']=='debian-autoboot':
+        from s22plus_debian_autoboot_access_v1 import Access as AutomaticAccess
+        return AutomaticAccess(adapter,request)
+    return Access(adapter,request)

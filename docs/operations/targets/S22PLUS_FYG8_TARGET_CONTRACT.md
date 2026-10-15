@@ -625,6 +625,33 @@ A stalled kernel syscall has no claimed automatic recovery. After one proved
 A, only remaining health/closure may continue. Original records and consumed
 candidates retain their provenance; old capabilities are not repinned.
 
+### Automatic Debian boot V1
+
+The common-incorporated [automatic boot V1](../S22PLUS_DEBIAN_AUTOBOOT_V1.md)
+is adopted only for `debian-autoboot-v1` and V3 `debian-autoboot`, one fresh N,
+one returned attended one-operation/3600-second grant and physical original A.
+The N transfer intent owns fixed automatic preparation, both sequential
+protected-root admissions and the two declared native_data writable lifetimes,
+installed services and the single first-gadget NCM attempt. No host start or
+release is required by this new lane; predecessor gates remain unchanged.
+
+Complete clean-root checks, exact sealed historical input, bounded boot count,
+checked early-file cleanup and exact current-file admission remain mandatory.
+The device has one absolute 300000 ms BOOTTIME deadline and the host one
+N-completion-derived 360-second observation window. Local 120-second service
+records, same-boot pinned SSH, one fixed shutdown and final Android health are
+separate proof. Network absence does not block the already owned local service
+work or prove non-execution. No automatic recovery or quiescence is claimed.
+
+Fresh full artifact/VM qualification and independent review cover this composed
+runtime, new permanent-boundary specialization and reachable V3 owner. Physical
+attendance, exact current Android32 health and usable Download/original-A
+recovery remain mandatory. Uncertain transfer/control never replays; after
+proved A only health/closure may continue. A does not undo native_data writes.
+Any later storage reader requires its own qualification and finite grant.
+Existing fixed protected-preparation Android D0 and post-closure retained-log
+D0 retain their exact scope. Other targets and consumed approvals do not change.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

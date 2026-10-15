@@ -12,7 +12,7 @@ static int fs1_resolve(struct fs1_endpoint *e) {
         fs1_number(e->sys_partition, "partition", &value) || value != 41U ||
         fs1_number(e->sys_partition, "start", &value) || value != FS1_FIRST_LBA * 8U ||
         fs1_number(e->sys_partition, "size", &value) || value != FS1_BLOCKS * 8U ||
-        fs1_number(e->sys_partition, "ro", &value) || value != 0) return EPROTO;
+        fs1_number(e->sys_partition, "ro", &value) || value != FS1_INITIAL_RO) return EPROTO;
     char user[PATH_MAX];
     if (!realpath("/sys/class/block/vda40", user)) return ENODEV;
     if (fs1_number(user, "start", &value) || value != 3726848ULL * 8U ||

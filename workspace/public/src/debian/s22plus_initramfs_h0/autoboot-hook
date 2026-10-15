@@ -1,0 +1,23 @@
+#!/bin/sh
+case "${1:-}" in prereqs) exit 0;; esac
+set -eu
+. /usr/share/initramfs-tools/hook-functions
+for name in fyg8-prepare file-log autoboot-init; do
+    copy_exec "/sbin/$name" "/sbin/$name"
+done
+mkdir -p "$DESTDIR/lab/modules"
+cp /lab/modules/*.ko "$DESTDIR/lab/modules/"
+chmod 400 "$DESTDIR"/lab/modules/*.ko
+for name in s22-switch-witness s22-switch-busybox s22-fs-e2fsck \
+    s22-debian-hook s22-debian-qualify s22-debian-defer-usb s22-debian-usb; do
+    copy_exec "/$name" "/$name"
+done
+for name in s22-root-inspect.table s22-debian-inittab s22-debian-crontab; do
+    cp "/$name" "$DESTDIR/$name"
+    chmod 400 "$DESTDIR/$name"
+done
+[ "$(readlink "$DESTDIR/lib")" = usr/lib ]
+rm "$DESTDIR/lib"
+mkdir "$DESTDIR/lib"
+ln -s ../usr/lib/aarch64-linux-gnu "$DESTDIR/lib/aarch64-linux-gnu"
+ln -s ../usr/lib/ld-linux-aarch64.so.1 "$DESTDIR/lib/ld-linux-aarch64.so.1"

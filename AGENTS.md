@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **48** (supersedes revision 47; 2026-10-13)
+Contract-Revision: **49** (supersedes revision 48; 2026-10-16)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`76db4a211fbdf34f61c2e5802b1e627282c4646d256ab77c0b6d1a4c312baf93`.
+`ac7fa90693885360f52cb188f5dc1e990820e579d94329d8b1e5e8a178fa8dd9`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -118,7 +118,8 @@ Read an exception's complete conditions before considering it applicable.
    and the separate [fixed native_data journal recovery exception](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    and [Debian early file pilot exception](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md)
    and [Debian storage-first file exception](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md)
-   and [Debian-owned integrated boot exception](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md).
+   and [Debian-owned integrated boot exception](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md)
+   and [automatic Debian boot exception](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -187,6 +188,11 @@ Read an exception's complete conditions before considering it applicable.
    compound start, complete protected root admission and one installed-init
    lifetime with bounded service/local evidence, same-boot SSH and fixed
    shutdown. It retains physical original-A return and no repair or replay.
+   The separate [automatic Debian boot](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md)
+   permits its transfer-owned fixed preparation, two sequential protected-root
+   admissions and bounded early-file/installed-root lifetimes, local services
+   and one first-gadget NCM attempt, with physical original-A return and no
+   repair, replay or other-partition write.
    The separate [fixed journal recovery](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one sealed native_data-only JBD2 replay and exact finalization, then
    restored partition RO and complete protected root admission. It adds no
@@ -256,6 +262,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md); one attended finite operation, protected admission then native_data RW/init, authenticated PID1 and same-boot SSH, fixed shutdown and physical original-A return, no reinstall or replay. |
 | S22+ Debian progress and same-gadget handoff | [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md); one fresh attended operation, clean protected current-root admission, finite Debian service observation before same-g1 NCM/SSH, fixed shutdown and physical original-A return; no repair or replay. |
 | S22+ Debian-owned integrated boot | [Initial PID1 through installed services](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md); one fresh attended compound operation, protected current root, bounded services/local records, same-gadget SSH and physical original-A return; no repair or replay. |
+| S22+ automatic Debian boot | [Transfer-owned startup](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md); one fresh attended N, two admitted bounded filesystem lifetimes, absolute device deadline, local service proof and one NCM attempt, fixed SSH shutdown and physical original-A return; no repair or replay. |
 | S22+ fixed journal recovery | [Exact native_data replay](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md); one reviewed strict writer, fresh attended grant, protected post-check and one original-A return, no repair replay or reinstall. |
 | X | Forbidden; remain H0. |
 

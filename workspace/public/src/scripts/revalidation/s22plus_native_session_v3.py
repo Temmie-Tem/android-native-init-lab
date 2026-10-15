@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated','debian-autoboot')
 
 
 class ResultPublicationError(SessionError):
@@ -37,7 +37,7 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
     require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
-    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated'):
+    if operation in ('root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated','debian-autoboot'):
         from s22plus_native_root_inspect_session_v1 import normal_steps
         return normal_steps(operation)
     if operation=='native-ext4':
@@ -239,9 +239,9 @@ class Session:
         elif step.action=='health':
             value=self.adapter.android_health(step,self.request,guard=guard)
         elif step.action in ('debian-health','debian-shutdown'):
-            require(self.request['operation'] in ('debian-handoff','debian-integrated'),'unselected Debian access')
-            from s22plus_debian_access_v1 import Access
-            access=Access(self.adapter,self.request)
+            require(self.request['operation'] in ('debian-handoff','debian-integrated','debian-autoboot'),'unselected Debian access')
+            from s22plus_debian_access_v1 import access_for
+            access=access_for(self.adapter,self.request)
             value=access.health(step,guard) if step.action=='debian-health' else access.shutdown(step,guard,dispatch)
         else:
             raise SessionError('unknown native step')
@@ -300,6 +300,9 @@ class Session:
             return Coordinator(self).execute(attended=attended)
         if self.request['operation']=='debian-early':
             from s22plus_debian_early_session_v1 import Coordinator
+            return Coordinator(self).execute(attended=attended)
+        if self.request['operation']=='debian-autoboot':
+            from s22plus_debian_autoboot_session_v1 import Coordinator
             return Coordinator(self).execute(attended=attended)
         if self.request['operation']=='debian-integrated':
             from s22plus_debian_integrated_session_v1 import Coordinator
@@ -395,7 +398,7 @@ class Session:
         with registry.target_session_lease(self.root):
             try:return self._recover(attended=attended)
             finally:
-                if self.request['operation'] in ('debian-handoff','debian-integrated'):
+                if self.request['operation'] in ('debian-handoff','debian-integrated','debian-autoboot'):
                     from s22plus_debian_access_v1 import cleanup
                     cleanup(self.adapter,self.request)
 
@@ -434,6 +437,9 @@ class Session:
             return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)
         if self.request['operation']=='debian-early':
             from s22plus_debian_early_session_v1 import Coordinator
+            return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)
+        if self.request['operation']=='debian-autoboot':
+            from s22plus_debian_autoboot_session_v1 import Coordinator
             return Coordinator(self).resume(attended=attended,operator_statement=operator_statement)
         if self.request['operation']=='debian-integrated':
             from s22plus_debian_integrated_session_v1 import Coordinator

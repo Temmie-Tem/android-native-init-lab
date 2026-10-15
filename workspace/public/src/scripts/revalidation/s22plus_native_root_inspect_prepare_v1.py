@@ -12,6 +12,7 @@ import s22plus_native_staged_preflight_profile_v1 as staged
 import s22plus_switch_root_profile_v1 as switch
 import s22plus_debian_handoff_profile_v1 as handoff
 import s22plus_debian_integrated_profile_v1 as integrated
+import s22plus_debian_autoboot_profile_v1 as autoboot
 import s22plus_native_journal_recovery_profile_v1 as journal
 import s22plus_native_evidence_profile_v1 as evidence
 import s22plus_debian_early_profile_v1 as early
@@ -37,7 +38,7 @@ def prepare_offline(directory,image_receipt):
     grant; the unknown post-P410 native filesystem is admitted only at runtime.
     """
     image=read(verify(image_receipt))
-    items=(handoff,journal,evidence,early,calibration,integrated)
+    items=(handoff,journal,evidence,early,calibration,integrated,autoboot)
     require(image['profile'] in tuple(p for item in items for p in getattr(item,'PROFILES',(item.PROFILE,))),'unselected offline protected-root image')
     selected=next(item for item in items if image['profile'] in getattr(item,'PROFILES',(item.PROFILE,)))
     old_task=read(PRIOR_TASK);_,_,previous=selected.prior_inputs()
@@ -48,9 +49,9 @@ def prepare_offline(directory,image_receipt):
     directory.mkdir(mode=0o700);binding=publish(directory/'target.json',previous['target'])
     receipt=task.prepare_task(ROOT,directory/'task',native=image_receipt,experiment=None,
         target=binding,installation=old_task['host_installation'],recovery_evidence=old_task['recovery_evidence'],
-        seconds=3600 if selected in (handoff,integrated) else 1800,operation_budget=1,recovery_mode='attended',reentry=False,hud=False,
+        seconds=3600 if selected in (handoff,integrated,autoboot) else 1800,operation_budget=1,recovery_mode='attended',reentry=False,hud=False,
         usb_reconnect=False,android_exit=False,debian_handoff=selected is handoff,
-        journal_recovery=selected is journal,root_evidence=selected is evidence,debian_early=selected is early,log_calibration=selected is calibration,debian_integrated=selected is integrated,retained_lane=old_task['lane'])
+        journal_recovery=selected is journal,root_evidence=selected is evidence,debian_early=selected is early,log_calibration=selected is calibration,debian_integrated=selected is integrated,debian_autoboot=selected is autoboot,retained_lane=old_task['lane'])
     publish(directory/'ready.json',dict(schema=selected.SCHEMA+'-ready',status='READY_H0_PRELIVE_ONLY',task=receipt,
         retained_binding=pin(PRIOR_TASK),fresh_connected_health=False,current_root_admitted=False,
         grant_opened=False,image_transferred=False,device_actions=0))
@@ -89,10 +90,10 @@ def projection(folder, target_binding, android, image):
 
 def prepare(directory, image_receipt):
     image = read(verify(image_receipt))
-    items=(inspection,probe,preflight,staged,switch,handoff,journal,evidence,early,calibration,integrated)
+    items=(inspection,probe,preflight,staged,switch,handoff,journal,evidence,early,calibration,integrated,autoboot)
     require(image['profile'] in tuple(p for item in items for p in getattr(item,'PROFILES',(item.PROFILE,))), 'not a protected-root candidate')
     selected = next(item for item in items if image['profile'] in getattr(item,'PROFILES',(item.PROFILE,)))
-    if selected in (handoff,integrated):
+    if selected in (handoff,integrated,autoboot):
         from s22plus_debian_access_v1 import inputs
         inputs(image['run_id_hex'])  # Host credentials/tools before connected reads.
     task.capability(ROOT, profile=image['profile'])
@@ -128,10 +129,10 @@ def prepare(directory, image_receipt):
             publish(folder/'result.json', result)
             receipt = task.prepare_task(ROOT, directory/'task', native=image_receipt, experiment=None,
                 target=target_receipt, installation=old_task['host_installation'], recovery_evidence=old_task['recovery_evidence'],
-                seconds=3600 if selected in (handoff,integrated) else 1800, operation_budget=1, recovery_mode='attended', reentry=False, hud=False,
+                seconds=3600 if selected in (handoff,integrated,autoboot) else 1800, operation_budget=1, recovery_mode='attended', reentry=False, hud=False,
                 usb_reconnect=False, android_exit=False, root_inspect=selected is inspection,
                 userspace_probe=selected is probe,preflight=selected is preflight,staged_preflight=selected is staged,
-                switch_root=selected is switch,debian_handoff=selected is handoff,journal_recovery=selected is journal,root_evidence=selected is evidence,debian_early=selected is early,log_calibration=selected is calibration,debian_integrated=selected is integrated)
+                switch_root=selected is switch,debian_handoff=selected is handoff,journal_recovery=selected is journal,root_evidence=selected is evidence,debian_early=selected is early,log_calibration=selected is calibration,debian_integrated=selected is integrated,debian_autoboot=selected is autoboot)
             publish(directory/'ready.json', dict(schema=selected.SCHEMA+'-ready', task=receipt,
                 preparation=pin(folder/'result.json'), grant_opened=False, image_transferred=False,
                 native_filesystem_observed=False, userspace_executed=False))

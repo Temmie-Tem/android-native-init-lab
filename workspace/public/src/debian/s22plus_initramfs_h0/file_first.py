@@ -8,7 +8,7 @@ import usb_first
 import s22plus_debian_file_first_plan_v1 as plan
 
 
-def prepare_modules(out,inputs,inventory,run,key,virt,diagnostic=False,diagnostic_fault=None):
+def prepare_modules(out,inputs,inventory,run,key,virt,diagnostic=False,diagnostic_fault=None,autoboot=False):
     _,logger=usb_first.modules(inputs,'retained')
     modules=plan.modules(inventory,usb_first.LOGGER)
     (out/usb_first.LOGGER['name']).write_bytes(logger)
@@ -50,8 +50,12 @@ def prepare_modules(out,inputs,inventory,run,key,virt,diagnostic=False,diagnosti
                 providers[symbol]=fyg8.linkage._norm_crc(fields[0])
         loaded.add(row['runtime_name']);audit.append(dict(name=row['runtime_name'],imports=len(imports),dependencies=sorted(wanted)))
     h0.publish(out/'module-order-audit.json',audit)
-    includes=['-I',out,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE,
-        '-DEARLY_DOMAIN='+json.dumps(('S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else plan.DOMAIN.decode()))]
+    domain='S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else plan.DOMAIN.decode()
+    if autoboot:
+        import s22plus_debian_autoboot_profile_v1 as automatic
+        h0.require(diagnostic,'automatic preparation requires supervised workers')
+        domain=automatic.DOMAIN.decode()
+    includes=['-I',out,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE,'-DEARLY_DOMAIN='+json.dumps(domain)]
     if diagnostic:includes+=['-DS22_FAILURE_OBSERVER']
     if virt:includes+=['-DFYG8_VM_TEST','-DEARLY_VM_TEST']
     source=h0.HERE/'file-first-prepare.c'

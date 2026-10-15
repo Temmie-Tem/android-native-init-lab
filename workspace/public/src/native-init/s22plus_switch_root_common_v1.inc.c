@@ -63,7 +63,11 @@ static uint32_t sw_crc(const uint8_t *p,size_t length,uint32_t crc) {
 }
 static void sw_put32(uint8_t *out,uint32_t v) { for(unsigned i=0;i<4;++i)out[i]=(uint8_t)(v>>(8*i)); }
 static void sw_tag(uint8_t out[32],unsigned kind,uint32_t sequence,const uint8_t *body,size_t size) {
+#ifdef S22_DEBIAN_AUTOBOOT
+    static const char domain[]="S22PLUS-FYG8-DEBIAN-AUTOBOOT-v1";
+#else
     static const char domain[]="S22PLUS-FYG8-SWITCH-ROOT-v1";
+#endif
     uint8_t pad[64],inner[32],tail[5]; struct s22plus_max77705_runtime_sha256 hash;
     memset(pad,0x36,sizeof(pad)); for(unsigned i=0;i<32;++i)pad[i]^=sw_key[i];
     s22plus_max77705_runtime_sha256_init(&hash);
@@ -87,7 +91,22 @@ static int sw_send_until(unsigned kind,uint32_t sequence,const void *data,size_t
     frame[6]=(uint8_t)(size+32);frame[7]=(uint8_t)((size+32)>>8);sw_put32(frame+8,sequence);
     memcpy(frame+16,data,size);sw_tag(frame+16+size,kind,sequence,data,size);
     sw_put32(frame+12,~sw_crc(frame+16,size+32,sw_crc(frame,12,~0U)));
-    int error=sw_bytes_until(3,frame,size+48,1,deadline);if(error)sw_broken=1;return error;
+#ifdef S22_DEBIAN_AUTOBOOT
+    /* fd 3 is the one RAM trace, never a transport or control channel. */
+    struct stat st;struct statfs fs;
+    int error=sw_now()>=deadline ? ETIMEDOUT : 0;
+    if(!error && (fstat(3,&st) || fstatfs(3,&fs) || fs.f_type!=0x01021994L ||
+        st.st_mode!=(S_IFREG|0600) || st.st_uid || st.st_gid || st.st_nlink!=0 || fcntl(3,F_GET_SEALS)!=0 ||
+        (uint64_t)st.st_ino!=sw.tty_device || st.st_size<0 || st.st_size>262144-(off_t)(size+48)))error=EPROTO;
+    if(!error && write(3,frame,size+48)!=(ssize_t)(size+48))error=EIO;
+    uint8_t checked[1039];
+    if(!error && (pread(3,checked,size+48,st.st_size)!=(ssize_t)(size+48) ||
+        memcmp(checked,frame,size+48)))error=EIO;
+#else
+    int error=sw_bytes_until(3,frame,size+48,1,deadline);
+#endif
+    if(error)sw_broken=1;
+    return error;
 }
 static int sw_send(unsigned kind,uint32_t sequence,const void *data,size_t size) {
     return sw_send_until(kind,sequence,data,size,sw.deadline_ms);
@@ -108,22 +127,39 @@ static __attribute__((noreturn)) void sw_park(void) {
 static __attribute__((noreturn)) void sw_stop(int error) {
     uint32_t failed=sw_last_stage;
     if (error<=0 || error>4095) error=EPROTO;
+#if defined(S22_DEBIAN_AUTOBOOT) && defined(S22_ROOT_INSPECT_VIRT_TEST)
+    int console=open("/dev/console",O_WRONLY|O_NOFOLLOW|O_CLOEXEC);
+    if(console>=0){dprintf(console,"AUTO_VM_STOP stage=%u errno=%d\n",failed,error);(void)close(console);}
+#endif
     (void)sw_record(SW_STOP,(unsigned)error,&failed,sizeof(failed));sw_park();
 }
 static void sw_require(int error) { if(error)sw_stop(error); }
 static void sw_log(const char *format,va_list args) {
     char bytes[16384];int n=vsnprintf(bytes,sizeof(bytes),format,args);
     if(n<0 || n>=(int)sizeof(bytes))sw_stop(EOVERFLOW);
+#if defined(S22_DEBIAN_AUTOBOOT) && defined(S22_ROOT_INSPECT_VIRT_TEST)
+    int console=open("/dev/console",O_WRONLY|O_NOFOLLOW|O_CLOEXEC);
+    if(console>=0){if(write(console,bytes,(size_t)n)!=n)sw_park();(void)close(console);}
+#endif
     for(size_t used=0;used<(size_t)n;) {
         size_t amount=(size_t)n-used;if(amount>768)amount=768;
         sw_require(sw_record(SW_LOG,0,bytes+used,amount));used+=amount;
     }
 }
 static int sw_fd_type(void) {
+#ifdef S22_DEBIAN_AUTOBOOT
+    struct stat st;struct statfs fs;
+    if(fstat(3,&st) || fstatfs(3,&fs) || fs.f_type!=0x01021994L ||
+       st.st_mode!=(S_IFREG|0600) || st.st_uid || st.st_gid || st.st_nlink!=0 || fcntl(3,F_GET_SEALS)!=0 ||
+       st.st_size<0 || st.st_size>262144 || (uint64_t)st.st_ino!=sw.tty_device ||
+       fcntl(3,F_GETFD)!=0 || (fcntl(3,F_GETFL)&(O_ACCMODE|O_APPEND))!=(O_RDWR|O_APPEND))return EPROTO;
+    return 0;
+#else
     struct stat st;struct termios tty;
     if(fstat(3,&st) || !S_ISCHR(st.st_mode) || tcgetattr(3,&tty) ||
        fcntl(3,F_GETFD)!=0 || !(fcntl(3,F_GETFL)&O_NONBLOCK))return EPROTO;
     return sw.tty_device && sw.tty_device!=(uint64_t)st.st_rdev ? EPROTO : 0;
+#endif
 }
 static int sw_load_state(void) {
     struct stat st;uint8_t boot[32];uint8_t extra;

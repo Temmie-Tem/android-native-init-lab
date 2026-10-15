@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P432 selected: autonomous Debian startup and local service evidence
+## P432 H0 qualified: automatic Debian startup; attended grant pending
 
-The operator requested implementation through a physical experiment. The
-[P432 design](docs/reports/S22PLUS_DEBIAN_AUTOBOOT_P432_DESIGN_2026-10-16.md)
-selects one fresh Debian-owned storage-first startup through installed init,
-services and SSH without host start/continue/release gates. Exact historical
-file admission and separate early/runtime records resolve the audited conflicts.
-Current work is H0 implementation, qualification and independent review; the
-new scope needs its concrete finite attended task before any device effect.
+The [P432 design and qualification](docs/reports/S22PLUS_DEBIAN_AUTOBOOT_P432_DESIGN_2026-10-16.md)
+now has source-bound independent `PASS_GO`, actual boot-only A/B qualification,
+10 ARM64 cases and 94 focused tests. Normal VM evidence reaches installed init,
+120-second services, same-boot SSH and clean shutdown without host start gates.
+The network-absent case needs journal replay on a separate H0 copy for full records.
+Connected fixed D0 confirms exact Android32 health/GPT/statfs; no grant or effect exists.
+The one-operation/3600-second task awaits its exact approval, current attendance and usable physical original-A recovery.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 

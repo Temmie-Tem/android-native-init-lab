@@ -40,8 +40,12 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
     /* The finite parent owns ACM while it waits. Before executing any script,
      * the child closes every non-stdio descriptor and verifies fd 3 is gone. */
     int error=0;
+#ifdef S22_DEBIAN_AUTOBOOT
+    if((error=dh_reporting_open()))dh_hook_fail(error);
+#else
     if(de.off) {if(fcntl(3,F_GETFD)!=-1 || errno!=EBADF)dh_hook_fail(EPROTO);}
     else if((error=sw_fd_type()))dh_hook_fail(error);
+#endif
     if((error=de_time()))dh_hook_fail(error);
     pid_t child=fork();if(child<0)dh_hook_fail(fs1_error());
     if(!child) {
@@ -99,11 +103,18 @@ static int dh_service(const char *pidfile,const char *executable,uint64_t size,c
         errno=0;struct dirent *entry=readdir(fds);
         if(!entry){if(errno)error=errno;break;}
         if(entry->d_name[0]=='.')continue;
-        if(++count>128 || fstatat(dirfd(fds),entry->d_name,&actual,0) ||
-           (S_ISCHR(actual.st_mode) && (uint64_t)actual.st_rdev==sw.tty_device)) {error=EPROTO;break;}
+        if(++count>128 || fstatat(dirfd(fds),entry->d_name,&actual,0)
+#ifndef S22_DEBIAN_AUTOBOOT
+           || (S_ISCHR(actual.st_mode) && (uint64_t)actual.st_rdev==sw.tty_device)
+#endif
+           ) {error=EPROTO;break;}
         char link[256];ssize_t n=readlinkat(dirfd(fds),entry->d_name,link,sizeof(link)-1);
         if(n<0 || n>=(ssize_t)sizeof(link)-1){error=EPROTO;break;}link[n]=0;
-        if(strstr(link,"s22-switch-state") || !strcmp(link,DH_STATE_PATH)){error=EPROTO;break;}
+        if(strstr(link,"s22-switch-state") ||
+#ifdef S22_DEBIAN_AUTOBOOT
+           strstr(link,"s22-autoboot-trace") ||
+#endif
+           !strcmp(link,DH_STATE_PATH)){error=EPROTO;break;}
     }
     if(closedir(fds) && !error)error=fs1_error();
     if(error)return error;
@@ -156,6 +167,11 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
         dh_progress(2+sample,sample ? 4 : 3,sample,sw_now()-started,3);
     }
     if((error=de_event(DE_COMPLETE,0,0,0,0,0)))dh_hook_fail(error);
+#ifdef S22_DEBIAN_AUTOBOOT
+    dh_claim("autoboot-complete","runlevel-complete");
+    if((error=dh_reporting_close()))dh_hook_fail(error);
+    _exit(0);
+#else
     if(de.off) {
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
         dprintf(2,"DHVM_LOCAL_COMPLETE reporting=0\n");
@@ -183,4 +199,5 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
      * No extra command or reconnect is accepted after release. */
     char *args[]={"/bin/sh","/run/s22-debian/usb","start",NULL};
     execv(args[0],args);dh_hook_fail(fs1_error());
+#endif
 }

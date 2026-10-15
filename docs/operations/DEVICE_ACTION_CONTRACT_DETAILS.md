@@ -94,6 +94,11 @@ permission to perform host-only work.
    lifetime with bounded service evidence, same-boot SSH and fixed shutdown.
    All transfers remain boot only, with physical original-A return and no repair,
    installation, GPT change, other-partition write or consumed-action replay.
+   The separate [automatic Debian boot exception](S22PLUS_DEBIAN_AUTOBOOT_V1.md)
+   permits its fixed automatic preparation, one bounded early-file lifetime and
+   one installed-root lifetime, each after complete protected admission, with
+   distinct bounded records and one first-gadget NCM attempt. One fresh N owns
+   the startup; physical original-A return, no repair and no replay remain.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -164,6 +169,11 @@ permission to perform host-only work.
    one partition RAM RO clear/RW mount, installed PID1/service lifetime and
    bounded local records on native_data. Its authenticated compound start,
    fixed continuations and same-g1 access cannot replay after uncertainty.
+   The separately reviewed [automatic Debian boot V1](S22PLUS_DEBIAN_AUTOBOOT_V1.md)
+   adds only its two sequential admitted native_data lifetimes, exact sealed
+   historical-file input, checked same-boot early-file admission and automatic
+   installed services/first-gadget attempt. N-transfer intent consumes startup;
+   the declared absolute deadline and one-shot recovery owner remain binding.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -1058,6 +1068,38 @@ Userspace deadlines cannot recover a kernel stall. Initial, installed-PID1,
 service, SSH, local record and final Android health proofs remain separate.
 Only the already bounded same-returned-Android-boot retained-log D0 retrieval
 is available after healthy closure. H0 qualification opens no grant.
+
+## S22+ automatic Debian initial boot and installed services
+
+The separately reviewed [automatic boot V1](S22PLUS_DEBIAN_AUTOBOOT_V1.md)
+is incorporated only for exact FYG8/Android32 native_data entry 41, profile
+`debian-autoboot-v1` and V3 operation `debian-autoboot`. It specializes boundaries
+2 and 3 for one returned attended one-operation/3600-second grant, one fresh
+boot-only N and one physical original-A return. Its unique transfer intent
+owns the entire automatic startup; no old approval or consumed image selects it.
+
+The policy's fixed logger/prefix68/UFS8/six-client preparation retains measured
+Debian initial PID1 and checked child settlement. Complete clean protected root
+admission precedes each of exactly two sequential writable lifetimes: one
+bounded exclusive early file with checked sync/unmount/RO restoration, followed
+by one installed-root lifetime. The second admission requires RO already set,
+repeats complete root checks and verifies the exact owned early file against
+its authenticated RAM copy. One privately sealed historical file and bounded
+canonical boot count are the only changes to the retained immutable/mutable
+admission. No wildcard history, repair, replay, formatter, installation, raw
+block-data writer, GPT change or other-partition write is added.
+
+The fixed RAM witness and installed SysVinit use one absolute 300000 ms device
+BOOTTIME deadline, bounded revision-5 local records, reaped rcS/rc2 children and
+120-second service observation. The first g1 is attempted once directly as NCM;
+network failure may leave local service proof without external access. There
+is no early ACM or host continuation. Exact same-boot pinned SSH evidence/health
+and one fixed journaled shutdown are separate from local completion. The host
+has one original N-completion-derived 360-second observation window. Physical
+Download/original-A return and complete health close the owner; uncertain
+control never replays. A does not roll back native_data. No quiescence, watchdog
+or automatic recovery is claimed. Later storage retrieval requires a separate
+qualified finite reader. All other permanent boundaries remain unchanged.
 
 ## S22+ native-first installed-Debian handoff
 

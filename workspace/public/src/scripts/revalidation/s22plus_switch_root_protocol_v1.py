@@ -24,18 +24,19 @@ LABELS={1:b'actual-pid1',2:b'three-workers-reaped',3:b'exact-root-checker',
     4:b'protected-after-retirement',5:b'fixed-ram-witness',6:b'mounts-moved-work-unmounted',7:b'busybox-switch-root'}
 
 
-def tag(key,run,nonce,kind,sequence,body=b''):
-    return hmac.digest(key,DOMAIN+run+nonce+struct.pack('<IB',sequence,kind)+body,'sha256')
+def tag(key,run,nonce,kind,sequence,body=b'',*,autoboot=False):
+    domain=b'S22PLUS-FYG8-DEBIAN-AUTOBOOT-v1' if autoboot else DOMAIN
+    return hmac.digest(key,domain+run+nonce+struct.pack('<IB',sequence,kind)+body,'sha256')
 
 
 def encode(key,run,nonce,kind,sequence,body=b''):
     return frames.encode_frame(kind,sequence,body+tag(key,run,nonce,kind,sequence,body))
 
 
-def body(frame,key,run,nonce):
+def body(frame,key,run,nonce,*,autoboot=False):
     require(32<=len(frame.payload)<=1023,'switch frame bound differs')
     value,signature=frame.payload[:-32],frame.payload[-32:]
-    require(hmac.compare_digest(signature,tag(key,run,nonce,frame.frame_type,frame.sequence,value)),
+    require(hmac.compare_digest(signature,tag(key,run,nonce,frame.frame_type,frame.sequence,value,autoboot=autoboot)),
         'switch frame authentication differs')
     return value
 
@@ -61,19 +62,22 @@ class Session(baseline.Session):
 
 
 class Records:
-    def __init__(self,key,run,nonce,boot,witness_sha256,*,root_readonly=True,settlement='three-workers-reaped'):
+    def __init__(self,key,run,nonce,boot,witness_sha256,*,root_readonly=True,settlement='three-workers-reaped',autoboot=False):
         self.key,self.run,self.nonce,self.boot=key,run,nonce,boot
         self.expected_witness=witness_sha256
         require(type(root_readonly) is bool,'root mode is not explicit')
         self.root_readonly=root_readonly
         require(settlement in ('three-workers-reaped','early-children-settled'),'unknown initial userspace settlement')
         self.settlement=settlement
+        require(type(autoboot) is bool and (not autoboot or not root_readonly and settlement=='early-children-settled'),
+            'automatic transition owner differs')
+        self.autoboot=autoboot
         self.records=[];self.logs=bytearray();self.last=0;self.proof=None;self.stop=None;self.returned=False
 
     def accept(self,frame):
-        value=body(frame,self.key,self.run,self.nonce)
+        value=body(frame,self.key,self.run,self.nonce,autoboot=self.autoboot)
         if frame.frame_type==RETURN_ACK:
-            require(self.proof is not None and not self.returned and self.stop is None and
+            require(not self.autoboot and self.proof is not None and not self.returned and self.stop is None and
                 frame.sequence==6 and value==struct.pack('<I',1),'unjoined switch return acknowledgement')
             self.returned=True;return
         require(frame.frame_type==RECORD and not self.returned and self.proof is None and self.stop is None and
@@ -90,7 +94,9 @@ class Records:
             self.stop=dict(errno=error,last_stage=self.last)
         else:
             require(stage==self.last+1 and error==0 and stage<=8,'switch stage skipped, repeated or failed')
-            if stage<8:require(data==(self.settlement.encode() if stage==2 else LABELS[stage]),'switch stage payload differs')
+            if stage<8:
+                label=self.settlement.encode() if stage==2 else b'debian-auto-pid1' if stage==1 and self.autoboot else LABELS[stage]
+                require(data==label,'switch stage payload differs')
             else:
                 require(len(data)==120,'post-exec proof width differs')
                 pid,major,minor,mounts=struct.unpack('<4I',data[:16]);flags,ro=struct.unpack('<2I',data[112:])
@@ -101,7 +107,8 @@ class Records:
                 self.proof=dict(pid=pid,root_device=dict(major=major,minor=minor),root_type='ext4',root_flags=flags,
                     partition_readonly=self.root_readonly,mount_count=mounts,mount_sha256=data[80:112].hex(),
                     witness_sha256=data[48:80].hex(),workers_settled=True,other_userspace=0,
-                    descriptor_whitelist=[0,1,2,3],same_transport=True)
+                    descriptor_whitelist=[0,1,2,3],same_transport=not self.autoboot)
+                if self.autoboot:self.proof.update(channel='bounded-ram-trace',host_request_required=False)
             self.last=stage
         self.records.append(dict(sequence=frame.sequence,stage=STAGES[stage],errno=error,size=len(data),
             sha256=hashlib.sha256(data).hexdigest()))

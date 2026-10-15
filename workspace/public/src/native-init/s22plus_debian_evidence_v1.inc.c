@@ -17,7 +17,11 @@ static uint64_t de_u64(const uint8_t *p) {
 }
 static void de_put64(uint8_t *p,uint64_t n) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(n>>(8*i));}
 static void de_tag(uint8_t out[32],const uint8_t *p,size_t n) {
+#ifdef S22_DEBIAN_AUTOBOOT
+    static const char domain[]="S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1";
+#else
     static const char domain[]="S22PLUS-FYG8-DEBIAN-DURABLE-v1";
+#endif
     uint8_t pad[64],inner[32];struct s22plus_max77705_runtime_sha256 h;
     memset(pad,0x36,64);for(unsigned i=0;i<32;++i)pad[i]^=sw_key[i];
     s22plus_max77705_runtime_sha256_init(&h);
@@ -44,7 +48,13 @@ static void de_header(uint8_t h[DE_HEADER]) {
     memset(h,0,DE_HEADER);memcpy(h,"S22DE01\0",8);sw_put32(h+8,1);sw_put32(h+12,DE_HEADER);
     memcpy(h+16,sw.run,16);memcpy(h+32,sw.boot,32);memcpy(h+64,sw.nonce,32);
     de_put64(h+96,sw.deadline_ms-SW_TIMEOUT_MS);de_put64(h+104,sw.deadline_ms);
-    sw_put32(h+112,4);sw_put32(h+116,DE_RECORD);sw_put32(h+120,DE_RECORDS);sw_put32(h+124,DE_MAXIMUM);
+    sw_put32(h+112,
+#ifdef S22_DEBIAN_AUTOBOOT
+        5
+#else
+        4
+#endif
+        );sw_put32(h+116,DE_RECORD);sw_put32(h+120,DE_RECORDS);sw_put32(h+124,DE_MAXIMUM);
     memcpy(h+128,dh_init_sha256,32);memcpy(h+160,de_binding->hook_sha,32);de_put64(h+192,sw.root_device);
     de_tag(h+224,h,224);
 }

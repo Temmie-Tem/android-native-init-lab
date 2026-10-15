@@ -31,8 +31,9 @@ def validate_identity(namespace,version):
         'file candidate version differs')
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False):
     h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
+    h0.require(not autoboot or diagnostic and storage_first,'autoboot requires supervised storage-first')
     validate_identity(namespace,version)
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
     sources=snapshot(out) if storage_first and fresh else None
@@ -53,7 +54,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
             early.array('early_init_hash',bytes.fromhex(fyg8.digest(initial))))
     if storage_first:
         import file_first
-        modules=file_first.prepare_modules(out,inputs,inventory,run,key,virt,diagnostic=diagnostic,diagnostic_fault=diagnostic_fault)
+        modules=file_first.prepare_modules(out,inputs,inventory,run,key,virt,diagnostic=diagnostic,diagnostic_fault=diagnostic_fault,autoboot=autoboot)
     else:fyg8.compile_helper(out,inputs,run_id=run,virt=virt)
     flags=['aarch64-linux-gnu-gcc','-static','-Os','-Wall','-Wextra','-Werror',
         '-Wno-unused-function','-Wno-unused-const-variable','-ffunction-sections','-fdata-sections',
@@ -61,7 +62,10 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     if not storage_first:
         h0.run([*flags,'-DFYG8_USB_RAM_ONLY',*(['-DFYG8_VM_TEST'] if virt else []),
             h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
-    generated=admission.headers(run)
+    if autoboot:
+        import s22plus_debian_autoboot_profile_v1 as automatic
+        generated=automatic.admission_headers(run)
+    else:generated=admission.headers(run)
     for name,data in generated['headers'].items():(out/name).write_bytes(data)
     (out/'table.bin').write_bytes(generated['table'])
     checker=verify(admission.profile.execution_binding()['checker'])
@@ -77,11 +81,12 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     if storage_first:
         import s22plus_debian_file_first_plan_v1 as first
         text+='static const uint64_t early_helper_size='+str((out/'fyg8-prepare').stat().st_size)+'ULL;\n'
-    text+='#define EARLY_DOMAIN '+json.dumps(('S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else (first.DOMAIN if storage_first else protocol.DOMAIN).decode()))+'\n'
+    text+='#define EARLY_DOMAIN '+json.dumps(automatic.DOMAIN.decode() if autoboot else ('S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else (first.DOMAIN if storage_first else protocol.DOMAIN).decode()))+'\n'
     (out/'early-seal.h').write_text(text)
     source,extra=file_log_faults.source(out,h0.HERE/'file-log.c',fault) if fault else (h0.HERE/'file-log.c',[])
     h0.run([*flags,*(['-DS22_ROOT_INSPECT_VIRT_TEST'] if virt else []),
-        *(['-DFL_STORAGE_FIRST'] if storage_first else []),*(['-DS22_FAILURE_OBSERVER'] if diagnostic else []),*extra,
+        *(['-DFL_STORAGE_FIRST'] if storage_first else []),*(['-DS22_FAILURE_OBSERVER'] if diagnostic else []),
+        *(['-DS22_DEBIAN_AUTOBOOT'] if autoboot else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')
     for name in ('fyg8-prepare','file-log'):
         h0.run(['file',out/name],out/(name+'-file.log'))
@@ -97,6 +102,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     if namespace is not None:result['namespace']=namespace
     if version is not None:result['version']=version
     if diagnostic:result.update(diagnostic=True,diagnostic_fault=diagnostic_fault)
+    if autoboot:result.update(profile=automatic.PROFILE,history=generated['history'],automatic=True)
     if storage_first:
         if sources is None:sources=json.loads((out/'source-inputs.json').read_text())
         for row in sources:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'file preparation source changed')

@@ -50,6 +50,28 @@ static unsigned fl_sequence,fl_bytes;
 static uint64_t fl_origin;
 static pid_t fl_checker_pid;
 static int fl_unsettled;
+#ifdef S22_DEBIAN_AUTOBOOT
+/* A copy of bytes already synced and read back. It is not published until
+ * the first writable lifetime has completed every cleanup/post-check. */
+static uint8_t fl_checked[FL_MAXIMUM];
+static int fl_publish(void) {
+    int dir=open("/run/initramfs",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+    struct stat st;struct statfs fs;
+    if(dir<0)return fs1_error();
+    int error=fstat(dir,&st) || st.st_mode!=(S_IFDIR|0700) || st.st_uid || st.st_gid ||
+        fstatfs(dir,&fs) || fs.f_type!=0x01021994L ? EPROTO : 0;
+    int fd=error ? -1 : openat(dir,"autoboot-early",O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0400);
+    if(fd<0 && !error)error=fs1_error();
+    uint8_t checked[FL_MAXIMUM];
+    if(!error && (fl_sequence!=FL_RECORDS || !fl_bytes || write(fd,fl_checked,fl_bytes)!=fl_bytes ||
+        pread(fd,checked,fl_bytes,0)!=fl_bytes || memcmp(checked,fl_checked,fl_bytes) ||
+        fstat(fd,&st) || st.st_mode!=(S_IFREG|0400) || st.st_uid || st.st_gid ||
+        st.st_nlink!=1 || st.st_size!=fl_bytes))error=EIO;
+    if(fd>=0 && close(fd) && !error)error=fs1_error();
+    if(close(dir) && !error)error=fs1_error();
+    return error;
+}
+#endif
 
 static uint64_t fl_now(void) {
     struct timespec t;
@@ -158,6 +180,9 @@ static int fl_write(int fd,const void *data,size_t length) {
         at+=n;
     }
 #endif
+#ifdef S22_DEBIAN_AUTOBOOT
+    memcpy(fl_checked+fl_bytes,data,length);
+#endif
     fl_bytes+=(unsigned)length;return fl_time();
 }
 static int fl_record(int fd,unsigned kind,unsigned phase,int error_code) {
@@ -175,7 +200,13 @@ static int fl_record(int fd,unsigned kind,unsigned phase,int error_code) {
 #endif
 static int fl_file(int root,dev_t device) {
     int parent=fl_parent(root,device);if(parent<0)return fs1_error();
-    char name[64];snprintf(name,sizeof(name),"s22-evidence-%s",fs1_run_id);
+    char name[64];snprintf(name,sizeof(name),
+#ifdef S22_DEBIAN_AUTOBOOT
+        "s22-early-%s",
+#else
+        "s22-evidence-%s",
+#endif
+        fs1_run_id);
     int late=fl_time();if(late){(void)close(parent);return late;}
     int fd=openat(parent,name,FL_ACCESS|O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC,0600);
     int error=fd<0?fs1_error():0;struct stat st;
@@ -274,6 +305,10 @@ static int fl_work(int argc,char **argv) {
     if(fl_unsettled)for(;;)pause();
     if(result || !fl_admitted || !rj_checker_complete || rj_attempted || rj_stopped)return 103;
     error=fl_write_mount();fo_failure(FO_WRITABLE,error);
+#ifdef S22_DEBIAN_AUTOBOOT
+    if(!error)error=fl_time();
+    if(!error)error=fl_publish();
+#endif
 #if defined(FL_STORAGE_FIRST) && defined(S22_ROOT_INSPECT_VIRT_TEST)
     dprintf(1,"FILE_VM_CLIENTS inserted=%u\n",fl_test_inserted);
 #endif

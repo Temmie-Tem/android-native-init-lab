@@ -1,0 +1,75 @@
+"""Join automatic early, root-transition and service records from one boot."""
+import base64
+import hashlib
+import re
+
+import s22plus_debian_file_protocol_v1 as early
+import s22plus_debian_evidence_v1 as durable
+import s22plus_switch_root_protocol_v1 as transition
+from s22plus_native_records_v3 import require
+
+MAXIMUM=400000
+TRACE_MAXIMUM=262144
+
+
+def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot):
+    require(type(ssh_boot) is str and re.fullmatch(
+        r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',ssh_boot),'SSH boot identity differs')
+    run=bytes.fromhex(selected['run_id']);boot=hashlib.sha256(ssh_boot.encode()).digest()
+    first=early.decode(early_bytes,key=key,run=run,expected=selected['measured'],
+        module_names=[m['runtime_name'] for m in selected['modules']],storage_first=True,diagnostic=True,autoboot=True)
+    require(first['pre_unmount_complete'] and first['kernel_boot_identity_sha256']==boot.hex(),
+        'automatic early record crosses SSH boot')
+    nonce=hashlib.sha256(early_bytes[:256]).digest()
+    require(type(trace_bytes) is bytes and 0<len(trace_bytes)<=TRACE_MAXIMUM,'RAM trace exceeds bound')
+    state=transition.Records(key,run,nonce,boot,selected['witness']['sha256'],
+        root_readonly=False,settlement='early-children-settled',autoboot=True)
+    position=0
+    while position<len(trace_bytes):
+        require(len(trace_bytes)-position>=16,'torn RAM trace header')
+        size=int.from_bytes(trace_bytes[position+6:position+8],'little')
+        require(32<=size<=1023 and position+16+size<=len(trace_bytes),'torn or oversized RAM trace body')
+        state.accept(transition.frames.decode_frame(trace_bytes[position:position+16+size]));position+=16+size
+    require(state.proof is not None and state.stop is None and not state.returned,'automatic root witness is incomplete')
+    expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),boot=boot.hex(),
+        nonce_sha256=hashlib.sha256(nonce).hexdigest(),init_sha256=selected['installed_init']['sha256'],
+        hook_sha256=selected['hook']['sha256'],root_device=state.proof['root_device'])
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True)
+    require(runtime['complete_framing'] and runtime['local_runtime_proved'] and not runtime['required_check_stopped'] and
+        runtime['automatic_start'] and not runtime['report_disabled'],'automatic service observation is incomplete')
+    return dict(schema='s22plus-debian-autoboot-proof-v1',status='PASS_AUTOMATIC_DEBIAN_SERVICES',
+        run_id_hex=run.hex(),kernel_boot_identity_sha256=boot.hex(),initial_debian_pid1=True,
+        installed_debian_pid1=True,services_120_seconds=True,early=first,transition=state.projection(),runtime=runtime,
+        host_start_requests=0,ssh_access_proved=False,clean_shutdown_proved=False,replay_authorized=False)
+
+
+def envelope(output,*,key,selected):
+    require(type(output) is bytes and len(output)<=MAXIMUM,'SSH evidence exceeds fixed bound')
+    lines=output.splitlines()
+    require(len(lines)==6 and output.endswith(b'\n') and lines[0]==b'S22_AUTO_EVIDENCE_V1' and
+        lines[-1]==b'S22_AUTO_EVIDENCE_END','SSH evidence framing differs')
+    values=[]
+    for index,line in enumerate(lines[2:5]):
+        data=base64.b64decode(line,validate=True)
+        require(0<len(data)<=(TRACE_MAXIMUM if index==2 else 16384),'SSH evidence member exceeds bound')
+        values.append(data)
+    return decode(*values,key=key,selected=selected,ssh_boot=lines[1].decode('ascii')),values
+
+
+def local_records(early_bytes,runtime_bytes,*,key,selected,root_device):
+    """Storage records alone make no live SSH or transition-receipt claim."""
+    run=bytes.fromhex(selected['run_id'])
+    first=early.decode(early_bytes,key=key,run=run,expected=selected['measured'],
+        module_names=[m['runtime_name'] for m in selected['modules']],storage_first=True,diagnostic=True,autoboot=True)
+    require(first['pre_unmount_complete'],'automatic early file is incomplete')
+    nonce=hashlib.sha256(early_bytes[:256]).digest()
+    expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),
+        boot=first['kernel_boot_identity_sha256'],nonce_sha256=hashlib.sha256(nonce).hexdigest(),
+        init_sha256=selected['installed_init']['sha256'],hook_sha256=selected['hook']['sha256'],root_device=root_device)
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True)
+    require(runtime['complete_framing'] and runtime['local_runtime_proved'] and
+        not runtime['required_check_stopped'] and runtime['automatic_start'] and
+        not runtime['report_disabled'],'automatic local service evidence is incomplete')
+    return dict(status='PASS_AUTOMATIC_LOCAL_SERVICES',early=first,runtime=runtime,
+        kernel_boot_identity_sha256=first['kernel_boot_identity_sha256'],
+        ssh_access_proved=False,clean_shutdown_proved=False,replay_authorized=False)

@@ -24,6 +24,7 @@ import s22plus_native_evidence_profile_v1 as evidence
 import s22plus_native_log_profile_v1 as calibration
 import s22plus_debian_early_profile_v1 as early
 import s22plus_debian_integrated_profile_v1 as integrated
+import s22plus_debian_autoboot_profile_v1 as autoboot
 import s22plus_native_root_inspect_session_v1 as inspection_session
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
@@ -32,6 +33,14 @@ from s22plus_native_records_v3 import (SCHEMA, Journal, clock, digest, pin, priv
 from s22plus_native_session_v3 import steps, operation_steps
 
 AP_MAXIMUM=128*1024*1024
+
+
+def before_window_transfer(image,grant,now):
+    if image['profile']==autoboot.PROFILE:
+        from s22plus_debian_file_profile_v1 import before_transfer
+        before_transfer(grant,now)
+    elif image['profile'] in early.WINDOW_PROFILES:
+        early.before_window_transfer(image,grant,now)
 
 
 def image_identity(image, binding):
@@ -44,13 +53,17 @@ def image_identity(image, binding):
 
 
 def image_valid(image, *, artifact_bytes=False):
-    if image.get('profile') in (*early.PROFILES,integrated.PROFILE):
-        selected=integrated if image['profile']==integrated.PROFILE else early
+    if image.get('profile') in (*early.PROFILES,integrated.PROFILE,autoboot.PROFILE):
+        selected=autoboot if image['profile']==autoboot.PROFILE else integrated if image['profile']==integrated.PROFILE else early
         if image['profile'] in early.CHECKED_FILE_PROFILES:
             from s22plus_debian_file_qualification_v1 import binding
             bound=binding(image,selected.image_binding)
         else:bound=selected.image_binding(image)
         if artifact_bytes:
+            if selected is autoboot:
+                from s22plus_debian_autoboot_qualification_v1 import archive_binding
+                archive_binding(image,bound)
+                return
             if selected is integrated or image['profile'] in early.CHECKED_FILE_PROFILES:
                 integrated.archive_binding(image,bound)
                 return
@@ -333,8 +346,7 @@ class Adapter:
 
     def preflight(self, request, *, guard):
         guard(); task=self.configuration(request)
-        if request['N']['profile'] in early.WINDOW_PROFILES:
-            early.before_window_transfer(request['N'],read(verify(request['grant'])),clock())
+        before_window_transfer(request['N'],read(verify(request['grant'])),clock())
         for image in (request['N'],request['E'],request.get('S')):
             if image is not None: image_valid(image,artifact_bytes=True)
         with self.original_android(request): pass
@@ -457,9 +469,9 @@ class Adapter:
             from s22plus_debian_early_session_v1 import return_request
             ready=return_request(self,request)
             arrival_deadline=ready['deadline_ns']
-        elif request['operation'] in (handoff.OPERATION,integrated.OPERATION) and step.name=='install-android':
-            from s22plus_debian_access_v1 import Access
-            value=Access(self,request).rederive_shutdown()
+        elif request['operation'] in (handoff.OPERATION,integrated.OPERATION,autoboot.OPERATION) and step.name=='install-android':
+            from s22plus_debian_access_v1 import access_for
+            value=access_for(self,request).rederive_shutdown()
             ready=read(self.directory/'debian-return-ready.json')
             require(ready['operation']==pin(self.directory/'operation.json') and
                 read(verify(ready['shutdown']))==value and ready['deadline_ns']<=read(verify(request['grant']))['deadline_ns'] and
@@ -493,8 +505,7 @@ class Adapter:
             identity=target.download_identity(ticket.device)
             def launch():
                 guard()
-                if request['N']['profile'] in early.WINDOW_PROFILES and step.role=='N':
-                    early.before_window_transfer(request['N'],read(verify(request['grant'])),clock())
+                if step.role=='N':before_window_transfer(request['N'],read(verify(request['grant'])),clock())
                 if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
                     inspection_session.android_basis(self, request)
                 if request['N'].get('profile') in fs.PROFILES and step.role=='A':filesystem_android_basis(self,request)
@@ -515,8 +526,7 @@ class Adapter:
                 guard()
                 transport.revalidate_pinned_path(android)
                 require(clock()<arrival_deadline,'original Download deadline expired during intent publication')
-                if request['N']['profile'] in early.WINDOW_PROFILES and step.role=='N':
-                    early.before_window_transfer(request['N'],read(verify(request['grant'])),clock())
+                if step.role=='N':before_window_transfer(request['N'],read(verify(request['grant'])),clock())
             receipt,handle=transport.execute_odin_boot_only(odin.path,Path(artifact['path']),ticket.device,
                 odin_size=task['odin']['size'],odin_sha256=task['odin']['sha256'],
                 ap_size=artifact['size'],ap_sha256=artifact['sha256'],label=step.role,
@@ -702,9 +712,9 @@ class Adapter:
             from s22plus_debian_early_observation_v1 import rederive
             return rederive(self.folder(step.name),request['N'])
         if step.action in ('debian-health','debian-shutdown'):
-            require(request['operation'] in (handoff.OPERATION,integrated.OPERATION),'unselected Debian access result')
-            from s22plus_debian_access_v1 import Access
-            access=Access(self,request)
+            require(request['operation'] in (handoff.OPERATION,integrated.OPERATION,autoboot.OPERATION),'unselected Debian access result')
+            from s22plus_debian_access_v1 import access_for
+            access=access_for(self,request)
             return access.rederive_health() if step.action=='debian-health' else access.rederive_shutdown()
         if step.action=='transfer': return self.recover_transfer_result(step,request)
         if step.action=='physical':

@@ -132,3 +132,69 @@ Completion is a qualified and independently reviewed fresh capability followed,
 when its exact live prerequisites are satisfied, by one physical run and its
 validated closure/report. Full service/SSH proof and healthy Android return
 remain separate. A90/S20+ and unrelated working changes remain untouched.
+
+
+## Implemented H0 path and qualification limits
+
+The new [automatic boot policy](../operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md)
+incorporates the two admitted filesystem lifetimes and transfer-owned startup.
+The implementation keeps the Debian initial shell, supervised preparation,
+complete root checks and exact RAM witness. Distinct early/runtime record
+names avoid exclusive-create collisions. The first writer publishes its checked
+RAM receipt only after cleanup; second admission requires the existing RO state
+and exact current-file content. An anonymous sealed memfd carries transition
+records without retaining the old root or inventing an ACM connection.
+
+The actual installed hooks no longer wait for host continuations in this new
+profile. Ordinary rc2 attempts the first g1 as NCM before sshd. The exact USB
+script was exercised in isolated namespaces for ordinary setup, partial setup,
+network failure, inventory-read failure and rejection of a second invocation.
+The physical Samsung gadget and hardware behavior remain unproved by those tests.
+
+The coherent physical build has identical A/B initramfs and ARM64 entry/hook/
+witness outputs. Its matching real Debian ARM64 VM uses the physical initial
+argument ABI and substitutes Samsung module/sysfs/USB hardware. Normal startup
+has zero host start requests, measured initial PID1, complete protected root
+admission, installed SysVinit, 120-second cron/sshd evidence, same-boot pinned SSH,
+fixed shutdown, clean ext4 and durable boot count. Negative cases exercise changed
+receipts, inherited descriptors, dirty ext4, changed history, foreign files,
+existing early/runtime records and a failed client. The current owner tests
+cover uncertain N/shutdown/A, original recovery and health-only continuation.
+
+In the network-absent VM, a forced stop left 23 authenticated service records
+visible without journal replay. A separate regular-file copy recovered 25
+records through COMPLETE after fixed host-only journal replay. The original
+VM disk and extracted filesystem remain unchanged. This qualifies local
+service progress and stored evidence under that explicit H0 retrieval method;
+it does not qualify live SSH, clean shutdown or a physical replay operation.
+The failed no-replay interpretation and both file versions remain preserved.
+A later physical reader may likewise see only an earlier prefix.
+
+Independent review found and corrected the second-admission RO mismatch,
+USB-script composition and observer sample-budget problems, missing pre-N time
+reserve, and actual-archive execution metadata/path gaps. The final consumer
+joins packaged helper/overlay/module bytes and startup script to their pins,
+checks actual initial init/shell metadata, hardlinks and path resolution, and
+replays authenticated VM evidence. Container-only substitutions and malformed,
+mixed-boot or incomplete records must be rejected. These checks qualify the
+capability; the concrete returned finite grant, attendance, fresh target/health
+and usable original-A recovery still precede any physical effect.
+
+
+## Readiness result
+
+The final independent review is **PASS_GO**, with no unresolved findings, bound
+to the exact host owner, runtime sources, final package and ten-case ARM64 corpus.
+The final focused regression suite passes 94 tests; actual authenticated producer
+bytes pass 20 source/boot/framing/deadline checks. Repository privacy boundaries,
+Python compilation, ARM64 ELF inspection, A/B equality and actual CPIO/boot-only
+archive joins pass. The new source-bound capability record is
+`workspace/public/src/device-action/bindings/s22plus_debian_autoboot_v1_review.json`.
+
+The existing fixed foreground D0 preparation has now verified exact connected
+original-A root health before and after full GPT/shell-v2/Android32 statfs reads.
+It prepared one `debian-autoboot` operation with a 3600-second attended scope.
+No grant was opened, mode changed, image transferred or device-native filesystem
+inspected by this preparation. The actual returned approval and current physical
+attendance remain required. Runtime repeats fresh exact health and recovery
+checks. A90/S20+ and unrelated working files remain unchanged.

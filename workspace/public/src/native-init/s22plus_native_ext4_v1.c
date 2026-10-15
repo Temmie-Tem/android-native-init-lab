@@ -35,6 +35,15 @@ _Static_assert(MS_PRIVATE == (1UL << 18) && MS_REC == 16384, "mount propagation 
 _Static_assert(BLKGETSIZE64 == 0x80081272UL && BLKSSZGET == 0x1268, "ARM64 block ioctls");
 _Static_assert(sizeof(off_t) == 8, "64-bit filesystem offsets required");
 
+#if defined(S22_DEBIAN_AUTOBOOT) && defined(S22_AUTOBOOT_SECOND_ADMISSION)
+/* The completed early writer restored this exact partition's RAM RO flag.
+ * The second admission requires that outcome; it never clears it to satisfy
+ * a fresh-boot expectation. All original entry paths still require RO=0. */
+#define FS1_INITIAL_RO 1U
+#else
+#define FS1_INITIAL_RO 0U
+#endif
+
 static const char fs1_node[] = "/dev/.s22-ext4-v1/native";
 static const char fs1_disk[] = "/dev/.s22-ext4-v1/lu0";
 static const char fs1_root[] = "/s22-root-work/ext4-v1/root";
@@ -184,7 +193,7 @@ static int fs1_resolve(struct fs1_endpoint *e) {
         fs1_number(e->sys_partition, "size", &size) || size != FS1_BLOCKS * 8U ||
         fs1_number(e->parent, "size", &total) || total != FS1_GPT_BLOCKS * 8U ||
         fs1_number(e->parent, "queue/logical_block_size", &block) || block != FS1_BLOCK ||
-        fs1_number(e->sys_partition, "ro", &ro) || ro != 0) return EPROTO;
+        fs1_number(e->sys_partition, "ro", &ro) || ro != FS1_INITIAL_RO) return EPROTO;
     error = fs1_device_number(e->parent, &e->disk);
     if (!error) error = fs1_device_number(e->sys_partition, &e->partition);
     if (error || e->disk == e->partition) return error ? error : EPROTO;

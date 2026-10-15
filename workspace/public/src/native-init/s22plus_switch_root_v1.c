@@ -104,6 +104,10 @@ static int sw_root_eligible(int root,struct fs1_endpoint *e,const struct ri_coun
 #ifdef S22_DEBIAN_HANDOFF
     int error=dh_root_extras(root,e->partition,&extra);if(error)return error;
 #endif
+#ifdef SW_OWNED_ROOT_EXTRA
+    int owned=SW_OWNED_ROOT_EXTRA(root,e->partition);if(owned)return owned;
+    ++extra;
+#endif
     if(started!=1 || complete!=1 || witness!=1 || comparison->expected!=ri_table_count ||
        comparison->matched!=ri_table_count || comparison->missing || comparison->metadata || comparison->content ||
        counts->entries!=ri_table_count+4+extra || counts->other ||

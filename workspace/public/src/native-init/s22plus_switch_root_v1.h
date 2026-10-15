@@ -12,7 +12,13 @@
 #define SW_SEQUENCE 5U
 #define SW_RETURN_SEQUENCE 6U
 #define SW_MAX_RECORDS 256U
+#ifdef S22_DEBIAN_AUTOBOOT
+/* The same layout has a distinct owner/domain. tty_device carries only the
+ * unlinked RAM trace inode in this mode; no tty is opened or impersonated. */
+#define SW_STATE_MAGIC 0x31414244U
+#else
 #define SW_STATE_MAGIC 0x31575253U
+#endif
 #define SW_STATE_VERSION 1U
 #define SW_TIMEOUT_MS 300000ULL
 #define SW_SETTLE_MS 5000ULL
