@@ -23,21 +23,22 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-The [October 13 integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
-separates the proved installed-PID1/rcS-entry boundary of P410/P413 from the
-later Debian-owned cold preparation path. Services, NCM and same-boot SSH
-remain the functional gap. P418/P423/P424 share a concrete binding-name
-false-negative capability, reproduced from their frozen predicates; P419's
-failure without that logger path means it is not a complete causal explanation.
-The operator selected execution-code correction and one integrated candidate.
-The [P425 H0 implementation record](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_H0_2026-10-13.md)
-owns binding correction, actual hardware-effect parity and Debian initial PID1
-through installed init/services/SSH. Its H0 qualification retains independent
-**PASS_GO**, 160 focused tests, nine integrated ARM64 VM cases and four current
-revision-4 failure cases. The normal VM proves 120-second services, same-boot
-SSH, controlled shutdown and durable records. P425's physical trial is now
-consumed and closed as described below; full physical Debian/SSH ownership
-remains unproved. A90 and S20+ are untouched by this unit.
+The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
+retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.
+[P425 H0](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_H0_2026-10-13.md) retains its
+reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
+P430 now proves the Debian-owned storage-first preparation below. Installed
+services, NCM and same-boot SSH remain the physical functional gap.
+
+## P432 selected: autonomous Debian startup and local service evidence
+
+The operator requested implementation through a physical experiment. The
+[P432 design](docs/reports/S22PLUS_DEBIAN_AUTOBOOT_P432_DESIGN_2026-10-16.md)
+selects one fresh Debian-owned storage-first startup through installed init,
+services and SSH without host start/continue/release gates. Exact historical
+file admission and separate early/runtime records resolve the audited conflicts.
+Current work is H0 implementation, qualification and independent review; the
+new scope needs its concrete finite attended task before any device effect.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
