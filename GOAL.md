@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P433 closed: P432 initial PID1 and early preparation proved
+## P434/P435 selected: observe cleanup through installed-init entry
 
-The [P433 physical read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md) authenticates P432's complete 10,972-byte early file.
-It proves initial Debian PID1, 76 preparation modules, six client returns and 14 records through 3,565 ms, before close/unmount.
-The runtime file is absent in the dirty home-block view (`state=1 recover=1 orphan=0`); no journal replay occurred.
-Cleanup, second admission, installed init/services and NCM/SSH remain unproved; missing data cannot prove non-execution.
-P433 is **PASS_ROOT_EVIDENCE_OBSERVED / ANDROID_CLOSED_HEALTHY**, consumed with one N/A pair and no F1 owner.
-P432's original **NO_PROOF / ANDROID_CLOSED_HEALTHY** terminal is preserved; the later file proof is separate.
-No new writable boot or recovery is selected. A90/S20+ remain outside scope.
+The [selected design](docs/reports/S22PLUS_AUTOBOOT_TRANSITION_P434_P435_DESIGN_2026-10-18.md) adds bounded retained observation across cleanup and root transition.
+Prepare separate strict recovery P434 and automatic observer P435; no new grant or device effect exists.
+The [P433 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md) proves P432 initial PID1, 76+6 module returns and 14 records through 3,565 ms, before close/unmount.
+The runtime file is absent in dirty home blocks (`state=1 recover=1 orphan=0`); cleanup and installed init/services remain unproved.
+P435 requires separate proved clean-root admission with exact historical files; post-replay absence is not assumed.
+P432/P433 remain consumed and **ANDROID_CLOSED_HEALTHY**, each with one N/A pair and no F1 owner; original terminals are preserved.
+H0 implementation, actual qualification and independent review remain; A90/S20+ are outside scope.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
