@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P434/P435 H0 ready: recovery first, then observe cleanup through installed init
+## P434 closed: journal replay complete; root admission blocks P435
 
-The [qualified implementation](docs/reports/S22PLUS_AUTOBOOT_TRANSITION_P434_P435_DESIGN_2026-10-18.md) adds bounded retained observation across cleanup and root transition.
-P434 strict recovery has a 1800-second/one-operation attended offline proposal; P435 has a qualified image; no new grant or device effect exists.
-The [P433 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md) proves P432 initial PID1, 76+6 module returns and 14 records through 3,565 ms, before close/unmount.
-The runtime file is absent in dirty home blocks (`state=1 recover=1 orphan=0`); cleanup and installed init/services remain unproved.
-P435 requires separate proved clean-root admission with exact historical files; post-replay absence is not assumed.
-P432/P433 remain consumed and **ANDROID_CLOSED_HEALTHY**, each with one N/A pair and no F1 owner; original terminals are preserved.
-Both capabilities are independently PASS_GO; 30 automatic and nine recovery VM cases, 76 host tests and actual AP consumers pass; A90/S20+ are outside scope.
+The [P434 report](docs/reports/S22PLUS_JOURNAL_RECOVERY_P434_RUN_2026-10-18.md) records **RECOVERY_NOT_PROVED; ANDROID_CLOSED_HEALTHY**, one consumed N/A pair and no F1 owner.
+Strict replay completed (24 writes/95,232 bytes), the separate read-only checker passed and the superblock is clean; this is not complete-root proof.
+All 8,971 comparison entries pass their immutable or declared mutable rules, but the tree has 8,977 entries against 8,976 admitted; the extra path/content is unknown.
+The [P433 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md) still proves P432 only through its early pre-unmount record; its dirty-view runtime absence is not post-replay absence.
+P435's [qualified observation image](docs/reports/S22PLUS_AUTOBOOT_TRANSITION_P434_P435_DESIGN_2026-10-18.md) was not started or granted authority; complete selected-root admission remains required.
+Next bounded step: prepare a fresh fixed reader for P432's early/runtime pair before admitting any unexpected file; no replay or new write is authorized.
+P432/P433/P434 originals remain consumed and closed healthy; H0 qualification is retained; A90/S20+ were untouched.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 

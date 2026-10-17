@@ -1,8 +1,14 @@
 # S22+ P434/P435: observe cleanup through installed-init entry
 
-Status: **H0_READY_RECOVERY_FIRST**. The operator requested stronger observation and
+Status: **H0_QUALIFIED; P434_CLOSED_ROOT_NOT_ADMITTED**. The operator requested stronger observation and
 preparation of the next experiment. This unit grants no device effect. P432 and
 P433 remain consumed and closed healthy; only S22+ FYG8 is selected.
+
+The later [P434 physical run](S22PLUS_JOURNAL_RECOVERY_P434_RUN_2026-10-18.md)
+completed strict replay and its read-only checker, but one tree entry remained
+outside selected accounting. P434 is consumed and closed Android-healthy;
+P435 was not started. The H0 preparation below retains its original evidence
+and grants no authority to skip the failed full-root admission.
 
 ## Bounded objective
 
@@ -173,9 +179,9 @@ bytes are unchanged. The rejected package is retained privately, not promoted.
 Independent P434 review passes against the exact 139 host and 169 runtime
 sources, including actual AP/CPIO bytes and the nine recovery cases.
 
-P434 has a concrete offline proposal for one 1800-second attended operation.
-Its status is `READY_H0_PRELIVE_ONLY`: no grant is open, no current connected
-health or current root admission is claimed and no image has been transferred.
+H0 preparation produced a concrete P434 offline proposal for one 1800-second
+attended operation. Its pre-execution status was `READY_H0_PRELIVE_ONLY`, with
+no grant, current connected health, current root admission or image transfer.
 P435's final A/B package and actual V3 image consumer also pass. Its independent
 review binds the same 139 host sources, 146 runtime sources, actual AP/boot/CPIO
 and all 30 cases through the unmodified production qualification consumer.
@@ -190,10 +196,11 @@ authority. Old capability files retain their original provenance. The exact
 is preserved privately. Review binds those actual working-tree bytes;
 pre-existing unrelated changes are excluded from this unit's commit.
 
-The next permitted device proposal is P434 only. P435 has a qualified image,
-but no live task or grant is prepared before P434's complete selected-root
-proof and healthy Android closure. Unexpected post-replay files still stop
-admission. Fresh exact attended authority and current machine checks remain
-required for each lane. No device action has been performed by this preparation
-unit; the physical close-to-init stop location remains unknown. A90 and S20+
-were untouched.
+That preparation selected P434 as the first device operation. P435 has a
+qualified image, but no live task or grant is prepared before complete
+selected-root proof and healthy Android closure. Unexpected post-replay files
+still stop admission. The linked physical report owns P434's later result and
+consumed grant; its failed full-root admission keeps P435 ineligible. Fresh
+exact attended authority and current machine checks remain required for each
+lane. The H0 preparation itself performed no device action. The physical
+close-to-init stop location remains unknown; A90 and S20+ were untouched.
