@@ -31,20 +31,20 @@ class Builder(previous.Builder):
 
     def native_selection(self):
         return dict(super().native_selection(),runtime_profile=source.profile_contract(
-            record_run=self.declaration.ROOT_EVIDENCE_RUN))
+            record_run=self.declaration.ROOT_EVIDENCE_RUN,selection=self.declaration.ROOT_EVIDENCE_SELECTION))
 
     def runtime_value(self,out,resident,thermal):
         return dict(super().runtime_value(out,resident,thermal),profile=source.profile_contract(
-            record_run=self.declaration.ROOT_EVIDENCE_RUN))
+            record_run=self.declaration.ROOT_EVIDENCE_RUN,selection=self.declaration.ROOT_EVIDENCE_SELECTION))
 
     def build_native_init(self,out,resident):
         previous.previous.Builder.build_native_init(self,out,resident)
         producer.build(out/'root-inspector',self.declaration.IDENTITY.run_id_hex,
-            record_run=self.declaration.ROOT_EVIDENCE_RUN)
+            record_run=self.declaration.ROOT_EVIDENCE_RUN,selection=self.declaration.ROOT_EVIDENCE_SELECTION)
 
     def inspection_value(self,out):return producer.audit(out/'root-inspector',self.declaration.IDENTITY.run_id_hex,
-        record_run=self.declaration.ROOT_EVIDENCE_RUN)
+        record_run=self.declaration.ROOT_EVIDENCE_RUN,selection=self.declaration.ROOT_EVIDENCE_SELECTION)
 
     def result_value(self,runtime,image,transform,packages):
         return dict(super().result_value(runtime,image,transform,packages),
-            root_evidence=producer.evidence_binding(self.declaration.ROOT_EVIDENCE_RUN))
+            root_evidence=producer.evidence_binding(self.declaration.ROOT_EVIDENCE_RUN,self.declaration.ROOT_EVIDENCE_SELECTION))

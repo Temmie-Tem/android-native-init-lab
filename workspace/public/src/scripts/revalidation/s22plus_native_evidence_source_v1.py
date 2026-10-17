@@ -10,10 +10,9 @@ ROOT_EVIDENCE_PROFILE=profile.PROFILE
 def __getattr__(name):return getattr(previous,name)
 
 
-def profile_contract(record_run=None):
+def profile_contract(record_run=None,selection=None):
     return dict(previous.profile_contract(),root_evidence_profile=ROOT_EVIDENCE_PROFILE,
-        root_evidence=dict(files=[list(r) for r in profile.paths(record_run)],max_output=profile.MAXIMUM,
-            libraries=profile.LIBRARIES,record_run=record_run,mount=False,journal_replay=False,filesystem_writes=False),persistent_writes=False)
+        root_evidence=profile.binding(record_run,selection),persistent_writes=False)
 
 
 def source_files():

@@ -93,6 +93,36 @@ required. No file capture may trigger an extra invocation. Timeout, truncated
 output, inconsistent accounting, unproved cleanup or transport uncertainty
 is NO_PROOF and retains the existing recovery owner.
 
+### Sealed automatic-boot pair
+
+The separately qualified `autoboot-pair` selection replaces the entire table
+above with exactly two files for one sealed run: `var/lib/lab/s22-early-<run>`
+(16,384 bytes maximum, whole file) and `var/lib/lab/s22-evidence-<run>`
+(15,616 bytes maximum, whole file). Both require root-owned regular 0600
+single-link metadata. No historical log rows accompany this selection.
+The catalog's fixed `evidence_selection` value requires `evidence_run`; no
+caller path or filename prefix is accepted. The declaration, generated helper,
+packaged bytes and image binding must agree on this exact selection.
+
+For this pair only, the binary output bound is 32,256 bytes: 64 framing bytes,
+two 96-byte rows and at most 32,000 file bytes. The parent command-output cap
+remains 65,536 bytes, including hexadecimal encoding and all protocol lines.
+The generated selection supplies both child and supervisor limits. Actual
+producer/consumer qualification must cover both files at their maxima, the
+full outer framing and independent oversize results. Default and historical
+selections retain their 24,576-byte bound and original path table.
+
+Acquisition remains separate from interpretation. The H0 collector preserves
+both raw files before decoding, authenticates the selected writer's physical
+run/key/source identities and retains valid partial record chains. When both
+headers are available it checks their kernel boot and derived nonce join.
+A runtime-only authenticated header may report its own boot, nonce and root
+device; these remain local producer observations, not an independent external
+boot or transition witness. It cannot establish SSH or a clean shutdown.
+Missing or older home-block records do not erase another file's valid prefix
+and never prove non-execution. The collector performs no device acquisition,
+mount, repair or journal replay and never changes the consumed writer terminal.
+
 ## Meaning and qualification
 
 A completed acquisition is `PASS_ROOT_EVIDENCE_OBSERVED`. It establishes only
@@ -117,10 +147,12 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P431 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p431_review.json`.
+native_data, or transfers an image. The current prospective P433 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p433_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
-`s22plus_native_root_evidence_p429_review.json`, and all retained
+`s22plus_native_root_evidence_p429_review.json`, consumed P431 review
+`s22plus_native_root_evidence_p431_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
-repin an old review, renew a consumed reader or change the fixed read surface.
+repin an old review or renew a consumed reader. Only the new reviewed pair
+selects the two-file table and its declared binary bound.

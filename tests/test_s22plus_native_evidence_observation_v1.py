@@ -49,3 +49,17 @@ class ObservationTests(unittest.TestCase):
                     observation.observe(ctx.folder/'missing',self.image,host,ending='detach',hud=False,
                         guard=lambda:None,before_terminal=lambda:None,first_boot=True,profile=profile.SELECTION)
                 opening.assert_not_called()
+
+    def test_maximum_pair_crosses_real_transport_without_widening_output_cap(self):
+        import test_s22plus_native_evidence_pair as pair
+        image=dict(self.image,root_evidence=pair.BINDING)
+        payload=pair.fixture((b'A'*16384,b'B'*15616))
+        with mock.patch.object(profile,'image_binding',return_value=pair.BINDING),self.running() as ctx:
+            (ctx.folder/'evidence.bin').write_bytes(payload);intents=[]
+            result=observation.observe(ctx.folder/'maximum-pair',image,base.HostFixture(ctx),ending='detach',hud=False,
+                guard=lambda:None,before_terminal=lambda:None,before_extra=intents.append,first_boot=True,profile=profile.SELECTION)
+            self.assertEqual(len(intents),1)
+            proof=result['proof']['root_evidence'];self.assertEqual(proof['status'],'PASS_ROOT_EVIDENCE_OBSERVED')
+            self.assertEqual([row['captured'] for row in proof['files']],[16384,15616])
+            self.assertEqual(result,observation.rederive(ctx.folder/'maximum-pair',image,ending='detach',hud=False,
+                first_boot=True,profile=profile.SELECTION))

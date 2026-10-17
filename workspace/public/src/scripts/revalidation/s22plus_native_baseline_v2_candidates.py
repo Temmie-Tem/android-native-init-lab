@@ -47,17 +47,20 @@ CONTROL = SimpleNamespace(BOOT_ID_SEMANTIC='kernel-uuid-lowercase-ascii36-sha256
 
 
 def declaration(namespace, run_id, version, image_sha256, *, runtime_source=source,
-                observer_class=resident.Observer, added_modules=(), evidence_run=None):
+                observer_class=resident.Observer, added_modules=(), evidence_run=None,evidence_selection=None):
     if evidence_run is not None and (runtime_source is not evidence_source or
             type(evidence_run) is not str or not re.fullmatch('[0-9a-f]{32}',evidence_run)):
         raise ValueError('unselected sealed evidence run')
+    if evidence_selection is not None:
+        if runtime_source is not evidence_source:raise ValueError('unselected sealed evidence selection')
+        evidence_source.profile.paths(evidence_run,evidence_selection)
     selected = common.Identity(namespace,run_id,version)
     runtime = definition.runtime(selected,common.BASELINE_PROFILE,(health.COMMAND,))
     runtime.SOURCE = Path(runtime_source.__file__)
     runtime.CONTRACT_ID = runtime.SCHEMA = f's22plus-fyg8-{namespace}-resident-baseline-runtime-v2'
     runtime.build_helper = lambda:runtime_source.helper_template(selected)
     runtime.materialize_helper = lambda key:runtime_source.materialize_helper(selected,key)
-    runtime.audit_binding = lambda:dict(runtime_source.profile_contract(record_run=evidence_run)
+    runtime.audit_binding = lambda:dict(runtime_source.profile_contract(record_run=evidence_run,selection=evidence_selection)
                                         if runtime_source is evidence_source else runtime_source.profile_contract(),run_id_hex=run_id,
                                         target=runtime.TARGET,live_authorized=False)
     observer = observer_class(selected,CONTROL)
@@ -88,6 +91,7 @@ def declaration(namespace, run_id, version, image_sha256, *, runtime_source=sour
         JOURNAL_RECOVERY_PROFILE=getattr(runtime_source,'JOURNAL_RECOVERY_PROFILE',None),
         ROOT_EVIDENCE_PROFILE=getattr(runtime_source,'ROOT_EVIDENCE_PROFILE',None),
         ROOT_EVIDENCE_RUN=evidence_run,
+        ROOT_EVIDENCE_SELECTION=evidence_selection,
         LOG_CALIBRATION_PROFILE=getattr(runtime_source,'LOG_CALIBRATION_PROFILE',None),
         runtime=runtime,observer=observer,artifact=artifact,adapter=adapter,
         return_host=owner.ReturnHost(selected,CONTROL),console_owner=owner.EmptyPlan(selected))
@@ -176,7 +180,7 @@ def research_data(root=ROOT):
                          if name in HISTORICAL_DECLARATIONS}
     for row in value['candidates']:
         required={'namespace','run_id','version','image_sha256','profile'}
-        if (type(row) is not dict or not required<=set(row)<=required|{'evidence_run'}
+        if (type(row) is not dict or not required<=set(row)<=required|{'evidence_run','evidence_selection'}
                 or type(row['namespace']) is not str or not re.fullmatch(r'p[0-9]{3,6}', row['namespace'])
                 or int(row['namespace'][1:]) < 392 or row['namespace'] in HISTORICAL_DECLARATIONS
                 or row['namespace'] in names or type(row['run_id']) is not str
@@ -189,6 +193,9 @@ def research_data(root=ROOT):
         if 'evidence_run' in row and (row['profile']!=evidence_source.ROOT_EVIDENCE_PROFILE or
                 type(row['evidence_run']) is not str or not re.fullmatch('[0-9a-f]{32}',row['evidence_run'])):
             raise ValueError('evidence run requires the fixed reader and one sealed run identity')
+        if 'evidence_selection' in row and (row['profile']!=evidence_source.ROOT_EVIDENCE_PROFILE or
+                'evidence_run' not in row or row['evidence_selection']!=evidence_source.profile.AUTOBOOT_PAIR):
+            raise ValueError('evidence selection requires the fixed pair and one sealed run identity')
         names.add(row['namespace']); runs.add(row['run_id'])
     return value['candidates']
 
@@ -316,7 +323,8 @@ for _row in research_data():
     _source, _observer, _modules = RESEARCH_PROFILES[_row['profile']]
     DECLARATIONS[_row['namespace']] = declaration(_row['namespace'], _row['run_id'],
         _row['version'], _row['image_sha256'], runtime_source=_source,
-        observer_class=_observer, added_modules=_modules,evidence_run=_row.get('evidence_run'))
+        observer_class=_observer, added_modules=_modules,evidence_run=_row.get('evidence_run'),
+        evidence_selection=_row.get('evidence_selection'))
 
 
 def static(prefix):

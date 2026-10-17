@@ -5,9 +5,6 @@
 #include <linux/filter.h>
 #include <linux/seccomp.h>
 #include <stddef.h>
-#include "s22plus_native_evidence_seal_v1.h"
-
-#define NE_LIMIT 24576U
 #define NE_IO_LIMIT (64ULL*1024U*1024U)
 #define NE_IO_CALLS 16384U
 static uint8_t ne_output[NE_LIMIT];
@@ -175,7 +172,13 @@ static int ne_read_files(void) {
     memcpy(header,"S22NE01\0",8);ne_put32(header+8,NE_PATH_COUNT);
     ne_put32(header+12,fs->super->s_state);ne_put32(header+16,!!(fs->super->s_feature_incompat&EXT3_FEATURE_INCOMPAT_RECOVER));
     ne_put32(header+20,fs->super->s_last_orphan);
-    for(unsigned i=0;i<NE_PATH_COUNT && !error;++i)error=ne_file(fs,i);
+    for(unsigned i=0;i<NE_PATH_COUNT && !error;++i) {
+        /* A failed inode checksum can leave new bytes under an older cached
+         * inode number in libext2fs 1.47.2. Invalidate that RAM cache before
+         * each path; this neither flushes storage nor resets our I/O budget. */
+        if(ext2fs_flush_icache(fs))error=EPROTO;
+        else error=ne_file(fs,i);
+    }
     ext2fs_free(fs);
     if(error || ne_write_attempts)return error ? error : EROFS;
     uint8_t *end=ne_reserve(32);if(!end)return EOVERFLOW;

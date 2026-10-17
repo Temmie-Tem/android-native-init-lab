@@ -49,24 +49,23 @@ def source_files(virt=False):
     return sorted(rows)
 
 
-def generated(run,record_run):
+def generated(run,record_run,selection=None):
     table,count,boot=base.table_bytes()
     return dict(table=table,count=count,boot=boot,headers={
         's22plus_native_ext4_seal_v1.h':base.fs_build.seal(profile.inspection.filesystem.BINDING,run,initialize=False),
         's22plus_native_root_inspect_seal_v1.h':base.header(table,count,boot),
         's22plus_native_userspace_probe_seal_v1.h':base.userspace_header(),
-        's22plus_native_evidence_seal_v1.h':profile.header(record_run)})
+        's22plus_native_evidence_seal_v1.h':profile.header(record_run,selection)})
 
 
-def evidence_binding(record_run):
-    return dict(libraries=profile.LIBRARIES,record_run=record_run,files=[list(row) for row in profile.paths(record_run)],
-        max_output=profile.MAXIMUM,mount=False,journal_replay=False,filesystem_writes=False)
+def evidence_binding(record_run,selection=None):
+    return profile.binding(record_run,selection)
 
 
-def build(out,run,*,record_run=None,virt=False):
+def build(out,run,*,record_run=None,selection=None,virt=False):
     out=private_path(ROOT,out,exists=False);require(not out.exists(),'fresh evidence reader build required')
     library=profile.library_inputs();sources=[pin(p,maximum=4*1024*1024) for p in source_files(virt)]
-    seal=generated(run,record_run);out.mkdir(mode=0o700,parents=True)
+    seal=generated(run,record_run,selection);out.mkdir(mode=0o700,parents=True)
     for name,body in seal['headers'].items():(out/name).write_bytes(body)
     (out/'table.bin').write_bytes(seal['table'])
     for row in sources:
@@ -89,13 +88,13 @@ def build(out,run,*,record_run=None,virt=False):
     return publish(out/'result.json',dict(schema=profile.SCHEMA+'-helper-h0',run_id_hex=run,virt=virt,
         source_inputs=sources,compiler=identity,helper=base.fs_build.tool_identity(out/'helper-a'),
         table=pin(out/'table.bin'),table_count=seal['count'],boot_count=seal['boot'],
-        root_evidence=evidence_binding(record_run),ab_identical=True,device_actions=0,live_authorized=False))
+        root_evidence=evidence_binding(record_run,selection),ab_identical=True,device_actions=0,live_authorized=False))
 
 
-def audit(out,run,*,record_run=None):
-    value=read(out/'result.json');seal=generated(run,record_run)
+def audit(out,run,*,record_run=None,selection=None):
+    value=read(out/'result.json');seal=generated(run,record_run,selection)
     require(value['schema']==profile.SCHEMA+'-helper-h0' and value['virt'] is False and
-        value['run_id_hex']==run and value['root_evidence']==evidence_binding(record_run) and value['ab_identical'] is True and
+        value['run_id_hex']==run and value['root_evidence']==evidence_binding(record_run,selection) and value['ab_identical'] is True and
         value['source_inputs']==[pin(p,maximum=4*1024*1024) for p in source_files()], 'evidence helper provenance differs')
     require(all((out/name).read_bytes()==body for name,body in seal['headers'].items()) and
         verify(value['table']).read_bytes()==seal['table'] and value['table_count']==seal['count'] and
@@ -107,7 +106,7 @@ def audit(out,run,*,record_run=None):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=Path,required=True)
-    p.add_argument('--run-id');p.add_argument('--record-run');p.add_argument('--virt',action='store_true')
+    p.add_argument('--run-id');p.add_argument('--record-run');p.add_argument('--selection',choices=(profile.AUTOBOOT_PAIR,));p.add_argument('--virt',action='store_true')
     p.add_argument('--libraries-from',type=Path);a=p.parse_args()
     print((build_libraries(a.libraries_from,a.output.absolute()) if a.libraries_from else
-        build(a.output.absolute(),a.run_id,record_run=a.record_run,virt=a.virt))['sha256'])
+        build(a.output.absolute(),a.run_id,record_run=a.record_run,selection=a.selection,virt=a.virt))['sha256'])

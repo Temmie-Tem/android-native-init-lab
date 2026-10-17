@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #include <stdbool.h>
 #include <stdint.h>
+#include "s22plus_native_evidence_seal_v1.h"
 struct fs1_endpoint;
 struct up_stream;
 static int ne_admit(struct fs1_endpoint *,uint8_t [1024],int *,bool *);
@@ -11,7 +12,7 @@ static void ne_child(int,struct fs1_endpoint *,int [3][2],int,int);
 #define RI_PRE_ADMISSION(endpoint,before,clean,ro) ne_admit(endpoint,before,clean,ro)
 #define UP_FIXED_CHILD ne_child
 #define UP_FIXED_OUTPUT ne_expected
-#define UP_OUTPUT_MAX 24576U
+#define UP_OUTPUT_MAX NE_LIMIT
 #define UP_TIMEOUT_MS 60000U
 #define S22_USERSPACE_PROBE_LIBRARY
 #include "s22plus_native_userspace_probe_v1.c"
