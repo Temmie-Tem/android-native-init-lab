@@ -1,7 +1,8 @@
 # S22+ P433: fixed two-file read of P432 boot evidence
 
-Status: **READY_AWAITING_FINITE_ATTENDED_GRANT**. No P433 grant, mode change or
-image transfer exists. Fixed connected D0 preparation is complete.
+H0 qualification: **PASS_GO**. The prepared operation was subsequently consumed
+and closed healthy; see the [physical read report](S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md).
+The readiness statements below describe preparation before the returned grant.
 The operator requested preparation of a read experiment and a determination of
 how far P432 booted. Only S22+ FYG8 is selected; A90 and S20+ are excluded.
 

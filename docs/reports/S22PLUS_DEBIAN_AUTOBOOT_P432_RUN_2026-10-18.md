@@ -98,3 +98,12 @@ of the two sealed P432 record paths. Such a read must preserve clean/dirty and
 partial-record distinctions and cannot infer missing writes or replay the
 consumed boot. This physical unit ends with its result, healthy recovery and
 scoped reporting commit; no further experiment or push is selected.
+
+## Later evidence: separately closed P433 reader
+
+The [P433 physical read](S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md)
+subsequently authenticated the complete early file, proving P432's initial
+Debian PID1, 76 preparation modules and six client returns through the final
+pre-unmount record. The runtime file was absent in a dirty home-block view;
+cleanup, installed init/services and SSH remain unproved. This later evidence
+does not modify P432's original terminal or authorize replay.

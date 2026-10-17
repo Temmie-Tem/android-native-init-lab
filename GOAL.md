@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P433 selected: recover P432's two fixed records
+## P433 closed: P432 initial PID1 and early preparation proved
 
-The [P433 reader unit](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_H0_2026-10-18.md) selects only P432's early and service records.
-H0 is **PASS_GO** and fixed Android D0 preparation passes; the one-operation attended grant remains unopened.
-The [P432 physical run](docs/reports/S22PLUS_DEBIAN_AUTOBOOT_P432_RUN_2026-10-18.md)
-remains **NO_PROOF / ANDROID_CLOSED_HEALTHY**, with one N/A pair and no F1 owner.
-Its 360-second window accepted no NCM/SSH evidence; internal progress is unknown.
-P433 will authenticate complete or partial records without mount or journal replay;
-missing home-block bytes cannot prove non-execution. A90/S20+ remain outside scope.
+The [P433 physical read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md) authenticates P432's complete 10,972-byte early file.
+It proves initial Debian PID1, 76 preparation modules, six client returns and 14 records through 3,565 ms, before close/unmount.
+The runtime file is absent in the dirty home-block view (`state=1 recover=1 orphan=0`); no journal replay occurred.
+Cleanup, second admission, installed init/services and NCM/SSH remain unproved; missing data cannot prove non-execution.
+P433 is **PASS_ROOT_EVIDENCE_OBSERVED / ANDROID_CLOSED_HEALTHY**, consumed with one N/A pair and no F1 owner.
+P432's original **NO_PROOF / ANDROID_CLOSED_HEALTHY** terminal is preserved; the later file proof is separate.
+No new writable boot or recovery is selected. A90/S20+ remain outside scope.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
