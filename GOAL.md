@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P434 closed: journal replay complete; root admission blocks P435
+## P436 ready: fixed P432 evidence read after P434 recovery
 
-The [P434 report](docs/reports/S22PLUS_JOURNAL_RECOVERY_P434_RUN_2026-10-18.md) records **RECOVERY_NOT_PROVED; ANDROID_CLOSED_HEALTHY**, one consumed N/A pair and no F1 owner.
+The [P436 preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_H0_2026-10-18.md) is independently PASS_GO with a concrete 1800-second/one-operation attended proposal and fixed Android D0 checks; no grant is open.
 Strict replay completed (24 writes/95,232 bytes), the separate read-only checker passed and the superblock is clean; this is not complete-root proof.
 All 8,971 comparison entries pass their immutable or declared mutable rules, but the tree has 8,977 entries against 8,976 admitted; the extra path/content is unknown.
 The [P433 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md) still proves P432 only through its early pre-unmount record; its dirty-view runtime absence is not post-replay absence.
 P435's [qualified observation image](docs/reports/S22PLUS_AUTOBOOT_TRANSITION_P434_P435_DESIGN_2026-10-18.md) was not started or granted authority; complete selected-root admission remains required.
-Next bounded step: prepare a fresh fixed reader for P432's early/runtime pair before admitting any unexpected file; no replay or new write is authorized.
-P432/P433/P434 originals remain consumed and closed healthy; H0 qualification is retained; A90/S20+ were untouched.
+Next bounded step: return P436's exact attended grant, then acquire P432's fixed early/runtime pair once and return original A; no replay or new write is authorized.
+The [P434 report](docs/reports/S22PLUS_JOURNAL_RECOVERY_P434_RUN_2026-10-18.md) remains RECOVERY_NOT_PROVED/ANDROID_CLOSED_HEALTHY; P432/P433/P434 are consumed, no F1 owner remains, and A90/S20+ are untouched.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 

@@ -147,12 +147,16 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P433 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p433_review.json`.
+native_data, or transfers an image. The current prospective P436 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p436_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
-`s22plus_native_root_evidence_p431_review.json`, and all retained
+`s22plus_native_root_evidence_p431_review.json`, consumed P433 review
+`s22plus_native_root_evidence_p433_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
-selects the two-file table and its declared binary bound.
+selects the two-file table and its declared binary bound. P436 uses that same
+sealed pair after P434's closed journal operation; it adds no file, replay,
+write or installed-root admission. P434's unmatched tree entry remains
+unidentified unless separately acquired evidence establishes its identity.
