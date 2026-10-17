@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P432 H0 qualified: automatic Debian startup; attended grant pending
+## P432 consumed and closed: no SSH proof; Android returned healthy
 
-The [P432 design and qualification](docs/reports/S22PLUS_DEBIAN_AUTOBOOT_P432_DESIGN_2026-10-16.md)
-now has source-bound independent `PASS_GO`, actual boot-only A/B qualification,
-10 ARM64 cases and 94 focused tests. Normal VM evidence reaches installed init,
-120-second services, same-boot SSH and clean shutdown without host start gates.
-The network-absent case needs journal replay on a separate H0 copy for full records.
-Connected fixed D0 confirms exact Android32 health/GPT/statfs; no grant or effect exists.
-The one-operation/3600-second task awaits its exact approval, current attendance and usable physical original-A recovery.
+The [P432 physical run](docs/reports/S22PLUS_DEBIAN_AUTOBOOT_P432_RUN_2026-10-18.md)
+ended **NO_PROOF / ANDROID_CLOSED_HEALTHY**, with one N/A pair and no F1 owner.
+Its 360-second window accepted no NCM endpoint or SSH evidence; internal execution
+and both local files remain unknown. One post-A ADB read failed; health-only
+continuation proved changed boot, original boot/root and full GPT/Android32 health.
+The [H0 qualification](docs/reports/S22PLUS_DEBIAN_AUTOBOOT_P432_DESIGN_2026-10-16.md) retains its VM-only service/SSH evidence. Any next fixed record reader needs its
+own qualification and grant; P432 has no replay authority. A90/S20+ were untouched.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
